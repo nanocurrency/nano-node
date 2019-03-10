@@ -50,7 +50,7 @@ TEST (network, construction)
 {
 	nano::system system (24000, 1);
 	ASSERT_EQ (1, system.nodes.size ());
-	ASSERT_EQ (24000, system.nodes[0]->network.socket.local_endpoint ().port ());
+	ASSERT_EQ (24000, system.nodes[0]->network.endpoint ().port ());
 }
 
 TEST (network, self_discard)
@@ -59,7 +59,7 @@ TEST (network, self_discard)
 	nano::message_buffer data;
 	data.endpoint = system.nodes[0]->network.endpoint ();
 	ASSERT_EQ (0, system.nodes[0]->stats.count (nano::stat::type::error, nano::stat::detail::bad_sender));
-	system.nodes[0]->network.receive_action (&data, system.nodes[0]->network.endpoint ());
+	system.nodes[0]->network.udp_channels.receive_action (&data);
 	ASSERT_EQ (1, system.nodes[0]->stats.count (nano::stat::type::error, nano::stat::detail::bad_sender));
 }
 

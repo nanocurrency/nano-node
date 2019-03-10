@@ -322,11 +322,8 @@ class network
 public:
 	network (nano::node &, uint16_t);
 	~network ();
-	void receive ();
-	void process_packets ();
 	void start ();
 	void stop ();
-	void receive_action (nano::message_buffer *, nano::endpoint const &);
 	void rpc_action (boost::system::error_code const &, size_t);
 	void flood_message (nano::message const &);
 	void flood_vote (std::shared_ptr<nano::vote> vote_a)
@@ -353,8 +350,6 @@ public:
 	bool send_votes_cache (nano::transport::channel const &, nano::block_hash const &);
 	nano::endpoint endpoint ();
 	nano::message_buffer_manager buffer_container;
-	boost::asio::ip::udp::socket socket;
-	std::mutex socket_mutex;
 	boost::asio::ip::udp::resolver resolver;
 	std::vector<boost::thread> packet_processing_threads;
 	nano::node & node;
@@ -438,7 +433,7 @@ public:
 	std::shared_ptr<nano::node> shared ();
 	int store_version ();
 	void process_confirmed (std::shared_ptr<nano::block>, uint8_t = 0);
-	void process_message (nano::message &, nano::endpoint const &);
+	void process_message (nano::message const &, nano::endpoint const &);
 	void process_active (std::shared_ptr<nano::block>);
 	nano::process_return process (nano::block const &);
 	void keepalive_preconfigured (std::vector<std::string> const &);

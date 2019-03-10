@@ -36,18 +36,15 @@ void nano::rep_crawler::ongoing_crawl ()
 {
 	auto now (std::chrono::steady_clock::now ());
 	query (get_crawl_targets ());
-	if (node.network.socket.is_open ())
-	{
-		// Reduce crawl frequency when there's enough total peer weight
-		unsigned next_run_seconds = (total_weight_internal () > node.config.online_weight_minimum.number ()) ? 7 : 3;
-		std::weak_ptr<nano::node> node_w (node.shared ());
-		node.alarm.add (now + std::chrono::seconds (next_run_seconds), [node_w, this]() {
-			if (auto node_l = node_w.lock ())
-			{
-				this->ongoing_crawl ();
-			}
-		});
-	}
+	// Reduce crawl frequency when there's enough total peer weight
+	unsigned next_run_seconds = (total_weight_internal () > node.config.online_weight_minimum.number ()) ? 7 : 3;
+	std::weak_ptr<nano::node> node_w (node.shared ());
+	node.alarm.add (now + std::chrono::seconds (next_run_seconds), [node_w, this]() {
+		if (auto node_l = node_w.lock ())
+		{
+			this->ongoing_crawl ();
+		}
+	});
 }
 
 std::vector<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::get_crawl_targets ()

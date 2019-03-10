@@ -6,6 +6,7 @@
 
 namespace nano
 {
+class message_buffer;
 namespace transport
 {
 	class udp_channels;
@@ -36,7 +37,7 @@ namespace transport
 		friend class nano::transport::channel_udp;
 
 	public:
-		udp_channels (nano::node &);
+		udp_channels (nano::node &, uint16_t);
 		void add (std::shared_ptr<nano::transport::channel_udp>);
 		void erase (nano::endpoint const &);
 		size_t size () const;
@@ -47,6 +48,12 @@ namespace transport
 		bool reserved_address (nano::endpoint const &, bool = false);
 		// Get the next peer for attempting a tcp connection
 		nano::endpoint tcp_peer ();
+		void receive ();
+		void start ();
+		void stop ();
+		nano::endpoint local_endpoint () const;
+		void receive_action (nano::message_buffer *);
+		void process_packets ();
 
 	private:
 		class endpoint_tag
@@ -80,6 +87,7 @@ namespace transport
 		boost::multi_index::hashed_unique<boost::multi_index::tag<endpoint_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, nano::endpoint, &channel_udp_wrapper::endpoint>>>>
 		channels;
 		nano::node & node;
+		boost::asio::ip::udp::socket socket;
 	};
 } // namespace transport
 } // namespace nano

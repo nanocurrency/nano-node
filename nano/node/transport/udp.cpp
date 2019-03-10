@@ -28,7 +28,7 @@ bool nano::transport::channel_udp::operator== (nano::transport::channel const & 
 
 void nano::transport::channel_udp::send_buffer_raw (boost::asio::const_buffer buffer_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
 {
-	channels.node.network.socket.async_send_to (buffer_a, endpoint, callback_a);
+	channels.socket.async_send_to (buffer_a, endpoint, callback_a);
 }
 
 std::function<void(boost::system::error_code const &, size_t)> nano::transport::channel_udp::callback (std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
@@ -59,8 +59,9 @@ std::string nano::transport::channel_udp::to_string () const
 	return boost::str (boost::format ("UDP: %1%") % endpoint);
 }
 
-nano::transport::udp_channels::udp_channels (nano::node & node_a) :
-node (node_a)
+nano::transport::udp_channels::udp_channels (nano::node & node_a, uint16_t port_a) :
+node (node_a),
+socket (node_a.io_ctx, nano::endpoint (boost::asio::ip::address_v6::any (), port_a))
 {
 }
 
@@ -271,4 +272,260 @@ nano::endpoint nano::transport::udp_channels::tcp_peer ()
 		}
 	}
 	return result;
+}
+
+void nano::transport::udp_channels::receive ()
+{
+	if (node.config.logging.network_packet_logging ())
+	{
+		node.logger.try_log ("Receiving packet");
+	}
+	std::unique_lock<std::mutex> lock (mutex);
+	auto data (node.network.buffer_container.allocate ());
+	socket.async_receive_from (boost::asio::buffer (data->buffer, nano::network::buffer_size), data->endpoint, [this, data](boost::system::error_code const & error, size_t size_a) {
+		if (!error && this->socket.is_open ())
+		{
+			data->size = size_a;
+			this->node.network.buffer_container.enqueue (data);
+			this->receive ();
+		}
+		else
+		{
+			this->node.network.buffer_container.release (data);
+			if (error)
+			{
+				if (this->node.config.logging.network_logging ())
+				{
+					this->node.logger.try_log (boost::str (boost::format ("UDP Receive error: %1%") % error.message ()));
+				}
+			}
+			if (this->socket.is_open ())
+			{
+				this->node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() { this->receive (); });
+			}
+		}
+	});
+}
+
+void nano::transport::udp_channels::start ()
+{
+	for (size_t i = 0; i < node.config.io_threads; ++i)
+	{
+		receive ();
+	}
+}
+
+void nano::transport::udp_channels::stop ()
+{
+	if (socket.is_open ())
+	{
+		socket.close ();
+	}
+}
+
+nano::endpoint nano::transport::udp_channels::local_endpoint () const
+{
+	boost::system::error_code ec;
+	std::unique_lock<std::mutex> lock (mutex);
+	auto port (socket.local_endpoint (ec).port ());
+	if (ec)
+	{
+		node.logger.try_log ("Unable to retrieve port: ", ec.message ());
+	}
+	return nano::endpoint (boost::asio::ip::address_v6::loopback (), port);
+}
+
+namespace
+{
+class udp_message_visitor : public nano::message_visitor
+{
+public:
+	udp_message_visitor (nano::node & node_a, nano::endpoint const & endpoint_a) :
+	node (node_a),
+	endpoint (endpoint_a)
+	{
+	}
+	void keepalive (nano::keepalive const & message_a) override
+	{
+		if (node.peers.contacted (endpoint, message_a.header.version_using))
+		{
+			auto cookie (node.peers.assign_syn_cookie (endpoint));
+			if (cookie)
+			{
+				node.network.send_node_id_handshake (endpoint, *cookie, boost::none);
+			}
+		}
+		message (message_a);
+	}
+	void publish (nano::publish const & message_a) override
+	{
+		node.peers.contacted (endpoint, message_a.header.version_using);
+		message (message_a);
+	}
+	void confirm_req (nano::confirm_req const & message_a) override
+	{
+		node.peers.contacted (endpoint, message_a.header.version_using);
+		message (message_a);
+	}
+	void confirm_ack (nano::confirm_ack const & message_a) override
+	{
+		node.peers.contacted (endpoint, message_a.header.version_using);
+		message (message_a);
+	}
+	void bulk_pull (nano::bulk_pull const &) override
+	{
+		assert (false);
+	}
+	void bulk_pull_account (nano::bulk_pull_account const &) override
+	{
+		assert (false);
+	}
+	void bulk_push (nano::bulk_push const &) override
+	{
+		assert (false);
+	}
+	void frontier_req (nano::frontier_req const &) override
+	{
+		assert (false);
+	}
+	void node_id_handshake (nano::node_id_handshake const & message_a) override
+	{
+		if (node.config.logging.network_node_id_handshake_logging ())
+		{
+			node.logger.try_log (boost::str (boost::format ("Received node_id_handshake message from %1% with query %2% and response account %3%") % endpoint % (message_a.query ? message_a.query->to_string () : std::string ("[none]")) % (message_a.response ? message_a.response->first.to_account () : std::string ("[none]"))));
+		}
+		boost::optional<nano::uint256_union> out_query;
+		boost::optional<nano::uint256_union> out_respond_to;
+		if (message_a.query)
+		{
+			out_respond_to = message_a.query;
+		}
+		auto validated_response (false);
+		if (message_a.response)
+		{
+			if (!node.peers.validate_syn_cookie (endpoint, message_a.response->first, message_a.response->second))
+			{
+				validated_response = true;
+				if (message_a.response->first != node.node_id.pub)
+				{
+					node.peers.insert (endpoint, message_a.header.version_using, node.config.allow_local_peers, message_a.response->first);
+				}
+			}
+			else if (node.config.logging.network_node_id_handshake_logging ())
+			{
+				node.logger.try_log (boost::str (boost::format ("Failed to validate syn cookie signature %1% by %2%") % message_a.response->second.to_string () % message_a.response->first.to_account ()));
+			}
+		}
+		if (!validated_response && node.network.udp_channels.channel (endpoint) == nullptr)
+		{
+			out_query = node.peers.assign_syn_cookie (endpoint);
+		}
+		if (out_query || out_respond_to)
+		{
+			node.network.send_node_id_handshake (endpoint, out_query, out_respond_to);
+		}
+		node.stats.inc (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in);
+	}
+	void message (nano::message const & message_a)
+	{
+		node.process_message (message_a, endpoint);
+	}
+	nano::node & node;
+	nano::endpoint endpoint;
+};
+}
+
+void nano::transport::udp_channels::receive_action (nano::message_buffer * data_a)
+{
+	auto allowed_sender (true);
+	if (!socket.is_open ())
+	{
+		allowed_sender = false;
+	}
+	else if (data_a->endpoint == local_endpoint ())
+	{
+		allowed_sender = false;
+	}
+	else if (reserved_address (data_a->endpoint, node.config.allow_local_peers))
+	{
+		allowed_sender = false;
+	}
+	if (allowed_sender)
+	{
+		udp_message_visitor visitor (node, data_a->endpoint);
+		nano::message_parser parser (node.block_uniquer, node.vote_uniquer, visitor, node.work);
+		parser.deserialize_buffer (data_a->buffer, data_a->size);
+		if (parser.status != nano::message_parser::parse_status::success)
+		{
+			node.stats.inc (nano::stat::type::error);
+
+			switch (parser.status)
+			{
+				case nano::message_parser::parse_status::insufficient_work:
+					// We've already increment error count, update detail only
+					node.stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::insufficient_work);
+					break;
+				case nano::message_parser::parse_status::invalid_magic:
+					node.stats.inc (nano::stat::type::udp, nano::stat::detail::invalid_magic);
+					break;
+				case nano::message_parser::parse_status::invalid_network:
+					node.stats.inc (nano::stat::type::udp, nano::stat::detail::invalid_network);
+					break;
+				case nano::message_parser::parse_status::invalid_header:
+					node.stats.inc (nano::stat::type::udp, nano::stat::detail::invalid_header);
+					break;
+				case nano::message_parser::parse_status::invalid_message_type:
+					node.stats.inc (nano::stat::type::udp, nano::stat::detail::invalid_message_type);
+					break;
+				case nano::message_parser::parse_status::invalid_keepalive_message:
+					node.stats.inc (nano::stat::type::udp, nano::stat::detail::invalid_keepalive_message);
+					break;
+				case nano::message_parser::parse_status::invalid_publish_message:
+					node.stats.inc (nano::stat::type::udp, nano::stat::detail::invalid_publish_message);
+					break;
+				case nano::message_parser::parse_status::invalid_confirm_req_message:
+					node.stats.inc (nano::stat::type::udp, nano::stat::detail::invalid_confirm_req_message);
+					break;
+				case nano::message_parser::parse_status::invalid_confirm_ack_message:
+					node.stats.inc (nano::stat::type::udp, nano::stat::detail::invalid_confirm_ack_message);
+					break;
+				case nano::message_parser::parse_status::invalid_node_id_handshake_message:
+					node.stats.inc (nano::stat::type::udp, nano::stat::detail::invalid_node_id_handshake_message);
+					break;
+				case nano::message_parser::parse_status::outdated_version:
+					node.stats.inc (nano::stat::type::udp, nano::stat::detail::outdated_version);
+					break;
+				case nano::message_parser::parse_status::success:
+					/* Already checked, unreachable */
+					break;
+			}
+		}
+		else
+		{
+			node.stats.add (nano::stat::type::traffic, nano::stat::dir::in, data_a->size);
+		}
+	}
+	else
+	{
+		if (node.config.logging.network_logging ())
+		{
+			node.logger.try_log (boost::str (boost::format ("Reserved sender %1%") % data_a->endpoint.address ().to_string ()));
+		}
+
+		node.stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::bad_sender);
+	}
+}
+
+void nano::transport::udp_channels::process_packets ()
+{
+	while (socket.is_open ())
+	{
+		auto data (node.network.buffer_container.dequeue ());
+		if (data == nullptr)
+		{
+			break;
+		}
+		receive_action (data);
+		node.network.buffer_container.release (data);
+	}
 }
