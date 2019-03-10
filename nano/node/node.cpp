@@ -248,23 +248,7 @@ void nano::network::flood_message (nano::message const & message_a)
 	}
 }
 
-void nano::network::republish_block (nano::transport::channel const & sink_a, std::shared_ptr<nano::block> block)
-{
-	auto hash (block->hash ());
-	nano::publish message (block);
-	auto bytes (std::make_shared<std::vector<uint8_t>> ());
-	{
-		nano::vectorstream stream (*bytes);
-		message.serialize (stream);
-	}
-	sink_a.send_buffer (bytes, nano::stat::detail::publish);
-	if (node.config.logging.network_logging ())
-	{
-		node.logger.try_log (boost::str (boost::format ("Block %1% was republished to peers") % hash.to_string ()));
-	}
-}
-
-void nano::network::republish_block_batch (std::deque<std::shared_ptr<nano::block>> blocks_a, unsigned delay_a)
+void nano::network::flood_block_batch (std::deque<std::shared_ptr<nano::block>> blocks_a, unsigned delay_a)
 {
 	auto block (blocks_a.front ());
 	blocks_a.pop_front ();
@@ -275,7 +259,7 @@ void nano::network::republish_block_batch (std::deque<std::shared_ptr<nano::bloc
 		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a + std::rand () % delay_a), [node_w, blocks_a, delay_a]() {
 			if (auto node_l = node_w.lock ())
 			{
-				node_l->network.republish_block_batch (blocks_a, delay_a);
+				node_l->network.flood_block_batch (blocks_a, delay_a);
 			}
 		});
 	}
@@ -498,7 +482,8 @@ public:
 							}
 							auto successor_block (node.store.block_get (transaction, successor));
 							assert (successor_block != nullptr);
-							node.network.republish_block (*sink, std::move (successor_block));
+							nano::publish publish (successor_block);
+							sink->sink (publish);
 						}
 					}
 				}
@@ -2918,7 +2903,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 	// Rebroadcast unconfirmed blocks
 	if (!rebroadcast_bundle.empty ())
 	{
-		node.network.republish_block_batch (rebroadcast_bundle);
+		node.network.flood_block_batch (rebroadcast_bundle);
 	}
 	// Batch confirmation request
 	if (!nano::is_live_network && !requests_bundle.empty ())

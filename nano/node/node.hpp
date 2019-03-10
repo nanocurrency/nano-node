@@ -324,7 +324,6 @@ public:
 	~network ();
 	void start ();
 	void stop ();
-	void rpc_action (boost::system::error_code const &, size_t);
 	void flood_message (nano::message const &);
 	void flood_vote (std::shared_ptr<nano::vote> vote_a)
 	{
@@ -336,9 +335,7 @@ public:
 		nano::publish publish (block_a);
 		flood_message (publish);
 	}
-	void republish_block (nano::transport::channel const &, std::shared_ptr<nano::block>);
-	static unsigned const broadcast_interval_ms = 10;
-	void republish_block_batch (std::deque<std::shared_ptr<nano::block>>, unsigned = broadcast_interval_ms);
+	void flood_block_batch (std::deque<std::shared_ptr<nano::block>>, unsigned = broadcast_interval_ms);
 	void merge_peers (std::array<nano::endpoint, 8> const &);
 	void send_keepalive (nano::transport::channel const &);
 	void send_node_id_handshake (nano::endpoint const &, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to);
@@ -354,6 +351,7 @@ public:
 	std::vector<boost::thread> packet_processing_threads;
 	nano::node & node;
 	nano::transport::udp_channels udp_channels;
+	static unsigned const broadcast_interval_ms = 10;
 	static uint16_t const node_port = nano::is_live_network ? 7075 : 54000;
 	static size_t const buffer_size = 512;
 	static size_t const confirm_req_hashes_max = 6;
