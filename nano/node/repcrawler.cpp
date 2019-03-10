@@ -36,7 +36,7 @@ void nano::rep_crawler::ongoing_crawl ()
 {
 	auto now (std::chrono::steady_clock::now ());
 	query (get_crawl_targets ());
-	if (node.network.on)
+	if (node.network.socket.is_open ())
 	{
 		// Reduce crawl frequency when there's enough total peer weight
 		unsigned next_run_seconds = (total_weight_internal () > node.config.online_weight_minimum.number ()) ? 7 : 3;

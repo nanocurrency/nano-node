@@ -358,7 +358,6 @@ public:
 	boost::asio::ip::udp::resolver resolver;
 	std::vector<boost::thread> packet_processing_threads;
 	nano::node & node;
-	std::atomic<bool> on;
 	nano::transport::udp_channels udp_channels;
 	static uint16_t const node_port = nano::is_live_network ? 7075 : 54000;
 	static size_t const buffer_size = 512;
