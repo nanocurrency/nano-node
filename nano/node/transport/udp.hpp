@@ -55,6 +55,8 @@ namespace transport
 		void receive_action (nano::message_buffer *);
 		void process_packets ();
 		std::shared_ptr<nano::transport::channel> create (nano::endpoint const &);
+		// Unassigned, reserved, self
+		bool not_a_peer (nano::endpoint const &, bool);
 
 	private:
 		class endpoint_tag

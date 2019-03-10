@@ -84,8 +84,6 @@ public:
 	// We were contacted by endpoint, update peers
 	// Returns true if a Node ID handshake should begin
 	bool contacted (nano::endpoint const &, unsigned);
-	// Unassigned, reserved, self
-	bool not_a_peer (nano::endpoint const &, bool);
 	// Notify of peer we received from
 	bool insert (nano::endpoint const &, unsigned, bool = false, boost::optional<nano::account> = boost::none);
 	std::vector<peer_information> list_vector (size_t);

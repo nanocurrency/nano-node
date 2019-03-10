@@ -538,3 +538,21 @@ std::shared_ptr<nano::transport::channel> nano::transport::udp_channels::create 
 {
 	return std::make_shared<nano::transport::channel_udp> (*this, endpoint_a);
 }
+
+bool nano::transport::udp_channels::not_a_peer (nano::endpoint const & endpoint_a, bool allow_local_peers)
+{
+	bool result (false);
+	if (endpoint_a.address ().to_v6 ().is_unspecified ())
+	{
+		result = true;
+	}
+	else if (reserved_address (endpoint_a, allow_local_peers))
+	{
+		result = true;
+	}
+	else if (endpoint_a == local_endpoint ())
+	{
+		result = true;
+	}
+	return result;
+}

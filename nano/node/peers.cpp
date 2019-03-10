@@ -205,28 +205,10 @@ bool nano::peer_container::empty ()
 	return size () == 0;
 }
 
-bool nano::peer_container::not_a_peer (nano::endpoint const & endpoint_a, bool allow_local_peers)
-{
-	bool result (false);
-	if (endpoint_a.address ().to_v6 ().is_unspecified ())
-	{
-		result = true;
-	}
-	else if (node.network.udp_channels.reserved_address (endpoint_a, allow_local_peers))
-	{
-		result = true;
-	}
-	else if (endpoint_a == node.network.endpoint ())
-	{
-		result = true;
-	}
-	return result;
-}
-
 bool nano::peer_container::reachout (nano::endpoint const & endpoint_a, bool allow_local_peers)
 {
 	// Don't contact invalid IPs
-	bool error = not_a_peer (endpoint_a, allow_local_peers);
+	bool error = node.network.udp_channels.not_a_peer (endpoint_a, allow_local_peers);
 	if (!error)
 	{
 		auto endpoint_l (nano::map_endpoint_to_v6 (endpoint_a));
@@ -245,7 +227,7 @@ bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned v
 {
 	assert (endpoint_a.address ().is_v6 ());
 	std::shared_ptr<nano::transport::channel_udp> new_peer;
-	auto result (not_a_peer (endpoint_a, allow_local_peers));
+	auto result (node.network.udp_channels.not_a_peer (endpoint_a, allow_local_peers));
 	if (!result)
 	{
 		if (version_a >= nano::protocol_version_min)
