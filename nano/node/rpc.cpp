@@ -2319,6 +2319,8 @@ void nano::rpc_handler::pending ()
 	const bool source = request.get<bool> ("source", false);
 	const bool min_version = request.get<bool> ("min_version", false);
 	const bool include_active = request.get<bool> ("include_active", false);
+	const bool sorting = request.get<bool> ("sorting", false);
+	auto simple (threshold.is_zero () && !source && !min_version && !sorting); // if simple, response is a list of hashes
 	if (!ec)
 	{
 		boost::property_tree::ptree peers_l;
@@ -2328,7 +2330,7 @@ void nano::rpc_handler::pending ()
 			nano::pending_key key (i->first);
 			if (include_active || node.ledger.block_confirmed (transaction, key.hash))
 			{
-				if (threshold.is_zero () && !source && !min_version)
+				if (simple)
 				{
 					boost::property_tree::ptree entry;
 					entry.put ("", key.hash.to_string ());
@@ -2359,6 +2361,21 @@ void nano::rpc_handler::pending ()
 						}
 					}
 				}
+			}
+		}
+		if (sorting && !simple)
+		{
+			if (source || min_version)
+			{
+				peers_l.sort ([](const auto & child1, const auto & child2) -> bool {
+					return child1.second.template get<nano::uint128_t> ("amount") > child2.second.template get<nano::uint128_t> ("amount");
+				});
+			}
+			else
+			{
+				peers_l.sort ([](const auto & child1, const auto & child2) -> bool {
+					return child1.second.template get<nano::uint128_t> ("") > child2.second.template get<nano::uint128_t> ("");
+				});
 			}
 		}
 		response_l.add_child ("blocks", peers_l);
