@@ -62,11 +62,7 @@ bool nano::peer_container::contacted (nano::endpoint const & endpoint_a, unsigne
 	auto endpoint_l (nano::map_endpoint_to_v6 (endpoint_a));
 	auto should_handshake (false);
 	nano::transport::channel_udp sink (node.network.udp_channels, endpoint_l);
-	if (version_a < nano::node_id_version)
-	{
-		insert (endpoint_l, version_a);
-	}
-	else
+	if (version_a >= nano::protocol_version_min)
 	{
 		auto channel (node.network.udp_channels.channel (endpoint_a));
 		if (channel == nullptr)
