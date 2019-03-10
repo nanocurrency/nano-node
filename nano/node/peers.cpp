@@ -61,7 +61,7 @@ bool nano::peer_container::contacted (nano::endpoint const & endpoint_a, unsigne
 {
 	auto endpoint_l (nano::map_endpoint_to_v6 (endpoint_a));
 	auto should_handshake (false);
-	nano::transport::channel_udp sink (node, endpoint_l);
+	nano::transport::channel_udp sink (node.network.udp_channels, endpoint_l);
 	if (version_a < nano::node_id_version)
 	{
 		insert (endpoint_l, version_a);
@@ -78,7 +78,7 @@ bool nano::peer_container::contacted (nano::endpoint const & endpoint_a, unsigne
 	else
 	{
 		std::lock_guard<std::mutex> lock (mutex);
-		nano::transport::channel_udp sink (node, endpoint_a);
+		nano::transport::channel_udp sink (node.network.udp_channels, endpoint_a);
 		auto existing (peers.find (std::reference_wrapper<nano::transport::channel const> (sink)));
 		if (existing != peers.end ())
 		{
@@ -233,7 +233,7 @@ bool nano::peer_container::reachout (nano::endpoint const & endpoint_a, bool all
 	{
 		auto endpoint_l (nano::map_endpoint_to_v6 (endpoint_a));
 		// Don't keepalive to nodes that already sent us something
-		nano::transport::channel_udp sink (node, endpoint_l);
+		nano::transport::channel_udp sink (node.network.udp_channels, endpoint_l);
 		error |= node.network.udp_channels.channel (endpoint_l) != nullptr;
 		std::lock_guard<std::mutex> lock (mutex);
 		auto existing (attempts.find (endpoint_l));
@@ -253,7 +253,7 @@ bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned v
 		if (version_a >= nano::protocol_version_min)
 		{
 			std::lock_guard<std::mutex> lock (mutex);
-			nano::transport::channel_udp sink (node, endpoint_a);
+			nano::transport::channel_udp sink (node.network.udp_channels, endpoint_a);
 			auto existing (peers.find (std::reference_wrapper<nano::transport::channel const> (sink)));
 			if (existing != peers.end ())
 			{
@@ -278,7 +278,7 @@ bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned v
 				}
 				if (!result)
 				{
-					new_peer = std::make_shared<nano::transport::channel_udp> (node, endpoint_a, version_a);
+					new_peer = std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, endpoint_a, version_a);
 					peers.insert (nano::peer_information (new_peer, node_id_a));
 					node.network.udp_channels.add (new_peer);
 				}

@@ -1,8 +1,8 @@
 #include <nano/node/node.hpp>
 #include <nano/node/transport/udp.hpp>
 
-nano::transport::channel_udp::channel_udp (nano::node & node_a, nano::endpoint const & endpoint_a, unsigned network_version_a) :
-node (node_a),
+nano::transport::channel_udp::channel_udp (nano::transport::udp_channels & channels_a, nano::endpoint const & endpoint_a, unsigned network_version_a) :
+channels (channels_a),
 endpoint (endpoint_a),
 network_version (network_version_a)
 {
@@ -28,12 +28,12 @@ bool nano::transport::channel_udp::operator== (nano::transport::channel const & 
 
 void nano::transport::channel_udp::send_buffer_raw (boost::asio::const_buffer buffer_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
 {
-	node.network.socket.async_send_to (buffer_a, endpoint, callback_a);
+	channels.node.network.socket.async_send_to (buffer_a, endpoint, callback_a);
 }
 
 std::function<void(boost::system::error_code const &, size_t)> nano::transport::channel_udp::callback (std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
 {
-	return [ buffer_a, node = std::weak_ptr<nano::node> (node.shared ()), detail_a, callback_a ](boost::system::error_code const & ec, size_t size_a)
+	return [ buffer_a, node = std::weak_ptr<nano::node> (channels.node.shared ()), detail_a, callback_a ](boost::system::error_code const & ec, size_t size_a)
 	{
 		if (auto node_l = node.lock ())
 		{
@@ -57,6 +57,11 @@ std::function<void(boost::system::error_code const &, size_t)> nano::transport::
 std::string nano::transport::channel_udp::to_string () const
 {
 	return boost::str (boost::format ("UDP: %1%") % endpoint);
+}
+
+nano::transport::udp_channels::udp_channels (nano::node & node_a) :
+node (node_a)
+{
 }
 
 void nano::transport::udp_channels::add (std::shared_ptr<nano::transport::channel_udp> channel_a)

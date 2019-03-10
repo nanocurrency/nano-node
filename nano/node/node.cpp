@@ -42,7 +42,8 @@ nano::network::network (nano::node & node_a, uint16_t port) :
 buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
 socket (node_a.io_ctx, nano::endpoint (boost::asio::ip::address_v6::any (), port)),
 resolver (node_a.io_ctx),
-node (node_a)
+node (node_a),
+udp_channels (node_a)
 {
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
@@ -174,7 +175,7 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a, bool
 			for (auto i (i_a), n (boost::asio::ip::udp::resolver::iterator{}); i != n; ++i)
 			{
 				auto endpoint (nano::map_endpoint_to_v6 (i->endpoint ()));
-				nano::transport::channel_udp sink (*node_l, endpoint);
+				nano::transport::channel_udp sink (node_l->network.udp_channels, endpoint);
 				node_l->network.send_keepalive (sink);
 			}
 		}
@@ -800,7 +801,7 @@ void nano::network::merge_peers (std::array<nano::endpoint, 8> const & peers_a)
 	{
 		if (!node.peers.reachout (*i, node.config.allow_local_peers))
 		{
-			nano::transport::channel_udp sink (node, *i);
+			nano::transport::channel_udp sink (node.network.udp_channels, *i);
 			send_keepalive (sink);
 		}
 	}
@@ -2367,7 +2368,7 @@ void nano::node::add_initial_peers ()
 		nano::endpoint endpoint (boost::asio::ip::address_v6 (i->first.address_bytes ()), i->first.port ());
 		if (!peers.reachout (endpoint, config.allow_local_peers))
 		{
-			auto sink (std::make_shared<nano::transport::channel_udp> (*this, endpoint));
+			auto sink (std::make_shared<nano::transport::channel_udp> (network.udp_channels, endpoint));
 			network.send_keepalive (*sink);
 			rep_crawler.query (sink);
 		}
@@ -2530,7 +2531,7 @@ void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a, uint8_
 
 void nano::node::process_message (nano::message & message_a, nano::endpoint const & sender_a)
 {
-	network_message_visitor visitor (*this, std::make_shared<nano::transport::channel_udp> (*this, sender_a));
+	network_message_visitor visitor (*this, std::make_shared<nano::transport::channel_udp> (network.udp_channels, sender_a));
 	message_a.visit (visitor);
 }
 
@@ -2714,7 +2715,7 @@ void nano::election::compute_rep_votes (nano::transaction const & transaction_a)
 	{
 		node.wallets.foreach_representative (transaction_a, [this, &transaction_a](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
 			auto vote (this->node.store.vote_generate (transaction_a, pub_a, prv_a, status.winner));
-			this->node.vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (this->node, this->node.network.endpoint ()));
+			this->node.vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (this->node.network.udp_channels, this->node.network.endpoint ()));
 		});
 	}
 }

@@ -66,8 +66,8 @@ TEST (peer_container, split)
 	auto now (std::chrono::steady_clock::now ());
 	nano::endpoint endpoint1 (boost::asio::ip::address_v6::any (), 100);
 	nano::endpoint endpoint2 (boost::asio::ip::address_v6::any (), 101);
-	auto channel1 (std::make_shared<nano::transport::channel_udp> (*system.nodes[0], endpoint1));
-	auto channel2 (std::make_shared<nano::transport::channel_udp> (*system.nodes[0], endpoint2));
+	auto channel1 (std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, endpoint1));
+	auto channel2 (std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, endpoint2));
 	peers.peers.insert (nano::peer_information (channel1, now - std::chrono::seconds (1)));
 	peers.peers.insert (nano::peer_information (channel2, now + std::chrono::seconds (1)));
 	system.nodes[0]->network.udp_channels.add (channel1);
@@ -94,7 +94,7 @@ TEST (udp_channels, fill_random_full)
 	nano::system system (24000, 1);
 	for (auto i (0); i < 100; ++i)
 	{
-		system.nodes[0]->network.udp_channels.add (std::make_shared<nano::transport::channel_udp> (*system.nodes[0], nano::endpoint (boost::asio::ip::address_v6::loopback (), i)));
+		system.nodes[0]->network.udp_channels.add (std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, nano::endpoint (boost::asio::ip::address_v6::loopback (), i)));
 	}
 	std::array<nano::endpoint, 8> target;
 	std::fill (target.begin (), target.end (), nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000));
@@ -109,7 +109,7 @@ TEST (udp_channels, fill_random_part)
 	auto half (target.size () / 2);
 	for (auto i (0); i < half; ++i)
 	{
-		system.nodes[0]->network.udp_channels.add (std::make_shared<nano::transport::channel_udp> (*system.nodes[0], nano::endpoint (boost::asio::ip::address_v6::loopback (), i + 1)));
+		system.nodes[0]->network.udp_channels.add (std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, nano::endpoint (boost::asio::ip::address_v6::loopback (), i + 1)));
 	}
 	std::fill (target.begin (), target.end (), nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000));
 	system.nodes[0]->network.udp_channels.random_fill (target);

@@ -636,7 +636,7 @@ int main (int argc, char * const * argv)
 				while (!votes.empty ())
 				{
 					auto vote (votes.front ());
-					node->vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (*node, node->network.endpoint ()));
+					node->vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (node->network.udp_channels, node->network.endpoint ()));
 					votes.pop_front ();
 				}
 				while (!node->active.empty ())

@@ -73,7 +73,7 @@ TEST (network, send_node_id_handshake)
 	system.nodes.push_back (node1);
 	auto initial (system.nodes[0]->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in));
 	auto initial_node1 (node1->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in));
-	nano::transport::channel_udp sink (*system.nodes[0], node1->network.endpoint ());
+	nano::transport::channel_udp sink (system.nodes[0]->network.udp_channels, node1->network.endpoint ());
 	system.nodes[0]->network.send_keepalive (sink);
 	ASSERT_EQ (0, system.nodes[0]->peers.size ());
 	ASSERT_EQ (0, node1->peers.size ());
@@ -104,7 +104,7 @@ TEST (network, last_contacted)
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 	node1->start ();
 	system.nodes.push_back (node1);
-	nano::transport::channel_udp sink (*node1, nano::endpoint (boost::asio::ip::address_v6::loopback (), 24000));
+	nano::transport::channel_udp sink (node1->network.udp_channels, nano::endpoint (boost::asio::ip::address_v6::loopback (), 24000));
 	node1->network.send_keepalive (sink);
 	system.deadline_set (10s);
 
@@ -139,7 +139,7 @@ TEST (network, multi_keepalive)
 	node1->start ();
 	system.nodes.push_back (node1);
 	ASSERT_EQ (0, node1->peers.size ());
-	nano::transport::channel_udp sink1 (*node1, system.nodes[0]->network.endpoint ());
+	nano::transport::channel_udp sink1 (node1->network.udp_channels, system.nodes[0]->network.endpoint ());
 	node1->network.send_keepalive (sink1);
 	ASSERT_EQ (0, node1->peers.size ());
 	ASSERT_EQ (0, system.nodes[0]->peers.size ());
@@ -153,7 +153,7 @@ TEST (network, multi_keepalive)
 	ASSERT_FALSE (init2.error ());
 	node2->start ();
 	system.nodes.push_back (node2);
-	nano::transport::channel_udp sink (*node2, system.nodes[0]->network.endpoint ());
+	nano::transport::channel_udp sink (node2->network.udp_channels, system.nodes[0]->network.endpoint ());
 	node2->network.send_keepalive (sink);
 	system.deadline_set (10s);
 	while (node1->peers.size () != 2 || system.nodes[0]->peers.size () != 2 || node2->peers.size () != 2)
@@ -263,7 +263,7 @@ TEST (network, send_insufficient_work)
 		nano::vectorstream stream (*bytes);
 		publish.serialize (stream);
 	}
-	nano::transport::channel_udp sink (*system.nodes[0], system.nodes[1]->network.endpoint ());
+	nano::transport::channel_udp sink (system.nodes[0]->network.udp_channels, system.nodes[1]->network.endpoint ());
 	sink.send_buffer_raw (boost::asio::buffer (bytes->data (), bytes->size ()), [bytes](boost::system::error_code const & ec, size_t size) {});
 	ASSERT_EQ (0, system.nodes[0]->stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work));
 	system.deadline_set (10s);

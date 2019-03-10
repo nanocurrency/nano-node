@@ -8,10 +8,13 @@ namespace nano
 {
 namespace transport
 {
+	class udp_channels;
 	class channel_udp : public nano::transport::channel
 	{
+		friend class nano::transport::udp_channels;
+
 	public:
-		channel_udp (nano::node &, nano::endpoint const &, unsigned = nano::protocol_version);
+		channel_udp (nano::transport::udp_channels &, nano::endpoint const &, unsigned = nano::protocol_version);
 		size_t hash_code () const override;
 		bool operator== (nano::transport::channel const &) const override;
 		void send_buffer_raw (boost::asio::const_buffer, std::function<void(boost::system::error_code const &, size_t)> const &) const override;
@@ -19,16 +22,21 @@ namespace transport
 		std::string to_string () const override;
 		bool operator== (nano::transport::channel_udp const & other_a) const
 		{
-			return &node == &other_a.node && endpoint == other_a.endpoint;
+			return &channels == &other_a.channels && endpoint == other_a.endpoint;
 		}
-		nano::node & node;
 		nano::endpoint endpoint;
 		std::chrono::steady_clock::time_point last_tcp_attempt{ std::chrono::steady_clock::time_point () };
 		unsigned network_version{ nano::protocol_version };
+
+	private:
+		nano::transport::udp_channels & channels;
 	};
 	class udp_channels
 	{
+		friend class nano::transport::channel_udp;
+
 	public:
+		udp_channels (nano::node &);
 		void add (std::shared_ptr<nano::transport::channel_udp>);
 		void erase (nano::endpoint const &);
 		size_t size () const;
@@ -71,6 +79,7 @@ namespace transport
 		boost::multi_index::ordered_non_unique<boost::multi_index::tag<last_tcp_attempt_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, std::chrono::steady_clock::time_point, &channel_udp_wrapper::last_tcp_attempt>>,
 		boost::multi_index::hashed_unique<boost::multi_index::tag<endpoint_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, nano::endpoint, &channel_udp_wrapper::endpoint>>>>
 		channels;
+		nano::node & node;
 	};
 } // namespace transport
 } // namespace nano
