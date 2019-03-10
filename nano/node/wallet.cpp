@@ -787,6 +787,11 @@ bool nano::wallet::enter_password (nano::transaction const & transaction_a, std:
 		wallets.node.background ([this_l]() {
 			this_l->search_pending ();
 		});
+		wallets.node.logger.try_log ("Wallet unlocked");
+	}
+	else
+	{
+		wallets.node.logger.try_log ("Invalid password, wallet locked");
 	}
 	lock_observer (result, password_a.empty ());
 	return result;
