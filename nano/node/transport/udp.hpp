@@ -54,6 +54,7 @@ namespace transport
 		nano::endpoint local_endpoint () const;
 		void receive_action (nano::message_buffer *);
 		void process_packets ();
+		std::shared_ptr<nano::transport::channel> create (nano::endpoint const &);
 
 	private:
 		class endpoint_tag

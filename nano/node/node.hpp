@@ -431,7 +431,7 @@ public:
 	std::shared_ptr<nano::node> shared ();
 	int store_version ();
 	void process_confirmed (std::shared_ptr<nano::block>, uint8_t = 0);
-	void process_message (nano::message const &, nano::endpoint const &);
+	void process_message (nano::message const &, std::shared_ptr<nano::transport::channel>);
 	void process_active (std::shared_ptr<nano::block>);
 	nano::process_return process (nano::block const &);
 	void keepalive_preconfigured (std::vector<std::string> const &);

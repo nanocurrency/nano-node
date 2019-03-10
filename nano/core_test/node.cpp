@@ -286,7 +286,7 @@ TEST (node, receive_gap)
 	auto block (std::make_shared<nano::send_block> (5, 1, 2, nano::keypair ().prv, 4, 0));
 	node1.work_generate_blocking (*block);
 	nano::publish message (block);
-	node1.process_message (message, node1.network.endpoint ());
+	node1.process_message (message, node1.network.udp_channels.create (node1.network.endpoint ()));
 	node1.block_processor.flush ();
 	ASSERT_EQ (1, node1.gap_cache.size ());
 }
@@ -863,16 +863,18 @@ TEST (node, fork_flip)
 	nano::keypair key2;
 	auto send2 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (genesis.hash ())));
 	nano::publish publish2 (send2);
-	node1.process_message (publish1, node1.network.endpoint ());
+	auto channel1 (node1.network.udp_channels.create (node1.network.endpoint ()));
+	node1.process_message (publish1, channel1);
 	node1.block_processor.flush ();
-	node2.process_message (publish2, node1.network.endpoint ());
+	auto channel2 (node2.network.udp_channels.create (node1.network.endpoint ()));
+	node2.process_message (publish2, channel2);
 	node2.block_processor.flush ();
 	ASSERT_EQ (1, node1.active.size ());
 	ASSERT_EQ (1, node2.active.size ());
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	node1.process_message (publish2, node1.network.endpoint ());
+	node1.process_message (publish2, channel1);
 	node1.block_processor.flush ();
-	node2.process_message (publish1, node2.network.endpoint ());
+	node2.process_message (publish1, channel2);
 	node2.block_processor.flush ();
 	std::unique_lock<std::mutex> lock (node2.active.mutex);
 	auto conflict (node2.active.roots.find (nano::uint512_union (genesis.hash (), genesis.hash ())));
@@ -922,18 +924,18 @@ TEST (node, fork_multi_flip)
 	nano::publish publish2 (send2);
 	auto send3 (std::make_shared<nano::send_block> (publish2.block->hash (), key2.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (publish2.block->hash ())));
 	nano::publish publish3 (send3);
-	node1.process_message (publish1, node1.network.endpoint ());
+	node1.process_message (publish1, node1.network.udp_channels.create (node1.network.endpoint ()));
 	node1.block_processor.flush ();
-	node2.process_message (publish2, node2.network.endpoint ());
-	node2.process_message (publish3, node2.network.endpoint ());
+	node2.process_message (publish2, node2.network.udp_channels.create (node2.network.endpoint ()));
+	node2.process_message (publish3, node2.network.udp_channels.create (node2.network.endpoint ()));
 	node2.block_processor.flush ();
 	ASSERT_EQ (1, node1.active.size ());
 	ASSERT_EQ (2, node2.active.size ());
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	node1.process_message (publish2, node1.network.endpoint ());
-	node1.process_message (publish3, node1.network.endpoint ());
+	node1.process_message (publish2, node1.network.udp_channels.create (node1.network.endpoint ()));
+	node1.process_message (publish3, node1.network.udp_channels.create (node1.network.endpoint ()));
 	node1.block_processor.flush ();
-	node2.process_message (publish1, node2.network.endpoint ());
+	node2.process_message (publish1, node2.network.udp_channels.create (node2.network.endpoint ()));
 	node2.block_processor.flush ();
 	std::unique_lock<std::mutex> lock (node2.active.mutex);
 	auto conflict (node2.active.roots.find (nano::uint512_union (genesis.hash (), genesis.hash ())));
@@ -1021,17 +1023,18 @@ TEST (node, fork_open)
 	nano::genesis genesis;
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (genesis.hash ())));
 	nano::publish publish1 (send1);
-	node1.process_message (publish1, node1.network.endpoint ());
+	auto channel1 (node1.network.udp_channels.create (node1.network.endpoint ()));
+	node1.process_message (publish1, channel1);
 	node1.block_processor.flush ();
 	auto open1 (std::make_shared<nano::open_block> (publish1.block->hash (), 1, key1.pub, key1.prv, key1.pub, system.work.generate (key1.pub)));
 	nano::publish publish2 (open1);
-	node1.process_message (publish2, node1.network.endpoint ());
+	node1.process_message (publish2, channel1);
 	node1.block_processor.flush ();
 	auto open2 (std::make_shared<nano::open_block> (publish1.block->hash (), 2, key1.pub, key1.prv, key1.pub, system.work.generate (key1.pub)));
 	nano::publish publish3 (open2);
 	ASSERT_EQ (2, node1.active.size ());
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	node1.process_message (publish3, node1.network.endpoint ());
+	node1.process_message (publish3, channel1);
 	node1.block_processor.flush ();
 }
 
@@ -1845,10 +1848,11 @@ TEST (node, local_votes_cache)
 	}
 	nano::confirm_req message1 (send1);
 	nano::confirm_req message2 (send2);
+	auto channel (node.network.udp_channels.create (node.network.endpoint ()));
 	for (auto i (0); i < 100; ++i)
 	{
-		node.process_message (message1, node.network.endpoint ());
-		node.process_message (message2, node.network.endpoint ());
+		node.process_message (message1, channel);
+		node.process_message (message2, channel);
 	}
 	{
 		std::lock_guard<std::mutex> lock (boost::polymorphic_downcast<nano::mdb_store *> (node.store_impl.get ())->cache_mutex);
@@ -1864,7 +1868,7 @@ TEST (node, local_votes_cache)
 	nano::confirm_req message3 (send3);
 	for (auto i (0); i < 100; ++i)
 	{
-		node.process_message (message3, node.network.endpoint ());
+		node.process_message (message3, channel);
 	}
 	{
 		std::lock_guard<std::mutex> lock (boost::polymorphic_downcast<nano::mdb_store *> (node.store_impl.get ())->cache_mutex);

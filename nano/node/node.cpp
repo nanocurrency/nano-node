@@ -2275,9 +2275,9 @@ void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a, uint8_
 	}
 }
 
-void nano::node::process_message (nano::message const & message_a, nano::endpoint const & sender_a)
+void nano::node::process_message (nano::message const & message_a, std::shared_ptr<nano::transport::channel> channel_a)
 {
-	network_message_visitor visitor (*this, std::make_shared<nano::transport::channel_udp> (network.udp_channels, sender_a));
+	network_message_visitor visitor (*this, channel_a);
 	message_a.visit (visitor);
 }
 

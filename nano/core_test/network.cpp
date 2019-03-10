@@ -287,7 +287,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
 	nano::keypair key1;
 	auto vote (std::make_shared<nano::vote> (key1.pub, key1.prv, 0, block1));
 	nano::confirm_ack con1 (vote);
-	node1.process_message (con1, node1.network.endpoint ());
+	node1.process_message (con1, node1.network.udp_channels.create (node1.network.endpoint ()));
 }
 
 TEST (receivable_processor, confirm_sufficient_pos)
@@ -302,7 +302,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
 	node1.active.start (block1);
 	auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, block1));
 	nano::confirm_ack con1 (vote);
-	node1.process_message (con1, node1.network.endpoint ());
+	node1.process_message (con1, node1.network.udp_channels.create (node1.network.endpoint ()));
 }
 
 TEST (receivable_processor, send_with_receive)

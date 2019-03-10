@@ -428,7 +428,11 @@ public:
 	}
 	void message (nano::message const & message_a)
 	{
-		node.process_message (message_a, endpoint);
+		auto channel (node.network.udp_channels.channel (endpoint));
+		if (channel)
+		{
+			node.process_message (message_a, channel);
+		}
 	}
 	nano::node & node;
 	nano::endpoint endpoint;
@@ -528,4 +532,9 @@ void nano::transport::udp_channels::process_packets ()
 		receive_action (data);
 		node.network.buffer_container.release (data);
 	}
+}
+
+std::shared_ptr<nano::transport::channel> nano::transport::udp_channels::create (nano::endpoint const & endpoint_a)
+{
+	return std::make_shared<nano::transport::channel_udp> (*this, endpoint_a);
 }
