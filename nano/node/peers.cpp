@@ -62,27 +62,24 @@ bool nano::peer_container::contacted (nano::endpoint const & endpoint_a, unsigne
 	auto endpoint_l (nano::map_endpoint_to_v6 (endpoint_a));
 	auto should_handshake (false);
 	nano::transport::channel_udp sink (node.network.udp_channels, endpoint_l);
-	if (version_a >= nano::protocol_version_min)
+	auto channel (node.network.udp_channels.channel (endpoint_a));
+	if (channel == nullptr)
 	{
-		auto channel (node.network.udp_channels.channel (endpoint_a));
-		if (channel == nullptr)
+		std::lock_guard<std::mutex> lock (mutex);
+		if (peers.get<nano::peer_container::id_address_tag> ().count (endpoint_l.address ()) < max_peers_per_ip)
 		{
-			std::lock_guard<std::mutex> lock (mutex);
-			if (peers.get<nano::peer_container::id_address_tag> ().count (endpoint_l.address ()) < max_peers_per_ip)
-			{
-				should_handshake = true;
-			}
+			should_handshake = true;
 		}
-		else
+	}
+	else
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		auto existing (peers.find (std::reference_wrapper<nano::transport::channel const> (*channel)));
+		if (existing != peers.end ())
 		{
-			std::lock_guard<std::mutex> lock (mutex);
-			auto existing (peers.find (std::reference_wrapper<nano::transport::channel const> (*channel)));
-			if (existing != peers.end ())
-			{
-				peers.modify (existing, [](nano::peer_information & info) {
-					info.last_contact = std::chrono::steady_clock::now ();
-				});
-			}
+			peers.modify (existing, [](nano::peer_information & info) {
+				info.last_contact = std::chrono::steady_clock::now ();
+			});
 		}
 	}
 	return should_handshake;
@@ -230,38 +227,35 @@ bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned v
 	auto result (node.network.udp_channels.not_a_peer (endpoint_a, allow_local_peers));
 	if (!result)
 	{
-		if (version_a >= nano::protocol_version_min)
+		std::lock_guard<std::mutex> lock (mutex);
+		nano::transport::channel_udp sink (node.network.udp_channels, endpoint_a);
+		auto existing (peers.find (std::reference_wrapper<nano::transport::channel const> (sink)));
+		if (existing != peers.end ())
 		{
-			std::lock_guard<std::mutex> lock (mutex);
-			nano::transport::channel_udp sink (node.network.udp_channels, endpoint_a);
-			auto existing (peers.find (std::reference_wrapper<nano::transport::channel const> (sink)));
-			if (existing != peers.end ())
+			peers.modify (existing, [node_id_a](nano::peer_information & info) {
+				info.last_contact = std::chrono::steady_clock::now ();
+				if (node_id_a.is_initialized ())
+				{
+					info.node_id = node_id_a;
+				}
+			});
+			result = true;
+		}
+		else
+		{
+			if (!result && !nano::is_test_network)
 			{
-				peers.modify (existing, [node_id_a](nano::peer_information & info) {
-					info.last_contact = std::chrono::steady_clock::now ();
-					if (node_id_a.is_initialized ())
-					{
-						info.node_id = node_id_a;
-					}
-				});
-				result = true;
+				auto ip_peers (peers.get<nano::peer_container::id_address_tag> ().count (endpoint_a.address ()));
+				if (ip_peers >= max_peers_per_ip)
+				{
+					result = true;
+				}
 			}
-			else
+			if (!result)
 			{
-				if (!result && !nano::is_test_network)
-				{
-					auto ip_peers (peers.get<nano::peer_container::id_address_tag> ().count (endpoint_a.address ()));
-					if (ip_peers >= max_peers_per_ip)
-					{
-						result = true;
-					}
-				}
-				if (!result)
-				{
-					new_peer = std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, endpoint_a, version_a);
-					peers.insert (nano::peer_information (new_peer, node_id_a));
-					node.network.udp_channels.add (new_peer);
-				}
+				new_peer = std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, endpoint_a, version_a);
+				peers.insert (nano::peer_information (new_peer, node_id_a));
+				node.network.udp_channels.add (new_peer);
 			}
 		}
 	}
