@@ -347,7 +347,7 @@ public:
 	}
 	void keepalive (nano::keepalive const & message_a) override
 	{
-		if (node.peers.contacted (endpoint, message_a.header.version_using))
+		if (!node.network.udp_channels.max_ip_connections (endpoint))
 		{
 			auto cookie (node.peers.assign_syn_cookie (endpoint));
 			if (cookie)
@@ -359,17 +359,17 @@ public:
 	}
 	void publish (nano::publish const & message_a) override
 	{
-		node.peers.contacted (endpoint, message_a.header.version_using);
+		node.peers.contacted (endpoint);
 		message (message_a);
 	}
 	void confirm_req (nano::confirm_req const & message_a) override
 	{
-		node.peers.contacted (endpoint, message_a.header.version_using);
+		node.peers.contacted (endpoint);
 		message (message_a);
 	}
 	void confirm_ack (nano::confirm_ack const & message_a) override
 	{
-		node.peers.contacted (endpoint, message_a.header.version_using);
+		node.peers.contacted (endpoint);
 		message (message_a);
 	}
 	void bulk_pull (nano::bulk_pull const &) override
@@ -554,5 +554,11 @@ bool nano::transport::udp_channels::not_a_peer (nano::endpoint const & endpoint_
 	{
 		result = true;
 	}
+	return result;
+}
+
+bool nano::transport::udp_channels::max_ip_connections (nano::endpoint const & endpoint_a)
+{
+	bool result (channels.get<ip_address_tag> ().count (endpoint_a.address ()) >= max_peers_per_ip);
 	return result;
 }

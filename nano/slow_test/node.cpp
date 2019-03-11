@@ -366,7 +366,7 @@ TEST (peer_container, random_set)
 	nano::peer_container & container (system.nodes[0]->peers);
 	for (auto i (0); i < 200; ++i)
 	{
-		container.contacted (nano::endpoint (loopback, 24001 + i), 0);
+		container.contacted (nano::endpoint (loopback, 24001 + i));
 	}
 	auto old (std::chrono::steady_clock::now ());
 	for (auto i (0); i < 10000; ++i)

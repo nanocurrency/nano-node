@@ -156,8 +156,11 @@ TEST (peer_container, reachout)
 TEST (peer_container, depeer)
 {
 	nano::system system (24000, 1);
-	nano::peer_container & peers (system.nodes[0]->peers);
-	nano::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), 24000);
-	peers.contacted (endpoint0, nano::protocol_version_min - 1);
-	ASSERT_EQ (0, peers.size ());
+	nano::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), 24001);
+	nano::keepalive message;
+	message.header.version_using = 1;
+	auto bytes (message.to_bytes ());
+	nano::message_buffer buffer = { bytes->data (), bytes->size (), endpoint0 };
+	system.nodes[0]->network.udp_channels.receive_action (&buffer);
+	ASSERT_EQ (1, system.nodes[0]->stats.count (nano::stat::type::udp, nano::stat::detail::outdated_version));
 }

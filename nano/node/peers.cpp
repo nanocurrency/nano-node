@@ -57,21 +57,12 @@ disconnect_observer ([]() {})
 {
 }
 
-bool nano::peer_container::contacted (nano::endpoint const & endpoint_a, unsigned version_a)
+void nano::peer_container::contacted (nano::endpoint const & endpoint_a)
 {
 	auto endpoint_l (nano::map_endpoint_to_v6 (endpoint_a));
-	auto should_handshake (false);
 	nano::transport::channel_udp sink (node.network.udp_channels, endpoint_l);
 	auto channel (node.network.udp_channels.channel (endpoint_a));
-	if (channel == nullptr)
-	{
-		std::lock_guard<std::mutex> lock (mutex);
-		if (peers.get<nano::peer_container::id_address_tag> ().count (endpoint_l.address ()) < max_peers_per_ip)
-		{
-			should_handshake = true;
-		}
-	}
-	else
+	if (channel != nullptr)
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		auto existing (peers.find (std::reference_wrapper<nano::transport::channel const> (*channel)));
@@ -82,7 +73,6 @@ bool nano::peer_container::contacted (nano::endpoint const & endpoint_a, unsigne
 			});
 		}
 	}
-	return should_handshake;
 }
 
 // Simulating with sqrt_broadcast_simulate shows we only need to broadcast to sqrt(total_peers) random peers in order to successfully publish to everyone with high probability
@@ -120,7 +110,7 @@ boost::optional<nano::uint256_union> nano::peer_container::assign_syn_cookie (na
 	std::unique_lock<std::mutex> lock (syn_cookie_mutex);
 	unsigned & ip_cookies = syn_cookies_per_ip[ip_addr];
 	boost::optional<nano::uint256_union> result;
-	if (ip_cookies < max_peers_per_ip)
+	if (ip_cookies < nano::transport::udp_channels::max_peers_per_ip)
 	{
 		if (syn_cookies.find (endpoint) == syn_cookies.end ())
 		{
@@ -245,11 +235,7 @@ bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned v
 		{
 			if (!result && !nano::is_test_network)
 			{
-				auto ip_peers (peers.get<nano::peer_container::id_address_tag> ().count (endpoint_a.address ()));
-				if (ip_peers >= max_peers_per_ip)
-				{
-					result = true;
-				}
+				result = node.network.udp_channels.max_ip_connections (endpoint_a);
 			}
 			if (!result)
 			{

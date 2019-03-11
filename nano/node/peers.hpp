@@ -62,9 +62,6 @@ public:
 class peer_container
 {
 public:
-	class id_address_tag
-	{
-	};
 	class rep_weight_tag
 	{
 	};
@@ -82,8 +79,7 @@ public:
 	};
 	peer_container (nano::node &);
 	// We were contacted by endpoint, update peers
-	// Returns true if a Node ID handshake should begin
-	bool contacted (nano::endpoint const &, unsigned);
+	void contacted (nano::endpoint const &);
 	// Notify of peer we received from
 	bool insert (nano::endpoint const &, unsigned, bool = false, boost::optional<nano::account> = boost::none);
 	std::vector<peer_information> list_vector (size_t);
@@ -113,8 +109,7 @@ public:
 	boost::multi_index::indexed_by<
 	boost::multi_index::hashed_unique<boost::multi_index::tag<sink_ref_tag>, boost::multi_index::const_mem_fun<peer_information, std::reference_wrapper<nano::transport::channel const>, &peer_information::sink_ref>>,
 	boost::multi_index::ordered_non_unique<boost::multi_index::tag<last_contact_tag>, boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_contact>>,
-	boost::multi_index::random_access<boost::multi_index::tag<random_access_tag>>,
-	boost::multi_index::ordered_non_unique<boost::multi_index::tag<id_address_tag>, boost::multi_index::const_mem_fun<peer_information, boost::asio::ip::address, &peer_information::ip_address>>>>
+	boost::multi_index::random_access<boost::multi_index::tag<random_access_tag>>>>
 	peers;
 	boost::multi_index_container<
 	peer_attempt,
@@ -130,8 +125,6 @@ public:
 	std::function<void()> disconnect_observer;
 	// Number of peers to crawl for being a rep every period
 	static size_t constexpr peers_per_crawl = 8;
-	// Maximum number of peers per IP
-	static size_t constexpr max_peers_per_ip = 10;
 	static std::chrono::seconds constexpr period = nano::is_test_network ? std::chrono::seconds (1) : std::chrono::seconds (60);
 	static std::chrono::seconds constexpr cutoff = period * 5;
 };

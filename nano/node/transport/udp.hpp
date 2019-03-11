@@ -57,9 +57,15 @@ namespace transport
 		std::shared_ptr<nano::transport::channel> create (nano::endpoint const &);
 		// Unassigned, reserved, self
 		bool not_a_peer (nano::endpoint const &, bool);
+		bool max_ip_connections (nano::endpoint const &);
+		// Maximum number of peers per IP
+		static size_t constexpr max_peers_per_ip = 10;
 
 	private:
 		class endpoint_tag
+		{
+		};
+		class ip_address_tag
 		{
 		};
 		class random_access_tag
@@ -80,6 +86,10 @@ namespace transport
 			{
 				return channel->last_tcp_attempt;
 			}
+			boost::asio::ip::address ip_address () const
+			{
+				return endpoint ().address ();
+			}
 		};
 		mutable std::mutex mutex;
 		boost::multi_index_container<
@@ -87,7 +97,8 @@ namespace transport
 		boost::multi_index::indexed_by<
 		boost::multi_index::random_access<boost::multi_index::tag<random_access_tag>>,
 		boost::multi_index::ordered_non_unique<boost::multi_index::tag<last_tcp_attempt_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, std::chrono::steady_clock::time_point, &channel_udp_wrapper::last_tcp_attempt>>,
-		boost::multi_index::hashed_unique<boost::multi_index::tag<endpoint_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, nano::endpoint, &channel_udp_wrapper::endpoint>>>>
+		boost::multi_index::hashed_unique<boost::multi_index::tag<endpoint_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, nano::endpoint, &channel_udp_wrapper::endpoint>>,
+		boost::multi_index::ordered_non_unique<boost::multi_index::tag<ip_address_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, boost::asio::ip::address, &channel_udp_wrapper::ip_address>>>>
 		channels;
 		nano::node & node;
 		boost::asio::ip::udp::socket socket;
