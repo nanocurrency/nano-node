@@ -102,79 +102,6 @@ std::vector<nano::peer_information> nano::peer_container::list_vector (size_t co
 	return result;
 }
 
-boost::optional<nano::uint256_union> nano::peer_container::assign_syn_cookie (nano::endpoint const & endpoint)
-{
-	auto ip_addr (endpoint.address ());
-	assert (ip_addr.is_v6 ());
-	std::unique_lock<std::mutex> lock (syn_cookie_mutex);
-	unsigned & ip_cookies = syn_cookies_per_ip[ip_addr];
-	boost::optional<nano::uint256_union> result;
-	if (ip_cookies < nano::transport::udp_channels::max_peers_per_ip)
-	{
-		if (syn_cookies.find (endpoint) == syn_cookies.end ())
-		{
-			nano::uint256_union query;
-			random_pool::generate_block (query.bytes.data (), query.bytes.size ());
-			syn_cookie_info info{ query, std::chrono::steady_clock::now () };
-			syn_cookies[endpoint] = info;
-			++ip_cookies;
-			result = query;
-		}
-	}
-	return result;
-}
-
-bool nano::peer_container::validate_syn_cookie (nano::endpoint const & endpoint, nano::account node_id, nano::signature sig)
-{
-	auto ip_addr (endpoint.address ());
-	assert (ip_addr.is_v6 ());
-	std::unique_lock<std::mutex> lock (syn_cookie_mutex);
-	auto result (true);
-	auto cookie_it (syn_cookies.find (endpoint));
-	if (cookie_it != syn_cookies.end () && !nano::validate_message (node_id, cookie_it->second.cookie, sig))
-	{
-		result = false;
-		syn_cookies.erase (cookie_it);
-		unsigned & ip_cookies = syn_cookies_per_ip[ip_addr];
-		if (ip_cookies > 0)
-		{
-			--ip_cookies;
-		}
-		else
-		{
-			assert (false && "More SYN cookies deleted than created for IP");
-		}
-	}
-	return result;
-}
-
-void nano::peer_container::purge_syn_cookies (std::chrono::steady_clock::time_point const & cutoff)
-{
-	std::lock_guard<std::mutex> lock (syn_cookie_mutex);
-	auto it (syn_cookies.begin ());
-	while (it != syn_cookies.end ())
-	{
-		auto info (it->second);
-		if (info.created_at < cutoff)
-		{
-			unsigned & per_ip = syn_cookies_per_ip[it->first.address ()];
-			if (per_ip > 0)
-			{
-				--per_ip;
-			}
-			else
-			{
-				assert (false && "More SYN cookies deleted than created for IP");
-			}
-			it = syn_cookies.erase (it);
-		}
-		else
-		{
-			++it;
-		}
-	}
-}
-
 size_t nano::peer_container::size ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
@@ -284,16 +211,6 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (peer_container & p
 	auto composite = std::make_unique<seq_con_info_composite> (name);
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "peers", peers_count, sizeof (decltype (peer_container.peers)::value_type) }));
 
-	size_t syn_cookies_count = 0;
-	size_t syn_cookies_per_ip_count = 0;
-	{
-		std::lock_guard<std::mutex> guard (peer_container.syn_cookie_mutex);
-		syn_cookies_count = peer_container.syn_cookies.size ();
-		syn_cookies_per_ip_count = peer_container.syn_cookies_per_ip.size ();
-	}
-
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "syn_cookies", syn_cookies_count, sizeof (decltype (peer_container.syn_cookies)::value_type) }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "syn_cookies_per_ip", syn_cookies_per_ip_count, sizeof (decltype (peer_container.syn_cookies_per_ip)::value_type) }));
 	return composite;
 }
 }

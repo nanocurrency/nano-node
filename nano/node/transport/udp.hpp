@@ -63,10 +63,19 @@ namespace transport
 		bool reachout (nano::endpoint const &, bool = false);
 		std::unique_ptr<seq_con_info_component> collect_seq_con_info (std::string const &);
 		void purge (std::chrono::steady_clock::time_point const &);
+		void purge_syn_cookies (std::chrono::steady_clock::time_point const &);
+		// Returns boost::none if the IP is rate capped on syn cookie requests,
+		// or if the endpoint already has a syn cookie query
+		boost::optional<nano::uint256_union> assign_syn_cookie (nano::endpoint const &);
+		// Returns false if valid, true if invalid (true on error convention)
+		// Also removes the syn cookie from the store if valid
+		bool validate_syn_cookie (nano::endpoint const &, nano::account const &, nano::signature const &);
 		// Maximum number of peers per IP
 		static size_t constexpr max_peers_per_ip = 10;
+		static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
 
 	private:
+		void ongoing_syn_cookie_cleanup ();
 		class endpoint_tag
 		{
 		};
@@ -117,6 +126,8 @@ namespace transport
 		boost::multi_index::hashed_unique<boost::multi_index::member<endpoint_attempt, nano::endpoint, &endpoint_attempt::endpoint>>,
 		boost::multi_index::ordered_non_unique<boost::multi_index::member<endpoint_attempt, std::chrono::steady_clock::time_point, &endpoint_attempt::last_attempt>>>>
 		attempts;
+		std::unordered_map<nano::endpoint, syn_cookie_info> syn_cookies;
+		std::unordered_map<boost::asio::ip::address, unsigned> syn_cookies_per_ip;
 		nano::node & node;
 		boost::asio::ip::udp::socket socket;
 	};

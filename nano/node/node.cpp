@@ -16,7 +16,6 @@
 
 double constexpr nano::node::price_max;
 double constexpr nano::node::free_cutoff;
-std::chrono::seconds constexpr nano::node::syn_cookie_cutoff;
 std::chrono::minutes constexpr nano::node::backup_interval;
 std::chrono::seconds constexpr nano::node::search_pending_interval;
 std::chrono::seconds constexpr nano::node::peer_interval;
@@ -1509,7 +1508,6 @@ void nano::node::start ()
 	network.start ();
 	add_initial_peers ();
 	peers.ongoing_keepalive ();
-	ongoing_syn_cookie_cleanup ();
 	if (!flags.disable_legacy_bootstrap)
 	{
 		ongoing_bootstrap ();
@@ -1612,18 +1610,6 @@ nano::account nano::node::representative (nano::account const & account_a)
 		result = info.rep_block;
 	}
 	return result;
-}
-
-void nano::node::ongoing_syn_cookie_cleanup ()
-{
-	peers.purge_syn_cookies (std::chrono::steady_clock::now () - syn_cookie_cutoff);
-	std::weak_ptr<nano::node> node_w (shared_from_this ());
-	alarm.add (std::chrono::steady_clock::now () + (syn_cookie_cutoff * 2), [node_w]() {
-		if (auto node_l = node_w.lock ())
-		{
-			node_l->ongoing_syn_cookie_cleanup ();
-		}
-	});
 }
 
 void nano::node::ongoing_rep_calculation ()

@@ -1,9 +1,11 @@
 #include <nano/node/node.hpp>
 #include <nano/node/transport/udp.hpp>
 
+std::chrono::seconds constexpr nano::transport::udp_channels::syn_cookie_cutoff;
+
 nano::transport::channel_udp::channel_udp (nano::transport::udp_channels & channels_a, nano::endpoint const & endpoint_a, unsigned network_version_a) :
-channels (channels_a),
 endpoint (endpoint_a),
+channels (channels_a),
 network_version (network_version_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
@@ -313,6 +315,7 @@ void nano::transport::udp_channels::start ()
 	{
 		receive ();
 	}
+	ongoing_syn_cookie_cleanup ();
 }
 
 void nano::transport::udp_channels::stop ()
@@ -349,7 +352,7 @@ public:
 	{
 		if (!node.network.udp_channels.max_ip_connections (endpoint))
 		{
-			auto cookie (node.peers.assign_syn_cookie (endpoint));
+			auto cookie (node.network.udp_channels.assign_syn_cookie (endpoint));
 			if (cookie)
 			{
 				node.network.send_node_id_handshake (endpoint, *cookie, boost::none);
@@ -403,7 +406,7 @@ public:
 		auto validated_response (false);
 		if (message_a.response)
 		{
-			if (!node.peers.validate_syn_cookie (endpoint, message_a.response->first, message_a.response->second))
+			if (!node.network.udp_channels.validate_syn_cookie (endpoint, message_a.response->first, message_a.response->second))
 			{
 				validated_response = true;
 				if (message_a.response->first != node.node_id.pub)
@@ -421,7 +424,7 @@ public:
 		}
 		if (!validated_response && node.network.udp_channels.channel (endpoint) == nullptr)
 		{
-			out_query = node.peers.assign_syn_cookie (endpoint);
+			out_query = node.network.udp_channels.assign_syn_cookie (endpoint);
 		}
 		if (out_query || out_respond_to)
 		{
@@ -588,14 +591,20 @@ bool nano::transport::udp_channels::reachout (nano::endpoint const & endpoint_a,
 std::unique_ptr<nano::seq_con_info_component> nano::transport::udp_channels::collect_seq_con_info (std::string const & name)
 {
 	size_t attemps_count = 0;
+	size_t syn_cookies_count = 0;
+	size_t syn_cookies_per_ip_count = 0;
 	{
 		std::lock_guard<std::mutex> guard (mutex);
 		attemps_count = attempts.size ();
+		syn_cookies_count = syn_cookies.size ();
+		syn_cookies_per_ip_count = syn_cookies_per_ip.size ();
 	}
-	
+
 	auto composite = std::make_unique<seq_con_info_composite> (name);
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "attempts", attemps_count, sizeof (decltype (attempts)::value_type) }));
-	
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "syn_cookies", syn_cookies_count, sizeof (decltype (syn_cookies)::value_type) }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "syn_cookies_per_ip", syn_cookies_per_ip_count, sizeof (decltype (syn_cookies_per_ip)::value_type) }));
+
 	return composite;
 }
 
@@ -604,4 +613,89 @@ void nano::transport::udp_channels::purge (std::chrono::steady_clock::time_point
 	// Remove keepalive attempt tracking for attempts older than cutoff
 	auto attempts_cutoff (attempts.get<1> ().lower_bound (cutoff_a));
 	attempts.get<1> ().erase (attempts.get<1> ().begin (), attempts_cutoff);
+}
+
+boost::optional<nano::uint256_union> nano::transport::udp_channels::assign_syn_cookie (nano::endpoint const & endpoint)
+{
+	auto ip_addr (endpoint.address ());
+	assert (ip_addr.is_v6 ());
+	std::lock_guard<std::mutex> lock (mutex);
+	unsigned & ip_cookies = syn_cookies_per_ip[ip_addr];
+	boost::optional<nano::uint256_union> result;
+	if (ip_cookies < nano::transport::udp_channels::max_peers_per_ip)
+	{
+		if (syn_cookies.find (endpoint) == syn_cookies.end ())
+		{
+			nano::uint256_union query;
+			random_pool::generate_block (query.bytes.data (), query.bytes.size ());
+			syn_cookie_info info{ query, std::chrono::steady_clock::now () };
+			syn_cookies[endpoint] = info;
+			++ip_cookies;
+			result = query;
+		}
+	}
+	return result;
+}
+
+bool nano::transport::udp_channels::validate_syn_cookie (nano::endpoint const & endpoint, nano::account const & node_id, nano::signature const & sig)
+{
+	auto ip_addr (endpoint.address ());
+	assert (ip_addr.is_v6 ());
+	std::lock_guard<std::mutex> lock (mutex);
+	auto result (true);
+	auto cookie_it (syn_cookies.find (endpoint));
+	if (cookie_it != syn_cookies.end () && !nano::validate_message (node_id, cookie_it->second.cookie, sig))
+	{
+		result = false;
+		syn_cookies.erase (cookie_it);
+		unsigned & ip_cookies = syn_cookies_per_ip[ip_addr];
+		if (ip_cookies > 0)
+		{
+			--ip_cookies;
+		}
+		else
+		{
+			assert (false && "More SYN cookies deleted than created for IP");
+		}
+	}
+	return result;
+}
+
+void nano::transport::udp_channels::purge_syn_cookies (std::chrono::steady_clock::time_point const & cutoff)
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	auto it (syn_cookies.begin ());
+	while (it != syn_cookies.end ())
+	{
+		auto info (it->second);
+		if (info.created_at < cutoff)
+		{
+			unsigned & per_ip = syn_cookies_per_ip[it->first.address ()];
+			if (per_ip > 0)
+			{
+				--per_ip;
+			}
+			else
+			{
+				assert (false && "More SYN cookies deleted than created for IP");
+			}
+			it = syn_cookies.erase (it);
+		}
+		else
+		{
+			++it;
+		}
+	}
+}
+
+void nano::transport::udp_channels::ongoing_syn_cookie_cleanup ()
+{
+	purge_syn_cookies (std::chrono::steady_clock::now () - syn_cookie_cutoff);
+	std::weak_ptr<nano::node> node_w (node.shared ());
+	node.alarm.add (std::chrono::steady_clock::now () + (syn_cookie_cutoff * 2), [node_w]() {
+		if (auto node_l = node_w.lock ())
+		{
+			node_l->network.udp_channels.ongoing_syn_cookie_cleanup ();
+		}
+	});
 }

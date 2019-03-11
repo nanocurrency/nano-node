@@ -80,13 +80,6 @@ public:
 	std::vector<peer_information> list_probable_rep_weights ();
 	// Purge any peer where last_contact < time_point and return what was left
 	void purge_list (std::chrono::steady_clock::time_point const &);
-	void purge_syn_cookies (std::chrono::steady_clock::time_point const &);
-	// Returns boost::none if the IP is rate capped on syn cookie requests,
-	// or if the endpoint already has a syn cookie query
-	boost::optional<nano::uint256_union> assign_syn_cookie (nano::endpoint const &);
-	// Returns false if valid, true if invalid (true on error convention)
-	// Also removes the syn cookie from the store if valid
-	bool validate_syn_cookie (nano::endpoint const &, nano::account, nano::signature);
 	size_t size ();
 	size_t size_sqrt ();
 	bool empty ();
@@ -100,9 +93,6 @@ public:
 	boost::multi_index::ordered_non_unique<boost::multi_index::tag<last_contact_tag>, boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_contact>>,
 	boost::multi_index::random_access<boost::multi_index::tag<random_access_tag>>>>
 	peers;
-	std::mutex syn_cookie_mutex;
-	std::unordered_map<nano::endpoint, syn_cookie_info> syn_cookies;
-	std::unordered_map<boost::asio::ip::address, unsigned> syn_cookies_per_ip;
 	// Called when a new peer is observed
 	std::function<void(std::shared_ptr<nano::transport::channel>)> peer_observer;
 	std::function<void()> disconnect_observer;
