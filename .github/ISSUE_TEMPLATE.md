@@ -14,11 +14,11 @@ support.
 BUG BOUNTY REPORT INFORMATION
 ---------------------------------------------------
 
-In the interest of further improving the security of the network, we have launched the RaiBlocks Bug Bounty Program.
+In the interest of further improving the security of the network, we have launched the Nano Bug Bounty Program.
 
-WARNING! Don't disclose any information for the Raiblocks bug bounty. First, please read the article about our Bug Bounty Program.
+WARNING! Don't disclose any information for the Nano bug.
 
-https://www.reddit.com/r/RaiBlocks/comments/7makm7/announcing_the_raiblocks_bug_bounty_program/
+Submit any suspected bugs for bounty consideration to bugs@nano.org.
 
 ---------------------------------------------------
 NORMAL BUG REPORT INFORMATION
@@ -70,10 +70,10 @@ Briefly describe the problem you are having in a few paragraphs.
 
 <!--
 
-Can you please provide the RaiBlocks logs for further analysis.
+Can you please provide the Nano logs for further analysis.
 
-How to find RaiBlocks logs:
+How to find Nano logs:
     
-https://github.com/clemahieu/raiblocks/wiki/Log-files
+https://github.com/nanocurrency/nano-node/wiki/Log-files
 
 -->
