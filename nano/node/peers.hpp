@@ -27,14 +27,6 @@ namespace transport
 
 nano::endpoint map_endpoint_to_v6 (nano::endpoint const &);
 
-/** Multi-index helper */
-class peer_attempt
-{
-public:
-	nano::endpoint endpoint;
-	std::chrono::steady_clock::time_point last_attempt;
-};
-
 /** Node handshake cookie */
 class syn_cookie_info
 {
@@ -89,8 +81,6 @@ public:
 	// Purge any peer where last_contact < time_point and return what was left
 	void purge_list (std::chrono::steady_clock::time_point const &);
 	void purge_syn_cookies (std::chrono::steady_clock::time_point const &);
-	// Should we reach out to this endpoint with a keepalive message
-	bool reachout (nano::endpoint const &, bool = false);
 	// Returns boost::none if the IP is rate capped on syn cookie requests,
 	// or if the endpoint already has a syn cookie query
 	boost::optional<nano::uint256_union> assign_syn_cookie (nano::endpoint const &);
@@ -110,12 +100,6 @@ public:
 	boost::multi_index::ordered_non_unique<boost::multi_index::tag<last_contact_tag>, boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_contact>>,
 	boost::multi_index::random_access<boost::multi_index::tag<random_access_tag>>>>
 	peers;
-	boost::multi_index_container<
-	peer_attempt,
-	boost::multi_index::indexed_by<
-	boost::multi_index::hashed_unique<boost::multi_index::member<peer_attempt, nano::endpoint, &peer_attempt::endpoint>>,
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<peer_attempt, std::chrono::steady_clock::time_point, &peer_attempt::last_attempt>>>>
-	attempts;
 	std::mutex syn_cookie_mutex;
 	std::unordered_map<nano::endpoint, syn_cookie_info> syn_cookies;
 	std::unordered_map<boost::asio::ip::address, unsigned> syn_cookies_per_ip;

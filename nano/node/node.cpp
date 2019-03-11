@@ -545,7 +545,7 @@ void nano::network::merge_peers (std::array<nano::endpoint, 8> const & peers_a)
 {
 	for (auto i (peers_a.begin ()), j (peers_a.end ()); i != j; ++i)
 	{
-		if (!node.peers.reachout (*i, node.config.allow_local_peers))
+		if (!udp_channels.reachout (*i, node.config.allow_local_peers))
 		{
 			nano::transport::channel_udp sink (node.network.udp_channels, *i);
 			send_keepalive (sink);
@@ -1369,6 +1369,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (node & node, const
 	composite->add_component (collect_seq_con_info (node.bootstrap_initiator, "bootstrap_initiator"));
 	composite->add_component (collect_seq_con_info (node.bootstrap, "bootstrap"));
 	composite->add_component (collect_seq_con_info (node.peers, "peers"));
+	composite->add_component (node.network.udp_channels.collect_seq_con_info ("udp_channels"));
 	composite->add_component (collect_seq_con_info (node.observers, "observers"));
 	composite->add_component (collect_seq_con_info (node.wallets, "wallets"));
 	composite->add_component (collect_seq_con_info (node.vote_processor, "vote_processor"));
@@ -2112,7 +2113,7 @@ void nano::node::add_initial_peers ()
 	for (auto i (store.peers_begin (transaction)), n (store.peers_end ()); i != n; ++i)
 	{
 		nano::endpoint endpoint (boost::asio::ip::address_v6 (i->first.address_bytes ()), i->first.port ());
-		if (!peers.reachout (endpoint, config.allow_local_peers))
+		if (!network.udp_channels.reachout (endpoint, config.allow_local_peers))
 		{
 			auto sink (std::make_shared<nano::transport::channel_udp> (network.udp_channels, endpoint));
 			network.send_keepalive (*sink);

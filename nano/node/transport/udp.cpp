@@ -566,3 +566,42 @@ bool nano::transport::udp_channels::max_ip_connections (nano::endpoint const & e
 	bool result (channels.get<ip_address_tag> ().count (endpoint_a.address ()) >= max_peers_per_ip);
 	return result;
 }
+
+bool nano::transport::udp_channels::reachout (nano::endpoint const & endpoint_a, bool allow_local_peers)
+{
+	// Don't contact invalid IPs
+	bool error = node.network.udp_channels.not_a_peer (endpoint_a, allow_local_peers);
+	if (!error)
+	{
+		auto endpoint_l (nano::map_endpoint_to_v6 (endpoint_a));
+		// Don't keepalive to nodes that already sent us something
+		nano::transport::channel_udp sink (node.network.udp_channels, endpoint_l);
+		error |= node.network.udp_channels.channel (endpoint_l) != nullptr;
+		std::lock_guard<std::mutex> lock (mutex);
+		auto existing (attempts.find (endpoint_l));
+		error |= existing != attempts.end ();
+		attempts.insert ({ endpoint_l, std::chrono::steady_clock::now () });
+	}
+	return error;
+}
+
+std::unique_ptr<nano::seq_con_info_component> nano::transport::udp_channels::collect_seq_con_info (std::string const & name)
+{
+	size_t attemps_count = 0;
+	{
+		std::lock_guard<std::mutex> guard (mutex);
+		attemps_count = attempts.size ();
+	}
+	
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "attempts", attemps_count, sizeof (decltype (attempts)::value_type) }));
+	
+	return composite;
+}
+
+void nano::transport::udp_channels::purge (std::chrono::steady_clock::time_point const & cutoff_a)
+{
+	// Remove keepalive attempt tracking for attempts older than cutoff
+	auto attempts_cutoff (attempts.get<1> ().lower_bound (cutoff_a));
+	attempts.get<1> ().erase (attempts.get<1> ().begin (), attempts_cutoff);
+}

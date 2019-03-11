@@ -59,6 +59,10 @@ namespace transport
 		// Unassigned, reserved, self
 		bool not_a_peer (nano::endpoint const &, bool);
 		bool max_ip_connections (nano::endpoint const &);
+		// Should we reach out to this endpoint with a keepalive message
+		bool reachout (nano::endpoint const &, bool = false);
+		std::unique_ptr<seq_con_info_component> collect_seq_con_info (std::string const &);
+		void purge (std::chrono::steady_clock::time_point const &);
 		// Maximum number of peers per IP
 		static size_t constexpr max_peers_per_ip = 10;
 
@@ -92,6 +96,12 @@ namespace transport
 				return endpoint ().address ();
 			}
 		};
+		class endpoint_attempt
+		{
+		public:
+			nano::endpoint endpoint;
+			std::chrono::steady_clock::time_point last_attempt;
+		};
 		mutable std::mutex mutex;
 		boost::multi_index_container<
 		channel_udp_wrapper,
@@ -101,6 +111,12 @@ namespace transport
 		boost::multi_index::hashed_unique<boost::multi_index::tag<endpoint_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, nano::endpoint, &channel_udp_wrapper::endpoint>>,
 		boost::multi_index::ordered_non_unique<boost::multi_index::tag<ip_address_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, boost::asio::ip::address, &channel_udp_wrapper::ip_address>>>>
 		channels;
+		boost::multi_index_container<
+		endpoint_attempt,
+		boost::multi_index::indexed_by<
+		boost::multi_index::hashed_unique<boost::multi_index::member<endpoint_attempt, nano::endpoint, &endpoint_attempt::endpoint>>,
+		boost::multi_index::ordered_non_unique<boost::multi_index::member<endpoint_attempt, std::chrono::steady_clock::time_point, &endpoint_attempt::last_attempt>>>>
+		attempts;
 		nano::node & node;
 		boost::asio::ip::udp::socket socket;
 	};

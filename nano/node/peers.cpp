@@ -191,24 +191,6 @@ bool nano::peer_container::empty ()
 	return size () == 0;
 }
 
-bool nano::peer_container::reachout (nano::endpoint const & endpoint_a, bool allow_local_peers)
-{
-	// Don't contact invalid IPs
-	bool error = node.network.udp_channels.not_a_peer (endpoint_a, allow_local_peers);
-	if (!error)
-	{
-		auto endpoint_l (nano::map_endpoint_to_v6 (endpoint_a));
-		// Don't keepalive to nodes that already sent us something
-		nano::transport::channel_udp sink (node.network.udp_channels, endpoint_l);
-		error |= node.network.udp_channels.channel (endpoint_l) != nullptr;
-		std::lock_guard<std::mutex> lock (mutex);
-		auto existing (attempts.find (endpoint_l));
-		error |= existing != attempts.end ();
-		attempts.insert ({ endpoint_l, std::chrono::steady_clock::now () });
-	}
-	return error;
-}
-
 bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned version_a, bool allow_local_peers, boost::optional<nano::account> node_id_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
@@ -256,10 +238,7 @@ void nano::peer_container::purge_list (std::chrono::steady_clock::time_point con
 			node.network.udp_channels.erase (i->endpoint ());
 		}
 		peers.get<last_contact_tag> ().erase (peers.get<last_contact_tag> ().begin (), disconnect_cutoff);
-
-		// Remove keepalive attempt tracking for attempts older than cutoff
-		auto attempts_cutoff (attempts.get<1> ().lower_bound (cutoff_a));
-		attempts.get<1> ().erase (attempts.get<1> ().begin (), attempts_cutoff);
+		node.network.udp_channels.purge (cutoff_a);
 		disconnected = peers.empty ();
 	}
 	if (disconnected)
@@ -297,16 +276,13 @@ namespace nano
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (peer_container & peer_container, const std::string & name)
 {
 	size_t peers_count = 0;
-	size_t attemps_count = 0;
 	{
 		std::lock_guard<std::mutex> guard (peer_container.mutex);
 		peers_count = peer_container.peers.size ();
-		attemps_count = peer_container.attempts.size ();
 	}
 
 	auto composite = std::make_unique<seq_con_info_composite> (name);
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "peers", peers_count, sizeof (decltype (peer_container.peers)::value_type) }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "attempts", attemps_count, sizeof (decltype (peer_container.attempts)::value_type) }));
 
 	size_t syn_cookies_count = 0;
 	size_t syn_cookies_per_ip_count = 0;
