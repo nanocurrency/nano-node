@@ -17,10 +17,9 @@ nano::endpoint nano::map_endpoint_to_v6 (nano::endpoint const & endpoint_a)
 	return endpoint_l;
 }
 
-nano::peer_information::peer_information (std::shared_ptr<nano::transport::channel_udp> sink_a, boost::optional<nano::account> node_id_a) :
+nano::peer_information::peer_information (std::shared_ptr<nano::transport::channel_udp> sink_a) :
 sink (sink_a),
-last_contact (std::chrono::steady_clock::now ()),
-node_id (node_id_a)
+last_contact (std::chrono::steady_clock::now ())
 {
 }
 
@@ -222,13 +221,6 @@ bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned v
 		auto existing (peers.find (std::reference_wrapper<nano::transport::channel const> (sink)));
 		if (existing != peers.end ())
 		{
-			peers.modify (existing, [node_id_a](nano::peer_information & info) {
-				info.last_contact = std::chrono::steady_clock::now ();
-				if (node_id_a.is_initialized ())
-				{
-					info.node_id = node_id_a;
-				}
-			});
 			result = true;
 		}
 		else
@@ -240,7 +232,7 @@ bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned v
 			if (!result)
 			{
 				new_peer = std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, endpoint_a, version_a);
-				peers.insert (nano::peer_information (new_peer, node_id_a));
+				peers.insert (nano::peer_information (new_peer));
 				node.network.udp_channels.add (new_peer);
 			}
 		}

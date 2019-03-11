@@ -1963,9 +1963,11 @@ void nano_qt::advanced_actions::refresh_peers ()
 		version->setData (QVariant (i->sink->network_version), Qt::DisplayRole);
 		items.push_back (version);
 		QString node_id ("");
-		if (i->node_id.is_initialized ())
+		auto channel (wallet.node.network.udp_channels.channel (i->endpoint ()));
+		assert (channel != nullptr);
+		if (channel->node_id.is_initialized ())
 		{
-			node_id = i->node_id.get ().to_account ().c_str ();
+			node_id = channel->node_id.get ().to_account ().c_str ();
 		}
 		items.push_back (new QStandardItem (node_id));
 		peers_model->appendRow (items);

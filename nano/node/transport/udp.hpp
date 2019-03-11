@@ -28,6 +28,7 @@ namespace transport
 		nano::endpoint endpoint;
 		std::chrono::steady_clock::time_point last_tcp_attempt{ std::chrono::steady_clock::time_point () };
 		unsigned network_version{ nano::protocol_version };
+		boost::optional<nano::account> node_id{ boost::none };
 
 	private:
 		nano::transport::udp_channels & channels;

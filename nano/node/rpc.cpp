@@ -2308,9 +2308,11 @@ void nano::rpc_handler::peers ()
 		{
 			boost::property_tree::ptree pending_tree;
 			pending_tree.put ("protocol_version", std::to_string (i->sink->network_version));
-			if (i->node_id.is_initialized ())
+			auto channel (node.network.udp_channels.channel (i->endpoint ()));
+			assert (channel != nullptr);
+			if (channel->node_id.is_initialized ())
 			{
-				pending_tree.put ("node_id", i->node_id.get ().to_account ());
+				pending_tree.put ("node_id", channel->node_id.get ().to_account ());
 			}
 			else
 			{

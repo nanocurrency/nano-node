@@ -408,7 +408,10 @@ public:
 				validated_response = true;
 				if (message_a.response->first != node.node_id.pub)
 				{
-					node.peers.insert (endpoint, message_a.header.version_using, node.config.allow_local_peers, message_a.response->first);
+					node.peers.insert (endpoint, message_a.header.version_using, node.config.allow_local_peers);
+					auto channel (node.network.udp_channels.channel (endpoint));
+					assert (channel != nullptr);
+					channel->node_id = message_a.response->first;
 				}
 			}
 			else if (node.config.logging.network_node_id_handshake_logging ())
@@ -436,6 +439,7 @@ public:
 	}
 	nano::node & node;
 	nano::endpoint endpoint;
+	std::shared_ptr<nano::transport::channel_udp> channel;
 };
 }
 

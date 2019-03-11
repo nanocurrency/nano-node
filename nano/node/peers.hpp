@@ -47,14 +47,13 @@ public:
 class peer_information
 {
 public:
-	peer_information (std::shared_ptr<nano::transport::channel_udp>, boost::optional<nano::account> = boost::none);
+	peer_information (std::shared_ptr<nano::transport::channel_udp>);
 	peer_information (std::shared_ptr<nano::transport::channel_udp>, std::chrono::steady_clock::time_point const &);
 	std::shared_ptr<nano::transport::channel_udp> sink;
 	boost::asio::ip::address ip_address () const;
 	nano::endpoint endpoint () const;
 	std::reference_wrapper<nano::transport::channel const> sink_ref () const;
 	std::chrono::steady_clock::time_point last_contact;
-	boost::optional<nano::account> node_id;
 	bool operator< (nano::peer_information const &) const;
 };
 
