@@ -1549,6 +1549,7 @@ wallet (wallet_a)
 					retype_password->setPlaceholderText ("Retype password");
 					show_button_success (*change);
 					change->setText ("Password was changed");
+					this->wallet.node.logger.try_log ("Wallet password changed");
 					update_locked (false, false);
 					this->wallet.node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() {
 						this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this]() {
@@ -1641,6 +1642,7 @@ wallet (wallet_a)
 			this->wallet.wallet_m->store.password.value_set (empty);
 			update_locked (true, true);
 			lock_toggle->setText ("Unlock");
+			this->wallet.node.logger.try_log ("Wallet locked");
 			password->setEnabled (1);
 		}
 		else

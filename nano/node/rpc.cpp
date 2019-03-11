@@ -2241,9 +2241,17 @@ void nano::rpc_handler::password_change ()
 	if (!ec)
 	{
 		auto transaction (node.wallets.tx_begin_write ());
-		std::string password_text (request.get<std::string> ("password"));
-		auto error (wallet->store.rekey (transaction, password_text));
-		response_l.put ("changed", error ? "0" : "1");
+		wallet_locked_impl (transaction, wallet);
+		if (!ec)
+		{
+			std::string password_text (request.get<std::string> ("password"));
+			bool error (wallet->store.rekey (transaction, password_text));
+			response_l.put ("changed", error ? "0" : "1");
+			if (!error)
+			{
+				node.logger.try_log ("Wallet password changed");
+			}
+		}
 	}
 	response_errors ();
 }
@@ -3948,6 +3956,7 @@ void nano::rpc_handler::wallet_lock ()
 		empty.data.clear ();
 		wallet->store.password.value_set (empty);
 		response_l.put ("locked", "1");
+		node.logger.try_log ("Wallet locked");
 	}
 	response_errors ();
 }
