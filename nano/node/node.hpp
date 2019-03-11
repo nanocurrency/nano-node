@@ -143,7 +143,6 @@ public:
 	static unsigned constexpr announcement_min = 2;
 	// Threshold to start logging blocks haven't yet been confirmed
 	static unsigned constexpr announcement_long = 20;
-	static unsigned constexpr request_interval_ms = nano::is_test_network ? 10 : 16000;
 	static size_t constexpr election_history_size = 2048;
 	static size_t constexpr max_broadcast_queue = 1000;
 
@@ -252,19 +251,16 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_arrival & bl
 class online_reps
 {
 public:
-	online_reps (nano::ledger &, nano::uint128_t);
+	online_reps (nano::node &, nano::uint128_t);
 	void observe (nano::account const &);
 	void sample ();
 	nano::uint128_t online_stake ();
 	std::vector<nano::account> list ();
-	static uint64_t constexpr weight_period = 5 * 60; // 5 minutes
-	// The maximum amount of samples for a 2 week period on live or 3 days on beta
-	static uint64_t constexpr weight_samples = nano::is_live_network ? 4032 : 864;
 
 private:
 	nano::uint128_t trend (nano::transaction &);
 	std::mutex mutex;
-	nano::ledger & ledger;
+	nano::node & node;
 	std::unordered_set<nano::account> reps;
 	nano::uint128_t online;
 	nano::uint128_t minimum;
@@ -359,7 +355,6 @@ public:
 	std::vector<boost::thread> packet_processing_threads;
 	nano::node & node;
 	std::atomic<bool> on;
-	static uint16_t const node_port = nano::is_live_network ? 7075 : 54000;
 	static size_t const buffer_size = 512;
 	static size_t const confirm_req_hashes_max = 6;
 };
@@ -462,9 +457,12 @@ public:
 	void bootstrap_wallet ();
 	void unchecked_cleanup ();
 	int price (nano::uint128_t const &, int);
-	void work_generate_blocking (nano::block &, uint64_t = nano::work_pool::publish_threshold);
-	uint64_t work_generate_blocking (nano::uint256_union const &, uint64_t = nano::work_pool::publish_threshold);
-	void work_generate (nano::uint256_union const &, std::function<void(uint64_t)>, uint64_t = nano::work_pool::publish_threshold);
+	void work_generate_blocking (nano::block &, uint64_t);
+	void work_generate_blocking (nano::block &);
+	uint64_t work_generate_blocking (nano::uint256_union const &, uint64_t);
+	uint64_t work_generate_blocking (nano::uint256_union const &);
+	void work_generate (nano::uint256_union const &, std::function<void(uint64_t)>, uint64_t);
+	void work_generate (nano::uint256_union const &, std::function<void(uint64_t)>);
 	void add_initial_peers ();
 	void block_confirm (std::shared_ptr<nano::block>);
 	void process_fork (nano::transaction const &, std::shared_ptr<nano::block>);
@@ -474,6 +472,7 @@ public:
 	void ongoing_online_weight_calculation ();
 	void ongoing_online_weight_calculation_queue ();
 	boost::asio::io_context & io_ctx;
+	nano::network_params network_params;
 	nano::node_config config;
 	nano::node_flags flags;
 	nano::alarm & alarm;
@@ -508,16 +507,9 @@ public:
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer;
 	const std::chrono::steady_clock::time_point startup_time;
+	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
-	static std::chrono::seconds constexpr period = nano::is_test_network ? std::chrono::seconds (1) : std::chrono::seconds (60);
-	static std::chrono::seconds constexpr cutoff = period * 5;
-	static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
-	static std::chrono::minutes constexpr backup_interval = std::chrono::minutes (5);
-	static std::chrono::seconds constexpr search_pending_interval = nano::is_test_network ? std::chrono::seconds (1) : std::chrono::seconds (5 * 60);
-	static std::chrono::seconds constexpr peer_interval = search_pending_interval;
-	static std::chrono::hours constexpr unchecked_cleanup_interval = std::chrono::hours (1);
-	static std::chrono::milliseconds constexpr process_confirmed_interval = nano::is_test_network ? std::chrono::milliseconds (50) : std::chrono::milliseconds (500);
 
 private:
 	void add_confirmation_heights (nano::block_hash const & hash);

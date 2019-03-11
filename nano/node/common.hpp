@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/config.hpp>
 #include <nano/lib/interface.h>
 #include <nano/secure/common.hpp>
 
@@ -195,7 +196,6 @@ public:
 	bool deserialize (nano::stream &);
 	nano::block_type block_type () const;
 	void block_type_set (nano::block_type);
-	static std::array<uint8_t, 2> constexpr magic_number = nano::is_test_network ? std::array<uint8_t, 2>{ { 'R', 'A' } } : nano::is_beta_network ? std::array<uint8_t, 2>{ { 'R', 'B' } } : std::array<uint8_t, 2>{ { 'R', 'C' } };
 	uint8_t version_max;
 	uint8_t version_using;
 	uint8_t version_min;
@@ -209,14 +209,6 @@ public:
 	size_t payload_length_bytes () const;
 
 	static std::bitset<16> constexpr block_type_mask = std::bitset<16> (0x0f00);
-	bool valid_magic () const
-	{
-		return magic_number[0] == 'R' && magic_number[1] >= 'A' && magic_number[1] <= 'C';
-	}
-	bool valid_network () const
-	{
-		return (magic_number[1] - 'A') == static_cast<int> (nano::nano_network);
-	}
 };
 class message
 {

@@ -13,7 +13,7 @@ const char * default_live_peer_network = "peering.nano.org";
 }
 
 nano::node_config::node_config () :
-node_config (nano::network::node_port, nano::logging ())
+node_config (0, nano::logging ())
 {
 }
 
@@ -35,18 +35,24 @@ bootstrap_connections (4),
 bootstrap_connections_max (64),
 callback_port (0),
 lmdb_max_dbs (128),
-allow_local_peers (!nano::is_live_network), // disable by default for live network
+allow_local_peers (!network_params.is_live_network ()), // disable by default for live network
 block_processor_batch_max_time (std::chrono::milliseconds (5000)),
 unchecked_cutoff_time (std::chrono::seconds (4 * 60 * 60)) // 4 hours
 {
+	// The default constructor passes 0 to indicate we should use the default port,
+	// which is determined at node startup based on active network.
+	if (peering_port == 0)
+	{
+		peering_port = network_params.default_node_port;
+	}
 	const char * epoch_message ("epoch v1 block");
 	strncpy ((char *)epoch_block_link.bytes.data (), epoch_message, epoch_block_link.bytes.size ());
-	epoch_block_signer = nano::genesis_account;
-	switch (nano::nano_network)
+	epoch_block_signer = network_params.ledger.genesis_account;
+	switch (network_params.network ())
 	{
 		case nano::nano_networks::nano_test_network:
 			enable_voting = true;
-			preconfigured_representatives.push_back (nano::genesis_account);
+			preconfigured_representatives.push_back (network_params.ledger.genesis_account);
 			break;
 		case nano::nano_networks::nano_beta_network:
 			preconfigured_peers.push_back (default_beta_peer_network);

@@ -43,12 +43,6 @@ private:
 	std::shared_ptr<nano::node> node;
 };
 
-/**
- * The length of every message header, parsed by nano::message::read_header ()
- * The 2 here represents the size of a std::bitset<16>, which is 2 chars long normally
- */
-static const int bootstrap_message_header_size = sizeof (nano::message_header::magic_number) + sizeof (uint8_t) + sizeof (uint8_t) + sizeof (uint8_t) + sizeof (nano::message_type) + 2;
-
 class bootstrap_client;
 class pull_info
 {
@@ -129,7 +123,6 @@ public:
 	std::unordered_set<nano::block_hash> lazy_keys;
 	std::deque<nano::block_hash> lazy_pulls;
 	std::atomic<uint64_t> lazy_stopped;
-	uint64_t lazy_max_pull_blocks = nano::is_test_network ? 2 : 512;
 	uint64_t lazy_max_stopped = 256;
 	std::mutex lazy_mutex;
 	// Wallet lazy bootstrap

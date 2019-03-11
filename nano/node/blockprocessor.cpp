@@ -7,7 +7,7 @@
 std::chrono::milliseconds constexpr nano::block_processor::confirmation_request_delay;
 
 nano::block_processor::block_processor (nano::node & node_a) :
-generator (node_a, nano::is_test_network ? std::chrono::milliseconds (10) : std::chrono::milliseconds (500)),
+generator (node_a),
 stopped (false),
 active (false),
 next_log (std::chrono::steady_clock::now ()),

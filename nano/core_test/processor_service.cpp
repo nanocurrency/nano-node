@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <nano/core_test/testutil.hpp>
 #include <nano/node/node.hpp>
 
 #include <atomic>

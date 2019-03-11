@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/config.hpp>
 #include <nano/secure/common.hpp>
 #include <stack>
 
@@ -72,6 +73,7 @@ public:
 protected:
 	nano::transaction const & transaction;
 	nano::block_store const & store;
+	nano::network_params network_params;
 
 	/** The final result */
 	nano::uint128_t result{ 0 };

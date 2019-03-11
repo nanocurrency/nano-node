@@ -9,6 +9,7 @@
 #include <boost/property_tree/json_parser.hpp>
 
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/config.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/work.hpp>
 
@@ -115,6 +116,7 @@ char * xrb_sign_transaction (const char * transaction, const xrb_uint256 private
 
 char * xrb_work_transaction (const char * transaction)
 {
+	static nano::network_params network_params;
 	char * result (nullptr);
 	try
 	{
@@ -126,7 +128,7 @@ char * xrb_work_transaction (const char * transaction)
 		if (block != nullptr)
 		{
 			nano::work_pool pool (boost::thread::hardware_concurrency ());
-			auto work (pool.generate (block->root ()));
+			auto work (pool.generate (block->root (), network_params.publish_threshold));
 			block->block_work_set (work);
 			auto json (block->to_json ());
 			result = reinterpret_cast<char *> (malloc (json.size () + 1));

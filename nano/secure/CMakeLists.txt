@@ -10,24 +10,29 @@ else ()
 	error ("Unknown platform: ${CMAKE_SYSTEM_NAME}")
 endif ()
 
-# Embed bootstrap representative weights in executable
-if (${ACTIVE_NETWORK} MATCHES "nano_beta_network")
-	set (REP_WEIGHTS_BIN_NAME "rep_weights_beta.bin")
-else ()
-	set (REP_WEIGHTS_BIN_NAME "rep_weights_live.bin")
-endif ()
-
-file (READ ${CMAKE_SOURCE_DIR}/${REP_WEIGHTS_BIN_NAME} filedata HEX)
+# Embed bootstrap representative weights in executable. Both live
+# and beta weights are added to accommodate switching networks
+# from the command line.
+file (READ ${CMAKE_SOURCE_DIR}/rep_weights_live.bin filedata HEX)
 string (REGEX REPLACE "(..)" "0x\\1," filedata ${filedata})
-file (WRITE ${CMAKE_BINARY_DIR}/bootstrap_weights.cpp "#include <cstddef>\n"
+file (WRITE ${CMAKE_BINARY_DIR}/bootstrap_weights_live.cpp "#include <cstddef>\n"
 	"namespace nano {\n"
-	"	unsigned char nano_bootstrap_weights[] = {${filedata} 0x00};\n"
-	"	size_t nano_bootstrap_weights_size = sizeof(nano_bootstrap_weights) - 1;\n"
+	"	unsigned char nano_bootstrap_weights_live[] = {${filedata} 0x00};\n"
+	"	size_t nano_bootstrap_weights_live_size = sizeof(nano_bootstrap_weights_live) - 1;\n"
 	"}\n")
+
+file (READ ${CMAKE_SOURCE_DIR}/rep_weights_beta.bin filedata HEX)
+string (REGEX REPLACE "(..)" "0x\\1," filedata ${filedata})
+file (WRITE ${CMAKE_BINARY_DIR}/bootstrap_weights_beta.cpp "#include <cstddef>\n"
+"namespace nano {\n"
+"	unsigned char nano_bootstrap_weights_beta[] = {${filedata} 0x00};\n"
+"	size_t nano_bootstrap_weights_beta_size = sizeof(nano_bootstrap_weights_beta) - 1;\n"
+"}\n")
 
 add_library (secure
 	${PLATFORM_SECURE_SOURCE}
-	${CMAKE_BINARY_DIR}/bootstrap_weights.cpp
+	${CMAKE_BINARY_DIR}/bootstrap_weights_live.cpp
+	${CMAKE_BINARY_DIR}/bootstrap_weights_beta.cpp
 	common.cpp
 	common.hpp
 	blockstore.cpp

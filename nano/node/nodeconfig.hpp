@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <nano/lib/config.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/numbers.hpp>
@@ -23,6 +24,7 @@ public:
 	nano::error deserialize_json (bool &, nano::jsonconfig &);
 	bool upgrade_json (unsigned, nano::jsonconfig &);
 	nano::account random_representative ();
+	nano::network_params network_params;
 	uint16_t peering_port;
 	nano::logging logging;
 	std::vector<std::pair<std::string, uint16_t>> work_peers;
