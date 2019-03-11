@@ -1,9 +1,9 @@
 #include <atomic>
 #include <iostream>
-#include <rai/lib/debug.hpp>
+#include <nano/lib/debug.hpp>
 #include <stdint.h>
 
-std::ostream & rai::debug::internal (rai::debug::subsystem subsystem, rai::debug::level level, const char * function, int line)
+std::ostream & nano::debug::internal (nano::debug::subsystem subsystem, nano::debug::level level, const char * function, int line)
 {
 	static thread_local uint64_t debug_thread_id = -1;
 	static std::atomic<uint64_t> debug_thread_id_counter{ 0 };
