@@ -115,15 +115,17 @@ TEST (network, last_contacted)
 	}
 	ASSERT_EQ (system.nodes[0]->peers.size (), 1);
 
+	auto channel (system.nodes[0]->network.udp_channels.channel (nano::endpoint (boost::asio::ip::address_v6::loopback (), 24001)));
+	ASSERT_NE (nullptr, channel);
 	// Make sure last_contact gets updated on receiving a non-handshake message
-	auto timestamp_before_keepalive = system.nodes[0]->peers.list_vector (1).front ().last_contact;
+	auto timestamp_before_keepalive = channel->last_packet_received;
 	node1->network.send_keepalive (sink);
 	while (system.nodes[0]->stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in) < 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (system.nodes[0]->peers.size (), 1);
-	auto timestamp_after_keepalive = system.nodes[0]->peers.list_vector (1).front ().last_contact;
+	auto timestamp_after_keepalive = channel->last_packet_received;
 	ASSERT_GT (timestamp_after_keepalive, timestamp_before_keepalive);
 
 	node1->stop ();

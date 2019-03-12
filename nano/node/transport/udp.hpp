@@ -27,6 +27,7 @@ namespace transport
 		}
 		nano::endpoint endpoint;
 		std::chrono::steady_clock::time_point last_tcp_attempt{ std::chrono::steady_clock::time_point () };
+		std::chrono::steady_clock::time_point last_packet_received{ std::chrono::steady_clock::time_point () };
 		unsigned network_version{ nano::protocol_version };
 		boost::optional<nano::account> node_id{ boost::none };
 
@@ -70,6 +71,7 @@ namespace transport
 		// Returns false if valid, true if invalid (true on error convention)
 		// Also removes the syn cookie from the store if valid
 		bool validate_syn_cookie (nano::endpoint const &, nano::account const &, nano::signature const &);
+		void ongoing_keepalive ();
 		// Maximum number of peers per IP
 		static size_t constexpr max_peers_per_ip = 10;
 		static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
@@ -85,6 +87,9 @@ namespace transport
 		class random_access_tag
 		{
 		};
+		class last_packet_received_tag
+		{
+		};
 		class last_tcp_attempt_tag
 		{
 		};
@@ -95,6 +100,10 @@ namespace transport
 			nano::endpoint endpoint () const
 			{
 				return channel->endpoint;
+			}
+			std::chrono::steady_clock::time_point last_packet_received () const
+			{
+				return channel->last_packet_received;
 			}
 			std::chrono::steady_clock::time_point last_tcp_attempt () const
 			{
@@ -118,6 +127,7 @@ namespace transport
 		boost::multi_index::random_access<boost::multi_index::tag<random_access_tag>>,
 		boost::multi_index::ordered_non_unique<boost::multi_index::tag<last_tcp_attempt_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, std::chrono::steady_clock::time_point, &channel_udp_wrapper::last_tcp_attempt>>,
 		boost::multi_index::hashed_unique<boost::multi_index::tag<endpoint_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, nano::endpoint, &channel_udp_wrapper::endpoint>>,
+		boost::multi_index::ordered_non_unique<boost::multi_index::tag<last_packet_received_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, std::chrono::steady_clock::time_point, &channel_udp_wrapper::last_packet_received>>,
 		boost::multi_index::ordered_non_unique<boost::multi_index::tag<ip_address_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, boost::asio::ip::address, &channel_udp_wrapper::ip_address>>>>
 		channels;
 		boost::multi_index_container<

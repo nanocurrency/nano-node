@@ -40,12 +40,10 @@ class peer_information
 {
 public:
 	peer_information (std::shared_ptr<nano::transport::channel_udp>);
-	peer_information (std::shared_ptr<nano::transport::channel_udp>, std::chrono::steady_clock::time_point const &);
 	std::shared_ptr<nano::transport::channel_udp> sink;
 	boost::asio::ip::address ip_address () const;
 	nano::endpoint endpoint () const;
 	std::reference_wrapper<nano::transport::channel const> sink_ref () const;
-	std::chrono::steady_clock::time_point last_contact;
 	bool operator< (nano::peer_information const &) const;
 };
 
@@ -53,15 +51,6 @@ public:
 class peer_container
 {
 public:
-	class rep_weight_tag
-	{
-	};
-	class last_rep_request_tag
-	{
-	};
-	class last_contact_tag
-	{
-	};
 	class sink_ref_tag
 	{
 	};
@@ -69,8 +58,6 @@ public:
 	{
 	};
 	peer_container (nano::node &);
-	// We were contacted by endpoint, update peers
-	void contacted (nano::endpoint const &);
 	// Notify of peer we received from
 	bool insert (nano::endpoint const &, unsigned, bool = false, boost::optional<nano::account> = boost::none);
 	std::vector<peer_information> list_vector (size_t);
@@ -79,18 +66,16 @@ public:
 	// Returns a list of probable reps and their weight
 	std::vector<peer_information> list_probable_rep_weights ();
 	// Purge any peer where last_contact < time_point and return what was left
-	void purge_list (std::chrono::steady_clock::time_point const &);
+	void erase (nano::transport::channel const &);
 	size_t size ();
 	size_t size_sqrt ();
 	bool empty ();
-	void ongoing_keepalive ();
 	std::mutex mutex;
 	nano::node & node;
 	boost::multi_index_container<
 	peer_information,
 	boost::multi_index::indexed_by<
 	boost::multi_index::hashed_unique<boost::multi_index::tag<sink_ref_tag>, boost::multi_index::const_mem_fun<peer_information, std::reference_wrapper<nano::transport::channel const>, &peer_information::sink_ref>>,
-	boost::multi_index::ordered_non_unique<boost::multi_index::tag<last_contact_tag>, boost::multi_index::member<peer_information, std::chrono::steady_clock::time_point, &peer_information::last_contact>>,
 	boost::multi_index::random_access<boost::multi_index::tag<random_access_tag>>>>
 	peers;
 	// Called when a new peer is observed

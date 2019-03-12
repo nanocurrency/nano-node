@@ -6,7 +6,7 @@ TEST (peer_container, empty_peers)
 {
 	nano::system system (24000, 1);
 	nano::peer_container & peers (system.nodes[0]->peers);
-	peers.purge_list (std::chrono::steady_clock::now ());
+	system.nodes[0]->network.cleanup (std::chrono::steady_clock::now ());
 	ASSERT_EQ (0, peers.size ());
 }
 
@@ -67,14 +67,16 @@ TEST (peer_container, split)
 	nano::endpoint endpoint1 (boost::asio::ip::address_v6::any (), 100);
 	nano::endpoint endpoint2 (boost::asio::ip::address_v6::any (), 101);
 	auto channel1 (std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, endpoint1));
+	channel1->last_packet_received = now - std::chrono::seconds (1);
 	auto channel2 (std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, endpoint2));
-	peers.peers.insert (nano::peer_information (channel1, now - std::chrono::seconds (1)));
-	peers.peers.insert (nano::peer_information (channel2, now + std::chrono::seconds (1)));
+	channel2->last_packet_received = now + std::chrono::seconds (1);
+	peers.peers.insert (nano::peer_information (channel1));
+	peers.peers.insert (nano::peer_information (channel2));
 	system.nodes[0]->network.udp_channels.add (channel1);
 	system.nodes[0]->network.udp_channels.add (channel2);
 	ASSERT_EQ (2, peers.peers.size ());
 	ASSERT_EQ (2, system.nodes[0]->network.udp_channels.size ());
-	peers.purge_list (now);
+	system.nodes[0]->network.cleanup (now);
 	ASSERT_EQ (1, peers.peers.size ());
 	ASSERT_EQ (1, system.nodes[0]->network.udp_channels.size ());
 	ASSERT_EQ (endpoint2, peers.peers.get<nano::peer_container::random_access_tag> ()[0].sink->endpoint);
@@ -146,10 +148,10 @@ TEST (peer_container, reachout)
 	// Reaching out to them once should signal we shouldn't reach out again.
 	ASSERT_TRUE (system.nodes[0]->network.udp_channels.reachout (endpoint1));
 	// Make sure we don't purge new items
-	peers.purge_list (std::chrono::steady_clock::now () - std::chrono::seconds (10));
+	system.nodes[0]->network.cleanup (std::chrono::steady_clock::now () - std::chrono::seconds (10));
 	ASSERT_TRUE (system.nodes[0]->network.udp_channels.reachout (endpoint1));
 	// Make sure we purge old items
-	peers.purge_list (std::chrono::steady_clock::now () + std::chrono::seconds (10));
+	system.nodes[0]->network.cleanup (std::chrono::steady_clock::now () + std::chrono::seconds (10));
 	ASSERT_FALSE (system.nodes[0]->network.udp_channels.reachout (endpoint1));
 }
 

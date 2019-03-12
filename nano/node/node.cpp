@@ -536,7 +536,7 @@ public:
 	}
 	void node_id_handshake (nano::node_id_handshake const & message_a) override
 	{
-		assert (false);
+		node.stats.inc (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in);
 	}
 	nano::node & node;
 	std::shared_ptr<nano::transport::channel> sink;
@@ -1511,7 +1511,6 @@ void nano::node::start ()
 {
 	network.start ();
 	add_initial_peers ();
-	peers.ongoing_keepalive ();
 	if (!flags.disable_legacy_bootstrap)
 	{
 		ongoing_bootstrap ();
@@ -2279,7 +2278,7 @@ nano::endpoint nano::network::endpoint ()
 
 void nano::network::cleanup (std::chrono::steady_clock::time_point const & cutoff_a)
 {
-	node.peers.purge_list (cutoff_a);
+	node.network.udp_channels.purge (cutoff_a);
 	if (node.peers.empty ())
 	{
 		disconnect_observer ();

@@ -15,14 +15,7 @@ nano::endpoint nano::map_endpoint_to_v6 (nano::endpoint const & endpoint_a)
 }
 
 nano::peer_information::peer_information (std::shared_ptr<nano::transport::channel_udp> sink_a) :
-sink (sink_a),
-last_contact (std::chrono::steady_clock::now ())
-{
-}
-
-nano::peer_information::peer_information (std::shared_ptr<nano::transport::channel_udp> sink_a, std::chrono::steady_clock::time_point const & last_contact_a) :
-sink (sink_a),
-last_contact (last_contact_a)
+sink (sink_a)
 {
 }
 
@@ -50,24 +43,6 @@ nano::peer_container::peer_container (nano::node & node_a) :
 node (node_a),
 peer_observer ([](std::shared_ptr<nano::transport::channel>) {})
 {
-}
-
-void nano::peer_container::contacted (nano::endpoint const & endpoint_a)
-{
-	auto endpoint_l (nano::map_endpoint_to_v6 (endpoint_a));
-	nano::transport::channel_udp sink (node.network.udp_channels, endpoint_l);
-	auto channel (node.network.udp_channels.channel (endpoint_a));
-	if (channel != nullptr)
-	{
-		std::lock_guard<std::mutex> lock (mutex);
-		auto existing (peers.find (std::reference_wrapper<nano::transport::channel const> (*channel)));
-		if (existing != peers.end ())
-		{
-			peers.modify (existing, [](nano::peer_information & info) {
-				info.last_contact = std::chrono::steady_clock::now ();
-			});
-		}
-	}
 }
 
 // Simulating with sqrt_broadcast_simulate shows we only need to broadcast to sqrt(total_peers) random peers in order to successfully publish to everyone with high probability
@@ -149,36 +124,10 @@ bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned v
 	return result;
 }
 
-void nano::peer_container::purge_list (std::chrono::steady_clock::time_point const & cutoff_a)
+void nano::peer_container::erase (nano::transport::channel const & channel_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	auto disconnect_cutoff (peers.get<last_contact_tag> ().lower_bound (cutoff_a));
-	// Remove peers that haven't been heard from past the cutoff
-	for (auto i (peers.get<last_contact_tag> ().begin ()); i != disconnect_cutoff; ++i)
-	{
-		node.network.udp_channels.erase (i->endpoint ());
-	}
-	peers.get<last_contact_tag> ().erase (peers.get<last_contact_tag> ().begin (), disconnect_cutoff);
-	node.network.udp_channels.purge (cutoff_a);
-}
-
-void nano::peer_container::ongoing_keepalive ()
-{
-	nano::keepalive message;
-	node.network.udp_channels.random_fill (message.peers);
-	std::lock_guard<std::mutex> lock (mutex);
-	auto keepalive_cutoff (peers.get<last_contact_tag> ().lower_bound (std::chrono::steady_clock::now () - nano::network::period));
-	for (auto i (peers.get<last_contact_tag> ().begin ()); i != keepalive_cutoff; ++i)
-	{
-		i->sink->sink (message);
-	}
-	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.alarm.add (std::chrono::steady_clock::now () + nano::network::period, [node_w]() {
-		if (auto node_l = node_w.lock ())
-		{
-			node_l->peers.ongoing_keepalive ();
-		}
-	});
+	peers.get<sink_ref_tag> ().erase (channel_a);
 }
 
 namespace nano

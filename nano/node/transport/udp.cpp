@@ -315,6 +315,7 @@ void nano::transport::udp_channels::start ()
 	{
 		receive ();
 	}
+	ongoing_keepalive ();
 	ongoing_syn_cookie_cleanup ();
 }
 
@@ -362,17 +363,14 @@ public:
 	}
 	void publish (nano::publish const & message_a) override
 	{
-		node.peers.contacted (endpoint);
 		message (message_a);
 	}
 	void confirm_req (nano::confirm_req const & message_a) override
 	{
-		node.peers.contacted (endpoint);
 		message (message_a);
 	}
 	void confirm_ack (nano::confirm_ack const & message_a) override
 	{
-		node.peers.contacted (endpoint);
 		message (message_a);
 	}
 	void bulk_pull (nano::bulk_pull const &) override
@@ -430,13 +428,14 @@ public:
 		{
 			node.network.send_node_id_handshake (endpoint, out_query, out_respond_to);
 		}
-		node.stats.inc (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in);
+		message (message_a);
 	}
 	void message (nano::message const & message_a)
 	{
 		auto channel (node.network.udp_channels.channel (endpoint));
 		if (channel)
 		{
+			channel->last_packet_received = std::chrono::steady_clock::now ();
 			node.process_message (message_a, channel);
 		}
 	}
@@ -610,6 +609,14 @@ std::unique_ptr<nano::seq_con_info_component> nano::transport::udp_channels::col
 
 void nano::transport::udp_channels::purge (std::chrono::steady_clock::time_point const & cutoff_a)
 {
+	std::lock_guard<std::mutex> lock (mutex);
+	auto disconnect_cutoff (channels.get<last_packet_received_tag> ().lower_bound (cutoff_a));
+	// Remove peers that haven't been heard from past the cutoff
+	for (auto i (channels.get<last_packet_received_tag> ().begin ()); i != disconnect_cutoff; ++i)
+	{
+		node.peers.erase (*i->channel);
+	}
+	channels.get<last_packet_received_tag> ().erase (channels.get<last_packet_received_tag> ().begin (), disconnect_cutoff);
 	// Remove keepalive attempt tracking for attempts older than cutoff
 	auto attempts_cutoff (attempts.get<1> ().lower_bound (cutoff_a));
 	attempts.get<1> ().erase (attempts.get<1> ().begin (), attempts_cutoff);
@@ -696,6 +703,25 @@ void nano::transport::udp_channels::ongoing_syn_cookie_cleanup ()
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->network.udp_channels.ongoing_syn_cookie_cleanup ();
+		}
+	});
+}
+
+void nano::transport::udp_channels::ongoing_keepalive ()
+{
+	nano::keepalive message;
+	random_fill (message.peers);
+	std::lock_guard<std::mutex> lock (mutex);
+	auto keepalive_cutoff (channels.get<last_packet_received_tag> ().lower_bound (std::chrono::steady_clock::now () - nano::network::period));
+	for (auto i (channels.get<last_packet_received_tag> ().begin ()); i != keepalive_cutoff; ++i)
+	{
+		i->channel->sink (message);
+	}
+	std::weak_ptr<nano::node> node_w (node.shared ());
+	node.alarm.add (std::chrono::steady_clock::now () + nano::network::period, [node_w]() {
+		if (auto node_l = node_w.lock ())
+		{
+			node_l->network.udp_channels.ongoing_keepalive ();
 		}
 	});
 }
