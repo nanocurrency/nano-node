@@ -346,15 +346,20 @@ public:
 	void confirm_hashes (nano::transaction const &, nano::transport::channel const &, std::vector<nano::block_hash>);
 	bool send_votes_cache (nano::transport::channel const &, nano::block_hash const &);
 	nano::endpoint endpoint ();
+	void cleanup (std::chrono::steady_clock::time_point const &);
+	void ongoing_cleanup ();
 	nano::message_buffer_manager buffer_container;
 	boost::asio::ip::udp::resolver resolver;
 	std::vector<boost::thread> packet_processing_threads;
 	nano::node & node;
 	nano::transport::udp_channels udp_channels;
+	std::function<void()> disconnect_observer;
 	static unsigned const broadcast_interval_ms = 10;
 	static uint16_t const node_port = nano::is_live_network ? 7075 : 54000;
 	static size_t const buffer_size = 512;
 	static size_t const confirm_req_hashes_max = 6;
+	static std::chrono::seconds constexpr period = nano::is_test_network ? std::chrono::seconds (1) : std::chrono::seconds (60);
+	static std::chrono::seconds constexpr cutoff = period * 5;
 };
 
 class node_init

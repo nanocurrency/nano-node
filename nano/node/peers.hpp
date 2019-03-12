@@ -95,11 +95,8 @@ public:
 	peers;
 	// Called when a new peer is observed
 	std::function<void(std::shared_ptr<nano::transport::channel>)> peer_observer;
-	std::function<void()> disconnect_observer;
 	// Number of peers to crawl for being a rep every period
 	static size_t constexpr peers_per_crawl = 8;
-	static std::chrono::seconds constexpr period = nano::is_test_network ? std::chrono::seconds (1) : std::chrono::seconds (60);
-	static std::chrono::seconds constexpr cutoff = period * 5;
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (peer_container & peer_container, const std::string & name);

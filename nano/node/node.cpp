@@ -30,6 +30,8 @@ size_t constexpr nano::block_arrival::arrival_size_min;
 std::chrono::seconds constexpr nano::block_arrival::arrival_time_min;
 uint64_t constexpr nano::online_reps::weight_period;
 uint64_t constexpr nano::online_reps::weight_samples;
+std::chrono::seconds constexpr nano::network::period;
+std::chrono::seconds constexpr nano::network::cutoff;
 
 namespace nano
 {
@@ -41,7 +43,8 @@ nano::network::network (nano::node & node_a, uint16_t port_a) :
 buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
 resolver (node_a.io_ctx),
 node (node_a),
-udp_channels (node_a, port_a)
+udp_channels (node_a, port_a),
+disconnect_observer ([]() {})
 {
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
@@ -91,6 +94,7 @@ nano::network::~network ()
 
 void nano::network::start ()
 {
+	ongoing_cleanup ();
 	udp_channels.start ();
 }
 
@@ -1063,7 +1067,7 @@ startup_time (std::chrono::steady_clock::now ())
 	peers.peer_observer = [this](std::shared_ptr<nano::transport::channel> sink_a) {
 		observers.endpoint.notify (sink_a);
 	};
-	peers.disconnect_observer = [this]() {
+	network.disconnect_observer = [this]() {
 		observers.disconnect.notify ();
 	};
 	if (!config.callback_address.empty ())
@@ -2271,6 +2275,27 @@ void nano::node::process_message (nano::message const & message_a, std::shared_p
 nano::endpoint nano::network::endpoint ()
 {
 	return udp_channels.local_endpoint ();
+}
+
+void nano::network::cleanup (std::chrono::steady_clock::time_point const & cutoff_a)
+{
+	node.peers.purge_list (cutoff_a);
+	if (node.peers.empty ())
+	{
+		disconnect_observer ();
+	}
+}
+
+void nano::network::ongoing_cleanup ()
+{
+	cleanup (std::chrono::steady_clock::now () - cutoff);
+	std::weak_ptr<nano::node> node_w (node.shared ());
+	node.alarm.add (std::chrono::steady_clock::now () + period, [node_w]() {
+		if (auto node_l = node_w.lock ())
+		{
+			node_l->network.ongoing_cleanup ();
+		}
+	});
 }
 
 bool nano::block_arrival::add (nano::block_hash const & hash_a)

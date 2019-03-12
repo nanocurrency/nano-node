@@ -4,9 +4,6 @@
 #include <nano/node/transport/tcp.hpp>
 #include <nano/node/transport/udp.hpp>
 
-std::chrono::seconds constexpr nano::peer_container::period;
-std::chrono::seconds constexpr nano::peer_container::cutoff;
-
 nano::endpoint nano::map_endpoint_to_v6 (nano::endpoint const & endpoint_a)
 {
 	auto endpoint_l (endpoint_a);
@@ -51,8 +48,7 @@ bool nano::peer_information::operator< (nano::peer_information const & peer_info
 
 nano::peer_container::peer_container (nano::node & node_a) :
 node (node_a),
-peer_observer ([](std::shared_ptr<nano::transport::channel>) {}),
-disconnect_observer ([]() {})
+peer_observer ([](std::shared_ptr<nano::transport::channel>) {})
 {
 }
 
@@ -155,40 +151,29 @@ bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned v
 
 void nano::peer_container::purge_list (std::chrono::steady_clock::time_point const & cutoff_a)
 {
-	bool disconnected;
+	std::lock_guard<std::mutex> lock (mutex);
+	auto disconnect_cutoff (peers.get<last_contact_tag> ().lower_bound (cutoff_a));
+	// Remove peers that haven't been heard from past the cutoff
+	for (auto i (peers.get<last_contact_tag> ().begin ()); i != disconnect_cutoff; ++i)
 	{
-		std::lock_guard<std::mutex> lock (mutex);
-		auto disconnect_cutoff (peers.get<last_contact_tag> ().lower_bound (cutoff_a));
-		// Remove peers that haven't been heard from past the cutoff
-		for (auto i (peers.get<last_contact_tag> ().begin ()); i != disconnect_cutoff; ++i)
-		{
-			node.network.udp_channels.erase (i->endpoint ());
-		}
-		peers.get<last_contact_tag> ().erase (peers.get<last_contact_tag> ().begin (), disconnect_cutoff);
-		node.network.udp_channels.purge (cutoff_a);
-		disconnected = peers.empty ();
+		node.network.udp_channels.erase (i->endpoint ());
 	}
-	if (disconnected)
-	{
-		disconnect_observer ();
-	}
+	peers.get<last_contact_tag> ().erase (peers.get<last_contact_tag> ().begin (), disconnect_cutoff);
+	node.network.udp_channels.purge (cutoff_a);
 }
 
 void nano::peer_container::ongoing_keepalive ()
 {
-	purge_list (std::chrono::steady_clock::now () - cutoff);
+	nano::keepalive message;
+	node.network.udp_channels.random_fill (message.peers);
+	std::lock_guard<std::mutex> lock (mutex);
+	auto keepalive_cutoff (peers.get<last_contact_tag> ().lower_bound (std::chrono::steady_clock::now () - nano::network::period));
+	for (auto i (peers.get<last_contact_tag> ().begin ()); i != keepalive_cutoff; ++i)
 	{
-		nano::keepalive message;
-		node.network.udp_channels.random_fill (message.peers);
-		std::lock_guard<std::mutex> lock (mutex);
-		auto keepalive_cutoff (peers.get<last_contact_tag> ().lower_bound (std::chrono::steady_clock::now () - period));
-		for (auto i (peers.get<last_contact_tag> ().begin ()); i != keepalive_cutoff; ++i)
-		{
-			i->sink->sink (message);
-		}
+		i->sink->sink (message);
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.alarm.add (std::chrono::steady_clock::now () + period, [node_w]() {
+	node.alarm.add (std::chrono::steady_clock::now () + nano::network::period, [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->peers.ongoing_keepalive ();
