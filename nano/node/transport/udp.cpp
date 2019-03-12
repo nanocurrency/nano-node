@@ -743,3 +743,10 @@ std::deque<std::shared_ptr<nano::transport::channel_udp>> nano::transport::udp_c
 	}
 	return result;
 }
+
+// Simulating with sqrt_broadcast_simulate shows we only need to broadcast to sqrt(total_peers) random peers in order to successfully publish to everyone with high probability
+std::deque<std::shared_ptr<nano::transport::channel_udp>> nano::transport::udp_channels::list_fanout ()
+{
+	auto result (list (node.network.size_sqrt ()));
+	return result;
+}

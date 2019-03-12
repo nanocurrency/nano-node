@@ -244,7 +244,7 @@ bool nano::network::send_votes_cache (nano::transport::channel const & sink_a, n
 
 void nano::network::flood_message (nano::message const & message_a)
 {
-	auto list (node.peers.list_fanout ());
+	auto list (node.network.udp_channels.list_fanout ());
 	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
 	{
 		(*i)->sink (message_a);

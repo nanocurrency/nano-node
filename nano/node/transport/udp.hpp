@@ -73,6 +73,8 @@ namespace transport
 		bool validate_syn_cookie (nano::endpoint const &, nano::account const &, nano::signature const &);
 		void ongoing_keepalive ();
 		std::deque<std::shared_ptr<nano::transport::channel_udp>> list (size_t);
+		// A list of random peers sized for the configured rebroadcast fanout
+		std::deque<std::shared_ptr<nano::transport::channel_udp>> list_fanout ();
 		// Maximum number of peers per IP
 		static size_t constexpr max_peers_per_ip = 10;
 		static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);

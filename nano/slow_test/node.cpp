@@ -365,10 +365,6 @@ TEST (peer_container, random_set)
 	nano::system system (24000, 1);
 	nano::peer_container & container (system.nodes[0]->peers);
 	auto old (std::chrono::steady_clock::now ());
-	for (auto i (0); i < 10000; ++i)
-	{
-		auto list (container.list_fanout ());
-	}
 	auto current (std::chrono::steady_clock::now ());
 	for (auto i (0); i < 10000; ++i)
 	{

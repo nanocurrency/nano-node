@@ -60,8 +60,6 @@ public:
 	peer_container (nano::node &);
 	// Notify of peer we received from
 	bool insert (nano::endpoint const &, unsigned, bool = false);
-	// A list of random peers sized for the configured rebroadcast fanout
-	std::deque<std::shared_ptr<nano::transport::channel_udp>> list_fanout ();
 	// Purge any peer where last_contact < time_point and return what was left
 	void erase (nano::transport::channel const &);
 	std::mutex mutex;
