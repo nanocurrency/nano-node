@@ -178,6 +178,8 @@ void nano::peer_container::ongoing_keepalive ()
 {
 	purge_list (std::chrono::steady_clock::now () - cutoff);
 	{
+		nano::keepalive message;
+		node.network.udp_channels.random_fill (message.peers);
 		std::lock_guard<std::mutex> lock (mutex);
 		auto keepalive_cutoff (peers.get<last_contact_tag> ().lower_bound (std::chrono::steady_clock::now () - period));
 		if (keepalive_cutoff == peers.get<last_contact_tag> ().end ())
@@ -186,7 +188,7 @@ void nano::peer_container::ongoing_keepalive ()
 		}
 		for (auto i (peers.get<last_contact_tag> ().begin ()); i != keepalive_cutoff; ++i)
 		{
-			node.network.send_keepalive (*i->sink);
+			i->sink->sink (message);
 		}
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
