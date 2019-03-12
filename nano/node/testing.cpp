@@ -43,17 +43,19 @@ work (1, nullptr)
 	}
 	for (auto i (nodes.begin ()), j (nodes.begin () + 1), n (nodes.end ()); j != n; ++i, ++j)
 	{
-		auto starting1 ((*i)->peers.size ());
+		auto node1 (*i);
+		auto node2 (*j);
+		auto starting1 (node1->network.size ());
 		decltype (starting1) new1;
-		auto starting2 ((*j)->peers.size ());
+		auto starting2 (node2->network.size ());
 		decltype (starting2) new2;
 		nano::transport::channel_udp sink ((*j)->network.udp_channels, (*i)->network.endpoint ());
 		(*j)->network.send_keepalive (sink);
 		do
 		{
 			poll ();
-			new1 = (*i)->peers.size ();
-			new2 = (*j)->peers.size ();
+			new1 = node1->network.size ();
+			new2 = node2->network.size ();
 		} while (new1 == starting1 || new2 == starting2);
 	}
 	auto iterations1 (0);

@@ -64,9 +64,6 @@ public:
 	std::deque<std::shared_ptr<nano::transport::channel_udp>> list_fanout ();
 	// Purge any peer where last_contact < time_point and return what was left
 	void erase (nano::transport::channel const &);
-	size_t size ();
-	size_t size_sqrt ();
-	bool empty ();
 	std::mutex mutex;
 	nano::node & node;
 	boost::multi_index_container<

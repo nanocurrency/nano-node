@@ -48,29 +48,13 @@ peer_observer ([](std::shared_ptr<nano::transport::channel>) {})
 // Simulating with sqrt_broadcast_simulate shows we only need to broadcast to sqrt(total_peers) random peers in order to successfully publish to everyone with high probability
 std::deque<std::shared_ptr<nano::transport::channel_udp>> nano::peer_container::list_fanout ()
 {
-	auto peers (node.network.udp_channels.random_set (size_sqrt ()));
+	auto peers (node.network.udp_channels.random_set (node.network.size_sqrt ()));
 	std::deque<std::shared_ptr<nano::transport::channel_udp>> result;
 	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
 	{
 		result.push_back (*i);
 	}
 	return result;
-}
-
-size_t nano::peer_container::size ()
-{
-	std::lock_guard<std::mutex> lock (mutex);
-	return peers.size ();
-}
-
-size_t nano::peer_container::size_sqrt ()
-{
-	return (static_cast<size_t> (std::ceil (std::sqrt (size ()))));
-}
-
-bool nano::peer_container::empty ()
-{
-	return size () == 0;
 }
 
 bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned version_a, bool allow_local_peers)

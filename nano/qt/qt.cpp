@@ -1426,7 +1426,7 @@ void nano_qt::wallet::refresh ()
 
 void nano_qt::wallet::update_connected ()
 {
-	if (node.peers.empty ())
+	if (node.network.empty ())
 	{
 		active_status.insert (nano_qt::status_types::disconnected);
 	}
