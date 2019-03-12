@@ -57,22 +57,6 @@ std::deque<std::shared_ptr<nano::transport::channel_udp>> nano::peer_container::
 	return result;
 }
 
-std::vector<nano::peer_information> nano::peer_container::list_vector (size_t count_a)
-{
-	std::vector<peer_information> result;
-	std::lock_guard<std::mutex> lock (mutex);
-	for (auto i (peers.begin ()), j (peers.end ()); i != j; ++i)
-	{
-		result.push_back (*i);
-	}
-	random_pool::shuffle (result.begin (), result.end ());
-	if (result.size () > count_a)
-	{
-		result.resize (count_a, nano::peer_information (nullptr));
-	}
-	return result;
-}
-
 size_t nano::peer_container::size ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
@@ -89,7 +73,7 @@ bool nano::peer_container::empty ()
 	return size () == 0;
 }
 
-bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned version_a, bool allow_local_peers, boost::optional<nano::account> node_id_a)
+bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned version_a, bool allow_local_peers)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	std::shared_ptr<nano::transport::channel_udp> new_peer;

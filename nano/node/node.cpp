@@ -274,11 +274,11 @@ void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> block_a)
 	if (list->empty () || node.rep_crawler.total_weight () < node.config.online_weight_minimum.number ())
 	{
 		// broadcast request to all peers (with max limit 2 * sqrt (peers count))
-		auto peers (node.peers.list_vector (std::min (static_cast<size_t> (100), 2 * node.peers.size_sqrt ())));
+		auto peers (node.network.udp_channels.list (std::min (static_cast<size_t> (100), 2 * node.peers.size_sqrt ())));
 		list->clear ();
 		for (auto & peer : peers)
 		{
-			list->push_back (peer.sink);
+			list->push_back (peer);
 		}
 	}
 

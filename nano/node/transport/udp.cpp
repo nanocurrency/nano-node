@@ -725,3 +725,21 @@ void nano::transport::udp_channels::ongoing_keepalive ()
 		}
 	});
 }
+
+std::deque<std::shared_ptr<nano::transport::channel_udp>> nano::transport::udp_channels::list (size_t count_a)
+{
+	std::deque<std::shared_ptr<nano::transport::channel_udp>> result;
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		for (auto i (channels.begin ()), j (channels.end ()); i != j; ++i)
+		{
+			result.push_back (i->channel);
+		}
+	}
+	random_pool::shuffle (result.begin (), result.end ());
+	if (result.size () > count_a)
+	{
+		result.resize (count_a, nullptr);
+	}
+	return result;
+}

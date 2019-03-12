@@ -1950,21 +1950,20 @@ wallet (wallet_a)
 void nano_qt::advanced_actions::refresh_peers ()
 {
 	peers_model->removeRows (0, peers_model->rowCount ());
-	auto list (wallet.node.peers.list_vector (std::numeric_limits<size_t>::max ()));
+	auto list (wallet.node.network.udp_channels.list (std::numeric_limits<size_t>::max ()));
 	std::sort (list.begin (), list.end ());
 	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
 	{
 		std::stringstream endpoint;
-		endpoint << i->sink->to_string ();
+		auto channel (*i);
+		endpoint << channel->to_string ();
 		QString qendpoint (endpoint.str ().c_str ());
 		QList<QStandardItem *> items;
 		items.push_back (new QStandardItem (qendpoint));
 		auto version = new QStandardItem ();
-		version->setData (QVariant (i->sink->network_version), Qt::DisplayRole);
+		version->setData (QVariant (channel->network_version), Qt::DisplayRole);
 		items.push_back (version);
 		QString node_id ("");
-		auto channel (wallet.node.network.udp_channels.channel (i->endpoint ()));
-		assert (channel != nullptr);
 		if (channel->node_id.is_initialized ())
 		{
 			node_id = channel->node_id.get ().to_account ().c_str ();

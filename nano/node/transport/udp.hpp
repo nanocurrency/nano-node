@@ -72,6 +72,7 @@ namespace transport
 		// Also removes the syn cookie from the store if valid
 		bool validate_syn_cookie (nano::endpoint const &, nano::account const &, nano::signature const &);
 		void ongoing_keepalive ();
+		std::deque<std::shared_ptr<nano::transport::channel_udp>> list (size_t);
 		// Maximum number of peers per IP
 		static size_t constexpr max_peers_per_ip = 10;
 		static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);

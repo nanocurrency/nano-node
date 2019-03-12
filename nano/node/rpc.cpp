@@ -2298,19 +2298,18 @@ void nano::rpc_handler::peers ()
 {
 	boost::property_tree::ptree peers_l;
 	const bool peer_details = request.get<bool> ("peer_details", false);
-	auto peers_list (node.peers.list_vector (std::numeric_limits<size_t>::max ()));
+	auto peers_list (node.network.udp_channels.list (std::numeric_limits<size_t>::max ()));
 	std::sort (peers_list.begin (), peers_list.end ());
 	for (auto i (peers_list.begin ()), n (peers_list.end ()); i != n; ++i)
 	{
 		std::stringstream text;
-		text << i->sink->to_string ();
+		auto channel (*i);
+		text << channel->to_string ();
 		if (peer_details)
 		{
 			boost::property_tree::ptree pending_tree;
-			pending_tree.put ("protocol_version", std::to_string (i->sink->network_version));
-			auto channel (node.network.udp_channels.channel (i->endpoint ()));
-			assert (channel != nullptr);
-			if (channel->node_id.is_initialized ())
+			pending_tree.put ("protocol_version", std::to_string (channel->network_version));
+			if ((*i)->node_id.is_initialized ())
 			{
 				pending_tree.put ("node_id", channel->node_id.get ().to_account ());
 			}
@@ -2322,7 +2321,7 @@ void nano::rpc_handler::peers ()
 		}
 		else
 		{
-			peers_l.push_back (boost::property_tree::ptree::value_type (text.str (), boost::property_tree::ptree (std::to_string (i->sink->network_version))));
+			peers_l.push_back (boost::property_tree::ptree::value_type (text.str (), boost::property_tree::ptree (std::to_string (channel->network_version))));
 		}
 	}
 	response_l.add_child ("peers", peers_l);

@@ -59,12 +59,9 @@ public:
 	};
 	peer_container (nano::node &);
 	// Notify of peer we received from
-	bool insert (nano::endpoint const &, unsigned, bool = false, boost::optional<nano::account> = boost::none);
-	std::vector<peer_information> list_vector (size_t);
+	bool insert (nano::endpoint const &, unsigned, bool = false);
 	// A list of random peers sized for the configured rebroadcast fanout
 	std::deque<std::shared_ptr<nano::transport::channel_udp>> list_fanout ();
-	// Returns a list of probable reps and their weight
-	std::vector<peer_information> list_probable_rep_weights ();
 	// Purge any peer where last_contact < time_point and return what was left
 	void erase (nano::transport::channel const &);
 	size_t size ();
