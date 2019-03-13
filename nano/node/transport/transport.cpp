@@ -46,6 +46,16 @@ public:
 };
 }
 
+nano::endpoint nano::transport::map_endpoint_to_v6 (nano::endpoint const & endpoint_a)
+{
+	auto endpoint_l (endpoint_a);
+	if (endpoint_l.address ().is_v4 ())
+	{
+		endpoint_l = nano::endpoint (boost::asio::ip::address_v6::v4_mapped (endpoint_l.address ().to_v4 ()), endpoint_l.port ());
+	}
+	return endpoint_l;
+}
+
 void nano::transport::channel::send_buffer (std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
 {
 	send_buffer_raw (boost::asio::buffer (buffer_a->data (), buffer_a->size ()), callback (buffer_a, detail_a, callback_a));

@@ -1765,7 +1765,7 @@ void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bo
 {
 	if (add_to_peers)
 	{
-		node.peers.insert (nano::map_endpoint_to_v6 (endpoint_a), nano::protocol_version);
+		node.network.udp_channels.insert (nano::transport::map_endpoint_to_v6 (endpoint_a), nano::protocol_version);
 	}
 	std::unique_lock<std::mutex> lock (mutex);
 	if (!stopped)

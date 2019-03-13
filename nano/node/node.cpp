@@ -120,7 +120,7 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a, bool
 		{
 			for (auto i (i_a), n (boost::asio::ip::udp::resolver::iterator{}); i != n; ++i)
 			{
-				auto endpoint (nano::map_endpoint_to_v6 (i->endpoint ()));
+				auto endpoint (nano::transport::map_endpoint_to_v6 (i->endpoint ()));
 				nano::transport::channel_udp sink (node_l->network.udp_channels, endpoint);
 				node_l->network.send_keepalive (sink);
 			}
@@ -1043,7 +1043,6 @@ active (*this),
 network (*this, config.peering_port),
 bootstrap_initiator (*this),
 bootstrap (io_ctx_a, config.peering_port, *this),
-peers (*this),
 application_path (application_path_a),
 wallets (init_a.wallet_init, *this),
 port_mapping (*this),
@@ -1064,7 +1063,7 @@ startup_time (std::chrono::steady_clock::now ())
 	wallets.observer = [this](bool active) {
 		observers.wallet.notify (active);
 	};
-	peers.peer_observer = [this](std::shared_ptr<nano::transport::channel> sink_a) {
+	network.channel_observer = [this](std::shared_ptr<nano::transport::channel> sink_a) {
 		observers.endpoint.notify (sink_a);
 	};
 	network.disconnect_observer = [this]() {
@@ -1371,7 +1370,6 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (node & node, const
 	composite->add_component (collect_seq_con_info (node.active, "active"));
 	composite->add_component (collect_seq_con_info (node.bootstrap_initiator, "bootstrap_initiator"));
 	composite->add_component (collect_seq_con_info (node.bootstrap, "bootstrap"));
-	composite->add_component (collect_seq_con_info (node.peers, "peers"));
 	composite->add_component (node.network.udp_channels.collect_seq_con_info ("udp_channels"));
 	composite->add_component (collect_seq_con_info (node.observers, "observers"));
 	composite->add_component (collect_seq_con_info (node.wallets, "wallets"));

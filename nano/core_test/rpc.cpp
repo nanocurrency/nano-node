@@ -1689,7 +1689,7 @@ TEST (rpc, peers)
 {
 	nano::system system (24000, 2);
 	nano::endpoint endpoint (boost::asio::ip::address_v6::from_string ("fc00::1"), 4000);
-	system.nodes[0]->peers.insert (endpoint, nano::protocol_version, system.nodes[0]->config.allow_local_peers);
+	system.nodes[0]->network.udp_channels.insert (endpoint, nano::protocol_version);
 	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -1714,7 +1714,7 @@ TEST (rpc, peers_node_id)
 {
 	nano::system system (24000, 2);
 	nano::endpoint endpoint (boost::asio::ip::address_v6::from_string ("fc00::1"), 4000);
-	system.nodes[0]->peers.insert (endpoint, nano::protocol_version, system.nodes[0]->config.allow_local_peers);
+	system.nodes[0]->network.udp_channels.insert (endpoint, nano::protocol_version);
 	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;

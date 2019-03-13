@@ -298,7 +298,7 @@ TEST (node, merge_peers)
 	endpoints.fill (nano::endpoint (boost::asio::ip::address_v6::loopback (), 24000));
 	endpoints[0] = nano::endpoint (boost::asio::ip::address_v6::loopback (), 24001);
 	system.nodes[0]->network.merge_peers (endpoints);
-	ASSERT_EQ (0, system.nodes[0]->peers.peers.size ());
+	ASSERT_EQ (0, system.nodes[0]->network.size ());
 }
 
 TEST (node, search_pending)
@@ -1534,7 +1534,7 @@ TEST (node, rep_weight)
 	nano::system system (24000, 1);
 	auto & node (*system.nodes[0]);
 
-	node.peers.insert (nano::endpoint (boost::asio::ip::address_v6::loopback (), 24001), 0);
+	node.network.udp_channels.insert (nano::endpoint (boost::asio::ip::address_v6::loopback (), 24001), 0);
 	ASSERT_TRUE (node.rep_crawler.representatives (1).empty ());
 	nano::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), 24000);
 	nano::endpoint endpoint1 (boost::asio::ip::address_v6::loopback (), 24002);
@@ -1544,9 +1544,9 @@ TEST (node, rep_weight)
 	auto channel2 (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, endpoint2));
 	nano::amount amount100 (100);
 	nano::amount amount50 (50);
-	node.peers.insert (endpoint2, nano::protocol_version);
-	node.peers.insert (endpoint0, nano::protocol_version);
-	node.peers.insert (endpoint1, nano::protocol_version);
+	node.network.udp_channels.insert (endpoint2, nano::protocol_version);
+	node.network.udp_channels.insert (endpoint0, nano::protocol_version);
+	node.network.udp_channels.insert (endpoint1, nano::protocol_version);
 	nano::keypair keypair1;
 	nano::keypair keypair2;
 	node.rep_crawler.response (channel0, keypair1.pub, amount100);
@@ -2230,9 +2230,11 @@ TEST (node, peers)
 
 	// Confirm that the peers match with the endpoints we are expecting
 	ASSERT_EQ (1, system.nodes.front ()->network.size ());
-	ASSERT_EQ (system.nodes.front ()->peers.peers.get<nano::peer_container::random_access_tag> ().begin ()->endpoint (), system.nodes.back ()->network.endpoint ());
+	auto list1 (system.nodes[0]->network.udp_channels.list (2));
+	ASSERT_EQ (system.nodes[1]->network.endpoint (), list1[0]->endpoint);
 	ASSERT_EQ (1, node->network.size ());
-	ASSERT_EQ (system.nodes.back ()->peers.peers.get<nano::peer_container::random_access_tag> ().begin ()->endpoint (), system.nodes.front ()->network.endpoint ());
+	auto list2 (system.nodes[1]->network.udp_channels.list (2));
+	ASSERT_EQ (system.nodes[0]->network.endpoint (), list2[0]->endpoint);
 	// Stop the peer node and check that it is removed from the store
 	system.nodes.front ()->stop ();
 

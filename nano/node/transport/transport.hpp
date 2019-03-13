@@ -9,6 +9,7 @@ namespace nano
 namespace transport
 {
 	class message;
+	nano::endpoint map_endpoint_to_v6 (nano::endpoint const &);
 	class channel
 	{
 	public:

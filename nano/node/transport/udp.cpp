@@ -5,8 +5,8 @@ std::chrono::seconds constexpr nano::transport::udp_channels::syn_cookie_cutoff;
 
 nano::transport::channel_udp::channel_udp (nano::transport::udp_channels & channels_a, nano::endpoint const & endpoint_a, unsigned network_version_a) :
 endpoint (endpoint_a),
-channels (channels_a),
-network_version (network_version_a)
+network_version (network_version_a),
+channels (channels_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
 }
@@ -67,10 +67,27 @@ socket (node_a.io_ctx, nano::endpoint (boost::asio::ip::address_v6::any (), port
 {
 }
 
-void nano::transport::udp_channels::add (std::shared_ptr<nano::transport::channel_udp> channel_a)
+std::shared_ptr<nano::transport::channel_udp> nano::transport::udp_channels::insert (nano::endpoint const & endpoint_a, unsigned network_version_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
-	channels.get<endpoint_tag> ().insert ({ channel_a });
+	assert (endpoint_a.address ().is_v6 ());
+	std::shared_ptr<nano::transport::channel_udp> result;
+	if (!not_a_peer (endpoint_a, node.config.allow_local_peers))
+	{
+		std::unique_lock<std::mutex> lock (mutex);
+		auto existing (channels.get<endpoint_tag> ().find (endpoint_a));
+		if (existing != channels.get<endpoint_tag> ().end ())
+		{
+			result = existing->channel;
+		}
+		else
+		{
+			result = std::make_shared<nano::transport::channel_udp> (*this, endpoint_a, network_version_a);
+			channels.get<endpoint_tag> ().insert ({ result });
+			lock.unlock ();
+			node.network.channel_observer (result);
+		}
+	}
+	return result;
 }
 
 void nano::transport::udp_channels::erase (nano::endpoint const & endpoint_a)
@@ -409,7 +426,7 @@ public:
 				validated_response = true;
 				if (message_a.response->first != node.node_id.pub)
 				{
-					node.peers.insert (endpoint, message_a.header.version_using, node.config.allow_local_peers);
+					node.network.udp_channels.insert (endpoint, message_a.header.version_using);
 					auto channel (node.network.udp_channels.channel (endpoint));
 					assert (channel != nullptr);
 					channel->node_id = message_a.response->first;
@@ -436,6 +453,7 @@ public:
 		if (channel)
 		{
 			channel->last_packet_received = std::chrono::steady_clock::now ();
+			node.network.udp_channels.modify (channel);
 			node.process_message (message_a, channel);
 		}
 	}
@@ -560,6 +578,10 @@ bool nano::transport::udp_channels::not_a_peer (nano::endpoint const & endpoint_
 	{
 		result = true;
 	}
+	else if (!nano::is_test_network && max_ip_connections (endpoint_a))
+	{
+		result = true;
+	}
 	return result;
 }
 
@@ -575,7 +597,7 @@ bool nano::transport::udp_channels::reachout (nano::endpoint const & endpoint_a,
 	bool error = node.network.udp_channels.not_a_peer (endpoint_a, allow_local_peers);
 	if (!error)
 	{
-		auto endpoint_l (nano::map_endpoint_to_v6 (endpoint_a));
+		auto endpoint_l (nano::transport::map_endpoint_to_v6 (endpoint_a));
 		// Don't keepalive to nodes that already sent us something
 		nano::transport::channel_udp sink (node.network.udp_channels, endpoint_l);
 		error |= node.network.udp_channels.channel (endpoint_l) != nullptr;
@@ -589,17 +611,20 @@ bool nano::transport::udp_channels::reachout (nano::endpoint const & endpoint_a,
 
 std::unique_ptr<nano::seq_con_info_component> nano::transport::udp_channels::collect_seq_con_info (std::string const & name)
 {
+	size_t channels_count = 0;
 	size_t attemps_count = 0;
 	size_t syn_cookies_count = 0;
 	size_t syn_cookies_per_ip_count = 0;
 	{
 		std::lock_guard<std::mutex> guard (mutex);
+		channels_count = channels.size ();
 		attemps_count = attempts.size ();
 		syn_cookies_count = syn_cookies.size ();
 		syn_cookies_per_ip_count = syn_cookies_per_ip.size ();
 	}
 
 	auto composite = std::make_unique<seq_con_info_composite> (name);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "channels", channels_count, sizeof (decltype (channels)::value_type) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "attempts", attemps_count, sizeof (decltype (attempts)::value_type) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "syn_cookies", syn_cookies_count, sizeof (decltype (syn_cookies)::value_type) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "syn_cookies_per_ip", syn_cookies_per_ip_count, sizeof (decltype (syn_cookies_per_ip)::value_type) }));
@@ -611,11 +636,6 @@ void nano::transport::udp_channels::purge (std::chrono::steady_clock::time_point
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto disconnect_cutoff (channels.get<last_packet_received_tag> ().lower_bound (cutoff_a));
-	// Remove peers that haven't been heard from past the cutoff
-	for (auto i (channels.get<last_packet_received_tag> ().begin ()); i != disconnect_cutoff; ++i)
-	{
-		node.peers.erase (*i->channel);
-	}
 	channels.get<last_packet_received_tag> ().erase (channels.get<last_packet_received_tag> ().begin (), disconnect_cutoff);
 	// Remove keepalive attempt tracking for attempts older than cutoff
 	auto attempts_cutoff (attempts.get<1> ().lower_bound (cutoff_a));
@@ -749,4 +769,14 @@ std::deque<std::shared_ptr<nano::transport::channel_udp>> nano::transport::udp_c
 {
 	auto result (list (node.network.size_sqrt ()));
 	return result;
+}
+
+void nano::transport::udp_channels::modify (std::shared_ptr<nano::transport::channel_udp> channel_a)
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	auto existing (channels.get<endpoint_tag> ().find (channel_a->endpoint));
+	if (existing != channels.get<endpoint_tag> ().end ())
+	{
+		channels.get<endpoint_tag> ().modify (existing, [](channel_udp_wrapper &) {});
+	}
 }

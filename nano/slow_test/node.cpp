@@ -363,7 +363,6 @@ TEST (peer_container, random_set)
 {
 	auto loopback (boost::asio::ip::address_v6::loopback ());
 	nano::system system (24000, 1);
-	nano::peer_container & container (system.nodes[0]->peers);
 	auto old (std::chrono::steady_clock::now ());
 	auto current (std::chrono::steady_clock::now ());
 	for (auto i (0); i < 10000; ++i)

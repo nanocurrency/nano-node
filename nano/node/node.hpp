@@ -5,7 +5,6 @@
 #include <nano/node/bootstrap.hpp>
 #include <nano/node/logging.hpp>
 #include <nano/node/nodeconfig.hpp>
-#include <nano/node/peers.hpp>
 #include <nano/node/portmapping.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/signatures.hpp>
@@ -357,6 +356,8 @@ public:
 	nano::node & node;
 	nano::transport::udp_channels udp_channels;
 	std::function<void()> disconnect_observer;
+	// Called when a new channel is observed
+	std::function<void(std::shared_ptr<nano::transport::channel>)> channel_observer;
 	static unsigned const broadcast_interval_ms = 10;
 	static uint16_t const node_port = nano::is_live_network ? 7075 : 54000;
 	static size_t const buffer_size = 512;
@@ -486,7 +487,6 @@ public:
 	nano::network network;
 	nano::bootstrap_initiator bootstrap_initiator;
 	nano::bootstrap_listener bootstrap;
-	nano::peer_container peers;
 	boost::filesystem::path application_path;
 	nano::node_observers observers;
 	nano::wallets wallets;

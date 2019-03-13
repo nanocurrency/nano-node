@@ -40,7 +40,7 @@ namespace transport
 
 	public:
 		udp_channels (nano::node &, uint16_t);
-		void add (std::shared_ptr<nano::transport::channel_udp>);
+		std::shared_ptr<nano::transport::channel_udp> insert (nano::endpoint const &, unsigned);
 		void erase (nano::endpoint const &);
 		size_t size () const;
 		std::shared_ptr<nano::transport::channel_udp> channel (nano::endpoint const &) const;
@@ -75,6 +75,7 @@ namespace transport
 		std::deque<std::shared_ptr<nano::transport::channel_udp>> list (size_t);
 		// A list of random peers sized for the configured rebroadcast fanout
 		std::deque<std::shared_ptr<nano::transport::channel_udp>> list_fanout ();
+		void modify (std::shared_ptr<nano::transport::channel_udp>);
 		// Maximum number of peers per IP
 		static size_t constexpr max_peers_per_ip = 10;
 		static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
@@ -122,6 +123,12 @@ namespace transport
 		public:
 			nano::endpoint endpoint;
 			std::chrono::steady_clock::time_point last_attempt;
+		};
+		class syn_cookie_info
+		{
+		public:
+			nano::uint256_union cookie;
+			std::chrono::steady_clock::time_point created_at;
 		};
 		mutable std::mutex mutex;
 		boost::multi_index_container<

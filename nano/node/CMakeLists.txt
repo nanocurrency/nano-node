@@ -41,8 +41,6 @@ add_library (node
 	node.cpp
 	openclwork.cpp
 	openclwork.hpp
-	peers.cpp
-	peers.hpp
 	portmapping.hpp
 	portmapping.cpp
 	repcrawler.hpp

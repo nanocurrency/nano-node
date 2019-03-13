@@ -91,8 +91,10 @@ TEST (network, send_node_id_handshake)
 	}
 	ASSERT_EQ (1, system.nodes[0]->network.size ());
 	ASSERT_EQ (1, node1->network.size ());
-	ASSERT_EQ (node1->network.endpoint (), system.nodes[0]->peers.peers.get<nano::peer_container::random_access_tag> ().begin ()->endpoint ());
-	ASSERT_EQ (system.nodes[0]->network.endpoint (), node1->peers.peers.get<nano::peer_container::random_access_tag> ().begin ()->endpoint ());
+	auto list1 (system.nodes[0]->network.udp_channels.list (1));
+	ASSERT_EQ (node1->network.endpoint (), list1[0]->endpoint);
+	auto list2 (node1->network.udp_channels.list (1));
+	ASSERT_EQ (system.nodes[0]->network.endpoint (), list2[0]->endpoint);
 	node1->stop ();
 }
 
@@ -773,7 +775,7 @@ TEST (bootstrap_processor, lazy_hash)
 	system.nodes[0]->block_processor.flush ();
 	// Start lazy bootstrap with last block in chain known
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
-	node1->peers.insert (system.nodes[0]->network.endpoint (), nano::protocol_version);
+	node1->network.udp_channels.insert (system.nodes[0]->network.endpoint (), nano::protocol_version);
 	node1->bootstrap_initiator.bootstrap_lazy (receive2->hash ());
 	// Check processed blocks
 	system.deadline_set (10s);
@@ -810,7 +812,7 @@ TEST (bootstrap_processor, lazy_max_pull_count)
 	system.nodes[0]->block_processor.flush ();
 	// Start lazy bootstrap with last block in chain known
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
-	node1->peers.insert (system.nodes[0]->network.endpoint (), nano::protocol_version);
+	node1->network.udp_channels.insert (system.nodes[0]->network.endpoint (), nano::protocol_version);
 	node1->bootstrap_initiator.bootstrap_lazy (change3->hash ());
 	// Check processed blocks
 	system.deadline_set (10s);
@@ -841,7 +843,7 @@ TEST (bootstrap_processor, wallet_lazy_frontier)
 	system.nodes[0]->block_processor.flush ();
 	// Start wallet lazy bootstrap
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
-	node1->peers.insert (system.nodes[0]->network.endpoint (), nano::protocol_version);
+	node1->network.udp_channels.insert (system.nodes[0]->network.endpoint (), nano::protocol_version);
 	auto wallet (node1->wallets.create (nano::uint256_union ()));
 	ASSERT_NE (nullptr, wallet);
 	wallet->insert_adhoc (key2.prv);
@@ -873,7 +875,7 @@ TEST (bootstrap_processor, wallet_lazy_pending)
 	system.nodes[0]->block_processor.flush ();
 	// Start wallet lazy bootstrap
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
-	node1->peers.insert (system.nodes[0]->network.endpoint (), nano::protocol_version);
+	node1->network.udp_channels.insert (system.nodes[0]->network.endpoint (), nano::protocol_version);
 	auto wallet (node1->wallets.create (nano::uint256_union ()));
 	ASSERT_NE (nullptr, wallet);
 	wallet->insert_adhoc (key2.prv);
