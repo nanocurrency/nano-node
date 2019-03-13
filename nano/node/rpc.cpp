@@ -1936,6 +1936,7 @@ void nano::rpc_handler::account_history ()
 {
 	nano::account account;
 	bool output_raw (request.get_optional<bool> ("raw") == true);
+	bool reverse (request.get_optional<bool> ("reverse") == true);
 	nano::block_hash hash;
 	auto head_str (request.get_optional<std::string> ("head"));
 	auto transaction (node.store.tx_begin_read ());
@@ -1998,13 +1999,13 @@ void nano::rpc_handler::account_history ()
 					--count;
 				}
 			}
-			hash = block->previous ();
+			hash = reverse ? node.store.block_successor (transaction, hash) : block->previous ();
 			block = node.store.block_get (transaction, hash, &sideband);
 		}
 		response_l.add_child ("history", history);
 		if (!hash.is_zero ())
 		{
-			response_l.put ("previous", hash.to_string ());
+			response_l.put (reverse ? "next" : "previous", hash.to_string ());
 		}
 	}
 	response_errors ();
