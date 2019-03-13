@@ -1,6 +1,7 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <cstdlib>
+#include <nano/core_test/testutil.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/testing.hpp>
 
@@ -36,7 +37,7 @@ work (1, nullptr)
 		assert (!init.error ());
 		node->start ();
 		nano::uint256_union wallet;
-		nano::random_pool.GenerateBlock (wallet.bytes.data (), wallet.bytes.size ());
+		nano::random_pool::generate_block (wallet.bytes.data (), wallet.bytes.size ());
 		node->wallets.create (wallet);
 		nodes.push_back (node);
 	}
@@ -166,7 +167,7 @@ void nano::system::generate_rollback (nano::node & node_a, std::vector<nano::acc
 {
 	auto transaction (node_a.store.tx_begin_write ());
 	assert (std::numeric_limits<CryptoPP::word32>::max () > accounts_a.size ());
-	auto index (random_pool.GenerateWord32 (0, static_cast<CryptoPP::word32> (accounts_a.size () - 1)));
+	auto index (random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (accounts_a.size () - 1)));
 	auto account (accounts_a[index]);
 	nano::account_info info;
 	auto error (node_a.store.account_get (transaction, account, info));
@@ -178,7 +179,8 @@ void nano::system::generate_rollback (nano::node & node_a, std::vector<nano::acc
 		{
 			accounts_a[index] = accounts_a[accounts_a.size () - 1];
 			accounts_a.pop_back ();
-			node_a.ledger.rollback (transaction, hash);
+			auto error = node_a.ledger.rollback (transaction, hash);
+			assert (!error);
 		}
 	}
 }
@@ -189,7 +191,7 @@ void nano::system::generate_receive (nano::node & node_a)
 	{
 		auto transaction (node_a.store.tx_begin_read ());
 		nano::uint256_union random_block;
-		random_pool.GenerateBlock (random_block.bytes.data (), sizeof (random_block.bytes));
+		random_pool::generate_block (random_block.bytes.data (), sizeof (random_block.bytes));
 		auto i (node_a.store.pending_begin (transaction, nano::pending_key (random_block, 0)));
 		if (i != node_a.store.pending_end ())
 		{
@@ -206,7 +208,7 @@ void nano::system::generate_receive (nano::node & node_a)
 
 void nano::system::generate_activity (nano::node & node_a, std::vector<nano::account> & accounts_a)
 {
-	auto what (random_pool.GenerateByte ());
+	auto what (random_pool::generate_byte ());
 	if (what < 0x1)
 	{
 		generate_rollback (node_a, accounts_a);
@@ -236,7 +238,7 @@ void nano::system::generate_activity (nano::node & node_a, std::vector<nano::acc
 nano::account nano::system::get_random_account (std::vector<nano::account> & accounts_a)
 {
 	assert (std::numeric_limits<CryptoPP::word32>::max () > accounts_a.size ());
-	auto index (random_pool.GenerateWord32 (0, static_cast<CryptoPP::word32> (accounts_a.size () - 1)));
+	auto index (random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (accounts_a.size () - 1)));
 	auto result (accounts_a[index]);
 	return result;
 }
@@ -246,7 +248,7 @@ nano::uint128_t nano::system::get_random_amount (nano::transaction const & trans
 	nano::uint128_t balance (node_a.ledger.account_balance (transaction_a, account_a));
 	std::string balance_text (balance.convert_to<std::string> ());
 	nano::uint128_union random_amount;
-	random_pool.GenerateBlock (random_amount.bytes.data (), sizeof (random_amount.bytes));
+	nano::random_pool::generate_block (random_amount.bytes.data (), sizeof (random_amount.bytes));
 	auto result (((nano::uint256_t{ random_amount.number () } * balance) / nano::uint256_t{ std::numeric_limits<nano::uint128_t>::max () }).convert_to<nano::uint128_t> ());
 	std::string text (result.convert_to<std::string> ());
 	return result;
@@ -259,7 +261,7 @@ void nano::system::generate_send_existing (nano::node & node_a, std::vector<nano
 	nano::account source;
 	{
 		nano::account account;
-		random_pool.GenerateBlock (account.bytes.data (), sizeof (account.bytes));
+		random_pool::generate_block (account.bytes.data (), sizeof (account.bytes));
 		auto transaction (node_a.store.tx_begin_read ());
 		nano::store_iterator<nano::account, nano::account_info> entry (node_a.store.latest_begin (transaction, account));
 		if (entry == node_a.store.latest_end ())
@@ -441,7 +443,7 @@ void nano::landing::write_store ()
 	{
 		std::stringstream str;
 		store.serialize (str);
-		BOOST_LOG (node.log) << boost::str (boost::format ("Error writing store file %1%") % str.str ());
+		node.logger.always_log (boost::str (boost::format ("Error writing store file %1%") % str.str ()));
 	}
 }
 
@@ -502,13 +504,13 @@ void nano::landing::distribute_one ()
 		last = wallet->send_sync (store.source, store.destination, amount);
 		if (!last.is_zero ())
 		{
-			BOOST_LOG (node.log) << boost::str (boost::format ("Successfully distributed %1% in block %2%") % amount % last.to_string ());
+			node.logger.always_log (boost::str (boost::format ("Successfully distributed %1% in block %2%") % amount % last.to_string ()));
 			store.last += distribution_interval.count ();
 			write_store ();
 		}
 		else
 		{
-			BOOST_LOG (node.log) << "Error while sending distribution";
+			node.logger.always_log ("Error while sending distribution");
 		}
 	}
 }
@@ -516,7 +518,7 @@ void nano::landing::distribute_one ()
 void nano::landing::distribute_ongoing ()
 {
 	distribute_one ();
-	BOOST_LOG (node.log) << "Waiting for next distribution cycle";
+	node.logger.always_log ("Waiting for next distribution cycle");
 	node.alarm.add (std::chrono::steady_clock::now () + sleep_seconds, [this]() { distribute_ongoing (); });
 }
 

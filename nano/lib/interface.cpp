@@ -9,6 +9,7 @@
 #include <boost/property_tree/json_parser.hpp>
 
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/config.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/work.hpp>
 
@@ -70,7 +71,7 @@ int xrb_valid_address (const char * account_a)
 void xrb_generate_random (xrb_uint256 seed)
 {
 	auto & number (*reinterpret_cast<nano::uint256_union *> (seed));
-	nano::random_pool.GenerateBlock (number.bytes.data (), number.bytes.size ());
+	nano::random_pool::generate_block (number.bytes.data (), number.bytes.size ());
 }
 
 void xrb_seed_key (xrb_uint256 seed, int index, xrb_uint256 destination)
@@ -115,6 +116,7 @@ char * xrb_sign_transaction (const char * transaction, const xrb_uint256 private
 
 char * xrb_work_transaction (const char * transaction)
 {
+	static nano::network_params network_params;
 	char * result (nullptr);
 	try
 	{
@@ -126,7 +128,7 @@ char * xrb_work_transaction (const char * transaction)
 		if (block != nullptr)
 		{
 			nano::work_pool pool (boost::thread::hardware_concurrency ());
-			auto work (pool.generate (block->root ()));
+			auto work (pool.generate (block->root (), network_params.publish_threshold));
 			block->block_work_set (work);
 			auto json (block->to_json ());
 			result = reinterpret_cast<char *> (malloc (json.size () + 1));
@@ -142,7 +144,7 @@ char * xrb_work_transaction (const char * transaction)
 #include <crypto/ed25519-donna/ed25519-hash-custom.h>
 void ed25519_randombytes_unsafe (void * out, size_t outlen)
 {
-	nano::random_pool.GenerateBlock (reinterpret_cast<uint8_t *> (out), outlen);
+	nano::random_pool::generate_block (reinterpret_cast<uint8_t *> (out), outlen);
 }
 void ed25519_hash_init (ed25519_hash_context * ctx)
 {

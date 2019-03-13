@@ -20,9 +20,17 @@ case "${network}" in
                 ;;
 esac
 
+raidir="${HOME}/RaiBlocks${dirSuffix}"
 nanodir="${HOME}/Nano${dirSuffix}"
 dbFile="${nanodir}/data.ldb"
-mkdir -p "${nanodir}"
+
+if [ -d "${raidir}" ]; then
+	echo "Moving ${raidir} to ${nanodir}"
+	mv $raidir $nanodir
+else
+	mkdir -p "${nanodir}"
+fi
+
 if [ ! -f "${nanodir}/config.json" ]; then
         echo "Config File not found, adding default."
         cp "/usr/share/nano/config/${network}.json" "${nanodir}/config.json"

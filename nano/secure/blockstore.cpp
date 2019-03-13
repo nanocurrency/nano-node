@@ -57,30 +57,38 @@ void nano::block_sideband::serialize (nano::stream & stream_a) const
 bool nano::block_sideband::deserialize (nano::stream & stream_a)
 {
 	bool result (false);
-	result |= nano::read (stream_a, successor.bytes);
-	if (type != nano::block_type::state && type != nano::block_type::open)
+	try
 	{
-		result |= nano::read (stream_a, account.bytes);
+		nano::read (stream_a, successor.bytes);
+		if (type != nano::block_type::state && type != nano::block_type::open)
+		{
+			nano::read (stream_a, account.bytes);
+		}
+		if (type != nano::block_type::open)
+		{
+			nano::read (stream_a, height);
+			boost::endian::big_to_native_inplace (height);
+		}
+		else
+		{
+			height = 1;
+		}
+		if (type == nano::block_type::receive || type == nano::block_type::change || type == nano::block_type::open)
+		{
+			nano::read (stream_a, balance.bytes);
+		}
+		nano::read (stream_a, timestamp);
+		boost::endian::big_to_native_inplace (timestamp);
 	}
-	if (type != nano::block_type::open)
+	catch (std::runtime_error &)
 	{
-		result |= nano::read (stream_a, height);
-		boost::endian::big_to_native_inplace (height);
+		result = true;
 	}
-	else
-	{
-		height = 0;
-	}
-	if (type == nano::block_type::receive || type == nano::block_type::change || type == nano::block_type::open)
-	{
-		nano::read (stream_a, balance.bytes);
-	}
-	result |= nano::read (stream_a, timestamp);
-	boost::endian::big_to_native_inplace (timestamp);
+
 	return result;
 }
 
-nano::summation_visitor::summation_visitor (nano::transaction const & transaction_a, nano::block_store & store_a) :
+nano::summation_visitor::summation_visitor (nano::transaction const & transaction_a, nano::block_store const & store_a) :
 transaction (transaction_a),
 store (store_a)
 {
@@ -145,13 +153,13 @@ void nano::summation_visitor::open_block (nano::open_block const & block_a)
 	assert (current->type != summation_type::invalid && current != nullptr);
 	if (current->type == summation_type::amount)
 	{
-		if (block_a.hashables.source != nano::genesis_account)
+		if (block_a.hashables.source != network_params.ledger.genesis_account)
 		{
 			current->amount_hash = block_a.hashables.source;
 		}
 		else
 		{
-			sum_set (nano::genesis_amount);
+			sum_set (network_params.ledger.genesis_amount);
 			current->amount_hash = 0;
 		}
 	}
@@ -215,7 +223,7 @@ nano::uint128_t nano::summation_visitor::compute_internal (nano::summation_visit
 	 compiler optimizing that into a loop, though a future alternative is to do a
 	 CPS-style implementation to enforce tail calls.)
 	*/
-	while (frames.size () > 0)
+	while (!frames.empty ())
 	{
 		current = &frames.top ();
 		assert (current->type != summation_type::invalid && current != nullptr);
@@ -266,7 +274,7 @@ nano::uint128_t nano::summation_visitor::compute_internal (nano::summation_visit
 					}
 					else
 					{
-						if (current->amount_hash == nano::genesis_account)
+						if (current->amount_hash == network_params.ledger.genesis_account)
 						{
 							sum_set (std::numeric_limits<nano::uint128_t>::max ());
 							current->amount_hash = 0;
@@ -300,7 +308,7 @@ void nano::summation_visitor::epilogue ()
 	if (!current->awaiting_result)
 	{
 		frames.pop ();
-		if (frames.size () > 0)
+		if (!frames.empty ())
 		{
 			frames.top ().incoming_result = current->sum;
 		}

@@ -15,7 +15,6 @@ endpoint (endpoint_a),
 ip_address (endpoint_a.address ()),
 last_contact (std::chrono::steady_clock::now ()),
 last_attempt (last_contact),
-
 network_version (network_version_a),
 node_id (node_id_a)
 {
@@ -91,7 +90,7 @@ std::deque<nano::endpoint> nano::peer_container::list_fanout ()
 	return result;
 }
 
-std::deque<nano::endpoint> nano::peer_container::list ()
+std::deque<nano::endpoint> nano::peer_container::list (size_t count_a)
 {
 	std::deque<nano::endpoint> result;
 	std::lock_guard<std::mutex> lock (mutex);
@@ -99,7 +98,11 @@ std::deque<nano::endpoint> nano::peer_container::list ()
 	{
 		result.push_back (i->endpoint);
 	}
-	random_pool.Shuffle (result.begin (), result.end ());
+	nano::random_pool::shuffle (result.begin (), result.end ());
+	if (result.size () > count_a)
+	{
+		result.resize (count_a);
+	}
 	return result;
 }
 
@@ -111,7 +114,7 @@ std::vector<nano::peer_information> nano::peer_container::list_vector (size_t co
 	{
 		result.push_back (*i);
 	}
-	random_pool.Shuffle (result.begin (), result.end ());
+	random_pool::shuffle (result.begin (), result.end ());
 	if (result.size () > count_a)
 	{
 		result.resize (count_a, nano::peer_information (nano::endpoint{}, 0));
@@ -154,7 +157,7 @@ boost::optional<nano::uint256_union> nano::peer_container::assign_syn_cookie (na
 		if (syn_cookies.find (endpoint) == syn_cookies.end ())
 		{
 			nano::uint256_union query;
-			random_pool.GenerateBlock (query.bytes.data (), query.bytes.size ());
+			random_pool::generate_block (query.bytes.data (), query.bytes.size ());
 			syn_cookie_info info{ query, std::chrono::steady_clock::now () };
 			syn_cookies[endpoint] = info;
 			++ip_cookies;
@@ -202,7 +205,7 @@ std::unordered_set<nano::endpoint> nano::peer_container::random_set (size_t coun
 	{
 		for (auto i (0); i < random_cutoff && result.size () < count_a; ++i)
 		{
-			auto index (random_pool.GenerateWord32 (0, static_cast<CryptoPP::word32> (peers_size - 1)));
+			auto index (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (peers_size - 1)));
 			result.insert (peers.get<3> ()[index].endpoint);
 		}
 	}
@@ -228,22 +231,6 @@ void nano::peer_container::random_fill (std::array<nano::endpoint, 8> & target_a
 		assert (j < target_a.end ());
 		*j = *i;
 	}
-}
-
-// Request a list of the top known representatives
-std::vector<nano::peer_information> nano::peer_container::representatives (size_t count_a)
-{
-	std::vector<peer_information> result;
-	result.reserve (std::min (count_a, size_t (16)));
-	std::lock_guard<std::mutex> lock (mutex);
-	for (auto i (peers.get<6> ().begin ()), n (peers.get<6> ().end ()); i != n && result.size () < count_a; ++i)
-	{
-		if (!i->rep_weight.is_zero ())
-		{
-			result.push_back (*i);
-		}
-	}
-	return result;
 }
 
 void nano::peer_container::purge_syn_cookies (std::chrono::steady_clock::time_point const & cutoff)
@@ -298,21 +285,6 @@ std::vector<nano::peer_information> nano::peer_container::purge_list (std::chron
 	return result;
 }
 
-std::vector<nano::endpoint> nano::peer_container::rep_crawl ()
-{
-	std::vector<nano::endpoint> result;
-	// If there is enough observed peers weight, crawl 10 peers. Otherwise - 40
-	uint16_t max_count = (total_weight () > online_weight_minimum) ? 10 : 40;
-	result.reserve (max_count);
-	std::lock_guard<std::mutex> lock (mutex);
-	uint16_t count (0);
-	for (auto i (peers.get<5> ().begin ()), n (peers.get<5> ().end ()); i != n && count < max_count; ++i, ++count)
-	{
-		result.push_back (i->endpoint);
-	};
-	return result;
-}
-
 size_t nano::peer_container::size ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
@@ -324,49 +296,19 @@ size_t nano::peer_container::size_sqrt ()
 	return (static_cast<size_t> (std::ceil (std::sqrt (size ()))));
 }
 
-std::vector<nano::peer_information> nano::peer_container::list_probable_rep_weights ()
-{
-	std::vector<nano::peer_information> result;
-	std::unordered_set<nano::account> probable_reps;
-	std::lock_guard<std::mutex> lock (mutex);
-	for (auto i (peers.get<6> ().begin ()), n (peers.get<6> ().end ()); i != n; ++i)
-	{
-		// Calculate if representative isn't recorded for several IP addresses
-		if (probable_reps.find (i->probable_rep_account) == probable_reps.end ())
-		{
-			if (!i->rep_weight.number ().is_zero ())
-			{
-				result.push_back (*i);
-			}
-			probable_reps.insert (i->probable_rep_account);
-		}
-	}
-	return result;
-}
-
-nano::uint128_t nano::peer_container::total_weight ()
-{
-	nano::uint128_t result (0);
-	for (auto & entry : list_probable_rep_weights ())
-	{
-		result = result + entry.rep_weight.number ();
-	}
-	return result;
-}
-
 bool nano::peer_container::empty ()
 {
 	return size () == 0;
 }
 
-bool nano::peer_container::not_a_peer (nano::endpoint const & endpoint_a, bool blacklist_loopback)
+bool nano::peer_container::not_a_peer (nano::endpoint const & endpoint_a, bool allow_local_peers)
 {
 	bool result (false);
 	if (endpoint_a.address ().to_v6 ().is_unspecified ())
 	{
 		result = true;
 	}
-	else if (nano::reserved_address (endpoint_a, blacklist_loopback))
+	else if (nano::reserved_address (endpoint_a, allow_local_peers))
 	{
 		result = true;
 	}
@@ -377,43 +319,10 @@ bool nano::peer_container::not_a_peer (nano::endpoint const & endpoint_a, bool b
 	return result;
 }
 
-bool nano::peer_container::rep_response (nano::endpoint const & endpoint_a, nano::account const & rep_account_a, nano::amount const & weight_a)
-{
-	assert (endpoint_a.address ().is_v6 ());
-	auto updated (false);
-	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (peers.find (endpoint_a));
-	if (existing != peers.end ())
-	{
-		peers.modify (existing, [weight_a, &updated, rep_account_a](nano::peer_information & info) {
-			info.last_rep_response = std::chrono::steady_clock::now ();
-			if (info.rep_weight < weight_a)
-			{
-				updated = true;
-				info.rep_weight = weight_a;
-				info.probable_rep_account = rep_account_a;
-			}
-		});
-	}
-	return updated;
-}
-
-void nano::peer_container::rep_request (nano::endpoint const & endpoint_a)
-{
-	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (peers.find (endpoint_a));
-	if (existing != peers.end ())
-	{
-		peers.modify (existing, [](nano::peer_information & info) {
-			info.last_rep_request = std::chrono::steady_clock::now ();
-		});
-	}
-}
-
-bool nano::peer_container::reachout (nano::endpoint const & endpoint_a)
+bool nano::peer_container::reachout (nano::endpoint const & endpoint_a, bool allow_local_peers)
 {
 	// Don't contact invalid IPs
-	bool error = not_a_peer (endpoint_a, false);
+	bool error = not_a_peer (endpoint_a, allow_local_peers);
 	if (!error)
 	{
 		auto endpoint_l (nano::map_endpoint_to_v6 (endpoint_a));
@@ -427,11 +336,11 @@ bool nano::peer_container::reachout (nano::endpoint const & endpoint_a)
 	return error;
 }
 
-bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned version_a, bool preconfigured_a, boost::optional<nano::account> node_id_a)
+bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned version_a, bool allow_local_peers, boost::optional<nano::account> node_id_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
 	auto unknown (false);
-	auto result (!preconfigured_a && not_a_peer (endpoint_a, false));
+	auto result (not_a_peer (endpoint_a, allow_local_peers));
 	if (!result)
 	{
 		if (version_a >= nano::protocol_version_min)
@@ -452,7 +361,7 @@ bool nano::peer_container::insert (nano::endpoint const & endpoint_a, unsigned v
 			else
 			{
 				unknown = true;
-				if (!result && !nano::is_test_network)
+				if (!result && !network_params.is_test_network ())
 				{
 					auto ip_peers (peers.get<nano::peer_by_ip_addr> ().count (endpoint_a.address ()));
 					if (ip_peers >= max_peers_per_ip)

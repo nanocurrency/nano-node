@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
+#include <nano/core_test/testutil.hpp>
 #include <nano/node/testing.hpp>
-
 #include <thread>
 
 TEST (system, generate_mass_activity)
@@ -112,7 +112,7 @@ TEST (ledger, deep_account_compute)
 	}
 }
 
-TEST (wallet, multithreaded_send)
+TEST (wallet, multithreaded_send_async)
 {
 	std::vector<boost::thread> threads;
 	{
@@ -120,18 +120,23 @@ TEST (wallet, multithreaded_send)
 		nano::keypair key;
 		auto wallet_l (system.wallet (0));
 		wallet_l->insert_adhoc (nano::test_genesis_key.prv);
+		wallet_l->insert_adhoc (key.prv);
 		for (auto i (0); i < 20; ++i)
 		{
 			threads.push_back (boost::thread ([wallet_l, &key]() {
 				for (auto i (0); i < 1000; ++i)
 				{
-					wallet_l->send_action (nano::test_genesis_key.pub, key.pub, 1000);
+					wallet_l->send_async (nano::test_genesis_key.pub, key.pub, 1000, [](std::shared_ptr<nano::block> block_a) {
+						ASSERT_FALSE (block_a == nullptr);
+						ASSERT_FALSE (block_a->hash ().is_zero ());
+					});
 				}
 			}));
 		}
+		system.deadline_set (1000s);
 		while (system.nodes[0]->balance (nano::test_genesis_key.pub) != (nano::genesis_amount - 20 * 1000 * 1000))
 		{
-			system.poll ();
+			ASSERT_NO_ERROR (system.poll ());
 		}
 	}
 	for (auto i (threads.begin ()), n (threads.end ()); i != n; ++i)
@@ -153,7 +158,7 @@ TEST (store, load)
 				for (auto j (0); j != 10; ++j)
 				{
 					nano::block_hash hash;
-					nano::random_pool.GenerateBlock (hash.bytes.data (), hash.bytes.size ());
+					nano::random_pool::generate_block (hash.bytes.data (), hash.bytes.size ());
 					system.nodes[0]->store.account_put (transaction, hash, nano::account_info ());
 				}
 			}
@@ -201,13 +206,13 @@ TEST (node, fork_storm)
 		empty = 0;
 		single = 0;
 		std::for_each (system.nodes.begin (), system.nodes.end (), [&](std::shared_ptr<nano::node> const & node_a) {
-			if (node_a->active.roots.empty ())
+			if (node_a->active.empty ())
 			{
 				++empty;
 			}
 			else
 			{
-				if (node_a->active.roots.begin ()->election->last_votes.size () == 1)
+				if (node_a->active.roots.begin ()->election->last_votes_size () == 1)
 				{
 					++single;
 				}
@@ -323,7 +328,7 @@ TEST (broadcast, sqrt_broadcast_simulate)
 					for (auto j (0); j != broadcast_count; ++j)
 					{
 						++message_count;
-						auto entry (nano::random_pool.GenerateWord32 (0, node_count - 1));
+						auto entry (nano::random_pool::generate_word32 (0, node_count - 1));
 						switch (nodes[entry])
 						{
 							case 0:
@@ -409,11 +414,14 @@ TEST (wallets, rep_scan)
 	nano::system system (24000, 1);
 	auto & node (*system.nodes[0]);
 	auto wallet (system.wallet (0));
-	auto transaction (node.wallets.tx_begin_write ());
-	for (auto i (0); i < 10000; ++i)
 	{
-		wallet->deterministic_insert (transaction);
+		auto transaction (node.wallets.tx_begin_write ());
+		for (auto i (0); i < 10000; ++i)
+		{
+			wallet->deterministic_insert (transaction);
+		}
 	}
+	auto transaction (node.store.tx_begin_read ());
 	auto begin (std::chrono::steady_clock::now ());
 	node.wallets.foreach_representative (transaction, [](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
 	});

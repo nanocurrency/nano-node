@@ -1,10 +1,10 @@
-#include <nano/qt/qt.hpp>
-
 #include <boost/foreach.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <cmath>
 #include <iomanip>
+#include <nano/lib/config.hpp>
+#include <nano/qt/qt.hpp>
 #include <sstream>
 
 namespace
@@ -73,11 +73,11 @@ wallet (wallet_a)
 {
 	your_account_label->setStyleSheet ("font-weight: bold;");
 	std::string network = "Live";
-	if (nano::is_beta_network)
+	if (wallet.node.network_params.is_beta_network ())
 	{
 		network = "Beta";
 	}
-	else if (nano::is_test_network)
+	else if (wallet.node.network_params.is_test_network ())
 	{
 		network = "Test";
 	}
@@ -541,16 +541,17 @@ public:
 	}
 	void open_block (nano::open_block const & block_a)
 	{
+		static nano::network_params params;
 		type = "Receive";
-		if (block_a.hashables.source != nano::genesis_account)
+		if (block_a.hashables.source != params.ledger.genesis_account)
 		{
 			account = ledger.account (transaction, block_a.hashables.source);
 			amount = ledger.amount (transaction, block_a.hash ());
 		}
 		else
 		{
-			account = nano::genesis_account;
-			amount = nano::genesis_amount;
+			account = params.ledger.genesis_account;
+			amount = params.ledger.genesis_amount;
 		}
 	}
 	void change_block (nano::change_block const & block_a)
@@ -1018,7 +1019,7 @@ needs_deterministic_restore (false)
 	empty_password ();
 	settings.update_locked (true, true);
 	send_blocks_layout->addWidget (send_account_label);
-	send_account->setPlaceholderText (nano::zero_key.pub.to_account ().c_str ());
+	send_account->setPlaceholderText (node.network_params.ledger.zero_key.pub.to_account ().c_str ());
 	send_blocks_layout->addWidget (send_account);
 	send_blocks_layout->addWidget (send_count_label);
 	send_count->setPlaceholderText ("0");
@@ -1466,6 +1467,10 @@ std::string nano_qt::wallet::format_balance (nano::uint128_t const & balance) co
 	{
 		unit = std::string ("nano");
 	}
+	else if (rendering_ratio == nano::raw_ratio)
+	{
+		unit = std::string ("raw");
+	}
 	return balance_str + " " + unit;
 }
 
@@ -1517,7 +1522,7 @@ wallet (wallet_a)
 	layout->addWidget (representative);
 	current_representative->setTextInteractionFlags (Qt::TextSelectableByMouse);
 	layout->addWidget (current_representative);
-	new_representative->setPlaceholderText (nano::zero_key.pub.to_account ().c_str ());
+	new_representative->setPlaceholderText (wallet.node.network_params.ledger.zero_key.pub.to_account ().c_str ());
 	layout->addWidget (new_representative);
 	layout->addWidget (change_rep);
 	layout->addStretch ();
@@ -1544,6 +1549,7 @@ wallet (wallet_a)
 					retype_password->setPlaceholderText ("Retype password");
 					show_button_success (*change);
 					change->setText ("Password was changed");
+					this->wallet.node.logger.try_log ("Wallet password changed");
 					update_locked (false, false);
 					this->wallet.node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() {
 						this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this]() {
@@ -1636,6 +1642,7 @@ wallet (wallet_a)
 			this->wallet.wallet_m->store.password.value_set (empty);
 			update_locked (true, true);
 			lock_toggle->setText ("Unlock");
+			this->wallet.node.logger.try_log ("Wallet locked");
 			password->setEnabled (1);
 		}
 		else
@@ -1749,6 +1756,7 @@ ratio_group (new QButtonGroup),
 mnano_unit (new QRadioButton ("Mnano")),
 knano_unit (new QRadioButton ("knano")),
 nano_unit (new QRadioButton ("nano")),
+raw_unit (new QRadioButton ("raw")),
 back (new QPushButton ("Back")),
 ledger_window (new QWidget),
 ledger_layout (new QVBoxLayout),
@@ -1772,13 +1780,16 @@ wallet (wallet_a)
 	ratio_group->addButton (mnano_unit);
 	ratio_group->addButton (knano_unit);
 	ratio_group->addButton (nano_unit);
+	ratio_group->addButton (raw_unit);
 	ratio_group->setId (mnano_unit, 0);
 	ratio_group->setId (knano_unit, 1);
 	ratio_group->setId (nano_unit, 2);
+	ratio_group->setId (raw_unit, 3);
 	scale_layout->addWidget (scale_label);
 	scale_layout->addWidget (mnano_unit);
 	scale_layout->addWidget (knano_unit);
 	scale_layout->addWidget (nano_unit);
+	scale_layout->addWidget (raw_unit);
 	scale_window->setLayout (scale_layout);
 
 	ledger_model->setHorizontalHeaderItem (0, new QStandardItem ("Account"));
@@ -1849,6 +1860,13 @@ wallet (wallet_a)
 		{
 			QSettings ().setValue (saved_ratio_key, ratio_group->id (nano_unit));
 			this->wallet.change_rendering_ratio (nano::xrb_ratio);
+		}
+	});
+	QObject::connect (raw_unit, &QRadioButton::toggled, [this]() {
+		if (raw_unit->isChecked ())
+		{
+			QSettings ().setValue (saved_ratio_key, ratio_group->id (raw_unit));
+			this->wallet.change_rendering_ratio (nano::raw_ratio);
 		}
 	});
 	auto selected_ratio_id (QSettings ().value (saved_ratio_key, ratio_group->id (mnano_unit)).toInt ());

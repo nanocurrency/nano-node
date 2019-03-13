@@ -13,7 +13,7 @@ const char * default_live_peer_network = "peering.nano.org";
 }
 
 nano::node_config::node_config () :
-node_config (nano::network::node_port, nano::logging ())
+node_config (0, nano::logging ())
 {
 }
 
@@ -35,17 +35,26 @@ bootstrap_connections (4),
 bootstrap_connections_max (64),
 callback_port (0),
 lmdb_max_dbs (128),
-allow_local_peers (false),
-block_processor_batch_max_time (std::chrono::milliseconds (5000))
+allow_local_peers (!network_params.is_live_network ()), // disable by default for live network
+block_processor_batch_max_time (std::chrono::milliseconds (5000)),
+unchecked_cutoff_time (std::chrono::seconds (4 * 60 * 60)), // 4 hours
+tcp_client_timeout (std::chrono::seconds (5)),
+tcp_server_timeout (std::chrono::seconds (30))
 {
+	// The default constructor passes 0 to indicate we should use the default port,
+	// which is determined at node startup based on active network.
+	if (peering_port == 0)
+	{
+		peering_port = network_params.default_node_port;
+	}
 	const char * epoch_message ("epoch v1 block");
 	strncpy ((char *)epoch_block_link.bytes.data (), epoch_message, epoch_block_link.bytes.size ());
-	epoch_block_signer = nano::genesis_account;
-	switch (nano::nano_network)
+	epoch_block_signer = network_params.ledger.genesis_account;
+	switch (network_params.network ())
 	{
 		case nano::nano_networks::nano_test_network:
 			enable_voting = true;
-			preconfigured_representatives.push_back (nano::genesis_account);
+			preconfigured_representatives.push_back (network_params.ledger.genesis_account);
 			break;
 		case nano::nano_networks::nano_beta_network:
 			preconfigured_peers.push_back (default_beta_peer_network);
@@ -120,6 +129,9 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
 	json.put ("allow_local_peers", allow_local_peers);
 	json.put ("vote_minimum", vote_minimum.to_string_dec ());
+	json.put ("unchecked_cutoff_time", unchecked_cutoff_time.count ());
+	json.put ("tcp_client_timeout", tcp_client_timeout.count ());
+	json.put ("tcp_server_timeout", tcp_server_timeout.count ());
 
 	nano::jsonconfig ipc_l;
 	ipc_config.serialize_json (ipc_l);
@@ -239,10 +251,17 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.put_child ("ipc", ipc_l);
 
 			json.put (signature_checker_threads_key, signature_checker_threads);
+			json.put ("unchecked_cutoff_time", unchecked_cutoff_time.count ());
 
 			upgraded = true;
 		}
 		case 16:
+		{
+			json.put ("tcp_client_timeout", tcp_client_timeout.count ());
+			json.put ("tcp_server_timeout", tcp_server_timeout.count ());
+			upgraded = true;
+		}
+		case 17:
 			break;
 		default:
 			throw std::runtime_error ("Unknown node_config version");
@@ -338,6 +357,15 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 
 		auto block_processor_batch_max_time_l (json.get<unsigned long> ("block_processor_batch_max_time"));
 		block_processor_batch_max_time = std::chrono::milliseconds (block_processor_batch_max_time_l);
+		unsigned long unchecked_cutoff_time_l (unchecked_cutoff_time.count ());
+		json.get ("unchecked_cutoff_time", unchecked_cutoff_time_l);
+		unchecked_cutoff_time = std::chrono::seconds (unchecked_cutoff_time_l);
+		unsigned long tcp_client_timeout_l (tcp_client_timeout.count ());
+		json.get ("tcp_client_timeout", tcp_client_timeout_l);
+		tcp_client_timeout = std::chrono::seconds (tcp_client_timeout_l);
+		unsigned long tcp_server_timeout_l (tcp_server_timeout.count ());
+		json.get ("tcp_server_timeout", tcp_server_timeout_l);
+		tcp_server_timeout = std::chrono::seconds (tcp_server_timeout_l);
 
 		auto ipc_config_l (json.get_optional_child ("ipc"));
 		if (ipc_config_l)
@@ -386,8 +414,8 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 
 nano::account nano::node_config::random_representative ()
 {
-	assert (preconfigured_representatives.size () > 0);
-	size_t index (nano::random_pool.GenerateWord32 (0, static_cast<CryptoPP::word32> (preconfigured_representatives.size () - 1)));
+	assert (!preconfigured_representatives.empty ());
+	size_t index (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (preconfigured_representatives.size () - 1)));
 	auto result (preconfigured_representatives[index]);
 	return result;
 }
@@ -398,7 +426,7 @@ disable_lazy_bootstrap (false),
 disable_legacy_bootstrap (false),
 disable_wallet_bootstrap (false),
 disable_bootstrap_listener (false),
-disable_unchecked_cleaning (false),
+disable_unchecked_cleanup (false),
 disable_unchecked_drop (true),
 fast_bootstrap (false),
 sideband_batch_size (512)

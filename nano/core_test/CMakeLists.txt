@@ -5,10 +5,10 @@ add_executable (core_test
 	interface.cpp
 	ipc.cpp
 	conflicts.cpp
-	daemon.cpp
 	entry.cpp
 	gap_cache.cpp
 	ledger.cpp
+	logger.cpp
 	network.cpp
 	node.cpp
 	message.cpp

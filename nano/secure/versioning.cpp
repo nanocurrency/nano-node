@@ -1,13 +1,5 @@
 #include <nano/secure/versioning.hpp>
 
-nano::account_info_v1::account_info_v1 () :
-head (0),
-rep_block (0),
-balance (0),
-modified (0)
-{
-}
-
 nano::account_info_v1::account_info_v1 (MDB_val const & val_a)
 {
 	assert (val_a.mv_size == sizeof (*this));
@@ -23,42 +15,9 @@ modified (modified_a)
 {
 }
 
-void nano::account_info_v1::serialize (nano::stream & stream_a) const
-{
-	write (stream_a, head.bytes);
-	write (stream_a, rep_block.bytes);
-	write (stream_a, balance.bytes);
-	write (stream_a, modified);
-}
-
-bool nano::account_info_v1::deserialize (nano::stream & stream_a)
-{
-	auto error (read (stream_a, head.bytes));
-	if (!error)
-	{
-		error = read (stream_a, rep_block.bytes);
-		if (!error)
-		{
-			error = read (stream_a, balance.bytes);
-			if (!error)
-			{
-				error = read (stream_a, modified);
-			}
-		}
-	}
-	return error;
-}
-
 nano::mdb_val nano::account_info_v1::val () const
 {
 	return nano::mdb_val (sizeof (*this), const_cast<nano::account_info_v1 *> (this));
-}
-
-nano::pending_info_v3::pending_info_v3 () :
-source (0),
-amount (0),
-destination (0)
-{
 }
 
 nano::pending_info_v3::pending_info_v3 (MDB_val const & val_a)
@@ -75,44 +34,9 @@ destination (destination_a)
 {
 }
 
-void nano::pending_info_v3::serialize (nano::stream & stream_a) const
-{
-	nano::write (stream_a, source.bytes);
-	nano::write (stream_a, amount.bytes);
-	nano::write (stream_a, destination.bytes);
-}
-
-bool nano::pending_info_v3::deserialize (nano::stream & stream_a)
-{
-	auto error (nano::read (stream_a, source.bytes));
-	if (!error)
-	{
-		error = nano::read (stream_a, amount.bytes);
-		if (!error)
-		{
-			error = nano::read (stream_a, destination.bytes);
-		}
-	}
-	return error;
-}
-
-bool nano::pending_info_v3::operator== (nano::pending_info_v3 const & other_a) const
-{
-	return source == other_a.source && amount == other_a.amount && destination == other_a.destination;
-}
-
 nano::mdb_val nano::pending_info_v3::val () const
 {
 	return nano::mdb_val (sizeof (*this), const_cast<nano::pending_info_v3 *> (this));
-}
-
-nano::account_info_v5::account_info_v5 () :
-head (0),
-rep_block (0),
-open_block (0),
-balance (0),
-modified (0)
-{
 }
 
 nano::account_info_v5::account_info_v5 (MDB_val const & val_a)
@@ -131,38 +55,29 @@ modified (modified_a)
 {
 }
 
-void nano::account_info_v5::serialize (nano::stream & stream_a) const
-{
-	write (stream_a, head.bytes);
-	write (stream_a, rep_block.bytes);
-	write (stream_a, open_block.bytes);
-	write (stream_a, balance.bytes);
-	write (stream_a, modified);
-}
-
-bool nano::account_info_v5::deserialize (nano::stream & stream_a)
-{
-	auto error (read (stream_a, head.bytes));
-	if (!error)
-	{
-		error = read (stream_a, rep_block.bytes);
-		if (!error)
-		{
-			error = read (stream_a, open_block.bytes);
-			if (!error)
-			{
-				error = read (stream_a, balance.bytes);
-				if (!error)
-				{
-					error = read (stream_a, modified);
-				}
-			}
-		}
-	}
-	return error;
-}
-
 nano::mdb_val nano::account_info_v5::val () const
 {
 	return nano::mdb_val (sizeof (*this), const_cast<nano::account_info_v5 *> (this));
+}
+
+nano::account_info_v13::account_info_v13 (nano::block_hash const & head_a, nano::block_hash const & rep_block_a, nano::block_hash const & open_block_a, nano::amount const & balance_a, uint64_t modified_a, uint64_t block_count_a, nano::epoch epoch_a) :
+head (head_a),
+rep_block (rep_block_a),
+open_block (open_block_a),
+balance (balance_a),
+modified (modified_a),
+block_count (block_count_a),
+epoch (epoch_a)
+{
+}
+
+size_t nano::account_info_v13::db_size () const
+{
+	assert (reinterpret_cast<const uint8_t *> (this) == reinterpret_cast<const uint8_t *> (&head));
+	assert (reinterpret_cast<const uint8_t *> (&head) + sizeof (head) == reinterpret_cast<const uint8_t *> (&rep_block));
+	assert (reinterpret_cast<const uint8_t *> (&rep_block) + sizeof (rep_block) == reinterpret_cast<const uint8_t *> (&open_block));
+	assert (reinterpret_cast<const uint8_t *> (&open_block) + sizeof (open_block) == reinterpret_cast<const uint8_t *> (&balance));
+	assert (reinterpret_cast<const uint8_t *> (&balance) + sizeof (balance) == reinterpret_cast<const uint8_t *> (&modified));
+	assert (reinterpret_cast<const uint8_t *> (&modified) + sizeof (modified) == reinterpret_cast<const uint8_t *> (&block_count));
+	return sizeof (head) + sizeof (rep_block) + sizeof (open_block) + sizeof (balance) + sizeof (modified) + sizeof (block_count);
 }

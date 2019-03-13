@@ -116,6 +116,8 @@ std::string nano::error_rpc_messages::message (int ev) const
 			return "Unknown error";
 		case nano::error_rpc::bad_destination:
 			return "Bad destination account";
+		case nano::error_rpc::bad_difficulty_format:
+			return "Bad difficulty";
 		case nano::error_rpc::bad_key:
 			return "Bad key";
 		case nano::error_rpc::bad_link:
@@ -158,6 +160,14 @@ std::string nano::error_rpc_messages::message (int ev) const
 			return "Invalid root hash";
 		case nano::error_rpc::invalid_sources:
 			return "Invalid sources number";
+		case nano::error_rpc::invalid_subtype:
+			return "Invalid block subtype";
+		case nano::error_rpc::invalid_subtype_balance:
+			return "Invalid block balance for given subtype";
+		case nano::error_rpc::invalid_subtype_epoch_link:
+			return "Invalid epoch link";
+		case nano::error_rpc::invalid_subtype_previous:
+			return "Invalid previous block for given subtype";
 		case nano::error_rpc::invalid_timestamp:
 			return "Invalid timestamp";
 		case nano::error_rpc::payment_account_balance:

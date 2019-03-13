@@ -30,9 +30,11 @@ endif()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# TODO check if any library requires these
-#find_package(Threads REQUIRED)
-#set (PLATFORM_LIBS ${CMAKE_THREAD_LIBS_INIT} ${CMAKE_DL_LIBS})
+set(USING_ASAN (NANO_ASAN OR RAIBLOCKS_ASAN))
+set(USING_ASAN_INT (NANO_ASAN_INT OR RAIBLOCKS_ASAN_INT))
+set(USING_TSAN (NANO_TSAN OR RAIBLOCKS_TSAN))
+
+find_package(Threads)
 
 if (WIN32)
 	add_definitions(-D_WIN32_WINNT=0x0600
@@ -40,16 +42,31 @@ if (WIN32)
 					-DWIN32_LEAN_AND_MEAN
 					-DMINIUPNP_STATICLIB
 					-D_CRT_SECURE_NO_WARNINGS)
+
+	if (${USING_TSAN} OR ${USING_ASAN} OR ${USING_ASAN_INT})
+		message (WARNING "Cannot use TSAN or ASAN on Windows, sanitizers ignored")
+	endif()
+
 else ()
 	add_compile_options(-Werror=switch)
-	if (NANO_ASAN OR RAIBLOCKS_ASAN)
-		add_compile_options(-fsanitize=address,undefined)
+
+	if ((${USING_TSAN} AND ${USING_ASAN}) OR
+	    (${USING_TSAN} AND ${USING_ASAN_INT}))
+		message (WARNING "Cannot use TSAN/ASAN together, defaulting to ASAN")
+	endif()
+
+	if (${USING_ASAN} OR ${USING_ASAN_INT})
+		if (${USING_ASAN_INT})
+			add_compile_options(-fsanitize=address,undefined,integer)
+		else ()	
+			add_compile_options(-fsanitize=address,undefined)
+		endif()
 		add_definitions(-DED25519_NO_INLINE_ASM)
-	elseif (NANO_ASAN_INT OR RAIBLOCKS_ASAN_INT)
-		add_compile_options(-fsanitize=address,undefined,integer)
-		add_definitions(-DED25519_NO_INLINE_ASM)
-	elseif (NANO_TSAN OR RAIBLOCKS_TSAN)
-		add_compile_options(-fsanitize=thread -fsanitize-blacklist=tsan_blacklist)
+	elseif (${USING_TSAN})
+		add_compile_options(-fsanitize=thread)
+		if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+			add_compile_options("-fsanitize-blacklist=${PROJECT_SOURCE_DIR}/tsan_blacklist")
+		endif()
 		add_definitions(-DED25519_NO_INLINE_ASM)
 	endif()
 
@@ -103,12 +120,15 @@ else ()
 		set (PLATFORM_LINK_FLAGS "-static-libgcc -static-libstdc++")
 	endif ()
 
-	if (NANO_ASAN OR RAIBLOCKS_ASAN)
-		set (PLATFORM_LINK_FLAGS "${PLATFORM_LINK_FLAGS} -fsanitize=address,undefined")
-	elseif (NANO_ASAN_INT OR RAIBLOCKS_ASAN_INT)
+	if (${USING_ASAN_INT})
 		set (PLATFORM_LINK_FLAGS "${PLATFORM_LINK_FLAGS} -fsanitize=address,undefined,integer")
-	elseif (NANO_TSAN OR RAIBLOCKS_TSAN)
-		set (PLATFORM_LINK_FLAGS "${PLATFORM_LINK_FLAGS} -fsanitize=thread -fsanitize-blacklist=tsan_blacklist")
+	elseif (${USING_ASAN})
+		set (PLATFORM_LINK_FLAGS "${PLATFORM_LINK_FLAGS} -fsanitize=address,undefined")
+	elseif (${USING_TSAN})
+		set (PLATFORM_LINK_FLAGS "${PLATFORM_LINK_FLAGS} -fsanitize=thread")
+		if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+			set (PLATFORM_LINK_FLAGS "${PLATFORM_LINK_FLAGS} -fsanitize-blacklist=${PROJECT_SOURCE_DIR}/tsan_blacklist")
+		endif()
 	endif()
 endif ()
 
@@ -135,12 +155,12 @@ if (BOOST_ROOT)
 	list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 endif ()
 
-find_package (Boost 1.66.0 REQUIRED COMPONENTS filesystem log thread program_options system)
+find_package (Boost 1.67.0 REQUIRED COMPONENTS filesystem log thread program_options system)
 
 add_subdirectory(crypto/ed25519-donna)
 
 set (UPNPC_BUILD_SHARED OFF CACHE BOOL "")
-add_subdirectory (miniupnp/miniupnpc)
+add_subdirectory (miniupnp/miniupnpc EXCLUDE_FROM_ALL)
 # FIXME: This fixes miniupnpc include directories without modifying miniupnpc's
 # CMakeLists.txt but should be set there
 set_target_properties(libminiupnpc-static PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
@@ -219,7 +239,7 @@ add_library (cryptopp
 	crypto/cryptopp/sse_simd.cpp
 	${CRYPTOPP_EXTRA})
 
-if ((NANO_SIMD_OPTIMIZATIONS OR RAIBLOCKS_SIMD_OPTIMIZATIONS) AND NOT CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+if (WIN32 OR CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86(_64)?)$")
 	set (ARGON_CORE crypto/phc-winner-argon2/src/opt.c)
 else ()
 	set (ARGON_CORE crypto/phc-winner-argon2/src/ref.c)

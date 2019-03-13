@@ -78,22 +78,21 @@ enum class epoch : uint8_t
 class account_info
 {
 public:
-	account_info ();
-	account_info (nano::account_info const &) = default;
-	account_info (nano::block_hash const &, nano::block_hash const &, nano::block_hash const &, nano::amount const &, uint64_t, uint64_t, epoch);
-	void serialize (nano::stream &) const;
+	account_info () = default;
+	account_info (nano::block_hash const &, nano::block_hash const &, nano::block_hash const &, nano::amount const &, uint64_t, uint64_t, uint64_t, epoch);
 	bool deserialize (nano::stream &);
 	bool operator== (nano::account_info const &) const;
 	bool operator!= (nano::account_info const &) const;
 	size_t db_size () const;
-	nano::block_hash head;
-	nano::block_hash rep_block;
-	nano::block_hash open_block;
-	nano::amount balance;
+	nano::block_hash head{ 0 };
+	nano::block_hash rep_block{ 0 };
+	nano::block_hash open_block{ 0 };
+	nano::amount balance{ 0 };
 	/** Seconds since posix epoch */
-	uint64_t modified;
-	uint64_t block_count;
-	nano::epoch epoch;
+	uint64_t modified{ 0 };
+	uint64_t block_count{ 0 };
+	uint64_t confirmation_height{ 0 };
+	nano::epoch epoch{ nano::epoch::epoch_0 };
 };
 
 /**
@@ -102,26 +101,24 @@ public:
 class pending_info
 {
 public:
-	pending_info ();
+	pending_info () = default;
 	pending_info (nano::account const &, nano::amount const &, epoch);
-	void serialize (nano::stream &) const;
 	bool deserialize (nano::stream &);
 	bool operator== (nano::pending_info const &) const;
-	nano::account source;
-	nano::amount amount;
-	nano::epoch epoch;
+	nano::account source{ 0 };
+	nano::amount amount{ 0 };
+	nano::epoch epoch{ nano::epoch::epoch_0 };
 };
 class pending_key
 {
 public:
-	pending_key ();
+	pending_key () = default;
 	pending_key (nano::account const &, nano::block_hash const &);
-	void serialize (nano::stream &) const;
 	bool deserialize (nano::stream &);
 	bool operator== (nano::pending_key const &) const;
-	nano::account account;
-	nano::block_hash hash;
 	nano::block_hash key () const;
+	nano::account account{ 0 };
+	nano::block_hash hash{ 0 };
 };
 
 class endpoint_key
@@ -176,40 +173,35 @@ enum class signature_verification : uint8_t
 class unchecked_info
 {
 public:
-	unchecked_info ();
+	unchecked_info () = default;
 	unchecked_info (std::shared_ptr<nano::block>, nano::account const &, uint64_t, nano::signature_verification = nano::signature_verification::unknown);
 	void serialize (nano::stream &) const;
 	bool deserialize (nano::stream &);
-	bool operator== (nano::unchecked_info const &) const;
 	std::shared_ptr<nano::block> block;
-	nano::account account;
+	nano::account account{ 0 };
 	/** Seconds since posix epoch */
-	uint64_t modified;
-	nano::signature_verification verified;
+	uint64_t modified{ 0 };
+	nano::signature_verification verified{ nano::signature_verification::unknown };
 };
 
 class block_info
 {
 public:
-	block_info ();
+	block_info () = default;
 	block_info (nano::account const &, nano::amount const &);
-	void serialize (nano::stream &) const;
-	bool deserialize (nano::stream &);
-	bool operator== (nano::block_info const &) const;
-	nano::account account;
-	nano::amount balance;
+	nano::account account{ 0 };
+	nano::amount balance{ 0 };
 };
 class block_counts
 {
 public:
-	block_counts ();
-	size_t sum ();
-	size_t send;
-	size_t receive;
-	size_t open;
-	size_t change;
-	size_t state_v0;
-	size_t state_v1;
+	size_t sum () const;
+	size_t send{ 0 };
+	size_t receive{ 0 };
+	size_t open{ 0 };
+	size_t change{ 0 };
+	size_t state_v0{ 0 };
+	size_t state_v1{ 0 };
 };
 typedef std::vector<boost::variant<std::shared_ptr<nano::block>, nano::block_hash>>::const_iterator vote_blocks_vec_iter;
 class iterate_vote_blocks_as_hash
@@ -226,16 +218,16 @@ public:
 	vote (bool &, nano::stream &, nano::block_uniquer * = nullptr);
 	vote (bool &, nano::stream &, nano::block_type, nano::block_uniquer * = nullptr);
 	vote (nano::account const &, nano::raw_key const &, uint64_t, std::shared_ptr<nano::block>);
-	vote (nano::account const &, nano::raw_key const &, uint64_t, std::vector<nano::block_hash>);
+	vote (nano::account const &, nano::raw_key const &, uint64_t, std::vector<nano::block_hash> const &);
 	std::string hashes_string () const;
 	nano::uint256_union hash () const;
 	nano::uint256_union full_hash () const;
 	bool operator== (nano::vote const &) const;
 	bool operator!= (nano::vote const &) const;
-	void serialize (nano::stream &, nano::block_type);
-	void serialize (nano::stream &);
+	void serialize (nano::stream &, nano::block_type) const;
+	void serialize (nano::stream &) const;
 	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
-	bool validate ();
+	bool validate () const;
 	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> begin () const;
 	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> end () const;
 	std::string to_json () const;
@@ -308,26 +300,11 @@ enum class tally_result
 	changed,
 	confirm
 };
-extern nano::keypair const & zero_key;
-extern nano::keypair const & test_genesis_key;
-extern nano::account const & nano_test_account;
-extern nano::account const & nano_beta_account;
-extern nano::account const & nano_live_account;
-extern std::string const & nano_test_genesis;
-extern std::string const & nano_beta_genesis;
-extern std::string const & nano_live_genesis;
-extern std::string const & genesis_block;
-extern nano::account const & genesis_account;
-extern nano::account const & burn_account;
-extern nano::uint128_t const & genesis_amount;
-// A block hash that compares inequal to any real block hash
-extern nano::block_hash const & not_a_block;
-// An account number that compares inequal to any real account number
-extern nano::block_hash const & not_an_account;
+
 class genesis
 {
 public:
-	explicit genesis ();
+	genesis ();
 	nano::block_hash hash () const;
 	std::shared_ptr<nano::block> open;
 };

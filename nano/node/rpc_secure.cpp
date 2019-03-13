@@ -83,7 +83,7 @@ void nano::rpc_secure::load_certs (boost::asio::ssl::context & context_a)
 		context_a.set_verify_mode (boost::asio::ssl::verify_fail_if_no_peer_cert | boost::asio::ssl::verify_peer);
 		context_a.add_verify_path (config.secure.client_certs_path);
 		context_a.set_verify_callback ([this](auto preverified, auto & ctx) {
-			return on_verify_certificate (preverified, ctx);
+			return this->on_verify_certificate (preverified, ctx);
 		});
 	}
 }
@@ -181,7 +181,7 @@ void nano::rpc_connection_secure::read ()
 				{
 					case boost::beast::http::verb::post:
 					{
-						auto handler (std::make_shared<rai::rpc_handler> (*this_l->node, this_l->rpc, this_l->request.body (), request_id, response_handler));
+						auto handler (std::make_shared<nano::rpc_handler> (*this_l->node, this_l->rpc, this_l->request.body (), request_id, response_handler));
 						handler->process_request ();
 						break;
 					}
@@ -190,14 +190,16 @@ void nano::rpc_connection_secure::read ()
 						this_l->prepare_head (version);
 						this_l->res.set (boost::beast::http::field::allow, "POST, OPTIONS");
 						this_l->res.prepare_payload ();
+						// clang-format off
 						boost::beast::http::async_write (this_l->stream, this_l->res, [this_l](boost::system::error_code const & ec, size_t bytes_transferred) {
 							// Perform the SSL shutdown
 							this_l->stream.async_shutdown (
 							std::bind (
-							&rai::rpc_connection_secure::on_shutdown,
+							&nano::rpc_connection_secure::on_shutdown,
 							this_l,
 							std::placeholders::_1));
 						});
+						// clang-format on
 						break;
 					}
 					default:

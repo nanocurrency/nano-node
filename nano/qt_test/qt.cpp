@@ -95,7 +95,17 @@ TEST (wallet, select_account)
 	QTest::mouseClick (wallet->accounts.use_account, Qt::LeftButton);
 	auto key4 (wallet->account);
 	ASSERT_NE (key3, key4);
-	ASSERT_EQ (key2, key4);
+
+	// The list is populated in sorted order as it's read from store in lexical order. This may
+	// be different from the insertion order.
+	if (key1 < key2)
+	{
+		ASSERT_EQ (key2, key4);
+	}
+	else
+	{
+		ASSERT_EQ (key1, key4);
+	}
 }
 
 TEST (wallet, main)
@@ -702,26 +712,23 @@ TEST (wallet, seed_work_generation)
 	QTest::mouseClick (wallet->accounts.import_wallet, Qt::LeftButton);
 	ASSERT_EQ (wallet->import.window, wallet->main_stack->currentWidget ());
 	nano::raw_key seed;
-	seed.data.clear ();
+	nano::uint256_union prv;
+	nano::deterministic_key (seed.data, 0, prv);
+	nano::uint256_union pub (nano::pub_key (prv));
 	QTest::keyClicks (wallet->import.seed, seed.data.to_string ().c_str ());
 	QTest::keyClicks (wallet->import.clear_line, "clear keys");
-	uint64_t work_start;
-	{
-		auto transaction (system.wallet (0)->wallets.tx_begin ());
-		system.wallet (0)->store.work_get (transaction, key1, work_start);
-	}
-	uint64_t work (work_start);
+	uint64_t work (0);
 	QTest::mouseClick (wallet->import.import_seed, Qt::LeftButton);
 	system.deadline_set (10s);
-	while (work == work_start)
+	while (work == 0)
 	{
 		auto ec = system.poll ();
 		auto transaction (system.wallet (0)->wallets.tx_begin ());
-		system.wallet (0)->store.work_get (transaction, key1, work);
+		system.wallet (0)->store.work_get (transaction, pub, work);
 		ASSERT_NO_ERROR (ec);
 	}
 	auto transaction (system.nodes[0]->store.tx_begin ());
-	ASSERT_FALSE (nano::work_validate (system.nodes[0]->ledger.latest_root (transaction, key1), work));
+	ASSERT_FALSE (nano::work_validate (system.nodes[0]->ledger.latest_root (transaction, pub), work));
 }
 
 TEST (wallet, backup_seed)

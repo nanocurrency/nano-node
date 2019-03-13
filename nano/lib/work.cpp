@@ -7,12 +7,13 @@
 
 bool nano::work_validate (nano::block_hash const & root_a, uint64_t work_a, uint64_t * difficulty_a)
 {
+	static nano::network_params network_params;
 	auto value (nano::work_value (root_a, work_a));
 	if (difficulty_a != nullptr)
 	{
 		*difficulty_a = value;
 	}
-	return value < nano::work_pool::publish_threshold;
+	return value < network_params.publish_threshold;
 }
 
 bool nano::work_validate (nano::block const & block_a, uint64_t * difficulty_a)
@@ -31,7 +32,7 @@ uint64_t nano::work_value (nano::block_hash const & root_a, uint64_t work_a)
 	return result;
 }
 
-nano::work_pool::work_pool (unsigned max_threads_a, std::function<boost::optional<uint64_t> (nano::uint256_union const &)> opencl_a) :
+nano::work_pool::work_pool (unsigned max_threads_a, std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> opencl_a) :
 ticket (0),
 done (false),
 opencl (opencl_a)
@@ -39,7 +40,7 @@ opencl (opencl_a)
 	static_assert (ATOMIC_INT_LOCK_FREE == 2, "Atomic int needed");
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
-	auto count (nano::is_test_network ? 1 : std::min (max_threads_a, std::max (1u, boost::thread::hardware_concurrency ())));
+	auto count (network_params.is_test_network () ? 1 : std::min (max_threads_a, std::max (1u, boost::thread::hardware_concurrency ())));
 	for (auto i (0); i < count; ++i)
 	{
 		auto thread (boost::thread (attrs, [this, i]() {
@@ -64,7 +65,7 @@ void nano::work_pool::loop (uint64_t thread)
 {
 	// Quick RNG for work attempts.
 	xorshift1024star rng;
-	nano::random_pool.GenerateBlock (reinterpret_cast<uint8_t *> (rng.s.data ()), rng.s.size () * sizeof (decltype (rng.s)::value_type));
+	nano::random_pool::generate_block (reinterpret_cast<uint8_t *> (rng.s.data ()), rng.s.size () * sizeof (decltype (rng.s)::value_type));
 	uint64_t work;
 	uint64_t output;
 	blake2b_state hash;
@@ -105,7 +106,7 @@ void nano::work_pool::loop (uint64_t thread)
 			if (ticket == ticket_l)
 			{
 				// If the ticket matches what we started with, we're the ones that found the solution
-				assert (output >= nano::work_pool::publish_threshold);
+				assert (output >= network_params.publish_threshold);
 				assert (work_value (current_l.item, work) == output);
 				// Signal other threads to stop their work next time they check ticket
 				++ticket;
@@ -161,13 +162,18 @@ void nano::work_pool::stop ()
 	producer_condition.notify_all ();
 }
 
+void nano::work_pool::generate (nano::uint256_union const & root_a, std::function<void(boost::optional<uint64_t> const &)> callback_a)
+{
+	generate (root_a, callback_a, network_params.publish_threshold);
+}
+
 void nano::work_pool::generate (nano::uint256_union const & root_a, std::function<void(boost::optional<uint64_t> const &)> callback_a, uint64_t difficulty_a)
 {
 	assert (!root_a.is_zero ());
 	boost::optional<uint64_t> result;
 	if (opencl)
 	{
-		result = opencl (root_a);
+		result = opencl (root_a, difficulty_a);
 	}
 	if (!result)
 	{
@@ -181,6 +187,11 @@ void nano::work_pool::generate (nano::uint256_union const & root_a, std::functio
 	{
 		callback_a (result);
 	}
+}
+
+uint64_t nano::work_pool::generate (nano::uint256_union const & hash_a)
+{
+	return generate (hash_a, network_params.publish_threshold);
 }
 
 uint64_t nano::work_pool::generate (nano::uint256_union const & hash_a, uint64_t difficulty_a)

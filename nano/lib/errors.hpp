@@ -74,6 +74,7 @@ enum class error_rpc
 {
 	generic = 1,
 	bad_destination,
+	bad_difficulty_format,
 	bad_key,
 	bad_link,
 	bad_previous,
@@ -95,6 +96,10 @@ enum class error_rpc
 	invalid_missing_type,
 	invalid_root,
 	invalid_sources,
+	invalid_subtype,
+	invalid_subtype_balance,
+	invalid_subtype_epoch_link,
+	invalid_subtype_previous,
 	invalid_timestamp,
 	payment_account_balance,
 	payment_unable_create_account,
@@ -128,8 +133,6 @@ enum class error_config
 	missing_value,
 };
 
-} // nano namespace
-
 /** Returns the error code if non-zero, otherwise the value */
 template <class T>
 auto either (T && value, std::error_code ec) -> expected<typename std::remove_reference_t<T>, std::error_code>
@@ -143,6 +146,7 @@ auto either (T && value, std::error_code ec) -> expected<typename std::remove_re
 		return std::move (value);
 	}
 }
+} // nano namespace
 
 // Convenience macro to implement the standard boilerplate for using std::error_code with enums
 // Use this at the end of any header defining one or more error code enums.
@@ -323,17 +327,6 @@ public:
 	{
 		code = nano::error_common::generic;
 		message = std::move (message_a);
-		return *this;
-	}
-
-	/** Set the error to nano::error_common::generic. */
-	error & operator= (bool is_error)
-	{
-		if (is_error)
-		{
-			code = nano::error_common::generic;
-		}
-		message.clear ();
 		return *this;
 	}
 
