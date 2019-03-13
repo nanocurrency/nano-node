@@ -1101,6 +1101,7 @@ void nano::bootstrap_attempt::run ()
 		{
 			node->unchecked_cleanup ();
 		}
+		node->confirm_frontiers ();
 	}
 	stopped = true;
 	condition.notify_all ();

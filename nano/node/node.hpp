@@ -465,6 +465,7 @@ public:
 	void work_generate (nano::uint256_union const &, std::function<void(uint64_t)>);
 	void add_initial_peers ();
 	void block_confirm (std::shared_ptr<nano::block>);
+	void confirm_frontiers ();
 	void process_fork (nano::transaction const &, std::shared_ptr<nano::block>);
 	bool validate_block_by_previous (nano::transaction const &, std::shared_ptr<nano::block>);
 	void do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const &, uint16_t, std::shared_ptr<std::string>, std::shared_ptr<std::string>, std::shared_ptr<boost::asio::ip::tcp::resolver>);
