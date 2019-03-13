@@ -4368,37 +4368,40 @@ void nano::rpc_connection::write_result (std::string body, unsigned version, boo
 
 void nano::rpc_connection::read ()
 {
-	auto header_parser (std::make_shared<boost::beast::http::request_parser<boost::beast::http::empty_body>> ());
 	auto this_l (shared_from_this ());
+	boost::system::error_code header_error;
+	auto header_parser (std::make_shared<boost::beast::http::request_parser<boost::beast::http::empty_body>> ());
 	std::promise<size_t> header_available_promise;
 	std::future<size_t> header_available = header_available_promise.get_future ();
 	header_parser->body_limit (rpc.config.max_request_size);
-	boost::system::error_code header_error;
-	boost::beast::http::async_read_header (socket, buffer, *header_parser, [this_l, header_parser, &header_available_promise, &header_error](boost::system::error_code const & ec, size_t bytes_transferred) {
-		size_t header_response_bytes_written = 0;
-		if (!ec)
-		{
-			if (boost::iequals (header_parser->get ()[boost::beast::http::field::expect], "100-continue"))
+	if (!node->network_params.is_test_network ())
+	{
+		boost::beast::http::async_read_header (socket, buffer, *header_parser, [this_l, header_parser, &header_available_promise, &header_error](boost::system::error_code const & ec, size_t bytes_transferred) {
+			size_t header_response_bytes_written = 0;
+			if (!ec)
 			{
-				boost::beast::http::response<boost::beast::http::empty_body> continue_response;
-				continue_response.version (11);
-				continue_response.result (boost::beast::http::status::continue_);
-				continue_response.set (boost::beast::http::field::server, "nano");
-				auto response_size (boost::beast::http::async_write (this_l->socket, continue_response, boost::asio::use_future));
-				header_response_bytes_written = response_size.get ();
+				if (boost::iequals (header_parser->get ()[boost::beast::http::field::expect], "100-continue"))
+				{
+					boost::beast::http::response<boost::beast::http::empty_body> continue_response;
+					continue_response.version (11);
+					continue_response.result (boost::beast::http::status::continue_);
+					continue_response.set (boost::beast::http::field::server, "nano");
+					auto response_size (boost::beast::http::async_write (this_l->socket, continue_response, boost::asio::use_future));
+					header_response_bytes_written = response_size.get ();
+				}
 			}
-		}
-		else
-		{
-			header_error = ec;
-			this_l->node->logger.always_log ("RPC header error: ", ec.message ());
-		}
+			else
+			{
+				header_error = ec;
+				this_l->node->logger.always_log ("RPC header error: ", ec.message ());
+			}
 
-		header_available_promise.set_value (header_response_bytes_written);
-	});
+			header_available_promise.set_value (header_response_bytes_written);
+		});
 
-	// Avait header
-	header_available.get ();
+		// Avait header
+		header_available.get ();
+	}
 
 	if (!header_error)
 	{
