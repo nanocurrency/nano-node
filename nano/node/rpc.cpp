@@ -1987,6 +1987,7 @@ void nano::rpc_handler::account_history ()
 				if (!entry.empty ())
 				{
 					entry.put ("local_timestamp", std::to_string (sideband.timestamp));
+					entry.put ("height", std::to_string (sideband.height));
 					entry.put ("hash", hash.to_string ());
 					if (output_raw)
 					{
