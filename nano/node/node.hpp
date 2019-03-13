@@ -115,6 +115,7 @@ public:
 	bool vote (std::shared_ptr<nano::vote>, bool = false);
 	// Is the root of this block in the roots container
 	bool active (nano::block const &);
+	uint64_t active_difficulty ();
 	void update_difficulty (nano::block const &);
 	std::deque<std::shared_ptr<nano::block>> list_blocks (bool = false);
 	void erase (nano::block const &);

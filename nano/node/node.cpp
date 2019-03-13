@@ -3534,6 +3534,28 @@ bool nano::active_transactions::active (nano::block const & block_a)
 	return roots.find (nano::uint512_union (block_a.previous (), block_a.root ())) != roots.end ();
 }
 
+uint64_t nano::active_transactions::active_difficulty ()
+{
+	nano::network_params params;
+	uint64_t result (params.publish_threshold);
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		auto size_l (roots.size ());
+		switch (size_l)
+		{
+			case 0:
+				break;
+			case 1:
+				result = roots.get<1> ().begin ()->difficulty;
+				break;
+			default:
+				result = roots.get<1> ().find ((roots.get<1> ().begin ()->difficulty + (--roots.get<1> ().end ())->difficulty) / 2)->difficulty;
+				break;
+		}
+	}
+	return result;
+}
+
 void nano::active_transactions::update_difficulty (nano::block const & block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);

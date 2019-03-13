@@ -2311,6 +2311,71 @@ TEST (node, unchecked_cleanup)
 	}
 }
 
+//active difficulty returns threshold when empty
+TEST (active_difficulty, empty)
+{
+	nano::system system (24000, 1);
+	auto & node1 (*system.nodes[0]);
+	nano::network_params params;
+	ASSERT_EQ (node1.active.active_difficulty (), params.publish_threshold);
+}
+
+//active difficulty 1 root
+TEST (active_difficulty, single_root)
+{
+	nano::system system (24000, 1);
+	auto & node1 (*system.nodes[0]);
+	nano::genesis genesis;
+	nano::keypair key1;
+	nano::network_params params;
+	ASSERT_EQ (node1.active.active_difficulty (), params.publish_threshold);
+	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send1);
+	uint64_t difficulty1;
+	nano::work_validate (*send1, &difficulty1);
+	system.deadline_set (2s);
+	node1.process_active (send1);
+	while (node1.active.active_difficulty () == params.publish_threshold)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (node1.active.active_difficulty (), difficulty1);
+}
+
+//active difficulty many roots
+TEST (active_difficulty, many_root)
+{
+	nano::system system (24000, 1);
+	auto & node1 (*system.nodes[0]);
+	nano::genesis genesis;
+	nano::keypair key1;
+	nano::network_params params;
+	ASSERT_EQ (node1.active.active_difficulty (), params.publish_threshold);
+	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send1);
+	uint64_t difficulty1;
+	nano::work_validate (*send1, &difficulty1);
+	auto send2 (std::make_shared<nano::send_block> (send1->hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send2);
+	uint64_t difficulty2;
+	nano::work_validate (*send2, &difficulty2);
+
+	auto send3 (std::make_shared<nano::send_block> (send2->hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send3);
+	uint64_t difficulty3;
+	nano::work_validate (*send3, &difficulty3);
+
+	system.deadline_set (10s);
+	node1.process_active (send1);
+	node1.process_active (send2);
+	node1.process_active (send3);
+	while (node1.active.roots.empty ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (node1.active.active_difficulty (), node1.active.roots.get<1> ().find ((node1.active.roots.get<1> ().begin ()->difficulty + (--node1.active.roots.get<1> ().end ())->difficulty) / 2)->difficulty);
+}
+
 namespace
 {
 void add_required_children_node_config_tree (nano::jsonconfig & tree)
