@@ -2351,6 +2351,7 @@ TEST (active_difficulty, many_root)
 	nano::keypair key1;
 	nano::network_params params;
 	ASSERT_EQ (node1.active.active_difficulty (), params.publish_threshold);
+
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send1);
 	uint64_t difficulty1;
@@ -2359,16 +2360,14 @@ TEST (active_difficulty, many_root)
 	node1.work_generate_blocking (*send2);
 	uint64_t difficulty2;
 	nano::work_validate (*send2, &difficulty2);
-
 	auto send3 (std::make_shared<nano::send_block> (send2->hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send3);
 	uint64_t difficulty3;
 	nano::work_validate (*send3, &difficulty3);
-
-	system.deadline_set (10s);
 	node1.process_active (send1);
 	node1.process_active (send2);
 	node1.process_active (send3);
+	system.deadline_set (2s);
 	while (node1.active.roots.empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
