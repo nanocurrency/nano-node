@@ -37,7 +37,9 @@ callback_port (0),
 lmdb_max_dbs (128),
 allow_local_peers (!network_params.is_live_network ()), // disable by default for live network
 block_processor_batch_max_time (std::chrono::milliseconds (5000)),
-unchecked_cutoff_time (std::chrono::seconds (4 * 60 * 60)) // 4 hours
+unchecked_cutoff_time (std::chrono::seconds (4 * 60 * 60)), // 4 hours
+tcp_client_timeout (std::chrono::seconds (5)),
+tcp_server_timeout (std::chrono::seconds (30))
 {
 	// The default constructor passes 0 to indicate we should use the default port,
 	// which is determined at node startup based on active network.
@@ -128,6 +130,8 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("allow_local_peers", allow_local_peers);
 	json.put ("vote_minimum", vote_minimum.to_string_dec ());
 	json.put ("unchecked_cutoff_time", unchecked_cutoff_time.count ());
+	json.put ("tcp_client_timeout", tcp_client_timeout.count ());
+	json.put ("tcp_server_timeout", tcp_server_timeout.count ());
 
 	nano::jsonconfig ipc_l;
 	ipc_config.serialize_json (ipc_l);
@@ -252,6 +256,12 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			upgraded = true;
 		}
 		case 16:
+		{
+			json.put ("tcp_client_timeout", tcp_client_timeout.count ());
+			json.put ("tcp_server_timeout", tcp_server_timeout.count ());
+			upgraded = true;
+		}
+		case 17:
 			break;
 		default:
 			throw std::runtime_error ("Unknown node_config version");
@@ -350,6 +360,12 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		unsigned long unchecked_cutoff_time_l (unchecked_cutoff_time.count ());
 		json.get ("unchecked_cutoff_time", unchecked_cutoff_time_l);
 		unchecked_cutoff_time = std::chrono::seconds (unchecked_cutoff_time_l);
+		unsigned long tcp_client_timeout_l (tcp_client_timeout.count ());
+		json.get ("tcp_client_timeout", tcp_client_timeout_l);
+		tcp_client_timeout = std::chrono::seconds (tcp_client_timeout_l);
+		unsigned long tcp_server_timeout_l (tcp_server_timeout.count ());
+		json.get ("tcp_server_timeout", tcp_server_timeout_l);
+		tcp_server_timeout = std::chrono::seconds (tcp_server_timeout_l);
 
 		auto ipc_config_l (json.get_optional_child ("ipc"));
 		if (ipc_config_l)

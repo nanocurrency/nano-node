@@ -31,15 +31,16 @@ public:
 	void async_connect (nano::tcp_endpoint const &, std::function<void(boost::system::error_code const &)>);
 	void async_read (std::shared_ptr<std::vector<uint8_t>>, size_t, std::function<void(boost::system::error_code const &, size_t)>);
 	void async_write (std::shared_ptr<std::vector<uint8_t>>, std::function<void(boost::system::error_code const &, size_t)>);
-	void start (std::chrono::steady_clock::time_point = std::chrono::steady_clock::now () + std::chrono::seconds (5));
+	void start ();
 	void stop ();
 	void close ();
-	void checkup ();
+	void checkup (uint64_t);
 	nano::tcp_endpoint remote_endpoint ();
 	boost::asio::ip::tcp::socket socket_m;
+	std::atomic<uint64_t> last_action_time;
 
 private:
-	std::atomic<uint64_t> cutoff;
+	std::atomic<uint64_t> async_start_time;
 	std::shared_ptr<nano::node> node;
 };
 
@@ -281,6 +282,7 @@ public:
 	void add_request (std::unique_ptr<nano::message>);
 	void finish_request ();
 	void run_next ();
+	void timeout ();
 	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
 	std::shared_ptr<nano::socket> socket;
 	std::shared_ptr<nano::node> node;
