@@ -1964,7 +1964,7 @@ public:
 	boost::property_tree::ptree & tree;
 	nano::block_hash const & hash;
 	nano::network_params network_params;
-  std::vector<nano::public_key> const & accounts_filter;
+	std::vector<nano::public_key> const & accounts_filter;
 };
 }
 
