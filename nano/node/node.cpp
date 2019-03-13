@@ -32,8 +32,7 @@ nano::network::network (nano::node & node_a, uint16_t port) :
 buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
 socket (node_a.io_ctx, nano::endpoint (boost::asio::ip::address_v6::any (), port)),
 resolver (node_a.io_ctx),
-node (node_a),
-on (true)
+node (node_a)
 {
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
@@ -98,7 +97,7 @@ void nano::network::receive ()
 	std::unique_lock<std::mutex> lock (socket_mutex);
 	auto data (buffer_container.allocate ());
 	socket.async_receive_from (boost::asio::buffer (data->buffer, nano::network::buffer_size), data->endpoint, [this, data](boost::system::error_code const & error, size_t size_a) {
-		if (!error && this->on)
+		if (!error && this->socket.is_open ())
 		{
 			data->size = size_a;
 			this->buffer_container.enqueue (data);
@@ -114,7 +113,7 @@ void nano::network::receive ()
 					this->node.logger.try_log (boost::str (boost::format ("UDP Receive error: %1%") % error.message ()));
 				}
 			}
-			if (this->on)
+			if (this->socket.is_open ())
 			{
 				this->node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() { this->receive (); });
 			}
@@ -125,7 +124,7 @@ void nano::network::receive ()
 void nano::network::process_packets ()
 {
 	auto local_endpoint (endpoint ());
-	while (on.load ())
+	while (socket.is_open ())
 	{
 		auto data (buffer_container.dequeue ());
 		if (data == nullptr)
@@ -140,7 +139,6 @@ void nano::network::process_packets ()
 
 void nano::network::stop ()
 {
-	on = false;
 	std::unique_lock<std::mutex> lock (socket_mutex);
 	if (socket.is_open ())
 	{
@@ -771,7 +769,7 @@ public:
 void nano::network::receive_action (nano::udp_data * data_a, nano::endpoint const & local_endpoint_a)
 {
 	auto allowed_sender (true);
-	if (!on)
+	if (!socket.is_open ())
 	{
 		allowed_sender = false;
 	}
@@ -2923,17 +2921,14 @@ void nano::network::send_buffer (uint8_t const * data_a, size_t size_a, nano::en
 	{
 		node.logger.try_log ("Sending packet");
 	}
-	if (on.load ())
-	{
-		socket.async_send_to (boost::asio::buffer (data_a, size_a), endpoint_a, [this, callback_a](boost::system::error_code const & ec, size_t size_a) {
-			callback_a (ec, size_a);
-			this->node.stats.add (nano::stat::type::traffic, nano::stat::dir::out, size_a);
-			if (ec == boost::system::errc::host_unreachable)
-			{
-				this->node.stats.inc (nano::stat::type::error, nano::stat::detail::unreachable_host, nano::stat::dir::out);
-			}
-		});
-	}
+	socket.async_send_to (boost::asio::buffer (data_a, size_a), endpoint_a, [this, callback_a](boost::system::error_code const & ec, size_t size_a) {
+		callback_a (ec, size_a);
+		this->node.stats.add (nano::stat::type::traffic, nano::stat::dir::out, size_a);
+		if (ec == boost::system::errc::host_unreachable)
+		{
+			this->node.stats.inc (nano::stat::type::error, nano::stat::detail::unreachable_host, nano::stat::dir::out);
+		}
+	});
 }
 
 std::shared_ptr<nano::node> nano::node::shared ()
