@@ -436,7 +436,7 @@ TEST (rpc, stop)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	};
-	ASSERT_FALSE (system.nodes[0]->network.on);
+	ASSERT_FALSE (system.nodes[0]->network.socket.is_open ());
 }
 
 TEST (rpc, wallet_add)
