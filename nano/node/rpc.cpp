@@ -1964,6 +1964,15 @@ void nano::rpc_handler::account_history ()
 		if (!ec)
 		{
 			hash = node.ledger.latest (transaction, account);
+			if (reverse)
+			{
+				auto block (node.store.block_get (transaction, hash));
+				while (!block->previous ().is_zero ())
+				{
+					hash = block->previous ();
+					block = node.store.block_get (transaction, hash);
+				}
+			}
 		}
 	}
 	auto count (count_impl ());
