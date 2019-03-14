@@ -132,7 +132,9 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("unchecked_cutoff_time", unchecked_cutoff_time.count ());
 	json.put ("tcp_client_timeout", tcp_client_timeout.count ());
 	json.put ("tcp_server_timeout", tcp_server_timeout.count ());
-
+	nano::jsonconfig websocket_l;
+	websocket_config.serialize_json (websocket_l);
+	json.put_child ("websocket", websocket_l);
 	nano::jsonconfig ipc_l;
 	ipc_config.serialize_json (ipc_l);
 	json.put_child ("ipc", ipc_l);
@@ -257,6 +259,9 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 		}
 		case 16:
 		{
+			nano::jsonconfig websocket_l;
+			websocket_config.serialize_json (websocket_l);
+			json.put_child ("websocket", websocket_l);
 			json.put ("tcp_client_timeout", tcp_client_timeout.count ());
 			json.put ("tcp_server_timeout", tcp_server_timeout.count ());
 			upgraded = true;
@@ -372,7 +377,11 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		{
 			ipc_config.deserialize_json (ipc_config_l.get ());
 		}
-
+		auto websocket_config_l (json.get_optional_child ("websocket"));
+		if (websocket_config_l)
+		{
+			websocket_config.deserialize_json (websocket_config_l.get ());
+		}
 		json.get<uint16_t> ("peering_port", peering_port);
 		json.get<unsigned> ("bootstrap_fraction_numerator", bootstrap_fraction_numerator);
 		json.get<unsigned> ("online_weight_quorum", online_weight_quorum);

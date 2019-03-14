@@ -65,6 +65,10 @@ add_library (node
 	voting.cpp
 	wallet.hpp
 	wallet.cpp
+	websocket.hpp
+	websocket.cpp
+	websocketconfig.hpp
+	websocketconfig.cpp
 	working.hpp
 	xorshift.hpp)
 

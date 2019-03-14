@@ -11,6 +11,7 @@
 #include <nano/node/stats.hpp>
 #include <nano/node/transport/udp.hpp>
 #include <nano/node/wallet.hpp>
+#include <nano/node/websocket.hpp>
 #include <nano/secure/ledger.hpp>
 
 #include <atomic>
@@ -478,6 +479,7 @@ public:
 	boost::asio::io_context & io_ctx;
 	nano::network_params network_params;
 	nano::node_config config;
+	std::shared_ptr<nano::websocket::listener> websocket_server;
 	nano::node_flags flags;
 	nano::alarm & alarm;
 	nano::work_pool & work;
