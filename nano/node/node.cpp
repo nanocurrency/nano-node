@@ -2477,6 +2477,7 @@ void nano::node::confirm_frontiers ()
 			}
 		}
 	}
+	confirm_frontiers_first_call = false;
 }
 
 nano::uint128_t nano::node::delta ()
