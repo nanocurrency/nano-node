@@ -480,7 +480,7 @@ TEST (node, confirm_locked)
 	auto transaction (system.nodes[0]->store.tx_begin ());
 	system.wallet (0)->enter_password (transaction, "1");
 	auto block (std::make_shared<nano::send_block> (0, 0, 0, nano::keypair ().prv, 0, 0));
-	system.nodes[0]->network.republish_block (block);
+	system.nodes[0]->network.flood_block (block);
 }
 
 TEST (node_config, serialization)
@@ -2149,9 +2149,9 @@ TEST (node, fork_invalid_block_signature)
 	}
 	auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, send2));
 	auto vote_corrupt (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, send2_corrupt));
-	system.nodes[1]->network.republish_vote (vote_corrupt);
+	system.nodes[1]->network.flood_vote (vote_corrupt);
 	ASSERT_NO_ERROR (system.poll ());
-	system.nodes[1]->network.republish_vote (vote);
+	system.nodes[1]->network.flood_vote (vote);
 	while (system.nodes[0]->block (send1->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());

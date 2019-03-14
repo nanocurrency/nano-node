@@ -44,11 +44,7 @@ bool nano::peer_container::contacted (nano::endpoint const & endpoint_a, unsigne
 {
 	auto endpoint_l (nano::map_endpoint_to_v6 (endpoint_a));
 	auto should_handshake (false);
-	if (version_a < nano::node_id_version)
-	{
-		insert (endpoint_l, version_a);
-	}
-	else if (!known_peer (endpoint_l))
+	if (!known_peer (endpoint_l))
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 
