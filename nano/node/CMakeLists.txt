@@ -17,38 +17,36 @@ endif ()
 add_library (node
 	${platform_sources}
 	${secure_rpc_sources}
-	blockprocessor.cpp
 	blockprocessor.hpp
-	bootstrap.cpp
+	blockprocessor.cpp
 	bootstrap.hpp
+	bootstrap.cpp
 	cli.hpp
 	cli.cpp
-	common.cpp
 	common.hpp
+	common.cpp
 	daemonconfig.hpp
 	daemonconfig.cpp
 	ipc.hpp
 	ipc.cpp
 	ipcconfig.hpp
 	ipcconfig.cpp
-	lmdb.cpp
 	lmdb.hpp
-	logging.cpp
+	lmdb.cpp
 	logging.hpp
+	logging.cpp
 	nodeconfig.hpp
 	nodeconfig.cpp
 	node.hpp
 	node.cpp
-	openclwork.cpp
+	openclconfig.hpp
+	openclconfig.cpp
 	openclwork.hpp
-	peers.cpp
+	openclwork.cpp
 	peers.hpp
+	peers.cpp
 	portmapping.hpp
 	portmapping.cpp
-	rpc.hpp
-	rpc.cpp
-	rpcconfig.hpp
-	rpcconfig.cpp
 	testing.hpp
 	testing.cpp
 	signatures.hpp

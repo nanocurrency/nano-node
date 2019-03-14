@@ -13,8 +13,3 @@
 #define ASSERT_NO_ERROR(condition)                                                      \
 	GTEST_TEST_ERROR_CODE (!(condition), #condition, condition.message ().c_str (), "", \
 	GTEST_FATAL_FAILURE_)
-
-/** Extends gtest with a std::error_code assert that expects an error */
-#define ASSERT_IS_ERROR(condition)                                                            \
-	GTEST_TEST_ERROR_CODE ((condition.value () > 0), #condition, "An error was expected", "", \
-	GTEST_FATAL_FAILURE_)

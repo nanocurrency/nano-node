@@ -1,7 +1,7 @@
+#include <nano/lib/config.hpp>
 #include <nano/node/daemonconfig.hpp>
 
 nano::daemon_config::daemon_config () :
-rpc_enable (false),
 opencl_enable (false)
 {
 }
@@ -9,11 +9,6 @@ opencl_enable (false)
 nano::error nano::daemon_config::serialize_json (nano::jsonconfig & json)
 {
 	json.put ("version", json_version ());
-	json.put ("rpc_enable", rpc_enable);
-
-	nano::jsonconfig rpc_l;
-	rpc.serialize_json (rpc_l);
-	json.put_child ("rpc", rpc_l);
 
 	nano::jsonconfig node_l;
 	node.serialize_json (node_l);
@@ -37,16 +32,10 @@ nano::error nano::daemon_config::deserialize_json (bool & upgraded_a, nano::json
 			json.get_optional<int> ("version", version_l);
 			upgraded_a |= upgrade_json (version_l, json);
 
-			json.get_optional<bool> ("rpc_enable", rpc_enable);
-			auto rpc_l (json.get_required_child ("rpc"));
-
-			if (!rpc.deserialize_json (upgraded_a, rpc_l))
+			auto node_l (json.get_required_child ("node"));
+			if (!json.get_error ())
 			{
-				auto node_l (json.get_required_child ("node"));
-				if (!json.get_error ())
-				{
-					node.deserialize_json (upgraded_a, node_l);
-				}
+				node.deserialize_json (upgraded_a, node_l);
 			}
 			if (!json.get_error ())
 			{
@@ -95,6 +84,11 @@ bool nano::daemon_config::upgrade_json (unsigned version_a, nano::jsonconfig & j
 			upgraded_l = true;
 		}
 		case 2:
+			// RPC config is no longer relevant so remove it. Migrating is done elsewhere
+			json.erase ("rpc_enable");
+			json.erase ("rpc");
+			upgraded_l = true;
+		case 3:
 			break;
 		default:
 			throw std::runtime_error ("Unknown daemon_config version");
@@ -109,6 +103,61 @@ nano::error read_and_update_daemon_config (boost::filesystem::path const & data_
 	boost::system::error_code error_chmod;
 	nano::jsonconfig json;
 	auto config_path = nano::get_config_path (data_path);
+
+	{
+		// Get version if 2 then copy rpc across
+		auto error (json.read (config_a, config_path));
+		if (!error)
+		{
+			unsigned version = 1;
+			json.get_required<unsigned> ("version", version);
+			if (version <= 2)
+			{
+				auto rpc_l (json.get_required_child ("rpc"));
+
+				// The value is not migrated to the ipc_config
+				rpc_l.erase ("enable_sign_hash");
+
+				auto node_l (json.get_required_child ("node"));
+				auto ipc_l (node_l.get_optional_child ("ipc"));
+				if (ipc_l)
+				{
+					nano::ipc::ipc_config ipc_config;
+					auto upgraded (false);
+					auto err1 = ipc_config.deserialize_json (upgraded, *ipc_l);
+					if (!err1)
+					{
+						// Add IPC to RPC
+						if (ipc_config.transport_tcp.enabled)
+						{
+							rpc_l.put ("ipc_port", ipc_config.transport_tcp.port);
+						}
+						if (ipc_config.transport_domain.enabled)
+						{
+							rpc_l.put ("ipc_path", ipc_config.transport_domain.path);
+						}
+					}
+				}
+
+				auto io_threads = node_l.get_optional<unsigned> ("io_threads");
+				if (io_threads)
+				{
+					rpc_l.put ("io_threads", std::to_string (*io_threads));
+				}
+
+				nano::jsonconfig rpc_json;
+				auto rpc_config_path = nano::get_rpc_config_path (data_path);
+
+				auto rpc_error (rpc_json.read (config_a, rpc_config_path));
+				if (rpc_error || rpc_json.empty ())
+				{
+					// Migrate RPC info across
+					rpc_l.write (rpc_config_path);
+				}
+			}
+		}
+	}
+
 	auto error (json.read_and_update (config_a, config_path));
 	nano::set_secure_perm_file (config_path, error_chmod);
 	return error;

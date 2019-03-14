@@ -5,6 +5,9 @@
 #include <boost/property_tree/ptree.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/ipc_client.hpp>
+#include <nano/lib/numbers.hpp>
+#include <nano/node/wallet.hpp>
 #include <string>
 #include <vector>
 
@@ -12,105 +15,209 @@ namespace nano
 {
 class node;
 class rpc;
+
+namespace ipc
+{
+class ipc_server;
+}
 }
 
 namespace nano
 {
+void error_response (std::function<void(boost::property_tree::ptree const &)> response_a, std::string const & message_a);
+enum class payment_status
+{
+	not_a_status,
+	unknown,
+	nothing, // Timeout and nothing was received
+	//insufficient, // Timeout and not enough was received
+	//over, // More than requested received
+	//success_fork, // Amount received but it involved a fork
+	success // Amount received
+};
+class payment_observer : public std::enable_shared_from_this<nano::payment_observer>
+{
+public:
+	payment_observer (nano::node & node, nano::ipc::ipc_server & ipc_server, std::function<void(boost::property_tree::ptree const &)> const &, nano::account const &, nano::amount const &);
+	~payment_observer ();
+	void start (uint64_t);
+	void observe ();
+	void complete (nano::payment_status);
+	std::mutex mutex;
+	std::condition_variable condition;
+	nano::node & node;
+	nano::account account;
+	nano::amount amount;
+	std::function<void(boost::property_tree::ptree const &)> response;
+	std::atomic_flag completed;
+	nano::ipc::ipc_server & ipc_server;
+};
+
 namespace ipc
 {
-	/**
-	 * Payload encodings; add protobuf, flatbuffers and so on as needed.
-	 */
-	enum class payload_encoding : uint8_t
-	{
-		/**
-		 * Request is preamble followed by 32-bit BE payload length and payload bytes.
-		 * Response is 32-bit BE payload length followed by payload bytes.
-		 */
-		json_legacy = 1
-	};
-
-	/** Removes domain socket files on startup and shutdown */
-	class dsock_file_remover;
-
-	/** IPC transport interface */
-	class transport
-	{
-	public:
-		virtual void stop () = 0;
-		virtual ~transport () = default;
-	};
-
 	/** The IPC server accepts connections on one or more configured transports */
 	class ipc_server
 	{
 	public:
-		ipc_server (nano::node & node, nano::rpc & rpc);
+		ipc_server (nano::node & node_a);
+
 		virtual ~ipc_server ();
+
 		void stop ();
 
 		nano::node & node;
-		nano::rpc & rpc;
 
 		/** Unique counter/id shared across sessions */
 		std::atomic<uint64_t> id_dispenser{ 0 };
 
+		void observer_action (nano::account const &);
+		std::mutex mutex;
+		std::unordered_map<nano::account, std::shared_ptr<nano::payment_observer>> payment_observers;
+
 	private:
 		std::unique_ptr<dsock_file_remover> file_remover;
 		std::vector<std::shared_ptr<nano::ipc::transport>> transports;
-	};
 
-	class ipc_client_impl
-	{
-	public:
-		virtual ~ipc_client_impl () = default;
-	};
-
-	/** IPC client */
-	class ipc_client
-	{
-	public:
-		ipc_client (boost::asio::io_context & io_ctx_a);
-		virtual ~ipc_client () = default;
-
-		/** Connect to a domain socket */
-		nano::error connect (std::string const & path);
-
-		/** Connect to a tcp socket synchronously */
-		nano::error connect (std::string const & host, uint16_t port);
-
-		/** Connect to a tcp socket asynchronously */
-		void async_connect (std::string const & host, uint16_t port, std::function<void(nano::error)> callback);
-
-		/** Write buffer asynchronously */
-		void async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, std::function<void(nano::error, size_t)> callback_a);
-
-		/** Read \p size_a bytes asynchronously */
-		void async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, size_t size_a, std::function<void(nano::error, size_t)> callback_a);
-
-		/**
-		 * Returns a buffer with an IPC preamble for the given \p encoding_a followed by the payload. Depending on encoding,
-		 * the buffer may contain a payload length or end sentinel.
-		 */
-		std::shared_ptr<std::vector<uint8_t>> prepare_request (nano::ipc::payload_encoding encoding_a, std::string const & payload_a);
-
-	private:
-		boost::asio::io_context & io_ctx;
-
-		// PIMPL pattern to hide implementation details
-		std::unique_ptr<ipc_client_impl> impl;
-	};
-
-	/** Convenience wrapper for making synchronous RPC calls via IPC */
-	class rpc_ipc_client : public ipc_client
-	{
-	public:
-		rpc_ipc_client (boost::asio::io_context & io_ctx_a) :
-		ipc_client (io_ctx_a)
-		{
-		}
-		/** Calls the RPC server via IPC and waits for the result. The client must be connected. */
-		std::string request (std::string const & rpc_action_a);
+		void add_block_observer ();
 	};
 }
+
+class ipc_json_handler : public std::enable_shared_from_this<nano::ipc_json_handler>
+{
+public:
+	ipc_json_handler (nano::ipc::ipc_server & ipc_server, nano::node &, std::string const &, std::string const &, std::function<void(boost::property_tree::ptree const &)> const &);
+	void process_request ();
+	void account_balance ();
+	void account_block_count ();
+	void account_count ();
+	void account_create ();
+	void account_get ();
+	void account_history ();
+	void account_info ();
+	void account_key ();
+	void account_list ();
+	void account_move ();
+	void account_remove ();
+	void account_representative ();
+	void account_representative_set ();
+	void account_weight ();
+	void accounts_balances ();
+	void accounts_create ();
+	void accounts_frontiers ();
+	void accounts_pending ();
+	void available_supply ();
+	void block_info ();
+	void block_confirm ();
+	void blocks ();
+	void blocks_info ();
+	void block_account ();
+	void block_count ();
+	void block_count_type ();
+	void block_create ();
+	void block_hash ();
+	void bootstrap ();
+	void bootstrap_any ();
+	void bootstrap_lazy ();
+	void bootstrap_status ();
+	void chain (bool = false);
+	void confirmation_active ();
+	void confirmation_history ();
+	void confirmation_info ();
+	void confirmation_quorum ();
+	void delegators ();
+	void delegators_count ();
+	void deterministic_key ();
+	void frontiers ();
+	void keepalive ();
+	void key_create ();
+	void key_expand ();
+	void ledger ();
+	void mnano_to_raw (nano::uint128_t = nano::Mxrb_ratio);
+	void mnano_from_raw (nano::uint128_t = nano::Mxrb_ratio);
+	void node_id ();
+	void node_id_delete ();
+	void password_change ();
+	void password_enter ();
+	void password_valid (bool = false);
+	void payment_begin ();
+	void payment_init ();
+	void payment_end ();
+	void payment_wait ();
+	void peers ();
+	void pending ();
+	void pending_exists ();
+	void process ();
+	void receive ();
+	void receive_minimum ();
+	void receive_minimum_set ();
+	void representatives ();
+	void representatives_online ();
+	void republish ();
+	void search_pending ();
+	void search_pending_all ();
+	void send ();
+	void sign ();
+	void stats ();
+	void stats_clear ();
+	void stop ();
+	void unchecked ();
+	void unchecked_clear ();
+	void unchecked_get ();
+	void unchecked_keys ();
+	void unopened ();
+	void uptime ();
+	void validate_account_number ();
+	void version ();
+	void wallet_add ();
+	void wallet_add_watch ();
+	void wallet_balances ();
+	void wallet_change_seed ();
+	void wallet_contains ();
+	void wallet_create ();
+	void wallet_destroy ();
+	void wallet_export ();
+	void wallet_frontiers ();
+	void wallet_history ();
+	void wallet_info ();
+	void wallet_key_valid ();
+	void wallet_ledger ();
+	void wallet_lock ();
+	void wallet_pending ();
+	void wallet_representative ();
+	void wallet_representative_set ();
+	void wallet_republish ();
+	void wallet_work_get ();
+	void work_cancel ();
+	void work_generate ();
+	void work_get ();
+	void work_peer_add ();
+	void work_peers ();
+	void work_peers_clear ();
+	void work_set ();
+	void work_validate ();
+	std::string body;
+	std::string request_id;
+	nano::node & node;
+	boost::property_tree::ptree request;
+	std::function<void(boost::property_tree::ptree const &)> response;
+	void response_errors ();
+	std::error_code ec;
+	boost::property_tree::ptree response_l;
+	std::shared_ptr<nano::wallet> wallet_impl ();
+	bool wallet_locked_impl (nano::transaction const &, std::shared_ptr<nano::wallet>);
+	bool wallet_account_impl (nano::transaction const &, std::shared_ptr<nano::wallet>, nano::account const &);
+	nano::account account_impl (std::string = "");
+	nano::amount amount_impl ();
+	std::shared_ptr<nano::block> block_impl (bool = true);
+	std::shared_ptr<nano::block> block_json_impl (bool = true);
+	nano::block_hash hash_impl (std::string = "hash");
+	nano::amount threshold_optional_impl ();
+	uint64_t work_optional_impl ();
+	uint64_t count_impl ();
+	uint64_t count_optional_impl (uint64_t = std::numeric_limits<uint64_t>::max ());
+	uint64_t offset_optional_impl (uint64_t = 0);
+	bool enable_sign_hash {false};
+	nano::ipc::ipc_server & ipc_server;
+};
+
 }

@@ -1,5 +1,4 @@
 add_executable (core_test
-	testutil.hpp
 	block.cpp
 	block_store.cpp
 	interface.cpp
@@ -15,7 +14,6 @@ add_executable (core_test
 	message_parser.cpp
 	processor_service.cpp
 	peer_container.cpp
-	rpc.cpp
 	signing.cpp
 	timer.cpp
 	uint256_union.cpp

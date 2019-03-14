@@ -1,6 +1,6 @@
 #include <chrono>
 #include <gtest/gtest.h>
-#include <nano/core_test/testutil.hpp>
+#include <nano/lib/testutil.hpp>
 #include <nano/lib/timer.hpp>
 #include <thread>
 

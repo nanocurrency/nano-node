@@ -1,6 +1,7 @@
 #pragma once
 
 #include <boost/asio.hpp>
+#include <boost/filesystem.hpp>
 #include <nano/lib/errors.hpp>
 #include <string>
 
@@ -43,10 +44,14 @@ public:
 	bool enable_control;
 	rpc_secure_config secure;
 	uint8_t max_json_depth;
-	bool enable_sign_hash;
+	unsigned io_threads;
+	uint16_t ipc_port;
+	std::string ipc_path;
 	static int json_version ()
 	{
-		return 1;
+		return 2;
 	}
 };
+
+nano::error read_and_update_rpc_config (boost::filesystem::path const & data_path, nano::rpc_config & config_a);
 }

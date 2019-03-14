@@ -348,7 +348,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		auto ipc_config_l (json.get_optional_child ("ipc"));
 		if (ipc_config_l)
 		{
-			ipc_config.deserialize_json (ipc_config_l.get ());
+			ipc_config.deserialize_json (upgraded_a, ipc_config_l.get ());
 		}
 
 		json.get<uint16_t> ("peering_port", peering_port);

@@ -1,6 +1,6 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/jsonconfig.hpp>
-#include <nano/node/rpcconfig.hpp>
+#include <nano/lib/rpcconfig.hpp>
 
 nano::rpc_secure_config::rpc_secure_config () :
 enable (false),
@@ -37,7 +37,9 @@ address (boost::asio::ip::address_v6::loopback ()),
 port (nano::is_live_network ? 7076 : 55000),
 enable_control (enable_control_a),
 max_json_depth (20),
-enable_sign_hash (false)
+io_threads (std::max<unsigned> (4, boost::thread::hardware_concurrency ())),
+ipc_port (7077),
+ipc_path ("/tmp/nano")
 {
 }
 
@@ -48,32 +50,58 @@ nano::error nano::rpc_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("port", port);
 	json.put ("enable_control", enable_control);
 	json.put ("max_json_depth", max_json_depth);
-	json.put ("enable_sign_hash", enable_sign_hash);
+	json.put ("io_threads", io_threads);
+	json.put ("ipc_port", ipc_port);
+	json.put ("ipc_path", ipc_path);
 	return json.get_error ();
 }
 
 nano::error nano::rpc_config::deserialize_json (bool & upgraded_a, nano::jsonconfig & json)
 {
-	auto version_l (json.get_optional<unsigned> ("version"));
-	if (!version_l)
+	if (!json.empty ())
 	{
-		version_l = 1;
-		json.put ("version", *version_l);
-		json.erase ("frontier_request_limit");
-		json.erase ("chain_request_limit");
+		auto version_l (json.get_optional<unsigned> ("version"));
+		if (!version_l)
+		{
+			version_l = 1;
+			json.put ("version", *version_l);
+			json.erase ("frontier_request_limit");
+			json.erase ("chain_request_limit");
+			upgraded_a = true;
+		}
+
+		auto rpc_secure_l (json.get_optional_child ("secure"));
+		if (rpc_secure_l)
+		{
+			secure.deserialize_json (*rpc_secure_l);
+		}
+
+		json.get_required<boost::asio::ip::address_v6> ("address", address);
+		json.get_optional<uint16_t> ("port", port);
+		json.get_optional<bool> ("enable_control", enable_control);
+		json.get_optional<uint8_t> ("max_json_depth", max_json_depth);
+		json.get_optional<unsigned> ("io_threads", io_threads);
+		json.get_optional<uint16_t> ("ipc_port", ipc_port);
+		json.get_optional<std::string> ("ipc_path", ipc_path);
+	}
+	else
+	{
 		upgraded_a = true;
+		serialize_json (json);
 	}
 
-	auto rpc_secure_l (json.get_optional_child ("secure"));
-	if (rpc_secure_l)
-	{
-		secure.deserialize_json (*rpc_secure_l);
-	}
-
-	json.get_required<boost::asio::ip::address_v6> ("address", address);
-	json.get_optional<uint16_t> ("port", port);
-	json.get_optional<bool> ("enable_control", enable_control);
-	json.get_optional<uint8_t> ("max_json_depth", max_json_depth);
-	json.get_optional<bool> ("enable_sign_hash", enable_sign_hash);
 	return json.get_error ();
+}
+
+namespace nano
+{
+nano::error read_and_update_rpc_config (boost::filesystem::path const & data_path, nano::rpc_config & config_a)
+{
+	boost::system::error_code error_chmod;
+	nano::jsonconfig json;
+	auto config_path = nano::get_rpc_config_path (data_path);
+	auto error (json.read_and_update (config_a, config_path));
+	nano::set_secure_perm_file (config_path, error_chmod);
+	return error;
+}
 }

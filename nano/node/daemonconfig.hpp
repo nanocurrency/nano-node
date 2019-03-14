@@ -1,8 +1,9 @@
 #pragma once
 
 #include <nano/lib/errors.hpp>
-#include <nano/node/node.hpp>
-#include <nano/node/rpc.hpp>
+#include <nano/lib/rpcconfig.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/openclconfig.hpp>
 
 namespace nano
 {
@@ -18,14 +19,12 @@ public:
 	 * @param config Configuration to upgrade.
 	 */
 	bool upgrade_json (unsigned version, nano::jsonconfig & config);
-	bool rpc_enable;
-	nano::rpc_config rpc;
 	nano::node_config node;
 	bool opencl_enable;
 	nano::opencl_config opencl;
 	int json_version () const
 	{
-		return 2;
+		return 3;
 	}
 };
 

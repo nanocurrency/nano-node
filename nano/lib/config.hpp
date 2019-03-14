@@ -4,6 +4,15 @@
 #include <chrono>
 #include <cstddef>
 
+#define xstr(a) ver_str (a)
+#define ver_str(a) #a
+
+/**
+* Returns build version information
+*/
+static const char * NANO_MAJOR_MINOR_VERSION = xstr (NANO_VERSION_MAJOR) "." xstr (NANO_VERSION_MINOR);
+static const char * NANO_MAJOR_MINOR_RC_VERSION = xstr (NANO_VERSION_MAJOR) "." xstr (NANO_VERSION_MINOR) "RC" xstr (NANO_VERSION_PATCH);
+
 namespace nano
 {
 /**
@@ -32,5 +41,10 @@ std::chrono::milliseconds const transaction_timeout = std::chrono::milliseconds 
 inline boost::filesystem::path get_config_path (boost::filesystem::path const & data_path)
 {
 	return data_path / "config.json";
+}
+
+inline boost::filesystem::path get_rpc_config_path (boost::filesystem::path const & data_path)
+{
+	return data_path / "rpc_config.json";
 }
 }

@@ -22,9 +22,17 @@ add_library (nano_lib
 	config.hpp
 	interface.cpp
 	interface.h
+	ipc.cpp
+	ipc.hpp
+	ipc_client.cpp
+	ipc_client.hpp
+	logger_mt.hpp
 	jsonconfig.hpp
 	numbers.cpp
 	numbers.hpp
+	rpcconfig.cpp
+	rpcconfig.hpp
+	testutil.hpp
 	timer.hpp
 	utility.cpp
 	utility.hpp

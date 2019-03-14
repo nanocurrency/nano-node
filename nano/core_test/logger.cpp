@@ -22,7 +22,6 @@ TEST (logging, serialization)
 	logging1.network_node_id_handshake_logging_value = !logging1.network_node_id_handshake_logging_value;
 	logging1.node_lifetime_tracing_value = !logging1.node_lifetime_tracing_value;
 	logging1.insufficient_work_logging_value = !logging1.insufficient_work_logging_value;
-	logging1.log_rpc_value = !logging1.log_rpc_value;
 	logging1.bulk_pull_logging_value = !logging1.bulk_pull_logging_value;
 	logging1.work_generation_time_value = !logging1.work_generation_time_value;
 	logging1.log_to_cerr_value = !logging1.log_to_cerr_value;
@@ -45,7 +44,6 @@ TEST (logging, serialization)
 	ASSERT_EQ (logging1.network_node_id_handshake_logging_value, logging2.network_node_id_handshake_logging_value);
 	ASSERT_EQ (logging1.node_lifetime_tracing_value, logging2.node_lifetime_tracing_value);
 	ASSERT_EQ (logging1.insufficient_work_logging_value, logging2.insufficient_work_logging_value);
-	ASSERT_EQ (logging1.log_rpc_value, logging2.log_rpc_value);
 	ASSERT_EQ (logging1.bulk_pull_logging_value, logging2.bulk_pull_logging_value);
 	ASSERT_EQ (logging1.work_generation_time_value, logging2.work_generation_time_value);
 	ASSERT_EQ (logging1.log_to_cerr_value, logging2.log_to_cerr_value);
