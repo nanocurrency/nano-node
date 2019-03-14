@@ -10,6 +10,7 @@
 #include <chrono>
 #include <deque>
 #include <mutex>
+#include <nano/lib/config.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/node/common.hpp>
 #include <unordered_set>
@@ -95,6 +96,7 @@ public:
 	size_t size ();
 	size_t size_sqrt ();
 	bool empty ();
+	nano::network_params network_params;
 	std::mutex mutex;
 	nano::endpoint self;
 	boost::multi_index_container<

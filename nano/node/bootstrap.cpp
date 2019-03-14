@@ -20,14 +20,15 @@ size_t constexpr nano::frontier_req_client::size_frontier;
 
 nano::socket::socket (std::shared_ptr<nano::node> node_a) :
 socket_m (node_a->io_ctx),
-cutoff (std::numeric_limits<uint64_t>::max ()),
+async_start_time (std::numeric_limits<uint64_t>::max ()),
+last_action_time (0),
 node (node_a)
 {
 }
 
 void nano::socket::async_connect (nano::tcp_endpoint const & endpoint_a, std::function<void(boost::system::error_code const &)> callback_a)
 {
-	checkup ();
+	checkup (node->config.tcp_client_timeout.count ());
 	auto this_l (shared_from_this ());
 	start ();
 	socket_m.async_connect (endpoint_a, [this_l, callback_a](boost::system::error_code const & ec) {
@@ -65,14 +66,17 @@ void nano::socket::async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, 
 	}
 }
 
-void nano::socket::start (std::chrono::steady_clock::time_point timeout_a)
+void nano::socket::start ()
 {
-	cutoff = timeout_a.time_since_epoch ().count ();
+	auto now (std::chrono::steady_clock::now ().time_since_epoch ().count ());
+	async_start_time = now;
+	last_action_time = now;
 }
 
 void nano::socket::stop ()
 {
-	cutoff = std::numeric_limits<uint64_t>::max ();
+	async_start_time = std::numeric_limits<uint64_t>::max ();
+	last_action_time = std::chrono::steady_clock::now ().time_since_epoch ().count ();
 }
 
 void nano::socket::close ()
@@ -91,13 +95,13 @@ void nano::socket::close ()
 	}
 }
 
-void nano::socket::checkup ()
+void nano::socket::checkup (uint64_t timeout_a)
 {
 	std::weak_ptr<nano::socket> this_w (shared_from_this ());
-	node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (10), [this_w]() {
+	node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (node->network_params.is_test_network () ? 1 : 10), [this_w, timeout_a]() {
 		if (auto this_l = this_w.lock ())
 		{
-			if (this_l->cutoff != std::numeric_limits<uint64_t>::max () && this_l->cutoff < static_cast<uint64_t> (std::chrono::steady_clock::now ().time_since_epoch ().count ()))
+			if (this_l->async_start_time != std::numeric_limits<uint64_t>::max () && this_l->async_start_time + timeout_a < static_cast<uint64_t> (std::chrono::steady_clock::now ().time_since_epoch ().count ()))
 			{
 				if (this_l->node->config.logging.bulk_pull_logging ())
 				{
@@ -107,7 +111,7 @@ void nano::socket::checkup ()
 			}
 			else
 			{
-				this_l->checkup ();
+				this_l->checkup (timeout_a);
 			}
 		}
 	});
@@ -1391,7 +1395,7 @@ void nano::bootstrap_attempt::lazy_pull_flush ()
 		// Recheck if block was already processed
 		if (lazy_blocks.find (pull_start) == lazy_blocks.end () && !node->store.block_exists (transaction, pull_start))
 		{
-			pulls.push_back (nano::pull_info (pull_start, pull_start, nano::block_hash (0), lazy_max_pull_blocks));
+			pulls.push_back (nano::pull_info (pull_start, pull_start, nano::block_hash (0), node->network_params.bootstrap.lazy_max_pull_blocks));
 		}
 	}
 	lazy_pulls.clear ();
@@ -1602,7 +1606,7 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_
 				// Disabled until server rewrite
 				// stop_pull = true;
 				// Force drop lazy bootstrap connection for long bulk_pull
-				if (total_blocks > lazy_max_pull_blocks)
+				if (total_blocks > node->network_params.bootstrap.lazy_max_pull_blocks)
 				{
 					stop_pull = true;
 				}
@@ -1644,7 +1648,7 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_
 			// Disabled until server rewrite
 			// stop_pull = true;
 			// Force drop lazy bootstrap connection for long bulk_pull
-			if (total_blocks > lazy_max_pull_blocks)
+			if (total_blocks > node->network_params.bootstrap.lazy_max_pull_blocks)
 			{
 				stop_pull = true;
 			}
@@ -1963,6 +1967,7 @@ void nano::bootstrap_listener::accept_connection ()
 		if (connections.size () < node.config.bootstrap_connections_max)
 		{
 			auto socket (std::make_shared<nano::socket> (node.shared ()));
+			socket->checkup (node.config.tcp_server_timeout.count ());
 			acceptor.async_accept (socket->socket_m, [this, socket](boost::system::error_code const & ec) {
 				accept_action (ec, socket);
 			});
@@ -2235,6 +2240,40 @@ void nano::bootstrap_server::finish_request ()
 	if (!requests.empty ())
 	{
 		run_next ();
+	}
+	else
+	{
+		std::weak_ptr<nano::bootstrap_server> this_w (shared_from_this ());
+		node->alarm.add (std::chrono::steady_clock::now () + node->config.tcp_server_timeout + std::chrono::seconds (1), [this_w]() {
+			if (auto this_l = this_w.lock ())
+			{
+				this_l->timeout ();
+			}
+		});
+	}
+}
+
+void nano::bootstrap_server::timeout ()
+{
+	if (socket != nullptr)
+	{
+		if (socket->last_action_time + node->config.tcp_server_timeout.count () < static_cast<uint64_t> (std::chrono::steady_clock::now ().time_since_epoch ().count ()))
+		{
+			if (node->config.logging.bulk_pull_logging ())
+			{
+				node->logger.try_log ("Closing bootstrap server by timeout");
+			}
+			{
+				std::lock_guard<std::mutex> lock (node->bootstrap.mutex);
+				node->bootstrap.connections.erase (this);
+			}
+			socket->close ();
+		}
+	}
+	else
+	{
+		std::lock_guard<std::mutex> lock (node->bootstrap.mutex);
+		node->bootstrap.connections.erase (this);
 	}
 }
 

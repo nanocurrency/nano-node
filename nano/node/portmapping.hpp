@@ -43,9 +43,7 @@ private:
 	UPNPUrls urls;
 	/** UPnP state */
 	IGDdatas data;
-	/** Timeouts are primes so they infrequently happen at the same time */
-	static int constexpr mapping_timeout = nano::is_test_network ? 53 : 3593;
-	static int constexpr check_timeout = nano::is_test_network ? 17 : 53;
+	nano::network_params network_params;
 	boost::asio::ip::address_v4 address;
 	std::array<mapping_protocol, 2> protocols;
 	uint64_t check_count;

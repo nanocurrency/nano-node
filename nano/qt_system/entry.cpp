@@ -1,3 +1,4 @@
+#include <nano/lib/config.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/qt/qt.hpp>
 
@@ -5,6 +6,7 @@
 
 int main (int argc, char ** argv)
 {
+	nano::network_params::set_active_network (nano::nano_networks::nano_test_network);
 	QApplication application (argc, argv);
 	QCoreApplication::setOrganizationName ("Nano");
 	QCoreApplication::setOrganizationDomain ("nano.org");

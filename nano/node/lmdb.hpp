@@ -4,6 +4,7 @@
 #include <boost/optional.hpp>
 #include <lmdb/libraries/liblmdb/lmdb.h>
 
+#include <nano/lib/config.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/node/logging.hpp>
 #include <nano/secure/blockstore.hpp>
@@ -388,6 +389,7 @@ public:
 	MDB_dbi peers{ 0 };
 
 private:
+	nano::network_params network_params;
 	bool entry_has_sideband (MDB_val, nano::block_type) const;
 	nano::account block_account_computed (nano::transaction const &, nano::block_hash const &) const;
 	nano::uint128_t block_balance_computed (nano::transaction const &, nano::block_hash const &) const;
