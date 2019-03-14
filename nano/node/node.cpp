@@ -221,28 +221,6 @@ void nano::network::send_node_id_handshake (nano::endpoint const & endpoint_a, b
 	});
 }
 
-void nano::network::republish (nano::block_hash const & hash_a, std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::endpoint endpoint_a)
-{
-	if (node.config.logging.network_publish_logging ())
-	{
-		node.logger.try_log (boost::str (boost::format ("Publishing %1% to %2%") % hash_a.to_string () % endpoint_a));
-	}
-	std::weak_ptr<nano::node> node_w (node.shared ());
-	send_buffer (buffer_a->data (), buffer_a->size (), endpoint_a, [buffer_a, node_w, endpoint_a](boost::system::error_code const & ec, size_t size) {
-		if (auto node_l = node_w.lock ())
-		{
-			if (ec && node_l->config.logging.network_logging ())
-			{
-				node_l->logger.try_log (boost::str (boost::format ("Error sending publish to %1%: %2%") % endpoint_a % ec.message ()));
-			}
-			else
-			{
-				node_l->stats.inc (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out);
-			}
-		}
-	});
-}
-
 template <typename T>
 bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a, T & list_a, std::shared_ptr<nano::block> block_a, bool also_publish)
 {
@@ -288,7 +266,7 @@ bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a
 			publish_bytes = publish.to_bytes ();
 			for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 			{
-				node_a.network.republish (hash, publish_bytes, *j);
+				node_a.network.send_buffer (publish_bytes->data (), publish_bytes->size (), *j, [publish_bytes](boost::system::error_code const &, size_t) {});
 			}
 		}
 	}
@@ -337,70 +315,30 @@ bool nano::network::send_votes_cache (nano::block_hash const & hash_a, nano::end
 	return result;
 }
 
-void nano::network::republish_block (std::shared_ptr<nano::block> block)
+void nano::network::flood_message (nano::message const & message_a)
 {
-	auto hash (block->hash ());
 	auto list (node.peers.list_fanout ());
-	nano::publish message (block);
-	auto bytes = message.to_bytes ();
 	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
 	{
-		republish (hash, bytes, *i);
-	}
-	if (node.config.logging.network_logging ())
-	{
-		node.logger.try_log (boost::str (boost::format ("Block %1% was republished to peers") % hash.to_string ()));
+		auto buffer (message_a.to_bytes ());
+		send_buffer (buffer->data (), buffer->size (), *i, [buffer](boost::system::error_code const &, size_t) {});
 	}
 }
 
-void nano::network::republish_block (std::shared_ptr<nano::block> block, nano::endpoint const & peer_a)
-{
-	auto hash (block->hash ());
-	nano::publish message (block);
-	std::vector<uint8_t> bytes;
-	{
-		nano::vectorstream stream (bytes);
-		message.serialize (stream);
-	}
-	republish (hash, std::make_shared<std::vector<uint8_t>> (bytes), peer_a);
-	if (node.config.logging.network_logging ())
-	{
-		node.logger.try_log (boost::str (boost::format ("Block %1% was republished to peers") % hash.to_string ()));
-	}
-}
-
-void nano::network::republish_block_batch (std::deque<std::shared_ptr<nano::block>> blocks_a, unsigned delay_a)
+void nano::network::flood_block_batch (std::deque<std::shared_ptr<nano::block>> blocks_a, unsigned delay_a)
 {
 	auto block (blocks_a.front ());
 	blocks_a.pop_front ();
-	republish_block (block);
+	flood_block (block);
 	if (!blocks_a.empty ())
 	{
 		std::weak_ptr<nano::node> node_w (node.shared ());
 		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a + std::rand () % delay_a), [node_w, blocks_a, delay_a]() {
 			if (auto node_l = node_w.lock ())
 			{
-				node_l->network.republish_block_batch (blocks_a, delay_a);
+				node_l->network.flood_block_batch (blocks_a, delay_a);
 			}
 		});
-	}
-}
-
-// In order to rate limit network traffic we republish:
-// 1) Only if they are a non-replay vote of a block that's actively settling. Settling blocks are limited by block PoW
-// 2) The rep has a weight > Y to prevent creating a lot of small-weight accounts to send out votes
-// 3) Only if a vote for this block from this representative hasn't been received in the previous X second.
-//    This prevents rapid publishing of votes with increasing sequence numbers.
-//
-// These rules are implemented by the caller, not this function.
-void nano::network::republish_vote (std::shared_ptr<nano::vote> vote_a)
-{
-	nano::confirm_ack confirm (vote_a);
-	auto bytes = confirm.to_bytes ();
-	auto list (node.peers.list_fanout ());
-	for (auto j (list.begin ()), m (list.end ()); j != m; ++j)
-	{
-		node.network.confirm_send (confirm, bytes, *j);
 	}
 }
 
@@ -673,7 +611,9 @@ public:
 							}
 							auto successor_block (node.store.block_get (transaction, successor));
 							assert (successor_block != nullptr);
-							node.network.republish_block (std::move (successor_block), sender);
+							nano::publish publish (successor_block);
+							auto buffer (publish.to_bytes ());
+							node.network.send_buffer (buffer->data (), buffer->size (), sender, [buffer](boost::system::error_code const &, size_t) {});
 						}
 					}
 				}
@@ -3195,7 +3135,7 @@ bool nano::election::publish (std::shared_ptr<nano::block> block_a)
 			{
 				blocks.insert (std::make_pair (block_a->hash (), block_a));
 				confirm_if_quorum (transaction);
-				node.network.republish_block (block_a);
+				node.network.flood_block (block_a);
 			}
 		}
 	}
@@ -3386,7 +3326,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 	// Rebroadcast unconfirmed blocks
 	if (!rebroadcast_bundle.empty ())
 	{
-		node.network.republish_block_batch (rebroadcast_bundle);
+		node.network.flood_block_batch (rebroadcast_bundle);
 	}
 	// Batch confirmation request
 	if (!node.network_params.is_live_network () && !requests_bundle.empty ())
@@ -3518,7 +3458,7 @@ bool nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a, bool s
 	}
 	if (processed)
 	{
-		node.network.republish_vote (vote_a);
+		node.network.flood_vote (vote_a);
 	}
 	return replay;
 }
