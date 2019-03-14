@@ -15,7 +15,7 @@ TEST (network, tcp_connection)
 	acceptor.bind (endpoint);
 	acceptor.listen ();
 	boost::asio::ip::tcp::socket incoming (io_ctx);
-	auto done1 (false);
+	std::atomic<bool> done1 (false);
 	std::string message1;
 	acceptor.async_accept (incoming,
 	[&done1, &message1](boost::system::error_code const & ec_a) {
@@ -26,7 +26,7 @@ TEST (network, tcp_connection)
 		   }
 		   done1 = true; });
 	boost::asio::ip::tcp::socket connector (io_ctx);
-	auto done2 (false);
+	std::atomic<bool> done2 (false);
 	std::string message2;
 	connector.async_connect (boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v4::loopback (), 24000),
 	[&done2, &message2](boost::system::error_code const & ec_a) {
@@ -190,7 +190,7 @@ TEST (network, send_discarded_publish)
 	nano::genesis genesis;
 	{
 		auto transaction (system.nodes[0]->store.tx_begin ());
-		system.nodes[0]->network.republish_block (block);
+		system.nodes[0]->network.flood_block (block);
 		ASSERT_EQ (genesis.hash (), system.nodes[0]->ledger.latest (transaction, nano::test_genesis_key.pub));
 		ASSERT_EQ (genesis.hash (), system.nodes[1]->latest (nano::test_genesis_key.pub));
 	}
@@ -211,7 +211,7 @@ TEST (network, send_invalid_publish)
 	auto block (std::make_shared<nano::send_block> (1, 1, 20, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (1)));
 	{
 		auto transaction (system.nodes[0]->store.tx_begin ());
-		system.nodes[0]->network.republish_block (block);
+		system.nodes[0]->network.flood_block (block);
 		ASSERT_EQ (genesis.hash (), system.nodes[0]->ledger.latest (transaction, nano::test_genesis_key.pub));
 		ASSERT_EQ (genesis.hash (), system.nodes[1]->latest (nano::test_genesis_key.pub));
 	}
@@ -1411,7 +1411,7 @@ TEST (bootstrap, keepalive)
 	});
 
 	auto output (keepalive.to_bytes ());
-	bool done (false);
+	std::atomic<bool> done (false);
 	socket->async_read (output, output->size (), [&output, &done](boost::system::error_code const & ec, size_t size_a) {
 		ASSERT_FALSE (ec);
 		ASSERT_EQ (output->size (), size_a);
@@ -1728,5 +1728,71 @@ TEST (confirmation_height, gap_live)
 			ASSERT_EQ (1, account_info.confirmation_height);
 			ASSERT_EQ (3, account_info.block_count);
 		}
+	}
+}
+
+TEST (bootstrap, tcp_listener_timeout_empty)
+{
+	nano::system system (24000, 1);
+	auto node0 (system.nodes[0]);
+	node0->config.tcp_server_timeout = std::chrono::seconds (1);
+	auto socket (std::make_shared<nano::socket> (node0));
+	std::atomic<bool> connected (false);
+	socket->async_connect (node0->bootstrap.endpoint (), [&connected](boost::system::error_code const & ec) {
+		ASSERT_FALSE (ec);
+		connected = true;
+	});
+	system.deadline_set (std::chrono::seconds (5));
+	while (!connected)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	bool disconnected (false);
+	system.deadline_set (std::chrono::seconds (5));
+	while (!disconnected)
+	{
+		{
+			std::lock_guard<std::mutex> guard (node0->bootstrap.mutex);
+			disconnected = node0->bootstrap.connections.empty ();
+		}
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
+TEST (bootstrap, tcp_listener_timeout_keepalive)
+{
+	nano::system system (24000, 1);
+	auto node0 (system.nodes[0]);
+	node0->config.tcp_server_timeout = std::chrono::seconds (1);
+	auto socket (std::make_shared<nano::socket> (node0));
+	nano::keepalive keepalive;
+	auto input (keepalive.to_bytes ());
+	std::atomic<bool> connected (false);
+	socket->async_connect (node0->bootstrap.endpoint (), [&input, socket, &connected](boost::system::error_code const & ec) {
+		ASSERT_FALSE (ec);
+		socket->async_write (input, [&input, &connected](boost::system::error_code const & ec, size_t size_a) {
+			ASSERT_FALSE (ec);
+			ASSERT_EQ (input->size (), size_a);
+			connected = true;
+		});
+	});
+	system.deadline_set (std::chrono::seconds (5));
+	while (!connected)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	{
+		std::lock_guard<std::mutex> guard (node0->bootstrap.mutex);
+		ASSERT_EQ (node0->bootstrap.connections.size (), 1);
+	}
+	bool disconnected (false);
+	system.deadline_set (std::chrono::seconds (5));
+	while (!disconnected)
+	{
+		{
+			std::lock_guard<std::mutex> guard (node0->bootstrap.mutex);
+			disconnected = node0->bootstrap.connections.empty ();
+		}
+		ASSERT_NO_ERROR (system.poll ());
 	}
 }

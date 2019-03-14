@@ -31,23 +31,18 @@ public:
 	void async_connect (nano::tcp_endpoint const &, std::function<void(boost::system::error_code const &)>);
 	void async_read (std::shared_ptr<std::vector<uint8_t>>, size_t, std::function<void(boost::system::error_code const &, size_t)>);
 	void async_write (std::shared_ptr<std::vector<uint8_t>>, std::function<void(boost::system::error_code const &, size_t)>);
-	void start (std::chrono::steady_clock::time_point = std::chrono::steady_clock::now () + std::chrono::seconds (5));
+	void start ();
 	void stop ();
 	void close ();
-	void checkup ();
+	void checkup (uint64_t);
 	nano::tcp_endpoint remote_endpoint ();
 	boost::asio::ip::tcp::socket socket_m;
+	std::atomic<uint64_t> last_action_time;
 
 private:
-	std::atomic<uint64_t> cutoff;
+	std::atomic<uint64_t> async_start_time;
 	std::shared_ptr<nano::node> node;
 };
-
-/**
- * The length of every message header, parsed by nano::message::read_header ()
- * The 2 here represents the size of a std::bitset<16>, which is 2 chars long normally
- */
-static const int bootstrap_message_header_size = sizeof (nano::message_header::magic_number) + sizeof (uint8_t) + sizeof (uint8_t) + sizeof (uint8_t) + sizeof (nano::message_type) + 2;
 
 class bootstrap_client;
 class pull_info
@@ -129,7 +124,6 @@ public:
 	std::unordered_set<nano::block_hash> lazy_keys;
 	std::deque<nano::block_hash> lazy_pulls;
 	std::atomic<uint64_t> lazy_stopped;
-	uint64_t lazy_max_pull_blocks = nano::is_test_network ? 2 : 512;
 	uint64_t lazy_max_stopped = 256;
 	std::mutex lazy_mutex;
 	// Wallet lazy bootstrap
@@ -288,6 +282,7 @@ public:
 	void add_request (std::unique_ptr<nano::message>);
 	void finish_request ();
 	void run_next ();
+	void timeout ();
 	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
 	std::shared_ptr<nano::socket> socket;
 	std::shared_ptr<nano::node> node;

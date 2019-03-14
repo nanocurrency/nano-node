@@ -330,17 +330,6 @@ public:
 		return *this;
 	}
 
-	/** Set the error to nano::error_common::generic. */
-	error & operator= (bool is_error)
-	{
-		if (is_error)
-		{
-			code = nano::error_common::generic;
-		}
-		message.clear ();
-		return *this;
-	}
-
 	/** Sets the error to nano::error_common::exception and adopts the exception error message. */
 	error & operator= (std::exception const & exception_a)
 	{

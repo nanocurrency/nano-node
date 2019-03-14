@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <nano/lib/config.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/numbers.hpp>
@@ -23,6 +24,7 @@ public:
 	nano::error deserialize_json (bool &, nano::jsonconfig &);
 	bool upgrade_json (unsigned, nano::jsonconfig &);
 	nano::account random_representative ();
+	nano::network_params network_params;
 	uint16_t peering_port;
 	nano::logging logging;
 	std::vector<std::pair<std::string, uint16_t>> work_peers;
@@ -52,12 +54,14 @@ public:
 	nano::account epoch_block_signer;
 	std::chrono::milliseconds block_processor_batch_max_time;
 	std::chrono::seconds unchecked_cutoff_time;
+	std::chrono::seconds tcp_client_timeout;
+	std::chrono::seconds tcp_server_timeout;
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
 	static int json_version ()
 	{
-		return 16;
+		return 17;
 	}
 };
 

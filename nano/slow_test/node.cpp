@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
 #include <nano/core_test/testutil.hpp>
 #include <nano/node/testing.hpp>
-
 #include <thread>
 
 TEST (system, generate_mass_activity)
@@ -194,7 +193,7 @@ TEST (node, fork_storm)
 			auto open_result (system.nodes[i]->process (*open));
 			ASSERT_EQ (nano::process_result::progress, open_result.code);
 			auto transaction (system.nodes[i]->store.tx_begin ());
-			system.nodes[i]->network.republish_block (open);
+			system.nodes[i]->network.flood_block (open);
 		}
 	}
 	auto again (true);
