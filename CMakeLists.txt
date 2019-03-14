@@ -306,12 +306,12 @@ if (NANO_TEST OR RAIBLOCKS_TEST)
         set (gtest_force_shared_crt OFF)
     endif()
 
-    add_subdirectory (gtest)
+    add_subdirectory (gtest/googletest)
 	# FIXME: This fixes gtest include directories without modifying gtest's
 	# CMakeLists.txt. Ideally we should use GTest::GTest and GTest::Main as
 	# dependencies but it requires building gtest differently
 	set_target_properties(gtest PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-		"${CMAKE_SOURCE_DIR}/gtest/include")
+		"${CMAKE_SOURCE_DIR}/gtest/googletest/include")
 
 	add_subdirectory(nano/core_test)
 	add_subdirectory(nano/slow_test)
