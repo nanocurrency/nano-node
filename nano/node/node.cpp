@@ -2456,7 +2456,8 @@ void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 void nano::node::confirm_frontiers ()
 {
 	// Limit maximum count of elections to start. max_broadcast_queue for regular nodes, x10 for representatives
-	size_t max_elections (config.enable_voting && wallets.reps_count ? active.max_broadcast_queue * 10 : active.max_broadcast_queue);
+	bool representative (config.enable_voting && wallets.reps_count > 0);
+	size_t max_elections (representative ? active.max_broadcast_queue * 10 : active.max_broadcast_queue);
 	size_t elections_count (0);
 	auto transaction (store.tx_begin_read ());
 	for (auto i (store.latest_begin (transaction)), n (store.latest_end ()); i != n && elections_count < max_elections; ++i)
@@ -2465,10 +2466,14 @@ void nano::node::confirm_frontiers ()
 		if (info.block_count != info.confirmation_height)
 		{
 			auto block (store.block_get (transaction, info.head));
-			if (!active.active (*block))
+			if (!active.start (block))
 			{
-				block_confirm (block);
 				++elections_count;
+				// Calculate votes for local representatives
+				if (representative)
+				{
+					block_processor.generator.add (block->hash ());
+				}
 			}
 		}
 	}
