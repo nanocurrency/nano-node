@@ -974,7 +974,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				}
 				std::cout << hash.to_string () << "," << sideband.timestamp << std::endl;
 				hash = block->previous ();
-				block = node.node->store.block_get (transaction, hash);
+				block = node.node->store.block_get (transaction, hash, &sideband);
 			}
 			if (count % step == 0 || count == accounts)
 			{
