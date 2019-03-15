@@ -3576,10 +3576,17 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 	if (elections_list.size () > 1)
 	{
 		uint64_t average (static_cast<uint64_t> (sum / elections_list.size ()));
+		// Potential overflow check
+		uint64_t divider (1);
+		if (elections_list.size () > 1000000 && (average - node.network_params.publish_threshold) > elections_list.size ())
+		{
+			divider = ((average - node.network_params.publish_threshold) / elections_list.size ()) + 1;
+		}
+		// Set adjusted difficulty
 		for (auto & item : elections_list)
 		{
 			auto existing_root (roots.find (item.first));
-			uint64_t difficulty_a (average + item.second);
+			uint64_t difficulty_a (average + (item.second / divider));
 			roots.modify (existing_root, [difficulty_a](nano::conflict_info & info_a) {
 				info_a.adjusted_difficulty = difficulty_a;
 			});
