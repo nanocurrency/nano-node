@@ -172,13 +172,12 @@ void nano::bootstrap_client::stop (bool force)
 
 void nano::frontier_req_client::run ()
 {
-	std::unique_ptr<nano::frontier_req> request (new nano::frontier_req);
-	request->start.clear ();
-	request->age = std::numeric_limits<decltype (request->age)>::max ();
-	request->count = std::numeric_limits<decltype (request->count)>::max ();
-	auto send_buffer (request->to_bytes ());
+	nano::frontier_req request;
+	request.start.clear ();
+	request.age = std::numeric_limits<decltype (request.age)>::max ();
+	request.count = std::numeric_limits<decltype (request.count)>::max ();
 	auto this_l (shared_from_this ());
-	connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->socket->async_write (request.to_bytes (), [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
 			this_l->receive_frontier ();
@@ -427,7 +426,6 @@ void nano::bulk_pull_client::request ()
 	req.count = pull.count;
 	req.set_count_present (pull.count != 0);
 
-	auto buffer (req.to_bytes ());
 	if (connection->node->config.logging.bulk_pull_logging ())
 	{
 		std::unique_lock<std::mutex> lock (connection->attempt->mutex);
@@ -439,7 +437,7 @@ void nano::bulk_pull_client::request ()
 		connection->node->logger.always_log (boost::str (boost::format ("%1% accounts in pull queue") % connection->attempt->pulls.size ()));
 	}
 	auto this_l (shared_from_this ());
-	connection->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->socket->async_write (req.to_bytes (), [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
 			this_l->receive_block ();
@@ -619,9 +617,8 @@ nano::bulk_push_client::~bulk_push_client ()
 void nano::bulk_push_client::start ()
 {
 	nano::bulk_push message;
-	auto buffer (message.to_bytes ());
 	auto this_l (shared_from_this ());
-	connection->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->socket->async_write (message.to_bytes (), [this_l](boost::system::error_code const & ec, size_t size_a) {
 		auto transaction (this_l->connection->node->store.tx_begin_read ());
 		if (!ec)
 		{
@@ -751,7 +748,6 @@ void nano::bulk_pull_account_client::request ()
 	req.account = account;
 	req.minimum_amount = connection->node->config.receive_minimum;
 	req.flags = nano::bulk_pull_account_flags::pending_hash_and_amount;
-	auto buffer (req.to_bytes ());
 	if (connection->node->config.logging.bulk_pull_logging ())
 	{
 		std::unique_lock<std::mutex> lock (connection->attempt->mutex);
@@ -763,7 +759,7 @@ void nano::bulk_pull_account_client::request ()
 		connection->node->logger.always_log (boost::str (boost::format ("%1% accounts in pull queue") % connection->attempt->wallet_accounts.size ()));
 	}
 	auto this_l (shared_from_this ());
-	connection->socket->async_write (buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->socket->async_write (req.to_bytes (), [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
 			this_l->receive_pending ();
