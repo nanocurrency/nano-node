@@ -2,6 +2,7 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/ipc_client.hpp>
+#include <nano/lib/rpcconfig.hpp>
 #include <nano/rpc/rpc_handler.hpp>
 #include <unordered_set>
 
@@ -11,16 +12,17 @@ std::unordered_set<std::string> create_rpc_control_impls ();
 std::unordered_set<std::string> rpc_control_impl_set = create_rpc_control_impls ();
 }
 
-nano::rpc_handler::rpc_handler (nano::ipc::ipc_client & ipc_client, std::function<void()> stop_callback, std::string const & body_a, std::string const & request_id_a, std::function<void(std::string const &)> const & response_a) :
+nano::rpc_handler::rpc_handler (nano::ipc::ipc_client & ipc_client, nano::rpc_config const & rpc_config, std::function<void()> stop_callback, std::string const & body_a, std::string const & request_id_a, std::function<void(std::string const &)> const & response_a) :
 body (body_a),
 request_id (request_id_a),
 response (response_a),
 ipc_client (ipc_client),
-stop_callback (stop_callback)
+stop_callback (stop_callback),
+rpc_config (rpc_config)
 {
 }
 
-void nano::rpc_handler::process_request (unsigned max_json_depth, bool enable_control)
+void nano::rpc_handler::process_request ()
 {
 	try
 	{
@@ -30,7 +32,7 @@ void nano::rpc_handler::process_request (unsigned max_json_depth, bool enable_co
 		{
 			if (ch == '[' || ch == '{')
 			{
-				if (max_depth_possible >= max_json_depth)
+				if (max_depth_possible >= rpc_config.max_json_depth)
 				{
 					max_depth_exceeded = true;
 					break;
@@ -56,7 +58,7 @@ void nano::rpc_handler::process_request (unsigned max_json_depth, bool enable_co
 
 			bool error = false;
 			auto found = rpc_control_impl_set.find (action);
-			if (found != rpc_control_impl_set.cend () && !enable_control)
+			if (found != rpc_control_impl_set.cend () && !rpc_config.enable_control)
 			{
 				error_response (response, rpc_control_disabled_ec.message ());
 				error = true;
@@ -64,7 +66,7 @@ void nano::rpc_handler::process_request (unsigned max_json_depth, bool enable_co
 			else
 			{
 				// Special case with stats, type -> objects
-				if (action == "stats" && !enable_control)
+				if (action == "stats" && !rpc_config.enable_control)
 				{
 					if (tree.get<std::string> ("type") == "objects")
 					{
@@ -75,7 +77,7 @@ void nano::rpc_handler::process_request (unsigned max_json_depth, bool enable_co
 				else if (action == "process")
 				{
 					auto force = tree.get_optional<bool> ("force");
-					if (force && !enable_control)
+					if (force && !rpc_config.enable_control)
 					{
 						error_response (response, rpc_control_disabled_ec.message ());
 						error = true;
@@ -91,9 +93,8 @@ void nano::rpc_handler::process_request (unsigned max_json_depth, bool enable_co
 
 				auto this_l (shared_from_this ());
 
-				ipc_client.async_write (req, [this_l, res, action](nano::error err_a, size_t size_a) {
-					// Read length
-					this_l->ipc_client.async_read (res, sizeof (uint32_t), [this_l, res, action](nano::error err_read_a, size_t size_read_a) {
+				ipc_client.async_write (req, [this_l, req, res, action](nano::error err_a, size_t size_a) {
+					auto read_payload = [this_l, res, action]() {
 						uint32_t payload_size_l = boost::endian::big_to_native (*reinterpret_cast<uint32_t *> (res->data ()));
 						// Read json payload
 						this_l->ipc_client.async_read (res, payload_size_l, [this_l, res, action](nano::error err_read_a, size_t size_read_a) {
@@ -103,6 +104,39 @@ void nano::rpc_handler::process_request (unsigned max_json_depth, bool enable_co
 								this_l->stop_callback ();
 							}
 						});
+					};
+
+					this_l->ipc_client.async_read (res, sizeof (uint32_t), [this_l, req, res, action, read_payload](nano::error err_read_a, size_t size_read_a) {
+						if (size_read_a != 0 && !err_read_a)
+						{
+							read_payload ();
+						}
+						else
+						{
+							// Connection has been closed, try to connect to it again and then resend IPC payload
+							this_l->ipc_client.async_connect (this_l->rpc_config.address.to_string (), this_l->rpc_config.ipc_port, [req, this_l, res, action, read_payload](nano::error err) {
+								if (!err)
+								{
+									this_l->ipc_client.async_write (req, [this_l, res, action, read_payload](nano::error err_a, size_t size_a) {
+										// Read length
+										this_l->ipc_client.async_read (res, sizeof (uint32_t), [this_l, res, action, read_payload](nano::error err_read_a, size_t size_read_a) {
+											if (size_read_a != 0 && !err_read_a)
+											{
+												read_payload ();
+											}
+											else
+											{
+												error_response (this_l->response, "Connection to node has failed");
+											}
+										});
+									});
+								}
+								else
+								{
+									error_response (this_l->response, "There is a problem connecting to the node");
+								}
+							});
+						}
 					});
 				});
 			}

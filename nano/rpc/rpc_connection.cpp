@@ -100,7 +100,7 @@ void nano::rpc_connection::read ()
 					auto version (req.version ());
 					std::string request_id (boost::str (boost::format ("%1%") % boost::io::group (std::hex, std::showbase, reinterpret_cast<uintptr_t> (this_l.get ()))));
 					auto response_handler ([this_l, version, start, request_id](std::string const & tree_a) {
-						auto body = tree_a; // Check if this is correct
+						auto body = tree_a;
 						this_l->write_result (body, version);
 						boost::beast::http::async_write (this_l->socket, this_l->res, [this_l](boost::system::error_code const & ec, size_t bytes_transferred) {
 						});
@@ -112,8 +112,8 @@ void nano::rpc_connection::read ()
 					{
 						case boost::beast::http::verb::post:
 						{
-							auto handler (std::make_shared<nano::rpc_handler> (this_l->ipc_client, this_l->stop_callback, req.body (), request_id, response_handler));
-							handler->process_request (this_l->rpc_config.max_json_depth, this_l->rpc_config.enable_control);
+							auto handler (std::make_shared<nano::rpc_handler> (this_l->ipc_client, this_l->rpc_config, this_l->stop_callback, req.body (), request_id, response_handler));
+							handler->process_request ();
 							break;
 						}
 						case boost::beast::http::verb::options:
