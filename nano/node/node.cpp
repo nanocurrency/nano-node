@@ -379,7 +379,8 @@ void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> blo
 	auto count (0);
 	while (!endpoints_a->empty () && count < max_reps)
 	{
-		send_confirm_req (endpoints_a->back (), block_a);
+		nano::confirm_req req (block_a);
+		send_buffer (req.to_bytes (), endpoints_a->back (), [](boost::system::error_code const &, size_t) {});
 		endpoints_a->pop_back ();
 		count++;
 	}
@@ -416,7 +417,8 @@ void nano::network::broadcast_confirm_req_batch (std::unordered_map<nano::endpoi
 			roots_hashes.push_back (j->second.back ());
 			j->second.pop_back ();
 		}
-		send_confirm_req_hashes (j->first, roots_hashes);
+		nano::confirm_req req (roots_hashes);
+		send_buffer (req.to_bytes (), j->first, [](boost::system::error_code const &, size_t) {});
 		if (j->second.empty ())
 		{
 			request_bundle_a.erase (j);
@@ -457,46 +459,6 @@ void nano::network::broadcast_confirm_req_batch (std::deque<std::pair<std::share
 			}
 		});
 	}
-}
-
-void nano::network::send_confirm_req (nano::endpoint const & endpoint_a, std::shared_ptr<nano::block> block)
-{
-	nano::confirm_req message (block);
-	if (node.config.logging.network_message_logging ())
-	{
-		node.logger.try_log (boost::str (boost::format ("Sending confirm req to %1%") % endpoint_a));
-	}
-	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out);
-	send_buffer (message.to_bytes (), endpoint_a, [node_w](boost::system::error_code const & ec, size_t size) {
-		if (auto node_l = node_w.lock ())
-		{
-			if (ec && node_l->config.logging.network_logging ())
-			{
-				node_l->logger.try_log (boost::str (boost::format ("Error sending confirm request: %1%") % ec.message ()));
-			}
-		}
-	});
-}
-
-void nano::network::send_confirm_req_hashes (nano::endpoint const & endpoint_a, std::vector<std::pair<nano::block_hash, nano::block_hash>> const & roots_hashes_a)
-{
-	nano::confirm_req message (roots_hashes_a);
-	if (node.config.logging.network_message_logging ())
-	{
-		node.logger.try_log (boost::str (boost::format ("Sending confirm req hashes to %1%") % endpoint_a));
-	}
-	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out);
-	send_buffer (message.to_bytes (), endpoint_a, [node_w](boost::system::error_code const & ec, size_t size) {
-		if (auto node_l = node_w.lock ())
-		{
-			if (ec && node_l->config.logging.network_logging ())
-			{
-				node_l->logger.try_log (boost::str (boost::format ("Error sending confirm request: %1%") % ec.message ()));
-			}
-		}
-	});
 }
 
 namespace
@@ -1405,7 +1367,8 @@ startup_time (std::chrono::steady_clock::now ())
 					{
 						if (*i != nullptr)
 						{
-							this->network.send_confirm_req (endpoint_a, *i);
+							nano::confirm_req req (*i);
+							this->network.send_buffer (req.to_bytes (), endpoint_a, [](boost::system::error_code const &, size_t) {});
 						}
 					}
 				}
