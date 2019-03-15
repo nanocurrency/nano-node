@@ -106,7 +106,6 @@ void connect_to_ipc_server (nano::system & system, nano::ipc::ipc_client & clien
 		ASSERT_NO_ERROR (system.poll ());
 	}
 }
-
 }
 
 TEST (rpc, account_balance)
@@ -213,9 +212,8 @@ TEST (rpc, account_weight)
 	nano::change_block block (latest, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (latest));
 	ASSERT_EQ (nano::process_result::progress, node1.process (block).code);
 	nano::ipc::ipc_client client (system.io_ctx);
-	auto node = system.nodes.front ();
-	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node);
+	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (node1);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -244,7 +242,7 @@ TEST (rpc, wallet_contains)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	boost::property_tree::ptree request;
 	std::string wallet;
-	system.nodes[0]->wallets.items.begin ()->first.encode_hex (wallet);
+	node->wallets.items.begin ()->first.encode_hex (wallet);
 	request.put ("wallet", wallet);
 	request.put ("action", "wallet_contains");
 	request.put ("account", nano::test_genesis_key.pub.to_account ());
@@ -270,7 +268,7 @@ TEST (rpc, wallet_doesnt_contain)
 	rpc.start ();
 	boost::property_tree::ptree request;
 	std::string wallet;
-	system.nodes[0]->wallets.items.begin ()->first.encode_hex (wallet);
+	node->wallets.items.begin ()->first.encode_hex (wallet);
 	request.put ("wallet", wallet);
 	request.put ("action", "wallet_contains");
 	request.put ("account", nano::test_genesis_key.pub.to_account ());
@@ -369,8 +367,8 @@ TEST (rpc, send)
 	std::string block_text (response.json.get<std::string> ("block"));
 	nano::block_hash block;
 	ASSERT_FALSE (block.decode_hex (block_text));
-	ASSERT_TRUE (system.nodes[0]->ledger.block_exists (block));
-	ASSERT_EQ (system.nodes[0]->latest (nano::test_genesis_key.pub), block);
+	ASSERT_TRUE (node->ledger.block_exists (block));
+	ASSERT_EQ (node->latest (nano::test_genesis_key.pub), block);
 	thread2.join ();
 }
 
@@ -385,7 +383,7 @@ TEST (rpc, send_fail)
 	rpc.start ();
 	boost::property_tree::ptree request;
 	std::string wallet;
-	system.nodes[0]->wallets.items.begin ()->first.encode_hex (wallet);
+	node->wallets.items.begin ()->first.encode_hex (wallet);
 	request.put ("wallet", wallet);
 	request.put ("action", "send");
 	request.put ("source", nano::test_genesis_key.pub.to_account ());
@@ -1433,9 +1431,8 @@ TEST (rpc, process_block)
 	auto & node1 (*system.nodes[0]);
 	nano::send_block send (latest, key.pub, 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (latest));
 	nano::ipc::ipc_client client (system.io_ctx);
-	auto node = system.nodes.front ();
-	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node);
+	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (node1);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -1468,9 +1465,8 @@ TEST (rpc, process_block_no_work)
 	nano::send_block send (latest, key.pub, 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (latest));
 	send.block_work_set (0);
 	nano::ipc::ipc_client client (system.io_ctx);
-	auto node = system.nodes.front ();
-	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node);
+	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (node1);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -1496,9 +1492,8 @@ TEST (rpc, process_republish)
 	auto & node1 (*system.nodes[0]);
 	nano::send_block send (latest, key.pub, 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (latest));
 	nano::ipc::ipc_client client (system.io_ctx);
-	auto node = system.nodes.front ();
-	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node);
+	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (node1);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -1528,9 +1523,8 @@ TEST (rpc, process_subtype_send)
 	auto & node1 (*system.nodes[0]);
 	nano::state_block send (nano::genesis_account, latest, nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (latest));
 	nano::ipc::ipc_client client (system.io_ctx);
-	auto node = system.nodes.front ();
-	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node);
+	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (node1);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -1585,9 +1579,8 @@ TEST (rpc, process_subtype_open)
 	node1.active.start (std::make_shared<nano::state_block> (send));
 	nano::state_block open (key.pub, 0, key.pub, nano::Gxrb_ratio, send.hash (), key.prv, key.pub, node1.work_generate_blocking (key.pub));
 	nano::ipc::ipc_client client (system.io_ctx);
-	auto node = system.nodes.front ();
-	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node);
+	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (node1);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -1641,9 +1634,8 @@ TEST (rpc, process_subtype_receive)
 	node1.active.start (std::make_shared<nano::state_block> (send));
 	nano::state_block receive (nano::test_genesis_key.pub, send.hash (), nano::test_genesis_key.pub, nano::genesis_amount, send.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (send.hash ()));
 	nano::ipc::ipc_client client (system.io_ctx);
-	auto node = system.nodes.front ();
-	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node);
+	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (node1);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -1693,9 +1685,8 @@ TEST (rpc, keepalive)
 	node1->start ();
 	system.nodes.push_back (node1);
 	nano::ipc::ipc_client client (system.io_ctx);
-	auto node = system.nodes.front ();
-	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node);
+	enable_ipc_transport_tcp (node1->config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (*node1);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -1731,9 +1722,8 @@ TEST (rpc, payment_init)
 	auto wallet (node1->wallets.create (wallet_id.pub));
 	ASSERT_TRUE (node1->wallets.items.find (wallet_id.pub) != node1->wallets.items.end ());
 	nano::ipc::ipc_client client (system.io_ctx);
-	auto node = system.nodes.front ();
-	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node);
+	enable_ipc_transport_tcp (node1->config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (*node1);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -1758,9 +1748,8 @@ TEST (rpc, payment_begin_end)
 	auto wallet (node1->wallets.create (wallet_id.pub));
 	ASSERT_TRUE (node1->wallets.items.find (wallet_id.pub) != node1->wallets.items.end ());
 	nano::ipc::ipc_client client (system.io_ctx);
-	auto node = system.nodes.front ();
-	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node);
+	enable_ipc_transport_tcp (node1->config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (*node1);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	boost::property_tree::ptree request1;
@@ -1824,9 +1813,8 @@ TEST (rpc, payment_end_nonempty)
 	system.wallet (0)->init_free_accounts (transaction);
 	auto wallet_id (node1->wallets.items.begin ()->first);
 	nano::ipc::ipc_client client (system.io_ctx);
-	auto node = system.nodes.front ();
-	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node);
+	enable_ipc_transport_tcp (node1->config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (*node1);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	boost::property_tree::ptree request1;
@@ -1853,9 +1841,8 @@ TEST (rpc, payment_zero_balance)
 	system.wallet (0)->init_free_accounts (transaction);
 	auto wallet_id (node1->wallets.items.begin ()->first);
 	nano::ipc::ipc_client client (system.io_ctx);
-	auto node = system.nodes.front ();
-	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node);
+	enable_ipc_transport_tcp (node1->config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (*node1);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	boost::property_tree::ptree request1;
@@ -1883,9 +1870,8 @@ TEST (rpc, payment_begin_reuse)
 	auto wallet (node1->wallets.create (wallet_id.pub));
 	ASSERT_TRUE (node1->wallets.items.find (wallet_id.pub) != node1->wallets.items.end ());
 	nano::ipc::ipc_client client (system.io_ctx);
-	auto node = system.nodes.front ();
-	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node);
+	enable_ipc_transport_tcp (node1->config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (*node1);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	boost::property_tree::ptree request1;
@@ -1943,9 +1929,8 @@ TEST (rpc, payment_begin_locked)
 	}
 	ASSERT_TRUE (node1->wallets.items.find (wallet_id.pub) != node1->wallets.items.end ());
 	nano::ipc::ipc_client client (system.io_ctx);
-	auto node = system.nodes.front ();
-	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node);
+	enable_ipc_transport_tcp (node1->config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (*node1);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	boost::property_tree::ptree request1;
@@ -2249,9 +2234,8 @@ TEST (rpc, version)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key.prv);
 	nano::ipc::ipc_client client (system.io_ctx);
-	auto node = system.nodes.front ();
-	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node);
+	enable_ipc_transport_tcp (node1->config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (*node1);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	boost::property_tree::ptree request1;
@@ -2302,9 +2286,8 @@ TEST (rpc, work_generate)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key.prv);
 	nano::ipc::ipc_client client (system.io_ctx);
-	auto node = system.nodes.front ();
-	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node);
+	enable_ipc_transport_tcp (node1->config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (*node1);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	nano::block_hash hash1 (1);
@@ -2989,9 +2972,8 @@ TEST (rpc, work_validate)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key.prv);
 	nano::ipc::ipc_client client (system.io_ctx);
-	auto node = system.nodes.front ();
-	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node);
+	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (node1);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	nano::block_hash hash (1);
@@ -3138,16 +3120,15 @@ TEST (rpc, republish)
 	nano::system system (24000, 2);
 	nano::keypair key;
 	nano::genesis genesis;
-	auto latest (system.nodes[0]->latest (nano::test_genesis_key.pub));
 	auto & node1 (*system.nodes[0]);
+	auto latest (node1.latest (nano::test_genesis_key.pub));
 	nano::send_block send (latest, key.pub, 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (latest));
-	system.nodes[0]->process (send);
+	node1.process (send);
 	nano::open_block open (send.hash (), key.pub, key.pub, key.prv, key.pub, node1.work_generate_blocking (key.pub));
-	ASSERT_EQ (nano::process_result::progress, system.nodes[0]->process (open).code);
+	ASSERT_EQ (nano::process_result::progress, node1.process (open).code);
 	nano::ipc::ipc_client client (system.io_ctx);
-	auto node = system.nodes.front ();
-	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node);
+	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (node1);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -3872,9 +3853,8 @@ TEST (rpc, wallet_republish)
 	nano::open_block open (send.hash (), key.pub, key.pub, key.prv, key.pub, node1.work_generate_blocking (key.pub));
 	ASSERT_EQ (nano::process_result::progress, system.nodes[0]->process (open).code);
 	nano::ipc::ipc_client client (system.io_ctx);
-	auto node = system.nodes.front ();
-	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node);
+	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (node1);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -3912,9 +3892,8 @@ TEST (rpc, delegators)
 	nano::open_block open (send.hash (), nano::test_genesis_key.pub, key.pub, key.prv, key.pub, node1.work_generate_blocking (key.pub));
 	ASSERT_EQ (nano::process_result::progress, system.nodes[0]->process (open).code);
 	nano::ipc::ipc_client client (system.io_ctx);
-	auto node = system.nodes.front ();
-	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node);
+	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (node1);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -3945,15 +3924,14 @@ TEST (rpc, delegators_count)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key.prv);
 	auto & node1 (*system.nodes[0]);
-	auto latest (system.nodes[0]->latest (nano::test_genesis_key.pub));
+	auto latest (node1.latest (nano::test_genesis_key.pub));
 	nano::send_block send (latest, key.pub, 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (latest));
-	system.nodes[0]->process (send);
+	node1.process (send);
 	nano::open_block open (send.hash (), nano::test_genesis_key.pub, key.pub, key.prv, key.pub, node1.work_generate_blocking (key.pub));
 	ASSERT_EQ (nano::process_result::progress, system.nodes[0]->process (open).code);
 	nano::ipc::ipc_client client (system.io_ctx);
-	auto node = system.nodes.front ();
-	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node);
+	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (node1);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -4053,9 +4031,8 @@ TEST (rpc, json_block_input)
 	auto & node1 (*system.nodes[0]);
 	nano::state_block send (nano::genesis_account, node1.latest (nano::test_genesis_key.pub), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 	nano::ipc::ipc_client client (system.io_ctx);
-	auto node = system.nodes.front ();
-	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node);
+	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (node1);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -4097,9 +4074,8 @@ TEST (rpc, json_block_output)
 	nano::send_block send (latest, key.pub, 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (latest));
 	system.nodes[0]->process (send);
 	nano::ipc::ipc_client client (system.io_ctx);
-	auto node = system.nodes.front ();
-	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node);
+	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (node1);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -4331,16 +4307,15 @@ TEST (rpc, ledger)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key.prv);
 	auto & node1 (*system.nodes[0]);
-	auto latest (system.nodes[0]->latest (nano::test_genesis_key.pub));
+	auto latest (node1.latest (nano::test_genesis_key.pub));
 	nano::send_block send (latest, key.pub, 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (latest));
-	system.nodes[0]->process (send);
+	node1.process (send);
 	nano::open_block open (send.hash (), nano::test_genesis_key.pub, key.pub, key.prv, key.pub, node1.work_generate_blocking (key.pub));
-	ASSERT_EQ (nano::process_result::progress, system.nodes[0]->process (open).code);
+	ASSERT_EQ (nano::process_result::progress, node1.process (open).code);
 	auto time (nano::seconds_since_epoch ());
 	nano::ipc::ipc_client client (system.io_ctx);
-	auto node = system.nodes.front ();
-	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node);
+	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (node1);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -4439,15 +4414,14 @@ TEST (rpc, block_create)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key.prv);
 	auto & node1 (*system.nodes[0]);
-	auto latest (system.nodes[0]->latest (nano::test_genesis_key.pub));
+	auto latest (node1.latest (nano::test_genesis_key.pub));
 	auto send_work = node1.work_generate_blocking (latest);
 	nano::send_block send (latest, key.pub, 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, send_work);
 	auto open_work = node1.work_generate_blocking (key.pub);
 	nano::open_block open (send.hash (), nano::test_genesis_key.pub, key.pub, key.prv, key.pub, open_work);
 	nano::ipc::ipc_client client (system.io_ctx);
-	auto node = system.nodes.front ();
-	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node);
+	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (node1);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -4697,9 +4671,8 @@ TEST (rpc, block_hash)
 	auto & node1 (*system.nodes[0]);
 	nano::send_block send (latest, key.pub, 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (latest));
 	nano::ipc::ipc_client client (system.io_ctx);
-	auto node = system.nodes.front ();
-	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node);
+	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (node1);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -4811,12 +4784,11 @@ TEST (rpc, wallet_ledger)
 	nano::send_block send (latest, key.pub, 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (latest));
 	system.nodes[0]->process (send);
 	nano::open_block open (send.hash (), nano::test_genesis_key.pub, key.pub, key.prv, key.pub, node1.work_generate_blocking (key.pub));
-	ASSERT_EQ (nano::process_result::progress, system.nodes[0]->process (open).code);
+	ASSERT_EQ (nano::process_result::progress, node1.process (open).code);
 	auto time (nano::seconds_since_epoch ());
 	nano::ipc::ipc_client client (system.io_ctx);
-	auto node = system.nodes.front ();
-	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node);
+	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (node1);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -5483,9 +5455,8 @@ TEST (rpc, sign_block)
 	auto & node1 (*system.nodes[0]);
 	nano::state_block send (nano::genesis_account, node1.latest (nano::test_genesis_key.pub), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 	nano::ipc::ipc_client client (system.io_ctx);
-	auto node = system.nodes.front ();
-	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node);
+	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (node1);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -5548,8 +5519,8 @@ TEST (rpc, memory_stats)
 TEST (rpc, block_confirmed)
 {
 	nano::system system (24000, 1);
-	auto node = system.nodes.front ();
 	nano::ipc::ipc_client client (system.io_ctx);
+	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
 	nano::ipc::ipc_server ipc_server (*node);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
