@@ -15,7 +15,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 	boost::system::error_code error_chmod;
 	nano::set_secure_perm_directory (data_path, error_chmod);
 	std::unique_ptr<nano::thread_runner> runner;
-	nano::daemon_config config;
+	nano::daemon_config config (data_path);
 	auto error = nano::read_and_update_daemon_config (data_path, config);
 
 	if (!error)

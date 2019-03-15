@@ -16,9 +16,10 @@
 class qt_wallet_config
 {
 public:
-	qt_wallet_config (boost::filesystem::path const & application_path_a) :
+	qt_wallet_config (boost::filesystem::path const & data_path_a) :
 	account (0),
-	opencl_enable (false)
+	opencl_enable (false),
+	data_path (data_path_a)
 	{
 		nano::random_pool::generate_block (wallet.bytes.data (), wallet.bytes.size ());
 		assert (!wallet.is_zero ());
@@ -40,6 +41,11 @@ public:
 			}
 			case 2:
 			{
+				nano::jsonconfig rpc_l;	
+				nano::rpc_config rpc;
+				rpc.serialize_json (rpc_l);	
+				json.put ("rpc_enable", "false");	
+				json.put_child ("rpc", rpc_l);
 				json.erase ("version");
 				upgraded = true;
 			}
@@ -60,6 +66,9 @@ public:
 				upgraded = true;
 			}
 			case 4:
+				migrate_rpc_config (json, data_path);
+				upgraded = true;
+			case 5:
 				break;
 			default:
 				throw std::runtime_error ("Unknown qt_wallet_config version");
@@ -156,9 +165,10 @@ public:
 	nano::node_config node;
 	bool opencl_enable;
 	nano::opencl_config opencl;
+	boost::filesystem::path data_path;
 	int json_version () const
 	{
-		return 4;
+		return 5;
 	}
 };
 

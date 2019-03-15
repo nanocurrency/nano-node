@@ -1,6 +1,7 @@
+#include <nano/lib/config.hpp>
 #include <nano/lib/jsonconfig.hpp>
-#include <nano/node/nodeconfig.hpp>
-// NOTE: to reduce compile times, this include can be replaced by more narrow includes
+#include <nano/lib/rpcconfig.hpp>
+#include <nano/node/nodeconfig.hpp>// NOTE: to reduce compile times, this include can be replaced by more narrow includes
 // once nano::network is factored out of node.{c|h}pp
 #include <nano/node/node.hpp>
 
@@ -431,4 +432,56 @@ disable_unchecked_drop (true),
 fast_bootstrap (false),
 sideband_batch_size (512)
 {
+}
+
+namespace nano
+{
+void migrate_rpc_config (nano::jsonconfig & json, boost::filesystem::path const & data_path)
+{
+	// Copy RPC if the file doesn't exist already
+	auto rpc_l (json.get_required_child ("rpc"));
+
+	// The value is not migrated to the ipc_config
+	rpc_l.erase ("enable_sign_hash");
+
+	auto node_l (json.get_required_child ("node"));
+	auto ipc_l (node_l.get_optional_child ("ipc"));
+	if (ipc_l)
+	{
+		nano::ipc::ipc_config ipc_config;
+		auto upgraded (false);
+		auto err1 = ipc_config.deserialize_json (upgraded, *ipc_l);
+		if (!err1)
+		{
+			// Add IPC config options to RPC
+			if (ipc_config.transport_tcp.enabled)
+			{
+				rpc_l.put ("ipc_port", ipc_config.transport_tcp.port);
+			}
+			if (ipc_config.transport_domain.enabled)
+			{
+				rpc_l.put ("ipc_path", ipc_config.transport_domain.path);
+			}
+		}
+	}
+
+	auto io_threads = node_l.get_optional<unsigned> ("io_threads");
+	if (io_threads)
+	{
+		rpc_l.put ("io_threads", std::to_string (*io_threads));
+	}
+
+	nano::jsonconfig rpc_json;
+	auto rpc_config_path = nano::get_rpc_config_path (data_path);
+	nano::rpc_config rpc;
+	auto rpc_error (rpc_json.read (rpc, rpc_config_path));
+	if (rpc_error || rpc_json.empty ())
+	{
+		// Migrate RPC info across
+		rpc_l.write (rpc_config_path);
+	}
+
+	json.erase ("rpc_enable");
+	json.erase ("rpc");
+}
 }

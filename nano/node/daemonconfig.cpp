@@ -1,8 +1,9 @@
 #include <nano/lib/config.hpp>
 #include <nano/node/daemonconfig.hpp>
 
-nano::daemon_config::daemon_config () :
-opencl_enable (false)
+nano::daemon_config::daemon_config (boost::filesystem::path const & data_path) :
+opencl_enable (false),
+data_path (data_path)
 {
 }
 
@@ -84,9 +85,7 @@ bool nano::daemon_config::upgrade_json (unsigned version_a, nano::jsonconfig & j
 			upgraded_l = true;
 		}
 		case 2:
-			// RPC config is no longer relevant so remove it. Migrating is done elsewhere
-			json.erase ("rpc_enable");
-			json.erase ("rpc");
+			migrate_rpc_config (json, data_path);
 			upgraded_l = true;
 		case 3:
 			break;
@@ -103,61 +102,6 @@ nano::error read_and_update_daemon_config (boost::filesystem::path const & data_
 	boost::system::error_code error_chmod;
 	nano::jsonconfig json;
 	auto config_path = nano::get_config_path (data_path);
-
-	{
-		// Get version if 2 then copy rpc across
-		auto error (json.read (config_a, config_path));
-		if (!error)
-		{
-			unsigned version = 1;
-			json.get_required<unsigned> ("version", version);
-			if (version <= 2)
-			{
-				auto rpc_l (json.get_required_child ("rpc"));
-
-				// The value is not migrated to the ipc_config
-				rpc_l.erase ("enable_sign_hash");
-
-				auto node_l (json.get_required_child ("node"));
-				auto ipc_l (node_l.get_optional_child ("ipc"));
-				if (ipc_l)
-				{
-					nano::ipc::ipc_config ipc_config;
-					auto upgraded (false);
-					auto err1 = ipc_config.deserialize_json (upgraded, *ipc_l);
-					if (!err1)
-					{
-						// Add IPC to RPC
-						if (ipc_config.transport_tcp.enabled)
-						{
-							rpc_l.put ("ipc_port", ipc_config.transport_tcp.port);
-						}
-						if (ipc_config.transport_domain.enabled)
-						{
-							rpc_l.put ("ipc_path", ipc_config.transport_domain.path);
-						}
-					}
-				}
-
-				auto io_threads = node_l.get_optional<unsigned> ("io_threads");
-				if (io_threads)
-				{
-					rpc_l.put ("io_threads", std::to_string (*io_threads));
-				}
-
-				nano::jsonconfig rpc_json;
-				auto rpc_config_path = nano::get_rpc_config_path (data_path);
-
-				auto rpc_error (rpc_json.read (config_a, rpc_config_path));
-				if (rpc_error || rpc_json.empty ())
-				{
-					// Migrate RPC info across
-					rpc_l.write (rpc_config_path);
-				}
-			}
-		}
-	}
-
 	auto error (json.read_and_update (config_a, config_path));
 	nano::set_secure_perm_file (config_path, error_chmod);
 	return error;

@@ -79,4 +79,6 @@ public:
 	bool fast_bootstrap;
 	size_t sideband_batch_size;
 };
+
+void migrate_rpc_config (nano::jsonconfig & json, boost::filesystem::path const & data_path);
 }

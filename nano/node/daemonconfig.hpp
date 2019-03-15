@@ -10,7 +10,7 @@ namespace nano
 class daemon_config
 {
 public:
-	daemon_config ();
+	daemon_config (boost::filesystem::path const & data_path);
 	nano::error deserialize_json (bool &, nano::jsonconfig &);
 	nano::error serialize_json (nano::jsonconfig &);
 	/**
@@ -22,6 +22,7 @@ public:
 	nano::node_config node;
 	bool opencl_enable;
 	nano::opencl_config opencl;
+	boost::filesystem::path data_path;
 	int json_version () const
 	{
 		return 3;
