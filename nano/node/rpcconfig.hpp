@@ -45,6 +45,7 @@ public:
 	rpc_secure_config secure;
 	uint8_t max_json_depth;
 	bool enable_sign_hash;
+	uint64_t max_request_size;
 	static int json_version ()
 	{
 		return 1;
