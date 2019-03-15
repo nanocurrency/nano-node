@@ -120,7 +120,7 @@ TEST (logger, changing_time_interval)
 	nano::logger_mt my_logger (logging.min_time_between_log_output);
 	auto error (my_logger.try_log ("logger.changing_time_interval1"));
 	ASSERT_FALSE (error);
-	logging.min_time_between_log_output = 20s;
+	my_logger.min_log_delta = 20s;
 	error = my_logger.try_log ("logger, changing_time_interval2");
 	ASSERT_TRUE (error);
 }
@@ -130,7 +130,7 @@ TEST (logger, try_log)
 	auto path1 (nano::unique_path ());
 	std::stringstream ss;
 	boost_log_cerr_redirect redirect_cerr (ss.rdbuf ());
-	nano::logger_mt my_logger (3ms);
+	nano::logger_mt my_logger (100ms);
 	auto output1 = "logger.try_log1";
 	auto error (my_logger.try_log (output1));
 	ASSERT_FALSE (error);
@@ -139,7 +139,7 @@ TEST (logger, try_log)
 	ASSERT_TRUE (error); // Fails as it is occuring too soon
 
 	// Sleep for a bit and then confirm
-	std::this_thread::sleep_for (3ms);
+	std::this_thread::sleep_for (100ms);
 	error = my_logger.try_log (output2);
 	ASSERT_FALSE (error);
 

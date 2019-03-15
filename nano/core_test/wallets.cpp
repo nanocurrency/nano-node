@@ -16,7 +16,8 @@ TEST (wallets, open_create)
 	nano::wallets wallets (error, *system.nodes[0]);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (1, wallets.items.size ()); // it starts out with a default wallet
-	nano::uint256_union id;
+	nano::keypair random_key;
+	nano::uint256_union id (random_key.pub);
 	ASSERT_EQ (nullptr, wallets.open (id));
 	auto wallet (wallets.create (id));
 	ASSERT_NE (nullptr, wallet);
@@ -26,7 +27,8 @@ TEST (wallets, open_create)
 TEST (wallets, open_existing)
 {
 	nano::system system (24000, 1);
-	nano::uint256_union id;
+	nano::keypair random_key;
+	nano::uint256_union id (random_key.pub);
 	{
 		bool error (false);
 		nano::wallets wallets (error, *system.nodes[0]);

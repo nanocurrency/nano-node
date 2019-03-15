@@ -60,7 +60,7 @@ public:
 	bool flush{ true };
 	uintmax_t max_size{ 128 * 1024 * 1024 };
 	uintmax_t rotation_size{ 4 * 1024 * 1024 };
-	milliseconds min_time_between_log_output{ 5 };
+	std::chrono::milliseconds min_time_between_log_output{ 5 };
 	nano::logger_mt logger{ min_time_between_log_output };
 	int json_version () const
 	{

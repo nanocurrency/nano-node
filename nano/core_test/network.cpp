@@ -1486,22 +1486,22 @@ TEST (confirmation_height, multiple)
 	system.wallet (1)->insert_adhoc (key3.prv);
 
 	// Send to all accounts
-	nano::send_block send1 (latest1, key1.pub, 300, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
-	nano::send_block send2 (send1.hash (), key2.pub, 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
-	nano::send_block send3 (send2.hash (), key3.pub, 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	nano::send_block send1 (latest1, key1.pub, 300, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest1));
+	nano::send_block send2 (send1.hash (), key2.pub, 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send1.hash ()));
+	nano::send_block send3 (send2.hash (), key3.pub, 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send2.hash ()));
 
 	// Open all accounts
-	nano::open_block open1 (send1.hash (), nano::genesis_account, key1.pub, key1.prv, key1.pub, 0);
-	nano::open_block open2 (send2.hash (), nano::genesis_account, key2.pub, key2.prv, key2.pub, 0);
-	nano::open_block open3 (send3.hash (), nano::genesis_account, key3.pub, key3.prv, key3.pub, 0);
+	nano::open_block open1 (send1.hash (), nano::genesis_account, key1.pub, key1.prv, key1.pub, system.work.generate (key1.pub));
+	nano::open_block open2 (send2.hash (), nano::genesis_account, key2.pub, key2.prv, key2.pub, system.work.generate (key2.pub));
+	nano::open_block open3 (send3.hash (), nano::genesis_account, key3.pub, key3.prv, key3.pub, system.work.generate (key3.pub));
 
 	// Send and recieve various blocks to these accounts
-	nano::send_block send4 (open1.hash (), key2.pub, 50, key1.prv, key1.pub, 0);
-	nano::send_block send5 (send4.hash (), key2.pub, 10, key1.prv, key1.pub, 0);
+	nano::send_block send4 (open1.hash (), key2.pub, 50, key1.prv, key1.pub, system.work.generate (open1.hash ()));
+	nano::send_block send5 (send4.hash (), key2.pub, 10, key1.prv, key1.pub, system.work.generate (send4.hash ()));
 
-	nano::receive_block receive1 (open2.hash (), send4.hash (), key2.prv, key2.pub, 0);
-	nano::send_block send6 (receive1.hash (), key3.pub, 10, key2.prv, key2.pub, 0);
-	nano::receive_block receive2 (send6.hash (), send5.hash (), key2.prv, key2.pub, 0);
+	nano::receive_block receive1 (open2.hash (), send4.hash (), key2.prv, key2.pub, system.work.generate (open2.hash ()));
+	nano::send_block send6 (receive1.hash (), key3.pub, 10, key2.prv, key2.pub, system.work.generate (receive1.hash ()));
+	nano::receive_block receive2 (send6.hash (), send5.hash (), key2.prv, key2.pub, system.work.generate (send6.hash ()));
 
 	for (auto & node : system.nodes)
 	{
