@@ -53,6 +53,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("wallet_representative_get", "Prints default representative for <wallet>")
 	("wallet_representative_set", "Set <account> as default representative for <wallet>")
 	("vote_dump", "Dump most recent votes from representatives")
+	("timestamps_export", "Prints the local timestamp recorded for each hash with timestamp in the database.")
 	("account", boost::program_options::value<std::string> (), "Defines <account> for other commands")
 	("file", boost::program_options::value<std::string> (), "Defines <file> for other commands")
 	("key", boost::program_options::value<std::string> (), "Defines the <key> for other commands, hex")
@@ -948,6 +949,45 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		{
 			auto vote (i->second);
 			std::cerr << boost::str (boost::format ("%1%\n") % vote->to_json ());
+		}
+	}
+	else if (vm.count ("timestamps_export") == 1)
+	{
+		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
+		inactive_node node (data_path);
+		auto transaction (node.node->store.tx_begin_read ());
+		auto oldest_timestamp (std::numeric_limits<uint64_t>::max ());
+		auto accounts (node.node->store.account_count (transaction));
+		size_t count (0);
+		size_t step (std::pow (10.0f, std::floor (std::log10 (accounts / 10.0))));
+		std::cout << step << std::endl;
+		for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n; ++i, ++count)
+		{
+			nano::block_sideband sideband;
+			auto hash (i->second.head);
+			auto block (node.node->store.block_get (transaction, hash, &sideband));
+			while (block != nullptr)
+			{
+				if (sideband.timestamp < oldest_timestamp)
+				{
+					oldest_timestamp = sideband.timestamp;
+				}
+				std::cout << hash.to_string () << "," << sideband.timestamp << std::endl;
+				hash = block->previous ();
+				block = node.node->store.block_get (transaction, hash);
+			}
+			if (count % step == 0 || count == accounts)
+			{
+				std::cerr << count << "/" << accounts << std::endl;
+			}
+		}
+		if (oldest_timestamp != std::numeric_limits<uint64_t>::max ())
+		{
+			std::cerr << "Complete. Oldest timestamp: " << oldest_timestamp << std::endl;
+		}
+		else
+		{
+			std::cerr << "Complete. No timestamps in the database." << std::endl;
 		}
 	}
 	else
