@@ -79,7 +79,7 @@ public:
 		return error;
 	}
 
-	std::chrono::milliseconds min_log_delta{ 5 };
+	std::chrono::milliseconds min_log_delta;
 
 private:
 	std::chrono::steady_clock::time_point last_log_time;
