@@ -95,7 +95,8 @@ void nano::rep_crawler::query (std::vector<nano::endpoint> const & endpoints_a)
 	for (auto i (endpoints_a.begin ()), n (endpoints_a.end ()); i != n; ++i)
 	{
 		on_rep_request (*i);
-		node.network.send_confirm_req (*i, block);
+		nano::confirm_req message (block);
+		node.network.send_buffer (message.to_bytes (), *i, [](boost::system::error_code const &, size_t) {});
 	}
 
 	// A representative must respond with a vote within the deadline
