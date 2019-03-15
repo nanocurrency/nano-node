@@ -2460,20 +2460,27 @@ void nano::node::confirm_frontiers ()
 	size_t max_elections (representative ? active.max_broadcast_queue * 10 : active.max_broadcast_queue);
 	size_t elections_count (0);
 	auto transaction (store.tx_begin_read ());
-	for (auto i (store.latest_begin (transaction)), n (store.latest_end ()); i != n && elections_count < max_elections; ++i)
+	for (auto i (store.latest_begin (transaction)), n (store.latest_end ()); i != n; ++i)
 	{
 		nano::account_info info (i->second);
 		if (info.block_count != info.confirmation_height)
 		{
-			auto block (store.block_get (transaction, info.head));
-			if (!active.start (block))
+			if (elections_count < max_elections)
 			{
-				++elections_count;
-				// Calculate votes for local representatives
-				if (representative)
+				auto block (store.block_get (transaction, info.head));
+				if (!active.start (block))
 				{
-					block_processor.generator.add (block->hash ());
+					++elections_count;
+					// Calculate votes for local representatives
+					if (representative)
+					{
+						block_processor.generator.add (block->hash ());
+					}
 				}
+			}
+			else
+			{
+				active.push_pending_election (info.head);
 			}
 		}
 	}
@@ -3366,6 +3373,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 		node.network.broadcast_confirm_req_batch (confirm_req_bundle);
 	}
 	lock_a.lock ();
+	// Erase inactive elections
 	for (auto i (inactive.begin ()), n (inactive.end ()); i != n; ++i)
 	{
 		auto root_it (roots.find (*i));
@@ -3377,6 +3385,16 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 			assert (erased == 1);
 		}
 		roots.erase (*i);
+	}
+	// Start elections from pending
+	for (auto i (0), n (inactive.size ()); i != n && !pending_elections.empty () && roots.size () < max_broadcast_queue; ++i)
+	{
+		auto pending_election (pending_elections.begin ());
+		if (blocks.find (pending_election) == blocks.end () && !node.ledger.block_confirmed (transaction, pending_election))
+		{
+			add (pending_election);
+		}
+		pending_elections.erase (pending_election);
 	}
 	if (unconfirmed_count > 0)
 	{
@@ -3599,6 +3617,15 @@ void nano::active_transactions::confirm_block (nano::block_hash const & hash_a)
 	if (existing != blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->status.winner->hash () == hash_a)
 	{
 		existing->second->confirm_once ();
+	}
+}
+
+void nano::active_transactions::push_pending_election (nano::block_hash const & hash_a)
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	if (blocks.find (hash_a) == blocks.end () && pending_elections.find (hash_a) == pending_elections.end ())
+	{
+		pending_elections.insert (hash_a);
 	}
 }
 
