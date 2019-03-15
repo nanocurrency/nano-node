@@ -55,7 +55,7 @@ TEST (network, construction)
 TEST (network, self_discard)
 {
 	nano::system system (24000, 1);
-	nano::udp_data data;
+	nano::message_buffer data;
 	data.endpoint = system.nodes[0]->network.endpoint ();
 	ASSERT_EQ (0, system.nodes[0]->stats.count (nano::stat::type::error, nano::stat::detail::bad_sender));
 	system.nodes[0]->network.receive_action (&data, system.nodes[0]->network.endpoint ());
@@ -1190,10 +1190,10 @@ TEST (node, port_mapping)
 	}
 }
 
-TEST (udp_buffer, one_buffer)
+TEST (message_buffer_manager, one_buffer)
 {
 	nano::stat stats;
-	nano::udp_buffer buffer (stats, 512, 1);
+	nano::message_buffer_manager buffer (stats, 512, 1);
 	auto buffer1 (buffer.allocate ());
 	ASSERT_NE (nullptr, buffer1);
 	buffer.enqueue (buffer1);
@@ -1204,10 +1204,10 @@ TEST (udp_buffer, one_buffer)
 	ASSERT_EQ (buffer1, buffer3);
 }
 
-TEST (udp_buffer, two_buffers)
+TEST (message_buffer_manager, two_buffers)
 {
 	nano::stat stats;
-	nano::udp_buffer buffer (stats, 512, 2);
+	nano::message_buffer_manager buffer (stats, 512, 2);
 	auto buffer1 (buffer.allocate ());
 	ASSERT_NE (nullptr, buffer1);
 	auto buffer2 (buffer.allocate ());
@@ -1227,10 +1227,10 @@ TEST (udp_buffer, two_buffers)
 	ASSERT_EQ (buffer1, buffer6);
 }
 
-TEST (udp_buffer, one_overflow)
+TEST (message_buffer_manager, one_overflow)
 {
 	nano::stat stats;
-	nano::udp_buffer buffer (stats, 512, 1);
+	nano::message_buffer_manager buffer (stats, 512, 1);
 	auto buffer1 (buffer.allocate ());
 	ASSERT_NE (nullptr, buffer1);
 	buffer.enqueue (buffer1);
@@ -1238,10 +1238,10 @@ TEST (udp_buffer, one_overflow)
 	ASSERT_EQ (buffer1, buffer2);
 }
 
-TEST (udp_buffer, two_overflow)
+TEST (message_buffer_manager, two_overflow)
 {
 	nano::stat stats;
-	nano::udp_buffer buffer (stats, 512, 2);
+	nano::message_buffer_manager buffer (stats, 512, 2);
 	auto buffer1 (buffer.allocate ());
 	ASSERT_NE (nullptr, buffer1);
 	buffer.enqueue (buffer1);
@@ -1255,10 +1255,10 @@ TEST (udp_buffer, two_overflow)
 	ASSERT_EQ (buffer2, buffer4);
 }
 
-TEST (udp_buffer, one_buffer_multithreaded)
+TEST (message_buffer_manager, one_buffer_multithreaded)
 {
 	nano::stat stats;
-	nano::udp_buffer buffer (stats, 512, 1);
+	nano::message_buffer_manager buffer (stats, 512, 1);
 	boost::thread thread ([&buffer]() {
 		auto done (false);
 		while (!done)
@@ -1280,10 +1280,10 @@ TEST (udp_buffer, one_buffer_multithreaded)
 	thread.join ();
 }
 
-TEST (udp_buffer, many_buffers_multithreaded)
+TEST (message_buffer_manager, many_buffers_multithreaded)
 {
 	nano::stat stats;
-	nano::udp_buffer buffer (stats, 512, 16);
+	nano::message_buffer_manager buffer (stats, 512, 16);
 	std::vector<boost::thread> threads;
 	for (auto i (0); i < 4; ++i)
 	{
@@ -1328,10 +1328,10 @@ TEST (udp_buffer, many_buffers_multithreaded)
 	}
 }
 
-TEST (udp_buffer, stats)
+TEST (message_buffer_manager, stats)
 {
 	nano::stat stats;
-	nano::udp_buffer buffer (stats, 512, 1);
+	nano::message_buffer_manager buffer (stats, 512, 1);
 	auto buffer1 (buffer.allocate ());
 	buffer.enqueue (buffer1);
 	buffer.allocate ();
