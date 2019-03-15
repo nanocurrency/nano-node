@@ -1685,8 +1685,9 @@ TEST (rpc, keepalive)
 	node1->start ();
 	system.nodes.push_back (node1);
 	nano::ipc::ipc_client client (system.io_ctx);
-	enable_ipc_transport_tcp (node1->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node1);
+	auto node = system.nodes.front ();
+	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (*node);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	boost::property_tree::ptree request;
