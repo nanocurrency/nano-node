@@ -71,8 +71,9 @@ public:
 		return error;
 	}
 
+	std::chrono::milliseconds min_log_delta;
+
 private:
-	std::chrono::milliseconds const & min_log_delta;
 	std::chrono::steady_clock::time_point last_log_time;
 	boost::log::sources::logger_mt boost_logger_mt;
 };

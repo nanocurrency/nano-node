@@ -1261,9 +1261,8 @@ TEST (rpc, history)
 		ASSERT_EQ (nano::process_result::progress, node0->ledger.process (transaction, uchange).code);
 	}
 	nano::ipc::ipc_client client (system.io_ctx);
-	auto node = system.nodes.front ();
-	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node);
+	enable_ipc_transport_tcp (node0->config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (*node0);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -1328,13 +1327,16 @@ TEST (rpc, account_history)
 		ASSERT_EQ (nano::process_result::progress, node0->ledger.process (transaction, ureceive).code);
 		ASSERT_EQ (nano::process_result::progress, node0->ledger.process (transaction, uchange).code);
 	}
-	nano::rpc rpc (system.io_ctx, *node0, nano::rpc_config (true));
+	nano::ipc::ipc_client client (system.io_ctx);
+	enable_ipc_transport_tcp (node0->config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (*node0);
+	nano::rpc rpc (system.io_ctx, nano::rpc_config (true), client);
 	rpc.start ();
 	boost::property_tree::ptree request;
 	request.put ("action", "account_history");
 	request.put ("account", nano::genesis_account.to_account ());
 	request.put ("count", 100);
-	test_response response (request, rpc, system.io_ctx);
+	test_response response (default_ipc_tcp_host, default_ipc_tcp_port, client, request, rpc.config.port, system.io_ctx);
 	while (response.status == 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -1383,7 +1385,7 @@ TEST (rpc, account_history)
 	filtered_accounts.push_back (std::make_pair ("", other_account));
 	request2.add_child ("account_filter", filtered_accounts);
 	request2.put ("count", 100);
-	test_response response2 (request2, rpc, system.io_ctx);
+	test_response response2 (default_ipc_tcp_host, default_ipc_tcp_port, client, request2, rpc.config.port, system.io_ctx);
 	while (response2.status == 0)
 	{
 		system.poll ();
