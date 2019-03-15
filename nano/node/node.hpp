@@ -516,7 +516,7 @@ public:
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
-	std::atomic<bool> confirm_frontiers_first_call = true;
+	bool confirm_frontiers_first_call{ true };
 
 private:
 	void add_confirmation_heights (nano::block_hash const & hash);
