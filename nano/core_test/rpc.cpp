@@ -1214,6 +1214,7 @@ TEST (rpc, account_history)
 		auto & history_node (response.json.get_child ("history"));
 		ASSERT_EQ (1, history_node.size ());
 		ASSERT_EQ ("1", history_node.begin ()->second.get<std::string> ("height"));
+		ASSERT_EQ (change->hash ().to_string (), response.json.get<std::string> ("next"));
 	}
 
 	// Test filtering
