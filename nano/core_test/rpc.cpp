@@ -2967,69 +2967,94 @@ TEST (rpc, accounts_pending)
 	peers_l.push_back (std::make_pair ("", entry));
 	request.add_child ("accounts", peers_l);
 	request.put ("count", "100");
-	test_response response (request, rpc, system.io_ctx);
-	system.deadline_set (5s);
-	while (response.status == 0)
 	{
-		ASSERT_NO_ERROR (system.poll ());
+		test_response response (request, rpc, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		for (auto & blocks : response.json.get_child ("blocks"))
+		{
+			std::string account_text (blocks.first);
+			ASSERT_EQ (key1.pub.to_account (), account_text);
+			nano::block_hash hash1 (blocks.second.begin ()->second.get<std::string> (""));
+			ASSERT_EQ (block1->hash (), hash1);
+		}
 	}
-	ASSERT_EQ (200, response.status);
-	for (auto & blocks : response.json.get_child ("blocks"))
+	request.put ("sorting", "true"); // Sorting test
 	{
-		std::string account_text (blocks.first);
-		ASSERT_EQ (key1.pub.to_account (), account_text);
-		nano::block_hash hash1 (blocks.second.begin ()->second.get<std::string> (""));
-		ASSERT_EQ (block1->hash (), hash1);
+		test_response response (request, rpc, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		for (auto & blocks : response.json.get_child ("blocks"))
+		{
+			std::string account_text (blocks.first);
+			ASSERT_EQ (key1.pub.to_account (), account_text);
+			nano::block_hash hash1 (blocks.second.begin ()->first);
+			ASSERT_EQ (block1->hash (), hash1);
+			std::string amount (blocks.second.begin ()->second.get<std::string> (""));
+			ASSERT_EQ ("100", amount);
+		}
 	}
 	request.put ("threshold", "100"); // Threshold test
-	test_response response1 (request, rpc, system.io_ctx);
-	system.deadline_set (5s);
-	while (response1.status == 0)
 	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	ASSERT_EQ (200, response1.status);
-	std::unordered_map<nano::block_hash, nano::uint128_union> blocks;
-	for (auto & pending : response1.json.get_child ("blocks"))
-	{
-		std::string account_text (pending.first);
-		ASSERT_EQ (key1.pub.to_account (), account_text);
-		for (auto i (pending.second.begin ()), j (pending.second.end ()); i != j; ++i)
+		test_response response (request, rpc, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
 		{
-			nano::block_hash hash;
-			hash.decode_hex (i->first);
-			nano::uint128_union amount;
-			amount.decode_dec (i->second.get<std::string> (""));
-			blocks[hash] = amount;
-			boost::optional<std::string> source (i->second.get_optional<std::string> ("source"));
-			ASSERT_FALSE (source.is_initialized ());
+			ASSERT_NO_ERROR (system.poll ());
 		}
+		ASSERT_EQ (200, response.status);
+		std::unordered_map<nano::block_hash, nano::uint128_union> blocks;
+		for (auto & pending : response.json.get_child ("blocks"))
+		{
+			std::string account_text (pending.first);
+			ASSERT_EQ (key1.pub.to_account (), account_text);
+			for (auto i (pending.second.begin ()), j (pending.second.end ()); i != j; ++i)
+			{
+				nano::block_hash hash;
+				hash.decode_hex (i->first);
+				nano::uint128_union amount;
+				amount.decode_dec (i->second.get<std::string> (""));
+				blocks[hash] = amount;
+				boost::optional<std::string> source (i->second.get_optional<std::string> ("source"));
+				ASSERT_FALSE (source.is_initialized ());
+			}
+		}
+		ASSERT_EQ (blocks[block1->hash ()], 100);
 	}
-	ASSERT_EQ (blocks[block1->hash ()], 100);
 	request.put ("source", "true");
-	test_response response2 (request, rpc, system.io_ctx);
-	system.deadline_set (5s);
-	while (response2.status == 0)
 	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	ASSERT_EQ (200, response2.status);
-	std::unordered_map<nano::block_hash, nano::uint128_union> amounts;
-	std::unordered_map<nano::block_hash, nano::account> sources;
-	for (auto & pending : response2.json.get_child ("blocks"))
-	{
-		std::string account_text (pending.first);
-		ASSERT_EQ (key1.pub.to_account (), account_text);
-		for (auto i (pending.second.begin ()), j (pending.second.end ()); i != j; ++i)
+		test_response response (request, rpc, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
 		{
-			nano::block_hash hash;
-			hash.decode_hex (i->first);
-			amounts[hash].decode_dec (i->second.get<std::string> ("amount"));
-			sources[hash].decode_account (i->second.get<std::string> ("source"));
+			ASSERT_NO_ERROR (system.poll ());
 		}
+		ASSERT_EQ (200, response.status);
+		std::unordered_map<nano::block_hash, nano::uint128_union> amounts;
+		std::unordered_map<nano::block_hash, nano::account> sources;
+		for (auto & pending : response.json.get_child ("blocks"))
+		{
+			std::string account_text (pending.first);
+			ASSERT_EQ (key1.pub.to_account (), account_text);
+			for (auto i (pending.second.begin ()), j (pending.second.end ()); i != j; ++i)
+			{
+				nano::block_hash hash;
+				hash.decode_hex (i->first);
+				amounts[hash].decode_dec (i->second.get<std::string> ("amount"));
+				sources[hash].decode_account (i->second.get<std::string> ("source"));
+			}
+		}
+		ASSERT_EQ (amounts[block1->hash ()], 100);
+		ASSERT_EQ (sources[block1->hash ()], nano::test_genesis_key.pub);
 	}
-	ASSERT_EQ (amounts[block1->hash ()], 100);
-	ASSERT_EQ (sources[block1->hash ()], nano::test_genesis_key.pub);
 }
 
 TEST (rpc, blocks)
