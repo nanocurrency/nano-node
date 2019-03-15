@@ -276,14 +276,9 @@ TEST (network, send_insufficient_work)
 {
 	nano::system system (24000, 2);
 	auto block (std::make_shared<nano::send_block> (0, 1, 20, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
-	nano::publish publish (std::move (block));
-	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
-	{
-		nano::vectorstream stream (*bytes);
-		publish.serialize (stream);
-	}
+	nano::publish publish (block);
 	auto node1 (system.nodes[1]->shared ());
-	system.nodes[0]->network.send_buffer (bytes->data (), bytes->size (), system.nodes[1]->network.endpoint (), [bytes, node1](boost::system::error_code const & ec, size_t size) {});
+	system.nodes[0]->network.send_buffer (publish.to_bytes (), system.nodes[1]->network.endpoint (), [node1](boost::system::error_code const & ec, size_t size) {});
 	ASSERT_EQ (0, system.nodes[0]->stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work));
 	system.deadline_set (10s);
 	while (system.nodes[1]->stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work) == 0)
