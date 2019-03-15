@@ -327,13 +327,18 @@ public:
 	void start ();
 	void stop ();
 	void receive_action (nano::udp_data *, nano::endpoint const &);
-	void rpc_action (boost::system::error_code const &, size_t);
-	void republish_vote (std::shared_ptr<nano::vote>);
-	void republish_block (std::shared_ptr<nano::block>);
-	void republish_block (std::shared_ptr<nano::block>, nano::endpoint const &);
-	static unsigned const broadcast_interval_ms = 10;
-	void republish_block_batch (std::deque<std::shared_ptr<nano::block>>, unsigned = broadcast_interval_ms);
-	void republish (nano::block_hash const &, std::shared_ptr<std::vector<uint8_t>>, nano::endpoint);
+	void flood_message (nano::message const &);
+	void flood_vote (std::shared_ptr<nano::vote> vote_a)
+	{
+		nano::confirm_ack message (vote_a);
+		flood_message (message);
+	}
+	void flood_block (std::shared_ptr<nano::block> block_a)
+	{
+		nano::publish publish (block_a);
+		flood_message (publish);
+	}
+	void flood_block_batch (std::deque<std::shared_ptr<nano::block>>, unsigned = broadcast_interval_ms);
 	void confirm_send (nano::confirm_ack const &, std::shared_ptr<std::vector<uint8_t>>, nano::endpoint const &);
 	void merge_peers (std::array<nano::endpoint, 8> const &);
 	void send_keepalive (nano::endpoint const &);
@@ -354,9 +359,9 @@ public:
 	boost::asio::ip::udp::resolver resolver;
 	std::vector<boost::thread> packet_processing_threads;
 	nano::node & node;
-	std::atomic<bool> on;
 	static size_t const buffer_size = 512;
 	static size_t const confirm_req_hashes_max = 6;
+	static unsigned const broadcast_interval_ms = 10;
 };
 
 class node_init
