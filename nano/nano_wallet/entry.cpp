@@ -41,10 +41,10 @@ public:
 			}
 			case 2:
 			{
-				nano::jsonconfig rpc_l;	
+				nano::jsonconfig rpc_l;
 				nano::rpc_config rpc;
-				rpc.serialize_json (rpc_l);	
-				json.put ("rpc_enable", "false");	
+				rpc.serialize_json (rpc_l);
+				json.put ("rpc_enable", "false");
 				json.put_child ("rpc", rpc_l);
 				json.erase ("version");
 				upgraded = true;

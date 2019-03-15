@@ -53,12 +53,12 @@ add_library (node
 	testing.cpp
 	signatures.hpp
 	signatures.cpp
-	wallet.hpp
-	wallet.cpp
 	stats.hpp
 	stats.cpp
 	voting.hpp
 	voting.cpp
+	wallet.hpp
+	wallet.cpp
 	working.hpp
 	xorshift.hpp)
 
