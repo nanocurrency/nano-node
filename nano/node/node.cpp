@@ -3723,8 +3723,8 @@ void nano::thread_runner::join ()
 	}
 }
 
-nano::inactive_node::inactive_node (boost::filesystem::path const & path, uint16_t peering_port_a) :
-path (path),
+nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, uint16_t peering_port_a) :
+path (path_a),
 io_context (std::make_shared<boost::asio::io_context> ()),
 alarm (*io_context),
 work (1, nullptr),
@@ -3747,8 +3747,8 @@ nano::inactive_node::~inactive_node ()
 	node->stop ();
 }
 
-nano::udp_buffer::udp_buffer (nano::stat & stats, size_t size, size_t count) :
-stats (stats),
+nano::udp_buffer::udp_buffer (nano::stat & stats_a, size_t size, size_t count) :
+stats (stats_a),
 free (count),
 full (count),
 slab (size * count),

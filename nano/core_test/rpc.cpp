@@ -1991,7 +1991,7 @@ TEST (rpc, work_generate_difficulty)
 	request1.put ("hash", hash1.to_string ());
 	request1.put ("difficulty", nano::to_string_hex (difficulty1));
 	test_response response1 (request1, rpc, system.io_ctx);
-	system.deadline_set (5s);
+	system.deadline_set (10s);
 	while (response1.status == 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -2006,7 +2006,7 @@ TEST (rpc, work_generate_difficulty)
 	uint64_t difficulty2 (0xffff000000000000);
 	request1.put ("difficulty", nano::to_string_hex (difficulty2));
 	test_response response2 (request1, rpc, system.io_ctx);
-	system.deadline_set (10s);
+	system.deadline_set (20s);
 	while (response2.status == 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -2034,7 +2034,7 @@ TEST (rpc, work_cancel)
 	boost::property_tree::ptree request1;
 	request1.put ("action", "work_cancel");
 	request1.put ("hash", hash1.to_string ());
-	auto done (false);
+	std::atomic<bool> done (false);
 	system.deadline_set (10s);
 	while (!done)
 	{
@@ -4600,7 +4600,6 @@ TEST (rpc, unopened)
 {
 	nano::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	auto transaction (system.wallet (0)->wallets.tx_begin_write ());
 	nano::account account1 (1), account2 (account1.number () + 1);
 	auto genesis (system.nodes[0]->latest (nano::test_genesis_key.pub));
 	ASSERT_FALSE (genesis.is_zero ());
