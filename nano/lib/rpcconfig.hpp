@@ -2,6 +2,7 @@
 
 #include <boost/asio.hpp>
 #include <boost/filesystem.hpp>
+#include <nano/lib/config.hpp>
 #include <nano/lib/errors.hpp>
 #include <string>
 
@@ -39,11 +40,13 @@ public:
 	rpc_config (bool = false);
 	nano::error serialize_json (nano::jsonconfig &) const;
 	nano::error deserialize_json (bool & upgraded_a, nano::jsonconfig &);
+	nano::network_params network_params;
 	boost::asio::ip::address_v6 address;
 	uint16_t port;
 	bool enable_control;
 	rpc_secure_config secure;
 	uint8_t max_json_depth;
+	uint64_t max_request_size;
 	unsigned io_threads;
 	uint16_t ipc_port;
 	std::string ipc_path;

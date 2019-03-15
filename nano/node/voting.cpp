@@ -2,9 +2,8 @@
 
 #include <nano/node/node.hpp>
 
-nano::vote_generator::vote_generator (nano::node & node_a, std::chrono::milliseconds wait_a) :
+nano::vote_generator::vote_generator (nano::node & node_a) :
 node (node_a),
-wait (wait_a),
 stopped (false),
 started (false),
 thread ([this]() { run (); })
@@ -79,7 +78,7 @@ void nano::vote_generator::run ()
 		}
 		else if (cutoff == min) // && hashes.size () < 12
 		{
-			cutoff = now + wait;
+			cutoff = now + network_params.voting.generator_delay;
 			condition.wait_until (lock, cutoff);
 		}
 		else if (now < cutoff) // && hashes.size () < 12
@@ -111,7 +110,7 @@ void nano::votes_cache::add (std::shared_ptr<nano::vote> const & vote_a)
 		if (existing == cache.get<1> ().end ())
 		{
 			// Clean old votes
-			if (cache.size () >= max_cache)
+			if (cache.size () >= network_params.voting.max_cache)
 			{
 				cache.erase (cache.begin ());
 			}

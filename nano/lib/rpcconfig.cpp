@@ -34,9 +34,10 @@ nano::error nano::rpc_secure_config::deserialize_json (nano::jsonconfig & json)
 
 nano::rpc_config::rpc_config (bool enable_control_a) :
 address (boost::asio::ip::address_v6::loopback ()),
-port (nano::is_live_network ? 7076 : 55000),
+port (network_params.default_rpc_port),
 enable_control (enable_control_a),
 max_json_depth (20),
+max_request_size (32 * 1024 * 1024),
 io_threads (std::max<unsigned> (4, boost::thread::hardware_concurrency ())),
 ipc_port (7077),
 ipc_path ("/tmp/nano")
@@ -50,6 +51,7 @@ nano::error nano::rpc_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("port", port);
 	json.put ("enable_control", enable_control);
 	json.put ("max_json_depth", max_json_depth);
+	json.put ("max_request_size", max_request_size);
 	json.put ("io_threads", io_threads);
 	json.put ("ipc_port", ipc_port);
 	json.put ("ipc_path", ipc_path);
@@ -65,6 +67,7 @@ nano::error nano::rpc_config::deserialize_json (bool & upgraded_a, nano::jsoncon
 		{
 			version_l = 1;
 			json.put ("version", *version_l);
+			json.put ("max_request_size", max_request_size);
 			json.erase ("frontier_request_limit");
 			json.erase ("chain_request_limit");
 			upgraded_a = true;
@@ -80,6 +83,7 @@ nano::error nano::rpc_config::deserialize_json (bool & upgraded_a, nano::jsoncon
 		json.get_optional<uint16_t> ("port", port);
 		json.get_optional<bool> ("enable_control", enable_control);
 		json.get_optional<uint8_t> ("max_json_depth", max_json_depth);
+		json.get_optional<uint64_t> ("max_request_size", max_request_size);
 		json.get_optional<unsigned> ("io_threads", io_threads);
 		json.get_optional<uint16_t> ("ipc_port", ipc_port);
 		json.get_optional<std::string> ("ipc_path", ipc_path);

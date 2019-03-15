@@ -95,7 +95,17 @@ TEST (wallet, select_account)
 	QTest::mouseClick (wallet->accounts.use_account, Qt::LeftButton);
 	auto key4 (wallet->account);
 	ASSERT_NE (key3, key4);
-	ASSERT_EQ (key2, key4);
+
+	// The list is populated in sorted order as it's read from store in lexical order. This may
+	// be different from the insertion order.
+	if (key1 < key2)
+	{
+		ASSERT_EQ (key2, key4);
+	}
+	else
+	{
+		ASSERT_EQ (key1, key4);
+	}
 }
 
 TEST (wallet, main)

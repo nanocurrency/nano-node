@@ -13,114 +13,12 @@
 
 #include <crypto/ed25519-donna/ed25519.h>
 
-// Genesis keys for network variants
-namespace
-{
-char const * test_private_key_data = "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4";
-char const * test_public_key_data = "B0311EA55708D6A53C75CDBF88300259C6D018522FE3D4D0A242E431F9E8B6D0"; // xrb_3e3j5tkog48pnny9dmfzj1r16pg8t1e76dz5tmac6iq689wyjfpiij4txtdo
-char const * beta_public_key_data = "A59A47CC4F593E75AE9AD653FDA9358E2F7898D9ACC8C60E80D0495CE20FBA9F"; // xrb_3betaz86ypbygpqbookmzpnmd5jhh4efmd8arr9a3n4bdmj1zgnzad7xpmfp
-char const * live_public_key_data = "E89208DD038FBB269987689621D52292AE9C35941A7484756ECCED92A65093BA"; // xrb_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3
-char const * test_genesis_data = R"%%%({
-	"type": "open",
-	"source": "B0311EA55708D6A53C75CDBF88300259C6D018522FE3D4D0A242E431F9E8B6D0",
-	"representative": "xrb_3e3j5tkog48pnny9dmfzj1r16pg8t1e76dz5tmac6iq689wyjfpiij4txtdo",
-	"account": "xrb_3e3j5tkog48pnny9dmfzj1r16pg8t1e76dz5tmac6iq689wyjfpiij4txtdo",
-	"work": "9680625b39d3363d",
-	"signature": "ECDA914373A2F0CA1296475BAEE40500A7F0A7AD72A5A80C81D7FAB7F6C802B2CC7DB50F5DD0FB25B2EF11761FA7344A158DD5A700B21BD47DE5BD0F63153A02"
-})%%%";
-
-char const * beta_genesis_data = R"%%%({
-        "type": "open",
-        "source": "A59A47CC4F593E75AE9AD653FDA9358E2F7898D9ACC8C60E80D0495CE20FBA9F",
-        "representative": "xrb_3betaz86ypbygpqbookmzpnmd5jhh4efmd8arr9a3n4bdmj1zgnzad7xpmfp",
-        "account": "xrb_3betaz86ypbygpqbookmzpnmd5jhh4efmd8arr9a3n4bdmj1zgnzad7xpmfp",
-        "work": "000000000f0aaeeb",
-        "signature": "A726490E3325E4FA59C1C900D5B6EEBB15FE13D99F49D475B93F0AACC5635929A0614CF3892764A04D1C6732A0D716FFEB254D4154C6F544D11E6630F201450B"
-})%%%";
-
-char const * live_genesis_data = R"%%%({
-	"type": "open",
-	"source": "E89208DD038FBB269987689621D52292AE9C35941A7484756ECCED92A65093BA",
-	"representative": "xrb_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3",
-	"account": "xrb_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3",
-	"work": "62f05417dd3fb691",
-	"signature": "9F0C933C8ADE004D808EA1985FA746A7E95BA2A38F867640F53EC8F180BDFE9E2C1268DEAD7C2664F356E37ABA362BC58E46DBA03E523A7B5A19E4B6EB12BB02"
-})%%%";
-
-class ledger_constants
-{
-public:
-	ledger_constants () :
-	zero_key ("0"),
-	test_genesis_key (test_private_key_data),
-	nano_test_account (test_public_key_data),
-	nano_beta_account (beta_public_key_data),
-	nano_live_account (live_public_key_data),
-	nano_test_genesis (test_genesis_data),
-	nano_beta_genesis (beta_genesis_data),
-	nano_live_genesis (live_genesis_data),
-	genesis_account (nano::is_test_network ? nano_test_account : nano::is_beta_network ? nano_beta_account : nano_live_account),
-	genesis_block (nano::is_test_network ? nano_test_genesis : nano::is_beta_network ? nano_beta_genesis : nano_live_genesis),
-	genesis_amount (std::numeric_limits<nano::uint128_t>::max ()),
-	burn_account (0)
-	{
-	}
-	nano::keypair zero_key;
-	nano::keypair test_genesis_key;
-	nano::account nano_test_account;
-	nano::account nano_beta_account;
-	nano::account nano_live_account;
-	std::string nano_test_genesis;
-	std::string nano_beta_genesis;
-	std::string nano_live_genesis;
-	nano::account genesis_account;
-	std::string genesis_block;
-	nano::uint128_t genesis_amount;
-	nano::account burn_account;
-
-	nano::account const & not_an_account ()
-	{
-		std::lock_guard<std::mutex> lk (mutex);
-		if (!is_initialized)
-		{
-			// Randomly generating this means that no two nodes will ever have the same sentinel value which protects against some insecure algorithms
-			nano::random_pool::generate_block (not_an_account_m.bytes.data (), not_an_account_m.bytes.size ());
-			is_initialized = true;
-		}
-		return not_an_account_m;
-	}
-
-private:
-	nano::account not_an_account_m;
-	std::mutex mutex;
-	bool is_initialized{ false };
-};
-ledger_constants globals;
-}
-
 size_t constexpr nano::send_block::size;
 size_t constexpr nano::receive_block::size;
 size_t constexpr nano::open_block::size;
 size_t constexpr nano::change_block::size;
 size_t constexpr nano::state_block::size;
 
-nano::keypair const & nano::zero_key (globals.zero_key);
-nano::keypair const & nano::test_genesis_key (globals.test_genesis_key);
-nano::account const & nano::nano_test_account (globals.nano_test_account);
-nano::account const & nano::nano_beta_account (globals.nano_beta_account);
-nano::account const & nano::nano_live_account (globals.nano_live_account);
-std::string const & nano::nano_test_genesis (globals.nano_test_genesis);
-std::string const & nano::nano_beta_genesis (globals.nano_beta_genesis);
-std::string const & nano::nano_live_genesis (globals.nano_live_genesis);
-
-nano::account const & nano::genesis_account (globals.genesis_account);
-std::string const & nano::genesis_block (globals.genesis_block);
-nano::uint128_t const & nano::genesis_amount (globals.genesis_amount);
-nano::account const & nano::burn_account (globals.burn_account);
-nano::account const & nano::not_an_account ()
-{
-	return globals.not_an_account ();
-}
 // Create a new random keypair
 nano::keypair::keypair ()
 {
@@ -150,13 +48,14 @@ void nano::serialize_block (nano::stream & stream_a, nano::block const & block_a
 	block_a.serialize (stream_a);
 }
 
-nano::account_info::account_info (nano::block_hash const & head_a, nano::block_hash const & rep_block_a, nano::block_hash const & open_block_a, nano::amount const & balance_a, uint64_t modified_a, uint64_t block_count_a, nano::epoch epoch_a) :
+nano::account_info::account_info (nano::block_hash const & head_a, nano::block_hash const & rep_block_a, nano::block_hash const & open_block_a, nano::amount const & balance_a, uint64_t modified_a, uint64_t block_count_a, uint64_t confirmation_height_a, nano::epoch epoch_a) :
 head (head_a),
 rep_block (rep_block_a),
 open_block (open_block_a),
 balance (balance_a),
 modified (modified_a),
 block_count (block_count_a),
+confirmation_height (confirmation_height_a),
 epoch (epoch_a)
 {
 }
@@ -172,6 +71,7 @@ bool nano::account_info::deserialize (nano::stream & stream_a)
 		nano::read (stream_a, balance.bytes);
 		nano::read (stream_a, modified);
 		nano::read (stream_a, block_count);
+		nano::read (stream_a, confirmation_height);
 	}
 	catch (std::runtime_error const &)
 	{
@@ -183,7 +83,7 @@ bool nano::account_info::deserialize (nano::stream & stream_a)
 
 bool nano::account_info::operator== (nano::account_info const & other_a) const
 {
-	return head == other_a.head && rep_block == other_a.rep_block && open_block == other_a.open_block && balance == other_a.balance && modified == other_a.modified && block_count == other_a.block_count && epoch == other_a.epoch;
+	return head == other_a.head && rep_block == other_a.rep_block && open_block == other_a.open_block && balance == other_a.balance && modified == other_a.modified && block_count == other_a.block_count && confirmation_height == other_a.confirmation_height && epoch == other_a.epoch;
 }
 
 bool nano::account_info::operator!= (nano::account_info const & other_a) const
@@ -199,7 +99,8 @@ size_t nano::account_info::db_size () const
 	assert (reinterpret_cast<const uint8_t *> (&open_block) + sizeof (open_block) == reinterpret_cast<const uint8_t *> (&balance));
 	assert (reinterpret_cast<const uint8_t *> (&balance) + sizeof (balance) == reinterpret_cast<const uint8_t *> (&modified));
 	assert (reinterpret_cast<const uint8_t *> (&modified) + sizeof (modified) == reinterpret_cast<const uint8_t *> (&block_count));
-	return sizeof (head) + sizeof (rep_block) + sizeof (open_block) + sizeof (balance) + sizeof (modified) + sizeof (block_count);
+	assert (reinterpret_cast<const uint8_t *> (&block_count) + sizeof (block_count) == reinterpret_cast<const uint8_t *> (&confirmation_height));
+	return sizeof (head) + sizeof (rep_block) + sizeof (open_block) + sizeof (balance) + sizeof (modified) + sizeof (block_count) + sizeof (confirmation_height);
 }
 
 size_t nano::block_counts::sum () const
@@ -705,8 +606,9 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_uniquer & vot
 
 nano::genesis::genesis ()
 {
+	static nano::network_params network_params;
 	boost::property_tree::ptree tree;
-	std::stringstream istream (nano::genesis_block);
+	std::stringstream istream (network_params.ledger.genesis_block);
 	boost::property_tree::read_json (istream, tree);
 	open = nano::deserialize_block_json (tree);
 	assert (open != nullptr);

@@ -47,6 +47,8 @@ add_library (node
 	peers.cpp
 	portmapping.hpp
 	portmapping.cpp
+	repcrawler.hpp
+	repcrawler.cpp
 	testing.hpp
 	testing.cpp
 	signatures.hpp

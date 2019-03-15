@@ -305,6 +305,17 @@ int main (int argc, char * const * argv)
 		boost::program_options::notify (vm);
 		int result (0);
 
+		auto network (vm.find ("network"));
+		if (network != vm.end ())
+		{
+			auto err (nano::network_params::set_active_network (network->second.as<std::string> ()));
+			if (err)
+			{
+				std::cerr << err.get_message () << std::endl;
+				std::exit (1);
+			}
+		}
+
 		if (!vm.count ("data_path"))
 		{
 			std::string error_string;

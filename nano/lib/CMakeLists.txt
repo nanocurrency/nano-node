@@ -20,6 +20,7 @@ add_library (nano_lib
 	blocks.cpp
 	blocks.hpp
 	config.hpp
+	config.cpp
 	interface.cpp
 	interface.h
 	ipc.cpp

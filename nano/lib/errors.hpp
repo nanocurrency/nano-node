@@ -74,6 +74,7 @@ enum class error_rpc
 {
 	generic = 1,
 	bad_destination,
+	bad_difficulty_format,
 	bad_key,
 	bad_link,
 	bad_previous,
@@ -326,17 +327,6 @@ public:
 	{
 		code = nano::error_common::generic;
 		message = std::move (message_a);
-		return *this;
-	}
-
-	/** Set the error to nano::error_common::generic. */
-	error & operator= (bool is_error)
-	{
-		if (is_error)
-		{
-			code = nano::error_common::generic;
-		}
-		message.clear ();
 		return *this;
 	}
 
