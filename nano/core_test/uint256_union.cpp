@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
 
-#include <nano/lib/testutil.hpp>
 #include <nano/lib/interface.h>
 #include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/testutil.hpp>
 #include <nano/secure/common.hpp>
 
 namespace

@@ -4,8 +4,8 @@
 #include <boost/asio.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <nano/lib/errors.hpp>
-#include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/ipc_client.hpp>
+#include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/node/wallet.hpp>
 #include <string>
@@ -18,7 +18,7 @@ class rpc;
 
 namespace ipc
 {
-class ipc_server;
+	class ipc_server;
 }
 }
 
@@ -216,7 +216,7 @@ public:
 	uint64_t count_impl ();
 	uint64_t count_optional_impl (uint64_t = std::numeric_limits<uint64_t>::max ());
 	uint64_t offset_optional_impl (uint64_t = 0);
-	bool enable_sign_hash {false};
+	bool enable_sign_hash{ false };
 	nano::ipc::ipc_server & ipc_server;
 };
 

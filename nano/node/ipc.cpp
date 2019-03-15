@@ -1233,7 +1233,7 @@ void nano::ipc_json_handler::block_info ()
 			response_l.put ("local_timestamp", std::to_string (sideband.timestamp));
 			auto confirmed (node.ledger.block_confirmed (transaction, hash));
 			response_l.put ("confirmed", confirmed);
-			
+
 			bool json_block_l = request.get<bool> ("json_block", false);
 			if (json_block_l)
 			{
@@ -2285,7 +2285,7 @@ public:
 	nano::transaction & transaction;
 	boost::property_tree::ptree & tree;
 	nano::block_hash const & hash;
-	nano::network_params network_params;	
+	nano::network_params network_params;
 };
 }
 
@@ -4485,7 +4485,7 @@ void nano::ipc_json_handler::work_generate ()
 		{
 			ec = nano::error_rpc::bad_difficulty_format;
 		}
-	}	
+	}
 	if (!ec)
 	{
 		bool use_peers (request.get_optional<bool> ("use_peers") == true);
@@ -4693,7 +4693,6 @@ void nano::payment_observer::complete (nano::payment_status status)
 		ipc_server.payment_observers.erase (account);
 	}
 }
-
 
 namespace
 {

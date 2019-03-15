@@ -1,8 +1,8 @@
 #include <boost/endian/conversion.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#include <nano/lib/errors.hpp>
 #include <nano/lib/ipc_client.hpp>
 #include <nano/rpc/rpc_handler.hpp>
-#include <nano/lib/errors.hpp>
 #include <unordered_set>
 
 namespace
@@ -91,12 +91,12 @@ void nano::rpc_handler::process_request (unsigned max_json_depth, bool enable_co
 
 				auto this_l (shared_from_this ());
 
-				ipc_client.async_write (req, [this_l, res, action] (nano::error err_a, size_t size_a) {
+				ipc_client.async_write (req, [this_l, res, action](nano::error err_a, size_t size_a) {
 					// Read length
-					this_l->ipc_client.async_read (res, sizeof (uint32_t), [this_l, res, action] (nano::error err_read_a, size_t size_read_a) {
+					this_l->ipc_client.async_read (res, sizeof (uint32_t), [this_l, res, action](nano::error err_read_a, size_t size_read_a) {
 						uint32_t payload_size_l = boost::endian::big_to_native (*reinterpret_cast<uint32_t *> (res->data ()));
 						// Read json payload
-						this_l->ipc_client.async_read (res, payload_size_l, [this_l, res, action] (nano::error err_read_a, size_t size_read_a) {
+						this_l->ipc_client.async_read (res, payload_size_l, [this_l, res, action](nano::error err_read_a, size_t size_read_a) {
 							this_l->response (std::string (res->begin (), res->end ()));
 							if (action == "stop")
 							{

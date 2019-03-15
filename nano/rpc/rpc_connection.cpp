@@ -1,8 +1,8 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/format.hpp>
 #include <nano/lib/config.hpp>
-#include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/logger_mt.hpp>
+#include <nano/lib/rpcconfig.hpp>
 #include <nano/rpc/rpc_connection.hpp>
 #include <nano/rpc/rpc_handler.hpp>
 
@@ -91,19 +91,18 @@ void nano::rpc_connection::read ()
 	{
 		auto body_parser (std::make_shared<boost::beast::http::request_parser<boost::beast::http::string_body>> (std::move (*header_parser)));
 		boost::beast::http::async_read (socket, buffer, *body_parser, [this_l, body_parser](boost::system::error_code const & ec, size_t bytes_transferred) {
-
 			if (!ec)
 			{
 				// equivalent to background
-				this_l->io_ctx.post ([this_l, body_parser] () {
+				this_l->io_ctx.post ([this_l, body_parser]() {
 					auto & req (body_parser->get ());
 					auto start (std::chrono::steady_clock::now ());
 					auto version (req.version ());
 					std::string request_id (boost::str (boost::format ("%1%") % boost::io::group (std::hex, std::showbase, reinterpret_cast<uintptr_t> (this_l.get ()))));
-					auto response_handler ([this_l, version, start, request_id] (std::string const & tree_a) {
+					auto response_handler ([this_l, version, start, request_id](std::string const & tree_a) {
 						auto body = tree_a; // Check if this is correct
 						this_l->write_result (body, version);
-						boost::beast::http::async_write (this_l->socket, this_l->res, [this_l] (boost::system::error_code const & ec, size_t bytes_transferred) {
+						boost::beast::http::async_write (this_l->socket, this_l->res, [this_l](boost::system::error_code const & ec, size_t bytes_transferred) {
 						});
 
 						this_l->logger.always_log (boost::str (boost::format ("RPC request %2% completed in: %1% microseconds") % std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - start).count () % request_id));
@@ -121,7 +120,7 @@ void nano::rpc_connection::read ()
 						{
 							this_l->prepare_head (version);
 							this_l->res.prepare_payload ();
-							boost::beast::http::async_write (this_l->socket, this_l->res, [this_l] (boost::system::error_code const & ec, size_t bytes_transferred) {
+							boost::beast::http::async_write (this_l->socket, this_l->res, [this_l](boost::system::error_code const & ec, size_t bytes_transferred) {
 							});
 							break;
 						}
@@ -148,5 +147,5 @@ void nano::rpc_connection::read ()
 			});
 		});
 		error_response (response_handler, std::string ("Invalid header: ") + header_error.message ());
-	}	
+	}
 }

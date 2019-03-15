@@ -176,7 +176,6 @@ void nano::thread_runner::join ()
 	}
 }
 
-
 /*
  * Backing code for "release_assert", which is itself a macro
  */

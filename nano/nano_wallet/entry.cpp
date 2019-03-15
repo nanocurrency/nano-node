@@ -1,10 +1,10 @@
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/nano_wallet/icon.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/ipc.hpp>
-#include <nano/lib/rpcconfig.hpp>
 #include <nano/node/working.hpp>
 #include <nano/qt/qt.hpp>
 

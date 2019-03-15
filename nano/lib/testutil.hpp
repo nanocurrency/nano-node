@@ -17,7 +17,6 @@
 	GTEST_TEST_ERROR_CODE (!(condition), #condition, condition.message ().c_str (), "", \
 	GTEST_FATAL_FAILURE_)
 
-
 /* Convenience globals for core_test */
 namespace nano
 {

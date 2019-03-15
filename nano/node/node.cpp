@@ -10,9 +10,9 @@
 #include <future>
 #include <sstream>
 
+#include <boost/beast.hpp>
 #include <boost/polymorphic_cast.hpp>
 #include <boost/property_tree/json_parser.hpp>
-#include <boost/beast.hpp>
 
 double constexpr nano::node::price_max;
 double constexpr nano::node::free_cutoff;

@@ -48,7 +48,7 @@ void run (boost::filesystem::path const & data_path)
 
 			nano::rpc rpc (io_ctx, rpc_config, client);
 			std::promise<nano::error> promise;
-			client.async_connect (rpc_config.address.to_string (), rpc_config.ipc_port, [&promise, &rpc, &io_ctx, &rpc_config, &client](nano::error err) {
+			client.async_connect (rpc_config.address.to_string (), rpc_config.ipc_port, [&promise, &rpc](nano::error err) {
 				if (!err)
 				{
 					rpc.start ();

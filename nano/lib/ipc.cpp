@@ -10,7 +10,7 @@ void nano::ipc::socket_base::timer_start (std::chrono::seconds timeout_a)
 	if (timeout_a < std::chrono::seconds::max ())
 	{
 		io_timer.expires_from_now (boost::posix_time::seconds (static_cast<long> (timeout_a.count ())));
-		io_timer.async_wait ([this] (const boost::system::error_code & ec) {
+		io_timer.async_wait ([this](const boost::system::error_code & ec) {
 			if (!ec)
 			{
 				this->timer_expired ();

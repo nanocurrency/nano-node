@@ -3,10 +3,10 @@
 
 nano::rpc::rpc (boost::asio::io_context & io_ctx_a, nano::rpc_config const & config_a, nano::ipc::ipc_client & ipc_client) :
 config (config_a),
-acceptor (io_ctx_a),
-io_ctx (io_ctx_a),
 ipc_client (ipc_client),
-logger (std::chrono::milliseconds (0))
+acceptor (io_ctx_a),
+logger (std::chrono::milliseconds (0)),
+io_ctx (io_ctx_a)
 {
 }
 
@@ -29,12 +29,12 @@ void nano::rpc::start ()
 
 void nano::rpc::accept ()
 {
-	auto stop_callback = [this] () {
+	auto stop_callback = [this]() {
 		this->stop ();
 	};
 
 	auto connection (std::make_shared<nano::rpc_connection> (ipc_client, config, network_params, stop_callback, io_ctx, logger));
-	acceptor.async_accept (connection->socket, [this, connection] (boost::system::error_code const & ec) {
+	acceptor.async_accept (connection->socket, [this, connection](boost::system::error_code const & ec) {
 		if (ec != boost::asio::error::operation_aborted && acceptor.is_open ())
 		{
 			accept ();

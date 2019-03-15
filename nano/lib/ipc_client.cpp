@@ -26,7 +26,7 @@ public:
 	void async_resolve (std::string const & host_a, uint16_t port_a, std::function<void(boost::system::error_code const &, boost::asio::ip::tcp::endpoint)> callback_a)
 	{
 		this->timer_start (io_timeout);
-		resolver.async_resolve (boost::asio::ip::tcp::resolver::query (host_a, std::to_string (port_a)), [this, callback_a] (boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator endpoint_iterator_a) {
+		resolver.async_resolve (boost::asio::ip::tcp::resolver::query (host_a, std::to_string (port_a)), [this, callback_a](boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator endpoint_iterator_a) {
 			this->timer_cancel ();
 			boost::asio::ip::tcp::resolver::iterator end;
 			if (!ec && endpoint_iterator_a != end)
@@ -44,7 +44,7 @@ public:
 	void async_connect (std::function<void(boost::system::error_code const &)> callback_a)
 	{
 		this->timer_start (io_timeout);
-		socket.async_connect (endpoint, [this, callback_a] (boost::system::error_code const & ec) {
+		socket.async_connect (endpoint, [this, callback_a](boost::system::error_code const & ec) {
 			this->timer_cancel ();
 			callback_a (ec);
 		});
@@ -54,7 +54,7 @@ public:
 	{
 		this->timer_start (io_timeout);
 		buffer_a->resize (size_a);
-		boost::asio::async_read (socket, boost::asio::buffer (buffer_a->data (), size_a), [this, callback_a] (boost::system::error_code const & ec, size_t size_a) {
+		boost::asio::async_read (socket, boost::asio::buffer (buffer_a->data (), size_a), [this, callback_a](boost::system::error_code const & ec, size_t size_a) {
 			this->timer_cancel ();
 			callback_a (ec, size_a);
 		});
@@ -63,7 +63,7 @@ public:
 	void async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, std::function<void(boost::system::error_code const &, size_t)> callback_a) override
 	{
 		this->timer_start (io_timeout);
-		boost::asio::async_write (socket, boost::asio::buffer (buffer_a->data (), buffer_a->size ()), [this, callback_a, buffer_a] (boost::system::error_code const & ec, size_t size_a) {
+		boost::asio::async_write (socket, boost::asio::buffer (buffer_a->data (), buffer_a->size ()), [this, callback_a, buffer_a](boost::system::error_code const & ec, size_t size_a) {
 			this->timer_cancel ();
 			callback_a (ec, size_a);
 		});
@@ -99,10 +99,10 @@ public:
 	{
 		tcp_client = std::make_shared<socket_client<boost::asio::ip::tcp::socket, boost::asio::ip::tcp::endpoint>> (io_ctx, boost::asio::ip::tcp::endpoint (boost::asio::ip::tcp::v6 (), port_a));
 
-		tcp_client->async_resolve (host_a, port_a, [this, callback_a] (boost::system::error_code const & ec_resolve_a, boost::asio::ip::tcp::endpoint endpoint_a) {
+		tcp_client->async_resolve (host_a, port_a, [this, callback_a](boost::system::error_code const & ec_resolve_a, boost::asio::ip::tcp::endpoint endpoint_a) {
 			if (!ec_resolve_a)
 			{
-				this->tcp_client->async_connect ([callback_a] (const boost::system::error_code & ec_connect_a) {
+				this->tcp_client->async_connect ([callback_a](const boost::system::error_code & ec_connect_a) {
 					callback_a (nano::error (ec_connect_a));
 				});
 			}
@@ -163,7 +163,7 @@ void nano::ipc::ipc_client::async_connect (std::string const & host_a, uint16_t 
 nano::error nano::ipc::ipc_client::connect (std::string const & host, uint16_t port)
 {
 	std::promise<nano::error> result_l;
-	async_connect (host, port, [&result_l] (nano::error err_a) {
+	async_connect (host, port, [&result_l](nano::error err_a) {
 		result_l.set_value (err_a);
 	});
 	return result_l.get_future ().get ();
@@ -172,7 +172,7 @@ nano::error nano::ipc::ipc_client::connect (std::string const & host, uint16_t p
 void nano::ipc::ipc_client::async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, std::function<void(nano::error, size_t)> callback_a)
 {
 	auto client (boost::polymorphic_downcast<client_impl *> (impl.get ()));
-	client->get_channel ().async_write (buffer_a, [callback_a] (const boost::system::error_code & ec_a, size_t bytes_written_a) {
+	client->get_channel ().async_write (buffer_a, [callback_a](const boost::system::error_code & ec_a, size_t bytes_written_a) {
 		callback_a (nano::error (ec_a), bytes_written_a);
 	});
 }
@@ -180,7 +180,7 @@ void nano::ipc::ipc_client::async_write (std::shared_ptr<std::vector<uint8_t>> b
 void nano::ipc::ipc_client::async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, size_t size_a, std::function<void(nano::error, size_t)> callback_a)
 {
 	auto client (boost::polymorphic_downcast<client_impl *> (impl.get ()));
-	client->get_channel ().async_read (buffer_a, size_a, [callback_a] (const boost::system::error_code & ec_a, size_t bytes_read_a) {
+	client->get_channel ().async_read (buffer_a, size_a, [callback_a](const boost::system::error_code & ec_a, size_t bytes_read_a) {
 		callback_a (nano::error (ec_a), bytes_read_a);
 	});
 }

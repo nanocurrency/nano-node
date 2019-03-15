@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
-#include <nano/lib/testutil.hpp>
 #include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/testutil.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/node/working.hpp>
 

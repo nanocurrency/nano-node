@@ -1,7 +1,7 @@
 #include <iostream>
 #include <limits>
-#include <nano/lib/testutil.hpp>
 #include <nano/lib/config.hpp>
+#include <nano/lib/testutil.hpp>
 
 nano::nano_networks nano::network_params::active_network = nano::nano_networks::ACTIVE_NETWORK;
 
