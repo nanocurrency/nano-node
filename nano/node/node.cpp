@@ -3637,18 +3637,21 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transaction
 	size_t roots_count = 0;
 	size_t blocks_count = 0;
 	size_t confirmed_count = 0;
+	size_t pending_elections_count = 0;
 
 	{
 		std::lock_guard<std::mutex> guard (active_transactions.mutex);
 		roots_count = active_transactions.roots.size ();
 		blocks_count = active_transactions.blocks.size ();
 		confirmed_count = active_transactions.confirmed.size ();
+		pending_elections_count = active_transactions.pending_elections.size ();
 	}
 
 	auto composite = std::make_unique<seq_con_info_composite> (name);
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "roots", roots_count, sizeof (decltype (active_transactions.roots)::value_type) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "blocks", blocks_count, sizeof (decltype (active_transactions.blocks)::value_type) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "confirmed", confirmed_count, sizeof (decltype (active_transactions.confirmed)::value_type) }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "pending_elections", pending_elections_count, sizeof (decltype (active_transactions.pending_elections)::value_type) }));
 	return composite;
 }
 }
