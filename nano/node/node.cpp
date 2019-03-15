@@ -3387,12 +3387,13 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 		roots.erase (*i);
 	}
 	// Start elections from pending
-	for (auto i (0), n (inactive.size ()); i != n && !pending_elections.empty () && roots.size () < max_broadcast_queue; ++i)
+	for (size_t i (0), n (inactive.size ()); i != n && !pending_elections.empty () && roots.size () < max_broadcast_queue; ++i)
 	{
 		auto pending_election (pending_elections.begin ());
-		if (blocks.find (pending_election) == blocks.end () && !node.ledger.block_confirmed (transaction, pending_election))
+		if (blocks.find (*pending_election) == blocks.end () && !node.ledger.block_confirmed (transaction, *pending_election))
 		{
-			add (pending_election);
+			auto block (node.store.block_get (transaction, *pending_election));
+			add (block);
 		}
 		pending_elections.erase (pending_election);
 	}
