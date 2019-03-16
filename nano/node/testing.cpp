@@ -43,16 +43,16 @@ work (1, nullptr)
 	}
 	for (auto i (nodes.begin ()), j (nodes.begin () + 1), n (nodes.end ()); j != n; ++i, ++j)
 	{
-		auto starting1 ((*i)->peers.size ());
+		auto starting1 ((*i)->network.size ());
 		decltype (starting1) new1;
-		auto starting2 ((*j)->peers.size ());
+		auto starting2 ((*j)->network.size ());
 		decltype (starting2) new2;
 		(*j)->network.send_keepalive ((*i)->network.endpoint ());
 		do
 		{
 			poll ();
-			new1 = (*i)->peers.size ();
-			new2 = (*j)->peers.size ();
+			new1 = (*i)->network.size ();
+			new2 = (*j)->network.size ();
 		} while (new1 == starting1 || new2 == starting2);
 	}
 	auto iterations1 (0);

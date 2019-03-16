@@ -1494,7 +1494,7 @@ TEST (rpc, keepalive)
 	request.put ("address", address);
 	request.put ("port", port);
 	ASSERT_FALSE (system.nodes[0]->peers.known_peer (node1->network.endpoint ()));
-	ASSERT_EQ (0, system.nodes[0]->peers.size ());
+	ASSERT_EQ (0, system.nodes[0]->network.size ());
 	test_response response (request, rpc, system.io_ctx);
 	system.deadline_set (5s);
 	while (response.status == 0)
@@ -1505,7 +1505,7 @@ TEST (rpc, keepalive)
 	system.deadline_set (10s);
 	while (!system.nodes[0]->peers.known_peer (node1->network.endpoint ()))
 	{
-		ASSERT_EQ (0, system.nodes[0]->peers.size ());
+		ASSERT_EQ (0, system.nodes[0]->network.size ());
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	node1->stop ();

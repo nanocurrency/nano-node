@@ -129,11 +129,11 @@ TEST (network, last_contacted)
 	system.deadline_set (10s);
 
 	// Wait until the handshake is complete
-	while (system.nodes[0]->peers.size () < 1)
+	while (system.nodes[0]->network.size () < 1)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (system.nodes[0]->peers.size (), 1);
+	ASSERT_EQ (system.nodes[0]->network.size (), 1);
 
 	// Make sure last_contact gets updated on receiving a non-handshake message
 	auto timestamp_before_keepalive = system.nodes[0]->peers.list_vector (1).front ().last_contact;
@@ -142,7 +142,7 @@ TEST (network, last_contacted)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (system.nodes[0]->peers.size (), 1);
+	ASSERT_EQ (system.nodes[0]->network.size (), 1);
 	auto timestamp_after_keepalive = system.nodes[0]->peers.list_vector (1).front ().last_contact;
 	ASSERT_GT (timestamp_after_keepalive, timestamp_before_keepalive);
 
@@ -159,12 +159,12 @@ TEST (network, multi_keepalive)
 	ASSERT_FALSE (init1.error ());
 	node1->start ();
 	system.nodes.push_back (node1);
-	ASSERT_EQ (0, node1->peers.size ());
+	ASSERT_EQ (0, node1->network.size ());
 	node1->network.send_keepalive (system.nodes[0]->network.endpoint ());
-	ASSERT_EQ (0, node1->peers.size ());
-	ASSERT_EQ (0, system.nodes[0]->peers.size ());
+	ASSERT_EQ (0, node1->network.size ());
+	ASSERT_EQ (0, system.nodes[0]->network.size ());
 	system.deadline_set (10s);
-	while (system.nodes[0]->peers.size () != 1)
+	while (system.nodes[0]->network.size () != 1)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -175,7 +175,7 @@ TEST (network, multi_keepalive)
 	system.nodes.push_back (node2);
 	node2->network.send_keepalive (system.nodes[0]->network.endpoint ());
 	system.deadline_set (10s);
-	while (node1->peers.size () != 2 || system.nodes[0]->peers.size () != 2 || node2->peers.size () != 2)
+	while (node1->network.size () != 2 || system.nodes[0]->network.size () != 2 || node2->network.size () != 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -1067,7 +1067,7 @@ TEST (bulk, offline_send)
 	do
 	{
 		ASSERT_NO_ERROR (system.poll ());
-	} while (system.nodes[0]->peers.empty () || node1->peers.empty ());
+	} while (system.nodes[0]->network.empty () || node1->network.empty ());
 	// Send block arrival via bootstrap
 	while (node1->balance (nano::test_genesis_key.pub) == std::numeric_limits<nano::uint256_t>::max ())
 	{

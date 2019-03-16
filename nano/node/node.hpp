@@ -345,6 +345,9 @@ public:
 	nano::endpoint endpoint ();
 	void cleanup (std::chrono::steady_clock::time_point const &);
 	void ongoing_cleanup ();
+	size_t size ();
+	size_t size_sqrt ();
+	bool empty ();
 	nano::message_buffer_manager buffer_container;
 	boost::asio::ip::udp::socket socket;
 	std::mutex socket_mutex;

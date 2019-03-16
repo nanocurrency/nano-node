@@ -18,6 +18,7 @@
 
 namespace nano
 {
+class network;
 nano::endpoint map_endpoint_to_v6 (nano::endpoint const &);
 
 /** Multi-index helper */
@@ -60,6 +61,11 @@ public:
 /** Manages a set of disovered peers */
 class peer_container
 {
+	friend class nano::network;
+	size_t size ();
+	size_t size_sqrt ();
+	bool empty ();
+
 public:
 	peer_container (nano::endpoint const &);
 	// We were contacted by endpoint, update peers
@@ -93,9 +99,6 @@ public:
 	// Returns false if valid, true if invalid (true on error convention)
 	// Also removes the syn cookie from the store if valid
 	bool validate_syn_cookie (nano::endpoint const &, nano::account, nano::signature);
-	size_t size ();
-	size_t size_sqrt ();
-	bool empty ();
 	nano::network_params network_params;
 	std::mutex mutex;
 	nano::endpoint self;
