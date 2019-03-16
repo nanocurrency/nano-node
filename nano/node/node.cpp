@@ -32,7 +32,8 @@ nano::network::network (nano::node & node_a, uint16_t port) :
 buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
 socket (node_a.io_ctx, nano::endpoint (boost::asio::ip::address_v6::any (), port)),
 resolver (node_a.io_ctx),
-node (node_a)
+node (node_a),
+disconnect_observer ([]() {})
 {
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
@@ -82,6 +83,7 @@ nano::network::~network ()
 
 void nano::network::start ()
 {
+	ongoing_cleanup ();
 	for (size_t i = 0; i < node.config.io_threads; ++i)
 	{
 		receive ();
@@ -260,9 +262,10 @@ bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a
 		if (also_publish)
 		{
 			nano::publish publish (block_a);
+			auto publish_bytes (publish.to_bytes ());
 			for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 			{
-				node_a.network.send_buffer (publish.to_bytes (), *j, [](boost::system::error_code const &, size_t) {});
+				node_a.network.send_buffer (publish_bytes, *j, [](boost::system::error_code const &, size_t) {});
 			}
 		}
 	}
@@ -1267,7 +1270,7 @@ startup_time (std::chrono::steady_clock::now ())
 	peers.peer_observer = [this](nano::endpoint const & endpoint_a) {
 		observers.endpoint.notify (endpoint_a);
 	};
-	peers.disconnect_observer = [this]() {
+	network.disconnect_observer = [this]() {
 		observers.disconnect.notify ();
 	};
 	if (!config.callback_address.empty ())
@@ -1849,13 +1852,16 @@ nano::account nano::node::representative (nano::account const & account_a)
 
 void nano::node::ongoing_keepalive ()
 {
-	keepalive_preconfigured (config.preconfigured_peers);
-	auto peers_l (peers.purge_list (std::chrono::steady_clock::now () - network_params.node.cutoff));
-	for (auto i (peers_l.begin ()), j (peers_l.end ()); i != j && std::chrono::steady_clock::now () - i->last_attempt > network_params.node.period; ++i)
+	nano::keepalive message;
+	peers.random_fill (message.peers);
+	auto message_bytes (message.to_bytes ());
+	std::lock_guard<std::mutex> lock (peers.mutex);
+	auto keepalive_cutoff (peers.peers.get<1> ().lower_bound (std::chrono::steady_clock::now () - network_params.node.period));
+	for (auto i (peers.peers.get<1> ().begin ()); i != keepalive_cutoff; ++i)
 	{
-		network.send_keepalive (i->endpoint);
+		network.send_buffer (message_bytes, i->endpoint, [](boost::system::error_code const &, size_t) {});
 	}
-	std::weak_ptr<nano::node> node_w (shared_from_this ());
+	std::weak_ptr<nano::node> node_w (shared ());
 	alarm.add (std::chrono::steady_clock::now () + network_params.node.period, [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
@@ -2570,6 +2576,27 @@ nano::endpoint nano::network::endpoint ()
 		node.logger.try_log ("Unable to retrieve port: ", ec.message ());
 	}
 	return nano::endpoint (boost::asio::ip::address_v6::loopback (), port);
+}
+
+void nano::network::cleanup (std::chrono::steady_clock::time_point const & cutoff_a)
+{
+	node.peers.purge (cutoff_a);
+	if (node.peers.empty ())
+	{
+		disconnect_observer ();
+	}
+}
+
+void nano::network::ongoing_cleanup ()
+{
+	cleanup (std::chrono::steady_clock::now () - node.network_params.node.cutoff);
+	std::weak_ptr<nano::node> node_w (node.shared ());
+	node.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.period, [node_w]() {
+		if (auto node_l = node_w.lock ())
+		{
+			node_l->network.ongoing_cleanup ();
+		}
+	});
 }
 
 bool nano::block_arrival::add (nano::block_hash const & hash_a)

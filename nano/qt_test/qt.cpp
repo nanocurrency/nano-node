@@ -54,7 +54,7 @@ TEST (wallet, status)
 		test_application->processEvents ();
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	system.nodes[0]->peers.purge_list (std::chrono::steady_clock::now () + std::chrono::seconds (5));
+	system.nodes[0]->peers.purge (std::chrono::steady_clock::now () + std::chrono::seconds (5));
 	while (wallet_has (nano_qt::status_types::synchronizing))
 	{
 		test_application->processEvents ();
