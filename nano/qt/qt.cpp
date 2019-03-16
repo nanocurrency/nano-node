@@ -703,7 +703,7 @@ void nano_qt::block_viewer::rebroadcast_action (nano::uint256_union const & hash
 	auto block (wallet.node.store.block_get (transaction, hash_a));
 	if (block != nullptr)
 	{
-		wallet.node.network.flood_block (std::move (block));
+		wallet.node.network.flood_block (block);
 		auto successor (wallet.node.store.block_successor (transaction, hash_a));
 		if (!successor.is_zero ())
 		{
@@ -1332,7 +1332,7 @@ void nano_qt::wallet::start ()
 			}));
 		}
 	});
-	node.observers.endpoint.add ([this_w](nano::endpoint const &) {
+	node.observers.endpoint.add ([this_w](std::shared_ptr<nano::transport::channel>) {
 		if (auto this_l = this_w.lock ())
 		{
 			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w]() {
@@ -1953,24 +1953,23 @@ wallet (wallet_a)
 void nano_qt::advanced_actions::refresh_peers ()
 {
 	peers_model->removeRows (0, peers_model->rowCount ());
-	auto list (wallet.node.peers.list_vector (std::numeric_limits<size_t>::max ()));
+	auto list (wallet.node.network.udp_channels.list (std::numeric_limits<size_t>::max ()));
 	std::sort (list.begin (), list.end ());
 	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
 	{
 		std::stringstream endpoint;
-		endpoint << i->endpoint.address ().to_string ();
-		endpoint << ':';
-		endpoint << i->endpoint.port ();
+		auto channel (*i);
+		endpoint << channel->to_string ();
 		QString qendpoint (endpoint.str ().c_str ());
 		QList<QStandardItem *> items;
 		items.push_back (new QStandardItem (qendpoint));
 		auto version = new QStandardItem ();
-		version->setData (QVariant (i->network_version), Qt::DisplayRole);
+		version->setData (QVariant (channel->network_version), Qt::DisplayRole);
 		items.push_back (version);
 		QString node_id ("");
-		if (i->node_id.is_initialized ())
+		if (channel->node_id.is_initialized ())
 		{
-			node_id = i->node_id.get ().to_account ().c_str ();
+			node_id = channel->node_id.get ().to_account ().c_str ();
 		}
 		items.push_back (new QStandardItem (node_id));
 		peers_model->appendRow (items);
