@@ -33,7 +33,6 @@ add_library (nano_lib
 	numbers.hpp
 	rpcconfig.cpp
 	rpcconfig.hpp
-	testutil.hpp
 	timer.hpp
 	utility.cpp
 	utility.hpp
@@ -41,6 +40,7 @@ add_library (nano_lib
 	work.cpp)
 
 target_link_libraries (nano_lib
+	secure
 	xxhash
 	blake2
 	${CRYPTOPP_LIBRARY}

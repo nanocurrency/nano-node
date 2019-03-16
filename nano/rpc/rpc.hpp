@@ -26,6 +26,6 @@ public:
 	boost::asio::ip::tcp::acceptor acceptor;
 	nano::logger_mt logger;
 	boost::asio::io_context & io_ctx;
-	nano::network_params network_params;
+	nano::network_constants network_constants;
 };
 }

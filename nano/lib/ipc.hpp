@@ -79,6 +79,5 @@ namespace ipc
 	private:
 		std::string filename;
 	};
-
 }
 }

@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include <nano/lib/testutil.hpp>
+#include <nano/core_test/testutil.hpp>
 #include <nano/node/testing.hpp>
 
 using namespace std::chrono_literals;

@@ -1335,7 +1335,7 @@ void nano::wallet::work_cache_blocking (nano::account const & account_a, nano::b
 		 * The difficulty parameter is the second parameter for `work_generate_blocking()`,
 		 * currently we don't supply one so we must fetch the default value.
 		 */
-		auto difficulty (wallets.node.network_params.publish_threshold);
+		auto difficulty (wallets.node.network_params.network.publish_threshold);
 
 		wallets.node.logger.try_log ("Work generation for ", root_a.to_string (), ", with a difficulty of ", difficulty, " complete: ", (std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - begin).count ()), " us");
 	}
@@ -1662,7 +1662,7 @@ void nano::wallets::ongoing_compute_reps ()
 {
 	compute_reps ();
 	auto & node_l (node);
-	auto compute_delay (network_params.is_test_network () ? std::chrono::milliseconds (10) : std::chrono::milliseconds (15 * 60 * 1000)); // Representation drifts quickly on the test network but very slowly on the live network
+	auto compute_delay (network_params.network.is_test_network () ? std::chrono::milliseconds (10) : std::chrono::milliseconds (15 * 60 * 1000)); // Representation drifts quickly on the test network but very slowly on the live network
 	node.alarm.add (std::chrono::steady_clock::now () + compute_delay, [&node_l]() {
 		node_l.wallets.ongoing_compute_reps ();
 	});

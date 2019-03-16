@@ -4,7 +4,7 @@
 #include <nano/lib/ipc.hpp>
 #include <nano/lib/ipc_client.hpp>
 #include <nano/lib/rpcconfig.hpp>
-#include <nano/lib/testutil.hpp>
+#include <nano/core_test/testutil.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/ipc.hpp>
 #include <nano/node/testing.hpp>
@@ -3005,7 +3005,7 @@ TEST (rpc, work_validate)
 	ASSERT_EQ ("0", validate_text2);
 	uint64_t result_difficulty;
 	ASSERT_FALSE (nano::work_validate (hash, work1, &result_difficulty));
-	ASSERT_GE (result_difficulty, params.publish_threshold);
+	ASSERT_GE (result_difficulty, params.network.publish_threshold);
 	request.put ("work", nano::to_string_hex (work1));
 	request.put ("difficulty", nano::to_string_hex (result_difficulty));
 	test_response response3 (default_ipc_tcp_host, default_ipc_tcp_port, client, request, rpc.config.port, system.io_ctx);

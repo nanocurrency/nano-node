@@ -8,6 +8,7 @@
 #include <nano/node/ipcconfig.hpp>
 #include <nano/node/logging.hpp>
 #include <nano/node/stats.hpp>
+#include <nano/secure/common.hpp>
 #include <vector>
 
 namespace nano

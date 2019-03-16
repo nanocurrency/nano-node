@@ -4532,7 +4532,7 @@ void nano::ipc_json_handler::wallet_work_get ()
 void nano::ipc_json_handler::work_generate ()
 {
 	auto hash (hash_impl ());
-	uint64_t difficulty (node.network_params.publish_threshold);
+	uint64_t difficulty (node.network_params.network.publish_threshold);
 	boost::optional<std::string> difficulty_text (request.get_optional<std::string> ("difficulty"));
 	if (!ec && difficulty_text.is_initialized ())
 	{
@@ -4624,7 +4624,7 @@ void nano::ipc_json_handler::work_validate ()
 {
 	auto hash (hash_impl ());
 	auto work (work_optional_impl ());
-	uint64_t difficulty (node.network_params.publish_threshold);
+	uint64_t difficulty (node.network_params.network.publish_threshold);
 	boost::optional<std::string> difficulty_text (request.get_optional<std::string> ("difficulty"));
 	if (!ec && difficulty_text.is_initialized ())
 	{

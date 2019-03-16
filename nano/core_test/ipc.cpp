@@ -4,7 +4,7 @@
 #include <gtest/gtest.h>
 #include <memory>
 #include <nano/lib/rpcconfig.hpp>
-#include <nano/lib/testutil.hpp>
+#include <nano/core_test/testutil.hpp>
 #include <nano/node/ipc.hpp>
 #include <nano/node/testing.hpp>
 #include <sstream>

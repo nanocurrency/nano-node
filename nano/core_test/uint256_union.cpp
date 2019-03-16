@@ -2,7 +2,7 @@
 
 #include <nano/lib/interface.h>
 #include <nano/lib/jsonconfig.hpp>
-#include <nano/lib/testutil.hpp>
+#include <nano/core_test/testutil.hpp>
 #include <nano/secure/common.hpp>
 
 namespace

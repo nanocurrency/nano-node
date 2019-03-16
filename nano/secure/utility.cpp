@@ -7,9 +7,9 @@ static std::vector<boost::filesystem::path> all_unique_paths;
 
 boost::filesystem::path nano::working_path (bool legacy)
 {
-	static nano::network_params network_params;
+	static nano::network_constants network_constants;
 	auto result (nano::app_path ());
-	switch (network_params.network ())
+	switch (network_constants.network ())
 	{
 		case nano::nano_networks::nano_test_network:
 			if (!legacy)

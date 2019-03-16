@@ -33,7 +33,7 @@ void nano::rpc::accept ()
 		this->stop ();
 	};
 
-	auto connection (std::make_shared<nano::rpc_connection> (ipc_client, config, network_params, stop_callback, io_ctx, logger));
+	auto connection (std::make_shared<nano::rpc_connection> (ipc_client, config, network_constants, stop_callback, io_ctx, logger));
 	acceptor.async_accept (connection->socket, [this, connection](boost::system::error_code const & ec) {
 		if (ec != boost::asio::error::operation_aborted && acceptor.is_open ())
 		{

@@ -999,7 +999,7 @@ void nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, nano::endpo
 		/* Random early delection levels
 		Always process votes for test network (process = true)
 		Stop processing with max 144 * 1024 votes */
-		if (!node.network_params.is_test_network ())
+		if (!node.network_params.network.is_test_network ())
 		{
 			// Level 0 (< 0.1%)
 			if (votes.size () < 96 * 1024)
@@ -1452,9 +1452,9 @@ startup_time (std::chrono::steady_clock::now ())
 		logger.always_log ("Node ID: ", node_id.pub.to_account ());
 	}
 
-	const uint8_t * weight_buffer = network_params.is_live_network () ? nano_bootstrap_weights_live : nano_bootstrap_weights_beta;
-	size_t weight_size = network_params.is_live_network () ? nano_bootstrap_weights_live_size : nano_bootstrap_weights_beta_size;
-	if (network_params.is_live_network () || network_params.is_beta_network ())
+	const uint8_t * weight_buffer = network_params.network.is_live_network () ? nano_bootstrap_weights_live : nano_bootstrap_weights_beta;
+	size_t weight_size = network_params.network.is_live_network () ? nano_bootstrap_weights_live_size : nano_bootstrap_weights_beta_size;
+	if (network_params.network.is_live_network () || network_params.network.is_beta_network ())
 	{
 		nano::bufferstream weight_stream ((const uint8_t *)weight_buffer, weight_size);
 		nano::uint128_union block_height;
@@ -1698,7 +1698,7 @@ void nano::gap_cache::vote (std::shared_ptr<nano::vote> vote_a)
 				{
 					auto node_l (node.shared ());
 					auto now (std::chrono::steady_clock::now ());
-					node.alarm.add (node_l->network_params.is_test_network () ? now + std::chrono::milliseconds (5) : now + std::chrono::seconds (5), [node_l, hash]() {
+					node.alarm.add (node_l->network_params.network.is_test_network () ? now + std::chrono::milliseconds (5) : now + std::chrono::seconds (5), [node_l, hash]() {
 						auto transaction (node_l->store.tx_begin_read ());
 						if (!node_l->store.block_exists (transaction, hash))
 						{
@@ -1842,7 +1842,7 @@ void nano::node::keepalive_preconfigured (std::vector<std::string> const & peers
 {
 	for (auto i (peers_a.begin ()), n (peers_a.end ()); i != n; ++i)
 	{
-		keepalive (*i, network_params.default_node_port, true);
+		keepalive (*i, network_params.network.default_node_port, true);
 	}
 }
 
@@ -2391,7 +2391,7 @@ public:
 
 void nano::node::work_generate_blocking (nano::block & block_a)
 {
-	work_generate_blocking (block_a, network_params.publish_threshold);
+	work_generate_blocking (block_a, network_params.network.publish_threshold);
 }
 
 void nano::node::work_generate_blocking (nano::block & block_a, uint64_t difficulty_a)
@@ -2401,7 +2401,7 @@ void nano::node::work_generate_blocking (nano::block & block_a, uint64_t difficu
 
 void nano::node::work_generate (nano::uint256_union const & hash_a, std::function<void(uint64_t)> callback_a)
 {
-	work_generate (hash_a, callback_a, network_params.publish_threshold);
+	work_generate (hash_a, callback_a, network_params.network.publish_threshold);
 }
 
 void nano::node::work_generate (nano::uint256_union const & hash_a, std::function<void(uint64_t)> callback_a, uint64_t difficulty_a)
@@ -2412,7 +2412,7 @@ void nano::node::work_generate (nano::uint256_union const & hash_a, std::functio
 
 uint64_t nano::node::work_generate_blocking (nano::uint256_union const & block_a)
 {
-	return work_generate_blocking (block_a, network_params.publish_threshold);
+	return work_generate_blocking (block_a, network_params.network.publish_threshold);
 }
 
 uint64_t nano::node::work_generate_blocking (nano::uint256_union const & hash_a, uint64_t difficulty_a)
@@ -3019,7 +3019,7 @@ nano::election_vote_result nano::election::vote (nano::account rep, uint64_t seq
 	auto supply (node.online_reps.online_stake ());
 	auto weight (node.ledger.weight (transaction, rep));
 	auto should_process (false);
-	if (node.network_params.is_test_network () || weight > supply / 1000) // 0.1% or above
+	if (node.network_params.network.is_test_network () || weight > supply / 1000) // 0.1% or above
 	{
 		unsigned int cooldown;
 		if (weight < supply / 100) // 0.1% to 1%
@@ -3190,7 +3190,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 				/* Escalation for long unconfirmed elections
 				Start new elections for previous block & source
 				if there are less than 100 active elections */
-				if (election_l->announcements % announcement_long == 1 && roots_size < 100 && !node.network_params.is_test_network ())
+				if (election_l->announcements % announcement_long == 1 && roots_size < 100 && !node.network_params.network.is_test_network ())
 				{
 					std::shared_ptr<nano::block> previous;
 					auto previous_hash (election_l->status.winner->previous ());
@@ -3262,7 +3262,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 				if ((!rep_endpoints->empty () && node.rep_crawler.total_weight () > node.config.online_weight_minimum.number ()) || roots_size > 5)
 				{
 					// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
-					if (!node.network_params.is_test_network ())
+					if (!node.network_params.network.is_test_network ())
 					{
 						if (confirm_req_bundle.size () < max_broadcast_queue)
 						{
@@ -3293,7 +3293,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 				}
 				else
 				{
-					if (!node.network_params.is_test_network ())
+					if (!node.network_params.network.is_test_network ())
 					{
 						auto deque_l (node.peers.list (100));
 						std::vector<nano::endpoint> vec ({ deque_l.begin (), deque_l.end () });
@@ -3329,7 +3329,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 		node.network.flood_block_batch (rebroadcast_bundle);
 	}
 	// Batch confirmation request
-	if (!node.network_params.is_live_network () && !requests_bundle.empty ())
+	if (!node.network_params.network.is_live_network () && !requests_bundle.empty ())
 	{
 		node.network.broadcast_confirm_req_batch (requests_bundle, 50);
 	}
@@ -3370,7 +3370,7 @@ void nano::active_transactions::request_loop ()
 	{
 		request_confirm (lock);
 		const auto extra_delay (std::min (roots.size (), max_broadcast_queue) * node.network.broadcast_interval_ms * 2);
-		condition.wait_for (lock, std::chrono::milliseconds (node.network_params.request_interval_ms + extra_delay));
+		condition.wait_for (lock, std::chrono::milliseconds (node.network_params.network.request_interval_ms + extra_delay));
 	}
 }
 

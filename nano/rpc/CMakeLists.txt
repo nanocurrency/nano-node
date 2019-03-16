@@ -6,10 +6,9 @@ add_library (rpc
 	rpc_handler.cpp
 	rpc_handler.hpp)
 
-target_link_libraries (rpc
-	${CMAKE_DL_LIBS}
+target_link_libraries (rpc	
 	nano_lib
-	)
+	${CMAKE_DL_LIBS})
 
 target_compile_definitions(node
 	PRIVATE

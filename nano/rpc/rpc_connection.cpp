@@ -6,14 +6,14 @@
 #include <nano/rpc/rpc_connection.hpp>
 #include <nano/rpc/rpc_handler.hpp>
 
-nano::rpc_connection::rpc_connection (nano::ipc::ipc_client & ipc_client, nano::rpc_config const & rpc_config, nano::network_params const & network_params, std::function<void()> stop_callback, boost::asio::io_context & io_ctx, nano::logger_mt & logger) :
+nano::rpc_connection::rpc_connection (nano::ipc::ipc_client & ipc_client, nano::rpc_config const & rpc_config, nano::network_constants const & network_constants, std::function<void()> stop_callback, boost::asio::io_context & io_ctx, nano::logger_mt & logger) :
 socket (io_ctx),
 io_ctx (io_ctx),
 logger (logger),
 ipc_client (ipc_client),
 rpc_config (rpc_config),
 stop_callback (stop_callback),
-network_params (network_params)
+network_constants (network_constants)
 {
 	responded.clear ();
 }
@@ -58,7 +58,7 @@ void nano::rpc_connection::read ()
 	std::promise<size_t> header_available_promise;
 	std::future<size_t> header_available = header_available_promise.get_future ();
 	header_parser->body_limit (rpc_config.max_request_size);
-	if (!network_params.is_test_network ())
+	if (!network_constants.is_test_network ())
 	{
 		boost::beast::http::async_read_header (socket, buffer, *header_parser, [this_l, header_parser, &header_available_promise, &header_error](boost::system::error_code const & ec, size_t bytes_transferred) {
 			size_t header_response_bytes_written = 0;

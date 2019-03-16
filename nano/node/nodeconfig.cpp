@@ -36,7 +36,7 @@ bootstrap_connections (4),
 bootstrap_connections_max (64),
 callback_port (0),
 lmdb_max_dbs (128),
-allow_local_peers (!network_params.is_live_network ()), // disable by default for live network
+allow_local_peers (!network_params.network.is_live_network ()), // disable by default for live network
 block_processor_batch_max_time (std::chrono::milliseconds (5000)),
 unchecked_cutoff_time (std::chrono::seconds (4 * 60 * 60)), // 4 hours
 tcp_client_timeout (std::chrono::seconds (5)),
@@ -46,12 +46,12 @@ tcp_server_timeout (std::chrono::seconds (30))
 	// which is determined at node startup based on active network.
 	if (peering_port == 0)
 	{
-		peering_port = network_params.default_node_port;
+		peering_port = network_params.network.default_node_port;
 	}
 	const char * epoch_message ("epoch v1 block");
 	strncpy ((char *)epoch_block_link.bytes.data (), epoch_message, epoch_block_link.bytes.size ());
 	epoch_block_signer = network_params.ledger.genesis_account;
-	switch (network_params.network ())
+	switch (network_params.network.network ())
 	{
 		case nano::nano_networks::nano_test_network:
 			enable_voting = true;
