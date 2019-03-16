@@ -1020,12 +1020,19 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					for (auto i (pairs.begin ()), n (pairs.end ()); i != n; ++i, ++count)
 					{
 						auto block (node.node->store.block_get (transaction, i->first, &sideband));
-						sideband.timestamp = i->second;
-						node.node->store.block_put (transaction, i->first, *block, sideband);
-
-						if (count > 0 && count % step == 0 || count == block_count)
+						if (block)
 						{
-							std::cout << count << "/" << block_count << std::endl;
+							sideband.timestamp = i->second;
+							node.node->store.block_put (transaction, i->first, *block, sideband);
+
+							if (count > 0 && count % step == 0 || count == block_count)
+							{
+								std::cout << count << "/" << block_count << std::endl;
+							}
+						}
+						else
+						{
+							std::cerr << "Skipping hash not in database: " << i->first.to_string () << std::endl;
 						}
 					}
 					std::cout << "Completed importing timestamps" << std::endl;
