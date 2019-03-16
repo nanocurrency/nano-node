@@ -270,7 +270,7 @@ private:
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (online_reps & online_reps, const std::string & name);
 
-class udp_data
+class message_buffer
 {
 public:
 	uint8_t * buffer;
@@ -283,27 +283,27 @@ public:
   * This container has a maximum space to hold N buffers of M size and will allocate them in round-robin order.
   * All public methods are thread-safe
 */
-class udp_buffer
+class message_buffer_manager
 {
 public:
 	// Stats - Statistics
 	// Size - Size of each individual buffer
 	// Count - Number of buffers to allocate
-	udp_buffer (nano::stat & stats, size_t, size_t);
+	message_buffer_manager (nano::stat & stats, size_t, size_t);
 	// Return a buffer where UDP data can be put
 	// Method will attempt to return the first free buffer
 	// If there are no free buffers, an unserviced buffer will be dequeued and returned
 	// Function will block if there are no free or unserviced buffers
 	// Return nullptr if the container has stopped
-	nano::udp_data * allocate ();
+	nano::message_buffer * allocate ();
 	// Queue a buffer that has been filled with UDP data and notify servicing threads
-	void enqueue (nano::udp_data *);
+	void enqueue (nano::message_buffer *);
 	// Return a buffer that has been filled with UDP data
 	// Function will block until a buffer has been added
 	// Return nullptr if the container has stopped
-	nano::udp_data * dequeue ();
+	nano::message_buffer * dequeue ();
 	// Return a buffer to the freelist after is has been serviced
-	void release (nano::udp_data *);
+	void release (nano::message_buffer *);
 	// Stop container and notify waiting threads
 	void stop ();
 
@@ -311,10 +311,10 @@ private:
 	nano::stat & stats;
 	std::mutex mutex;
 	std::condition_variable condition;
-	boost::circular_buffer<nano::udp_data *> free;
-	boost::circular_buffer<nano::udp_data *> full;
+	boost::circular_buffer<nano::message_buffer *> free;
+	boost::circular_buffer<nano::message_buffer *> full;
 	std::vector<uint8_t> slab;
-	std::vector<nano::udp_data> entries;
+	std::vector<nano::message_buffer> entries;
 	bool stopped;
 };
 class network
@@ -326,7 +326,7 @@ public:
 	void process_packets ();
 	void start ();
 	void stop ();
-	void receive_action (nano::udp_data *, nano::endpoint const &);
+	void receive_action (nano::message_buffer *, nano::endpoint const &);
 	void flood_message (nano::message const &);
 	void flood_vote (std::shared_ptr<nano::vote> vote_a)
 	{
@@ -351,7 +351,7 @@ public:
 	bool send_votes_cache (nano::block_hash const &, nano::endpoint const &);
 	void send_buffer (std::shared_ptr<std::vector<uint8_t>>, nano::endpoint const &, std::function<void(boost::system::error_code const &, size_t)>);
 	nano::endpoint endpoint ();
-	nano::udp_buffer buffer_container;
+	nano::message_buffer_manager buffer_container;
 	boost::asio::ip::udp::socket socket;
 	std::mutex socket_mutex;
 	boost::asio::ip::udp::resolver resolver;
