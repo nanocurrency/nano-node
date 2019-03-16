@@ -213,14 +213,6 @@ public:
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (gap_cache & gap_cache, const std::string & name);
 
 class work_pool;
-class send_info
-{
-public:
-	uint8_t const * data;
-	size_t size;
-	nano::endpoint endpoint;
-	std::function<void(boost::system::error_code const &, size_t)> callback;
-};
 class block_arrival_info
 {
 public:
@@ -351,12 +343,15 @@ public:
 	bool send_votes_cache (nano::block_hash const &, nano::endpoint const &);
 	void send_buffer (std::shared_ptr<std::vector<uint8_t>>, nano::endpoint const &, std::function<void(boost::system::error_code const &, size_t)>);
 	nano::endpoint endpoint ();
+	void cleanup (std::chrono::steady_clock::time_point const &);
+	void ongoing_cleanup ();
 	nano::message_buffer_manager buffer_container;
 	boost::asio::ip::udp::socket socket;
 	std::mutex socket_mutex;
 	boost::asio::ip::udp::resolver resolver;
 	std::vector<boost::thread> packet_processing_threads;
 	nano::node & node;
+	std::function<void()> disconnect_observer;
 	static size_t const buffer_size = 512;
 	static size_t const confirm_req_hashes_max = 6;
 	static unsigned const broadcast_interval_ms = 10;
