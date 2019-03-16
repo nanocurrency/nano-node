@@ -1902,7 +1902,7 @@ void nano::node::ongoing_bootstrap ()
 	{
 		// Re-attempt bootstrapping more aggressively on startup
 		next_wakeup = 5;
-		if (!bootstrap_initiator.in_progress () && !peers.empty ())
+		if (!bootstrap_initiator.in_progress () && !network.empty ())
 		{
 			++warmed_up;
 		}
@@ -2597,6 +2597,21 @@ void nano::network::ongoing_cleanup ()
 			node_l->network.ongoing_cleanup ();
 		}
 	});
+}
+
+size_t nano::network::size ()
+{
+	return node.peers.size ();
+}
+
+size_t nano::network::size_sqrt ()
+{
+	return (static_cast<size_t> (std::ceil (std::sqrt (size ()))));
+}
+
+bool nano::network::empty ()
+{
+	return size () == 0;
 }
 
 bool nano::block_arrival::add (nano::block_hash const & hash_a)

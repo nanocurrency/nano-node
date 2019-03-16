@@ -447,7 +447,7 @@ TEST (node, connect_after_junk)
 	system.nodes.push_back (node1);
 	node1->network.send_keepalive (system.nodes[0]->network.endpoint ());
 	system.deadline_set (10s);
-	while (node1->peers.empty ())
+	while (node1->network.empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -888,7 +888,7 @@ TEST (node, fork_keep)
 	nano::system system (24000, 2);
 	auto & node1 (*system.nodes[0]);
 	auto & node2 (*system.nodes[1]);
-	ASSERT_EQ (1, node1.peers.size ());
+	ASSERT_EQ (1, node1.network.size ());
 	nano::keypair key1;
 	nano::keypair key2;
 	nano::genesis genesis;
@@ -941,7 +941,7 @@ TEST (node, fork_flip)
 	nano::system system (24000, 2);
 	auto & node1 (*system.nodes[0]);
 	auto & node2 (*system.nodes[1]);
-	ASSERT_EQ (1, node1.peers.size ());
+	ASSERT_EQ (1, node1.network.size ());
 	nano::keypair key1;
 	nano::genesis genesis;
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (genesis.hash ())));
@@ -998,7 +998,7 @@ TEST (node, fork_multi_flip)
 	nano::system system (24000, 2);
 	auto & node1 (*system.nodes[0]);
 	auto & node2 (*system.nodes[1]);
-	ASSERT_EQ (1, node1.peers.size ());
+	ASSERT_EQ (1, node1.network.size ());
 	nano::keypair key1;
 	nano::genesis genesis;
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (genesis.hash ())));
@@ -1081,7 +1081,7 @@ TEST (node, fork_bootstrap_flip)
 	}
 	node1.network.send_keepalive (node2.network.endpoint ());
 	system1.deadline_set (50s);
-	while (node2.peers.empty ())
+	while (node2.network.empty ())
 	{
 		ASSERT_NO_ERROR (system0.poll ());
 		ASSERT_NO_ERROR (system1.poll ());
@@ -1125,7 +1125,7 @@ TEST (node, fork_open_flip)
 	nano::system system (24000, 2);
 	auto & node1 (*system.nodes[0]);
 	auto & node2 (*system.nodes[1]);
-	ASSERT_EQ (1, node1.peers.size ());
+	ASSERT_EQ (1, node1.network.size ());
 	nano::keypair key1;
 	nano::genesis genesis;
 	nano::keypair rep1;
@@ -2304,7 +2304,7 @@ TEST (node, peers)
 
 	node->start ();
 	system.deadline_set (10s);
-	while (system.nodes.back ()->peers.empty ())
+	while (system.nodes.back ()->network.empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -2319,12 +2319,12 @@ TEST (node, peers)
 	system.nodes.front ()->stop ();
 
 	system.deadline_set (10s);
-	while (system.nodes.back ()->peers.size () == 1)
+	while (system.nodes.back ()->network.size () == 1)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
-	ASSERT_TRUE (system.nodes.back ()->peers.empty ());
+	ASSERT_TRUE (system.nodes.back ()->network.empty ());
 
 	// Uncontactable peer should not be stored
 	auto transaction (store.tx_begin_read ());

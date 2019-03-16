@@ -4,9 +4,11 @@
 
 TEST (peer_container, empty_peers)
 {
-	nano::peer_container peers (nano::endpoint{});
+	nano::system system (24000, 1);
+	nano::peer_container & peers (system.nodes[0]->peers);
+	nano::network & network (system.nodes[0]->network);
 	peers.purge (std::chrono::steady_clock::now ());
-	ASSERT_EQ (0, peers.size ());
+	ASSERT_EQ (0, network.size ());
 }
 
 TEST (peer_container, no_recontact)
@@ -17,14 +19,14 @@ TEST (peer_container, no_recontact)
 	auto observed_peer (0);
 	auto observed_disconnect (false);
 	nano::endpoint endpoint1 (boost::asio::ip::address_v6::loopback (), 10000);
-	ASSERT_EQ (0, peers.size ());
+	ASSERT_EQ (0, network.size ());
 	peers.peer_observer = [&observed_peer](nano::endpoint const &) { ++observed_peer; };
 	network.disconnect_observer = [&observed_disconnect]() { observed_disconnect = true; };
 	ASSERT_FALSE (peers.insert (endpoint1, nano::protocol_version));
-	ASSERT_EQ (1, peers.size ());
+	ASSERT_EQ (1, network.size ());
 	ASSERT_TRUE (peers.insert (endpoint1, nano::protocol_version));
 	network.cleanup (std::chrono::steady_clock::now () + std::chrono::seconds (5));
-	ASSERT_TRUE (peers.empty ());
+	ASSERT_TRUE (network.empty ());
 	ASSERT_EQ (1, observed_peer);
 	ASSERT_TRUE (observed_disconnect);
 }
@@ -47,7 +49,9 @@ TEST (peer_container, no_self_contacting)
 
 TEST (peer_container, reserved_peers_no_contact)
 {
-	nano::peer_container peers (nano::endpoint{});
+	nano::system system (24000, 1);
+	nano::peer_container & peers (system.nodes[0]->peers);
+	nano::network & network (system.nodes[0]->network);
 	ASSERT_TRUE (peers.insert (nano::endpoint (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0x00000001)), 10000), 0));
 	ASSERT_TRUE (peers.insert (nano::endpoint (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0xc0000201)), 10000), 0));
 	ASSERT_TRUE (peers.insert (nano::endpoint (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0xc6336401)), 10000), 0));
@@ -55,7 +59,7 @@ TEST (peer_container, reserved_peers_no_contact)
 	ASSERT_TRUE (peers.insert (nano::endpoint (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0xe9fc0001)), 10000), 0));
 	ASSERT_TRUE (peers.insert (nano::endpoint (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0xf0000001)), 10000), 0));
 	ASSERT_TRUE (peers.insert (nano::endpoint (boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (0xffffffff)), 10000), 0));
-	ASSERT_EQ (0, peers.size ());
+	ASSERT_EQ (0, network.size ());
 }
 
 TEST (peer_container, split)
@@ -146,8 +150,10 @@ TEST (peer_container, reachout)
 
 TEST (peer_container, depeer)
 {
-	nano::peer_container peers (nano::endpoint{});
+	nano::system system (24000, 1);
+	nano::peer_container & peers (system.nodes[0]->peers);
+	nano::network & network (system.nodes[0]->network);
 	nano::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), 24000);
 	peers.contacted (endpoint0, nano::protocol_version_min - 1);
-	ASSERT_EQ (0, peers.size ());
+	ASSERT_EQ (0, network.size ());
 }
