@@ -1236,7 +1236,7 @@ TEST (rpc, account_history)
 		test_response response (request, rpc, system.io_ctx);
 		while (response.status == 0)
 		{
-			system.poll ();
+			ASSERT_NO_ERROR (system.poll ());
 		}
 		auto history_node (response.json.get_child ("history"));
 		ASSERT_EQ (history_node.size (), 1);
