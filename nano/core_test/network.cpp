@@ -55,7 +55,7 @@ TEST (network, construction)
 TEST (network, self_discard)
 {
 	nano::system system (24000, 1);
-	nano::udp_data data;
+	nano::message_buffer data;
 	data.endpoint = system.nodes[0]->network.endpoint ();
 	ASSERT_EQ (0, system.nodes[0]->stats.count (nano::stat::type::error, nano::stat::detail::bad_sender));
 	system.nodes[0]->network.receive_action (&data, system.nodes[0]->network.endpoint ());
@@ -129,11 +129,11 @@ TEST (network, last_contacted)
 	system.deadline_set (10s);
 
 	// Wait until the handshake is complete
-	while (system.nodes[0]->peers.size () < 1)
+	while (system.nodes[0]->network.size () < 1)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (system.nodes[0]->peers.size (), 1);
+	ASSERT_EQ (system.nodes[0]->network.size (), 1);
 
 	// Make sure last_contact gets updated on receiving a non-handshake message
 	auto timestamp_before_keepalive = system.nodes[0]->peers.list_vector (1).front ().last_contact;
@@ -142,7 +142,7 @@ TEST (network, last_contacted)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (system.nodes[0]->peers.size (), 1);
+	ASSERT_EQ (system.nodes[0]->network.size (), 1);
 	auto timestamp_after_keepalive = system.nodes[0]->peers.list_vector (1).front ().last_contact;
 	ASSERT_GT (timestamp_after_keepalive, timestamp_before_keepalive);
 
@@ -159,12 +159,12 @@ TEST (network, multi_keepalive)
 	ASSERT_FALSE (init1.error ());
 	node1->start ();
 	system.nodes.push_back (node1);
-	ASSERT_EQ (0, node1->peers.size ());
+	ASSERT_EQ (0, node1->network.size ());
 	node1->network.send_keepalive (system.nodes[0]->network.endpoint ());
-	ASSERT_EQ (0, node1->peers.size ());
-	ASSERT_EQ (0, system.nodes[0]->peers.size ());
+	ASSERT_EQ (0, node1->network.size ());
+	ASSERT_EQ (0, system.nodes[0]->network.size ());
 	system.deadline_set (10s);
-	while (system.nodes[0]->peers.size () != 1)
+	while (system.nodes[0]->network.size () != 1)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -175,7 +175,7 @@ TEST (network, multi_keepalive)
 	system.nodes.push_back (node2);
 	node2->network.send_keepalive (system.nodes[0]->network.endpoint ());
 	system.deadline_set (10s);
-	while (node1->peers.size () != 2 || system.nodes[0]->peers.size () != 2 || node2->peers.size () != 2)
+	while (node1->network.size () != 2 || system.nodes[0]->network.size () != 2 || node2->network.size () != 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -1067,7 +1067,7 @@ TEST (bulk, offline_send)
 	do
 	{
 		ASSERT_NO_ERROR (system.poll ());
-	} while (system.nodes[0]->peers.empty () || node1->peers.empty ());
+	} while (system.nodes[0]->network.empty () || node1->network.empty ());
 	// Send block arrival via bootstrap
 	while (node1->balance (nano::test_genesis_key.pub) == std::numeric_limits<nano::uint256_t>::max ())
 	{
@@ -1190,10 +1190,10 @@ TEST (node, port_mapping)
 	}
 }
 
-TEST (udp_buffer, one_buffer)
+TEST (message_buffer_manager, one_buffer)
 {
 	nano::stat stats;
-	nano::udp_buffer buffer (stats, 512, 1);
+	nano::message_buffer_manager buffer (stats, 512, 1);
 	auto buffer1 (buffer.allocate ());
 	ASSERT_NE (nullptr, buffer1);
 	buffer.enqueue (buffer1);
@@ -1204,10 +1204,10 @@ TEST (udp_buffer, one_buffer)
 	ASSERT_EQ (buffer1, buffer3);
 }
 
-TEST (udp_buffer, two_buffers)
+TEST (message_buffer_manager, two_buffers)
 {
 	nano::stat stats;
-	nano::udp_buffer buffer (stats, 512, 2);
+	nano::message_buffer_manager buffer (stats, 512, 2);
 	auto buffer1 (buffer.allocate ());
 	ASSERT_NE (nullptr, buffer1);
 	auto buffer2 (buffer.allocate ());
@@ -1227,10 +1227,10 @@ TEST (udp_buffer, two_buffers)
 	ASSERT_EQ (buffer1, buffer6);
 }
 
-TEST (udp_buffer, one_overflow)
+TEST (message_buffer_manager, one_overflow)
 {
 	nano::stat stats;
-	nano::udp_buffer buffer (stats, 512, 1);
+	nano::message_buffer_manager buffer (stats, 512, 1);
 	auto buffer1 (buffer.allocate ());
 	ASSERT_NE (nullptr, buffer1);
 	buffer.enqueue (buffer1);
@@ -1238,10 +1238,10 @@ TEST (udp_buffer, one_overflow)
 	ASSERT_EQ (buffer1, buffer2);
 }
 
-TEST (udp_buffer, two_overflow)
+TEST (message_buffer_manager, two_overflow)
 {
 	nano::stat stats;
-	nano::udp_buffer buffer (stats, 512, 2);
+	nano::message_buffer_manager buffer (stats, 512, 2);
 	auto buffer1 (buffer.allocate ());
 	ASSERT_NE (nullptr, buffer1);
 	buffer.enqueue (buffer1);
@@ -1255,10 +1255,10 @@ TEST (udp_buffer, two_overflow)
 	ASSERT_EQ (buffer2, buffer4);
 }
 
-TEST (udp_buffer, one_buffer_multithreaded)
+TEST (message_buffer_manager, one_buffer_multithreaded)
 {
 	nano::stat stats;
-	nano::udp_buffer buffer (stats, 512, 1);
+	nano::message_buffer_manager buffer (stats, 512, 1);
 	boost::thread thread ([&buffer]() {
 		auto done (false);
 		while (!done)
@@ -1280,10 +1280,10 @@ TEST (udp_buffer, one_buffer_multithreaded)
 	thread.join ();
 }
 
-TEST (udp_buffer, many_buffers_multithreaded)
+TEST (message_buffer_manager, many_buffers_multithreaded)
 {
 	nano::stat stats;
-	nano::udp_buffer buffer (stats, 512, 16);
+	nano::message_buffer_manager buffer (stats, 512, 16);
 	std::vector<boost::thread> threads;
 	for (auto i (0); i < 4; ++i)
 	{
@@ -1328,10 +1328,10 @@ TEST (udp_buffer, many_buffers_multithreaded)
 	}
 }
 
-TEST (udp_buffer, stats)
+TEST (message_buffer_manager, stats)
 {
 	nano::stat stats;
-	nano::udp_buffer buffer (stats, 512, 1);
+	nano::message_buffer_manager buffer (stats, 512, 1);
 	auto buffer1 (buffer.allocate ());
 	buffer.enqueue (buffer1);
 	buffer.allocate ();

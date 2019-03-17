@@ -18,6 +18,7 @@
 
 namespace nano
 {
+class network;
 nano::endpoint map_endpoint_to_v6 (nano::endpoint const &);
 
 /** Multi-index helper */
@@ -60,6 +61,11 @@ public:
 /** Manages a set of disovered peers */
 class peer_container
 {
+	friend class nano::network;
+	size_t size ();
+	size_t size_sqrt ();
+	bool empty ();
+
 public:
 	peer_container (nano::endpoint const &);
 	// We were contacted by endpoint, update peers
@@ -82,8 +88,8 @@ public:
 	std::vector<peer_information> list_probable_rep_weights ();
 	// Get the next peer for attempting bootstrap
 	nano::endpoint bootstrap_peer ();
-	// Purge any peer where last_contact < time_point and return what was left
-	std::vector<nano::peer_information> purge_list (std::chrono::steady_clock::time_point const &);
+	// Purge any peer where last_contact < time_point
+	void purge (std::chrono::steady_clock::time_point const &);
 	void purge_syn_cookies (std::chrono::steady_clock::time_point const &);
 	// Should we reach out to this endpoint with a keepalive message
 	bool reachout (nano::endpoint const &, bool = false);
@@ -93,9 +99,6 @@ public:
 	// Returns false if valid, true if invalid (true on error convention)
 	// Also removes the syn cookie from the store if valid
 	bool validate_syn_cookie (nano::endpoint const &, nano::account, nano::signature);
-	size_t size ();
-	size_t size_sqrt ();
-	bool empty ();
 	nano::network_params network_params;
 	std::mutex mutex;
 	nano::endpoint self;
@@ -120,7 +123,6 @@ public:
 	std::unordered_map<boost::asio::ip::address, unsigned> syn_cookies_per_ip;
 	// Called when a new peer is observed
 	std::function<void(nano::endpoint const &)> peer_observer;
-	std::function<void()> disconnect_observer;
 	// Number of peers to crawl for being a rep every period
 	static size_t constexpr peers_per_crawl = 8;
 	// Maximum number of peers per IP

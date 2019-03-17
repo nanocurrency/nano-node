@@ -35,8 +35,7 @@ bool nano::peer_information::operator< (nano::peer_information const & peer_info
 
 nano::peer_container::peer_container (nano::endpoint const & self_a) :
 self (self_a),
-peer_observer ([](nano::endpoint const &) {}),
-disconnect_observer ([]() {})
+peer_observer ([](nano::endpoint const &) {})
 {
 }
 
@@ -256,29 +255,14 @@ void nano::peer_container::purge_syn_cookies (std::chrono::steady_clock::time_po
 	}
 }
 
-std::vector<nano::peer_information> nano::peer_container::purge_list (std::chrono::steady_clock::time_point const & cutoff)
+void nano::peer_container::purge (std::chrono::steady_clock::time_point const & cutoff_a)
 {
-	std::vector<nano::peer_information> result;
-	{
-		std::lock_guard<std::mutex> lock (mutex);
-		auto pivot (peers.get<1> ().lower_bound (cutoff));
-		result.assign (pivot, peers.get<1> ().end ());
-		// Remove peers that haven't been heard from past the cutoff
-		peers.get<1> ().erase (peers.get<1> ().begin (), pivot);
-		for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i)
-		{
-			peers.modify (i, [](nano::peer_information & info) { info.last_attempt = std::chrono::steady_clock::now (); });
-		}
-
-		// Remove keepalive attempt tracking for attempts older than cutoff
-		auto attempts_pivot (attempts.get<1> ().lower_bound (cutoff));
-		attempts.get<1> ().erase (attempts.get<1> ().begin (), attempts_pivot);
-	}
-	if (result.empty ())
-	{
-		disconnect_observer ();
-	}
-	return result;
+	std::lock_guard<std::mutex> lock (mutex);
+	auto disconnect_cutoff (peers.get<1> ().lower_bound (cutoff_a));
+	peers.get<1> ().erase (peers.get<1> ().begin (), disconnect_cutoff);
+	// Remove keepalive attempt tracking for attempts older than cutoff
+	auto attempts_cutoff (attempts.get<1> ().lower_bound (cutoff_a));
+	attempts.get<1> ().erase (attempts.get<1> ().begin (), attempts_cutoff);
 }
 
 size_t nano::peer_container::size ()

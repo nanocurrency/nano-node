@@ -772,6 +772,8 @@ void nano::rpc_handler::accounts_pending ()
 	auto threshold (threshold_optional_impl ());
 	const bool source = request.get<bool> ("source", false);
 	const bool include_active = request.get<bool> ("include_active", false);
+	const bool sorting = request.get<bool> ("sorting", false);
+	auto simple (threshold.is_zero () && !source && !sorting); // if simple, response is a list of hashes for each account
 	boost::property_tree::ptree pending;
 	auto transaction (node.store.tx_begin_read ());
 	for (auto & accounts : request.get_child ("accounts"))
@@ -785,7 +787,7 @@ void nano::rpc_handler::accounts_pending ()
 				nano::pending_key key (i->first);
 				if (include_active || node.ledger.block_confirmed (transaction, key.hash))
 				{
-					if (threshold.is_zero () && !source)
+					if (simple)
 					{
 						boost::property_tree::ptree entry;
 						entry.put ("", key.hash.to_string ());
@@ -809,6 +811,21 @@ void nano::rpc_handler::accounts_pending ()
 							}
 						}
 					}
+				}
+			}
+			if (sorting && !simple)
+			{
+				if (source)
+				{
+					peers_l.sort ([](const auto & child1, const auto & child2) -> bool {
+						return child1.second.template get<nano::uint128_t> ("amount") > child2.second.template get<nano::uint128_t> ("amount");
+					});
+				}
+				else
+				{
+					peers_l.sort ([](const auto & child1, const auto & child2) -> bool {
+						return child1.second.template get<nano::uint128_t> ("") > child2.second.template get<nano::uint128_t> ("");
+					});
 				}
 			}
 			pending.add_child (account.to_account (), peers_l);
