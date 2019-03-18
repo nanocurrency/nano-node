@@ -33,6 +33,7 @@ qt_test
 nano_node
 nano_wallet
 slow_test
+nano_rpc
 rpc_test
 
 # IDEs
