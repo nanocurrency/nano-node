@@ -45,8 +45,9 @@ add_library (secure
 	versioning.cpp)
 
 target_link_libraries(secure
-	ed25519
 	nano_lib
+	ed25519
+	crypto_lib
 	lmdb
 	Boost::boost
 	Boost::system

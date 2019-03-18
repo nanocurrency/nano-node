@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/core_test/testutil.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/common.hpp>

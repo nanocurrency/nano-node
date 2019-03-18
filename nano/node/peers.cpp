@@ -1,4 +1,5 @@
 #include <nano/node/peers.hpp>
+#include <nano/crypto_lib/random_pool.hpp>
 
 nano::endpoint nano::map_endpoint_to_v6 (nano::endpoint const & endpoint_a)
 {

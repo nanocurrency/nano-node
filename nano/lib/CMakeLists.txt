@@ -41,6 +41,8 @@ add_library (nano_lib
 
 target_link_libraries (nano_lib
 	secure
+	ed25519
+	crypto_lib
 	xxhash
 	blake2
 	${CRYPTOPP_LIBRARY}
