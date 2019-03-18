@@ -2007,10 +2007,13 @@ void nano::rpc_handler::account_history ()
 		}
 	}
 	nano::account account;
-	bool output_raw (request.get_optional<bool> ("raw") == true);
 	nano::block_hash hash;
+	bool output_raw (request.get_optional<bool> ("raw") == true);
+	bool reverse (request.get_optional<bool> ("reverse") == true);
 	auto head_str (request.get_optional<std::string> ("head"));
 	auto transaction (node.store.tx_begin_read ());
+	auto count (count_impl ());
+	auto offset (offset_optional_impl (0));
 	if (head_str)
 	{
 		if (!hash.decode_hex (*head_str))
@@ -2034,11 +2037,24 @@ void nano::rpc_handler::account_history ()
 		account = account_impl ();
 		if (!ec)
 		{
-			hash = node.ledger.latest (transaction, account);
+			if (reverse)
+			{
+				nano::account_info info;
+				if (!node.store.account_get (transaction, account, info))
+				{
+					hash = info.open_block;
+				}
+				else
+				{
+					ec = nano::error_common::account_not_found;
+				}
+			}
+			else
+			{
+				hash = node.ledger.latest (transaction, account);
+			}
 		}
 	}
-	auto count (count_impl ());
-	auto offset (offset_optional_impl (0));
 	if (!ec)
 	{
 		boost::property_tree::ptree history;
@@ -2059,6 +2075,7 @@ void nano::rpc_handler::account_history ()
 				if (!entry.empty ())
 				{
 					entry.put ("local_timestamp", std::to_string (sideband.timestamp));
+					entry.put ("height", std::to_string (sideband.height));
 					entry.put ("hash", hash.to_string ());
 					if (output_raw)
 					{
@@ -2069,13 +2086,13 @@ void nano::rpc_handler::account_history ()
 					--count;
 				}
 			}
-			hash = block->previous ();
+			hash = reverse ? node.store.block_successor (transaction, hash) : block->previous ();
 			block = node.store.block_get (transaction, hash, &sideband);
 		}
 		response_l.add_child ("history", history);
 		if (!hash.is_zero ())
 		{
-			response_l.put ("previous", hash.to_string ());
+			response_l.put (reverse ? "next" : "previous", hash.to_string ());
 		}
 	}
 	response_errors ();

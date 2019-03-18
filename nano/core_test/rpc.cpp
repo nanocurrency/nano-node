@@ -1146,73 +1146,101 @@ TEST (rpc, account_history)
 	nano::state_block ureceive (nano::genesis_account, usend.hash (), nano::genesis_account, nano::genesis_amount, usend.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 	nano::state_block uchange (nano::genesis_account, ureceive.hash (), nano::keypair ().pub, nano::genesis_amount, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 	{
-		auto transaction (node0->store.tx_begin (true));
+		auto transaction (node0->store.tx_begin_write ());
 		ASSERT_EQ (nano::process_result::progress, node0->ledger.process (transaction, usend).code);
 		ASSERT_EQ (nano::process_result::progress, node0->ledger.process (transaction, ureceive).code);
 		ASSERT_EQ (nano::process_result::progress, node0->ledger.process (transaction, uchange).code);
 	}
 	nano::rpc rpc (system.io_ctx, *node0, nano::rpc_config (true));
 	rpc.start ();
-	boost::property_tree::ptree request;
-	request.put ("action", "account_history");
-	request.put ("account", nano::genesis_account.to_account ());
-	request.put ("count", 100);
-	test_response response (request, rpc, system.io_ctx);
-	while (response.status == 0)
 	{
-		ASSERT_NO_ERROR (system.poll ());
+		boost::property_tree::ptree request;
+		request.put ("action", "account_history");
+		request.put ("account", nano::genesis_account.to_account ());
+		request.put ("count", 100);
+		test_response response (request, rpc, system.io_ctx);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		std::vector<std::tuple<std::string, std::string, std::string, std::string, std::string>> history_l;
+		auto & history_node (response.json.get_child ("history"));
+		for (auto i (history_node.begin ()), n (history_node.end ()); i != n; ++i)
+		{
+			history_l.push_back (std::make_tuple (i->second.get<std::string> ("type"), i->second.get<std::string> ("account"), i->second.get<std::string> ("amount"), i->second.get<std::string> ("hash"), i->second.get<std::string> ("height")));
+		}
+
+		ASSERT_EQ (5, history_l.size ());
+		ASSERT_EQ ("receive", std::get<0> (history_l[0]));
+		ASSERT_EQ (ureceive.hash ().to_string (), std::get<3> (history_l[0]));
+		ASSERT_EQ (nano::test_genesis_key.pub.to_account (), std::get<1> (history_l[0]));
+		ASSERT_EQ (nano::Gxrb_ratio.convert_to<std::string> (), std::get<2> (history_l[0]));
+		ASSERT_EQ ("6", std::get<4> (history_l[0])); // change block (height 7) is skipped by account_history since "raw" is not set
+		ASSERT_EQ ("send", std::get<0> (history_l[1]));
+		ASSERT_EQ (usend.hash ().to_string (), std::get<3> (history_l[1]));
+		ASSERT_EQ (nano::test_genesis_key.pub.to_account (), std::get<1> (history_l[1]));
+		ASSERT_EQ (nano::Gxrb_ratio.convert_to<std::string> (), std::get<2> (history_l[1]));
+		ASSERT_EQ ("5", std::get<4> (history_l[1]));
+		ASSERT_EQ ("receive", std::get<0> (history_l[2]));
+		ASSERT_EQ (nano::test_genesis_key.pub.to_account (), std::get<1> (history_l[2]));
+		ASSERT_EQ (system.nodes[0]->config.receive_minimum.to_string_dec (), std::get<2> (history_l[2]));
+		ASSERT_EQ (receive->hash ().to_string (), std::get<3> (history_l[2]));
+		ASSERT_EQ ("4", std::get<4> (history_l[2]));
+		ASSERT_EQ ("send", std::get<0> (history_l[3]));
+		ASSERT_EQ (nano::test_genesis_key.pub.to_account (), std::get<1> (history_l[3]));
+		ASSERT_EQ (system.nodes[0]->config.receive_minimum.to_string_dec (), std::get<2> (history_l[3]));
+		ASSERT_EQ (send->hash ().to_string (), std::get<3> (history_l[3]));
+		ASSERT_EQ ("3", std::get<4> (history_l[3]));
+		ASSERT_EQ ("receive", std::get<0> (history_l[4]));
+		ASSERT_EQ (nano::test_genesis_key.pub.to_account (), std::get<1> (history_l[4]));
+		ASSERT_EQ (nano::genesis_amount.convert_to<std::string> (), std::get<2> (history_l[4]));
+		ASSERT_EQ (genesis.hash ().to_string (), std::get<3> (history_l[4]));
+		ASSERT_EQ ("1", std::get<4> (history_l[4])); // change block (height 2) is skipped
 	}
-	ASSERT_EQ (200, response.status);
-	std::vector<std::tuple<std::string, std::string, std::string, std::string>> history_l;
-	auto & history_node (response.json.get_child ("history"));
-	for (auto i (history_node.begin ()), n (history_node.end ()); i != n; ++i)
+	// Test count and reverse
 	{
-		history_l.push_back (std::make_tuple (i->second.get<std::string> ("type"), i->second.get<std::string> ("account"), i->second.get<std::string> ("amount"), i->second.get<std::string> ("hash")));
+		boost::property_tree::ptree request;
+		request.put ("action", "account_history");
+		request.put ("account", nano::genesis_account.to_account ());
+		request.put ("reverse", true);
+		request.put ("count", 1);
+		test_response response (request, rpc, system.io_ctx);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		auto & history_node (response.json.get_child ("history"));
+		ASSERT_EQ (1, history_node.size ());
+		ASSERT_EQ ("1", history_node.begin ()->second.get<std::string> ("height"));
+		ASSERT_EQ (change->hash ().to_string (), response.json.get<std::string> ("next"));
 	}
-	ASSERT_EQ (5, history_l.size ());
-	ASSERT_EQ ("receive", std::get<0> (history_l[0]));
-	ASSERT_EQ (ureceive.hash ().to_string (), std::get<3> (history_l[0]));
-	ASSERT_EQ (nano::test_genesis_key.pub.to_account (), std::get<1> (history_l[0]));
-	ASSERT_EQ (nano::Gxrb_ratio.convert_to<std::string> (), std::get<2> (history_l[0]));
-	ASSERT_EQ (5, history_l.size ());
-	ASSERT_EQ ("send", std::get<0> (history_l[1]));
-	ASSERT_EQ (usend.hash ().to_string (), std::get<3> (history_l[1]));
-	ASSERT_EQ (nano::test_genesis_key.pub.to_account (), std::get<1> (history_l[1]));
-	ASSERT_EQ (nano::Gxrb_ratio.convert_to<std::string> (), std::get<2> (history_l[1]));
-	ASSERT_EQ ("receive", std::get<0> (history_l[2]));
-	ASSERT_EQ (nano::test_genesis_key.pub.to_account (), std::get<1> (history_l[2]));
-	ASSERT_EQ (system.nodes[0]->config.receive_minimum.to_string_dec (), std::get<2> (history_l[2]));
-	ASSERT_EQ (receive->hash ().to_string (), std::get<3> (history_l[2]));
-	ASSERT_EQ ("send", std::get<0> (history_l[3]));
-	ASSERT_EQ (nano::test_genesis_key.pub.to_account (), std::get<1> (history_l[3]));
-	ASSERT_EQ (system.nodes[0]->config.receive_minimum.to_string_dec (), std::get<2> (history_l[3]));
-	ASSERT_EQ (send->hash ().to_string (), std::get<3> (history_l[3]));
-	ASSERT_EQ ("receive", std::get<0> (history_l[4]));
-	ASSERT_EQ (nano::test_genesis_key.pub.to_account (), std::get<1> (history_l[4]));
-	ASSERT_EQ (nano::genesis_amount.convert_to<std::string> (), std::get<2> (history_l[4]));
-	ASSERT_EQ (genesis.hash ().to_string (), std::get<3> (history_l[4]));
-	//Tests filtering
+
+	// Test filtering
 	auto account2 (system.wallet (0)->deterministic_insert ());
 	auto send2 (system.wallet (0)->send_action (nano::test_genesis_key.pub, account2, system.nodes[0]->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, send2);
 	auto receive2 (system.wallet (0)->receive_action (static_cast<nano::send_block &> (*send2), account2, system.nodes[0]->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, receive2);
-	boost::property_tree::ptree request2;
-	request2.put ("action", "account_history");
-	request2.put ("account", nano::test_genesis_key.pub.to_account ());
-	boost::property_tree::ptree other_account;
-	other_account.put ("", account2.to_account ());
-	boost::property_tree::ptree filtered_accounts;
-	filtered_accounts.push_back (std::make_pair ("", other_account));
-	request2.add_child ("account_filter", filtered_accounts);
-	request2.put ("count", 100);
-	test_response response2 (request2, rpc, system.io_ctx);
-	while (response2.status == 0)
 	{
-		system.poll ();
+		boost::property_tree::ptree request;
+		request.put ("action", "account_history");
+		request.put ("account", nano::test_genesis_key.pub.to_account ());
+		boost::property_tree::ptree other_account;
+		other_account.put ("", account2.to_account ());
+		boost::property_tree::ptree filtered_accounts;
+		filtered_accounts.push_back (std::make_pair ("", other_account));
+		request.add_child ("account_filter", filtered_accounts);
+		request.put ("count", 100);
+		test_response response (request, rpc, system.io_ctx);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		auto history_node (response.json.get_child ("history"));
+		ASSERT_EQ (history_node.size (), 1);
 	}
-	auto history_node2 (response2.json.get_child ("history"));
-	ASSERT_EQ (history_node2.size (), 1);
 }
 
 TEST (rpc, history_count)
