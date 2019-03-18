@@ -29,4 +29,4 @@ target_compile_definitions(core_test
 			-DNANO_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
 			-DNANO_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR}
 			-DNANO_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH})
-target_link_libraries (core_test node secure gtest libminiupnpc-static crypto_lib Boost::boost)
+target_link_libraries (core_test node secure gtest libminiupnpc-static ed25519 crypto_lib Boost::boost)
