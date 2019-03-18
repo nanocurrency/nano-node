@@ -10,6 +10,8 @@
 #include <nano/node/stats.hpp>
 #include <vector>
 
+#include <boost/program_options.hpp>
+
 namespace nano
 {
 /**
@@ -69,14 +71,18 @@ class node_flags
 {
 public:
 	node_flags ();
-	bool disable_backup;
-	bool disable_lazy_bootstrap;
-	bool disable_legacy_bootstrap;
-	bool disable_wallet_bootstrap;
-	bool disable_bootstrap_listener;
-	bool disable_unchecked_cleanup;
-	bool disable_unchecked_drop;
-	bool fast_bootstrap;
-	size_t sideband_batch_size;
+	node_flags (boost::program_options::variables_map const &);
+	bool disable_backup{ false };
+	bool disable_lazy_bootstrap{ false };
+	bool disable_legacy_bootstrap{ false };
+	bool disable_wallet_bootstrap{ false };
+	bool disable_bootstrap_listener{ false };
+	bool disable_unchecked_cleanup{ false };
+	bool disable_unchecked_drop{ true };
+	bool fast_bootstrap{ false };
+	size_t sideband_batch_size{ 512 };
+	size_t block_processor_batch_size{ 0 };
+	size_t block_processor_full_size{ 65536 };
+	size_t block_processor_verification_size{ 0 };
 };
 }

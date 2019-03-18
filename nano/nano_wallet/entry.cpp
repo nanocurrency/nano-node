@@ -369,20 +369,7 @@ int main (int argc, char * const * argv)
 					{
 						data_path = nano::working_path ();
 					}
-					nano::node_flags flags;
-					auto batch_size_it = vm.find ("batch_size");
-					if (batch_size_it != vm.end ())
-					{
-						flags.sideband_batch_size = batch_size_it->second.as<size_t> ();
-					}
-					flags.disable_backup = (vm.count ("disable_backup") > 0);
-					flags.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
-					flags.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
-					flags.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
-					flags.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
-					flags.disable_unchecked_cleanup = (vm.count ("disable_unchecked_cleanup") > 0);
-					flags.disable_unchecked_drop = (vm.count ("disable_unchecked_drop") > 0);
-					flags.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
+					nano::node_flags flags (vm);
 					result = run_wallet (application, argc, argv, data_path, flags);
 				}
 				catch (std::exception const & e)
