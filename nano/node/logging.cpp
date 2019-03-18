@@ -76,13 +76,10 @@ bool nano::logging::upgrade_json (unsigned version_a, nano::jsonconfig & json)
 			upgraded_l = true;
 		case 6:
 			json.put ("min_time_between_output", min_time_between_log_output.count ());
-			upgraded_l = true;
-			break;
-		case 7:
 			json.erase ("log_rpc");
 			upgraded_l = true;
 			break;
-		case 8:
+		case 7:
 			break;
 		default:
 			throw std::runtime_error ("Unknown logging_config version");

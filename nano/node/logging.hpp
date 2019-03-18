@@ -64,7 +64,7 @@ public:
 	nano::logger_mt logger{ min_time_between_log_output };
 	int json_version () const
 	{
-		return 8;
+		return 7;
 	}
 };
 }
