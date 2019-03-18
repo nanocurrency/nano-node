@@ -1552,7 +1552,7 @@ size_t nano::mdb_store::block_successor_offset (nano::transaction const & transa
 	else
 	{
 		// Read old successor-only sideband
-		assert (entry_a.mv_size = nano::block::size (type_a) + sizeof (nano::uint256_union));
+		assert (entry_a.mv_size == nano::block::size (type_a) + sizeof (nano::uint256_union));
 		result = entry_a.mv_size - sizeof (nano::uint256_union);
 	}
 	return result;
