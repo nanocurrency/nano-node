@@ -1432,7 +1432,7 @@ void nano_qt::wallet::change_rendering_ratio (nano::uint128_t const & rendering_
 
 std::string nano_qt::wallet::format_balance (nano::uint128_t const & balance) const
 {
-	auto balance_str = nano::amount (balance).format_balance (rendering_ratio, 0, false);
+	auto balance_str = nano::amount (balance).format_balance (rendering_ratio, 3, false);
 	auto unit = std::string ("NANO");
 	if (rendering_ratio == nano::kxrb_ratio)
 	{
