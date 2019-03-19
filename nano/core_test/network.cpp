@@ -73,8 +73,8 @@ TEST (network, send_node_id_handshake)
 	system.nodes.push_back (node1);
 	auto initial (system.nodes[0]->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in));
 	auto initial_node1 (node1->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in));
-	nano::transport::channel_udp sink (system.nodes[0]->network.udp_channels, node1->network.endpoint ());
-	system.nodes[0]->network.send_keepalive (sink);
+	nano::transport::channel_udp channel (system.nodes[0]->network.udp_channels, node1->network.endpoint ());
+	system.nodes[0]->network.send_keepalive (channel);
 	ASSERT_EQ (0, system.nodes[0]->network.size ());
 	ASSERT_EQ (0, node1->network.size ());
 	system.deadline_set (10s);
@@ -106,8 +106,8 @@ TEST (network, last_contacted)
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 	node1->start ();
 	system.nodes.push_back (node1);
-	nano::transport::channel_udp sink (node1->network.udp_channels, nano::endpoint (boost::asio::ip::address_v6::loopback (), 24000));
-	node1->network.send_keepalive (sink);
+	nano::transport::channel_udp channel1 (node1->network.udp_channels, nano::endpoint (boost::asio::ip::address_v6::loopback (), 24000));
+	node1->network.send_keepalive (channel1);
 	system.deadline_set (10s);
 
 	// Wait until the handshake is complete
@@ -117,17 +117,17 @@ TEST (network, last_contacted)
 	}
 	ASSERT_EQ (system.nodes[0]->network.size (), 1);
 
-	auto channel (system.nodes[0]->network.udp_channels.channel (nano::endpoint (boost::asio::ip::address_v6::loopback (), 24001)));
-	ASSERT_NE (nullptr, channel);
+	auto channel2 (system.nodes[0]->network.udp_channels.channel (nano::endpoint (boost::asio::ip::address_v6::loopback (), 24001)));
+	ASSERT_NE (nullptr, channel2);
 	// Make sure last_contact gets updated on receiving a non-handshake message
-	auto timestamp_before_keepalive = channel->last_packet_received;
-	node1->network.send_keepalive (sink);
+	auto timestamp_before_keepalive = channel2->last_packet_received;
+	node1->network.send_keepalive (channel1);
 	while (system.nodes[0]->stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in) < 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (system.nodes[0]->network.size (), 1);
-	auto timestamp_after_keepalive = channel->last_packet_received;
+	auto timestamp_after_keepalive = channel2->last_packet_received;
 	ASSERT_GT (timestamp_after_keepalive, timestamp_before_keepalive);
 
 	node1->stop ();
@@ -143,8 +143,8 @@ TEST (network, multi_keepalive)
 	node1->start ();
 	system.nodes.push_back (node1);
 	ASSERT_EQ (0, node1->network.size ());
-	nano::transport::channel_udp sink1 (node1->network.udp_channels, system.nodes[0]->network.endpoint ());
-	node1->network.send_keepalive (sink1);
+	nano::transport::channel_udp channel1 (node1->network.udp_channels, system.nodes[0]->network.endpoint ());
+	node1->network.send_keepalive (channel1);
 	ASSERT_EQ (0, node1->network.size ());
 	ASSERT_EQ (0, system.nodes[0]->network.size ());
 	system.deadline_set (10s);
@@ -157,8 +157,8 @@ TEST (network, multi_keepalive)
 	ASSERT_FALSE (init2.error ());
 	node2->start ();
 	system.nodes.push_back (node2);
-	nano::transport::channel_udp sink (node2->network.udp_channels, system.nodes[0]->network.endpoint ());
-	node2->network.send_keepalive (sink);
+	nano::transport::channel_udp channel2 (node2->network.udp_channels, system.nodes[0]->network.endpoint ());
+	node2->network.send_keepalive (channel2);
 	system.deadline_set (10s);
 	while (node1->network.size () != 2 || system.nodes[0]->network.size () != 2 || node2->network.size () != 2)
 	{
@@ -263,8 +263,8 @@ TEST (network, send_insufficient_work)
 	auto block (std::make_shared<nano::send_block> (0, 1, 20, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	nano::publish publish (block);
 	auto node1 (system.nodes[1]->shared ());
-	nano::transport::channel_udp sink (system.nodes[0]->network.udp_channels, system.nodes[1]->network.endpoint ());
-	sink.sink (publish, [](boost::system::error_code const & ec, size_t size) {});
+	nano::transport::channel_udp channel (system.nodes[0]->network.udp_channels, system.nodes[1]->network.endpoint ());
+	channel.send (publish, [](boost::system::error_code const & ec, size_t size) {});
 	ASSERT_EQ (0, system.nodes[0]->stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work));
 	system.deadline_set (10s);
 	while (system.nodes[1]->stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work) == 0)

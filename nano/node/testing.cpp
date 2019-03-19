@@ -50,8 +50,8 @@ work (1, nullptr)
 		decltype (starting1) new1;
 		auto starting2 (node2->network.size ());
 		decltype (starting2) new2;
-		nano::transport::channel_udp sink ((*j)->network.udp_channels, (*i)->network.endpoint ());
-		(*j)->network.send_keepalive (sink);
+		nano::transport::channel_udp channel ((*j)->network.udp_channels, (*i)->network.endpoint ());
+		(*j)->network.send_keepalive (channel);
 		do
 		{
 			poll ();

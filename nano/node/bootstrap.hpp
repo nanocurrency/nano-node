@@ -186,7 +186,7 @@ public:
 	double elapsed_seconds () const;
 	std::shared_ptr<nano::node> node;
 	std::shared_ptr<nano::bootstrap_attempt> attempt;
-	std::shared_ptr<nano::transport::channel_tcp> sink;
+	std::shared_ptr<nano::transport::channel_tcp> channel;
 	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
 	std::chrono::steady_clock::time_point start_time;
 	std::atomic<uint64_t> block_count;

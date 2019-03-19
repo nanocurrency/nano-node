@@ -87,7 +87,7 @@ void nano::rep_crawler::query (std::vector<std::shared_ptr<nano::transport::chan
 	{
 		on_rep_request (*i);
 		nano::confirm_req message (block);
-		(*i)->sink (message);
+		(*i)->send (message);
 	}
 
 	// A representative must respond with a vote within the deadline

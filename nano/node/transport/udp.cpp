@@ -599,7 +599,7 @@ bool nano::transport::udp_channels::reachout (nano::endpoint const & endpoint_a,
 	{
 		auto endpoint_l (nano::transport::map_endpoint_to_v6 (endpoint_a));
 		// Don't keepalive to nodes that already sent us something
-		nano::transport::channel_udp sink (node.network.udp_channels, endpoint_l);
+		nano::transport::channel_udp channel (node.network.udp_channels, endpoint_l);
 		error |= node.network.udp_channels.channel (endpoint_l) != nullptr;
 		std::lock_guard<std::mutex> lock (mutex);
 		auto existing (attempts.find (endpoint_l));
@@ -735,7 +735,7 @@ void nano::transport::udp_channels::ongoing_keepalive ()
 	auto keepalive_cutoff (channels.get<last_packet_received_tag> ().lower_bound (std::chrono::steady_clock::now () - network_params.node.period));
 	for (auto i (channels.get<last_packet_received_tag> ().begin ()); i != keepalive_cutoff; ++i)
 	{
-		i->channel->sink (message);
+		i->channel->send (message);
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	node.alarm.add (std::chrono::steady_clock::now () + network_params.node.period, [node_w]() {

@@ -49,8 +49,8 @@ TEST (system, receive_while_synchronizing)
 		nano::node_init init1;
 		auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 		ASSERT_FALSE (init1.error ());
-		nano::transport::channel_udp sink (node1->network.udp_channels, system.nodes[0]->network.endpoint ());
-		node1->network.send_keepalive (sink);
+		nano::transport::channel_udp channel (node1->network.udp_channels, system.nodes[0]->network.endpoint ());
+		node1->network.send_keepalive (channel);
 		auto wallet (node1->wallets.create (1));
 		ASSERT_EQ (key.pub, wallet->insert_adhoc (key.prv));
 		node1->start ();

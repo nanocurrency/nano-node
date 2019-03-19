@@ -61,7 +61,7 @@ void nano::transport::channel::send_buffer (std::shared_ptr<std::vector<uint8_t>
 	send_buffer_raw (boost::asio::buffer (buffer_a->data (), buffer_a->size ()), callback (buffer_a, detail_a, callback_a));
 }
 
-void nano::transport::channel::sink (nano::message const & message_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
+void nano::transport::channel::send (nano::message const & message_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
 {
 	callback_visitor visitor;
 	message_a.visit (visitor);
