@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 #include <nano/core_test/testutil.hpp>
 #include <nano/node/testing.hpp>
+#include <nano/node/transport/udp.hpp>
 
 using namespace std::chrono_literals;
 
@@ -49,7 +50,7 @@ TEST (network, construction)
 {
 	nano::system system (24000, 1);
 	ASSERT_EQ (1, system.nodes.size ());
-	ASSERT_EQ (24000, system.nodes[0]->network.socket.local_endpoint ().port ());
+	ASSERT_EQ (24000, system.nodes[0]->network.endpoint ().port ());
 }
 
 TEST (network, self_discard)
@@ -58,74 +59,55 @@ TEST (network, self_discard)
 	nano::message_buffer data;
 	data.endpoint = system.nodes[0]->network.endpoint ();
 	ASSERT_EQ (0, system.nodes[0]->stats.count (nano::stat::type::error, nano::stat::detail::bad_sender));
-	system.nodes[0]->network.receive_action (&data, system.nodes[0]->network.endpoint ());
+	system.nodes[0]->network.udp_channels.receive_action (&data);
 	ASSERT_EQ (1, system.nodes[0]->stats.count (nano::stat::type::error, nano::stat::detail::bad_sender));
 }
 
 TEST (network, send_node_id_handshake)
 {
 	nano::system system (24000, 1);
-	auto list1 (system.nodes[0]->peers.list ());
-	ASSERT_EQ (0, list1.size ());
+	ASSERT_EQ (0, system.nodes[0]->network.size ());
 	nano::node_init init1;
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 	node1->start ();
 	system.nodes.push_back (node1);
 	auto initial (system.nodes[0]->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in));
 	auto initial_node1 (node1->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in));
-	system.nodes[0]->network.send_keepalive (node1->network.endpoint ());
-	ASSERT_EQ (0, system.nodes[0]->peers.list ().size ());
-	ASSERT_EQ (0, node1->peers.list ().size ());
+	nano::transport::channel_udp channel (system.nodes[0]->network.udp_channels, node1->network.endpoint ());
+	system.nodes[0]->network.send_keepalive (channel);
+	ASSERT_EQ (0, system.nodes[0]->network.size ());
+	ASSERT_EQ (0, node1->network.size ());
 	system.deadline_set (10s);
 	while (node1->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in) == initial_node1)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (0, system.nodes[0]->peers.list ().size ());
-	ASSERT_EQ (1, node1->peers.list ().size ());
+	ASSERT_EQ (0, system.nodes[0]->network.size ());
+	ASSERT_EQ (1, node1->network.size ());
 	system.deadline_set (10s);
 	while (system.nodes[0]->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in) < initial + 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	auto peers1 (system.nodes[0]->peers.list ());
-	auto peers2 (node1->peers.list ());
-	ASSERT_EQ (1, peers1.size ());
-	ASSERT_EQ (1, peers2.size ());
-	ASSERT_EQ (node1->network.endpoint (), peers1[0]);
-	ASSERT_EQ (system.nodes[0]->network.endpoint (), peers2[0]);
-	node1->stop ();
-}
-
-TEST (network, keepalive_ipv4)
-{
-	nano::system system (24000, 1);
-	auto list1 (system.nodes[0]->peers.list ());
-	ASSERT_EQ (0, list1.size ());
-	nano::node_init init1;
-	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
-	node1->start ();
-	system.nodes.push_back (node1);
-	node1->send_keepalive (nano::endpoint (boost::asio::ip::address_v4::loopback (), 24000));
-	auto initial (system.nodes[0]->stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in));
-	system.deadline_set (10s);
-	while (system.nodes[0]->stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in) == initial)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_EQ (1, system.nodes[0]->network.size ());
+	ASSERT_EQ (1, node1->network.size ());
+	auto list1 (system.nodes[0]->network.udp_channels.list (1));
+	ASSERT_EQ (node1->network.endpoint (), list1[0]->endpoint);
+	auto list2 (node1->network.udp_channels.list (1));
+	ASSERT_EQ (system.nodes[0]->network.endpoint (), list2[0]->endpoint);
 	node1->stop ();
 }
 
 TEST (network, last_contacted)
 {
 	nano::system system (24000, 1);
-	auto list1 (system.nodes[0]->peers.list ());
-	ASSERT_EQ (0, list1.size ());
+	ASSERT_EQ (0, system.nodes[0]->network.size ());
 	nano::node_init init1;
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 	node1->start ();
 	system.nodes.push_back (node1);
-	node1->send_keepalive (nano::endpoint (boost::asio::ip::address_v4::loopback (), 24000));
+	nano::transport::channel_udp channel1 (node1->network.udp_channels, nano::endpoint (boost::asio::ip::address_v6::loopback (), 24000));
+	node1->network.send_keepalive (channel1);
 	system.deadline_set (10s);
 
 	// Wait until the handshake is complete
@@ -135,15 +117,17 @@ TEST (network, last_contacted)
 	}
 	ASSERT_EQ (system.nodes[0]->network.size (), 1);
 
+	auto channel2 (system.nodes[0]->network.udp_channels.channel (nano::endpoint (boost::asio::ip::address_v6::loopback (), 24001)));
+	ASSERT_NE (nullptr, channel2);
 	// Make sure last_contact gets updated on receiving a non-handshake message
-	auto timestamp_before_keepalive = system.nodes[0]->peers.list_vector (1).front ().last_contact;
-	node1->send_keepalive (nano::endpoint (boost::asio::ip::address_v4::loopback (), 24000));
+	auto timestamp_before_keepalive = channel2->last_packet_received;
+	node1->network.send_keepalive (channel1);
 	while (system.nodes[0]->stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in) < 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (system.nodes[0]->network.size (), 1);
-	auto timestamp_after_keepalive = system.nodes[0]->peers.list_vector (1).front ().last_contact;
+	auto timestamp_after_keepalive = channel2->last_packet_received;
 	ASSERT_GT (timestamp_after_keepalive, timestamp_before_keepalive);
 
 	node1->stop ();
@@ -152,15 +136,15 @@ TEST (network, last_contacted)
 TEST (network, multi_keepalive)
 {
 	nano::system system (24000, 1);
-	auto list1 (system.nodes[0]->peers.list ());
-	ASSERT_EQ (0, list1.size ());
+	ASSERT_EQ (0, system.nodes[0]->network.size ());
 	nano::node_init init1;
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 	ASSERT_FALSE (init1.error ());
 	node1->start ();
 	system.nodes.push_back (node1);
 	ASSERT_EQ (0, node1->network.size ());
-	node1->network.send_keepalive (system.nodes[0]->network.endpoint ());
+	nano::transport::channel_udp channel1 (node1->network.udp_channels, system.nodes[0]->network.endpoint ());
+	node1->network.send_keepalive (channel1);
 	ASSERT_EQ (0, node1->network.size ());
 	ASSERT_EQ (0, system.nodes[0]->network.size ());
 	system.deadline_set (10s);
@@ -173,7 +157,8 @@ TEST (network, multi_keepalive)
 	ASSERT_FALSE (init2.error ());
 	node2->start ();
 	system.nodes.push_back (node2);
-	node2->network.send_keepalive (system.nodes[0]->network.endpoint ());
+	nano::transport::channel_udp channel2 (node2->network.udp_channels, system.nodes[0]->network.endpoint ());
+	node2->network.send_keepalive (channel2);
 	system.deadline_set (10s);
 	while (node1->network.size () != 2 || system.nodes[0]->network.size () != 2 || node2->network.size () != 2)
 	{
@@ -278,7 +263,8 @@ TEST (network, send_insufficient_work)
 	auto block (std::make_shared<nano::send_block> (0, 1, 20, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	nano::publish publish (block);
 	auto node1 (system.nodes[1]->shared ());
-	system.nodes[0]->network.send_buffer (publish.to_bytes (), system.nodes[1]->network.endpoint (), [node1](boost::system::error_code const & ec, size_t size) {});
+	nano::transport::channel_udp channel (system.nodes[0]->network.udp_channels, system.nodes[1]->network.endpoint ());
+	channel.send (publish, [](boost::system::error_code const & ec, size_t size) {});
 	ASSERT_EQ (0, system.nodes[0]->stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work));
 	system.deadline_set (10s);
 	while (system.nodes[1]->stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work) == 0)
@@ -301,7 +287,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
 	nano::keypair key1;
 	auto vote (std::make_shared<nano::vote> (key1.pub, key1.prv, 0, block1));
 	nano::confirm_ack con1 (vote);
-	node1.process_message (con1, node1.network.endpoint ());
+	node1.process_message (con1, node1.network.udp_channels.create (node1.network.endpoint ()));
 }
 
 TEST (receivable_processor, confirm_sufficient_pos)
@@ -316,7 +302,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
 	node1.active.start (block1);
 	auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, block1));
 	nano::confirm_ack con1 (vote);
-	node1.process_message (con1, node1.network.endpoint ());
+	node1.process_message (con1, node1.network.udp_channels.create (node1.network.endpoint ()));
 }
 
 TEST (receivable_processor, send_with_receive)
@@ -785,7 +771,7 @@ TEST (bootstrap_processor, lazy_hash)
 	system.nodes[0]->block_processor.flush ();
 	// Start lazy bootstrap with last block in chain known
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
-	node1->peers.insert (system.nodes[0]->network.endpoint (), nano::protocol_version);
+	node1->network.udp_channels.insert (system.nodes[0]->network.endpoint (), nano::protocol_version);
 	node1->bootstrap_initiator.bootstrap_lazy (receive2->hash ());
 	// Check processed blocks
 	system.deadline_set (10s);
@@ -822,7 +808,7 @@ TEST (bootstrap_processor, lazy_max_pull_count)
 	system.nodes[0]->block_processor.flush ();
 	// Start lazy bootstrap with last block in chain known
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
-	node1->peers.insert (system.nodes[0]->network.endpoint (), nano::protocol_version);
+	node1->network.udp_channels.insert (system.nodes[0]->network.endpoint (), nano::protocol_version);
 	node1->bootstrap_initiator.bootstrap_lazy (change3->hash ());
 	// Check processed blocks
 	system.deadline_set (10s);
@@ -853,7 +839,7 @@ TEST (bootstrap_processor, wallet_lazy_frontier)
 	system.nodes[0]->block_processor.flush ();
 	// Start wallet lazy bootstrap
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
-	node1->peers.insert (system.nodes[0]->network.endpoint (), nano::protocol_version);
+	node1->network.udp_channels.insert (system.nodes[0]->network.endpoint (), nano::protocol_version);
 	auto wallet (node1->wallets.create (nano::uint256_union ()));
 	ASSERT_NE (nullptr, wallet);
 	wallet->insert_adhoc (key2.prv);
@@ -885,7 +871,7 @@ TEST (bootstrap_processor, wallet_lazy_pending)
 	system.nodes[0]->block_processor.flush ();
 	// Start wallet lazy bootstrap
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
-	node1->peers.insert (system.nodes[0]->network.endpoint (), nano::protocol_version);
+	node1->network.udp_channels.insert (system.nodes[0]->network.endpoint (), nano::protocol_version);
 	auto wallet (node1->wallets.create (nano::uint256_union ()));
 	ASSERT_NE (nullptr, wallet);
 	wallet->insert_adhoc (key2.prv);
@@ -1167,13 +1153,13 @@ TEST (network, endpoint_bad_fd)
 
 TEST (network, reserved_address)
 {
-	ASSERT_FALSE (nano::reserved_address (nano::endpoint (boost::asio::ip::address_v6::from_string ("2001::"), 0), true));
+	nano::system system (24000, 1);
+	ASSERT_FALSE (system.nodes[0]->network.udp_channels.reserved_address (nano::endpoint (boost::asio::ip::address_v6::from_string ("2001::"), 0)));
 	nano::endpoint loopback (boost::asio::ip::address_v6::from_string ("::1"), 1);
-	ASSERT_FALSE (nano::reserved_address (loopback, false));
-	ASSERT_FALSE (nano::reserved_address (loopback, true));
+	ASSERT_FALSE (system.nodes[0]->network.udp_channels.reserved_address (loopback));
 	nano::endpoint private_network_peer (boost::asio::ip::address_v6::from_string ("::ffff:10.0.0.0"), 1);
-	ASSERT_TRUE (nano::reserved_address (private_network_peer, false));
-	ASSERT_FALSE (nano::reserved_address (private_network_peer, true));
+	ASSERT_TRUE (system.nodes[0]->network.udp_channels.reserved_address (private_network_peer, false));
+	ASSERT_FALSE (system.nodes[0]->network.udp_channels.reserved_address (private_network_peer, true));
 }
 
 TEST (node, port_mapping)

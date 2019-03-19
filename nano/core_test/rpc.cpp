@@ -436,7 +436,6 @@ TEST (rpc, stop)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	};
-	ASSERT_FALSE (system.nodes[0]->network.socket.is_open ());
 }
 
 TEST (rpc, wallet_add)
@@ -1521,7 +1520,7 @@ TEST (rpc, keepalive)
 	auto port (boost::str (boost::format ("%1%") % node1->network.endpoint ().port ()));
 	request.put ("address", address);
 	request.put ("port", port);
-	ASSERT_FALSE (system.nodes[0]->peers.known_peer (node1->network.endpoint ()));
+	ASSERT_EQ (nullptr, system.nodes[0]->network.udp_channels.channel (node1->network.endpoint ()));
 	ASSERT_EQ (0, system.nodes[0]->network.size ());
 	test_response response (request, rpc, system.io_ctx);
 	system.deadline_set (5s);
@@ -1531,7 +1530,7 @@ TEST (rpc, keepalive)
 	}
 	ASSERT_EQ (200, response.status);
 	system.deadline_set (10s);
-	while (!system.nodes[0]->peers.known_peer (node1->network.endpoint ()))
+	while (system.nodes[0]->network.udp_channels.channel (node1->network.endpoint ()) == nullptr)
 	{
 		ASSERT_EQ (0, system.nodes[0]->network.size ());
 		ASSERT_NO_ERROR (system.poll ());
@@ -1804,7 +1803,7 @@ TEST (rpc, peers)
 {
 	nano::system system (24000, 2);
 	nano::endpoint endpoint (boost::asio::ip::address_v6::from_string ("fc00::1"), 4000);
-	system.nodes[0]->peers.insert (endpoint, nano::protocol_version, system.nodes[0]->config.allow_local_peers);
+	system.nodes[0]->network.udp_channels.insert (endpoint, nano::protocol_version);
 	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -1818,18 +1817,18 @@ TEST (rpc, peers)
 	ASSERT_EQ (200, response.status);
 	auto & peers_node (response.json.get_child ("peers"));
 	ASSERT_EQ (2, peers_node.size ());
-	ASSERT_EQ (std::to_string (nano::protocol_version), peers_node.get<std::string> ("[::1]:24001"));
+	ASSERT_EQ (std::to_string (nano::protocol_version), peers_node.get<std::string> ("UDP: [::1]:24001"));
 	// Previously "[::ffff:80.80.80.80]:4000", but IPv4 address cause "No such node thrown in the test body" issue with peers_node.get
 	std::stringstream endpoint_text;
 	endpoint_text << endpoint;
-	ASSERT_EQ (std::to_string (nano::protocol_version), peers_node.get<std::string> (endpoint_text.str ()));
+	ASSERT_EQ (std::to_string (nano::protocol_version), peers_node.get<std::string> ("UDP: " + endpoint_text.str ()));
 }
 
 TEST (rpc, peers_node_id)
 {
 	nano::system system (24000, 2);
 	nano::endpoint endpoint (boost::asio::ip::address_v6::from_string ("fc00::1"), 4000);
-	system.nodes[0]->peers.insert (endpoint, nano::protocol_version, system.nodes[0]->config.allow_local_peers);
+	system.nodes[0]->network.udp_channels.insert (endpoint, nano::protocol_version);
 	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -1844,12 +1843,12 @@ TEST (rpc, peers_node_id)
 	ASSERT_EQ (200, response.status);
 	auto & peers_node (response.json.get_child ("peers"));
 	ASSERT_EQ (2, peers_node.size ());
-	auto tree1 (peers_node.get_child ("[::1]:24001"));
+	auto tree1 (peers_node.get_child ("UDP: [::1]:24001"));
 	ASSERT_EQ (std::to_string (nano::protocol_version), tree1.get<std::string> ("protocol_version"));
 	ASSERT_EQ (system.nodes[1]->node_id.pub.to_account (), tree1.get<std::string> ("node_id"));
 	std::stringstream endpoint_text;
 	endpoint_text << endpoint;
-	auto tree2 (peers_node.get_child (endpoint_text.str ()));
+	auto tree2 (peers_node.get_child ("UDP: " + endpoint_text.str ()));
 	ASSERT_EQ (std::to_string (nano::protocol_version), tree2.get<std::string> ("protocol_version"));
 	ASSERT_EQ ("", tree2.get<std::string> ("node_id"));
 }
