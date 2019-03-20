@@ -772,6 +772,8 @@ void nano::rpc_handler::accounts_pending ()
 	auto threshold (threshold_optional_impl ());
 	const bool source = request.get<bool> ("source", false);
 	const bool include_active = request.get<bool> ("include_active", false);
+	const bool sorting = request.get<bool> ("sorting", false);
+	auto simple (threshold.is_zero () && !source && !sorting); // if simple, response is a list of hashes for each account
 	boost::property_tree::ptree pending;
 	auto transaction (node.store.tx_begin_read ());
 	for (auto & accounts : request.get_child ("accounts"))
@@ -785,7 +787,7 @@ void nano::rpc_handler::accounts_pending ()
 				nano::pending_key key (i->first);
 				if (include_active || node.ledger.block_confirmed (transaction, key.hash))
 				{
-					if (threshold.is_zero () && !source)
+					if (simple)
 					{
 						boost::property_tree::ptree entry;
 						entry.put ("", key.hash.to_string ());
@@ -809,6 +811,21 @@ void nano::rpc_handler::accounts_pending ()
 							}
 						}
 					}
+				}
+			}
+			if (sorting && !simple)
+			{
+				if (source)
+				{
+					peers_l.sort ([](const auto & child1, const auto & child2) -> bool {
+						return child1.second.template get<nano::uint128_t> ("amount") > child2.second.template get<nano::uint128_t> ("amount");
+					});
+				}
+				else
+				{
+					peers_l.sort ([](const auto & child1, const auto & child2) -> bool {
+						return child1.second.template get<nano::uint128_t> ("") > child2.second.template get<nano::uint128_t> ("");
+					});
 				}
 			}
 			pending.add_child (account.to_account (), peers_l);
@@ -1682,7 +1699,7 @@ void nano::rpc_handler::confirmation_quorum ()
 		{
 			boost::property_tree::ptree peer_node;
 			peer_node.put ("account", peer.account.to_account ());
-			peer_node.put ("ip", peer.endpoint.address ().to_string ());
+			peer_node.put ("ip", peer.channel->to_string ());
 			peer_node.put ("weight", peer.weight.to_string_dec ());
 			peers.push_back (std::make_pair ("", peer_node));
 		}
@@ -1796,17 +1813,22 @@ namespace
 class history_visitor : public nano::block_visitor
 {
 public:
-	history_visitor (nano::rpc_handler & handler_a, bool raw_a, nano::transaction & transaction_a, boost::property_tree::ptree & tree_a, nano::block_hash const & hash_a) :
+	history_visitor (nano::rpc_handler & handler_a, bool raw_a, nano::transaction & transaction_a, boost::property_tree::ptree & tree_a, nano::block_hash const & hash_a, std::vector<nano::public_key> const & accounts_filter_a = {}) :
 	handler (handler_a),
 	raw (raw_a),
 	transaction (transaction_a),
 	tree (tree_a),
-	hash (hash_a)
+	hash (hash_a),
+	accounts_filter (accounts_filter_a)
 	{
 	}
 	virtual ~history_visitor () = default;
 	void send_block (nano::send_block const & block_a)
 	{
+		if (should_ignore_account (block_a.hashables.destination))
+		{
+			return;
+		}
 		tree.put ("type", "send");
 		auto account (block_a.hashables.destination.to_account ());
 		tree.put ("account", account);
@@ -1821,6 +1843,10 @@ public:
 	}
 	void receive_block (nano::receive_block const & block_a)
 	{
+		if (should_ignore_account (block_a.hashables.source))
+		{
+			return;
+		}
 		tree.put ("type", "receive");
 		auto account (handler.node.ledger.account (transaction, block_a.hashables.source).to_account ());
 		tree.put ("account", account);
@@ -1834,6 +1860,10 @@ public:
 	}
 	void open_block (nano::open_block const & block_a)
 	{
+		if (should_ignore_account (block_a.hashables.source))
+		{
+			return;
+		}
 		if (raw)
 		{
 			tree.put ("type", "open");
@@ -1859,7 +1889,7 @@ public:
 	}
 	void change_block (nano::change_block const & block_a)
 	{
-		if (raw)
+		if (raw && accounts_filter.empty ())
 		{
 			tree.put ("type", "change");
 			tree.put ("representative", block_a.hashables.representative.to_account ());
@@ -1880,6 +1910,11 @@ public:
 		auto previous_balance (handler.node.ledger.balance (transaction, block_a.hashables.previous));
 		if (balance < previous_balance)
 		{
+			if (should_ignore_account (block_a.hashables.link))
+			{
+				tree.clear ();
+				return;
+			}
 			if (raw)
 			{
 				tree.put ("subtype", "send");
@@ -1895,14 +1930,14 @@ public:
 		{
 			if (block_a.hashables.link.is_zero ())
 			{
-				if (raw)
+				if (raw && accounts_filter.empty ())
 				{
 					tree.put ("subtype", "change");
 				}
 			}
 			else if (balance == previous_balance && !handler.node.ledger.epoch_link.is_zero () && handler.node.ledger.is_epoch_link (block_a.hashables.link))
 			{
-				if (raw)
+				if (raw && accounts_filter.empty ())
 				{
 					tree.put ("subtype", "epoch");
 					tree.put ("account", handler.node.ledger.epoch_signer.to_account ());
@@ -1910,6 +1945,11 @@ public:
 			}
 			else
 			{
+				if (should_ignore_account (block_a.hashables.link))
+				{
+					tree.clear ();
+					return;
+				}
 				if (raw)
 				{
 					tree.put ("subtype", "receive");
@@ -1923,22 +1963,57 @@ public:
 			}
 		}
 	}
+	bool should_ignore_account (nano::public_key const & account)
+	{
+		bool ignore (false);
+		if (!accounts_filter.empty ())
+		{
+			if (std::find (accounts_filter.begin (), accounts_filter.end (), account) == accounts_filter.end ())
+			{
+				ignore = true;
+			}
+		}
+		return ignore;
+	}
 	nano::rpc_handler & handler;
 	bool raw;
 	nano::transaction & transaction;
 	boost::property_tree::ptree & tree;
 	nano::block_hash const & hash;
 	nano::network_params network_params;
+	std::vector<nano::public_key> const & accounts_filter;
 };
 }
 
 void nano::rpc_handler::account_history ()
 {
+	std::vector<nano::public_key> accounts_to_filter;
+	const auto accounts_filter_node = request.get_child_optional ("account_filter");
+	if (accounts_filter_node.is_initialized ())
+	{
+		for (auto & a : (*accounts_filter_node))
+		{
+			nano::public_key account;
+			auto error (account.decode_account (a.second.get<std::string> ("")));
+			if (!error)
+			{
+				accounts_to_filter.push_back (account);
+			}
+			else
+			{
+				ec = nano::error_common::bad_account_number;
+				break;
+			}
+		}
+	}
 	nano::account account;
-	bool output_raw (request.get_optional<bool> ("raw") == true);
 	nano::block_hash hash;
+	bool output_raw (request.get_optional<bool> ("raw") == true);
+	bool reverse (request.get_optional<bool> ("reverse") == true);
 	auto head_str (request.get_optional<std::string> ("head"));
 	auto transaction (node.store.tx_begin_read ());
+	auto count (count_impl ());
+	auto offset (offset_optional_impl (0));
 	if (head_str)
 	{
 		if (!hash.decode_hex (*head_str))
@@ -1962,11 +2037,24 @@ void nano::rpc_handler::account_history ()
 		account = account_impl ();
 		if (!ec)
 		{
-			hash = node.ledger.latest (transaction, account);
+			if (reverse)
+			{
+				nano::account_info info;
+				if (!node.store.account_get (transaction, account, info))
+				{
+					hash = info.open_block;
+				}
+				else
+				{
+					ec = nano::error_common::account_not_found;
+				}
+			}
+			else
+			{
+				hash = node.ledger.latest (transaction, account);
+			}
 		}
 	}
-	auto count (count_impl ());
-	auto offset (offset_optional_impl (0));
 	if (!ec)
 	{
 		boost::property_tree::ptree history;
@@ -1982,11 +2070,12 @@ void nano::rpc_handler::account_history ()
 			else
 			{
 				boost::property_tree::ptree entry;
-				history_visitor visitor (*this, output_raw, transaction, entry, hash);
+				history_visitor visitor (*this, output_raw, transaction, entry, hash, accounts_to_filter);
 				block->visit (visitor);
 				if (!entry.empty ())
 				{
 					entry.put ("local_timestamp", std::to_string (sideband.timestamp));
+					entry.put ("height", std::to_string (sideband.height));
 					entry.put ("hash", hash.to_string ());
 					if (output_raw)
 					{
@@ -1997,13 +2086,13 @@ void nano::rpc_handler::account_history ()
 					--count;
 				}
 			}
-			hash = block->previous ();
+			hash = reverse ? node.store.block_successor (transaction, hash) : block->previous ();
 			block = node.store.block_get (transaction, hash, &sideband);
 		}
 		response_l.add_child ("history", history);
 		if (!hash.is_zero ())
 		{
-			response_l.put ("previous", hash.to_string ());
+			response_l.put (reverse ? "next" : "previous", hash.to_string ());
 		}
 	}
 	response_errors ();
@@ -2293,19 +2382,20 @@ void nano::rpc_handler::peers ()
 {
 	boost::property_tree::ptree peers_l;
 	const bool peer_details = request.get<bool> ("peer_details", false);
-	auto peers_list (node.peers.list_vector (std::numeric_limits<size_t>::max ()));
+	auto peers_list (node.network.udp_channels.list (std::numeric_limits<size_t>::max ()));
 	std::sort (peers_list.begin (), peers_list.end ());
 	for (auto i (peers_list.begin ()), n (peers_list.end ()); i != n; ++i)
 	{
 		std::stringstream text;
-		text << i->endpoint;
+		auto channel (*i);
+		text << channel->to_string ();
 		if (peer_details)
 		{
 			boost::property_tree::ptree pending_tree;
-			pending_tree.put ("protocol_version", std::to_string (i->network_version));
-			if (i->node_id.is_initialized ())
+			pending_tree.put ("protocol_version", std::to_string (channel->network_version));
+			if ((*i)->node_id.is_initialized ())
 			{
-				pending_tree.put ("node_id", i->node_id.get ().to_account ());
+				pending_tree.put ("node_id", channel->node_id.get ().to_account ());
 			}
 			else
 			{
@@ -2315,7 +2405,7 @@ void nano::rpc_handler::peers ()
 		}
 		else
 		{
-			peers_l.push_back (boost::property_tree::ptree::value_type (text.str (), boost::property_tree::ptree (std::to_string (i->network_version))));
+			peers_l.push_back (boost::property_tree::ptree::value_type (text.str (), boost::property_tree::ptree (std::to_string (channel->network_version))));
 		}
 	}
 	response_l.add_child ("peers", peers_l);

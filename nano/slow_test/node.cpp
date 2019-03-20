@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 #include <nano/core_test/testutil.hpp>
 #include <nano/node/testing.hpp>
+#include <nano/node/transport/udp.hpp>
+
 #include <thread>
 
 TEST (system, generate_mass_activity)
@@ -47,7 +49,8 @@ TEST (system, receive_while_synchronizing)
 		nano::node_init init1;
 		auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 		ASSERT_FALSE (init1.error ());
-		node1->network.send_keepalive (system.nodes[0]->network.endpoint ());
+		nano::transport::channel_udp channel (node1->network.udp_channels, system.nodes[0]->network.endpoint ());
+		node1->network.send_keepalive (channel);
 		auto wallet (node1->wallets.create (1));
 		ASSERT_EQ (key.pub, wallet->insert_adhoc (key.prv));
 		node1->start ();
@@ -359,20 +362,12 @@ TEST (broadcast, sqrt_broadcast_simulate)
 TEST (peer_container, random_set)
 {
 	auto loopback (boost::asio::ip::address_v6::loopback ());
-	nano::peer_container container (nano::endpoint (loopback, 24000));
-	for (auto i (0); i < 200; ++i)
-	{
-		container.contacted (nano::endpoint (loopback, 24001 + i), 0);
-	}
+	nano::system system (24000, 1);
 	auto old (std::chrono::steady_clock::now ());
-	for (auto i (0); i < 10000; ++i)
-	{
-		auto list (container.list_fanout ());
-	}
 	auto current (std::chrono::steady_clock::now ());
 	for (auto i (0); i < 10000; ++i)
 	{
-		auto list (container.random_set (15));
+		auto list (system.nodes[0]->network.udp_channels.random_set (15));
 	}
 	auto end (std::chrono::steady_clock::now ());
 	(void)end;
@@ -405,7 +400,7 @@ TEST (store, vote_load)
 	for (auto i (0); i < 1000000; ++i)
 	{
 		auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, i, block));
-		node.vote_processor.vote (vote, system.nodes[0]->network.endpoint ());
+		node.vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, system.nodes[0]->network.endpoint ()));
 	}
 }
 
