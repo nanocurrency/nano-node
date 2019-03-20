@@ -1,50 +1,56 @@
 language: cpp
 
-matrix:
+stages:
+  - test
+  - deploy
+jobs:
   include:
-    - os: linux
+    - stage: test
+      name: "GCC + ONE_TIME_TESTS"      
+      os: linux
+      compiler: gcc
       dist: trusty
       sudo: required
       env: 
         - ONE_TIME_TESTS=true
-        - secure: "jYlg5yC8plC4zbV4sCt8BNXEHOgvF4tydJbbUsyPvmWqIKU4rScQOKvN4euDUa1UFc9dz7UxNahGuyEGQAWjG2jmvdgDG97+ImXOZa/kRnCsyJX/3R+k6dQZ/8MN9Ax6FOpXfOoHxHOZLBzE5PBIbaeF+Okcw9ks6eawXZDu2JLckGDxLDWXTz6x+NbZLE2wlm7UI9aladZBsAR/KHlYH3ms+xgZAxcrzZ2p2BFfhHpnplOYcNhivpLn0BP66DZ6/7HtpPYkfXmqTCZZ0HkxzJ2ayZ9PuvbVXL/cHXCxRJCNweRQsPYsdowzv+k/J74X2yN0jNCsSbWU619MXxzBPJGmTq20iSvEYvX0I+uEP1PCocP7PWfvfkjlj5Ts5vPJcpBZeAUgl1yjPxA4NrwRQ7iJni14VrK8dSxjQvubV/zyK2ey2vUU7e8nOpzqw/66UPDQmvDe7byadgHIacSG55ge7zZIeI6AeK1QGh5nRnLWaMMqb0drT7ZaM6BS7iwRTBVBzw2ZjKV67MRRU0O7PY+jsNx8JG58ycXqKvP4hB6tKEV+8YMSdSDl/f06FFZJT96p4sCQmUaVecXokzTyfq7ugFgWuiRRwRqcH/wi3LMLHY7JseHBw9S8bJ98dOFEcoZCUoviwnxNSXOqA3tXGudduQh4KsCDYDUKJNzDtAo="
-      services:
-        - docker
       addons:
         apt:
           packages:
             - doxygen
-    - os: osx
-
-compiler:
-  - clang
+      before_install:
+        - sudo mkdir -p /etc/docker && echo '{"ipv6":true,"fixed-cidr-v6":"2001:db8:1::/64"}' | sudo tee /etc/docker/daemon.json && sudo service docker restart;
+        - ci/build-docker-image.sh docker/ci/Dockerfile-gcc nanocurrency/nano-ci-gcc;
+    - name: "clang"
+      os: linux
+      compiler: clang
+      dist: trusty
+      sudo: required
+      before_install:
+        - sudo mkdir -p /etc/docker && echo '{"ipv6":true,"fixed-cidr-v6":"2001:db8:1::/64"}' | sudo tee /etc/docker/daemon.json && sudo service docker restart;
+        - ci/build-docker-image.sh docker/ci/Dockerfile-clang nanocurrency/nano-ci-clang;
+    - name: "osx"
+      os: osx
+      compiler: clang
+      before_install:
+        - brew update && brew install qt5 && brew cask install xquartz && brew install rust;
+      install:
+        - brew install ccache;
+        - export PATH="/usr/local/opt/ccache/libexec:$PATH";
+    - stage: deploy
+      script: 
+        - if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi
+      env: 
+        - secure: "jYlg5yC8plC4zbV4sCt8BNXEHOgvF4tydJbbUsyPvmWqIKU4rScQOKvN4euDUa1UFc9dz7UxNahGuyEGQAWjG2jmvdgDG97+ImXOZa/kRnCsyJX/3R+k6dQZ/8MN9Ax6FOpXfOoHxHOZLBzE5PBIbaeF+Okcw9ks6eawXZDu2JLckGDxLDWXTz6x+NbZLE2wlm7UI9aladZBsAR/KHlYH3ms+xgZAxcrzZ2p2BFfhHpnplOYcNhivpLn0BP66DZ6/7HtpPYkfXmqTCZZ0HkxzJ2ayZ9PuvbVXL/cHXCxRJCNweRQsPYsdowzv+k/J74X2yN0jNCsSbWU619MXxzBPJGmTq20iSvEYvX0I+uEP1PCocP7PWfvfkjlj5Ts5vPJcpBZeAUgl1yjPxA4NrwRQ7iJni14VrK8dSxjQvubV/zyK2ey2vUU7e8nOpzqw/66UPDQmvDe7byadgHIacSG55ge7zZIeI6AeK1QGh5nRnLWaMMqb0drT7ZaM6BS7iwRTBVBzw2ZjKV67MRRU0O7PY+jsNx8JG58ycXqKvP4hB6tKEV+8YMSdSDl/f06FFZJT96p4sCQmUaVecXokzTyfq7ugFgWuiRRwRqcH/wi3LMLHY7JseHBw9S8bJ98dOFEcoZCUoviwnxNSXOqA3tXGudduQh4KsCDYDUKJNzDtAo="
 
 cache:
   - ccache: true
   - directories:
-      - $HOME/Library/Caches/Homebrew
-      - $HOME/.cargo
-      - $TRAVIS_BUILD_DIR/load-tester/target
-
-before_install:
-  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew update && brew install qt5 && brew cask install xquartz && brew install rust; fi
-  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then sudo mkdir -p /etc/docker && echo '{"ipv6":true,"fixed-cidr-v6":"2001:db8:1::/64"}' | sudo tee /etc/docker/daemon.json && sudo service docker restart; fi
-  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then ci/build-docker-image.sh docker/ci/Dockerfile nanocurrency/nano-ci; fi
-
-install:
-  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew install ccache; fi
-  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then export PATH="/usr/local/opt/ccache/libexec:$PATH"; fi
+    - $HOME/Library/Caches/Homebrew
+    - $HOME/.cargo
+    - $TRAVIS_BUILD_DIR/load-tester/target
 
 script:
   - if [ -n "$ONE_TIME_TESTS" ]; then ci/check-commit-format.sh; fi
   - if [ -n "$ONE_TIME_TESTS" ]; then doxygen doxygen.config; fi # TODO also deploy the built HTML
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ci/build-travis.sh "/usr/local/opt/qt5/lib/cmake/Qt5"; fi
-  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then docker run -v $TRAVIS_BUILD_DIR:/workspace -v $HOME/.ccache:/ccache -v $HOME/.cargo:/cargo nanocurrency/nano-ci /bin/bash -c "apt install ccache; cd /workspace && ASAN=${ASAN} TSAN=${TSAN} CCACHE_DIR=/ccache CARGO_HOME=/cargo ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"; fi
-
-deploy:
-  provider: script
-  skip_cleanup: true
-  script: ci/deploy-docker.sh
-  on:
-    all_branches: true
-    condition: -n "$ONE_TIME_TESTS"
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then docker run -v $TRAVIS_BUILD_DIR:/workspace -v $HOME/.ccache:/ccache -v $HOME/.cargo:/cargo nanocurrency/nano-ci-$TRAVIS_COMPILER /bin/bash -c "apt install ccache; cd /workspace && ASAN=${ASAN} TSAN=${TSAN} CCACHE_DIR=/ccache CARGO_HOME=/cargo ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"; fi

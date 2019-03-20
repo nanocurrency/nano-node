@@ -1,0 +1,37 @@
+FROM ubuntu:16.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update -qq && apt-get install -yqq \
+    build-essential \
+    cmake \
+    g++ \
+    wget \
+    python \
+    software-properties-common
+
+RUN wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
+
+run apt-add-repository "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-7 main"
+
+ENV BOOST_ROOT=/usr/local
+ADD util/build_prep/bootstrap_boost.sh bootstrap_boost.sh
+RUN apt-get update -qq && apt-get install -yqq \
+    clang-7 lldb-7 lld-7 libc++-7-dev libc++abi-7-dev 
+
+RUN update-alternatives --install /usr/bin/cc cc /usr/bin/clang-7 100
+RUN update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++-7 100
+RUN ln -s /usr/bin/clang-7 /usr/bin/clang
+RUN ln -s /usr/bin/clang++-7 /usr/bin/clang++
+ENV CXX=clang++
+ENV CC=clang
+RUN ./bootstrap_boost.sh -m -c -B 1.69
+
+RUN rm bootstrap_boost.sh
+
+RUN apt-get update -qq && apt-get install -yqq \
+    qt5-default \
+    valgrind \
+    xorg xvfb xauth xfonts-100dpi xfonts-75dpi xfonts-scalable xfonts-cyrillic \
+    cargo
+
