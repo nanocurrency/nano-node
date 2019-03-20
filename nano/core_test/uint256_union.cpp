@@ -153,6 +153,10 @@ TEST (uint128_union, decode_decimal)
 	ASSERT_EQ (nano::uint128_t ("170141183460469231731687303715884105727"), amount.number ());
 	ASSERT_FALSE (amount.decode_dec ("2.000000000000000000000002", nano::xrb_ratio));
 	ASSERT_EQ (2 * nano::xrb_ratio + 2, amount.number ());
+	ASSERT_FALSE (amount.decode_dec ("2", nano::xrb_ratio));
+	ASSERT_EQ (2 * nano::xrb_ratio, amount.number ());
+	ASSERT_FALSE (amount.decode_dec ("1230", nano::Gxrb_ratio));
+	ASSERT_EQ (1230 * nano::Gxrb_ratio, amount.number ());
 }
 
 TEST (unions, identity)
