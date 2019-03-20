@@ -4300,7 +4300,7 @@ void nano::rpc_handler::work_cancel ()
 	auto hash (hash_impl ());
 	if (!ec)
 	{
-		node.work.cancel (hash);
+		node.work.cancel (node.network_params.is_live_network () ? hash : hash ^ node.network_params.ledger.genesis_account);
 	}
 	response_errors ();
 }

@@ -9,6 +9,10 @@ bool nano::work_validate (nano::block_hash const & root_a, uint64_t work_a, uint
 {
 	static nano::network_params network_params;
 	auto value (nano::work_value (root_a, work_a));
+	if (!network_params.is_live_network () && value < network_params.publish_threshold)
+	{
+		value = nano::work_value (root_a ^ network_params.ledger.genesis_account, work_a);
+	}
 	if (difficulty_a != nullptr)
 	{
 		*difficulty_a = value;
@@ -173,13 +177,13 @@ void nano::work_pool::generate (nano::uint256_union const & root_a, std::functio
 	boost::optional<uint64_t> result;
 	if (opencl)
 	{
-		result = opencl (root_a, difficulty_a);
+		result = opencl (network_params.is_live_network () ? root_a : root_a ^ network_params.ledger.genesis_account, difficulty_a);
 	}
 	if (!result)
 	{
 		{
 			std::lock_guard<std::mutex> lock (mutex);
-			pending.push_back ({ root_a, callback_a, difficulty_a });
+			pending.push_back ({ network_params.is_live_network () ? root_a : root_a ^ network_params.ledger.genesis_account, callback_a, difficulty_a });
 		}
 		producer_condition.notify_all ();
 	}

@@ -39,7 +39,7 @@ TEST (work, cancel)
 		pool.generate (key, [&done](boost::optional<uint64_t> work_a) {
 			done = !work_a;
 		});
-		pool.cancel (key);
+		pool.cancel (pool.network_params.is_live_network () ? key : key ^ pool.network_params.ledger.genesis_account);
 		++iterations;
 		ASSERT_LT (iterations, 200);
 	}
