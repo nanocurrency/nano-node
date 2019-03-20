@@ -564,7 +564,6 @@ bool nano::uint128_union::decode_dec (std::string const & text, bool decimal)
 	return error;
 }
 
-
 bool nano::uint128_union::decode_dec (std::string const & text, nano::uint128_t scale)
 {
 	bool error (text.size () > 40 || (!text.empty () && text.front () == '-'));
@@ -581,10 +580,11 @@ bool nano::uint128_union::decode_dec (std::string const & text, nano::uint128_t 
 				// Overflow check
 				try
 				{
-					error = ((boost::multiprecision::checked_uint128_t (result.number ()) * scale) > std::numeric_limits<nano::uint128_t>::max ());
+					auto result (boost::multiprecision::checked_uint128_t (result.number ()) * scale);
+					error = (result > std::numeric_limits<nano::uint128_t>::max ());
 					if (!error)
 					{
-						*this = result;
+						*this = nano::uint128_t (result);
 					}
 				}
 				catch (std::overflow_error &)
