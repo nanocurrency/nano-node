@@ -580,7 +580,7 @@ bool nano::uint128_union::decode_dec (std::string const & text, nano::uint128_t 
 				// Overflow check
 				try
 				{
-					auto result (boost::multiprecision::checked_uint128_t (integer.number ()) * scale);
+					auto result (boost::multiprecision::checked_uint128_t (integer.number ()) * boost::multiprecision::checked_uint128_t (scale));
 					error = (result > std::numeric_limits<nano::uint128_t>::max ());
 					if (!error)
 					{
@@ -603,7 +603,7 @@ bool nano::uint128_union::decode_dec (std::string const & text, nano::uint128_t 
 				// Overflow check
 				try
 				{
-					error = ((boost::multiprecision::checked_uint128_t (integer_part.number ()) * scale) > std::numeric_limits<nano::uint128_t>::max ());
+					error = ((boost::multiprecision::checked_uint128_t (integer_part.number ()) * boost::multiprecision::checked_uint128_t (scale)) > std::numeric_limits<nano::uint128_t>::max ());
 				}
 				catch (std::overflow_error &)
 				{
