@@ -573,14 +573,14 @@ bool nano::uint128_union::decode_dec (std::string const & text, nano::uint128_t 
 		auto delimiter_position (text.find (decimal_point));
 		if (delimiter_position == std::string::npos)
 		{
-			nano::uint128_union result;
-			error = result.decode_dec (text);
+			nano::uint128_union integer;
+			error = integer.decode_dec (text);
 			if (!error)
 			{
 				// Overflow check
 				try
 				{
-					auto result (boost::multiprecision::checked_uint128_t (result.number ()) * scale);
+					auto result (boost::multiprecision::checked_uint128_t (integer.number ()) * scale);
 					error = (result > std::numeric_limits<nano::uint128_t>::max ());
 					if (!error)
 					{
