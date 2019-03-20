@@ -2126,40 +2126,6 @@ void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 	}
 }
 
-void nano::node::confirm_frontiers ()
-{
-	// Limit maximum count of elections to start. max_broadcast_queue for regular nodes, x10 for representatives
-	bool representative (config.enable_voting && wallets.reps_count > 0);
-	size_t max_elections (representative ? active.max_broadcast_queue * 10 : active.max_broadcast_queue);
-	size_t elections_count (0);
-	auto transaction (store.tx_begin_read ());
-	for (auto i (store.latest_begin (transaction)), n (store.latest_end ()); i != n; ++i)
-	{
-		nano::account_info info (i->second);
-		if (info.block_count != info.confirmation_height)
-		{
-			if (elections_count < max_elections)
-			{
-				auto block (store.block_get (transaction, info.head));
-				if (!active.start (block))
-				{
-					++elections_count;
-					// Calculate votes for local representatives
-					if (representative)
-					{
-						block_processor.generator.add (block->hash ());
-					}
-				}
-			}
-			else
-			{
-				active.push_pending_election (info.head);
-			}
-		}
-	}
-	confirm_frontiers_first_call = false;
-}
-
 nano::uint128_t nano::node::delta ()
 {
 	auto result ((online_reps.online_stake () / 100) * config.online_weight_quorum);
@@ -2761,6 +2727,45 @@ size_t nano::election::last_votes_size ()
 	return last_votes.size ();
 }
 
+void nano::active_transactions::confirm_frontiers ()
+{
+	// Limit maximum count of elections to start
+	bool representative (node.config.enable_voting && node.wallets.reps_count > 0);
+	/* Check less frequently for non-representative nodes and if previous checks show no unconfirmed frontiers
+	~15 minutes for non-representative nodes, 3.5 minutes for representatives
+	4 times slower if previously all frontiers were confirmed */
+	if (request_confirm_iteration % ((60 - (45 * representative)) * (3 * last_frontier_account.is_zero () + 1)) == 0)
+	{
+		size_t max_elections (max_broadcast_queue / 4);
+		size_t elections_count (0);
+		auto transaction (node.store.tx_begin_read ());
+		for (auto i (node.store.latest_begin (transaction, last_frontier_account)), n (node.store.latest_end ()); i != n && elections_count < max_elections; ++i)
+		{
+			nano::account_info info (i->second);
+			if (info.block_count != info.confirmation_height)
+			{
+				auto block (node.store.block_get (transaction, info.head));
+				if (!start (block))
+				{
+					++elections_count;
+					// Calculate votes for local representatives
+					if (representative)
+					{
+						node.block_processor.generator.add (block->hash ());
+					}
+				}
+				// Update last account
+				last_frontier_account = i->first;
+			}
+		}
+		// Update last account if all frontiers checked
+		if (elections_count <= max_elections)
+		{
+			last_frontier_account = 0;
+		}
+	}
+}
+
 void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & lock_a)
 {
 	std::unordered_set<nano::uint512_union> inactive;
@@ -2955,6 +2960,8 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 	{
 		node.network.broadcast_confirm_req_batch (confirm_req_bundle);
 	}
+	// Confirm frontiers
+	confirm_frontiers ();
 	lock_a.lock ();
 	// Erase inactive elections
 	for (auto i (inactive.begin ()), n (inactive.end ()); i != n; ++i)
@@ -2969,21 +2976,11 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 		}
 		roots.erase (*i);
 	}
-	// Start elections from pending
-	for (size_t i (0), n (inactive.size ()); i != n && !pending_elections.empty () && roots.size () < max_broadcast_queue; ++i)
-	{
-		auto pending_election (pending_elections.begin ());
-		if (blocks.find (*pending_election) == blocks.end () && !node.ledger.block_confirmed (transaction, *pending_election))
-		{
-			auto block (node.store.block_get (transaction, *pending_election));
-			add (block);
-		}
-		pending_elections.erase (pending_election);
-	}
 	if (unconfirmed_count > 0)
 	{
 		node.logger.try_log (boost::str (boost::format ("%1% blocks have been unconfirmed averaging %2% announcements") % unconfirmed_count % (unconfirmed_announcements / unconfirmed_count)));
 	}
+	++request_confirm_iteration;
 }
 
 void nano::active_transactions::request_loop ()
@@ -3204,15 +3201,6 @@ void nano::active_transactions::confirm_block (nano::block_hash const & hash_a)
 	}
 }
 
-void nano::active_transactions::push_pending_election (nano::block_hash const & hash_a)
-{
-	std::lock_guard<std::mutex> lock (mutex);
-	if (blocks.find (hash_a) == blocks.end () && pending_elections.find (hash_a) == pending_elections.end ())
-	{
-		pending_elections.insert (hash_a);
-	}
-}
-
 namespace nano
 {
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transactions & active_transactions, const std::string & name)
@@ -3220,21 +3208,18 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transaction
 	size_t roots_count = 0;
 	size_t blocks_count = 0;
 	size_t confirmed_count = 0;
-	size_t pending_elections_count = 0;
 
 	{
 		std::lock_guard<std::mutex> guard (active_transactions.mutex);
 		roots_count = active_transactions.roots.size ();
 		blocks_count = active_transactions.blocks.size ();
 		confirmed_count = active_transactions.confirmed.size ();
-		pending_elections_count = active_transactions.pending_elections.size ();
 	}
 
 	auto composite = std::make_unique<seq_con_info_composite> (name);
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "roots", roots_count, sizeof (decltype (active_transactions.roots)::value_type) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "blocks", blocks_count, sizeof (decltype (active_transactions.blocks)::value_type) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "confirmed", confirmed_count, sizeof (decltype (active_transactions.confirmed)::value_type) }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "pending_elections", pending_elections_count, sizeof (decltype (active_transactions.pending_elections)::value_type) }));
 	return composite;
 }
 }

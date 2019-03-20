@@ -124,7 +124,6 @@ public:
 	void stop ();
 	bool publish (std::shared_ptr<nano::block> block_a);
 	void confirm_block (nano::block_hash const &);
-	void push_pending_election (nano::block_hash const &);
 	boost::multi_index_container<
 	nano::conflict_info,
 	boost::multi_index::indexed_by<
@@ -135,7 +134,6 @@ public:
 	std::greater<uint64_t>>>>
 	roots;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
-	std::unordered_set<nano::block_hash> pending_elections;
 	std::deque<nano::election_status> list_confirmed ();
 	std::deque<nano::election_status> confirmed;
 	nano::node & node;
@@ -156,6 +154,9 @@ private:
 	// clang-format on
 	void request_loop ();
 	void request_confirm (std::unique_lock<std::mutex> &);
+	void confirm_frontiers ();
+	nano::account last_frontier_account{ 0 };
+	uint64_t request_confirm_iteration{ 0 };
 	std::condition_variable condition;
 	bool started;
 	bool stopped;
@@ -464,7 +465,6 @@ public:
 	void work_generate (nano::uint256_union const &, std::function<void(uint64_t)>);
 	void add_initial_peers ();
 	void block_confirm (std::shared_ptr<nano::block>);
-	void confirm_frontiers ();
 	void process_fork (nano::transaction const &, std::shared_ptr<nano::block>);
 	bool validate_block_by_previous (nano::transaction const &, std::shared_ptr<nano::block>);
 	void do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const &, uint16_t, std::shared_ptr<std::string>, std::shared_ptr<std::string>, std::shared_ptr<boost::asio::ip::tcp::resolver>);
@@ -509,7 +509,6 @@ public:
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
-	bool confirm_frontiers_first_call{ true };
 
 private:
 	void add_confirmation_heights (nano::block_hash const & hash);
