@@ -2,6 +2,7 @@
 
 #include <boost/asio.hpp>
 #include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/mem_fun.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/random_access_index.hpp>
@@ -9,6 +10,7 @@
 #include <chrono>
 #include <memory>
 #include <nano/node/common.hpp>
+#include <nano/node/transport/transport.hpp>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -24,13 +26,17 @@ class node;
 class representative
 {
 public:
-	representative (nano::account account_a, nano::amount weight_a, nano::endpoint endpoint_a) :
-	account (account_a), weight (weight_a), endpoint (endpoint_a)
+	representative (nano::account account_a, nano::amount weight_a, std::shared_ptr<nano::transport::channel> channel_a) :
+	account (account_a), weight (weight_a), channel (channel_a)
 	{
 	}
+	std::reference_wrapper<nano::transport::channel const> channel_ref () const
+	{
+		return *channel;
+	};
 	nano::account account{ 0 };
 	nano::amount weight{ 0 };
-	nano::endpoint endpoint;
+	std::shared_ptr<nano::transport::channel> channel;
 	std::chrono::steady_clock::time_point last_request{ std::chrono::steady_clock::time_point () };
 	std::chrono::steady_clock::time_point last_response{ std::chrono::steady_clock::time_point () };
 };
@@ -44,9 +50,9 @@ class rep_crawler
 	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (rep_crawler & rep_crawler, const std::string & name);
 
 	// clang-format off
-	class tag_endpoint {};
-	class tag_last_request {};
 	class tag_account {};
+	class tag_channel_ref {};
+	class tag_last_request {};
 	class tag_weight {};
 
 	using probably_rep_t = boost::multi_index_container<representative,
@@ -57,8 +63,8 @@ class rep_crawler
 			mi::member<representative, std::chrono::steady_clock::time_point, &representative::last_request>>,
 		mi::ordered_non_unique<mi::tag<tag_weight>,
 			mi::member<representative, nano::amount, &representative::weight>, std::greater<nano::amount>>,
-		mi::ordered_non_unique<mi::tag<tag_endpoint>,
-			mi::member<representative, nano::endpoint, &representative::endpoint>>>>;
+		mi::hashed_non_unique<mi::tag<tag_channel_ref>,
+			mi::const_mem_fun<representative, std::reference_wrapper<nano::transport::channel const>, &representative::channel_ref>>>>;
 	// clang-format on
 
 public:
@@ -77,17 +83,17 @@ public:
 	bool exists (nano::block_hash const &);
 
 	/** Attempt to determine if the peer manages one or more representative accounts */
-	void query (std::vector<nano::endpoint> const & endpoints_a);
+	void query (std::vector<std::shared_ptr<nano::transport::channel>> const & channels_a);
 
 	/** Attempt to determine if the peer manages one or more representative accounts */
-	void query (nano::endpoint const & endpoint_a);
+	void query (std::shared_ptr<nano::transport::channel> channel_a);
 
 	/**
 	 * Called when a non-replay vote on a block previously sent by query() is received. This indiciates
 	 * with high probability that the endpoint is a representative node.
 	 * @return True if the rep entry was updated with new information due to increase in weight.
 	 */
-	bool response (nano::endpoint const & endpoint_a, nano::account const & rep_account_a, nano::amount const & weight_a);
+	bool response (std::shared_ptr<nano::transport::channel> channel_a, nano::account const & rep_account_a, nano::amount const & weight_a);
 
 	/** Get total available weight from representatives */
 	nano::uint128_t total_weight ();
@@ -96,7 +102,7 @@ public:
 	std::vector<representative> representatives (size_t count_a);
 
 	/** Request a list of the top \p count_a known representative endpoints. The maximum number of reps returned is 16. */
-	std::vector<nano::endpoint> representative_endpoints (size_t count_a);
+	std::vector<std::shared_ptr<nano::transport::channel>> representative_endpoints (size_t count_a);
 
 	/** Returns all representatives registered with weight in descending order */
 	std::vector<nano::representative> representatives_by_weight ();
@@ -117,10 +123,10 @@ private:
 	void ongoing_crawl ();
 
 	/** Returns a list of endpoints to crawl */
-	std::vector<nano::endpoint> get_crawl_targets ();
+	std::vector<std::shared_ptr<nano::transport::channel>> get_crawl_targets ();
 
 	/** When a rep request is made, this is called to update the last-request timestamp. */
-	void on_rep_request (nano::endpoint const & endpoint_a);
+	void on_rep_request (std::shared_ptr<nano::transport::channel> channel_a);
 
 	/** Protects the probable_reps container */
 	std::mutex probable_reps_mutex;
