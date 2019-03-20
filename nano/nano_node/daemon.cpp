@@ -5,9 +5,22 @@
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/ipc.hpp>
+#include <nano/node/node.hpp>
+#include <nano/node/rpc.hpp>
 #include <nano/node/working.hpp>
 
-void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::node_flags const & flags)
+nano_daemon::daemon::daemon (boost::filesystem::path const & data_path_a, nano::node_flags const & flags_a) :
+data_path (data_path_a),
+flags (flags_a)
+{
+}
+
+nano_daemon::daemon::~daemon ()
+{
+	stop ();
+}
+
+void nano_daemon::daemon::run ()
 {
 	boost::filesystem::create_directories (data_path);
 	boost::system::error_code error_chmod;
@@ -29,16 +42,16 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 		nano::node_init init;
 		try
 		{
-			auto node (std::make_shared<nano::node> (init, io_ctx, data_path, alarm, config.node, opencl_work, flags));
+			node = std::make_shared<nano::node> (init, io_ctx, data_path, alarm, config.node, opencl_work, flags);
 			if (!init.error ())
 			{
 				node->start ();
-				std::unique_ptr<nano::rpc> rpc = get_rpc (io_ctx, *node, config.rpc);
+				rpc = get_rpc (io_ctx, *node, config.rpc);
 				if (rpc)
 				{
 					rpc->start (config.rpc_enable);
 				}
-				nano::ipc::ipc_server ipc (*node, *rpc);
+				ipc = std::make_shared<nano::ipc::ipc_server> (*node, *rpc);
 				runner = std::make_unique<nano::thread_runner> (io_ctx, node->config.io_threads);
 				runner->join ();
 			}
@@ -55,5 +68,23 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 	else
 	{
 		std::cerr << "Error deserializing config: " << error.get_message () << std::endl;
+	}
+}
+
+void nano_daemon::daemon::stop ()
+{
+	if (ipc)
+	{
+		ipc->stop ();
+	}
+
+	if (rpc)
+	{
+		rpc->stop ();
+	}
+
+	if (node)
+	{
+		node->stop ();
 	}
 }

@@ -1,3 +1,7 @@
+#include <atomic>
+#include <csignal>
+#include <cstdlib>
+#include <functional>
 #include <nano/lib/utility.hpp>
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/cli.hpp>
@@ -10,6 +14,21 @@
 
 #include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
+
+namespace
+{
+volatile std::sig_atomic_t exit_code = EXIT_SUCCESS;
+std::function<void(int)> on_shutdown = nullptr;
+void signal_handler (int sig)
+{
+	exit_code = sig;
+	if (on_shutdown != nullptr)
+	{
+		on_shutdown (exit_code);
+	}
+	std::exit (exit_code);
+}
+}
 
 int main (int argc, char * const * argv)
 {
@@ -100,7 +119,6 @@ int main (int argc, char * const * argv)
 	{
 		if (vm.count ("daemon") > 0)
 		{
-			nano_daemon::daemon daemon;
 			nano::node_flags flags;
 			auto batch_size_it = vm.find ("batch_size");
 			if (batch_size_it != vm.end ())
@@ -115,7 +133,16 @@ int main (int argc, char * const * argv)
 			flags.disable_unchecked_cleanup = (vm.count ("disable_unchecked_cleanup") > 0);
 			flags.disable_unchecked_drop = (vm.count ("disable_unchecked_drop") > 0);
 			flags.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
-			daemon.run (data_path, flags);
+
+			nano_daemon::daemon daemon (data_path, flags);
+			on_shutdown = [&](int) {
+				daemon.stop ();
+			};
+
+			std::signal (SIGINT, signal_handler);
+			std::signal (SIGTERM, signal_handler);
+
+			daemon.run ();
 		}
 		else if (vm.count ("debug_block_count"))
 		{

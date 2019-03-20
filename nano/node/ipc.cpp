@@ -398,7 +398,7 @@ node (node_a), rpc (rpc_a)
 
 nano::ipc::ipc_server::~ipc_server ()
 {
-	node.logger.always_log ("IPC: server stopped");
+	stop ();
 }
 
 void nano::ipc::ipc_server::stop ()
@@ -407,6 +407,7 @@ void nano::ipc::ipc_server::stop ()
 	{
 		transport->stop ();
 	}
+	node.logger.always_log ("IPC: server stopped");
 }
 
 /** Socket agnostic IO interface */
