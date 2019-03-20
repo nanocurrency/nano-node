@@ -4262,6 +4262,10 @@ void nano::rpc_handler::work_generate ()
 			ec = nano::error_rpc::bad_difficulty_format;
 		}
 	}
+	if (!ec && difficulty > rpc.config.max_work_generate_difficulty)
+	{
+		ec = nano::error_rpc::difficulty_limit;
+	}
 	if (!ec)
 	{
 		bool use_peers (request.get_optional<bool> ("use_peers") == true);
