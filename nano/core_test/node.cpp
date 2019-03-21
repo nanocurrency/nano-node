@@ -1561,6 +1561,58 @@ TEST (node, bootstrap_fork_open)
 	}
 }
 
+// Unconfirmed blocks from bootstrap should be confirmed
+TEST (node, bootstrap_confirm_frontiers)
+{
+	nano::system system0 (24000, 1);
+	nano::system system1 (24001, 1);
+	auto node0 (system0.nodes[0]);
+	auto node1 (system1.nodes[0]);
+	system0.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	nano::keypair key0;
+	// node0 knows about send0 but node1 doesn't.
+	nano::send_block send0 (node0->latest (nano::test_genesis_key.pub), key0.pub, nano::genesis_amount - 500, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	node0->work_generate_blocking (send0);
+	{
+		auto transaction (node0->store.tx_begin (true));
+		ASSERT_EQ (nano::process_result::progress, node0->ledger.process (transaction, send0).code);
+	}
+	ASSERT_FALSE (node0->bootstrap_initiator.in_progress ());
+	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
+	ASSERT_TRUE (node1->active.empty ());
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
+	system1.deadline_set (10s);
+	while (node1->block (send0.hash ()) == nullptr)
+	{
+		ASSERT_NO_ERROR (system0.poll ());
+		ASSERT_NO_ERROR (system1.poll ());
+	}
+	// Wait for election start
+	system1.deadline_set (10s);
+	while (node1->active.empty ())
+	{
+		ASSERT_NO_ERROR (system0.poll ());
+		ASSERT_NO_ERROR (system1.poll ());
+	}
+	{
+		std::lock_guard<std::mutex> guard (node1->active.mutex);
+		auto existing1 (node1->active.blocks.find (send0.hash ()));
+		ASSERT_NE (node1->active.blocks.end (), existing1);
+	}
+	// Wait for confirmation height update
+	system1.deadline_set (10s);
+	bool done (false);
+	while (!done)
+	{
+		{
+			auto transaction (node1->store.tx_begin_read ());
+			done = node1->ledger.block_confirmed (transaction, send0.hash ());
+		}
+		ASSERT_NO_ERROR (system0.poll ());
+		ASSERT_NO_ERROR (system1.poll ());
+	}
+}
+
 // Test that if we create a block that isn't confirmed, we sync.
 TEST (node, DISABLED_unconfirmed_send)
 {

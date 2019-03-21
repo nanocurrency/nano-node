@@ -839,7 +839,7 @@ TEST (rpc, block)
 	ASSERT_EQ (200, response.status);
 	auto contents (response.json.get<std::string> ("contents"));
 	ASSERT_FALSE (contents.empty ());
-	ASSERT_FALSE (response.json.get<bool> ("confirmed"));
+	ASSERT_TRUE (response.json.get<bool> ("confirmed")); // Genesis block is confirmed by default
 }
 
 TEST (rpc, block_account)
@@ -3772,7 +3772,7 @@ TEST (rpc, blocks_info)
 		ASSERT_FALSE (source.is_initialized ());
 		std::string balance_text (blocks.second.get<std::string> ("balance"));
 		ASSERT_EQ (nano::genesis_amount.convert_to<std::string> (), balance_text);
-		ASSERT_FALSE (blocks.second.get<bool> ("confirmed"));
+		ASSERT_TRUE (blocks.second.get<bool> ("confirmed")); // Genesis block is confirmed by default
 	}
 	// Test for optional values
 	request.put ("source", "true");
@@ -4466,9 +4466,10 @@ TEST (rpc, wallet_add_watch)
 TEST (rpc, online_reps)
 {
 	nano::system system (24000, 2);
+	nano::keypair key;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	ASSERT_TRUE (system.nodes[1]->online_reps.online_stake () == system.nodes[1]->config.online_weight_minimum.number ());
-	auto send_block (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::test_genesis_key.pub, nano::Gxrb_ratio));
+	auto send_block (system.wallet (0)->send_action (nano::test_genesis_key.pub, key.pub, nano::Gxrb_ratio));
 	ASSERT_NE (nullptr, send_block);
 	system.deadline_set (10s);
 	while (system.nodes[1]->online_reps.list ().empty ())
@@ -4510,9 +4511,8 @@ TEST (rpc, online_reps)
 	auto weight2 (item2->second.get<std::string> ("weight"));
 	ASSERT_EQ (system.nodes[1]->weight (nano::test_genesis_key.pub).convert_to<std::string> (), weight2);
 	//Test accounts filter
-	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
 	auto new_rep (system.wallet (1)->deterministic_insert ());
-	auto send (system.wallet (1)->send_action (nano::test_genesis_key.pub, new_rep, system.nodes[0]->config.receive_minimum.number ()));
+	auto send (system.wallet (0)->send_action (nano::test_genesis_key.pub, new_rep, system.nodes[0]->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, send);
 	while (system.nodes[1]->block (send->hash ()) == nullptr)
 	{
@@ -4524,7 +4524,7 @@ TEST (rpc, online_reps)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	auto change (system.wallet (1)->change_action (nano::test_genesis_key.pub, new_rep));
+	auto change (system.wallet (0)->change_action (nano::test_genesis_key.pub, new_rep));
 	ASSERT_NE (nullptr, change);
 	while (system.nodes[1]->block (change->hash ()) == nullptr)
 	{
@@ -5073,10 +5073,10 @@ TEST (rpc, block_confirmed)
 	{
 		auto transaction = node->store.tx_begin_write ();
 		nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
-		nano::send_block send1 (latest, key.pub, 300, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+		nano::send_block send1 (latest, key.pub, 300, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest));
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send1).code);
 
-		nano::open_block open1 (send1.hash (), nano::genesis_account, key.pub, key.prv, key.pub, 0);
+		nano::open_block open1 (send1.hash (), nano::genesis_account, key.pub, key.prv, key.pub, system.work.generate (key.pub));
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, open1).code);
 	}
 
