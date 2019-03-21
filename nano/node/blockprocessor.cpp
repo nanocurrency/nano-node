@@ -42,9 +42,8 @@ void nano::block_processor::flush ()
 
 bool nano::block_processor::full ()
 {
-	size_t full_size (node.flags.fast_bootstrap ? 1024 * 1024 : 65536);
 	std::unique_lock<std::mutex> lock (mutex);
-	return (blocks.size () + state_blocks.size ()) > full_size;
+	return (blocks.size () + state_blocks.size ()) > node.flags.block_processor_full_size;
 }
 
 void nano::block_processor::add (std::shared_ptr<nano::block> block_a, uint64_t origination)
@@ -231,7 +230,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 	lock_a.lock ();
 	timer_l.start ();
 	// Limit state blocks verification time
-	size_t max_verification_batch (node.flags.fast_bootstrap ? std::numeric_limits<size_t>::max () : 2048 * (node.config.signature_checker_threads + 1));
+	size_t max_verification_batch (node.flags.block_processor_verification_size != 0 ? node.flags.block_processor_verification_size : 2048 * (node.config.signature_checker_threads + 1));
 	if (!state_blocks.empty ())
 	{
 		auto transaction (node.store.tx_begin_read ());
@@ -247,7 +246,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 	// Processing blocks
 	auto first_time (true);
 	unsigned number_of_blocks_processed (0), number_of_forced_processed (0);
-	while ((!blocks.empty () || !forced.empty ()) && (timer_l.before_deadline (node.config.block_processor_batch_max_time) || (node.flags.fast_bootstrap && number_of_blocks_processed < 256 * 1024)))
+	while ((!blocks.empty () || !forced.empty ()) && (timer_l.before_deadline (node.config.block_processor_batch_max_time) || (number_of_blocks_processed < node.flags.block_processor_batch_size)))
 	{
 		auto log_this_record (false);
 		if (node.config.logging.timing_logging ())
