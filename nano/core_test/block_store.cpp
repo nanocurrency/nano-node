@@ -277,6 +277,9 @@ TEST (block_store, genesis)
 	auto receive1 (dynamic_cast<nano::open_block *> (block1.get ()));
 	ASSERT_NE (nullptr, receive1);
 	ASSERT_LE (info.modified, nano::seconds_since_epoch ());
+	ASSERT_EQ (info.block_count, 1);
+	// Genesis block should be confirmed by default
+	ASSERT_EQ (info.confirmation_height, 1);
 	auto test_pub_text (nano::test_genesis_key.pub.to_string ());
 	auto test_pub_account (nano::test_genesis_key.pub.to_account ());
 	auto test_prv_text (nano::test_genesis_key.prv.data.to_string ());
@@ -1532,7 +1535,7 @@ TEST (block_store, upgrade_v13_v14)
 		store.initialize (transaction, genesis);
 		nano::account_info account_info;
 		ASSERT_FALSE (store.account_get (transaction, nano::genesis_account, account_info));
-		ASSERT_EQ (account_info.confirmation_height, 0);
+		ASSERT_EQ (account_info.confirmation_height, 1);
 		store.version_put (transaction, 13);
 		modify_account_info_to_v13 (store, transaction, nano::genesis_account);
 

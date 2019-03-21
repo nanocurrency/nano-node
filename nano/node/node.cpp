@@ -2730,6 +2730,47 @@ size_t nano::election::last_votes_size ()
 	return last_votes.size ();
 }
 
+void nano::active_transactions::confirm_frontiers (nano::transaction const & transaction_a)
+{
+	// Limit maximum count of elections to start
+	bool representative (node.config.enable_voting && node.wallets.reps_count > 0);
+	/* Check less frequently for non-representative nodes
+	~15 minutes for non-representative nodes, 3 minutes for representatives */
+	int representative_factor = representative ? 3 * 60 : 15 * 60;
+	// Decrease check time for test network
+	int test_network_factor = node.network_params.is_test_network () ? 1000 : 1;
+	if (std::chrono::steady_clock::now () >= next_frontier_check)
+	{
+		size_t max_elections (max_broadcast_queue / 4);
+		size_t elections_count (0);
+		for (auto i (node.store.latest_begin (transaction_a, next_frontier_account)), n (node.store.latest_end ()); i != n && elections_count < max_elections; ++i)
+		{
+			nano::account_info info (i->second);
+			if (info.block_count != info.confirmation_height)
+			{
+				auto block (node.store.block_get (transaction_a, info.head));
+				if (!start (block))
+				{
+					++elections_count;
+					// Calculate votes for local representatives
+					if (representative)
+					{
+						node.block_processor.generator.add (block->hash ());
+					}
+				}
+				// Update next account
+				next_frontier_account = i->first.number () + 1;
+			}
+		}
+		// 4 times slower check if all frontiers were confirmed
+		int fully_confirmed_factor = (elections_count <= max_elections) ? 4 : 1;
+		// Calculate next check time
+		next_frontier_check = std::chrono::steady_clock::now () + std::chrono::seconds ((representative_factor * fully_confirmed_factor) / test_network_factor);
+		// Set next account to 0 if all frontiers were confirmed
+		next_frontier_account = (elections_count <= max_elections) ? 0 : next_frontier_account;
+	}
+}
+
 void nano::election::update_dependent ()
 {
 	assert (!node.active.mutex.try_lock ());
@@ -2958,7 +2999,10 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 	{
 		node.network.broadcast_confirm_req_batch (confirm_req_bundle);
 	}
+	// Confirm frontiers
+	confirm_frontiers (transaction);
 	lock_a.lock ();
+	// Erase inactive elections
 	for (auto i (inactive.begin ()), n (inactive.end ()); i != n; ++i)
 	{
 		auto root_it (roots.find (*i));

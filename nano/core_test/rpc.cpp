@@ -839,7 +839,7 @@ TEST (rpc, block)
 	ASSERT_EQ (200, response.status);
 	auto contents (response.json.get<std::string> ("contents"));
 	ASSERT_FALSE (contents.empty ());
-	ASSERT_FALSE (response.json.get<bool> ("confirmed"));
+	ASSERT_TRUE (response.json.get<bool> ("confirmed")); // Genesis block is confirmed by default
 }
 
 TEST (rpc, block_account)
@@ -3772,7 +3772,7 @@ TEST (rpc, blocks_info)
 		ASSERT_FALSE (source.is_initialized ());
 		std::string balance_text (blocks.second.get<std::string> ("balance"));
 		ASSERT_EQ (nano::genesis_amount.convert_to<std::string> (), balance_text);
-		ASSERT_FALSE (blocks.second.get<bool> ("confirmed"));
+		ASSERT_TRUE (blocks.second.get<bool> ("confirmed")); // Genesis block is confirmed by default
 	}
 	// Test for optional values
 	request.put ("source", "true");
@@ -5073,10 +5073,10 @@ TEST (rpc, block_confirmed)
 	{
 		auto transaction = node->store.tx_begin_write ();
 		nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
-		nano::send_block send1 (latest, key.pub, 300, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+		nano::send_block send1 (latest, key.pub, 300, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest));
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send1).code);
 
-		nano::open_block open1 (send1.hash (), nano::genesis_account, key.pub, key.prv, key.pub, 0);
+		nano::open_block open1 (send1.hash (), nano::genesis_account, key.pub, key.prv, key.pub, system.work.generate (key.pub));
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, open1).code);
 	}
 

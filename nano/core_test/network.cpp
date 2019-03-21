@@ -1420,11 +1420,11 @@ TEST (confirmation_height, single)
 	{
 		auto transaction = system.nodes[0]->store.tx_begin_read ();
 		ASSERT_FALSE (system.nodes[0]->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
-		ASSERT_EQ (0, account_info.confirmation_height);
+		ASSERT_EQ (1, account_info.confirmation_height);
 
 		auto transaction1 = system.nodes[1]->store.tx_begin_read ();
 		ASSERT_FALSE (system.nodes[1]->store.account_get (transaction1, nano::test_genesis_key.pub, account_info));
-		ASSERT_EQ (0, account_info.confirmation_height);
+		ASSERT_EQ (1, account_info.confirmation_height);
 	}
 
 	system.nodes[0]->process_active (block1);
@@ -1506,7 +1506,7 @@ TEST (confirmation_height, multiple)
 		// as we have any just added them to the ledger and not processed any live transactions yet.
 		nano::account_info account_info;
 		ASSERT_FALSE (node->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
-		ASSERT_EQ (0, account_info.confirmation_height);
+		ASSERT_EQ (1, account_info.confirmation_height);
 		ASSERT_FALSE (node->store.account_get (transaction, key1.pub, account_info));
 		ASSERT_EQ (0, account_info.confirmation_height);
 		ASSERT_FALSE (node->store.account_get (transaction, key2.pub, account_info));
@@ -1614,7 +1614,7 @@ TEST (confirmation_height, gap_bootstrap)
 
 		nano::account_info account_info;
 		ASSERT_FALSE (node1.store.account_get (transaction, nano::test_genesis_key.pub, account_info));
-		ASSERT_EQ (0, account_info.confirmation_height);
+		ASSERT_EQ (1, account_info.confirmation_height);
 	}
 
 	// Now complete the chain where the block comes in on the bootstrap network.
@@ -1629,7 +1629,7 @@ TEST (confirmation_height, gap_bootstrap)
 
 		nano::account_info account_info;
 		ASSERT_FALSE (node1.store.account_get (transaction, nano::test_genesis_key.pub, account_info));
-		ASSERT_EQ (0, account_info.confirmation_height);
+		ASSERT_EQ (1, account_info.confirmation_height);
 		ASSERT_FALSE (node1.store.account_get (transaction, destination.pub, account_info));
 		ASSERT_EQ (0, account_info.confirmation_height);
 	}
@@ -1676,7 +1676,7 @@ TEST (confirmation_height, gap_live)
 			auto transaction = node->store.tx_begin_read ();
 			nano::account_info account_info;
 			ASSERT_FALSE (node->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
-			ASSERT_EQ (0, account_info.confirmation_height);
+			ASSERT_EQ (1, account_info.confirmation_height);
 		}
 
 		// Now complete the chain where the block comes in on the live network
