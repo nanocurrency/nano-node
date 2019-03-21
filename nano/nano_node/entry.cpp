@@ -34,7 +34,7 @@ int main (int argc, char * const * argv)
 		("batch_size",boost::program_options::value<std::size_t> (), "Increase sideband batch size, default 512")
 		("block_processor_batch_size",boost::program_options::value<std::size_t> (), "Increase block processor transaction batch write size, default 0 (limited by config block_processor_batch_max_time), 256k for fast_bootstrap")
 		("block_processor_full_size",boost::program_options::value<std::size_t> (), "Increase block processor allowed blocks queue size before dropping live network packets and holding bootstrap download, default 65536, 1 million for fast_bootstrap")
-		("block_processor_verification_size",boost::program_options::value<std::size_t> (), "Increase batch signature verification size in block processor, default 0 (2048 * signature checker threads + 1), unlimited for fast_bootstrap")
+		("block_processor_verification_size",boost::program_options::value<std::size_t> (), "Increase batch signature verification size in block processor, default 0 (limited by config signature_checker_threads), unlimited for fast_bootstrap")
 		("debug_block_count", "Display the number of block")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
 		("debug_dump_online_weight", "Dump online_weights table")
@@ -104,7 +104,41 @@ int main (int argc, char * const * argv)
 		if (vm.count ("daemon") > 0)
 		{
 			nano_daemon::daemon daemon;
-			nano::node_flags flags (vm);
+			nano::node_flags flags;
+			auto batch_size_it = vm.find ("batch_size");
+			if (batch_size_it != vm.end ())
+			{
+				flags.sideband_batch_size = batch_size_it->second.as<size_t> ();
+			}
+			flags.disable_backup = (vm.count ("disable_backup") > 0);
+			flags.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
+			flags.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
+			flags.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
+			flags.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
+			flags.disable_unchecked_cleanup = (vm.count ("disable_unchecked_cleanup") > 0);
+			flags.disable_unchecked_drop = (vm.count ("disable_unchecked_drop") > 0);
+			flags.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
+			if (flags.fast_bootstrap)
+			{
+				flags.block_processor_batch_size = 256 * 1024;
+				flags.block_processor_full_size = 1024 * 1024;
+				flags.block_processor_verification_size = std::numeric_limits<size_t>::max ();
+			}
+			auto block_processor_batch_size_it = vm.find ("block_processor_batch_size");
+			if (block_processor_batch_size_it != vm.end ())
+			{
+				flags.block_processor_batch_size = block_processor_batch_size_it->second.as<size_t> ();
+			}
+			auto block_processor_full_size_it = vm.find ("block_processor_full_size");
+			if (block_processor_full_size_it != vm.end ())
+			{
+				flags.block_processor_full_size = block_processor_full_size_it->second.as<size_t> ();
+			}
+			auto block_processor_verification_size_it = vm.find ("block_processor_verification_size");
+			if (block_processor_verification_size_it != vm.end ())
+			{
+				flags.block_processor_verification_size = block_processor_verification_size_it->second.as<size_t> ();
+			}
 			daemon.run (data_path, flags);
 		}
 		else if (vm.count ("debug_block_count"))

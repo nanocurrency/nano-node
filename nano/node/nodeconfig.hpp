@@ -10,8 +10,6 @@
 #include <nano/node/stats.hpp>
 #include <vector>
 
-#include <boost/program_options.hpp>
-
 namespace nano
 {
 /**
@@ -71,7 +69,6 @@ class node_flags
 {
 public:
 	node_flags ();
-	node_flags (boost::program_options::variables_map const &);
 	bool disable_backup{ false };
 	bool disable_lazy_bootstrap{ false };
 	bool disable_legacy_bootstrap{ false };
