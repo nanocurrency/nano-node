@@ -3181,7 +3181,7 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 			});
 		}
 	}
-	// Return difficulty instead of adjusted value
+	// Set adjusted difficulty equals to difficulty
 	else if (elections_list.size () == 1)
 	{
 		auto existing_root (roots.find (elections_list.begin ()->first));
