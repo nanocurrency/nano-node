@@ -38,7 +38,8 @@ port (network_params.default_rpc_port),
 enable_control (enable_control_a),
 max_json_depth (20),
 enable_sign_hash (false),
-max_request_size (32 * 1024 * 1024)
+max_request_size (32 * 1024 * 1024),
+max_work_generate_difficulty (0xffffffffc0000000)
 {
 }
 
@@ -51,6 +52,7 @@ nano::error nano::rpc_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("max_json_depth", max_json_depth);
 	json.put ("enable_sign_hash", enable_sign_hash);
 	json.put ("max_request_size", max_request_size);
+	json.put ("max_work_generate_difficulty", nano::to_string_hex (max_work_generate_difficulty));
 	return json.get_error ();
 }
 
@@ -62,6 +64,7 @@ nano::error nano::rpc_config::deserialize_json (bool & upgraded_a, nano::jsoncon
 		version_l = 1;
 		json.put ("version", *version_l);
 		json.put ("max_request_size", max_request_size);
+		json.put ("max_work_generate_difficulty", nano::to_string_hex (max_work_generate_difficulty));
 		json.erase ("frontier_request_limit");
 		json.erase ("chain_request_limit");
 
@@ -80,5 +83,11 @@ nano::error nano::rpc_config::deserialize_json (bool & upgraded_a, nano::jsoncon
 	json.get_optional<uint8_t> ("max_json_depth", max_json_depth);
 	json.get_optional<bool> ("enable_sign_hash", enable_sign_hash);
 	json.get_optional<uint64_t> ("max_request_size", max_request_size);
+	std::string max_work_generate_difficulty_text;
+	json.get_optional<std::string> ("max_work_generate_difficulty", max_work_generate_difficulty_text);
+	if (!max_work_generate_difficulty_text.empty ())
+	{
+		nano::from_string_hex (max_work_generate_difficulty_text, max_work_generate_difficulty);
+	}
 	return json.get_error ();
 }
