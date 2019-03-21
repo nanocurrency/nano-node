@@ -46,6 +46,7 @@ public:
 	uint8_t max_json_depth;
 	bool enable_sign_hash;
 	uint64_t max_request_size;
+	uint64_t max_work_generate_difficulty;
 	static int json_version ()
 	{
 		return 1;

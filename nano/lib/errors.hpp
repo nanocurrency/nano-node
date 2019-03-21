@@ -90,6 +90,7 @@ enum class error_rpc
 	block_create_requirements_change,
 	block_create_requirements_send,
 	confirmation_not_found,
+	difficulty_limit,
 	invalid_balance,
 	invalid_destinations,
 	invalid_offset,

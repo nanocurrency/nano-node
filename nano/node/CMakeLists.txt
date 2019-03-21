@@ -41,8 +41,6 @@ add_library (node
 	node.cpp
 	openclwork.cpp
 	openclwork.hpp
-	peers.cpp
-	peers.hpp
 	portmapping.hpp
 	portmapping.cpp
 	repcrawler.hpp
@@ -53,14 +51,20 @@ add_library (node
 	rpcconfig.cpp
 	testing.hpp
 	testing.cpp
-	signatures.hpp
+	transport/tcp.cpp
+	transport/tcp.hpp
+	transport/transport.cpp
+	transport/transport.hpp
+	transport/udp.cpp
+	transport/udp.hpp
 	signatures.cpp
-	wallet.hpp
-	wallet.cpp
-	stats.hpp
+	signatures.hpp
 	stats.cpp
+	stats.hpp
 	voting.hpp
 	voting.cpp
+	wallet.hpp
+	wallet.cpp
 	working.hpp
 	xorshift.hpp)
 
