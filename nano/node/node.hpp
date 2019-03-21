@@ -154,7 +154,7 @@ private:
 	// clang-format on
 	void request_loop ();
 	void request_confirm (std::unique_lock<std::mutex> &);
-	void confirm_frontiers ();
+	void confirm_frontiers (nano::transaction const &);
 	nano::account last_frontier_account{ 0 };
 	uint64_t request_confirm_iteration{ 0 };
 	std::condition_variable condition;

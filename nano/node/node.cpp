@@ -2727,7 +2727,7 @@ size_t nano::election::last_votes_size ()
 	return last_votes.size ();
 }
 
-void nano::active_transactions::confirm_frontiers ()
+void nano::active_transactions::confirm_frontiers (nano::transaction const & transaction_a)
 {
 	// Limit maximum count of elections to start
 	bool representative (node.config.enable_voting && node.wallets.reps_count > 0);
@@ -2738,13 +2738,12 @@ void nano::active_transactions::confirm_frontiers ()
 	{
 		size_t max_elections (max_broadcast_queue / 4);
 		size_t elections_count (0);
-		auto transaction (node.store.tx_begin_read ());
-		for (auto i (node.store.latest_begin (transaction, last_frontier_account)), n (node.store.latest_end ()); i != n && elections_count < max_elections; ++i)
+		for (auto i (node.store.latest_begin (transaction_a, last_frontier_account)), n (node.store.latest_end ()); i != n && elections_count < max_elections; ++i)
 		{
 			nano::account_info info (i->second);
 			if (info.block_count != info.confirmation_height)
 			{
-				auto block (node.store.block_get (transaction, info.head));
+				auto block (node.store.block_get (transaction_a, info.head));
 				if (!start (block))
 				{
 					++elections_count;
@@ -2961,7 +2960,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 		node.network.broadcast_confirm_req_batch (confirm_req_bundle);
 	}
 	// Confirm frontiers
-	confirm_frontiers ();
+	confirm_frontiers (transaction);
 	lock_a.lock ();
 	// Erase inactive elections
 	for (auto i (inactive.begin ()), n (inactive.end ()); i != n; ++i)
