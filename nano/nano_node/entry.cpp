@@ -146,7 +146,7 @@ int main (int argc, char * const * argv)
 		{
 			nano_daemon::daemon daemon;
 			nano::node_flags flags;
-			update_flags (flag, vm);
+			update_flags (flags, vm);
 			daemon.run (data_path, flags);
 		}
 		else if (vm.count ("debug_block_count"))
@@ -888,7 +888,7 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_profile_bootstrap"))
 		{
 			nano::inactive_node node2 (nano::unique_path (), 24001);
-			update_flags (node2.node->flag, vm);
+			update_flags (node2.node->flags, vm);
 			nano::genesis genesis;
 			auto begin (std::chrono::high_resolution_clock::now ());
 			uint64_t block_count (0);
