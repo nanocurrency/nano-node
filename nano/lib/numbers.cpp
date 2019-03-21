@@ -569,8 +569,7 @@ bool nano::uint128_union::decode_dec (std::string const & text, nano::uint128_t 
 	bool error (text.size () > 40 || (!text.empty () && text.front () == '-'));
 	if (!error)
 	{
-		auto decimal_point = std::use_facet<std::numpunct<char>> (std::locale ()).decimal_point ();
-		auto delimiter_position (text.find (decimal_point));
+		auto delimiter_position (text.find (".")); // Dot delimiter hardcoded until decision for supporting other locales
 		if (delimiter_position == std::string::npos)
 		{
 			nano::uint128_union integer;
