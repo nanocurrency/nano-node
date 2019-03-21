@@ -419,7 +419,3 @@ nano::account nano::node_config::random_representative ()
 	auto result (preconfigured_representatives[index]);
 	return result;
 }
-
-nano::node_flags::node_flags ()
-{
-}

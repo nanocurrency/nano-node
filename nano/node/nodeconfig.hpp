@@ -68,7 +68,6 @@ public:
 class node_flags
 {
 public:
-	node_flags ();
 	bool disable_backup{ false };
 	bool disable_lazy_bootstrap{ false };
 	bool disable_legacy_bootstrap{ false };
