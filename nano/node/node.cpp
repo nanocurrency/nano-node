@@ -2980,7 +2980,6 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 	{
 		node.logger.try_log (boost::str (boost::format ("%1% blocks have been unconfirmed averaging %2% announcements") % unconfirmed_count % (unconfirmed_announcements / unconfirmed_count)));
 	}
-	++request_confirm_iteration;
 }
 
 void nano::active_transactions::request_loop ()
