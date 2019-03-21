@@ -10,7 +10,8 @@ if [ -n "$DOCKER_PASSWORD" ]; then
     if [ "$TRAVIS_BRANCH" = "master" ]; then
         for compiler in gcc clang; do
             ci_image_name="nanocurrency/nano-ci-${compiler}"
-            "$scripts"/custom-timeout.sh 30 docker push "ci_image_name"
+            ci/build-docker-image.sh docker/ci/Dockerfile-${compiler} nanocurrency/nano-ci-${compiler};
+            "$scripts"/custom-timeout.sh 30 docker push "$ci_image_name"
         done
     fi
 
