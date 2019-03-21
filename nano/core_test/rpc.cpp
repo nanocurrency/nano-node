@@ -2130,6 +2130,17 @@ TEST (rpc, work_generate_difficulty)
 	uint64_t result_difficulty2;
 	ASSERT_FALSE (nano::work_validate (hash1, work2, &result_difficulty2));
 	ASSERT_GE (result_difficulty2, difficulty2);
+	uint64_t difficulty3 (rpc.config.max_work_generate_difficulty + 1);
+	request1.put ("difficulty", nano::to_string_hex (difficulty3));
+	test_response response3 (request1, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response3.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response3.status);
+	std::error_code ec (nano::error_rpc::difficulty_limit);
+	ASSERT_EQ (response3.json.get<std::string> ("error"), ec.message ());
 }
 
 TEST (rpc, work_cancel)
