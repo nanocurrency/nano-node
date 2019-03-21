@@ -11,6 +11,47 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
 
+namespace
+{
+	void update_flags (nano::flags & flags_a, boost::program_options::variables_map const & vm)
+	{
+		auto batch_size_it = vm.find ("batch_size");
+		if (batch_size_it != vm.end ())
+		{
+			flags_a.sideband_batch_size = batch_size_it->second.as<size_t> ();
+		}
+		flags_a.disable_backup = (vm.count ("disable_backup") > 0);
+		flags_a.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
+		flags_a.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
+		flags_a.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
+		flags_a.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
+		flags_a.disable_unchecked_cleanup = (vm.count ("disable_unchecked_cleanup") > 0);
+		flags_a.disable_unchecked_drop = (vm.count ("disable_unchecked_drop") > 0);
+		flags_a.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
+		if (flags_a.fast_bootstrap)
+		{
+			flags_a.block_processor_batch_size = 256 * 1024;
+			flags_a.block_processor_full_size = 1024 * 1024;
+			flags_a.block_processor_verification_size = std::numeric_limits<size_t>::max ();
+		}
+		auto block_processor_batch_size_it = vm.find ("block_processor_batch_size");
+		if (block_processor_batch_size_it != vm.end ())
+		{
+			flags_a.block_processor_batch_size = block_processor_batch_size_it->second.as<size_t> ();
+		}
+		auto block_processor_full_size_it = vm.find ("block_processor_full_size");
+		if (block_processor_full_size_it != vm.end ())
+		{
+			flags_a.block_processor_full_size = block_processor_full_size_it->second.as<size_t> ();
+		}
+		auto block_processor_verification_size_it = vm.find ("block_processor_verification_size");
+		if (block_processor_verification_size_it != vm.end ())
+		{
+			flags_a.block_processor_verification_size = block_processor_verification_size_it->second.as<size_t> ();
+		}
+	}
+}
+
 int main (int argc, char * const * argv)
 {
 	nano::set_umask ();
@@ -105,40 +146,7 @@ int main (int argc, char * const * argv)
 		{
 			nano_daemon::daemon daemon;
 			nano::node_flags flags;
-			auto batch_size_it = vm.find ("batch_size");
-			if (batch_size_it != vm.end ())
-			{
-				flags.sideband_batch_size = batch_size_it->second.as<size_t> ();
-			}
-			flags.disable_backup = (vm.count ("disable_backup") > 0);
-			flags.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
-			flags.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
-			flags.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
-			flags.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
-			flags.disable_unchecked_cleanup = (vm.count ("disable_unchecked_cleanup") > 0);
-			flags.disable_unchecked_drop = (vm.count ("disable_unchecked_drop") > 0);
-			flags.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
-			if (flags.fast_bootstrap)
-			{
-				flags.block_processor_batch_size = 256 * 1024;
-				flags.block_processor_full_size = 1024 * 1024;
-				flags.block_processor_verification_size = std::numeric_limits<size_t>::max ();
-			}
-			auto block_processor_batch_size_it = vm.find ("block_processor_batch_size");
-			if (block_processor_batch_size_it != vm.end ())
-			{
-				flags.block_processor_batch_size = block_processor_batch_size_it->second.as<size_t> ();
-			}
-			auto block_processor_full_size_it = vm.find ("block_processor_full_size");
-			if (block_processor_full_size_it != vm.end ())
-			{
-				flags.block_processor_full_size = block_processor_full_size_it->second.as<size_t> ();
-			}
-			auto block_processor_verification_size_it = vm.find ("block_processor_verification_size");
-			if (block_processor_verification_size_it != vm.end ())
-			{
-				flags.block_processor_verification_size = block_processor_verification_size_it->second.as<size_t> ();
-			}
+			update_flags (flag, vm);
 			daemon.run (data_path, flags);
 		}
 		else if (vm.count ("debug_block_count"))
@@ -880,28 +888,7 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_profile_bootstrap"))
 		{
 			nano::inactive_node node2 (nano::unique_path (), 24001);
-			node2.node->flags.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
-			if (node2.node->flags.fast_bootstrap)
-			{
-				node2.node->flags.block_processor_batch_size = 256 * 1024;
-				node2.node->flags.block_processor_full_size = 1024 * 1024;
-				node2.node->flags.block_processor_verification_size = std::numeric_limits<size_t>::max ();
-			}
-			auto block_processor_batch_size_it = vm.find ("block_processor_batch_size");
-			if (block_processor_batch_size_it != vm.end ())
-			{
-				node2.node->flags.block_processor_batch_size = block_processor_batch_size_it->second.as<size_t> ();
-			}
-			auto block_processor_full_size_it = vm.find ("block_processor_full_size");
-			if (block_processor_full_size_it != vm.end ())
-			{
-				node2.node->flags.block_processor_full_size = block_processor_full_size_it->second.as<size_t> ();
-			}
-			auto block_processor_verification_size_it = vm.find ("block_processor_verification_size");
-			if (block_processor_verification_size_it != vm.end ())
-			{
-				node2.node->flags.block_processor_verification_size = block_processor_verification_size_it->second.as<size_t> ();
-			}
+			update_flags (node2.node->flag, vm);
 			nano::genesis genesis;
 			auto begin (std::chrono::high_resolution_clock::now ());
 			uint64_t block_count (0);
