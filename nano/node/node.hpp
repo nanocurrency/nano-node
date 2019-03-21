@@ -155,8 +155,8 @@ private:
 	void request_loop ();
 	void request_confirm (std::unique_lock<std::mutex> &);
 	void confirm_frontiers (nano::transaction const &);
-	nano::account last_frontier_account{ 0 };
-	uint64_t request_confirm_iteration{ 0 };
+	nano::account next_frontier_account{ 0 };
+	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
 	std::condition_variable condition;
 	bool started;
 	bool stopped;

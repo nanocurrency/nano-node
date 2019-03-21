@@ -2731,14 +2731,14 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 {
 	// Limit maximum count of elections to start
 	bool representative (node.config.enable_voting && node.wallets.reps_count > 0);
-	/* Check less frequently for non-representative nodes and if previous checks show no unconfirmed frontiers
-	~15 minutes for non-representative nodes, 3.5 minutes for representatives
-	4 times slower if previously all frontiers were confirmed */
-	if (request_confirm_iteration % ((60 - (45 * representative)) * (3 * last_frontier_account.is_zero () + 1)) == 0)
+	/* Check less frequently for non-representative nodes
+	~15 minutes for non-representative nodes, 3 minutes for representatives */
+	int representative_factor = representative ? 3 : 15;
+	if (std::chrono::steady_clock::now () >= next_frontier_check)
 	{
 		size_t max_elections (max_broadcast_queue / 4);
 		size_t elections_count (0);
-		for (auto i (node.store.latest_begin (transaction_a, last_frontier_account)), n (node.store.latest_end ()); i != n && elections_count < max_elections; ++i)
+		for (auto i (node.store.latest_begin (transaction_a, next_frontier_account)), n (node.store.latest_end ()); i != n && elections_count < max_elections; ++i)
 		{
 			nano::account_info info (i->second);
 			if (info.block_count != info.confirmation_height)
@@ -2753,15 +2753,16 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 						node.block_processor.generator.add (block->hash ());
 					}
 				}
-				// Update last account
-				last_frontier_account = i->first;
+				// Update next account
+				next_frontier_account = i->first.number () + 1;
 			}
 		}
-		// Update last account if all frontiers checked
-		if (elections_count <= max_elections)
-		{
-			last_frontier_account = 0;
-		}
+		// 4 times slower check if all frontiers were confirmed
+		int fully_confirmed_factor = (elections_count <= max_elections) ? 4 : 1;
+		// Calculate next check time
+		next_frontier_check = std::chrono::steady_clock::now () + std::chrono::minutes (representative_factor * fully_confirmed_factor);
+		// Set next account to 0 if all frontiers were confirmed
+		next_frontier_account = (elections_count <= max_elections) ? 0 : next_frontier_account;
 	}
 }
 
