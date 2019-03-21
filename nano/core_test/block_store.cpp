@@ -277,6 +277,9 @@ TEST (block_store, genesis)
 	auto receive1 (dynamic_cast<nano::open_block *> (block1.get ()));
 	ASSERT_NE (nullptr, receive1);
 	ASSERT_LE (info.modified, nano::seconds_since_epoch ());
+	ASSERT_EQ (info.block_count, 1);
+	// Genesis block should be confirmed by default
+	ASSERT_EQ (info.confirmation_height, 1);
 	auto test_pub_text (nano::test_genesis_key.pub.to_string ());
 	auto test_pub_account (nano::test_genesis_key.pub.to_account ());
 	auto test_prv_text (nano::test_genesis_key.prv.data.to_string ());
