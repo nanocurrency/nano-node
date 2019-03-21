@@ -880,8 +880,28 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_profile_bootstrap"))
 		{
 			nano::inactive_node node2 (nano::unique_path (), 24001);
-			nano::node_flags flags (vm);
-			node2.node->flags = flags;
+			node2.node->flags.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
+			if (node2.node->flags.fast_bootstrap)
+			{
+				node2.node->flags.block_processor_batch_size = 256 * 1024;
+				node2.node->flags.block_processor_full_size = 1024 * 1024;
+				node2.node->flags.block_processor_verification_size = std::numeric_limits<size_t>::max ();
+			}
+			auto block_processor_batch_size_it = vm.find ("block_processor_batch_size");
+			if (block_processor_batch_size_it != vm.end ())
+			{
+				node2.node->flags.block_processor_batch_size = block_processor_batch_size_it->second.as<size_t> ();
+			}
+			auto block_processor_full_size_it = vm.find ("block_processor_full_size");
+			if (block_processor_full_size_it != vm.end ())
+			{
+				node2.node->flags.block_processor_full_size = block_processor_full_size_it->second.as<size_t> ();
+			}
+			auto block_processor_verification_size_it = vm.find ("block_processor_verification_size");
+			if (block_processor_verification_size_it != vm.end ())
+			{
+				node2.node->flags.block_processor_verification_size = block_processor_verification_size_it->second.as<size_t> ();
+			}
 			nano::genesis genesis;
 			auto begin (std::chrono::high_resolution_clock::now ());
 			uint64_t block_count (0);
