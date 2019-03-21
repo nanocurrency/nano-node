@@ -21,7 +21,7 @@ case "${network}" in
 esac
 
 raidir="${HOME}/RaiBlocks${dirSuffix}"
-nanodir="${HOME}/Nano${dirSuffix}"
+nanodir="${HOME}/BananoData${dirSuffix}"
 dbFile="${nanodir}/data.ldb"
 
 if [ -d "${raidir}" ]; then
@@ -60,7 +60,7 @@ while true; do
 				fi
 			done
 
-			nano_node --vacuum
+			banannode --vacuum
 		fi
 	fi
 
@@ -71,7 +71,7 @@ while true; do
 	fi
 
 	if [ -z "${pid}" ]; then
-		nano_node --daemon &
+		bananode --daemon &
 		pid="$!"
 	fi
 
