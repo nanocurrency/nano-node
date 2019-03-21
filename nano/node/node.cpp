@@ -3123,10 +3123,9 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 	uint128_t sum (0);
 	while (!remaining_blocks.empty ())
 	{
-		auto item (remaining_blocks.front ());
-		remaining_blocks.pop_front ();
+		auto const & item (remaining_blocks.front ());
 		auto hash (item.first);
-		// item.second is level
+		auto level (item.second);
 		if (processed_blocks.find (hash) == processed_blocks.end ())
 		{
 			auto existing (blocks.find (hash));
@@ -3135,21 +3134,21 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 				auto previous (existing->second->status.winner->previous ());
 				if (!previous.is_zero ())
 				{
-					remaining_blocks.push_back (std::make_pair (previous, item.second + 1));
+					remaining_blocks.push_back (std::make_pair (previous, level + 1));
 				}
 				auto source (existing->second->status.winner->source ());
 				if (!source.is_zero () && source != previous)
 				{
-					remaining_blocks.push_back (std::make_pair (source, item.second + 1));
+					remaining_blocks.push_back (std::make_pair (source, level + 1));
 				}
 				auto link (existing->second->status.winner->link ());
 				if (!link.is_zero () && !node.ledger.is_epoch_link (link) && link != previous)
 				{
-					remaining_blocks.push_back (std::make_pair (link, item.second + 1));
+					remaining_blocks.push_back (std::make_pair (link, level + 1));
 				}
 				for (auto & dependent_block : existing->second->dependent_blocks)
 				{
-					remaining_blocks.push_back (std::make_pair (dependent_block, item.second - 1));
+					remaining_blocks.push_back (std::make_pair (dependent_block, level - 1));
 				}
 				processed_blocks.insert (hash);
 				nano::uint512_union root (previous, existing->second->status.winner->root ());
@@ -3157,10 +3156,11 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 				if (existing_root != roots.end ())
 				{
 					sum += existing_root->difficulty;
-					elections_list.push_back (std::make_pair (root, item.second));
+					elections_list.push_back (std::make_pair (root, level));
 				}
 			}
 		}
+		remaining_blocks.pop_front ();
 	}
 	if (elections_list.size () > 1)
 	{
