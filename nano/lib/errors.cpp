@@ -148,6 +148,8 @@ std::string nano::error_rpc_messages::message (int ev) const
 			return "Destination account, previous hash, current balance and amount required";
 		case nano::error_rpc::confirmation_not_found:
 			return "Active confirmation not found";
+		case nano::error_rpc::difficulty_limit:
+			return "Difficulty above config limit";
 		case nano::error_rpc::invalid_balance:
 			return "Invalid balance number";
 		case nano::error_rpc::invalid_destinations:
