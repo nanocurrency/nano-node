@@ -2734,6 +2734,8 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 	/* Check less frequently for non-representative nodes
 	~15 minutes for non-representative nodes, 3 minutes for representatives */
 	int representative_factor = representative ? 3 : 15;
+	// Decrease check time for test network
+	int test_network_factor = node.network_params.is_test_network () ? 1 : 60;
 	if (std::chrono::steady_clock::now () >= next_frontier_check)
 	{
 		size_t max_elections (max_broadcast_queue / 4);
@@ -2760,7 +2762,7 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 		// 4 times slower check if all frontiers were confirmed
 		int fully_confirmed_factor = (elections_count <= max_elections) ? 4 : 1;
 		// Calculate next check time
-		next_frontier_check = std::chrono::steady_clock::now () + std::chrono::minutes (representative_factor * fully_confirmed_factor);
+		next_frontier_check = std::chrono::steady_clock::now () + std::chrono::seconds (representative_factor * test_network_factor * fully_confirmed_factor);
 		// Set next account to 0 if all frontiers were confirmed
 		next_frontier_account = (elections_count <= max_elections) ? 0 : next_frontier_account;
 	}
