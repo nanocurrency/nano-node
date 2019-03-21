@@ -2606,10 +2606,10 @@ TEST (ledger, confirmation_height_not_updated)
 	ASSERT_FALSE (store.account_get (transaction, nano::test_genesis_key.pub, account_info));
 	nano::keypair key;
 	nano::send_block send1 (account_info.head, key.pub, 50, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
-	ASSERT_EQ (0, account_info.confirmation_height);
+	ASSERT_EQ (1, account_info.confirmation_height);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send1).code);
 	ASSERT_FALSE (store.account_get (transaction, nano::test_genesis_key.pub, account_info));
-	ASSERT_EQ (0, account_info.confirmation_height);
+	ASSERT_EQ (1, account_info.confirmation_height);
 	nano::open_block open1 (send1.hash (), nano::genesis_account, key.pub, key.prv, key.pub, 0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, open1).code);
 	nano::account_info account_info1;
