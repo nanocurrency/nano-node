@@ -2478,6 +2478,7 @@ announcements (0)
 {
 	last_votes.insert (std::make_pair (node.network_params.ledger.not_an_account (), nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () }));
 	blocks.insert (std::make_pair (block_a->hash (), block_a));
+	update_dependent ();
 }
 
 void nano::election::compute_rep_votes (nano::transaction const & transaction_a)
@@ -2564,6 +2565,8 @@ void nano::election::confirm_if_quorum (nano::transaction const & transaction_a)
 		auto node_l (node.shared ());
 		node_l->block_processor.force (block_l);
 		status.winner = block_l;
+		update_dependent ();
+		node_l->active.adjust_difficulty (block_l->hash ());
 	}
 	if (have_quorum (tally_l, sum))
 	{
@@ -2727,6 +2730,39 @@ size_t nano::election::last_votes_size ()
 	return last_votes.size ();
 }
 
+void nano::election::update_dependent ()
+{
+	assert (!node.active.mutex.try_lock ());
+	std::vector<nano::block_hash> blocks_search;
+	auto hash (status.winner->hash ());
+	auto previous (status.winner->previous ());
+	if (!previous.is_zero ())
+	{
+		blocks_search.push_back (previous);
+	}
+	auto source (status.winner->source ());
+	if (!source.is_zero () && source != previous)
+	{
+		blocks_search.push_back (source);
+	}
+	auto link (status.winner->link ());
+	if (!link.is_zero () && !node.ledger.is_epoch_link (link) && link != previous)
+	{
+		blocks_search.push_back (link);
+	}
+	for (auto & block_search : blocks_search)
+	{
+		auto existing (node.active.blocks.find (block_search));
+		if (existing != node.active.blocks.end () && !existing->second->confirmed && !existing->second->stopped)
+		{
+			if (existing->second->dependent_blocks.find (hash) == existing->second->dependent_blocks.end ())
+			{
+				existing->second->dependent_blocks.insert (hash);
+			}
+		}
+	}
+}
+
 void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & lock_a)
 {
 	std::unordered_set<nano::uint512_union> inactive;
@@ -2795,6 +2831,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 							}
 						}
 					}
+					election_l->update_dependent ();
 				}
 			}
 			if (election_l->announcements < announcement_long || election_l->announcements % announcement_long == 1)
@@ -2932,6 +2969,10 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 			(void)erased;
 			assert (erased == 1);
 		}
+		for (auto & dependent_block : root_it->election->dependent_blocks)
+		{
+			adjust_difficulty (dependent_block);
+		}
 		roots.erase (*i);
 	}
 	if (unconfirmed_count > 0)
@@ -2994,8 +3035,9 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, std::
 			uint64_t difficulty (0);
 			auto error (nano::work_validate (*block_a, &difficulty));
 			release_assert (!error);
-			roots.insert (nano::conflict_info{ root, difficulty, election });
+			roots.insert (nano::conflict_info{ root, difficulty, difficulty, election });
 			blocks.insert (std::make_pair (block_a->hash (), election));
+			adjust_difficulty (block_a->hash ());
 		}
 		error = existing != roots.end ();
 	}
@@ -3061,9 +3103,94 @@ void nano::active_transactions::update_difficulty (nano::block const & block_a)
 		uint64_t difficulty;
 		auto error (nano::work_validate (block_a, &difficulty));
 		assert (!error);
-		roots.modify (existing, [difficulty](nano::conflict_info & info_a) {
-			info_a.difficulty = difficulty;
-		});
+		if (difficulty > existing->difficulty)
+		{
+			roots.modify (existing, [difficulty](nano::conflict_info & info_a) {
+				info_a.difficulty = difficulty;
+			});
+			adjust_difficulty (block_a.hash ());
+		}
+	}
+}
+
+void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash_a)
+{
+	assert (!mutex.try_lock ());
+	std::deque<std::pair<nano::block_hash, int64_t>> remaining_blocks;
+	remaining_blocks.emplace_back (hash_a, 0);
+	std::unordered_set<nano::block_hash> processed_blocks;
+	std::vector<std::pair<nano::uint512_union, int64_t>> elections_list;
+	uint128_t sum (0);
+	while (!remaining_blocks.empty ())
+	{
+		auto const & item (remaining_blocks.front ());
+		auto hash (item.first);
+		auto level (item.second);
+		if (processed_blocks.find (hash) == processed_blocks.end ())
+		{
+			auto existing (blocks.find (hash));
+			if (existing != blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->status.winner->hash () == hash)
+			{
+				auto previous (existing->second->status.winner->previous ());
+				if (!previous.is_zero ())
+				{
+					remaining_blocks.emplace_back (previous, level + 1);
+				}
+				auto source (existing->second->status.winner->source ());
+				if (!source.is_zero () && source != previous)
+				{
+					remaining_blocks.emplace_back (source, level + 1);
+				}
+				auto link (existing->second->status.winner->link ());
+				if (!link.is_zero () && !node.ledger.is_epoch_link (link) && link != previous)
+				{
+					remaining_blocks.emplace_back (link, level + 1);
+				}
+				for (auto & dependent_block : existing->second->dependent_blocks)
+				{
+					remaining_blocks.emplace_back (dependent_block, level - 1);
+				}
+				processed_blocks.insert (hash);
+				nano::uint512_union root (previous, existing->second->status.winner->root ());
+				auto existing_root (roots.find (root));
+				if (existing_root != roots.end ())
+				{
+					sum += existing_root->difficulty;
+					elections_list.emplace_back (root, level);
+				}
+			}
+		}
+		remaining_blocks.pop_front ();
+	}
+	if (elections_list.size () > 1)
+	{
+		uint64_t average (static_cast<uint64_t> (sum / elections_list.size ()));
+		// Potential overflow check
+		uint64_t divider (1);
+		if (elections_list.size () > 1000000 && (average - node.network_params.publish_threshold) > elections_list.size ())
+		{
+			divider = ((average - node.network_params.publish_threshold) / elections_list.size ()) + 1;
+		}
+		// Set adjusted difficulty
+		for (auto & item : elections_list)
+		{
+			auto existing_root (roots.find (item.first));
+			uint64_t difficulty_a (average + (item.second / divider));
+			roots.modify (existing_root, [difficulty_a](nano::conflict_info & info_a) {
+				info_a.adjusted_difficulty = difficulty_a;
+			});
+		}
+	}
+	// Set adjusted difficulty equals to difficulty
+	else if (elections_list.size () == 1)
+	{
+		auto existing_root (roots.find (elections_list.begin ()->first));
+		if (existing_root->difficulty != existing_root->adjusted_difficulty)
+		{
+			roots.modify (existing_root, [](nano::conflict_info & info_a) {
+				info_a.adjusted_difficulty = info_a.difficulty;
+			});
+		}
 	}
 }
 
