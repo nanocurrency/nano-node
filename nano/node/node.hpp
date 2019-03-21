@@ -81,6 +81,7 @@ public:
 	void log_votes (nano::tally_t const &);
 	bool publish (std::shared_ptr<nano::block> block_a);
 	size_t last_votes_size ();
+	void update_dependent ();
 	void stop ();
 	nano::node & node;
 	std::unordered_map<nano::account, nano::vote_info> last_votes;
@@ -91,12 +92,14 @@ public:
 	bool stopped;
 	std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
 	unsigned announcements;
+	std::unordered_set<nano::block_hash> dependent_blocks;
 };
 class conflict_info
 {
 public:
 	nano::uint512_union root;
 	uint64_t difficulty;
+	uint64_t adjusted_difficulty;
 	std::shared_ptr<nano::election> election;
 };
 // Core class for determining consensus
@@ -117,6 +120,7 @@ public:
 	// Is the root of this block in the roots container
 	bool active (nano::block const &);
 	void update_difficulty (nano::block const &);
+	void adjust_difficulty (nano::block_hash const &);
 	std::deque<std::shared_ptr<nano::block>> list_blocks (bool = false);
 	void erase (nano::block const &);
 	bool empty ();
@@ -130,7 +134,7 @@ public:
 	boost::multi_index::hashed_unique<
 	boost::multi_index::member<nano::conflict_info, nano::uint512_union, &nano::conflict_info::root>>,
 	boost::multi_index::ordered_non_unique<
-	boost::multi_index::member<nano::conflict_info, uint64_t, &nano::conflict_info::difficulty>,
+	boost::multi_index::member<nano::conflict_info, uint64_t, &nano::conflict_info::adjusted_difficulty>,
 	std::greater<uint64_t>>>>
 	roots;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;

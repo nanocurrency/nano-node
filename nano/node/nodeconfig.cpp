@@ -419,16 +419,3 @@ nano::account nano::node_config::random_representative ()
 	auto result (preconfigured_representatives[index]);
 	return result;
 }
-
-nano::node_flags::node_flags () :
-disable_backup (false),
-disable_lazy_bootstrap (false),
-disable_legacy_bootstrap (false),
-disable_wallet_bootstrap (false),
-disable_bootstrap_listener (false),
-disable_unchecked_cleanup (false),
-disable_unchecked_drop (true),
-fast_bootstrap (false),
-sideband_batch_size (512)
-{
-}
