@@ -837,7 +837,7 @@ void nano::mdb_store::initialize (nano::transaction const & transaction_a, nano:
 	assert (latest_v1_begin (transaction_a) == latest_v1_end ());
 	nano::block_sideband sideband (nano::block_type::open, network_params.ledger.genesis_account, 0, network_params.ledger.genesis_amount, 1, nano::seconds_since_epoch ());
 	block_put (transaction_a, hash_l, *genesis_a.open, sideband);
-	account_put (transaction_a, network_params.ledger.genesis_account, { hash_l, genesis_a.open->hash (), genesis_a.open->hash (), std::numeric_limits<nano::uint128_t>::max (), nano::seconds_since_epoch (), 1, 0, nano::epoch::epoch_0 });
+	account_put (transaction_a, network_params.ledger.genesis_account, { hash_l, genesis_a.open->hash (), genesis_a.open->hash (), std::numeric_limits<nano::uint128_t>::max (), nano::seconds_since_epoch (), 1, 1, nano::epoch::epoch_0 });
 	representation_put (transaction_a, network_params.ledger.genesis_account, std::numeric_limits<nano::uint128_t>::max ());
 	frontier_put (transaction_a, hash_l, network_params.ledger.genesis_account);
 }

@@ -1579,7 +1579,6 @@ TEST (node, bootstrap_confirm_frontiers)
 	}
 	ASSERT_FALSE (node0->bootstrap_initiator.in_progress ());
 	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
-	ASSERT_TRUE (node0->active.empty ());
 	ASSERT_TRUE (node1->active.empty ());
 	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
 	system1.deadline_set (10s);
