@@ -6,15 +6,17 @@
         "port": "7072",
         "enable_control": "true",
         "frontier_request_limit": "16384",
-        "chain_request_limit": "16384"
+        "chain_request_limit": "16384",
+        "max_json_depth": "20",
+        "enable_sign_hash": "false"
     },
     "node": {
-        "version": "12",
+        "version": "16",
         "peering_port": "7071",
         "bootstrap_fraction_numerator": "1",
-        "receive_minimum": "100000000000000000000000000000",
+        "receive_minimum": "1000000000000000000000000000",
         "logging": {
-            "version": "3",
+            "version": "6",
             "ledger": "false",
             "ledger_duplicate": "false",
             "vote": "false",
@@ -27,35 +29,55 @@
             "node_lifetime_tracing": "false",
             "insufficient_work": "true",
             "log_rpc": "true",
+            "log_ipc": "true",
             "bulk_pull": "false",
             "work_generation_time": "true",
+            "upnp_details": "false",
+            "timing": "false",
             "log_to_cerr": "false",
-            "max_size": "16777216",
+            "max_size": "134217728",
             "rotation_size": "4194304",
-            "flush": "false"
+            "flush": "true"
         },
         "work_peers": "",
         "preconfigured_peers": [
-            "tarzan.banano.co.in"
+            "livenet.banano.cc"
         ],
         "preconfigured_representatives": [
-            "ban_3arg3asgtigae3xckabaaewkx3bzsh7nwz7jkmjos79ihyaxwphhm6qgjps4",
-            "ban_1stofnrxuz3cai7ze75o174bpm7scwj9jn3nxsn8ntzg784jf1gzn1jjdkou"
+            "ban_1fomoz167m7o38gw4rzt7hz67oq6itejpt4yocrfywujbpatd711cjew8gjj",
+            "ban_1cake36ua5aqcq1c5i3dg7k8xtosw7r9r7qbbf5j15sk75csp9okesz87nfn",
+            "ban_1bananobh5rat99qfgt1ptpieie5swmoth87thi74qgbfrij7dcgjiij94xr"
         ],
-        "online_weight_minimum": "60000000000000000000000000000000000000",
-        "online_weight_quorum": "50",
+        "online_weight_minimum": "40000000000000000000000000000000000000",
+        "online_weight_quorum": "55",
         "password_fanout": "1024",
-        "io_threads": "4",
-        "work_threads": "4",
+        "io_threads": "2",
+        "network_threads": "2",
+        "work_threads": "2",
+        "signature_checker_threads": "0",
         "enable_voting": "false",
-        "bootstrap_connections": "16",
-        "bootstrap_connections_max": "64",
+        "bootstrap_connections": "4",
+        "bootstrap_connections_max": "8",
         "callback_address": "",
         "callback_port": "0",
         "callback_target": "",
         "lmdb_max_dbs": "128",
-        "state_block_parse_canary": "991CF190094C00F0B68E2E5F75F6BEE95A2E0BD93CEAA4A6734DB9F19B728948",
-        "state_block_generate_canary": "991CF190094C00F0B68E2E5F75F6BEE95A2E0BD93CEAA4A6734DB9F19B728948"
+        "block_processor_batch_max_time": "5000",
+        "allow_local_peers": "false",
+        "vote_minimum": "20000000000000000000000000000000000",
+        "unchecked_cutoff_time": "14400",
+        "ipc": {
+            "tcp": {
+                "enable": "false",
+                "port": "7073",
+                "io_timeout": "15"
+            },
+            "local": {
+                "enable": "false",
+                "path": "\/tmp\/banano",
+                "io_timeout": "15"
+            }
+        }
     },
     "opencl_enable": "false",
     "opencl": {
