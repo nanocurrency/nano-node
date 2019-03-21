@@ -28,6 +28,16 @@ nano::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, 
 			// This can happen if something like 256 io_threads are specified in the node config
 			// MDB_NORDAHEAD will allow platforms that support it to load the DB in memory as needed.
 			auto status4 (mdb_env_open (environment, path_a.string ().c_str (), MDB_NOSUBDIR | MDB_NOTLS | MDB_NORDAHEAD, 00600));
+			if (status4 != 0)
+			{
+				std::cerr << "Could not open lmdb environment: " << status4;
+				char * error_str (mdb_strerror (status4));
+				if (error_str)
+				{
+					std::cerr << ", " << error_str;
+				}
+				std::cerr << std::endl;
+			}
 			release_assert (status4 == 0);
 			error_a = status4 != 0;
 		}
@@ -109,11 +119,13 @@ mdb_val (val_a.db_size (), const_cast<nano::account_info_v13 *> (&val_a))
 nano::mdb_val::mdb_val (nano::pending_info const & val_a) :
 mdb_val (sizeof (val_a.source) + sizeof (val_a.amount), const_cast<nano::pending_info *> (&val_a))
 {
+	static_assert (std::is_standard_layout<nano::pending_info>::value, "Standard layout is required");
 }
 
 nano::mdb_val::mdb_val (nano::pending_key const & val_a) :
 mdb_val (sizeof (val_a), const_cast<nano::pending_key *> (&val_a))
 {
+	static_assert (std::is_standard_layout<nano::pending_key>::value, "Standard layout is required");
 }
 
 nano::mdb_val::mdb_val (nano::unchecked_info const & val_a) :
@@ -129,11 +141,13 @@ buffer (std::make_shared<std::vector<uint8_t>> ())
 nano::mdb_val::mdb_val (nano::block_info const & val_a) :
 mdb_val (sizeof (val_a), const_cast<nano::block_info *> (&val_a))
 {
+	static_assert (std::is_standard_layout<nano::block_info>::value, "Standard layout is required");
 }
 
 nano::mdb_val::mdb_val (nano::endpoint_key const & val_a) :
 mdb_val (sizeof (val_a), const_cast<nano::endpoint_key *> (&val_a))
 {
+	static_assert (std::is_standard_layout<nano::endpoint_key>::value, "Standard layout is required");
 }
 
 nano::mdb_val::mdb_val (std::shared_ptr<nano::block> const & val_a) :
@@ -821,11 +835,11 @@ void nano::mdb_store::initialize (nano::transaction const & transaction_a, nano:
 	auto hash_l (genesis_a.hash ());
 	assert (latest_v0_begin (transaction_a) == latest_v0_end ());
 	assert (latest_v1_begin (transaction_a) == latest_v1_end ());
-	nano::block_sideband sideband (nano::block_type::open, nano::genesis_account, 0, nano::genesis_amount, 1, nano::seconds_since_epoch ());
+	nano::block_sideband sideband (nano::block_type::open, network_params.ledger.genesis_account, 0, network_params.ledger.genesis_amount, 1, nano::seconds_since_epoch ());
 	block_put (transaction_a, hash_l, *genesis_a.open, sideband);
-	account_put (transaction_a, genesis_account, { hash_l, genesis_a.open->hash (), genesis_a.open->hash (), std::numeric_limits<nano::uint128_t>::max (), nano::seconds_since_epoch (), 1, 0, nano::epoch::epoch_0 });
-	representation_put (transaction_a, genesis_account, std::numeric_limits<nano::uint128_t>::max ());
-	frontier_put (transaction_a, hash_l, genesis_account);
+	account_put (transaction_a, network_params.ledger.genesis_account, { hash_l, genesis_a.open->hash (), genesis_a.open->hash (), std::numeric_limits<nano::uint128_t>::max (), nano::seconds_since_epoch (), 1, 0, nano::epoch::epoch_0 });
+	representation_put (transaction_a, network_params.ledger.genesis_account, std::numeric_limits<nano::uint128_t>::max ());
+	frontier_put (transaction_a, hash_l, network_params.ledger.genesis_account);
 }
 
 void nano::mdb_store::version_put (nano::transaction const & transaction_a, int version_a)
@@ -1173,7 +1187,7 @@ void nano::mdb_store::upgrade_v12_to_v13 (nano::transaction const & transaction_
 {
 	size_t cost (0);
 	nano::account account (0);
-	auto const & not_an_account (nano::not_an_account ());
+	auto const & not_an_account (network_params.ledger.not_an_account ());
 	while (account != not_an_account)
 	{
 		nano::account first (0);
@@ -1538,7 +1552,7 @@ size_t nano::mdb_store::block_successor_offset (nano::transaction const & transa
 	else
 	{
 		// Read old successor-only sideband
-		assert (entry_a.mv_size = nano::block::size (type_a) + sizeof (nano::uint256_union));
+		assert (entry_a.mv_size == nano::block::size (type_a) + sizeof (nano::uint256_union));
 		result = entry_a.mv_size - sizeof (nano::uint256_union);
 	}
 	return result;

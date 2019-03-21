@@ -7,7 +7,7 @@
 std::chrono::milliseconds constexpr nano::block_processor::confirmation_request_delay;
 
 nano::block_processor::block_processor (nano::node & node_a) :
-generator (node_a, nano::is_test_network ? std::chrono::milliseconds (10) : std::chrono::milliseconds (500)),
+generator (node_a),
 stopped (false),
 active (false),
 next_log (std::chrono::steady_clock::now ()),
@@ -348,7 +348,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	// Start collecting quorum on block
 	node.active.start (block_a);
 	// Announce block contents to the network
-	node.network.republish_block (block_a);
+	node.network.flood_block (block_a);
 	if (node.config.enable_voting)
 	{
 		// Announce our weighted vote to the network
@@ -470,12 +470,8 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 		}
 		case nano::process_result::fork:
 		{
-			if (info_a.modified < nano::seconds_since_epoch () - 15)
-			{
-				// Only let the bootstrap attempt know about forked blocks that not originate recently.
-				node.process_fork (transaction_a, info_a.block);
-				node.stats.inc (nano::stat::type::ledger, nano::stat::detail::fork, nano::stat::dir::in);
-			}
+			node.process_fork (transaction_a, info_a.block);
+			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::fork, nano::stat::dir::in);
 			if (node.config.logging.ledger_logging ())
 			{
 				node.logger.try_log (boost::str (boost::format ("Fork for: %1% root: %2%") % hash.to_string () % info_a.block->root ().to_string ()));

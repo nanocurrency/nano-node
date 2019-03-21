@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/config.hpp>
 #include <nano/secure/common.hpp>
 
 namespace nano
@@ -46,10 +47,11 @@ public:
 	bool could_fit (nano::transaction const &, nano::block const &);
 	bool is_epoch_link (nano::uint256_union const &);
 	static nano::uint128_t const unit;
+	nano::network_params network_params;
 	nano::block_store & store;
 	nano::stat & stats;
 	std::unordered_map<nano::account, nano::uint128_t> bootstrap_weights;
-	uint64_t bootstrap_weight_max_blocks;
+	uint64_t bootstrap_weight_max_blocks{ 1 };
 	std::atomic<bool> check_bootstrap_weights;
 	nano::uint256_union epoch_link;
 	nano::account epoch_signer;

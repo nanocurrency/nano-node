@@ -71,6 +71,17 @@ int main (int argc, char * const * argv)
 	boost::program_options::notify (vm);
 	int result (0);
 
+	auto network (vm.find ("network"));
+	if (network != vm.end ())
+	{
+		auto err (nano::network_params::set_active_network (network->second.as<std::string> ()));
+		if (err)
+		{
+			std::cerr << err.get_message () << std::endl;
+			std::exit (1);
+		}
+	}
+
 	auto data_path_it = vm.find ("data_path");
 	if (data_path_it == vm.end ())
 	{
@@ -225,13 +236,14 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_kdf"))
 		{
+			nano::network_params network_params;
 			nano::uint256_union result;
 			nano::uint256_union salt (0);
 			std::string password ("");
 			while (true)
 			{
 				auto begin1 (std::chrono::high_resolution_clock::now ());
-				auto success (argon2_hash (1, nano::wallet_store::kdf_work, 1, password.data (), password.size (), salt.bytes.data (), salt.bytes.size (), result.bytes.data (), result.bytes.size (), NULL, 0, Argon2_d, 0x10));
+				auto success (argon2_hash (1, network_params.kdf_work, 1, password.data (), password.size (), salt.bytes.data (), salt.bytes.size (), result.bytes.data (), result.bytes.size (), NULL, 0, Argon2_d, 0x10));
 				(void)success;
 				auto end1 (std::chrono::high_resolution_clock::now ());
 				std::cerr << boost::str (boost::format ("Derivation time: %1%us\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
@@ -253,6 +265,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_opencl"))
 		{
+			nano::network_params network_params;
 			bool error (false);
 			nano::opencl_environment environment (error);
 			if (!error)
@@ -299,7 +312,7 @@ int main (int argc, char * const * argv)
 						result = -1;
 					}
 				}
-				uint64_t difficulty (nano::work_pool::publish_threshold);
+				uint64_t difficulty (network_params.publish_threshold);
 				auto difficulty_it = vm.find ("difficulty");
 				if (difficulty_it != vm.end ())
 				{
@@ -424,234 +437,225 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_process"))
 		{
-			if (nano::is_test_network)
+			nano::network_params::set_active_network (nano::nano_networks::nano_test_network);
+			nano::network_params test_params;
+			nano::block_builder builder;
+			size_t num_accounts (100000);
+			size_t num_interations (5); // 100,000 * 5 * 2 = 1,000,000 blocks
+			size_t max_blocks (2 * num_accounts * num_interations + num_accounts * 2); //  1,000,000 + 2* 100,000 = 1,200,000 blocks
+			std::cerr << boost::str (boost::format ("Starting pregenerating %1% blocks\n") % max_blocks);
+			nano::system system (24000, 1);
+			nano::node_init init;
+			nano::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
+			nano::logging logging;
+			auto path (nano::unique_path ());
+			logging.init (path);
+			auto node (std::make_shared<nano::node> (init, system.io_ctx, 24001, path, system.alarm, logging, work));
+			nano::block_hash genesis_latest (node->latest (test_params.ledger.test_genesis_key.pub));
+			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
+			// Generating keys
+			std::vector<nano::keypair> keys (num_accounts);
+			std::vector<nano::block_hash> frontiers (num_accounts);
+			std::vector<nano::uint128_t> balances (num_accounts, 1000000000);
+			// Generating blocks
+			std::deque<std::shared_ptr<nano::block>> blocks;
+			for (auto i (0); i != num_accounts; ++i)
 			{
-				nano::block_builder builder;
-				size_t num_accounts (100000);
-				size_t num_interations (5); // 100,000 * 5 * 2 = 1,000,000 blocks
-				size_t max_blocks (2 * num_accounts * num_interations + num_accounts * 2); //  1,000,000 + 2* 100,000 = 1,200,000 blocks
-				std::cerr << boost::str (boost::format ("Starting pregenerating %1% blocks\n") % max_blocks);
-				nano::system system (24000, 1);
-				nano::node_init init;
-				nano::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
-				nano::logging logging;
-				auto path (nano::unique_path ());
-				logging.init (path);
-				auto node (std::make_shared<nano::node> (init, system.io_ctx, 24001, path, system.alarm, logging, work));
-				nano::block_hash genesis_latest (node->latest (nano::test_genesis_key.pub));
-				nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
-				// Generating keys
-				std::vector<nano::keypair> keys (num_accounts);
-				std::vector<nano::block_hash> frontiers (num_accounts);
-				std::vector<nano::uint128_t> balances (num_accounts, 1000000000);
-				// Generating blocks
-				std::deque<std::shared_ptr<nano::block>> blocks;
-				for (auto i (0); i != num_accounts; ++i)
+				genesis_balance = genesis_balance - 1000000000;
+
+				auto send = builder.state ()
+				            .account (test_params.ledger.test_genesis_key.pub)
+				            .previous (genesis_latest)
+				            .representative (test_params.ledger.test_genesis_key.pub)
+				            .balance (genesis_balance)
+				            .link (keys[i].pub)
+				            .sign (keys[i].prv, keys[i].pub)
+				            .work (work.generate (genesis_latest))
+				            .build ();
+
+				genesis_latest = send->hash ();
+				blocks.push_back (std::move (send));
+
+				auto open = builder.state ()
+				            .account (keys[i].pub)
+				            .previous (0)
+				            .representative (keys[i].pub)
+				            .balance (balances[i])
+				            .link (genesis_latest)
+				            .sign (test_params.ledger.test_genesis_key.prv, test_params.ledger.test_genesis_key.pub)
+				            .work (work.generate (keys[i].pub))
+				            .build ();
+
+				frontiers[i] = open->hash ();
+				blocks.push_back (std::move (open));
+			}
+			for (auto i (0); i != num_interations; ++i)
+			{
+				for (auto j (0); j != num_accounts; ++j)
 				{
-					genesis_balance = genesis_balance - 1000000000;
+					size_t other (num_accounts - j - 1);
+					// Sending to other account
+					--balances[j];
 
 					auto send = builder.state ()
-					            .account (nano::test_genesis_key.pub)
-					            .previous (genesis_latest)
-					            .representative (nano::test_genesis_key.pub)
-					            .balance (genesis_balance)
-					            .link (keys[i].pub)
-					            .sign (keys[i].prv, keys[i].pub)
-					            .work (work.generate (genesis_latest))
+					            .account (keys[j].pub)
+					            .previous (frontiers[j])
+					            .representative (keys[j].pub)
+					            .balance (balances[j])
+					            .link (keys[other].pub)
+					            .sign (keys[j].prv, keys[j].pub)
+					            .work (work.generate (frontiers[j]))
 					            .build ();
 
-					genesis_latest = send->hash ();
+					frontiers[j] = send->hash ();
 					blocks.push_back (std::move (send));
+					// Receiving
+					++balances[other];
 
-					auto open = builder.state ()
-					            .account (keys[i].pub)
-					            .previous (0)
-					            .representative (keys[i].pub)
-					            .balance (balances[i])
-					            .link (genesis_latest)
-					            .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
-					            .work (work.generate (keys[i].pub))
-					            .build ();
+					auto receive = builder.state ()
+					               .account (keys[other].pub)
+					               .previous (frontiers[other])
+					               .representative (keys[other].pub)
+					               .balance (balances[other])
+					               .link (frontiers[j])
+					               .sign (keys[other].prv, keys[other].pub)
+					               .work (work.generate (frontiers[other]))
+					               .build ();
 
-					frontiers[i] = open->hash ();
-					blocks.push_back (std::move (open));
+					frontiers[other] = receive->hash ();
+					blocks.push_back (std::move (receive));
 				}
-				for (auto i (0); i != num_interations; ++i)
-				{
-					for (auto j (0); j != num_accounts; ++j)
-					{
-						size_t other (num_accounts - j - 1);
-						// Sending to other account
-						--balances[j];
-
-						auto send = builder.state ()
-						            .account (keys[j].pub)
-						            .previous (frontiers[j])
-						            .representative (keys[j].pub)
-						            .balance (balances[j])
-						            .link (keys[other].pub)
-						            .sign (keys[j].prv, keys[j].pub)
-						            .work (work.generate (frontiers[j]))
-						            .build ();
-
-						frontiers[j] = send->hash ();
-						blocks.push_back (std::move (send));
-						// Receiving
-						++balances[other];
-
-						auto receive = builder.state ()
-						               .account (keys[other].pub)
-						               .previous (frontiers[other])
-						               .representative (keys[other].pub)
-						               .balance (balances[other])
-						               .link (frontiers[j])
-						               .sign (keys[other].prv, keys[other].pub)
-						               .work (work.generate (frontiers[other]))
-						               .build ();
-
-						frontiers[other] = receive->hash ();
-						blocks.push_back (std::move (receive));
-					}
-				}
-				// Processing blocks
-				std::cerr << boost::str (boost::format ("Starting processing %1% active blocks\n") % max_blocks);
-				auto begin (std::chrono::high_resolution_clock::now ());
-				while (!blocks.empty ())
-				{
-					auto block (blocks.front ());
-					node->process_active (block);
-					blocks.pop_front ();
-				}
-				uint64_t block_count (0);
-				while (block_count < max_blocks + 1)
-				{
-					std::this_thread::sleep_for (std::chrono::milliseconds (100));
-					auto transaction (node->store.tx_begin ());
-					block_count = node->store.block_count (transaction).sum ();
-				}
-				auto end (std::chrono::high_resolution_clock::now ());
-				auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
-				node->stop ();
-				std::cerr << boost::str (boost::format ("%|1$ 12d| us \n%2% blocks per second\n") % time % (max_blocks * 1000000 / time));
 			}
-			else
+			// Processing blocks
+			std::cerr << boost::str (boost::format ("Starting processing %1% active blocks\n") % max_blocks);
+			auto begin (std::chrono::high_resolution_clock::now ());
+			while (!blocks.empty ())
 			{
-				std::cerr << "For this test ACTIVE_NETWORK should be nano_test_network" << std::endl;
+				auto block (blocks.front ());
+				node->process_active (block);
+				blocks.pop_front ();
 			}
+			uint64_t block_count (0);
+			while (block_count < max_blocks + 1)
+			{
+				std::this_thread::sleep_for (std::chrono::milliseconds (100));
+				auto transaction (node->store.tx_begin ());
+				block_count = node->store.block_count (transaction).sum ();
+			}
+			auto end (std::chrono::high_resolution_clock::now ());
+			auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
+			node->stop ();
+			std::cerr << boost::str (boost::format ("%|1$ 12d| us \n%2% blocks per second\n") % time % (max_blocks * 1000000 / time));
 		}
 		else if (vm.count ("debug_profile_votes"))
 		{
-			if (nano::is_test_network)
+			nano::network_params::set_active_network (nano::nano_networks::nano_test_network);
+			nano::network_params test_params;
+			nano::block_builder builder;
+			size_t num_elections (40000);
+			size_t num_representatives (25);
+			size_t max_votes (num_elections * num_representatives); // 40,000 * 25 = 1,000,000 votes
+			std::cerr << boost::str (boost::format ("Starting pregenerating %1% votes\n") % max_votes);
+			nano::system system (24000, 1);
+			nano::node_init init;
+			nano::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
+			nano::logging logging;
+			auto path (nano::unique_path ());
+			logging.init (path);
+			auto node (std::make_shared<nano::node> (init, system.io_ctx, 24001, path, system.alarm, logging, work));
+			nano::block_hash genesis_latest (node->latest (test_params.ledger.test_genesis_key.pub));
+			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
+			// Generating keys
+			std::vector<nano::keypair> keys (num_representatives);
+			nano::uint128_t balance ((node->config.online_weight_minimum.number () / num_representatives) + 1);
+			for (auto i (0); i != num_representatives; ++i)
 			{
-				nano::block_builder builder;
-				size_t num_elections (40000);
-				size_t num_representatives (25);
-				size_t max_votes (num_elections * num_representatives); // 40,000 * 25 = 1,000,000 votes
-				std::cerr << boost::str (boost::format ("Starting pregenerating %1% votes\n") % max_votes);
-				nano::system system (24000, 1);
-				nano::node_init init;
-				nano::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
-				nano::logging logging;
-				auto path (nano::unique_path ());
-				logging.init (path);
-				auto node (std::make_shared<nano::node> (init, system.io_ctx, 24001, path, system.alarm, logging, work));
-				nano::block_hash genesis_latest (node->latest (nano::test_genesis_key.pub));
-				nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
-				// Generating keys
-				std::vector<nano::keypair> keys (num_representatives);
-				nano::uint128_t balance ((node->config.online_weight_minimum.number () / num_representatives) + 1);
-				for (auto i (0); i != num_representatives; ++i)
-				{
-					auto transaction (node->store.tx_begin_write ());
-					genesis_balance = genesis_balance - balance;
+				auto transaction (node->store.tx_begin_write ());
+				genesis_balance = genesis_balance - balance;
 
-					auto send = builder.state ()
-					            .account (nano::test_genesis_key.pub)
-					            .previous (genesis_latest)
-					            .representative (nano::test_genesis_key.pub)
-					            .balance (genesis_balance)
-					            .link (keys[i].pub)
-					            .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
-					            .work (work.generate (genesis_latest))
-					            .build ();
+				auto send = builder.state ()
+				            .account (test_params.ledger.test_genesis_key.pub)
+				            .previous (genesis_latest)
+				            .representative (test_params.ledger.test_genesis_key.pub)
+				            .balance (genesis_balance)
+				            .link (keys[i].pub)
+				            .sign (test_params.ledger.test_genesis_key.prv, test_params.ledger.test_genesis_key.pub)
+				            .work (work.generate (genesis_latest))
+				            .build ();
 
-					genesis_latest = send->hash ();
-					node->ledger.process (transaction, *send);
+				genesis_latest = send->hash ();
+				node->ledger.process (transaction, *send);
 
-					auto open = builder.state ()
-					            .account (keys[i].pub)
-					            .previous (0)
-					            .representative (keys[i].pub)
-					            .balance (balance)
-					            .link (genesis_latest)
-					            .sign (keys[i].prv, keys[i].pub)
-					            .work (work.generate (keys[i].pub))
-					            .build ();
+				auto open = builder.state ()
+				            .account (keys[i].pub)
+				            .previous (0)
+				            .representative (keys[i].pub)
+				            .balance (balance)
+				            .link (genesis_latest)
+				            .sign (keys[i].prv, keys[i].pub)
+				            .work (work.generate (keys[i].pub))
+				            .build ();
 
-					node->ledger.process (transaction, *open);
-				}
-				// Generating blocks
-				std::deque<std::shared_ptr<nano::block>> blocks;
-				for (auto i (0); i != num_elections; ++i)
-				{
-					genesis_balance = genesis_balance - 1;
-					nano::keypair destination;
-
-					auto send = builder.state ()
-					            .account (nano::test_genesis_key.pub)
-					            .previous (genesis_latest)
-					            .representative (nano::test_genesis_key.pub)
-					            .balance (genesis_balance)
-					            .link (destination.pub)
-					            .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
-					            .work (work.generate (genesis_latest))
-					            .build ();
-
-					genesis_latest = send->hash ();
-					blocks.push_back (std::move (send));
-				}
-				// Generating votes
-				std::deque<std::shared_ptr<nano::vote>> votes;
-				for (auto j (0); j != num_representatives; ++j)
-				{
-					uint64_t sequence (1);
-					for (auto & i : blocks)
-					{
-						auto vote (std::make_shared<nano::vote> (keys[j].pub, keys[j].prv, sequence, std::vector<nano::block_hash> (1, i->hash ())));
-						votes.push_back (vote);
-						sequence++;
-					}
-				}
-				// Processing block & start elections
-				while (!blocks.empty ())
-				{
-					auto block (blocks.front ());
-					node->process_active (block);
-					blocks.pop_front ();
-				}
-				node->block_processor.flush ();
-				// Processing votes
-				std::cerr << boost::str (boost::format ("Starting processing %1% votes\n") % max_votes);
-				auto begin (std::chrono::high_resolution_clock::now ());
-				while (!votes.empty ())
-				{
-					auto vote (votes.front ());
-					node->vote_processor.vote (vote, node->network.endpoint ());
-					votes.pop_front ();
-				}
-				while (!node->active.empty ())
-				{
-					std::this_thread::sleep_for (std::chrono::milliseconds (100));
-				}
-				auto end (std::chrono::high_resolution_clock::now ());
-				auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
-				node->stop ();
-				std::cerr << boost::str (boost::format ("%|1$ 12d| us \n%2% votes per second\n") % time % (max_votes * 1000000 / time));
+				node->ledger.process (transaction, *open);
 			}
-			else
+			// Generating blocks
+			std::deque<std::shared_ptr<nano::block>> blocks;
+			for (auto i (0); i != num_elections; ++i)
 			{
-				std::cerr << "For this test ACTIVE_NETWORK should be nano_test_network" << std::endl;
+				genesis_balance = genesis_balance - 1;
+				nano::keypair destination;
+
+				auto send = builder.state ()
+				            .account (test_params.ledger.test_genesis_key.pub)
+				            .previous (genesis_latest)
+				            .representative (test_params.ledger.test_genesis_key.pub)
+				            .balance (genesis_balance)
+				            .link (destination.pub)
+				            .sign (test_params.ledger.test_genesis_key.prv, test_params.ledger.test_genesis_key.pub)
+				            .work (work.generate (genesis_latest))
+				            .build ();
+
+				genesis_latest = send->hash ();
+				blocks.push_back (std::move (send));
 			}
+			// Generating votes
+			std::deque<std::shared_ptr<nano::vote>> votes;
+			for (auto j (0); j != num_representatives; ++j)
+			{
+				uint64_t sequence (1);
+				for (auto & i : blocks)
+				{
+					auto vote (std::make_shared<nano::vote> (keys[j].pub, keys[j].prv, sequence, std::vector<nano::block_hash> (1, i->hash ())));
+					votes.push_back (vote);
+					sequence++;
+				}
+			}
+			// Processing block & start elections
+			while (!blocks.empty ())
+			{
+				auto block (blocks.front ());
+				node->process_active (block);
+				blocks.pop_front ();
+			}
+			node->block_processor.flush ();
+			// Processing votes
+			std::cerr << boost::str (boost::format ("Starting processing %1% votes\n") % max_votes);
+			auto begin (std::chrono::high_resolution_clock::now ());
+			while (!votes.empty ())
+			{
+				auto vote (votes.front ());
+				auto channel (std::make_shared<nano::transport::channel_udp> (node->network.udp_channels, node->network.endpoint ()));
+				node->vote_processor.vote (vote, channel);
+				votes.pop_front ();
+			}
+			while (!node->active.empty ())
+			{
+				std::this_thread::sleep_for (std::chrono::milliseconds (100));
+			}
+			auto end (std::chrono::high_resolution_clock::now ());
+			auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
+			node->stop ();
+			std::cerr << boost::str (boost::format ("%|1$ 12d| us \n%2% votes per second\n") % time % (max_votes * 1000000 / time));
 		}
 		else if (vm.count ("debug_random_feed"))
 		{

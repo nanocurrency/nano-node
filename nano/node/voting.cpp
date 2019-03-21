@@ -2,9 +2,8 @@
 
 #include <nano/node/node.hpp>
 
-nano::vote_generator::vote_generator (nano::node & node_a, std::chrono::milliseconds wait_a) :
+nano::vote_generator::vote_generator (nano::node & node_a) :
 node (node_a),
-wait (wait_a),
 stopped (false),
 started (false),
 thread ([this]() { run (); })
@@ -53,7 +52,7 @@ void nano::vote_generator::send (std::unique_lock<std::mutex> & lock_a)
 		auto transaction (node.store.tx_begin_read ());
 		node.wallets.foreach_representative (transaction, [this, &hashes_l, &transaction](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
 			auto vote (this->node.store.vote_generate (transaction, pub_a, prv_a, hashes_l));
-			this->node.vote_processor.vote (vote, this->node.network.endpoint ());
+			this->node.vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (this->node.network.udp_channels, this->node.network.endpoint ()));
 			this->node.votes_cache.add (vote);
 		});
 	}
@@ -79,7 +78,7 @@ void nano::vote_generator::run ()
 		}
 		else if (cutoff == min) // && hashes.size () < 12
 		{
-			cutoff = now + wait;
+			cutoff = now + network_params.voting.generator_delay;
 			condition.wait_until (lock, cutoff);
 		}
 		else if (now < cutoff) // && hashes.size () < 12
@@ -111,7 +110,7 @@ void nano::votes_cache::add (std::shared_ptr<nano::vote> const & vote_a)
 		if (existing == cache.get<1> ().end ())
 		{
 			// Clean old votes
-			if (cache.size () >= max_cache)
+			if (cache.size () >= network_params.voting.max_cache)
 			{
 				cache.erase (cache.begin ());
 			}
