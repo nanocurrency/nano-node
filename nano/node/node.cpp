@@ -3117,7 +3117,7 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 {
 	assert (!mutex.try_lock ());
 	std::deque<std::pair<nano::block_hash, int64_t>> remaining_blocks;
-	remaining_blocks.push_back (std::make_pair (hash_a, 0));
+	remaining_blocks.emplace_back (hash_a, 0);
 	std::unordered_set<nano::block_hash> processed_blocks;
 	std::vector<std::pair<nano::uint512_union, int64_t>> elections_list;
 	uint128_t sum (0);
@@ -3134,21 +3134,21 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 				auto previous (existing->second->status.winner->previous ());
 				if (!previous.is_zero ())
 				{
-					remaining_blocks.push_back (std::make_pair (previous, level + 1));
+					remaining_blocks.emplace_back (previous, level + 1);
 				}
 				auto source (existing->second->status.winner->source ());
 				if (!source.is_zero () && source != previous)
 				{
-					remaining_blocks.push_back (std::make_pair (source, level + 1));
+					remaining_blocks.emplace_back (source, level + 1);
 				}
 				auto link (existing->second->status.winner->link ());
 				if (!link.is_zero () && !node.ledger.is_epoch_link (link) && link != previous)
 				{
-					remaining_blocks.push_back (std::make_pair (link, level + 1));
+					remaining_blocks.emplace_back (link, level + 1);
 				}
 				for (auto & dependent_block : existing->second->dependent_blocks)
 				{
-					remaining_blocks.push_back (std::make_pair (dependent_block, level - 1));
+					remaining_blocks.emplace_back (dependent_block, level - 1);
 				}
 				processed_blocks.insert (hash);
 				nano::uint512_union root (previous, existing->second->status.winner->root ());
@@ -3156,7 +3156,7 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 				if (existing_root != roots.end ())
 				{
 					sum += existing_root->difficulty;
-					elections_list.push_back (std::make_pair (root, level));
+					elections_list.emplace_back (root, level);
 				}
 			}
 		}
