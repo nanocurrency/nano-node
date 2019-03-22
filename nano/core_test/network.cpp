@@ -1748,17 +1748,15 @@ TEST (bootstrap, tcp_listener_timeout_keepalive)
 	auto socket (std::make_shared<nano::socket> (node0));
 	nano::keepalive keepalive;
 	auto input (keepalive.to_bytes ());
-	std::atomic<bool> connected (false);
-	socket->async_connect (node0->bootstrap.endpoint (), [&input, socket, &connected](boost::system::error_code const & ec) {
+	socket->async_connect (node0->bootstrap.endpoint (), [&input, socket](boost::system::error_code const & ec) {
 		ASSERT_FALSE (ec);
-		socket->async_write (input, [&input, &connected](boost::system::error_code const & ec, size_t size_a) {
+		socket->async_write (input, [&input](boost::system::error_code const & ec, size_t size_a) {
 			ASSERT_FALSE (ec);
 			ASSERT_EQ (input->size (), size_a);
-			connected = true;
 		});
 	});
 	system.deadline_set (std::chrono::seconds (5));
-	while (!connected)
+	while (node0->stats.count (nano::stat::type::message, nano::stat::detail::keepalive) == 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
