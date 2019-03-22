@@ -88,7 +88,7 @@ public:
 	}
 
 	/** Handler for payload_encoding::json_legacy */
-	void rpc_handle_query ()
+	void handle_json_query ()
 	{
 		session_timer.restart ();
 		auto request_id_l (std::to_string (server.id_dispenser.fetch_add (1)));
@@ -103,13 +103,13 @@ public:
 			this_l->response_body = ostream.str ();
 
 			uint32_t size_response = boost::endian::native_to_big (static_cast<uint32_t> (this_l->response_body.size ()));
-			std::vector<boost::asio::mutable_buffer> bufs = {
+			auto bufs = std::make_shared<std::vector<boost::asio::mutable_buffer>> (std::initializer_list<boost::asio::mutable_buffer>{
 				boost::asio::buffer (&size_response, sizeof (size_response)),
 				boost::asio::buffer (this_l->response_body)
-			};
+			});
 
 			this_l->timer_start (std::chrono::seconds (this_l->config_transport.io_timeout));
-			boost::asio::async_write (this_l->socket, bufs, [this_l](boost::system::error_code const & error_a, size_t size_a) {
+			boost::asio::async_write (this_l->socket, *bufs, [this_l, bufs](boost::system::error_code const & error_a, size_t size_a) {
 				this_l->timer_cancel ();
 				if (!error_a)
 				{
@@ -123,7 +123,7 @@ public:
 
 			if (this_l->node.config.logging.log_ipc ())
 			{
-				this_l->node.logger.always_log (boost::str (boost::format ("IPC/RPC request %1% completed in: %2% %3%") % request_id_l % this_l->session_timer.stop ().count () % this_l->session_timer.unit ()));
+				 this_l->node.logger.always_log (boost::str (boost::format ("IPC/RPC request %1% completed in: %2% %3%") % request_id_l % this_l->session_timer.stop ().count () % this_l->session_timer.unit ()));
 			}
 		});
 
@@ -158,7 +158,7 @@ public:
 					this_l->buffer.resize (this_l->buffer_size);
 					// Payload (ptree compliant JSON string)
 					this_l->async_read_exactly (this_l->buffer.data (), this_l->buffer_size, [this_l]() {
-						this_l->rpc_handle_query ();
+						this_l->handle_json_query ();
 					});
 				});
 			}
@@ -3728,6 +3728,7 @@ void nano::ipc_json_handler::stop ()
 	if (!ec)
 	{
 		node.stop ();
+		ipc_server.stop ();
 	}
 }
 

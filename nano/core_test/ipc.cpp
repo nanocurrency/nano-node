@@ -20,7 +20,7 @@ TEST (ipc, asynchronous)
 	nano::ipc::ipc_server ipc (*system.nodes[0]);
 	nano::ipc::ipc_client client (system.nodes[0]->io_ctx);
 
-	auto req (client.prepare_request (nano::ipc::payload_encoding::json_legacy, std::string (R"({"action": "block_count"})")));
+	auto req (nano::ipc::prepare_request (nano::ipc::payload_encoding::json_legacy, std::string (R"({"action": "block_count"})")));
 	auto res (std::make_shared<std::vector<uint8_t>> ());
 	std::atomic<bool> call_completed{ false };
 	// clang-format off

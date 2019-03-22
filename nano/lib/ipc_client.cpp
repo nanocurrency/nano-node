@@ -185,7 +185,7 @@ void nano::ipc::ipc_client::async_read (std::shared_ptr<std::vector<uint8_t>> bu
 	});
 }
 
-std::shared_ptr<std::vector<uint8_t>> nano::ipc::ipc_client::prepare_request (nano::ipc::payload_encoding encoding_a, std::string const & payload_a)
+std::shared_ptr<std::vector<uint8_t>> nano::ipc::prepare_request (nano::ipc::payload_encoding encoding_a, std::string const & payload_a)
 {
 	auto buffer_l (std::make_shared<std::vector<uint8_t>> ());
 	if (encoding_a == nano::ipc::payload_encoding::json_legacy)
@@ -206,7 +206,7 @@ std::shared_ptr<std::vector<uint8_t>> nano::ipc::ipc_client::prepare_request (na
 
 std::string nano::ipc::request (nano::ipc::ipc_client & ipc_client, std::string const & rpc_action_a)
 {
-	auto req (ipc_client.prepare_request (nano::ipc::payload_encoding::json_legacy, rpc_action_a));
+	auto req (prepare_request (nano::ipc::payload_encoding::json_legacy, rpc_action_a));
 	auto res (std::make_shared<std::vector<uint8_t>> ());
 
 	std::promise<std::string> result_l;

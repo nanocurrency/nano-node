@@ -46,7 +46,7 @@ use errors::*;
 mod rpc;
 use rpc::{RpcClient, RpcError};
 
-mod launch_node;
+mod launch_node_and_rpc;
 
 struct Parameters {
     node_count: u16,
@@ -78,9 +78,10 @@ fn run(params: Parameters) -> Result<()> {
     }
     let mut tokio_core = Core::new().chain_err(|| "failed to create tokio Core")?;
     let mut children = Vec::with_capacity(params.node_count as _);
+    let mut rpc_children = Vec::with_capacity(params.node_count as _);
     let mut nodes: Vec<RpcClient<_>> = Vec::with_capacity(params.node_count as _);
     for i in 0..params.node_count {
-        let (child, rpc_child, rpc_client) = launch_node::launch_node(
+        let (child, rpc_child, rpc_client) = launch_node_and_rpc::launch_node_and_rpc(
             &params.node_path,
             &params.rpc_path,
             &params.tmp_dir,
@@ -88,7 +89,7 @@ fn run(params: Parameters) -> Result<()> {
             i as _,
         )?;
         children.push(child);
-		children.push(rpc_child);
+        rpc_children.push(rpc_child);
         nodes.push(rpc_client);
     }
     if nodes.is_empty() {
@@ -101,7 +102,7 @@ fn run(params: Parameters) -> Result<()> {
     for (a, node) in nodes.iter().enumerate() {
         for b in 0..nodes.len() {
             if a != b {
-                tokio_core.run(launch_node::connect_node(node, b as _))?;
+                tokio_core.run(launch_node_and_rpc::connect_node(node, b as _))?;
             }
         }
     }
@@ -138,7 +139,7 @@ fn run(params: Parameters) -> Result<()> {
                 "action": "key_create",
             }))
         })
-        .buffer_unordered(10) // execute 10 `key_create`s simultaniously
+        .buffer_unordered(10) // execute 10 `key_create`s simultaneously
         .inspect(|_| {
             tstat!("key_create,progress");
         })

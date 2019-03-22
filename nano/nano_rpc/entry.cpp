@@ -44,27 +44,10 @@ void run (boost::filesystem::path const & data_path)
 		boost::asio::io_context io_ctx;
 		try
 		{
-			nano::ipc::ipc_client client (io_ctx);
-
-			nano::rpc rpc (io_ctx, rpc_config, client);
-			std::promise<nano::error> promise;
-			client.async_connect (rpc_config.address.to_string (), rpc_config.ipc_port, [&promise, &rpc](nano::error err) {
-				if (!err)
-				{
-					rpc.start ();
-				}
-				promise.set_value (err);
-			});
-
+			nano::rpc rpc (io_ctx, rpc_config);
+			rpc.start ();
 			runner = std::make_unique<nano::thread_runner> (io_ctx, rpc_config.io_threads);
-
-			// Check if connection was successful
-			auto err = promise.get_future ().get ();
 			runner->join ();
-			if (err)
-			{
-				std::cerr << "Error connecting to node, check it is running and using the expected port (" << err.get_message () << ")\n";
-			}
 		}
 		catch (const std::runtime_error & e)
 		{
@@ -88,7 +71,8 @@ int main (int argc, char * const * argv)
 	description.add_options ()
 		("help", "Print out options")
 		("version", "Prints out version")
-		("daemon", "Start node daemon");
+		("daemon", "Start node daemon")
+		("data_path", boost::program_options::value<std::string> (), "Use the supplied path as the data directory");
 	// clang-format on
 
 	boost::program_options::variables_map vm;

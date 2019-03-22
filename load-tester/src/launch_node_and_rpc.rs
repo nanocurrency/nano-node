@@ -20,8 +20,9 @@ use rpc::RpcClient;
 
 const RPC_PORT_START: u64 = 55000;
 const PEERING_PORT_START: u64 = 54000;
+const IPC_PORT_START: u64 = 56000;
 
-pub fn launch_node(
+pub fn launch_node_and_rpc(
     nano_node: &Path,
     nano_rpc: &Path,
     tmp_dir: &Path,
@@ -33,13 +34,16 @@ pub fn launch_node(
         Ok(_) => {}
         Err(ref e) if e.kind() == io::ErrorKind::AlreadyExists => {
             let _ = fs::remove_file(data_dir.join("data.ldb"));
+			let _ = fs::remove_file(data_dir.join("wallets.ldb"));
         }
         r => r.chain_err(|| "failed to create nano_node data directory")?,
     }
     let peering_port = PEERING_PORT_START + i;
+    let ipc_port = IPC_PORT_START + i;
 
     let config = json!({
 	"version": "3",
+	"rpc_enable": "false",
 	"node": {
 		"version": "17",
 		"peering_port": peering_port.to_string(),
@@ -95,7 +99,7 @@ pub fn launch_node(
 		"ipc": {
 			"tcp": {
 				"enable": "true",
-				"port": "7077",
+				"port": ipc_port.to_string (),
 				"io_timeout": "15"
 			},
 			"local": {
@@ -124,8 +128,9 @@ pub fn launch_node(
         "enable_control": "true",
         "max_json_depth": "20",
         "version": "1",
-        "ipc_port": "7077",
-        "io_threads": "8"
+        "ipc_port": ipc_port.to_string (),
+        "io_threads": "8",
+		"num_ipc_connections" : "8"
     });
 
     let config_writer =

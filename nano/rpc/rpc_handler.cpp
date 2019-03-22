@@ -4,6 +4,7 @@
 #include <nano/lib/ipc_client.hpp>
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/rpc/rpc_handler.hpp>
+#include <nano/rpc/rpc_request_processor.hpp>
 #include <unordered_set>
 
 namespace
@@ -12,13 +13,12 @@ std::unordered_set<std::string> create_rpc_control_impls ();
 std::unordered_set<std::string> rpc_control_impl_set = create_rpc_control_impls ();
 }
 
-nano::rpc_handler::rpc_handler (nano::ipc::ipc_client & ipc_client, nano::rpc_config const & rpc_config, std::function<void()> stop_callback, std::string const & body_a, std::string const & request_id_a, std::function<void(std::string const &)> const & response_a) :
+nano::rpc_handler::rpc_handler (nano::rpc_config const & rpc_config, std::string const & body_a, std::string const & request_id_a, std::function<void(std::string const &)> const & response_a, nano::rpc_request_processor & rpc_request_processor_a) :
 body (body_a),
 request_id (request_id_a),
 response (response_a),
-ipc_client (ipc_client),
-stop_callback (stop_callback),
-rpc_config (rpc_config)
+rpc_config (rpc_config),
+rpc_request_processor (rpc_request_processor_a)
 {
 }
 
@@ -87,59 +87,10 @@ void nano::rpc_handler::process_request ()
 
 			if (!error)
 			{
-				// Forward the request to the IPC server (currently assumes json)
-				auto req (ipc_client.prepare_request (nano::ipc::payload_encoding::json_legacy, body));
-				auto res (std::make_shared<std::vector<uint8_t>> ());
-
-				auto this_l (shared_from_this ());
-
-				ipc_client.async_write (req, [this_l, req, res, action](nano::error err_a, size_t size_a) {
-					auto read_payload = [this_l, res, action]() {
-						uint32_t payload_size_l = boost::endian::big_to_native (*reinterpret_cast<uint32_t *> (res->data ()));
-						// Read json payload
-						this_l->ipc_client.async_read (res, payload_size_l, [this_l, res, action](nano::error err_read_a, size_t size_read_a) {
-							this_l->response (std::string (res->begin (), res->end ()));
-							if (action == "stop")
-							{
-								this_l->stop_callback ();
-							}
-						});
-					};
-
-					this_l->ipc_client.async_read (res, sizeof (uint32_t), [this_l, req, res, action, read_payload](nano::error err_read_a, size_t size_read_a) {
-						if (size_read_a != 0 && !err_read_a)
-						{
-							read_payload ();
-						}
-						else
-						{
-							// Connection has been closed, try to connect to it again and then resend IPC payload
-							this_l->ipc_client.async_connect (this_l->rpc_config.address.to_string (), this_l->rpc_config.ipc_port, [req, this_l, res, action, read_payload](nano::error err) {
-								if (!err)
-								{
-									this_l->ipc_client.async_write (req, [this_l, res, action, read_payload](nano::error err_a, size_t size_a) {
-										// Read length
-										this_l->ipc_client.async_read (res, sizeof (uint32_t), [this_l, res, action, read_payload](nano::error err_read_a, size_t size_read_a) {
-											if (size_read_a != 0 && !err_read_a)
-											{
-												read_payload ();
-											}
-											else
-											{
-												error_response (this_l->response, "Connection to node has failed");
-											}
-										});
-									});
-								}
-								else
-								{
-									error_response (this_l->response, "There is a problem connecting to the node");
-								}
-							});
-						}
-					});
-				});
+				// Add request (currently assumes json) to the rpc processor queue
+				rpc_request_processor.add (std::make_shared <nano::rpc_request> (action, body, this->response));
 			}
+
 		}
 	}
 	catch (std::runtime_error const &)

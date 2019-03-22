@@ -5,15 +5,15 @@
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/rpc/rpc_connection.hpp>
 #include <nano/rpc/rpc_handler.hpp>
+#include <nano/rpc/rpc_request_processor.hpp>
 
-nano::rpc_connection::rpc_connection (nano::ipc::ipc_client & ipc_client, nano::rpc_config const & rpc_config, nano::network_constants const & network_constants, std::function<void()> stop_callback, boost::asio::io_context & io_ctx, nano::logger_mt & logger) :
+nano::rpc_connection::rpc_connection (nano::rpc_config const & rpc_config, nano::network_constants const & network_constants, boost::asio::io_context & io_ctx, nano::logger_mt & logger, nano::rpc_request_processor & rpc_request_processor) :
 socket (io_ctx),
 io_ctx (io_ctx),
 logger (logger),
-ipc_client (ipc_client),
 rpc_config (rpc_config),
-stop_callback (stop_callback),
-network_constants (network_constants)
+network_constants (network_constants),
+rpc_request_processor (rpc_request_processor)
 {
 	responded.clear ();
 }
@@ -112,7 +112,7 @@ void nano::rpc_connection::read ()
 					{
 						case boost::beast::http::verb::post:
 						{
-							auto handler (std::make_shared<nano::rpc_handler> (this_l->ipc_client, this_l->rpc_config, this_l->stop_callback, req.body (), request_id, response_handler));
+							auto handler (std::make_shared<nano::rpc_handler> (this_l->rpc_config, req.body (), request_id, response_handler, this_l->rpc_request_processor));
 							handler->process_request ();
 							break;
 						}

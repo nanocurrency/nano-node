@@ -39,8 +39,9 @@ enable_control (enable_control_a),
 max_json_depth (20),
 max_request_size (32 * 1024 * 1024),
 io_threads (std::max<unsigned> (4, boost::thread::hardware_concurrency ())),
-ipc_port (7077),
-ipc_path ("/tmp/nano")
+ipc_port (network_constants.default_ipc_port),
+ipc_path ("/tmp/nano"),
+num_ipc_connections (network_constants.is_live_network () ? 8 : 1)
 {
 }
 
@@ -55,6 +56,7 @@ nano::error nano::rpc_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("io_threads", io_threads);
 	json.put ("ipc_port", ipc_port);
 	json.put ("ipc_path", ipc_path);
+	json.put ("num_ipc_connections", num_ipc_connections);
 	return json.get_error ();
 }
 
@@ -87,6 +89,7 @@ nano::error nano::rpc_config::deserialize_json (bool & upgraded_a, nano::jsoncon
 		json.get_optional<unsigned> ("io_threads", io_threads);
 		json.get_optional<uint16_t> ("ipc_port", ipc_port);
 		json.get_optional<std::string> ("ipc_path", ipc_path);
+		json.get_optional<unsigned> ("num_ipc_connections", num_ipc_connections);
 	}
 	else
 	{

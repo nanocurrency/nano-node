@@ -1,13 +1,24 @@
 #include <boost/format.hpp>
 #include <nano/rpc/rpc.hpp>
 
-nano::rpc::rpc (boost::asio::io_context & io_ctx_a, nano::rpc_config const & config_a, nano::ipc::ipc_client & ipc_client) :
+nano::rpc::rpc (boost::asio::io_context & io_ctx_a, nano::rpc_config const & config_a) :
 config (config_a),
-ipc_client (ipc_client),
 acceptor (io_ctx_a),
 logger (std::chrono::milliseconds (0)),
-io_ctx (io_ctx_a)
+io_ctx (io_ctx_a),
+rpc_request_processor (io_ctx, config, [this]() {
+	this->stop ();
+})
 {
+}
+
+nano::rpc::~rpc()
+{
+	if (!stopped)
+	{
+		stop ();
+		rpc_request_processor.stop ();
+	}
 }
 
 void nano::rpc::start ()
@@ -29,11 +40,7 @@ void nano::rpc::start ()
 
 void nano::rpc::accept ()
 {
-	auto stop_callback = [this]() {
-		this->stop ();
-	};
-
-	auto connection (std::make_shared<nano::rpc_connection> (ipc_client, config, network_constants, stop_callback, io_ctx, logger));
+	auto connection (std::make_shared<nano::rpc_connection> (config, network_constants, io_ctx, logger, rpc_request_processor));
 	acceptor.async_accept (connection->socket, [this, connection](boost::system::error_code const & ec) {
 		if (ec != boost::asio::error::operation_aborted && acceptor.is_open ())
 		{
@@ -52,5 +59,6 @@ void nano::rpc::accept ()
 
 void nano::rpc::stop ()
 {
+	stopped = true;
 	acceptor.close ();
 }

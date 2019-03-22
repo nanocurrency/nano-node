@@ -23,6 +23,7 @@ namespace ipc
 	{
 	public:
 		ipc_client (boost::asio::io_context & io_ctx_a);
+		ipc_client (ipc_client && ipc_client) = default;
 		virtual ~ipc_client () = default;
 
 		/** Connect to a domain socket */
@@ -40,12 +41,6 @@ namespace ipc
 		/** Read \p size_a bytes asynchronously */
 		void async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, size_t size_a, std::function<void(nano::error, size_t)> callback_a);
 
-		/**
-		 * Returns a buffer with an IPC preamble for the given \p encoding_a followed by the payload. Depending on encoding,
-		 * the buffer may contain a payload length or end sentinel.
-		 */
-		std::shared_ptr<std::vector<uint8_t>> prepare_request (nano::ipc::payload_encoding encoding_a, std::string const & payload_a);
-
 	private:
 		boost::asio::io_context & io_ctx;
 
@@ -55,5 +50,11 @@ namespace ipc
 
 	/** Convenience function for making synchronous IPC calls. The client must be connected */
 	std::string request (nano::ipc::ipc_client & ipc_client, std::string const & rpc_action_a);
+
+	/**
+  	 * Returns a buffer with an IPC preamble for the given \p encoding_a followed by the payload. Depending on encoding,
+	 * the buffer may contain a payload length or end sentinel.
+	 */
+	std::shared_ptr<std::vector<uint8_t>> prepare_request (nano::ipc::payload_encoding encoding_a, std::string const & payload_a);
 }
 }

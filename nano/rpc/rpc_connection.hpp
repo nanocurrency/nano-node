@@ -2,11 +2,13 @@
 
 #include <atomic>
 #include <boost/beast.hpp>
+#include <nano/rpc/rpc_handler.hpp>
 
 namespace nano
 {
 class logger_mt;
 class rpc_config;
+class rpc_request_processor;
 
 namespace ipc
 {
@@ -16,7 +18,7 @@ namespace ipc
 class rpc_connection final : public std::enable_shared_from_this<nano::rpc_connection>
 {
 public:
-	rpc_connection (nano::ipc::ipc_client & ipc_client, nano::rpc_config const & rpc_config, nano::network_constants const & network_constants, std::function<void()> stop_callback, boost::asio::io_context & io_ctx, nano::logger_mt & logger);
+	rpc_connection (nano::rpc_config const & rpc_config, nano::network_constants const & network_constants, boost::asio::io_context & io_ctx, nano::logger_mt & logger, nano::rpc_request_processor & rpc_request_processor);
 	void parse_connection ();
 	void prepare_head (unsigned version, boost::beast::http::status status = boost::beast::http::status::ok);
 	void write_result (std::string body, unsigned version, boost::beast::http::status status = boost::beast::http::status::ok);
@@ -28,9 +30,8 @@ public:
 	std::atomic_flag responded;
 	boost::asio::io_context & io_ctx;
 	nano::logger_mt & logger;
-	nano::ipc::ipc_client & ipc_client;
 	nano::rpc_config const & rpc_config;
-	std::function<void()> stop_callback;
 	nano::network_constants const & network_constants;
+	nano::rpc_request_processor & rpc_request_processor;
 };
 }

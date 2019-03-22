@@ -87,6 +87,7 @@ namespace thread_role
 		voting,
 		signature_checking,
 		slow_db_upgrade,
+		rpc_request_processor
 	};
 	/*
 	 * Get/Set the identifier for the current thread

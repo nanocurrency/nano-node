@@ -53,6 +53,7 @@ public:
 
 		default_node_port = is_live_network () ? 7075 : 54000;
 		default_rpc_port = is_live_network () ? 7076 : 55000;
+		default_ipc_port = is_live_network () ? 7077 : 24077;
 		request_interval_ms = is_test_network () ? 10 : 16000;
 	}
 
@@ -61,6 +62,7 @@ public:
 	uint64_t publish_threshold;
 	uint16_t default_node_port;
 	uint16_t default_rpc_port;
+	uint16_t default_ipc_port;
 	unsigned request_interval_ms;
 
 	/** Returns the network this object contains values for */
