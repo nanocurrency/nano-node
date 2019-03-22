@@ -51,7 +51,7 @@ mod launch_node_and_rpc;
 struct Parameters {
     node_count: u16,
     node_path: PathBuf,
-	rpc_path: PathBuf,
+    rpc_path: PathBuf,
     tmp_dir: PathBuf,
     send_count: usize,
     dest_count: usize,
@@ -459,7 +459,7 @@ fn main() {
                 .value_name("PATH")
                 .required(true)
                 .help("The path to the nano_rpc to test"),
-        )		
+        )       
         .arg(
             Arg::with_name("send_count")
                 .short("s")
@@ -519,7 +519,7 @@ fn main() {
     let params = Parameters {
         node_count: num_arg!("node_count"),
         node_path: matches.value_of("node_path").unwrap().into(),
-		rpc_path: matches.value_of("rpc_path").unwrap().into(),
+        rpc_path: matches.value_of("rpc_path").unwrap().into(),
         tmp_dir: matches
             .value_of("tmp_dir")
             .or(env::var("TMPDIR").ok().as_ref().map(|x| x.as_str()))
