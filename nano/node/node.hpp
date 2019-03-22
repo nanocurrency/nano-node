@@ -98,7 +98,7 @@ public:
 class conflict_info
 {
 public:
-	nano::uint512_union root;
+	nano::qualified_root root;
 	uint64_t difficulty;
 	uint64_t adjusted_difficulty;
 	std::shared_ptr<nano::election> election;
@@ -133,7 +133,7 @@ public:
 	nano::conflict_info,
 	boost::multi_index::indexed_by<
 	boost::multi_index::hashed_unique<
-	boost::multi_index::member<nano::conflict_info, nano::uint512_union, &nano::conflict_info::root>>,
+	boost::multi_index::member<nano::conflict_info, nano::qualified_root, &nano::conflict_info::root>>,
 	boost::multi_index::ordered_non_unique<
 	boost::multi_index::member<nano::conflict_info, uint64_t, &nano::conflict_info::adjusted_difficulty>,
 	std::greater<uint64_t>>>>

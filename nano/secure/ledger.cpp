@@ -1006,7 +1006,7 @@ void nano::ledger::change_latest (nano::transaction const & transaction_a, nano:
 	}
 }
 
-std::shared_ptr<nano::block> nano::ledger::successor (nano::transaction const & transaction_a, nano::uint512_union const & root_a)
+std::shared_ptr<nano::block> nano::ledger::successor (nano::transaction const & transaction_a, nano::qualified_root const & root_a)
 {
 	nano::block_hash successor (0);
 	if (root_a.uint256s[0].is_zero () && store.account_exists (transaction_a, root_a.uint256s[1]))

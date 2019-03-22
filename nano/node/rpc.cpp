@@ -1613,7 +1613,7 @@ void nano::rpc_handler::confirmation_info ()
 	const bool contents = request.get<bool> ("contents", true);
 	const bool json_block_l = request.get<bool> ("json_block", false);
 	std::string root_text (request.get<std::string> ("root"));
-	nano::uint512_union root;
+	nano::qualified_root root;
 	if (!root.decode_hex (root_text))
 	{
 		std::lock_guard<std::mutex> lock (node.active.mutex);
