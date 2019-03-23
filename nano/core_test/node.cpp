@@ -863,7 +863,7 @@ TEST (node, fork_publish)
 		node1.block_processor.flush ();
 		ASSERT_EQ (1, node1.active.size ());
 		std::unique_lock<std::mutex> lock (node1.active.mutex);
-		auto existing (node1.active.roots.find (nano::qualified_root (send1->previous (), send1->root ())));
+		auto existing (node1.active.roots.find (send1->qualified_root ()));
 		ASSERT_NE (node1.active.roots.end (), existing);
 		auto election (existing->election);
 		lock.unlock ();
@@ -1163,7 +1163,7 @@ TEST (node, fork_open_flip)
 	node2.process_active (open1);
 	node2.block_processor.flush ();
 	std::unique_lock<std::mutex> lock (node2.active.mutex);
-	auto conflict (node2.active.roots.find (nano::qualified_root (open1->previous (), open1->root ())));
+	auto conflict (node2.active.roots.find (open1->qualified_root ()));
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
 	ASSERT_NE (nullptr, votes1);
@@ -1447,7 +1447,7 @@ TEST (node, rep_self_vote)
 	auto & active (node0->active);
 	active.start (block0);
 	std::unique_lock<std::mutex> lock (active.mutex);
-	auto existing (active.roots.find (nano::qualified_root (block0->previous (), block0->root ())));
+	auto existing (active.roots.find (block0->qualified_root ()));
 	ASSERT_NE (active.roots.end (), existing);
 	auto election (existing->election);
 	lock.unlock ();

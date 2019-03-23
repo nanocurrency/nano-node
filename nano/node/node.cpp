@@ -434,7 +434,7 @@ public:
 				if (!node.network.send_votes_cache (*channel, hash))
 				{
 					auto transaction (node.store.tx_begin_read ());
-					auto successor (node.ledger.successor (transaction, nano::qualified_root (message_a.block->previous (), message_a.block->root ())));
+					auto successor (node.ledger.successor (transaction, message_a.block->qualified_root ()));
 					if (successor != nullptr)
 					{
 						auto same_block (successor->hash () == hash);
@@ -3113,7 +3113,7 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, std::
 	auto error (true);
 	if (!stopped)
 	{
-		auto root (nano::qualified_root (block_a->previous (), block_a->root ()));
+		auto root (block_a->qualified_root ());
 		auto existing (roots.find (root));
 		if (existing == roots.end ())
 		{
@@ -3157,7 +3157,7 @@ bool nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a, bool s
 			else
 			{
 				auto block (boost::get<std::shared_ptr<nano::block>> (vote_block));
-				auto existing (roots.find (nano::qualified_root (block->previous (), block->root ())));
+				auto existing (roots.find (block->qualified_root ()));
 				if (existing != roots.end ())
 				{
 					result = existing->election->vote (vote_a->account, vote_a->sequence, block->hash ());
@@ -3177,13 +3177,13 @@ bool nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a, bool s
 bool nano::active_transactions::active (nano::block const & block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	return roots.find (nano::qualified_root (block_a.previous (), block_a.root ())) != roots.end ();
+	return roots.find (block_a.qualified_root ()) != roots.end ();
 }
 
 void nano::active_transactions::update_difficulty (nano::block const & block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (roots.find (nano::qualified_root (block_a.previous (), block_a.root ())));
+	auto existing (roots.find (block_a.qualified_root ()));
 	if (existing != roots.end ())
 	{
 		uint64_t difficulty;
@@ -3305,9 +3305,9 @@ std::deque<nano::election_status> nano::active_transactions::list_confirmed ()
 void nano::active_transactions::erase (nano::block const & block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	if (roots.find (nano::qualified_root (block_a.previous (), block_a.root ())) != roots.end ())
+	if (roots.find (block_a.qualified_root ()) != roots.end ())
 	{
-		roots.erase (nano::qualified_root (block_a.previous (), block_a.root ()));
+		roots.erase (block_a.qualified_root ());
 		node.logger.try_log (boost::str (boost::format ("Election erased for block block %1% root %2%") % block_a.hash ().to_string () % block_a.root ().to_string ()));
 	}
 }
@@ -3348,7 +3348,7 @@ nano::active_transactions::~active_transactions ()
 bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (roots.find (nano::qualified_root (block_a->previous (), block_a->root ())));
+	auto existing (roots.find (block_a->qualified_root ()));
 	auto result (true);
 	if (existing != roots.end ())
 	{
