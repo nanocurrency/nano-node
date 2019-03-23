@@ -112,6 +112,10 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a, bool
 				auto endpoint (nano::transport::map_endpoint_to_v6 (i->endpoint ()));
 				nano::transport::channel_udp channel (node_l->network.udp_channels, endpoint);
 				node_l->network.send_keepalive (channel);
+				if (preconfigured_peer_a)
+				{
+					node_l->network.udp_channels.insert (endpoint, nano::protocol_version, true);
+				}
 			}
 		}
 		else

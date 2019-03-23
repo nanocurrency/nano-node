@@ -60,6 +60,7 @@ class node_constants
 public:
 	node_constants (nano::network_params & params_a);
 	std::chrono::seconds period;
+	std::chrono::seconds preconfigured_keepalive_interval;
 	std::chrono::seconds cutoff;
 	std::chrono::seconds syn_cookie_cutoff;
 	std::chrono::minutes backup_interval;
