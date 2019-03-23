@@ -40,7 +40,7 @@ namespace transport
 
 	public:
 		udp_channels (nano::node &, uint16_t);
-		std::shared_ptr<nano::transport::channel_udp> insert (nano::endpoint const &, unsigned, bool = false);
+		std::shared_ptr<nano::transport::channel_udp> insert (nano::endpoint const &, unsigned);
 		void erase (nano::endpoint const &);
 		size_t size () const;
 		std::shared_ptr<nano::transport::channel_udp> channel (nano::endpoint const &) const;
