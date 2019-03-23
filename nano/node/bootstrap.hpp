@@ -18,6 +18,10 @@ namespace nano
 class bootstrap_attempt;
 class bootstrap_client;
 class node;
+namespace transport
+{
+	class channel_tcp;
+}
 enum class sync_result
 {
 	success,
@@ -31,6 +35,7 @@ public:
 	void async_connect (nano::tcp_endpoint const &, std::function<void(boost::system::error_code const &)>);
 	void async_read (std::shared_ptr<std::vector<uint8_t>>, size_t, std::function<void(boost::system::error_code const &, size_t)>);
 	void async_write (std::shared_ptr<std::vector<uint8_t>>, std::function<void(boost::system::error_code const &, size_t)>);
+	void async_write (boost::asio::const_buffer, std::function<void(boost::system::error_code const &, size_t)>);
 	void start ();
 	void stop ();
 	void close ();
@@ -173,7 +178,7 @@ public:
 class bootstrap_client : public std::enable_shared_from_this<bootstrap_client>
 {
 public:
-	bootstrap_client (std::shared_ptr<nano::node>, std::shared_ptr<nano::bootstrap_attempt>, std::shared_ptr<nano::socket>);
+	bootstrap_client (std::shared_ptr<nano::node>, std::shared_ptr<nano::bootstrap_attempt>, std::shared_ptr<nano::transport::channel_tcp>);
 	~bootstrap_client ();
 	std::shared_ptr<nano::bootstrap_client> shared ();
 	void stop (bool force);
@@ -181,7 +186,7 @@ public:
 	double elapsed_seconds () const;
 	std::shared_ptr<nano::node> node;
 	std::shared_ptr<nano::bootstrap_attempt> attempt;
-	std::shared_ptr<nano::socket> socket;
+	std::shared_ptr<nano::transport::channel_tcp> channel;
 	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
 	std::chrono::steady_clock::time_point start_time;
 	std::atomic<uint64_t> block_count;

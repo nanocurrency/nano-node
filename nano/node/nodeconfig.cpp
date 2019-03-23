@@ -2,7 +2,8 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/rpcconfig.hpp>
-#include <nano/node/nodeconfig.hpp>// NOTE: to reduce compile times, this include can be replaced by more narrow includes
+#include <nano/node/nodeconfig.hpp>
+// NOTE: to reduce compile times, this include can be replaced by more narrow includes
 // once nano::network is factored out of node.{c|h}pp
 #include <nano/node/node.hpp>
 
@@ -422,19 +423,6 @@ nano::account nano::node_config::random_representative ()
 	return result;
 }
 
-nano::node_flags::node_flags () :
-disable_backup (false),
-disable_lazy_bootstrap (false),
-disable_legacy_bootstrap (false),
-disable_wallet_bootstrap (false),
-disable_bootstrap_listener (false),
-disable_unchecked_cleanup (false),
-disable_unchecked_drop (true),
-fast_bootstrap (false),
-sideband_batch_size (512)
-{
-}
-
 namespace nano
 {
 void migrate_rpc_config (nano::jsonconfig & json, boost::filesystem::path const & data_path)
@@ -445,14 +433,15 @@ void migrate_rpc_config (nano::jsonconfig & json, boost::filesystem::path const 
 	// The value is not migrated to the ipc_config
 	rpc_l.erase ("enable_sign_hash");
 
+
 	auto node_l (json.get_required_child ("node"));
 	auto ipc_l (node_l.get_optional_child ("ipc"));
 	if (ipc_l)
 	{
 		nano::ipc::ipc_config ipc_config;
 		auto upgraded (false);
-		auto err1 = ipc_config.deserialize_json (upgraded, *ipc_l);
-		if (!err1)
+		auto err = ipc_config.deserialize_json (upgraded, *ipc_l);
+		if (!err)
 		{
 			// Add IPC config options to RPC
 			if (ipc_config.transport_tcp.enabled)

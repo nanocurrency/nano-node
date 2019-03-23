@@ -1,5 +1,6 @@
-#include <nano/lib/jsonconfig.hpp>
 #include <nano/node/ipcconfig.hpp>
+#include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/blocks.hpp>
 
 nano::error nano::ipc::ipc_config::serialize_json (nano::jsonconfig & json) const
 {
@@ -25,6 +26,7 @@ nano::error nano::ipc::ipc_config::serialize_json (nano::jsonconfig & json) cons
 	domain_l.put ("io_timeout", transport_domain.io_timeout);
 	json.put_child ("local", domain_l);
 	json.put ("enable_sign_hash", enable_sign_hash);
+	json.put ("max_work_generate_difficulty", nano::to_string_hex (max_work_generate_difficulty));
 	return json.get_error ();
 }
 
@@ -38,6 +40,7 @@ nano::error nano::ipc::ipc_config::deserialize_json (bool & upgraded_a, nano::js
 			version_l = 1;
 			json.put ("version", version_l);
 			json.put ("enable_sign_hash", enable_sign_hash);
+			json.put ("max_work_generate_difficulty", nano::to_string_hex (max_work_generate_difficulty));
 			upgraded_a = true;
 		}
 
@@ -60,6 +63,12 @@ nano::error nano::ipc::ipc_config::deserialize_json (bool & upgraded_a, nano::js
 		}
 
 		json.get_optional<bool> ("enable_sign_hash", enable_sign_hash);
+		std::string max_work_generate_difficulty_text;
+		json.get_optional<std::string> ("max_work_generate_difficulty", max_work_generate_difficulty_text);
+		if (!max_work_generate_difficulty_text.empty ())
+		{
+			nano::from_string_hex (max_work_generate_difficulty_text, max_work_generate_difficulty);
+		}
 	}
 	catch (std::runtime_error const & ex)
 	{

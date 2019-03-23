@@ -43,14 +43,18 @@ add_library (node
 	openclconfig.cpp
 	openclwork.hpp
 	openclwork.cpp
-	peers.hpp
-	peers.cpp
 	portmapping.hpp
 	portmapping.cpp
 	repcrawler.hpp
 	repcrawler.cpp
 	testing.hpp
 	testing.cpp
+	transport/tcp.hpp
+	transport/tcp.cpp
+	transport/transport.hpp
+	transport/transport.cpp
+	transport/udp.hpp
+	transport/udp.cpp
 	signatures.hpp
 	signatures.cpp
 	stats.hpp
