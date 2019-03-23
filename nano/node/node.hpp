@@ -488,7 +488,7 @@ public:
 	nano::wallets_store & wallets_store;
 	nano::gap_cache gap_cache;
 	nano::ledger ledger;
-	nano::active_transactions active;
+	nano::signature_checker checker;
 	nano::network network;
 	nano::bootstrap_initiator bootstrap_initiator;
 	nano::bootstrap_listener bootstrap;
@@ -496,7 +496,6 @@ public:
 	nano::node_observers observers;
 	nano::wallets wallets;
 	nano::port_mapping port_mapping;
-	nano::signature_checker checker;
 	nano::vote_processor vote_processor;
 	nano::rep_crawler rep_crawler;
 	unsigned warmed_up;
@@ -509,6 +508,7 @@ public:
 	nano::keypair node_id;
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer;
+	nano::active_transactions active;
 	const std::chrono::steady_clock::time_point startup_time;
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
 	static double constexpr price_max = 16.0;
