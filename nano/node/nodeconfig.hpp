@@ -8,6 +8,7 @@
 #include <nano/node/ipcconfig.hpp>
 #include <nano/node/logging.hpp>
 #include <nano/node/stats.hpp>
+#include <nano/node/websocketconfig.hpp>
 #include <vector>
 
 namespace nano
@@ -43,6 +44,7 @@ public:
 	bool enable_voting;
 	unsigned bootstrap_connections;
 	unsigned bootstrap_connections_max;
+	nano::websocket::config websocket_config;
 	std::string callback_address;
 	uint16_t callback_port;
 	std::string callback_target;

@@ -1048,6 +1048,13 @@ vote_uniquer (block_uniquer),
 active (*this),
 startup_time (std::chrono::steady_clock::now ())
 {
+	if (config.websocket_config.enabled)
+	{
+		auto endpoint_l (nano::tcp_endpoint (config.websocket_config.address, config.websocket_config.port));
+		websocket_server = std::make_shared<nano::websocket::listener> (*this, endpoint_l);
+		this->websocket_server->run ();
+	}
+
 	wallets.observer = [this](bool active) {
 		observers.wallet.notify (active);
 	};
@@ -1115,6 +1122,37 @@ startup_time (std::chrono::steady_clock::now ())
 						}
 					});
 				});
+			}
+		});
+	}
+	if (websocket_server)
+	{
+		observers.blocks.add ([this](std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
+			if (this->block_arrival.recent (block_a->hash ()))
+			{
+				std::string subtype;
+				if (is_state_send_a)
+				{
+					subtype = "send";
+				}
+				else if (block_a->type () == nano::block_type::state)
+				{
+					if (block_a->link ().is_zero ())
+					{
+						subtype = "change";
+					}
+					else if (amount_a == 0 && !this->ledger.epoch_link.is_zero () && this->ledger.is_epoch_link (block_a->link ()))
+					{
+						subtype = "epoch";
+					}
+					else
+					{
+						subtype = "receive";
+					}
+				}
+				nano::websocket::message_builder builder;
+				auto msg (builder.block_confirmed (block_a, account_a, amount_a, subtype));
+				this->websocket_server->broadcast (msg);
 			}
 		});
 	}
@@ -1544,6 +1582,10 @@ void nano::node::stop ()
 	vote_processor.stop ();
 	active.stop ();
 	network.stop ();
+	if (websocket_server)
+	{
+		websocket_server->stop ();
+	}
 	bootstrap_initiator.stop ();
 	bootstrap.stop ();
 	port_mapping.stop ();

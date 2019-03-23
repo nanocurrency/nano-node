@@ -23,6 +23,7 @@ add_executable (core_test
 	versioning.cpp
 	wallet.cpp
 	wallets.cpp
+	websocket.cpp
 	work_pool.cpp)
 
 target_compile_definitions(core_test
