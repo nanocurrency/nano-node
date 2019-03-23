@@ -31,6 +31,7 @@ void nano::transport::channel_tcp::send_buffer_raw (boost::asio::const_buffer bu
 
 std::function<void(boost::system::error_code const &, size_t)> nano::transport::channel_tcp::callback (std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
 {
+	// clang-format off
 	return [ buffer_a, node = std::weak_ptr<nano::node> (node.shared ()), detail_a, callback_a ](boost::system::error_code const & ec, size_t size_a)
 	{
 		if (auto node_l = node.lock ())
@@ -50,6 +51,7 @@ std::function<void(boost::system::error_code const &, size_t)> nano::transport::
 			}
 		}
 	};
+	// clang-format on
 }
 
 std::string nano::transport::channel_tcp::to_string () const
