@@ -97,7 +97,6 @@ nano::account const & nano::ledger_constants::not_an_account ()
 nano::node_constants::node_constants (nano::network_params & params_a)
 {
 	period = params_a.is_test_network () ? std::chrono::seconds (1) : std::chrono::seconds (60);
-	preconfigured_keepalive_interval = params_a.is_test_network () ? std::chrono::seconds (1) : std::chrono::minutes (15);
 	cutoff = period * 5;
 	syn_cookie_cutoff = std::chrono::seconds (5);
 	backup_interval = std::chrono::minutes (5);
