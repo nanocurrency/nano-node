@@ -1027,14 +1027,13 @@ wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (init_a.wallets_st
 wallets_store (*wallets_store_impl),
 gap_cache (*this),
 ledger (store, stats, config.epoch_block_link, config.epoch_block_signer),
-active (*this),
+checker (config.signature_checker_threads),
 network (*this, config.peering_port),
 bootstrap_initiator (*this),
 bootstrap (io_ctx_a, config.peering_port, *this),
 application_path (application_path_a),
 wallets (init_a.wallet_init, *this),
 port_mapping (*this),
-checker (config.signature_checker_threads),
 vote_processor (*this),
 rep_crawler (*this),
 warmed_up (0),
@@ -1046,6 +1045,7 @@ block_processor_thread ([this]() {
 online_reps (*this, config.online_weight_minimum.number ()),
 stats (config.stat_config),
 vote_uniquer (block_uniquer),
+active (*this),
 startup_time (std::chrono::steady_clock::now ())
 {
 	wallets.observer = [this](bool active) {
