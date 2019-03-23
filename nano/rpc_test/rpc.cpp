@@ -5518,7 +5518,7 @@ TEST (rpc, multiple_simulatenous_calls)
 	}
 
 	std::promise<void> promise;
-	std::atomic<int> count = num;
+	std::atomic<int> count { num };
 	for (int i = 0; i < num; ++i)
 	{
 		std::thread ([&test_responses, &promise, &count, i, port = rpc.config.port]()
