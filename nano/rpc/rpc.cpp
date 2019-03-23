@@ -17,7 +17,6 @@ nano::rpc::~rpc()
 	if (!stopped)
 	{
 		stop ();
-		rpc_request_processor.stop ();
 	}
 }
 
@@ -61,4 +60,5 @@ void nano::rpc::stop ()
 {
 	stopped = true;
 	acceptor.close ();
+	rpc_request_processor.stop ();
 }
