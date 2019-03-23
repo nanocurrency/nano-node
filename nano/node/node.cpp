@@ -1050,7 +1050,8 @@ startup_time (std::chrono::steady_clock::now ())
 {
 	if (config.websocket_config.enabled)
 	{
-		websocket_server = std::make_shared<nano::websocket::listener> (*this, nano::tcp_endpoint (boost::asio::ip::address_v6::any (), config.websocket_config.port));
+		auto endpoint_l (nano::tcp_endpoint (config.websocket_config.address, config.websocket_config.port));
+		websocket_server = std::make_shared<nano::websocket::listener> (*this, endpoint_l);
 		this->websocket_server->run ();
 	}
 

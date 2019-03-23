@@ -8,6 +8,7 @@ nano::websocket::session::session (nano::websocket::listener & listener_a, boost
 ws_listener (listener_a), ws (std::move (socket_a)), write_strand (ws.get_executor ())
 {
 	ws.text (true);
+	ws_listener.get_node ().logger.try_log ("websocket session started");
 }
 
 nano::websocket::session::~session ()
@@ -19,14 +20,14 @@ void nano::websocket::session::handshake ()
 {
 	std::lock_guard<std::mutex> lk (io_mutex);
 	ws.async_accept ([self_l = shared_from_this ()](boost::system::error_code const & ec) {
-		if (ec)
-		{
-			self_l->ws_listener.get_node ().logger.always_log ("websocket handshake failed: ", ec.message ());
-		}
-		else
+		if (!ec)
 		{
 			// Start reading incoming messages
 			self_l->read ();
+		}
+		else
+		{
+			self_l->ws_listener.get_node ().logger.always_log ("websocket handshake failed: ", ec.message ());
 		}
 	});
 }
@@ -44,10 +45,10 @@ void nano::websocket::session::close ()
 void nano::websocket::session::write (nano::websocket::message message_a)
 {
 	// clang-format off
-	std::lock_guard<std::mutex> lk (subscriptions_mutex);
+	std::unique_lock<std::mutex> lk (subscriptions_mutex);
 	if (message_a.topic == nano::websocket::topic::ack || subscriptions.find (message_a.topic) != subscriptions.end ())
 	{
-		subscriptions_mutex.unlock ();
+		lk.unlock ();
 		boost::asio::post (write_strand,
 		[message_a, self_l = shared_from_this ()]() {
 			bool write_in_progress = !self_l->send_queue.empty ();
@@ -71,9 +72,9 @@ void nano::websocket::session::write_queued_messages ()
 	ws.async_write (boost::asio::buffer (msg_str.data (), msg_str.size ()),
 	boost::asio::bind_executor (write_strand,
 	[msg, self_l = shared_from_this ()](boost::system::error_code ec, std::size_t bytes_transferred) {
+		self_l->send_queue.pop_front ();
 		if (!ec)
 		{
-			self_l->send_queue.pop_front ();
 			if (!self_l->send_queue.empty ())
 			{
 				self_l->write_queued_messages ();
