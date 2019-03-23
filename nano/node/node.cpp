@@ -1597,7 +1597,7 @@ void nano::node::keepalive_preconfigured (std::vector<std::string> const & peers
 {
 	for (auto i (peers_a.begin ()), n (peers_a.end ()); i != n; ++i)
 	{
-		keepalive (*i, network_params.default_node_port, true);
+		keepalive (*i, network_params.default_node_port);
 	}
 }
 
