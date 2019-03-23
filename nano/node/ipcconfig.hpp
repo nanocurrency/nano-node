@@ -16,6 +16,7 @@ namespace ipc
 	public:
 		virtual ~ipc_config_transport () = default;
 		bool enabled{ false };
+		bool allow_unsafe{ false };
 		size_t io_timeout{ 15 };
 		long io_threads{ -1 };
 	};

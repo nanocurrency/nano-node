@@ -4138,6 +4138,27 @@ void nano::rpc_handler::wallet_republish ()
 	response_errors ();
 }
 
+void nano::rpc_handler::wallet_seed ()
+{
+	rpc_control_impl ();
+	auto wallet (wallet_impl ());
+	if (!ec)
+	{
+		auto transaction (node.wallets.tx_begin_read ());
+		if (wallet->store.valid_password (transaction))
+		{
+			nano::raw_key seed;
+			wallet->store.seed (seed, transaction);
+			response_l.put ("seed", seed.data.to_string ());
+		}
+		else
+		{
+			ec = nano::error_common::wallet_locked;
+		}
+	}
+	response_errors ();
+}
+
 void nano::rpc_handler::wallet_work_get ()
 {
 	rpc_control_impl ();
@@ -4369,7 +4390,7 @@ std::string filter_request (boost::property_tree::ptree tree_a)
 }
 }
 
-void nano::rpc_handler::process_request ()
+void nano::rpc_handler::process_request (bool unsafe_a)
 {
 	try
 	{
@@ -4410,7 +4431,18 @@ void nano::rpc_handler::process_request ()
 			else
 			{
 				// Try the rest of the options
-				if (action == "chain")
+				if (action == "wallet_seed")
+				{
+					if (unsafe_a || rpc.node.network_params.network.is_test_network ())
+					{
+						wallet_seed ();
+					}
+					else
+					{
+						error_response (response, "Unsafe RPC not allowed");
+					}
+				}
+				else if (action == "chain")
 				{
 					chain ();
 				}
