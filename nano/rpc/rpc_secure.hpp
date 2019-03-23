@@ -1,7 +1,7 @@
 #pragma once
 #include <boost/asio/ssl/context.hpp>
 #include <boost/asio/ssl/stream.hpp>
-#include <nano/node/rpc.hpp>
+#include <nano/rpc/rpc.hpp>
 
 namespace nano
 {
@@ -11,7 +11,7 @@ namespace nano
 class rpc_secure : public rpc
 {
 public:
-	rpc_secure (boost::asio::io_service & service_a, nano::node & node_a, nano::rpc_config const & config_a);
+	rpc_secure (boost::asio::io_service & service_a, nano::rpc_config const & config_a);
 
 	/** Starts accepting connections */
 	void accept () override;
@@ -36,9 +36,9 @@ public:
 class rpc_connection_secure : public rpc_connection
 {
 public:
-	rpc_connection_secure (nano::node &, nano::rpc_secure &);
+	rpc_connection_secure (nano::rpc_config const & rpc_config, nano::network_constants const & network_constants, boost::asio::io_context & io_ctx, nano::logger_mt & logger, nano::rpc_request_processor & rpc_request_processor, boost::asio::ssl::context & ssl_context);
 	void parse_connection () override;
-	void read () override;
+	void write_completion_handler (std::shared_ptr<nano::rpc_connection> rpc) override;
 	/** The TLS handshake callback */
 	void handle_handshake (const boost::system::error_code & error);
 	/** The TLS async shutdown callback */

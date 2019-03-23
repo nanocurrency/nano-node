@@ -103,6 +103,7 @@ void nano::rpc_connection::read ()
 						auto body = tree_a;
 						this_l->write_result (body, version);
 						boost::beast::http::async_write (this_l->socket, this_l->res, [this_l](boost::system::error_code const & ec, size_t bytes_transferred) {
+							this_l->write_completion_handler (this_l);
 						});
 
 						this_l->logger.always_log (boost::str (boost::format ("RPC request %2% completed in: %1% microseconds") % std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - start).count () % request_id));
@@ -121,6 +122,7 @@ void nano::rpc_connection::read ()
 							this_l->prepare_head (version);
 							this_l->res.prepare_payload ();
 							boost::beast::http::async_write (this_l->socket, this_l->res, [this_l](boost::system::error_code const & ec, size_t bytes_transferred) {
+								this_l->write_completion_handler (this_l);
 							});
 							break;
 						}
@@ -144,8 +146,14 @@ void nano::rpc_connection::read ()
 		auto response_handler ([this_l](std::string const & tree_a) {
 			this_l->write_result (tree_a, 11);
 			boost::beast::http::async_write (this_l->socket, this_l->res, [this_l](boost::system::error_code const & ec, size_t bytes_transferred) {
+				this_l->write_completion_handler (this_l);
 			});
 		});
 		error_response (response_handler, std::string ("Invalid header: ") + header_error.message ());
 	}
+}
+
+void nano::rpc_connection::write_completion_handler (std::shared_ptr<nano::rpc_connection> rpc_connection)
+{
+// Intentional no-op
 }

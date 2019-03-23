@@ -44,8 +44,8 @@ void run (boost::filesystem::path const & data_path)
 		boost::asio::io_context io_ctx;
 		try
 		{
-			nano::rpc rpc (io_ctx, rpc_config);
-			rpc.start ();
+			auto rpc = nano::get_rpc (io_ctx, rpc_config);
+			rpc->start ();
 			runner = std::make_unique<nano::thread_runner> (io_ctx, rpc_config.io_threads);
 			runner->join ();
 		}

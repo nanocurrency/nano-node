@@ -1,7 +1,7 @@
 #pragma once
 
 #include <boost/asio/ip/address_v4.hpp>
-#include <miniupnpc.h>
+#include <miniupnp/miniupnpc/miniupnpc.h>
 #include <mutex>
 #include <nano/lib/config.hpp>
 

@@ -1,7 +1,3 @@
-if (NANO_SECURE_RPC OR RAIBLOCKS_SECURE_RPC)
-	set (secure_rpc_sources rpc_secure.cpp rpc_secure.hpp)
-endif ()
-
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	# No opencl
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
@@ -16,7 +12,6 @@ endif ()
 
 add_library (node
 	${platform_sources}
-	${secure_rpc_sources}
 	blockprocessor.hpp
 	blockprocessor.cpp
 	bootstrap.hpp
@@ -73,7 +68,6 @@ target_link_libraries (node
 	argon2
 	lmdb
 	crypto_lib
-	${OPENSSL_LIBRARIES}
 	Boost::filesystem
 	Boost::log
 	Boost::log_setup

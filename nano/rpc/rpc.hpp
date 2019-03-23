@@ -14,13 +14,13 @@ namespace nano
 {
 void error_response (std::function<void(std::string const &)> response_a, std::string const & message_a);
 
-class rpc final
+class rpc
 {
 public:
 	rpc (boost::asio::io_context & io_ctx_a, nano::rpc_config const & config_a);
-	~rpc();
+	virtual ~rpc();
 	void start ();
-	void accept ();
+	virtual void accept ();
 	void stop ();
 
 	nano::rpc_config config;
@@ -31,4 +31,7 @@ public:
 	nano::rpc_request_processor rpc_request_processor;
 	std::atomic<bool> stopped {false};
 };
+
+/** Returns the correct RPC implementation based on TLS configuration */
+std::unique_ptr<nano::rpc> get_rpc (boost::asio::io_context & io_ctx_a, nano::rpc_config const & config_a);
 }

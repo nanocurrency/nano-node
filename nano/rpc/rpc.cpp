@@ -1,5 +1,9 @@
-#include <boost/format.hpp>
 #include <nano/rpc/rpc.hpp>
+#include <boost/format.hpp>
+
+#ifdef NANO_SECURE_RPC
+#include <nano/rpc/rpc_secure.hpp>
+#endif
 
 nano::rpc::rpc (boost::asio::io_context & io_ctx_a, nano::rpc_config const & config_a) :
 config (config_a),
@@ -61,4 +65,25 @@ void nano::rpc::stop ()
 	stopped = true;
 	acceptor.close ();
 	rpc_request_processor.stop ();
+}
+
+
+std::unique_ptr<nano::rpc> nano::get_rpc (boost::asio::io_context & io_ctx_a, nano::rpc_config const & config_a)
+{
+	std::unique_ptr<rpc> impl;
+
+	if (config_a.secure.enable)
+	{
+#ifdef NANO_SECURE_RPC
+		impl = std::make_unique<rpc_secure> (io_ctx_a, config_a);
+#else
+		std::cerr << "RPC configured for TLS, but the node is not compiled with TLS support" << std::endl;
+#endif
+	}
+	else
+	{
+		impl = std::make_unique<rpc> (io_ctx_a, config_a);
+	}
+
+	return impl;
 }
