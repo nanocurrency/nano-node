@@ -36,8 +36,14 @@ void nano::rep_crawler::ongoing_crawl ()
 {
 	auto now (std::chrono::steady_clock::now ());
 	query (get_crawl_targets ());
+	auto sufficient_weight (total_weight_internal () > node.config.online_weight_minimum.number ());
+	// If online weight drops below minimum, reach out to preconfigured peers
+	if (!sufficient_weight)
+	{
+		node.keepalive_preconfigured (node.config.preconfigured_peers);
+	}
 	// Reduce crawl frequency when there's enough total peer weight
-	unsigned next_run_seconds = (total_weight_internal () > node.config.online_weight_minimum.number ()) ? 7 : 3;
+	unsigned next_run_seconds = sufficient_weight ? 7 : 3;
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	node.alarm.add (now + std::chrono::seconds (next_run_seconds), [node_w, this]() {
 		if (auto node_l = node_w.lock ())
