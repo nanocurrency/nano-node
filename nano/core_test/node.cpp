@@ -202,7 +202,7 @@ TEST (node, node_receive_quorum)
 	{
 		{
 			std::lock_guard<std::mutex> guard (system.nodes[0]->active.mutex);
-			auto info (system.nodes[0]->active.roots.find (nano::uint512_union (previous, previous)));
+			auto info (system.nodes[0]->active.roots.find (nano::qualified_root (previous, previous)));
 			ASSERT_NE (system.nodes[0]->active.roots.end (), info);
 			done = info->election->announcements > nano::active_transactions::announcement_min;
 		}
@@ -863,7 +863,7 @@ TEST (node, fork_publish)
 		node1.block_processor.flush ();
 		ASSERT_EQ (1, node1.active.size ());
 		std::unique_lock<std::mutex> lock (node1.active.mutex);
-		auto existing (node1.active.roots.find (nano::uint512_union (send1->previous (), send1->root ())));
+		auto existing (node1.active.roots.find (send1->qualified_root ()));
 		ASSERT_NE (node1.active.roots.end (), existing);
 		auto election (existing->election);
 		lock.unlock ();
@@ -913,7 +913,7 @@ TEST (node, fork_keep)
 	node2.process_active (send2);
 	node2.block_processor.flush ();
 	std::unique_lock<std::mutex> lock (node2.active.mutex);
-	auto conflict (node2.active.roots.find (nano::uint512_union (genesis.hash (), genesis.hash ())));
+	auto conflict (node2.active.roots.find (nano::qualified_root (genesis.hash (), genesis.hash ())));
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
 	ASSERT_NE (nullptr, votes1);
@@ -969,7 +969,7 @@ TEST (node, fork_flip)
 	node2.process_message (publish1, channel2);
 	node2.block_processor.flush ();
 	std::unique_lock<std::mutex> lock (node2.active.mutex);
-	auto conflict (node2.active.roots.find (nano::uint512_union (genesis.hash (), genesis.hash ())));
+	auto conflict (node2.active.roots.find (nano::qualified_root (genesis.hash (), genesis.hash ())));
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
 	ASSERT_NE (nullptr, votes1);
@@ -1030,7 +1030,7 @@ TEST (node, fork_multi_flip)
 	node2.process_message (publish1, node2.network.udp_channels.create (node2.network.endpoint ()));
 	node2.block_processor.flush ();
 	std::unique_lock<std::mutex> lock (node2.active.mutex);
-	auto conflict (node2.active.roots.find (nano::uint512_union (genesis.hash (), genesis.hash ())));
+	auto conflict (node2.active.roots.find (nano::qualified_root (genesis.hash (), genesis.hash ())));
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
 	ASSERT_NE (nullptr, votes1);
@@ -1163,7 +1163,7 @@ TEST (node, fork_open_flip)
 	node2.process_active (open1);
 	node2.block_processor.flush ();
 	std::unique_lock<std::mutex> lock (node2.active.mutex);
-	auto conflict (node2.active.roots.find (nano::uint512_union (open1->previous (), open1->root ())));
+	auto conflict (node2.active.roots.find (open1->qualified_root ()));
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
 	ASSERT_NE (nullptr, votes1);
@@ -1447,7 +1447,7 @@ TEST (node, rep_self_vote)
 	auto & active (node0->active);
 	active.start (block0);
 	std::unique_lock<std::mutex> lock (active.mutex);
-	auto existing (active.roots.find (nano::uint512_union (block0->previous (), block0->root ())));
+	auto existing (active.roots.find (block0->qualified_root ()));
 	ASSERT_NE (active.roots.end (), existing);
 	auto election (existing->election);
 	lock.unlock ();
@@ -1967,7 +1967,7 @@ TEST (node, confirm_quorum)
 		ASSERT_FALSE (system.nodes[0]->active.empty ());
 		{
 			std::lock_guard<std::mutex> guard (system.nodes[0]->active.mutex);
-			auto info (system.nodes[0]->active.roots.find (nano::uint512_union (send1->hash (), send1->hash ())));
+			auto info (system.nodes[0]->active.roots.find (nano::qualified_root (send1->hash (), send1->hash ())));
 			ASSERT_NE (system.nodes[0]->active.roots.end (), info);
 			done = info->election->announcements > nano::active_transactions::announcement_min;
 		}

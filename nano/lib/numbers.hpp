@@ -145,8 +145,8 @@ union uint512_union
 	nano::uint512_t number () const;
 	std::string to_string () const;
 };
-// Only signatures are 512 bit.
 using signature = uint512_union;
+using qualified_root = uint512_union;
 
 nano::uint512_union sign_message (nano::raw_key const &, nano::public_key const &, nano::uint256_union const &);
 bool validate_message (nano::public_key const &, nano::uint256_union const &, nano::uint512_union const &);

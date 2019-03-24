@@ -135,6 +135,11 @@ nano::account nano::block::account () const
 	return 0;
 }
 
+nano::qualified_root nano::block::qualified_root () const
+{
+	return nano::qualified_root (previous (), root ());
+}
+
 void nano::send_block::visit (nano::block_visitor & visitor_a) const
 {
 	visitor_a.send_block (*this);

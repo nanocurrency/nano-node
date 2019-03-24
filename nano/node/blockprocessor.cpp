@@ -288,7 +288,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 		auto hash (info.block->hash ());
 		if (force)
 		{
-			auto successor (node.ledger.successor (transaction, nano::uint512_union (info.block->previous (), info.block->root ())));
+			auto successor (node.ledger.successor (transaction, info.block->qualified_root ()));
 			if (successor != nullptr && successor->hash () != hash)
 			{
 				// Replace our block with the winner and roll back any dependent blocks
