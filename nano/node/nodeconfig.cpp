@@ -272,7 +272,7 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 	return upgraded;
 }
 
-nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonconfig & json, bool rpc_enable)
+nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonconfig & json, bool rpc_enable_to_migrate, bool enable_sign_hash_to_migrate)
 {
 	try
 	{
@@ -373,7 +373,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		auto ipc_config_l (json.get_optional_child ("ipc"));
 		if (ipc_config_l)
 		{
-			ipc_config.deserialize_json (upgraded_a, ipc_config_l.get (), false);
+			ipc_config.deserialize_json (upgraded_a, ipc_config_l.get (), rpc_enable_to_migrate, enable_sign_hash_to_migrate);
 		}
 
 		json.get<uint16_t> ("peering_port", peering_port);
@@ -430,8 +430,12 @@ void migrate_rpc_config (nano::jsonconfig & json, boost::filesystem::path const 
 	// Copy RPC if the file doesn't exist already
 	auto rpc_l (json.get_required_child ("rpc"));
 
-	// The value is not migrated to the ipc_config
+	bool enable_sign_hash;
+	rpc_l.get_optional<bool> ("enable_sign_hash", enable_sign_hash);
+
 	rpc_l.erase ("enable_sign_hash");
+	bool rpc_enable;
+	json.get_optional<bool> ("rpc_enable", rpc_enable);
 
 	auto node_l (json.get_required_child ("node"));
 	auto ipc_l (node_l.get_optional_child ("ipc"));
@@ -439,10 +443,9 @@ void migrate_rpc_config (nano::jsonconfig & json, boost::filesystem::path const 
 	{
 		nano::ipc::ipc_config ipc_config;
 		auto upgraded (false);
-		auto err = ipc_config.deserialize_json (upgraded, *ipc_l, false);
+		auto err = ipc_config.deserialize_json (upgraded, *ipc_l, rpc_enable, enable_sign_hash);
 		if (!err)
 		{
-			// auto rpc_enable = json.get_optional <bool> ("rpc_enable");
 			// Add IPC config options to RPC
 			if (ipc_config.transport_tcp.enabled)
 			{

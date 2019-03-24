@@ -34,6 +34,22 @@ nano::error nano::daemon_config::deserialize_json (bool & upgraded_a, nano::json
 		{
 			int version_l;
 			json.get_optional<int> ("version", version_l);
+
+			bool enable_sign_hash = false;
+			// If rpc exists then copy enable_sign_hash value now as the upgrade can remove it for earlier versions
+			if (version_l <= 2)
+			{
+				auto rpc = json.get_optional_child ("rpc");
+				if (rpc)
+				{
+					auto enable_sign_hash_json = rpc->get_optional<bool> ("enable_sign_hash");
+					if (enable_sign_hash_json)
+					{
+						enable_sign_hash = *enable_sign_hash_json;
+					}
+				}
+			}
+
 			upgraded_a |= upgrade_json (version_l, json);
 
 			json.get_optional<bool> ("rpc_enable", rpc_enable);
@@ -42,7 +58,7 @@ nano::error nano::daemon_config::deserialize_json (bool & upgraded_a, nano::json
 			auto node_l (json.get_required_child ("node"));
 			if (!json.get_error ())
 			{
-				node.deserialize_json (upgraded_a, node_l, rpc_enable);
+				node.deserialize_json (upgraded_a, node_l, rpc_enable, enable_sign_hash);
 			}
 			if (!json.get_error ())
 			{

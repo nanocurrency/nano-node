@@ -42,7 +42,7 @@ namespace ipc
 	class ipc_config
 	{
 	public:
-		nano::error deserialize_json (bool & upgraded_a, nano::jsonconfig & json_a);
+		nano::error deserialize_json (bool &, nano::jsonconfig &, bool, bool);
 		nano::error serialize_json (nano::jsonconfig & json) const;
 		ipc_config_domain_socket transport_domain;
 		ipc_config_tcp_socket transport_tcp;

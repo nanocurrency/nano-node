@@ -88,6 +88,18 @@ public:
 				json.put ("version", version_l.get ());
 				upgraded_a = true;
 			}
+
+			bool migrated_enable_sign_hash = false;
+			// If rpc exists then copy enable_sign_hash value now as the upgrade can remove it for earlier versions
+			if (*version_l <= 4)
+			{
+				auto rpc = json.get_optional_child ("rpc");
+				if (rpc)
+				{
+					json.get_optional<bool> ("enable_sign_hash", migrated_enable_sign_hash);
+				}
+			}
+
 			upgraded_a |= upgrade_json (version_l.get (), json);
 			auto wallet_l (json.get<std::string> ("wallet"));
 			auto account_l (json.get<std::string> ("account"));
@@ -107,7 +119,7 @@ public:
 			}
 			if (!node_l.get_error ())
 			{
-				node.deserialize_json (upgraded_a, node_l, rpc_enable);
+				node.deserialize_json (upgraded_a, node_l, rpc_enable, migrated_enable_sign_hash);
 			}
 			if (!opencl_l.get_error ())
 			{

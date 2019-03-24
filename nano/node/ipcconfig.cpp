@@ -30,7 +30,7 @@ nano::error nano::ipc::ipc_config::serialize_json (nano::jsonconfig & json) cons
 	return json.get_error ();
 }
 
-nano::error nano::ipc::ipc_config::deserialize_json (bool & upgraded_a, nano::jsonconfig & json, bool rpc_enable)
+nano::error nano::ipc::ipc_config::deserialize_json (bool & upgraded_a, nano::jsonconfig & json, bool rpc_enable, bool migrated_enable_sign_hash)
 {
 	try
 	{
@@ -39,12 +39,13 @@ nano::error nano::ipc::ipc_config::deserialize_json (bool & upgraded_a, nano::js
 		{
 			version_l = 1;
 			json.put ("version", *version_l);
-			json.put ("enable_sign_hash", enable_sign_hash);
+			json.put ("enable_sign_hash", migrated_enable_sign_hash);
+			enable_sign_hash = migrated_enable_sign_hash;
 			json.put ("max_work_generate_difficulty", nano::to_string_hex (max_work_generate_difficulty));
 
 			// IPC needs to be enabled as it is used as the RPC mechanism, so if RPC is enabled, and IPC is not
 			// (it's the default), then force IPC to be enabled.
-			if (!transport_tcp.enabled && !transport_domain.enabled)
+			if (!transport_tcp.enabled && !transport_domain.enabled && rpc_enable)
 			{
 				auto tcp_l (json.get_optional_child ("tcp"));
 				if (tcp_l)

@@ -527,7 +527,7 @@ TEST (node_config, serialization)
 	ASSERT_FALSE (tree.get_optional<std::string> ("epoch_block_signer"));
 
 	bool upgraded (false);
-	ASSERT_FALSE (config2.deserialize_json (upgraded, tree, false));
+	ASSERT_FALSE (config2.deserialize_json (upgraded, tree, false, false));
 	ASSERT_FALSE (upgraded);
 	ASSERT_EQ (config2.bootstrap_fraction_numerator, config1.bootstrap_fraction_numerator);
 	ASSERT_EQ (config2.peering_port, config1.peering_port);
@@ -565,7 +565,7 @@ TEST (node_config, v1_v2_upgrade)
 	nano::node_config config1;
 	config1.logging.init (path);
 	ASSERT_FALSE (tree.get_optional_child ("work_peers"));
-	config1.deserialize_json (upgraded, tree, false);
+	config1.deserialize_json (upgraded, tree, false, false);
 	ASSERT_TRUE (upgraded);
 	ASSERT_TRUE (!!tree.get_optional_child ("work_peers"));
 }
@@ -594,7 +594,7 @@ TEST (node_config, v2_v3_upgrade)
 	ASSERT_FALSE (tree.get_optional<std::string> ("password_fanout"));
 	ASSERT_FALSE (tree.get_optional<std::string> ("io_threads"));
 	ASSERT_FALSE (tree.get_optional<std::string> ("work_threads"));
-	config1.deserialize_json (upgraded, tree, false);
+	config1.deserialize_json (upgraded, tree, false, false);
 	//ASSERT_EQ (nano::uint128_union (0).to_string_dec (), tree.get<std::string> ("inactive_supply"));
 	ASSERT_EQ ("1024", tree.get<std::string> ("password_fanout"));
 	ASSERT_NE (0, std::stoul (tree.get<std::string> ("password_fanout")));
@@ -624,7 +624,7 @@ TEST (node_config, v15_v16_upgrade)
 		ASSERT_FALSE (tree.get_optional_child ("allow_local_peers"));
 		ASSERT_FALSE (tree.get_optional_child ("signature_checker_threads"));
 		ASSERT_FALSE (tree.get_optional_child ("vote_minimum"));
-		config.deserialize_json (upgraded, tree, false);
+		config.deserialize_json (upgraded, tree, false, false);
 		// The config options should be added after the upgrade
 		ASSERT_TRUE (!!tree.get_optional_child ("allow_local_peers"));
 		ASSERT_TRUE (!!tree.get_optional_child ("signature_checker_threads"));
@@ -667,7 +667,7 @@ TEST (node_config, v16_values)
 	tree.put ("allow_local_peers", false);
 	tree.put ("signature_checker_threads", 1);
 	tree.put ("vote_minimum", nano::Gxrb_ratio.convert_to<std::string> ());
-	config.deserialize_json (upgraded, tree, false);
+	config.deserialize_json (upgraded, tree, false, false);
 	ASSERT_FALSE (upgraded);
 	ASSERT_FALSE (config.allow_local_peers);
 	ASSERT_EQ (config.signature_checker_threads, 1);
@@ -678,7 +678,7 @@ TEST (node_config, v16_values)
 	tree.put ("signature_checker_threads", 4);
 	tree.put ("vote_minimum", (std::numeric_limits<nano::uint128_t>::max () - 100).convert_to<std::string> ());
 	upgraded = false;
-	config.deserialize_json (upgraded, tree, false);
+	config.deserialize_json (upgraded, tree, false, false);
 	ASSERT_FALSE (upgraded);
 	ASSERT_TRUE (config.allow_local_peers);
 	ASSERT_EQ (config.signature_checker_threads, 4);
@@ -698,7 +698,7 @@ TEST (node_config, v16_v17_upgrade)
 	// These config options should not be present
 	ASSERT_FALSE (tree.get_optional_child ("tcp_client_timeout"));
 	ASSERT_FALSE (tree.get_optional_child ("tcp_server_timeout"));
-	config.deserialize_json (upgraded, tree, false);
+	config.deserialize_json (upgraded, tree, false, false);
 	// The config options should be added after the upgrade
 	ASSERT_TRUE (!!tree.get_optional_child ("tcp_client_timeout"));
 	ASSERT_TRUE (!!tree.get_optional_child ("tcp_server_timeout"));
@@ -723,7 +723,7 @@ TEST (node_config, v17_values)
 	// Check config is correct
 	tree.put ("tcp_client_timeout", 1);
 	tree.put ("tcp_server_timeout", 0);
-	config.deserialize_json (upgraded, tree, false);
+	config.deserialize_json (upgraded, tree, false, false);
 	ASSERT_FALSE (upgraded);
 	ASSERT_EQ (config.tcp_client_timeout.count (), 1);
 	ASSERT_EQ (config.tcp_server_timeout.count (), 0);
@@ -732,7 +732,7 @@ TEST (node_config, v17_values)
 	tree.put ("tcp_client_timeout", std::numeric_limits<unsigned long>::max () - 100);
 	tree.put ("tcp_server_timeout", std::numeric_limits<unsigned>::max ());
 	upgraded = false;
-	config.deserialize_json (upgraded, tree, false);
+	config.deserialize_json (upgraded, tree, false, false);
 	ASSERT_FALSE (upgraded);
 	ASSERT_EQ (config.tcp_client_timeout.count (), std::numeric_limits<unsigned long>::max () - 100);
 	ASSERT_EQ (config.tcp_server_timeout.count (), std::numeric_limits<unsigned>::max ());
