@@ -294,6 +294,9 @@ add_subdirectory(nano/lib)
 add_subdirectory(nano/node)
 add_subdirectory(nano/nano_node)
 
+add_subdirectory(nano/rpc)
+add_subdirectory(nano/nano_rpc)
+
 if (NANO_TEST OR RAIBLOCKS_TEST)
     if(WIN32)
         if(MSVC_VERSION)
@@ -316,49 +319,7 @@ if (NANO_TEST OR RAIBLOCKS_TEST)
 
 	add_subdirectory(nano/core_test)
 	add_subdirectory(nano/slow_test)
-endif ()
-
-add_subdirectory(nano/rpc)
-
-add_executable (nano_rpc
-	nano/nano_rpc/entry.cpp)
-
-target_link_libraries (nano_rpc
-	rpc
-	secure
-	Boost::filesystem
-	Boost::log
-	Boost::log_setup
-	Boost::program_options
-	Boost::system
-	Boost::thread
-	Boost::boost)
-
-target_compile_definitions(nano_rpc
-	PUBLIC
-		-DACTIVE_NETWORK=${ACTIVE_NETWORK}
-	PRIVATE
-		-DNANO_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
-		-DNANO_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR}
-		-DNANO_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH}
-)
-
-if (NANO_TEST OR RAIBLOCKS_TEST)
-	add_executable (rpc_test
-		nano/rpc_test/entry.cpp
-		nano/rpc_test/rpc.cpp)
-
-	target_link_libraries(rpc_test gtest gtest_main rpc node)
-
-	set_target_properties (rpc_test PROPERTIES COMPILE_FLAGS "-DBOOST_ASIO_HAS_STD_ARRAY=1")
-	target_compile_definitions(rpc_test
-		PUBLIC
-			-DACTIVE_NETWORK=${ACTIVE_NETWORK}
-		PRIVATE
-			-DNANO_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
-			-DNANO_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR}
-			-DNANO_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH}
-	)
+	add_subdirectory(nano/rpc_test)
 endif ()
 
 if (NANO_GUI OR RAIBLOCKS_GUI)

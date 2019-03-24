@@ -34,7 +34,9 @@ nano_node
 nano_wallet
 slow_test
 nano_rpc
+!nano_rpc/
 rpc_test
+!rpc_test/
 
 # IDEs
 .idea
