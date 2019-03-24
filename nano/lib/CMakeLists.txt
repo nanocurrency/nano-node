@@ -32,6 +32,7 @@ add_library (nano_lib
 	work.hpp
 	work.cpp)
 
+target_include_directories(nano_lib PRIVATE ${CMAKE_SOURCE_DIR}/gtest/googletest/include)
 target_link_libraries (nano_lib
 	gtest
 	xxhash
