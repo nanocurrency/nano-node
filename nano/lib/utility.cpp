@@ -1,4 +1,6 @@
+#include <gtest/gtest.h>
 #include <iostream>
+#include <nano/lib/config.hpp>
 #include <nano/lib/utility.hpp>
 
 namespace nano
@@ -143,6 +145,14 @@ void release_assert_internal (bool check, const char * check_expr, const char * 
 		return;
 	}
 
-	std::cerr << "Assertion (" << check_expr << ") failed " << file << ":" << line << std::endl;
-	abort ();
+	nano::network_params params;
+	if (!params.is_test_network ())
+	{
+		std::cerr << "Assertion (" << check_expr << ") failed " << file << ":" << line << std::endl;
+		abort ();
+	}
+	else
+	{
+		FAIL () << "Assertion (" << check_expr << ") failed at " << file << ":" << line;
+	}
 }

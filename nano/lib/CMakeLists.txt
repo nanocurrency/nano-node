@@ -33,6 +33,7 @@ add_library (nano_lib
 	work.cpp)
 
 target_link_libraries (nano_lib
+	gtest
 	xxhash
 	blake2
 	${CRYPTOPP_LIBRARY}
