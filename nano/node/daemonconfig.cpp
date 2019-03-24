@@ -1,8 +1,9 @@
-#include <nano/lib/config.hpp>
 #include <nano/node/daemonconfig.hpp>
+#include <nano/lib/config.hpp>
 
 nano::daemon_config::daemon_config (boost::filesystem::path const & data_path) :
-opencl_enable (false),
+rpc_path (get_default_rpc_filepath ()),
+
 data_path (data_path)
 {
 }
@@ -10,6 +11,8 @@ data_path (data_path)
 nano::error nano::daemon_config::serialize_json (nano::jsonconfig & json)
 {
 	json.put ("version", json_version ());
+	json.put ("rpc_enable", rpc_enable);
+	json.put ("rpc_path", rpc_path);
 
 	nano::jsonconfig node_l;
 	node.serialize_json (node_l);
@@ -33,10 +36,13 @@ nano::error nano::daemon_config::deserialize_json (bool & upgraded_a, nano::json
 			json.get_optional<int> ("version", version_l);
 			upgraded_a |= upgrade_json (version_l, json);
 
+			json.get_optional<bool> ("rpc_enable", rpc_enable);
+			json.get_optional<std::string> ("rpc_path", rpc_path);
+
 			auto node_l (json.get_required_child ("node"));
 			if (!json.get_error ())
 			{
-				node.deserialize_json (upgraded_a, node_l);
+				node.deserialize_json (upgraded_a, node_l, rpc_enable);
 			}
 			if (!json.get_error ())
 			{
@@ -86,6 +92,7 @@ bool nano::daemon_config::upgrade_json (unsigned version_a, nano::jsonconfig & j
 		}
 		case 2:
 			migrate_rpc_config (json, data_path);
+			rpc_path = get_default_rpc_filepath ();
 			upgraded_l = true;
 		case 3:
 			break;

@@ -19,8 +19,10 @@ public:
 	 * @param config Configuration to upgrade.
 	 */
 	bool upgrade_json (unsigned version, nano::jsonconfig & config);
+	bool rpc_enable { false };
+	std::string rpc_path;
 	nano::node_config node;
-	bool opencl_enable;
+	bool opencl_enable { false };
 	nano::opencl_config opencl;
 	boost::filesystem::path data_path;
 	int json_version () const

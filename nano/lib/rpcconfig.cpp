@@ -1,6 +1,7 @@
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/jsonconfig.hpp>
+#include <boost/dll/runtime_symbol_info.hpp>
 
 nano::rpc_secure_config::rpc_secure_config () :
 enable (false),
@@ -111,4 +112,31 @@ nano::error read_and_update_rpc_config (boost::filesystem::path const & data_pat
 	nano::set_secure_perm_file (config_path, error_chmod);
 	return error;
 }
+
+std::string get_default_rpc_filepath ()
+{
+	boost::system::error_code err;
+	auto running_executable_filepath = boost::dll::program_location (err);
+	if (err)
+	{
+		std::cerr << "Failed to find correct RPC path, please set manually in config.json";
+		return "";
+	}
+
+	// Construct the nano_rpc excutable file path based on where the currently running executable is found.
+	auto rpc_filepath = running_executable_filepath.parent_path () / "nano_rpc";
+	if (running_executable_filepath.has_extension ())
+	{
+		rpc_filepath.replace_extension (running_executable_filepath.extension ());
+	}
+
+	// Confirm it exists
+	if (!boost::filesystem::exists (rpc_filepath))
+	{
+		std::cerr << "RPC migrated filepath incorrect please set manually in config.json";
+	}
+
+	return rpc_filepath.string ();
+}
+
 }

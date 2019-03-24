@@ -59,4 +59,6 @@ public:
 };
 
 nano::error read_and_update_rpc_config (boost::filesystem::path const & data_path, nano::rpc_config & config_a);
+
+std::string get_default_rpc_filepath ();
 }

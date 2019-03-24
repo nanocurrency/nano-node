@@ -22,7 +22,7 @@ public:
 	node_config ();
 	node_config (uint16_t, nano::logging const &);
 	nano::error serialize_json (nano::jsonconfig &) const;
-	nano::error deserialize_json (bool &, nano::jsonconfig &);
+	nano::error deserialize_json (bool &, nano::jsonconfig &, bool);
 	bool upgrade_json (unsigned, nano::jsonconfig &);
 	nano::account random_representative ();
 	nano::network_params network_params;

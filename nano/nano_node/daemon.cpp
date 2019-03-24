@@ -1,4 +1,5 @@
 #include <boost/property_tree/json_parser.hpp>
+#include <boost/process.hpp> 
 #include <fstream>
 #include <iostream>
 #include <nano/lib/utility.hpp>
@@ -36,8 +37,16 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 			{
 				node->start ();
 				nano::ipc::ipc_server ipc (*node);
+
+				std::unique_ptr<boost::process::child> rpc_process;
+				if (config.rpc_enable)
+				{
+					rpc_process = std::make_unique<boost::process::child> (config.rpc_path, "--daemon");
+				}
+
 				runner = std::make_unique<nano::thread_runner> (io_ctx, node->config.io_threads);
 				runner->join ();
+				rpc_process->wait ();
 			}
 			else
 			{

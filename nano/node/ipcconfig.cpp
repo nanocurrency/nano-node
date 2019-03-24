@@ -30,7 +30,7 @@ nano::error nano::ipc::ipc_config::serialize_json (nano::jsonconfig & json) cons
 	return json.get_error ();
 }
 
-nano::error nano::ipc::ipc_config::deserialize_json (bool & upgraded_a, nano::jsonconfig & json)
+nano::error nano::ipc::ipc_config::deserialize_json (bool & upgraded_a, nano::jsonconfig & json, bool rpc_enable)
 {
 	try
 	{
@@ -38,9 +38,33 @@ nano::error nano::ipc::ipc_config::deserialize_json (bool & upgraded_a, nano::js
 		if (!version_l)
 		{
 			version_l = 1;
-			json.put ("version", version_l);
+			json.put ("version", *version_l);
 			json.put ("enable_sign_hash", enable_sign_hash);
 			json.put ("max_work_generate_difficulty", nano::to_string_hex (max_work_generate_difficulty));
+
+			// IPC needs to be enabled as it is used as the RPC mechanism, so if RPC is enabled, and IPC is not
+			// (it's the default), then force IPC to be enabled.
+			if (!transport_tcp.enabled && !transport_domain.enabled)
+			{
+				auto tcp_l (json.get_optional_child ("tcp"));
+				if (tcp_l)
+				{
+					tcp_l->put ("enable", true);				
+				}
+				else
+				{
+					nano::jsonconfig tcp_l;
+					if (transport_tcp.io_threads >= 0)
+					{
+						tcp_l.put ("io_threads", transport_tcp.io_threads);
+					}
+					tcp_l.put ("enable", transport_tcp.enabled);
+					tcp_l.put ("port", transport_tcp.port);
+					tcp_l.put ("io_timeout", transport_tcp.io_timeout);
+					json.put_child ("tcp", tcp_l);			
+				}
+			}
+
 			upgraded_a = true;
 		}
 
