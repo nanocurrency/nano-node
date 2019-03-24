@@ -11,6 +11,7 @@
 #include <nano/node/stats.hpp>
 #include <nano/node/transport/udp.hpp>
 #include <nano/node/wallet.hpp>
+#include <nano/node/websocket.hpp>
 #include <nano/secure/ledger.hpp>
 
 #include <atomic>
@@ -88,7 +89,7 @@ public:
 class conflict_info
 {
 public:
-	nano::uint512_union root;
+	nano::qualified_root root;
 	uint64_t difficulty;
 	uint64_t adjusted_difficulty;
 	std::shared_ptr<nano::election> election;
@@ -123,7 +124,7 @@ public:
 	nano::conflict_info,
 	boost::multi_index::indexed_by<
 	boost::multi_index::hashed_unique<
-	boost::multi_index::member<nano::conflict_info, nano::uint512_union, &nano::conflict_info::root>>,
+	boost::multi_index::member<nano::conflict_info, nano::qualified_root, &nano::conflict_info::root>>,
 	boost::multi_index::ordered_non_unique<
 	boost::multi_index::member<nano::conflict_info, uint64_t, &nano::conflict_info::adjusted_difficulty>,
 	std::greater<uint64_t>>>>
@@ -425,7 +426,7 @@ public:
 		alarm.io_ctx.post (action_a);
 	}
 	bool copy_with_compaction (boost::filesystem::path const &);
-	void keepalive (std::string const &, uint16_t, bool = false);
+	void keepalive (std::string const &, uint16_t);
 	void start ();
 	void stop ();
 	std::shared_ptr<nano::node> shared ();
@@ -469,6 +470,7 @@ public:
 	boost::asio::io_context & io_ctx;
 	nano::network_params network_params;
 	nano::node_config config;
+	std::shared_ptr<nano::websocket::listener> websocket_server;
 	nano::node_flags flags;
 	nano::alarm & alarm;
 	nano::work_pool & work;

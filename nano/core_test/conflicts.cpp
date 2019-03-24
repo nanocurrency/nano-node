@@ -14,10 +14,9 @@ TEST (conflicts, start_stop)
 	ASSERT_EQ (0, node1.active.size ());
 	node1.active.start (send1);
 	ASSERT_EQ (1, node1.active.size ());
-	auto root1 (send1->root ());
 	{
 		std::lock_guard<std::mutex> guard (node1.active.mutex);
-		auto existing1 (node1.active.roots.find (nano::uint512_union (send1->previous (), root1)));
+		auto existing1 (node1.active.roots.find (send1->qualified_root ()));
 		ASSERT_NE (node1.active.roots.end (), existing1);
 		auto votes1 (existing1->election);
 		ASSERT_NE (nullptr, votes1);
@@ -44,7 +43,7 @@ TEST (conflicts, add_existing)
 	ASSERT_EQ (1, node1.active.size ());
 	{
 		std::lock_guard<std::mutex> guard (node1.active.mutex);
-		auto votes1 (node1.active.roots.find (nano::uint512_union (send2->previous (), send2->root ()))->election);
+		auto votes1 (node1.active.roots.find (send2->qualified_root ())->election);
 		ASSERT_NE (nullptr, votes1);
 		ASSERT_EQ (2, votes1->last_votes.size ());
 		ASSERT_NE (votes1->last_votes.end (), votes1->last_votes.find (key2.pub));
@@ -171,7 +170,7 @@ TEST (conflicts, reprioritize)
 	node1.block_processor.flush ();
 	{
 		std::lock_guard<std::mutex> guard (node1.active.mutex);
-		auto existing1 (node1.active.roots.find (nano::uint512_union (send1->previous (), send1->root ())));
+		auto existing1 (node1.active.roots.find (send1->qualified_root ()));
 		ASSERT_NE (node1.active.roots.end (), existing1);
 		ASSERT_EQ (difficulty1, existing1->difficulty);
 	}
@@ -182,7 +181,7 @@ TEST (conflicts, reprioritize)
 	node1.block_processor.flush ();
 	{
 		std::lock_guard<std::mutex> guard (node1.active.mutex);
-		auto existing2 (node1.active.roots.find (nano::uint512_union (send1->previous (), send1->root ())));
+		auto existing2 (node1.active.roots.find (send1->qualified_root ()));
 		ASSERT_NE (node1.active.roots.end (), existing2);
 		ASSERT_EQ (difficulty2, existing2->difficulty);
 	}
@@ -204,7 +203,7 @@ TEST (conflicts, dependency)
 	// Check dependecy for genesis block
 	{
 		std::lock_guard<std::mutex> guard (node1.active.mutex);
-		auto existing1 (node1.active.roots.find (nano::uint512_union (genesis.open->previous (), genesis.open->root ())));
+		auto existing1 (node1.active.roots.find (genesis.open->qualified_root ()));
 		ASSERT_NE (node1.active.roots.end (), existing1);
 		auto election1 (existing1->election);
 		ASSERT_NE (nullptr, election1);

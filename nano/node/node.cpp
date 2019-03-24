@@ -101,10 +101,10 @@ void nano::network::send_keepalive (nano::transport::channel const & channel_a)
 	channel_a.send (message);
 }
 
-void nano::node::keepalive (std::string const & address_a, uint16_t port_a, bool preconfigured_peer_a)
+void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 {
 	auto node_l (shared_from_this ());
-	network.resolver.async_resolve (boost::asio::ip::udp::resolver::query (address_a, std::to_string (port_a)), [node_l, address_a, port_a, preconfigured_peer_a](boost::system::error_code const & ec, boost::asio::ip::udp::resolver::iterator i_a) {
+	network.resolver.async_resolve (boost::asio::ip::udp::resolver::query (address_a, std::to_string (port_a)), [node_l, address_a, port_a](boost::system::error_code const & ec, boost::asio::ip::udp::resolver::iterator i_a) {
 		if (!ec)
 		{
 			for (auto i (i_a), n (boost::asio::ip::udp::resolver::iterator{}); i != n; ++i)
@@ -434,7 +434,7 @@ public:
 				if (!node.network.send_votes_cache (*channel, hash))
 				{
 					auto transaction (node.store.tx_begin_read ());
-					auto successor (node.ledger.successor (transaction, nano::uint512_union (message_a.block->previous (), message_a.block->root ())));
+					auto successor (node.ledger.successor (transaction, message_a.block->qualified_root ()));
 					if (successor != nullptr)
 					{
 						auto same_block (successor->hash () == hash);
@@ -1048,6 +1048,13 @@ vote_uniquer (block_uniquer),
 active (*this),
 startup_time (std::chrono::steady_clock::now ())
 {
+	if (config.websocket_config.enabled)
+	{
+		auto endpoint_l (nano::tcp_endpoint (config.websocket_config.address, config.websocket_config.port));
+		websocket_server = std::make_shared<nano::websocket::listener> (*this, endpoint_l);
+		this->websocket_server->run ();
+	}
+
 	wallets.observer = [this](bool active) {
 		observers.wallet.notify (active);
 	};
@@ -1115,6 +1122,37 @@ startup_time (std::chrono::steady_clock::now ())
 						}
 					});
 				});
+			}
+		});
+	}
+	if (websocket_server)
+	{
+		observers.blocks.add ([this](std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
+			if (this->block_arrival.recent (block_a->hash ()))
+			{
+				std::string subtype;
+				if (is_state_send_a)
+				{
+					subtype = "send";
+				}
+				else if (block_a->type () == nano::block_type::state)
+				{
+					if (block_a->link ().is_zero ())
+					{
+						subtype = "change";
+					}
+					else if (amount_a == 0 && !this->ledger.epoch_link.is_zero () && this->ledger.is_epoch_link (block_a->link ()))
+					{
+						subtype = "epoch";
+					}
+					else
+					{
+						subtype = "receive";
+					}
+				}
+				nano::websocket::message_builder builder;
+				auto msg (builder.block_confirmed (block_a, account_a, amount_a, subtype));
+				this->websocket_server->broadcast (msg);
 			}
 		});
 	}
@@ -1544,6 +1582,10 @@ void nano::node::stop ()
 	vote_processor.stop ();
 	active.stop ();
 	network.stop ();
+	if (websocket_server)
+	{
+		websocket_server->stop ();
+	}
 	bootstrap_initiator.stop ();
 	bootstrap.stop ();
 	port_mapping.stop ();
@@ -1555,7 +1597,7 @@ void nano::node::keepalive_preconfigured (std::vector<std::string> const & peers
 {
 	for (auto i (peers_a.begin ()), n (peers_a.end ()); i != n; ++i)
 	{
-		keepalive (*i, network_params.network.default_node_port, true);
+		keepalive (*i, network_params.network.default_node_port);
 	}
 }
 
@@ -2806,7 +2848,7 @@ void nano::election::update_dependent ()
 
 void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & lock_a)
 {
-	std::unordered_set<nano::uint512_union> inactive;
+	std::unordered_set<nano::qualified_root> inactive;
 	auto transaction (node.store.tx_begin_read ());
 	unsigned unconfirmed_count (0);
 	unsigned unconfirmed_announcements (0);
@@ -3071,7 +3113,7 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, std::
 	auto error (true);
 	if (!stopped)
 	{
-		auto root (nano::uint512_union (block_a->previous (), block_a->root ()));
+		auto root (block_a->qualified_root ());
 		auto existing (roots.find (root));
 		if (existing == roots.end ())
 		{
@@ -3115,7 +3157,7 @@ bool nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a, bool s
 			else
 			{
 				auto block (boost::get<std::shared_ptr<nano::block>> (vote_block));
-				auto existing (roots.find (nano::uint512_union (block->previous (), block->root ())));
+				auto existing (roots.find (block->qualified_root ()));
 				if (existing != roots.end ())
 				{
 					result = existing->election->vote (vote_a->account, vote_a->sequence, block->hash ());
@@ -3135,13 +3177,13 @@ bool nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a, bool s
 bool nano::active_transactions::active (nano::block const & block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	return roots.find (nano::uint512_union (block_a.previous (), block_a.root ())) != roots.end ();
+	return roots.find (block_a.qualified_root ()) != roots.end ();
 }
 
 void nano::active_transactions::update_difficulty (nano::block const & block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (roots.find (nano::uint512_union (block_a.previous (), block_a.root ())));
+	auto existing (roots.find (block_a.qualified_root ()));
 	if (existing != roots.end ())
 	{
 		uint64_t difficulty;
@@ -3163,7 +3205,7 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 	std::deque<std::pair<nano::block_hash, int64_t>> remaining_blocks;
 	remaining_blocks.emplace_back (hash_a, 0);
 	std::unordered_set<nano::block_hash> processed_blocks;
-	std::vector<std::pair<nano::uint512_union, int64_t>> elections_list;
+	std::vector<std::pair<nano::qualified_root, int64_t>> elections_list;
 	uint128_t sum (0);
 	while (!remaining_blocks.empty ())
 	{
@@ -3195,7 +3237,7 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 					remaining_blocks.emplace_back (dependent_block, level - 1);
 				}
 				processed_blocks.insert (hash);
-				nano::uint512_union root (previous, existing->second->status.winner->root ());
+				nano::qualified_root root (previous, existing->second->status.winner->root ());
 				auto existing_root (roots.find (root));
 				if (existing_root != roots.end ())
 				{
@@ -3263,9 +3305,9 @@ std::deque<nano::election_status> nano::active_transactions::list_confirmed ()
 void nano::active_transactions::erase (nano::block const & block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	if (roots.find (nano::uint512_union (block_a.previous (), block_a.root ())) != roots.end ())
+	if (roots.find (block_a.qualified_root ()) != roots.end ())
 	{
-		roots.erase (nano::uint512_union (block_a.previous (), block_a.root ()));
+		roots.erase (block_a.qualified_root ());
 		node.logger.try_log (boost::str (boost::format ("Election erased for block block %1% root %2%") % block_a.hash ().to_string () % block_a.root ().to_string ()));
 	}
 }
@@ -3306,7 +3348,7 @@ nano::active_transactions::~active_transactions ()
 bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (roots.find (nano::uint512_union (block_a->previous (), block_a->root ())));
+	auto existing (roots.find (block_a->qualified_root ()));
 	auto result (true);
 	if (existing != roots.end ())
 	{
