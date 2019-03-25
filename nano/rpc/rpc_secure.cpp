@@ -1,5 +1,5 @@
-#include <nano/rpc/rpc_secure.hpp>
 #include <boost/polymorphic_pointer_cast.hpp>
+#include <nano/rpc/rpc_secure.hpp>
 
 bool nano::rpc_secure::on_verify_certificate (bool preverified, boost::asio::ssl::verify_context & ctx)
 {

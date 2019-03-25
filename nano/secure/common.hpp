@@ -3,8 +3,8 @@
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
-#include <nano/lib/utility.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/secure/utility.hpp>
 
 #include <boost/iterator/transform_iterator.hpp>
@@ -40,7 +40,6 @@ struct hash<::nano::uint512_union>
 
 namespace nano
 {
-
 const uint8_t protocol_version = 0x10;
 const uint8_t protocol_version_min = 0x0d;
 

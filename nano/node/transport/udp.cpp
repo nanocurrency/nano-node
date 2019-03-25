@@ -1,5 +1,5 @@
-#include <nano/node/node.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/node/node.hpp>
 #include <nano/node/transport/udp.hpp>
 
 std::chrono::seconds constexpr nano::transport::udp_channels::syn_cookie_cutoff;

@@ -1,6 +1,6 @@
-#include <nano/node/ipcconfig.hpp>
-#include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/jsonconfig.hpp>
+#include <nano/node/ipcconfig.hpp>
 
 nano::error nano::ipc::ipc_config::serialize_json (nano::jsonconfig & json) const
 {
@@ -50,7 +50,7 @@ nano::error nano::ipc::ipc_config::deserialize_json (bool & upgraded_a, nano::js
 				auto tcp_l (json.get_optional_child ("tcp"));
 				if (tcp_l)
 				{
-					tcp_l->put ("enable", true);		
+					tcp_l->put ("enable", true);
 				}
 				else
 				{
@@ -62,7 +62,7 @@ nano::error nano::ipc::ipc_config::deserialize_json (bool & upgraded_a, nano::js
 					tcp_l.put ("enable", transport_tcp.enabled);
 					tcp_l.put ("port", transport_tcp.port);
 					tcp_l.put ("io_timeout", transport_tcp.io_timeout);
-					json.put_child ("tcp", tcp_l);			
+					json.put_child ("tcp", tcp_l);
 				}
 			}
 

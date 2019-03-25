@@ -1,5 +1,5 @@
-#include <nano/rpc/rpc.hpp>
 #include <boost/format.hpp>
+#include <nano/rpc/rpc.hpp>
 
 #ifdef NANO_SECURE_RPC
 #include <nano/rpc/rpc_secure.hpp>
@@ -16,7 +16,7 @@ rpc_request_processor (io_ctx, config, [this]() {
 {
 }
 
-nano::rpc::~rpc()
+nano::rpc::~rpc ()
 {
 	if (!stopped)
 	{
@@ -66,7 +66,6 @@ void nano::rpc::stop ()
 	acceptor.close ();
 	rpc_request_processor.stop ();
 }
-
 
 std::unique_ptr<nano::rpc> nano::get_rpc (boost::asio::io_context & io_ctx_a, nano::rpc_config const & config_a)
 {

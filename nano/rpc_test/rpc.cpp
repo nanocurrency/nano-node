@@ -1,22 +1,22 @@
 #include <algorithm>
 #include <boost/beast.hpp>
 #include <gtest/gtest.h>
+#include <nano/core_test/testutil.hpp>
 #include <nano/lib/ipc.hpp>
 #include <nano/lib/rpcconfig.hpp>
-#include <nano/core_test/testutil.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/ipc.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/rpc/rpc.hpp>
 
-namespace 
+namespace
 {
 class test_response
 {
 public:
-	test_response (boost::property_tree::ptree const & request_a, boost::asio::io_context & io_ctx)
-		: request (request_a),
-		  sock (io_ctx)
+	test_response (boost::property_tree::ptree const & request_a, boost::asio::io_context & io_ctx) :
+	request (request_a),
+	sock (io_ctx)
 	{
 	}
 
@@ -27,7 +27,7 @@ public:
 		run (port);
 	}
 
-	void run (uint16_t port) 
+	void run (uint16_t port)
 	{
 		sock.async_connect (nano::tcp_endpoint (boost::asio::ip::address_v6::loopback (), port), [this](boost::system::error_code const & ec) {
 			if (!ec)
@@ -81,11 +81,10 @@ public:
 	boost::beast::flat_buffer sb;
 	boost::beast::http::request<boost::beast::http::string_body> req;
 	boost::beast::http::response<boost::beast::http::string_body> resp;
-	std::atomic<int> status { 0 };
+	std::atomic<int> status{ 0 };
 };
 
 nano::network_constants network_constants;
-const char * default_ipc_tcp_host = "::1";
 uint16_t default_ipc_tcp_port = network_constants.default_ipc_port;
 
 void enable_ipc_transport_tcp (nano::ipc::ipc_config_tcp_socket & transport_tcp, int16_t port)
@@ -2041,7 +2040,7 @@ TEST (rpc, pending)
 	{
 		test_response response (request, rpc.config.port, system.io_ctx);
 		system.deadline_set (5s);
-			while (response.status == 0)
+		while (response.status == 0)
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
@@ -2055,7 +2054,7 @@ TEST (rpc, pending)
 	{
 		test_response response (request, rpc.config.port, system.io_ctx);
 		system.deadline_set (5s);
-			while (response.status == 0)
+		while (response.status == 0)
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
@@ -2071,7 +2070,7 @@ TEST (rpc, pending)
 	{
 		test_response response (request, rpc.config.port, system.io_ctx);
 		system.deadline_set (5s);
-			while (response.status == 0)
+		while (response.status == 0)
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
@@ -2096,7 +2095,7 @@ TEST (rpc, pending)
 	request.put ("threshold", "101");
 	{
 		test_response response (request, rpc.config.port, system.io_ctx);
-			while (response.status == 0)
+		while (response.status == 0)
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
@@ -2110,7 +2109,7 @@ TEST (rpc, pending)
 	{
 		test_response response (request, rpc.config.port, system.io_ctx);
 		system.deadline_set (5s);
-			while (response.status == 0)
+		while (response.status == 0)
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
@@ -4552,14 +4551,14 @@ TEST (rpc, block_create_state_request_work)
 		request.put ("balance", (nano::genesis_amount - nano::Gxrb_ratio).convert_to<std::string> ());
 		request.put ("link", key.pub.to_account ());
 		request.put ("previous", previous);
-			auto node = system.nodes.front ();
+		auto node = system.nodes.front ();
 		enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
 		nano::ipc::ipc_server ipc_server (*node);
 		nano::rpc rpc (system.io_ctx, nano::rpc_config (true));
 		rpc.start ();
 		test_response response (request, rpc.config.port, system.io_ctx);
 		system.deadline_set (5s);
-			while (response.status == 0)
+		while (response.status == 0)
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
@@ -5109,7 +5108,7 @@ TEST (rpc, unopened)
 		request.put ("action", "unopened");
 		test_response response (request, rpc.config.port, system.io_ctx);
 		system.deadline_set (5s);
-			while (response.status == 0)
+		while (response.status == 0)
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
@@ -5126,7 +5125,7 @@ TEST (rpc, unopened)
 		request.put ("account", account2.to_account ());
 		test_response response (request, rpc.config.port, system.io_ctx);
 		system.deadline_set (5s);
-			while (response.status == 0)
+		while (response.status == 0)
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
@@ -5142,7 +5141,7 @@ TEST (rpc, unopened)
 		request.put ("account", nano::account (account2.number () + 1).to_account ());
 		test_response response (request, rpc.config.port, system.io_ctx);
 		system.deadline_set (5s);
-			while (response.status == 0)
+		while (response.status == 0)
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
@@ -5157,7 +5156,7 @@ TEST (rpc, unopened)
 		request.put ("count", "1");
 		test_response response (request, rpc.config.port, system.io_ctx);
 		system.deadline_set (5s);
-			while (response.status == 0)
+		while (response.status == 0)
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
@@ -5511,28 +5510,27 @@ TEST (rpc, multiple_simulatenous_calls)
 	request.put ("account", nano::test_genesis_key.pub.to_account ());
 
 	constexpr auto num = 100;
-	std::array <std::unique_ptr<test_response>, num> test_responses;
+	std::array<std::unique_ptr<test_response>, num> test_responses;
 	for (int i = 0; i < num; ++i)
 	{
-		test_responses[i] = std::make_unique <test_response> (request, system.io_ctx);
+		test_responses[i] = std::make_unique<test_response> (request, system.io_ctx);
 	}
 
 	std::promise<void> promise;
-	std::atomic<int> count { num };
+	std::atomic<int> count{ num };
 	for (int i = 0; i < num; ++i)
 	{
-		std::thread ([&test_responses, &promise, &count, i, port = rpc.config.port]()
-		{
+		std::thread ([&test_responses, &promise, &count, i, port = rpc.config.port]() {
 			test_responses[i]->run (port);
 			if (--count == 0)
 			{
-			promise.set_value ();
+				promise.set_value ();
 			}
-
-		}).detach ();
+		})
+		.detach ();
 	}
 
-	promise.get_future().wait ();
+	promise.get_future ().wait ();
 
 	system.deadline_set (10s);
 	while (std::any_of (test_responses.begin (), test_responses.end (), [](const auto & test_response) { return test_response->status == 0; }))

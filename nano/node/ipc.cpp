@@ -104,9 +104,8 @@ public:
 
 			uint32_t size_response = boost::endian::native_to_big (static_cast<uint32_t> (this_l->response_body.size ()));
 			auto bufs = std::make_shared<std::vector<boost::asio::mutable_buffer>> (std::initializer_list<boost::asio::mutable_buffer>{
-				boost::asio::buffer (&size_response, sizeof (size_response)),
-				boost::asio::buffer (this_l->response_body)
-			});
+			boost::asio::buffer (&size_response, sizeof (size_response)),
+			boost::asio::buffer (this_l->response_body) });
 
 			this_l->timer_start (std::chrono::seconds (this_l->config_transport.io_timeout));
 			boost::asio::async_write (this_l->socket, *bufs, [this_l, bufs](boost::system::error_code const & error_a, size_t size_a) {
@@ -123,7 +122,7 @@ public:
 
 			if (this_l->node.config.logging.log_ipc ())
 			{
-				 this_l->node.logger.always_log (boost::str (boost::format ("IPC/RPC request %1% completed in: %2% %3%") % request_id_l % this_l->session_timer.stop ().count () % this_l->session_timer.unit ()));
+				this_l->node.logger.always_log (boost::str (boost::format ("IPC/RPC request %1% completed in: %2% %3%") % request_id_l % this_l->session_timer.stop ().count () % this_l->session_timer.unit ()));
 			}
 		});
 
@@ -1186,7 +1185,7 @@ void nano::ipc_json_handler::accounts_pending ()
 						return child1.second.template get<nano::uint128_t> ("") > child2.second.template get<nano::uint128_t> ("");
 					});
 				}
-			}			
+			}
 			pending.add_child (account.to_account (), peers_l);
 		}
 	}
@@ -2185,7 +2184,7 @@ public:
 		if (should_ignore_account (block_a.hashables.destination))
 		{
 			return;
-		}		
+		}
 		tree.put ("type", "send");
 		auto account (block_a.hashables.destination.to_account ());
 		tree.put ("account", account);
@@ -2203,7 +2202,7 @@ public:
 		if (should_ignore_account (block_a.hashables.source))
 		{
 			return;
-		}		
+		}
 		tree.put ("type", "receive");
 		auto account (handler.node.ledger.account (transaction, block_a.hashables.source).to_account ());
 		tree.put ("account", account);
@@ -2220,7 +2219,7 @@ public:
 		if (should_ignore_account (block_a.hashables.source))
 		{
 			return;
-		}		
+		}
 		if (raw)
 		{
 			tree.put ("type", "open");
@@ -2271,7 +2270,7 @@ public:
 			{
 				tree.clear ();
 				return;
-			}			
+			}
 			if (raw)
 			{
 				tree.put ("subtype", "send");
@@ -2306,7 +2305,7 @@ public:
 				{
 					tree.clear ();
 					return;
-				}				
+				}
 				if (raw)
 				{
 					tree.put ("subtype", "receive");
@@ -2331,14 +2330,14 @@ public:
 			}
 		}
 		return ignore;
-	}	
+	}
 	nano::ipc_json_handler & handler;
 	bool raw;
 	nano::transaction & transaction;
 	boost::property_tree::ptree & tree;
 	nano::block_hash const & hash;
 	nano::network_params network_params;
-	std::vector<nano::public_key> const & accounts_filter;	
+	std::vector<nano::public_key> const & accounts_filter;
 };
 }
 
@@ -2362,7 +2361,7 @@ void nano::ipc_json_handler::account_history ()
 				break;
 			}
 		}
-	}	
+	}
 	nano::account account;
 	nano::block_hash hash;
 	bool output_raw (request.get_optional<bool> ("raw") == true);
@@ -2370,7 +2369,7 @@ void nano::ipc_json_handler::account_history ()
 	auto head_str (request.get_optional<std::string> ("head"));
 	auto transaction (node.store.tx_begin_read ());
 	auto count (count_impl ());
-	auto offset (offset_optional_impl (0));	
+	auto offset (offset_optional_impl (0));
 	if (head_str)
 	{
 		if (!hash.decode_hex (*head_str))
@@ -2754,7 +2753,6 @@ void nano::ipc_json_handler::peers ()
 				pending_tree.put ("node_id", "");
 			}
 			peers_l.push_back (boost::property_tree::ptree::value_type (text.str (), pending_tree));
-
 		}
 		else
 		{
@@ -4581,7 +4579,7 @@ void nano::ipc_json_handler::work_generate ()
 	if (!ec && difficulty > node.config.ipc_config.max_work_generate_difficulty)
 	{
 		ec = nano::error_rpc::difficulty_limit;
-	}	
+	}
 	if (!ec)
 	{
 		bool use_peers (request.get_optional<bool> ("use_peers") == true);

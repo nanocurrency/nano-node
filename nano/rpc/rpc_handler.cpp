@@ -88,9 +88,8 @@ void nano::rpc_handler::process_request ()
 			if (!error)
 			{
 				// Add request (currently assumes json) to the rpc processor queue
-				rpc_request_processor.add (std::make_shared <nano::rpc_request> (action, body, this->response));
+				rpc_request_processor.add (std::make_shared<nano::rpc_request> (action, body, this->response));
 			}
-
 		}
 	}
 	catch (std::runtime_error const &)

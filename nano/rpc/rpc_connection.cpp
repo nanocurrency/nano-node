@@ -155,5 +155,5 @@ void nano::rpc_connection::read ()
 
 void nano::rpc_connection::write_completion_handler (std::shared_ptr<nano::rpc_connection> rpc_connection)
 {
-// Intentional no-op
+	// Intentional no-op
 }

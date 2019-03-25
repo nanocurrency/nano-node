@@ -1,8 +1,8 @@
-#include <nano/node/openclconfig.hpp>
-#include <nano/node/openclwork.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/openclconfig.hpp>
+#include <nano/node/openclwork.hpp>
 #include <nano/node/wallet.hpp>
 
 #include <array>

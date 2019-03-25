@@ -43,8 +43,8 @@ TEST (daemon_config, upgrade_v2_v3)
 	daemon_config.deserialize_json (updated, daemon);
 	ASSERT_TRUE (updated);
 
-	ASSERT_GE (daemon.get_required_child ("node").get <unsigned> ("version"), 3u);
-	ASSERT_TRUE (daemon.get_required_child ("node").get_optional_child ("ipc")->get_optional_child ("tcp")->get <bool> ("enable"));
+	ASSERT_GE (daemon.get_required_child ("node").get<unsigned> ("version"), 3u);
+	ASSERT_TRUE (daemon.get_required_child ("node").get_optional_child ("ipc")->get_optional_child ("tcp")->get<bool> ("enable"));
 
 	// Check that the rpc config file is created
 	auto rpc_path = nano::get_rpc_config_path (data_path);

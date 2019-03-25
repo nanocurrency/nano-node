@@ -476,7 +476,7 @@ void migrate_rpc_config (nano::jsonconfig & json, boost::filesystem::path const 
 	nano::jsonconfig rpc_json;
 	auto rpc_config_path = nano::get_rpc_config_path (data_path);
 	nano::rpc_config rpc;
-	auto rpc_error (rpc_json.read < nano::rpc_config> (rpc_config_path));
+	auto rpc_error (rpc_json.read<nano::rpc_config> (rpc_config_path));
 	if (rpc_error || rpc_json.empty ())
 	{
 		// Migrate RPC info across

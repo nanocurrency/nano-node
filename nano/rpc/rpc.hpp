@@ -18,7 +18,7 @@ class rpc
 {
 public:
 	rpc (boost::asio::io_context & io_ctx_a, nano::rpc_config const & config_a);
-	virtual ~rpc();
+	virtual ~rpc ();
 	void start ();
 	virtual void accept ();
 	void stop ();
@@ -29,7 +29,7 @@ public:
 	boost::asio::io_context & io_ctx;
 	nano::network_constants network_constants;
 	nano::rpc_request_processor rpc_request_processor;
-	std::atomic<bool> stopped {false};
+	std::atomic<bool> stopped{ false };
 };
 
 /** Returns the correct RPC implementation based on TLS configuration */

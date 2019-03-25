@@ -1,7 +1,7 @@
 #pragma once
 
-#include <mutex>
 #include <crypto/cryptopp/osrng.h>
+#include <mutex>
 
 namespace nano
 {
@@ -13,18 +13,18 @@ public:
 	static unsigned generate_word32 (unsigned min, unsigned max);
 	static unsigned char generate_byte ();
 
- 	template <class Iter>
+	template <class Iter>
 	static void shuffle (Iter begin, Iter end)
 	{
 		std::lock_guard<std::mutex> lk (mutex);
 		pool.Shuffle (begin, end);
 	}
 
- 	random_pool () = delete;
+	random_pool () = delete;
 	random_pool (random_pool const &) = delete;
 	random_pool & operator= (random_pool const &) = delete;
 
- private:
+private:
 	static std::mutex mutex;
 	static CryptoPP::AutoSeededRandomPool pool;
 };

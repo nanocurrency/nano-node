@@ -47,7 +47,7 @@ namespace ipc
 		ipc_config_domain_socket transport_domain;
 		ipc_config_tcp_socket transport_tcp;
 		bool enable_sign_hash{ false };
-		uint64_t max_work_generate_difficulty { 0xffffffffc0000000 };
+		uint64_t max_work_generate_difficulty{ 0xffffffffc0000000 };
 
 	private:
 		static int json_version ()

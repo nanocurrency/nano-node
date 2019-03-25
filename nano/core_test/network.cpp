@@ -1455,7 +1455,6 @@ TEST (confirmation_height, single)
 
 TEST (confirmation_height, multiple)
 {
-	auto amount (std::numeric_limits<nano::uint128_t>::max ());
 	nano::system system (24000, 2);
 	nano::keypair key1;
 	nano::keypair key2;
@@ -1640,7 +1639,6 @@ TEST (confirmation_height, gap_live)
 	nano::system system (24000, 2);
 	nano::keypair destination;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	nano::block_hash latest1 (system.nodes[0]->latest (nano::test_genesis_key.pub));
 	system.wallet (1)->insert_adhoc (destination.prv);
 
 	nano::genesis genesis;

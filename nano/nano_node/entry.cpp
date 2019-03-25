@@ -2,9 +2,9 @@
 #include <nano/lib/utility.hpp>
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/cli.hpp>
+#include <nano/node/ipc.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/testing.hpp>
-#include <nano/node/ipc.hpp>
 #include <sstream>
 
 #include <argon2.h>
@@ -726,7 +726,7 @@ int main (int argc, char * const * argv)
 			std::string req_id_l ("1");
 			nano::ipc::ipc_server server (*inactive_node_l.node);
 			nano::ipc_json_handler handler_l (server, *inactive_node_l.node, command_l.str (), req_id_l, response_handler_l);
-			handler_l.process_request ();			
+			handler_l.process_request ();
 		}
 		else if (vm.count ("debug_validate_blocks"))
 		{

@@ -1,7 +1,7 @@
-#include <nano/lib/rpcconfig.hpp>
+#include <boost/dll/runtime_symbol_info.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/jsonconfig.hpp>
-#include <boost/dll/runtime_symbol_info.hpp>
+#include <nano/lib/rpcconfig.hpp>
 
 nano::rpc_secure_config::rpc_secure_config () :
 enable (false),

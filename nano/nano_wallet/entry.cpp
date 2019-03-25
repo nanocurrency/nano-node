@@ -10,9 +10,9 @@
 #include <nano/qt/qt.hpp>
 
 #include <boost/make_shared.hpp>
+#include <boost/process.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
-#include <boost/process.hpp> 
 
 class qt_wallet_config
 {
@@ -178,11 +178,11 @@ public:
 	}
 
 	nano::uint256_union wallet;
-	nano::account account { 0 };
+	nano::account account{ 0 };
 	nano::node_config node;
-	bool rpc_enable { false };
+	bool rpc_enable{ false };
 	std::string rpc_path;
-	bool opencl_enable { false };
+	bool opencl_enable{ false };
 	nano::opencl_config opencl;
 	boost::filesystem::path data_path;
 	int json_version () const

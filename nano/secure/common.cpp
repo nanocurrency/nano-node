@@ -1,9 +1,9 @@
-#include <nano/secure/common.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/interface.h>
 #include <nano/lib/numbers.hpp>
 #include <nano/node/common.hpp>
 #include <nano/secure/blockstore.hpp>
+#include <nano/secure/common.hpp>
 #include <nano/secure/versioning.hpp>
 
 #include <boost/endian/conversion.hpp>
@@ -13,8 +13,8 @@
 
 #include <iostream>
 #include <limits>
-#include <nano/lib/config.hpp>
 #include <nano/core_test/testutil.hpp>
+#include <nano/lib/config.hpp>
 
 #include <crypto/ed25519-donna/ed25519.h>
 
@@ -23,7 +23,6 @@ size_t constexpr nano::receive_block::size;
 size_t constexpr nano::open_block::size;
 size_t constexpr nano::change_block::size;
 size_t constexpr nano::state_block::size;
-
 
 nano::nano_networks nano::network_constants::active_network = nano::nano_networks::ACTIVE_NETWORK;
 
@@ -61,14 +60,13 @@ char const * live_genesis_data = R"%%%({
 	})%%%";
 }
 
-nano::network_params::network_params ()
-	:network_params (network_constants::active_network)
+nano::network_params::network_params () :
+network_params (network_constants::active_network)
 {
-
 }
 
 nano::network_params::network_params (nano::nano_networks network_a) :
-	network (network_a), ledger (network), voting (network), node (network), portmapping (network), bootstrap (network)
+network (network_a), ledger (network), voting (network), node (network), portmapping (network), bootstrap (network)
 {
 	unsigned constexpr kdf_full_work = 64 * 1024;
 	unsigned constexpr kdf_test_work = 8;
