@@ -259,7 +259,7 @@ private:
 
 	/** RPC response */
 	std::string response_body;
-	uint32_t size_response { 0 };
+	uint32_t size_response{ 0 };
 
 	/** Buffer used to store data received from the client */
 	std::vector<uint8_t> buffer;
