@@ -2446,7 +2446,7 @@ TEST (active_difficulty, recalculate_work)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	std::unique_lock<std::mutex> lock (node1.active.mutex);
-	auto existing (node1.active.roots.find (nano::uint512_union (send1->previous (), send1->root ())));
+	auto existing (node1.active.roots.find (send1->qualified_root ()));
 	ASSERT_NE (node1.active.roots.end (), existing);
 	auto election (existing->election);
 	// Fake history records to force work recalculation

@@ -3285,33 +3285,18 @@ void nano::active_transactions::update_active_difficulty ()
 {
 	assert (!mutex.try_lock ());
 	uint64_t difficulty (node.network_params.publish_threshold);
-	auto size_l (roots.size ());
-	// Rough average difficulty estimation
-	switch (size_l)
+	if (!roots.empty ())
 	{
-		case 0:
-			break;
-		case 1:
-			difficulty = roots.get<1> ().begin ()->adjusted_difficulty;
-			break;
-		default:
-			difficulty = roots.get<1> ().find ((roots.get<1> ().begin ()->adjusted_difficulty + (--roots.get<1> ().end ())->adjusted_difficulty) / 2)->adjusted_difficulty;
-			break;
+		difficulty = roots.get<1> ().find ((roots.get<1> ().begin ()->adjusted_difficulty + (--roots.get<1> ().end ())->adjusted_difficulty) / 2)->adjusted_difficulty;
 	}
 	difficulty_cb.push_front (difficulty);
+	uint128_t sum (0);
+	for (auto & i : difficulty_cb)
 	{
-		uint64_t result (node.network_params.publish_threshold);
-		uint128_t sum (0);
-		for (auto & i : difficulty_cb)
-		{
-			sum += i;
-		}
-		if (!difficulty_cb.empty ())
-		{
-			result = static_cast<uint64_t> (sum / difficulty_cb.size ());
-		}
-		active_difficulty = result;
+		sum += i;
 	}
+	active_difficulty = static_cast<uint64_t> (sum / difficulty_cb.size ());
+	;
 }
 
 // List of active blocks in elections
@@ -3362,7 +3347,7 @@ nano::active_transactions::active_transactions (nano::node & node_a) :
 node (node_a),
 started (false),
 stopped (false),
-difficulty_cb (20),
+difficulty_cb (20, node.network_params.publish_threshold),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::request_loop);
 	request_loop ();
