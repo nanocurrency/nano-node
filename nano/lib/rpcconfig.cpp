@@ -138,5 +138,4 @@ std::string get_default_rpc_filepath ()
 
 	return rpc_filepath.string ();
 }
-
 }

@@ -5520,7 +5520,8 @@ TEST (rpc, multiple_simulatenous_calls)
 	std::atomic<int> count{ num };
 	for (int i = 0; i < num; ++i)
 	{
-		std::thread ([&test_responses, &promise, &count, i, port = rpc.config.port]() {
+		// clang-format off
+		std::thread ([&test_responses, &promise, &count, i, port = rpc.config.port ]() {
 			test_responses[i]->run (port);
 			if (--count == 0)
 			{
@@ -5528,6 +5529,7 @@ TEST (rpc, multiple_simulatenous_calls)
 			}
 		})
 		.detach ();
+		// clang-format on
 	}
 
 	promise.get_future ().wait ();
