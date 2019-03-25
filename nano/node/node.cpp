@@ -3061,6 +3061,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 		}
 		roots.erase (*i);
 	}
+	update_active_difficulty ();
 	if (unconfirmed_count > 0)
 	{
 		node.logger.try_log (boost::str (boost::format ("%1% blocks have been unconfirmed averaging %2% announcements") % unconfirmed_count % (unconfirmed_announcements / unconfirmed_count)));
@@ -3280,6 +3281,39 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 	}
 }
 
+void nano::active_transactions::update_active_difficulty ()
+{
+	assert (!mutex.try_lock ());
+	uint64_t difficulty (node.network_params.publish_threshold);
+	auto size_l (roots.size ());
+	// Rough average difficulty estimation
+	switch (size_l)
+	{
+		case 0:
+			break;
+		case 1:
+			difficulty = roots.get<1> ().begin ()->adjusted_difficulty;
+			break;
+		default:
+			difficulty = roots.get<1> ().find ((roots.get<1> ().begin ()->adjusted_difficulty + (--roots.get<1> ().end ())->adjusted_difficulty) / 2)->adjusted_difficulty;
+			break;
+	}
+	difficulty_cb.push_front (difficulty);
+	{
+		uint64_t result (node.network_params.publish_threshold);
+		uint128_t sum (0);
+		for (auto & i : difficulty_cb)
+		{
+			sum += i;
+		}
+		if (!difficulty_cb.empty ())
+		{
+			result = static_cast<uint64_t> (sum / difficulty_cb.size ());
+		}
+		active_difficulty = result;
+	}
+}
+
 // List of active blocks in elections
 std::deque<std::shared_ptr<nano::block>> nano::active_transactions::list_blocks (bool single_lock)
 {
@@ -3328,6 +3362,7 @@ nano::active_transactions::active_transactions (nano::node & node_a) :
 node (node_a),
 started (false),
 stopped (false),
+difficulty_cb (10000),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::request_loop);
 	request_loop ();
