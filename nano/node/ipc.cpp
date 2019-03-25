@@ -161,9 +161,9 @@ public:
 			ostream.flush ();
 			this_l->response_body = ostream.str ();
 
-			uint32_t size_response = boost::endian::native_to_big (static_cast<uint32_t> (this_l->response_body.size ()));
+			this_l->size_response = boost::endian::native_to_big (static_cast<uint32_t> (this_l->response_body.size ()));
 			std::vector<boost::asio::mutable_buffer> bufs = {
-				boost::asio::buffer (&size_response, sizeof (size_response)),
+				boost::asio::buffer (&this_l->size_response, sizeof (this_l->size_response)),
 				boost::asio::buffer (this_l->response_body)
 			};
 
@@ -259,6 +259,7 @@ private:
 
 	/** RPC response */
 	std::string response_body;
+	uint32_t size_response{ 0 };
 
 	/** Buffer used to store data received from the client */
 	std::vector<uint8_t> buffer;
