@@ -61,8 +61,8 @@ class election_vote_result final
 public:
 	election_vote_result () = default;
 	election_vote_result (bool, bool);
-	bool replay {false};
-	bool processed {false};
+	bool replay{ false };
+	bool processed{ false };
 };
 class election final : public std::enable_shared_from_this<nano::election>
 {
@@ -274,8 +274,8 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (online_reps & onli
 class message_buffer final
 {
 public:
-	uint8_t * buffer { nullptr };
-	size_t size { 0 };
+	uint8_t * buffer{ nullptr };
+	size_t size{ 0 };
 	nano::endpoint endpoint;
 };
 /**
@@ -371,9 +371,9 @@ class node_init final
 {
 public:
 	bool error () const;
-	bool block_store_init { false };
-	bool wallets_store_init { false };
-	bool wallet_init { false };
+	bool block_store_init{ false };
+	bool wallets_store_init{ false };
+	bool wallet_init{ false };
 };
 class node_observers final
 {
