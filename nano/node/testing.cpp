@@ -362,10 +362,6 @@ void nano::system::stop ()
 	work.stop ();
 }
 
-nano::landing_store::landing_store ()
-{
-}
-
 nano::landing_store::landing_store (nano::account const & source_a, nano::account const & destination_a, uint64_t start_a, uint64_t last_a) :
 source (source_a),
 destination (destination_a),

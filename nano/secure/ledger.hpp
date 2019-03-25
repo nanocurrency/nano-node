@@ -8,14 +8,14 @@ namespace nano
 class block_store;
 class stat;
 
-class shared_ptr_block_hash
+class shared_ptr_block_hash final
 {
 public:
 	size_t operator() (std::shared_ptr<nano::block> const &) const;
 	bool operator() (std::shared_ptr<nano::block> const &, std::shared_ptr<nano::block> const &) const;
 };
 using tally_t = std::map<nano::uint128_t, std::shared_ptr<nano::block>, std::greater<nano::uint128_t>>;
-class ledger
+class ledger final
 {
 public:
 	ledger (nano::block_store &, nano::stat &, nano::uint256_union const & = 1, nano::account const & = 0);

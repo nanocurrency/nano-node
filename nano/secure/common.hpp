@@ -74,7 +74,7 @@ enum class epoch : uint8_t
 /**
  * Latest information about an account
  */
-class account_info
+class account_info final
 {
 public:
 	account_info () = default;
@@ -97,7 +97,7 @@ public:
 /**
  * Information on an uncollected send
  */
-class pending_info
+class pending_info final
 {
 public:
 	pending_info () = default;
@@ -108,7 +108,7 @@ public:
 	nano::amount amount{ 0 };
 	nano::epoch epoch{ nano::epoch::epoch_0 };
 };
-class pending_key
+class pending_key final
 {
 public:
 	pending_key () = default;
@@ -120,7 +120,7 @@ public:
 	nano::block_hash hash{ 0 };
 };
 
-class endpoint_key
+class endpoint_key final
 {
 public:
 	endpoint_key () = default;
@@ -169,7 +169,7 @@ enum class signature_verification : uint8_t
 /**
  * Information on an unchecked block
  */
-class unchecked_info
+class unchecked_info final
 {
 public:
 	unchecked_info () = default;
@@ -183,7 +183,7 @@ public:
 	nano::signature_verification verified{ nano::signature_verification::unknown };
 };
 
-class block_info
+class block_info final
 {
 public:
 	block_info () = default;
@@ -191,7 +191,7 @@ public:
 	nano::account account{ 0 };
 	nano::amount balance{ 0 };
 };
-class block_counts
+class block_counts final
 {
 public:
 	size_t sum () const;
@@ -202,14 +202,14 @@ public:
 	size_t state_v0{ 0 };
 	size_t state_v1{ 0 };
 };
-typedef std::vector<boost::variant<std::shared_ptr<nano::block>, nano::block_hash>>::const_iterator vote_blocks_vec_iter;
-class iterate_vote_blocks_as_hash
+using vote_blocks_vec_iter = std::vector<boost::variant<std::shared_ptr<nano::block>, nano::block_hash>>::const_iterator;
+class iterate_vote_blocks_as_hash final
 {
 public:
 	iterate_vote_blocks_as_hash () = default;
 	nano::block_hash operator() (boost::variant<std::shared_ptr<nano::block>, nano::block_hash> const & item) const;
 };
-class vote
+class vote final
 {
 public:
 	vote () = default;
@@ -243,7 +243,7 @@ public:
 /**
  * This class serves to find and return unique variants of a vote in order to minimize memory usage
  */
-class vote_uniquer
+class vote_uniquer final
 {
 public:
 	using value_type = std::pair<const nano::uint256_union, std::weak_ptr<nano::vote>>;
@@ -283,7 +283,7 @@ enum class process_result
 	representative_mismatch, // Representative is changed when it is not allowed
 	block_position // This block cannot follow the previous block
 };
-class process_return
+class process_return final
 {
 public:
 	nano::process_result code;
@@ -300,7 +300,7 @@ enum class tally_result
 	confirm
 };
 
-class genesis
+class genesis final
 {
 public:
 	genesis ();

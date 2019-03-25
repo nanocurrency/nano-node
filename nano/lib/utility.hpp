@@ -84,8 +84,7 @@ namespace thread_role
 		wallet_actions,
 		bootstrap_initiator,
 		voting,
-		signature_checking,
-		slow_db_upgrade,
+		signature_checking
 	};
 	/*
 	 * Get/Set the identifier for the current thread
@@ -101,7 +100,7 @@ namespace thread_role
 	/*
 	 * Internal only, should not be called directly
 	 */
-	void set_os_name (std::string);
+	void set_os_name (std::string const &);
 }
 
 namespace thread_attributes
@@ -110,7 +109,7 @@ namespace thread_attributes
 }
 
 template <typename... T>
-class observer_set
+class observer_set final
 {
 public:
 	void add (std::function<void(T...)> const & observer_a)

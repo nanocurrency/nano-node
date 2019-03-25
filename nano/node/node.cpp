@@ -623,13 +623,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (alarm & alarm, con
 }
 }
 
-nano::node_init::node_init () :
-block_store_init (false),
-wallet_init (false)
-{
-}
-
-bool nano::node_init::error ()
+bool nano::node_init::error () const
 {
 	return block_store_init || wallet_init || wallets_store_init;
 }
@@ -2497,12 +2491,6 @@ std::shared_ptr<nano::node> nano::node::shared ()
 	return shared_from_this ();
 }
 
-nano::election_vote_result::election_vote_result () :
-replay (false),
-processed (false)
-{
-}
-
 nano::election_vote_result::election_vote_result (bool replay_a, bool processed_a)
 {
 	replay = replay_a;
@@ -2555,7 +2543,7 @@ void nano::election::stop ()
 	stopped = true;
 }
 
-bool nano::election::have_quorum (nano::tally_t const & tally_a, nano::uint128_t tally_sum)
+bool nano::election::have_quorum (nano::tally_t const & tally_a, nano::uint128_t tally_sum) const
 {
 	bool result = false;
 	if (tally_sum >= node.config.online_weight_minimum.number ())
@@ -2620,7 +2608,7 @@ void nano::election::confirm_if_quorum (nano::transaction const & transaction_a)
 	}
 }
 
-void nano::election::log_votes (nano::tally_t const & tally_a)
+void nano::election::log_votes (nano::tally_t const & tally_a) const
 {
 	std::stringstream tally;
 	tally << boost::str (boost::format ("\nVote tally for root %1%") % status.winner->root ().to_string ());

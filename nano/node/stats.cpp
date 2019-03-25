@@ -173,14 +173,9 @@ std::shared_ptr<nano::stat_entry> nano::stat::get_entry_impl (uint32_t key, size
 	return res;
 }
 
-std::unique_ptr<nano::stat_log_sink> nano::stat::log_sink_json ()
+std::unique_ptr<nano::stat_log_sink> nano::stat::log_sink_json () const
 {
 	return std::make_unique<json_writer> ();
-}
-
-std::unique_ptr<nano::stat_log_sink> log_sink_file (std::string filename)
-{
-	return std::make_unique<file_writer> (filename);
 }
 
 void nano::stat::log_counters (stat_log_sink & sink)

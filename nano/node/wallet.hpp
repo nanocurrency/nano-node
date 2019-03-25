@@ -12,7 +12,7 @@
 namespace nano
 {
 // The fan spreads a key out over the heap to decrease the likelihood of it being recovered by memory inspection
-class fan
+class fan final
 {
 public:
 	fan (nano::uint256_union const &, size_t);
@@ -25,7 +25,7 @@ private:
 	void value_get (nano::raw_key &);
 };
 class node_config;
-class kdf
+class kdf final
 {
 public:
 	void phs (nano::raw_key &, std::string const &, nano::uint256_union const &);
@@ -38,7 +38,7 @@ enum class key_type
 	adhoc,
 	deterministic
 };
-class wallet_store
+class wallet_store final
 {
 public:
 	wallet_store (bool &, nano::kdf &, nano::transaction &, nano::account, unsigned, std::string const &);
@@ -113,7 +113,7 @@ private:
 };
 class wallets;
 // A wallet is a set of account keys encrypted by a common encryption key
-class wallet : public std::enable_shared_from_this<nano::wallet>
+class wallet final : public std::enable_shared_from_this<nano::wallet>
 {
 public:
 	std::shared_ptr<nano::block> change_action (nano::account const &, nano::account const &, uint64_t = 0, bool = true);
@@ -163,7 +163,7 @@ class node;
  * The wallets set is all the wallets a node controls.
  * A node may contain multiple wallets independently encrypted and operated.
  */
-class wallets
+class wallets final
 {
 public:
 	wallets (bool &, nano::node &);
@@ -222,7 +222,7 @@ class wallets_store
 public:
 	virtual ~wallets_store () = default;
 };
-class mdb_wallets_store : public wallets_store
+class mdb_wallets_store final : public wallets_store
 {
 public:
 	mdb_wallets_store (bool &, boost::filesystem::path const &, int lmdb_max_dbs = 128);

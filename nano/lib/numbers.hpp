@@ -38,11 +38,9 @@ nano::uint128_t const Gxrb_ratio = nano::uint128_t ("100000000000000000000000000
 nano::uint128_t const Mxrb_ratio = nano::uint128_t ("1000000000000000000000000000000"); // 10^30
 nano::uint128_t const kxrb_ratio = nano::uint128_t ("1000000000000000000000000000"); // 10^27
 nano::uint128_t const xrb_ratio = nano::uint128_t ("1000000000000000000000000"); // 10^24
-nano::uint128_t const mxrb_ratio = nano::uint128_t ("1000000000000000000000"); // 10^21
-nano::uint128_t const uxrb_ratio = nano::uint128_t ("1000000000000000000"); // 10^18
 nano::uint128_t const raw_ratio = nano::uint128_t ("1"); // 10^0
 
-union uint128_union
+union uint128_union final
 {
 public:
 	uint128_union () = default;
@@ -52,7 +50,6 @@ public:
 	 */
 	uint128_union (std::string const &);
 	uint128_union (uint64_t);
-	uint128_union (nano::uint128_union const &) = default;
 	uint128_union (nano::uint128_t const &);
 	bool operator== (nano::uint128_union const &) const;
 	bool operator!= (nano::uint128_union const &) const;
@@ -77,7 +74,7 @@ public:
 // Balances are 128 bit.
 using amount = uint128_union;
 class raw_key;
-union uint256_union
+union uint256_union final
 {
 	uint256_union () = default;
 	/**
@@ -116,17 +113,16 @@ using account = uint256_union;
 using public_key = uint256_union;
 using private_key = uint256_union;
 using secret_key = uint256_union;
-class raw_key
+class raw_key final
 {
 public:
-	raw_key () = default;
 	~raw_key ();
 	void decrypt (nano::uint256_union const &, nano::raw_key const &, uint128_union const &);
 	bool operator== (nano::raw_key const &) const;
 	bool operator!= (nano::raw_key const &) const;
 	nano::uint256_union data;
 };
-union uint512_union
+union uint512_union final
 {
 	uint512_union () = default;
 	uint512_union (nano::uint256_union const &, nano::uint256_union const &);
