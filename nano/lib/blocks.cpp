@@ -117,22 +117,22 @@ nano::block_hash nano::block::full_hash () const
 
 nano::account nano::block::representative () const
 {
-	return nano::account{ 0 };
+	return 0;
 }
 
 nano::block_hash nano::block::source () const
 {
-	return nano::block_hash{ 0 };
+	return 0;
 }
 
 nano::block_hash nano::block::link () const
 {
-	return nano::block_hash{ 0 };
+	return 0;
 }
 
 nano::account nano::block::account () const
 {
-	return nano::account{ 0 };
+	return 0;
 }
 
 nano::qualified_root nano::block::qualified_root () const
