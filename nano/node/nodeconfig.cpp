@@ -440,11 +440,11 @@ void migrate_rpc_config (nano::jsonconfig & json, boost::filesystem::path const 
 	auto rpc_l (json.get_required_child ("rpc"));
 
 	bool enable_sign_hash;
-	rpc_l.get_optional<bool> ("enable_sign_hash", enable_sign_hash);
+	rpc_l.get_optional<bool> ("enable_sign_hash", enable_sign_hash, false);
 
 	rpc_l.erase ("enable_sign_hash");
 	bool rpc_enable;
-	json.get_optional<bool> ("rpc_enable", rpc_enable);
+	json.get_optional<bool> ("rpc_enable", rpc_enable, false);
 
 	auto node_l (json.get_required_child ("node"));
 	auto ipc_l (node_l.get_optional_child ("ipc"));
@@ -476,7 +476,7 @@ void migrate_rpc_config (nano::jsonconfig & json, boost::filesystem::path const 
 	nano::jsonconfig rpc_json;
 	auto rpc_config_path = nano::get_rpc_config_path (data_path);
 	nano::rpc_config rpc;
-	auto rpc_error (rpc_json.read (rpc, rpc_config_path));
+	auto rpc_error (rpc_json.read < nano::rpc_config> (rpc_config_path));
 	if (rpc_error || rpc_json.empty ())
 	{
 		// Migrate RPC info across

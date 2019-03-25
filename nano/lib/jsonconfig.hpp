@@ -57,7 +57,7 @@ public:
 	}
 
 	template <typename T>
-	nano::error & read (T & object, boost::filesystem::path const & path_a)
+	nano::error & read (boost::filesystem::path const & path_a)
 	{
 		std::fstream stream;
 		open_or_create (stream, path_a.string ());
@@ -87,7 +87,7 @@ public:
 	template <typename T>
 	nano::error & read_and_update (T & object, boost::filesystem::path const & path_a)
 	{
-		read (object, path_a);
+		read <T> (path_a);
 		if (!*error)
 		{
 			std::fstream stream;

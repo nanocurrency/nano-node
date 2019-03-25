@@ -50,7 +50,7 @@ nano::error nano::ipc::ipc_config::deserialize_json (bool & upgraded_a, nano::js
 				auto tcp_l (json.get_optional_child ("tcp"));
 				if (tcp_l)
 				{
-					tcp_l->put ("enable", true);				
+					tcp_l->put ("enable", true);		
 				}
 				else
 				{

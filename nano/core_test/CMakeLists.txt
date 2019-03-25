@@ -2,11 +2,12 @@ add_executable (core_test
 	core_test_main.cc
 	block.cpp
 	block_store.cpp
-	interface.cpp
-	ipc.cpp
 	conflicts.cpp
+	daemon.cpp
 	entry.cpp
 	gap_cache.cpp
+	interface.cpp
+	ipc.cpp
 	ledger.cpp
 	logger.cpp
 	network.cpp

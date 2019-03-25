@@ -74,7 +74,7 @@ public:
 	/**
 	 * Optionally called on startup to override the global active network.
 	 * If not called, the compile-time option will be used.
-	 * @param network The new active network
+	 * @param network_a The new active network
 	 */
 	static void set_active_network (nano_networks network_a)
 	{

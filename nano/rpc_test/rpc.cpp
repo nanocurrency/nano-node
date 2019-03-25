@@ -5493,7 +5493,7 @@ TEST (rpc, block_confirmed)
 	ASSERT_TRUE (response3.json.get<bool> ("confirmed"));
 }
 
-// This is mainly to test with TSAN
+// This is mainly to check for threading issues with TSAN
 TEST (rpc, multiple_simulatenous_calls)
 {
 	// This tests simulatenous calls to the same node in different threads

@@ -3,7 +3,6 @@
 
 nano::daemon_config::daemon_config (boost::filesystem::path const & data_path) :
 rpc_path (get_default_rpc_filepath ()),
-
 data_path (data_path)
 {
 }
