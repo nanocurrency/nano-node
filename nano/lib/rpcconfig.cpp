@@ -133,7 +133,7 @@ std::string get_default_rpc_filepath ()
 	// Confirm it exists
 	if (!boost::filesystem::exists (rpc_filepath))
 	{
-		std::cerr << "RPC migrated filepath incorrect please set manually in config.json";
+		std::cerr << "RPC migrated filepath incorrectly, please set manually in config.json";
 	}
 
 	return rpc_filepath.string ();

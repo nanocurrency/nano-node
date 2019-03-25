@@ -41,11 +41,7 @@ nano::error nano::daemon_config::deserialize_json (bool & upgraded_a, nano::json
 				auto rpc = json.get_optional_child ("rpc");
 				if (rpc)
 				{
-					auto enable_sign_hash_json = rpc->get_optional<bool> ("enable_sign_hash");
-					if (enable_sign_hash_json)
-					{
-						enable_sign_hash = *enable_sign_hash_json;
-					}
+					rpc->get_optional<bool> ("enable_sign_hash", enable_sign_hash);
 				}
 			}
 

@@ -103,12 +103,13 @@ public:
 			this_l->response_body = ostream.str ();
 
 			uint32_t size_response = boost::endian::native_to_big (static_cast<uint32_t> (this_l->response_body.size ()));
-			auto bufs = std::make_shared<std::vector<boost::asio::mutable_buffer>> (std::initializer_list<boost::asio::mutable_buffer>{
-			boost::asio::buffer (&size_response, sizeof (size_response)),
-			boost::asio::buffer (this_l->response_body) });
+			std::vector<boost::asio::mutable_buffer> bufs = {
+				boost::asio::buffer (&size_response, sizeof (size_response)),
+				boost::asio::buffer (this_l->response_body)
+			};
 
 			this_l->timer_start (std::chrono::seconds (this_l->config_transport.io_timeout));
-			boost::asio::async_write (this_l->socket, *bufs, [this_l, bufs](boost::system::error_code const & error_a, size_t size_a) {
+			boost::asio::async_write (this_l->socket, bufs, [this_l](boost::system::error_code const & error_a, size_t size_a) {
 				this_l->timer_cancel ();
 				if (!error_a)
 				{
