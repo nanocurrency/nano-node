@@ -85,7 +85,7 @@ namespace ipc
 class ipc_json_handler : public std::enable_shared_from_this<nano::ipc_json_handler>
 {
 public:
-	ipc_json_handler (nano::ipc::ipc_server & ipc_server, nano::node &, std::string const &, std::string const &, std::function<void(boost::property_tree::ptree const &)> const &);
+	ipc_json_handler (nano::ipc::ipc_server &, nano::node &, std::string const &, std::string const &, std::function<void(boost::property_tree::ptree const &)> const &);
 	void process_request ();
 	void account_balance ();
 	void account_block_count ();

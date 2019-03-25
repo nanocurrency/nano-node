@@ -4,6 +4,7 @@
 #include <nano/node/cli.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/testing.hpp>
+#include <nano/node/ipc.hpp>
 #include <sstream>
 
 #include <argon2.h>
@@ -95,6 +96,7 @@ int main (int argc, char * const * argv)
 		("debug_random_feed", "Generates output to RNG test suites")
 		("debug_validate_blocks", "Check all blocks for correct hash, signature, work value")
 		("debug_peers", "Display peer IPv6:port connections")
+		("debug_ipc", "Read an IPC command in JSON from stdin and invoke it. Network operations will have no effect")
 		("platform", boost::program_options::value<std::string> (), "Defines the <platform> for OpenCL commands")
 		("device", boost::program_options::value<std::string> (), "Defines <device> for OpenCL command")
 		("threads", boost::program_options::value<std::string> (), "Defines <threads> count for OpenCL command")
@@ -704,6 +706,27 @@ int main (int argc, char * const * argv)
 				nano::random_pool::generate_block (seed.data.bytes.data (), seed.data.bytes.size ());
 				std::cout.write (reinterpret_cast<const char *> (seed.data.bytes.data ()), seed.data.bytes.size ());
 			}
+		}
+		else if (vm.count ("debug_ipc"))
+		{
+			std::string rpc_input_l;
+			std::ostringstream command_l;
+			while (std::cin >> rpc_input_l)
+			{
+				command_l << rpc_input_l;
+			}
+
+			auto response_handler_l ([](boost::property_tree::ptree const & tree_a) {
+				boost::property_tree::write_json (std::cout, tree_a);
+				// Terminate as soon as we have the result, even if background threads (like work generation) are running.
+				std::exit (0);
+			});
+
+			nano::inactive_node inactive_node_l (data_path);
+			std::string req_id_l ("1");
+			nano::ipc::ipc_server server (*inactive_node_l.node);
+			nano::ipc_json_handler handler_l (server, *inactive_node_l.node, command_l.str (), req_id_l, response_handler_l);
+			handler_l.process_request ();			
 		}
 		else if (vm.count ("debug_validate_blocks"))
 		{
