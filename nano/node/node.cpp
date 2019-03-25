@@ -3362,7 +3362,7 @@ nano::active_transactions::active_transactions (nano::node & node_a) :
 node (node_a),
 started (false),
 stopped (false),
-difficulty_cb (10000),
+difficulty_cb (20),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::request_loop);
 	request_loop ();

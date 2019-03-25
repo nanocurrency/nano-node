@@ -2450,7 +2450,7 @@ TEST (active_difficulty, recalculate_work)
 	ASSERT_NE (node1.active.roots.end (), existing);
 	auto election (existing->election);
 	// Fake history records to force work recalculation
-	for (auto i (0); i < 10000; i++)
+	for (auto i (0); i < 20; i++)
 	{
 		node1.active.difficulty_cb.push_front (difficulty1 + 10000);
 	}
