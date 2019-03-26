@@ -389,6 +389,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::bulk_push:
 			res = "bulk_push";
 			break;
+		case nano::stat::detail::error_socket_close:
+			res = "error_socket_close";
+			break;
 		case nano::stat::detail::change:
 			res = "change";
 			break;
