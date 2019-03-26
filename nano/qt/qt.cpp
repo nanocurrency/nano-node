@@ -1133,75 +1133,54 @@ void nano_qt::wallet::start ()
 			show_line_ok (*this_l->send_count);
 			show_line_ok (*this_l->send_account);
 			nano::amount amount;
-			if (!amount.decode_dec (this_l->send_count->text ().toStdString ()))
+			if (!amount.decode_dec (this_l->send_count->text ().toStdString (), this_l->rendering_ratio))
 			{
-				nano::uint128_t actual (amount.number () * this_l->rendering_ratio);
-				if (actual / this_l->rendering_ratio == amount.number ())
+				nano::uint128_t actual (amount.number ());
+				QString account_text (this_l->send_account->text ());
+				std::string account_text_narrow (account_text.toLocal8Bit ());
+				nano::account account_l;
+				auto parse_error (account_l.decode_account (account_text_narrow));
+				if (!parse_error)
 				{
-					QString account_text (this_l->send_account->text ());
-					std::string account_text_narrow (account_text.toLocal8Bit ());
-					nano::account account_l;
-					auto parse_error (account_l.decode_account (account_text_narrow));
-					if (!parse_error)
+					auto balance (this_l->node.balance (this_l->account));
+					if (actual <= balance)
 					{
-						auto balance (this_l->node.balance (this_l->account));
-						if (actual <= balance)
+						auto transaction (this_l->wallet_m->wallets.tx_begin_read ());
+						if (this_l->wallet_m->store.valid_password (transaction))
 						{
-							auto transaction (this_l->wallet_m->wallets.tx_begin_read ());
-							if (this_l->wallet_m->store.valid_password (transaction))
-							{
-								this_l->send_blocks_send->setEnabled (false);
-								this_l->node.background ([this_w, account_l, actual]() {
-									if (auto this_l = this_w.lock ())
-									{
-										this_l->wallet_m->send_async (this_l->account, account_l, actual, [this_w](std::shared_ptr<nano::block> block_a) {
-											if (auto this_l = this_w.lock ())
-											{
-												auto succeeded (block_a != nullptr);
-												this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, succeeded]() {
-													if (auto this_l = this_w.lock ())
+							this_l->send_blocks_send->setEnabled (false);
+							this_l->node.background ([this_w, account_l, actual]() {
+								if (auto this_l = this_w.lock ())
+								{
+									this_l->wallet_m->send_async (this_l->account, account_l, actual, [this_w](std::shared_ptr<nano::block> block_a) {
+										if (auto this_l = this_w.lock ())
+										{
+											auto succeeded (block_a != nullptr);
+											this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, succeeded]() {
+												if (auto this_l = this_w.lock ())
+												{
+													this_l->send_blocks_send->setEnabled (true);
+													if (succeeded)
 													{
-														this_l->send_blocks_send->setEnabled (true);
-														if (succeeded)
-														{
-															this_l->send_count->clear ();
-															this_l->send_account->clear ();
-															this_l->accounts.refresh ();
-														}
-														else
-														{
-															show_line_error (*this_l->send_count);
-														}
+														this_l->send_count->clear ();
+														this_l->send_account->clear ();
+														this_l->accounts.refresh ();
 													}
-												}));
-											}
-										});
-									}
-								});
-							}
-							else
-							{
-								show_button_error (*this_l->send_blocks_send);
-								this_l->send_blocks_send->setText ("Wallet is locked, unlock it to send");
-								this_l->node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this_w]() {
-									if (auto this_l = this_w.lock ())
-									{
-										this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w]() {
-											if (auto this_l = this_w.lock ())
-											{
-												show_button_ok (*this_l->send_blocks_send);
-												this_l->send_blocks_send->setText ("Send");
-											}
-										}));
-									}
-								});
-							}
+													else
+													{
+														show_line_error (*this_l->send_count);
+													}
+												}
+											}));
+										}
+									});
+								}
+							});
 						}
 						else
 						{
-							show_line_error (*this_l->send_count);
 							show_button_error (*this_l->send_blocks_send);
-							this_l->send_blocks_send->setText ("Not enough balance");
+							this_l->send_blocks_send->setText ("Wallet is locked, unlock it to send");
 							this_l->node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this_w]() {
 								if (auto this_l = this_w.lock ())
 								{
@@ -1218,9 +1197,9 @@ void nano_qt::wallet::start ()
 					}
 					else
 					{
-						show_line_error (*this_l->send_account);
+						show_line_error (*this_l->send_count);
 						show_button_error (*this_l->send_blocks_send);
-						this_l->send_blocks_send->setText ("Bad destination account");
+						this_l->send_blocks_send->setText ("Not enough balance");
 						this_l->node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this_w]() {
 							if (auto this_l = this_w.lock ())
 							{
@@ -1237,19 +1216,15 @@ void nano_qt::wallet::start ()
 				}
 				else
 				{
-					show_line_error (*this_l->send_count);
+					show_line_error (*this_l->send_account);
 					show_button_error (*this_l->send_blocks_send);
-					this_l->send_blocks_send->setText ("Amount too big");
+					this_l->send_blocks_send->setText ("Bad destination account");
 					this_l->node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this_w]() {
 						if (auto this_l = this_w.lock ())
 						{
-							show_line_ok (*this_l->send_account);
-							show_button_ok (*this_l->send_blocks_send);
-							this_l->send_blocks_send->setText ("Send");
 							this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w]() {
 								if (auto this_l = this_w.lock ())
 								{
-									show_line_ok (*this_l->send_account);
 									show_button_ok (*this_l->send_blocks_send);
 									this_l->send_blocks_send->setText ("Send");
 								}
@@ -1457,7 +1432,7 @@ void nano_qt::wallet::change_rendering_ratio (nano::uint128_t const & rendering_
 
 std::string nano_qt::wallet::format_balance (nano::uint128_t const & balance) const
 {
-	auto balance_str = nano::amount (balance).format_balance (rendering_ratio, 0, false);
+	auto balance_str = nano::amount (balance).format_balance (rendering_ratio, 3, false);
 	auto unit = std::string ("NANO");
 	if (rendering_ratio == nano::kxrb_ratio)
 	{

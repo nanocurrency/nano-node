@@ -538,9 +538,9 @@ void nano::uint128_union::encode_dec (std::string & text) const
 	text = stream.str ();
 }
 
-bool nano::uint128_union::decode_dec (std::string const & text)
+bool nano::uint128_union::decode_dec (std::string const & text, bool decimal)
 {
-	auto error (text.size () > 39 || (text.size () > 1 && text.front () == '0') || (!text.empty () && text.front () == '-'));
+	auto error (text.size () > 39 || (text.size () > 1 && text.front () == '0' && !decimal) || (!text.empty () && text.front () == '-'));
 	if (!error)
 	{
 		std::stringstream stream (text);
@@ -559,6 +559,78 @@ bool nano::uint128_union::decode_dec (std::string const & text)
 		catch (std::runtime_error &)
 		{
 			error = true;
+		}
+	}
+	return error;
+}
+
+bool nano::uint128_union::decode_dec (std::string const & text, nano::uint128_t scale)
+{
+	bool error (text.size () > 40 || (!text.empty () && text.front () == '-'));
+	if (!error)
+	{
+		auto delimiter_position (text.find (".")); // Dot delimiter hardcoded until decision for supporting other locales
+		if (delimiter_position == std::string::npos)
+		{
+			nano::uint128_union integer;
+			error = integer.decode_dec (text);
+			if (!error)
+			{
+				// Overflow check
+				try
+				{
+					auto result (boost::multiprecision::checked_uint128_t (integer.number ()) * boost::multiprecision::checked_uint128_t (scale));
+					error = (result > std::numeric_limits<nano::uint128_t>::max ());
+					if (!error)
+					{
+						*this = nano::uint128_t (result);
+					}
+				}
+				catch (std::overflow_error &)
+				{
+					error = true;
+				}
+			}
+		}
+		else
+		{
+			nano::uint128_union integer_part;
+			std::string integer_text (text.substr (0, delimiter_position));
+			error = (integer_text.empty () || integer_part.decode_dec (integer_text));
+			if (!error)
+			{
+				// Overflow check
+				try
+				{
+					error = ((boost::multiprecision::checked_uint128_t (integer_part.number ()) * boost::multiprecision::checked_uint128_t (scale)) > std::numeric_limits<nano::uint128_t>::max ());
+				}
+				catch (std::overflow_error &)
+				{
+					error = true;
+				}
+				if (!error)
+				{
+					nano::uint128_union decimal_part;
+					std::string decimal_text (text.substr (delimiter_position + 1, text.length ()));
+					error = (decimal_text.empty () || decimal_part.decode_dec (decimal_text, true));
+					if (!error)
+					{
+						// Overflow check
+						auto scale_length (scale.convert_to<std::string> ().length ());
+						error = (scale_length <= decimal_text.length ());
+						if (!error)
+						{
+							auto result (integer_part.number () * scale + decimal_part.number () * boost::multiprecision::pow (boost::multiprecision::cpp_int (10), (scale_length - decimal_text.length () - 1)));
+							// Overflow check
+							error = (result > std::numeric_limits<nano::uint128_t>::max ());
+							if (!error)
+							{
+								*this = nano::uint128_t (result);
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 	return error;

@@ -126,6 +126,39 @@ TEST (uint128_union, balance_format)
 	ASSERT_EQ ("12-3456-789+123", nano::amount (nano::Mxrb_ratio * 123456789 + nano::kxrb_ratio * 123).format_balance (nano::Mxrb_ratio, 4, true, std::locale (std::cout.getloc (), new test_punct)));
 }
 
+TEST (uint128_union, decode_decimal)
+{
+	nano::amount amount;
+	ASSERT_FALSE (amount.decode_dec ("340282366920938463463374607431768211455", nano::raw_ratio));
+	ASSERT_EQ (std::numeric_limits<nano::uint128_t>::max (), amount.number ());
+	ASSERT_TRUE (amount.decode_dec ("340282366920938463463374607431768211456", nano::raw_ratio));
+	ASSERT_TRUE (amount.decode_dec ("340282366920938463463374607431768211455.1", nano::raw_ratio));
+	ASSERT_TRUE (amount.decode_dec ("0.1", nano::raw_ratio));
+	ASSERT_FALSE (amount.decode_dec ("1", nano::raw_ratio));
+	ASSERT_EQ (1, amount.number ());
+	ASSERT_FALSE (amount.decode_dec ("340282366.920938463463374607431768211454", nano::Mxrb_ratio));
+	ASSERT_EQ (std::numeric_limits<nano::uint128_t>::max () - 1, amount.number ());
+	ASSERT_TRUE (amount.decode_dec ("340282366.920938463463374607431768211456", nano::Mxrb_ratio));
+	ASSERT_TRUE (amount.decode_dec ("340282367", nano::Mxrb_ratio));
+	ASSERT_FALSE (amount.decode_dec ("0.000000000000000000000001", nano::Mxrb_ratio));
+	ASSERT_EQ (1000000, amount.number ());
+	ASSERT_FALSE (amount.decode_dec ("0.000000000000000000000000000001", nano::Mxrb_ratio));
+	ASSERT_EQ (1, amount.number ());
+	ASSERT_TRUE (amount.decode_dec ("0.0000000000000000000000000000001", nano::Mxrb_ratio));
+	ASSERT_TRUE (amount.decode_dec (".1", nano::Mxrb_ratio));
+	ASSERT_TRUE (amount.decode_dec ("0.", nano::Mxrb_ratio));
+	ASSERT_FALSE (amount.decode_dec ("9.999999999999999999999999999999", nano::Mxrb_ratio));
+	ASSERT_EQ (nano::uint128_t ("9999999999999999999999999999999"), amount.number ());
+	ASSERT_FALSE (amount.decode_dec ("170141183460469.231731687303715884105727", nano::xrb_ratio));
+	ASSERT_EQ (nano::uint128_t ("170141183460469231731687303715884105727"), amount.number ());
+	ASSERT_FALSE (amount.decode_dec ("2.000000000000000000000002", nano::xrb_ratio));
+	ASSERT_EQ (2 * nano::xrb_ratio + 2, amount.number ());
+	ASSERT_FALSE (amount.decode_dec ("2", nano::xrb_ratio));
+	ASSERT_EQ (2 * nano::xrb_ratio, amount.number ());
+	ASSERT_FALSE (amount.decode_dec ("1230", nano::Gxrb_ratio));
+	ASSERT_EQ (1230 * nano::Gxrb_ratio, amount.number ());
+}
+
 TEST (unions, identity)
 {
 	ASSERT_EQ (1, nano::uint128_union (1).number ().convert_to<uint8_t> ());
