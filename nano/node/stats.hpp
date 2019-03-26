@@ -22,7 +22,7 @@ class node;
  * All configuration values have defaults. In particular, file logging of statistics
  * is disabled by default.
  */
-class stat_config
+class stat_config final
 {
 public:
 	/** Reads the JSON statistics node */
@@ -57,7 +57,7 @@ public:
 };
 
 /** Value and wall time of measurement */
-class stat_datapoint
+class stat_datapoint final
 {
 public:
 	stat_datapoint () = default;
@@ -115,7 +115,7 @@ private:
 };
 
 /** Bookkeeping of statistics for a specific type/detail/direction combination */
-class stat_entry
+class stat_entry final
 {
 public:
 	stat_entry (size_t capacity, size_t interval) :
@@ -210,7 +210,7 @@ protected:
  * Stats can be queried and observed on a type level (such as message and ledger) as well as a more
  * specific detail level (such as send blocks)
  */
-class stat
+class stat final
 {
 public:
 	/** Primary statistics type */
@@ -306,9 +306,7 @@ public:
 	};
 
 	/** Constructor using the default config values */
-	stat ()
-	{
-	}
+	stat () = default;
 
 	/**
 	 * Initialize stats with a config.
@@ -439,10 +437,7 @@ public:
 	void log_samples (stat_log_sink & sink);
 
 	/** Returns a new JSON log sink */
-	std::unique_ptr<stat_log_sink> log_sink_json ();
-
-	/** Returns a new file log sink */
-	std::unique_ptr<stat_log_sink> log_sink_file (std::string filename);
+	std::unique_ptr<stat_log_sink> log_sink_json () const;
 
 private:
 	static std::string type_to_string (uint32_t key);

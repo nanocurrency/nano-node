@@ -19,27 +19,7 @@ node_config (0, nano::logging ())
 
 nano::node_config::node_config (uint16_t peering_port_a, nano::logging const & logging_a) :
 peering_port (peering_port_a),
-logging (logging_a),
-bootstrap_fraction_numerator (1),
-receive_minimum (nano::xrb_ratio),
-vote_minimum (nano::Gxrb_ratio),
-online_weight_minimum (60000 * nano::Gxrb_ratio),
-online_weight_quorum (50),
-password_fanout (1024),
-io_threads (std::max<unsigned> (4, boost::thread::hardware_concurrency ())),
-network_threads (std::max<unsigned> (4, boost::thread::hardware_concurrency ())),
-work_threads (std::max<unsigned> (4, boost::thread::hardware_concurrency ())),
-signature_checker_threads ((boost::thread::hardware_concurrency () != 0) ? boost::thread::hardware_concurrency () - 1 : 0), /* The calling thread does checks as well so remove it from the number of threads used */
-enable_voting (false),
-bootstrap_connections (4),
-bootstrap_connections_max (64),
-callback_port (0),
-lmdb_max_dbs (128),
-allow_local_peers (!network_params.is_live_network ()), // disable by default for live network
-block_processor_batch_max_time (std::chrono::milliseconds (5000)),
-unchecked_cutoff_time (std::chrono::seconds (4 * 60 * 60)), // 4 hours
-tcp_client_timeout (std::chrono::seconds (5)),
-tcp_server_timeout (std::chrono::seconds (30))
+logging (logging_a)
 {
 	// The default constructor passes 0 to indicate we should use the default port,
 	// which is determined at node startup based on active network.

@@ -841,20 +841,11 @@ void nano::bulk_pull_account_client::receive_pending ()
 	});
 }
 
-nano::pull_info::pull_info () :
-account (0),
-end (0),
-count (0),
-attempts (0)
-{
-}
-
 nano::pull_info::pull_info (nano::account const & account_a, nano::block_hash const & head_a, nano::block_hash const & end_a, count_t count_a) :
 account (account_a),
 head (head_a),
 end (end_a),
-count (count_a),
-attempts (0)
+count (count_a)
 {
 }
 

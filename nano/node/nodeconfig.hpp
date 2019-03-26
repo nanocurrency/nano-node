@@ -26,38 +26,38 @@ public:
 	bool upgrade_json (unsigned, nano::jsonconfig &);
 	nano::account random_representative ();
 	nano::network_params network_params;
-	uint16_t peering_port;
+	uint16_t peering_port{ 0 };
 	nano::logging logging;
 	std::vector<std::pair<std::string, uint16_t>> work_peers;
 	std::vector<std::string> preconfigured_peers;
 	std::vector<nano::account> preconfigured_representatives;
-	unsigned bootstrap_fraction_numerator;
-	nano::amount receive_minimum;
-	nano::amount vote_minimum;
-	nano::amount online_weight_minimum;
-	unsigned online_weight_quorum;
-	unsigned password_fanout;
-	unsigned io_threads;
-	unsigned network_threads;
-	unsigned work_threads;
-	unsigned signature_checker_threads;
-	bool enable_voting;
-	unsigned bootstrap_connections;
-	unsigned bootstrap_connections_max;
+	unsigned bootstrap_fraction_numerator{ 1 };
+	nano::amount receive_minimum{ nano::xrb_ratio };
+	nano::amount vote_minimum{ nano::Gxrb_ratio };
+	nano::amount online_weight_minimum{ 60000 * nano::Gxrb_ratio };
+	unsigned online_weight_quorum{ 50 };
+	unsigned password_fanout{ 1024 };
+	unsigned io_threads{ std::max<unsigned> (4, boost::thread::hardware_concurrency ()) };
+	unsigned network_threads{ std::max<unsigned> (4, boost::thread::hardware_concurrency ()) };
+	unsigned work_threads{ std::max<unsigned> (4, boost::thread::hardware_concurrency ()) };
+	unsigned signature_checker_threads{ (boost::thread::hardware_concurrency () != 0) ? boost::thread::hardware_concurrency () - 1 : 0 }; /* The calling thread does checks as well so remove it from the number of threads used */
+	bool enable_voting{ false };
+	unsigned bootstrap_connections{ 4 };
+	unsigned bootstrap_connections_max{ 64 };
 	nano::websocket::config websocket_config;
 	std::string callback_address;
-	uint16_t callback_port;
+	uint16_t callback_port{ 0 };
 	std::string callback_target;
-	int lmdb_max_dbs;
-	bool allow_local_peers;
+	int lmdb_max_dbs{ 128 };
+	bool allow_local_peers{ !network_params.is_live_network () }; // disable by default for live network
 	nano::stat_config stat_config;
 	nano::ipc::ipc_config ipc_config;
 	nano::uint256_union epoch_block_link;
 	nano::account epoch_block_signer;
-	std::chrono::milliseconds block_processor_batch_max_time;
-	std::chrono::seconds unchecked_cutoff_time;
-	std::chrono::seconds tcp_client_timeout;
-	std::chrono::seconds tcp_server_timeout;
+	std::chrono::milliseconds block_processor_batch_max_time{ std::chrono::milliseconds (5000) };
+	std::chrono::seconds unchecked_cutoff_time{ std::chrono::seconds (4 * 60 * 60) }; // 4 hours
+	std::chrono::seconds tcp_client_timeout{ std::chrono::seconds (5) };
+	std::chrono::seconds tcp_server_timeout{ std::chrono::seconds (30) };
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
@@ -67,7 +67,7 @@ public:
 	}
 };
 
-class node_flags
+class node_flags final
 {
 public:
 	bool disable_backup{ false };

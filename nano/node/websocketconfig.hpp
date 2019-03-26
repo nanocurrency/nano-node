@@ -2,7 +2,6 @@
 
 #include <boost/asio.hpp>
 #include <nano/lib/errors.hpp>
-#include <string>
 
 namespace nano
 {
@@ -10,7 +9,7 @@ class jsonconfig;
 namespace websocket
 {
 	/** websocket configuration */
-	class config
+	class config final
 	{
 	public:
 		nano::error deserialize_json (nano::jsonconfig & json_a);
