@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <future>
+#include <numeric>
 #include <sstream>
 
 #include <boost/polymorphic_cast.hpp>
@@ -3283,11 +3284,7 @@ void nano::active_transactions::update_active_difficulty ()
 	}
 	assert (difficulty >= node.network_params.publish_threshold);
 	difficulty_cb.push_front (difficulty);
-	uint128_t sum (0);
-	for (auto & i : difficulty_cb)
-	{
-		sum += i;
-	}
+	auto sum = std::accumulate (node.active.difficulty_cb.begin (), node.active.difficulty_cb.end (), uint128_t (0));
 	difficulty = static_cast<uint64_t> (sum / difficulty_cb.size ());
 	assert (difficulty >= node.network_params.publish_threshold);
 	active_difficulty.store (difficulty);
