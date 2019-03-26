@@ -1,13 +1,14 @@
 #include <gtest/gtest.h>
 
 #include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/timer.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/wallet.hpp>
 
 TEST (work, one)
 {
 	nano::network_params params;
-	nano::work_pool pool (std::numeric_limits<unsigned>::max (), nullptr);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::change_block block (1, 1, nano::keypair ().prv, 3, 4);
 	block.block_work_set (pool.generate (block.root ()));
 	uint64_t difficulty;
@@ -18,7 +19,7 @@ TEST (work, one)
 TEST (work, validate)
 {
 	nano::network_params params;
-	nano::work_pool pool (std::numeric_limits<unsigned>::max (), nullptr);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::send_block send_block (1, 1, 2, nano::keypair ().prv, 4, 6);
 	uint64_t difficulty;
 	ASSERT_TRUE (nano::work_validate (send_block, &difficulty));
@@ -30,7 +31,7 @@ TEST (work, validate)
 
 TEST (work, cancel)
 {
-	nano::work_pool pool (std::numeric_limits<unsigned>::max (), nullptr);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	auto iterations (0);
 	auto done (false);
 	while (!done)
@@ -47,7 +48,7 @@ TEST (work, cancel)
 
 TEST (work, cancel_many)
 {
-	nano::work_pool pool (std::numeric_limits<unsigned>::max (), nullptr);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::uint256_union key1 (1);
 	nano::uint256_union key2 (2);
 	nano::uint256_union key3 (1);
@@ -75,10 +76,10 @@ TEST (work, opencl)
 		auto opencl (nano::opencl_work::create (true, { 0, 0, 16 * 1024 }, logging));
 		if (opencl != nullptr)
 		{
-			nano::work_pool pool (std::numeric_limits<unsigned>::max (), opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a) {
+			nano::work_pool pool (std::numeric_limits<unsigned>::max (), std::chrono::nanoseconds (0), opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a) {
 				return opencl->generate_work (root_a, difficulty_a);
 			}
-			                                                                    : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> (nullptr));
+			                                                                                                  : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> (nullptr));
 			ASSERT_NE (nullptr, pool.opencl);
 			nano::uint256_union root;
 			uint64_t difficulty (0xff00000000000000);
@@ -121,7 +122,7 @@ TEST (work, opencl_config)
 
 TEST (work, difficulty)
 {
-	nano::work_pool pool (std::numeric_limits<unsigned>::max (), nullptr);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::uint256_union root (1);
 	uint64_t difficulty1 (0xff00000000000000);
 	uint64_t difficulty2 (0xfff0000000000000);
@@ -142,4 +143,46 @@ TEST (work, difficulty)
 		nano::work_validate (root, work2, &nonce2);
 	} while (nonce2 > difficulty3);
 	ASSERT_GT (nonce2, difficulty2);
+}
+
+TEST (work, eco_pow)
+{
+	auto work_func = [](std::promise<std::chrono::nanoseconds> & promise, std::chrono::nanoseconds interval) {
+		nano::work_pool pool (1, interval);
+		constexpr auto num_iterations = 5;
+
+		nano::timer<std::chrono::nanoseconds> timer;
+		timer.start ();
+		for (int i = 0; i < num_iterations; ++i)
+		{
+			nano::uint256_union root (1);
+			uint64_t difficulty1 (0xff00000000000000);
+			uint64_t difficulty2 (0xfff0000000000000);
+			uint64_t work (0);
+			uint64_t nonce (0);
+			do
+			{
+				work = pool.generate (root, difficulty1);
+				nano::work_validate (root, work, &nonce);
+			} while (nonce > difficulty2);
+			ASSERT_GT (nonce, difficulty1);
+		}
+
+		promise.set_value_at_thread_exit (timer.stop ());
+	};
+
+	std::promise<std::chrono::nanoseconds> promise1;
+	std::future<std::chrono::nanoseconds> future1 = promise1.get_future ();
+	std::promise<std::chrono::nanoseconds> promise2;
+	std::future<std::chrono::nanoseconds> future2 = promise2.get_future ();
+
+	std::thread thread1 (work_func, std::ref (promise1), std::chrono::nanoseconds (0));
+	std::thread thread2 (work_func, std::ref (promise2), std::chrono::nanoseconds (100000));
+
+	// Confirm that the eco pow rate limiter is working.
+	// It's possible under some unlucky circumstances that this fails.
+	ASSERT_LT (future1.get (), future2.get ());
+
+	thread1.join ();
+	thread2.join ();
 }

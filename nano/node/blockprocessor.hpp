@@ -27,10 +27,10 @@ public:
  * Processing blocks is a potentially long IO operation.
  * This class isolates block insertion from other operations like servicing network operations
  */
-class block_processor
+class block_processor final
 {
 public:
-	block_processor (nano::node &);
+	explicit block_processor (nano::node &);
 	~block_processor ();
 	void stop ();
 	void flush ();

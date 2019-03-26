@@ -75,6 +75,11 @@ fn run(params: Parameters) -> Result<()> {
             }
         }
     }
+
+    if params.dest_count > params.send_count {
+        bail!("send count should be greater than or equal to the destination count")
+    }
+
     let mut tokio_core = Core::new().chain_err(|| "failed to create tokio Core")?;
     let mut children = Vec::with_capacity(params.node_count as _);
     let mut nodes: Vec<RpcClient<_>> = Vec::with_capacity(params.node_count as _);
@@ -300,8 +305,13 @@ fn run(params: Parameters) -> Result<()> {
         let dest_accts = dest_accts.as_slice();
         let params = &params;
         let stream = stream::iter_ok(0..params.send_count)
-            .map(move |_| {
-                let dest_acct = rng.choose(dest_accts).unwrap();
+            .map(move |i| {
+                // Make sure that every account is sent a block first, then pick randomly
+                let mut dest_acct = rng.choose(dest_accts).unwrap();
+                if i < params.dest_count {
+                    dest_acct = &dest_accts[i];
+                }
+
                 let send_future = primary_node
                     .call::<_, TransactionInfo>(&json!({
                     "action": "send",
@@ -433,7 +443,7 @@ fn main() {
         .arg(
             Arg::with_name("node_count")
                 .short("n")
-                .long("node_count")
+                .long("node-count")
                 .value_name("N")
                 .default_value("10")
                 .help("The number of nodes to spin up"),
@@ -453,14 +463,15 @@ fn main() {
         .arg(
             Arg::with_name("send_count")
                 .short("s")
-                .short("send-count")
+                .long("send-count")
                 .value_name("N")
                 .default_value("2000")
                 .help("How many send blocks to generate"),
         )
         .arg(
             Arg::with_name("destination_count")
-                .short("destination-count")
+                .short("d")
+                .long("destination-count")
                 .value_name("N")
                 .default_value("2")
                 .help("How many destination accounts to choose between"),

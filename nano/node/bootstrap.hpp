@@ -28,10 +28,10 @@ enum class sync_result
 	error,
 	fork
 };
-class socket : public std::enable_shared_from_this<nano::socket>
+class socket final : public std::enable_shared_from_this<nano::socket>
 {
 public:
-	socket (std::shared_ptr<nano::node>);
+	explicit socket (std::shared_ptr<nano::node>);
 	void async_connect (nano::tcp_endpoint const &, std::function<void(boost::system::error_code const &)>);
 	void async_read (std::shared_ptr<std::vector<uint8_t>>, size_t, std::function<void(boost::system::error_code const &, size_t)>);
 	void async_write (std::shared_ptr<std::vector<uint8_t>>, std::function<void(boost::system::error_code const &, size_t)>);
@@ -53,14 +53,14 @@ class bootstrap_client;
 class pull_info
 {
 public:
-	typedef nano::bulk_pull::count_t count_t;
-	pull_info ();
+	using count_t = nano::bulk_pull::count_t;
+	pull_info () = default;
 	pull_info (nano::account const &, nano::block_hash const &, nano::block_hash const &, count_t = 0);
-	nano::account account;
-	nano::block_hash head;
-	nano::block_hash end;
-	count_t count;
-	unsigned attempts;
+	nano::account account{ 0 };
+	nano::block_hash head{ 0 };
+	nano::block_hash end{ 0 };
+	count_t count{ 0 };
+	unsigned attempts{ 0 };
 };
 enum class bootstrap_mode
 {
@@ -71,10 +71,10 @@ enum class bootstrap_mode
 class frontier_req_client;
 class bulk_push_client;
 class bulk_pull_account_client;
-class bootstrap_attempt : public std::enable_shared_from_this<bootstrap_attempt>
+class bootstrap_attempt final : public std::enable_shared_from_this<bootstrap_attempt>
 {
 public:
-	bootstrap_attempt (std::shared_ptr<nano::node> node_a);
+	explicit bootstrap_attempt (std::shared_ptr<nano::node> node_a);
 	~bootstrap_attempt ();
 	void run ();
 	std::shared_ptr<nano::bootstrap_client> connection (std::unique_lock<std::mutex> &);
@@ -135,10 +135,10 @@ public:
 	// Wallet lazy bootstrap
 	std::deque<nano::account> wallet_accounts;
 };
-class frontier_req_client : public std::enable_shared_from_this<nano::frontier_req_client>
+class frontier_req_client final : public std::enable_shared_from_this<nano::frontier_req_client>
 {
 public:
-	frontier_req_client (std::shared_ptr<nano::bootstrap_client>);
+	explicit frontier_req_client (std::shared_ptr<nano::bootstrap_client>);
 	~frontier_req_client ();
 	void run ();
 	void receive_frontier ();
@@ -158,7 +158,7 @@ public:
 	std::deque<std::pair<nano::account, nano::block_hash>> accounts;
 	static size_t constexpr size_frontier = sizeof (nano::account) + sizeof (nano::block_hash);
 };
-class bulk_pull_client : public std::enable_shared_from_this<nano::bulk_pull_client>
+class bulk_pull_client final : public std::enable_shared_from_this<nano::bulk_pull_client>
 {
 public:
 	bulk_pull_client (std::shared_ptr<nano::bootstrap_client>, nano::pull_info const &);
@@ -175,7 +175,7 @@ public:
 	uint64_t total_blocks;
 	uint64_t unexpected_count;
 };
-class bootstrap_client : public std::enable_shared_from_this<bootstrap_client>
+class bootstrap_client final : public std::enable_shared_from_this<bootstrap_client>
 {
 public:
 	bootstrap_client (std::shared_ptr<nano::node>, std::shared_ptr<nano::bootstrap_attempt>, std::shared_ptr<nano::transport::channel_tcp>);
@@ -193,10 +193,10 @@ public:
 	std::atomic<bool> pending_stop;
 	std::atomic<bool> hard_stop;
 };
-class bulk_push_client : public std::enable_shared_from_this<nano::bulk_push_client>
+class bulk_push_client final : public std::enable_shared_from_this<nano::bulk_push_client>
 {
 public:
-	bulk_push_client (std::shared_ptr<nano::bootstrap_client> const &);
+	explicit bulk_push_client (std::shared_ptr<nano::bootstrap_client> const &);
 	~bulk_push_client ();
 	void start ();
 	void push (nano::transaction const &);
@@ -206,7 +206,7 @@ public:
 	std::promise<bool> promise;
 	std::pair<nano::block_hash, nano::block_hash> current_target;
 };
-class bulk_pull_account_client : public std::enable_shared_from_this<nano::bulk_pull_account_client>
+class bulk_pull_account_client final : public std::enable_shared_from_this<nano::bulk_pull_account_client>
 {
 public:
 	bulk_pull_account_client (std::shared_ptr<nano::bootstrap_client>, nano::account const &);
@@ -217,10 +217,10 @@ public:
 	nano::account account;
 	uint64_t total_blocks;
 };
-class bootstrap_initiator
+class bootstrap_initiator final
 {
 public:
-	bootstrap_initiator (nano::node &);
+	explicit bootstrap_initiator (nano::node &);
 	~bootstrap_initiator ();
 	void bootstrap (nano::endpoint const &, bool add_to_peers = true);
 	void bootstrap ();
@@ -248,7 +248,7 @@ private:
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_initiator & bootstrap_initiator, const std::string & name);
 
 class bootstrap_server;
-class bootstrap_listener
+class bootstrap_listener final
 {
 public:
 	bootstrap_listener (boost::asio::io_context &, uint16_t, nano::node &);
@@ -272,7 +272,7 @@ private:
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_listener & bootstrap_listener, const std::string & name);
 
 class message;
-class bootstrap_server : public std::enable_shared_from_this<nano::bootstrap_server>
+class bootstrap_server final : public std::enable_shared_from_this<nano::bootstrap_server>
 {
 public:
 	bootstrap_server (std::shared_ptr<nano::socket>, std::shared_ptr<nano::node>);
@@ -294,7 +294,7 @@ public:
 	std::queue<std::unique_ptr<nano::message>> requests;
 };
 class bulk_pull;
-class bulk_pull_server : public std::enable_shared_from_this<nano::bulk_pull_server>
+class bulk_pull_server final : public std::enable_shared_from_this<nano::bulk_pull_server>
 {
 public:
 	bulk_pull_server (std::shared_ptr<nano::bootstrap_server> const &, std::unique_ptr<nano::bulk_pull>);
@@ -313,7 +313,7 @@ public:
 	nano::bulk_pull::count_t sent_count;
 };
 class bulk_pull_account;
-class bulk_pull_account_server : public std::enable_shared_from_this<nano::bulk_pull_account_server>
+class bulk_pull_account_server final : public std::enable_shared_from_this<nano::bulk_pull_account_server>
 {
 public:
 	bulk_pull_account_server (std::shared_ptr<nano::bootstrap_server> const &, std::unique_ptr<nano::bulk_pull_account>);
@@ -333,10 +333,10 @@ public:
 	bool pending_include_address;
 	bool invalid_request;
 };
-class bulk_push_server : public std::enable_shared_from_this<nano::bulk_push_server>
+class bulk_push_server final : public std::enable_shared_from_this<nano::bulk_push_server>
 {
 public:
-	bulk_push_server (std::shared_ptr<nano::bootstrap_server> const &);
+	explicit bulk_push_server (std::shared_ptr<nano::bootstrap_server> const &);
 	void receive ();
 	void received_type ();
 	void received_block (boost::system::error_code const &, size_t, nano::block_type);
@@ -344,7 +344,7 @@ public:
 	std::shared_ptr<nano::bootstrap_server> connection;
 };
 class frontier_req;
-class frontier_req_server : public std::enable_shared_from_this<nano::frontier_req_server>
+class frontier_req_server final : public std::enable_shared_from_this<nano::frontier_req_server>
 {
 public:
 	frontier_req_server (std::shared_ptr<nano::bootstrap_server> const &, std::unique_ptr<nano::frontier_req>);

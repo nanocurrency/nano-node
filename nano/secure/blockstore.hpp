@@ -6,7 +6,7 @@
 
 namespace nano
 {
-class block_sideband
+class block_sideband final
 {
 public:
 	block_sideband () = default;
@@ -30,7 +30,7 @@ class block_store;
  * between balance and amount visitors, but this leads to very deep stacks. Hence, the
  * summation visitor uses an iterative approach.
  */
-class summation_visitor : public nano::block_visitor
+class summation_visitor final : public nano::block_visitor
 {
 	enum summation_type
 	{
@@ -40,7 +40,7 @@ class summation_visitor : public nano::block_visitor
 	};
 
 	/** Represents an invocation frame */
-	class frame
+	class frame final
 	{
 	public:
 		frame (summation_type type_a, nano::block_hash balance_hash_a, nano::block_hash amount_hash_a) :
@@ -99,11 +99,11 @@ protected:
 /**
  * Determine the representative for this block
  */
-class representative_visitor : public nano::block_visitor
+class representative_visitor final : public nano::block_visitor
 {
 public:
 	representative_visitor (nano::transaction const & transaction_a, nano::block_store & store_a);
-	virtual ~representative_visitor () = default;
+	~representative_visitor () = default;
 	void compute (nano::block_hash const & hash_a);
 	void send_block (nano::send_block const & block_a) override;
 	void receive_block (nano::receive_block const & block_a) override;
@@ -138,7 +138,7 @@ public:
  * Iterates the key/value pairs of a transaction
  */
 template <typename T, typename U>
-class store_iterator
+class store_iterator final
 {
 public:
 	store_iterator (std::nullptr_t)
@@ -196,7 +196,7 @@ public:
  * RAII wrapper of MDB_txn where the constructor starts the transaction
  * and the destructor commits it.
  */
-class transaction
+class transaction final
 {
 public:
 	std::unique_ptr<nano::transaction_impl> impl;

@@ -186,10 +186,10 @@ enum class bulk_pull_account_flags : uint8_t
 	pending_hash_amount_and_address = 0x2
 };
 class message_visitor;
-class message_header
+class message_header final
 {
 public:
-	message_header (nano::message_type);
+	explicit message_header (nano::message_type);
 	message_header (bool &, nano::stream &);
 	void serialize (nano::stream &) const;
 	bool deserialize (nano::stream &);
@@ -212,8 +212,8 @@ public:
 class message
 {
 public:
-	message (nano::message_type);
-	message (nano::message_header const &);
+	explicit message (nano::message_type);
+	explicit message (nano::message_header const &);
 	virtual ~message () = default;
 	virtual void serialize (nano::stream &) const = 0;
 	virtual void visit (nano::message_visitor &) const = 0;
@@ -227,7 +227,7 @@ public:
 	nano::message_header header;
 };
 class work_pool;
-class message_parser
+class message_parser final
 {
 public:
 	enum class parse_status
@@ -261,11 +261,11 @@ public:
 	std::string status_string ();
 	static const size_t max_safe_udp_message_size;
 };
-class keepalive : public message
+class keepalive final : public message
 {
 public:
-	keepalive (bool &, nano::stream &, nano::message_header const &);
 	keepalive ();
+	keepalive (bool &, nano::stream &, nano::message_header const &);
 	void visit (nano::message_visitor &) const override;
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
@@ -273,22 +273,22 @@ public:
 	std::array<nano::endpoint, 8> peers;
 	static size_t constexpr size = 8 * (16 + 2);
 };
-class publish : public message
+class publish final : public message
 {
 public:
 	publish (bool &, nano::stream &, nano::message_header const &, nano::block_uniquer * = nullptr);
-	publish (std::shared_ptr<nano::block>);
+	explicit publish (std::shared_ptr<nano::block>);
 	void visit (nano::message_visitor &) const override;
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
 	bool operator== (nano::publish const &) const;
 	std::shared_ptr<nano::block> block;
 };
-class confirm_req : public message
+class confirm_req final : public message
 {
 public:
 	confirm_req (bool &, nano::stream &, nano::message_header const &, nano::block_uniquer * = nullptr);
-	confirm_req (std::shared_ptr<nano::block>);
+	explicit confirm_req (std::shared_ptr<nano::block>);
 	confirm_req (std::vector<std::pair<nano::block_hash, nano::block_hash>> const &);
 	confirm_req (nano::block_hash const &, nano::block_hash const &);
 	void serialize (nano::stream &) const override;
@@ -299,17 +299,17 @@ public:
 	std::vector<std::pair<nano::block_hash, nano::block_hash>> roots_hashes;
 	std::string roots_string () const;
 };
-class confirm_ack : public message
+class confirm_ack final : public message
 {
 public:
 	confirm_ack (bool &, nano::stream &, nano::message_header const &, nano::vote_uniquer * = nullptr);
-	confirm_ack (std::shared_ptr<nano::vote>);
+	explicit confirm_ack (std::shared_ptr<nano::vote>);
 	void serialize (nano::stream &) const override;
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::confirm_ack const &) const;
 	std::shared_ptr<nano::vote> vote;
 };
-class frontier_req : public message
+class frontier_req final : public message
 {
 public:
 	frontier_req ();
@@ -323,10 +323,10 @@ public:
 	uint32_t count;
 	static size_t constexpr size = sizeof (start) + sizeof (age) + sizeof (count);
 };
-class bulk_pull : public message
+class bulk_pull final : public message
 {
 public:
-	typedef uint32_t count_t;
+	using count_t = uint32_t;
 	bulk_pull ();
 	bulk_pull (bool &, nano::stream &, nano::message_header const &);
 	void serialize (nano::stream &) const override;
@@ -341,7 +341,7 @@ public:
 	static size_t constexpr extended_parameters_size = 8;
 	static size_t constexpr size = sizeof (start) + sizeof (end);
 };
-class bulk_pull_account : public message
+class bulk_pull_account final : public message
 {
 public:
 	bulk_pull_account ();
@@ -354,16 +354,16 @@ public:
 	bulk_pull_account_flags flags;
 	static size_t constexpr size = sizeof (account) + sizeof (minimum_amount) + sizeof (bulk_pull_account_flags);
 };
-class bulk_push : public message
+class bulk_push final : public message
 {
 public:
 	bulk_push ();
-	bulk_push (nano::message_header const &);
+	explicit bulk_push (nano::message_header const &);
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
 	void visit (nano::message_visitor &) const override;
 };
-class node_id_handshake : public message
+class node_id_handshake final : public message
 {
 public:
 	node_id_handshake (bool &, nano::stream &, nano::message_header const &);

@@ -10,7 +10,7 @@ class message_buffer;
 namespace transport
 {
 	class udp_channels;
-	class channel_udp : public nano::transport::channel
+	class channel_udp final : public nano::transport::channel
 	{
 		friend class nano::transport::udp_channels;
 
@@ -34,7 +34,7 @@ namespace transport
 	private:
 		nano::transport::udp_channels & channels;
 	};
-	class udp_channels
+	class udp_channels final
 	{
 		friend class nano::transport::channel_udp;
 
@@ -97,7 +97,7 @@ namespace transport
 		class last_tcp_attempt_tag
 		{
 		};
-		class channel_udp_wrapper
+		class channel_udp_wrapper final
 		{
 		public:
 			std::shared_ptr<nano::transport::channel_udp> channel;
@@ -118,13 +118,13 @@ namespace transport
 				return endpoint ().address ();
 			}
 		};
-		class endpoint_attempt
+		class endpoint_attempt final
 		{
 		public:
 			nano::endpoint endpoint;
 			std::chrono::steady_clock::time_point last_attempt;
 		};
-		class syn_cookie_info
+		class syn_cookie_info final
 		{
 		public:
 			nano::uint256_union cookie;

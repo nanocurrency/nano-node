@@ -87,17 +87,16 @@ void nano::socket::stop ()
 
 void nano::socket::close ()
 {
-	if (socket_m.is_open ())
+	boost::system::error_code ec;
+	socket_m.shutdown (boost::asio::ip::tcp::socket::shutdown_both, ec);
+	/* Ignore error code for shutdown as it is a best effort anyway. */
+
+	socket_m.close (ec);
+	if (ec)
 	{
-		try
-		{
-			socket_m.shutdown (boost::asio::ip::tcp::socket::shutdown_both);
-		}
-		catch (...)
-		{
-			/* Ignore spurious exceptions; shutdown is best effort. */
-		}
-		socket_m.close ();
+		// The underlying file descriptor is closed anyway, so just log the error and increment socket failure stat.
+		node->logger.try_log ("Failed to close socket gracefully: ", ec.message ());
+		node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::error_socket_close);
 	}
 }
 
@@ -842,20 +841,11 @@ void nano::bulk_pull_account_client::receive_pending ()
 	});
 }
 
-nano::pull_info::pull_info () :
-account (0),
-end (0),
-count (0),
-attempts (0)
-{
-}
-
 nano::pull_info::pull_info (nano::account const & account_a, nano::block_hash const & head_a, nano::block_hash const & end_a, count_t count_a) :
 account (account_a),
 head (head_a),
 end (end_a),
-count (count_a),
-attempts (0)
+count (count_a)
 {
 }
 
