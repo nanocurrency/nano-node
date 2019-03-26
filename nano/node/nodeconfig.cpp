@@ -8,6 +8,7 @@ namespace
 {
 const char * preconfigured_peers_key = "preconfigured_peers";
 const char * signature_checker_threads_key = "signature_checker_threads";
+const char * pow_sleep_interval_key = "pow_sleep_interval";
 const char * default_beta_peer_network = "peering-beta.nano.org";
 const char * default_live_peer_network = "peering.nano.org";
 }
@@ -112,6 +113,7 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("unchecked_cutoff_time", unchecked_cutoff_time.count ());
 	json.put ("tcp_client_timeout", tcp_client_timeout.count ());
 	json.put ("tcp_server_timeout", tcp_server_timeout.count ());
+	json.put ("pow_sleep_interval", pow_sleep_interval.count ());
 	nano::jsonconfig websocket_l;
 	websocket_config.serialize_json (websocket_l);
 	json.put_child ("websocket", websocket_l);
@@ -244,6 +246,7 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.put_child ("websocket", websocket_l);
 			json.put ("tcp_client_timeout", tcp_client_timeout.count ());
 			json.put ("tcp_server_timeout", tcp_server_timeout.count ());
+			json.put (pow_sleep_interval_key, pow_sleep_interval.count ());
 			upgraded = true;
 		}
 		case 17:
@@ -379,8 +382,11 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get<bool> ("allow_local_peers", allow_local_peers);
 		json.get<unsigned> (signature_checker_threads_key, signature_checker_threads);
 
-		// Validate ranges
+		auto pow_sleep_interval_l (pow_sleep_interval.count ());
+		json.get (pow_sleep_interval_key, pow_sleep_interval_l);
+		pow_sleep_interval = std::chrono::nanoseconds (pow_sleep_interval_l);
 
+		// Validate ranges
 		if (online_weight_quorum > 100)
 		{
 			json.get_error ().set ("online_weight_quorum must be less than 100");

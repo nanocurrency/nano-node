@@ -32,7 +32,7 @@ TEST (node, block_store_path_failure)
 	auto path (nano::unique_path ());
 	nano::logging logging;
 	logging.init (path);
-	nano::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
+	nano::work_pool work (std::numeric_limits<unsigned>::max ());
 	auto node (std::make_shared<nano::node> (init, *service, 24000, path, alarm, logging, work));
 	ASSERT_TRUE (node->wallets.items.empty ());
 	node->stop ();
@@ -47,7 +47,7 @@ TEST (node, password_fanout)
 	nano::node_config config;
 	config.peering_port = 24000;
 	config.logging.init (path);
-	nano::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
+	nano::work_pool work (std::numeric_limits<unsigned>::max ());
 	config.password_fanout = 10;
 	auto node (std::make_shared<nano::node> (init, *service, path, alarm, config, work));
 	auto wallet (node->wallets.create (100));
@@ -698,10 +698,12 @@ TEST (node_config, v16_v17_upgrade)
 	// These config options should not be present
 	ASSERT_FALSE (tree.get_optional_child ("tcp_client_timeout"));
 	ASSERT_FALSE (tree.get_optional_child ("tcp_server_timeout"));
+	ASSERT_FALSE (tree.get_optional_child ("pow_sleep_interval"));
 	config.deserialize_json (upgraded, tree);
 	// The config options should be added after the upgrade
 	ASSERT_TRUE (!!tree.get_optional_child ("tcp_client_timeout"));
 	ASSERT_TRUE (!!tree.get_optional_child ("tcp_server_timeout"));
+	ASSERT_TRUE (!!tree.get_optional_child ("pow_sleep_interval"));
 
 	ASSERT_TRUE (upgraded);
 	auto version (tree.get<std::string> ("version"));
@@ -723,19 +725,23 @@ TEST (node_config, v17_values)
 	// Check config is correct
 	tree.put ("tcp_client_timeout", 1);
 	tree.put ("tcp_server_timeout", 0);
+	tree.put ("pow_sleep_interval", 0);
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
 	ASSERT_EQ (config.tcp_client_timeout.count (), 1);
 	ASSERT_EQ (config.tcp_server_timeout.count (), 0);
+	ASSERT_EQ (config.pow_sleep_interval.count (), 0);
 
 	// Check config is correct with other values
 	tree.put ("tcp_client_timeout", std::numeric_limits<unsigned long>::max () - 100);
 	tree.put ("tcp_server_timeout", std::numeric_limits<unsigned>::max ());
+	tree.put ("pow_sleep_interval", std::numeric_limits<unsigned long>::max () - 100);
 	upgraded = false;
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
 	ASSERT_EQ (config.tcp_client_timeout.count (), std::numeric_limits<unsigned long>::max () - 100);
 	ASSERT_EQ (config.tcp_server_timeout.count (), std::numeric_limits<unsigned>::max ());
+	ASSERT_EQ (config.pow_sleep_interval.count (), std::numeric_limits<unsigned long>::max () - 100);
 }
 
 // Regression test to ensure that deserializing includes changes node via get_required_child

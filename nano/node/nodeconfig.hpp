@@ -58,6 +58,7 @@ public:
 	std::chrono::seconds unchecked_cutoff_time{ std::chrono::seconds (4 * 60 * 60) }; // 4 hours
 	std::chrono::seconds tcp_client_timeout{ std::chrono::seconds (5) };
 	std::chrono::seconds tcp_server_timeout{ std::chrono::seconds (30) };
+	std::chrono::nanoseconds pow_sleep_interval{ 0 };
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);

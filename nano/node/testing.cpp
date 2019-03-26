@@ -21,7 +21,7 @@ std::string nano::error_system_messages::message (int ev) const
 
 nano::system::system (uint16_t port_a, uint16_t count_a) :
 alarm (io_ctx),
-work (1, nullptr)
+work (1)
 {
 	auto scale_str = std::getenv ("DEADLINE_SCALE_FACTOR");
 	if (scale_str)

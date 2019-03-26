@@ -28,7 +28,7 @@ public:
 class work_pool final
 {
 public:
-	work_pool (unsigned, std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> = nullptr);
+	work_pool (unsigned, std::chrono::nanoseconds = std::chrono::nanoseconds (0), std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> = nullptr);
 	~work_pool ();
 	void loop (uint64_t);
 	void stop ();
@@ -44,6 +44,7 @@ public:
 	std::list<nano::work_item> pending;
 	std::mutex mutex;
 	std::condition_variable producer_condition;
+	std::chrono::nanoseconds pow_rate_limiter;
 	std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> opencl;
 	nano::observer_set<bool> work_observers;
 };
