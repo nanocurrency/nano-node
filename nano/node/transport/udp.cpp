@@ -428,10 +428,11 @@ public:
 				validated_response = true;
 				if (message_a.response->first != node.node_id.pub)
 				{
-					node.network.udp_channels.insert (endpoint, message_a.header.version_using);
-					auto channel (node.network.udp_channels.channel (endpoint));
-					assert (channel != nullptr);
-					channel->node_id = message_a.response->first;
+					auto channel (node.network.udp_channels.insert (endpoint, message_a.header.version_using));
+					if (channel)
+					{
+						channel->node_id = message_a.response->first;
+					}
 				}
 			}
 			else if (node.config.logging.network_node_id_handshake_logging ())
