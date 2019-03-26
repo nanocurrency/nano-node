@@ -12,6 +12,11 @@ const char * default_beta_peer_network = "peering-beta.nano.org";
 const char * default_live_peer_network = "peering.nano.org";
 }
 
+nano::node_config::node_config () :
+node_config (0, nano::logging ())
+{
+}
+
 nano::node_config::node_config (uint16_t peering_port_a, nano::logging const & logging_a) :
 peering_port (peering_port_a),
 logging (logging_a)

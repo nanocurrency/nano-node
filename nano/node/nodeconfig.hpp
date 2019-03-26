@@ -19,7 +19,7 @@ namespace nano
 class node_config
 {
 public:
-	node_config () = default;
+	node_config ();
 	node_config (uint16_t, nano::logging const &);
 	nano::error serialize_json (nano::jsonconfig &) const;
 	nano::error deserialize_json (bool &, nano::jsonconfig &);
