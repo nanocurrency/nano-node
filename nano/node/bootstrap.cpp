@@ -94,8 +94,9 @@ void nano::socket::close ()
 	socket_m.close (ec);
 	if (ec)
 	{
-		// The underlying file descriptor is closed anyway, so just log the error.
+		// The underlying file descriptor is closed anyway, so just log the error and increment socket failure stat.
 		node->logger.try_log ("Failed to close socket gracefully: ", ec.message ());
+		node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::error_socket_close);
 	}
 }
 
