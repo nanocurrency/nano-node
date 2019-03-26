@@ -269,6 +269,7 @@ public:
 		bulk_push,
 		bulk_pull_account,
 		frontier_req,
+		error_socket_close,
 
 		// vote specific
 		vote_valid,

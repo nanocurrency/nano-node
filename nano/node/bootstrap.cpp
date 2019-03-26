@@ -87,17 +87,16 @@ void nano::socket::stop ()
 
 void nano::socket::close ()
 {
-	if (socket_m.is_open ())
+	boost::system::error_code ec;
+	socket_m.shutdown (boost::asio::ip::tcp::socket::shutdown_both, ec);
+	/* Ignore error code for shutdown as it is a best effort anyway. */
+
+	socket_m.close (ec);
+	if (ec)
 	{
-		try
-		{
-			socket_m.shutdown (boost::asio::ip::tcp::socket::shutdown_both);
-		}
-		catch (...)
-		{
-			/* Ignore spurious exceptions; shutdown is best effort. */
-		}
-		socket_m.close ();
+		// The underlying file descriptor is closed anyway, so just log the error and increment socket failure stat.
+		node->logger.try_log ("Failed to close socket gracefully: ", ec.message ());
+		node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::error_socket_close);
 	}
 }
 
