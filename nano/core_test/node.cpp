@@ -4,6 +4,7 @@
 #include <nano/node/testing.hpp>
 #include <nano/node/transport/udp.hpp>
 #include <nano/node/working.hpp>
+#include <numeric>
 
 #include <boost/make_shared.hpp>
 #include <boost/polymorphic_cast.hpp>
@@ -2434,6 +2435,7 @@ TEST (active_difficulty, recalculate_work)
 	auto & node1 (*system.nodes[0]);
 	nano::genesis genesis;
 	nano::keypair key1;
+	ASSERT_EQ (node1.network_params.publish_threshold, node1.active.active_difficulty.load ());
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send1);
 	uint64_t difficulty1;
@@ -2445,28 +2447,22 @@ TEST (active_difficulty, recalculate_work)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	auto sum = std::accumulate (node1.active.difficulty_cb.begin (), node1.active.difficulty_cb.end (), boost::multiprecision::uint128_t (0));
 	std::unique_lock<std::mutex> lock (node1.active.mutex);
-	auto existing (node1.active.roots.find (send1->qualified_root ()));
-	ASSERT_NE (node1.active.roots.end (), existing);
-	auto election (existing->election);
+	ASSERT_EQ (node1.active.active_difficulty.load (), static_cast<uint64_t> (sum / node1.active.difficulty_cb.size ()));
 	// Fake history records to force work recalculation
-	for (auto i (0); i < 20; i++)
+	for (auto i (0); i < node1.active.difficulty_cb.size (); i++)
 	{
-		node1.active.difficulty_cb.push_front (difficulty1 + 10000);
+		node1.active.difficulty_cb.push_back (difficulty1 + 10000);
 	}
+	node1.work_generate_blocking (*send1);
+	uint64_t difficulty2;
+	nano::work_validate (*send1, &difficulty2);
+	node1.process_active (send1);
+	node1.active.update_active_difficulty ();
 	lock.unlock ();
-	bool done (false);
-	system.deadline_set (5s);
-	while (!done)
-	{
-		lock.lock ();
-		node1.work_generate_blocking (*send1);
-		uint64_t difficulty2;
-		nano::work_validate (*send1, &difficulty2);
-		done = (difficulty2 > difficulty1);
-		lock.unlock ();
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	sum = std::accumulate (node1.active.difficulty_cb.begin (), node1.active.difficulty_cb.end (), boost::multiprecision::uint128_t (0));
+	ASSERT_EQ (node1.active.active_difficulty.load (), static_cast<uint64_t> (sum / node1.active.difficulty_cb.size ()));
 }
 
 namespace

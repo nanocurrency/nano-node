@@ -3287,16 +3287,22 @@ void nano::active_transactions::update_active_difficulty ()
 	uint64_t difficulty (node.network_params.publish_threshold);
 	if (!roots.empty ())
 	{
-		difficulty = roots.get<1> ().find ((roots.get<1> ().begin ()->adjusted_difficulty + (--roots.get<1> ().end ())->adjusted_difficulty) / 2)->adjusted_difficulty;
+		uint128_t min = roots.get<1> ().begin ()->adjusted_difficulty;
+		assert (min >= node.network_params.publish_threshold);
+		uint128_t max = (--roots.get<1> ().end ())->adjusted_difficulty;
+		assert (max >= node.network_params.publish_threshold);
+		difficulty = static_cast<uint64_t> ((min + max) / 2);
 	}
+	assert (difficulty >= node.network_params.publish_threshold);
 	difficulty_cb.push_front (difficulty);
 	uint128_t sum (0);
 	for (auto & i : difficulty_cb)
 	{
 		sum += i;
 	}
-	active_difficulty = static_cast<uint64_t> (sum / difficulty_cb.size ());
-	;
+	difficulty = static_cast<uint64_t> (sum / difficulty_cb.size ());
+	assert (difficulty >= node.network_params.publish_threshold);
+	active_difficulty.store (difficulty);
 }
 
 // List of active blocks in elections
@@ -3348,6 +3354,7 @@ node (node_a),
 started (false),
 stopped (false),
 difficulty_cb (20, node.network_params.publish_threshold),
+active_difficulty (node.network_params.publish_threshold),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::request_loop);
 	request_loop ();
