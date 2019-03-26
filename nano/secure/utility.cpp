@@ -1,14 +1,15 @@
-#include <nano/secure/utility.hpp>
-
+#include <nano/lib/config.hpp>
 #include <nano/lib/interface.h>
 #include <nano/node/working.hpp>
+#include <nano/secure/utility.hpp>
 
 static std::vector<boost::filesystem::path> all_unique_paths;
 
 boost::filesystem::path nano::working_path (bool legacy)
 {
+	static nano::network_params network_params;
 	auto result (nano::app_path ());
-	switch (nano::nano_network)
+	switch (network_params.network ())
 	{
 		case nano::nano_networks::nano_test_network:
 			if (!legacy)

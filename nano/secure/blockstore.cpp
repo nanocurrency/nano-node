@@ -88,7 +88,7 @@ bool nano::block_sideband::deserialize (nano::stream & stream_a)
 	return result;
 }
 
-nano::summation_visitor::summation_visitor (nano::transaction const & transaction_a, nano::block_store & store_a) :
+nano::summation_visitor::summation_visitor (nano::transaction const & transaction_a, nano::block_store const & store_a) :
 transaction (transaction_a),
 store (store_a)
 {
@@ -153,13 +153,13 @@ void nano::summation_visitor::open_block (nano::open_block const & block_a)
 	assert (current->type != summation_type::invalid && current != nullptr);
 	if (current->type == summation_type::amount)
 	{
-		if (block_a.hashables.source != nano::genesis_account)
+		if (block_a.hashables.source != network_params.ledger.genesis_account)
 		{
 			current->amount_hash = block_a.hashables.source;
 		}
 		else
 		{
-			sum_set (nano::genesis_amount);
+			sum_set (network_params.ledger.genesis_amount);
 			current->amount_hash = 0;
 		}
 	}
@@ -274,7 +274,7 @@ nano::uint128_t nano::summation_visitor::compute_internal (nano::summation_visit
 					}
 					else
 					{
-						if (current->amount_hash == nano::genesis_account)
+						if (current->amount_hash == network_params.ledger.genesis_account)
 						{
 							sum_set (std::numeric_limits<nano::uint128_t>::max ());
 							current->amount_hash = 0;

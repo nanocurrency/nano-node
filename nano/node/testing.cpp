@@ -1,8 +1,10 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <cstdlib>
+#include <nano/core_test/testutil.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/testing.hpp>
+#include <nano/node/transport/udp.hpp>
 
 std::string nano::error_system_messages::message (int ev) const
 {
@@ -42,16 +44,19 @@ work (1)
 	}
 	for (auto i (nodes.begin ()), j (nodes.begin () + 1), n (nodes.end ()); j != n; ++i, ++j)
 	{
-		auto starting1 ((*i)->peers.size ());
+		auto node1 (*i);
+		auto node2 (*j);
+		auto starting1 (node1->network.size ());
 		decltype (starting1) new1;
-		auto starting2 ((*j)->peers.size ());
+		auto starting2 (node2->network.size ());
 		decltype (starting2) new2;
-		(*j)->network.send_keepalive ((*i)->network.endpoint ());
+		nano::transport::channel_udp channel ((*j)->network.udp_channels, (*i)->network.endpoint ());
+		(*j)->network.send_keepalive (channel);
 		do
 		{
 			poll ();
-			new1 = (*i)->peers.size ();
-			new2 = (*j)->peers.size ();
+			new1 = node1->network.size ();
+			new2 = node2->network.size ();
 		} while (new1 == starting1 || new2 == starting2);
 	}
 	auto iterations1 (0);
@@ -178,7 +183,8 @@ void nano::system::generate_rollback (nano::node & node_a, std::vector<nano::acc
 		{
 			accounts_a[index] = accounts_a[accounts_a.size () - 1];
 			accounts_a.pop_back ();
-			node_a.ledger.rollback (transaction, hash);
+			auto error = node_a.ledger.rollback (transaction, hash);
+			assert (!error);
 		}
 	}
 }
@@ -354,10 +360,6 @@ void nano::system::stop ()
 		i->stop ();
 	}
 	work.stop ();
-}
-
-nano::landing_store::landing_store ()
-{
 }
 
 nano::landing_store::landing_store (nano::account const & source_a, nano::account const & destination_a, uint64_t start_a, uint64_t last_a) :

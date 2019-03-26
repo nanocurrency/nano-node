@@ -7,7 +7,7 @@
 std::chrono::milliseconds constexpr nano::block_processor::confirmation_request_delay;
 
 nano::block_processor::block_processor (nano::node & node_a) :
-generator (node_a, nano::is_test_network ? std::chrono::milliseconds (10) : std::chrono::milliseconds (500)),
+generator (node_a),
 stopped (false),
 active (false),
 next_log (std::chrono::steady_clock::now ()),
@@ -42,9 +42,8 @@ void nano::block_processor::flush ()
 
 bool nano::block_processor::full ()
 {
-	size_t full_size (node.flags.fast_bootstrap ? 1024 * 1024 : 65536);
 	std::unique_lock<std::mutex> lock (mutex);
-	return (blocks.size () + state_blocks.size ()) > full_size;
+	return (blocks.size () + state_blocks.size ()) > node.flags.block_processor_full_size;
 }
 
 void nano::block_processor::add (std::shared_ptr<nano::block> block_a, uint64_t origination)
@@ -231,7 +230,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 	lock_a.lock ();
 	timer_l.start ();
 	// Limit state blocks verification time
-	size_t max_verification_batch (node.flags.fast_bootstrap ? std::numeric_limits<size_t>::max () : 2048 * (node.config.signature_checker_threads + 1));
+	size_t max_verification_batch (node.flags.block_processor_verification_size != 0 ? node.flags.block_processor_verification_size : 2048 * (node.config.signature_checker_threads + 1));
 	if (!state_blocks.empty ())
 	{
 		auto transaction (node.store.tx_begin_read ());
@@ -247,7 +246,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 	// Processing blocks
 	auto first_time (true);
 	unsigned number_of_blocks_processed (0), number_of_forced_processed (0);
-	while ((!blocks.empty () || !forced.empty ()) && (timer_l.before_deadline (node.config.block_processor_batch_max_time) || (node.flags.fast_bootstrap && number_of_blocks_processed < 256 * 1024)))
+	while ((!blocks.empty () || !forced.empty ()) && (timer_l.before_deadline (node.config.block_processor_batch_max_time) || (number_of_blocks_processed < node.flags.block_processor_batch_size)))
 	{
 		auto log_this_record (false);
 		if (node.config.logging.timing_logging ())
@@ -289,14 +288,20 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 		auto hash (info.block->hash ());
 		if (force)
 		{
-			auto successor (node.ledger.successor (transaction, nano::uint512_union (info.block->previous (), info.block->root ())));
+			auto successor (node.ledger.successor (transaction, info.block->qualified_root ()));
 			if (successor != nullptr && successor->hash () != hash)
 			{
 				// Replace our block with the winner and roll back any dependent blocks
 				node.logger.always_log (boost::str (boost::format ("Rolling back %1% and replacing with %2%") % successor->hash ().to_string () % hash.to_string ()));
 				std::vector<nano::block_hash> rollback_list;
-				node.ledger.rollback (transaction, successor->hash (), rollback_list);
-				node.logger.always_log (boost::str (boost::format ("%1% blocks rolled back") % rollback_list.size ()));
+				if (node.ledger.rollback (transaction, successor->hash (), rollback_list))
+				{
+					node.logger.always_log (boost::str (boost::format ("Failed to roll back %1% because it or a successor was confirmed") % successor->hash ().to_string ()));
+				}
+				else
+				{
+					node.logger.always_log (boost::str (boost::format ("%1% blocks rolled back") % rollback_list.size ()));
+				}
 				lock_a.lock ();
 				// Prevent rolled back blocks second insertion
 				auto inserted (rolled_back.insert (nano::rolled_hash{ std::chrono::steady_clock::now (), successor->hash () }));
@@ -342,7 +347,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	// Start collecting quorum on block
 	node.active.start (block_a);
 	// Announce block contents to the network
-	node.network.republish_block (block_a);
+	node.network.flood_block (block_a);
 	if (node.config.enable_voting)
 	{
 		// Announce our weighted vote to the network
@@ -464,12 +469,8 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 		}
 		case nano::process_result::fork:
 		{
-			if (info_a.modified < nano::seconds_since_epoch () - 15)
-			{
-				// Only let the bootstrap attempt know about forked blocks that not originate recently.
-				node.process_fork (transaction_a, info_a.block);
-				node.stats.inc (nano::stat::type::ledger, nano::stat::detail::fork, nano::stat::dir::in);
-			}
+			node.process_fork (transaction_a, info_a.block);
+			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::fork, nano::stat::dir::in);
 			if (node.config.logging.ledger_logging ())
 			{
 				node.logger.try_log (boost::str (boost::format ("Fork for: %1% root: %2%") % hash.to_string () % info_a.block->root ().to_string ()));

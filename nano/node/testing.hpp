@@ -12,7 +12,7 @@ enum class error_system
 	generic = 1,
 	deadline_expired
 };
-class system
+class system final
 {
 public:
 	system (uint16_t, uint16_t);
@@ -46,10 +46,10 @@ public:
 	std::chrono::time_point<std::chrono::steady_clock, std::chrono::duration<double>> deadline{ std::chrono::steady_clock::time_point::max () };
 	double deadline_scaling_factor{ 1.0 };
 };
-class landing_store
+class landing_store final
 {
 public:
-	landing_store ();
+	landing_store () = default;
 	landing_store (nano::account const &, nano::account const &, uint64_t, uint64_t);
 	landing_store (bool &, std::istream &);
 	nano::account source;
@@ -60,7 +60,7 @@ public:
 	bool deserialize (std::istream &);
 	bool operator== (nano::landing_store const &) const;
 };
-class landing
+class landing final
 {
 public:
 	landing (nano::node &, std::shared_ptr<nano::wallet>, nano::landing_store &, boost::filesystem::path const &);

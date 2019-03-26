@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
+#include <nano/core_test/testutil.hpp>
 #include <nano/node/testing.hpp>
+#include <nano/node/transport/udp.hpp>
 
 #include <thread>
 
@@ -47,7 +49,8 @@ TEST (system, receive_while_synchronizing)
 		nano::node_init init1;
 		auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 		ASSERT_FALSE (init1.error ());
-		node1->network.send_keepalive (system.nodes[0]->network.endpoint ());
+		nano::transport::channel_udp channel (node1->network.udp_channels, system.nodes[0]->network.endpoint ());
+		node1->network.send_keepalive (channel);
 		auto wallet (node1->wallets.create (1));
 		ASSERT_EQ (key.pub, wallet->insert_adhoc (key.prv));
 		node1->start ();
@@ -112,7 +115,7 @@ TEST (ledger, deep_account_compute)
 	}
 }
 
-TEST (wallet, multithreaded_send)
+TEST (wallet, multithreaded_send_async)
 {
 	std::vector<boost::thread> threads;
 	{
@@ -120,18 +123,23 @@ TEST (wallet, multithreaded_send)
 		nano::keypair key;
 		auto wallet_l (system.wallet (0));
 		wallet_l->insert_adhoc (nano::test_genesis_key.prv);
+		wallet_l->insert_adhoc (key.prv);
 		for (auto i (0); i < 20; ++i)
 		{
 			threads.push_back (boost::thread ([wallet_l, &key]() {
 				for (auto i (0); i < 1000; ++i)
 				{
-					wallet_l->send_action (nano::test_genesis_key.pub, key.pub, 1000);
+					wallet_l->send_async (nano::test_genesis_key.pub, key.pub, 1000, [](std::shared_ptr<nano::block> block_a) {
+						ASSERT_FALSE (block_a == nullptr);
+						ASSERT_FALSE (block_a->hash ().is_zero ());
+					});
 				}
 			}));
 		}
+		system.deadline_set (1000s);
 		while (system.nodes[0]->balance (nano::test_genesis_key.pub) != (nano::genesis_amount - 20 * 1000 * 1000))
 		{
-			system.poll ();
+			ASSERT_NO_ERROR (system.poll ());
 		}
 	}
 	for (auto i (threads.begin ()), n (threads.end ()); i != n; ++i)
@@ -188,7 +196,7 @@ TEST (node, fork_storm)
 			auto open_result (system.nodes[i]->process (*open));
 			ASSERT_EQ (nano::process_result::progress, open_result.code);
 			auto transaction (system.nodes[i]->store.tx_begin ());
-			system.nodes[i]->network.republish_block (open);
+			system.nodes[i]->network.flood_block (open);
 		}
 	}
 	auto again (true);
@@ -354,20 +362,12 @@ TEST (broadcast, sqrt_broadcast_simulate)
 TEST (peer_container, random_set)
 {
 	auto loopback (boost::asio::ip::address_v6::loopback ());
-	nano::peer_container container (nano::endpoint (loopback, 24000));
-	for (auto i (0); i < 200; ++i)
-	{
-		container.contacted (nano::endpoint (loopback, 24001 + i), 0);
-	}
+	nano::system system (24000, 1);
 	auto old (std::chrono::steady_clock::now ());
-	for (auto i (0); i < 10000; ++i)
-	{
-		auto list (container.list_fanout ());
-	}
 	auto current (std::chrono::steady_clock::now ());
 	for (auto i (0); i < 10000; ++i)
 	{
-		auto list (container.random_set (15));
+		auto list (system.nodes[0]->network.udp_channels.random_set (15));
 	}
 	auto end (std::chrono::steady_clock::now ());
 	(void)end;
@@ -400,7 +400,7 @@ TEST (store, vote_load)
 	for (auto i (0); i < 1000000; ++i)
 	{
 		auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, i, block));
-		node.vote_processor.vote (vote, system.nodes[0]->network.endpoint ());
+		node.vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, system.nodes[0]->network.endpoint ()));
 	}
 }
 

@@ -38,7 +38,6 @@ namespace nano
 {
 const uint8_t protocol_version = 0x10;
 const uint8_t protocol_version_min = 0x0d;
-const uint8_t node_id_version = 0x0c;
 
 /*
  * Do not bootstrap from nodes older than this version.
@@ -75,11 +74,11 @@ enum class epoch : uint8_t
 /**
  * Latest information about an account
  */
-class account_info
+class account_info final
 {
 public:
 	account_info () = default;
-	account_info (nano::block_hash const &, nano::block_hash const &, nano::block_hash const &, nano::amount const &, uint64_t, uint64_t, epoch);
+	account_info (nano::block_hash const &, nano::block_hash const &, nano::block_hash const &, nano::amount const &, uint64_t, uint64_t, uint64_t, epoch);
 	bool deserialize (nano::stream &);
 	bool operator== (nano::account_info const &) const;
 	bool operator!= (nano::account_info const &) const;
@@ -91,13 +90,14 @@ public:
 	/** Seconds since posix epoch */
 	uint64_t modified{ 0 };
 	uint64_t block_count{ 0 };
+	uint64_t confirmation_height{ 0 };
 	nano::epoch epoch{ nano::epoch::epoch_0 };
 };
 
 /**
  * Information on an uncollected send
  */
-class pending_info
+class pending_info final
 {
 public:
 	pending_info () = default;
@@ -108,7 +108,7 @@ public:
 	nano::amount amount{ 0 };
 	nano::epoch epoch{ nano::epoch::epoch_0 };
 };
-class pending_key
+class pending_key final
 {
 public:
 	pending_key () = default;
@@ -120,7 +120,7 @@ public:
 	nano::block_hash hash{ 0 };
 };
 
-class endpoint_key
+class endpoint_key final
 {
 public:
 	endpoint_key () = default;
@@ -169,7 +169,7 @@ enum class signature_verification : uint8_t
 /**
  * Information on an unchecked block
  */
-class unchecked_info
+class unchecked_info final
 {
 public:
 	unchecked_info () = default;
@@ -183,7 +183,7 @@ public:
 	nano::signature_verification verified{ nano::signature_verification::unknown };
 };
 
-class block_info
+class block_info final
 {
 public:
 	block_info () = default;
@@ -191,7 +191,7 @@ public:
 	nano::account account{ 0 };
 	nano::amount balance{ 0 };
 };
-class block_counts
+class block_counts final
 {
 public:
 	size_t sum () const;
@@ -202,14 +202,14 @@ public:
 	size_t state_v0{ 0 };
 	size_t state_v1{ 0 };
 };
-typedef std::vector<boost::variant<std::shared_ptr<nano::block>, nano::block_hash>>::const_iterator vote_blocks_vec_iter;
-class iterate_vote_blocks_as_hash
+using vote_blocks_vec_iter = std::vector<boost::variant<std::shared_ptr<nano::block>, nano::block_hash>>::const_iterator;
+class iterate_vote_blocks_as_hash final
 {
 public:
 	iterate_vote_blocks_as_hash () = default;
 	nano::block_hash operator() (boost::variant<std::shared_ptr<nano::block>, nano::block_hash> const & item) const;
 };
-class vote
+class vote final
 {
 public:
 	vote () = default;
@@ -243,7 +243,7 @@ public:
 /**
  * This class serves to find and return unique variants of a vote in order to minimize memory usage
  */
-class vote_uniquer
+class vote_uniquer final
 {
 public:
 	using value_type = std::pair<const nano::uint256_union, std::weak_ptr<nano::vote>>;
@@ -283,7 +283,7 @@ enum class process_result
 	representative_mismatch, // Representative is changed when it is not allowed
 	block_position // This block cannot follow the previous block
 };
-class process_return
+class process_return final
 {
 public:
 	nano::process_result code;
@@ -299,21 +299,8 @@ enum class tally_result
 	changed,
 	confirm
 };
-extern nano::keypair const & zero_key;
-extern nano::keypair const & test_genesis_key;
-extern nano::account const & nano_test_account;
-extern nano::account const & nano_beta_account;
-extern nano::account const & nano_live_account;
-extern std::string const & nano_test_genesis;
-extern std::string const & nano_beta_genesis;
-extern std::string const & nano_live_genesis;
-extern std::string const & genesis_block;
-extern nano::account const & genesis_account;
-extern nano::account const & burn_account;
-extern nano::uint128_t const & genesis_amount;
-// An account number that compares inequal to any real account number
-extern nano::account const & not_an_account ();
-class genesis
+
+class genesis final
 {
 public:
 	genesis ();

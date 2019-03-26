@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/config.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/secure/common.hpp>
@@ -18,10 +19,10 @@
 namespace nano
 {
 class node;
-class vote_generator
+class vote_generator final
 {
 public:
-	vote_generator (nano::node &, std::chrono::milliseconds);
+	vote_generator (nano::node &);
 	void add (nano::block_hash const &);
 	void stop ();
 
@@ -32,7 +33,7 @@ private:
 	std::mutex mutex;
 	std::condition_variable condition;
 	std::deque<nano::block_hash> hashes;
-	std::chrono::milliseconds wait;
+	nano::network_params network_params;
 	bool stopped;
 	bool started;
 	boost::thread thread;
@@ -41,14 +42,14 @@ private:
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_generator & vote_generator, const std::string & name);
-class cached_votes
+class cached_votes final
 {
 public:
 	std::chrono::steady_clock::time_point time;
 	nano::block_hash hash;
 	std::vector<std::shared_ptr<nano::vote>> votes;
 };
-class votes_cache
+class votes_cache final
 {
 public:
 	void add (std::shared_ptr<nano::vote> const &);
@@ -63,8 +64,7 @@ private:
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::cached_votes, std::chrono::steady_clock::time_point, &nano::cached_votes::time>>,
 	boost::multi_index::hashed_unique<boost::multi_index::member<nano::cached_votes, nano::block_hash, &nano::cached_votes::hash>>>>
 	cache;
-	static size_t constexpr max_cache = (nano::is_test_network) ? 2 : 1000;
-
+	nano::network_params network_params;
 	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (votes_cache & votes_cache, const std::string & name);
 };
 

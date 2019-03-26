@@ -1,18 +1,18 @@
 #pragma once
 
 #include <boost/thread/thread.hpp>
+#include <mutex>
+#include <nano/lib/config.hpp>
 #include <nano/node/lmdb.hpp>
 #include <nano/node/openclwork.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
-
-#include <mutex>
 #include <unordered_set>
 
 namespace nano
 {
 // The fan spreads a key out over the heap to decrease the likelihood of it being recovered by memory inspection
-class fan
+class fan final
 {
 public:
 	fan (nano::uint256_union const &, size_t);
@@ -25,7 +25,7 @@ private:
 	void value_get (nano::raw_key &);
 };
 class node_config;
-class kdf
+class kdf final
 {
 public:
 	void phs (nano::raw_key &, std::string const &, nano::uint256_union const &);
@@ -38,7 +38,7 @@ enum class key_type
 	adhoc,
 	deterministic
 };
-class wallet_store
+class wallet_store final
 {
 public:
 	wallet_store (bool &, nano::kdf &, nano::transaction &, nano::account, unsigned, std::string const &);
@@ -104,9 +104,6 @@ public:
 	static size_t const check_iv_index;
 	static size_t const seed_iv_index;
 	static int const special_count;
-	static unsigned const kdf_full_work = 64 * 1024;
-	static unsigned const kdf_test_work = 8;
-	static unsigned const kdf_work = nano::is_test_network ? kdf_test_work : kdf_full_work;
 	nano::kdf & kdf;
 	MDB_dbi handle;
 	std::recursive_mutex mutex;
@@ -116,7 +113,7 @@ private:
 };
 class wallets;
 // A wallet is a set of account keys encrypted by a common encryption key
-class wallet : public std::enable_shared_from_this<nano::wallet>
+class wallet final : public std::enable_shared_from_this<nano::wallet>
 {
 public:
 	std::shared_ptr<nano::block> change_action (nano::account const &, nano::account const &, uint64_t = 0, bool = true);
@@ -152,6 +149,7 @@ public:
 	nano::public_key change_seed (nano::transaction const & transaction_a, nano::raw_key const & prv_a, uint32_t count = 0);
 	void deterministic_restore (nano::transaction const & transaction_a);
 	bool live ();
+	nano::network_params network_params;
 	std::unordered_set<nano::account> free_accounts;
 	std::function<void(bool, bool)> lock_observer;
 	nano::wallet_store store;
@@ -165,7 +163,7 @@ class node;
  * The wallets set is all the wallets a node controls.
  * A node may contain multiple wallets independently encrypted and operated.
  */
-class wallets
+class wallets final
 {
 public:
 	wallets (bool &, nano::node &);
@@ -186,6 +184,7 @@ public:
 	void ongoing_compute_reps ();
 	void split_if_needed (nano::transaction &, nano::block_store &);
 	void move_table (std::string const &, MDB_txn *, MDB_txn *);
+	nano::network_params network_params;
 	std::function<void(bool)> observer;
 	std::unordered_map<nano::uint256_union, std::shared_ptr<nano::wallet>> items;
 	std::multimap<nano::uint128_t, std::pair<std::shared_ptr<nano::wallet>, std::function<void(nano::wallet &)>>, std::greater<nano::uint128_t>> actions;
@@ -223,7 +222,7 @@ class wallets_store
 public:
 	virtual ~wallets_store () = default;
 };
-class mdb_wallets_store : public wallets_store
+class mdb_wallets_store final : public wallets_store
 {
 public:
 	mdb_wallets_store (bool &, boost::filesystem::path const &, int lmdb_max_dbs = 128);

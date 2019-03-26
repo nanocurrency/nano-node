@@ -6,7 +6,6 @@
 
 #include <boost/endian/conversion.hpp>
 
-std::array<uint8_t, 2> constexpr nano::message_header::magic_number;
 std::bitset<16> constexpr nano::message_header::block_type_mask;
 
 nano::message_header::message_header (nano::message_type type_a) :
@@ -27,7 +26,8 @@ nano::message_header::message_header (bool & error_a, nano::stream & stream_a)
 
 void nano::message_header::serialize (nano::stream & stream_a) const
 {
-	nano::write (stream_a, nano::message_header::magic_number);
+	static nano::network_params network_params;
+	nano::write (stream_a, network_params.header_magic_number);
 	nano::write (stream_a, version_max);
 	nano::write (stream_a, version_using);
 	nano::write (stream_a, version_min);
@@ -37,13 +37,14 @@ void nano::message_header::serialize (nano::stream & stream_a) const
 
 bool nano::message_header::deserialize (nano::stream & stream_a)
 {
+	static nano::network_params network_params;
 	uint16_t extensions_l;
 	std::array<uint8_t, 2> magic_number_l;
 	auto error (false);
 	try
 	{
 		read (stream_a, magic_number_l);
-		if (magic_number_l != magic_number)
+		if (magic_number_l != network_params.header_magic_number)
 		{
 			throw std::runtime_error ("Magic numbers do not match");
 		}
@@ -206,6 +207,7 @@ status (parse_status::success)
 
 void nano::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t size_a)
 {
+	static nano::network_params network_params;
 	status = parse_status::success;
 	auto error (false);
 	if (size_a <= max_safe_udp_message_size)
@@ -215,21 +217,13 @@ void nano::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t 
 		nano::message_header header (error, stream);
 		if (!error)
 		{
-			if (nano::is_beta_network && header.version_using < nano::protocol_version_reasonable_min)
+			if (network_params.is_beta_network () && header.version_using < nano::protocol_version_reasonable_min)
 			{
 				status = parse_status::outdated_version;
 			}
 			else if (header.version_using < nano::protocol_version_min)
 			{
 				status = parse_status::outdated_version;
-			}
-			else if (!header.valid_magic ())
-			{
-				status = parse_status::invalid_magic;
-			}
-			else if (!header.valid_network ())
-			{
-				status = parse_status::invalid_network;
 			}
 			else
 			{
@@ -577,7 +571,7 @@ bool nano::confirm_req::deserialize (nano::stream & stream_a, nano::block_unique
 			result = block == nullptr;
 		}
 	}
-	catch (const std::runtime_error & error)
+	catch (const std::runtime_error &)
 	{
 		result = true;
 	}

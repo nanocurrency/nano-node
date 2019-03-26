@@ -14,41 +14,28 @@ const char * default_live_peer_network = "peering.nano.org";
 }
 
 nano::node_config::node_config () :
-node_config (nano::network::node_port, nano::logging ())
+node_config (0, nano::logging ())
 {
 }
 
 nano::node_config::node_config (uint16_t peering_port_a, nano::logging const & logging_a) :
 peering_port (peering_port_a),
-logging (logging_a),
-bootstrap_fraction_numerator (1),
-receive_minimum (nano::xrb_ratio),
-vote_minimum (nano::Gxrb_ratio),
-online_weight_minimum (60000 * nano::Gxrb_ratio),
-online_weight_quorum (50),
-password_fanout (1024),
-io_threads (std::max<unsigned> (4, boost::thread::hardware_concurrency ())),
-network_threads (std::max<unsigned> (4, boost::thread::hardware_concurrency ())),
-work_threads (std::max<unsigned> (4, boost::thread::hardware_concurrency ())),
-signature_checker_threads ((boost::thread::hardware_concurrency () != 0) ? boost::thread::hardware_concurrency () - 1 : 0), /* The calling thread does checks as well so remove it from the number of threads used */
-enable_voting (false),
-bootstrap_connections (4),
-bootstrap_connections_max (64),
-callback_port (0),
-lmdb_max_dbs (128),
-allow_local_peers (!nano::is_live_network),
-block_processor_batch_max_time (5000),
-unchecked_cutoff_time (4 * 60 * 60), // 4 hours
-pow_sleep_interval (0)
+logging (logging_a)
 {
+	// The default constructor passes 0 to indicate we should use the default port,
+	// which is determined at node startup based on active network.
+	if (peering_port == 0)
+	{
+		peering_port = network_params.default_node_port;
+	}
 	const char * epoch_message ("epoch v1 block");
 	strncpy ((char *)epoch_block_link.bytes.data (), epoch_message, epoch_block_link.bytes.size ());
-	epoch_block_signer = nano::genesis_account;
-	switch (nano::nano_network)
+	epoch_block_signer = network_params.ledger.genesis_account;
+	switch (network_params.network ())
 	{
 		case nano::nano_networks::nano_test_network:
 			enable_voting = true;
-			preconfigured_representatives.push_back (nano::genesis_account);
+			preconfigured_representatives.push_back (network_params.ledger.genesis_account);
 			break;
 		case nano::nano_networks::nano_beta_network:
 			preconfigured_peers.push_back (default_beta_peer_network);
@@ -124,8 +111,12 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("allow_local_peers", allow_local_peers);
 	json.put ("vote_minimum", vote_minimum.to_string_dec ());
 	json.put ("unchecked_cutoff_time", unchecked_cutoff_time.count ());
+	json.put ("tcp_client_timeout", tcp_client_timeout.count ());
+	json.put ("tcp_server_timeout", tcp_server_timeout.count ());
 	json.put ("pow_sleep_interval", pow_sleep_interval.count ());
-
+	nano::jsonconfig websocket_l;
+	websocket_config.serialize_json (websocket_l);
+	json.put_child ("websocket", websocket_l);
 	nano::jsonconfig ipc_l;
 	ipc_config.serialize_json (ipc_l);
 	json.put_child ("ipc", ipc_l);
@@ -249,8 +240,15 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			upgraded = true;
 		}
 		case 16:
+		{
+			nano::jsonconfig websocket_l;
+			websocket_config.serialize_json (websocket_l);
+			json.put_child ("websocket", websocket_l);
+			json.put ("tcp_client_timeout", tcp_client_timeout.count ());
+			json.put ("tcp_server_timeout", tcp_server_timeout.count ());
 			json.put (pow_sleep_interval_key, pow_sleep_interval.count ());
 			upgraded = true;
+		}
 		case 17:
 			break;
 		default:
@@ -350,13 +348,23 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		unsigned long unchecked_cutoff_time_l (unchecked_cutoff_time.count ());
 		json.get ("unchecked_cutoff_time", unchecked_cutoff_time_l);
 		unchecked_cutoff_time = std::chrono::seconds (unchecked_cutoff_time_l);
+		unsigned long tcp_client_timeout_l (tcp_client_timeout.count ());
+		json.get ("tcp_client_timeout", tcp_client_timeout_l);
+		tcp_client_timeout = std::chrono::seconds (tcp_client_timeout_l);
+		unsigned long tcp_server_timeout_l (tcp_server_timeout.count ());
+		json.get ("tcp_server_timeout", tcp_server_timeout_l);
+		tcp_server_timeout = std::chrono::seconds (tcp_server_timeout_l);
 
 		auto ipc_config_l (json.get_optional_child ("ipc"));
 		if (ipc_config_l)
 		{
 			ipc_config.deserialize_json (ipc_config_l.get ());
 		}
-
+		auto websocket_config_l (json.get_optional_child ("websocket"));
+		if (websocket_config_l)
+		{
+			websocket_config.deserialize_json (websocket_config_l.get ());
+		}
 		json.get<uint16_t> ("peering_port", peering_port);
 		json.get<unsigned> ("bootstrap_fraction_numerator", bootstrap_fraction_numerator);
 		json.get<unsigned> ("online_weight_quorum", online_weight_quorum);
@@ -405,17 +413,4 @@ nano::account nano::node_config::random_representative ()
 	size_t index (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (preconfigured_representatives.size () - 1)));
 	auto result (preconfigured_representatives[index]);
 	return result;
-}
-
-nano::node_flags::node_flags () :
-disable_backup (false),
-disable_lazy_bootstrap (false),
-disable_legacy_bootstrap (false),
-disable_wallet_bootstrap (false),
-disable_bootstrap_listener (false),
-disable_unchecked_cleanup (false),
-disable_unchecked_drop (true),
-fast_bootstrap (false),
-sideband_batch_size (512)
-{
 }

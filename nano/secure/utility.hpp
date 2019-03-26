@@ -12,7 +12,6 @@
 
 #include <crypto/cryptopp/osrng.h>
 
-#include <nano/lib/config.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/interface.h>
 #include <nano/lib/numbers.hpp>
