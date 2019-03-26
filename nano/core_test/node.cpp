@@ -2453,7 +2453,7 @@ TEST (active_difficulty, recalculate_work)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	auto sum = std::accumulate (node1.active.difficulty_cb.begin (), node1.active.difficulty_cb.end (), boost::multiprecision::uint128_t (0));
+	auto sum = std::accumulate (node1.active.difficulty_cb.begin (), node1.active.difficulty_cb.end (), nano::uint128_t (0));
 	std::unique_lock<std::mutex> lock (node1.active.mutex);
 	ASSERT_EQ (node1.active.active_difficulty.load (), static_cast<uint64_t> (sum / node1.active.difficulty_cb.size ()));
 	// Fake history records to force work recalculation
@@ -2467,7 +2467,7 @@ TEST (active_difficulty, recalculate_work)
 	node1.process_active (send1);
 	node1.active.update_active_difficulty ();
 	lock.unlock ();
-	sum = std::accumulate (node1.active.difficulty_cb.begin (), node1.active.difficulty_cb.end (), boost::multiprecision::uint128_t (0));
+	sum = std::accumulate (node1.active.difficulty_cb.begin (), node1.active.difficulty_cb.end (), nano::uint128_t (0));
 	ASSERT_EQ (node1.active.active_difficulty.load (), static_cast<uint64_t> (sum / node1.active.difficulty_cb.size ()));
 }
 
