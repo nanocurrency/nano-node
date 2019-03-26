@@ -102,12 +102,12 @@ void nano::work_pool::loop (uint64_t thread)
 					blake2b_final (&hash, reinterpret_cast<uint8_t *> (&output), sizeof (output));
 					blake2b_init (&hash, sizeof (output));
 					iteration -= 1;
+				}
 
-					// Add a rate limiter (if specified) to the pow calculation to save some CPUs which don't want to operate at full throttle
-					if (pow_sleep != std::chrono::nanoseconds (0))
-					{
-						std::this_thread::sleep_for (pow_sleep);
-					}
+				// Add a rate limiter (if specified) to the pow calculation to save some CPUs which don't want to operate at full throttle
+				if (pow_sleep != std::chrono::nanoseconds (0))
+				{
+					std::this_thread::sleep_for (pow_sleep);
 				}
 			}
 			lock.lock ();
