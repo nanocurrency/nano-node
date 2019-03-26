@@ -29,7 +29,6 @@ public:
 	nano::amount amount{ 0 };
 	nano::account destination{ 0 };
 };
-// Latest information about an account
 class account_info_v5
 {
 public:
@@ -42,5 +41,19 @@ public:
 	nano::block_hash open_block{ 0 };
 	nano::amount balance{ 0 };
 	uint64_t modified{ 0 };
+};
+class account_info_v13
+{
+public:
+	account_info_v13 () = default;
+	account_info_v13 (nano::block_hash const &, nano::block_hash const &, nano::block_hash const &, nano::amount const &, uint64_t, uint64_t block_count, nano::epoch epoch_a);
+	size_t db_size () const;
+	nano::block_hash head{ 0 };
+	nano::block_hash rep_block{ 0 };
+	nano::block_hash open_block{ 0 };
+	nano::amount balance{ 0 };
+	uint64_t modified{ 0 };
+	uint64_t block_count{ 0 };
+	nano::epoch epoch{ nano::epoch::epoch_0 };
 };
 }

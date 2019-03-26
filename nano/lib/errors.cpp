@@ -116,6 +116,8 @@ std::string nano::error_rpc_messages::message (int ev) const
 			return "Unknown error";
 		case nano::error_rpc::bad_destination:
 			return "Bad destination account";
+		case nano::error_rpc::bad_difficulty_format:
+			return "Bad difficulty";
 		case nano::error_rpc::bad_key:
 			return "Bad key";
 		case nano::error_rpc::bad_link:
@@ -146,6 +148,8 @@ std::string nano::error_rpc_messages::message (int ev) const
 			return "Destination account, previous hash, current balance and amount required";
 		case nano::error_rpc::confirmation_not_found:
 			return "Active confirmation not found";
+		case nano::error_rpc::difficulty_limit:
+			return "Difficulty above config limit";
 		case nano::error_rpc::invalid_balance:
 			return "Invalid balance number";
 		case nano::error_rpc::invalid_destinations:

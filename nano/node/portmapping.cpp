@@ -20,7 +20,7 @@ void nano::port_mapping::start ()
 
 void nano::port_mapping::refresh_devices ()
 {
-	if (!nano::is_test_network)
+	if (!network_params.is_test_network ())
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		int discover_error = 0;
@@ -50,7 +50,7 @@ void nano::port_mapping::refresh_devices ()
 
 void nano::port_mapping::refresh_mapping ()
 {
-	if (!nano::is_test_network)
+	if (!network_params.is_test_network ())
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		auto node_port (std::to_string (node.network.endpoint ().port ()));
@@ -60,7 +60,7 @@ void nano::port_mapping::refresh_mapping ()
 		{
 			std::array<char, 6> actual_external_port;
 			actual_external_port.fill (0);
-			auto add_port_mapping_error (UPNP_AddAnyPortMapping (urls.controlURL, data.first.servicetype, node_port.c_str (), node_port.c_str (), address.to_string ().c_str (), nullptr, protocol.name, nullptr, std::to_string (mapping_timeout).c_str (), actual_external_port.data ()));
+			auto add_port_mapping_error (UPNP_AddAnyPortMapping (urls.controlURL, data.first.servicetype, node_port.c_str (), node_port.c_str (), address.to_string ().c_str (), nullptr, protocol.name, nullptr, std::to_string (network_params.portmapping.mapping_timeout).c_str (), actual_external_port.data ()));
 			if (check_count % 15 == 0)
 			{
 				node.logger.always_log (boost::str (boost::format ("UPnP %1% port mapping response: %2%, actual external port %3%") % protocol.name % add_port_mapping_error % actual_external_port.data ()));
@@ -80,7 +80,7 @@ void nano::port_mapping::refresh_mapping ()
 int nano::port_mapping::check_mapping ()
 {
 	int result (3600);
-	if (!nano::is_test_network)
+	if (!network_params.is_test_network ())
 	{
 		// Long discovery time and fast setup/teardown make this impractical for testing
 		std::lock_guard<std::mutex> lock (mutex);
@@ -124,7 +124,7 @@ int nano::port_mapping::check_mapping ()
 
 void nano::port_mapping::check_mapping_loop ()
 {
-	int wait_duration = check_timeout;
+	int wait_duration = network_params.portmapping.check_timeout;
 	refresh_devices ();
 	if (devices != nullptr)
 	{

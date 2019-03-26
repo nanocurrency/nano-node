@@ -9,7 +9,7 @@ debugLevel=0
 buildCArgs=()
 buildCXXArgs=()
 buildLDArgs=()
-boostVersion='1.69'
+boostVersion='1.67'
 while getopts 'hmcCkpvB:' OPT; do
 	case "${OPT}" in
 		h)
@@ -73,14 +73,14 @@ if [ "${useClang}" = 'true' ]; then
 fi
 
 case "${boostVersion}" in
-	1.66)
-		BOOST_BASENAME=boost_1_66_0
-		BOOST_URL=https://downloads.sourceforge.net/project/boost/boost/1.66.0/${BOOST_BASENAME}.tar.bz2
-		BOOST_ARCHIVE_SHA256='5721818253e6a0989583192f96782c4a98eb6204965316df9f5ad75819225ca9'
+	1.67)
+		BOOST_BASENAME=boost_1_67_0
+		BOOST_URL=https://netix.dl.sourceforge.net/project/boost/boost/1.67.0/${BOOST_BASENAME}.tar.bz2
+		BOOST_ARCHIVE_SHA256='2684c972994ee57fc5632e03bf044746f6eb45d4920c343937a465fd67a5adba'
 		;;
 	1.69)
 		BOOST_BASENAME=boost_1_69_0
-		BOOST_URL=https://downloads.sourceforge.net/project/boost/boost/1.69.0/${BOOST_BASENAME}.tar.bz2
+		BOOST_URL=https://netix.dl.sourceforge.net/project/boost/boost/1.69.0/${BOOST_BASENAME}.tar.bz2
 		BOOST_ARCHIVE_SHA256='8f32d4617390d1c2d16f26a27ab60d97807b35440d45891fa340fc2648b04406'
 		;;
 	*)

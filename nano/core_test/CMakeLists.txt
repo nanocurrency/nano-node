@@ -1,4 +1,5 @@
 add_executable (core_test
+	core_test_main.cc
 	testutil.hpp
 	block.cpp
 	block_store.cpp
@@ -22,6 +23,7 @@ add_executable (core_test
 	versioning.cpp
 	wallet.cpp
 	wallets.cpp
+	websocket.cpp
 	work_pool.cpp)
 
 target_compile_definitions(core_test
@@ -29,4 +31,4 @@ target_compile_definitions(core_test
 			-DNANO_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
 			-DNANO_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR}
 			-DNANO_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH})
-target_link_libraries (core_test node secure gtest_main gtest libminiupnpc-static Boost::boost)
+target_link_libraries (core_test node secure gtest libminiupnpc-static Boost::boost)

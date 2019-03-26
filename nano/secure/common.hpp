@@ -38,7 +38,6 @@ namespace nano
 {
 const uint8_t protocol_version = 0x10;
 const uint8_t protocol_version_min = 0x0d;
-const uint8_t node_id_version = 0x0c;
 
 /*
  * Do not bootstrap from nodes older than this version.
@@ -79,7 +78,7 @@ class account_info
 {
 public:
 	account_info () = default;
-	account_info (nano::block_hash const &, nano::block_hash const &, nano::block_hash const &, nano::amount const &, uint64_t, uint64_t, epoch);
+	account_info (nano::block_hash const &, nano::block_hash const &, nano::block_hash const &, nano::amount const &, uint64_t, uint64_t, uint64_t, epoch);
 	bool deserialize (nano::stream &);
 	bool operator== (nano::account_info const &) const;
 	bool operator!= (nano::account_info const &) const;
@@ -91,6 +90,7 @@ public:
 	/** Seconds since posix epoch */
 	uint64_t modified{ 0 };
 	uint64_t block_count{ 0 };
+	uint64_t confirmation_height{ 0 };
 	nano::epoch epoch{ nano::epoch::epoch_0 };
 };
 
@@ -299,20 +299,7 @@ enum class tally_result
 	changed,
 	confirm
 };
-extern nano::keypair const & zero_key;
-extern nano::keypair const & test_genesis_key;
-extern nano::account const & nano_test_account;
-extern nano::account const & nano_beta_account;
-extern nano::account const & nano_live_account;
-extern std::string const & nano_test_genesis;
-extern std::string const & nano_beta_genesis;
-extern std::string const & nano_live_genesis;
-extern std::string const & genesis_block;
-extern nano::account const & genesis_account;
-extern nano::account const & burn_account;
-extern nano::uint128_t const & genesis_amount;
-// An account number that compares inequal to any real account number
-extern nano::account const & not_an_account ();
+
 class genesis
 {
 public:

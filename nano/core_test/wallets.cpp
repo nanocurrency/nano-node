@@ -3,6 +3,7 @@
 #include <nano/core_test/testutil.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/testing.hpp>
+#include <nano/secure/versioning.hpp>
 
 #include <boost/polymorphic_cast.hpp>
 
@@ -15,7 +16,8 @@ TEST (wallets, open_create)
 	nano::wallets wallets (error, *system.nodes[0]);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (1, wallets.items.size ()); // it starts out with a default wallet
-	nano::uint256_union id;
+	nano::keypair random_key;
+	nano::uint256_union id (random_key.pub);
 	ASSERT_EQ (nullptr, wallets.open (id));
 	auto wallet (wallets.create (id));
 	ASSERT_NE (nullptr, wallet);
@@ -25,7 +27,8 @@ TEST (wallets, open_create)
 TEST (wallets, open_existing)
 {
 	nano::system system (24000, 1);
-	nano::uint256_union id;
+	nano::keypair random_key;
+	nano::uint256_union id (random_key.pub);
 	{
 		bool error (false);
 		nano::wallets wallets (error, *system.nodes[0]);
@@ -92,6 +95,12 @@ TEST (wallets, upgrade)
 		MDB_txn * tx_destination (*boost::polymorphic_downcast<nano::mdb_txn *> (transaction_destination.impl.get ()));
 		node1->wallets.move_table (id.pub.to_string (), tx_source, tx_destination);
 		node1->store.version_put (transaction_destination, 11);
+
+		nano::account_info info;
+		ASSERT_FALSE (mdb_store.account_get (transaction_destination, nano::genesis_account, info));
+		nano::account_info_v13 account_info_v13 (info.head, info.rep_block, info.open_block, info.balance, info.modified, info.block_count, info.epoch);
+		auto status (mdb_put (mdb_store.env.tx (transaction_destination), mdb_store.get_account_db (info.epoch), nano::mdb_val (nano::test_genesis_key.pub), nano::mdb_val (account_info_v13), 0));
+		assert (status == 0);
 	}
 	nano::node_init init1;
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, path, system.alarm, system.logging, system.work));

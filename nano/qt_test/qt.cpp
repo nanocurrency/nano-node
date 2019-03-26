@@ -44,7 +44,7 @@ TEST (wallet, status)
 		return wallet->active_status.active.find (status_ty) != wallet->active_status.active.end ();
 	};
 	ASSERT_EQ ("Status: Disconnected, Blocks: 1", wallet->status->text ().toStdString ());
-	system.nodes[0]->peers.insert (nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000), 0);
+	system.nodes[0]->network.udp_channels.insert (nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000), 0);
 	// Because of the wallet "vulnerable" message, this won't be the message displayed.
 	// However, it will still be part of the status set.
 	ASSERT_FALSE (wallet_has (nano_qt::status_types::synchronizing));
@@ -54,7 +54,7 @@ TEST (wallet, status)
 		test_application->processEvents ();
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	system.nodes[0]->peers.purge_list (std::chrono::steady_clock::now () + std::chrono::seconds (5));
+	system.nodes[0]->network.cleanup (std::chrono::steady_clock::now () + std::chrono::seconds (5));
 	while (wallet_has (nano_qt::status_types::synchronizing))
 	{
 		test_application->processEvents ();
@@ -95,7 +95,17 @@ TEST (wallet, select_account)
 	QTest::mouseClick (wallet->accounts.use_account, Qt::LeftButton);
 	auto key4 (wallet->account);
 	ASSERT_NE (key3, key4);
-	ASSERT_EQ (key2, key4);
+
+	// The list is populated in sorted order as it's read from store in lexical order. This may
+	// be different from the insertion order.
+	if (key1 < key2)
+	{
+		ASSERT_EQ (key2, key4);
+	}
+	else
+	{
+		ASSERT_EQ (key1, key4);
+	}
 }
 
 TEST (wallet, main)

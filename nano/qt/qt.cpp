@@ -1,10 +1,10 @@
-#include <nano/qt/qt.hpp>
-
 #include <boost/foreach.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <cmath>
 #include <iomanip>
+#include <nano/lib/config.hpp>
+#include <nano/qt/qt.hpp>
 #include <sstream>
 
 namespace
@@ -73,11 +73,11 @@ wallet (wallet_a)
 {
 	your_account_label->setStyleSheet ("font-weight: bold;");
 	std::string network = "Live";
-	if (nano::is_beta_network)
+	if (wallet.node.network_params.is_beta_network ())
 	{
 		network = "Beta";
 	}
-	else if (nano::is_test_network)
+	else if (wallet.node.network_params.is_test_network ())
 	{
 		network = "Test";
 	}
@@ -541,16 +541,17 @@ public:
 	}
 	void open_block (nano::open_block const & block_a)
 	{
+		static nano::network_params params;
 		type = "Receive";
-		if (block_a.hashables.source != nano::genesis_account)
+		if (block_a.hashables.source != params.ledger.genesis_account)
 		{
 			account = ledger.account (transaction, block_a.hashables.source);
 			amount = ledger.amount (transaction, block_a.hash ());
 		}
 		else
 		{
-			account = nano::genesis_account;
-			amount = nano::genesis_amount;
+			account = params.ledger.genesis_account;
+			amount = params.ledger.genesis_amount;
 		}
 	}
 	void change_block (nano::change_block const & block_a)
@@ -702,7 +703,7 @@ void nano_qt::block_viewer::rebroadcast_action (nano::uint256_union const & hash
 	auto block (wallet.node.store.block_get (transaction, hash_a));
 	if (block != nullptr)
 	{
-		wallet.node.network.republish_block (std::move (block));
+		wallet.node.network.flood_block (block);
 		auto successor (wallet.node.store.block_successor (transaction, hash_a));
 		if (!successor.is_zero ())
 		{
@@ -1018,7 +1019,7 @@ needs_deterministic_restore (false)
 	empty_password ();
 	settings.update_locked (true, true);
 	send_blocks_layout->addWidget (send_account_label);
-	send_account->setPlaceholderText (nano::zero_key.pub.to_account ().c_str ());
+	send_account->setPlaceholderText (node.network_params.ledger.zero_key.pub.to_account ().c_str ());
 	send_blocks_layout->addWidget (send_account);
 	send_blocks_layout->addWidget (send_count_label);
 	send_count->setPlaceholderText ("0");
@@ -1331,7 +1332,7 @@ void nano_qt::wallet::start ()
 			}));
 		}
 	});
-	node.observers.endpoint.add ([this_w](nano::endpoint const &) {
+	node.observers.endpoint.add ([this_w](std::shared_ptr<nano::transport::channel>) {
 		if (auto this_l = this_w.lock ())
 		{
 			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w]() {
@@ -1426,7 +1427,7 @@ void nano_qt::wallet::refresh ()
 
 void nano_qt::wallet::update_connected ()
 {
-	if (node.peers.empty ())
+	if (node.network.empty ())
 	{
 		active_status.insert (nano_qt::status_types::disconnected);
 	}
@@ -1521,7 +1522,7 @@ wallet (wallet_a)
 	layout->addWidget (representative);
 	current_representative->setTextInteractionFlags (Qt::TextSelectableByMouse);
 	layout->addWidget (current_representative);
-	new_representative->setPlaceholderText (nano::zero_key.pub.to_account ().c_str ());
+	new_representative->setPlaceholderText (wallet.node.network_params.ledger.zero_key.pub.to_account ().c_str ());
 	layout->addWidget (new_representative);
 	layout->addWidget (change_rep);
 	layout->addStretch ();
@@ -1548,6 +1549,7 @@ wallet (wallet_a)
 					retype_password->setPlaceholderText ("Retype password");
 					show_button_success (*change);
 					change->setText ("Password was changed");
+					this->wallet.node.logger.try_log ("Wallet password changed");
 					update_locked (false, false);
 					this->wallet.node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() {
 						this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this]() {
@@ -1640,6 +1642,7 @@ wallet (wallet_a)
 			this->wallet.wallet_m->store.password.value_set (empty);
 			update_locked (true, true);
 			lock_toggle->setText ("Unlock");
+			this->wallet.node.logger.try_log ("Wallet locked");
 			password->setEnabled (1);
 		}
 		else
@@ -1950,24 +1953,23 @@ wallet (wallet_a)
 void nano_qt::advanced_actions::refresh_peers ()
 {
 	peers_model->removeRows (0, peers_model->rowCount ());
-	auto list (wallet.node.peers.list_vector (std::numeric_limits<size_t>::max ()));
+	auto list (wallet.node.network.udp_channels.list (std::numeric_limits<size_t>::max ()));
 	std::sort (list.begin (), list.end ());
 	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
 	{
 		std::stringstream endpoint;
-		endpoint << i->endpoint.address ().to_string ();
-		endpoint << ':';
-		endpoint << i->endpoint.port ();
+		auto channel (*i);
+		endpoint << channel->to_string ();
 		QString qendpoint (endpoint.str ().c_str ());
 		QList<QStandardItem *> items;
 		items.push_back (new QStandardItem (qendpoint));
 		auto version = new QStandardItem ();
-		version->setData (QVariant (i->network_version), Qt::DisplayRole);
+		version->setData (QVariant (channel->network_version), Qt::DisplayRole);
 		items.push_back (version);
 		QString node_id ("");
-		if (i->node_id.is_initialized ())
+		if (channel->node_id.is_initialized ())
 		{
-			node_id = i->node_id.get ().to_account ().c_str ();
+			node_id = channel->node_id.get ().to_account ().c_str ();
 		}
 		items.push_back (new QStandardItem (node_id));
 		peers_model->appendRow (items);
