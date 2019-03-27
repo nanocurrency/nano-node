@@ -3,9 +3,9 @@
 #include <nano/lib/errors.hpp>
 #include <nano/lib/ipc_client.hpp>
 #include <nano/lib/rpcconfig.hpp>
+#include <nano/node/node.hpp>
 #include <nano/rpc/rpc.hpp>
 #include <nano/rpc/rpc_handler.hpp>
-#include <nano/node/node.hpp>
 #include <unordered_set>
 
 namespace

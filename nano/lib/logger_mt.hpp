@@ -15,14 +15,14 @@ private:
 	{
 	}
 
- 	template <typename LogItem, typename... LogItems>
+	template <typename LogItem, typename... LogItems>
 	void add_to_stream (boost::log::record_ostream & stream, const LogItem & first_log_item, LogItems &&... remainder_log_items)
 	{
 		stream << first_log_item;
 		add_to_stream (stream, remainder_log_items...);
 	}
 
- 	template <typename... LogItems>
+	template <typename... LogItems>
 	void output (LogItems &&... log_items)
 	{
 		boost::log::record rec = boost_logger_mt.open_record ();
@@ -35,7 +35,7 @@ private:
 		}
 	}
 
- public:
+public:
 	/**
 	 * @param min_log_delta_a The minimum time between successive output
 	 */
@@ -44,7 +44,7 @@ private:
 	{
 	}
 
- 	/*
+	/*
 	 * @param log_items A collection of objects with overloaded operator<< to be output to the log file
 	 */
 	template <typename... LogItems>
@@ -53,7 +53,7 @@ private:
 		output (std::forward<LogItems> (log_items)...);
 	}
 
- 	/*
+	/*
 	 * @param log_items Output to the log file if the last write was over min_log_delta time ago.
 	 * @return true if the log was successful
 	 */
@@ -71,9 +71,9 @@ private:
 		return error;
 	}
 
- 	std::chrono::milliseconds min_log_delta;
+	std::chrono::milliseconds min_log_delta;
 
- private:
+private:
 	std::chrono::steady_clock::time_point last_log_time;
 	boost::log::sources::logger_mt boost_logger_mt;
 };

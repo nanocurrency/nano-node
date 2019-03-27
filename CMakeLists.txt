@@ -316,6 +316,7 @@ if (NANO_TEST OR RAIBLOCKS_TEST)
 		"${CMAKE_SOURCE_DIR}/gtest/googletest/include")
 
 	add_subdirectory(nano/core_test)
+	add_subdirectory(nano/rpc_test)
 	add_subdirectory(nano/slow_test)
 endif ()
 
