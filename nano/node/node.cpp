@@ -3274,20 +3274,20 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 void nano::active_transactions::update_active_difficulty ()
 {
 	assert (!mutex.try_lock ());
-	uint64_t difficulty (node.network_params.publish_threshold);
+	uint64_t difficulty (node.network_params.network.publish_threshold);
 	if (!roots.empty ())
 	{
 		uint128_t min = roots.get<1> ().begin ()->adjusted_difficulty;
-		assert (min >= node.network_params.publish_threshold);
+		assert (min >= node.network_params.network.publish_threshold);
 		uint128_t max = (--roots.get<1> ().end ())->adjusted_difficulty;
-		assert (max >= node.network_params.publish_threshold);
+		assert (max >= node.network_params.network.publish_threshold);
 		difficulty = static_cast<uint64_t> ((min + max) / 2);
 	}
-	assert (difficulty >= node.network_params.publish_threshold);
+	assert (difficulty >= node.network_params.network.publish_threshold);
 	difficulty_cb.push_front (difficulty);
 	auto sum = std::accumulate (node.active.difficulty_cb.begin (), node.active.difficulty_cb.end (), uint128_t (0));
 	difficulty = static_cast<uint64_t> (sum / difficulty_cb.size ());
-	assert (difficulty >= node.network_params.publish_threshold);
+	assert (difficulty >= node.network_params.network.publish_threshold);
 	active_difficulty.store (difficulty);
 }
 
@@ -3339,8 +3339,8 @@ nano::active_transactions::active_transactions (nano::node & node_a) :
 node (node_a),
 started (false),
 stopped (false),
-difficulty_cb (20, node.network_params.publish_threshold),
-active_difficulty (node.network_params.publish_threshold),
+difficulty_cb (20, node.network_params.network.publish_threshold),
+active_difficulty (node.network_params.network.publish_threshold),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::request_loop);
 	request_loop ();

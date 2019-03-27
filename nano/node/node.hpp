@@ -152,8 +152,8 @@ public:
 	static unsigned constexpr announcement_long = 20;
 	static size_t constexpr election_history_size = 2048;
 	static size_t constexpr max_broadcast_queue = 1000;
-	std::atomic<uint64_t> active_difficulty;
 	boost::circular_buffer<uint64_t> difficulty_cb;
+	std::atomic<uint64_t> active_difficulty;
 
 private:
 	// Call action with confirmed block, may be different than what we started with

@@ -837,7 +837,7 @@ void nano::rpc_handler::accounts_pending ()
 
 void nano::rpc_handler::active_difficulty ()
 {
-	response_l.put ("difficulty_threshold", nano::to_string_hex (node.network_params.publish_threshold));
+	response_l.put ("difficulty_threshold", nano::to_string_hex (node.network_params.network.publish_threshold));
 	response_l.put ("difficulty_active", nano::to_string_hex (node.active.active_difficulty));
 	response_errors ();
 }

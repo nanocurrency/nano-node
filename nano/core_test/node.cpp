@@ -2441,7 +2441,7 @@ TEST (active_difficulty, recalculate_work)
 	auto & node1 (*system.nodes[0]);
 	nano::genesis genesis;
 	nano::keypair key1;
-	ASSERT_EQ (node1.network_params.publish_threshold, node1.active.active_difficulty.load ());
+	ASSERT_EQ (node1.network_params.network.publish_threshold, node1.active.active_difficulty.load ());
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send1);
 	uint64_t difficulty1;
