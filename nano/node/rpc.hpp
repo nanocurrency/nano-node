@@ -58,9 +58,10 @@ public:
 	rpc_connection (nano::node &, nano::rpc &);
 	virtual ~rpc_connection () = default;
 	virtual void parse_connection ();
-	virtual void read ();
+	virtual void write_completion_handler (std::shared_ptr<nano::rpc_connection> rpc_connection);
 	virtual void prepare_head (unsigned version, boost::beast::http::status status = boost::beast::http::status::ok);
 	virtual void write_result (std::string body, unsigned version, boost::beast::http::status status = boost::beast::http::status::ok);
+	void read ();
 	std::shared_ptr<nano::node> node;
 	nano::rpc & rpc;
 	boost::asio::ip::tcp::socket socket;

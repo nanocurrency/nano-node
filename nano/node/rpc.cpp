@@ -4515,6 +4515,7 @@ void nano::rpc_connection::read ()
 						auto body (ostream.str ());
 						this_l->write_result (body, version);
 						boost::beast::http::async_write (this_l->socket, this_l->res, [this_l](boost::system::error_code const & ec, size_t bytes_transferred) {
+							this_l->write_completion_handler (this_l);
 						});
 
 						if (this_l->node->config.logging.log_rpc ())
@@ -4536,6 +4537,7 @@ void nano::rpc_connection::read ()
 							this_l->prepare_head (version);
 							this_l->res.prepare_payload ();
 							boost::beast::http::async_write (this_l->socket, this_l->res, [this_l](boost::system::error_code const & ec, size_t bytes_transferred) {
+								this_l->write_completion_handler (this_l);
 							});
 							break;
 						}
@@ -4563,10 +4565,16 @@ void nano::rpc_connection::read ()
 			auto body (ostream.str ());
 			this_l->write_result (body, 11);
 			boost::beast::http::async_write (this_l->socket, this_l->res, [this_l](boost::system::error_code const & ec, size_t bytes_transferred) {
+				this_l->write_completion_handler (this_l);
 			});
 		});
 		error_response (response_handler, std::string ("Invalid header: ") + header_error.message ());
 	}
+}
+
+void nano::rpc_connection::write_completion_handler (std::shared_ptr<nano::rpc_connection> rpc_connection)
+{
+	// Intentional no-op
 }
 
 namespace
