@@ -3337,10 +3337,10 @@ size_t nano::active_transactions::size ()
 
 nano::active_transactions::active_transactions (nano::node & node_a) :
 node (node_a),
-started (false),
-stopped (false),
 difficulty_cb (20, node.network_params.network.publish_threshold),
 active_difficulty (node.network_params.network.publish_threshold),
+started (false),
+stopped (false),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::request_loop);
 	request_loop ();
