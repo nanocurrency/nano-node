@@ -1,3 +1,4 @@
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/qt/qt.hpp>

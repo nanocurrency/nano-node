@@ -9,6 +9,7 @@
 #include <iostream>
 #include <memory>
 #include <nano/core_test/testutil.hpp>
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/node/websocket.hpp>
 #include <sstream>

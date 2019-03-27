@@ -1,3 +1,4 @@
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/nodeconfig.hpp>
 // NOTE: to reduce compile times, this include can be replaced by more narrow includes

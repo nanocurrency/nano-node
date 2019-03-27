@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <nano/core_test/testutil.hpp>
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/node/testing.hpp>
 
 using namespace std::chrono_literals;
