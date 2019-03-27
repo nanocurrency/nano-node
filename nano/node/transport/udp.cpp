@@ -429,10 +429,11 @@ public:
 				validated_response = true;
 				if (message_a.response->first != node.node_id.pub)
 				{
-					node.network.udp_channels.insert (endpoint, message_a.header.version_using);
-					auto channel (node.network.udp_channels.channel (endpoint));
-					assert (channel != nullptr);
-					channel->node_id = message_a.response->first;
+					auto channel (node.network.udp_channels.insert (endpoint, message_a.header.version_using));
+					if (channel)
+					{
+						channel->node_id = message_a.response->first;
+					}
 				}
 			}
 			else if (node.config.logging.network_node_id_handshake_logging ())
@@ -581,7 +582,7 @@ bool nano::transport::udp_channels::not_a_peer (nano::endpoint const & endpoint_
 	{
 		result = true;
 	}
-	else if (!network_params.is_test_network () && max_ip_connections (endpoint_a))
+	else if (!network_params.network.is_test_network () && max_ip_connections (endpoint_a))
 	{
 		result = true;
 	}
