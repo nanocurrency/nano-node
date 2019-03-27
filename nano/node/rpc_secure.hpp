@@ -38,7 +38,7 @@ class rpc_connection_secure : public rpc_connection
 public:
 	rpc_connection_secure (nano::node &, nano::rpc_secure &);
 	void parse_connection () override;
-	void read () override;
+	void write_completion_handler (std::shared_ptr<nano::rpc_connection> rpc) override;
 	/** The TLS handshake callback */
 	void handle_handshake (const boost::system::error_code & error);
 	/** The TLS async shutdown callback */
