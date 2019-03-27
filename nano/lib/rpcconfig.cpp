@@ -1,12 +1,6 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/jsonconfig.hpp>
-#include <nano/node/rpcconfig.hpp>
-
-nano::rpc_secure_config::rpc_secure_config () :
-enable (false),
-verbose_logging (false)
-{
-}
+#include <nano/lib/rpcconfig.hpp>
 
 nano::error nano::rpc_secure_config::serialize_json (nano::jsonconfig & json) const
 {

@@ -5,9 +5,9 @@
 #include <nano/nano_wallet/icon.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/ipc.hpp>
-#include <nano/node/rpc.hpp>
 #include <nano/node/working.hpp>
 #include <nano/qt/qt.hpp>
+#include <nano/rpc/rpc.hpp>
 
 #include <boost/make_shared.hpp>
 #include <boost/program_options.hpp>

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <boost/asio.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/thread/thread.hpp>
@@ -107,6 +108,15 @@ namespace thread_attributes
 {
 	void set (boost::thread::attributes &);
 }
+
+class thread_runner final
+{
+public:
+	thread_runner (boost::asio::io_context &, unsigned);
+	~thread_runner ();
+	void join ();
+	std::vector<boost::thread> threads;
+};
 
 template <typename... T>
 class observer_set final

@@ -8,8 +8,8 @@
 #include <nano/core_test/testutil.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/common.hpp>
-#include <nano/node/rpc.hpp>
 #include <nano/node/testing.hpp>
+#include <nano/rpc/rpc.hpp>
 
 using namespace std::chrono_literals;
 

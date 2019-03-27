@@ -3,8 +3,9 @@
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/node.hpp>
-#include <nano/node/rpc.hpp>
 #include <nano/node/testing.hpp>
+#include <nano/rpc/rpc.hpp>
+#include <nano/rpc/rpc_handler.hpp>
 #include <sstream>
 
 #include <argon2.h>

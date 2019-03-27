@@ -5,7 +5,7 @@
 #include <nano/lib/timer.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/common.hpp>
-#include <nano/node/rpc.hpp>
+#include <nano/rpc/rpc.hpp>
 
 #include <algorithm>
 #include <cstdlib>
@@ -3463,49 +3463,6 @@ int nano::node::store_version ()
 {
 	auto transaction (store.tx_begin_read ());
 	return store.version_get (transaction);
-}
-
-nano::thread_runner::thread_runner (boost::asio::io_context & io_ctx_a, unsigned service_threads_a)
-{
-	boost::thread::attributes attrs;
-	nano::thread_attributes::set (attrs);
-	for (auto i (0u); i < service_threads_a; ++i)
-	{
-		threads.push_back (boost::thread (attrs, [&io_ctx_a]() {
-			nano::thread_role::set (nano::thread_role::name::io);
-			try
-			{
-				io_ctx_a.run ();
-			}
-			catch (...)
-			{
-#ifndef NDEBUG
-				/*
-				 * In a release build, catch and swallow the
-				 * io_context exception, in debug mode pass it
-				 * on
-				 */
-				throw;
-#endif
-			}
-		}));
-	}
-}
-
-nano::thread_runner::~thread_runner ()
-{
-	join ();
-}
-
-void nano::thread_runner::join ()
-{
-	for (auto & i : threads)
-	{
-		if (i.joinable ())
-		{
-			i.join ();
-		}
-	}
 }
 
 nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, uint16_t peering_port_a) :
