@@ -73,11 +73,11 @@ wallet (wallet_a)
 {
 	your_account_label->setStyleSheet ("font-weight: bold;");
 	std::string network = "Live";
-	if (wallet.node.network_params.is_beta_network ())
+	if (wallet.node.network_params.network.is_beta_network ())
 	{
 		network = "Beta";
 	}
-	else if (wallet.node.network_params.is_test_network ())
+	else if (wallet.node.network_params.network.is_test_network ())
 	{
 		network = "Test";
 	}

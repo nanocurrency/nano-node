@@ -7,26 +7,26 @@
 
 TEST (work, one)
 {
-	nano::network_params params;
+	nano::network_constants network_constants;
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::change_block block (1, 1, nano::keypair ().prv, 3, 4);
 	block.block_work_set (pool.generate (block.root ()));
 	uint64_t difficulty;
 	ASSERT_FALSE (nano::work_validate (block, &difficulty));
-	ASSERT_LT (params.publish_threshold, difficulty);
+	ASSERT_LT (network_constants.publish_threshold, difficulty);
 }
 
 TEST (work, validate)
 {
-	nano::network_params params;
+	nano::network_constants network_constants;
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::send_block send_block (1, 1, 2, nano::keypair ().prv, 4, 6);
 	uint64_t difficulty;
 	ASSERT_TRUE (nano::work_validate (send_block, &difficulty));
-	ASSERT_LT (difficulty, params.publish_threshold);
+	ASSERT_LT (difficulty, network_constants.publish_threshold);
 	send_block.block_work_set (pool.generate (send_block.root ()));
 	ASSERT_FALSE (nano::work_validate (send_block, &difficulty));
-	ASSERT_LT (params.publish_threshold, difficulty);
+	ASSERT_LT (network_constants.publish_threshold, difficulty);
 }
 
 TEST (work, cancel)

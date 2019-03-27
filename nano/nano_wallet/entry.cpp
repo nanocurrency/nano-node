@@ -332,7 +332,7 @@ int main (int argc, char * const * argv)
 		auto network (vm.find ("network"));
 		if (network != vm.end ())
 		{
-			auto err (nano::network_params::set_active_network (network->second.as<std::string> ()));
+			auto err (nano::network_constants::set_active_network (network->second.as<std::string> ()));
 			if (err)
 			{
 				std::cerr << err.get_message () << std::endl;

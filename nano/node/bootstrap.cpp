@@ -103,7 +103,7 @@ void nano::socket::close ()
 void nano::socket::checkup (uint64_t timeout_a)
 {
 	std::weak_ptr<nano::socket> this_w (shared_from_this ());
-	node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (node->network_params.is_test_network () ? 1 : 10), [this_w, timeout_a]() {
+	node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (node->network_params.network.is_test_network () ? 1 : 10), [this_w, timeout_a]() {
 		if (auto this_l = this_w.lock ())
 		{
 			if (this_l->async_start_time != std::numeric_limits<uint64_t>::max () && this_l->async_start_time + timeout_a < static_cast<uint64_t> (std::chrono::steady_clock::now ().time_since_epoch ().count ()))

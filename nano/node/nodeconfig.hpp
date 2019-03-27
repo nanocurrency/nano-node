@@ -9,6 +9,7 @@
 #include <nano/node/logging.hpp>
 #include <nano/node/stats.hpp>
 #include <nano/node/websocketconfig.hpp>
+#include <nano/secure/common.hpp>
 #include <vector>
 
 namespace nano
@@ -49,7 +50,7 @@ public:
 	uint16_t callback_port{ 0 };
 	std::string callback_target;
 	int lmdb_max_dbs{ 128 };
-	bool allow_local_peers{ !network_params.is_live_network () }; // disable by default for live network
+	bool allow_local_peers{ !network_params.network.is_live_network () }; // disable by default for live network
 	nano::stat_config stat_config;
 	nano::ipc::ipc_config ipc_config;
 	nano::uint256_union epoch_block_link;

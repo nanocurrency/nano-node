@@ -2,6 +2,8 @@
 
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/config.hpp>
+#include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/secure/utility.hpp>
 
@@ -306,5 +308,97 @@ public:
 	genesis ();
 	nano::block_hash hash () const;
 	std::shared_ptr<nano::block> open;
+};
+
+class network_params;
+
+/** Genesis keys and ledger constants for network variants */
+class ledger_constants
+{
+public:
+	ledger_constants (nano::network_constants & network_constants);
+	ledger_constants (nano::nano_networks network_a);
+	nano::keypair zero_key;
+	nano::keypair test_genesis_key;
+	nano::account nano_test_account;
+	nano::account nano_beta_account;
+	nano::account nano_live_account;
+	std::string nano_test_genesis;
+	std::string nano_beta_genesis;
+	std::string nano_live_genesis;
+	nano::account genesis_account;
+	std::string genesis_block;
+	nano::uint128_t genesis_amount;
+	nano::account const & not_an_account ();
+	nano::account burn_account;
+
+private:
+	nano::account not_an_account_m;
+};
+
+/** Node related constants whose value depends on the active network */
+class node_constants
+{
+public:
+	node_constants (nano::network_constants & network_constants);
+	std::chrono::seconds period;
+	std::chrono::seconds cutoff;
+	std::chrono::seconds syn_cookie_cutoff;
+	std::chrono::minutes backup_interval;
+	std::chrono::seconds search_pending_interval;
+	std::chrono::seconds peer_interval;
+	std::chrono::hours unchecked_cleaning_interval;
+	std::chrono::milliseconds process_confirmed_interval;
+
+	/** The maximum amount of samples for a 2 week period on live or 3 days on beta */
+	uint64_t max_weight_samples;
+	uint64_t weight_period;
+};
+
+/** Voting related constants whose value depends on the active network */
+class voting_constants
+{
+public:
+	voting_constants (nano::network_constants & network_constants);
+	size_t max_cache;
+	std::chrono::milliseconds generator_delay;
+};
+
+/** Port-mapping related constants whose value depends on the active network */
+class portmapping_constants
+{
+public:
+	portmapping_constants (nano::network_constants & network_constants);
+	// Timeouts are primes so they infrequently happen at the same time
+	int mapping_timeout;
+	int check_timeout;
+};
+
+/** Bootstrap related constants whose value depends on the active network */
+class bootstrap_constants
+{
+public:
+	bootstrap_constants (nano::network_constants & network_constants);
+	uint64_t lazy_max_pull_blocks;
+};
+
+/** Constants whose value depends on the active network */
+class network_params
+{
+public:
+	/** Populate values based on the current active network */
+	network_params ();
+
+	/** Populate values based on \p network_a */
+	network_params (nano::nano_networks network_a);
+
+	std::array<uint8_t, 2> header_magic_number;
+	unsigned kdf_work;
+	network_constants network;
+	ledger_constants ledger;
+	voting_constants voting;
+	node_constants node;
+	portmapping_constants portmapping;
+	bootstrap_constants bootstrap;
 };
 }

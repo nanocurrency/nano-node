@@ -581,7 +581,7 @@ bool nano::transport::udp_channels::not_a_peer (nano::endpoint const & endpoint_
 	{
 		result = true;
 	}
-	else if (!network_params.is_test_network () && max_ip_connections (endpoint_a))
+	else if (!network_params.network.is_test_network () && max_ip_connections (endpoint_a))
 	{
 		result = true;
 	}
