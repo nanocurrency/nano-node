@@ -1,3 +1,4 @@
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/udp.hpp>
 

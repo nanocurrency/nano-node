@@ -1,5 +1,6 @@
 #include <nano/node/node.hpp>
 
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/interface.h>
 #include <nano/lib/timer.hpp>
 #include <nano/lib/utility.hpp>

@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/node.hpp>

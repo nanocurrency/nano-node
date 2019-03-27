@@ -1,6 +1,7 @@
 #include <iostream>
 #include <limits>
 #include <nano/core_test/testutil.hpp>
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/config.hpp>
 
 nano::nano_networks nano::network_params::active_network = nano::nano_networks::ACTIVE_NETWORK;
