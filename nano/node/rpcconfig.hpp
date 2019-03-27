@@ -2,6 +2,7 @@
 
 #include <boost/asio.hpp>
 #include <nano/lib/errors.hpp>
+#include <nano/secure/common.hpp>
 #include <string>
 
 namespace nano
@@ -38,7 +39,7 @@ public:
 	rpc_config (bool = false);
 	nano::error serialize_json (nano::jsonconfig &) const;
 	nano::error deserialize_json (bool & upgraded_a, nano::jsonconfig &);
-	nano::network_params network_params;
+	nano::network_constants network_constants;
 	boost::asio::ip::address_v6 address;
 	uint16_t port;
 	bool enable_control;

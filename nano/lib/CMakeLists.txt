@@ -34,6 +34,8 @@ add_library (nano_lib
 
 target_link_libraries (nano_lib
 	xxhash
+	ed25519
+	crypto_lib
 	blake2
 	${CRYPTOPP_LIBRARY}
 	Boost::boost)

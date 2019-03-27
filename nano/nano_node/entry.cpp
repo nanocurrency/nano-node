@@ -1,3 +1,4 @@
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/cli.hpp>
@@ -119,7 +120,7 @@ int main (int argc, char * const * argv)
 	auto network (vm.find ("network"));
 	if (network != vm.end ())
 	{
-		auto err (nano::network_params::set_active_network (network->second.as<std::string> ()));
+		auto err (nano::network_constants::set_active_network (network->second.as<std::string> ()));
 		if (err)
 		{
 			std::cerr << err.get_message () << std::endl;
@@ -305,7 +306,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_opencl"))
 		{
-			nano::network_params network_params;
+			nano::network_constants network_constants;
 			bool error (false);
 			nano::opencl_environment environment (error);
 			if (!error)
@@ -352,7 +353,7 @@ int main (int argc, char * const * argv)
 						result = -1;
 					}
 				}
-				uint64_t difficulty (network_params.publish_threshold);
+				uint64_t difficulty (network_constants.publish_threshold);
 				auto difficulty_it = vm.find ("difficulty");
 				if (difficulty_it != vm.end ())
 				{
@@ -477,7 +478,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_process"))
 		{
-			nano::network_params::set_active_network (nano::nano_networks::nano_test_network);
+			nano::network_constants::set_active_network (nano::nano_networks::nano_test_network);
 			nano::network_params test_params;
 			nano::block_builder builder;
 			size_t num_accounts (100000);
@@ -589,7 +590,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_votes"))
 		{
-			nano::network_params::set_active_network (nano::nano_networks::nano_test_network);
+			nano::network_constants::set_active_network (nano::nano_networks::nano_test_network);
 			nano::network_params test_params;
 			nano::block_builder builder;
 			size_t num_elections (40000);

@@ -1,3 +1,4 @@
+#include <boost/polymorphic_pointer_cast.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/rpc_secure.hpp>
 
@@ -8,27 +9,27 @@ bool nano::rpc_secure::on_verify_certificate (bool preverified, boost::asio::ssl
 	switch (error)
 	{
 		case X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT:
-			BOOST_LOG (node.log) << "TLS: Unable to get issuer";
+			node.logger.always_log ("TLS: Unable to get issuer");
 			break;
 		case X509_V_ERR_CERT_NOT_YET_VALID:
 		case X509_V_ERR_ERROR_IN_CERT_NOT_BEFORE_FIELD:
-			BOOST_LOG (node.log) << "TLS: Certificate not yet valid";
+			node.logger.always_log ("TLS: Certificate not yet valid");
 			break;
 		case X509_V_ERR_CERT_HAS_EXPIRED:
 		case X509_V_ERR_ERROR_IN_CERT_NOT_AFTER_FIELD:
-			BOOST_LOG (node.log) << "TLS: Certificate expired";
+			node.logger.always_log ("TLS: Certificate expired");
 			break;
 		case X509_V_ERR_SELF_SIGNED_CERT_IN_CHAIN:
 			if (config.secure.verbose_logging)
 			{
-				BOOST_LOG (node.log) << "TLS: self signed certificate in chain";
+				node.logger.always_log ("TLS: self signed certificate in chain");
 			}
 
 			// Allow self-signed certificates
 			preverified = true;
 			break;
 		case X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT:
-			BOOST_LOG (node.log) << "TLS: Self signed certificate not in the list of trusted certs (forgot to subject-hash certificate filename?)";
+			node.logger.always_log ("TLS: Self signed certificate not in the list of trusted certs (forgot to subject-hash certificate filename?)");
 			break;
 		default:
 			break;
@@ -38,19 +39,19 @@ bool nano::rpc_secure::on_verify_certificate (bool preverified, boost::asio::ssl
 	{
 		if (error != 0)
 		{
-			BOOST_LOG (node.log) << "TLS: Error: " << X509_verify_cert_error_string (error);
-			BOOST_LOG (node.log) << "TLS: Error chain depth : " << X509_STORE_CTX_get_error_depth (cts);
+			node.logger.always_log ("TLS: Error: ", X509_verify_cert_error_string (error));
+			node.logger.always_log ("TLS: Error chain depth : ", X509_STORE_CTX_get_error_depth (cts));
 		}
 
 		X509 * cert = X509_STORE_CTX_get_current_cert (cts);
 		char subject_name[512];
 		X509_NAME_oneline (X509_get_subject_name (cert), subject_name, sizeof (subject_name) - 1);
-		BOOST_LOG (node.log) << "TLS: Verifying: " << subject_name;
-		BOOST_LOG (node.log) << "TLS: Verification: " << preverified;
+		node.logger.always_log ("TLS: Verifying: ", subject_name);
+		node.logger.always_log ("TLS: Verification: ", preverified);
 	}
 	else if (!preverified)
 	{
-		BOOST_LOG (node.log) << "TLS: Pre-verification failed. Turn on verbose logging for more information.";
+		node.logger.always_log ("TLS: Pre-verification failed. Turn on verbose logging for more information.");
 	}
 
 	return preverified;
@@ -109,7 +110,7 @@ void nano::rpc_secure::accept ()
 		}
 		else
 		{
-			BOOST_LOG (this->node.log) << boost::str (boost::format ("Error accepting RPC connections: %1%") % ec);
+			this->node.logger.always_log (boost::str (boost::format ("Error accepting RPC connections: %1%") % ec));
 		}
 	});
 }
@@ -144,75 +145,14 @@ void nano::rpc_connection_secure::handle_handshake (const boost::system::error_c
 	}
 	else
 	{
-		BOOST_LOG (node->log) << "TLS: Handshake error: " << error.message ();
+		node->logger.always_log ("TLS: Handshake error: ", error.message ());
 	}
 }
 
-void nano::rpc_connection_secure::read ()
+void nano::rpc_connection_secure::write_completion_handler (std::shared_ptr<nano::rpc_connection> rpc)
 {
-	auto this_l (std::static_pointer_cast<nano::rpc_connection_secure> (shared_from_this ()));
-	boost::beast::http::async_read (stream, buffer, request, [this_l](boost::system::error_code const & ec, size_t bytes_transferred) {
-		if (!ec)
-		{
-			this_l->node->background ([this_l]() {
-				auto start (std::chrono::steady_clock::now ());
-				auto version (this_l->request.version ());
-				std::string request_id (boost::str (boost::format ("%1%") % boost::io::group (std::hex, std::showbase, reinterpret_cast<uintptr_t> (this_l.get ()))));
-				auto response_handler ([this_l, version, start, request_id](boost::property_tree::ptree const & tree_a) {
-					std::stringstream ostream;
-					boost::property_tree::write_json (ostream, tree_a);
-					ostream.flush ();
-					auto body (ostream.str ());
-					this_l->write_result (body, version);
-					boost::beast::http::async_write (this_l->stream, this_l->res, [this_l](boost::system::error_code const & ec, size_t bytes_transferred) {
-						// Perform the SSL shutdown
-						this_l->stream.async_shutdown ([this_l](auto const & ec_shutdown) {
-							this_l->on_shutdown (ec_shutdown);
-						});
-					});
-
-					if (this_l->node->config.logging.log_rpc ())
-					{
-						BOOST_LOG (this_l->node->log) << boost::str (boost::format ("TLS: RPC request %2% completed in: %1% microseconds") % std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - start).count () % request_id);
-					}
-				});
-				auto method = this_l->request.method ();
-				switch (method)
-				{
-					case boost::beast::http::verb::post:
-					{
-						auto handler (std::make_shared<nano::rpc_handler> (*this_l->node, this_l->rpc, this_l->request.body (), request_id, response_handler));
-						handler->process_request ();
-						break;
-					}
-					case boost::beast::http::verb::options:
-					{
-						this_l->prepare_head (version);
-						this_l->res.set (boost::beast::http::field::allow, "POST, OPTIONS");
-						this_l->res.prepare_payload ();
-						// clang-format off
-						boost::beast::http::async_write (this_l->stream, this_l->res, [this_l](boost::system::error_code const & ec, size_t bytes_transferred) {
-							// Perform the SSL shutdown
-							this_l->stream.async_shutdown (
-							std::bind (
-							&nano::rpc_connection_secure::on_shutdown,
-							this_l,
-							std::placeholders::_1));
-						});
-						// clang-format on
-						break;
-					}
-					default:
-					{
-						error_response (response_handler, "Can only POST requests");
-						break;
-					}
-				}
-			});
-		}
-		else
-		{
-			BOOST_LOG (this_l->node->log) << "TLS: Read error: " << ec.message () << std::endl;
-		}
+	auto rpc_connection_secure = boost::polymorphic_pointer_downcast<nano::rpc_connection_secure> (rpc);
+	rpc_connection_secure->stream.async_shutdown ([rpc_connection_secure](auto const & ec_shutdown) {
+		rpc_connection_secure->on_shutdown (ec_shutdown);
 	});
 }

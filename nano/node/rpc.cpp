@@ -4260,7 +4260,7 @@ void nano::rpc_handler::work_generate ()
 {
 	rpc_control_impl ();
 	auto hash (hash_impl ());
-	uint64_t difficulty (node.network_params.publish_threshold);
+	uint64_t difficulty (node.network_params.network.publish_threshold);
 	boost::optional<std::string> difficulty_text (request.get_optional<std::string> ("difficulty"));
 	if (!ec && difficulty_text.is_initialized ())
 	{
@@ -4359,7 +4359,7 @@ void nano::rpc_handler::work_validate ()
 {
 	auto hash (hash_impl ());
 	auto work (work_optional_impl ());
-	uint64_t difficulty (node.network_params.publish_threshold);
+	uint64_t difficulty (node.network_params.network.publish_threshold);
 	boost::optional<std::string> difficulty_text (request.get_optional<std::string> ("difficulty"));
 	if (!ec && difficulty_text.is_initialized ())
 	{
@@ -4475,7 +4475,7 @@ void nano::rpc_connection::read ()
 	std::promise<size_t> header_available_promise;
 	std::future<size_t> header_available = header_available_promise.get_future ();
 	header_parser->body_limit (rpc.config.max_request_size);
-	if (!node->network_params.is_test_network ())
+	if (!node->network_params.network.is_test_network ())
 	{
 		boost::beast::http::async_read_header (socket, buffer, *header_parser, [this_l, header_parser, &header_available_promise, &header_error](boost::system::error_code const & ec, size_t bytes_transferred) {
 			size_t header_response_bytes_written = 0;
@@ -4522,6 +4522,7 @@ void nano::rpc_connection::read ()
 						auto body (ostream.str ());
 						this_l->write_result (body, version);
 						boost::beast::http::async_write (this_l->socket, this_l->res, [this_l](boost::system::error_code const & ec, size_t bytes_transferred) {
+							this_l->write_completion_handler (this_l);
 						});
 
 						if (this_l->node->config.logging.log_rpc ())
@@ -4543,6 +4544,7 @@ void nano::rpc_connection::read ()
 							this_l->prepare_head (version);
 							this_l->res.prepare_payload ();
 							boost::beast::http::async_write (this_l->socket, this_l->res, [this_l](boost::system::error_code const & ec, size_t bytes_transferred) {
+								this_l->write_completion_handler (this_l);
 							});
 							break;
 						}
@@ -4570,10 +4572,16 @@ void nano::rpc_connection::read ()
 			auto body (ostream.str ());
 			this_l->write_result (body, 11);
 			boost::beast::http::async_write (this_l->socket, this_l->res, [this_l](boost::system::error_code const & ec, size_t bytes_transferred) {
+				this_l->write_completion_handler (this_l);
 			});
 		});
 		error_response (response_handler, std::string ("Invalid header: ") + header_error.message ());
 	}
+}
+
+void nano::rpc_connection::write_completion_handler (std::shared_ptr<nano::rpc_connection> rpc_connection)
+{
+	// Intentional no-op
 }
 
 namespace

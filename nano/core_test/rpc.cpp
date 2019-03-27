@@ -2672,7 +2672,7 @@ TEST (rpc, wallet_frontiers)
 
 TEST (rpc, work_validate)
 {
-	nano::network_params params;
+	nano::network_constants constants;
 	nano::system system (24000, 1);
 	nano::node_init init1;
 	auto & node1 (*system.nodes[0]);
@@ -2709,7 +2709,7 @@ TEST (rpc, work_validate)
 	ASSERT_EQ ("0", validate_text2);
 	uint64_t result_difficulty;
 	ASSERT_FALSE (nano::work_validate (hash, work1, &result_difficulty));
-	ASSERT_GE (result_difficulty, params.publish_threshold);
+	ASSERT_GE (result_difficulty, constants.publish_threshold);
 	request.put ("work", nano::to_string_hex (work1));
 	request.put ("difficulty", nano::to_string_hex (result_difficulty));
 	test_response response3 (request, rpc, system.io_ctx);

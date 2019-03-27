@@ -207,7 +207,7 @@ status (parse_status::success)
 
 void nano::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t size_a)
 {
-	static nano::network_params network_params;
+	static nano::network_constants network_constants;
 	status = parse_status::success;
 	auto error (false);
 	if (size_a <= max_safe_udp_message_size)
@@ -217,7 +217,7 @@ void nano::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t 
 		nano::message_header header (error, stream);
 		if (!error)
 		{
-			if (network_params.is_beta_network () && header.version_using < nano::protocol_version_reasonable_min)
+			if (network_constants.is_beta_network () && header.version_using < nano::protocol_version_reasonable_min)
 			{
 				status = parse_status::outdated_version;
 			}
