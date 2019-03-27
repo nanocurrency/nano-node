@@ -34,7 +34,7 @@ nano::error nano::rpc_secure_config::deserialize_json (nano::jsonconfig & json)
 
 nano::rpc_config::rpc_config (bool enable_control_a) :
 address (boost::asio::ip::address_v6::loopback ()),
-port (network_params.default_rpc_port),
+port (network_constants.default_rpc_port),
 enable_control (enable_control_a),
 max_json_depth (20),
 enable_sign_hash (false),

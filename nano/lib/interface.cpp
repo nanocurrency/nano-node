@@ -116,7 +116,7 @@ char * xrb_sign_transaction (const char * transaction, const xrb_uint256 private
 
 char * xrb_work_transaction (const char * transaction)
 {
-	static nano::network_params network_params;
+	static nano::network_constants network_constants;
 	char * result (nullptr);
 	try
 	{
@@ -128,7 +128,7 @@ char * xrb_work_transaction (const char * transaction)
 		if (block != nullptr)
 		{
 			nano::work_pool pool (boost::thread::hardware_concurrency ());
-			auto work (pool.generate (block->root (), network_params.publish_threshold));
+			auto work (pool.generate (block->root (), network_constants.publish_threshold));
 			block->block_work_set (work);
 			auto json (block->to_json ());
 			result = reinterpret_cast<char *> (malloc (json.size () + 1));

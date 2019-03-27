@@ -26,12 +26,12 @@ logging (logging_a)
 	// which is determined at node startup based on active network.
 	if (peering_port == 0)
 	{
-		peering_port = network_params.default_node_port;
+		peering_port = network_params.network.default_node_port;
 	}
 	const char * epoch_message ("epoch v1 block");
 	strncpy ((char *)epoch_block_link.bytes.data (), epoch_message, epoch_block_link.bytes.size ());
 	epoch_block_signer = network_params.ledger.genesis_account;
-	switch (network_params.network ())
+	switch (network_params.network.network ())
 	{
 		case nano::nano_networks::nano_test_network:
 			enable_voting = true;

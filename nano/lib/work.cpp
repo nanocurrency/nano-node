@@ -7,13 +7,13 @@
 
 bool nano::work_validate (nano::block_hash const & root_a, uint64_t work_a, uint64_t * difficulty_a)
 {
-	static nano::network_params network_params;
+	static nano::network_constants network_constants;
 	auto value (nano::work_value (root_a, work_a));
 	if (difficulty_a != nullptr)
 	{
 		*difficulty_a = value;
 	}
-	return value < network_params.publish_threshold;
+	return value < network_constants.publish_threshold;
 }
 
 bool nano::work_validate (nano::block const & block_a, uint64_t * difficulty_a)
@@ -41,7 +41,7 @@ opencl (opencl_a)
 	static_assert (ATOMIC_INT_LOCK_FREE == 2, "Atomic int needed");
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
-	auto count (network_params.is_test_network () ? 1 : std::min (max_threads_a, std::max (1u, boost::thread::hardware_concurrency ())));
+	auto count (network_constants.is_test_network () ? 1 : std::min (max_threads_a, std::max (1u, boost::thread::hardware_concurrency ())));
 	for (auto i (0); i < count; ++i)
 	{
 		auto thread (boost::thread (attrs, [this, i]() {
@@ -114,7 +114,7 @@ void nano::work_pool::loop (uint64_t thread)
 			if (ticket == ticket_l)
 			{
 				// If the ticket matches what we started with, we're the ones that found the solution
-				assert (output >= network_params.publish_threshold);
+				assert (output >= network_constants.publish_threshold);
 				assert (work_value (current_l.item, work) == output);
 				// Signal other threads to stop their work next time they check ticket
 				++ticket;
@@ -172,7 +172,7 @@ void nano::work_pool::stop ()
 
 void nano::work_pool::generate (nano::uint256_union const & hash_a, std::function<void(boost::optional<uint64_t> const &)> callback_a)
 {
-	generate (hash_a, callback_a, network_params.publish_threshold);
+	generate (hash_a, callback_a, network_constants.publish_threshold);
 }
 
 void nano::work_pool::generate (nano::uint256_union const & hash_a, std::function<void(boost::optional<uint64_t> const &)> callback_a, uint64_t difficulty_a)
@@ -199,7 +199,7 @@ void nano::work_pool::generate (nano::uint256_union const & hash_a, std::functio
 
 uint64_t nano::work_pool::generate (nano::uint256_union const & hash_a)
 {
-	return generate (hash_a, network_params.publish_threshold);
+	return generate (hash_a, network_constants.publish_threshold);
 }
 
 uint64_t nano::work_pool::generate (nano::uint256_union const & hash_a, uint64_t difficulty_a)

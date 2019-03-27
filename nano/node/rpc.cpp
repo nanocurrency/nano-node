@@ -4253,7 +4253,7 @@ void nano::rpc_handler::work_generate ()
 {
 	rpc_control_impl ();
 	auto hash (hash_impl ());
-	uint64_t difficulty (node.network_params.publish_threshold);
+	uint64_t difficulty (node.network_params.network.publish_threshold);
 	boost::optional<std::string> difficulty_text (request.get_optional<std::string> ("difficulty"));
 	if (!ec && difficulty_text.is_initialized ())
 	{
@@ -4352,7 +4352,7 @@ void nano::rpc_handler::work_validate ()
 {
 	auto hash (hash_impl ());
 	auto work (work_optional_impl ());
-	uint64_t difficulty (node.network_params.publish_threshold);
+	uint64_t difficulty (node.network_params.network.publish_threshold);
 	boost::optional<std::string> difficulty_text (request.get_optional<std::string> ("difficulty"));
 	if (!ec && difficulty_text.is_initialized ())
 	{
@@ -4468,7 +4468,7 @@ void nano::rpc_connection::read ()
 	std::promise<size_t> header_available_promise;
 	std::future<size_t> header_available = header_available_promise.get_future ();
 	header_parser->body_limit (rpc.config.max_request_size);
-	if (!node->network_params.is_test_network ())
+	if (!node->network_params.network.is_test_network ())
 	{
 		boost::beast::http::async_read_header (socket, buffer, *header_parser, [this_l, header_parser, &header_available_promise, &header_error](boost::system::error_code const & ec, size_t bytes_transferred) {
 			size_t header_response_bytes_written = 0;
