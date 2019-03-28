@@ -31,6 +31,7 @@ bool nano::transport::channel_udp::operator== (nano::transport::channel const & 
 
 void nano::transport::channel_udp::send_buffer_raw (boost::asio::const_buffer buffer_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
 {
+	std::unique_lock<std::mutex> lock (channels.mutex);
 	channels.socket.async_send_to (buffer_a, endpoint, callback_a);
 }
 
@@ -341,6 +342,7 @@ void nano::transport::udp_channels::start ()
 
 void nano::transport::udp_channels::stop ()
 {
+	std::lock_guard<std::mutex> lock (mutex);
 	if (socket.is_open ())
 	{
 		socket.close ();
@@ -470,7 +472,7 @@ public:
 void nano::transport::udp_channels::receive_action (nano::message_buffer * data_a)
 {
 	auto allowed_sender (true);
-	if (!socket.is_open ())
+	if (!is_socket_open ())
 	{
 		allowed_sender = false;
 	}
@@ -548,9 +550,15 @@ void nano::transport::udp_channels::receive_action (nano::message_buffer * data_
 	}
 }
 
+bool nano::transport::udp_channels::is_socket_open ()
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	return socket.is_open ();
+}
+
 void nano::transport::udp_channels::process_packets ()
 {
-	while (socket.is_open ())
+	while (is_socket_open ())
 	{
 		auto data (node.network.buffer_container.dequeue ());
 		if (data == nullptr)
@@ -591,6 +599,7 @@ bool nano::transport::udp_channels::not_a_peer (nano::endpoint const & endpoint_
 
 bool nano::transport::udp_channels::max_ip_connections (nano::endpoint const & endpoint_a)
 {
+	std::unique_lock<std::mutex> lock (mutex);
 	bool result (channels.get<ip_address_tag> ().count (endpoint_a.address ()) >= max_peers_per_ip);
 	return result;
 }
@@ -735,11 +744,14 @@ void nano::transport::udp_channels::ongoing_keepalive ()
 {
 	nano::keepalive message;
 	random_fill (message.peers);
-	std::lock_guard<std::mutex> lock (mutex);
+	std::unique_lock<std::mutex> lock (mutex);
 	auto keepalive_cutoff (channels.get<last_packet_received_tag> ().lower_bound (std::chrono::steady_clock::now () - network_params.node.period));
 	for (auto i (channels.get<last_packet_received_tag> ().begin ()); i != keepalive_cutoff; ++i)
 	{
+		// send_buffer_raw takes the lock
+		lock.unlock ();
 		i->channel->send (message);
+		lock.lock ();
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	node.alarm.add (std::chrono::steady_clock::now () + network_params.node.period, [node_w]() {
