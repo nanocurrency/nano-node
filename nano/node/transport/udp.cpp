@@ -31,8 +31,7 @@ bool nano::transport::channel_udp::operator== (nano::transport::channel const & 
 
 void nano::transport::channel_udp::send_buffer_raw (boost::asio::const_buffer buffer_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
 {
-	std::unique_lock<std::mutex> lock (channels.mutex);
-	channels.socket.async_send_to (buffer_a, endpoint, callback_a);
+	channels.send (buffer_a, endpoint, callback_a);
 }
 
 std::function<void(boost::system::error_code const &, size_t)> nano::transport::channel_udp::callback (std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
@@ -69,6 +68,12 @@ nano::transport::udp_channels::udp_channels (nano::node & node_a, uint16_t port_
 node (node_a),
 socket (node_a.io_ctx, nano::endpoint (boost::asio::ip::address_v6::any (), port_a))
 {
+}
+
+void nano::transport::udp_channels::send (boost::asio::const_buffer buffer_a, nano::endpoint endpoint_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a)
+{
+	std::unique_lock<std::mutex> lock (mutex);
+	socket.async_send_to (buffer_a, endpoint_a, callback_a);
 }
 
 std::shared_ptr<nano::transport::channel_udp> nano::transport::udp_channels::insert (nano::endpoint const & endpoint_a, unsigned network_version_a)

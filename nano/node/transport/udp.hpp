@@ -53,6 +53,7 @@ namespace transport
 		void receive ();
 		void start ();
 		void stop ();
+		void send (boost::asio::const_buffer buffer_a, nano::endpoint endpoint_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a);
 		nano::endpoint local_endpoint () const;
 		void receive_action (nano::message_buffer *);
 		void process_packets ();
