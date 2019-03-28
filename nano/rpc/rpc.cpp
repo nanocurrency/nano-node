@@ -29,7 +29,7 @@ void nano::rpc::start ()
 	auto endpoint (boost::asio::ip::tcp::endpoint (config.address, config.port));
 	acceptor.open (endpoint.protocol ());
 	acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
-	
+
 	boost::system::error_code ec;
 	acceptor.bind (endpoint, ec);
 	if (ec)

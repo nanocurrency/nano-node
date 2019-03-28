@@ -3,7 +3,6 @@
 
 #include <boost/polymorphic_pointer_cast.hpp>
 
-
 nano::rpc_connection_secure::rpc_connection_secure (nano::rpc_config const & rpc_config, nano::network_constants const & network_constants, boost::asio::io_context & io_ctx, nano::logger_mt & logger, nano::rpc_request_processor & rpc_request_processor, boost::asio::ssl::context & ssl_context) :
 nano::rpc_connection (rpc_config, network_constants, io_ctx, logger, rpc_request_processor),
 stream (socket, ssl_context)

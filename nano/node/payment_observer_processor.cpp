@@ -1,11 +1,11 @@
 #include <nano/node/payment_observer_processor.hpp>
 
 nano::payment_observer_processor::payment_observer_processor (nano::node_observers::blocks_t & blocks)
-	{
-		blocks.add ([this](std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::uint128_t const &, bool) {
-			observer_action (account_a);
-		});	
-	}
+{
+	blocks.add ([this](std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::uint128_t const &, bool) {
+		observer_action (account_a);
+	});
+}
 
 void nano::payment_observer_processor::observer_action (nano::account const & account_a)
 {
