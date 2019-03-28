@@ -15,20 +15,27 @@ add_library (nano_lib
 	errors.hpp
 	errors.cpp
 	expected.hpp
-	blockbuilders.cpp
 	blockbuilders.hpp
-	blocks.cpp
+	blockbuilders.cpp
 	blocks.hpp
+	blocks.cpp
 	config.hpp
 	config.cpp
-	interface.cpp
 	interface.h
+	interface.cpp
+	ipc.hpp
+	ipc.cpp
+	ipc_client.hpp
+	ipc_client.cpp
 	jsonconfig.hpp
-	numbers.cpp
+	logger_mt.hpp
+	rpcconfig.hpp
+	rpcconfig.cpp
 	numbers.hpp
+	numbers.cpp
 	timer.hpp
-	utility.cpp
 	utility.hpp
+	utility.cpp
 	work.hpp
 	work.cpp)
 

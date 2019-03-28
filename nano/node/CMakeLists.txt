@@ -1,7 +1,3 @@
-if (NANO_SECURE_RPC OR RAIBLOCKS_SECURE_RPC)
-	set (secure_rpc_sources rpc_secure.cpp rpc_secure.hpp)
-endif ()
-
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	# No opencl
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
@@ -45,10 +41,6 @@ add_library (node
 	portmapping.cpp
 	repcrawler.hpp
 	repcrawler.cpp
-	rpc.hpp
-	rpc.cpp
-	rpcconfig.hpp
-	rpcconfig.cpp
 	testing.hpp
 	testing.cpp
 	transport/tcp.cpp
@@ -75,6 +67,7 @@ add_library (node
 target_link_libraries (node
 	secure
 	nano_lib
+	rpc
 	libminiupnpc-static
 	argon2
 	lmdb

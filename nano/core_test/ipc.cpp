@@ -3,9 +3,10 @@
 #include <gtest/gtest.h>
 #include <memory>
 #include <nano/core_test/testutil.hpp>
+#include <nano/lib/ipc_client.hpp>
 #include <nano/node/ipc.hpp>
-#include <nano/node/rpc.hpp>
 #include <nano/node/testing.hpp>
+#include <nano/rpc/rpc.hpp>
 #include <sstream>
 #include <vector>
 
@@ -20,7 +21,7 @@ TEST (ipc, asynchronous)
 	nano::ipc::ipc_server ipc (*system.nodes[0], rpc);
 	nano::ipc::ipc_client client (system.nodes[0]->io_ctx);
 
-	auto req (client.prepare_request (nano::ipc::payload_encoding::json_legacy, std::string (R"({"action": "block_count"})")));
+	auto req (nano::ipc::prepare_request (nano::ipc::payload_encoding::json_legacy, std::string (R"({"action": "block_count"})")));
 	auto res (std::make_shared<std::vector<uint8_t>> ());
 	std::atomic<bool> call_completed{ false };
 	client.async_connect ("::1", 24077, [&client, &req, &res, &call_completed](nano::error err) {
@@ -61,13 +62,13 @@ TEST (ipc, synchronous)
 	system.nodes[0]->config.ipc_config.transport_tcp.enabled = true;
 	system.nodes[0]->config.ipc_config.transport_tcp.port = 24077;
 	nano::ipc::ipc_server ipc (*system.nodes[0], rpc);
-	nano::ipc::rpc_ipc_client client (system.nodes[0]->io_ctx);
+	nano::ipc::ipc_client client (system.nodes[0]->io_ctx);
 
 	// Start blocking IPC client in a separate thread
 	std::atomic<bool> call_completed{ false };
 	std::thread client_thread ([&client, &call_completed]() {
 		client.connect ("::1", 24077);
-		std::string response (client.request (std::string (R"({"action": "block_count"})")));
+		std::string response (nano::ipc::request (client, std::string (R"({"action": "block_count"})")));
 		std::stringstream ss;
 		ss << response;
 		// Make sure the response is valid json

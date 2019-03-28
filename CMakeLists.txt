@@ -292,6 +292,7 @@ add_subdirectory(nano/crypto_lib)
 add_subdirectory(nano/secure)
 add_subdirectory(nano/lib)
 add_subdirectory(nano/node)
+add_subdirectory(nano/rpc)
 add_subdirectory(nano/nano_node)
 
 if (NANO_TEST OR RAIBLOCKS_TEST)
@@ -315,6 +316,7 @@ if (NANO_TEST OR RAIBLOCKS_TEST)
 		"${CMAKE_SOURCE_DIR}/gtest/googletest/include")
 
 	add_subdirectory(nano/core_test)
+	add_subdirectory(nano/rpc_test)
 	add_subdirectory(nano/slow_test)
 endif ()
 

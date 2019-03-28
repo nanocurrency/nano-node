@@ -2,7 +2,7 @@
 
 #include <nano/lib/errors.hpp>
 #include <nano/node/node.hpp>
-#include <nano/node/rpc.hpp>
+#include <nano/rpc/rpc.hpp>
 
 namespace nano
 {

@@ -28,15 +28,6 @@
 #include <boost/multi_index_container.hpp>
 #include <boost/thread/thread.hpp>
 
-#define xstr(a) ver_str (a)
-#define ver_str(a) #a
-
-/**
-* Returns build version information
-*/
-static const char * NANO_MAJOR_MINOR_VERSION = xstr (NANO_VERSION_MAJOR) "." xstr (NANO_VERSION_MINOR);
-static const char * NANO_MAJOR_MINOR_RC_VERSION = xstr (NANO_VERSION_MAJOR) "." xstr (NANO_VERSION_MINOR) "RC" xstr (NANO_VERSION_PATCH);
-
 namespace nano
 {
 class channel;
@@ -521,14 +512,6 @@ private:
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (node & node, const std::string & name);
 
-class thread_runner final
-{
-public:
-	thread_runner (boost::asio::io_context &, unsigned);
-	~thread_runner ();
-	void join ();
-	std::vector<boost::thread> threads;
-};
 class inactive_node final
 {
 public:
