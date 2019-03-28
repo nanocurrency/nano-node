@@ -65,6 +65,9 @@ run_tests() {
         fi
     done
 
+    xvfb_run_ ./rpc_test
+    rpc_test_res=${?}
+    
     xvfb_run_ ./qt_test
     qt_test_res=${?}
 
@@ -72,6 +75,7 @@ run_tests() {
     load_test_res=${?}
 
     echo "Core Test return code: ${core_test_res}"
+    echo "RPC  Test return code: ${rpc_test_res}"
     echo "QT Test return code: ${qt_test_res}"
     echo "Load Test return code: ${load_test_res}"
     return ${core_test_res}

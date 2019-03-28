@@ -1,8 +1,8 @@
 #include <nano/lib/errors.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/cli.hpp>
-#include <nano/node/rpc.hpp>
 #include <nano/node/working.hpp>
+#include <nano/rpc/rpc.hpp>
 
 #include <boost/make_shared.hpp>
 #include <boost/program_options.hpp>

@@ -7,6 +7,15 @@
 #include <nano/lib/numbers.hpp>
 #include <string>
 
+#define xstr(a) ver_str (a)
+#define ver_str(a) #a
+
+/**
+* Returns build version information
+*/
+static const char * NANO_MAJOR_MINOR_VERSION = xstr (NANO_VERSION_MAJOR) "." xstr (NANO_VERSION_MINOR);
+static const char * NANO_MAJOR_MINOR_RC_VERSION = xstr (NANO_VERSION_MAJOR) "." xstr (NANO_VERSION_MINOR) "RC" xstr (NANO_VERSION_PATCH);
+
 namespace nano
 {
 /**

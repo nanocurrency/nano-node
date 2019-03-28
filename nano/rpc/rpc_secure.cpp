@@ -1,6 +1,6 @@
-#include <boost/polymorphic_pointer_cast.hpp>
 #include <nano/node/node.hpp>
-#include <nano/node/rpc_secure.hpp>
+#include <nano/rpc/rpc_connection_secure.hpp>
+#include <nano/rpc/rpc_secure.hpp>
 
 bool nano::rpc_secure::on_verify_certificate (bool preverified, boost::asio::ssl::verify_context & ctx)
 {
@@ -112,47 +112,5 @@ void nano::rpc_secure::accept ()
 		{
 			this->node.logger.always_log (boost::str (boost::format ("Error accepting RPC connections: %1%") % ec));
 		}
-	});
-}
-
-nano::rpc_connection_secure::rpc_connection_secure (nano::node & node_a, nano::rpc_secure & rpc_a) :
-nano::rpc_connection (node_a, rpc_a),
-stream (socket, rpc_a.ssl_context)
-{
-}
-
-void nano::rpc_connection_secure::parse_connection ()
-{
-	// Perform the SSL handshake
-	auto this_l = std::static_pointer_cast<nano::rpc_connection_secure> (shared_from_this ());
-	stream.async_handshake (boost::asio::ssl::stream_base::server,
-	[this_l](auto & ec) {
-		this_l->handle_handshake (ec);
-	});
-}
-
-void nano::rpc_connection_secure::on_shutdown (const boost::system::error_code & error)
-{
-	// No-op. We initiate the shutdown (since the RPC server kills the connection after each request)
-	// and we'll thus get an expected EOF error. If the client disconnects, a short-read error will be expected.
-}
-
-void nano::rpc_connection_secure::handle_handshake (const boost::system::error_code & error)
-{
-	if (!error)
-	{
-		read ();
-	}
-	else
-	{
-		node->logger.always_log ("TLS: Handshake error: ", error.message ());
-	}
-}
-
-void nano::rpc_connection_secure::write_completion_handler (std::shared_ptr<nano::rpc_connection> rpc)
-{
-	auto rpc_connection_secure = boost::polymorphic_pointer_downcast<nano::rpc_connection_secure> (rpc);
-	rpc_connection_secure->stream.async_shutdown ([rpc_connection_secure](auto const & ec_shutdown) {
-		rpc_connection_secure->on_shutdown (ec_shutdown);
 	});
 }

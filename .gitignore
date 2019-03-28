@@ -29,6 +29,8 @@
 *.DS_Store
 core_test
 !core_test/
+rpc_test
+!rpc_test/
 qt_test
 nano_node
 nano_wallet
