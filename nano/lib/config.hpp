@@ -130,6 +130,11 @@ inline boost::filesystem::path get_config_path (boost::filesystem::path const & 
 	return data_path / "config.json";
 }
 
+inline boost::filesystem::path get_rpc_config_path (boost::filesystem::path const & data_path)
+{
+	return data_path / "rpc_config.json";
+}
+
 /** Called by gtest_main to enforce test network */
 void force_nano_test_network ();
 }

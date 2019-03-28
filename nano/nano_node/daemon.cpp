@@ -1,3 +1,4 @@
+#include <boost/process.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <fstream>
 #include <iostream>
@@ -5,6 +6,8 @@
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/ipc.hpp>
+#include <nano/node/node.hpp>
+#include <nano/node/openclwork.hpp>
 #include <nano/node/working.hpp>
 
 void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::node_flags const & flags)
@@ -13,7 +16,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 	boost::system::error_code error_chmod;
 	nano::set_secure_perm_directory (data_path, error_chmod);
 	std::unique_ptr<nano::thread_runner> runner;
-	nano::daemon_config config;
+	nano::daemon_config config (data_path);
 	auto error = nano::read_and_update_daemon_config (data_path, config);
 
 	if (!error)
@@ -24,7 +27,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 		nano::work_pool opencl_work (config.node.work_threads, config.node.pow_sleep_interval, opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a) {
 			return opencl->generate_work (root_a, difficulty_a);
 		}
-		                                                                                              : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> (nullptr));
+		                                                              : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> (nullptr));
 		nano::alarm alarm (io_ctx);
 		nano::node_init init;
 		try
@@ -33,14 +36,17 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 			if (!init.error ())
 			{
 				node->start ();
-				std::unique_ptr<nano::rpc> rpc = get_rpc (io_ctx, *node, config.rpc);
-				if (rpc)
+				nano::ipc::ipc_server ipc (*node);
+
+				std::unique_ptr<boost::process::child> rpc_process;
+				if (config.rpc_enable)
 				{
-					rpc->start (config.rpc_enable);
+					rpc_process = std::make_unique<boost::process::child> (config.rpc_path, "--daemon");
 				}
-				nano::ipc::ipc_server ipc (*node, *rpc);
+
 				runner = std::make_unique<nano::thread_runner> (io_ctx, node->config.io_threads);
 				runner->join ();
+				rpc_process->wait ();
 			}
 			else
 			{

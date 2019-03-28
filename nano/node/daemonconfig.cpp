@@ -1,8 +1,9 @@
+#include <nano/lib/config.hpp>
 #include <nano/node/daemonconfig.hpp>
 
-nano::daemon_config::daemon_config () :
-rpc_enable (false),
-opencl_enable (false)
+nano::daemon_config::daemon_config (boost::filesystem::path const & data_path) :
+rpc_path (get_default_rpc_filepath ()),
+data_path (data_path)
 {
 }
 
@@ -10,10 +11,7 @@ nano::error nano::daemon_config::serialize_json (nano::jsonconfig & json)
 {
 	json.put ("version", json_version ());
 	json.put ("rpc_enable", rpc_enable);
-
-	nano::jsonconfig rpc_l;
-	rpc.serialize_json (rpc_l);
-	json.put_child ("rpc", rpc_l);
+	json.put ("rpc_path", rpc_path);
 
 	nano::jsonconfig node_l;
 	node.serialize_json (node_l);
@@ -35,18 +33,27 @@ nano::error nano::daemon_config::deserialize_json (bool & upgraded_a, nano::json
 		{
 			int version_l;
 			json.get_optional<int> ("version", version_l);
+
+			bool enable_sign_hash = false;
+			// If rpc exists then copy enable_sign_hash value now as the upgrade can remove it for earlier versions
+			if (version_l <= 2)
+			{
+				auto rpc = json.get_optional_child ("rpc");
+				if (rpc)
+				{
+					rpc->get_optional<bool> ("enable_sign_hash", enable_sign_hash);
+				}
+			}
+
 			upgraded_a |= upgrade_json (version_l, json);
 
 			json.get_optional<bool> ("rpc_enable", rpc_enable);
-			auto rpc_l (json.get_required_child ("rpc"));
+			json.get_optional<std::string> ("rpc_path", rpc_path);
 
-			if (!rpc.deserialize_json (upgraded_a, rpc_l))
+			auto node_l (json.get_required_child ("node"));
+			if (!json.get_error ())
 			{
-				auto node_l (json.get_required_child ("node"));
-				if (!json.get_error ())
-				{
-					node.deserialize_json (upgraded_a, node_l);
-				}
+				node.deserialize_json (upgraded_a, node_l, rpc_enable, enable_sign_hash);
 			}
 			if (!json.get_error ())
 			{
@@ -95,6 +102,10 @@ bool nano::daemon_config::upgrade_json (unsigned version_a, nano::jsonconfig & j
 			upgraded_l = true;
 		}
 		case 2:
+			migrate_rpc_config (json, data_path);
+			rpc_path = get_default_rpc_filepath ();
+			upgraded_l = true;
+		case 3:
 			break;
 		default:
 			throw std::runtime_error ("Unknown daemon_config version");

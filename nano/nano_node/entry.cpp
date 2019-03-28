@@ -2,10 +2,11 @@
 #include <nano/lib/utility.hpp>
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/cli.hpp>
+#include <nano/node/ipc.hpp>
+#include <nano/node/json_handler.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/payment_observer_processor.hpp>
 #include <nano/node/testing.hpp>
-#include <nano/rpc/rpc.hpp>
-#include <nano/rpc/rpc_handler.hpp>
 #include <sstream>
 
 #include <argon2.h>
@@ -95,13 +96,13 @@ int main (int argc, char * const * argv)
 		("debug_profile_process", "Profile active blocks processing (only for nano_test_network)")
 		("debug_profile_votes", "Profile votes processing (only for nano_test_network)")
 		("debug_random_feed", "Generates output to RNG test suites")
-		("debug_rpc", "Read an RPC command from stdin and invoke it. Network operations will have no effect.")
 		("debug_validate_blocks", "Check all blocks for correct hash, signature, work value")
 		("debug_peers", "Display peer IPv6:port connections")
+		("debug_ipc", "Read an IPC command in JSON from stdin and invoke it. Network operations will have no effect")
 		("platform", boost::program_options::value<std::string> (), "Defines the <platform> for OpenCL commands")
 		("device", boost::program_options::value<std::string> (), "Defines <device> for OpenCL command")
 		("threads", boost::program_options::value<std::string> (), "Defines <threads> count for OpenCL command")
-		("difficulty", boost::program_options::value<std::string> (), "Defines <difficulty> for OpenCL command, HEX")
+		("difficulty", boost::program_options::value<std::string> (), "Defines <difficulty> for OpenCL command, HEX");
 		("pow_sleep_interval", boost::program_options::value<std::string> (), "Defines the amount to sleep inbetween each pow calculation attempt");
 	// clang-format on
 
@@ -377,7 +378,7 @@ int main (int argc, char * const * argv)
 							nano::work_pool work_pool (std::numeric_limits<unsigned>::max (), std::chrono::nanoseconds (0), opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a) {
 								return opencl->generate_work (root_a, difficulty_a);
 							}
-							                                                                                                       : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> (nullptr));
+							                                                                         : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> (nullptr));
 							nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
 							std::cerr << boost::str (boost::format ("Starting OpenCL generation profiling. Platform: %1%. Device: %2%. Threads: %3%. Difficulty: %4$#x\n") % platform % device % threads % difficulty);
 							for (uint64_t i (0); true; ++i)
@@ -716,7 +717,7 @@ int main (int argc, char * const * argv)
 				std::cout.write (reinterpret_cast<const char *> (seed.data.bytes.data ()), seed.data.bytes.size ());
 			}
 		}
-		else if (vm.count ("debug_rpc"))
+		else if (vm.count ("debug_ipc"))
 		{
 			std::string rpc_input_l;
 			std::ostringstream command_l;
@@ -732,11 +733,10 @@ int main (int argc, char * const * argv)
 			});
 
 			nano::inactive_node inactive_node_l (data_path);
-			nano::rpc_config rpc_config_l;
-			rpc_config_l.enable_control = true;
-			std::unique_ptr<nano::rpc> rpc_l = get_rpc (inactive_node_l.node->io_ctx, *inactive_node_l.node, rpc_config_l);
 			std::string req_id_l ("1");
-			nano::rpc_handler handler_l (*inactive_node_l.node, *rpc_l, command_l.str (), req_id_l, response_handler_l);
+			nano::ipc::ipc_server server (*inactive_node_l.node);
+			nano::payment_observer_processor payment_observer_processor (inactive_node_l.node->observers.blocks);
+			nano::json_handler handler_l (payment_observer_processor, *inactive_node_l.node, command_l.str (), req_id_l, response_handler_l);
 			handler_l.process_request ();
 		}
 		else if (vm.count ("debug_validate_blocks"))

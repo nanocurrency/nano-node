@@ -96,6 +96,9 @@ namespace thread_role
 			case nano::thread_role::name::signature_checking:
 				thread_role_name_string = "Signature check";
 				break;
+			case nano::thread_role::name::rpc_request_processor:
+				thread_role_name_string = "RPC processor";
+				break;
 		}
 
 		/*

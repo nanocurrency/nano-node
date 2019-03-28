@@ -1,15 +1,16 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/nano_wallet/icon.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/ipc.hpp>
 #include <nano/node/working.hpp>
 #include <nano/qt/qt.hpp>
-#include <nano/rpc/rpc.hpp>
 
 #include <boost/make_shared.hpp>
+#include <boost/process.hpp>
 #include <boost/program_options.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -17,10 +18,9 @@
 class qt_wallet_config
 {
 public:
-	qt_wallet_config (boost::filesystem::path const & application_path_a) :
-	account (0),
-	rpc_enable (false),
-	opencl_enable (false)
+	qt_wallet_config (boost::filesystem::path const & data_path_a) :
+	rpc_path (nano::get_default_rpc_filepath ()),
+	data_path (data_path_a)
 	{
 		nano::random_pool::generate_block (wallet.bytes.data (), wallet.bytes.size ());
 		assert (!wallet.is_zero ());
@@ -43,6 +43,7 @@ public:
 			case 2:
 			{
 				nano::jsonconfig rpc_l;
+				nano::rpc_config rpc;
 				rpc.serialize_json (rpc_l);
 				json.put ("rpc_enable", "false");
 				json.put_child ("rpc", rpc_l);
@@ -66,6 +67,10 @@ public:
 				upgraded = true;
 			}
 			case 4:
+				migrate_rpc_config (json, data_path);
+				rpc_path = nano::get_default_rpc_filepath ();
+				upgraded = true;
+			case 5:
 				break;
 			default:
 				throw std::runtime_error ("Unknown qt_wallet_config version");
@@ -84,12 +89,24 @@ public:
 				json.put ("version", version_l.get ());
 				upgraded_a = true;
 			}
+
+			bool migrated_enable_sign_hash = false;
+			// If rpc exists then copy enable_sign_hash value now as the upgrade can remove it for earlier versions
+			if (*version_l <= 4)
+			{
+				auto rpc = json.get_optional_child ("rpc");
+				if (rpc)
+				{
+					json.get_optional<bool> ("enable_sign_hash", migrated_enable_sign_hash);
+				}
+			}
+
 			upgraded_a |= upgrade_json (version_l.get (), json);
 			auto wallet_l (json.get<std::string> ("wallet"));
 			auto account_l (json.get<std::string> ("account"));
 			auto node_l (json.get_required_child ("node"));
 			rpc_enable = json.get<bool> ("rpc_enable");
-			auto rpc_l (json.get_required_child ("rpc"));
+			rpc_path = json.get<std::string> ("rpc_path");
 			opencl_enable = json.get<bool> ("opencl_enable");
 			auto opencl_l (json.get_required_child ("opencl"));
 
@@ -103,11 +120,7 @@ public:
 			}
 			if (!node_l.get_error ())
 			{
-				node.deserialize_json (upgraded_a, node_l);
-			}
-			if (!rpc_l.get_error ())
-			{
-				rpc.deserialize_json (upgraded_a, rpc_l);
+				node.deserialize_json (upgraded_a, node_l, rpc_enable, migrated_enable_sign_hash);
 			}
 			if (!opencl_l.get_error ())
 			{
@@ -139,10 +152,8 @@ public:
 		node.bootstrap_connections_max = 4;
 		node.serialize_json (node_l);
 		json.put_child ("node", node_l);
-		nano::jsonconfig rpc_l;
-		rpc.serialize_json (rpc_l);
-		json.put_child ("rpc", rpc_l);
 		json.put ("rpc_enable", rpc_enable);
+		json.put ("rpc_path", rpc_path);
 		json.put ("opencl_enable", opencl_enable);
 		nano::jsonconfig opencl_l;
 		opencl.serialize_json (opencl_l);
@@ -168,15 +179,16 @@ public:
 	}
 
 	nano::uint256_union wallet;
-	nano::account account;
+	nano::account account{ 0 };
 	nano::node_config node;
-	bool rpc_enable;
-	nano::rpc_config rpc;
-	bool opencl_enable;
+	bool rpc_enable{ false };
+	std::string rpc_path;
+	bool opencl_enable{ false };
 	nano::opencl_config opencl;
+	boost::filesystem::path data_path;
 	int json_version () const
 	{
-		return 4;
+		return 5;
 	}
 };
 
@@ -225,7 +237,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	splash->showMessage (QSplashScreen::tr ("Remember - Back Up Your Wallet Seed"), Qt::AlignBottom | Qt::AlignHCenter, Qt::darkGray);
 	application.processEvents ();
 	qt_wallet_config config (data_path);
-	auto config_path ((data_path / "config.json"));
+	auto config_path (nano::get_config_path (data_path));
 	int result (0);
 	nano::jsonconfig json;
 	auto error (json.read_and_update (config, config_path));
@@ -241,7 +253,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 		nano::work_pool work (config.node.work_threads, config.node.pow_sleep_interval, opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a) {
 			return opencl->generate_work (root_a, difficulty_a);
 		}
-		                                                                                       : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> (nullptr));
+		                                                       : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> (nullptr));
 		nano::alarm alarm (io_ctx);
 		nano::node_init init;
 		nano::node_flags flags;
@@ -279,17 +291,19 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 			assert (wallet->exists (config.account));
 			update_config (config, config_path);
 			node->start ();
-			std::unique_ptr<nano::rpc> rpc = get_rpc (io_ctx, *node, config.rpc);
-			if (rpc)
+			nano::ipc::ipc_server ipc (*node);
+
+			std::unique_ptr<boost::process::child> rpc_process;
+			if (config.rpc_enable)
 			{
-				rpc->start (config.rpc_enable);
+				rpc_process = std::make_unique<boost::process::child> (config.rpc_path, "--daemon");
 			}
-			nano::ipc::ipc_server ipc (*node, *rpc);
+
 			nano::thread_runner runner (io_ctx, node->config.io_threads);
 			QObject::connect (&application, &QApplication::aboutToQuit, [&]() {
 				ipc.stop ();
-				rpc->stop ();
 				node->stop ();
+				rpc_process->terminate ();
 			});
 			application.postEvent (&processor, new nano_qt::eventloop_event ([&]() {
 				gui = std::make_shared<nano_qt::wallet> (application, processor, *node, wallet, config.account);

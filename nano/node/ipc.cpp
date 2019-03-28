@@ -16,9 +16,8 @@
 #include <nano/lib/timer.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/ipc.hpp>
+#include <nano/node/json_handler.hpp>
 #include <nano/node/node.hpp>
-#include <nano/rpc/rpc.hpp>
-#include <nano/rpc/rpc_handler.hpp>
 #include <thread>
 
 using namespace boost::log;
@@ -85,7 +84,7 @@ public:
 	}
 
 	/** Handler for payload_encoding::json_legacy */
-	void rpc_handle_query ()
+	void handle_json_query ()
 	{
 		session_timer.restart ();
 		auto request_id_l (std::to_string (server.id_dispenser.fetch_add (1)));
@@ -127,9 +126,13 @@ public:
 		node.stats.inc (nano::stat::type::ipc, nano::stat::detail::invocations);
 		auto body (std::string (reinterpret_cast<char *> (buffer.data ()), buffer.size ()));
 
-		// Note that if the rpc action is async, the shared_ptr<rpc_handler> lifetime will be extended by the action handler
-		auto handler (std::make_shared<nano::rpc_handler> (node, server.rpc, body, request_id_l, response_handler_l));
+		// Note that if the rpc action is async, the shared_ptr<json_handler> lifetime will be extended by the action handler
+		auto handler (std::make_shared<nano::json_handler> (server.payment_observer_processor, node, body, request_id_l, response_handler_l));
 		handler->process_request ();
+		if (!handler->ec && handler->action == "stop")
+		{
+			server.stop ();
+		}
 	}
 
 	/** Async request reader */
@@ -155,7 +158,7 @@ public:
 					this_l->buffer.resize (this_l->buffer_size);
 					// Payload (ptree compliant JSON string)
 					this_l->async_read_exactly (this_l->buffer.data (), this_l->buffer_size, [this_l]() {
-						this_l->rpc_handle_query ();
+						this_l->handle_json_query ();
 					});
 				});
 			}
@@ -289,8 +292,9 @@ private:
 };
 }
 
-nano::ipc::ipc_server::ipc_server (nano::node & node_a, nano::rpc & rpc_a) :
-node (node_a), rpc (rpc_a)
+nano::ipc::ipc_server::ipc_server (nano::node & node_a) :
+node (node_a),
+payment_observer_processor (node.observers.blocks)
 {
 	try
 	{

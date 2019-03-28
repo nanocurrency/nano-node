@@ -23,7 +23,7 @@ public:
 	node_config ();
 	node_config (uint16_t, nano::logging const &);
 	nano::error serialize_json (nano::jsonconfig &) const;
-	nano::error deserialize_json (bool &, nano::jsonconfig &);
+	nano::error deserialize_json (bool &, nano::jsonconfig &, bool, bool);
 	bool upgrade_json (unsigned, nano::jsonconfig &);
 	nano::account random_representative ();
 	nano::network_params network_params;
@@ -85,4 +85,6 @@ public:
 	size_t block_processor_full_size{ 65536 };
 	size_t block_processor_verification_size{ 0 };
 };
+
+void migrate_rpc_config (nano::jsonconfig & json, boost::filesystem::path const & data_path);
 }

@@ -42,10 +42,18 @@ namespace ipc
 	class ipc_config
 	{
 	public:
-		nano::error deserialize_json (nano::jsonconfig & json_a);
+		nano::error deserialize_json (bool &, nano::jsonconfig &, bool, bool);
 		nano::error serialize_json (nano::jsonconfig & json) const;
 		ipc_config_domain_socket transport_domain;
 		ipc_config_tcp_socket transport_tcp;
+		bool enable_sign_hash{ false };
+		uint64_t max_work_generate_difficulty{ 0xffffffffc0000000 };
+
+	private:
+		static int json_version ()
+		{
+			return 1;
+		}
 	};
 }
 }
