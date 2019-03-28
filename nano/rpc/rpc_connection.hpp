@@ -10,7 +10,7 @@ class rpc;
 class rpc_connection : public std::enable_shared_from_this<nano::rpc_connection>
 {
 public:
-	rpc_connection (nano::node &, nano::rpc&);
+	rpc_connection (nano::node &, nano::rpc &);
 	virtual ~rpc_connection () = default;
 	virtual void parse_connection ();
 	virtual void write_completion_handler (std::shared_ptr<nano::rpc_connection> rpc_connection);
