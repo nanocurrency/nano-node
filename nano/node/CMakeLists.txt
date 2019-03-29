@@ -74,7 +74,6 @@ add_library (node
 	xorshift.hpp)
 
 target_link_libraries (node
-	rpc
 	secure
 	nano_lib
 	libminiupnpc-static
