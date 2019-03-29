@@ -4795,9 +4795,8 @@ TEST (rpc, online_reps)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	auto node = system.nodes.front ();
-	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp, default_ipc_tcp_port);
-	nano::ipc::ipc_server ipc_server (*node);
+	enable_ipc_transport_tcp (system.nodes[1]->config.ipc_config.transport_tcp, default_ipc_tcp_port);
+	nano::ipc::ipc_server ipc_server (*system.nodes[1]);
 	nano::rpc rpc (system.io_ctx, nano::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
