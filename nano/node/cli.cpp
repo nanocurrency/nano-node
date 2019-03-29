@@ -979,4 +979,3 @@ void reset_confirmation_heights (nano::block_store & store)
 	store.account_put (transaction, genesis_account, account_info);
 }
 }
-
