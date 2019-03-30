@@ -60,7 +60,7 @@ class election final : public std::enable_shared_from_this<nano::election>
 	std::function<void(std::shared_ptr<nano::block>)> confirmation_action;
 
 public:
-	election (nano::node &, std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const &);
+	election (nano::node &, std::shared_ptr<nano::block>, bool, std::function<void(std::shared_ptr<nano::block>)> const &);
 	nano::election_vote_result vote (nano::account, uint64_t, nano::block_hash);
 	nano::tally_t tally (nano::transaction const &);
 	// Check if we have vote quorum
@@ -85,6 +85,8 @@ public:
 	std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
 	unsigned announcements;
 	std::unordered_set<nano::block_hash> dependent_blocks;
+	bool local_block;
+	std::atomic<bool> ongoing_work_update{ false };
 };
 class conflict_info final
 {
@@ -104,7 +106,7 @@ public:
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
 	// clang-format off
-	bool start (std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
+	bool start (std::shared_ptr<nano::block>, bool = false, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
 	// clang-format on
 	// If this returns true, the vote is a replay
 	// If this returns false, the vote may or may not be a replay
@@ -149,7 +151,7 @@ public:
 private:
 	// Call action with confirmed block, may be different than what we started with
 	// clang-format off
-	bool add (std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
+	bool add (std::shared_ptr<nano::block>, bool = false, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
 	// clang-format on
 	void request_loop ();
 	void request_confirm (std::unique_lock<std::mutex> &);
@@ -436,7 +438,7 @@ public:
 	void receive_confirmed (nano::transaction const &, std::shared_ptr<nano::block>, nano::block_hash const &);
 	void process_confirmed (std::shared_ptr<nano::block>, uint8_t = 0);
 	void process_message (nano::message const &, std::shared_ptr<nano::transport::channel>);
-	void process_active (std::shared_ptr<nano::block>);
+	void process_active (std::shared_ptr<nano::block>, bool = false);
 	nano::process_return process (nano::block const &);
 	void keepalive_preconfigured (std::vector<std::string> const &);
 	nano::block_hash latest (nano::account const &);

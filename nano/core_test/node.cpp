@@ -2435,7 +2435,48 @@ TEST (node, unchecked_cleanup)
 	}
 }
 
-TEST (active_difficulty, recalculate_work)
+TEST (active_difficulty, recalculate_low_work)
+{
+	{
+		nano::system system (24000, 1);
+		auto & node1 (*system.nodes[0]);
+		nano::genesis genesis;
+		nano::keypair key1;
+		auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+		node1.work_generate_blocking (*send1);
+		uint64_t difficulty1;
+		nano::work_validate (*send1, &difficulty1);
+		// Process as local block
+		node1.process_active (send1, true);
+		system.deadline_set (2s);
+		while (node1.active.empty ())
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		std::unique_lock<std::mutex> lock (node1.active.mutex);
+		auto existing (node1.active.roots.find (nano::uint512_union (send1->previous (), send1->root ())));
+		ASSERT_NE (node1.active.roots.end (), existing);
+		auto election (existing->election);
+		// Fake history records to force work recalculation
+		for (auto i (0); i < node1.active.difficulty_cb.size (); i++)
+		{
+			node1.active.difficulty_cb.push_back (difficulty1 + 10000);
+		}
+		lock.unlock ();
+		bool done (false);
+		system.deadline_set (5s);
+		uint64_t difficulty2 (0);
+		while (difficulty2 > difficulty1)
+		{
+			lock.lock ();
+			nano::work_validate (*election->status.winner, &difficulty2);
+			lock.unlock ();
+			ASSERT_NO_ERROR (system.poll ());
+		}
+	}
+}
+
+TEST (active_difficulty, difficulty_check)
 {
 	nano::system system (24000, 1);
 	auto & node1 (*system.nodes[0]);

@@ -978,7 +978,7 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block const & s
 			wallets.node.logger.try_log (boost::str (boost::format ("Cached or provided work for block %1% account %2% is invalid, regenerating") % block->hash ().to_string () % account.to_account ()));
 			wallets.node.work_generate_blocking (*block);
 		}
-		wallets.node.process_active (block);
+		wallets.node.process_active (block, true);
 		wallets.node.block_processor.flush ();
 		if (generate_work_a)
 		{
@@ -1020,7 +1020,7 @@ std::shared_ptr<nano::block> nano::wallet::change_action (nano::account const & 
 			wallets.node.logger.try_log (boost::str (boost::format ("Cached or provided work for block %1% account %2% is invalid, regenerating") % block->hash ().to_string () % source_a.to_account ()));
 			wallets.node.work_generate_blocking (*block);
 		}
-		wallets.node.process_active (block);
+		wallets.node.process_active (block, true);
 		wallets.node.block_processor.flush ();
 		if (generate_work_a)
 		{
@@ -1106,7 +1106,7 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 			wallets.node.logger.try_log (boost::str (boost::format ("Cached or provided work for block %1% account %2% is invalid, regenerating") % block->hash ().to_string () % account_a.to_account ()));
 			wallets.node.work_generate_blocking (*block);
 		}
-		wallets.node.process_active (block);
+		wallets.node.process_active (block, true);
 		wallets.node.block_processor.flush ();
 		if (generate_work_a)
 		{

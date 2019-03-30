@@ -36,7 +36,7 @@ public:
 	void flush ();
 	bool full ();
 	void add (nano::unchecked_info const &);
-	void add (std::shared_ptr<nano::block>, uint64_t = 0);
+	void add (std::shared_ptr<nano::block>, uint64_t = 0, bool = false);
 	void force (std::shared_ptr<nano::block>);
 	bool should_log (bool);
 	bool have_blocks ();
@@ -51,7 +51,7 @@ private:
 	void queue_unchecked (nano::transaction const &, nano::block_hash const &);
 	void verify_state_blocks (nano::transaction const & transaction_a, std::unique_lock<std::mutex> &, size_t = std::numeric_limits<size_t>::max ());
 	void process_batch (std::unique_lock<std::mutex> &);
-	void process_live (nano::block_hash const &, std::shared_ptr<nano::block>);
+	void process_live (nano::block_hash const &, std::shared_ptr<nano::block>, bool = false);
 	bool stopped;
 	bool active;
 	std::chrono::steady_clock::time_point next_log;

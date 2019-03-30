@@ -46,9 +46,9 @@ bool nano::block_processor::full ()
 	return (blocks.size () + state_blocks.size ()) > node.flags.block_processor_full_size;
 }
 
-void nano::block_processor::add (std::shared_ptr<nano::block> block_a, uint64_t origination)
+void nano::block_processor::add (std::shared_ptr<nano::block> block_a, uint64_t origination, bool local_block)
 {
-	nano::unchecked_info info (block_a, 0, origination, nano::signature_verification::unknown);
+	nano::unchecked_info info (block_a, 0, origination, nano::signature_verification::unknown, local_block);
 	add (info);
 }
 
@@ -342,10 +342,10 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 	}
 }
 
-void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a)
+void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a, bool local_block_a)
 {
 	// Start collecting quorum on block
-	node.active.start (block_a);
+	node.active.start (block_a, local_block_a);
 	// Announce block contents to the network
 	node.network.flood_block (block_a);
 	if (node.config.enable_voting)
@@ -393,9 +393,9 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 				info_a.block->serialize_json (block);
 				node.logger.try_log (boost::str (boost::format ("Processing block %1%: %2%") % hash.to_string () % block));
 			}
-			if (info_a.modified > nano::seconds_since_epoch () - 300 && node.block_arrival.recent (hash))
+			if ((info_a.modified > nano::seconds_since_epoch () - 300 && node.block_arrival.recent (hash)) || info_a.local_block)
 			{
-				process_live (hash, info_a.block);
+				process_live (hash, info_a.block, info_a.local_block);
 			}
 			queue_unchecked (transaction_a, hash);
 			break;

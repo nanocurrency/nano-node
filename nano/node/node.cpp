@@ -1356,7 +1356,7 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 		if (ledger_block && !ledger.block_confirmed (transaction_a, ledger_block->hash ()))
 		{
 			std::weak_ptr<nano::node> this_w (shared_from_this ());
-			if (!active.start (ledger_block, [this_w, root](std::shared_ptr<nano::block>) {
+			if (!active.start (ledger_block, false, [this_w, root](std::shared_ptr<nano::block>) {
 				    if (auto this_l = this_w.lock ())
 				    {
 					    auto attempt (this_l->bootstrap_initiator.current_attempt ());
@@ -1517,10 +1517,10 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (gap_cache & gap_ca
 }
 }
 
-void nano::node::process_active (std::shared_ptr<nano::block> incoming)
+void nano::node::process_active (std::shared_ptr<nano::block> incoming, bool local_block)
 {
 	block_arrival.add (incoming->hash ());
-	block_processor.add (incoming, nano::seconds_since_epoch ());
+	block_processor.add (incoming, nano::seconds_since_epoch (), local_block);
 }
 
 nano::process_return nano::node::process (nano::block const & block_a)
@@ -2499,14 +2499,15 @@ nano::election_vote_result::election_vote_result (bool replay_a, bool processed_
 	processed = processed_a;
 }
 
-nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> block_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a) :
+nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> block_a, bool local_block_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a) :
 confirmation_action (confirmation_action_a),
 node (node_a),
 election_start (std::chrono::steady_clock::now ()),
 status ({ block_a, 0 }),
 confirmed (false),
 stopped (false),
-announcements (0)
+announcements (0),
+local_block (local_block_a)
 {
 	last_votes.insert (std::make_pair (node.network_params.ledger.not_an_account (), nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () }));
 	blocks.insert (std::make_pair (block_a->hash (), block_a));
@@ -2906,6 +2907,28 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 					}
 					election_l->update_dependent ();
 				}
+				// Recalculate work for local blocks if difficulty is below active_difficulty
+				if (election_l->local_block && !election_l->ongoing_work_update)
+				{
+					auto block_l (election_l->status.winner);
+					uint64_t difficulty (0);
+					nano::work_validate (*block_l, &difficulty);
+					if (difficulty < active_difficulty)
+					{
+						auto node_l (node.shared ());
+						auto callback = [node_l, block_l, election_l](boost::optional<uint64_t> const & work_a) {
+							if (work_a && !nano::work_validate (block_l->root (), work_a.get ()))
+							{
+								block_l->block_work_set (work_a.get ());
+								node_l->active.update_difficulty (*block_l);
+								node_l->network.flood_block (block_l);
+								election_l->ongoing_work_update = false;
+							}
+						};
+					node.work_generate (block_l->root (), callback, difficulty);
+					election_l->ongoing_work_update = true;
+					}
+				}
 			}
 			if (election_l->announcements < announcement_long || election_l->announcements % announcement_long == 1)
 			{
@@ -3093,13 +3116,13 @@ void nano::active_transactions::stop ()
 	roots.clear ();
 }
 
-bool nano::active_transactions::start (std::shared_ptr<nano::block> block_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
+bool nano::active_transactions::start (std::shared_ptr<nano::block> block_a, bool local_block_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	return add (block_a, confirmation_action_a);
+	return add (block_a, local_block_a, confirmation_action_a);
 }
 
-bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
+bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, bool local_block_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
 {
 	auto error (true);
 	if (!stopped)
@@ -3108,7 +3131,7 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, std::
 		auto existing (roots.find (root));
 		if (existing == roots.end ())
 		{
-			auto election (std::make_shared<nano::election> (node, block_a, confirmation_action_a));
+			auto election (std::make_shared<nano::election> (node, block_a, local_block_a, confirmation_action_a));
 			uint64_t difficulty (0);
 			auto error (nano::work_validate (*block_a, &difficulty));
 			release_assert (!error);
