@@ -167,6 +167,7 @@ void nano::transport::udp_channels::store_all (nano::node & node_a)
 	std::vector<nano::endpoint> endpoints;
 	{
 		std::lock_guard<std::mutex> lock (mutex);
+		endpoints.reserve (channels.size ());
 		std::transform (channels.begin (), channels.end (),
 		std::back_inserter (endpoints), [](const auto & channel) { return channel.endpoint (); });
 	}
