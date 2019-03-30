@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <future>
+#include <numeric>
 #include <sstream>
 
 #include <boost/polymorphic_cast.hpp>
@@ -3050,6 +3051,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 		}
 		roots.erase (*i);
 	}
+	update_active_difficulty ();
 	if (unconfirmed_count > 0)
 	{
 		node.logger.try_log (boost::str (boost::format ("%1% blocks have been unconfirmed averaging %2% announcements") % unconfirmed_count % (unconfirmed_announcements / unconfirmed_count)));
@@ -3269,6 +3271,26 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 	}
 }
 
+void nano::active_transactions::update_active_difficulty ()
+{
+	assert (!mutex.try_lock ());
+	uint64_t difficulty (node.network_params.network.publish_threshold);
+	if (!roots.empty ())
+	{
+		uint128_t min = roots.get<1> ().begin ()->adjusted_difficulty;
+		assert (min >= node.network_params.network.publish_threshold);
+		uint128_t max = (--roots.get<1> ().end ())->adjusted_difficulty;
+		assert (max >= node.network_params.network.publish_threshold);
+		difficulty = static_cast<uint64_t> ((min + max) / 2);
+	}
+	assert (difficulty >= node.network_params.network.publish_threshold);
+	difficulty_cb.push_front (difficulty);
+	auto sum = std::accumulate (node.active.difficulty_cb.begin (), node.active.difficulty_cb.end (), uint128_t (0));
+	difficulty = static_cast<uint64_t> (sum / difficulty_cb.size ());
+	assert (difficulty >= node.network_params.network.publish_threshold);
+	active_difficulty.store (difficulty);
+}
+
 // List of active blocks in elections
 std::deque<std::shared_ptr<nano::block>> nano::active_transactions::list_blocks (bool single_lock)
 {
@@ -3315,6 +3337,8 @@ size_t nano::active_transactions::size ()
 
 nano::active_transactions::active_transactions (nano::node & node_a) :
 node (node_a),
+difficulty_cb (20, node.network_params.network.publish_threshold),
+active_difficulty (node.network_params.network.publish_threshold),
 started (false),
 stopped (false),
 thread ([this]() {
