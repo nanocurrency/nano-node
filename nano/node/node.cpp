@@ -2925,8 +2925,8 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 								election_l->ongoing_work_update = false;
 							}
 						};
-					node.work_generate (block_l->root (), callback, difficulty);
-					election_l->ongoing_work_update = true;
+						node.work_generate (block_l->root (), callback, difficulty);
+						election_l->ongoing_work_update = true;
 					}
 				}
 			}
