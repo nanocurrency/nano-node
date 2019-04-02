@@ -51,7 +51,7 @@ private:
 		const block_hash_height_pair &);
 
 		nano::account account;
-		block_hash_height_pair block_hash_height_pair;
+		confirmation_height_processor::block_hash_height_pair block_hash_height_pair;
 	};
 
 	class open_receive_source_pair final
@@ -61,7 +61,7 @@ private:
 		block_hash_height_pair const &,
 		const nano::block_hash &);
 
-		open_receive_details open_receive_details;
+		confirmation_height_processor::open_receive_details open_receive_details;
 		nano::block_hash source_hash;
 	};
 
