@@ -835,6 +835,13 @@ void nano::rpc_handler::accounts_pending ()
 	response_errors ();
 }
 
+void nano::rpc_handler::active_difficulty ()
+{
+	response_l.put ("difficulty_threshold", nano::to_string_hex (node.network_params.network.publish_threshold));
+	response_l.put ("difficulty_active", nano::to_string_hex (node.active.active_difficulty));
+	response_errors ();
+}
+
 void nano::rpc_handler::available_supply ()
 {
 	auto genesis_balance (node.balance (node.network_params.ledger.genesis_account)); // Cold storage genesis
@@ -4697,6 +4704,7 @@ rpc_handler_no_arg_func_map create_rpc_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("accounts_create", &nano::rpc_handler::accounts_create);
 	no_arg_funcs.emplace ("accounts_frontiers", &nano::rpc_handler::accounts_frontiers);
 	no_arg_funcs.emplace ("accounts_pending", &nano::rpc_handler::accounts_pending);
+	no_arg_funcs.emplace ("active_difficulty", &nano::rpc_handler::active_difficulty);
 	no_arg_funcs.emplace ("available_supply", &nano::rpc_handler::available_supply);
 	no_arg_funcs.emplace ("block_info", &nano::rpc_handler::block_info);
 	no_arg_funcs.emplace ("block", &nano::rpc_handler::block_info);

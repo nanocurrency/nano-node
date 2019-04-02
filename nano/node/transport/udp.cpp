@@ -162,15 +162,22 @@ void nano::transport::udp_channels::random_fill (std::array<nano::endpoint, 8> &
 
 void nano::transport::udp_channels::store_all (nano::node & node_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
-	if (!channels.empty ())
+	// We can't hold the mutex while starting a write transaction, so
+	// we collect endpoints to be saved and then relase the lock.
+	std::vector<nano::endpoint> endpoints;
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		endpoints.reserve (channels.size ());
+		std::transform (channels.begin (), channels.end (),
+		std::back_inserter (endpoints), [](const auto & channel) { return channel.endpoint (); });
+	}
+	if (!endpoints.empty ())
 	{
 		// Clear all peers then refresh with the current list of peers
 		auto transaction (node_a.store.tx_begin_write ());
 		node_a.store.peer_clear (transaction);
-		for (auto channel : channels)
+		for (auto endpoint : endpoints)
 		{
-			auto endpoint (channel.endpoint ());
 			nano::endpoint_key endpoint_key (endpoint.address ().to_v6 ().to_bytes (), endpoint.port ());
 			node_a.store.peer_put (transaction, std::move (endpoint_key));
 		}
