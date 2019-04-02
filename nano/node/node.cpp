@@ -1042,6 +1042,7 @@ online_reps (*this, config.online_weight_minimum.number ()),
 stats (config.stat_config),
 vote_uniquer (block_uniquer),
 active (*this),
+confirmation_height_processor (store, ledger, active),
 startup_time (std::chrono::steady_clock::now ())
 {
 	if (config.websocket_config.enabled)
@@ -1576,6 +1577,7 @@ void nano::node::stop ()
 		block_processor_thread.join ();
 	}
 	vote_processor.stop ();
+	confirmation_height_processor.stop ();
 	active.stop ();
 	network.stop ();
 	if (websocket_server)
@@ -2268,7 +2270,7 @@ void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a, uint8_
 	auto hash (block_a->hash ());
 	if (ledger.block_exists (block_a->type (), hash))
 	{
-		add_confirmation_heights (hash);
+		confirmation_height_processor.add (hash);
 
 		auto transaction (store.tx_begin_read ());
 		receive_confirmed (transaction, block_a, hash);
@@ -3405,82 +3407,6 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transaction
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "confirmed", confirmed_count, sizeof (decltype (active_transactions.confirmed)::value_type) }));
 	return composite;
 }
-}
-
-/**
- * For all the blocks below this height which have been implicitly confirmed check if they
- * are open/receive blocks, and if so follow the source blocks and iteratively repeat to genesis.
- */
-void nano::node::add_confirmation_heights (nano::block_hash const & hash_a)
-{
-	auto transaction (store.tx_begin_write ());
-	std::stack<nano::block_hash, std::vector<nano::block_hash>> open_receive_blocks;
-	auto current = hash_a;
-
-	nano::genesis genesis;
-	do
-	{
-		if (!open_receive_blocks.empty ())
-		{
-			current = open_receive_blocks.top ();
-			open_receive_blocks.pop ();
-		}
-
-		auto hash (current);
-		auto block_height (store.block_account_height (transaction, hash));
-		assert (block_height >= 0);
-		nano::account_info account_info;
-		nano::account account (ledger.account (transaction, hash));
-		release_assert (!store.account_get (transaction, account, account_info));
-		auto confirmation_height = account_info.confirmation_height;
-		if (block_height > confirmation_height)
-		{
-			account_info.confirmation_height = block_height;
-			store.account_put (transaction, account, account_info);
-
-			// Get the difference and check if any of these are recieve blocks
-			auto num_confirmed_blocks = block_height - confirmation_height;
-
-			// Start from the most recent one and work our way through
-			for (uint64_t i = 0; i < num_confirmed_blocks && !current.is_zero (); ++i)
-			{
-				auto block (store.block_get (transaction, current));
-				if (block != nullptr)
-				{
-					// Confirm blocks back
-					active.confirm_block (current);
-					// First check legacy receive/open
-					if (block->type () == nano::block_type::receive || (block->type () == nano::block_type::open && current != genesis.hash ()))
-					{
-						open_receive_blocks.push (block->source ());
-					}
-					else
-					{
-						// Then check state blocks
-						auto state = std::dynamic_pointer_cast<nano::state_block> (block);
-						if (state != nullptr)
-						{
-							nano::block_hash previous (state->hashables.previous);
-							if (!previous.is_zero ())
-							{
-								if (state->hashables.balance.number () >= ledger.balance (transaction, previous) && !state->hashables.link.is_zero () && !ledger.is_epoch_link (state->hashables.link))
-								{
-									open_receive_blocks.push (state->hashables.link);
-								}
-							}
-							// State open blocks are always receive or epoch
-							else if (!ledger.is_epoch_link (state->hashables.link))
-							{
-								open_receive_blocks.push (state->hashables.link);
-							}
-						}
-					}
-
-					current = block->previous ();
-				}
-			}
-		}
-	} while (!open_receive_blocks.empty ());
 }
 
 int nano::node::store_version ()

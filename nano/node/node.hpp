@@ -3,6 +3,7 @@
 #include <nano/lib/work.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap.hpp>
+#include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/logging.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/portmapping.hpp>
@@ -145,6 +146,7 @@ public:
 	static size_t constexpr max_broadcast_queue = 1000;
 	boost::circular_buffer<uint64_t> difficulty_cb;
 	std::atomic<uint64_t> active_difficulty;
+	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
 
 private:
 	// Call action with confirmed block, may be different than what we started with
@@ -155,7 +157,6 @@ private:
 	void request_confirm (std::unique_lock<std::mutex> &);
 	void confirm_frontiers (nano::transaction const &);
 	nano::account next_frontier_account{ 0 };
-	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
 	std::condition_variable condition;
 	bool started;
 	bool stopped;
@@ -504,13 +505,11 @@ public:
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer;
 	nano::active_transactions active;
+	nano::confirmation_height_processor confirmation_height_processor;
 	const std::chrono::steady_clock::time_point startup_time;
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
-
-private:
-	void add_confirmation_heights (nano::block_hash const & hash);
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (node & node, const std::string & name);

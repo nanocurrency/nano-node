@@ -96,6 +96,8 @@ namespace thread_role
 			case nano::thread_role::name::signature_checking:
 				thread_role_name_string = "Signature check";
 				break;
+			case nano::thread_role::name::confirmation_height_processing:
+				thread_role_name_string = "Conf height";
 		}
 
 		/*

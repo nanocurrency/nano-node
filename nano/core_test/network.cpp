@@ -6,6 +6,11 @@
 
 using namespace std::chrono_literals;
 
+namespace
+{
+void prevent_frontier_confirmation_height_checking (std::vector<std::shared_ptr<nano::node>> & nodes);
+}
+
 TEST (network, tcp_connection)
 {
 	boost::asio::io_context io_ctx;
@@ -1455,8 +1460,8 @@ TEST (confirmation_height, single)
 
 TEST (confirmation_height, multiple)
 {
-	auto amount (std::numeric_limits<nano::uint128_t>::max ());
 	nano::system system (24000, 2);
+	prevent_frontier_confirmation_height_checking (system.nodes);
 	nano::keypair key1;
 	nano::keypair key2;
 	nano::keypair key3;
@@ -1638,9 +1643,9 @@ TEST (confirmation_height, gap_bootstrap)
 TEST (confirmation_height, gap_live)
 {
 	nano::system system (24000, 2);
+	prevent_frontier_confirmation_height_checking (system.nodes);
 	nano::keypair destination;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	nano::block_hash latest1 (system.nodes[0]->latest (nano::test_genesis_key.pub));
 	system.wallet (1)->insert_adhoc (destination.prv);
 
 	nano::genesis genesis;
@@ -1687,7 +1692,7 @@ TEST (confirmation_height, gap_live)
 		while (true)
 		{
 			auto transaction = node->store.tx_begin_read ();
-			if (node->ledger.block_confirmed (transaction, open1->hash ()))
+			if (node->ledger.block_confirmed (transaction, receive2->hash ()))
 			{
 				break;
 			}
@@ -1696,19 +1701,15 @@ TEST (confirmation_height, gap_live)
 		}
 
 		// This should confirm the open block and the source of the receive blocks
-		{
-			auto transaction (node->store.tx_begin ());
-			auto unchecked_count (node->store.unchecked_count (transaction));
-			ASSERT_EQ (unchecked_count, 0);
+		auto transaction (node->store.tx_begin ());
+		auto unchecked_count (node->store.unchecked_count (transaction));
+		ASSERT_EQ (unchecked_count, 0);
 
-			nano::account_info account_info;
-			ASSERT_FALSE (node->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
-			ASSERT_EQ (4, account_info.block_count);
-			ASSERT_EQ (2, account_info.confirmation_height);
-			ASSERT_FALSE (node->store.account_get (transaction, destination.pub, account_info));
-			ASSERT_EQ (1, account_info.confirmation_height);
-			ASSERT_EQ (3, account_info.block_count);
-		}
+		nano::account_info account_info;
+		ASSERT_FALSE (node->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
+		ASSERT_EQ (4, account_info.confirmation_height);
+		ASSERT_FALSE (node->store.account_get (transaction, destination.pub, account_info));
+		ASSERT_EQ (3, account_info.confirmation_height);
 	}
 }
 
@@ -1774,4 +1775,14 @@ TEST (bootstrap, tcp_listener_timeout_keepalive)
 		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
+}
+
+namespace
+{
+void prevent_frontier_confirmation_height_checking (std::vector<std::shared_ptr<nano::node>> & nodes)
+{
+	auto unreachable_time = std::chrono::steady_clock::now () + std::chrono::seconds (10000);
+	nodes.front ()->active.next_frontier_check = unreachable_time;
+	nodes.back ()->active.next_frontier_check = unreachable_time;
+}
 }
