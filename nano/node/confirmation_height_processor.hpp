@@ -47,8 +47,7 @@ private:
 	class open_receive_details final
 	{
 	public:
-		open_receive_details (const nano::account &,
-		const block_hash_height_pair &);
+		open_receive_details (const nano::account &, const block_hash_height_pair &);
 
 		nano::account account;
 		confirmation_height_processor::block_hash_height_pair block_hash_height_pair;
@@ -57,9 +56,7 @@ private:
 	class open_receive_source_pair final
 	{
 	public:
-		open_receive_source_pair (const nano::account &,
-		block_hash_height_pair const &,
-		const nano::block_hash &);
+		open_receive_source_pair (const nano::account &, block_hash_height_pair const &, const nano::block_hash &);
 
 		confirmation_height_processor::open_receive_details open_receive_details;
 		nano::block_hash source_hash;

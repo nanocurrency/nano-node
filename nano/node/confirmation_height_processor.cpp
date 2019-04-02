@@ -223,15 +223,13 @@ hash (hash_a), height (height_a)
 {
 }
 
-confirmation_height_processor::open_receive_details::open_receive_details (nano::account const & account_a,
-const confirmation_height_processor::block_hash_height_pair & block_hash_height_pair_a) :
+confirmation_height_processor::open_receive_details::open_receive_details (nano::account const & account_a, const confirmation_height_processor::block_hash_height_pair & block_hash_height_pair_a) :
 account (account_a),
 block_hash_height_pair (block_hash_height_pair_a)
 {
 }
 
-confirmation_height_processor::open_receive_source_pair::open_receive_source_pair (account const & account_a,
-confirmation_height_processor::block_hash_height_pair const & block_hash_height_pair_a,
+confirmation_height_processor::open_receive_source_pair::open_receive_source_pair (account const & account_a, confirmation_height_processor::block_hash_height_pair const & block_hash_height_pair_a,
 const block_hash & source_a) :
 open_receive_details (account_a, block_hash_height_pair_a),
 source_hash (source_a)
