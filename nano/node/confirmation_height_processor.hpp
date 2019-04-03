@@ -15,11 +15,12 @@ class block_store;
 class ledger;
 class active_transactions;
 class transaction;
+class logger_mt;
 
 class confirmation_height_processor final
 {
 public:
-	confirmation_height_processor (nano::block_store &, nano::ledger &, nano::active_transactions &);
+	confirmation_height_processor (nano::block_store &, nano::ledger &, nano::active_transactions &, nano::logger_mt &);
 	~confirmation_height_processor ();
 	void add (nano::block_hash const &);
 	void stop ();
@@ -32,40 +33,32 @@ private:
 	nano::block_store & store;
 	nano::ledger & ledger;
 	nano::active_transactions & active;
+	nano::logger_mt & logger;
 	std::thread thread;
 	constexpr static std::chrono::milliseconds batch_write_delta{ 100 };
 
-	class block_hash_height_pair final
+	class conf_height_details final
 	{
 	public:
-		block_hash_height_pair (const nano::block_hash &, uint64_t height);
-
-		nano::block_hash hash;
-		uint64_t height;
-	};
-
-	class open_receive_details final
-	{
-	public:
-		open_receive_details (const nano::account &, const block_hash_height_pair &);
+		conf_height_details (nano::account const &, nano::block_hash const &, uint64_t);
 
 		nano::account account;
-		confirmation_height_processor::block_hash_height_pair block_hash_height_pair;
+		nano::block_hash hash;
+		uint64_t height;
 	};
 
 	class open_receive_source_pair final
 	{
 	public:
-		open_receive_source_pair (const nano::account &, block_hash_height_pair const &, const nano::block_hash &);
+		open_receive_source_pair (conf_height_details const &, const nano::block_hash &);
 
-		confirmation_height_processor::open_receive_details open_receive_details;
+		conf_height_details open_receive_details;
 		nano::block_hash source_hash;
 	};
 
 	void run ();
 	void add_confirmation_height (nano::block_hash const &);
 	void collect_unconfirmed_receive_and_sources_for_account (uint64_t, uint64_t, nano::block_hash &, const nano::block_hash &, std::stack<open_receive_source_pair> &, nano::account const &, nano::transaction &);
-	void write_pending (std::unordered_map<nano::account, block_hash_height_pair> &);
-	void update_confirmation_height (nano::account const &, block_hash_height_pair const &, std::unordered_map<nano::account, block_hash_height_pair> &);
+	bool write_pending (std::queue<conf_height_details> &);
 };
 }
