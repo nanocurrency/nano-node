@@ -1,4 +1,3 @@
-#include <boost/process.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <fstream>
 #include <iostream>
@@ -38,15 +37,23 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 				node->start ();
 				nano::ipc::ipc_server ipc (*node);
 
-				std::unique_ptr<boost::process::child> rpc_process;
+				std::unique_ptr<std::thread> thread;
 				if (config.rpc_enable)
 				{
-					rpc_process = std::make_unique<boost::process::child> (config.rpc_path, "--daemon");
+					auto rpc_exe_command = boost::str (boost::format ("%1% %2%") % config.rpc_path % "--daemon");
+					thread = std::make_unique<std::thread> ([rpc_exe_command, &logger = node->logger]() {
+						std::system (rpc_exe_command.c_str ());
+						logger.always_log ("RPC server has stopped");
+					});
 				}
 
 				runner = std::make_unique<nano::thread_runner> (io_ctx, node->config.io_threads);
 				runner->join ();
-				rpc_process->wait ();
+
+				if (thread)
+				{
+					thread->join ();
+				}
 			}
 			else
 			{

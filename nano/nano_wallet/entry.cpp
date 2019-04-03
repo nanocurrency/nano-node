@@ -10,10 +10,15 @@
 #include <nano/qt/qt.hpp>
 
 #include <boost/make_shared.hpp>
-#include <boost/process.hpp>
 #include <boost/program_options.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
+#include <boost/version.hpp>
+
+#define USE_BOOST_PROCESS BOOST_VERSION != 106900
+#if USE_BOOST_PROCESS
+#include <boost/process.hpp>
+#endif
 
 class qt_wallet_config
 {
@@ -293,17 +298,25 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 			node->start ();
 			nano::ipc::ipc_server ipc (*node);
 
+#if USE_BOOST_PROCESS
 			std::unique_ptr<boost::process::child> rpc_process;
+#endif
 			if (config.rpc_enable)
 			{
+#if USE_BOOST_PROCESS
 				rpc_process = std::make_unique<boost::process::child> (config.rpc_path, "--daemon");
+#else
+				show_error ("rpc_enable is set to true in the config. Set it to false and start the RPC server manually.");
+#endif
 			}
 
 			nano::thread_runner runner (io_ctx, node->config.io_threads);
 			QObject::connect (&application, &QApplication::aboutToQuit, [&]() {
 				ipc.stop ();
 				node->stop ();
+#if USE_BOOST_PROCESS
 				rpc_process->terminate ();
+#endif
 			});
 			application.postEvent (&processor, new nano_qt::eventloop_event ([&]() {
 				gui = std::make_shared<nano_qt::wallet> (application, processor, *node, wallet, config.account);
