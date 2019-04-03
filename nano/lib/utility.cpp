@@ -99,6 +99,9 @@ namespace thread_role
 			case nano::thread_role::name::rpc_request_processor:
 				thread_role_name_string = "RPC processor";
 				break;
+			case nano::thread_role::name::rpc_process_container:
+				thread_role_name_string = "RPC process";
+				break;
 		}
 
 		/*

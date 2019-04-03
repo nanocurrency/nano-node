@@ -122,10 +122,9 @@ void nano::rpc_request_processor::try_reconnect_and_execute_request (std::shared
 void nano::rpc_request_processor::run ()
 {
 	// This should be a conditioned wait
-	// std::this_thread::sleep_for (std::chrono::seconds (10));
+	std::unique_lock<std::mutex> lk (request_mutex);
 	while (!stopped)
 	{
-		std::unique_lock<std::mutex> lk (request_mutex);
 		if (!requests.empty ())
 		{
 			std::unique_lock<std::mutex> conditions_lk (connections_mutex);
@@ -138,7 +137,7 @@ void nano::rpc_request_processor::run ()
 			{
 				// Successfully found one
 				auto rpc_request = requests.front ();
-				request_mutex.unlock ();
+				lk.unlock ();
 				auto connection = *it;
 				connection->is_available = false; // Make sure no one else can take it
 				conditions_lk.unlock ();
