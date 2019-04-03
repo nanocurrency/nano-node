@@ -126,7 +126,7 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 		}
 
 		// Check whether writing to the database should be done now
-		if ((timer.after_deadline (std::chrono::milliseconds (50)) || open_receive_source_pairs.empty ()) && !pending.empty ())
+		if ((timer.after_deadline (batch_write_delta) || open_receive_source_pairs.empty ()) && !pending.empty ())
 		{
 			write_pending (pending);
 			timer.restart ();
@@ -198,7 +198,7 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 					nano::block_hash previous (state->hashables.previous);
 					if (!previous.is_zero ())
 					{
-						if (state->hashables.balance.number () > ledger.balance (transaction, previous) && !state->hashables.link.is_zero () && !ledger.is_epoch_link (state->hashables.link))
+						if (state->hashables.balance.number () >= ledger.balance (transaction, previous) && !state->hashables.link.is_zero () && !ledger.is_epoch_link (state->hashables.link))
 						{
 							open_receive_source_pairs.emplace (account, block_hash_height_pair{ current, confirmation_height + num_to_confirm }, state->hashables.link);
 						}
