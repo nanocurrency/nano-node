@@ -164,7 +164,7 @@ void nano::rpc_request_processor::run ()
 						try_reconnect_and_execute_request (connection, req, res, rpc_request);
 					}
 				});
-				request_mutex.lock ();
+				lk.lock ();
 				requests.pop_front ();
 			}
 		}
