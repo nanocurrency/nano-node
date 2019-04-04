@@ -24,6 +24,7 @@ public:
 	~confirmation_height_processor ();
 	void add (nano::block_hash const &);
 	void stop ();
+	size_t pending_confirmations_size ();
 
 private:
 	std::mutex mutex;
@@ -61,4 +62,6 @@ private:
 	void collect_unconfirmed_receive_and_sources_for_account (uint64_t, uint64_t, nano::block_hash &, const nano::block_hash &, std::stack<open_receive_source_pair> &, nano::account const &, nano::transaction &);
 	bool write_pending (std::queue<conf_height_details> &);
 };
+
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (confirmation_height_processor &, const std::string &);
 }

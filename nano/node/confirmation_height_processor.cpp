@@ -223,6 +223,12 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 	}
 }
 
+size_t nano::confirmation_height_processor::pending_confirmations_size ()
+{
+	std::lock_guard<std::mutex> lk (mutex);
+	return pending_confirmations.size ();
+}
+
 namespace nano
 {
 confirmation_height_processor::conf_height_details::conf_height_details (nano::account const & account_a, nano::block_hash const & hash_a, uint64_t height_a) :
@@ -236,5 +242,13 @@ confirmation_height_processor::open_receive_source_pair::open_receive_source_pai
 open_receive_details (open_receive_details_a),
 source_hash (source_a)
 {
+}
+
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (confirmation_height_processor & confirmation_height_processor, const std::string & name)
+{
+	size_t pending_confirmation_count = confirmation_height_processor.pending_confirmations_size ();
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "pending_confirmations", pending_confirmation_count, sizeof (nano::block_hash) }));
+	return composite;
 }
 }
