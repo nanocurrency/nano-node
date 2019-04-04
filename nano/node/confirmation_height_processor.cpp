@@ -168,9 +168,11 @@ bool nano::confirmation_height_processor::write_pending (std::queue<conf_height_
 			if (!block)
 			{
 				logger.always_log ("Failed to write confirmation height for: ", pending.hash.to_string ());
+				ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
 				return true;
 			}
 
+			ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - account_info.confirmation_height);
 			account_info.confirmation_height = pending.height;
 			store.account_put (transaction, pending.account, account_info);
 		}
