@@ -2915,6 +2915,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 					nano::work_validate (*block_l, &difficulty);
 					if (difficulty < active_difficulty)
 					{
+						election_l->ongoing_work_update = true;
 						auto node_l (node.shared ());
 						auto callback = [node_l, block_l, election_l](boost::optional<uint64_t> const & work_a) {
 							if (work_a && !nano::work_validate (block_l->root (), work_a.get ()))
@@ -2926,7 +2927,6 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 							}
 						};
 						node.work_generate (block_l->root (), callback, difficulty);
-						election_l->ongoing_work_update = true;
 					}
 				}
 			}
