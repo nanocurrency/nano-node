@@ -48,11 +48,11 @@ void nano::confirmation_height_processor::run ()
 	{
 		if (!pending_confirmations.empty ())
 		{
-			auto & pending_confirmation = pending_confirmations.front ();
+			auto pending_confirmation = pending_confirmations.front ();
+			pending_confirmations.pop ();
 			lk.unlock ();
 			add_confirmation_height (pending_confirmation);
 			lk.lock ();
-			pending_confirmations.pop ();
 		}
 		else
 		{
