@@ -288,9 +288,11 @@ add_library (blake2
 
 target_compile_definitions(blake2 PRIVATE -D__SSE2__)
 
+add_subdirectory(nano/crypto_lib)
 add_subdirectory(nano/secure)
 add_subdirectory(nano/lib)
 add_subdirectory(nano/node)
+add_subdirectory(nano/rpc)
 add_subdirectory(nano/nano_node)
 
 if (NANO_TEST OR RAIBLOCKS_TEST)
@@ -314,6 +316,7 @@ if (NANO_TEST OR RAIBLOCKS_TEST)
 		"${CMAKE_SOURCE_DIR}/gtest/googletest/include")
 
 	add_subdirectory(nano/core_test)
+	add_subdirectory(nano/rpc_test)
 	add_subdirectory(nano/slow_test)
 endif ()
 
@@ -418,7 +421,7 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 		set (CPACK_NSIS_MUI_ICON ${CMAKE_SOURCE_DIR}/Nano.ico)
 		set (CPACK_NSIS_DISPLAY_NAME "Nano")
 		set (CPACK_PACKAGE_NAME "Nano_Installer")
-		set (CPACK_NSIS_PACKAGE_NAME "Nano ${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
+		set (CPACK_NSIS_PACKAGE_NAME "Nano")
 		set (CPACK_NSIS_URL_INFO_ABOUT "https://nano.org")
 		set (CPACK_NSIS_CONTACT "info@nano.org")
 		set (CPACK_NSIS_MENU_LINKS "nano_wallet.exe" "Nano Wallet" "https://nano.org" "Nano website")

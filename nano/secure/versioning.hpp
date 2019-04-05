@@ -6,11 +6,11 @@
 
 namespace nano
 {
-class account_info_v1
+class account_info_v1 final
 {
 public:
 	account_info_v1 () = default;
-	account_info_v1 (MDB_val const &);
+	explicit account_info_v1 (MDB_val const &);
 	account_info_v1 (nano::block_hash const &, nano::block_hash const &, nano::amount const &, uint64_t);
 	nano::mdb_val val () const;
 	nano::block_hash head{ 0 };
@@ -18,22 +18,22 @@ public:
 	nano::amount balance{ 0 };
 	uint64_t modified{ 0 };
 };
-class pending_info_v3
+class pending_info_v3 final
 {
 public:
 	pending_info_v3 () = default;
-	pending_info_v3 (MDB_val const &);
+	explicit pending_info_v3 (MDB_val const &);
 	pending_info_v3 (nano::account const &, nano::amount const &, nano::account const &);
 	nano::mdb_val val () const;
 	nano::account source{ 0 };
 	nano::amount amount{ 0 };
 	nano::account destination{ 0 };
 };
-class account_info_v5
+class account_info_v5 final
 {
 public:
 	account_info_v5 () = default;
-	account_info_v5 (MDB_val const &);
+	explicit account_info_v5 (MDB_val const &);
 	account_info_v5 (nano::block_hash const &, nano::block_hash const &, nano::block_hash const &, nano::amount const &, uint64_t);
 	nano::mdb_val val () const;
 	nano::block_hash head{ 0 };
@@ -42,7 +42,7 @@ public:
 	nano::amount balance{ 0 };
 	uint64_t modified{ 0 };
 };
-class account_info_v13
+class account_info_v13 final
 {
 public:
 	account_info_v13 () = default;

@@ -19,7 +19,7 @@
 namespace nano
 {
 class node;
-class vote_generator
+class vote_generator final
 {
 public:
 	vote_generator (nano::node &);
@@ -42,14 +42,14 @@ private:
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_generator & vote_generator, const std::string & name);
-class cached_votes
+class cached_votes final
 {
 public:
 	std::chrono::steady_clock::time_point time;
 	nano::block_hash hash;
 	std::vector<std::shared_ptr<nano::vote>> votes;
 };
-class votes_cache
+class votes_cache final
 {
 public:
 	void add (std::shared_ptr<nano::vote> const &);

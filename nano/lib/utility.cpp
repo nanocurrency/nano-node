@@ -96,9 +96,6 @@ namespace thread_role
 			case nano::thread_role::name::signature_checking:
 				thread_role_name_string = "Signature check";
 				break;
-			case nano::thread_role::name::slow_db_upgrade:
-				thread_role_name_string = "Slow db upgrade";
-				break;
 		}
 
 		/*
@@ -131,6 +128,49 @@ void nano::thread_attributes::set (boost::thread::attributes & attrs)
 {
 	auto attrs_l (&attrs);
 	attrs_l->set_stack_size (8000000); //8MB
+}
+
+nano::thread_runner::thread_runner (boost::asio::io_context & io_ctx_a, unsigned service_threads_a)
+{
+	boost::thread::attributes attrs;
+	nano::thread_attributes::set (attrs);
+	for (auto i (0u); i < service_threads_a; ++i)
+	{
+		threads.push_back (boost::thread (attrs, [&io_ctx_a]() {
+			nano::thread_role::set (nano::thread_role::name::io);
+			try
+			{
+				io_ctx_a.run ();
+			}
+			catch (...)
+			{
+#ifndef NDEBUG
+				/*
+				 * In a release build, catch and swallow the
+				 * io_context exception, in debug mode pass it
+				 * on
+				 */
+				throw;
+#endif
+			}
+		}));
+	}
+}
+
+nano::thread_runner::~thread_runner ()
+{
+	join ();
+}
+
+void nano::thread_runner::join ()
+{
+	for (auto & i : threads)
+	{
+		if (i.joinable ())
+		{
+			i.join ();
+		}
+	}
 }
 
 /*

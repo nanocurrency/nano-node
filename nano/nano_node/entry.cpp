@@ -1,15 +1,58 @@
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/node.hpp>
-#include <nano/node/rpc.hpp>
 #include <nano/node/testing.hpp>
+#include <nano/rpc/rpc.hpp>
+#include <nano/rpc/rpc_handler.hpp>
 #include <sstream>
 
 #include <argon2.h>
 
 #include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
+
+namespace
+{
+void update_flags (nano::node_flags & flags_a, boost::program_options::variables_map const & vm)
+{
+	auto batch_size_it = vm.find ("batch_size");
+	if (batch_size_it != vm.end ())
+	{
+		flags_a.sideband_batch_size = batch_size_it->second.as<size_t> ();
+	}
+	flags_a.disable_backup = (vm.count ("disable_backup") > 0);
+	flags_a.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
+	flags_a.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
+	flags_a.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
+	flags_a.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
+	flags_a.disable_unchecked_cleanup = (vm.count ("disable_unchecked_cleanup") > 0);
+	flags_a.disable_unchecked_drop = (vm.count ("disable_unchecked_drop") > 0);
+	flags_a.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
+	if (flags_a.fast_bootstrap)
+	{
+		flags_a.block_processor_batch_size = 256 * 1024;
+		flags_a.block_processor_full_size = 1024 * 1024;
+		flags_a.block_processor_verification_size = std::numeric_limits<size_t>::max ();
+	}
+	auto block_processor_batch_size_it = vm.find ("block_processor_batch_size");
+	if (block_processor_batch_size_it != vm.end ())
+	{
+		flags_a.block_processor_batch_size = block_processor_batch_size_it->second.as<size_t> ();
+	}
+	auto block_processor_full_size_it = vm.find ("block_processor_full_size");
+	if (block_processor_full_size_it != vm.end ())
+	{
+		flags_a.block_processor_full_size = block_processor_full_size_it->second.as<size_t> ();
+	}
+	auto block_processor_verification_size_it = vm.find ("block_processor_verification_size");
+	if (block_processor_verification_size_it != vm.end ())
+	{
+		flags_a.block_processor_verification_size = block_processor_verification_size_it->second.as<size_t> ();
+	}
+}
+}
 
 int main (int argc, char * const * argv)
 {
@@ -32,6 +75,9 @@ int main (int argc, char * const * argv)
 		("disable_unchecked_drop", "Disables drop of unchecked table at startup")
 		("fast_bootstrap", "Increase bootstrap speed for high end nodes with higher limits")
 		("batch_size",boost::program_options::value<std::size_t> (), "Increase sideband batch size, default 512")
+		("block_processor_batch_size",boost::program_options::value<std::size_t> (), "Increase block processor transaction batch write size, default 0 (limited by config block_processor_batch_max_time), 256k for fast_bootstrap")
+		("block_processor_full_size",boost::program_options::value<std::size_t> (), "Increase block processor allowed blocks queue size before dropping live network packets and holding bootstrap download, default 65536, 1 million for fast_bootstrap")
+		("block_processor_verification_size",boost::program_options::value<std::size_t> (), "Increase batch signature verification size in block processor, default 0 (limited by config signature_checker_threads), unlimited for fast_bootstrap")
 		("debug_block_count", "Display the number of block")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
 		("debug_dump_online_weight", "Dump online_weights table")
@@ -55,7 +101,8 @@ int main (int argc, char * const * argv)
 		("platform", boost::program_options::value<std::string> (), "Defines the <platform> for OpenCL commands")
 		("device", boost::program_options::value<std::string> (), "Defines <device> for OpenCL command")
 		("threads", boost::program_options::value<std::string> (), "Defines <threads> count for OpenCL command")
-		("difficulty", boost::program_options::value<std::string> (), "Defines <difficulty> for OpenCL command, HEX");
+		("difficulty", boost::program_options::value<std::string> (), "Defines <difficulty> for OpenCL command, HEX")
+		("pow_sleep_interval", boost::program_options::value<std::string> (), "Defines the amount to sleep inbetween each pow calculation attempt");
 	// clang-format on
 
 	boost::program_options::variables_map vm;
@@ -74,7 +121,7 @@ int main (int argc, char * const * argv)
 	auto network (vm.find ("network"));
 	if (network != vm.end ())
 	{
-		auto err (nano::network_params::set_active_network (network->second.as<std::string> ()));
+		auto err (nano::network_constants::set_active_network (network->second.as<std::string> ()));
 		if (err)
 		{
 			std::cerr << err.get_message () << std::endl;
@@ -102,19 +149,7 @@ int main (int argc, char * const * argv)
 		{
 			nano_daemon::daemon daemon;
 			nano::node_flags flags;
-			auto batch_size_it = vm.find ("batch_size");
-			if (batch_size_it != vm.end ())
-			{
-				flags.sideband_batch_size = batch_size_it->second.as<size_t> ();
-			}
-			flags.disable_backup = (vm.count ("disable_backup") > 0);
-			flags.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
-			flags.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
-			flags.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
-			flags.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
-			flags.disable_unchecked_cleanup = (vm.count ("disable_unchecked_cleanup") > 0);
-			flags.disable_unchecked_drop = (vm.count ("disable_unchecked_drop") > 0);
-			flags.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
+			update_flags (flags, vm);
 			daemon.run (data_path, flags);
 		}
 		else if (vm.count ("debug_block_count"))
@@ -132,7 +167,7 @@ int main (int argc, char * const * argv)
 				if (!key.decode_hex (key_it->second.as<std::string> ()))
 				{
 					nano::keypair genesis (key.to_string ());
-					nano::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
+					nano::work_pool work (std::numeric_limits<unsigned>::max ());
 					std::cout << "Genesis: " << genesis.prv.data.to_string () << "\n"
 					          << "Public: " << genesis.pub.to_string () << "\n"
 					          << "Account: " << genesis.pub.to_account () << "\n";
@@ -251,7 +286,14 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_generate"))
 		{
-			nano::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
+			auto pow_rate_limiter = std::chrono::nanoseconds (0);
+			auto pow_sleep_interval_it = vm.find ("pow_sleep_interval");
+			if (pow_sleep_interval_it != vm.cend ())
+			{
+				pow_rate_limiter = std::chrono::nanoseconds (boost::lexical_cast<uint64_t> (pow_sleep_interval_it->second.as<std::string> ()));
+			}
+
+			nano::work_pool work (std::numeric_limits<unsigned>::max (), pow_rate_limiter);
 			nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
 			std::cerr << "Starting generation profiling\n";
 			while (true)
@@ -265,7 +307,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_opencl"))
 		{
-			nano::network_params network_params;
+			nano::network_constants network_constants;
 			bool error (false);
 			nano::opencl_environment environment (error);
 			if (!error)
@@ -312,7 +354,7 @@ int main (int argc, char * const * argv)
 						result = -1;
 					}
 				}
-				uint64_t difficulty (network_params.publish_threshold);
+				uint64_t difficulty (network_constants.publish_threshold);
 				auto difficulty_it = vm.find ("difficulty");
 				if (difficulty_it != vm.end ())
 				{
@@ -332,10 +374,10 @@ int main (int argc, char * const * argv)
 						{
 							nano::logging logging;
 							auto opencl (nano::opencl_work::create (true, { platform, device, threads }, logging));
-							nano::work_pool work_pool (std::numeric_limits<unsigned>::max (), opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a) {
+							nano::work_pool work_pool (std::numeric_limits<unsigned>::max (), std::chrono::nanoseconds (0), opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a) {
 								return opencl->generate_work (root_a, difficulty_a);
 							}
-							                                                                         : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> (nullptr));
+							                                                                                                       : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> (nullptr));
 							nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
 							std::cerr << boost::str (boost::format ("Starting OpenCL generation profiling. Platform: %1%. Device: %2%. Threads: %3%. Difficulty: %4$#x\n") % platform % device % threads % difficulty);
 							for (uint64_t i (0); true; ++i)
@@ -370,7 +412,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_verify"))
 		{
-			nano::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
+			nano::work_pool work (std::numeric_limits<unsigned>::max ());
 			nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
 			std::cerr << "Starting verification profiling\n";
 			while (true)
@@ -437,7 +479,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_process"))
 		{
-			nano::network_params::set_active_network (nano::nano_networks::nano_test_network);
+			nano::network_constants::set_active_network (nano::nano_networks::nano_test_network);
 			nano::network_params test_params;
 			nano::block_builder builder;
 			size_t num_accounts (100000);
@@ -446,7 +488,7 @@ int main (int argc, char * const * argv)
 			std::cerr << boost::str (boost::format ("Starting pregenerating %1% blocks\n") % max_blocks);
 			nano::system system (24000, 1);
 			nano::node_init init;
-			nano::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
+			nano::work_pool work (std::numeric_limits<unsigned>::max ());
 			nano::logging logging;
 			auto path (nano::unique_path ());
 			logging.init (path);
@@ -549,7 +591,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_votes"))
 		{
-			nano::network_params::set_active_network (nano::nano_networks::nano_test_network);
+			nano::network_constants::set_active_network (nano::nano_networks::nano_test_network);
 			nano::network_params test_params;
 			nano::block_builder builder;
 			size_t num_elections (40000);
@@ -558,7 +600,7 @@ int main (int argc, char * const * argv)
 			std::cerr << boost::str (boost::format ("Starting pregenerating %1% votes\n") % max_votes);
 			nano::system system (24000, 1);
 			nano::node_init init;
-			nano::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
+			nano::work_pool work (std::numeric_limits<unsigned>::max ());
 			nano::logging logging;
 			auto path (nano::unique_path ());
 			logging.init (path);
@@ -856,7 +898,7 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_profile_bootstrap"))
 		{
 			nano::inactive_node node2 (nano::unique_path (), 24001);
-			node2.node->flags.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
+			update_flags (node2.node->flags, vm);
 			nano::genesis genesis;
 			auto begin (std::chrono::high_resolution_clock::now ());
 			uint64_t block_count (0);

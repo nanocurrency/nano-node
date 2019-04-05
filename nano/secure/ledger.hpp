@@ -8,14 +8,14 @@ namespace nano
 class block_store;
 class stat;
 
-class shared_ptr_block_hash
+class shared_ptr_block_hash final
 {
 public:
 	size_t operator() (std::shared_ptr<nano::block> const &) const;
 	bool operator() (std::shared_ptr<nano::block> const &, std::shared_ptr<nano::block> const &) const;
 };
 using tally_t = std::map<nano::uint128_t, std::shared_ptr<nano::block>, std::greater<nano::uint128_t>>;
-class ledger
+class ledger final
 {
 public:
 	ledger (nano::block_store &, nano::stat &, nano::uint256_union const & = 1, nano::account const & = 0);
@@ -25,7 +25,7 @@ public:
 	nano::uint128_t account_balance (nano::transaction const &, nano::account const &);
 	nano::uint128_t account_pending (nano::transaction const &, nano::account const &);
 	nano::uint128_t weight (nano::transaction const &, nano::account const &);
-	std::shared_ptr<nano::block> successor (nano::transaction const &, nano::uint512_union const &);
+	std::shared_ptr<nano::block> successor (nano::transaction const &, nano::qualified_root const &);
 	std::shared_ptr<nano::block> forked_block (nano::transaction const &, nano::block const &);
 	bool block_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
 	nano::block_hash latest (nano::transaction const &, nano::account const &);

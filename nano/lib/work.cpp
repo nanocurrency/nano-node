@@ -1,13 +1,13 @@
-#include <nano/lib/work.hpp>
-
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/work.hpp>
 #include <nano/node/xorshift.hpp>
 
 #include <future>
 
 bool nano::work_validate (nano::block_hash const & root_a, uint64_t work_a, uint64_t * difficulty_a)
 {
-	static nano::network_params network_params;
+	static nano::network_constants network_constants;
 	auto value (nano::work_value (root_a, work_a));
 	if (!network_params.is_live_network () && value < network_params.publish_threshold)
 	{
@@ -17,7 +17,7 @@ bool nano::work_validate (nano::block_hash const & root_a, uint64_t work_a, uint
 	{
 		*difficulty_a = value;
 	}
-	return value < network_params.publish_threshold;
+	return value < network_constants.publish_threshold;
 }
 
 bool nano::work_validate (nano::block const & block_a, uint64_t * difficulty_a)
@@ -36,15 +36,16 @@ uint64_t nano::work_value (nano::block_hash const & root_a, uint64_t work_a)
 	return result;
 }
 
-nano::work_pool::work_pool (unsigned max_threads_a, std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> opencl_a) :
+nano::work_pool::work_pool (unsigned max_threads_a, std::chrono::nanoseconds pow_rate_limiter_a, std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> opencl_a) :
 ticket (0),
 done (false),
+pow_rate_limiter (pow_rate_limiter_a),
 opencl (opencl_a)
 {
 	static_assert (ATOMIC_INT_LOCK_FREE == 2, "Atomic int needed");
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
-	auto count (network_params.is_test_network () ? 1 : std::min (max_threads_a, std::max (1u, boost::thread::hardware_concurrency ())));
+	auto count (network_constants.is_test_network () ? 1 : std::min (max_threads_a, std::max (1u, boost::thread::hardware_concurrency ())));
 	for (auto i (0); i < count; ++i)
 	{
 		auto thread (boost::thread (attrs, [this, i]() {
@@ -75,6 +76,7 @@ void nano::work_pool::loop (uint64_t thread)
 	blake2b_state hash;
 	blake2b_init (&hash, sizeof (output));
 	std::unique_lock<std::mutex> lock (mutex);
+	auto pow_sleep = pow_rate_limiter;
 	while (!done || !pending.empty ())
 	{
 		auto empty (pending.empty ());
@@ -105,12 +107,18 @@ void nano::work_pool::loop (uint64_t thread)
 					blake2b_init (&hash, sizeof (output));
 					iteration -= 1;
 				}
+
+				// Add a rate limiter (if specified) to the pow calculation to save some CPUs which don't want to operate at full throttle
+				if (pow_sleep != std::chrono::nanoseconds (0))
+				{
+					std::this_thread::sleep_for (pow_sleep);
+				}
 			}
 			lock.lock ();
 			if (ticket == ticket_l)
 			{
 				// If the ticket matches what we started with, we're the ones that found the solution
-				assert (output >= network_params.publish_threshold);
+				assert (output >= network_constants.publish_threshold);
 				assert (work_value (current_l.item, work) == output);
 				// Signal other threads to stop their work next time they check ticket
 				++ticket;
@@ -166,24 +174,24 @@ void nano::work_pool::stop ()
 	producer_condition.notify_all ();
 }
 
-void nano::work_pool::generate (nano::uint256_union const & root_a, std::function<void(boost::optional<uint64_t> const &)> callback_a)
+void nano::work_pool::generate (nano::uint256_union const & hash_a, std::function<void(boost::optional<uint64_t> const &)> callback_a)
 {
-	generate (root_a, callback_a, network_params.publish_threshold);
+	generate (hash_a, callback_a, network_constants.publish_threshold);
 }
 
-void nano::work_pool::generate (nano::uint256_union const & root_a, std::function<void(boost::optional<uint64_t> const &)> callback_a, uint64_t difficulty_a)
+void nano::work_pool::generate (nano::uint256_union const & hash_a, std::function<void(boost::optional<uint64_t> const &)> callback_a, uint64_t difficulty_a)
 {
-	assert (!root_a.is_zero ());
+	assert (!hash_a.is_zero ());
 	boost::optional<uint64_t> result;
 	if (opencl)
 	{
-		result = opencl (network_params.is_live_network () ? root_a : root_a ^ network_params.ledger.genesis_account, difficulty_a);
+		result = opencl (network_params.is_live_network () ? hash_a : hash_a ^ network_params.ledger.genesis_account, difficulty_a);
 	}
 	if (!result)
 	{
 		{
 			std::lock_guard<std::mutex> lock (mutex);
-			pending.push_back ({ network_params.is_live_network () ? root_a : root_a ^ network_params.ledger.genesis_account, callback_a, difficulty_a });
+			pending.push_back ({ network_params.is_live_network () ? hash_a : hash_a ^ network_params.ledger.genesis_account, callback_a, difficulty_a });
 		}
 		producer_condition.notify_all ();
 	}
@@ -195,7 +203,7 @@ void nano::work_pool::generate (nano::uint256_union const & root_a, std::functio
 
 uint64_t nano::work_pool::generate (nano::uint256_union const & hash_a)
 {
-	return generate (hash_a, network_params.publish_threshold);
+	return generate (hash_a, network_constants.publish_threshold);
 }
 
 uint64_t nano::work_pool::generate (nano::uint256_union const & hash_a, uint64_t difficulty_a)

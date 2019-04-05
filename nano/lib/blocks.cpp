@@ -1,3 +1,4 @@
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
@@ -133,6 +134,11 @@ nano::block_hash nano::block::link () const
 nano::account nano::block::account () const
 {
 	return 0;
+}
+
+nano::qualified_root nano::block::qualified_root () const
+{
+	return nano::qualified_root (previous (), root ());
 }
 
 void nano::send_block::visit (nano::block_visitor & visitor_a) const

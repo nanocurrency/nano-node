@@ -10,7 +10,7 @@ class message_buffer;
 namespace transport
 {
 	class udp_channels;
-	class channel_udp : public nano::transport::channel
+	class channel_udp final : public nano::transport::channel
 	{
 		friend class nano::transport::udp_channels;
 
@@ -34,7 +34,7 @@ namespace transport
 	private:
 		nano::transport::udp_channels & channels;
 	};
-	class udp_channels
+	class udp_channels final
 	{
 		friend class nano::transport::channel_udp;
 
@@ -53,6 +53,7 @@ namespace transport
 		void receive ();
 		void start ();
 		void stop ();
+		void send (boost::asio::const_buffer buffer_a, nano::endpoint endpoint_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a);
 		nano::endpoint local_endpoint () const;
 		void receive_action (nano::message_buffer *);
 		void process_packets ();
@@ -81,6 +82,7 @@ namespace transport
 		static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
 
 	private:
+		bool is_socket_open ();
 		void ongoing_syn_cookie_cleanup ();
 		class endpoint_tag
 		{
@@ -97,7 +99,7 @@ namespace transport
 		class last_tcp_attempt_tag
 		{
 		};
-		class channel_udp_wrapper
+		class channel_udp_wrapper final
 		{
 		public:
 			std::shared_ptr<nano::transport::channel_udp> channel;
@@ -118,13 +120,13 @@ namespace transport
 				return endpoint ().address ();
 			}
 		};
-		class endpoint_attempt
+		class endpoint_attempt final
 		{
 		public:
 			nano::endpoint endpoint;
 			std::chrono::steady_clock::time_point last_attempt;
 		};
-		class syn_cookie_info
+		class syn_cookie_info final
 		{
 		public:
 			nano::uint256_union cookie;

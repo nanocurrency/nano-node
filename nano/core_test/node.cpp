@@ -4,6 +4,7 @@
 #include <nano/node/testing.hpp>
 #include <nano/node/transport/udp.hpp>
 #include <nano/node/working.hpp>
+#include <numeric>
 
 #include <boost/make_shared.hpp>
 #include <boost/polymorphic_cast.hpp>
@@ -32,7 +33,7 @@ TEST (node, block_store_path_failure)
 	auto path (nano::unique_path ());
 	nano::logging logging;
 	logging.init (path);
-	nano::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
+	nano::work_pool work (std::numeric_limits<unsigned>::max ());
 	auto node (std::make_shared<nano::node> (init, *service, 24000, path, alarm, logging, work));
 	ASSERT_TRUE (node->wallets.items.empty ());
 	node->stop ();
@@ -47,7 +48,7 @@ TEST (node, password_fanout)
 	nano::node_config config;
 	config.peering_port = 24000;
 	config.logging.init (path);
-	nano::work_pool work (std::numeric_limits<unsigned>::max (), nullptr);
+	nano::work_pool work (std::numeric_limits<unsigned>::max ());
 	config.password_fanout = 10;
 	auto node (std::make_shared<nano::node> (init, *service, path, alarm, config, work));
 	auto wallet (node->wallets.create (100));
@@ -202,7 +203,7 @@ TEST (node, node_receive_quorum)
 	{
 		{
 			std::lock_guard<std::mutex> guard (system.nodes[0]->active.mutex);
-			auto info (system.nodes[0]->active.roots.find (nano::uint512_union (previous, previous)));
+			auto info (system.nodes[0]->active.roots.find (nano::qualified_root (previous, previous)));
 			ASSERT_NE (system.nodes[0]->active.roots.end (), info);
 			done = info->election->announcements > nano::active_transactions::announcement_min;
 		}
@@ -698,10 +699,12 @@ TEST (node_config, v16_v17_upgrade)
 	// These config options should not be present
 	ASSERT_FALSE (tree.get_optional_child ("tcp_client_timeout"));
 	ASSERT_FALSE (tree.get_optional_child ("tcp_server_timeout"));
+	ASSERT_FALSE (tree.get_optional_child ("pow_sleep_interval"));
 	config.deserialize_json (upgraded, tree);
 	// The config options should be added after the upgrade
 	ASSERT_TRUE (!!tree.get_optional_child ("tcp_client_timeout"));
 	ASSERT_TRUE (!!tree.get_optional_child ("tcp_server_timeout"));
+	ASSERT_TRUE (!!tree.get_optional_child ("pow_sleep_interval"));
 
 	ASSERT_TRUE (upgraded);
 	auto version (tree.get<std::string> ("version"));
@@ -723,19 +726,23 @@ TEST (node_config, v17_values)
 	// Check config is correct
 	tree.put ("tcp_client_timeout", 1);
 	tree.put ("tcp_server_timeout", 0);
+	tree.put ("pow_sleep_interval", 0);
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
 	ASSERT_EQ (config.tcp_client_timeout.count (), 1);
 	ASSERT_EQ (config.tcp_server_timeout.count (), 0);
+	ASSERT_EQ (config.pow_sleep_interval.count (), 0);
 
 	// Check config is correct with other values
 	tree.put ("tcp_client_timeout", std::numeric_limits<unsigned long>::max () - 100);
 	tree.put ("tcp_server_timeout", std::numeric_limits<unsigned>::max ());
+	tree.put ("pow_sleep_interval", std::numeric_limits<unsigned long>::max () - 100);
 	upgraded = false;
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
 	ASSERT_EQ (config.tcp_client_timeout.count (), std::numeric_limits<unsigned long>::max () - 100);
 	ASSERT_EQ (config.tcp_server_timeout.count (), std::numeric_limits<unsigned>::max ());
+	ASSERT_EQ (config.pow_sleep_interval.count (), std::numeric_limits<unsigned long>::max () - 100);
 }
 
 // Regression test to ensure that deserializing includes changes node via get_required_child
@@ -863,7 +870,7 @@ TEST (node, fork_publish)
 		node1.block_processor.flush ();
 		ASSERT_EQ (1, node1.active.size ());
 		std::unique_lock<std::mutex> lock (node1.active.mutex);
-		auto existing (node1.active.roots.find (nano::uint512_union (send1->previous (), send1->root ())));
+		auto existing (node1.active.roots.find (send1->qualified_root ()));
 		ASSERT_NE (node1.active.roots.end (), existing);
 		auto election (existing->election);
 		lock.unlock ();
@@ -913,7 +920,7 @@ TEST (node, fork_keep)
 	node2.process_active (send2);
 	node2.block_processor.flush ();
 	std::unique_lock<std::mutex> lock (node2.active.mutex);
-	auto conflict (node2.active.roots.find (nano::uint512_union (genesis.hash (), genesis.hash ())));
+	auto conflict (node2.active.roots.find (nano::qualified_root (genesis.hash (), genesis.hash ())));
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
 	ASSERT_NE (nullptr, votes1);
@@ -969,7 +976,7 @@ TEST (node, fork_flip)
 	node2.process_message (publish1, channel2);
 	node2.block_processor.flush ();
 	std::unique_lock<std::mutex> lock (node2.active.mutex);
-	auto conflict (node2.active.roots.find (nano::uint512_union (genesis.hash (), genesis.hash ())));
+	auto conflict (node2.active.roots.find (nano::qualified_root (genesis.hash (), genesis.hash ())));
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
 	ASSERT_NE (nullptr, votes1);
@@ -1030,7 +1037,7 @@ TEST (node, fork_multi_flip)
 	node2.process_message (publish1, node2.network.udp_channels.create (node2.network.endpoint ()));
 	node2.block_processor.flush ();
 	std::unique_lock<std::mutex> lock (node2.active.mutex);
-	auto conflict (node2.active.roots.find (nano::uint512_union (genesis.hash (), genesis.hash ())));
+	auto conflict (node2.active.roots.find (nano::qualified_root (genesis.hash (), genesis.hash ())));
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
 	ASSERT_NE (nullptr, votes1);
@@ -1163,7 +1170,7 @@ TEST (node, fork_open_flip)
 	node2.process_active (open1);
 	node2.block_processor.flush ();
 	std::unique_lock<std::mutex> lock (node2.active.mutex);
-	auto conflict (node2.active.roots.find (nano::uint512_union (open1->previous (), open1->root ())));
+	auto conflict (node2.active.roots.find (open1->qualified_root ()));
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
 	ASSERT_NE (nullptr, votes1);
@@ -1447,7 +1454,7 @@ TEST (node, rep_self_vote)
 	auto & active (node0->active);
 	active.start (block0);
 	std::unique_lock<std::mutex> lock (active.mutex);
-	auto existing (active.roots.find (nano::uint512_union (block0->previous (), block0->root ())));
+	auto existing (active.roots.find (block0->qualified_root ()));
 	ASSERT_NE (active.roots.end (), existing);
 	auto election (existing->election);
 	lock.unlock ();
@@ -1558,6 +1565,58 @@ TEST (node, bootstrap_fork_open)
 	{
 		// Poll until the outvoted block is evicted.
 		ASSERT_NO_ERROR (system0.poll ());
+	}
+}
+
+// Unconfirmed blocks from bootstrap should be confirmed
+TEST (node, bootstrap_confirm_frontiers)
+{
+	nano::system system0 (24000, 1);
+	nano::system system1 (24001, 1);
+	auto node0 (system0.nodes[0]);
+	auto node1 (system1.nodes[0]);
+	system0.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	nano::keypair key0;
+	// node0 knows about send0 but node1 doesn't.
+	nano::send_block send0 (node0->latest (nano::test_genesis_key.pub), key0.pub, nano::genesis_amount - 500, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	node0->work_generate_blocking (send0);
+	{
+		auto transaction (node0->store.tx_begin (true));
+		ASSERT_EQ (nano::process_result::progress, node0->ledger.process (transaction, send0).code);
+	}
+	ASSERT_FALSE (node0->bootstrap_initiator.in_progress ());
+	ASSERT_FALSE (node1->bootstrap_initiator.in_progress ());
+	ASSERT_TRUE (node1->active.empty ());
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
+	system1.deadline_set (10s);
+	while (node1->block (send0.hash ()) == nullptr)
+	{
+		ASSERT_NO_ERROR (system0.poll ());
+		ASSERT_NO_ERROR (system1.poll ());
+	}
+	// Wait for election start
+	system1.deadline_set (10s);
+	while (node1->active.empty ())
+	{
+		ASSERT_NO_ERROR (system0.poll ());
+		ASSERT_NO_ERROR (system1.poll ());
+	}
+	{
+		std::lock_guard<std::mutex> guard (node1->active.mutex);
+		auto existing1 (node1->active.blocks.find (send0.hash ()));
+		ASSERT_NE (node1->active.blocks.end (), existing1);
+	}
+	// Wait for confirmation height update
+	system1.deadline_set (10s);
+	bool done (false);
+	while (!done)
+	{
+		{
+			auto transaction (node1->store.tx_begin_read ());
+			done = node1->ledger.block_confirmed (transaction, send0.hash ());
+		}
+		ASSERT_NO_ERROR (system0.poll ());
+		ASSERT_NO_ERROR (system1.poll ());
 	}
 }
 
@@ -1915,7 +1974,7 @@ TEST (node, confirm_quorum)
 		ASSERT_FALSE (system.nodes[0]->active.empty ());
 		{
 			std::lock_guard<std::mutex> guard (system.nodes[0]->active.mutex);
-			auto info (system.nodes[0]->active.roots.find (nano::uint512_union (send1->hash (), send1->hash ())));
+			auto info (system.nodes[0]->active.roots.find (nano::qualified_root (send1->hash (), send1->hash ())));
 			ASSERT_NE (system.nodes[0]->active.roots.end (), info);
 			done = info->election->announcements > nano::active_transactions::announcement_min;
 		}
@@ -2374,6 +2433,42 @@ TEST (node, unchecked_cleanup)
 		auto unchecked_count (node.store.unchecked_count (transaction));
 		ASSERT_EQ (unchecked_count, 0);
 	}
+}
+
+TEST (active_difficulty, recalculate_work)
+{
+	nano::system system (24000, 1);
+	auto & node1 (*system.nodes[0]);
+	nano::genesis genesis;
+	nano::keypair key1;
+	ASSERT_EQ (node1.network_params.network.publish_threshold, node1.active.active_difficulty.load ());
+	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	node1.work_generate_blocking (*send1);
+	uint64_t difficulty1;
+	nano::work_validate (*send1, &difficulty1);
+	// Process as local block
+	node1.process_active (send1);
+	system.deadline_set (2s);
+	while (node1.active.empty ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	auto sum = std::accumulate (node1.active.difficulty_cb.begin (), node1.active.difficulty_cb.end (), nano::uint128_t (0));
+	std::unique_lock<std::mutex> lock (node1.active.mutex);
+	ASSERT_EQ (node1.active.active_difficulty.load (), static_cast<uint64_t> (sum / node1.active.difficulty_cb.size ()));
+	// Fake history records to force work recalculation
+	for (auto i (0); i < node1.active.difficulty_cb.size (); i++)
+	{
+		node1.active.difficulty_cb.push_back (difficulty1 + 10000);
+	}
+	node1.work_generate_blocking (*send1);
+	uint64_t difficulty2;
+	nano::work_validate (*send1, &difficulty2);
+	node1.process_active (send1);
+	node1.active.update_active_difficulty ();
+	lock.unlock ();
+	sum = std::accumulate (node1.active.difficulty_cb.begin (), node1.active.difficulty_cb.end (), nano::uint128_t (0));
+	ASSERT_EQ (node1.active.active_difficulty.load (), static_cast<uint64_t> (sum / node1.active.difficulty_cb.size ()));
 }
 
 namespace

@@ -1,12 +1,13 @@
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/nano_wallet/icon.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/ipc.hpp>
-#include <nano/node/rpc.hpp>
 #include <nano/node/working.hpp>
 #include <nano/qt/qt.hpp>
+#include <nano/rpc/rpc.hpp>
 
 #include <boost/make_shared.hpp>
 #include <boost/program_options.hpp>
@@ -211,7 +212,7 @@ bool update_config (qt_wallet_config & config_a, boost::filesystem::path const &
 }
 }
 
-int run_wallet (QApplication & application, int argc, char * const * argv, boost::filesystem::path const & data_path, nano::node_flags const & flags)
+int run_wallet (QApplication & application, int argc, char * const * argv, boost::filesystem::path const & data_path)
 {
 	nano_qt::eventloop_processor processor;
 	boost::system::error_code error_chmod;
@@ -237,12 +238,13 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 		std::shared_ptr<nano_qt::wallet> gui;
 		nano::set_application_icon (application);
 		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
-		nano::work_pool work (config.node.work_threads, opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a) {
+		nano::work_pool work (config.node.work_threads, config.node.pow_sleep_interval, opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a) {
 			return opencl->generate_work (root_a, difficulty_a);
 		}
-		                                                       : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> (nullptr));
+		                                                                                       : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> (nullptr));
 		nano::alarm alarm (io_ctx);
 		nano::node_init init;
+		nano::node_flags flags;
 		node = std::make_shared<nano::node> (init, io_ctx, data_path, alarm, config.node, work, flags);
 		if (!init.error ())
 		{
@@ -331,7 +333,7 @@ int main (int argc, char * const * argv)
 		auto network (vm.find ("network"));
 		if (network != vm.end ())
 		{
-			auto err (nano::network_params::set_active_network (network->second.as<std::string> ()));
+			auto err (nano::network_constants::set_active_network (network->second.as<std::string> ()));
 			if (err)
 			{
 				std::cerr << err.get_message () << std::endl;
@@ -369,21 +371,7 @@ int main (int argc, char * const * argv)
 					{
 						data_path = nano::working_path ();
 					}
-					nano::node_flags flags;
-					auto batch_size_it = vm.find ("batch_size");
-					if (batch_size_it != vm.end ())
-					{
-						flags.sideband_batch_size = batch_size_it->second.as<size_t> ();
-					}
-					flags.disable_backup = (vm.count ("disable_backup") > 0);
-					flags.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
-					flags.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
-					flags.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
-					flags.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
-					flags.disable_unchecked_cleanup = (vm.count ("disable_unchecked_cleanup") > 0);
-					flags.disable_unchecked_drop = (vm.count ("disable_unchecked_drop") > 0);
-					flags.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
-					result = run_wallet (application, argc, argv, data_path, flags);
+					result = run_wallet (application, argc, argv, data_path);
 				}
 				catch (std::exception const & e)
 				{

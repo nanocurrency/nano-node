@@ -1,5 +1,6 @@
 #pragma once
 
+#include <boost/asio.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/thread/thread.hpp>
@@ -84,8 +85,7 @@ namespace thread_role
 		wallet_actions,
 		bootstrap_initiator,
 		voting,
-		signature_checking,
-		slow_db_upgrade,
+		signature_checking
 	};
 	/*
 	 * Get/Set the identifier for the current thread
@@ -101,7 +101,7 @@ namespace thread_role
 	/*
 	 * Internal only, should not be called directly
 	 */
-	void set_os_name (std::string);
+	void set_os_name (std::string const &);
 }
 
 namespace thread_attributes
@@ -109,8 +109,17 @@ namespace thread_attributes
 	void set (boost::thread::attributes &);
 }
 
+class thread_runner final
+{
+public:
+	thread_runner (boost::asio::io_context &, unsigned);
+	~thread_runner ();
+	void join ();
+	std::vector<boost::thread> threads;
+};
+
 template <typename... T>
-class observer_set
+class observer_set final
 {
 public:
 	void add (std::function<void(T...)> const & observer_a)

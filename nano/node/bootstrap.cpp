@@ -1,5 +1,6 @@
 #include <nano/node/bootstrap.hpp>
 
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
@@ -87,24 +88,23 @@ void nano::socket::stop ()
 
 void nano::socket::close ()
 {
-	if (socket_m.is_open ())
+	boost::system::error_code ec;
+	socket_m.shutdown (boost::asio::ip::tcp::socket::shutdown_both, ec);
+	/* Ignore error code for shutdown as it is a best effort anyway. */
+
+	socket_m.close (ec);
+	if (ec)
 	{
-		try
-		{
-			socket_m.shutdown (boost::asio::ip::tcp::socket::shutdown_both);
-		}
-		catch (...)
-		{
-			/* Ignore spurious exceptions; shutdown is best effort. */
-		}
-		socket_m.close ();
+		// The underlying file descriptor is closed anyway, so just log the error and increment socket failure stat.
+		node->logger.try_log ("Failed to close socket gracefully: ", ec.message ());
+		node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::error_socket_close);
 	}
 }
 
 void nano::socket::checkup (uint64_t timeout_a)
 {
 	std::weak_ptr<nano::socket> this_w (shared_from_this ());
-	node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (node->network_params.is_test_network () ? 1 : 10), [this_w, timeout_a]() {
+	node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (node->network_params.network.is_test_network () ? 1 : 10), [this_w, timeout_a]() {
 		if (auto this_l = this_w.lock ())
 		{
 			if (this_l->async_start_time != std::numeric_limits<uint64_t>::max () && this_l->async_start_time + timeout_a < static_cast<uint64_t> (std::chrono::steady_clock::now ().time_since_epoch ().count ()))
@@ -842,20 +842,11 @@ void nano::bulk_pull_account_client::receive_pending ()
 	});
 }
 
-nano::pull_info::pull_info () :
-account (0),
-end (0),
-count (0),
-attempts (0)
-{
-}
-
 nano::pull_info::pull_info (nano::account const & account_a, nano::block_hash const & head_a, nano::block_hash const & end_a, count_t count_a) :
 account (account_a),
 head (head_a),
 end (end_a),
-count (count_a),
-attempts (0)
+count (count_a)
 {
 }
 

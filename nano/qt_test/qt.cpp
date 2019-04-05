@@ -265,9 +265,10 @@ TEST (wallet, send)
 	auto account (nano::test_genesis_key.pub);
 	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
+	ASSERT_NE (wallet->rendering_ratio, nano::raw_ratio);
 	QTest::mouseClick (wallet->send_blocks, Qt::LeftButton);
 	QTest::keyClicks (wallet->send_account, key1.to_account ().c_str ());
-	QTest::keyClicks (wallet->send_count, "2");
+	QTest::keyClicks (wallet->send_count, "2.03");
 	QTest::mouseClick (wallet->send_blocks_send, Qt::LeftButton);
 	system.deadline_set (10s);
 	while (wallet->node.balance (key1).is_zero ())
@@ -275,7 +276,7 @@ TEST (wallet, send)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	nano::uint128_t amount (wallet->node.balance (key1));
-	ASSERT_EQ (2 * wallet->rendering_ratio, amount);
+	ASSERT_EQ (2 * wallet->rendering_ratio + (3 * wallet->rendering_ratio / 100), amount);
 	QTest::mouseClick (wallet->send_blocks_back, Qt::LeftButton);
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
 	QTest::mouseClick (wallet->advanced.show_ledger, Qt::LeftButton);

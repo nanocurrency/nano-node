@@ -2,6 +2,7 @@
 #include <boost/property_tree/ptree.hpp>
 #include <cstdlib>
 #include <nano/core_test/testutil.hpp>
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/node/transport/udp.hpp>
@@ -21,7 +22,7 @@ std::string nano::error_system_messages::message (int ev) const
 
 nano::system::system (uint16_t port_a, uint16_t count_a) :
 alarm (io_ctx),
-work (1, nullptr)
+work (1)
 {
 	auto scale_str = std::getenv ("DEADLINE_SCALE_FACTOR");
 	if (scale_str)
@@ -360,10 +361,6 @@ void nano::system::stop ()
 		i->stop ();
 	}
 	work.stop ();
-}
-
-nano::landing_store::landing_store ()
-{
 }
 
 nano::landing_store::landing_store (nano::account const & source_a, nano::account const & destination_a, uint64_t start_a, uint64_t last_a) :

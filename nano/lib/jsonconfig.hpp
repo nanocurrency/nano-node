@@ -57,11 +57,11 @@ public:
 	}
 
 	/**
-	 * Reads a json object from the stream and if it was changed, write the object back to the stream.
+	 * Reads a json object from the stream 
 	 * @return nano::error&, including a descriptive error message if the config file is malformed.
 	 */
 	template <typename T>
-	nano::error & read_and_update (T & object, boost::filesystem::path const & path_a)
+	nano::error & read (boost::filesystem::path const & path_a)
 	{
 		std::fstream stream;
 		open_or_create (stream, path_a.string ());
@@ -80,23 +80,35 @@ public:
 				}
 			}
 			stream.close ();
-			if (!*error)
+		}
+		return *error;
+	}
+
+	/**
+	 * Reads a json object from the stream and if it was changed, write the object back to the stream.
+	 * @return nano::error&, including a descriptive error message if the config file is malformed.
+	 */
+	template <typename T>
+	nano::error & read_and_update (T & object, boost::filesystem::path const & path_a)
+	{
+		read<T> (path_a);
+		if (!*error)
+		{
+			std::fstream stream;
+			auto updated (false);
+			*error = object.deserialize_json (updated, *this);
+			if (!*error && updated)
 			{
-				auto updated (false);
-				*error = object.deserialize_json (updated, *this);
-				if (!*error && updated)
+				stream.open (path_a.string (), std::ios_base::out | std::ios_base::trunc);
+				try
 				{
-					stream.open (path_a.string (), std::ios_base::out | std::ios_base::trunc);
-					try
-					{
-						boost::property_tree::write_json (stream, tree);
-					}
-					catch (std::runtime_error const & ex)
-					{
-						*error = ex;
-					}
-					stream.close ();
+					boost::property_tree::write_json (stream, tree);
 				}
+				catch (std::runtime_error const & ex)
+				{
+					*error = ex;
+				}
+				stream.close ();
 			}
 		}
 		return *error;

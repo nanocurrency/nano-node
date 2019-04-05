@@ -71,6 +71,8 @@ public:
 	virtual nano::block_hash source () const;
 	// Previous block or account number for open blocks
 	virtual nano::block_hash root () const = 0;
+	// Qualified root value based on previous() and root()
+	virtual nano::qualified_root qualified_root () const;
 	// Link field for state blocks, zero otherwise.
 	virtual nano::block_hash link () const;
 	virtual nano::account representative () const;

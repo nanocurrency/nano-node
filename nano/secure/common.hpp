@@ -2,6 +2,8 @@
 
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/config.hpp>
+#include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/secure/utility.hpp>
 
@@ -74,7 +76,7 @@ enum class epoch : uint8_t
 /**
  * Latest information about an account
  */
-class account_info
+class account_info final
 {
 public:
 	account_info () = default;
@@ -97,7 +99,7 @@ public:
 /**
  * Information on an uncollected send
  */
-class pending_info
+class pending_info final
 {
 public:
 	pending_info () = default;
@@ -108,7 +110,7 @@ public:
 	nano::amount amount{ 0 };
 	nano::epoch epoch{ nano::epoch::epoch_0 };
 };
-class pending_key
+class pending_key final
 {
 public:
 	pending_key () = default;
@@ -120,7 +122,7 @@ public:
 	nano::block_hash hash{ 0 };
 };
 
-class endpoint_key
+class endpoint_key final
 {
 public:
 	endpoint_key () = default;
@@ -169,7 +171,7 @@ enum class signature_verification : uint8_t
 /**
  * Information on an unchecked block
  */
-class unchecked_info
+class unchecked_info final
 {
 public:
 	unchecked_info () = default;
@@ -183,7 +185,7 @@ public:
 	nano::signature_verification verified{ nano::signature_verification::unknown };
 };
 
-class block_info
+class block_info final
 {
 public:
 	block_info () = default;
@@ -191,7 +193,7 @@ public:
 	nano::account account{ 0 };
 	nano::amount balance{ 0 };
 };
-class block_counts
+class block_counts final
 {
 public:
 	size_t sum () const;
@@ -202,14 +204,14 @@ public:
 	size_t state_v0{ 0 };
 	size_t state_v1{ 0 };
 };
-typedef std::vector<boost::variant<std::shared_ptr<nano::block>, nano::block_hash>>::const_iterator vote_blocks_vec_iter;
-class iterate_vote_blocks_as_hash
+using vote_blocks_vec_iter = std::vector<boost::variant<std::shared_ptr<nano::block>, nano::block_hash>>::const_iterator;
+class iterate_vote_blocks_as_hash final
 {
 public:
 	iterate_vote_blocks_as_hash () = default;
 	nano::block_hash operator() (boost::variant<std::shared_ptr<nano::block>, nano::block_hash> const & item) const;
 };
-class vote
+class vote final
 {
 public:
 	vote () = default;
@@ -243,7 +245,7 @@ public:
 /**
  * This class serves to find and return unique variants of a vote in order to minimize memory usage
  */
-class vote_uniquer
+class vote_uniquer final
 {
 public:
 	using value_type = std::pair<const nano::uint256_union, std::weak_ptr<nano::vote>>;
@@ -283,7 +285,7 @@ enum class process_result
 	representative_mismatch, // Representative is changed when it is not allowed
 	block_position // This block cannot follow the previous block
 };
-class process_return
+class process_return final
 {
 public:
 	nano::process_result code;
@@ -300,11 +302,103 @@ enum class tally_result
 	confirm
 };
 
-class genesis
+class genesis final
 {
 public:
 	genesis ();
 	nano::block_hash hash () const;
 	std::shared_ptr<nano::block> open;
+};
+
+class network_params;
+
+/** Genesis keys and ledger constants for network variants */
+class ledger_constants
+{
+public:
+	ledger_constants (nano::network_constants & network_constants);
+	ledger_constants (nano::nano_networks network_a);
+	nano::keypair zero_key;
+	nano::keypair test_genesis_key;
+	nano::account nano_test_account;
+	nano::account nano_beta_account;
+	nano::account nano_live_account;
+	std::string nano_test_genesis;
+	std::string nano_beta_genesis;
+	std::string nano_live_genesis;
+	nano::account genesis_account;
+	std::string genesis_block;
+	nano::uint128_t genesis_amount;
+	nano::account const & not_an_account ();
+	nano::account burn_account;
+
+private:
+	nano::account not_an_account_m;
+};
+
+/** Node related constants whose value depends on the active network */
+class node_constants
+{
+public:
+	node_constants (nano::network_constants & network_constants);
+	std::chrono::seconds period;
+	std::chrono::seconds cutoff;
+	std::chrono::seconds syn_cookie_cutoff;
+	std::chrono::minutes backup_interval;
+	std::chrono::seconds search_pending_interval;
+	std::chrono::seconds peer_interval;
+	std::chrono::hours unchecked_cleaning_interval;
+	std::chrono::milliseconds process_confirmed_interval;
+
+	/** The maximum amount of samples for a 2 week period on live or 3 days on beta */
+	uint64_t max_weight_samples;
+	uint64_t weight_period;
+};
+
+/** Voting related constants whose value depends on the active network */
+class voting_constants
+{
+public:
+	voting_constants (nano::network_constants & network_constants);
+	size_t max_cache;
+	std::chrono::milliseconds generator_delay;
+};
+
+/** Port-mapping related constants whose value depends on the active network */
+class portmapping_constants
+{
+public:
+	portmapping_constants (nano::network_constants & network_constants);
+	// Timeouts are primes so they infrequently happen at the same time
+	int mapping_timeout;
+	int check_timeout;
+};
+
+/** Bootstrap related constants whose value depends on the active network */
+class bootstrap_constants
+{
+public:
+	bootstrap_constants (nano::network_constants & network_constants);
+	uint64_t lazy_max_pull_blocks;
+};
+
+/** Constants whose value depends on the active network */
+class network_params
+{
+public:
+	/** Populate values based on the current active network */
+	network_params ();
+
+	/** Populate values based on \p network_a */
+	network_params (nano::nano_networks network_a);
+
+	std::array<uint8_t, 2> header_magic_number;
+	unsigned kdf_work;
+	network_constants network;
+	ledger_constants ledger;
+	voting_constants voting;
+	node_constants node;
+	portmapping_constants portmapping;
+	bootstrap_constants bootstrap;
 };
 }
