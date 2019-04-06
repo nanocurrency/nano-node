@@ -115,7 +115,11 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 		auto confirmed_receives_pending = (count_before_open_receive != open_receive_source_pairs.size ());
 		if (!confirmed_receives_pending)
 		{
-			pending.emplace (account, hash, block_height);
+			if (block_height > confirmation_height)
+			{
+				pending.emplace (account, hash, block_height);
+			}
+
 			if (open_receive_details)
 			{
 				pending.push (*open_receive_details);
