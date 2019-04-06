@@ -1,11 +1,11 @@
-#include <nano/crypto_lib/random_pool.hpp>
+#include <nano/crypto_lib/randompool.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/ipc.hpp>
-#include <nano/node/json_handler.hpp>
+#include <nano/node/jsonhandler.hpp>
 #include <nano/node/node.hpp>
-#include <nano/node/payment_observer_processor.hpp>
+#include <nano/node/paymentobserverprocessor.hpp>
 #include <nano/node/testing.hpp>
 #include <sstream>
 
@@ -726,17 +726,16 @@ int main (int argc, char * const * argv)
 				command_l << rpc_input_l;
 			}
 
-			auto response_handler_l ([](boost::property_tree::ptree const & tree_a) {
-				boost::property_tree::write_json (std::cout, tree_a);
+			auto response_handler_l ([](std::string const & response_a) {
+				std::cout << response_a;
 				// Terminate as soon as we have the result, even if background threads (like work generation) are running.
 				std::exit (0);
 			});
 
 			nano::inactive_node inactive_node_l (data_path);
-			std::string req_id_l ("1");
-			nano::ipc::ipc_server server (*inactive_node_l.node);
-			nano::payment_observer_processor payment_observer_processor (inactive_node_l.node->observers.blocks);
-			nano::json_handler handler_l (payment_observer_processor, *inactive_node_l.node, command_l.str (), req_id_l, response_handler_l);
+			nano::node_rpc_config config;
+			nano::ipc::ipc_server server (*inactive_node_l.node, config);
+			nano::json_handler handler_l (*inactive_node_l.node, config, command_l.str (), response_handler_l);
 			handler_l.process_request ();
 		}
 		else if (vm.count ("debug_validate_blocks"))

@@ -67,7 +67,10 @@ nano::error nano::rpc_config::deserialize_json (bool & upgraded_a, nano::jsoncon
 			json.put ("max_request_size", max_request_size);
 			json.erase ("frontier_request_limit");
 			json.erase ("chain_request_limit");
-
+			json.put ("io_threads", io_threads);
+			json.put ("ipc_port", ipc_port);
+			json.put ("ipc_path", ipc_path);
+			json.put ("num_ipc_connections", num_ipc_connections);
 			upgraded_a = true;
 		}
 

@@ -3,7 +3,7 @@
 #include <atomic>
 #include <nano/lib/ipc.hpp>
 #include <nano/lib/numbers.hpp>
-#include <nano/node/payment_observer_processor.hpp>
+#include <nano/node/noderpcconfig.hpp>
 
 namespace nano
 {
@@ -15,17 +15,16 @@ namespace ipc
 	class ipc_server
 	{
 	public:
-		ipc_server (nano::node & node_a);
+		ipc_server (nano::node & node_a, nano::node_rpc_config const & node_rpc_config = nano::node_rpc_config{});
 
 		virtual ~ipc_server ();
 		void stop ();
 
 		nano::node & node;
+		nano::node_rpc_config const & node_rpc_config;
 
 		/** Unique counter/id shared across sessions */
 		std::atomic<uint64_t> id_dispenser{ 0 };
-
-		nano::payment_observer_processor payment_observer_processor;
 
 	private:
 		std::unique_ptr<dsock_file_remover> file_remover;

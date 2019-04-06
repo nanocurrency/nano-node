@@ -26,26 +26,28 @@ add_library (node
 	ipc.cpp
 	ipcconfig.hpp
 	ipcconfig.cpp
-	json_handler.hpp
-	json_handler.cpp
-	json_payment_observer.hpp	
-	json_payment_observer.cpp
+	jsonhandler.hpp
+	jsonhandler.cpp
+	jsonpaymentobserver.hpp	
+	jsonpaymentobserver.cpp
 	lmdb.hpp
 	lmdb.cpp
 	logging.hpp
 	logging.cpp
 	nodeconfig.hpp
 	nodeconfig.cpp
-	node_observers.hpp
-	node_observers.cpp
+	nodeobservers.hpp
+	nodeobservers.cpp
+	noderpcconfig.hpp
+	noderpcconfig.cpp
 	node.hpp
 	node.cpp
 	openclconfig.hpp
 	openclconfig.cpp
 	openclwork.hpp
 	openclwork.cpp
-	payment_observer_processor.hpp
-	payment_observer_processor.cpp
+	paymentobserverprocessor.hpp
+	paymentobserverprocessor.cpp
 	portmapping.hpp
 	portmapping.cpp
 	repcrawler.hpp
@@ -74,6 +76,7 @@ add_library (node
 	xorshift.hpp)
 
 target_link_libraries (node
+	rpc
 	secure
 	nano_lib
 	libminiupnpc-static

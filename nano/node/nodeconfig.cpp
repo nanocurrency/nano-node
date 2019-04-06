@@ -1,4 +1,4 @@
-#include <nano/crypto_lib/random_pool.hpp>
+#include <nano/crypto_lib/randompool.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/rpcconfig.hpp>
@@ -260,7 +260,7 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 	return upgraded;
 }
 
-nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonconfig & json, bool rpc_enable_to_migrate, bool enable_sign_hash_to_migrate)
+nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonconfig & json)
 {
 	try
 	{
@@ -361,7 +361,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		auto ipc_config_l (json.get_optional_child ("ipc"));
 		if (ipc_config_l)
 		{
-			ipc_config.deserialize_json (upgraded_a, ipc_config_l.get (), rpc_enable_to_migrate, enable_sign_hash_to_migrate);
+			ipc_config.deserialize_json (ipc_config_l.get ());
 		}
 		auto websocket_config_l (json.get_optional_child ("websocket"));
 		if (websocket_config_l)
@@ -416,59 +416,4 @@ nano::account nano::node_config::random_representative ()
 	size_t index (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (preconfigured_representatives.size () - 1)));
 	auto result (preconfigured_representatives[index]);
 	return result;
-}
-
-namespace nano
-{
-void migrate_rpc_config (nano::jsonconfig & json, boost::filesystem::path const & data_path)
-{
-	// Copy RPC if the file doesn't exist already
-	auto rpc_l (json.get_required_child ("rpc"));
-
-	bool enable_sign_hash;
-	rpc_l.get_optional<bool> ("enable_sign_hash", enable_sign_hash, false);
-
-	rpc_l.erase ("enable_sign_hash");
-	bool rpc_enable;
-	json.get_optional<bool> ("rpc_enable", rpc_enable, false);
-
-	auto node_l (json.get_required_child ("node"));
-	auto ipc_l (node_l.get_optional_child ("ipc"));
-	if (ipc_l)
-	{
-		nano::ipc::ipc_config ipc_config;
-		auto upgraded (false);
-		auto err = ipc_config.deserialize_json (upgraded, *ipc_l, rpc_enable, enable_sign_hash);
-		if (!err)
-		{
-			// Add IPC config options to RPC
-			if (ipc_config.transport_tcp.enabled)
-			{
-				rpc_l.put ("ipc_port", ipc_config.transport_tcp.port);
-			}
-			if (ipc_config.transport_domain.enabled)
-			{
-				rpc_l.put ("ipc_path", ipc_config.transport_domain.path);
-			}
-		}
-	}
-
-	auto io_threads = node_l.get_optional<unsigned> ("io_threads");
-	if (io_threads)
-	{
-		rpc_l.put ("io_threads", std::to_string (*io_threads));
-	}
-
-	nano::jsonconfig rpc_json;
-	auto rpc_config_path = nano::get_rpc_config_path (data_path);
-	nano::rpc_config rpc;
-	auto rpc_error (rpc_json.read<nano::rpc_config> (rpc_config_path));
-	if (rpc_error || rpc_json.empty ())
-	{
-		// Migrate RPC info across
-		rpc_l.write (rpc_config_path);
-	}
-
-	json.erase ("rpc");
-}
 }

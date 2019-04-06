@@ -1,23 +1,18 @@
 #pragma once
 
-#include <algorithm>
-#include <boost/beast.hpp>
-#include <nano/lib/ipc_client.hpp>
-#include <nano/lib/logger_mt.hpp>
+#include <boost/asio.hpp>
+#include <nano/lib/loggermt.hpp>
 #include <nano/lib/rpcconfig.hpp>
-#include <nano/lib/timer.hpp>
-#include <nano/rpc/rpc_connection.hpp>
-#include <nano/rpc/rpc_handler.hpp>
-#include <nano/rpc/rpc_request_processor.hpp>
+#include <nano/lib/rpchandlerinterface.hpp>
 
 namespace nano
 {
-void error_response (std::function<void(std::string const &)> response_a, std::string const & message_a);
+class rpc_handler_interface;
 
 class rpc
 {
 public:
-	rpc (boost::asio::io_context & io_ctx_a, nano::rpc_config const & config_a);
+	rpc (boost::asio::io_context & io_ctx_a, nano::rpc_config const & config_a, nano::rpc_handler_interface & rpc_handler_interface_a);
 	virtual ~rpc ();
 	void start ();
 	virtual void accept ();
@@ -28,10 +23,10 @@ public:
 	nano::logger_mt logger;
 	boost::asio::io_context & io_ctx;
 	nano::network_constants network_constants;
-	nano::rpc_request_processor rpc_request_processor;
-	std::atomic<bool> stopped{ false };
+	nano::rpc_handler_interface & rpc_handler_interface;
+	bool stopped{ false };
 };
 
 /** Returns the correct RPC implementation based on TLS configuration */
-std::unique_ptr<nano::rpc> get_rpc (boost::asio::io_context & io_ctx_a, nano::rpc_config const & config_a);
+std::unique_ptr<nano::rpc> get_rpc (boost::asio::io_context & io_ctx_a, nano::rpc_config const & config_a, nano::rpc_handler_interface & rpc_handler_interface_a);
 }

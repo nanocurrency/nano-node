@@ -6,7 +6,7 @@
 
 #include <boost/property_tree/json_parser.hpp>
 
-#include <nano/crypto_lib/random_pool.hpp>
+#include <nano/crypto_lib/randompool.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/numbers.hpp>

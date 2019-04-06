@@ -1,7 +1,7 @@
 #pragma once
 
-#include <nano/node/json_payment_observer.hpp>
-#include <nano/node/node_observers.hpp>
+#include <nano/node/jsonpaymentobserver.hpp>
+#include <nano/node/nodeobservers.hpp>
 
 namespace nano
 {

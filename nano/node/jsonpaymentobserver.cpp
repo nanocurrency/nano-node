@@ -1,15 +1,15 @@
+#include <nano/lib/jsonerrorresponse.hpp>
 #include <nano/node/ipc.hpp>
-#include <nano/node/json_handler.hpp>
-#include <nano/node/json_payment_observer.hpp>
+#include <nano/node/jsonhandler.hpp>
+#include <nano/node/jsonpaymentobserver.hpp>
 #include <nano/node/node.hpp>
-#include <nano/node/payment_observer_processor.hpp>
+#include <nano/node/paymentobserverprocessor.hpp>
 
-nano::json_payment_observer::json_payment_observer (nano::node & node_a, nano::payment_observer_processor & payment_observer_processor_a, std::function<void(boost::property_tree::ptree const &)> const & response_a, nano::account const & account_a, nano::amount const & amount_a) :
+nano::json_payment_observer::json_payment_observer (nano::node & node_a, std::function<void(std::string const &)> const & response_a, nano::account const & account_a, nano::amount const & amount_a) :
 node (node_a),
 account (account_a),
 amount (amount_a),
-response (response_a),
-payment_observer_processor (payment_observer_processor_a)
+response (response_a)
 {
 	completed.clear ();
 }
@@ -46,7 +46,9 @@ void nano::json_payment_observer::complete (nano::payment_status status)
 				boost::property_tree::ptree response_l;
 				response_l.put ("deprecated", "1");
 				response_l.put ("status", "nothing");
-				response (response_l);
+				std::stringstream ostream;
+				boost::property_tree::write_json (ostream, response_l);
+				response (ostream.str ());
 				break;
 			}
 			case nano::payment_status::success:
@@ -54,15 +56,17 @@ void nano::json_payment_observer::complete (nano::payment_status status)
 				boost::property_tree::ptree response_l;
 				response_l.put ("deprecated", "1");
 				response_l.put ("status", "success");
-				response (response_l);
+				std::stringstream ostream;
+				boost::property_tree::write_json (ostream, response_l);
+				response (ostream.str ());
 				break;
 			}
 			default:
 			{
-				error_response (response, "Internal payment error");
+				json_error_response (response, "Internal payment error");
 				break;
 			}
 		}
-		payment_observer_processor.erase (account);
+		node.payment_observer_processor.erase (account);
 	}
 }

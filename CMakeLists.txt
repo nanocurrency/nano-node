@@ -370,6 +370,7 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 		${RES})
 
 	target_link_libraries (nano_wallet
+		rpc
 		node
 		qt)
 

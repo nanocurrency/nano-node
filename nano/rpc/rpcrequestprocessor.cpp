@@ -1,7 +1,7 @@
-#include <nano/rpc/rpc_request_processor.hpp>
+#include <nano/lib/jsonerrorresponse.hpp>
+#include <nano/rpc/rpcrequestprocessor.hpp>
 
-nano::rpc_request_processor::rpc_request_processor (boost::asio::io_context & io_ctx, nano::rpc_config & rpc_config, std::function<void()> stop_callback) :
-stop_callback (stop_callback),
+nano::rpc_request_processor::rpc_request_processor (boost::asio::io_context & io_ctx, nano::rpc_config & rpc_config) :
 ipc_address (rpc_config.address.to_string ()),
 ipc_port (rpc_config.ipc_port),
 thread ([this]() {
@@ -71,14 +71,14 @@ void nano::rpc_request_processor::read_payload (std::shared_ptr<nano::ipc_connec
 		}
 		else
 		{
-			error_response (rpc_request->response, "Failed to read payload");
+			json_error_response (rpc_request->response, "Failed to read payload");
 		}
 	});
 }
 
 void nano::rpc_request_processor::make_available (nano::ipc_connection & connection)
 {
-	std::unique_lock<std::mutex> lk (connections_mutex);
+	std::lock_guard<std::mutex> lk (connections_mutex);
 	connection.is_available = true; // Allow people to use it now
 }
 
@@ -99,21 +99,21 @@ void nano::rpc_request_processor::try_reconnect_and_execute_request (std::shared
 						}
 						else
 						{
-							error_response (rpc_request->response, "Connection to node has failed");
+							json_error_response (rpc_request->response, "Connection to node has failed");
 							make_available (*connection);
 						}
 					});
 				}
 				else
 				{
-					error_response (rpc_request->response, "Cannot write to the node");
+					json_error_response (rpc_request->response, "Cannot write to the node");
 					make_available (*connection);
 				}
 			});
 		}
 		else
 		{
-			error_response (rpc_request->response, "There is a problem connecting to the node");
+			json_error_response (rpc_request->response, "There is a problem connecting to the node. Make sure ipc->tcp is enabled in node config and ports match");
 			make_available (*connection);
 		}
 	});
@@ -127,6 +127,7 @@ void nano::rpc_request_processor::run ()
 	{
 		if (!requests.empty ())
 		{
+			lk.unlock ();
 			std::unique_lock<std::mutex> conditions_lk (connections_mutex);
 			// Find the first free ipc_client
 			auto it = std::find_if (connections.begin (), connections.end (), [](auto connection) -> bool {
@@ -136,7 +137,9 @@ void nano::rpc_request_processor::run ()
 			if (it != connections.cend ())
 			{
 				// Successfully found one
+				lk.lock ();
 				auto rpc_request = requests.front ();
+				requests.pop_front ();
 				lk.unlock ();
 				auto connection = *it;
 				connection->is_available = false; // Make sure no one else can take it
@@ -164,9 +167,8 @@ void nano::rpc_request_processor::run ()
 						try_reconnect_and_execute_request (connection, req, res, rpc_request);
 					}
 				});
-				lk.lock ();
-				requests.pop_front ();
 			}
+			lk.lock ();
 		}
 		else
 		{

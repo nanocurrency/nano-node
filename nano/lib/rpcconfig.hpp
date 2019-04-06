@@ -46,14 +46,13 @@ public:
 	rpc_secure_config secure;
 	uint8_t max_json_depth;
 	uint64_t max_request_size;
-	uint64_t max_work_generate_difficulty;
 	unsigned io_threads;
 	uint16_t ipc_port;
 	std::string ipc_path;
 	unsigned num_ipc_connections;
 	static int json_version ()
 	{
-		return 2;
+		return 1;
 	}
 };
 

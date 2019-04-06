@@ -1,4 +1,4 @@
-#include <nano/node/node_observers.hpp>
+#include <nano/node/nodeobservers.hpp>
 
 std::unique_ptr<nano::seq_con_info_component> nano::collect_seq_con_info (nano::node_observers & node_observers, const std::string & name)
 {

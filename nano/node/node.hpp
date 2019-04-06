@@ -4,8 +4,9 @@
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap.hpp>
 #include <nano/node/logging.hpp>
-#include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/nodeobservers.hpp>
+#include <nano/node/paymentobserverprocessor.hpp>
 #include <nano/node/portmapping.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/signatures.hpp>
@@ -493,6 +494,7 @@ public:
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer;
 	nano::active_transactions active;
+	nano::payment_observer_processor payment_observer_processor;
 	const std::chrono::steady_clock::time_point startup_time;
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
 	static double constexpr price_max = 16.0;

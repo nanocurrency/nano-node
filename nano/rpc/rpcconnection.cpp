@@ -1,19 +1,20 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/format.hpp>
 #include <nano/lib/config.hpp>
-#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/jsonerrorresponse.hpp>
+#include <nano/lib/loggermt.hpp>
 #include <nano/lib/rpcconfig.hpp>
-#include <nano/rpc/rpc_connection.hpp>
-#include <nano/rpc/rpc_handler.hpp>
-#include <nano/rpc/rpc_request_processor.hpp>
+#include <nano/lib/rpchandlerinterface.hpp>
+#include <nano/rpc/rpcconnection.hpp>
+#include <nano/rpc/rpchandler.hpp>
 
-nano::rpc_connection::rpc_connection (nano::rpc_config const & rpc_config, nano::network_constants const & network_constants, boost::asio::io_context & io_ctx, nano::logger_mt & logger, nano::rpc_request_processor & rpc_request_processor) :
+nano::rpc_connection::rpc_connection (nano::rpc_config const & rpc_config, nano::network_constants const & network_constants, boost::asio::io_context & io_ctx, nano::logger_mt & logger, nano::rpc_handler_interface & rpc_handler_interface) :
 socket (io_ctx),
 io_ctx (io_ctx),
 logger (logger),
 rpc_config (rpc_config),
 network_constants (network_constants),
-rpc_request_processor (rpc_request_processor)
+rpc_handler_interface (rpc_handler_interface)
 {
 	responded.clear ();
 }
@@ -113,7 +114,7 @@ void nano::rpc_connection::read ()
 					{
 						case boost::beast::http::verb::post:
 						{
-							auto handler (std::make_shared<nano::rpc_handler> (this_l->rpc_config, req.body (), request_id, response_handler, this_l->rpc_request_processor));
+							auto handler (std::make_shared<nano::rpc_handler> (this_l->rpc_config, req.body (), request_id, response_handler, this_l->rpc_handler_interface, this_l->logger));
 							handler->process_request ();
 							break;
 						}
@@ -128,7 +129,7 @@ void nano::rpc_connection::read ()
 						}
 						default:
 						{
-							error_response (response_handler, "Can only POST requests");
+							json_error_response (response_handler, "Can only POST requests");
 							break;
 						}
 					}
@@ -149,7 +150,7 @@ void nano::rpc_connection::read ()
 				this_l->write_completion_handler (this_l);
 			});
 		});
-		error_response (response_handler, std::string ("Invalid header: ") + header_error.message ());
+		json_error_response (response_handler, std::string ("Invalid header: ") + header_error.message ());
 	}
 }
 

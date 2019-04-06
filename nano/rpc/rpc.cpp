@@ -1,19 +1,20 @@
 #include <boost/format.hpp>
+#include <nano/lib/rpchandlerinterface.hpp>
 #include <nano/rpc/rpc.hpp>
+#include <nano/rpc/rpcconnection.hpp>
 
 #ifdef NANO_SECURE_RPC
-#include <nano/rpc/rpc_secure.hpp>
+#include <nano/rpc/rpcsecure.hpp>
 #endif
 
-nano::rpc::rpc (boost::asio::io_context & io_ctx_a, nano::rpc_config const & config_a) :
+nano::rpc::rpc (boost::asio::io_context & io_ctx_a, nano::rpc_config const & config_a, nano::rpc_handler_interface & rpc_handler_interface_a) :
 config (config_a),
 acceptor (io_ctx_a),
 logger (std::chrono::milliseconds (0)),
 io_ctx (io_ctx_a),
-rpc_request_processor (io_ctx, config, [this]() {
-	this->stop ();
-})
+rpc_handler_interface (rpc_handler_interface_a)
 {
+	rpc_handler_interface.rpc_instance (*this);
 }
 
 nano::rpc::~rpc ()
@@ -43,7 +44,7 @@ void nano::rpc::start ()
 
 void nano::rpc::accept ()
 {
-	auto connection (std::make_shared<nano::rpc_connection> (config, network_constants, io_ctx, logger, rpc_request_processor));
+	auto connection (std::make_shared<nano::rpc_connection> (config, network_constants, io_ctx, logger, rpc_handler_interface));
 	acceptor.async_accept (connection->socket, [this, connection](boost::system::error_code const & ec) {
 		if (ec != boost::asio::error::operation_aborted && acceptor.is_open ())
 		{
@@ -64,24 +65,23 @@ void nano::rpc::stop ()
 {
 	stopped = true;
 	acceptor.close ();
-	rpc_request_processor.stop ();
 }
 
-std::unique_ptr<nano::rpc> nano::get_rpc (boost::asio::io_context & io_ctx_a, nano::rpc_config const & config_a)
+std::unique_ptr<nano::rpc> nano::get_rpc (boost::asio::io_context & io_ctx_a, nano::rpc_config const & config_a, nano::rpc_handler_interface & rpc_handler_interface_a)
 {
 	std::unique_ptr<rpc> impl;
 
 	if (config_a.secure.enable)
 	{
 #ifdef NANO_SECURE_RPC
-		impl = std::make_unique<rpc_secure> (io_ctx_a, config_a);
+		impl = std::make_unique<rpc_secure> (io_ctx_a, config_a, rpc_handler_interface_a);
 #else
 		std::cerr << "RPC configured for TLS, but the node is not compiled with TLS support" << std::endl;
 #endif
 	}
 	else
 	{
-		impl = std::make_unique<rpc> (io_ctx_a, config_a);
+		impl = std::make_unique<rpc> (io_ctx_a, config_a, rpc_handler_interface_a);
 	}
 
 	return impl;

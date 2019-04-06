@@ -42,8 +42,15 @@ pub fn launch_node_and_rpc(
     let ipc_port = IPC_PORT_START + i;
 
     let config = json!({
-    "version": "3",
+    "version": "2",
     "rpc_enable": "false",
+    "rpc": {
+        "version": "1",
+        "enable_sign_hash": "false",
+        "max_work_generate_difficulty": "ffffffffc0000000",
+        "rpc_path": "C:\\Users\\Wesley\\Documents\\nano-node\\build\\Debug\\nano_rpc.exe",
+        "rpc_in_process": "false"
+    },	
     "node": {
         "version": "17",
         "peering_port": peering_port.to_string(),
@@ -107,8 +114,6 @@ pub fn launch_node_and_rpc(
                 "path": "/tmp/nano",
                 "io_timeout": "15"
             },
-            "version": "1",
-            "enable_sign_hash": "false"
         },
         "tcp_client_timeout": "5",
         "tcp_server_timeout": "30"

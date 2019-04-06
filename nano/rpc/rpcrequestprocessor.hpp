@@ -3,10 +3,12 @@
 #include <boost/endian/conversion.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <nano/lib/errors.hpp>
-#include <nano/lib/ipc_client.hpp>
+#include <nano/lib/ipcclient.hpp>
 #include <nano/lib/rpcconfig.hpp>
+#include <nano/lib/rpchandlerinterface.hpp>
 #include <nano/lib/utility.hpp>
-#include <nano/rpc/rpc_handler.hpp>
+#include <nano/rpc/rpc.hpp>
+#include <nano/rpc/rpchandler.hpp>
 
 namespace nano
 {
@@ -36,10 +38,11 @@ struct rpc_request
 class rpc_request_processor
 {
 public:
-	rpc_request_processor (boost::asio::io_context & io_ctx, nano::rpc_config & rpc_config, std::function<void()> stop_callback);
+	rpc_request_processor (boost::asio::io_context & io_ctx, nano::rpc_config & rpc_config);
 	~rpc_request_processor ();
 	void stop ();
 	void add (std::shared_ptr<rpc_request> request);
+	std::function<void()> stop_callback;
 
 private:
 	void run ();
@@ -50,12 +53,40 @@ private:
 	std::vector<std::shared_ptr<nano::ipc_connection>> connections;
 	std::mutex request_mutex;
 	std::mutex connections_mutex;
-	std::function<void()> stop_callback;
 	bool stopped{ false };
 	std::deque<std::shared_ptr<nano::rpc_request>> requests;
 	std::condition_variable condition;
 	const std::string ipc_address;
 	const uint16_t ipc_port;
 	std::thread thread;
+};
+
+class ipc_rpc_processor final : public nano::rpc_handler_interface
+{
+public:
+	ipc_rpc_processor (boost::asio::io_context & io_ctx, nano::rpc_config & rpc_config) :
+	rpc_request_processor (io_ctx, rpc_config)
+	{
+	}
+
+	void process_request (std::string const & action_a, std::string const & body_a, std::function<void(std::string const &)> response_a) override
+	{
+		rpc_request_processor.add (std::make_shared<nano::rpc_request> (action_a, body_a, response_a));
+	}
+
+	void stop () override
+	{
+		rpc_request_processor.stop ();
+	}
+
+	void rpc_instance (nano::rpc & rpc) override
+	{
+		rpc_request_processor.stop_callback = [&rpc]() {
+			rpc.stop ();
+		};
+	}
+
+private:
+	nano::rpc_request_processor rpc_request_processor;
 };
 }

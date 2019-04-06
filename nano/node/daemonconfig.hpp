@@ -1,8 +1,8 @@
 #pragma once
 
 #include <nano/lib/errors.hpp>
-#include <nano/lib/rpcconfig.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/noderpcconfig.hpp>
 #include <nano/node/openclconfig.hpp>
 
 namespace nano
@@ -20,14 +20,14 @@ public:
 	 */
 	bool upgrade_json (unsigned version, nano::jsonconfig & config);
 	bool rpc_enable{ false };
-	std::string rpc_path;
+	nano::node_rpc_config rpc;
 	nano::node_config node;
 	bool opencl_enable{ false };
 	nano::opencl_config opencl;
 	boost::filesystem::path data_path;
 	int json_version () const
 	{
-		return 3;
+		return 2;
 	}
 };
 

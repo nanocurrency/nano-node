@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nano/node/node_observers.hpp>
+#include <nano/node/nodeobservers.hpp>
 #include <nano/node/wallet.hpp>
 #include <string>
 #include <vector>
@@ -8,7 +8,6 @@
 namespace nano
 {
 class node;
-class payment_observer_processor;
 
 enum class payment_status
 {
@@ -23,7 +22,7 @@ enum class payment_status
 class json_payment_observer final : public std::enable_shared_from_this<nano::json_payment_observer>
 {
 public:
-	json_payment_observer (nano::node &, nano::payment_observer_processor &, std::function<void(boost::property_tree::ptree const &)> const &, nano::account const &, nano::amount const &);
+	json_payment_observer (nano::node &, std::function<void(std::string const &)> const &, nano::account const &, nano::amount const &);
 	void start (uint64_t);
 	void observe ();
 	void complete (nano::payment_status);
@@ -32,8 +31,7 @@ public:
 	nano::node & node;
 	nano::account account;
 	nano::amount amount;
-	std::function<void(boost::property_tree::ptree const &)> response;
+	std::function<void(std::string const &)> response;
 	std::atomic_flag completed;
-	nano::payment_observer_processor & payment_observer_processor;
 };
 }

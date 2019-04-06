@@ -3,7 +3,6 @@ add_executable (core_test
 	testutil.hpp
 	block.cpp
 	block_store.cpp
-	daemon.cpp
 	conflicts.cpp
 	entry.cpp
 	gap_cache.cpp

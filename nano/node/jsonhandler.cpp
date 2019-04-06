@@ -1,4 +1,4 @@
-#include <nano/node/json_handler.hpp>
+#include <nano/node/jsonhandler.hpp>
 
 #include <algorithm>
 #include <boost/array.hpp>
@@ -14,35 +14,29 @@
 #include <future>
 #include <iostream>
 #include <nano/lib/config.hpp>
+#include <nano/lib/jsonerrorresponse.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/ipc.hpp>
+#include <nano/node/jsonpaymentobserver.hpp>
 #include <nano/node/node.hpp>
-#include <nano/node/payment_observer_processor.hpp>
+#include <nano/node/noderpcconfig.hpp>
 #include <thread>
 
 namespace
 {
 void construct_json (nano::seq_con_info_component * component, boost::property_tree::ptree & parent);
-std::string filter_request (boost::property_tree::ptree tree_a);
 using ipc_json_handler_no_arg_func_map = std::unordered_map<std::string, std::function<void(nano::json_handler *)>>;
 ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ();
 auto ipc_json_handler_no_arg_funcs = create_ipc_json_handler_no_arg_func_map ();
 }
 
-void nano::error_response (std::function<void(boost::property_tree::ptree const &)> response_a, std::string const & message_a)
-{
-	boost::property_tree::ptree response_l;
-	response_l.put ("error", message_a);
-	response_a (response_l);
-}
-
-nano::json_handler::json_handler (nano::payment_observer_processor & payment_observer_processor_a, nano::node & node_a, std::string const & body_a, std::string const & request_id_a, std::function<void(boost::property_tree::ptree const &)> const & response_a) :
+nano::json_handler::json_handler (nano::node & node_a, nano::node_rpc_config const & node_rpc_config_a, std::string const & body_a, std::function<void(std::string const &)> const & response_a, std::function<void()> stop_callback_a) :
 body (body_a),
-request_id (request_id_a),
 node (node_a),
 response (response_a),
-payment_observer_processor (payment_observer_processor_a)
+stop_callback (stop_callback_a),
+node_rpc_config (node_rpc_config_a)
 {
 }
 
@@ -53,11 +47,6 @@ void nano::json_handler::process_request ()
 		std::stringstream istream (body);
 		boost::property_tree::read_json (istream, request);
 		action = request.get<std::string> ("action");
-		if (node.config.logging.log_ipc ())
-		{
-			node.logger.always_log (boost::str (boost::format ("%1% ") % request_id), filter_request (request));
-		}
-
 		auto no_arg_func_iter = ipc_json_handler_no_arg_funcs.find (action);
 		if (no_arg_func_iter != ipc_json_handler_no_arg_funcs.cend ())
 		{
@@ -114,17 +103,17 @@ void nano::json_handler::process_request ()
 			}
 			else
 			{
-				error_response (response, "Unknown command");
+				json_error_response (response, "Unknown command");
 			}
 		}
 	}
 	catch (std::runtime_error const &)
 	{
-		error_response (response, "Unable to parse JSON");
+		json_error_response (response, "Unable to parse JSON");
 	}
 	catch (...)
 	{
-		error_response (response, "Internal server error in RPC");
+		json_error_response (response, "Internal server error in RPC");
 	}
 }
 
@@ -134,11 +123,15 @@ void nano::json_handler::response_errors ()
 	{
 		boost::property_tree::ptree response_error;
 		response_error.put ("error", ec ? ec.message () : "Empty response");
-		response (response_error);
+		std::stringstream ostream;
+		boost::property_tree::write_json (ostream, response_error);
+		response (ostream.str ());
 	}
 	else
 	{
-		response (response_l);
+		std::stringstream ostream;
+		boost::property_tree::write_json (ostream, response_l);
+		response (ostream.str ());
 	}
 }
 
@@ -660,11 +653,13 @@ void nano::json_handler::account_representative_set ()
 					{
 						boost::property_tree::ptree response_l;
 						response_l.put ("block", block->hash ().to_string ());
-						response_a (response_l);
+						std::stringstream ostream;
+						boost::property_tree::write_json (ostream, response_l);
+						response_a (ostream.str ());
 					}
 					else
 					{
-						error_response (response_a, "Error generating block");
+						json_error_response (response_a, "Error generating block");
 					}
 				},
 				work, generate_work);
@@ -2627,11 +2622,11 @@ void nano::json_handler::payment_wait ()
 		if (!decode_unsigned (timeout_text, timeout))
 		{
 			{
-				auto observer (std::make_shared<nano::json_payment_observer> (node, payment_observer_processor, response, account, amount));
+				auto observer (std::make_shared<nano::json_payment_observer> (node, response, account, amount));
 				observer->start (timeout);
-				payment_observer_processor.add (account, observer);
+				node.payment_observer_processor.add (account, observer);
 			}
-			payment_observer_processor.observer_action (account);
+			node.payment_observer_processor.observer_action (account);
 		}
 		else
 		{
@@ -2861,11 +2856,13 @@ void nano::json_handler::receive ()
 							{
 								boost::property_tree::ptree response_l;
 								response_l.put ("block", block_a->hash ().to_string ());
-								response_a (response_l);
+								std::stringstream ostream;
+								boost::property_tree::write_json (ostream, response_l);
+								response_a (ostream.str ());
 							}
 							else
 							{
-								error_response (response_a, "Error generating block");
+								json_error_response (response_a, "Error generating block");
 							}
 						},
 						work, generate_work);
@@ -3208,18 +3205,20 @@ void nano::json_handler::send ()
 						{
 							boost::property_tree::ptree response_l;
 							response_l.put ("block", block_a->hash ().to_string ());
-							response_a (response_l);
+							std::stringstream ostream;
+							boost::property_tree::write_json (ostream, response_l);
+							response_a (ostream.str ());
 						}
 						else
 						{
 							if (balance >= amount.number ())
 							{
-								error_response (response_a, "Error generating block");
+								json_error_response (response_a, "Error generating block");
 							}
 							else
 							{
 								std::error_code ec (nano::error_common::insufficient_balance);
-								error_response (response_a, ec.message ());
+								json_error_response (response_a, ec.message ());
 							}
 						}
 					},
@@ -3279,7 +3278,7 @@ void nano::json_handler::sign ()
 		ec = nano::error_blocks::invalid_block;
 	}
 	// Hash is initialized without config permission
-	else if (!ec && !hash.is_zero () && block == nullptr && !node.config.ipc_config.enable_sign_hash)
+	else if (!ec && !hash.is_zero () && block == nullptr && !node_rpc_config.enable_sign_hash)
 	{
 		ec = nano::error_rpc::sign_hash_disabled;
 	}
@@ -3376,7 +3375,9 @@ void nano::json_handler::stats ()
 	{
 		auto stat_tree_l (*static_cast<boost::property_tree::ptree *> (sink->to_object ()));
 		stat_tree_l.put ("stat_duration_seconds", node.stats.last_reset ().count ());
-		response (stat_tree_l);
+		std::stringstream ostream;
+		boost::property_tree::write_json (ostream, stat_tree_l);
+		response (ostream.str ());
 	}
 	else
 	{
@@ -3388,7 +3389,9 @@ void nano::json_handler::stats_clear ()
 {
 	node.stats.clear ();
 	response_l.put ("success", "");
-	response (response_l);
+	std::stringstream ostream;
+	boost::property_tree::write_json (ostream, response_l);
+	response (ostream.str ());
 }
 
 void nano::json_handler::stop ()
@@ -3398,6 +3401,7 @@ void nano::json_handler::stop ()
 	if (!ec)
 	{
 		node.stop ();
+		stop_callback ();
 	}
 }
 
@@ -4211,7 +4215,7 @@ void nano::json_handler::work_generate ()
 			ec = nano::error_rpc::bad_difficulty_format;
 		}
 	}
-	if (!ec && difficulty > node.config.ipc_config.max_work_generate_difficulty)
+	if (!ec && difficulty > node_rpc_config.max_work_generate_difficulty)
 	{
 		ec = nano::error_rpc::difficulty_limit;
 	}
@@ -4224,11 +4228,13 @@ void nano::json_handler::work_generate ()
 			{
 				boost::property_tree::ptree response_l;
 				response_l.put ("work", nano::to_string_hex (work_a.value ()));
-				rpc_l->response (response_l);
+				std::stringstream ostream;
+				boost::property_tree::write_json (ostream, response_l);
+				rpc_l->response (ostream.str ());
 			}
 			else
 			{
-				error_response (rpc_l->response, "Cancelled");
+				json_error_response (rpc_l->response, "Cancelled");
 			}
 		};
 		if (!use_peers)
@@ -4495,41 +4501,5 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("work_peers", &nano::json_handler::work_peers);
 	no_arg_funcs.emplace ("work_peers_clear", &nano::json_handler::work_peers_clear);
 	return no_arg_funcs;
-}
-
-std::string filter_request (boost::property_tree::ptree tree_a)
-{
-	// Replace password
-	boost::optional<std::string> password_text (tree_a.get_optional<std::string> ("password"));
-	if (password_text.is_initialized ())
-	{
-		tree_a.put ("password", "password");
-	}
-	// Save first 2 symbols of wallet, key, seed
-	boost::optional<std::string> wallet_text (tree_a.get_optional<std::string> ("wallet"));
-	if (wallet_text.is_initialized () && wallet_text.get ().length () > 2)
-	{
-		tree_a.put ("wallet", wallet_text.get ().replace (wallet_text.get ().begin () + 2, wallet_text.get ().end (), wallet_text.get ().length () - 2, 'X'));
-	}
-	boost::optional<std::string> key_text (tree_a.get_optional<std::string> ("key"));
-	if (key_text.is_initialized () && key_text.get ().length () > 2)
-	{
-		tree_a.put ("key", key_text.get ().replace (key_text.get ().begin () + 2, key_text.get ().end (), key_text.get ().length () - 2, 'X'));
-	}
-	boost::optional<std::string> seed_text (tree_a.get_optional<std::string> ("seed"));
-	if (seed_text.is_initialized () && seed_text.get ().length () > 2)
-	{
-		tree_a.put ("seed", seed_text.get ().replace (seed_text.get ().begin () + 2, seed_text.get ().end (), seed_text.get ().length () - 2, 'X'));
-	}
-	std::string result;
-	std::stringstream stream;
-	boost::property_tree::write_json (stream, tree_a, false);
-	result = stream.str ();
-	// removing std::endl
-	if (result.length () > 1)
-	{
-		result.pop_back ();
-	}
-	return result;
 }
 }

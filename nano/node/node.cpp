@@ -1,6 +1,6 @@
 #include <nano/node/node.hpp>
 
-#include <nano/crypto_lib/random_pool.hpp>
+#include <nano/crypto_lib/randompool.hpp>
 #include <nano/lib/interface.h>
 #include <nano/lib/timer.hpp>
 #include <nano/lib/utility.hpp>
@@ -1030,6 +1030,7 @@ online_reps (*this, config.online_weight_minimum.number ()),
 stats (config.stat_config),
 vote_uniquer (block_uniquer),
 active (*this),
+payment_observer_processor (observers.blocks),
 startup_time (std::chrono::steady_clock::now ())
 {
 	if (config.websocket_config.enabled)

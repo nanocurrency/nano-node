@@ -5,6 +5,7 @@ add_executable (nano_node
 
 target_link_libraries (nano_node
 	node
+	rpc
 	secure
 	argon2
 	Boost::boost

@@ -1,4 +1,4 @@
-#include <nano/crypto_lib/random_pool.hpp>
+#include <nano/crypto_lib/randompool.hpp>
 
 std::mutex nano::random_pool::mutex;
 CryptoPP::AutoSeededRandomPool nano::random_pool::pool;

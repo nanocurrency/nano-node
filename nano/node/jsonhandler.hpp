@@ -4,19 +4,18 @@
 #include <functional>
 #include <nano/lib/numbers.hpp>
 #include <nano/node/wallet.hpp>
+#include <nano/rpc/rpc.hpp>
 #include <string>
 
 namespace nano
 {
-void error_response (std::function<void(boost::property_tree::ptree const &)> response_a, std::string const & message_a);
-
 class node;
-class payment_observer_processor;
+class node_rpc_config;
 
 class json_handler : public std::enable_shared_from_this<nano::json_handler>
 {
 public:
-	json_handler (nano::payment_observer_processor &, nano::node &, std::string const &, std::string const &, std::function<void(boost::property_tree::ptree const &)> const &);
+	json_handler (nano::node &, nano::node_rpc_config const &, std::string const &, std::function<void(std::string const &)> const &, std::function<void()> stop_callback = []() {});
 	void process_request ();
 	void account_balance ();
 	void account_block_count ();
@@ -128,10 +127,9 @@ public:
 	void work_set ();
 	void work_validate ();
 	std::string body;
-	std::string request_id;
 	nano::node & node;
 	boost::property_tree::ptree request;
-	std::function<void(boost::property_tree::ptree const &)> response;
+	std::function<void(std::string const &)> response;
 	void response_errors ();
 	std::error_code ec;
 	std::string action;
@@ -150,6 +148,47 @@ public:
 	uint64_t count_optional_impl (uint64_t = std::numeric_limits<uint64_t>::max ());
 	uint64_t offset_optional_impl (uint64_t = 0);
 	bool enable_sign_hash{ false };
-	nano::payment_observer_processor & payment_observer_processor;
+	std::function<void()> stop_callback;
+	nano::node_rpc_config const & node_rpc_config;
+};
+
+class inprocess_rpc_handler final : public nano::rpc_handler_interface
+{
+public:
+	inprocess_rpc_handler (nano::node & node_a, nano::node_rpc_config const & node_rpc_config_a, std::function<void()> stop_callback_a = []() {}) :
+	node (node_a),
+	stop_callback (stop_callback_a),
+	node_rpc_config (node_rpc_config_a)
+	{
+	}
+
+	void process_request (std::string const &, std::string const & body_a, std::function<void(std::string const &)> response_a) override
+	{
+		// Note that if the rpc action is async, the shared_ptr<json_handler> lifetime will be extended by the action handler
+		auto handler (std::make_shared<nano::json_handler> (node, node_rpc_config, body_a, response_a, [this]() {
+			this->stop_callback ();
+			this->stop ();
+		}));
+		handler->process_request ();
+	}
+
+	void stop () override
+	{
+		if (rpc)
+		{
+			rpc->stop ();
+		}
+	}
+
+	void rpc_instance (nano::rpc & rpc_a) override
+	{
+		rpc = rpc_a;
+	}
+
+private:
+	nano::node & node;
+	boost::optional<nano::rpc&> rpc;
+	std::function<void()> stop_callback;
+	nano::node_rpc_config const & node_rpc_config;
 };
 }

@@ -1,4 +1,4 @@
-#include <nano/crypto_lib/random_pool.hpp>
+#include <nano/crypto_lib/randompool.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>

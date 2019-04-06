@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
-#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/loggermt.hpp>
 
 #define FATAL_LOG_PREFIX "FATAL ERROR: "
 
@@ -33,7 +33,6 @@ public:
 	bool insufficient_work_logging () const;
 	bool upnp_details_logging () const;
 	bool timing_logging () const;
-	bool log_rpc () const;
 	bool log_ipc () const;
 	bool bulk_pull_logging () const;
 	bool callback_logging () const;
@@ -52,7 +51,6 @@ public:
 	bool network_node_id_handshake_logging_value{ false };
 	bool node_lifetime_tracing_value{ false };
 	bool insufficient_work_logging_value{ true };
-	bool log_rpc_value{ true };
 	bool log_ipc_value{ true };
 	bool bulk_pull_logging_value{ false };
 	bool work_generation_time_value{ true };

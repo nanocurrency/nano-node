@@ -16,7 +16,7 @@
 #include <nano/lib/timer.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/ipc.hpp>
-#include <nano/node/json_handler.hpp>
+#include <nano/node/jsonhandler.hpp>
 #include <nano/node/node.hpp>
 #include <thread>
 
@@ -92,12 +92,8 @@ public:
 		// This is called when nano::rpc_handler#process_request is done. We convert to
 		// json and write the response to the ipc socket with a length prefix.
 		auto this_l (this->shared_from_this ());
-		auto response_handler_l ([this_l, request_id_l](boost::property_tree::ptree const & tree_a) {
-			std::stringstream ostream;
-			boost::property_tree::write_json (ostream, tree_a);
-			ostream.flush ();
-			this_l->response_body = ostream.str ();
-
+		auto response_handler_l ([this_l, request_id_l](std::string const & body) {
+			this_l->response_body = body;
 			this_l->size_response = boost::endian::native_to_big (static_cast<uint32_t> (this_l->response_body.size ()));
 			std::vector<boost::asio::mutable_buffer> bufs = {
 				boost::asio::buffer (&this_l->size_response, sizeof (this_l->size_response)),
@@ -127,12 +123,10 @@ public:
 		auto body (std::string (reinterpret_cast<char *> (buffer.data ()), buffer.size ()));
 
 		// Note that if the rpc action is async, the shared_ptr<json_handler> lifetime will be extended by the action handler
-		auto handler (std::make_shared<nano::json_handler> (server.payment_observer_processor, node, body, request_id_l, response_handler_l));
-		handler->process_request ();
-		if (!handler->ec && handler->action == "stop")
-		{
+		auto handler (std::make_shared<nano::json_handler> (node, server.node_rpc_config, body, response_handler_l, [&server = server]() {
 			server.stop ();
-		}
+		}));
+		handler->process_request ();
 	}
 
 	/** Async request reader */
@@ -292,9 +286,9 @@ private:
 };
 }
 
-nano::ipc::ipc_server::ipc_server (nano::node & node_a) :
+nano::ipc::ipc_server::ipc_server (nano::node & node_a, nano::node_rpc_config const & node_rpc_config_a) :
 node (node_a),
-payment_observer_processor (node.observers.blocks)
+node_rpc_config (node_rpc_config_a)
 {
 	try
 	{

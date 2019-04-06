@@ -11,6 +11,7 @@
 #include <nano/node/ipc.hpp>
 #include <nano/node/working.hpp>
 #include <nano/rpc/rpc.hpp>
+#include <nano/rpc/rpcrequestprocessor.hpp>
 
 namespace
 {
@@ -44,7 +45,8 @@ void run (boost::filesystem::path const & data_path)
 		boost::asio::io_context io_ctx;
 		try
 		{
-			auto rpc = nano::get_rpc (io_ctx, rpc_config);
+			nano::ipc_rpc_processor ipc_rpc_processor (io_ctx, rpc_config);
+			auto rpc = nano::get_rpc (io_ctx, rpc_config, ipc_rpc_processor);
 			rpc->start ();
 			runner = std::make_unique<nano::thread_runner> (io_ctx, rpc_config.io_threads);
 			runner->join ();

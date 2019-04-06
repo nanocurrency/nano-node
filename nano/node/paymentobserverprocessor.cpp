@@ -1,4 +1,4 @@
-#include <nano/node/payment_observer_processor.hpp>
+#include <nano/node/paymentobserverprocessor.hpp>
 
 nano::payment_observer_processor::payment_observer_processor (nano::node_observers::blocks_t & blocks)
 {

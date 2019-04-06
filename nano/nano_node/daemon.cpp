@@ -5,9 +5,11 @@
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/ipc.hpp>
+#include <nano/node/jsonhandler.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/openclwork.hpp>
 #include <nano/node/working.hpp>
+#include <nano/rpc/rpc.hpp>
 
 void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::node_flags const & flags)
 {
@@ -35,17 +37,35 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 			if (!init.error ())
 			{
 				node->start ();
-				nano::ipc::ipc_server ipc (*node);
-
+				nano::ipc::ipc_server ipc_server (*node, config.rpc);
 				std::unique_ptr<std::thread> thread;
+				std::unique_ptr<nano::rpc> rpc;
+				std::unique_ptr<nano::rpc_handler_interface> rpc_handler;
 				if (config.rpc_enable)
 				{
-					auto rpc_exe_command = boost::str (boost::format ("%1% %2%") % config.rpc_path % "--daemon");
-					thread = std::make_unique<std::thread> ([ rpc_exe_command, &logger = node->logger ]() {
-						nano::thread_role::set (nano::thread_role::name::rpc_process_container);
-						std::system (rpc_exe_command.c_str ());
-						logger.always_log ("RPC server has stopped");
-					});
+					if (config.rpc.rpc_in_process)
+					{
+						nano::rpc_config rpc_config;
+						auto error = nano::read_and_update_rpc_config (data_path, rpc_config);
+						if (error)
+						{
+							throw std::runtime_error ("Could not deserialize rpc_config file");
+						}
+						rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, config.rpc, [&ipc_server]() {
+							ipc_server.stop ();
+						});
+						rpc = nano::get_rpc (io_ctx, rpc_config, *rpc_handler);
+						rpc->start ();
+					}
+					else
+					{
+						auto rpc_exe_command = boost::str (boost::format ("%1% %2%") % config.rpc.rpc_path % "--daemon");
+						thread = std::make_unique<std::thread> ( [rpc_exe_command, &logger = node->logger ]() {
+							nano::thread_role::set (nano::thread_role::name::rpc_process_container);
+							std::system (rpc_exe_command.c_str ());
+							logger.always_log ("RPC server has stopped");
+						});
+					}
 				}
 
 				runner = std::make_unique<nano::thread_runner> (io_ctx, node->config.io_threads);
