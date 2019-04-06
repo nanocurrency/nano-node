@@ -3,7 +3,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/lib/utility.hpp>
-#include <nano/node/confirmation_height_processor.hpp>
+#include <nano/node/confirmationheightprocessor.hpp>
 #include <nano/node/node.hpp> // For active_transactions
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
