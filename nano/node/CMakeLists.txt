@@ -21,8 +21,8 @@ add_library (node
 	cli.cpp
 	common.cpp
 	common.hpp
-	confirmation_height_processor.hpp
-	confirmation_height_processor.cpp
+	confirmationheightprocessor.hpp
+	confirmationheightprocessor.cpp
 	daemonconfig.hpp
 	daemonconfig.cpp
 	ipc.hpp
