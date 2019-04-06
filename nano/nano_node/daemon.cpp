@@ -60,7 +60,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 					else
 					{
 						auto rpc_exe_command = boost::str (boost::format ("%1% %2%") % config.rpc.rpc_path % "--daemon");
-						thread = std::make_unique<std::thread> ([rpc_exe_command, &logger = node->logger ]() {
+						thread = std::make_unique<std::thread> ([ rpc_exe_command, &logger = node->logger ]() {
 							nano::thread_role::set (nano::thread_role::name::rpc_process_container);
 							std::system (rpc_exe_command.c_str ());
 							logger.always_log ("RPC server has stopped");
