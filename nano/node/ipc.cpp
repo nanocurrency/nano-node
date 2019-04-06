@@ -123,7 +123,7 @@ public:
 		auto body (std::string (reinterpret_cast<char *> (buffer.data ()), buffer.size ()));
 
 		// Note that if the rpc action is async, the shared_ptr<json_handler> lifetime will be extended by the action handler
-		auto handler (std::make_shared<nano::json_handler> (node, server.node_rpc_config, body, response_handler_l, [&server = server]() {
+		auto handler (std::make_shared<nano::json_handler> (node, server.node_rpc_config, body, response_handler_l, [& server = server]() {
 			server.stop ();
 		}));
 		handler->process_request ();

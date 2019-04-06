@@ -187,7 +187,7 @@ public:
 
 private:
 	nano::node & node;
-	boost::optional<nano::rpc&> rpc;
+	boost::optional<nano::rpc &> rpc;
 	std::function<void()> stop_callback;
 	nano::node_rpc_config const & node_rpc_config;
 };
