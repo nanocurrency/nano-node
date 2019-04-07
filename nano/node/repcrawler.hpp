@@ -122,17 +122,14 @@ private:
 	/** Called continuously to crawl for representatives */
 	void ongoing_crawl ();
 
-	/** Returns a list of endpoints to crawl */
-	std::vector<std::shared_ptr<nano::transport::channel>> get_crawl_targets ();
+	/** Returns a list of endpoints to crawl. The total weight is passed in to avoid computing it twice. */
+	std::vector<std::shared_ptr<nano::transport::channel>> get_crawl_targets (nano::uint128_t total_weight_a);
 
 	/** When a rep request is made, this is called to update the last-request timestamp. */
 	void on_rep_request (std::shared_ptr<nano::transport::channel> channel_a);
 
 	/** Protects the probable_reps container */
 	std::mutex probable_reps_mutex;
-
-	/** Get total available weight from representatives (must be called with a lock on probable_reps_mutex) */
-	nano::uint128_t total_weight_internal ();
 
 	/** Probable representatives */
 	probably_rep_t probable_reps;
