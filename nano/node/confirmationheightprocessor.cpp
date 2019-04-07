@@ -144,6 +144,14 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 			assert (pending.empty ());
 			timer.restart ();
 		}
+
+		// Exit early when the processor has been stopped, otherwise this function may take a
+		// while (and hence keep the process running) if updating a long chain.
+		std::lock_guard<std::mutex> lk (mutex);
+		if (stopped)
+		{
+			break;
+		}
 	} while (!receive_source_pairs.empty ());
 }
 
