@@ -48,18 +48,18 @@ private:
 		uint64_t height;
 	};
 
-	class open_receive_source_pair final
+	class receive_source_pair final
 	{
 	public:
-		open_receive_source_pair (conf_height_details const &, const nano::block_hash &);
+		receive_source_pair (conf_height_details const &, const nano::block_hash &);
 
-		conf_height_details open_receive_details;
+		conf_height_details receive_details;
 		nano::block_hash source_hash;
 	};
 
 	void run ();
 	void add_confirmation_height (nano::block_hash const &);
-	void collect_unconfirmed_receive_and_sources_for_account (uint64_t, uint64_t, nano::block_hash &, const nano::block_hash &, std::stack<open_receive_source_pair> &, nano::account const &, nano::transaction &);
+	void collect_unconfirmed_receive_and_sources_for_account (uint64_t, uint64_t, nano::block_hash &, const nano::block_hash &, std::stack<receive_source_pair> &, nano::account const &, nano::transaction &);
 	bool write_pending (std::queue<conf_height_details> &);
 };
 

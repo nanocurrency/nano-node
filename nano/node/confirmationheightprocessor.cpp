@@ -78,8 +78,8 @@ void nano::confirmation_height_processor::add (nano::block_hash const & hash_a)
  */
 void nano::confirmation_height_processor::add_confirmation_height (nano::block_hash const & hash_a)
 {
-	std::stack<open_receive_source_pair> open_receive_source_pairs;
-	boost::optional<conf_height_details> open_receive_details;
+	std::stack<receive_source_pair> receive_source_pairs;
+	boost::optional<conf_height_details> receive_details;
 	auto current = hash_a;
 	nano::account_info account_info;
 	nano::genesis genesis;
@@ -91,10 +91,10 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 
 	do
 	{
-		if (!open_receive_source_pairs.empty ())
+		if (!receive_source_pairs.empty ())
 		{
-			open_receive_details = open_receive_source_pairs.top ().open_receive_details;
-			current = open_receive_source_pairs.top ().source_hash;
+			receive_details = receive_source_pairs.top ().receive_details;
+			current = receive_source_pairs.top ().source_hash;
 		}
 
 		auto transaction (store.tx_begin_read ());
@@ -102,17 +102,17 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 		nano::account account (ledger.account (transaction, current));
 		release_assert (!store.account_get (transaction, account, account_info));
 		auto confirmation_height = account_info.confirmation_height;
-		auto count_before_open_receive = open_receive_source_pairs.size ();
+		auto count_before_open_receive = receive_source_pairs.size ();
 
 		auto hash (current);
 		if (block_height > confirmation_height)
 		{
-			collect_unconfirmed_receive_and_sources_for_account (block_height, confirmation_height, current, genesis_hash, open_receive_source_pairs, account, transaction);
+			collect_unconfirmed_receive_and_sources_for_account (block_height, confirmation_height, current, genesis_hash, receive_source_pairs, account, transaction);
 		}
 
 		// If this adds no more open_receive blocks, then we can now confirm this account as well as the linked open/receive block
 		// Collect as pending any writes to the database and do them in bulk after a certain time.
-		auto confirmed_receives_pending = (count_before_open_receive != open_receive_source_pairs.size ());
+		auto confirmed_receives_pending = (count_before_open_receive != receive_source_pairs.size ());
 		if (!confirmed_receives_pending)
 		{
 			if (block_height > confirmation_height)
@@ -120,23 +120,23 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 				pending.emplace (account, hash, block_height);
 			}
 
-			if (open_receive_details)
+			if (receive_details)
 			{
-				pending.push (*open_receive_details);
+				pending.push (*receive_details);
 			}
 
-			if (!open_receive_source_pairs.empty ())
+			if (!receive_source_pairs.empty ())
 			{
-				open_receive_source_pairs.pop ();
+				receive_source_pairs.pop ();
 			}
 		}
 
 		// Check whether writing to the database should be done now
-		if ((timer.after_deadline (batch_write_delta) || open_receive_source_pairs.empty ()) && !pending.empty ())
+		if ((timer.after_deadline (batch_write_delta) || receive_source_pairs.empty ()) && !pending.empty ())
 		{
 			auto error = write_pending (pending);
 
-			// Don't set any more blocks as confirmed from the originally hash if an inconsistency is found
+			// Don't set any more blocks as confirmed from the original hash if an inconsistency is found
 			if (error)
 			{
 				break;
@@ -144,7 +144,7 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 			assert (pending.empty ());
 			timer.restart ();
 		}
-	} while (!open_receive_source_pairs.empty ());
+	} while (!receive_source_pairs.empty ());
 }
 
 // Returns true if there was an error in finding one of the blocks to write the confirmation height for.
@@ -185,7 +185,7 @@ bool nano::confirmation_height_processor::write_pending (std::queue<conf_height_
 	return false;
 }
 
-void nano::confirmation_height_processor::collect_unconfirmed_receive_and_sources_for_account (uint64_t block_height, uint64_t confirmation_height, nano::block_hash & current, const nano::block_hash & genesis_hash, std::stack<open_receive_source_pair> & open_receive_source_pairs, nano::account const & account, nano::transaction & transaction)
+void nano::confirmation_height_processor::collect_unconfirmed_receive_and_sources_for_account (uint64_t block_height, uint64_t confirmation_height, nano::block_hash & current, const nano::block_hash & genesis_hash, std::stack<receive_source_pair> & receive_source_pairs, nano::account const & account, nano::transaction & transaction)
 {
 	// Get the last confirmed block in this account chain
 	auto num_to_confirm = block_height - confirmation_height;
@@ -198,7 +198,7 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 		{
 			if (block->type () == nano::block_type::receive || (block->type () == nano::block_type::open && block->hash () != genesis_hash))
 			{
-				open_receive_source_pairs.emplace (conf_height_details{ account, current, sideband.height }, block->source ());
+				receive_source_pairs.emplace (conf_height_details{ account, current, sideband.height }, block->source ());
 			}
 			else
 			{
@@ -211,13 +211,13 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 					{
 						if (state->hashables.balance.number () >= ledger.balance (transaction, previous) && !state->hashables.link.is_zero () && !ledger.is_epoch_link (state->hashables.link))
 						{
-							open_receive_source_pairs.emplace (conf_height_details{ account, current, sideband.height }, state->hashables.link);
+							receive_source_pairs.emplace (conf_height_details{ account, current, sideband.height }, state->hashables.link);
 						}
 					}
 					// State open blocks are always receive or epoch
 					else if (!ledger.is_epoch_link (state->hashables.link))
 					{
-						open_receive_source_pairs.emplace (conf_height_details{ account, current, sideband.height }, state->hashables.link);
+						receive_source_pairs.emplace (conf_height_details{ account, current, sideband.height }, state->hashables.link);
 					}
 				}
 			}
@@ -242,8 +242,8 @@ height (height_a)
 {
 }
 
-confirmation_height_processor::open_receive_source_pair::open_receive_source_pair (confirmation_height_processor::conf_height_details const & open_receive_details_a, const block_hash & source_a) :
-open_receive_details (open_receive_details_a),
+confirmation_height_processor::receive_source_pair::receive_source_pair (confirmation_height_processor::conf_height_details const & receive_details_a, const block_hash & source_a) :
+receive_details (receive_details_a),
 source_hash (source_a)
 {
 }
