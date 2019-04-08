@@ -4691,35 +4691,8 @@ TEST (rpc, node_id)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
-	auto transaction (system.nodes[0]->store.tx_begin_read ());
-	nano::keypair node_id (system.nodes[0]->store.get_node_id (transaction));
-	ASSERT_EQ (node_id.prv.data.to_string (), response.json.get<std::string> ("private"));
-	ASSERT_EQ (node_id.pub.to_account (), response.json.get<std::string> ("as_account"));
-}
-
-TEST (rpc, node_id_delete)
-{
-	nano::system system (24000, 1);
-	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
-	rpc.start ();
-	{
-		auto transaction (system.nodes[0]->store.tx_begin_write ());
-		nano::keypair node_id (system.nodes[0]->store.get_node_id (transaction));
-		ASSERT_EQ (node_id.pub.to_string (), system.nodes[0]->node_id.pub.to_string ());
-	}
-	boost::property_tree::ptree request;
-	request.put ("action", "node_id_delete");
-	test_response response (request, rpc, system.io_ctx);
-	system.deadline_set (5s);
-	while (response.status == 0)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	ASSERT_EQ (200, response.status);
-	ASSERT_EQ ("1", response.json.get<std::string> ("deleted"));
-	auto transaction (system.nodes[0]->store.tx_begin_write ());
-	nano::keypair node_id (system.nodes[0]->store.get_node_id (transaction));
-	ASSERT_NE (node_id.pub.to_string (), system.nodes[0]->node_id.pub.to_string ());
+	ASSERT_EQ (system.nodes[0]->node_id.prv.data.to_string (), response.json.get<std::string> ("private"));
+	ASSERT_EQ (system.nodes[0]->node_id.pub.to_account (), response.json.get<std::string> ("as_account"));
 }
 
 TEST (rpc, stats_clear)

@@ -1224,7 +1224,7 @@ startup_time (std::chrono::steady_clock::now ())
 			std::exit (1);
 		}
 
-		node_id = nano::keypair (store.get_node_id (transaction));
+		node_id = nano::keypair ();
 		logger.always_log ("Node ID: ", node_id.pub.to_account ());
 	}
 

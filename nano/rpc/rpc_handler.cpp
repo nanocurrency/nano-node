@@ -2223,13 +2223,7 @@ void nano::rpc_handler::node_id ()
  */
 void nano::rpc_handler::node_id_delete ()
 {
-	rpc_control_impl ();
-	if (!ec)
-	{
-		auto transaction (node.store.tx_begin_write ());
-		node.store.delete_node_id (transaction);
-		response_l.put ("deleted", "1");
-	}
+	response_l.put ("deprecated", "1");
 	response_errors ();
 }
 
