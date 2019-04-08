@@ -4311,7 +4311,7 @@ void nano::rpc_handler::work_cancel ()
 	auto hash (hash_impl ());
 	if (!ec)
 	{
-		node.work.cancel (node.network_params.is_live_network () ? hash : hash ^ node.network_params.ledger.genesis_account);
+		node.work.cancel (node.network_params.network.is_live_network () ? hash : hash ^ static_cast<uint64_t> (node.network_params.network.current_network));
 	}
 	response_errors ();
 }

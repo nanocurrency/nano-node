@@ -9,9 +9,9 @@ bool nano::work_validate (nano::block_hash const & root_a, uint64_t work_a, uint
 {
 	static nano::network_constants network_constants;
 	auto value (nano::work_value (root_a, work_a));
-	if (!network_params.is_live_network () && value < network_params.publish_threshold)
+	if (!network_constants.is_live_network () && value < network_constants.publish_threshold)
 	{
-		value = nano::work_value (root_a ^ network_params.ledger.genesis_account, work_a);
+		value = nano::work_value (root_a ^ static_cast<uint64_t> (network_constants.current_network), work_a);
 	}
 	if (difficulty_a != nullptr)
 	{
@@ -185,13 +185,13 @@ void nano::work_pool::generate (nano::uint256_union const & hash_a, std::functio
 	boost::optional<uint64_t> result;
 	if (opencl)
 	{
-		result = opencl (network_params.is_live_network () ? hash_a : hash_a ^ network_params.ledger.genesis_account, difficulty_a);
+		result = opencl (network_constants.is_live_network () ? hash_a : hash_a ^ static_cast<uint64_t> (network_constants.current_network), difficulty_a);
 	}
 	if (!result)
 	{
 		{
 			std::lock_guard<std::mutex> lock (mutex);
-			pending.push_back ({ network_params.is_live_network () ? hash_a : hash_a ^ network_params.ledger.genesis_account, callback_a, difficulty_a });
+			pending.push_back ({ network_constants.is_live_network () ? hash_a : hash_a ^ static_cast<uint64_t> (network_constants.current_network), callback_a, difficulty_a });
 		}
 		producer_condition.notify_all ();
 	}
