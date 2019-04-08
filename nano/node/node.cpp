@@ -2317,7 +2317,7 @@ void nano::node::process_message (nano::message const & message_a, std::shared_p
 
 nano::endpoint nano::network::endpoint ()
 {
-	return udp_channels.local_endpoint ();
+	return udp_channels.get_local_endpoint ();
 }
 
 void nano::network::cleanup (std::chrono::steady_clock::time_point const & cutoff_a)
