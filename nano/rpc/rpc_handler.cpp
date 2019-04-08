@@ -14,6 +14,7 @@ void construct_json (nano::seq_con_info_component * component, boost::property_t
 using rpc_handler_no_arg_func_map = std::unordered_map<std::string, std::function<void(nano::rpc_handler *)>>;
 rpc_handler_no_arg_func_map create_rpc_handler_no_arg_func_map ();
 auto rpc_handler_no_arg_funcs = create_rpc_handler_no_arg_func_map ();
+bool block_confirmed (nano::node & node, nano::transaction & transaction, nano::block_hash const & hash, bool include_active, bool include_only_confirmed);
 }
 
 nano::rpc_handler::rpc_handler (nano::node & node_a, nano::rpc & rpc_a, std::string const & body_a, std::string const & request_id_a, std::function<void(boost::property_tree::ptree const &)> const & response_a) :
@@ -681,6 +682,7 @@ void nano::rpc_handler::accounts_pending ()
 	auto threshold (threshold_optional_impl ());
 	const bool source = request.get<bool> ("source", false);
 	const bool include_active = request.get<bool> ("include_active", false);
+	const bool include_only_confirmed = request.get<bool> ("include_only_confirmed", false);
 	const bool sorting = request.get<bool> ("sorting", false);
 	auto simple (threshold.is_zero () && !source && !sorting); // if simple, response is a list of hashes for each account
 	boost::property_tree::ptree pending;
@@ -694,7 +696,7 @@ void nano::rpc_handler::accounts_pending ()
 			for (auto i (node.store.pending_begin (transaction, nano::pending_key (account, 0))); nano::pending_key (i->first).account == account && peers_l.size () < count; ++i)
 			{
 				nano::pending_key key (i->first);
-				if (include_active || node.ledger.block_confirmed (transaction, key.hash))
+				if (block_confirmed (node, transaction, key.hash, include_active, include_only_confirmed))
 				{
 					if (simple)
 					{
@@ -2329,6 +2331,7 @@ void nano::rpc_handler::pending ()
 	const bool source = request.get<bool> ("source", false);
 	const bool min_version = request.get<bool> ("min_version", false);
 	const bool include_active = request.get<bool> ("include_active", false);
+	const bool include_only_confirmed = request.get<bool> ("include_only_confirmed", false);
 	const bool sorting = request.get<bool> ("sorting", false);
 	auto simple (threshold.is_zero () && !source && !min_version && !sorting); // if simple, response is a list of hashes
 	if (!ec)
@@ -2338,7 +2341,7 @@ void nano::rpc_handler::pending ()
 		for (auto i (node.store.pending_begin (transaction, nano::pending_key (account, 0))); nano::pending_key (i->first).account == account && peers_l.size () < count; ++i)
 		{
 			nano::pending_key key (i->first);
-			if (include_active || node.ledger.block_confirmed (transaction, key.hash))
+			if (block_confirmed (node, transaction, key.hash, include_active, include_only_confirmed))
 			{
 				if (simple)
 				{
@@ -2397,6 +2400,7 @@ void nano::rpc_handler::pending_exists ()
 {
 	auto hash (hash_impl ());
 	const bool include_active = request.get<bool> ("include_active", false);
+	const bool include_only_confirmed = request.get<bool> ("include_only_confirmed", false);
 	if (!ec)
 	{
 		auto transaction (node.store.tx_begin_read ());
@@ -2409,7 +2413,7 @@ void nano::rpc_handler::pending_exists ()
 			{
 				exists = node.store.pending_exists (transaction, nano::pending_key (destination, hash));
 			}
-			exists = exists && (include_active || node.ledger.block_confirmed (transaction, hash));
+			exists = exists && (block_confirmed (node, transaction, block->hash (), include_active, include_only_confirmed));
 			response_l.put ("exists", exists ? "1" : "0");
 		}
 		else
@@ -3969,6 +3973,7 @@ void nano::rpc_handler::wallet_pending ()
 	const bool source = request.get<bool> ("source", false);
 	const bool min_version = request.get<bool> ("min_version", false);
 	const bool include_active = request.get<bool> ("include_active", false);
+	const bool include_only_confirmed = request.get<bool> ("include_only_confirmed", false);
 	if (!ec)
 	{
 		boost::property_tree::ptree pending;
@@ -3981,7 +3986,7 @@ void nano::rpc_handler::wallet_pending ()
 			for (auto ii (node.store.pending_begin (block_transaction, nano::pending_key (account, 0))); nano::pending_key (ii->first).account == account && peers_l.size () < count; ++ii)
 			{
 				nano::pending_key key (ii->first);
-				if (include_active || node.ledger.block_confirmed (block_transaction, key.hash))
+				if (block_confirmed (node, transaction, key.hash, include_active, include_only_confirmed))
 				{
 					if (threshold.is_zero () && !source)
 					{
@@ -4616,5 +4621,29 @@ void construct_json (nano::seq_con_info_component * component, boost::property_t
 	}
 
 	parent.add_child (composite->get_name (), current);
+}
+
+/* Due to the asynchronous nature of updating confirmation heights, it can also be necessary to check active roots */
+bool block_confirmed (nano::node & node, nano::transaction & transaction, nano::block_hash const & hash, bool include_active, bool include_only_confirmed)
+{
+	if (include_active && !include_only_confirmed)
+	{
+		return true;
+	}
+
+	// Check whether the confirmation height is set
+	if (node.ledger.block_confirmed (transaction, hash))
+	{
+		return true;
+	}
+
+	// This just checks it's not currently undergoing an active transaction
+	if (!include_only_confirmed)
+	{
+		auto block (node.store.block_get (transaction, hash));
+		return (block != nullptr && !node.active.active (*block));
+	}
+
+	return false;
 }
 }
