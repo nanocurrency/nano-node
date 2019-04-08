@@ -3,7 +3,7 @@
 #include <nano/lib/work.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap.hpp>
-#include <nano/node/confirmationheightprocessor.hpp>
+#include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/logging.hpp>
 #include <nano/node/nodeconfig.hpp>
 #include <nano/node/portmapping.hpp>
