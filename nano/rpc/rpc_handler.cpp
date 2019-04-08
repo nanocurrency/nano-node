@@ -3986,7 +3986,7 @@ void nano::rpc_handler::wallet_pending ()
 			for (auto ii (node.store.pending_begin (block_transaction, nano::pending_key (account, 0))); nano::pending_key (ii->first).account == account && peers_l.size () < count; ++ii)
 			{
 				nano::pending_key key (ii->first);
-				if (block_confirmed (node, transaction, key.hash, include_active, include_only_confirmed))
+				if (block_confirmed (node, block_transaction, key.hash, include_active, include_only_confirmed))
 				{
 					if (threshold.is_zero () && !source)
 					{
