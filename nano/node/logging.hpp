@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
-#include <nano/lib/loggermt.hpp>
+#include <nano/lib/logger_mt.hpp>
 
 #define FATAL_LOG_PREFIX "FATAL ERROR: "
 

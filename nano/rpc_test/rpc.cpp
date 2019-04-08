@@ -6,11 +6,11 @@
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/ipc.hpp>
-#include <nano/node/jsonhandler.hpp>
-#include <nano/node/noderpcconfig.hpp>
+#include <nano/node/json_handler.hpp>
+#include <nano/node/node_rpc_config.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/rpc/rpc.hpp>
-#include <nano/rpc/rpcrequestprocessor.hpp>
+#include <nano/rpc/rpc_request_processor.hpp>
 
 namespace
 {

@@ -1,4 +1,4 @@
-#include <nano/crypto_lib/randompool.hpp>
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/rpcconfig.hpp>
@@ -6,8 +6,8 @@
 #include <nano/nano_wallet/icon.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/ipc.hpp>
-#include <nano/node/jsonhandler.hpp>
-#include <nano/node/noderpcconfig.hpp>
+#include <nano/node/json_handler.hpp>
+#include <nano/node/node_rpc_config.hpp>
 #include <nano/node/working.hpp>
 #include <nano/qt/qt.hpp>
 #include <nano/rpc/rpc.hpp>

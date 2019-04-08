@@ -11,7 +11,7 @@
 #include <nano/node/ipc.hpp>
 #include <nano/node/working.hpp>
 #include <nano/rpc/rpc.hpp>
-#include <nano/rpc/rpcrequestprocessor.hpp>
+#include <nano/rpc/rpc_request_processor.hpp>
 
 namespace
 {

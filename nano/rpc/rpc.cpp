@@ -1,10 +1,10 @@
 #include <boost/format.hpp>
-#include <nano/lib/rpchandlerinterface.hpp>
+#include <nano/lib/rpc_handler_interface.hpp>
 #include <nano/rpc/rpc.hpp>
-#include <nano/rpc/rpcconnection.hpp>
+#include <nano/rpc/rpc_connection.hpp>
 
 #ifdef NANO_SECURE_RPC
-#include <nano/rpc/rpcsecure.hpp>
+#include <nano/rpc/rpc_secure.hpp>
 #endif
 
 nano::rpc::rpc (boost::asio::io_context & io_ctx_a, nano::rpc_config const & config_a, nano::rpc_handler_interface & rpc_handler_interface_a) :

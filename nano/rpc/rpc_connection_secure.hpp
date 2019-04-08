@@ -1,7 +1,7 @@
 #pragma once
 
 #include <boost/asio/ssl/stream.hpp>
-#include <nano/rpc/rpcconnection.hpp>
+#include <nano/rpc/rpc_connection.hpp>
 
 namespace nano
 {

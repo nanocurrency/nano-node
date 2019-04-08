@@ -2,7 +2,7 @@
 
 #include <atomic>
 #include <boost/beast.hpp>
-#include <nano/rpc/rpchandler.hpp>
+#include <nano/rpc/rpc_handler.hpp>
 
 namespace nano
 {

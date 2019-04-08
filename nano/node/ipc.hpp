@@ -3,7 +3,7 @@
 #include <atomic>
 #include <nano/lib/ipc.hpp>
 #include <nano/lib/numbers.hpp>
-#include <nano/node/noderpcconfig.hpp>
+#include <nano/node/node_rpc_config.hpp>
 
 namespace nano
 {

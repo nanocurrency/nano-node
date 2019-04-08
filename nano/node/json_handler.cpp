@@ -1,4 +1,4 @@
-#include <nano/node/jsonhandler.hpp>
+#include <nano/node/json_handler.hpp>
 
 #include <algorithm>
 #include <boost/array.hpp>
@@ -14,13 +14,13 @@
 #include <future>
 #include <iostream>
 #include <nano/lib/config.hpp>
-#include <nano/lib/jsonerrorresponse.hpp>
+#include <nano/lib/json_error_response.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/ipc.hpp>
-#include <nano/node/jsonpaymentobserver.hpp>
+#include <nano/node/json_payment_observer.hpp>
 #include <nano/node/node.hpp>
-#include <nano/node/noderpcconfig.hpp>
+#include <nano/node/node_rpc_config.hpp>
 #include <thread>
 
 namespace

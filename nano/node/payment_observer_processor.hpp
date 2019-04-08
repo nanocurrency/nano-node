@@ -1,10 +1,11 @@
 #pragma once
 
-#include <nano/node/jsonpaymentobserver.hpp>
-#include <nano/node/nodeobservers.hpp>
+#include <nano/node/node_observers.hpp>
 
 namespace nano
 {
+class json_payment_observer;
+
 class payment_observer_processor final
 {
 public:

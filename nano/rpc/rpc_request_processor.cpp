@@ -1,5 +1,5 @@
-#include <nano/lib/jsonerrorresponse.hpp>
-#include <nano/rpc/rpcrequestprocessor.hpp>
+#include <nano/lib/json_error_response.hpp>
+#include <nano/rpc/rpc_request_processor.hpp>
 
 nano::rpc_request_processor::rpc_request_processor (boost::asio::io_context & io_ctx, nano::rpc_config & rpc_config) :
 ipc_address (rpc_config.address.to_string ()),

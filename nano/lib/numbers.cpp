@@ -1,6 +1,6 @@
 #include <nano/lib/utility.hpp>
 
-#include <nano/crypto_lib/randompool.hpp>
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/numbers.hpp>
 
 #include <crypto/ed25519-donna/ed25519.h>

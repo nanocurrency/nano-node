@@ -1,4 +1,4 @@
-#include <nano/node/noderpcconfig.hpp>
+#include <nano/node/node_rpc_config.hpp>
 
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>

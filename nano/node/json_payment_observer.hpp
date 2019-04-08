@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nano/node/nodeobservers.hpp>
+#include <nano/node/node_observers.hpp>
 #include <nano/node/wallet.hpp>
 #include <string>
 #include <vector>

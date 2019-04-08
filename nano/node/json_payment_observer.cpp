@@ -1,9 +1,9 @@
-#include <nano/lib/jsonerrorresponse.hpp>
+#include <nano/lib/json_error_response.hpp>
 #include <nano/node/ipc.hpp>
-#include <nano/node/jsonhandler.hpp>
-#include <nano/node/jsonpaymentobserver.hpp>
+#include <nano/node/json_handler.hpp>
+#include <nano/node/json_payment_observer.hpp>
 #include <nano/node/node.hpp>
-#include <nano/node/paymentobserverprocessor.hpp>
+#include <nano/node/payment_observer_processor.hpp>
 
 nano::json_payment_observer::json_payment_observer (nano::node & node_a, std::function<void(std::string const &)> const & response_a, nano::account const & account_a, nano::amount const & amount_a) :
 node (node_a),

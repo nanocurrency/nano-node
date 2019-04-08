@@ -16,7 +16,7 @@
 #include <nano/lib/timer.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/ipc.hpp>
-#include <nano/node/jsonhandler.hpp>
+#include <nano/node/json_handler.hpp>
 #include <nano/node/node.hpp>
 #include <thread>
 

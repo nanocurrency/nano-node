@@ -1,12 +1,12 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/format.hpp>
 #include <nano/lib/config.hpp>
-#include <nano/lib/jsonerrorresponse.hpp>
-#include <nano/lib/loggermt.hpp>
+#include <nano/lib/json_error_response.hpp>
+#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/rpc_handler_interface.hpp>
 #include <nano/lib/rpcconfig.hpp>
-#include <nano/lib/rpchandlerinterface.hpp>
-#include <nano/rpc/rpcconnection.hpp>
-#include <nano/rpc/rpchandler.hpp>
+#include <nano/rpc/rpc_connection.hpp>
+#include <nano/rpc/rpc_handler.hpp>
 
 nano::rpc_connection::rpc_connection (nano::rpc_config const & rpc_config, nano::network_constants const & network_constants, boost::asio::io_context & io_ctx, nano::logger_mt & logger, nano::rpc_handler_interface & rpc_handler_interface) :
 socket (io_ctx),

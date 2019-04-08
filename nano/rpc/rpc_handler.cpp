@@ -1,11 +1,11 @@
 #include <boost/endian/conversion.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <nano/lib/errors.hpp>
-#include <nano/lib/jsonerrorresponse.hpp>
-#include <nano/lib/loggermt.hpp>
+#include <nano/lib/json_error_response.hpp>
+#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/rpc_handler_interface.hpp>
 #include <nano/lib/rpcconfig.hpp>
-#include <nano/lib/rpchandlerinterface.hpp>
-#include <nano/rpc/rpchandler.hpp>
+#include <nano/rpc/rpc_handler.hpp>
 #include <unordered_set>
 
 namespace

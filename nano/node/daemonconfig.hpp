@@ -1,8 +1,8 @@
 #pragma once
 
 #include <nano/lib/errors.hpp>
+#include <nano/node/node_rpc_config.hpp>
 #include <nano/node/nodeconfig.hpp>
-#include <nano/node/noderpcconfig.hpp>
 #include <nano/node/openclconfig.hpp>
 
 namespace nano

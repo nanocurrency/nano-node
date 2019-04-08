@@ -1,6 +1,6 @@
 #include <nano/secure/common.hpp>
 
-#include <nano/crypto_lib/randompool.hpp>
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/interface.h>
 #include <nano/lib/numbers.hpp>
 #include <nano/node/common.hpp>

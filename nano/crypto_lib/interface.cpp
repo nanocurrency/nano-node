@@ -1,5 +1,5 @@
 #include <crypto/blake2/blake2.h>
-#include <nano/crypto_lib/randompool.hpp>
+#include <nano/crypto_lib/random_pool.hpp>
 
 extern "C" {
 #include <crypto/ed25519-donna/ed25519-hash-custom.h>

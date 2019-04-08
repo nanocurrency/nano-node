@@ -1,5 +1,5 @@
-#include <nano/rpc/rpcconnectionsecure.hpp>
-#include <nano/rpc/rpcsecure.hpp>
+#include <nano/rpc/rpc_connection_secure.hpp>
+#include <nano/rpc/rpc_secure.hpp>
 
 #include <boost/polymorphic_pointer_cast.hpp>
 
