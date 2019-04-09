@@ -506,6 +506,27 @@ TEST (block_uniquer, cleanup)
 	}
 }
 
+TEST (block_builder, from)
+{
+	std::error_code ec;
+	nano::block_builder builder;
+	auto block = builder
+	             .state ()
+	             .account_address ("xrb_15nhh1kzw3x8ohez6s75wy3jr6dqgq65oaede1fzk5hqxk4j8ehz7iqtb3to")
+	             .previous_hex ("FEFBCE274E75148AB31FF63EFB3082EF1126BF72BF3FA9C76A97FD5A9F0EBEC5")
+	             .balance_dec ("2251569974100400000000000000000000")
+	             .representative_address ("xrb_1stofnrxuz3cai7ze75o174bpm7scwj9jn3nxsn8ntzg784jf1gzn1jjdkou")
+	             .link_hex ("E16DD58C1EFA8B521545B0A74375AA994D9FC43828A4266D75ECF57F07A7EE86")
+	             .build (ec);
+	ASSERT_EQ (block->hash ().to_string (), "2D243F8F92CDD0AD94A1D456A6B15F3BE7A6FCBD98D4C5831D06D15C818CD81F");
+
+	auto block2 = builder.state ().from (*block).build (ec);
+	ASSERT_EQ (block2->hash ().to_string (), "2D243F8F92CDD0AD94A1D456A6B15F3BE7A6FCBD98D4C5831D06D15C818CD81F");
+
+	auto block3 = builder.state ().from (*block).sign_zero ().work (0).build (ec);
+	ASSERT_EQ (block3->hash ().to_string (), "2D243F8F92CDD0AD94A1D456A6B15F3BE7A6FCBD98D4C5831D06D15C818CD81F");
+}
+
 TEST (block_builder, zeroed_state_block)
 {
 	std::error_code ec;

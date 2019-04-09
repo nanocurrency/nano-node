@@ -54,7 +54,7 @@ namespace transport
 		void start ();
 		void stop ();
 		void send (boost::asio::const_buffer buffer_a, nano::endpoint endpoint_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a);
-		nano::endpoint local_endpoint () const;
+		nano::endpoint get_local_endpoint () const;
 		void receive_action (nano::message_buffer *);
 		void process_packets ();
 		std::shared_ptr<nano::transport::channel> create (nano::endpoint const &);
@@ -82,7 +82,6 @@ namespace transport
 		static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
 
 	private:
-		bool is_socket_open ();
 		void ongoing_syn_cookie_cleanup ();
 		class endpoint_tag
 		{
@@ -151,8 +150,11 @@ namespace transport
 		std::unordered_map<nano::endpoint, syn_cookie_info> syn_cookies;
 		std::unordered_map<boost::asio::ip::address, unsigned> syn_cookies_per_ip;
 		nano::node & node;
+		boost::asio::strand<boost::asio::io_context::executor_type> strand;
 		boost::asio::ip::udp::socket socket;
+		nano::endpoint local_endpoint;
 		nano::network_params network_params;
+		std::atomic<bool> stopped{ false };
 	};
 } // namespace transport
 } // namespace nano
