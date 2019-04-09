@@ -1408,6 +1408,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (node & node, const
 	composite->add_component (collect_seq_con_info (node.block_uniquer, "block_uniquer"));
 	composite->add_component (collect_seq_con_info (node.vote_uniquer, "vote_uniquer"));
 	composite->add_component (collect_seq_con_info (node.confirmation_height_processor, "confirmation_height_processor"));
+	composite->add_component (collect_seq_con_info (node.pending_confirmation_height, "pending_confirmation_height"));
 	return composite;
 }
 }
