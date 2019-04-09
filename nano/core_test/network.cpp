@@ -1791,6 +1791,8 @@ TEST (network, replace_port)
 			channel->node_id = node1->node_id.pub;
 		}
 	}
+	auto peers_list (system.nodes[0]->network.udp_channels.list (std::numeric_limits<size_t>::max ()));
+	ASSERT_EQ (peers_list[0]->node_id.get (), node1->node_id.pub);
 	nano::transport::channel_udp channel (system.nodes[0]->network.udp_channels, node1->network.endpoint ());
 	system.nodes[0]->network.send_keepalive (channel);
 	system.deadline_set (5s);
@@ -1808,5 +1810,8 @@ TEST (network, replace_port)
 	ASSERT_EQ (node1->network.endpoint (), list1[0]->endpoint);
 	auto list2 (node1->network.udp_channels.list (1));
 	ASSERT_EQ (system.nodes[0]->network.endpoint (), list2[0]->endpoint);
+	// Remove correct peer (same node ID)
+	system.nodes[0]->network.udp_channels.clean_node_id (nano::endpoint (node1->network.endpoint ().address (), 23000), node1->node_id.pub);
+	ASSERT_EQ (system.nodes[0]->network.udp_channels.size (), 0);
 	node1->stop ();
 }

@@ -300,10 +300,11 @@ bool nano::transport::udp_channels::reserved_address (nano::endpoint const & end
 
 void nano::transport::udp_channels::clean_node_id (nano::endpoint const & endpoint_a, nano::account const & node_id_a)
 {
+	std::lock_guard<std::mutex> lock (mutex);
 	auto existing (channels.get<node_id_tag> ().equal_range (node_id_a));
 	for (auto & record : boost::make_iterator_range (existing))
 	{
-		// Remove duplicate node ID for IPv4 & IPv6
+		// Remove duplicate node ID for same IP address
 		if (record.endpoint ().address () == endpoint_a.address () && record.endpoint ().port () != endpoint_a.port ())
 		{
 			channels.get<endpoint_tag> ().erase (record.endpoint ());
