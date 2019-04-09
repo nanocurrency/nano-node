@@ -391,6 +391,11 @@ public:
 			if (cookie)
 			{
 				node.network.send_node_id_handshake (endpoint, *cookie, boost::none);
+				auto channel (node.network.udp_channels.channel (endpoint));
+				if (channel)
+				{
+					node.network.send_keepalive_self (channel);
+				}
 			}
 		}
 		message (message_a);

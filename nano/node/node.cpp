@@ -103,6 +103,15 @@ void nano::network::send_keepalive (nano::transport::channel const & channel_a)
 	channel_a.send (message);
 }
 
+void nano::network::send_keepalive_self (nano::transport::channel const & channel_a)
+{
+	nano::keepalive message;
+	udp_channels.random_fill (message.peers);
+	message.peers[0] = nano::endpoint (boost::asio::ip::address_v6{}, endpoint ().port ());
+	message.peers[1] = nano::endpoint (boost::asio::ip::address_v6{}, node.port_mapping.external_address ().port ());
+	channel_a.send (message);
+}
+
 void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 {
 	auto node_l (shared_from_this ());
