@@ -1220,7 +1220,7 @@ TEST (rpc, account_history)
 	auto account2 (system.wallet (0)->deterministic_insert ());
 	auto send2 (system.wallet (0)->send_action (nano::test_genesis_key.pub, account2, system.nodes[0]->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, send2);
-	auto receive2 (system.wallet (0)->receive_action (static_cast<nano::send_block &> (*send2), account2, system.nodes[0]->config.receive_minimum.number ()));
+	auto receive2 (system.wallet (0)->receive_action (*send2, account2, system.nodes[0]->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, receive2);
 	{
 		boost::property_tree::ptree request;
