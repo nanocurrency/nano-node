@@ -20,8 +20,6 @@ nano::error nano::node_rpc_config::deserialize_json (bool & upgraded_a, nano::js
 	auto version_l (json.get_optional<unsigned> ("version"));
 	if (!version_l)
 	{
-		version_l = 1;
-		json.put ("version", *version_l);
 		json.erase ("frontier_request_limit");
 		json.erase ("chain_request_limit");
 
@@ -33,14 +31,21 @@ nano::error nano::node_rpc_config::deserialize_json (bool & upgraded_a, nano::js
 
 		migrate (json, data_path);
 
-		json.erase ("io_threads");
-
 		json.put ("enable_sign_hash", enable_sign_hash);
 		json.put ("max_work_generate_difficulty", nano::to_string_hex (max_work_generate_difficulty));
+
+		// Remove options no longer needed after migration
+		json.erase ("enable_control");
+		json.erase ("address");
+		json.erase ("port");
+		json.erase ("max_json_depth");
+		json.erase ("max_request_size");
+
+		version_l = 1;
+		json.put ("version", *version_l);
 		json.put ("rpc_path", get_default_rpc_filepath ());
-		bool rpc_in_process_l;
-		json.get_optional<bool> ("rpc_in_process", rpc_in_process_l);
-		if (!rpc_in_process)
+		auto rpc_in_process_l = json.get_optional<bool> ("rpc_in_process");
+		if (!rpc_in_process_l)
 		{
 			json.put ("rpc_in_process", true);
 		}
