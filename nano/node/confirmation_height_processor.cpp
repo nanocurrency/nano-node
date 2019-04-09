@@ -103,15 +103,17 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 		auto confirmation_height = account_info.confirmation_height;
 		receive_source_pairs_lk.lock ();
 		auto count_before_open_receive = receive_source_pairs.size ();
+		receive_source_pairs_lk.unlock ();
 
 		auto hash (current);
 		if (block_height > confirmation_height)
 		{
-			collect_unconfirmed_receive_and_sources_for_account (block_height, confirmation_height, current, genesis_hash, receive_source_pairs, account, transaction);
+			collect_unconfirmed_receive_and_sources_for_account (block_height, confirmation_height, current, genesis_hash, receive_source_pairs, account, transaction, receive_source_pairs_lk);
 		}
 
 		// If this adds no more open_receive blocks, then we can now confirm this account as well as the linked open/receive block
 		// Collect as pending any writes to the database and do them in bulk after a certain time.
+		receive_source_pairs_lk.lock ();
 		auto confirmed_receives_pending = (count_before_open_receive != receive_source_pairs.size ());
 		receive_source_pairs_lk.unlock ();
 		if (!confirmed_receives_pending)
@@ -196,7 +198,7 @@ bool nano::confirmation_height_processor::write_pending (std::queue<conf_height_
 	return false;
 }
 
-void nano::confirmation_height_processor::collect_unconfirmed_receive_and_sources_for_account (uint64_t block_height, uint64_t confirmation_height, nano::block_hash & current, const nano::block_hash & genesis_hash, std::stack<receive_source_pair> & receive_source_pairs, nano::account const & account, nano::transaction & transaction)
+void nano::confirmation_height_processor::collect_unconfirmed_receive_and_sources_for_account (uint64_t block_height, uint64_t confirmation_height, nano::block_hash & current, const nano::block_hash & genesis_hash, std::stack<receive_source_pair> & receive_source_pairs, nano::account const & account, nano::transaction & transaction, std::unique_lock <std::mutex> & receive_source_pairs_lk)
 {
 	// Get the last confirmed block in this account chain
 	auto num_to_confirm = block_height - confirmation_height;
@@ -209,7 +211,9 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 		{
 			if (block->type () == nano::block_type::receive || (block->type () == nano::block_type::open && block->hash () != genesis_hash))
 			{
+				receive_source_pairs_lk.lock ();
 				receive_source_pairs.emplace (conf_height_details{ account, current, sideband.height }, block->source ());
+				receive_source_pairs_lk.unlock ();
 			}
 			else
 			{
@@ -222,13 +226,17 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 					{
 						if (state->hashables.balance.number () >= ledger.balance (transaction, previous) && !state->hashables.link.is_zero () && !ledger.is_epoch_link (state->hashables.link))
 						{
+							receive_source_pairs_lk.lock ();
 							receive_source_pairs.emplace (conf_height_details{ account, current, sideband.height }, state->hashables.link);
+							receive_source_pairs_lk.unlock ();
 						}
 					}
 					// State open blocks are always receive or epoch
 					else if (!ledger.is_epoch_link (state->hashables.link))
 					{
+						receive_source_pairs_lk.lock ();
 						receive_source_pairs.emplace (conf_height_details{ account, current, sideband.height }, state->hashables.link);
+						receive_source_pairs_lk.unlock ();
 					}
 				}
 			}
