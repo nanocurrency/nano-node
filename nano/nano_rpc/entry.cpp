@@ -73,7 +73,7 @@ int main (int argc, char * const * argv)
 	description.add_options ()
 		("help", "Print out options")
 		("version", "Prints out version")
-		("daemon", "Start node daemon")
+		("daemon", "Start RPC daemon")
 		("data_path", boost::program_options::value<std::string> (), "Use the supplied path as the data directory");
 	// clang-format on
 
