@@ -202,6 +202,18 @@ nano::state_block_builder & nano::state_block_builder::make_block ()
 	return *this;
 }
 
+nano::state_block_builder & nano::state_block_builder::from (nano::state_block const & other_block)
+{
+	block->work = other_block.work;
+	block->signature = other_block.signature;
+	block->hashables.account = other_block.hashables.account;
+	block->hashables.balance = other_block.hashables.balance;
+	block->hashables.link = other_block.hashables.link;
+	block->hashables.previous = other_block.hashables.previous;
+	block->hashables.representative = other_block.hashables.representative;
+	return *this;
+}
+
 void nano::state_block_builder::validate ()
 {
 	if (!ec)

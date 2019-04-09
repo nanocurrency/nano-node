@@ -125,6 +125,8 @@ class state_block_builder : public abstract_builder<nano::state_block, state_blo
 public:
 	/** Creates a state block builder by calling make_block() */
 	state_block_builder ();
+	/** Initialize from an existing block */
+	state_block_builder & from (nano::state_block const & block);
 	/** Creates a new block with fields, signature and work set to sentinel values. All fields must be set or zeroed for build() to succeed. */
 	state_block_builder & make_block ();
 	/** Sets all hashables, signature and work to zero. */
