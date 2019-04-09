@@ -48,7 +48,6 @@ namespace transport
 		std::unordered_set<std::shared_ptr<nano::transport::channel_udp>> random_set (size_t) const;
 		void store_all (nano::node &);
 		bool reserved_address (nano::endpoint const &, bool = false);
-		bool is_v4_address (nano::endpoint const &);
 		void clean_node_id (nano::endpoint const &, nano::account const &);
 		// Get the next peer for attempting a tcp connection
 		nano::endpoint tcp_peer ();

@@ -298,27 +298,13 @@ bool nano::transport::udp_channels::reserved_address (nano::endpoint const & end
 	return result;
 }
 
-bool nano::transport::udp_channels::is_v4_address (nano::endpoint const & endpoint_a)
-{
-	assert (endpoint_a.address ().is_v6 ());
-	auto bytes (endpoint_a.address ().to_v6 ());
-	auto result (false);
-	static auto const min (mapped_from_v4_bytes (0x00000000ul));
-	static auto const max (mapped_from_v4_bytes (0xfffffffful));
-	if (bytes >= min && bytes <= max)
-	{
-		result = true;
-	}
-	return result;
-}
-
 void nano::transport::udp_channels::clean_node_id (nano::endpoint const & endpoint_a, nano::account const & node_id_a)
 {
 	auto existing (channels.get<node_id_tag> ().equal_range (node_id_a));
 	for (auto & record : boost::make_iterator_range (existing))
 	{
 		// Remove duplicate node ID for IPv4 & IPv6
-		if (record.endpoint () != endpoint_a && is_v4_address (record.endpoint ()) == is_v4_address (endpoint_a))
+		if (record.endpoint ().address () == endpoint_a.address () && record.endpoint ().port () != endpoint_a.port ())
 		{
 			channels.get<endpoint_tag> ().erase (record.endpoint ());
 			break;
@@ -433,11 +419,21 @@ public:
 			auto cookie (node.network.udp_channels.assign_syn_cookie (endpoint));
 			if (cookie)
 			{
+				// New connection
 				node.network.send_node_id_handshake (endpoint, *cookie, boost::none);
 				auto channel (node.network.udp_channels.channel (endpoint));
 				if (channel)
 				{
 					node.network.send_keepalive_self (*channel);
+				}
+			}
+			// Check for special node port data
+			for (auto & peer : message_a.peers)
+			{
+				if (peer.address () == boost::asio::ip::address_v6{} && peer.port () != 0)
+				{
+					nano::endpoint new_endpoint (endpoint.address (), peer.port ());
+					node.network.merge_peer (new_endpoint);
 				}
 			}
 		}

@@ -547,11 +547,16 @@ void nano::network::merge_peers (std::array<nano::endpoint, 8> const & peers_a)
 {
 	for (auto i (peers_a.begin ()), j (peers_a.end ()); i != j; ++i)
 	{
-		if (!udp_channels.reachout (*i, node.config.allow_local_peers))
-		{
-			nano::transport::channel_udp channel (node.network.udp_channels, *i);
-			send_keepalive (channel);
-		}
+		merge_peer (*i);
+	}
+}
+
+void nano::network::merge_peer (nano::endpoint const & peer_a)
+{
+	if (!udp_channels.reachout (peer_a, node.config.allow_local_peers))
+	{
+		nano::transport::channel_udp channel (node.network.udp_channels, peer_a);
+		send_keepalive (channel);
 	}
 }
 

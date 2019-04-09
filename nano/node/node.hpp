@@ -334,6 +334,7 @@ public:
 	}
 	void flood_block_batch (std::deque<std::shared_ptr<nano::block>>, unsigned = broadcast_interval_ms);
 	void merge_peers (std::array<nano::endpoint, 8> const &);
+	void merge_peer (nano::endpoint const &);
 	void send_keepalive (nano::transport::channel const &);
 	void send_keepalive_self (nano::transport::channel const &);
 	void send_node_id_handshake (nano::endpoint const &, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to);
