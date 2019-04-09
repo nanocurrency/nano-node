@@ -157,6 +157,13 @@ endif ()
 
 find_package (Boost 1.67.0 REQUIRED COMPONENTS filesystem log thread program_options system)
 
+# There is a compile bug with boost 1.69 interprocess headers on Mac
+if (APPLE AND Boost_VERSION EQUAL 106900)
+	set (BOOST_PROCESS_SUPPORTED 0)
+else ()
+	set (BOOST_PROCESS_SUPPORTED 1)
+endif ()
+
 add_subdirectory(crypto/ed25519-donna)
 
 set (UPNPC_BUILD_SHARED OFF CACHE BOOL "")
@@ -373,6 +380,10 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 		rpc
 		node
 		qt)
+
+	target_compile_definitions(nano_wallet
+		PRIVATE
+			-DBOOST_PROCESS_SUPPORTED=${BOOST_PROCESS_SUPPORTED})
 
 	if (WIN32)
 		target_link_libraries (nano_wallet Qt5::WinExtras)

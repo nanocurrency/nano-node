@@ -16,11 +16,12 @@
 #include <boost/program_options.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
-#include <boost/version.hpp>
 
-// There is a bug with Mac (and maybe linux) where boost process fails to compile with version 1.69
-#define USE_BOOST_PROCESS _WIN32 || BOOST_VERSION != 106900
-#if USE_BOOST_PROCESS
+#ifndef BOOST_PROCESS_SUPPORTED
+#error BOOST_PROCESS_SUPPORTED must be set, check configuration
+#endif
+
+#if BOOST_PROCESS_SUPPORTED
 #include <boost/process.hpp>
 #endif
 
@@ -292,7 +293,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 			node->start ();
 			nano::ipc::ipc_server ipc (*node, config.rpc);
 
-#if USE_BOOST_PROCESS
+#if BOOST_PROCESS_SUPPORTED
 			std::unique_ptr<boost::process::child> rpc_process;
 #endif
 			std::unique_ptr<nano::rpc> rpc;
@@ -313,7 +314,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 				}
 				else
 				{
-#if USE_BOOST_PROCESS
+#if BOOST_PROCESS_SUPPORTED
 					rpc_process = std::make_unique<boost::process::child> (config.rpc.rpc_path, "--daemon");
 #else
 					show_error ("rpc_enable is set to true in the config. Set it to false and start the RPC server manually.");

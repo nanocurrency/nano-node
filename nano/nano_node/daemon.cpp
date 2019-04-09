@@ -11,6 +11,14 @@
 #include <nano/node/working.hpp>
 #include <nano/rpc/rpc.hpp>
 
+#ifndef BOOST_PROCESS_SUPPORTED
+#error BOOST_PROCESS_SUPPORTED must be set, check configuration
+#endif
+
+#if BOOST_PROCESS_SUPPORTED
+#include <boost/process.hpp>
+#endif
+
 void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::node_flags const & flags)
 {
 	boost::filesystem::create_directories (data_path);
@@ -38,7 +46,10 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 			{
 				node->start ();
 				nano::ipc::ipc_server ipc_server (*node, config.rpc);
-				std::unique_ptr<std::thread> thread;
+#if BOOST_PROCESS_SUPPORTED
+				std::unique_ptr<boost::process::child> rpc_process;
+#endif
+				std::unique_ptr<std::thread> rpc_process_thread;
 				std::unique_ptr<nano::rpc> rpc;
 				std::unique_ptr<nano::rpc_handler_interface> rpc_handler;
 				if (config.rpc_enable)
@@ -59,22 +70,32 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 					}
 					else
 					{
+#if BOOST_PROCESS_SUPPORTED
+						rpc_process = std::make_unique<boost::process::child> (config.rpc.rpc_path, "--daemon");
+#else
 						auto rpc_exe_command = boost::str (boost::format ("%1% %2%") % config.rpc.rpc_path % "--daemon");
-						thread = std::make_unique<std::thread> ([ rpc_exe_command, &logger = node->logger ]() {
+						rpc_process_thread = std::make_unique<std::thread> ([ rpc_exe_command, &logger = node->logger ]() {
 							nano::thread_role::set (nano::thread_role::name::rpc_process_container);
 							std::system (rpc_exe_command.c_str ());
 							logger.always_log ("RPC server has stopped");
 						});
+#endif
 					}
 				}
 
 				runner = std::make_unique<nano::thread_runner> (io_ctx, node->config.io_threads);
 				runner->join ();
-
-				if (thread)
+#if BOOST_PROCESS_SUPPORTED
+				if (rpc_process)
 				{
-					thread->join ();
+					rpc_process->wait ();
 				}
+#else
+				if (rpc_process_thread)
+				{
+					rpc_process_thread->join ();
+				}
+#endif
 			}
 			else
 			{
