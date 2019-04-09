@@ -48,7 +48,6 @@ pub fn launch_node_and_rpc(
         "version": "1",
         "enable_sign_hash": "false",
         "max_work_generate_difficulty": "ffffffffc0000000",
-        "rpc_path": "C:\\Users\\Wesley\\Documents\\nano-node\\build\\Debug\\nano_rpc.exe",
         "rpc_in_process": "false"
     },	
     "node": {
