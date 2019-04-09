@@ -1042,7 +1042,7 @@ online_reps (*this, config.online_weight_minimum.number ()),
 stats (config.stat_config),
 vote_uniquer (block_uniquer),
 active (*this),
-confirmation_height_processor (store, ledger, active, logger),
+confirmation_height_processor (pending_confirmation_height, store, ledger, active, logger),
 startup_time (std::chrono::steady_clock::now ())
 {
 	if (config.websocket_config.enabled)
@@ -3034,8 +3034,11 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 	{
 		node.network.broadcast_confirm_req_batch (confirm_req_bundle);
 	}
-	// Confirm frontiers
-	confirm_frontiers (transaction);
+	// Confirm frontiers when there aren't many confirmations already pending
+	if (node.pending_confirmation_height.size () < confirmed_frontiers_max_pending_cut_off)
+	{
+		confirm_frontiers (transaction);
+	}
 	lock_a.lock ();
 	// Erase inactive elections
 	for (auto i (inactive.begin ()), n (inactive.end ()); i != n; ++i)

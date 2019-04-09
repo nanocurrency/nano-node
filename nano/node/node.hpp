@@ -160,6 +160,7 @@ private:
 	std::condition_variable condition;
 	bool started;
 	bool stopped;
+	static size_t constexpr confirmed_frontiers_max_pending_cut_off = 100;
 	boost::thread thread;
 };
 
@@ -504,6 +505,7 @@ public:
 	nano::keypair node_id;
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer;
+	nano::pending_confirmation_height pending_confirmation_height; // Used by both active and confirmation height processor
 	nano::active_transactions active;
 	nano::confirmation_height_processor confirmation_height_processor;
 	const std::chrono::steady_clock::time_point startup_time;

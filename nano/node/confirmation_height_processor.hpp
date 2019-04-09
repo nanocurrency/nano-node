@@ -17,27 +17,29 @@ class active_transactions;
 class transaction;
 class logger_mt;
 
-class confirmation_height_processor final
+class pending_confirmation_height
 {
 public:
-	confirmation_height_processor (nano::block_store &, nano::ledger &, nano::active_transactions &, nano::logger_mt &);
-	~confirmation_height_processor ();
-	void add (nano::block_hash const &);
-	void stop ();
-	size_t pending_confirmations_size ();
+	size_t size ();
 
 private:
 	std::mutex mutex;
-	std::condition_variable condition;
-	std::queue<nano::block_hash> pending_confirmations;
-	bool stopped{ false };
-	nano::block_store & store;
-	nano::ledger & ledger;
-	nano::active_transactions & active;
-	nano::logger_mt & logger;
-	std::thread thread;
-	constexpr static std::chrono::milliseconds batch_write_delta{ 100 };
+	std::queue<nano::block_hash> queue;
 
+	friend class confirmation_height_processor;
+};
+
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (pending_confirmation_height &, const std::string &);
+
+class confirmation_height_processor final
+{
+public:
+	confirmation_height_processor (pending_confirmation_height &, nano::block_store &, nano::ledger &, nano::active_transactions &, nano::logger_mt &);
+	~confirmation_height_processor ();
+	void add (nano::block_hash const &);
+	void stop ();
+
+private:
 	class conf_height_details final
 	{
 	public:
@@ -57,10 +59,25 @@ private:
 		nano::block_hash source_hash;
 	};
 
+	std::condition_variable condition;
+	nano::pending_confirmation_height & pending_confirmations;
+	std::atomic<bool> stopped{ false };
+	nano::block_store & store;
+	nano::ledger & ledger;
+	nano::active_transactions & active;
+	nano::logger_mt & logger;
+	std::mutex receive_source_pairs_mutex;
+	std::stack<receive_source_pair> receive_source_pairs; // Only single writer allowed, multiple readers
+	std::thread thread;
+	constexpr static std::chrono::milliseconds batch_write_delta{ 100 };
+
 	void run ();
 	void add_confirmation_height (nano::block_hash const &);
 	void collect_unconfirmed_receive_and_sources_for_account (uint64_t, uint64_t, nano::block_hash &, const nano::block_hash &, std::stack<receive_source_pair> &, nano::account const &, nano::transaction &);
 	bool write_pending (std::queue<conf_height_details> &);
+	size_t receive_source_pairs_size ();
+
+	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (confirmation_height_processor &, const std::string &);
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (confirmation_height_processor &, const std::string &);
