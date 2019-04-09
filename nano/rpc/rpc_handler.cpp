@@ -2296,7 +2296,7 @@ void nano::rpc_handler::peers ()
 		{
 			boost::property_tree::ptree pending_tree;
 			pending_tree.put ("protocol_version", std::to_string (channel->network_version));
-			if ((*i)->node_id.is_initialized ())
+			if (channel->node_id.is_initialized ())
 			{
 				pending_tree.put ("node_id", channel->node_id.get ().to_account ());
 			}
