@@ -86,7 +86,7 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 	nano::timer<std::chrono::milliseconds> timer;
 	timer.start ();
 
-	std::unique_lock <std::mutex> receive_source_pairs_lk (receive_source_pairs_mutex);
+	std::unique_lock<std::mutex> receive_source_pairs_lk (receive_source_pairs_mutex);
 	release_assert (receive_source_pairs.empty ());
 	do
 	{
