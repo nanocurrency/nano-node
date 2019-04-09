@@ -717,7 +717,7 @@ int main (int argc, char * const * argv)
 				std::cout.write (reinterpret_cast<const char *> (seed.data.bytes.data ()), seed.data.bytes.size ());
 			}
 		}
-		else if (vm.count ("debug_ipc"))
+		else if (vm.count ("debug_rpc"))
 		{
 			std::string rpc_input_l;
 			std::ostringstream command_l;
