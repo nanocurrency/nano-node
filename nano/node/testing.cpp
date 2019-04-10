@@ -20,7 +20,7 @@ std::string nano::error_system_messages::message (int ev) const
 	return "Invalid error code";
 }
 
-nano::system::system (uint16_t port_a, uint16_t count_a) :
+nano::system::system (uint16_t port_a, uint16_t count_a, boost::optional<bool> enable_voting_a) :
 alarm (io_ctx),
 work (1)
 {
@@ -35,6 +35,12 @@ work (1)
 	{
 		nano::node_init init;
 		nano::node_config config (port_a + i, logging);
+
+		// Override config options
+		if (enable_voting_a)
+		{
+			config.enable_voting = *enable_voting_a;
+		}
 		auto node (std::make_shared<nano::node> (init, io_ctx, nano::unique_path (), alarm, config, work));
 		assert (!init.error ());
 		node->start ();

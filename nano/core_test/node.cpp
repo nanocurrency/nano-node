@@ -1714,12 +1714,13 @@ TEST (node, rep_weight)
 // Test that nodes can disable representative voting
 TEST (node, no_voting)
 {
-	nano::system system (24000, 2);
+	// Delay the starting of the nodes until enable_voting has been set, to remove data races.
+	bool enable_voting = false;
+	nano::system system (24000, 2, enable_voting);
 	auto & node0 (*system.nodes[0]);
 	auto & node1 (*system.nodes[1]);
 	auto wallet0 (system.wallet (0));
 	auto wallet1 (system.wallet (1));
-	node0.config.enable_voting = false;
 	// Node0 has a rep
 	wallet0->insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key1;
