@@ -773,8 +773,8 @@ nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> nano::mdb_store
 	return nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> (nullptr);
 }
 
-nano::mdb_store::mdb_store (bool & error_a, nano::logging & logging_a, boost::filesystem::path const & path_a, int lmdb_max_dbs, bool drop_unchecked, size_t const batch_size) :
-logging (logging_a),
+nano::mdb_store::mdb_store (bool & error_a, nano::logger_mt & logger_a, boost::filesystem::path const & path_a, int lmdb_max_dbs, bool drop_unchecked, size_t const batch_size) :
+logger (logger_a),
 env (error_a, path_a, lmdb_max_dbs)
 {
 	if (!error_a)
@@ -1211,7 +1211,7 @@ void nano::mdb_store::upgrade_v12_to_v13 (nano::transaction const & transaction_
 			{
 				if (cost >= batch_size)
 				{
-					logging.logger.always_log (boost::str (boost::format ("Upgrading sideband information for account %1%... height %2%") % first.to_account ().substr (0, 24) % std::to_string (height)));
+					logger.always_log (boost::str (boost::format ("Upgrading sideband information for account %1%... height %2%") % first.to_account ().substr (0, 24) % std::to_string (height)));
 					auto tx (boost::polymorphic_downcast<nano::mdb_txn *> (transaction_a.impl.get ()));
 					auto status0 (mdb_txn_commit (*tx));
 					release_assert (status0 == MDB_SUCCESS);
@@ -1244,7 +1244,7 @@ void nano::mdb_store::upgrade_v12_to_v13 (nano::transaction const & transaction_
 	}
 	if (account == not_an_account)
 	{
-		logging.logger.always_log (boost::str (boost::format ("Completed sideband upgrade")));
+		logger.always_log (boost::str (boost::format ("Completed sideband upgrade")));
 		version_put (transaction_a, 13);
 	}
 }
@@ -1270,7 +1270,7 @@ void nano::mdb_store::upgrade_v13_to_v14 (nano::transaction const & transaction_
 		account_put (transaction_a, account_info.first, account_info.second);
 	}
 
-	logging.logger.always_log (boost::str (boost::format ("Completed confirmation height upgrade")));
+	logger.always_log (boost::str (boost::format ("Completed confirmation height upgrade")));
 }
 
 void nano::mdb_store::clear (MDB_dbi db_a)

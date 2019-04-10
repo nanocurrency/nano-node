@@ -19,8 +19,9 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 	if (!error)
 	{
 		config.node.logging.init (data_path);
+		nano::logger_mt logger{config.node.logging.min_time_between_log_output};
 		boost::asio::io_context io_ctx;
-		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
+		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, logger));
 		nano::work_pool opencl_work (config.node.work_threads, config.node.pow_sleep_interval, opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a) {
 			return opencl->generate_work (root_a, difficulty_a);
 		}

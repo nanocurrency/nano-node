@@ -5,8 +5,8 @@
 #include <lmdb/libraries/liblmdb/lmdb.h>
 
 #include <nano/lib/config.hpp>
+#include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
-#include <nano/node/logging.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
 
@@ -145,7 +145,7 @@ private:
 	std::unique_ptr<nano::mdb_iterator<T, U>> impl2;
 };
 
-class logging;
+class logging_mt;
 /**
  * mdb implementation of the block store
  */
@@ -154,7 +154,7 @@ class mdb_store : public block_store
 	friend class nano::block_predecessor_set;
 
 public:
-	mdb_store (bool &, nano::logging &, boost::filesystem::path const &, int lmdb_max_dbs = 128, bool drop_unchecked = false, size_t batch_size = 512);
+	mdb_store (bool &, nano::logger_mt &, boost::filesystem::path const &, int lmdb_max_dbs = 128, bool drop_unchecked = false, size_t batch_size = 512);
 	nano::transaction tx_begin_write () override;
 	nano::transaction tx_begin_read () override;
 	nano::transaction tx_begin (bool write = false) override;
@@ -276,7 +276,7 @@ public:
 	MDB_dbi get_account_db (nano::epoch epoch_a) const;
 	size_t block_successor_offset (nano::transaction const &, MDB_val, nano::block_type) const;
 
-	nano::logging & logging;
+	nano::logger_mt & logger;
 
 	nano::mdb_env env;
 
