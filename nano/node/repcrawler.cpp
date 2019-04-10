@@ -35,8 +35,9 @@ void nano::rep_crawler::start ()
 void nano::rep_crawler::ongoing_crawl ()
 {
 	auto now (std::chrono::steady_clock::now ());
-	query (get_crawl_targets ());
-	auto sufficient_weight (total_weight_internal () > node.config.online_weight_minimum.number ());
+	auto total_weight_l (total_weight ());
+	query (get_crawl_targets (total_weight_l));
+	auto sufficient_weight (total_weight_l > node.config.online_weight_minimum.number ());
 	// If online weight drops below minimum, reach out to preconfigured peers
 	if (!sufficient_weight)
 	{
@@ -53,14 +54,14 @@ void nano::rep_crawler::ongoing_crawl ()
 	});
 }
 
-std::vector<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::get_crawl_targets ()
+std::vector<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::get_crawl_targets (nano::uint128_t total_weight_a)
 {
 	std::unordered_set<std::shared_ptr<nano::transport::channel>> channels;
 	constexpr size_t conservative_count = 10;
 	constexpr size_t aggressive_count = 40;
 
 	// Crawl more aggressively if we lack sufficient total peer weight.
-	bool sufficient_weight (total_weight_internal () > node.config.online_weight_minimum.number ());
+	bool sufficient_weight (total_weight_a > node.config.online_weight_minimum.number ());
 	uint16_t required_peer_count = sufficient_weight ? conservative_count : aggressive_count;
 	std::lock_guard<std::mutex> lock (probable_reps_mutex);
 
@@ -139,8 +140,9 @@ bool nano::rep_crawler::response (std::shared_ptr<nano::transport::channel> chan
 	return updated;
 }
 
-nano::uint128_t nano::rep_crawler::total_weight_internal ()
+nano::uint128_t nano::rep_crawler::total_weight ()
 {
+	std::lock_guard<std::mutex> lock (probable_reps_mutex);
 	nano::uint128_t result (0);
 	for (auto i (probable_reps.get<tag_weight> ().begin ()), n (probable_reps.get<tag_weight> ().end ()); i != n; ++i)
 	{
@@ -155,12 +157,6 @@ nano::uint128_t nano::rep_crawler::total_weight_internal ()
 		}
 	}
 	return result;
-}
-
-nano::uint128_t nano::rep_crawler::total_weight ()
-{
-	std::lock_guard<std::mutex> lock (probable_reps_mutex);
-	return total_weight_internal ();
 }
 
 std::vector<nano::representative> nano::rep_crawler::representatives_by_weight ()

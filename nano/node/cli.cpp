@@ -5,6 +5,11 @@
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/node.hpp>
 
+namespace
+{
+void reset_confirmation_heights (nano::block_store & store);
+}
+
 std::string nano::error_cli_messages::message (int ev) const
 {
 	switch (static_cast<nano::error_cli> (ev))
@@ -251,8 +256,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				}
 				if (vm.count ("confirmation_height_clear"))
 				{
-					auto transaction (node.node->store.tx_begin_write ());
-					node.node->store.confirmation_height_clear (transaction);
+					reset_confirmation_heights (node.node->store);
 				}
 
 				success = node.node->copy_with_compaction (snapshot_path);
@@ -348,9 +352,8 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		}
 		else
 		{
-			auto transaction (node.node->store.tx_begin_write ());
-			node.node->store.confirmation_height_clear (transaction);
-			std::cout << "Confirmation heights of all accounts are set to 0" << std::endl;
+			reset_confirmation_heights (node.node->store);
+			std::cout << "Confirmation heights of all accounts (except genesis) are set to 0" << std::endl;
 		}
 	}
 	else if (vm.count ("diagnostics"))
@@ -956,4 +959,23 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	}
 
 	return ec;
+}
+
+namespace
+{
+void reset_confirmation_heights (nano::block_store & store)
+{
+	// First do a clean sweep
+	auto transaction (store.tx_begin_write ());
+	store.confirmation_height_clear (transaction);
+
+	// Then make sure the confirmation height of the genesis account open block is 1
+	nano::network_params network_params;
+	auto const & genesis_account = network_params.ledger.genesis_account;
+	nano::account_info account_info;
+	auto error = store.account_get (transaction, genesis_account, account_info);
+	release_assert (!error);
+	account_info.confirmation_height = 1;
+	store.account_put (transaction, genesis_account, account_info);
+}
 }
