@@ -601,7 +601,13 @@ bool nano::uint128_union::decode_dec (std::string const & text, nano::uint128_t 
 						error = (scale_length <= decimal_text.length ());
 						if (!error)
 						{
-							auto result (integer_part.number () * scale + decimal_part.number () * boost::multiprecision::pow (boost::multiprecision::cpp_int (10), (scale_length - decimal_text.length () - 1)));
+							auto base10 = boost::multiprecision::cpp_int (10);
+							auto pow10 = boost::multiprecision::pow (base10, (scale_length - decimal_text.length () - 1));
+							auto decimal_part_num = decimal_part.number ();
+							auto integer_part_scaled = integer_part.number () * scale;
+							auto decimal_part_mult_pow = decimal_part_num * pow10;
+							auto result = integer_part_scaled + decimal_part_mult_pow;
+
 							// Overflow check
 							error = (result > std::numeric_limits<nano::uint128_t>::max ());
 							if (!error)
