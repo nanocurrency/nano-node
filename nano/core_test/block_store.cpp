@@ -1557,7 +1557,7 @@ TEST (block_store, upgrade_v13_v14)
 	ASSERT_FALSE (store.account_get (transaction, nano::genesis_account, account_info));
 	ASSERT_EQ (account_info.confirmation_height, 0);
 	ASSERT_LT (13, store.version_get (transaction));
-	
+
 	// Test deleting node ID
 	nano::uint256_union node_id_mdb_key (3);
 	nano::mdb_val value;
