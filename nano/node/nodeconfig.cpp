@@ -117,6 +117,7 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("pow_sleep_interval", pow_sleep_interval.count ());
 	json.put ("external_address", external_address.to_string ());
 	json.put ("external_port", external_port);
+	json.put ("work_recalc_inverval", work_recalc_inverval.count ());
 	nano::jsonconfig websocket_l;
 	websocket_config.serialize_json (websocket_l);
 	json.put_child ("websocket", websocket_l);
@@ -252,6 +253,7 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.put (pow_sleep_interval_key, pow_sleep_interval.count ());
 			json.put ("external_address", external_address.to_string ());
 			json.put ("external_port", external_port);
+			json.put ("work_recalc_inverval", work_recalc_inverval.count ());
 			upgraded = true;
 		}
 		case 17:

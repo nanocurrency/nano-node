@@ -116,6 +116,8 @@ class wallets;
 class wallet final : public std::enable_shared_from_this<nano::wallet>
 {
 public:
+	//update block difficulty if below active.active_difficulty otherwise return same block
+	std::shared_ptr<nano::block> update_work_action (std::shared_ptr<nano::block> const &) const;
 	std::shared_ptr<nano::block> change_action (nano::account const &, nano::account const &, uint64_t = 0, bool = true);
 	std::shared_ptr<nano::block> receive_action (nano::block const &, nano::account const &, nano::uint128_union const &, uint64_t = 0, bool = true);
 	std::shared_ptr<nano::block> send_action (nano::account const &, nano::account const &, nano::uint128_t const &, uint64_t = 0, bool = true, boost::optional<std::string> = {});
@@ -200,6 +202,7 @@ public:
 	boost::thread thread;
 	static nano::uint128_t const generate_priority;
 	static nano::uint128_t const high_priority;
+	static nano::uint128_t const regenerate_priority;
 	std::atomic<uint64_t> reps_count{ 0 };
 
 	/** Start read-write transaction */

@@ -916,6 +916,26 @@ void nano::wallet_store::destroy (nano::transaction const & transaction_a)
 	handle = 0;
 }
 
+std::shared_ptr<nano::block> nano::wallet::update_work_action (std::shared_ptr<nano::block> const & block_a) const
+{
+	assert(block_a->type() == nano::block_type::state);
+	uint64_t difficulty (0);
+	std::shared_ptr<nano::block> block_l(block_a);
+	nano::work_validate (*block_a, &difficulty);
+	auto const active_difficulty1 (wallets.node.active.active_difficulty.load ());
+	if (difficulty <= active_difficulty1){
+		auto state = std::dynamic_pointer_cast<nano::state_block> (block_a);
+		nano::block_builder builder;
+		std::error_code ec;
+		block_l = builder
+			.state ()
+			.from(*state.get())
+			.work (wallets.node.work_generate_blocking (state->previous (), active_difficulty1))
+			.build (ec);
+	}
+	return block_l;
+}
+
 std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block const & send_a, nano::account const & representative_a, nano::uint128_union const & amount_a, uint64_t work_a, bool generate_work_a)
 {
 	nano::account account;
@@ -1722,6 +1742,7 @@ void nano::wallets::move_table (std::string const & name_a, MDB_txn * tx_source,
 
 nano::uint128_t const nano::wallets::generate_priority = std::numeric_limits<nano::uint128_t>::max ();
 nano::uint128_t const nano::wallets::high_priority = std::numeric_limits<nano::uint128_t>::max () - 1;
+nano::uint128_t const nano::wallets::regenerate_priority = nano::wallets::high_priority - 2;
 
 nano::store_iterator<nano::uint256_union, nano::wallet_value> nano::wallet_store::begin (nano::transaction const & transaction_a)
 {
