@@ -916,26 +916,6 @@ void nano::wallet_store::destroy (nano::transaction const & transaction_a)
 	handle = 0;
 }
 
-std::shared_ptr<nano::block> nano::wallet::update_work_action (std::shared_ptr<nano::block> const & block_a) const
-{
-	assert(block_a->type() == nano::block_type::state);
-	uint64_t difficulty (0);
-	std::shared_ptr<nano::block> block_l(block_a);
-	nano::work_validate (*block_a, &difficulty);
-	auto const active_difficulty1 (wallets.node.active.active_difficulty.load ());
-	if (difficulty <= active_difficulty1){
-		auto state = std::dynamic_pointer_cast<nano::state_block> (block_a);
-		nano::block_builder builder;
-		std::error_code ec;
-		block_l = builder
-			.state ()
-			.from(*state.get())
-			.work (wallets.node.work_generate_blocking (state->previous (), active_difficulty1))
-			.build (ec);
-	}
-	return block_l;
-}
-
 std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block const & send_a, nano::account const & representative_a, nano::uint128_union const & amount_a, uint64_t work_a, bool generate_work_a)
 {
 	nano::account account;
@@ -1151,9 +1131,10 @@ bool nano::wallet::change_sync (nano::account const & source_a, nano::account co
 
 void nano::wallet::change_async (nano::account const & source_a, nano::account const & representative_a, std::function<void(std::shared_ptr<nano::block>)> const & action_a, uint64_t work_a, bool generate_work_a)
 {
-	wallets.node.wallets.queue_wallet_action (nano::wallets::high_priority, shared_from_this (), [source_a, representative_a, action_a, work_a, generate_work_a](nano::wallet & wallet_a) {
+	wallets.node.wallets.queue_wallet_action (nano::wallets::high_priority, shared_from_this (), [this, source_a, representative_a, action_a, work_a, generate_work_a](nano::wallet & wallet_a) {
 		auto block (wallet_a.change_action (source_a, representative_a, work_a, generate_work_a));
 		action_a (block);
+		this->wallets.queue_work_regeneration (std::chrono::steady_clock::now (), block);
 	});
 }
 
@@ -1172,9 +1153,10 @@ bool nano::wallet::receive_sync (std::shared_ptr<nano::block> block_a, nano::acc
 
 void nano::wallet::receive_async (std::shared_ptr<nano::block> block_a, nano::account const & representative_a, nano::uint128_t const & amount_a, std::function<void(std::shared_ptr<nano::block>)> const & action_a, uint64_t work_a, bool generate_work_a)
 {
-	wallets.node.wallets.queue_wallet_action (amount_a, shared_from_this (), [block_a, representative_a, amount_a, action_a, work_a, generate_work_a](nano::wallet & wallet_a) {
+	wallets.node.wallets.queue_wallet_action (amount_a, shared_from_this (), [this, block_a, representative_a, amount_a, action_a, work_a, generate_work_a](nano::wallet & wallet_a) {
 		auto block (wallet_a.receive_action (*block_a, representative_a, amount_a, work_a, generate_work_a));
 		action_a (block);
+		this->wallets.queue_work_regeneration (std::chrono::steady_clock::now (), block);
 	});
 }
 
@@ -1193,9 +1175,10 @@ nano::block_hash nano::wallet::send_sync (nano::account const & source_a, nano::
 
 void nano::wallet::send_async (nano::account const & source_a, nano::account const & account_a, nano::uint128_t const & amount_a, std::function<void(std::shared_ptr<nano::block>)> const & action_a, uint64_t work_a, bool generate_work_a, boost::optional<std::string> id_a)
 {
-	wallets.node.wallets.queue_wallet_action (nano::wallets::high_priority, shared_from_this (), [source_a, account_a, amount_a, action_a, work_a, generate_work_a, id_a](nano::wallet & wallet_a) {
+	wallets.node.wallets.queue_wallet_action (nano::wallets::high_priority, shared_from_this (), [this, source_a, account_a, amount_a, action_a, work_a, generate_work_a, id_a](nano::wallet & wallet_a) {
 		auto block (wallet_a.send_action (source_a, account_a, amount_a, work_a, generate_work_a, id_a));
 		action_a (block);
+		this->wallets.queue_work_regeneration (std::chrono::steady_clock::now (), block);
 	});
 }
 
@@ -1375,6 +1358,10 @@ stopped (false),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::wallet_actions);
 	do_wallet_actions ();
+}),
+difficulty_recalc_thread ([this]() {
+	nano::thread_role::set (nano::thread_role::name::wallet_work_regen);
+	do_work_regeneration ();
 })
 {
 	std::unique_lock<std::mutex> lock (mutex);
@@ -1451,6 +1438,21 @@ std::shared_ptr<nano::wallet> nano::wallets::create (nano::uint256_union const &
 		result->enter_initial_password ();
 	}
 	return result;
+}
+
+std::shared_ptr<nano::block> nano::wallets::update_work_action (std::shared_ptr<nano::block> const & block_a) const
+{
+	assert (block_a->type () == nano::block_type::state);
+	auto const active_difficulty1 (node.active.active_difficulty.load ());
+	auto state = std::dynamic_pointer_cast<nano::state_block> (block_a);
+	nano::block_builder builder;
+	std::error_code ec;
+	std::shared_ptr<nano::block> block_l = builder
+	                                       .state ()
+	                                       .from (*state.get ())
+	                                       .work (node.work_generate_blocking (state->previous (), active_difficulty1))
+	                                       .build (ec);
+	return block_l;
 }
 
 bool nano::wallets::search_pending (nano::uint256_union const & wallet_a)
@@ -1530,6 +1532,67 @@ void nano::wallets::reload ()
 		assert (items.find (i) == items.end ());
 		items.erase (i);
 	}
+}
+
+void nano::wallets::do_work_regeneration ()
+{
+	std::unique_lock<std::mutex> regeneration_lock (difficulty_mutex);
+	while (!stopped)
+	{
+		if (!difficulty_reque.empty ())
+		{
+			auto const first (difficulty_reque.begin ());
+			auto now (std::chrono::steady_clock::now ());
+			auto queued (first->first);
+			auto block (first->second);
+			std::shared_ptr<nano::block> block_l (block);
+			bool confirmed (false);
+			difficulty_reque.erase (first);
+			if ((now - queued) >= node.config.work_recalc_inverval)
+			{
+				std::unique_lock<std::mutex> lock (node.active.mutex);
+				auto existing (node.active.roots.find (block->qualified_root ()));
+				if (node.active.roots.end () != existing)
+				{
+					confirmed = existing->election->confirmed.load ();
+				}
+				lock.unlock ();
+				uint64_t difficulty (0);
+				nano::work_validate (*block, &difficulty);
+				if (!confirmed && node.active.active_difficulty < difficulty)
+				{
+					block_l = update_work_action (block);
+				}
+				if (!confirmed)
+				{
+					if (block != block_l)
+					{
+						node.active.update_difficulty (*block_l.get ());
+						node.network.flood_block (block_l);
+					}
+				}
+			}
+			if (!confirmed)
+			{
+				regeneration_lock.unlock ();
+				queue_work_regeneration (now, block_l);
+				regeneration_lock.lock ();
+			}
+		}
+		else
+		{
+			condition.wait (regeneration_lock);
+		}
+	}
+}
+
+void nano::wallets::queue_work_regeneration (std::chrono::steady_clock::time_point const & time_point, std::shared_ptr<nano::block> const & block_a)
+{
+	{
+		std::lock_guard<std::mutex> regeneration_lock (difficulty_mutex);
+		difficulty_reque.insert (std::make_pair (time_point, block_a));
+	}
+	condition.notify_all ();
 }
 
 void nano::wallets::do_wallet_actions ()
@@ -1624,8 +1687,10 @@ void nano::wallets::stop ()
 {
 	{
 		std::lock_guard<std::mutex> action_lock (action_mutex);
+		std::lock_guard<std::mutex> regeneration_lock (difficulty_mutex);
 		stopped = true;
 		actions.clear ();
+		difficulty_reque.clear ();
 	}
 	condition.notify_all ();
 	if (thread.joinable ())
@@ -1742,7 +1807,6 @@ void nano::wallets::move_table (std::string const & name_a, MDB_txn * tx_source,
 
 nano::uint128_t const nano::wallets::generate_priority = std::numeric_limits<nano::uint128_t>::max ();
 nano::uint128_t const nano::wallets::high_priority = std::numeric_limits<nano::uint128_t>::max () - 1;
-nano::uint128_t const nano::wallets::regenerate_priority = nano::wallets::high_priority - 2;
 
 nano::store_iterator<nano::uint256_union, nano::wallet_value> nano::wallet_store::begin (nano::transaction const & transaction_a)
 {

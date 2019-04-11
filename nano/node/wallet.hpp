@@ -116,8 +116,6 @@ class wallets;
 class wallet final : public std::enable_shared_from_this<nano::wallet>
 {
 public:
-	//update block difficulty if below active.active_difficulty otherwise return same block
-	std::shared_ptr<nano::block> update_work_action (std::shared_ptr<nano::block> const &) const;
 	std::shared_ptr<nano::block> change_action (nano::account const &, nano::account const &, uint64_t = 0, bool = true);
 	std::shared_ptr<nano::block> receive_action (nano::block const &, nano::account const &, nano::uint128_union const &, uint64_t = 0, bool = true);
 	std::shared_ptr<nano::block> send_action (nano::account const &, nano::account const &, nano::uint128_t const &, uint64_t = 0, bool = true, boost::optional<std::string> = {});
@@ -172,10 +170,14 @@ public:
 	~wallets ();
 	std::shared_ptr<nano::wallet> open (nano::uint256_union const &);
 	std::shared_ptr<nano::wallet> create (nano::uint256_union const &);
+	//update difficulty using active_difficulty as the threshold
+	std::shared_ptr<nano::block> update_work_action (std::shared_ptr<nano::block> const &) const;
 	bool search_pending (nano::uint256_union const &);
 	void search_pending_all ();
 	void destroy (nano::uint256_union const &);
 	void reload ();
+	void do_work_regeneration ();
+	void queue_work_regeneration (std::chrono::steady_clock::time_point const &, std::shared_ptr<nano::block> const &);
 	void do_wallet_actions ();
 	void queue_wallet_action (nano::uint128_t const &, std::shared_ptr<nano::wallet>, std::function<void(nano::wallet &)> const &);
 	void foreach_representative (nano::transaction const &, std::function<void(nano::public_key const &, nano::raw_key const &)> const &);
@@ -190,8 +192,10 @@ public:
 	std::function<void(bool)> observer;
 	std::unordered_map<nano::uint256_union, std::shared_ptr<nano::wallet>> items;
 	std::multimap<nano::uint128_t, std::pair<std::shared_ptr<nano::wallet>, std::function<void(nano::wallet &)>>, std::greater<nano::uint128_t>> actions;
+	std::multimap<std::chrono::steady_clock::time_point, std::shared_ptr<nano::block>, std::less<std::chrono::steady_clock::time_point>> difficulty_reque;
 	std::mutex mutex;
 	std::mutex action_mutex;
+	std::mutex difficulty_mutex;
 	std::condition_variable condition;
 	nano::kdf kdf;
 	MDB_dbi handle;
@@ -200,9 +204,9 @@ public:
 	nano::mdb_env & env;
 	std::atomic<bool> stopped;
 	boost::thread thread;
+	boost::thread difficulty_recalc_thread;
 	static nano::uint128_t const generate_priority;
 	static nano::uint128_t const high_priority;
-	static nano::uint128_t const regenerate_priority;
 	std::atomic<uint64_t> reps_count{ 0 };
 
 	/** Start read-write transaction */

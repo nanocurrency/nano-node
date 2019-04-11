@@ -1038,12 +1038,12 @@ TEST (wallet, update_work_action)
 	nano::block_hash latest1 (node.latest (nano::test_genesis_key.pub));
 	wallet.insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key;
-	
+
 	auto block (wallet.send_action (nano::test_genesis_key.pub, key.pub, nano::genesis_amount - (10 * nano::Mxrb_ratio)));
-	
+
 	uint64_t difficulty1 (0);
 	nano::work_validate (*block, &difficulty1);
-	
+
 	std::unique_lock<std::mutex> lock (node.active.mutex);
 	for (auto i (0); i < node.active.difficulty_cb.size (); i++)
 	{
@@ -1051,23 +1051,23 @@ TEST (wallet, update_work_action)
 	}
 	node.active.update_active_difficulty ();
 	lock.unlock ();
-	
+
 	auto active_difficulty1 (node.active.active_difficulty.load ());
 	//active_difficulty1 after filling difficulty_cb with difficulty1 +10000 is greater than difficulty1
 	ASSERT_GT (active_difficulty1, difficulty1);
-	
-	auto const block_new (wallet.update_work_action (block));
-	//assert hashes of block builder with greater work 
+
+	auto const block_new (wallet.wallets.update_work_action (block));
+	//assert hashes of block builder with greater work
 	ASSERT_EQ (block_new->hash (), block->hash ());
 
 	node.process_active (block_new);
 	//update active_transaction block with block_new
-	node.active.update_difficulty(*block_new.get());
+	node.active.update_difficulty (*block_new.get ());
 	uint64_t difficulty2 (0);
 	nano::work_validate (*block_new, &difficulty2);
 	//Assert new difficulty greater than old
 	ASSERT_GT (difficulty2, difficulty1);
-	
+
 	lock.lock ();
 	for (auto i (0); i < node.active.difficulty_cb.size (); i++)
 	{
@@ -1076,7 +1076,7 @@ TEST (wallet, update_work_action)
 	node.active.update_active_difficulty ();
 	lock.unlock ();
 	auto active_difficulty2 (node.active.active_difficulty.load ());
-	auto existing (node.active.roots.find (block_new->qualified_root()));
+	auto existing (node.active.roots.find (block_new->qualified_root ()));
 	ASSERT_NE (node.active.roots.end (), existing);
 	//election no longer using difficulty1
 	ASSERT_NE (existing->difficulty, difficulty1);

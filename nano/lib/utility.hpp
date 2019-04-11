@@ -85,7 +85,8 @@ namespace thread_role
 		wallet_actions,
 		bootstrap_initiator,
 		voting,
-		signature_checking
+		signature_checking,
+		wallet_work_regen
 	};
 	/*
 	 * Get/Set the identifier for the current thread
