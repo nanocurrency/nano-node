@@ -1559,6 +1559,11 @@ void nano::wallets::do_work_regeneration ()
 				{
 					confirmed = existing->election->confirmed.load ();
 				}
+				else
+				{
+					auto transaction(node.store.tx_begin_read());
+					confirmed = node.ledger.block_confirmed(transaction, block->hash());
+				}
 				lock.unlock ();
 				uint64_t difficulty (0);
 				nano::work_validate (*block, &difficulty);
@@ -1570,9 +1575,17 @@ void nano::wallets::do_work_regeneration ()
 				{
 					if (block != block_l)
 					{
-						node.active.update_difficulty (*block_l.get ());
-						node.network.flood_block (block_l);
+						lock.lock();
+						auto existing_l(node.active.roots.find(block->qualified_root()));
+						if (existing_l != node.active.roots.end())
+						{
+							auto election_l(existing_l->election);
+							auto current(election_l->blocks.find(block->hash()));
+							current->second = block_l;
+						}
 					}
+					node.network.flood_block (block_l);
+					node.active.update_difficulty (*block_l.get ());
 				}
 			}
 			if (!confirmed)
