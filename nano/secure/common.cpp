@@ -412,7 +412,7 @@ std::string nano::vote::to_json () const
 	{
 		if (block.which ())
 		{
-			blocks_tree.put ("", boost::get<std::shared_ptr<nano::block>> (block)->to_json ());
+			blocks_tree.put ("", boost::get<nano::block_hash> (block).to_string ());
 		}
 		else
 		{
