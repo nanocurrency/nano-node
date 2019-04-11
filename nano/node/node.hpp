@@ -99,7 +99,7 @@ public:
 class active_transactions final
 {
 public:
-	explicit active_transactions (nano::node &);
+	explicit active_transactions (nano::node &, bool delay_frontier_confirmation_height_updating = false);
 	~active_transactions ();
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
@@ -145,7 +145,6 @@ public:
 	static size_t constexpr max_broadcast_queue = 1000;
 	boost::circular_buffer<uint64_t> difficulty_cb;
 	std::atomic<uint64_t> active_difficulty;
-	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
 
 private:
 	// Call action with confirmed block, may be different than what we started with
@@ -156,6 +155,7 @@ private:
 	void request_confirm (std::unique_lock<std::mutex> &);
 	void confirm_frontiers (nano::transaction const &);
 	nano::account next_frontier_account{ 0 };
+	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
 	std::condition_variable condition;
 	bool started;
 	bool stopped;
@@ -420,7 +420,7 @@ class node final : public std::enable_shared_from_this<nano::node>
 {
 public:
 	node (nano::node_init &, boost::asio::io_context &, uint16_t, boost::filesystem::path const &, nano::alarm &, nano::logging const &, nano::work_pool &);
-	node (nano::node_init &, boost::asio::io_context &, boost::filesystem::path const &, nano::alarm &, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags ());
+	node (nano::node_init &, boost::asio::io_context &, boost::filesystem::path const &, nano::alarm &, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags (), bool delay_frontier_confirmation_height_updating = false);
 	~node ();
 	template <typename T>
 	void background (T action_a)

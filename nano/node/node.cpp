@@ -1010,7 +1010,7 @@ node (init_a, io_ctx_a, application_path_a, alarm_a, nano::node_config (peering_
 {
 }
 
-nano::node::node (nano::node_init & init_a, boost::asio::io_context & io_ctx_a, boost::filesystem::path const & application_path_a, nano::alarm & alarm_a, nano::node_config const & config_a, nano::work_pool & work_a, nano::node_flags flags_a) :
+nano::node::node (nano::node_init & init_a, boost::asio::io_context & io_ctx_a, boost::filesystem::path const & application_path_a, nano::alarm & alarm_a, nano::node_config const & config_a, nano::work_pool & work_a, nano::node_flags flags_a, bool delay_frontier_confirmation_height_updating) :
 io_ctx (io_ctx_a),
 config (config_a),
 flags (flags_a),
@@ -1041,7 +1041,7 @@ block_processor_thread ([this]() {
 online_reps (*this, config.online_weight_minimum.number ()),
 stats (config.stat_config),
 vote_uniquer (block_uniquer),
-active (*this),
+active (*this, delay_frontier_confirmation_height_updating),
 startup_time (std::chrono::steady_clock::now ())
 {
 	if (config.websocket_config.enabled)
@@ -3335,10 +3335,11 @@ size_t nano::active_transactions::size ()
 	return roots.size ();
 }
 
-nano::active_transactions::active_transactions (nano::node & node_a) :
+nano::active_transactions::active_transactions (nano::node & node_a, bool delay_frontier_confirmation_height_updating) :
 node (node_a),
 difficulty_cb (20, node.network_params.network.publish_threshold),
 active_difficulty (node.network_params.network.publish_threshold),
+next_frontier_check (std::chrono::steady_clock::now () + (delay_frontier_confirmation_height_updating ? std::chrono::seconds (60) : std::chrono::seconds (0))),
 started (false),
 stopped (false),
 thread ([this]() {
