@@ -1529,7 +1529,7 @@ TEST (confirmation_height, multiple)
 		node->process_active (receive3);
 		node->block_processor.flush ();
 
-		system.deadline_set (10s);
+		system.deadline_set (40s);
 		while (true)
 		{
 			auto transaction = node->store.tx_begin_read ();
