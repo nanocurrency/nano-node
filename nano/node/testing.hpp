@@ -15,7 +15,7 @@ enum class error_system
 class system final
 {
 public:
-	system (uint16_t, uint16_t);
+	system (uint16_t, uint16_t, boost::optional<bool> delay_frontier_confirmation_height_updating_a = boost::none);
 	~system ();
 	void generate_activity (nano::node &, std::vector<nano::account> &);
 	void generate_mass_activity (uint32_t, nano::node &);
