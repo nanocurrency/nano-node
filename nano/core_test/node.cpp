@@ -1462,8 +1462,8 @@ TEST (node, rep_self_vote)
 	// Wait until representatives are activated & make vote
 	while (election->last_votes_size () != 3)
 	{
-		lock.lock ();
 		auto transaction (node0->store.tx_begin ());
+		lock.lock ();
 		election->compute_rep_votes (transaction);
 		lock.unlock ();
 		node0->vote_processor.flush ();
