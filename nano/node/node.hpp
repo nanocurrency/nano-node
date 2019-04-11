@@ -145,6 +145,7 @@ public:
 	static size_t constexpr max_broadcast_queue = 1000;
 	boost::circular_buffer<uint64_t> difficulty_cb;
 	std::atomic<uint64_t> active_difficulty;
+	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
 
 private:
 	// Call action with confirmed block, may be different than what we started with
@@ -155,7 +156,6 @@ private:
 	void request_confirm (std::unique_lock<std::mutex> &);
 	void confirm_frontiers (nano::transaction const &);
 	nano::account next_frontier_account{ 0 };
-	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
 	std::condition_variable condition;
 	bool started;
 	bool stopped;
