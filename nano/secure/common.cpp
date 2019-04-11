@@ -124,7 +124,6 @@ nano::node_constants::node_constants (nano::network_constants & network_constant
 nano::voting_constants::voting_constants (nano::network_constants & network_constants)
 {
 	max_cache = network_constants.is_test_network () ? 2 : 1000;
-	generator_delay = network_constants.is_test_network () ? std::chrono::milliseconds (10) : std::chrono::milliseconds (500);
 }
 
 nano::portmapping_constants::portmapping_constants (nano::network_constants & network_constants)
