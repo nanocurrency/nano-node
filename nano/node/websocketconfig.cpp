@@ -1,6 +1,11 @@
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/websocketconfig.hpp>
 
+nano::websocket::config::config () :
+port (network_constants.default_websocket_port)
+{
+}
+
 nano::error nano::websocket::config::serialize_json (nano::jsonconfig & json) const
 {
 	json.put ("enable", enabled);
