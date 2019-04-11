@@ -1454,7 +1454,7 @@ std::shared_ptr<nano::block> nano::wallets::update_work_action (std::shared_ptr<
 	                                       .build (ec);
 	if (ec)
 		return block_a;
-return block_l;
+	return block_l;
 }
 
 bool nano::wallets::search_pending (nano::uint256_union const & wallet_a)
@@ -1561,8 +1561,8 @@ void nano::wallets::do_work_regeneration ()
 				}
 				else
 				{
-					auto transaction(node.store.tx_begin_read());
-					confirmed = node.ledger.block_confirmed(transaction, block->hash());
+					auto transaction (node.store.tx_begin_read ());
+					confirmed = node.ledger.block_confirmed (transaction, block->hash ());
 				}
 				lock.unlock ();
 				uint64_t difficulty (0);
@@ -1575,12 +1575,12 @@ void nano::wallets::do_work_regeneration ()
 				{
 					if (block != block_l)
 					{
-						lock.lock();
-						auto existing_l(node.active.roots.find(block->qualified_root()));
-						if (existing_l != node.active.roots.end())
+						lock.lock ();
+						auto existing_l (node.active.roots.find (block->qualified_root ()));
+						if (existing_l != node.active.roots.end ())
 						{
-							auto election_l(existing_l->election);
-							auto current(election_l->blocks.find(block->hash()));
+							auto election_l (existing_l->election);
+							auto current (election_l->blocks.find (block->hash ()));
 							current->second = block_l;
 						}
 					}
@@ -1605,7 +1605,7 @@ void nano::wallets::queue_work_regeneration (std::chrono::steady_clock::time_poi
 {
 	{
 		std::lock_guard<std::mutex> regeneration_lock (difficulty_mutex);
-		difficulty_reque.emplace(time_point, block_a);
+		difficulty_reque.emplace (time_point, block_a);
 	}
 	condition.notify_one ();
 }

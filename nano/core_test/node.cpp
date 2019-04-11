@@ -744,6 +744,7 @@ TEST (node_config, v17_values)
 	ASSERT_EQ (config.external_address, boost::asio::ip::address_v6::from_string ("::1"));
 	ASSERT_EQ (config.external_port, 0);
 	ASSERT_EQ (config.work_recalc_inverval.count(), 4);
+	ASSERT_EQ (config.work_recalc_inverval.count (), 4);
 
 	// Check config is correct with other values
 	tree.put ("tcp_client_timeout", std::numeric_limits<unsigned long>::max () - 100);
