@@ -1551,7 +1551,8 @@ void nano::wallets::do_work_regeneration ()
 			bool confirmed (false);
 			difficulty_reque.erase (first);
 			regeneration_lock.unlock ();
-			if ((now - queued) >= node.config.work_recalc_inverval)
+			auto const online (node.rep_crawler.total_weight () > (std::max (node.config.online_weight_minimum.number (), node.delta ())));
+			if ((now - queued) >= node.config.work_recalc_inverval && online)
 			{
 				std::unique_lock<std::mutex> lock (node.active.mutex);
 				auto existing (node.active.roots.find (block->qualified_root ()));
@@ -1580,6 +1581,8 @@ void nano::wallets::do_work_regeneration ()
 						if (existing_l != node.active.roots.end ())
 						{
 							auto election_l (existing_l->election);
+							if (election_l->status.winner->hash () == block->hash ())
+								election_l->status.winner = block_l;
 							auto current (election_l->blocks.find (block->hash ()));
 							current->second = block_l;
 						}
