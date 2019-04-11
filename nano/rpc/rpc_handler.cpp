@@ -1722,7 +1722,7 @@ namespace
 class history_visitor : public nano::block_visitor
 {
 public:
-	history_visitor (nano::rpc_handler & handler_a, bool raw_a, nano::transaction & transaction_a, boost::property_tree::ptree & tree_a, nano::block_hash const & hash_a, std::vector<nano::public_key> const & accounts_filter_a = {}) :
+	history_visitor (nano::rpc_handler & handler_a, bool raw_a, nano::transaction & transaction_a, boost::property_tree::ptree & tree_a, nano::block_hash const & hash_a, std::vector<nano::public_key> const & accounts_filter_a) :
 	handler (handler_a),
 	raw (raw_a),
 	transaction (transaction_a),
@@ -3847,7 +3847,8 @@ void nano::rpc_handler::wallet_history ()
 					if (block != nullptr && timestamp >= modified_since)
 					{
 						boost::property_tree::ptree entry;
-						history_visitor visitor (*this, false, block_transaction, entry, hash);
+						std::vector<nano::public_key> no_filter;
+						history_visitor visitor (*this, false, block_transaction, entry, hash, no_filter);
 						block->visit (visitor);
 						if (!entry.empty ())
 						{
