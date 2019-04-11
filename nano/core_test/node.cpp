@@ -702,6 +702,7 @@ TEST (node_config, v16_v17_upgrade)
 	ASSERT_FALSE (tree.get_optional_child ("pow_sleep_interval"));
 	ASSERT_FALSE (tree.get_optional_child ("external_address"));
 	ASSERT_FALSE (tree.get_optional_child ("external_port"));
+	ASSERT_FALSE (tree.get_optional_child ("work_recalc_interval"));
 	config.deserialize_json (upgraded, tree);
 	// The config options should be added after the upgrade
 	ASSERT_TRUE (!!tree.get_optional_child ("tcp_client_timeout"));
@@ -709,6 +710,7 @@ TEST (node_config, v16_v17_upgrade)
 	ASSERT_TRUE (!!tree.get_optional_child ("pow_sleep_interval"));
 	ASSERT_TRUE (!!tree.get_optional_child ("external_address"));
 	ASSERT_TRUE (!!tree.get_optional_child ("external_port"));
+	ASSERT_TRUE (!!tree.get_optional_child ("work_recalc_interval"));
 
 	ASSERT_TRUE (upgraded);
 	auto version (tree.get<std::string> ("version"));
@@ -733,6 +735,7 @@ TEST (node_config, v17_values)
 	tree.put ("pow_sleep_interval", 0);
 	tree.put ("external_address", "::1");
 	tree.put ("external_port", 0);
+	tree.put ("work_recalc_interval", 4);
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
 	ASSERT_EQ (config.tcp_client_timeout.count (), 1);
@@ -740,6 +743,7 @@ TEST (node_config, v17_values)
 	ASSERT_EQ (config.pow_sleep_interval.count (), 0);
 	ASSERT_EQ (config.external_address, boost::asio::ip::address_v6::from_string ("::1"));
 	ASSERT_EQ (config.external_port, 0);
+	ASSERT_EQ (config.work_recalc_inverval.count(), 4);
 
 	// Check config is correct with other values
 	tree.put ("tcp_client_timeout", std::numeric_limits<unsigned long>::max () - 100);

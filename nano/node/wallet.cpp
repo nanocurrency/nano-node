@@ -1452,7 +1452,9 @@ std::shared_ptr<nano::block> nano::wallets::update_work_action (std::shared_ptr<
 	                                       .from (*state.get ())
 	                                       .work (node.work_generate_blocking (state->previous (), active_difficulty1))
 	                                       .build (ec);
-	return block_l;
+	if (ec)
+		return block_a;
+return block_l;
 }
 
 bool nano::wallets::search_pending (nano::uint256_union const & wallet_a)
@@ -1548,6 +1550,7 @@ void nano::wallets::do_work_regeneration ()
 			std::shared_ptr<nano::block> block_l (block);
 			bool confirmed (false);
 			difficulty_reque.erase (first);
+			regeneration_lock.unlock ();
 			if ((now - queued) >= node.config.work_recalc_inverval)
 			{
 				std::unique_lock<std::mutex> lock (node.active.mutex);
@@ -1574,10 +1577,9 @@ void nano::wallets::do_work_regeneration ()
 			}
 			if (!confirmed)
 			{
-				regeneration_lock.unlock ();
 				queue_work_regeneration (now, block_l);
-				regeneration_lock.lock ();
 			}
+			regeneration_lock.lock ();
 		}
 		else
 		{
@@ -1590,9 +1592,9 @@ void nano::wallets::queue_work_regeneration (std::chrono::steady_clock::time_poi
 {
 	{
 		std::lock_guard<std::mutex> regeneration_lock (difficulty_mutex);
-		difficulty_reque.insert (std::make_pair (time_point, block_a));
+		difficulty_reque.emplace(time_point, block_a);
 	}
-	condition.notify_all ();
+	condition.notify_one ();
 }
 
 void nano::wallets::do_wallet_actions ()
