@@ -400,26 +400,33 @@ bool nano::vote::operator!= (nano::vote const & other_a) const
 	return !(*this == other_a);
 }
 
-std::string nano::vote::to_json () const
+void nano::vote::serialize_json (boost::property_tree::ptree & tree) const
 {
-	std::stringstream stream;
-	boost::property_tree::ptree tree;
 	tree.put ("account", account.to_account ());
 	tree.put ("signature", signature.number ());
 	tree.put ("sequence", std::to_string (sequence));
 	boost::property_tree::ptree blocks_tree;
 	for (auto block : blocks)
 	{
+		boost::property_tree::ptree entry;
 		if (block.which ())
 		{
-			blocks_tree.put ("", boost::get<std::shared_ptr<nano::block>> (block)->to_json ());
+			entry.put ("", boost::get<nano::block_hash> (block).to_string ());
 		}
 		else
 		{
-			blocks_tree.put ("", boost::get<std::shared_ptr<nano::block>> (block)->hash ().to_string ());
+			entry.put ("", boost::get<std::shared_ptr<nano::block>> (block)->hash ().to_string ());
 		}
+		blocks_tree.push_back (std::make_pair ("", entry));
 	}
 	tree.add_child ("blocks", blocks_tree);
+}
+
+std::string nano::vote::to_json () const
+{
+	std::stringstream stream;
+	boost::property_tree::ptree tree;
+	serialize_json (tree);
 	boost::property_tree::write_json (stream, tree);
 	return stream.str ();
 }
