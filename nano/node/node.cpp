@@ -107,8 +107,15 @@ void nano::network::send_keepalive_self (nano::transport::channel const & channe
 {
 	nano::keepalive message;
 	udp_channels.random_fill (message.peers);
-	message.peers[0] = nano::endpoint (boost::asio::ip::address_v6{}, endpoint ().port ());
-	message.peers[1] = nano::endpoint (boost::asio::ip::address_v6{}, node.port_mapping.external_address ().port ());
+	if (node.config.external_address != boost::asio::ip::address_v6{} && node.config.external_port != 0)
+	{
+		message.peers[0] = nano::endpoint (node.config.external_address, node.config.external_port);
+	}
+	else
+	{
+		message.peers[0] = nano::endpoint (boost::asio::ip::address_v6{}, endpoint ().port ());
+		message.peers[1] = nano::endpoint (boost::asio::ip::address_v6{}, node.port_mapping.external_address ().port ());
+	}
 	channel_a.send (message);
 }
 
@@ -1578,7 +1585,10 @@ void nano::node::start ()
 			this_l->bootstrap_wallet ();
 		});
 	}
-	port_mapping.start ();
+	if (config.external_address != boost::asio::ip::address_v6{} && config.external_port != 0)
+	{
+		port_mapping.start ();
+	}
 }
 
 void nano::node::stop ()
