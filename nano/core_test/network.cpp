@@ -1456,7 +1456,8 @@ TEST (confirmation_height, single)
 TEST (confirmation_height, multiple)
 {
 	auto amount (std::numeric_limits<nano::uint128_t>::max ());
-	nano::system system (24000, 2);
+	bool delay_frontier_confirmation_height_updating = true;
+	nano::system system (24000, 2, delay_frontier_confirmation_height_updating);
 	nano::keypair key1;
 	nano::keypair key2;
 	nano::keypair key3;
@@ -1467,8 +1468,8 @@ TEST (confirmation_height, multiple)
 	system.wallet (1)->insert_adhoc (key3.prv);
 
 	// Send to all accounts
-	nano::send_block send1 (latest1, key1.pub, 300, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest1));
-	nano::send_block send2 (send1.hash (), key2.pub, 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send1.hash ()));
+	nano::send_block send1 (latest1, key1.pub, 60000 * nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest1));
+	nano::send_block send2 (send1.hash (), key2.pub, 60000 * nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send1.hash ()));
 	nano::send_block send3 (send2.hash (), key3.pub, 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send2.hash ()));
 
 	// Open all accounts
@@ -1637,7 +1638,8 @@ TEST (confirmation_height, gap_bootstrap)
 
 TEST (confirmation_height, gap_live)
 {
-	nano::system system (24000, 2);
+	bool delay_frontier_confirmation_height_updating = true;
+	nano::system system (24000, 2, delay_frontier_confirmation_height_updating);
 	nano::keypair destination;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::block_hash latest1 (system.nodes[0]->latest (nano::test_genesis_key.pub));
@@ -1687,7 +1689,7 @@ TEST (confirmation_height, gap_live)
 		while (true)
 		{
 			auto transaction = node->store.tx_begin_read ();
-			if (node->ledger.block_confirmed (transaction, open1->hash ()))
+			if (node->ledger.block_confirmed (transaction, receive2->hash ()))
 			{
 				break;
 			}
@@ -1696,19 +1698,15 @@ TEST (confirmation_height, gap_live)
 		}
 
 		// This should confirm the open block and the source of the receive blocks
-		{
-			auto transaction (node->store.tx_begin ());
-			auto unchecked_count (node->store.unchecked_count (transaction));
-			ASSERT_EQ (unchecked_count, 0);
+		auto transaction (node->store.tx_begin ());
+		auto unchecked_count (node->store.unchecked_count (transaction));
+		ASSERT_EQ (unchecked_count, 0);
 
-			nano::account_info account_info;
-			ASSERT_FALSE (node->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
-			ASSERT_EQ (4, account_info.block_count);
-			ASSERT_EQ (2, account_info.confirmation_height);
-			ASSERT_FALSE (node->store.account_get (transaction, destination.pub, account_info));
-			ASSERT_EQ (1, account_info.confirmation_height);
-			ASSERT_EQ (3, account_info.block_count);
-		}
+		nano::account_info account_info;
+		ASSERT_FALSE (node->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
+		ASSERT_EQ (4, account_info.confirmation_height);
+		ASSERT_FALSE (node->store.account_get (transaction, destination.pub, account_info));
+		ASSERT_EQ (3, account_info.confirmation_height);
 	}
 }
 
