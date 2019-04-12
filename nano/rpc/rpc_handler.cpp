@@ -849,10 +849,13 @@ void nano::rpc_handler::block_confirm ()
 				status.tally = 0;
 				status.election_end = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
 				status.election_duration = std::chrono::milliseconds::zero ();
-				node.active.confirmed.push_back (status);
-				if (node.active.confirmed.size () > node.active.election_history_size)
 				{
-					node.active.confirmed.pop_front ();
+					std::lock_guard<std::mutex> lock (node.active.mutex);
+					node.active.confirmed.push_back (status);
+					if (node.active.confirmed.size () > node.active.election_history_size)
+					{
+						node.active.confirmed.pop_front ();
+					}
 				}
 				// Trigger callback for confirmed block
 				node.block_arrival.add (hash);
