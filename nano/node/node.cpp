@@ -114,7 +114,8 @@ void nano::network::send_keepalive_self (nano::transport::channel const & channe
 	else
 	{
 		message.peers[0] = nano::endpoint (boost::asio::ip::address_v6{}, endpoint ().port ());
-		message.peers[1] = nano::endpoint (boost::asio::ip::address_v6{}, node.port_mapping.external_address ().port ());
+		message.peers[1] = node.port_mapping.external_address ();
+		message.peers[2] = nano::endpoint (boost::asio::ip::address_v6{}, node.port_mapping.external_address ().port ()); // If UPnP reported wrong external IP address
 	}
 	channel_a.send (message);
 }
