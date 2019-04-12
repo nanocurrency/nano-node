@@ -11,6 +11,11 @@
 #include <unordered_set>
 
 #include <boost/log/sources/logger.hpp>
+#include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/member.hpp>
+#include <boost/multi_index/ordered_index.hpp>
+#include <boost/multi_index/random_access_index.hpp>
+#include <boost/multi_index_container.hpp>
 #include <boost/thread/thread.hpp>
 
 namespace nano
@@ -58,9 +63,11 @@ public:
 	pull_info (nano::account const &, nano::block_hash const &, nano::block_hash const &, count_t = 0);
 	nano::account account{ 0 };
 	nano::block_hash head{ 0 };
+	nano::block_hash head_original{ 0 };
 	nano::block_hash end{ 0 };
 	count_t count{ 0 };
 	unsigned attempts{ 0 };
+	uint64_t processed{ 0 };
 };
 enum class bootstrap_mode
 {
@@ -217,6 +224,35 @@ public:
 	nano::account account;
 	uint64_t total_blocks;
 };
+class cached_pulls final
+{
+public:
+	std::chrono::steady_clock::time_point time;
+	nano::uint512_union account_head;
+	nano::block_hash new_head;
+};
+class pulls_cache final
+{
+public:
+	void add (nano::pull_info const &);
+	void update_pull (nano::pull_info &);
+	void remove (nano::pull_info const &);
+
+private:
+	std::mutex pulls_cache_mutex;
+	boost::multi_index_container<
+	nano::cached_pulls,
+	boost::multi_index::indexed_by<
+	boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::cached_pulls, std::chrono::steady_clock::time_point, &nano::cached_pulls::time>>,
+	boost::multi_index::hashed_unique<boost::multi_index::member<nano::cached_pulls, nano::uint512_union, &nano::cached_pulls::account_head>>>>
+	cache;
+	size_t max_cache = 10000;
+
+	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (pulls_cache & pulls_cache, const std::string & name);
+};
+
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (pulls_cache & pulls_cache, const std::string & name);
+
 class bootstrap_initiator final
 {
 public:
@@ -231,6 +267,7 @@ public:
 	void add_observer (std::function<void(bool)> const &);
 	bool in_progress ();
 	std::shared_ptr<nano::bootstrap_attempt> current_attempt ();
+	nano::pulls_cache cache;
 	void stop ();
 
 private:
