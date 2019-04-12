@@ -6,11 +6,6 @@
 
 using namespace std::chrono_literals;
 
-namespace
-{
-void prevent_frontier_confirmation_height_checking (std::vector<std::shared_ptr<nano::node>> & nodes);
-}
-
 TEST (network, tcp_connection)
 {
 	boost::asio::io_context io_ctx;
@@ -1460,8 +1455,8 @@ TEST (confirmation_height, single)
 
 TEST (confirmation_height, multiple)
 {
-	nano::system system (24000, 2);
-	prevent_frontier_confirmation_height_checking (system.nodes);
+	bool delay_frontier_confirmation_height_updating = true;
+	nano::system system (24000, 2, delay_frontier_confirmation_height_updating);
 	nano::keypair key1;
 	nano::keypair key2;
 	nano::keypair key3;
@@ -1472,8 +1467,8 @@ TEST (confirmation_height, multiple)
 	system.wallet (1)->insert_adhoc (key3.prv);
 
 	// Send to all accounts
-	nano::send_block send1 (latest1, key1.pub, 300, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest1));
-	nano::send_block send2 (send1.hash (), key2.pub, 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send1.hash ()));
+	nano::send_block send1 (latest1, key1.pub, 60000 * nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest1));
+	nano::send_block send2 (send1.hash (), key2.pub, 60000 * nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send1.hash ()));
 	nano::send_block send3 (send2.hash (), key3.pub, 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send2.hash ()));
 
 	// Open all accounts
@@ -1642,8 +1637,8 @@ TEST (confirmation_height, gap_bootstrap)
 
 TEST (confirmation_height, gap_live)
 {
-	nano::system system (24000, 2);
-	prevent_frontier_confirmation_height_checking (system.nodes);
+	bool delay_frontier_confirmation_height_updating = true;
+	nano::system system (24000, 2, delay_frontier_confirmation_height_updating);
 	nano::keypair destination;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	system.wallet (1)->insert_adhoc (destination.prv);
@@ -1775,14 +1770,4 @@ TEST (bootstrap, tcp_listener_timeout_keepalive)
 		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
-}
-
-namespace
-{
-void prevent_frontier_confirmation_height_checking (std::vector<std::shared_ptr<nano::node>> & nodes)
-{
-	auto unreachable_time = std::chrono::steady_clock::now () + std::chrono::seconds (10000);
-	nodes.front ()->active.next_frontier_check = unreachable_time;
-	nodes.back ()->active.next_frontier_check = unreachable_time;
-}
 }
