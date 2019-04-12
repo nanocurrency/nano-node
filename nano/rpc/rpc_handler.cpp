@@ -836,7 +836,38 @@ void nano::rpc_handler::block_confirm ()
 		auto block_l (node.store.block_get (transaction, hash));
 		if (block_l != nullptr)
 		{
-			node.block_confirm (std::move (block_l));
+			if (!node.ledger.block_confirmed (transaction, hash))
+			{
+				// Start new confirmation for unconfirmed block
+				node.block_confirm (std::move (block_l));
+			}
+			else
+			{
+				// Add record in confirmation history for confirmed block
+				nano::election_status status;
+				status.winner = block_l;
+				status.tally = 0;
+				status.election_end = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
+				status.election_duration = std::chrono::milliseconds::zero ();
+				{
+					std::lock_guard<std::mutex> lock (node.active.mutex);
+					node.active.confirmed.push_back (status);
+					if (node.active.confirmed.size () > node.active.election_history_size)
+					{
+						node.active.confirmed.pop_front ();
+					}
+				}
+				// Trigger callback for confirmed block
+				node.block_arrival.add (hash);
+				auto account (node.ledger.account (transaction, hash));
+				auto amount (node.ledger.amount (transaction, hash));
+				bool is_state_send (false);
+				if (auto state = dynamic_cast<nano::state_block *> (block_l.get ()))
+				{
+					is_state_send = node.ledger.is_send (transaction, *state);
+				}
+				node.observers.blocks.notify (block_l, account, amount, is_state_send);
+			}
 			response_l.put ("started", "1");
 		}
 		else
