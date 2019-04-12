@@ -99,7 +99,7 @@ public:
 class active_transactions final
 {
 public:
-	explicit active_transactions (nano::node &);
+	explicit active_transactions (nano::node &, bool delay_frontier_confirmation_height_updating = false);
 	~active_transactions ();
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
@@ -420,7 +420,7 @@ class node final : public std::enable_shared_from_this<nano::node>
 {
 public:
 	node (nano::node_init &, boost::asio::io_context &, uint16_t, boost::filesystem::path const &, nano::alarm &, nano::logging const &, nano::work_pool &);
-	node (nano::node_init &, boost::asio::io_context &, boost::filesystem::path const &, nano::alarm &, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags ());
+	node (nano::node_init &, boost::asio::io_context &, boost::filesystem::path const &, nano::alarm &, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags (), bool delay_frontier_confirmation_height_updating = false);
 	~node ();
 	template <typename T>
 	void background (T action_a)
