@@ -3185,13 +3185,13 @@ void nano::pulls_cache::add (nano::pull_info const & pull_a)
 		auto existing (cache.get<1> ().find (head_512));
 		if (existing == cache.get<1> ().end ())
 		{
-			// Insert updated pull
+			// Insert new pull
 			auto inserted (cache.insert (nano::cached_pulls{ std::chrono::steady_clock::now (), head_512, pull_a.head }));
 			assert (inserted.second);
 		}
 		else
 		{
-			// Insert new pull
+			// Update existing pull
 			cache.get<1> ().modify (existing, [pull_a](nano::cached_pulls & cache_a) {
 				cache_a.time = std::chrono::steady_clock::now ();
 				cache_a.new_head = pull_a.head;
