@@ -158,7 +158,7 @@ private:
 	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
 	std::condition_variable condition;
 	bool started;
-	bool stopped;
+	std::atomic<bool> stopped;
 	boost::thread thread;
 };
 

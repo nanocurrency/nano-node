@@ -2775,16 +2775,8 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 	{
 		size_t max_elections (max_broadcast_queue / 4);
 		size_t elections_count (0);
-		for (auto i (node.store.latest_begin (transaction_a, next_frontier_account)), n (node.store.latest_end ()); i != n && elections_count < max_elections; ++i)
+		for (auto i (node.store.latest_begin (transaction_a, next_frontier_account)), n (node.store.latest_end ()); i != n && !stopped && elections_count < max_elections; ++i)
 		{
-			{
-				std::lock_guard<std::mutex> guard (mutex);
-				if (stopped)
-				{
-					break;
-				}
-			}
-
 			nano::account_info info (i->second);
 			if (info.block_count != info.confirmation_height)
 			{
