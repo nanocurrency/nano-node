@@ -98,6 +98,7 @@ namespace thread_role
 				break;
 			case nano::thread_role::name::confirmation_height_processing:
 				thread_role_name_string = "Conf height";
+				break;
 		}
 
 		/*
