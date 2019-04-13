@@ -2777,6 +2777,14 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 		size_t elections_count (0);
 		for (auto i (node.store.latest_begin (transaction_a, next_frontier_account)), n (node.store.latest_end ()); i != n && elections_count < max_elections; ++i)
 		{
+			{
+				std::lock_guard<std::mutex> guard (mutex);
+				if (stopped)
+				{
+					break;
+				}
+			}
+
 			nano::account_info info (i->second);
 			if (info.block_count != info.confirmation_height)
 			{
@@ -3070,6 +3078,13 @@ void nano::active_transactions::request_loop ()
 	while (!stopped)
 	{
 		request_confirm (lock);
+
+		// This prevents unnecessary waiting if stopped is set in-between the above check and now
+		if (stopped)
+		{
+			break;
+		}
+
 		const auto extra_delay (std::min (roots.size (), max_broadcast_queue) * node.network.broadcast_interval_ms * 2);
 		condition.wait_for (lock, std::chrono::milliseconds (node.network_params.network.request_interval_ms + extra_delay));
 	}
