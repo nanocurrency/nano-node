@@ -329,7 +329,6 @@ void nano::transport::udp_channels::receive ()
 
 	auto data (node.network.buffer_container.allocate ());
 
-	assert (strand.running_in_this_thread ());
 	socket.async_receive_from (boost::asio::buffer (data->buffer, nano::network::buffer_size), data->endpoint,
 	boost::asio::bind_executor (strand,
 	[this, data](boost::system::error_code const & error, std::size_t size_a) {
