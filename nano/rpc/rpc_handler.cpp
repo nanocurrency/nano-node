@@ -800,7 +800,7 @@ void nano::rpc_handler::block_info ()
 			response_l.put ("balance", balance.convert_to<std::string> ());
 			response_l.put ("height", std::to_string (sideband.height));
 			response_l.put ("local_timestamp", std::to_string (sideband.timestamp));
-			auto confirmed (node.ledger.block_confirmed (transaction, hash));
+			auto confirmed (node.ledger.block_confirmed (transaction, hash) || node.confirmation_height_processor.is_processing_block (hash));
 			response_l.put ("confirmed", confirmed);
 
 			bool json_block_l = request.get<bool> ("json_block", false);
@@ -924,7 +924,7 @@ void nano::rpc_handler::blocks_info ()
 					entry.put ("balance", balance.convert_to<std::string> ());
 					entry.put ("height", std::to_string (sideband.height));
 					entry.put ("local_timestamp", std::to_string (sideband.timestamp));
-					auto confirmed (node.ledger.block_confirmed (transaction, hash));
+					auto confirmed (node.ledger.block_confirmed (transaction, hash) || node.confirmation_height_processor.is_processing_block (hash));
 					entry.put ("confirmed", confirmed);
 
 					if (json_block_l)

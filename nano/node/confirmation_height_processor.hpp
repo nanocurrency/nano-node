@@ -7,7 +7,7 @@
 #include <queue>
 #include <stack>
 #include <thread>
-#include <unordered_map>
+#include <unordered_set>
 
 namespace nano
 {
@@ -24,8 +24,7 @@ public:
 
 private:
 	std::mutex mutex;
-	std::queue<nano::block_hash> queue;
-
+	std::unordered_set<nano::block_hash> pending;
 	friend class confirmation_height_processor;
 };
 
@@ -38,6 +37,7 @@ public:
 	~confirmation_height_processor ();
 	void add (nano::block_hash const &);
 	void stop ();
+	bool is_processing_block (nano::block_hash const &);
 
 private:
 	class conf_height_details final
@@ -67,13 +67,14 @@ private:
 	nano::active_transactions & active;
 	nano::logger_mt & logger;
 	std::mutex receive_source_pairs_mutex;
+	nano::block_hash current_original_pending_block{ 0 };	// This is the last block popped off the confirmation height pending collection
 	std::stack<receive_source_pair> receive_source_pairs; // Only single writer allowed, multiple readers
 	std::thread thread;
 	constexpr static std::chrono::milliseconds batch_write_delta{ 100 };
 
 	void run ();
 	void add_confirmation_height (nano::block_hash const &);
-	void collect_unconfirmed_receive_and_sources_for_account (uint64_t, uint64_t, nano::block_hash &, const nano::block_hash &, std::stack<receive_source_pair> &, nano::account const &, nano::transaction &, std::unique_lock <std::mutex> &);
+	void collect_unconfirmed_receive_and_sources_for_account (uint64_t, uint64_t, nano::block_hash const &, nano::block_hash const &, std::stack<receive_source_pair> &, nano::account const &, nano::transaction &, std::unique_lock <std::mutex> &);
 	bool write_pending (std::queue<conf_height_details> &);
 	size_t receive_source_pairs_size ();
 

@@ -5096,8 +5096,13 @@ TEST (rpc, block_confirmed)
 	auto send = std::make_shared<nano::send_block> (latest, key.pub, 10, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest));
 	node->process_active (send);
 	node->block_processor.flush ();
+	system.deadline_set (10s);
+	while (!node->confirmation_height_processor.is_processing_block (send->hash ()))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 
-	// Wait until it has been confirmed by the network
+	// Wait until the confirmation height has been set
 	system.deadline_set (10s);
 	while (true)
 	{
@@ -5109,6 +5114,9 @@ TEST (rpc, block_confirmed)
 
 		ASSERT_NO_ERROR (system.poll ());
 	}
+
+	// Should no longer be processing the block after confirmation is set
+	ASSERT_FALSE (node->confirmation_height_processor.is_processing_block (send->hash ()));
 
 	// Requesting confirmation for this should now succeed
 	request.put ("hash", send->hash ().to_string ());

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/work.hpp>
+#include <nano/node/active_transactions.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap.hpp>
 #include <nano/node/confirmation_height_processor.hpp>
@@ -33,14 +34,6 @@ namespace nano
 {
 class channel;
 class node;
-class election_status final
-{
-public:
-	std::shared_ptr<nano::block> winner;
-	nano::amount tally;
-	std::chrono::milliseconds election_end;
-	std::chrono::milliseconds election_duration;
-};
 class vote_info final
 {
 public:
@@ -87,85 +80,6 @@ public:
 	unsigned announcements;
 	std::unordered_set<nano::block_hash> dependent_blocks;
 };
-class conflict_info final
-{
-public:
-	nano::qualified_root root;
-	uint64_t difficulty;
-	uint64_t adjusted_difficulty;
-	std::shared_ptr<nano::election> election;
-};
-// Core class for determining consensus
-// Holds all active blocks i.e. recently added blocks that need confirmation
-class active_transactions final
-{
-public:
-	explicit active_transactions (nano::node &, bool delay_frontier_confirmation_height_updating = false);
-	~active_transactions ();
-	// Start an election for a block
-	// Call action with confirmed block, may be different than what we started with
-	// clang-format off
-	bool start (std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
-	// clang-format on
-	// If this returns true, the vote is a replay
-	// If this returns false, the vote may or may not be a replay
-	bool vote (std::shared_ptr<nano::vote>, bool = false);
-	// Is the root of this block in the roots container
-	bool active (nano::block const &);
-	void update_difficulty (nano::block const &);
-	void adjust_difficulty (nano::block_hash const &);
-	void update_active_difficulty ();
-	std::deque<std::shared_ptr<nano::block>> list_blocks (bool = false);
-	void erase (nano::block const &);
-	bool empty ();
-	size_t size ();
-	void stop ();
-	bool publish (std::shared_ptr<nano::block> block_a);
-	void confirm_block (nano::block_hash const &);
-	boost::multi_index_container<
-	nano::conflict_info,
-	boost::multi_index::indexed_by<
-	boost::multi_index::hashed_unique<
-	boost::multi_index::member<nano::conflict_info, nano::qualified_root, &nano::conflict_info::root>>,
-	boost::multi_index::ordered_non_unique<
-	boost::multi_index::member<nano::conflict_info, uint64_t, &nano::conflict_info::adjusted_difficulty>,
-	std::greater<uint64_t>>>>
-	roots;
-	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
-	std::deque<nano::election_status> list_confirmed ();
-	std::deque<nano::election_status> confirmed;
-	nano::node & node;
-	std::mutex mutex;
-	// Maximum number of conflicts to vote on per interval, lowest root hash first
-	static unsigned constexpr announcements_per_interval = 32;
-	// Minimum number of block announcements
-	static unsigned constexpr announcement_min = 2;
-	// Threshold to start logging blocks haven't yet been confirmed
-	static unsigned constexpr announcement_long = 20;
-	static size_t constexpr election_history_size = 2048;
-	static size_t constexpr max_broadcast_queue = 1000;
-	boost::circular_buffer<uint64_t> difficulty_cb;
-	std::atomic<uint64_t> active_difficulty;
-	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
-
-private:
-	// Call action with confirmed block, may be different than what we started with
-	// clang-format off
-	bool add (std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
-	// clang-format on
-	void request_loop ();
-	void request_confirm (std::unique_lock<std::mutex> &);
-	void confirm_frontiers (nano::transaction const &);
-	nano::account next_frontier_account{ 0 };
-	std::condition_variable condition;
-	bool started;
-	bool stopped;
-	static size_t constexpr confirmed_frontiers_max_pending_cut_off = 100;
-	boost::thread thread;
-};
-
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transactions & active_transactions, const std::string & name);
-
 class operation final
 {
 public:

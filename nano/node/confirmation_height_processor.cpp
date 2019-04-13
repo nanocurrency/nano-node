@@ -1,10 +1,12 @@
 #include <boost/optional.hpp>
 #include <boost/polymorphic_pointer_cast.hpp>
+#include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/node/stats.hpp>
+#include <nano/node/active_transactions.hpp>
 #include <nano/node/confirmation_height_processor.hpp>
-#include <nano/node/node.hpp> // For active_transactions
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
@@ -44,12 +46,13 @@ void nano::confirmation_height_processor::run ()
 	std::unique_lock<std::mutex> lk (pending_confirmations.mutex);
 	while (!stopped)
 	{
-		if (!pending_confirmations.queue.empty ())
+		if (!pending_confirmations.pending.empty ())
 		{
-			auto pending_confirmation = pending_confirmations.queue.front ();
-			pending_confirmations.queue.pop ();
+			current_original_pending_block = *pending_confirmations.pending.begin ();
+			pending_confirmations.pending.erase (current_original_pending_block);
 			lk.unlock ();
-			add_confirmation_height (pending_confirmation);
+			add_confirmation_height (current_original_pending_block);
+			current_original_pending_block = 0;
 			lk.lock ();
 		}
 		else
@@ -63,9 +66,24 @@ void nano::confirmation_height_processor::add (nano::block_hash const & hash_a)
 {
 	{
 		std::lock_guard<std::mutex> lk (pending_confirmations.mutex);
-		pending_confirmations.queue.push (hash_a);
+		assert (pending_confirmations.pending.find (hash_a) == pending_confirmations.pending.cend ());
+		pending_confirmations.pending.insert (hash_a);
 	}
 	condition.notify_one ();
+}
+
+// This only check top-level blocks having their confirmation height sets, not anything below
+bool nano::confirmation_height_processor::is_processing_block (nano::block_hash const & hash_a)
+{
+	// First check the hash currently being processed
+	if (!current_original_pending_block.is_zero () && current_original_pending_block == hash_a)
+	{
+		return true;
+	}
+
+	// Check remaining pending confirmations
+	std::lock_guard<std::mutex> lk (pending_confirmations.mutex);
+	return pending_confirmations.pending.find (hash_a) != pending_confirmations.pending.cend ();
 }
 
 /**
@@ -81,13 +99,14 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 	nano::account_info account_info;
 	nano::genesis genesis;
 	auto genesis_hash = genesis.hash ();
-	std::queue<conf_height_details> pending;
+	std::queue<conf_height_details> pending_writes;
 
 	nano::timer<std::chrono::milliseconds> timer;
 	timer.start ();
 
 	std::unique_lock<std::mutex> receive_source_pairs_lk (receive_source_pairs_mutex);
 	release_assert (receive_source_pairs.empty ());
+	// Traverse account chain and all receive blocks in other accounts
 	do
 	{
 		if (!receive_source_pairs.empty ())
@@ -105,7 +124,6 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 		auto count_before_open_receive = receive_source_pairs.size ();
 		receive_source_pairs_lk.unlock ();
 
-		auto hash (current);
 		if (block_height > confirmation_height)
 		{
 			collect_unconfirmed_receive_and_sources_for_account (block_height, confirmation_height, current, genesis_hash, receive_source_pairs, account, transaction, receive_source_pairs_lk);
@@ -120,12 +138,12 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 		{
 			if (block_height > confirmation_height)
 			{
-				pending.emplace (account, hash, block_height);
+				pending_writes.emplace (account, current, block_height);
 			}
 
 			if (receive_details)
 			{
-				pending.push (*receive_details);
+				pending_writes.push (*receive_details);
 			}
 
 			receive_source_pairs_lk.lock ();
@@ -137,16 +155,16 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 		}
 		// Check whether writing to the database should be done now
 		receive_source_pairs_lk.lock ();
-		if ((timer.after_deadline (batch_write_delta) || receive_source_pairs.empty ()) && !pending.empty ())
+		if ((timer.after_deadline (batch_write_delta) || receive_source_pairs.empty ()) && !pending_writes.empty ())
 		{
-			auto error = write_pending (pending);
+			auto error = write_pending (pending_writes);
 
 			// Don't set any more blocks as confirmed from the original hash if an inconsistency is found
 			if (error)
 			{
 				break;
 			}
-			assert (pending.empty ());
+			assert (pending_writes.empty ());
 			timer.restart ();
 		}
 		receive_source_pairs_lk.unlock ();
@@ -198,49 +216,32 @@ bool nano::confirmation_height_processor::write_pending (std::queue<conf_height_
 	return false;
 }
 
-void nano::confirmation_height_processor::collect_unconfirmed_receive_and_sources_for_account (uint64_t block_height, uint64_t confirmation_height, nano::block_hash & current, const nano::block_hash & genesis_hash, std::stack<receive_source_pair> & receive_source_pairs, nano::account const & account, nano::transaction & transaction, std::unique_lock <std::mutex> & receive_source_pairs_lk)
+// This function assumes receive_source_pairs_lk is not already locked
+void nano::confirmation_height_processor::collect_unconfirmed_receive_and_sources_for_account (uint64_t block_height, uint64_t confirmation_height, nano::block_hash const & current, const nano::block_hash & genesis_hash, std::stack<receive_source_pair> & receive_source_pairs, nano::account const & account, nano::transaction & transaction, std::unique_lock <std::mutex> & receive_source_pairs_lk)
 {
-	// Get the last confirmed block in this account chain
+	auto hash (current);
 	auto num_to_confirm = block_height - confirmation_height;
-	while (num_to_confirm > 0 && !current.is_zero ())
+	while (num_to_confirm > 0 && !hash.is_zero ())
 	{
-		active.confirm_block (current);
+		active.confirm_block (hash);
 		nano::block_sideband sideband;
-		auto block (store.block_get (transaction, current, &sideband));
+		auto block (store.block_get (transaction, hash, &sideband));
 		if (block)
 		{
-			if (block->type () == nano::block_type::receive || (block->type () == nano::block_type::open && block->hash () != genesis_hash))
+			auto source (block->source ());
+			if (source.is_zero ())
+			{
+				source = block->link ();
+			}
+
+			if (store.block_exists (transaction, source))
 			{
 				receive_source_pairs_lk.lock ();
-				receive_source_pairs.emplace (conf_height_details{ account, current, sideband.height }, block->source ());
-				receive_source_pairs_lk.unlock ();
+				receive_source_pairs.emplace (conf_height_details{ account, hash, sideband.height }, source);
+				receive_source_pairs_lk.unlock ();			
 			}
-			else
-			{
-				// Then check state blocks
-				auto state = boost::dynamic_pointer_cast<nano::state_block> (block);
-				if (state != nullptr)
-				{
-					nano::block_hash previous (state->hashables.previous);
-					if (!previous.is_zero ())
-					{
-						if (state->hashables.balance.number () >= ledger.balance (transaction, previous) && !state->hashables.link.is_zero () && !ledger.is_epoch_link (state->hashables.link))
-						{
-							receive_source_pairs_lk.lock ();
-							receive_source_pairs.emplace (conf_height_details{ account, current, sideband.height }, state->hashables.link);
-							receive_source_pairs_lk.unlock ();
-						}
-					}
-					// State open blocks are always receive or epoch
-					else if (!ledger.is_epoch_link (state->hashables.link))
-					{
-						receive_source_pairs_lk.lock ();
-						receive_source_pairs.emplace (conf_height_details{ account, current, sideband.height }, state->hashables.link);
-						receive_source_pairs_lk.unlock ();
-					}
-				}
-			}
-			current = block->previous ();
+
+			hash = block->previous ();
 		}
 		--num_to_confirm;
 	}
@@ -279,16 +280,16 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (confirmation_heigh
 size_t nano::pending_confirmation_height::size ()
 {
 	std::lock_guard<std::mutex> lk (mutex);
-	return queue.size ();
+	return pending.size ();
 }
 
 namespace nano
 {
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (pending_confirmation_height & pending_confirmation_height, const std::string & name)
 {
-	size_t queue_count = pending_confirmation_height.size ();
+	size_t pending_count = pending_confirmation_height.size ();
 	auto composite = std::make_unique<seq_con_info_composite> (name);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "queue", queue_count, sizeof (nano::block_hash) }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "pending", pending_count, sizeof (nano::block_hash) }));
 	return composite;
 }
 }

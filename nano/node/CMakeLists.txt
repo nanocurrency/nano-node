@@ -13,6 +13,8 @@ endif ()
 add_library (node
 	${platform_sources}
 	${secure_rpc_sources}
+	active_transactions.hpp
+	active_transactions.cpp
 	blockprocessor.cpp
 	blockprocessor.hpp
 	bootstrap.cpp
