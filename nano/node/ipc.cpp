@@ -84,8 +84,8 @@ public:
 		});
 	}
 
-	/** Handler for payload_encoding::json_legacy */
-	void rpc_handle_query ()
+	/** Handler for payload_encoding::json_legacy and payload_encoding::json_unsafe */
+	void rpc_handle_query (bool allow_unsafe)
 	{
 		session_timer.restart ();
 		auto request_id_l (std::to_string (server.id_dispenser.fetch_add (1)));
@@ -129,7 +129,8 @@ public:
 
 		// Note that if the rpc action is async, the shared_ptr<rpc_handler> lifetime will be extended by the action handler
 		auto handler (std::make_shared<nano::rpc_handler> (node, server.rpc, body, request_id_l, response_handler_l));
-		handler->process_request ();
+		// For unsafe actions to be allowed, the unsafe encoding must be used AND the transport config must allow it
+		handler->process_request (allow_unsafe && config_transport.allow_unsafe);
 	}
 
 	/** Async request reader */
@@ -147,15 +148,16 @@ public:
 					this_l->node.logger.always_log ("IPC: Invalid preamble");
 				}
 			}
-			else if (this_l->buffer[nano::ipc::preamble_offset::encoding] == static_cast<uint8_t> (nano::ipc::payload_encoding::json_legacy))
+			else if (this_l->buffer[nano::ipc::preamble_offset::encoding] == static_cast<uint8_t> (nano::ipc::payload_encoding::json_legacy) || this_l->buffer[nano::ipc::preamble_offset::encoding] == static_cast<uint8_t> (nano::ipc::payload_encoding::json_unsafe))
 			{
+				auto allow_unsafe (this_l->buffer[nano::ipc::preamble_offset::encoding] == static_cast<uint8_t> (nano::ipc::payload_encoding::json_unsafe));
 				// Length of payload
-				this_l->async_read_exactly (&this_l->buffer_size, sizeof (this_l->buffer_size), [this_l]() {
+				this_l->async_read_exactly (&this_l->buffer_size, sizeof (this_l->buffer_size), [this_l, allow_unsafe]() {
 					boost::endian::big_to_native_inplace (this_l->buffer_size);
 					this_l->buffer.resize (this_l->buffer_size);
 					// Payload (ptree compliant JSON string)
-					this_l->async_read_exactly (this_l->buffer.data (), this_l->buffer_size, [this_l]() {
-						this_l->rpc_handle_query ();
+					this_l->async_read_exactly (this_l->buffer.data (), this_l->buffer_size, [this_l, allow_unsafe]() {
+						this_l->rpc_handle_query (allow_unsafe);
 					});
 				});
 			}

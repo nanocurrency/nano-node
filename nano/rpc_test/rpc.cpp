@@ -2605,6 +2605,33 @@ TEST (rpc, representatives)
 	ASSERT_EQ (nano::genesis_account, representatives[0]);
 }
 
+// wallet_seed is only available over IPC's unsafe encoding, and when running on test network
+TEST (rpc, wallet_seed)
+{
+	nano::system system (24000, 1);
+	nano::raw_key seed;
+	{
+		auto transaction (system.nodes[0]->wallets.tx_begin ());
+		system.wallet (0)->store.seed (seed, transaction);
+	}
+	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "wallet_seed");
+	request.put ("wallet", system.nodes[0]->wallets.items.begin ()->first.to_string ());
+	test_response response (request, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+	{
+		std::string seed_text (response.json.get<std::string> ("seed"));
+		ASSERT_EQ (seed.data.to_string (), seed_text);
+	}
+}
+
 TEST (rpc, wallet_change_seed)
 {
 	nano::system system0 (24000, 1);
