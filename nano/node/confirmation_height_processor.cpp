@@ -1,8 +1,6 @@
 #include <boost/optional.hpp>
-#include <boost/polymorphic_pointer_cast.hpp>
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
-#include <nano/lib/timer.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/stats.hpp>
 #include <nano/node/active_transactions.hpp>
@@ -10,8 +8,7 @@
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
-
-constexpr std::chrono::milliseconds nano::confirmation_height_processor::batch_write_delta;
+#include <numeric>
 
 nano::confirmation_height_processor::confirmation_height_processor (nano::pending_confirmation_height & pending_confirmation_height, nano::block_store & store, nano::ledger & ledger, nano::active_transactions & active, nano::logger_mt & logger) :
 pending_confirmations (pending_confirmation_height),
@@ -66,7 +63,6 @@ void nano::confirmation_height_processor::add (nano::block_hash const & hash_a)
 {
 	{
 		std::lock_guard<std::mutex> lk (pending_confirmations.mutex);
-		assert (pending_confirmations.pending.find (hash_a) == pending_confirmations.pending.cend ());
 		pending_confirmations.pending.insert (hash_a);
 	}
 	condition.notify_one ();
@@ -99,33 +95,48 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 	nano::account_info account_info;
 	nano::genesis genesis;
 	auto genesis_hash = genesis.hash ();
-	std::queue<conf_height_details> pending_writes;
+	std::deque<conf_height_details> pending_writes;
 
-	nano::timer<std::chrono::milliseconds> timer;
-	timer.start ();
+	// Store the highest confirmation heights for accounts in pending_writes to reduce unnecessary iterating
+	std::unordered_map <account, uint64_t> confirmation_height_pending_write_cache;
 
 	std::unique_lock<std::mutex> receive_source_pairs_lk (receive_source_pairs_mutex);
 	release_assert (receive_source_pairs.empty ());
-	// Traverse account chain and all receive blocks in other accounts
+	// Traverse account chain and all sources for receive blocks iteratively
 	do
 	{
 		if (!receive_source_pairs.empty ())
 		{
-			receive_details = receive_source_pairs.top ().receive_details;
-			current = receive_source_pairs.top ().source_hash;
+			receive_details = receive_source_pairs.back ().receive_details;
+			current = receive_source_pairs.back ().source_hash;
 		}
 		receive_source_pairs_lk.unlock ();
 		auto transaction (store.tx_begin_read ());
-		auto block_height = (store.block_account_height (transaction, current));
+		nano::block_sideband sideband;
+		auto current_block = store.block_get (transaction, current, &sideband);
+		assert (current_block!= nullptr);
+		auto block_height = sideband.height;
 		nano::account account (ledger.account (transaction, current));
 		release_assert (!store.account_get (transaction, account, account_info));
 		auto confirmation_height = account_info.confirmation_height;
+
+		auto account_it = confirmation_height_pending_write_cache.find (account);
+		if (account_it != confirmation_height_pending_write_cache.cend () && account_it->second > confirmation_height)
+		{
+			confirmation_height = account_it->second;
+		}
+
 		receive_source_pairs_lk.lock ();
 		auto count_before_open_receive = receive_source_pairs.size ();
 		receive_source_pairs_lk.unlock ();
 
 		if (block_height > confirmation_height)
 		{
+			if ((block_height - confirmation_height) > 20000)
+			{
+				logger.always_log ("Iterating over a large account chain for setting confirmation height. The top block: ", current.to_string ());
+			}
+
 			collect_unconfirmed_receive_and_sources_for_account (block_height, confirmation_height, current, genesis_hash, receive_source_pairs, account, transaction, receive_source_pairs_lk);
 		}
 
@@ -138,34 +149,60 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 		{
 			if (block_height > confirmation_height)
 			{
-				pending_writes.emplace (account, current, block_height);
+				// Check whether the previous block has been seen. If so, the rest of sends below have already been seen so don't count them
+				if (account_it != confirmation_height_pending_write_cache.cend ())
+				{
+					account_it->second = block_height;
+				}
+				else
+				{
+					confirmation_height_pending_write_cache.emplace (account, block_height);
+				}
+
+				pending_writes.emplace_back (account, current, block_height, block_height - confirmation_height);
 			}
 
 			if (receive_details)
 			{
-				pending_writes.push (*receive_details);
+				// Check whether the previous block has been seen. If so, the rest of sends below have already been seen so don't count them
+				auto const & receive_account = receive_details->account;
+				auto receive_account_it = confirmation_height_pending_write_cache.find (receive_account);
+				if (receive_account_it != confirmation_height_pending_write_cache.cend ())
+				{
+					receive_account_it->second = receive_details->height;
+				}
+				else
+				{
+					confirmation_height_pending_write_cache.emplace (receive_account, receive_details->height);
+				}
+
+				pending_writes.push_back (*receive_details);
 			}
 
 			receive_source_pairs_lk.lock ();
 			if (!receive_source_pairs.empty ())
 			{
-				receive_source_pairs.pop ();
+				receive_source_pairs.erase (receive_source_pairs.end () - 1);
 			}
 			receive_source_pairs_lk.unlock ();
 		}
+
 		// Check whether writing to the database should be done now
 		receive_source_pairs_lk.lock ();
-		if ((timer.after_deadline (batch_write_delta) || receive_source_pairs.empty ()) && !pending_writes.empty ())
-		{
-			auto error = write_pending (pending_writes);
 
+		auto total_pending_write_block_count = std::accumulate (pending_writes.cbegin (), pending_writes.cend (), uint64_t (0), [](uint64_t total, conf_height_details const & conf_height_details_a) {
+			return total += conf_height_details_a.num_blocks_confirmed;
+		});
+
+		if ((total_pending_write_block_count >= 4096 || receive_source_pairs.empty ()) && !pending_writes.empty ())
+		{
+			auto error = write_pending (pending_writes, total_pending_write_block_count);
 			// Don't set any more blocks as confirmed from the original hash if an inconsistency is found
 			if (error)
 			{
 				break;
 			}
 			assert (pending_writes.empty ());
-			timer.restart ();
 		}
 		receive_source_pairs_lk.unlock ();
 		// Exit early when the processor has been stopped, otherwise this function may take a
@@ -179,48 +216,67 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 }
 
 // Returns true if there was an error in finding one of the blocks to write the confirmation height for.
-bool nano::confirmation_height_processor::write_pending (std::queue<conf_height_details> & all_pending)
+bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_details> & all_pending, int64_t total_pending_write_block_count_a)
 {
 	nano::account_info account_info;
-	auto transaction (store.tx_begin_write ());
-	while (!all_pending.empty ())
-	{
-		const auto & pending = all_pending.front ();
-		auto error = store.account_get (transaction, pending.account, account_info);
-		release_assert (!error);
-		if (pending.height > account_info.confirmation_height)
-		{
-#ifdef NDEBUG
-			auto block = store.block_get (transaction, pending.hash);
-#else
-			// Do more thorough checking in Debug mode
-			nano::block_sideband sideband;
-			auto block = store.block_get (transaction, pending.hash, &sideband);
-			assert (block != nullptr);
-			assert (sideband.height == pending.height);
-#endif
-			// Check that the block still exists as there may have been changes outside this processor.
-			if (!block)
-			{
-				logger.always_log ("Failed to write confirmation height for: ", pending.hash.to_string ());
-				ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
-				return true;
-			}
+	auto total_pending_write_block_count (total_pending_write_block_count_a);
 
-			ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - account_info.confirmation_height);
-			account_info.confirmation_height = pending.height;
-			store.account_put (transaction, pending.account, account_info);
+	// Write in batches of 4096
+	while (total_pending_write_block_count > 0)
+	{
+		uint64_t num_block_writes = 0;
+		auto transaction (store.tx_begin_write ());
+		while (!all_pending.empty ())
+		{
+			const auto & pending = all_pending.front ();
+			auto error = store.account_get (transaction, pending.account, account_info);
+			release_assert (!error);
+			if (pending.height > account_info.confirmation_height)
+			{
+#ifndef NDEBUG
+				// Do more thorough checking in Debug mode
+				nano::block_sideband sideband;
+				auto block = store.block_get (transaction, pending.hash, &sideband);
+				assert (block != nullptr);
+				assert (sideband.height == pending.height);
+				// Check that the block still exists as there may have been changes outside this processor.
+				if (!block)
+				{
+					logger.always_log ("Failed to write confirmation height for: ", pending.hash.to_string ());
+					ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
+					return true;
+				}
+#endif
+				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - account_info.confirmation_height);
+				assert (pending.num_blocks_confirmed, pending.height - account_info.confirmation_height);
+				account_info.confirmation_height = pending.height;
+				store.account_put (transaction, pending.account, account_info);
+			}
+			total_pending_write_block_count -= pending.num_blocks_confirmed;
+			num_block_writes += pending.num_blocks_confirmed;
+			all_pending.erase (all_pending.begin ());
+		
+			if (num_block_writes >= 4096)
+			{
+				// Commit changes periodically to reduce time holding write locks for long chains
+				break;
+			}
 		}
-		all_pending.pop ();
 	}
 	return false;
 }
 
 // This function assumes receive_source_pairs_lk is not already locked
-void nano::confirmation_height_processor::collect_unconfirmed_receive_and_sources_for_account (uint64_t block_height, uint64_t confirmation_height, nano::block_hash const & current, const nano::block_hash & genesis_hash, std::stack<receive_source_pair> & receive_source_pairs, nano::account const & account, nano::transaction & transaction, std::unique_lock <std::mutex> & receive_source_pairs_lk)
+void nano::confirmation_height_processor::collect_unconfirmed_receive_and_sources_for_account (uint64_t block_height, uint64_t confirmation_height, nano::block_hash const & current, const nano::block_hash & genesis_hash, std::vector<receive_source_pair> & receive_source_pairs, nano::account const & account, nano::transaction & transaction, std::unique_lock <std::mutex> & receive_source_pairs_lk)
 {
 	auto hash (current);
 	auto num_to_confirm = block_height - confirmation_height;
+
+	std::vector<receive_source_pair> temp_receive_source_pairs;
+
+	// Store heights of blocks
+	constexpr auto height_not_set = std::numeric_limits<uint64_t>::max ();
+	auto next_height = height_not_set;
 	while (num_to_confirm > 0 && !hash.is_zero ())
 	{
 		active.confirm_block (hash);
@@ -236,14 +292,28 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 
 			if (store.block_exists (transaction, source))
 			{
-				receive_source_pairs_lk.lock ();
-				receive_source_pairs.emplace (conf_height_details{ account, hash, sideband.height }, source);
-				receive_source_pairs_lk.unlock ();			
+				// Set the height for the receive block above (if there is one)
+				if (next_height != height_not_set)
+				{
+					temp_receive_source_pairs.back ().receive_details.num_blocks_confirmed = next_height - sideband.height;
+				}
+
+				temp_receive_source_pairs.emplace_back (conf_height_details{ account, hash, sideband.height, height_not_set}, source);
+				next_height = sideband.height;
 			}
 
 			hash = block->previous ();
 		}
 		--num_to_confirm;
+	}
+
+	// Update the number of blocks confirmed by the last receive block
+	if (!temp_receive_source_pairs.empty ())
+	{
+		temp_receive_source_pairs.back ().receive_details.num_blocks_confirmed = temp_receive_source_pairs.back ().receive_details.height - confirmation_height;
+		receive_source_pairs_lk.lock ();
+		receive_source_pairs.insert (receive_source_pairs.end (), std::make_move_iterator (temp_receive_source_pairs.begin ()), std::make_move_iterator (temp_receive_source_pairs.end ()));
+		receive_source_pairs_lk.unlock ();
 	}
 }
 
@@ -255,10 +325,11 @@ size_t nano::confirmation_height_processor::receive_source_pairs_size ()
 
 namespace nano
 {
-confirmation_height_processor::conf_height_details::conf_height_details (nano::account const & account_a, nano::block_hash const & hash_a, uint64_t height_a) :
+confirmation_height_processor::conf_height_details::conf_height_details (nano::account const & account_a, nano::block_hash const & hash_a, uint64_t height_a, uint64_t num_blocks_confirmed_a) :
 account (account_a),
 hash (hash_a),
-height (height_a)
+height (height_a),
+num_blocks_confirmed (num_blocks_confirmed_a)
 {
 }
 

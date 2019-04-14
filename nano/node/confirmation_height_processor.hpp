@@ -43,11 +43,12 @@ private:
 	class conf_height_details final
 	{
 	public:
-		conf_height_details (nano::account const &, nano::block_hash const &, uint64_t);
+		conf_height_details (nano::account const &, nano::block_hash const &, uint64_t, uint64_t);
 
 		nano::account account;
 		nano::block_hash hash;
 		uint64_t height;
+		uint64_t num_blocks_confirmed;
 	};
 
 	class receive_source_pair final
@@ -68,14 +69,13 @@ private:
 	nano::logger_mt & logger;
 	std::mutex receive_source_pairs_mutex;
 	nano::block_hash current_original_pending_block{ 0 };	// This is the last block popped off the confirmation height pending collection
-	std::stack<receive_source_pair> receive_source_pairs; // Only single writer allowed, multiple readers
+	std::vector<receive_source_pair> receive_source_pairs;  // Only single writer allowed, multiple readers
 	std::thread thread;
-	constexpr static std::chrono::milliseconds batch_write_delta{ 100 };
 
 	void run ();
 	void add_confirmation_height (nano::block_hash const &);
-	void collect_unconfirmed_receive_and_sources_for_account (uint64_t, uint64_t, nano::block_hash const &, nano::block_hash const &, std::stack<receive_source_pair> &, nano::account const &, nano::transaction &, std::unique_lock <std::mutex> &);
-	bool write_pending (std::queue<conf_height_details> &);
+	void collect_unconfirmed_receive_and_sources_for_account (uint64_t, uint64_t, nano::block_hash const &, nano::block_hash const &, std::vector<receive_source_pair> &, nano::account const &, nano::transaction &, std::unique_lock <std::mutex> &);
+	bool write_pending (std::deque<conf_height_details> &, int64_t);
 	size_t receive_source_pairs_size ();
 
 	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (confirmation_height_processor &, const std::string &);

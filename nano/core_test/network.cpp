@@ -1439,18 +1439,16 @@ TEST (confirmation_height, single)
 	}
 
 	// Check confirmation heights after
-	{
-		auto transaction = system.nodes[0]->store.tx_begin_write ();
-		ASSERT_FALSE (system.nodes[0]->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
-		ASSERT_EQ (2, account_info.confirmation_height);
+	auto transaction = system.nodes[0]->store.tx_begin_write ();
+	ASSERT_FALSE (system.nodes[0]->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
+	ASSERT_EQ (2, account_info.confirmation_height);
 
-		auto transaction1 = system.nodes[1]->store.tx_begin_read ();
-		ASSERT_FALSE (system.nodes[1]->store.account_get (transaction1, nano::test_genesis_key.pub, account_info));
-		ASSERT_EQ (2, account_info.confirmation_height);
+	auto transaction1 = system.nodes[1]->store.tx_begin_read ();
+	ASSERT_FALSE (system.nodes[1]->store.account_get (transaction1, nano::test_genesis_key.pub, account_info));
+	ASSERT_EQ (2, account_info.confirmation_height);
 
-		// Rollback should fail as this transaction has been cemented
-		ASSERT_TRUE (system.nodes[0]->ledger.rollback (transaction, block1->hash ()));
-	}
+	// Rollback should fail as this transaction has been cemented
+	ASSERT_TRUE (system.nodes[0]->ledger.rollback (transaction, block1->hash ()));
 }
 
 TEST (confirmation_height, multiple)
@@ -1550,6 +1548,8 @@ TEST (confirmation_height, multiple)
 		ASSERT_FALSE (store.account_get (transaction, key3.pub, account_info));
 		ASSERT_EQ (2, account_info.confirmation_height);
 		ASSERT_EQ (2, account_info.block_count);
+
+		ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), 10);
 
 		// The accounts for key1 and key2 have 1 more block in the chain than is confirmed.
 		// So this can be rolled back, but the one before that cannot. Check that this is the case
