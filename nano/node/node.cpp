@@ -1124,31 +1124,34 @@ startup_time (std::chrono::steady_clock::now ())
 	if (websocket_server)
 	{
 		observers.blocks.add ([this](std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
-			if (this->block_arrival.recent (block_a->hash ()))
+			if (this->websocket_server->any_subscription (nano::websocket::topic::confirmation))
 			{
-				std::string subtype;
-				if (is_state_send_a)
+				if (this->block_arrival.recent (block_a->hash ()))
 				{
-					subtype = "send";
+					std::string subtype;
+					if (is_state_send_a)
+					{
+						subtype = "send";
+					}
+					else if (block_a->type () == nano::block_type::state)
+					{
+						if (block_a->link ().is_zero ())
+						{
+							subtype = "change";
+						}
+						else if (amount_a == 0 && !this->ledger.epoch_link.is_zero () && this->ledger.is_epoch_link (block_a->link ()))
+						{
+							subtype = "epoch";
+						}
+						else
+						{
+							subtype = "receive";
+						}
+					}
+					nano::websocket::message_builder builder;
+					auto msg (builder.block_confirmed (block_a, account_a, amount_a, subtype));
+					this->websocket_server->broadcast (msg);
 				}
-				else if (block_a->type () == nano::block_type::state)
-				{
-					if (block_a->link ().is_zero ())
-					{
-						subtype = "change";
-					}
-					else if (amount_a == 0 && !this->ledger.epoch_link.is_zero () && this->ledger.is_epoch_link (block_a->link ()))
-					{
-						subtype = "epoch";
-					}
-					else
-					{
-						subtype = "receive";
-					}
-				}
-				nano::websocket::message_builder builder;
-				auto msg (builder.block_confirmed (block_a, account_a, amount_a, subtype));
-				this->websocket_server->broadcast (msg);
 			}
 		});
 	}

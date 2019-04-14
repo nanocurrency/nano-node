@@ -143,12 +143,20 @@ namespace websocket
 			return node;
 		}
 
+		/** Per topic subscription check */
+		bool any_subscription (nano::websocket::topic const & topic_a);
+		/** Adds to subscription count of a specific topic*/
+		void increase_subscription_count (nano::websocket::topic const & topic_a);
+		/** Removes from subscription count of a specific topic*/
+		void decrease_subscription_count (nano::websocket::topic const & topic_a);
+
 	private:
 		nano::node & node;
 		boost::asio::ip::tcp::acceptor acceptor;
 		boost::asio::ip::tcp::socket socket;
-		std::mutex sessions_mutex;
+		std::mutex sessions_mutex, counts_mutex;
 		std::vector<std::weak_ptr<session>> sessions;
+		std::unordered_map<topic, std::size_t> topic_subscription_count;
 		std::atomic<bool> stopped{ false };
 	};
 }

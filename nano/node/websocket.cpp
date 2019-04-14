@@ -13,6 +13,11 @@ ws_listener (listener_a), ws (std::move (socket_a)), write_strand (ws.get_execut
 
 nano::websocket::session::~session ()
 {
+	for (auto & subscription : subscriptions)
+	{
+		ws_listener.decrease_subscription_count (subscription);
+	}
+
 	ws_listener.get_node ().logger.try_log ("websocket session ended");
 }
 
@@ -168,20 +173,24 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 	auto topic_l (to_topic (message_a.get<std::string> ("topic", "")));
 	auto ack_l (message_a.get<bool> ("ack", false));
 	auto id_l (message_a.get<std::string> ("id", ""));
-	auto subscribe_succeeded (false);
+	auto action_succeeded (false);
 	if (action == "subscribe" && topic_l != nano::websocket::topic::invalid)
 	{
 		std::lock_guard<std::mutex> lk (subscriptions_mutex);
 		subscriptions.insert (topic_l);
-		subscribe_succeeded = true;
+		ws_listener.increase_subscription_count (topic_l);
+		action_succeeded = true;
 	}
 	else if (action == "unsubscribe" && topic_l != nano::websocket::topic::invalid)
 	{
 		std::lock_guard<std::mutex> lk (subscriptions_mutex);
-		subscriptions.erase (topic_l);
-		subscribe_succeeded = true;
+		if (subscriptions.erase (topic_l))
+		{
+			ws_listener.decrease_subscription_count (topic_l);
+		}
+		action_succeeded = true;
 	}
-	if (ack_l && subscribe_succeeded)
+	if (ack_l && action_succeeded)
 	{
 		send_ack (action, id_l);
 	}
@@ -272,6 +281,35 @@ void nano::websocket::listener::broadcast (nano::websocket::message message_a)
 
 	// Clean up expired sessions
 	sessions.erase (std::remove_if (sessions.begin (), sessions.end (), [](auto & elem) { return elem.expired (); }), sessions.end ());
+}
+
+bool nano::websocket::listener::any_subscription (nano::websocket::topic const & topic_a)
+{
+	std::lock_guard<std::mutex> lk (counts_mutex);
+	auto existing (topic_subscription_count.find (topic_a));
+	return (existing != topic_subscription_count.end ()) ? existing->second > 0 : false;
+}
+
+void nano::websocket::listener::increase_subscription_count (nano::websocket::topic const & topic_a)
+{
+	std::lock_guard<std::mutex> lk (counts_mutex);
+	auto existing (topic_subscription_count.find (topic_a));
+	if (existing == topic_subscription_count.end ())
+	{
+		topic_subscription_count.insert ({ topic_a, 1 });
+	}
+	else
+	{
+		existing->second += 1;
+	}
+}
+
+void nano::websocket::listener::decrease_subscription_count (nano::websocket::topic const & topic_a)
+{
+	std::lock_guard<std::mutex> lk (counts_mutex);
+	auto existing (topic_subscription_count.find (topic_a));
+	release_assert (existing != topic_subscription_count.end () && existing->second > 0);
+	existing->second -= 1;
 }
 
 nano::websocket::message nano::websocket::message_builder::block_confirmed (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype)
