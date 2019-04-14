@@ -83,7 +83,7 @@ namespace websocket
 
 	private:
 		bool all_local_accounts{ false };
-		std::unordered_set<nano::account> accounts;
+		std::unordered_set<std::string> accounts;
 	};
 
 	/** A websocket session managing its own lifetime */
@@ -129,9 +129,7 @@ namespace websocket
 				return static_cast<std::size_t> (t);
 			}
 		};
-		/**
-		 * Map of subscriptions -> options registered by this session.
-		 */
+		/** Map of subscriptions -> options registered by this session. */
 		std::unordered_map<topic, std::unique_ptr<options>, topic_hash> subscriptions;
 		std::mutex subscriptions_mutex;
 

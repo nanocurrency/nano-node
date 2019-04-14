@@ -12,10 +12,11 @@ all_local_accounts (options_a.get<bool> ("all_local_accounts", false))
 	{
 		for (auto account : *accounts_l)
 		{
+			// Check if the account is valid, but no error handling if it's not, simply not added to the filter
 			nano::account result (0);
 			if (!result.decode_account (account.second.data ()))
 			{
-				accounts.insert (result);
+				accounts.insert (account.second.data ());
 			}
 		}
 	}
@@ -23,17 +24,19 @@ all_local_accounts (options_a.get<bool> ("all_local_accounts", false))
 
 bool nano::websocket::confirmation_options::filter (boost::property_tree::ptree const & message_a, nano::node & node_a) const
 {
-	nano::account account (0);
-	account.decode_account (message_a.get<std::string> ("message.account"));
+	// If this fails, the message builder has been changed
+	auto account_text (message_a.get<std::string> ("message.account"));
 	if (all_local_accounts)
 	{
 		auto transaction (node_a.wallets.tx_begin_read ());
+		nano::account account (0);
+		assert (account.decode_account (account_text));
 		if (node_a.wallets.exists (transaction, account))
 		{
 			return false;
 		}
 	}
-	if (accounts.find (account) != accounts.end ())
+	if (accounts.find (account_text) != accounts.end ())
 	{
 		return false;
 	}
