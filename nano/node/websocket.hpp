@@ -70,7 +70,6 @@ namespace websocket
 	public:
 		virtual bool filter (boost::property_tree::ptree const & message_a, nano::node & node_a) const
 		{
-			std::cout << "vanilla" << std::endl;
 			return false;
 		}
 	};
