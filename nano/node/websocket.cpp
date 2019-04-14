@@ -13,9 +13,12 @@ ws_listener (listener_a), ws (std::move (socket_a)), write_strand (ws.get_execut
 
 nano::websocket::session::~session ()
 {
-	for (auto & subscription : subscriptions)
 	{
-		ws_listener.decrease_subscription_count (subscription);
+		std::unique_lock<std::mutex> lk (subscriptions_mutex);
+		for (auto & subscription : subscriptions)
+		{
+			ws_listener.decrease_subscription_count (subscription);
+		}
 	}
 
 	ws_listener.get_node ().logger.try_log ("websocket session ended");
