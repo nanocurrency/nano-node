@@ -1124,7 +1124,7 @@ startup_time (std::chrono::steady_clock::now ())
 	if (websocket_server)
 	{
 		observers.blocks.add ([this](std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
-			if (this->websocket_server->any_subscription (nano::websocket::topic::confirmation))
+			if (this->websocket_server->any_subscribers (nano::websocket::topic::confirmation))
 			{
 				if (this->block_arrival.recent (block_a->hash ()))
 				{

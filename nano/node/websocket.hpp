@@ -144,7 +144,7 @@ namespace websocket
 		}
 
 		/** Per topic subscription check */
-		bool any_subscription (nano::websocket::topic const & topic_a);
+		bool any_subscribers (nano::websocket::topic const & topic_a);
 		/** Adds to subscription count of a specific topic*/
 		void increase_subscription_count (nano::websocket::topic const & topic_a);
 		/** Removes from subscription count of a specific topic*/

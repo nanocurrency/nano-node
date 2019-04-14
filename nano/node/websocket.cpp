@@ -286,7 +286,7 @@ void nano::websocket::listener::broadcast (nano::websocket::message message_a)
 	sessions.erase (std::remove_if (sessions.begin (), sessions.end (), [](auto & elem) { return elem.expired (); }), sessions.end ());
 }
 
-bool nano::websocket::listener::any_subscription (nano::websocket::topic const & topic_a)
+bool nano::websocket::listener::any_subscribers (nano::websocket::topic const & topic_a)
 {
 	std::lock_guard<std::mutex> lk (counts_mutex);
 	auto existing (topic_subscription_count.find (topic_a));
