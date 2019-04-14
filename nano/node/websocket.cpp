@@ -288,31 +288,19 @@ void nano::websocket::listener::broadcast (nano::websocket::message message_a)
 
 bool nano::websocket::listener::any_subscribers (nano::websocket::topic const & topic_a)
 {
-	std::lock_guard<std::mutex> lk (counts_mutex);
-	auto existing (topic_subscription_count.find (topic_a));
-	return (existing != topic_subscription_count.end ()) ? existing->second > 0 : false;
+	return topic_subscription_count[static_cast<std::size_t> (topic_a)] > 0;
 }
 
 void nano::websocket::listener::increase_subscription_count (nano::websocket::topic const & topic_a)
 {
-	std::lock_guard<std::mutex> lk (counts_mutex);
-	auto existing (topic_subscription_count.find (topic_a));
-	if (existing == topic_subscription_count.end ())
-	{
-		topic_subscription_count.insert ({ topic_a, 1 });
-	}
-	else
-	{
-		existing->second += 1;
-	}
+	topic_subscription_count[static_cast<std::size_t> (topic_a)] += 1;
 }
 
 void nano::websocket::listener::decrease_subscription_count (nano::websocket::topic const & topic_a)
 {
-	std::lock_guard<std::mutex> lk (counts_mutex);
-	auto existing (topic_subscription_count.find (topic_a));
-	release_assert (existing != topic_subscription_count.end () && existing->second > 0);
-	existing->second -= 1;
+	auto & count (topic_subscription_count[static_cast<std::size_t> (topic_a)]);
+	release_assert (count > 0);
+	count -= 1;
 }
 
 nano::websocket::message nano::websocket::message_builder::block_confirmed (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype)
