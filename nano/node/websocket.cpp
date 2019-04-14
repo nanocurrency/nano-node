@@ -212,7 +212,6 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 		std::lock_guard<std::mutex> lk (subscriptions_mutex);
 		if (topic_l == nano::websocket::topic::confirmation)
 		{
-			;
 			subscriptions.insert (std::make_pair (topic_l, options_l ? std::make_unique<nano::websocket::confirmation_options> (options_l.get ()) : std::make_unique<nano::websocket::options> ()));
 		}
 		else
