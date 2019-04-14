@@ -4,6 +4,42 @@
 #include <nano/node/node.hpp>
 #include <nano/node/websocket.hpp>
 
+nano::websocket::confirmation_options::confirmation_options (boost::property_tree::ptree const & options_a) :
+all_local_accounts (options_a.get<bool> ("all_local_accounts", false))
+{
+	auto accounts_l (options_a.get_child_optional ("accounts"));
+	if (accounts_l)
+	{
+		for (auto account : *accounts_l)
+		{
+			nano::account result (0);
+			if (!result.decode_account (account.second.data ()))
+			{
+				accounts.insert (result);
+			}
+		}
+	}
+}
+
+bool nano::websocket::confirmation_options::filter (boost::property_tree::ptree const & message_a, nano::node & node_a) const
+{
+	nano::account account (0);
+	account.decode_account (message_a.get<std::string> ("message.account"));
+	if (all_local_accounts)
+	{
+		auto transaction (node_a.wallets.tx_begin_read ());
+		if (node_a.wallets.exists (transaction, account))
+		{
+			return false;
+		}
+	}
+	if (accounts.find (account) != accounts.end ())
+	{
+		return false;
+	}
+	return true;
+}
+
 nano::websocket::session::session (nano::websocket::listener & listener_a, boost::asio::ip::tcp::socket socket_a) :
 ws_listener (listener_a), ws (std::move (socket_a)), write_strand (ws.get_executor ())
 {
@@ -42,11 +78,12 @@ void nano::websocket::session::close ()
 	ws.close (reason, ec_ignore);
 }
 
-void nano::websocket::session::write (nano::websocket::message message_a)
+void nano::websocket::session::write (nano::websocket::message message_a, nano::node & node_a)
 {
 	// clang-format off
 	std::unique_lock<std::mutex> lk (subscriptions_mutex);
-	if (message_a.topic == nano::websocket::topic::ack || subscriptions.find (message_a.topic) != subscriptions.end ())
+	auto subscription (subscriptions.find (message_a.topic));
+	if (message_a.topic == nano::websocket::topic::ack || (subscription != subscriptions.end () && !subscription->second->filter (message_a.contents, node_a)))
 	{
 		lk.unlock ();
 		boost::asio::post (write_strand,
@@ -159,7 +196,7 @@ void nano::websocket::session::send_ack (std::string action_a, std::string id_a)
 	{
 		message_l.add ("id", id_a);
 	}
-	write (msg);
+	write (msg, ws_listener.get_node ());
 }
 
 void nano::websocket::session::handle_message (boost::property_tree::ptree const & message_a)
@@ -171,8 +208,17 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 	auto subscribe_succeeded (false);
 	if (action == "subscribe" && topic_l != nano::websocket::topic::invalid)
 	{
+		auto options_l (message_a.get_child_optional ("options"));
 		std::lock_guard<std::mutex> lk (subscriptions_mutex);
-		subscriptions.insert (topic_l);
+		if (topic_l == nano::websocket::topic::confirmation)
+		{
+			;
+			subscriptions.insert (std::make_pair (topic_l, options_l ? std::make_unique<nano::websocket::confirmation_options> (options_l.get ()) : std::make_unique<nano::websocket::options> ()));
+		}
+		else
+		{
+			subscriptions.insert (std::make_pair (topic_l, std::make_unique<nano::websocket::options> ()));
+		}
 		subscribe_succeeded = true;
 	}
 	else if (action == "unsubscribe" && topic_l != nano::websocket::topic::invalid)
@@ -266,7 +312,7 @@ void nano::websocket::listener::broadcast (nano::websocket::message message_a)
 		auto session_ptr (weak_session.lock ());
 		if (session_ptr)
 		{
-			session_ptr->write (message_a);
+			session_ptr->write (message_a, node);
 		}
 	}
 

@@ -18,6 +18,7 @@
 #include <nano/lib/numbers.hpp>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -63,6 +64,29 @@ namespace websocket
 		message block_confirmed (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype);
 	};
 
+	/** Filtering options for subscriptions */
+	class options
+	{
+	public:
+		virtual bool filter (boost::property_tree::ptree const & message_a, nano::node & node_a) const
+		{
+			std::cout << "vanilla" << std::endl;
+			return false;
+		}
+	};
+
+	class confirmation_options final : public options
+	{
+	public:
+		confirmation_options ();
+		confirmation_options (boost::property_tree::ptree const & options_a);
+		virtual bool filter (boost::property_tree::ptree const & message_a, nano::node & node_a) const;
+
+	private:
+		bool all_local_accounts{ false };
+		std::unordered_set<nano::account> accounts;
+	};
+
 	/** A websocket session managing its own lifetime */
 	class session final : public std::enable_shared_from_this<session>
 	{
@@ -81,7 +105,7 @@ namespace websocket
 		void read ();
 
 		/** Enqueue \p message_a for writing to the websockets */
-		void write (nano::websocket::message message_a);
+		void write (nano::websocket::message message_a, nano::node & node_a);
 
 	private:
 		/** The owning listener */
@@ -107,10 +131,9 @@ namespace websocket
 			}
 		};
 		/**
-		 * Set of subscriptions registered by this session. In the future, contextual information
-		 * can be added to subscription objects, such as which accounts to get confirmations for.
+		 * Map of subscriptions -> options registered by this session.
 		 */
-		std::unordered_set<topic, topic_hash> subscriptions;
+		std::unordered_map<topic, std::unique_ptr<options>, topic_hash> subscriptions;
 		std::mutex subscriptions_mutex;
 
 		/** Handle incoming message */
