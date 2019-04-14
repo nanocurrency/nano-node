@@ -108,7 +108,7 @@ private:
 	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
 	std::condition_variable condition;
 	bool started{ false };
-	bool stopped{ false };
+	std::atomic<bool> stopped{ false };
 	static size_t constexpr confirmed_frontiers_max_pending_cut_off = 100;
 	boost::thread thread;
 };

@@ -4637,7 +4637,6 @@ TEST (rpc, block_confirm)
 	nano::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::genesis genesis;
-	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (genesis.hash ())));
 	{
 		auto transaction (system.nodes[0]->store.tx_begin (true));
@@ -4675,6 +4674,54 @@ TEST (rpc, block_confirm_absent)
 	}
 	ASSERT_EQ (200, response.status);
 	ASSERT_EQ ("Block not found", response.json.get<std::string> ("error"));
+}
+
+TEST (rpc, block_confirm_confirmed)
+{
+	nano::system system (24000, 1);
+	nano::node_init init;
+	auto path (nano::unique_path ());
+	nano::node_config config;
+	config.peering_port = 24001;
+	config.callback_address = "localhost";
+	config.callback_port = 24002;
+	config.callback_target = "/";
+	config.logging.init (path);
+	auto node (std::make_shared<nano::node> (init, system.io_ctx, path, system.alarm, config, system.work));
+	node->start ();
+	system.nodes.push_back (node);
+	nano::genesis genesis;
+	{
+		auto transaction (node->store.tx_begin_read ());
+		ASSERT_TRUE (node->ledger.block_confirmed (transaction, genesis.hash ()));
+	}
+	ASSERT_EQ (0, node->stats.count (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out));
+	nano::rpc rpc (system.io_ctx, *node, nano::rpc_config (true));
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "block_confirm");
+	request.put ("hash", genesis.hash ().to_string ());
+	test_response response (request, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+	ASSERT_EQ ("1", response.json.get<std::string> ("started"));
+	// Check confirmation history
+	auto confirmed (node->active.list_confirmed ());
+	ASSERT_EQ (1, confirmed.size ());
+	ASSERT_EQ (genesis.hash (), confirmed.begin ()->winner->hash ());
+	// Check callback
+	system.deadline_set (5s);
+	while (node->stats.count (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out) == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	// Callback result is error because callback target port isn't listening
+	ASSERT_EQ (1, node->stats.count (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out));
+	node->stop ();
 }
 
 TEST (rpc, node_id)
