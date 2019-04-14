@@ -70,7 +70,7 @@ TEST (websocket, confirmation)
 
 	// Start websocket test-client in a separate thread
 	std::atomic<bool> confirmation_event_received{ false };
-	ASSERT_FALSE (node1->websocket_server->any_subscription (nano::websocket::topic::confirmation));
+	ASSERT_FALSE (node1->websocket_server->any_subscribers (nano::websocket::topic::confirmation));
 	std::thread client_thread ([&system, &confirmation_event_received]() {
 		// This will expect two results: the acknowledgement of the subscription
 		// and then the block confirmation message
@@ -92,7 +92,7 @@ TEST (websocket, confirmation)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_TRUE (node1->websocket_server->any_subscription (nano::websocket::topic::confirmation));
+	ASSERT_TRUE (node1->websocket_server->any_subscribers (nano::websocket::topic::confirmation));
 
 	// Quick-confirm a block
 	nano::keypair key;
