@@ -72,11 +72,11 @@ namespace websocket
 	{
 	public:
 		/**
-		 * Checks if a message should be filtered (not sent) for default options (no options given).
+		 * Checks if a message should be filtered for default options (no options given).
 		 * @param message_a the message contents
-		 * @return false
+		 * @return false - the message should always be broadcasted
 		 */
-		virtual bool filter (boost::property_tree::ptree const & message_a) const
+		virtual bool should_filter (boost::property_tree::ptree const & message_a) const
 		{
 			return false;
 		}
@@ -85,8 +85,8 @@ namespace websocket
 	/**
 	 * Filtering options for block confirmation subscriptions
 	 * Possible filtering options:
-	 * * "all_local_accounts" (bool) - will only send (not filter) blocks that have local wallet accounts as source/destination
-	 * * "accounts" (array of std::strings) - will only send (not filter) blocks that have these accounts as source/destination
+	 * * "all_local_accounts" (bool) - will only not filter blocks that have local wallet accounts as source/destination
+	 * * "accounts" (array of std::strings) - will only not filter blocks that have these accounts as source/destination
 	 * @remark Both options can be given, the resulting filter is an intersection of individual filters
 	 * @remark No error is shown if any given account is invalid, the entry is simply ignored
 	 */
@@ -97,11 +97,11 @@ namespace websocket
 		confirmation_options (boost::property_tree::ptree const & options_a, nano::node & node_a);
 
 		/**
-		 * Checks if a message should be filtered (not sent) for given block confirmation options.
+		 * Checks if a message should be filtered for given block confirmation options.
 		 * @param message_a the message contents		 
-		 * @return false if the message should be sent (not filtered), true otherwise
+		 * @return false if the message should be broadcasted, true if it should be filtered
 		 */
-		bool filter (boost::property_tree::ptree const & message_a) const;
+		bool should_filter (boost::property_tree::ptree const & message_a) const;
 
 	private:
 		nano::node & node;

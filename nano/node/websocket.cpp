@@ -23,7 +23,7 @@ node (node_a)
 	}
 }
 
-bool nano::websocket::confirmation_options::filter (boost::property_tree::ptree const & message_a) const
+bool nano::websocket::confirmation_options::should_filter (boost::property_tree::ptree const & message_a) const
 {
 	// If this fails, the message builder has been changed
 	auto source_text (message_a.get<std::string> ("message.account"));
@@ -97,7 +97,7 @@ void nano::websocket::session::write (nano::websocket::message message_a)
 	// clang-format off
 	std::unique_lock<std::mutex> lk (subscriptions_mutex);
 	auto subscription (subscriptions.find (message_a.topic));
-	if (message_a.topic == nano::websocket::topic::ack || (subscription != subscriptions.end () && !subscription->second->filter (message_a.contents)))
+	if (message_a.topic == nano::websocket::topic::ack || (subscription != subscriptions.end () && !subscription->second->should_filter (message_a.contents)))
 	{
 		lk.unlock ();
 		boost::asio::post (write_strand,
