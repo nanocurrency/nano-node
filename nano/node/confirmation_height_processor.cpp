@@ -1,10 +1,12 @@
+#include <nano/node/confirmation_height_processor.hpp>
+
 #include <boost/optional.hpp>
+#include <cassert>
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/stats.hpp>
 #include <nano/node/active_transactions.hpp>
-#include <nano/node/confirmation_height_processor.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
@@ -248,7 +250,7 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 				}
 #endif
 				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - account_info.confirmation_height);
-				assert (pending.num_blocks_confirmed, pending.height - account_info.confirmation_height);
+				assert (pending.num_blocks_confirmed == pending.height - account_info.confirmation_height);
 				account_info.confirmation_height = pending.height;
 				store.account_put (transaction, pending.account, account_info);
 			}
