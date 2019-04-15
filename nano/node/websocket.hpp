@@ -36,8 +36,11 @@ namespace websocket
 		/** Acknowledgement of prior incoming message */
 		ack,
 		/** A confirmation message */
-		confirmation
+		confirmation,
+		/** Auxiliary length, not a valid topic, must be the last enum */
+		_length
 	};
+	constexpr size_t number_topics{ static_cast<size_t> (topic::_length) - static_cast<size_t> (topic::invalid) };
 
 	/** A message queued for broadcasting */
 	class message final
@@ -163,12 +166,23 @@ namespace websocket
 			return node;
 		}
 
+		/**
+		 *  Per-topic subscribers check. Relies on all sessions correctly increasing and
+		 *  decreasing the subscriber counts themselves.
+		 */
+		bool any_subscribers (nano::websocket::topic const & topic_a);
+		/** Adds to subscription count of a specific topic*/
+		void increase_subscription_count (nano::websocket::topic const & topic_a);
+		/** Removes from subscription count of a specific topic*/
+		void decrease_subscription_count (nano::websocket::topic const & topic_a);
+
 	private:
 		nano::node & node;
 		boost::asio::ip::tcp::acceptor acceptor;
 		boost::asio::ip::tcp::socket socket;
 		std::mutex sessions_mutex;
 		std::vector<std::weak_ptr<session>> sessions;
+		std::array<std::atomic<std::size_t>, number_topics> topic_subscription_count{};
 		std::atomic<bool> stopped{ false };
 	};
 }

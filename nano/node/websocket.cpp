@@ -52,6 +52,14 @@ ws_listener (listener_a), ws (std::move (socket_a)), write_strand (ws.get_execut
 
 nano::websocket::session::~session ()
 {
+	{
+		std::unique_lock<std::mutex> lk (subscriptions_mutex);
+		for (auto & subscription : subscriptions)
+		{
+			ws_listener.decrease_subscription_count (subscription.first);
+		}
+	}
+
 	ws_listener.get_node ().logger.try_log ("websocket session ended");
 }
 
@@ -208,7 +216,7 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 	auto topic_l (to_topic (message_a.get<std::string> ("topic", "")));
 	auto ack_l (message_a.get<bool> ("ack", false));
 	auto id_l (message_a.get<std::string> ("id", ""));
-	auto subscribe_succeeded (false);
+	auto action_succeeded (false);
 	if (action == "subscribe" && topic_l != nano::websocket::topic::invalid)
 	{
 		auto options_l (message_a.get_child_optional ("options"));
@@ -221,15 +229,19 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 		{
 			subscriptions.insert (std::make_pair (topic_l, std::make_unique<nano::websocket::options> ()));
 		}
-		subscribe_succeeded = true;
+		ws_listener.increase_subscription_count (topic_l);
+		action_succeeded = true;
 	}
 	else if (action == "unsubscribe" && topic_l != nano::websocket::topic::invalid)
 	{
 		std::lock_guard<std::mutex> lk (subscriptions_mutex);
-		subscriptions.erase (topic_l);
-		subscribe_succeeded = true;
+		if (subscriptions.erase (topic_l))
+		{
+			ws_listener.decrease_subscription_count (topic_l);
+		}
+		action_succeeded = true;
 	}
-	if (ack_l && subscribe_succeeded)
+	if (ack_l && action_succeeded)
 	{
 		send_ack (action, id_l);
 	}
@@ -320,6 +332,23 @@ void nano::websocket::listener::broadcast (nano::websocket::message message_a)
 
 	// Clean up expired sessions
 	sessions.erase (std::remove_if (sessions.begin (), sessions.end (), [](auto & elem) { return elem.expired (); }), sessions.end ());
+}
+
+bool nano::websocket::listener::any_subscribers (nano::websocket::topic const & topic_a)
+{
+	return topic_subscription_count[static_cast<std::size_t> (topic_a)] > 0;
+}
+
+void nano::websocket::listener::increase_subscription_count (nano::websocket::topic const & topic_a)
+{
+	topic_subscription_count[static_cast<std::size_t> (topic_a)] += 1;
+}
+
+void nano::websocket::listener::decrease_subscription_count (nano::websocket::topic const & topic_a)
+{
+	auto & count (topic_subscription_count[static_cast<std::size_t> (topic_a)]);
+	release_assert (count > 0);
+	count -= 1;
 }
 
 nano::websocket::message nano::websocket::message_builder::block_confirmed (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype)
