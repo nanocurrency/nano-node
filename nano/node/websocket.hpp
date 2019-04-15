@@ -85,8 +85,8 @@ namespace websocket
 	/**
 	 * Filtering options for block confirmation subscriptions
 	 * Possible filtering options:
-	 * * "all_local_accounts" (bool) - will filter (not send) blocks that are not from local wallet accounts
-	 * * "accounts" (array of std::strings) - will only send blocks for these accounts
+	 * * "all_local_accounts" (bool) - will only send (not filter) blocks that have local wallet accounts as source/destination
+	 * * "accounts" (array of std::strings) - will only send (not filter) blocks that have these accounts as source/destination
 	 * @remark Both options can be given, the resulting filter is an intersection of individual filters
 	 * @remark No error is shown if any given account is invalid, the entry is simply ignored
 	 */

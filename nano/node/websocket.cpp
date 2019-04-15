@@ -26,18 +26,20 @@ node (node_a)
 bool nano::websocket::confirmation_options::filter (boost::property_tree::ptree const & message_a) const
 {
 	// If this fails, the message builder has been changed
-	auto account_text (message_a.get<std::string> ("message.account"));
+	auto source_text (message_a.get<std::string> ("message.account"));
+	auto destination_text (message_a.get<std::string> ("message.block.link_as_account"));
 	if (all_local_accounts)
 	{
 		auto transaction (node.wallets.tx_begin_read ());
-		nano::account account (0);
-		assert (!account.decode_account (account_text));
-		if (node.wallets.exists (transaction, account))
+		nano::account source (0), destination (0);
+		assert (!source.decode_account (source_text));
+		assert (!destination.decode_account (destination_text));
+		if (node.wallets.exists (transaction, source) || node.wallets.exists (transaction, destination))
 		{
 			return false;
 		}
 	}
-	if (accounts.find (account_text) != accounts.end ())
+	if (accounts.find (source_text) != accounts.end () || accounts.find (destination_text) != accounts.end ())
 	{
 		return false;
 	}
