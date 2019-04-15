@@ -16,7 +16,12 @@ class rpc_handler : public std::enable_shared_from_this<nano::rpc_handler>
 {
 public:
 	rpc_handler (nano::node &, nano::rpc &, std::string const &, std::string const &, std::function<void(boost::property_tree::ptree const &)> const &);
-	void process_request ();
+
+	/**
+	 * Process http request
+	 * @param unsafe If true, the caller requests an unsafe action. This will be granted only if the config allows it.
+	 */
+	void process_request (bool unsafe = false);
 	void account_balance ();
 	void account_block_count ();
 	void account_count ();
@@ -117,6 +122,7 @@ public:
 	void wallet_representative ();
 	void wallet_representative_set ();
 	void wallet_republish ();
+	void wallet_seed ();
 	void wallet_work_get ();
 	void work_generate ();
 	void work_cancel ();
