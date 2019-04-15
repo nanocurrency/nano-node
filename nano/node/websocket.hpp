@@ -71,18 +71,35 @@ namespace websocket
 	class options
 	{
 	public:
+		/**
+		 * Checks if a message should be filtered (not sent) for default options (no options given).
+		 * @return false
+		 */
 		virtual bool filter (boost::property_tree::ptree const & message_a, nano::node & node_a) const
 		{
 			return false;
 		}
 	};
 
+	/**
+	 * Filtering options for block confirmation subscriptions
+	 * Possible filtering options:
+	 * * "all_local_accounts" (bool) - will filter (not send) blocks that are not from local wallet accounts
+	 * * "accounts" (array of std::strings) - will only send blocks for these accounts
+	 * @remark Both options can be given, the resulting filter is an intersection of individual filters
+	 * @remark No error is shown if any given account is invalid, the entry is simply ignored
+	 */
 	class confirmation_options final : public options
 	{
 	public:
 		confirmation_options ();
 		confirmation_options (boost::property_tree::ptree const & options_a);
-		virtual bool filter (boost::property_tree::ptree const & message_a, nano::node & node_a) const;
+
+		/**
+		 * Checks if a message should be filtered (not sent) for given block confirmation options.
+		 * @return false if the message should be sent (not filtered), true otherwise
+		 */
+		bool filter (boost::property_tree::ptree const & message_a, nano::node & node_a) const;
 
 	private:
 		bool all_local_accounts{ false };
@@ -167,8 +184,8 @@ namespace websocket
 		}
 
 		/**
-		 *  Per-topic subscribers check. Relies on all sessions correctly increasing and
-		 *  decreasing the subscriber counts themselves.
+		 * Per-topic subscribers check. Relies on all sessions correctly increasing and
+		 * decreasing the subscriber counts themselves.
 		 */
 		bool any_subscribers (nano::websocket::topic const & topic_a);
 		/** Adds to subscription count of a specific topic*/
