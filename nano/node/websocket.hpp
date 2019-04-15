@@ -73,9 +73,10 @@ namespace websocket
 	public:
 		/**
 		 * Checks if a message should be filtered (not sent) for default options (no options given).
+		 * @param message_a the message contents
 		 * @return false
 		 */
-		virtual bool filter (boost::property_tree::ptree const & message_a, nano::node & node_a) const
+		virtual bool filter (boost::property_tree::ptree const & message_a) const
 		{
 			return false;
 		}
@@ -93,15 +94,17 @@ namespace websocket
 	{
 	public:
 		confirmation_options ();
-		confirmation_options (boost::property_tree::ptree const & options_a);
+		confirmation_options (boost::property_tree::ptree const & options_a, nano::node & node_a);
 
 		/**
 		 * Checks if a message should be filtered (not sent) for given block confirmation options.
+		 * @param message_a the message contents		 
 		 * @return false if the message should be sent (not filtered), true otherwise
 		 */
-		bool filter (boost::property_tree::ptree const & message_a, nano::node & node_a) const;
+		bool filter (boost::property_tree::ptree const & message_a) const;
 
 	private:
+		nano::node & node;
 		bool all_local_accounts{ false };
 		std::unordered_set<std::string> accounts;
 	};
@@ -124,7 +127,7 @@ namespace websocket
 		void read ();
 
 		/** Enqueue \p message_a for writing to the websockets */
-		void write (nano::websocket::message message_a, nano::node & node_a);
+		void write (nano::websocket::message message_a);
 
 	private:
 		/** The owning listener */
