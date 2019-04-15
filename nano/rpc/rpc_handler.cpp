@@ -4664,7 +4664,7 @@ bool block_confirmed (nano::node & node, nano::transaction & transaction, nano::
 	}
 
 	// Check whether the confirmation height is set
-	if (node.ledger.block_confirmed (transaction, hash))
+	if (node.ledger.block_confirmed (transaction, hash) || node.confirmation_height_processor.is_processing_block (hash))
 	{
 		return true;
 	}

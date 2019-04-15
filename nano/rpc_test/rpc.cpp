@@ -13,6 +13,8 @@
 
 using namespace std::chrono_literals;
 
+namespace
+{
 class test_response
 {
 public:
@@ -75,6 +77,28 @@ public:
 	boost::beast::http::response<boost::beast::http::string_body> resp;
 	int status;
 };
+
+void reset_confirmation_height (nano::block_store & store, nano::account const & account)
+{
+	auto transaction = store.tx_begin_write ();
+	nano::account_info account_info;
+	store.account_get (transaction, account, account_info);
+	account_info.confirmation_height = 0; 
+	store.account_put (transaction, account, account_info);
+}
+
+void check_block_response_count (nano::system & system, nano::rpc & rpc, boost::property_tree::ptree & request, uint64_t size_count)
+{
+	test_response response (request, rpc, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+	ASSERT_EQ (size_count, response.json.get_child ("blocks").front ().second.size ());	
+}
+}
 
 TEST (rpc, account_balance)
 {
@@ -1962,6 +1986,27 @@ TEST (rpc, pending)
 		ASSERT_EQ (amounts[block1->hash ()], 100);
 		ASSERT_EQ (sources[block1->hash ()], nano::test_genesis_key.pub);
 	}
+
+	request.put ("account", key1.pub.to_account ());
+	request.put ("source", "false");
+	request.put ("min_version", "false");
+
+	auto check_block_response_count = [&system, &request, &rpc] (size_t size) {
+		test_response response (request, rpc, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ (size, response.json.get_child ("blocks").size ());		
+	};
+
+	request.put ("include_only_confirmed", "true");
+	check_block_response_count (1);
+	reset_confirmation_height (system.nodes.front ()->store, block1->account ());
+	check_block_response_count (0);
 }
 
 TEST (rpc_config, serialization)
@@ -3093,6 +3138,11 @@ TEST (rpc, accounts_pending)
 		ASSERT_EQ (amounts[block1->hash ()], 100);
 		ASSERT_EQ (sources[block1->hash ()], nano::test_genesis_key.pub);
 	}
+
+	request.put ("include_only_confirmed", "true");
+	check_block_response_count (system, rpc, request, 1);
+	reset_confirmation_height (system.nodes.front ()->store, block1->account ());
+	check_block_response_count (system, rpc, request, 0);
 }
 
 TEST (rpc, blocks)
@@ -3219,30 +3269,34 @@ TEST (rpc, pending_exists)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+
 	nano::rpc rpc (system.io_ctx, *system.nodes[0], nano::rpc_config (true));
 	rpc.start ();
 	boost::property_tree::ptree request;
+
+	auto pending_exists = [&system, &request, &rpc] (const char * exists_a) {
+		test_response response0 (request, rpc, system.io_ctx);
+		system.deadline_set (5s);
+		while (response0.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response0.status);
+		std::string exists_text (response0.json.get<std::string> ("exists"));
+		ASSERT_EQ (exists_a, exists_text);
+	};
+
 	request.put ("action", "pending_exists");
 	request.put ("hash", hash0.to_string ());
-	test_response response0 (request, rpc, system.io_ctx);
-	system.deadline_set (5s);
-	while (response0.status == 0)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	ASSERT_EQ (200, response0.status);
-	std::string exists_text (response0.json.get<std::string> ("exists"));
-	ASSERT_EQ ("0", exists_text);
+	pending_exists ("0");
+
 	request.put ("hash", block1->hash ().to_string ());
-	test_response response1 (request, rpc, system.io_ctx);
-	system.deadline_set (5s);
-	while (response1.status == 0)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	ASSERT_EQ (200, response1.status);
-	std::string exists_text1 (response1.json.get<std::string> ("exists"));
-	ASSERT_EQ ("1", exists_text1);
+	pending_exists ("1");
+
+	request.put ("include_only_confirmed", "true");
+	pending_exists ("1");
+	reset_confirmation_height (system.nodes.front ()->store, block1->account ());
+	pending_exists ("0");
 }
 
 TEST (rpc, wallet_pending)
@@ -3342,6 +3396,21 @@ TEST (rpc, wallet_pending)
 	}
 	ASSERT_EQ (amounts[block1->hash ()], 100);
 	ASSERT_EQ (sources[block1->hash ()], nano::test_genesis_key.pub);
+
+	request.put ("include_only_confirmed", "true");
+	check_block_response_count (system0, rpc, request, 1);
+	reset_confirmation_height (system0.nodes.front ()->store, block1->account ());
+
+	{
+		test_response response (request, rpc, system0.io_ctx);
+		system0.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system0.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ (0, response.json.get_child ("blocks").size ());
+	}
 }
 
 TEST (rpc, receive_minimum)
