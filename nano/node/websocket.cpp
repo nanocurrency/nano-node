@@ -30,7 +30,7 @@ bool nano::websocket::confirmation_options::filter (boost::property_tree::ptree 
 	{
 		auto transaction (node_a.wallets.tx_begin_read ());
 		nano::account account (0);
-		assert (account.decode_account (account_text));
+		assert (!account.decode_account (account_text));
 		if (node_a.wallets.exists (transaction, account))
 		{
 			return false;
