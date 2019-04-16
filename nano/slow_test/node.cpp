@@ -486,7 +486,7 @@ TEST (confirmation_height, long_chains)
 	// Send one from destination to genesis and pocket it
 	nano::send_block send1 (previous_destination_chain_hash, nano::test_genesis_key.pub, nano::Gxrb_ratio - 2, key1.prv, key1.pub, system.work.generate (previous_destination_chain_hash));
 	auto receive1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous_genesis_chain_hash, nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio + 1, send1.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous_genesis_chain_hash)));
-  
+
 	// Unpocketed
 	nano::state_block send2 (nano::genesis_account, receive1->hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (receive1->hash ()));
 
@@ -516,7 +516,7 @@ TEST (confirmation_height, long_chains)
 	nano::account_info account_info;
 	ASSERT_FALSE (node->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
 	ASSERT_EQ (num_blocks + 2, account_info.confirmation_height);
-	ASSERT_EQ (num_blocks + 3, account_info.block_count);	// Includes the unpocketed send
+	ASSERT_EQ (num_blocks + 3, account_info.block_count); // Includes the unpocketed send
 
 	ASSERT_FALSE (node->store.account_get (transaction, key1.pub, account_info));
 	ASSERT_EQ (num_blocks + 1, account_info.confirmation_height);

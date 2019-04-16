@@ -5,8 +5,8 @@
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
-#include <nano/node/stats.hpp>
 #include <nano/node/active_transactions.hpp>
+#include <nano/node/stats.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
@@ -100,7 +100,7 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 	std::deque<conf_height_details> pending_writes;
 
 	// Store the highest confirmation heights for accounts in pending_writes to reduce unnecessary iterating
-	std::unordered_map <account, uint64_t> confirmation_height_pending_write_cache;
+	std::unordered_map<account, uint64_t> confirmation_height_pending_write_cache;
 
 	std::unique_lock<std::mutex> receive_source_pairs_lk (receive_source_pairs_mutex);
 	release_assert (receive_source_pairs.empty ());
@@ -116,7 +116,7 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 		auto transaction (store.tx_begin_read ());
 		nano::block_sideband sideband;
 		auto current_block = store.block_get (transaction, current, &sideband);
-		assert (current_block!= nullptr);
+		assert (current_block != nullptr);
 		auto block_height = sideband.height;
 		nano::account account (ledger.account (transaction, current));
 		release_assert (!store.account_get (transaction, account, account_info));
@@ -260,7 +260,7 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 			total_pending_write_block_count -= pending.num_blocks_confirmed;
 			num_block_writes += pending.num_blocks_confirmed;
 			all_pending.erase (all_pending.begin ());
-		
+
 			if (num_block_writes >= batch_write_size)
 			{
 				// Commit changes periodically to reduce time holding write locks for long chains
@@ -272,7 +272,7 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 }
 
 // This function assumes receive_source_pairs_lk is not already locked
-void nano::confirmation_height_processor::collect_unconfirmed_receive_and_sources_for_account (uint64_t block_height, uint64_t confirmation_height, nano::block_hash const & current, const nano::block_hash & genesis_hash, std::vector<receive_source_pair> & receive_source_pairs, nano::account const & account, nano::transaction & transaction, std::unique_lock <std::mutex> & receive_source_pairs_lk)
+void nano::confirmation_height_processor::collect_unconfirmed_receive_and_sources_for_account (uint64_t block_height, uint64_t confirmation_height, nano::block_hash const & current, const nano::block_hash & genesis_hash, std::vector<receive_source_pair> & receive_source_pairs, nano::account const & account, nano::transaction & transaction, std::unique_lock<std::mutex> & receive_source_pairs_lk)
 {
 	auto hash (current);
 	auto num_to_confirm = block_height - confirmation_height;
@@ -303,7 +303,7 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 					temp_receive_source_pairs.back ().receive_details.num_blocks_confirmed = next_height - sideband.height;
 				}
 
-				temp_receive_source_pairs.emplace_back (conf_height_details{ account, hash, sideband.height, height_not_set}, source);
+				temp_receive_source_pairs.emplace_back (conf_height_details{ account, hash, sideband.height, height_not_set }, source);
 				next_height = sideband.height;
 			}
 

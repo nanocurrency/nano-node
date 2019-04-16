@@ -83,7 +83,7 @@ void reset_confirmation_height (nano::block_store & store, nano::account const &
 	auto transaction = store.tx_begin_write ();
 	nano::account_info account_info;
 	store.account_get (transaction, account, account_info);
-	account_info.confirmation_height = 0; 
+	account_info.confirmation_height = 0;
 	store.account_put (transaction, account, account_info);
 }
 
@@ -96,7 +96,7 @@ void check_block_response_count (nano::system & system, nano::rpc & rpc, boost::
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
-	ASSERT_EQ (size_count, response.json.get_child ("blocks").front ().second.size ());	
+	ASSERT_EQ (size_count, response.json.get_child ("blocks").front ().second.size ());
 }
 }
 
@@ -1991,7 +1991,7 @@ TEST (rpc, pending)
 	request.put ("source", "false");
 	request.put ("min_version", "false");
 
-	auto check_block_response_count = [&system, &request, &rpc] (size_t size) {
+	auto check_block_response_count = [&system, &request, &rpc](size_t size) {
 		test_response response (request, rpc, system.io_ctx);
 		system.deadline_set (5s);
 		while (response.status == 0)
@@ -2000,7 +2000,7 @@ TEST (rpc, pending)
 		}
 
 		ASSERT_EQ (200, response.status);
-		ASSERT_EQ (size, response.json.get_child ("blocks").size ());		
+		ASSERT_EQ (size, response.json.get_child ("blocks").size ());
 	};
 
 	request.put ("include_only_confirmed", "true");
@@ -3274,7 +3274,7 @@ TEST (rpc, pending_exists)
 	rpc.start ();
 	boost::property_tree::ptree request;
 
-	auto pending_exists = [&system, &request, &rpc] (const char * exists_a) {
+	auto pending_exists = [&system, &request, &rpc](const char * exists_a) {
 		test_response response0 (request, rpc, system.io_ctx);
 		system.deadline_set (5s);
 		while (response0.status == 0)
