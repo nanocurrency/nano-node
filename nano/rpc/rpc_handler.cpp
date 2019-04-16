@@ -2254,13 +2254,7 @@ void nano::rpc_handler::node_id ()
  */
 void nano::rpc_handler::node_id_delete ()
 {
-	rpc_control_impl ();
-	if (!ec)
-	{
-		auto transaction (node.store.tx_begin_write ());
-		node.store.delete_node_id (transaction);
-		response_l.put ("deleted", "1");
-	}
+	response_l.put ("deprecated", "1");
 	response_errors ();
 }
 
@@ -2333,7 +2327,7 @@ void nano::rpc_handler::peers ()
 		{
 			boost::property_tree::ptree pending_tree;
 			pending_tree.put ("protocol_version", std::to_string (channel->network_version));
-			if ((*i)->node_id.is_initialized ())
+			if (channel->node_id.is_initialized ())
 			{
 				pending_tree.put ("node_id", channel->node_id.get ().to_account ());
 			}
