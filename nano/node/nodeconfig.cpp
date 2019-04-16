@@ -362,7 +362,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get ("tcp_server_timeout", tcp_server_timeout_l);
 		tcp_server_timeout = std::chrono::seconds (tcp_server_timeout_l);
 
-        	auto ipc_config_l (json.get_optional_child ("ipc"));
+		auto ipc_config_l (json.get_optional_child ("ipc"));
 		if (ipc_config_l)
 		{
 			ipc_config.deserialize_json (ipc_config_l.get ());
@@ -395,9 +395,9 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get (pow_sleep_interval_key, pow_sleep_interval_l);
 		pow_sleep_interval = std::chrono::nanoseconds (pow_sleep_interval_l);
 
-        auto work_recalc_interval_l (work_recalc_interval.count ());
-        json.get("work_recalc_interval", work_recalc_interval_l);
-        work_recalc_interval = std::chrono::seconds(work_recalc_interval_l);
+		auto work_recalc_interval_l (work_recalc_interval.count ());
+		json.get ("work_recalc_interval", work_recalc_interval_l);
+		work_recalc_interval = std::chrono::seconds (work_recalc_interval_l);
 
 		// Validate ranges
 		if (online_weight_quorum > 100)

@@ -1551,8 +1551,9 @@ void nano::wallets::do_work_regeneration ()
 			bool confirmed (false);
 			difficulty_reque.erase (first);
 			regeneration_lock.unlock ();
-			auto const online (node.rep_crawler.total_weight () > (std::max (node.config.online_weight_minimum.number (), node.delta ())));
-			if ((now - queued) >= node.config.work_recalc_interval && online)
+			auto online = node.rep_crawler.total_weight () > (std::max (node.config.online_weight_minimum.number (), node.delta ()));
+
+			if (((now - queued) >= node.config.work_recalc_interval && online) || (node.network_params.network.current_network == nano_networks::nano_test_network || node.network_params.network.current_network == nano_networks::rai_test_network))
 			{
 				std::unique_lock<std::mutex> lock (node.active.mutex);
 				auto existing (node.active.roots.find (block->qualified_root ()));
@@ -1568,7 +1569,7 @@ void nano::wallets::do_work_regeneration ()
 				lock.unlock ();
 				uint64_t difficulty (0);
 				nano::work_validate (*block, &difficulty);
-				if (!confirmed && node.active.active_difficulty < difficulty)
+				if (!confirmed && node.active.active_difficulty.load () > difficulty)
 				{
 					block_l = update_work_action (block);
 				}
@@ -1586,6 +1587,7 @@ void nano::wallets::do_work_regeneration ()
 							auto current (election_l->blocks.find (block->hash ()));
 							current->second = block_l;
 						}
+						lock.unlock ();
 					}
 					node.network.flood_block (block_l);
 					node.active.update_difficulty (*block_l.get ());
@@ -1711,7 +1713,7 @@ void nano::wallets::stop ()
 		difficulty_reque.clear ();
 	}
 	condition.notify_all ();
-    regeneration_condition.notify_all();
+	regeneration_condition.notify_all ();
 	if (thread.joinable ())
 	{
 		thread.join ();
