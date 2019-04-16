@@ -25,9 +25,14 @@ node (node_a)
 
 bool nano::websocket::confirmation_options::should_filter (nano::websocket::message const & message_a) const
 {
-	// If this fails, the message builder has been changed
 	auto source_text (message_a.contents.get<std::string> ("message.account"));
-	auto destination_text (message_a.contents.get_optional<std::string> ("message.block.link_as_account"));
+	auto destination_opt (message_a.contents.get_optional<std::string> ("message.block.link_as_account"));
+	if (!destination_opt)
+	{
+		destination_opt = message_a.contents.get_optional<std::string> ("message.block.destination");
+	}
+	assert (destination_opt);
+	auto destination_text (destination_opt.get ());
 	if (all_local_accounts)
 	{
 		auto transaction (node.wallets.tx_begin_read ());
