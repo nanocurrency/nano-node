@@ -361,8 +361,8 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		unsigned long tcp_server_timeout_l (tcp_server_timeout.count ());
 		json.get ("tcp_server_timeout", tcp_server_timeout_l);
 		tcp_server_timeout = std::chrono::seconds (tcp_server_timeout_l);
-        
-        auto ipc_config_l (json.get_optional_child ("ipc"));
+
+        	auto ipc_config_l (json.get_optional_child ("ipc"));
 		if (ipc_config_l)
 		{
 			ipc_config.deserialize_json (ipc_config_l.get ());
