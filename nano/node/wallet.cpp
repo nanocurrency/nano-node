@@ -1552,7 +1552,7 @@ void nano::wallets::do_work_regeneration ()
 			difficulty_reque.erase (first);
 			regeneration_lock.unlock ();
 			auto const online (node.rep_crawler.total_weight () > (std::max (node.config.online_weight_minimum.number (), node.delta ())));
-			if ((now - queued) >= node.config.work_recalc_inverval && online)
+			if ((now - queued) >= node.config.work_recalc_interval && online)
 			{
 				std::unique_lock<std::mutex> lock (node.active.mutex);
 				auto existing (node.active.roots.find (block->qualified_root ()));
