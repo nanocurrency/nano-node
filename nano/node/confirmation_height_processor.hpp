@@ -39,6 +39,8 @@ public:
 	void stop ();
 	bool is_processing_block (nano::block_hash const &);
 
+	static uint64_t constexpr batch_write_size = 4096; // The maximum amount of blocks to write at once
+
 private:
 	class conf_height_details final
 	{

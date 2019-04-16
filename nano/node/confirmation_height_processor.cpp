@@ -171,7 +171,10 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 				auto receive_account_it = confirmation_height_pending_write_cache.find (receive_account);
 				if (receive_account_it != confirmation_height_pending_write_cache.cend ())
 				{
+					// Get current height
+					auto current_height = receive_account_it->second;
 					receive_account_it->second = receive_details->height;
+					receive_details->num_blocks_confirmed = receive_details->height - current_height;
 				}
 				else
 				{
@@ -196,7 +199,7 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 			return total += conf_height_details_a.num_blocks_confirmed;
 		});
 
-		if ((total_pending_write_block_count >= 4096 || receive_source_pairs.empty ()) && !pending_writes.empty ())
+		if ((total_pending_write_block_count >= batch_write_size || receive_source_pairs.empty ()) && !pending_writes.empty ())
 		{
 			auto error = write_pending (pending_writes, total_pending_write_block_count);
 			// Don't set any more blocks as confirmed from the original hash if an inconsistency is found
@@ -223,7 +226,7 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 	nano::account_info account_info;
 	auto total_pending_write_block_count (total_pending_write_block_count_a);
 
-	// Write in batches of 4096
+	// Write in batches
 	while (total_pending_write_block_count > 0)
 	{
 		uint64_t num_block_writes = 0;
@@ -258,7 +261,7 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 			num_block_writes += pending.num_blocks_confirmed;
 			all_pending.erase (all_pending.begin ());
 		
-			if (num_block_writes >= 4096)
+			if (num_block_writes >= batch_write_size)
 			{
 				// Commit changes periodically to reduce time holding write locks for long chains
 				break;
