@@ -1353,7 +1353,7 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 	if (!store.block_exists (transaction_a, block_a->type (), block_a->hash ()) && store.root_exists (transaction_a, block_a->root ()))
 	{
 		std::shared_ptr<nano::block> ledger_block (ledger.forked_block (transaction_a, *block_a));
-		if (ledger_block && !ledger.block_confirmed (transaction_a, ledger_block->hash ()))
+		if (ledger_block && !block_confirmed_or_being_confirmed (transaction_a, ledger_block->hash ()))
 		{
 			std::weak_ptr<nano::node> this_w (shared_from_this ());
 			if (!active.start (ledger_block, [this_w, root](std::shared_ptr<nano::block>) {
@@ -2165,6 +2165,11 @@ void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 	{
 		block_processor.generator.add (block_a->hash ());
 	}
+}
+
+bool nano::node::block_confirmed_or_being_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
+{
+	return ledger.block_confirmed (transaction_a, hash_a) || confirmation_height_processor.is_processing_block (hash_a);
 }
 
 nano::uint128_t nano::node::delta ()

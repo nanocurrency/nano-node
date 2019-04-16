@@ -800,7 +800,7 @@ void nano::rpc_handler::block_info ()
 			response_l.put ("balance", balance.convert_to<std::string> ());
 			response_l.put ("height", std::to_string (sideband.height));
 			response_l.put ("local_timestamp", std::to_string (sideband.timestamp));
-			auto confirmed (node.ledger.block_confirmed (transaction, hash) || node.confirmation_height_processor.is_processing_block (hash));
+			auto confirmed (node.block_confirmed_or_being_confirmed (transaction, hash));
 			response_l.put ("confirmed", confirmed);
 
 			bool json_block_l = request.get<bool> ("json_block", false);
@@ -838,7 +838,7 @@ void nano::rpc_handler::block_confirm ()
 		auto block_l (node.store.block_get (transaction, hash));
 		if (block_l != nullptr)
 		{
-			if (!node.ledger.block_confirmed (transaction, hash))
+			if (!node.block_confirmed_or_being_confirmed (transaction, hash))
 			{
 				// Start new confirmation for unconfirmed block
 				node.block_confirm (std::move (block_l));
@@ -955,7 +955,7 @@ void nano::rpc_handler::blocks_info ()
 					entry.put ("balance", balance.convert_to<std::string> ());
 					entry.put ("height", std::to_string (sideband.height));
 					entry.put ("local_timestamp", std::to_string (sideband.timestamp));
-					auto confirmed (node.ledger.block_confirmed (transaction, hash) || node.confirmation_height_processor.is_processing_block (hash));
+					auto confirmed (node.block_confirmed_or_being_confirmed (transaction, hash));
 					entry.put ("confirmed", confirmed);
 
 					if (json_block_l)
@@ -4664,7 +4664,7 @@ bool block_confirmed (nano::node & node, nano::transaction & transaction, nano::
 	}
 
 	// Check whether the confirmation height is set
-	if (node.ledger.block_confirmed (transaction, hash) || node.confirmation_height_processor.is_processing_block (hash))
+	if (node.block_confirmed_or_being_confirmed (transaction, hash))
 	{
 		return true;
 	}
