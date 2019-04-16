@@ -55,7 +55,7 @@ namespace websocket
 		{
 		}
 
-		std::string to_string ();
+		std::string to_string () const;
 		nano::websocket::topic topic;
 		boost::property_tree::ptree contents;
 	};
@@ -73,10 +73,10 @@ namespace websocket
 	public:
 		/**
 		 * Checks if a message should be filtered for default options (no options given).
-		 * @param message_a the message contents
+		 * @param message_a the message to be checked
 		 * @return false - the message should always be broadcasted
 		 */
-		virtual bool should_filter (boost::property_tree::ptree const & message_a) const
+		virtual bool should_filter (message const & message_a) const
 		{
 			return false;
 		}
@@ -98,10 +98,10 @@ namespace websocket
 
 		/**
 		 * Checks if a message should be filtered for given block confirmation options.
-		 * @param message_a the message contents		 
+		 * @param message_a the message to be checked
 		 * @return false if the message should be broadcasted, true if it should be filtered
 		 */
-		bool should_filter (boost::property_tree::ptree const & message_a) const;
+		bool should_filter (message const & message_a) const;
 
 	private:
 		nano::node & node;
