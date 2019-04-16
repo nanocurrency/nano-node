@@ -81,9 +81,9 @@ TEST (websocket, confirmation)
 	system.nodes.push_back (node1);
 
 	// Start websocket test-client in a separate thread
-	std::atomic<bool> confirmation_event_received{ false };
+	std::atomic<bool> confirmation_event_received{ false }, unsubscribe_ack_received{ false };
 	ASSERT_FALSE (node1->websocket_server->any_subscribers (nano::websocket::topic::confirmation));
-	std::thread client_thread ([&system, &confirmation_event_received]() {
+	std::thread client_thread ([&system, &confirmation_event_received, &unsubscribe_ack_received]() {
 		// This will expect two results: the acknowledgement of the subscription
 		// and then the block confirmation message
 		auto response = websocket_test_call (system.io_ctx, "::1", "24078",
@@ -95,6 +95,11 @@ TEST (websocket, confirmation)
 		boost::property_tree::read_json (stream, event);
 		ASSERT_EQ (event.get<std::string> ("topic"), "confirmation");
 		confirmation_event_received = true;
+
+		// Unsubscribe action, expects an acknowledge but no response follows
+		websocket_test_call (system.io_ctx, "::1", "24078",
+		R"json({"action": "unsubscribe", "topic": "confirmation", "ack": true})json", true, false);
+		unsubscribe_ack_received = true;
 	});
 	client_thread.detach ();
 
@@ -122,6 +127,14 @@ TEST (websocket, confirmation)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+
+	// Wait for the unsubscribe action to be acknowledged
+	system.deadline_set (5s);
+	while (!unsubscribe_ack_received)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
 	node1->stop ();
 }
 
@@ -184,23 +197,8 @@ TEST (websocket, confirmation_options)
 	}
 	ASSERT_FALSE (confirmation_event_received);
 
-	std::thread client_thread_2 ([&system]() {
-		// Unsubscribe, wait for ack
-		websocket_test_call (system.io_ctx, "::1", "24078",
-		R"json({"action": "unsubscribe", "ack": "true", "topic": "confirmation"})json", true, false);
-	});
-	client_thread_2.detach ();
-
-	// Wait for the unsubscribe action to be acknowledged
-	system.deadline_set (5s);
-	while (!ack_ready)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	ack_ready = false;
-
 	std::atomic<bool> confirmation_event_received_2{ false };
-	std::thread client_thread_3 ([&system, &confirmation_event_received_2]() {
+	std::thread client_thread_2 ([&system, &confirmation_event_received_2]() {
 		// Re-subscribe with options for all local wallet accounts
 		auto response = websocket_test_call (system.io_ctx, "::1", "24078",
 		R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"all_local_accounts": "true"}})json", true, true);
@@ -212,7 +210,7 @@ TEST (websocket, confirmation_options)
 		ASSERT_EQ (event.get<std::string> ("topic"), "confirmation");
 		confirmation_event_received_2 = true;
 	});
-	client_thread_3.detach ();
+	client_thread_2.detach ();
 
 	// Wait for the subscribe action to be acknowledged
 	system.deadline_set (5s);
