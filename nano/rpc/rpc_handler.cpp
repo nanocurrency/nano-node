@@ -120,7 +120,6 @@ std::unordered_set<std::string> create_rpc_control_impls ()
 	set.emplace ("keepalive");
 	set.emplace ("ledger");
 	set.emplace ("node_id");
-	set.emplace ("node_id_delete");
 	set.emplace ("password_change");
 	set.emplace ("receive");
 	set.emplace ("receive_minimum");
@@ -147,6 +146,7 @@ std::unordered_set<std::string> create_rpc_control_impls ()
 	set.emplace ("work_peer_add");
 	set.emplace ("work_peers");
 	set.emplace ("work_peers_clear");
+	set.emplace ("wallet_seed");
 	return set;
 }
 

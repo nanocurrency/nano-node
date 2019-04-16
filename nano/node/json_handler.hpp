@@ -16,7 +16,7 @@ class json_handler : public std::enable_shared_from_this<nano::json_handler>
 {
 public:
 	json_handler (nano::node &, nano::node_rpc_config const &, std::string const &, std::function<void(std::string const &)> const &, std::function<void()> stop_callback = []() {});
-	void process_request ();
+	void process_request (bool unsafe = false);
 	void account_balance ();
 	void account_block_count ();
 	void account_count ();
@@ -117,6 +117,7 @@ public:
 	void wallet_representative ();
 	void wallet_representative_set ();
 	void wallet_republish ();
+	void wallet_seed ();
 	void wallet_work_get ();
 	void work_cancel ();
 	void work_generate ();

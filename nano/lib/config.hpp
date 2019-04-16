@@ -51,9 +51,10 @@ public:
 		uint64_t constexpr publish_full_threshold = 0xffffffc000000000;
 		publish_threshold = is_test_network () ? publish_test_threshold : publish_full_threshold;
 
-		default_node_port = is_live_network () ? 7075 : 54000;
-		default_rpc_port = is_live_network () ? 7076 : 55000;
-		default_ipc_port = is_live_network () ? 7077 : 24077;
+		default_node_port = is_live_network () ? 7075 : is_beta_network () ? 54000 : 44000;
+		default_rpc_port = is_live_network () ? 7076 : is_beta_network () ? 55000 : 45000;
+		default_ipc_port = is_live_network () ? 7077 : is_beta_network () ? 56000 : 46000;
+		default_websocket_port = is_live_network () ? 7078 : is_beta_network () ? 57000 : 47000;
 		request_interval_ms = is_test_network () ? 10 : 16000;
 	}
 
@@ -63,6 +64,7 @@ public:
 	uint16_t default_node_port;
 	uint16_t default_rpc_port;
 	uint16_t default_ipc_port;
+	uint16_t default_websocket_port;
 	unsigned request_interval_ms;
 
 	/** Returns the network this object contains values for */

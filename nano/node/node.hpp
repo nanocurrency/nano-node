@@ -101,7 +101,7 @@ public:
 class active_transactions final
 {
 public:
-	explicit active_transactions (nano::node &);
+	explicit active_transactions (nano::node &, bool delay_frontier_confirmation_height_updating = false);
 	~active_transactions ();
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
@@ -160,7 +160,7 @@ private:
 	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
 	std::condition_variable condition;
 	bool started;
-	bool stopped;
+	std::atomic<bool> stopped;
 	boost::thread thread;
 };
 
@@ -336,7 +336,9 @@ public:
 	}
 	void flood_block_batch (std::deque<std::shared_ptr<nano::block>>, unsigned = broadcast_interval_ms);
 	void merge_peers (std::array<nano::endpoint, 8> const &);
+	void merge_peer (nano::endpoint const &);
 	void send_keepalive (nano::transport::channel const &);
+	void send_keepalive_self (nano::transport::channel const &);
 	void send_node_id_handshake (nano::endpoint const &, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to);
 	void broadcast_confirm_req (std::shared_ptr<nano::block>);
 	void broadcast_confirm_req_base (std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>, unsigned, bool = false);
@@ -410,7 +412,7 @@ class node final : public std::enable_shared_from_this<nano::node>
 {
 public:
 	node (nano::node_init &, boost::asio::io_context &, uint16_t, boost::filesystem::path const &, nano::alarm &, nano::logging const &, nano::work_pool &);
-	node (nano::node_init &, boost::asio::io_context &, boost::filesystem::path const &, nano::alarm &, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags ());
+	node (nano::node_init &, boost::asio::io_context &, boost::filesystem::path const &, nano::alarm &, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags (), bool delay_frontier_confirmation_height_updating = false);
 	~node ();
 	template <typename T>
 	void background (T action_a)

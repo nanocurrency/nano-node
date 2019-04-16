@@ -84,7 +84,7 @@ public:
 	}
 
 	/** Handler for payload_encoding::json_legacy */
-	void handle_json_query ()
+	void handle_json_query (bool allow_unsafe)
 	{
 		session_timer.restart ();
 		auto request_id_l (std::to_string (server.id_dispenser.fetch_add (1)));
@@ -126,7 +126,8 @@ public:
 		auto handler (std::make_shared<nano::json_handler> (node, server.node_rpc_config, body, response_handler_l, [& server = server]() {
 			server.stop ();
 		}));
-		handler->process_request ();
+		// For unsafe actions to be allowed, the unsafe encoding must be used AND the transport config must allow it
+		handler->process_request (allow_unsafe && config_transport.allow_unsafe);
 	}
 
 	/** Async request reader */
@@ -144,15 +145,16 @@ public:
 					this_l->node.logger.always_log ("IPC: Invalid preamble");
 				}
 			}
-			else if (this_l->buffer[nano::ipc::preamble_offset::encoding] == static_cast<uint8_t> (nano::ipc::payload_encoding::json_legacy))
+			else if (this_l->buffer[nano::ipc::preamble_offset::encoding] == static_cast<uint8_t> (nano::ipc::payload_encoding::json_legacy) || this_l->buffer[nano::ipc::preamble_offset::encoding] == static_cast<uint8_t> (nano::ipc::payload_encoding::json_unsafe))
 			{
+				auto allow_unsafe (this_l->buffer[nano::ipc::preamble_offset::encoding] == static_cast<uint8_t> (nano::ipc::payload_encoding::json_unsafe));
 				// Length of payload
-				this_l->async_read_exactly (&this_l->buffer_size, sizeof (this_l->buffer_size), [this_l]() {
+				this_l->async_read_exactly (&this_l->buffer_size, sizeof (this_l->buffer_size), [this_l, allow_unsafe]() {
 					boost::endian::big_to_native_inplace (this_l->buffer_size);
 					this_l->buffer.resize (this_l->buffer_size);
 					// Payload (ptree compliant JSON string)
-					this_l->async_read_exactly (this_l->buffer.data (), this_l->buffer_size, [this_l]() {
-						this_l->handle_json_query ();
+					this_l->async_read_exactly (this_l->buffer.data (), this_l->buffer_size, [this_l, allow_unsafe]() {
+						this_l->handle_json_query (allow_unsafe);
 					});
 				});
 			}

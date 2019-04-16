@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/config.hpp>
 #include <nano/lib/errors.hpp>
 #include <string>
 
@@ -15,6 +16,7 @@ namespace ipc
 	public:
 		virtual ~ipc_config_transport () = default;
 		bool enabled{ false };
+		bool allow_unsafe{ false };
 		size_t io_timeout{ 15 };
 		long io_threads{ -1 };
 	};
@@ -34,8 +36,13 @@ namespace ipc
 	class ipc_config_tcp_socket : public ipc_config_transport
 	{
 	public:
+		ipc_config_tcp_socket () :
+		port (network_constants.default_ipc_port)
+		{
+		}
+		nano::network_constants network_constants;
 		/** Listening port */
-		uint16_t port{ 7077 };
+		uint16_t port;
 	};
 
 	/** IPC configuration */

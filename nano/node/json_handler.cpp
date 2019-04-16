@@ -40,7 +40,7 @@ node_rpc_config (node_rpc_config_a)
 {
 }
 
-void nano::json_handler::process_request ()
+void nano::json_handler::process_request (bool unsafe_a)
 {
 	try
 	{
@@ -56,7 +56,18 @@ void nano::json_handler::process_request ()
 		else
 		{
 			// Try the rest of the options
-			if (action == "chain")
+			if (action == "wallet_seed")
+			{
+				if (unsafe_a || node.network_params.network.is_test_network ())
+				{
+					wallet_seed ();
+				}
+				else
+				{
+					json_error_response (response, "Unsafe RPC not allowed");
+				}
+			}
+			else if (action == "chain")
 			{
 				chain ();
 			}
@@ -919,7 +930,38 @@ void nano::json_handler::block_confirm ()
 		auto block_l (node.store.block_get (transaction, hash));
 		if (block_l != nullptr)
 		{
-			node.block_confirm (std::move (block_l));
+			if (!node.ledger.block_confirmed (transaction, hash))
+			{
+				// Start new confirmation for unconfirmed block
+				node.block_confirm (std::move (block_l));
+			}
+			else
+			{
+				// Add record in confirmation history for confirmed block
+				nano::election_status status;
+				status.winner = block_l;
+				status.tally = 0;
+				status.election_end = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
+				status.election_duration = std::chrono::milliseconds::zero ();
+				{
+					std::lock_guard<std::mutex> lock (node.active.mutex);
+					node.active.confirmed.push_back (status);
+					if (node.active.confirmed.size () > node.active.election_history_size)
+					{
+						node.active.confirmed.pop_front ();
+					}
+				}
+				// Trigger callback for confirmed block
+				node.block_arrival.add (hash);
+				auto account (node.ledger.account (transaction, hash));
+				auto amount (node.ledger.amount (transaction, hash));
+				bool is_state_send (false);
+				if (auto state = dynamic_cast<nano::state_block *> (block_l.get ()))
+				{
+					is_state_send = node.ledger.is_send (transaction, *state);
+				}
+				node.observers.blocks.notify (block_l, account, amount, is_state_send);
+			}
 			response_l.put ("started", "1");
 		}
 		else
@@ -2301,12 +2343,7 @@ void nano::json_handler::node_id ()
  */
 void nano::json_handler::node_id_delete ()
 {
-	if (!ec)
-	{
-		auto transaction (node.store.tx_begin_write ());
-		node.store.delete_node_id (transaction);
-		response_l.put ("deleted", "1");
-	}
+	response_l.put ("deprecated", "1");
 	response_errors ();
 }
 
@@ -2378,7 +2415,7 @@ void nano::json_handler::peers ()
 		{
 			boost::property_tree::ptree pending_tree;
 			pending_tree.put ("protocol_version", std::to_string (channel->network_version));
-			if ((*i)->node_id.is_initialized ())
+			if (channel->node_id.is_initialized ())
 			{
 				pending_tree.put ("node_id", channel->node_id.get ().to_account ());
 			}
@@ -4179,6 +4216,26 @@ void nano::json_handler::wallet_republish ()
 		}
 		node.network.flood_block_batch (republish_bundle, 25);
 		response_l.add_child ("blocks", blocks);
+	}
+	response_errors ();
+}
+
+void nano::json_handler::wallet_seed ()
+{
+	auto wallet (wallet_impl ());
+	if (!ec)
+	{
+		auto transaction (node.wallets.tx_begin_read ());
+		if (wallet->store.valid_password (transaction))
+		{
+			nano::raw_key seed;
+			wallet->store.seed (seed, transaction);
+			response_l.put ("seed", seed.data.to_string ());
+		}
+		else
+		{
+			ec = nano::error_common::wallet_locked;
+		}
 	}
 	response_errors ();
 }
