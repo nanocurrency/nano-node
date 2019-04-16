@@ -154,6 +154,7 @@ TEST (websocket, confirmation_options)
 
 	// Start websocket test-client in a separate thread
 	std::atomic<bool> confirmation_event_received{ false };
+	ASSERT_FALSE (node1->websocket_server->any_subscribers (nano::websocket::topic::confirmation));
 	std::thread client_thread ([&system, &confirmation_event_received]() {
 		// Subscribe initially with a specific invalid account
 		websocket_test_call (system.io_ctx, "::1", "24078",
@@ -203,12 +204,28 @@ TEST (websocket, confirmation_options)
 	// Quick-confirm another block
 	confirm_block ();
 
+	// Wait for the unsubscribe action to be acknowleged
+	system.deadline_set (5s);
+	while (!ack_ready)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	ack_ready = false;
+	// Wait for the subscribe action to be acknowledged
+	system.deadline_set (5s);
+	while (!ack_ready)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	ASSERT_TRUE (node1->websocket_server->any_subscribers (nano::websocket::topic::confirmation));
+
 	// Wait for confirmation message
 	system.deadline_set (5s);
 	while (!confirmation_event_received_2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_TRUE (confirmation_event_received_2);
 	node1->stop ();
 }
