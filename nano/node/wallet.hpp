@@ -197,6 +197,7 @@ public:
 	std::mutex action_mutex;
 	std::mutex difficulty_mutex;
 	std::condition_variable condition;
+    std::condition_variable regeneration_condition;
 	nano::kdf kdf;
 	MDB_dbi handle;
 	MDB_dbi send_action_ids;

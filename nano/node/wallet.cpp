@@ -1599,7 +1599,7 @@ void nano::wallets::do_work_regeneration ()
 		}
 		else
 		{
-			condition.wait (regeneration_lock);
+			regeneration_condition.wait (regeneration_lock);
 		}
 	}
 }
@@ -1610,7 +1610,7 @@ void nano::wallets::queue_work_regeneration (std::chrono::steady_clock::time_poi
 		std::lock_guard<std::mutex> regeneration_lock (difficulty_mutex);
 		difficulty_reque.emplace (time_point, block_a);
 	}
-	condition.notify_one ();
+	regeneration_condition.notify_one ();
 }
 
 void nano::wallets::do_wallet_actions ()
@@ -1711,6 +1711,7 @@ void nano::wallets::stop ()
 		difficulty_reque.clear ();
 	}
 	condition.notify_all ();
+    regeneration_condition.notify_all();
 	if (thread.joinable ())
 	{
 		thread.join ();
