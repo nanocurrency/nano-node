@@ -240,11 +240,14 @@ public:
 
 private:
 	std::mutex pulls_cache_mutex;
+	class account_head_tag
+	{
+	};
 	boost::multi_index_container<
 	nano::cached_pulls,
 	boost::multi_index::indexed_by<
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::cached_pulls, std::chrono::steady_clock::time_point, &nano::cached_pulls::time>>,
-	boost::multi_index::hashed_unique<boost::multi_index::member<nano::cached_pulls, nano::uint512_union, &nano::cached_pulls::account_head>>>>
+	boost::multi_index::hashed_unique<boost::multi_index::tag<account_head_tag>, boost::multi_index::member<nano::cached_pulls, nano::uint512_union, &nano::cached_pulls::account_head>>>>
 	cache;
 	size_t max_cache = 10000;
 

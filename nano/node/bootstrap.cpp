@@ -3182,8 +3182,8 @@ void nano::pulls_cache::add (nano::pull_info const & pull_a)
 			cache.erase (cache.begin ());
 		}
 		nano::uint512_union head_512 (pull_a.account, pull_a.head_original);
-		auto existing (cache.get<1> ().find (head_512));
-		if (existing == cache.get<1> ().end ())
+		auto existing (cache.get<account_head_tag> ().find (head_512));
+		if (existing == cache.get<account_head_tag> ().end ())
 		{
 			// Insert new pull
 			auto inserted (cache.insert (nano::cached_pulls{ std::chrono::steady_clock::now (), head_512, pull_a.head }));
@@ -3192,7 +3192,7 @@ void nano::pulls_cache::add (nano::pull_info const & pull_a)
 		else
 		{
 			// Update existing pull
-			cache.get<1> ().modify (existing, [pull_a](nano::cached_pulls & cache_a) {
+			cache.get<account_head_tag> ().modify (existing, [pull_a](nano::cached_pulls & cache_a) {
 				cache_a.time = std::chrono::steady_clock::now ();
 				cache_a.new_head = pull_a.head;
 			});
@@ -3204,8 +3204,8 @@ void nano::pulls_cache::update_pull (nano::pull_info & pull_a)
 {
 	std::lock_guard<std::mutex> guard (pulls_cache_mutex);
 	nano::uint512_union head_512 (pull_a.account, pull_a.head_original);
-	auto existing (cache.get<1> ().find (head_512));
-	if (existing != cache.get<1> ().end ())
+	auto existing (cache.get<account_head_tag> ().find (head_512));
+	if (existing != cache.get<account_head_tag> ().end ())
 	{
 		pull_a.head = existing->new_head;
 	}
@@ -3215,7 +3215,7 @@ void nano::pulls_cache::remove (nano::pull_info const & pull_a)
 {
 	std::lock_guard<std::mutex> guard (pulls_cache_mutex);
 	nano::uint512_union head_512 (pull_a.account, pull_a.head_original);
-	cache.get<1> ().erase (head_512);
+	cache.get<account_head_tag> ().erase (head_512);
 }
 
 namespace nano
