@@ -70,13 +70,13 @@ private:
 	nano::active_transactions & active;
 	nano::logger_mt & logger;
 	std::mutex receive_source_pairs_mutex;
-	nano::block_hash current_original_pending_block{ 0 };	// This is the last block popped off the confirmation height pending collection
-	std::vector<receive_source_pair> receive_source_pairs;  // Only single writer allowed, multiple readers
+	nano::block_hash current_original_pending_block{ 0 }; // This is the last block popped off the confirmation height pending collection
+	std::vector<receive_source_pair> receive_source_pairs; // Only single writer allowed, multiple readers
 	std::thread thread;
 
 	void run ();
 	void add_confirmation_height (nano::block_hash const &);
-	void collect_unconfirmed_receive_and_sources_for_account (uint64_t, uint64_t, nano::block_hash const &, nano::block_hash const &, std::vector<receive_source_pair> &, nano::account const &, nano::transaction &, std::unique_lock <std::mutex> &);
+	void collect_unconfirmed_receive_and_sources_for_account (uint64_t, uint64_t, nano::block_hash const &, nano::block_hash const &, std::vector<receive_source_pair> &, nano::account const &, nano::transaction &, std::unique_lock<std::mutex> &);
 	bool write_pending (std::deque<conf_height_details> &, int64_t);
 	size_t receive_source_pairs_size ();
 

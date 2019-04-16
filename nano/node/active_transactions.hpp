@@ -4,8 +4,8 @@
 #include <condition_variable>
 #include <deque>
 #include <memory>
-#include <unordered_map>
 #include <queue>
+#include <unordered_map>
 
 #include <nano/lib/numbers.hpp>
 #include <nano/secure/common.hpp>
