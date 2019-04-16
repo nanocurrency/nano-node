@@ -89,7 +89,7 @@ namespace thread_role
 				break;
 			case nano::thread_role::name::wallet_work_regen:
 				thread_role_name_string = "Work regen";
-                break;
+                		break;
 			case nano::thread_role::name::bootstrap_initiator:
 				thread_role_name_string = "Bootstrap init";
 				break;
