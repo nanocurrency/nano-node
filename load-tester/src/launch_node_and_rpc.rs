@@ -68,7 +68,7 @@ pub fn launch_node_and_rpc(
             "network_node_id_handshake": "false",
             "node_lifetime_tracing": "false",
             "insufficient_work": "true",
-            "log_ipc": "false",
+            "log_ipc": "true",
             "bulk_pull": "false",
             "work_generation_time": "true",
             "upnp_details": "false",

@@ -100,6 +100,11 @@ public:
 				boost::asio::buffer (this_l->response_body)
 			};
 
+			if (this_l->node.config.logging.log_ipc ())
+			{
+				this_l->node.logger.always_log (boost::str (boost::format ("IPC/RPC request %1% completed in: %2% %3%") % request_id_l % this_l->session_timer.stop ().count () % this_l->session_timer.unit ()));
+			}
+
 			this_l->timer_start (std::chrono::seconds (this_l->config_transport.io_timeout));
 			boost::asio::async_write (this_l->socket, bufs, [this_l](boost::system::error_code const & error_a, size_t size_a) {
 				this_l->timer_cancel ();
@@ -113,10 +118,7 @@ public:
 				}
 			});
 
-			if (this_l->node.config.logging.log_ipc ())
-			{
-				this_l->node.logger.always_log (boost::str (boost::format ("IPC/RPC request %1% completed in: %2% %3%") % request_id_l % this_l->session_timer.stop ().count () % this_l->session_timer.unit ()));
-			}
+			// Do not call any member variables here (like session_timer) as it's possible that the next request may already be underway.
 		});
 
 		node.stats.inc (nano::stat::type::ipc, nano::stat::detail::invocations);
