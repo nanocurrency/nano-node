@@ -295,7 +295,7 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 			{
 				source = block->link ();
 			}
-		
+
 			if (store.source_exists (transaction, source))
 			{
 				// Set the height for the receive block above (if there is one)
