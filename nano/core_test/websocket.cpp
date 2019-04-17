@@ -59,10 +59,13 @@ boost::optional<std::string> websocket_test_call (boost::asio::io_context & ioc,
 		std::condition_variable cond_var;
 		timer.expires_from_now (boost::posix_time::seconds (response_deadline.count ()));
 		timer.async_wait ([&ws, &cond_mutex, &cond_var, &timed_out](boost::system::error_code const & ec) {
-			std::unique_lock<std::mutex> lock (cond_mutex);
-			ws.next_layer ().cancel ();
-			timed_out = true;
-			cond_var.notify_one ();
+			if (!ec)
+			{
+				std::unique_lock<std::mutex> lock (cond_mutex);
+				ws.next_layer ().cancel ();
+				timed_out = true;
+				cond_var.notify_one ();
+			}
 		});
 
 		boost::beast::flat_buffer buffer;
@@ -79,6 +82,11 @@ boost::optional<std::string> websocket_test_call (boost::asio::io_context & ioc,
 		});
 		std::unique_lock<std::mutex> lock (cond_mutex);
 		cond_var.wait (lock, [&] { return timed_out || got_response; });
+		if (got_response)
+		{
+			timer.cancel ();
+			ws.close (boost::beast::websocket::close_code::normal);
+		}
 	}
 	return ret;
 }
