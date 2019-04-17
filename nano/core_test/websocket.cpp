@@ -67,16 +67,15 @@ boost::optional<std::string> websocket_test_call (boost::asio::io_context & ioc,
 
 		boost::beast::flat_buffer buffer;
 		ws.async_read (buffer, [&ret, &buffer, &cond_mutex, &cond_var, &got_response](boost::beast::error_code const & ec, std::size_t const n) {
-			if (ec)
+			if (!ec)
 			{
-				return;
+				std::unique_lock<std::mutex> lock (cond_mutex);
+				std::ostringstream res;
+				res << boost::beast::buffers (buffer.data ());
+				ret = res.str ();
+				got_response = true;
+				cond_var.notify_one ();
 			}
-			std::unique_lock<std::mutex> lock (cond_mutex);
-			std::ostringstream res;
-			res << boost::beast::buffers (buffer.data ());
-			ret = res.str ();
-			got_response = true;
-			cond_var.notify_one ();
 		});
 		std::unique_lock<std::mutex> lock (cond_mutex);
 		cond_var.wait (lock, [&] { return timed_out || got_response; });
