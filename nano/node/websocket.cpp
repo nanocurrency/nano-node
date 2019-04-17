@@ -38,8 +38,8 @@ bool nano::websocket::confirmation_options::should_filter (nano::websocket::mess
 	{
 		auto transaction_l (node.wallets.tx_begin_read ());
 		nano::account source_l (0), destination_l (0);
-		assert (!source_l.decode_account (source_text_l));
-		assert (!destination_l.decode_account (destination_text));
+		release_assert (!source_l.decode_account (source_text_l));
+		release_assert (!destination_l.decode_account (destination_text));
 		if (node.wallets.exists (transaction_l, source_l) || node.wallets.exists (transaction_l, destination_l))
 		{
 			should_filter_l = false;
