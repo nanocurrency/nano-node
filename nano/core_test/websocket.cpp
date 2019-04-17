@@ -22,6 +22,7 @@ using namespace std::chrono_literals;
 
 namespace
 {
+/** This variable must be set to false before setting up every thread that makes a websocket test call (and needs ack), to be safe */
 std::atomic<bool> ack_ready{ false };
 
 /** An optionally blocking websocket client for testing */
@@ -110,6 +111,7 @@ TEST (websocket, confirmation)
 	system.nodes.push_back (node1);
 
 	// Start websocket test-client in a separate thread
+	ack_ready = false;
 	std::atomic<bool> unsubscribe_ack_received{ false };
 	ASSERT_FALSE (node1->websocket_server->any_subscribers (nano::websocket::topic::confirmation));
 	std::thread client_thread ([&system, &unsubscribe_ack_received]() {
@@ -219,6 +221,7 @@ TEST (websocket, confirmation_options)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
+	ack_ready = false;
 	std::atomic<bool> client_thread_2_finished{ false };
 	std::thread client_thread_2 ([&system, &client_thread_2_finished]() {
 		// Re-subscribe with options for all local wallet accounts
