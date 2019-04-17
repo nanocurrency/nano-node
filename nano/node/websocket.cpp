@@ -11,13 +11,13 @@ node (node_a)
 	auto accounts_l (options_a.get_child_optional ("accounts"));
 	if (accounts_l)
 	{
-		for (auto account : *accounts_l)
+		for (auto account_l : *accounts_l)
 		{
 			// Check if the account is valid, but no error handling if it's not, simply not added to the filter
-			nano::account result (0);
-			if (!result.decode_account (account.second.data ()))
+			nano::account result_l (0);
+			if (!result_l.decode_account (account_l.second.data ()))
 			{
-				accounts.insert (account.second.data ());
+				accounts.insert (account_l.second.data ());
 			}
 		}
 	}
@@ -25,30 +25,31 @@ node (node_a)
 
 bool nano::websocket::confirmation_options::should_filter (nano::websocket::message const & message_a) const
 {
-	auto source_text (message_a.contents.get<std::string> ("message.account"));
-	auto destination_opt (message_a.contents.get_optional<std::string> ("message.block.link_as_account"));
-	if (!destination_opt)
+	bool should_filter_l (true);
+	auto source_text_l (message_a.contents.get<std::string> ("message.account"));
+	auto destination_opt_l (message_a.contents.get_optional<std::string> ("message.block.link_as_account"));
+	if (!destination_opt_l)
 	{
-		destination_opt = message_a.contents.get_optional<std::string> ("message.block.destination");
+		destination_opt_l = message_a.contents.get_optional<std::string> ("message.block.destination");
 	}
-	assert (destination_opt);
-	auto destination_text (destination_opt.get ());
+	assert (destination_opt_l);
+	auto destination_text (destination_opt_l.get ());
 	if (all_local_accounts)
 	{
-		auto transaction (node.wallets.tx_begin_read ());
-		nano::account source (0), destination (0);
-		assert (!source.decode_account (source_text));
-		assert (!destination.decode_account (destination_text));
-		if (node.wallets.exists (transaction, source) || node.wallets.exists (transaction, destination))
+		auto transaction_l (node.wallets.tx_begin_read ());
+		nano::account source_l (0), destination_l (0);
+		assert (!source_l.decode_account (source_text_l));
+		assert (!destination_l.decode_account (destination_text));
+		if (node.wallets.exists (transaction_l, source_l) || node.wallets.exists (transaction_l, destination_l))
 		{
-			return false;
+			should_filter_l = false;
 		}
 	}
-	if (accounts.find (source_text) != accounts.end () || accounts.find (destination_text) != accounts.end ())
+	if (accounts.find (source_text_l) != accounts.end () || accounts.find (destination_text) != accounts.end ())
 	{
-		return false;
+		should_filter_l = false;
 	}
-	return true;
+	return should_filter_l;
 }
 
 nano::websocket::session::session (nano::websocket::listener & listener_a, boost::asio::ip::tcp::socket socket_a) :
