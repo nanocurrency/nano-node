@@ -49,7 +49,8 @@ void nano::confirmation_height_processor::run ()
 		{
 			pending_confirmations.current_hash = *pending_confirmations.pending.begin ();
 			pending_confirmations.pending.erase (pending_confirmations.current_hash);
-			auto current_pending_block = pending_confirmations.current_hash; // Copy the hash so can be used outside having the lock
+			// Copy the hash so can be used outside owning the lock
+			auto current_pending_block = pending_confirmations.current_hash;
 			lk.unlock ();
 			add_confirmation_height (current_pending_block);
 			lk.lock ();

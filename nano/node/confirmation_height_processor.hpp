@@ -26,7 +26,8 @@ public:
 private:
 	std::mutex mutex;
 	std::unordered_set<nano::block_hash> pending;
-	nano::block_hash current_hash{ 0 }; // This is the last block popped off the confirmation height pending collection
+	/** This is the last block popped off the confirmation height pending collection */
+	nano::block_hash current_hash{ 0 };
 	friend class confirmation_height_processor;
 };
 
@@ -41,7 +42,8 @@ public:
 	void stop ();
 	bool is_processing_block (nano::block_hash const &);
 
-	static uint64_t constexpr batch_write_size = 4096; // The maximum amount of blocks to write at once
+	/** The maximum amount of blocks to write at once */
+	static uint64_t constexpr batch_write_size = 4096;
 
 private:
 	class conf_height_details final
@@ -72,7 +74,7 @@ private:
 	nano::active_transactions & active;
 	nano::logger_mt & logger;
 	std::mutex receive_source_pairs_mutex;
-	std::vector<receive_source_pair> receive_source_pairs; // Only single writer allowed, multiple readers
+	std::vector<receive_source_pair> receive_source_pairs;
 	std::thread thread;
 
 	void run ();
