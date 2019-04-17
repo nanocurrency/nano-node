@@ -5,6 +5,7 @@
 #include <boost/beast/websocket.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <chrono>
+#include <condition_variable>
 #include <cstdlib>
 #include <gtest/gtest.h>
 #include <iostream>
@@ -24,7 +25,7 @@ namespace
 std::atomic<bool> ack_ready{ false };
 
 /** An optionally blocking websocket client for testing */
-boost::optional<std::string> websocket_test_call (boost::asio::io_context & ioc, std::string host, std::string port, std::string message_a, bool await_ack, bool await_response, seconds response_deadline = 0s)
+boost::optional<std::string> websocket_test_call (boost::asio::io_context & ioc, std::string host, std::string port, std::string message_a, bool await_ack, bool await_response, seconds response_deadline = 5s)
 {
 	if (await_ack)
 	{
@@ -52,36 +53,33 @@ boost::optional<std::string> websocket_test_call (boost::asio::io_context & ioc,
 
 	if (await_response)
 	{
-		if (response_deadline != 0s)
-		{
-			boost::asio::deadline_timer timer (ioc);
-			timer.expires_from_now (boost::posix_time::seconds (response_deadline.count ()));
-			timer.async_wait ([&ws](boost::system::error_code const & ec) {
-				ws.next_layer ().cancel ();
-			});
+		boost::asio::deadline_timer timer (ioc);
+		std::atomic<bool> timed_out{ false }, got_response{ false };
+		std::mutex cond_mutex;
+		std::condition_variable cond_var;
+		timer.expires_from_now (boost::posix_time::seconds (response_deadline.count ()));
+		timer.async_wait ([&ws, &cond_mutex, &cond_var, &timed_out](boost::system::error_code const & ec) {
+			std::unique_lock<std::mutex> lock (cond_mutex);
+			ws.next_layer ().cancel ();
+			timed_out = true;
+			cond_var.notify_one ();
+		});
 
-			boost::beast::flat_buffer buffer;
-			ws.async_read (buffer, [&ret, &buffer](boost::beast::error_code const & ec, std::size_t const n) {
-				if (ec || !n)
-				{
-					return;
-				}
-				std::ostringstream res;
-				res << boost::beast::buffers (buffer.data ());
-				ret = res.str ();
-			});
-
-			std::this_thread::sleep_for (response_deadline);
-		}
-		else
-		{
-			boost::beast::flat_buffer buffer;
-			ws.read (buffer);
+		boost::beast::flat_buffer buffer;
+		ws.async_read (buffer, [&ret, &buffer, &cond_mutex, &cond_var, &got_response](boost::beast::error_code const & ec, std::size_t const n) {
+			if (ec)
+			{
+				return;
+			}
+			std::unique_lock<std::mutex> lock (cond_mutex);
 			std::ostringstream res;
 			res << boost::beast::buffers (buffer.data ());
 			ret = res.str ();
-			ws.close (boost::beast::websocket::close_code::normal);
-		}
+			got_response = true;
+			cond_var.notify_one ();
+		});
+		std::unique_lock<std::mutex> lock (cond_mutex);
+		cond_var.wait (lock, [&] { return timed_out || got_response; });
 	}
 	return ret;
 }
