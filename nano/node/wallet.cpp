@@ -1131,10 +1131,15 @@ bool nano::wallet::change_sync (nano::account const & source_a, nano::account co
 
 void nano::wallet::change_async (nano::account const & source_a, nano::account const & representative_a, std::function<void(std::shared_ptr<nano::block>)> const & action_a, uint64_t work_a, bool generate_work_a)
 {
-	wallets.node.wallets.queue_wallet_action (nano::wallets::high_priority, shared_from_this (), [this, source_a, representative_a, action_a, work_a, generate_work_a](nano::wallet & wallet_a) {
+	auto this_l (shared_from_this ());
+	wallets.node.wallets.queue_wallet_action (nano::wallets::high_priority, this_l, [this_l, source_a, representative_a, action_a, work_a, generate_work_a](nano::wallet & wallet_a) {
 		auto block (wallet_a.change_action (source_a, representative_a, work_a, generate_work_a));
 		action_a (block);
-		this->wallets.queue_work_regeneration (std::chrono::steady_clock::now (), block);
+		std::shared_ptr<nano::block> const empty;
+		if (block != empty)
+		{
+			this_l->wallets.queue_work_regeneration (std::chrono::steady_clock::now (), block);
+		}
 	});
 }
 
@@ -1153,10 +1158,15 @@ bool nano::wallet::receive_sync (std::shared_ptr<nano::block> block_a, nano::acc
 
 void nano::wallet::receive_async (std::shared_ptr<nano::block> block_a, nano::account const & representative_a, nano::uint128_t const & amount_a, std::function<void(std::shared_ptr<nano::block>)> const & action_a, uint64_t work_a, bool generate_work_a)
 {
-	wallets.node.wallets.queue_wallet_action (amount_a, shared_from_this (), [this, block_a, representative_a, amount_a, action_a, work_a, generate_work_a](nano::wallet & wallet_a) {
+	auto this_l (shared_from_this ());
+	wallets.node.wallets.queue_wallet_action (amount_a, this_l, [this_l, block_a, representative_a, amount_a, action_a, work_a, generate_work_a](nano::wallet & wallet_a) {
 		auto block (wallet_a.receive_action (*block_a, representative_a, amount_a, work_a, generate_work_a));
 		action_a (block);
-		this->wallets.queue_work_regeneration (std::chrono::steady_clock::now (), block);
+		std::shared_ptr<nano::block> const empty;
+		if (block != empty)
+		{
+			this_l->wallets.queue_work_regeneration (std::chrono::steady_clock::now (), block);
+		}
 	});
 }
 
@@ -1175,10 +1185,15 @@ nano::block_hash nano::wallet::send_sync (nano::account const & source_a, nano::
 
 void nano::wallet::send_async (nano::account const & source_a, nano::account const & account_a, nano::uint128_t const & amount_a, std::function<void(std::shared_ptr<nano::block>)> const & action_a, uint64_t work_a, bool generate_work_a, boost::optional<std::string> id_a)
 {
-	wallets.node.wallets.queue_wallet_action (nano::wallets::high_priority, shared_from_this (), [this, source_a, account_a, amount_a, action_a, work_a, generate_work_a, id_a](nano::wallet & wallet_a) {
+	auto this_l (shared_from_this ());
+	wallets.node.wallets.queue_wallet_action (nano::wallets::high_priority, this_l, [this_l, source_a, account_a, amount_a, action_a, work_a, generate_work_a, id_a](nano::wallet & wallet_a) {
 		auto block (wallet_a.send_action (source_a, account_a, amount_a, work_a, generate_work_a, id_a));
 		action_a (block);
-		this->wallets.queue_work_regeneration (std::chrono::steady_clock::now (), block);
+		std::shared_ptr<nano::block> const empty;
+		if (block != empty)
+		{
+			this_l->wallets.queue_work_regeneration (std::chrono::steady_clock::now (), block);
+		}
 	});
 }
 
@@ -1453,7 +1468,9 @@ std::shared_ptr<nano::block> nano::wallets::update_work_action (std::shared_ptr<
 	                                       .work (node.work_generate_blocking (state->previous (), active_difficulty1))
 	                                       .build (ec);
 	if (ec)
+	{
 		return block_a;
+	}
 	return block_l;
 }
 
@@ -1553,7 +1570,7 @@ void nano::wallets::do_work_regeneration ()
 			regeneration_lock.unlock ();
 			auto online = node.rep_crawler.total_weight () > (std::max (node.config.online_weight_minimum.number (), node.delta ()));
 
-			if (((now - queued) >= node.config.work_recalc_interval && online) || (node.network_params.network.current_network == nano_networks::nano_test_network || node.network_params.network.current_network == nano_networks::rai_test_network))
+			if (((now - queued) >= node.config.work_recalc_interval && online) || node.network_params.network.is_test_network ())
 			{
 				std::unique_lock<std::mutex> lock (node.active.mutex);
 				auto existing (node.active.roots.find (block->qualified_root ()));
@@ -1583,7 +1600,9 @@ void nano::wallets::do_work_regeneration ()
 						{
 							auto election_l (existing_l->election);
 							if (election_l->status.winner->hash () == block->hash ())
+							{
 								election_l->status.winner = block_l;
+							}
 							auto current (election_l->blocks.find (block->hash ()));
 							current->second = block_l;
 						}
