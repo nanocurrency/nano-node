@@ -67,10 +67,6 @@ nano::error nano::node_rpc_config::deserialize_json (bool & upgraded_a, nano::js
 
 void nano::node_rpc_config::migrate (nano::jsonconfig & json, boost::filesystem::path const & data_path)
 {
-	// Copy RPC config if the file doesn't exist already
-	nano::network_constants network_constants;
-	auto default_ipc_port = network_constants.is_live_network () ? 7077 : 24077;
-
 	nano::jsonconfig rpc_json;
 	auto rpc_config_path = nano::get_rpc_config_path (data_path);
 	auto rpc_error (rpc_json.read<nano::rpc_config> (rpc_config_path));
