@@ -17,7 +17,8 @@ node (node_a)
 			nano::account result_l (0);
 			if (!result_l.decode_account (account_l.second.data ()))
 			{
-				accounts.insert (account_l.second.data ());
+				// Do not insert the given raw data to keep old prefix support
+				accounts.insert (result_l.to_account ());
 			}
 		}
 	}
@@ -26,28 +27,26 @@ node (node_a)
 bool nano::websocket::confirmation_options::should_filter (nano::websocket::message const & message_a) const
 {
 	bool should_filter_l (true);
-	auto source_text_l (message_a.contents.get<std::string> ("message.account"));
 	auto destination_opt_l (message_a.contents.get_optional<std::string> ("message.block.link_as_account"));
-	if (!destination_opt_l)
+	if (destination_opt_l)
 	{
-		destination_opt_l = message_a.contents.get_optional<std::string> ("message.block.destination");
-	}
-	assert (destination_opt_l);
-	auto destination_text (destination_opt_l.get ());
-	if (all_local_accounts)
-	{
-		auto transaction_l (node.wallets.tx_begin_read ());
-		nano::account source_l (0), destination_l (0);
-		release_assert (!source_l.decode_account (source_text_l));
-		release_assert (!destination_l.decode_account (destination_text));
-		if (node.wallets.exists (transaction_l, source_l) || node.wallets.exists (transaction_l, destination_l))
+		auto source_text_l (message_a.contents.get<std::string> ("message.account"));
+		if (all_local_accounts)
+		{
+			auto transaction_l (node.wallets.tx_begin_read ());
+			nano::account source_l (0), destination_l (0);
+			auto decode_source_ok_l (!source_l.decode_account (source_text_l));
+			auto decode_destination_ok_l (!destination_l.decode_account (destination_opt_l.get ()));
+			assert (decode_source_ok_l && decode_destination_ok_l);
+			if (node.wallets.exists (transaction_l, source_l) || node.wallets.exists (transaction_l, destination_l))
+			{
+				should_filter_l = false;
+			}
+		}
+		if (accounts.find (source_text_l) != accounts.end () || accounts.find (destination_opt_l.get ()) != accounts.end ())
 		{
 			should_filter_l = false;
 		}
-	}
-	if (accounts.find (source_text_l) != accounts.end () || accounts.find (destination_text) != accounts.end ())
-	{
-		should_filter_l = false;
 	}
 	return should_filter_l;
 }

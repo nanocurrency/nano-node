@@ -147,9 +147,8 @@ TEST (websocket, confirmation)
 	// Quick-confirm a block
 	nano::keypair key;
 	nano::block_hash previous (node1->latest (nano::test_genesis_key.pub));
-	system.wallet (1)->insert_adhoc (key.prv);
 	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
-	auto send (std::make_shared<nano::send_block> (previous, key.pub, node1->config.online_weight_minimum.number () + 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous)));
+	auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous, nano::test_genesis_key.pub, node1->config.online_weight_minimum.number () + 1, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous)));
 	node1->process_active (send);
 
 	// Wait for the unsubscribe action to be acknowledged
@@ -179,15 +178,8 @@ TEST (websocket, confirmation_options)
 	node1->start ();
 	system.nodes.push_back (node1);
 
-	// Confirms a random block for an in-wallet account
-	auto confirm_block = [&node1, &system]() {
-		nano::keypair key;
-		nano::block_hash previous (node1->latest (nano::test_genesis_key.pub));
-		system.wallet (1)->insert_adhoc (key.prv);
-		system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
-		auto send (std::make_shared<nano::send_block> (previous, key.pub, node1->config.online_weight_minimum.number () + 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous)));
-		node1->process_active (send);
-	};
+	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
+	nano::keypair key;
 
 	// Start websocket test-client in a separate thread
 	ack_ready = false;
@@ -211,8 +203,12 @@ TEST (websocket, confirmation_options)
 	}
 	ack_ready = false;
 
-	// Quick-confirm a block
-	confirm_block ();
+	// Confirms a random block for an in-wallet account
+	{
+		nano::block_hash previous (node1->latest (nano::test_genesis_key.pub));
+		auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous, nano::test_genesis_key.pub, nano::genesis_amount - (node1->config.online_weight_minimum.number () + 1), key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous)));
+		node1->process_active (send);
+	}
 
 	// Wait for client thread to finish, no confirmation message should be received with given filter
 	system.deadline_set (5s);
@@ -250,7 +246,11 @@ TEST (websocket, confirmation_options)
 	ASSERT_TRUE (node1->websocket_server->any_subscribers (nano::websocket::topic::confirmation));
 
 	// Quick-confirm another block
-	confirm_block ();
+	{
+		nano::block_hash previous (node1->latest (nano::test_genesis_key.pub));
+		auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous, nano::test_genesis_key.pub, nano::genesis_amount - 2 * (node1->config.online_weight_minimum.number () + 1), key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous)));
+		node1->process_active (send);
+	}
 
 	// Wait for confirmation message
 	system.deadline_set (5s);

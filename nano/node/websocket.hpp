@@ -90,6 +90,7 @@ namespace websocket
 	 * * "accounts" (array of std::strings) - will only not filter blocks that have these accounts as source/destination
 	 * @remark Both options can be given, the resulting filter is an intersection of individual filters
 	 * @remark No error is shown if any given account is invalid, the entry is simply ignored
+	 * @warn Legacy blocks are always filtered (not broadcasted)
 	 */
 	class confirmation_options final : public options
 	{
