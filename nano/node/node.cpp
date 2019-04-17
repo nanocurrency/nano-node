@@ -103,6 +103,23 @@ void nano::network::send_keepalive (nano::transport::channel const & channel_a)
 	channel_a.send (message);
 }
 
+void nano::network::send_keepalive_self (nano::transport::channel const & channel_a)
+{
+	nano::keepalive message;
+	udp_channels.random_fill (message.peers);
+	if (node.config.external_address != boost::asio::ip::address_v6{} && node.config.external_port != 0)
+	{
+		message.peers[0] = nano::endpoint (node.config.external_address, node.config.external_port);
+	}
+	else
+	{
+		message.peers[0] = nano::endpoint (boost::asio::ip::address_v6{}, endpoint ().port ());
+		message.peers[1] = node.port_mapping.external_address ();
+		message.peers[2] = nano::endpoint (boost::asio::ip::address_v6{}, node.port_mapping.external_address ().port ()); // If UPnP reported wrong external IP address
+	}
+	channel_a.send (message);
+}
+
 void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 {
 	auto node_l (shared_from_this ());
@@ -538,11 +555,16 @@ void nano::network::merge_peers (std::array<nano::endpoint, 8> const & peers_a)
 {
 	for (auto i (peers_a.begin ()), j (peers_a.end ()); i != j; ++i)
 	{
-		if (!udp_channels.reachout (*i, node.config.allow_local_peers))
-		{
-			nano::transport::channel_udp channel (node.network.udp_channels, *i);
-			send_keepalive (channel);
-		}
+		merge_peer (*i);
+	}
+}
+
+void nano::network::merge_peer (nano::endpoint const & peer_a)
+{
+	if (!udp_channels.reachout (peer_a, node.config.allow_local_peers))
+	{
+		nano::transport::channel_udp channel (node.network.udp_channels, peer_a);
+		send_keepalive (channel);
 	}
 }
 
@@ -1227,7 +1249,7 @@ startup_time (std::chrono::steady_clock::now ())
 			std::exit (1);
 		}
 
-		node_id = nano::keypair (store.get_node_id (transaction));
+		node_id = nano::keypair ();
 		logger.always_log ("Node ID: ", node_id.pub.to_account ());
 	}
 
@@ -1567,7 +1589,10 @@ void nano::node::start ()
 			this_l->bootstrap_wallet ();
 		});
 	}
-	port_mapping.start ();
+	if (config.external_address != boost::asio::ip::address_v6{} && config.external_port != 0)
+	{
+		port_mapping.start ();
+	}
 }
 
 void nano::node::stop ()

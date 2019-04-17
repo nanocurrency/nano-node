@@ -28,6 +28,7 @@ public:
 	void start ();
 	void stop ();
 	void refresh_devices ();
+	nano::endpoint external_address ();
 
 private:
 	/** Add port mappings for the node port (not RPC). Refresh when the lease ends. */

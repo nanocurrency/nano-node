@@ -48,6 +48,7 @@ namespace transport
 		std::unordered_set<std::shared_ptr<nano::transport::channel_udp>> random_set (size_t) const;
 		void store_all (nano::node &);
 		bool reserved_address (nano::endpoint const &, bool = false);
+		void clean_node_id (nano::endpoint const &, nano::account const &);
 		// Get the next peer for attempting a tcp connection
 		nano::endpoint tcp_peer ();
 		void receive ();
@@ -98,6 +99,9 @@ namespace transport
 		class last_tcp_attempt_tag
 		{
 		};
+		class node_id_tag
+		{
+		};
 		class channel_udp_wrapper final
 		{
 		public:
@@ -117,6 +121,17 @@ namespace transport
 			boost::asio::ip::address ip_address () const
 			{
 				return endpoint ().address ();
+			}
+			nano::account node_id () const
+			{
+				if (channel->node_id.is_initialized ())
+				{
+					return channel->node_id.get ();
+				}
+				else
+				{
+					return 0;
+				}
 			}
 		};
 		class endpoint_attempt final
@@ -138,6 +153,7 @@ namespace transport
 		boost::multi_index::random_access<boost::multi_index::tag<random_access_tag>>,
 		boost::multi_index::ordered_non_unique<boost::multi_index::tag<last_tcp_attempt_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, std::chrono::steady_clock::time_point, &channel_udp_wrapper::last_tcp_attempt>>,
 		boost::multi_index::hashed_unique<boost::multi_index::tag<endpoint_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, nano::endpoint, &channel_udp_wrapper::endpoint>>,
+		boost::multi_index::hashed_non_unique<boost::multi_index::tag<node_id_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, nano::account, &channel_udp_wrapper::node_id>>,
 		boost::multi_index::ordered_non_unique<boost::multi_index::tag<last_packet_received_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, std::chrono::steady_clock::time_point, &channel_udp_wrapper::last_packet_received>>,
 		boost::multi_index::ordered_non_unique<boost::multi_index::tag<ip_address_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, boost::asio::ip::address, &channel_udp_wrapper::ip_address>>>>
 		channels;
