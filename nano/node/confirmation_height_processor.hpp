@@ -76,7 +76,7 @@ private:
 
 	void run ();
 	void add_confirmation_height (nano::block_hash const &);
-	void collect_unconfirmed_receive_and_sources_for_account (uint64_t, uint64_t, nano::block_hash const &, nano::block_hash const &, std::vector<receive_source_pair> &, nano::account const &, nano::transaction &, std::unique_lock<std::mutex> &);
+	void collect_unconfirmed_receive_and_sources_for_account (uint64_t, uint64_t, nano::block_hash const &, nano::account const &, nano::transaction &, std::unique_lock<std::mutex> &);
 	bool write_pending (std::deque<conf_height_details> &, int64_t);
 	size_t receive_source_pairs_size ();
 

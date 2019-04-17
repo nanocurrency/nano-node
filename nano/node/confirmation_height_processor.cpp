@@ -95,8 +95,6 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 	boost::optional<conf_height_details> receive_details;
 	auto current = hash_a;
 	nano::account_info account_info;
-	nano::genesis genesis;
-	auto genesis_hash = genesis.hash ();
 	std::deque<conf_height_details> pending_writes;
 
 	// Store the highest confirmation heights for accounts in pending_writes to reduce unnecessary iterating
@@ -139,7 +137,7 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 				logger.always_log ("Iterating over a large account chain for setting confirmation height. The top block: ", current.to_string ());
 			}
 
-			collect_unconfirmed_receive_and_sources_for_account (block_height, confirmation_height, current, genesis_hash, receive_source_pairs, account, transaction, receive_source_pairs_lk);
+			collect_unconfirmed_receive_and_sources_for_account (block_height, confirmation_height, current, account, transaction, receive_source_pairs_lk);
 		}
 
 		// If this adds no more open_receive blocks, then we can now confirm this account as well as the linked open/receive block
@@ -239,11 +237,14 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 			if (pending.height > account_info.confirmation_height)
 			{
 #ifndef NDEBUG
-				// Do more thorough checking in Debug mode
+				// Do more thorough checking in Debug mode, indicates programming error.
 				nano::block_sideband sideband;
 				auto block = store.block_get (transaction, pending.hash, &sideband);
 				assert (block != nullptr);
 				assert (sideband.height == pending.height);
+#else
+				auto block = store.block_get (transaction, pending.hash);
+#endif
 				// Check that the block still exists as there may have been changes outside this processor.
 				if (!block)
 				{
@@ -251,7 +252,7 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 					ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
 					return true;
 				}
-#endif
+
 				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - account_info.confirmation_height);
 				assert (pending.num_blocks_confirmed == pending.height - account_info.confirmation_height);
 				account_info.confirmation_height = pending.height;
@@ -272,7 +273,7 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 }
 
 // This function assumes receive_source_pairs_lk is not already locked
-void nano::confirmation_height_processor::collect_unconfirmed_receive_and_sources_for_account (uint64_t block_height, uint64_t confirmation_height, nano::block_hash const & current, const nano::block_hash & genesis_hash, std::vector<receive_source_pair> & receive_source_pairs, nano::account const & account, nano::transaction & transaction, std::unique_lock<std::mutex> & receive_source_pairs_lk)
+void nano::confirmation_height_processor::collect_unconfirmed_receive_and_sources_for_account (uint64_t block_height, uint64_t confirmation_height, nano::block_hash const & current, nano::account const & account, nano::transaction & transaction, std::unique_lock<std::mutex> & receive_source_pairs_lk)
 {
 	auto hash (current);
 	auto num_to_confirm = block_height - confirmation_height;
@@ -294,8 +295,8 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 			{
 				source = block->link ();
 			}
-
-			if (store.block_exists (transaction, source))
+		
+			if (store.source_exists (transaction, source))
 			{
 				// Set the height for the receive block above (if there is one)
 				if (next_height != height_not_set)
