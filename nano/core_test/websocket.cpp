@@ -33,7 +33,7 @@ boost::optional<std::string> websocket_test_call (boost::asio::io_context & ioc,
 	}
 
 	boost::asio::ip::tcp::resolver resolver{ ioc };
-	boost::beast::websocket::stream<boost::asio::ip::tcp::socket> ws (ioc);
+	boost::beast::websocket::stream<boost::asio::ip::tcp::socket> ws{ ioc };
 
 	auto const results = resolver.resolve (host, port);
 	boost::asio::connect (ws.next_layer (), results.begin (), results.end ());

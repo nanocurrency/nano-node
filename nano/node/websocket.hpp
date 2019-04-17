@@ -80,6 +80,7 @@ namespace websocket
 		{
 			return false;
 		}
+		virtual ~options () = default;
 	};
 
 	/**
@@ -101,7 +102,7 @@ namespace websocket
 		 * @param message_a the message to be checked
 		 * @return false if the message should be broadcasted, true if it should be filtered
 		 */
-		bool should_filter (message const & message_a) const;
+		bool should_filter (message const & message_a) const override;
 
 	private:
 		nano::node & node;
