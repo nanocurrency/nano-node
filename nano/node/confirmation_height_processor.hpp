@@ -21,10 +21,12 @@ class pending_confirmation_height
 {
 public:
 	size_t size ();
+	bool is_processing_block (nano::block_hash const &);
 
 private:
 	std::mutex mutex;
 	std::unordered_set<nano::block_hash> pending;
+	nano::block_hash current_hash{ 0 }; // This is the last block popped off the confirmation height pending collection
 	friend class confirmation_height_processor;
 };
 
@@ -70,7 +72,6 @@ private:
 	nano::active_transactions & active;
 	nano::logger_mt & logger;
 	std::mutex receive_source_pairs_mutex;
-	nano::block_hash current_original_pending_block{ 0 }; // This is the last block popped off the confirmation height pending collection
 	std::vector<receive_source_pair> receive_source_pairs; // Only single writer allowed, multiple readers
 	std::thread thread;
 

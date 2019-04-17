@@ -47,12 +47,13 @@ void nano::confirmation_height_processor::run ()
 	{
 		if (!pending_confirmations.pending.empty ())
 		{
-			current_original_pending_block = *pending_confirmations.pending.begin ();
-			pending_confirmations.pending.erase (current_original_pending_block);
+			pending_confirmations.current_hash = *pending_confirmations.pending.begin ();
+			pending_confirmations.pending.erase (pending_confirmations.current_hash);
+			auto current_pending_block = pending_confirmations.current_hash; // Copy the hash so can be used outside having the lock
 			lk.unlock ();
-			add_confirmation_height (current_original_pending_block);
-			current_original_pending_block = 0;
+			add_confirmation_height (current_pending_block);
 			lk.lock ();
+			pending_confirmations.current_hash = 0;
 		}
 		else
 		{
@@ -73,15 +74,7 @@ void nano::confirmation_height_processor::add (nano::block_hash const & hash_a)
 // This only check top-level blocks having their confirmation height sets, not anything below
 bool nano::confirmation_height_processor::is_processing_block (nano::block_hash const & hash_a)
 {
-	// First check the hash currently being processed
-	if (!current_original_pending_block.is_zero () && current_original_pending_block == hash_a)
-	{
-		return true;
-	}
-
-	// Check remaining pending confirmations
-	std::lock_guard<std::mutex> lk (pending_confirmations.mutex);
-	return pending_confirmations.pending.find (hash_a) != pending_confirmations.pending.cend ();
+	return pending_confirmations.is_processing_block (hash_a);
 }
 
 /**
@@ -358,6 +351,19 @@ size_t nano::pending_confirmation_height::size ()
 {
 	std::lock_guard<std::mutex> lk (mutex);
 	return pending.size ();
+}
+
+bool nano::pending_confirmation_height::is_processing_block (nano::block_hash const & hash_a)
+{
+	// First check the hash currently being processed
+	std::lock_guard<std::mutex> lk (mutex);
+	if (!current_hash.is_zero () && current_hash == hash_a)
+	{
+		return true;
+	}
+
+	// Check remaining pending confirmations
+	return pending.find (hash_a) != pending.cend ();
 }
 
 namespace nano
