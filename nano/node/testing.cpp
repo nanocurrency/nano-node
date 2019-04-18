@@ -77,10 +77,10 @@ nano::system::~system ()
 		i->stop ();
 	}
 
-	// clang-format off
+		// clang-format off
 	// Windows cannot remove the log and data files while they are still owned by this process.
 	// They will be removed later
-	// clang-format on
+		// clang-format on
 #ifndef _WIN32
 	// Clean up tmp directories created by the tests. Since it's sometimes useful to
 	// see log files after test failures, an environment variable is supported to
