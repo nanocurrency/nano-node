@@ -183,30 +183,29 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 		}
 
 		// Check whether writing to the database should be done now
-		receive_source_pairs_lk.lock ();
-
 		auto total_pending_write_block_count = std::accumulate (pending_writes.cbegin (), pending_writes.cend (), uint64_t (0), [](uint64_t total, conf_height_details const & conf_height_details_a) {
 			return total += conf_height_details_a.num_blocks_confirmed;
 		});
 
+		receive_source_pairs_lk.lock ();
 		if ((total_pending_write_block_count >= batch_write_size || receive_source_pairs.empty ()) && !pending_writes.empty ())
 		{
+			receive_source_pairs_lk.unlock ();
 			error = write_pending (pending_writes, total_pending_write_block_count);
 			// Don't set any more blocks as confirmed from the original hash if an inconsistency is found
+			receive_source_pairs_lk.lock ();
 			if (error)
 			{
 				break;
 			}
 			assert (pending_writes.empty ());
 		}
-		receive_source_pairs_lk.unlock ();
 		// Exit early when the processor has been stopped, otherwise this function may take a
 		// while (and hence keep the process running) if updating a long chain.
 		if (stopped)
 		{
 			break;
 		}
-		receive_source_pairs_lk.lock ();
 	} while (!receive_source_pairs.empty ());
 	receive_source_pairs_lk.unlock ();
 
@@ -219,7 +218,7 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 }
 
 /*
- * This takes a block and confirms the blocks below it. It assumes that all other blocks below the first receive has already been confirmed.
+ * This takes a block and confirms the blocks below it. It assumes that all other blocks below the first receive has already been confirmed. The receive_source_pairs_mutex should not be locked when this is called.
  */
 void nano::confirmation_height_processor::write_remaining_unconfirmed_non_receive_blocks (nano::block_store & store, nano::block_hash const & hash_a)
 {
