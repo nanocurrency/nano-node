@@ -96,7 +96,6 @@ namespace websocket
 	 * * "all_local_accounts" (bool) - will only not filter blocks that have local wallet accounts as source/destination
 	 * * "accounts" (array of std::strings) - will only not filter blocks that have these accounts as source/destination
 	 * @remark Both options can be given, the resulting filter is an intersection of individual filters
-	 * @remark No error is shown if any given account is invalid, the entry is simply ignored
 	 * @warn Legacy blocks are always filtered (not broadcasted)
 	 */
 	class confirmation_options final : public options
@@ -122,13 +121,12 @@ namespace websocket
 	 * Filtering options for vote subscriptions
 	 * Possible filtering options:
 	 * * "representatives" (array of std::strings) - will only broadcast votes from these representatives
-	 * @remark No error is shown if any given representative is invalid, the entry is simply ignored
 	 */
 	class vote_options final : public options
 	{
 	public:
 		vote_options ();
-		vote_options (boost::property_tree::ptree const & options_a);
+		vote_options (boost::property_tree::ptree const & options_a, nano::node & node_a);
 
 		/**
 		 * Checks if a message should be filtered for given vote received options.
@@ -138,6 +136,7 @@ namespace websocket
 		bool should_filter (message const & message_a) const override;
 
 	private:
+		nano::node & node;
 		std::unordered_set<std::string> representatives;
 	};
 

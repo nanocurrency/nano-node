@@ -13,14 +13,22 @@ node (node_a)
 	{
 		for (auto account_l : *accounts_l)
 		{
-			// Check if the account is valid, but no error handling if it's not, simply not added to the filter
 			nano::account result_l (0);
 			if (!result_l.decode_account (account_l.second.data ()))
 			{
 				// Do not insert the given raw data to keep old prefix support
 				accounts.insert (result_l.to_account ());
 			}
+			else
+			{
+				node.logger.always_log (boost::str (boost::format ("Websocket: invalid account provided for filtering blocks: %1%") % account_l.second.data ()));
+			}
 		}
+	}
+	// Warn the user if the options resulted in an empty filter
+	if (accounts.empty ())
+	{
+		node.logger.always_log ("Websocket: provided options resulted in an empty block confirmation filter");
 	}
 }
 
@@ -51,21 +59,30 @@ bool nano::websocket::confirmation_options::should_filter (nano::websocket::mess
 	return should_filter_l;
 }
 
-nano::websocket::vote_options::vote_options (boost::property_tree::ptree const & options_a)
+nano::websocket::vote_options::vote_options (boost::property_tree::ptree const & options_a, nano::node & node_a) :
+node (node_a)
 {
 	auto representatives_l (options_a.get_child_optional ("representatives"));
 	if (representatives_l)
 	{
 		for (auto representative_l : *representatives_l)
 		{
-			// Check if the representative is valid, but no error handling if it's not, simply not added to the filter
 			nano::account result_l (0);
 			if (!result_l.decode_account (representative_l.second.data ()))
 			{
 				// Do not insert the given raw data to keep old prefix support
 				representatives.insert (result_l.to_account ());
 			}
+			else
+			{
+				node.logger.always_log (boost::str (boost::format ("Websocket: invalid account given to filter votes: %1%") % representative_l.second.data ()));
+			}
 		}
+	}
+	// Warn the user if the options resulted in an empty filter
+	if (representatives.empty ())
+	{
+		node.logger.always_log ("Websocket: provided options resulted in an empty vote filter");
 	}
 }
 
@@ -84,7 +101,7 @@ nano::websocket::session::session (nano::websocket::listener & listener_a, boost
 ws_listener (listener_a), ws (std::move (socket_a)), write_strand (ws.get_executor ())
 {
 	ws.text (true);
-	ws_listener.get_node ().logger.try_log ("websocket session started");
+	ws_listener.get_node ().logger.try_log ("Websocket: session started");
 }
 
 nano::websocket::session::~session ()
@@ -97,7 +114,7 @@ nano::websocket::session::~session ()
 		}
 	}
 
-	ws_listener.get_node ().logger.try_log ("websocket session ended");
+	ws_listener.get_node ().logger.try_log ("Websocket: session ended");
 }
 
 void nano::websocket::session::handshake ()
@@ -111,7 +128,7 @@ void nano::websocket::session::handshake ()
 		}
 		else
 		{
-			self_l->ws_listener.get_node ().logger.always_log ("websocket handshake failed: ", ec.message ());
+			self_l->ws_listener.get_node ().logger.always_log ("Websocket: handshake failed: ", ec.message ());
 		}
 	});
 }
@@ -192,12 +209,12 @@ void nano::websocket::session::read ()
 			}
 			catch (boost::property_tree::json_parser::json_parser_error const & ex)
 			{
-				self_l->ws_listener.get_node ().logger.try_log ("websocket json parsing failed: ", ex.what ());
+				self_l->ws_listener.get_node ().logger.try_log ("Websocket: json parsing failed: ", ex.what ());
 			}
 		}
 		else
 		{
-			self_l->ws_listener.get_node ().logger.try_log ("websocket read failed: ", ec.message ());
+			self_l->ws_listener.get_node ().logger.try_log ("Websocket: read failed: ", ec.message ());
 		}
 	});
 }
@@ -272,7 +289,7 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 		}
 		else if (topic_l == nano::websocket::topic::vote)
 		{
-			subscriptions.insert (std::make_pair (topic_l, options_l ? std::make_unique<nano::websocket::vote_options> (options_l.get ()) : std::make_unique<nano::websocket::options> ()));
+			subscriptions.insert (std::make_pair (topic_l, options_l ? std::make_unique<nano::websocket::vote_options> (options_l.get (), ws_listener.get_node ()) : std::make_unique<nano::websocket::options> ()));
 		}
 		else
 		{
@@ -325,7 +342,7 @@ socket (node_a.io_ctx)
 	}
 	catch (std::exception const & ex)
 	{
-		node.logger.always_log ("websocket listen failed: ", ex.what ());
+		node.logger.always_log ("Websocket: listen failed: ", ex.what ());
 	}
 }
 
@@ -349,7 +366,7 @@ void nano::websocket::listener::on_accept (boost::system::error_code ec)
 {
 	if (ec)
 	{
-		node.logger.always_log ("websocket accept failed: ", ec.message ());
+		node.logger.always_log ("Websocket: accept failed: ", ec.message ());
 	}
 	else
 	{
