@@ -70,6 +70,7 @@ public:
 	{
 		return 7;
 	}
+
 private:
 	static boost::shared_ptr<boost::log::sinks::synchronous_sink<boost::log::sinks::text_file_backend>> file_sink;
 	static std::atomic_flag logging_already_added;
