@@ -3,6 +3,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/log/sources/logger.hpp>
 #include <boost/log/trivial.hpp>
+#include <boost/log/utility/setup/file.hpp>
 #include <cstdint>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
@@ -64,9 +65,13 @@ public:
 	uintmax_t rotation_size{ 4 * 1024 * 1024 };
 	std::chrono::milliseconds min_time_between_log_output{ 5 };
 	nano::logger_mt logger{ min_time_between_log_output };
+	static void release_file_sink ();
 	int json_version () const
 	{
 		return 7;
 	}
+private:
+	static boost::shared_ptr<boost::log::sinks::synchronous_sink<boost::log::sinks::text_file_backend>> file_sink;
+	static std::atomic_flag logging_already_added;
 };
 }

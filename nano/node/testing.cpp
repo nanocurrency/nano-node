@@ -77,6 +77,8 @@ nano::system::~system ()
 		i->stop ();
 	}
 
+	// Windows cannot remove the log and data files while they are still owned by this process. They will be removed later
+#ifndef _WIN32
 	// Clean up tmp directories created by the tests. Since it's sometimes useful to
 	// see log files after test failures, an environment variable is supported to
 	// retain the files.
@@ -84,6 +86,7 @@ nano::system::~system ()
 	{
 		nano::remove_temporary_directories ();
 	}
+#endif
 }
 
 std::shared_ptr<nano::wallet> nano::system::wallet (size_t index_a)
