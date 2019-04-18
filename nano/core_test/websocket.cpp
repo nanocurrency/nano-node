@@ -112,25 +112,20 @@ TEST (websocket, confirmation)
 
 	// Start websocket test-client in a separate thread
 	ack_ready = false;
-	std::atomic<bool> unsubscribe_ack_received{ false };
+	std::atomic<bool> confirmation_event_received{ false };
 	ASSERT_FALSE (node1->websocket_server->any_subscribers (nano::websocket::topic::confirmation));
-	std::thread client_thread ([&system, &unsubscribe_ack_received]() {
+	std::thread client_thread ([&system, &confirmation_event_received]() {
 		// This will expect two results: the acknowledgement of the subscription
 		// and then the block confirmation message
 		auto response = websocket_test_call (system.io_ctx, "::1", "24078",
 		R"json({"action": "subscribe", "topic": "confirmation", "ack": true})json", true, true);
-
 		ASSERT_TRUE (response);
 		boost::property_tree::ptree event;
 		std::stringstream stream;
 		stream << response.get ();
 		boost::property_tree::read_json (stream, event);
 		ASSERT_EQ (event.get<std::string> ("topic"), "confirmation");
-
-		// Unsubscribe action, expects an acknowledge but no response follows
-		websocket_test_call (system.io_ctx, "::1", "24078",
-		R"json({"action": "unsubscribe", "topic": "confirmation", "ack": true})json", true, false);
-		unsubscribe_ack_received = true;
+		confirmation_event_received = true;
 	});
 	client_thread.detach ();
 
@@ -144,12 +139,59 @@ TEST (websocket, confirmation)
 
 	ASSERT_TRUE (node1->websocket_server->any_subscribers (nano::websocket::topic::confirmation));
 
-	// Quick-confirm a block
 	nano::keypair key;
-	nano::block_hash previous (node1->latest (nano::test_genesis_key.pub));
 	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
-	auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous, nano::test_genesis_key.pub, node1->config.online_weight_minimum.number () + 1, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous)));
-	node1->process_active (send);
+	auto balance = nano::genesis_amount;
+	auto send_amount = node1->config.online_weight_minimum.number () + 1;
+	// Quick-confirm a block, legacy blocks should work without filtering
+	{
+		nano::block_hash previous (node1->latest (nano::test_genesis_key.pub));
+		balance -= send_amount;
+		auto send (std::make_shared<nano::send_block> (previous, key.pub, balance, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous)));
+		node1->process_active (send);
+	}
+
+	// Wait for the confirmation to be received
+	system.deadline_set (5s);
+	while (!confirmation_event_received)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ack_ready = false;
+
+	std::atomic<bool> unsubscribe_ack_received{ false };
+	std::thread client_thread_2 ([&system, &unsubscribe_ack_received]() {
+		auto response = websocket_test_call (system.io_ctx, "::1", "24078",
+		R"json({"action": "subscribe", "topic": "confirmation", "ack": true})json", true, true);
+		ASSERT_TRUE (response);
+		boost::property_tree::ptree event;
+		std::stringstream stream;
+		stream << response.get ();
+		boost::property_tree::read_json (stream, event);
+		ASSERT_EQ (event.get<std::string> ("topic"), "confirmation");
+
+		// Unsubscribe action, expects an acknowledge but no response follows
+		websocket_test_call (system.io_ctx, "::1", "24078",
+		R"json({"action": "unsubscribe", "topic": "confirmation", "ack": true})json", true, false);
+		unsubscribe_ack_received = true;
+	});
+	client_thread_2.detach ();
+
+	// Wait for the subscription to be acknowledged
+	system.deadline_set (5s);
+	while (!ack_ready)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ack_ready = false;
+
+	// Quick confirm a state block
+	{
+		nano::block_hash previous (node1->latest (nano::test_genesis_key.pub));
+		balance -= send_amount;
+		auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous, nano::test_genesis_key.pub, balance, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous)));
+		node1->process_active (send);
+	}
 
 	// Wait for the unsubscribe action to be acknowledged
 	system.deadline_set (5s);
@@ -157,6 +199,7 @@ TEST (websocket, confirmation)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	ack_ready = false;
 
 	node1->stop ();
 }
@@ -177,9 +220,6 @@ TEST (websocket, confirmation_options)
 	node1->wallets.create (wallet);
 	node1->start ();
 	system.nodes.push_back (node1);
-
-	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
-	nano::keypair key;
 
 	// Start websocket test-client in a separate thread
 	ack_ready = false;
@@ -203,10 +243,15 @@ TEST (websocket, confirmation_options)
 	}
 	ack_ready = false;
 
-	// Confirms a random block for an in-wallet account
+	// Confirm a state block for an in-wallet account
+	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
+	nano::keypair key;
+	auto balance = nano::genesis_amount;
+	auto send_amount = node1->config.online_weight_minimum.number () + 1;
 	{
 		nano::block_hash previous (node1->latest (nano::test_genesis_key.pub));
-		auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous, nano::test_genesis_key.pub, nano::genesis_amount - (node1->config.online_weight_minimum.number () + 1), key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous)));
+		balance -= send_amount;
+		auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous, nano::test_genesis_key.pub, balance, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous)));
 		node1->process_active (send);
 	}
 
@@ -216,8 +261,8 @@ TEST (websocket, confirmation_options)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-
 	ack_ready = false;
+
 	std::atomic<bool> client_thread_2_finished{ false };
 	std::thread client_thread_2 ([&system, &client_thread_2_finished]() {
 		// Re-subscribe with options for all local wallet accounts
@@ -248,7 +293,8 @@ TEST (websocket, confirmation_options)
 	// Quick-confirm another block
 	{
 		nano::block_hash previous (node1->latest (nano::test_genesis_key.pub));
-		auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous, nano::test_genesis_key.pub, nano::genesis_amount - 2 * (node1->config.online_weight_minimum.number () + 1), key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous)));
+		balance -= send_amount;
+		auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous, nano::test_genesis_key.pub, balance, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous)));
 		node1->process_active (send);
 	}
 
@@ -258,5 +304,34 @@ TEST (websocket, confirmation_options)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	ack_ready = false;
+
+	std::atomic<bool> client_thread_3_finished{ false };
+	std::thread client_thread_3 ([&system, &client_thread_3_finished]() {
+		auto response = websocket_test_call (system.io_ctx, "::1", "24078",
+		R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"all_local_accounts": "true"}})json", true, true, 1s);
+
+		ASSERT_FALSE (response);
+		client_thread_3_finished = true;
+	});
+	client_thread_3.detach ();
+
+	// Confirm a legacy block
+	// When filtering options are enabled, legacy blocks are always filtered
+	{
+		nano::block_hash previous (node1->latest (nano::test_genesis_key.pub));
+		balance -= send_amount;
+		auto send (std::make_shared<nano::send_block> (previous, key.pub, balance, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous)));
+		node1->process_active (send);
+	}
+
+	// Wait for client thread to finish, no confirmation message should be received
+	system.deadline_set (5s);
+	while (!client_thread_3_finished)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ack_ready = false;
+
 	node1->stop ();
 }
