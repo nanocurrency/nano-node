@@ -4,6 +4,53 @@
 #include <nano/node/node.hpp>
 #include <nano/node/websocket.hpp>
 
+nano::websocket::confirmation_options::confirmation_options (boost::property_tree::ptree const & options_a, nano::node & node_a) :
+all_local_accounts (options_a.get<bool> ("all_local_accounts", false)),
+node (node_a)
+{
+	auto accounts_l (options_a.get_child_optional ("accounts"));
+	if (accounts_l)
+	{
+		for (auto account_l : *accounts_l)
+		{
+			// Check if the account is valid, but no error handling if it's not, simply not added to the filter
+			nano::account result_l (0);
+			if (!result_l.decode_account (account_l.second.data ()))
+			{
+				// Do not insert the given raw data to keep old prefix support
+				accounts.insert (result_l.to_account ());
+			}
+		}
+	}
+}
+
+bool nano::websocket::confirmation_options::should_filter (nano::websocket::message const & message_a) const
+{
+	bool should_filter_l (true);
+	auto destination_opt_l (message_a.contents.get_optional<std::string> ("message.block.link_as_account"));
+	if (destination_opt_l)
+	{
+		auto source_text_l (message_a.contents.get<std::string> ("message.account"));
+		if (all_local_accounts)
+		{
+			auto transaction_l (node.wallets.tx_begin_read ());
+			nano::account source_l (0), destination_l (0);
+			auto decode_source_ok_l (!source_l.decode_account (source_text_l));
+			auto decode_destination_ok_l (!destination_l.decode_account (destination_opt_l.get ()));
+			assert (decode_source_ok_l && decode_destination_ok_l);
+			if (node.wallets.exists (transaction_l, source_l) || node.wallets.exists (transaction_l, destination_l))
+			{
+				should_filter_l = false;
+			}
+		}
+		if (accounts.find (source_text_l) != accounts.end () || accounts.find (destination_opt_l.get ()) != accounts.end ())
+		{
+			should_filter_l = false;
+		}
+	}
+	return should_filter_l;
+}
+
 nano::websocket::session::session (nano::websocket::listener & listener_a, boost::asio::ip::tcp::socket socket_a) :
 ws_listener (listener_a), ws (std::move (socket_a)), write_strand (ws.get_executor ())
 {
@@ -17,7 +64,7 @@ nano::websocket::session::~session ()
 		std::unique_lock<std::mutex> lk (subscriptions_mutex);
 		for (auto & subscription : subscriptions)
 		{
-			ws_listener.decrease_subscription_count (subscription);
+			ws_listener.decrease_subscription_count (subscription.first);
 		}
 	}
 
@@ -54,7 +101,8 @@ void nano::websocket::session::write (nano::websocket::message message_a)
 {
 	// clang-format off
 	std::unique_lock<std::mutex> lk (subscriptions_mutex);
-	if (message_a.topic == nano::websocket::topic::ack || subscriptions.find (message_a.topic) != subscriptions.end ())
+	auto subscription (subscriptions.find (message_a.topic));
+	if (message_a.topic == nano::websocket::topic::ack || (subscription != subscriptions.end () && !subscription->second->should_filter (message_a)))
 	{
 		lk.unlock ();
 		boost::asio::post (write_strand,
@@ -179,8 +227,16 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 	auto action_succeeded (false);
 	if (action == "subscribe" && topic_l != nano::websocket::topic::invalid)
 	{
+		auto options_l (message_a.get_child_optional ("options"));
 		std::lock_guard<std::mutex> lk (subscriptions_mutex);
-		subscriptions.insert (topic_l);
+		if (topic_l == nano::websocket::topic::confirmation)
+		{
+			subscriptions.insert (std::make_pair (topic_l, options_l ? std::make_unique<nano::websocket::confirmation_options> (options_l.get (), ws_listener.get_node ()) : std::make_unique<nano::websocket::options> ()));
+		}
+		else
+		{
+			subscriptions.insert (std::make_pair (topic_l, std::make_unique<nano::websocket::options> ()));
+		}
 		ws_listener.increase_subscription_count (topic_l);
 		action_succeeded = true;
 	}
@@ -331,7 +387,7 @@ nano::websocket::message nano::websocket::message_builder::block_confirmed (std:
 	return msg;
 }
 
-std::string nano::websocket::message::to_string ()
+std::string nano::websocket::message::to_string () const
 {
 	std::ostringstream ostream;
 	boost::property_tree::write_json (ostream, contents);
