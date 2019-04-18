@@ -1865,10 +1865,13 @@ TEST (confirmation_height, all_block_types)
 
 	nano::state_block epoch1 (key1.pub, change.hash (), key2.pub, nano::Gxrb_ratio, node->ledger.epoch_link, epoch_key.prv, epoch_key.pub, system.work.generate (change.hash ()));
 	nano::state_block state_send1 (key1.pub, epoch1.hash (), 0, nano::Gxrb_ratio - 1, key2.pub, key1.prv, key1.pub, system.work.generate (epoch1.hash ()));
-	auto state_receive2 = std::make_shared<nano::state_block> (key2.pub, epoch.hash (), 0, nano::Gxrb_ratio + 1, state_send1.hash (), key2.prv, key2.pub, system.work.generate (epoch.hash ()));
+	nano::state_block state_receive2 (key2.pub, epoch.hash (), 0, nano::Gxrb_ratio + 1, state_send1.hash (), key2.prv, key2.pub, system.work.generate (epoch.hash ()));
 
-	nano::state_block state_send2 (key1.pub, state_send1.hash (), 0, nano::Gxrb_ratio - 2, nano::test_genesis_key.pub, key1.prv, key1.pub, system.work.generate (state_send1.hash ()));
-	nano::state_block state_receive3 (nano::genesis_account, send1.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio * 2 + 1, state_send2.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send1.hash ()));
+	auto state_send2 = std::make_shared<nano::state_block> (key2.pub, state_receive2.hash (), 0, nano::Gxrb_ratio, key1.pub, key2.prv, key2.pub, system.work.generate (state_receive2.hash ()));
+	nano::state_block state_send3 (key2.pub, state_send2->hash (), 0, nano::Gxrb_ratio - 1, key1.pub, key2.prv, key2.pub, system.work.generate (state_send2->hash ()));
+
+	nano::state_block state_send4 (key1.pub, state_send1.hash (), 0, nano::Gxrb_ratio - 2, nano::test_genesis_key.pub, key1.prv, key1.pub, system.work.generate (state_send1.hash ()));
+	nano::state_block state_receive3 (nano::genesis_account, send1.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio * 2 + 1, state_send4.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send1.hash ()));
 
 	{
 		auto transaction (store.tx_begin_write ());
@@ -1889,18 +1892,22 @@ TEST (confirmation_height, all_block_types)
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, epoch1).code);
 
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, state_send1).code);
-		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *state_receive2).code);
-		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, state_send2).code);
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, state_receive2).code);
+
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *state_send2).code);
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, state_send3).code);
+
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, state_send4).code);
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, state_receive3).code);
 	}
 
-	node->block_confirm (state_receive2);
+	node->block_confirm (state_send2);
 
 	system.deadline_set (10s);
 	while (true)
 	{
 		auto transaction = node->store.tx_begin_read ();
-		if (node->ledger.block_confirmed (transaction, state_receive2->hash ()))
+		if (node->ledger.block_confirmed (transaction, state_send2->hash ()))
 		{
 			break;
 		}
@@ -1919,10 +1926,10 @@ TEST (confirmation_height, all_block_types)
 	ASSERT_LE (7, account_info.block_count);
 
 	ASSERT_FALSE (node->store.account_get (transaction, key2.pub, account_info));
-	ASSERT_EQ (6, account_info.confirmation_height);
-	ASSERT_LE (6, account_info.block_count);
+	ASSERT_EQ (7, account_info.confirmation_height);
+	ASSERT_LE (8, account_info.block_count);
 
-	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), 14);
+	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), 15);
 }
 
 TEST (bootstrap, tcp_listener_timeout_empty)
