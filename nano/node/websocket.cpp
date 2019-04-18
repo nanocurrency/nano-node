@@ -182,6 +182,10 @@ nano::websocket::topic to_topic (std::string topic_a)
 	{
 		topic = nano::websocket::topic::confirmation;
 	}
+	else if (topic_a == "vote")
+	{
+		topic = nano::websocket::topic::vote;
+	}
 	else if (topic_a == "ack")
 	{
 		topic = nano::websocket::topic::ack;
@@ -195,6 +199,10 @@ std::string from_topic (nano::websocket::topic topic_a)
 	if (topic_a == nano::websocket::topic::confirmation)
 	{
 		topic = "confirmation";
+	}
+	else if (topic_a == nano::websocket::topic::vote)
+	{
+		topic = "vote";
 	}
 	else if (topic_a == nano::websocket::topic::ack)
 	{
@@ -361,14 +369,8 @@ void nano::websocket::listener::decrease_subscription_count (nano::websocket::to
 
 nano::websocket::message nano::websocket::message_builder::block_confirmed (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype)
 {
-	nano::websocket::message msg (nano::websocket::topic::confirmation);
-	using namespace std::chrono;
-	auto milli_since_epoch = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
-
-	// Common message information
-	boost::property_tree::ptree & message_l = msg.contents;
-	message_l.add ("topic", from_topic (msg.topic));
-	message_l.add ("time", std::to_string (milli_since_epoch));
+	nano::websocket::message message_l (nano::websocket::topic::confirmation);
+	set_common_fields (message_l);
 
 	// Block confirmation properties
 	boost::property_tree::ptree message_node_l;
@@ -382,9 +384,31 @@ nano::websocket::message nano::websocket::message_builder::block_confirmed (std:
 		block_node_l.add ("subtype", subtype);
 	}
 	message_node_l.add_child ("block", block_node_l);
-	message_l.add_child ("message", message_node_l);
+	message_l.contents.add_child ("message", message_node_l);
 
-	return msg;
+	return message_l;
+}
+
+nano::websocket::message nano::websocket::message_builder::vote_received (std::shared_ptr<nano::vote> vote_a)
+{
+	nano::websocket::message message_l (nano::websocket::topic::vote);
+	set_common_fields (message_l);
+
+	// Vote information
+	boost::property_tree::ptree vote_node_l;
+	vote_a->serialize_json (vote_node_l);
+	message_l.contents.add_child ("message", vote_node_l);
+	return message_l;
+}
+
+void nano::websocket::message_builder::set_common_fields (nano::websocket::message & message_a)
+{
+	using namespace std::chrono;
+	auto milli_since_epoch = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
+
+	// Common message information
+	message_a.contents.add ("topic", from_topic (message_a.topic));
+	message_a.contents.add ("time", std::to_string (milli_since_epoch));
 }
 
 std::string nano::websocket::message::to_string () const

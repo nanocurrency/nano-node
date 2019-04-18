@@ -335,3 +335,66 @@ TEST (websocket, confirmation_options)
 
 	node1->stop ();
 }
+
+/** Subscribes to votes, sends a block and awaits websocket notification of a vote arrival */
+TEST (websocket, vote)
+{
+	nano::system system (24000, 1);
+	nano::node_init init1;
+	nano::node_config config;
+	nano::node_flags node_flags;
+	config.websocket_config.enabled = true;
+	config.websocket_config.port = 24078;
+
+	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
+	nano::uint256_union wallet;
+	nano::random_pool::generate_block (wallet.bytes.data (), wallet.bytes.size ());
+	node1->wallets.create (wallet);
+	node1->start ();
+	system.nodes.push_back (node1);
+
+	// Start websocket test-client in a separate thread
+	ack_ready = false;
+	std::atomic<bool> client_thread_finished{ false };
+	ASSERT_FALSE (node1->websocket_server->any_subscribers (nano::websocket::topic::vote));
+	std::thread client_thread ([&system, &client_thread_finished]() {
+		// This will expect two results: the acknowledgement of the subscription
+		// and then the vote message
+		auto response = websocket_test_call (system.io_ctx, "::1", "24078",
+		R"json({"action": "subscribe", "topic": "vote", "ack": true})json", true, true);
+
+		ASSERT_TRUE (response);
+		boost::property_tree::ptree event;
+		std::stringstream stream;
+		stream << response;
+		boost::property_tree::read_json (stream, event);
+		ASSERT_EQ (event.get<std::string> ("topic"), "vote");
+		client_thread_finished = true;
+	});
+	client_thread.detach ();
+
+	// Wait for the subscription to be acknowledged
+	system.deadline_set (5s);
+	while (!ack_ready)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_TRUE (node1->websocket_server->any_subscribers (nano::websocket::topic::vote));
+
+	// Quick-confirm a block
+	nano::keypair key;
+	nano::block_hash previous (node1->latest (nano::test_genesis_key.pub));
+	system.wallet (1)->insert_adhoc (key.prv);
+	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
+	auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous, nano::test_genesis_key.pub, nano::genesis_amount - (node1->config.online_weight_minimum.number () + 1), key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous)));
+	node1->process_active (send);
+
+	// Wait for the websocket client to receive the vote message
+	system.deadline_set (5s);
+	while (!client_thread_finished)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	node1->stop ();
+}

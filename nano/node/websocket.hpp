@@ -37,6 +37,8 @@ namespace websocket
 		ack,
 		/** A confirmation message */
 		confirmation,
+		/** A vote message **/
+		vote,
 		/** Auxiliary length, not a valid topic, must be the last enum */
 		_length
 	};
@@ -65,6 +67,11 @@ namespace websocket
 	{
 	public:
 		message block_confirmed (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype);
+		message vote_received (std::shared_ptr<nano::vote> vote_a);
+
+	private:
+		/** Set the common fields for messages: timestamp and topic. */
+		void set_common_fields (message & message_a);
 	};
 
 	/** Filtering options for subscriptions */
