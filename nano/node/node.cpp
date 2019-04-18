@@ -3542,6 +3542,7 @@ peering_port (peering_port_a)
 	logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
 	logging.init (path);
 	node = std::make_shared<nano::node> (init, *io_context, peering_port, path, alarm, logging, work);
+	node->active.stop ();
 }
 
 nano::inactive_node::~inactive_node ()
