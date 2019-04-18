@@ -37,6 +37,8 @@ namespace websocket
 		ack,
 		/** A confirmation message */
 		confirmation,
+		/** A vote message **/
+		vote,
 		/** Auxiliary length, not a valid topic, must be the last enum */
 		_length
 	};
@@ -65,6 +67,11 @@ namespace websocket
 	{
 	public:
 		message block_confirmed (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype);
+		message vote_received (std::shared_ptr<nano::vote> vote_a);
+
+	private:
+		/** Set the common fields for messages: timestamp and topic. */
+		void set_common_fields (message & message_a);
 	};
 
 	/** Filtering options for subscriptions */
@@ -89,7 +96,6 @@ namespace websocket
 	 * * "all_local_accounts" (bool) - will only not filter blocks that have local wallet accounts as source/destination
 	 * * "accounts" (array of std::strings) - will only not filter blocks that have these accounts as source/destination
 	 * @remark Both options can be given, the resulting filter is an intersection of individual filters
-	 * @remark No error is shown if any given account is invalid, the entry is simply ignored
 	 * @warn Legacy blocks are always filtered (not broadcasted)
 	 */
 	class confirmation_options final : public options
@@ -109,6 +115,29 @@ namespace websocket
 		nano::node & node;
 		bool all_local_accounts{ false };
 		std::unordered_set<std::string> accounts;
+	};
+
+	/**
+	 * Filtering options for vote subscriptions
+	 * Possible filtering options:
+	 * * "representatives" (array of std::strings) - will only broadcast votes from these representatives
+	 */
+	class vote_options final : public options
+	{
+	public:
+		vote_options ();
+		vote_options (boost::property_tree::ptree const & options_a, nano::node & node_a);
+
+		/**
+		 * Checks if a message should be filtered for given vote received options.
+		 * @param message_a the message to be checked
+		 * @return false if the message should be broadcasted, true if it should be filtered
+		 */
+		bool should_filter (message const & message_a) const override;
+
+	private:
+		nano::node & node;
+		std::unordered_set<std::string> representatives;
 	};
 
 	/** A websocket session managing its own lifetime */
