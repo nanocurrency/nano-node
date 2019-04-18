@@ -51,6 +51,35 @@ bool nano::websocket::confirmation_options::should_filter (nano::websocket::mess
 	return should_filter_l;
 }
 
+nano::websocket::vote_options::vote_options (boost::property_tree::ptree const & options_a)
+{
+	auto representatives_l (options_a.get_child_optional ("representatives"));
+	if (representatives_l)
+	{
+		for (auto representative_l : *representatives_l)
+		{
+			// Check if the representative is valid, but no error handling if it's not, simply not added to the filter
+			nano::account result_l (0);
+			if (!result_l.decode_account (representative_l.second.data ()))
+			{
+				// Do not insert the given raw data to keep old prefix support
+				representatives.insert (result_l.to_account ());
+			}
+		}
+	}
+}
+
+bool nano::websocket::vote_options::should_filter (nano::websocket::message const & message_a) const
+{
+	bool should_filter_l (true);
+	auto representative_text_l (message_a.contents.get<std::string> ("message.account"));
+	if (representatives.find (representative_text_l) != representatives.end ())
+	{
+		should_filter_l = false;
+	}
+	return should_filter_l;
+}
+
 nano::websocket::session::session (nano::websocket::listener & listener_a, boost::asio::ip::tcp::socket socket_a) :
 ws_listener (listener_a), ws (std::move (socket_a)), write_strand (ws.get_executor ())
 {
@@ -240,6 +269,10 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 		if (topic_l == nano::websocket::topic::confirmation)
 		{
 			subscriptions.insert (std::make_pair (topic_l, options_l ? std::make_unique<nano::websocket::confirmation_options> (options_l.get (), ws_listener.get_node ()) : std::make_unique<nano::websocket::options> ()));
+		}
+		else if (topic_l == nano::websocket::topic::vote)
+		{
+			subscriptions.insert (std::make_pair (topic_l, options_l ? std::make_unique<nano::websocket::vote_options> (options_l.get ()) : std::make_unique<nano::websocket::options> ()));
 		}
 		else
 		{

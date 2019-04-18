@@ -118,6 +118,29 @@ namespace websocket
 		std::unordered_set<std::string> accounts;
 	};
 
+	/**
+	 * Filtering options for vote subscriptions
+	 * Possible filtering options:
+	 * * "representatives" (array of std::strings) - will only broadcast votes from these representatives
+	 * @remark No error is shown if any given representative is invalid, the entry is simply ignored
+	 */
+	class vote_options final : public options
+	{
+	public:
+		vote_options ();
+		vote_options (boost::property_tree::ptree const & options_a);
+
+		/**
+		 * Checks if a message should be filtered for given vote received options.
+		 * @param message_a the message to be checked
+		 * @return false if the message should be broadcasted, true if it should be filtered
+		 */
+		bool should_filter (message const & message_a) const override;
+
+	private:
+		std::unordered_set<std::string> representatives;
+	};
+
 	/** A websocket session managing its own lifetime */
 	class session final : public std::enable_shared_from_this<session>
 	{
