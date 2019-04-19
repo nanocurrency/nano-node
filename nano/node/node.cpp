@@ -1220,6 +1220,17 @@ startup_time (std::chrono::steady_clock::now ())
 			}
 		}
 	});
+	if (this->websocket_server)
+	{
+		observers.vote.add ([this](nano::transaction const & transaction, std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a) {
+			if (this->websocket_server->any_subscribers (nano::websocket::topic::vote))
+			{
+				nano::websocket::message_builder builder;
+				auto msg (builder.vote_received (vote_a));
+				this->websocket_server->broadcast (msg);
+			}
+		});
+	}
 	if (NANO_VERSION_PATCH == 0)
 	{
 		logger.always_log ("Node starting, version: ", NANO_MAJOR_MINOR_VERSION);
