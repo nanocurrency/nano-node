@@ -104,6 +104,18 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 			receive_details = receive_source_pairs.back ().receive_details;
 			current = receive_source_pairs.back ().source_hash;
 		}
+		else
+		{
+			// If receive_details is set then this is the final iteration and we are back to the original chain.
+			// We need to confirm any blocks below the original hash (incl self) and the first receive block
+			// (if the original block is not already a receive)
+			if (receive_details)
+			{
+				current = hash_a;
+				receive_details = boost::none;
+			}
+		}
+
 		auto transaction (store.tx_begin_read ());
 		auto block_height (store.block_account_height (transaction, current));
 		nano::account account (store.block_account (transaction, current));
@@ -198,47 +210,7 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 		{
 			break;
 		}
-	} while (!receive_source_pairs.empty ());
-
-	// Now confirm the block that was originally passed in.
-	if (!error)
-	{
-		assert (pending_writes.empty ());
-		write_remaining_unconfirmed_non_receive_blocks (hash_a);
-	}
-}
-
-/*
- * This takes a block and confirms the blocks below it. It assumes that all other blocks below the first receive has already been confirmed.
- */
-void nano::confirmation_height_processor::write_remaining_unconfirmed_non_receive_blocks (nano::block_hash const & hash_a)
-{
-	auto transaction (store.tx_begin_read ());
-	auto block_height (store.block_account_height (transaction, hash_a));
-	nano::account_info account_info;
-	nano::account account (store.block_account (transaction, hash_a));
-	release_assert (!store.account_get (transaction, account, account_info));
-	auto confirmation_height = account_info.confirmation_height;
-
-	if (block_height > confirmation_height)
-	{
-		auto count_before_open_receive = receive_source_pairs.size ();
-		collect_unconfirmed_receive_and_sources_for_account (block_height, confirmation_height, hash_a, account, transaction);
-		auto confirmed_receives_pending = (count_before_open_receive != receive_source_pairs.size ());
-
-		// There should be no receive blocks left requiring confirmation for this account chain
-		release_assert (!confirmed_receives_pending);
-	}
-	auto num_blocks_confirmed = block_height - confirmation_height;
-	std::deque<conf_height_details> pending_writes;
-	pending_writes.emplace_back (account, hash_a, block_height, num_blocks_confirmed);
-
-	if (!pending_writes.empty ())
-	{
-		assert (pending_writes.size () == 1);
-		auto error = write_pending (pending_writes, num_blocks_confirmed);
-		assert (!error);
-	}
+	} while (!receive_source_pairs.empty () || current != hash_a);
 }
 
 /*
@@ -297,9 +269,6 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 	return false;
 }
 
-/*
- * This function assumes receive_source_pairs_lk is not already locked
- */
 void nano::confirmation_height_processor::collect_unconfirmed_receive_and_sources_for_account (uint64_t block_height, uint64_t confirmation_height, nano::block_hash const & current, nano::account const & account, nano::transaction & transaction)
 {
 	auto hash (current);

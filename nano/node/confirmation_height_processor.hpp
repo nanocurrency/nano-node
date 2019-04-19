@@ -80,7 +80,6 @@ private:
 	void add_confirmation_height (nano::block_hash const &);
 	void collect_unconfirmed_receive_and_sources_for_account (uint64_t, uint64_t, nano::block_hash const &, nano::account const &, nano::transaction &);
 	bool write_pending (std::deque<conf_height_details> &, int64_t);
-	void write_remaining_unconfirmed_non_receive_blocks (nano::block_hash const & hash_a);
 
 	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (confirmation_height_processor &, const std::string &);
 };
