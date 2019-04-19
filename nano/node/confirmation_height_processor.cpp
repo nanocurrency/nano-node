@@ -90,11 +90,11 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 	auto current = hash_a;
 	nano::account_info account_info;
 	std::deque<conf_height_details> pending_writes;
+	release_assert (receive_source_pairs_size == 0);
 
 	// Store the highest confirmation heights for accounts in pending_writes to reduce unnecessary iterating
 	std::unordered_map<account, uint64_t> confirmation_height_pending_write_cache;
 
-	std::unique_lock<std::mutex> receive_source_pairs_lk (receive_source_pairs_mutex);
 	release_assert (receive_source_pairs.empty ());
 	auto error = false;
 	// Traverse account chain and all sources for receive blocks iteratively
@@ -105,7 +105,6 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 			receive_details = receive_source_pairs.back ().receive_details;
 			current = receive_source_pairs.back ().source_hash;
 		}
-		receive_source_pairs_lk.unlock ();
 		auto transaction (store.tx_begin_read ());
 		auto block_height (store.block_account_height (transaction, current));
 		nano::account account (ledger.account (transaction, current));
@@ -118,10 +117,7 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 			confirmation_height = account_it->second;
 		}
 
-		receive_source_pairs_lk.lock ();
 		auto count_before_open_receive = receive_source_pairs.size ();
-		receive_source_pairs_lk.unlock ();
-
 		if (block_height > confirmation_height)
 		{
 			if ((block_height - confirmation_height) > 20000)
@@ -129,14 +125,12 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 				logger.always_log ("Iterating over a large account chain for setting confirmation height. The top block: ", current.to_string ());
 			}
 
-			collect_unconfirmed_receive_and_sources_for_account (block_height, confirmation_height, current, account, transaction, receive_source_pairs_lk);
+			collect_unconfirmed_receive_and_sources_for_account (block_height, confirmation_height, current, account, transaction);
 		}
 
 		// If this adds no more open_receive blocks, then we can now confirm this account as well as the linked open/receive block
 		// Collect as pending any writes to the database and do them in bulk after a certain time.
-		receive_source_pairs_lk.lock ();
 		auto confirmed_receives_pending = (count_before_open_receive != receive_source_pairs.size ());
-		receive_source_pairs_lk.unlock ();
 		if (!confirmed_receives_pending)
 		{
 			if (block_height > confirmation_height)
@@ -174,12 +168,12 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 				pending_writes.push_back (*receive_details);
 			}
 
-			receive_source_pairs_lk.lock ();
 			if (!receive_source_pairs.empty ())
 			{
+				// Pop from the end
 				receive_source_pairs.erase (receive_source_pairs.end () - 1);
+				--receive_source_pairs_size;
 			}
-			receive_source_pairs_lk.unlock ();
 		}
 
 		// Check whether writing to the database should be done now
@@ -187,15 +181,14 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 			return total += conf_height_details_a.num_blocks_confirmed;
 		});
 
-		receive_source_pairs_lk.lock ();
 		if ((total_pending_write_block_count >= batch_write_size || receive_source_pairs.empty ()) && !pending_writes.empty ())
 		{
-			receive_source_pairs_lk.unlock ();
 			error = write_pending (pending_writes, total_pending_write_block_count);
 			// Don't set any more blocks as confirmed from the original hash if an inconsistency is found
-			receive_source_pairs_lk.lock ();
 			if (error)
 			{
+				receive_source_pairs.clear ();
+				receive_source_pairs_size = 0;
 				break;
 			}
 			assert (pending_writes.empty ());
@@ -207,7 +200,6 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 			break;
 		}
 	} while (!receive_source_pairs.empty ());
-	receive_source_pairs_lk.unlock ();
 
 	// Now confirm the block that was originally passed in.
 	if (!error)
@@ -218,7 +210,7 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 }
 
 /*
- * This takes a block and confirms the blocks below it. It assumes that all other blocks below the first receive has already been confirmed. The receive_source_pairs_mutex should not be locked when this is called.
+ * This takes a block and confirms the blocks below it. It assumes that all other blocks below the first receive has already been confirmed.
  */
 void nano::confirmation_height_processor::write_remaining_unconfirmed_non_receive_blocks (nano::block_store & store, nano::block_hash const & hash_a)
 {
@@ -231,13 +223,9 @@ void nano::confirmation_height_processor::write_remaining_unconfirmed_non_receiv
 
 	if (block_height > confirmation_height)
 	{
-		std::unique_lock<std::mutex> receive_source_pairs_lk (receive_source_pairs_mutex);
 		auto count_before_open_receive = receive_source_pairs.size ();
-		receive_source_pairs_lk.unlock ();
-		collect_unconfirmed_receive_and_sources_for_account (block_height, confirmation_height, hash_a, account, transaction, receive_source_pairs_lk);
-		receive_source_pairs_lk.lock ();
+		collect_unconfirmed_receive_and_sources_for_account (block_height, confirmation_height, hash_a, account, transaction);
 		auto confirmed_receives_pending = (count_before_open_receive != receive_source_pairs.size ());
-		receive_source_pairs_lk.unlock ();
 
 		// There should be no receive blocks left requiring confirmation for this account chain
 		release_assert (!confirmed_receives_pending);
@@ -313,12 +301,10 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 /*
  * This function assumes receive_source_pairs_lk is not already locked
  */
-void nano::confirmation_height_processor::collect_unconfirmed_receive_and_sources_for_account (uint64_t block_height, uint64_t confirmation_height, nano::block_hash const & current, nano::account const & account, nano::transaction & transaction, std::unique_lock<std::mutex> & receive_source_pairs_lk)
+void nano::confirmation_height_processor::collect_unconfirmed_receive_and_sources_for_account (uint64_t block_height, uint64_t confirmation_height, nano::block_hash const & current, nano::account const & account, nano::transaction & transaction)
 {
 	auto hash (current);
 	auto num_to_confirm = block_height - confirmation_height;
-
-	std::vector<receive_source_pair> temp_receive_source_pairs;
 
 	// Store heights of blocks
 	constexpr auto height_not_set = std::numeric_limits<uint64_t>::max ();
@@ -341,10 +327,11 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 				// Set the height for the receive block above (if there is one)
 				if (next_height != height_not_set)
 				{
-					temp_receive_source_pairs.back ().receive_details.num_blocks_confirmed = next_height - sideband.height;
+					receive_source_pairs.back ().receive_details.num_blocks_confirmed = next_height - sideband.height;
 				}
 
-				temp_receive_source_pairs.emplace_back (conf_height_details{ account, hash, sideband.height, height_not_set }, source);
+				receive_source_pairs.emplace_back (conf_height_details{ account, hash, sideband.height, height_not_set }, source);
+				++receive_source_pairs_size;
 				next_height = sideband.height;
 			}
 
@@ -354,19 +341,10 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 	}
 
 	// Update the number of blocks confirmed by the last receive block
-	if (!temp_receive_source_pairs.empty ())
+	if (!receive_source_pairs.empty ())
 	{
-		temp_receive_source_pairs.back ().receive_details.num_blocks_confirmed = temp_receive_source_pairs.back ().receive_details.height - confirmation_height;
-		receive_source_pairs_lk.lock ();
-		receive_source_pairs.insert (receive_source_pairs.end (), std::make_move_iterator (temp_receive_source_pairs.begin ()), std::make_move_iterator (temp_receive_source_pairs.end ()));
-		receive_source_pairs_lk.unlock ();
+		receive_source_pairs.back ().receive_details.num_blocks_confirmed = receive_source_pairs.back ().receive_details.height - confirmation_height;
 	}
-}
-
-size_t nano::confirmation_height_processor::receive_source_pairs_size ()
-{
-	std::lock_guard<std::mutex> lk (receive_source_pairs_mutex);
-	return receive_source_pairs.size ();
 }
 
 namespace nano
@@ -387,7 +365,7 @@ source_hash (source_a)
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (confirmation_height_processor & confirmation_height_processor, const std::string & name)
 {
-	size_t receive_source_pairs_count = confirmation_height_processor.receive_source_pairs_size ();
+	size_t receive_source_pairs_count = confirmation_height_processor.receive_source_pairs_size;
 	auto composite = std::make_unique<seq_con_info_composite> (name);
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "receive_source_pairs", receive_source_pairs_count, sizeof (decltype (confirmation_height_processor.receive_source_pairs)::value_type) }));
 	return composite;
