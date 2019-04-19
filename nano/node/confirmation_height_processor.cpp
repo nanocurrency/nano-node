@@ -11,11 +11,12 @@
 #include <nano/secure/common.hpp>
 #include <numeric>
 
-nano::confirmation_height_processor::confirmation_height_processor (nano::pending_confirmation_height & pending_confirmation_height, nano::block_store & store, nano::stat & stats, nano::active_transactions & active, nano::logger_mt & logger) :
+nano::confirmation_height_processor::confirmation_height_processor (nano::pending_confirmation_height & pending_confirmation_height, nano::block_store & store, nano::stat & stats, nano::active_transactions & active, nano::block_hash const & epoch_link, nano::logger_mt & logger) :
 pending_confirmations (pending_confirmation_height),
 store (store),
 stats (stats),
 active (active),
+epoch_link (epoch_link),
 logger (logger),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::confirmation_height_processing);
@@ -290,7 +291,7 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 				source = block->link ();
 			}
 
-			if (store.source_exists (transaction, source))
+			if (!source.is_zero () && source != epoch_link && store.source_exists (transaction, source))
 			{
 				// Set the height for the receive block above (if there is one)
 				if (next_height != height_not_set)
