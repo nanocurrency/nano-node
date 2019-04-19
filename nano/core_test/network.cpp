@@ -1796,8 +1796,9 @@ TEST (confirmation_height, send_receive_self)
 	nano::receive_block receive2 (send3.hash (), send2.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send3.hash ()));
 	auto receive3 = std::make_shared<nano::receive_block> (receive2.hash (), send3.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (receive2.hash ()));
 
-	// Unpocketed send
-	nano::send_block send4 (receive3->hash (), nano::genesis_account, node->config.online_weight_minimum.number (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (receive3->hash ()));
+	// Send to another account to prevent automatic receiving on the genesis account
+	nano::keypair key1;
+	nano::send_block send4 (receive3->hash (), key1.pub, node->config.online_weight_minimum.number (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (receive3->hash ()));
 	{
 		auto transaction = node->store.tx_begin_write ();
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send1).code);
@@ -1828,7 +1829,7 @@ TEST (confirmation_height, send_receive_self)
 	nano::account_info account_info;
 	ASSERT_FALSE (node->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
 	ASSERT_EQ (7, account_info.confirmation_height);
-	ASSERT_LE (8, account_info.block_count);
+	ASSERT_EQ (8, account_info.block_count);
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), 6);
 }
 
