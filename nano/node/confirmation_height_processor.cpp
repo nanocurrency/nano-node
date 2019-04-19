@@ -11,13 +11,13 @@
 #include <nano/secure/common.hpp>
 #include <numeric>
 
-nano::confirmation_height_processor::confirmation_height_processor (nano::pending_confirmation_height & pending_confirmation_height, nano::block_store & store, nano::stat & stats, nano::active_transactions & active, nano::block_hash const & epoch_link, nano::logger_mt & logger) :
-pending_confirmations (pending_confirmation_height),
-store (store),
-stats (stats),
-active (active),
-epoch_link (epoch_link),
-logger (logger),
+nano::confirmation_height_processor::confirmation_height_processor (nano::pending_confirmation_height & pending_confirmation_height_a, nano::block_store & store_a, nano::stat & stats_a, nano::active_transactions & active_a, nano::block_hash const & epoch_link_a, nano::logger_mt & logger_a) :
+pending_confirmations (pending_confirmation_height_a),
+store (store_a),
+stats (stats_a),
+active (active_a),
+epoch_link (epoch_link_a),
+logger (logger_a),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::confirmation_height_processing);
 	this->run ();
@@ -217,7 +217,7 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 /*
  * Returns true if there was an error in finding one of the blocks to write a confirmation height for, false otherwise
  */
-bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_details> & all_pending, int64_t total_pending_write_block_count_a)
+bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_details> & all_pending_a, int64_t total_pending_write_block_count_a)
 {
 	nano::account_info account_info;
 	auto total_pending_write_block_count (total_pending_write_block_count_a);
@@ -227,9 +227,9 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 	{
 		uint64_t num_block_writes = 0;
 		auto transaction (store.tx_begin_write ());
-		while (!all_pending.empty ())
+		while (!all_pending_a.empty ())
 		{
-			const auto & pending = all_pending.front ();
+			const auto & pending = all_pending_a.front ();
 			auto error = store.account_get (transaction, pending.account, account_info);
 			release_assert (!error);
 			if (pending.height > account_info.confirmation_height)
@@ -258,7 +258,7 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 			}
 			total_pending_write_block_count -= pending.num_blocks_confirmed;
 			num_block_writes += pending.num_blocks_confirmed;
-			all_pending.erase (all_pending.begin ());
+			all_pending_a.erase (all_pending_a.begin ());
 
 			if (num_block_writes >= batch_write_size)
 			{
@@ -270,10 +270,10 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 	return false;
 }
 
-void nano::confirmation_height_processor::collect_unconfirmed_receive_and_sources_for_account (uint64_t block_height, uint64_t confirmation_height, nano::block_hash const & current, nano::account const & account, nano::transaction & transaction)
+void nano::confirmation_height_processor::collect_unconfirmed_receive_and_sources_for_account (uint64_t block_height_a, uint64_t confirmation_height_a, nano::block_hash const & hash_a, nano::account const & account_a, nano::transaction & transaction_a)
 {
-	auto hash (current);
-	auto num_to_confirm = block_height - confirmation_height;
+	auto hash (hash_a);
+	auto num_to_confirm = block_height_a - confirmation_height_a;
 
 	// Store heights of blocks
 	constexpr auto height_not_set = std::numeric_limits<uint64_t>::max ();
@@ -282,7 +282,7 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 	{
 		active.confirm_block (hash);
 		nano::block_sideband sideband;
-		auto block (store.block_get (transaction, hash, &sideband));
+		auto block (store.block_get (transaction_a, hash, &sideband));
 		if (block)
 		{
 			auto source (block->source ());
@@ -291,7 +291,7 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 				source = block->link ();
 			}
 
-			if (!source.is_zero () && source != epoch_link && store.source_exists (transaction, source))
+			if (!source.is_zero () && source != epoch_link && store.source_exists (transaction_a, source))
 			{
 				// Set the height for the receive block above (if there is one)
 				if (next_height != height_not_set)
@@ -299,7 +299,7 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 					receive_source_pairs.back ().receive_details.num_blocks_confirmed = next_height - sideband.height;
 				}
 
-				receive_source_pairs.emplace_back (conf_height_details{ account, hash, sideband.height, height_not_set }, source);
+				receive_source_pairs.emplace_back (conf_height_details{ account_a, hash, sideband.height, height_not_set }, source);
 				++receive_source_pairs_size;
 				next_height = sideband.height;
 			}
@@ -312,7 +312,7 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 	// Update the number of blocks confirmed by the last receive block
 	if (!receive_source_pairs.empty ())
 	{
-		receive_source_pairs.back ().receive_details.num_blocks_confirmed = receive_source_pairs.back ().receive_details.height - confirmation_height;
+		receive_source_pairs.back ().receive_details.num_blocks_confirmed = receive_source_pairs.back ().receive_details.height - confirmation_height_a;
 	}
 }
 
@@ -332,11 +332,11 @@ source_hash (source_a)
 {
 }
 
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (confirmation_height_processor & confirmation_height_processor, const std::string & name)
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (confirmation_height_processor & confirmation_height_processor_a, const std::string & name_a)
 {
-	size_t receive_source_pairs_count = confirmation_height_processor.receive_source_pairs_size;
-	auto composite = std::make_unique<seq_con_info_composite> (name);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "receive_source_pairs", receive_source_pairs_count, sizeof (decltype (confirmation_height_processor.receive_source_pairs)::value_type) }));
+	size_t receive_source_pairs_count = confirmation_height_processor_a.receive_source_pairs_size;
+	auto composite = std::make_unique<seq_con_info_composite> (name_a);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "receive_source_pairs", receive_source_pairs_count, sizeof (decltype (confirmation_height_processor_a.receive_source_pairs)::value_type) }));
 	return composite;
 }
 }
@@ -368,10 +368,10 @@ nano::block_hash nano::pending_confirmation_height::current ()
 
 namespace nano
 {
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (pending_confirmation_height & pending_confirmation_height, const std::string & name)
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (pending_confirmation_height & pending_confirmation_height_a, const std::string & name_a)
 {
-	size_t pending_count = pending_confirmation_height.size ();
-	auto composite = std::make_unique<seq_con_info_composite> (name);
+	size_t pending_count = pending_confirmation_height_a.size ();
+	auto composite = std::make_unique<seq_con_info_composite> (name_a);
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "pending", pending_count, sizeof (nano::block_hash) }));
 	return composite;
 }
