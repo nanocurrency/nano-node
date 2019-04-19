@@ -4623,6 +4623,79 @@ TEST (rpc, online_reps)
 	system.nodes[1]->stop ();
 }
 
+// If this test fails, try increasing the num_blocks.
+TEST (rpc, confirmation_height_currently_processing)
+{
+	// The chains should be longer than the	batch_write_size to test the amount of blocks confirmed is correct.
+	bool delay_frontier_confirmation_height_updating = true;
+	nano::system system (24000, 1, delay_frontier_confirmation_height_updating);
+	auto node = system.nodes.front ();
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+
+	// Do enough blocks to reliably call RPC before the confirmation height has finished
+	constexpr auto num_blocks = 500;
+	auto previous_genesis_chain_hash = node->latest (nano::test_genesis_key.pub);
+	{
+		auto transaction = node->store.tx_begin_write ();
+		for (auto i = num_blocks; i > 0; --i)
+		{
+			nano::send_block send (previous_genesis_chain_hash, nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio + i + 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous_genesis_chain_hash));
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
+			previous_genesis_chain_hash = send.hash ();
+		}
+	}
+
+	std::shared_ptr<nano::block> frontier;
+	{
+		auto transaction = node->store.tx_begin_read ();
+		frontier = node->store.block_get (transaction, previous_genesis_chain_hash);
+	}
+
+	nano::rpc rpc (system.io_ctx, *node, nano::rpc_config (true));
+	rpc.start ();
+
+	// Begin process for confirming the block (and setting confirmation height)
+	node->block_confirm (frontier);
+
+	boost::property_tree::ptree request;
+	request.put ("action", "confirmation_height_currently_processing");
+	test_response response (request, rpc, system.io_ctx);
+	system.deadline_set (10s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+	auto hash (response.json.get<std::string> ("hash"));
+	ASSERT_EQ (frontier->hash ().to_string (), hash);
+
+	// Wait until confirmation has been set
+	system.deadline_set (10s);
+	while (true)
+	{
+		auto transaction = node->store.tx_begin_read ();
+		if (node->ledger.block_confirmed (transaction, frontier->hash ()))
+		{
+			break;
+		}
+
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	// Make the same request, it should now return an error
+	{
+		test_response response (request, rpc, system.io_ctx);
+		system.deadline_set (10s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		std::error_code ec (nano::error_rpc::confirmation_height_not_processing);
+		ASSERT_EQ (response.json.get<std::string> ("error"), ec.message ());
+	}
+}
+
 TEST (rpc, confirmation_history)
 {
 	nano::system system (24000, 1);

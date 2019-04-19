@@ -1511,6 +1511,24 @@ void nano::rpc_handler::confirmation_active ()
 	response_errors ();
 }
 
+void nano::rpc_handler::confirmation_height_currently_processing ()
+{
+	rpc_control_impl ();
+	if (!ec)
+	{
+		auto hash = node.pending_confirmation_height.current ();
+		if (!hash.is_zero ())
+		{
+			response_l.put ("hash", node.pending_confirmation_height.current ().to_string ());
+		}
+		else
+		{
+			ec = nano::error_rpc::confirmation_height_not_processing;
+		}
+	}
+	response_errors ();
+}
+
 void nano::rpc_handler::confirmation_history ()
 {
 	boost::property_tree::ptree elections;
@@ -4557,6 +4575,7 @@ rpc_handler_no_arg_func_map create_rpc_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("delegators_count", &nano::rpc_handler::delegators_count);
 	no_arg_funcs.emplace ("deterministic_key", &nano::rpc_handler::deterministic_key);
 	no_arg_funcs.emplace ("confirmation_active", &nano::rpc_handler::confirmation_active);
+	no_arg_funcs.emplace ("confirmation_height_currently_processing", &nano::rpc_handler::confirmation_height_currently_processing);
 	no_arg_funcs.emplace ("confirmation_history", &nano::rpc_handler::confirmation_history);
 	no_arg_funcs.emplace ("confirmation_info", &nano::rpc_handler::confirmation_info);
 	no_arg_funcs.emplace ("confirmation_quorum", &nano::rpc_handler::confirmation_quorum);

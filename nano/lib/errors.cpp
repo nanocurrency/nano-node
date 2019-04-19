@@ -146,6 +146,8 @@ std::string nano::error_rpc_messages::message (int ev) const
 			return "Representative account and previous hash required";
 		case nano::error_rpc::block_create_requirements_send:
 			return "Destination account, previous hash, current balance and amount required";
+		case nano::error_rpc::confirmation_height_not_processing:
+			return "There are no blocks currently being processed for adding confirmation height";
 		case nano::error_rpc::confirmation_not_found:
 			return "Active confirmation not found";
 		case nano::error_rpc::difficulty_limit:
