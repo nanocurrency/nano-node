@@ -1732,7 +1732,8 @@ TEST (confirmation_height, send_receive_between_2_accounts)
 	nano::send_block send5 (receive3.hash (), key1.pub, node->config.online_weight_minimum.number () + 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (receive3.hash ()));
 	auto receive4 = std::make_shared<nano::receive_block> (send4.hash (), send5.hash (), key1.prv, key1.pub, system.work.generate (send4.hash ()));
 	// Unpocketed send
-	nano::send_block send6 (send5.hash (), key1.pub, node->config.online_weight_minimum.number (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send5.hash ()));
+	nano::keypair key2;
+	nano::send_block send6 (send5.hash (), key2.pub, node->config.online_weight_minimum.number (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send5.hash ()));
 	{
 		auto transaction = node->store.tx_begin_write ();
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send1).code);

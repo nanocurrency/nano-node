@@ -4623,7 +4623,7 @@ TEST (rpc, online_reps)
 	system.nodes[1]->stop ();
 }
 
-// If this test fails, try increasing the num_blocks.
+// If this test fails, try increasing the num_blocks size.
 TEST (rpc, confirmation_height_currently_processing)
 {
 	// The chains should be longer than the	batch_write_size to test the amount of blocks confirmed is correct.
@@ -4659,15 +4659,25 @@ TEST (rpc, confirmation_height_currently_processing)
 
 	boost::property_tree::ptree request;
 	request.put ("action", "confirmation_height_currently_processing");
-	test_response response (request, rpc, system.io_ctx);
+
 	system.deadline_set (10s);
-	while (response.status == 0)
+	while (!node->pending_confirmation_height.is_processing_block (previous_genesis_chain_hash))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (200, response.status);
-	auto hash (response.json.get<std::string> ("hash"));
-	ASSERT_EQ (frontier->hash ().to_string (), hash);
+
+	// Make the request
+	{
+		test_response response (request, rpc, system.io_ctx);
+		system.deadline_set (10s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		auto hash (response.json.get<std::string> ("hash"));
+		ASSERT_EQ (frontier->hash ().to_string (), hash);
+	}
 
 	// Wait until confirmation has been set
 	system.deadline_set (10s);
