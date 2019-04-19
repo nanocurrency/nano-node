@@ -1041,7 +1041,7 @@ online_reps (*this, config.online_weight_minimum.number ()),
 stats (config.stat_config),
 vote_uniquer (block_uniquer),
 active (*this, delay_frontier_confirmation_height_updating),
-confirmation_height_processor (pending_confirmation_height, store, ledger, active, logger),
+confirmation_height_processor (pending_confirmation_height, store, ledger.stats, active, logger),
 startup_time (std::chrono::steady_clock::now ())
 {
 	if (config.websocket_config.enabled)

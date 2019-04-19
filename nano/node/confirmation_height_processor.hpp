@@ -4,15 +4,13 @@
 #include <mutex>
 #include <nano/lib/numbers.hpp>
 #include <nano/secure/common.hpp>
-#include <queue>
-#include <stack>
 #include <thread>
 #include <unordered_set>
 
 namespace nano
 {
 class block_store;
-class ledger;
+class stat;
 class active_transactions;
 class transaction;
 class logger_mt;
@@ -22,6 +20,7 @@ class pending_confirmation_height
 public:
 	size_t size ();
 	bool is_processing_block (nano::block_hash const &);
+	nano::block_hash current ();
 
 private:
 	std::mutex mutex;
@@ -36,7 +35,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (pending_confirmati
 class confirmation_height_processor final
 {
 public:
-	confirmation_height_processor (pending_confirmation_height &, nano::block_store &, nano::ledger &, nano::active_transactions &, nano::logger_mt &);
+	confirmation_height_processor (pending_confirmation_height &, nano::block_store &, nano::stat &, nano::active_transactions &, nano::logger_mt &);
 	~confirmation_height_processor ();
 	void add (nano::block_hash const &);
 	void stop ();
@@ -70,7 +69,7 @@ private:
 	nano::pending_confirmation_height & pending_confirmations;
 	std::atomic<bool> stopped{ false };
 	nano::block_store & store;
-	nano::ledger & ledger;
+	nano::stat & stats;
 	nano::active_transactions & active;
 	nano::logger_mt & logger;
 	std::atomic<uint64_t> receive_source_pairs_size{ 0 };
@@ -81,7 +80,7 @@ private:
 	void add_confirmation_height (nano::block_hash const &);
 	void collect_unconfirmed_receive_and_sources_for_account (uint64_t, uint64_t, nano::block_hash const &, nano::account const &, nano::transaction &);
 	bool write_pending (std::deque<conf_height_details> &, int64_t);
-	void write_remaining_unconfirmed_non_receive_blocks (nano::block_store & store, nano::block_hash const & hash_a);
+	void write_remaining_unconfirmed_non_receive_blocks (nano::block_hash const & hash_a);
 
 	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (confirmation_height_processor &, const std::string &);
 };

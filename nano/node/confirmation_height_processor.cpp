@@ -9,13 +9,12 @@
 #include <nano/node/stats.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
-#include <nano/secure/ledger.hpp>
 #include <numeric>
 
-nano::confirmation_height_processor::confirmation_height_processor (nano::pending_confirmation_height & pending_confirmation_height, nano::block_store & store, nano::ledger & ledger, nano::active_transactions & active, nano::logger_mt & logger) :
+nano::confirmation_height_processor::confirmation_height_processor (nano::pending_confirmation_height & pending_confirmation_height, nano::block_store & store, nano::stat & stats, nano::active_transactions & active, nano::logger_mt & logger) :
 pending_confirmations (pending_confirmation_height),
 store (store),
-ledger (ledger),
+stats (stats),
 active (active),
 logger (logger),
 thread ([this]() {
@@ -107,7 +106,7 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 		}
 		auto transaction (store.tx_begin_read ());
 		auto block_height (store.block_account_height (transaction, current));
-		nano::account account (ledger.account (transaction, current));
+		nano::account account (store.block_account (transaction, current));
 		release_assert (!store.account_get (transaction, account, account_info));
 		auto confirmation_height = account_info.confirmation_height;
 
@@ -205,19 +204,19 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 	if (!error)
 	{
 		assert (pending_writes.empty ());
-		write_remaining_unconfirmed_non_receive_blocks (store, hash_a);
+		write_remaining_unconfirmed_non_receive_blocks (hash_a);
 	}
 }
 
 /*
  * This takes a block and confirms the blocks below it. It assumes that all other blocks below the first receive has already been confirmed.
  */
-void nano::confirmation_height_processor::write_remaining_unconfirmed_non_receive_blocks (nano::block_store & store, nano::block_hash const & hash_a)
+void nano::confirmation_height_processor::write_remaining_unconfirmed_non_receive_blocks (nano::block_hash const & hash_a)
 {
 	auto transaction (store.tx_begin_read ());
 	auto block_height (store.block_account_height (transaction, hash_a));
 	nano::account_info account_info;
-	nano::account account (ledger.account (transaction, hash_a));
+	nano::account account (store.block_account (transaction, hash_a));
 	release_assert (!store.account_get (transaction, account, account_info));
 	auto confirmation_height = account_info.confirmation_height;
 
@@ -275,11 +274,11 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 				if (!block)
 				{
 					logger.always_log ("Failed to write confirmation height for: ", pending.hash.to_string ());
-					ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
+					stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
 					return true;
 				}
 
-				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - account_info.confirmation_height);
+				stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - account_info.confirmation_height);
 				assert (pending.num_blocks_confirmed == pending.height - account_info.confirmation_height);
 				account_info.confirmation_height = pending.height;
 				store.account_put (transaction, pending.account, account_info);
@@ -389,6 +388,12 @@ bool nano::pending_confirmation_height::is_processing_block (nano::block_hash co
 
 	// Check remaining pending confirmations
 	return pending.find (hash_a) != pending.cend ();
+}
+
+nano::block_hash nano::pending_confirmation_height::current ()
+{
+	std::lock_guard<std::mutex> lk (mutex);
+	return current_hash;
 }
 
 namespace nano
