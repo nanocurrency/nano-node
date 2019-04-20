@@ -4674,27 +4674,26 @@ void construct_json (nano::seq_con_info_component * component, boost::property_t
 	parent.add_child (composite->get_name (), current);
 }
 
-/* Due to the asynchronous nature of updating confirmation heights, it can also be necessary to check active roots */
+/** Due to the asynchronous nature of updating confirmation heights, it can also be necessary to check active roots */
 bool block_confirmed (nano::node & node, nano::transaction & transaction, nano::block_hash const & hash, bool include_active, bool include_only_confirmed)
 {
+	bool is_confirmed = false;
 	if (include_active && !include_only_confirmed)
 	{
-		return true;
+		is_confirmed = true;
 	}
-
 	// Check whether the confirmation height is set
-	if (node.block_confirmed_or_being_confirmed (transaction, hash))
+	else if (node.block_confirmed_or_being_confirmed (transaction, hash))
 	{
-		return true;
+		is_confirmed = true;
 	}
-
 	// This just checks it's not currently undergoing an active transaction
-	if (!include_only_confirmed)
+	else if (!include_only_confirmed)
 	{
 		auto block (node.store.block_get (transaction, hash));
-		return (block != nullptr && !node.active.active (*block));
+		is_confirmed = (block != nullptr && !node.active.active (*block));
 	}
 
-	return false;
+	return is_confirmed;
 }
 }
