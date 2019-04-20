@@ -3079,7 +3079,6 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 		}
 		roots.erase (*i);
 	}
-	update_active_difficulty ();
 	if (unconfirmed_count > 0)
 	{
 		node.logger.try_log (boost::str (boost::format ("%1% blocks have been unconfirmed averaging %2% announcements") % unconfirmed_count % (unconfirmed_announcements / unconfirmed_count)));
@@ -3098,7 +3097,7 @@ void nano::active_transactions::request_loop ()
 	while (!stopped)
 	{
 		request_confirm (lock);
-
+		update_active_difficulty (lock);
 		// This prevents unnecessary waiting if stopped is set in-between the above check and now
 		if (stopped)
 		{
@@ -3306,9 +3305,8 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 	}
 }
 
-void nano::active_transactions::update_active_difficulty ()
+void nano::active_transactions::update_active_difficulty (std::unique_lock<std::mutex> & lock_a)
 {
-	assert (!mutex.try_lock ());
 	uint64_t difficulty (node.network_params.network.publish_threshold);
 	if (!roots.empty ())
 	{
@@ -3320,10 +3318,16 @@ void nano::active_transactions::update_active_difficulty ()
 	}
 	assert (difficulty >= node.network_params.network.publish_threshold);
 	difficulty_cb.push_front (difficulty);
-	auto sum = std::accumulate (node.active.difficulty_cb.begin (), node.active.difficulty_cb.end (), uint128_t (0));
+	auto sum (std::accumulate (node.active.difficulty_cb.begin (), node.active.difficulty_cb.end (), uint128_t (0)));
 	difficulty = static_cast<uint64_t> (sum / difficulty_cb.size ());
 	assert (difficulty >= node.network_params.network.publish_threshold);
-	active_difficulty.store (difficulty);
+	atomic_active_difficulty.store (difficulty);
+}
+
+uint64_t nano::active_transactions::active_difficulty ()
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	return atomic_active_difficulty.load ();
 }
 
 // List of active blocks in elections
@@ -3373,7 +3377,7 @@ size_t nano::active_transactions::size ()
 nano::active_transactions::active_transactions (nano::node & node_a, bool delay_frontier_confirmation_height_updating) :
 node (node_a),
 difficulty_cb (20, node.network_params.network.publish_threshold),
-active_difficulty (node.network_params.network.publish_threshold),
+atomic_active_difficulty (node.network_params.network.publish_threshold),
 next_frontier_check (std::chrono::steady_clock::now () + (delay_frontier_confirmation_height_updating ? std::chrono::seconds (60) : std::chrono::seconds (0))),
 started (false),
 stopped (false),

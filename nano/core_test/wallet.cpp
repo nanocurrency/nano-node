@@ -1047,10 +1047,10 @@ TEST (wallet, update_work_action)
 	{
 		node.active.difficulty_cb.push_back (difficulty1 + 10000);
 	}
-	node.active.update_active_difficulty ();
+	node.active.update_active_difficulty (lock);
 	lock.unlock ();
 
-	auto active_difficulty1 (node.active.active_difficulty.load ());
+	auto active_difficulty1 (node.active.active_difficulty ());
 	//active_difficulty1 after filling difficulty_cb with difficulty1 +10000 is greater than difficulty1
 	ASSERT_GT (active_difficulty1, difficulty1);
 

@@ -113,7 +113,8 @@ public:
 	bool active (nano::block const &);
 	void update_difficulty (nano::block const &);
 	void adjust_difficulty (nano::block_hash const &);
-	void update_active_difficulty ();
+	void update_active_difficulty (std::unique_lock<std::mutex> &);
+	uint64_t active_difficulty ();
 	std::deque<std::shared_ptr<nano::block>> list_blocks (bool = false);
 	void erase (nano::block const &);
 	bool empty ();
@@ -144,7 +145,7 @@ public:
 	static size_t constexpr election_history_size = 2048;
 	static size_t constexpr max_broadcast_queue = 1000;
 	boost::circular_buffer<uint64_t> difficulty_cb;
-	std::atomic<uint64_t> active_difficulty;
+	std::atomic<uint64_t> atomic_active_difficulty;
 
 private:
 	// Call action with confirmed block, may be different than what we started with

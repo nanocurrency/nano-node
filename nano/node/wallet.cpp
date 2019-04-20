@@ -1446,7 +1446,7 @@ std::shared_ptr<nano::wallet> nano::wallets::create (nano::uint256_union const &
 std::shared_ptr<nano::block> nano::wallets::update_work_action (std::shared_ptr<nano::block> const & block_a) const
 {
 	assert (block_a->type () == nano::block_type::state);
-	auto const active_difficulty1 (node.active.active_difficulty.load ());
+	auto const active_difficulty1 (node.active.active_difficulty ());
 	auto state = std::dynamic_pointer_cast<nano::state_block> (block_a);
 	uint64_t generated_work;
 	if (state->previous () == 0)
@@ -1589,7 +1589,7 @@ void nano::wallets::do_work_regeneration ()
 				lock.unlock ();
 				uint64_t difficulty (0);
 				nano::work_validate (*block, &difficulty);
-				if (!confirmed && node.active.active_difficulty.load () > difficulty)
+				if (!confirmed && node.active.active_difficulty () > difficulty)
 				{
 					block_l = update_work_action (block);
 				}
