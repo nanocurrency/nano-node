@@ -90,7 +90,7 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 	auto current = hash_a;
 	nano::account_info account_info;
 	std::deque<conf_height_details> pending_writes;
-	release_assert (receive_source_pairs_size == 0);
+	assert (receive_source_pairs_size == 0);
 
 	// Store the highest confirmation heights for accounts in pending_writes to reduce unnecessary iterating
 	std::unordered_map<account, uint64_t> confirmation_height_pending_write_cache;
