@@ -1135,11 +1135,7 @@ void nano::wallet::change_async (nano::account const & source_a, nano::account c
 	wallets.node.wallets.queue_wallet_action (nano::wallets::high_priority, this_l, [this_l, source_a, representative_a, action_a, work_a, generate_work_a](nano::wallet & wallet_a) {
 		auto block (wallet_a.change_action (source_a, representative_a, work_a, generate_work_a));
 		action_a (block);
-		std::shared_ptr<nano::block> const empty;
-		if (block != empty)
-		{
-			this_l->wallets.queue_work_regeneration (std::chrono::steady_clock::now (), block);
-		}
+		this_l->wallets.queue_work_regeneration (std::chrono::steady_clock::now (), block);
 	});
 }
 
@@ -1162,11 +1158,7 @@ void nano::wallet::receive_async (std::shared_ptr<nano::block> block_a, nano::ac
 	wallets.node.wallets.queue_wallet_action (amount_a, this_l, [this_l, block_a, representative_a, amount_a, action_a, work_a, generate_work_a](nano::wallet & wallet_a) {
 		auto block (wallet_a.receive_action (*block_a, representative_a, amount_a, work_a, generate_work_a));
 		action_a (block);
-		std::shared_ptr<nano::block> const empty;
-		if (block != empty)
-		{
-			this_l->wallets.queue_work_regeneration (std::chrono::steady_clock::now (), block);
-		}
+		this_l->wallets.queue_work_regeneration (std::chrono::steady_clock::now (), block);
 	});
 }
 
@@ -1189,11 +1181,7 @@ void nano::wallet::send_async (nano::account const & source_a, nano::account con
 	wallets.node.wallets.queue_wallet_action (nano::wallets::high_priority, this_l, [this_l, source_a, account_a, amount_a, action_a, work_a, generate_work_a, id_a](nano::wallet & wallet_a) {
 		auto block (wallet_a.send_action (source_a, account_a, amount_a, work_a, generate_work_a, id_a));
 		action_a (block);
-		std::shared_ptr<nano::block> const empty;
-		if (block != empty)
-		{
-			this_l->wallets.queue_work_regeneration (std::chrono::steady_clock::now (), block);
-		}
+		this_l->wallets.queue_work_regeneration (std::chrono::steady_clock::now (), block);
 	});
 }
 
@@ -1460,12 +1448,21 @@ std::shared_ptr<nano::block> nano::wallets::update_work_action (std::shared_ptr<
 	assert (block_a->type () == nano::block_type::state);
 	auto const active_difficulty1 (node.active.active_difficulty.load ());
 	auto state = std::dynamic_pointer_cast<nano::state_block> (block_a);
+	uint64_t generated_work;
+	if (state->previous () == 0)
+	{
+		generated_work = node.work_generate_blocking (state->account (), active_difficulty1);
+	}
+	else
+	{
+		generated_work = node.work_generate_blocking (state->previous (), active_difficulty1);
+	}
 	nano::block_builder builder;
 	std::error_code ec;
 	std::shared_ptr<nano::block> block_l = builder
 	                                       .state ()
 	                                       .from (*state.get ())
-	                                       .work (node.work_generate_blocking (state->previous (), active_difficulty1))
+	                                       .work (generated_work)
 	                                       .build (ec);
 	if (ec)
 	{
@@ -1568,6 +1565,10 @@ void nano::wallets::do_work_regeneration ()
 			bool confirmed (false);
 			difficulty_reque.erase (first);
 			regeneration_lock.unlock ();
+			if (!block)
+			{
+				return;
+			}
 			auto online = node.rep_crawler.total_weight () > (std::max (node.config.online_weight_minimum.number (), node.delta ()));
 
 			if (((now - queued) >= node.config.work_recalc_interval && online) || node.network_params.network.is_test_network ())
@@ -1576,11 +1577,13 @@ void nano::wallets::do_work_regeneration ()
 				auto existing (node.active.roots.find (block->qualified_root ()));
 				if (node.active.roots.end () != existing)
 				{
+					//block may not be in existing yet
 					confirmed = existing->election->confirmed.load ();
 				}
 				else
 				{
 					auto transaction (node.store.tx_begin_read ());
+					//and so we fall back to ledger confirmation
 					confirmed = node.ledger.block_confirmed (transaction, block->hash ());
 				}
 				lock.unlock ();
@@ -1591,6 +1594,7 @@ void nano::wallets::do_work_regeneration ()
 					block_l = update_work_action (block);
 				}
 				if (!confirmed)
+				// block could have confirmed while recalculating work with higher difficulty
 				{
 					if (block != block_l)
 					{
@@ -1613,6 +1617,7 @@ void nano::wallets::do_work_regeneration ()
 				}
 			}
 			if (!confirmed)
+			// dont reque if confirmed
 			{
 				queue_work_regeneration (now, block_l);
 			}
@@ -1736,6 +1741,10 @@ void nano::wallets::stop ()
 	if (thread.joinable ())
 	{
 		thread.join ();
+	}
+	if (difficulty_recalc_thread.joinable ())
+	{
+		difficulty_recalc_thread.join ();
 	}
 }
 

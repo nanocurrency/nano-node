@@ -1056,12 +1056,17 @@ TEST (wallet, update_work_action)
 
 	system.deadline_set (10s);
 	auto updated (false);
+	uint64_t updated_difficulty;
 	while (!updated)
 	{
 		lock.lock ();
 		auto const existing (node.active.roots.find (block->qualified_root ()));
-		updated = existing->difficulty == difficulty1;
+		updated = existing->difficulty != difficulty1;
+		updated_difficulty = existing->difficulty;
 		lock.unlock ();
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	lock.lock ();
+	ASSERT_GT (updated_difficulty, difficulty1);
+	lock.unlock ();
 }
