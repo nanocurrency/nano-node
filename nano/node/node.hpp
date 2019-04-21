@@ -4,7 +4,9 @@
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap.hpp>
 #include <nano/node/logging.hpp>
+#include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/payment_observer_processor.hpp>
 #include <nano/node/portmapping.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/signatures.hpp>
@@ -371,18 +373,6 @@ public:
 	bool wallets_store_init{ false };
 	bool wallet_init{ false };
 };
-class node_observers final
-{
-public:
-	nano::observer_set<std::shared_ptr<nano::block>, nano::account const &, nano::uint128_t const &, bool> blocks;
-	nano::observer_set<bool> wallet;
-	nano::observer_set<nano::transaction const &, std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>> vote;
-	nano::observer_set<nano::account const &, bool> account_balance;
-	nano::observer_set<std::shared_ptr<nano::transport::channel>> endpoint;
-	nano::observer_set<> disconnect;
-};
-
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (node_observers & node_observers, const std::string & name);
 
 class vote_processor final
 {
@@ -506,6 +496,7 @@ public:
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer;
 	nano::active_transactions active;
+	nano::payment_observer_processor payment_observer_processor;
 	const std::chrono::steady_clock::time_point startup_time;
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
 	static double constexpr price_max = 16.0;

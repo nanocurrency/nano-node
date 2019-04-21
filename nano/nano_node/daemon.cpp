@@ -5,7 +5,19 @@
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/ipc.hpp>
+#include <nano/node/json_handler.hpp>
+#include <nano/node/node.hpp>
+#include <nano/node/openclwork.hpp>
 #include <nano/node/working.hpp>
+#include <nano/rpc/rpc.hpp>
+
+#ifndef BOOST_PROCESS_SUPPORTED
+#error BOOST_PROCESS_SUPPORTED must be set, check configuration
+#endif
+
+#if BOOST_PROCESS_SUPPORTED
+#include <boost/process.hpp>
+#endif
 
 void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::node_flags const & flags)
 {
@@ -13,7 +25,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 	boost::system::error_code error_chmod;
 	nano::set_secure_perm_directory (data_path, error_chmod);
 	std::unique_ptr<nano::thread_runner> runner;
-	nano::daemon_config config;
+	nano::daemon_config config (data_path);
 	auto error = nano::read_and_update_daemon_config (data_path, config);
 
 	if (!error)
@@ -33,14 +45,57 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 			if (!init.error ())
 			{
 				node->start ();
-				std::unique_ptr<nano::rpc> rpc = get_rpc (io_ctx, *node, config.rpc);
-				if (rpc)
+				nano::ipc::ipc_server ipc_server (*node, config.rpc);
+#if BOOST_PROCESS_SUPPORTED
+				std::unique_ptr<boost::process::child> rpc_process;
+#endif
+				std::unique_ptr<std::thread> rpc_process_thread;
+				std::unique_ptr<nano::rpc> rpc;
+				std::unique_ptr<nano::rpc_handler_interface> rpc_handler;
+				if (config.rpc_enable)
 				{
-					rpc->start (config.rpc_enable);
+					if (config.rpc.rpc_in_process)
+					{
+						nano::rpc_config rpc_config;
+						auto error = nano::read_and_update_rpc_config (data_path, rpc_config);
+						if (error)
+						{
+							throw std::runtime_error ("Could not deserialize rpc_config file");
+						}
+						rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, config.rpc, [&ipc_server]() {
+							ipc_server.stop ();
+						});
+						rpc = nano::get_rpc (io_ctx, rpc_config, *rpc_handler);
+						rpc->start ();
+					}
+					else
+					{
+#if BOOST_PROCESS_SUPPORTED
+						rpc_process = std::make_unique<boost::process::child> (config.rpc.rpc_path, "--daemon");
+#else
+						auto rpc_exe_command = boost::str (boost::format ("%1% %2%") % config.rpc.rpc_path % "--daemon");
+						rpc_process_thread = std::make_unique<std::thread> ([ rpc_exe_command, &logger = node->logger ]() {
+							nano::thread_role::set (nano::thread_role::name::rpc_process_container);
+							std::system (rpc_exe_command.c_str ());
+							logger.always_log ("RPC server has stopped");
+						});
+#endif
+					}
 				}
-				nano::ipc::ipc_server ipc (*node, *rpc);
+
 				runner = std::make_unique<nano::thread_runner> (io_ctx, node->config.io_threads);
 				runner->join ();
+#if BOOST_PROCESS_SUPPORTED
+				if (rpc_process)
+				{
+					rpc_process->wait ();
+				}
+#else
+				if (rpc_process_thread)
+				{
+					rpc_process_thread->join ();
+				}
+#endif
 			}
 			else
 			{

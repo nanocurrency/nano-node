@@ -12,47 +12,58 @@ endif ()
 
 add_library (node
 	${platform_sources}
-	${secure_rpc_sources}
-	blockprocessor.cpp
 	blockprocessor.hpp
-	bootstrap.cpp
+	blockprocessor.cpp
 	bootstrap.hpp
+	bootstrap.cpp
 	cli.hpp
 	cli.cpp
-	common.cpp
 	common.hpp
-	daemonconfig.hpp
+	common.cpp
 	daemonconfig.cpp
+	daemonconfig.hpp
 	ipc.hpp
 	ipc.cpp
 	ipcconfig.hpp
 	ipcconfig.cpp
-	lmdb.cpp
+	json_handler.hpp
+	json_handler.cpp
+	json_payment_observer.hpp	
+	json_payment_observer.cpp
 	lmdb.hpp
-	logging.cpp
+	lmdb.cpp
 	logging.hpp
+	logging.cpp
 	nodeconfig.hpp
 	nodeconfig.cpp
+	node_observers.hpp
+	node_observers.cpp
+	node_rpc_config.hpp
+	node_rpc_config.cpp
 	node.hpp
 	node.cpp
-	openclwork.cpp
+	openclconfig.hpp
+	openclconfig.cpp
 	openclwork.hpp
+	openclwork.cpp
+	payment_observer_processor.hpp
+	payment_observer_processor.cpp
 	portmapping.hpp
 	portmapping.cpp
 	repcrawler.hpp
 	repcrawler.cpp
 	testing.hpp
 	testing.cpp
-	transport/tcp.cpp
 	transport/tcp.hpp
-	transport/transport.cpp
+	transport/tcp.cpp
 	transport/transport.hpp
-	transport/udp.cpp
+	transport/transport.cpp
 	transport/udp.hpp
-	signatures.cpp
+	transport/udp.cpp
 	signatures.hpp
-	stats.cpp
+	signatures.cpp
 	stats.hpp
+	stats.cpp
 	voting.hpp
 	voting.cpp
 	wallet.hpp
@@ -65,13 +76,12 @@ add_library (node
 	xorshift.hpp)
 
 target_link_libraries (node
+	rpc
 	secure
 	nano_lib
-	rpc
 	libminiupnpc-static
 	argon2
 	lmdb
-	${OPENSSL_LIBRARIES}
 	Boost::filesystem
 	Boost::log
 	Boost::log_setup

@@ -18,6 +18,7 @@
 #include <nano/lib/numbers.hpp>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -36,6 +37,8 @@ namespace websocket
 		ack,
 		/** A confirmation message */
 		confirmation,
+		/** A vote message **/
+		vote,
 		/** Auxiliary length, not a valid topic, must be the last enum */
 		_length
 	};
@@ -54,7 +57,7 @@ namespace websocket
 		{
 		}
 
-		std::string to_string ();
+		std::string to_string () const;
 		nano::websocket::topic topic;
 		boost::property_tree::ptree contents;
 	};
@@ -64,6 +67,77 @@ namespace websocket
 	{
 	public:
 		message block_confirmed (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype);
+		message vote_received (std::shared_ptr<nano::vote> vote_a);
+
+	private:
+		/** Set the common fields for messages: timestamp and topic. */
+		void set_common_fields (message & message_a);
+	};
+
+	/** Filtering options for subscriptions */
+	class options
+	{
+	public:
+		/**
+		 * Checks if a message should be filtered for default options (no options given).
+		 * @param message_a the message to be checked
+		 * @return false - the message should always be broadcasted
+		 */
+		virtual bool should_filter (message const & message_a) const
+		{
+			return false;
+		}
+		virtual ~options () = default;
+	};
+
+	/**
+	 * Filtering options for block confirmation subscriptions
+	 * Possible filtering options:
+	 * * "all_local_accounts" (bool) - will only not filter blocks that have local wallet accounts as source/destination
+	 * * "accounts" (array of std::strings) - will only not filter blocks that have these accounts as source/destination
+	 * @remark Both options can be given, the resulting filter is an intersection of individual filters
+	 * @warn Legacy blocks are always filtered (not broadcasted)
+	 */
+	class confirmation_options final : public options
+	{
+	public:
+		confirmation_options ();
+		confirmation_options (boost::property_tree::ptree const & options_a, nano::node & node_a);
+
+		/**
+		 * Checks if a message should be filtered for given block confirmation options.
+		 * @param message_a the message to be checked
+		 * @return false if the message should be broadcasted, true if it should be filtered
+		 */
+		bool should_filter (message const & message_a) const override;
+
+	private:
+		nano::node & node;
+		bool all_local_accounts{ false };
+		std::unordered_set<std::string> accounts;
+	};
+
+	/**
+	 * Filtering options for vote subscriptions
+	 * Possible filtering options:
+	 * * "representatives" (array of std::strings) - will only broadcast votes from these representatives
+	 */
+	class vote_options final : public options
+	{
+	public:
+		vote_options ();
+		vote_options (boost::property_tree::ptree const & options_a, nano::node & node_a);
+
+		/**
+		 * Checks if a message should be filtered for given vote received options.
+		 * @param message_a the message to be checked
+		 * @return false if the message should be broadcasted, true if it should be filtered
+		 */
+		bool should_filter (message const & message_a) const override;
+
+	private:
+		nano::node & node;
+		std::unordered_set<std::string> representatives;
 	};
 
 	/** A websocket session managing its own lifetime */
@@ -109,11 +183,8 @@ namespace websocket
 				return static_cast<std::size_t> (t);
 			}
 		};
-		/**
-		 * Set of subscriptions registered by this session. In the future, contextual information
-		 * can be added to subscription objects, such as which accounts to get confirmations for.
-		 */
-		std::unordered_set<topic, topic_hash> subscriptions;
+		/** Map of subscriptions -> options registered by this session. */
+		std::unordered_map<topic, std::unique_ptr<options>, topic_hash> subscriptions;
 		std::mutex subscriptions_mutex;
 
 		/** Handle incoming message */
@@ -147,8 +218,8 @@ namespace websocket
 		}
 
 		/**
-		 *  Per-topic subscribers check. Relies on all sessions correctly increasing and
-		 *  decreasing the subscriber counts themselves.
+		 * Per-topic subscribers check. Relies on all sessions correctly increasing and
+		 * decreasing the subscriber counts themselves.
 		 */
 		bool any_subscribers (nano::websocket::topic const & topic_a);
 		/** Adds to subscription count of a specific topic*/

@@ -5,9 +5,11 @@
 #include <boost/property_tree/ptree.hpp>
 #include <nano/node/logging.hpp>
 
+boost::shared_ptr<boost::log::sinks::synchronous_sink<boost::log::sinks::text_file_backend>> nano::logging::file_sink;
+std::atomic_flag nano::logging::logging_already_added{ ATOMIC_FLAG_INIT };
+
 void nano::logging::init (boost::filesystem::path const & application_path_a)
 {
-	static std::atomic_flag logging_already_added = ATOMIC_FLAG_INIT;
 	if (!logging_already_added.test_and_set ())
 	{
 		boost::log::add_common_attributes ();
@@ -16,7 +18,16 @@ void nano::logging::init (boost::filesystem::path const & application_path_a)
 			boost::log::add_console_log (std::cerr, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
 		}
 		auto path = application_path_a / "log";
-		boost::log::add_file_log (boost::log::keywords::target = path, boost::log::keywords::file_name = path / "log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = rotation_size, boost::log::keywords::auto_flush = flush, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = max_size, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
+		file_sink = boost::log::add_file_log (boost::log::keywords::target = path, boost::log::keywords::file_name = path / "log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = rotation_size, boost::log::keywords::auto_flush = flush, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = max_size, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
+	}
+}
+
+void nano::logging::release_file_sink ()
+{
+	if (logging_already_added.test_and_set ())
+	{
+		boost::log::core::get ()->remove_sink (nano::logging::file_sink);
+		nano::logging::file_sink.reset ();
 	}
 }
 
@@ -34,7 +45,6 @@ nano::error nano::logging::serialize_json (nano::jsonconfig & json) const
 	json.put ("network_node_id_handshake", network_node_id_handshake_logging_value);
 	json.put ("node_lifetime_tracing", node_lifetime_tracing_value);
 	json.put ("insufficient_work", insufficient_work_logging_value);
-	json.put ("log_rpc", log_rpc_value);
 	json.put ("log_ipc", log_ipc_value);
 	json.put ("bulk_pull", bulk_pull_logging_value);
 	json.put ("work_generation_time", work_generation_time_value);
@@ -77,6 +87,7 @@ bool nano::logging::upgrade_json (unsigned version_a, nano::jsonconfig & json)
 			upgraded_l = true;
 		case 6:
 			json.put ("min_time_between_output", min_time_between_log_output.count ());
+			json.erase ("log_rpc");
 			upgraded_l = true;
 			break;
 		case 7:
@@ -121,7 +132,6 @@ nano::error nano::logging::deserialize_json (bool & upgraded_a, nano::jsonconfig
 	json.get<bool> ("network_node_id_handshake", network_node_id_handshake_logging_value);
 	json.get<bool> ("node_lifetime_tracing", node_lifetime_tracing_value);
 	json.get<bool> ("insufficient_work", insufficient_work_logging_value);
-	json.get<bool> ("log_rpc", log_rpc_value);
 	json.get<bool> ("log_ipc", log_ipc_value);
 	json.get<bool> ("bulk_pull", bulk_pull_logging_value);
 	json.get<bool> ("work_generation_time", work_generation_time_value);
@@ -190,11 +200,6 @@ bool nano::logging::node_lifetime_tracing () const
 bool nano::logging::insufficient_work_logging () const
 {
 	return network_logging () && insufficient_work_logging_value;
-}
-
-bool nano::logging::log_rpc () const
-{
-	return network_logging () && log_rpc_value;
 }
 
 bool nano::logging::log_ipc () const
