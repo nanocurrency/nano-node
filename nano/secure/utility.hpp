@@ -27,6 +27,7 @@ bool migrate_working_path (std::string &);
 // Get a unique path within the home directory, used for testing.
 // Any directories created at this location will be removed when a test finishes.
 boost::filesystem::path unique_path ();
-// Remove all unique tmp directories created by the process. The list of unique paths are returned.
-std::vector<boost::filesystem::path> remove_temporary_directories ();
+// Remove all unique tmp directories created by the process
+void remove_temporary_directories ();
+void cleanp_test_directories_on_exit ();
 }
