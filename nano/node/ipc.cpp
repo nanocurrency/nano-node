@@ -16,9 +16,8 @@
 #include <nano/lib/timer.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/ipc.hpp>
+#include <nano/node/json_handler.hpp>
 #include <nano/node/node.hpp>
-#include <nano/rpc/rpc.hpp>
-#include <nano/rpc/rpc_handler.hpp>
 #include <thread>
 
 using namespace boost::log;
@@ -84,8 +83,8 @@ public:
 		});
 	}
 
-	/** Handler for payload_encoding::json_legacy and payload_encoding::json_unsafe */
-	void rpc_handle_query (bool allow_unsafe)
+	/** Handler for payload_encoding::json_legacy */
+	void handle_json_query (bool allow_unsafe)
 	{
 		session_timer.restart ();
 		auto request_id_l (std::to_string (server.id_dispenser.fetch_add (1)));
@@ -93,17 +92,18 @@ public:
 		// This is called when nano::rpc_handler#process_request is done. We convert to
 		// json and write the response to the ipc socket with a length prefix.
 		auto this_l (this->shared_from_this ());
-		auto response_handler_l ([this_l, request_id_l](boost::property_tree::ptree const & tree_a) {
-			std::stringstream ostream;
-			boost::property_tree::write_json (ostream, tree_a);
-			ostream.flush ();
-			this_l->response_body = ostream.str ();
-
+		auto response_handler_l ([this_l, request_id_l](std::string const & body) {
+			this_l->response_body = body;
 			this_l->size_response = boost::endian::native_to_big (static_cast<uint32_t> (this_l->response_body.size ()));
 			std::vector<boost::asio::mutable_buffer> bufs = {
 				boost::asio::buffer (&this_l->size_response, sizeof (this_l->size_response)),
 				boost::asio::buffer (this_l->response_body)
 			};
+
+			if (this_l->node.config.logging.log_ipc ())
+			{
+				this_l->node.logger.always_log (boost::str (boost::format ("IPC/RPC request %1% completed in: %2% %3%") % request_id_l % this_l->session_timer.stop ().count () % this_l->session_timer.unit ()));
+			}
 
 			this_l->timer_start (std::chrono::seconds (this_l->config_transport.io_timeout));
 			boost::asio::async_write (this_l->socket, bufs, [this_l](boost::system::error_code const & error_a, size_t size_a) {
@@ -118,17 +118,16 @@ public:
 				}
 			});
 
-			if (this_l->node.config.logging.log_ipc ())
-			{
-				this_l->node.logger.always_log (boost::str (boost::format ("IPC/RPC request %1% completed in: %2% %3%") % request_id_l % this_l->session_timer.stop ().count () % this_l->session_timer.unit ()));
-			}
+			// Do not call any member variables here (like session_timer) as it's possible that the next request may already be underway.
 		});
 
 		node.stats.inc (nano::stat::type::ipc, nano::stat::detail::invocations);
 		auto body (std::string (reinterpret_cast<char *> (buffer.data ()), buffer.size ()));
 
-		// Note that if the rpc action is async, the shared_ptr<rpc_handler> lifetime will be extended by the action handler
-		auto handler (std::make_shared<nano::rpc_handler> (node, server.rpc, body, request_id_l, response_handler_l));
+		// Note that if the rpc action is async, the shared_ptr<json_handler> lifetime will be extended by the action handler
+		auto handler (std::make_shared<nano::json_handler> (node, server.node_rpc_config, body, response_handler_l, [& server = server]() {
+			server.stop ();
+		}));
 		// For unsafe actions to be allowed, the unsafe encoding must be used AND the transport config must allow it
 		handler->process_request (allow_unsafe && config_transport.allow_unsafe);
 	}
@@ -157,7 +156,7 @@ public:
 					this_l->buffer.resize (this_l->buffer_size);
 					// Payload (ptree compliant JSON string)
 					this_l->async_read_exactly (this_l->buffer.data (), this_l->buffer_size, [this_l, allow_unsafe]() {
-						this_l->rpc_handle_query (allow_unsafe);
+						this_l->handle_json_query (allow_unsafe);
 					});
 				});
 			}
@@ -291,8 +290,9 @@ private:
 };
 }
 
-nano::ipc::ipc_server::ipc_server (nano::node & node_a, nano::rpc & rpc_a) :
-node (node_a), rpc (rpc_a)
+nano::ipc::ipc_server::ipc_server (nano::node & node_a, nano::node_rpc_config const & node_rpc_config_a) :
+node (node_a),
+node_rpc_config (node_rpc_config_a)
 {
 	try
 	{

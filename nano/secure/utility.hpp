@@ -29,5 +29,4 @@ bool migrate_working_path (std::string &);
 boost::filesystem::path unique_path ();
 // Remove all unique tmp directories created by the process
 void remove_temporary_directories ();
-void cleanp_test_directories_on_exit ();
 }
