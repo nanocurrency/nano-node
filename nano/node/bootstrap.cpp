@@ -1907,7 +1907,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_initiato
 		std::lock_guard<std::mutex> guard (bootstrap_initiator.cache.pulls_cache_mutex);
 		cache_count = bootstrap_initiator.cache.cache.size ();
 	}
-	
+
 	auto sizeof_element = sizeof (decltype (bootstrap_initiator.observers)::value_type);
 	auto sizeof_cache_element = sizeof (decltype (bootstrap_initiator.cache.cache)::value_type);
 	auto composite = std::make_unique<seq_con_info_composite> (name);
