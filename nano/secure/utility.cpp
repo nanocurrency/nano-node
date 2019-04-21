@@ -110,16 +110,3 @@ void nano::remove_temporary_directories ()
 		}
 	}
 }
-
-void nano::cleanp_test_directories_on_exit ()
-{
-	// Makes sure everything is cleaned up
-	nano::logging::release_file_sink ();
-	// Clean up tmp directories created by the tests. Since it's sometimes useful to
-	// see log files after test failures, an environment variable is supported to
-	// retain the files.
-	if (std::getenv ("TEST_KEEP_TMPDIRS") == nullptr)
-	{
-		nano::remove_temporary_directories ();
-	}
-}
