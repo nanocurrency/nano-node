@@ -180,10 +180,10 @@ TEST (work, eco_pow)
 	std::thread thread1 (work_func, std::ref (promise1), std::chrono::nanoseconds (0));
 	std::thread thread2 (work_func, std::ref (promise2), std::chrono::milliseconds (10));
 
+	thread1.join ();
+	thread2.join ();
+
 	// Confirm that the eco pow rate limiter is working.
 	// It's possible under some unlucky circumstances that this fails to the random nature of valid work generation.
 	ASSERT_LT (future1.get (), future2.get ());
-
-	thread1.join ();
-	thread2.join ();
 }

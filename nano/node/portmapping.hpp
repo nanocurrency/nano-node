@@ -1,7 +1,7 @@
 #pragma once
 
 #include <boost/asio/ip/address_v4.hpp>
-#include <miniupnpc.h>
+#include <miniupnp/miniupnpc/miniupnpc.h>
 #include <mutex>
 #include <nano/lib/config.hpp>
 
@@ -28,6 +28,7 @@ public:
 	void start ();
 	void stop ();
 	void refresh_devices ();
+	nano::endpoint external_address ();
 
 private:
 	/** Add port mappings for the node port (not RPC). Refresh when the lease ends. */
