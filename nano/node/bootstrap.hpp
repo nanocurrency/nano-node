@@ -237,8 +237,6 @@ public:
 	void add (nano::pull_info const &);
 	void update_pull (nano::pull_info &);
 	void remove (nano::pull_info const &);
-
-private:
 	std::mutex pulls_cache_mutex;
 	class account_head_tag
 	{
@@ -249,12 +247,8 @@ private:
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::cached_pulls, std::chrono::steady_clock::time_point, &nano::cached_pulls::time>>,
 	boost::multi_index::hashed_unique<boost::multi_index::tag<account_head_tag>, boost::multi_index::member<nano::cached_pulls, nano::uint512_union, &nano::cached_pulls::account_head>>>>
 	cache;
-	size_t max_cache = 10000;
-
-	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (pulls_cache & pulls_cache, const std::string & name);
+	constexpr static size_t cache_size_max = 10000;
 };
-
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (pulls_cache & pulls_cache, const std::string & name);
 
 class bootstrap_initiator final
 {

@@ -1898,14 +1898,21 @@ namespace nano
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_initiator & bootstrap_initiator, const std::string & name)
 {
 	size_t count = 0;
+	size_t cache_count = 0;
 	{
 		std::lock_guard<std::mutex> guard (bootstrap_initiator.mutex);
 		count = bootstrap_initiator.observers.size ();
 	}
-
+	{
+		std::lock_guard<std::mutex> guard (bootstrap_initiator.cache.pulls_cache_mutex);
+		cache_count = bootstrap_initiator.cache.cache.size ();
+	}
+	
 	auto sizeof_element = sizeof (decltype (bootstrap_initiator.observers)::value_type);
+	auto sizeof_cache_element = sizeof (decltype (bootstrap_initiator.cache.cache)::value_type);
 	auto composite = std::make_unique<seq_con_info_composite> (name);
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "observers", count, sizeof_element }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "pulls_cache", cache_count, sizeof_cache_element }));
 	return composite;
 }
 }
@@ -3177,10 +3184,11 @@ void nano::pulls_cache::add (nano::pull_info const & pull_a)
 	{
 		std::lock_guard<std::mutex> guard (pulls_cache_mutex);
 		// Clean old pull
-		if (cache.size () >= max_cache)
+		if (cache.size () > cache_size_max)
 		{
 			cache.erase (cache.begin ());
 		}
+		assert (cache.size () <= cache_size_max);
 		nano::uint512_union head_512 (pull_a.account, pull_a.head_original);
 		auto existing (cache.get<account_head_tag> ().find (head_512));
 		if (existing == cache.get<account_head_tag> ().end ())
