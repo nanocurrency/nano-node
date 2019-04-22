@@ -58,7 +58,9 @@ namespace ipc
 		 * Request is preamble followed by 32-bit BE payload length and payload bytes.
 		 * Response is 32-bit BE payload length followed by payload bytes.
 		 */
-		json_legacy = 1
+		json_legacy = 0x1,
+		/** Request/response is same as json_legacy and exposes unsafe RPC's */
+		json_unsafe = 0x2
 	};
 
 	/** IPC transport interface */

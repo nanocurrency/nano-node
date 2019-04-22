@@ -255,12 +255,6 @@ public:
 	void version_put (nano::transaction const &, int) override;
 	int version_get (nano::transaction const &) const override;
 
-	// Requires a write transaction
-	nano::raw_key get_node_id (nano::transaction const &) const override;
-
-	/** Deletes the node ID from the store */
-	void delete_node_id (nano::transaction const &) override;
-
 	void peer_put (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) override;
 	bool peer_exists (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) const override;
 	void peer_del (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a) override;

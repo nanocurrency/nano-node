@@ -3,6 +3,7 @@
 #include <boost/log/sources/logger.hpp>
 #include <boost/log/trivial.hpp>
 #include <chrono>
+#include <mutex>
 
 namespace nano
 {

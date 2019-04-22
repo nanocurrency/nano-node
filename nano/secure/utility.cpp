@@ -1,5 +1,6 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/interface.h>
+#include <nano/node/logging.hpp>
 #include <nano/node/working.hpp>
 #include <nano/secure/utility.hpp>
 
@@ -88,7 +89,7 @@ boost::filesystem::path nano::unique_path ()
 	return result;
 }
 
-std::vector<boost::filesystem::path> nano::remove_temporary_directories ()
+void nano::remove_temporary_directories ()
 {
 	for (auto & path : all_unique_paths)
 	{
@@ -108,5 +109,4 @@ std::vector<boost::filesystem::path> nano::remove_temporary_directories ()
 			std::cerr << "Could not remove temporary lock file: " << ec.message () << std::endl;
 		}
 	}
-	return all_unique_paths;
 }

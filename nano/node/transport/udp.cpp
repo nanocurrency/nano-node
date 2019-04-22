@@ -298,6 +298,21 @@ bool nano::transport::udp_channels::reserved_address (nano::endpoint const & end
 	return result;
 }
 
+void nano::transport::udp_channels::clean_node_id (nano::endpoint const & endpoint_a, nano::account const & node_id_a)
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	auto existing (channels.get<node_id_tag> ().equal_range (node_id_a));
+	for (auto & record : boost::make_iterator_range (existing))
+	{
+		// Remove duplicate node ID for same IP address
+		if (record.endpoint ().address () == endpoint_a.address () && record.endpoint ().port () != endpoint_a.port ())
+		{
+			channels.get<endpoint_tag> ().erase (record.endpoint ());
+			break;
+		}
+	}
+}
+
 nano::endpoint nano::transport::udp_channels::tcp_peer ()
 {
 	nano::endpoint result (boost::asio::ip::address_v6::any (), 0);
@@ -329,7 +344,6 @@ void nano::transport::udp_channels::receive ()
 
 	auto data (node.network.buffer_container.allocate ());
 
-	assert (strand.running_in_this_thread ());
 	socket.async_receive_from (boost::asio::buffer (data->buffer, nano::network::buffer_size), data->endpoint,
 	boost::asio::bind_executor (strand,
 	[this, data](boost::system::error_code const & error, std::size_t size_a) {
@@ -405,7 +419,22 @@ public:
 			auto cookie (node.network.udp_channels.assign_syn_cookie (endpoint));
 			if (cookie)
 			{
+				// New connection
 				node.network.send_node_id_handshake (endpoint, *cookie, boost::none);
+				auto channel (node.network.udp_channels.channel (endpoint));
+				if (channel)
+				{
+					node.network.send_keepalive_self (*channel);
+				}
+			}
+			// Check for special node port data
+			for (auto & peer : message_a.peers)
+			{
+				if (peer.address () == boost::asio::ip::address_v6{} && peer.port () != 0)
+				{
+					nano::endpoint new_endpoint (endpoint.address (), peer.port ());
+					node.network.merge_peer (new_endpoint);
+				}
 			}
 		}
 		message (message_a);
@@ -458,6 +487,7 @@ public:
 				validated_response = true;
 				if (message_a.response->first != node.node_id.pub)
 				{
+					node.network.udp_channels.clean_node_id (endpoint, message_a.response->first);
 					auto channel (node.network.udp_channels.insert (endpoint, message_a.header.version_using));
 					if (channel)
 					{

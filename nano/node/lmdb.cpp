@@ -877,34 +877,6 @@ int nano::mdb_store::version_get (nano::transaction const & transaction_a) const
 	return result;
 }
 
-nano::raw_key nano::mdb_store::get_node_id (nano::transaction const & transaction_a) const
-{
-	nano::uint256_union node_id_mdb_key (3);
-	nano::raw_key node_id;
-	nano::mdb_val value;
-	auto error (mdb_get (env.tx (transaction_a), meta, nano::mdb_val (node_id_mdb_key), value));
-	if (!error)
-	{
-		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
-		error = nano::try_read (stream, node_id.data);
-		assert (!error);
-	}
-	if (error)
-	{
-		nano::random_pool::generate_block (node_id.data.bytes.data (), node_id.data.bytes.size ());
-		error = mdb_put (env.tx (transaction_a), meta, nano::mdb_val (node_id_mdb_key), nano::mdb_val (node_id.data), 0);
-	}
-	assert (!error);
-	return node_id;
-}
-
-void nano::mdb_store::delete_node_id (nano::transaction const & transaction_a)
-{
-	nano::uint256_union node_id_mdb_key (3);
-	auto error (mdb_del (env.tx (transaction_a), meta, nano::mdb_val (node_id_mdb_key), nullptr));
-	assert (!error || error == MDB_NOTFOUND);
-}
-
 void nano::mdb_store::peer_put (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a)
 {
 	nano::mdb_val zero (0);
@@ -1270,7 +1242,9 @@ void nano::mdb_store::upgrade_v13_to_v14 (nano::transaction const & transaction_
 		account_put (transaction_a, account_info.first, account_info.second);
 	}
 
-	logger.always_log (boost::str (boost::format ("Completed confirmation height upgrade")));
+	nano::uint256_union node_id_mdb_key (3);
+	auto error (mdb_del (env.tx (transaction_a), meta, nano::mdb_val (node_id_mdb_key), nullptr));
+	release_assert (!error || error == MDB_NOTFOUND);
 }
 
 void nano::mdb_store::clear (MDB_dbi db_a)

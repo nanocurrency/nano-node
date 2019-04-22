@@ -227,6 +227,7 @@ public:
 	bool operator!= (nano::vote const &) const;
 	void serialize (nano::stream &, nano::block_type) const;
 	void serialize (nano::stream &) const;
+	void serialize_json (boost::property_tree::ptree & tree) const;
 	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
 	bool validate () const;
 	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> begin () const;
@@ -361,7 +362,6 @@ class voting_constants
 public:
 	voting_constants (nano::network_constants & network_constants);
 	size_t max_cache;
-	std::chrono::milliseconds generator_delay;
 };
 
 /** Port-mapping related constants whose value depends on the active network */

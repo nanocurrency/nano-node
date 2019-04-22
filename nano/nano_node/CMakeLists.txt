@@ -5,6 +5,7 @@ add_executable (nano_node
 
 target_link_libraries (nano_node
 	node
+	rpc
 	secure
 	argon2
 	Boost::boost
@@ -15,7 +16,8 @@ target_compile_definitions(nano_node
 	PRIVATE
 		-DNANO_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
 		-DNANO_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR}
-		-DNANO_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH})
+		-DNANO_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH}
+		-DBOOST_PROCESS_SUPPORTED=${BOOST_PROCESS_SUPPORTED})
 
 set_target_properties (nano_node
 	PROPERTIES

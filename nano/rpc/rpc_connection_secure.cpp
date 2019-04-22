@@ -3,9 +3,9 @@
 
 #include <boost/polymorphic_pointer_cast.hpp>
 
-nano::rpc_connection_secure::rpc_connection_secure (nano::node & node_a, nano::rpc_secure & rpc_a) :
-nano::rpc_connection (node_a, rpc_a),
-stream (socket, rpc_a.ssl_context)
+nano::rpc_connection_secure::rpc_connection_secure (nano::rpc_config const & rpc_config, nano::network_constants const & network_constants, boost::asio::io_context & io_ctx, nano::logger_mt & logger, nano::rpc_handler_interface & rpc_handler_interface, boost::asio::ssl::context & ssl_context) :
+nano::rpc_connection (rpc_config, network_constants, io_ctx, logger, rpc_handler_interface),
+stream (socket, ssl_context)
 {
 }
 
@@ -33,7 +33,7 @@ void nano::rpc_connection_secure::handle_handshake (const boost::system::error_c
 	}
 	else
 	{
-		node->logger.always_log ("TLS: Handshake error: ", error.message ());
+		logger.always_log ("TLS: Handshake error: ", error.message ());
 	}
 }
 

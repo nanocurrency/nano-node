@@ -4,6 +4,7 @@
 #include <boost/property_tree/ptree.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
+#include <nano/node/openclconfig.hpp>
 #include <nano/node/xorshift.hpp>
 
 #include <map>
@@ -36,17 +37,6 @@ public:
 };
 union uint256_union;
 class work_pool;
-class opencl_config
-{
-public:
-	opencl_config ();
-	opencl_config (unsigned, unsigned, unsigned);
-	nano::error serialize_json (nano::jsonconfig &) const;
-	nano::error deserialize_json (nano::jsonconfig &);
-	unsigned platform;
-	unsigned device;
-	unsigned threads;
-};
 class opencl_work
 {
 public:

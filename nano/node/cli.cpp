@@ -39,7 +39,6 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("data_path", boost::program_options::value<std::string> (), "Use the supplied path as the data directory")
 	("network", boost::program_options::value<std::string> (), "Use the supplied network (live, beta or test)")
 	("clear_send_ids", "Remove all send IDs from the database (dangerous: not intended for production use)")
-	("delete_node_id", "Delete the node ID in the database")
 	("online_weight_clear", "Clear online weight history records")
 	("peer_clear", "Clear online peers database dump")
 	("unchecked_clear", "Clear unchecked blocks")
@@ -168,11 +167,6 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					auto transaction (node.node->store.tx_begin_write ());
 					node.node->store.unchecked_clear (transaction);
 				}
-				if (vm.count ("delete_node_id"))
-				{
-					auto transaction (node.node->store.tx_begin_write ());
-					node.node->store.delete_node_id (transaction);
-				}
 				if (vm.count ("clear_send_ids"))
 				{
 					auto transaction (node.node->wallets.tx_begin_write ());
@@ -234,11 +228,6 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					auto transaction (node.node->store.tx_begin_write ());
 					node.node->store.unchecked_clear (transaction);
 				}
-				if (vm.count ("delete_node_id"))
-				{
-					auto transaction (node.node->store.tx_begin_write ());
-					node.node->store.delete_node_id (transaction);
-				}
 				if (vm.count ("clear_send_ids"))
 				{
 					auto transaction (node.node->wallets.tx_begin_write ());
@@ -286,14 +275,6 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		auto transaction (node.node->store.tx_begin_write ());
 		node.node->store.unchecked_clear (transaction);
 		std::cout << "Unchecked blocks deleted" << std::endl;
-	}
-	else if (vm.count ("delete_node_id"))
-	{
-		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
-		inactive_node node (data_path);
-		auto transaction (node.node->store.tx_begin_write ());
-		node.node->store.delete_node_id (transaction);
-		std::cout << "Deleted Node ID" << std::endl;
 	}
 	else if (vm.count ("clear_send_ids"))
 	{
@@ -362,7 +343,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 
 		// Check/upgrade the config.json file.
 		{
-			nano::daemon_config config;
+			nano::daemon_config config (data_path);
 			auto error = nano::read_and_update_daemon_config (data_path, config);
 			if (error)
 			{
