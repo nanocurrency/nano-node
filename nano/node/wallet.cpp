@@ -1562,20 +1562,23 @@ void nano::wallets::do_work_regeneration ()
 			auto queued (first->first);
 			auto block (first->second);
 			std::shared_ptr<nano::block> block_l (block);
-			bool confirmed (false);
-			auto is_confirmed = [this, block](bool confirmed) {
+			auto is_confirmed = [this, block]() -> bool {
+				bool confirmed_l (false);
+				std::unique_lock<std::mutex> lock (this->node.active.mutex);
 				auto existing (this->node.active.roots.find (block->qualified_root ()));
 				if (this->node.active.roots.end () != existing)
 				{
 					//block may not be in existing yet
-					confirmed = existing->election->confirmed.load ();
+					confirmed_l = existing->election->confirmed.load ();
 				}
 				else
 				{
 					//and so we fall back to ledger confirmation
 					auto transaction (this->node.store.tx_begin_read ());
-					confirmed = this->node.ledger.block_confirmed (transaction, block->hash ());
+					confirmed_l = this->node.ledger.block_confirmed (transaction, block->hash ());
 				}
+				lock.unlock ();
+				return confirmed_l;
 			};
 			difficulty_reque.erase (first);
 			regeneration_lock.unlock ();
@@ -1589,23 +1592,17 @@ void nano::wallets::do_work_regeneration ()
 
 			if (((now - queued) >= node.config.work_recalc_interval && online) || node.network_params.network.is_test_network ())
 			{
-				std::unique_lock<std::mutex> lock (node.active.mutex);
-				is_confirmed (confirmed);
-				lock.unlock ();
-				if (!confirmed && node.active.active_difficulty () > difficulty)
+				if (!is_confirmed () && node.active.active_difficulty () > difficulty)
 				{
 					block_l = update_work_action (block);
-					lock.lock ();
-					is_confirmed (confirmed);
-					lock.unlock ();
 				}
-				if (!confirmed && node.active.active_difficulty () > difficulty)
+				if (!is_confirmed () && node.active.active_difficulty () > difficulty)
 				// block could have confirmed while recalculating work with higher difficulty
 				// dont update anything if active_difficulty is below our block difficulty
 				{
 					if (block != block_l)
 					{
-						lock.lock ();
+						std::lock_guard<std::mutex> lock (mutex);
 						auto existing_l (node.active.roots.find (block->qualified_root ()));
 						if (existing_l != node.active.roots.end ())
 						{
@@ -1617,17 +1614,13 @@ void nano::wallets::do_work_regeneration ()
 							auto current (election_l->blocks.find (block->hash ()));
 							current->second = block_l;
 						}
-						lock.unlock ();
 					}
 					node.network.flood_block (block_l);
 					node.active.update_difficulty (*block_l.get ());
-					lock.lock ();
-					is_confirmed (confirmed);
-					lock.unlock ();
 				}
 			}
 			// dont reque if confirmed
-			if (!confirmed)
+			if (!is_confirmed ())
 			{
 				if (node.active.active_difficulty () > difficulty)
 				{
