@@ -3,6 +3,7 @@
 #include <boost/log/sources/logger.hpp>
 #include <boost/log/trivial.hpp>
 #include <chrono>
+#include <mutex>
 
 namespace nano
 {
@@ -36,6 +37,7 @@ private:
 	}
 
 public:
+	logger_mt () = default;
 	/**
 	 * @param min_log_delta_a The minimum time between successive output
 	 */
@@ -62,18 +64,21 @@ public:
 	{
 		auto error (true);
 		auto time_now = std::chrono::steady_clock::now ();
+		std::unique_lock<std::mutex> lk (last_log_time_mutex);
 		if (((time_now - last_log_time) > min_log_delta) || last_log_time == std::chrono::steady_clock::time_point{})
 		{
-			output (std::forward<LogItems> (log_items)...);
 			last_log_time = time_now;
+			lk.unlock ();
+			output (std::forward<LogItems> (log_items)...);
 			error = false;
 		}
 		return error;
 	}
 
-	std::chrono::milliseconds min_log_delta;
+	std::chrono::milliseconds min_log_delta{ 0 };
 
 private:
+	std::mutex last_log_time_mutex;
 	std::chrono::steady_clock::time_point last_log_time;
 	boost::log::sources::logger_mt boost_logger_mt;
 };

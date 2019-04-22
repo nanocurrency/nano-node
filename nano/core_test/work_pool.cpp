@@ -69,12 +69,13 @@ TEST (work, opencl)
 {
 	nano::logging logging;
 	logging.init (nano::unique_path ());
+	nano::logger_mt logger;
 	bool error (false);
 	nano::opencl_environment environment (error);
 	ASSERT_FALSE (error);
 	if (!environment.platforms.empty () && !environment.platforms.begin ()->devices.empty ())
 	{
-		auto opencl (nano::opencl_work::create (true, { 0, 0, 16 * 1024 }, logging));
+		auto opencl (nano::opencl_work::create (true, { 0, 0, 16 * 1024 }, logger));
 		if (opencl != nullptr)
 		{
 			nano::work_pool pool (std::numeric_limits<unsigned>::max (), std::chrono::nanoseconds (0), opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a) {

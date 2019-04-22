@@ -373,8 +373,8 @@ int main (int argc, char * const * argv)
 						error |= device >= environment.platforms[platform].devices.size ();
 						if (!error)
 						{
-							nano::logging logging;
-							auto opencl (nano::opencl_work::create (true, { platform, device, threads }, logging));
+							nano::logger_mt logger;
+							auto opencl (nano::opencl_work::create (true, { platform, device, threads }, logger));
 							nano::work_pool work_pool (std::numeric_limits<unsigned>::max (), std::chrono::nanoseconds (0), opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a) {
 								return opencl->generate_work (root_a, difficulty_a);
 							}
