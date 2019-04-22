@@ -2,6 +2,7 @@
 
 #include <boost/asio/buffer.hpp>
 
+#include <nano/node/common.hpp>
 #include <nano/node/stats.hpp>
 
 namespace nano

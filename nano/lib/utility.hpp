@@ -86,6 +86,8 @@ namespace thread_role
 		bootstrap_initiator,
 		voting,
 		signature_checking,
+		rpc_request_processor,
+		rpc_process_container,
 		wallet_work_regen
 	};
 	/*

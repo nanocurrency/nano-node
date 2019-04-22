@@ -27,8 +27,10 @@ add_library (nano_lib
 	ipc.cpp
 	ipc_client.hpp
 	ipc_client.cpp
+	json_error_response.hpp
 	jsonconfig.hpp
 	logger_mt.hpp
+	rpc_handler_interface.hpp
 	rpcconfig.hpp
 	rpcconfig.cpp
 	numbers.hpp

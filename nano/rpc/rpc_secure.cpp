@@ -1,4 +1,5 @@
-#include <nano/node/node.hpp>
+#include <boost/format.hpp>
+#include <boost/polymorphic_pointer_cast.hpp>
 #include <nano/rpc/rpc_connection_secure.hpp>
 #include <nano/rpc/rpc_secure.hpp>
 
@@ -9,27 +10,27 @@ bool nano::rpc_secure::on_verify_certificate (bool preverified, boost::asio::ssl
 	switch (error)
 	{
 		case X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT:
-			node.logger.always_log ("TLS: Unable to get issuer");
+			logger.always_log ("TLS: Unable to get issuer");
 			break;
 		case X509_V_ERR_CERT_NOT_YET_VALID:
 		case X509_V_ERR_ERROR_IN_CERT_NOT_BEFORE_FIELD:
-			node.logger.always_log ("TLS: Certificate not yet valid");
+			logger.always_log ("TLS: Certificate not yet valid");
 			break;
 		case X509_V_ERR_CERT_HAS_EXPIRED:
 		case X509_V_ERR_ERROR_IN_CERT_NOT_AFTER_FIELD:
-			node.logger.always_log ("TLS: Certificate expired");
+			logger.always_log ("TLS: Certificate expired");
 			break;
 		case X509_V_ERR_SELF_SIGNED_CERT_IN_CHAIN:
 			if (config.secure.verbose_logging)
 			{
-				node.logger.always_log ("TLS: self signed certificate in chain");
+				logger.always_log ("TLS: self signed certificate in chain");
 			}
 
 			// Allow self-signed certificates
 			preverified = true;
 			break;
 		case X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT:
-			node.logger.always_log ("TLS: Self signed certificate not in the list of trusted certs (forgot to subject-hash certificate filename?)");
+			logger.always_log ("TLS: Self signed certificate not in the list of trusted certs (forgot to subject-hash certificate filename?)");
 			break;
 		default:
 			break;
@@ -39,19 +40,19 @@ bool nano::rpc_secure::on_verify_certificate (bool preverified, boost::asio::ssl
 	{
 		if (error != 0)
 		{
-			node.logger.always_log ("TLS: Error: ", X509_verify_cert_error_string (error));
-			node.logger.always_log ("TLS: Error chain depth : ", X509_STORE_CTX_get_error_depth (cts));
+			logger.always_log ("TLS: Error: ", X509_verify_cert_error_string (error));
+			logger.always_log ("TLS: Error chain depth : ", X509_STORE_CTX_get_error_depth (cts));
 		}
 
 		X509 * cert = X509_STORE_CTX_get_current_cert (cts);
 		char subject_name[512];
 		X509_NAME_oneline (X509_get_subject_name (cert), subject_name, sizeof (subject_name) - 1);
-		node.logger.always_log ("TLS: Verifying: ", subject_name);
-		node.logger.always_log ("TLS: Verification: ", preverified);
+		logger.always_log ("TLS: Verifying: ", subject_name);
+		logger.always_log ("TLS: Verification: ", preverified);
 	}
 	else if (!preverified)
 	{
-		node.logger.always_log ("TLS: Pre-verification failed. Turn on verbose logging for more information.");
+		logger.always_log ("TLS: Pre-verification failed. Turn on verbose logging for more information.");
 	}
 
 	return preverified;
@@ -89,8 +90,8 @@ void nano::rpc_secure::load_certs (boost::asio::ssl::context & context_a)
 	}
 }
 
-nano::rpc_secure::rpc_secure (boost::asio::io_service & service_a, nano::node & node_a, nano::rpc_config const & config_a) :
-rpc (service_a, node_a, config_a),
+nano::rpc_secure::rpc_secure (boost::asio::io_service & service_a, nano::rpc_config const & config_a, nano::rpc_handler_interface & rpc_handler_interface_a) :
+rpc (service_a, config_a, rpc_handler_interface_a),
 ssl_context (boost::asio::ssl::context::tlsv12_server)
 {
 	load_certs (ssl_context);
@@ -98,7 +99,7 @@ ssl_context (boost::asio::ssl::context::tlsv12_server)
 
 void nano::rpc_secure::accept ()
 {
-	auto connection (std::make_shared<nano::rpc_connection_secure> (node, *this));
+	auto connection (std::make_shared<nano::rpc_connection_secure> (config, network_constants, io_ctx, logger, rpc_handler_interface, this->ssl_context));
 	acceptor.async_accept (connection->socket, [this, connection](boost::system::error_code const & ec) {
 		if (acceptor.is_open ())
 		{
@@ -110,7 +111,7 @@ void nano::rpc_secure::accept ()
 		}
 		else
 		{
-			this->node.logger.always_log (boost::str (boost::format ("Error accepting RPC connections: %1%") % ec));
+			logger.always_log (boost::str (boost::format ("Error accepting RPC connections: %1%") % ec));
 		}
 	});
 }

@@ -1,8 +1,8 @@
+#include <nano/lib/config.hpp>
 #include <nano/node/daemonconfig.hpp>
 
-nano::daemon_config::daemon_config () :
-rpc_enable (false),
-opencl_enable (false)
+nano::daemon_config::daemon_config (boost::filesystem::path const & data_path_a) :
+data_path (data_path_a)
 {
 }
 
@@ -35,12 +35,14 @@ nano::error nano::daemon_config::deserialize_json (bool & upgraded_a, nano::json
 		{
 			int version_l;
 			json.get_optional<int> ("version", version_l);
+
 			upgraded_a |= upgrade_json (version_l, json);
 
 			json.get_optional<bool> ("rpc_enable", rpc_enable);
+
 			auto rpc_l (json.get_required_child ("rpc"));
 
-			if (!rpc.deserialize_json (upgraded_a, rpc_l))
+			if (!rpc.deserialize_json (upgraded_a, rpc_l, data_path))
 			{
 				auto node_l (json.get_required_child ("node"));
 				if (!json.get_error ())
@@ -48,6 +50,7 @@ nano::error nano::daemon_config::deserialize_json (bool & upgraded_a, nano::json
 					node.deserialize_json (upgraded_a, node_l);
 				}
 			}
+
 			if (!json.get_error ())
 			{
 				json.get_required<bool> ("opencl_enable", opencl_enable);

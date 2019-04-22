@@ -1,8 +1,9 @@
 #pragma once
 
 #include <boost/asio.hpp>
+#include <boost/filesystem.hpp>
+#include <nano/lib/config.hpp>
 #include <nano/lib/errors.hpp>
-#include <nano/secure/common.hpp>
 #include <string>
 
 namespace nano
@@ -44,12 +45,18 @@ public:
 	bool enable_control;
 	rpc_secure_config secure;
 	uint8_t max_json_depth;
-	bool enable_sign_hash;
 	uint64_t max_request_size;
-	uint64_t max_work_generate_difficulty;
+	unsigned io_threads;
+	uint16_t ipc_port;
+	std::string ipc_path;
+	unsigned num_ipc_connections;
 	static int json_version ()
 	{
 		return 1;
 	}
 };
+
+nano::error read_and_update_rpc_config (boost::filesystem::path const & data_path, nano::rpc_config & config_a);
+
+std::string get_default_rpc_filepath ();
 }

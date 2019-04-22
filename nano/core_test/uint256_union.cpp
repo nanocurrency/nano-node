@@ -386,11 +386,17 @@ TEST (uint256_union, decode_account_variations)
 		char account[66] = { 0 };
 		xrb_uint256_to_address (pub.bytes.data (), account);
 
+		/*
+		 * Handle different offsets for the underscore separator
+		 * for "xrb_" prefixed and "nano_" prefixed accounts
+		 */
+		unsigned offset = (account[0] == 'x') ? 4 : 5;
+
 		// Replace first digit after xrb_ with '0'..'9', make sure only one of them is valid
 		int errors = 0;
 		for (int variation = 0; variation < 10; variation++)
 		{
-			account[4] = static_cast<char> (variation + 48);
+			account[offset] = static_cast<char> (variation + 48);
 			errors += xrb_valid_address (account);
 		}
 
@@ -404,8 +410,14 @@ TEST (uint256_union, account_transcode)
 	auto text (nano::test_genesis_key.pub.to_account ());
 	ASSERT_FALSE (value.decode_account (text));
 	ASSERT_EQ (nano::test_genesis_key.pub, value);
-	ASSERT_EQ ('_', text[3]);
-	text[3] = '-';
+
+	/*
+	 * Handle different offsets for the underscore separator
+	 * for "xrb_" prefixed and "nano_" prefixed accounts
+	 */
+	unsigned offset = (text.front () == 'x') ? 3 : 4;
+	ASSERT_EQ ('_', text[offset]);
+	text[offset] = '-';
 	nano::uint256_union value2;
 	ASSERT_FALSE (value2.decode_account (text));
 	ASSERT_EQ (value, value2);
@@ -416,9 +428,15 @@ TEST (uint256_union, account_encode_lex)
 	nano::uint256_union min ("0000000000000000000000000000000000000000000000000000000000000000");
 	nano::uint256_union max ("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 	auto min_text (min.to_account ());
-	ASSERT_EQ (64, min_text.size ());
 	auto max_text (max.to_account ());
-	ASSERT_EQ (64, max_text.size ());
+
+	/*
+	 * Handle different lengths for "xrb_" prefixed and "nano_" prefixed accounts
+	 */
+	unsigned length = (min_text.front () == 'x') ? 64 : 65;
+	ASSERT_EQ (length, min_text.size ());
+	ASSERT_EQ (length, max_text.size ());
+
 	auto previous (min_text);
 	for (auto i (1); i != 1000; ++i)
 	{

@@ -950,18 +950,6 @@ void nano::vote_processor::calculate_weights ()
 
 namespace nano
 {
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (node_observers & node_observers, const std::string & name)
-{
-	auto composite = std::make_unique<seq_con_info_composite> (name);
-	composite->add_component (collect_seq_con_info (node_observers.blocks, "blocks"));
-	composite->add_component (collect_seq_con_info (node_observers.wallet, "wallet"));
-	composite->add_component (collect_seq_con_info (node_observers.vote, "vote"));
-	composite->add_component (collect_seq_con_info (node_observers.account_balance, "account_balance"));
-	composite->add_component (collect_seq_con_info (node_observers.endpoint, "endpoint"));
-	composite->add_component (collect_seq_con_info (node_observers.disconnect, "disconnect"));
-	return composite;
-}
-
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_processor & vote_processor, const std::string & name)
 {
 	size_t votes_count = 0;
@@ -1064,6 +1052,7 @@ online_reps (*this, config.online_weight_minimum.number ()),
 stats (config.stat_config),
 vote_uniquer (block_uniquer),
 active (*this, delay_frontier_confirmation_height_updating),
+payment_observer_processor (observers.blocks),
 startup_time (std::chrono::steady_clock::now ())
 {
 	if (config.websocket_config.enabled)
@@ -1220,6 +1209,17 @@ startup_time (std::chrono::steady_clock::now ())
 			}
 		}
 	});
+	if (this->websocket_server)
+	{
+		observers.vote.add ([this](nano::transaction const & transaction, std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a) {
+			if (this->websocket_server->any_subscribers (nano::websocket::topic::vote))
+			{
+				nano::websocket::message_builder builder;
+				auto msg (builder.vote_received (vote_a));
+				this->websocket_server->broadcast (msg);
+			}
+		});
+	}
 	if (NANO_VERSION_PATCH == 0)
 	{
 		logger.always_log ("Node starting, version: ", NANO_MAJOR_MINOR_VERSION);
@@ -3546,6 +3546,7 @@ peering_port (peering_port_a)
 	logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
 	logging.init (path);
 	node = std::make_shared<nano::node> (init, *io_context, peering_port, path, alarm, logging, work);
+	node->active.stop ();
 }
 
 nano::inactive_node::~inactive_node ()

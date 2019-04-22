@@ -1,5 +1,7 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/config.hpp>
 #include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/rpcconfig.hpp>
 #include <nano/node/nodeconfig.hpp>
 // NOTE: to reduce compile times, this include can be replaced by more narrow includes
 // once nano::network is factored out of node.{c|h}pp

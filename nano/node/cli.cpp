@@ -343,7 +343,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 
 		// Check/upgrade the config.json file.
 		{
-			nano::daemon_config config;
+			nano::daemon_config config (data_path);
 			auto error = nano::read_and_update_daemon_config (data_path, config);
 			if (error)
 			{
