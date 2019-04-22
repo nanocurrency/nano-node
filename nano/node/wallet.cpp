@@ -1570,6 +1570,7 @@ void nano::wallets::do_work_regeneration ()
 				return;
 			}
 			auto online = node.rep_crawler.total_weight () > (std::max (node.config.online_weight_minimum.number (), node.delta ()));
+			auto transaction (node.store.tx_begin_read ());
 
 			if (((now - queued) >= node.config.work_recalc_interval && online) || node.network_params.network.is_test_network ())
 			{
@@ -1582,7 +1583,6 @@ void nano::wallets::do_work_regeneration ()
 				}
 				else
 				{
-					auto transaction (node.store.tx_begin_read ());
 					//and so we fall back to ledger confirmation
 					confirmed = node.ledger.block_confirmed (transaction, block->hash ());
 				}
@@ -1592,6 +1592,19 @@ void nano::wallets::do_work_regeneration ()
 				if (!confirmed && node.active.active_difficulty () > difficulty)
 				{
 					block_l = update_work_action (block);
+					lock.lock ();
+					auto existing (node.active.roots.find (block->qualified_root ()));
+					if (node.active.roots.end () != existing)
+					{
+						//block may not be in existing yet
+						confirmed = existing->election->confirmed.load ();
+					}
+					else
+					{
+						//and so we fall back to ledger confirmation
+						confirmed = node.ledger.block_confirmed (transaction, block->hash ());
+					}
+					lock.unlock ();
 				}
 				if (!confirmed)
 				// block could have confirmed while recalculating work with higher difficulty
@@ -1614,6 +1627,19 @@ void nano::wallets::do_work_regeneration ()
 					}
 					node.network.flood_block (block_l);
 					node.active.update_difficulty (*block_l.get ());
+					lock.lock ();
+					auto existing (node.active.roots.find (block->qualified_root ()));
+					if (node.active.roots.end () != existing)
+					{
+						//block may not be in existing yet
+						confirmed = existing->election->confirmed.load ();
+					}
+					else
+					{
+						//and so we fall back to ledger confirmation
+						confirmed = node.ledger.block_confirmed (transaction, block->hash ());
+					}
+					lock.unlock ();
 				}
 			}
 			if (!confirmed)
