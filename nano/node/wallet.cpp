@@ -1569,6 +1569,8 @@ void nano::wallets::do_work_regeneration ()
 			{
 				return;
 			}
+			uint64_t difficulty (0);
+			nano::work_validate (*block, &difficulty);
 			auto online = node.rep_crawler.total_weight () > (std::max (node.config.online_weight_minimum.number (), node.delta ()));
 			auto transaction (node.store.tx_begin_read ());
 
@@ -1587,8 +1589,6 @@ void nano::wallets::do_work_regeneration ()
 					confirmed = node.ledger.block_confirmed (transaction, block->hash ());
 				}
 				lock.unlock ();
-				uint64_t difficulty (0);
-				nano::work_validate (*block, &difficulty);
 				if (!confirmed && node.active.active_difficulty () > difficulty)
 				{
 					block_l = update_work_action (block);
@@ -1606,8 +1606,9 @@ void nano::wallets::do_work_regeneration ()
 					}
 					lock.unlock ();
 				}
-				if (!confirmed)
+				if (!confirmed && node.active.active_difficulty () > difficulty)
 				// block could have confirmed while recalculating work with higher difficulty
+				// dont update anything if active_difficulty is below our block difficulty
 				{
 					if (block != block_l)
 					{
@@ -1642,10 +1643,19 @@ void nano::wallets::do_work_regeneration ()
 					lock.unlock ();
 				}
 			}
-			if (!confirmed)
 			// dont reque if confirmed
+			if (!confirmed)
 			{
-				queue_work_regeneration (now, block_l);
+				if (node.active.active_difficulty () > difficulty)
+				{
+					//if difficulty still below active_difficulty update with new work
+					queue_work_regeneration (now, block_l);
+				}
+				else
+				{
+					//otherwise reuse old block
+					queue_work_regeneration (now, block);
+				}
 			}
 			regeneration_lock.lock ();
 		}
