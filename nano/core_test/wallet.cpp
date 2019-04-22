@@ -1034,6 +1034,7 @@ TEST (wallet, update_work_action)
 {
 	nano::system system (24000, 1);
 	auto & node (*system.nodes[0]);
+	node.config.enable_voting = false;
 	auto & wallet (*system.wallet (0));
 	wallet.insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key;
@@ -1061,6 +1062,8 @@ TEST (wallet, update_work_action)
 	{
 		lock.lock ();
 		auto const existing (node.active.roots.find (block->qualified_root ()));
+		//if existing is junk the block has been confirmed already
+		ASSERT_NE (existing, node.active.roots.end ());
 		updated = existing->difficulty != difficulty1;
 		updated_difficulty = existing->difficulty;
 		lock.unlock ();
