@@ -1563,6 +1563,20 @@ void nano::wallets::do_work_regeneration ()
 			auto block (first->second);
 			std::shared_ptr<nano::block> block_l (block);
 			bool confirmed (false);
+			auto is_confirmed = [this, block](bool confirmed) {
+						auto existing (this->node.active.roots.find (block->qualified_root ()));
+						if (this->node.active.roots.end () != existing)
+						{
+							//block may not be in existing yet
+							confirmed = existing->election->confirmed.load ();
+						}
+						else
+						{
+							//and so we fall back to ledger confirmation
+							auto transaction (this->node.store.tx_begin_read ());
+							confirmed = this->node.ledger.block_confirmed (transaction, block->hash ());
+						}
+			};
 			difficulty_reque.erase (first);
 			regeneration_lock.unlock ();
 			if (!block)
@@ -1572,38 +1586,17 @@ void nano::wallets::do_work_regeneration ()
 			uint64_t difficulty (0);
 			nano::work_validate (*block, &difficulty);
 			auto online = node.rep_crawler.total_weight () > (std::max (node.config.online_weight_minimum.number (), node.delta ()));
-			auto transaction (node.store.tx_begin_read ());
 
 			if (((now - queued) >= node.config.work_recalc_interval && online) || node.network_params.network.is_test_network ())
 			{
 				std::unique_lock<std::mutex> lock (node.active.mutex);
-				auto existing (node.active.roots.find (block->qualified_root ()));
-				if (node.active.roots.end () != existing)
-				{
-					//block may not be in existing yet
-					confirmed = existing->election->confirmed.load ();
-				}
-				else
-				{
-					//and so we fall back to ledger confirmation
-					confirmed = node.ledger.block_confirmed (transaction, block->hash ());
-				}
+				is_confirmed(confirmed);
 				lock.unlock ();
 				if (!confirmed && node.active.active_difficulty () > difficulty)
 				{
 					block_l = update_work_action (block);
-					lock.lock ();
-					auto existing (node.active.roots.find (block->qualified_root ()));
-					if (node.active.roots.end () != existing)
-					{
-						//block may not be in existing yet
-						confirmed = existing->election->confirmed.load ();
-					}
-					else
-					{
-						//and so we fall back to ledger confirmation
-						confirmed = node.ledger.block_confirmed (transaction, block->hash ());
-					}
+					lock.lock();
+					is_confirmed(confirmed);
 					lock.unlock ();
 				}
 				if (!confirmed && node.active.active_difficulty () > difficulty)
@@ -1629,17 +1622,7 @@ void nano::wallets::do_work_regeneration ()
 					node.network.flood_block (block_l);
 					node.active.update_difficulty (*block_l.get ());
 					lock.lock ();
-					auto existing (node.active.roots.find (block->qualified_root ()));
-					if (node.active.roots.end () != existing)
-					{
-						//block may not be in existing yet
-						confirmed = existing->election->confirmed.load ();
-					}
-					else
-					{
-						//and so we fall back to ledger confirmation
-						confirmed = node.ledger.block_confirmed (transaction, block->hash ());
-					}
+					is_confirmed(confirmed);
 					lock.unlock ();
 				}
 			}

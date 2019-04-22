@@ -1078,7 +1078,5 @@ TEST (wallet, update_work_action)
 		lock.unlock ();
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	lock.lock ();
 	ASSERT_GT (updated_difficulty, difficulty1);
-	lock.unlock ();
 }
