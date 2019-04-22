@@ -1562,9 +1562,9 @@ void nano::wallets::do_work_regeneration ()
 			auto queued (first->first);
 			auto block (first->second);
 			std::shared_ptr<nano::block> block_l (block);
-			auto is_confirmed = [this, block]() -> bool {
+			auto is_confirmed = [this, block]() {
 				bool confirmed_l (false);
-				std::unique_lock<std::mutex> lock (this->node.active.mutex);
+				std::lock_guard<std::mutex> lock (this->node.active.mutex);
 				auto existing (this->node.active.roots.find (block->qualified_root ()));
 				if (this->node.active.roots.end () != existing)
 				{
@@ -1577,7 +1577,6 @@ void nano::wallets::do_work_regeneration ()
 					auto transaction (this->node.store.tx_begin_read ());
 					confirmed_l = this->node.ledger.block_confirmed (transaction, block->hash ());
 				}
-				lock.unlock ();
 				return confirmed_l;
 			};
 			difficulty_reque.erase (first);
