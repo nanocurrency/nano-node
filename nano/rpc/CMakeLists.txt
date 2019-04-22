@@ -9,16 +9,11 @@ add_library (rpc
 	rpc_connection.hpp
 	rpc_connection.cpp
 	rpc_handler.hpp
-	rpc_handler.cpp)
+	rpc_handler.cpp
+	rpc_request_processor.hpp
+	rpc_request_processor.cpp)
 
 target_link_libraries (rpc
-	node
 	nano_lib
 	${OPENSSL_LIBRARIES}
 	Boost::boost)
-
-target_compile_definitions(rpc
-	PRIVATE
-	-DNANO_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
-	-DNANO_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR}
-	-DNANO_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH})

@@ -6,7 +6,9 @@
 #include <nano/node/bootstrap.hpp>
 #include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/logging.hpp>
+#include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/payment_observer_processor.hpp>
 #include <nano/node/portmapping.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/signatures.hpp>
@@ -250,7 +252,9 @@ public:
 	}
 	void flood_block_batch (std::deque<std::shared_ptr<nano::block>>, unsigned = broadcast_interval_ms);
 	void merge_peers (std::array<nano::endpoint, 8> const &);
+	void merge_peer (nano::endpoint const &);
 	void send_keepalive (nano::transport::channel const &);
+	void send_keepalive_self (nano::transport::channel const &);
 	void send_node_id_handshake (nano::endpoint const &, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to);
 	void broadcast_confirm_req (std::shared_ptr<nano::block>);
 	void broadcast_confirm_req_base (std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>, unsigned, bool = false);
@@ -285,18 +289,6 @@ public:
 	bool wallets_store_init{ false };
 	bool wallet_init{ false };
 };
-class node_observers final
-{
-public:
-	nano::observer_set<std::shared_ptr<nano::block>, nano::account const &, nano::uint128_t const &, bool> blocks;
-	nano::observer_set<bool> wallet;
-	nano::observer_set<nano::transaction const &, std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>> vote;
-	nano::observer_set<nano::account const &, bool> account_balance;
-	nano::observer_set<std::shared_ptr<nano::transport::channel>> endpoint;
-	nano::observer_set<> disconnect;
-};
-
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (node_observers & node_observers, const std::string & name);
 
 class vote_processor final
 {
@@ -423,6 +415,7 @@ public:
 	nano::pending_confirmation_height pending_confirmation_height; // Used by both active and confirmation height processor
 	nano::active_transactions active;
 	nano::confirmation_height_processor confirmation_height_processor;
+	nano::payment_observer_processor payment_observer_processor;
 	const std::chrono::steady_clock::time_point startup_time;
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
 	static double constexpr price_max = 16.0;

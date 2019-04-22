@@ -11,7 +11,7 @@ namespace nano
 class rpc_secure : public rpc
 {
 public:
-	rpc_secure (boost::asio::io_service & service_a, nano::node & node_a, nano::rpc_config const & config_a);
+	rpc_secure (boost::asio::io_service & service_a, nano::rpc_config const & config_a, nano::rpc_handler_interface & rpc_handler_interface_a);
 
 	/** Starts accepting connections */
 	void accept () override;

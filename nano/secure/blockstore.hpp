@@ -311,12 +311,6 @@ public:
 
 	virtual uint64_t block_account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
 
-	// Requires a write transaction
-	virtual nano::raw_key get_node_id (nano::transaction const &) const = 0;
-
-	/** Deletes the node ID from the store */
-	virtual void delete_node_id (nano::transaction const &) = 0;
-
 	/** Start read-write transaction */
 	virtual nano::transaction tx_begin_write () = 0;
 

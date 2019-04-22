@@ -102,6 +102,23 @@ void nano::network::send_keepalive (nano::transport::channel const & channel_a)
 	channel_a.send (message);
 }
 
+void nano::network::send_keepalive_self (nano::transport::channel const & channel_a)
+{
+	nano::keepalive message;
+	udp_channels.random_fill (message.peers);
+	if (node.config.external_address != boost::asio::ip::address_v6{} && node.config.external_port != 0)
+	{
+		message.peers[0] = nano::endpoint (node.config.external_address, node.config.external_port);
+	}
+	else
+	{
+		message.peers[0] = nano::endpoint (boost::asio::ip::address_v6{}, endpoint ().port ());
+		message.peers[1] = node.port_mapping.external_address ();
+		message.peers[2] = nano::endpoint (boost::asio::ip::address_v6{}, node.port_mapping.external_address ().port ()); // If UPnP reported wrong external IP address
+	}
+	channel_a.send (message);
+}
+
 void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 {
 	auto node_l (shared_from_this ());
@@ -537,11 +554,16 @@ void nano::network::merge_peers (std::array<nano::endpoint, 8> const & peers_a)
 {
 	for (auto i (peers_a.begin ()), j (peers_a.end ()); i != j; ++i)
 	{
-		if (!udp_channels.reachout (*i, node.config.allow_local_peers))
-		{
-			nano::transport::channel_udp channel (node.network.udp_channels, *i);
-			send_keepalive (channel);
-		}
+		merge_peer (*i);
+	}
+}
+
+void nano::network::merge_peer (nano::endpoint const & peer_a)
+{
+	if (!udp_channels.reachout (peer_a, node.config.allow_local_peers))
+	{
+		nano::transport::channel_udp channel (node.network.udp_channels, peer_a);
+		send_keepalive (channel);
 	}
 }
 
@@ -927,18 +949,6 @@ void nano::vote_processor::calculate_weights ()
 
 namespace nano
 {
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (node_observers & node_observers, const std::string & name)
-{
-	auto composite = std::make_unique<seq_con_info_composite> (name);
-	composite->add_component (collect_seq_con_info (node_observers.blocks, "blocks"));
-	composite->add_component (collect_seq_con_info (node_observers.wallet, "wallet"));
-	composite->add_component (collect_seq_con_info (node_observers.vote, "vote"));
-	composite->add_component (collect_seq_con_info (node_observers.account_balance, "account_balance"));
-	composite->add_component (collect_seq_con_info (node_observers.endpoint, "endpoint"));
-	composite->add_component (collect_seq_con_info (node_observers.disconnect, "disconnect"));
-	return composite;
-}
-
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_processor & vote_processor, const std::string & name)
 {
 	size_t votes_count = 0;
@@ -1042,6 +1052,7 @@ stats (config.stat_config),
 vote_uniquer (block_uniquer),
 active (*this, delay_frontier_confirmation_height_updating),
 confirmation_height_processor (pending_confirmation_height, store, ledger.stats, active, ledger.epoch_link, logger),
+payment_observer_processor (observers.blocks),
 startup_time (std::chrono::steady_clock::now ())
 {
 	if (config.websocket_config.enabled)
@@ -1124,31 +1135,34 @@ startup_time (std::chrono::steady_clock::now ())
 	if (websocket_server)
 	{
 		observers.blocks.add ([this](std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
-			if (this->block_arrival.recent (block_a->hash ()))
+			if (this->websocket_server->any_subscribers (nano::websocket::topic::confirmation))
 			{
-				std::string subtype;
-				if (is_state_send_a)
+				if (this->block_arrival.recent (block_a->hash ()))
 				{
-					subtype = "send";
+					std::string subtype;
+					if (is_state_send_a)
+					{
+						subtype = "send";
+					}
+					else if (block_a->type () == nano::block_type::state)
+					{
+						if (block_a->link ().is_zero ())
+						{
+							subtype = "change";
+						}
+						else if (amount_a == 0 && !this->ledger.epoch_link.is_zero () && this->ledger.is_epoch_link (block_a->link ()))
+						{
+							subtype = "epoch";
+						}
+						else
+						{
+							subtype = "receive";
+						}
+					}
+					nano::websocket::message_builder builder;
+					auto msg (builder.block_confirmed (block_a, account_a, amount_a, subtype));
+					this->websocket_server->broadcast (msg);
 				}
-				else if (block_a->type () == nano::block_type::state)
-				{
-					if (block_a->link ().is_zero ())
-					{
-						subtype = "change";
-					}
-					else if (amount_a == 0 && !this->ledger.epoch_link.is_zero () && this->ledger.is_epoch_link (block_a->link ()))
-					{
-						subtype = "epoch";
-					}
-					else
-					{
-						subtype = "receive";
-					}
-				}
-				nano::websocket::message_builder builder;
-				auto msg (builder.block_confirmed (block_a, account_a, amount_a, subtype));
-				this->websocket_server->broadcast (msg);
 			}
 		});
 	}
@@ -1195,6 +1209,17 @@ startup_time (std::chrono::steady_clock::now ())
 			}
 		}
 	});
+	if (this->websocket_server)
+	{
+		observers.vote.add ([this](nano::transaction const & transaction, std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a) {
+			if (this->websocket_server->any_subscribers (nano::websocket::topic::vote))
+			{
+				nano::websocket::message_builder builder;
+				auto msg (builder.vote_received (vote_a));
+				this->websocket_server->broadcast (msg);
+			}
+		});
+	}
 	if (NANO_VERSION_PATCH == 0)
 	{
 		logger.always_log ("Node starting, version: ", NANO_MAJOR_MINOR_VERSION);
@@ -1224,7 +1249,7 @@ startup_time (std::chrono::steady_clock::now ())
 			std::exit (1);
 		}
 
-		node_id = nano::keypair (store.get_node_id (transaction));
+		node_id = nano::keypair ();
 		logger.always_log ("Node ID: ", node_id.pub.to_account ());
 	}
 
@@ -1566,7 +1591,10 @@ void nano::node::start ()
 			this_l->bootstrap_wallet ();
 		});
 	}
-	port_mapping.start ();
+	if (config.external_address != boost::asio::ip::address_v6{} && config.external_port != 0)
+	{
+		port_mapping.start ();
+	}
 }
 
 void nano::node::stop ()
@@ -2826,6 +2854,7 @@ peering_port (peering_port_a)
 	logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
 	logging.init (path);
 	node = std::make_shared<nano::node> (init, *io_context, peering_port, path, alarm, logging, work);
+	node->active.stop ();
 }
 
 nano::inactive_node::~inactive_node ()

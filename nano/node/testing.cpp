@@ -77,6 +77,11 @@ nano::system::~system ()
 		i->stop ();
 	}
 
+		// clang-format off
+	// Windows cannot remove the log and data files while they are still owned by this process.
+	// They will be removed later
+		// clang-format on
+#ifndef _WIN32
 	// Clean up tmp directories created by the tests. Since it's sometimes useful to
 	// see log files after test failures, an environment variable is supported to
 	// retain the files.
@@ -84,6 +89,7 @@ nano::system::~system ()
 	{
 		nano::remove_temporary_directories ();
 	}
+#endif
 }
 
 std::shared_ptr<nano::wallet> nano::system::wallet (size_t index_a)
@@ -526,3 +532,19 @@ void nano::landing::distribute_ongoing ()
 
 std::chrono::seconds constexpr nano::landing::distribution_interval;
 std::chrono::seconds constexpr nano::landing::sleep_seconds;
+
+namespace nano
+{
+void cleanup_test_directories_on_exit ()
+{
+	// Makes sure everything is cleaned up
+	nano::logging::release_file_sink ();
+	// Clean up tmp directories created by the tests. Since it's sometimes useful to
+	// see log files after test failures, an environment variable is supported to
+	// retain the files.
+	if (std::getenv ("TEST_KEEP_TMPDIRS") == nullptr)
+	{
+		nano::remove_temporary_directories ();
+	}
+}
+}
