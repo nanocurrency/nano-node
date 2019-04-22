@@ -4600,6 +4600,6 @@ bool block_confirmed (nano::node & node, nano::transaction & transaction, nano::
 		is_confirmed = (block != nullptr && !node.active.active (*block));
 	}
 
- 	return is_confirmed;
+	return is_confirmed;
 }
 }
