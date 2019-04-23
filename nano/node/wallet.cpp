@@ -1391,7 +1391,23 @@ void nano::work_watcher::run ()
 		next_attempt = std::chrono::steady_clock::now () + std::chrono::seconds (5);
 		for (auto i (blocks.begin ()), n (blocks.end ()); i != n;)
 		{
-			if (!node.active.active (i->first))
+			std::unique_lock<std::mutex> lock (node.active.mutex);
+			auto confirmed (false);
+			auto existing (node.active.roots.find ((i->second)->qualified_root ()));
+			if (node.active.roots.end () != existing)
+			{
+				//block may not be in existing yet
+				confirmed = existing->election->confirmed.load ();
+			}
+			else
+			{
+				//and so we fall back to ledger confirmation
+				auto transaction (this->node.store.tx_begin_read ());
+				confirmed = this->node.ledger.block_confirmed (transaction, (i->second)->hash ());
+			}
+			lock.unlock ();
+
+			if (confirmed)
 			{
 				i = blocks.erase (i);
 			}
