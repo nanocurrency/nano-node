@@ -113,9 +113,11 @@ public:
 	bool vote (std::shared_ptr<nano::vote>, bool = false);
 	// Is the root of this block in the roots container
 	bool active (nano::block const &);
+	bool active (nano::qualified_root const &);
 	void update_difficulty (nano::block const &);
 	void adjust_difficulty (nano::block_hash const &);
-	void update_active_difficulty ();
+	void update_active_difficulty (std::unique_lock<std::mutex> &);
+	uint64_t active_difficulty ();
 	std::deque<std::shared_ptr<nano::block>> list_blocks (bool = false);
 	void erase (nano::block const &);
 	bool empty ();
@@ -146,7 +148,7 @@ public:
 	static size_t constexpr election_history_size = 2048;
 	static size_t constexpr max_broadcast_queue = 1000;
 	boost::circular_buffer<uint64_t> difficulty_cb;
-	std::atomic<uint64_t> active_difficulty;
+	uint64_t trended_active_difficulty;
 
 private:
 	// Call action with confirmed block, may be different than what we started with
@@ -251,12 +253,12 @@ public:
 	online_reps (nano::node &, nano::uint128_t);
 	void observe (nano::account const &);
 	void sample ();
-	nano::uint128_t online_stake ();
+	nano::uint128_t online_stake () const;
 	std::vector<nano::account> list ();
 
 private:
 	nano::uint128_t trend (nano::transaction &);
-	std::mutex mutex;
+	mutable std::mutex mutex;
 	nano::node & node;
 	std::unordered_set<nano::account> reps;
 	nano::uint128_t online;
@@ -458,9 +460,10 @@ public:
 	void process_fork (nano::transaction const &, std::shared_ptr<nano::block>);
 	bool validate_block_by_previous (nano::transaction const &, std::shared_ptr<nano::block>);
 	void do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const &, uint16_t, std::shared_ptr<std::string>, std::shared_ptr<std::string>, std::shared_ptr<boost::asio::ip::tcp::resolver>);
-	nano::uint128_t delta ();
+	nano::uint128_t delta () const;
 	void ongoing_online_weight_calculation ();
 	void ongoing_online_weight_calculation_queue ();
+	bool online () const;
 	boost::asio::io_context & io_ctx;
 	nano::network_params network_params;
 	nano::node_config config;
@@ -481,7 +484,6 @@ public:
 	nano::bootstrap_listener bootstrap;
 	boost::filesystem::path application_path;
 	nano::node_observers observers;
-	nano::wallets wallets;
 	nano::port_mapping port_mapping;
 	nano::vote_processor vote_processor;
 	nano::rep_crawler rep_crawler;
@@ -490,6 +492,7 @@ public:
 	boost::thread block_processor_thread;
 	nano::block_arrival block_arrival;
 	nano::online_reps online_reps;
+	nano::wallets wallets;
 	nano::votes_cache votes_cache;
 	nano::stat stats;
 	nano::keypair node_id;

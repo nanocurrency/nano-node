@@ -1038,7 +1038,6 @@ network (*this, config.peering_port),
 bootstrap_initiator (*this),
 bootstrap (io_ctx_a, config.peering_port, *this),
 application_path (application_path_a),
-wallets (init_a.wallet_init, *this),
 port_mapping (*this),
 vote_processor (*this),
 rep_crawler (*this),
@@ -1049,6 +1048,7 @@ block_processor_thread ([this]() {
 	this->block_processor.process_blocks ();
 }),
 online_reps (*this, config.online_weight_minimum.number ()),
+wallets (init_a.wallet_init, *this),
 stats (config.stat_config),
 vote_uniquer (block_uniquer),
 active (*this, delay_frontier_confirmation_height_updating),
@@ -2192,7 +2192,7 @@ void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 	}
 }
 
-nano::uint128_t nano::node::delta ()
+nano::uint128_t nano::node::delta () const
 {
 	auto result ((online_reps.online_stake () / 100) * config.online_weight_quorum);
 	return result;
@@ -2207,6 +2207,11 @@ void nano::node::ongoing_online_weight_calculation_queue ()
 			node_l->ongoing_online_weight_calculation ();
 		}
 	});
+}
+
+bool nano::node::online () const
+{
+	return rep_crawler.total_weight () > (std::max (config.online_weight_minimum.number (), delta ()));
 }
 
 void nano::node::ongoing_online_weight_calculation ()
@@ -2482,7 +2487,7 @@ nano::uint128_t nano::online_reps::trend (nano::transaction & transaction_a)
 	return nano::uint128_t{ items[median_idx] };
 }
 
-nano::uint128_t nano::online_reps::online_stake ()
+nano::uint128_t nano::online_reps::online_stake () const
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	return std::max (online, minimum);
@@ -3079,7 +3084,6 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 		}
 		roots.erase (*i);
 	}
-	update_active_difficulty ();
 	if (unconfirmed_count > 0)
 	{
 		node.logger.try_log (boost::str (boost::format ("%1% blocks have been unconfirmed averaging %2% announcements") % unconfirmed_count % (unconfirmed_announcements / unconfirmed_count)));
@@ -3098,7 +3102,7 @@ void nano::active_transactions::request_loop ()
 	while (!stopped)
 	{
 		request_confirm (lock);
-
+		update_active_difficulty (lock);
 		// This prevents unnecessary waiting if stopped is set in-between the above check and now
 		if (stopped)
 		{
@@ -3200,10 +3204,15 @@ bool nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a, bool s
 	return replay;
 }
 
-bool nano::active_transactions::active (nano::block const & block_a)
+bool nano::active_transactions::active (nano::qualified_root const & root_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	return roots.find (block_a.qualified_root ()) != roots.end ();
+	return roots.find (root_a) != roots.end ();
+}
+
+bool nano::active_transactions::active (nano::block const & block_a)
+{
+	return active (block_a.qualified_root ());
 }
 
 void nano::active_transactions::update_difficulty (nano::block const & block_a)
@@ -3306,9 +3315,9 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 	}
 }
 
-void nano::active_transactions::update_active_difficulty ()
+void nano::active_transactions::update_active_difficulty (std::unique_lock<std::mutex> & lock_a)
 {
-	assert (!mutex.try_lock ());
+	assert (lock_a.mutex () == &mutex && lock_a.owns_lock ());
 	uint64_t difficulty (node.network_params.network.publish_threshold);
 	if (!roots.empty ())
 	{
@@ -3320,10 +3329,16 @@ void nano::active_transactions::update_active_difficulty ()
 	}
 	assert (difficulty >= node.network_params.network.publish_threshold);
 	difficulty_cb.push_front (difficulty);
-	auto sum = std::accumulate (node.active.difficulty_cb.begin (), node.active.difficulty_cb.end (), uint128_t (0));
+	auto sum (std::accumulate (node.active.difficulty_cb.begin (), node.active.difficulty_cb.end (), uint128_t (0)));
 	difficulty = static_cast<uint64_t> (sum / difficulty_cb.size ());
 	assert (difficulty >= node.network_params.network.publish_threshold);
-	active_difficulty.store (difficulty);
+	trended_active_difficulty = difficulty;
+}
+
+uint64_t nano::active_transactions::active_difficulty ()
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	return trended_active_difficulty;
 }
 
 // List of active blocks in elections
@@ -3373,7 +3388,7 @@ size_t nano::active_transactions::size ()
 nano::active_transactions::active_transactions (nano::node & node_a, bool delay_frontier_confirmation_height_updating) :
 node (node_a),
 difficulty_cb (20, node.network_params.network.publish_threshold),
-active_difficulty (node.network_params.network.publish_threshold),
+trended_active_difficulty (node.network_params.network.publish_threshold),
 next_frontier_check (std::chrono::steady_clock::now () + (delay_frontier_confirmation_height_updating ? std::chrono::seconds (60) : std::chrono::seconds (0))),
 started (false),
 stopped (false),
