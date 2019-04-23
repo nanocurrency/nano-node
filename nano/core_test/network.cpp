@@ -1407,7 +1407,6 @@ TEST (bootstrap, keepalive)
 
 TEST (confirmation_height, single)
 {
-	auto amount (std::numeric_limits<nano::uint128_t>::max ());
 	nano::system system (24000, 2);
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
@@ -1455,9 +1454,10 @@ TEST (confirmation_height, single)
 
 TEST (confirmation_height, multiple)
 {
-	auto amount (std::numeric_limits<nano::uint128_t>::max ());
 	bool delay_frontier_confirmation_height_updating = true;
-	nano::system system (24000, 2, delay_frontier_confirmation_height_updating);
+	nano::system system;
+	system.add_node (nano::node_config (24001, system.logging), delay_frontier_confirmation_height_updating);
+	system.add_node (nano::node_config (24002, system.logging), delay_frontier_confirmation_height_updating);
 	nano::keypair key1;
 	nano::keypair key2;
 	nano::keypair key3;
@@ -1639,7 +1639,9 @@ TEST (confirmation_height, gap_bootstrap)
 TEST (confirmation_height, gap_live)
 {
 	bool delay_frontier_confirmation_height_updating = true;
-	nano::system system (24000, 2, delay_frontier_confirmation_height_updating);
+	nano::system system;
+	system.add_node (nano::node_config (24001, system.logging), delay_frontier_confirmation_height_updating);
+	system.add_node (nano::node_config (24002, system.logging), delay_frontier_confirmation_height_updating);
 	nano::keypair destination;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::block_hash latest1 (system.nodes[0]->latest (nano::test_genesis_key.pub));

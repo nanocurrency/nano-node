@@ -1726,25 +1726,26 @@ TEST (node, rep_weight)
 // Test that nodes can disable representative voting
 TEST (node, no_voting)
 {
-	// Delay the starting of the nodes until enable_voting has been set, to remove data races.
-	bool enable_voting = false;
-	nano::system system (24000, 2, enable_voting);
+	nano::system system (24000, 1);
 	auto & node0 (*system.nodes[0]);
-	auto & node1 (*system.nodes[1]);
+	nano::node_config node_config (24001, system.logging);
+	node_config.enable_voting = false;
+	auto & node1 = *system.add_node (node_config);
+
 	auto wallet0 (system.wallet (0));
 	auto wallet1 (system.wallet (1));
-	// Node0 has a rep
-	wallet0->insert_adhoc (nano::test_genesis_key.prv);
+	// Node1 has a rep
+	wallet1->insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key1;
 	wallet1->insert_adhoc (key1.prv);
 	// Broadcast a confirm so others should know this is a rep node
-	wallet0->send_action (nano::test_genesis_key.pub, key1.pub, nano::Mxrb_ratio);
+	wallet1->send_action (nano::test_genesis_key.pub, key1.pub, nano::Mxrb_ratio);
 	system.deadline_set (10s);
-	while (!node1.active.empty ())
+	while (!node0.active.empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (0, node1.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::in));
+	ASSERT_EQ (0, node0.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::in));
 }
 
 TEST (node, send_callback)
