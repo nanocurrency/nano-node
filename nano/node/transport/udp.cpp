@@ -635,7 +635,7 @@ bool nano::transport::udp_channels::not_a_peer (nano::endpoint const & endpoint_
 	{
 		result = true;
 	}
-	else if (endpoint_a == local_endpoint)
+	else if (endpoint_a == get_local_endpoint ())
 	{
 		result = true;
 	}
