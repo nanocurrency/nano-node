@@ -81,7 +81,7 @@ int main (int argc, char * const * argv)
 		("block_processor_verification_size",boost::program_options::value<std::size_t> (), "Increase batch signature verification size in block processor, default 0 (limited by config signature_checker_threads), unlimited for fast_bootstrap")
 		("debug_block_count", "Display the number of block")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
-		("debug_dump_frontier_unchecked_dependents", "Dump frontiers which have matches hashes in the unchecked table")
+		("debug_dump_frontier_unchecked_dependents", "Dump frontiers which have matching unchecked keys")
 		("debug_dump_online_weight", "Dump online_weights table")
 		("debug_dump_representatives", "List representatives and weights")
 		("debug_account_count", "Display the number of accounts")
@@ -262,7 +262,7 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_dump_frontier_unchecked_dependents"))
 		{
 			nano::inactive_node node (data_path);
-			std::cout << "Outputing any frontier hashes which have associated key hashes in the unchecked table (may take some time)...:\n";
+			std::cout << "Outputting any frontier hashes which have associated key hashes in the unchecked table (may take some time)...\n";
 
 			// Cache the account heads to make searching quicker against unchecked keys.
 			auto transaction (node.node->store.tx_begin ());
@@ -275,7 +275,7 @@ int main (int argc, char * const * argv)
 			// Check all unchecked keys for matching frontier hashes. Indicates an issue with process_batch algorithm
 			for (auto i (node.node->store.unchecked_begin (transaction)), n (node.node->store.unchecked_end ()); i != n; ++i)
 			{
-				auto it = frontier_hashes.find (i->first.hash);
+				auto it = frontier_hashes.find (i->first.key ());
 				if (it != frontier_hashes.cend ())
 				{
 					std::cout << it->to_string () << "\n";
