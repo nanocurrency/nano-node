@@ -39,7 +39,7 @@ public:
 	std::error_code poll (const std::chrono::nanoseconds & sleep_time = std::chrono::milliseconds (50));
 	void stop ();
 	void deadline_set (const std::chrono::duration<double, std::nano> & delta);
-	std::shared_ptr<nano::node> add_node (nano::node_config &, bool = false);
+	std::shared_ptr<nano::node> add_node (nano::node_config const &, bool = false);
 	boost::asio::io_context io_ctx;
 	nano::alarm alarm{ io_ctx };
 	std::vector<std::shared_ptr<nano::node>> nodes;

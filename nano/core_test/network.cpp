@@ -1407,6 +1407,7 @@ TEST (bootstrap, keepalive)
 
 TEST (confirmation_height, single)
 {
+	auto amount (std::numeric_limits<nano::uint128_t>::max ());
 	nano::system system (24000, 2);
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);

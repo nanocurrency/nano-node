@@ -21,7 +21,7 @@ std::string nano::error_system_messages::message (int ev) const
 }
 
 /** Returns the node added. */
-std::shared_ptr<nano::node> nano::system::add_node (nano::node_config & node_config_a, bool delay_frontier_confirmation_height_updating_a)
+std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & node_config_a, bool delay_frontier_confirmation_height_updating_a)
 {
 	nano::node_init init;
 	auto node (std::make_shared<nano::node> (init, io_ctx, nano::unique_path (), alarm, node_config_a, work, node_flags (), delay_frontier_confirmation_height_updating_a));
