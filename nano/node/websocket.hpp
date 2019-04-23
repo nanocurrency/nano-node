@@ -22,6 +22,15 @@
 #include <unordered_set>
 #include <vector>
 
+/* Boost v1.70 introduced breaking changes; the conditional compilation allows 1.6x to be supported as well. */
+#if BOOST_VERSION < 107000
+using socket_type = boost::asio::ip::tcp::socket;
+#define beast_buffers boost::beast::buffers
+#else
+using socket_type = boost::asio::basic_stream_socket<boost::asio::ip::tcp, boost::asio::io_context::executor_type>;
+#define beast_buffers boost::beast::make_printable
+#endif
+
 namespace nano
 {
 class node;
@@ -145,7 +154,7 @@ namespace websocket
 	{
 	public:
 		/** Constructor that takes ownership over \p socket_a */
-		explicit session (nano::websocket::listener & listener_a, boost::asio::ip::tcp::socket socket_a);
+		explicit session (nano::websocket::listener & listener_a, socket_type socket_a);
 		~session ();
 
 		/** Perform Websocket handshake and start reading messages */
@@ -164,7 +173,7 @@ namespace websocket
 		/** The owning listener */
 		nano::websocket::listener & ws_listener;
 		/** Websocket */
-		boost::beast::websocket::stream<boost::asio::ip::tcp::socket> ws;
+		boost::beast::websocket::stream<socket_type> ws;
 		/** Buffer for received messages */
 		boost::beast::multi_buffer read_buffer;
 		/** All websocket writes and updates to send_queue must go through the write strand. */
@@ -230,7 +239,7 @@ namespace websocket
 	private:
 		nano::node & node;
 		boost::asio::ip::tcp::acceptor acceptor;
-		boost::asio::ip::tcp::socket socket;
+		socket_type socket;
 		std::mutex sessions_mutex;
 		std::vector<std::weak_ptr<session>> sessions;
 		std::array<std::atomic<std::size_t>, number_topics> topic_subscription_count{};
