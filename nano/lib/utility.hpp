@@ -88,7 +88,7 @@ namespace thread_role
 		signature_checking,
 		rpc_request_processor,
 		rpc_process_container,
-		wallet_work_regen
+		work_watcher
 	};
 	/*
 	 * Get/Set the identifier for the current thread

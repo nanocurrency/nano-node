@@ -1038,7 +1038,6 @@ network (*this, config.peering_port),
 bootstrap_initiator (*this),
 bootstrap (io_ctx_a, config.peering_port, *this),
 application_path (application_path_a),
-wallets (init_a.wallet_init, *this),
 port_mapping (*this),
 vote_processor (*this),
 rep_crawler (*this),
@@ -1049,6 +1048,7 @@ block_processor_thread ([this]() {
 	this->block_processor.process_blocks ();
 }),
 online_reps (*this, config.online_weight_minimum.number ()),
+wallets (init_a.wallet_init, *this),
 stats (config.stat_config),
 vote_uniquer (block_uniquer),
 active (*this, delay_frontier_confirmation_height_updating),
@@ -2192,7 +2192,7 @@ void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 	}
 }
 
-nano::uint128_t nano::node::delta ()
+nano::uint128_t nano::node::delta () const
 {
 	auto result ((online_reps.online_stake () / 100) * config.online_weight_quorum);
 	return result;
@@ -2207,6 +2207,11 @@ void nano::node::ongoing_online_weight_calculation_queue ()
 			node_l->ongoing_online_weight_calculation ();
 		}
 	});
+}
+
+bool nano::node::online () const
+{
+	return rep_crawler.total_weight () > (std::max (config.online_weight_minimum.number (), delta ()));
 }
 
 void nano::node::ongoing_online_weight_calculation ()
@@ -2482,7 +2487,7 @@ nano::uint128_t nano::online_reps::trend (nano::transaction & transaction_a)
 	return nano::uint128_t{ items[median_idx] };
 }
 
-nano::uint128_t nano::online_reps::online_stake ()
+nano::uint128_t nano::online_reps::online_stake () const
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	return std::max (online, minimum);
@@ -3199,10 +3204,15 @@ bool nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a, bool s
 	return replay;
 }
 
-bool nano::active_transactions::active (nano::block const & block_a)
+bool nano::active_transactions::active (nano::qualified_root const & root_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	return roots.find (block_a.qualified_root ()) != roots.end ();
+	return roots.find (root_a) != roots.end ();
+}
+
+bool nano::active_transactions::active (nano::block const & block_a)
+{
+	return active (block_a.qualified_root ());
 }
 
 void nano::active_transactions::update_difficulty (nano::block const & block_a)
@@ -3307,6 +3317,7 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 
 void nano::active_transactions::update_active_difficulty (std::unique_lock<std::mutex> & lock_a)
 {
+	assert (lock_a.mutex () == &mutex && lock_a.owns_lock ());
 	uint64_t difficulty (node.network_params.network.publish_threshold);
 	if (!roots.empty ())
 	{

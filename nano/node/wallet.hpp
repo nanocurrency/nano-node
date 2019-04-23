@@ -11,6 +11,9 @@
 
 namespace nano
 {
+class node;
+class node_config;
+class wallets;
 // The fan spreads a key out over the heap to decrease the likelihood of it being recovered by memory inspection
 class fan final
 {
@@ -24,7 +27,6 @@ private:
 	std::mutex mutex;
 	void value_get (nano::raw_key &);
 };
-class node_config;
 class kdf final
 {
 public:
@@ -111,7 +113,6 @@ public:
 private:
 	MDB_txn * tx (nano::transaction const &) const;
 };
-class wallets;
 // A wallet is a set of account keys encrypted by a common encryption key
 class wallet final : public std::enable_shared_from_this<nano::wallet>
 {
@@ -119,6 +120,7 @@ public:
 	std::shared_ptr<nano::block> change_action (nano::account const &, nano::account const &, uint64_t = 0, bool = true);
 	std::shared_ptr<nano::block> receive_action (nano::block const &, nano::account const &, nano::uint128_union const &, uint64_t = 0, bool = true);
 	std::shared_ptr<nano::block> send_action (nano::account const &, nano::account const &, nano::uint128_t const &, uint64_t = 0, bool = true, boost::optional<std::string> = {});
+	std::shared_ptr<nano::block> regenerate_action (nano::qualified_root const &, std::shared_ptr<nano::block_builder>);
 	wallet (bool &, nano::transaction &, nano::wallets &, std::string const &);
 	wallet (bool &, nano::transaction &, nano::wallets &, std::string const &, std::string const &);
 	void enter_initial_password ();
@@ -157,8 +159,22 @@ public:
 	std::mutex representatives_mutex;
 	std::unordered_set<nano::account> representatives;
 };
-class node;
 
+class work_watcher
+{
+public:
+	work_watcher (nano::node &);
+	~work_watcher ();
+	void stop ();
+	void run ();
+	void add (std::shared_ptr<nano::block>);
+	std::mutex mutex;
+	nano::node & node;
+	std::condition_variable condition;
+	std::atomic<bool> stopped;
+	std::unordered_map<nano::qualified_root, std::shared_ptr<nano::state_block>> blocks;
+	std::thread thread;
+};
 /**
  * The wallets set is all the wallets a node controls.
  * A node may contain multiple wallets independently encrypted and operated.
@@ -170,14 +186,11 @@ public:
 	~wallets ();
 	std::shared_ptr<nano::wallet> open (nano::uint256_union const &);
 	std::shared_ptr<nano::wallet> create (nano::uint256_union const &);
-	//update difficulty using active_difficulty as the threshold
-	std::shared_ptr<nano::block> update_work_action (std::shared_ptr<nano::block> const &) const;
 	bool search_pending (nano::uint256_union const &);
 	void search_pending_all ();
 	void destroy (nano::uint256_union const &);
 	void reload ();
 	void do_work_regeneration ();
-	void queue_work_regeneration (std::chrono::steady_clock::time_point const &, std::shared_ptr<nano::block> const &);
 	void do_wallet_actions ();
 	void queue_wallet_action (nano::uint128_t const &, std::shared_ptr<nano::wallet>, std::function<void(nano::wallet &)> const &);
 	void foreach_representative (nano::transaction const &, std::function<void(nano::public_key const &, nano::raw_key const &)> const &);
@@ -192,20 +205,17 @@ public:
 	std::function<void(bool)> observer;
 	std::unordered_map<nano::uint256_union, std::shared_ptr<nano::wallet>> items;
 	std::multimap<nano::uint128_t, std::pair<std::shared_ptr<nano::wallet>, std::function<void(nano::wallet &)>>, std::greater<nano::uint128_t>> actions;
-	std::multimap<std::chrono::steady_clock::time_point, std::shared_ptr<nano::block>, std::less<std::chrono::steady_clock::time_point>> difficulty_reque;
 	std::mutex mutex;
 	std::mutex action_mutex;
-	std::mutex difficulty_mutex;
 	std::condition_variable condition;
-	std::condition_variable regeneration_condition;
 	nano::kdf kdf;
 	MDB_dbi handle;
 	MDB_dbi send_action_ids;
 	nano::node & node;
 	nano::mdb_env & env;
 	std::atomic<bool> stopped;
+	nano::work_watcher watcher;
 	boost::thread thread;
-	boost::thread difficulty_recalc_thread;
 	static nano::uint128_t const generate_priority;
 	static nano::uint128_t const high_priority;
 	std::atomic<uint64_t> reps_count{ 0 };

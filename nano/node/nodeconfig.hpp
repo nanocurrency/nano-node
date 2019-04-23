@@ -62,7 +62,6 @@ public:
 	std::chrono::seconds tcp_client_timeout{ std::chrono::seconds (5) };
 	std::chrono::seconds tcp_server_timeout{ std::chrono::seconds (30) };
 	std::chrono::nanoseconds pow_sleep_interval{ 0 };
-	std::chrono::seconds work_recalc_interval{ 4 };
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);

@@ -1048,7 +1048,6 @@ TEST (wallet, update_work_action)
 	wallet.insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key;
 	auto const block (wallet.send_action (nano::test_genesis_key.pub, key.pub, nano::genesis_amount));
-	node.wallets.queue_work_regeneration (std::chrono::steady_clock::now (), block);
 	uint64_t difficulty1 (0);
 	nano::work_validate (*block, &difficulty1);
 	std::unique_lock<std::mutex> lock (node.active.mutex);

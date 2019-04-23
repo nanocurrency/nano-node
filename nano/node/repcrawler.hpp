@@ -96,7 +96,7 @@ public:
 	bool response (std::shared_ptr<nano::transport::channel> channel_a, nano::account const & rep_account_a, nano::amount const & weight_a);
 
 	/** Get total available weight from representatives */
-	nano::uint128_t total_weight ();
+	nano::uint128_t total_weight () const;
 
 	/** Request a list of the top \p count_a known representatives. The maximum number of reps returned is 16. */
 	std::vector<representative> representatives (size_t count_a);
@@ -129,7 +129,7 @@ private:
 	void on_rep_request (std::shared_ptr<nano::transport::channel> channel_a);
 
 	/** Protects the probable_reps container */
-	std::mutex probable_reps_mutex;
+	mutable std::mutex probable_reps_mutex;
 
 	/** Probable representatives */
 	probably_rep_t probable_reps;

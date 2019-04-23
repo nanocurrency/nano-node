@@ -119,7 +119,6 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("pow_sleep_interval", pow_sleep_interval.count ());
 	json.put ("external_address", external_address.to_string ());
 	json.put ("external_port", external_port);
-	json.put ("work_recalc_interval", work_recalc_interval.count ());
 	nano::jsonconfig websocket_l;
 	websocket_config.serialize_json (websocket_l);
 	json.put_child ("websocket", websocket_l);
@@ -255,7 +254,6 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.put (pow_sleep_interval_key, pow_sleep_interval.count ());
 			json.put ("external_address", external_address.to_string ());
 			json.put ("external_port", external_port);
-			json.put ("work_recalc_interval", work_recalc_interval.count ());
 			upgraded = true;
 		}
 		case 17:
@@ -396,10 +394,6 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		auto pow_sleep_interval_l (pow_sleep_interval.count ());
 		json.get (pow_sleep_interval_key, pow_sleep_interval_l);
 		pow_sleep_interval = std::chrono::nanoseconds (pow_sleep_interval_l);
-
-		auto work_recalc_interval_l (work_recalc_interval.count ());
-		json.get ("work_recalc_interval", work_recalc_interval_l);
-		work_recalc_interval = std::chrono::seconds (work_recalc_interval_l);
 
 		// Validate ranges
 		if (online_weight_quorum > 100)
