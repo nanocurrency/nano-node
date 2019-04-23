@@ -81,6 +81,7 @@ int main (int argc, char * const * argv)
 		("block_processor_verification_size",boost::program_options::value<std::size_t> (), "Increase batch signature verification size in block processor, default 0 (limited by config signature_checker_threads), unlimited for fast_bootstrap")
 		("debug_block_count", "Display the number of block")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
+		("debug_dump_frontier_unchecked_dependents", "Dump frontiers which have matches hashes in the unchecked table")
 		("debug_dump_online_weight", "Dump online_weights table")
 		("debug_dump_representatives", "List representatives and weights")
 		("debug_account_count", "Display the number of accounts")
@@ -256,6 +257,29 @@ int main (int argc, char * const * argv)
 			{
 				total += i->second;
 				std::cout << boost::str (boost::format ("%1% %2% %3%\n") % i->first.to_account () % i->second.convert_to<std::string> () % total.convert_to<std::string> ());
+			}
+		}
+		else if (vm.count ("debug_dump_frontier_unchecked_dependents"))
+		{
+			nano::inactive_node node (data_path);
+			std::cout << "Outputing any frontier hashes which have associated key hashes in the unchecked table (may take some time)...:\n";
+
+			// Cache the account heads to make searching quicker against unchecked keys.
+			auto transaction (node.node->store.tx_begin ());
+			std::unordered_set<nano::block_hash> frontier_hashes;
+			for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n; ++i)
+			{
+				frontier_hashes.insert (i->second.head);
+			}
+
+			// Check all unchecked keys for matching frontier hashes. Indicates an issue with process_batch algorithm
+			for (auto i (node.node->store.unchecked_begin (transaction)), n (node.node->store.unchecked_end ()); i != n; ++i)
+			{
+				auto it = frontier_hashes.find (i->first.hash);
+				if (it != frontier_hashes.cend ())
+				{
+					std::cout << it->to_string () << "\n";
+				}
 			}
 		}
 		else if (vm.count ("debug_account_count"))
