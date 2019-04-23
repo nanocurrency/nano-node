@@ -1,5 +1,7 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/config.hpp>
 #include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/rpcconfig.hpp>
 #include <nano/node/nodeconfig.hpp>
 // NOTE: to reduce compile times, this include can be replaced by more narrow includes
 // once nano::network is factored out of node.{c|h}pp
@@ -115,6 +117,8 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("tcp_client_timeout", tcp_client_timeout.count ());
 	json.put ("tcp_server_timeout", tcp_server_timeout.count ());
 	json.put ("pow_sleep_interval", pow_sleep_interval.count ());
+	json.put ("external_address", external_address.to_string ());
+	json.put ("external_port", external_port);
 	nano::jsonconfig websocket_l;
 	websocket_config.serialize_json (websocket_l);
 	json.put_child ("websocket", websocket_l);
@@ -248,6 +252,8 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.put ("tcp_client_timeout", tcp_client_timeout.count ());
 			json.put ("tcp_server_timeout", tcp_server_timeout.count ());
 			json.put (pow_sleep_interval_key, pow_sleep_interval.count ());
+			json.put ("external_address", external_address.to_string ());
+			json.put ("external_port", external_port);
 			upgraded = true;
 		}
 		case 17:
@@ -382,6 +388,8 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get<bool> ("enable_voting", enable_voting);
 		json.get<bool> ("allow_local_peers", allow_local_peers);
 		json.get<unsigned> (signature_checker_threads_key, signature_checker_threads);
+		json.get<boost::asio::ip::address_v6> ("external_address", external_address);
+		json.get<uint16_t> ("external_port", external_port);
 
 		auto pow_sleep_interval_l (pow_sleep_interval.count ());
 		json.get (pow_sleep_interval_key, pow_sleep_interval_l);

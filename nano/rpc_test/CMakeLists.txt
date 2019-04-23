@@ -2,7 +2,7 @@ add_executable (rpc_test
 	entry.cpp
 	rpc.cpp)
 
-target_link_libraries(rpc_test gtest gtest_main rpc)
+target_link_libraries(rpc_test gtest rpc node)
 
 target_compile_definitions(rpc_test
 	PUBLIC

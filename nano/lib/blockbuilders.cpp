@@ -205,12 +205,19 @@ nano::state_block_builder & nano::state_block_builder::make_block ()
 nano::state_block_builder & nano::state_block_builder::from (nano::state_block const & other_block)
 {
 	block->work = other_block.work;
+	build_state |= build_flags::work_present;
 	block->signature = other_block.signature;
+	build_state |= build_flags::signature_present;
 	block->hashables.account = other_block.hashables.account;
+	build_state |= build_flags::account_present;
 	block->hashables.balance = other_block.hashables.balance;
+	build_state |= build_flags::balance_present;
 	block->hashables.link = other_block.hashables.link;
+	build_state |= build_flags::link_present;
 	block->hashables.previous = other_block.hashables.previous;
+	build_state |= build_flags::previous_present;
 	block->hashables.representative = other_block.hashables.representative;
+	build_state |= build_flags::representative_present;
 	return *this;
 }
 

@@ -46,11 +46,12 @@ use errors::*;
 mod rpc;
 use rpc::{RpcClient, RpcError};
 
-mod launch_node;
+mod launch_node_and_rpc;
 
 struct Parameters {
     node_count: u16,
     node_path: PathBuf,
+    rpc_path: PathBuf,
     tmp_dir: PathBuf,
     send_count: usize,
     dest_count: usize,
@@ -82,15 +83,18 @@ fn run(params: Parameters) -> Result<()> {
 
     let mut tokio_core = Core::new().chain_err(|| "failed to create tokio Core")?;
     let mut children = Vec::with_capacity(params.node_count as _);
+    let mut rpc_children = Vec::with_capacity(params.node_count as _);
     let mut nodes: Vec<RpcClient<_>> = Vec::with_capacity(params.node_count as _);
     for i in 0..params.node_count {
-        let (child, rpc_client) = launch_node::launch_node(
+        let (child, rpc_child, rpc_client) = launch_node_and_rpc::launch_node_and_rpc(
             &params.node_path,
+            &params.rpc_path,
             &params.tmp_dir,
             tokio_core.handle(),
             i as _,
         )?;
         children.push(child);
+        rpc_children.push(rpc_child);
         nodes.push(rpc_client);
     }
     if nodes.is_empty() {
@@ -103,7 +107,7 @@ fn run(params: Parameters) -> Result<()> {
     for (a, node) in nodes.iter().enumerate() {
         for b in 0..nodes.len() {
             if a != b {
-                tokio_core.run(launch_node::connect_node(node, b as _))?;
+                tokio_core.run(launch_node_and_rpc::connect_node(node, b as _))?;
             }
         }
     }
@@ -140,7 +144,7 @@ fn run(params: Parameters) -> Result<()> {
                 "action": "key_create",
             }))
         })
-        .buffer_unordered(10) // execute 10 `key_create`s simultaniously
+        .buffer_unordered(10) // execute 10 `key_create`s simultaneously
         .inspect(|_| {
             tstat!("key_create,progress");
         })
@@ -461,6 +465,12 @@ fn main() {
                 .help("The path to the nano_node to test"),
         )
         .arg(
+            Arg::with_name("rpc_path")
+                .value_name("PATH")
+                .required(true)
+                .help("The path to the nano_rpc to test"),
+        )       
+        .arg(
             Arg::with_name("send_count")
                 .short("s")
                 .long("send-count")
@@ -520,6 +530,7 @@ fn main() {
     let params = Parameters {
         node_count: num_arg!("node_count"),
         node_path: matches.value_of("node_path").unwrap().into(),
+        rpc_path: matches.value_of("rpc_path").unwrap().into(),
         tmp_dir: matches
             .value_of("tmp_dir")
             .or(env::var("TMPDIR").ok().as_ref().map(|x| x.as_str()))

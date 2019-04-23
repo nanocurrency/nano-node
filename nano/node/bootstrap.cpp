@@ -410,11 +410,16 @@ nano::bulk_pull_client::~bulk_pull_client ()
 		{
 			pull.account = expected;
 		}
+		pull.processed += total_blocks - unexpected_count;
 		connection->attempt->requeue_pull (pull);
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
 			connection->node->logger.try_log (boost::str (boost::format ("Bulk pull end block is not expected %1% for account %2%") % pull.end.to_string () % pull.account.to_account ()));
 		}
+	}
+	else
+	{
+		connection->node->bootstrap_initiator.cache.remove (pull);
 	}
 	{
 		std::lock_guard<std::mutex> mutex (connection->attempt->mutex);
@@ -427,7 +432,7 @@ void nano::bulk_pull_client::request ()
 {
 	expected = pull.head;
 	nano::bulk_pull req;
-	req.start = pull.account;
+	req.start = (pull.head == pull.head_original) ? pull.account : pull.head; // Account for new pulls, head for cached pulls
 	req.end = pull.end;
 	req.count = pull.count;
 	req.set_count_present (pull.count != 0);
@@ -435,7 +440,7 @@ void nano::bulk_pull_client::request ()
 	if (connection->node->config.logging.bulk_pull_logging ())
 	{
 		std::unique_lock<std::mutex> lock (connection->attempt->mutex);
-		connection->node->logger.try_log (boost::str (boost::format ("Requesting account %1% from %2%. %3% accounts in queue") % req.start.to_account () % connection->channel->to_string () % connection->attempt->pulls.size ()));
+		connection->node->logger.try_log (boost::str (boost::format ("Requesting account %1% from %2%. %3% accounts in queue") % pull.account.to_account () % connection->channel->to_string () % connection->attempt->pulls.size ()));
 	}
 	else if (connection->node->config.logging.network_logging () && connection->attempt->should_log ())
 	{
@@ -845,6 +850,7 @@ void nano::bulk_pull_account_client::receive_pending ()
 nano::pull_info::pull_info (nano::account const & account_a, nano::block_hash const & head_a, nano::block_hash const & end_a, count_t count_a) :
 account (account_a),
 head (head_a),
+head_original (head_a),
 end (end_a),
 count (count_a)
 {
@@ -1306,8 +1312,10 @@ void nano::bootstrap_attempt::stop ()
 	}
 }
 
-void nano::bootstrap_attempt::add_pull (nano::pull_info const & pull)
+void nano::bootstrap_attempt::add_pull (nano::pull_info const & pull_a)
 {
+	nano::pull_info pull (pull_a);
+	node->bootstrap_initiator.cache.update_pull (pull);
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		pulls.push_back (pull);
@@ -1318,7 +1326,7 @@ void nano::bootstrap_attempt::add_pull (nano::pull_info const & pull)
 void nano::bootstrap_attempt::requeue_pull (nano::pull_info const & pull_a)
 {
 	auto pull (pull_a);
-	if (++pull.attempts < bootstrap_frontier_retry_limit)
+	if (++pull.attempts < (bootstrap_frontier_retry_limit + (pull.processed / 10000)))
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		pulls.push_front (pull);
@@ -1338,8 +1346,9 @@ void nano::bootstrap_attempt::requeue_pull (nano::pull_info const & pull_a)
 	{
 		if (node->config.logging.bulk_pull_logging ())
 		{
-			node->logger.try_log (boost::str (boost::format ("Failed to pull account %1% down to %2% after %3% attempts") % pull.account.to_account () % pull.end.to_string () % pull.attempts));
+			node->logger.try_log (boost::str (boost::format ("Failed to pull account %1% down to %2% after %3% attempts and %4% blocks processed") % pull.account.to_account () % pull.end.to_string () % pull.attempts % pull.processed));
 		}
+		node->bootstrap_initiator.cache.add (pull);
 	}
 }
 
@@ -1889,14 +1898,21 @@ namespace nano
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_initiator & bootstrap_initiator, const std::string & name)
 {
 	size_t count = 0;
+	size_t cache_count = 0;
 	{
 		std::lock_guard<std::mutex> guard (bootstrap_initiator.mutex);
 		count = bootstrap_initiator.observers.size ();
 	}
+	{
+		std::lock_guard<std::mutex> guard (bootstrap_initiator.cache.pulls_cache_mutex);
+		cache_count = bootstrap_initiator.cache.cache.size ();
+	}
 
 	auto sizeof_element = sizeof (decltype (bootstrap_initiator.observers)::value_type);
+	auto sizeof_cache_element = sizeof (decltype (bootstrap_initiator.cache.cache)::value_type);
 	auto composite = std::make_unique<seq_con_info_composite> (name);
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "observers", count, sizeof_element }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "pulls_cache", cache_count, sizeof_cache_element }));
 	return composite;
 }
 }
@@ -3160,4 +3176,69 @@ void nano::frontier_req_server::next ()
 	accounts.pop_front ();
 	current = account_pair.first;
 	frontier = account_pair.second;
+}
+
+void nano::pulls_cache::add (nano::pull_info const & pull_a)
+{
+	if (pull_a.processed > 500)
+	{
+		std::lock_guard<std::mutex> guard (pulls_cache_mutex);
+		// Clean old pull
+		if (cache.size () > cache_size_max)
+		{
+			cache.erase (cache.begin ());
+		}
+		assert (cache.size () <= cache_size_max);
+		nano::uint512_union head_512 (pull_a.account, pull_a.head_original);
+		auto existing (cache.get<account_head_tag> ().find (head_512));
+		if (existing == cache.get<account_head_tag> ().end ())
+		{
+			// Insert new pull
+			auto inserted (cache.insert (nano::cached_pulls{ std::chrono::steady_clock::now (), head_512, pull_a.head }));
+			assert (inserted.second);
+		}
+		else
+		{
+			// Update existing pull
+			cache.get<account_head_tag> ().modify (existing, [pull_a](nano::cached_pulls & cache_a) {
+				cache_a.time = std::chrono::steady_clock::now ();
+				cache_a.new_head = pull_a.head;
+			});
+		}
+	}
+}
+
+void nano::pulls_cache::update_pull (nano::pull_info & pull_a)
+{
+	std::lock_guard<std::mutex> guard (pulls_cache_mutex);
+	nano::uint512_union head_512 (pull_a.account, pull_a.head_original);
+	auto existing (cache.get<account_head_tag> ().find (head_512));
+	if (existing != cache.get<account_head_tag> ().end ())
+	{
+		pull_a.head = existing->new_head;
+	}
+}
+
+void nano::pulls_cache::remove (nano::pull_info const & pull_a)
+{
+	std::lock_guard<std::mutex> guard (pulls_cache_mutex);
+	nano::uint512_union head_512 (pull_a.account, pull_a.head_original);
+	cache.get<account_head_tag> ().erase (head_512);
+}
+
+namespace nano
+{
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (pulls_cache & pulls_cache, const std::string & name)
+{
+	size_t cache_count = 0;
+
+	{
+		std::lock_guard<std::mutex> guard (pulls_cache.pulls_cache_mutex);
+		cache_count = pulls_cache.cache.size ();
+	}
+	auto sizeof_element = sizeof (decltype (pulls_cache.cache)::value_type);
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "pulls_cache", cache_count, sizeof_element }));
+	return composite;
+}
 }

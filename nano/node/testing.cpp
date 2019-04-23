@@ -20,7 +20,7 @@ std::string nano::error_system_messages::message (int ev) const
 	return "Invalid error code";
 }
 
-nano::system::system (uint16_t port_a, uint16_t count_a, boost::optional<bool> enable_voting_a) :
+nano::system::system (uint16_t port_a, uint16_t count_a, boost::optional<bool> delay_frontier_confirmation_height_updating_, boost::optional<bool> enable_voting_a) :
 alarm (io_ctx),
 work (1)
 {
@@ -42,6 +42,8 @@ work (1)
 			config.enable_voting = *enable_voting_a;
 		}
 		auto node (std::make_shared<nano::node> (init, io_ctx, nano::unique_path (), alarm, config, work));
+		bool delay_frontier_confirmation_height_updating = delay_frontier_confirmation_height_updating_a ? *delay_frontier_confirmation_height_updating_a : false;
+		auto node (std::make_shared<nano::node> (init, io_ctx, nano::unique_path (), alarm, config, work, nano::node_flags (), delay_frontier_confirmation_height_updating));
 		assert (!init.error ());
 		node->start ();
 		nano::uint256_union wallet;
@@ -82,6 +84,11 @@ nano::system::~system ()
 		i->stop ();
 	}
 
+		// clang-format off
+	// Windows cannot remove the log and data files while they are still owned by this process.
+	// They will be removed later
+		// clang-format on
+#ifndef _WIN32
 	// Clean up tmp directories created by the tests. Since it's sometimes useful to
 	// see log files after test failures, an environment variable is supported to
 	// retain the files.
@@ -89,6 +96,7 @@ nano::system::~system ()
 	{
 		nano::remove_temporary_directories ();
 	}
+#endif
 }
 
 std::shared_ptr<nano::wallet> nano::system::wallet (size_t index_a)
@@ -531,3 +539,19 @@ void nano::landing::distribute_ongoing ()
 
 std::chrono::seconds constexpr nano::landing::distribution_interval;
 std::chrono::seconds constexpr nano::landing::sleep_seconds;
+
+namespace nano
+{
+void cleanup_test_directories_on_exit ()
+{
+	// Makes sure everything is cleaned up
+	nano::logging::release_file_sink ();
+	// Clean up tmp directories created by the tests. Since it's sometimes useful to
+	// see log files after test failures, an environment variable is supported to
+	// retain the files.
+	if (std::getenv ("TEST_KEEP_TMPDIRS") == nullptr)
+	{
+		nano::remove_temporary_directories ();
+	}
+}
+}
