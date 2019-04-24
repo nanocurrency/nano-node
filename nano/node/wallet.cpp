@@ -1403,7 +1403,11 @@ void nano::work_watcher::run ()
 			{
 				//and so we fall back to ledger confirmation
 				auto transaction (this->node.store.tx_begin_read ());
-				confirmed = this->node.ledger.block_confirmed (transaction, (i->second)->hash ());
+				auto block = this->node.store.block_get (transaction, (i->second)->hash ());
+				if (block)
+				{
+					confirmed = this->node.block_confirmed_or_being_confirmed (transaction, (i->second)->hash ());
+				}
 			}
 			lock.unlock ();
 
