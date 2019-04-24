@@ -13,6 +13,7 @@
 
 #include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
+#include <boost/stacktrace.hpp>
 
 namespace
 {
@@ -89,6 +90,7 @@ int main (int argc, char * const * argv)
 		("debug_opencl", "OpenCL work generation")
 		("debug_profile_verify", "Profile work verification")
 		("debug_profile_kdf", "Profile kdf function")
+		("debug_output_last_backtrace_dump", "Displays the contents of the latest backtrace in the event of a nano_node crash")
 		("debug_verify_profile", "Profile signature verification")
 		("debug_verify_profile_batch", "Profile batch signature verification")
 		("debug_profile_bootstrap", "Profile bootstrap style blocks processing (at least 10GB of free storage space required)")
@@ -428,6 +430,17 @@ int main (int argc, char * const * argv)
 				}
 				auto end1 (std::chrono::high_resolution_clock::now ());
 				std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
+			}
+		}
+		else if (vm.count ("debug_output_last_backtrace_dump"))
+		{
+			if (boost::filesystem::exists ("nano_node_backtrace.dump"))
+			{
+				// There is a backtrace, so output the contents
+				std::ifstream ifs ("nano_node_backtrace.dump");
+
+				boost::stacktrace::stacktrace st = boost::stacktrace::stacktrace::from_dump (ifs);
+				std::cout << "Latest crash backtrace:\n" << st << std::endl;
 			}
 		}
 		else if (vm.count ("debug_verify_profile"))
