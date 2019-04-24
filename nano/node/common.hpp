@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/interface.h>
 #include <nano/secure/common.hpp>
@@ -7,8 +8,6 @@
 #include <boost/asio.hpp>
 
 #include <bitset>
-
-#include <crypto/xxhash/xxhash.h>
 
 namespace nano
 {
@@ -22,40 +21,49 @@ bool parse_tcp_endpoint (std::string const &, nano::tcp_endpoint &);
 
 namespace
 {
+std::atomic<uint64_t> random_64{ (uint64_t) nano::random_pool::generate_word32 (0, 0xffffffffUL) << 32 | nano::random_pool::generate_word32 (0, 0xffffffffUL) };
+
 uint64_t endpoint_hash_raw (nano::endpoint const & endpoint_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
+	uint64_t result;
 	nano::uint128_union address;
 	address.bytes = endpoint_a.address ().to_v6 ().to_bytes ();
-	XXH64_state_t * const state = XXH64_createState ();
-	XXH64_reset (state, 0);
-	XXH64_update (state, address.bytes.data (), address.bytes.size ());
 	auto port (endpoint_a.port ());
-	XXH64_update (state, &port, sizeof (port));
-	auto result (XXH64_digest (state));
-	XXH64_freeState (state);
+	blake2b_state state;
+	blake2b_init (&state, sizeof (result));
+	blake2b_update (&state, &random_64, sizeof (random_64));
+	blake2b_update (&state, address.bytes.data (), address.bytes.size ());
+	blake2b_update (&state, &port, sizeof (port));
+	blake2b_final (&state, &result, sizeof (result));
 	return result;
 }
 uint64_t endpoint_hash_raw (nano::tcp_endpoint const & endpoint_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
+	uint64_t result;
 	nano::uint128_union address;
 	address.bytes = endpoint_a.address ().to_v6 ().to_bytes ();
-	XXH64_state_t * const state = XXH64_createState ();
-	XXH64_reset (state, 0);
-	XXH64_update (state, address.bytes.data (), address.bytes.size ());
 	auto port (endpoint_a.port ());
-	XXH64_update (state, &port, sizeof (port));
-	auto result (XXH64_digest (state));
-	XXH64_freeState (state);
+	blake2b_state state;
+	blake2b_init (&state, sizeof (result));
+	blake2b_update (&state, &random_64, sizeof (random_64));
+	blake2b_update (&state, address.bytes.data (), address.bytes.size ());
+	blake2b_update (&state, &port, sizeof (port));
+	blake2b_final (&state, &result, sizeof (result));
 	return result;
 }
 uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a)
 {
 	assert (ip_a.is_v6 ());
+	uint64_t result;
 	nano::uint128_union bytes;
 	bytes.bytes = ip_a.to_v6 ().to_bytes ();
-	auto result (XXH64 (bytes.bytes.data (), bytes.bytes.size (), 0));
+	blake2b_state state;
+	blake2b_init (&state, sizeof (result));
+	blake2b_update (&state, &random_64, sizeof (random_64));
+	blake2b_update (&state, bytes.bytes.data (), bytes.bytes.size ());
+	blake2b_final (&state, &result, sizeof (result));
 	return result;
 }
 
