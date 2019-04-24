@@ -10,7 +10,7 @@ using namespace std::chrono;
 nano::active_transactions::active_transactions (nano::node & node_a, bool delay_frontier_confirmation_height_updating) :
 node (node_a),
 difficulty_cb (20, node.network_params.network.publish_threshold),
-trended_active_difficulty  (node.network_params.network.publish_threshold),
+trended_active_difficulty (node.network_params.network.publish_threshold),
 next_frontier_check (steady_clock::now () + (delay_frontier_confirmation_height_updating ? 60s : 0s)),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::request_loop);
