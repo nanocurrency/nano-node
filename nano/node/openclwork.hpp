@@ -21,7 +21,7 @@
 
 namespace nano
 {
-class logging;
+class logger_mt;
 class opencl_platform
 {
 public:
@@ -40,10 +40,10 @@ class work_pool;
 class opencl_work
 {
 public:
-	opencl_work (bool &, nano::opencl_config const &, nano::opencl_environment &, nano::logging &);
+	opencl_work (bool &, nano::opencl_config const &, nano::opencl_environment &, nano::logger_mt &);
 	~opencl_work ();
 	boost::optional<uint64_t> generate_work (nano::uint256_union const &, uint64_t const);
-	static std::unique_ptr<opencl_work> create (bool, nano::opencl_config const &, nano::logging &);
+	static std::unique_ptr<opencl_work> create (bool, nano::opencl_config const &, nano::logger_mt &);
 	nano::opencl_config const & config;
 	std::mutex mutex;
 	cl_context context;
@@ -55,6 +55,6 @@ public:
 	cl_kernel kernel;
 	cl_command_queue queue;
 	nano::xorshift1024star rand;
-	nano::logging & logging;
+	nano::logger_mt & logger;
 };
 }

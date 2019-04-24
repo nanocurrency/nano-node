@@ -97,7 +97,7 @@ bool nano::websocket::vote_options::should_filter (nano::websocket::message cons
 	return should_filter_l;
 }
 
-nano::websocket::session::session (nano::websocket::listener & listener_a, boost::asio::ip::tcp::socket socket_a) :
+nano::websocket::session::session (nano::websocket::listener & listener_a, socket_type socket_a) :
 ws_listener (listener_a), ws (std::move (socket_a)), write_strand (ws.get_executor ())
 {
 	ws.text (true);
@@ -194,7 +194,7 @@ void nano::websocket::session::read ()
 		if (!ec)
 		{
 			std::stringstream os;
-			os << boost::beast::buffers (self_l->read_buffer.data ());
+			os << beast_buffers (self_l->read_buffer.data ());
 			std::string incoming_message = os.str ();
 
 			// Prepare next read by clearing the multibuffer

@@ -1026,7 +1026,7 @@ flags (flags_a),
 alarm (alarm_a),
 work (work_a),
 logger (config_a.logging.min_time_between_log_output),
-store_impl (std::make_unique<nano::mdb_store> (init_a.block_store_init, config.logging, application_path_a / "data.ldb", config_a.lmdb_max_dbs, !flags.disable_unchecked_drop, flags.sideband_batch_size)),
+store_impl (std::make_unique<nano::mdb_store> (init_a.block_store_init, logger, application_path_a / "data.ldb", config_a.lmdb_max_dbs, !flags.disable_unchecked_drop, flags.sideband_batch_size)),
 store (*store_impl),
 wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (init_a.wallets_store_init, application_path_a / "wallets.ldb", config_a.lmdb_max_dbs)),
 wallets_store (*wallets_store_impl),
@@ -1037,7 +1037,6 @@ network (*this, config.peering_port),
 bootstrap_initiator (*this),
 bootstrap (io_ctx_a, config.peering_port, *this),
 application_path (application_path_a),
-wallets (init_a.wallet_init, *this),
 port_mapping (*this),
 vote_processor (*this),
 rep_crawler (*this),
@@ -1048,6 +1047,7 @@ block_processor_thread ([this]() {
 	this->block_processor.process_blocks ();
 }),
 online_reps (*this, config.online_weight_minimum.number ()),
+wallets (init_a.wallet_init, *this),
 stats (config.stat_config),
 vote_uniquer (block_uniquer),
 active (*this, delay_frontier_confirmation_height_updating),
@@ -2200,7 +2200,7 @@ bool nano::node::block_confirmed_or_being_confirmed (nano::transaction const & t
 	return ledger.block_confirmed (transaction_a, hash_a) || confirmation_height_processor.is_processing_block (hash_a);
 }
 
-nano::uint128_t nano::node::delta ()
+nano::uint128_t nano::node::delta () const
 {
 	auto result ((online_reps.online_stake () / 100) * config.online_weight_quorum);
 	return result;
@@ -2215,6 +2215,11 @@ void nano::node::ongoing_online_weight_calculation_queue ()
 			node_l->ongoing_online_weight_calculation ();
 		}
 	});
+}
+
+bool nano::node::online () const
+{
+	return rep_crawler.total_weight () > (std::max (config.online_weight_minimum.number (), delta ()));
 }
 
 void nano::node::ongoing_online_weight_calculation ()
@@ -2490,7 +2495,7 @@ nano::uint128_t nano::online_reps::trend (nano::transaction & transaction_a)
 	return nano::uint128_t{ items[median_idx] };
 }
 
-nano::uint128_t nano::online_reps::online_stake ()
+nano::uint128_t nano::online_reps::online_stake () const
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	return std::max (online, minimum);

@@ -369,7 +369,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			environment.dump (std::cout);
 			std::stringstream stream;
 			environment.dump (stream);
-			node.logging.logger.always_log (stream.str ());
+			node.node->logger.always_log (stream.str ());
 		}
 		else
 		{

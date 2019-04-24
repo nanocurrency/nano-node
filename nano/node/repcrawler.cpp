@@ -140,7 +140,7 @@ bool nano::rep_crawler::response (std::shared_ptr<nano::transport::channel> chan
 	return updated;
 }
 
-nano::uint128_t nano::rep_crawler::total_weight ()
+nano::uint128_t nano::rep_crawler::total_weight () const
 {
 	std::lock_guard<std::mutex> lock (probable_reps_mutex);
 	nano::uint128_t result (0);

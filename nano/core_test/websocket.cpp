@@ -75,7 +75,7 @@ boost::optional<std::string> websocket_test_call (boost::asio::io_context & ioc,
 			{
 				std::unique_lock<std::mutex> lock (cond_mutex);
 				std::ostringstream res;
-				res << boost::beast::buffers (buffer.data ());
+				res << beast_buffers (buffer.data ());
 				ret = res.str ();
 				got_response = true;
 				cond_var.notify_one ();

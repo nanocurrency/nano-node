@@ -1038,3 +1038,37 @@ TEST (wallet, deterministic_restore)
 	}
 	ASSERT_TRUE (wallet->exists (pub));
 }
+
+TEST (wallet, update_work_action)
+{
+	nano::system system (24000, 1);
+	auto & node (*system.nodes[0]);
+	node.config.enable_voting = false;
+	auto & wallet (*system.wallet (0));
+	wallet.insert_adhoc (nano::test_genesis_key.prv);
+	nano::keypair key;
+	auto const block (wallet.send_action (nano::test_genesis_key.pub, key.pub, nano::genesis_amount));
+	uint64_t difficulty1 (0);
+	nano::work_validate (*block, &difficulty1);
+	system.deadline_set (10s);
+	auto updated (false);
+	uint64_t updated_difficulty;
+	while (!updated)
+	{
+		std::unique_lock<std::mutex> lock (node.active.mutex);
+		//fill difficulty_cb and update active difficulty;
+		for (auto i (0); i < node.active.difficulty_cb.size (); i++)
+		{
+			node.active.difficulty_cb.push_back (difficulty1 + 10000);
+		}
+		node.active.update_active_difficulty (lock);
+		auto const existing (node.active.roots.find (block->qualified_root ()));
+		//if existing is junk the block has been confirmed already
+		ASSERT_NE (existing, node.active.roots.end ());
+		updated = existing->difficulty != difficulty1;
+		updated_difficulty = existing->difficulty;
+		lock.unlock ();
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_GT (updated_difficulty, difficulty1);
+}

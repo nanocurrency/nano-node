@@ -87,6 +87,9 @@ namespace thread_role
 			case nano::thread_role::name::wallet_actions:
 				thread_role_name_string = "Wallet actions";
 				break;
+			case nano::thread_role::name::work_watcher:
+				thread_role_name_string = "Work watcher";
+				break;
 			case nano::thread_role::name::bootstrap_initiator:
 				thread_role_name_string = "Bootstrap init";
 				break;
