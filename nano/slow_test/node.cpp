@@ -443,3 +443,84 @@ TEST (node, mass_vote_by_hash)
 		system.nodes[0]->block_processor.add (*i, nano::seconds_since_epoch ());
 	}
 }
+
+TEST (confirmation_height, long_chains)
+{
+	// The chains should be longer than the	batch_write_size to test the amount of blocks confirmed is correct.
+	bool delay_frontier_confirmation_height_updating = true;
+	nano::system system (24000, 1, delay_frontier_confirmation_height_updating);
+	auto node = system.nodes.front ();
+	nano::keypair key1;
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
+	system.wallet (0)->insert_adhoc (key1.prv);
+
+	auto num_blocks = nano::confirmation_height_processor::batch_write_size * 2 + 50; // Give it a slight offset so it's not completely evenly divisible
+
+	// First open the other account
+	nano::send_block send (latest, key1.pub, nano::genesis_amount - nano::Gxrb_ratio + num_blocks + 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest));
+	nano::open_block open (send.hash (), nano::genesis_account, key1.pub, key1.prv, key1.pub, system.work.generate (key1.pub));
+	{
+		auto transaction = node->store.tx_begin_write ();
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, open).code);
+	}
+
+	// Bulk send from genesis account to destination account
+	auto previous_genesis_chain_hash = send.hash ();
+	auto previous_destination_chain_hash = open.hash ();
+	{
+		auto transaction = node->store.tx_begin_write ();
+		for (auto i = num_blocks - 1; i > 0; --i)
+		{
+			nano::send_block send (previous_genesis_chain_hash, key1.pub, nano::genesis_amount - nano::Gxrb_ratio + i + 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous_genesis_chain_hash));
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
+			nano::receive_block receive (previous_destination_chain_hash, send.hash (), key1.prv, key1.pub, system.work.generate (previous_destination_chain_hash));
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, receive).code);
+
+			previous_genesis_chain_hash = send.hash ();
+			previous_destination_chain_hash = receive.hash ();
+		}
+	}
+
+	// Send one from destination to genesis and pocket it
+	nano::send_block send1 (previous_destination_chain_hash, nano::test_genesis_key.pub, nano::Gxrb_ratio - 2, key1.prv, key1.pub, system.work.generate (previous_destination_chain_hash));
+	auto receive1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous_genesis_chain_hash, nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio + 1, send1.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous_genesis_chain_hash)));
+
+	// Unpocketed
+	nano::state_block send2 (nano::genesis_account, receive1->hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (receive1->hash ()));
+
+	{
+		auto transaction = node->store.tx_begin_write ();
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send1).code);
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *receive1).code);
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send2).code);
+	}
+
+	// Call block confirm on the existing receive block on the genesis account which will confirm everything underneath on both accounts
+	node->block_confirm (receive1);
+
+	system.deadline_set (10s);
+	while (true)
+	{
+		auto transaction = node->store.tx_begin_read ();
+		if (node->ledger.block_confirmed (transaction, receive1->hash ()))
+		{
+			break;
+		}
+
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	auto transaction (node->store.tx_begin ());
+	nano::account_info account_info;
+	ASSERT_FALSE (node->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
+	ASSERT_EQ (num_blocks + 2, account_info.confirmation_height);
+	ASSERT_EQ (num_blocks + 3, account_info.block_count); // Includes the unpocketed send
+
+	ASSERT_FALSE (node->store.account_get (transaction, key1.pub, account_info));
+	ASSERT_EQ (num_blocks + 1, account_info.confirmation_height);
+	ASSERT_EQ (num_blocks + 1, account_info.block_count);
+
+	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), num_blocks * 2 + 2);
+}

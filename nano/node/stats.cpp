@@ -364,6 +364,8 @@ std::string nano::stat::type_to_string (uint32_t key)
 		case nano::stat::type::message:
 			res = "message";
 			break;
+		case nano::stat::type::confirmation_height:
+			res = "confirmation_height";
 	}
 	return res;
 }
@@ -506,6 +508,11 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::outdated_version:
 			res = "outdated_version";
 			break;
+		case nano::stat::detail::invalid_block:
+			res = "invalid_block";
+			break;
+		case nano::stat::detail::blocks_confirmed:
+			res = "blocks_confirmed";
 	}
 	return res;
 }

@@ -98,7 +98,7 @@ int main (int argc, char * const * argv)
 		("debug_random_feed", "Generates output to RNG test suites")
 		("debug_validate_blocks", "Check all blocks for correct hash, signature, work value")
 		("debug_peers", "Display peer IPv6:port connections")
-		("debug_ipc", "Read an IPC command in JSON from stdin and invoke it. Network operations will have no effect")
+		("debug_cemented_block_count", "Displays the number of cemented (confirmed) blocks")
 		("platform", boost::program_options::value<std::string> (), "Defines the <platform> for OpenCL commands")
 		("device", boost::program_options::value<std::string> (), "Defines <device> for OpenCL command")
 		("threads", boost::program_options::value<std::string> (), "Defines <threads> count for OpenCL command")
@@ -959,6 +959,19 @@ int main (int argc, char * const * argv)
 			{
 				std::cout << boost::str (boost::format ("%1%\n") % nano::endpoint (boost::asio::ip::address_v6 (i->first.address_bytes ()), i->first.port ()));
 			}
+		}
+		else if (vm.count ("debug_cemented_block_count"))
+		{
+			nano::inactive_node node (data_path);
+			auto transaction (node.node->store.tx_begin ());
+
+			uint64_t sum = 0;
+			for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n; ++i)
+			{
+				nano::account_info info (i->second);
+				sum += info.confirmation_height;
+			}
+			std::cout << "Total cemented block count: " << sum << std::endl;
 		}
 		else if (vm.count ("version"))
 		{

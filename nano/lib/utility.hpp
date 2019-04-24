@@ -88,7 +88,8 @@ namespace thread_role
 		signature_checking,
 		rpc_request_processor,
 		rpc_process_container,
-		work_watcher
+		work_watcher,
+		confirmation_height_processing
 	};
 	/*
 	 * Get/Set the identifier for the current thread

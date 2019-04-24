@@ -117,6 +117,7 @@ std::unordered_set<std::string> create_rpc_control_impls ()
 	set.emplace ("accounts_create");
 	set.emplace ("block_create");
 	set.emplace ("bootstrap_lazy");
+	set.emplace ("confirmation_height_currently_processing");
 	set.emplace ("keepalive");
 	set.emplace ("ledger");
 	set.emplace ("node_id");

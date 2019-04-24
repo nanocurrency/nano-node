@@ -228,7 +228,8 @@ public:
 		http_callback,
 		peering,
 		ipc,
-		udp
+		udp,
+		confirmation_height
 	};
 
 	/** Optional detail type */
@@ -296,6 +297,10 @@ public:
 
 		// peering
 		handshake,
+
+		// confirmation height
+		blocks_confirmed,
+		invalid_block
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */

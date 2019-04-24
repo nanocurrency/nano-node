@@ -12,6 +12,9 @@ endif ()
 
 add_library (node
 	${platform_sources}
+	active_transactions.hpp
+	active_transactions.cpp
+	blockprocessor.cpp
 	blockprocessor.hpp
 	blockprocessor.cpp
 	bootstrap.hpp
@@ -20,8 +23,10 @@ add_library (node
 	cli.cpp
 	common.hpp
 	common.cpp
-	daemonconfig.cpp
+	confirmation_height_processor.hpp
+	confirmation_height_processor.cpp
 	daemonconfig.hpp
+	daemonconfig.cpp
 	ipc.hpp
 	ipc.cpp
 	ipcconfig.hpp

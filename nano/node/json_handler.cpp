@@ -29,6 +29,7 @@ void construct_json (nano::seq_con_info_component * component, boost::property_t
 using ipc_json_handler_no_arg_func_map = std::unordered_map<std::string, std::function<void(nano::json_handler *)>>;
 ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ();
 auto ipc_json_handler_no_arg_funcs = create_ipc_json_handler_no_arg_func_map ();
+bool block_confirmed (nano::node & node, nano::transaction & transaction, nano::block_hash const & hash, bool include_active, bool include_only_confirmed);
 }
 
 nano::json_handler::json_handler (nano::node & node_a, nano::node_rpc_config const & node_rpc_config_a, std::string const & body_a, std::function<void(std::string const &)> const & response_a, std::function<void()> stop_callback_a) :
@@ -768,6 +769,7 @@ void nano::json_handler::accounts_pending ()
 	auto threshold (threshold_optional_impl ());
 	const bool source = request.get<bool> ("source", false);
 	const bool include_active = request.get<bool> ("include_active", false);
+	const bool include_only_confirmed = request.get<bool> ("include_only_confirmed", false);
 	const bool sorting = request.get<bool> ("sorting", false);
 	auto simple (threshold.is_zero () && !source && !sorting); // if simple, response is a list of hashes for each account
 	boost::property_tree::ptree pending;
@@ -781,7 +783,7 @@ void nano::json_handler::accounts_pending ()
 			for (auto i (node.store.pending_begin (transaction, nano::pending_key (account, 0))); nano::pending_key (i->first).account == account && peers_l.size () < count; ++i)
 			{
 				nano::pending_key key (i->first);
-				if (include_active || node.ledger.block_confirmed (transaction, key.hash))
+				if (block_confirmed (node, transaction, key.hash, include_active, include_only_confirmed))
 				{
 					if (simple)
 					{
@@ -892,7 +894,7 @@ void nano::json_handler::block_info ()
 			response_l.put ("balance", balance.convert_to<std::string> ());
 			response_l.put ("height", std::to_string (sideband.height));
 			response_l.put ("local_timestamp", std::to_string (sideband.timestamp));
-			auto confirmed (node.ledger.block_confirmed (transaction, hash));
+			auto confirmed (node.block_confirmed_or_being_confirmed (transaction, hash));
 			response_l.put ("confirmed", confirmed);
 
 			bool json_block_l = request.get<bool> ("json_block", false);
@@ -930,7 +932,7 @@ void nano::json_handler::block_confirm ()
 		auto block_l (node.store.block_get (transaction, hash));
 		if (block_l != nullptr)
 		{
-			if (!node.ledger.block_confirmed (transaction, hash))
+			if (!node.block_confirmed_or_being_confirmed (transaction, hash))
 			{
 				// Start new confirmation for unconfirmed block
 				node.block_confirm (std::move (block_l));
@@ -1047,7 +1049,7 @@ void nano::json_handler::blocks_info ()
 					entry.put ("balance", balance.convert_to<std::string> ());
 					entry.put ("height", std::to_string (sideband.height));
 					entry.put ("local_timestamp", std::to_string (sideband.timestamp));
-					auto confirmed (node.ledger.block_confirmed (transaction, hash));
+					auto confirmed (node.block_confirmed_or_being_confirmed (transaction, hash));
 					entry.put ("confirmed", confirmed);
 
 					if (json_block_l)
@@ -1598,6 +1600,20 @@ void nano::json_handler::confirmation_active ()
 		}
 	}
 	response_l.add_child ("confirmations", elections);
+	response_errors ();
+}
+
+void nano::json_handler::confirmation_height_currently_processing ()
+{
+	auto hash = node.pending_confirmation_height.current ();
+	if (!hash.is_zero ())
+	{
+		response_l.put ("hash", node.pending_confirmation_height.current ().to_string ());
+	}
+	else
+	{
+		ec = nano::error_rpc::confirmation_height_not_processing;
+	}
 	response_errors ();
 }
 
@@ -2442,6 +2458,7 @@ void nano::json_handler::pending ()
 	const bool source = request.get<bool> ("source", false);
 	const bool min_version = request.get<bool> ("min_version", false);
 	const bool include_active = request.get<bool> ("include_active", false);
+	const bool include_only_confirmed = request.get<bool> ("include_only_confirmed", false);
 	const bool sorting = request.get<bool> ("sorting", false);
 	auto simple (threshold.is_zero () && !source && !min_version && !sorting); // if simple, response is a list of hashes
 	if (!ec)
@@ -2451,7 +2468,7 @@ void nano::json_handler::pending ()
 		for (auto i (node.store.pending_begin (transaction, nano::pending_key (account, 0))); nano::pending_key (i->first).account == account && peers_l.size () < count; ++i)
 		{
 			nano::pending_key key (i->first);
-			if (include_active || node.ledger.block_confirmed (transaction, key.hash))
+			if (block_confirmed (node, transaction, key.hash, include_active, include_only_confirmed))
 			{
 				if (simple)
 				{
@@ -2510,6 +2527,7 @@ void nano::json_handler::pending_exists ()
 {
 	auto hash (hash_impl ());
 	const bool include_active = request.get<bool> ("include_active", false);
+	const bool include_only_confirmed = request.get<bool> ("include_only_confirmed", false);
 	if (!ec)
 	{
 		auto transaction (node.store.tx_begin_read ());
@@ -2522,7 +2540,7 @@ void nano::json_handler::pending_exists ()
 			{
 				exists = node.store.pending_exists (transaction, nano::pending_key (destination, hash));
 			}
-			exists = exists && (include_active || !node.active.active (*block));
+			exists = exists && (block_confirmed (node, transaction, block->hash (), include_active, include_only_confirmed));
 			response_l.put ("exists", exists ? "1" : "0");
 		}
 		else
@@ -4054,6 +4072,7 @@ void nano::json_handler::wallet_pending ()
 	const bool source = request.get<bool> ("source", false);
 	const bool min_version = request.get<bool> ("min_version", false);
 	const bool include_active = request.get<bool> ("include_active", false);
+	const bool include_only_confirmed = request.get<bool> ("include_only_confirmed", false);
 	if (!ec)
 	{
 		boost::property_tree::ptree pending;
@@ -4066,7 +4085,7 @@ void nano::json_handler::wallet_pending ()
 			for (auto ii (node.store.pending_begin (block_transaction, nano::pending_key (account, 0))); nano::pending_key (ii->first).account == account && peers_l.size () < count; ++ii)
 			{
 				nano::pending_key key (ii->first);
-				if (include_active || node.ledger.block_confirmed (block_transaction, key.hash))
+				if (block_confirmed (node, block_transaction, key.hash, include_active, include_only_confirmed))
 				{
 					if (threshold.is_zero () && !source)
 					{
@@ -4486,6 +4505,7 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("delegators_count", &nano::json_handler::delegators_count);
 	no_arg_funcs.emplace ("deterministic_key", &nano::json_handler::deterministic_key);
 	no_arg_funcs.emplace ("confirmation_active", &nano::json_handler::confirmation_active);
+	no_arg_funcs.emplace ("confirmation_height_currently_processing", &nano::json_handler::confirmation_height_currently_processing);
 	no_arg_funcs.emplace ("confirmation_history", &nano::json_handler::confirmation_history);
 	no_arg_funcs.emplace ("confirmation_info", &nano::json_handler::confirmation_info);
 	no_arg_funcs.emplace ("confirmation_quorum", &nano::json_handler::confirmation_quorum);
@@ -4558,5 +4578,28 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("work_peers", &nano::json_handler::work_peers);
 	no_arg_funcs.emplace ("work_peers_clear", &nano::json_handler::work_peers_clear);
 	return no_arg_funcs;
+}
+
+/** Due to the asynchronous nature of updating confirmation heights, it can also be necessary to check active roots */
+bool block_confirmed (nano::node & node, nano::transaction & transaction, nano::block_hash const & hash, bool include_active, bool include_only_confirmed)
+{
+	bool is_confirmed = false;
+	if (include_active && !include_only_confirmed)
+	{
+		is_confirmed = true;
+	}
+	// Check whether the confirmation height is set
+	else if (node.block_confirmed_or_being_confirmed (transaction, hash))
+	{
+		is_confirmed = true;
+	}
+	// This just checks it's not currently undergoing an active transaction
+	else if (!include_only_confirmed)
+	{
+		auto block (node.store.block_get (transaction, hash));
+		is_confirmed = (block != nullptr && !node.active.active (*block));
+	}
+
+	return is_confirmed;
 }
 }
