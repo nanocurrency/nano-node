@@ -15,7 +15,7 @@ namespace ipc
 	class ipc_server
 	{
 	public:
-		ipc_server (nano::node & node_a, nano::node_rpc_config const & node_rpc_config = nano::node_rpc_config{});
+		ipc_server (nano::node & node_a, nano::node_rpc_config const & node_rpc_config);
 
 		virtual ~ipc_server ();
 		void stop ();
