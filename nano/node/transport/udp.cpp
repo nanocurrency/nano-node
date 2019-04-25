@@ -387,6 +387,7 @@ void nano::transport::udp_channels::stop ()
 {
 	// Stop and invalidate local endpoint
 	stopped = true;
+	std::lock_guard<std::mutex> lock (mutex);
 	local_endpoint = nano::endpoint (boost::asio::ip::address_v6::loopback (), 0);
 
 	// clang-format off
@@ -399,6 +400,7 @@ void nano::transport::udp_channels::stop ()
 
 nano::endpoint nano::transport::udp_channels::get_local_endpoint () const
 {
+	std::lock_guard<std::mutex> lock (mutex);
 	return local_endpoint;
 }
 
@@ -633,7 +635,7 @@ bool nano::transport::udp_channels::not_a_peer (nano::endpoint const & endpoint_
 	{
 		result = true;
 	}
-	else if (endpoint_a == local_endpoint)
+	else if (endpoint_a == get_local_endpoint ())
 	{
 		result = true;
 	}
