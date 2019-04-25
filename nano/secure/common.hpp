@@ -332,9 +332,11 @@ public:
 	nano::uint128_t genesis_amount;
 	nano::account const & not_an_account ();
 	nano::account burn_account;
+	nano::uint128_union const & random_128 ();
 
 private:
 	nano::account not_an_account_m;
+	nano::uint128_union random_128_m;
 };
 
 /** Node related constants whose value depends on the active network */

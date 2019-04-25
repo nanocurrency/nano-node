@@ -21,15 +21,7 @@ bool parse_tcp_endpoint (std::string const &, nano::tcp_endpoint &);
 
 namespace
 {
-uint64_t random_64_m{ 0 };
-uint64_t const & random_64 ()
-{
-	if (random_64_m == 0)
-	{
-		random_64_m = (uint64_t) nano::random_pool::generate_word32 (0, 0xffffffffUL) << 32 | nano::random_pool::generate_word32 (0, 0xffffffffUL);
-	}
-	return random_64_m;
-}
+nano::ledger_constants random_constants (nano::nano_networks::nano_test_network);
 
 uint64_t endpoint_hash_raw (nano::endpoint const & endpoint_a)
 {
@@ -40,7 +32,7 @@ uint64_t endpoint_hash_raw (nano::endpoint const & endpoint_a)
 	auto port (endpoint_a.port ());
 	blake2b_state state;
 	blake2b_init (&state, sizeof (result));
-	blake2b_update (&state, &random_64 (), sizeof (random_64 ()));
+	blake2b_update (&state, random_constants.random_128 ().bytes.data (), random_constants.random_128 ().bytes.size ());
 	blake2b_update (&state, address.bytes.data (), address.bytes.size ());
 	blake2b_update (&state, &port, sizeof (port));
 	blake2b_final (&state, &result, sizeof (result));
@@ -55,7 +47,7 @@ uint64_t endpoint_hash_raw (nano::tcp_endpoint const & endpoint_a)
 	auto port (endpoint_a.port ());
 	blake2b_state state;
 	blake2b_init (&state, sizeof (result));
-	blake2b_update (&state, &random_64 (), sizeof (random_64 ()));
+	blake2b_update (&state, random_constants.random_128 ().bytes.data (), random_constants.random_128 ().bytes.size ());
 	blake2b_update (&state, address.bytes.data (), address.bytes.size ());
 	blake2b_update (&state, &port, sizeof (port));
 	blake2b_final (&state, &result, sizeof (result));
@@ -69,7 +61,7 @@ uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a)
 	bytes.bytes = ip_a.to_v6 ().to_bytes ();
 	blake2b_state state;
 	blake2b_init (&state, sizeof (result));
-	blake2b_update (&state, &random_64 (), sizeof (random_64 ()));
+	blake2b_update (&state, random_constants.random_128 ().bytes.data (), random_constants.random_128 ().bytes.size ());
 	blake2b_update (&state, bytes.bytes.data (), bytes.bytes.size ());
 	blake2b_final (&state, &result, sizeof (result));
 	return result;
