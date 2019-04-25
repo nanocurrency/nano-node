@@ -110,6 +110,7 @@ nano::account const & nano::ledger_constants::not_an_account ()
 
 nano::uint128_union const & nano::ledger_constants::random_128 ()
 {
+	static std::mutex random_128_mutex;
 	std::lock_guard<std::mutex> guard (random_128_mutex);
 	if (random_128_m.is_zero ())
 	{
