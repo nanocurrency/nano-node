@@ -2394,10 +2394,10 @@ TEST (node, peers)
 	// Confirm that the peers match with the endpoints we are expecting
 	ASSERT_EQ (1, system.nodes.front ()->network.size ());
 	auto list1 (system.nodes[0]->network.udp_channels.list (2));
-	ASSERT_EQ (system.nodes[1]->network.endpoint (), list1[0]->endpoint);
+	ASSERT_EQ (system.nodes[1]->network.endpoint (), list1[0]->get_endpoint ());
 	ASSERT_EQ (1, node->network.size ());
 	auto list2 (system.nodes[1]->network.udp_channels.list (2));
-	ASSERT_EQ (system.nodes[0]->network.endpoint (), list2[0]->endpoint);
+	ASSERT_EQ (system.nodes[0]->network.endpoint (), list2[0]->get_endpoint ());
 	// Stop the peer node and check that it is removed from the store
 	system.nodes.front ()->stop ();
 

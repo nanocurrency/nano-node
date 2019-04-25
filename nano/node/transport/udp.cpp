@@ -323,7 +323,7 @@ nano::endpoint nano::transport::udp_channels::tcp_peer ()
 		{
 			result = i->endpoint ();
 			channels.get<last_tcp_attempt_tag> ().modify (i, [](channel_udp_wrapper & wrapper_a) {
-				wrapper_a.channel->last_tcp_attempt = std::chrono::steady_clock::now ();
+				wrapper_a.channel->set_last_tcp_attempt (std::chrono::steady_clock::now ());
 			});
 			i = n;
 		}
@@ -491,7 +491,7 @@ public:
 					auto channel (node.network.udp_channels.insert (endpoint, message_a.header.version_using));
 					if (channel)
 					{
-						channel->node_id = message_a.response->first;
+						channel->set_node_id (message_a.response->first);
 					}
 				}
 			}
@@ -515,7 +515,7 @@ public:
 		auto channel (node.network.udp_channels.channel (endpoint));
 		if (channel)
 		{
-			channel->last_packet_received = std::chrono::steady_clock::now ();
+			channel->set_last_packet_received (std::chrono::steady_clock::now ());
 			node.network.udp_channels.modify (channel);
 			node.process_message (message_a, channel);
 		}
