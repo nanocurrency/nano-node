@@ -493,7 +493,7 @@ public:
 					auto channel (node.network.udp_channels.insert (endpoint, message_a.header.version_using));
 					if (channel)
 					{
-						channel->node_id = message_a.response->first;
+						node.network.udp_channels.modify_node_id (channel, message_a.response->first);
 					}
 				}
 			}
@@ -840,5 +840,17 @@ void nano::transport::udp_channels::modify (std::shared_ptr<nano::transport::cha
 	if (existing != channels.get<endpoint_tag> ().end ())
 	{
 		channels.get<endpoint_tag> ().modify (existing, [](channel_udp_wrapper &) {});
+	}
+}
+
+void nano::transport::udp_channels::modify_node_id (std::shared_ptr<nano::transport::channel_udp> channel_a, nano::account const & node_id_a)
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	auto existing (channels.get<endpoint_tag> ().find (channel_a->endpoint));
+	if (existing != channels.get<endpoint_tag> ().end ())
+	{
+		channels.get<endpoint_tag> ().modify (existing, [node_id_a](channel_udp_wrapper & channel_udp_wrapper) {
+			channel_udp_wrapper.channel->node_id = node_id_a;
+		});
 	}
 }
