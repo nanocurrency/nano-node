@@ -30,9 +30,10 @@ uint64_t endpoint_hash_raw (nano::endpoint const & endpoint_a)
 	nano::uint128_union address;
 	address.bytes = endpoint_a.address ().to_v6 ().to_bytes ();
 	auto port (endpoint_a.port ());
+	auto random_128 (random_constants.random_128 ());
 	blake2b_state state;
 	blake2b_init (&state, sizeof (result));
-	blake2b_update (&state, random_constants.random_128 ().bytes.data (), random_constants.random_128 ().bytes.size ());
+	blake2b_update (&state, random_128.bytes.data (), random_128.bytes.size ());
 	blake2b_update (&state, address.bytes.data (), address.bytes.size ());
 	blake2b_update (&state, &port, sizeof (port));
 	blake2b_final (&state, &result, sizeof (result));
@@ -45,9 +46,10 @@ uint64_t endpoint_hash_raw (nano::tcp_endpoint const & endpoint_a)
 	nano::uint128_union address;
 	address.bytes = endpoint_a.address ().to_v6 ().to_bytes ();
 	auto port (endpoint_a.port ());
+	auto random_128 (random_constants.random_128 ());
 	blake2b_state state;
 	blake2b_init (&state, sizeof (result));
-	blake2b_update (&state, random_constants.random_128 ().bytes.data (), random_constants.random_128 ().bytes.size ());
+	blake2b_update (&state, random_128.bytes.data (), random_128.bytes.size ());
 	blake2b_update (&state, address.bytes.data (), address.bytes.size ());
 	blake2b_update (&state, &port, sizeof (port));
 	blake2b_final (&state, &result, sizeof (result));
@@ -59,9 +61,10 @@ uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a)
 	uint64_t result;
 	nano::uint128_union bytes;
 	bytes.bytes = ip_a.to_v6 ().to_bytes ();
+	auto random_128 (random_constants.random_128 ());
 	blake2b_state state;
 	blake2b_init (&state, sizeof (result));
-	blake2b_update (&state, random_constants.random_128 ().bytes.data (), random_constants.random_128 ().bytes.size ());
+	blake2b_update (&state, random_128.bytes.data (), random_128.bytes.size ());
 	blake2b_update (&state, bytes.bytes.data (), bytes.bytes.size ());
 	blake2b_final (&state, &result, sizeof (result));
 	return result;
