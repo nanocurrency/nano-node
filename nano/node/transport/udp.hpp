@@ -77,7 +77,7 @@ namespace transport
 		std::deque<std::shared_ptr<nano::transport::channel_udp>> list (size_t);
 		// A list of random peers sized for the configured rebroadcast fanout
 		std::deque<std::shared_ptr<nano::transport::channel_udp>> list_fanout ();
-		void modify (std::shared_ptr<nano::transport::channel_udp>);
+		void modify (std::shared_ptr<nano::transport::channel_udp>, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now ());
 		void modify_node_id (std::shared_ptr<nano::transport::channel_udp>, nano::account const &);
 		// Maximum number of peers per IP
 		static size_t constexpr max_peers_per_ip = 10;
