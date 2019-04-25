@@ -66,7 +66,7 @@ namespace transport
 		void set_node_id (nano::account node_id_a)
 		{
 			std::lock_guard<std::mutex> lk (channel_mutex);
-			return node_id = node_id_a;
+			node_id = node_id_a;
 		}
 
 		unsigned network_version{ nano::protocol_version };
