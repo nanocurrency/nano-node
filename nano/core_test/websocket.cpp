@@ -68,7 +68,8 @@ boost::optional<std::string> websocket_test_call (std::string host, std::string 
 	}
 	if (ws.is_open ())
 	{
-		ws.close (boost::beast::websocket::close_code::normal);
+		boost::beast::error_code ec_ignored;
+		ws.close (boost::beast::websocket::close_code::normal, ec_ignored);
 	}
 	return ret;
 }
