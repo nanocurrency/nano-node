@@ -336,6 +336,7 @@ public:
 
 private:
 	nano::account not_an_account_m;
+	std::mutex random_128_mutex;
 	nano::uint128_union random_128_m;
 };
 
