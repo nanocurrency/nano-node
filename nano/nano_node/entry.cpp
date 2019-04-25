@@ -440,7 +440,8 @@ int main (int argc, char * const * argv)
 				std::ifstream ifs ("nano_node_backtrace.dump");
 
 				boost::stacktrace::stacktrace st = boost::stacktrace::stacktrace::from_dump (ifs);
-				std::cout << "Latest crash backtrace:\n" << st << std::endl;
+				std::cout << "Latest crash backtrace:\n"
+				          << st << std::endl;
 			}
 		}
 		else if (vm.count ("debug_verify_profile"))
