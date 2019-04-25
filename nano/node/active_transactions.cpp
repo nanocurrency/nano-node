@@ -185,7 +185,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 				if ((!rep_channels->empty () && node.rep_crawler.total_weight () > node.config.online_weight_minimum.number ()) || roots_size > 5)
 				{
 					// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
-					if (!node.network_params.network.is_test_network ())
+					if (node.network_params.network.is_live_network ())
 					{
 						if (confirm_req_bundle.size () < max_broadcast_queue)
 						{
@@ -216,7 +216,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 				}
 				else
 				{
-					if (!node.network_params.network.is_test_network ())
+					if (node.network_params.network.is_live_network ())
 					{
 						auto deque_l (node.network.udp_channels.random_set (100));
 						auto vec (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> ());
