@@ -1413,42 +1413,42 @@ TEST (confirmation_height, single)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::block_hash latest1 (system.nodes[0]->latest (nano::test_genesis_key.pub));
 	system.wallet (1)->insert_adhoc (key1.prv);
-	auto block1 (std::make_shared<nano::send_block> (latest1, key1.pub, amount - system.nodes[0]->config.receive_minimum.number (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest1)));
+	auto send1 (std::make_shared<nano::send_block> (latest1, key1.pub, amount - system.nodes[0]->config.receive_minimum.number (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest1)));
 
-	// Check confirmation heights before, should be uninitialized (0)
+	// Check confirmation heights before, should be uninitialized (1 for genesis).
 	nano::account_info account_info;
+	for (auto & node : system.nodes)
 	{
-		auto transaction = system.nodes[0]->store.tx_begin_read ();
-		ASSERT_FALSE (system.nodes[0]->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
-		ASSERT_EQ (1, account_info.confirmation_height);
-
-		auto transaction1 = system.nodes[1]->store.tx_begin_read ();
-		ASSERT_FALSE (system.nodes[1]->store.account_get (transaction1, nano::test_genesis_key.pub, account_info));
+		auto transaction = node->store.tx_begin_read ();
+		ASSERT_FALSE (node->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
 		ASSERT_EQ (1, account_info.confirmation_height);
 	}
 
-	system.nodes[0]->process_active (block1);
-	system.nodes[0]->block_processor.flush ();
-	system.nodes[1]->process_active (block1);
-	system.nodes[1]->block_processor.flush ();
-
-	system.deadline_set (10s);
-	while (system.nodes[0]->balance (key1.pub) != system.nodes[0]->config.receive_minimum.number ())
+	for (auto & node : system.nodes)
 	{
-		ASSERT_NO_ERROR (system.poll ());
+		node->process_active (send1);
+		node->block_processor.flush ();
+
+		system.deadline_set (10s);
+		while (true)
+		{
+			auto transaction = node->store.tx_begin_read ();
+			if (node->ledger.block_confirmed (transaction, send1->hash ()))
+			{
+				break;
+			}
+
+			ASSERT_NO_ERROR (system.poll ());
+		}
+
+		auto transaction = node->store.tx_begin_read ();
+		ASSERT_FALSE (node->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
+		ASSERT_EQ (2, account_info.confirmation_height);
+
+		// Rollbacks should fail as these blocks have been cemented
+		ASSERT_TRUE (node->ledger.rollback (transaction, latest1));
+		ASSERT_TRUE (node->ledger.rollback (transaction, send1->hash ()));
 	}
-
-	// Check confirmation heights after
-	auto transaction = system.nodes[0]->store.tx_begin_write ();
-	ASSERT_FALSE (system.nodes[0]->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
-	ASSERT_EQ (2, account_info.confirmation_height);
-
-	auto transaction1 = system.nodes[1]->store.tx_begin_read ();
-	ASSERT_FALSE (system.nodes[1]->store.account_get (transaction1, nano::test_genesis_key.pub, account_info));
-	ASSERT_EQ (2, account_info.confirmation_height);
-
-	// Rollback should fail as this transaction has been cemented
-	ASSERT_TRUE (system.nodes[0]->ledger.rollback (transaction, block1->hash ()));
 }
 
 TEST (confirmation_height, multiple_accounts)
