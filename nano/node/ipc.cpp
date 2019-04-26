@@ -256,7 +256,7 @@ public:
 				server.node.logger.always_log ("IPC: acceptor error: ", ec.message ());
 			}
 
-			if (acceptor->is_open () && ec != boost::asio::error::operation_aborted)
+			if (ec != boost::asio::error::operation_aborted && acceptor->is_open ())
 			{
 				this->accept ();
 			}

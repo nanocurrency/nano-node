@@ -441,9 +441,10 @@ TEST (node, connect_after_junk)
 	nano::system system (24000, 1);
 	nano::node_init init1;
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
-	uint64_t junk (0);
+	auto junk_buffer (std::make_shared<std::vector<uint8_t>> ());
+	junk_buffer->push_back (0);
 	nano::transport::channel_udp channel1 (node1->network.udp_channels, system.nodes[0]->network.endpoint ());
-	channel1.send_buffer_raw (boost::asio::buffer (&junk, sizeof (junk)), [](boost::system::error_code const &, size_t) {});
+	channel1.send_buffer (junk_buffer, nano::stat::detail::bulk_pull, [](boost::system::error_code const &, size_t) {});
 	system.deadline_set (10s);
 	while (system.nodes[0]->stats.count (nano::stat::type::error) == 0)
 	{
@@ -697,15 +698,15 @@ TEST (node_config, v16_v17_upgrade)
 	nano::node_config config;
 	config.logging.init (path);
 	// These config options should not be present
-	ASSERT_FALSE (tree.get_optional_child ("tcp_client_timeout"));
-	ASSERT_FALSE (tree.get_optional_child ("tcp_server_timeout"));
+	ASSERT_FALSE (tree.get_optional_child ("tcp_io_timeout"));
+	ASSERT_FALSE (tree.get_optional_child ("tcp_idle_timeout"));
 	ASSERT_FALSE (tree.get_optional_child ("pow_sleep_interval"));
 	ASSERT_FALSE (tree.get_optional_child ("external_address"));
 	ASSERT_FALSE (tree.get_optional_child ("external_port"));
 	config.deserialize_json (upgraded, tree);
 	// The config options should be added after the upgrade
-	ASSERT_TRUE (!!tree.get_optional_child ("tcp_client_timeout"));
-	ASSERT_TRUE (!!tree.get_optional_child ("tcp_server_timeout"));
+	ASSERT_TRUE (!!tree.get_optional_child ("tcp_io_timeout"));
+	ASSERT_TRUE (!!tree.get_optional_child ("tcp_idle_timeout"));
 	ASSERT_TRUE (!!tree.get_optional_child ("pow_sleep_interval"));
 	ASSERT_TRUE (!!tree.get_optional_child ("external_address"));
 	ASSERT_TRUE (!!tree.get_optional_child ("external_port"));
@@ -728,30 +729,30 @@ TEST (node_config, v17_values)
 	config.logging.init (path);
 
 	// Check config is correct
-	tree.put ("tcp_client_timeout", 1);
-	tree.put ("tcp_server_timeout", 0);
+	tree.put ("tcp_io_timeout", 1);
+	tree.put ("tcp_idle_timeout", 0);
 	tree.put ("pow_sleep_interval", 0);
 	tree.put ("external_address", "::1");
 	tree.put ("external_port", 0);
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
-	ASSERT_EQ (config.tcp_client_timeout.count (), 1);
-	ASSERT_EQ (config.tcp_server_timeout.count (), 0);
+	ASSERT_EQ (config.tcp_io_timeout.count (), 1);
+	ASSERT_EQ (config.tcp_idle_timeout.count (), 0);
 	ASSERT_EQ (config.pow_sleep_interval.count (), 0);
 	ASSERT_EQ (config.external_address, boost::asio::ip::address_v6::from_string ("::1"));
 	ASSERT_EQ (config.external_port, 0);
 
 	// Check config is correct with other values
-	tree.put ("tcp_client_timeout", std::numeric_limits<unsigned long>::max () - 100);
-	tree.put ("tcp_server_timeout", std::numeric_limits<unsigned>::max ());
+	tree.put ("tcp_io_timeout", std::numeric_limits<unsigned long>::max () - 100);
+	tree.put ("tcp_idle_timeout", std::numeric_limits<unsigned>::max ());
 	tree.put ("pow_sleep_interval", std::numeric_limits<unsigned long>::max () - 100);
 	tree.put ("external_address", "::ffff:192.168.1.1");
 	tree.put ("external_port", std::numeric_limits<uint16_t>::max () - 1);
 	upgraded = false;
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
-	ASSERT_EQ (config.tcp_client_timeout.count (), std::numeric_limits<unsigned long>::max () - 100);
-	ASSERT_EQ (config.tcp_server_timeout.count (), std::numeric_limits<unsigned>::max ());
+	ASSERT_EQ (config.tcp_io_timeout.count (), std::numeric_limits<unsigned long>::max () - 100);
+	ASSERT_EQ (config.tcp_idle_timeout.count (), std::numeric_limits<unsigned>::max ());
 	ASSERT_EQ (config.pow_sleep_interval.count (), std::numeric_limits<unsigned long>::max () - 100);
 	ASSERT_EQ (config.external_address, boost::asio::ip::address_v6::from_string ("::ffff:192.168.1.1"));
 	ASSERT_EQ (config.external_port, std::numeric_limits<uint16_t>::max () - 1);

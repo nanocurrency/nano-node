@@ -1148,7 +1148,12 @@ TEST (network, endpoint_bad_fd)
 	system.nodes[0]->stop ();
 	auto endpoint (system.nodes[0]->network.endpoint ());
 	ASSERT_TRUE (endpoint.address ().is_loopback ());
-	ASSERT_EQ (0, endpoint.port ());
+	// The endpoint is invalidated asynchronously
+	system.deadline_set (10s);
+	while (system.nodes[0]->network.endpoint ().port () != 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 }
 
 TEST (network, reserved_address)
@@ -1383,13 +1388,21 @@ TEST (bootstrap, keepalive)
 	auto socket (std::make_shared<nano::socket> (system.nodes[0]));
 	nano::keepalive keepalive;
 	auto input (keepalive.to_bytes ());
-	socket->async_connect (system.nodes[0]->bootstrap.endpoint (), [&input, socket](boost::system::error_code const & ec) {
+	std::atomic<bool> write_done (false);
+	socket->async_connect (system.nodes[0]->bootstrap.endpoint (), [&input, socket, &write_done](boost::system::error_code const & ec) {
 		ASSERT_FALSE (ec);
-		socket->async_write (input, [&input](boost::system::error_code const & ec, size_t size_a) {
+		socket->async_write (input, [&input, &write_done](boost::system::error_code const & ec, size_t size_a) {
 			ASSERT_FALSE (ec);
 			ASSERT_EQ (input->size (), size_a);
+			write_done = true;
 		});
 	});
+
+	system.deadline_set (std::chrono::seconds (5));
+	while (!write_done)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 
 	auto output (keepalive.to_bytes ());
 	std::atomic<bool> done (false);
@@ -1941,7 +1954,7 @@ TEST (bootstrap, tcp_listener_timeout_empty)
 {
 	nano::system system (24000, 1);
 	auto node0 (system.nodes[0]);
-	node0->config.tcp_server_timeout = std::chrono::seconds (1);
+	node0->config.tcp_idle_timeout = std::chrono::seconds (1);
 	auto socket (std::make_shared<nano::socket> (node0));
 	std::atomic<bool> connected (false);
 	socket->async_connect (node0->bootstrap.endpoint (), [&connected](boost::system::error_code const & ec) {
@@ -1954,7 +1967,7 @@ TEST (bootstrap, tcp_listener_timeout_empty)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	bool disconnected (false);
-	system.deadline_set (std::chrono::seconds (5));
+	system.deadline_set (std::chrono::seconds (6));
 	while (!disconnected)
 	{
 		{
@@ -1969,7 +1982,7 @@ TEST (bootstrap, tcp_listener_timeout_keepalive)
 {
 	nano::system system (24000, 1);
 	auto node0 (system.nodes[0]);
-	node0->config.tcp_server_timeout = std::chrono::seconds (1);
+	node0->config.tcp_idle_timeout = std::chrono::seconds (1);
 	auto socket (std::make_shared<nano::socket> (node0));
 	nano::keepalive keepalive;
 	auto input (keepalive.to_bytes ());
@@ -1990,7 +2003,7 @@ TEST (bootstrap, tcp_listener_timeout_keepalive)
 		ASSERT_EQ (node0->bootstrap.connections.size (), 1);
 	}
 	bool disconnected (false);
-	system.deadline_set (std::chrono::seconds (5));
+	system.deadline_set (std::chrono::seconds (46));
 	while (!disconnected)
 	{
 		{
