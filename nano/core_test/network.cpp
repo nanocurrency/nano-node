@@ -1715,8 +1715,8 @@ TEST (confirmation_height, gap_live)
 TEST (confirmation_height, send_receive_between_2_accounts)
 {
 	bool delay_frontier_confirmation_height_updating = true;
-	nano::system system (24000, 1, delay_frontier_confirmation_height_updating);
-	auto node = system.nodes.front ();
+	nano::system system;
+	auto node = system.add_node (nano::node_config (24000, system.logging), delay_frontier_confirmation_height_updating);
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
@@ -1788,8 +1788,8 @@ TEST (confirmation_height, send_receive_between_2_accounts)
 TEST (confirmation_height, send_receive_self)
 {
 	bool delay_frontier_confirmation_height_updating = true;
-	nano::system system (24000, 1, delay_frontier_confirmation_height_updating);
-	auto node = system.nodes.front ();
+	nano::system system;
+	auto node = system.add_node (nano::node_config (24000, system.logging), delay_frontier_confirmation_height_updating);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
 
@@ -1841,8 +1841,8 @@ TEST (confirmation_height, send_receive_self)
 TEST (confirmation_height, all_block_types)
 {
 	bool delay_frontier_confirmation_height_updating = true;
-	nano::system system (24000, 1, delay_frontier_confirmation_height_updating);
-	auto node = system.nodes.front ();
+	nano::system system;
+	auto node = system.add_node (nano::node_config (24000, system.logging), delay_frontier_confirmation_height_updating);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
 	nano::keypair key1;
