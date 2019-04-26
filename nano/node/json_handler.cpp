@@ -2431,9 +2431,10 @@ void nano::json_handler::peers ()
 		{
 			boost::property_tree::ptree pending_tree;
 			pending_tree.put ("protocol_version", std::to_string (channel->network_version));
-			if (channel->node_id.is_initialized ())
+			auto node_id_l (channel->get_node_id ());
+			if (node_id_l.is_initialized ())
 			{
-				pending_tree.put ("node_id", channel->node_id.get ().to_account ());
+				pending_tree.put ("node_id", node_id_l.get ().to_account ());
 			}
 			else
 			{
