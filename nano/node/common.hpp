@@ -37,8 +37,8 @@ uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a, uint16_t po
 {
 	assert (ip_a.is_v6 ());
 	uint64_t result;
-	nano::uint128_union bytes;
-	bytes.bytes = ip_a.to_v6 ().to_bytes ();
+	nano::uint128_union address;
+	address.bytes = ip_a.to_v6 ().to_bytes ();
 	blake2b_state state;
 	blake2b_init (&state, sizeof (result));
 	blake2b_update (&state, random_constants.random_128.bytes.data (), random_constants.random_128.bytes.size ());
@@ -46,7 +46,7 @@ uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a, uint16_t po
 	{
 		blake2b_update (&state, &port, sizeof (port));
 	}
-	blake2b_update (&state, bytes.bytes.data (), bytes.bytes.size ());
+	blake2b_update (&state, address.bytes.data (), address.bytes.size ());
 	blake2b_final (&state, &result, sizeof (result));
 	return result;
 }
