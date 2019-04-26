@@ -1160,7 +1160,7 @@ void nano::mdb_store::upgrade_v12_to_v13 (nano::transaction const & transaction_
 {
 	size_t cost (0);
 	nano::account account (0);
-	auto const & not_an_account (network_params.ledger.not_an_account ());
+	auto const & not_an_account (network_params.random.not_an_account);
 	while (account != not_an_account)
 	{
 		nano::account first (0);
