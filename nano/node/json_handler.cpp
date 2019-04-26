@@ -1861,7 +1861,7 @@ namespace
 class history_visitor : public nano::block_visitor
 {
 public:
-	history_visitor (nano::json_handler & handler_a, bool raw_a, nano::transaction & transaction_a, boost::property_tree::ptree & tree_a, nano::block_hash const & hash_a, std::vector<nano::public_key> const & accounts_filter_a = {}) :
+	history_visitor (nano::json_handler & handler_a, bool raw_a, nano::transaction & transaction_a, boost::property_tree::ptree & tree_a, nano::block_hash const & hash_a, std::vector<nano::public_key> const & accounts_filter_a) :
 	handler (handler_a),
 	raw (raw_a),
 	transaction (transaction_a),
@@ -2431,9 +2431,10 @@ void nano::json_handler::peers ()
 		{
 			boost::property_tree::ptree pending_tree;
 			pending_tree.put ("protocol_version", std::to_string (channel->network_version));
-			if (channel->node_id.is_initialized ())
+			auto node_id_l (channel->get_node_id ());
+			if (node_id_l.is_initialized ())
 			{
-				pending_tree.put ("node_id", channel->node_id.get ().to_account ());
+				pending_tree.put ("node_id", node_id_l.get ().to_account ());
 			}
 			else
 			{
@@ -3951,7 +3952,8 @@ void nano::json_handler::wallet_history ()
 					if (block != nullptr && timestamp >= modified_since)
 					{
 						boost::property_tree::ptree entry;
-						history_visitor visitor (*this, false, block_transaction, entry, hash);
+						std::vector<nano::public_key> no_filter;
+						history_visitor visitor (*this, false, block_transaction, entry, hash, no_filter);
 						block->visit (visitor);
 						if (!entry.empty ())
 						{

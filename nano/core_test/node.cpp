@@ -1726,24 +1726,26 @@ TEST (node, rep_weight)
 // Test that nodes can disable representative voting
 TEST (node, no_voting)
 {
-	nano::system system (24000, 2);
+	nano::system system (24000, 1);
 	auto & node0 (*system.nodes[0]);
-	auto & node1 (*system.nodes[1]);
+	nano::node_config node_config (24001, system.logging);
+	node_config.enable_voting = false;
+	auto & node1 = *system.add_node (node_config);
+
 	auto wallet0 (system.wallet (0));
 	auto wallet1 (system.wallet (1));
-	node0.config.enable_voting = false;
-	// Node0 has a rep
-	wallet0->insert_adhoc (nano::test_genesis_key.prv);
+	// Node1 has a rep
+	wallet1->insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key1;
 	wallet1->insert_adhoc (key1.prv);
 	// Broadcast a confirm so others should know this is a rep node
-	wallet0->send_action (nano::test_genesis_key.pub, key1.pub, nano::Mxrb_ratio);
+	wallet1->send_action (nano::test_genesis_key.pub, key1.pub, nano::Mxrb_ratio);
 	system.deadline_set (10s);
-	while (!node1.active.empty ())
+	while (!node0.active.empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (0, node1.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::in));
+	ASSERT_EQ (0, node0.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::in));
 }
 
 TEST (node, send_callback)
@@ -2394,10 +2396,10 @@ TEST (node, peers)
 	// Confirm that the peers match with the endpoints we are expecting
 	ASSERT_EQ (1, system.nodes.front ()->network.size ());
 	auto list1 (system.nodes[0]->network.udp_channels.list (2));
-	ASSERT_EQ (system.nodes[1]->network.endpoint (), list1[0]->endpoint);
+	ASSERT_EQ (system.nodes[1]->network.endpoint (), list1[0]->get_endpoint ());
 	ASSERT_EQ (1, node->network.size ());
 	auto list2 (system.nodes[1]->network.udp_channels.list (2));
-	ASSERT_EQ (system.nodes[0]->network.endpoint (), list2[0]->endpoint);
+	ASSERT_EQ (system.nodes[0]->network.endpoint (), list2[0]->get_endpoint ());
 	// Stop the peer node and check that it is removed from the store
 	system.nodes.front ()->stop ();
 

@@ -76,6 +76,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 	auto transaction (node.store.tx_begin_read ());
 	unsigned unconfirmed_count (0);
 	unsigned unconfirmed_announcements (0);
+	unsigned could_fit_delay = node.network_params.network.is_test_network () ? announcement_long - 1 : 1;
 	std::unordered_map<std::shared_ptr<nano::transport::channel>, std::vector<std::pair<nano::block_hash, nano::block_hash>>> requests_bundle;
 	std::deque<std::shared_ptr<nano::block>> rebroadcast_bundle;
 	std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>>> confirm_req_bundle;
@@ -141,7 +142,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 					election_l->update_dependent ();
 				}
 			}
-			if (election_l->announcements < announcement_long || election_l->announcements % announcement_long == 1)
+			if (election_l->announcements < announcement_long || election_l->announcements % announcement_long == could_fit_delay)
 			{
 				if (node.ledger.could_fit (transaction, *election_l->status.winner))
 				{
@@ -185,7 +186,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 				if ((!rep_channels->empty () && node.rep_crawler.total_weight () > node.config.online_weight_minimum.number ()) || roots_size > 5)
 				{
 					// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
-					if (!node.network_params.network.is_test_network ())
+					if (node.network_params.network.is_live_network ())
 					{
 						if (confirm_req_bundle.size () < max_broadcast_queue)
 						{
@@ -216,7 +217,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 				}
 				else
 				{
-					if (!node.network_params.network.is_test_network ())
+					if (node.network_params.network.is_live_network ())
 					{
 						auto deque_l (node.network.udp_channels.random_set (100));
 						auto vec (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> ());

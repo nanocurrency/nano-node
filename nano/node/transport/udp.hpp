@@ -1,5 +1,6 @@
 #pragma once
 
+#include <mutex>
 #include <nano/node/common.hpp>
 #include <nano/node/stats.hpp>
 #include <nano/node/transport/transport.hpp>
@@ -25,10 +26,56 @@ namespace transport
 		{
 			return &channels == &other_a.channels && endpoint == other_a.endpoint;
 		}
+
+		nano::endpoint get_endpoint () const
+		{
+			std::lock_guard<std::mutex> lk (channel_mutex);
+			return endpoint;
+		}
+
+		std::chrono::steady_clock::time_point get_last_tcp_attempt () const
+		{
+			std::lock_guard<std::mutex> lk (channel_mutex);
+			return last_tcp_attempt;
+		}
+
+		void set_last_tcp_attempt (std::chrono::steady_clock::time_point const time_a)
+		{
+			std::lock_guard<std::mutex> lk (channel_mutex);
+			last_tcp_attempt = time_a;
+		}
+
+		std::chrono::steady_clock::time_point get_last_packet_received () const
+		{
+			std::lock_guard<std::mutex> lk (channel_mutex);
+			return last_packet_received;
+		}
+
+		void set_last_packet_received (std::chrono::steady_clock::time_point const time_a)
+		{
+			std::lock_guard<std::mutex> lk (channel_mutex);
+			last_packet_received = time_a;
+		}
+
+		boost::optional<nano::account> get_node_id () const
+		{
+			std::lock_guard<std::mutex> lk (channel_mutex);
+			return node_id;
+		}
+
+		void set_node_id (nano::account node_id_a)
+		{
+			std::lock_guard<std::mutex> lk (channel_mutex);
+			node_id = node_id_a;
+		}
+
+		unsigned network_version{ nano::protocol_version };
+
+	private:
+		mutable std::mutex channel_mutex;
 		nano::endpoint endpoint;
 		std::chrono::steady_clock::time_point last_tcp_attempt{ std::chrono::steady_clock::time_point () };
 		std::chrono::steady_clock::time_point last_packet_received{ std::chrono::steady_clock::time_point () };
-		unsigned network_version{ nano::protocol_version };
 		boost::optional<nano::account> node_id{ boost::none };
 
 	private:
@@ -108,15 +155,15 @@ namespace transport
 			std::shared_ptr<nano::transport::channel_udp> channel;
 			nano::endpoint endpoint () const
 			{
-				return channel->endpoint;
+				return channel->get_endpoint ();
 			}
 			std::chrono::steady_clock::time_point last_packet_received () const
 			{
-				return channel->last_packet_received;
+				return channel->get_last_packet_received ();
 			}
 			std::chrono::steady_clock::time_point last_tcp_attempt () const
 			{
-				return channel->last_tcp_attempt;
+				return channel->get_last_tcp_attempt ();
 			}
 			boost::asio::ip::address ip_address () const
 			{
@@ -124,9 +171,10 @@ namespace transport
 			}
 			nano::account node_id () const
 			{
-				if (channel->node_id.is_initialized ())
+				auto node_id_l (channel->get_node_id ());
+				if (node_id_l.is_initialized ())
 				{
-					return channel->node_id.get ();
+					return node_id_l.get ();
 				}
 				else
 				{

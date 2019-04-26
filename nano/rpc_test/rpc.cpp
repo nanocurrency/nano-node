@@ -128,7 +128,8 @@ TEST (rpc, account_balance)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -154,7 +155,8 @@ TEST (rpc, account_block_count)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -178,7 +180,8 @@ TEST (rpc, account_create)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -230,7 +233,8 @@ TEST (rpc, account_weight)
 	nano::change_block block (latest, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (latest));
 	ASSERT_EQ (nano::process_result::progress, node1.process (block).code);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -254,7 +258,8 @@ TEST (rpc, wallet_contains)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -282,7 +287,8 @@ TEST (rpc, wallet_doesnt_contain)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -309,7 +315,8 @@ TEST (rpc, validate_account_number)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -333,7 +340,8 @@ TEST (rpc, validate_account_invalid)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -361,7 +369,8 @@ TEST (rpc, send)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -401,7 +410,8 @@ TEST (rpc, send_fail)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -437,7 +447,8 @@ TEST (rpc, send_work)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -480,7 +491,8 @@ TEST (rpc, send_idempotent)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -534,7 +546,8 @@ TEST (rpc, stop)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -554,7 +567,8 @@ TEST (rpc, wallet_add)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -585,7 +599,8 @@ TEST (rpc, wallet_password_valid)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -611,7 +626,8 @@ TEST (rpc, wallet_password_change)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -652,7 +668,8 @@ TEST (rpc, wallet_password_enter)
 	}
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -679,7 +696,8 @@ TEST (rpc, wallet_representative)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -705,7 +723,8 @@ TEST (rpc, wallet_representative_set)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -733,7 +752,8 @@ TEST (rpc, wallet_representative_set_force)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -778,7 +798,8 @@ TEST (rpc, account_list)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -819,7 +840,8 @@ TEST (rpc, wallet_key_valid)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -846,7 +868,8 @@ TEST (rpc, wallet_create)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -875,7 +898,8 @@ TEST (rpc, wallet_create_seed)
 	auto pub (nano::pub_key (prv.data));
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -913,7 +937,8 @@ TEST (rpc, wallet_export)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -944,7 +969,8 @@ TEST (rpc, wallet_destroy)
 	auto wallet_id (system.nodes[0]->wallets.items.begin ()->first);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -969,7 +995,8 @@ TEST (rpc, account_move)
 	auto wallet_id (system.nodes[0]->wallets.items.begin ()->first);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -1008,7 +1035,8 @@ TEST (rpc, block)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -1033,7 +1061,8 @@ TEST (rpc, block_account)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -1065,7 +1094,8 @@ TEST (rpc, chain)
 	ASSERT_NE (nullptr, block);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -1103,7 +1133,8 @@ TEST (rpc, chain_limit)
 	ASSERT_NE (nullptr, block);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -1140,7 +1171,8 @@ TEST (rpc, chain_offset)
 	ASSERT_NE (nullptr, block);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -1183,7 +1215,8 @@ TEST (rpc, frontier)
 	nano::keypair key;
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -1229,7 +1262,8 @@ TEST (rpc, frontier_limited)
 	nano::keypair key;
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -1265,7 +1299,8 @@ TEST (rpc, frontier_startpoint)
 	nano::keypair key;
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -1308,7 +1343,8 @@ TEST (rpc, history)
 		ASSERT_EQ (nano::process_result::progress, node0->ledger.process (transaction, uchange).code);
 	}
 	enable_ipc_transport_tcp (node0->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node0);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node0, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -1376,7 +1412,8 @@ TEST (rpc, account_history)
 		ASSERT_EQ (nano::process_result::progress, node0->ledger.process (transaction, uchange).code);
 	}
 	enable_ipc_transport_tcp (node0->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node0);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node0, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -1449,7 +1486,7 @@ TEST (rpc, account_history)
 	auto account2 (system.wallet (0)->deterministic_insert ());
 	auto send2 (system.wallet (0)->send_action (nano::test_genesis_key.pub, account2, system.nodes[0]->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, send2);
-	auto receive2 (system.wallet (0)->receive_action (static_cast<nano::send_block &> (*send2), account2, system.nodes[0]->config.receive_minimum.number ()));
+	auto receive2 (system.wallet (0)->receive_action (*send2, account2, system.nodes[0]->config.receive_minimum.number ()));
 	ASSERT_NE (nullptr, receive2);
 	{
 		boost::property_tree::ptree request;
@@ -1483,7 +1520,8 @@ TEST (rpc, history_count)
 	ASSERT_NE (nullptr, receive);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -1511,7 +1549,8 @@ TEST (rpc, process_block)
 	auto & node1 (*system.nodes[0]);
 	nano::send_block send (latest, key.pub, 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (latest));
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -1546,7 +1585,8 @@ TEST (rpc, process_block_no_work)
 	nano::send_block send (latest, key.pub, 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (latest));
 	send.block_work_set (0);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -1574,7 +1614,8 @@ TEST (rpc, process_republish)
 	auto & node1 (*system.nodes[0]);
 	nano::send_block send (latest, key.pub, 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (latest));
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -1606,7 +1647,8 @@ TEST (rpc, process_subtype_send)
 	auto & node1 (*system.nodes[0]);
 	nano::state_block send (nano::genesis_account, latest, nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (latest));
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -1663,7 +1705,8 @@ TEST (rpc, process_subtype_open)
 	node1.active.start (std::make_shared<nano::state_block> (send));
 	nano::state_block open (key.pub, 0, key.pub, nano::Gxrb_ratio, send.hash (), key.prv, key.pub, node1.work_generate_blocking (key.pub));
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -1719,7 +1762,8 @@ TEST (rpc, process_subtype_receive)
 	node1.active.start (std::make_shared<nano::state_block> (send));
 	nano::state_block receive (nano::test_genesis_key.pub, send.hash (), nano::test_genesis_key.pub, nano::genesis_amount, send.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (send.hash ()));
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -1772,7 +1816,8 @@ TEST (rpc, keepalive)
 	system.nodes.push_back (node1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -1810,7 +1855,8 @@ TEST (rpc, payment_init)
 	auto wallet (node1->wallets.create (wallet_id.pub));
 	ASSERT_TRUE (node1->wallets.items.find (wallet_id.pub) != node1->wallets.items.end ());
 	enable_ipc_transport_tcp (node1->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -1837,7 +1883,8 @@ TEST (rpc, payment_begin_end)
 	auto wallet (node1->wallets.create (wallet_id.pub));
 	ASSERT_TRUE (node1->wallets.items.find (wallet_id.pub) != node1->wallets.items.end ());
 	enable_ipc_transport_tcp (node1->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -1903,7 +1950,8 @@ TEST (rpc, payment_end_nonempty)
 	system.wallet (0)->init_free_accounts (transaction);
 	auto wallet_id (node1->wallets.items.begin ()->first);
 	enable_ipc_transport_tcp (node1->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -1932,7 +1980,8 @@ TEST (rpc, payment_zero_balance)
 	system.wallet (0)->init_free_accounts (transaction);
 	auto wallet_id (node1->wallets.items.begin ()->first);
 	enable_ipc_transport_tcp (node1->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -1962,7 +2011,8 @@ TEST (rpc, payment_begin_reuse)
 	auto wallet (node1->wallets.create (wallet_id.pub));
 	ASSERT_TRUE (node1->wallets.items.find (wallet_id.pub) != node1->wallets.items.end ());
 	enable_ipc_transport_tcp (node1->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -2022,7 +2072,8 @@ TEST (rpc, payment_begin_locked)
 	}
 	ASSERT_TRUE (node1->wallets.items.find (wallet_id.pub) != node1->wallets.items.end ());
 	enable_ipc_transport_tcp (node1->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -2049,7 +2100,8 @@ TEST (rpc, payment_wait)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key.prv);
 	enable_ipc_transport_tcp (node1->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -2097,7 +2149,8 @@ TEST (rpc, peers)
 	auto node = system.nodes.front ();
 	node->network.udp_channels.insert (endpoint, nano::protocol_version);
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -2127,7 +2180,8 @@ TEST (rpc, peers_node_id)
 	auto node = system.nodes.front ();
 	node->network.udp_channels.insert (endpoint, nano::protocol_version);
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -2167,7 +2221,8 @@ TEST (rpc, pending)
 	}
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -2304,7 +2359,8 @@ TEST (rpc, search_pending)
 	}
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -2335,7 +2391,8 @@ TEST (rpc, version)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key.prv);
 	enable_ipc_transport_tcp (node1->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -2388,7 +2445,8 @@ TEST (rpc, work_generate)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key.prv);
 	enable_ipc_transport_tcp (node1->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -2478,7 +2536,8 @@ TEST (rpc, work_cancel)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key.prv);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -2515,7 +2574,8 @@ TEST (rpc, work_peer_bad)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key.prv);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -2543,7 +2603,8 @@ TEST (rpc, work_peer_one)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key.prv);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -2576,21 +2637,22 @@ TEST (rpc, work_peer_many)
 	nano::rpc_config config2 (true);
 	config2.port += 0;
 	enable_ipc_transport_tcp (node2.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server2 (node2);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server2 (node2, node_rpc_config);
 	nano::ipc_rpc_processor ipc_rpc_processor2 (system2.io_ctx, config2);
 	nano::rpc rpc2 (system2.io_ctx, config2, ipc_rpc_processor2);
 	rpc2.start ();
 	nano::rpc_config config3 (true);
 	config3.port += 1;
 	enable_ipc_transport_tcp (node3.config.ipc_config.transport_tcp, node3.network_params.network.default_ipc_port + 1);
-	nano::ipc::ipc_server ipc_server3 (node3);
+	nano::ipc::ipc_server ipc_server3 (node3, node_rpc_config);
 	nano::ipc_rpc_processor ipc_rpc_processor3 (system3.io_ctx, config3);
 	nano::rpc rpc3 (system3.io_ctx, config3, ipc_rpc_processor3);
 	rpc3.start ();
 	nano::rpc_config config4 (true);
 	config4.port += 2;
 	enable_ipc_transport_tcp (node4.config.ipc_config.transport_tcp, node4.network_params.network.default_ipc_port + 2);
-	nano::ipc::ipc_server ipc_server4 (node4);
+	nano::ipc::ipc_server ipc_server4 (node4, node_rpc_config);
 	nano::ipc_rpc_processor ipc_rpc_processor4 (system4.io_ctx, config4);
 	nano::rpc rpc4 (system2.io_ctx, config4, ipc_rpc_processor4);
 	rpc4.start ();
@@ -2621,7 +2683,8 @@ TEST (rpc, block_count)
 	nano::node_init init1;
 	auto & node1 (*system.nodes[0]);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -2645,7 +2708,8 @@ TEST (rpc, frontier_count)
 	nano::node_init init1;
 	auto & node1 (*system.nodes[0]);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -2668,7 +2732,8 @@ TEST (rpc, account_count)
 	nano::node_init init1;
 	auto & node1 (*system.nodes[0]);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -2691,7 +2756,8 @@ TEST (rpc, available_supply)
 	nano::node_init init1;
 	auto & node1 (*system.nodes[0]);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -2734,7 +2800,8 @@ TEST (rpc, mrai_to_raw)
 	nano::node_init init1;
 	auto & node1 (*system.nodes[0]);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -2758,7 +2825,8 @@ TEST (rpc, mrai_from_raw)
 	nano::node_init init1;
 	auto & node1 (*system.nodes[0]);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -2782,7 +2850,8 @@ TEST (rpc, krai_to_raw)
 	nano::node_init init1;
 	auto & node1 (*system.nodes[0]);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -2806,7 +2875,8 @@ TEST (rpc, krai_from_raw)
 	nano::node_init init1;
 	auto & node1 (*system.nodes[0]);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -2830,7 +2900,8 @@ TEST (rpc, nano_to_raw)
 	nano::node_init init1;
 	auto & node1 (*system.nodes[0]);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -2854,7 +2925,8 @@ TEST (rpc, nano_from_raw)
 	nano::node_init init1;
 	auto & node1 (*system.nodes[0]);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -2877,7 +2949,8 @@ TEST (rpc, account_representative)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -2903,7 +2976,8 @@ TEST (rpc, account_representative_set)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -2942,7 +3016,8 @@ TEST (rpc, bootstrap)
 	}
 	auto & node = system0.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system0.io_ctx, rpc_config);
 	nano::rpc rpc (system0.io_ctx, rpc_config, ipc_rpc_processor);
@@ -2971,7 +3046,8 @@ TEST (rpc, account_remove)
 	ASSERT_TRUE (system0.wallet (0)->exists (key1));
 	auto & node = system0.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system0.io_ctx, rpc_config);
 	nano::rpc rpc (system0.io_ctx, rpc_config, ipc_rpc_processor);
@@ -2993,7 +3069,8 @@ TEST (rpc, representatives)
 	nano::system system0 (24000, 1);
 	auto & node = system0.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system0.io_ctx, rpc_config);
 	nano::rpc rpc (system0.io_ctx, rpc_config, ipc_rpc_processor);
@@ -3029,7 +3106,8 @@ TEST (rpc, wallet_seed)
 	}
 	auto & node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -3065,7 +3143,8 @@ TEST (rpc, wallet_change_seed)
 	auto pub (nano::pub_key (prv.data));
 	auto & node = system0.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system0.io_ctx, rpc_config);
 	nano::rpc rpc (system0.io_ctx, rpc_config, ipc_rpc_processor);
@@ -3101,7 +3180,8 @@ TEST (rpc, wallet_frontiers)
 	system0.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	auto & node = system0.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system0.io_ctx, rpc_config);
 	nano::rpc rpc (system0.io_ctx, rpc_config, ipc_rpc_processor);
@@ -3135,7 +3215,8 @@ TEST (rpc, work_validate)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key.prv);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -3216,7 +3297,8 @@ TEST (rpc, successors)
 	ASSERT_NE (nullptr, block);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -3265,7 +3347,8 @@ TEST (rpc, bootstrap_any)
 	}
 	auto & node = system0.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system0.io_ctx, rpc_config);
 	nano::rpc rpc (system0.io_ctx, rpc_config, ipc_rpc_processor);
@@ -3293,7 +3376,8 @@ TEST (rpc, republish)
 	nano::open_block open (send.hash (), key.pub, key.pub, key.prv, key.pub, node1.work_generate_blocking (key.pub));
 	ASSERT_EQ (nano::process_result::progress, node1.process (open).code);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -3374,7 +3458,8 @@ TEST (rpc, deterministic_key)
 	nano::account account2 (system0.wallet (0)->deterministic_insert ());
 	auto & node = system0.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system0.io_ctx, rpc_config);
 	nano::rpc rpc (system0.io_ctx, rpc_config, ipc_rpc_processor);
@@ -3408,7 +3493,8 @@ TEST (rpc, accounts_balances)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -3444,7 +3530,8 @@ TEST (rpc, accounts_frontiers)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -3485,7 +3572,8 @@ TEST (rpc, accounts_pending)
 	}
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -3598,7 +3686,8 @@ TEST (rpc, blocks)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -3641,7 +3730,8 @@ TEST (rpc, wallet_info)
 	account = system.wallet (0)->deterministic_insert ();
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -3676,7 +3766,8 @@ TEST (rpc, wallet_balances)
 	system0.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	auto & node = system0.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system0.io_ctx, rpc_config);
 	nano::rpc rpc (system0.io_ctx, rpc_config, ipc_rpc_processor);
@@ -3734,7 +3825,8 @@ TEST (rpc, pending_exists)
 	}
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -3782,7 +3874,8 @@ TEST (rpc, wallet_pending)
 	}
 	auto & node = system0.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system0.io_ctx, rpc_config);
 	nano::rpc rpc (system0.io_ctx, rpc_config, ipc_rpc_processor);
@@ -3890,7 +3983,8 @@ TEST (rpc, receive_minimum)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -3913,7 +4007,8 @@ TEST (rpc, receive_minimum_set)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -3941,7 +4036,8 @@ TEST (rpc, work_get)
 	system.wallet (0)->work_cache_blocking (nano::test_genesis_key.pub, system.nodes[0]->latest (nano::test_genesis_key.pub));
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -3971,7 +4067,8 @@ TEST (rpc, wallet_work_get)
 	system.wallet (0)->work_cache_blocking (nano::test_genesis_key.pub, system.nodes[0]->latest (nano::test_genesis_key.pub));
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -4005,7 +4102,8 @@ TEST (rpc, work_set)
 	uint64_t work0 (100);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -4042,7 +4140,8 @@ TEST (rpc, search_pending_all)
 	}
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -4083,7 +4182,8 @@ TEST (rpc, wallet_republish)
 	nano::open_block open (send.hash (), key.pub, key.pub, key.prv, key.pub, node1.work_generate_blocking (key.pub));
 	ASSERT_EQ (nano::process_result::progress, system.nodes[0]->process (open).code);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -4123,7 +4223,8 @@ TEST (rpc, delegators)
 	nano::open_block open (send.hash (), nano::test_genesis_key.pub, key.pub, key.prv, key.pub, node1.work_generate_blocking (key.pub));
 	ASSERT_EQ (nano::process_result::progress, system.nodes[0]->process (open).code);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -4162,7 +4263,8 @@ TEST (rpc, delegators_count)
 	nano::open_block open (send.hash (), nano::test_genesis_key.pub, key.pub, key.prv, key.pub, node1.work_generate_blocking (key.pub));
 	ASSERT_EQ (nano::process_result::progress, system.nodes[0]->process (open).code);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -4203,7 +4305,8 @@ TEST (rpc, account_info)
 	}
 
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -4265,7 +4368,8 @@ TEST (rpc, json_block_input)
 	auto & node1 (*system.nodes[0]);
 	nano::state_block send (nano::genesis_account, node1.latest (nano::test_genesis_key.pub), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -4309,7 +4413,8 @@ TEST (rpc, json_block_output)
 	nano::send_block send (latest, key.pub, 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (latest));
 	system.nodes[0]->process (send);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -4337,7 +4442,8 @@ TEST (rpc, blocks_info)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -4407,7 +4513,8 @@ TEST (rpc, blocks_info_subtype)
 	auto change (system.wallet (0)->change_action (nano::test_genesis_key.pub, key.pub));
 	ASSERT_NE (nullptr, change);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -4446,7 +4553,8 @@ TEST (rpc, work_peers_all)
 	auto & node1 (*system.nodes[0]);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -4513,7 +4621,8 @@ TEST (rpc, block_count_type)
 	ASSERT_NE (nullptr, receive);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -4554,7 +4663,8 @@ TEST (rpc, ledger)
 	ASSERT_EQ (nano::process_result::progress, node1.process (open).code);
 	auto time (nano::seconds_since_epoch ());
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -4621,7 +4731,8 @@ TEST (rpc, accounts_create)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -4662,7 +4773,8 @@ TEST (rpc, block_create)
 	auto open_work = node1.work_generate_blocking (key.pub);
 	nano::open_block open (send.hash (), nano::test_genesis_key.pub, key.pub, key.prv, key.pub, open_work);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -4791,7 +4903,8 @@ TEST (rpc, block_create_state)
 	request.put ("work", nano::to_string_hex (system.nodes[0]->work_generate_blocking (genesis.hash ())));
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -4836,7 +4949,8 @@ TEST (rpc, block_create_state_open)
 	request.put ("work", nano::to_string_hex (system.nodes[0]->work_generate_blocking (send_block->hash ())));
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -4888,7 +5002,8 @@ TEST (rpc, block_create_state_request_work)
 		request.put ("previous", previous);
 		auto node = system.nodes.front ();
 		enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-		nano::ipc::ipc_server ipc_server (*node);
+		nano::node_rpc_config node_rpc_config;
+		nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 		nano::rpc_config rpc_config (true);
 		nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 		nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -4917,7 +5032,8 @@ TEST (rpc, block_hash)
 	auto & node1 (*system.nodes[0]);
 	nano::send_block send (latest, key.pub, 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (latest));
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -4943,7 +5059,8 @@ TEST (rpc, wallet_lock)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -4975,7 +5092,8 @@ TEST (rpc, wallet_locked)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -5001,7 +5119,8 @@ TEST (rpc, wallet_create_fail)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -5037,7 +5156,8 @@ TEST (rpc, wallet_ledger)
 	ASSERT_EQ (nano::process_result::progress, node1.process (open).code);
 	auto time (nano::seconds_since_epoch ());
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -5104,7 +5224,8 @@ TEST (rpc, wallet_add_watch)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -5145,7 +5266,8 @@ TEST (rpc, online_reps)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	enable_ipc_transport_tcp (system.nodes[1]->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*system.nodes[1]);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*system.nodes[1], node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -5236,8 +5358,8 @@ TEST (rpc, confirmation_height_currently_processing)
 {
 	// The chains should be longer than the	batch_write_size to test the amount of blocks confirmed is correct.
 	bool delay_frontier_confirmation_height_updating = true;
-	nano::system system (24000, 1, delay_frontier_confirmation_height_updating);
-	auto node = system.nodes.front ();
+	nano::system system;
+	auto node = system.add_node (nano::node_config (24000, system.logging), delay_frontier_confirmation_height_updating);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 
 	// Do enough blocks to reliably call RPC before the confirmation height has finished
@@ -5271,7 +5393,8 @@ TEST (rpc, confirmation_height_currently_processing)
 	request.put ("action", "confirmation_height_currently_processing");
 
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -5337,7 +5460,8 @@ TEST (rpc, confirmation_history)
 	}
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -5381,7 +5505,8 @@ TEST (rpc, confirmation_history_hash)
 	}
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -5423,7 +5548,8 @@ TEST (rpc, block_confirm)
 	}
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -5447,7 +5573,8 @@ TEST (rpc, block_confirm_absent)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -5487,7 +5614,8 @@ TEST (rpc, block_confirm_confirmed)
 	ASSERT_EQ (0, node->stats.count (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out));
 
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -5523,7 +5651,8 @@ TEST (rpc, node_id)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -5547,7 +5676,8 @@ TEST (rpc, stats_clear)
 	nano::keypair key;
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -5581,7 +5711,8 @@ TEST (rpc, unopened)
 	ASSERT_NE (nullptr, send2);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -5660,7 +5791,8 @@ TEST (rpc, unopened_burn)
 	ASSERT_NE (nullptr, send);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -5683,7 +5815,8 @@ TEST (rpc, unopened_no_accounts)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -5706,7 +5839,8 @@ TEST (rpc, uptime)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -5745,7 +5879,8 @@ TEST (rpc, wallet_history)
 	system.deadline_set (10s);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -5838,7 +5973,8 @@ TEST (rpc, sign_block)
 	auto & node1 (*system.nodes[0]);
 	nano::state_block send (nano::genesis_account, node1.latest (nano::test_genesis_key.pub), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (node1);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -5874,7 +6010,8 @@ TEST (rpc, memory_stats)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -5906,7 +6043,8 @@ TEST (rpc, block_confirmed)
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -6008,7 +6146,8 @@ TEST (rpc, simultaneous_calls)
 	auto node = system.nodes.front ();
 	nano::thread_runner runner (system.io_ctx, node->config.io_threads);
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
-	nano::ipc::ipc_server ipc_server (*node);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	rpc_config.num_ipc_connections = 8;
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);

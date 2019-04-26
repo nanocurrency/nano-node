@@ -1942,9 +1942,10 @@ void nano_qt::advanced_actions::refresh_peers ()
 		version->setData (QVariant (channel->network_version), Qt::DisplayRole);
 		items.push_back (version);
 		QString node_id ("");
-		if (channel->node_id.is_initialized ())
+		auto node_id_l (channel->get_node_id ());
+		if (node_id_l.is_initialized ())
 		{
-			node_id = channel->node_id.get ().to_account ().c_str ();
+			node_id = node_id_l.get ().to_account ().c_str ();
 		}
 		items.push_back (new QStandardItem (node_id));
 		peers_model->appendRow (items);

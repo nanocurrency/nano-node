@@ -244,7 +244,11 @@ TEST (conflicts, adjusted_difficulty)
 	auto change1 (std::make_shared<nano::state_block> (key3.pub, open2->hash (), nano::test_genesis_key.pub, nano::xrb_ratio, 0, key3.prv, key3.pub, system.work.generate (open2->hash ())));
 	node1.process_active (change1);
 	node1.block_processor.flush ();
-	ASSERT_EQ (11, node1.active.size ());
+	system.deadline_set (3s);
+	while (node1.active.size () != 11)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	std::unordered_map<nano::block_hash, uint64_t> adjusted_difficulties;
 	{
 		std::lock_guard<std::mutex> guard (node1.active.mutex);
@@ -276,7 +280,11 @@ TEST (conflicts, adjusted_difficulty)
 	ASSERT_GT (difficulty, adjusted_difficulties.find (genesis.hash ())->second);
 	node1.process_active (open_epoch2);
 	node1.block_processor.flush ();
-	ASSERT_EQ (12, node1.active.size ());
+	system.deadline_set (3s);
+	while (node1.active.size () != 12)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	{
 		std::lock_guard<std::mutex> guard (node1.active.mutex);
 		ASSERT_EQ (node1.active.roots.get<1> ().begin ()->election->status.winner->hash (), open_epoch2->hash ());

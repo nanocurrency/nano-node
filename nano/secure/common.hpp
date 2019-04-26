@@ -330,13 +330,16 @@ public:
 	nano::account genesis_account;
 	std::string genesis_block;
 	nano::uint128_t genesis_amount;
-	nano::account const & not_an_account ();
 	nano::account burn_account;
-	nano::uint128_union const & random_128 ();
+};
 
-private:
-	nano::account not_an_account_m;
-	nano::uint128_union random_128_m;
+/** Constants which depend on random values (this class should never be used globally due to CryptoPP globals potentially not being initialized) */
+class random_constants
+{
+public:
+	random_constants ();
+	nano::account not_an_account;
+	nano::uint128_union random_128;
 };
 
 /** Node related constants whose value depends on the active network */
@@ -398,6 +401,7 @@ public:
 	unsigned kdf_work;
 	network_constants network;
 	ledger_constants ledger;
+	random_constants random;
 	voting_constants voting;
 	node_constants node;
 	portmapping_constants portmapping;
