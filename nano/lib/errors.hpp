@@ -89,6 +89,7 @@ enum class error_rpc
 	block_create_requirements_receive,
 	block_create_requirements_change,
 	block_create_requirements_send,
+	confirmation_height_not_processing,
 	confirmation_not_found,
 	difficulty_limit,
 	invalid_balance,

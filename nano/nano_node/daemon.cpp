@@ -31,8 +31,9 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 	if (!error)
 	{
 		config.node.logging.init (data_path);
+		nano::logger_mt logger{ config.node.logging.min_time_between_log_output };
 		boost::asio::io_context io_ctx;
-		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
+		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, logger));
 		nano::work_pool opencl_work (config.node.work_threads, config.node.pow_sleep_interval, opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a) {
 			return opencl->generate_work (root_a, difficulty_a);
 		}
@@ -74,11 +75,13 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 						rpc_process = std::make_unique<boost::process::child> (config.rpc.rpc_path, "--daemon");
 #else
 						auto rpc_exe_command = boost::str (boost::format ("%1% %2%") % config.rpc.rpc_path % "--daemon");
-						rpc_process_thread = std::make_unique<std::thread> ([ rpc_exe_command, &logger = node->logger ]() {
+						// clang-format off
+						rpc_process_thread = std::make_unique<std::thread> ([rpc_exe_command, &logger = node->logger]() {
 							nano::thread_role::set (nano::thread_role::name::rpc_process_container);
 							std::system (rpc_exe_command.c_str ());
 							logger.always_log ("RPC server has stopped");
 						});
+						// clang-format on
 #endif
 					}
 				}

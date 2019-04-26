@@ -2455,7 +2455,7 @@ TEST (active_difficulty, recalculate_work)
 	auto & node1 (*system.nodes[0]);
 	nano::genesis genesis;
 	nano::keypair key1;
-	ASSERT_EQ (node1.network_params.network.publish_threshold, node1.active.active_difficulty.load ());
+	ASSERT_EQ (node1.network_params.network.publish_threshold, node1.active.active_difficulty ());
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send1);
 	uint64_t difficulty1;
@@ -2467,9 +2467,9 @@ TEST (active_difficulty, recalculate_work)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	auto sum = std::accumulate (node1.active.difficulty_cb.begin (), node1.active.difficulty_cb.end (), nano::uint128_t (0));
+	auto sum (std::accumulate (node1.active.difficulty_cb.begin (), node1.active.difficulty_cb.end (), nano::uint128_t (0)));
+	ASSERT_EQ (node1.active.active_difficulty (), static_cast<uint64_t> (sum / node1.active.difficulty_cb.size ()));
 	std::unique_lock<std::mutex> lock (node1.active.mutex);
-	ASSERT_EQ (node1.active.active_difficulty.load (), static_cast<uint64_t> (sum / node1.active.difficulty_cb.size ()));
 	// Fake history records to force work recalculation
 	for (auto i (0); i < node1.active.difficulty_cb.size (); i++)
 	{
@@ -2479,10 +2479,10 @@ TEST (active_difficulty, recalculate_work)
 	uint64_t difficulty2;
 	nano::work_validate (*send1, &difficulty2);
 	node1.process_active (send1);
-	node1.active.update_active_difficulty ();
+	node1.active.update_active_difficulty (lock);
 	lock.unlock ();
 	sum = std::accumulate (node1.active.difficulty_cb.begin (), node1.active.difficulty_cb.end (), nano::uint128_t (0));
-	ASSERT_EQ (node1.active.active_difficulty.load (), static_cast<uint64_t> (sum / node1.active.difficulty_cb.size ()));
+	ASSERT_EQ (node1.active.active_difficulty (), static_cast<uint64_t> (sum / node1.active.difficulty_cb.size ()));
 }
 
 namespace

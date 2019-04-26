@@ -1,8 +1,10 @@
 #pragma once
 
 #include <nano/lib/work.hpp>
+#include <nano/node/active_transactions.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap.hpp>
+#include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/logging.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
@@ -34,14 +36,6 @@ namespace nano
 {
 class channel;
 class node;
-class election_status final
-{
-public:
-	std::shared_ptr<nano::block> winner;
-	nano::amount tally;
-	std::chrono::milliseconds election_end;
-	std::chrono::milliseconds election_duration;
-};
 class vote_info final
 {
 public:
@@ -88,84 +82,6 @@ public:
 	unsigned announcements;
 	std::unordered_set<nano::block_hash> dependent_blocks;
 };
-class conflict_info final
-{
-public:
-	nano::qualified_root root;
-	uint64_t difficulty;
-	uint64_t adjusted_difficulty;
-	std::shared_ptr<nano::election> election;
-};
-// Core class for determining consensus
-// Holds all active blocks i.e. recently added blocks that need confirmation
-class active_transactions final
-{
-public:
-	explicit active_transactions (nano::node &, bool delay_frontier_confirmation_height_updating = false);
-	~active_transactions ();
-	// Start an election for a block
-	// Call action with confirmed block, may be different than what we started with
-	// clang-format off
-	bool start (std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
-	// clang-format on
-	// If this returns true, the vote is a replay
-	// If this returns false, the vote may or may not be a replay
-	bool vote (std::shared_ptr<nano::vote>, bool = false);
-	// Is the root of this block in the roots container
-	bool active (nano::block const &);
-	void update_difficulty (nano::block const &);
-	void adjust_difficulty (nano::block_hash const &);
-	void update_active_difficulty ();
-	std::deque<std::shared_ptr<nano::block>> list_blocks (bool = false);
-	void erase (nano::block const &);
-	bool empty ();
-	size_t size ();
-	void stop ();
-	bool publish (std::shared_ptr<nano::block> block_a);
-	void confirm_block (nano::block_hash const &);
-	boost::multi_index_container<
-	nano::conflict_info,
-	boost::multi_index::indexed_by<
-	boost::multi_index::hashed_unique<
-	boost::multi_index::member<nano::conflict_info, nano::qualified_root, &nano::conflict_info::root>>,
-	boost::multi_index::ordered_non_unique<
-	boost::multi_index::member<nano::conflict_info, uint64_t, &nano::conflict_info::adjusted_difficulty>,
-	std::greater<uint64_t>>>>
-	roots;
-	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
-	std::deque<nano::election_status> list_confirmed ();
-	std::deque<nano::election_status> confirmed;
-	nano::node & node;
-	std::mutex mutex;
-	// Maximum number of conflicts to vote on per interval, lowest root hash first
-	static unsigned constexpr announcements_per_interval = 32;
-	// Minimum number of block announcements
-	static unsigned constexpr announcement_min = 2;
-	// Threshold to start logging blocks haven't yet been confirmed
-	static unsigned constexpr announcement_long = 20;
-	static size_t constexpr election_history_size = 2048;
-	static size_t constexpr max_broadcast_queue = 1000;
-	boost::circular_buffer<uint64_t> difficulty_cb;
-	std::atomic<uint64_t> active_difficulty;
-
-private:
-	// Call action with confirmed block, may be different than what we started with
-	// clang-format off
-	bool add (std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
-	// clang-format on
-	void request_loop ();
-	void request_confirm (std::unique_lock<std::mutex> &);
-	void confirm_frontiers (nano::transaction const &);
-	nano::account next_frontier_account{ 0 };
-	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
-	std::condition_variable condition;
-	bool started;
-	std::atomic<bool> stopped;
-	boost::thread thread;
-};
-
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transactions & active_transactions, const std::string & name);
-
 class operation final
 {
 public:
@@ -251,12 +167,12 @@ public:
 	online_reps (nano::node &, nano::uint128_t);
 	void observe (nano::account const &);
 	void sample ();
-	nano::uint128_t online_stake ();
+	nano::uint128_t online_stake () const;
 	std::vector<nano::account> list ();
 
 private:
 	nano::uint128_t trend (nano::transaction &);
-	std::mutex mutex;
+	mutable std::mutex mutex;
 	nano::node & node;
 	std::unordered_set<nano::account> reps;
 	nano::uint128_t online;
@@ -455,12 +371,14 @@ public:
 	void work_generate (nano::uint256_union const &, std::function<void(uint64_t)>);
 	void add_initial_peers ();
 	void block_confirm (std::shared_ptr<nano::block>);
+	bool block_confirmed_or_being_confirmed (nano::transaction const &, nano::block_hash const &);
 	void process_fork (nano::transaction const &, std::shared_ptr<nano::block>);
 	bool validate_block_by_previous (nano::transaction const &, std::shared_ptr<nano::block>);
 	void do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const &, uint16_t, std::shared_ptr<std::string>, std::shared_ptr<std::string>, std::shared_ptr<boost::asio::ip::tcp::resolver>);
-	nano::uint128_t delta ();
+	nano::uint128_t delta () const;
 	void ongoing_online_weight_calculation ();
 	void ongoing_online_weight_calculation_queue ();
+	bool online () const;
 	boost::asio::io_context & io_ctx;
 	nano::network_params network_params;
 	nano::node_config config;
@@ -481,7 +399,6 @@ public:
 	nano::bootstrap_listener bootstrap;
 	boost::filesystem::path application_path;
 	nano::node_observers observers;
-	nano::wallets wallets;
 	nano::port_mapping port_mapping;
 	nano::vote_processor vote_processor;
 	nano::rep_crawler rep_crawler;
@@ -490,20 +407,20 @@ public:
 	boost::thread block_processor_thread;
 	nano::block_arrival block_arrival;
 	nano::online_reps online_reps;
+	nano::wallets wallets;
 	nano::votes_cache votes_cache;
 	nano::stat stats;
 	nano::keypair node_id;
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer;
+	nano::pending_confirmation_height pending_confirmation_height; // Used by both active and confirmation height processor
 	nano::active_transactions active;
+	nano::confirmation_height_processor confirmation_height_processor;
 	nano::payment_observer_processor payment_observer_processor;
 	const std::chrono::steady_clock::time_point startup_time;
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
-
-private:
-	void add_confirmation_heights (nano::block_hash const & hash);
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (node & node, const std::string & name);

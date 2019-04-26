@@ -16,9 +16,9 @@ void modify_genesis_account_info_to_v5 (nano::mdb_store & store, nano::transacti
 
 TEST (block_store, construction)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	auto now (nano::seconds_since_epoch ());
 	ASSERT_GT (now, 1408074640);
@@ -51,9 +51,9 @@ TEST (block_store, sideband_serialization)
 
 TEST (block_store, add_item)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::open_block block (0, 1, 0, nano::keypair ().prv, 0, 0);
 	nano::uint256_union hash1 (block.hash ());
@@ -75,9 +75,9 @@ TEST (block_store, add_item)
 
 TEST (block_store, clear_successor)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::open_block block1 (0, 1, 0, nano::keypair ().prv, 0, 0);
 	auto transaction (store.tx_begin (true));
@@ -98,9 +98,9 @@ TEST (block_store, clear_successor)
 
 TEST (block_store, add_nonempty_block)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::keypair key1;
 	nano::open_block block (0, 1, 0, nano::keypair ().prv, 0, 0);
@@ -118,9 +118,9 @@ TEST (block_store, add_nonempty_block)
 
 TEST (block_store, add_two_items)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::keypair key1;
 	nano::open_block block (0, 1, 1, nano::keypair ().prv, 0, 0);
@@ -150,9 +150,9 @@ TEST (block_store, add_two_items)
 
 TEST (block_store, add_receive)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::keypair key1;
 	nano::keypair key2;
@@ -173,9 +173,9 @@ TEST (block_store, add_receive)
 
 TEST (block_store, add_pending)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::keypair key1;
 	nano::pending_key key2 (0, 0);
@@ -192,9 +192,9 @@ TEST (block_store, add_pending)
 
 TEST (block_store, pending_iterator)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	auto transaction (store.tx_begin (true));
 	ASSERT_EQ (store.pending_end (), store.pending_begin (transaction));
@@ -218,9 +218,9 @@ TEST (block_store, pending_iterator)
  */
 TEST (block_store, pending_iterator_comparison)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	auto transaction (store.tx_begin (true));
@@ -262,9 +262,9 @@ TEST (block_store, pending_iterator_comparison)
 
 TEST (block_store, genesis)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::genesis genesis;
 	auto hash (genesis.hash ());
@@ -289,9 +289,9 @@ TEST (block_store, genesis)
 
 TEST (representation, changes)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::keypair key1;
 	auto transaction (store.tx_begin (true));
@@ -304,9 +304,9 @@ TEST (representation, changes)
 
 TEST (bootstrap, simple)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	auto block1 (std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5));
 	auto transaction (store.tx_begin (true));
@@ -323,9 +323,9 @@ TEST (bootstrap, simple)
 
 TEST (unchecked, multiple)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	auto block1 (std::make_shared<nano::send_block> (4, 1, 2, nano::keypair ().prv, 4, 5));
 	auto transaction (store.tx_begin (true));
@@ -341,9 +341,9 @@ TEST (unchecked, multiple)
 
 TEST (unchecked, double_put)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	auto block1 (std::make_shared<nano::send_block> (4, 1, 2, nano::keypair ().prv, 4, 5));
 	auto transaction (store.tx_begin (true));
@@ -357,9 +357,9 @@ TEST (unchecked, double_put)
 
 TEST (unchecked, multiple_get)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	auto block1 (std::make_shared<nano::send_block> (4, 1, 2, nano::keypair ().prv, 4, 5));
 	auto block2 (std::make_shared<nano::send_block> (3, 1, 2, nano::keypair ().prv, 4, 5));
@@ -409,9 +409,9 @@ TEST (unchecked, multiple_get)
 
 TEST (block_store, empty_accounts)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	auto transaction (store.tx_begin ());
 	auto begin (store.latest_begin (transaction));
@@ -421,9 +421,9 @@ TEST (block_store, empty_accounts)
 
 TEST (block_store, one_block)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::open_block block1 (0, 1, 0, nano::keypair ().prv, 0, 0);
 	auto transaction (store.tx_begin (true));
@@ -434,9 +434,9 @@ TEST (block_store, one_block)
 
 TEST (block_store, empty_bootstrap)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	auto transaction (store.tx_begin ());
 	auto begin (store.unchecked_begin (transaction));
@@ -446,9 +446,9 @@ TEST (block_store, empty_bootstrap)
 
 TEST (block_store, one_bootstrap)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	auto block1 (std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5));
 	auto transaction (store.tx_begin (true));
@@ -469,9 +469,9 @@ TEST (block_store, one_bootstrap)
 
 TEST (block_store, unchecked_begin_search)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::keypair key0;
 	nano::send_block block1 (0, 1, 2, key0.prv, key0.pub, 3);
@@ -480,9 +480,9 @@ TEST (block_store, unchecked_begin_search)
 
 TEST (block_store, frontier_retrieval)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::account account1 (0);
 	nano::account_info info1 (0, 0, 0, 0, 0, 0, 0, nano::epoch::epoch_0);
@@ -495,9 +495,9 @@ TEST (block_store, frontier_retrieval)
 
 TEST (block_store, one_account)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::account account (0);
 	nano::block_hash hash (0);
@@ -519,9 +519,9 @@ TEST (block_store, one_account)
 
 TEST (block_store, two_block)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::open_block block1 (0, 1, 1, nano::keypair ().prv, 0, 0);
 	block1.hashables.account = 1;
@@ -543,9 +543,9 @@ TEST (block_store, two_block)
 
 TEST (block_store, two_account)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::account account1 (1);
 	nano::block_hash hash1 (2);
@@ -579,9 +579,9 @@ TEST (block_store, two_account)
 
 TEST (block_store, latest_find)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::account account1 (1);
 	nano::block_hash hash1 (2);
@@ -603,9 +603,9 @@ TEST (block_store, latest_find)
 
 TEST (block_store, bad_path)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, boost::filesystem::path ("///"));
+	nano::mdb_store store (init, logger, boost::filesystem::path ("///"));
 	ASSERT_TRUE (init);
 }
 
@@ -617,17 +617,17 @@ TEST (block_store, DISABLED_already_open) // File can be shared
 	std::ofstream file;
 	file.open (path.string ().c_str ());
 	ASSERT_TRUE (file.is_open ());
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, path);
+	nano::mdb_store store (init, logger, path);
 	ASSERT_TRUE (init);
 }
 
 TEST (block_store, roots)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::send_block send_block (0, 1, 2, nano::keypair ().prv, 4, 5);
 	ASSERT_EQ (send_block.hashables.previous, send_block.root ());
@@ -641,9 +641,9 @@ TEST (block_store, roots)
 
 TEST (block_store, pending_exists)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::pending_key two (2, 0);
 	nano::pending_info pending;
@@ -655,9 +655,9 @@ TEST (block_store, pending_exists)
 
 TEST (block_store, latest_exists)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::block_hash two (2);
 	nano::account_info info;
@@ -669,9 +669,9 @@ TEST (block_store, latest_exists)
 
 TEST (block_store, large_iteration)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	std::unordered_set<nano::account> accounts1;
 	for (auto i (0); i < 1000; ++i)
@@ -697,9 +697,9 @@ TEST (block_store, large_iteration)
 
 TEST (block_store, frontier)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	auto transaction (store.tx_begin (true));
 	nano::block_hash hash (100);
@@ -713,9 +713,9 @@ TEST (block_store, frontier)
 
 TEST (block_store, block_replace)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::send_block send1 (0, 0, 0, nano::keypair ().prv, 0, 1);
 	nano::send_block send2 (0, 0, 0, nano::keypair ().prv, 0, 2);
@@ -731,9 +731,9 @@ TEST (block_store, block_replace)
 
 TEST (block_store, block_count)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	auto transaction (store.tx_begin (true));
 	ASSERT_EQ (0, store.block_count (transaction).sum ());
@@ -746,9 +746,9 @@ TEST (block_store, block_count)
 
 TEST (block_store, account_count)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	auto transaction (store.tx_begin (true));
 	ASSERT_EQ (0, store.account_count (transaction));
@@ -759,9 +759,9 @@ TEST (block_store, account_count)
 
 TEST (block_store, sequence_increment)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::keypair key1;
 	nano::keypair key2;
@@ -794,9 +794,9 @@ TEST (block_store, upgrade_v2_v3)
 	nano::block_hash change_hash;
 	auto path (nano::unique_path ());
 	{
-		nano::logging logging;
+		nano::logger_mt logger;
 		bool init (false);
-		nano::mdb_store store (init, logging, path);
+		nano::mdb_store store (init, logger, path);
 		ASSERT_TRUE (!init);
 		auto transaction (store.tx_begin (true));
 		nano::genesis genesis;
@@ -822,9 +822,9 @@ TEST (block_store, upgrade_v2_v3)
 		auto status (mdb_put (store.env.tx (transaction), store.accounts_v0, nano::mdb_val (nano::test_genesis_key.pub), info_old.val (), 0));
 		assert (status == 0);
 	}
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, path);
+	nano::mdb_store store (init, logger, path);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
 	auto transaction (store.tx_begin (true));
@@ -844,9 +844,9 @@ TEST (block_store, upgrade_v3_v4)
 	nano::keypair key3;
 	auto path (nano::unique_path ());
 	{
-		nano::logging logging;
+		nano::logger_mt logger;
 		bool init (false);
-		nano::mdb_store store (init, logging, path);
+		nano::mdb_store store (init, logger, path);
 		ASSERT_FALSE (init);
 		auto transaction (store.tx_begin (true));
 		store.version_put (transaction, 3);
@@ -854,9 +854,9 @@ TEST (block_store, upgrade_v3_v4)
 		auto status (mdb_put (store.env.tx (transaction), store.pending_v0, nano::mdb_val (key3.pub), info.val (), 0));
 		ASSERT_EQ (0, status);
 	}
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, path);
+	nano::mdb_store store (init, logger, path);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
 	auto transaction (store.tx_begin (true));
@@ -877,9 +877,9 @@ TEST (block_store, upgrade_v4_v5)
 	nano::block_hash hash (0);
 	auto path (nano::unique_path ());
 	{
-		nano::logging logging;
+		nano::logger_mt logger;
 		bool init (false);
-		nano::mdb_store store (init, logging, path);
+		nano::mdb_store store (init, logger, path);
 		ASSERT_FALSE (init);
 		auto transaction (store.tx_begin (true));
 		nano::genesis genesis;
@@ -899,9 +899,9 @@ TEST (block_store, upgrade_v4_v5)
 		ASSERT_TRUE (store.block_successor (transaction, genesis_hash).is_zero ());
 		modify_genesis_account_info_to_v5 (store, transaction);
 	}
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, path);
+	nano::mdb_store store (init, logger, path);
 	ASSERT_FALSE (init);
 	auto transaction (store.tx_begin ());
 	ASSERT_EQ (hash, store.block_successor (transaction, genesis_hash));
@@ -909,9 +909,9 @@ TEST (block_store, upgrade_v4_v5)
 
 TEST (block_store, block_random)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::genesis genesis;
 	auto transaction (store.tx_begin (true));
@@ -925,9 +925,9 @@ TEST (block_store, upgrade_v5_v6)
 {
 	auto path (nano::unique_path ());
 	{
-		nano::logging logging;
+		nano::logger_mt logger;
 		bool init (false);
-		nano::mdb_store store (init, logging, path);
+		nano::mdb_store store (init, logger, path);
 		ASSERT_FALSE (init);
 		auto transaction (store.tx_begin (true));
 		nano::genesis genesis;
@@ -935,9 +935,9 @@ TEST (block_store, upgrade_v5_v6)
 		store.version_put (transaction, 5);
 		modify_genesis_account_info_to_v5 (store, transaction);
 	}
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, path);
+	nano::mdb_store store (init, logger, path);
 	ASSERT_FALSE (init);
 	auto transaction (store.tx_begin ());
 	nano::account_info info;
@@ -949,9 +949,9 @@ TEST (block_store, upgrade_v6_v7)
 {
 	auto path (nano::unique_path ());
 	{
-		nano::logging logging;
+		nano::logger_mt logger;
 		bool init (false);
-		nano::mdb_store store (init, logging, path);
+		nano::mdb_store store (init, logger, path);
 		ASSERT_FALSE (init);
 		auto transaction (store.tx_begin (true));
 		nano::genesis genesis;
@@ -963,9 +963,9 @@ TEST (block_store, upgrade_v6_v7)
 		store.flush (transaction);
 		ASSERT_NE (store.unchecked_end (), store.unchecked_begin (transaction));
 	}
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, path);
+	nano::mdb_store store (init, logger, path);
 	ASSERT_FALSE (init);
 	auto transaction (store.tx_begin ());
 	ASSERT_EQ (store.unchecked_end (), store.unchecked_begin (transaction));
@@ -975,9 +975,9 @@ TEST (block_store, upgrade_v6_v7)
 TEST (block_store, DISABLED_change_dupsort) // Unchecked is no longer dupsort table
 {
 	auto path (nano::unique_path ());
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, path);
+	nano::mdb_store store (init, logger, path);
 	auto transaction (store.tx_begin (true));
 	ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked, 1));
 	ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE, &store.unchecked));
@@ -1021,17 +1021,17 @@ TEST (block_store, upgrade_v7_v8)
 {
 	auto path (nano::unique_path ());
 	{
-		nano::logging logging;
+		nano::logger_mt logger;
 		bool init (false);
-		nano::mdb_store store (init, logging, path);
+		nano::mdb_store store (init, logger, path);
 		auto transaction (store.tx_begin (true));
 		ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.unchecked, 1));
 		ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "unchecked", MDB_CREATE, &store.unchecked));
 		store.version_put (transaction, 7);
 	}
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, path);
+	nano::mdb_store store (init, logger, path);
 	ASSERT_FALSE (init);
 	auto transaction (store.tx_begin (true));
 	auto send1 (std::make_shared<nano::send_block> (0, 0, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
@@ -1051,9 +1051,9 @@ TEST (block_store, upgrade_v7_v8)
 TEST (block_store, sequence_flush)
 {
 	auto path (nano::unique_path ());
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, path);
+	nano::mdb_store store (init, logger, path);
 	ASSERT_FALSE (init);
 	auto transaction (store.tx_begin (true));
 	nano::keypair key1;
@@ -1069,9 +1069,9 @@ TEST (block_store, sequence_flush)
 TEST (block_store, sequence_flush_by_hash)
 {
 	auto path (nano::unique_path ());
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, path);
+	nano::mdb_store store (init, logger, path);
 	ASSERT_FALSE (init);
 	auto transaction (store.tx_begin_write ());
 	nano::keypair key1;
@@ -1093,9 +1093,9 @@ TEST (block_store, upgrade_v8_v9)
 	auto path (nano::unique_path ());
 	nano::keypair key;
 	{
-		nano::logging logging;
+		nano::logger_mt logger;
 		bool init (false);
-		nano::mdb_store store (init, logging, path);
+		nano::mdb_store store (init, logger, path);
 		auto transaction (store.tx_begin (true));
 		ASSERT_EQ (0, mdb_drop (store.env.tx (transaction), store.vote, 1));
 		ASSERT_EQ (0, mdb_dbi_open (store.env.tx (transaction), "sequence", MDB_CREATE, &store.vote));
@@ -1103,9 +1103,9 @@ TEST (block_store, upgrade_v8_v9)
 		ASSERT_EQ (0, mdb_put (store.env.tx (transaction), store.vote, nano::mdb_val (key.pub), nano::mdb_val (sizeof (sequence), &sequence), 0));
 		store.version_put (transaction, 8);
 	}
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, path);
+	nano::mdb_store store (init, logger, path);
 	ASSERT_FALSE (init);
 	auto transaction (store.tx_begin ());
 	ASSERT_LT (8, store.version_get (transaction));
@@ -1116,9 +1116,9 @@ TEST (block_store, upgrade_v8_v9)
 
 TEST (block_store, state_block)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool error (false);
-	nano::mdb_store store (error, logging, nano::unique_path ());
+	nano::mdb_store store (error, logger, nano::unique_path ());
 	ASSERT_FALSE (error);
 	nano::genesis genesis;
 	auto transaction (store.tx_begin (true));
@@ -1169,8 +1169,8 @@ TEST (block_store, upgrade_sideband_genesis)
 	nano::genesis genesis;
 	auto path (nano::unique_path ());
 	{
-		nano::logging logging;
-		nano::mdb_store store (error, logging, path);
+		nano::logger_mt logger;
+		nano::mdb_store store (error, logger, path);
 		ASSERT_FALSE (error);
 		auto transaction (store.tx_begin (true));
 		store.version_put (transaction, 11);
@@ -1185,8 +1185,8 @@ TEST (block_store, upgrade_sideband_genesis)
 		ASSERT_NE (nullptr, genesis_block);
 		ASSERT_EQ (0, sideband.height);
 	}
-	nano::logging logging;
-	nano::mdb_store store (error, logging, path);
+	nano::logger_mt logger;
+	nano::mdb_store store (error, logger, path);
 	ASSERT_FALSE (error);
 	auto transaction (store.tx_begin_read ());
 	ASSERT_TRUE (store.full_sideband (transaction));
@@ -1203,8 +1203,8 @@ TEST (block_store, upgrade_sideband_two_blocks)
 	nano::block_hash hash2;
 	auto path (nano::unique_path ());
 	{
-		nano::logging logging;
-		nano::mdb_store store (error, logging, path);
+		nano::logger_mt logger;
+		nano::mdb_store store (error, logger, path);
 		ASSERT_FALSE (error);
 		nano::stat stat;
 		nano::ledger ledger (store, stat);
@@ -1218,8 +1218,8 @@ TEST (block_store, upgrade_sideband_two_blocks)
 		write_legacy_sideband (store, transaction, block, 0, store.state_blocks_v0);
 		modify_account_info_to_v13 (store, transaction, nano::genesis_account);
 	}
-	nano::logging logging;
-	nano::mdb_store store (error, logging, path);
+	nano::logger_mt logger;
+	nano::mdb_store store (error, logger, path);
 	ASSERT_FALSE (error);
 	auto transaction (store.tx_begin_read ());
 	ASSERT_TRUE (store.full_sideband (transaction));
@@ -1242,8 +1242,8 @@ TEST (block_store, upgrade_sideband_two_accounts)
 	nano::keypair key;
 	auto path (nano::unique_path ());
 	{
-		nano::logging logging;
-		nano::mdb_store store (error, logging, path);
+		nano::logger_mt logger;
+		nano::mdb_store store (error, logger, path);
 		ASSERT_FALSE (error);
 		nano::stat stat;
 		nano::ledger ledger (store, stat);
@@ -1262,8 +1262,8 @@ TEST (block_store, upgrade_sideband_two_accounts)
 		modify_account_info_to_v13 (store, transaction, nano::genesis_account);
 		modify_account_info_to_v13 (store, transaction, block2.account ());
 	}
-	nano::logging logging;
-	nano::mdb_store store (error, logging, path);
+	nano::logger_mt logger;
+	nano::mdb_store store (error, logger, path);
 	ASSERT_FALSE (error);
 	auto transaction (store.tx_begin_read ());
 	ASSERT_TRUE (store.full_sideband (transaction));
@@ -1283,10 +1283,10 @@ TEST (block_store, upgrade_sideband_two_accounts)
 
 TEST (block_store, insert_after_legacy)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool error (false);
 	nano::genesis genesis;
-	nano::mdb_store store (error, logging, nano::unique_path ());
+	nano::mdb_store store (error, logger, nano::unique_path ());
 	ASSERT_FALSE (error);
 	nano::stat stat;
 	nano::ledger ledger (store, stat);
@@ -1301,9 +1301,9 @@ TEST (block_store, insert_after_legacy)
 // Account for an open block should be retrievable
 TEST (block_store, legacy_account_computed)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
@@ -1322,8 +1322,8 @@ TEST (block_store, upgrade_sideband_epoch)
 	nano::block_hash hash2;
 	auto path (nano::unique_path ());
 	{
-		nano::logging logging;
-		nano::mdb_store store (error, logging, path);
+		nano::logger_mt logger;
+		nano::mdb_store store (error, logger, path);
 		ASSERT_FALSE (error);
 		nano::stat stat;
 		nano::ledger ledger (store, stat, 42, nano::test_genesis_key.pub);
@@ -1338,8 +1338,8 @@ TEST (block_store, upgrade_sideband_epoch)
 		write_legacy_sideband (store, transaction, block1, 0, store.state_blocks_v1);
 		modify_account_info_to_v13 (store, transaction, nano::genesis_account);
 	}
-	nano::logging logging;
-	nano::mdb_store store (error, logging, path);
+	nano::logger_mt logger;
+	nano::mdb_store store (error, logger, path);
 	nano::stat stat;
 	nano::ledger ledger (store, stat, 42, nano::test_genesis_key.pub);
 	ASSERT_FALSE (error);
@@ -1356,14 +1356,14 @@ TEST (block_store, upgrade_sideband_epoch)
 
 TEST (block_store, sideband_height)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool error (false);
 	nano::genesis genesis;
 	nano::keypair epoch_key;
 	nano::keypair key1;
 	nano::keypair key2;
 	nano::keypair key3;
-	nano::mdb_store store (error, logging, nano::unique_path ());
+	nano::mdb_store store (error, logger, nano::unique_path ());
 	ASSERT_FALSE (error);
 	nano::stat stat;
 	nano::ledger ledger (store, stat);
@@ -1434,9 +1434,9 @@ TEST (block_store, sideband_height)
 
 TEST (block_store, peers)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	auto init (false);
-	nano::mdb_store store (init, logging, nano::unique_path ());
+	nano::mdb_store store (init, logger, nano::unique_path ());
 	ASSERT_TRUE (!init);
 
 	auto transaction (store.tx_begin_write ());
@@ -1505,9 +1505,9 @@ TEST (block_store, endpoint_key_byte_order)
 
 TEST (block_store, online_weight)
 {
-	nano::logging logging;
+	nano::logger_mt logger;
 	bool error (false);
-	nano::mdb_store store (error, logging, nano::unique_path ());
+	nano::mdb_store store (error, logger, nano::unique_path ());
 	ASSERT_FALSE (error);
 	auto transaction (store.tx_begin (true));
 	ASSERT_EQ (0, store.online_weight_count (transaction));
@@ -1528,10 +1528,10 @@ TEST (block_store, upgrade_v13_v14)
 {
 	auto path (nano::unique_path ());
 	{
-		nano::logging logging;
+		nano::logger_mt logger;
 		nano::genesis genesis;
 		auto error (false);
-		nano::mdb_store store (error, logging, path);
+		nano::mdb_store store (error, logger, path);
 		auto transaction (store.tx_begin (true));
 		store.initialize (transaction, genesis);
 		nano::account_info account_info;
@@ -1546,9 +1546,9 @@ TEST (block_store, upgrade_v13_v14)
 	}
 
 	// Now do the upgrade and confirm that confirmation height is 0 and version is updated as expected
-	nano::logging logging;
+	nano::logger_mt logger;
 	auto error (false);
-	nano::mdb_store store (error, logging, path);
+	nano::mdb_store store (error, logger, path);
 	ASSERT_FALSE (error);
 	auto transaction (store.tx_begin (true));
 
@@ -1569,9 +1569,9 @@ TEST (block_store, upgrade_v13_v14)
 TEST (block_store, confirmation_height)
 {
 	auto path (nano::unique_path ());
-	nano::logging logging;
+	nano::logger_mt logger;
 	auto error (false);
-	nano::mdb_store store (error, logging, path);
+	nano::mdb_store store (error, logger, path);
 	auto transaction (store.tx_begin (true));
 
 	nano::account account1 (0);
@@ -1619,8 +1619,8 @@ TEST (block_store, upgrade_confirmation_height_many)
 
 	auto path (nano::unique_path ());
 	{
-		nano::logging logging;
-		nano::mdb_store store (error, logging, path);
+		nano::logger_mt logger;
+		nano::mdb_store store (error, logger, path);
 		ASSERT_FALSE (error);
 		auto transaction (store.tx_begin (true));
 		store.version_put (transaction, 13);
@@ -1641,8 +1641,8 @@ TEST (block_store, upgrade_confirmation_height_many)
 	}
 
 	// Loop over them all and confirm all have a confirmation height of 0
-	nano::logging logging;
-	nano::mdb_store store (error, logging, path);
+	nano::logger_mt logger;
+	nano::mdb_store store (error, logger, path);
 	auto transaction (store.tx_begin (false));
 	ASSERT_EQ (store.account_count (transaction), total_num_accounts);
 

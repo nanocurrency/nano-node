@@ -246,10 +246,11 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	{
 		boost::asio::io_context io_ctx;
 		config.node.logging.init (data_path);
+		nano::logger_mt logger{ config.node.logging.min_time_between_log_output };
 		std::shared_ptr<nano::node> node;
 		std::shared_ptr<nano_qt::wallet> gui;
 		nano::set_application_icon (application);
-		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, config.node.logging));
+		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, logger));
 		nano::work_pool work (config.node.work_threads, config.node.pow_sleep_interval, opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a) {
 			return opencl->generate_work (root_a, difficulty_a);
 		}
