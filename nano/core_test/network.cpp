@@ -1649,22 +1649,21 @@ TEST (confirmation_height, gap_live)
 
 	nano::genesis genesis;
 	auto send1 (std::make_shared<nano::state_block> (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, destination.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	system.nodes[0]->work_generate_blocking (*send1);
 	auto send2 (std::make_shared<nano::state_block> (nano::genesis_account, send1->hash (), nano::genesis_account, nano::genesis_amount - 2 * nano::Gxrb_ratio, destination.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	system.nodes[0]->work_generate_blocking (*send2);
 	auto send3 (std::make_shared<nano::state_block> (nano::genesis_account, send2->hash (), nano::genesis_account, nano::genesis_amount - 3 * nano::Gxrb_ratio, destination.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	system.nodes[0]->work_generate_blocking (*send3);
 
 	auto open1 (std::make_shared<nano::open_block> (send1->hash (), destination.pub, destination.pub, destination.prv, destination.pub, 0));
+	system.nodes[0]->work_generate_blocking (*open1);
 	auto receive1 (std::make_shared<nano::receive_block> (open1->hash (), send2->hash (), destination.prv, destination.pub, 0));
+	system.nodes[0]->work_generate_blocking (*receive1);
 	auto receive2 (std::make_shared<nano::receive_block> (receive1->hash (), send3->hash (), destination.prv, destination.pub, 0));
+	system.nodes[0]->work_generate_blocking (*receive2);
 
 	for (auto & node : system.nodes)
 	{
-		node->work_generate_blocking (*send1);
-		node->work_generate_blocking (*send2);
-		node->work_generate_blocking (*send3);
-		node->work_generate_blocking (*open1);
-		node->work_generate_blocking (*receive1);
-		node->work_generate_blocking (*receive2);
-
 		node->block_processor.add (send1);
 		node->block_processor.add (send2);
 		node->block_processor.add (send3);
