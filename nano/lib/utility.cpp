@@ -142,7 +142,8 @@ void nano::thread_attributes::set (boost::thread::attributes & attrs)
 	attrs_l->set_stack_size (8000000); //8MB
 }
 
-nano::thread_runner::thread_runner (boost::asio::io_context & io_ctx_a, unsigned service_threads_a)
+nano::thread_runner::thread_runner (boost::asio::io_context & io_ctx_a, unsigned service_threads_a) :
+io_guard (boost::asio::make_work_guard (io_ctx_a))
 {
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
@@ -153,6 +154,13 @@ nano::thread_runner::thread_runner (boost::asio::io_context & io_ctx_a, unsigned
 			try
 			{
 				io_ctx_a.run ();
+			}
+			catch (std::exception const & ex)
+			{
+				std::cerr << ex.what () << std::endl;
+#ifndef NDEBUG
+				throw ex;
+#endif
 			}
 			catch (...)
 			{
@@ -174,8 +182,14 @@ nano::thread_runner::~thread_runner ()
 	join ();
 }
 
-void nano::thread_runner::join ()
+void nano::thread_runner::join (bool stop_event_processing_a)
 {
+	// This allows tests using thread runner to finish faster as outstanding handlers will be canceled
+	if (stop_event_processing_a)
+	{
+		stop_event_processing ();
+	}
+	io_guard.reset ();
 	for (auto & i : threads)
 	{
 		if (i.joinable ())
@@ -183,6 +197,11 @@ void nano::thread_runner::join ()
 			i.join ();
 		}
 	}
+}
+
+void nano::thread_runner::stop_event_processing ()
+{
+	io_guard.get_executor ().context ().stop ();
 }
 
 /*
