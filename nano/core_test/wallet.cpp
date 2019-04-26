@@ -1041,9 +1041,10 @@ TEST (wallet, deterministic_restore)
 
 TEST (wallet, update_work_action)
 {
-	nano::system system (24000, 1);
-	auto & node (*system.nodes[0]);
-	node.config.enable_voting = false;
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.enable_voting = false;
+	auto & node = *system.add_node (node_config);
 	auto & wallet (*system.wallet (0));
 	wallet.insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key;

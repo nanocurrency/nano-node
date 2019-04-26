@@ -20,9 +20,61 @@ std::string nano::error_system_messages::message (int ev) const
 	return "Invalid error code";
 }
 
-nano::system::system (uint16_t port_a, uint16_t count_a, boost::optional<bool> delay_frontier_confirmation_height_updating_a) :
-alarm (io_ctx),
-work (1)
+/** Returns the node added. */
+std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & node_config_a, bool delay_frontier_confirmation_height_updating_a)
+{
+	nano::node_init init;
+	auto node (std::make_shared<nano::node> (init, io_ctx, nano::unique_path (), alarm, node_config_a, work, node_flags (), delay_frontier_confirmation_height_updating_a));
+	assert (!init.error ());
+	node->start ();
+	nano::uint256_union wallet;
+	nano::random_pool::generate_block (wallet.bytes.data (), wallet.bytes.size ());
+	node->wallets.create (wallet);
+	nodes.reserve (nodes.size () + 1);
+	nodes.push_back (node);
+	if (nodes.size () > 1)
+	{
+		auto begin = nodes.end () - 2;
+		for (auto i (begin), j (begin + 1), n (nodes.end ()); j != n; ++i, ++j)
+		{
+			auto node1 (*i);
+			auto node2 (*j);
+			auto starting1 (node1->network.size ());
+			decltype (starting1) new1;
+			auto starting2 (node2->network.size ());
+			decltype (starting2) new2;
+			nano::transport::channel_udp channel ((*j)->network.udp_channels, (*i)->network.endpoint ());
+			(*j)->network.send_keepalive (channel);
+			do
+			{
+				poll ();
+				new1 = node1->network.size ();
+				new2 = node2->network.size ();
+			} while (new1 == starting1 || new2 == starting2);
+		}
+		auto iterations1 (0);
+		while (std::any_of (begin, nodes.end (), [](std::shared_ptr<nano::node> const & node_a) { return node_a->bootstrap_initiator.in_progress (); }))
+		{
+			poll ();
+			++iterations1;
+			assert (iterations1 < 10000);
+		}
+	}
+	else
+	{
+		auto iterations1 (0);
+		while (node->bootstrap_initiator.in_progress ())
+		{
+			poll ();
+			++iterations1;
+			assert (iterations1 < 10000);
+		}
+	}
+
+	return node;
+}
+
+nano::system::system ()
 {
 	auto scale_str = std::getenv ("DEADLINE_SCALE_FACTOR");
 	if (scale_str)
@@ -30,43 +82,16 @@ work (1)
 		deadline_scaling_factor = std::stod (scale_str);
 	}
 	logging.init (nano::unique_path ());
+}
+
+nano::system::system (uint16_t port_a, uint16_t count_a) :
+system ()
+{
 	nodes.reserve (count_a);
 	for (uint16_t i (0); i < count_a; ++i)
 	{
-		nano::node_init init;
 		nano::node_config config (port_a + i, logging);
-		bool delay_frontier_confirmation_height_updating = delay_frontier_confirmation_height_updating_a ? *delay_frontier_confirmation_height_updating_a : false;
-		auto node (std::make_shared<nano::node> (init, io_ctx, nano::unique_path (), alarm, config, work, nano::node_flags (), delay_frontier_confirmation_height_updating));
-		assert (!init.error ());
-		node->start ();
-		nano::uint256_union wallet;
-		nano::random_pool::generate_block (wallet.bytes.data (), wallet.bytes.size ());
-		node->wallets.create (wallet);
-		nodes.push_back (node);
-	}
-	for (auto i (nodes.begin ()), j (nodes.begin () + 1), n (nodes.end ()); j != n; ++i, ++j)
-	{
-		auto node1 (*i);
-		auto node2 (*j);
-		auto starting1 (node1->network.size ());
-		decltype (starting1) new1;
-		auto starting2 (node2->network.size ());
-		decltype (starting2) new2;
-		nano::transport::channel_udp channel ((*j)->network.udp_channels, (*i)->network.endpoint ());
-		(*j)->network.send_keepalive (channel);
-		do
-		{
-			poll ();
-			new1 = node1->network.size ();
-			new2 = node2->network.size ();
-		} while (new1 == starting1 || new2 == starting2);
-	}
-	auto iterations1 (0);
-	while (std::any_of (nodes.begin (), nodes.end (), [](std::shared_ptr<nano::node> const & node_a) { return node_a->bootstrap_initiator.in_progress (); }))
-	{
-		poll ();
-		++iterations1;
-		assert (iterations1 < 10000);
+		nano::system::add_node (config, false);
 	}
 }
 
