@@ -176,9 +176,9 @@ namespace websocket
 		boost::beast::websocket::stream<socket_type> ws;
 		/** Buffer for received messages */
 		boost::beast::multi_buffer read_buffer;
-		/** All websocket writes and updates to send_queue must go through the write strand. */
-		boost::asio::strand<boost::asio::io_context::executor_type> write_strand;
-		/** Outgoing messages. The send queue is protected by accessing it only through the write strand */
+		/** All websocket operations that are thread unsafe must go through a strand. */
+		boost::asio::strand<boost::asio::io_context::executor_type> strand;
+		/** Outgoing messages. The send queue is protected by accessing it only through the strand */
 		std::deque<message> send_queue;
 		/** Serialize calls to websocket::stream initiating functions */
 		std::mutex io_mutex;
