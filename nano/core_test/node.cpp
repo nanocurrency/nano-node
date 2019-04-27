@@ -1730,7 +1730,6 @@ TEST (node, no_voting)
 	auto & node0 (*system.nodes[0]);
 	nano::node_config node_config (24001, system.logging);
 	node_config.enable_voting = false;
-	auto & node1 = *system.add_node (node_config);
 
 	auto wallet0 (system.wallet (0));
 	auto wallet1 (system.wallet (1));
