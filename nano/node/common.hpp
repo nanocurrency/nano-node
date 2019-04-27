@@ -21,8 +21,24 @@ bool parse_tcp_endpoint (std::string const &, nano::tcp_endpoint &);
 
 namespace
 {
-nano::random_constants random_constants;
-
+uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a, uint16_t port = 0)
+{
+	static nano::random_constants constants;
+	assert (ip_a.is_v6 ());
+	uint64_t result;
+	nano::uint128_union address;
+	address.bytes = ip_a.to_v6 ().to_bytes ();
+	blake2b_state state;
+	blake2b_init (&state, sizeof (result));
+	blake2b_update (&state, constants.random_128.bytes.data (), constants.random_128.bytes.size ());
+	if (port != 0)
+	{
+		blake2b_update (&state, &port, sizeof (port));
+	}
+	blake2b_update (&state, address.bytes.data (), address.bytes.size ());
+	blake2b_final (&state, &result, sizeof (result));
+	return result;
+}
 uint64_t endpoint_hash_raw (nano::endpoint const & endpoint_a)
 {
 	uint64_t result (ip_address_hash_raw (endpoint_a.address (), endpoint_a.port ()));
@@ -31,23 +47,6 @@ uint64_t endpoint_hash_raw (nano::endpoint const & endpoint_a)
 uint64_t endpoint_hash_raw (nano::tcp_endpoint const & endpoint_a)
 {
 	uint64_t result (ip_address_hash_raw (endpoint_a.address (), endpoint_a.port ()));
-	return result;
-}
-uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a, uint16_t port = 0)
-{
-	assert (ip_a.is_v6 ());
-	uint64_t result;
-	nano::uint128_union address;
-	address.bytes = ip_a.to_v6 ().to_bytes ();
-	blake2b_state state;
-	blake2b_init (&state, sizeof (result));
-	blake2b_update (&state, random_constants.random_128.bytes.data (), random_constants.random_128.bytes.size ());
-	if (port != 0)
-	{
-		blake2b_update (&state, &port, sizeof (port));
-	}
-	blake2b_update (&state, address.bytes.data (), address.bytes.size ());
-	blake2b_final (&state, &result, sizeof (result));
 	return result;
 }
 
