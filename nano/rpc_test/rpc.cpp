@@ -3236,6 +3236,10 @@ TEST (rpc, work_validate)
 	ASSERT_EQ (200, response1.status);
 	std::string validate_text1 (response1.json.get<std::string> ("valid"));
 	ASSERT_EQ ("1", validate_text1);
+	std::string value_text1 (response1.json.get<std::string> ("value"));
+	uint64_t value1;
+	ASSERT_FALSE (nano::from_string_hex (value_text1, value1));
+	ASSERT_GE (value1, params.network.publish_threshold);
 	uint64_t work2 (0);
 	request.put ("work", nano::to_string_hex (work2));
 	test_response response2 (request, rpc.config.port, system.io_ctx);
@@ -3247,6 +3251,10 @@ TEST (rpc, work_validate)
 	ASSERT_EQ (200, response2.status);
 	std::string validate_text2 (response2.json.get<std::string> ("valid"));
 	ASSERT_EQ ("0", validate_text2);
+	std::string value_text2 (response2.json.get<std::string> ("value"));
+	uint64_t value2;
+	ASSERT_FALSE (nano::from_string_hex (value_text2, value2));
+	ASSERT_GE (params.network.publish_threshold, value2);
 	uint64_t result_difficulty;
 	ASSERT_FALSE (nano::work_validate (hash, work1, &result_difficulty));
 	ASSERT_GE (result_difficulty, params.network.publish_threshold);
