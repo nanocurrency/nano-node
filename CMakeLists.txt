@@ -1,7 +1,7 @@
 cmake_minimum_required (VERSION 3.4)
 project (nano-node)
 
-set (CPACK_PACKAGE_VERSION_MAJOR "19")
+set (CPACK_PACKAGE_VERSION_MAJOR "20")
 set (CPACK_PACKAGE_VERSION_MINOR "0")
 set (CPACK_PACKAGE_VERSION_PATCH "0")
 set (CPACK_PACKAGE_VENDOR "Nano Currency")
