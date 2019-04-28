@@ -607,14 +607,22 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 	return result;
 }
 
-void nano::active_transactions::confirm_block (nano::block_hash const & hash_a)
+/** Returns whether this block confirmed an active election */
+bool nano::active_transactions::finalize_election (nano::block_hash const & hash_a)
 {
+	bool election_confirmed = false;
 	std::lock_guard<std::mutex> lock (mutex);
 	auto existing (blocks.find (hash_a));
 	if (existing != blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->status.winner->hash () == hash_a)
 	{
 		existing->second->confirm_once ();
+		election_confirmed = true;
 	}
+	else
+	{
+		election_confirmed = false;
+	}
+	return election_confirmed;
 }
 
 namespace nano

@@ -72,7 +72,7 @@ public:
 	size_t size ();
 	void stop ();
 	bool publish (std::shared_ptr<nano::block> block_a);
-	void confirm_block (nano::block_hash const &);
+	bool finalize_election (nano::block_hash const &);
 	boost::multi_index_container<
 	nano::conflict_info,
 	boost::multi_index::indexed_by<

@@ -1938,6 +1938,74 @@ TEST (confirmation_height, all_block_types)
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), 15);
 }
 
+TEST (confirmation_height, confirm_dependent_elections)
+{
+	bool delay_frontier_confirmation_height_updating = true;
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.enable_voting = false;
+	auto & node = *system.add_node (node_config, delay_frontier_confirmation_height_updating);
+
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	nano::keypair key;
+	auto genesis_start_balance (node.balance (nano::test_genesis_key.pub));
+
+	// Do enough blocks to reliably check the lowest block in account chain before the confirmation height processor has finished the whole account chain
+	constexpr auto num_blocks = 500;
+	auto previous_genesis_chain_hash = node.latest (nano::test_genesis_key.pub);
+
+	// Store first block for easier access later
+	auto first_send = std::make_shared<nano::send_block> (previous_genesis_chain_hash, nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio + num_blocks + 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous_genesis_chain_hash));
+	node.process_active (first_send);
+	previous_genesis_chain_hash = first_send->hash ();
+	for (auto i = num_blocks - 1; i > 0; --i)
+	{
+		auto send = std::make_shared<nano::send_block> (previous_genesis_chain_hash, nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio + i + 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous_genesis_chain_hash));
+		node.process_active (send);
+		previous_genesis_chain_hash = send->hash ();
+	}
+
+	nano::keypair key1;
+	auto send = std::make_shared<nano::send_block> (previous_genesis_chain_hash, key1.pub, nano::genesis_amount - nano::Gxrb_ratio - 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous_genesis_chain_hash));
+	node.process_active (send);
+	previous_genesis_chain_hash = send->hash ();
+
+	node.block_processor.flush ();
+
+	std::shared_ptr<nano::block> frontier;
+	{
+		auto transaction = node.store.tx_begin_read ();
+		frontier = node.store.block_get (transaction, previous_genesis_chain_hash);
+	}
+
+	std::vector<nano::block_hash> vote_blocks;
+	vote_blocks.push_back (frontier->hash ());
+	auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, vote_blocks));
+	{
+		auto transaction (node.store.tx_begin_read ());
+		std::unique_lock<std::mutex> lock (node.active.mutex);
+		node.vote_processor.vote_blocking (transaction, vote, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint ()));
+	}
+
+	system.deadline_set (10s);
+	// Wait until a block other than frontier is a dependent election which has been confirmed
+	while (node.pending_confirmation_height.dependent_active_elections_confirmed_size () < 2)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	// Check the bottom of the account chain isn't a confirmed dependent election yet (possible timing issue, increasing num_blocks above may be required).
+	ASSERT_TRUE (node.confirmation_height_processor.is_processing_block (frontier->previous ()));
+	ASSERT_FALSE (node.confirmation_height_processor.is_processing_block (first_send->hash ()));
+
+	// Wait until all blocks are added as confirmed dependent elections
+	system.deadline_set (10s);
+	while (!node.confirmation_height_processor.is_processing_block (first_send->hash ()))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
 TEST (bootstrap, tcp_listener_timeout_empty)
 {
 	nano::system system (24000, 1);

@@ -2335,7 +2335,7 @@ TEST (node, block_processor_reject_rolled_back)
 	ASSERT_TRUE (node.active.empty ());
 }
 
-TEST (node, confirm_back)
+TEST (node, confirm_dependent_elections)
 {
 	nano::system system (24000, 1);
 	nano::keypair key;

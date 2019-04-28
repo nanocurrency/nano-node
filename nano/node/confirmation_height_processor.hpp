@@ -21,12 +21,16 @@ public:
 	size_t size ();
 	bool is_processing_block (nano::block_hash const &);
 	nano::block_hash current ();
+	size_t dependent_active_elections_confirmed_size ();
 
 private:
 	std::mutex mutex;
 	std::unordered_set<nano::block_hash> pending;
 	/** This is the last block popped off the confirmation height pending collection */
 	nano::block_hash current_hash{ 0 };
+
+	/** These are blocks which had active elections being confirmed by a higher up block */
+	std::unordered_set<nano::block_hash> dependent_active_elections_confirmed;
 	friend class confirmation_height_processor;
 };
 

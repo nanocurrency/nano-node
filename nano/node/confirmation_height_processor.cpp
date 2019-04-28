@@ -67,7 +67,11 @@ void nano::confirmation_height_processor::add (nano::block_hash const & hash_a)
 {
 	{
 		std::lock_guard<std::mutex> lk (pending_confirmations.mutex);
-		pending_confirmations.pending.insert (hash_a);
+		// Check if this is a dependent election already seen by the processor before adding
+		if (pending_confirmations.dependent_active_elections_confirmed.find (hash_a) == pending_confirmations.dependent_active_elections_confirmed.cend ())
+		{
+			pending_confirmations.pending.insert (hash_a);
+		}
 	}
 	condition.notify_one ();
 }
@@ -91,6 +95,10 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 	nano::account_info account_info;
 	std::deque<conf_height_details> pending_writes;
 	assert (receive_source_pairs_size == 0);
+	{
+		std::lock_guard<std::mutex> guard (pending_confirmations.mutex);
+		assert (pending_confirmations.dependent_active_elections_confirmed.empty ());
+	}
 
 	// Store the highest confirmation heights for accounts in pending_writes to reduce unnecessary iterating
 	std::unordered_map<account, uint64_t> confirmation_height_pending_write_cache;
@@ -212,6 +220,10 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 			break;
 		}
 	} while (!receive_source_pairs.empty () || current != hash_a);
+	{
+		std::lock_guard<std::mutex> guard (pending_confirmations.mutex);
+		pending_confirmations.dependent_active_elections_confirmed.clear ();
+	}
 }
 
 /*
@@ -280,7 +292,12 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 	auto next_height = height_not_set;
 	while (num_to_confirm > 0 && !hash.is_zero ())
 	{
-		active.confirm_block (hash);
+		bool confirmed_election = active.finalize_election (hash);
+		if (confirmed_election)
+		{
+			pending_confirmations.dependent_active_elections_confirmed.insert (hash);
+		}
+
 		nano::block_sideband sideband;
 		auto block (store.block_get (transaction_a, hash, &sideband));
 		if (block)
@@ -350,20 +367,36 @@ size_t nano::pending_confirmation_height::size ()
 bool nano::pending_confirmation_height::is_processing_block (nano::block_hash const & hash_a)
 {
 	// First check the hash currently being processed
+	bool is_processing = false;
 	std::lock_guard<std::mutex> lk (mutex);
 	if (!current_hash.is_zero () && current_hash == hash_a)
 	{
-		return true;
+		is_processing = true;
+	}
+	// Check any dependent elections which have been confirmed
+	else if (dependent_active_elections_confirmed.find (hash_a) != dependent_active_elections_confirmed.cend ())
+	{
+		is_processing = true;
+	}
+	// Check remaining pending confirmations
+	else if (pending.find (hash_a) != pending.cend ())
+	{
+		is_processing = true;
 	}
 
-	// Check remaining pending confirmations
-	return pending.find (hash_a) != pending.cend ();
+	return is_processing;
 }
 
 nano::block_hash nano::pending_confirmation_height::current ()
 {
 	std::lock_guard<std::mutex> lk (mutex);
 	return current_hash;
+}
+
+size_t nano::pending_confirmation_height::dependent_active_elections_confirmed_size ()
+{
+	std::lock_guard<std::mutex> lk (mutex);
+	return dependent_active_elections_confirmed.size ();
 }
 
 namespace nano

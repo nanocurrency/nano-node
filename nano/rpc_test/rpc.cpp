@@ -5356,7 +5356,6 @@ TEST (rpc, online_reps)
 // If this test fails, try increasing the num_blocks size.
 TEST (rpc, confirmation_height_currently_processing)
 {
-	// The chains should be longer than the	batch_write_size to test the amount of blocks confirmed is correct.
 	bool delay_frontier_confirmation_height_updating = true;
 	nano::system system;
 	auto node = system.add_node (nano::node_config (24000, system.logging), delay_frontier_confirmation_height_updating);
