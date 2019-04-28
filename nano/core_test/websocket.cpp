@@ -187,7 +187,7 @@ TEST (websocket, confirmation)
 }
 
 /** Tests the filtering options of block confirmations */
-TEST (websocket, DISABLED_confirmation_options)
+TEST (websocket, confirmation_options)
 {
 	nano::system system (24000, 1);
 	nano::node_init init1;
@@ -383,7 +383,7 @@ TEST (websocket, vote)
 }
 
 /** Tests vote subscription options */
-TEST (websocket, DISABLED_vote_options)
+TEST (websocket, vote_options)
 {
 	nano::system system (24000, 1);
 	nano::node_init init1;
