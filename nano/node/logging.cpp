@@ -6,7 +6,7 @@
 #include <nano/node/logging.hpp>
 
 boost::shared_ptr<boost::log::sinks::synchronous_sink<boost::log::sinks::text_file_backend>> nano::logging::file_sink;
-std::atomic_flag nano::logging::logging_already_added{ ATOMIC_FLAG_INIT };
+std::atomic_flag nano::logging::logging_already_added ATOMIC_FLAG_INIT;
 
 void nano::logging::init (boost::filesystem::path const & application_path_a)
 {
