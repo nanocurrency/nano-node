@@ -352,13 +352,13 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 
 		auto block_processor_batch_max_time_l (json.get<unsigned long> ("block_processor_batch_max_time"));
 		block_processor_batch_max_time = std::chrono::milliseconds (block_processor_batch_max_time_l);
-		unsigned long unchecked_cutoff_time_l (unchecked_cutoff_time.count ());
+		auto unchecked_cutoff_time_l = static_cast<unsigned long> (unchecked_cutoff_time.count ());
 		json.get ("unchecked_cutoff_time", unchecked_cutoff_time_l);
 		unchecked_cutoff_time = std::chrono::seconds (unchecked_cutoff_time_l);
-		unsigned long tcp_client_timeout_l (tcp_client_timeout.count ());
+		auto tcp_client_timeout_l = static_cast<unsigned long> (tcp_client_timeout.count ());
 		json.get ("tcp_client_timeout", tcp_client_timeout_l);
 		tcp_client_timeout = std::chrono::seconds (tcp_client_timeout_l);
-		unsigned long tcp_server_timeout_l (tcp_server_timeout.count ());
+		auto tcp_server_timeout_l = static_cast<unsigned long> (tcp_server_timeout.count ());
 		json.get ("tcp_server_timeout", tcp_server_timeout_l);
 		tcp_server_timeout = std::chrono::seconds (tcp_server_timeout_l);
 

@@ -5,8 +5,8 @@
 #include <nano/node/websocket.hpp>
 
 nano::websocket::confirmation_options::confirmation_options (boost::property_tree::ptree const & options_a, nano::node & node_a) :
-all_local_accounts (options_a.get<bool> ("all_local_accounts", false)),
-node (node_a)
+node (node_a),
+all_local_accounts (options_a.get<bool> ("all_local_accounts", false))
 {
 	auto accounts_l (options_a.get_child_optional ("accounts"));
 	if (accounts_l)
