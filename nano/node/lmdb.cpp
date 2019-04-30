@@ -68,9 +68,9 @@ nano::mdb_env::operator MDB_env * () const
 	return environment;
 }
 
-nano::transaction nano::mdb_env::tx_begin (bool write_a) const
+nano::transaction nano::mdb_env::tx_begin (bool write_a, std::function<void (transaction_impl *)> txn_end_callback) const
 {
-	return { std::make_unique<nano::mdb_txn> (*this, write_a) };
+	return { std::make_unique<nano::mdb_txn> (*this, write_a, txn_end_callback) };
 }
 
 MDB_txn * nano::mdb_env::tx (nano::transaction const & transaction_a) const
@@ -354,7 +354,8 @@ nano::mdb_val::operator MDB_val const & () const
 	return value;
 }
 
-nano::mdb_txn::mdb_txn (nano::mdb_env const & environment_a, bool write_a)
+nano::mdb_txn::mdb_txn (nano::mdb_env const & environment_a, bool write_a, std::function<void (nano::transaction_impl *)> txn_end_callback_a) :
+txn_end_callback (txn_end_callback_a)
 {
 	auto status (mdb_txn_begin (environment_a, nullptr, write_a ? 0 : MDB_RDONLY, &handle));
 	release_assert (status == 0);
@@ -364,6 +365,7 @@ nano::mdb_txn::~mdb_txn ()
 {
 	auto status (mdb_txn_commit (handle));
 	release_assert (status == 0);
+	txn_end_callback (this);
 }
 
 nano::mdb_txn::operator MDB_txn * () const
@@ -775,7 +777,8 @@ nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> nano::mdb_store
 
 nano::mdb_store::mdb_store (bool & error_a, nano::logger_mt & logger_a, boost::filesystem::path const & path_a, int lmdb_max_dbs, bool drop_unchecked, size_t const batch_size) :
 logger (logger_a),
-env (error_a, path_a, lmdb_max_dbs)
+env (error_a, path_a, lmdb_max_dbs),
+mdb_txn_tracker (logger_a)
 {
 	if (!error_a)
 	{
@@ -812,6 +815,11 @@ env (error_a, path_a, lmdb_max_dbs)
 	}
 }
 
+void nano::mdb_store::serialize_mdb_tracker (boost::property_tree::ptree & json, std::chrono::seconds min_time)
+{
+	mdb_txn_tracker.serialize_json (json, min_time);
+}
+
 nano::transaction nano::mdb_store::tx_begin_write ()
 {
 	return tx_begin (true);
@@ -824,7 +832,15 @@ nano::transaction nano::mdb_store::tx_begin_read ()
 
 nano::transaction nano::mdb_store::tx_begin (bool write_a)
 {
-	return env.tx_begin (write_a);
+	// clang-format off
+	auto end_callback ([&mdb_txn_tracker = mdb_txn_tracker](nano::transaction_impl * transaction_impl) {
+		mdb_txn_tracker.erase (transaction_impl);
+	});
+	// clang-format on
+
+	auto txn = env.tx_begin (write_a, end_callback);
+	mdb_txn_tracker.add (txn.impl.get (), write_a);
+	return txn;
 }
 
 /**

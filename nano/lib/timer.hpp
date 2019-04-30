@@ -113,27 +113,27 @@ public:
 	/**
 	 * Return current units.
 	 */
-	UNIT value ()
+	UNIT value () const
 	{
 		return ticks;
 	}
 
 	/** Returns the duration in UNIT since the timer was last started. */
-	UNIT since_start ()
+	UNIT since_start () const
 	{
 		auto end = CLOCK::now ();
 		return std::chrono::duration_cast<UNIT> (end - begin);
 	}
 
 	/** Returns true if the timer was last started longer than \p duration_a units ago*/
-	bool after_deadline (UNIT duration_a)
+	bool after_deadline (UNIT duration_a) const
 	{
 		auto end = CLOCK::now ();
 		return std::chrono::duration_cast<UNIT> (end - begin) > duration_a;
 	}
 
 	/** Returns true if the timer was last started shorter than \p duration_a units ago*/
-	bool before_deadline (UNIT duration_a)
+	bool before_deadline (UNIT duration_a) const
 	{
 		auto end = CLOCK::now ();
 		return std::chrono::duration_cast<UNIT> (end - begin) < duration_a;
@@ -155,7 +155,7 @@ public:
 	}
 
 	/** Print measurements to the \p stream_a */
-	void print (std::ostream & stream_a)
+	void print (std::ostream & stream_a) const
 	{
 		if (ticks >= minimum)
 		{

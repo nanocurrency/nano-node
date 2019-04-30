@@ -56,6 +56,7 @@ public:
 	void confirmation_info ();
 	void confirmation_quorum ();
 	void confirmation_height_currently_processing ();
+	void database_lock_tracker ();
 	void delegators ();
 	void delegators_count ();
 	void deterministic_key ();

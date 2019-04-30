@@ -37,6 +37,8 @@ add_library (node
 	json_payment_observer.cpp
 	lmdb.hpp
 	lmdb.cpp
+	lmdb_txn_tracker.hpp
+	lmdb_txn_tracker.cpp
 	logging.hpp
 	logging.cpp
 	nodeconfig.hpp

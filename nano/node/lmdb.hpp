@@ -7,6 +7,7 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/node/lmdb_txn_tracker.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
 
@@ -19,7 +20,7 @@ class account_info_v13;
 class mdb_txn : public transaction_impl
 {
 public:
-	mdb_txn (nano::mdb_env const &, bool = false);
+	mdb_txn (nano::mdb_env const &, bool = false, std::function<void(transaction_impl*)> txn_end_callback = [](nano::transaction_impl*){});
 	mdb_txn (nano::mdb_txn const &) = delete;
 	mdb_txn (nano::mdb_txn &&) = default;
 	~mdb_txn ();
@@ -27,6 +28,7 @@ public:
 	nano::mdb_txn & operator= (nano::mdb_txn &&) = default;
 	operator MDB_txn * () const;
 	MDB_txn * handle;
+	std::function<void(transaction_impl*)> txn_end_callback;
 };
 /**
  * RAII wrapper for MDB_env
@@ -37,7 +39,9 @@ public:
 	mdb_env (bool &, boost::filesystem::path const &, int max_dbs = 128, size_t map_size = 128ULL * 1024 * 1024 * 1024);
 	~mdb_env ();
 	operator MDB_env * () const;
-	nano::transaction tx_begin (bool = false) const;
+	// clang-format off
+	nano::transaction tx_begin (bool = false, std::function<void(transaction_impl*)> txn_end_callback = [](nano::transaction_impl*){}) const;
+	// clang-format on
 	MDB_txn * tx (nano::transaction const &) const;
 	MDB_env * environment;
 };
@@ -269,6 +273,7 @@ public:
 	bool full_sideband (nano::transaction const &) const;
 	MDB_dbi get_account_db (nano::epoch epoch_a) const;
 	size_t block_successor_offset (nano::transaction const &, MDB_val, nano::block_type) const;
+	void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::seconds) override;
 
 	nano::logger_mt & logger;
 
@@ -409,6 +414,7 @@ private:
 	void upgrade_v12_to_v13 (nano::transaction const &, size_t);
 	void upgrade_v13_to_v14 (nano::transaction const &);
 	MDB_dbi get_pending_db (nano::epoch epoch_a) const;
+	nano::mdb_txn_tracker mdb_txn_tracker;
 };
 class wallet_value
 {

@@ -6138,6 +6138,78 @@ TEST (rpc, block_confirmed)
 	ASSERT_TRUE (response3.json.get<bool> ("confirmed"));
 }
 
+TEST (rpc, database_lock_tracker)
+{
+	nano::system system (24000, 1);
+	auto node = system.nodes.front ();
+	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
+	nano::rpc_config rpc_config (true);
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+
+	boost::property_tree::ptree request;
+	request.put ("action", "database_lock_tracker");
+	request.put ("min_time", "1000");	// (seconds) Make it a large number unattainable number
+	test_response response (request, rpc.config.port, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+	// Response should be empty
+	ASSERT_EQ ("", response.json.get<std::string> ("json"));
+
+	// Due to results being different for different compilers/build options we cannot accurately check contents.
+	// The best we can do is check number of results returned. And thread
+	std::promise<void> promise;
+	std::promise<void> promise1;
+	std::thread ([&store = node->store, &promise, &promise1]()
+	{
+		nano::thread_role::set (nano::thread_role::name::rpc_process_container);	// This one won't be used
+		auto tx = store.tx_begin_read ();
+		auto tx1 = store.tx_begin_write ();
+		std::this_thread::sleep_for (1s);	// So that time alive is at least 1 second
+		promise1.set_value ();
+		promise.get_future ().wait_for (std::chrono::seconds (10));
+	}).detach ();
+
+	promise1.get_future().wait ();
+
+	std::vector<std::tuple<std::string, std::string, std::string>> json_l; // , std::vector<std::tuple<std::string, std::string, std::string, std::string>>>> json_l;
+	{
+		request.put ("min_time", "0");	// (seconds) 
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (180s);	// This can take a long time
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		auto & json_node (response.json.get_child ("json"));
+		for (auto i (json_node.begin ()), n (json_node.end ()); i != n; ++i)
+		{
+			json_l.emplace_back (i->second.get<std::string> ("thread"), i->second.get<std::string> ("time_locked"), i->second.get<std::string> ("write"));
+		}
+	}
+
+	ASSERT_EQ (2, json_l.size ());
+	auto thread_name = nano::thread_role::get_string (nano::thread_role::name::rpc_process_container);
+	ASSERT_EQ (thread_name, std::get<0> (json_l.front ()));
+	ASSERT_EQ (thread_name, std::get<0> (json_l.back ()));
+	ASSERT_GE (1u, boost::lexical_cast<unsigned> (std::get<1> (json_l.front ())));
+	ASSERT_GE (1u, boost::lexical_cast<unsigned> (std::get<1> (json_l.back ())));
+	ASSERT_EQ ("false", std::get<2> (json_l.front ()));
+	ASSERT_EQ ("true", std::get<2> (json_l.back ()));
+
+	promise.set_value ();
+
+	// TODO: Do the callstack, just check it exists
+}
+
 // This is mainly to check for threading issues with TSAN
 TEST (rpc, simultaneous_calls)
 {

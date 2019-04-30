@@ -1756,6 +1756,24 @@ void nano::json_handler::confirmation_quorum ()
 	response_errors ();
 }
 
+void nano::json_handler::database_lock_tracker ()
+{
+	boost::property_tree::ptree json;
+	unsigned min_time_seconds;
+	auto success = boost::conversion::try_lexical_convert <unsigned> (request.get<std::string> ("min_time"), min_time_seconds);
+	if (success)
+	{
+		node.store.serialize_mdb_tracker (json, std::chrono::seconds (min_time_seconds));
+		response_l.put_child ("json", json);
+	}
+	else
+	{
+		ec = nano::error_common::invalid_amount;
+	}
+
+	response_errors ();
+}
+
 void nano::json_handler::delegators ()
 {
 	auto account (account_impl ());
@@ -4503,14 +4521,15 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("bootstrap_any", &nano::json_handler::bootstrap_any);
 	no_arg_funcs.emplace ("bootstrap_lazy", &nano::json_handler::bootstrap_lazy);
 	no_arg_funcs.emplace ("bootstrap_status", &nano::json_handler::bootstrap_status);
-	no_arg_funcs.emplace ("delegators", &nano::json_handler::delegators);
-	no_arg_funcs.emplace ("delegators_count", &nano::json_handler::delegators_count);
-	no_arg_funcs.emplace ("deterministic_key", &nano::json_handler::deterministic_key);
 	no_arg_funcs.emplace ("confirmation_active", &nano::json_handler::confirmation_active);
 	no_arg_funcs.emplace ("confirmation_height_currently_processing", &nano::json_handler::confirmation_height_currently_processing);
 	no_arg_funcs.emplace ("confirmation_history", &nano::json_handler::confirmation_history);
 	no_arg_funcs.emplace ("confirmation_info", &nano::json_handler::confirmation_info);
 	no_arg_funcs.emplace ("confirmation_quorum", &nano::json_handler::confirmation_quorum);
+	no_arg_funcs.emplace ("database_lock_tracker", &nano::json_handler::database_lock_tracker);
+	no_arg_funcs.emplace ("delegators", &nano::json_handler::delegators);
+	no_arg_funcs.emplace ("delegators_count", &nano::json_handler::delegators_count);
+	no_arg_funcs.emplace ("deterministic_key", &nano::json_handler::deterministic_key);
 	no_arg_funcs.emplace ("frontiers", &nano::json_handler::frontiers);
 	no_arg_funcs.emplace ("frontier_count", &nano::json_handler::account_count);
 	no_arg_funcs.emplace ("keepalive", &nano::json_handler::keepalive);
