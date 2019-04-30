@@ -70,7 +70,10 @@ void nano::socket::async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, 
 			{
 				node->stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, size_a);
 				this_l->stop_timer ();
-				callback_a (ec, size_a);
+				if (callback_a)
+				{
+					callback_a (ec, size_a);
+				}
 			}
 		}));
 	}
