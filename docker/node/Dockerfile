@@ -20,6 +20,7 @@ RUN mkdir /tmp/build && \
 
 FROM ubuntu:16.04
 COPY --from=0 /tmp/build/nano_node /usr/bin
+COPY --from=0 /tmp/build/nano_rpc /usr/bin
 COPY --from=0 /etc/nano-network /etc
 COPY docker/node/entry.sh /entry.sh
 COPY docker/node/config /usr/share/nano/config
