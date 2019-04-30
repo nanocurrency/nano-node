@@ -130,6 +130,7 @@ namespace transport
 		static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
 
 	private:
+		void close_socket ();
 		void ongoing_syn_cookie_cleanup ();
 		class endpoint_tag
 		{

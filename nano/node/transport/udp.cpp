@@ -392,13 +392,27 @@ void nano::transport::udp_channels::stop ()
 	std::lock_guard<std::mutex> lock (mutex);
 	local_endpoint = nano::endpoint (boost::asio::ip::address_v6::loopback (), 0);
 
+	// On test-net, close directly to avoid address-reuse issues. On livenet, close
+	// through the strand as multiple IO threads may access the socket.
 	// clang-format off
-	boost::asio::dispatch (strand, [this] {
-		boost::system::error_code ignored;
-		this->socket.close (ignored);
-		this->local_endpoint = nano::endpoint (boost::asio::ip::address_v6::loopback (), 0);
-	});
+	if (node.network_params.network.is_test_network())
+	{
+		this->close_socket ();
+	}
+	else
+	{
+		boost::asio::dispatch (strand, [this] {
+			this->close_socket ();
+		});
+	}
 	// clang-format on
+}
+
+void nano::transport::udp_channels::close_socket ()
+{
+	boost::system::error_code ignored;
+	this->socket.close (ignored);
+	this->local_endpoint = nano::endpoint (boost::asio::ip::address_v6::loopback (), 0);
 }
 
 nano::endpoint nano::transport::udp_channels::get_local_endpoint () const
