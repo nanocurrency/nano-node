@@ -1849,7 +1849,6 @@ TEST (rpc, keepalive)
 TEST (rpc, payment_init)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
 	auto node1 (system.nodes[0]);
 	nano::keypair wallet_id;
 	auto wallet (node1->wallets.create (wallet_id.pub));
@@ -1877,7 +1876,6 @@ TEST (rpc, payment_init)
 TEST (rpc, payment_begin_end)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
 	auto node1 (system.nodes[0]);
 	nano::keypair wallet_id;
 	auto wallet (node1->wallets.create (wallet_id.pub));
@@ -1943,7 +1941,6 @@ TEST (rpc, payment_begin_end)
 TEST (rpc, payment_end_nonempty)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
 	auto node1 (system.nodes[0]);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	auto transaction (node1->wallets.tx_begin ());
@@ -1973,7 +1970,6 @@ TEST (rpc, payment_end_nonempty)
 TEST (rpc, payment_zero_balance)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
 	auto node1 (system.nodes[0]);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	auto transaction (node1->wallets.tx_begin ());
@@ -2005,7 +2001,6 @@ TEST (rpc, payment_zero_balance)
 TEST (rpc, payment_begin_reuse)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
 	auto node1 (system.nodes[0]);
 	nano::keypair wallet_id;
 	auto wallet (node1->wallets.create (wallet_id.pub));
@@ -2061,7 +2056,6 @@ TEST (rpc, payment_begin_reuse)
 TEST (rpc, payment_begin_locked)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
 	auto node1 (system.nodes[0]);
 	nano::keypair wallet_id;
 	auto wallet (node1->wallets.create (wallet_id.pub));
@@ -2094,7 +2088,6 @@ TEST (rpc, payment_begin_locked)
 TEST (rpc, payment_wait)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
 	auto node1 (system.nodes[0]);
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
@@ -2385,7 +2378,6 @@ TEST (rpc, search_pending)
 TEST (rpc, version)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
 	auto node1 (system.nodes[0]);
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
@@ -2439,7 +2431,6 @@ TEST (rpc, version)
 TEST (rpc, work_generate)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
 	auto node1 (system.nodes[0]);
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
@@ -2471,7 +2462,6 @@ TEST (rpc, work_generate)
 TEST (rpc, work_generate_difficulty)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
 	auto node1 (system.nodes[0]);
 	enable_ipc_transport_tcp (node1->config.ipc_config.transport_tcp);
 	nano::node_rpc_config node_rpc_config;
@@ -2530,7 +2520,6 @@ TEST (rpc, work_generate_difficulty)
 TEST (rpc, work_cancel)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
 	auto & node1 (*system.nodes[0]);
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
@@ -2567,7 +2556,6 @@ TEST (rpc, work_cancel)
 TEST (rpc, work_peer_bad)
 {
 	nano::system system (24000, 2);
-	nano::node_init init1;
 	auto & node1 (*system.nodes[0]);
 	auto & node2 (*system.nodes[1]);
 	nano::keypair key;
@@ -2596,7 +2584,6 @@ TEST (rpc, work_peer_bad)
 TEST (rpc, work_peer_one)
 {
 	nano::system system (24000, 2);
-	nano::node_init init1;
 	auto & node1 (*system.nodes[0]);
 	auto & node2 (*system.nodes[1]);
 	nano::keypair key;
@@ -2628,7 +2615,6 @@ TEST (rpc, work_peer_many)
 	nano::system system2 (24001, 1);
 	nano::system system3 (24002, 1);
 	nano::system system4 (24003, 1);
-	nano::node_init init1;
 	auto & node1 (*system1.nodes[0]);
 	auto & node2 (*system2.nodes[0]);
 	auto & node3 (*system3.nodes[0]);
@@ -2680,7 +2666,6 @@ TEST (rpc, work_peer_many)
 TEST (rpc, block_count)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
 	auto & node1 (*system.nodes[0]);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
 	nano::node_rpc_config node_rpc_config;
@@ -2705,7 +2690,6 @@ TEST (rpc, block_count)
 TEST (rpc, frontier_count)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
 	auto & node1 (*system.nodes[0]);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
 	nano::node_rpc_config node_rpc_config;
@@ -2729,7 +2713,6 @@ TEST (rpc, frontier_count)
 TEST (rpc, account_count)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
 	auto & node1 (*system.nodes[0]);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
 	nano::node_rpc_config node_rpc_config;
@@ -2753,7 +2736,6 @@ TEST (rpc, account_count)
 TEST (rpc, available_supply)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
 	auto & node1 (*system.nodes[0]);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
 	nano::node_rpc_config node_rpc_config;
@@ -2797,7 +2779,6 @@ TEST (rpc, available_supply)
 TEST (rpc, mrai_to_raw)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
 	auto & node1 (*system.nodes[0]);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
 	nano::node_rpc_config node_rpc_config;
@@ -2822,7 +2803,6 @@ TEST (rpc, mrai_to_raw)
 TEST (rpc, mrai_from_raw)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
 	auto & node1 (*system.nodes[0]);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
 	nano::node_rpc_config node_rpc_config;
@@ -2847,7 +2827,6 @@ TEST (rpc, mrai_from_raw)
 TEST (rpc, krai_to_raw)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
 	auto & node1 (*system.nodes[0]);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
 	nano::node_rpc_config node_rpc_config;
@@ -2872,7 +2851,6 @@ TEST (rpc, krai_to_raw)
 TEST (rpc, krai_from_raw)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
 	auto & node1 (*system.nodes[0]);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
 	nano::node_rpc_config node_rpc_config;
@@ -2897,7 +2875,6 @@ TEST (rpc, krai_from_raw)
 TEST (rpc, nano_to_raw)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
 	auto & node1 (*system.nodes[0]);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
 	nano::node_rpc_config node_rpc_config;
@@ -2922,7 +2899,6 @@ TEST (rpc, nano_to_raw)
 TEST (rpc, nano_from_raw)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
 	auto & node1 (*system.nodes[0]);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
 	nano::node_rpc_config node_rpc_config;
@@ -3209,7 +3185,6 @@ TEST (rpc, work_validate)
 {
 	nano::network_params params;
 	nano::system system (24000, 1);
-	nano::node_init init1;
 	auto & node1 (*system.nodes[0]);
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
@@ -4557,7 +4532,6 @@ TEST (rpc, blocks_info_subtype)
 TEST (rpc, work_peers_all)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
 	auto & node1 (*system.nodes[0]);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
