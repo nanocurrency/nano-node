@@ -15,6 +15,7 @@ RUN mkdir /tmp/build && \
     cd /tmp/build && \
     cmake /tmp/src -DBOOST_ROOT=${BOOST_ROOT} -DACTIVE_NETWORK=nano_${NETWORK}_network && \
     make nano_node && \
+    make nano_rpc && \
     cd .. && \
     echo ${NETWORK} > /etc/nano-network
 
