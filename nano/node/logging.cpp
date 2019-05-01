@@ -52,6 +52,7 @@ nano::error nano::logging::serialize_json (nano::jsonconfig & json) const
 	json.put ("timing", timing_logging_value);
 	json.put ("log_to_cerr", log_to_cerr_value);
 	json.put ("max_size", max_size);
+	json.put ("long_database_locks", long_database_locks_value);
 	json.put ("rotation_size", rotation_size);
 	json.put ("flush", flush);
 	json.put ("min_time_between_output", min_time_between_log_output.count ());
@@ -88,6 +89,7 @@ bool nano::logging::upgrade_json (unsigned version_a, nano::jsonconfig & json)
 		case 6:
 			json.put ("min_time_between_output", min_time_between_log_output.count ());
 			json.erase ("log_rpc");
+			json.put ("long_database_locks", false);
 			upgraded_l = true;
 			break;
 		case 7:
@@ -144,6 +146,7 @@ nano::error nano::logging::deserialize_json (bool & upgraded_a, nano::jsonconfig
 	uintmax_t min_time_between_log_output_raw;
 	json.get<uintmax_t> ("min_time_between_output", min_time_between_log_output_raw);
 	min_time_between_log_output = std::chrono::milliseconds (min_time_between_log_output_raw);
+	json.get<bool> ("long_database_locks", long_database_locks_value);
 	return json.get_error ();
 }
 
@@ -235,4 +238,9 @@ bool nano::logging::timing_logging () const
 bool nano::logging::log_to_cerr () const
 {
 	return log_to_cerr_value;
+}
+
+bool nano::logging::log_long_database_locks () const
+{
+	return long_database_locks_value;
 }

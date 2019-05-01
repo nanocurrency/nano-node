@@ -158,7 +158,7 @@ class mdb_store : public block_store
 	friend class nano::block_predecessor_set;
 
 public:
-	mdb_store (bool &, nano::logger_mt &, boost::filesystem::path const &, int lmdb_max_dbs = 128, bool drop_unchecked = false, size_t batch_size = 512);
+	mdb_store (bool &, nano::logger_mt &, boost::filesystem::path const &, bool = false, int lmdb_max_dbs = 128, bool drop_unchecked = false, size_t batch_size = 512);
 	nano::transaction tx_begin_write () override;
 	nano::transaction tx_begin_read () override;
 	nano::transaction tx_begin (bool write = false) override;

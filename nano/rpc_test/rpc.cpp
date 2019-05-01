@@ -6152,62 +6152,83 @@ TEST (rpc, database_lock_tracker)
 
 	boost::property_tree::ptree request;
 	request.put ("action", "database_lock_tracker");
-	request.put ("min_time", "1000");	// (seconds) Make it a large number unattainable number
-	test_response response (request, rpc.config.port, system.io_ctx);
-	system.deadline_set (5s);
-	while (response.status == 0)
+	// (seconds) Make it a large number unattainable number
+	request.put ("min_time", "1000");
 	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	ASSERT_EQ (200, response.status);
-	// Response should be empty
-	ASSERT_EQ ("", response.json.get<std::string> ("json"));
-
-	// Due to results being different for different compilers/build options we cannot accurately check contents.
-	// The best we can do is check number of results returned. And thread
-	std::promise<void> promise;
-	std::promise<void> promise1;
-	std::thread ([&store = node->store, &promise, &promise1]()
-	{
-		nano::thread_role::set (nano::thread_role::name::rpc_process_container);	// This one won't be used
-		auto tx = store.tx_begin_read ();
-		auto tx1 = store.tx_begin_write ();
-		std::this_thread::sleep_for (1s);	// So that time alive is at least 1 second
-		promise1.set_value ();
-		promise.get_future ().wait_for (std::chrono::seconds (10));
-	}).detach ();
-
-	promise1.get_future().wait ();
-
-	std::vector<std::tuple<std::string, std::string, std::string>> json_l; // , std::vector<std::tuple<std::string, std::string, std::string, std::string>>>> json_l;
-	{
-		request.put ("min_time", "0");	// (seconds) 
 		test_response response (request, rpc.config.port, system.io_ctx);
-		system.deadline_set (180s);	// This can take a long time
+		system.deadline_set (5s);
 		while (response.status == 0)
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
 		ASSERT_EQ (200, response.status);
-		auto & json_node (response.json.get_child ("json"));
-		for (auto i (json_node.begin ()), n (json_node.end ()); i != n; ++i)
+		// Response should be empty as no locks would have been locked for very long
+		ASSERT_EQ ("", response.json.get<std::string> ("json"));
+	}
+
+	std::promise<void> keep_txn_alive_promise;
+	std::promise<void> txn_created_promise;
+	// clang-format off
+	std::thread ([&store = node->store, &keep_txn_alive_promise, &txn_created_promise]() {
+		// Use rpc_process_container as a placeholder as this thread is only instantiated by the daemon so won't be used
+		nano::thread_role::set (nano::thread_role::name::rpc_process_container);
+
+		// Create 2 transactions
+		auto read_tx = store.tx_begin_read ();
+		// Sleep so that the read transaction has been alive for at least 2 seconds and the write for 1
+		std::this_thread::sleep_for (1s);
+		auto write_tx = store.tx_begin_write ();
+		std::this_thread::sleep_for (1s);
+		txn_created_promise.set_value ();
+		keep_txn_alive_promise.get_future ().wait_for (std::chrono::seconds (10));
+	})
+	.detach ();
+	// clang-format on
+
+	txn_created_promise.get_future ().wait ();
+
+	request.put ("min_time", "0");
+	test_response response (request, rpc.config.port, system.io_ctx);
+	// It can take a long time to generate stack traces
+	system.deadline_set (180s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+
+	keep_txn_alive_promise.set_value ();
+
+	std::vector<std::tuple<std::string, std::string, std::string, std::vector<std::tuple<std::string, std::string, std::string, std::string>>>> json_l;
+	auto & json_node (response.json.get_child ("json"));
+	for (auto & stat : json_node)
+	{
+		auto & stack_trace = stat.second.get_child ("stacktrace");
+		std::vector<std::tuple<std::string, std::string, std::string, std::string>> frames_json_l;
+		for (auto & frame : stack_trace)
 		{
-			json_l.emplace_back (i->second.get<std::string> ("thread"), i->second.get<std::string> ("time_locked"), i->second.get<std::string> ("write"));
+			frames_json_l.emplace_back (frame.second.get<std::string> ("name"), frame.second.get<std::string> ("address"), frame.second.get<std::string> ("source_file"), frame.second.get<std::string> ("source_line"));
 		}
+
+		json_l.emplace_back (stat.second.get<std::string> ("thread"), stat.second.get<std::string> ("time_locked"), stat.second.get<std::string> ("write"), std::move (frames_json_l));
 	}
 
 	ASSERT_EQ (2, json_l.size ());
 	auto thread_name = nano::thread_role::get_string (nano::thread_role::name::rpc_process_container);
+
+	// Check read transaction
 	ASSERT_EQ (thread_name, std::get<0> (json_l.front ()));
-	ASSERT_EQ (thread_name, std::get<0> (json_l.back ()));
-	ASSERT_GE (1u, boost::lexical_cast<unsigned> (std::get<1> (json_l.front ())));
-	ASSERT_GE (1u, boost::lexical_cast<unsigned> (std::get<1> (json_l.back ())));
+	ASSERT_GE (2u, boost::lexical_cast<unsigned> (std::get<1> (json_l.front ())));
 	ASSERT_EQ ("false", std::get<2> (json_l.front ()));
+	// Due to results being different for different compilers/build options we cannot reliably check the contents.
+	// The best we can do is just check that there are entries.
+	ASSERT_TRUE (!std::get<3> (json_l.front ()).empty ());
+
+	// Check write transaction
+	ASSERT_EQ (thread_name, std::get<0> (json_l.back ()));
+	ASSERT_GE (1u, boost::lexical_cast<unsigned> (std::get<1> (json_l.back ())));
 	ASSERT_EQ ("true", std::get<2> (json_l.back ()));
-
-	promise.set_value ();
-
-	// TODO: Do the callstack, just check it exists
+	ASSERT_TRUE (!std::get<3> (json_l.back ()).empty ());
 }
 
 // This is mainly to check for threading issues with TSAN
