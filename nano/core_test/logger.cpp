@@ -89,7 +89,6 @@ TEST (logging, upgrade_v6_v7)
 	ASSERT_TRUE (upgraded);
 	ASSERT_LE (7, tree.get<int> ("version"));
 	ASSERT_EQ (5, tree.get<uintmax_t> ("min_time_between_output"));
-	ASSERT_FALSE (tree.get_optional<bool> ("log_rpc"));
 	ASSERT_FALSE (tree.get<bool> ("long_database_locks"));
 }
 
