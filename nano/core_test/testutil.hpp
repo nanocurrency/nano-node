@@ -50,7 +50,7 @@ namespace util
 	class completion_signal
 	{
 	public:
-		~completion_signal ()
+		virtual ~completion_signal ()
 		{
 			notify ();
 		}
@@ -100,7 +100,7 @@ namespace util
 					cv.wait_for (lock, std::chrono::milliseconds (1));
 				}
 			}
-			return success && timer.before_deadline (deadline_duration_a);
+			return timer.before_deadline (deadline_duration_a);
 		}
 
 		/** Increments the current count. If the required count is reached, await_count_for() waiters are notified. */

@@ -67,10 +67,10 @@ add_library (node
 	transport/udp.cpp
 	signatures.hpp
 	signatures.cpp
-	socket.cpp
 	socket.hpp
-	stats.cpp
+	socket.cpp
 	stats.hpp
+	stats.cpp
 	voting.hpp
 	voting.cpp
 	wallet.hpp

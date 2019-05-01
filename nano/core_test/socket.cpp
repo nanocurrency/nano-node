@@ -15,15 +15,20 @@ TEST (socket, concurrent_writes)
 	// queue up and drain concurrently.
 	nano::thread_runner runner (node->io_ctx, 1);
 
-	// We're expecting 20 messages
-	nano::util::counted_completion read_count_completion (20);
-	std::function<void(std::shared_ptr<nano::socket>)> reader = [&read_count_completion, &reader](std::shared_ptr<nano::socket> socket_a) {
+	constexpr size_t max_connections = 4;
+	constexpr size_t client_count = max_connections;
+	constexpr size_t message_count = 4;
+	constexpr size_t total_message_count = client_count * message_count;
+
+	// We're expecting client_count*4 messages
+	nano::util::counted_completion read_count_completion (total_message_count);
+	std::function<void(std::shared_ptr<nano::socket>)> reader = [&read_count_completion, &total_message_count, &reader](std::shared_ptr<nano::socket> socket_a) {
 		auto buff (std::make_shared<std::vector<uint8_t>> ());
 		buff->resize (1);
-		socket_a->async_read (buff, 1, [&read_count_completion, &reader, socket_a, buff](boost::system::error_code const & ec, size_t size_a) {
+		socket_a->async_read (buff, 1, [&read_count_completion, &reader, &total_message_count, socket_a, buff](boost::system::error_code const & ec, size_t size_a) {
 			if (!ec)
 			{
-				if (read_count_completion.increment () < 20)
+				if (read_count_completion.increment () < total_message_count)
 				{
 					reader (socket_a);
 				}
@@ -36,7 +41,8 @@ TEST (socket, concurrent_writes)
 	};
 
 	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v4::any (), 25000);
-	auto server_socket (std::make_shared<nano::server_socket> (node, endpoint, 4, nano::socket::concurrency::multi_writer));
+
+	auto server_socket (std::make_shared<nano::server_socket> (node, endpoint, max_connections, nano::socket::concurrency::multi_writer));
 	boost::system::error_code ec;
 	server_socket->start (ec);
 	ASSERT_FALSE (ec);
@@ -57,10 +63,9 @@ TEST (socket, concurrent_writes)
 		return true;
 	});
 
-	constexpr size_t client_count = 5;
 	nano::util::counted_completion connection_count_completion (client_count);
 	std::vector<std::shared_ptr<nano::socket>> clients;
-	for (unsigned i = 0; i < 5; i++)
+	for (unsigned i = 0; i < client_count; i++)
 	{
 		auto client (std::make_shared<nano::socket> (node, boost::none, nano::socket::concurrency::multi_writer));
 		clients.push_back (client);
@@ -83,7 +88,7 @@ TEST (socket, concurrent_writes)
 	for (int i = 0; i < client_count; i++)
 	{
 		std::thread runner ([&client]() {
-			for (int i = 0; i < 4; i++)
+			for (int i = 0; i < message_count; i++)
 			{
 				auto buff (std::make_shared<std::vector<uint8_t>> ());
 				buff->push_back ('A' + i);
@@ -96,4 +101,8 @@ TEST (socket, concurrent_writes)
 	ASSERT_TRUE (read_count_completion.await_count_for (10s));
 	node->stop ();
 	runner.join (true);
+
+	ASSERT_EQ (node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_accept_success, nano::stat::dir::in), client_count);
+	// We may exhaust max connections and have some tcp accept failures, but no more than the client count
+	ASSERT_LT (node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in), client_count);
 }
