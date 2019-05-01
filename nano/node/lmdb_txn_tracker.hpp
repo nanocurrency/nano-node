@@ -37,6 +37,6 @@ private:
 	nano::logger_mt & logger;
 	bool is_logging_database_locking;
 	void output_finished (nano::mdb_txn_stats & mdb_txn_stats);
-	static std::chrono::seconds constexpr min_time_locked_ouput{ 5 };
+	static std::chrono::seconds constexpr min_time_held_open_ouput{ 5 };
 };
 }

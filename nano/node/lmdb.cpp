@@ -775,10 +775,10 @@ nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> nano::mdb_store
 	return nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> (nullptr);
 }
 
-nano::mdb_store::mdb_store (bool & error_a, nano::logger_mt & logger_a, boost::filesystem::path const & path_a, bool is_logging_database_locks, int lmdb_max_dbs, bool drop_unchecked, size_t const batch_size) :
+nano::mdb_store::mdb_store (bool & error_a, nano::logger_mt & logger_a, boost::filesystem::path const & path_a, bool is_logging_database_txns, int lmdb_max_dbs, bool drop_unchecked, size_t const batch_size) :
 logger (logger_a),
 env (error_a, path_a, lmdb_max_dbs),
-mdb_txn_tracker (logger_a, is_logging_database_locks)
+mdb_txn_tracker (logger_a, is_logging_database_txns)
 {
 	if (!error_a)
 	{

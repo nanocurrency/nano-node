@@ -6138,7 +6138,7 @@ TEST (rpc, block_confirmed)
 	ASSERT_TRUE (response3.json.get<bool> ("confirmed"));
 }
 
-TEST (rpc, database_lock_tracker)
+TEST (rpc, database_txn_tracker)
 {
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
@@ -6151,7 +6151,7 @@ TEST (rpc, database_lock_tracker)
 	rpc.start ();
 
 	boost::property_tree::ptree request;
-	request.put ("action", "database_lock_tracker");
+	request.put ("action", "database_txn_tracker");
 	// (seconds) Make it a large number unattainable number
 	request.put ("min_time", "1000");
 	{
@@ -6210,7 +6210,7 @@ TEST (rpc, database_lock_tracker)
 			frames_json_l.emplace_back (frame.second.get<std::string> ("name"), frame.second.get<std::string> ("address"), frame.second.get<std::string> ("source_file"), frame.second.get<std::string> ("source_line"));
 		}
 
-		json_l.emplace_back (stat.second.get<std::string> ("thread"), stat.second.get<std::string> ("time_locked"), stat.second.get<std::string> ("write"), std::move (frames_json_l));
+		json_l.emplace_back (stat.second.get<std::string> ("thread"), stat.second.get<std::string> ("time_held_open"), stat.second.get<std::string> ("write"), std::move (frames_json_l));
 	}
 
 	ASSERT_EQ (2, json_l.size ());

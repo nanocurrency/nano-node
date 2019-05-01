@@ -22,7 +22,7 @@
 #endif
 #endif
 
-std::chrono::seconds constexpr nano::mdb_txn_tracker::min_time_locked_ouput;
+std::chrono::seconds constexpr nano::mdb_txn_tracker::min_time_held_open_ouput;
 
 nano::mdb_txn_tracker::mdb_txn_tracker (nano::logger_mt & logger_a, bool is_logging_database_locking_a) :
 logger (logger_a),
@@ -39,27 +39,27 @@ void nano::mdb_txn_tracker::serialize_json (boost::property_tree::ptree & json, 
 		copy_stats = stats;
 	}
 
-	// Get the time difference now as creating stacktraces can take a while so results won't be as accurate
-	std::vector<std::chrono::seconds> time_since_starts;
-	time_since_starts.reserve (copy_stats.size ());
+	// Get the time difference now as creating stacktraces (Debug/Windows for instance) can take a while so results won't be as accurate
+	std::vector<std::chrono::seconds> times_since_start;
+	times_since_start.reserve (copy_stats.size ());
 	// clang-format off
-	std::transform (copy_stats.cbegin (), copy_stats.cend (), std::back_inserter (time_since_starts), [] (const auto & stat) {
+	std::transform (copy_stats.cbegin (), copy_stats.cend (), std::back_inserter (times_since_start), [] (const auto & stat) {
 		return stat.timer.since_start ();
 	});
 	// clang-format on
-	assert (time_since_starts.size () == copy_stats.size ());
+	assert (times_since_start.size () == copy_stats.size ());
 
-	for (size_t i = 0; i < time_since_starts.size (); ++i)
+	for (size_t i = 0; i < times_since_start.size (); ++i)
 	{
 		auto const & stat = copy_stats[i];
-		auto time_locked = time_since_starts[i];
+		auto time_held_open = times_since_start[i];
 
-		if (time_locked >= min_time)
+		if (time_held_open >= min_time)
 		{
 			nano::jsonconfig mdb_lock_config;
 
 			mdb_lock_config.put ("thread", stat.thread_name);
-			mdb_lock_config.put ("time_locked", time_locked.count ());
+			mdb_lock_config.put ("time_held_open", time_held_open.count ());
 			mdb_lock_config.put ("write", stat.is_write);
 
 			boost::property_tree::ptree stacktrace_config;
@@ -82,8 +82,8 @@ void nano::mdb_txn_tracker::serialize_json (boost::property_tree::ptree & json, 
 
 void nano::mdb_txn_tracker::output_finished (nano::mdb_txn_stats & mdb_txn_stats)
 {
-	// Only output them if locks were held for longer than a certain period of time
-	if (is_logging_database_locking && mdb_txn_stats.timer.since_start () >= min_time_locked_ouput)
+	// Only output them if transactions were held for longer than a certain period of time
+	if (is_logging_database_locking && mdb_txn_stats.timer.since_start () >= min_time_held_open_ouput)
 	{
 		assert (mdb_txn_stats.stacktrace);
 		logger.always_log (boost::str (boost::format ("%1%s %2% lock held for on thread %3%\n%4%") % mdb_txn_stats.timer.since_start ().count () % (mdb_txn_stats.is_write ? "write" : "read ") % mdb_txn_stats.thread_name % *mdb_txn_stats.stacktrace));
