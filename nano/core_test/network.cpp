@@ -327,7 +327,7 @@ TEST (receivable_processor, send_with_receive)
 	ASSERT_EQ (amount - system.nodes[0]->config.receive_minimum.number (), system.nodes[1]->balance (nano::test_genesis_key.pub));
 	ASSERT_EQ (0, system.nodes[1]->balance (key2.pub));
 	system.deadline_set (10s);
-	while (system.nodes[0]->balance (key2.pub) != system.nodes[0]->config.receive_minimum.number ())
+	while (system.nodes[0]->balance (key2.pub) != system.nodes[0]->config.receive_minimum.number () || system.nodes[1]->balance (key2.pub) != system.nodes[0]->config.receive_minimum.number ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
