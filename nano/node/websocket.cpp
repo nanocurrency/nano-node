@@ -175,20 +175,16 @@ void nano::websocket::session::write_queued_messages ()
 	auto msg (send_queue.front ());
 	auto msg_str (msg.to_string ());
 
-	std::weak_ptr<nano::websocket::session> this_w (shared_from_this ());
 	std::lock_guard<std::mutex> lk (io_mutex);
 	ws.async_write (boost::asio::buffer (msg_str.data (), msg_str.size ()),
 	boost::asio::bind_executor (strand,
-	[msg, this_w](boost::system::error_code ec, std::size_t bytes_transferred) {
-		if (auto self_l = this_w.lock ())
+	[msg, self_l = shared_from_this ()](boost::system::error_code ec, std::size_t bytes_transferred) {
+		self_l->send_queue.pop_front ();
+		if (!ec)
 		{
-			self_l->send_queue.pop_front ();
-			if (!ec)
+			if (!self_l->send_queue.empty ())
 			{
-				if (!self_l->send_queue.empty ())
-				{
-					self_l->write_queued_messages ();
-				}
+				self_l->write_queued_messages ();
 			}
 		}
 	}));
