@@ -154,7 +154,7 @@ TEST (websocket, confirmation)
 
 		// Unsubscribe action, expects an acknowledge but no response follows
 		websocket_test_call ("::1", "24078",
-		R"json({"action": "unsubscribe", "topic": "confirmation", "ack": true})json", true, false);
+		R"json({"action": "unsubscribe", "topic": "confirmation", "ack": true})json", true, true, 1s);
 		unsubscribe_ack_received = true;
 	});
 	client_thread_2.detach ();
@@ -445,13 +445,12 @@ TEST (websocket, vote_options)
 
 	// Wait for the websocket client to receive the vote message
 	system.deadline_set (5s);
-	while (!client_thread_finished)
+	while (!client_thread_finished || node1->websocket_server->any_subscribers (nano::websocket::topic::vote))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
 	std::atomic<bool> client_thread_2_finished{ false };
-	ASSERT_FALSE (node1->websocket_server->any_subscribers (nano::websocket::topic::vote));
 	std::thread client_thread_2 ([&client_thread_2_finished]() {
 		auto response = websocket_test_call ("::1", "24078",
 		R"json({"action": "subscribe", "topic": "vote", "ack": true, "options": {"representatives": ["xrb_invalid"]}})json", true, true, 1s);
