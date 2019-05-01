@@ -20,6 +20,8 @@ public:
 	virtual void write_completion_handler (std::shared_ptr<nano::rpc_connection> rpc_connection);
 	void prepare_head (unsigned version, boost::beast::http::status status = boost::beast::http::status::ok);
 	void write_result (std::string body, unsigned version, boost::beast::http::status status = boost::beast::http::status::ok);
+	void parse_request (std::shared_ptr<boost::beast::http::request_parser<boost::beast::http::empty_body>> header_parser);
+
 	void read ();
 
 	boost::asio::ip::tcp::socket socket;
