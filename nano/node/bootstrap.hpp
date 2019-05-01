@@ -266,7 +266,7 @@ class bootstrap_server;
 class bootstrap_listener final
 {
 public:
-	bootstrap_listener (boost::asio::io_context &, uint16_t, nano::node &);
+	bootstrap_listener (uint16_t, nano::node &);
 	void start ();
 	void stop ();
 	void accept_action (boost::system::error_code const &, std::shared_ptr<nano::socket>);

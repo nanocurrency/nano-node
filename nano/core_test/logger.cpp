@@ -15,6 +15,7 @@ TEST (logging, serialization)
 	logging1.ledger_logging_value = !logging1.ledger_logging_value;
 	logging1.ledger_duplicate_logging_value = !logging1.ledger_duplicate_logging_value;
 	logging1.network_logging_value = !logging1.network_logging_value;
+	logging1.network_timeout_logging_value = !logging1.network_timeout_logging_value;
 	logging1.network_message_logging_value = !logging1.network_message_logging_value;
 	logging1.network_publish_logging_value = !logging1.network_publish_logging_value;
 	logging1.network_packet_logging_value = !logging1.network_packet_logging_value;
@@ -37,6 +38,7 @@ TEST (logging, serialization)
 	ASSERT_EQ (logging1.ledger_logging_value, logging2.ledger_logging_value);
 	ASSERT_EQ (logging1.ledger_duplicate_logging_value, logging2.ledger_duplicate_logging_value);
 	ASSERT_EQ (logging1.network_logging_value, logging2.network_logging_value);
+	ASSERT_EQ (logging1.network_timeout_logging_value, logging2.network_timeout_logging_value);
 	ASSERT_EQ (logging1.network_message_logging_value, logging2.network_message_logging_value);
 	ASSERT_EQ (logging1.network_publish_logging_value, logging2.network_publish_logging_value);
 	ASSERT_EQ (logging1.network_packet_logging_value, logging2.network_packet_logging_value);
@@ -81,11 +83,13 @@ TEST (logging, upgrade_v6_v7)
 	logging1.serialize_json (tree);
 	tree.erase ("version");
 	tree.erase ("min_time_between_output");
+	tree.erase ("network_timeout_logging_value");
 	bool upgraded (false);
 	ASSERT_FALSE (logging2.deserialize_json (upgraded, tree));
 	ASSERT_TRUE (upgraded);
 	ASSERT_LE (7, tree.get<int> ("version"));
 	ASSERT_EQ (5, tree.get<uintmax_t> ("min_time_between_output"));
+	ASSERT_EQ (false, tree.get<bool> ("network_timeout_logging_value"));
 }
 
 namespace

@@ -395,7 +395,7 @@ void nano::transport::udp_channels::stop ()
 	// On test-net, close directly to avoid address-reuse issues. On livenet, close
 	// through the strand as multiple IO threads may access the socket.
 	// clang-format off
-	if (node.network_params.network.is_test_network())
+	if (node.network_params.network.is_test_network ())
 	{
 		this->close_socket ();
 	}
