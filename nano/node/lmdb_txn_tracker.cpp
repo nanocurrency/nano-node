@@ -85,7 +85,8 @@ void nano::mdb_txn_tracker::output_finished (nano::mdb_txn_stats & mdb_txn_stats
 	// Only output them if locks were held for longer than a certain period of time
 	if (is_logging_database_locking && mdb_txn_stats.timer.since_start () >= min_time_locked_ouput)
 	{
-		logger.always_log (boost::str (boost::format ("%1%s %2% lock held for on thread %3%\n%4%") % mdb_txn_stats.timer.since_start ().count () % (mdb_txn_stats.is_write ? "write" : "read ") % mdb_txn_stats.thread_name % mdb_txn_stats.stacktrace));
+		assert (mdb_txn_stats.stacktrace);
+		logger.always_log (boost::str (boost::format ("%1%s %2% lock held for on thread %3%\n%4%") % mdb_txn_stats.timer.since_start ().count () % (mdb_txn_stats.is_write ? "write" : "read ") % mdb_txn_stats.thread_name % *mdb_txn_stats.stacktrace));
 	}
 }
 
