@@ -1024,9 +1024,11 @@ void nano::json_handler::blocks_info ()
 	const bool pending = request.get<bool> ("pending", false);
 	const bool source = request.get<bool> ("source", false);
 	const bool json_block_l = request.get<bool> ("json_block", false);
+	const bool include_not_found = request.get<bool> ("include_not_found", false);
 
 	std::vector<std::string> hashes;
 	boost::property_tree::ptree blocks;
+	boost::property_tree::ptree blocks_not_found;
 	auto transaction (node.store.tx_begin_read ());
 	for (boost::property_tree::ptree::value_type & hashes : request.get_child ("hashes"))
 	{
@@ -1094,6 +1096,12 @@ void nano::json_handler::blocks_info ()
 					}
 					blocks.push_back (std::make_pair (hash_text, entry));
 				}
+				else if (include_not_found)
+				{
+					boost::property_tree::ptree entry;
+					entry.put ("", hash_text);
+					blocks_not_found.push_back (std::make_pair ("", entry));
+				}
 				else
 				{
 					ec = nano::error_blocks::not_found;
@@ -1105,7 +1113,14 @@ void nano::json_handler::blocks_info ()
 			}
 		}
 	}
-	response_l.add_child ("blocks", blocks);
+	if (!ec)
+	{
+		response_l.add_child ("blocks", blocks);
+		if (include_not_found)
+		{
+			response_l.add_child ("blocks_not_found", blocks_not_found);
+		}
+	}
 	response_errors ();
 }
 

@@ -4423,54 +4423,89 @@ TEST (rpc, blocks_info)
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
 	rpc.start ();
+	auto check_blocks = [&](test_response & response) {
+		for (auto & blocks : response.json.get_child ("blocks"))
+		{
+			std::string hash_text (blocks.first);
+			ASSERT_EQ (system.nodes[0]->latest (nano::genesis_account).to_string (), hash_text);
+			std::string account_text (blocks.second.get<std::string> ("block_account"));
+			ASSERT_EQ (nano::test_genesis_key.pub.to_account (), account_text);
+			std::string amount_text (blocks.second.get<std::string> ("amount"));
+			ASSERT_EQ (nano::genesis_amount.convert_to<std::string> (), amount_text);
+			std::string blocks_text (blocks.second.get<std::string> ("contents"));
+			ASSERT_FALSE (blocks_text.empty ());
+			boost::optional<std::string> pending (blocks.second.get_optional<std::string> ("pending"));
+			ASSERT_FALSE (pending.is_initialized ());
+			boost::optional<std::string> source (blocks.second.get_optional<std::string> ("source_account"));
+			ASSERT_FALSE (source.is_initialized ());
+			std::string balance_text (blocks.second.get<std::string> ("balance"));
+			ASSERT_EQ (nano::genesis_amount.convert_to<std::string> (), balance_text);
+			ASSERT_TRUE (blocks.second.get<bool> ("confirmed")); // Genesis block is confirmed by default
+		}
+	};
 	boost::property_tree::ptree request;
 	request.put ("action", "blocks_info");
 	boost::property_tree::ptree entry;
-	boost::property_tree::ptree peers_l;
+	boost::property_tree::ptree hashes;
 	entry.put ("", system.nodes[0]->latest (nano::genesis_account).to_string ());
-	peers_l.push_back (std::make_pair ("", entry));
-	request.add_child ("hashes", peers_l);
-	test_response response (request, rpc.config.port, system.io_ctx);
-	system.deadline_set (5s);
-	while (response.status == 0)
+	hashes.push_back (std::make_pair ("", entry));
+	request.add_child ("hashes", hashes);
 	{
-		ASSERT_NO_ERROR (system.poll ());
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		check_blocks (response);
 	}
-	ASSERT_EQ (200, response.status);
-	for (auto & blocks : response.json.get_child ("blocks"))
+	std::string random_hash = nano::block_hash ().to_string ();
+	entry.put ("", random_hash);
+	hashes.push_back (std::make_pair ("", entry));
+	request.erase ("hashes");
+	request.add_child ("hashes", hashes);
 	{
-		std::string hash_text (blocks.first);
-		ASSERT_EQ (system.nodes[0]->latest (nano::genesis_account).to_string (), hash_text);
-		std::string account_text (blocks.second.get<std::string> ("block_account"));
-		ASSERT_EQ (nano::test_genesis_key.pub.to_account (), account_text);
-		std::string amount_text (blocks.second.get<std::string> ("amount"));
-		ASSERT_EQ (nano::genesis_amount.convert_to<std::string> (), amount_text);
-		std::string blocks_text (blocks.second.get<std::string> ("contents"));
-		ASSERT_FALSE (blocks_text.empty ());
-		boost::optional<std::string> pending (blocks.second.get_optional<std::string> ("pending"));
-		ASSERT_FALSE (pending.is_initialized ());
-		boost::optional<std::string> source (blocks.second.get_optional<std::string> ("source_account"));
-		ASSERT_FALSE (source.is_initialized ());
-		std::string balance_text (blocks.second.get<std::string> ("balance"));
-		ASSERT_EQ (nano::genesis_amount.convert_to<std::string> (), balance_text);
-		ASSERT_TRUE (blocks.second.get<bool> ("confirmed")); // Genesis block is confirmed by default
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ ("Block not found", response.json.get<std::string> ("error"));
 	}
-	// Test for optional values
+	request.put ("include_not_found", "true");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		check_blocks (response);
+		auto & blocks_not_found (response.json.get_child ("blocks_not_found"));
+		ASSERT_EQ (1, blocks_not_found.size ());
+		ASSERT_EQ (random_hash, blocks_not_found.begin ()->second.get<std::string> (""));
+	}
 	request.put ("source", "true");
 	request.put ("pending", "1");
-	test_response response2 (request, rpc.config.port, system.io_ctx);
-	system.deadline_set (5s);
-	while (response2.status == 0)
 	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	ASSERT_EQ (200, response2.status);
-	for (auto & blocks : response2.json.get_child ("blocks"))
-	{
-		std::string source (blocks.second.get<std::string> ("source_account"));
-		ASSERT_EQ ("0", source);
-		std::string pending (blocks.second.get<std::string> ("pending"));
-		ASSERT_EQ ("0", pending);
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		for (auto & blocks : response.json.get_child ("blocks"))
+		{
+			std::string source (blocks.second.get<std::string> ("source_account"));
+			ASSERT_EQ ("0", source);
+			std::string pending (blocks.second.get<std::string> ("pending"));
+			ASSERT_EQ ("0", pending);
+		}
 	}
 }
 
@@ -4496,15 +4531,15 @@ TEST (rpc, blocks_info_subtype)
 	rpc.start ();
 	boost::property_tree::ptree request;
 	request.put ("action", "blocks_info");
-	boost::property_tree::ptree peers_l;
+	boost::property_tree::ptree hashes;
 	boost::property_tree::ptree entry;
 	entry.put ("", send->hash ().to_string ());
-	peers_l.push_back (std::make_pair ("", entry));
+	hashes.push_back (std::make_pair ("", entry));
 	entry.put ("", receive->hash ().to_string ());
-	peers_l.push_back (std::make_pair ("", entry));
+	hashes.push_back (std::make_pair ("", entry));
 	entry.put ("", change->hash ().to_string ());
-	peers_l.push_back (std::make_pair ("", entry));
-	request.add_child ("hashes", peers_l);
+	hashes.push_back (std::make_pair ("", entry));
+	request.add_child ("hashes", hashes);
 	test_response response (request, rpc.config.port, system.io_ctx);
 	system.deadline_set (5s);
 	while (response.status == 0)
