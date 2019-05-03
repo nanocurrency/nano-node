@@ -221,16 +221,10 @@ public:
 	std::atomic<uint64_t> reps_count{ 0 };
 
 	/** Start read-write transaction */
-	nano::transaction tx_begin_write ();
+	nano::write_transaction tx_begin_write ();
 
 	/** Start read-only transaction */
-	nano::transaction tx_begin_read ();
-
-	/**
-	 * Start a read-only or read-write transaction
-	 * @param write If true, start a read-write transaction
-	 */
-	nano::transaction tx_begin (bool write = false);
+	nano::read_transaction tx_begin_read ();
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (wallets & wallets, const std::string & name);

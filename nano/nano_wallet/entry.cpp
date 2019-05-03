@@ -277,7 +277,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 			}
 			if (config.account.is_zero () || !wallet->exists (config.account))
 			{
-				auto transaction (wallet->wallets.tx_begin (true));
+				auto transaction (wallet->wallets.tx_begin_write ());
 				auto existing (wallet->store.begin (transaction));
 				if (existing != wallet->store.end ())
 				{

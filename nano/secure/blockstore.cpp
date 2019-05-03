@@ -367,3 +367,43 @@ void nano::representative_visitor::state_block (nano::state_block const & block_
 {
 	result = block_a.hash ();
 }
+
+nano::read_transaction::read_transaction (std::unique_ptr<nano::read_transaction_impl> read_transaction_impl) :
+impl (std::move (read_transaction_impl))
+{
+}
+
+void * nano::read_transaction::get_handle () const
+{
+	return impl->get_handle ();
+}
+
+void nano::read_transaction::reset () const
+{
+	impl->reset ();
+}
+
+void nano::read_transaction::renew () const
+{
+	impl->renew ();
+}
+
+nano::write_transaction::write_transaction (std::unique_ptr<nano::write_transaction_impl> write_transaction_impl) :
+impl (std::move (write_transaction_impl))
+{
+}
+
+void * nano::write_transaction::get_handle () const
+{
+	return impl->get_handle ();
+}
+
+void nano::write_transaction::commit () const
+{
+	impl->commit ();
+}
+
+void nano::write_transaction::renew ()
+{
+	impl->renew ();
+}
