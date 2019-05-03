@@ -23,7 +23,7 @@ public:
 	~read_mdb_txn ();
 	void reset () const override;
 	void renew () const override;
-	void * get_handle () const;
+	void * get_handle () const override;
 	MDB_txn * handle;
 };
 
@@ -34,7 +34,7 @@ public:
 	~write_mdb_txn ();
 	void commit () const override;
 	void renew () override;
-	void * get_handle () const;
+	void * get_handle () const override;
 	MDB_txn * handle;
 	nano::mdb_env const & env;
 };
