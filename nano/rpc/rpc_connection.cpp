@@ -65,7 +65,7 @@ void nano::rpc_connection::read ()
 				continue_response->version (11);
 				continue_response->result (boost::beast::http::status::continue_);
 				continue_response->set (boost::beast::http::field::server, "nano");
-				boost::beast::http::async_write (this_l->socket, *continue_response, [this_l, header_parser, continue_response](boost::system::error_code const & ec, size_t bytes_transferred) {});
+				boost::beast::http::async_write (this_l->socket, *continue_response, [this_l, continue_response](boost::system::error_code const & ec, size_t bytes_transferred) {});
 			}
 
 			this_l->parse_request (header_parser);
