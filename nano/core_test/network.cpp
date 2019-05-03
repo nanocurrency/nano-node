@@ -174,7 +174,7 @@ TEST (network, send_discarded_publish)
 	auto block (std::make_shared<nano::send_block> (1, 1, 2, nano::keypair ().prv, 4, system.work.generate (1)));
 	nano::genesis genesis;
 	{
-		auto transaction (system.nodes[0]->store.tx_begin ());
+		auto transaction (system.nodes[0]->store.tx_begin_read ());
 		system.nodes[0]->network.flood_block (block);
 		ASSERT_EQ (genesis.hash (), system.nodes[0]->ledger.latest (transaction, nano::test_genesis_key.pub));
 		ASSERT_EQ (genesis.hash (), system.nodes[1]->latest (nano::test_genesis_key.pub));
@@ -184,7 +184,7 @@ TEST (network, send_discarded_publish)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	auto transaction (system.nodes[0]->store.tx_begin ());
+	auto transaction (system.nodes[0]->store.tx_begin_read ());
 	ASSERT_EQ (genesis.hash (), system.nodes[0]->ledger.latest (transaction, nano::test_genesis_key.pub));
 	ASSERT_EQ (genesis.hash (), system.nodes[1]->latest (nano::test_genesis_key.pub));
 }
@@ -195,7 +195,7 @@ TEST (network, send_invalid_publish)
 	nano::genesis genesis;
 	auto block (std::make_shared<nano::send_block> (1, 1, 20, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (1)));
 	{
-		auto transaction (system.nodes[0]->store.tx_begin ());
+		auto transaction (system.nodes[0]->store.tx_begin_read ());
 		system.nodes[0]->network.flood_block (block);
 		ASSERT_EQ (genesis.hash (), system.nodes[0]->ledger.latest (transaction, nano::test_genesis_key.pub));
 		ASSERT_EQ (genesis.hash (), system.nodes[1]->latest (nano::test_genesis_key.pub));
@@ -205,7 +205,7 @@ TEST (network, send_invalid_publish)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	auto transaction (system.nodes[0]->store.tx_begin ());
+	auto transaction (system.nodes[0]->store.tx_begin_read ());
 	ASSERT_EQ (genesis.hash (), system.nodes[0]->ledger.latest (transaction, nano::test_genesis_key.pub));
 	ASSERT_EQ (genesis.hash (), system.nodes[1]->latest (nano::test_genesis_key.pub));
 }
@@ -344,7 +344,7 @@ TEST (network, receive_weight_change)
 	nano::keypair key2;
 	system.wallet (1)->insert_adhoc (key2.prv);
 	{
-		auto transaction (system.nodes[1]->wallets.tx_begin (true));
+		auto transaction (system.nodes[1]->wallets.tx_begin_write ());
 		system.wallet (1)->store.representative_set (transaction, key2.pub);
 	}
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::test_genesis_key.pub, key2.pub, system.nodes[0]->config.receive_minimum.number ()));
@@ -1610,7 +1610,7 @@ TEST (confirmation_height, gap_bootstrap)
 
 	// Confirmation heights should not be updated
 	{
-		auto transaction (node1.store.tx_begin ());
+		auto transaction (node1.store.tx_begin_read ());
 		auto unchecked_count (node1.store.unchecked_count (transaction));
 		ASSERT_EQ (unchecked_count, 2);
 
@@ -1625,7 +1625,7 @@ TEST (confirmation_height, gap_bootstrap)
 
 	// Confirmation height should still be 0 and unchecked should now be 0
 	{
-		auto transaction (node1.store.tx_begin ());
+		auto transaction (node1.store.tx_begin_read ());
 		auto unchecked_count (node1.store.unchecked_count (transaction));
 		ASSERT_EQ (unchecked_count, 0);
 
@@ -1699,7 +1699,7 @@ TEST (confirmation_height, gap_live)
 		}
 
 		// This should confirm the open block and the source of the receive blocks
-		auto transaction (node->store.tx_begin ());
+		auto transaction (node->store.tx_begin_read ());
 		auto unchecked_count (node->store.unchecked_count (transaction));
 		ASSERT_EQ (unchecked_count, 0);
 
@@ -1770,7 +1770,7 @@ TEST (confirmation_height, send_receive_between_2_accounts)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
-	auto transaction (node->store.tx_begin ());
+	auto transaction (node->store.tx_begin_read ());
 
 	nano::account_info account_info;
 	ASSERT_FALSE (node->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
@@ -1829,7 +1829,7 @@ TEST (confirmation_height, send_receive_self)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
-	auto transaction (node->store.tx_begin ());
+	auto transaction (node->store.tx_begin_read ());
 	nano::account_info account_info;
 	ASSERT_FALSE (node->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
 	ASSERT_EQ (7, account_info.confirmation_height);
@@ -1920,7 +1920,7 @@ TEST (confirmation_height, all_block_types)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
-	auto transaction (node->store.tx_begin ());
+	auto transaction (node->store.tx_begin_read ());
 	nano::account_info account_info;
 	ASSERT_FALSE (node->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
 	ASSERT_EQ (3, account_info.confirmation_height);

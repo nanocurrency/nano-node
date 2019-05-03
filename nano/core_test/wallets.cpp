@@ -88,11 +88,11 @@ TEST (wallets, upgrade)
 		auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, path, system.alarm, system.logging, system.work));
 		ASSERT_FALSE (init1.error ());
 		node1->wallets.create (id.pub);
-		auto transaction_source (node1->wallets.env.tx_begin (true));
-		MDB_txn * tx_source (*boost::polymorphic_downcast<nano::mdb_txn *> (transaction_source.impl.get ()));
+		auto transaction_source (node1->wallets.env.tx_begin_write ());
+		auto tx_source = static_cast<MDB_txn *> (transaction_source.get_handle ());
 		auto & mdb_store (dynamic_cast<nano::mdb_store &> (node1->store));
 		auto transaction_destination (mdb_store.tx_begin_write ());
-		MDB_txn * tx_destination (*boost::polymorphic_downcast<nano::mdb_txn *> (transaction_destination.impl.get ()));
+		auto tx_destination = static_cast<MDB_txn *> (transaction_destination.get_handle ());
 		node1->wallets.move_table (id.pub.to_string (), tx_source, tx_destination);
 		node1->store.version_put (transaction_destination, 11);
 
@@ -106,10 +106,10 @@ TEST (wallets, upgrade)
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, path, system.alarm, system.logging, system.work));
 	ASSERT_EQ (1, node1->wallets.items.size ());
 	ASSERT_EQ (id.pub, node1->wallets.items.begin ()->first);
-	auto transaction_new (node1->wallets.env.tx_begin (true));
-	MDB_txn * tx_new (*boost::polymorphic_downcast<nano::mdb_txn *> (transaction_new.impl.get ()));
+	auto transaction_new (node1->wallets.env.tx_begin_write ());
+	auto tx_new = static_cast<MDB_txn*> (transaction_new.get_handle ());
 	auto transaction_old (node1->store.tx_begin_write ());
-	MDB_txn * tx_old (*boost::polymorphic_downcast<nano::mdb_txn *> (transaction_old.impl.get ()));
+	auto tx_old = static_cast<MDB_txn*> (transaction_old.get_handle ());
 	MDB_dbi old_handle;
 	ASSERT_EQ (MDB_NOTFOUND, mdb_dbi_open (tx_old, id.pub.to_string ().c_str (), 0, &old_handle));
 	MDB_dbi new_handle;
@@ -131,7 +131,7 @@ TEST (wallets, DISABLED_wallet_create_max)
 		ASSERT_TRUE (existing != wallets.items.end ());
 		nano::raw_key seed;
 		seed.data = 0;
-		auto transaction (system.nodes[0]->store.tx_begin (true));
+		auto transaction (system.nodes[0]->store.tx_begin_write ());
 		existing->second->store.seed_set (transaction, seed);
 	}
 	nano::keypair key;
