@@ -107,9 +107,9 @@ TEST (wallets, upgrade)
 	ASSERT_EQ (1, node1->wallets.items.size ());
 	ASSERT_EQ (id.pub, node1->wallets.items.begin ()->first);
 	auto transaction_new (node1->wallets.env.tx_begin_write ());
-	auto tx_new = static_cast<MDB_txn*> (transaction_new.get_handle ());
+	auto tx_new = static_cast<MDB_txn *> (transaction_new.get_handle ());
 	auto transaction_old (node1->store.tx_begin_write ());
-	auto tx_old = static_cast<MDB_txn*> (transaction_old.get_handle ());
+	auto tx_old = static_cast<MDB_txn *> (transaction_old.get_handle ());
 	MDB_dbi old_handle;
 	ASSERT_EQ (MDB_NOTFOUND, mdb_dbi_open (tx_old, id.pub.to_string ().c_str (), 0, &old_handle));
 	MDB_dbi new_handle;

@@ -1794,10 +1794,10 @@ void nano::wallets::split_if_needed (nano::transaction & transaction_destination
 	if (store_l != nullptr)
 	{
 		auto transaction_source (store_l->tx_begin_write ());
-		auto tx_source = static_cast<MDB_txn*> (transaction_source.get_handle ());
+		auto tx_source = static_cast<MDB_txn *> (transaction_source.get_handle ());
 		if (items.empty ())
 		{
-			auto tx_destination = static_cast<MDB_txn*> (transaction_destination.get_handle ());
+			auto tx_destination = static_cast<MDB_txn *> (transaction_destination.get_handle ());
 			std::string beginning (nano::uint256_union (0).to_string ());
 			std::string end ((nano::uint256_union (nano::uint256_t (0) - nano::uint256_t (1))).to_string ());
 			nano::store_iterator<std::array<char, 64>, nano::no_value> i (std::make_unique<nano::mdb_iterator<std::array<char, 64>, nano::no_value>> (transaction_source, handle, nano::mdb_val (beginning.size (), const_cast<char *> (beginning.c_str ()))));

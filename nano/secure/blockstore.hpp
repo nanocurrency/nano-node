@@ -193,23 +193,23 @@ public:
 	virtual ~read_transaction_impl () = default;
 	virtual void reset () const = 0;
 	virtual void renew () const = 0;
-	virtual void* get_handle () const = 0;
+	virtual void * get_handle () const = 0;
 };
 
 class write_transaction_impl
 {
 public:
 	virtual ~write_transaction_impl () = default;
-	virtual	void commit () const = 0;
-	virtual void renew() = 0;
-	virtual void* get_handle () const = 0;
+	virtual void commit () const = 0;
+	virtual void renew () = 0;
+	virtual void * get_handle () const = 0;
 };
 
 class transaction
 {
 public:
 	virtual ~transaction () = default;
-	virtual void* get_handle () const = 0;
+	virtual void * get_handle () const = 0;
 };
 
 /**
