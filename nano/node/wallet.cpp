@@ -1886,7 +1886,7 @@ environment (error_a, path_a, lmdb_max_dbs, 1ULL * 1024 * 1024 * 1024)
 }
 MDB_txn * nano::wallet_store::tx (nano::transaction const & transaction_a) const
 {
-	return static_cast<MDB_txn*> (transaction_a.get_handle ());
+	return static_cast<MDB_txn *> (transaction_a.get_handle ());
 }
 
 namespace nano
