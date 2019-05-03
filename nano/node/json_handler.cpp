@@ -1276,153 +1276,156 @@ void nano::json_handler::block_create ()
 			// Retrieve link from source or destination
 			link = source.is_zero () ? destination : source;
 		}
-		if (prv.data != 0)
+		if (!ec)
 		{
-			nano::uint256_union pub (nano::pub_key (prv.data));
-			// Fetching account balance & previous for send blocks (if aren't given directly)
-			if (!previous_text.is_initialized () && !balance_text.is_initialized ())
+			if (prv.data != 0)
 			{
-				auto transaction (node.store.tx_begin_read ());
-				previous = node.ledger.latest (transaction, pub);
-				balance = node.ledger.account_balance (transaction, pub);
-			}
-			// Double check current balance if previous block is specified
-			else if (previous_text.is_initialized () && balance_text.is_initialized () && type == "send")
-			{
-				auto transaction (node.store.tx_begin_read ());
-				if (node.store.block_exists (transaction, previous) && node.store.block_balance (transaction, previous) != balance.number ())
+				nano::uint256_union pub (nano::pub_key (prv.data));
+				// Fetching account balance & previous for send blocks (if aren't given directly)
+				if (!previous_text.is_initialized () && !balance_text.is_initialized ())
 				{
-					ec = nano::error_rpc::block_create_balance_mismatch;
+					auto transaction (node.store.tx_begin_read ());
+					previous = node.ledger.latest (transaction, pub);
+					balance = node.ledger.account_balance (transaction, pub);
 				}
-			}
-			// Check for incorrect account key
-			if (!ec && account_text.is_initialized ())
-			{
-				if (account != pub)
+				// Double check current balance if previous block is specified
+				else if (previous_text.is_initialized () && balance_text.is_initialized () && type == "send")
 				{
-					ec = nano::error_rpc::block_create_public_key_mismatch;
-				}
-			}
-			if (type == "state")
-			{
-				if (previous_text.is_initialized () && !representative.is_zero () && (!link.is_zero () || link_text.is_initialized ()))
-				{
-					if (work == 0)
+					auto transaction (node.store.tx_begin_read ());
+					if (node.store.block_exists (transaction, previous) && node.store.block_balance (transaction, previous) != balance.number ())
 					{
-						work = node.work_generate_blocking (previous.is_zero () ? pub : previous);
+						ec = nano::error_rpc::block_create_balance_mismatch;
 					}
-					nano::state_block state (pub, previous, representative, balance, link, prv, pub, work);
-					response_l.put ("hash", state.hash ().to_string ());
-					bool json_block_l = request.get<bool> ("json_block", false);
-					if (json_block_l)
+				}
+				// Check for incorrect account key
+				if (!ec && account_text.is_initialized ())
+				{
+					if (account != pub)
 					{
-						boost::property_tree::ptree block_node_l;
-						state.serialize_json (block_node_l);
-						response_l.add_child ("block", block_node_l);
+						ec = nano::error_rpc::block_create_public_key_mismatch;
+					}
+				}
+				if (type == "state")
+				{
+					if (previous_text.is_initialized () && !representative.is_zero () && (!link.is_zero () || link_text.is_initialized ()))
+					{
+						if (work == 0)
+						{
+							work = node.work_generate_blocking (previous.is_zero () ? pub : previous);
+						}
+						nano::state_block state (pub, previous, representative, balance, link, prv, pub, work);
+						response_l.put ("hash", state.hash ().to_string ());
+						bool json_block_l = request.get<bool> ("json_block", false);
+						if (json_block_l)
+						{
+							boost::property_tree::ptree block_node_l;
+							state.serialize_json (block_node_l);
+							response_l.add_child ("block", block_node_l);
+						}
+						else
+						{
+							std::string contents;
+							state.serialize_json (contents);
+							response_l.put ("block", contents);
+						}
 					}
 					else
 					{
+						ec = nano::error_rpc::block_create_requirements_state;
+					}
+				}
+				else if (type == "open")
+				{
+					if (representative != 0 && source != 0)
+					{
+						if (work == 0)
+						{
+							work = node.work_generate_blocking (pub);
+						}
+						nano::open_block open (source, representative, pub, prv, pub, work);
+						response_l.put ("hash", open.hash ().to_string ());
 						std::string contents;
-						state.serialize_json (contents);
+						open.serialize_json (contents);
 						response_l.put ("block", contents);
 					}
-				}
-				else
-				{
-					ec = nano::error_rpc::block_create_requirements_state;
-				}
-			}
-			else if (type == "open")
-			{
-				if (representative != 0 && source != 0)
-				{
-					if (work == 0)
+					else
 					{
-						work = node.work_generate_blocking (pub);
+						ec = nano::error_rpc::block_create_requirements_open;
 					}
-					nano::open_block open (source, representative, pub, prv, pub, work);
-					response_l.put ("hash", open.hash ().to_string ());
-					std::string contents;
-					open.serialize_json (contents);
-					response_l.put ("block", contents);
 				}
-				else
+				else if (type == "receive")
 				{
-					ec = nano::error_rpc::block_create_requirements_open;
-				}
-			}
-			else if (type == "receive")
-			{
-				if (source != 0 && previous != 0)
-				{
-					if (work == 0)
-					{
-						work = node.work_generate_blocking (previous);
-					}
-					nano::receive_block receive (previous, source, prv, pub, work);
-					response_l.put ("hash", receive.hash ().to_string ());
-					std::string contents;
-					receive.serialize_json (contents);
-					response_l.put ("block", contents);
-				}
-				else
-				{
-					ec = nano::error_rpc::block_create_requirements_receive;
-				}
-			}
-			else if (type == "change")
-			{
-				if (representative != 0 && previous != 0)
-				{
-					if (work == 0)
-					{
-						work = node.work_generate_blocking (previous);
-					}
-					nano::change_block change (previous, representative, prv, pub, work);
-					response_l.put ("hash", change.hash ().to_string ());
-					std::string contents;
-					change.serialize_json (contents);
-					response_l.put ("block", contents);
-				}
-				else
-				{
-					ec = nano::error_rpc::block_create_requirements_change;
-				}
-			}
-			else if (type == "send")
-			{
-				if (destination != 0 && previous != 0 && balance != 0 && amount != 0)
-				{
-					if (balance.number () >= amount.number ())
+					if (source != 0 && previous != 0)
 					{
 						if (work == 0)
 						{
 							work = node.work_generate_blocking (previous);
 						}
-						nano::send_block send (previous, destination, balance.number () - amount.number (), prv, pub, work);
-						response_l.put ("hash", send.hash ().to_string ());
+						nano::receive_block receive (previous, source, prv, pub, work);
+						response_l.put ("hash", receive.hash ().to_string ());
 						std::string contents;
-						send.serialize_json (contents);
+						receive.serialize_json (contents);
 						response_l.put ("block", contents);
 					}
 					else
 					{
-						ec = nano::error_common::insufficient_balance;
+						ec = nano::error_rpc::block_create_requirements_receive;
+					}
+				}
+				else if (type == "change")
+				{
+					if (representative != 0 && previous != 0)
+					{
+						if (work == 0)
+						{
+							work = node.work_generate_blocking (previous);
+						}
+						nano::change_block change (previous, representative, prv, pub, work);
+						response_l.put ("hash", change.hash ().to_string ());
+						std::string contents;
+						change.serialize_json (contents);
+						response_l.put ("block", contents);
+					}
+					else
+					{
+						ec = nano::error_rpc::block_create_requirements_change;
+					}
+				}
+				else if (type == "send")
+				{
+					if (destination != 0 && previous != 0 && balance != 0 && amount != 0)
+					{
+						if (balance.number () >= amount.number ())
+						{
+							if (work == 0)
+							{
+								work = node.work_generate_blocking (previous);
+							}
+							nano::send_block send (previous, destination, balance.number () - amount.number (), prv, pub, work);
+							response_l.put ("hash", send.hash ().to_string ());
+							std::string contents;
+							send.serialize_json (contents);
+							response_l.put ("block", contents);
+						}
+						else
+						{
+							ec = nano::error_common::insufficient_balance;
+						}
+					}
+					else
+					{
+						ec = nano::error_rpc::block_create_requirements_send;
 					}
 				}
 				else
 				{
-					ec = nano::error_rpc::block_create_requirements_send;
+					ec = nano::error_blocks::invalid_type;
 				}
 			}
 			else
 			{
-				ec = nano::error_blocks::invalid_type;
+				ec = nano::error_rpc::block_create_key_required;
 			}
-		}
-		else
-		{
-			ec = nano::error_rpc::block_create_key_required;
 		}
 	}
 	response_errors ();
