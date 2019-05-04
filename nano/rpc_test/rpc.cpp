@@ -6164,7 +6164,7 @@ TEST (rpc, database_txn_tracker)
 	request.put ("min_time", "0");
 	test_response response (request, rpc.config.port, system.io_ctx);
 	// It can take a long time to generate stack traces
-	system.deadline_set (180s);
+	system.deadline_set (60s);
 	while (response.status == 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -6192,7 +6192,7 @@ TEST (rpc, database_txn_tracker)
 
 	// Check read transaction
 	ASSERT_EQ (thread_name, std::get<0> (json_l.front ()));
-	ASSERT_GE (2u, boost::lexical_cast<unsigned> (std::get<1> (json_l.front ())));
+	ASSERT_LE (2000u, boost::lexical_cast<unsigned> (std::get<1> (json_l.front ())));
 	ASSERT_EQ ("false", std::get<2> (json_l.front ()));
 	// Due to results being different for different compilers/build options we cannot reliably check the contents.
 	// The best we can do is just check that there are entries.
@@ -6200,7 +6200,7 @@ TEST (rpc, database_txn_tracker)
 
 	// Check write transaction
 	ASSERT_EQ (thread_name, std::get<0> (json_l.back ()));
-	ASSERT_GE (1u, boost::lexical_cast<unsigned> (std::get<1> (json_l.back ())));
+	ASSERT_LE (1000u, boost::lexical_cast<unsigned> (std::get<1> (json_l.back ())));
 	ASSERT_EQ ("true", std::get<2> (json_l.back ()));
 	ASSERT_TRUE (!std::get<3> (json_l.back ()).empty ());
 }
