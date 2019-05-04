@@ -97,6 +97,9 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 
 	release_assert (receive_source_pairs.empty ());
 	auto error = false;
+
+	auto read_transaction (store.tx_begin_read ());
+	read_transaction.reset ();
 	// Traverse account chain and all sources for receive blocks iteratively
 	do
 	{
@@ -117,10 +120,10 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 			}
 		}
 
-		auto transaction (store.tx_begin_read ());
-		auto block_height (store.block_account_height (transaction, current));
-		nano::account account (store.block_account (transaction, current));
-		release_assert (!store.account_get (transaction, account, account_info));
+		read_transaction.renew ();
+		auto block_height (store.block_account_height (read_transaction, current));
+		nano::account account (store.block_account (read_transaction, current));
+		release_assert (!store.account_get (read_transaction, account, account_info));
 		auto confirmation_height = account_info.confirmation_height;
 
 		auto account_it = confirmation_height_pending_write_cache.find (account);
@@ -129,7 +132,7 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 			confirmation_height = account_it->second;
 		}
 
-		auto count_before_open_receive = receive_source_pairs.size ();
+		auto count_before_receive = receive_source_pairs.size ();
 		if (block_height > confirmation_height)
 		{
 			if ((block_height - confirmation_height) > 20000)
@@ -137,12 +140,15 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 				logger.always_log ("Iterating over a large account chain for setting confirmation height. The top block: ", current.to_string ());
 			}
 
-			collect_unconfirmed_receive_and_sources_for_account (block_height, confirmation_height, current, account, transaction);
+			collect_unconfirmed_receive_and_sources_for_account (block_height, confirmation_height, current, account, read_transaction);
 		}
 
-		// If this adds no more open_receive blocks, then we can now confirm this account as well as the linked open/receive block
+		// No longer need the read transaction
+		read_transaction.reset ();
+
+		// If this adds no more open or receive blocks, then we can now confirm this account as well as the linked open/receive block
 		// Collect as pending any writes to the database and do them in bulk after a certain time.
-		auto confirmed_receives_pending = (count_before_open_receive != receive_source_pairs.size ());
+		auto confirmed_receives_pending = (count_before_receive != receive_source_pairs.size ());
 		if (!confirmed_receives_pending)
 		{
 			if (block_height > confirmation_height)
@@ -270,7 +276,7 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 	return false;
 }
 
-void nano::confirmation_height_processor::collect_unconfirmed_receive_and_sources_for_account (uint64_t block_height_a, uint64_t confirmation_height_a, nano::block_hash const & hash_a, nano::account const & account_a, nano::transaction & transaction_a)
+void nano::confirmation_height_processor::collect_unconfirmed_receive_and_sources_for_account (uint64_t block_height_a, uint64_t confirmation_height_a, nano::block_hash const & hash_a, nano::account const & account_a, nano::read_transaction const & transaction_a)
 {
 	auto hash (hash_a);
 	auto num_to_confirm = block_height_a - confirmation_height_a;
@@ -278,11 +284,10 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 	// Store heights of blocks
 	constexpr auto height_not_set = std::numeric_limits<uint64_t>::max ();
 	auto next_height = height_not_set;
-	while (num_to_confirm > 0 && !hash.is_zero ())
+	while ((num_to_confirm > 0) && !hash.is_zero ())
 	{
 		active.confirm_block (hash);
-		nano::block_sideband sideband;
-		auto block (store.block_get (transaction_a, hash, &sideband));
+		auto block (store.block_get (transaction_a, hash));
 		if (block)
 		{
 			auto source (block->source ());
@@ -293,19 +298,27 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 
 			if (!source.is_zero () && source != epoch_link && store.source_exists (transaction_a, source))
 			{
+				auto block_height = confirmation_height_a + num_to_confirm;
 				// Set the height for the receive block above (if there is one)
 				if (next_height != height_not_set)
 				{
-					receive_source_pairs.back ().receive_details.num_blocks_confirmed = next_height - sideband.height;
+					receive_source_pairs.back ().receive_details.num_blocks_confirmed = next_height - block_height;
 				}
 
-				receive_source_pairs.emplace_back (conf_height_details{ account_a, hash, sideband.height, height_not_set }, source);
+				receive_source_pairs.emplace_back (conf_height_details{ account_a, hash, block_height, height_not_set }, source);
 				++receive_source_pairs_size;
-				next_height = sideband.height;
+				next_height = block_height;
 			}
 
 			hash = block->previous ();
 		}
+
+		// We could be traversing a very large account so we don't want to have open read transactions for too long.
+		if (num_to_confirm % batch_read_size == 0)
+		{
+			transaction_a.refresh ();
+		}
+
 		--num_to_confirm;
 	}
 

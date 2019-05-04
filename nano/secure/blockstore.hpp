@@ -223,6 +223,7 @@ public:
 	void * get_handle () const override;
 	void reset () const;
 	void renew () const;
+	void refresh () const;
 
 private:
 	std::unique_ptr<nano::read_transaction_impl> impl;

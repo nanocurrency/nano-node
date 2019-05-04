@@ -1653,6 +1653,39 @@ TEST (block_store, upgrade_confirmation_height_many)
 	}
 }
 
+TEST (block_store, reset_renew_existing_transaction)
+{
+	nano::logger_mt logger;
+	bool init (false);
+	nano::mdb_store store (init, logger, nano::unique_path ());
+	ASSERT_TRUE (!init);
+
+	nano::keypair key1;
+	nano::open_block block (0, 1, 1, nano::keypair ().prv, 0, 0);
+	nano::uint256_union hash1 (block.hash ());
+	auto read_transaction = store.tx_begin_read ();
+
+	// Block shouldn't exist yet
+	auto block_non_existing (store.block_get (read_transaction, hash1));
+	ASSERT_EQ (nullptr, block_non_existing);
+
+	// Release resources for the transaction
+	read_transaction.reset ();
+
+	// Write the block
+	{
+		auto write_transaction (store.tx_begin_write ());
+		nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0, 0);
+		store.block_put (write_transaction, hash1, block, sideband);
+	}
+
+	read_transaction.renew ();
+
+	// Block should exist now
+	auto block_existing (store.block_get (read_transaction, hash1));
+	ASSERT_NE (nullptr, block_existing);
+}
+
 namespace
 {
 // These functions take the latest account_info and create a legacy one so that upgrade tests can be emulated more easily.
