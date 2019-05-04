@@ -72,7 +72,7 @@ balance_label (new QLabel),
 wallet (wallet_a)
 {
 	your_account_label->setStyleSheet ("font-weight: bold;");
-	std::string network = wallet.node.network_params.active_network_label ();
+	std::string network = wallet.node.network_params.network.active_network_label ();
 	if (!network.empty ())
 	{
 		network[0] = std::toupper (network[0]);
