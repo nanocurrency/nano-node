@@ -24,6 +24,26 @@
 #endif
 #endif
 
+namespace
+{
+class matches_txn
+{
+public:
+	matches_txn (const nano::transaction_impl * transaction_impl_a) :
+	transaction_impl (transaction_impl_a)
+	{
+	}
+
+	bool operator() (nano::mdb_txn_stats const & mdb_txn_stats)
+	{
+		return (mdb_txn_stats.transaction_impl == transaction_impl);
+	}
+
+private:
+	const nano::transaction_impl * transaction_impl;
+};
+}
+
 std::chrono::milliseconds constexpr nano::mdb_txn_tracker::min_time_held_open_ouput;
 
 nano::mdb_txn_tracker::mdb_txn_tracker (nano::logger_mt & logger_a, bool is_logging_database_locking_a) :
@@ -82,7 +102,7 @@ void nano::mdb_txn_tracker::serialize_json (boost::property_tree::ptree & json, 
 	}
 }
 
-void nano::mdb_txn_tracker::output_finished (nano::mdb_txn_stats & mdb_txn_stats)
+void nano::mdb_txn_tracker::output_finished (nano::mdb_txn_stats const & mdb_txn_stats)
 {
 	// Only output them if transactions were held for longer than a certain period of time
 	if (is_logging_database_locking && mdb_txn_stats.timer.since_start () >= min_time_held_open_ouput)
@@ -95,21 +115,25 @@ void nano::mdb_txn_tracker::output_finished (nano::mdb_txn_stats & mdb_txn_stats
 void nano::mdb_txn_tracker::add (const nano::transaction_impl * transaction_impl)
 {
 	std::lock_guard<std::mutex> guard (mutex);
+	// clang-format off
+	assert (std::find_if (stats.cbegin (), stats.cend (), matches_txn (transaction_impl)) == stats.cend ());
+	// clang-format on
 	stats.emplace_back (transaction_impl);
 }
 
+/** Can be called without error if transaction does not exist */
 void nano::mdb_txn_tracker::erase (const nano::transaction_impl * transaction_impl)
 {
 	std::lock_guard<std::mutex> guard (mutex);
 	// clang-format off
-	auto it = std::find_if (stats.begin (), stats.end (), [transaction_impl] (const auto & mdb_txn_stats) {
-		return (mdb_txn_stats.transaction_impl == transaction_impl);
-	});
+	auto it = std::find_if (stats.begin (), stats.end (), matches_txn (transaction_impl));
 	// clang-format on
-	assert (it != stats.cend ());
-	output_finished (*it);
-	it->timer.stop ();
-	stats.erase (it);
+	if (it != stats.end ())
+	{
+		output_finished (*it);
+		it->timer.stop ();
+		stats.erase (it);
+	}
 }
 
 nano::mdb_txn_stats::mdb_txn_stats (const nano::transaction_impl * transaction_impl) :
