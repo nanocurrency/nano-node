@@ -14,12 +14,12 @@ public:
 	void serialize (nano::stream &) const;
 	bool deserialize (nano::stream &);
 	static size_t size (nano::block_type);
-	nano::block_type type;
-	nano::block_hash successor;
-	nano::account account;
-	nano::amount balance;
-	uint64_t height;
-	uint64_t timestamp;
+	nano::block_type type{ nano::block_type::invalid };
+	nano::block_hash successor{ 0 };
+	nano::account account{ 0 };
+	nano::amount balance{ 0 };
+	uint64_t height{ 0 };
+	uint64_t timestamp{ 0 };
 };
 class transaction;
 class block_store;
