@@ -1759,11 +1759,11 @@ void nano::json_handler::confirmation_quorum ()
 void nano::json_handler::database_txn_tracker ()
 {
 	boost::property_tree::ptree json;
-	unsigned min_time_seconds;
-	auto success = boost::conversion::try_lexical_convert <unsigned> (request.get<std::string> ("min_time"), min_time_seconds);
+	unsigned min_time_milliseconds;
+	auto success = boost::conversion::try_lexical_convert <unsigned> (request.get<std::string> ("min_time"), min_time_milliseconds);
 	if (success)
 	{
-		node.store.serialize_mdb_tracker (json, std::chrono::seconds (min_time_seconds));
+		node.store.serialize_mdb_tracker (json, std::chrono::milliseconds (min_time_milliseconds));
 		response_l.put_child ("json", json);
 	}
 	else

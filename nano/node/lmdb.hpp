@@ -294,7 +294,7 @@ public:
 	bool full_sideband (nano::transaction const &) const;
 	MDB_dbi get_account_db (nano::epoch epoch_a) const;
 	size_t block_successor_offset (nano::transaction const &, MDB_val, nano::block_type) const;
-	void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::seconds) override;
+	void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::milliseconds) override;
 
 	nano::logger_mt & logger;
 

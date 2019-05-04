@@ -24,7 +24,7 @@
 #endif
 #endif
 
-std::chrono::seconds constexpr nano::mdb_txn_tracker::min_time_held_open_ouput;
+std::chrono::milliseconds constexpr nano::mdb_txn_tracker::min_time_held_open_ouput;
 
 nano::mdb_txn_tracker::mdb_txn_tracker (nano::logger_mt & logger_a, bool is_logging_database_locking_a) :
 logger (logger_a),
@@ -32,7 +32,7 @@ is_logging_database_locking (is_logging_database_locking_a)
 {
 }
 
-void nano::mdb_txn_tracker::serialize_json (boost::property_tree::ptree & json, std::chrono::seconds min_time)
+void nano::mdb_txn_tracker::serialize_json (boost::property_tree::ptree & json, std::chrono::milliseconds min_time)
 {
 	// Copying is cheap compared to generating the stack trace strings, so reduce time holding the mutex
 	std::vector<mdb_txn_stats> copy_stats;
@@ -42,7 +42,7 @@ void nano::mdb_txn_tracker::serialize_json (boost::property_tree::ptree & json, 
 	}
 
 	// Get the time difference now as creating stacktraces (Debug/Windows for instance) can take a while so results won't be as accurate
-	std::vector<std::chrono::seconds> times_since_start;
+	std::vector<std::chrono::milliseconds> times_since_start;
 	times_since_start.reserve (copy_stats.size ());
 	// clang-format off
 	std::transform (copy_stats.cbegin (), copy_stats.cend (), std::back_inserter (times_since_start), [] (const auto & stat) {
@@ -88,7 +88,7 @@ void nano::mdb_txn_tracker::output_finished (nano::mdb_txn_stats & mdb_txn_stats
 	if (is_logging_database_locking && mdb_txn_stats.timer.since_start () >= min_time_held_open_ouput)
 	{
 		assert (mdb_txn_stats.stacktrace);
-		logger.always_log (boost::str (boost::format ("%1%s %2% held on thread %3%\n%4%") % mdb_txn_stats.timer.since_start ().count () % (mdb_txn_stats.is_write () ? "write lock" : "read") % mdb_txn_stats.thread_name % *mdb_txn_stats.stacktrace));
+		logger.always_log (boost::str (boost::format ("%1%ms %2% held on thread %3%\n%4%") % mdb_txn_stats.timer.since_start ().count () % (mdb_txn_stats.is_write () ? "write lock" : "read") % mdb_txn_stats.thread_name % *mdb_txn_stats.stacktrace));
 	}
 }
 

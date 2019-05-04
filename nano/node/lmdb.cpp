@@ -861,7 +861,7 @@ mdb_txn_tracker (logger_a, is_logging_database_txns)
 	}
 }
 
-void nano::mdb_store::serialize_mdb_tracker (boost::property_tree::ptree & json, std::chrono::seconds min_time)
+void nano::mdb_store::serialize_mdb_tracker (boost::property_tree::ptree & json, std::chrono::milliseconds min_time)
 {
 	mdb_txn_tracker.serialize_json (json, min_time);
 }

@@ -15,7 +15,7 @@ class mdb_txn_stats
 public:
 	mdb_txn_stats (const nano::transaction_impl * transaction_impl_a);
 	bool is_write () const;
-	nano::timer<std::chrono::seconds> timer;
+	nano::timer<std::chrono::milliseconds> timer;
 	const nano::transaction_impl * transaction_impl;
 	std::string thread_name;
 
@@ -27,7 +27,7 @@ class mdb_txn_tracker
 {
 public:
 	mdb_txn_tracker (nano::logger_mt & logger_a, bool is_logging_database_locking_a);
-	void serialize_json (boost::property_tree::ptree & json, std::chrono::seconds min_time);
+	void serialize_json (boost::property_tree::ptree & json, std::chrono::milliseconds min_time);
 	void add (const nano::transaction_impl * transaction_impl);
 	void erase (const nano::transaction_impl * transaction_impl);
 
@@ -37,6 +37,6 @@ private:
 	nano::logger_mt & logger;
 	bool is_logging_database_locking;
 	void output_finished (nano::mdb_txn_stats & mdb_txn_stats);
-	static std::chrono::seconds constexpr min_time_held_open_ouput{ 5 };
+	static std::chrono::milliseconds constexpr min_time_held_open_ouput{ 5000 };
 };
 }
