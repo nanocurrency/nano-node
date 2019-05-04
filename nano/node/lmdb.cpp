@@ -68,16 +68,82 @@ nano::mdb_env::operator MDB_env * () const
 	return environment;
 }
 
-nano::transaction nano::mdb_env::tx_begin (bool write_a, std::function<void (transaction_impl *)> txn_end_callback) const
+nano::read_transaction nano::mdb_env::tx_begin_read (mdb_txn_callbacks mdb_txn_callbacks) const
 {
-	return { std::make_unique<nano::mdb_txn> (*this, write_a, txn_end_callback) };
+	return nano::read_transaction{ std::make_unique<nano::read_mdb_txn> (*this, mdb_txn_callbacks) };
+}
+
+nano::write_transaction nano::mdb_env::tx_begin_write (mdb_txn_callbacks mdb_txn_callbacks) const
+{
+	return nano::write_transaction{ std::make_unique<nano::write_mdb_txn> (*this, mdb_txn_callbacks) };
 }
 
 MDB_txn * nano::mdb_env::tx (nano::transaction const & transaction_a) const
 {
-	auto result (boost::polymorphic_downcast<nano::mdb_txn *> (transaction_a.impl.get ()));
-	release_assert (mdb_txn_env (result->handle) == environment);
-	return *result;
+	return static_cast<MDB_txn *> (transaction_a.get_handle ());
+}
+
+nano::read_mdb_txn::read_mdb_txn (nano::mdb_env const & environment_a, nano::mdb_txn_callbacks txn_callbacks_a)
+	: txn_callbacks (txn_callbacks_a)
+{
+	auto status (mdb_txn_begin (environment_a, nullptr, MDB_RDONLY, &handle));
+	release_assert (status == 0);
+	txn_callbacks.txn_start (this);
+}
+
+nano::read_mdb_txn::~read_mdb_txn ()
+{
+	mdb_txn_abort (handle);
+	txn_callbacks.txn_end (this);
+}
+
+void nano::read_mdb_txn::reset () const
+{
+	mdb_txn_reset (handle);
+	txn_callbacks.txn_end (this);
+}
+
+void nano::read_mdb_txn::renew () const
+{
+	auto status (mdb_txn_renew (handle));
+	release_assert (status == 0);
+	txn_callbacks.txn_start (this);
+}
+
+void * nano::read_mdb_txn::get_handle () const
+{
+	return handle;
+}
+
+nano::write_mdb_txn::write_mdb_txn (nano::mdb_env const & environment_a, nano::mdb_txn_callbacks txn_callbacks_a)
+	: env (environment_a),
+	txn_callbacks (txn_callbacks_a)
+{
+	renew ();
+}
+
+nano::write_mdb_txn::~write_mdb_txn ()
+{
+	commit ();
+}
+
+void nano::write_mdb_txn::commit () const
+{
+	auto status (mdb_txn_commit (handle));
+	release_assert (status == MDB_SUCCESS);
+	txn_callbacks.txn_end (this);
+}
+
+void nano::write_mdb_txn::renew ()
+{
+	auto status (mdb_txn_begin (env, nullptr, 0, &handle));
+	release_assert (status == MDB_SUCCESS);
+	txn_callbacks.txn_start (this);
+}
+
+void * nano::write_mdb_txn::get_handle () const
+{
+	return handle;
 }
 
 nano::mdb_val::mdb_val (nano::epoch epoch_a) :
@@ -347,30 +413,11 @@ nano::mdb_val::operator MDB_val * () const
 {
 	// Allow passing a temporary to a non-c++ function which doesn't have constness
 	return const_cast<MDB_val *> (&value);
-};
+}
 
 nano::mdb_val::operator MDB_val const & () const
 {
 	return value;
-}
-
-nano::mdb_txn::mdb_txn (nano::mdb_env const & environment_a, bool write_a, std::function<void (nano::transaction_impl *)> txn_end_callback_a) :
-txn_end_callback (txn_end_callback_a)
-{
-	auto status (mdb_txn_begin (environment_a, nullptr, write_a ? 0 : MDB_RDONLY, &handle));
-	release_assert (status == 0);
-}
-
-nano::mdb_txn::~mdb_txn ()
-{
-	auto status (mdb_txn_commit (handle));
-	release_assert (status == 0);
-	txn_end_callback (this);
-}
-
-nano::mdb_txn::operator MDB_txn * () const
-{
-	return handle;
 }
 
 namespace nano
@@ -561,8 +608,7 @@ void nano::mdb_iterator<T, U>::clear ()
 template <typename T, typename U>
 MDB_txn * nano::mdb_iterator<T, U>::tx (nano::transaction const & transaction_a) const
 {
-	auto result (boost::polymorphic_downcast<nano::mdb_txn *> (transaction_a.impl.get ()));
-	return *result;
+	return static_cast<MDB_txn *> (transaction_a.get_handle ());
 }
 
 template <typename T, typename U>
@@ -820,27 +866,28 @@ void nano::mdb_store::serialize_mdb_tracker (boost::property_tree::ptree & json,
 	mdb_txn_tracker.serialize_json (json, min_time);
 }
 
-nano::transaction nano::mdb_store::tx_begin_write ()
+nano::write_transaction nano::mdb_store::tx_begin_write ()
 {
-	return tx_begin (true);
+	return env.tx_begin_write (create_txn_callbacks ());
 }
 
-nano::transaction nano::mdb_store::tx_begin_read ()
+nano::read_transaction nano::mdb_store::tx_begin_read ()
 {
-	return tx_begin (false);
+	return env.tx_begin_read (create_txn_callbacks ());
 }
 
-nano::transaction nano::mdb_store::tx_begin (bool write_a)
+nano::mdb_txn_callbacks nano::mdb_store::create_txn_callbacks ()
 {
+	nano::mdb_txn_callbacks mdb_txn_callbacks; 
 	// clang-format off
-	auto end_callback ([&mdb_txn_tracker = mdb_txn_tracker](nano::transaction_impl * transaction_impl) {
+	mdb_txn_callbacks.txn_start = ([&mdb_txn_tracker = mdb_txn_tracker](const nano::transaction_impl * transaction_impl) {
+		mdb_txn_tracker.add (transaction_impl);
+	});
+	mdb_txn_callbacks.txn_end = ([&mdb_txn_tracker = mdb_txn_tracker](const nano::transaction_impl * transaction_impl) {
 		mdb_txn_tracker.erase (transaction_impl);
 	});
 	// clang-format on
-
-	auto txn = env.tx_begin (write_a, end_callback);
-	mdb_txn_tracker.add (txn.impl.get (), write_a);
-	return txn;
+	return mdb_txn_callbacks;
 }
 
 /**
@@ -940,7 +987,7 @@ nano::store_iterator<nano::endpoint_key, nano::no_value> nano::mdb_store::peers_
 	return result;
 }
 
-void nano::mdb_store::do_upgrades (nano::transaction const & transaction_a, size_t batch_size)
+void nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, size_t batch_size)
 {
 	switch (version_get (transaction_a))
 	{
@@ -1172,7 +1219,7 @@ void nano::mdb_store::upgrade_v11_to_v12 (nano::transaction const & transaction_
 	mdb_drop (env.tx (transaction_a), checksum, 1);
 }
 
-void nano::mdb_store::upgrade_v12_to_v13 (nano::transaction const & transaction_a, size_t const batch_size)
+void nano::mdb_store::upgrade_v12_to_v13 (nano::write_transaction & transaction_a, size_t const batch_size)
 {
 	size_t cost (0);
 	nano::account account (0);
@@ -1200,12 +1247,9 @@ void nano::mdb_store::upgrade_v12_to_v13 (nano::transaction const & transaction_
 				if (cost >= batch_size)
 				{
 					logger.always_log (boost::str (boost::format ("Upgrading sideband information for account %1%... height %2%") % first.to_account ().substr (0, 24) % std::to_string (height)));
-					auto tx (boost::polymorphic_downcast<nano::mdb_txn *> (transaction_a.impl.get ()));
-					auto status0 (mdb_txn_commit (*tx));
-					release_assert (status0 == MDB_SUCCESS);
+					transaction_a.commit ();
 					std::this_thread::yield ();
-					auto status1 (mdb_txn_begin (env, nullptr, 0, &tx->handle));
-					release_assert (status1 == MDB_SUCCESS);
+					transaction_a.renew ();
 					cost = 0;
 				}
 				auto block (block_get (transaction_a, hash, &sideband));

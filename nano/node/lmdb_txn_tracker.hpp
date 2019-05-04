@@ -13,14 +13,14 @@ class logger_mt;
 class mdb_txn_stats
 {
 public:
-	mdb_txn_stats (nano::transaction_impl * transaction_impl_a, bool is_write_a);
+	mdb_txn_stats (const nano::transaction_impl * transaction_impl_a);
+	bool is_write () const;
 	nano::timer<std::chrono::seconds> timer;
-	nano::transaction_impl * transaction_impl;
+	const nano::transaction_impl * transaction_impl;
 	std::string thread_name;
 
 	// Smart pointer so that we don't need the full definition which causes min/max issues on Windows
 	std::shared_ptr<boost::stacktrace::stacktrace> stacktrace;
-	bool is_write;
 };
 
 class mdb_txn_tracker
@@ -28,8 +28,8 @@ class mdb_txn_tracker
 public:
 	mdb_txn_tracker (nano::logger_mt & logger_a, bool is_logging_database_locking_a);
 	void serialize_json (boost::property_tree::ptree & json, std::chrono::seconds min_time);
-	void add (nano::transaction_impl * transaction_impl, bool is_write_a);
-	void erase (nano::transaction_impl * transaction_impl);
+	void add (const nano::transaction_impl * transaction_impl);
+	void erase (const nano::transaction_impl * transaction_impl);
 
 private:
 	std::mutex mutex;

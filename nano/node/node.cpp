@@ -1797,7 +1797,7 @@ void nano::node::unchecked_cleanup ()
 		{
 			nano::unchecked_key key (i->first);
 			nano::unchecked_info info (i->second);
-			if ((now - info.modified) > config.unchecked_cutoff_time.count ())
+			if ((now - info.modified) > static_cast<uint64_t> (config.unchecked_cutoff_time.count ()))
 			{
 				cleaning_list.push_back (key);
 			}

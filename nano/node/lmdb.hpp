@@ -17,18 +17,37 @@ namespace nano
 {
 class mdb_env;
 class account_info_v13;
-class mdb_txn : public transaction_impl
+
+class mdb_txn_callbacks
 {
 public:
-	mdb_txn (nano::mdb_env const &, bool = false, std::function<void(transaction_impl*)> txn_end_callback = [](nano::transaction_impl*){});
-	mdb_txn (nano::mdb_txn const &) = delete;
-	mdb_txn (nano::mdb_txn &&) = default;
-	~mdb_txn ();
-	nano::mdb_txn & operator= (nano::mdb_txn const &) = delete;
-	nano::mdb_txn & operator= (nano::mdb_txn &&) = default;
-	operator MDB_txn * () const;
+	std::function<void (const nano::transaction_impl *)> txn_start {[](const nano::transaction_impl*){}};
+	std::function<void (const nano::transaction_impl *)> txn_end {[](const nano::transaction_impl*){}};
+};
+
+class read_mdb_txn final : public read_transaction_impl
+{
+public:
+	read_mdb_txn (nano::mdb_env const &, mdb_txn_callbacks mdb_txn_callbacks);
+	~read_mdb_txn ();
+	void reset () const override;
+	void renew () const override;
+	void * get_handle () const override;
 	MDB_txn * handle;
-	std::function<void(transaction_impl*)> txn_end_callback;
+	mdb_txn_callbacks txn_callbacks;
+};
+
+class write_mdb_txn final : public write_transaction_impl
+{
+public:
+	write_mdb_txn (nano::mdb_env const &, mdb_txn_callbacks mdb_txn_callbacks);
+	~write_mdb_txn ();
+	void commit () const override;
+	void renew () override;
+	void * get_handle () const override;
+	MDB_txn * handle;
+	nano::mdb_env const & env;
+	mdb_txn_callbacks txn_callbacks;
 };
 /**
  * RAII wrapper for MDB_env
@@ -40,9 +59,10 @@ public:
 	~mdb_env ();
 	operator MDB_env * () const;
 	// clang-format off
-	nano::transaction tx_begin (bool = false, std::function<void(transaction_impl*)> txn_end_callback = [](nano::transaction_impl*){}) const;
+	nano::read_transaction tx_begin_read (mdb_txn_callbacks txn_callbacks = mdb_txn_callbacks{}) const;
+	nano::write_transaction tx_begin_write (mdb_txn_callbacks txn_callbacks = mdb_txn_callbacks{}) const;
+	MDB_txn * tx (nano::transaction const & transaction_a) const;
 	// clang-format on
-	MDB_txn * tx (nano::transaction const &) const;
 	MDB_env * environment;
 };
 
@@ -159,9 +179,8 @@ class mdb_store : public block_store
 
 public:
 	mdb_store (bool &, nano::logger_mt &, boost::filesystem::path const &, bool = false, int lmdb_max_dbs = 128, bool drop_unchecked = false, size_t batch_size = 512);
-	nano::transaction tx_begin_write () override;
-	nano::transaction tx_begin_read () override;
-	nano::transaction tx_begin (bool write = false) override;
+	nano::write_transaction tx_begin_write () override;
+	nano::read_transaction tx_begin_read () override;
 
 	void initialize (nano::transaction const &, nano::genesis const &) override;
 	void block_put (nano::transaction const &, nano::block_hash const &, nano::block const &, nano::block_sideband const &, nano::epoch version = nano::epoch::epoch_0) override;
@@ -399,7 +418,7 @@ private:
 	boost::optional<MDB_val> block_raw_get_by_type (nano::transaction const &, nano::block_hash const &, nano::block_type &) const;
 	void block_raw_put (nano::transaction const &, MDB_dbi, nano::block_hash const &, MDB_val);
 	void clear (MDB_dbi);
-	void do_upgrades (nano::transaction const &, size_t);
+	void do_upgrades (nano::write_transaction &, size_t);
 	void upgrade_v1_to_v2 (nano::transaction const &);
 	void upgrade_v2_to_v3 (nano::transaction const &);
 	void upgrade_v3_to_v4 (nano::transaction const &);
@@ -411,10 +430,11 @@ private:
 	void upgrade_v9_to_v10 (nano::transaction const &);
 	void upgrade_v10_to_v11 (nano::transaction const &);
 	void upgrade_v11_to_v12 (nano::transaction const &);
-	void upgrade_v12_to_v13 (nano::transaction const &, size_t);
+	void upgrade_v12_to_v13 (nano::write_transaction &, size_t);
 	void upgrade_v13_to_v14 (nano::transaction const &);
 	MDB_dbi get_pending_db (nano::epoch epoch_a) const;
 	nano::mdb_txn_tracker mdb_txn_tracker;
+	nano::mdb_txn_callbacks create_txn_callbacks ();
 };
 class wallet_value
 {

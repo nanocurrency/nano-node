@@ -191,15 +191,60 @@ class transaction_impl
 {
 public:
 	virtual ~transaction_impl () = default;
+	virtual void * get_handle () const = 0;
 };
-/**
- * RAII wrapper of MDB_txn where the constructor starts the transaction
- * and the destructor commits it.
- */
-class transaction final
+
+class read_transaction_impl : public transaction_impl
 {
 public:
-	std::unique_ptr<nano::transaction_impl> impl;
+	virtual void reset () const = 0;
+	virtual void renew () const = 0;
+};
+
+class write_transaction_impl : public transaction_impl
+{
+public:
+	virtual void commit () const = 0;
+	virtual void renew () = 0;
+};
+
+class transaction
+{
+public:
+	virtual ~transaction () = default;
+	virtual void * get_handle () const = 0;
+};
+
+/**
+ * RAII wrapper of a read MDB_txn where the constructor starts the transaction
+ * and the destructor aborts it.
+ */
+class read_transaction final : public transaction
+{
+public:
+	explicit read_transaction (std::unique_ptr<nano::read_transaction_impl> read_transaction_impl);
+	void * get_handle () const override;
+	void reset () const;
+	void renew () const;
+
+private:
+	std::unique_ptr<nano::read_transaction_impl> impl;
+};
+
+/**
+ * RAII wrapper of a read-write MDB_txn where the constructor starts the transaction
+ * and the destructor commits it.
+ */
+class write_transaction final : public transaction
+{
+public:
+	explicit write_transaction (std::unique_ptr<nano::write_transaction_impl> write_transaction_impl);
+	void * get_handle () const override;
+	void commit () const;
+	void renew ();
+
+private:
+	std::unique_ptr<nano::write_transaction_impl> impl;
 };
 
 /**
@@ -313,15 +358,9 @@ public:
 	virtual void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::seconds) = 0;
 
 	/** Start read-write transaction */
-	virtual nano::transaction tx_begin_write () = 0;
+	virtual nano::write_transaction tx_begin_write () = 0;
 
 	/** Start read-only transaction */
-	virtual nano::transaction tx_begin_read () = 0;
-
-	/**
-	 * Start a read-only or read-write transaction
-	 * @param write If true, start a read-write transaction
-	 */
-	virtual nano::transaction tx_begin (bool write = false) = 0;
+	virtual nano::read_transaction tx_begin_read () = 0;
 };
 }

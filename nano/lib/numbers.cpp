@@ -602,7 +602,8 @@ bool nano::uint128_union::decode_dec (std::string const & text, nano::uint128_t 
 						if (!error)
 						{
 							auto base10 = boost::multiprecision::cpp_int (10);
-							auto pow10 = boost::multiprecision::pow (base10, (scale_length - decimal_text.length () - 1));
+							release_assert ((scale_length - decimal_text.length () - 1) <= std::numeric_limits<unsigned>::max ());
+							auto pow10 = boost::multiprecision::pow (base10, static_cast<unsigned> (scale_length - decimal_text.length () - 1));
 							auto decimal_part_num = decimal_part.number ();
 							auto integer_part_scaled = integer_part.number () * scale;
 							auto decimal_part_mult_pow = decimal_part_num * pow10;

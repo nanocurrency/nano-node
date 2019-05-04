@@ -5,8 +5,8 @@
 std::chrono::seconds constexpr nano::transport::udp_channels::syn_cookie_cutoff;
 
 nano::transport::channel_udp::channel_udp (nano::transport::udp_channels & channels_a, nano::endpoint const & endpoint_a, unsigned network_version_a) :
-endpoint (endpoint_a),
 network_version (network_version_a),
+endpoint (endpoint_a),
 channels (channels_a)
 {
 	assert (endpoint_a.address ().is_v6 ());
