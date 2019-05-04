@@ -72,14 +72,10 @@ balance_label (new QLabel),
 wallet (wallet_a)
 {
 	your_account_label->setStyleSheet ("font-weight: bold;");
-	std::string network = "Live";
-	if (wallet.node.network_params.network.is_beta_network ())
+	std::string network = wallet.node.network_params.active_network_label ();
+	if (!network.empty ())
 	{
-		network = "Beta";
-	}
-	else if (wallet.node.network_params.network.is_test_network ())
-	{
-		network = "Test";
+		network[0] = std::toupper (network[0]);
 	}
 	if (NANO_VERSION_PATCH == 0)
 	{
