@@ -83,8 +83,8 @@ MDB_txn * nano::mdb_env::tx (nano::transaction const & transaction_a) const
 	return static_cast<MDB_txn *> (transaction_a.get_handle ());
 }
 
-nano::read_mdb_txn::read_mdb_txn (nano::mdb_env const & environment_a, nano::mdb_txn_callbacks txn_callbacks_a)
-	: txn_callbacks (txn_callbacks_a)
+nano::read_mdb_txn::read_mdb_txn (nano::mdb_env const & environment_a, nano::mdb_txn_callbacks txn_callbacks_a) :
+txn_callbacks (txn_callbacks_a)
 {
 	auto status (mdb_txn_begin (environment_a, nullptr, MDB_RDONLY, &handle));
 	release_assert (status == 0);
@@ -115,9 +115,9 @@ void * nano::read_mdb_txn::get_handle () const
 	return handle;
 }
 
-nano::write_mdb_txn::write_mdb_txn (nano::mdb_env const & environment_a, nano::mdb_txn_callbacks txn_callbacks_a)
-	: env (environment_a),
-	txn_callbacks (txn_callbacks_a)
+nano::write_mdb_txn::write_mdb_txn (nano::mdb_env const & environment_a, nano::mdb_txn_callbacks txn_callbacks_a) :
+env (environment_a),
+txn_callbacks (txn_callbacks_a)
 {
 	renew ();
 }
@@ -878,7 +878,7 @@ nano::read_transaction nano::mdb_store::tx_begin_read ()
 
 nano::mdb_txn_callbacks nano::mdb_store::create_txn_callbacks ()
 {
-	nano::mdb_txn_callbacks mdb_txn_callbacks; 
+	nano::mdb_txn_callbacks mdb_txn_callbacks;
 	// clang-format off
 	mdb_txn_callbacks.txn_start = ([&mdb_txn_tracker = mdb_txn_tracker](const nano::transaction_impl * transaction_impl) {
 		mdb_txn_tracker.add (transaction_impl);

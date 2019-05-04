@@ -2,8 +2,8 @@
 
 #include <boost/polymorphic_cast.hpp>
 #include <nano/lib/jsonconfig.hpp>
-#include <nano/lib/utility.hpp>
 #include <nano/lib/logger_mt.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/secure/blockstore.hpp>
 
 // Some builds (mac) fail due to "Boost.Stacktrace requires `_Unwind_Backtrace` function".

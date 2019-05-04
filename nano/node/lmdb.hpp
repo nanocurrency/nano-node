@@ -21,8 +21,10 @@ class account_info_v13;
 class mdb_txn_callbacks
 {
 public:
-	std::function<void (const nano::transaction_impl *)> txn_start {[](const nano::transaction_impl*){}};
-	std::function<void (const nano::transaction_impl *)> txn_end {[](const nano::transaction_impl*){}};
+	// clang-format off
+	std::function<void (const nano::transaction_impl *)> txn_start{ [] (const nano::transaction_impl *) {} };
+	std::function<void (const nano::transaction_impl *)> txn_end{ [] (const nano::transaction_impl *) {} };
+	// clang-format on
 };
 
 class read_mdb_txn final : public read_transaction_impl
