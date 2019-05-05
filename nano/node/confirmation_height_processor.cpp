@@ -199,7 +199,7 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 			return total += conf_height_details_a.num_blocks_confirmed;
 		});
 
-		if ((total_pending_write_block_count >= batch_write_size || receive_source_pairs.empty ()) && !pending_writes.empty ())
+		if ((pending_writes.size () >= batch_write_size || receive_source_pairs.empty ()) && !pending_writes.empty ())
 		{
 			error = write_pending (pending_writes, total_pending_write_block_count);
 			// Don't set any more blocks as confirmed from the original hash if an inconsistency is found
@@ -231,7 +231,7 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 	// Write in batches
 	while (total_pending_write_block_count > 0)
 	{
-		uint64_t num_block_writes = 0;
+		uint64_t num_accounts_processed = 0;
 		auto transaction (store.tx_begin_write ());
 		while (!all_pending_a.empty ())
 		{
@@ -263,10 +263,10 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 				store.account_put (transaction, pending.account, account_info);
 			}
 			total_pending_write_block_count -= pending.num_blocks_confirmed;
-			num_block_writes += pending.num_blocks_confirmed;
+			++num_accounts_processed;
 			all_pending_a.erase (all_pending_a.begin ());
 
-			if (num_block_writes >= batch_write_size)
+			if (num_accounts_processed >= batch_write_size)
 			{
 				// Commit changes periodically to reduce time holding write locks for long chains
 				break;
