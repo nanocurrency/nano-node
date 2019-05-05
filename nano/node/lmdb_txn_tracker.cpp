@@ -44,15 +44,13 @@ private:
 };
 }
 
-std::chrono::milliseconds constexpr nano::mdb_txn_tracker::min_time_held_open_ouput;
-
-nano::mdb_txn_tracker::mdb_txn_tracker (nano::logger_mt & logger_a, bool is_logging_database_locking_a) :
+nano::mdb_txn_tracker::mdb_txn_tracker (nano::logger_mt & logger_a, nano::txn_tracking_config const & txn_tracking_config_a) :
 logger (logger_a),
-is_logging_database_locking (is_logging_database_locking_a)
+txn_tracking_config (txn_tracking_config_a)
 {
 }
 
-void nano::mdb_txn_tracker::serialize_json (boost::property_tree::ptree & json, std::chrono::milliseconds min_time)
+void nano::mdb_txn_tracker::serialize_json (boost::property_tree::ptree & json, std::chrono::milliseconds min_read_time, std::chrono::milliseconds min_write_time)
 {
 	// Copying is cheap compared to generating the stack trace strings, so reduce time holding the mutex
 	std::vector<mdb_txn_stats> copy_stats;
@@ -76,7 +74,7 @@ void nano::mdb_txn_tracker::serialize_json (boost::property_tree::ptree & json, 
 		auto const & stat = copy_stats[i];
 		auto time_held_open = times_since_start[i];
 
-		if (time_held_open >= min_time)
+		if ((stat.is_write () && time_held_open >= min_write_time) || (!stat.is_write () && time_held_open >= min_read_time))
 		{
 			nano::jsonconfig mdb_lock_config;
 
@@ -102,13 +100,15 @@ void nano::mdb_txn_tracker::serialize_json (boost::property_tree::ptree & json, 
 	}
 }
 
-void nano::mdb_txn_tracker::output_finished (nano::mdb_txn_stats const & mdb_txn_stats)
+void nano::mdb_txn_tracker::output_finished (nano::mdb_txn_stats const & mdb_txn_stats) const
 {
 	// Only output them if transactions were held for longer than a certain period of time
-	if (is_logging_database_locking && mdb_txn_stats.timer.since_start () >= min_time_held_open_ouput)
+	auto is_write = mdb_txn_stats.is_write ();
+	auto time_open = mdb_txn_stats.timer.since_start ();
+	if ((is_write && time_open >= txn_tracking_config.min_write_txn_time) || (!is_write && time_open >= txn_tracking_config.min_read_txn_time))
 	{
 		assert (mdb_txn_stats.stacktrace);
-		logger.always_log (boost::str (boost::format ("%1%ms %2% held on thread %3%\n%4%") % mdb_txn_stats.timer.since_start ().count () % (mdb_txn_stats.is_write () ? "write lock" : "read") % mdb_txn_stats.thread_name % *mdb_txn_stats.stacktrace));
+		logger.always_log (boost::str (boost::format ("%1%ms %2% held on thread %3%\n%4%") % mdb_txn_stats.timer.since_start ().count () % (is_write ? "write lock" : "read") % mdb_txn_stats.thread_name % *mdb_txn_stats.stacktrace));
 	}
 }
 

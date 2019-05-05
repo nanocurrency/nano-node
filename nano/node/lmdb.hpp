@@ -7,6 +7,7 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/node/diagnosticsconfig.hpp>
 #include <nano/node/lmdb_txn_tracker.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
@@ -180,7 +181,7 @@ class mdb_store : public block_store
 	friend class nano::block_predecessor_set;
 
 public:
-	mdb_store (bool &, nano::logger_mt &, boost::filesystem::path const &, bool = false, int lmdb_max_dbs = 128, bool drop_unchecked = false, size_t batch_size = 512);
+	mdb_store (bool &, nano::logger_mt &, boost::filesystem::path const &, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, int lmdb_max_dbs = 128, bool drop_unchecked = false, size_t batch_size = 512);
 	nano::write_transaction tx_begin_write () override;
 	nano::read_transaction tx_begin_read () override;
 
@@ -294,7 +295,7 @@ public:
 	bool full_sideband (nano::transaction const &) const;
 	MDB_dbi get_account_db (nano::epoch epoch_a) const;
 	size_t block_successor_offset (nano::transaction const &, MDB_val, nano::block_type) const;
-	void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::milliseconds) override;
+	void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::milliseconds, std::chrono::milliseconds) override;
 
 	nano::logger_mt & logger;
 
@@ -437,6 +438,7 @@ private:
 	MDB_dbi get_pending_db (nano::epoch epoch_a) const;
 	nano::mdb_txn_tracker mdb_txn_tracker;
 	nano::mdb_txn_callbacks create_txn_callbacks ();
+	bool txn_tracking_enabled;
 };
 class wallet_value
 {

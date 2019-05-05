@@ -1759,16 +1759,43 @@ void nano::json_handler::confirmation_quorum ()
 void nano::json_handler::database_txn_tracker ()
 {
 	boost::property_tree::ptree json;
-	unsigned min_time_milliseconds;
-	auto success = boost::conversion::try_lexical_convert <unsigned> (request.get<std::string> ("min_time"), min_time_milliseconds);
-	if (success)
+
+	if (node.config.diagnostics_config.txn_tracking.enable)
 	{
-		node.store.serialize_mdb_tracker (json, std::chrono::milliseconds (min_time_milliseconds));
-		response_l.put_child ("json", json);
+		unsigned min_read_time_milliseconds = 0;
+		boost::optional<std::string> min_read_time_text (request.get_optional<std::string> ("min_read_time"));
+		if (min_read_time_text.is_initialized ())
+		{
+			auto success = boost::conversion::try_lexical_convert<unsigned> (*min_read_time_text, min_read_time_milliseconds);
+			if (!success)
+			{
+				ec = nano::error_common::invalid_amount;
+			}
+		}
+
+		unsigned min_write_time_milliseconds = 0;
+		if (!ec)
+		{
+			boost::optional<std::string> min_write_time_text (request.get_optional<std::string> ("min_write_time"));
+			if (min_write_time_text.is_initialized ())
+			{
+				auto success = boost::conversion::try_lexical_convert<unsigned> (*min_write_time_text, min_write_time_milliseconds);
+				if (!success)
+				{
+					ec = nano::error_common::invalid_amount;
+				}
+			}
+		}
+
+		if (!ec)
+		{
+			node.store.serialize_mdb_tracker (json, std::chrono::milliseconds (min_read_time_milliseconds), std::chrono::milliseconds (min_write_time_milliseconds));
+			response_l.put_child ("txn_tracking", json);
+		}
 	}
 	else
 	{
-		ec = nano::error_common::invalid_amount;
+		ec = nano::error_common::tracking_not_enabled;
 	}
 
 	response_errors ();

@@ -4,6 +4,7 @@
 #include <boost/stacktrace/stacktrace_fwd.hpp>
 #include <mutex>
 #include <nano/lib/timer.hpp>
+#include <nano/node/diagnosticsconfig.hpp>
 
 namespace nano
 {
@@ -26,8 +27,8 @@ public:
 class mdb_txn_tracker
 {
 public:
-	mdb_txn_tracker (nano::logger_mt & logger_a, bool is_logging_database_locking_a);
-	void serialize_json (boost::property_tree::ptree & json, std::chrono::milliseconds min_time);
+	mdb_txn_tracker (nano::logger_mt & logger_a, nano::txn_tracking_config const & txn_tracking_config_a);
+	void serialize_json (boost::property_tree::ptree & json, std::chrono::milliseconds min_read_time, std::chrono::milliseconds min_write_time);
 	void add (const nano::transaction_impl * transaction_impl);
 	void erase (const nano::transaction_impl * transaction_impl);
 
@@ -35,8 +36,8 @@ private:
 	std::mutex mutex;
 	std::vector<mdb_txn_stats> stats;
 	nano::logger_mt & logger;
-	bool is_logging_database_locking;
-	void output_finished (nano::mdb_txn_stats const & mdb_txn_stats);
-	static std::chrono::milliseconds constexpr min_time_held_open_ouput{ 5000 };
+	nano::txn_tracking_config txn_tracking_config;
+
+	void output_finished (nano::mdb_txn_stats const & mdb_txn_stats) const;
 };
 }

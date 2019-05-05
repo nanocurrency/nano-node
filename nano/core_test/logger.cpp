@@ -27,7 +27,6 @@ TEST (logging, serialization)
 	logging1.log_to_cerr_value = !logging1.log_to_cerr_value;
 	logging1.max_size = 10;
 	logging1.min_time_between_log_output = 100ms;
-	logging1.long_database_txns_value = !logging1.long_database_txns_value;
 	nano::jsonconfig tree;
 	logging1.serialize_json (tree);
 	nano::logging logging2;
@@ -50,7 +49,6 @@ TEST (logging, serialization)
 	ASSERT_EQ (logging1.log_to_cerr_value, logging2.log_to_cerr_value);
 	ASSERT_EQ (logging1.max_size, logging2.max_size);
 	ASSERT_EQ (logging1.min_time_between_log_output, logging2.min_time_between_log_output);
-	ASSERT_EQ (logging1.long_database_txns_value, logging2.long_database_txns_value);
 }
 
 TEST (logging, upgrade_v1_v2)
@@ -83,13 +81,11 @@ TEST (logging, upgrade_v6_v7)
 	logging1.serialize_json (tree);
 	tree.erase ("version");
 	tree.erase ("min_time_between_output");
-	tree.erase ("long_database_txns");
 	bool upgraded (false);
 	ASSERT_FALSE (logging2.deserialize_json (upgraded, tree));
 	ASSERT_TRUE (upgraded);
 	ASSERT_LE (7, tree.get<int> ("version"));
 	ASSERT_EQ (5, tree.get<uintmax_t> ("min_time_between_output"));
-	ASSERT_FALSE (tree.get<bool> ("long_database_txns"));
 }
 
 namespace

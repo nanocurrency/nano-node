@@ -821,10 +821,11 @@ nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> nano::mdb_store
 	return nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> (nullptr);
 }
 
-nano::mdb_store::mdb_store (bool & error_a, nano::logger_mt & logger_a, boost::filesystem::path const & path_a, bool is_logging_database_txns, int lmdb_max_dbs, bool drop_unchecked, size_t const batch_size) :
+nano::mdb_store::mdb_store (bool & error_a, nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, int lmdb_max_dbs, bool drop_unchecked, size_t const batch_size) :
 logger (logger_a),
 env (error_a, path_a, lmdb_max_dbs),
-mdb_txn_tracker (logger_a, is_logging_database_txns)
+mdb_txn_tracker (logger_a, txn_tracking_config_a),
+txn_tracking_enabled (txn_tracking_config_a.enable)
 {
 	if (!error_a)
 	{
@@ -861,9 +862,9 @@ mdb_txn_tracker (logger_a, is_logging_database_txns)
 	}
 }
 
-void nano::mdb_store::serialize_mdb_tracker (boost::property_tree::ptree & json, std::chrono::milliseconds min_time)
+void nano::mdb_store::serialize_mdb_tracker (boost::property_tree::ptree & json, std::chrono::milliseconds min_read_time, std::chrono::milliseconds min_write_time)
 {
-	mdb_txn_tracker.serialize_json (json, min_time);
+	mdb_txn_tracker.serialize_json (json, min_read_time, min_write_time);
 }
 
 nano::write_transaction nano::mdb_store::tx_begin_write ()
@@ -879,14 +880,17 @@ nano::read_transaction nano::mdb_store::tx_begin_read ()
 nano::mdb_txn_callbacks nano::mdb_store::create_txn_callbacks ()
 {
 	nano::mdb_txn_callbacks mdb_txn_callbacks;
-	// clang-format off
-	mdb_txn_callbacks.txn_start = ([&mdb_txn_tracker = mdb_txn_tracker](const nano::transaction_impl * transaction_impl) {
-		mdb_txn_tracker.add (transaction_impl);
-	});
-	mdb_txn_callbacks.txn_end = ([&mdb_txn_tracker = mdb_txn_tracker](const nano::transaction_impl * transaction_impl) {
-		mdb_txn_tracker.erase (transaction_impl);
-	});
-	// clang-format on
+	if (txn_tracking_enabled)
+	{
+		// clang-format off
+		mdb_txn_callbacks.txn_start = ([&mdb_txn_tracker = mdb_txn_tracker](const nano::transaction_impl * transaction_impl) {
+			mdb_txn_tracker.add (transaction_impl);
+		});
+		mdb_txn_callbacks.txn_end = ([&mdb_txn_tracker = mdb_txn_tracker](const nano::transaction_impl * transaction_impl) {
+			mdb_txn_tracker.erase (transaction_impl);
+		});
+		// clang-format on
+	}
 	return mdb_txn_callbacks;
 }
 

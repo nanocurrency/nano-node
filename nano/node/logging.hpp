@@ -39,7 +39,6 @@ public:
 	bool callback_logging () const;
 	bool work_generation_time () const;
 	bool log_to_cerr () const;
-	bool log_long_database_txns () const;
 	void init (boost::filesystem::path const &);
 
 	bool ledger_logging_value{ false };
@@ -59,7 +58,6 @@ public:
 	bool upnp_details_logging_value{ false };
 	bool timing_logging_value{ false };
 	bool log_to_cerr_value{ false };
-	bool long_database_txns_value{ false };
 	bool flush{ true };
 	uintmax_t max_size{ 128 * 1024 * 1024 };
 	uintmax_t rotation_size{ 4 * 1024 * 1024 };

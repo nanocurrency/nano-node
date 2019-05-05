@@ -6114,8 +6114,38 @@ TEST (rpc, block_confirmed)
 
 TEST (rpc, database_txn_tracker)
 {
-	nano::system system (24000, 1);
-	auto node = system.nodes.front ();
+	// First try when database tracking is disabled
+	{
+		nano::system system (24000, 1);
+		auto node = system.nodes.front ();
+		enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
+		nano::node_rpc_config node_rpc_config;
+		nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
+		nano::rpc_config rpc_config (true);
+		nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+		nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+		rpc.start ();
+
+		boost::property_tree::ptree request;
+		request.put ("action", "database_txn_tracker");
+		{
+			test_response response (request, rpc.config.port, system.io_ctx);
+			system.deadline_set (5s);
+			while (response.status == 0)
+			{
+				ASSERT_NO_ERROR (system.poll ());
+			}
+			ASSERT_EQ (200, response.status);
+			std::error_code ec (nano::error_common::tracking_not_enabled);
+			ASSERT_EQ (response.json.get<std::string> ("error"), ec.message ());
+		}
+	}
+
+	// Now try enabling it but with invalid amounts
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.diagnostics_config.txn_tracking.enable = true;
+	auto node = system.add_node (node_config);
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
@@ -6125,20 +6155,32 @@ TEST (rpc, database_txn_tracker)
 	rpc.start ();
 
 	boost::property_tree::ptree request;
-	request.put ("action", "database_txn_tracker");
-	// (seconds) Make it a large number unattainable number
-	request.put ("min_time", "1000");
-	{
-		test_response response (request, rpc.config.port, system.io_ctx);
+	// clang-format off
+	auto check_not_correct_amount = [&system, &request, &rpc_port = rpc.config.port]() {
+		test_response response (request, rpc_port, system.io_ctx);
 		system.deadline_set (5s);
 		while (response.status == 0)
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
 		ASSERT_EQ (200, response.status);
-		// Response should be empty as no locks would have been locked for very long
-		ASSERT_EQ ("", response.json.get<std::string> ("json"));
-	}
+		std::error_code ec (nano::error_common::invalid_amount);
+		ASSERT_EQ (response.json.get<std::string> ("error"), ec.message ());
+	};
+	// clang-format on
+
+	request.put ("action", "database_txn_tracker");
+	request.put ("min_read_time", "not a time");
+	check_not_correct_amount ();
+
+	// Read is valid now, but write isn't
+	request.put ("min_read_time", "1000");
+	request.put ("min_write_time", "bad time");
+	check_not_correct_amount ();
+
+	// Now try where times are large unattainable numbers
+	request.put ("min_read_time", "1000000");
+	request.put ("min_write_time", "1000000");
 
 	std::promise<void> keep_txn_alive_promise;
 	std::promise<void> txn_created_promise;
@@ -6147,34 +6189,32 @@ TEST (rpc, database_txn_tracker)
 		// Use rpc_process_container as a placeholder as this thread is only instantiated by the daemon so won't be used
 		nano::thread_role::set (nano::thread_role::name::rpc_process_container);
 
-		// Create 2 transactions
+		// Create a read transaction to test
 		auto read_tx = store.tx_begin_read ();
-		// Sleep so that the read transaction has been alive for at least 2 seconds and the write for 1
-		std::this_thread::sleep_for (1s);
-		auto write_tx = store.tx_begin_write ();
+		// Sleep so that the read transaction has been alive for at least 1 seconds. A write lock is not used in this test as it can cause a deadlock with
+		// other writes done in the background
 		std::this_thread::sleep_for (1s);
 		txn_created_promise.set_value ();
-		keep_txn_alive_promise.get_future ().wait_for (std::chrono::seconds (10));
+		keep_txn_alive_promise.get_future ().wait ();
 	})
 	.detach ();
 	// clang-format on
 
 	txn_created_promise.get_future ().wait ();
 
-	request.put ("min_time", "0");
+	// Adjust minimum read time so that it can detect the read transaction being opened
+	request.put ("min_read_time", "1000");
 	test_response response (request, rpc.config.port, system.io_ctx);
 	// It can take a long time to generate stack traces
-	system.deadline_set (60s);
+	system.deadline_set (30s);
 	while (response.status == 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
-
 	keep_txn_alive_promise.set_value ();
-
 	std::vector<std::tuple<std::string, std::string, std::string, std::vector<std::tuple<std::string, std::string, std::string, std::string>>>> json_l;
-	auto & json_node (response.json.get_child ("json"));
+	auto & json_node (response.json.get_child ("txn_tracking"));
 	for (auto & stat : json_node)
 	{
 		auto & stack_trace = stat.second.get_child ("stacktrace");
@@ -6187,22 +6227,15 @@ TEST (rpc, database_txn_tracker)
 		json_l.emplace_back (stat.second.get<std::string> ("thread"), stat.second.get<std::string> ("time_held_open"), stat.second.get<std::string> ("write"), std::move (frames_json_l));
 	}
 
-	ASSERT_EQ (2, json_l.size ());
+	ASSERT_EQ (1, json_l.size ());
 	auto thread_name = nano::thread_role::get_string (nano::thread_role::name::rpc_process_container);
-
-	// Check read transaction
+	// Should only have a read transaction
 	ASSERT_EQ (thread_name, std::get<0> (json_l.front ()));
-	ASSERT_LE (2000u, boost::lexical_cast<unsigned> (std::get<1> (json_l.front ())));
+	ASSERT_LE (1000u, boost::lexical_cast<unsigned> (std::get<1> (json_l.front ())));
 	ASSERT_EQ ("false", std::get<2> (json_l.front ()));
 	// Due to results being different for different compilers/build options we cannot reliably check the contents.
 	// The best we can do is just check that there are entries.
 	ASSERT_TRUE (!std::get<3> (json_l.front ()).empty ());
-
-	// Check write transaction
-	ASSERT_EQ (thread_name, std::get<0> (json_l.back ()));
-	ASSERT_LE (1000u, boost::lexical_cast<unsigned> (std::get<1> (json_l.back ())));
-	ASSERT_EQ ("true", std::get<2> (json_l.back ()));
-	ASSERT_TRUE (!std::get<3> (json_l.back ()).empty ());
 }
 
 // This is mainly to check for threading issues with TSAN
