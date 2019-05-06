@@ -22,8 +22,8 @@ size_t constexpr nano::frontier_req_client::size_frontier;
 
 nano::socket::socket (std::shared_ptr<nano::node> node_a) :
 socket_m (node_a->io_ctx),
-async_start_time (std::numeric_limits<uint64_t>::max ()),
 last_action_time (0),
+async_start_time (std::numeric_limits<uint64_t>::max ()),
 node (node_a)
 {
 }
@@ -459,6 +459,7 @@ void nano::bulk_pull_client::request ()
 			{
 				this_l->connection->node->logger.try_log (boost::str (boost::format ("Error sending bulk pull request to %1%: to %2%") % ec.message () % this_l->connection->channel->to_string ()));
 			}
+			this_l->connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_request_failure, nano::stat::dir::in);
 		}
 	});
 }
@@ -477,6 +478,7 @@ void nano::bulk_pull_client::receive_block ()
 			{
 				this_l->connection->node->logger.try_log (boost::str (boost::format ("Error receiving block type: %1%") % ec.message ()));
 			}
+			this_l->connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_receive_block_failure, nano::stat::dir::in);
 		}
 	});
 }
@@ -605,6 +607,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 			{
 				connection->node->logger.try_log ("Error deserializing block received from pull request");
 			}
+			connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_deserialize_receive_block, nano::stat::dir::in);
 		}
 	}
 	else
@@ -613,6 +616,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 		{
 			connection->node->logger.try_log (boost::str (boost::format ("Error bulk receiving block: %1%") % ec.message ()));
 		}
+		connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_receive_block_failure, nano::stat::dir::in);
 	}
 }
 
@@ -777,6 +781,7 @@ void nano::bulk_pull_account_client::request ()
 			{
 				this_l->connection->node->logger.try_log (boost::str (boost::format ("Error starting bulk pull request to %1%: to %2%") % ec.message () % this_l->connection->channel->to_string ()));
 			}
+			this_l->connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_error_starting_request, nano::stat::dir::in);
 		}
 	});
 }
@@ -1348,6 +1353,8 @@ void nano::bootstrap_attempt::requeue_pull (nano::pull_info const & pull_a)
 		{
 			node->logger.try_log (boost::str (boost::format ("Failed to pull account %1% down to %2% after %3% attempts and %4% blocks processed") % pull.account.to_account () % pull.end.to_string () % pull.attempts % pull.processed));
 		}
+		node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_failed_account, nano::stat::dir::in);
+
 		node->bootstrap_initiator.cache.add (pull);
 	}
 }
