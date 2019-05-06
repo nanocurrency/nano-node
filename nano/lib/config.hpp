@@ -134,11 +134,6 @@ public:
 		return current_network == nano_networks::nano_test_network;
 	}
 
-	std::string active_network_label ()
-	{
-		return is_live_network () ? "live" : is_beta_network () ? "beta" : "test";
-	}
-
 	/** Initial value is ACTIVE_NETWORK compile flag, but can be overridden by a CLI flag */
 	static nano::nano_networks active_network;
 };

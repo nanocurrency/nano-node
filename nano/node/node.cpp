@@ -1220,7 +1220,7 @@ startup_time (std::chrono::steady_clock::now ())
 			}
 		});
 	}
-	const std::string network_label = network_params.network.active_network_label ();
+	auto network_label = network_params.network.get_current_network_as_string ();
 	logger.always_log ("Active network: ", network_label);
 	if (NANO_VERSION_PATCH == 0)
 	{

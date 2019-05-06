@@ -45,8 +45,8 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 			auto node (std::make_shared<nano::node> (init, io_ctx, data_path, alarm, config.node, opencl_work, flags));
 			if (!init.error ())
 			{
-				const std::string network_label = node->network_params.network.active_network_label ();
-				const std::string version = (NANO_VERSION_PATCH == 0) ? NANO_MAJOR_MINOR_VERSION : NANO_MAJOR_MINOR_RC_VERSION;
+				auto network_label = node->network_params.network.get_current_network_as_string ();
+				auto version = (NANO_VERSION_PATCH == 0) ? NANO_MAJOR_MINOR_VERSION : NANO_MAJOR_MINOR_RC_VERSION;
 				std::cout << "Network: " << network_label << ", version: " << version << std::endl
 				          << "Path: " << node->application_path.string () << std::endl;
 
