@@ -9,12 +9,11 @@ namespace nano
 class logger_mt;
 class rpc_config;
 class rpc_handler_interface;
-class network_constants;
 
 class rpc_connection : public std::enable_shared_from_this<nano::rpc_connection>
 {
 public:
-	rpc_connection (nano::rpc_config const & rpc_config, nano::network_constants const & network_constants, boost::asio::io_context & io_ctx, nano::logger_mt & logger, nano::rpc_handler_interface & rpc_handler_interface_a);
+	rpc_connection (nano::rpc_config const & rpc_config, boost::asio::io_context & io_ctx, nano::logger_mt & logger, nano::rpc_handler_interface & rpc_handler_interface_a);
 	virtual ~rpc_connection () = default;
 	virtual void parse_connection ();
 	virtual void write_completion_handler (std::shared_ptr<nano::rpc_connection> rpc_connection);
@@ -31,7 +30,6 @@ public:
 	boost::asio::io_context & io_ctx;
 	nano::logger_mt & logger;
 	nano::rpc_config const & rpc_config;
-	nano::network_constants const & network_constants;
 	nano::rpc_handler_interface & rpc_handler_interface;
 };
 }

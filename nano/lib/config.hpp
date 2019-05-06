@@ -116,7 +116,7 @@ public:
 		return err;
 	}
 
-	constexpr const char * get_current_network_as_string ()  const
+	const char * get_current_network_as_string ()  const
 	{
 		switch (current_network)
 		{
