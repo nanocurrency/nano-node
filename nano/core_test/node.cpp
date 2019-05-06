@@ -1397,6 +1397,8 @@ TEST (node, broadcast_elected)
 		node0->work_generate_blocking (open_big);
 		node0->work_generate_blocking (fund_small);
 		node0->work_generate_blocking (open_small);
+		node0->work_generate_blocking (fund_other);
+		node0->work_generate_blocking (open_other);
 		ASSERT_EQ (nano::process_result::progress, node0->ledger.process (transaction0, fund_big).code);
 		ASSERT_EQ (nano::process_result::progress, node1->ledger.process (transaction1, fund_big).code);
 		ASSERT_EQ (nano::process_result::progress, node2->ledger.process (transaction2, fund_big).code);
