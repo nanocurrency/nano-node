@@ -1466,6 +1466,7 @@ void nano::work_watcher::run ()
 								election->status.winner = block;
 							}
 							auto current (election->blocks.find (block->hash ()));
+							assert (current != election->blocks.end ());
 							current->second = block;
 						}
 					}
