@@ -315,8 +315,14 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 				}
 				else
 				{
+					if (!boost::filesystem::exists (config.rpc.rpc_path))
+					{
+						throw std::runtime_error (std::string ("RPC is configured to spawn a new process however the file cannot be found at: ") + config.rpc.rpc_path);
+					}
+
+					auto network = node->network_params.network.get_current_network_as_string ();
 #if BOOST_PROCESS_SUPPORTED
-					rpc_process = std::make_unique<boost::process::child> (config.rpc.rpc_path, "--daemon");
+					rpc_process = std::make_unique<boost::process::child> (config.rpc.rpc_path, "--daemon", "--data_path", data_path, "--network", network);
 #else
 					show_error ("rpc_enable is set to true in the config. Set it to false and start the RPC server manually.");
 #endif
