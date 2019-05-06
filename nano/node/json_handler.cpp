@@ -4397,6 +4397,9 @@ void nano::json_handler::work_validate ()
 		bool invalid (nano::work_validate (hash, work, &result_difficulty));
 		bool valid (!invalid && result_difficulty >= difficulty);
 		response_l.put ("valid", valid ? "1" : "0");
+		response_l.put ("value", nano::to_string_hex (result_difficulty));
+		float multiplier = static_cast<float> (-node.network_params.network.publish_threshold) / (-result_difficulty);
+		response_l.put ("multiplier", std::to_string (multiplier));
 	}
 	response_errors ();
 }
