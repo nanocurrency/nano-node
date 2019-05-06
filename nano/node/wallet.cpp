@@ -1449,11 +1449,29 @@ void nano::work_watcher::run ()
 			{
 				lock.unlock ();
 				nano::state_block_builder builder;
+				std::error_code ec;
 				builder.from (*i.second);
 				builder.work (node.work_generate_blocking (i.second->root (), node.active.active_difficulty ()));
-				std::shared_ptr<state_block> block (builder.build ());
-				node.network.flood_block (block);
-				node.active.update_difficulty (*block.get ());
+				std::shared_ptr<state_block> block (builder.build (ec));
+				if (!ec)
+				{
+					{
+						std::lock_guard<std::mutex> active_lock (node.active.mutex);
+						auto existing (node.active.roots.find (i.second->qualified_root ()));
+						if (existing != node.active.roots.end ())
+						{
+							auto election (existing->election);
+							if (election->status.winner->hash () == i.second->hash ())
+							{
+								election->status.winner = block;
+							}
+							auto current (election->blocks.find (block->hash ()));
+							current->second = block;
+						}
+					}
+					node.network.flood_block (block);
+					node.active.update_difficulty (*block.get ());
+				}
 				lock.lock ();
 			}
 		}
