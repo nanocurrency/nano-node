@@ -99,6 +99,8 @@ public:
 			*error = object.deserialize_json (updated, *this);
 			if (!*error && updated)
 			{
+				// Before updating the config file during an upgrade make a backup first
+				create_backup_file (path_a);
 				stream.open (path_a.string (), std::ios_base::out | std::ios_base::trunc);
 				try
 				{
@@ -144,6 +146,22 @@ public:
 		}
 
 		stream_a.open (path_a);
+	}
+
+	/** Takes a filepath, appends '_backup_<timestamp>' to the end (but before any extension) and saves that file in the same directory */
+	void create_backup_file (boost::filesystem::path const & filepath_a)
+	{
+		auto extension = filepath_a.extension ();
+		auto filename_without_extension = filepath_a.filename ().replace_extension ("");
+		auto orig_filepath = filepath_a;
+		auto & backup_path = orig_filepath.remove_filename ();
+		auto backup_filename = filename_without_extension;
+		backup_filename += "_backup_";
+		backup_filename += std::to_string (std::chrono::system_clock::now ().time_since_epoch ().count ());
+		backup_filename += extension;
+		auto backup_filepath = backup_path / backup_filename;
+
+		boost::filesystem::copy_file (filepath_a, backup_filepath);
 	}
 
 	/** Returns the boost property node managed by this instance */
