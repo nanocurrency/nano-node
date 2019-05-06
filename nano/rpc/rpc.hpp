@@ -22,7 +22,6 @@ public:
 	boost::asio::ip::tcp::acceptor acceptor;
 	nano::logger_mt logger;
 	boost::asio::io_context & io_ctx;
-	nano::network_constants network_constants;
 	nano::rpc_handler_interface & rpc_handler_interface;
 	bool stopped{ false };
 };
