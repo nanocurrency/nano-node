@@ -1,3 +1,4 @@
+#include <nano/lib/work.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/stats.hpp>
 #include <nano/secure/blockstore.hpp>
@@ -707,6 +708,7 @@ nano::uint128_t nano::ledger::account_pending (nano::transaction const & transac
 
 nano::process_return nano::ledger::process (nano::transaction const & transaction_a, nano::block const & block_a, nano::signature_verification verification)
 {
+	assert (!nano::work_validate (block_a));
 	ledger_processor processor (*this, transaction_a, verification);
 	block_a.visit (processor);
 	return processor.result;
