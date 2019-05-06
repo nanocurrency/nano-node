@@ -118,18 +118,7 @@ public:
 
 	const char * get_current_network_as_string () const
 	{
-		switch (current_network)
-		{
-			case nano_networks::nano_live_network:
-				return "live";
-			case nano_networks::nano_beta_network:
-				return "beta";
-			case nano_networks::nano_test_network:
-				return "test";
-		}
-
-		assert (false);
-		return "test";
+		return is_live_network () ? "live" : is_beta_network () ? "beta" : "test";
 	}
 
 	bool is_live_network () const
