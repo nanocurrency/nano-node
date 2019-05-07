@@ -391,6 +391,21 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::bulk_pull_account:
 			res = "bulk_pull_account";
 			break;
+		case nano::stat::detail::bulk_pull_deserialize_receive_block:
+			res = "bulk_pull_deserialize_receive_block";
+			break;
+		case nano::stat::detail::bulk_pull_error_starting_request:
+			res = "bulk_pull_error_starting_request";
+			break;
+		case nano::stat::detail::bulk_pull_failed_account:
+			res = "bulk_pull_failed_account";
+			break;
+		case nano::stat::detail::bulk_pull_receive_block_failure:
+			res = "bulk_pull_receive_block_failure";
+			break;
+		case nano::stat::detail::bulk_pull_request_failure:
+			res = "bulk_pull_request_failure";
+			break;
 		case nano::stat::detail::bulk_push:
 			res = "bulk_push";
 			break;
