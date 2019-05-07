@@ -1333,9 +1333,9 @@ TEST (rpc, history)
 	ASSERT_NE (nullptr, receive);
 	auto node0 (system.nodes[0]);
 	nano::genesis genesis;
-	nano::state_block usend (nano::genesis_account, node0->latest (nano::genesis_account), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, nano::genesis_account, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
-	nano::state_block ureceive (nano::genesis_account, usend.hash (), nano::genesis_account, nano::genesis_amount, usend.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
-	nano::state_block uchange (nano::genesis_account, ureceive.hash (), nano::keypair ().pub, nano::genesis_amount, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	nano::state_block usend (nano::genesis_account, node0->latest (nano::genesis_account), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, nano::genesis_account, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (node0->latest (nano::genesis_account)));
+	nano::state_block ureceive (nano::genesis_account, usend.hash (), nano::genesis_account, nano::genesis_amount, usend.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (usend.hash ()));
+	nano::state_block uchange (nano::genesis_account, ureceive.hash (), nano::keypair ().pub, nano::genesis_amount, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (ureceive.hash ()));
 	{
 		auto transaction (node0->store.tx_begin_write ());
 		ASSERT_EQ (nano::process_result::progress, node0->ledger.process (transaction, usend).code);
@@ -1402,9 +1402,9 @@ TEST (rpc, account_history)
 	ASSERT_NE (nullptr, receive);
 	auto node0 (system.nodes[0]);
 	nano::genesis genesis;
-	nano::state_block usend (nano::genesis_account, node0->latest (nano::genesis_account), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, nano::genesis_account, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
-	nano::state_block ureceive (nano::genesis_account, usend.hash (), nano::genesis_account, nano::genesis_amount, usend.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
-	nano::state_block uchange (nano::genesis_account, ureceive.hash (), nano::keypair ().pub, nano::genesis_amount, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	nano::state_block usend (nano::genesis_account, node0->latest (nano::genesis_account), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, nano::genesis_account, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (node0->latest (nano::genesis_account)));
+	nano::state_block ureceive (nano::genesis_account, usend.hash (), nano::genesis_account, nano::genesis_amount, usend.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (usend.hash ()));
+	nano::state_block uchange (nano::genesis_account, ureceive.hash (), nano::keypair ().pub, nano::genesis_amount, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (ureceive.hash ()));
 	{
 		auto transaction (node0->store.tx_begin_write ());
 		ASSERT_EQ (nano::process_result::progress, node0->ledger.process (transaction, usend).code);
@@ -2159,11 +2159,11 @@ TEST (rpc, peers)
 	ASSERT_EQ (200, response.status);
 	auto & peers_node (response.json.get_child ("peers"));
 	ASSERT_EQ (2, peers_node.size ());
-	ASSERT_EQ (std::to_string (nano::protocol_version), peers_node.get<std::string> ("UDP: [::1]:24001"));
+	ASSERT_EQ (std::to_string (nano::protocol_version), peers_node.get<std::string> ("[::1]:24001"));
 	// Previously "[::ffff:80.80.80.80]:4000", but IPv4 address cause "No such node thrown in the test body" issue with peers_node.get
 	std::stringstream endpoint_text;
 	endpoint_text << endpoint;
-	ASSERT_EQ (std::to_string (nano::protocol_version), peers_node.get<std::string> ("UDP: " + endpoint_text.str ()));
+	ASSERT_EQ (std::to_string (nano::protocol_version), peers_node.get<std::string> (endpoint_text.str ()));
 }
 
 TEST (rpc, peers_node_id)
@@ -2191,12 +2191,12 @@ TEST (rpc, peers_node_id)
 	ASSERT_EQ (200, response.status);
 	auto & peers_node (response.json.get_child ("peers"));
 	ASSERT_EQ (2, peers_node.size ());
-	auto tree1 (peers_node.get_child ("UDP: [::1]:24001"));
+	auto tree1 (peers_node.get_child ("[::1]:24001"));
 	ASSERT_EQ (std::to_string (nano::protocol_version), tree1.get<std::string> ("protocol_version"));
 	ASSERT_EQ (system.nodes[1]->node_id.pub.to_account (), tree1.get<std::string> ("node_id"));
 	std::stringstream endpoint_text;
 	endpoint_text << endpoint;
-	auto tree2 (peers_node.get_child ("UDP: " + endpoint_text.str ()));
+	auto tree2 (peers_node.get_child (endpoint_text.str ()));
 	ASSERT_EQ (std::to_string (nano::protocol_version), tree2.get<std::string> ("protocol_version"));
 	ASSERT_EQ ("", tree2.get<std::string> ("node_id"));
 }

@@ -85,6 +85,16 @@ void nano::message_header::block_type_set (nano::block_type type_a)
 	extensions |= std::bitset<16> (static_cast<unsigned long long> (type_a) << 8);
 }
 
+size_t nano::message_header::count_get () const
+{
+	return ((extensions << 8) >> 8).to_ulong ();
+}
+
+void nano::message_header::count_set (size_t count)
+{
+	extensions |= std::bitset<16> (static_cast<unsigned long long> (count));
+}
+
 bool nano::message_header::bulk_pull_is_count_present () const
 {
 	auto result (false);
@@ -123,6 +133,33 @@ size_t nano::message_header::payload_length_bytes () const
 		case nano::message_type::keepalive:
 		{
 			return nano::keepalive::size;
+		}
+		case nano::message_type::publish:
+		{
+			return nano::block::size (block_type ());
+		}
+		case nano::message_type::confirm_ack:
+		{
+			return nano::confirm_ack::size (block_type (), count_get ());
+		}
+		case nano::message_type::confirm_req:
+		{
+			return nano::confirm_req::size (block_type (), count_get ());
+		}
+		case nano::message_type::node_id_handshake:
+		{
+			if (extensions.test (nano::node_id_handshake::query_flag))
+			{
+				return nano::node_id_handshake::size_query;
+			}
+			else if (extensions.test (nano::node_id_handshake::response_flag))
+			{
+				return nano::node_id_handshake::size_response;
+			}
+			else
+			{
+				return 0;
+			}
 		}
 		// Add realtime network messages once they get framing support; currently the
 		// realtime messages all fit in a datagram from which they're deserialized.
@@ -492,12 +529,15 @@ block (block_a)
 {
 	header.block_type_set (block->type ());
 }
+
 nano::confirm_req::confirm_req (std::vector<std::pair<nano::block_hash, nano::block_hash>> const & roots_hashes_a) :
 message (nano::message_type::confirm_req),
 roots_hashes (roots_hashes_a)
 {
 	// not_a_block (1) block type for hashes + roots request
 	header.block_type_set (nano::block_type::not_a_block);
+	assert (roots_hashes.size () <= 16);
+	header.count_set (roots_hashes.size ());
 }
 
 nano::confirm_req::confirm_req (nano::block_hash const & hash_a, nano::block_hash const & root_a) :
@@ -507,6 +547,7 @@ roots_hashes (std::vector<std::pair<nano::block_hash, nano::block_hash>> (1, std
 	assert (!roots_hashes.empty ());
 	// not_a_block (1) block type for hashes + roots request
 	header.block_type_set (nano::block_type::not_a_block);
+	header.count_set (roots_hashes.size ());
 }
 
 void nano::confirm_req::visit (nano::message_visitor & visitor_a) const
@@ -606,6 +647,20 @@ std::string nano::confirm_req::roots_string () const
 	return result;
 }
 
+size_t nano::confirm_req::size (nano::block_type type_a, size_t count)
+{
+	size_t result (0);
+	if (type_a != nano::block_type::invalid && type_a != nano::block_type::not_a_block)
+	{
+		result = nano::block::size (type_a);
+	}
+	else if (type_a == nano::block_type::not_a_block)
+	{
+		result = sizeof (uint8_t) + count * (sizeof (nano::uint256_union) + sizeof (nano::block_hash));
+	}
+	return result;
+}
+
 nano::confirm_ack::confirm_ack (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a, nano::vote_uniquer * uniquer_a) :
 message (header_a),
 vote (std::make_shared<nano::vote> (error_a, stream_a, header.block_type ()))
@@ -625,6 +680,8 @@ vote (vote_a)
 	if (first_vote_block.which ())
 	{
 		header.block_type_set (nano::block_type::not_a_block);
+		assert (vote_a->blocks.size () <= 16);
+		header.count_set (vote_a->blocks.size ());
 	}
 	else
 	{
@@ -648,6 +705,20 @@ bool nano::confirm_ack::operator== (nano::confirm_ack const & other_a) const
 void nano::confirm_ack::visit (nano::message_visitor & visitor_a) const
 {
 	visitor_a.confirm_ack (*this);
+}
+
+size_t nano::confirm_ack::size (nano::block_type type_a, size_t count)
+{
+	size_t result (sizeof (nano::account) + sizeof (nano::signature) + sizeof (uint64_t));
+	if (type_a != nano::block_type::invalid && type_a != nano::block_type::not_a_block)
+	{
+		result += nano::block::size (type_a);
+	}
+	else if (type_a == nano::block_type::not_a_block)
+	{
+		result += count * sizeof (nano::block_hash);
+	}
+	return result;
 }
 
 nano::frontier_req::frontier_req () :
@@ -1052,4 +1123,14 @@ bool nano::parse_tcp_endpoint (std::string const & string, nano::tcp_endpoint & 
 		endpoint_a = nano::tcp_endpoint (address, port);
 	}
 	return result;
+}
+
+nano::endpoint nano::to_endpoint (nano::tcp_endpoint & endpoint_a)
+{
+	return nano::endpoint (endpoint_a.address (), endpoint_a.port ());
+}
+
+nano::tcp_endpoint nano::to_tcp_endpoint (nano::endpoint & endpoint_a)
+{
+	return nano::tcp_endpoint (endpoint_a.address (), endpoint_a.port ());
 }

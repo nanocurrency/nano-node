@@ -18,6 +18,8 @@ bool parse_address_port (std::string const &, boost::asio::ip::address &, uint16
 using tcp_endpoint = boost::asio::ip::tcp::endpoint;
 bool parse_endpoint (std::string const &, nano::endpoint &);
 bool parse_tcp_endpoint (std::string const &, nano::tcp_endpoint &);
+nano::endpoint to_endpoint (nano::tcp_endpoint &);
+nano::tcp_endpoint to_tcp_endpoint (nano::endpoint &);
 }
 
 namespace
@@ -195,6 +197,8 @@ public:
 	bool deserialize (nano::stream &);
 	nano::block_type block_type () const;
 	void block_type_set (nano::block_type);
+	size_t count_get () const;
+	void count_set (size_t);
 	uint8_t version_max;
 	uint8_t version_using;
 	uint8_t version_min;
@@ -298,6 +302,7 @@ public:
 	std::shared_ptr<nano::block> block;
 	std::vector<std::pair<nano::block_hash, nano::block_hash>> roots_hashes;
 	std::string roots_string () const;
+	static size_t size (nano::block_type, size_t = 0);
 };
 class confirm_ack final : public message
 {
@@ -308,6 +313,7 @@ public:
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::confirm_ack const &) const;
 	std::shared_ptr<nano::vote> vote;
+	static size_t size (nano::block_type, size_t = 0);
 };
 class frontier_req final : public message
 {
@@ -380,6 +386,8 @@ public:
 	boost::optional<std::pair<nano::account, nano::signature>> response;
 	static size_t constexpr query_flag = 0;
 	static size_t constexpr response_flag = 1;
+	static size_t constexpr size_query = sizeof (nano::uint256_union);
+	static size_t constexpr size_response = sizeof (nano::account) + sizeof (nano::signature);
 };
 class message_visitor
 {

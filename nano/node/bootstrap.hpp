@@ -297,8 +297,14 @@ public:
 	void receive_bulk_pull_account_action (boost::system::error_code const &, size_t, nano::message_header const &);
 	void receive_frontier_req_action (boost::system::error_code const &, size_t, nano::message_header const &);
 	void receive_keepalive_action (boost::system::error_code const &, size_t, nano::message_header const &);
+	void receive_publish_action (boost::system::error_code const &, size_t, nano::message_header const &);
+	void receive_confirm_req_action (boost::system::error_code const &, size_t, nano::message_header const &);
+	void receive_confirm_ack_action (boost::system::error_code const &, size_t, nano::message_header const &);
+	void receive_node_id_handshake_action (boost::system::error_code const &, size_t, nano::message_header const &);
+	void process_message (nano::message const &);
 	void add_request (std::unique_ptr<nano::message>);
 	void finish_request ();
+	void finish_request_async ();
 	void run_next ();
 	void timeout ();
 	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
@@ -306,6 +312,8 @@ public:
 	std::shared_ptr<nano::node> node;
 	std::mutex mutex;
 	std::queue<std::unique_ptr<nano::message>> requests;
+	std::atomic<bool> keepalive_first{ true };
+	nano::tcp_endpoint remote_endpoint { boost::asio::ip::address_v6::any (), 0 };
 };
 class bulk_pull;
 class bulk_pull_server final : public std::enable_shared_from_this<nano::bulk_pull_server>

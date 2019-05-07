@@ -4,6 +4,7 @@
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
+#include <nano/node/transport/udp.hpp>
 
 #include <algorithm>
 #include <boost/log/trivial.hpp>
@@ -1816,12 +1817,12 @@ port (port_a)
 
 void nano::bootstrap_listener::start ()
 {
-	listening_socket = std::make_shared<nano::server_socket> (node.shared (), boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::any (), port), node.config.bootstrap_connections_max);
+	listening_socket = std::make_shared<nano::server_socket> (node.shared (), boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::any (), port), node.config.tcp_incoming_connections_max);
 	boost::system::error_code ec;
 	listening_socket->start (ec);
 	if (ec)
 	{
-		node.logger.try_log (boost::str (boost::format ("Error while binding for bootstrap on port %1%: %2%") % listening_socket->listening_port () % ec.message ()));
+		node.logger.try_log (boost::str (boost::format ("Error while binding for incoming tcp / bootstrap on port %1%: %2%") % listening_socket->listening_port () % ec.message ()));
 		throw std::runtime_error (ec.message ());
 	}
 	listening_socket->on_connection ([this](std::shared_ptr<nano::socket> new_connection, boost::system::error_code const & ec_a) {
@@ -1829,7 +1830,7 @@ void nano::bootstrap_listener::start ()
 		if (ec_a)
 		{
 			keep_accepting = false;
-			this->node.logger.try_log (boost::str (boost::format ("Error while accepting bootstrap connections: %1%") % ec_a.message ()));
+			this->node.logger.try_log (boost::str (boost::format ("Error while accepting incoming tcp / bootstrap connections: %1%") % ec_a.message ()));
 		}
 		else
 		{
@@ -1890,8 +1891,9 @@ nano::bootstrap_server::~bootstrap_server ()
 {
 	if (node->config.logging.bulk_pull_logging ())
 	{
-		node->logger.try_log ("Exiting bootstrap server");
+		node->logger.try_log ("Exiting incoming tcp / bootstrap server");
 	}
+	node->network.udp_channels.remove_response_channel (remote_endpoint);
 	std::lock_guard<std::mutex> lock (node->bootstrap.mutex);
 	node->bootstrap.connections.erase (this);
 }
@@ -1908,6 +1910,12 @@ void nano::bootstrap_server::receive ()
 {
 	auto this_l (shared_from_this ());
 	socket->async_read (receive_buffer, 8, [this_l](boost::system::error_code const & ec, size_t size_a) {
+		// Set remote_endpoint
+		if (this_l->remote_endpoint.port () == 0)
+		{
+			this_l->remote_endpoint = this_l->socket->remote_endpoint ();
+		}
+		// Receive header
 		this_l->receive_header_action (ec, size_a);
 	});
 }
@@ -1963,6 +1971,38 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 					auto this_l (shared_from_this ());
 					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_keepalive_action (ec, size_a, header);
+					});
+					break;
+				}
+				case nano::message_type::publish:
+				{
+					auto this_l (shared_from_this ());
+					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
+						this_l->receive_publish_action (ec, size_a, header);
+					});
+					break;
+				}
+				case nano::message_type::confirm_ack:
+				{
+					auto this_l (shared_from_this ());
+					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
+						this_l->receive_confirm_ack_action (ec, size_a, header);
+					});
+					break;
+				}
+				case nano::message_type::confirm_req:
+				{
+					auto this_l (shared_from_this ());
+					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
+						this_l->receive_confirm_req_action (ec, size_a, header);
+					});
+					break;
+				}
+				case nano::message_type::node_id_handshake:
+				{
+					auto this_l (shared_from_this ());
+					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
+						this_l->receive_node_id_handshake_action (ec, size_a, header);
 					});
 					break;
 				}
@@ -2073,8 +2113,88 @@ void nano::bootstrap_server::receive_frontier_req_action (boost::system::error_c
 	}
 }
 
+void nano::bootstrap_server::receive_publish_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a)
+{
+	if (!ec)
+	{
+		auto error (false);
+		nano::bufferstream stream (receive_buffer->data (), header_a.payload_length_bytes ());
+		std::unique_ptr<nano::publish> request (new nano::publish (error, stream, header_a));
+		if (!error)
+		{
+			add_request (std::unique_ptr<nano::message> (request.release ()));
+			receive ();
+		}
+	}
+	else
+	{
+		if (node->config.logging.network_message_logging ())
+		{
+			node->logger.try_log (boost::str (boost::format ("Error receiving publish from: %1%") % ec.message ()));
+		}
+	}
+}
+
+void nano::bootstrap_server::receive_confirm_req_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a)
+{
+	if (!ec)
+	{
+		auto error (false);
+		nano::bufferstream stream (receive_buffer->data (), header_a.payload_length_bytes ());
+		std::unique_ptr<nano::confirm_req> request (new nano::confirm_req (error, stream, header_a));
+		if (!error)
+		{
+			add_request (std::unique_ptr<nano::message> (request.release ()));
+			receive ();
+		}
+	}
+	else if (node->config.logging.network_message_logging ())
+	{
+		node->logger.try_log (boost::str (boost::format ("Error receiving confirm_req from: %1%") % ec.message ()));
+	}
+}
+
+void nano::bootstrap_server::receive_confirm_ack_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a)
+{
+	if (!ec)
+	{
+		auto error (false);
+		nano::bufferstream stream (receive_buffer->data (), header_a.payload_length_bytes ());
+		std::unique_ptr<nano::confirm_ack> request (new nano::confirm_ack (error, stream, header_a));
+		if (!error)
+		{
+			add_request (std::unique_ptr<nano::message> (request.release ()));
+			receive ();
+		}
+	}
+	else if (node->config.logging.network_message_logging ())
+	{
+		node->logger.try_log (boost::str (boost::format ("Error receiving confirm_ack from: %1%") % ec.message ()));
+	}
+}
+
+void nano::bootstrap_server::receive_node_id_handshake_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a)
+{
+	if (!ec)
+	{
+		auto error (false);
+		nano::bufferstream stream (receive_buffer->data (), header_a.payload_length_bytes ());
+		std::unique_ptr<nano::node_id_handshake> request (new nano::node_id_handshake (error, stream, header_a));
+		if (!error)
+		{
+			add_request (std::unique_ptr<nano::message> (request.release ()));
+			receive ();
+		}
+	}
+	else if (node->config.logging.network_node_id_handshake_logging ())
+	{
+		node->logger.try_log (boost::str (boost::format ("Error receiving node_id_handshake from: %1%") % ec.message ()));
+	}
+}
+
 void nano::bootstrap_server::add_request (std::unique_ptr<nano::message> message_a)
 {
+	assert (message_a != nullptr);
 	std::lock_guard<std::mutex> lock (mutex);
 	auto start (requests.empty ());
 	requests.push (std::move (message_a));
@@ -2104,6 +2224,17 @@ void nano::bootstrap_server::finish_request ()
 	}
 }
 
+void nano::bootstrap_server::finish_request_async ()
+{
+	std::weak_ptr<nano::bootstrap_server> this_w (shared_from_this ());
+	node->background ([this_w]() {
+		if (auto this_l = this_w.lock ())
+		{
+			this_l->finish_request ();
+		}
+	});
+}
+
 void nano::bootstrap_server::timeout ()
 {
 	if (socket != nullptr)
@@ -2112,7 +2243,7 @@ void nano::bootstrap_server::timeout ()
 		{
 			if (node->config.logging.bulk_pull_logging ())
 			{
-				node->logger.try_log ("Closing bootstrap server by timeout");
+				node->logger.try_log ("Closing incoming tcp / bootstrap server by timeout");
 			}
 			{
 				std::lock_guard<std::mutex> lock (node->bootstrap.mutex);
@@ -2140,45 +2271,42 @@ public:
 	virtual ~request_response_visitor () = default;
 	void keepalive (nano::keepalive const & message_a) override
 	{
-		if (connection->node->config.logging.network_keepalive_logging ())
+		bool first_keepalive (connection->keepalive_first);
+		if (first_keepalive)
 		{
-			connection->node->logger.try_log (boost::str (boost::format ("Received keepalive message from %1%") % connection->socket->remote_endpoint ()));
+			connection->keepalive_first = false;
 		}
-		connection->node->stats.inc (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in);
-		connection->node->network.merge_peers (message_a.peers);
-		nano::keepalive message;
-		connection->node->network.udp_channels.random_fill (message.peers);
-		auto bytes = message.to_bytes ();
-		if (connection->node->config.logging.network_keepalive_logging ())
-		{
-			connection->node->logger.try_log (boost::str (boost::format ("Keepalive req sent to %1%") % connection->socket->remote_endpoint ()));
-		}
-		connection->socket->async_write (bytes, [connection = connection](boost::system::error_code const & ec, size_t size_a) {
-			if (ec)
-			{
-				if (connection->node->config.logging.network_keepalive_logging ())
-				{
-					connection->node->logger.try_log (boost::str (boost::format ("Error sending keepalive to %1%: %2%") % connection->socket->remote_endpoint () % ec.message ()));
-				}
-			}
-			else
-			{
-				connection->node->stats.inc (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::out);
-				connection->finish_request ();
-			}
+		connection->finish_request_async ();
+		auto connection_l (connection->shared_from_this ());
+		connection->node->background ([connection_l, message_a, first_keepalive]() {
+			nano::tcp_endpoint tcp_endpoint (connection_l->remote_endpoint);
+			connection_l->node->network.udp_channels.common_keepalive (message_a, nano::to_endpoint (tcp_endpoint), nano::transport::transport_type::tcp, first_keepalive);
+			connection_l->process_message (message_a);
 		});
 	}
-	void publish (nano::publish const &) override
+	void publish (nano::publish const & message_a) override
 	{
-		assert (false);
+		connection->finish_request_async ();
+		auto connection_l (connection->shared_from_this ());
+		connection->node->background ([connection_l, message_a]() {
+			connection_l->process_message (message_a);
+		});
 	}
-	void confirm_req (nano::confirm_req const &) override
+	void confirm_req (nano::confirm_req const & message_a) override
 	{
-		assert (false);
+		connection->finish_request_async ();
+		auto connection_l (connection->shared_from_this ());
+		connection->node->background ([connection_l, message_a]() {
+			connection_l->process_message (message_a);
+		});
 	}
-	void confirm_ack (nano::confirm_ack const &) override
+	void confirm_ack (nano::confirm_ack const & message_a) override
 	{
-		assert (false);
+		connection->finish_request_async ();
+		auto connection_l (connection->shared_from_this ());
+		connection->node->background ([connection_l, message_a]() {
+			connection_l->process_message (message_a);
+		});
 	}
 	void bulk_pull (nano::bulk_pull const &) override
 	{
@@ -2200,12 +2328,71 @@ public:
 		auto response (std::make_shared<nano::frontier_req_server> (connection, std::unique_ptr<nano::frontier_req> (static_cast<nano::frontier_req *> (connection->requests.front ().release ()))));
 		response->send_next ();
 	}
-	void node_id_handshake (nano::node_id_handshake const &) override
+	void node_id_handshake (nano::node_id_handshake const & message_a) override
 	{
-		assert (false);
+		if (connection->node->config.logging.network_node_id_handshake_logging ())
+		{
+			connection->node->logger.try_log (boost::str (boost::format ("Received node_id_handshake message from %1%") % connection->remote_endpoint));
+		}
+		if (message_a.query)
+		{
+			boost::optional<std::pair<nano::account, nano::signature>> response (std::make_pair (connection->node->node_id.pub, nano::sign_message (connection->node->node_id.prv, connection->node->node_id.pub, *message_a.query)));
+			assert (!nano::validate_message (response->first, *message_a.query, response->second));
+			nano::node_id_handshake response_message (boost::none, response);
+			auto bytes = response_message.to_bytes ();
+			connection->socket->async_write (bytes, [connection = connection](boost::system::error_code const & ec, size_t size_a) {
+				if (ec)
+				{
+					if (connection->node->config.logging.network_node_id_handshake_logging ())
+					{
+						connection->node->logger.try_log (boost::str (boost::format ("Error sending node_id_handshake to %1%: %2%") % connection->remote_endpoint % ec.message ()));
+					}
+					connection->finish_request ();
+				}
+				else
+				{
+					connection->node->stats.inc (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out);
+					connection->finish_request ();
+				}
+			});
+		}
+		else
+		{
+			connection->finish_request_async ();
+		}
+		auto connection_l (connection->shared_from_this ());
+		connection->node->background ([connection_l, message_a]() {
+			connection_l->process_message (message_a);
+		});
 	}
 	std::shared_ptr<nano::bootstrap_server> connection;
 };
+}
+
+void nano::bootstrap_server::process_message (nano::message const & message_a)
+{
+	auto channel (node->network.udp_channels.channel (nano::to_endpoint (remote_endpoint)));
+	if (channel)
+	{
+		channel->set_last_packet_received (std::chrono::steady_clock::now ());
+		node->network.udp_channels.modify (channel);
+		node->process_message (message_a, channel);
+	}
+	else
+	{
+		auto response_channel (node->network.udp_channels.search_response_channel (remote_endpoint));
+		if (response_channel)
+		{
+			response_channel->set_last_packet_received (std::chrono::steady_clock::now ());
+			node->network.udp_channels.modify (response_channel);
+			node->process_message (message_a, response_channel);
+		}
+		else
+		{
+			auto udp_channel (std::make_shared<nano::transport::channel_udp> (node->network.udp_channels, nano::to_endpoint (remote_endpoint)));
+			node->process_message (message_a, udp_channel);
+		}
+	}
 }
 
 void nano::bootstrap_server::run_next ()
