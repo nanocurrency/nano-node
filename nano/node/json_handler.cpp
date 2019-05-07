@@ -836,7 +836,10 @@ void nano::json_handler::accounts_pending ()
 void nano::json_handler::active_difficulty ()
 {
 	response_l.put ("difficulty_threshold", nano::to_string_hex (node.network_params.network.publish_threshold));
-	response_l.put ("difficulty_active", nano::to_string_hex (node.active.active_difficulty ()));
+	auto difficulty_active = node.active.active_difficulty ();
+	response_l.put ("difficulty_active", nano::to_string_hex (difficulty_active));
+	float multiplier = static_cast<float> (-node.network_params.network.publish_threshold) / (-difficulty_active);
+	response_l.put ("multiplier", std::to_string (multiplier));
 	response_errors ();
 }
 
