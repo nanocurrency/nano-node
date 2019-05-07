@@ -1893,6 +1893,10 @@ nano::bootstrap_server::~bootstrap_server ()
 	{
 		node->logger.try_log ("Exiting incoming tcp / bootstrap server");
 	}
+	if (socket != nullptr)
+	{
+		socket->close ();
+	}
 	node->network.udp_channels.remove_response_channel (remote_endpoint);
 	std::lock_guard<std::mutex> lock (node->bootstrap.mutex);
 	node->bootstrap.connections.erase (this);

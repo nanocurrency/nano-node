@@ -76,7 +76,7 @@ std::string nano::transport::channel_udp::to_string () const
 nano::transport::channel_udp::~channel_udp ()
 {
 	std::lock_guard<std::mutex> lk (channel_mutex);
-	if (socket != nullptr)
+	if (type == nano::transport::transport_type::tcp && socket != nullptr)
 	{
 		socket->close ();
 	}
@@ -435,6 +435,15 @@ void nano::transport::udp_channels::stop ()
 		});
 	}
 	// clang-format on
+
+	// Close all TCP sockets
+	for (auto i (channels.begin ()), j (channels.end ()); i != j; ++i)
+	{
+		if (i->channel->get_type () == nano::transport::transport_type::tcp && i->channel->socket != nullptr)
+		{
+			i->channel->socket->close ();
+		}
+	}
 }
 
 void nano::transport::udp_channels::close_socket ()
