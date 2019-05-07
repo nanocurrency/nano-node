@@ -648,7 +648,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (alarm & alarm, con
 
 bool nano::node_init::error () const
 {
-	return block_store_init || wallet_init || wallets_store_init;
+	return block_store_init || wallets_store_init;
 }
 
 nano::vote_processor::vote_processor (nano::node & node_a) :
@@ -1047,7 +1047,7 @@ block_processor_thread ([this]() {
 	this->block_processor.process_blocks ();
 }),
 online_reps (*this, config.online_weight_minimum.number ()),
-wallets (init_a.wallet_init, *this),
+wallets (init_a.wallets_store_init, *this),
 stats (config.stat_config),
 vote_uniquer (block_uniquer),
 active (*this, delay_frontier_confirmation_height_updating),
@@ -1055,183 +1055,184 @@ confirmation_height_processor (pending_confirmation_height, store, ledger.stats,
 payment_observer_processor (observers.blocks),
 startup_time (std::chrono::steady_clock::now ())
 {
-	if (config.websocket_config.enabled)
-	{
-		auto endpoint_l (nano::tcp_endpoint (config.websocket_config.address, config.websocket_config.port));
-		websocket_server = std::make_shared<nano::websocket::listener> (*this, endpoint_l);
-		this->websocket_server->run ();
-	}
-
-	wallets.observer = [this](bool active) {
-		observers.wallet.notify (active);
-	};
-	network.channel_observer = [this](std::shared_ptr<nano::transport::channel> channel_a) {
-		observers.endpoint.notify (channel_a);
-	};
-	network.disconnect_observer = [this]() {
-		observers.disconnect.notify ();
-	};
-	if (!config.callback_address.empty ())
-	{
-		observers.blocks.add ([this](std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
-			if (this->block_arrival.recent (block_a->hash ()))
-			{
-				auto node_l (shared_from_this ());
-				background ([node_l, block_a, account_a, amount_a, is_state_send_a]() {
-					boost::property_tree::ptree event;
-					event.add ("account", account_a.to_account ());
-					event.add ("hash", block_a->hash ().to_string ());
-					std::string block_text;
-					block_a->serialize_json (block_text);
-					event.add ("block", block_text);
-					event.add ("amount", amount_a.to_string_dec ());
-					if (is_state_send_a)
-					{
-						event.add ("is_send", is_state_send_a);
-						event.add ("subtype", "send");
-					}
-					// Subtype field
-					else if (block_a->type () == nano::block_type::state)
-					{
-						if (block_a->link ().is_zero ())
-						{
-							event.add ("subtype", "change");
-						}
-						else if (amount_a == 0 && !node_l->ledger.epoch_link.is_zero () && node_l->ledger.is_epoch_link (block_a->link ()))
-						{
-							event.add ("subtype", "epoch");
-						}
-						else
-						{
-							event.add ("subtype", "receive");
-						}
-					}
-					std::stringstream ostream;
-					boost::property_tree::write_json (ostream, event);
-					ostream.flush ();
-					auto body (std::make_shared<std::string> (ostream.str ()));
-					auto address (node_l->config.callback_address);
-					auto port (node_l->config.callback_port);
-					auto target (std::make_shared<std::string> (node_l->config.callback_target));
-					auto resolver (std::make_shared<boost::asio::ip::tcp::resolver> (node_l->io_ctx));
-					resolver->async_resolve (boost::asio::ip::tcp::resolver::query (address, std::to_string (port)), [node_l, address, port, target, body, resolver](boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator i_a) {
-						if (!ec)
-						{
-							node_l->do_rpc_callback (i_a, address, port, target, body, resolver);
-						}
-						else
-						{
-							if (node_l->config.logging.callback_logging ())
-							{
-								node_l->logger.always_log (boost::str (boost::format ("Error resolving callback: %1%:%2%: %3%") % address % port % ec.message ()));
-							}
-							node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
-						}
-					});
-				});
-			}
-		});
-	}
-	if (websocket_server)
-	{
-		observers.blocks.add ([this](std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
-			if (this->websocket_server->any_subscribers (nano::websocket::topic::confirmation))
-			{
-				if (this->block_arrival.recent (block_a->hash ()))
-				{
-					std::string subtype;
-					if (is_state_send_a)
-					{
-						subtype = "send";
-					}
-					else if (block_a->type () == nano::block_type::state)
-					{
-						if (block_a->link ().is_zero ())
-						{
-							subtype = "change";
-						}
-						else if (amount_a == 0 && !this->ledger.epoch_link.is_zero () && this->ledger.is_epoch_link (block_a->link ()))
-						{
-							subtype = "epoch";
-						}
-						else
-						{
-							subtype = "receive";
-						}
-					}
-					nano::websocket::message_builder builder;
-					auto msg (builder.block_confirmed (block_a, account_a, amount_a, subtype));
-					this->websocket_server->broadcast (msg);
-				}
-			}
-		});
-	}
-	observers.endpoint.add ([this](std::shared_ptr<nano::transport::channel> channel_a) {
-		this->network.send_keepalive (*channel_a);
-	});
-	observers.vote.add ([this](nano::transaction const & transaction, std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a) {
-		this->gap_cache.vote (vote_a);
-		this->online_reps.observe (vote_a->account);
-		nano::uint128_t rep_weight;
-		nano::uint128_t min_rep_weight;
-		{
-			rep_weight = ledger.weight (transaction, vote_a->account);
-			min_rep_weight = online_reps.online_stake () / 1000;
-		}
-		if (rep_weight > min_rep_weight)
-		{
-			bool rep_crawler_exists (false);
-			for (auto hash : *vote_a)
-			{
-				if (this->rep_crawler.exists (hash))
-				{
-					rep_crawler_exists = true;
-					break;
-				}
-			}
-			if (rep_crawler_exists)
-			{
-				// We see a valid non-replay vote for a block we requested, this node is probably a representative
-				if (this->rep_crawler.response (channel_a, vote_a->account, rep_weight))
-				{
-					logger.try_log (boost::str (boost::format ("Found a representative at %1%") % channel_a->to_string ()));
-					// Rebroadcasting all active votes to new representative
-					auto blocks (this->active.list_blocks (true));
-					for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
-					{
-						if (*i != nullptr)
-						{
-							nano::confirm_req req (*i);
-							channel_a->send (req);
-						}
-					}
-				}
-			}
-		}
-	});
-	if (this->websocket_server)
-	{
-		observers.vote.add ([this](nano::transaction const & transaction, std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a) {
-			if (this->websocket_server->any_subscribers (nano::websocket::topic::vote))
-			{
-				nano::websocket::message_builder builder;
-				auto msg (builder.vote_received (vote_a));
-				this->websocket_server->broadcast (msg);
-			}
-		});
-	}
-	if (NANO_VERSION_PATCH == 0)
-	{
-		logger.always_log ("Node starting, version: ", NANO_MAJOR_MINOR_VERSION);
-	}
-	else
-	{
-		logger.always_log ("Node starting, version: ", NANO_MAJOR_MINOR_RC_VERSION);
-	}
-
-	logger.always_log (boost::str (boost::format ("Work pool running %1% threads") % work.threads.size ()));
 	if (!init_a.error ())
 	{
+		if (config.websocket_config.enabled)
+		{
+			auto endpoint_l (nano::tcp_endpoint (config.websocket_config.address, config.websocket_config.port));
+			websocket_server = std::make_shared<nano::websocket::listener> (*this, endpoint_l);
+			this->websocket_server->run ();
+		}
+
+		wallets.observer = [this](bool active) {
+			observers.wallet.notify (active);
+		};
+		network.channel_observer = [this](std::shared_ptr<nano::transport::channel> channel_a) {
+			observers.endpoint.notify (channel_a);
+		};
+		network.disconnect_observer = [this]() {
+			observers.disconnect.notify ();
+		};
+		if (!config.callback_address.empty ())
+		{
+			observers.blocks.add ([this](std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
+				if (this->block_arrival.recent (block_a->hash ()))
+				{
+					auto node_l (shared_from_this ());
+					background ([node_l, block_a, account_a, amount_a, is_state_send_a]() {
+						boost::property_tree::ptree event;
+						event.add ("account", account_a.to_account ());
+						event.add ("hash", block_a->hash ().to_string ());
+						std::string block_text;
+						block_a->serialize_json (block_text);
+						event.add ("block", block_text);
+						event.add ("amount", amount_a.to_string_dec ());
+						if (is_state_send_a)
+						{
+							event.add ("is_send", is_state_send_a);
+							event.add ("subtype", "send");
+						}
+						// Subtype field
+						else if (block_a->type () == nano::block_type::state)
+						{
+							if (block_a->link ().is_zero ())
+							{
+								event.add ("subtype", "change");
+							}
+							else if (amount_a == 0 && !node_l->ledger.epoch_link.is_zero () && node_l->ledger.is_epoch_link (block_a->link ()))
+							{
+								event.add ("subtype", "epoch");
+							}
+							else
+							{
+								event.add ("subtype", "receive");
+							}
+						}
+						std::stringstream ostream;
+						boost::property_tree::write_json (ostream, event);
+						ostream.flush ();
+						auto body (std::make_shared<std::string> (ostream.str ()));
+						auto address (node_l->config.callback_address);
+						auto port (node_l->config.callback_port);
+						auto target (std::make_shared<std::string> (node_l->config.callback_target));
+						auto resolver (std::make_shared<boost::asio::ip::tcp::resolver> (node_l->io_ctx));
+						resolver->async_resolve (boost::asio::ip::tcp::resolver::query (address, std::to_string (port)), [node_l, address, port, target, body, resolver](boost::system::error_code const & ec, boost::asio::ip::tcp::resolver::iterator i_a) {
+							if (!ec)
+							{
+								node_l->do_rpc_callback (i_a, address, port, target, body, resolver);
+							}
+							else
+							{
+								if (node_l->config.logging.callback_logging ())
+								{
+									node_l->logger.always_log (boost::str (boost::format ("Error resolving callback: %1%:%2%: %3%") % address % port % ec.message ()));
+								}
+								node_l->stats.inc (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out);
+							}
+						});
+					});
+				}
+			});
+		}
+		if (websocket_server)
+		{
+			observers.blocks.add ([this](std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
+				if (this->websocket_server->any_subscribers (nano::websocket::topic::confirmation))
+				{
+					if (this->block_arrival.recent (block_a->hash ()))
+					{
+						std::string subtype;
+						if (is_state_send_a)
+						{
+							subtype = "send";
+						}
+						else if (block_a->type () == nano::block_type::state)
+						{
+							if (block_a->link ().is_zero ())
+							{
+								subtype = "change";
+							}
+							else if (amount_a == 0 && !this->ledger.epoch_link.is_zero () && this->ledger.is_epoch_link (block_a->link ()))
+							{
+								subtype = "epoch";
+							}
+							else
+							{
+								subtype = "receive";
+							}
+						}
+						nano::websocket::message_builder builder;
+						auto msg (builder.block_confirmed (block_a, account_a, amount_a, subtype));
+						this->websocket_server->broadcast (msg);
+					}
+				}
+			});
+		}
+		observers.endpoint.add ([this](std::shared_ptr<nano::transport::channel> channel_a) {
+			this->network.send_keepalive (*channel_a);
+		});
+		observers.vote.add ([this](nano::transaction const & transaction, std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a) {
+			this->gap_cache.vote (vote_a);
+			this->online_reps.observe (vote_a->account);
+			nano::uint128_t rep_weight;
+			nano::uint128_t min_rep_weight;
+			{
+				rep_weight = ledger.weight (transaction, vote_a->account);
+				min_rep_weight = online_reps.online_stake () / 1000;
+			}
+			if (rep_weight > min_rep_weight)
+			{
+				bool rep_crawler_exists (false);
+				for (auto hash : *vote_a)
+				{
+					if (this->rep_crawler.exists (hash))
+					{
+						rep_crawler_exists = true;
+						break;
+					}
+				}
+				if (rep_crawler_exists)
+				{
+					// We see a valid non-replay vote for a block we requested, this node is probably a representative
+					if (this->rep_crawler.response (channel_a, vote_a->account, rep_weight))
+					{
+						logger.try_log (boost::str (boost::format ("Found a representative at %1%") % channel_a->to_string ()));
+						// Rebroadcasting all active votes to new representative
+						auto blocks (this->active.list_blocks (true));
+						for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
+						{
+							if (*i != nullptr)
+							{
+								nano::confirm_req req (*i);
+								channel_a->send (req);
+							}
+						}
+					}
+				}
+			}
+		});
+		if (this->websocket_server)
+		{
+			observers.vote.add ([this](nano::transaction const & transaction, std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a) {
+				if (this->websocket_server->any_subscribers (nano::websocket::topic::vote))
+				{
+					nano::websocket::message_builder builder;
+					auto msg (builder.vote_received (vote_a));
+					this->websocket_server->broadcast (msg);
+				}
+			});
+		}
+		if (NANO_VERSION_PATCH == 0)
+		{
+			logger.always_log ("Node starting, version: ", NANO_MAJOR_MINOR_VERSION);
+		}
+		else
+		{
+			logger.always_log ("Node starting, version: ", NANO_MAJOR_MINOR_RC_VERSION);
+		}
+
+		logger.always_log (boost::str (boost::format ("Work pool running %1% threads") % work.threads.size ()));
+
 		if (config.logging.node_lifetime_tracing ())
 		{
 			logger.always_log ("Constructing node");
@@ -1251,35 +1252,35 @@ startup_time (std::chrono::steady_clock::now ())
 
 		node_id = nano::keypair ();
 		logger.always_log ("Node ID: ", node_id.pub.to_account ());
-	}
 
-	const uint8_t * weight_buffer = network_params.network.is_live_network () ? nano_bootstrap_weights_live : nano_bootstrap_weights_beta;
-	size_t weight_size = network_params.network.is_live_network () ? nano_bootstrap_weights_live_size : nano_bootstrap_weights_beta_size;
-	if (network_params.network.is_live_network () || network_params.network.is_beta_network ())
-	{
-		nano::bufferstream weight_stream ((const uint8_t *)weight_buffer, weight_size);
-		nano::uint128_union block_height;
-		if (!nano::try_read (weight_stream, block_height))
+		const uint8_t * weight_buffer = network_params.network.is_live_network () ? nano_bootstrap_weights_live : nano_bootstrap_weights_beta;
+		size_t weight_size = network_params.network.is_live_network () ? nano_bootstrap_weights_live_size : nano_bootstrap_weights_beta_size;
+		if (network_params.network.is_live_network () || network_params.network.is_beta_network ())
 		{
-			auto max_blocks = (uint64_t)block_height.number ();
-			auto transaction (store.tx_begin_read ());
-			if (ledger.store.block_count (transaction).sum () < max_blocks)
+			nano::bufferstream weight_stream ((const uint8_t *)weight_buffer, weight_size);
+			nano::uint128_union block_height;
+			if (!nano::try_read (weight_stream, block_height))
 			{
-				ledger.bootstrap_weight_max_blocks = max_blocks;
-				while (true)
+				auto max_blocks = (uint64_t)block_height.number ();
+				auto transaction (store.tx_begin_read ());
+				if (ledger.store.block_count (transaction).sum () < max_blocks)
 				{
-					nano::account account;
-					if (nano::try_read (weight_stream, account.bytes))
+					ledger.bootstrap_weight_max_blocks = max_blocks;
+					while (true)
 					{
-						break;
+						nano::account account;
+						if (nano::try_read (weight_stream, account.bytes))
+						{
+							break;
+						}
+						nano::amount weight;
+						if (nano::try_read (weight_stream, weight.bytes))
+						{
+							break;
+						}
+						logger.always_log ("Using bootstrap rep weight: ", account.to_account (), " -> ", weight.format_balance (Mxrb_ratio, 0, true), " XRB");
+						ledger.bootstrap_weights[account] = weight.number ();
 					}
-					nano::amount weight;
-					if (nano::try_read (weight_stream, weight.bytes))
-					{
-						break;
-					}
-					logger.always_log ("Using bootstrap rep weight: ", account.to_account (), " -> ", weight.format_balance (Mxrb_ratio, 0, true), " XRB");
-					ledger.bootstrap_weights[account] = weight.number ();
 				}
 			}
 		}

@@ -1497,7 +1497,7 @@ void nano::wallets::do_wallet_actions ()
 	}
 }
 
-nano::wallets::wallets (bool & error_a, nano::node & node_a) :
+nano::wallets::wallets (bool error_a, nano::node & node_a) :
 observer ([](bool) {}),
 node (node_a),
 env (boost::polymorphic_downcast<nano::mdb_wallets_store *> (node_a.wallets_store_impl.get ())->environment),
