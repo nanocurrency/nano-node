@@ -17,6 +17,8 @@ class block;
 bool work_validate (nano::block_hash const &, uint64_t, uint64_t * = nullptr);
 bool work_validate (nano::block const &, uint64_t * = nullptr);
 uint64_t work_value (nano::block_hash const &, uint64_t);
+uint64_t difficulty_from_multiplier (double const, uint64_t const);
+double multiplier_from_difficulty (uint64_t const, uint64_t const);
 class opencl_work;
 class work_item final
 {

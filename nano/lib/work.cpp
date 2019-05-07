@@ -32,6 +32,16 @@ uint64_t nano::work_value (nano::block_hash const & root_a, uint64_t work_a)
 	return result;
 }
 
+uint64_t nano::difficulty_from_multiplier (double const multiplier_a, uint64_t const base_difficulty_a)
+{
+	return static_cast<uint64_t> ((-base_difficulty_a) / (-multiplier_a));
+}
+
+double nano::multiplier_from_difficulty (uint64_t const difficulty_a, uint64_t const base_difficulty_a)
+{
+	return static_cast<double> (-base_difficulty_a) / (-difficulty_a);
+}
+
 nano::work_pool::work_pool (unsigned max_threads_a, std::chrono::nanoseconds pow_rate_limiter_a, std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> opencl_a) :
 ticket (0),
 done (false),
