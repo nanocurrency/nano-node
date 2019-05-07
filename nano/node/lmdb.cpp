@@ -844,7 +844,8 @@ env (error_a, path_a, lmdb_max_dbs)
 		if (!error_a)
 		{
 			do_upgrades (transaction, batch_size);
-			if (drop_unchecked)
+			// Delete unchecked blocks at node start (if node initial synchronization is mostly completed)
+			if (drop_unchecked && (block_count (transaction).sum () / 10) > unchecked_count (transaction))
 			{
 				unchecked_clear (transaction);
 			}
