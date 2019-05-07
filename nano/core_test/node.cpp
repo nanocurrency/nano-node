@@ -889,11 +889,11 @@ TEST (json, backup)
 		}
 		return dir;
 	};
-	// clang-format on
 
-	auto get_file_count = [&dir] () {
+	auto get_file_count = [&dir]() {
 		return std::count_if (boost::filesystem::directory_iterator (dir), boost::filesystem::directory_iterator (), static_cast<bool (*) (const boost::filesystem::path &)> (boost::filesystem::is_regular_file));
 	};
+	// clang-format on
 
 	// There should only be the original file in this directory
 	ASSERT_EQ (get_file_count (), 1);
