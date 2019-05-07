@@ -60,7 +60,6 @@ public:
 	 * Reads a json object from the stream 
 	 * @return nano::error&, including a descriptive error message if the config file is malformed.
 	 */
-	template <typename T>
 	nano::error & read (boost::filesystem::path const & path_a)
 	{
 		std::fstream stream;
@@ -91,7 +90,8 @@ public:
 	template <typename T>
 	nano::error & read_and_update (T & object, boost::filesystem::path const & path_a)
 	{
-		read<T> (path_a);
+		auto file_exists (boost::filesystem::exists (path_a));
+		read (path_a);
 		if (!*error)
 		{
 			std::fstream stream;
@@ -100,7 +100,10 @@ public:
 			if (!*error && updated)
 			{
 				// Before updating the config file during an upgrade make a backup first
-				create_backup_file (path_a);
+				if (file_exists)
+				{
+					create_backup_file (path_a);
+				}
 				stream.open (path_a.string (), std::ios_base::out | std::ios_base::trunc);
 				try
 				{

@@ -863,6 +863,57 @@ TEST (json, upgrade_from_existing)
 	ASSERT_EQ ("changed", object1.text);
 }
 
+/** Test that backups are made only when there is an upgrade */
+TEST (json, backup)
+{
+	auto dir (nano::unique_path ());
+	namespace fs = boost::filesystem;
+	fs::create_directory (dir);
+	auto path = dir / dir.leaf ();
+
+	// Create json file
+	nano::jsonconfig json;
+	json_upgrade_test object1;
+	ASSERT_FALSE (json.read_and_update (object1, path));
+	ASSERT_EQ ("created", object1.text);
+
+	/** Returns 'dir' if backup file cannot be found */
+	// clang-format off
+	auto get_backup_path = [&dir]() {
+		for (fs::directory_iterator itr (dir); itr != fs::directory_iterator (); ++itr)
+		{
+			if (itr->path ().filename ().string ().find ("_backup_") != std::string::npos)
+			{
+				return itr->path ();
+			}
+		}
+		return dir;
+	};
+	// clang-format on
+
+	auto get_file_count = [&dir] () {
+		return std::count_if (boost::filesystem::directory_iterator (dir), boost::filesystem::directory_iterator (), static_cast<bool (*) (const boost::filesystem::path &)> (boost::filesystem::is_regular_file));
+	};
+
+	// There should only be the original file in this directory
+	ASSERT_EQ (get_file_count (), 1);
+	ASSERT_EQ (get_backup_path (), dir);
+
+	// Upgrade, check that there is a backup which matches the first object
+	ASSERT_FALSE (json.read_and_update (object1, path));
+	ASSERT_EQ (get_file_count (), 2);
+	ASSERT_NE (get_backup_path (), path);
+
+	// Check there is a backup which has the same contents as the original file
+	nano::jsonconfig json1;
+	ASSERT_FALSE (json1.read (get_backup_path ()));
+	ASSERT_EQ (json1.get<std::string> ("thing"), "created");
+
+	// Try and upgrade an already upgraded file, should not create any backups
+	ASSERT_FALSE (json.read_and_update (object1, path));
+	ASSERT_EQ (get_file_count (), 2);
+}
+
 TEST (node, fork_publish)
 {
 	std::weak_ptr<nano::node> node0;
