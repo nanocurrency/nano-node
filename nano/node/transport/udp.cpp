@@ -1005,13 +1005,7 @@ void nano::transport::udp_channels::start_tcp_receive (std::shared_ptr<nano::tra
 									callback_a ();
 								}
 							}
-							else if (callback_a && channel_a)
-							{
-								// Ignore connection to old node ID
-								channel_a->set_type (nano::transport::transport_type::udp);
-								callback_a ();
-							}
-							
+							// If node ID is known, don't establish new connection
 						}
 					}
 				}

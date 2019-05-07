@@ -313,7 +313,7 @@ public:
 	std::mutex mutex;
 	std::queue<std::unique_ptr<nano::message>> requests;
 	std::atomic<bool> keepalive_first{ true };
-	nano::tcp_endpoint remote_endpoint { boost::asio::ip::address_v6::any (), 0 };
+	nano::tcp_endpoint remote_endpoint{ boost::asio::ip::address_v6::any (), 0 };
 };
 class bulk_pull;
 class bulk_pull_server final : public std::enable_shared_from_this<nano::bulk_pull_server>
