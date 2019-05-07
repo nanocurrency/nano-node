@@ -1653,7 +1653,7 @@ TEST (block_store, upgrade_confirmation_height_many)
 	}
 }
 
-// Upgrade many accounts to add a confirmation height of 0
+// Ledger versions are not forward compatible
 TEST (block_store, incompatible_version)
 {
 	auto path (nano::unique_path ());
