@@ -32,7 +32,7 @@ jobs:
       os: osx
       compiler: clang
       before_install:
-        - brew update && brew install qt5 && brew cask install xquartz && brew install rust;
+        - brew update && brew install qt5 && brew cask install xquartz && brew install rust && brew upgrade cmake;
       install:
         - brew install ccache;
         - export PATH="/usr/local/opt/ccache/libexec:$PATH";
