@@ -27,7 +27,9 @@ TEST (difficulty, multipliers)
 		uint64_t base = 0xffffffc000000000;
 		uint64_t difficulty_nil = 0;
 		uint64_t multiplier_nil = 0.;
-		ASSERT_DEATH (nano::difficulty::to_multiplier (difficulty_nil, base), "");
-		ASSERT_DEATH (nano::difficulty::from_multiplier (multiplier_nil, base), "");
+#ifndef NDEBUG
+		ASSERT_DEATH_IF_SUPPORTED (nano::difficulty::to_multiplier (difficulty_nil, base), "");
+		ASSERT_DEATH_IF_SUPPORTED (nano::difficulty::from_multiplier (multiplier_nil, base), "");
+#endif
 	}
 }
