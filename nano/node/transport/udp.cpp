@@ -1008,6 +1008,8 @@ void nano::transport::udp_channels::start_tcp_receive (std::shared_ptr<nano::tra
 							if (node_l->network.udp_channels.find_node_id (node_id).address () == boost::asio::ip::address_v6::any ())
 							{
 								node_l->network.send_keepalive_self (*channel_a);
+								channel_a->set_last_packet_received (std::chrono::steady_clock::now ());
+								channel_a->set_last_packet_sent (std::chrono::steady_clock::now ());
 								node_l->network.udp_channels.insert_tcp (channel_a);
 								if (callback_a)
 								{

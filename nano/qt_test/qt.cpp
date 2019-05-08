@@ -598,7 +598,8 @@ TEST (wallet, republish)
 	nano::block_hash hash;
 	{
 		auto transaction (system.nodes[0]->store.tx_begin_write ());
-		nano::send_block block (system.nodes[0]->ledger.latest (transaction, nano::test_genesis_key.pub), key.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+		auto latest (system.nodes[0]->ledger.latest (transaction, nano::test_genesis_key.pub));
+		nano::send_block block (latest, key.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest));
 		hash = block.hash ();
 		ASSERT_EQ (nano::process_result::progress, system.nodes[0]->ledger.process (transaction, block).code);
 	}

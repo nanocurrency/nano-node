@@ -4960,7 +4960,7 @@ TEST (rpc, block_create_state_open)
 	request.put ("representative", nano::test_genesis_key.pub.to_account ());
 	request.put ("balance", nano::Gxrb_ratio.convert_to<std::string> ());
 	request.put ("link", send_block->hash ().to_string ());
-	request.put ("work", nano::to_string_hex (system.nodes[0]->work_generate_blocking (send_block->hash ())));
+	request.put ("work", nano::to_string_hex (system.nodes[0]->work_generate_blocking (key.pub)));
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
 	nano::node_rpc_config node_rpc_config;
