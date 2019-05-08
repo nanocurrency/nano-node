@@ -2476,7 +2476,7 @@ TEST (active_difficulty, recalculate_work)
 	// Fake history records to force work recalculation
 	for (auto i (0); i < node1.active.multipliers_cb.size (); i++)
 	{
-		node1.active.multipliers_cb.push_back (multiplier1 + 10000);
+		node1.active.multipliers_cb.push_back (multiplier1 * (1 + i / 100.));
 	}
 	node1.work_generate_blocking (*send1);
 	uint64_t difficulty2;

@@ -1061,7 +1061,7 @@ TEST (wallet, update_work_action)
 		//fill multipliers_cb and update active difficulty;
 		for (auto i (0); i < node.active.multipliers_cb.size (); i++)
 		{
-			node.active.multipliers_cb.push_back (multiplier1 + 10000);
+			node.active.multipliers_cb.push_back (multiplier1 * (1 + i / 100.));
 		}
 		node.active.update_active_difficulty (lock);
 		auto const existing (node.active.roots.find (block->qualified_root ()));
