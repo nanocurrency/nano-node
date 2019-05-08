@@ -419,6 +419,8 @@ private:
 	void upgrade_v12_to_v13 (nano::write_transaction &, size_t);
 	void upgrade_v13_to_v14 (nano::transaction const &);
 	MDB_dbi get_pending_db (nano::epoch epoch_a) const;
+	void open_databases (bool &, nano::transaction const &, unsigned);
+	static int constexpr version{ 14 };
 };
 class wallet_value
 {

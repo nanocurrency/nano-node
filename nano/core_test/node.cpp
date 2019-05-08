@@ -2451,6 +2451,26 @@ TEST (node, unchecked_cleanup)
 	}
 }
 
+/** This checks that a  node can be opened (without being blocked) when a write lock is held elsewhere */
+TEST (node, dont_write_lock_node)
+{
+	auto path = nano::unique_path ();
+	nano::logger_mt logger;
+	bool init (false);
+	nano::mdb_store store (init, logger, path / "data.ldb");
+	nano::genesis genesis;
+	{
+		auto transaction (store.tx_begin_write ());
+		store.initialize (transaction, genesis);
+	}
+
+	// Hold write lock open
+	auto transaction (store.tx_begin_write ());
+
+	// Check inactive node can finish
+	nano::inactive_node node (path);
+}
+
 TEST (active_difficulty, recalculate_work)
 {
 	nano::system system (24000, 1);
