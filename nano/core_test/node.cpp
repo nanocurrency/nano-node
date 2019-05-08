@@ -2462,6 +2462,7 @@ TEST (active_difficulty, recalculate_work)
 	node1.work_generate_blocking (*send1);
 	uint64_t difficulty1;
 	nano::work_validate (*send1, &difficulty1);
+	auto multiplier1 = nano::difficulty::to_multiplier (difficulty1, node1.network_params.network.publish_threshold);
 	// Process as local block
 	node1.process_active (send1);
 	system.deadline_set (2s);
@@ -2469,13 +2470,13 @@ TEST (active_difficulty, recalculate_work)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	auto sum (std::accumulate (node1.active.difficulty_cb.begin (), node1.active.difficulty_cb.end (), nano::uint128_t (0)));
-	ASSERT_EQ (node1.active.active_difficulty (), static_cast<uint64_t> (sum / node1.active.difficulty_cb.size ()));
+	auto sum (std::accumulate (node1.active.multipliers_cb.begin (), node1.active.multipliers_cb.end (), double(0)));
+	ASSERT_EQ (node1.active.active_difficulty (), nano::difficulty::from_multiplier (sum / node1.active.multipliers_cb.size (), node1.network_params.network.publish_threshold));
 	std::unique_lock<std::mutex> lock (node1.active.mutex);
 	// Fake history records to force work recalculation
-	for (auto i (0); i < node1.active.difficulty_cb.size (); i++)
+	for (auto i (0); i < node1.active.multipliers_cb.size (); i++)
 	{
-		node1.active.difficulty_cb.push_back (difficulty1 + 10000);
+		node1.active.multipliers_cb.push_back (multiplier1 + 10000);
 	}
 	node1.work_generate_blocking (*send1);
 	uint64_t difficulty2;
@@ -2483,8 +2484,8 @@ TEST (active_difficulty, recalculate_work)
 	node1.process_active (send1);
 	node1.active.update_active_difficulty (lock);
 	lock.unlock ();
-	sum = std::accumulate (node1.active.difficulty_cb.begin (), node1.active.difficulty_cb.end (), nano::uint128_t (0));
-	ASSERT_EQ (node1.active.active_difficulty (), static_cast<uint64_t> (sum / node1.active.difficulty_cb.size ()));
+	sum = std::accumulate (node1.active.multipliers_cb.begin (), node1.active.multipliers_cb.end (), double(0));
+	ASSERT_EQ (node1.active.active_difficulty (), nano::difficulty::from_multiplier (sum / node1.active.multipliers_cb.size (), node1.network_params.network.publish_threshold));
 }
 
 namespace
