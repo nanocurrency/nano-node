@@ -777,7 +777,7 @@ std::string nano::uint128_union::to_string_dec () const
 uint64_t nano::difficulty::from_multiplier (double const multiplier_a, uint64_t const base_difficulty_a)
 {
 	assert (multiplier_a > 0.);
-	return static_cast<uint64_t> ((-base_difficulty_a) / (-multiplier_a));
+	return (-static_cast<uint64_t> ((-base_difficulty_a) / multiplier_a));
 }
 
 double nano::difficulty::to_multiplier (uint64_t const difficulty_a, uint64_t const base_difficulty_a)
