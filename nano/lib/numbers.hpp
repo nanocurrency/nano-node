@@ -126,6 +126,12 @@ bool validate_message (nano::public_key const &, nano::uint256_union const &, na
 bool validate_message_batch (const unsigned char **, size_t *, const unsigned char **, const unsigned char **, size_t, int *);
 void deterministic_key (nano::uint256_union const &, uint32_t, nano::uint256_union &);
 nano::public_key pub_key (nano::private_key const &);
+
+namespace difficulty
+{
+	uint64_t from_multiplier (double const, uint64_t const);
+	double to_multiplier (uint64_t const, uint64_t const);
+}
 }
 
 namespace std

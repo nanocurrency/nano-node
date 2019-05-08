@@ -773,3 +773,13 @@ std::string nano::uint128_union::to_string_dec () const
 	encode_dec (result);
 	return result;
 }
+
+uint64_t nano::difficulty::from_multiplier (double const multiplier_a, uint64_t const base_difficulty_a)
+{
+	return static_cast<uint64_t> ((-base_difficulty_a) / (-multiplier_a));
+}
+
+double nano::difficulty::to_multiplier (uint64_t const difficulty_a, uint64_t const base_difficulty_a)
+{
+	return static_cast<double> (-base_difficulty_a) / (-difficulty_a);
+}

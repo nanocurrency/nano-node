@@ -482,7 +482,7 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 				auto existing_root (roots.find (root));
 				if (existing_root != roots.end ())
 				{
-					sum += nano::multiplier_from_difficulty (existing_root->difficulty, node.network_params.network.publish_threshold);
+					sum += nano::difficulty::to_multiplier (existing_root->difficulty, node.network_params.network.publish_threshold);
 					elections_list.emplace_back (root, level);
 				}
 			}
@@ -497,7 +497,7 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 		for (auto & item : elections_list)
 		{
 			auto existing_root (roots.find (item.first));
-			uint64_t difficulty_a = nano::difficulty_from_multiplier (average + item.second, node.network_params.network.publish_threshold);
+			uint64_t difficulty_a = nano::difficulty::from_multiplier (average + item.second, node.network_params.network.publish_threshold);
 			roots.modify (existing_root, [difficulty_a](nano::conflict_info & info_a) {
 				info_a.adjusted_difficulty = difficulty_a;
 			});
@@ -516,12 +516,12 @@ void nano::active_transactions::update_active_difficulty (std::unique_lock<std::
 		uint64_t min = (--roots.get<1> ().end ())->adjusted_difficulty;
 		assert (min >= node.network_params.network.publish_threshold);
 
-		multiplier = 0.5 * (nano::multiplier_from_difficulty (min, node.network_params.network.publish_threshold) + nano::multiplier_from_difficulty (max, node.network_params.network.publish_threshold));
+		multiplier = 0.5 * (nano::difficulty::to_multiplier (min, node.network_params.network.publish_threshold) + nano::difficulty::to_multiplier (max, node.network_params.network.publish_threshold));
 	}
 	assert (multiplier >= 1);
 	multipliers_cb.push_front (multiplier);
 	auto sum (std::accumulate (multipliers_cb.begin (), multipliers_cb.end (), double(0)));
-	auto difficulty = nano::difficulty_from_multiplier (sum / multipliers_cb.size (), node.network_params.network.publish_threshold);
+	auto difficulty = nano::difficulty::from_multiplier (sum / multipliers_cb.size (), node.network_params.network.publish_threshold);
 	assert (difficulty >= node.network_params.network.publish_threshold);
 	trended_active_difficulty = difficulty;
 }
