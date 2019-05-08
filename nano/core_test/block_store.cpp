@@ -1660,6 +1660,29 @@ TEST (block_store, upgrade_confirmation_height_many)
 	}
 }
 
+// Ledger versions are not forward compatible
+TEST (block_store, incompatible_version)
+{
+	auto path (nano::unique_path ());
+	nano::logger_mt logger;
+	{
+		auto error (false);
+		nano::mdb_store store (error, logger, path);
+		ASSERT_FALSE (error);
+
+		// Put version to an unreachable number so that it should always be incompatible
+		auto transaction (store.tx_begin_write ());
+		store.version_put (transaction, std::numeric_limits<unsigned>::max ());
+	}
+
+	// Now try and read it, should give an error
+	{
+		auto error (false);
+		nano::mdb_store store (error, logger, path);
+		ASSERT_TRUE (error);
+	}
+}
+
 namespace
 {
 // These functions take the latest account_info and create a legacy one so that upgrade tests can be emulated more easily.
