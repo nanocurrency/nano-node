@@ -287,7 +287,6 @@ public:
 	bool error () const;
 	bool block_store_init{ false };
 	bool wallets_store_init{ false };
-	bool wallet_init{ false };
 };
 
 class vote_processor final

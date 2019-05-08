@@ -843,8 +843,8 @@ env (error_a, path_a, lmdb_max_dbs)
 		}
 		if (!error_a)
 		{
-			do_upgrades (transaction, batch_size);
-			if (drop_unchecked)
+			error_a |= do_upgrades (transaction, batch_size);
+			if (!error_a && drop_unchecked)
 			{
 				unchecked_clear (transaction);
 			}
@@ -959,9 +959,11 @@ nano::store_iterator<nano::endpoint_key, nano::no_value> nano::mdb_store::peers_
 	return result;
 }
 
-void nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, size_t batch_size)
+bool nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, size_t batch_size)
 {
-	switch (version_get (transaction_a))
+	auto error (false);
+	auto version_l = version_get (transaction_a);
+	switch (version_l)
 	{
 		case 1:
 			upgrade_v1_to_v2 (transaction_a);
@@ -992,8 +994,11 @@ void nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, size
 		case 14:
 			break;
 		default:
-			assert (false);
+			logger.always_log (boost::str (boost::format ("The version of the ledger (%1%) is too high for this node") % version_l));
+			error = true;
+			break;
 	}
+	return error;
 }
 
 void nano::mdb_store::upgrade_v1_to_v2 (nano::transaction const & transaction_a)
