@@ -495,7 +495,7 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 		uint64_t average = nano::difficulty::from_multiplier (multiplier, node.network_params.network.publish_threshold);
 		auto highest_level = elections_list.back ().second;
 		uint64_t divider = 1;
-		// Possible overflow check, will occur for negative levels
+		// Possible overflow check, will not occur for negative levels
 		if ((multiplier + highest_level) > 10000000000)
 		{
 			divider = ((multiplier + highest_level) / 10000000000) + 1;
@@ -506,7 +506,8 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 		{
 			auto existing_root (roots.find (item.first));
 			uint64_t difficulty_a = average + item.second / divider;
-			std::cerr << nano::difficulty::to_multiplier (difficulty_a, node.network_params.network.publish_threshold) << std::endl;
+			std::cerr << "Level " << item.second << ", average " << nano::difficulty::to_multiplier (average, node.network_params.network.publish_threshold)
+			          << ", multiplier " << nano::difficulty::to_multiplier (difficulty_a, node.network_params.network.publish_threshold) << std::endl;
 			roots.modify (existing_root, [difficulty_a](nano::conflict_info & info_a) {
 				info_a.adjusted_difficulty = difficulty_a;
 			});
