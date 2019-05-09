@@ -2455,21 +2455,33 @@ TEST (node, unchecked_cleanup)
 TEST (node, dont_write_lock_node)
 {
 	auto path = nano::unique_path ();
-	nano::logger_mt logger;
-	bool init (false);
-	nano::mdb_store store (init, logger, path / "data.ldb");
-	nano::genesis genesis;
-	{
+
+	std::promise<void> write_lock_held_promise;
+	std::promise<void> finished_promise;
+	// clang-format off
+	std::thread ([&path, &write_lock_held_promise, &finished_promise]() {
+		nano::logger_mt logger;
+		bool init (false);
+		nano::mdb_store store (init, logger, path / "data.ldb");
+		nano::genesis genesis;
+		{
+			auto transaction (store.tx_begin_write ());
+			store.initialize (transaction, genesis);
+		}
+
+		// Hold write lock open until main thread is done needing it
 		auto transaction (store.tx_begin_write ());
-		store.initialize (transaction, genesis);
-	}
+		write_lock_held_promise.set_value ();
+		finished_promise.get_future ().wait ();
+	})
+	.detach ();
+	// clang-format off
 
-	// Hold write lock open
-	auto transaction (store.tx_begin_write ());
-
-	// Check inactive node can finish
+	// Check inactive node can finish executing while a write lock is open
 	nano::inactive_node node (path);
+	finished_promise.set_value ();
 }
+
 
 TEST (active_difficulty, recalculate_work)
 {
