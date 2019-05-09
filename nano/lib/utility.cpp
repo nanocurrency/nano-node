@@ -54,7 +54,7 @@ namespace thread_role
 		return current_thread_role;
 	}
 
-	static std::string get_string (nano::thread_role::name role)
+	std::string get_string (nano::thread_role::name role)
 	{
 		std::string thread_role_name_string;
 

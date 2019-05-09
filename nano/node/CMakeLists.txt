@@ -27,6 +27,8 @@ add_library (node
 	confirmation_height_processor.cpp
 	daemonconfig.hpp
 	daemonconfig.cpp
+	diagnosticsconfig.hpp
+	diagnosticsconfig.cpp
 	ipc.hpp
 	ipc.cpp
 	ipcconfig.hpp
@@ -37,6 +39,8 @@ add_library (node
 	json_payment_observer.cpp
 	lmdb.hpp
 	lmdb.cpp
+	lmdb_txn_tracker.hpp
+	lmdb_txn_tracker.cpp
 	logging.hpp
 	logging.cpp
 	nodeconfig.hpp

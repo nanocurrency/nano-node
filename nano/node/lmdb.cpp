@@ -68,14 +68,14 @@ nano::mdb_env::operator MDB_env * () const
 	return environment;
 }
 
-nano::read_transaction nano::mdb_env::tx_begin_read () const
+nano::read_transaction nano::mdb_env::tx_begin_read (mdb_txn_callbacks mdb_txn_callbacks) const
 {
-	return nano::read_transaction{ std::make_unique<nano::read_mdb_txn> (*this) };
+	return nano::read_transaction{ std::make_unique<nano::read_mdb_txn> (*this, mdb_txn_callbacks) };
 }
 
-nano::write_transaction nano::mdb_env::tx_begin_write () const
+nano::write_transaction nano::mdb_env::tx_begin_write (mdb_txn_callbacks mdb_txn_callbacks) const
 {
-	return nano::write_transaction{ std::make_unique<nano::write_mdb_txn> (*this) };
+	return nano::write_transaction{ std::make_unique<nano::write_mdb_txn> (*this, mdb_txn_callbacks) };
 }
 
 MDB_txn * nano::mdb_env::tx (nano::transaction const & transaction_a) const
@@ -83,10 +83,12 @@ MDB_txn * nano::mdb_env::tx (nano::transaction const & transaction_a) const
 	return static_cast<MDB_txn *> (transaction_a.get_handle ());
 }
 
-nano::read_mdb_txn::read_mdb_txn (nano::mdb_env const & environment_a)
+nano::read_mdb_txn::read_mdb_txn (nano::mdb_env const & environment_a, nano::mdb_txn_callbacks txn_callbacks_a) :
+txn_callbacks (txn_callbacks_a)
 {
 	auto status (mdb_txn_begin (environment_a, nullptr, MDB_RDONLY, &handle));
 	release_assert (status == 0);
+	txn_callbacks.txn_start (this);
 }
 
 nano::read_mdb_txn::~read_mdb_txn ()
@@ -94,17 +96,20 @@ nano::read_mdb_txn::~read_mdb_txn ()
 	// This uses commit rather than abort, as it is needed when opening databases with a read only transaction
 	auto status (mdb_txn_commit (handle));
 	release_assert (status == MDB_SUCCESS);
+	txn_callbacks.txn_end (this);
 }
 
 void nano::read_mdb_txn::reset () const
 {
 	mdb_txn_reset (handle);
+	txn_callbacks.txn_end (this);
 }
 
 void nano::read_mdb_txn::renew () const
 {
 	auto status (mdb_txn_renew (handle));
 	release_assert (status == 0);
+	txn_callbacks.txn_start (this);
 }
 
 void * nano::read_mdb_txn::get_handle () const
@@ -112,8 +117,9 @@ void * nano::read_mdb_txn::get_handle () const
 	return handle;
 }
 
-nano::write_mdb_txn::write_mdb_txn (nano::mdb_env const & environment_a) :
-env (environment_a)
+nano::write_mdb_txn::write_mdb_txn (nano::mdb_env const & environment_a, nano::mdb_txn_callbacks txn_callbacks_a) :
+env (environment_a),
+txn_callbacks (txn_callbacks_a)
 {
 	renew ();
 }
@@ -127,12 +133,14 @@ void nano::write_mdb_txn::commit () const
 {
 	auto status (mdb_txn_commit (handle));
 	release_assert (status == MDB_SUCCESS);
+	txn_callbacks.txn_end (this);
 }
 
 void nano::write_mdb_txn::renew ()
 {
 	auto status (mdb_txn_begin (env, nullptr, 0, &handle));
 	release_assert (status == MDB_SUCCESS);
+	txn_callbacks.txn_start (this);
 }
 
 void * nano::write_mdb_txn::get_handle () const
@@ -407,7 +415,7 @@ nano::mdb_val::operator MDB_val * () const
 {
 	// Allow passing a temporary to a non-c++ function which doesn't have constness
 	return const_cast<MDB_val *> (&value);
-};
+}
 
 nano::mdb_val::operator MDB_val const & () const
 {
@@ -815,9 +823,11 @@ nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> nano::mdb_store
 	return nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> (nullptr);
 }
 
-nano::mdb_store::mdb_store (bool & error_a, nano::logger_mt & logger_a, boost::filesystem::path const & path_a, int lmdb_max_dbs, bool drop_unchecked, size_t const batch_size) :
+nano::mdb_store::mdb_store (bool & error_a, nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, int lmdb_max_dbs, bool drop_unchecked, size_t const batch_size) :
 logger (logger_a),
-env (error_a, path_a, lmdb_max_dbs)
+env (error_a, path_a, lmdb_max_dbs),
+mdb_txn_tracker (logger_a, txn_tracking_config_a),
+txn_tracking_enabled (txn_tracking_config_a.enable)
 {
 	if (!error_a)
 	{
@@ -858,14 +868,36 @@ env (error_a, path_a, lmdb_max_dbs)
 	}
 }
 
+void nano::mdb_store::serialize_mdb_tracker (boost::property_tree::ptree & json, std::chrono::milliseconds min_read_time, std::chrono::milliseconds min_write_time)
+{
+	mdb_txn_tracker.serialize_json (json, min_read_time, min_write_time);
+}
+
 nano::write_transaction nano::mdb_store::tx_begin_write ()
 {
-	return env.tx_begin_write ();
+	return env.tx_begin_write (create_txn_callbacks ());
 }
 
 nano::read_transaction nano::mdb_store::tx_begin_read ()
 {
-	return env.tx_begin_read ();
+	return env.tx_begin_read (create_txn_callbacks ());
+}
+
+nano::mdb_txn_callbacks nano::mdb_store::create_txn_callbacks ()
+{
+	nano::mdb_txn_callbacks mdb_txn_callbacks;
+	if (txn_tracking_enabled)
+	{
+		// clang-format off
+		mdb_txn_callbacks.txn_start = ([&mdb_txn_tracker = mdb_txn_tracker](const nano::transaction_impl * transaction_impl) {
+			mdb_txn_tracker.add (transaction_impl);
+		});
+		mdb_txn_callbacks.txn_end = ([&mdb_txn_tracker = mdb_txn_tracker](const nano::transaction_impl * transaction_impl) {
+			mdb_txn_tracker.erase (transaction_impl);
+		});
+		// clang-format on
+	}
+	return mdb_txn_callbacks;
 }
 
 /**
