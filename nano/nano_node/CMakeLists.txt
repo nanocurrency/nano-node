@@ -26,8 +26,6 @@ set_target_properties (nano_node
 
 if ((NANO_GUI OR RAIBLOCKS_GUI) AND NOT APPLE)
 	install(TARGETS nano_node
-			RUNTIME DESTINATION bin
-			LIBRARY DESTINATION lib
-			ARCHIVE DESTINATION lib
+			RUNTIME DESTINATION .
 	)
 endif()

@@ -1026,7 +1026,7 @@ flags (flags_a),
 alarm (alarm_a),
 work (work_a),
 logger (config_a.logging.min_time_between_log_output),
-store_impl (std::make_unique<nano::mdb_store> (init_a.block_store_init, logger, application_path_a / "data.ldb", config_a.lmdb_max_dbs, !flags.disable_unchecked_drop, flags.sideband_batch_size)),
+store_impl (std::make_unique<nano::mdb_store> (init_a.block_store_init, logger, application_path_a / "data.ldb", config.diagnostics_config.txn_tracking, config_a.lmdb_max_dbs, !flags.disable_unchecked_drop, flags.sideband_batch_size)),
 store (*store_impl),
 wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (init_a.wallets_store_init, application_path_a / "wallets.ldb", config_a.lmdb_max_dbs)),
 wallets_store (*wallets_store_impl),
@@ -1237,13 +1237,23 @@ startup_time (std::chrono::steady_clock::now ())
 		{
 			logger.always_log ("Constructing node");
 		}
-		nano::genesis genesis;
-		auto transaction (store.tx_begin_write ());
-		if (store.latest_begin (transaction) == store.latest_end ())
+
+		// First do a pass with a read to see if any writing needs doing, this saves needing to open a write lock (and potentially blocking)
+		auto is_initialized (false);
 		{
+			auto transaction (store.tx_begin_read ());
+			is_initialized = (store.latest_begin (transaction) != store.latest_end ());
+		}
+
+		nano::genesis genesis;
+		if (!is_initialized)
+		{
+			auto transaction (store.tx_begin_write ());
 			// Store was empty meaning we just created it, add the genesis block
 			store.initialize (transaction, genesis);
 		}
+
+		auto transaction (store.tx_begin_read ());
 		if (!store.block_exists (transaction, genesis.hash ()))
 		{
 			logger.always_log ("Genesis block not found. Make sure the node network ID is correct.");

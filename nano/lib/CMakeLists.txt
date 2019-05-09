@@ -53,11 +53,3 @@ target_compile_definitions(nano_lib
 	PUBLIC
 		-DACTIVE_NETWORK=${ACTIVE_NETWORK}
 )
-
-if ((NANO_GUI OR RAIBLOCKS_GUI) AND NOT APPLE)
-	install(TARGETS nano_lib
-			RUNTIME DESTINATION bin
-			LIBRARY DESTINATION lib
-			ARCHIVE DESTINATION lib
-	)
-endif()

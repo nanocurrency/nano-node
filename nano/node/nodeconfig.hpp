@@ -5,6 +5,7 @@
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/node/diagnosticsconfig.hpp>
 #include <nano/node/ipcconfig.hpp>
 #include <nano/node/logging.hpp>
 #include <nano/node/stats.hpp>
@@ -46,6 +47,7 @@ public:
 	unsigned bootstrap_connections{ 4 };
 	unsigned bootstrap_connections_max{ 64 };
 	nano::websocket::config websocket_config;
+	nano::diagnostics_config diagnostics_config;
 	std::string callback_address;
 	uint16_t callback_port{ 0 };
 	std::string callback_target;
