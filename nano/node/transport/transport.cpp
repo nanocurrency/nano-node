@@ -56,6 +56,16 @@ nano::endpoint nano::transport::map_endpoint_to_v6 (nano::endpoint const & endpo
 	return endpoint_l;
 }
 
+nano::endpoint nano::transport::map_tcp_to_endpoint (nano::tcp_endpoint const & endpoint_a)
+{
+	return nano::endpoint (endpoint_a.address (), endpoint_a.port ());
+}
+
+nano::tcp_endpoint nano::transport::map_endpoint_to_tcp (nano::endpoint const & endpoint_a)
+{
+	return nano::tcp_endpoint (endpoint_a.address (), endpoint_a.port ());
+}
+
 void nano::transport::channel::send_buffer (std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
 {
 	send_buffer_raw (boost::asio::buffer (buffer_a->data (), buffer_a->size ()), callback (buffer_a, detail_a, callback_a));

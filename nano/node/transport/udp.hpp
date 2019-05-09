@@ -27,58 +27,25 @@ namespace transport
 			return &channels == &other_a.channels && endpoint == other_a.endpoint;
 		}
 
-		nano::endpoint get_endpoint () const
+		nano::endpoint get_endpoint () const override
 		{
 			std::lock_guard<std::mutex> lk (channel_mutex);
 			return endpoint;
 		}
 
-		std::chrono::steady_clock::time_point get_last_tcp_attempt () const
+		nano::tcp_endpoint get_tcp_endpoint () const override
 		{
 			std::lock_guard<std::mutex> lk (channel_mutex);
-			return last_tcp_attempt;
+			return nano::transport::map_endpoint_to_tcp (endpoint);
 		}
 
-		void set_last_tcp_attempt (std::chrono::steady_clock::time_point const time_a)
+		nano::transport::transport_type get_type () const override
 		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
-			last_tcp_attempt = time_a;
+			return nano::transport::transport_type::udp;
 		}
-
-		std::chrono::steady_clock::time_point get_last_packet_received () const
-		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
-			return last_packet_received;
-		}
-
-		void set_last_packet_received (std::chrono::steady_clock::time_point const time_a)
-		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
-			last_packet_received = time_a;
-		}
-
-		boost::optional<nano::account> get_node_id () const
-		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
-			return node_id;
-		}
-
-		void set_node_id (nano::account node_id_a)
-		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
-			node_id = node_id_a;
-		}
-
-		unsigned network_version{ nano::protocol_version };
 
 	private:
-		mutable std::mutex channel_mutex;
 		nano::endpoint endpoint;
-		std::chrono::steady_clock::time_point last_tcp_attempt{ std::chrono::steady_clock::time_point () };
-		std::chrono::steady_clock::time_point last_packet_received{ std::chrono::steady_clock::time_point () };
-		boost::optional<nano::account> node_id{ boost::none };
-
-	private:
 		nano::transport::udp_channels & channels;
 	};
 	class udp_channels final

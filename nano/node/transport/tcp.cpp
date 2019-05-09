@@ -7,6 +7,15 @@ socket (socket_a)
 {
 }
 
+nano::transport::channel_tcp::~channel_tcp ()
+{
+	std::lock_guard<std::mutex> lk (channel_mutex);
+	if (socket)
+	{
+		socket->close ();
+	}
+}
+
 size_t nano::transport::channel_tcp::hash_code () const
 {
 	std::hash<::nano::tcp_endpoint> hash;
@@ -56,5 +65,5 @@ std::function<void(boost::system::error_code const &, size_t)> nano::transport::
 
 std::string nano::transport::channel_tcp::to_string () const
 {
-	return boost::str (boost::format ("TCP: %1%") % socket->remote_endpoint ());
+	return boost::str (boost::format ("%1%") % socket->remote_endpoint ());
 }

@@ -5,10 +5,10 @@
 std::chrono::seconds constexpr nano::transport::udp_channels::syn_cookie_cutoff;
 
 nano::transport::channel_udp::channel_udp (nano::transport::udp_channels & channels_a, nano::endpoint const & endpoint_a, unsigned network_version_a) :
-network_version (network_version_a),
 endpoint (endpoint_a),
 channels (channels_a)
 {
+	set_network_version (network_version_a);
 	assert (endpoint_a.address ().is_v6 ());
 }
 
@@ -61,7 +61,7 @@ std::function<void(boost::system::error_code const &, size_t)> nano::transport::
 
 std::string nano::transport::channel_udp::to_string () const
 {
-	return boost::str (boost::format ("UDP: %1%") % endpoint);
+	return boost::str (boost::format ("%1%") % endpoint);
 }
 
 nano::transport::udp_channels::udp_channels (nano::node & node_a, uint16_t port_a) :
@@ -319,7 +319,7 @@ nano::endpoint nano::transport::udp_channels::tcp_peer ()
 	std::lock_guard<std::mutex> lock (mutex);
 	for (auto i (channels.get<last_tcp_attempt_tag> ().begin ()), n (channels.get<last_tcp_attempt_tag> ().end ()); i != n;)
 	{
-		if (i->channel->network_version >= protocol_version_reasonable_min)
+		if (i->channel->get_network_version () >= protocol_version_reasonable_min)
 		{
 			result = i->endpoint ();
 			channels.get<last_tcp_attempt_tag> ().modify (i, [](channel_udp_wrapper & wrapper_a) {
@@ -426,7 +426,7 @@ public:
 				auto channel (node.network.udp_channels.channel (endpoint));
 				if (channel)
 				{
-					node.network.send_keepalive_self (*channel);
+					node.network.send_keepalive_self (channel);
 				}
 			}
 			// Check for special node port data
@@ -797,6 +797,7 @@ void nano::transport::udp_channels::ongoing_keepalive ()
 	auto keepalive_cutoff (channels.get<last_packet_received_tag> ().lower_bound (std::chrono::steady_clock::now () - network_params.node.period));
 	for (auto i (channels.get<last_packet_received_tag> ().begin ()); i != keepalive_cutoff; ++i)
 	{
+		i->channel->set_last_packet_sent (std::chrono::steady_clock::now ());
 		i->channel->send (message);
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());

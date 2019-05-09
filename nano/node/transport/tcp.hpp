@@ -12,6 +12,7 @@ namespace transport
 	{
 	public:
 		channel_tcp (nano::node &, std::shared_ptr<nano::socket>);
+		~channel_tcp ();
 		size_t hash_code () const override;
 		bool operator== (nano::transport::channel const &) const override;
 		void send_buffer_raw (boost::asio::const_buffer, std::function<void(boost::system::error_code const &, size_t)> const &) const override;
@@ -23,6 +24,37 @@ namespace transport
 		}
 		nano::node & node;
 		std::shared_ptr<nano::socket> socket;
+		
+		nano::endpoint get_endpoint () const override
+		{
+			std::lock_guard<std::mutex> lk (channel_mutex);
+			if (socket)
+			{
+				return nano::transport::map_tcp_to_endpoint (socket->remote_endpoint ());
+			}
+			else
+			{
+				return nano::endpoint (boost::asio::ip::address_v6::any (), 0);
+			}
+		}
+
+		nano::tcp_endpoint get_tcp_endpoint () const override
+		{
+			std::lock_guard<std::mutex> lk (channel_mutex);
+			if (socket)
+			{
+				return socket->remote_endpoint ();
+			}
+			else
+			{
+				return nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0);
+			}
+		}
+
+		nano::transport::transport_type get_type () const override
+		{
+			return nano::transport::transport_type::tcp;
+		}
 	};
 } // namespace transport
 } // namespace nano

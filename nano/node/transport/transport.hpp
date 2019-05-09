@@ -11,6 +11,14 @@ namespace transport
 {
 	class message;
 	nano::endpoint map_endpoint_to_v6 (nano::endpoint const &);
+	nano::endpoint map_tcp_to_endpoint (nano::tcp_endpoint const &);
+	nano::tcp_endpoint map_endpoint_to_tcp (nano::endpoint const &);
+	enum class transport_type : uint8_t
+	{
+		undefined = 0,
+		udp = 1,
+		tcp = 2
+	};
 	class channel
 	{
 	public:
@@ -22,6 +30,76 @@ namespace transport
 		virtual void send_buffer_raw (boost::asio::const_buffer, std::function<void(boost::system::error_code const &, size_t)> const &) const = 0;
 		virtual std::function<void(boost::system::error_code const &, size_t)> callback (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) const = 0;
 		virtual std::string to_string () const = 0;
+		virtual nano::endpoint get_endpoint () const = 0;
+		virtual nano::tcp_endpoint get_tcp_endpoint () const = 0;
+		virtual nano::transport::transport_type get_type () const = 0;
+
+		std::chrono::steady_clock::time_point get_last_tcp_attempt () const
+		{
+			std::lock_guard<std::mutex> lk (channel_mutex);
+			return last_tcp_attempt;
+		}
+
+		void set_last_tcp_attempt (std::chrono::steady_clock::time_point const time_a)
+		{
+			std::lock_guard<std::mutex> lk (channel_mutex);
+			last_tcp_attempt = time_a;
+		}
+
+		std::chrono::steady_clock::time_point get_last_packet_received () const
+		{
+			std::lock_guard<std::mutex> lk (channel_mutex);
+			return last_packet_received;
+		}
+
+		void set_last_packet_received (std::chrono::steady_clock::time_point const time_a)
+		{
+			std::lock_guard<std::mutex> lk (channel_mutex);
+			last_packet_received = time_a;
+		}
+
+		std::chrono::steady_clock::time_point get_last_packet_sent () const
+		{
+			std::lock_guard<std::mutex> lk (channel_mutex);
+			return last_packet_sent;
+		}
+
+		void set_last_packet_sent (std::chrono::steady_clock::time_point const time_a)
+		{
+			std::lock_guard<std::mutex> lk (channel_mutex);
+			last_packet_sent = time_a;
+		}
+
+		boost::optional<nano::account> get_node_id () const
+		{
+			std::lock_guard<std::mutex> lk (channel_mutex);
+			return node_id;
+		}
+
+		void set_node_id (nano::account node_id_a)
+		{
+			std::lock_guard<std::mutex> lk (channel_mutex);
+			node_id = node_id_a;
+		}
+
+		unsigned get_network_version () const
+		{
+			return network_version;
+		}
+
+		void set_network_version (unsigned network_version_a)
+		{
+			network_version = network_version_a;
+		}
+
+		mutable std::mutex channel_mutex;
+
+	private:
+		std::chrono::steady_clock::time_point last_tcp_attempt{ std::chrono::steady_clock::time_point () };
+		std::chrono::steady_clock::time_point last_packet_received{ std::chrono::steady_clock::time_point () };
+		std::chrono::steady_clock::time_point last_packet_sent{ std::chrono::steady_clock::time_point () };
+		boost::optional<nano::account> node_id{ boost::none };
+		std::atomic<unsigned> network_version{ nano::protocol_version };
 	};
 } // namespace transport
 } // namespace nano
