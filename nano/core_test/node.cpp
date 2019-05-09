@@ -2477,6 +2477,8 @@ TEST (node, dont_write_lock_node)
 	.detach ();
 	// clang-format off
 
+	write_lock_held_promise.get_future ().wait ();
+
 	// Check inactive node can finish executing while a write lock is open
 	nano::inactive_node node (path);
 	finished_promise.set_value ();
