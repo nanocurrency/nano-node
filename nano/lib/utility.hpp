@@ -98,6 +98,11 @@ namespace thread_role
 	void set (nano::thread_role::name);
 
 	/*
+	 * Get the thread name as a string from enum
+	 */
+	std::string get_string (nano::thread_role::name);
+
+	/*
 	 * Get the current thread's role as a string
 	 */
 	std::string get_string ();

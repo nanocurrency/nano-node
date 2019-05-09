@@ -702,6 +702,8 @@ TEST (node_config, v16_v17_upgrade)
 	ASSERT_FALSE (tree.get_optional_child ("pow_sleep_interval"));
 	ASSERT_FALSE (tree.get_optional_child ("external_address"));
 	ASSERT_FALSE (tree.get_optional_child ("external_port"));
+	ASSERT_FALSE (tree.get_optional_child ("diagnostics"));
+
 	config.deserialize_json (upgraded, tree);
 	// The config options should be added after the upgrade
 	ASSERT_TRUE (!!tree.get_optional_child ("tcp_client_timeout"));
@@ -709,6 +711,7 @@ TEST (node_config, v16_v17_upgrade)
 	ASSERT_TRUE (!!tree.get_optional_child ("pow_sleep_interval"));
 	ASSERT_TRUE (!!tree.get_optional_child ("external_address"));
 	ASSERT_TRUE (!!tree.get_optional_child ("external_port"));
+	ASSERT_TRUE (!!tree.get_optional_child ("diagnostics"));
 
 	ASSERT_TRUE (upgraded);
 	auto version (tree.get<std::string> ("version"));
@@ -728,11 +731,21 @@ TEST (node_config, v17_values)
 	config.logging.init (path);
 
 	// Check config is correct
-	tree.put ("tcp_client_timeout", 1);
-	tree.put ("tcp_server_timeout", 0);
-	tree.put ("pow_sleep_interval", 0);
-	tree.put ("external_address", "::1");
-	tree.put ("external_port", 0);
+	{
+		tree.put ("tcp_client_timeout", 1);
+		tree.put ("tcp_server_timeout", 0);
+		tree.put ("pow_sleep_interval", 0);
+		tree.put ("external_address", "::1");
+		tree.put ("external_port", 0);
+		nano::jsonconfig txn_tracking_l;
+		txn_tracking_l.put ("enable", false);
+		txn_tracking_l.put ("min_read_txn_time", 0);
+		txn_tracking_l.put ("min_write_txn_time", 0);
+		nano::jsonconfig diagnostics_l;
+		diagnostics_l.put_child ("txn_tracking", txn_tracking_l);
+		tree.put_child ("diagnostics", diagnostics_l);
+	}
+
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
 	ASSERT_EQ (config.tcp_client_timeout.count (), 1);
@@ -740,6 +753,9 @@ TEST (node_config, v17_values)
 	ASSERT_EQ (config.pow_sleep_interval.count (), 0);
 	ASSERT_EQ (config.external_address, boost::asio::ip::address_v6::from_string ("::1"));
 	ASSERT_EQ (config.external_port, 0);
+	ASSERT_FALSE (config.diagnostics_config.txn_tracking.enable);
+	ASSERT_EQ (config.diagnostics_config.txn_tracking.min_read_txn_time.count (), 0);
+	ASSERT_EQ (config.diagnostics_config.txn_tracking.min_write_txn_time.count (), 0);
 
 	// Check config is correct with other values
 	tree.put ("tcp_client_timeout", std::numeric_limits<unsigned long>::max () - 100);
@@ -747,6 +763,14 @@ TEST (node_config, v17_values)
 	tree.put ("pow_sleep_interval", std::numeric_limits<unsigned long>::max () - 100);
 	tree.put ("external_address", "::ffff:192.168.1.1");
 	tree.put ("external_port", std::numeric_limits<uint16_t>::max () - 1);
+	nano::jsonconfig txn_tracking_l;
+	txn_tracking_l.put ("enable", true);
+	txn_tracking_l.put ("min_read_txn_time", 1234);
+	txn_tracking_l.put ("min_write_txn_time", std::numeric_limits<unsigned>::max ());
+	nano::jsonconfig diagnostics_l;
+	diagnostics_l.replace_child ("txn_tracking", txn_tracking_l);
+	tree.replace_child ("diagnostics", diagnostics_l);
+
 	upgraded = false;
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
@@ -755,6 +779,9 @@ TEST (node_config, v17_values)
 	ASSERT_EQ (config.pow_sleep_interval.count (), std::numeric_limits<unsigned long>::max () - 100);
 	ASSERT_EQ (config.external_address, boost::asio::ip::address_v6::from_string ("::ffff:192.168.1.1"));
 	ASSERT_EQ (config.external_port, std::numeric_limits<uint16_t>::max () - 1);
+	ASSERT_TRUE (config.diagnostics_config.txn_tracking.enable);
+	ASSERT_EQ (config.diagnostics_config.txn_tracking.min_read_txn_time.count (), 1234);
+	ASSERT_EQ (config.diagnostics_config.txn_tracking.min_write_txn_time.count (), std::numeric_limits<unsigned>::max ());
 }
 
 // Regression test to ensure that deserializing includes changes node via get_required_child
