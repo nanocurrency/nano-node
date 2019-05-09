@@ -1449,11 +1449,30 @@ void nano::work_watcher::run ()
 			{
 				lock.unlock ();
 				nano::state_block_builder builder;
+				std::error_code ec;
 				builder.from (*i.second);
 				builder.work (node.work_generate_blocking (i.second->root (), node.active.active_difficulty ()));
-				std::shared_ptr<state_block> block (builder.build ());
-				node.network.flood_block (block);
-				node.active.update_difficulty (*block.get ());
+				std::shared_ptr<state_block> block (builder.build (ec));
+				if (!ec)
+				{
+					{
+						std::lock_guard<std::mutex> active_lock (node.active.mutex);
+						auto existing (node.active.roots.find (i.second->qualified_root ()));
+						if (existing != node.active.roots.end ())
+						{
+							auto election (existing->election);
+							if (election->status.winner->hash () == i.second->hash ())
+							{
+								election->status.winner = block;
+							}
+							auto current (election->blocks.find (block->hash ()));
+							assert (current != election->blocks.end ());
+							current->second = block;
+						}
+					}
+					node.network.flood_block (block);
+					node.active.update_difficulty (*block.get ());
+				}
 				lock.lock ();
 			}
 		}
@@ -1497,7 +1516,7 @@ void nano::wallets::do_wallet_actions ()
 	}
 }
 
-nano::wallets::wallets (bool & error_a, nano::node & node_a) :
+nano::wallets::wallets (bool error_a, nano::node & node_a) :
 observer ([](bool) {}),
 node (node_a),
 env (boost::polymorphic_downcast<nano::mdb_wallets_store *> (node_a.wallets_store_impl.get ())->environment),
@@ -1793,23 +1812,42 @@ void nano::wallets::split_if_needed (nano::transaction & transaction_destination
 	auto store_l (dynamic_cast<nano::mdb_store *> (&store_a));
 	if (store_l != nullptr)
 	{
-		auto transaction_source (store_l->tx_begin_write ());
-		auto tx_source = static_cast<MDB_txn *> (transaction_source.get_handle ());
 		if (items.empty ())
 		{
-			auto tx_destination = static_cast<MDB_txn *> (transaction_destination.get_handle ());
 			std::string beginning (nano::uint256_union (0).to_string ());
 			std::string end ((nano::uint256_union (nano::uint256_t (0) - nano::uint256_t (1))).to_string ());
-			nano::store_iterator<std::array<char, 64>, nano::no_value> i (std::make_unique<nano::mdb_iterator<std::array<char, 64>, nano::no_value>> (transaction_source, handle, nano::mdb_val (beginning.size (), const_cast<char *> (beginning.c_str ()))));
-			nano::store_iterator<std::array<char, 64>, nano::no_value> n (std::make_unique<nano::mdb_iterator<std::array<char, 64>, nano::no_value>> (transaction_source, handle, nano::mdb_val (end.size (), const_cast<char *> (end.c_str ()))));
-			for (; i != n; ++i)
+
+			// clang-format off
+			auto get_store_it = [&handle = handle](nano::transaction const & transaction_source, std::string const & hash) {
+				return nano::store_iterator<std::array<char, 64>, nano::no_value> (std::make_unique<nano::mdb_iterator<std::array<char, 64>, nano::no_value>> (transaction_source, handle, nano::mdb_val (hash.size (), const_cast<char *> (hash.c_str ()))));
+			};
+			// clang-format on
+
+			// First do a read pass to check if there are any wallets that need extracting (to save holding a write lock and potentially being blocked)
+			auto wallets_need_splitting (false);
 			{
-				nano::uint256_union id;
-				std::string text (i->first.data (), i->first.size ());
-				auto error1 (id.decode_hex (text));
-				assert (!error1);
-				assert (strlen (text.c_str ()) == text.size ());
-				move_table (text, tx_source, tx_destination);
+				auto transaction_source (store_l->tx_begin_read ());
+				auto i = get_store_it (transaction_source, beginning);
+				auto n = get_store_it (transaction_source, end);
+				wallets_need_splitting = (i != n);
+			}
+
+			if (wallets_need_splitting)
+			{
+				auto transaction_source (store_l->tx_begin_write ());
+				auto i = get_store_it (transaction_source, beginning);
+				auto n = get_store_it (transaction_source, end);
+				auto tx_source = static_cast<MDB_txn *> (transaction_source.get_handle ());
+				auto tx_destination = static_cast<MDB_txn *> (transaction_destination.get_handle ());
+				for (; i != n; ++i)
+				{
+					nano::uint256_union id;
+					std::string text (i->first.data (), i->first.size ());
+					auto error1 (id.decode_hex (text));
+					assert (!error1);
+					assert (strlen (text.c_str ()) == text.size ());
+					move_table (text, tx_source, tx_destination);
+				}
 			}
 		}
 	}

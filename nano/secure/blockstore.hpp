@@ -14,12 +14,12 @@ public:
 	void serialize (nano::stream &) const;
 	bool deserialize (nano::stream &);
 	static size_t size (nano::block_type);
-	nano::block_type type;
-	nano::block_hash successor;
-	nano::account account;
-	nano::amount balance;
-	uint64_t height;
-	uint64_t timestamp;
+	nano::block_type type{ nano::block_type::invalid };
+	nano::block_hash successor{ 0 };
+	nano::account account{ 0 };
+	nano::amount balance{ 0 };
+	uint64_t height{ 0 };
+	uint64_t timestamp{ 0 };
 };
 class transaction;
 class block_store;
@@ -187,22 +187,25 @@ private:
 
 class block_predecessor_set;
 
-class read_transaction_impl
+class transaction_impl
 {
 public:
-	virtual ~read_transaction_impl () = default;
-	virtual void reset () const = 0;
-	virtual void renew () const = 0;
+	virtual ~transaction_impl () = default;
 	virtual void * get_handle () const = 0;
 };
 
-class write_transaction_impl
+class read_transaction_impl : public transaction_impl
 {
 public:
-	virtual ~write_transaction_impl () = default;
+	virtual void reset () const = 0;
+	virtual void renew () const = 0;
+};
+
+class write_transaction_impl : public transaction_impl
+{
+public:
 	virtual void commit () const = 0;
 	virtual void renew () = 0;
-	virtual void * get_handle () const = 0;
 };
 
 class transaction
@@ -353,6 +356,7 @@ public:
 	virtual nano::store_iterator<nano::endpoint_key, nano::no_value> peers_end () = 0;
 
 	virtual uint64_t block_account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
+	virtual void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::milliseconds, std::chrono::milliseconds) = 0;
 
 	/** Start read-write transaction */
 	virtual nano::write_transaction tx_begin_write () = 0;
