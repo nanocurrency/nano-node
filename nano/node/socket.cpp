@@ -40,87 +40,96 @@ void nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, s
 {
 	assert (size_a <= buffer_a->size ());
 	auto this_l (shared_from_this ());
-	start_timer ();
-
-	boost::asio::post (strand, boost::asio::bind_executor (strand, [buffer_a, callback_a, size_a, this_l]() {
-		boost::asio::async_read (this_l->tcp_socket, boost::asio::buffer (buffer_a->data (), size_a),
-		boost::asio::bind_executor (this_l->strand,
-		[this_l, buffer_a, callback_a](boost::system::error_code const & ec, size_t size_a) {
-			if (auto node = this_l->node.lock ())
-			{
-				node->stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::in, size_a);
-				this_l->stop_timer ();
-				callback_a (ec, size_a);
-			}
+	if (!closed)
+	{
+		start_timer ();
+		boost::asio::post (strand, boost::asio::bind_executor (strand, [buffer_a, callback_a, size_a, this_l]() {
+			assert (!this_l->closed);
+			boost::asio::async_read (this_l->tcp_socket, boost::asio::buffer (buffer_a->data (), size_a),
+			boost::asio::bind_executor (this_l->strand,
+			[this_l, buffer_a, callback_a](boost::system::error_code const & ec, size_t size_a) {
+				if (auto node = this_l->node.lock ())
+				{
+					node->stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::in, size_a);
+					this_l->stop_timer ();
+					callback_a (ec, size_a);
+				}
+			}));
 		}));
-	}));
+	}
 }
 
 void nano::socket::async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
 {
 	auto this_l (shared_from_this ());
-	if (writer_concurrency == nano::socket::concurrency::multi_writer)
+	if (!closed)
 	{
-		boost::asio::post (strand, boost::asio::bind_executor (strand, [buffer_a, callback_a, this_l]() {
-			bool write_in_progress = !this_l->send_queue.empty ();
-			this_l->send_queue.emplace_back (nano::socket::queue_item{ buffer_a, callback_a });
-			if (!write_in_progress)
-			{
-				this_l->write_queued_messages ();
-			}
-		}));
-	}
-	else
-	{
-		start_timer ();
-		boost::asio::async_write (tcp_socket, boost::asio::buffer (buffer_a->data (), buffer_a->size ()),
-		boost::asio::bind_executor (strand,
-		[this_l, buffer_a, callback_a](boost::system::error_code const & ec, size_t size_a) {
-			if (auto node = this_l->node.lock ())
-			{
-				node->stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, size_a);
-				this_l->stop_timer ();
-				if (callback_a)
+		if (writer_concurrency == nano::socket::concurrency::multi_writer)
+		{
+			boost::asio::post (strand, boost::asio::bind_executor (strand, [buffer_a, callback_a, this_l]() {
+				bool write_in_progress = !this_l->send_queue.empty ();
+				this_l->send_queue.emplace_back (nano::socket::queue_item{ buffer_a, callback_a });
+				if (!write_in_progress)
 				{
-					callback_a (ec, size_a);
+					this_l->write_queued_messages ();
 				}
-			}
-		}));
+			}));
+		}
+		else
+		{
+			start_timer ();
+			boost::asio::async_write (tcp_socket, boost::asio::buffer (buffer_a->data (), buffer_a->size ()),
+			boost::asio::bind_executor (strand,
+			[this_l, buffer_a, callback_a](boost::system::error_code const & ec, size_t size_a) {
+				if (auto node = this_l->node.lock ())
+				{
+					node->stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, size_a);
+					this_l->stop_timer ();
+					if (callback_a)
+					{
+						callback_a (ec, size_a);
+					}
+				}
+			}));
+		}
 	}
 }
 
 void nano::socket::write_queued_messages ()
 {
-	std::weak_ptr<nano::socket> this_w (shared_from_this ());
-	auto msg (send_queue.front ());
-	start_timer ();
-	boost::asio::async_write (tcp_socket, boost::asio::buffer (msg.buffer->data (), msg.buffer->size ()),
-	boost::asio::bind_executor (strand,
-	[msg, this_w](boost::system::error_code ec, std::size_t size_a) {
-		if (auto this_l = this_w.lock ())
-		{
-			if (auto node = this_l->node.lock ())
+	if (!closed)
+	{
+		std::weak_ptr<nano::socket> this_w (shared_from_this ());
+		auto msg (send_queue.front ());
+		start_timer ();
+		boost::asio::async_write (tcp_socket, boost::asio::buffer (msg.buffer->data (), msg.buffer->size ()),
+		boost::asio::bind_executor (strand,
+		[msg, this_w](boost::system::error_code ec, std::size_t size_a) {
+			if (auto this_l = this_w.lock ())
 			{
-				node->stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, size_a);
-
-				this_l->stop_timer ();
-
-				if (!this_l->closed)
+				if (auto node = this_l->node.lock ())
 				{
-					if (msg.callback)
-					{
-						msg.callback (ec, size_a);
-					}
+					node->stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::out, size_a);
 
-					this_l->send_queue.pop_front ();
-					if (!ec && !this_l->send_queue.empty ())
+					this_l->stop_timer ();
+
+					if (!this_l->closed)
 					{
-						this_l->write_queued_messages ();
+						if (msg.callback)
+						{
+							msg.callback (ec, size_a);
+						}
+
+						this_l->send_queue.pop_front ();
+						if (!ec && !this_l->send_queue.empty ())
+						{
+							this_l->write_queued_messages ();
+						}
 					}
 				}
 			}
-		}
-	}));
+		}));
+	}
 }
 
 void nano::socket::start_timer ()
