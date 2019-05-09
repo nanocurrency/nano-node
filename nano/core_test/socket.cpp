@@ -81,7 +81,7 @@ TEST (socket, concurrent_writes)
 			}
 		});
 	}
-	ASSERT_TRUE (connection_count_completion.await_count_for (10s));
+	ASSERT_FALSE (connection_count_completion.await_count_for (10s));
 
 	// Execute overlapping writes from multiple threads
 	auto client (clients[0]);
@@ -98,9 +98,10 @@ TEST (socket, concurrent_writes)
 		runner.detach ();
 	}
 
-	ASSERT_TRUE (read_count_completion.await_count_for (10s));
+	ASSERT_FALSE (read_count_completion.await_count_for (10s));
 	node->stop ();
-	runner.join (true);
+	runner.stop_event_processing ();
+	runner.join ();
 
 	ASSERT_EQ (node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_accept_success, nano::stat::dir::in), client_count);
 	// We may exhaust max connections and have some tcp accept failures, but no more than the client count

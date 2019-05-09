@@ -123,10 +123,10 @@ class thread_runner final
 public:
 	thread_runner (boost::asio::io_context &, unsigned);
 	~thread_runner ();
-	/** Tells the io context to stop processing events.*/
+	/** Tells the IO context to stop processing events.*/
 	void stop_event_processing ();
-	/** Wait for IO threads to complete. If \p stop_event_processing is set, tell the io context to stop processing events.  */
-	void join (bool stop_event_processing = false);
+	/** Wait for IO threads to complete */
+	void join ();
 	std::vector<boost::thread> threads;
 	boost::asio::executor_work_guard<boost::asio::io_context::executor_type> io_guard;
 };

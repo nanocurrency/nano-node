@@ -182,13 +182,8 @@ nano::thread_runner::~thread_runner ()
 	join ();
 }
 
-void nano::thread_runner::join (bool stop_event_processing_a)
+void nano::thread_runner::join ()
 {
-	// This allows tests using thread runner to finish faster as outstanding handlers will be canceled
-	if (stop_event_processing_a)
-	{
-		stop_event_processing ();
-	}
 	io_guard.reset ();
 	for (auto & i : threads)
 	{
