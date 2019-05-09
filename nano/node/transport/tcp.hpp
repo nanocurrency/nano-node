@@ -24,7 +24,7 @@ namespace transport
 		}
 		nano::node & node;
 		std::shared_ptr<nano::socket> socket;
-		
+
 		nano::endpoint get_endpoint () const override
 		{
 			std::lock_guard<std::mutex> lk (channel_mutex);
