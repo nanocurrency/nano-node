@@ -388,6 +388,12 @@ void nano::read_transaction::renew () const
 	impl->renew ();
 }
 
+void nano::read_transaction::refresh () const
+{
+	reset ();
+	renew ();
+}
+
 nano::write_transaction::write_transaction (std::unique_ptr<nano::write_transaction_impl> write_transaction_impl) :
 impl (std::move (write_transaction_impl))
 {
