@@ -264,10 +264,6 @@ target_include_directories(argon2 PUBLIC crypto/phc-winner-argon2/include)
 target_include_directories(argon2 PUBLIC crypto/phc-winner-argon2/src)
 target_include_directories(argon2 PUBLIC crypto/blake2)
 
-add_library (xxhash
-	crypto/xxhash/xxhash.c
-	crypto/xxhash/xxhash.h)
-
 add_library (lmdb
 	lmdb/libraries/liblmdb/lmdb.h
 	lmdb/libraries/liblmdb/mdb.c
