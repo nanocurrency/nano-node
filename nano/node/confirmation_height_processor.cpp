@@ -99,7 +99,6 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 	auto error = false;
 
 	auto read_transaction (store.tx_begin_read ());
-	read_transaction.reset ();
 	// Traverse account chain and all sources for receive blocks iteratively
 	do
 	{
@@ -120,7 +119,6 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 			}
 		}
 
-		read_transaction.renew ();
 		auto block_height (store.block_account_height (read_transaction, current));
 		nano::account account (store.block_account (read_transaction, current));
 		release_assert (!store.account_get (read_transaction, account, account_info));
@@ -217,6 +215,8 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 		{
 			break;
 		}
+
+		read_transaction.renew ();
 	} while (!receive_source_pairs.empty () || current != hash_a);
 }
 
