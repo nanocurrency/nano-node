@@ -1333,9 +1333,9 @@ TEST (rpc, history)
 	ASSERT_NE (nullptr, receive);
 	auto node0 (system.nodes[0]);
 	nano::genesis genesis;
-	nano::state_block usend (nano::genesis_account, node0->latest (nano::genesis_account), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, nano::genesis_account, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
-	nano::state_block ureceive (nano::genesis_account, usend.hash (), nano::genesis_account, nano::genesis_amount, usend.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
-	nano::state_block uchange (nano::genesis_account, ureceive.hash (), nano::keypair ().pub, nano::genesis_amount, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	nano::state_block usend (nano::genesis_account, node0->latest (nano::genesis_account), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, nano::genesis_account, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (node0->latest (nano::genesis_account)));
+	nano::state_block ureceive (nano::genesis_account, usend.hash (), nano::genesis_account, nano::genesis_amount, usend.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (usend.hash ()));
+	nano::state_block uchange (nano::genesis_account, ureceive.hash (), nano::keypair ().pub, nano::genesis_amount, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (ureceive.hash ()));
 	{
 		auto transaction (node0->store.tx_begin_write ());
 		ASSERT_EQ (nano::process_result::progress, node0->ledger.process (transaction, usend).code);
@@ -1402,9 +1402,9 @@ TEST (rpc, account_history)
 	ASSERT_NE (nullptr, receive);
 	auto node0 (system.nodes[0]);
 	nano::genesis genesis;
-	nano::state_block usend (nano::genesis_account, node0->latest (nano::genesis_account), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, nano::genesis_account, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
-	nano::state_block ureceive (nano::genesis_account, usend.hash (), nano::genesis_account, nano::genesis_amount, usend.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
-	nano::state_block uchange (nano::genesis_account, ureceive.hash (), nano::keypair ().pub, nano::genesis_amount, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	nano::state_block usend (nano::genesis_account, node0->latest (nano::genesis_account), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, nano::genesis_account, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (node0->latest (nano::genesis_account)));
+	nano::state_block ureceive (nano::genesis_account, usend.hash (), nano::genesis_account, nano::genesis_amount, usend.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (usend.hash ()));
+	nano::state_block uchange (nano::genesis_account, ureceive.hash (), nano::keypair ().pub, nano::genesis_amount, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.nodes[0]->work_generate_blocking (ureceive.hash ()));
 	{
 		auto transaction (node0->store.tx_begin_write ());
 		ASSERT_EQ (nano::process_result::progress, node0->ledger.process (transaction, usend).code);
@@ -3202,63 +3202,103 @@ TEST (rpc, work_validate)
 	request.put ("action", "work_validate");
 	request.put ("hash", hash.to_string ());
 	request.put ("work", nano::to_string_hex (work1));
-	test_response response1 (request, rpc.config.port, system.io_ctx);
-	system.deadline_set (5s);
-	while (response1.status == 0)
 	{
-		ASSERT_NO_ERROR (system.poll ());
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		std::string validate_text (response.json.get<std::string> ("valid"));
+		ASSERT_EQ ("1", validate_text);
+		std::string value_text (response.json.get<std::string> ("value"));
+		uint64_t value;
+		ASSERT_FALSE (nano::from_string_hex (value_text, value));
+		ASSERT_GE (value, params.network.publish_threshold);
 	}
-	ASSERT_EQ (200, response1.status);
-	std::string validate_text1 (response1.json.get<std::string> ("valid"));
-	ASSERT_EQ ("1", validate_text1);
 	uint64_t work2 (0);
 	request.put ("work", nano::to_string_hex (work2));
-	test_response response2 (request, rpc.config.port, system.io_ctx);
-	system.deadline_set (5s);
-	while (response2.status == 0)
 	{
-		ASSERT_NO_ERROR (system.poll ());
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		std::string validate_text (response.json.get<std::string> ("valid"));
+		ASSERT_EQ ("0", validate_text);
+		std::string value_text (response.json.get<std::string> ("value"));
+		uint64_t value;
+		ASSERT_FALSE (nano::from_string_hex (value_text, value));
+		ASSERT_GE (params.network.publish_threshold, value);
 	}
-	ASSERT_EQ (200, response2.status);
-	std::string validate_text2 (response2.json.get<std::string> ("valid"));
-	ASSERT_EQ ("0", validate_text2);
 	uint64_t result_difficulty;
 	ASSERT_FALSE (nano::work_validate (hash, work1, &result_difficulty));
 	ASSERT_GE (result_difficulty, params.network.publish_threshold);
 	request.put ("work", nano::to_string_hex (work1));
 	request.put ("difficulty", nano::to_string_hex (result_difficulty));
-	test_response response3 (request, rpc.config.port, system.io_ctx);
-	system.deadline_set (5s);
-	while (response3.status == 0)
 	{
-		ASSERT_NO_ERROR (system.poll ());
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		bool validate (response.json.get<bool> ("valid"));
+		ASSERT_TRUE (validate);
 	}
-	ASSERT_EQ (200, response3.status);
-	bool validate3 (response3.json.get<bool> ("valid"));
-	ASSERT_TRUE (validate3);
 	uint64_t difficulty4 (0xfff0000000000000);
 	request.put ("work", nano::to_string_hex (work1));
 	request.put ("difficulty", nano::to_string_hex (difficulty4));
-	test_response response4 (request, rpc.config.port, system.io_ctx);
-	system.deadline_set (5s);
-	while (response4.status == 0)
 	{
-		ASSERT_NO_ERROR (system.poll ());
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		bool validate (response.json.get<bool> ("valid"));
+		ASSERT_EQ (result_difficulty >= difficulty4, validate);
 	}
-	ASSERT_EQ (200, response4.status);
-	bool validate4 (response4.json.get<bool> ("valid"));
-	ASSERT_EQ (result_difficulty >= difficulty4, validate4);
 	uint64_t work3 (node1.work_generate_blocking (hash, difficulty4));
 	request.put ("work", nano::to_string_hex (work3));
-	test_response response5 (request, rpc.config.port, system.io_ctx);
-	system.deadline_set (5s);
-	while (response5.status == 0)
 	{
-		ASSERT_NO_ERROR (system.poll ());
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		bool validate (response.json.get<bool> ("valid"));
+		ASSERT_TRUE (validate);
 	}
-	ASSERT_EQ (200, response5.status);
-	bool validate5 (response5.json.get<bool> ("valid"));
-	ASSERT_TRUE (validate5);
+	// Test the multiplier field in the response
+	// It's a multiplier from the base network threshold, so we make sure the test network threshold has not been changed
+	// The work and its value/multiplier were calculated beforehand
+	ASSERT_EQ (params.network.publish_threshold, 0xff00000000000000);
+	request.put ("work", nano::to_string_hex (0x4b52c90f538bbb60));
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		bool validate (response.json.get<bool> ("valid"));
+		ASSERT_TRUE (validate);
+		std::string value_text (response.json.get<std::string> ("value"));
+		uint64_t value;
+		ASSERT_FALSE (nano::from_string_hex (value_text, value));
+		ASSERT_EQ (value, 0xfff27e7a57c285cd);
+		double multiplier (response.json.get<double> ("multiplier"));
+		ASSERT_NEAR (multiplier, 18.9546, 1e-4);
+	}
 }
 
 TEST (rpc, successors)
@@ -4920,7 +4960,7 @@ TEST (rpc, block_create_state_open)
 	request.put ("representative", nano::test_genesis_key.pub.to_account ());
 	request.put ("balance", nano::Gxrb_ratio.convert_to<std::string> ());
 	request.put ("link", send_block->hash ().to_string ());
-	request.put ("work", nano::to_string_hex (system.nodes[0]->work_generate_blocking (send_block->hash ())));
+	request.put ("work", nano::to_string_hex (system.nodes[0]->work_generate_blocking (key.pub)));
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
 	nano::node_rpc_config node_rpc_config;

@@ -93,7 +93,9 @@ txn_callbacks (txn_callbacks_a)
 
 nano::read_mdb_txn::~read_mdb_txn ()
 {
-	mdb_txn_abort (handle);
+	// This uses commit rather than abort, as it is needed when opening databases with a read only transaction
+	auto status (mdb_txn_commit (handle));
+	release_assert (status == MDB_SUCCESS);
 	txn_callbacks.txn_end (this);
 }
 
@@ -829,35 +831,39 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 {
 	if (!error_a)
 	{
-		auto transaction (tx_begin_write ());
-		error_a |= mdb_dbi_open (env.tx (transaction), "frontiers", MDB_CREATE, &frontiers) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "accounts", MDB_CREATE, &accounts_v0) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "accounts_v1", MDB_CREATE, &accounts_v1) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "send", MDB_CREATE, &send_blocks) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "receive", MDB_CREATE, &receive_blocks) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "open", MDB_CREATE, &open_blocks) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "change", MDB_CREATE, &change_blocks) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "state", MDB_CREATE, &state_blocks_v0) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "state_v1", MDB_CREATE, &state_blocks_v1) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "pending", MDB_CREATE, &pending_v0) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "pending_v1", MDB_CREATE, &pending_v1) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "representation", MDB_CREATE, &representation) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "unchecked", MDB_CREATE, &unchecked) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "vote", MDB_CREATE, &vote) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "online_weight", MDB_CREATE, &online_weight) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "meta", MDB_CREATE, &meta) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "peers", MDB_CREATE, &peers) != 0;
-		if (!full_sideband (transaction))
+		auto is_fully_upgraded (false);
 		{
-			error_a |= mdb_dbi_open (env.tx (transaction), "blocks_info", MDB_CREATE, &blocks_info) != 0;
-		}
-		if (!error_a)
-		{
-			do_upgrades (transaction, batch_size);
-			if (drop_unchecked)
+			auto transaction (tx_begin_read ());
+			auto err = mdb_dbi_open (env.tx (transaction), "meta", 0, &meta);
+			if (err == MDB_SUCCESS)
 			{
-				unchecked_clear (transaction);
+				is_fully_upgraded = (version_get (transaction) == version);
+				mdb_dbi_close (env, meta);
 			}
+		}
+
+		// Only open a write lock when upgrades are needed. This is because CLI commands
+		// open inactive nodes which can otherwise be locked here if there is a long write
+		// (can be a few minutes with the --fastbootstrap flag for instance)
+		if (!is_fully_upgraded)
+		{
+			auto transaction (tx_begin_write ());
+			open_databases (error_a, transaction, MDB_CREATE);
+			if (!error_a)
+			{
+				error_a |= do_upgrades (transaction, batch_size);
+			}
+		}
+		else
+		{
+			auto transaction (tx_begin_read ());
+			open_databases (error_a, transaction, 0);
+		}
+
+		if (!error_a && drop_unchecked)
+		{
+			auto transaction (tx_begin_write ());
+			unchecked_clear (transaction);
 		}
 	}
 }
@@ -908,6 +914,31 @@ void nano::mdb_store::initialize (nano::transaction const & transaction_a, nano:
 	account_put (transaction_a, network_params.ledger.genesis_account, { hash_l, genesis_a.open->hash (), genesis_a.open->hash (), std::numeric_limits<nano::uint128_t>::max (), nano::seconds_since_epoch (), 1, 1, nano::epoch::epoch_0 });
 	representation_put (transaction_a, network_params.ledger.genesis_account, std::numeric_limits<nano::uint128_t>::max ());
 	frontier_put (transaction_a, hash_l, network_params.ledger.genesis_account);
+}
+
+void nano::mdb_store::open_databases (bool & error_a, nano::transaction const & transaction_a, unsigned flags)
+{
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "frontiers", flags, &frontiers) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "accounts", flags, &accounts_v0) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "accounts_v1", flags, &accounts_v1) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "send", flags, &send_blocks) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "receive", flags, &receive_blocks) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "open", flags, &open_blocks) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "change", flags, &change_blocks) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "state", flags, &state_blocks_v0) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "state_v1", flags, &state_blocks_v1) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "pending", flags, &pending_v0) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "pending_v1", flags, &pending_v1) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "representation", flags, &representation) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "unchecked", flags, &unchecked) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "vote", flags, &vote) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "online_weight", flags, &online_weight) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "meta", flags, &meta) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "peers", flags, &peers) != 0;
+	if (!full_sideband (transaction_a))
+	{
+		error_a |= mdb_dbi_open (env.tx (transaction_a), "blocks_info", flags, &blocks_info) != 0;
+	}
 }
 
 void nano::mdb_store::version_put (nano::transaction const & transaction_a, int version_a)
@@ -991,9 +1022,11 @@ nano::store_iterator<nano::endpoint_key, nano::no_value> nano::mdb_store::peers_
 	return result;
 }
 
-void nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, size_t batch_size)
+bool nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, size_t batch_size)
 {
-	switch (version_get (transaction_a))
+	auto error (false);
+	auto version_l = version_get (transaction_a);
+	switch (version_l)
 	{
 		case 1:
 			upgrade_v1_to_v2 (transaction_a);
@@ -1024,8 +1057,11 @@ void nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, size
 		case 14:
 			break;
 		default:
-			assert (false);
+			logger.always_log (boost::str (boost::format ("The version of the ledger (%1%) is too high for this node") % version_l));
+			error = true;
+			break;
 	}
+	return error;
 }
 
 void nano::mdb_store::upgrade_v1_to_v2 (nano::transaction const & transaction_a)

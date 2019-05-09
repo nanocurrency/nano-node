@@ -116,6 +116,11 @@ public:
 		return err;
 	}
 
+	const char * get_current_network_as_string () const
+	{
+		return is_live_network () ? "live" : is_beta_network () ? "beta" : "test";
+	}
+
 	bool is_live_network () const
 	{
 		return current_network == nano_networks::nano_live_network;

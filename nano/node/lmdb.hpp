@@ -421,7 +421,7 @@ private:
 	boost::optional<MDB_val> block_raw_get_by_type (nano::transaction const &, nano::block_hash const &, nano::block_type &) const;
 	void block_raw_put (nano::transaction const &, MDB_dbi, nano::block_hash const &, MDB_val);
 	void clear (MDB_dbi);
-	void do_upgrades (nano::write_transaction &, size_t);
+	bool do_upgrades (nano::write_transaction &, size_t);
 	void upgrade_v1_to_v2 (nano::transaction const &);
 	void upgrade_v2_to_v3 (nano::transaction const &);
 	void upgrade_v3_to_v4 (nano::transaction const &);
@@ -436,9 +436,11 @@ private:
 	void upgrade_v12_to_v13 (nano::write_transaction &, size_t);
 	void upgrade_v13_to_v14 (nano::transaction const &);
 	MDB_dbi get_pending_db (nano::epoch epoch_a) const;
+	void open_databases (bool &, nano::transaction const &, unsigned);
 	nano::mdb_txn_tracker mdb_txn_tracker;
 	nano::mdb_txn_callbacks create_txn_callbacks ();
 	bool txn_tracking_enabled;
+	static int constexpr version{ 14 };
 };
 class wallet_value
 {

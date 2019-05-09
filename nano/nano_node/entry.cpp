@@ -90,6 +90,7 @@ int main (int argc, char * const * argv)
 		("debug_opencl", "OpenCL work generation")
 		("debug_profile_verify", "Profile work verification")
 		("debug_profile_kdf", "Profile kdf function")
+		("debug_validate_ledger", "Does various checks on the ledger to make sure it is valid")
 		("debug_verify_profile", "Profile signature verification")
 		("debug_verify_profile_batch", "Profile batch signature verification")
 		("debug_profile_bootstrap", "Profile bootstrap style blocks processing (at least 10GB of free storage space required)")
@@ -996,6 +997,71 @@ int main (int argc, char * const * argv)
 				sum += info.confirmation_height;
 			}
 			std::cout << "Total cemented block count: " << sum << std::endl;
+		}
+		else if (vm.count ("debug_validate_ledger"))
+		{
+			// This checks some issues (can be extended):
+			// 1 - Compares account block count with head sideband height
+			// 2 - Deserialization works for all blocks (might just cause a crash)
+			// 3 - Confirmation height is not greater than account block count
+			// 4 - Account head is not a zero hash
+			std::cout << "Validating ledger, this can take a long time... " << std::endl;
+
+			nano::inactive_node node (data_path);
+			auto transaction (node.node->store.tx_begin_read ());
+			for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n && result == 0; ++i)
+			{
+				auto const & account = i->first;
+				auto const & account_info = i->second;
+
+				auto account_height = account_info.block_count;
+				if (account_height == 0)
+				{
+					std::cerr << "Invalid block height for " << account.to_account () << std::endl;
+					result = -1;
+					break;
+				}
+
+				if (account_info.confirmation_height > account_info.block_count)
+				{
+					std::cerr << "Confirmation height " << account_info.confirmation_height << " greater than block count " << account_info.block_count << " for account: " << account.to_account () << std::endl;
+					result = -1;
+					break;
+				}
+
+				auto head_hash = account_info.head;
+				if (head_hash.is_zero ())
+				{
+					std::cerr << "Invalid frontier block for " << account.to_account () << std::endl;
+					result = -1;
+					break;
+				}
+
+				nano::block_sideband sideband;
+				auto block = node.node->store.block_get (transaction, head_hash, &sideband);
+				if (sideband.height != account_height)
+				{
+					std::cerr << "Sideband height for head block " << sideband.height << " does not match account block count " << account_height << " for account  " << account.to_account () << std::endl;
+					result = -1;
+					break;
+				}
+
+				// Loop over all blocks in account chain to make sure they can be processed
+				auto hash = head_hash;
+				while (!hash.is_zero ())
+				{
+					block = node.node->store.block_get (transaction, hash);
+
+					if (!block)
+					{
+						std::cerr << "Could not get block hash " << hash.to_string () << std::endl;
+						result = -1;
+						break;
+					}
+					hash = block->previous ();
+				}
+			}
+			std::cout << "No errors detected" << std::endl;
 		}
 		else if (vm.count ("version"))
 		{

@@ -182,7 +182,7 @@ public:
 class wallets final
 {
 public:
-	wallets (bool &, nano::node &);
+	wallets (bool, nano::node &);
 	~wallets ();
 	std::shared_ptr<nano::wallet> open (nano::uint256_union const &);
 	std::shared_ptr<nano::wallet> create (nano::uint256_union const &);

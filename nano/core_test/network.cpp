@@ -452,6 +452,7 @@ TEST (bulk_pull, end_not_owned)
 	open.hashables.representative = key2.pub;
 	open.hashables.source = latest;
 	open.signature = nano::sign_message (key2.prv, key2.pub, open.hash ());
+	system.nodes[0]->work_generate_blocking (open);
 	ASSERT_EQ (nano::process_result::progress, system.nodes[0]->process (open).code);
 	auto connection (std::make_shared<nano::bootstrap_server> (nullptr, system.nodes[0]));
 	nano::genesis genesis;
