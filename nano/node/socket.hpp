@@ -38,6 +38,7 @@ public:
 	 * @param concurrency write concurrency
 	 */
 	explicit socket (std::shared_ptr<nano::node> node, boost::optional<std::chrono::seconds> max_idle_time = boost::none, concurrency = concurrency::single_writer);
+	virtual ~socket ();
 	void async_connect (boost::asio::ip::tcp::endpoint const &, std::function<void(boost::system::error_code const &)>);
 	void async_read (std::shared_ptr<std::vector<uint8_t>>, size_t, std::function<void(boost::system::error_code const &, size_t)>);
 	void async_write (std::shared_ptr<std::vector<uint8_t>>, std::function<void(boost::system::error_code const &, size_t)> = nullptr);
@@ -63,15 +64,18 @@ protected:
 	boost::asio::strand<boost::asio::io_context::executor_type> strand;
 	boost::asio::ip::tcp::socket tcp_socket;
 	std::weak_ptr<nano::node> node;
-	boost::asio::steady_timer deadline;
-	boost::optional<std::chrono::seconds> max_idle_time;
 
 	/** The other end of the connection */
 	boost::asio::ip::tcp::endpoint remote;
 	/** Send queue, protected by always being accessed in the strand */
 	std::deque<queue_item> send_queue;
 	std::atomic<concurrency> writer_concurrency;
+
+	std::atomic<uint64_t> next_deadline;
+	std::atomic<uint64_t> last_completion_time;
 	std::atomic<bool> timed_out{ false };
+	boost::optional<std::chrono::seconds> max_idle_time;
+
 	/** Set by close() - completion handlers must check this. This is more reliable than checking
 	 error codes as the OS may have already completed the async operation. */
 	std::atomic<bool> closed{ false };
@@ -80,6 +84,7 @@ protected:
 	void start_timer (std::chrono::seconds deadline_a);
 	void start_timer ();
 	void stop_timer ();
+	void checkup ();
 };
 
 /** Socket class for TCP servers */
