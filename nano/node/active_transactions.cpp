@@ -506,8 +506,6 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 		{
 			auto existing_root (roots.find (item.first));
 			uint64_t difficulty_a = average + item.second / divider;
-			std::cerr << "Level " << item.second << ", average " << nano::difficulty::to_multiplier (average, node.network_params.network.publish_threshold)
-			          << ", multiplier " << nano::difficulty::to_multiplier (difficulty_a, node.network_params.network.publish_threshold) << std::endl;
 			roots.modify (existing_root, [difficulty_a](nano::conflict_info & info_a) {
 				info_a.adjusted_difficulty = difficulty_a;
 			});
