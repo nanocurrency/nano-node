@@ -339,6 +339,7 @@ class random_constants
 public:
 	random_constants ();
 	nano::account not_an_account;
+	nano::uint128_union random_128;
 };
 
 /** Node related constants whose value depends on the active network */

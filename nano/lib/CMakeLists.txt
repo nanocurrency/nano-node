@@ -42,7 +42,6 @@ add_library (nano_lib
 	work.cpp)
 
 target_link_libraries (nano_lib
-	xxhash
 	ed25519
 	crypto_lib
 	blake2
