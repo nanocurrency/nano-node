@@ -102,6 +102,6 @@ TEST (ipc, config_upgrade_v0_v1)
 	ASSERT_FALSE (config2.deserialize_json (upgraded, tree));
 	nano::jsonconfig local2 = tree.get_required_child ("local");
 	ASSERT_TRUE (upgraded);
-	ASSERT_EQ (1, local2.get<int> ("version"));
+	ASSERT_LE (1, local2.get<int> ("version"));
 	ASSERT_FALSE (local2.get<bool> ("allow_unsafe"));
 }
