@@ -6,7 +6,7 @@
 #include <nano/node/logging.hpp>
 
 boost::shared_ptr<boost::log::sinks::synchronous_sink<boost::log::sinks::text_file_backend>> nano::logging::file_sink;
-std::atomic_flag nano::logging::logging_already_added{ ATOMIC_FLAG_INIT };
+std::atomic_flag nano::logging::logging_already_added ATOMIC_FLAG_INIT;
 
 void nano::logging::init (boost::filesystem::path const & application_path_a)
 {
@@ -88,6 +88,7 @@ bool nano::logging::upgrade_json (unsigned version_a, nano::jsonconfig & json)
 		case 6:
 			json.put ("min_time_between_output", min_time_between_log_output.count ());
 			json.erase ("log_rpc");
+			json.put ("long_database_txns", false);
 			upgraded_l = true;
 			break;
 		case 7:

@@ -72,9 +72,10 @@ int main (int argc, char * const * argv)
 	// clang-format off
 	description.add_options ()
 		("help", "Print out options")
-		("version", "Prints out version")
 		("daemon", "Start RPC daemon")
-		("data_path", boost::program_options::value<std::string> (), "Use the supplied path as the data directory");
+		("data_path", boost::program_options::value<std::string> (), "Use the supplied path as the data directory")
+		("network", boost::program_options::value<std::string> (), "Use the supplied network (live, beta or test)")
+		("version", "Prints out version");
 	// clang-format on
 
 	boost::program_options::variables_map vm;

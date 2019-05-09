@@ -13,7 +13,7 @@ TEST (system, generate_mass_activity)
 	uint32_t count (20);
 	system.generate_mass_activity (count, *system.nodes[0]);
 	size_t accounts (0);
-	auto transaction (system.nodes[0]->store.tx_begin ());
+	auto transaction (system.nodes[0]->store.tx_begin_read ());
 	for (auto i (system.nodes[0]->store.latest_begin (transaction)), n (system.nodes[0]->store.latest_end ()); i != n; ++i)
 	{
 		++accounts;
@@ -28,7 +28,7 @@ TEST (system, generate_mass_activity_long)
 	uint32_t count (1000000000);
 	system.generate_mass_activity (count, *system.nodes[0]);
 	size_t accounts (0);
-	auto transaction (system.nodes[0]->store.tx_begin ());
+	auto transaction (system.nodes[0]->store.tx_begin_read ());
 	for (auto i (system.nodes[0]->store.latest_begin (transaction)), n (system.nodes[0]->store.latest_end ()); i != n; ++i)
 	{
 		++accounts;
@@ -58,7 +58,7 @@ TEST (system, receive_while_synchronizing)
 		system.nodes.push_back (node1);
 		system.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (200), ([&system, &key]() {
 			auto hash (system.wallet (0)->send_sync (nano::test_genesis_key.pub, key.pub, system.nodes[0]->config.receive_minimum.number ()));
-			auto transaction (system.nodes[0]->store.tx_begin ());
+			auto transaction (system.nodes[0]->store.tx_begin_read ());
 			auto block (system.nodes[0]->store.block_get (transaction, hash));
 			std::string block_text;
 			block->serialize_json (block_text);
@@ -86,7 +86,7 @@ TEST (ledger, deep_account_compute)
 	nano::stat stats;
 	nano::ledger ledger (store, stats);
 	nano::genesis genesis;
-	auto transaction (store.tx_begin (true));
+	auto transaction (store.tx_begin_write ());
 	store.initialize (transaction, genesis);
 	nano::keypair key;
 	auto balance (nano::genesis_amount - 1);
@@ -158,7 +158,7 @@ TEST (store, load)
 		threads.push_back (boost::thread ([&system]() {
 			for (auto i (0); i != 1000; ++i)
 			{
-				auto transaction (system.nodes[0]->store.tx_begin (true));
+				auto transaction (system.nodes[0]->store.tx_begin_write ());
 				for (auto j (0); j != 10; ++j)
 				{
 					nano::block_hash hash;
@@ -196,7 +196,7 @@ TEST (node, fork_storm)
 			system.nodes[i]->work_generate_blocking (*open);
 			auto open_result (system.nodes[i]->process (*open));
 			ASSERT_EQ (nano::process_result::progress, open_result.code);
-			auto transaction (system.nodes[i]->store.tx_begin ());
+			auto transaction (system.nodes[i]->store.tx_begin_read ());
 			system.nodes[i]->network.flood_block (open);
 		}
 	}
@@ -362,7 +362,6 @@ TEST (broadcast, sqrt_broadcast_simulate)
 
 TEST (peer_container, random_set)
 {
-	auto loopback (boost::asio::ip::address_v6::loopback ());
 	nano::system system (24000, 1);
 	auto old (std::chrono::steady_clock::now ());
 	auto current (std::chrono::steady_clock::now ());
@@ -385,10 +384,10 @@ TEST (store, unchecked_load)
 	auto block (std::make_shared<nano::send_block> (0, 0, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	for (auto i (0); i < 1000000; ++i)
 	{
-		auto transaction (node.store.tx_begin (true));
+		auto transaction (node.store.tx_begin_write ());
 		node.store.unchecked_put (transaction, i, block);
 	}
-	auto transaction (node.store.tx_begin ());
+	auto transaction (node.store.tx_begin_read ());
 	auto count (node.store.unchecked_count (transaction));
 	(void)count;
 }
@@ -448,8 +447,8 @@ TEST (confirmation_height, long_chains)
 {
 	// The chains should be longer than the	batch_write_size to test the amount of blocks confirmed is correct.
 	bool delay_frontier_confirmation_height_updating = true;
-	nano::system system (24000, 1, delay_frontier_confirmation_height_updating);
-	auto node = system.nodes.front ();
+	nano::system system;
+	auto node = system.add_node (nano::node_config (24000, system.logging), delay_frontier_confirmation_height_updating);
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
@@ -512,7 +511,7 @@ TEST (confirmation_height, long_chains)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
-	auto transaction (node->store.tx_begin ());
+	auto transaction (node->store.tx_begin_read ());
 	nano::account_info account_info;
 	ASSERT_FALSE (node->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
 	ASSERT_EQ (num_blocks + 2, account_info.confirmation_height);

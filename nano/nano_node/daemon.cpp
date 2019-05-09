@@ -133,15 +133,23 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 					}
 					else
 					{
+						if (!boost::filesystem::exists (config.rpc.rpc_path))
+						{
+							throw std::runtime_error (std::string ("RPC is configured to spawn a new process however the file cannot be found at: ") + config.rpc.rpc_path);
+						}
+
+						auto network = node->network_params.network.get_current_network_as_string ();
 #if BOOST_PROCESS_SUPPORTED
-						rpc_process = std::make_unique<boost::process::child> (config.rpc.rpc_path, "--daemon");
+						rpc_process = std::make_unique<boost::process::child> (config.rpc.rpc_path, "--daemon", "--data_path", data_path, "--network", network);
 #else
-						auto rpc_exe_command = boost::str (boost::format ("%1% %2%") % config.rpc.rpc_path % "--daemon");
-						rpc_process_thread = std::make_unique<std::thread> ([ rpc_exe_command, &logger = node->logger ]() {
+						auto rpc_exe_command = boost::str (boost::format ("%1% --daemon --data_path=%2% --network=%3%") % config.rpc.rpc_path % data_path % network);
+						// clang-format off
+						rpc_process_thread = std::make_unique<std::thread> ([rpc_exe_command, &logger = node->logger]() {
 							nano::thread_role::set (nano::thread_role::name::rpc_process_container);
 							std::system (rpc_exe_command.c_str ());
 							logger.always_log ("RPC server has stopped");
 						});
+						// clang-format on
 #endif
 					}
 				}

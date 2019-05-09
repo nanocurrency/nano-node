@@ -58,11 +58,11 @@ TEST (peer_container, split)
 	nano::endpoint endpoint2 (boost::asio::ip::address_v6::loopback (), 101);
 	auto channel1 (system.nodes[0]->network.udp_channels.insert (endpoint1, 0));
 	ASSERT_NE (nullptr, channel1);
-	channel1->last_packet_received = now - std::chrono::seconds (1);
+	channel1->set_last_packet_received (now - std::chrono::seconds (1));
 	system.nodes[0]->network.udp_channels.modify (channel1);
 	auto channel2 (system.nodes[0]->network.udp_channels.insert (endpoint2, 0));
 	ASSERT_NE (nullptr, channel2);
-	channel2->last_packet_received = now + std::chrono::seconds (1);
+	channel2->set_last_packet_received (now + std::chrono::seconds (1));
 	system.nodes[0]->network.udp_channels.modify (channel2);
 	ASSERT_EQ (2, system.nodes[0]->network.size ());
 	ASSERT_EQ (2, system.nodes[0]->network.udp_channels.size ());
@@ -70,7 +70,7 @@ TEST (peer_container, split)
 	ASSERT_EQ (1, system.nodes[0]->network.size ());
 	ASSERT_EQ (1, system.nodes[0]->network.udp_channels.size ());
 	auto list (system.nodes[0]->network.udp_channels.list (1));
-	ASSERT_EQ (endpoint2, list[0]->endpoint);
+	ASSERT_EQ (endpoint2, list[0]->get_endpoint ());
 }
 
 TEST (udp_channels, fill_random_clear)

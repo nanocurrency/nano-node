@@ -267,8 +267,13 @@ public:
 
 		// bootstrap specific
 		bulk_pull,
-		bulk_push,
 		bulk_pull_account,
+		bulk_pull_deserialize_receive_block,
+		bulk_pull_error_starting_request,
+		bulk_pull_failed_account,
+		bulk_pull_receive_block_failure,
+		bulk_pull_request_failure,
+		bulk_push,
 		frontier_req,
 		error_socket_close,
 

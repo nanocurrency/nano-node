@@ -97,6 +97,7 @@ int main (int argc, char * const * argv)
 		("block_processor_verification_size",boost::program_options::value<std::size_t> (), "Increase batch signature verification size in block processor, default 0 (limited by config signature_checker_threads), unlimited for fast_bootstrap")
 		("debug_block_count", "Display the number of block")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
+		("debug_dump_frontier_unchecked_dependents", "Dump frontiers which have matching unchecked keys")
 		("debug_dump_online_weight", "Dump online_weights table")
 		("debug_dump_representatives", "List representatives and weights")
 		("debug_account_count", "Display the number of accounts")
@@ -106,6 +107,7 @@ int main (int argc, char * const * argv)
 		("debug_profile_verify", "Profile work verification")
 		("debug_profile_kdf", "Profile kdf function")
 		("debug_output_last_backtrace_dump", "Displays the contents of the latest backtrace in the event of a nano_node crash")
+		("debug_validate_ledger", "Does various checks on the ledger to make sure it is valid")
 		("debug_verify_profile", "Profile signature verification")
 		("debug_verify_profile_batch", "Profile batch signature verification")
 		("debug_profile_bootstrap", "Profile bootstrap style blocks processing (at least 10GB of free storage space required)")
@@ -173,7 +175,7 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_block_count"))
 		{
 			nano::inactive_node node (data_path);
-			auto transaction (node.node->store.tx_begin ());
+			auto transaction (node.node->store.tx_begin_read ());
 			std::cout << boost::str (boost::format ("Block count: %1%\n") % node.node->store.block_count (transaction).sum ());
 		}
 		else if (vm.count ("debug_bootstrap_generate"))
@@ -251,7 +253,7 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_dump_representatives"))
 		{
 			nano::inactive_node node (data_path);
-			auto transaction (node.node->store.tx_begin ());
+			auto transaction (node.node->store.tx_begin_read ());
 			nano::uint128_t total;
 			for (auto i (node.node->store.representation_begin (transaction)), n (node.node->store.representation_end ()); i != n; ++i)
 			{
@@ -275,10 +277,33 @@ int main (int argc, char * const * argv)
 				std::cout << boost::str (boost::format ("%1% %2% %3%\n") % i->first.to_account () % i->second.convert_to<std::string> () % total.convert_to<std::string> ());
 			}
 		}
+		else if (vm.count ("debug_dump_frontier_unchecked_dependents"))
+		{
+			nano::inactive_node node (data_path);
+			std::cout << "Outputting any frontier hashes which have associated key hashes in the unchecked table (may take some time)...\n";
+
+			// Cache the account heads to make searching quicker against unchecked keys.
+			auto transaction (node.node->store.tx_begin_read ());
+			std::unordered_set<nano::block_hash> frontier_hashes;
+			for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n; ++i)
+			{
+				frontier_hashes.insert (i->second.head);
+			}
+
+			// Check all unchecked keys for matching frontier hashes. Indicates an issue with process_batch algorithm
+			for (auto i (node.node->store.unchecked_begin (transaction)), n (node.node->store.unchecked_end ()); i != n; ++i)
+			{
+				auto it = frontier_hashes.find (i->first.key ());
+				if (it != frontier_hashes.cend ())
+				{
+					std::cout << it->to_string () << "\n";
+				}
+			}
+		}
 		else if (vm.count ("debug_account_count"))
 		{
 			nano::inactive_node node (data_path);
-			auto transaction (node.node->store.tx_begin ());
+			auto transaction (node.node->store.tx_begin_read ());
 			std::cout << boost::str (boost::format ("Frontier count: %1%\n") % node.node->store.account_count (transaction));
 		}
 		else if (vm.count ("debug_mass_activity"))
@@ -611,7 +636,7 @@ int main (int argc, char * const * argv)
 			while (block_count < max_blocks + 1)
 			{
 				std::this_thread::sleep_for (std::chrono::milliseconds (100));
-				auto transaction (node->store.tx_begin ());
+				auto transaction (node->store.tx_begin_read ());
 				block_count = node->store.block_count (transaction).sum ();
 			}
 			auto end (std::chrono::high_resolution_clock::now ());
@@ -770,7 +795,7 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_validate_blocks"))
 		{
 			nano::inactive_node node (data_path);
-			auto transaction (node.node->store.tx_begin ());
+			auto transaction (node.node->store.tx_begin_read ());
 			std::cerr << boost::str (boost::format ("Performing blocks hash, signature, work validation...\n"));
 			size_t count (0);
 			for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n; ++i)
@@ -933,7 +958,7 @@ int main (int argc, char * const * argv)
 			size_t count (0);
 			{
 				nano::inactive_node node (data_path, 24000);
-				auto transaction (node.node->store.tx_begin ());
+				auto transaction (node.node->store.tx_begin_read ());
 				block_count = node.node->store.block_count (transaction).sum ();
 				std::cout << boost::str (boost::format ("Performing bootstrap emulation, %1% blocks in ledger...") % block_count) << std::endl;
 				for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n; ++i)
@@ -965,7 +990,7 @@ int main (int argc, char * const * argv)
 			while (block_count_2 != block_count)
 			{
 				std::this_thread::sleep_for (std::chrono::seconds (1));
-				auto transaction_2 (node2.node->store.tx_begin ());
+				auto transaction_2 (node2.node->store.tx_begin_read ());
 				block_count_2 = node2.node->store.block_count (transaction_2).sum ();
 				if ((count % 60) == 0)
 				{
@@ -982,7 +1007,7 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_peers"))
 		{
 			nano::inactive_node node (data_path);
-			auto transaction (node.node->store.tx_begin ());
+			auto transaction (node.node->store.tx_begin_read ());
 
 			for (auto i (node.node->store.peers_begin (transaction)), n (node.node->store.peers_end ()); i != n; ++i)
 			{
@@ -992,7 +1017,7 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_cemented_block_count"))
 		{
 			nano::inactive_node node (data_path);
-			auto transaction (node.node->store.tx_begin ());
+			auto transaction (node.node->store.tx_begin_read ());
 
 			uint64_t sum = 0;
 			for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n; ++i)
@@ -1001,6 +1026,71 @@ int main (int argc, char * const * argv)
 				sum += info.confirmation_height;
 			}
 			std::cout << "Total cemented block count: " << sum << std::endl;
+		}
+		else if (vm.count ("debug_validate_ledger"))
+		{
+			// This checks some issues (can be extended):
+			// 1 - Compares account block count with head sideband height
+			// 2 - Deserialization works for all blocks (might just cause a crash)
+			// 3 - Confirmation height is not greater than account block count
+			// 4 - Account head is not a zero hash
+			std::cout << "Validating ledger, this can take a long time... " << std::endl;
+
+			nano::inactive_node node (data_path);
+			auto transaction (node.node->store.tx_begin_read ());
+			for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n && result == 0; ++i)
+			{
+				auto const & account = i->first;
+				auto const & account_info = i->second;
+
+				auto account_height = account_info.block_count;
+				if (account_height == 0)
+				{
+					std::cerr << "Invalid block height for " << account.to_account () << std::endl;
+					result = -1;
+					break;
+				}
+
+				if (account_info.confirmation_height > account_info.block_count)
+				{
+					std::cerr << "Confirmation height " << account_info.confirmation_height << " greater than block count " << account_info.block_count << " for account: " << account.to_account () << std::endl;
+					result = -1;
+					break;
+				}
+
+				auto head_hash = account_info.head;
+				if (head_hash.is_zero ())
+				{
+					std::cerr << "Invalid frontier block for " << account.to_account () << std::endl;
+					result = -1;
+					break;
+				}
+
+				nano::block_sideband sideband;
+				auto block = node.node->store.block_get (transaction, head_hash, &sideband);
+				if (sideband.height != account_height)
+				{
+					std::cerr << "Sideband height for head block " << sideband.height << " does not match account block count " << account_height << " for account  " << account.to_account () << std::endl;
+					result = -1;
+					break;
+				}
+
+				// Loop over all blocks in account chain to make sure they can be processed
+				auto hash = head_hash;
+				while (!hash.is_zero ())
+				{
+					block = node.node->store.block_get (transaction, hash);
+
+					if (!block)
+					{
+						std::cerr << "Could not get block hash " << hash.to_string () << std::endl;
+						result = -1;
+						break;
+					}
+					hash = block->previous ();
+				}
+			}
+			std::cout << "No errors detected" << std::endl;
 		}
 		else if (vm.count ("version"))
 		{
