@@ -519,12 +519,9 @@ void nano::active_transactions::update_active_difficulty (std::unique_lock<std::
 	double multiplier (1.);
 	if (!roots.empty ())
 	{
-		uint64_t max = roots.get<1> ().begin ()->adjusted_difficulty;
-		assert (max >= node.network_params.network.publish_threshold);
-		uint64_t min = (--roots.get<1> ().end ())->adjusted_difficulty;
-		assert (min >= node.network_params.network.publish_threshold);
-
-		multiplier = 0.5 * (nano::difficulty::to_multiplier (min, node.network_params.network.publish_threshold) + nano::difficulty::to_multiplier (max, node.network_params.network.publish_threshold));
+		auto it = roots.get<1> ().begin ();
+		std::advance (it, roots.size () / 2);
+		multiplier = nano::difficulty::to_multiplier (it->adjusted_difficulty, node.network_params.network.publish_threshold);
 	}
 	assert (multiplier >= 1);
 	multipliers_cb.push_front (multiplier);
