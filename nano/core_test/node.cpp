@@ -2451,6 +2451,40 @@ TEST (node, unchecked_cleanup)
 	}
 }
 
+/** This checks that a  node can be opened (without being blocked) when a write lock is held elsewhere */
+TEST (node, dont_write_lock_node)
+{
+	auto path = nano::unique_path ();
+
+	std::promise<void> write_lock_held_promise;
+	std::promise<void> finished_promise;
+	// clang-format off
+	std::thread ([&path, &write_lock_held_promise, &finished_promise]() {
+		nano::logger_mt logger;
+		bool init (false);
+		nano::mdb_store store (init, logger, path / "data.ldb");
+		nano::genesis genesis;
+		{
+			auto transaction (store.tx_begin_write ());
+			store.initialize (transaction, genesis);
+		}
+
+		// Hold write lock open until main thread is done needing it
+		auto transaction (store.tx_begin_write ());
+		write_lock_held_promise.set_value ();
+		finished_promise.get_future ().wait ();
+	})
+	.detach ();
+	// clang-format off
+
+	write_lock_held_promise.get_future ().wait ();
+
+	// Check inactive node can finish executing while a write lock is open
+	nano::inactive_node node (path);
+	finished_promise.set_value ();
+}
+
+
 TEST (active_difficulty, recalculate_work)
 {
 	nano::system system (24000, 1);
