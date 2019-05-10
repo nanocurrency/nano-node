@@ -33,8 +33,9 @@ bool nano::transport::channel_tcp::operator== (nano::transport::channel const & 
 	return result;
 }
 
-void nano::transport::channel_tcp::send_buffer_raw (boost::asio::const_buffer buffer_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
+void nano::transport::channel_tcp::send_buffer_raw (boost::asio::const_buffer buffer_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a)
 {
+	set_last_packet_sent (std::chrono::steady_clock::now ());
 	socket->async_write (buffer_a, callback_a);
 }
 

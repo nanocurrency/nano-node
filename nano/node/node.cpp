@@ -99,7 +99,6 @@ void nano::network::send_keepalive (std::shared_ptr<nano::transport::channel> ch
 {
 	nano::keepalive message;
 	udp_channels.random_fill (message.peers);
-	channel_a->set_last_packet_sent (std::chrono::steady_clock::now ());
 	channel_a->send (message);
 }
 
@@ -117,7 +116,6 @@ void nano::network::send_keepalive_self (std::shared_ptr<nano::transport::channe
 		message.peers[1] = node.port_mapping.external_address ();
 		message.peers[2] = nano::endpoint (boost::asio::ip::address_v6{}, node.port_mapping.external_address ().port ()); // If UPnP reported wrong external IP address
 	}
-	channel_a->set_last_packet_sent (std::chrono::steady_clock::now ());
 	channel_a->send (message);
 }
 
@@ -158,7 +156,6 @@ void nano::network::send_node_id_handshake (std::shared_ptr<nano::transport::cha
 	{
 		node.logger.try_log (boost::str (boost::format ("Node ID handshake sent with node ID %1% to %2%: query %3%, respond_to %4% (signature %5%)") % node.node_id.pub.to_account () % channel_a->get_endpoint () % (query ? query->to_string () : std::string ("[none]")) % (respond_to ? respond_to->to_string () : std::string ("[none]")) % (response ? response->second.to_string () : std::string ("[none]"))));
 	}
-	channel_a->set_last_packet_sent (std::chrono::steady_clock::now ());
 	channel_a->send (message);
 }
 
@@ -181,7 +178,7 @@ bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a
 				auto vote_bytes = confirm.to_bytes ();
 				for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 				{
-					j->get ().send_buffer (vote_bytes, nano::stat::detail::confirm_ack);
+					j->get ()->send_buffer (vote_bytes, nano::stat::detail::confirm_ack);
 				}
 				node_a.votes_cache.add (vote);
 			});
@@ -195,7 +192,7 @@ bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a
 				auto vote_bytes = confirm.to_bytes ();
 				for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 				{
-					j->get ().send_buffer (vote_bytes, nano::stat::detail::confirm_ack);
+					j->get ()->send_buffer (vote_bytes, nano::stat::detail::confirm_ack);
 				}
 			}
 		}
@@ -206,16 +203,16 @@ bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a
 			auto publish_bytes (publish.to_bytes ());
 			for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 			{
-				j->get ().send_buffer (publish_bytes, nano::stat::detail::publish);
+				j->get ()->send_buffer (publish_bytes, nano::stat::detail::publish);
 			}
 		}
 	}
 	return result;
 }
 
-bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a, nano::transport::channel const & channel_a, std::shared_ptr<nano::block> block_a, bool also_publish)
+bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a, std::shared_ptr<nano::transport::channel> channel_a, std::shared_ptr<nano::block> block_a, bool also_publish)
 {
-	std::array<std::reference_wrapper<nano::transport::channel const>, 1> endpoints = { channel_a };
+	std::array<std::shared_ptr<nano::transport::channel>, 1> endpoints = { channel_a };
 	auto result (confirm_block (transaction_a, node_a, endpoints, std::move (block_a), also_publish));
 	return result;
 }
@@ -232,7 +229,6 @@ void nano::network::confirm_hashes (nano::transaction const & transaction_a, std
 				nano::vectorstream stream (*bytes);
 				confirm.serialize (stream);
 			}
-			channel_a->set_last_packet_sent (std::chrono::steady_clock::now ());
 			channel_a->send_buffer (bytes, nano::stat::detail::confirm_ack);
 			this->node.votes_cache.add (vote);
 		});
@@ -248,7 +244,6 @@ bool nano::network::send_votes_cache (std::shared_ptr<nano::transport::channel> 
 	{
 		nano::confirm_ack confirm (vote);
 		auto vote_bytes = confirm.to_bytes ();
-		channel_a->set_last_packet_sent (std::chrono::steady_clock::now ());
 		channel_a->send_buffer (vote_bytes, nano::stat::detail::confirm_ack);
 	}
 	// Returns true if votes were sent
@@ -261,7 +256,6 @@ void nano::network::flood_message (nano::message const & message_a)
 	auto list (node.network.udp_channels.list_fanout ());
 	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
 	{
-		(*i)->set_last_packet_sent (std::chrono::steady_clock::now ());
 		(*i)->send (message_a);
 	}
 }
@@ -326,7 +320,6 @@ void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> blo
 	{
 		nano::confirm_req req (block_a);
 		auto channel (endpoints_a->back ());
-		channel->set_last_packet_sent (std::chrono::steady_clock::now ());
 		channel->send (req);
 		endpoints_a->pop_back ();
 		count++;
@@ -365,7 +358,6 @@ void nano::network::broadcast_confirm_req_batch (std::unordered_map<std::shared_
 			j->second.pop_back ();
 		}
 		nano::confirm_req req (roots_hashes);
-		j->first->set_last_packet_sent (std::chrono::steady_clock::now ());
 		j->first->send (req);
 		if (j->second.empty ())
 		{
@@ -468,7 +460,7 @@ public:
 					if (successor != nullptr)
 					{
 						auto same_block (successor->hash () == hash);
-						confirm_block (transaction, node, std::cref (*channel), std::move (successor), !same_block);
+						confirm_block (transaction, node, channel, std::move (successor), !same_block);
 					}
 				}
 			}
@@ -504,7 +496,6 @@ public:
 							auto successor_block (node.store.block_get (transaction, successor));
 							assert (successor_block != nullptr);
 							nano::publish publish (successor_block);
-							channel->set_last_packet_sent (std::chrono::steady_clock::now ());
 							channel->send (publish);
 						}
 					}
@@ -917,7 +908,6 @@ nano::vote_code nano::vote_processor::vote_blocking (nano::transaction const & t
 				if (max_vote->sequence > vote_a->sequence + 10000)
 				{
 					nano::confirm_ack confirm (max_vote);
-					channel_a->set_last_packet_sent (std::chrono::steady_clock::now ());
 					channel_a->send_buffer (confirm.to_bytes (), nano::stat::detail::confirm_ack);
 				}
 				break;
@@ -1258,7 +1248,6 @@ startup_time (std::chrono::steady_clock::now ())
 							if (*i != nullptr)
 							{
 								nano::confirm_req req (*i);
-								channel_a->set_last_packet_sent (std::chrono::steady_clock::now ());
 								channel_a->send (req);
 							}
 						}

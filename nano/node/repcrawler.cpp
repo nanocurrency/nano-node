@@ -94,7 +94,6 @@ void nano::rep_crawler::query (std::vector<std::shared_ptr<nano::transport::chan
 	{
 		on_rep_request (*i);
 		nano::confirm_req message (block);
-		(*i)->set_last_packet_sent (std::chrono::steady_clock::now ());
 		(*i)->send (message);
 	}
 

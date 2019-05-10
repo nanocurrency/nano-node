@@ -183,7 +183,6 @@ void nano::frontier_req_client::run ()
 	request.age = std::numeric_limits<decltype (request.age)>::max ();
 	request.count = std::numeric_limits<decltype (request.count)>::max ();
 	auto this_l (shared_from_this ());
-	connection->channel->set_last_packet_sent (std::chrono::steady_clock::now ());
 	connection->channel->send (request, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
@@ -449,7 +448,6 @@ void nano::bulk_pull_client::request ()
 		connection->node->logger.always_log (boost::str (boost::format ("%1% accounts in pull queue") % connection->attempt->pulls.size ()));
 	}
 	auto this_l (shared_from_this ());
-	connection->channel->set_last_packet_sent (std::chrono::steady_clock::now ());
 	connection->channel->send (req, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
@@ -635,7 +633,6 @@ void nano::bulk_push_client::start ()
 {
 	nano::bulk_push message;
 	auto this_l (shared_from_this ());
-	connection->channel->set_last_packet_sent (std::chrono::steady_clock::now ());
 	connection->channel->send (message, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		auto transaction (this_l->connection->node->store.tx_begin_read ());
 		if (!ec)
@@ -703,7 +700,6 @@ void nano::bulk_push_client::send_finished ()
 	auto buffer (std::make_shared<std::vector<uint8_t>> ());
 	buffer->push_back (static_cast<uint8_t> (nano::block_type::not_a_block));
 	auto this_l (shared_from_this ());
-	connection->channel->set_last_packet_sent (std::chrono::steady_clock::now ());
 	connection->channel->send_buffer (buffer, nano::stat::detail::all, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		try
 		{
@@ -723,7 +719,6 @@ void nano::bulk_push_client::push_block (nano::block const & block_a)
 		nano::serialize_block (stream, block_a);
 	}
 	auto this_l (shared_from_this ());
-	connection->channel->set_last_packet_sent (std::chrono::steady_clock::now ());
 	connection->channel->send_buffer (buffer, nano::stat::detail::all, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
@@ -774,7 +769,6 @@ void nano::bulk_pull_account_client::request ()
 		connection->node->logger.always_log (boost::str (boost::format ("%1% accounts in pull queue") % connection->attempt->wallet_accounts.size ()));
 	}
 	auto this_l (shared_from_this ());
-	connection->channel->set_last_packet_sent (std::chrono::steady_clock::now ());
 	connection->channel->send (req, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{

@@ -29,8 +29,9 @@ bool nano::transport::channel_udp::operator== (nano::transport::channel const & 
 	return result;
 }
 
-void nano::transport::channel_udp::send_buffer_raw (boost::asio::const_buffer buffer_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
+void nano::transport::channel_udp::send_buffer_raw (boost::asio::const_buffer buffer_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a)
 {
+	set_last_packet_sent (std::chrono::steady_clock::now ());
 	channels.send (buffer_a, endpoint, callback_a);
 }
 
@@ -680,7 +681,6 @@ void nano::transport::udp_channels::ongoing_keepalive ()
 	auto keepalive_cutoff (channels.get<last_packet_received_tag> ().lower_bound (std::chrono::steady_clock::now () - network_params.node.period));
 	for (auto i (channels.get<last_packet_received_tag> ().begin ()); i != keepalive_cutoff; ++i)
 	{
-		i->channel->set_last_packet_sent (std::chrono::steady_clock::now ());
 		i->channel->send (message);
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());

@@ -443,7 +443,6 @@ TEST (node, connect_after_junk)
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 	uint64_t junk (0);
 	auto channel1 (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, system.nodes[0]->network.endpoint ()));
-	channel1->set_last_packet_sent (std::chrono::steady_clock::now ());
 	channel1->send_buffer_raw (boost::asio::buffer (&junk, sizeof (junk)), [](boost::system::error_code const &, size_t) {});
 	system.deadline_set (10s);
 	while (system.nodes[0]->stats.count (nano::stat::type::error) == 0)

@@ -264,7 +264,6 @@ TEST (network, send_insufficient_work)
 	nano::publish publish (block);
 	auto node1 (system.nodes[1]->shared ());
 	nano::transport::channel_udp channel (system.nodes[0]->network.udp_channels, system.nodes[1]->network.endpoint ());
-	channel.set_last_packet_sent (std::chrono::steady_clock::now ());
 	channel.send (publish, [](boost::system::error_code const & ec, size_t size) {});
 	ASSERT_EQ (0, system.nodes[0]->stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work));
 	system.deadline_set (10s);
