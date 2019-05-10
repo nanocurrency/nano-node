@@ -2220,7 +2220,7 @@ void nano::bootstrap_server::receive_frontier_req_action (boost::system::error_c
 	if (!ec)
 	{
 		auto error (false);
-		nano::bufferstream stream (receive_buffer->data (), header_a.payload_length_bytes ());
+		nano::bufferstream stream (receive_buffer->data (), size_a);
 		std::unique_ptr<nano::frontier_req> request (new nano::frontier_req (error, stream, header_a));
 		if (!error)
 		{
@@ -2246,7 +2246,7 @@ void nano::bootstrap_server::receive_keepalive_action (boost::system::error_code
 	if (!ec)
 	{
 		auto error (false);
-		nano::bufferstream stream (receive_buffer->data (), header_a.payload_length_bytes ());
+		nano::bufferstream stream (receive_buffer->data (), size_a);
 		std::unique_ptr<nano::keepalive> request (new nano::keepalive (error, stream, header_a));
 		if (!error)
 		{
@@ -2268,7 +2268,7 @@ void nano::bootstrap_server::receive_publish_action (boost::system::error_code c
 	if (!ec)
 	{
 		auto error (false);
-		nano::bufferstream stream (receive_buffer->data (), header_a.payload_length_bytes ());
+		nano::bufferstream stream (receive_buffer->data (), size_a);
 		std::unique_ptr<nano::publish> request (new nano::publish (error, stream, header_a));
 		if (!error)
 		{
@@ -2290,7 +2290,7 @@ void nano::bootstrap_server::receive_confirm_req_action (boost::system::error_co
 	if (!ec)
 	{
 		auto error (false);
-		nano::bufferstream stream (receive_buffer->data (), header_a.payload_length_bytes ());
+		nano::bufferstream stream (receive_buffer->data (), size_a);
 		std::unique_ptr<nano::confirm_req> request (new nano::confirm_req (error, stream, header_a));
 		if (!error)
 		{
@@ -2309,7 +2309,7 @@ void nano::bootstrap_server::receive_confirm_ack_action (boost::system::error_co
 	if (!ec)
 	{
 		auto error (false);
-		nano::bufferstream stream (receive_buffer->data (), header_a.payload_length_bytes ());
+		nano::bufferstream stream (receive_buffer->data (), size_a);
 		std::unique_ptr<nano::confirm_ack> request (new nano::confirm_ack (error, stream, header_a));
 		if (!error)
 		{
@@ -2328,7 +2328,7 @@ void nano::bootstrap_server::receive_node_id_handshake_action (boost::system::er
 	if (!ec)
 	{
 		auto error (false);
-		nano::bufferstream stream (receive_buffer->data (), header_a.payload_length_bytes ());
+		nano::bufferstream stream (receive_buffer->data (), size_a);
 		std::unique_ptr<nano::node_id_handshake> request (new nano::node_id_handshake (error, stream, header_a));
 		if (!error)
 		{
@@ -2437,15 +2437,15 @@ public:
 			}
 		});
 	}
-	void publish (nano::publish const & message_a) override
+	void publish (nano::publish const &) override
 	{
 		assert (false);
 	}
-	void confirm_req (nano::confirm_req const & message_a) override
+	void confirm_req (nano::confirm_req const &) override
 	{
 		assert (false);
 	}
-	void confirm_ack (nano::confirm_ack const & message_a) override
+	void confirm_ack (nano::confirm_ack const &) override
 	{
 		assert (false);
 	}
@@ -2469,7 +2469,7 @@ public:
 		auto response (std::make_shared<nano::frontier_req_server> (connection, std::unique_ptr<nano::frontier_req> (static_cast<nano::frontier_req *> (connection->requests.front ().release ()))));
 		response->send_next ();
 	}
-	void node_id_handshake (nano::node_id_handshake const & message_a) override
+	void node_id_handshake (nano::node_id_handshake const &) override
 	{
 		assert (false);
 	}
