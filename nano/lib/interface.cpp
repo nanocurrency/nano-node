@@ -1,7 +1,5 @@
 #include <nano/lib/interface.h>
 
-#include <crypto/xxhash/xxhash.h>
-
 #include <crypto/ed25519-donna/ed25519.h>
 
 #include <boost/property_tree/json_parser.hpp>
