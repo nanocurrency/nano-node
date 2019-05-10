@@ -2124,6 +2124,38 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 					});
 					break;
 				}
+				case nano::message_type::publish:
+				{
+					auto this_l (shared_from_this ());
+					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
+						this_l->receive_publish_action (ec, size_a, header);
+					});
+					break;
+				}
+				case nano::message_type::confirm_ack:
+				{
+					auto this_l (shared_from_this ());
+					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
+						this_l->receive_confirm_ack_action (ec, size_a, header);
+					});
+					break;
+				}
+				case nano::message_type::confirm_req:
+				{
+					auto this_l (shared_from_this ());
+					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
+						this_l->receive_confirm_req_action (ec, size_a, header);
+					});
+					break;
+				}
+				case nano::message_type::node_id_handshake:
+				{
+					auto this_l (shared_from_this ());
+					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
+						this_l->receive_node_id_handshake_action (ec, size_a, header);
+					});
+					break;
+				}
 				default:
 				{
 					if (node->config.logging.network_logging ())
@@ -2183,28 +2215,6 @@ void nano::bootstrap_server::receive_bulk_pull_account_action (boost::system::er
 	}
 }
 
-void nano::bootstrap_server::receive_keepalive_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a)
-{
-	if (!ec)
-	{
-		auto error (false);
-		nano::bufferstream stream (receive_buffer->data (), header_a.payload_length_bytes ());
-		std::unique_ptr<nano::keepalive> request (new nano::keepalive (error, stream, header_a));
-		if (!error)
-		{
-			add_request (std::unique_ptr<nano::message> (request.release ()));
-			receive ();
-		}
-	}
-	else
-	{
-		if (node->config.logging.network_keepalive_logging ())
-		{
-			node->logger.try_log (boost::str (boost::format ("Error receiving keepalive from: %1%") % ec.message ()));
-		}
-	}
-}
-
 void nano::bootstrap_server::receive_frontier_req_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a)
 {
 	if (!ec)
@@ -2228,6 +2238,107 @@ void nano::bootstrap_server::receive_frontier_req_action (boost::system::error_c
 		{
 			node->logger.try_log (boost::str (boost::format ("Error sending receiving frontier request: %1%") % ec.message ()));
 		}
+	}
+}
+
+void nano::bootstrap_server::receive_keepalive_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a)
+{
+	if (!ec)
+	{
+		auto error (false);
+		nano::bufferstream stream (receive_buffer->data (), header_a.payload_length_bytes ());
+		std::unique_ptr<nano::keepalive> request (new nano::keepalive (error, stream, header_a));
+		if (!error)
+		{
+			add_request (std::unique_ptr<nano::message> (request.release ()));
+			receive ();
+		}
+	}
+	else
+	{
+		if (node->config.logging.network_keepalive_logging ())
+		{
+			node->logger.try_log (boost::str (boost::format ("Error receiving keepalive from: %1%") % ec.message ()));
+		}
+	}
+}
+
+void nano::bootstrap_server::receive_publish_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a)
+{
+	if (!ec)
+	{
+		auto error (false);
+		nano::bufferstream stream (receive_buffer->data (), header_a.payload_length_bytes ());
+		std::unique_ptr<nano::publish> request (new nano::publish (error, stream, header_a));
+		if (!error)
+		{
+			add_request (std::unique_ptr<nano::message> (request.release ()));
+			receive ();
+		}
+	}
+	else
+	{
+		if (node->config.logging.network_message_logging ())
+		{
+			node->logger.try_log (boost::str (boost::format ("Error receiving publish from: %1%") % ec.message ()));
+		}
+	}
+}
+
+void nano::bootstrap_server::receive_confirm_req_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a)
+{
+	if (!ec)
+	{
+		auto error (false);
+		nano::bufferstream stream (receive_buffer->data (), header_a.payload_length_bytes ());
+		std::unique_ptr<nano::confirm_req> request (new nano::confirm_req (error, stream, header_a));
+		if (!error)
+		{
+			add_request (std::unique_ptr<nano::message> (request.release ()));
+			receive ();
+		}
+	}
+	else if (node->config.logging.network_message_logging ())
+	{
+		node->logger.try_log (boost::str (boost::format ("Error receiving confirm_req from: %1%") % ec.message ()));
+	}
+}
+
+void nano::bootstrap_server::receive_confirm_ack_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a)
+{
+	if (!ec)
+	{
+		auto error (false);
+		nano::bufferstream stream (receive_buffer->data (), header_a.payload_length_bytes ());
+		std::unique_ptr<nano::confirm_ack> request (new nano::confirm_ack (error, stream, header_a));
+		if (!error)
+		{
+			add_request (std::unique_ptr<nano::message> (request.release ()));
+			receive ();
+		}
+	}
+	else if (node->config.logging.network_message_logging ())
+	{
+		node->logger.try_log (boost::str (boost::format ("Error receiving confirm_ack from: %1%") % ec.message ()));
+	}
+}
+
+void nano::bootstrap_server::receive_node_id_handshake_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a)
+{
+	if (!ec)
+	{
+		auto error (false);
+		nano::bufferstream stream (receive_buffer->data (), header_a.payload_length_bytes ());
+		std::unique_ptr<nano::node_id_handshake> request (new nano::node_id_handshake (error, stream, header_a));
+		if (!error)
+		{
+			add_request (std::unique_ptr<nano::message> (request.release ()));
+			receive ();
+		}
+	}
+	else if (node->config.logging.network_node_id_handshake_logging ())
+	{
+		node->logger.try_log (boost::str (boost::format ("Error receiving node_id_handshake from: %1%") % ec.message ()));
 	}
 }
 
@@ -2326,15 +2437,15 @@ public:
 			}
 		});
 	}
-	void publish (nano::publish const &) override
+	void publish (nano::publish const & message_a) override
 	{
 		assert (false);
 	}
-	void confirm_req (nano::confirm_req const &) override
+	void confirm_req (nano::confirm_req const & message_a) override
 	{
 		assert (false);
 	}
-	void confirm_ack (nano::confirm_ack const &) override
+	void confirm_ack (nano::confirm_ack const & message_a) override
 	{
 		assert (false);
 	}
@@ -2358,7 +2469,7 @@ public:
 		auto response (std::make_shared<nano::frontier_req_server> (connection, std::unique_ptr<nano::frontier_req> (static_cast<nano::frontier_req *> (connection->requests.front ().release ()))));
 		response->send_next ();
 	}
-	void node_id_handshake (nano::node_id_handshake const &) override
+	void node_id_handshake (nano::node_id_handshake const & message_a) override
 	{
 		assert (false);
 	}
