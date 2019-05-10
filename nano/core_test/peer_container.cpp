@@ -131,17 +131,17 @@ TEST (peer_container, reachout)
 	nano::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), 24000);
 	// Make sure having been contacted by them already indicates we shouldn't reach out
 	system.nodes[0]->network.udp_channels.insert (endpoint0, nano::protocol_version);
-	ASSERT_TRUE (system.nodes[0]->network.udp_channels.reachout (endpoint0));
+	ASSERT_TRUE (system.nodes[0]->network.reachout (endpoint0));
 	nano::endpoint endpoint1 (boost::asio::ip::address_v6::loopback (), 24001);
-	ASSERT_FALSE (system.nodes[0]->network.udp_channels.reachout (endpoint1));
+	ASSERT_FALSE (system.nodes[0]->network.reachout (endpoint1));
 	// Reaching out to them once should signal we shouldn't reach out again.
-	ASSERT_TRUE (system.nodes[0]->network.udp_channels.reachout (endpoint1));
+	ASSERT_TRUE (system.nodes[0]->network.reachout (endpoint1));
 	// Make sure we don't purge new items
 	system.nodes[0]->network.cleanup (std::chrono::steady_clock::now () - std::chrono::seconds (10));
-	ASSERT_TRUE (system.nodes[0]->network.udp_channels.reachout (endpoint1));
+	ASSERT_TRUE (system.nodes[0]->network.reachout (endpoint1));
 	// Make sure we purge old items
 	system.nodes[0]->network.cleanup (std::chrono::steady_clock::now () + std::chrono::seconds (10));
-	ASSERT_FALSE (system.nodes[0]->network.udp_channels.reachout (endpoint1));
+	ASSERT_FALSE (system.nodes[0]->network.reachout (endpoint1));
 }
 
 TEST (peer_container, depeer)

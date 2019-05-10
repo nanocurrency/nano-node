@@ -61,7 +61,6 @@ namespace transport
 		void random_fill (std::array<nano::endpoint, 8> &) const;
 		std::unordered_set<std::shared_ptr<nano::transport::channel_udp>> random_set (size_t) const;
 		void store_all (nano::node &);
-		bool reserved_address (nano::endpoint const &, bool = false);
 		void clean_node_id (nano::endpoint const &, nano::account const &);
 		// Get the next peer for attempting a tcp connection
 		nano::endpoint tcp_peer ();
@@ -73,11 +72,9 @@ namespace transport
 		void receive_action (nano::message_buffer *);
 		void process_packets ();
 		std::shared_ptr<nano::transport::channel> create (nano::endpoint const &);
-		// Unassigned, reserved, self
-		bool not_a_peer (nano::endpoint const &, bool);
 		bool max_ip_connections (nano::endpoint const &);
 		// Should we reach out to this endpoint with a keepalive message
-		bool reachout (nano::endpoint const &, bool = false);
+		bool reachout (nano::endpoint const &);
 		std::unique_ptr<seq_con_info_component> collect_seq_con_info (std::string const &);
 		void purge (std::chrono::steady_clock::time_point const &);
 		void purge_syn_cookies (std::chrono::steady_clock::time_point const &);

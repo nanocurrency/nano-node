@@ -13,6 +13,8 @@ namespace transport
 	nano::endpoint map_endpoint_to_v6 (nano::endpoint const &);
 	nano::endpoint map_tcp_to_endpoint (nano::tcp_endpoint const &);
 	nano::tcp_endpoint map_endpoint_to_tcp (nano::endpoint const &);
+	// Unassigned, reserved, self
+	bool reserved_address (nano::endpoint const &, bool = false);
 	enum class transport_type : uint8_t
 	{
 		undefined = 0,

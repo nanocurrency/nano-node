@@ -130,7 +130,7 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 			for (auto i (i_a), n (boost::asio::ip::udp::resolver::iterator{}); i != n; ++i)
 			{
 				auto endpoint (nano::transport::map_endpoint_to_v6 (i->endpoint ()));
-				auto channel (node_l->network.udp_channels.channel (endpoint));
+				auto channel (node_l->network.find_channel (endpoint));
 				if (!channel)
 				{
 					channel = std::make_shared<nano::transport::channel_udp> (node_l->network.udp_channels, endpoint);
@@ -145,7 +145,7 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 	});
 }
 
-void nano::network::send_node_id_handshake (nano::endpoint const & endpoint_a, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to)
+void nano::network::send_node_id_handshake (std::shared_ptr<nano::transport::channel> channel_a, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to)
 {
 	boost::optional<std::pair<nano::account, nano::signature>> response (boost::none);
 	if (respond_to)
@@ -156,11 +156,10 @@ void nano::network::send_node_id_handshake (nano::endpoint const & endpoint_a, b
 	nano::node_id_handshake message (query, response);
 	if (node.config.logging.network_node_id_handshake_logging ())
 	{
-		node.logger.try_log (boost::str (boost::format ("Node ID handshake sent with node ID %1% to %2%: query %3%, respond_to %4% (signature %5%)") % node.node_id.pub.to_account () % endpoint_a % (query ? query->to_string () : std::string ("[none]")) % (respond_to ? respond_to->to_string () : std::string ("[none]")) % (response ? response->second.to_string () : std::string ("[none]"))));
+		node.logger.try_log (boost::str (boost::format ("Node ID handshake sent with node ID %1% to %2%: query %3%, respond_to %4% (signature %5%)") % node.node_id.pub.to_account () % channel_a->get_endpoint () % (query ? query->to_string () : std::string ("[none]")) % (respond_to ? respond_to->to_string () : std::string ("[none]")) % (response ? response->second.to_string () : std::string ("[none]"))));
 	}
-	auto channel (std::make_shared<nano::transport::channel_udp> (udp_channels, endpoint_a));
-	channel->set_last_packet_sent (std::chrono::steady_clock::now ());
-	channel->send (message);
+	channel_a->set_last_packet_sent (std::chrono::steady_clock::now ());
+	channel_a->send (message);
 }
 
 template <typename T>
@@ -574,11 +573,51 @@ void nano::network::merge_peers (std::array<nano::endpoint, 8> const & peers_a)
 
 void nano::network::merge_peer (nano::endpoint const & peer_a)
 {
-	if (!udp_channels.reachout (peer_a, node.config.allow_local_peers))
+	if (!reachout (peer_a, node.config.allow_local_peers))
 	{
 		auto channel (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, peer_a));
 		send_keepalive (channel);
 	}
+}
+
+bool nano::network::not_a_peer (nano::endpoint const & endpoint_a, bool allow_local_peers)
+{
+	bool result (false);
+	if (endpoint_a.address ().to_v6 ().is_unspecified ())
+	{
+		result = true;
+	}
+	else if (nano::transport::reserved_address (endpoint_a, allow_local_peers))
+	{
+		result = true;
+	}
+	else if (endpoint_a == endpoint ())
+	{
+		result = true;
+	}
+	else if (!node.network_params.network.is_test_network ())
+	{
+		result = true;
+	}
+	return result;
+}
+
+bool nano::network::reachout (nano::endpoint const & endpoint_a, bool allow_local_peers)
+{
+	// Don't contact invalid IPs
+	bool error = not_a_peer (endpoint_a, allow_local_peers);
+	if (!error)
+	{
+		error |= udp_channels.reachout (endpoint_a);
+	}
+	return error;
+}
+
+std::shared_ptr<nano::transport::channel> nano::network::find_channel (nano::endpoint const & endpoint_a)
+{
+	std::shared_ptr<nano::transport::channel> result;
+	result = udp_channels.channel (endpoint_a);
+	return result;
 }
 
 bool nano::operation::operator> (nano::operation const & other_a) const
@@ -2202,7 +2241,7 @@ void nano::node::add_initial_peers ()
 	for (auto i (store.peers_begin (transaction)), n (store.peers_end ()); i != n; ++i)
 	{
 		nano::endpoint endpoint (boost::asio::ip::address_v6 (i->first.address_bytes ()), i->first.port ());
-		if (!network.udp_channels.reachout (endpoint, config.allow_local_peers))
+		if (!network.reachout (endpoint, config.allow_local_peers))
 		{
 			auto channel (std::make_shared<nano::transport::channel_udp> (network.udp_channels, endpoint));
 			network.send_keepalive (channel);
