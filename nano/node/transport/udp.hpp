@@ -110,7 +110,7 @@ namespace transport
 		class last_packet_received_tag
 		{
 		};
-		class last_tcp_attempt_tag
+		class last_bootstrap_attempt_tag
 		{
 		};
 		class node_id_tag
@@ -128,9 +128,9 @@ namespace transport
 			{
 				return channel->get_last_packet_received ();
 			}
-			std::chrono::steady_clock::time_point last_tcp_attempt () const
+			std::chrono::steady_clock::time_point last_bootstrap_attempt () const
 			{
-				return channel->get_last_tcp_attempt ();
+				return channel->get_last_bootstrap_attempt ();
 			}
 			boost::asio::ip::address ip_address () const
 			{
@@ -166,7 +166,7 @@ namespace transport
 		channel_udp_wrapper,
 		boost::multi_index::indexed_by<
 		boost::multi_index::random_access<boost::multi_index::tag<random_access_tag>>,
-		boost::multi_index::ordered_non_unique<boost::multi_index::tag<last_tcp_attempt_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, std::chrono::steady_clock::time_point, &channel_udp_wrapper::last_tcp_attempt>>,
+		boost::multi_index::ordered_non_unique<boost::multi_index::tag<last_bootstrap_attempt_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, std::chrono::steady_clock::time_point, &channel_udp_wrapper::last_bootstrap_attempt>>,
 		boost::multi_index::hashed_unique<boost::multi_index::tag<endpoint_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, nano::endpoint, &channel_udp_wrapper::endpoint>>,
 		boost::multi_index::hashed_non_unique<boost::multi_index::tag<node_id_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, nano::account, &channel_udp_wrapper::node_id>>,
 		boost::multi_index::ordered_non_unique<boost::multi_index::tag<last_packet_received_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, std::chrono::steady_clock::time_point, &channel_udp_wrapper::last_packet_received>>,

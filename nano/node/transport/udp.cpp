@@ -317,13 +317,13 @@ nano::endpoint nano::transport::udp_channels::tcp_peer ()
 {
 	nano::endpoint result (boost::asio::ip::address_v6::any (), 0);
 	std::lock_guard<std::mutex> lock (mutex);
-	for (auto i (channels.get<last_tcp_attempt_tag> ().begin ()), n (channels.get<last_tcp_attempt_tag> ().end ()); i != n;)
+	for (auto i (channels.get<last_bootstrap_attempt_tag> ().begin ()), n (channels.get<last_bootstrap_attempt_tag> ().end ()); i != n;)
 	{
 		if (i->channel->get_network_version () >= protocol_version_reasonable_min)
 		{
 			result = i->endpoint ();
-			channels.get<last_tcp_attempt_tag> ().modify (i, [](channel_udp_wrapper & wrapper_a) {
-				wrapper_a.channel->set_last_tcp_attempt (std::chrono::steady_clock::now ());
+			channels.get<last_bootstrap_attempt_tag> ().modify (i, [](channel_udp_wrapper & wrapper_a) {
+				wrapper_a.channel->set_last_bootstrap_attempt (std::chrono::steady_clock::now ());
 			});
 			i = n;
 		}

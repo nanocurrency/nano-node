@@ -34,16 +34,16 @@ namespace transport
 		virtual nano::tcp_endpoint get_tcp_endpoint () const = 0;
 		virtual nano::transport::transport_type get_type () const = 0;
 
-		std::chrono::steady_clock::time_point get_last_tcp_attempt () const
+		std::chrono::steady_clock::time_point get_last_bootstrap_attempt () const
 		{
 			std::lock_guard<std::mutex> lk (channel_mutex);
-			return last_tcp_attempt;
+			return last_bootstrap_attempt;
 		}
 
-		void set_last_tcp_attempt (std::chrono::steady_clock::time_point const time_a)
+		void set_last_bootstrap_attempt (std::chrono::steady_clock::time_point const time_a)
 		{
 			std::lock_guard<std::mutex> lk (channel_mutex);
-			last_tcp_attempt = time_a;
+			last_bootstrap_attempt = time_a;
 		}
 
 		std::chrono::steady_clock::time_point get_last_packet_received () const
@@ -95,7 +95,7 @@ namespace transport
 		mutable std::mutex channel_mutex;
 
 	private:
-		std::chrono::steady_clock::time_point last_tcp_attempt{ std::chrono::steady_clock::time_point () };
+		std::chrono::steady_clock::time_point last_bootstrap_attempt{ std::chrono::steady_clock::time_point () };
 		std::chrono::steady_clock::time_point last_packet_received{ std::chrono::steady_clock::time_point () };
 		std::chrono::steady_clock::time_point last_packet_sent{ std::chrono::steady_clock::time_point () };
 		boost::optional<nano::account> node_id{ boost::none };
