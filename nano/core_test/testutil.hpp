@@ -74,9 +74,9 @@ namespace util
 	public:
 		/**
 		 * Constructor
-		 * @param required_count_a When increment() reaches this count within the deadline, await_count_for() will return true.
+		 * @param required_count_a When increment() reaches this count within the deadline, await_count_for() will return false.
 		 */
-		counted_completion (size_t required_count_a) :
+		counted_completion (unsigned required_count_a) :
 		required_count (required_count_a)
 		{
 		}
@@ -90,21 +90,21 @@ namespace util
 		bool await_count_for (UNIT deadline_duration_a)
 		{
 			nano::timer<UNIT> timer (nano::timer_state::started);
-			bool success = false;
-			while (!success)
+			bool error = true;
+			while (error && timer.before_deadline (deadline_duration_a))
 			{
-				success = count >= required_count;
-				if (!success && timer.before_deadline (deadline_duration_a))
+				error = count < required_count;
+				if (error)
 				{
 					std::unique_lock<std::mutex> lock (mutex);
 					cv.wait_for (lock, std::chrono::milliseconds (1));
 				}
 			}
-			return timer.before_deadline (deadline_duration_a);
+			return error;
 		}
 
 		/** Increments the current count. If the required count is reached, await_count_for() waiters are notified. */
-		size_t increment ()
+		unsigned increment ()
 		{
 			auto val (count.fetch_add (1));
 			if (val >= required_count)
@@ -115,8 +115,8 @@ namespace util
 		}
 
 	private:
-		std::atomic<size_t> count{ 0 };
-		size_t required_count;
+		std::atomic<unsigned> count{ 0 };
+		unsigned required_count;
 	};
 }
 }

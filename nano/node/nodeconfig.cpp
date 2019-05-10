@@ -126,6 +126,9 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	nano::jsonconfig ipc_l;
 	ipc_config.serialize_json (ipc_l);
 	json.put_child ("ipc", ipc_l);
+	nano::jsonconfig diagnostics_l;
+	diagnostics_config.serialize_json (diagnostics_l);
+	json.put_child ("diagnostics", diagnostics_l);
 
 	return json.get_error ();
 }
@@ -250,6 +253,9 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			nano::jsonconfig websocket_l;
 			websocket_config.serialize_json (websocket_l);
 			json.put_child ("websocket", websocket_l);
+			nano::jsonconfig diagnostics_l;
+			diagnostics_config.serialize_json (diagnostics_l);
+			json.put_child ("diagnostics", diagnostics_l);
 			json.put ("tcp_io_timeout", tcp_io_timeout.count ());
 			json.put ("tcp_idle_timeout", tcp_idle_timeout.count ());
 			json.put (pow_sleep_interval_key, pow_sleep_interval.count ());
@@ -368,12 +374,17 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		auto ipc_config_l (json.get_optional_child ("ipc"));
 		if (ipc_config_l)
 		{
-			ipc_config.deserialize_json (ipc_config_l.get ());
+			ipc_config.deserialize_json (upgraded_a, ipc_config_l.get ());
 		}
 		auto websocket_config_l (json.get_optional_child ("websocket"));
 		if (websocket_config_l)
 		{
 			websocket_config.deserialize_json (websocket_config_l.get ());
+		}
+		auto diagnostics_config_l (json.get_optional_child ("diagnostics"));
+		if (diagnostics_config_l)
+		{
+			diagnostics_config.deserialize_json (diagnostics_config_l.get ());
 		}
 		json.get<uint16_t> ("peering_port", peering_port);
 		json.get<unsigned> ("bootstrap_fraction_numerator", bootstrap_fraction_numerator);

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/interface.h>
 #include <nano/secure/common.hpp>
@@ -7,8 +8,6 @@
 #include <boost/asio.hpp>
 
 #include <bitset>
-
-#include <crypto/xxhash/xxhash.h>
 
 namespace nano
 {
@@ -24,40 +23,32 @@ nano::tcp_endpoint to_tcp_endpoint (nano::endpoint &);
 
 namespace
 {
+uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a, uint16_t port = 0)
+{
+	static nano::random_constants constants;
+	assert (ip_a.is_v6 ());
+	uint64_t result;
+	nano::uint128_union address;
+	address.bytes = ip_a.to_v6 ().to_bytes ();
+	blake2b_state state;
+	blake2b_init (&state, sizeof (result));
+	blake2b_update (&state, constants.random_128.bytes.data (), constants.random_128.bytes.size ());
+	if (port != 0)
+	{
+		blake2b_update (&state, &port, sizeof (port));
+	}
+	blake2b_update (&state, address.bytes.data (), address.bytes.size ());
+	blake2b_final (&state, &result, sizeof (result));
+	return result;
+}
 uint64_t endpoint_hash_raw (nano::endpoint const & endpoint_a)
 {
-	assert (endpoint_a.address ().is_v6 ());
-	nano::uint128_union address;
-	address.bytes = endpoint_a.address ().to_v6 ().to_bytes ();
-	XXH64_state_t * const state = XXH64_createState ();
-	XXH64_reset (state, 0);
-	XXH64_update (state, address.bytes.data (), address.bytes.size ());
-	auto port (endpoint_a.port ());
-	XXH64_update (state, &port, sizeof (port));
-	auto result (XXH64_digest (state));
-	XXH64_freeState (state);
+	uint64_t result (ip_address_hash_raw (endpoint_a.address (), endpoint_a.port ()));
 	return result;
 }
 uint64_t endpoint_hash_raw (nano::tcp_endpoint const & endpoint_a)
 {
-	assert (endpoint_a.address ().is_v6 ());
-	nano::uint128_union address;
-	address.bytes = endpoint_a.address ().to_v6 ().to_bytes ();
-	XXH64_state_t * const state = XXH64_createState ();
-	XXH64_reset (state, 0);
-	XXH64_update (state, address.bytes.data (), address.bytes.size ());
-	auto port (endpoint_a.port ());
-	XXH64_update (state, &port, sizeof (port));
-	auto result (XXH64_digest (state));
-	XXH64_freeState (state);
-	return result;
-}
-uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a)
-{
-	assert (ip_a.is_v6 ());
-	nano::uint128_union bytes;
-	bytes.bytes = ip_a.to_v6 ().to_bytes ();
-	auto result (XXH64 (bytes.bytes.data (), bytes.bytes.size (), 0));
+	uint64_t result (ip_address_hash_raw (endpoint_a.address (), endpoint_a.port ()));
 	return result;
 }
 

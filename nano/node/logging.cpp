@@ -90,6 +90,7 @@ bool nano::logging::upgrade_json (unsigned version_a, nano::jsonconfig & json)
 			json.put ("min_time_between_output", min_time_between_log_output.count ());
 			json.put ("network_timeout", network_timeout_logging_value);
 			json.erase ("log_rpc");
+			json.put ("long_database_txns", false);
 			upgraded_l = true;
 			break;
 		case 7:

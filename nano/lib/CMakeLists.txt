@@ -42,7 +42,6 @@ add_library (nano_lib
 	work.cpp)
 
 target_link_libraries (nano_lib
-	xxhash
 	ed25519
 	crypto_lib
 	blake2
@@ -53,11 +52,3 @@ target_compile_definitions(nano_lib
 	PUBLIC
 		-DACTIVE_NETWORK=${ACTIVE_NETWORK}
 )
-
-if ((NANO_GUI OR RAIBLOCKS_GUI) AND NOT APPLE)
-	install(TARGETS nano_lib
-			RUNTIME DESTINATION bin
-			LIBRARY DESTINATION lib
-			ARCHIVE DESTINATION lib
-	)
-endif()

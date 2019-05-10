@@ -264,10 +264,6 @@ target_include_directories(argon2 PUBLIC crypto/phc-winner-argon2/include)
 target_include_directories(argon2 PUBLIC crypto/phc-winner-argon2/src)
 target_include_directories(argon2 PUBLIC crypto/blake2)
 
-add_library (xxhash
-	crypto/xxhash/xxhash.c
-	crypto/xxhash/xxhash.h)
-
 add_library (lmdb
 	lmdb/libraries/liblmdb/lmdb.h
 	lmdb/libraries/liblmdb/mdb.c
@@ -415,6 +411,8 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 	if (APPLE)
 		CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/Info.plist.in ${CMAKE_SOURCE_DIR}/Info.plist @ONLY)
 		install (TARGETS nano_wallet DESTINATION Nano.app/Contents/MacOS)
+		install (TARGETS nano_node DESTINATION Nano.app/Contents/MacOS)
+		install (TARGETS nano_rpc DESTINATION Nano.app/Contents/MacOS)
 		install (FILES Info.plist DESTINATION Nano.app/Contents)
 		install (FILES qt.conf DESTINATION Nano.app/Contents/Resources)
 		install (DIRECTORY ${Qt5_DIR}/../../QtCore.framework DESTINATION Nano.app/Contents/Frameworks)
@@ -452,9 +450,7 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 		install (FILES ${Qt5WindowsPlugin} DESTINATION platforms)
 	else ()
 		install(TARGETS nano_wallet
-				RUNTIME DESTINATION bin
-				LIBRARY DESTINATION lib
-				ARCHIVE DESTINATION lib
+				RUNTIME DESTINATION .
 		)
 	endif ()
 endif ()

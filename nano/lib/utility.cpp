@@ -54,7 +54,7 @@ namespace thread_role
 		return current_thread_role;
 	}
 
-	static std::string get_string (nano::thread_role::name role)
+	std::string get_string (nano::thread_role::name role)
 	{
 		std::string thread_role_name_string;
 
@@ -184,11 +184,6 @@ nano::thread_runner::~thread_runner ()
 
 void nano::thread_runner::join (bool stop_event_processing_a)
 {
-	// This allows tests using thread runner to finish faster as outstanding handlers will be canceled
-	if (stop_event_processing_a)
-	{
-		stop_event_processing ();
-	}
 	io_guard.reset ();
 	for (auto & i : threads)
 	{

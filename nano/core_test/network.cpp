@@ -2083,7 +2083,7 @@ TEST (bootstrap, tcp_listener_timeout_keepalive)
 		ASSERT_EQ (node0->bootstrap.connections.size (), 1);
 	}
 	bool disconnected (false);
-	system.deadline_set (std::chrono::seconds (5));
+	system.deadline_set (std::chrono::seconds (10));
 	while (!disconnected)
 	{
 		{
