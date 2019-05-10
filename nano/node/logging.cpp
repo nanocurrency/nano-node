@@ -5,10 +5,12 @@
 #include <boost/property_tree/ptree.hpp>
 #include <nano/node/logging.hpp>
 
-#ifndef BOOST_WINDOWS
+#ifdef BOOST_WINDOWS
+#include <boost/log/sinks/event_log_backend.hpp>
+#else
 #define BOOST_LOG_USE_NATIVE_SYSLOG
-#endif
 #include <boost/log/sinks/syslog_backend.hpp>
+#endif
 
 BOOST_LOG_ATTRIBUTE_KEYWORD (severity, "Severity", nano::severity_level)
 
@@ -25,7 +27,20 @@ void nano::logging::init (boost::filesystem::path const & application_path_a)
 			boost::log::add_console_log (std::cerr, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
 		}
 
-#ifndef BOOST_WINDOWS
+#ifdef BOOST_WINDOWS
+		static auto event_sink = boost::make_shared<boost::log::sinks::synchronous_sink<boost::log::sinks::simple_event_log_backend>> (boost::log::keywords::log_name = "Nano", boost::log::keywords::log_source = "Nano");
+		event_sink->set_formatter (boost::log::expressions::format ("Error: %1% %2%") % boost::log::expressions::attr<unsigned int> ("LineID") % boost::log::expressions::smessage);
+
+		// We'll have to map our custom levels to the event log event types
+		boost::log::sinks::event_log::custom_event_type_mapping<nano::severity_level> mapping ("Severity");
+		mapping[nano::severity_level::error] = boost::log::sinks::event_log::error;
+
+		event_sink->locked_backend ()->set_event_type_mapper (mapping);
+
+		// Only allow error messages or of greater severity to the event viewer log
+		event_sink->set_filter (severity >= nano::severity_level::error);
+		boost::log::core::get ()->add_sink (event_sink);
+#else
 		static auto sys_sink = boost::make_shared<boost::log::sinks::synchronous_sink<boost::log::sinks::syslog_backend>> (boost::log::keywords::facility = boost::log::sinks::syslog::user, boost::log::keywords::use_impl = boost::log::sinks::syslog::impl_types::native);
 		sys_sink->set_formatter (boost::log::expressions::format ("Error: %1%: %2%") % boost::log::expressions::attr<unsigned int> ("RecordID") % boost::log::expressions::smessage);
 		boost::log::core::get ()->add_global_attribute ("RecordID", boost::log::attributes::counter<unsigned int> ());
@@ -34,7 +49,7 @@ void nano::logging::init (boost::filesystem::path const & application_path_a)
 		boost::log::sinks::syslog::custom_severity_mapping<nano::severity_level> mapping ("Severity");
 		mapping[nano::severity_level::error] = boost::log::sinks::syslog::error;
 		sys_sink->locked_backend ()->set_severity_mapper (mapping);
-		// Only sys log error messages
+		// Only allow error messages or of greater severity to the sys log
 		sys_sink->set_filter (severity >= nano::severity_level::error);
 		boost::log::core::get ()->add_sink (sys_sink);
 #endif
