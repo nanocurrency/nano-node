@@ -90,6 +90,7 @@ int main (int argc, char * const * argv)
 		("debug_opencl", "OpenCL work generation")
 		("debug_profile_verify", "Profile work verification")
 		("debug_profile_kdf", "Profile kdf function")
+		("debug_sys_logging", "Test the system logger")
 		("debug_validate_ledger", "Does various checks on the ledger to make sure it is valid")
 		("debug_verify_profile", "Profile signature verification")
 		("debug_verify_profile_batch", "Profile batch signature verification")
@@ -1062,6 +1063,11 @@ int main (int argc, char * const * argv)
 				}
 			}
 			std::cout << "No errors detected" << std::endl;
+		}
+		else if (vm.count ("debug_sys_logging"))
+		{
+			nano::inactive_node node (data_path);
+			node.node->logger.always_log (nano::severity_level::error, "Testing system logger");
 		}
 		else if (vm.count ("version"))
 		{

@@ -1,12 +1,18 @@
 #pragma once
 
-#include <boost/log/sources/logger.hpp>
+#include <boost/log/sources/severity_logger.hpp>
 #include <boost/log/trivial.hpp>
 #include <chrono>
 #include <mutex>
 
 namespace nano
 {
+enum class severity_level
+{
+	normal = 0,
+	error
+};
+
 // A wrapper around a boost logger object to allow minimum
 // time spaced output to prevent logging happening too quickly.
 class logger_mt
@@ -24,9 +30,9 @@ private:
 	}
 
 	template <typename... LogItems>
-	void output (LogItems &&... log_items)
+	void output (nano::severity_level severity_level, LogItems &&... log_items)
 	{
-		boost::log::record rec = boost_logger_mt.open_record ();
+		boost::log::record rec = boost_logger_mt.open_record (boost::log::keywords::severity = severity_level);
 		if (rec)
 		{
 			boost::log::record_ostream strm (rec);
@@ -38,6 +44,7 @@ private:
 
 public:
 	logger_mt () = default;
+
 	/**
 	 * @param min_log_delta_a The minimum time between successive output
 	 */
@@ -48,19 +55,30 @@ public:
 
 	/*
 	 * @param log_items A collection of objects with overloaded operator<< to be output to the log file
+	 * @params severity_level The severity level that this log message should have.
+	 */
+	template <typename... LogItems>
+	void always_log (nano::severity_level severity_level, LogItems &&... log_items)
+	{
+		output (severity_level, std::forward<LogItems> (log_items)...);
+	}
+
+	/*
+	 * @param log_items A collection of objects with overloaded operator<< to be output to the log file.
 	 */
 	template <typename... LogItems>
 	void always_log (LogItems &&... log_items)
 	{
-		output (std::forward<LogItems> (log_items)...);
+		always_log (nano::severity_level::normal, std::forward<LogItems> (log_items)...);
 	}
 
 	/*
 	 * @param log_items Output to the log file if the last write was over min_log_delta time ago.
-	 * @return true if the log was successful
+	 * @params severity_level The severity level that this log message should have.
+	 * @return true if nothing was logged
 	 */
 	template <typename... LogItems>
-	bool try_log (LogItems &&... log_items)
+	bool try_log (nano::severity_level severity_level, LogItems &&... log_items)
 	{
 		auto error (true);
 		auto time_now = std::chrono::steady_clock::now ();
@@ -69,10 +87,20 @@ public:
 		{
 			last_log_time = time_now;
 			lk.unlock ();
-			output (std::forward<LogItems> (log_items)...);
+			output (severity_level, std::forward<LogItems> (log_items)...);
 			error = false;
 		}
-		return error;
+		return error;	
+	}
+
+	/*
+	 * @param log_items Output to the log file if the last write was over min_log_delta time ago.
+	 * @return true if nothing was logged
+	 */
+	template <typename... LogItems>
+	bool try_log (LogItems &&... log_items)
+	{
+		return try_log (nano::severity_level::normal, std::forward<LogItems> (log_items)...);
 	}
 
 	std::chrono::milliseconds min_log_delta{ 0 };
@@ -80,6 +108,6 @@ public:
 private:
 	std::mutex last_log_time_mutex;
 	std::chrono::steady_clock::time_point last_log_time;
-	boost::log::sources::logger_mt boost_logger_mt;
+	boost::log::sources::severity_logger_mt<severity_level> boost_logger_mt;
 };
 }
