@@ -10,7 +10,7 @@
 #endif
 #include <boost/log/sinks/syslog_backend.hpp>
 
-BOOST_LOG_ATTRIBUTE_KEYWORD(severity, "Severity", nano::severity_level)
+BOOST_LOG_ATTRIBUTE_KEYWORD (severity, "Severity", nano::severity_level)
 
 boost::shared_ptr<boost::log::sinks::synchronous_sink<boost::log::sinks::text_file_backend>> nano::logging::file_sink;
 std::atomic_flag nano::logging::logging_already_added ATOMIC_FLAG_INIT;

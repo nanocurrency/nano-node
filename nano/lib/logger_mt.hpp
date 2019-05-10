@@ -90,7 +90,7 @@ public:
 			output (severity_level, std::forward<LogItems> (log_items)...);
 			error = false;
 		}
-		return error;	
+		return error;
 	}
 
 	/*
