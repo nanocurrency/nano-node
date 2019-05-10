@@ -519,9 +519,19 @@ void nano::active_transactions::update_active_difficulty (std::unique_lock<std::
 	double multiplier (1.);
 	if (!roots.empty ())
 	{
-		auto it = roots.get<1> ().begin ();
-		std::advance (it, roots.size () / 2);
-		multiplier = nano::difficulty::to_multiplier (it->adjusted_difficulty, node.network_params.network.publish_threshold);
+		std::vector<uint64_t> active_root_difficulties;
+		active_root_difficulties.reserve (roots.size ());
+		for (auto & root : roots)
+		{
+			if (!root.election->confirmed && !root.election->stopped)
+			{
+				active_root_difficulties.push_back (root.adjusted_difficulty);
+			}
+		}
+		if (!active_root_difficulties.empty ())
+		{
+			multiplier = nano::difficulty::to_multiplier (active_root_difficulties[active_root_difficulties.size () / 2], node.network_params.network.publish_threshold);
+		}
 	}
 	assert (multiplier >= 1);
 	multipliers_cb.push_front (multiplier);
