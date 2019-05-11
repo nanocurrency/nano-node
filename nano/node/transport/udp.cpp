@@ -954,7 +954,7 @@ void nano::transport::udp_channels::start_tcp_receive_header (std::shared_ptr<na
 				nano::bufferstream type_stream (receive_buffer_a->data (), size_a);
 				auto error (false);
 				nano::message_header header (error, type_stream);
-				if (!error && header.type == nano::message_type::node_id_handshake && header.extensions.test (nano::node_id_handshake::response_flag) && header.version_using >= nano::protocol_version_min)
+				if (!error && header.type == nano::message_type::node_id_handshake && header.node_id_handshake_is_response () && header.version_using >= nano::protocol_version_min)
 				{
 					channel_a->network_version = header.version_using;
 					node_l->network.udp_channels.start_tcp_receive (channel_a, receive_buffer_a, callback_a);
@@ -993,7 +993,7 @@ void nano::transport::udp_channels::start_tcp_receive (std::shared_ptr<nano::tra
 				auto error (false);
 				nano::bufferstream stream (receive_buffer_a->data (), sizeof (nano::account) + sizeof (nano::signature));
 				nano::message_header header (nano::message_type::node_id_handshake);
-				header.extensions.set (nano::node_id_handshake::response_flag, true);
+				header.flag_set (nano::message_header::node_id_handshake_response_flag);
 				nano::node_id_handshake message (error, stream, header);
 				if (message.response)
 				{
