@@ -2258,7 +2258,7 @@ void nano::bootstrap_server::receive_keepalive_action (boost::system::error_code
 	{
 		if (node->config.logging.network_keepalive_logging ())
 		{
-			node->logger.try_log (boost::str (boost::format ("Error receiving keepalive from: %1%") % ec.message ()));
+			node->logger.try_log (boost::str (boost::format ("Error receiving keepalive: %1%") % ec.message ()));
 		}
 	}
 }
@@ -2280,7 +2280,7 @@ void nano::bootstrap_server::receive_publish_action (boost::system::error_code c
 	{
 		if (node->config.logging.network_message_logging ())
 		{
-			node->logger.try_log (boost::str (boost::format ("Error receiving publish from: %1%") % ec.message ()));
+			node->logger.try_log (boost::str (boost::format ("Error receiving publish: %1%") % ec.message ()));
 		}
 	}
 }
@@ -2300,7 +2300,7 @@ void nano::bootstrap_server::receive_confirm_req_action (boost::system::error_co
 	}
 	else if (node->config.logging.network_message_logging ())
 	{
-		node->logger.try_log (boost::str (boost::format ("Error receiving confirm_req from: %1%") % ec.message ()));
+		node->logger.try_log (boost::str (boost::format ("Error receiving confirm_req: %1%") % ec.message ()));
 	}
 }
 
@@ -2319,7 +2319,7 @@ void nano::bootstrap_server::receive_confirm_ack_action (boost::system::error_co
 	}
 	else if (node->config.logging.network_message_logging ())
 	{
-		node->logger.try_log (boost::str (boost::format ("Error receiving confirm_ack from: %1%") % ec.message ()));
+		node->logger.try_log (boost::str (boost::format ("Error receiving confirm_ack: %1%") % ec.message ()));
 	}
 }
 
@@ -2338,7 +2338,7 @@ void nano::bootstrap_server::receive_node_id_handshake_action (boost::system::er
 	}
 	else if (node->config.logging.network_node_id_handshake_logging ())
 	{
-		node->logger.try_log (boost::str (boost::format ("Error receiving node_id_handshake from: %1%") % ec.message ()));
+		node->logger.try_log (boost::str (boost::format ("Error receiving node_id_handshake: %1%") % ec.message ()));
 	}
 }
 
