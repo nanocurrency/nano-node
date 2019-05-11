@@ -188,21 +188,27 @@ public:
 	bool deserialize (nano::stream &);
 	nano::block_type block_type () const;
 	void block_type_set (nano::block_type);
-	size_t count_get () const;
-	void count_set (size_t);
+	uint8_t count_get () const;
+	void count_set (uint8_t);
 	uint8_t version_max;
 	uint8_t version_using;
 	uint8_t version_min;
 	nano::message_type type;
 	std::bitset<16> extensions;
 
-	static size_t constexpr bulk_pull_count_present_flag = 0;
+	void flag_set (uint8_t);
+	static uint8_t constexpr bulk_pull_count_present_flag = 0;
 	bool bulk_pull_is_count_present () const;
+	static uint8_t constexpr node_id_handshake_query_flag = 0;
+	static uint8_t constexpr node_id_handshake_response_flag = 1;
+	bool node_id_handshake_is_query () const;
+	bool node_id_handshake_is_response () const;
 
 	/** Size of the payload in bytes. For some messages, the payload size is based on header flags. */
 	size_t payload_length_bytes () const;
 
 	static std::bitset<16> constexpr block_type_mask = std::bitset<16> (0x0f00);
+	static std::bitset<16> constexpr count_mask = std::bitset<16> (0xf000);
 };
 class message
 {
@@ -369,16 +375,10 @@ public:
 	bool deserialize (nano::stream &);
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::node_id_handshake const &) const;
-	bool is_query_flag () const;
-	void set_query_flag (bool);
-	bool is_response_flag () const;
-	void set_response_flag (bool);
 	boost::optional<nano::uint256_union> query;
 	boost::optional<std::pair<nano::account, nano::signature>> response;
-	static size_t constexpr query_flag = 0;
-	static size_t constexpr response_flag = 1;
-	static size_t constexpr size_query = sizeof (nano::uint256_union);
-	static size_t constexpr size_response = sizeof (nano::account) + sizeof (nano::signature);
+	size_t size () const;
+	static size_t size (nano::message_header const &);
 };
 class message_visitor
 {
