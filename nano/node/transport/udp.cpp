@@ -5,12 +5,11 @@
 std::chrono::seconds constexpr nano::transport::udp_channels::syn_cookie_cutoff;
 
 nano::transport::channel_udp::channel_udp (nano::transport::udp_channels & channels_a, nano::endpoint const & endpoint_a, unsigned network_version_a) :
-channel (channels_a.node),
-network_version (network_version_a),
 endpoint (endpoint_a),
 channels (channels_a),
 socket (std::make_shared<nano::socket> (channels_a.node.shared_from_this (), boost::none, nano::socket::concurrency::multi_writer))
 {
+	set_network_version (network_version_a);
 	assert (endpoint_a.address ().is_v6 ());
 }
 
@@ -31,8 +30,9 @@ bool nano::transport::channel_udp::operator== (nano::transport::channel const & 
 	return result;
 }
 
-void nano::transport::channel_udp::send_buffer (std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
+void nano::transport::channel_udp::send_buffer (std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a)
 {
+	set_last_packet_sent (std::chrono::steady_clock::now ());
 	if (type == nano::transport::transport_type::tcp)
 	{
 		socket->async_write (buffer_a, callback (buffer_a, detail_a, callback_a));
@@ -110,7 +110,7 @@ std::shared_ptr<nano::transport::channel_udp> nano::transport::udp_channels::ins
 {
 	assert (endpoint_a.address ().is_v6 ());
 	std::shared_ptr<nano::transport::channel_udp> result;
-	if (!not_a_peer (endpoint_a, node.config.allow_local_peers))
+	if (!node.network.not_a_peer (endpoint_a, node.config.allow_local_peers))
 	{
 		std::unique_lock<std::mutex> lock (mutex);
 		auto existing (channels.get<endpoint_tag> ().find (endpoint_a));
@@ -214,109 +214,6 @@ void nano::transport::udp_channels::store_all (nano::node & node_a)
 	}
 }
 
-namespace
-{
-boost::asio::ip::address_v6 mapped_from_v4_bytes (unsigned long address_a)
-{
-	return boost::asio::ip::address_v6::v4_mapped (boost::asio::ip::address_v4 (address_a));
-}
-}
-
-bool nano::transport::udp_channels::reserved_address (nano::endpoint const & endpoint_a, bool allow_local_peers)
-{
-	assert (endpoint_a.address ().is_v6 ());
-	auto bytes (endpoint_a.address ().to_v6 ());
-	auto result (false);
-	static auto const rfc1700_min (mapped_from_v4_bytes (0x00000000ul));
-	static auto const rfc1700_max (mapped_from_v4_bytes (0x00fffffful));
-	static auto const rfc1918_1_min (mapped_from_v4_bytes (0x0a000000ul));
-	static auto const rfc1918_1_max (mapped_from_v4_bytes (0x0afffffful));
-	static auto const rfc1918_2_min (mapped_from_v4_bytes (0xac100000ul));
-	static auto const rfc1918_2_max (mapped_from_v4_bytes (0xac1ffffful));
-	static auto const rfc1918_3_min (mapped_from_v4_bytes (0xc0a80000ul));
-	static auto const rfc1918_3_max (mapped_from_v4_bytes (0xc0a8fffful));
-	static auto const rfc6598_min (mapped_from_v4_bytes (0x64400000ul));
-	static auto const rfc6598_max (mapped_from_v4_bytes (0x647ffffful));
-	static auto const rfc5737_1_min (mapped_from_v4_bytes (0xc0000200ul));
-	static auto const rfc5737_1_max (mapped_from_v4_bytes (0xc00002fful));
-	static auto const rfc5737_2_min (mapped_from_v4_bytes (0xc6336400ul));
-	static auto const rfc5737_2_max (mapped_from_v4_bytes (0xc63364fful));
-	static auto const rfc5737_3_min (mapped_from_v4_bytes (0xcb007100ul));
-	static auto const rfc5737_3_max (mapped_from_v4_bytes (0xcb0071fful));
-	static auto const ipv4_multicast_min (mapped_from_v4_bytes (0xe0000000ul));
-	static auto const ipv4_multicast_max (mapped_from_v4_bytes (0xeffffffful));
-	static auto const rfc6890_min (mapped_from_v4_bytes (0xf0000000ul));
-	static auto const rfc6890_max (mapped_from_v4_bytes (0xfffffffful));
-	static auto const rfc6666_min (boost::asio::ip::address_v6::from_string ("100::"));
-	static auto const rfc6666_max (boost::asio::ip::address_v6::from_string ("100::ffff:ffff:ffff:ffff"));
-	static auto const rfc3849_min (boost::asio::ip::address_v6::from_string ("2001:db8::"));
-	static auto const rfc3849_max (boost::asio::ip::address_v6::from_string ("2001:db8:ffff:ffff:ffff:ffff:ffff:ffff"));
-	static auto const rfc4193_min (boost::asio::ip::address_v6::from_string ("fc00::"));
-	static auto const rfc4193_max (boost::asio::ip::address_v6::from_string ("fd00:ffff:ffff:ffff:ffff:ffff:ffff:ffff"));
-	static auto const ipv6_multicast_min (boost::asio::ip::address_v6::from_string ("ff00::"));
-	static auto const ipv6_multicast_max (boost::asio::ip::address_v6::from_string ("ff00:ffff:ffff:ffff:ffff:ffff:ffff:ffff"));
-	if (bytes >= rfc1700_min && bytes <= rfc1700_max)
-	{
-		result = true;
-	}
-	else if (bytes >= rfc5737_1_min && bytes <= rfc5737_1_max)
-	{
-		result = true;
-	}
-	else if (bytes >= rfc5737_2_min && bytes <= rfc5737_2_max)
-	{
-		result = true;
-	}
-	else if (bytes >= rfc5737_3_min && bytes <= rfc5737_3_max)
-	{
-		result = true;
-	}
-	else if (bytes >= ipv4_multicast_min && bytes <= ipv4_multicast_max)
-	{
-		result = true;
-	}
-	else if (bytes >= rfc6890_min && bytes <= rfc6890_max)
-	{
-		result = true;
-	}
-	else if (bytes >= rfc6666_min && bytes <= rfc6666_max)
-	{
-		result = true;
-	}
-	else if (bytes >= rfc3849_min && bytes <= rfc3849_max)
-	{
-		result = true;
-	}
-	else if (bytes >= ipv6_multicast_min && bytes <= ipv6_multicast_max)
-	{
-		result = true;
-	}
-	else if (!allow_local_peers)
-	{
-		if (bytes >= rfc1918_1_min && bytes <= rfc1918_1_max)
-		{
-			result = true;
-		}
-		else if (bytes >= rfc1918_2_min && bytes <= rfc1918_2_max)
-		{
-			result = true;
-		}
-		else if (bytes >= rfc1918_3_min && bytes <= rfc1918_3_max)
-		{
-			result = true;
-		}
-		else if (bytes >= rfc6598_min && bytes <= rfc6598_max)
-		{
-			result = true;
-		}
-		else if (bytes >= rfc4193_min && bytes <= rfc4193_max)
-		{
-			result = true;
-		}
-	}
-	return result;
-}
-
 nano::endpoint nano::transport::udp_channels::find_node_id (nano::account const & node_id_a)
 {
 	nano::endpoint result (boost::asio::ip::address_v6::any (), 0);
@@ -348,13 +245,13 @@ nano::endpoint nano::transport::udp_channels::tcp_peer ()
 {
 	nano::endpoint result (boost::asio::ip::address_v6::any (), 0);
 	std::lock_guard<std::mutex> lock (mutex);
-	for (auto i (channels.get<last_tcp_attempt_tag> ().begin ()), n (channels.get<last_tcp_attempt_tag> ().end ()); i != n;)
+	for (auto i (channels.get<last_bootstrap_attempt_tag> ().begin ()), n (channels.get<last_bootstrap_attempt_tag> ().end ()); i != n;)
 	{
-		if (i->channel->network_version >= protocol_version_reasonable_min)
+		if (i->channel->get_network_version () >= protocol_version_reasonable_min)
 		{
 			result = i->endpoint ();
-			channels.get<last_tcp_attempt_tag> ().modify (i, [](channel_udp_wrapper & wrapper_a) {
-				wrapper_a.channel->set_last_tcp_attempt (std::chrono::steady_clock::now ());
+			channels.get<last_bootstrap_attempt_tag> ().modify (i, [](channel_udp_wrapper & wrapper_a) {
+				wrapper_a.channel->set_last_bootstrap_attempt (std::chrono::steady_clock::now ());
 			});
 			i = n;
 		}
@@ -541,7 +438,12 @@ public:
 		}
 		if (out_query || out_respond_to)
 		{
-			node.network.send_node_id_handshake (endpoint, out_query, out_respond_to);
+			auto channel (node.network.find_channel (endpoint));
+			if (!channel)
+			{
+				channel = std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, endpoint);
+			}
+			node.network.send_node_id_handshake (channel, out_query, out_respond_to);
 		}
 		message (message_a);
 	}
@@ -557,7 +459,6 @@ public:
 	}
 	nano::node & node;
 	nano::endpoint endpoint;
-	std::shared_ptr<nano::transport::channel_udp> channel;
 };
 }
 
@@ -568,7 +469,7 @@ void nano::transport::udp_channels::receive_action (nano::message_buffer * data_
 	{
 		allowed_sender = false;
 	}
-	else if (reserved_address (data_a->endpoint, node.config.allow_local_peers))
+	else if (nano::transport::reserved_address (data_a->endpoint, node.config.allow_local_peers))
 	{
 		allowed_sender = false;
 	}
@@ -657,28 +558,6 @@ std::shared_ptr<nano::transport::channel> nano::transport::udp_channels::create 
 	return std::make_shared<nano::transport::channel_udp> (*this, endpoint_a);
 }
 
-bool nano::transport::udp_channels::not_a_peer (nano::endpoint const & endpoint_a, bool allow_local_peers)
-{
-	bool result (false);
-	if (endpoint_a.address ().to_v6 ().is_unspecified ())
-	{
-		result = true;
-	}
-	else if (reserved_address (endpoint_a, allow_local_peers))
-	{
-		result = true;
-	}
-	else if (endpoint_a == get_local_endpoint ())
-	{
-		result = true;
-	}
-	else if (!network_params.network.is_test_network () && max_ip_connections (endpoint_a))
-	{
-		result = true;
-	}
-	return result;
-}
-
 bool nano::transport::udp_channels::max_ip_connections (nano::endpoint const & endpoint_a)
 {
 	std::unique_lock<std::mutex> lock (mutex);
@@ -686,15 +565,15 @@ bool nano::transport::udp_channels::max_ip_connections (nano::endpoint const & e
 	return result;
 }
 
-bool nano::transport::udp_channels::reachout (nano::endpoint const & endpoint_a, bool allow_local_peers)
+bool nano::transport::udp_channels::reachout (nano::endpoint const & endpoint_a)
 {
-	// Don't contact invalid IPs
-	bool error = node.network.udp_channels.not_a_peer (endpoint_a, allow_local_peers);
+	// Don't overload single IP
+	bool error = max_ip_connections (endpoint_a);
 	if (!error)
 	{
 		auto endpoint_l (nano::transport::map_endpoint_to_v6 (endpoint_a));
 		// Don't keepalive to nodes that already sent us something
-		error |= node.network.udp_channels.channel (endpoint_l) != nullptr;
+		error |= channel (endpoint_l) != nullptr;
 		std::lock_guard<std::mutex> lock (mutex);
 		auto existing (attempts.find (endpoint_l));
 		error |= existing != attempts.end ();

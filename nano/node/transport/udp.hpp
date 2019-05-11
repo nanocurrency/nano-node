@@ -26,7 +26,7 @@ namespace transport
 		~channel_udp ();
 		size_t hash_code () const override;
 		bool operator== (nano::transport::channel const &) const override;
-		void send_buffer (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) const override;
+		void send_buffer (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) override;
 		std::function<void(boost::system::error_code const &, size_t)> callback (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) const override;
 		std::string to_string () const override;
 		bool operator== (nano::transport::channel_udp const & other_a) const
@@ -34,85 +34,25 @@ namespace transport
 			return &channels == &other_a.channels && endpoint == other_a.endpoint;
 		}
 
-		nano::endpoint get_endpoint () const
+		nano::endpoint get_endpoint () const override
 		{
 			std::lock_guard<std::mutex> lk (channel_mutex);
 			return endpoint;
 		}
 
-		std::chrono::steady_clock::time_point get_last_tcp_attempt () const
+		nano::tcp_endpoint get_tcp_endpoint () const override
 		{
 			std::lock_guard<std::mutex> lk (channel_mutex);
-			return last_tcp_attempt;
+			return nano::transport::map_endpoint_to_tcp (endpoint);
 		}
 
-		void set_last_tcp_attempt (std::chrono::steady_clock::time_point const time_a)
+		nano::transport::transport_type get_type () const override
 		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
-			last_tcp_attempt = time_a;
+			return nano::transport::transport_type::udp;
 		}
-
-		std::chrono::steady_clock::time_point get_last_packet_received () const
-		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
-			return last_packet_received;
-		}
-
-		void set_last_packet_received (std::chrono::steady_clock::time_point const time_a)
-		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
-			last_packet_received = time_a;
-		}
-
-		std::chrono::steady_clock::time_point get_last_packet_sent () const
-		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
-			return last_packet_sent;
-		}
-
-		void set_last_packet_sent (std::chrono::steady_clock::time_point const time_a)
-		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
-			last_packet_sent = time_a;
-		}
-
-		boost::optional<nano::account> get_node_id () const
-		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
-			return node_id;
-		}
-
-		void set_node_id (nano::account node_id_a)
-		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
-			node_id = node_id_a;
-		}
-
-		nano::transport::transport_type get_type () const
-		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
-			return type;
-		}
-
-		void set_type (nano::transport::transport_type type_a)
-		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
-			type = type_a;
-		}
-
-		unsigned network_version{ nano::protocol_version };
-		std::shared_ptr<nano::socket> socket;
 
 	private:
-		mutable std::mutex channel_mutex;
 		nano::endpoint endpoint;
-		std::chrono::steady_clock::time_point last_tcp_attempt{ std::chrono::steady_clock::time_point () };
-		std::chrono::steady_clock::time_point last_packet_received{ std::chrono::steady_clock::time_point () };
-		std::chrono::steady_clock::time_point last_packet_sent{ std::chrono::steady_clock::time_point () };
-		boost::optional<nano::account> node_id{ boost::none };
-		nano::transport::transport_type type{ nano::transport::transport_type::udp };
-
-	private:
 		nano::transport::udp_channels & channels;
 	};
 	class udp_channels final
@@ -129,7 +69,6 @@ namespace transport
 		void random_fill (std::array<nano::endpoint, 8> &) const;
 		std::unordered_set<std::shared_ptr<nano::transport::channel_udp>> random_set (size_t) const;
 		void store_all (nano::node &);
-		bool reserved_address (nano::endpoint const &, bool = false);
 		nano::endpoint find_node_id (nano::account const &);
 		void clean_node_id (nano::endpoint const &, nano::account const &);
 		// Get the next peer for attempting a tcp connection
@@ -145,11 +84,9 @@ namespace transport
 		void receive_action (nano::message_buffer *);
 		void process_packets ();
 		std::shared_ptr<nano::transport::channel> create (nano::endpoint const &);
-		// Unassigned, reserved, self
-		bool not_a_peer (nano::endpoint const &, bool);
 		bool max_ip_connections (nano::endpoint const &);
 		// Should we reach out to this endpoint with a keepalive message
-		bool reachout (nano::endpoint const &, bool = false);
+		bool reachout (nano::endpoint const &);
 		std::unique_ptr<seq_con_info_component> collect_seq_con_info (std::string const &);
 		void purge (std::chrono::steady_clock::time_point const &);
 		void purge_syn_cookies (std::chrono::steady_clock::time_point const &);
@@ -194,7 +131,7 @@ namespace transport
 		class last_packet_sent_tag
 		{
 		};
-		class last_tcp_attempt_tag
+		class last_bootstrap_attempt_tag
 		{
 		};
 		class node_id_tag
@@ -216,9 +153,9 @@ namespace transport
 			{
 				return channel->get_last_packet_sent ();
 			}
-			std::chrono::steady_clock::time_point last_tcp_attempt () const
+			std::chrono::steady_clock::time_point last_bootstrap_attempt () const
 			{
-				return channel->get_last_tcp_attempt ();
+				return channel->get_last_bootstrap_attempt ();
 			}
 			boost::asio::ip::address ip_address () const
 			{
@@ -254,7 +191,7 @@ namespace transport
 		channel_udp_wrapper,
 		boost::multi_index::indexed_by<
 		boost::multi_index::random_access<boost::multi_index::tag<random_access_tag>>,
-		boost::multi_index::ordered_non_unique<boost::multi_index::tag<last_tcp_attempt_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, std::chrono::steady_clock::time_point, &channel_udp_wrapper::last_tcp_attempt>>,
+		boost::multi_index::ordered_non_unique<boost::multi_index::tag<last_bootstrap_attempt_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, std::chrono::steady_clock::time_point, &channel_udp_wrapper::last_bootstrap_attempt>>,
 		boost::multi_index::hashed_unique<boost::multi_index::tag<endpoint_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, nano::endpoint, &channel_udp_wrapper::endpoint>>,
 		boost::multi_index::hashed_non_unique<boost::multi_index::tag<node_id_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, nano::account, &channel_udp_wrapper::node_id>>,
 		boost::multi_index::ordered_non_unique<boost::multi_index::tag<last_packet_received_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, std::chrono::steady_clock::time_point, &channel_udp_wrapper::last_packet_received>>,
