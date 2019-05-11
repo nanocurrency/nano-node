@@ -2050,6 +2050,10 @@ nano::bootstrap_server::~bootstrap_server ()
 	{
 		node->logger.try_log ("Exiting bootstrap server");
 	}
+	if (bootstrap_connection)
+	{
+		--node->bootstrap.bootstrap_count;
+	}
 	std::lock_guard<std::mutex> lock (node->bootstrap.mutex);
 	node->bootstrap.connections.erase (this);
 }
@@ -2112,7 +2116,12 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 				case nano::message_type::bulk_push:
 				{
 					node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_push, nano::stat::dir::in);
-					if (!node->flags.disable_bootstrap_listener)
+					if (!bootstrap_connection && !node->flags.disable_bootstrap_listener && node->bootstrap.bootstrap_count < node->config.bootstrap_connections_max)
+					{
+						++node->bootstrap.bootstrap_count;
+						bootstrap_connection = true;
+					}
+					if (bootstrap_connection)
 					{
 						add_request (std::unique_ptr<nano::message> (new nano::bulk_push (header)));
 					}
@@ -2159,7 +2168,12 @@ void nano::bootstrap_server::receive_bulk_pull_action (boost::system::error_code
 			{
 				node->logger.try_log (boost::str (boost::format ("Received bulk pull for %1% down to %2%, maximum of %3%") % request->start.to_string () % request->end.to_string () % (request->count ? request->count : std::numeric_limits<double>::infinity ())));
 			}
-			if (!node->flags.disable_bootstrap_listener)
+			if (!bootstrap_connection && !node->flags.disable_bootstrap_listener && node->bootstrap.bootstrap_count < node->config.bootstrap_connections_max)
+			{
+				++node->bootstrap.bootstrap_count;
+				bootstrap_connection = true;
+			}
+			if (bootstrap_connection)
 			{
 				add_request (std::unique_ptr<nano::message> (request.release ()));
 			}
@@ -2182,7 +2196,12 @@ void nano::bootstrap_server::receive_bulk_pull_account_action (boost::system::er
 			{
 				node->logger.try_log (boost::str (boost::format ("Received bulk pull account for %1% with a minimum amount of %2%") % request->account.to_account () % nano::amount (request->minimum_amount).format_balance (nano::Mxrb_ratio, 10, true)));
 			}
-			if (!node->flags.disable_bootstrap_listener)
+			if (!bootstrap_connection && !node->flags.disable_bootstrap_listener && node->bootstrap.bootstrap_count < node->config.bootstrap_connections_max)
+			{
+				++node->bootstrap.bootstrap_count;
+				bootstrap_connection = true;
+			}
+			if (bootstrap_connection)
 			{
 				add_request (std::unique_ptr<nano::message> (request.release ()));
 			}
@@ -2226,7 +2245,12 @@ void nano::bootstrap_server::receive_frontier_req_action (boost::system::error_c
 			{
 				node->logger.try_log (boost::str (boost::format ("Received frontier request for %1% with age %2%") % request->start.to_string () % request->age));
 			}
-			if (!node->flags.disable_bootstrap_listener)
+			if (!bootstrap_connection && !node->flags.disable_bootstrap_listener && node->bootstrap.bootstrap_count < node->config.bootstrap_connections_max)
+			{
+				++node->bootstrap.bootstrap_count;
+				bootstrap_connection = true;
+			}
+			if (bootstrap_connection)
 			{
 				add_request (std::unique_ptr<nano::message> (request.release ()));
 			}

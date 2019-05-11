@@ -298,6 +298,7 @@ public:
 	boost::asio::io_context & io_ctx;
 	nano::node & node;
 	bool on;
+	std::atomic<size_t> bootstrap_count{ 0 };
 
 private:
 	boost::asio::steady_timer defer_acceptor;
@@ -326,6 +327,7 @@ public:
 	std::shared_ptr<nano::node> node;
 	std::mutex mutex;
 	std::queue<std::unique_ptr<nano::message>> requests;
+	std::atomic<bool> bootstrap_connection{ false };
 };
 class bulk_pull;
 class bulk_pull_server final : public std::enable_shared_from_this<nano::bulk_pull_server>
