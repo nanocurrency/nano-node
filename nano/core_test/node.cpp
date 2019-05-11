@@ -741,6 +741,7 @@ TEST (node_config, v17_values)
 		txn_tracking_l.put ("enable", false);
 		txn_tracking_l.put ("min_read_txn_time", 0);
 		txn_tracking_l.put ("min_write_txn_time", 0);
+		txn_tracking_l.put ("ignore_writes_below_block_processor_max_time", true);
 		nano::jsonconfig diagnostics_l;
 		diagnostics_l.put_child ("txn_tracking", txn_tracking_l);
 		tree.put_child ("diagnostics", diagnostics_l);
@@ -756,6 +757,7 @@ TEST (node_config, v17_values)
 	ASSERT_FALSE (config.diagnostics_config.txn_tracking.enable);
 	ASSERT_EQ (config.diagnostics_config.txn_tracking.min_read_txn_time.count (), 0);
 	ASSERT_EQ (config.diagnostics_config.txn_tracking.min_write_txn_time.count (), 0);
+	ASSERT_TRUE (config.diagnostics_config.txn_tracking.ignore_writes_below_block_processor_max_time);
 
 	// Check config is correct with other values
 	tree.put ("tcp_client_timeout", std::numeric_limits<unsigned long>::max () - 100);
@@ -767,6 +769,7 @@ TEST (node_config, v17_values)
 	txn_tracking_l.put ("enable", true);
 	txn_tracking_l.put ("min_read_txn_time", 1234);
 	txn_tracking_l.put ("min_write_txn_time", std::numeric_limits<unsigned>::max ());
+	txn_tracking_l.put ("ignore_writes_below_block_processor_max_time", false);
 	nano::jsonconfig diagnostics_l;
 	diagnostics_l.replace_child ("txn_tracking", txn_tracking_l);
 	tree.replace_child ("diagnostics", diagnostics_l);
@@ -782,6 +785,7 @@ TEST (node_config, v17_values)
 	ASSERT_TRUE (config.diagnostics_config.txn_tracking.enable);
 	ASSERT_EQ (config.diagnostics_config.txn_tracking.min_read_txn_time.count (), 1234);
 	ASSERT_EQ (config.diagnostics_config.txn_tracking.min_write_txn_time.count (), std::numeric_limits<unsigned>::max ());
+	ASSERT_FALSE (config.diagnostics_config.txn_tracking.ignore_writes_below_block_processor_max_time);
 }
 
 // Regression test to ensure that deserializing includes changes node via get_required_child
