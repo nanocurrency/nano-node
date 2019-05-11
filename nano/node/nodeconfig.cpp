@@ -119,6 +119,7 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("pow_sleep_interval", pow_sleep_interval.count ());
 	json.put ("external_address", external_address.to_string ());
 	json.put ("external_port", external_port);
+	json.put ("tcp_incoming_connections_max", tcp_incoming_connections_max);
 	nano::jsonconfig websocket_l;
 	websocket_config.serialize_json (websocket_l);
 	json.put_child ("websocket", websocket_l);
@@ -260,6 +261,7 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.put (pow_sleep_interval_key, pow_sleep_interval.count ());
 			json.put ("external_address", external_address.to_string ());
 			json.put ("external_port", external_port);
+			json.put ("tcp_incoming_connections_max", tcp_incoming_connections_max);
 			upgraded = true;
 		}
 		case 17:
@@ -401,6 +403,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get<unsigned> (signature_checker_threads_key, signature_checker_threads);
 		json.get<boost::asio::ip::address_v6> ("external_address", external_address);
 		json.get<uint16_t> ("external_port", external_port);
+		json.get<unsigned> ("tcp_incoming_connections_max", tcp_incoming_connections_max);
 
 		auto pow_sleep_interval_l (pow_sleep_interval.count ());
 		json.get (pow_sleep_interval_key, pow_sleep_interval_l);

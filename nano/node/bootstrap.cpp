@@ -1973,7 +1973,7 @@ void nano::bootstrap_listener::accept_connection ()
 {
 	if (acceptor.is_open ())
 	{
-		if (connections.size () < node.config.bootstrap_connections_max)
+		if (connections.size () < node.config.tcp_incoming_connections_max)
 		{
 			auto socket (std::make_shared<nano::socket> (node.shared ()));
 			socket->checkup (node.config.tcp_server_timeout.count ());
@@ -1983,7 +1983,7 @@ void nano::bootstrap_listener::accept_connection ()
 		}
 		else
 		{
-			node.logger.try_log (boost::str (boost::format ("Unable to accept new TCP network sockets (have %1% concurrent connections, limit of %2%), will try to accept again in 1s") % connections.size () % node.config.bootstrap_connections_max));
+			node.logger.try_log (boost::str (boost::format ("Unable to accept new TCP network sockets (have %1% concurrent connections, limit of %2%), will try to accept again in 1s") % connections.size () % node.config.tcp_incoming_connections_max));
 			defer_acceptor.expires_after (std::chrono::seconds (1));
 			defer_acceptor.async_wait ([this](const boost::system::error_code & ec) {
 				/*
@@ -2085,7 +2085,6 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 				case nano::message_type::bulk_pull:
 				{
 					node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull, nano::stat::dir::in);
-
 					auto this_l (shared_from_this ());
 					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_bulk_pull_action (ec, size_a, header);
@@ -2113,7 +2112,10 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 				case nano::message_type::bulk_push:
 				{
 					node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_push, nano::stat::dir::in);
-					add_request (std::unique_ptr<nano::message> (new nano::bulk_push (header)));
+					if (!node->flags.disable_bootstrap_listener)
+					{
+						add_request (std::unique_ptr<nano::message> (new nano::bulk_push (header)));
+					}
 					break;
 				}
 				case nano::message_type::keepalive:
@@ -2157,7 +2159,10 @@ void nano::bootstrap_server::receive_bulk_pull_action (boost::system::error_code
 			{
 				node->logger.try_log (boost::str (boost::format ("Received bulk pull for %1% down to %2%, maximum of %3%") % request->start.to_string () % request->end.to_string () % (request->count ? request->count : std::numeric_limits<double>::infinity ())));
 			}
-			add_request (std::unique_ptr<nano::message> (request.release ()));
+			if (!node->flags.disable_bootstrap_listener)
+			{
+				add_request (std::unique_ptr<nano::message> (request.release ()));
+			}
 			receive ();
 		}
 	}
@@ -2177,7 +2182,10 @@ void nano::bootstrap_server::receive_bulk_pull_account_action (boost::system::er
 			{
 				node->logger.try_log (boost::str (boost::format ("Received bulk pull account for %1% with a minimum amount of %2%") % request->account.to_account () % nano::amount (request->minimum_amount).format_balance (nano::Mxrb_ratio, 10, true)));
 			}
-			add_request (std::unique_ptr<nano::message> (request.release ()));
+			if (!node->flags.disable_bootstrap_listener)
+			{
+				add_request (std::unique_ptr<nano::message> (request.release ()));
+			}
 			receive ();
 		}
 	}
@@ -2218,7 +2226,10 @@ void nano::bootstrap_server::receive_frontier_req_action (boost::system::error_c
 			{
 				node->logger.try_log (boost::str (boost::format ("Received frontier request for %1% with age %2%") % request->start.to_string () % request->age));
 			}
-			add_request (std::unique_ptr<nano::message> (request.release ()));
+			if (!node->flags.disable_bootstrap_listener)
+			{
+				add_request (std::unique_ptr<nano::message> (request.release ()));
+			}
 			receive ();
 		}
 	}

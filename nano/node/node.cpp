@@ -1585,7 +1585,7 @@ void nano::node::start ()
 	ongoing_rep_calculation ();
 	ongoing_peer_store ();
 	ongoing_online_weight_calculation_queue ();
-	if (!flags.disable_bootstrap_listener)
+	if (config.tcp_incoming_connections_max > 0)
 	{
 		bootstrap.start ();
 	}
