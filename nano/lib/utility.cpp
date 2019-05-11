@@ -182,7 +182,7 @@ nano::thread_runner::~thread_runner ()
 	join ();
 }
 
-void nano::thread_runner::join (bool stop_event_processing_a)
+void nano::thread_runner::join ()
 {
 	io_guard.reset ();
 	for (auto & i : threads)

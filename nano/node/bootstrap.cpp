@@ -1830,7 +1830,8 @@ void nano::bootstrap_listener::start ()
 		if (ec_a)
 		{
 			keep_accepting = false;
-			this->node.logger.try_log (boost::str (boost::format ("Error while accepting incoming tcp / bootstrap connections: %1%") % ec_a.message ()));		}
+			this->node.logger.try_log (boost::str (boost::format ("Error while accepting incoming tcp / bootstrap connections: %1%") % ec_a.message ()));
+		}
 		else
 		{
 			accept_action (ec_a, new_connection);
