@@ -115,7 +115,7 @@ TEST (network, send_node_id_handshake_tcp)
 	[node_w, channel]() {
 		if (auto node_l = node_w.lock ())
 		{
-			node_l->network.send_keepalive (*channel);
+			node_l->network.send_keepalive (channel);
 		}
 	});
 	system.deadline_set (3s);

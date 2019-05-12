@@ -5,6 +5,7 @@
 std::chrono::seconds constexpr nano::transport::udp_channels::syn_cookie_cutoff;
 
 nano::transport::channel_udp::channel_udp (nano::transport::udp_channels & channels_a, nano::endpoint const & endpoint_a, unsigned network_version_a) :
+channel (channels_a.node),
 endpoint (endpoint_a),
 channels (channels_a),
 socket (std::make_shared<nano::socket> (channels_a.node.shared_from_this (), boost::none, nano::socket::concurrency::multi_writer))
@@ -835,7 +836,7 @@ void nano::transport::udp_channels::start_tcp_receive_header (std::shared_ptr<na
 				nano::message_header header (error, type_stream);
 				if (!error && header.type == nano::message_type::node_id_handshake && header.node_id_handshake_is_response () && header.version_using >= nano::protocol_version_min)
 				{
-					channel_a->network_version = header.version_using;
+					channel_a->set_network_version (header.version_using);
 					node_l->network.udp_channels.start_tcp_receive (channel_a, receive_buffer_a, callback_a);
 				}
 				else if (callback_a)
@@ -886,7 +887,7 @@ void nano::transport::udp_channels::start_tcp_receive (std::shared_ptr<nano::tra
 							// Insert new node ID connection
 							if (node_l->network.udp_channels.find_node_id (node_id).address () == boost::asio::ip::address_v6::any ())
 							{
-								node_l->network.send_keepalive_self (*channel_a);
+								node_l->network.send_keepalive_self (channel_a);
 								channel_a->set_last_packet_received (std::chrono::steady_clock::now ());
 								channel_a->set_last_packet_sent (std::chrono::steady_clock::now ());
 								node_l->network.udp_channels.insert_tcp (channel_a);
@@ -920,7 +921,7 @@ void nano::transport::udp_channels::insert_tcp (std::shared_ptr<nano::transport:
 {
 	auto endpoint (channel_a->get_endpoint ());
 	assert (endpoint.address ().is_v6 ());
-	if (!not_a_peer (endpoint, node.config.allow_local_peers))
+	if (!node.network.not_a_peer (endpoint, node.config.allow_local_peers))
 	{
 		std::unique_lock<std::mutex> lock (mutex);
 		auto existing (channels.get<endpoint_tag> ().find (endpoint));
@@ -941,11 +942,16 @@ void nano::transport::udp_channels::common_keepalive (nano::keepalive const & me
 		if (cookie && type == nano::transport::transport_type::udp)
 		{
 			// New connection
-			node.network.send_node_id_handshake (endpoint_a, *cookie, boost::none);
 			auto find_channel (channel (endpoint_a));
 			if (find_channel)
 			{
-				node.network.send_keepalive_self (*find_channel);
+				node.network.send_node_id_handshake (find_channel, *cookie, boost::none);
+				node.network.send_keepalive_self (find_channel);
+			}
+			else
+			{
+				find_channel = std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, endpoint_a);
+				node.network.send_node_id_handshake (find_channel, *cookie, boost::none);
 			}
 		}
 		// Check for special node port data

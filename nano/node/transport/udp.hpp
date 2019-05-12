@@ -10,12 +10,6 @@ namespace nano
 class message_buffer;
 namespace transport
 {
-	enum class transport_type : uint8_t
-	{
-		undefined = 0,
-		udp = 1,
-		tcp = 2
-	};
 	class udp_channels;
 	class channel_udp final : public nano::transport::channel
 	{
@@ -46,14 +40,10 @@ namespace transport
 			return nano::transport::map_endpoint_to_tcp (endpoint);
 		}
 
-		nano::transport::transport_type get_type () const override
-		{
-			return nano::transport::transport_type::udp;
-		}
-
 	private:
 		nano::endpoint endpoint;
 		nano::transport::udp_channels & channels;
+		std::shared_ptr<nano::socket> socket;
 	};
 	class udp_channels final
 	{

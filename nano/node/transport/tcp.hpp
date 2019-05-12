@@ -49,11 +49,6 @@ namespace transport
 				return nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0);
 			}
 		}
-
-		nano::transport::transport_type get_type () const override
-		{
-			return nano::transport::transport_type::tcp;
-		}
 	};
 } // namespace transport
 } // namespace nano

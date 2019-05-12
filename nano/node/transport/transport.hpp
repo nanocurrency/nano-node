@@ -29,12 +29,11 @@ namespace transport
 		virtual size_t hash_code () const = 0;
 		virtual bool operator== (nano::transport::channel const &) const = 0;
 		void send (nano::message const &, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr);
-		void send_buffer (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) = 0
+		virtual void send_buffer (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) = 0;
 		virtual std::function<void(boost::system::error_code const &, size_t)> callback (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) const = 0;
 		virtual std::string to_string () const = 0;
 		virtual nano::endpoint get_endpoint () const = 0;
 		virtual nano::tcp_endpoint get_tcp_endpoint () const = 0;
-		virtual nano::transport::transport_type get_type () const = 0;
 
 		std::chrono::steady_clock::time_point get_last_bootstrap_attempt () const
 		{
@@ -94,7 +93,20 @@ namespace transport
 			network_version = network_version_a;
 		}
 
+		nano::transport::transport_type get_type () const
+		{
+			std::lock_guard<std::mutex> lk (channel_mutex);
+			return type;
+		}
+
+		void set_type (nano::transport::transport_type type_a)
+		{
+			std::lock_guard<std::mutex> lk (channel_mutex);
+			type = type_a;
+		}
+
 		mutable std::mutex channel_mutex;
+		nano::transport::transport_type type;
 
 	private:
 		std::chrono::steady_clock::time_point last_bootstrap_attempt{ std::chrono::steady_clock::time_point () };

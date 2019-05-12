@@ -135,11 +135,12 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 			{
 				auto endpoint (nano::transport::map_endpoint_to_v6 (i->endpoint ()));
 				std::weak_ptr<nano::node> node_w (node_l);
-				auto channel (node_l->network.find_channel (endpoint));
+				/*auto channel (node_l->network.find_channel (endpoint));
 				if (!channel)
 				{
 					channel = std::make_shared<nano::transport::channel_udp> (node_l->network.udp_channels, endpoint);
-				}
+				}*/
+				auto channel (std::make_shared<nano::transport::channel_udp> (node_l->network.udp_channels, endpoint));
 				node_l->network.udp_channels.start_tcp (channel,
 				[node_w, channel]() {
 					if (auto node_l = node_w.lock ())
