@@ -278,6 +278,7 @@ public:
 	nano::node & node;
 	std::shared_ptr<nano::server_socket> listening_socket;
 	bool on;
+	std::atomic<size_t> bootstrap_count{ 0 };
 
 private:
 	uint16_t port;
@@ -312,6 +313,7 @@ public:
 	std::shared_ptr<nano::node> node;
 	std::mutex mutex;
 	std::queue<std::unique_ptr<nano::message>> requests;
+	std::atomic<bool> bootstrap_connection{ false };
 	std::atomic<bool> keepalive_first{ true };
 	nano::tcp_endpoint remote_endpoint{ boost::asio::ip::address_v6::any (), 0 };
 };

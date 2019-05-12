@@ -1893,6 +1893,10 @@ nano::bootstrap_server::~bootstrap_server ()
 	{
 		node->logger.try_log ("Exiting incoming tcp / bootstrap server");
 	}
+	if (bootstrap_connection)
+	{
+		--node->bootstrap.bootstrap_count;
+	}
 	if (socket != nullptr)
 	{
 		socket->close ();
@@ -1967,7 +1971,15 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 				case nano::message_type::bulk_push:
 				{
 					node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_push, nano::stat::dir::in);
-					add_request (std::unique_ptr<nano::message> (new nano::bulk_push (header)));
+					if (!bootstrap_connection && !node->flags.disable_bootstrap_listener && node->bootstrap.bootstrap_count < node->config.bootstrap_connections_max)
+					{
+						++node->bootstrap.bootstrap_count;
+						bootstrap_connection = true;
+					}
+					if (bootstrap_connection)
+					{
+						add_request (std::unique_ptr<nano::message> (new nano::bulk_push (header)));
+					}
 					break;
 				}
 				case nano::message_type::keepalive:
@@ -2043,7 +2055,15 @@ void nano::bootstrap_server::receive_bulk_pull_action (boost::system::error_code
 			{
 				node->logger.try_log (boost::str (boost::format ("Received bulk pull for %1% down to %2%, maximum of %3%") % request->start.to_string () % request->end.to_string () % (request->count ? request->count : std::numeric_limits<double>::infinity ())));
 			}
-			add_request (std::unique_ptr<nano::message> (request.release ()));
+			if (!bootstrap_connection && !node->flags.disable_bootstrap_listener && node->bootstrap.bootstrap_count < node->config.bootstrap_connections_max)
+			{
+				++node->bootstrap.bootstrap_count;
+				bootstrap_connection = true;
+			}
+			if (bootstrap_connection)
+			{
+				add_request (std::unique_ptr<nano::message> (request.release ()));
+			}
 			receive ();
 		}
 	}
@@ -2063,7 +2083,15 @@ void nano::bootstrap_server::receive_bulk_pull_account_action (boost::system::er
 			{
 				node->logger.try_log (boost::str (boost::format ("Received bulk pull account for %1% with a minimum amount of %2%") % request->account.to_account () % nano::amount (request->minimum_amount).format_balance (nano::Mxrb_ratio, 10, true)));
 			}
-			add_request (std::unique_ptr<nano::message> (request.release ()));
+			if (!bootstrap_connection && !node->flags.disable_bootstrap_listener && node->bootstrap.bootstrap_count < node->config.bootstrap_connections_max)
+			{
+				++node->bootstrap.bootstrap_count;
+				bootstrap_connection = true;
+			}
+			if (bootstrap_connection)
+			{
+				add_request (std::unique_ptr<nano::message> (request.release ()));
+			}
 			receive ();
 		}
 	}
@@ -2082,7 +2110,15 @@ void nano::bootstrap_server::receive_frontier_req_action (boost::system::error_c
 			{
 				node->logger.try_log (boost::str (boost::format ("Received frontier request for %1% with age %2%") % request->start.to_string () % request->age));
 			}
-			add_request (std::unique_ptr<nano::message> (request.release ()));
+			if (!bootstrap_connection && !node->flags.disable_bootstrap_listener && node->bootstrap.bootstrap_count < node->config.bootstrap_connections_max)
+			{
+				++node->bootstrap.bootstrap_count;
+				bootstrap_connection = true;
+			}
+			if (bootstrap_connection)
+			{
+				add_request (std::unique_ptr<nano::message> (request.release ()));
+			}
 			receive ();
 		}
 	}
@@ -2284,7 +2320,7 @@ public:
 		auto connection_l (connection->shared_from_this ());
 		connection->node->background ([connection_l, message_a, first_keepalive]() {
 			nano::tcp_endpoint tcp_endpoint (connection_l->remote_endpoint);
-			connection_l->node->network.udp_channels.common_keepalive (message_a, nano::to_endpoint (tcp_endpoint), nano::transport::transport_type::tcp, first_keepalive);
+			connection_l->node->network.udp_channels.common_keepalive (message_a, nano::transport:map_tcp_to_endpoint (tcp_endpoint), nano::transport::transport_type::tcp, first_keepalive);
 			connection_l->process_message (message_a);
 		});
 	}
@@ -2375,7 +2411,7 @@ public:
 
 void nano::bootstrap_server::process_message (nano::message const & message_a)
 {
-	auto channel (node->network.udp_channels.channel (nano::to_endpoint (remote_endpoint)));
+	auto channel (node->network.udp_channels.channel (nano::transport:map_tcp_to_endpoint (remote_endpoint)));
 	if (channel)
 	{
 		channel->set_last_packet_received (std::chrono::steady_clock::now ());
@@ -2393,7 +2429,7 @@ void nano::bootstrap_server::process_message (nano::message const & message_a)
 		}
 		else
 		{
-			auto udp_channel (std::make_shared<nano::transport::channel_udp> (node->network.udp_channels, nano::to_endpoint (remote_endpoint)));
+			auto udp_channel (std::make_shared<nano::transport::channel_udp> (node->network.udp_channels, nano::transport:map_tcp_to_endpoint (remote_endpoint)));
 			node->process_message (message_a, udp_channel);
 		}
 	}

@@ -270,7 +270,6 @@ void nano::network::flood_message (nano::message const & message_a)
 	auto list (node.network.udp_channels.list_fanout ());
 	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
 	{
-		(*i)->set_last_packet_sent (std::chrono::steady_clock::now ());
 		(*i)->send (message_a);
 	}
 }

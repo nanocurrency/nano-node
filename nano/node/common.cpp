@@ -1142,13 +1142,3 @@ bool nano::parse_tcp_endpoint (std::string const & string, nano::tcp_endpoint & 
 	}
 	return result;
 }
-
-nano::endpoint nano::to_endpoint (nano::tcp_endpoint & endpoint_a)
-{
-	return nano::endpoint (endpoint_a.address (), endpoint_a.port ());
-}
-
-nano::tcp_endpoint nano::to_tcp_endpoint (nano::endpoint & endpoint_a)
-{
-	return nano::tcp_endpoint (endpoint_a.address (), endpoint_a.port ());
-}
