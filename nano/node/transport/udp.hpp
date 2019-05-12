@@ -1,5 +1,5 @@
 #pragma once
-
+#define BOOST_MULTI_INDEX_ENABLE_SAFE_MODE 1
 #include <mutex>
 #include <nano/node/common.hpp>
 #include <nano/node/stats.hpp>
@@ -124,7 +124,7 @@ namespace transport
 		std::deque<std::shared_ptr<nano::transport::channel_udp>> list (size_t);
 		// A list of random peers sized for the configured rebroadcast fanout
 		std::deque<std::shared_ptr<nano::transport::channel_udp>> list_fanout ();
-		void modify (std::shared_ptr<nano::transport::channel_udp>);
+		void modify (std::shared_ptr<nano::transport::channel_udp>, std::function<void(std::shared_ptr<nano::transport::channel_udp>)>);
 		// Maximum number of peers per IP
 		static size_t constexpr max_peers_per_ip = 10;
 		static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
