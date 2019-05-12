@@ -2320,7 +2320,7 @@ public:
 		auto connection_l (connection->shared_from_this ());
 		connection->node->background ([connection_l, message_a, first_keepalive]() {
 			nano::tcp_endpoint tcp_endpoint (connection_l->remote_endpoint);
-			connection_l->node->network.udp_channels.common_keepalive (message_a, nano::transport:map_tcp_to_endpoint (tcp_endpoint), nano::transport::transport_type::tcp, first_keepalive);
+			connection_l->node->network.udp_channels.common_keepalive (message_a, nano::transport::map_tcp_to_endpoint (tcp_endpoint), nano::transport::transport_type::tcp, first_keepalive);
 			connection_l->process_message (message_a);
 		});
 	}
@@ -2411,7 +2411,7 @@ public:
 
 void nano::bootstrap_server::process_message (nano::message const & message_a)
 {
-	auto channel (node->network.udp_channels.channel (nano::transport:map_tcp_to_endpoint (remote_endpoint)));
+	auto channel (node->network.udp_channels.channel (nano::transport::map_tcp_to_endpoint (remote_endpoint)));
 	if (channel)
 	{
 		channel->set_last_packet_received (std::chrono::steady_clock::now ());
@@ -2429,7 +2429,7 @@ void nano::bootstrap_server::process_message (nano::message const & message_a)
 		}
 		else
 		{
-			auto udp_channel (std::make_shared<nano::transport::channel_udp> (node->network.udp_channels, nano::transport:map_tcp_to_endpoint (remote_endpoint)));
+			auto udp_channel (std::make_shared<nano::transport::channel_udp> (node->network.udp_channels, nano::transport::map_tcp_to_endpoint (remote_endpoint)));
 			node->process_message (message_a, udp_channel);
 		}
 	}

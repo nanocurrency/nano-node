@@ -772,7 +772,7 @@ void nano::transport::udp_channels::start_tcp (std::shared_ptr<nano::transport::
 {
 	auto endpoint (channel_a->get_endpoint ());
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	channel_a->socket->async_connect (nano::transport:map_endpoint_to_tcp (endpoint),
+	channel_a->socket->async_connect (nano::transport::map_endpoint_to_tcp (endpoint),
 	[node_w, channel_a, callback_a](boost::system::error_code const & ec) {
 		if (auto node_l = node_w.lock ())
 		{
@@ -975,7 +975,7 @@ void nano::transport::udp_channels::common_keepalive (nano::keepalive const & me
 		if (!insert_response_channels.empty ())
 		{
 			nano::endpoint endpoint (endpoint_a);
-			add_response_channels (nano::transport:map_endpoint_to_tcp (endpoint), insert_response_channels);
+			add_response_channels (nano::transport::map_endpoint_to_tcp (endpoint), insert_response_channels);
 		}
 	}
 }
