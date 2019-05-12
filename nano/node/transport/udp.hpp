@@ -1,5 +1,5 @@
 #pragma once
-#define BOOST_MULTI_INDEX_ENABLE_SAFE_MODE 1
+
 #include <mutex>
 #include <nano/node/common.hpp>
 #include <nano/node/stats.hpp>
