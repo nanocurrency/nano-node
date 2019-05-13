@@ -168,6 +168,7 @@ public:
 	void stop ();
 	void run ();
 	void add (std::shared_ptr<nano::block>);
+	bool is_watched (nano::qualified_root const);
 	std::mutex mutex;
 	nano::node & node;
 	std::condition_variable condition;
