@@ -591,6 +591,24 @@ size_t nano::active_transactions::size ()
 	return roots.size ();
 }
 
+size_t nano::active_transactions::long_unconfirmed_size ()
+{
+	size_t long_unconfirmed (0);
+	if (!roots.empty ())
+	{
+		auto it (roots.begin ());
+		while (it != roots.end ())
+		{
+			if ((it->election)->announcements >= announcement_long && (it->election)->confirmed.load () == 0)
+			{
+				long_unconfirmed++;
+			}
+			it++;
+		}
+	}
+	return long_unconfirmed;
+}
+
 bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);

@@ -70,6 +70,7 @@ public:
 	void erase (nano::block const &);
 	bool empty ();
 	size_t size ();
+	size_t long_unconfirmed_size ();
 	void stop ();
 	bool publish (std::shared_ptr<nano::block> block_a);
 	void confirm_block (nano::block_hash const &);
