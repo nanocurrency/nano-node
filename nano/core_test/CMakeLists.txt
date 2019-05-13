@@ -4,6 +4,7 @@ add_executable (core_test
 	block.cpp
 	block_store.cpp
 	conflicts.cpp
+	difficulty.cpp
 	entry.cpp
 	gap_cache.cpp
 	interface.cpp
