@@ -4352,12 +4352,16 @@ void nano::json_handler::work_generate ()
 	{
 		bool use_peers (request.get_optional<bool> ("use_peers") == true);
 		auto rpc_l (shared_from_this ());
-		auto callback = [rpc_l](boost::optional<uint64_t> const & work_a) {
+		auto callback = [rpc_l, &hash, this](boost::optional<uint64_t> const & work_a) {
 			if (work_a)
 			{
 				boost::property_tree::ptree response_l;
 				response_l.put ("work", nano::to_string_hex (work_a.value ()));
 				std::stringstream ostream;
+				uint64_t work_value;
+				nano::work_validate (hash, work_a.value (), &work_value);
+				response_l.put ("value", nano::to_string_hex (work_value));
+				response_l.put ("multiplier", nano::difficulty::to_multiplier (work_value, this->node.network_params.network.publish_threshold));
 				boost::property_tree::write_json (ostream, response_l);
 				rpc_l->response (ostream.str ());
 			}

@@ -2431,41 +2431,47 @@ TEST (rpc, version)
 TEST (rpc, work_generate)
 {
 	nano::system system (24000, 1);
-	auto node1 (system.nodes[0]);
+	auto node (system.nodes[0]);
 	nano::keypair key;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key.prv);
-	enable_ipc_transport_tcp (node1->config.ipc_config.transport_tcp);
+	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
 	nano::node_rpc_config node_rpc_config;
-	nano::ipc::ipc_server ipc_server (*node1, node_rpc_config);
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
 	rpc.start ();
-	nano::block_hash hash1 (1);
-	boost::property_tree::ptree request1;
-	request1.put ("action", "work_generate");
-	request1.put ("hash", hash1.to_string ());
-	test_response response1 (request1, rpc.config.port, system.io_ctx);
+	nano::block_hash hash (1);
+	boost::property_tree::ptree request;
+	request.put ("action", "work_generate");
+	request.put ("hash", hash.to_string ());
+	test_response response (request, rpc.config.port, system.io_ctx);
 	system.deadline_set (5s);
-	while (response1.status == 0)
+	while (response.status == 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (200, response1.status);
-	auto work1 (response1.json.get<std::string> ("work"));
-	uint64_t work2;
-	ASSERT_FALSE (nano::from_string_hex (work1, work2));
-	ASSERT_FALSE (nano::work_validate (hash1, work2));
+	ASSERT_EQ (200, response.status);
+	auto work_text (response.json.get<std::string> ("work"));
+	uint64_t work, value_expected;
+	ASSERT_FALSE (nano::from_string_hex (work_text, work));
+	ASSERT_FALSE (nano::work_validate (hash, work, &value_expected));
+	auto value_text (response.json.get<std::string> ("value"));
+	uint64_t value;
+	ASSERT_FALSE (nano::from_string_hex (value_text, value));
+	ASSERT_EQ (value_expected, value);
+	auto multiplier = response.json.get<double> ("multiplier");
+	ASSERT_EQ (nano::difficulty::to_multiplier (value_expected, node->network_params.network.publish_threshold), multiplier);
 }
 
 TEST (rpc, work_generate_difficulty)
 {
 	nano::system system (24000, 1);
-	auto node1 (system.nodes[0]);
-	enable_ipc_transport_tcp (node1->config.ipc_config.transport_tcp);
+	auto node (system.nodes[0]);
+	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
 	nano::node_rpc_config node_rpc_config;
-	nano::ipc::ipc_server ipc_server (*node1, node_rpc_config);
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
@@ -2488,6 +2494,13 @@ TEST (rpc, work_generate_difficulty)
 	ASSERT_FALSE (nano::from_string_hex (work_text1, work1));
 	uint64_t result_difficulty1;
 	ASSERT_FALSE (nano::work_validate (hash1, work1, &result_difficulty1));
+	auto value_text1 (response1.json.get<std::string> ("value"));
+	uint64_t value1;
+	ASSERT_FALSE (nano::from_string_hex (value_text1, value1));
+	ASSERT_EQ (result_difficulty1, value1);
+	auto multiplier = response1.json.get<double> ("multiplier");
+	// Expected multiplier from base threshold, not from the given difficulty
+	ASSERT_EQ (nano::difficulty::to_multiplier (result_difficulty1, node->network_params.network.publish_threshold), multiplier);
 	ASSERT_GE (result_difficulty1, difficulty1);
 	uint64_t difficulty2 (0xffff000000000000);
 	request1.put ("difficulty", nano::to_string_hex (difficulty2));
