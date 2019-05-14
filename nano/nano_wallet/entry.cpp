@@ -244,9 +244,12 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	nano::set_secure_perm_file (config_path, error_chmod);
 	if (!error)
 	{
-		boost::asio::io_context io_ctx;
 		config.node.logging.init (data_path);
 		nano::logger_mt logger{ config.node.logging.min_time_between_log_output };
+
+		boost::asio::io_context io_ctx;
+		nano::thread_runner runner (io_ctx, config.node.io_threads);
+
 		std::shared_ptr<nano::node> node;
 		std::shared_ptr<nano_qt::wallet> gui;
 		nano::set_application_icon (application);
@@ -258,6 +261,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 		nano::alarm alarm (io_ctx);
 		nano::node_init init;
 		nano::node_flags flags;
+
 		node = std::make_shared<nano::node> (init, io_ctx, data_path, alarm, config.node, work, flags);
 		if (!init.error ())
 		{
@@ -330,8 +334,6 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 #endif
 				}
 			}
-
-			nano::thread_runner runner (io_ctx, node->config.io_threads);
 			QObject::connect (&application, &QApplication::aboutToQuit, [&]() {
 				ipc.stop ();
 				node->stop ();
@@ -345,6 +347,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 					rpc_process->terminate ();
 				}
 #endif
+				runner.stop_event_processing ();
 			});
 			application.postEvent (&processor, new nano_qt::eventloop_event ([&]() {
 				gui = std::make_shared<nano_qt::wallet> (application, processor, *node, wallet, config.account);

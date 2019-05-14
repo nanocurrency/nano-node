@@ -14,14 +14,17 @@ namespace transport
 	class channel
 	{
 	public:
+		channel (nano::node &);
 		virtual ~channel () = default;
 		virtual size_t hash_code () const = 0;
 		virtual bool operator== (nano::transport::channel const &) const = 0;
 		void send (nano::message const &, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) const;
-		void send_buffer (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) const;
-		virtual void send_buffer_raw (boost::asio::const_buffer, std::function<void(boost::system::error_code const &, size_t)> const &) const = 0;
+		virtual void send_buffer (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) const = 0;
 		virtual std::function<void(boost::system::error_code const &, size_t)> callback (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) const = 0;
 		virtual std::string to_string () const = 0;
+
+	protected:
+		nano::node & node;
 	};
 } // namespace transport
 } // namespace nano

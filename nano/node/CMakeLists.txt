@@ -71,6 +71,8 @@ add_library (node
 	transport/udp.cpp
 	signatures.hpp
 	signatures.cpp
+	socket.hpp
+	socket.cpp
 	stats.hpp
 	stats.cpp
 	voting.hpp
