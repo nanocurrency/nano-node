@@ -138,15 +138,19 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 				auto channel (node_l->network.find_channel (endpoint));
 				if (!channel)
 				{
-					channel = std::make_shared<nano::transport::channel_udp> (node_l->network.udp_channels, endpoint);
+					auto new_channel (std::make_shared<nano::transport::channel_udp> (node_l->network.udp_channels, endpoint));
+					node_l->network.udp_channels.start_tcp (new_channel,
+					[node_w, new_channel]() {
+						if (auto node_l = node_w.lock ())
+						{
+							node_l->network.send_keepalive (new_channel);
+						}
+					});
 				}
-				node_l->network.udp_channels.start_tcp (channel,
-				[node_w, channel]() {
-					if (auto node_l = node_w.lock ())
-					{
-						node_l->network.send_keepalive (channel);
-					}
-				});
+				else
+				{
+					node_l->network.send_keepalive (channel);
+				}
 			}
 		}
 		else
@@ -589,46 +593,6 @@ void nano::network::merge_peer (nano::endpoint const & peer_a)
 			}
 		});
 	}
-}
-
-bool nano::network::not_a_peer (nano::endpoint const & endpoint_a, bool allow_local_peers)
-{
-	bool result (false);
-	if (endpoint_a.address ().to_v6 ().is_unspecified ())
-	{
-		result = true;
-	}
-	else if (nano::transport::reserved_address (endpoint_a, allow_local_peers))
-	{
-		result = true;
-	}
-	else if (endpoint_a == endpoint ())
-	{
-		result = true;
-	}
-	else if (!node.network_params.network.is_test_network ())
-	{
-		result = true;
-	}
-	return result;
-}
-
-bool nano::network::reachout (nano::endpoint const & endpoint_a, bool allow_local_peers)
-{
-	// Don't contact invalid IPs
-	bool error = not_a_peer (endpoint_a, allow_local_peers);
-	if (!error)
-	{
-		error |= udp_channels.reachout (endpoint_a);
-	}
-	return error;
-}
-
-std::shared_ptr<nano::transport::channel> nano::network::find_channel (nano::endpoint const & endpoint_a)
-{
-	std::shared_ptr<nano::transport::channel> result;
-	result = udp_channels.channel (endpoint_a);
-	return result;
 }
 
 bool nano::network::not_a_peer (nano::endpoint const & endpoint_a, bool allow_local_peers)

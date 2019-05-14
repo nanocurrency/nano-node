@@ -2414,8 +2414,9 @@ void nano::bootstrap_server::process_message (nano::message const & message_a)
 	auto channel (node->network.udp_channels.channel (nano::transport::map_tcp_to_endpoint (remote_endpoint)));
 	if (channel)
 	{
-		channel->set_last_packet_received (std::chrono::steady_clock::now ());
-		node->network.udp_channels.modify (channel);
+		node->network.udp_channels.modify (channel, [](std::shared_ptr<nano::transport::channel_udp> channel_a) {
+			channel_a->set_last_packet_received (std::chrono::steady_clock::now ());
+		});
 		node->process_message (message_a, channel);
 	}
 	else
@@ -2423,8 +2424,9 @@ void nano::bootstrap_server::process_message (nano::message const & message_a)
 		auto response_channel (node->network.udp_channels.search_response_channel (remote_endpoint));
 		if (response_channel)
 		{
-			response_channel->set_last_packet_received (std::chrono::steady_clock::now ());
-			node->network.udp_channels.modify (response_channel);
+			node->network.udp_channels.modify (response_channel, [](std::shared_ptr<nano::transport::channel_udp> channel_a) {
+				channel_a->set_last_packet_received (std::chrono::steady_clock::now ());
+			});
 			node->process_message (message_a, response_channel);
 		}
 		else

@@ -351,13 +351,6 @@ void nano::transport::udp_channels::close_socket ()
 	this->local_endpoint = nano::endpoint (boost::asio::ip::address_v6::loopback (), 0);
 }
 
-void nano::transport::udp_channels::close_socket ()
-{
-	boost::system::error_code ignored;
-	this->socket.close (ignored);
-	this->local_endpoint = nano::endpoint (boost::asio::ip::address_v6::loopback (), 0);
-}
-
 nano::endpoint nano::transport::udp_channels::get_local_endpoint () const
 {
 	std::lock_guard<std::mutex> lock (mutex);
