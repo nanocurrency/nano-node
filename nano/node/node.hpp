@@ -253,15 +253,19 @@ public:
 	void flood_block_batch (std::deque<std::shared_ptr<nano::block>>, unsigned = broadcast_interval_ms);
 	void merge_peers (std::array<nano::endpoint, 8> const &);
 	void merge_peer (nano::endpoint const &);
-	void send_keepalive (nano::transport::channel const &);
-	void send_keepalive_self (nano::transport::channel const &);
-	void send_node_id_handshake (nano::endpoint const &, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to);
+	void send_keepalive (std::shared_ptr<nano::transport::channel>);
+	void send_keepalive_self (std::shared_ptr<nano::transport::channel>);
+	void send_node_id_handshake (std::shared_ptr<nano::transport::channel>, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to);
 	void broadcast_confirm_req (std::shared_ptr<nano::block>);
 	void broadcast_confirm_req_base (std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>, unsigned, bool = false);
 	void broadcast_confirm_req_batch (std::unordered_map<std::shared_ptr<nano::transport::channel>, std::vector<std::pair<nano::block_hash, nano::block_hash>>>, unsigned = broadcast_interval_ms, bool = false);
 	void broadcast_confirm_req_batch (std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>>>, unsigned = broadcast_interval_ms);
-	void confirm_hashes (nano::transaction const &, nano::transport::channel const &, std::vector<nano::block_hash>);
-	bool send_votes_cache (nano::transport::channel const &, nano::block_hash const &);
+	void confirm_hashes (nano::transaction const &, std::shared_ptr<nano::transport::channel>, std::vector<nano::block_hash>);
+	bool send_votes_cache (std::shared_ptr<nano::transport::channel>, nano::block_hash const &);
+	std::shared_ptr<nano::transport::channel> find_channel (nano::endpoint const &);
+	bool not_a_peer (nano::endpoint const &, bool);
+	// Should we reach out to this endpoint with a keepalive message
+	bool reachout (nano::endpoint const &, bool = false);
 	nano::endpoint endpoint ();
 	void cleanup (std::chrono::steady_clock::time_point const &);
 	void ongoing_cleanup ();
