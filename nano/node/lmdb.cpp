@@ -823,10 +823,10 @@ nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> nano::mdb_store
 	return nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> (nullptr);
 }
 
-nano::mdb_store::mdb_store (bool & error_a, nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, int lmdb_max_dbs, bool drop_unchecked, size_t const batch_size) :
+nano::mdb_store::mdb_store (bool & error_a, nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, bool drop_unchecked, size_t const batch_size) :
 logger (logger_a),
 env (error_a, path_a, lmdb_max_dbs),
-mdb_txn_tracker (logger_a, txn_tracking_config_a),
+mdb_txn_tracker (logger_a, txn_tracking_config_a, block_processor_batch_max_time_a),
 txn_tracking_enabled (txn_tracking_config_a.enable)
 {
 	if (!error_a)
