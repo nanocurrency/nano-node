@@ -109,7 +109,7 @@ public:
 	static size_t constexpr max_broadcast_queue = 1000;
 	boost::circular_buffer<uint64_t> difficulty_cb;
 	uint64_t trended_active_difficulty;
-	size_t priority_cemented_frontiers_size ();
+	size_t priority_cementable_frontiers_size ();
 
 private:
 	// Call action with confirmed block, may be different than what we started with
@@ -130,8 +130,8 @@ private:
 	};
 	// clang-format on
 	void prioritize_frontiers_for_confirmation (nano::timer<std::chrono::milliseconds> &, std::chrono::milliseconds, std::unique_lock<std::mutex> &);
-	std::set<nano::cementable_account, decltype (comp), boost::fast_pool_allocator<nano::cementable_account>> priority_cemented_frontiers{ comp };
-	static size_t constexpr max_priority_cemented_frontiers{ 100000 };
+	std::set<nano::cementable_account, decltype (comp), boost::fast_pool_allocator<nano::cementable_account>> priority_cementable_frontiers{ comp };
+	static size_t constexpr max_priority_cementable_frontiers{ 100000 };
 	static size_t constexpr confirmed_frontiers_max_pending_cut_off{ 1000 };
 	boost::thread thread;
 

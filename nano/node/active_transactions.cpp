@@ -68,10 +68,10 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 
 		// First check priority queue
 		std::unique_lock<std::mutex> lock (mutex);
-		while (!priority_cemented_frontiers.empty () && !stopped && elections_count < max_elections)
+		while (!priority_cementable_frontiers.empty () && !stopped && elections_count < max_elections)
 		{
-			auto cementable_account = *priority_cemented_frontiers.begin ();
-			priority_cemented_frontiers.erase (priority_cemented_frontiers.begin ());
+			auto cementable_account = *priority_cementable_frontiers.begin ();
+			priority_cementable_frontiers.erase (priority_cementable_frontiers.begin ());
 			lock.unlock ();
 			nano::account_info account_info;
 			auto error = node.store.account_get (transaction_a, cementable_account.account, account_info);
@@ -362,10 +362,10 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tim
 	if (node.pending_confirmation_height.size () < confirmed_frontiers_max_pending_cut_off)
 	{
 		auto transaction = node.store.tx_begin_read ();
-		auto priority_cemented_frontiers_size = priority_cemented_frontiers.size ();
+		auto priority_cementable_frontiers_size = priority_cementable_frontiers.size ();
 		auto i (node.store.latest_begin (transaction, next_frontier_account));
 		auto n (node.store.latest_end ());
-		for (; i != n && !stopped && (priority_cemented_frontiers_size < max_priority_cemented_frontiers); ++i)
+		for (; i != n && !stopped && (priority_cementable_frontiers_size < max_priority_cementable_frontiers); ++i)
 		{
 			auto const & account (i->first);
 			auto const & info (i->second);
@@ -373,19 +373,19 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tim
 			{
 				lock_a.lock ();
 				// clang-format off
-				auto it = std::find_if (priority_cemented_frontiers.begin (), priority_cemented_frontiers.end (), [&account](auto const & cemented_frontier) {
+				auto it = std::find_if (priority_cementable_frontiers.begin (), priority_cementable_frontiers.end (), [&account](auto const & cemented_frontier) {
 					return (account == cemented_frontier.account);
 				});
 				// clang-format on
 
 				auto num_uncemented = info.block_count - info.confirmation_height;
 				// If exists already then remove it first
-				if (it != priority_cemented_frontiers.end ())
+				if (it != priority_cementable_frontiers.end ())
 				{
-					priority_cemented_frontiers.erase (it);
+					priority_cementable_frontiers.erase (it);
 				}
-				priority_cemented_frontiers.emplace (account, num_uncemented);
-				priority_cemented_frontiers_size = priority_cemented_frontiers.size ();
+				priority_cementable_frontiers.emplace (account, num_uncemented);
+				priority_cementable_frontiers_size = priority_cementable_frontiers.size ();
 				lock_a.unlock ();
 			}
 
@@ -702,10 +702,10 @@ void nano::active_transactions::confirm_block (nano::block_hash const & hash_a)
 	}
 }
 
-size_t nano::active_transactions::priority_cemented_frontiers_size ()
+size_t nano::active_transactions::priority_cementable_frontiers_size ()
 {
 	std::lock_guard<std::mutex> guard (mutex);
-	return priority_cemented_frontiers.size ();
+	return priority_cementable_frontiers.size ();
 }
 
 nano::cementable_account::cementable_account (nano::account const & account_a, size_t blocks_uncemented_a) :
@@ -732,7 +732,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transaction
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "roots", roots_count, sizeof (decltype (active_transactions.roots)::value_type) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "blocks", blocks_count, sizeof (decltype (active_transactions.blocks)::value_type) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "confirmed", confirmed_count, sizeof (decltype (active_transactions.confirmed)::value_type) }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "priority_cemented_frontiers_count", active_transactions.priority_cemented_frontiers_size (), sizeof (nano::cementable_account) }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "priority_cementable_frontiers_count", active_transactions.priority_cementable_frontiers_size (), sizeof (nano::cementable_account) }));
 	return composite;
 }
 }

@@ -2619,7 +2619,7 @@ TEST (confirmation_height, prioritize_frontiers)
 
 	system.deadline_set (10s);
 	constexpr auto num_accounts = 4;
-	while (node->active.priority_cemented_frontiers_size () != num_accounts)
+	while (node->active.priority_cementable_frontiers_size () != num_accounts)
 	{
 		ASSERT_NO_ERROR (system.poll ());	
 	}
@@ -2627,7 +2627,7 @@ TEST (confirmation_height, prioritize_frontiers)
 	// Check the order of accounts is as expected (greatest number of uncemented blocks at the front)
 	std::array<nano::account, num_accounts> desired_order { nano::genesis_account, key3.pub, key1.pub, key2.pub };
 	// clang-format off
-	std::equal (desired_order.begin (), desired_order.end (), node->active.priority_cemented_frontiers.begin (), node->active.priority_cemented_frontiers.end (), [](nano::account const & account, nano::cementable_account const & cementable_account) {
+	std::equal (desired_order.begin (), desired_order.end (), node->active.priority_cementable_frontiers.begin (), node->active.priority_cementable_frontiers.end (), [](nano::account const & account, nano::cementable_account const & cementable_account) {
 		return (account == cementable_account.account);
 	});
 	// clang-format on
