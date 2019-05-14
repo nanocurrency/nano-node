@@ -1026,7 +1026,7 @@ flags (flags_a),
 alarm (alarm_a),
 work (work_a),
 logger (config_a.logging.min_time_between_log_output),
-store_impl (std::make_unique<nano::mdb_store> (init_a.block_store_init, logger, application_path_a / "data.ldb", config.diagnostics_config.txn_tracking, config_a.lmdb_max_dbs, !flags.disable_unchecked_drop, flags.sideband_batch_size)),
+store_impl (std::make_unique<nano::mdb_store> (init_a.block_store_init, logger, application_path_a / "data.ldb", config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_max_dbs, !flags.disable_unchecked_drop, flags.sideband_batch_size)),
 store (*store_impl),
 wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (init_a.wallets_store_init, application_path_a / "wallets.ldb", config_a.lmdb_max_dbs)),
 wallets_store (*wallets_store_impl),
@@ -1035,7 +1035,7 @@ ledger (store, stats, config.epoch_block_link, config.epoch_block_signer),
 checker (config.signature_checker_threads),
 network (*this, config.peering_port),
 bootstrap_initiator (*this),
-bootstrap (io_ctx_a, config.peering_port, *this),
+bootstrap (config.peering_port, *this),
 application_path (application_path_a),
 port_mapping (*this),
 vote_processor (*this),
@@ -1803,14 +1803,18 @@ void nano::node::unchecked_cleanup ()
 	{
 		auto now (nano::seconds_since_epoch ());
 		auto transaction (store.tx_begin_read ());
-		// Max 128k records to clean, max 2 minutes reading to prevent slow i/o systems start issues
-		for (auto i (store.unchecked_begin (transaction)), n (store.unchecked_end ()); i != n && cleaning_list.size () < 128 * 1024 && nano::seconds_since_epoch () - now < 120; ++i)
+		// Don't start cleanup if unchecked count > 10% of total blocks count
+		if ((store.block_count (transaction).sum () / 10) + 1 >= store.unchecked_count (transaction))
 		{
-			nano::unchecked_key key (i->first);
-			nano::unchecked_info info (i->second);
-			if ((now - info.modified) > static_cast<uint64_t> (config.unchecked_cutoff_time.count ()))
+			// Max 128k records to clean, max 2 minutes reading to prevent slow i/o systems start issues
+			for (auto i (store.unchecked_begin (transaction)), n (store.unchecked_end ()); i != n && cleaning_list.size () < 128 * 1024 && nano::seconds_since_epoch () - now < 120; ++i)
 			{
-				cleaning_list.push_back (key);
+				nano::unchecked_key key (i->first);
+				nano::unchecked_info info (i->second);
+				if ((now - info.modified) > static_cast<uint64_t> (config.unchecked_cutoff_time.count ()))
+				{
+					cleaning_list.push_back (key);
+				}
 			}
 		}
 	}

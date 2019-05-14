@@ -48,8 +48,10 @@ pub fn launch_node_and_rpc(
         "version": "1",
         "enable_sign_hash": "false",
         "max_work_generate_difficulty": "ffffffffc0000000",
-        "rpc_in_process": "false"
-    },	
+        "child_process": {
+            "enable": "false"
+        }
+    },
     "node": {
         "version": "17",
         "peering_port": peering_port.to_string(),
@@ -132,9 +134,11 @@ pub fn launch_node_and_rpc(
         "enable_control": "true",
         "max_json_depth": "20",
         "version": "1",
-        "ipc_port": ipc_port.to_string (),
-        "io_threads": "8",
-        "num_ipc_connections" : "8"
+        "process": {
+            "ipc_port": ipc_port.to_string (),
+            "io_threads": "8",
+            "num_ipc_connections": "8"
+        }
     });
 
     let config_writer =

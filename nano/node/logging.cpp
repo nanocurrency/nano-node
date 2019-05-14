@@ -38,6 +38,7 @@ nano::error nano::logging::serialize_json (nano::jsonconfig & json) const
 	json.put ("ledger_duplicate", ledger_duplicate_logging_value);
 	json.put ("vote", vote_logging_value);
 	json.put ("network", network_logging_value);
+	json.put ("network_timeout", network_timeout_logging_value);
 	json.put ("network_message", network_message_logging_value);
 	json.put ("network_publish", network_publish_logging_value);
 	json.put ("network_packet", network_packet_logging_value);
@@ -87,6 +88,7 @@ bool nano::logging::upgrade_json (unsigned version_a, nano::jsonconfig & json)
 			upgraded_l = true;
 		case 6:
 			json.put ("min_time_between_output", min_time_between_log_output.count ());
+			json.put ("network_timeout", network_timeout_logging_value);
 			json.erase ("log_rpc");
 			json.put ("long_database_txns", false);
 			upgraded_l = true;
@@ -126,6 +128,7 @@ nano::error nano::logging::deserialize_json (bool & upgraded_a, nano::jsonconfig
 	json.get<bool> ("ledger_duplicate", ledger_duplicate_logging_value);
 	json.get<bool> ("vote", vote_logging_value);
 	json.get<bool> ("network", network_logging_value);
+	json.get<bool> ("network_timeout", network_timeout_logging_value);
 	json.get<bool> ("network_message", network_message_logging_value);
 	json.get<bool> ("network_publish", network_publish_logging_value);
 	json.get<bool> ("network_packet", network_packet_logging_value);
@@ -166,6 +169,11 @@ bool nano::logging::vote_logging () const
 bool nano::logging::network_logging () const
 {
 	return network_logging_value;
+}
+
+bool nano::logging::network_timeout_logging () const
+{
+	return network_logging () && network_timeout_logging_value;
 }
 
 bool nano::logging::network_message_logging () const

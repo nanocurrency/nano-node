@@ -5,6 +5,7 @@
 std::chrono::seconds constexpr nano::transport::udp_channels::syn_cookie_cutoff;
 
 nano::transport::channel_udp::channel_udp (nano::transport::udp_channels & channels_a, nano::endpoint const & endpoint_a, unsigned network_version_a) :
+channel (channels_a.node),
 network_version (network_version_a),
 endpoint (endpoint_a),
 channels (channels_a)
@@ -29,15 +30,15 @@ bool nano::transport::channel_udp::operator== (nano::transport::channel const & 
 	return result;
 }
 
-void nano::transport::channel_udp::send_buffer_raw (boost::asio::const_buffer buffer_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
+void nano::transport::channel_udp::send_buffer (std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
 {
-	channels.send (buffer_a, endpoint, callback_a);
+	channels.send (boost::asio::const_buffer (buffer_a->data (), buffer_a->size ()), endpoint, callback (buffer_a, detail_a, callback_a));
 }
 
 std::function<void(boost::system::error_code const &, size_t)> nano::transport::channel_udp::callback (std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
 {
 	// clang-format off
-	return [ buffer_a, node = std::weak_ptr<nano::node> (channels.node.shared ()), detail_a, callback_a ](boost::system::error_code const & ec, size_t size_a)
+	return [ buffer_a, node = std::weak_ptr<nano::node> (channels.node.shared ()), callback_a ](boost::system::error_code const & ec, size_t size_a)
 	{
 		if (auto node_l = node.lock ())
 		{
@@ -45,14 +46,14 @@ std::function<void(boost::system::error_code const &, size_t)> nano::transport::
 			{
 				node_l->stats.inc (nano::stat::type::error, nano::stat::detail::unreachable_host, nano::stat::dir::out);
 			}
-			if (!ec)
+			if (size_a > 0)
 			{
 				node_l->stats.add (nano::stat::type::traffic, nano::stat::dir::out, size_a);
-				node_l->stats.inc (nano::stat::type::message, detail_a, nano::stat::dir::out);
-				if (callback_a)
-				{
-					callback_a (ec, size_a);
-				}
+			}
+
+			if (callback_a)
+			{
+				callback_a (ec, size_a);
 			}
 		}
 	};
@@ -75,6 +76,7 @@ socket (node_a.io_ctx, nano::endpoint (boost::asio::ip::address_v6::any (), port
 	{
 		node.logger.try_log ("Unable to retrieve port: ", ec.message ());
 	}
+
 	local_endpoint = nano::endpoint (boost::asio::ip::address_v6::loopback (), port);
 }
 
@@ -390,12 +392,27 @@ void nano::transport::udp_channels::stop ()
 	std::lock_guard<std::mutex> lock (mutex);
 	local_endpoint = nano::endpoint (boost::asio::ip::address_v6::loopback (), 0);
 
+	// On test-net, close directly to avoid address-reuse issues. On livenet, close
+	// through the strand as multiple IO threads may access the socket.
 	// clang-format off
-	boost::asio::post (strand, [this] {
-		boost::system::error_code ignored;
-		this->socket.close (ignored);
-	});
+	if (node.network_params.network.is_test_network ())
+	{
+		this->close_socket ();
+	}
+	else
+	{
+		boost::asio::dispatch (strand, [this] {
+			this->close_socket ();
+		});
+	}
 	// clang-format on
+}
+
+void nano::transport::udp_channels::close_socket ()
+{
+	boost::system::error_code ignored;
+	this->socket.close (ignored);
+	this->local_endpoint = nano::endpoint (boost::asio::ip::address_v6::loopback (), 0);
 }
 
 nano::endpoint nano::transport::udp_channels::get_local_endpoint () const
@@ -493,7 +510,9 @@ public:
 					auto channel (node.network.udp_channels.insert (endpoint, message_a.header.version_using));
 					if (channel)
 					{
-						channel->set_node_id (message_a.response->first);
+						node.network.udp_channels.modify (channel, [&message_a](std::shared_ptr<nano::transport::channel_udp> channel_a) {
+							channel_a->set_node_id (message_a.response->first);
+						});
 					}
 				}
 			}
@@ -517,8 +536,9 @@ public:
 		auto channel (node.network.udp_channels.channel (endpoint));
 		if (channel)
 		{
-			channel->set_last_packet_received (std::chrono::steady_clock::now ());
-			node.network.udp_channels.modify (channel);
+			node.network.udp_channels.modify (channel, [](std::shared_ptr<nano::transport::channel_udp> channel_a) {
+				channel_a->set_last_packet_received (std::chrono::steady_clock::now ());
+			});
 			node.process_message (message_a, channel);
 		}
 	}
@@ -833,12 +853,14 @@ std::deque<std::shared_ptr<nano::transport::channel_udp>> nano::transport::udp_c
 	return result;
 }
 
-void nano::transport::udp_channels::modify (std::shared_ptr<nano::transport::channel_udp> channel_a)
+void nano::transport::udp_channels::modify (std::shared_ptr<nano::transport::channel_udp> channel_a, std::function<void(std::shared_ptr<nano::transport::channel_udp>)> modify_callback_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto existing (channels.get<endpoint_tag> ().find (channel_a->endpoint));
 	if (existing != channels.get<endpoint_tag> ().end ())
 	{
-		channels.get<endpoint_tag> ().modify (existing, [](channel_udp_wrapper &) {});
+		channels.get<endpoint_tag> ().modify (existing, [modify_callback_a](channel_udp_wrapper & wrapper_a) {
+			modify_callback_a (wrapper_a.channel);
+		});
 	}
 }
