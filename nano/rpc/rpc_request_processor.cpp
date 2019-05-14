@@ -3,15 +3,15 @@
 
 nano::rpc_request_processor::rpc_request_processor (boost::asio::io_context & io_ctx, nano::rpc_config & rpc_config) :
 ipc_address (rpc_config.address.to_string ()),
-ipc_port (rpc_config.ipc_port),
+ipc_port (rpc_config.rpc_process.ipc_port),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::rpc_request_processor);
 	this->run ();
 })
 {
 	std::lock_guard<std::mutex> lk (this->request_mutex);
-	this->connections.reserve (rpc_config.num_ipc_connections);
-	for (auto i = 0u; i < rpc_config.num_ipc_connections; ++i)
+	this->connections.reserve (rpc_config.rpc_process.num_ipc_connections);
+	for (auto i = 0u; i < rpc_config.rpc_process.num_ipc_connections; ++i)
 	{
 		connections.push_back (std::make_shared<nano::ipc_connection> (nano::ipc::ipc_client (io_ctx), false));
 		auto connection = this->connections.back ();

@@ -836,7 +836,10 @@ void nano::json_handler::accounts_pending ()
 void nano::json_handler::active_difficulty ()
 {
 	response_l.put ("difficulty_threshold", nano::to_string_hex (node.network_params.network.publish_threshold));
-	response_l.put ("difficulty_active", nano::to_string_hex (node.active.active_difficulty ()));
+	auto difficulty_active = node.active.active_difficulty ();
+	response_l.put ("difficulty_active", nano::to_string_hex (difficulty_active));
+	auto multiplier = nano::difficulty::to_multiplier (difficulty_active, node.network_params.network.publish_threshold);
+	response_l.put ("multiplier", std::to_string (multiplier));
 	response_errors ();
 }
 
@@ -4350,12 +4353,17 @@ void nano::json_handler::work_generate ()
 	{
 		bool use_peers (request.get_optional<bool> ("use_peers") == true);
 		auto rpc_l (shared_from_this ());
-		auto callback = [rpc_l](boost::optional<uint64_t> const & work_a) {
+		auto callback = [rpc_l, &hash, this](boost::optional<uint64_t> const & work_a) {
 			if (work_a)
 			{
 				boost::property_tree::ptree response_l;
 				response_l.put ("work", nano::to_string_hex (work_a.value ()));
 				std::stringstream ostream;
+				uint64_t result_difficulty;
+				nano::work_validate (hash, work_a.value (), &result_difficulty);
+				response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
+				auto multiplier = nano::difficulty::to_multiplier (result_difficulty, this->node.network_params.network.publish_threshold);
+				response_l.put ("multiplier", multiplier);
 				boost::property_tree::write_json (ostream, response_l);
 				rpc_l->response (ostream.str ());
 			}
@@ -4446,9 +4454,9 @@ void nano::json_handler::work_validate ()
 		bool invalid (nano::work_validate (hash, work, &result_difficulty));
 		bool valid (!invalid && result_difficulty >= difficulty);
 		response_l.put ("valid", valid ? "1" : "0");
-		response_l.put ("value", nano::to_string_hex (result_difficulty));
-		float multiplier = static_cast<float> (-node.network_params.network.publish_threshold) / (-result_difficulty);
-		response_l.put ("multiplier", std::to_string (multiplier));
+		response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
+		auto multiplier = nano::difficulty::to_multiplier (result_difficulty, node.network_params.network.publish_threshold);
+		response_l.put ("multiplier", multiplier);
 	}
 	response_errors ();
 }

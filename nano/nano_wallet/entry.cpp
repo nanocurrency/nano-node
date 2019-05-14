@@ -305,8 +305,9 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 			std::unique_ptr<nano::rpc_handler_interface> rpc_handler;
 			if (config.rpc_enable)
 			{
-				if (config.rpc.rpc_in_process)
+				if (!config.rpc.child_process.enable)
 				{
+					// Launch rpc in-process
 					nano::rpc_config rpc_config;
 					auto error = nano::read_and_update_rpc_config (data_path, rpc_config);
 					if (error)
@@ -319,14 +320,15 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 				}
 				else
 				{
-					if (!boost::filesystem::exists (config.rpc.rpc_path))
+					// Spawn a child rpc process
+					if (!boost::filesystem::exists (config.rpc.child_process.rpc_path))
 					{
-						throw std::runtime_error (std::string ("RPC is configured to spawn a new process however the file cannot be found at: ") + config.rpc.rpc_path);
+						throw std::runtime_error (std::string ("RPC is configured to spawn a new process however the file cannot be found at: ") + config.rpc.child_process.rpc_path);
 					}
 
 					auto network = node->network_params.network.get_current_network_as_string ();
 #if BOOST_PROCESS_SUPPORTED
-					rpc_process = std::make_unique<boost::process::child> (config.rpc.rpc_path, "--daemon", "--data_path", data_path, "--network", network);
+					rpc_process = std::make_unique<boost::process::child> (config.rpc.child_process.rpc_path, "--daemon", "--data_path", data_path, "--network", network);
 #else
 					show_error ("rpc_enable is set to true in the config. Set it to false and start the RPC server manually.");
 #endif

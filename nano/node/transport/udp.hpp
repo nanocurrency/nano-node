@@ -90,7 +90,7 @@ namespace transport
 		std::deque<std::shared_ptr<nano::transport::channel_udp>> list (size_t);
 		// A list of random peers sized for the configured rebroadcast fanout
 		std::deque<std::shared_ptr<nano::transport::channel_udp>> list_fanout ();
-		void modify (std::shared_ptr<nano::transport::channel_udp>);
+		void modify (std::shared_ptr<nano::transport::channel_udp>, std::function<void(std::shared_ptr<nano::transport::channel_udp>)>);
 		// Common messages
 		void common_keepalive (nano::keepalive const &, nano::endpoint const &, nano::transport::transport_type = nano::transport::transport_type::udp, bool = false);
 		// Response channels
