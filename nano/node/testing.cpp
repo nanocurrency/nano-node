@@ -43,7 +43,7 @@ std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & no
 			decltype (starting1) new1;
 			auto starting2 (node2->network.size ());
 			decltype (starting2) new2;
-			nano::transport::channel_udp channel ((*j)->network.udp_channels, (*i)->network.endpoint ());
+			auto channel (std::make_shared<nano::transport::channel_udp> ((*j)->network.udp_channels, (*i)->network.endpoint ()));
 			(*j)->network.send_keepalive (channel);
 			do
 			{
