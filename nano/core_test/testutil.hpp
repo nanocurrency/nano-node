@@ -1,6 +1,10 @@
 #pragma once
 
+#include <atomic>
 #include <boost/multiprecision/cpp_int.hpp>
+#include <condition_variable>
+#include <mutex>
+#include <nano/lib/timer.hpp>
 #include <string>
 
 #define GTEST_TEST_ERROR_CODE(expression, text, actual, expected, fail)                       \
@@ -36,4 +40,83 @@ extern nano::uint256_union const & nano_test_account;
 extern nano::uint256_union const & genesis_account;
 extern nano::uint256_union const & burn_account;
 extern nano::uint128_t const & genesis_amount;
+
+namespace util
+{
+	/**
+	 * Helper to signal completion of async handlers in tests.
+	 * Subclasses implement specific conditions for completion.
+	 */
+	class completion_signal
+	{
+	public:
+		virtual ~completion_signal ()
+		{
+			notify ();
+		}
+
+		/** Explicitly notify the completion */
+		void notify ()
+		{
+			cv.notify_all ();
+		}
+
+	protected:
+		std::condition_variable cv;
+		std::mutex mutex;
+	};
+
+	/**
+	 * Signals completion when a count is reached.
+	 */
+	class counted_completion : public completion_signal
+	{
+	public:
+		/**
+		 * Constructor
+		 * @param required_count_a When increment() reaches this count within the deadline, await_count_for() will return false.
+		 */
+		counted_completion (unsigned required_count_a) :
+		required_count (required_count_a)
+		{
+		}
+
+		/**
+		 * Wait for increment() to signal completion, or reaching the deadline.
+		 * @param deadline_duration_a Deadline as a std::chrono duration
+		 * @return true if the count is reached within the deadline
+		 */
+		template <typename UNIT>
+		bool await_count_for (UNIT deadline_duration_a)
+		{
+			nano::timer<UNIT> timer (nano::timer_state::started);
+			bool error = true;
+			while (error && timer.before_deadline (deadline_duration_a))
+			{
+				error = count < required_count;
+				if (error)
+				{
+					std::unique_lock<std::mutex> lock (mutex);
+					cv.wait_for (lock, std::chrono::milliseconds (1));
+				}
+			}
+			return error;
+		}
+
+		/** Increments the current count. If the required count is reached, await_count_for() waiters are notified. */
+		unsigned increment ()
+		{
+			auto val (count.fetch_add (1));
+			if (val >= required_count)
+			{
+				notify ();
+			}
+			return val;
+		}
+
+	private:
+		std::atomic<unsigned> count{ 0 };
+		unsigned required_count;
+	};
+}
 }
