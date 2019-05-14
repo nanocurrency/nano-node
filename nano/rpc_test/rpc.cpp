@@ -6356,8 +6356,8 @@ TEST (rpc_config, serialization)
 	config1.address = boost::asio::ip::address_v6::any ();
 	config1.port = 10;
 	config1.enable_control = true;
-	config1.io_threads = 2;
 	config1.max_json_depth = 10;
+	config1.rpc_process.io_threads = 2;
 	config1.rpc_process.ipc_port = 2000;
 	config1.rpc_process.num_ipc_connections = 99;
 	nano::jsonconfig tree;
@@ -6366,8 +6366,8 @@ TEST (rpc_config, serialization)
 	ASSERT_NE (config2.address, config1.address);
 	ASSERT_NE (config2.port, config1.port);
 	ASSERT_NE (config2.enable_control, config1.enable_control);
-	ASSERT_NE (config2.io_threads, config1.io_threads);
 	ASSERT_NE (config2.max_json_depth, config1.max_json_depth);
+	ASSERT_NE (config2.rpc_process.io_threads, config1.rpc_process.io_threads);
 	ASSERT_NE (config2.rpc_process.ipc_port, config1.rpc_process.ipc_port);
 	ASSERT_NE (config2.rpc_process.num_ipc_connections, config1.rpc_process.num_ipc_connections);
 	bool upgraded{ false };
@@ -6375,8 +6375,8 @@ TEST (rpc_config, serialization)
 	ASSERT_EQ (config2.address, config1.address);
 	ASSERT_EQ (config2.port, config1.port);
 	ASSERT_EQ (config2.enable_control, config1.enable_control);
-	ASSERT_EQ (config2.io_threads, config1.io_threads);
 	ASSERT_EQ (config2.max_json_depth, config1.max_json_depth);
+	ASSERT_EQ (config2.rpc_process.io_threads, config1.rpc_process.io_threads);
 	ASSERT_EQ (config2.rpc_process.ipc_port, config1.rpc_process.ipc_port);
 	ASSERT_EQ (config2.rpc_process.num_ipc_connections, config1.rpc_process.num_ipc_connections);
 }
