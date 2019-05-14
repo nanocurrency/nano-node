@@ -832,7 +832,6 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 	if (!error_a)
 	{
 		auto is_fully_upgraded (false);
-		bool is_unchecked_drop_required (false);
 		{
 			auto transaction (tx_begin_read ());
 			auto err = mdb_dbi_open (env.tx (transaction), "meta", 0, &meta);
@@ -854,17 +853,14 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 			{
 				error_a |= do_upgrades (transaction, batch_size);
 			}
-			is_unchecked_drop_required = (block_count (transaction).sum () / 10) > unchecked_count (transaction) && unchecked_count (transaction) != 0;
 		}
 		else
 		{
 			auto transaction (tx_begin_read ());
 			open_databases (error_a, transaction, 0);
-			is_unchecked_drop_required = (block_count (transaction).sum () / 10) > unchecked_count (transaction) && unchecked_count (transaction) != 0;
 		}
 
-		// Delete unchecked blocks at node start (if node initial synchronization is mostly completed)
-		if (!error_a && drop_unchecked && is_unchecked_drop_required)
+		if (!error_a && drop_unchecked)
 		{
 			auto transaction (tx_begin_write ());
 			unchecked_clear (transaction);
