@@ -36,10 +36,13 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 	/* Check less frequently for non-representative nodes */
 	auto representative_factor = representative ? 3min : 15min;
 	// Decrease check time for test network
-	int test_network_factor = node.network_params.network.is_test_network () ? 1000 : 1;
+	auto is_test_network = node.network_params.network.is_test_network ();
+	int test_network_factor = is_test_network ? 1000 : 1;
 	auto roots_size = size ();
 	auto max_elections = (max_broadcast_queue / 4);
-	if (std::chrono::steady_clock::now () >= next_frontier_check)
+	auto check_time_exceeded = std::chrono::steady_clock::now () >= next_frontier_check;
+	auto low_active_elections = roots_size < max_elections;
+	if (check_time_exceeded || (!is_test_network && low_active_elections))
 	{
 		// When the number of active elections is low increase max number of elections for setting confirmation height.
 		if (max_broadcast_queue > roots_size + max_elections)
