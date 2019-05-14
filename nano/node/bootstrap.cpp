@@ -1822,7 +1822,7 @@ void nano::bootstrap_listener::start ()
 	listening_socket->start (ec);
 	if (ec)
 	{
-		node.logger.try_log (boost::str (boost::format ("Error while binding for incoming tcp / bootstrap on port %1%: %2%") % listening_socket->listening_port () % ec.message ()));
+		node.logger.try_log (boost::str (boost::format ("Error while binding for incoming TCP/bootstrap on port %1%: %2%") % listening_socket->listening_port () % ec.message ()));
 		throw std::runtime_error (ec.message ());
 	}
 	listening_socket->on_connection ([this](std::shared_ptr<nano::socket> new_connection, boost::system::error_code const & ec_a) {
@@ -1830,7 +1830,7 @@ void nano::bootstrap_listener::start ()
 		if (ec_a)
 		{
 			keep_accepting = false;
-			this->node.logger.try_log (boost::str (boost::format ("Error while accepting incoming tcp / bootstrap connections: %1%") % ec_a.message ()));
+			this->node.logger.try_log (boost::str (boost::format ("Error while accepting incoming TCP/bootstrap connections: %1%") % ec_a.message ()));
 		}
 		else
 		{
@@ -1891,7 +1891,7 @@ nano::bootstrap_server::~bootstrap_server ()
 {
 	if (node->config.logging.bulk_pull_logging ())
 	{
-		node->logger.try_log ("Exiting incoming tcp / bootstrap server");
+		node->logger.try_log ("Exiting incoming TCP/bootstrap server");
 	}
 	if (bootstrap_connection)
 	{
@@ -1943,7 +1943,6 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 				case nano::message_type::bulk_pull:
 				{
 					node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull, nano::stat::dir::in);
-
 					auto this_l (shared_from_this ());
 					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
 						this_l->receive_bulk_pull_action (ec, size_a, header);
