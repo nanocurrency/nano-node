@@ -1871,18 +1871,14 @@ void nano::node::unchecked_cleanup ()
 	{
 		auto now (nano::seconds_since_epoch ());
 		auto transaction (store.tx_begin_read ());
-		// Don't start cleanup if unchecked count > 10% of total blocks count
-		if ((store.block_count (transaction).sum () / 10) + 1 >= store.unchecked_count (transaction))
+		// Max 128k records to clean, max 2 minutes reading to prevent slow i/o systems start issues
+		for (auto i (store.unchecked_begin (transaction)), n (store.unchecked_end ()); i != n && cleaning_list.size () < 128 * 1024 && nano::seconds_since_epoch () - now < 120; ++i)
 		{
-			// Max 128k records to clean, max 2 minutes reading to prevent slow i/o systems start issues
-			for (auto i (store.unchecked_begin (transaction)), n (store.unchecked_end ()); i != n && cleaning_list.size () < 128 * 1024 && nano::seconds_since_epoch () - now < 120; ++i)
+			nano::unchecked_key key (i->first);
+			nano::unchecked_info info (i->second);
+			if ((now - info.modified) > static_cast<uint64_t> (config.unchecked_cutoff_time.count ()))
 			{
-				nano::unchecked_key key (i->first);
-				nano::unchecked_info info (i->second);
-				if ((now - info.modified) > static_cast<uint64_t> (config.unchecked_cutoff_time.count ()))
-				{
-					cleaning_list.push_back (key);
-				}
+				cleaning_list.push_back (key);
 			}
 		}
 	}
