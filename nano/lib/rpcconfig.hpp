@@ -38,6 +38,7 @@ class rpc_process_config final
 {
 public:
 	nano::network_constants network_constants;
+	unsigned io_threads{ std::max<unsigned> (4, boost::thread::hardware_concurrency ()) };
 	uint16_t ipc_port{ network_constants.default_ipc_port };
 	unsigned num_ipc_connections{ network_constants.is_live_network () ? 8u : network_constants.is_beta_network () ? 4u : 1u };
 };
@@ -56,7 +57,6 @@ public:
 	rpc_secure_config secure;
 	uint8_t max_json_depth{ 20 };
 	uint64_t max_request_size{ 32 * 1024 * 1024 };
-	unsigned io_threads{ std::max<unsigned> (4, boost::thread::hardware_concurrency ()) };
 	static int json_version ()
 	{
 		return 1;

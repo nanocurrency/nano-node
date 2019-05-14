@@ -40,9 +40,9 @@ nano::error nano::rpc_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("enable_control", enable_control);
 	json.put ("max_json_depth", max_json_depth);
 	json.put ("max_request_size", max_request_size);
-	json.put ("io_threads", io_threads);
 
 	nano::jsonconfig rpc_process_l;
+	rpc_process_l.put ("io_threads", rpc_process.io_threads);
 	rpc_process_l.put ("ipc_port", rpc_process.ipc_port);
 	rpc_process_l.put ("num_ipc_connections", rpc_process.num_ipc_connections);
 	json.put_child ("process", rpc_process_l);
@@ -61,9 +61,9 @@ nano::error nano::rpc_config::deserialize_json (bool & upgraded_a, nano::jsoncon
 			json.put ("max_request_size", max_request_size);
 			json.erase ("frontier_request_limit");
 			json.erase ("chain_request_limit");
-			json.put ("io_threads", io_threads);
 
 			nano::jsonconfig rpc_process_l;
+			rpc_process_l.put ("io_threads", rpc_process.io_threads);
 			rpc_process_l.put ("ipc_port", rpc_process.ipc_port);
 			rpc_process_l.put ("num_ipc_connections", rpc_process.num_ipc_connections);
 			json.put_child ("process", rpc_process_l);
@@ -81,11 +81,11 @@ nano::error nano::rpc_config::deserialize_json (bool & upgraded_a, nano::jsoncon
 		json.get_optional<bool> ("enable_control", enable_control);
 		json.get_optional<uint8_t> ("max_json_depth", max_json_depth);
 		json.get_optional<uint64_t> ("max_request_size", max_request_size);
-		json.get_optional<unsigned> ("io_threads", io_threads);
 
 		auto rpc_process_l (json.get_optional_child ("process"));
 		if (rpc_process_l)
 		{
+			rpc_process_l->get_optional<unsigned> ("io_threads", rpc_process.io_threads);
 			rpc_process_l->get_optional<uint16_t> ("ipc_port", rpc_process.ipc_port);
 			rpc_process_l->get_optional<unsigned> ("num_ipc_connections", rpc_process.num_ipc_connections);
 		}
