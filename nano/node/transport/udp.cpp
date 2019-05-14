@@ -413,7 +413,7 @@ public:
 					auto new_channel (node.network.udp_channels.insert (endpoint, message_a.header.version_using));
 					if (new_channel)
 					{
-						node.network.udp_channels.modify (channel, [&message_a](std::shared_ptr<nano::transport::channel_udp> channel_a) {
+						node.network.udp_channels.modify (new_channel, [&message_a](std::shared_ptr<nano::transport::channel_udp> channel_a) {
 							channel_a->set_node_id (message_a.response->first);
 						});
 					}
