@@ -3216,6 +3216,8 @@ TEST (rpc, work_validate)
 		uint64_t value;
 		ASSERT_FALSE (nano::from_string_hex (value_text, value));
 		ASSERT_GE (value, params.network.publish_threshold);
+		double multiplier (response.json.get<double> ("multiplier"));
+		ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (value, params.network.publish_threshold), 1e-6);
 	}
 	uint64_t work2 (0);
 	request.put ("work", nano::to_string_hex (work2));
@@ -3233,6 +3235,8 @@ TEST (rpc, work_validate)
 		uint64_t value;
 		ASSERT_FALSE (nano::from_string_hex (value_text, value));
 		ASSERT_GE (params.network.publish_threshold, value);
+		double multiplier (response.json.get<double> ("multiplier"));
+		ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (value, params.network.publish_threshold), 1e-6);
 	}
 	uint64_t result_difficulty;
 	ASSERT_FALSE (nano::work_validate (hash, work1, &result_difficulty));
@@ -3276,28 +3280,6 @@ TEST (rpc, work_validate)
 		ASSERT_EQ (200, response.status);
 		bool validate (response.json.get<bool> ("valid"));
 		ASSERT_TRUE (validate);
-	}
-	// Test the multiplier field in the response
-	// It's a multiplier from the base network threshold, so we make sure the test network threshold has not been changed
-	// The work and its value/multiplier were calculated beforehand
-	ASSERT_EQ (params.network.publish_threshold, 0xff00000000000000);
-	request.put ("work", nano::to_string_hex (0x4b52c90f538bbb60));
-	{
-		test_response response (request, rpc.config.port, system.io_ctx);
-		system.deadline_set (5s);
-		while (response.status == 0)
-		{
-			ASSERT_NO_ERROR (system.poll ());
-		}
-		ASSERT_EQ (200, response.status);
-		bool validate (response.json.get<bool> ("valid"));
-		ASSERT_TRUE (validate);
-		std::string value_text (response.json.get<std::string> ("value"));
-		uint64_t value;
-		ASSERT_FALSE (nano::from_string_hex (value_text, value));
-		ASSERT_EQ (value, 0xfff27e7a57c285cd);
-		double multiplier (response.json.get<double> ("multiplier"));
-		ASSERT_NEAR (multiplier, 18.9546, 1e-4);
 	}
 }
 
@@ -6289,7 +6271,7 @@ TEST (rpc, simultaneous_calls)
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
 	nano::rpc_config rpc_config (true);
-	rpc_config.num_ipc_connections = 8;
+	rpc_config.rpc_process.num_ipc_connections = 8;
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
 	rpc.start ();
@@ -6374,17 +6356,29 @@ TEST (rpc_config, serialization)
 	config1.address = boost::asio::ip::address_v6::any ();
 	config1.port = 10;
 	config1.enable_control = true;
+	config1.max_json_depth = 10;
+	config1.rpc_process.io_threads = 2;
+	config1.rpc_process.ipc_port = 2000;
+	config1.rpc_process.num_ipc_connections = 99;
 	nano::jsonconfig tree;
 	config1.serialize_json (tree);
 	nano::rpc_config config2;
 	ASSERT_NE (config2.address, config1.address);
 	ASSERT_NE (config2.port, config1.port);
 	ASSERT_NE (config2.enable_control, config1.enable_control);
+	ASSERT_NE (config2.max_json_depth, config1.max_json_depth);
+	ASSERT_NE (config2.rpc_process.io_threads, config1.rpc_process.io_threads);
+	ASSERT_NE (config2.rpc_process.ipc_port, config1.rpc_process.ipc_port);
+	ASSERT_NE (config2.rpc_process.num_ipc_connections, config1.rpc_process.num_ipc_connections);
 	bool upgraded{ false };
 	config2.deserialize_json (upgraded, tree);
 	ASSERT_EQ (config2.address, config1.address);
 	ASSERT_EQ (config2.port, config1.port);
 	ASSERT_EQ (config2.enable_control, config1.enable_control);
+	ASSERT_EQ (config2.max_json_depth, config1.max_json_depth);
+	ASSERT_EQ (config2.rpc_process.io_threads, config1.rpc_process.io_threads);
+	ASSERT_EQ (config2.rpc_process.ipc_port, config1.rpc_process.ipc_port);
+	ASSERT_EQ (config2.rpc_process.num_ipc_connections, config1.rpc_process.num_ipc_connections);
 }
 
 TEST (rpc_config, migrate)

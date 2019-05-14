@@ -2,7 +2,7 @@
 #include <nano/node/transport/tcp.hpp>
 
 nano::transport::channel_tcp::channel_tcp (nano::node & node_a, std::shared_ptr<nano::socket> socket_a) :
-node (node_a),
+channel (node_a),
 socket (socket_a)
 {
 }
@@ -33,16 +33,16 @@ bool nano::transport::channel_tcp::operator== (nano::transport::channel const & 
 	return result;
 }
 
-void nano::transport::channel_tcp::send_buffer_raw (boost::asio::const_buffer buffer_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a)
+void nano::transport::channel_tcp::send_buffer (std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a)
 {
 	set_last_packet_sent (std::chrono::steady_clock::now ());
-	socket->async_write (buffer_a, callback_a);
+	socket->async_write (buffer_a, callback (buffer_a, detail_a, callback_a));
 }
 
 std::function<void(boost::system::error_code const &, size_t)> nano::transport::channel_tcp::callback (std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
 {
 	// clang-format off
-	return [ buffer_a, node = std::weak_ptr<nano::node> (node.shared ()), detail_a, callback_a ](boost::system::error_code const & ec, size_t size_a)
+	return [ buffer_a, node = std::weak_ptr<nano::node> (node.shared ()), callback_a ](boost::system::error_code const & ec, size_t size_a)
 	{
 		if (auto node_l = node.lock ())
 		{
@@ -50,14 +50,9 @@ std::function<void(boost::system::error_code const &, size_t)> nano::transport::
 			{
 				node_l->stats.inc (nano::stat::type::error, nano::stat::detail::unreachable_host, nano::stat::dir::out);
 			}
-			if (!ec)
+			if (callback_a)
 			{
-				node_l->stats.add (nano::stat::type::traffic, nano::stat::dir::out, size_a);
-				node_l->stats.inc (nano::stat::type::message, detail_a, nano::stat::dir::out);
-				if (callback_a)
-				{
-					callback_a (ec, size_a);
-				}
+				callback_a (ec, size_a);
 			}
 		}
 	};

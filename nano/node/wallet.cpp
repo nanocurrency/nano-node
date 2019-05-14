@@ -1472,6 +1472,9 @@ void nano::work_watcher::run ()
 					}
 					node.network.flood_block (block);
 					node.active.update_difficulty (*block.get ());
+					lock.lock ();
+					i.second = block;
+					lock.unlock ();
 				}
 				lock.lock ();
 			}

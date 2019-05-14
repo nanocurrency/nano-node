@@ -217,7 +217,7 @@ public:
 	enum class type : uint8_t
 	{
 		traffic,
-		traffic_bootstrap,
+		traffic_tcp,
 		error,
 		message,
 		block,
@@ -228,6 +228,7 @@ public:
 		http_callback,
 		peering,
 		ipc,
+		tcp,
 		udp,
 		confirmation_height
 	};
@@ -296,6 +297,10 @@ public:
 		invalid_confirm_ack_message,
 		invalid_node_id_handshake_message,
 		outdated_version,
+
+		// tcp
+		tcp_accept_success,
+		tcp_accept_failure,
 
 		// ipc
 		invocations,

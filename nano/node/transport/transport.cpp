@@ -1,4 +1,5 @@
 #include <nano/node/common.hpp>
+#include <nano/node/node.hpp>
 #include <nano/node/transport/transport.hpp>
 
 namespace
@@ -66,9 +67,9 @@ nano::tcp_endpoint nano::transport::map_endpoint_to_tcp (nano::endpoint const & 
 	return nano::tcp_endpoint (endpoint_a.address (), endpoint_a.port ());
 }
 
-void nano::transport::channel::send_buffer (std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a)
+nano::transport::channel::channel (nano::node & node_a) :
+node (node_a)
 {
-	send_buffer_raw (boost::asio::buffer (buffer_a->data (), buffer_a->size ()), callback (buffer_a, detail_a, callback_a));
 }
 
 void nano::transport::channel::send (nano::message const & message_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a)
@@ -76,7 +77,9 @@ void nano::transport::channel::send (nano::message const & message_a, std::funct
 	callback_visitor visitor;
 	message_a.visit (visitor);
 	auto buffer (message_a.to_bytes ());
-	send_buffer (buffer, visitor.result, callback_a);
+	auto detail (visitor.result);
+	send_buffer (buffer, detail, callback_a);
+	node.stats.inc (nano::stat::type::message, detail, nano::stat::dir::out);
 }
 
 namespace
