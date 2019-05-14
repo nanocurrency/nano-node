@@ -1939,7 +1939,7 @@ void nano_qt::advanced_actions::refresh_peers ()
 		QList<QStandardItem *> items;
 		items.push_back (new QStandardItem (qendpoint));
 		auto version = new QStandardItem ();
-		version->setData (QVariant (channel->network_version), Qt::DisplayRole);
+		version->setData (QVariant (channel->get_network_version ()), Qt::DisplayRole);
 		items.push_back (version);
 		QString node_id ("");
 		auto node_id_l (channel->get_node_id ());

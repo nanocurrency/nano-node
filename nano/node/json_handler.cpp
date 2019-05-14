@@ -2481,7 +2481,7 @@ void nano::json_handler::peers ()
 		if (peer_details)
 		{
 			boost::property_tree::ptree pending_tree;
-			pending_tree.put ("protocol_version", std::to_string (channel->network_version));
+			pending_tree.put ("protocol_version", std::to_string (channel->get_network_version ()));
 			auto node_id_l (channel->get_node_id ());
 			if (node_id_l.is_initialized ())
 			{
@@ -2491,11 +2491,12 @@ void nano::json_handler::peers ()
 			{
 				pending_tree.put ("node_id", "");
 			}
+			pending_tree.put ("type", channel->get_type () == nano::transport::transport_type::tcp ? "tcp" : "udp");
 			peers_l.push_back (boost::property_tree::ptree::value_type (text.str (), pending_tree));
 		}
 		else
 		{
-			peers_l.push_back (boost::property_tree::ptree::value_type (text.str (), boost::property_tree::ptree (std::to_string (channel->network_version))));
+			peers_l.push_back (boost::property_tree::ptree::value_type (text.str (), boost::property_tree::ptree (std::to_string (channel->get_network_version ()))));
 		}
 	}
 	response_l.add_child ("peers", peers_l);
