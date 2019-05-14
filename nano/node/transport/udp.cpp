@@ -493,7 +493,9 @@ public:
 					auto channel (node.network.udp_channels.insert (endpoint, message_a.header.version_using));
 					if (channel)
 					{
-						channel->set_node_id (message_a.response->first);
+						node.network.udp_channels.modify (channel, [&message_a](std::shared_ptr<nano::transport::channel_udp> channel_a) {
+							channel_a->set_node_id (message_a.response->first);
+						});
 					}
 				}
 			}
@@ -517,8 +519,9 @@ public:
 		auto channel (node.network.udp_channels.channel (endpoint));
 		if (channel)
 		{
-			channel->set_last_packet_received (std::chrono::steady_clock::now ());
-			node.network.udp_channels.modify (channel);
+			node.network.udp_channels.modify (channel, [](std::shared_ptr<nano::transport::channel_udp> channel_a) {
+				channel_a->set_last_packet_received (std::chrono::steady_clock::now ());
+			});
 			node.process_message (message_a, channel);
 		}
 	}
@@ -833,12 +836,14 @@ std::deque<std::shared_ptr<nano::transport::channel_udp>> nano::transport::udp_c
 	return result;
 }
 
-void nano::transport::udp_channels::modify (std::shared_ptr<nano::transport::channel_udp> channel_a)
+void nano::transport::udp_channels::modify (std::shared_ptr<nano::transport::channel_udp> channel_a, std::function<void(std::shared_ptr<nano::transport::channel_udp>)> modify_callback_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto existing (channels.get<endpoint_tag> ().find (channel_a->endpoint));
 	if (existing != channels.get<endpoint_tag> ().end ())
 	{
-		channels.get<endpoint_tag> ().modify (existing, [](channel_udp_wrapper &) {});
+		channels.get<endpoint_tag> ().modify (existing, [modify_callback_a](channel_udp_wrapper & wrapper_a) {
+			modify_callback_a (wrapper_a.channel);
+		});
 	}
 }
