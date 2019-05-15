@@ -71,7 +71,7 @@ TEST (peer_container, split)
 	system.nodes[0]->network.cleanup (now);
 	ASSERT_EQ (1, system.nodes[0]->network.size ());
 	ASSERT_EQ (1, system.nodes[0]->network.udp_channels.size ());
-	auto list (system.nodes[0]->network.udp_channels.list (1));
+	auto list (system.nodes[0]->network.list (1));
 	ASSERT_EQ (endpoint2, list[0]->get_endpoint ());
 }
 
@@ -116,13 +116,13 @@ TEST (udp_channels, fill_random_part)
 TEST (peer_container, list_fanout)
 {
 	nano::system system (24000, 1);
-	auto list1 (system.nodes[0]->network.udp_channels.list_fanout ());
+	auto list1 (system.nodes[0]->network.list_fanout ());
 	ASSERT_TRUE (list1.empty ());
 	for (auto i (0); i < 1000; ++i)
 	{
 		ASSERT_NE (nullptr, system.nodes[0]->network.udp_channels.insert (nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000 + i), nano::protocol_version));
 	}
-	auto list2 (system.nodes[0]->network.udp_channels.list_fanout ());
+	auto list2 (system.nodes[0]->network.list_fanout ());
 	ASSERT_EQ (32, list2.size ());
 }
 

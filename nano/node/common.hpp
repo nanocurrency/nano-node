@@ -147,6 +147,24 @@ struct hash<::nano::endpoint>
 		return hash (endpoint_a);
 	}
 };
+template <>
+struct hash<::nano::tcp_endpoint>
+{
+	size_t operator() (::nano::tcp_endpoint const & endpoint_a) const
+	{
+		std::hash<::nano::tcp_endpoint> hash;
+		return hash (endpoint_a);
+	}
+};
+template <>
+struct hash<boost::asio::ip::address>
+{
+	size_t operator() (boost::asio::ip::address const & ip_a) const
+	{
+		std::hash<boost::asio::ip::address> hash;
+		return hash (ip_a);
+	}
+};
 }
 
 namespace nano

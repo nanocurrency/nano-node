@@ -17,7 +17,6 @@ namespace transport
 
 	public:
 		channel_udp (nano::transport::udp_channels &, nano::endpoint const &, unsigned = nano::protocol_version);
-		~channel_udp ();
 		size_t hash_code () const override;
 		bool operator== (nano::transport::channel const &) const override;
 		void send_buffer (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) override;
@@ -40,6 +39,11 @@ namespace transport
 			return nano::transport::map_endpoint_to_tcp (endpoint);
 		}
 
+		nano::transport::transport_type get_type () const override
+		{
+			return nano::transport::transport_type::udp;
+		}
+
 	private:
 		nano::endpoint endpoint;
 		nano::transport::udp_channels & channels;
@@ -57,19 +61,16 @@ namespace transport
 		size_t size () const;
 		std::shared_ptr<nano::transport::channel_udp> channel (nano::endpoint const &) const;
 		void random_fill (std::array<nano::endpoint, 8> &) const;
-		std::unordered_set<std::shared_ptr<nano::transport::channel_udp>> random_set (size_t) const;
-		void store_all (nano::node &);
-		nano::endpoint find_node_id (nano::account const &);
+		std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (size_t) const;
+		bool store_all (bool = true);
+		std::shared_ptr<nano::transport::channel_udp> find_node_id (nano::account const &);
 		void clean_node_id (nano::endpoint const &, nano::account const &);
-		// Get the next peer for attempting a tcp connection
-		nano::endpoint tcp_peer ();
+		// Get the next peer for attempting a tcp bootstrap connection
+		nano::tcp_endpoint bootstrap_peer ();
 		void receive ();
 		void start ();
 		void stop ();
 		void send (boost::asio::const_buffer buffer_a, nano::endpoint endpoint_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a);
-		void start_tcp (std::shared_ptr<nano::transport::channel_udp>, std::function<void()> const & = nullptr);
-		void start_tcp_receive_header (std::shared_ptr<nano::transport::channel_udp>, std::shared_ptr<std::vector<uint8_t>>, std::function<void()> const &);
-		void start_tcp_receive (std::shared_ptr<nano::transport::channel_udp>, std::shared_ptr<std::vector<uint8_t>>, std::function<void()> const &);
 		nano::endpoint get_local_endpoint () const;
 		void receive_action (nano::message_buffer *);
 		void process_packets ();
@@ -87,20 +88,10 @@ namespace transport
 		// Also removes the syn cookie from the store if valid
 		bool validate_syn_cookie (nano::endpoint const &, nano::account const &, nano::signature const &);
 		void ongoing_keepalive ();
-		std::deque<std::shared_ptr<nano::transport::channel_udp>> list (size_t);
-		// A list of random peers sized for the configured rebroadcast fanout
-		std::deque<std::shared_ptr<nano::transport::channel_udp>> list_fanout ();
+		void list (std::deque<std::shared_ptr<nano::transport::channel>> &);
 		void modify (std::shared_ptr<nano::transport::channel_udp>, std::function<void(std::shared_ptr<nano::transport::channel_udp>)>);
 		// Common messages
 		void common_keepalive (nano::keepalive const &, nano::endpoint const &, nano::transport::transport_type = nano::transport::transport_type::udp, bool = false);
-		// Response channels
-		void add_response_channels (nano::tcp_endpoint const &, std::vector<nano::endpoint>);
-		std::shared_ptr<nano::transport::channel_udp> search_response_channel (nano::tcp_endpoint const &);
-		void remove_response_channel (nano::tcp_endpoint const &);
-		size_t response_channels_size () const;
-		// Maximum number of peers per IP
-		static size_t constexpr max_peers_per_ip = 10;
-		static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
 		nano::node & node;
 
 	private:
@@ -116,9 +107,6 @@ namespace transport
 		{
 		};
 		class last_packet_received_tag
-		{
-		};
-		class last_packet_sent_tag
 		{
 		};
 		class last_bootstrap_attempt_tag
@@ -138,10 +126,6 @@ namespace transport
 			std::chrono::steady_clock::time_point last_packet_received () const
 			{
 				return channel->get_last_packet_received ();
-			}
-			std::chrono::steady_clock::time_point last_packet_sent () const
-			{
-				return channel->get_last_packet_sent ();
 			}
 			std::chrono::steady_clock::time_point last_bootstrap_attempt () const
 			{
@@ -185,7 +169,6 @@ namespace transport
 		boost::multi_index::hashed_unique<boost::multi_index::tag<endpoint_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, nano::endpoint, &channel_udp_wrapper::endpoint>>,
 		boost::multi_index::hashed_non_unique<boost::multi_index::tag<node_id_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, nano::account, &channel_udp_wrapper::node_id>>,
 		boost::multi_index::ordered_non_unique<boost::multi_index::tag<last_packet_received_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, std::chrono::steady_clock::time_point, &channel_udp_wrapper::last_packet_received>>,
-		boost::multi_index::ordered_non_unique<boost::multi_index::tag<last_packet_sent_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, std::chrono::steady_clock::time_point, &channel_udp_wrapper::last_packet_sent>>,
 		boost::multi_index::ordered_non_unique<boost::multi_index::tag<ip_address_tag>, boost::multi_index::const_mem_fun<channel_udp_wrapper, boost::asio::ip::address, &channel_udp_wrapper::ip_address>>>>
 		channels;
 		boost::multi_index_container<
@@ -196,7 +179,6 @@ namespace transport
 		attempts;
 		std::unordered_map<nano::endpoint, syn_cookie_info> syn_cookies;
 		std::unordered_map<boost::asio::ip::address, unsigned> syn_cookies_per_ip;
-		std::unordered_map<nano::tcp_endpoint, std::vector<nano::endpoint>> response_channels;
 		boost::asio::strand<boost::asio::io_context::executor_type> strand;
 		boost::asio::ip::udp::socket socket;
 		nano::endpoint local_endpoint;

@@ -15,6 +15,9 @@ namespace transport
 	nano::tcp_endpoint map_endpoint_to_tcp (nano::endpoint const &);
 	// Unassigned, reserved, self
 	bool reserved_address (nano::endpoint const &, bool = false);
+	// Maximum number of peers per IP
+	static size_t constexpr max_peers_per_ip = 10;
+	static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
 	enum class transport_type : uint8_t
 	{
 		undefined = 0,
@@ -34,6 +37,7 @@ namespace transport
 		virtual std::string to_string () const = 0;
 		virtual nano::endpoint get_endpoint () const = 0;
 		virtual nano::tcp_endpoint get_tcp_endpoint () const = 0;
+		virtual nano::transport::transport_type get_type () const = 0;
 
 		std::chrono::steady_clock::time_point get_last_bootstrap_attempt () const
 		{
@@ -93,20 +97,7 @@ namespace transport
 			network_version = network_version_a;
 		}
 
-		nano::transport::transport_type get_type () const
-		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
-			return type;
-		}
-
-		void set_type (nano::transport::transport_type type_a)
-		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
-			type = type_a;
-		}
-
 		mutable std::mutex channel_mutex;
-		nano::transport::transport_type type;
 
 	private:
 		std::chrono::steady_clock::time_point last_bootstrap_attempt{ std::chrono::steady_clock::time_point () };

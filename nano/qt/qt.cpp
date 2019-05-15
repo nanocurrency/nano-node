@@ -1928,7 +1928,7 @@ wallet (wallet_a)
 void nano_qt::advanced_actions::refresh_peers ()
 {
 	peers_model->removeRows (0, peers_model->rowCount ());
-	auto list (wallet.node.network.udp_channels.list (std::numeric_limits<size_t>::max ()));
+	auto list (wallet.node.network.list (std::numeric_limits<size_t>::max ()));
 	std::sort (list.begin (), list.end ());
 	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
 	{

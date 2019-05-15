@@ -1087,9 +1087,8 @@ void nano::bootstrap_attempt::populate_connections ()
 		// Not many peers respond, need to try to make more connections than we need.
 		for (auto i = 0u; i < delta; i++)
 		{
-			auto peer (node->network.udp_channels.tcp_peer ());
-			auto endpoint (nano::tcp_endpoint (peer.address (), peer.port ()));
-			if (peer != nano::endpoint (boost::asio::ip::address_v6::any (), 0) && endpoints.find (endpoint) == endpoints.end ())
+			auto endpoint (node->network.bootstrap_peer ());
+			if (endpoint != nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0) && endpoints.find (endpoint) == endpoints.end ())
 			{
 				connect_client (endpoint);
 				std::lock_guard<std::mutex> lock (mutex);
@@ -1889,6 +1888,13 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_listener
 
 nano::bootstrap_server::~bootstrap_server ()
 {
+	stop ();
+	std::lock_guard<std::mutex> lock (node->bootstrap.mutex);
+	node->bootstrap.connections.erase (this);
+}
+
+void nano::bootstrap_server::stop ()
+{
 	if (node->config.logging.bulk_pull_logging ())
 	{
 		node->logger.try_log ("Exiting incoming TCP/bootstrap server");
@@ -1901,9 +1907,7 @@ nano::bootstrap_server::~bootstrap_server ()
 	{
 		socket->close ();
 	}
-	node->network.udp_channels.remove_response_channel (remote_endpoint);
-	std::lock_guard<std::mutex> lock (node->bootstrap.mutex);
-	node->bootstrap.connections.erase (this);
+	node->network.remove_response_channel (remote_endpoint);
 }
 
 nano::bootstrap_server::bootstrap_server (std::shared_ptr<nano::socket> socket_a, std::shared_ptr<nano::node> node_a) :
@@ -2139,7 +2143,10 @@ void nano::bootstrap_server::receive_keepalive_action (boost::system::error_code
 		std::unique_ptr<nano::keepalive> request (new nano::keepalive (error, stream, header_a));
 		if (!error)
 		{
-			add_request (std::unique_ptr<nano::message> (request.release ()));
+			if (node_id_handshake_finished)
+			{
+				add_request (std::unique_ptr<nano::message> (request.release ()));
+			}
 			receive ();
 		}
 	}
@@ -2161,7 +2168,10 @@ void nano::bootstrap_server::receive_publish_action (boost::system::error_code c
 		std::unique_ptr<nano::publish> request (new nano::publish (error, stream, header_a));
 		if (!error)
 		{
-			add_request (std::unique_ptr<nano::message> (request.release ()));
+			if (node_id_handshake_finished)
+			{
+				add_request (std::unique_ptr<nano::message> (request.release ()));
+			}
 			receive ();
 		}
 	}
@@ -2183,7 +2193,10 @@ void nano::bootstrap_server::receive_confirm_req_action (boost::system::error_co
 		std::unique_ptr<nano::confirm_req> request (new nano::confirm_req (error, stream, header_a));
 		if (!error)
 		{
-			add_request (std::unique_ptr<nano::message> (request.release ()));
+			if (node_id_handshake_finished)
+			{
+				add_request (std::unique_ptr<nano::message> (request.release ()));
+			}
 			receive ();
 		}
 	}
@@ -2202,7 +2215,10 @@ void nano::bootstrap_server::receive_confirm_ack_action (boost::system::error_co
 		std::unique_ptr<nano::confirm_ack> request (new nano::confirm_ack (error, stream, header_a));
 		if (!error)
 		{
-			add_request (std::unique_ptr<nano::message> (request.release ()));
+			if (node_id_handshake_finished)
+			{
+				add_request (std::unique_ptr<nano::message> (request.release ()));
+			}
 			receive ();
 		}
 	}
@@ -2221,7 +2237,10 @@ void nano::bootstrap_server::receive_node_id_handshake_action (boost::system::er
 		std::unique_ptr<nano::node_id_handshake> request (new nano::node_id_handshake (error, stream, header_a));
 		if (!error)
 		{
-			add_request (std::unique_ptr<nano::message> (request.release ()));
+			if (!node_id_handshake_finished)
+			{
+				add_request (std::unique_ptr<nano::message> (request.release ()));
+			}
 			receive ();
 		}
 	}
@@ -2318,9 +2337,8 @@ public:
 		connection->finish_request_async ();
 		auto connection_l (connection->shared_from_this ());
 		connection->node->background ([connection_l, message_a, first_keepalive]() {
-			nano::tcp_endpoint tcp_endpoint (connection_l->remote_endpoint);
-			connection_l->node->network.udp_channels.common_keepalive (message_a, nano::transport::map_tcp_to_endpoint (tcp_endpoint), nano::transport::transport_type::tcp, first_keepalive);
-			connection_l->process_message (message_a);
+			connection_l->node->network.udp_channels.common_keepalive (message_a, nano::transport::map_tcp_to_endpoint (connection_l->remote_endpoint), nano::transport::transport_type::tcp, first_keepalive);
+			connection_l->node->network.tcp_channels.process_message (message_a, connection_l->remote_endpoint, connection_l->remote_node_id);
 		});
 	}
 	void publish (nano::publish const & message_a) override
@@ -2328,7 +2346,7 @@ public:
 		connection->finish_request_async ();
 		auto connection_l (connection->shared_from_this ());
 		connection->node->background ([connection_l, message_a]() {
-			connection_l->process_message (message_a);
+			connection_l->node->network.tcp_channels.process_message (message_a, connection_l->remote_endpoint, connection_l->remote_node_id);
 		});
 	}
 	void confirm_req (nano::confirm_req const & message_a) override
@@ -2336,7 +2354,7 @@ public:
 		connection->finish_request_async ();
 		auto connection_l (connection->shared_from_this ());
 		connection->node->background ([connection_l, message_a]() {
-			connection_l->process_message (message_a);
+			connection_l->node->network.tcp_channels.process_message (message_a, connection_l->remote_endpoint, connection_l->remote_node_id);
 		});
 	}
 	void confirm_ack (nano::confirm_ack const & message_a) override
@@ -2344,7 +2362,7 @@ public:
 		connection->finish_request_async ();
 		auto connection_l (connection->shared_from_this ());
 		connection->node->background ([connection_l, message_a]() {
-			connection_l->process_message (message_a);
+			connection_l->node->network.tcp_channels.process_message (message_a, connection_l->remote_endpoint, connection_l->remote_node_id);
 		});
 	}
 	void bulk_pull (nano::bulk_pull const &) override
@@ -2377,7 +2395,8 @@ public:
 		{
 			boost::optional<std::pair<nano::account, nano::signature>> response (std::make_pair (connection->node->node_id.pub, nano::sign_message (connection->node->node_id.prv, connection->node->node_id.pub, *message_a.query)));
 			assert (!nano::validate_message (response->first, *message_a.query, response->second));
-			nano::node_id_handshake response_message (boost::none, response);
+			auto cookie (connection->node->network.tcp_channels.assign_syn_cookie (connection->remote_endpoint));
+			nano::node_id_handshake response_message (cookie, response);
 			auto bytes = response_message.to_bytes ();
 			connection->socket->async_write (bytes, [connection = connection](boost::system::error_code const & ec, size_t size_a) {
 				if (ec)
@@ -2386,7 +2405,8 @@ public:
 					{
 						connection->node->logger.try_log (boost::str (boost::format ("Error sending node_id_handshake to %1%: %2%") % connection->remote_endpoint % ec.message ()));
 					}
-					connection->finish_request ();
+					// Stop invalid handshake
+					connection->stop ();
 				}
 				else
 				{
@@ -2395,45 +2415,31 @@ public:
 				}
 			});
 		}
+		else if (message_a.response)
+		{
+			connection->remote_node_id = message_a.response->first;
+			if (!connection->node->network.tcp_channels.validate_syn_cookie (connection->remote_endpoint, connection->remote_node_id, message_a.response->second) && connection->remote_node_id != connection->node->node_id.pub)
+			{
+				connection->node_id_handshake_finished = true;
+				connection->finish_request_async ();
+			}
+			else
+			{
+				// Stop invalid handshake
+				connection->stop ();
+			}
+		}
 		else
 		{
 			connection->finish_request_async ();
 		}
 		auto connection_l (connection->shared_from_this ());
 		connection->node->background ([connection_l, message_a]() {
-			connection_l->process_message (message_a);
+			connection_l->node->network.tcp_channels.process_message (message_a, connection_l->remote_endpoint, connection_l->remote_node_id);
 		});
 	}
 	std::shared_ptr<nano::bootstrap_server> connection;
 };
-}
-
-void nano::bootstrap_server::process_message (nano::message const & message_a)
-{
-	auto channel (node->network.udp_channels.channel (nano::transport::map_tcp_to_endpoint (remote_endpoint)));
-	if (channel)
-	{
-		node->network.udp_channels.modify (channel, [](std::shared_ptr<nano::transport::channel_udp> channel_a) {
-			channel_a->set_last_packet_received (std::chrono::steady_clock::now ());
-		});
-		node->process_message (message_a, channel);
-	}
-	else
-	{
-		auto response_channel (node->network.udp_channels.search_response_channel (remote_endpoint));
-		if (response_channel)
-		{
-			node->network.udp_channels.modify (response_channel, [](std::shared_ptr<nano::transport::channel_udp> channel_a) {
-				channel_a->set_last_packet_received (std::chrono::steady_clock::now ());
-			});
-			node->process_message (message_a, response_channel);
-		}
-		else
-		{
-			auto udp_channel (std::make_shared<nano::transport::channel_udp> (node->network.udp_channels, nano::transport::map_tcp_to_endpoint (remote_endpoint)));
-			node->process_message (message_a, udp_channel);
-		}
-	}
 }
 
 void nano::bootstrap_server::run_next ()
