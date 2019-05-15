@@ -131,6 +131,12 @@ nano::public_key pub_key (nano::private_key const &);
 std::string to_string_hex (uint64_t const);
 bool from_string_hex (std::string const &, uint64_t &);
 
+/**
+ * Convert a double to string in fixed format
+ * @param precision_a (optional) use a specific precision (default is the maximum)
+ */
+std::string to_string (double const, int const precision_a = std::numeric_limits<double>::digits10);
+
 namespace difficulty
 {
 	uint64_t from_multiplier (double const, uint64_t const);

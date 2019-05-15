@@ -3,8 +3,6 @@
 #include <algorithm>
 #include <boost/array.hpp>
 #include <boost/bind.hpp>
-#include <boost/convert.hpp>
-#include <boost/convert/stream.hpp>
 #include <boost/endian/conversion.hpp>
 #include <boost/polymorphic_cast.hpp>
 #include <boost/property_tree/json_parser.hpp>
@@ -841,7 +839,7 @@ void nano::json_handler::active_difficulty ()
 	auto difficulty_active = node.active.active_difficulty ();
 	response_l.put ("difficulty_active", nano::to_string_hex (difficulty_active));
 	auto multiplier = nano::difficulty::to_multiplier (difficulty_active, node.network_params.network.publish_threshold);
-	response_l.put ("multiplier", boost::convert<std::string> (multiplier, boost::cnv::cstream () (std::fixed) (std::setprecision (std::numeric_limits<double>::digits10))).value ());
+	response_l.put ("multiplier", nano::to_string (multiplier));
 	response_errors ();
 }
 
@@ -4365,7 +4363,7 @@ void nano::json_handler::work_generate ()
 				nano::work_validate (hash, work_a.value (), &result_difficulty);
 				response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
 				auto multiplier = nano::difficulty::to_multiplier (result_difficulty, this->node.network_params.network.publish_threshold);
-				response_l.put ("multiplier", boost::convert<std::string> (multiplier, boost::cnv::cstream () (std::fixed) (std::setprecision (std::numeric_limits<double>::digits10))).value ());
+				response_l.put ("multiplier", nano::to_string (multiplier));
 				boost::property_tree::write_json (ostream, response_l);
 				rpc_l->response (ostream.str ());
 			}
@@ -4457,7 +4455,7 @@ void nano::json_handler::work_validate ()
 		response_l.put ("valid", (result_difficulty >= difficulty) ? "1" : "0");
 		response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
 		auto multiplier = nano::difficulty::to_multiplier (result_difficulty, node.network_params.network.publish_threshold);
-		response_l.put ("multiplier", boost::convert<std::string> (multiplier, boost::cnv::cstream () (std::fixed) (std::setprecision (std::numeric_limits<double>::digits10))).value ());
+		response_l.put ("multiplier", nano::to_string (multiplier));
 	}
 	response_errors ();
 }

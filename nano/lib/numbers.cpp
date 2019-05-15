@@ -811,6 +811,14 @@ bool nano::from_string_hex (std::string const & value_a, uint64_t & target_a)
 	return error;
 }
 
+std::string nano::to_string (double const value_a, int const precision_a)
+{
+	std::stringstream stream;
+	stream << std::setprecision (precision_a) << std::fixed;
+	stream << value_a;
+	return stream.str ();
+}
+
 uint64_t nano::difficulty::from_multiplier (double const multiplier_a, uint64_t const base_difficulty_a)
 {
 	assert (multiplier_a > 0.);
