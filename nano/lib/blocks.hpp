@@ -12,8 +12,6 @@
 
 namespace nano
 {
-std::string to_string_hex (uint64_t);
-bool from_string_hex (std::string const &, uint64_t &);
 // We operate on streams of uint8_t by convention
 using stream = std::basic_streambuf<uint8_t>;
 // Read a raw byte stream the size of `T' and fill value.
