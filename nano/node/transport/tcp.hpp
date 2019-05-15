@@ -78,6 +78,7 @@ namespace transport
 		void start ();
 		void stop ();
 		void process_message (nano::message const &, nano::tcp_endpoint const &, nano::account const &);
+		void process_keepalive (nano::keepalive const &, nano::tcp_endpoint const &, bool);
 		bool max_ip_connections (nano::tcp_endpoint const &);
 		// Should we reach out to this endpoint with a keepalive message
 		bool reachout (nano::endpoint const &);

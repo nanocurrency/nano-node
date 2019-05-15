@@ -239,6 +239,37 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 	}
 }
 
+void nano::transport::tcp_channels::process_keepalive (nano::keepalive const & message_a, nano::tcp_endpoint const & endpoint_a, bool keepalive_first)
+{
+	if (!max_ip_connections (endpoint_a))
+	{
+		// Check for special node port data
+		std::vector<nano::tcp_endpoint> insert_response_channels;
+		auto peer0 (message_a.peers[0]);
+		auto peer1 (message_a.peers[1]);
+		if (peer0.address () == boost::asio::ip::address_v6{} && peer0.port () != 0)
+		{
+			nano::endpoint new_endpoint (endpoint_a.address (), peer0.port ());
+			node.network.merge_peer (new_endpoint);
+			if (keepalive_first)
+			{
+				insert_response_channels.push_back (nano::transport::map_endpoint_to_tcp (new_endpoint));
+			}
+		}
+		if (peer1.address () != boost::asio::ip::address_v6{} && peer1.port () != 0 && keepalive_first)
+		{
+			insert_response_channels.push_back (nano::transport::map_endpoint_to_tcp (peer1));
+		}
+		// Insert preferred response channels from first TCP keepalive
+		if (!insert_response_channels.empty ())
+		{
+			node.network.add_response_channels (endpoint_a, insert_response_channels);
+		}
+		auto udp_channel (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, nano::transport::map_tcp_to_endpoint (endpoint_a)));
+		node.process_message (message_a, udp_channel);
+	}
+}
+
 
 void nano::transport::tcp_channels::start ()
 {

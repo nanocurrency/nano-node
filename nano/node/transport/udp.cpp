@@ -5,8 +5,7 @@
 nano::transport::channel_udp::channel_udp (nano::transport::udp_channels & channels_a, nano::endpoint const & endpoint_a, unsigned network_version_a) :
 channel (channels_a.node),
 endpoint (endpoint_a),
-channels (channels_a),
-socket (std::make_shared<nano::socket> (channels_a.node.shared_from_this (), boost::none, nano::socket::concurrency::multi_writer))
+channels (channels_a)
 {
 	set_network_version (network_version_a);
 	assert (endpoint_a.address ().is_v6 ());
@@ -348,7 +347,32 @@ public:
 	}
 	void keepalive (nano::keepalive const & message_a) override
 	{
-		node.network.udp_channels.common_keepalive (message_a, endpoint);
+		if (!node.network.udp_channels.max_ip_connections (endpoint))
+		{
+			auto cookie (node.network.udp_channels.assign_syn_cookie (endpoint));
+			if (cookie)
+			{
+				// New connection
+				auto find_channel (node.network.udp_channels.channel (endpoint));
+				if (find_channel)
+				{
+					node.network.send_node_id_handshake (find_channel, *cookie, boost::none);
+					node.network.send_keepalive_self (find_channel);
+				}
+				else
+				{
+					find_channel = std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, endpoint);
+					node.network.send_node_id_handshake (find_channel, *cookie, boost::none);
+				}
+			}
+			// Check for special node port data
+			auto peer0 (message_a.peers[0]);
+			if (peer0.address () == boost::asio::ip::address_v6{} && peer0.port () != 0)
+			{
+				nano::endpoint new_endpoint (endpoint.address (), peer0.port ());
+				node.network.merge_peer (new_endpoint);
+			}
+		}
 		message (message_a);
 	}
 	void publish (nano::publish const & message_a) override
@@ -721,51 +745,5 @@ void nano::transport::udp_channels::modify (std::shared_ptr<nano::transport::cha
 		channels.get<endpoint_tag> ().modify (existing, [modify_callback_a](channel_udp_wrapper & wrapper_a) {
 			modify_callback_a (wrapper_a.channel);
 		});
-	}
-}
-
-void nano::transport::udp_channels::common_keepalive (nano::keepalive const & message_a, nano::endpoint const & endpoint_a, nano::transport::transport_type type, bool keepalive_first)
-{
-	if (!max_ip_connections (endpoint_a))
-	{
-		auto cookie (assign_syn_cookie (endpoint_a));
-		if (cookie && type == nano::transport::transport_type::udp)
-		{
-			// New connection
-			auto find_channel (channel (endpoint_a));
-			if (find_channel)
-			{
-				node.network.send_node_id_handshake (find_channel, *cookie, boost::none);
-				node.network.send_keepalive_self (find_channel);
-			}
-			else
-			{
-				find_channel = std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, endpoint_a);
-				node.network.send_node_id_handshake (find_channel, *cookie, boost::none);
-			}
-		}
-		// Check for special node port data
-		std::vector<nano::tcp_endpoint> insert_response_channels;
-		auto peer0 (message_a.peers[0]);
-		auto peer1 (message_a.peers[1]);
-		if (peer0.address () == boost::asio::ip::address_v6{} && peer0.port () != 0)
-		{
-			nano::endpoint new_endpoint (endpoint_a.address (), peer0.port ());
-			node.network.merge_peer (new_endpoint);
-			if (type == nano::transport::transport_type::tcp && keepalive_first)
-			{
-				insert_response_channels.push_back (nano::transport::map_endpoint_to_tcp (new_endpoint));
-			}
-		}
-		if (peer1.address () != boost::asio::ip::address_v6{} && peer1.port () != 0 && type == nano::transport::transport_type::tcp && keepalive_first)
-		{
-			insert_response_channels.push_back (nano::transport::map_endpoint_to_tcp (peer1));
-		}
-		// Insert preferred response channels from first TCP keepalive
-		if (!insert_response_channels.empty ())
-		{
-			nano::endpoint endpoint (endpoint_a);
-			node.network.add_response_channels (nano::transport::map_endpoint_to_tcp (endpoint), insert_response_channels);
-		}
 	}
 }

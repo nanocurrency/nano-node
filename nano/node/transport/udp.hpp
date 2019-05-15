@@ -47,7 +47,6 @@ namespace transport
 	private:
 		nano::endpoint endpoint;
 		nano::transport::udp_channels & channels;
-		std::shared_ptr<nano::socket> socket;
 	};
 	class udp_channels final
 	{
@@ -89,8 +88,6 @@ namespace transport
 		void ongoing_keepalive ();
 		void list (std::deque<std::shared_ptr<nano::transport::channel>> &);
 		void modify (std::shared_ptr<nano::transport::channel_udp>, std::function<void(std::shared_ptr<nano::transport::channel_udp>)>);
-		// Common messages
-		void common_keepalive (nano::keepalive const &, nano::endpoint const &, nano::transport::transport_type = nano::transport::transport_type::udp, bool = false);
 		nano::node & node;
 
 	private:

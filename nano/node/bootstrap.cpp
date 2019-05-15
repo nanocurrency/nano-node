@@ -2337,8 +2337,7 @@ public:
 		connection->finish_request_async ();
 		auto connection_l (connection->shared_from_this ());
 		connection->node->background ([connection_l, message_a, first_keepalive]() {
-			connection_l->node->network.udp_channels.common_keepalive (message_a, nano::transport::map_tcp_to_endpoint (connection_l->remote_endpoint), nano::transport::transport_type::tcp, first_keepalive);
-			connection_l->node->network.tcp_channels.process_message (message_a, connection_l->remote_endpoint, connection_l->remote_node_id);
+			connection_l->node->network.tcp_channels.process_keepalive (message_a, connection_l->remote_endpoint, first_keepalive);
 		});
 	}
 	void publish (nano::publish const & message_a) override
