@@ -127,6 +127,10 @@ bool validate_message_batch (const unsigned char **, size_t *, const unsigned ch
 void deterministic_key (nano::uint256_union const &, uint32_t, nano::uint256_union &);
 nano::public_key pub_key (nano::private_key const &);
 
+/* Conversion methods */
+std::string to_string_hex (uint64_t);
+bool from_string_hex (std::string const &, uint64_t &);
+
 namespace difficulty
 {
 	uint64_t from_multiplier (double const, uint64_t const);
