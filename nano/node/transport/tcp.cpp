@@ -133,7 +133,6 @@ std::unordered_set<std::shared_ptr<nano::transport::channel>> nano::transport::t
 	return result;
 }
 
-
 void nano::transport::tcp_channels::random_fill (std::array<nano::endpoint, 8> & target_a) const
 {
 	auto peers (random_set (target_a.size ()));
@@ -270,7 +269,6 @@ void nano::transport::tcp_channels::process_keepalive (nano::keepalive const & m
 	}
 }
 
-
 void nano::transport::tcp_channels::start ()
 {
 	ongoing_keepalive ();
@@ -313,7 +311,6 @@ bool nano::transport::tcp_channels::reachout (nano::endpoint const & endpoint_a)
 	}
 	return error;
 }
-
 
 std::unique_ptr<nano::seq_con_info_component> nano::transport::tcp_channels::collect_seq_con_info (std::string const & name)
 {

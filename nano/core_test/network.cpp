@@ -2058,7 +2058,7 @@ TEST (bootstrap, tcp_listener_timeout_node_id_handshake)
 	node0->config.tcp_idle_timeout = std::chrono::seconds (1);
 	auto socket (std::make_shared<nano::socket> (node0));
 	auto cookie (node0->network.tcp_channels.assign_syn_cookie (node0->bootstrap.endpoint ()));
-	nano::node_id_handshake node_id_handshake (cookie, boost::none);;
+	nano::node_id_handshake node_id_handshake (cookie, boost::none);
 	auto input (node_id_handshake.to_bytes ());
 	socket->async_connect (node0->bootstrap.endpoint (), [&input, socket](boost::system::error_code const & ec) {
 		ASSERT_FALSE (ec);
