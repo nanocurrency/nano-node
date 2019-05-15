@@ -95,8 +95,8 @@ namespace transport
 		void modify (std::shared_ptr<nano::transport::channel_tcp>, std::function<void(std::shared_ptr<nano::transport::channel_tcp>)>);
 		// Connection start
 		void start_tcp (nano::endpoint const &, std::function<void(std::shared_ptr<nano::transport::channel>)> const & = nullptr);
-		void start_tcp_receive_header (std::shared_ptr<nano::transport::channel_tcp>, nano::endpoint const &, std::shared_ptr<std::vector<uint8_t>>, std::function<void(std::shared_ptr<nano::transport::channel>)> const &);
-		void start_tcp_receive (std::shared_ptr<nano::transport::channel_tcp>, nano::endpoint const &, std::shared_ptr<std::vector<uint8_t>>, std::function<void(std::shared_ptr<nano::transport::channel>)> const &);
+		void start_tcp_receive_node_id (std::shared_ptr<nano::transport::channel_tcp>, nano::endpoint const &, std::shared_ptr<std::vector<uint8_t>>, std::function<void(std::shared_ptr<nano::transport::channel>)> const &);
+		void udp_fallback (nano::endpoint const &, std::function<void(std::shared_ptr<nano::transport::channel>)> const &);
 		nano::node & node;
 
 	private:
@@ -186,8 +186,6 @@ namespace transport
 		attempts;
 		std::unordered_map<nano::tcp_endpoint, syn_cookie_info> syn_cookies;
 		std::unordered_map<boost::asio::ip::address, unsigned> syn_cookies_per_ip;
-		std::unordered_map<nano::tcp_endpoint, std::vector<nano::tcp_endpoint>> response_channels;
-		nano::network_params network_params;
 		std::atomic<bool> stopped{ false };
 	};
 } // namespace transport

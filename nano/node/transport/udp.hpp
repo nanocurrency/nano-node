@@ -57,7 +57,6 @@ namespace transport
 		udp_channels (nano::node &, uint16_t);
 		std::shared_ptr<nano::transport::channel_udp> insert (nano::endpoint const &, unsigned);
 		void erase (nano::endpoint const &);
-		void insert_tcp (std::shared_ptr<nano::transport::channel_udp>);
 		size_t size () const;
 		std::shared_ptr<nano::transport::channel_udp> channel (nano::endpoint const &) const;
 		void random_fill (std::array<nano::endpoint, 8> &) const;
@@ -182,7 +181,6 @@ namespace transport
 		boost::asio::strand<boost::asio::io_context::executor_type> strand;
 		boost::asio::ip::udp::socket socket;
 		nano::endpoint local_endpoint;
-		nano::network_params network_params;
 		std::atomic<bool> stopped{ false };
 	};
 } // namespace transport
