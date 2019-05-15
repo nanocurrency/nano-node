@@ -2472,7 +2472,9 @@ void nano::json_handler::peers ()
 	boost::property_tree::ptree peers_l;
 	const bool peer_details = request.get<bool> ("peer_details", false);
 	auto peers_list (node.network.list (std::numeric_limits<size_t>::max ()));
-	std::sort (peers_list.begin (), peers_list.end ());
+	std::sort (peers_list.begin (), peers_list.end (), [](const auto & lhs, const auto & rhs) {
+		return lhs->get_endpoint () < rhs->get_endpoint ();
+	});
 	for (auto i (peers_list.begin ()), n (peers_list.end ()); i != n; ++i)
 	{
 		std::stringstream text;
