@@ -12,6 +12,7 @@ node (node_a),
 multipliers_cb (20, 1.),
 trended_active_difficulty (node.network_params.network.publish_threshold),
 next_frontier_check (steady_clock::now () + (delay_frontier_confirmation_height_updating ? 60s : 0s)),
+counter(steady_clock::now()),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::request_loop);
 	request_loop ();
@@ -655,5 +656,27 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transaction
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "blocks", blocks_count, sizeof (decltype (active_transactions.blocks)::value_type) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "confirmed", confirmed_count, sizeof (decltype (active_transactions.confirmed)::value_type) }));
 	return composite;
+}
+transaction_counter::transaction_counter (std::chrono::steady_clock::time_point start_time) :
+	trend_last (start_time),
+	counter (0),
+	rate (0)
+{
+}
+void transaction_counter::add ()
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	counter++;
+}
+void transaction_counter::trend_sample ()
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	auto now (std::chrono::steady_clock::now());
+	if (now + 1s == trend_last){
+		auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now-trend_last); 
+		rate = counter/elapsed.count();
+		counter = 0;
+		trend_last = std::chrono::steady_clock::now();
+	}
 }
 }

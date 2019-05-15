@@ -44,6 +44,20 @@ public:
 	std::chrono::milliseconds election_duration;
 };
 
+class transaction_counter final
+{
+public:
+	transaction_counter(std::chrono::steady_clock::time_point);
+	void add();
+	void trend_sample();
+	double rate;
+
+private:
+	std::chrono::steady_clock::time_point trend_last;
+	size_t counter;
+	std::mutex mutex;
+};
+
 // Core class for determining consensus
 // Holds all active blocks i.e. recently added blocks that need confirmation
 class active_transactions final
@@ -86,6 +100,7 @@ public:
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
 	std::deque<nano::election_status> list_confirmed ();
 	std::deque<nano::election_status> confirmed;
+	nano::transaction_counter counter;
 	nano::node & node;
 	std::mutex mutex;
 	// Maximum number of conflicts to vote on per interval, lowest root hash first
