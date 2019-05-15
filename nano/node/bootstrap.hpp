@@ -254,6 +254,7 @@ private:
 	bool stopped;
 	std::mutex mutex;
 	std::condition_variable condition;
+	std::mutex observers_mutex;
 	std::vector<std::function<void(bool)>> observers;
 	boost::thread thread;
 
