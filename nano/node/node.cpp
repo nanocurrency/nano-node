@@ -607,10 +607,6 @@ bool nano::network::not_a_peer (nano::endpoint const & endpoint_a, bool allow_lo
 	{
 		result = true;
 	}
-	else if (!node.network_params.network.is_test_network ())
-	{
-		result = true;
-	}
 	return result;
 }
 

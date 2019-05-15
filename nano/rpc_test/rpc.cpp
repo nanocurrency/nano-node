@@ -2462,7 +2462,7 @@ TEST (rpc, work_generate)
 	ASSERT_FALSE (nano::from_string_hex (response_difficulty_text, response_difficulty));
 	ASSERT_EQ (result_difficulty, response_difficulty);
 	auto multiplier = response.json.get<double> ("multiplier");
-	ASSERT_EQ (nano::difficulty::to_multiplier (result_difficulty, node->network_params.network.publish_threshold), multiplier);
+	ASSERT_NEAR (nano::difficulty::to_multiplier (result_difficulty, node->network_params.network.publish_threshold), multiplier, 1e-6);
 }
 
 TEST (rpc, work_generate_difficulty)
