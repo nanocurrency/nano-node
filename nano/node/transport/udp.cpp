@@ -94,7 +94,7 @@ std::shared_ptr<nano::transport::channel_udp> nano::transport::udp_channels::ins
 {
 	assert (endpoint_a.address ().is_v6 ());
 	std::shared_ptr<nano::transport::channel_udp> result;
-	if (!node.network.not_a_peer (endpoint_a, node.config.allow_local_peers))
+	if (!node.network.not_a_peer (endpoint_a, node.config.allow_local_peers) && !max_ip_connections (endpoint_a))
 	{
 		std::unique_lock<std::mutex> lock (mutex);
 		auto existing (channels.get<endpoint_tag> ().find (endpoint_a));
@@ -415,6 +415,7 @@ public:
 					{
 						node.network.udp_channels.modify (new_channel, [&message_a](std::shared_ptr<nano::transport::channel_udp> channel_a) {
 							channel_a->set_node_id (message_a.response->first);
+							channel_a->set_last_packet_received (std::chrono::steady_clock::now ());
 						});
 					}
 				}
