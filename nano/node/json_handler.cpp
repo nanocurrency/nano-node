@@ -4453,9 +4453,8 @@ void nano::json_handler::work_validate ()
 	if (!ec)
 	{
 		uint64_t result_difficulty (0);
-		bool invalid (nano::work_validate (hash, work, &result_difficulty));
-		bool valid (!invalid && result_difficulty >= difficulty);
-		response_l.put ("valid", valid ? "1" : "0");
+		nano::work_validate (hash, work, &result_difficulty);
+		response_l.put ("valid", (result_difficulty >= difficulty) ? "1" : "0");
 		response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
 		auto multiplier = nano::difficulty::to_multiplier (result_difficulty, node.network_params.network.publish_threshold);
 		response_l.put ("multiplier", boost::convert<std::string> (multiplier, boost::cnv::cstream () (std::fixed) (std::setprecision (std::numeric_limits<double>::digits10))).value ());
