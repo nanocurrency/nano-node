@@ -774,7 +774,7 @@ std::string nano::uint128_union::to_string_dec () const
 	return result;
 }
 
-std::string nano::to_string_hex (uint64_t value_a)
+std::string nano::to_string_hex (uint64_t const value_a)
 {
 	std::stringstream stream;
 	stream << std::hex << std::noshowbase << std::setw (16) << std::setfill ('0');
