@@ -37,20 +37,20 @@ void nano::set_secure_perm_file (boost::filesystem::path const & path, boost::sy
 
 bool nano::is_windows_elevated ()
 {
-	bool fRet = false;
-	HANDLE hToken = nullptr;
-	if (OpenProcessToken (GetCurrentProcess (), TOKEN_QUERY, &hToken))
+	bool is_elevated = false;
+	HANDLE h_token = nullptr;
+	if (OpenProcessToken (GetCurrentProcess (), TOKEN_QUERY, &h_token))
 	{
 		TOKEN_ELEVATION elevation;
-		DWORD cbSize = sizeof (TOKEN_ELEVATION);
-		if (GetTokenInformation (hToken, TokenElevation, &elevation, sizeof (elevation), &cbSize))
+		DWORD cb_size = sizeof (TOKEN_ELEVATION);
+		if (GetTokenInformation (h_token, TokenElevation, &elevation, sizeof (elevation), &cb_size))
 		{
-			fRet = elevation.TokenIsElevated;
+			is_elevated = elevation.TokenIsElevated;
 		}
 	}
-	if (hToken)
+	if (h_token)
 	{
-		CloseHandle (hToken);
+		CloseHandle (h_token);
 	}
-	return fRet;
+	return is_elevated;
 }
