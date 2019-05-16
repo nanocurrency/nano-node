@@ -61,8 +61,10 @@ public:
 	uint16_t external_port{ 0 };
 	std::chrono::milliseconds block_processor_batch_max_time{ std::chrono::milliseconds (5000) };
 	std::chrono::seconds unchecked_cutoff_time{ std::chrono::seconds (4 * 60 * 60) }; // 4 hours
-	std::chrono::seconds tcp_client_timeout{ std::chrono::seconds (5) };
-	std::chrono::seconds tcp_server_timeout{ std::chrono::seconds (30) };
+	/** Timeout for initiated async operations */
+	std::chrono::seconds tcp_io_timeout{ network_params.network.is_test_network () ? std::chrono::seconds (5) : std::chrono::seconds (15) };
+	/** Default maximum idle time for a socket before it's automatically closed */
+	std::chrono::seconds tcp_idle_timeout{ std::chrono::minutes (2) };
 	std::chrono::nanoseconds pow_sleep_interval{ 0 };
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;

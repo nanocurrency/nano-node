@@ -27,7 +27,7 @@ public:
 class mdb_txn_tracker
 {
 public:
-	mdb_txn_tracker (nano::logger_mt & logger_a, nano::txn_tracking_config const & txn_tracking_config_a);
+	mdb_txn_tracker (nano::logger_mt & logger_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a);
 	void serialize_json (boost::property_tree::ptree & json, std::chrono::milliseconds min_read_time, std::chrono::milliseconds min_write_time);
 	void add (const nano::transaction_impl * transaction_impl);
 	void erase (const nano::transaction_impl * transaction_impl);
@@ -37,6 +37,7 @@ private:
 	std::vector<mdb_txn_stats> stats;
 	nano::logger_mt & logger;
 	nano::txn_tracking_config txn_tracking_config;
+	std::chrono::milliseconds block_processor_batch_max_time;
 
 	void output_finished (nano::mdb_txn_stats const & mdb_txn_stats) const;
 };

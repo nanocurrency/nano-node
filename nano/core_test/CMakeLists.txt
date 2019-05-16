@@ -19,6 +19,7 @@ add_executable (core_test
 	processor_service.cpp
 	peer_container.cpp
 	signing.cpp
+	socket.cpp
 	timer.cpp
 	uint256_union.cpp
 	versioning.cpp

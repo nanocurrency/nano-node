@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <nano/lib/errors.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/node/node.hpp>
 
 namespace nano
