@@ -87,7 +87,9 @@ TEST (socket, concurrent_writes)
 	auto client (clients[0]);
 	for (int i = 0; i < client_count; i++)
 	{
-		std::thread runner ([&client]() {
+		// Note: this gives a warning on most compilers because message_count is constexpr and a
+		// capture isn't needed. However, removing it fails to compile on VS2017 due to a known compiler bug.
+		std::thread runner ([&client, &message_count]() {
 			for (int i = 0; i < message_count; i++)
 			{
 				auto buff (std::make_shared<std::vector<uint8_t>> ());
