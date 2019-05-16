@@ -1009,7 +1009,7 @@ int main (int argc, char * const * argv)
 #ifdef BOOST_WINDOWS
 			if (!nano::event_log_reg_entry_exists () && !nano::is_windows_elevated ())
 			{
-				std::cerr << "The event log requires the HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\EventLog\\Nano\\Nano registry entry, run again as administator to create it.\n"; 
+				std::cerr << "The event log requires the HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\EventLog\\Nano\\Nano registry entry, run again as administator to create it.\n";
 				return 1;
 			}
 #endif
