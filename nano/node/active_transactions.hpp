@@ -48,8 +48,11 @@ class transaction_counter final
 {
 public:
 	transaction_counter(std::chrono::steady_clock::time_point);
+	// increment counter
 	void add();
+	// clear counter and reset trend_last after calculating a new rate, guarded to only run once a sec
 	void trend_sample();
+	// blocks/sec confirmed
 	double rate;
 
 private:
@@ -82,6 +85,13 @@ public:
 	uint64_t active_difficulty ();
 	std::deque<std::shared_ptr<nano::block>> list_blocks (bool = false);
 	void erase (nano::block const &);
+	//check if we should flush
+	//if counter.rate == 0 set minimum_size before considering flushing to 4 for testing convenience
+	//else minimum_size is rate * 10
+	//when roots.size > minimum_size check counter.rate and adjusted expected percentage long unconfirmed before kicking in
+	bool should_flush ();
+	//drop 2 from roots based on adjusted_difficulty
+	uint64_t flush_lowest ();
 	bool empty ();
 	size_t size ();
 	size_t long_unconfirmed_size ();

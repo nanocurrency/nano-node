@@ -137,3 +137,146 @@ TEST (active_transactions, adjusted_difficulty_priority)
 		}
 	}
 }
+
+TEST (active_transactions, keep_local)
+{
+	nano::system system (24000, 1);
+	auto & node1 (*system.nodes[0]);
+	auto & wallet (*system.wallet (0));
+	node1.config.enable_voting = false;
+	nano::genesis genesis;
+	//key 1/2 will be managed by the wallet
+	nano::keypair key1, key2, key3, key4;
+	wallet.insert_adhoc (nano::test_genesis_key.prv);
+	wallet.insert_adhoc (key1.prv);
+	wallet.insert_adhoc (key2.prv);
+	auto send1 (wallet.send_action (nano::test_genesis_key.pub, key1.pub, node1.config.receive_minimum.number ()));
+	auto send2 (wallet.send_action (nano::test_genesis_key.pub, key2.pub, node1.config.receive_minimum.number ()));
+	auto send3 (wallet.send_action (nano::test_genesis_key.pub, key3.pub, node1.config.receive_minimum.number ()));
+	auto send4 (wallet.send_action (nano::test_genesis_key.pub, key4.pub, node1.config.receive_minimum.number ()));
+	system.deadline_set (10s);
+	while (node1.active.size () != 4)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	while (node1.active.size () != 0)
+	{
+		std::lock_guard<std::mutex> active_guard (node1.active.mutex);
+		auto it(node1.active.roots.begin());
+		while (!node1.active.roots.empty() && it != node1.active.roots.end ())
+		{
+			(it->election)->confirm_once();
+			it++;;
+		}
+	}
+	auto open1 (std::make_shared<nano::state_block> (key3.pub, 0, key3.pub, nano::xrb_ratio, send3->hash (), key3.prv, key3.pub, system.work.generate (key3.pub)));
+	node1.process_active (open1);
+	auto open2 (std::make_shared<nano::state_block> (key4.pub, 0, key4.pub, nano::xrb_ratio, send4->hash (), key4.prv, key4.pub, system.work.generate (key4.pub)));
+	node1.process_active (open2);
+	//none are dropped since none are long_unconfirmed
+	while (node1.active.size () != 4)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+
+	}
+	auto done (false);
+	//wait for all to be long_unconfirmed
+	while (!done)
+	{
+		ASSERT_FALSE (node1.active.empty ());
+		{
+			std::lock_guard<std::mutex> guard (node1.active.mutex);
+			done = node1.active.long_unconfirmed_size () == 4;
+		}
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	auto send5 (wallet.send_action(nano::test_genesis_key.pub, key1.pub, node1.config.receive_minimum.number()));
+	node1.active.start(send5);
+	//drop two lowest non-wallet managed active_transactions before inserting a new into active as all are long_unconfirmed
+	while (node1.active.size () != 3)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
+TEST (active_transactions, prioritize_chains)
+{
+	nano::system system (24000, 1);
+	auto & node1 (*system.nodes[0]);
+	auto & wallet (*system.wallet (0));
+	node1.config.enable_voting = false;
+	nano::genesis genesis;
+	nano::keypair key1, key2;
+
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash(), nano::test_genesis_key.pub, nano::genesis_amount-10*nano::xrb_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (genesis.hash())));
+	auto open1 (std::make_shared<nano::state_block> (key1.pub, 0, key1.pub, 10*nano::xrb_ratio, send1->hash (), key1.prv, key1.pub, system.work.generate (key1.pub)));
+	auto send2 (std::make_shared<nano::state_block> (key1.pub, open1->hash(), key1.pub, nano::xrb_ratio*9, key2.pub, key1.prv, key1.pub, system.work.generate (open1->hash())));
+	auto send3 (std::make_shared<nano::state_block> (key1.pub, send2->hash(), key1.pub, nano::xrb_ratio*8, key2.pub, key1.prv, key1.pub, system.work.generate (send2->hash())));
+	auto send4 (std::make_shared<nano::state_block> (key1.pub, send3->hash(), key1.pub, nano::xrb_ratio*7, key2.pub, key1.prv, key1.pub, system.work.generate (send3->hash())));
+	auto send5 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash(), nano::test_genesis_key.pub, nano::genesis_amount-20*nano::xrb_ratio, key2.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send1->hash())));
+	auto open2 (std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, 10*nano::xrb_ratio, send5->hash (), key2.prv, key2.pub, system.work.generate (key2.pub,nano::difficulty::from_multiplier(50.,node1.network_params.network.publish_threshold))));
+	uint64_t difficulty (0);
+	nano::work_validate (*open2, &difficulty);
+		
+	node1.process_active (send1);
+	node1.process_active (open1);
+	system.deadline_set (10s);
+	while (node1.active.size () != 2)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	while (node1.active.size () != 0)
+	{
+		std::lock_guard<std::mutex> active_guard (node1.active.mutex);
+		auto it(node1.active.roots.get<1>().begin());
+		while (!node1.active.roots.empty() && it != node1.active.roots.get<1>().end ())
+		{
+			auto election(it->election);
+			election->confirm_once();
+			it++;;
+		}
+	}
+
+	node1.process_active (send2);
+	node1.process_active (send3);
+	node1.process_active (send4);
+	node1.process_active (send5);
+
+	while (node1.active.size () != 4)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	bool done(false);
+	//wait for all to be long_unconfirmed
+	while (!done)
+	{
+		{
+			std::lock_guard<std::mutex> guard (node1.active.mutex);
+			done = node1.active.long_unconfirmed_size () == 4;
+		}
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	node1.process_active (open2);
+	while (node1.active.size () != 4)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	//wait for all to be long_unconfirmed
+	while (!done)
+	{
+		{
+			std::lock_guard<std::mutex> guard (node1.active.mutex);
+			done = node1.active.long_unconfirmed_size () == 4;
+		}
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	{
+		auto it(node1.active.roots.get<1>().begin());
+		while (!node1.active.roots.empty() && it != node1.active.roots.get<1>().end ())
+		{
+			ASSERT_NE(difficulty, it->difficulty);
+			it++;
+		}
+	}
+	ASSERT_EQ(node1.active.size(), 4);
+}

@@ -363,6 +363,15 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, std::
 			adjust_difficulty (block_a->hash ());
 		}
 		error = existing != roots.end ();
+		if (error)
+		{
+			counter.add();
+			if(should_flush())
+			{
+				counter.add();
+				flush_lowest();
+			}
+		}
 	}
 	return error;
 }
@@ -580,6 +589,78 @@ void nano::active_transactions::erase (nano::block const & block_a)
 	}
 }
 
+bool nano::active_transactions::should_flush ()
+{
+	bool result (false);
+	counter.trend_sample();
+	size_t minimum_size(1); 
+	if( counter.rate == 0 )
+	{
+		minimum_size = 4;
+	}
+	else
+	{
+		minimum_size = counter.rate * 10;
+	}
+
+	if (roots.size () > minimum_size)
+	{
+		if (counter.rate <= 10)
+		{
+			if (static_cast<double>(roots.size () * .75) < long_unconfirmed_size())
+			{
+				result = true;
+			}
+		} else if (counter.rate <= 100)
+		{
+			if (static_cast<double>(roots.size () * .50) < long_unconfirmed_size())
+			{
+				result = true;
+			}
+		} else if (counter.rate <= 1000)
+		{
+			if (static_cast<double>(roots.size () * .25) < long_unconfirmed_size())
+			{
+				result = true;
+			}
+		}
+	}
+	return result;
+}
+
+uint64_t nano::active_transactions::flush_lowest ()
+{
+	uint64_t result (0);
+	size_t count (0);
+	assert (!roots.empty ());
+	auto & sorted_roots = roots.get<1> ();
+	for (auto it = sorted_roots.rbegin (); it != sorted_roots.rend ();)
+	{
+		if (count != 2)
+		{
+			auto election = it->election;
+			if (election->announcements > announcement_long && !election->confirmed && !node.wallets.watcher.is_watched (it->root))
+			{
+				result = it->difficulty;
+				std::cout << it->root.to_string () << " " << std::hex << it->adjusted_difficulty << std::endl;
+				it = decltype (it){ sorted_roots.erase (std::next (it).base ()) };
+				count++;
+			}
+			else
+			{
+				++it;
+			}
+		}
+		else
+		{
+			//early return if 2 have been dropped
+			return result;
+		}
+	}
+
+	return result;
+}
+
 bool nano::active_transactions::empty ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
@@ -672,7 +753,7 @@ void transaction_counter::trend_sample ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto now (std::chrono::steady_clock::now());
-	if (now + 1s == trend_last){
+	if (now + 1s > trend_last && counter !=0){
 		auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now-trend_last); 
 		rate = counter/elapsed.count();
 		counter = 0;
