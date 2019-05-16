@@ -457,11 +457,11 @@ int main (int argc, char * const * argv)
 
 	boost::asio::io_context ioc;
 	tcp::resolver resolver{ ioc };
-	auto const results = resolver.resolve ("::1", std::to_string (rpc_port_start));
+	auto const primary_node_results = resolver.resolve ("::1", std::to_string (rpc_port_start));
 
 	for (int i = 0; i < node_count; ++i)
 	{
-		keepalive_rpc (ioc, results, peering_port_start + i);
+		keepalive_rpc (ioc, primary_node_results, peering_port_start + i);
 	}
 
 	std::cout << "Beginning tests" << std::endl;
@@ -470,24 +470,24 @@ int main (int argc, char * const * argv)
 	std::vector<account> destination_accounts;
 	for (int i = 0; i < destination_count; ++i)
 	{
-		destination_accounts.emplace_back (key_create_rpc (ioc, results));
+		destination_accounts.emplace_back (key_create_rpc (ioc, primary_node_results));
 	}
 
 	// Create wallet
-	std::string wallet = wallet_create_rpc (ioc, results);
+	std::string wallet = wallet_create_rpc (ioc, primary_node_results);
 
 	// Add genesis account to it
-	wallet_add_rpc (ioc, results, wallet, nano::test_genesis_key.prv.data.to_string ());
+	wallet_add_rpc (ioc, primary_node_results, wallet, nano::test_genesis_key.prv.data.to_string ());
 
 	// Add destination accounts
 	for (auto & account : destination_accounts)
 	{
-		wallet_add_rpc (ioc, results, wallet, account.private_key);
+		wallet_add_rpc (ioc, primary_node_results, wallet, account.private_key);
 	}
 
 	std::cout << "\rPrimary node processing transactions: 00%";
 
-	std::thread t ([send_count, &destination_accounts, &ioc, &results, &wallet, &resolver, &node_count]() {
+	std::thread t ([send_count, &destination_accounts, &ioc, &primary_node_results, &wallet, &resolver, &node_count]() {
 		std::random_device rd;
 		std::mt19937 mt (rd ());
 		std::uniform_int_distribution<size_t> dist (0, destination_accounts.size () - 1);
@@ -507,7 +507,7 @@ int main (int argc, char * const * argv)
 				destination_account = &destination_accounts[random_account_index];
 			}
 
-			std::make_shared<send_session> (ioc, send_calls_remaining, wallet, nano::genesis_account.to_account (), destination_account->as_string, results)->run ();
+			std::make_shared<send_session> (ioc, send_calls_remaining, wallet, nano::genesis_account.to_account (), destination_account->as_string, primary_node_results)->run ();
 		}
 
 		while (send_calls_remaining != 0)
@@ -529,7 +529,7 @@ int main (int argc, char * const * argv)
 		std::map<std::string, account_info> known_account_info;
 		for (int i = 0; i < destination_accounts.size (); ++i)
 		{
-			known_account_info.emplace (destination_accounts[i].as_string, account_info_rpc (ioc, results, destination_accounts[i].as_string));
+			known_account_info.emplace (destination_accounts[i].as_string, account_info_rpc (ioc, primary_node_results, destination_accounts[i].as_string));
 		}
 
 		nano::timer<std::chrono::milliseconds> timer;
@@ -562,7 +562,7 @@ int main (int argc, char * const * argv)
 		}
 
 		// Stop main node
-		stop_rpc (ioc, results);
+		stop_rpc (ioc, primary_node_results);
 	});
 	nano::thread_runner runner (ioc, simultaneous_process_calls);
 	t.join ();
