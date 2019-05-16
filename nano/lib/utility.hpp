@@ -68,6 +68,16 @@ void set_secure_perm_file (boost::filesystem::path const & path);
 void set_secure_perm_file (boost::filesystem::path const & path, boost::system::error_code & ec);
 
 /*
+ * Function to check if running Windows as an administrator
+ */
+bool is_windows_elevated ();
+
+/*
+ * Function to check if the Windows Event log registry key exists
+ */
+bool event_log_reg_entry_exists ();
+
+/*
  * Functions for understanding the role of the current thread
  */
 namespace thread_role

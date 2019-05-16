@@ -2,6 +2,9 @@
 
 #include <boost/log/sources/severity_logger.hpp>
 #include <boost/log/trivial.hpp>
+#include <boost/log/utility/manipulators/to_log.hpp>
+
+#include <array>
 #include <chrono>
 #include <mutex>
 
@@ -12,7 +15,27 @@ enum class severity_level
 	normal = 0,
 	error
 };
+}
 
+// Attribute value tag type
+struct severity_tag;
+
+inline boost::log::formatting_ostream & operator<< (boost::log::formatting_ostream & strm, boost::log::to_log_manip<nano::severity_level, severity_tag> const & manip)
+{
+	// Needs to match order in the severity_level enum
+	static std::array<const char *, 2> strings = {
+		"",
+		"Error: "
+	};
+
+	nano::severity_level level = manip.get ();
+	assert (static_cast<int> (level) < strings.size ());
+	strm << strings[static_cast<int> (level)];
+	return strm;
+}
+
+namespace nano
+{
 // A wrapper around a boost logger object to allow minimum
 // time spaced output to prevent logging happening too quickly.
 class logger_mt
