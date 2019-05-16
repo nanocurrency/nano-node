@@ -439,15 +439,15 @@ int main (int argc, char * const * argv)
 		nodes.emplace_back (std::make_unique<boost::process::child> (node_path, "--daemon", "--data_path", data_path.string (), "--network", current_network));
 		rpc_servers.emplace_back (std::make_unique<boost::process::child> (rpc_path, "--daemon", "--data_path", data_path.string (), "--network", current_network));
 #else
-		auto node_exe_command = boost::str (boost::format ("%1% --daemon --data_path=%2% --network=%3%") % nano_path % data_path.string () % current_network);
-		nodes[i] = std::make_unique<std::thread> ([node_exe_command]() {
+		auto node_exe_command = boost::str (boost::format ("%1% --daemon --data_path=%2% --network=%3%") % node_path % data_path.string () % current_network);
+		nodes.emplace_back (std::make_unique<std::thread> ([node_exe_command]() {
 			std::system (node_exe_command.c_str ());
-		});
+		}));
 
 		auto rpc_exe_command = boost::str (boost::format ("%1% --daemon --data_path=%2% --network=%3%") % rpc_path % data_path.string () % current_network);
-		rpc_servers[i] = std::make_unique<std::thread> ([rpc_exe_command]() {
+		rpc_servers.emplace_back (std::make_unique<std::thread> ([rpc_exe_command]() {
 			std::system (rpc_exe_command.c_str ());
-		});
+		}));
 #endif
 	}
 
