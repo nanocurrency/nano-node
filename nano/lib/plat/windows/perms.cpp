@@ -3,6 +3,7 @@
 #include <nano/lib/utility.hpp>
 
 #include <io.h>
+#include <processthreadsapi.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -32,4 +33,24 @@ void nano::set_secure_perm_file (boost::filesystem::path const & path)
 void nano::set_secure_perm_file (boost::filesystem::path const & path, boost::system::error_code & ec)
 {
 	boost::filesystem::permissions (path, boost::filesystem::owner_read | boost::filesystem::owner_write, ec);
+}
+
+bool nano::is_windows_elevated ()
+{
+	bool fRet = false;
+	HANDLE hToken = nullptr;
+	if (OpenProcessToken (GetCurrentProcess (), TOKEN_QUERY, &hToken))
+	{
+		TOKEN_ELEVATION elevation;
+		DWORD cbSize = sizeof (TOKEN_ELEVATION);
+		if (GetTokenInformation (hToken, TokenElevation, &elevation, sizeof (elevation), &cbSize))
+		{
+			fRet = elevation.TokenIsElevated;
+		}
+	}
+	if (hToken)
+	{
+		CloseHandle (hToken);
+	}
+	return fRet;
 }
