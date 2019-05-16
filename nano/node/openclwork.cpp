@@ -473,13 +473,25 @@ void nano::opencl_environment::dump (std::ostream & stream)
 			clGetDeviceInfo (*j, CL_DEVICE_COMPILER_AVAILABLE, 0, nullptr, &compilerAvailableCount);
 			std::vector<uint8_t> compilerAvailableInfo (compilerAvailableCount);
 			clGetDeviceInfo (*j, CL_DEVICE_COMPILER_AVAILABLE, compilerAvailableCount, compilerAvailableInfo.data (), 0);
-			stream << '\t' << "Compiler available: " << (compilerAvailableInfo[0] ? "true" : "false") << std::endl;
+			stream << "\tCompiler available: " << (compilerAvailableInfo[0] ? "true" : "false") << std::endl;
 			size_t computeUnitsAvailableCount = 0;
 			clGetDeviceInfo (*j, CL_DEVICE_MAX_COMPUTE_UNITS, 0, nullptr, &computeUnitsAvailableCount);
 			std::vector<uint8_t> computeUnitsAvailableInfo (computeUnitsAvailableCount);
 			clGetDeviceInfo (*j, CL_DEVICE_MAX_COMPUTE_UNITS, computeUnitsAvailableCount, computeUnitsAvailableInfo.data (), 0);
 			uint64_t computeUnits (computeUnitsAvailableInfo[0] | (computeUnitsAvailableInfo[1] << 8) | (computeUnitsAvailableInfo[2] << 16) | (computeUnitsAvailableInfo[3] << 24));
-			stream << '\t' << "Compute units available: " << computeUnits << std::endl;
+			stream << "\tCompute units available: " << computeUnits << std::endl;
+			cl_ulong size{ 0 };
+			clGetDeviceInfo (*j, CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, sizeof (cl_ulong), &size, 0);
+			stream << "\tMemory size" << std::endl;
+			stream << "\t\tConstant buffer: " << size << std::endl;
+			clGetDeviceInfo (*j, CL_DEVICE_LOCAL_MEM_SIZE, sizeof (cl_ulong), &size, 0);
+			stream << "\t\tLocal memory   : " << size << std::endl;
+			clGetDeviceInfo (*j, CL_DEVICE_GLOBAL_MEM_SIZE, sizeof (cl_ulong), &size, 0);
+			stream << "\t\tGlobal memory  : " << size << std::endl;
+			clGetDeviceInfo (*j, CL_DEVICE_GLOBAL_MEM_CACHE_SIZE, sizeof (cl_ulong), &size, 0);
+			stream << "\t\tGlobal cache   : " << size << std::endl;
+			clGetDeviceInfo (*j, CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof (cl_ulong), &size, 0);
+			stream << "\t\tMax allocation : " << size << std::endl;
 		}
 	}
 }
