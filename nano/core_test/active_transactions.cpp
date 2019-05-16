@@ -6,7 +6,7 @@
 TEST (transaction_counter, validate)
 {
 	auto now = std::chrono::steady_clock::now ();
-	nano::transaction_counter counter (now);
+	nano::transaction_counter counter;
 	auto count (0);
 	ASSERT_EQ (count, counter.rate);
 	while (std::chrono::steady_clock::now () < now + 1s)
@@ -14,6 +14,7 @@ TEST (transaction_counter, validate)
 		count++;
 		counter.add ();
 	}
+	std::this_thread::sleep_for (500ms);
 	counter.trend_sample ();
 	ASSERT_EQ (count, counter.rate);
 }
@@ -42,23 +43,28 @@ TEST (active_transactions, long_unconfirmed_size)
 		ASSERT_FALSE (node1.active.empty ());
 		{
 			std::lock_guard<std::mutex> guard (node1.active.mutex);
-			auto info (node1.active.roots.find (nano::qualified_root (send1->hash (), send1->hash ())));
-			ASSERT_NE (node1.active.roots.end (), info);
-			done = info->election->announcements > nano::active_transactions::announcement_long;
+			done = node1.active.long_unconfirmed_size () == 3;
 		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	//since send1 is long_unconfirmed the other two should be as well
-	ASSERT_EQ (node1.active.long_unconfirmed_size (), 3);
+	{
+		//since send1 is long_unconfirmed the other two should be as well
+		std::lock_guard<std::mutex> lock (node1.active.mutex);
+		ASSERT_EQ (node1.active.long_unconfirmed_size (), 3);
+	}
 	{
 		std::lock_guard<std::mutex> guard (node1.active.mutex);
 		auto existing (node1.active.roots.find (send1->qualified_root ()));
 		ASSERT_NE (node1.active.roots.end (), existing);
 		//force election to appear confirmed
-		(existing->election)->confirmed = true;
+		auto election (existing->election);
+		election->confirm_once ();
 	}
-	//only 2 should appear unconfirmed now
-	ASSERT_EQ (node1.active.long_unconfirmed_size (), 2);
+	{
+		//only 2 should appear unconfirmed now
+		std::lock_guard<std::mutex> lock (node1.active.mutex);
+		ASSERT_EQ (node1.active.long_unconfirmed_size (), 2);
+	}
 }
 
 TEST (active_transactions, adjusted_difficulty_priority)

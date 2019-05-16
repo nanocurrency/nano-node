@@ -47,18 +47,18 @@ public:
 class transaction_counter final
 {
 public:
-	transaction_counter (std::chrono::steady_clock::time_point);
+	transaction_counter ();
 	// increment counter
 	void add ();
 	// clear counter and reset trend_last after calculating a new rate, guarded to only run once a sec
 	void trend_sample ();
 	// blocks/sec confirmed
 	double rate;
+	std::mutex mutex;
 
 private:
 	std::chrono::steady_clock::time_point trend_last;
 	size_t counter;
-	std::mutex mutex;
 };
 
 // Core class for determining consensus
