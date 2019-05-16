@@ -8,8 +8,7 @@ RUN apt-get update -qq && apt-get install -yqq \
 RUN apt-get update -qq && apt-get install -yqq \
     qt5-default \
     valgrind \
-    xorg xvfb xauth xfonts-100dpi xfonts-75dpi xfonts-scalable xfonts-cyrillic \
-    cargo
+    xorg xvfb xauth xfonts-100dpi xfonts-75dpi xfonts-scalable xfonts-cyrillic
 
 RUN apt-get update -qq && apt-get install -yqq \
     clang-3.9 lldb-3.9

@@ -313,6 +313,8 @@ if (NANO_TEST OR RAIBLOCKS_TEST)
         set (gtest_force_shared_crt OFF)
     endif()
 
+    add_subdirectory(nano/load_test)
+
     add_subdirectory (gtest/googletest)
 	# FIXME: This fixes gtest include directories without modifying gtest's
 	# CMakeLists.txt. Ideally we should use GTest::GTest and GTest::Main as

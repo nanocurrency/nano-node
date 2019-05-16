@@ -71,7 +71,7 @@ run_tests() {
     xvfb_run_ ./qt_test
     qt_test_res=${?}
 
-    ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-${TIMEOUT_DEFAULT}} ./load_test ./nano_node ./nano_rpc -s 150
+    ${TIMEOUT_CMD} ${TIMEOUT_TIME_ARG} ${TIMEOUT_SEC-${TIMEOUT_DEFAULT}} ./load_test -s 150
     load_test_res=${?}
 
     echo "Core Test return code: ${core_test_res}"
