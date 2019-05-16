@@ -212,7 +212,7 @@ TEST (node, node_receive_quorum)
 	nano::system system2 (24001, 1);
 	system2.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	ASSERT_TRUE (system.nodes[0]->balance (key.pub).is_zero ());
-	nano::transport::channel_udp channel (system.nodes[0]->network.udp_channels, system2.nodes[0]->network.endpoint ());
+	auto channel (std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, system2.nodes[0]->network.endpoint ()));
 	system.nodes[0]->network.send_keepalive (channel);
 	while (system.nodes[0]->balance (key.pub).is_zero ())
 	{
@@ -236,7 +236,7 @@ TEST (node, auto_bootstrap)
 	nano::node_init init1;
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 	ASSERT_FALSE (init1.error ());
-	nano::transport::channel_udp channel (node1->network.udp_channels, system.nodes[0]->network.endpoint ());
+	auto channel (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, system.nodes[0]->network.endpoint ()));
 	node1->network.send_keepalive (channel);
 	node1->start ();
 	system.nodes.push_back (node1);
@@ -267,7 +267,7 @@ TEST (node, auto_bootstrap_reverse)
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 	ASSERT_FALSE (init1.error ());
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::test_genesis_key.pub, key2.pub, system.nodes[0]->config.receive_minimum.number ()));
-	nano::transport::channel_udp channel (system.nodes[0]->network.udp_channels, node1->network.endpoint ());
+	auto channel (std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, node1->network.endpoint ()));
 	system.nodes[0]->network.send_keepalive (channel);
 	node1->start ();
 	system.nodes.push_back (node1);
@@ -441,9 +441,10 @@ TEST (node, connect_after_junk)
 	nano::system system (24000, 1);
 	nano::node_init init1;
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
-	uint64_t junk (0);
-	nano::transport::channel_udp channel1 (node1->network.udp_channels, system.nodes[0]->network.endpoint ());
-	channel1.send_buffer_raw (boost::asio::buffer (&junk, sizeof (junk)), [](boost::system::error_code const &, size_t) {});
+	auto junk_buffer (std::make_shared<std::vector<uint8_t>> ());
+	junk_buffer->push_back (0);
+	auto channel1 (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, system.nodes[0]->network.endpoint ()));
+	channel1->send_buffer (junk_buffer, nano::stat::detail::bulk_pull, [](boost::system::error_code const &, size_t) {});
 	system.deadline_set (10s);
 	while (system.nodes[0]->stats.count (nano::stat::type::error) == 0)
 	{
@@ -451,7 +452,7 @@ TEST (node, connect_after_junk)
 	}
 	node1->start ();
 	system.nodes.push_back (node1);
-	nano::transport::channel_udp channel2 (node1->network.udp_channels, system.nodes[0]->network.endpoint ());
+	auto channel2 (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, system.nodes[0]->network.endpoint ()));
 	node1->network.send_keepalive (channel2);
 	system.deadline_set (10s);
 	while (node1->network.empty ())
@@ -697,8 +698,8 @@ TEST (node_config, v16_v17_upgrade)
 	nano::node_config config;
 	config.logging.init (path);
 	// These config options should not be present
-	ASSERT_FALSE (tree.get_optional_child ("tcp_client_timeout"));
-	ASSERT_FALSE (tree.get_optional_child ("tcp_server_timeout"));
+	ASSERT_FALSE (tree.get_optional_child ("tcp_io_timeout"));
+	ASSERT_FALSE (tree.get_optional_child ("tcp_idle_timeout"));
 	ASSERT_FALSE (tree.get_optional_child ("pow_sleep_interval"));
 	ASSERT_FALSE (tree.get_optional_child ("external_address"));
 	ASSERT_FALSE (tree.get_optional_child ("external_port"));
@@ -706,8 +707,8 @@ TEST (node_config, v16_v17_upgrade)
 
 	config.deserialize_json (upgraded, tree);
 	// The config options should be added after the upgrade
-	ASSERT_TRUE (!!tree.get_optional_child ("tcp_client_timeout"));
-	ASSERT_TRUE (!!tree.get_optional_child ("tcp_server_timeout"));
+	ASSERT_TRUE (!!tree.get_optional_child ("tcp_io_timeout"));
+	ASSERT_TRUE (!!tree.get_optional_child ("tcp_idle_timeout"));
 	ASSERT_TRUE (!!tree.get_optional_child ("pow_sleep_interval"));
 	ASSERT_TRUE (!!tree.get_optional_child ("external_address"));
 	ASSERT_TRUE (!!tree.get_optional_child ("external_port"));
@@ -732,8 +733,8 @@ TEST (node_config, v17_values)
 
 	// Check config is correct
 	{
-		tree.put ("tcp_client_timeout", 1);
-		tree.put ("tcp_server_timeout", 0);
+		tree.put ("tcp_io_timeout", 1);
+		tree.put ("tcp_idle_timeout", 0);
 		tree.put ("pow_sleep_interval", 0);
 		tree.put ("external_address", "::1");
 		tree.put ("external_port", 0);
@@ -741,6 +742,7 @@ TEST (node_config, v17_values)
 		txn_tracking_l.put ("enable", false);
 		txn_tracking_l.put ("min_read_txn_time", 0);
 		txn_tracking_l.put ("min_write_txn_time", 0);
+		txn_tracking_l.put ("ignore_writes_below_block_processor_max_time", true);
 		nano::jsonconfig diagnostics_l;
 		diagnostics_l.put_child ("txn_tracking", txn_tracking_l);
 		tree.put_child ("diagnostics", diagnostics_l);
@@ -748,18 +750,19 @@ TEST (node_config, v17_values)
 
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
-	ASSERT_EQ (config.tcp_client_timeout.count (), 1);
-	ASSERT_EQ (config.tcp_server_timeout.count (), 0);
+	ASSERT_EQ (config.tcp_io_timeout.count (), 1);
+	ASSERT_EQ (config.tcp_idle_timeout.count (), 0);
 	ASSERT_EQ (config.pow_sleep_interval.count (), 0);
 	ASSERT_EQ (config.external_address, boost::asio::ip::address_v6::from_string ("::1"));
 	ASSERT_EQ (config.external_port, 0);
 	ASSERT_FALSE (config.diagnostics_config.txn_tracking.enable);
 	ASSERT_EQ (config.diagnostics_config.txn_tracking.min_read_txn_time.count (), 0);
 	ASSERT_EQ (config.diagnostics_config.txn_tracking.min_write_txn_time.count (), 0);
+	ASSERT_TRUE (config.diagnostics_config.txn_tracking.ignore_writes_below_block_processor_max_time);
 
 	// Check config is correct with other values
-	tree.put ("tcp_client_timeout", std::numeric_limits<unsigned long>::max () - 100);
-	tree.put ("tcp_server_timeout", std::numeric_limits<unsigned>::max ());
+	tree.put ("tcp_io_timeout", std::numeric_limits<unsigned long>::max () - 100);
+	tree.put ("tcp_idle_timeout", std::numeric_limits<unsigned>::max ());
 	tree.put ("pow_sleep_interval", std::numeric_limits<unsigned long>::max () - 100);
 	tree.put ("external_address", "::ffff:192.168.1.1");
 	tree.put ("external_port", std::numeric_limits<uint16_t>::max () - 1);
@@ -767,6 +770,7 @@ TEST (node_config, v17_values)
 	txn_tracking_l.put ("enable", true);
 	txn_tracking_l.put ("min_read_txn_time", 1234);
 	txn_tracking_l.put ("min_write_txn_time", std::numeric_limits<unsigned>::max ());
+	txn_tracking_l.put ("ignore_writes_below_block_processor_max_time", false);
 	nano::jsonconfig diagnostics_l;
 	diagnostics_l.replace_child ("txn_tracking", txn_tracking_l);
 	tree.replace_child ("diagnostics", diagnostics_l);
@@ -774,14 +778,15 @@ TEST (node_config, v17_values)
 	upgraded = false;
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
-	ASSERT_EQ (config.tcp_client_timeout.count (), std::numeric_limits<unsigned long>::max () - 100);
-	ASSERT_EQ (config.tcp_server_timeout.count (), std::numeric_limits<unsigned>::max ());
+	ASSERT_EQ (config.tcp_io_timeout.count (), std::numeric_limits<unsigned long>::max () - 100);
+	ASSERT_EQ (config.tcp_idle_timeout.count (), std::numeric_limits<unsigned>::max ());
 	ASSERT_EQ (config.pow_sleep_interval.count (), std::numeric_limits<unsigned long>::max () - 100);
 	ASSERT_EQ (config.external_address, boost::asio::ip::address_v6::from_string ("::ffff:192.168.1.1"));
 	ASSERT_EQ (config.external_port, std::numeric_limits<uint16_t>::max () - 1);
 	ASSERT_TRUE (config.diagnostics_config.txn_tracking.enable);
 	ASSERT_EQ (config.diagnostics_config.txn_tracking.min_read_txn_time.count (), 1234);
 	ASSERT_EQ (config.diagnostics_config.txn_tracking.min_write_txn_time.count (), std::numeric_limits<unsigned>::max ());
+	ASSERT_FALSE (config.diagnostics_config.txn_tracking.ignore_writes_below_block_processor_max_time);
 }
 
 // Regression test to ensure that deserializing includes changes node via get_required_child
@@ -1184,7 +1189,7 @@ TEST (node, fork_bootstrap_flip)
 		auto transaction (node2.store.tx_begin_read ());
 		ASSERT_TRUE (node2.store.block_exists (transaction, send2->hash ()));
 	}
-	nano::transport::channel_udp channel (node1.network.udp_channels, node2.network.endpoint ());
+	auto channel (std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, node2.network.endpoint ()));
 	node1.network.send_keepalive (channel);
 	system1.deadline_set (50s);
 	while (node2.network.empty ())
@@ -2574,6 +2579,7 @@ TEST (active_difficulty, recalculate_work)
 	node1.work_generate_blocking (*send1);
 	uint64_t difficulty1;
 	nano::work_validate (*send1, &difficulty1);
+	auto multiplier1 = nano::difficulty::to_multiplier (difficulty1, node1.network_params.network.publish_threshold);
 	// Process as local block
 	node1.process_active (send1);
 	system.deadline_set (2s);
@@ -2581,13 +2587,13 @@ TEST (active_difficulty, recalculate_work)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	auto sum (std::accumulate (node1.active.difficulty_cb.begin (), node1.active.difficulty_cb.end (), nano::uint128_t (0)));
-	ASSERT_EQ (node1.active.active_difficulty (), static_cast<uint64_t> (sum / node1.active.difficulty_cb.size ()));
+	auto sum (std::accumulate (node1.active.multipliers_cb.begin (), node1.active.multipliers_cb.end (), double(0)));
+	ASSERT_EQ (node1.active.active_difficulty (), nano::difficulty::from_multiplier (sum / node1.active.multipliers_cb.size (), node1.network_params.network.publish_threshold));
 	std::unique_lock<std::mutex> lock (node1.active.mutex);
 	// Fake history records to force work recalculation
-	for (auto i (0); i < node1.active.difficulty_cb.size (); i++)
+	for (auto i (0); i < node1.active.multipliers_cb.size (); i++)
 	{
-		node1.active.difficulty_cb.push_back (difficulty1 + 10000);
+		node1.active.multipliers_cb.push_back (multiplier1 * (1 + i / 100.));
 	}
 	node1.work_generate_blocking (*send1);
 	uint64_t difficulty2;
@@ -2595,8 +2601,8 @@ TEST (active_difficulty, recalculate_work)
 	node1.process_active (send1);
 	node1.active.update_active_difficulty (lock);
 	lock.unlock ();
-	sum = std::accumulate (node1.active.difficulty_cb.begin (), node1.active.difficulty_cb.end (), nano::uint128_t (0));
-	ASSERT_EQ (node1.active.active_difficulty (), static_cast<uint64_t> (sum / node1.active.difficulty_cb.size ()));
+	sum = std::accumulate (node1.active.multipliers_cb.begin (), node1.active.multipliers_cb.end (), double(0));
+	ASSERT_EQ (node1.active.active_difficulty (), nano::difficulty::from_multiplier (sum / node1.active.multipliers_cb.size (), node1.network_params.network.publish_threshold));
 }
 
 namespace
