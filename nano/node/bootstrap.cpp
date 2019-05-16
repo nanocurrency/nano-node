@@ -3018,7 +3018,7 @@ count (0)
 
 void nano::frontier_req_server::send_next ()
 {
-	if (!current.is_zero () && count <= request->count)
+	if (!current.is_zero () && count < request->count)
 	{
 		{
 			send_buffer->clear ();
