@@ -12,7 +12,7 @@ node (node_a),
 multipliers_cb (20, 1.),
 trended_active_difficulty (node.network_params.network.publish_threshold),
 next_frontier_check (steady_clock::now () + (delay_frontier_confirmation_height_updating ? 60s : 0s)),
-counter(steady_clock::now()),
+counter (steady_clock::now ()),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::request_loop);
 	request_loop ();
@@ -365,11 +365,11 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, std::
 		error = existing != roots.end ();
 		if (error)
 		{
-			counter.add();
-			if(should_flush())
+			counter.add ();
+			if (should_flush ())
 			{
-				counter.add();
-				flush_lowest();
+				counter.add ();
+				flush_lowest ();
 			}
 		}
 	}
@@ -592,9 +592,9 @@ void nano::active_transactions::erase (nano::block const & block_a)
 bool nano::active_transactions::should_flush ()
 {
 	bool result (false);
-	counter.trend_sample();
-	size_t minimum_size(1); 
-	if( counter.rate == 0 )
+	counter.trend_sample ();
+	size_t minimum_size (1);
+	if (counter.rate == 0)
 	{
 		minimum_size = 4;
 	}
@@ -607,19 +607,21 @@ bool nano::active_transactions::should_flush ()
 	{
 		if (counter.rate <= 10)
 		{
-			if (static_cast<double>(roots.size () * .75) < long_unconfirmed_size())
+			if (static_cast<double> (roots.size () * .75) < long_unconfirmed_size ())
 			{
 				result = true;
 			}
-		} else if (counter.rate <= 100)
+		}
+		else if (counter.rate <= 100)
 		{
-			if (static_cast<double>(roots.size () * .50) < long_unconfirmed_size())
+			if (static_cast<double> (roots.size () * .50) < long_unconfirmed_size ())
 			{
 				result = true;
 			}
-		} else if (counter.rate <= 1000)
+		}
+		else if (counter.rate <= 1000)
 		{
-			if (static_cast<double>(roots.size () * .25) < long_unconfirmed_size())
+			if (static_cast<double> (roots.size () * .25) < long_unconfirmed_size ())
 			{
 				result = true;
 			}
@@ -739,9 +741,9 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transaction
 	return composite;
 }
 transaction_counter::transaction_counter (std::chrono::steady_clock::time_point start_time) :
-	trend_last (start_time),
-	counter (0),
-	rate (0)
+trend_last (start_time),
+counter (0),
+rate (0)
 {
 }
 void transaction_counter::add ()
@@ -752,12 +754,13 @@ void transaction_counter::add ()
 void transaction_counter::trend_sample ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	auto now (std::chrono::steady_clock::now());
-	if (now + 1s > trend_last && counter !=0){
-		auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now-trend_last); 
-		rate = counter/elapsed.count();
+	auto now (std::chrono::steady_clock::now ());
+	if (now + 1s > trend_last && counter != 0)
+	{
+		auto elapsed = std::chrono::duration_cast<std::chrono::seconds> (now - trend_last);
+		rate = counter / elapsed.count ();
 		counter = 0;
-		trend_last = std::chrono::steady_clock::now();
+		trend_last = std::chrono::steady_clock::now ();
 	}
 }
 }
