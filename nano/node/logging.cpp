@@ -4,6 +4,7 @@
 #include <boost/log/utility/setup/console.hpp>
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/property_tree/ptree.hpp>
+#include <nano/lib/config.hpp>
 #include <nano/node/logging.hpp>
 
 #ifdef BOOST_WINDOWS
@@ -31,34 +32,38 @@ void nano::logging::init (boost::filesystem::path const & application_path_a)
 			boost::log::add_console_log (std::cerr, boost::log::keywords::format = format_with_timestamp);
 		}
 
-#ifdef BOOST_WINDOWS
-		if (nano::event_log_reg_entry_exists () || nano::is_windows_elevated ())
+		nano::network_constants network_constants;
+		if (!network_constants.is_test_network ())
 		{
-			static auto event_sink = boost::make_shared<boost::log::sinks::synchronous_sink<boost::log::sinks::simple_event_log_backend>> (boost::log::keywords::log_name = "Nano", boost::log::keywords::log_source = "Nano");
-			event_sink->set_formatter (format);
+#ifdef BOOST_WINDOWS
+			if (nano::event_log_reg_entry_exists () || nano::is_windows_elevated ())
+			{
+				static auto event_sink = boost::make_shared<boost::log::sinks::synchronous_sink<boost::log::sinks::simple_event_log_backend>> (boost::log::keywords::log_name = "Nano", boost::log::keywords::log_source = "Nano");
+				event_sink->set_formatter (format);
+
+				// Currently only mapping sys log errors
+				boost::log::sinks::event_log::custom_event_type_mapping<nano::severity_level> mapping ("Severity");
+				mapping[nano::severity_level::error] = boost::log::sinks::event_log::error;
+				event_sink->locked_backend ()->set_event_type_mapper (mapping);
+
+				// Only allow messages or error or greater severity to the event log
+				event_sink->set_filter (severity >= nano::severity_level::error);
+				boost::log::core::get ()->add_sink (event_sink);
+			}
+#else
+			static auto sys_sink = boost::make_shared<boost::log::sinks::synchronous_sink<boost::log::sinks::syslog_backend>> (boost::log::keywords::facility = boost::log::sinks::syslog::user, boost::log::keywords::use_impl = boost::log::sinks::syslog::impl_types::native);
+			sys_sink->set_formatter (format);
 
 			// Currently only mapping sys log errors
-			boost::log::sinks::event_log::custom_event_type_mapping<nano::severity_level> mapping ("Severity");
-			mapping[nano::severity_level::error] = boost::log::sinks::event_log::error;
-			event_sink->locked_backend ()->set_event_type_mapper (mapping);
+			boost::log::sinks::syslog::custom_severity_mapping<nano::severity_level> mapping ("Severity");
+			mapping[nano::severity_level::error] = boost::log::sinks::syslog::error;
+			sys_sink->locked_backend ()->set_severity_mapper (mapping);
 
-			// Only allow messages or error or greater severity to the event log
-			event_sink->set_filter (severity >= nano::severity_level::error);
-			boost::log::core::get ()->add_sink (event_sink);
-		}
-#else
-		static auto sys_sink = boost::make_shared<boost::log::sinks::synchronous_sink<boost::log::sinks::syslog_backend>> (boost::log::keywords::facility = boost::log::sinks::syslog::user, boost::log::keywords::use_impl = boost::log::sinks::syslog::impl_types::native);
-		sys_sink->set_formatter (format);
-
-		// Currently only mapping sys log errors
-		boost::log::sinks::syslog::custom_severity_mapping<nano::severity_level> mapping ("Severity");
-		mapping[nano::severity_level::error] = boost::log::sinks::syslog::error;
-		sys_sink->locked_backend ()->set_severity_mapper (mapping);
-
-		// Only allow messages or error or greater severity to the sys log
-		sys_sink->set_filter (severity >= nano::severity_level::error);
-		boost::log::core::get ()->add_sink (sys_sink);
+			// Only allow messages or error or greater severity to the sys log
+			sys_sink->set_filter (severity >= nano::severity_level::error);
+			boost::log::core::get ()->add_sink (sys_sink);
 #endif
+		}
 
 		auto path = application_path_a / "log";
 		file_sink = boost::log::add_file_log (boost::log::keywords::target = path, boost::log::keywords::file_name = path / "log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = rotation_size, boost::log::keywords::auto_flush = flush, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = max_size, boost::log::keywords::format = format_with_timestamp);
