@@ -638,18 +638,22 @@ void nano::active_transactions::flush_lowest ()
 	auto & sorted_roots = roots.get<1> ();
 	for (auto it = sorted_roots.rbegin (); it != sorted_roots.rend ();)
 	{
-		if (count != 2 || sorted_roots.rend () != it)
+		if (count != 2)
 		{
 			auto election = it->election;
 			if (election->announcements > announcement_long && !election->confirmed && !node.wallets.watcher.is_watched (it->root))
 			{
-				it = decltype (it){ sorted_roots.erase ((++it).base ()) };
+				it = decltype (it){ sorted_roots.erase (std::next (it).base ()) };
 				count++;
 			}
 			else
 			{
 				++it;
 			}
+		}
+		else
+		{
+			break;
 		}
 	}
 }
