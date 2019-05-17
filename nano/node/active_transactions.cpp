@@ -628,7 +628,6 @@ bool nano::active_transactions::should_flush ()
 			}
 		}
 	}
-	counter_lock.unlock ();
 	return result;
 }
 
