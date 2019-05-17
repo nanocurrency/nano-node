@@ -1748,7 +1748,7 @@ void nano::bootstrap_initiator::run_bootstrap ()
 
 void nano::bootstrap_initiator::add_observer (std::function<void(bool)> const & observer_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	std::lock_guard<std::mutex> lock (observers_mutex);
 	observers.push_back (observer_a);
 }
 
@@ -1778,6 +1778,7 @@ void nano::bootstrap_initiator::stop ()
 
 void nano::bootstrap_initiator::notify_listeners (bool in_progress_a)
 {
+	std::lock_guard<std::mutex> lock (observers_mutex);
 	for (auto & i : observers)
 	{
 		i (in_progress_a);
@@ -1791,7 +1792,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_initiato
 	size_t count = 0;
 	size_t cache_count = 0;
 	{
-		std::lock_guard<std::mutex> guard (bootstrap_initiator.mutex);
+		std::lock_guard<std::mutex> guard (bootstrap_initiator.observers_mutex);
 		count = bootstrap_initiator.observers.size ();
 	}
 	{
@@ -3052,7 +3053,7 @@ count (0)
 
 void nano::frontier_req_server::send_next ()
 {
-	if (!current.is_zero () && count <= request->count)
+	if (!current.is_zero () && count < request->count)
 	{
 		{
 			send_buffer->clear ();

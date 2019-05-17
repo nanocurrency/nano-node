@@ -2576,8 +2576,10 @@ TEST (node, dont_write_lock_node)
 
 TEST (active_difficulty, recalculate_work)
 {
-	nano::system system (24000, 1);
-	auto & node1 (*system.nodes[0]);
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.enable_voting = false;
+	auto & node1 = *system.add_node (node_config);
 	nano::genesis genesis;
 	nano::keypair key1;
 	ASSERT_EQ (node1.network_params.network.publish_threshold, node1.active.active_difficulty ());
