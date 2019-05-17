@@ -290,6 +290,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 		}
 		roots.erase (*i);
 	}
+	long_unconfirmed_size = unconfirmed_count;
 	if (unconfirmed_count > 0)
 	{
 		node.logger.try_log (boost::str (boost::format ("%1% blocks have been unconfirmed averaging %2% announcements") % unconfirmed_count % (unconfirmed_announcements / unconfirmed_count)));
@@ -596,31 +597,32 @@ bool nano::active_transactions::should_flush ()
 	std::unique_lock<std::mutex> counter_lock (counter.mutex);
 	if (counter.rate == 0)
 	{
-		minimum_size = 4;
+		//set minimum size to 4 for test network
+		minimum_size = node.network_params.network.is_test_network () ? 4 : 512;
 	}
 	else
 	{
-		minimum_size = counter.rate * 10;
+		minimum_size = counter.rate * 512;
 	}
 	if (roots.size () > minimum_size)
 	{
 		if (counter.rate <= 10)
 		{
-			if (static_cast<double> (roots.size () * .75) < long_unconfirmed_size ())
+			if (roots.size () * .75 < long_unconfirmed_size)
 			{
 				result = true;
 			}
 		}
 		else if (counter.rate <= 100)
 		{
-			if (static_cast<double> (roots.size () * .50) < long_unconfirmed_size ())
+			if (roots.size () * .50 < long_unconfirmed_size)
 			{
 				result = true;
 			}
 		}
 		else if (counter.rate <= 1000)
 		{
-			if (static_cast<double> (roots.size () * .25) < long_unconfirmed_size ())
+			if (roots.size () * .25 < long_unconfirmed_size)
 			{
 				result = true;
 			}
@@ -630,21 +632,19 @@ bool nano::active_transactions::should_flush ()
 	return result;
 }
 
-uint64_t nano::active_transactions::flush_lowest ()
+void nano::active_transactions::flush_lowest ()
 {
-	uint64_t result (0);
 	size_t count (0);
 	assert (!roots.empty ());
 	auto & sorted_roots = roots.get<1> ();
 	for (auto it = sorted_roots.rbegin (); it != sorted_roots.rend ();)
 	{
-		if (count != 2)
+		if (count != 2 || sorted_roots.rend () != it)
 		{
 			auto election = it->election;
 			if (election->announcements > announcement_long && !election->confirmed && !node.wallets.watcher.is_watched (it->root))
 			{
-				result = it->difficulty;
-				it = decltype (it){ sorted_roots.erase (std::next (it).base ()) };
+				it = decltype (it){ sorted_roots.erase ((++it).base ()) };
 				count++;
 			}
 			else
@@ -652,14 +652,7 @@ uint64_t nano::active_transactions::flush_lowest ()
 				++it;
 			}
 		}
-		else
-		{
-			//early return if 2 have been dropped
-			return result;
-		}
 	}
-
-	return result;
 }
 
 bool nano::active_transactions::empty ()
@@ -672,24 +665,6 @@ size_t nano::active_transactions::size ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	return roots.size ();
-}
-
-size_t nano::active_transactions::long_unconfirmed_size ()
-{
-	size_t long_unconfirmed (0);
-	if (!roots.empty ())
-	{
-		auto it (roots.begin ());
-		while (it != roots.end ())
-		{
-			if ((it->election)->announcements >= announcement_long && (it->election)->confirmed.load () == 0)
-			{
-				long_unconfirmed++;
-			}
-			it++;
-		}
-	}
-	return long_unconfirmed;
 }
 
 bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
@@ -739,10 +714,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transaction
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "confirmed", confirmed_count, sizeof (decltype (active_transactions.confirmed)::value_type) }));
 	return composite;
 }
-transaction_counter::transaction_counter () :
-trend_last (std::chrono::steady_clock::now ()),
-counter (0),
-rate (0)
+transaction_counter::transaction_counter ()
 {
 }
 void transaction_counter::add ()

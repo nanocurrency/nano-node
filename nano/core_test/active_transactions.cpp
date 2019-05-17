@@ -21,11 +21,11 @@ TEST (transaction_counter, validate)
 
 TEST (active_transactions, long_unconfirmed_size)
 {
-	nano::system system (24000, 1);
-	auto & node1 (*system.nodes[0]);
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.enable_voting = false;
+	auto & node1 = *system.add_node (node_config);
 	auto & wallet (*system.wallet (0));
-	// disable voting to ensure blocks remain unconfirmed;
-	node1.config.enable_voting = false;
 	nano::genesis genesis;
 	wallet.insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key1;
@@ -43,14 +43,14 @@ TEST (active_transactions, long_unconfirmed_size)
 		ASSERT_FALSE (node1.active.empty ());
 		{
 			std::lock_guard<std::mutex> guard (node1.active.mutex);
-			done = node1.active.long_unconfirmed_size () == 3;
+			done = node1.active.long_unconfirmed_size == 3;
 		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	{
 		//since send1 is long_unconfirmed the other two should be as well
 		std::lock_guard<std::mutex> lock (node1.active.mutex);
-		ASSERT_EQ (node1.active.long_unconfirmed_size (), 3);
+		ASSERT_EQ (node1.active.long_unconfirmed_size, 3);
 	}
 	{
 		std::lock_guard<std::mutex> guard (node1.active.mutex);
@@ -63,16 +63,17 @@ TEST (active_transactions, long_unconfirmed_size)
 	{
 		//only 2 should appear unconfirmed now
 		std::lock_guard<std::mutex> lock (node1.active.mutex);
-		ASSERT_EQ (node1.active.long_unconfirmed_size (), 2);
+		ASSERT_EQ (node1.active.long_unconfirmed_size, 2);
 	}
 }
 
 TEST (active_transactions, adjusted_difficulty_priority)
 {
-	nano::system system (24000, 1);
-	auto & node1 (*system.nodes[0]);
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.enable_voting = false;
+	auto & node1 = *system.add_node (node_config);
 	auto & wallet (*system.wallet (0));
-	node1.config.enable_voting = false;
 	nano::genesis genesis;
 	nano::keypair key1, key2, key3;
 	auto transaction (node1.store.tx_begin_read ());
@@ -129,27 +130,26 @@ TEST (active_transactions, adjusted_difficulty_priority)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
+	std::lock_guard<std::mutex> lock (node1.active.mutex);
+	uint64_t last_adjusted (0);
+	for (auto i (node1.active.roots.get<1> ().begin ()), n (node1.active.roots.get<1> ().end ()); i != n; ++i)
 	{
-		std::lock_guard<std::mutex> lock (node1.active.mutex);
-		uint64_t last_adjusted (0);
-		for (auto i (node1.active.roots.get<1> ().begin ()), n (node1.active.roots.get<1> ().end ()); i != n; ++i)
+		//first root has nothing to compare
+		if (last_adjusted != 0)
 		{
-			//first root has nothing to compare
-			if (last_adjusted != 0)
-			{
-				ASSERT_LT (i->adjusted_difficulty, last_adjusted);
-			}
-			last_adjusted = i->adjusted_difficulty;
+			ASSERT_LT (i->adjusted_difficulty, last_adjusted);
 		}
+		last_adjusted = i->adjusted_difficulty;
 	}
 }
 
 TEST (active_transactions, keep_local)
 {
-	nano::system system (24000, 1);
-	auto & node1 (*system.nodes[0]);
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.enable_voting = false;
+	auto & node1 = *system.add_node (node_config);
 	auto & wallet (*system.wallet (0));
-	node1.config.enable_voting = false;
 	nano::genesis genesis;
 	//key 1/2 will be managed by the wallet
 	nano::keypair key1, key2, key3, key4;
@@ -173,7 +173,6 @@ TEST (active_transactions, keep_local)
 		{
 			(it->election)->confirm_once ();
 			it++;
-			;
 		}
 	}
 	auto open1 (std::make_shared<nano::state_block> (key3.pub, 0, key3.pub, nano::xrb_ratio, send3->hash (), key3.prv, key3.pub, system.work.generate (key3.pub)));
@@ -192,7 +191,7 @@ TEST (active_transactions, keep_local)
 		ASSERT_FALSE (node1.active.empty ());
 		{
 			std::lock_guard<std::mutex> guard (node1.active.mutex);
-			done = node1.active.long_unconfirmed_size () == 4;
+			done = node1.active.long_unconfirmed_size == 4;
 		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -207,10 +206,11 @@ TEST (active_transactions, keep_local)
 
 TEST (active_transactions, prioritize_chains)
 {
-	nano::system system (24000, 1);
-	auto & node1 (*system.nodes[0]);
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.enable_voting = false;
+	auto & node1 = *system.add_node (node_config);
 	auto & wallet (*system.wallet (0));
-	node1.config.enable_voting = false;
 	nano::genesis genesis;
 	nano::keypair key1, key2;
 
@@ -259,7 +259,7 @@ TEST (active_transactions, prioritize_chains)
 	{
 		{
 			std::lock_guard<std::mutex> guard (node1.active.mutex);
-			done = node1.active.long_unconfirmed_size () == 4;
+			done = node1.active.long_unconfirmed_size == 4;
 		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -273,7 +273,7 @@ TEST (active_transactions, prioritize_chains)
 	{
 		{
 			std::lock_guard<std::mutex> guard (node1.active.mutex);
-			done = node1.active.long_unconfirmed_size () == 4;
+			done = node1.active.long_unconfirmed_size == 4;
 		}
 		ASSERT_NO_ERROR (system.poll ());
 	}

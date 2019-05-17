@@ -1492,7 +1492,7 @@ void nano::work_watcher::add (std::shared_ptr<nano::block> block_a)
 	}
 }
 
-bool nano::work_watcher::is_watched (nano::qualified_root const root_a)
+bool nano::work_watcher::is_watched (nano::qualified_root const & root_a)
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	auto exists (blocks.find (root_a));

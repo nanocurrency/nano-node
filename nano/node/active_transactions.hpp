@@ -53,12 +53,12 @@ public:
 	// clear counter and reset trend_last after calculating a new rate, guarded to only run once a sec
 	void trend_sample ();
 	// blocks/sec confirmed
-	double rate;
+	double rate = 0;
 	std::mutex mutex;
 
 private:
-	std::chrono::steady_clock::time_point trend_last;
-	size_t counter;
+	std::chrono::steady_clock::time_point trend_last = std::chrono::steady_clock::now ();
+	size_t counter = 0;
 };
 
 // Core class for determining consensus
@@ -91,10 +91,9 @@ public:
 	//when roots.size > minimum_size check counter.rate and adjusted expected percentage long unconfirmed before kicking in
 	bool should_flush ();
 	//drop 2 from roots based on adjusted_difficulty
-	uint64_t flush_lowest ();
+	void flush_lowest ();
 	bool empty ();
 	size_t size ();
-	size_t long_unconfirmed_size ();
 	void stop ();
 	bool publish (std::shared_ptr<nano::block> block_a);
 	void confirm_block (nano::block_hash const &);
@@ -119,6 +118,7 @@ public:
 	static unsigned constexpr announcement_min = 2;
 	// Threshold to start logging blocks haven't yet been confirmed
 	static unsigned constexpr announcement_long = 20;
+	size_t long_unconfirmed_size = 0;
 	static size_t constexpr election_history_size = 2048;
 	static size_t constexpr max_broadcast_queue = 1000;
 	boost::circular_buffer<double> multipliers_cb;
