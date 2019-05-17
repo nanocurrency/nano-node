@@ -62,36 +62,29 @@ nano::error nano::logging::serialize_json (nano::jsonconfig & json) const
 bool nano::logging::upgrade_json (unsigned version_a, nano::jsonconfig & json)
 {
 	json.put ("version", json_version ());
-	auto upgraded_l (false);
 	switch (version_a)
 	{
 		case 1:
 			json.put ("vote", vote_logging_value);
-			upgraded_l = true;
 		case 2:
 			json.put ("rotation_size", rotation_size);
 			json.put ("flush", true);
-			upgraded_l = true;
 		case 3:
 			json.put ("network_node_id_handshake", false);
-			upgraded_l = true;
 		case 4:
 			json.put ("upnp_details", "false");
 			json.put ("timing", "false");
-			upgraded_l = true;
 		case 5:
 			uintmax_t config_max_size;
 			json.get<uintmax_t> ("max_size", config_max_size);
 			max_size = std::max (max_size, config_max_size);
 			json.put ("max_size", max_size);
 			json.put ("log_ipc", true);
-			upgraded_l = true;
 		case 6:
 			json.put ("min_time_between_output", min_time_between_log_output.count ());
 			json.put ("network_timeout", network_timeout_logging_value);
 			json.erase ("log_rpc");
 			json.put ("long_database_txns", false);
-			upgraded_l = true;
 			break;
 		case 7:
 			break;
@@ -99,7 +92,7 @@ bool nano::logging::upgrade_json (unsigned version_a, nano::jsonconfig & json)
 			throw std::runtime_error ("Unknown logging_config version");
 			break;
 	}
-	return upgraded_l;
+	return version_a < json_version ();
 }
 
 nano::error nano::logging::deserialize_json (bool & upgraded_a, nano::jsonconfig & json)

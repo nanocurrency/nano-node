@@ -135,7 +135,6 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & json)
 {
 	json.put ("version", json_version ());
-	auto upgraded (false);
 	switch (version_a)
 	{
 		case 1:
@@ -149,7 +148,6 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			});
 
 			json.replace_child ("preconfigured_representatives", reps);
-			upgraded = true;
 		}
 		case 2:
 		{
@@ -157,43 +155,34 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.put ("password_fanout", std::to_string (1024));
 			json.put ("io_threads", std::to_string (io_threads));
 			json.put ("work_threads", std::to_string (work_threads));
-			upgraded = true;
 		}
 		case 3:
 			json.erase ("receive_minimum");
 			json.put ("receive_minimum", nano::xrb_ratio.convert_to<std::string> ());
-			upgraded = true;
 		case 4:
 			json.erase ("receive_minimum");
 			json.put ("receive_minimum", nano::xrb_ratio.convert_to<std::string> ());
-			upgraded = true;
 		case 5:
 			json.put ("enable_voting", enable_voting);
 			json.erase ("packet_delay_microseconds");
 			json.erase ("rebroadcast_delay");
 			json.erase ("creation_rebroadcast");
-			upgraded = true;
 		case 6:
 			json.put ("bootstrap_connections", 16);
 			json.put ("callback_address", "");
 			json.put ("callback_port", 0);
 			json.put ("callback_target", "");
-			upgraded = true;
 		case 7:
 			json.put ("lmdb_max_dbs", 128);
-			upgraded = true;
 		case 8:
 			json.put ("bootstrap_connections_max", "64");
-			upgraded = true;
 		case 9:
 			json.put ("state_block_parse_canary", nano::block_hash (0).to_string ());
 			json.put ("state_block_generate_canary", nano::block_hash (0).to_string ());
-			upgraded = true;
 		case 10:
 			json.put ("online_weight_minimum", online_weight_minimum.to_string_dec ());
 			json.put ("online_weight_quorom", std::to_string (online_weight_quorum));
 			json.erase ("inactive_supply");
-			upgraded = true;
 		case 11:
 		{
 			// Rename
@@ -201,20 +190,16 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.get<std::string> ("online_weight_quorom", online_weight_quorum_l);
 			json.erase ("online_weight_quorom");
 			json.put ("online_weight_quorum", online_weight_quorum_l);
-			upgraded = true;
 		}
 		case 12:
 			json.erase ("state_block_parse_canary");
 			json.erase ("state_block_generate_canary");
-			upgraded = true;
 		case 13:
 			json.put ("generate_hash_votes_at", 0);
-			upgraded = true;
 		case 14:
 			json.put ("network_threads", std::to_string (network_threads));
 			json.erase ("generate_hash_votes_at");
 			json.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
-			upgraded = true;
 		case 15:
 		{
 			json.put ("allow_local_peers", allow_local_peers);
@@ -244,8 +229,6 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 
 			json.put (signature_checker_threads_key, signature_checker_threads);
 			json.put ("unchecked_cutoff_time", unchecked_cutoff_time.count ());
-
-			upgraded = true;
 		}
 		case 16:
 		{
@@ -260,14 +243,13 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.put (pow_sleep_interval_key, pow_sleep_interval.count ());
 			json.put ("external_address", external_address.to_string ());
 			json.put ("external_port", external_port);
-			upgraded = true;
 		}
 		case 17:
 			break;
 		default:
 			throw std::runtime_error ("Unknown node_config version");
 	}
-	return upgraded;
+	return version_a < json_version ();
 }
 
 nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonconfig & json)
