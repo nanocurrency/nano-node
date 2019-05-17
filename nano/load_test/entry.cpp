@@ -88,12 +88,12 @@ class receive_session final : public std::enable_shared_from_this<receive_sessio
 public:
 	receive_session (boost::asio::io_context & ioc, std::atomic<int> & send_calls_remaining, std::string const & wallet, std::string const & account, std::string const & block, tcp::resolver::results_type const & results) :
 	socket (ioc),
+	strand (socket.get_executor ()),
 	send_calls_remaining (send_calls_remaining),
 	wallet (wallet),
 	account (account),
 	block (block),
-	results (results),
-	strand (socket.get_executor ())
+	results (results)
 	{
 	}
 
@@ -164,12 +164,12 @@ class send_session final : public std::enable_shared_from_this<send_session>
 public:
 	send_session (boost::asio::io_context & ioc, std::atomic<int> & send_calls_remaining, std::string const & wallet, std::string const & source, std::string const & destination, tcp::resolver::results_type const & results) :
 	socket (ioc),
+	strand (socket.get_executor ()),
 	send_calls_remaining (send_calls_remaining),
 	wallet (wallet),
 	source (source),
 	destination (destination),
-	results (results),
-	strand (socket.get_executor ())
+	results (results)
 	{
 	}
 
@@ -377,7 +377,6 @@ int main (int argc, char * const * argv)
 		return 1;
 	}
 	boost::program_options::notify (vm);
-	int result (0);
 
 	auto node_count = vm.find ("node_count")->second.as<int> ();
 	auto destination_count = vm.find ("destination_count")->second.as<int> ();
