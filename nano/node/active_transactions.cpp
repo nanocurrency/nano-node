@@ -595,6 +595,10 @@ bool nano::active_transactions::should_flush ()
 	counter.trend_sample ();
 	size_t minimum_size (1);
 	std::unique_lock<std::mutex> counter_lock (counter.mutex);
+	if (roots.size () > 100000)
+	{
+		return true;
+	}
 	if (counter.rate == 0)
 	{
 		//set minimum size to 4 for test network
@@ -717,9 +721,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transaction
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "confirmed", confirmed_count, sizeof (decltype (active_transactions.confirmed)::value_type) }));
 	return composite;
 }
-transaction_counter::transaction_counter ()
-{
-}
+
 void transaction_counter::add ()
 {
 	std::lock_guard<std::mutex> lock (mutex);

@@ -47,7 +47,6 @@ public:
 class transaction_counter final
 {
 public:
-	transaction_counter ();
 	// increment counter
 	void add ();
 	// clear counter and reset trend_last after calculating a new rate, guarded to only run once a sec
