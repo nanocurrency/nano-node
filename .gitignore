@@ -18,9 +18,6 @@
 # Doxygen built HTML
 /doc-build
 
-# Rust generated files
-/load-tester/target
-
 # Executables
 *.exe
 *.out

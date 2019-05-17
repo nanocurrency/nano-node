@@ -43,9 +43,4 @@ fi
 
 popd
 
-pushd load-tester
-cargo build --release
-popd
-cp ./load-tester/target/release/nano-load-tester ./build/load_test
-
 ./ci/test.sh ./build
