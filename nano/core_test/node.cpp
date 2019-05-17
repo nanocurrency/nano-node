@@ -2574,7 +2574,6 @@ TEST (active_difficulty, recalculate_work)
 	nano::node_config node_config (24000, system.logging);
 	node_config.enable_voting = false;
 	auto & node1 = *system.add_node (node_config);
-	auto & wallet (*system.wallet (0));
 	nano::genesis genesis;
 	nano::keypair key1;
 	ASSERT_EQ (node1.network_params.network.publish_threshold, node1.active.active_difficulty ());
