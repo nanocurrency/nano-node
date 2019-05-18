@@ -8,7 +8,7 @@ TEST (transaction_counter, validate)
 	auto now = std::chrono::steady_clock::now ();
 	nano::transaction_counter counter;
 	auto count (0);
-	ASSERT_EQ (count, counter.rate);
+	ASSERT_EQ (count, counter.get_rate ());
 	while (std::chrono::steady_clock::now () < now + 1s)
 	{
 		count++;
@@ -16,7 +16,7 @@ TEST (transaction_counter, validate)
 	}
 	std::this_thread::sleep_for (500ms);
 	counter.trend_sample ();
-	ASSERT_EQ (count, counter.rate);
+	ASSERT_EQ (count, counter.get_rate ());
 }
 
 TEST (active_transactions, long_unconfirmed_size)
