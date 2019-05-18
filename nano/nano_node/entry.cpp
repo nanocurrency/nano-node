@@ -90,6 +90,7 @@ int main (int argc, char * const * argv)
 		("debug_opencl", "OpenCL work generation")
 		("debug_profile_verify", "Profile work verification")
 		("debug_profile_kdf", "Profile kdf function")
+		("debug_sys_logging", "Test the system logger")
 		("debug_verify_profile", "Profile signature verification")
 		("debug_verify_profile_batch", "Profile batch signature verification")
 		("debug_profile_bootstrap", "Profile bootstrap style blocks processing (at least 10GB of free storage space required)")
@@ -1003,6 +1004,18 @@ int main (int argc, char * const * argv)
 				sum += info.confirmation_height;
 			}
 			std::cout << "Total cemented block count: " << sum << std::endl;
+		}
+		else if (vm.count ("debug_sys_logging"))
+		{
+#ifdef BOOST_WINDOWS
+			if (!nano::event_log_reg_entry_exists () && !nano::is_windows_elevated ())
+			{
+				std::cerr << "The event log requires the HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\EventLog\\Nano\\Nano registry entry, run again as administator to create it.\n";
+				return 1;
+			}
+#endif
+			nano::inactive_node node (data_path);
+			node.node->logger.always_log (nano::severity_level::error, "Testing system logger");
 		}
 		else if (vm.count ("version"))
 		{

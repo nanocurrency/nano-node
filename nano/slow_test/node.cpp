@@ -6,6 +6,8 @@
 
 #include <thread>
 
+using namespace std::chrono_literals;
+
 TEST (system, generate_mass_activity)
 {
 	nano::system system (24000, 1);

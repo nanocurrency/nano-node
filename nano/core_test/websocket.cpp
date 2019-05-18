@@ -26,7 +26,7 @@ namespace
 std::atomic<bool> ack_ready{ false };
 
 /** An optionally blocking websocket client for testing */
-boost::optional<std::string> websocket_test_call (std::string host, std::string port, std::string message_a, bool await_ack, bool await_response, const seconds response_deadline = 5s)
+boost::optional<std::string> websocket_test_call (std::string host, std::string port, std::string message_a, bool await_ack, bool await_response, const std::chrono::seconds response_deadline = 5s)
 {
 	if (await_ack)
 	{

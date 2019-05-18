@@ -2,6 +2,7 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	# No opencl
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 	set (platform_sources plat/windows/openclapi.cpp)
+	set (psapi_lib Psapi)
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	set (platform_sources plat/posix/openclapi.cpp)
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
@@ -101,6 +102,7 @@ target_link_libraries (node
 	Boost::thread
 	Boost::boost
 	${CMAKE_DL_LIBS}
+	${psapi_lib}
 	)
 
 target_compile_definitions(node
