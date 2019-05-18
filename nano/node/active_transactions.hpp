@@ -51,13 +51,14 @@ public:
 	void add ();
 	// clear counter and reset trend_last after calculating a new rate, guarded to only run once a sec
 	void trend_sample ();
-	// blocks/sec confirmed
-	double rate = 0;
-	std::mutex mutex;
+	double get_rate ();
 
 private:
 	std::chrono::steady_clock::time_point trend_last = std::chrono::steady_clock::now ();
 	size_t counter = 0;
+	// blocks/sec confirmed
+	double rate = 0;
+	std::mutex mutex;
 };
 
 // Core class for determining consensus

@@ -594,37 +594,37 @@ bool nano::active_transactions::should_flush ()
 	bool result (false);
 	counter.trend_sample ();
 	size_t minimum_size (1);
-	std::unique_lock<std::mutex> counter_lock (counter.mutex);
+	auto rate (counter.get_rate ());
 	if (roots.size () > 100000)
 	{
 		return true;
 	}
-	if (counter.rate == 0)
+	if (rate == 0)
 	{
 		//set minimum size to 4 for test network
 		minimum_size = node.network_params.network.is_test_network () ? 4 : 512;
 	}
 	else
 	{
-		minimum_size = counter.rate * 512;
+		minimum_size = rate * 512;
 	}
 	if (roots.size () > minimum_size)
 	{
-		if (counter.rate <= 10)
+		if (rate <= 10)
 		{
 			if (roots.size () * .75 < long_unconfirmed_size)
 			{
 				result = true;
 			}
 		}
-		else if (counter.rate <= 100)
+		else if (rate <= 100)
 		{
 			if (roots.size () * .50 < long_unconfirmed_size)
 			{
 				result = true;
 			}
 		}
-		else if (counter.rate <= 1000)
+		else if (rate <= 1000)
 		{
 			if (roots.size () * .25 < long_unconfirmed_size)
 			{
@@ -727,6 +727,7 @@ void transaction_counter::add ()
 	std::lock_guard<std::mutex> lock (mutex);
 	counter++;
 }
+
 void transaction_counter::trend_sample ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
@@ -738,5 +739,11 @@ void transaction_counter::trend_sample ()
 		counter = 0;
 		trend_last = std::chrono::steady_clock::now ();
 	}
+}
+
+double transaction_counter::get_rate ()
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	return rate;
 }
 }
