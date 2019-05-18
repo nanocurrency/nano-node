@@ -422,7 +422,7 @@ public:
 			if (!node.network.udp_channels.validate_syn_cookie (endpoint, message_a.response->first, message_a.response->second))
 			{
 				validated_response = true;
-				if (message_a.response->first != node.node_id.pub)
+				if (message_a.response->first != node.node_id.pub && !node.network.tcp_channels.find_node_id (message_a.response->first))
 				{
 					node.network.udp_channels.clean_node_id (endpoint, message_a.response->first);
 					auto new_channel (node.network.udp_channels.insert (endpoint, message_a.header.version_using));
