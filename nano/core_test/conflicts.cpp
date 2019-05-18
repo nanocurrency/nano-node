@@ -2,6 +2,8 @@
 #include <nano/core_test/testutil.hpp>
 #include <nano/node/testing.hpp>
 
+using namespace std::chrono_literals;
+
 TEST (conflicts, start_stop)
 {
 	nano::system system (24000, 1);

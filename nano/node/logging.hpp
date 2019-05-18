@@ -11,11 +11,9 @@
 
 #define FATAL_LOG_PREFIX "FATAL ERROR: "
 
-using namespace std::chrono;
-
 namespace nano
 {
-class logging
+class logging final
 {
 public:
 	nano::error serialize_json (nano::jsonconfig &) const;
