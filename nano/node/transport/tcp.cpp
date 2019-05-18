@@ -72,8 +72,9 @@ bool nano::transport::tcp_channels::insert (std::shared_ptr<nano::transport::cha
 {
 	auto endpoint (channel_a->get_tcp_endpoint ());
 	assert (endpoint.address ().is_v6 ());
+	auto udp_endpoint (nano::transport::map_tcp_to_endpoint (endpoint));
 	bool error (true);
-	if (!node.network.not_a_peer (nano::transport::map_tcp_to_endpoint (endpoint), node.config.allow_local_peers))
+	if (!node.network.not_a_peer (udp_endpoint, node.config.allow_local_peers))
 	{
 		std::unique_lock<std::mutex> lock (mutex);
 		auto existing (channels.get<endpoint_tag> ().find (endpoint));
@@ -83,6 +84,8 @@ bool nano::transport::tcp_channels::insert (std::shared_ptr<nano::transport::cha
 			error = false;
 			lock.unlock ();
 			node.network.channel_observer (channel_a);
+			// Remove UDP channel to same IP:port if exists
+			node.network.udp_channels.erase (udp_endpoint);
 		}
 	}
 	return error;

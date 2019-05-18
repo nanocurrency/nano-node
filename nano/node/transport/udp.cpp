@@ -359,8 +359,9 @@ public:
 					node.network.send_node_id_handshake (find_channel, *cookie, boost::none);
 					node.network.send_keepalive_self (find_channel);
 				}
-				else
+				else if (!node.network.tcp_channels.find_channel (nano::transport::map_endpoint_to_tcp (endpoint)))
 				{
+					// Don't start connection if TCP channel to same IP:port exists
 					find_channel = std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, endpoint);
 					node.network.send_node_id_handshake (find_channel, *cookie, boost::none);
 				}
