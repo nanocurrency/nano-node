@@ -43,7 +43,7 @@ std::function<void(boost::system::error_code const &, size_t)> nano::transport::
 	return callback_a;
 }
 
-std::function<void(boost::system::error_code const &, size_t)> nano::transport::channel_tcp::tcp_callback (std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::stat::detail detail_a, nano::tcp_endpoint const & endpoint_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a)
+std::function<void(boost::system::error_code const &, size_t)> nano::transport::channel_tcp::tcp_callback (std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::stat::detail detail_a, nano::tcp_endpoint const & endpoint_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
 {
 	// clang-format off
 	return [ buffer_a, endpoint_a, node = std::weak_ptr<nano::node> (node.shared ()), callback_a ](boost::system::error_code const & ec, size_t size_a)

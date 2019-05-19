@@ -20,7 +20,7 @@ namespace transport
 		bool operator== (nano::transport::channel const &) const override;
 		void send_buffer (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) override;
 		std::function<void(boost::system::error_code const &, size_t)> callback (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) const override;
-		std::function<void(boost::system::error_code const &, size_t)> tcp_callback (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail, nano::tcp_endpoint const &, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr);
+		std::function<void(boost::system::error_code const &, size_t)> tcp_callback (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail, nano::tcp_endpoint const &, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) const;
 		std::string to_string () const override;
 		bool operator== (nano::transport::channel_tcp const & other_a) const
 		{
