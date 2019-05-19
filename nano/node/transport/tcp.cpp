@@ -35,16 +35,25 @@ bool nano::transport::channel_tcp::operator== (nano::transport::channel const & 
 
 void nano::transport::channel_tcp::send_buffer (std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a)
 {
-	socket->async_write (buffer_a, callback (buffer_a, detail_a, callback_a));
+	socket->async_write (buffer_a, tcp_callback (buffer_a, detail_a, socket->remote_endpoint (), callback_a));
 }
 
 std::function<void(boost::system::error_code const &, size_t)> nano::transport::channel_tcp::callback (std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
 {
+	return callback_a;
+}
+
+std::function<void(boost::system::error_code const &, size_t)> nano::transport::channel_tcp::tcp_callback (std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::stat::detail detail_a, nano::tcp_endpoint const & endpoint_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a)
+{
 	// clang-format off
-	return [ buffer_a, node = std::weak_ptr<nano::node> (node.shared ()), callback_a ](boost::system::error_code const & ec, size_t size_a)
+	return [ buffer_a, endpoint_a, node = std::weak_ptr<nano::node> (node.shared ()), callback_a ](boost::system::error_code const & ec, size_t size_a)
 	{
 		if (auto node_l = node.lock ())
 		{
+			if (!ec)
+			{
+				node_l->network.tcp_channels.update (endpoint_a);
+			}
 			if (ec == boost::system::errc::host_unreachable)
 			{
 				node_l->stats.inc (nano::stat::type::error, nano::stat::detail::unreachable_host, nano::stat::dir::out);
@@ -450,17 +459,7 @@ void nano::transport::tcp_channels::ongoing_keepalive ()
 	for (auto & channel : send_list)
 	{
 		std::weak_ptr<nano::node> node_w (node.shared ());
-		channel->send (message, [node_w, channel](boost::system::error_code const & ec, size_t size_a) {
-			if (auto node_l = node_w.lock ())
-			{
-				if (!ec)
-				{
-					node_l->network.tcp_channels.modify (channel, [](std::shared_ptr<nano::transport::channel_tcp> channel_a) {
-						channel_a->set_last_packet_sent (std::chrono::steady_clock::now ());
-					});
-				}
-			}
-		});
+		channel->send (message);
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	node.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.period, [node_w]() {
@@ -488,6 +487,18 @@ void nano::transport::tcp_channels::modify (std::shared_ptr<nano::transport::cha
 	{
 		channels.get<endpoint_tag> ().modify (existing, [modify_callback_a](channel_tcp_wrapper & wrapper_a) {
 			modify_callback_a (wrapper_a.channel);
+		});
+	}
+}
+
+void nano::transport::tcp_channels::update (nano::tcp_endpoint const & endpoint_a)
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	auto existing (channels.get<endpoint_tag> ().find (endpoint_a));
+	if (existing != channels.get<endpoint_tag> ().end ())
+	{
+		channels.get<endpoint_tag> ().modify (existing, [](channel_tcp_wrapper & wrapper_a) {
+			wrapper_a.channel->set_last_packet_sent (std::chrono::steady_clock::now ());
 		});
 	}
 }
