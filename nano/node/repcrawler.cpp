@@ -89,6 +89,15 @@ void nano::rep_crawler::query (std::vector<std::shared_ptr<nano::transport::chan
 	auto transaction (node.store.tx_begin_read ());
 	std::shared_ptr<nano::block> block (node.store.block_random (transaction));
 	auto hash (block->hash ());
+	// Don't send same block multiple times in tests
+	if (node.network_params.network.is_test_network ())
+	{
+		for (auto i (0); exists (hash) && i < 4; ++i)
+		{
+			block = node.store.block_random (transaction);
+			hash = block->hash ();
+		}
+	}
 	add (hash);
 	for (auto i (channels_a.begin ()), n (channels_a.end ()); i != n; ++i)
 	{
