@@ -3,6 +3,8 @@
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/testing.hpp>
 
+using namespace std::chrono_literals;
+
 TEST (transaction_counter, validate)
 {
 	auto now = std::chrono::steady_clock::now ();
