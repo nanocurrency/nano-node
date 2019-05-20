@@ -309,6 +309,7 @@ public:
 	void finish_request_async ();
 	void run_next ();
 	void timeout ();
+	bool is_bootstrap_connection ();
 	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
 	std::shared_ptr<nano::socket> socket;
 	std::shared_ptr<nano::node> node;

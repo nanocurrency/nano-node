@@ -334,6 +334,8 @@ std::unique_ptr<nano::seq_con_info_component> nano::transport::tcp_channels::col
 		std::lock_guard<std::mutex> guard (mutex);
 		channels_count = channels.size ();
 		attemps_count = attempts.size ();
+	}
+	{
 		std::lock_guard<std::mutex> syn_cookie_guard (syn_cookie_mutex);
 		syn_cookies_count = syn_cookies.size ();
 		syn_cookies_per_ip_count = syn_cookies_per_ip.size ();
@@ -562,47 +564,54 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 				auto error (false);
 				nano::bufferstream stream (receive_buffer_a->data (), size_a);
 				nano::message_header header (error, stream);
-				nano::node_id_handshake message (error, stream, header);
-				if (!error && header.type == nano::message_type::node_id_handshake && header.version_using >= nano::protocol_version_min && message.response && message.query)
+				if (!error && header.type == nano::message_type::node_id_handshake && header.version_using >= nano::protocol_version_min)
 				{
-					channel_a->set_network_version (header.version_using);
-					auto node_id (message.response->first);
-					if (!node_l->network.tcp_channels.validate_syn_cookie (nano::transport::map_endpoint_to_tcp (endpoint_a), node_id, message.response->second) && node_id != node_l->node_id.pub && !node_l->network.tcp_channels.find_node_id (node_id))
+					nano::node_id_handshake message (error, stream, header);
+					if (!error && message.response && message.query)
 					{
-						channel_a->set_node_id (node_id);
-						channel_a->set_last_packet_received (std::chrono::steady_clock::now ());
-						boost::optional<std::pair<nano::account, nano::signature>> response (std::make_pair (node_l->node_id.pub, nano::sign_message (node_l->node_id.prv, node_l->node_id.pub, *message.query)));
-						nano::node_id_handshake response_message (boost::none, response);
-						auto bytes = response_message.to_bytes ();
-						if (node_l->config.logging.network_node_id_handshake_logging ())
+						channel_a->set_network_version (header.version_using);
+						auto node_id (message.response->first);
+						if (!node_l->network.tcp_channels.validate_syn_cookie (nano::transport::map_endpoint_to_tcp (endpoint_a), node_id, message.response->second) && node_id != node_l->node_id.pub && !node_l->network.tcp_channels.find_node_id (node_id))
 						{
-							node_l->logger.try_log (boost::str (boost::format ("Node ID handshake response sent with node ID %1% to %2%: query %3%") % node_l->node_id.pub.to_account () % endpoint_a % (*message.query).to_string ()));
-						}
-						channel_a->send_buffer (bytes, nano::stat::detail::node_id_handshake, [node_w, channel_a, endpoint_a, callback_a](boost::system::error_code const & ec, size_t size_a) {
-							if (auto node_l = node_w.lock ())
+							channel_a->set_node_id (node_id);
+							channel_a->set_last_packet_received (std::chrono::steady_clock::now ());
+							boost::optional<std::pair<nano::account, nano::signature>> response (std::make_pair (node_l->node_id.pub, nano::sign_message (node_l->node_id.prv, node_l->node_id.pub, *message.query)));
+							nano::node_id_handshake response_message (boost::none, response);
+							auto bytes = response_message.to_bytes ();
+							if (node_l->config.logging.network_node_id_handshake_logging ())
 							{
-								if (!ec && channel_a)
-								{
-									// Insert new node ID connection
-									channel_a->set_last_packet_sent (std::chrono::steady_clock::now ());
-									node_l->network.tcp_channels.insert (channel_a);
-									if (callback_a)
-									{
-										callback_a (channel_a);
-									}
-								}
-								else
-								{
-									if (node_l->config.logging.network_node_id_handshake_logging ())
-									{
-										node_l->logger.try_log (boost::str (boost::format ("Error sending node_id_handshake to %1%: %2%") % endpoint_a % ec.message ()));
-									}
-									node_l->network.tcp_channels.udp_fallback (endpoint_a, callback_a);
-								}
+								node_l->logger.try_log (boost::str (boost::format ("Node ID handshake response sent with node ID %1% to %2%: query %3%") % node_l->node_id.pub.to_account () % endpoint_a % (*message.query).to_string ()));
 							}
-						});
+							channel_a->send_buffer (bytes, nano::stat::detail::node_id_handshake, [node_w, channel_a, endpoint_a, callback_a](boost::system::error_code const & ec, size_t size_a) {
+								if (auto node_l = node_w.lock ())
+								{
+									if (!ec && channel_a)
+									{
+										// Insert new node ID connection
+										channel_a->set_last_packet_sent (std::chrono::steady_clock::now ());
+										node_l->network.tcp_channels.insert (channel_a);
+										if (callback_a)
+										{
+											callback_a (channel_a);
+										}
+									}
+									else
+									{
+										if (node_l->config.logging.network_node_id_handshake_logging ())
+										{
+											node_l->logger.try_log (boost::str (boost::format ("Error sending node_id_handshake to %1%: %2%") % endpoint_a % ec.message ()));
+										}
+										node_l->network.tcp_channels.udp_fallback (endpoint_a, callback_a);
+									}
+								}
+							});
+						}
+						// If node ID is known, don't establish new connection
 					}
-					// If node ID is known, don't establish new connection
+					else
+					{
+						node_l->network.tcp_channels.udp_fallback (endpoint_a, callback_a);
+					}
 				}
 				else
 				{

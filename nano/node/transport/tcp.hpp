@@ -103,7 +103,6 @@ namespace transport
 		nano::node & node;
 
 	private:
-		void close_socket ();
 		void ongoing_syn_cookie_cleanup ();
 		class endpoint_tag
 		{
