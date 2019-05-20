@@ -87,11 +87,13 @@ void nano::network::start ()
 {
 	ongoing_cleanup ();
 	udp_channels.start ();
+	tcp_channels.start ();
 }
 
 void nano::network::stop ()
 {
 	udp_channels.stop ();
+	tcp_channels.stop ();
 	resolver.cancel ();
 	buffer_container.stop ();
 }
