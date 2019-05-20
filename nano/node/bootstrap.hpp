@@ -315,6 +315,7 @@ public:
 	std::shared_ptr<nano::node> node;
 	std::mutex mutex;
 	std::queue<std::unique_ptr<nano::message>> requests;
+	std::atomic<bool> stopped{ false };
 	std::atomic<bool> bootstrap_connection{ false };
 	std::atomic<bool> node_id_handshake_finished{ false };
 	std::atomic<bool> keepalive_first{ true };

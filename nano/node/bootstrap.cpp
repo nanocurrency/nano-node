@@ -1889,13 +1889,6 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_listener
 
 nano::bootstrap_server::~bootstrap_server ()
 {
-	stop ();
-	std::lock_guard<std::mutex> lock (node->bootstrap.mutex);
-	node->bootstrap.connections.erase (this);
-}
-
-void nano::bootstrap_server::stop ()
-{
 	if (node->config.logging.bulk_pull_logging ())
 	{
 		node->logger.try_log ("Exiting incoming TCP/bootstrap server");
@@ -1904,11 +1897,23 @@ void nano::bootstrap_server::stop ()
 	{
 		--node->bootstrap.bootstrap_count;
 	}
-	if (socket != nullptr)
-	{
-		socket->close ();
-	}
 	node->network.remove_response_channel (remote_endpoint);
+	stop ();
+	std::lock_guard<std::mutex> lock (node->bootstrap.mutex);
+	node->bootstrap.connections.erase (this);
+}
+
+void nano::bootstrap_server::stop ()
+{
+	if (!stopped)
+	{
+		stopped = true;
+		std::lock_guard<std::mutex> lock (mutex);
+		if (socket != nullptr)
+		{
+			socket->close ();
+		}
+	}
 }
 
 nano::bootstrap_server::bootstrap_server (std::shared_ptr<nano::socket> socket_a, std::shared_ptr<nano::node> node_a) :
