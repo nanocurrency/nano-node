@@ -2800,6 +2800,10 @@ void nano::election::confirm_once ()
 			node_l->process_confirmed (winner_l);
 			confirmation_action_l (winner_l);
 		});
+		if (announcements > node_l->active.announcement_long)
+		{
+			--node_l->active.long_unconfirmed_size;
+		}
 	}
 }
 
