@@ -3,7 +3,7 @@
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/testing.hpp>
 
-using namespace std::literals;
+using namespace std::chrono_literals;
 
 TEST (transaction_counter, validate)
 {
