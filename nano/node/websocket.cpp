@@ -289,21 +289,33 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 	auto action_succeeded (false);
 	if (action == "subscribe" && topic_l != nano::websocket::topic::invalid)
 	{
-		auto options_l (message_a.get_child_optional ("options"));
+		auto options_text_l (message_a.get_child_optional ("options"));
 		std::lock_guard<std::mutex> lk (subscriptions_mutex);
-		if (topic_l == nano::websocket::topic::confirmation)
+		std::unique_ptr<nano::websocket::options> options_l{ nullptr };
+		if (options_text_l && topic_l == nano::websocket::topic::confirmation)
 		{
-			subscriptions.insert (std::make_pair (topic_l, options_l ? std::make_unique<nano::websocket::confirmation_options> (options_l.get (), ws_listener.get_node ()) : std::make_unique<nano::websocket::options> ()));
+			options_l = std::make_unique<nano::websocket::confirmation_options> (options_text_l.get (), ws_listener.get_node ());
 		}
-		else if (topic_l == nano::websocket::topic::vote)
+		else if (options_text_l && topic_l == nano::websocket::topic::vote)
 		{
-			subscriptions.insert (std::make_pair (topic_l, options_l ? std::make_unique<nano::websocket::vote_options> (options_l.get (), ws_listener.get_node ()) : std::make_unique<nano::websocket::options> ()));
+			options_l = std::make_unique<nano::websocket::vote_options> (options_text_l.get (), ws_listener.get_node ());
 		}
 		else
 		{
-			subscriptions.insert (std::make_pair (topic_l, std::make_unique<nano::websocket::options> ()));
+			options_l = std::make_unique<nano::websocket::options> ();
 		}
-		ws_listener.increase_subscription_count (topic_l);
+		auto existing (subscriptions.find (topic_l));
+		if (existing != subscriptions.end ())
+		{
+			existing->second = std::move (options_l);
+			ws_listener.get_node ().logger.always_log (boost::str (boost::format ("Websocket: updated subscription to topic: %1%") % from_topic (topic_l)));
+		}
+		else
+		{
+			subscriptions.insert (std::make_pair (topic_l, std::move (options_l)));
+			ws_listener.get_node ().logger.always_log (boost::str (boost::format ("Websocket: new subscription to topic: %1%") % from_topic (topic_l)));
+			ws_listener.increase_subscription_count (topic_l);
+		}
 		action_succeeded = true;
 	}
 	else if (action == "unsubscribe" && topic_l != nano::websocket::topic::invalid)
@@ -311,6 +323,7 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 		std::lock_guard<std::mutex> lk (subscriptions_mutex);
 		if (subscriptions.erase (topic_l))
 		{
+			ws_listener.get_node ().logger.always_log (boost::str (boost::format ("Websocket: removed subscription to topic: %1%") % from_topic (topic_l)));
 			ws_listener.decrease_subscription_count (topic_l);
 		}
 		action_succeeded = true;
