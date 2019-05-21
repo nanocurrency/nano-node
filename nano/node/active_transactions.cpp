@@ -608,7 +608,7 @@ bool nano::active_transactions::should_flush ()
 	{
 		minimum_size = rate * 512;
 	}
-	if (roots.size () > minimum_size)
+	if (roots.size () >= minimum_size)
 	{
 		if (rate <= 10)
 		{
