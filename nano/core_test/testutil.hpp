@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <boost/iostreams/concepts.hpp>
 #include <boost/log/sources/logger.hpp>
 #include <boost/log/utility/setup/console.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
@@ -42,6 +43,34 @@ extern nano::uint256_union const & nano_test_account;
 extern nano::uint256_union const & genesis_account;
 extern nano::uint256_union const & burn_account;
 extern nano::uint128_t const & genesis_amount;
+
+class stringstream_mt_sink : public boost::iostreams::sink
+{
+public:
+	stringstream_mt_sink () = default;
+	stringstream_mt_sink (const stringstream_mt_sink & sink)
+	{
+		std::lock_guard<std::mutex> guard (mutex);
+		ss << sink.ss.str ();
+	}
+
+	std::streamsize write (const char * string_to_write, std::streamsize size)
+	{
+		std::lock_guard<std::mutex> guard (mutex);
+		ss << string_to_write;
+		return size;
+	}
+
+	std::string str ()
+	{
+		std::lock_guard<std::mutex> guard (mutex);
+		return ss.str ();
+	}
+
+private:
+	mutable std::mutex mutex;
+	std::stringstream ss;
+};
 
 class boost_log_cerr_redirect
 {
