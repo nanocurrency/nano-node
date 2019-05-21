@@ -478,7 +478,7 @@ void nano::transport::udp_channels::receive_action (nano::message_buffer * data_
 	{
 		allowed_sender = false;
 	}
-	else if (data_a->endpoint.is_unspecified ())
+	else if (data_a->endpoint.address ().to_v6 ().is_unspecified ())
 	{
 		allowed_sender = false;
 	}
