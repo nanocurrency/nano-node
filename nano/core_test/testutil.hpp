@@ -1,6 +1,8 @@
 #pragma once
 
 #include <atomic>
+#include <boost/log/sources/logger.hpp>
+#include <boost/log/utility/setup/console.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 #include <condition_variable>
 #include <mutex>
@@ -40,6 +42,26 @@ extern nano::uint256_union const & nano_test_account;
 extern nano::uint256_union const & genesis_account;
 extern nano::uint256_union const & burn_account;
 extern nano::uint128_t const & genesis_amount;
+
+class boost_log_cerr_redirect
+{
+public:
+	boost_log_cerr_redirect (std::streambuf * new_buffer) :
+	old (std::cerr.rdbuf (new_buffer))
+	{
+		console_sink = (boost::log::add_console_log (std::cerr, boost::log::keywords::format = "%Message%"));
+	}
+
+	~boost_log_cerr_redirect ()
+	{
+		std::cerr.rdbuf (old);
+		boost::log::core::get ()->remove_sink (console_sink);
+	}
+
+private:
+	std::streambuf * old;
+	boost::shared_ptr<boost::log::sinks::synchronous_sink<boost::log::sinks::text_ostream_backend>> console_sink;
+};
 
 namespace util
 {

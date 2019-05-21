@@ -1492,6 +1492,13 @@ void nano::work_watcher::add (std::shared_ptr<nano::block> block_a)
 	}
 }
 
+bool nano::work_watcher::is_watched (nano::qualified_root const & root_a)
+{
+	std::unique_lock<std::mutex> lock (mutex);
+	auto exists (blocks.find (root_a));
+	return exists != blocks.end ();
+}
+
 void nano::wallets::do_wallet_actions ()
 {
 	std::unique_lock<std::mutex> action_lock (action_mutex);
