@@ -230,7 +230,15 @@ namespace websocket
 		 * Per-topic subscribers check. Relies on all sessions correctly increasing and
 		 * decreasing the subscriber counts themselves.
 		 */
-		bool any_subscriber (nano::websocket::topic const & topic_a);
+		bool any_subscriber (nano::websocket::topic const & topic_a) const
+		{
+			return subscriber_count (topic_a) > 0;
+		}
+		/** Getter for subscriber count of a specific topic*/
+		size_t subscriber_count (nano::websocket::topic const & topic_a) const
+		{
+			return topic_subscriber_count[static_cast<std::size_t> (topic_a)];
+		}
 
 	private:
 		/** A websocket session can increase and decrease subscription counts. */
