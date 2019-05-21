@@ -85,11 +85,12 @@ TEST (socket, concurrent_writes)
 
 	// Execute overlapping writes from multiple threads
 	auto client (clients[0]);
+	std::vector<std::thread> client_threads;
 	for (int i = 0; i < client_count; i++)
 	{
 		// Note: this gives a warning on most compilers because message_count is constexpr and a
 		// capture isn't needed. However, removing it fails to compile on VS2017 due to a known compiler bug.
-		std::thread runner ([&client, &message_count]() {
+		client_threads.emplace_back ([&client, &message_count]() {
 			for (int i = 0; i < message_count; i++)
 			{
 				auto buff (std::make_shared<std::vector<uint8_t>> ());
@@ -97,7 +98,6 @@ TEST (socket, concurrent_writes)
 				client->async_write (buff);
 			}
 		});
-		runner.detach ();
 	}
 
 	ASSERT_FALSE (read_count_completion.await_count_for (10s));
@@ -108,4 +108,9 @@ TEST (socket, concurrent_writes)
 	ASSERT_EQ (node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_accept_success, nano::stat::dir::in), client_count);
 	// We may exhaust max connections and have some tcp accept failures, but no more than the client count
 	ASSERT_LT (node->stats.count (nano::stat::type::tcp, nano::stat::detail::tcp_accept_failure, nano::stat::dir::in), client_count);
+
+	for (auto & t : client_threads)
+	{
+		t.join ();
+	}
 }
