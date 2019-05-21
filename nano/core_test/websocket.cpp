@@ -66,6 +66,7 @@ boost::optional<std::string> websocket_test_call (std::string host, std::string 
 		});
 		ioc.run_one_for (response_deadline);
 	}
+
 	if (ws.is_open ())
 	{
 		boost::beast::error_code ec_ignored;
@@ -97,12 +98,12 @@ TEST (websocket, subscription_edge)
 		std::thread subscription_thread ([]() {
 			websocket_test_call ("::1", "24078", R"json({"action": "subscribe", "topic": "confirmation", "ack": true})json", true, false);
 		});
-		subscription_thread.detach ();
 		system.deadline_set (5s);
 		while (!ack_ready)
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
+		subscription_thread.join ();
 		ASSERT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::confirmation));
 	}
 
@@ -112,12 +113,12 @@ TEST (websocket, subscription_edge)
 		std::thread subscription_thread ([]() {
 			websocket_test_call ("::1", "24078", R"json({"action": "subscribe", "topic": "confirmation", "ack": true})json", true, false);
 		});
-		subscription_thread.detach ();
 		system.deadline_set (5s);
 		while (!ack_ready)
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
+		subscription_thread.join ();
 		ASSERT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::confirmation));
 	}
 
@@ -127,28 +128,27 @@ TEST (websocket, subscription_edge)
 		std::thread unsub_thread ([]() {
 			websocket_test_call ("::1", "24078", R"json({"action": "unsubscribe", "topic": "confirmation", "ack": true})json", true, false);
 		});
-		unsub_thread.detach ();
 		system.deadline_set (5s);
 		while (!ack_ready)
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
+		unsub_thread.join ();
 		ASSERT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::confirmation));
 	}
 
 	// Second unsub, should acknowledge but not decrease subscriber count
-	std::this_thread::sleep_for (50ms);
 	{
 		ack_ready = false;
 		std::thread unsub_thread ([]() {
 			websocket_test_call ("::1", "24078", R"json({"action": "unsubscribe", "topic": "confirmation", "ack": true})json", true, false);
 		});
-		unsub_thread.detach ();
 		system.deadline_set (5s);
 		while (!ack_ready)
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
+		unsub_thread.join ();
 		ASSERT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::confirmation));
 	}
 
