@@ -137,6 +137,7 @@ TEST (websocket, subscription_edge)
 	}
 
 	// Second unsub, should acknowledge but not decrease subscriber count
+	std::this_thread::sleep_for (50ms);
 	{
 		ack_ready = false;
 		std::thread unsub_thread ([]() {
