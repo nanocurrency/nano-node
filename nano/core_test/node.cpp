@@ -2549,7 +2549,7 @@ TEST (node, peer_cache_restart)
 			ASSERT_NO_ERROR (system.poll ());
 		}
 		// Confirm that the peers match with the endpoints we are expecting
-		auto list (node->network.udp_channels.list (2));
+		auto list (node->network.list (2));
 		ASSERT_EQ (system.nodes[0]->network.endpoint (), list[0]->get_endpoint ());
 		ASSERT_EQ (1, node->network.size ());
 		node->stop ();
@@ -2573,7 +2573,7 @@ TEST (node, peer_cache_restart)
 			ASSERT_NO_ERROR (system.poll ());
 		}
 		// Confirm that the peers match with the endpoints we are expecting
-		auto list (node->network.udp_channels.list (2));
+		auto list (node->network.list (2));
 		ASSERT_EQ (system.nodes[0]->network.endpoint (), list[0]->get_endpoint ());
 		ASSERT_EQ (1, node->network.size ());
 		node->stop ();
