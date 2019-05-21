@@ -5378,7 +5378,7 @@ TEST (rpc, confirmation_height_currently_processing)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 
 	// Do enough blocks to reliably call RPC before the confirmation height has finished
-	constexpr auto num_blocks = 500;
+	constexpr auto num_blocks = 1000;
 	auto previous_genesis_chain_hash = node->latest (nano::test_genesis_key.pub);
 	{
 		auto transaction = node->store.tx_begin_write ();

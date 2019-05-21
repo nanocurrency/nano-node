@@ -2525,6 +2525,61 @@ TEST (node, peers)
 	node->stop ();
 }
 
+TEST (node, peer_cache_restart)
+{
+	nano::system system (24000, 1);
+	ASSERT_TRUE (system.nodes[0]->network.empty ());
+	auto endpoint = system.nodes[0]->network.endpoint ();
+	nano::endpoint_key endpoint_key{ endpoint.address ().to_v6 ().to_bytes (), endpoint.port () };
+	auto path (nano::unique_path ());
+	{
+		nano::node_init init;
+		auto node (std::make_shared<nano::node> (init, system.io_ctx, 24001, path, system.alarm, system.logging, system.work));
+		system.nodes.push_back (node);
+		auto & store = node->store;
+		{
+			// Add a peer to the database
+			auto transaction (store.tx_begin_write ());
+			store.peer_put (transaction, endpoint_key);
+		}
+		node->start ();
+		system.deadline_set (10s);
+		while (node->network.empty ())
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		// Confirm that the peers match with the endpoints we are expecting
+		auto list (node->network.udp_channels.list (2));
+		ASSERT_EQ (system.nodes[0]->network.endpoint (), list[0]->get_endpoint ());
+		ASSERT_EQ (1, node->network.size ());
+		node->stop ();
+	}
+	// Restart node
+	{
+		nano::node_init init;
+		auto node (std::make_shared<nano::node> (init, system.io_ctx, 24002, path, system.alarm, system.logging, system.work));
+		system.nodes.push_back (node);
+		// Check cached peers after restart
+		node->start ();
+		auto & store = node->store;
+		{
+			auto transaction (store.tx_begin_read ());
+			ASSERT_EQ (store.peer_count (transaction), 1);
+			ASSERT_TRUE (store.peer_exists (transaction, endpoint_key));
+		}
+		system.deadline_set (10s);
+		while (node->network.empty ())
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		// Confirm that the peers match with the endpoints we are expecting
+		auto list (node->network.udp_channels.list (2));
+		ASSERT_EQ (system.nodes[0]->network.endpoint (), list[0]->get_endpoint ());
+		ASSERT_EQ (1, node->network.size ());
+		node->stop ();
+	}
+}
+
 TEST (node, unchecked_cleanup)
 {
 	nano::system system (24000, 1);
