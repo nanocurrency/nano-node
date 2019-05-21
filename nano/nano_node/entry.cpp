@@ -390,6 +390,11 @@ int main (int argc, char * const * argv)
 						std::cerr << "Invalid difficulty\n";
 						result = -1;
 					}
+					else if (difficulty < network_constants.publish_threshold)
+					{
+						std::cerr << "Difficulty below publish threshold\n";
+						result = -1;
+					}
 				}
 				if (!result)
 				{
