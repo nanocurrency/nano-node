@@ -110,7 +110,7 @@ nano::websocket::session::~session ()
 		std::unique_lock<std::mutex> lk (subscriptions_mutex);
 		for (auto & subscription : subscriptions)
 		{
-			ws_listener.decrease_subscription_count (subscription.first);
+			ws_listener.subscriber_count (subscription.first);
 		}
 	}
 
@@ -314,7 +314,7 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 		{
 			subscriptions.insert (std::make_pair (topic_l, std::move (options_l)));
 			ws_listener.get_node ().logger.always_log (boost::str (boost::format ("Websocket: new subscription to topic: %1%") % from_topic (topic_l)));
-			ws_listener.increase_subscription_count (topic_l);
+			ws_listener.subscriber_count (topic_l);
 		}
 		action_succeeded = true;
 	}
@@ -324,7 +324,7 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 		if (subscriptions.erase (topic_l))
 		{
 			ws_listener.get_node ().logger.always_log (boost::str (boost::format ("Websocket: removed subscription to topic: %1%") % from_topic (topic_l)));
-			ws_listener.decrease_subscription_count (topic_l);
+			ws_listener.decrease_subscriber_count (topic_l);
 		}
 		action_succeeded = true;
 	}
@@ -421,19 +421,19 @@ void nano::websocket::listener::broadcast (nano::websocket::message message_a)
 	sessions.erase (std::remove_if (sessions.begin (), sessions.end (), [](auto & elem) { return elem.expired (); }), sessions.end ());
 }
 
-bool nano::websocket::listener::any_subscribers (nano::websocket::topic const & topic_a)
+bool nano::websocket::listener::any_subscriber (nano::websocket::topic const & topic_a)
 {
-	return topic_subscription_count[static_cast<std::size_t> (topic_a)] > 0;
+	return topic_subscriber_count[static_cast<std::size_t> (topic_a)] > 0;
 }
 
-void nano::websocket::listener::increase_subscription_count (nano::websocket::topic const & topic_a)
+void nano::websocket::listener::subscriber_count (nano::websocket::topic const & topic_a)
 {
-	topic_subscription_count[static_cast<std::size_t> (topic_a)] += 1;
+	topic_subscriber_count[static_cast<std::size_t> (topic_a)] += 1;
 }
 
-void nano::websocket::listener::decrease_subscription_count (nano::websocket::topic const & topic_a)
+void nano::websocket::listener::decrease_subscriber_count (nano::websocket::topic const & topic_a)
 {
-	auto & count (topic_subscription_count[static_cast<std::size_t> (topic_a)]);
+	auto & count (topic_subscriber_count[static_cast<std::size_t> (topic_a)]);
 	release_assert (count > 0);
 	count -= 1;
 }
