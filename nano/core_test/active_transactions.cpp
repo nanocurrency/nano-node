@@ -246,7 +246,6 @@ TEST (active_transactions, prioritize_chains)
 			auto election (it->election);
 			election->confirm_once ();
 			it++;
-			;
 		}
 	}
 
