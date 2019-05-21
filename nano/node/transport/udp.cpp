@@ -524,7 +524,7 @@ void nano::transport::udp_channels::receive_action (nano::message_buffer * data_
 	}
 	else
 	{
-		if (node.config.logging.network_packet_logging_value ())
+		if (node.config.logging.network_packet_logging ())
 		{
 			node.logger.try_log (boost::str (boost::format ("Reserved sender %1%") % data_a->endpoint));
 		}
