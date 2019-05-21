@@ -835,9 +835,9 @@ void nano::json_handler::accounts_pending ()
 
 void nano::json_handler::active_difficulty ()
 {
-	response_l.put ("difficulty_threshold", nano::to_string_hex (node.network_params.network.publish_threshold));
+	response_l.put ("network_minimum", nano::to_string_hex (node.network_params.network.publish_threshold));
 	auto difficulty_active = node.active.active_difficulty ();
-	response_l.put ("difficulty_active", nano::to_string_hex (difficulty_active));
+	response_l.put ("network_current", nano::to_string_hex (difficulty_active));
 	auto multiplier = nano::difficulty::to_multiplier (difficulty_active, node.network_params.network.publish_threshold);
 	response_l.put ("multiplier", nano::to_string (multiplier));
 	response_errors ();
@@ -4353,7 +4353,7 @@ void nano::json_handler::work_generate ()
 	{
 		bool use_peers (request.get_optional<bool> ("use_peers") == true);
 		auto rpc_l (shared_from_this ());
-		auto callback = [rpc_l, &hash, this](boost::optional<uint64_t> const & work_a) {
+		auto callback = [rpc_l, hash, this](boost::optional<uint64_t> const & work_a) {
 			if (work_a)
 			{
 				boost::property_tree::ptree response_l;

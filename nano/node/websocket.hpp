@@ -66,7 +66,7 @@ namespace websocket
 		{
 		}
 
-		std::string to_string () const;
+		std::shared_ptr<std::string> to_string () const;
 		nano::websocket::topic topic;
 		boost::property_tree::ptree contents;
 	};
@@ -180,8 +180,6 @@ namespace websocket
 		boost::asio::strand<boost::asio::io_context::executor_type> strand;
 		/** Outgoing messages. The send queue is protected by accessing it only through the strand */
 		std::deque<message> send_queue;
-		/** Serialize calls to websocket::stream initiating functions */
-		std::mutex io_mutex;
 
 		/** Hash functor for topic enums */
 		struct topic_hash
