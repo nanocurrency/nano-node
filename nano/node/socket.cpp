@@ -44,7 +44,6 @@ void nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, s
 	{
 		start_timer ();
 		boost::asio::post (strand, boost::asio::bind_executor (strand, [buffer_a, callback_a, size_a, this_l]() {
-			assert (!this_l->closed);
 			boost::asio::async_read (this_l->tcp_socket, boost::asio::buffer (buffer_a->data (), size_a),
 			boost::asio::bind_executor (this_l->strand,
 			[this_l, buffer_a, callback_a](boost::system::error_code const & ec, size_t size_a) {
