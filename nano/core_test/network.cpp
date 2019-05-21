@@ -1228,7 +1228,10 @@ TEST (network, endpoint_bad_fd)
 TEST (network, reserved_address)
 {
 	nano::system system (24000, 1);
-	ASSERT_FALSE (nano::transport::reserved_address (nano::endpoint (boost::asio::ip::address_v6::from_string ("2001::"), 0)));
+	// 0 port test
+	ASSERT_TRUE (nano::transport::reserved_address (nano::endpoint (boost::asio::ip::address_v6::from_string ("2001::"), 0)));
+	// Valid address test
+	ASSERT_FALSE (nano::transport::reserved_address (nano::endpoint (boost::asio::ip::address_v6::from_string ("2001::"), 1)));
 	nano::endpoint loopback (boost::asio::ip::address_v6::from_string ("::1"), 1);
 	ASSERT_FALSE (nano::transport::reserved_address (loopback));
 	nano::endpoint private_network_peer (boost::asio::ip::address_v6::from_string ("::ffff:10.0.0.0"), 1);
