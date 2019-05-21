@@ -214,7 +214,7 @@ TEST (active_transactions, prioritize_chains)
 	auto & node1 = *system.add_node (node_config);
 	auto & wallet (*system.wallet (0));
 	nano::genesis genesis;
-	nano::keypair key1, key2;
+	nano::keypair key1, key2, key3;
 
 	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 10 * nano::xrb_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (genesis.hash ())));
 	auto open1 (std::make_shared<nano::state_block> (key1.pub, 0, key1.pub, 10 * nano::xrb_ratio, send1->hash (), key1.prv, key1.pub, system.work.generate (key1.pub)));
@@ -222,14 +222,18 @@ TEST (active_transactions, prioritize_chains)
 	auto send3 (std::make_shared<nano::state_block> (key1.pub, send2->hash (), key1.pub, nano::xrb_ratio * 8, key2.pub, key1.prv, key1.pub, system.work.generate (send2->hash ())));
 	auto send4 (std::make_shared<nano::state_block> (key1.pub, send3->hash (), key1.pub, nano::xrb_ratio * 7, key2.pub, key1.prv, key1.pub, system.work.generate (send3->hash ())));
 	auto send5 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 20 * nano::xrb_ratio, key2.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send1->hash ())));
+	auto send6 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send5->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 30 * nano::xrb_ratio, key3.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send5->hash ())));
 	auto open2 (std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, 10 * nano::xrb_ratio, send5->hash (), key2.prv, key2.pub, system.work.generate (key2.pub, nano::difficulty::from_multiplier (50., node1.network_params.network.publish_threshold))));
-	uint64_t difficulty (0);
-	nano::work_validate (*open2, &difficulty);
+	uint64_t difficulty1 (0);
+	nano::work_validate (*open2, &difficulty1);
+	uint64_t difficulty2 (0);
+	nano::work_validate (*send6, &difficulty2);
 
 	node1.process_active (send1);
 	node1.process_active (open1);
+	node1.process_active (send5);
 	system.deadline_set (10s);
-	while (node1.active.size () != 2)
+	while (node1.active.size () != 3)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -249,12 +253,13 @@ TEST (active_transactions, prioritize_chains)
 	node1.process_active (send2);
 	node1.process_active (send3);
 	node1.process_active (send4);
-	node1.process_active (send5);
+	node1.process_active (send6);
 
 	while (node1.active.size () != 4)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+
 	bool done (false);
 	//wait for all to be long_unconfirmed
 	while (!done)
@@ -265,12 +270,14 @@ TEST (active_transactions, prioritize_chains)
 		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	std::this_thread::sleep_for (1s);
 	node1.process_active (open2);
 	while (node1.active.size () != 4)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	//wait for all to be long_unconfirmed
+	done = false;
 	while (!done)
 	{
 		{
@@ -279,13 +286,18 @@ TEST (active_transactions, prioritize_chains)
 		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	size_t seen (0);
 	{
 		auto it (node1.active.roots.get<1> ().begin ());
 		while (!node1.active.roots.empty () && it != node1.active.roots.get<1> ().end ())
 		{
-			ASSERT_NE (difficulty, it->difficulty);
+			if (it->difficulty == (difficulty1 || difficulty2))
+			{
+				seen++;
+			}
 			it++;
 		}
 	}
+	ASSERT_LT (seen, 2);
 	ASSERT_EQ (node1.active.size (), 4);
 }
