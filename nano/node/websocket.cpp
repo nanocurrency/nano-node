@@ -219,7 +219,7 @@ void nano::websocket::session::read ()
 				self_l->ws_listener.get_node ().logger.try_log ("Websocket: json parsing failed: ", ex.what ());
 			}
 		}
-		else
+		else if (ec != boost::asio::error::eof) // connection was closed cleanly if EOF
 		{
 			self_l->ws_listener.get_node ().logger.try_log ("Websocket: read failed: ", ec.message ());
 		}
