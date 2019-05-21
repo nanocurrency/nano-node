@@ -4355,7 +4355,7 @@ void nano::json_handler::work_generate ()
 	{
 		bool use_peers (request.get_optional<bool> ("use_peers") == true);
 		auto rpc_l (shared_from_this ());
-		auto callback = [rpc_l, &hash, this](boost::optional<uint64_t> const & work_a) {
+		auto callback = [rpc_l, hash, this](boost::optional<uint64_t> const & work_a) {
 			if (work_a)
 			{
 				uint64_t work (work_a.value ());
