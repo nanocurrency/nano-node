@@ -110,7 +110,7 @@ nano::websocket::session::~session ()
 		std::unique_lock<std::mutex> lk (subscriptions_mutex);
 		for (auto & subscription : subscriptions)
 		{
-			ws_listener.increase_subscriber_count (subscription.first);
+			ws_listener.decrease_subscriber_count (subscription.first);
 		}
 	}
 
