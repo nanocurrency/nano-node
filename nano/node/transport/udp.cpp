@@ -478,6 +478,10 @@ void nano::transport::udp_channels::receive_action (nano::message_buffer * data_
 	{
 		allowed_sender = false;
 	}
+	else if (data_a->endpoint.is_unspecified ())
+	{
+		allowed_sender = false;
+	}
 	else if (nano::transport::reserved_address (data_a->endpoint, node.config.allow_local_peers))
 	{
 		allowed_sender = false;
