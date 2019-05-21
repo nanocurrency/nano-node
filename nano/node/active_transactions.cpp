@@ -9,9 +9,10 @@ using namespace std::chrono;
 
 nano::active_transactions::active_transactions (nano::node & node_a, bool delay_frontier_confirmation_height_updating) :
 node (node_a),
-difficulty_cb (20, node.network_params.network.publish_threshold),
+multipliers_cb (20, 1.),
 trended_active_difficulty (node.network_params.network.publish_threshold),
 next_frontier_check (steady_clock::now () + (delay_frontier_confirmation_height_updating ? 60s : 0s)),
+counter (),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::request_loop);
 	request_loop ();
@@ -321,6 +322,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 		}
 		roots.erase (*i);
 	}
+	long_unconfirmed_size = unconfirmed_count;
 	if (unconfirmed_count > 0)
 	{
 		node.logger.try_log (boost::str (boost::format ("%1% blocks have been unconfirmed averaging %2% announcements") % unconfirmed_count % (unconfirmed_announcements / unconfirmed_count)));
@@ -450,6 +452,14 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, std::
 			adjust_difficulty (block_a->hash ());
 		}
 		error = existing != roots.end ();
+		if (error)
+		{
+			counter.add ();
+			if (should_flush ())
+			{
+				flush_lowest ();
+			}
+		}
 	}
 	return error;
 }
@@ -535,7 +545,7 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 	remaining_blocks.emplace_back (hash_a, 0);
 	std::unordered_set<nano::block_hash> processed_blocks;
 	std::vector<std::pair<nano::qualified_root, int64_t>> elections_list;
-	uint128_t sum (0);
+	double sum (0.);
 	while (!remaining_blocks.empty ())
 	{
 		auto const & item (remaining_blocks.front ());
@@ -570,40 +580,32 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 				auto existing_root (roots.find (root));
 				if (existing_root != roots.end ())
 				{
-					sum += existing_root->difficulty;
+					sum += nano::difficulty::to_multiplier (existing_root->difficulty, node.network_params.network.publish_threshold);
 					elections_list.emplace_back (root, level);
 				}
 			}
 		}
 		remaining_blocks.pop_front ();
 	}
-	if (elections_list.size () > 1)
+	if (!elections_list.empty ())
 	{
-		uint64_t average (static_cast<uint64_t> (sum / elections_list.size ()));
-		// Potential overflow check
-		uint64_t divider (1);
-		if (elections_list.size () > 1000000 && (average - node.network_params.network.publish_threshold) > elections_list.size ())
+		double multiplier = sum / elections_list.size ();
+		uint64_t average = nano::difficulty::from_multiplier (multiplier, node.network_params.network.publish_threshold);
+		auto highest_level = elections_list.back ().second;
+		uint64_t divider = 1;
+		// Possible overflow check, will not occur for negative levels
+		if ((multiplier + highest_level) > 10000000000)
 		{
-			divider = ((average - node.network_params.network.publish_threshold) / elections_list.size ()) + 1;
+			divider = ((multiplier + highest_level) / 10000000000) + 1;
 		}
+
 		// Set adjusted difficulty
 		for (auto & item : elections_list)
 		{
 			auto existing_root (roots.find (item.first));
-			uint64_t difficulty_a (average + (item.second / divider));
+			uint64_t difficulty_a = average + item.second / divider;
 			roots.modify (existing_root, [difficulty_a](nano::conflict_info & info_a) {
 				info_a.adjusted_difficulty = difficulty_a;
-			});
-		}
-	}
-	// Set adjusted difficulty equals to difficulty
-	else if (elections_list.size () == 1)
-	{
-		auto existing_root (roots.find (elections_list.begin ()->first));
-		if (existing_root->difficulty != existing_root->adjusted_difficulty)
-		{
-			roots.modify (existing_root, [](nano::conflict_info & info_a) {
-				info_a.adjusted_difficulty = info_a.difficulty;
 			});
 		}
 	}
@@ -612,19 +614,27 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 void nano::active_transactions::update_active_difficulty (std::unique_lock<std::mutex> & lock_a)
 {
 	assert (lock_a.mutex () == &mutex && lock_a.owns_lock ());
-	uint64_t difficulty (node.network_params.network.publish_threshold);
+	double multiplier (1.);
 	if (!roots.empty ())
 	{
-		uint128_t min = roots.get<1> ().begin ()->adjusted_difficulty;
-		assert (min >= node.network_params.network.publish_threshold);
-		uint128_t max = (--roots.get<1> ().end ())->adjusted_difficulty;
-		assert (max >= node.network_params.network.publish_threshold);
-		difficulty = static_cast<uint64_t> ((min + max) / 2);
+		std::vector<uint64_t> active_root_difficulties;
+		active_root_difficulties.reserve (roots.size ());
+		for (auto & root : roots)
+		{
+			if (!root.election->confirmed && !root.election->stopped)
+			{
+				active_root_difficulties.push_back (root.adjusted_difficulty);
+			}
+		}
+		if (!active_root_difficulties.empty ())
+		{
+			multiplier = nano::difficulty::to_multiplier (active_root_difficulties[active_root_difficulties.size () / 2], node.network_params.network.publish_threshold);
+		}
 	}
-	assert (difficulty >= node.network_params.network.publish_threshold);
-	difficulty_cb.push_front (difficulty);
-	auto sum (std::accumulate (node.active.difficulty_cb.begin (), node.active.difficulty_cb.end (), uint128_t (0)));
-	difficulty = static_cast<uint64_t> (sum / difficulty_cb.size ());
+	assert (multiplier >= 1);
+	multipliers_cb.push_front (multiplier);
+	auto sum (std::accumulate (multipliers_cb.begin (), multipliers_cb.end (), double(0)));
+	auto difficulty = nano::difficulty::from_multiplier (sum / multipliers_cb.size (), node.network_params.network.publish_threshold);
 	assert (difficulty >= node.network_params.network.publish_threshold);
 	trended_active_difficulty = difficulty;
 }
@@ -664,6 +674,79 @@ void nano::active_transactions::erase (nano::block const & block_a)
 	{
 		roots.erase (block_a.qualified_root ());
 		node.logger.try_log (boost::str (boost::format ("Election erased for block block %1% root %2%") % block_a.hash ().to_string () % block_a.root ().to_string ()));
+	}
+}
+
+bool nano::active_transactions::should_flush ()
+{
+	bool result (false);
+	counter.trend_sample ();
+	size_t minimum_size (1);
+	auto rate (counter.get_rate ());
+	if (roots.size () > 100000)
+	{
+		return true;
+	}
+	if (rate == 0)
+	{
+		//set minimum size to 4 for test network
+		minimum_size = node.network_params.network.is_test_network () ? 4 : 512;
+	}
+	else
+	{
+		minimum_size = rate * 512;
+	}
+	if (roots.size () >= minimum_size)
+	{
+		if (rate <= 10)
+		{
+			if (roots.size () * .75 < long_unconfirmed_size)
+			{
+				result = true;
+			}
+		}
+		else if (rate <= 100)
+		{
+			if (roots.size () * .50 < long_unconfirmed_size)
+			{
+				result = true;
+			}
+		}
+		else if (rate <= 1000)
+		{
+			if (roots.size () * .25 < long_unconfirmed_size)
+			{
+				result = true;
+			}
+		}
+	}
+	return result;
+}
+
+void nano::active_transactions::flush_lowest ()
+{
+	size_t count (0);
+	assert (!roots.empty ());
+	auto & sorted_roots = roots.get<1> ();
+	for (auto it = sorted_roots.rbegin (); it != sorted_roots.rend ();)
+	{
+		if (count != 2)
+		{
+			auto election = it->election;
+			if (election->announcements > announcement_long && !election->confirmed && !node.wallets.watcher.is_watched (it->root))
+			{
+				it = decltype (it){ sorted_roots.erase (std::next (it).base ()) };
+				count++;
+			}
+			else
+			{
+				++it;
+			}
+		}
+		else
+		{
+			break;
+		}
 	}
 }
 
@@ -737,5 +820,30 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transaction
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "confirmed", confirmed_count, sizeof (decltype (active_transactions.confirmed)::value_type) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "priority_cementable_frontiers_count", active_transactions.priority_cementable_frontiers_size (), sizeof (nano::cementable_account) }));
 	return composite;
+}
+
+void transaction_counter::add ()
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	counter++;
+}
+
+void transaction_counter::trend_sample ()
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	auto now (std::chrono::steady_clock::now ());
+	if (now >= trend_last + 1s && counter != 0)
+	{
+		auto elapsed = std::chrono::duration_cast<std::chrono::seconds> (now - trend_last);
+		rate = counter / elapsed.count ();
+		counter = 0;
+		trend_last = std::chrono::steady_clock::now ();
+	}
+}
+
+double transaction_counter::get_rate ()
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	return rate;
 }
 }

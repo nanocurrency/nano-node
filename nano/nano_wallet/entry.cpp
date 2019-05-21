@@ -36,7 +36,6 @@ public:
 	bool upgrade_json (unsigned version_a, nano::jsonconfig & json)
 	{
 		json.put ("version", json_version ());
-		auto upgraded (false);
 		switch (version_a)
 		{
 			case 1:
@@ -46,7 +45,6 @@ public:
 				json.erase ("account");
 				json.put ("account", account.to_account ());
 				json.erase ("version");
-				upgraded = true;
 			}
 			case 2:
 			{
@@ -55,7 +53,6 @@ public:
 				json.put ("rpc_enable", "false");
 				json.put_child ("rpc", rpc_l);
 				json.erase ("version");
-				upgraded = true;
 			}
 			case 3:
 			{
@@ -71,14 +68,13 @@ public:
 					opencl.serialize_json (opencl_l);
 					json.put_child ("opencl", opencl_l);
 				}
-				upgraded = true;
 			}
 			case 4:
 				break;
 			default:
 				throw std::runtime_error ("Unknown qt_wallet_config version");
 		}
-		return upgraded;
+		return version_a < json_version ();
 	}
 
 	nano::error deserialize_json (bool & upgraded_a, nano::jsonconfig & json)
@@ -244,9 +240,12 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	nano::set_secure_perm_file (config_path, error_chmod);
 	if (!error)
 	{
-		boost::asio::io_context io_ctx;
 		config.node.logging.init (data_path);
 		nano::logger_mt logger{ config.node.logging.min_time_between_log_output };
+
+		boost::asio::io_context io_ctx;
+		nano::thread_runner runner (io_ctx, config.node.io_threads);
+
 		std::shared_ptr<nano::node> node;
 		std::shared_ptr<nano_qt::wallet> gui;
 		nano::set_application_icon (application);
@@ -258,6 +257,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 		nano::alarm alarm (io_ctx);
 		nano::node_init init;
 		nano::node_flags flags;
+
 		node = std::make_shared<nano::node> (init, io_ctx, data_path, alarm, config.node, work, flags);
 		if (!init.error ())
 		{
@@ -301,8 +301,9 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 			std::unique_ptr<nano::rpc_handler_interface> rpc_handler;
 			if (config.rpc_enable)
 			{
-				if (config.rpc.rpc_in_process)
+				if (!config.rpc.child_process.enable)
 				{
+					// Launch rpc in-process
 					nano::rpc_config rpc_config;
 					auto error = nano::read_and_update_rpc_config (data_path, rpc_config);
 					if (error)
@@ -315,21 +316,20 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 				}
 				else
 				{
-					if (!boost::filesystem::exists (config.rpc.rpc_path))
+					// Spawn a child rpc process
+					if (!boost::filesystem::exists (config.rpc.child_process.rpc_path))
 					{
-						throw std::runtime_error (std::string ("RPC is configured to spawn a new process however the file cannot be found at: ") + config.rpc.rpc_path);
+						throw std::runtime_error (std::string ("RPC is configured to spawn a new process however the file cannot be found at: ") + config.rpc.child_process.rpc_path);
 					}
 
-					auto network = node->network_params.network.get_current_network_as_string ();
 #if BOOST_PROCESS_SUPPORTED
-					rpc_process = std::make_unique<boost::process::child> (config.rpc.rpc_path, "--daemon", "--data_path", data_path, "--network", network);
+					auto network = node->network_params.network.get_current_network_as_string ();
+					rpc_process = std::make_unique<boost::process::child> (config.rpc.child_process.rpc_path, "--daemon", "--data_path", data_path, "--network", network);
 #else
 					show_error ("rpc_enable is set to true in the config. Set it to false and start the RPC server manually.");
 #endif
 				}
 			}
-
-			nano::thread_runner runner (io_ctx, node->config.io_threads);
 			QObject::connect (&application, &QApplication::aboutToQuit, [&]() {
 				ipc.stop ();
 				node->stop ();
@@ -343,6 +343,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 					rpc_process->terminate ();
 				}
 #endif
+				runner.stop_event_processing ();
 			});
 			application.postEvent (&processor, new nano_qt::eventloop_event ([&]() {
 				gui = std::make_shared<nano_qt::wallet> (application, processor, *node, wallet, config.account);

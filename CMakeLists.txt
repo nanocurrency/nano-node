@@ -37,6 +37,7 @@ set(USING_TSAN (NANO_TSAN OR RAIBLOCKS_TSAN))
 find_package(Threads)
 
 if (WIN32)
+	find_library (PSAPI Psapi)
 	add_definitions(-D_WIN32_WINNT=0x0600
 					-DWINVER=0x0600
 					-DWIN32_LEAN_AND_MEAN
@@ -312,6 +313,8 @@ if (NANO_TEST OR RAIBLOCKS_TEST)
         set (gtest_force_shared_crt OFF)
     endif()
 
+    add_subdirectory(nano/load_test)
+
     add_subdirectory (gtest/googletest)
 	# FIXME: This fixes gtest include directories without modifying gtest's
 	# CMakeLists.txt. Ideally we should use GTest::GTest and GTest::Main as
@@ -428,7 +431,10 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 		else ()
 			set (WIN_REDIST vc_redist.x86.exe)
 		endif ()
-		set (CPACK_NSIS_EXTRA_INSTALL_COMMANDS "ExecWait '\\\"$INSTDIR\\\\${WIN_REDIST}\\\" /quiet /norestart'")
+		set (CPACK_NSIS_EXTRA_INSTALL_COMMANDS "ExecWait '\\\"$INSTDIR\\\\${WIN_REDIST}\\\" /quiet /norestart'
+												WriteRegDWORD HKLM 'SYSTEM\\\\CurrentControlSet\\\\Services\\\\EventLog\\\\Nano\\\\Nano' 'TypesSupported' '0x7'
+												WriteRegStr HKLM 'SYSTEM\\\\CurrentControlSet\\\\Services\\\\EventLog\\\\Nano\\\\Nano' 'EventMessageFile' '$INSTDIR\\\\nano_wallet.exe'")
+		set (CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS "DeleteRegKey HKLM 'SYSTEM\\\\CurrentControlSet\\\\Services\\\\EventLog\\\\Nano'")
 		set (CPACK_NSIS_MUI_ICON ${CMAKE_SOURCE_DIR}/Nano.ico)
 		set (CPACK_NSIS_DISPLAY_NAME "Nano")
 		set (CPACK_PACKAGE_NAME "Nano_Installer")

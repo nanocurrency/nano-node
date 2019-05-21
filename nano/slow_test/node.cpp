@@ -6,6 +6,8 @@
 
 #include <thread>
 
+using namespace std::chrono_literals;
+
 TEST (system, generate_mass_activity)
 {
 	nano::system system (24000, 1);
@@ -50,7 +52,7 @@ TEST (system, receive_while_synchronizing)
 		nano::node_init init1;
 		auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 		ASSERT_FALSE (init1.error ());
-		nano::transport::channel_udp channel (node1->network.udp_channels, system.nodes[0]->network.endpoint ());
+		auto channel (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, system.nodes[0]->network.endpoint ()));
 		node1->network.send_keepalive (channel);
 		auto wallet (node1->wallets.create (1));
 		ASSERT_EQ (key.pub, wallet->insert_adhoc (key.prv));
