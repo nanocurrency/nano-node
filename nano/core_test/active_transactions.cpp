@@ -105,6 +105,7 @@ TEST (active_transactions, adjusted_difficulty_priority)
 		}
 	}
 
+	system.deadline_set (10s);
 	while (node1.active.confirmed.size () != 4)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -126,6 +127,7 @@ TEST (active_transactions, adjusted_difficulty_priority)
 	node1.process_active (send6); //key1
 	node1.process_active (send8); //key2
 
+	system.deadline_set (10s);
 	while (node1.active.size () != 6)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -183,12 +185,14 @@ TEST (active_transactions, keep_local)
 	auto open2 (std::make_shared<nano::state_block> (key4.pub, 0, key4.pub, nano::xrb_ratio, send4->hash (), key4.prv, key4.pub, system.work.generate (key4.pub)));
 	node1.process_active (open2);
 	//none are dropped since none are long_unconfirmed
+	system.deadline_set (10s);
 	while (node1.active.size () != 4)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	auto done (false);
 	//wait for all to be long_unconfirmed
+	system.deadline_set (10s);
 	while (!done)
 	{
 		ASSERT_FALSE (node1.active.empty ());
@@ -201,6 +205,7 @@ TEST (active_transactions, keep_local)
 	auto send5 (wallet.send_action (nano::test_genesis_key.pub, key1.pub, node1.config.receive_minimum.number ()));
 	node1.active.start (send5);
 	//drop two lowest non-wallet managed active_transactions before inserting a new into active as all are long_unconfirmed
+	system.deadline_set (10s);
 	while (node1.active.size () != 3)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -256,6 +261,7 @@ TEST (active_transactions, prioritize_chains)
 	node1.process_active (send4);
 	node1.process_active (send6);
 
+	system.deadline_set (10s);
 	while (node1.active.size () != 4)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -273,12 +279,14 @@ TEST (active_transactions, prioritize_chains)
 	}
 	std::this_thread::sleep_for (1s);
 	node1.process_active (open2);
+	system.deadline_set (10s);
 	while (node1.active.size () != 4)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	//wait for all to be long_unconfirmed
 	done = false;
+	system.deadline_set (10s);
 	while (!done)
 	{
 		{

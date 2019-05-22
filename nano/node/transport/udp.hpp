@@ -59,11 +59,12 @@ namespace transport
 		size_t size () const;
 		std::shared_ptr<nano::transport::channel_udp> channel (nano::endpoint const &) const;
 		void random_fill (std::array<nano::endpoint, 8> &) const;
-		std::unordered_set<std::shared_ptr<nano::transport::channel_udp>> random_set (size_t) const;
-		void store_all (nano::node &);
+		std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (size_t) const;
+		bool store_all (bool = true);
+		std::shared_ptr<nano::transport::channel_udp> find_node_id (nano::account const &);
 		void clean_node_id (nano::endpoint const &, nano::account const &);
-		// Get the next peer for attempting a tcp connection
-		nano::endpoint tcp_peer ();
+		// Get the next peer for attempting a tcp bootstrap connection
+		nano::tcp_endpoint bootstrap_peer ();
 		void receive ();
 		void start ();
 		void stop ();
@@ -85,13 +86,9 @@ namespace transport
 		// Also removes the syn cookie from the store if valid
 		bool validate_syn_cookie (nano::endpoint const &, nano::account const &, nano::signature const &);
 		void ongoing_keepalive ();
-		std::deque<std::shared_ptr<nano::transport::channel_udp>> list (size_t);
-		// A list of random peers sized for the configured rebroadcast fanout
-		std::deque<std::shared_ptr<nano::transport::channel_udp>> list_fanout ();
+		void list (std::deque<std::shared_ptr<nano::transport::channel>> &);
 		void modify (std::shared_ptr<nano::transport::channel_udp>, std::function<void(std::shared_ptr<nano::transport::channel_udp>)>);
-		// Maximum number of peers per IP
-		static size_t constexpr max_peers_per_ip = 10;
-		static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
+		nano::node & node;
 
 	private:
 		void close_socket ();
@@ -178,11 +175,9 @@ namespace transport
 		attempts;
 		std::unordered_map<nano::endpoint, syn_cookie_info> syn_cookies;
 		std::unordered_map<boost::asio::ip::address, unsigned> syn_cookies_per_ip;
-		nano::node & node;
 		boost::asio::strand<boost::asio::io_context::executor_type> strand;
 		boost::asio::ip::udp::socket socket;
 		nano::endpoint local_endpoint;
-		nano::network_params network_params;
 		std::atomic<bool> stopped{ false };
 	};
 } // namespace transport

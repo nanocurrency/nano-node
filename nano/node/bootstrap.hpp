@@ -279,6 +279,8 @@ public:
 	nano::node & node;
 	std::shared_ptr<nano::server_socket> listening_socket;
 	bool on;
+	std::atomic<size_t> bootstrap_count{ 0 };
+	std::atomic<size_t> realtime_count{ 0 };
 
 private:
 	uint16_t port;
@@ -292,6 +294,7 @@ class bootstrap_server final : public std::enable_shared_from_this<nano::bootstr
 public:
 	bootstrap_server (std::shared_ptr<nano::socket>, std::shared_ptr<nano::node>);
 	~bootstrap_server ();
+	void stop ();
 	void receive ();
 	void receive_header_action (boost::system::error_code const &, size_t);
 	void receive_bulk_pull_action (boost::system::error_code const &, size_t, nano::message_header const &);
@@ -304,13 +307,21 @@ public:
 	void receive_node_id_handshake_action (boost::system::error_code const &, size_t, nano::message_header const &);
 	void add_request (std::unique_ptr<nano::message>);
 	void finish_request ();
+	void finish_request_async ();
 	void run_next ();
 	void timeout ();
+	bool is_bootstrap_connection ();
 	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
 	std::shared_ptr<nano::socket> socket;
 	std::shared_ptr<nano::node> node;
 	std::mutex mutex;
 	std::queue<std::unique_ptr<nano::message>> requests;
+	std::atomic<bool> stopped{ false };
+	std::atomic<bool> bootstrap_connection{ false };
+	std::atomic<bool> node_id_handshake_finished{ false };
+	std::atomic<bool> keepalive_first{ true };
+	nano::tcp_endpoint remote_endpoint{ boost::asio::ip::address_v6::any (), 0 };
+	nano::account remote_node_id{ 0 };
 };
 class bulk_pull;
 class bulk_pull_server final : public std::enable_shared_from_this<nano::bulk_pull_server>

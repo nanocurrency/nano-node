@@ -66,6 +66,8 @@ public:
 	/** Default maximum idle time for a socket before it's automatically closed */
 	std::chrono::seconds tcp_idle_timeout{ std::chrono::minutes (2) };
 	std::chrono::nanoseconds pow_sleep_interval{ 0 };
+	/** Default maximum incoming TCP connections, including realtime network & bootstrap */
+	unsigned tcp_incoming_connections_max{ 1024 };
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);

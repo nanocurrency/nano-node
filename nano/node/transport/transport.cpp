@@ -123,7 +123,11 @@ bool nano::transport::reserved_address (nano::endpoint const & endpoint_a, bool 
 	static auto const rfc4193_max (boost::asio::ip::address_v6::from_string ("fd00:ffff:ffff:ffff:ffff:ffff:ffff:ffff"));
 	static auto const ipv6_multicast_min (boost::asio::ip::address_v6::from_string ("ff00::"));
 	static auto const ipv6_multicast_max (boost::asio::ip::address_v6::from_string ("ff00:ffff:ffff:ffff:ffff:ffff:ffff:ffff"));
-	if (bytes >= rfc1700_min && bytes <= rfc1700_max)
+	if (endpoint_a.port () == 0)
+	{
+		result = true;
+	}
+	else if (bytes >= rfc1700_min && bytes <= rfc1700_max)
 	{
 		result = true;
 	}
