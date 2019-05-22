@@ -6226,7 +6226,7 @@ TEST (rpc, database_txn_tracker)
 	std::promise<void> keep_txn_alive_promise;
 	std::promise<void> txn_created_promise;
 	// clang-format off
-	std::thread ([&store = node->store, &keep_txn_alive_promise, &txn_created_promise]() {
+	std::thread thread ([&store = node->store, &keep_txn_alive_promise, &txn_created_promise]() {
 		// Use rpc_process_container as a placeholder as this thread is only instantiated by the daemon so won't be used
 		nano::thread_role::set (nano::thread_role::name::rpc_process_container);
 
@@ -6237,8 +6237,7 @@ TEST (rpc, database_txn_tracker)
 		std::this_thread::sleep_for (1s);
 		txn_created_promise.set_value ();
 		keep_txn_alive_promise.get_future ().wait ();
-	})
-	.detach ();
+	});
 	// clang-format on
 
 	txn_created_promise.get_future ().wait ();
@@ -6277,6 +6276,7 @@ TEST (rpc, database_txn_tracker)
 	// Due to results being different for different compilers/build options we cannot reliably check the contents.
 	// The best we can do is just check that there are entries.
 	ASSERT_TRUE (!std::get<3> (json_l.front ()).empty ());
+	thread.join ();
 }
 
 // This is mainly to check for threading issues with TSAN

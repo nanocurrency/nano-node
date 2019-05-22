@@ -75,7 +75,6 @@ TEST (active_transactions, adjusted_difficulty_priority)
 	nano::node_config node_config (24000, system.logging);
 	node_config.enable_voting = false;
 	auto & node1 = *system.add_node (node_config);
-	auto & wallet (*system.wallet (0));
 	nano::genesis genesis;
 	nano::keypair key1, key2, key3;
 	auto transaction (node1.store.tx_begin_read ());
@@ -149,10 +148,12 @@ TEST (active_transactions, adjusted_difficulty_priority)
 
 TEST (active_transactions, keep_local)
 {
+	//delay_frontier_confirmation_height_updating to allow the test to before
+	bool delay_frontier_confirmation_height_updating = true;
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
 	node_config.enable_voting = false;
-	auto & node1 = *system.add_node (node_config);
+	auto & node1 = *system.add_node (node_config, delay_frontier_confirmation_height_updating);
 	auto & wallet (*system.wallet (0));
 	nano::genesis genesis;
 	//key 1/2 will be managed by the wallet
@@ -213,11 +214,12 @@ TEST (active_transactions, keep_local)
 
 TEST (active_transactions, prioritize_chains)
 {
+	//delay_frontier_confirmation_height_updating to allow the test to before
+	bool delay_frontier_confirmation_height_updating = true;
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
 	node_config.enable_voting = false;
-	auto & node1 = *system.add_node (node_config);
-	auto & wallet (*system.wallet (0));
+	auto & node1 = *system.add_node (node_config, delay_frontier_confirmation_height_updating);
 	nano::genesis genesis;
 	nano::keypair key1, key2, key3;
 
