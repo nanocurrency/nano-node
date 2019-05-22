@@ -261,6 +261,7 @@ TEST (active_transactions, prioritize_chains)
 	node1.process_active (send4);
 	node1.process_active (send6);
 
+	system.deadline_set (10s);
 	while (node1.active.size () != 4)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -278,12 +279,14 @@ TEST (active_transactions, prioritize_chains)
 	}
 	std::this_thread::sleep_for (1s);
 	node1.process_active (open2);
+	system.deadline_set (10s);
 	while (node1.active.size () != 4)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	//wait for all to be long_unconfirmed
 	done = false;
+	system.deadline_set (10s);
 	while (!done)
 	{
 		{
