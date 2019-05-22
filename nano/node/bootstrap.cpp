@@ -1897,7 +1897,11 @@ nano::bootstrap_server::~bootstrap_server ()
 	{
 		--node->bootstrap.bootstrap_count;
 	}
-	node->network.remove_response_channel (remote_endpoint);
+	if (node_id_handshake_finished)
+	{
+		--node->bootstrap.realtime_count;
+		node->network.remove_response_channel (remote_endpoint);
+	}
 	stop ();
 	std::lock_guard<std::mutex> lock (node->bootstrap.mutex);
 	node->bootstrap.connections.erase (this);
@@ -2406,6 +2410,7 @@ public:
 			if (!connection->node->network.tcp_channels.validate_syn_cookie (connection->remote_endpoint, connection->remote_node_id, message_a.response->second) && connection->remote_node_id != connection->node->node_id.pub)
 			{
 				connection->node_id_handshake_finished = true;
+				++connection->node->bootstrap.realtime_count;
 				connection->finish_request_async ();
 			}
 			else

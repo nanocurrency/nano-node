@@ -280,6 +280,7 @@ public:
 	std::shared_ptr<nano::server_socket> listening_socket;
 	bool on;
 	std::atomic<size_t> bootstrap_count{ 0 };
+	std::atomic<size_t> realtime_count{ 0 };
 
 private:
 	uint16_t port;

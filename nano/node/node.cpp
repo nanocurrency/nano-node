@@ -271,7 +271,7 @@ bool nano::network::send_votes_cache (std::shared_ptr<nano::transport::channel> 
 
 void nano::network::flood_message (nano::message const & message_a)
 {
-	auto list (node.network.list_fanout ());
+	auto list (list_fanout ());
 	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
 	{
 		(*i)->send (message_a);

@@ -446,24 +446,24 @@ public:
 		}
 		if (out_query || out_respond_to)
 		{
-			auto channel (node.network.find_channel (endpoint));
-			if (!channel)
+			auto find_channel (node.network.udp_channels.channel (endpoint));
+			if (!find_channel)
 			{
-				channel = std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, endpoint);
+				find_channel = std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, endpoint);
 			}
-			node.network.send_node_id_handshake (channel, out_query, out_respond_to);
+			node.network.send_node_id_handshake (find_channel, out_query, out_respond_to);
 		}
 		message (message_a);
 	}
 	void message (nano::message const & message_a)
 	{
-		auto channel (node.network.udp_channels.channel (endpoint));
-		if (channel)
+		auto find_channel (node.network.udp_channels.channel (endpoint));
+		if (find_channel)
 		{
-			node.network.udp_channels.modify (channel, [](std::shared_ptr<nano::transport::channel_udp> channel_a) {
+			node.network.udp_channels.modify (find_channel, [](std::shared_ptr<nano::transport::channel_udp> channel_a) {
 				channel_a->set_last_packet_received (std::chrono::steady_clock::now ());
 			});
-			node.process_message (message_a, channel);
+			node.process_message (message_a, find_channel);
 		}
 	}
 	nano::node & node;
