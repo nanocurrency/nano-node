@@ -21,7 +21,7 @@ all_local_accounts (options_a.get<bool> ("all_local_accounts", false))
 			}
 			else
 			{
-				node.logger.always_log (boost::str (boost::format ("Websocket: invalid account provided for filtering blocks: %1%") % account_l.second.data ()));
+				node.logger.always_log ("Websocket: invalid account provided for filtering blocks: ", account_l.second.data ());
 			}
 		}
 	}
@@ -75,7 +75,7 @@ node (node_a)
 			}
 			else
 			{
-				node.logger.always_log (boost::str (boost::format ("Websocket: invalid account given to filter votes: %1%") % representative_l.second.data ()));
+				node.logger.always_log ("Websocket: invalid account given to filter votes: ", representative_l.second.data ());
 			}
 		}
 	}
@@ -312,12 +312,12 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 		if (existing != subscriptions.end ())
 		{
 			existing->second = std::move (options_l);
-			ws_listener.get_node ().logger.always_log (boost::str (boost::format ("Websocket: updated subscription to topic: %1%") % from_topic (topic_l)));
+			ws_listener.get_node ().logger.always_log ("Websocket: updated subscription to topic: ", from_topic (topic_l));
 		}
 		else
 		{
 			subscriptions.insert (std::make_pair (topic_l, std::move (options_l)));
-			ws_listener.get_node ().logger.always_log (boost::str (boost::format ("Websocket: new subscription to topic: %1%") % from_topic (topic_l)));
+			ws_listener.get_node ().logger.always_log ("Websocket: new subscription to topic: ", from_topic (topic_l));
 			ws_listener.increase_subscriber_count (topic_l);
 		}
 		action_succeeded = true;
@@ -327,7 +327,7 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 		std::lock_guard<std::mutex> lk (subscriptions_mutex);
 		if (subscriptions.erase (topic_l))
 		{
-			ws_listener.get_node ().logger.always_log (boost::str (boost::format ("Websocket: removed subscription to topic: %1%") % from_topic (topic_l)));
+			ws_listener.get_node ().logger.always_log ("Websocket: removed subscription to topic: ", from_topic (topic_l));
 			ws_listener.decrease_subscriber_count (topic_l);
 		}
 		action_succeeded = true;
