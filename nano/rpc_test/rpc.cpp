@@ -1838,7 +1838,7 @@ TEST (rpc, keepalive)
 	}
 	ASSERT_EQ (200, response.status);
 	system.deadline_set (10s);
-	while (system.nodes[0]->network.udp_channels.channel (node1->network.endpoint ()) == nullptr)
+	while (system.nodes[0]->network.find_channel (node1->network.endpoint ()) == nullptr)
 	{
 		ASSERT_EQ (0, system.nodes[0]->network.size ());
 		ASSERT_NO_ERROR (system.poll ());

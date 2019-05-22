@@ -15,6 +15,9 @@ namespace transport
 	nano::tcp_endpoint map_endpoint_to_tcp (nano::endpoint const &);
 	// Unassigned, reserved, self
 	bool reserved_address (nano::endpoint const &, bool = false);
+	// Maximum number of peers per IP
+	static size_t constexpr max_peers_per_ip = 10;
+	static std::chrono::seconds constexpr syn_cookie_cutoff = std::chrono::seconds (5);
 	enum class transport_type : uint8_t
 	{
 		undefined = 0,
