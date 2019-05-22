@@ -349,7 +349,7 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (std::chro
 		auto priority_cementable_frontiers_size = priority_cementable_frontiers.size ();
 		auto i (node.store.latest_begin (transaction, next_frontier_account));
 		auto n (node.store.latest_end ());
-		std::unique_lock <std::mutex> lock_a (mutex, std::defer_lock);
+		std::unique_lock<std::mutex> lock_a (mutex, std::defer_lock);
 		for (; i != n && !stopped && (priority_cementable_frontiers_size < max_priority_cementable_frontiers); ++i)
 		{
 			auto const & account (i->first);
