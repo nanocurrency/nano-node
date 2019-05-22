@@ -3,7 +3,7 @@ project (nano-node)
 
 set (CPACK_PACKAGE_VERSION_MAJOR "19")
 set (CPACK_PACKAGE_VERSION_MINOR "0")
-set (CPACK_PACKAGE_VERSION_PATCH "2")
+set (CPACK_PACKAGE_VERSION_PATCH "3")
 set (CPACK_PACKAGE_VENDOR "Nano Currency")
 
 set(CMAKE_INSTALL_RPATH "@executable_path/../Frameworks")
