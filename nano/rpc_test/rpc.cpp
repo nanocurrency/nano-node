@@ -4742,6 +4742,15 @@ TEST (rpc, ledger)
 		ASSERT_TRUE (representative.is_initialized ());
 		ASSERT_EQ (nano::test_genesis_key.pub.to_account (), representative.get ());
 	}
+	// Test threshold
+	request.put ("threshold", "340282366920938463463374607431768211356"); // balance + 1
+	test_response response3 (request, rpc.config.port, system.io_ctx);
+	system.deadline_set (5s);
+	while (response3.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (0, response3.json.get_child ("accounts").size ());
 }
 
 TEST (rpc, accounts_create)
@@ -5725,7 +5734,7 @@ TEST (rpc, unopened)
 	ASSERT_FALSE (genesis.is_zero ());
 	auto send (system.wallet (0)->send_action (nano::test_genesis_key.pub, account1, 1));
 	ASSERT_NE (nullptr, send);
-	auto send2 (system.wallet (0)->send_action (nano::test_genesis_key.pub, account2, 2));
+	auto send2 (system.wallet (0)->send_action (nano::test_genesis_key.pub, account2, 10));
 	ASSERT_NE (nullptr, send2);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
@@ -5748,7 +5757,7 @@ TEST (rpc, unopened)
 		auto & accounts (response.json.get_child ("accounts"));
 		ASSERT_EQ (2, accounts.size ());
 		ASSERT_EQ ("1", accounts.get<std::string> (account1.to_account ()));
-		ASSERT_EQ ("2", accounts.get<std::string> (account2.to_account ()));
+		ASSERT_EQ ("10", accounts.get<std::string> (account2.to_account ()));
 	}
 	{
 		// starting at second account should get a single result
@@ -5764,7 +5773,7 @@ TEST (rpc, unopened)
 		ASSERT_EQ (200, response.status);
 		auto & accounts (response.json.get_child ("accounts"));
 		ASSERT_EQ (1, accounts.size ());
-		ASSERT_EQ ("2", accounts.get<std::string> (account2.to_account ()));
+		ASSERT_EQ ("10", accounts.get<std::string> (account2.to_account ()));
 	}
 	{
 		// starting at third account should get no results
@@ -5796,6 +5805,22 @@ TEST (rpc, unopened)
 		auto & accounts (response.json.get_child ("accounts"));
 		ASSERT_EQ (1, accounts.size ());
 		ASSERT_EQ ("1", accounts.get<std::string> (account1.to_account ()));
+	}
+	{
+		// using threshold at 5 should get a single result
+		boost::property_tree::ptree request;
+		request.put ("action", "unopened");
+		request.put ("threshold", 5);
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		auto & accounts (response.json.get_child ("accounts"));
+		ASSERT_EQ (1, accounts.size ());
+		ASSERT_EQ ("10", accounts.get<std::string> (account2.to_account ()));
 	}
 }
 
