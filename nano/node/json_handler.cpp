@@ -4345,7 +4345,7 @@ void nano::json_handler::work_generate ()
 			ec = nano::error_rpc::bad_difficulty_format;
 		}
 	}
-	if (!ec && difficulty > node_rpc_config.max_work_generate_difficulty)
+	if (!ec && (difficulty > node_rpc_config.max_work_generate_difficulty || difficulty < node.network_params.network.publish_threshold))
 	{
 		ec = nano::error_rpc::difficulty_limit;
 	}
