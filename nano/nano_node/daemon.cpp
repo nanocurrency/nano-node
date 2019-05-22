@@ -1,4 +1,5 @@
 #include <boost/property_tree/json_parser.hpp>
+#include <csignal>
 #include <fstream>
 #include <iostream>
 #include <nano/lib/utility.hpp>
@@ -93,6 +94,20 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 #endif
 					}
 				}
+
+				assert (!nano::signal_handler_impl);
+				nano::signal_handler_impl = [&io_ctx, &ipc_server, &rpc, &node]() {
+					ipc_server.stop ();
+					node->stop ();
+					if (rpc)
+					{
+						rpc->stop ();
+					}
+					io_ctx.stop ();
+				};
+
+				std::signal (SIGINT, &nano::signal_handler);
+				std::signal (SIGTERM, &nano::signal_handler);
 
 				runner = std::make_unique<nano::thread_runner> (io_ctx, node->config.io_threads);
 				runner->join ();

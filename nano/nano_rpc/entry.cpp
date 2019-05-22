@@ -3,6 +3,7 @@
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/program_options.hpp>
+#include <csignal>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/utility.hpp>
@@ -48,6 +49,16 @@ void run (boost::filesystem::path const & data_path)
 			nano::ipc_rpc_processor ipc_rpc_processor (io_ctx, rpc_config);
 			auto rpc = nano::get_rpc (io_ctx, rpc_config, ipc_rpc_processor);
 			rpc->start ();
+
+			assert (!nano::signal_handler_impl);
+			nano::signal_handler_impl = [&io_ctx, &rpc]() {
+				rpc->stop ();
+				io_ctx.stop ();
+			};
+
+			std::signal (SIGINT, &nano::signal_handler);
+			std::signal (SIGTERM, &nano::signal_handler);
+
 			runner = std::make_unique<nano::thread_runner> (io_ctx, rpc_config.rpc_process.io_threads);
 			runner->join ();
 		}
