@@ -57,7 +57,7 @@ public:
 	std::streamsize write (const char * string_to_write, std::streamsize size)
 	{
 		std::lock_guard<std::mutex> guard (mutex);
-		ss << string_to_write;
+		ss << std::string (string_to_write, size);
 		return size;
 	}
 
