@@ -75,16 +75,16 @@ TEST (peer_container, split)
 	ASSERT_EQ (endpoint2, list[0]->get_endpoint ());
 }
 
-TEST (udp_channels, fill_random_clear)
+TEST (channels, fill_random_clear)
 {
 	nano::system system (24000, 1);
 	std::array<nano::endpoint, 8> target;
 	std::fill (target.begin (), target.end (), nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000));
-	system.nodes[0]->network.udp_channels.random_fill (target);
+	system.nodes[0]->network.random_fill (target);
 	ASSERT_TRUE (std::all_of (target.begin (), target.end (), [](nano::endpoint const & endpoint_a) { return endpoint_a == nano::endpoint (boost::asio::ip::address_v6::any (), 0); }));
 }
 
-TEST (udp_channels, fill_random_full)
+TEST (channels, fill_random_full)
 {
 	nano::system system (24000, 1);
 	for (auto i (0); i < 100; ++i)
@@ -93,11 +93,11 @@ TEST (udp_channels, fill_random_full)
 	}
 	std::array<nano::endpoint, 8> target;
 	std::fill (target.begin (), target.end (), nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000));
-	system.nodes[0]->network.udp_channels.random_fill (target);
+	system.nodes[0]->network.random_fill (target);
 	ASSERT_TRUE (std::none_of (target.begin (), target.end (), [](nano::endpoint const & endpoint_a) { return endpoint_a == nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000); }));
 }
 
-TEST (udp_channels, fill_random_part)
+TEST (channels, fill_random_part)
 {
 	nano::system system (24000, 1);
 	std::array<nano::endpoint, 8> target;
@@ -107,7 +107,7 @@ TEST (udp_channels, fill_random_part)
 		system.nodes[0]->network.udp_channels.insert (nano::endpoint (boost::asio::ip::address_v6::loopback (), i + 1), 0);
 	}
 	std::fill (target.begin (), target.end (), nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000));
-	system.nodes[0]->network.udp_channels.random_fill (target);
+	system.nodes[0]->network.random_fill (target);
 	ASSERT_TRUE (std::none_of (target.begin (), target.begin () + half, [](nano::endpoint const & endpoint_a) { return endpoint_a == nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000); }));
 	ASSERT_TRUE (std::none_of (target.begin (), target.begin () + half, [](nano::endpoint const & endpoint_a) { return endpoint_a == nano::endpoint (boost::asio::ip::address_v6::loopback (), 0); }));
 	ASSERT_TRUE (std::all_of (target.begin () + half, target.end (), [](nano::endpoint const & endpoint_a) { return endpoint_a == nano::endpoint (boost::asio::ip::address_v6::any (), 0); }));
