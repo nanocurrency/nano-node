@@ -2677,13 +2677,9 @@ TEST (confirmation_height, prioritize_frontiers)
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send8).code);
 	}
 
-	system.deadline_set (10s);
+	node->active.prioritize_frontiers_for_confirmation (std::chrono::seconds (1));
 	constexpr auto num_accounts = 4;
-	while (node->active.priority_cementable_frontiers_size () != num_accounts)
-	{
-		ASSERT_NO_ERROR (system.poll ());	
-	}
-
+	ASSERT_EQ (node->active.priority_cementable_frontiers_size (), num_accounts);
 	// Check the order of accounts is as expected (greatest number of uncemented blocks at the front)
 	std::array<nano::account, num_accounts> desired_order { nano::genesis_account, key3.pub, key1.pub, key2.pub };
 	// clang-format off

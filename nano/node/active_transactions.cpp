@@ -51,9 +51,20 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 			max_elections = max_broadcast_queue - roots_size;
 		}
 
+		// Spend time prioritizing accounts to reduce voting traffic
+		prioritize_frontiers_for_confirmation (is_test_network ? std::chrono::milliseconds (50) : std::chrono::seconds (2));
+
 		size_t elections_count (0);
-		// clang-format off
-		auto start_voting_if_needed = [this, &elections_count, &representative, &transaction_a](nano::account_info const & info) {
+		std::unique_lock<std::mutex> lock (mutex);
+		while (!priority_cementable_frontiers.empty () && !stopped && elections_count < max_elections)
+		{
+			auto cementable_account = *priority_cementable_frontiers.begin ();
+			priority_cementable_frontiers.erase (priority_cementable_frontiers.begin ());
+			lock.unlock ();
+			nano::account_info info;
+			auto error = node.store.account_get (transaction_a, cementable_account.account, info);
+			release_assert (!error);
+
 			if (info.block_count > info.confirmation_height && !this->node.pending_confirmation_height.is_processing_block (info.head))
 			{
 				auto block (this->node.store.block_get (transaction_a, info.head));
@@ -67,30 +78,10 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 					}
 				}
 			}
-		};
-		// clang-format on
-
-		// First check priority queue
-		std::unique_lock<std::mutex> lock (mutex);
-		while (!priority_cementable_frontiers.empty () && !stopped && elections_count < max_elections)
-		{
-			auto cementable_account = *priority_cementable_frontiers.begin ();
-			priority_cementable_frontiers.erase (priority_cementable_frontiers.begin ());
-			lock.unlock ();
-			nano::account_info account_info;
-			auto error = node.store.account_get (transaction_a, cementable_account.account, account_info);
-			release_assert (!error);
-			start_voting_if_needed (account_info);
 			lock.lock ();
 		}
 		lock.unlock ();
 
-		for (auto i (node.store.latest_begin (transaction_a, next_frontier_account)), n (node.store.latest_end ()); i != n && !stopped && elections_count < max_elections; ++i)
-		{
-			auto const & info (i->second);
-			start_voting_if_needed (info);
-			next_frontier_account = i->first.number () + 1;
-		}
 		// 4 times slower check if all frontiers were confirmed
 		int fully_confirmed_factor = (elections_count < max_elections) ? 4 : 1;
 		// Calculate next check time
@@ -342,34 +333,23 @@ void nano::active_transactions::request_loop ()
 	{
 		request_confirm (lock);
 		update_active_difficulty (lock);
-		lock.unlock ();
-
-		const auto extra_delay (std::min (size (), max_broadcast_queue) * node.network.broadcast_interval_ms * 2);
-		std::chrono::milliseconds wait_time (node.network_params.network.request_interval_ms + extra_delay);
-
-		// Use the time that would otherwise be wasted to prioritize some accounts (ones with the most uncemented blocks remaining)
-		nano::timer<std::chrono::milliseconds> timer;
-		timer.start ();
-
-		prioritize_frontiers_for_confirmation (timer, wait_time, lock);
-
-		lock.lock ();
-		if (timer.since_start () < wait_time && !stopped)
-		{
-			condition.wait_for (lock, wait_time - timer.since_start ());
-		}
+		const auto extra_delay (std::min (roots.size (), max_broadcast_queue) * node.network.broadcast_interval_ms * 2);
+		condition.wait_for (lock, std::chrono::milliseconds (node.network_params.network.request_interval_ms + extra_delay));
 	}
 }
 
-void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::timer<std::chrono::milliseconds> & timer_a, std::chrono::milliseconds wait_time_a, std::unique_lock<std::mutex> & lock_a)
+void nano::active_transactions::prioritize_frontiers_for_confirmation (std::chrono::milliseconds time_a)
 {
 	// Don't try to prioritize when there are a large number of pending confirmation heights as blocks can be cemented in the meantime, making the prioritization less reliable
+	nano::timer<std::chrono::milliseconds> timer;
+	timer.start ();
 	if (node.pending_confirmation_height.size () < confirmed_frontiers_max_pending_cut_off)
 	{
 		auto transaction = node.store.tx_begin_read ();
 		auto priority_cementable_frontiers_size = priority_cementable_frontiers.size ();
 		auto i (node.store.latest_begin (transaction, next_frontier_account));
 		auto n (node.store.latest_end ());
+		std::unique_lock <std::mutex> lock_a (mutex, std::defer_lock);
 		for (; i != n && !stopped && (priority_cementable_frontiers_size < max_priority_cementable_frontiers); ++i)
 		{
 			auto const & account (i->first);
@@ -396,7 +376,7 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tim
 
 			next_frontier_account = account.number () + 1;
 
-			if (timer_a.since_start () >= wait_time_a)
+			if (timer.since_start () >= time_a)
 			{
 				break;
 			}

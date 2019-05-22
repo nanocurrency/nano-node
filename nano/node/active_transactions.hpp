@@ -155,7 +155,7 @@ private:
 		return lhs.blocks_uncemented < rhs.blocks_uncemented;
 	};
 	// clang-format on
-	void prioritize_frontiers_for_confirmation (nano::timer<std::chrono::milliseconds> &, std::chrono::milliseconds, std::unique_lock<std::mutex> &);
+	void prioritize_frontiers_for_confirmation (std::chrono::milliseconds);
 	std::set<nano::cementable_account, decltype (comp), boost::fast_pool_allocator<nano::cementable_account>> priority_cementable_frontiers{ comp };
 	static size_t constexpr max_priority_cementable_frontiers{ 100000 };
 	static size_t constexpr confirmed_frontiers_max_pending_cut_off{ 1000 };
