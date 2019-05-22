@@ -16,7 +16,6 @@ TEST (transaction_counter, validate)
 		count++;
 		counter.add ();
 	}
-	std::this_thread::sleep_for (500ms);
 	counter.trend_sample ();
 	ASSERT_EQ (count, counter.get_rate ());
 }
