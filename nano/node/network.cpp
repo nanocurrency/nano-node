@@ -104,7 +104,6 @@ void nano::network::send_keepalive_self (std::shared_ptr<nano::transport::channe
 	channel_a->send (message);
 }
 
-
 void nano::network::send_node_id_handshake (std::shared_ptr<nano::transport::channel> channel_a, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to)
 {
 	boost::optional<std::pair<nano::account, nano::signature>> response (boost::none);

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <nano/node/common.hpp>
-#include <nano/node/stats.hpp>
 #include <nano/node/transport/tcp.hpp>
 #include <nano/node/transport/udp.hpp>
 
@@ -15,6 +14,7 @@ namespace nano
 {
 class channel;
 class node;
+class stats;
 class transaction;
 class message_buffer final
 {
