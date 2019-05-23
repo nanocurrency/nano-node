@@ -953,7 +953,7 @@ void nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, std::shared
 {
 	{
 		boost::optional<nano::transaction const &> empty_transaction_l;
-		node.observers.vote.notify (empty_transaction_l, vote_a, channel_a, nano::vote_code::outgoing);
+		node.observers.vote.notify (empty_transaction_l, vote_a, channel_a, nano::vote_code::sent);
 	}
 	std::unique_lock<std::mutex> lock (mutex);
 	if (!stopped)
@@ -1069,7 +1069,7 @@ nano::vote_code nano::vote_processor::vote_blocking (nano::transaction const & t
 					channel_a->send_buffer (confirm.to_bytes (), nano::stat::detail::confirm_ack);
 				}
 				break;
-			case nano::vote_code::outgoing:
+			case nano::vote_code::sent:
 			case nano::vote_code::invalid:
 				assert (false);
 				break;
@@ -1090,7 +1090,7 @@ nano::vote_code nano::vote_processor::vote_blocking (nano::transaction const & t
 			status = "Vote";
 			node.stats.inc (nano::stat::type::vote, nano::stat::detail::vote_valid);
 			break;
-		case nano::vote_code::outgoing:
+		case nano::vote_code::sent:
 			release_assert (false);
 			break;
 	}

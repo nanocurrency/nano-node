@@ -461,7 +461,7 @@ nano::websocket::message nano::websocket::message_builder::vote_received (std::s
 	// Vote information
 	boost::property_tree::ptree vote_node_l;
 	vote_a->serialize_json (vote_node_l);
-	vote_node_l.put ("code", code_a == nano::vote_code::invalid ? "invalid" : code_a == nano::vote_code::replay ? "replay" : code_a == nano::vote_code::vote ? "received" : code_a == nano::vote_code::outgoing ? "outgoing" : "unknown");
+	vote_node_l.put ("code", code_a == nano::vote_code::invalid ? "invalid" : code_a == nano::vote_code::replay ? "replay" : code_a == nano::vote_code::vote ? "received" : code_a == nano::vote_code::sent ? "sent" : "unknown");
 	message_l.contents.add_child ("message", vote_node_l);
 	return message_l;
 }
