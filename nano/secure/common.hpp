@@ -38,7 +38,7 @@ struct hash<::nano::uint512_union>
 }
 namespace nano
 {
-const uint8_t protocol_version = 0x10;
+const uint8_t protocol_version = 0x11;
 const uint8_t protocol_version_min = 0x0d;
 
 /*
