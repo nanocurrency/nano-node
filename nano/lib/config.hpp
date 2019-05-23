@@ -19,7 +19,7 @@ static const char * NANO_MAJOR_MINOR_RC_VERSION = xstr (NANO_VERSION_MAJOR) "." 
 #if defined(__has_feature)
 #if __has_feature(thread_sanitizer) || __has_feature(address_sanitizer)
 static const bool is_sanitizer_build = true;
-# else
+#else
 static const bool is_sanitizer_build = false;
 #endif
 #else
