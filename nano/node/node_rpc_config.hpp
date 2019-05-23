@@ -1,7 +1,9 @@
 #pragma once
 
-#include <boost/filesystem.hpp>
 #include <nano/lib/rpcconfig.hpp>
+
+#include <boost/filesystem.hpp>
+
 #include <string>
 
 namespace nano

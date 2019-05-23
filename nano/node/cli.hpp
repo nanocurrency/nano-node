@@ -1,7 +1,8 @@
 #pragma once
 
-#include <boost/program_options.hpp>
 #include <nano/lib/errors.hpp>
+
+#include <boost/program_options.hpp>
 
 namespace nano
 {

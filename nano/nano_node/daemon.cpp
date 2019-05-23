@@ -1,6 +1,3 @@
-#include <boost/property_tree/json_parser.hpp>
-#include <fstream>
-#include <iostream>
 #include <nano/lib/utility.hpp>
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/daemonconfig.hpp>
@@ -10,6 +7,11 @@
 #include <nano/node/openclwork.hpp>
 #include <nano/node/working.hpp>
 #include <nano/rpc/rpc.hpp>
+
+#include <boost/property_tree/json_parser.hpp>
+
+#include <fstream>
+#include <iostream>
 
 #ifndef BOOST_PROCESS_SUPPORTED
 #error BOOST_PROCESS_SUPPORTED must be set, check configuration

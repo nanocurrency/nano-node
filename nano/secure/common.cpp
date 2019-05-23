@@ -1,21 +1,19 @@
-#include <nano/secure/common.hpp>
-
+#include <nano/core_test/testutil.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/config.hpp>
 #include <nano/lib/interface.h>
 #include <nano/lib/numbers.hpp>
 #include <nano/node/common.hpp>
 #include <nano/secure/blockstore.hpp>
+#include <nano/secure/common.hpp>
 #include <nano/secure/versioning.hpp>
 
 #include <boost/endian/conversion.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
-#include <queue>
-
 #include <iostream>
 #include <limits>
-#include <nano/core_test/testutil.hpp>
-#include <nano/lib/config.hpp>
+#include <queue>
 
 #include <crypto/ed25519-donna/ed25519.h>
 

@@ -1,9 +1,12 @@
 #pragma once
 
-#include <boost/asio/ip/address_v4.hpp>
-#include <miniupnp/miniupnpc/miniupnpc.h>
-#include <mutex>
 #include <nano/lib/config.hpp>
+
+#include <boost/asio/ip/address_v4.hpp>
+
+#include <mutex>
+
+#include <miniupnp/miniupnpc/miniupnpc.h>
 
 namespace nano
 {

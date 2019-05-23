@@ -1,9 +1,9 @@
 #pragma once
 
-#include <boost/asio/buffer.hpp>
-
 #include <nano/node/common.hpp>
 #include <nano/node/stats.hpp>
+
+#include <boost/asio/buffer.hpp>
 
 namespace nano
 {

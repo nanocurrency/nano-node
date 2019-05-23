@@ -1,7 +1,8 @@
-#include <boost/endian/conversion.hpp>
-#include <boost/polymorphic_cast.hpp>
 #include <nano/lib/ipc.hpp>
 #include <nano/lib/ipc_client.hpp>
+
+#include <boost/endian/conversion.hpp>
+#include <boost/polymorphic_cast.hpp>
 
 namespace
 {

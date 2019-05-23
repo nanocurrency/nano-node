@@ -1,7 +1,7 @@
-#include <gtest/gtest.h>
-
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/versioning.hpp>
+
+#include <gtest/gtest.h>
 
 TEST (versioning, account_info_v1)
 {

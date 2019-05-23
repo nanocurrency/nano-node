@@ -1,6 +1,6 @@
-#include <gtest/gtest.h>
-
 #include <nano/node/common.hpp>
+
+#include <gtest/gtest.h>
 
 TEST (message, keepalive_serialization)
 {

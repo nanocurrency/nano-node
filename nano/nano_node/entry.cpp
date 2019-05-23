@@ -7,12 +7,13 @@
 #include <nano/node/node.hpp>
 #include <nano/node/payment_observer_processor.hpp>
 #include <nano/node/testing.hpp>
-#include <sstream>
-
-#include <argon2.h>
 
 #include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
+
+#include <sstream>
+
+#include <argon2.h>
 
 namespace
 {

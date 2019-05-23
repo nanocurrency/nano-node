@@ -1,10 +1,12 @@
 #pragma once
 
-#include <boost/property_tree/ptree.hpp>
-#include <boost/stacktrace/stacktrace_fwd.hpp>
-#include <mutex>
 #include <nano/lib/timer.hpp>
 #include <nano/node/diagnosticsconfig.hpp>
+
+#include <boost/property_tree/ptree.hpp>
+#include <boost/stacktrace/stacktrace_fwd.hpp>
+
+#include <mutex>
 
 namespace nano
 {
