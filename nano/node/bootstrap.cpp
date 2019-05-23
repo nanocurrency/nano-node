@@ -2387,7 +2387,7 @@ public:
 			auto cookie (connection->node->network.tcp_channels.assign_syn_cookie (connection->remote_endpoint));
 			nano::node_id_handshake response_message (cookie, response);
 			auto bytes = response_message.to_bytes ();
-			connection->socket->async_write (bytes, [ bytes, connection = connection ](boost::system::error_code const & ec, size_t size_a) {
+			connection->socket->async_write (bytes, [bytes, connection = connection](boost::system::error_code const & ec, size_t size_a) {
 				if (ec)
 				{
 					if (connection->node->config.logging.network_node_id_handshake_logging ())
