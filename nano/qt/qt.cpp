@@ -1928,8 +1928,10 @@ wallet (wallet_a)
 void nano_qt::advanced_actions::refresh_peers ()
 {
 	peers_model->removeRows (0, peers_model->rowCount ());
-	auto list (wallet.node.network.udp_channels.list (std::numeric_limits<size_t>::max ()));
-	std::sort (list.begin (), list.end ());
+	auto list (wallet.node.network.list (std::numeric_limits<size_t>::max ()));
+	std::sort (list.begin (), list.end (), [](const auto & lhs, const auto & rhs) {
+		return lhs->get_endpoint () < rhs->get_endpoint ();
+	});
 	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
 	{
 		std::stringstream endpoint;
@@ -1939,7 +1941,7 @@ void nano_qt::advanced_actions::refresh_peers ()
 		QList<QStandardItem *> items;
 		items.push_back (new QStandardItem (qendpoint));
 		auto version = new QStandardItem ();
-		version->setData (QVariant (channel->network_version), Qt::DisplayRole);
+		version->setData (QVariant (channel->get_network_version ()), Qt::DisplayRole);
 		items.push_back (version);
 		QString node_id ("");
 		auto node_id_l (channel->get_node_id ());

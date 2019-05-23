@@ -1,9 +1,20 @@
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/log/expressions.hpp>
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/log/utility/setup/console.hpp>
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/property_tree/ptree.hpp>
+#include <nano/lib/config.hpp>
 #include <nano/node/logging.hpp>
+
+#ifdef BOOST_WINDOWS
+#include <boost/log/sinks/event_log_backend.hpp>
+#else
+#define BOOST_LOG_USE_NATIVE_SYSLOG
+#include <boost/log/sinks/syslog_backend.hpp>
+#endif
+
+BOOST_LOG_ATTRIBUTE_KEYWORD (severity, "Severity", nano::severity_level)
 
 boost::shared_ptr<boost::log::sinks::synchronous_sink<boost::log::sinks::text_file_backend>> nano::logging::file_sink;
 std::atomic_flag nano::logging::logging_already_added ATOMIC_FLAG_INIT;
@@ -13,12 +24,49 @@ void nano::logging::init (boost::filesystem::path const & application_path_a)
 	if (!logging_already_added.test_and_set ())
 	{
 		boost::log::add_common_attributes ();
+		auto format = boost::log::expressions::stream << boost::log::expressions::attr<severity_level, severity_tag> ("Severity") << boost::log::expressions::smessage;
+		auto format_with_timestamp = boost::log::expressions::stream << "[" << boost::log::expressions::attr<boost::posix_time::ptime> ("TimeStamp") << "]: " << boost::log::expressions::attr<severity_level, severity_tag> ("Severity") << boost::log::expressions::smessage;
+
 		if (log_to_cerr ())
 		{
-			boost::log::add_console_log (std::cerr, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
+			boost::log::add_console_log (std::cerr, boost::log::keywords::format = format_with_timestamp);
 		}
+
+		nano::network_constants network_constants;
+		if (!network_constants.is_test_network ())
+		{
+#ifdef BOOST_WINDOWS
+			if (nano::event_log_reg_entry_exists () || nano::is_windows_elevated ())
+			{
+				static auto event_sink = boost::make_shared<boost::log::sinks::synchronous_sink<boost::log::sinks::simple_event_log_backend>> (boost::log::keywords::log_name = "Nano", boost::log::keywords::log_source = "Nano");
+				event_sink->set_formatter (format);
+
+				// Currently only mapping sys log errors
+				boost::log::sinks::event_log::custom_event_type_mapping<nano::severity_level> mapping ("Severity");
+				mapping[nano::severity_level::error] = boost::log::sinks::event_log::error;
+				event_sink->locked_backend ()->set_event_type_mapper (mapping);
+
+				// Only allow messages or error or greater severity to the event log
+				event_sink->set_filter (severity >= nano::severity_level::error);
+				boost::log::core::get ()->add_sink (event_sink);
+			}
+#else
+			static auto sys_sink = boost::make_shared<boost::log::sinks::synchronous_sink<boost::log::sinks::syslog_backend>> (boost::log::keywords::facility = boost::log::sinks::syslog::user, boost::log::keywords::use_impl = boost::log::sinks::syslog::impl_types::native);
+			sys_sink->set_formatter (format);
+
+			// Currently only mapping sys log errors
+			boost::log::sinks::syslog::custom_severity_mapping<nano::severity_level> mapping ("Severity");
+			mapping[nano::severity_level::error] = boost::log::sinks::syslog::error;
+			sys_sink->locked_backend ()->set_severity_mapper (mapping);
+
+			// Only allow messages or error or greater severity to the sys log
+			sys_sink->set_filter (severity >= nano::severity_level::error);
+			boost::log::core::get ()->add_sink (sys_sink);
+#endif
+		}
+
 		auto path = application_path_a / "log";
-		file_sink = boost::log::add_file_log (boost::log::keywords::target = path, boost::log::keywords::file_name = path / "log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = rotation_size, boost::log::keywords::auto_flush = flush, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = max_size, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
+		file_sink = boost::log::add_file_log (boost::log::keywords::target = path, boost::log::keywords::file_name = path / "log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = rotation_size, boost::log::keywords::auto_flush = flush, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = max_size, boost::log::keywords::format = format_with_timestamp);
 	}
 }
 
@@ -38,6 +86,7 @@ nano::error nano::logging::serialize_json (nano::jsonconfig & json) const
 	json.put ("ledger_duplicate", ledger_duplicate_logging_value);
 	json.put ("vote", vote_logging_value);
 	json.put ("network", network_logging_value);
+	json.put ("network_timeout", network_timeout_logging_value);
 	json.put ("network_message", network_message_logging_value);
 	json.put ("network_publish", network_publish_logging_value);
 	json.put ("network_packet", network_packet_logging_value);
@@ -61,35 +110,29 @@ nano::error nano::logging::serialize_json (nano::jsonconfig & json) const
 bool nano::logging::upgrade_json (unsigned version_a, nano::jsonconfig & json)
 {
 	json.put ("version", json_version ());
-	auto upgraded_l (false);
 	switch (version_a)
 	{
 		case 1:
 			json.put ("vote", vote_logging_value);
-			upgraded_l = true;
 		case 2:
 			json.put ("rotation_size", rotation_size);
 			json.put ("flush", true);
-			upgraded_l = true;
 		case 3:
 			json.put ("network_node_id_handshake", false);
-			upgraded_l = true;
 		case 4:
 			json.put ("upnp_details", "false");
 			json.put ("timing", "false");
-			upgraded_l = true;
 		case 5:
 			uintmax_t config_max_size;
 			json.get<uintmax_t> ("max_size", config_max_size);
 			max_size = std::max (max_size, config_max_size);
 			json.put ("max_size", max_size);
 			json.put ("log_ipc", true);
-			upgraded_l = true;
 		case 6:
 			json.put ("min_time_between_output", min_time_between_log_output.count ());
+			json.put ("network_timeout", network_timeout_logging_value);
 			json.erase ("log_rpc");
 			json.put ("long_database_txns", false);
-			upgraded_l = true;
 			break;
 		case 7:
 			break;
@@ -97,7 +140,7 @@ bool nano::logging::upgrade_json (unsigned version_a, nano::jsonconfig & json)
 			throw std::runtime_error ("Unknown logging_config version");
 			break;
 	}
-	return upgraded_l;
+	return version_a < json_version ();
 }
 
 nano::error nano::logging::deserialize_json (bool & upgraded_a, nano::jsonconfig & json)
@@ -126,6 +169,7 @@ nano::error nano::logging::deserialize_json (bool & upgraded_a, nano::jsonconfig
 	json.get<bool> ("ledger_duplicate", ledger_duplicate_logging_value);
 	json.get<bool> ("vote", vote_logging_value);
 	json.get<bool> ("network", network_logging_value);
+	json.get<bool> ("network_timeout", network_timeout_logging_value);
 	json.get<bool> ("network_message", network_message_logging_value);
 	json.get<bool> ("network_publish", network_publish_logging_value);
 	json.get<bool> ("network_packet", network_packet_logging_value);
@@ -166,6 +210,11 @@ bool nano::logging::vote_logging () const
 bool nano::logging::network_logging () const
 {
 	return network_logging_value;
+}
+
+bool nano::logging::network_timeout_logging () const
+{
+	return network_logging () && network_timeout_logging_value;
 }
 
 bool nano::logging::network_message_logging () const

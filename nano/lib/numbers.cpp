@@ -773,3 +773,60 @@ std::string nano::uint128_union::to_string_dec () const
 	encode_dec (result);
 	return result;
 }
+
+std::string nano::to_string_hex (uint64_t const value_a)
+{
+	std::stringstream stream;
+	stream << std::hex << std::noshowbase << std::setw (16) << std::setfill ('0');
+	stream << value_a;
+	return stream.str ();
+}
+
+bool nano::from_string_hex (std::string const & value_a, uint64_t & target_a)
+{
+	auto error (value_a.empty ());
+	if (!error)
+	{
+		error = value_a.size () > 16;
+		if (!error)
+		{
+			std::stringstream stream (value_a);
+			stream << std::hex << std::noshowbase;
+			try
+			{
+				uint64_t number_l;
+				stream >> number_l;
+				target_a = number_l;
+				if (!stream.eof ())
+				{
+					error = true;
+				}
+			}
+			catch (std::runtime_error &)
+			{
+				error = true;
+			}
+		}
+	}
+	return error;
+}
+
+std::string nano::to_string (double const value_a, int const precision_a)
+{
+	std::stringstream stream;
+	stream << std::setprecision (precision_a) << std::fixed;
+	stream << value_a;
+	return stream.str ();
+}
+
+uint64_t nano::difficulty::from_multiplier (double const multiplier_a, uint64_t const base_difficulty_a)
+{
+	assert (multiplier_a > 0.);
+	return (-static_cast<uint64_t> ((-base_difficulty_a) / multiplier_a));
+}
+
+double nano::difficulty::to_multiplier (uint64_t const difficulty_a, uint64_t const base_difficulty_a)
+{
+	assert (difficulty_a > 0);
+	return static_cast<double> (-base_difficulty_a) / (-difficulty_a);
+}

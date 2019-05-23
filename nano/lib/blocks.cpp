@@ -5,8 +5,6 @@
 
 #include <boost/endian/conversion.hpp>
 
-#include <crypto/xxhash/xxhash.h>
-
 /** Compare blocks, first by type, then content. This is an optimization over dynamic_cast, which is very slow on some platforms. */
 namespace
 {
@@ -16,43 +14,6 @@ bool blocks_equal (T const & first, nano::block const & second)
 	static_assert (std::is_base_of<nano::block, T>::value, "Input parameter is not a block type");
 	return (first.type () == second.type ()) && (static_cast<T const &> (second)) == first;
 }
-}
-
-std::string nano::to_string_hex (uint64_t value_a)
-{
-	std::stringstream stream;
-	stream << std::hex << std::noshowbase << std::setw (16) << std::setfill ('0');
-	stream << value_a;
-	return stream.str ();
-}
-
-bool nano::from_string_hex (std::string const & value_a, uint64_t & target_a)
-{
-	auto error (value_a.empty ());
-	if (!error)
-	{
-		error = value_a.size () > 16;
-		if (!error)
-		{
-			std::stringstream stream (value_a);
-			stream << std::hex << std::noshowbase;
-			try
-			{
-				uint64_t number_l;
-				stream >> number_l;
-				target_a = number_l;
-				if (!stream.eof ())
-				{
-					error = true;
-				}
-			}
-			catch (std::runtime_error &)
-			{
-				error = true;
-			}
-		}
-	}
-	return error;
 }
 
 std::string nano::block::to_json () const

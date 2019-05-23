@@ -26,7 +26,7 @@ namespace
 std::atomic<bool> ack_ready{ false };
 
 /** An optionally blocking websocket client for testing */
-boost::optional<std::string> websocket_test_call (std::string host, std::string port, std::string message_a, bool await_ack, bool await_response, const seconds response_deadline = 5s)
+boost::optional<std::string> websocket_test_call (std::string host, std::string port, std::string message_a, bool await_ack, bool await_response, const std::chrono::seconds response_deadline = 5s)
 {
 	if (await_ack)
 	{
@@ -55,12 +55,12 @@ boost::optional<std::string> websocket_test_call (std::string host, std::string 
 	if (await_response)
 	{
 		assert (response_deadline > 0s);
-		boost::beast::flat_buffer buffer;
-		ws.async_read (buffer, [&ret, &buffer](boost::beast::error_code const & ec, std::size_t const n) {
+		auto buffer (std::make_shared<boost::beast::flat_buffer> ());
+		ws.async_read (*buffer, [&ret, buffer](boost::beast::error_code const & ec, std::size_t const n) {
 			if (!ec)
 			{
 				std::ostringstream res;
-				res << beast_buffers (buffer.data ());
+				res << beast_buffers (buffer->data ());
 				ret = res.str ();
 			}
 		});
@@ -109,7 +109,6 @@ TEST (websocket, confirmation)
 		ASSERT_EQ (event.get<std::string> ("topic"), "confirmation");
 		confirmation_event_received = true;
 	});
-	client_thread.detach ();
 
 	// Wait for the subscription to be acknowledged
 	system.deadline_set (5s);
@@ -140,6 +139,7 @@ TEST (websocket, confirmation)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ack_ready = false;
+	client_thread.join ();
 
 	std::atomic<bool> unsubscribe_ack_received{ false };
 	std::thread client_thread_2 ([&unsubscribe_ack_received]() {
@@ -157,7 +157,6 @@ TEST (websocket, confirmation)
 		R"json({"action": "unsubscribe", "topic": "confirmation", "ack": true})json", true, true, 1s);
 		unsubscribe_ack_received = true;
 	});
-	client_thread_2.detach ();
 
 	// Wait for the subscription to be acknowledged
 	system.deadline_set (5s);
@@ -182,6 +181,7 @@ TEST (websocket, confirmation)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ack_ready = false;
+	client_thread_2.join ();
 
 	node1->stop ();
 }
@@ -215,7 +215,6 @@ TEST (websocket, confirmation_options)
 		ASSERT_FALSE (response);
 		client_thread_finished = true;
 	});
-	client_thread.detach ();
 
 	// Wait for subscribe acknowledgement
 	system.deadline_set (5s);
@@ -260,7 +259,6 @@ TEST (websocket, confirmation_options)
 
 		client_thread_2_finished = true;
 	});
-	client_thread_2.detach ();
 
 	// Wait for the subscribe action to be acknowledged
 	system.deadline_set (5s);
@@ -296,7 +294,6 @@ TEST (websocket, confirmation_options)
 		ASSERT_FALSE (response);
 		client_thread_3_finished = true;
 	});
-	client_thread_3.detach ();
 
 	// Confirm a legacy block
 	// When filtering options are enabled, legacy blocks are always filtered
@@ -315,6 +312,9 @@ TEST (websocket, confirmation_options)
 	}
 	ack_ready = false;
 
+	client_thread.join ();
+	client_thread_2.join ();
+	client_thread_3.join ();
 	node1->stop ();
 }
 
@@ -353,7 +353,6 @@ TEST (websocket, vote)
 		ASSERT_EQ (event.get<std::string> ("topic"), "vote");
 		client_thread_finished = true;
 	});
-	client_thread.detach ();
 
 	// Wait for the subscription to be acknowledged
 	system.deadline_set (5s);
@@ -379,6 +378,7 @@ TEST (websocket, vote)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
+	client_thread.join ();
 	node1->stop ();
 }
 
@@ -418,7 +418,6 @@ TEST (websocket, vote_options)
 		ASSERT_EQ (event.get<std::string> ("topic"), "vote");
 		client_thread_finished = true;
 	});
-	client_thread.detach ();
 
 	// Wait for the subscription to be acknowledged
 	system.deadline_set (5s);
@@ -459,7 +458,6 @@ TEST (websocket, vote_options)
 		ASSERT_FALSE (response);
 		client_thread_2_finished = true;
 	});
-	client_thread_2.detach ();
 
 	// Wait for the subscription to be acknowledged
 	system.deadline_set (5s);
@@ -481,5 +479,7 @@ TEST (websocket, vote_options)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
+	client_thread.join ();
+	client_thread_2.join ();
 	node1->stop ();
 }

@@ -7,6 +7,7 @@
 #include <boost/endian/conversion.hpp>
 
 std::bitset<16> constexpr nano::message_header::block_type_mask;
+std::bitset<16> constexpr nano::message_header::count_mask;
 
 nano::message_header::message_header (nano::message_type type_a) :
 version_max (nano::protocol_version),
@@ -85,6 +86,25 @@ void nano::message_header::block_type_set (nano::block_type type_a)
 	extensions |= std::bitset<16> (static_cast<unsigned long long> (type_a) << 8);
 }
 
+uint8_t nano::message_header::count_get () const
+{
+	return ((extensions & count_mask) >> 12).to_ullong ();
+}
+
+void nano::message_header::count_set (uint8_t count_a)
+{
+	assert (count_a < 16);
+	extensions &= ~count_mask;
+	extensions |= std::bitset<16> (static_cast<unsigned long long> (count_a) << 12);
+}
+
+void nano::message_header::flag_set (uint8_t flag_a)
+{
+	// Flags from 8 are block_type & count
+	assert (flag_a < 8);
+	extensions.set (flag_a, true);
+}
+
 bool nano::message_header::bulk_pull_is_count_present () const
 {
 	auto result (false);
@@ -95,7 +115,32 @@ bool nano::message_header::bulk_pull_is_count_present () const
 			result = true;
 		}
 	}
+	return result;
+}
 
+bool nano::message_header::node_id_handshake_is_query () const
+{
+	auto result (false);
+	if (type == nano::message_type::node_id_handshake)
+	{
+		if (extensions.test (node_id_handshake_query_flag))
+		{
+			result = true;
+		}
+	}
+	return result;
+}
+
+bool nano::message_header::node_id_handshake_is_response () const
+{
+	auto result (false);
+	if (type == nano::message_type::node_id_handshake)
+	{
+		if (extensions.test (node_id_handshake_response_flag))
+		{
+			result = true;
+		}
+	}
 	return result;
 }
 
@@ -124,8 +169,22 @@ size_t nano::message_header::payload_length_bytes () const
 		{
 			return nano::keepalive::size;
 		}
-		// Add realtime network messages once they get framing support; currently the
-		// realtime messages all fit in a datagram from which they're deserialized.
+		case nano::message_type::publish:
+		{
+			return nano::block::size (block_type ());
+		}
+		case nano::message_type::confirm_ack:
+		{
+			return nano::confirm_ack::size (block_type (), count_get ());
+		}
+		case nano::message_type::confirm_req:
+		{
+			return nano::confirm_req::size (block_type (), count_get ());
+		}
+		case nano::message_type::node_id_handshake:
+		{
+			return nano::node_id_handshake::size (*this);
+		}
 		default:
 		{
 			assert (false);
@@ -492,12 +551,15 @@ block (block_a)
 {
 	header.block_type_set (block->type ());
 }
+
 nano::confirm_req::confirm_req (std::vector<std::pair<nano::block_hash, nano::block_hash>> const & roots_hashes_a) :
 message (nano::message_type::confirm_req),
 roots_hashes (roots_hashes_a)
 {
 	// not_a_block (1) block type for hashes + roots request
 	header.block_type_set (nano::block_type::not_a_block);
+	assert (roots_hashes.size () < 16);
+	header.count_set (roots_hashes.size ());
 }
 
 nano::confirm_req::confirm_req (nano::block_hash const & hash_a, nano::block_hash const & root_a) :
@@ -507,6 +569,7 @@ roots_hashes (std::vector<std::pair<nano::block_hash, nano::block_hash>> (1, std
 	assert (!roots_hashes.empty ());
 	// not_a_block (1) block type for hashes + roots request
 	header.block_type_set (nano::block_type::not_a_block);
+	header.count_set (roots_hashes.size ());
 }
 
 void nano::confirm_req::visit (nano::message_visitor & visitor_a) const
@@ -606,6 +669,20 @@ std::string nano::confirm_req::roots_string () const
 	return result;
 }
 
+size_t nano::confirm_req::size (nano::block_type type_a, size_t count)
+{
+	size_t result (0);
+	if (type_a != nano::block_type::invalid && type_a != nano::block_type::not_a_block)
+	{
+		result = nano::block::size (type_a);
+	}
+	else if (type_a == nano::block_type::not_a_block)
+	{
+		result = sizeof (uint8_t) + count * (sizeof (nano::uint256_union) + sizeof (nano::block_hash));
+	}
+	return result;
+}
+
 nano::confirm_ack::confirm_ack (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a, nano::vote_uniquer * uniquer_a) :
 message (header_a),
 vote (std::make_shared<nano::vote> (error_a, stream_a, header.block_type ()))
@@ -625,6 +702,8 @@ vote (vote_a)
 	if (first_vote_block.which ())
 	{
 		header.block_type_set (nano::block_type::not_a_block);
+		assert (vote_a->blocks.size () < 16);
+		header.count_set (vote_a->blocks.size ());
 	}
 	else
 	{
@@ -648,6 +727,20 @@ bool nano::confirm_ack::operator== (nano::confirm_ack const & other_a) const
 void nano::confirm_ack::visit (nano::message_visitor & visitor_a) const
 {
 	visitor_a.confirm_ack (*this);
+}
+
+size_t nano::confirm_ack::size (nano::block_type type_a, size_t count)
+{
+	size_t result (sizeof (nano::account) + sizeof (nano::signature) + sizeof (uint64_t));
+	if (type_a != nano::block_type::invalid && type_a != nano::block_type::not_a_block)
+	{
+		result += nano::block::size (type_a);
+	}
+	else if (type_a == nano::block_type::not_a_block)
+	{
+		result += count * sizeof (nano::block_hash);
+	}
+	return result;
 }
 
 nano::frontier_req::frontier_req () :
@@ -869,9 +962,6 @@ void nano::bulk_push::visit (nano::message_visitor & visitor_a) const
 	visitor_a.bulk_push (*this);
 }
 
-size_t constexpr nano::node_id_handshake::query_flag;
-size_t constexpr nano::node_id_handshake::response_flag;
-
 nano::node_id_handshake::node_id_handshake (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a) :
 message (header_a),
 query (boost::none),
@@ -887,11 +977,11 @@ response (response)
 {
 	if (query)
 	{
-		set_query_flag (true);
+		header.flag_set (nano::message_header::node_id_handshake_query_flag);
 	}
 	if (response)
 	{
-		set_response_flag (true);
+		header.flag_set (nano::message_header::node_id_handshake_response_flag);
 	}
 }
 
@@ -915,14 +1005,14 @@ bool nano::node_id_handshake::deserialize (nano::stream & stream_a)
 	auto error (false);
 	try
 	{
-		if (is_query_flag ())
+		if (header.node_id_handshake_is_query ())
 		{
 			nano::uint256_union query_hash;
 			read (stream_a, query_hash);
 			query = query_hash;
 		}
 
-		if (is_response_flag ())
+		if (header.node_id_handshake_is_response ())
 		{
 			nano::account response_account;
 			read (stream_a, response_account);
@@ -945,29 +1035,28 @@ bool nano::node_id_handshake::operator== (nano::node_id_handshake const & other_
 	return result;
 }
 
-bool nano::node_id_handshake::is_query_flag () const
-{
-	return header.extensions.test (query_flag);
-}
-
-void nano::node_id_handshake::set_query_flag (bool value_a)
-{
-	header.extensions.set (query_flag, value_a);
-}
-
-bool nano::node_id_handshake::is_response_flag () const
-{
-	return header.extensions.test (response_flag);
-}
-
-void nano::node_id_handshake::set_response_flag (bool value_a)
-{
-	header.extensions.set (response_flag, value_a);
-}
-
 void nano::node_id_handshake::visit (nano::message_visitor & visitor_a) const
 {
 	visitor_a.node_id_handshake (*this);
+}
+
+size_t nano::node_id_handshake::size () const
+{
+	return size (header);
+}
+
+size_t nano::node_id_handshake::size (nano::message_header const & header_a)
+{
+	size_t result (0);
+	if (header_a.node_id_handshake_is_query ())
+	{
+		result = sizeof (nano::uint256_union);
+	}
+	if (header_a.node_id_handshake_is_response ())
+	{
+		result += sizeof (nano::account) + sizeof (nano::signature);
+	}
+	return result;
 }
 
 nano::message_visitor::~message_visitor ()

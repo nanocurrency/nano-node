@@ -68,6 +68,16 @@ void set_secure_perm_file (boost::filesystem::path const & path);
 void set_secure_perm_file (boost::filesystem::path const & path, boost::system::error_code & ec);
 
 /*
+ * Function to check if running Windows as an administrator
+ */
+bool is_windows_elevated ();
+
+/*
+ * Function to check if the Windows Event log registry key exists
+ */
+bool event_log_reg_entry_exists ();
+
+/*
  * Functions for understanding the role of the current thread
  */
 namespace thread_role
@@ -123,8 +133,12 @@ class thread_runner final
 public:
 	thread_runner (boost::asio::io_context &, unsigned);
 	~thread_runner ();
+	/** Tells the IO context to stop processing events.*/
+	void stop_event_processing ();
+	/** Wait for IO threads to complete */
 	void join ();
 	std::vector<boost::thread> threads;
+	boost::asio::executor_work_guard<boost::asio::io_context::executor_type> io_guard;
 };
 
 template <typename... T>

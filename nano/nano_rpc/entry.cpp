@@ -48,7 +48,7 @@ void run (boost::filesystem::path const & data_path)
 			nano::ipc_rpc_processor ipc_rpc_processor (io_ctx, rpc_config);
 			auto rpc = nano::get_rpc (io_ctx, rpc_config, ipc_rpc_processor);
 			rpc->start ();
-			runner = std::make_unique<nano::thread_runner> (io_ctx, rpc_config.io_threads);
+			runner = std::make_unique<nano::thread_runner> (io_ctx, rpc_config.rpc_process.io_threads);
 			runner->join ();
 		}
 		catch (const std::runtime_error & e)

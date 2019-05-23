@@ -77,7 +77,6 @@ nano::error nano::daemon_config::deserialize_json (bool & upgraded_a, nano::json
 bool nano::daemon_config::upgrade_json (unsigned version_a, nano::jsonconfig & json)
 {
 	json.put ("version", json_version ());
-	auto upgraded_l (false);
 	switch (version_a)
 	{
 		case 1:
@@ -95,14 +94,13 @@ bool nano::daemon_config::upgrade_json (unsigned version_a, nano::jsonconfig & j
 				opencl.serialize_json (opencl_l);
 				json.put_child ("opencl", opencl_l);
 			}
-			upgraded_l = true;
 		}
 		case 2:
 			break;
 		default:
 			throw std::runtime_error ("Unknown daemon_config version");
 	}
-	return upgraded_l;
+	return version_a < json_version ();
 }
 
 namespace nano

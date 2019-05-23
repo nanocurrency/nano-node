@@ -13,6 +13,7 @@
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/signatures.hpp>
 #include <nano/node/stats.hpp>
+#include <nano/node/transport/tcp.hpp>
 #include <nano/node/transport/udp.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
@@ -253,15 +254,32 @@ public:
 	void flood_block_batch (std::deque<std::shared_ptr<nano::block>>, unsigned = broadcast_interval_ms);
 	void merge_peers (std::array<nano::endpoint, 8> const &);
 	void merge_peer (nano::endpoint const &);
-	void send_keepalive (nano::transport::channel const &);
-	void send_keepalive_self (nano::transport::channel const &);
-	void send_node_id_handshake (nano::endpoint const &, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to);
+	void send_keepalive (std::shared_ptr<nano::transport::channel>);
+	void send_keepalive_self (std::shared_ptr<nano::transport::channel>);
+	void send_node_id_handshake (std::shared_ptr<nano::transport::channel>, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to);
 	void broadcast_confirm_req (std::shared_ptr<nano::block>);
 	void broadcast_confirm_req_base (std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>, unsigned, bool = false);
 	void broadcast_confirm_req_batch (std::unordered_map<std::shared_ptr<nano::transport::channel>, std::vector<std::pair<nano::block_hash, nano::block_hash>>>, unsigned = broadcast_interval_ms, bool = false);
 	void broadcast_confirm_req_batch (std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>>>, unsigned = broadcast_interval_ms);
-	void confirm_hashes (nano::transaction const &, nano::transport::channel const &, std::vector<nano::block_hash>);
-	bool send_votes_cache (nano::transport::channel const &, nano::block_hash const &);
+	void confirm_hashes (nano::transaction const &, std::shared_ptr<nano::transport::channel>, std::vector<nano::block_hash>);
+	bool send_votes_cache (std::shared_ptr<nano::transport::channel>, nano::block_hash const &);
+	std::shared_ptr<nano::transport::channel> find_node_id (nano::account const &);
+	std::shared_ptr<nano::transport::channel> find_channel (nano::endpoint const &);
+	bool not_a_peer (nano::endpoint const &, bool);
+	// Should we reach out to this endpoint with a keepalive message
+	bool reachout (nano::endpoint const &, bool = false);
+	std::deque<std::shared_ptr<nano::transport::channel>> list (size_t);
+	// A list of random peers sized for the configured rebroadcast fanout
+	std::deque<std::shared_ptr<nano::transport::channel>> list_fanout ();
+	void random_fill (std::array<nano::endpoint, 8> &) const;
+	std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (size_t) const;
+	// Get the next peer for attempting a tcp bootstrap connection
+	nano::tcp_endpoint bootstrap_peer ();
+	// Response channels
+	void add_response_channels (nano::tcp_endpoint const &, std::vector<nano::tcp_endpoint>);
+	std::shared_ptr<nano::transport::channel> search_response_channel (nano::tcp_endpoint const &, nano::account const &);
+	void remove_response_channel (nano::tcp_endpoint const &);
+	size_t response_channels_size ();
 	nano::endpoint endpoint ();
 	void cleanup (std::chrono::steady_clock::time_point const &);
 	void ongoing_cleanup ();
@@ -273,12 +291,17 @@ public:
 	std::vector<boost::thread> packet_processing_threads;
 	nano::node & node;
 	nano::transport::udp_channels udp_channels;
+	nano::transport::tcp_channels tcp_channels;
 	std::function<void()> disconnect_observer;
 	// Called when a new channel is observed
 	std::function<void(std::shared_ptr<nano::transport::channel>)> channel_observer;
 	static unsigned const broadcast_interval_ms = 10;
 	static size_t const buffer_size = 512;
 	static size_t const confirm_req_hashes_max = 6;
+
+private:
+	std::mutex response_channels_mutex;
+	std::unordered_map<nano::tcp_endpoint, std::vector<nano::tcp_endpoint>> response_channels;
 };
 
 class node_init final

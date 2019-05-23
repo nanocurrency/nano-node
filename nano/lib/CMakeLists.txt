@@ -1,7 +1,7 @@
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	set (platform_sources plat/default/priority.cpp plat/posix/perms.cpp plat/darwin/thread_role.cpp)
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-	set (platform_sources plat/windows/priority.cpp plat/windows/perms.cpp plat/windows/thread_role.cpp)
+	set (platform_sources plat/windows/priority.cpp plat/windows/perms.cpp plat/windows/registry.cpp plat/windows/thread_role.cpp)
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	set (platform_sources plat/linux/priority.cpp plat/posix/perms.cpp plat/linux/thread_role.cpp)
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
@@ -42,7 +42,6 @@ add_library (nano_lib
 	work.cpp)
 
 target_link_libraries (nano_lib
-	xxhash
 	ed25519
 	crypto_lib
 	blake2

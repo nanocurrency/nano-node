@@ -44,6 +44,23 @@ public:
 	std::chrono::milliseconds election_duration;
 };
 
+class transaction_counter final
+{
+public:
+	// increment counter
+	void add ();
+	// clear counter and reset trend_last after calculating a new rate, guarded to only run once a sec
+	void trend_sample ();
+	double get_rate ();
+
+private:
+	std::chrono::steady_clock::time_point trend_last = std::chrono::steady_clock::now ();
+	size_t counter = 0;
+	// blocks/sec confirmed
+	double rate = 0;
+	std::mutex mutex;
+};
+
 // Core class for determining consensus
 // Holds all active blocks i.e. recently added blocks that need confirmation
 class active_transactions final
@@ -68,6 +85,13 @@ public:
 	uint64_t active_difficulty ();
 	std::deque<std::shared_ptr<nano::block>> list_blocks (bool = false);
 	void erase (nano::block const &);
+	//check if we should flush
+	//if counter.rate == 0 set minimum_size before considering flushing to 4 for testing convenience
+	//else minimum_size is rate * 10
+	//when roots.size > minimum_size check counter.rate and adjusted expected percentage long unconfirmed before kicking in
+	bool should_flush ();
+	//drop 2 from roots based on adjusted_difficulty
+	void flush_lowest ();
 	bool empty ();
 	size_t size ();
 	void stop ();
@@ -85,6 +109,7 @@ public:
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
 	std::deque<nano::election_status> list_confirmed ();
 	std::deque<nano::election_status> confirmed;
+	nano::transaction_counter counter;
 	nano::node & node;
 	std::mutex mutex;
 	// Maximum number of conflicts to vote on per interval, lowest root hash first
@@ -93,9 +118,10 @@ public:
 	static unsigned constexpr announcement_min = 2;
 	// Threshold to start logging blocks haven't yet been confirmed
 	static unsigned constexpr announcement_long = 20;
+	size_t long_unconfirmed_size = 0;
 	static size_t constexpr election_history_size = 2048;
 	static size_t constexpr max_broadcast_queue = 1000;
-	boost::circular_buffer<uint64_t> difficulty_cb;
+	boost::circular_buffer<double> multipliers_cb;
 	uint64_t trended_active_difficulty;
 
 private:
