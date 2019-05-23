@@ -76,7 +76,7 @@ namespace websocket
 	{
 	public:
 		message block_confirmed (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype);
-		message vote_received (std::shared_ptr<nano::vote> vote_a);
+		message vote_received (std::shared_ptr<nano::vote> vote_a, nano::vote_code code_a);
 
 	private:
 		/** Set the common fields for messages: timestamp and topic. */

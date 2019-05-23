@@ -453,7 +453,7 @@ nano::websocket::message nano::websocket::message_builder::block_confirmed (std:
 	return message_l;
 }
 
-nano::websocket::message nano::websocket::message_builder::vote_received (std::shared_ptr<nano::vote> vote_a)
+nano::websocket::message nano::websocket::message_builder::vote_received (std::shared_ptr<nano::vote> vote_a, nano::vote_code code_a)
 {
 	nano::websocket::message message_l (nano::websocket::topic::vote);
 	set_common_fields (message_l);
@@ -461,6 +461,7 @@ nano::websocket::message nano::websocket::message_builder::vote_received (std::s
 	// Vote information
 	boost::property_tree::ptree vote_node_l;
 	vote_a->serialize_json (vote_node_l);
+	vote_node_l.put ("code", code_a == nano::vote_code::invalid ? "invalid" : code_a == nano::vote_code::replay ? "replay" : code_a == nano::vote_code::vote ? "received" : code_a == nano::vote_code::outgoing ? "outgoing" : "unknown");
 	message_l.contents.add_child ("message", vote_node_l);
 	return message_l;
 }

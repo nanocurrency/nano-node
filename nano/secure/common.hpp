@@ -268,7 +268,8 @@ enum class vote_code
 {
 	invalid, // Vote is not signed correctly
 	replay, // Vote does not have the highest sequence number, it's a replay
-	vote // Vote has the highest sequence number
+	vote, // Vote has the highest sequence number
+	outgoing // Vote is generated in this node
 };
 
 enum class process_result
