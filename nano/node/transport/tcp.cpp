@@ -232,19 +232,19 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 		auto channel (node.network.find_channel (nano::transport::map_tcp_to_endpoint (endpoint_a)));
 		if (channel)
 		{
-			node.process_message (message_a, channel);
+			node.network.process_message (message_a, channel);
 		}
 		else
 		{
 			channel = node.network.search_response_channel (endpoint_a, node_id_a);
 			if (channel)
 			{
-				node.process_message (message_a, channel);
+				node.network.process_message (message_a, channel);
 			}
 			else
 			{
 				auto udp_channel (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, nano::transport::map_tcp_to_endpoint (endpoint_a)));
-				node.process_message (message_a, udp_channel);
+				node.network.process_message (message_a, udp_channel);
 			}
 		}
 	}
@@ -277,7 +277,7 @@ void nano::transport::tcp_channels::process_keepalive (nano::keepalive const & m
 			node.network.add_response_channels (endpoint_a, insert_response_channels);
 		}
 		auto udp_channel (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, nano::transport::map_tcp_to_endpoint (endpoint_a)));
-		node.process_message (message_a, udp_channel);
+		node.network.process_message (message_a, udp_channel);
 	}
 }
 
