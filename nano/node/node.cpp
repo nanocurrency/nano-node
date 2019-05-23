@@ -1385,8 +1385,7 @@ startup_time (std::chrono::steady_clock::now ())
 			}
 		});
 		observers.vote.add ([this](boost::optional<nano::transaction const &> transaction_opt_a, std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a, nano::vote_code code_a) {
-			assert (transaction_opt_a.is_initialized ());
-			if (code_a == nano::vote_code::vote && transaction_opt_a)
+			if (transaction_opt_a.is_initialized () && code_a == nano::vote_code::vote)
 			{
 				this->gap_cache.vote (vote_a);
 				this->online_reps.observe (vote_a->account);
