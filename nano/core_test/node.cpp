@@ -701,7 +701,6 @@ TEST (node_config, v16_v17_upgrade)
 	config.logging.init (path);
 	// These config options should not be present
 	ASSERT_FALSE (tree.get_optional_child ("tcp_io_timeout"));
-	ASSERT_FALSE (tree.get_optional_child ("tcp_idle_timeout"));
 	ASSERT_FALSE (tree.get_optional_child ("pow_sleep_interval"));
 	ASSERT_FALSE (tree.get_optional_child ("external_address"));
 	ASSERT_FALSE (tree.get_optional_child ("external_port"));
@@ -711,7 +710,6 @@ TEST (node_config, v16_v17_upgrade)
 	config.deserialize_json (upgraded, tree);
 	// The config options should be added after the upgrade
 	ASSERT_TRUE (!!tree.get_optional_child ("tcp_io_timeout"));
-	ASSERT_TRUE (!!tree.get_optional_child ("tcp_idle_timeout"));
 	ASSERT_TRUE (!!tree.get_optional_child ("pow_sleep_interval"));
 	ASSERT_TRUE (!!tree.get_optional_child ("external_address"));
 	ASSERT_TRUE (!!tree.get_optional_child ("external_port"));
@@ -738,7 +736,6 @@ TEST (node_config, v17_values)
 	// Check config is correct
 	{
 		tree.put ("tcp_io_timeout", 1);
-		tree.put ("tcp_idle_timeout", 0);
 		tree.put ("pow_sleep_interval", 0);
 		tree.put ("external_address", "::1");
 		tree.put ("external_port", 0);
@@ -756,7 +753,6 @@ TEST (node_config, v17_values)
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
 	ASSERT_EQ (config.tcp_io_timeout.count (), 1);
-	ASSERT_EQ (config.tcp_idle_timeout.count (), 0);
 	ASSERT_EQ (config.pow_sleep_interval.count (), 0);
 	ASSERT_EQ (config.external_address, boost::asio::ip::address_v6::from_string ("::1"));
 	ASSERT_EQ (config.external_port, 0);
@@ -768,7 +764,6 @@ TEST (node_config, v17_values)
 
 	// Check config is correct with other values
 	tree.put ("tcp_io_timeout", std::numeric_limits<unsigned long>::max () - 100);
-	tree.put ("tcp_idle_timeout", std::numeric_limits<unsigned>::max ());
 	tree.put ("pow_sleep_interval", std::numeric_limits<unsigned long>::max () - 100);
 	tree.put ("external_address", "::ffff:192.168.1.1");
 	tree.put ("external_port", std::numeric_limits<uint16_t>::max () - 1);
@@ -786,7 +781,6 @@ TEST (node_config, v17_values)
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
 	ASSERT_EQ (config.tcp_io_timeout.count (), std::numeric_limits<unsigned long>::max () - 100);
-	ASSERT_EQ (config.tcp_idle_timeout.count (), std::numeric_limits<unsigned>::max ());
 	ASSERT_EQ (config.pow_sleep_interval.count (), std::numeric_limits<unsigned long>::max () - 100);
 	ASSERT_EQ (config.external_address, boost::asio::ip::address_v6::from_string ("::ffff:192.168.1.1"));
 	ASSERT_EQ (config.external_port, std::numeric_limits<uint16_t>::max () - 1);

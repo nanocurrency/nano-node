@@ -1163,7 +1163,7 @@ void nano::bootstrap_attempt::pool_connection (std::shared_ptr<nano::bootstrap_c
 	if (!stopped && !client_a->pending_stop)
 	{
 		// Idle bootstrap client socket
-		client_a->channel->socket->start_timer (node->config.tcp_idle_timeout);
+		client_a->channel->socket->start_timer (node->network_params.node.idle_timeout);
 		// Push into idle deque
 		idle.push_front (client_a);
 	}
@@ -1934,7 +1934,7 @@ node (node_a)
 void nano::bootstrap_server::receive ()
 {
 	// Increase timeout to receive TCP header (idle server socket)
-	socket->set_timeout (node->config.tcp_idle_timeout);
+	socket->set_timeout (node->network_params.node.idle_timeout);
 	auto this_l (shared_from_this ());
 	socket->async_read (receive_buffer, 8, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		// Set remote_endpoint

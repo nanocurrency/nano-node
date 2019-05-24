@@ -64,8 +64,6 @@ public:
 	std::chrono::seconds unchecked_cutoff_time{ std::chrono::seconds (4 * 60 * 60) }; // 4 hours
 	/** Timeout for initiated async operations */
 	std::chrono::seconds tcp_io_timeout{ network_params.network.is_test_network () ? std::chrono::seconds (5) : std::chrono::seconds (15) };
-	/** Default maximum idle time for a socket before it's automatically closed */
-	std::chrono::seconds tcp_idle_timeout{ network_params.network.is_test_network () ? std::chrono::seconds (15) : std::chrono::minutes (2) };
 	std::chrono::nanoseconds pow_sleep_interval{ 0 };
 	/** Default maximum incoming TCP connections, including realtime network & bootstrap */
 	unsigned tcp_incoming_connections_max{ 1024 };

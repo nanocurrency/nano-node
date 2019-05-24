@@ -348,6 +348,8 @@ class node_constants
 public:
 	node_constants (nano::network_constants & network_constants);
 	std::chrono::seconds period;
+	/** Default maximum idle time for a socket before it's automatically closed */
+	std::chrono::seconds idle_timeout;
 	std::chrono::seconds cutoff;
 	std::chrono::seconds syn_cookie_cutoff;
 	std::chrono::minutes backup_interval;

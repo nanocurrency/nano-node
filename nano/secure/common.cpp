@@ -103,6 +103,7 @@ nano::random_constants::random_constants ()
 nano::node_constants::node_constants (nano::network_constants & network_constants)
 {
 	period = network_constants.is_test_network () ? std::chrono::seconds (1) : std::chrono::seconds (60);
+	idle_timeout = network_constants.is_test_network () ? period * 15 : period * 2;
 	cutoff = period * 5;
 	syn_cookie_cutoff = std::chrono::seconds (5);
 	backup_interval = std::chrono::minutes (5);

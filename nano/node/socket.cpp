@@ -128,7 +128,7 @@ void nano::socket::write_queued_messages ()
 						else if (this_l->send_queue.empty ())
 						{
 							// Idle TCP realtime client socket after writes
-							this_l->start_timer (node->config.tcp_idle_timeout);
+							this_l->start_timer (node->network_params.node.idle_timeout);
 						}
 					}
 				}
@@ -297,7 +297,7 @@ void nano::server_socket::on_connection (std::function<bool(std::shared_ptr<nano
 								// Make sure the new connection doesn't idle. Note that in most cases, the callback is going to start
 								// an IO operation immediately, which will start a timer.
 								new_connection->checkup ();
-								new_connection->start_timer (node_l->network_params.network.is_test_network () ? std::chrono::seconds (2) : node_l->config.tcp_idle_timeout);
+								new_connection->start_timer (node_l->network_params.network.is_test_network () ? std::chrono::seconds (2) : node_l->network_params.node.idle_timeout);
 								node_l->stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_success, nano::stat::dir::in);
 								this_l->connections.push_back (new_connection);
 								this_l->evict_dead_connections ();
