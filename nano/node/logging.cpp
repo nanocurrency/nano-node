@@ -1,11 +1,12 @@
+#include <nano/lib/config.hpp>
+#include <nano/node/logging.hpp>
+
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/log/expressions.hpp>
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/log/utility/setup/console.hpp>
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/property_tree/ptree.hpp>
-#include <nano/lib/config.hpp>
-#include <nano/node/logging.hpp>
 
 #ifdef BOOST_WINDOWS
 #include <boost/log/sinks/event_log_backend.hpp>

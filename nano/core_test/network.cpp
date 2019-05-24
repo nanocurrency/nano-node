@@ -1,9 +1,11 @@
-#include <boost/iostreams/stream_buffer.hpp>
-#include <boost/thread.hpp>
-#include <gtest/gtest.h>
 #include <nano/core_test/testutil.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/node/transport/udp.hpp>
+
+#include <gtest/gtest.h>
+
+#include <boost/iostreams/stream_buffer.hpp>
+#include <boost/thread.hpp>
 
 using namespace std::chrono_literals;
 

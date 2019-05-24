@@ -1,20 +1,20 @@
 #pragma once
 
-#include <array>
-#include <atomic>
-#include <condition_variable>
-#include <type_traits>
+#include <nano/lib/errors.hpp>
+#include <nano/lib/interface.h>
+#include <nano/lib/numbers.hpp>
+
+#include <crypto/cryptopp/osrng.h>
 
 #include <boost/filesystem.hpp>
 #include <boost/iostreams/device/back_inserter.hpp>
 #include <boost/iostreams/stream.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
-#include <crypto/cryptopp/osrng.h>
-
-#include <nano/lib/errors.hpp>
-#include <nano/lib/interface.h>
-#include <nano/lib/numbers.hpp>
+#include <array>
+#include <atomic>
+#include <condition_variable>
+#include <type_traits>
 
 namespace nano
 {

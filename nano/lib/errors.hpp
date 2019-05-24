@@ -1,10 +1,12 @@
 #pragma once
 
-#include <algorithm>
+#include <nano/lib/expected.hpp>
+
 #include <boost/system/error_code.hpp>
+
+#include <algorithm>
 #include <cassert>
 #include <memory>
-#include <nano/lib/expected.hpp>
 #include <string>
 #include <system_error>
 #include <type_traits>

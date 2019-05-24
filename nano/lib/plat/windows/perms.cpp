@@ -1,6 +1,8 @@
-#include <boost/filesystem.hpp>
-#include <cassert>
 #include <nano/lib/utility.hpp>
+
+#include <boost/filesystem.hpp>
+
+#include <cassert>
 
 #include <io.h>
 #include <processthreadsapi.h>

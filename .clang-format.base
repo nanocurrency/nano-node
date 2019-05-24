@@ -35,4 +35,22 @@ BraceWrapping:
   BeforeElse: true
   SplitEmptyRecord: true
   SplitEmptyNamespace: true
+SortIncludes: true
+IncludeBlocks: Regroup
+IncludeCategories:
+  # Headers in <> without extension.
+  - Regex:           '<([A-Za-z0-9\/-_])+>'
+    Priority:        5
+  # Headers in the boost library.
+  - Regex:           '<boost/.*>'
+    Priority:        4
+  # Headers in other third party libraries
+  - Regex:           '<(gtest|crypto)/([A-Za-z0-9.\/-_])+>'
+    Priority:        3
+  # Headers from nano workspace.
+  - Regex:           '<nano/([A-Za-z0-9.\/-_])+>'
+    Priority:        2
+  # Headers in ""
+  - Regex:           '"([A-Za-z0-9.\/-_])+"'
+    Priority:        1
 ...

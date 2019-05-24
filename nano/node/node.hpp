@@ -18,11 +18,6 @@
 #include <nano/node/websocket.hpp>
 #include <nano/secure/ledger.hpp>
 
-#include <atomic>
-#include <condition_variable>
-#include <memory>
-#include <queue>
-
 #include <boost/asio/thread_pool.hpp>
 #include <boost/iostreams/device/array.hpp>
 #include <boost/multi_index/hashed_index.hpp>
@@ -31,6 +26,11 @@
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index_container.hpp>
 #include <boost/thread/thread.hpp>
+
+#include <atomic>
+#include <condition_variable>
+#include <memory>
+#include <queue>
 
 namespace nano
 {

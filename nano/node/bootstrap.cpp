@@ -1,13 +1,13 @@
-#include <nano/node/bootstrap.hpp>
-
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/node/bootstrap.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
 #include <nano/node/transport/udp.hpp>
 
-#include <algorithm>
 #include <boost/log/trivial.hpp>
+
+#include <algorithm>
 
 constexpr double bootstrap_connection_scale_target_blocks = 50000.0;
 constexpr double bootstrap_connection_warmup_time_sec = 5.0;
@@ -2387,6 +2387,7 @@ public:
 			auto cookie (connection->node->network.tcp_channels.assign_syn_cookie (connection->remote_endpoint));
 			nano::node_id_handshake response_message (cookie, response);
 			auto bytes = response_message.to_bytes ();
+			// clang-format off
 			connection->socket->async_write (bytes, [ bytes, connection = connection ](boost::system::error_code const & ec, size_t size_a) {
 				if (ec)
 				{
@@ -2403,6 +2404,7 @@ public:
 					connection->finish_request ();
 				}
 			});
+			// clang-format on
 		}
 		else if (message_a.response)
 		{

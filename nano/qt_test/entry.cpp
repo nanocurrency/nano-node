@@ -1,5 +1,6 @@
-#include <QApplication>
 #include <gtest/gtest.h>
+
+#include <QApplication>
 QApplication * test_application = nullptr;
 namespace nano
 {

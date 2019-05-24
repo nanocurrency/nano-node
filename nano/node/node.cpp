@@ -1,20 +1,19 @@
-#include <nano/node/node.hpp>
-
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/interface.h>
 #include <nano/lib/timer.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/node.hpp>
 #include <nano/rpc/rpc.hpp>
+
+#include <boost/polymorphic_cast.hpp>
+#include <boost/property_tree/json_parser.hpp>
 
 #include <algorithm>
 #include <cstdlib>
 #include <future>
 #include <numeric>
 #include <sstream>
-
-#include <boost/polymorphic_cast.hpp>
-#include <boost/property_tree/json_parser.hpp>
 
 double constexpr nano::node::price_max;
 double constexpr nano::node::free_cutoff;

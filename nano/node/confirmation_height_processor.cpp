@@ -1,14 +1,15 @@
-#include <nano/node/confirmation_height_processor.hpp>
-
-#include <boost/optional.hpp>
-#include <cassert>
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/active_transactions.hpp>
+#include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/stats.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
+
+#include <boost/optional.hpp>
+
+#include <cassert>
 #include <numeric>
 
 nano::confirmation_height_processor::confirmation_height_processor (nano::pending_confirmation_height & pending_confirmation_height_a, nano::block_store & store_a, nano::stat & stats_a, nano::active_transactions & active_a, nano::block_hash const & epoch_link_a, nano::logger_mt & logger_a) :

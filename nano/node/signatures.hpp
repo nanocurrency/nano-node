@@ -1,11 +1,12 @@
 #pragma once
 
-#include <atomic>
-#include <future>
-#include <mutex>
 #include <nano/lib/utility.hpp>
 
 #include <boost/asio.hpp>
+
+#include <atomic>
+#include <future>
+#include <mutex>
 
 namespace nano
 {
