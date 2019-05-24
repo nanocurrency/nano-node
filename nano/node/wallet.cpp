@@ -1765,6 +1765,7 @@ void nano::wallets::stop ()
 	{
 		thread.join ();
 	}
+	watcher.stop ();
 }
 
 nano::write_transaction nano::wallets::tx_begin_write ()
