@@ -58,6 +58,19 @@ struct change_or_receive_block_tag
 static_assert (nano::change_block::size == nano::receive_block::size, "Change and receive blocks not longer the same size, a new pool is required");
 }
 
+nano::block_memory_pool_cleanup_guard::~block_memory_pool_cleanup_guard ()
+{
+	purge ();
+}
+
+void nano::block_memory_pool_cleanup_guard::purge ()
+{
+	pool<open_block_tag, nano::open_block>::purge_memory ();
+	pool<state_block_tag, nano::state_block>::purge_memory ();
+	pool<send_block_tag, nano::send_block>::purge_memory ();
+	pool<change_or_receive_block_tag, nano::change_block>::purge_memory ();	
+}
+
 std::string nano::block::to_json () const
 {
 	std::string result;

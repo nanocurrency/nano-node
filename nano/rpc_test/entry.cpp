@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <nano/lib/blocks.hpp>
 namespace nano
 {
 void cleanup_test_directories_on_exit ();
