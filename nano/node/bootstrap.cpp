@@ -1162,6 +1162,9 @@ void nano::bootstrap_attempt::pool_connection (std::shared_ptr<nano::bootstrap_c
 	std::lock_guard<std::mutex> lock (mutex);
 	if (!stopped && !client_a->pending_stop)
 	{
+		// Idle bootstrap client socket
+		client_a->channel->socket->start_timer (node->config.tcp_idle_timeout);
+		// Push into idle deque
 		idle.push_front (client_a);
 	}
 	condition.notify_all ();

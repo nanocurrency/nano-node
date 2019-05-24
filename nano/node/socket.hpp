@@ -50,6 +50,7 @@ public:
 	bool has_timed_out () const;
 	/** This can be called to change the maximum idle time, e.g. based on the type of traffic detected. */
 	void set_timeout (std::chrono::seconds io_timeout_a);
+	void start_timer (std::chrono::seconds deadline_a);
 	/** Change write concurrent */
 	void set_writer_concurrency (concurrency writer_concurrency_a);
 
@@ -82,7 +83,6 @@ protected:
 	std::atomic<bool> closed{ false };
 	void close_internal ();
 	void write_queued_messages ();
-	void start_timer (std::chrono::seconds deadline_a);
 	void start_timer ();
 	void stop_timer ();
 	void checkup ();
