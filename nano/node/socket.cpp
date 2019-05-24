@@ -125,6 +125,11 @@ void nano::socket::write_queued_messages ()
 						{
 							this_l->write_queued_messages ();
 						}
+						else if (this_l->send_queue.empty ())
+						{
+							// Idle client socket after writes
+							this_l->next_deadline = node->config.tcp_idle_timeout.count ();
+						}
 					}
 				}
 			}
