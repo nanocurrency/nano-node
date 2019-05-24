@@ -1,8 +1,10 @@
-#include <algorithm>
-#include <boost/property_tree/json_parser.hpp>
-#include <chrono>
 #include <nano/node/node.hpp>
 #include <nano/node/websocket.hpp>
+
+#include <boost/property_tree/json_parser.hpp>
+
+#include <algorithm>
+#include <chrono>
 
 nano::websocket::confirmation_options::confirmation_options (boost::property_tree::ptree const & options_a, nano::node & node_a) :
 node (node_a),

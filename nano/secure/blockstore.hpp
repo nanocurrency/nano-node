@@ -2,6 +2,7 @@
 
 #include <nano/lib/config.hpp>
 #include <nano/secure/common.hpp>
+
 #include <stack>
 
 namespace nano

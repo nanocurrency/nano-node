@@ -1,9 +1,10 @@
 #pragma once
 
-#include <mutex>
 #include <nano/node/common.hpp>
 #include <nano/node/stats.hpp>
 #include <nano/node/transport/transport.hpp>
+
+#include <mutex>
 
 namespace nano
 {

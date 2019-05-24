@@ -1,12 +1,15 @@
-#include <boost/property_tree/json_parser.hpp>
-#include <chrono>
-#include <gtest/gtest.h>
-#include <memory>
 #include <nano/core_test/testutil.hpp>
 #include <nano/lib/ipc_client.hpp>
 #include <nano/node/ipc.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/rpc/rpc.hpp>
+
+#include <gtest/gtest.h>
+
+#include <boost/property_tree/json_parser.hpp>
+
+#include <chrono>
+#include <memory>
 #include <sstream>
 #include <vector>
 

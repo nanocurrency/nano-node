@@ -1,6 +1,8 @@
 #pragma once
 
-#include <algorithm>
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/numbers.hpp>
+
 #include <boost/asio/bind_executor.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -8,14 +10,14 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/property_tree/json_parser.hpp>
+
+#include <algorithm>
 #include <cstdlib>
 #include <deque>
 #include <functional>
 #include <iostream>
 #include <memory>
 #include <mutex>
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/numbers.hpp>
 #include <string>
 #include <thread>
 #include <unordered_map>
