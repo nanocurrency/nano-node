@@ -2,9 +2,8 @@
 #include <nano/node/wallet.hpp>
 #include <nano/secure/blockstore.hpp>
 
-#include <boost/polymorphic_cast.hpp>
-
 #include <boost/endian/conversion.hpp>
+#include <boost/polymorphic_cast.hpp>
 
 nano::block_sideband::block_sideband (nano::block_type type_a, nano::account const & account_a, nano::block_hash const & successor_a, nano::amount const & balance_a, uint64_t height_a, uint64_t timestamp_a) :
 type (type_a),

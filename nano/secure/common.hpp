@@ -7,13 +7,13 @@
 #include <nano/lib/utility.hpp>
 #include <nano/secure/utility.hpp>
 
+#include <crypto/blake2/blake2.h>
+
 #include <boost/iterator/transform_iterator.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/variant.hpp>
 
 #include <unordered_map>
-
-#include <crypto/blake2/blake2.h>
 
 namespace boost
 {
@@ -38,7 +38,7 @@ struct hash<::nano::uint512_union>
 }
 namespace nano
 {
-const uint8_t protocol_version = 0x10;
+const uint8_t protocol_version = 0x11;
 const uint8_t protocol_version_min = 0x0d;
 
 /*
