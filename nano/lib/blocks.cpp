@@ -68,7 +68,7 @@ void nano::block_memory_pool_cleanup_guard::purge ()
 	pool<open_block_tag, nano::open_block>::purge_memory ();
 	pool<state_block_tag, nano::state_block>::purge_memory ();
 	pool<send_block_tag, nano::send_block>::purge_memory ();
-	pool<change_or_receive_block_tag, nano::change_block>::purge_memory ();	
+	pool<change_or_receive_block_tag, nano::change_block>::purge_memory ();
 }
 
 std::string nano::block::to_json () const

@@ -1,7 +1,8 @@
+#include <nano/lib/blocks.hpp>
+
 #include <gtest/gtest.h>
 
 #include <QApplication>
-#include <nano/lib/blocks.hpp>
 QApplication * test_application = nullptr;
 namespace nano
 {
