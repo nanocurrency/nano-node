@@ -1,7 +1,6 @@
 
-#include <nano/node/common.hpp>
-
 #include <nano/lib/work.hpp>
+#include <nano/node/common.hpp>
 #include <nano/node/wallet.hpp>
 
 #include <boost/endian/conversion.hpp>

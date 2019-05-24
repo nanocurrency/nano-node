@@ -1,8 +1,7 @@
-#include <nano/node/lmdb.hpp>
-
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/lmdb.hpp>
 #include <nano/secure/versioning.hpp>
 
 #include <boost/endian/conversion.hpp>

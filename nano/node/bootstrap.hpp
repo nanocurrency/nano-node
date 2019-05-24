@@ -5,12 +5,6 @@
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/ledger.hpp>
 
-#include <atomic>
-#include <future>
-#include <queue>
-#include <stack>
-#include <unordered_set>
-
 #include <boost/log/sources/logger.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
@@ -18,6 +12,12 @@
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index_container.hpp>
 #include <boost/thread/thread.hpp>
+
+#include <atomic>
+#include <future>
+#include <queue>
+#include <stack>
+#include <unordered_set>
 
 namespace nano
 {

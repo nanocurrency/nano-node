@@ -1,6 +1,6 @@
-#include <gtest/gtest.h>
-
 #include <nano/node/node.hpp>
+
+#include <gtest/gtest.h>
 
 TEST (signature_checker, empty)
 {

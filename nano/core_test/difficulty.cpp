@@ -1,6 +1,6 @@
-#include <gtest/gtest.h>
-
 #include <nano/lib/numbers.hpp>
+
+#include <gtest/gtest.h>
 
 TEST (difficulty, multipliers)
 {

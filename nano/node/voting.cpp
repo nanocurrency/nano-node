@@ -1,6 +1,5 @@
-#include <nano/node/voting.hpp>
-
 #include <nano/node/node.hpp>
+#include <nano/node/voting.hpp>
 
 nano::vote_generator::vote_generator (nano::node & node_a) :
 node (node_a),
