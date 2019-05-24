@@ -1,15 +1,13 @@
-#include <algorithm>
-
-#include <gtest/gtest.h>
-
 #include <nano/core_test/testutil.hpp>
 #include <nano/node/testing.hpp>
-
 #include <nano/qt/qt.hpp>
+
+#include <gtest/gtest.h>
 
 #include <boost/property_tree/json_parser.hpp>
 
 #include <QTest>
+#include <algorithm>
 #include <thread>
 
 using namespace std::chrono_literals;

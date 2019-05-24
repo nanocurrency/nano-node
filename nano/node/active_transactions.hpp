@@ -1,12 +1,5 @@
 #pragma once
 
-#include <atomic>
-#include <condition_variable>
-#include <deque>
-#include <memory>
-#include <queue>
-#include <unordered_map>
-
 #include <nano/lib/numbers.hpp>
 #include <nano/secure/common.hpp>
 
@@ -17,6 +10,13 @@
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index_container.hpp>
 #include <boost/thread/thread.hpp>
+
+#include <atomic>
+#include <condition_variable>
+#include <deque>
+#include <memory>
+#include <queue>
+#include <unordered_map>
 
 namespace nano
 {

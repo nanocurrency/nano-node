@@ -4,9 +4,11 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
 
-#include <boost/property_tree/json_parser.hpp>
-#include <cassert>
 #include <crypto/blake2/blake2.h>
+
+#include <boost/property_tree/json_parser.hpp>
+
+#include <cassert>
 #include <streambuf>
 #include <unordered_map>
 

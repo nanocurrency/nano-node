@@ -1,6 +1,5 @@
 #pragma once
 
-#include <chrono>
 #include <nano/lib/config.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
@@ -11,6 +10,8 @@
 #include <nano/node/stats.hpp>
 #include <nano/node/websocketconfig.hpp>
 #include <nano/secure/common.hpp>
+
+#include <chrono>
 #include <vector>
 
 namespace nano

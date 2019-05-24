@@ -1,6 +1,3 @@
-#include <algorithm>
-#include <boost/beast.hpp>
-#include <gtest/gtest.h>
 #include <nano/core_test/testutil.hpp>
 #include <nano/lib/ipc.hpp>
 #include <nano/lib/rpcconfig.hpp>
@@ -11,6 +8,12 @@
 #include <nano/node/testing.hpp>
 #include <nano/rpc/rpc.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
+
+#include <gtest/gtest.h>
+
+#include <boost/beast.hpp>
+
+#include <algorithm>
 
 using namespace std::chrono_literals;
 

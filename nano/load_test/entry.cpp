@@ -1,3 +1,8 @@
+#include <nano/core_test/testutil.hpp>
+#include <nano/node/daemonconfig.hpp>
+#include <nano/node/testing.hpp>
+#include <nano/secure/utility.hpp>
+
 #include <boost/asio/connect.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/beast/core.hpp>
@@ -5,11 +10,8 @@
 #include <boost/beast/version.hpp>
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/program_options.hpp>
+
 #include <iomanip>
-#include <nano/core_test/testutil.hpp>
-#include <nano/node/daemonconfig.hpp>
-#include <nano/node/testing.hpp>
-#include <nano/secure/utility.hpp>
 #include <random>
 
 namespace nano

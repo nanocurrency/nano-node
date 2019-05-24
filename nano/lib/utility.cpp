@@ -1,5 +1,6 @@
-#include <iostream>
 #include <nano/lib/utility.hpp>
+
+#include <iostream>
 
 namespace nano
 {

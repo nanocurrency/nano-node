@@ -1,11 +1,11 @@
-#include <gtest/gtest.h>
-
-#include <memory>
-
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/interface.h>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/work.hpp>
+
+#include <gtest/gtest.h>
+
+#include <memory>
 
 TEST (interface, xrb_uint128_to_dec)
 {

@@ -1,8 +1,9 @@
-#include <cassert>
 #include <nano/lib/timer.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/node.hpp>
 #include <nano/secure/blockstore.hpp>
+
+#include <cassert>
 
 std::chrono::milliseconds constexpr nano::block_processor::confirmation_request_delay;
 

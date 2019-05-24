@@ -1,6 +1,7 @@
-#include <limits>
 #include <nano/node/node.hpp>
 #include <nano/node/socket.hpp>
+
+#include <limits>
 
 nano::socket::socket (std::shared_ptr<nano::node> node_a, boost::optional<std::chrono::seconds> io_timeout_a, nano::socket::concurrency concurrency_a) :
 strand (node_a->io_ctx.get_executor ()),

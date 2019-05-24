@@ -1,7 +1,7 @@
-#include <windows.h>
-
 #include <nano/lib/utility.hpp>
+
 #include <processthreadsapi.h>
+#include <windows.h>
 
 void nano::thread_role::set_os_name (std::string const & thread_name)
 {

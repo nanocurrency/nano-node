@@ -1,19 +1,22 @@
+#include <nano/core_test/testutil.hpp>
+#include <nano/crypto_lib/random_pool.hpp>
+#include <nano/node/testing.hpp>
+#include <nano/node/websocket.hpp>
+
+#include <gtest/gtest.h>
+
 #include <boost/asio.hpp>
 #include <boost/asio/connect.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/property_tree/json_parser.hpp>
+
 #include <chrono>
 #include <condition_variable>
 #include <cstdlib>
-#include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
-#include <nano/core_test/testutil.hpp>
-#include <nano/crypto_lib/random_pool.hpp>
-#include <nano/node/testing.hpp>
-#include <nano/node/websocket.hpp>
 #include <sstream>
 #include <string>
 #include <vector>
