@@ -45,7 +45,7 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 		size_t elections_count (0);
 		for (auto i (node.store.latest_begin (transaction_a, next_frontier_account)), n (node.store.latest_end ()); i != n && !stopped && elections_count < max_elections; ++i)
 		{
-			nano::account_info info (i->second);
+			nano::account_info const & info (i->second);
 			if (info.block_count != info.confirmation_height)
 			{
 				auto block (node.store.block_get (transaction_a, info.head));

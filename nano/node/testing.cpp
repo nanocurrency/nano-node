@@ -253,7 +253,7 @@ void nano::system::generate_receive (nano::node & node_a)
 		auto i (node_a.store.pending_begin (transaction, nano::pending_key (random_block, 0)));
 		if (i != node_a.store.pending_end ())
 		{
-			nano::pending_key send_hash (i->first);
+			nano::pending_key const & send_hash (i->first);
 			send_block = node_a.store.block_get (transaction, send_hash.hash);
 		}
 	}

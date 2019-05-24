@@ -1127,7 +1127,7 @@ void nano::vote_processor::calculate_weights ()
 		auto transaction (node.store.tx_begin_read ());
 		for (auto i (node.store.representation_begin (transaction)), n (node.store.representation_end ()); i != n; ++i)
 		{
-			nano::account representative (i->first);
+			nano::account const & representative (i->first);
 			auto weight (node.ledger.weight (transaction, representative));
 			if (weight > supply / 1000) // 0.1% or above (level 1)
 			{
@@ -2013,8 +2013,8 @@ void nano::node::unchecked_cleanup ()
 		// Max 128k records to clean, max 2 minutes reading to prevent slow i/o systems start issues
 		for (auto i (store.unchecked_begin (transaction)), n (store.unchecked_end ()); i != n && cleaning_list.size () < 128 * 1024 && nano::seconds_since_epoch () - now < 120; ++i)
 		{
-			nano::unchecked_key key (i->first);
-			nano::unchecked_info info (i->second);
+			nano::unchecked_key const & key (i->first);
+			nano::unchecked_info const & info (i->second);
 			if ((now - info.modified) > static_cast<uint64_t> (config.unchecked_cutoff_time.count ()))
 			{
 				cleaning_list.push_back (key);
@@ -2468,7 +2468,7 @@ public:
 	{
 		for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
 		{
-			auto wallet (i->second);
+			auto const & wallet (i->second);
 			auto transaction_l (node.wallets.tx_begin_read ());
 			if (wallet->store.exists (transaction_l, account_a))
 			{
@@ -2820,7 +2820,7 @@ bool nano::election::have_quorum (nano::tally_t const & tally_a, nano::uint128_t
 	if (tally_sum >= node.config.online_weight_minimum.number ())
 	{
 		auto i (tally_a.begin ());
-		auto first (i->first);
+		auto const & first (i->first);
 		++i;
 		auto second (i != tally_a.end () ? i->first : 0);
 		auto delta_l (node.delta ());

@@ -1122,8 +1122,8 @@ void nano::mdb_store::upgrade_v3_to_v4 (nano::transaction const & transaction_a)
 	std::queue<std::pair<nano::pending_key, nano::pending_info>> items;
 	for (auto i (nano::store_iterator<nano::block_hash, nano::pending_info_v3> (std::make_unique<nano::mdb_iterator<nano::block_hash, nano::pending_info_v3>> (transaction_a, pending_v0))), n (nano::store_iterator<nano::block_hash, nano::pending_info_v3> (nullptr)); i != n; ++i)
 	{
-		nano::block_hash hash (i->first);
-		nano::pending_info_v3 info (i->second);
+		nano::block_hash const & hash (i->first);
+		nano::pending_info_v3 const & info (i->second);
 		items.push (std::make_pair (nano::pending_key (info.destination, hash), nano::pending_info (info.source, info.amount, nano::epoch::epoch_0)));
 	}
 	mdb_drop (env.tx (transaction_a), pending_v0, 0);
@@ -1139,7 +1139,7 @@ void nano::mdb_store::upgrade_v4_to_v5 (nano::transaction const & transaction_a)
 	version_put (transaction_a, 5);
 	for (auto i (nano::store_iterator<nano::account, nano::account_info_v5> (std::make_unique<nano::mdb_iterator<nano::account, nano::account_info_v5>> (transaction_a, accounts_v0))), n (nano::store_iterator<nano::account, nano::account_info_v5> (nullptr)); i != n; ++i)
 	{
-		nano::account_info_v5 info (i->second);
+		nano::account_info_v5 const & info (i->second);
 		nano::block_hash successor (0);
 		auto block (block_get (transaction_a, info.head));
 		while (block != nullptr)
@@ -1177,7 +1177,7 @@ void nano::mdb_store::upgrade_v5_to_v6 (nano::transaction const & transaction_a)
 	std::deque<std::pair<nano::account, nano::account_info_v13>> headers;
 	for (auto i (nano::store_iterator<nano::account, nano::account_info_v5> (std::make_unique<nano::mdb_iterator<nano::account, nano::account_info_v5>> (transaction_a, accounts_v0))), n (nano::store_iterator<nano::account, nano::account_info_v5> (nullptr)); i != n; ++i)
 	{
-		nano::account account (i->first);
+		nano::account const & account (i->first);
 		nano::account_info_v5 info_old (i->second);
 		uint64_t block_count (0);
 		auto hash (info_old.head);
@@ -1333,7 +1333,7 @@ void nano::mdb_store::upgrade_v13_to_v14 (nano::transaction const & transaction_
 	account_infos.reserve (account_count (transaction_a));
 	for (; i != n; ++i)
 	{
-		nano::account_info_v13 account_info_v13 (i->second);
+		nano::account_info_v13 const & account_info_v13 (i->second);
 		account_infos.emplace_back (i->first, nano::account_info{ account_info_v13.head, account_info_v13.rep_block, account_info_v13.open_block, account_info_v13.balance, account_info_v13.modified, account_info_v13.block_count, zeroed_confirmation_height, account_info_v13.epoch });
 	}
 
@@ -2239,7 +2239,7 @@ std::vector<nano::unchecked_info> nano::mdb_store::unchecked_get (nano::transact
 	std::vector<nano::unchecked_info> result;
 	for (auto i (unchecked_begin (transaction_a, nano::unchecked_key (hash_a, 0))), n (unchecked_end ()); i != n && nano::block_hash (i->first.key ()) == hash_a; ++i)
 	{
-		nano::unchecked_info unchecked_info (i->second);
+		nano::unchecked_info const & unchecked_info (i->second);
 		result.push_back (unchecked_info);
 	}
 	return result;

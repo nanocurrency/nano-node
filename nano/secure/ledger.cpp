@@ -695,12 +695,12 @@ nano::uint128_t nano::ledger::account_pending (nano::transaction const & transac
 	nano::account end (account_a.number () + 1);
 	for (auto i (store.pending_v0_begin (transaction_a, nano::pending_key (account_a, 0))), n (store.pending_v0_begin (transaction_a, nano::pending_key (end, 0))); i != n; ++i)
 	{
-		nano::pending_info info (i->second);
+		nano::pending_info const & info (i->second);
 		result += info.amount.number ();
 	}
 	for (auto i (store.pending_v1_begin (transaction_a, nano::pending_key (account_a, 0))), n (store.pending_v1_begin (transaction_a, nano::pending_key (end, 0))); i != n; ++i)
 	{
-		nano::pending_info info (i->second);
+		nano::pending_info const & info (i->second);
 		result += info.amount.number ();
 	}
 	return result;

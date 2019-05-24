@@ -116,7 +116,7 @@ void nano::wallet_store::deterministic_clear (nano::transaction const & transact
 		{
 			case nano::key_type::deterministic:
 			{
-				nano::uint256_union key (i->first);
+				nano::uint256_union const & key (i->first);
 				erase (transaction_a, key);
 				i = begin (transaction_a, key);
 				break;
@@ -370,7 +370,7 @@ std::vector<nano::account> nano::wallet_store::accounts (nano::transaction const
 	std::vector<nano::account> result;
 	for (auto i (begin (transaction_a)), n (end ()); i != n; ++i)
 	{
-		nano::account account (i->first);
+		nano::account const & account (i->first);
 		result.push_back (account);
 	}
 	return result;
@@ -650,7 +650,7 @@ void nano::wallet_store::upgrade_v1_v2 (nano::transaction const & transaction_a)
 	empty_password.decrypt (value.key, kdf, salt (transaction_a).owords[0]);
 	for (auto i (begin (transaction_a)), n (end ()); i != n; ++i)
 	{
-		nano::public_key key (i->first);
+		nano::public_key const & key (i->first);
 		nano::raw_key prv;
 		if (fetch (transaction_a, key, prv))
 		{
@@ -1240,7 +1240,7 @@ bool nano::wallet::search_pending ()
 		for (auto i (store.begin (transaction)), n (store.end ()); i != n; ++i)
 		{
 			auto block_transaction (wallets.node.store.tx_begin_read ());
-			nano::account account (i->first);
+			nano::account const & account (i->first);
 			// Don't search pending for watch-only accounts
 			if (!nano::wallet_value (i->second).key.is_zero ())
 			{
