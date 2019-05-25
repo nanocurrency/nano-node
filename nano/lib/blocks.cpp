@@ -4,6 +4,7 @@
 #include <nano/lib/utility.hpp>
 
 #include <boost/endian/conversion.hpp>
+#include <boost/pool/singleton_pool.hpp>
 
 /** Compare blocks, first by type, then content. This is an optimization over dynamic_cast, which is very slow on some platforms. */
 namespace
@@ -14,6 +15,60 @@ bool blocks_equal (T const & first, nano::block const & second)
 	static_assert (std::is_base_of<nano::block, T>::value, "Input parameter is not a block type");
 	return (first.type () == second.type ()) && (static_cast<T const &> (second)) == first;
 }
+
+template <typename tag, typename block_type>
+using pool = boost::singleton_pool<tag, sizeof (block_type)>;
+
+template <typename tag, typename block_type>
+struct pool_deleter
+{
+	void operator() (block_type * p) const
+	{
+		pool<tag, block_type>::free (p);
+	}
+};
+
+template <typename tag, typename block_type>
+std::shared_ptr<block_type> deserialize_block_from_pool (nano::stream & stream_a)
+{
+	bool error (false);
+	auto obj_raw = static_cast<block_type *> (pool<tag, block_type>::malloc ());
+	new (obj_raw) block_type (error, stream_a);
+	if (!error)
+	{
+		return std::shared_ptr<block_type> (obj_raw, pool_deleter<tag, block_type>{});
+	}
+	return nullptr;
+}
+
+struct state_block_tag
+{
+};
+struct send_block_tag
+{
+};
+struct open_block_tag
+{
+};
+struct change_or_receive_block_tag
+{
+};
+
+// For efficiency as change and receive blocks currently have the same size they share the same memory pool
+static_assert (nano::change_block::size == nano::receive_block::size, "Change and receive blocks not longer the same size, a new pool is required");
+}
+
+nano::block_memory_pool_cleanup_guard::~block_memory_pool_cleanup_guard ()
+{
+	purge ();
+}
+
+void nano::block_memory_pool_cleanup_guard::purge ()
+{
+	pool<open_block_tag, nano::open_block>::purge_memory ();
+	pool<state_block_tag, nano::state_block>::purge_memory ();
+	pool<send_block_tag, nano::send_block>::purge_memory ();
+	pool<change_or_receive_block_tag, nano::change_block>::purge_memory ();
 }
 
 std::string nano::block::to_json () const
@@ -1236,7 +1291,7 @@ std::shared_ptr<nano::block> nano::deserialize_block_json (boost::property_tree:
 	return result;
 }
 
-std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, nano::block_uniquer * uniquer_a)
+std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a)
 {
 	nano::block_type type;
 	auto error (try_read (stream_a, type));
@@ -1255,52 +1310,27 @@ std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, n
 	{
 		case nano::block_type::receive:
 		{
-			bool error (false);
-			std::unique_ptr<nano::receive_block> obj (new nano::receive_block (error, stream_a));
-			if (!error)
-			{
-				result = std::move (obj);
-			}
+			result = deserialize_block_from_pool<change_or_receive_block_tag, nano::receive_block> (stream_a);
 			break;
 		}
 		case nano::block_type::send:
 		{
-			bool error (false);
-			std::unique_ptr<nano::send_block> obj (new nano::send_block (error, stream_a));
-			if (!error)
-			{
-				result = std::move (obj);
-			}
+			result = deserialize_block_from_pool<send_block_tag, nano::send_block> (stream_a);
 			break;
 		}
 		case nano::block_type::open:
 		{
-			bool error (false);
-			std::unique_ptr<nano::open_block> obj (new nano::open_block (error, stream_a));
-			if (!error)
-			{
-				result = std::move (obj);
-			}
+			result = deserialize_block_from_pool<open_block_tag, nano::open_block> (stream_a);
 			break;
 		}
 		case nano::block_type::change:
 		{
-			bool error (false);
-			std::unique_ptr<nano::change_block> obj (new nano::change_block (error, stream_a));
-			if (!error)
-			{
-				result = std::move (obj);
-			}
+			result = deserialize_block_from_pool<change_or_receive_block_tag, nano::change_block> (stream_a);
 			break;
 		}
 		case nano::block_type::state:
 		{
-			bool error (false);
-			std::unique_ptr<nano::state_block> obj (new nano::state_block (error, stream_a));
-			if (!error)
-			{
-				result = std::move (obj);
-			}
+			result = deserialize_block_from_pool<state_block_tag, nano::state_block> (stream_a);
 			break;
 		}
 		default:
