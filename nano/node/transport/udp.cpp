@@ -1,5 +1,6 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/stats.hpp>
 #include <nano/node/transport/udp.hpp>
 
 nano::transport::channel_udp::channel_udp (nano::transport::udp_channels & channels_a, nano::endpoint const & endpoint_a, unsigned network_version_a) :
@@ -463,7 +464,7 @@ public:
 			node.network.udp_channels.modify (find_channel, [](std::shared_ptr<nano::transport::channel_udp> channel_a) {
 				channel_a->set_last_packet_received (std::chrono::steady_clock::now ());
 			});
-			node.process_message (message_a, find_channel);
+			node.network.process_message (message_a, find_channel);
 		}
 	}
 	nano::node & node;

@@ -1,9 +1,10 @@
 #pragma once
 
 #include <nano/node/common.hpp>
+#include <nano/node/socket.hpp>
 #include <nano/node/stats.hpp>
 
-#include <boost/asio/buffer.hpp>
+#include <unordered_set>
 
 namespace nano
 {
