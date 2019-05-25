@@ -2157,7 +2157,7 @@ TEST (bootstrap, tcp_listener_timeout_node_id_handshake)
 		ASSERT_EQ (node0->bootstrap.connections.size (), 1);
 	}
 	bool disconnected (false);
-	system.deadline_set (std::chrono::seconds (10));
+	system.deadline_set (std::chrono::seconds (20));
 	while (!disconnected)
 	{
 		{
