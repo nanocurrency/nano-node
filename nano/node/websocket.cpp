@@ -23,7 +23,7 @@ all_local_accounts (options_a.get<bool> ("all_local_accounts", false))
 			}
 			else
 			{
-				node.logger.always_log (boost::str (boost::format ("Websocket: invalid account provided for filtering blocks: %1%") % account_l.second.data ()));
+				node.logger.always_log ("Websocket: invalid account provided for filtering blocks: ", account_l.second.data ());
 			}
 		}
 	}
@@ -77,7 +77,7 @@ node (node_a)
 			}
 			else
 			{
-				node.logger.always_log (boost::str (boost::format ("Websocket: invalid account given to filter votes: %1%") % representative_l.second.data ()));
+				node.logger.always_log ("Websocket: invalid account given to filter votes: ", representative_l.second.data ());
 			}
 		}
 	}
@@ -112,7 +112,7 @@ nano::websocket::session::~session ()
 		std::unique_lock<std::mutex> lk (subscriptions_mutex);
 		for (auto & subscription : subscriptions)
 		{
-			ws_listener.decrease_subscription_count (subscription.first);
+			ws_listener.decrease_subscriber_count (subscription.first);
 		}
 	}
 }
@@ -224,7 +224,7 @@ void nano::websocket::session::read ()
 					this_l->ws_listener.get_node ().logger.try_log ("Websocket: json parsing failed: ", ex.what ());
 				}
 			}
-			else
+			else if (ec != boost::asio::error::eof)
 			{
 				this_l->ws_listener.get_node ().logger.try_log ("Websocket: read failed: ", ec.message ());
 			}
@@ -295,21 +295,33 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 	auto action_succeeded (false);
 	if (action == "subscribe" && topic_l != nano::websocket::topic::invalid)
 	{
-		auto options_l (message_a.get_child_optional ("options"));
+		auto options_text_l (message_a.get_child_optional ("options"));
 		std::lock_guard<std::mutex> lk (subscriptions_mutex);
-		if (topic_l == nano::websocket::topic::confirmation)
+		std::unique_ptr<nano::websocket::options> options_l{ nullptr };
+		if (options_text_l && topic_l == nano::websocket::topic::confirmation)
 		{
-			subscriptions.insert (std::make_pair (topic_l, options_l ? std::make_unique<nano::websocket::confirmation_options> (options_l.get (), ws_listener.get_node ()) : std::make_unique<nano::websocket::options> ()));
+			options_l = std::make_unique<nano::websocket::confirmation_options> (options_text_l.get (), ws_listener.get_node ());
 		}
-		else if (topic_l == nano::websocket::topic::vote)
+		else if (options_text_l && topic_l == nano::websocket::topic::vote)
 		{
-			subscriptions.insert (std::make_pair (topic_l, options_l ? std::make_unique<nano::websocket::vote_options> (options_l.get (), ws_listener.get_node ()) : std::make_unique<nano::websocket::options> ()));
+			options_l = std::make_unique<nano::websocket::vote_options> (options_text_l.get (), ws_listener.get_node ());
 		}
 		else
 		{
-			subscriptions.insert (std::make_pair (topic_l, std::make_unique<nano::websocket::options> ()));
+			options_l = std::make_unique<nano::websocket::options> ();
 		}
-		ws_listener.increase_subscription_count (topic_l);
+		auto existing (subscriptions.find (topic_l));
+		if (existing != subscriptions.end ())
+		{
+			existing->second = std::move (options_l);
+			ws_listener.get_node ().logger.always_log ("Websocket: updated subscription to topic: ", from_topic (topic_l));
+		}
+		else
+		{
+			subscriptions.insert (std::make_pair (topic_l, std::move (options_l)));
+			ws_listener.get_node ().logger.always_log ("Websocket: new subscription to topic: ", from_topic (topic_l));
+			ws_listener.increase_subscriber_count (topic_l);
+		}
 		action_succeeded = true;
 	}
 	else if (action == "unsubscribe" && topic_l != nano::websocket::topic::invalid)
@@ -317,7 +329,8 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 		std::lock_guard<std::mutex> lk (subscriptions_mutex);
 		if (subscriptions.erase (topic_l))
 		{
-			ws_listener.decrease_subscription_count (topic_l);
+			ws_listener.get_node ().logger.always_log ("Websocket: removed subscription to topic: ", from_topic (topic_l));
+			ws_listener.decrease_subscriber_count (topic_l);
 		}
 		action_succeeded = true;
 	}
@@ -416,19 +429,14 @@ void nano::websocket::listener::broadcast (nano::websocket::message message_a)
 	}
 }
 
-bool nano::websocket::listener::any_subscribers (nano::websocket::topic const & topic_a)
+void nano::websocket::listener::increase_subscriber_count (nano::websocket::topic const & topic_a)
 {
-	return topic_subscription_count[static_cast<std::size_t> (topic_a)] > 0;
+	topic_subscriber_count[static_cast<std::size_t> (topic_a)] += 1;
 }
 
-void nano::websocket::listener::increase_subscription_count (nano::websocket::topic const & topic_a)
+void nano::websocket::listener::decrease_subscriber_count (nano::websocket::topic const & topic_a)
 {
-	topic_subscription_count[static_cast<std::size_t> (topic_a)] += 1;
-}
-
-void nano::websocket::listener::decrease_subscription_count (nano::websocket::topic const & topic_a)
-{
-	auto & count (topic_subscription_count[static_cast<std::size_t> (topic_a)]);
+	auto & count (topic_subscriber_count[static_cast<std::size_t> (topic_a)]);
 	release_assert (count > 0);
 	count -= 1;
 }
