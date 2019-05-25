@@ -1903,7 +1903,7 @@ nano::bootstrap_server::~bootstrap_server ()
 	if (node_id_handshake_finished)
 	{
 		--node->bootstrap.realtime_count;
-		node->network.remove_response_channel (remote_endpoint);
+		node->network.response_channels.remove (remote_endpoint);
 	}
 	stop ();
 	std::lock_guard<std::mutex> lock (node->bootstrap.mutex);

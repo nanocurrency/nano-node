@@ -237,7 +237,7 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 		}
 		else
 		{
-			channel = node.network.search_response_channel (endpoint_a, node_id_a);
+			channel = node.network.find_response_channel (endpoint_a, node_id_a);
 			if (channel)
 			{
 				node.network.process_message (message_a, channel);
@@ -275,7 +275,7 @@ void nano::transport::tcp_channels::process_keepalive (nano::keepalive const & m
 		// Insert preferred response channels from first TCP keepalive
 		if (!insert_response_channels.empty ())
 		{
-			node.network.add_response_channels (endpoint_a, insert_response_channels);
+			node.network.response_channels.add (endpoint_a, insert_response_channels);
 		}
 		auto udp_channel (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, nano::transport::map_tcp_to_endpoint (endpoint_a)));
 		node.network.process_message (message_a, udp_channel);

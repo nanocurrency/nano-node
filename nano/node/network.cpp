@@ -654,64 +654,40 @@ std::shared_ptr<nano::transport::channel> nano::network::find_node_id (nano::acc
 	return result;
 }
 
-void nano::network::add_response_channels (nano::tcp_endpoint const & endpoint_a, std::vector<nano::tcp_endpoint> insert_channels)
-{
-	std::lock_guard<std::mutex> lock (response_channels_mutex);
-	response_channels.emplace (endpoint_a, insert_channels);
-}
-
-std::shared_ptr<nano::transport::channel> nano::network::search_response_channel (nano::tcp_endpoint const & endpoint_a, nano::account const & node_id_a)
+std::shared_ptr<nano::transport::channel> nano::network::find_response_channel (nano::tcp_endpoint const & endpoint_a, nano::account const & node_id_a)
 {
 	// Search by node ID
 	std::shared_ptr<nano::transport::channel> result (find_node_id (node_id_a));
 	if (!result)
 	{
 		// Search in response channels
-		std::unique_lock<std::mutex> lock (response_channels_mutex);
-		auto existing (response_channels.find (endpoint_a));
-		if (existing != response_channels.end ())
+		auto channels_list (response_channels.search (endpoint_a));
+		// TCP
+		for (auto & i : channels_list)
 		{
-			auto channels_list (existing->second);
-			lock.unlock ();
-			// TCP
+			auto search_channel (tcp_channels.find_channel (i));
+			if (search_channel != nullptr)
+			{
+				result = search_channel;
+				break;
+			}
+		}
+		// UDP
+		if (!result)
+		{
 			for (auto & i : channels_list)
 			{
-				auto search_channel (tcp_channels.find_channel (i));
+				auto udp_endpoint (nano::transport::map_tcp_to_endpoint (i));
+				auto search_channel (udp_channels.channel (udp_endpoint));
 				if (search_channel != nullptr)
 				{
 					result = search_channel;
 					break;
 				}
 			}
-			// UDP
-			if (!result)
-			{
-				for (auto & i : channels_list)
-				{
-					auto udp_endpoint (nano::transport::map_tcp_to_endpoint (i));
-					auto search_channel (udp_channels.channel (udp_endpoint));
-					if (search_channel != nullptr)
-					{
-						result = search_channel;
-						break;
-					}
-				}
-			}
 		}
 	}
 	return result;
-}
-
-void nano::network::remove_response_channel (nano::tcp_endpoint const & endpoint_a)
-{
-	std::lock_guard<std::mutex> lock (response_channels_mutex);
-	response_channels.erase (endpoint_a);
-}
-
-size_t nano::network::response_channels_size ()
-{
-	std::lock_guard<std::mutex> lock (response_channels_mutex);
-	return response_channels.size ();
 }
 
 nano::endpoint nano::network::endpoint ()
@@ -754,4 +730,122 @@ size_t nano::network::size_sqrt () const
 bool nano::network::empty () const
 {
 	return size () == 0;
+}
+
+nano::message_buffer_manager::message_buffer_manager (nano::stat & stats_a, size_t size, size_t count) :
+stats (stats_a),
+free (count),
+full (count),
+slab (size * count),
+entries (count),
+stopped (false)
+{
+	assert (count > 0);
+	assert (size > 0);
+	auto slab_data (slab.data ());
+	auto entry_data (entries.data ());
+	for (auto i (0); i < count; ++i, ++entry_data)
+	{
+		*entry_data = { slab_data + i * size, 0, nano::endpoint () };
+		free.push_back (entry_data);
+	}
+}
+
+nano::message_buffer * nano::message_buffer_manager::allocate ()
+{
+	std::unique_lock<std::mutex> lock (mutex);
+	while (!stopped && free.empty () && full.empty ())
+	{
+		stats.inc (nano::stat::type::udp, nano::stat::detail::blocking, nano::stat::dir::in);
+		condition.wait (lock);
+	}
+	nano::message_buffer * result (nullptr);
+	if (!free.empty ())
+	{
+		result = free.front ();
+		free.pop_front ();
+	}
+	if (result == nullptr && !full.empty ())
+	{
+		result = full.front ();
+		full.pop_front ();
+		stats.inc (nano::stat::type::udp, nano::stat::detail::overflow, nano::stat::dir::in);
+	}
+	release_assert (result || stopped);
+	return result;
+}
+
+void nano::message_buffer_manager::enqueue (nano::message_buffer * data_a)
+{
+	assert (data_a != nullptr);
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		full.push_back (data_a);
+	}
+	condition.notify_all ();
+}
+
+nano::message_buffer * nano::message_buffer_manager::dequeue ()
+{
+	std::unique_lock<std::mutex> lock (mutex);
+	while (!stopped && full.empty ())
+	{
+		condition.wait (lock);
+	}
+	nano::message_buffer * result (nullptr);
+	if (!full.empty ())
+	{
+		result = full.front ();
+		full.pop_front ();
+	}
+	return result;
+}
+
+void nano::message_buffer_manager::release (nano::message_buffer * data_a)
+{
+	assert (data_a != nullptr);
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		free.push_back (data_a);
+	}
+	condition.notify_all ();
+}
+
+void nano::message_buffer_manager::stop ()
+{
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		stopped = true;
+	}
+	condition.notify_all ();
+}
+
+void nano::response_channels::add (nano::tcp_endpoint const & endpoint_a, std::vector<nano::tcp_endpoint> insert_channels)
+{
+	std::lock_guard<std::mutex> lock (response_channels_mutex);
+	channels.emplace (endpoint_a, insert_channels);
+}
+
+std::vector<nano::tcp_endpoint> nano::response_channels::search (nano::tcp_endpoint const & endpoint_a)
+{
+	std::vector<nano::tcp_endpoint> result;
+	std::lock_guard<std::mutex> lock (response_channels_mutex);
+	auto existing (channels.find (endpoint_a));
+	if (existing != channels.end ())
+	{
+		result = existing->second;
+	}
+	return result;
+}
+
+void nano::response_channels::remove (nano::tcp_endpoint const & endpoint_a)
+{
+	std::lock_guard<std::mutex> lock (response_channels_mutex);
+	channels.erase (endpoint_a);
+}
+
+size_t nano::response_channels::size ()
+{
+	std::lock_guard<std::mutex> lock (response_channels_mutex);
+	return channels.size ();
 }

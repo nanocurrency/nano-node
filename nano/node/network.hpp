@@ -65,6 +65,21 @@ private:
 	std::vector<nano::message_buffer> entries;
 	bool stopped;
 };
+/**
+  * Response channels for TCP realtime network
+*/
+class response_channels final
+{
+public:
+	void add (nano::tcp_endpoint const &, std::vector<nano::tcp_endpoint>);
+	std::vector<nano::tcp_endpoint> search (nano::tcp_endpoint const &);
+	void remove (nano::tcp_endpoint const &);
+	size_t size ();
+
+private:
+	std::mutex response_channels_mutex;
+	std::unordered_map<nano::tcp_endpoint, std::vector<nano::tcp_endpoint>> channels;
+};
 class network final
 {
 public:
@@ -109,10 +124,8 @@ public:
 	// Get the next peer for attempting a tcp bootstrap connection
 	nano::tcp_endpoint bootstrap_peer ();
 	// Response channels
-	void add_response_channels (nano::tcp_endpoint const &, std::vector<nano::tcp_endpoint>);
-	std::shared_ptr<nano::transport::channel> search_response_channel (nano::tcp_endpoint const &, nano::account const &);
-	void remove_response_channel (nano::tcp_endpoint const &);
-	size_t response_channels_size ();
+	nano::response_channels response_channels;
+	std::shared_ptr<nano::transport::channel> find_response_channel (nano::tcp_endpoint const &, nano::account const &);
 	nano::endpoint endpoint ();
 	void cleanup (std::chrono::steady_clock::time_point const &);
 	void ongoing_cleanup ();
@@ -131,9 +144,5 @@ public:
 	static unsigned const broadcast_interval_ms = 10;
 	static size_t const buffer_size = 512;
 	static size_t const confirm_req_hashes_max = 6;
-
-private:
-	std::mutex response_channels_mutex;
-	std::unordered_map<nano::tcp_endpoint, std::vector<nano::tcp_endpoint>> response_channels;
 };
 }

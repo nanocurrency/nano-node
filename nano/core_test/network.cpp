@@ -132,7 +132,7 @@ TEST (network, send_node_id_handshake_tcp)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	system.deadline_set (5s);
-	while (system.nodes[0]->network.response_channels_size () != 1 || node1->network.response_channels_size () != 1)
+	while (system.nodes[0]->network.response_channels.size () != 1 || node1->network.response_channels.size () != 1)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
