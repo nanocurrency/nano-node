@@ -631,7 +631,7 @@ startup_time (std::chrono::steady_clock::now ())
 		if (websocket_server)
 		{
 			observers.blocks.add ([this](std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
-				if (this->websocket_server->any_subscribers (nano::websocket::topic::confirmation))
+				if (this->websocket_server->any_subscriber (nano::websocket::topic::confirmation))
 				{
 					if (this->block_arrival.recent (block_a->hash ()))
 					{
@@ -715,7 +715,7 @@ startup_time (std::chrono::steady_clock::now ())
 		if (this->websocket_server)
 		{
 			observers.vote.add ([this](nano::transaction const & transaction, std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a) {
-				if (this->websocket_server->any_subscribers (nano::websocket::topic::vote))
+				if (this->websocket_server->any_subscriber (nano::websocket::topic::vote))
 				{
 					nano::websocket::message_builder builder;
 					auto msg (builder.vote_received (vote_a));
