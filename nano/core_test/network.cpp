@@ -1,9 +1,11 @@
-#include <boost/iostreams/stream_buffer.hpp>
-#include <boost/thread.hpp>
-#include <gtest/gtest.h>
 #include <nano/core_test/testutil.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/node/transport/udp.hpp>
+
+#include <gtest/gtest.h>
+
+#include <boost/iostreams/stream_buffer.hpp>
+#include <boost/thread.hpp>
 
 using namespace std::chrono_literals;
 
@@ -352,7 +354,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
 	nano::keypair key1;
 	auto vote (std::make_shared<nano::vote> (key1.pub, key1.prv, 0, block1));
 	nano::confirm_ack con1 (vote);
-	node1.process_message (con1, node1.network.udp_channels.create (node1.network.endpoint ()));
+	node1.network.process_message (con1, node1.network.udp_channels.create (node1.network.endpoint ()));
 }
 
 TEST (receivable_processor, confirm_sufficient_pos)
@@ -367,7 +369,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
 	node1.active.start (block1);
 	auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, block1));
 	nano::confirm_ack con1 (vote);
-	node1.process_message (con1, node1.network.udp_channels.create (node1.network.endpoint ()));
+	node1.network.process_message (con1, node1.network.udp_channels.create (node1.network.endpoint ()));
 }
 
 TEST (receivable_processor, send_with_receive)
@@ -2045,17 +2047,17 @@ TEST (confirmation_height, conflict_rollback_cemented)
 	auto send2 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (genesis.hash ())));
 	nano::publish publish2 (send2);
 	auto channel1 (node1.network.udp_channels.create (node1.network.endpoint ()));
-	node1.process_message (publish1, channel1);
+	node1.network.process_message (publish1, channel1);
 	node1.block_processor.flush ();
 	auto channel2 (node2.network.udp_channels.create (node1.network.endpoint ()));
-	node2.process_message (publish2, channel2);
+	node2.network.process_message (publish2, channel2);
 	node2.block_processor.flush ();
 	ASSERT_EQ (1, node1.active.size ());
 	ASSERT_EQ (1, node2.active.size ());
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	node1.process_message (publish2, channel1);
+	node1.network.process_message (publish2, channel1);
 	node1.block_processor.flush ();
-	node2.process_message (publish1, channel2);
+	node2.network.process_message (publish1, channel2);
 	node2.block_processor.flush ();
 	std::unique_lock<std::mutex> lock (node2.active.mutex);
 	auto conflict (node2.active.roots.find (nano::qualified_root (genesis.hash (), genesis.hash ())));
@@ -2107,7 +2109,6 @@ TEST (bootstrap, tcp_listener_timeout_empty)
 {
 	nano::system system (24000, 1);
 	auto node0 (system.nodes[0]);
-	node0->config.tcp_idle_timeout = std::chrono::seconds (1);
 	auto socket (std::make_shared<nano::socket> (node0));
 	std::atomic<bool> connected (false);
 	socket->async_connect (node0->bootstrap.endpoint (), [&connected](boost::system::error_code const & ec) {
@@ -2135,7 +2136,6 @@ TEST (bootstrap, tcp_listener_timeout_node_id_handshake)
 {
 	nano::system system (24000, 1);
 	auto node0 (system.nodes[0]);
-	node0->config.tcp_idle_timeout = std::chrono::seconds (1);
 	auto socket (std::make_shared<nano::socket> (node0));
 	auto cookie (node0->network.tcp_channels.assign_syn_cookie (node0->bootstrap.endpoint ()));
 	nano::node_id_handshake node_id_handshake (cookie, boost::none);

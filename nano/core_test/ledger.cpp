@@ -1,9 +1,10 @@
-#include <crypto/cryptopp/filters.h>
-#include <crypto/cryptopp/randpool.h>
-#include <gtest/gtest.h>
 #include <nano/core_test/testutil.hpp>
 #include <nano/node/stats.hpp>
 #include <nano/node/testing.hpp>
+
+#include <crypto/cryptopp/filters.h>
+#include <crypto/cryptopp/randpool.h>
+#include <gtest/gtest.h>
 
 using namespace std::chrono_literals;
 

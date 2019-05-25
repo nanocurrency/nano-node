@@ -1,4 +1,5 @@
 #include <nano/node/node.hpp>
+#include <nano/node/stats.hpp>
 #include <nano/node/transport/tcp.hpp>
 
 nano::transport::channel_tcp::channel_tcp (nano::node & node_a, std::shared_ptr<nano::socket> socket_a) :
@@ -232,19 +233,19 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 		auto channel (node.network.find_channel (nano::transport::map_tcp_to_endpoint (endpoint_a)));
 		if (channel)
 		{
-			node.process_message (message_a, channel);
+			node.network.process_message (message_a, channel);
 		}
 		else
 		{
 			channel = node.network.search_response_channel (endpoint_a, node_id_a);
 			if (channel)
 			{
-				node.process_message (message_a, channel);
+				node.network.process_message (message_a, channel);
 			}
 			else
 			{
 				auto udp_channel (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, nano::transport::map_tcp_to_endpoint (endpoint_a)));
-				node.process_message (message_a, udp_channel);
+				node.network.process_message (message_a, udp_channel);
 			}
 		}
 	}
@@ -277,7 +278,7 @@ void nano::transport::tcp_channels::process_keepalive (nano::keepalive const & m
 			node.network.add_response_channels (endpoint_a, insert_response_channels);
 		}
 		auto udp_channel (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, nano::transport::map_tcp_to_endpoint (endpoint_a)));
-		node.process_message (message_a, udp_channel);
+		node.network.process_message (message_a, udp_channel);
 	}
 }
 
@@ -464,7 +465,7 @@ void nano::transport::tcp_channels::ongoing_keepalive ()
 		channel->send (message);
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.period, [node_w]() {
+	node.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.period / 2, [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->network.tcp_channels.ongoing_keepalive ();

@@ -1,13 +1,15 @@
 #pragma once
 
+#include <nano/lib/errors.hpp>
+#include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/logger_mt.hpp>
+
 #include <boost/filesystem.hpp>
 #include <boost/log/sources/logger.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/setup/file.hpp>
+
 #include <cstdint>
-#include <nano/lib/errors.hpp>
-#include <nano/lib/jsonconfig.hpp>
-#include <nano/lib/logger_mt.hpp>
 
 #define FATAL_LOG_PREFIX "FATAL ERROR: "
 

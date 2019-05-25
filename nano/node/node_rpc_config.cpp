@@ -1,9 +1,8 @@
-#include <nano/node/node_rpc_config.hpp>
-
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/rpcconfig.hpp>
+#include <nano/node/node_rpc_config.hpp>
 
 nano::error nano::node_rpc_config::serialize_json (nano::jsonconfig & json) const
 {

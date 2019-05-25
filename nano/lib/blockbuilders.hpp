@@ -1,8 +1,9 @@
 #pragma once
 
-#include <memory>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/errors.hpp>
+
+#include <memory>
 
 namespace nano
 {

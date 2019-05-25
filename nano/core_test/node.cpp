@@ -1,13 +1,15 @@
-#include <gtest/gtest.h>
 #include <nano/core_test/testutil.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/node/transport/udp.hpp>
 #include <nano/node/working.hpp>
-#include <numeric>
+
+#include <gtest/gtest.h>
 
 #include <boost/make_shared.hpp>
 #include <boost/polymorphic_cast.hpp>
+
+#include <numeric>
 
 using namespace std::chrono_literals;
 
@@ -287,7 +289,7 @@ TEST (node, receive_gap)
 	auto block (std::make_shared<nano::send_block> (5, 1, 2, nano::keypair ().prv, 4, 0));
 	node1.work_generate_blocking (*block);
 	nano::publish message (block);
-	node1.process_message (message, node1.network.udp_channels.create (node1.network.endpoint ()));
+	node1.network.process_message (message, node1.network.udp_channels.create (node1.network.endpoint ()));
 	node1.block_processor.flush ();
 	ASSERT_EQ (1, node1.gap_cache.size ());
 }
@@ -699,7 +701,6 @@ TEST (node_config, v16_v17_upgrade)
 	config.logging.init (path);
 	// These config options should not be present
 	ASSERT_FALSE (tree.get_optional_child ("tcp_io_timeout"));
-	ASSERT_FALSE (tree.get_optional_child ("tcp_idle_timeout"));
 	ASSERT_FALSE (tree.get_optional_child ("pow_sleep_interval"));
 	ASSERT_FALSE (tree.get_optional_child ("external_address"));
 	ASSERT_FALSE (tree.get_optional_child ("external_port"));
@@ -709,7 +710,6 @@ TEST (node_config, v16_v17_upgrade)
 	config.deserialize_json (upgraded, tree);
 	// The config options should be added after the upgrade
 	ASSERT_TRUE (!!tree.get_optional_child ("tcp_io_timeout"));
-	ASSERT_TRUE (!!tree.get_optional_child ("tcp_idle_timeout"));
 	ASSERT_TRUE (!!tree.get_optional_child ("pow_sleep_interval"));
 	ASSERT_TRUE (!!tree.get_optional_child ("external_address"));
 	ASSERT_TRUE (!!tree.get_optional_child ("external_port"));
@@ -736,7 +736,6 @@ TEST (node_config, v17_values)
 	// Check config is correct
 	{
 		tree.put ("tcp_io_timeout", 1);
-		tree.put ("tcp_idle_timeout", 0);
 		tree.put ("pow_sleep_interval", 0);
 		tree.put ("external_address", "::1");
 		tree.put ("external_port", 0);
@@ -754,7 +753,6 @@ TEST (node_config, v17_values)
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
 	ASSERT_EQ (config.tcp_io_timeout.count (), 1);
-	ASSERT_EQ (config.tcp_idle_timeout.count (), 0);
 	ASSERT_EQ (config.pow_sleep_interval.count (), 0);
 	ASSERT_EQ (config.external_address, boost::asio::ip::address_v6::from_string ("::1"));
 	ASSERT_EQ (config.external_port, 0);
@@ -766,7 +764,6 @@ TEST (node_config, v17_values)
 
 	// Check config is correct with other values
 	tree.put ("tcp_io_timeout", std::numeric_limits<unsigned long>::max () - 100);
-	tree.put ("tcp_idle_timeout", std::numeric_limits<unsigned>::max ());
 	tree.put ("pow_sleep_interval", std::numeric_limits<unsigned long>::max () - 100);
 	tree.put ("external_address", "::ffff:192.168.1.1");
 	tree.put ("external_port", std::numeric_limits<uint16_t>::max () - 1);
@@ -784,7 +781,6 @@ TEST (node_config, v17_values)
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
 	ASSERT_EQ (config.tcp_io_timeout.count (), std::numeric_limits<unsigned long>::max () - 100);
-	ASSERT_EQ (config.tcp_idle_timeout.count (), std::numeric_limits<unsigned>::max ());
 	ASSERT_EQ (config.pow_sleep_interval.count (), std::numeric_limits<unsigned long>::max () - 100);
 	ASSERT_EQ (config.external_address, boost::asio::ip::address_v6::from_string ("::ffff:192.168.1.1"));
 	ASSERT_EQ (config.external_port, std::numeric_limits<uint16_t>::max () - 1);
@@ -1065,17 +1061,17 @@ TEST (node, fork_flip)
 	auto send2 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (genesis.hash ())));
 	nano::publish publish2 (send2);
 	auto channel1 (node1.network.udp_channels.create (node1.network.endpoint ()));
-	node1.process_message (publish1, channel1);
+	node1.network.process_message (publish1, channel1);
 	node1.block_processor.flush ();
 	auto channel2 (node2.network.udp_channels.create (node1.network.endpoint ()));
-	node2.process_message (publish2, channel2);
+	node2.network.process_message (publish2, channel2);
 	node2.block_processor.flush ();
 	ASSERT_EQ (1, node1.active.size ());
 	ASSERT_EQ (1, node2.active.size ());
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	node1.process_message (publish2, channel1);
+	node1.network.process_message (publish2, channel1);
 	node1.block_processor.flush ();
-	node2.process_message (publish1, channel2);
+	node2.network.process_message (publish1, channel2);
 	node2.block_processor.flush ();
 	std::unique_lock<std::mutex> lock (node2.active.mutex);
 	auto conflict (node2.active.roots.find (nano::qualified_root (genesis.hash (), genesis.hash ())));
@@ -1125,18 +1121,18 @@ TEST (node, fork_multi_flip)
 	nano::publish publish2 (send2);
 	auto send3 (std::make_shared<nano::send_block> (publish2.block->hash (), key2.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (publish2.block->hash ())));
 	nano::publish publish3 (send3);
-	node1.process_message (publish1, node1.network.udp_channels.create (node1.network.endpoint ()));
+	node1.network.process_message (publish1, node1.network.udp_channels.create (node1.network.endpoint ()));
 	node1.block_processor.flush ();
-	node2.process_message (publish2, node2.network.udp_channels.create (node2.network.endpoint ()));
-	node2.process_message (publish3, node2.network.udp_channels.create (node2.network.endpoint ()));
+	node2.network.process_message (publish2, node2.network.udp_channels.create (node2.network.endpoint ()));
+	node2.network.process_message (publish3, node2.network.udp_channels.create (node2.network.endpoint ()));
 	node2.block_processor.flush ();
 	ASSERT_EQ (1, node1.active.size ());
 	ASSERT_EQ (2, node2.active.size ());
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	node1.process_message (publish2, node1.network.udp_channels.create (node1.network.endpoint ()));
-	node1.process_message (publish3, node1.network.udp_channels.create (node1.network.endpoint ()));
+	node1.network.process_message (publish2, node1.network.udp_channels.create (node1.network.endpoint ()));
+	node1.network.process_message (publish3, node1.network.udp_channels.create (node1.network.endpoint ()));
 	node1.block_processor.flush ();
-	node2.process_message (publish1, node2.network.udp_channels.create (node2.network.endpoint ()));
+	node2.network.process_message (publish1, node2.network.udp_channels.create (node2.network.endpoint ()));
 	node2.block_processor.flush ();
 	std::unique_lock<std::mutex> lock (node2.active.mutex);
 	auto conflict (node2.active.roots.find (nano::qualified_root (genesis.hash (), genesis.hash ())));
@@ -1225,17 +1221,17 @@ TEST (node, fork_open)
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (genesis.hash ())));
 	nano::publish publish1 (send1);
 	auto channel1 (node1.network.udp_channels.create (node1.network.endpoint ()));
-	node1.process_message (publish1, channel1);
+	node1.network.process_message (publish1, channel1);
 	node1.block_processor.flush ();
 	auto open1 (std::make_shared<nano::open_block> (publish1.block->hash (), 1, key1.pub, key1.prv, key1.pub, system.work.generate (key1.pub)));
 	nano::publish publish2 (open1);
-	node1.process_message (publish2, channel1);
+	node1.network.process_message (publish2, channel1);
 	node1.block_processor.flush ();
 	auto open2 (std::make_shared<nano::open_block> (publish1.block->hash (), 2, key1.pub, key1.prv, key1.pub, system.work.generate (key1.pub)));
 	nano::publish publish3 (open2);
 	ASSERT_EQ (2, node1.active.size ());
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	node1.process_message (publish3, channel1);
+	node1.network.process_message (publish3, channel1);
 	node1.block_processor.flush ();
 }
 
@@ -2116,8 +2112,8 @@ TEST (node, local_votes_cache)
 	auto channel (node.network.udp_channels.create (node.network.endpoint ()));
 	for (auto i (0); i < 100; ++i)
 	{
-		node.process_message (message1, channel);
-		node.process_message (message2, channel);
+		node.network.process_message (message1, channel);
+		node.network.process_message (message2, channel);
 	}
 	{
 		std::lock_guard<std::mutex> lock (boost::polymorphic_downcast<nano::mdb_store *> (node.store_impl.get ())->cache_mutex);
@@ -2133,7 +2129,7 @@ TEST (node, local_votes_cache)
 	nano::confirm_req message3 (send3);
 	for (auto i (0); i < 100; ++i)
 	{
-		node.process_message (message3, channel);
+		node.network.process_message (message3, channel);
 	}
 	{
 		std::lock_guard<std::mutex> lock (boost::polymorphic_downcast<nano::mdb_store *> (node.store_impl.get ())->cache_mutex);

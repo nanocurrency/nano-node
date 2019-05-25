@@ -1,6 +1,5 @@
-#include <nano/node/diagnosticsconfig.hpp>
-
 #include <nano/lib/jsonconfig.hpp>
+#include <nano/node/diagnosticsconfig.hpp>
 
 nano::error nano::diagnostics_config::serialize_json (nano::jsonconfig & json) const
 {

@@ -1,9 +1,10 @@
 #pragma once
 
-#include <condition_variable>
-#include <mutex>
 #include <nano/lib/numbers.hpp>
 #include <nano/secure/common.hpp>
+
+#include <condition_variable>
+#include <mutex>
 #include <thread>
 #include <unordered_set>
 

@@ -1,10 +1,12 @@
 #pragma once
 
-#include <array>
-#include <boost/filesystem.hpp>
-#include <chrono>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/numbers.hpp>
+
+#include <boost/filesystem.hpp>
+
+#include <array>
+#include <chrono>
 #include <string>
 
 #define xstr(a) ver_str (a)

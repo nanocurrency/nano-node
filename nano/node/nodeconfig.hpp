@@ -1,6 +1,5 @@
 #pragma once
 
-#include <chrono>
 #include <nano/lib/config.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
@@ -11,6 +10,8 @@
 #include <nano/node/stats.hpp>
 #include <nano/node/websocketconfig.hpp>
 #include <nano/secure/common.hpp>
+
+#include <chrono>
 #include <vector>
 
 namespace nano
@@ -63,8 +64,6 @@ public:
 	std::chrono::seconds unchecked_cutoff_time{ std::chrono::seconds (4 * 60 * 60) }; // 4 hours
 	/** Timeout for initiated async operations */
 	std::chrono::seconds tcp_io_timeout{ (network_params.network.is_test_network () && !is_sanitizer_build) ? std::chrono::seconds (5) : std::chrono::seconds (15) };
-	/** Default maximum idle time for a socket before it's automatically closed */
-	std::chrono::seconds tcp_idle_timeout{ std::chrono::minutes (2) };
 	std::chrono::nanoseconds pow_sleep_interval{ 0 };
 	/** Default maximum incoming TCP connections, including realtime network & bootstrap */
 	unsigned tcp_incoming_connections_max{ 1024 };
