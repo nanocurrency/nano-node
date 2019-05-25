@@ -59,7 +59,7 @@ void update_flags (nano::node_flags & flags_a, boost::program_options::variables
 int main (int argc, char * const * argv)
 {
 	nano::set_umask ();
-
+	nano::block_memory_pool_cleanup_guard block_memory_pool_cleanup_guard;
 	boost::program_options::options_description description ("Command line options");
 	nano::add_node_options (description);
 
