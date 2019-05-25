@@ -3,18 +3,18 @@
 
 #include <limits>
 
-nano::socket::socket (std::shared_ptr<nano::node> node_a, boost::optional<std::chrono::seconds> max_idle_time_a, nano::socket::concurrency concurrency_a) :
+nano::socket::socket (std::shared_ptr<nano::node> node_a, boost::optional<std::chrono::seconds> io_timeout_a, nano::socket::concurrency concurrency_a) :
 strand (node_a->io_ctx.get_executor ()),
 tcp_socket (node_a->io_ctx),
 node (node_a),
 writer_concurrency (concurrency_a),
 next_deadline (std::numeric_limits<uint64_t>::max ()),
 last_completion_time (0),
-max_idle_time (max_idle_time_a)
+io_timeout (io_timeout_a)
 {
-	if (!max_idle_time)
+	if (!io_timeout)
 	{
-		max_idle_time = node_a->config.tcp_idle_timeout;
+		io_timeout = node_a->config.tcp_io_timeout;
 	}
 }
 
@@ -125,6 +125,11 @@ void nano::socket::write_queued_messages ()
 						{
 							this_l->write_queued_messages ();
 						}
+						else if (this_l->send_queue.empty ())
+						{
+							// Idle TCP realtime client socket after writes
+							this_l->start_timer (node->network_params.node.idle_timeout);
+						}
 					}
 				}
 			}
@@ -136,7 +141,7 @@ void nano::socket::start_timer ()
 {
 	if (auto node_l = node.lock ())
 	{
-		start_timer (node_l->config.tcp_io_timeout);
+		start_timer (io_timeout.get ());
 	}
 }
 
@@ -185,11 +190,11 @@ bool nano::socket::has_timed_out () const
 	return timed_out;
 }
 
-void nano::socket::set_max_idle_timeout (std::chrono::seconds max_idle_time_a)
+void nano::socket::set_timeout (std::chrono::seconds io_timeout_a)
 {
 	auto this_l (shared_from_this ());
-	boost::asio::dispatch (strand, boost::asio::bind_executor (strand, [this_l, max_idle_time_a]() {
-		this_l->max_idle_time = max_idle_time_a;
+	boost::asio::dispatch (strand, boost::asio::bind_executor (strand, [this_l, io_timeout_a]() {
+		this_l->io_timeout = io_timeout_a;
 	}));
 }
 
@@ -207,7 +212,7 @@ void nano::socket::close_internal ()
 	if (!closed)
 	{
 		closed = true;
-		max_idle_time = boost::none;
+		io_timeout = boost::none;
 		boost::system::error_code ec;
 
 		// Ignore error code for shutdown as it is best-effort
@@ -292,7 +297,7 @@ void nano::server_socket::on_connection (std::function<bool(std::shared_ptr<nano
 								// Make sure the new connection doesn't idle. Note that in most cases, the callback is going to start
 								// an IO operation immediately, which will start a timer.
 								new_connection->checkup ();
-								new_connection->start_timer (node_l->network_params.network.is_test_network () ? std::chrono::seconds (2) : node_l->config.tcp_idle_timeout);
+								new_connection->start_timer (node_l->network_params.network.is_test_network () ? std::chrono::seconds (2) : node_l->network_params.node.idle_timeout);
 								node_l->stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_accept_success, nano::stat::dir::in);
 								this_l->connections.push_back (new_connection);
 								this_l->evict_dead_connections ();
