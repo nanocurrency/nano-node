@@ -71,7 +71,8 @@ boost::optional<std::string> websocket_test_call (std::string host, std::string 
 	{
 		boost::beast::error_code ec_ignored;
 		ws.async_close (boost::beast::websocket::close_code::normal, [](boost::beast::error_code const & ec) {
-			//
+			// A synchronous close usually hangs in tests when the server's io_context stops looping
+			// An async_close solves this problem
 		});
 	}
 	return ret;
