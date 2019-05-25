@@ -1162,6 +1162,9 @@ void nano::bootstrap_attempt::pool_connection (std::shared_ptr<nano::bootstrap_c
 	std::lock_guard<std::mutex> lock (mutex);
 	if (!stopped && !client_a->pending_stop)
 	{
+		// Idle bootstrap client socket
+		client_a->channel->socket->start_timer (node->network_params.node.idle_timeout);
+		// Push into idle deque
 		idle.push_front (client_a);
 	}
 	condition.notify_all ();
@@ -1930,6 +1933,8 @@ node (node_a)
 
 void nano::bootstrap_server::receive ()
 {
+	// Increase timeout to receive TCP header (idle server socket)
+	socket->set_timeout (node->network_params.node.idle_timeout);
 	auto this_l (shared_from_this ());
 	socket->async_read (receive_buffer, 8, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		// Set remote_endpoint
@@ -1937,6 +1942,8 @@ void nano::bootstrap_server::receive ()
 		{
 			this_l->remote_endpoint = this_l->socket->remote_endpoint ();
 		}
+		// Decrease timeout to default
+		this_l->socket->set_timeout (this_l->node->config.tcp_io_timeout);
 		// Receive header
 		this_l->receive_header_action (ec, size_a);
 	});
