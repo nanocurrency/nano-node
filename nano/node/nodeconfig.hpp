@@ -37,6 +37,7 @@ public:
 	unsigned bootstrap_fraction_numerator{ 1 };
 	nano::amount receive_minimum{ nano::xrb_ratio };
 	nano::amount vote_minimum{ nano::Gxrb_ratio };
+	std::chrono::milliseconds vote_generator_delay{ std::chrono::milliseconds (50) };
 	nano::amount online_weight_minimum{ 60000 * nano::Gxrb_ratio };
 	unsigned online_weight_quorum{ 50 };
 	unsigned password_fanout{ 1024 };
