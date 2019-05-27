@@ -341,7 +341,7 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 		nano/qt/qt.hpp)
 
 	target_link_libraries(qt
-		secure nano_lib node libminiupnpc-static Qt5::Gui Qt5::Widgets)
+		node secure nano_lib libminiupnpc-static Qt5::Gui Qt5::Widgets)
 
 	target_compile_definitions(qt
 		PRIVATE
