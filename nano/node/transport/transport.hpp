@@ -118,6 +118,7 @@ namespace transport
 		}
 
 		mutable std::mutex channel_mutex;
+		nano::bandwidth_limiter limiter;
 
 	private:
 		std::chrono::steady_clock::time_point last_bootstrap_attempt{ std::chrono::steady_clock::time_point () };

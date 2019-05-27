@@ -370,6 +370,9 @@ std::string nano::stat::type_to_string (uint32_t key)
 			break;
 		case nano::stat::type::confirmation_height:
 			res = "confirmation_height";
+			break;
+		case nano::stat::type::drop:
+			res = "drop";
 	}
 	return res;
 }

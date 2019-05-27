@@ -232,7 +232,8 @@ public:
 		ipc,
 		tcp,
 		udp,
-		confirmation_height
+		confirmation_height,
+		drop
 	};
 
 	/** Optional detail type */

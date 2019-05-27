@@ -68,6 +68,7 @@ nano::tcp_endpoint nano::transport::map_endpoint_to_tcp (nano::endpoint const & 
 }
 
 nano::transport::channel::channel (nano::node & node_a) :
+limiter (node_a.config.bandwidth_limit),
 node (node_a)
 {
 }
@@ -78,8 +79,15 @@ void nano::transport::channel::send (nano::message const & message_a, std::funct
 	message_a.visit (visitor);
 	auto buffer (message_a.to_bytes ());
 	auto detail (visitor.result);
-	send_buffer (buffer, detail, callback_a);
-	node.stats.inc (nano::stat::type::message, detail, nano::stat::dir::out);
+	if (!limiter.should_drop (detail, buffer->size ()))
+	{
+		send_buffer (buffer, detail, callback_a);
+		node.stats.inc (nano::stat::type::message, detail, nano::stat::dir::out);
+	}
+	else
+	{
+		node.stats.inc (nano::stat::type::drop, detail, nano::stat::dir::out);
+	}
 }
 
 namespace
