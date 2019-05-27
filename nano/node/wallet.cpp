@@ -1,17 +1,15 @@
-#include <nano/node/wallet.hpp>
-
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/xorshift.hpp>
 
-#include <argon2.h>
-
 #include <boost/filesystem.hpp>
 #include <boost/polymorphic_cast.hpp>
 
 #include <future>
+
+#include <argon2.h>
 
 nano::uint256_union nano::wallet_store::check (nano::transaction const & transaction_a)
 {
@@ -1765,6 +1763,7 @@ void nano::wallets::stop ()
 	{
 		thread.join ();
 	}
+	watcher.stop ();
 }
 
 nano::write_transaction nano::wallets::tx_begin_write ()

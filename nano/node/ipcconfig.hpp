@@ -2,6 +2,7 @@
 
 #include <nano/lib/config.hpp>
 #include <nano/lib/errors.hpp>
+
 #include <string>
 
 namespace nano

@@ -1,11 +1,12 @@
 #pragma once
 
-#include <boost/optional.hpp>
-#include <boost/property_tree/ptree.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/openclconfig.hpp>
 #include <nano/node/xorshift.hpp>
+
+#include <boost/optional.hpp>
+#include <boost/property_tree/ptree.hpp>
 
 #include <map>
 #include <mutex>

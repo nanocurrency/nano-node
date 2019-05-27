@@ -1,6 +1,6 @@
 #include <nano/node/active_transactions.hpp>
-
 #include <nano/node/node.hpp>
+
 #include <numeric>
 
 size_t constexpr nano::active_transactions::max_broadcast_queue;

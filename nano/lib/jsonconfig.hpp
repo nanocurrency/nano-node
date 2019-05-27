@@ -1,13 +1,15 @@
 #pragma once
 
+#include <nano/lib/errors.hpp>
+#include <nano/lib/utility.hpp>
+
 #include <boost/asio.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/optional.hpp>
 #include <boost/property_tree/json_parser.hpp>
+
 #include <fstream>
-#include <nano/lib/errors.hpp>
-#include <nano/lib/utility.hpp>
 
 namespace nano
 {

@@ -1,7 +1,6 @@
 
-#include <nano/node/common.hpp>
-
 #include <nano/lib/work.hpp>
+#include <nano/node/common.hpp>
 #include <nano/node/wallet.hpp>
 
 #include <boost/endian/conversion.hpp>
@@ -551,6 +550,7 @@ block (block_a)
 {
 	header.block_type_set (block->type ());
 }
+
 nano::confirm_req::confirm_req (std::vector<std::pair<nano::block_hash, nano::block_hash>> const & roots_hashes_a) :
 message (nano::message_type::confirm_req),
 roots_hashes (roots_hashes_a)

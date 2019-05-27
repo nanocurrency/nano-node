@@ -1,6 +1,13 @@
+#include <nano/lib/config.hpp>
+#include <nano/lib/json_error_response.hpp>
+#include <nano/lib/timer.hpp>
+#include <nano/node/common.hpp>
+#include <nano/node/ipc.hpp>
 #include <nano/node/json_handler.hpp>
+#include <nano/node/json_payment_observer.hpp>
+#include <nano/node/node.hpp>
+#include <nano/node/node_rpc_config.hpp>
 
-#include <algorithm>
 #include <boost/array.hpp>
 #include <boost/bind.hpp>
 #include <boost/endian/conversion.hpp>
@@ -8,19 +15,13 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/thread/thread_time.hpp>
+
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <fstream>
 #include <future>
 #include <iostream>
-#include <nano/lib/config.hpp>
-#include <nano/lib/json_error_response.hpp>
-#include <nano/lib/timer.hpp>
-#include <nano/node/common.hpp>
-#include <nano/node/ipc.hpp>
-#include <nano/node/json_payment_observer.hpp>
-#include <nano/node/node.hpp>
-#include <nano/node/node_rpc_config.hpp>
 #include <thread>
 
 namespace
@@ -2471,8 +2472,10 @@ void nano::json_handler::peers ()
 {
 	boost::property_tree::ptree peers_l;
 	const bool peer_details = request.get<bool> ("peer_details", false);
-	auto peers_list (node.network.udp_channels.list (std::numeric_limits<size_t>::max ()));
-	std::sort (peers_list.begin (), peers_list.end ());
+	auto peers_list (node.network.list (std::numeric_limits<size_t>::max ()));
+	std::sort (peers_list.begin (), peers_list.end (), [](const auto & lhs, const auto & rhs) {
+		return lhs->get_endpoint () < rhs->get_endpoint ();
+	});
 	for (auto i (peers_list.begin ()), n (peers_list.end ()); i != n; ++i)
 	{
 		std::stringstream text;
@@ -4345,7 +4348,7 @@ void nano::json_handler::work_generate ()
 			ec = nano::error_rpc::bad_difficulty_format;
 		}
 	}
-	if (!ec && difficulty > node_rpc_config.max_work_generate_difficulty)
+	if (!ec && (difficulty > node_rpc_config.max_work_generate_difficulty || difficulty < node.network_params.network.publish_threshold))
 	{
 		ec = nano::error_rpc::difficulty_limit;
 	}
@@ -4353,14 +4356,15 @@ void nano::json_handler::work_generate ()
 	{
 		bool use_peers (request.get_optional<bool> ("use_peers") == true);
 		auto rpc_l (shared_from_this ());
-		auto callback = [rpc_l, &hash, this](boost::optional<uint64_t> const & work_a) {
+		auto callback = [rpc_l, hash, this](boost::optional<uint64_t> const & work_a) {
 			if (work_a)
 			{
+				uint64_t work (work_a.value ());
 				boost::property_tree::ptree response_l;
-				response_l.put ("work", nano::to_string_hex (work_a.value ()));
+				response_l.put ("work", nano::to_string_hex (work));
 				std::stringstream ostream;
 				uint64_t result_difficulty;
-				nano::work_validate (hash, work_a.value (), &result_difficulty);
+				nano::work_validate (hash, work, &result_difficulty);
 				response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
 				auto multiplier = nano::difficulty::to_multiplier (result_difficulty, this->node.network_params.network.publish_threshold);
 				response_l.put ("multiplier", nano::to_string (multiplier));

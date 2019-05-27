@@ -44,6 +44,8 @@ add_library (node
 	lmdb_txn_tracker.cpp
 	logging.hpp
 	logging.cpp
+	network.hpp
+	network.cpp
 	nodeconfig.hpp
 	nodeconfig.cpp
 	node_observers.hpp

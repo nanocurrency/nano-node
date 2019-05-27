@@ -1,9 +1,10 @@
-#include <gtest/gtest.h>
-
-#include <fstream>
 #include <nano/core_test/testutil.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/node/testing.hpp>
+
+#include <gtest/gtest.h>
+
+#include <fstream>
 
 using namespace std::chrono_literals;
 

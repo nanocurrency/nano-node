@@ -115,10 +115,10 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("vote_minimum", vote_minimum.to_string_dec ());
 	json.put ("unchecked_cutoff_time", unchecked_cutoff_time.count ());
 	json.put ("tcp_io_timeout", tcp_io_timeout.count ());
-	json.put ("tcp_idle_timeout", tcp_idle_timeout.count ());
 	json.put ("pow_sleep_interval", pow_sleep_interval.count ());
 	json.put ("external_address", external_address.to_string ());
 	json.put ("external_port", external_port);
+	json.put ("tcp_incoming_connections_max", tcp_incoming_connections_max);
 	nano::jsonconfig websocket_l;
 	websocket_config.serialize_json (websocket_l);
 	json.put_child ("websocket", websocket_l);
@@ -239,10 +239,10 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			diagnostics_config.serialize_json (diagnostics_l);
 			json.put_child ("diagnostics", diagnostics_l);
 			json.put ("tcp_io_timeout", tcp_io_timeout.count ());
-			json.put ("tcp_idle_timeout", tcp_idle_timeout.count ());
 			json.put (pow_sleep_interval_key, pow_sleep_interval.count ());
 			json.put ("external_address", external_address.to_string ());
 			json.put ("external_port", external_port);
+			json.put ("tcp_incoming_connections_max", tcp_incoming_connections_max);
 		}
 		case 17:
 			break;
@@ -347,9 +347,6 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		auto tcp_io_timeout_l = static_cast<unsigned long> (tcp_io_timeout.count ());
 		json.get ("tcp_io_timeout", tcp_io_timeout_l);
 		tcp_io_timeout = std::chrono::seconds (tcp_io_timeout_l);
-		auto tcp_idle_timeout_l = static_cast<unsigned long> (tcp_idle_timeout.count ());
-		json.get ("tcp_idle_timeout", tcp_idle_timeout_l);
-		tcp_idle_timeout = std::chrono::seconds (tcp_idle_timeout_l);
 
 		auto ipc_config_l (json.get_optional_child ("ipc"));
 		if (ipc_config_l)
@@ -384,6 +381,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get<unsigned> (signature_checker_threads_key, signature_checker_threads);
 		json.get<boost::asio::ip::address_v6> ("external_address", external_address);
 		json.get<uint16_t> ("external_port", external_port);
+		json.get<unsigned> ("tcp_incoming_connections_max", tcp_incoming_connections_max);
 
 		auto pow_sleep_interval_l (pow_sleep_interval.count ());
 		json.get (pow_sleep_interval_key, pow_sleep_interval_l);

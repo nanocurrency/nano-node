@@ -1,6 +1,8 @@
 #pragma once
 
-#include <algorithm>
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/numbers.hpp>
+
 #include <boost/asio/bind_executor.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -8,14 +10,14 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/property_tree/json_parser.hpp>
+
+#include <algorithm>
 #include <cstdlib>
 #include <deque>
 #include <functional>
 #include <iostream>
 #include <memory>
 #include <mutex>
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/numbers.hpp>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -66,7 +68,7 @@ namespace websocket
 		{
 		}
 
-		std::string to_string () const;
+		std::shared_ptr<std::string> to_string () const;
 		nano::websocket::topic topic;
 		boost::property_tree::ptree contents;
 	};
@@ -180,8 +182,6 @@ namespace websocket
 		boost::asio::strand<boost::asio::io_context::executor_type> strand;
 		/** Outgoing messages. The send queue is protected by accessing it only through the strand */
 		std::deque<message> send_queue;
-		/** Serialize calls to websocket::stream initiating functions */
-		std::mutex io_mutex;
 
 		/** Hash functor for topic enums */
 		struct topic_hash
@@ -230,19 +230,31 @@ namespace websocket
 		 * Per-topic subscribers check. Relies on all sessions correctly increasing and
 		 * decreasing the subscriber counts themselves.
 		 */
-		bool any_subscribers (nano::websocket::topic const & topic_a);
-		/** Adds to subscription count of a specific topic*/
-		void increase_subscription_count (nano::websocket::topic const & topic_a);
-		/** Removes from subscription count of a specific topic*/
-		void decrease_subscription_count (nano::websocket::topic const & topic_a);
+		bool any_subscriber (nano::websocket::topic const & topic_a) const
+		{
+			return subscriber_count (topic_a) > 0;
+		}
+		/** Getter for subscriber count of a specific topic*/
+		size_t subscriber_count (nano::websocket::topic const & topic_a) const
+		{
+			return topic_subscriber_count[static_cast<std::size_t> (topic_a)];
+		}
 
 	private:
+		/** A websocket session can increase and decrease subscription counts. */
+		friend nano::websocket::session;
+
+		/** Adds to subscription count of a specific topic*/
+		void increase_subscriber_count (nano::websocket::topic const & topic_a);
+		/** Removes from subscription count of a specific topic*/
+		void decrease_subscriber_count (nano::websocket::topic const & topic_a);
+
 		nano::node & node;
 		boost::asio::ip::tcp::acceptor acceptor;
 		socket_type socket;
 		std::mutex sessions_mutex;
 		std::vector<std::weak_ptr<session>> sessions;
-		std::array<std::atomic<std::size_t>, number_topics> topic_subscription_count{};
+		std::array<std::atomic<std::size_t>, number_topics> topic_subscriber_count{};
 		std::atomic<bool> stopped{ false };
 	};
 }

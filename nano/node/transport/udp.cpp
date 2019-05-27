@@ -1,8 +1,7 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/stats.hpp>
 #include <nano/node/transport/udp.hpp>
-
-std::chrono::seconds constexpr nano::transport::udp_channels::syn_cookie_cutoff;
 
 nano::transport::channel_udp::channel_udp (nano::transport::udp_channels & channels_a, nano::endpoint const & endpoint_a, unsigned network_version_a) :
 channel (channels_a.node),
@@ -129,17 +128,17 @@ std::shared_ptr<nano::transport::channel_udp> nano::transport::udp_channels::cha
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	std::shared_ptr<nano::transport::channel_udp> result;
-	auto existing (channels.get<nano::transport::udp_channels::endpoint_tag> ().find (endpoint_a));
-	if (existing != channels.get<nano::transport::udp_channels::endpoint_tag> ().end ())
+	auto existing (channels.get<endpoint_tag> ().find (endpoint_a));
+	if (existing != channels.get<endpoint_tag> ().end ())
 	{
 		result = existing->channel;
 	}
 	return result;
 }
 
-std::unordered_set<std::shared_ptr<nano::transport::channel_udp>> nano::transport::udp_channels::random_set (size_t count_a) const
+std::unordered_set<std::shared_ptr<nano::transport::channel>> nano::transport::udp_channels::random_set (size_t count_a) const
 {
-	std::unordered_set<std::shared_ptr<nano::transport::channel_udp>> result;
+	std::unordered_set<std::shared_ptr<nano::transport::channel>> result;
 	result.reserve (count_a);
 	std::lock_guard<std::mutex> lock (mutex);
 	// Stop trying to fill result with random samples after this many attempts
@@ -168,13 +167,13 @@ void nano::transport::udp_channels::random_fill (std::array<nano::endpoint, 8> &
 	auto j (target_a.begin ());
 	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i, ++j)
 	{
-		assert ((*i)->endpoint.address ().is_v6 ());
+		assert ((*i)->get_endpoint ().address ().is_v6 ());
 		assert (j < target_a.end ());
-		*j = (*i)->endpoint;
+		*j = (*i)->get_endpoint ();
 	}
 }
 
-void nano::transport::udp_channels::store_all (nano::node & node_a)
+bool nano::transport::udp_channels::store_all (bool clear_peers)
 {
 	// We can't hold the mutex while starting a write transaction, so
 	// we collect endpoints to be saved and then relase the lock.
@@ -185,17 +184,35 @@ void nano::transport::udp_channels::store_all (nano::node & node_a)
 		std::transform (channels.begin (), channels.end (),
 		std::back_inserter (endpoints), [](const auto & channel) { return channel.endpoint (); });
 	}
+	bool result (false);
 	if (!endpoints.empty ())
 	{
 		// Clear all peers then refresh with the current list of peers
-		auto transaction (node_a.store.tx_begin_write ());
-		node_a.store.peer_clear (transaction);
+		auto transaction (node.store.tx_begin_write ());
+		if (clear_peers)
+		{
+			node.store.peer_clear (transaction);
+		}
 		for (auto endpoint : endpoints)
 		{
 			nano::endpoint_key endpoint_key (endpoint.address ().to_v6 ().to_bytes (), endpoint.port ());
-			node_a.store.peer_put (transaction, std::move (endpoint_key));
+			node.store.peer_put (transaction, std::move (endpoint_key));
 		}
+		result = true;
 	}
+	return result;
+}
+
+std::shared_ptr<nano::transport::channel_udp> nano::transport::udp_channels::find_node_id (nano::account const & node_id_a)
+{
+	std::shared_ptr<nano::transport::channel_udp> result;
+	std::lock_guard<std::mutex> lock (mutex);
+	auto existing (channels.get<node_id_tag> ().find (node_id_a));
+	if (existing != channels.get<node_id_tag> ().end ())
+	{
+		result = existing->channel;
+	}
+	return result;
 }
 
 void nano::transport::udp_channels::clean_node_id (nano::endpoint const & endpoint_a, nano::account const & node_id_a)
@@ -213,15 +230,15 @@ void nano::transport::udp_channels::clean_node_id (nano::endpoint const & endpoi
 	}
 }
 
-nano::endpoint nano::transport::udp_channels::tcp_peer ()
+nano::tcp_endpoint nano::transport::udp_channels::bootstrap_peer ()
 {
-	nano::endpoint result (boost::asio::ip::address_v6::any (), 0);
+	nano::tcp_endpoint result (boost::asio::ip::address_v6::any (), 0);
 	std::lock_guard<std::mutex> lock (mutex);
 	for (auto i (channels.get<last_bootstrap_attempt_tag> ().begin ()), n (channels.get<last_bootstrap_attempt_tag> ().end ()); i != n;)
 	{
 		if (i->channel->get_network_version () >= protocol_version_reasonable_min)
 		{
-			result = i->endpoint ();
+			result = nano::transport::map_endpoint_to_tcp (i->endpoint ());
 			channels.get<last_bootstrap_attempt_tag> ().modify (i, [](channel_udp_wrapper & wrapper_a) {
 				wrapper_a.channel->set_last_bootstrap_attempt (std::chrono::steady_clock::now ());
 			});
@@ -337,26 +354,25 @@ public:
 			if (cookie)
 			{
 				// New connection
-				auto channel (node.network.udp_channels.channel (endpoint));
-				if (channel)
+				auto find_channel (node.network.udp_channels.channel (endpoint));
+				if (find_channel)
 				{
-					node.network.send_node_id_handshake (channel, *cookie, boost::none);
-					node.network.send_keepalive_self (channel);
+					node.network.send_node_id_handshake (find_channel, *cookie, boost::none);
+					node.network.send_keepalive_self (find_channel);
 				}
-				else
+				else if (!node.network.tcp_channels.find_channel (nano::transport::map_endpoint_to_tcp (endpoint)))
 				{
-					channel = std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, endpoint);
-					node.network.send_node_id_handshake (channel, *cookie, boost::none);
+					// Don't start connection if TCP channel to same IP:port exists
+					find_channel = std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, endpoint);
+					node.network.send_node_id_handshake (find_channel, *cookie, boost::none);
 				}
 			}
 			// Check for special node port data
-			for (auto & peer : message_a.peers)
+			auto peer0 (message_a.peers[0]);
+			if (peer0.address () == boost::asio::ip::address_v6{} && peer0.port () != 0)
 			{
-				if (peer.address () == boost::asio::ip::address_v6{} && peer.port () != 0)
-				{
-					nano::endpoint new_endpoint (endpoint.address (), peer.port ());
-					node.network.merge_peer (new_endpoint);
-				}
+				nano::endpoint new_endpoint (endpoint.address (), peer0.port ());
+				node.network.merge_peer (new_endpoint);
 			}
 		}
 		message (message_a);
@@ -407,7 +423,7 @@ public:
 			if (!node.network.udp_channels.validate_syn_cookie (endpoint, message_a.response->first, message_a.response->second))
 			{
 				validated_response = true;
-				if (message_a.response->first != node.node_id.pub)
+				if (message_a.response->first != node.node_id.pub && !node.network.tcp_channels.find_node_id (message_a.response->first))
 				{
 					node.network.udp_channels.clean_node_id (endpoint, message_a.response->first);
 					auto new_channel (node.network.udp_channels.insert (endpoint, message_a.header.version_using));
@@ -431,24 +447,24 @@ public:
 		}
 		if (out_query || out_respond_to)
 		{
-			auto channel (node.network.find_channel (endpoint));
-			if (!channel)
+			auto find_channel (node.network.udp_channels.channel (endpoint));
+			if (!find_channel)
 			{
-				channel = std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, endpoint);
+				find_channel = std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, endpoint);
 			}
-			node.network.send_node_id_handshake (channel, out_query, out_respond_to);
+			node.network.send_node_id_handshake (find_channel, out_query, out_respond_to);
 		}
 		message (message_a);
 	}
 	void message (nano::message const & message_a)
 	{
-		auto channel (node.network.udp_channels.channel (endpoint));
-		if (channel)
+		auto find_channel (node.network.udp_channels.channel (endpoint));
+		if (find_channel)
 		{
-			node.network.udp_channels.modify (channel, [](std::shared_ptr<nano::transport::channel_udp> channel_a) {
+			node.network.udp_channels.modify (find_channel, [](std::shared_ptr<nano::transport::channel_udp> channel_a) {
 				channel_a->set_last_packet_received (std::chrono::steady_clock::now ());
 			});
-			node.process_message (message_a, channel);
+			node.network.process_message (message_a, find_channel);
 		}
 	}
 	nano::node & node;
@@ -460,6 +476,10 @@ void nano::transport::udp_channels::receive_action (nano::message_buffer * data_
 {
 	auto allowed_sender (true);
 	if (data_a->endpoint == local_endpoint)
+	{
+		allowed_sender = false;
+	}
+	else if (data_a->endpoint.address ().to_v6 ().is_unspecified ())
 	{
 		allowed_sender = false;
 	}
@@ -524,9 +544,9 @@ void nano::transport::udp_channels::receive_action (nano::message_buffer * data_
 	}
 	else
 	{
-		if (node.config.logging.network_logging ())
+		if (node.config.logging.network_packet_logging ())
 		{
-			node.logger.try_log (boost::str (boost::format ("Reserved sender %1%") % data_a->endpoint.address ().to_string ()));
+			node.logger.try_log (boost::str (boost::format ("Reserved sender %1%") % data_a->endpoint));
 		}
 
 		node.stats.inc_detail_only (nano::stat::type::error, nano::stat::detail::bad_sender);
@@ -555,7 +575,7 @@ std::shared_ptr<nano::transport::channel> nano::transport::udp_channels::create 
 bool nano::transport::udp_channels::max_ip_connections (nano::endpoint const & endpoint_a)
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	bool result (channels.get<ip_address_tag> ().count (endpoint_a.address ()) >= max_peers_per_ip);
+	bool result (channels.get<ip_address_tag> ().count (endpoint_a.address ()) >= nano::transport::max_peers_per_ip);
 	return result;
 }
 
@@ -616,7 +636,7 @@ boost::optional<nano::uint256_union> nano::transport::udp_channels::assign_syn_c
 	std::lock_guard<std::mutex> lock (mutex);
 	unsigned & ip_cookies = syn_cookies_per_ip[ip_addr];
 	boost::optional<nano::uint256_union> result;
-	if (ip_cookies < nano::transport::udp_channels::max_peers_per_ip)
+	if (ip_cookies < nano::transport::max_peers_per_ip)
 	{
 		if (syn_cookies.find (endpoint) == syn_cookies.end ())
 		{
@@ -684,9 +704,9 @@ void nano::transport::udp_channels::purge_syn_cookies (std::chrono::steady_clock
 
 void nano::transport::udp_channels::ongoing_syn_cookie_cleanup ()
 {
-	purge_syn_cookies (std::chrono::steady_clock::now () - syn_cookie_cutoff);
+	purge_syn_cookies (std::chrono::steady_clock::now () - nano::transport::syn_cookie_cutoff);
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.alarm.add (std::chrono::steady_clock::now () + (syn_cookie_cutoff * 2), [node_w]() {
+	node.alarm.add (std::chrono::steady_clock::now () + (nano::transport::syn_cookie_cutoff * 2), [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->network.udp_channels.ongoing_syn_cookie_cleanup ();
@@ -697,15 +717,16 @@ void nano::transport::udp_channels::ongoing_syn_cookie_cleanup ()
 void nano::transport::udp_channels::ongoing_keepalive ()
 {
 	nano::keepalive message;
-	random_fill (message.peers);
+	node.network.random_fill (message.peers);
 	std::unique_lock<std::mutex> lock (mutex);
-	auto keepalive_cutoff (channels.get<last_packet_received_tag> ().lower_bound (std::chrono::steady_clock::now () - network_params.node.period));
+	auto keepalive_cutoff (channels.get<last_packet_received_tag> ().lower_bound (std::chrono::steady_clock::now () - node.network_params.node.period));
 	for (auto i (channels.get<last_packet_received_tag> ().begin ()); i != keepalive_cutoff; ++i)
 	{
+		i->channel->set_last_packet_sent (std::chrono::steady_clock::now ());
 		i->channel->send (message);
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.alarm.add (std::chrono::steady_clock::now () + network_params.node.period, [node_w]() {
+	node.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.period, [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->network.udp_channels.ongoing_keepalive ();
@@ -713,29 +734,13 @@ void nano::transport::udp_channels::ongoing_keepalive ()
 	});
 }
 
-std::deque<std::shared_ptr<nano::transport::channel_udp>> nano::transport::udp_channels::list (size_t count_a)
+void nano::transport::udp_channels::list (std::deque<std::shared_ptr<nano::transport::channel>> & deque_a)
 {
-	std::deque<std::shared_ptr<nano::transport::channel_udp>> result;
+	std::lock_guard<std::mutex> lock (mutex);
+	for (auto i (channels.begin ()), j (channels.end ()); i != j; ++i)
 	{
-		std::lock_guard<std::mutex> lock (mutex);
-		for (auto i (channels.begin ()), j (channels.end ()); i != j; ++i)
-		{
-			result.push_back (i->channel);
-		}
+		deque_a.push_back (i->channel);
 	}
-	random_pool::shuffle (result.begin (), result.end ());
-	if (result.size () > count_a)
-	{
-		result.resize (count_a, nullptr);
-	}
-	return result;
-}
-
-// Simulating with sqrt_broadcast_simulate shows we only need to broadcast to sqrt(total_peers) random peers in order to successfully publish to everyone with high probability
-std::deque<std::shared_ptr<nano::transport::channel_udp>> nano::transport::udp_channels::list_fanout ()
-{
-	auto result (list (node.network.size_sqrt ()));
-	return result;
 }
 
 void nano::transport::udp_channels::modify (std::shared_ptr<nano::transport::channel_udp> channel_a, std::function<void(std::shared_ptr<nano::transport::channel_udp>)> modify_callback_a)

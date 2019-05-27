@@ -1,8 +1,9 @@
-#include <gtest/gtest.h>
 #include <nano/core_test/testutil.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/node/transport/udp.hpp>
+
+#include <gtest/gtest.h>
 
 #include <thread>
 
@@ -369,7 +370,7 @@ TEST (peer_container, random_set)
 	auto current (std::chrono::steady_clock::now ());
 	for (auto i (0); i < 10000; ++i)
 	{
-		auto list (system.nodes[0]->network.udp_channels.random_set (15));
+		auto list (system.nodes[0]->network.random_set (15));
 	}
 	auto end (std::chrono::steady_clock::now ());
 	(void)end;

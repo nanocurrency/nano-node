@@ -1,9 +1,9 @@
-#include <gtest/gtest.h>
-
 #include <nano/core_test/testutil.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/secure/versioning.hpp>
+
+#include <gtest/gtest.h>
 
 #include <boost/polymorphic_cast.hpp>
 
@@ -148,6 +148,7 @@ TEST (wallets, reload)
 	ASSERT_FALSE (error);
 	ASSERT_EQ (1, system.nodes[0]->wallets.items.size ());
 	{
+		std::lock_guard<std::mutex> lock_wallet (system.nodes[0]->wallets.mutex);
 		nano::inactive_node node (system.nodes[0]->application_path, 24001);
 		auto wallet (node.node->wallets.create (one));
 		ASSERT_NE (wallet, nullptr);

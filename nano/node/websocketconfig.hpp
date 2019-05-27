@@ -1,8 +1,9 @@
 #pragma once
 
-#include <boost/asio.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/errors.hpp>
+
+#include <boost/asio.hpp>
 
 namespace nano
 {
