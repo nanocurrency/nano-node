@@ -113,6 +113,7 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
 	json.put ("allow_local_peers", allow_local_peers);
 	json.put ("vote_minimum", vote_minimum.to_string_dec ());
+	json.put ("vote_generator_delay", vote_generator_delay.count ());
 	json.put ("unchecked_cutoff_time", unchecked_cutoff_time.count ());
 	json.put ("tcp_io_timeout", tcp_io_timeout.count ());
 	json.put ("pow_sleep_interval", pow_sleep_interval.count ());
@@ -244,6 +245,7 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.put ("external_address", external_address.to_string ());
 			json.put ("external_port", external_port);
 			json.put ("tcp_incoming_connections_max", tcp_incoming_connections_max);
+			json.put ("vote_generator_delay", vote_generator_delay.count ());
 			json.put ("bandwidth_limit", bandwidth_limit);
 		}
 		case 17:
@@ -339,6 +341,9 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		{
 			json.get_error ().set ("vote_minimum contains an invalid decimal amount");
 		}
+
+		auto vote_generator_delay_l (json.get<unsigned long> ("vote_generator_delay"));
+		vote_generator_delay = std::chrono::milliseconds (vote_generator_delay_l);
 
 		auto block_processor_batch_max_time_l (json.get<unsigned long> ("block_processor_batch_max_time"));
 		block_processor_batch_max_time = std::chrono::milliseconds (block_processor_batch_max_time_l);
