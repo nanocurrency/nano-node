@@ -35,6 +35,8 @@ add_library (nano_lib
 	rpcconfig.cpp
 	numbers.hpp
 	numbers.cpp
+	stats.hpp
+	stats.cpp
 	timer.hpp
 	utility.hpp
 	utility.cpp

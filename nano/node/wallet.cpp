@@ -440,7 +440,7 @@ nano::wallet_value nano::wallet_store::entry_get_raw (nano::transaction const & 
 
 void nano::wallet_store::entry_put_raw (nano::transaction const & transaction_a, nano::public_key const & pub_a, nano::wallet_value const & entry_a)
 {
-	auto status (mdb_put (tx (transaction_a), handle, nano::mdb_val (pub_a), entry_a.val (), 0));
+	auto status (mdb_put (tx (transaction_a), handle, nano::mdb_val (pub_a), nano::mdb_val (sizeof (entry_a), const_cast<nano::wallet_value *> (&entry_a)), 0));
 	assert (status == 0);
 }
 

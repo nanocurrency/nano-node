@@ -1,5 +1,5 @@
+#include <nano/lib/stats.hpp>
 #include <nano/node/node.hpp>
-#include <nano/node/stats.hpp>
 #include <nano/node/transport/tcp.hpp>
 
 nano::transport::channel_tcp::channel_tcp (nano::node & node_a, std::shared_ptr<nano::socket> socket_a) :

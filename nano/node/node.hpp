@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/stats.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/blockprocessor.hpp>
@@ -13,7 +14,6 @@
 #include <nano/node/portmapping.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/signatures.hpp>
-#include <nano/node/stats.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/secure/ledger.hpp>

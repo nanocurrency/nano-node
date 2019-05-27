@@ -2,7 +2,7 @@
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/node/transport/udp.hpp>
-#include <nano/node/working.hpp>
+#include <nano/secure/working.hpp>
 
 #include <gtest/gtest.h>
 

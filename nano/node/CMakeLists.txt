@@ -76,8 +76,6 @@ add_library (node
 	signatures.cpp
 	socket.hpp
 	socket.cpp
-	stats.hpp
-	stats.cpp
 	voting.hpp
 	voting.cpp
 	wallet.hpp
@@ -86,7 +84,6 @@ add_library (node
 	websocket.cpp
 	websocketconfig.hpp
 	websocketconfig.cpp
-	working.hpp
 	xorshift.hpp)
 
 target_link_libraries (node
