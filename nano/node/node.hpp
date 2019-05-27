@@ -31,6 +31,7 @@
 #include <condition_variable>
 #include <memory>
 #include <queue>
+#include <vector>
 
 namespace nano
 {
@@ -110,7 +111,7 @@ class gap_information final
 public:
 	std::chrono::steady_clock::time_point arrival;
 	nano::block_hash hash;
-	std::unordered_set<nano::account> voters;
+	std::vector<nano::account> voters;
 };
 class gap_cache final
 {
