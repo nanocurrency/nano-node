@@ -1,20 +1,22 @@
 {
     "version": "2",
-    "rpc_enable": "true",
+    "rpc_enable": "false",
     "rpc": {
-        "address": "::ffff:0.0.0.0",
-        "port": "55000",
-        "enable_control": "true",
-        "frontier_request_limit": "16384",
-        "chain_request_limit": "16384"
+        "enable_sign_hash": "false",
+        "max_work_generate_difficulty": "ffffffffc0000000",
+        "version": "1",
+        "child_process": {
+            "enable": "false",
+            "rpc_path": "\/usr\/bin\/nano_rpc"
+        }
     },
     "node": {
-        "version": "12",
+        "version": "17",
         "peering_port": "54000",
         "bootstrap_fraction_numerator": "1",
         "receive_minimum": "1000000000000000000000000",
         "logging": {
-            "version": "3",
+            "version": "7",
             "ledger": "false",
             "ledger_duplicate": "false",
             "vote": "false",
@@ -26,18 +28,20 @@
             "network_node_id_handshake": "false",
             "node_lifetime_tracing": "false",
             "insufficient_work": "true",
-            "log_rpc": "true",
             "bulk_pull": "false",
             "work_generation_time": "true",
             "log_to_cerr": "false",
-            "max_size": "16777216",
+            "max_size": "134217728",
             "rotation_size": "4194304",
-            "flush": "false"
+            "flush": "false",
+            "upnp_details": "false",
+            "timing": "false",
+            "log_ipc": "true",
+            "min_time_between_output": "5",
+            "network_timeout": "false",
+            "long_database_txns": "false"
         },
         "work_peers": "",
-        "preconfigured_peers": [
-            "rai-beta.raiblocks.net"
-        ],
         "preconfigured_representatives": [
             "xrb_3betaz86ypbygpqbookmzpnmd5jhh4efmd8arr9a3n4bdmj1zgnzad7xpmfp",
             "xrb_1beta1ayfkpj1tfbhi3e9ihkocjkqi6ms5e4xrbmbybqnkza1e5jrake8wai",
@@ -57,8 +61,48 @@
         "callback_port": "0",
         "callback_target": "",
         "lmdb_max_dbs": "128",
-        "state_block_parse_canary": "1F76506FE8606E8BBA8C732A32F6C8DA78E514182C8BED62D1D988F3159BEAA2",
-        "state_block_generate_canary": "1F76506FE8606E8BBA8C732A32F6C8DA78E514182C8BED62D1D988F3159BEAA2"
+        "network_threads": "4",
+        "block_processor_batch_max_time": "5000",
+        "allow_local_peers": "true",
+        "preconfigured_peers": [
+            "peering-beta.nano.org"
+        ],
+        "vote_minimum": "1000000000000000000000000000000000",
+        "ipc": {
+            "tcp": {
+                "enable": "false",
+                "port": "56000",
+                "io_timeout": "15"
+            },
+            "local": {
+                "version": "1",
+                "enable": "false",
+                "allow_unsafe": "false",
+                "path": "\/tmp\/nano",
+                "io_timeout": "15"
+            }
+        },
+        "signature_checker_threads": "3",
+        "unchecked_cutoff_time": "14400",
+        "websocket": {
+            "enable": "false",
+            "address": "::ffff:0.0.0.0",
+            "port": "57000"
+        },
+        "diagnostics": {
+            "txn_tracking": {
+                "enable": "false",
+                "min_read_txn_time": "5000",
+                "min_write_txn_time": "500",
+                "ignore_writes_below_block_processor_max_time": "true"
+            }
+        },
+        "tcp_io_timeout": "15",
+        "tcp_idle_timeout": "120",
+        "pow_sleep_interval": "0",
+        "external_address": "::",
+        "external_port": "0",
+        "tcp_incoming_connections_max": "1024"
     },
     "opencl_enable": "false",
     "opencl": {
