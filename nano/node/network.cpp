@@ -1,5 +1,4 @@
 #include <nano/node/network.hpp>
-
 #include <nano/node/node.hpp>
 
 #include <numeric>
