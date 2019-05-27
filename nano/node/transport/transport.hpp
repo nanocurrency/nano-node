@@ -1,8 +1,8 @@
 #pragma once
 
+#include <nano/lib/stats.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/socket.hpp>
-#include <nano/node/stats.hpp>
 
 #include <unordered_set>
 

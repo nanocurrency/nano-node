@@ -33,16 +33,17 @@ add_library (secure
 	${PLATFORM_SECURE_SOURCE}
 	${CMAKE_BINARY_DIR}/bootstrap_weights_live.cpp
 	${CMAKE_BINARY_DIR}/bootstrap_weights_beta.cpp
-	common.cpp
 	common.hpp
-	blockstore.cpp
+	common.cpp
 	blockstore.hpp
-	ledger.cpp
+	blockstore.cpp
 	ledger.hpp
-	utility.cpp
+	ledger.cpp
 	utility.hpp
+	utility.cpp
 	versioning.hpp
-	versioning.cpp)
+	versioning.cpp
+	working.hpp)
 
 target_link_libraries(secure
 	nano_lib

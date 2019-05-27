@@ -2,7 +2,7 @@
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/node/transport/udp.hpp>
-#include <nano/node/working.hpp>
+#include <nano/secure/working.hpp>
 
 #include <gtest/gtest.h>
 
@@ -705,6 +705,7 @@ TEST (node_config, v16_v17_upgrade)
 	ASSERT_FALSE (tree.get_optional_child ("external_address"));
 	ASSERT_FALSE (tree.get_optional_child ("external_port"));
 	ASSERT_FALSE (tree.get_optional_child ("tcp_incoming_connections_max"));
+	ASSERT_FALSE (tree.get_optional_child ("vote_generator_delay"));
 	ASSERT_FALSE (tree.get_optional_child ("diagnostics"));
 
 	config.deserialize_json (upgraded, tree);
@@ -714,6 +715,7 @@ TEST (node_config, v16_v17_upgrade)
 	ASSERT_TRUE (!!tree.get_optional_child ("external_address"));
 	ASSERT_TRUE (!!tree.get_optional_child ("external_port"));
 	ASSERT_TRUE (!!tree.get_optional_child ("tcp_incoming_connections_max"));
+	ASSERT_TRUE (!!tree.get_optional_child ("vote_generator_delay"));
 	ASSERT_TRUE (!!tree.get_optional_child ("diagnostics"));
 
 	ASSERT_TRUE (upgraded);
@@ -740,6 +742,7 @@ TEST (node_config, v17_values)
 		tree.put ("external_address", "::1");
 		tree.put ("external_port", 0);
 		tree.put ("tcp_incoming_connections_max", 1);
+		tree.put ("vote_generator_delay", 50);
 		nano::jsonconfig txn_tracking_l;
 		txn_tracking_l.put ("enable", false);
 		txn_tracking_l.put ("min_read_txn_time", 0);
@@ -768,6 +771,7 @@ TEST (node_config, v17_values)
 	tree.put ("external_address", "::ffff:192.168.1.1");
 	tree.put ("external_port", std::numeric_limits<uint16_t>::max () - 1);
 	tree.put ("tcp_incoming_connections_max", std::numeric_limits<unsigned>::max ());
+	tree.put ("vote_generator_delay", std::numeric_limits<unsigned long>::max () - 100);
 	nano::jsonconfig txn_tracking_l;
 	txn_tracking_l.put ("enable", true);
 	txn_tracking_l.put ("min_read_txn_time", 1234);
@@ -785,6 +789,7 @@ TEST (node_config, v17_values)
 	ASSERT_EQ (config.external_address, boost::asio::ip::address_v6::from_string ("::ffff:192.168.1.1"));
 	ASSERT_EQ (config.external_port, std::numeric_limits<uint16_t>::max () - 1);
 	ASSERT_EQ (config.tcp_incoming_connections_max, std::numeric_limits<unsigned>::max ());
+	ASSERT_EQ (config.vote_generator_delay.count (), std::numeric_limits<unsigned long>::max () - 100);
 	ASSERT_TRUE (config.diagnostics_config.txn_tracking.enable);
 	ASSERT_EQ (config.diagnostics_config.txn_tracking.min_read_txn_time.count (), 1234);
 	ASSERT_EQ (config.tcp_incoming_connections_max, std::numeric_limits<unsigned>::max ());
@@ -2177,6 +2182,37 @@ TEST (node, vote_republish)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	while (system.nodes[0]->balance (key2.pub) != system.nodes[0]->config.receive_minimum.number () * 2)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
+TEST (node, vote_by_hash_bundle)
+{
+	nano::system system (24000, 1);
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	nano::keypair key1;
+	system.wallet (0)->insert_adhoc (key1.prv);
+
+	std::atomic<size_t> max_hashes{ 0 };
+	system.nodes[0]->observers.vote.add ([&max_hashes](nano::transaction const & transaction, std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a) {
+		if (vote_a->blocks.size () > max_hashes)
+		{
+			max_hashes = vote_a->blocks.size ();
+		}
+	});
+
+	nano::genesis genesis;
+	for (int i = 1; i <= 200; i++)
+	{
+		auto send (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, std::numeric_limits<nano::uint128_t>::max () - (system.nodes[0]->config.receive_minimum.number () * i), nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+		system.nodes[0]->block_confirm (send);
+	}
+
+	// Verify bundling. We're content with 8 hashes for the test, although
+	// reaching 12 should be common on most hardware.
+	system.deadline_set (10s);
+	while (max_hashes.load () < 8)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}

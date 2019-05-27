@@ -4,11 +4,11 @@
 #include <nano/node/transport/tcp.hpp>
 #include <nano/node/transport/udp.hpp>
 
-#include <memory>
-#include <queue>
-
 #include <boost/asio/thread_pool.hpp>
 #include <boost/thread/thread.hpp>
+
+#include <memory>
+#include <queue>
 
 namespace nano
 {
