@@ -8,6 +8,25 @@
 
 namespace nano
 {
+class bandwidth_limiter final
+{
+public:
+	// initialize with rate 0 = unbounded
+	bandwidth_limiter (const size_t);
+	bool should_drop (const nano::stat::detail &, const size_t &);
+	size_t get_rate ();
+
+private:
+	//last time rate was adjusted
+	std::chrono::steady_clock::time_point last_poll;
+	//array of message_types that could be dropped
+	std::array<nano::stat::detail, 2> could_drop = { nano::stat::detail::confirm_req, nano::stat::detail::confirm_ack };
+	//limit bandwidth to
+	size_t limit;
+	//rate, increment if message_size + rate < rate
+	size_t rate;
+	std::mutex mutex;
+};
 namespace transport
 {
 	class message;

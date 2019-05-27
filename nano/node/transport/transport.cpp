@@ -188,3 +188,43 @@ bool nano::transport::reserved_address (nano::endpoint const & endpoint_a, bool 
 	}
 	return result;
 }
+
+nano::bandwidth_limiter::bandwidth_limiter (const size_t limit_a) :
+last_poll (std::chrono::steady_clock::now ()),
+limit (limit_a),
+rate (0)
+{
+}
+
+bool nano::bandwidth_limiter::should_drop (const nano::stat::detail & detail_a, const size_t & message_size)
+{
+	using namespace std::chrono_literals;
+	bool result (false);
+	auto should_keep (std::find (std::begin (could_drop), std::end (could_drop), detail_a));
+	if (limit == 0 || should_keep == std::end (could_drop))
+	{
+		return result;
+	}
+	std::lock_guard<std::mutex> lock (mutex);
+
+	if (last_poll + 1s < std::chrono::steady_clock::now ())
+	{
+		last_poll = std::chrono::steady_clock::now ();
+		rate = 0;
+	}
+	if (message_size + rate > limit)
+	{
+		result = true;
+	}
+	else
+	{
+		rate = rate + message_size;
+	}
+	return result;
+}
+
+size_t nano::bandwidth_limiter::get_rate ()
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	return rate;
+}
