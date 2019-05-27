@@ -128,6 +128,7 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	nano::jsonconfig diagnostics_l;
 	diagnostics_config.serialize_json (diagnostics_l);
 	json.put_child ("diagnostics", diagnostics_l);
+	json.put ("bandwidth_limit", bandwidth_limit);
 
 	return json.get_error ();
 }
@@ -243,6 +244,7 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.put ("external_address", external_address.to_string ());
 			json.put ("external_port", external_port);
 			json.put ("tcp_incoming_connections_max", tcp_incoming_connections_max);
+			json.put ("bandwidth_limit", bandwidth_limit);
 		}
 		case 17:
 			break;
@@ -387,6 +389,8 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get (pow_sleep_interval_key, pow_sleep_interval_l);
 		pow_sleep_interval = std::chrono::nanoseconds (pow_sleep_interval_l);
 
+		json.get<size_t> ("bandwidth_limit", bandwidth_limit);
+
 		// Validate ranges
 		if (online_weight_quorum > 100)
 		{
@@ -399,6 +403,10 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		if (io_threads == 0)
 		{
 			json.get_error ().set ("io_threads must be non-zero");
+		}
+		if (bandwidth_limit < 0 || bandwidth_limit > std::numeric_limits<size_t>::max ())
+		{
+			json.get_error ().set ("bandwidth_limit unbounded = 0 default = 1500 max = 18446744073709551615");
 		}
 	}
 	catch (std::runtime_error const & ex)
