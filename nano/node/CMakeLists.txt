@@ -30,6 +30,8 @@ add_library (node
 	daemonconfig.cpp
 	diagnosticsconfig.hpp
 	diagnosticsconfig.cpp
+	election.hpp
+	election.cpp
 	ipc.hpp
 	ipc.cpp
 	ipcconfig.hpp
