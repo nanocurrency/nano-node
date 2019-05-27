@@ -1,5 +1,3 @@
-#include <nano/node/common.hpp>
-#include <nano/node/wallet.hpp>
 #include <nano/secure/blockstore.hpp>
 
 #include <boost/endian/conversion.hpp>

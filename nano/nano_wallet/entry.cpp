@@ -8,9 +8,9 @@
 #include <nano/node/ipc.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node_rpc_config.hpp>
-#include <nano/node/working.hpp>
 #include <nano/qt/qt.hpp>
 #include <nano/rpc/rpc.hpp>
+#include <nano/secure/working.hpp>
 
 #include <boost/make_shared.hpp>
 #include <boost/program_options.hpp>

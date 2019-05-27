@@ -30,6 +30,8 @@ add_library (node
 	daemonconfig.cpp
 	diagnosticsconfig.hpp
 	diagnosticsconfig.cpp
+	election.hpp
+	election.cpp
 	ipc.hpp
 	ipc.cpp
 	ipcconfig.hpp
@@ -76,8 +78,6 @@ add_library (node
 	signatures.cpp
 	socket.hpp
 	socket.cpp
-	stats.hpp
-	stats.cpp
 	voting.hpp
 	voting.cpp
 	wallet.hpp
@@ -86,7 +86,6 @@ add_library (node
 	websocket.cpp
 	websocketconfig.hpp
 	websocketconfig.cpp
-	working.hpp
 	xorshift.hpp)
 
 target_link_libraries (node

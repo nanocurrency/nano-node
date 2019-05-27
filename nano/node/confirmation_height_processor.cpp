@@ -1,9 +1,9 @@
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/stats.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/confirmation_height_processor.hpp>
-#include <nano/node/stats.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
 
