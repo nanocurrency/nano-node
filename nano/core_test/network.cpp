@@ -2264,7 +2264,7 @@ TEST (bandwidth_limiter, validate)
 		//rate should have reset when time was reset and should now be 144 bytes
 		ASSERT_EQ (limiter.get_rate (), full_confirm_ack);
 	}
-		// test unbounded req
+	// test unbounded req
 	{
 		nano::bandwidth_limiter limiter (0);
 		auto now (std::chrono::steady_clock::now ());
