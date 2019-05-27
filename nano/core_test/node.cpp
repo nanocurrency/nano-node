@@ -753,7 +753,7 @@ TEST (node_config, v17_values)
 		nano::jsonconfig diagnostics_l;
 		diagnostics_l.put_child ("txn_tracking", txn_tracking_l);
 		tree.put_child ("diagnostics", diagnostics_l);
-		tree.put ("bandwidth_limit", 1500);
+		tree.put ("bandwidth_limit", 1572864);
 	}
 
 	config.deserialize_json (upgraded, tree);
@@ -767,7 +767,7 @@ TEST (node_config, v17_values)
 	ASSERT_EQ (config.diagnostics_config.txn_tracking.min_read_txn_time.count (), 0);
 	ASSERT_EQ (config.diagnostics_config.txn_tracking.min_write_txn_time.count (), 0);
 	ASSERT_TRUE (config.diagnostics_config.txn_tracking.ignore_writes_below_block_processor_max_time);
-	ASSERT_EQ (config.bandwidth_limit, 1500);
+	ASSERT_EQ (config.bandwidth_limit, 1572864);
 
 	// Check config is correct with other values
 	tree.put ("tcp_io_timeout", std::numeric_limits<unsigned long>::max () - 100);
