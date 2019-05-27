@@ -20,7 +20,7 @@ private:
 	//last time rate was adjusted
 	std::chrono::steady_clock::time_point last_poll;
 	//array of message_types that could be dropped
-	std::array<nano::stat::detail, 2> could_drop = { nano::stat::detail::confirm_req, nano::stat::detail::confirm_ack };
+	std::array<nano::stat::detail, 2> could_drop{ { nano::stat::detail::confirm_req, nano::stat::detail::confirm_ack } };
 	//limit bandwidth to
 	size_t limit;
 	//rate, increment if message_size + rate < rate
