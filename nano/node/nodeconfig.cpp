@@ -411,7 +411,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		}
 		if (bandwidth_limit < 0 || bandwidth_limit > std::numeric_limits<size_t>::max ())
 		{
-			json.get_error ().set ("bandwidth_limit unbounded = 0 default = 1500 max = 18446744073709551615");
+			json.get_error ().set ("bandwidth_limit unbounded = 0, default = 1572864, max = 18446744073709551615");
 		}
 	}
 	catch (std::runtime_error const & ex)
