@@ -5,8 +5,8 @@
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/openclwork.hpp>
-#include <nano/node/working.hpp>
 #include <nano/rpc/rpc.hpp>
+#include <nano/secure/working.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 

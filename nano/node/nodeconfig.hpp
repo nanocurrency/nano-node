@@ -4,10 +4,10 @@
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/stats.hpp>
 #include <nano/node/diagnosticsconfig.hpp>
 #include <nano/node/ipcconfig.hpp>
 #include <nano/node/logging.hpp>
-#include <nano/node/stats.hpp>
 #include <nano/node/websocketconfig.hpp>
 #include <nano/secure/common.hpp>
 
