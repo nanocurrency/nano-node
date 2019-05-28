@@ -967,7 +967,7 @@ void nano::gap_cache::add (nano::transaction const & transaction_a, nano::block_
 	}
 	else
 	{
-		blocks.insert ({ time_point_a, hash_a, std::unordered_set<nano::account> () });
+		blocks.insert ({ time_point_a, hash_a, std::vector<nano::account> () });
 		if (blocks.size () > max)
 		{
 			blocks.get<0> ().erase (blocks.get<0> ().begin ());
@@ -985,7 +985,15 @@ void nano::gap_cache::vote (std::shared_ptr<nano::vote> vote_a)
 		if (existing != blocks.get<1> ().end ())
 		{
 			auto is_new (false);
-			blocks.get<1> ().modify (existing, [&](nano::gap_information & info) { is_new = info.voters.insert (vote_a->account).second; });
+			blocks.get<1> ().modify (existing, [&is_new, &vote_a](nano::gap_information & info) {
+				auto it = std::find (info.voters.begin (), info.voters.end (), vote_a->account);
+				is_new = (it == info.voters.end ());
+				if (is_new)
+				{
+					info.voters.push_back (vote_a->account);
+				}
+			});
+
 			if (is_new)
 			{
 				uint128_t tally;
