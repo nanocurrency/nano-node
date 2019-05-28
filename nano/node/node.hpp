@@ -275,8 +275,7 @@ public:
 	nano::payment_observer_processor payment_observer_processor;
 	const std::chrono::steady_clock::time_point startup_time;
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
-	std::mutex stopped_mutex;
-	bool stopped{ false };
+	std::atomic<bool> stopped{ false };
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
 };

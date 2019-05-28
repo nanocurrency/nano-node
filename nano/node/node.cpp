@@ -1120,11 +1120,8 @@ void nano::node::start ()
 
 void nano::node::stop ()
 {
-	std::unique_lock<std::mutex> lk (stopped_mutex);
-	if (!stopped)
+	if (!stopped.exchange (true))
 	{
-		stopped = true;
-		lk.unlock ();
 		logger.always_log ("Node stopping");
 		block_processor.stop ();
 		if (block_processor_thread.joinable ())
