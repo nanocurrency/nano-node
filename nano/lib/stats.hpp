@@ -457,6 +457,8 @@ public:
 	/** Returns a new JSON log sink */
 	std::unique_ptr<stat_log_sink> log_sink_json () const;
 
+	static std::string detail_raw_to_string (nano::stat::detail detail);
+
 private:
 	static std::string type_to_string (uint32_t key);
 	static std::string detail_to_string (uint32_t key);

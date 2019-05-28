@@ -545,6 +545,173 @@ std::string nano::stat::detail_to_string (uint32_t key)
 	return res;
 }
 
+std::string nano::stat::detail_raw_to_string (nano::stat::detail detail)
+{
+	std::string res;
+	switch (detail)
+	{
+		case nano::stat::detail::all:
+			res = "all";
+			break;
+		case nano::stat::detail::bad_sender:
+			res = "bad_sender";
+			break;
+		case nano::stat::detail::bulk_pull:
+			res = "bulk_pull";
+			break;
+		case nano::stat::detail::bulk_pull_account:
+			res = "bulk_pull_account";
+			break;
+		case nano::stat::detail::bulk_pull_deserialize_receive_block:
+			res = "bulk_pull_deserialize_receive_block";
+			break;
+		case nano::stat::detail::bulk_pull_error_starting_request:
+			res = "bulk_pull_error_starting_request";
+			break;
+		case nano::stat::detail::bulk_pull_failed_account:
+			res = "bulk_pull_failed_account";
+			break;
+		case nano::stat::detail::bulk_pull_receive_block_failure:
+			res = "bulk_pull_receive_block_failure";
+			break;
+		case nano::stat::detail::bulk_pull_request_failure:
+			res = "bulk_pull_request_failure";
+			break;
+		case nano::stat::detail::bulk_push:
+			res = "bulk_push";
+			break;
+		case nano::stat::detail::error_socket_close:
+			res = "error_socket_close";
+			break;
+		case nano::stat::detail::change:
+			res = "change";
+			break;
+		case nano::stat::detail::confirm_ack:
+			res = "confirm_ack";
+			break;
+		case nano::stat::detail::node_id_handshake:
+			res = "node_id_handshake";
+			break;
+		case nano::stat::detail::confirm_req:
+			res = "confirm_req";
+			break;
+		case nano::stat::detail::fork:
+			res = "fork";
+			break;
+		case nano::stat::detail::frontier_req:
+			res = "frontier_req";
+			break;
+		case nano::stat::detail::handshake:
+			res = "handshake";
+			break;
+		case nano::stat::detail::http_callback:
+			res = "http_callback";
+			break;
+		case nano::stat::detail::initiate:
+			res = "initiate";
+			break;
+		case nano::stat::detail::initiate_lazy:
+			res = "initiate_lazy";
+			break;
+		case nano::stat::detail::initiate_wallet_lazy:
+			res = "initiate_wallet_lazy";
+			break;
+		case nano::stat::detail::insufficient_work:
+			res = "insufficient_work";
+			break;
+		case nano::stat::detail::invocations:
+			res = "invocations";
+			break;
+		case nano::stat::detail::keepalive:
+			res = "keepalive";
+			break;
+		case nano::stat::detail::open:
+			res = "open";
+			break;
+		case nano::stat::detail::publish:
+			res = "publish";
+			break;
+		case nano::stat::detail::receive:
+			res = "receive";
+			break;
+		case nano::stat::detail::republish_vote:
+			res = "republish_vote";
+			break;
+		case nano::stat::detail::send:
+			res = "send";
+			break;
+		case nano::stat::detail::state_block:
+			res = "state_block";
+			break;
+		case nano::stat::detail::epoch_block:
+			res = "epoch_block";
+			break;
+		case nano::stat::detail::vote_valid:
+			res = "vote_valid";
+			break;
+		case nano::stat::detail::vote_replay:
+			res = "vote_replay";
+			break;
+		case nano::stat::detail::vote_invalid:
+			res = "vote_invalid";
+			break;
+		case nano::stat::detail::vote_overflow:
+			res = "vote_overflow";
+			break;
+		case nano::stat::detail::blocking:
+			res = "blocking";
+			break;
+		case nano::stat::detail::overflow:
+			res = "overflow";
+			break;
+		case nano::stat::detail::tcp_accept_success:
+			res = "accept_success";
+			break;
+		case nano::stat::detail::tcp_accept_failure:
+			res = "accept_failure";
+			break;
+		case nano::stat::detail::unreachable_host:
+			res = "unreachable_host";
+			break;
+		case nano::stat::detail::invalid_magic:
+			res = "invalid_magic";
+			break;
+		case nano::stat::detail::invalid_network:
+			res = "invalid_network";
+			break;
+		case nano::stat::detail::invalid_header:
+			res = "invalid_header";
+			break;
+		case nano::stat::detail::invalid_message_type:
+			res = "invalid_message_type";
+			break;
+		case nano::stat::detail::invalid_keepalive_message:
+			res = "invalid_keepalive_message";
+			break;
+		case nano::stat::detail::invalid_publish_message:
+			res = "invalid_publish_message";
+			break;
+		case nano::stat::detail::invalid_confirm_req_message:
+			res = "invalid_confirm_req_message";
+			break;
+		case nano::stat::detail::invalid_confirm_ack_message:
+			res = "invalid_confirm_ack_message";
+			break;
+		case nano::stat::detail::invalid_node_id_handshake_message:
+			res = "invalid_node_id_handshake_message";
+			break;
+		case nano::stat::detail::outdated_version:
+			res = "outdated_version";
+			break;
+		case nano::stat::detail::invalid_block:
+			res = "invalid_block";
+			break;
+		case nano::stat::detail::blocks_confirmed:
+			res = "blocks_confirmed";
+	}
+	return res;
+}
+
 std::string nano::stat::dir_to_string (uint32_t key)
 {
 	auto dir = static_cast<stat::dir> (key & 0x000000ff);

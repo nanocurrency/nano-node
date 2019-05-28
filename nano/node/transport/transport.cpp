@@ -87,6 +87,7 @@ void nano::transport::channel::send (nano::message const & message_a, std::funct
 	else
 	{
 		node.stats.inc (nano::stat::type::drop, detail, nano::stat::dir::out);
+		node.logger.try_log (boost::str (boost::format ("%1% of size %2% dropped") % node.stats.detail_raw_to_string (detail) % buffer->size ()));
 	}
 }
 
