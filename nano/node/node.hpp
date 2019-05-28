@@ -263,7 +263,6 @@ public:
 	boost::thread block_processor_thread;
 	nano::block_arrival block_arrival;
 	nano::online_reps online_reps;
-	nano::wallets wallets;
 	nano::votes_cache votes_cache;
 	nano::stat stats;
 	nano::keypair node_id;
@@ -273,6 +272,7 @@ public:
 	nano::active_transactions active;
 	nano::confirmation_height_processor confirmation_height_processor;
 	nano::payment_observer_processor payment_observer_processor;
+	nano::wallets wallets;
 	const std::chrono::steady_clock::time_point startup_time;
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
 	static double constexpr price_max = 16.0;
