@@ -1120,25 +1120,31 @@ void nano::node::start ()
 
 void nano::node::stop ()
 {
-	logger.always_log ("Node stopping");
-	block_processor.stop ();
-	if (block_processor_thread.joinable ())
+	std::unique_lock<std::mutex> lk (stopped_mutex);
+	if (!stopped)
 	{
-		block_processor_thread.join ();
+		stopped = true;
+		lk.unlock ();
+		logger.always_log ("Node stopping");
+		block_processor.stop ();
+		if (block_processor_thread.joinable ())
+		{
+			block_processor_thread.join ();
+		}
+		vote_processor.stop ();
+		confirmation_height_processor.stop ();
+		active.stop ();
+		network.stop ();
+		if (websocket_server)
+		{
+			websocket_server->stop ();
+		}
+		bootstrap_initiator.stop ();
+		bootstrap.stop ();
+		port_mapping.stop ();
+		checker.stop ();
+		wallets.stop ();
 	}
-	vote_processor.stop ();
-	confirmation_height_processor.stop ();
-	active.stop ();
-	network.stop ();
-	if (websocket_server)
-	{
-		websocket_server->stop ();
-	}
-	bootstrap_initiator.stop ();
-	bootstrap.stop ();
-	port_mapping.stop ();
-	checker.stop ();
-	wallets.stop ();
 }
 
 void nano::node::keepalive_preconfigured (std::vector<std::string> const & peers_a)
