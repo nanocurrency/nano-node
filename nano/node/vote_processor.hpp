@@ -51,5 +51,4 @@ private:
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_processor & vote_processor, const std::string & name);
-
 }
