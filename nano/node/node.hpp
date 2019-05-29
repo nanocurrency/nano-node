@@ -27,6 +27,7 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index_container.hpp>
+#include <boost/thread/latch.hpp>
 #include <boost/thread/thread.hpp>
 
 #include <atomic>
@@ -206,6 +207,7 @@ public:
 	void ongoing_online_weight_calculation_queue ();
 	bool online () const;
 	boost::asio::io_context & io_ctx;
+	boost::latch node_initialized_latch;
 	nano::network_params network_params;
 	nano::node_config config;
 	std::shared_ptr<nano::websocket::listener> websocket_server;
@@ -233,7 +235,6 @@ public:
 	boost::thread block_processor_thread;
 	nano::block_arrival block_arrival;
 	nano::online_reps online_reps;
-	nano::wallets wallets;
 	nano::votes_cache votes_cache;
 	nano::stat stats;
 	nano::keypair node_id;
@@ -243,6 +244,7 @@ public:
 	nano::active_transactions active;
 	nano::confirmation_height_processor confirmation_height_processor;
 	nano::payment_observer_processor payment_observer_processor;
+	nano::wallets wallets;
 	const std::chrono::steady_clock::time_point startup_time;
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
 	static double constexpr price_max = 16.0;
