@@ -547,6 +547,7 @@ active (*this, delay_frontier_confirmation_height_updating),
 confirmation_height_processor (pending_confirmation_height, store, ledger.stats, active, ledger.epoch_link, logger),
 payment_observer_processor (observers.blocks),
 wallets (init_a.wallets_store_init, *this),
+node_initialized_latch (1),
 startup_time (std::chrono::steady_clock::now ())
 {
 	if (!init_a.error ())
@@ -796,6 +797,7 @@ startup_time (std::chrono::steady_clock::now ())
 			}
 		}
 	}
+	node_initialized_latch.count_down ();
 }
 
 nano::node::~node ()

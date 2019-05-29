@@ -26,6 +26,7 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index_container.hpp>
+#include <boost/thread/latch.hpp>
 #include <boost/thread/thread.hpp>
 
 #include <atomic>
@@ -236,6 +237,7 @@ public:
 	void ongoing_online_weight_calculation_queue ();
 	bool online () const;
 	boost::asio::io_context & io_ctx;
+	boost::latch node_initialized_latch;
 	nano::network_params network_params;
 	nano::node_config config;
 	std::shared_ptr<nano::websocket::listener> websocket_server;
