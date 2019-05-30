@@ -1,15 +1,17 @@
 #pragma once
 
-#include <atomic>
+#include <nano/lib/errors.hpp>
+#include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/utility.hpp>
+
 #include <boost/circular_buffer.hpp>
 #include <boost/property_tree/ptree.hpp>
+
+#include <atomic>
 #include <chrono>
 #include <map>
 #include <memory>
 #include <mutex>
-#include <nano/lib/errors.hpp>
-#include <nano/lib/jsonconfig.hpp>
-#include <nano/lib/utility.hpp>
 #include <string>
 #include <unordered_map>
 
@@ -217,7 +219,7 @@ public:
 	enum class type : uint8_t
 	{
 		traffic,
-		traffic_bootstrap,
+		traffic_tcp,
 		error,
 		message,
 		block,
@@ -228,6 +230,7 @@ public:
 		http_callback,
 		peering,
 		ipc,
+		tcp,
 		udp,
 		confirmation_height
 	};
@@ -296,6 +299,10 @@ public:
 		invalid_confirm_ack_message,
 		invalid_node_id_handshake_message,
 		outdated_version,
+
+		// tcp
+		tcp_accept_success,
+		tcp_accept_failure,
 
 		// ipc
 		invocations,

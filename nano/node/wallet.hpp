@@ -1,12 +1,14 @@
 #pragma once
 
-#include <boost/thread/thread.hpp>
-#include <mutex>
 #include <nano/lib/config.hpp>
 #include <nano/node/lmdb.hpp>
 #include <nano/node/openclwork.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
+
+#include <boost/thread/thread.hpp>
+
+#include <mutex>
 #include <unordered_set>
 
 namespace nano
@@ -168,6 +170,7 @@ public:
 	void stop ();
 	void run ();
 	void add (std::shared_ptr<nano::block>);
+	bool is_watched (nano::qualified_root const &);
 	std::mutex mutex;
 	nano::node & node;
 	std::condition_variable condition;
@@ -182,7 +185,7 @@ public:
 class wallets final
 {
 public:
-	wallets (bool &, nano::node &);
+	wallets (bool, nano::node &);
 	~wallets ();
 	std::shared_ptr<nano::wallet> open (nano::uint256_union const &);
 	std::shared_ptr<nano::wallet> create (nano::uint256_union const &);

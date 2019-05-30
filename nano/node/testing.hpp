@@ -1,8 +1,10 @@
 #pragma once
 
-#include <chrono>
 #include <nano/lib/errors.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/node/node.hpp>
+
+#include <chrono>
 
 namespace nano
 {
@@ -16,7 +18,7 @@ class system final
 {
 public:
 	system ();
-	system (uint16_t, uint16_t);
+	system (uint16_t, uint16_t, nano::transport::transport_type = nano::transport::transport_type::tcp);
 	~system ();
 	void generate_activity (nano::node &, std::vector<nano::account> &);
 	void generate_mass_activity (uint32_t, nano::node &);
@@ -39,7 +41,7 @@ public:
 	std::error_code poll (const std::chrono::nanoseconds & sleep_time = std::chrono::milliseconds (50));
 	void stop ();
 	void deadline_set (const std::chrono::duration<double, std::nano> & delta);
-	std::shared_ptr<nano::node> add_node (nano::node_config const &, bool = false);
+	std::shared_ptr<nano::node> add_node (nano::node_config const &, bool = false, nano::transport::transport_type = nano::transport::transport_type::tcp);
 	boost::asio::io_context io_ctx;
 	nano::alarm alarm{ io_ctx };
 	std::vector<std::shared_ptr<nano::node>> nodes;

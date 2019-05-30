@@ -1,6 +1,3 @@
-#include <boost/property_tree/json_parser.hpp>
-#include <fstream>
-#include <iostream>
 #include <nano/lib/utility.hpp>
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/daemonconfig.hpp>
@@ -8,8 +5,13 @@
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/openclwork.hpp>
-#include <nano/node/working.hpp>
 #include <nano/rpc/rpc.hpp>
+#include <nano/secure/working.hpp>
+
+#include <boost/property_tree/json_parser.hpp>
+
+#include <fstream>
+#include <iostream>
 
 #ifndef BOOST_PROCESS_SUPPORTED
 #error BOOST_PROCESS_SUPPORTED must be set, check configuration
@@ -60,8 +62,9 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 				std::unique_ptr<nano::rpc_handler_interface> rpc_handler;
 				if (config.rpc_enable)
 				{
-					if (config.rpc.rpc_in_process)
+					if (!config.rpc.child_process.enable)
 					{
+						// Launch rpc in-process
 						nano::rpc_config rpc_config;
 						auto error = nano::read_and_update_rpc_config (data_path, rpc_config);
 						if (error)
@@ -76,16 +79,17 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 					}
 					else
 					{
-						if (!boost::filesystem::exists (config.rpc.rpc_path))
+						// Spawn a child rpc process
+						if (!boost::filesystem::exists (config.rpc.child_process.rpc_path))
 						{
-							throw std::runtime_error (std::string ("RPC is configured to spawn a new process however the file cannot be found at: ") + config.rpc.rpc_path);
+							throw std::runtime_error (std::string ("RPC is configured to spawn a new process however the file cannot be found at: ") + config.rpc.child_process.rpc_path);
 						}
 
 						auto network = node->network_params.network.get_current_network_as_string ();
 #if BOOST_PROCESS_SUPPORTED
-						rpc_process = std::make_unique<boost::process::child> (config.rpc.rpc_path, "--daemon", "--data_path", data_path, "--network", network);
+						rpc_process = std::make_unique<boost::process::child> (config.rpc.child_process.rpc_path, "--daemon", "--data_path", data_path, "--network", network);
 #else
-						auto rpc_exe_command = boost::str (boost::format ("%1% --daemon --data_path=%2% --network=%3%") % config.rpc.rpc_path % data_path % network);
+						auto rpc_exe_command = boost::str (boost::format ("%1% --daemon --data_path=%2% --network=%3%") % config.rpc.child_process.rpc_path % data_path % network);
 						// clang-format off
 						rpc_process_thread = std::make_unique<std::thread> ([rpc_exe_command, &logger = node->logger]() {
 							nano::thread_role::set (nano::thread_role::name::rpc_process_container);

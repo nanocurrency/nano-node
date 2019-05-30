@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/interface.h>
 #include <nano/secure/common.hpp>
@@ -7,8 +8,6 @@
 #include <boost/asio.hpp>
 
 #include <bitset>
-
-#include <crypto/xxhash/xxhash.h>
 
 namespace nano
 {
@@ -22,40 +21,32 @@ bool parse_tcp_endpoint (std::string const &, nano::tcp_endpoint &);
 
 namespace
 {
+uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a, uint16_t port = 0)
+{
+	static nano::random_constants constants;
+	assert (ip_a.is_v6 ());
+	uint64_t result;
+	nano::uint128_union address;
+	address.bytes = ip_a.to_v6 ().to_bytes ();
+	blake2b_state state;
+	blake2b_init (&state, sizeof (result));
+	blake2b_update (&state, constants.random_128.bytes.data (), constants.random_128.bytes.size ());
+	if (port != 0)
+	{
+		blake2b_update (&state, &port, sizeof (port));
+	}
+	blake2b_update (&state, address.bytes.data (), address.bytes.size ());
+	blake2b_final (&state, &result, sizeof (result));
+	return result;
+}
 uint64_t endpoint_hash_raw (nano::endpoint const & endpoint_a)
 {
-	assert (endpoint_a.address ().is_v6 ());
-	nano::uint128_union address;
-	address.bytes = endpoint_a.address ().to_v6 ().to_bytes ();
-	XXH64_state_t * const state = XXH64_createState ();
-	XXH64_reset (state, 0);
-	XXH64_update (state, address.bytes.data (), address.bytes.size ());
-	auto port (endpoint_a.port ());
-	XXH64_update (state, &port, sizeof (port));
-	auto result (XXH64_digest (state));
-	XXH64_freeState (state);
+	uint64_t result (ip_address_hash_raw (endpoint_a.address (), endpoint_a.port ()));
 	return result;
 }
 uint64_t endpoint_hash_raw (nano::tcp_endpoint const & endpoint_a)
 {
-	assert (endpoint_a.address ().is_v6 ());
-	nano::uint128_union address;
-	address.bytes = endpoint_a.address ().to_v6 ().to_bytes ();
-	XXH64_state_t * const state = XXH64_createState ();
-	XXH64_reset (state, 0);
-	XXH64_update (state, address.bytes.data (), address.bytes.size ());
-	auto port (endpoint_a.port ());
-	XXH64_update (state, &port, sizeof (port));
-	auto result (XXH64_digest (state));
-	XXH64_freeState (state);
-	return result;
-}
-uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a)
-{
-	assert (ip_a.is_v6 ());
-	nano::uint128_union bytes;
-	bytes.bytes = ip_a.to_v6 ().to_bytes ();
-	auto result (XXH64 (bytes.bytes.data (), bytes.bytes.size (), 0));
+	uint64_t result (ip_address_hash_raw (endpoint_a.address (), endpoint_a.port ()));
 	return result;
 }
 
@@ -156,6 +147,24 @@ struct hash<::nano::endpoint>
 		return hash (endpoint_a);
 	}
 };
+template <>
+struct hash<::nano::tcp_endpoint>
+{
+	size_t operator() (::nano::tcp_endpoint const & endpoint_a) const
+	{
+		std::hash<::nano::tcp_endpoint> hash;
+		return hash (endpoint_a);
+	}
+};
+template <>
+struct hash<boost::asio::ip::address>
+{
+	size_t operator() (boost::asio::ip::address const & ip_a) const
+	{
+		std::hash<boost::asio::ip::address> hash;
+		return hash (ip_a);
+	}
+};
 }
 
 namespace nano
@@ -195,19 +204,27 @@ public:
 	bool deserialize (nano::stream &);
 	nano::block_type block_type () const;
 	void block_type_set (nano::block_type);
+	uint8_t count_get () const;
+	void count_set (uint8_t);
 	uint8_t version_max;
 	uint8_t version_using;
 	uint8_t version_min;
 	nano::message_type type;
 	std::bitset<16> extensions;
 
-	static size_t constexpr bulk_pull_count_present_flag = 0;
+	void flag_set (uint8_t);
+	static uint8_t constexpr bulk_pull_count_present_flag = 0;
 	bool bulk_pull_is_count_present () const;
+	static uint8_t constexpr node_id_handshake_query_flag = 0;
+	static uint8_t constexpr node_id_handshake_response_flag = 1;
+	bool node_id_handshake_is_query () const;
+	bool node_id_handshake_is_response () const;
 
 	/** Size of the payload in bytes. For some messages, the payload size is based on header flags. */
 	size_t payload_length_bytes () const;
 
 	static std::bitset<16> constexpr block_type_mask = std::bitset<16> (0x0f00);
+	static std::bitset<16> constexpr count_mask = std::bitset<16> (0xf000);
 };
 class message
 {
@@ -298,6 +315,7 @@ public:
 	std::shared_ptr<nano::block> block;
 	std::vector<std::pair<nano::block_hash, nano::block_hash>> roots_hashes;
 	std::string roots_string () const;
+	static size_t size (nano::block_type, size_t = 0);
 };
 class confirm_ack final : public message
 {
@@ -308,6 +326,7 @@ public:
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::confirm_ack const &) const;
 	std::shared_ptr<nano::vote> vote;
+	static size_t size (nano::block_type, size_t = 0);
 };
 class frontier_req final : public message
 {
@@ -372,14 +391,10 @@ public:
 	bool deserialize (nano::stream &);
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::node_id_handshake const &) const;
-	bool is_query_flag () const;
-	void set_query_flag (bool);
-	bool is_response_flag () const;
-	void set_response_flag (bool);
 	boost::optional<nano::uint256_union> query;
 	boost::optional<std::pair<nano::account, nano::signature>> response;
-	static size_t constexpr query_flag = 0;
-	static size_t constexpr response_flag = 1;
+	size_t size () const;
+	static size_t size (nano::message_header const &);
 };
 class message_visitor
 {
@@ -395,12 +410,4 @@ public:
 	virtual void node_id_handshake (nano::node_id_handshake const &) = 0;
 	virtual ~message_visitor ();
 };
-
-/**
- * Returns seconds passed since unix epoch (posix time)
- */
-inline uint64_t seconds_since_epoch ()
-{
-	return std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
-}
 }

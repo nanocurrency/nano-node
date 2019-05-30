@@ -1,18 +1,15 @@
-#include <nano/lib/interface.h>
-
-#include <crypto/xxhash/xxhash.h>
-
-#include <crypto/ed25519-donna/ed25519.h>
-
-#include <boost/property_tree/json_parser.hpp>
-
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
+#include <nano/lib/interface.h>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/work.hpp>
 
+#include <boost/property_tree/json_parser.hpp>
+
 #include <cstring>
+
+#include <crypto/ed25519-donna/ed25519.h>
 
 extern "C" {
 void xrb_uint128_to_dec (xrb_uint128 source, char * destination)

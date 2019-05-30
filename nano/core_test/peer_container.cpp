@@ -1,6 +1,7 @@
-#include <gtest/gtest.h>
 #include <nano/node/node.hpp>
 #include <nano/node/testing.hpp>
+
+#include <gtest/gtest.h>
 
 TEST (peer_container, empty_peers)
 {
@@ -58,31 +59,33 @@ TEST (peer_container, split)
 	nano::endpoint endpoint2 (boost::asio::ip::address_v6::loopback (), 101);
 	auto channel1 (system.nodes[0]->network.udp_channels.insert (endpoint1, 0));
 	ASSERT_NE (nullptr, channel1);
-	channel1->set_last_packet_received (now - std::chrono::seconds (1));
-	system.nodes[0]->network.udp_channels.modify (channel1);
+	system.nodes[0]->network.udp_channels.modify (channel1, [&now](auto channel) {
+		channel->set_last_packet_received (now - std::chrono::seconds (1));
+	});
 	auto channel2 (system.nodes[0]->network.udp_channels.insert (endpoint2, 0));
 	ASSERT_NE (nullptr, channel2);
-	channel2->set_last_packet_received (now + std::chrono::seconds (1));
-	system.nodes[0]->network.udp_channels.modify (channel2);
+	system.nodes[0]->network.udp_channels.modify (channel2, [&now](auto channel) {
+		channel->set_last_packet_received (now + std::chrono::seconds (1));
+	});
 	ASSERT_EQ (2, system.nodes[0]->network.size ());
 	ASSERT_EQ (2, system.nodes[0]->network.udp_channels.size ());
 	system.nodes[0]->network.cleanup (now);
 	ASSERT_EQ (1, system.nodes[0]->network.size ());
 	ASSERT_EQ (1, system.nodes[0]->network.udp_channels.size ());
-	auto list (system.nodes[0]->network.udp_channels.list (1));
+	auto list (system.nodes[0]->network.list (1));
 	ASSERT_EQ (endpoint2, list[0]->get_endpoint ());
 }
 
-TEST (udp_channels, fill_random_clear)
+TEST (channels, fill_random_clear)
 {
 	nano::system system (24000, 1);
 	std::array<nano::endpoint, 8> target;
 	std::fill (target.begin (), target.end (), nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000));
-	system.nodes[0]->network.udp_channels.random_fill (target);
+	system.nodes[0]->network.random_fill (target);
 	ASSERT_TRUE (std::all_of (target.begin (), target.end (), [](nano::endpoint const & endpoint_a) { return endpoint_a == nano::endpoint (boost::asio::ip::address_v6::any (), 0); }));
 }
 
-TEST (udp_channels, fill_random_full)
+TEST (channels, fill_random_full)
 {
 	nano::system system (24000, 1);
 	for (auto i (0); i < 100; ++i)
@@ -91,11 +94,11 @@ TEST (udp_channels, fill_random_full)
 	}
 	std::array<nano::endpoint, 8> target;
 	std::fill (target.begin (), target.end (), nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000));
-	system.nodes[0]->network.udp_channels.random_fill (target);
+	system.nodes[0]->network.random_fill (target);
 	ASSERT_TRUE (std::none_of (target.begin (), target.end (), [](nano::endpoint const & endpoint_a) { return endpoint_a == nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000); }));
 }
 
-TEST (udp_channels, fill_random_part)
+TEST (channels, fill_random_part)
 {
 	nano::system system (24000, 1);
 	std::array<nano::endpoint, 8> target;
@@ -105,7 +108,7 @@ TEST (udp_channels, fill_random_part)
 		system.nodes[0]->network.udp_channels.insert (nano::endpoint (boost::asio::ip::address_v6::loopback (), i + 1), 0);
 	}
 	std::fill (target.begin (), target.end (), nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000));
-	system.nodes[0]->network.udp_channels.random_fill (target);
+	system.nodes[0]->network.random_fill (target);
 	ASSERT_TRUE (std::none_of (target.begin (), target.begin () + half, [](nano::endpoint const & endpoint_a) { return endpoint_a == nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000); }));
 	ASSERT_TRUE (std::none_of (target.begin (), target.begin () + half, [](nano::endpoint const & endpoint_a) { return endpoint_a == nano::endpoint (boost::asio::ip::address_v6::loopback (), 0); }));
 	ASSERT_TRUE (std::all_of (target.begin () + half, target.end (), [](nano::endpoint const & endpoint_a) { return endpoint_a == nano::endpoint (boost::asio::ip::address_v6::any (), 0); }));
@@ -114,13 +117,13 @@ TEST (udp_channels, fill_random_part)
 TEST (peer_container, list_fanout)
 {
 	nano::system system (24000, 1);
-	auto list1 (system.nodes[0]->network.udp_channels.list_fanout ());
+	auto list1 (system.nodes[0]->network.list_fanout ());
 	ASSERT_TRUE (list1.empty ());
 	for (auto i (0); i < 1000; ++i)
 	{
 		ASSERT_NE (nullptr, system.nodes[0]->network.udp_channels.insert (nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000 + i), nano::protocol_version));
 	}
-	auto list2 (system.nodes[0]->network.udp_channels.list_fanout ());
+	auto list2 (system.nodes[0]->network.list_fanout ());
 	ASSERT_EQ (32, list2.size ());
 }
 
@@ -131,17 +134,17 @@ TEST (peer_container, reachout)
 	nano::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), 24000);
 	// Make sure having been contacted by them already indicates we shouldn't reach out
 	system.nodes[0]->network.udp_channels.insert (endpoint0, nano::protocol_version);
-	ASSERT_TRUE (system.nodes[0]->network.udp_channels.reachout (endpoint0));
+	ASSERT_TRUE (system.nodes[0]->network.reachout (endpoint0));
 	nano::endpoint endpoint1 (boost::asio::ip::address_v6::loopback (), 24001);
-	ASSERT_FALSE (system.nodes[0]->network.udp_channels.reachout (endpoint1));
+	ASSERT_FALSE (system.nodes[0]->network.reachout (endpoint1));
 	// Reaching out to them once should signal we shouldn't reach out again.
-	ASSERT_TRUE (system.nodes[0]->network.udp_channels.reachout (endpoint1));
+	ASSERT_TRUE (system.nodes[0]->network.reachout (endpoint1));
 	// Make sure we don't purge new items
 	system.nodes[0]->network.cleanup (std::chrono::steady_clock::now () - std::chrono::seconds (10));
-	ASSERT_TRUE (system.nodes[0]->network.udp_channels.reachout (endpoint1));
+	ASSERT_TRUE (system.nodes[0]->network.reachout (endpoint1));
 	// Make sure we purge old items
 	system.nodes[0]->network.cleanup (std::chrono::steady_clock::now () + std::chrono::seconds (10));
-	ASSERT_FALSE (system.nodes[0]->network.udp_channels.reachout (endpoint1));
+	ASSERT_FALSE (system.nodes[0]->network.reachout (endpoint1));
 }
 
 TEST (peer_container, depeer)

@@ -1,11 +1,13 @@
-#include <boost/endian/conversion.hpp>
-#include <boost/property_tree/json_parser.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/json_error_response.hpp>
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/rpc_handler_interface.hpp>
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/rpc/rpc_handler.hpp>
+
+#include <boost/endian/conversion.hpp>
+#include <boost/property_tree/json_parser.hpp>
+
 #include <unordered_set>
 
 namespace
@@ -118,6 +120,7 @@ std::unordered_set<std::string> create_rpc_control_impls ()
 	set.emplace ("block_create");
 	set.emplace ("bootstrap_lazy");
 	set.emplace ("confirmation_height_currently_processing");
+	set.emplace ("database_txn_tracker");
 	set.emplace ("keepalive");
 	set.emplace ("ledger");
 	set.emplace ("node_id");

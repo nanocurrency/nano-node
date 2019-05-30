@@ -8,6 +8,7 @@
 int main (int argc, char ** argv)
 {
 	nano::network_constants::set_active_network (nano::nano_networks::nano_test_network);
+	nano::block_memory_pool_cleanup_guard block_memory_pool_cleanup_guard;
 	QApplication application (argc, argv);
 	QCoreApplication::setOrganizationName ("Nano");
 	QCoreApplication::setOrganizationDomain ("nano.org");
@@ -15,6 +16,7 @@ int main (int argc, char ** argv)
 	nano_qt::eventloop_processor processor;
 	static int count (16);
 	nano::system system (24000, count);
+	nano::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
 	std::unique_ptr<QTabWidget> client_tabs (new QTabWidget);
 	std::vector<std::unique_ptr<nano_qt::wallet>> guis;
 	for (auto i (0); i < count; ++i)
@@ -28,7 +30,6 @@ int main (int argc, char ** argv)
 		client_tabs->addTab (guis.back ()->client_window, boost::str (boost::format ("Wallet %1%") % i).c_str ());
 	}
 	client_tabs->show ();
-	nano::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
 	QObject::connect (&application, &QApplication::aboutToQuit, [&]() {
 		system.stop ();
 	});

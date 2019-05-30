@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <chrono>
 #include <iomanip>
 #include <iostream>
@@ -119,7 +120,7 @@ public:
 	}
 
 	/** Returns the duration in UNIT since the timer was last started. */
-	UNIT since_start ()
+	UNIT since_start () const
 	{
 		auto end = CLOCK::now ();
 		return std::chrono::duration_cast<UNIT> (end - begin);

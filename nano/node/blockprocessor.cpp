@@ -1,8 +1,9 @@
-#include <cassert>
 #include <nano/lib/timer.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/node.hpp>
 #include <nano/secure/blockstore.hpp>
+
+#include <cassert>
 
 std::chrono::milliseconds constexpr nano::block_processor::confirmation_request_delay;
 
@@ -296,7 +297,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 				std::vector<nano::block_hash> rollback_list;
 				if (node.ledger.rollback (transaction, successor->hash (), rollback_list))
 				{
-					node.logger.always_log (boost::str (boost::format ("Failed to roll back %1% because it or a successor was confirmed") % successor->hash ().to_string ()));
+					node.logger.always_log (nano::severity_level::error, boost::str (boost::format ("Failed to roll back %1% because it or a successor was confirmed") % successor->hash ().to_string ()));
 				}
 				else
 				{

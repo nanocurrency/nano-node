@@ -1,13 +1,13 @@
-#include <boost/property_tree/json_parser.hpp>
-
-#include <fstream>
-
-#include <gtest/gtest.h>
 #include <nano/core_test/testutil.hpp>
-
 #include <nano/lib/interface.h>
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
+
+#include <gtest/gtest.h>
+
+#include <boost/property_tree/json_parser.hpp>
+
+#include <fstream>
 
 #include <crypto/ed25519-donna/ed25519.h>
 
@@ -310,78 +310,6 @@ TEST (block, publish_req_serialization)
 	ASSERT_FALSE (error);
 	ASSERT_EQ (req, req2);
 	ASSERT_EQ (*req.block, *req2.block);
-}
-
-TEST (block, confirm_req_serialization)
-{
-	nano::keypair key1;
-	nano::keypair key2;
-	auto block (std::make_shared<nano::send_block> (0, key2.pub, 200, nano::keypair ().prv, 2, 3));
-	nano::confirm_req req (block);
-	std::vector<uint8_t> bytes;
-	{
-		nano::vectorstream stream (bytes);
-		req.serialize (stream);
-	}
-	auto error (false);
-	nano::bufferstream stream2 (bytes.data (), bytes.size ());
-	nano::message_header header (error, stream2);
-	nano::confirm_req req2 (error, stream2, header);
-	ASSERT_FALSE (error);
-	ASSERT_EQ (req, req2);
-	ASSERT_EQ (*req.block, *req2.block);
-}
-
-TEST (block, confirm_req_hash_serialization)
-{
-	nano::keypair key1;
-	nano::keypair key2;
-	nano::send_block block (1, key2.pub, 200, nano::keypair ().prv, 2, 3);
-	nano::confirm_req req (block.hash (), block.root ());
-	std::vector<uint8_t> bytes;
-	{
-		nano::vectorstream stream (bytes);
-		req.serialize (stream);
-	}
-	auto error (false);
-	nano::bufferstream stream2 (bytes.data (), bytes.size ());
-	nano::message_header header (error, stream2);
-	nano::confirm_req req2 (error, stream2, header);
-	ASSERT_FALSE (error);
-	ASSERT_EQ (req, req2);
-	ASSERT_EQ (req.roots_hashes, req2.roots_hashes);
-}
-
-TEST (block, confirm_req_hash_batch_serialization)
-{
-	nano::keypair key;
-	nano::keypair representative;
-	std::vector<std::pair<nano::block_hash, nano::block_hash>> roots_hashes;
-	nano::state_block open (key.pub, 0, representative.pub, 2, 4, key.prv, key.pub, 5);
-	roots_hashes.push_back (std::make_pair (open.hash (), open.root ()));
-	for (auto i (roots_hashes.size ()); i < 7; i++)
-	{
-		nano::keypair key1;
-		nano::keypair previous;
-		nano::state_block block (key1.pub, previous.pub, representative.pub, 2, 4, key1.prv, key1.pub, 5);
-		roots_hashes.push_back (std::make_pair (block.hash (), block.root ()));
-	}
-	roots_hashes.push_back (std::make_pair (open.hash (), open.root ()));
-	nano::confirm_req req (roots_hashes);
-	std::vector<uint8_t> bytes;
-	{
-		nano::vectorstream stream (bytes);
-		req.serialize (stream);
-	}
-	auto error (false);
-	nano::bufferstream stream2 (bytes.data (), bytes.size ());
-	nano::message_header header (error, stream2);
-	nano::confirm_req req2 (error, stream2, header);
-	ASSERT_FALSE (error);
-	ASSERT_EQ (req, req2);
-	ASSERT_EQ (req.roots_hashes, req2.roots_hashes);
-	ASSERT_EQ (req.roots_hashes, roots_hashes);
-	ASSERT_EQ (req2.roots_hashes, roots_hashes);
 }
 
 TEST (state_block, serialization)

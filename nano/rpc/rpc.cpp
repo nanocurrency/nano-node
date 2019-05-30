@@ -1,7 +1,8 @@
-#include <boost/format.hpp>
 #include <nano/lib/rpc_handler_interface.hpp>
 #include <nano/rpc/rpc.hpp>
 #include <nano/rpc/rpc_connection.hpp>
+
+#include <boost/format.hpp>
 
 #ifdef NANO_SECURE_RPC
 #include <nano/rpc/rpc_secure.hpp>

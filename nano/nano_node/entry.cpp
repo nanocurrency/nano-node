@@ -7,12 +7,13 @@
 #include <nano/node/node.hpp>
 #include <nano/node/payment_observer_processor.hpp>
 #include <nano/node/testing.hpp>
-#include <sstream>
-
-#include <argon2.h>
 
 #include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
+
+#include <sstream>
+
+#include <argon2.h>
 
 namespace
 {
@@ -58,7 +59,7 @@ void update_flags (nano::node_flags & flags_a, boost::program_options::variables
 int main (int argc, char * const * argv)
 {
 	nano::set_umask ();
-
+	nano::block_memory_pool_cleanup_guard block_memory_pool_cleanup_guard;
 	boost::program_options::options_description description ("Command line options");
 	nano::add_node_options (description);
 
@@ -71,7 +72,7 @@ int main (int argc, char * const * argv)
 		("disable_lazy_bootstrap", "Disables lazy bootstrap")
 		("disable_legacy_bootstrap", "Disables legacy bootstrap")
 		("disable_wallet_bootstrap", "Disables wallet lazy bootstrap")
-		("disable_bootstrap_listener", "Disables bootstrap listener (incoming connections)")
+		("disable_bootstrap_listener", "Disables bootstrap processing for TCP listener (not including realtime network TCP connections)")
 		("disable_unchecked_cleanup", "Disables periodic cleanup of old records from unchecked table")
 		("disable_unchecked_drop", "Disables drop of unchecked table at startup")
 		("fast_bootstrap", "Increase bootstrap speed for high end nodes with higher limits")
@@ -90,7 +91,7 @@ int main (int argc, char * const * argv)
 		("debug_opencl", "OpenCL work generation")
 		("debug_profile_verify", "Profile work verification")
 		("debug_profile_kdf", "Profile kdf function")
-		("debug_validate_ledger", "Does various checks on the ledger to make sure it is valid")
+		("debug_sys_logging", "Test the system logger")
 		("debug_verify_profile", "Profile signature verification")
 		("debug_verify_profile_batch", "Profile batch signature verification")
 		("debug_profile_bootstrap", "Profile bootstrap style blocks processing (at least 10GB of free storage space required)")
@@ -98,6 +99,7 @@ int main (int argc, char * const * argv)
 		("debug_profile_process", "Profile active blocks processing (only for nano_test_network)")
 		("debug_profile_votes", "Profile votes processing (only for nano_test_network)")
 		("debug_random_feed", "Generates output to RNG test suites")
+		("debug_rpc", "Read an RPC command from stdin and invoke it. Network operations will have no effect.")
 		("debug_validate_blocks", "Check all blocks for correct hash, signature, work value")
 		("debug_peers", "Display peer IPv6:port connections")
 		("debug_cemented_block_count", "Displays the number of cemented (confirmed) blocks")
@@ -387,6 +389,11 @@ int main (int argc, char * const * argv)
 					if (nano::from_string_hex (difficulty_it->second.as<std::string> (), difficulty))
 					{
 						std::cerr << "Invalid difficulty\n";
+						result = -1;
+					}
+					else if (difficulty < network_constants.publish_threshold)
+					{
+						std::cerr << "Difficulty below publish threshold\n";
 						result = -1;
 					}
 				}
@@ -767,7 +774,7 @@ int main (int argc, char * const * argv)
 		{
 			nano::inactive_node node (data_path);
 			auto transaction (node.node->store.tx_begin_read ());
-			std::cerr << boost::str (boost::format ("Performing blocks hash, signature, work validation...\n"));
+			std::cout << boost::str (boost::format ("Performing blocks hash, signature, work validation...\n"));
 			size_t count (0);
 			for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n; ++i)
 			{
@@ -778,6 +785,12 @@ int main (int argc, char * const * argv)
 				}
 				nano::account_info info (i->second);
 				nano::account account (i->first);
+
+				if (info.confirmation_height > info.block_count)
+				{
+					std::cerr << "Confirmation height " << info.confirmation_height << " greater than block count " << info.block_count << " for account: " << account.to_account () << std::endl;
+				}
+
 				auto hash (info.open_block);
 				nano::block_hash calculated_hash (0);
 				nano::block_sideband sideband;
@@ -998,70 +1011,17 @@ int main (int argc, char * const * argv)
 			}
 			std::cout << "Total cemented block count: " << sum << std::endl;
 		}
-		else if (vm.count ("debug_validate_ledger"))
+		else if (vm.count ("debug_sys_logging"))
 		{
-			// This checks some issues (can be extended):
-			// 1 - Compares account block count with head sideband height
-			// 2 - Deserialization works for all blocks (might just cause a crash)
-			// 3 - Confirmation height is not greater than account block count
-			// 4 - Account head is not a zero hash
-			std::cout << "Validating ledger, this can take a long time... " << std::endl;
-
-			nano::inactive_node node (data_path);
-			auto transaction (node.node->store.tx_begin_read ());
-			for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n && result == 0; ++i)
+#ifdef BOOST_WINDOWS
+			if (!nano::event_log_reg_entry_exists () && !nano::is_windows_elevated ())
 			{
-				auto const & account = i->first;
-				auto const & account_info = i->second;
-
-				auto account_height = account_info.block_count;
-				if (account_height == 0)
-				{
-					std::cerr << "Invalid block height for " << account.to_account () << std::endl;
-					result = -1;
-					break;
-				}
-
-				if (account_info.confirmation_height > account_info.block_count)
-				{
-					std::cerr << "Confirmation height " << account_info.confirmation_height << " greater than block count " << account_info.block_count << " for account: " << account.to_account () << std::endl;
-					result = -1;
-					break;
-				}
-
-				auto head_hash = account_info.head;
-				if (head_hash.is_zero ())
-				{
-					std::cerr << "Invalid frontier block for " << account.to_account () << std::endl;
-					result = -1;
-					break;
-				}
-
-				nano::block_sideband sideband;
-				auto block = node.node->store.block_get (transaction, head_hash, &sideband);
-				if (sideband.height != account_height)
-				{
-					std::cerr << "Sideband height for head block " << sideband.height << " does not match account block count " << account_height << " for account  " << account.to_account () << std::endl;
-					result = -1;
-					break;
-				}
-
-				// Loop over all blocks in account chain to make sure they can be processed
-				auto hash = head_hash;
-				while (!hash.is_zero ())
-				{
-					block = node.node->store.block_get (transaction, hash);
-
-					if (!block)
-					{
-						std::cerr << "Could not get block hash " << hash.to_string () << std::endl;
-						result = -1;
-						break;
-					}
-					hash = block->previous ();
-				}
+				std::cerr << "The event log requires the HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\EventLog\\Nano\\Nano registry entry, run again as administator to create it.\n";
+				return 1;
 			}
-			std::cout << "No errors detected" << std::endl;
+#endif
+			nano::inactive_node node (data_path);
+			node.node->logger.always_log (nano::severity_level::error, "Testing system logger");
 		}
 		else if (vm.count ("version"))
 		{

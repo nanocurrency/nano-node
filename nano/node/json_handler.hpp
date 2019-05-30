@@ -1,10 +1,12 @@
 #pragma once
 
-#include <boost/property_tree/ptree.hpp>
-#include <functional>
 #include <nano/lib/numbers.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/rpc/rpc.hpp>
+
+#include <boost/property_tree/ptree.hpp>
+
+#include <functional>
 #include <string>
 
 namespace nano
@@ -15,7 +17,8 @@ class node_rpc_config;
 class json_handler : public std::enable_shared_from_this<nano::json_handler>
 {
 public:
-	json_handler (nano::node &, nano::node_rpc_config const &, std::string const &, std::function<void(std::string const &)> const &, std::function<void()> stop_callback = []() {});
+	json_handler (
+	nano::node &, nano::node_rpc_config const &, std::string const &, std::function<void(std::string const &)> const &, std::function<void()> stop_callback = []() {});
 	void process_request (bool unsafe = false);
 	void account_balance ();
 	void account_block_count ();
@@ -56,6 +59,7 @@ public:
 	void confirmation_info ();
 	void confirmation_quorum ();
 	void confirmation_height_currently_processing ();
+	void database_txn_tracker ();
 	void delegators ();
 	void delegators_count ();
 	void deterministic_key ();
@@ -157,7 +161,8 @@ public:
 class inprocess_rpc_handler final : public nano::rpc_handler_interface
 {
 public:
-	inprocess_rpc_handler (nano::node & node_a, nano::node_rpc_config const & node_rpc_config_a, std::function<void()> stop_callback_a = []() {}) :
+	inprocess_rpc_handler (
+	nano::node & node_a, nano::node_rpc_config const & node_rpc_config_a, std::function<void()> stop_callback_a = []() {}) :
 	node (node_a),
 	stop_callback (stop_callback_a),
 	node_rpc_config (node_rpc_config_a)

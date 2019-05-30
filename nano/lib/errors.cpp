@@ -74,6 +74,8 @@ std::string nano::error_common_messages::message (int ev) const
 			return "Invalid work";
 		case nano::error_common::numeric_conversion:
 			return "Numeric conversion error";
+		case nano::error_common::tracking_not_enabled:
+			return "Database transaction tracking is not enabled in the config";
 		case nano::error_common::wallet_lmdb_max_dbs:
 			return "Failed to create wallet. Increase lmdb_max_dbs in node config";
 		case nano::error_common::wallet_locked:
@@ -151,7 +153,7 @@ std::string nano::error_rpc_messages::message (int ev) const
 		case nano::error_rpc::confirmation_not_found:
 			return "Active confirmation not found";
 		case nano::error_rpc::difficulty_limit:
-			return "Difficulty above config limit";
+			return "Difficulty above config limit or below publish threshold";
 		case nano::error_rpc::invalid_balance:
 			return "Invalid balance number";
 		case nano::error_rpc::invalid_destinations:

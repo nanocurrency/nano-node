@@ -1,13 +1,15 @@
 #pragma once
 
+#include <nano/lib/errors.hpp>
+#include <nano/lib/utility.hpp>
+
 #include <boost/asio.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/optional.hpp>
 #include <boost/property_tree/json_parser.hpp>
+
 #include <fstream>
-#include <nano/lib/errors.hpp>
-#include <nano/lib/utility.hpp>
 
 namespace nano
 {
@@ -60,7 +62,6 @@ public:
 	 * Reads a json object from the stream 
 	 * @return nano::error&, including a descriptive error message if the config file is malformed.
 	 */
-	template <typename T>
 	nano::error & read (boost::filesystem::path const & path_a)
 	{
 		std::fstream stream;
@@ -91,7 +92,8 @@ public:
 	template <typename T>
 	nano::error & read_and_update (T & object, boost::filesystem::path const & path_a)
 	{
-		read<T> (path_a);
+		auto file_exists (boost::filesystem::exists (path_a));
+		read (path_a);
 		if (!*error)
 		{
 			std::fstream stream;
@@ -99,6 +101,11 @@ public:
 			*error = object.deserialize_json (updated, *this);
 			if (!*error && updated)
 			{
+				// Before updating the config file during an upgrade make a backup first
+				if (file_exists)
+				{
+					create_backup_file (path_a);
+				}
 				stream.open (path_a.string (), std::ios_base::out | std::ios_base::trunc);
 				try
 				{
@@ -144,6 +151,22 @@ public:
 		}
 
 		stream_a.open (path_a);
+	}
+
+	/** Takes a filepath, appends '_backup_<timestamp>' to the end (but before any extension) and saves that file in the same directory */
+	void create_backup_file (boost::filesystem::path const & filepath_a)
+	{
+		auto extension = filepath_a.extension ();
+		auto filename_without_extension = filepath_a.filename ().replace_extension ("");
+		auto orig_filepath = filepath_a;
+		auto & backup_path = orig_filepath.remove_filename ();
+		auto backup_filename = filename_without_extension;
+		backup_filename += "_backup_";
+		backup_filename += std::to_string (std::chrono::system_clock::now ().time_since_epoch ().count ());
+		backup_filename += extension;
+		auto backup_filepath = backup_path / backup_filename;
+
+		boost::filesystem::copy_file (filepath_a, backup_filepath);
 	}
 
 	/** Returns the boost property node managed by this instance */

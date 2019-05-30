@@ -1,7 +1,8 @@
-#include <boost/format.hpp>
-#include <boost/polymorphic_pointer_cast.hpp>
 #include <nano/rpc/rpc_connection_secure.hpp>
 #include <nano/rpc/rpc_secure.hpp>
+
+#include <boost/format.hpp>
+#include <boost/polymorphic_pointer_cast.hpp>
 
 bool nano::rpc_secure::on_verify_certificate (bool preverified, boost::asio::ssl::verify_context & ctx)
 {
@@ -99,7 +100,7 @@ ssl_context (boost::asio::ssl::context::tlsv12_server)
 
 void nano::rpc_secure::accept ()
 {
-	auto connection (std::make_shared<nano::rpc_connection_secure> (config, network_constants, io_ctx, logger, rpc_handler_interface, this->ssl_context));
+	auto connection (std::make_shared<nano::rpc_connection_secure> (config, io_ctx, logger, rpc_handler_interface, this->ssl_context));
 	acceptor.async_accept (connection->socket, [this, connection](boost::system::error_code const & ec) {
 		if (acceptor.is_open ())
 		{

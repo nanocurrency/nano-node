@@ -1,21 +1,21 @@
 #pragma once
 
-#include <boost/filesystem.hpp>
-#include <boost/log/sources/logger.hpp>
-#include <boost/log/trivial.hpp>
-#include <boost/log/utility/setup/file.hpp>
-#include <cstdint>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/logger_mt.hpp>
 
-#define FATAL_LOG_PREFIX "FATAL ERROR: "
+#include <boost/filesystem.hpp>
+#include <boost/log/sources/logger.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/log/utility/setup/file.hpp>
 
-using namespace std::chrono;
+#include <cstdint>
+
+#define FATAL_LOG_PREFIX "FATAL ERROR: "
 
 namespace nano
 {
-class logging
+class logging final
 {
 public:
 	nano::error serialize_json (nano::jsonconfig &) const;
@@ -25,6 +25,7 @@ public:
 	bool ledger_duplicate_logging () const;
 	bool vote_logging () const;
 	bool network_logging () const;
+	bool network_timeout_logging () const;
 	bool network_message_logging () const;
 	bool network_publish_logging () const;
 	bool network_packet_logging () const;
@@ -45,6 +46,7 @@ public:
 	bool ledger_duplicate_logging_value{ false };
 	bool vote_logging_value{ false };
 	bool network_logging_value{ true };
+	bool network_timeout_logging_value{ false };
 	bool network_message_logging_value{ false };
 	bool network_publish_logging_value{ false };
 	bool network_packet_logging_value{ false };

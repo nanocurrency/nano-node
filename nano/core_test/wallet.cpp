@@ -1,9 +1,10 @@
-#include <gtest/gtest.h>
-
-#include <fstream>
 #include <nano/core_test/testutil.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/node/testing.hpp>
+
+#include <gtest/gtest.h>
+
+#include <fstream>
 
 using namespace std::chrono_literals;
 
@@ -1051,16 +1052,17 @@ TEST (wallet, update_work_action)
 	auto const block (wallet.send_action (nano::test_genesis_key.pub, key.pub, nano::genesis_amount));
 	uint64_t difficulty1 (0);
 	nano::work_validate (*block, &difficulty1);
+	auto multiplier1 = nano::difficulty::to_multiplier (difficulty1, node.network_params.network.publish_threshold);
 	system.deadline_set (10s);
 	auto updated (false);
 	uint64_t updated_difficulty;
 	while (!updated)
 	{
 		std::unique_lock<std::mutex> lock (node.active.mutex);
-		//fill difficulty_cb and update active difficulty;
-		for (auto i (0); i < node.active.difficulty_cb.size (); i++)
+		//fill multipliers_cb and update active difficulty;
+		for (auto i (0); i < node.active.multipliers_cb.size (); i++)
 		{
-			node.active.difficulty_cb.push_back (difficulty1 + 10000);
+			node.active.multipliers_cb.push_back (multiplier1 * (1 + i / 100.));
 		}
 		node.active.update_active_difficulty (lock);
 		auto const existing (node.active.roots.find (block->qualified_root ()));

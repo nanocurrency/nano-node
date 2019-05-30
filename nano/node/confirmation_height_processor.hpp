@@ -1,9 +1,10 @@
 #pragma once
 
-#include <condition_variable>
-#include <mutex>
 #include <nano/lib/numbers.hpp>
 #include <nano/secure/common.hpp>
+
+#include <condition_variable>
+#include <mutex>
 #include <thread>
 #include <unordered_set>
 
@@ -12,7 +13,7 @@ namespace nano
 class block_store;
 class stat;
 class active_transactions;
-class transaction;
+class read_transaction;
 class logger_mt;
 
 class pending_confirmation_height
@@ -41,8 +42,11 @@ public:
 	void stop ();
 	bool is_processing_block (nano::block_hash const &);
 
-	/** The maximum amount of blocks to write at once */
-	static uint64_t constexpr batch_write_size = 4096;
+	/** The maximum amount of accounts to iterate over while writing */
+	static uint64_t constexpr batch_write_size = 2048;
+
+	/** The maximum number of blocks to be read in while iterating over a long account chain */
+	static uint64_t constexpr batch_read_size = 4096;
 
 private:
 	class conf_height_details final
@@ -79,7 +83,7 @@ private:
 
 	void run ();
 	void add_confirmation_height (nano::block_hash const &);
-	void collect_unconfirmed_receive_and_sources_for_account (uint64_t, uint64_t, nano::block_hash const &, nano::account const &, nano::transaction &);
+	void collect_unconfirmed_receive_and_sources_for_account (uint64_t, uint64_t, nano::block_hash const &, nano::account const &, nano::read_transaction const &);
 	bool write_pending (std::deque<conf_height_details> &, int64_t);
 
 	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (confirmation_height_processor &, const std::string &);

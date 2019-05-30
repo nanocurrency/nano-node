@@ -1,15 +1,17 @@
 #pragma once
 
-#include <chrono>
 #include <nano/lib/config.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/stats.hpp>
+#include <nano/node/diagnosticsconfig.hpp>
 #include <nano/node/ipcconfig.hpp>
 #include <nano/node/logging.hpp>
-#include <nano/node/stats.hpp>
 #include <nano/node/websocketconfig.hpp>
 #include <nano/secure/common.hpp>
+
+#include <chrono>
 #include <vector>
 
 namespace nano
@@ -35,6 +37,7 @@ public:
 	unsigned bootstrap_fraction_numerator{ 1 };
 	nano::amount receive_minimum{ nano::xrb_ratio };
 	nano::amount vote_minimum{ nano::Gxrb_ratio };
+	std::chrono::milliseconds vote_generator_delay{ std::chrono::milliseconds (50) };
 	nano::amount online_weight_minimum{ 60000 * nano::Gxrb_ratio };
 	unsigned online_weight_quorum{ 50 };
 	unsigned password_fanout{ 1024 };
@@ -46,6 +49,7 @@ public:
 	unsigned bootstrap_connections{ 4 };
 	unsigned bootstrap_connections_max{ 64 };
 	nano::websocket::config websocket_config;
+	nano::diagnostics_config diagnostics_config;
 	std::string callback_address;
 	uint16_t callback_port{ 0 };
 	std::string callback_target;
@@ -59,9 +63,11 @@ public:
 	uint16_t external_port{ 0 };
 	std::chrono::milliseconds block_processor_batch_max_time{ std::chrono::milliseconds (5000) };
 	std::chrono::seconds unchecked_cutoff_time{ std::chrono::seconds (4 * 60 * 60) }; // 4 hours
-	std::chrono::seconds tcp_client_timeout{ std::chrono::seconds (5) };
-	std::chrono::seconds tcp_server_timeout{ std::chrono::seconds (30) };
+	/** Timeout for initiated async operations */
+	std::chrono::seconds tcp_io_timeout{ (network_params.network.is_test_network () && !is_sanitizer_build) ? std::chrono::seconds (5) : std::chrono::seconds (15) };
 	std::chrono::nanoseconds pow_sleep_interval{ 0 };
+	/** Default maximum incoming TCP connections, including realtime network & bootstrap */
+	unsigned tcp_incoming_connections_max{ 1024 };
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);

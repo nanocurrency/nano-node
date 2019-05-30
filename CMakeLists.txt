@@ -37,6 +37,7 @@ set(USING_TSAN (NANO_TSAN OR RAIBLOCKS_TSAN))
 find_package(Threads)
 
 if (WIN32)
+	find_library (PSAPI Psapi)
 	add_definitions(-D_WIN32_WINNT=0x0600
 					-DWINVER=0x0600
 					-DWIN32_LEAN_AND_MEAN
@@ -264,10 +265,6 @@ target_include_directories(argon2 PUBLIC crypto/phc-winner-argon2/include)
 target_include_directories(argon2 PUBLIC crypto/phc-winner-argon2/src)
 target_include_directories(argon2 PUBLIC crypto/blake2)
 
-add_library (xxhash
-	crypto/xxhash/xxhash.c
-	crypto/xxhash/xxhash.h)
-
 add_library (lmdb
 	lmdb/libraries/liblmdb/lmdb.h
 	lmdb/libraries/liblmdb/mdb.c
@@ -316,6 +313,8 @@ if (NANO_TEST OR RAIBLOCKS_TEST)
         set (gtest_force_shared_crt OFF)
     endif()
 
+    add_subdirectory(nano/load_test)
+
     add_subdirectory (gtest/googletest)
 	# FIXME: This fixes gtest include directories without modifying gtest's
 	# CMakeLists.txt. Ideally we should use GTest::GTest and GTest::Main as
@@ -342,7 +341,7 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 		nano/qt/qt.hpp)
 
 	target_link_libraries(qt
-		secure nano_lib node libminiupnpc-static Qt5::Gui Qt5::Widgets)
+		node secure nano_lib libminiupnpc-static Qt5::Gui Qt5::Widgets)
 
 	target_compile_definitions(qt
 		PRIVATE
@@ -415,6 +414,8 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 	if (APPLE)
 		CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/Info.plist.in ${CMAKE_SOURCE_DIR}/Info.plist @ONLY)
 		install (TARGETS nano_wallet DESTINATION Nano.app/Contents/MacOS)
+		install (TARGETS nano_node DESTINATION Nano.app/Contents/MacOS)
+		install (TARGETS nano_rpc DESTINATION Nano.app/Contents/MacOS)
 		install (FILES Info.plist DESTINATION Nano.app/Contents)
 		install (FILES qt.conf DESTINATION Nano.app/Contents/Resources)
 		install (DIRECTORY ${Qt5_DIR}/../../QtCore.framework DESTINATION Nano.app/Contents/Frameworks)
@@ -430,7 +431,10 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 		else ()
 			set (WIN_REDIST vc_redist.x86.exe)
 		endif ()
-		set (CPACK_NSIS_EXTRA_INSTALL_COMMANDS "ExecWait '\\\"$INSTDIR\\\\${WIN_REDIST}\\\" /quiet /norestart'")
+		set (CPACK_NSIS_EXTRA_INSTALL_COMMANDS "ExecWait '\\\"$INSTDIR\\\\${WIN_REDIST}\\\" /quiet /norestart'
+												WriteRegDWORD HKLM 'SYSTEM\\\\CurrentControlSet\\\\Services\\\\EventLog\\\\Nano\\\\Nano' 'TypesSupported' '0x7'
+												WriteRegStr HKLM 'SYSTEM\\\\CurrentControlSet\\\\Services\\\\EventLog\\\\Nano\\\\Nano' 'EventMessageFile' '$INSTDIR\\\\nano_wallet.exe'")
+		set (CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS "DeleteRegKey HKLM 'SYSTEM\\\\CurrentControlSet\\\\Services\\\\EventLog\\\\Nano'")
 		set (CPACK_NSIS_MUI_ICON ${CMAKE_SOURCE_DIR}/Nano.ico)
 		set (CPACK_NSIS_DISPLAY_NAME "Nano")
 		set (CPACK_PACKAGE_NAME "Nano_Installer")
@@ -452,9 +456,7 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 		install (FILES ${Qt5WindowsPlugin} DESTINATION platforms)
 	else ()
 		install(TARGETS nano_wallet
-				RUNTIME DESTINATION bin
-				LIBRARY DESTINATION lib
-				ARCHIVE DESTINATION lib
+				RUNTIME DESTINATION .
 		)
 	endif ()
 endif ()

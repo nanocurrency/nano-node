@@ -1,6 +1,6 @@
-#include <gtest/gtest.h>
-
 #include <nano/node/common.hpp>
+
+#include <gtest/gtest.h>
 
 TEST (message, keepalive_serialization)
 {
@@ -82,4 +82,116 @@ TEST (message, confirm_ack_serialization)
 	nano::confirm_ack con2 (error, stream2, header);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (con1, con2);
+	ASSERT_EQ (header.block_type (), nano::block_type::send);
+}
+
+TEST (message, confirm_ack_hash_serialization)
+{
+	std::vector<nano::block_hash> hashes;
+	for (auto i (hashes.size ()); i < 12; i++)
+	{
+		nano::keypair key1;
+		nano::keypair previous;
+		nano::state_block block (key1.pub, previous.pub, key1.pub, 2, 4, key1.prv, key1.pub, 5);
+		hashes.push_back (block.hash ());
+	}
+	nano::keypair representative1;
+	auto vote (std::make_shared<nano::vote> (representative1.pub, representative1.prv, 0, hashes));
+	nano::confirm_ack con1 (vote);
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream1 (bytes);
+		con1.serialize (stream1);
+	}
+	nano::bufferstream stream2 (bytes.data (), bytes.size ());
+	bool error (false);
+	nano::message_header header (error, stream2);
+	nano::confirm_ack con2 (error, stream2, header);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (con1, con2);
+	std::vector<nano::block_hash> vote_blocks;
+	for (auto block : con2.vote->blocks)
+	{
+		vote_blocks.push_back (boost::get<nano::block_hash> (block));
+	}
+	ASSERT_EQ (hashes, vote_blocks);
+	// Check overflow with 12 hashes
+	ASSERT_EQ (header.count_get (), hashes.size ());
+	ASSERT_EQ (header.block_type (), nano::block_type::not_a_block);
+}
+
+TEST (message, confirm_req_serialization)
+{
+	nano::keypair key1;
+	nano::keypair key2;
+	auto block (std::make_shared<nano::send_block> (0, key2.pub, 200, nano::keypair ().prv, 2, 3));
+	nano::confirm_req req (block);
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		req.serialize (stream);
+	}
+	auto error (false);
+	nano::bufferstream stream2 (bytes.data (), bytes.size ());
+	nano::message_header header (error, stream2);
+	nano::confirm_req req2 (error, stream2, header);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (req, req2);
+	ASSERT_EQ (*req.block, *req2.block);
+}
+
+TEST (message, confirm_req_hash_serialization)
+{
+	nano::keypair key1;
+	nano::keypair key2;
+	nano::send_block block (1, key2.pub, 200, nano::keypair ().prv, 2, 3);
+	nano::confirm_req req (block.hash (), block.root ());
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		req.serialize (stream);
+	}
+	auto error (false);
+	nano::bufferstream stream2 (bytes.data (), bytes.size ());
+	nano::message_header header (error, stream2);
+	nano::confirm_req req2 (error, stream2, header);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (req, req2);
+	ASSERT_EQ (req.roots_hashes, req2.roots_hashes);
+	ASSERT_EQ (header.block_type (), nano::block_type::not_a_block);
+	ASSERT_EQ (header.count_get (), req.roots_hashes.size ());
+}
+
+TEST (message, confirm_req_hash_batch_serialization)
+{
+	nano::keypair key;
+	nano::keypair representative;
+	std::vector<std::pair<nano::block_hash, nano::block_hash>> roots_hashes;
+	nano::state_block open (key.pub, 0, representative.pub, 2, 4, key.prv, key.pub, 5);
+	roots_hashes.push_back (std::make_pair (open.hash (), open.root ()));
+	for (auto i (roots_hashes.size ()); i < 7; i++)
+	{
+		nano::keypair key1;
+		nano::keypair previous;
+		nano::state_block block (key1.pub, previous.pub, representative.pub, 2, 4, key1.prv, key1.pub, 5);
+		roots_hashes.push_back (std::make_pair (block.hash (), block.root ()));
+	}
+	roots_hashes.push_back (std::make_pair (open.hash (), open.root ()));
+	nano::confirm_req req (roots_hashes);
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		req.serialize (stream);
+	}
+	auto error (false);
+	nano::bufferstream stream2 (bytes.data (), bytes.size ());
+	nano::message_header header (error, stream2);
+	nano::confirm_req req2 (error, stream2, header);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (req, req2);
+	ASSERT_EQ (req.roots_hashes, req2.roots_hashes);
+	ASSERT_EQ (req.roots_hashes, roots_hashes);
+	ASSERT_EQ (req2.roots_hashes, roots_hashes);
+	ASSERT_EQ (header.block_type (), nano::block_type::not_a_block);
+	ASSERT_EQ (header.count_get (), req.roots_hashes.size ());
 }

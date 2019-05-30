@@ -1,15 +1,17 @@
 #pragma once
 
+#include <nano/lib/blocks.hpp>
+#include <nano/node/voting.hpp>
+#include <nano/secure/common.hpp>
+
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index_container.hpp>
+
 #include <chrono>
 #include <memory>
-#include <nano/lib/blocks.hpp>
-#include <nano/node/voting.hpp>
-#include <nano/secure/common.hpp>
 #include <unordered_set>
 
 namespace nano

@@ -1,8 +1,7 @@
-#include <nano/node/lmdb.hpp>
-
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/lmdb.hpp>
 #include <nano/secure/versioning.hpp>
 
 #include <boost/endian/conversion.hpp>
@@ -68,14 +67,14 @@ nano::mdb_env::operator MDB_env * () const
 	return environment;
 }
 
-nano::read_transaction nano::mdb_env::tx_begin_read () const
+nano::read_transaction nano::mdb_env::tx_begin_read (mdb_txn_callbacks mdb_txn_callbacks) const
 {
-	return nano::read_transaction{ std::make_unique<nano::read_mdb_txn> (*this) };
+	return nano::read_transaction{ std::make_unique<nano::read_mdb_txn> (*this, mdb_txn_callbacks) };
 }
 
-nano::write_transaction nano::mdb_env::tx_begin_write () const
+nano::write_transaction nano::mdb_env::tx_begin_write (mdb_txn_callbacks mdb_txn_callbacks) const
 {
-	return nano::write_transaction{ std::make_unique<nano::write_mdb_txn> (*this) };
+	return nano::write_transaction{ std::make_unique<nano::write_mdb_txn> (*this, mdb_txn_callbacks) };
 }
 
 MDB_txn * nano::mdb_env::tx (nano::transaction const & transaction_a) const
@@ -83,26 +82,33 @@ MDB_txn * nano::mdb_env::tx (nano::transaction const & transaction_a) const
 	return static_cast<MDB_txn *> (transaction_a.get_handle ());
 }
 
-nano::read_mdb_txn::read_mdb_txn (nano::mdb_env const & environment_a)
+nano::read_mdb_txn::read_mdb_txn (nano::mdb_env const & environment_a, nano::mdb_txn_callbacks txn_callbacks_a) :
+txn_callbacks (txn_callbacks_a)
 {
 	auto status (mdb_txn_begin (environment_a, nullptr, MDB_RDONLY, &handle));
 	release_assert (status == 0);
+	txn_callbacks.txn_start (this);
 }
 
 nano::read_mdb_txn::~read_mdb_txn ()
 {
-	mdb_txn_abort (handle);
+	// This uses commit rather than abort, as it is needed when opening databases with a read only transaction
+	auto status (mdb_txn_commit (handle));
+	release_assert (status == MDB_SUCCESS);
+	txn_callbacks.txn_end (this);
 }
 
 void nano::read_mdb_txn::reset () const
 {
 	mdb_txn_reset (handle);
+	txn_callbacks.txn_end (this);
 }
 
 void nano::read_mdb_txn::renew () const
 {
 	auto status (mdb_txn_renew (handle));
 	release_assert (status == 0);
+	txn_callbacks.txn_start (this);
 }
 
 void * nano::read_mdb_txn::get_handle () const
@@ -110,8 +116,9 @@ void * nano::read_mdb_txn::get_handle () const
 	return handle;
 }
 
-nano::write_mdb_txn::write_mdb_txn (nano::mdb_env const & environment_a) :
-env (environment_a)
+nano::write_mdb_txn::write_mdb_txn (nano::mdb_env const & environment_a, nano::mdb_txn_callbacks txn_callbacks_a) :
+env (environment_a),
+txn_callbacks (txn_callbacks_a)
 {
 	renew ();
 }
@@ -125,12 +132,14 @@ void nano::write_mdb_txn::commit () const
 {
 	auto status (mdb_txn_commit (handle));
 	release_assert (status == MDB_SUCCESS);
+	txn_callbacks.txn_end (this);
 }
 
 void nano::write_mdb_txn::renew ()
 {
 	auto status (mdb_txn_begin (env, nullptr, 0, &handle));
 	release_assert (status == MDB_SUCCESS);
+	txn_callbacks.txn_start (this);
 }
 
 void * nano::write_mdb_txn::get_handle () const
@@ -405,7 +414,7 @@ nano::mdb_val::operator MDB_val * () const
 {
 	// Allow passing a temporary to a non-c++ function which doesn't have constness
 	return const_cast<MDB_val *> (&value);
-};
+}
 
 nano::mdb_val::operator MDB_val const & () const
 {
@@ -813,53 +822,81 @@ nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> nano::mdb_store
 	return nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> (nullptr);
 }
 
-nano::mdb_store::mdb_store (bool & error_a, nano::logger_mt & logger_a, boost::filesystem::path const & path_a, int lmdb_max_dbs, bool drop_unchecked, size_t const batch_size) :
+nano::mdb_store::mdb_store (bool & error_a, nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, bool drop_unchecked, size_t const batch_size) :
 logger (logger_a),
-env (error_a, path_a, lmdb_max_dbs)
+env (error_a, path_a, lmdb_max_dbs),
+mdb_txn_tracker (logger_a, txn_tracking_config_a, block_processor_batch_max_time_a),
+txn_tracking_enabled (txn_tracking_config_a.enable)
 {
 	if (!error_a)
 	{
-		auto transaction (tx_begin_write ());
-		error_a |= mdb_dbi_open (env.tx (transaction), "frontiers", MDB_CREATE, &frontiers) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "accounts", MDB_CREATE, &accounts_v0) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "accounts_v1", MDB_CREATE, &accounts_v1) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "send", MDB_CREATE, &send_blocks) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "receive", MDB_CREATE, &receive_blocks) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "open", MDB_CREATE, &open_blocks) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "change", MDB_CREATE, &change_blocks) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "state", MDB_CREATE, &state_blocks_v0) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "state_v1", MDB_CREATE, &state_blocks_v1) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "pending", MDB_CREATE, &pending_v0) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "pending_v1", MDB_CREATE, &pending_v1) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "representation", MDB_CREATE, &representation) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "unchecked", MDB_CREATE, &unchecked) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "vote", MDB_CREATE, &vote) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "online_weight", MDB_CREATE, &online_weight) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "meta", MDB_CREATE, &meta) != 0;
-		error_a |= mdb_dbi_open (env.tx (transaction), "peers", MDB_CREATE, &peers) != 0;
-		if (!full_sideband (transaction))
+		auto is_fully_upgraded (false);
 		{
-			error_a |= mdb_dbi_open (env.tx (transaction), "blocks_info", MDB_CREATE, &blocks_info) != 0;
-		}
-		if (!error_a)
-		{
-			do_upgrades (transaction, batch_size);
-			if (drop_unchecked)
+			auto transaction (tx_begin_read ());
+			auto err = mdb_dbi_open (env.tx (transaction), "meta", 0, &meta);
+			if (err == MDB_SUCCESS)
 			{
-				unchecked_clear (transaction);
+				is_fully_upgraded = (version_get (transaction) == version);
+				mdb_dbi_close (env, meta);
 			}
+		}
+
+		// Only open a write lock when upgrades are needed. This is because CLI commands
+		// open inactive nodes which can otherwise be locked here if there is a long write
+		// (can be a few minutes with the --fastbootstrap flag for instance)
+		if (!is_fully_upgraded)
+		{
+			auto transaction (tx_begin_write ());
+			open_databases (error_a, transaction, MDB_CREATE);
+			if (!error_a)
+			{
+				error_a |= do_upgrades (transaction, batch_size);
+			}
+		}
+		else
+		{
+			auto transaction (tx_begin_read ());
+			open_databases (error_a, transaction, 0);
+		}
+
+		if (!error_a && drop_unchecked)
+		{
+			auto transaction (tx_begin_write ());
+			unchecked_clear (transaction);
 		}
 	}
 }
 
+void nano::mdb_store::serialize_mdb_tracker (boost::property_tree::ptree & json, std::chrono::milliseconds min_read_time, std::chrono::milliseconds min_write_time)
+{
+	mdb_txn_tracker.serialize_json (json, min_read_time, min_write_time);
+}
+
 nano::write_transaction nano::mdb_store::tx_begin_write ()
 {
-	return env.tx_begin_write ();
+	return env.tx_begin_write (create_txn_callbacks ());
 }
 
 nano::read_transaction nano::mdb_store::tx_begin_read ()
 {
-	return env.tx_begin_read ();
+	return env.tx_begin_read (create_txn_callbacks ());
+}
+
+nano::mdb_txn_callbacks nano::mdb_store::create_txn_callbacks ()
+{
+	nano::mdb_txn_callbacks mdb_txn_callbacks;
+	if (txn_tracking_enabled)
+	{
+		// clang-format off
+		mdb_txn_callbacks.txn_start = ([&mdb_txn_tracker = mdb_txn_tracker](const nano::transaction_impl * transaction_impl) {
+			mdb_txn_tracker.add (transaction_impl);
+		});
+		mdb_txn_callbacks.txn_end = ([&mdb_txn_tracker = mdb_txn_tracker](const nano::transaction_impl * transaction_impl) {
+			mdb_txn_tracker.erase (transaction_impl);
+		});
+		// clang-format on
+	}
+	return mdb_txn_callbacks;
 }
 
 /**
@@ -876,6 +913,31 @@ void nano::mdb_store::initialize (nano::transaction const & transaction_a, nano:
 	account_put (transaction_a, network_params.ledger.genesis_account, { hash_l, genesis_a.open->hash (), genesis_a.open->hash (), std::numeric_limits<nano::uint128_t>::max (), nano::seconds_since_epoch (), 1, 1, nano::epoch::epoch_0 });
 	representation_put (transaction_a, network_params.ledger.genesis_account, std::numeric_limits<nano::uint128_t>::max ());
 	frontier_put (transaction_a, hash_l, network_params.ledger.genesis_account);
+}
+
+void nano::mdb_store::open_databases (bool & error_a, nano::transaction const & transaction_a, unsigned flags)
+{
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "frontiers", flags, &frontiers) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "accounts", flags, &accounts_v0) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "accounts_v1", flags, &accounts_v1) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "send", flags, &send_blocks) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "receive", flags, &receive_blocks) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "open", flags, &open_blocks) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "change", flags, &change_blocks) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "state", flags, &state_blocks_v0) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "state_v1", flags, &state_blocks_v1) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "pending", flags, &pending_v0) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "pending_v1", flags, &pending_v1) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "representation", flags, &representation) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "unchecked", flags, &unchecked) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "vote", flags, &vote) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "online_weight", flags, &online_weight) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "meta", flags, &meta) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "peers", flags, &peers) != 0;
+	if (!full_sideband (transaction_a))
+	{
+		error_a |= mdb_dbi_open (env.tx (transaction_a), "blocks_info", flags, &blocks_info) != 0;
+	}
 }
 
 void nano::mdb_store::version_put (nano::transaction const & transaction_a, int version_a)
@@ -959,9 +1021,11 @@ nano::store_iterator<nano::endpoint_key, nano::no_value> nano::mdb_store::peers_
 	return result;
 }
 
-void nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, size_t batch_size)
+bool nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, size_t batch_size)
 {
-	switch (version_get (transaction_a))
+	auto error (false);
+	auto version_l = version_get (transaction_a);
+	switch (version_l)
 	{
 		case 1:
 			upgrade_v1_to_v2 (transaction_a);
@@ -992,8 +1056,11 @@ void nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, size
 		case 14:
 			break;
 		default:
-			assert (false);
+			logger.always_log (boost::str (boost::format ("The version of the ledger (%1%) is too high for this node") % version_l));
+			error = true;
+			break;
 	}
+	return error;
 }
 
 void nano::mdb_store::upgrade_v1_to_v2 (nano::transaction const & transaction_a)
@@ -1019,7 +1086,7 @@ void nano::mdb_store::upgrade_v1_to_v2 (nano::transaction const & transaction_a)
 				block = block_get (transaction_a, block->previous ());
 			}
 			v2.open_block = block->hash ();
-			auto status (mdb_put (env.tx (transaction_a), accounts_v0, nano::mdb_val (account), v2.val (), 0));
+			auto status (mdb_put (env.tx (transaction_a), accounts_v0, nano::mdb_val (account), nano::mdb_val (sizeof (v2), &v2), 0));
 			release_assert (status == 0);
 			account = account.number () + 1;
 		}
@@ -1043,7 +1110,7 @@ void nano::mdb_store::upgrade_v2_to_v3 (nano::transaction const & transaction_a)
 		assert (!visitor.result.is_zero ());
 		info.rep_block = visitor.result;
 		auto impl (boost::polymorphic_downcast<nano::mdb_iterator<nano::account, nano::account_info_v5> *> (i.get ()));
-		mdb_cursor_put (impl->cursor, nano::mdb_val (account_l), info.val (), MDB_CURRENT);
+		mdb_cursor_put (impl->cursor, nano::mdb_val (account_l), nano::mdb_val (sizeof (info), &info), MDB_CURRENT);
 		representation_add (transaction_a, visitor.result, info.balance.number ());
 	}
 }

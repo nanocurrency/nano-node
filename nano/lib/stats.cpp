@@ -1,8 +1,9 @@
-#include <nano/node/stats.hpp>
+#include <nano/lib/stats.hpp>
 
 #include <boost/asio.hpp>
 #include <boost/format.hpp>
 #include <boost/property_tree/json_parser.hpp>
+
 #include <ctime>
 #include <fstream>
 #include <iostream>
@@ -343,6 +344,9 @@ std::string nano::stat::type_to_string (uint32_t key)
 		case nano::stat::type::ledger:
 			res = "ledger";
 			break;
+		case nano::stat::type::tcp:
+			res = "tcp";
+			break;
 		case nano::stat::type::udp:
 			res = "udp";
 			break;
@@ -355,7 +359,7 @@ std::string nano::stat::type_to_string (uint32_t key)
 		case nano::stat::type::traffic:
 			res = "traffic";
 			break;
-		case nano::stat::type::traffic_bootstrap:
+		case nano::stat::type::traffic_tcp:
 			res = "traffic_bootstrap";
 			break;
 		case nano::stat::type::vote:
@@ -489,6 +493,12 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 		case nano::stat::detail::overflow:
 			res = "overflow";
+			break;
+		case nano::stat::detail::tcp_accept_success:
+			res = "accept_success";
+			break;
+		case nano::stat::detail::tcp_accept_failure:
+			res = "accept_failure";
 			break;
 		case nano::stat::detail::unreachable_host:
 			res = "unreachable_host";

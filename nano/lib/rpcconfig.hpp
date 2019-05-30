@@ -1,9 +1,12 @@
 #pragma once
 
-#include <boost/asio.hpp>
-#include <boost/filesystem.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/errors.hpp>
+
+#include <boost/asio.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/thread.hpp>
+
 #include <string>
 
 namespace nano
@@ -33,23 +36,29 @@ public:
 	std::string client_certs_path;
 };
 
+class rpc_process_config final
+{
+public:
+	nano::network_constants network_constants;
+	unsigned io_threads{ std::max<unsigned> (4, boost::thread::hardware_concurrency ()) };
+	uint16_t ipc_port{ network_constants.default_ipc_port };
+	unsigned num_ipc_connections{ network_constants.is_live_network () ? 8u : network_constants.is_beta_network () ? 4u : 1u };
+};
+
 class rpc_config final
 {
 public:
 	explicit rpc_config (bool = false);
 	nano::error serialize_json (nano::jsonconfig &) const;
 	nano::error deserialize_json (bool & upgraded_a, nano::jsonconfig &);
-	nano::network_constants network_constants;
-	boost::asio::ip::address_v6 address;
-	uint16_t port;
+
+	nano::rpc_process_config rpc_process;
+	boost::asio::ip::address_v6 address{ boost::asio::ip::address_v6::loopback () };
+	uint16_t port{ rpc_process.network_constants.default_rpc_port };
 	bool enable_control;
 	rpc_secure_config secure;
-	uint8_t max_json_depth;
-	uint64_t max_request_size;
-	unsigned io_threads;
-	uint16_t ipc_port;
-	std::string ipc_path;
-	unsigned num_ipc_connections;
+	uint8_t max_json_depth{ 20 };
+	uint64_t max_request_size{ 32 * 1024 * 1024 };
 	static int json_version ()
 	{
 		return 1;

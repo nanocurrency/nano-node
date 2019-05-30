@@ -1,10 +1,12 @@
 #pragma once
 
-#include <array>
-#include <boost/filesystem.hpp>
-#include <chrono>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/numbers.hpp>
+
+#include <boost/filesystem.hpp>
+
+#include <array>
+#include <chrono>
 #include <string>
 
 #define xstr(a) ver_str (a)
@@ -15,6 +17,16 @@
 */
 static const char * NANO_MAJOR_MINOR_VERSION = xstr (NANO_VERSION_MAJOR) "." xstr (NANO_VERSION_MINOR);
 static const char * NANO_MAJOR_MINOR_RC_VERSION = xstr (NANO_VERSION_MAJOR) "." xstr (NANO_VERSION_MINOR) "RC" xstr (NANO_VERSION_PATCH);
+/** Is TSAN/ASAN test build */
+#if defined(__has_feature)
+#if __has_feature(thread_sanitizer) || __has_feature(address_sanitizer)
+static const bool is_sanitizer_build = true;
+#else
+static const bool is_sanitizer_build = false;
+#endif
+#else
+static const bool is_sanitizer_build = false;
+#endif
 
 namespace nano
 {
@@ -55,13 +67,7 @@ public:
 		default_rpc_port = is_live_network () ? 7076 : is_beta_network () ? 55000 : 45000;
 		default_ipc_port = is_live_network () ? 7077 : is_beta_network () ? 56000 : 46000;
 		default_websocket_port = is_live_network () ? 7078 : is_beta_network () ? 57000 : 47000;
-		request_interval_ms = is_test_network () ? 20 : 16000;
-		// Increase interval for test TSAN/ASAN builds
-#if defined(__has_feature)
-#if __has_feature(thread_sanitizer) || __has_feature(address_sanitizer)
-		request_interval_ms = is_test_network () ? 100 : 16000;
-#endif
-#endif
+		request_interval_ms = is_test_network () ? (is_sanitizer_build ? 100 : 20) : 16000;
 	}
 
 	/** The network this param object represents. This may differ from the global active network; this is needed for certain --debug... commands */

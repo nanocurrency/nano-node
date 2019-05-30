@@ -2,6 +2,7 @@
 
 #include <nano/lib/config.hpp>
 #include <nano/lib/errors.hpp>
+
 #include <string>
 
 namespace nano
@@ -30,6 +31,11 @@ namespace ipc
 		 * this value will be conditional on OS.
 		 */
 		std::string path{ "/tmp/nano" };
+
+		int json_version () const
+		{
+			return 1;
+		}
 	};
 
 	/** TCP specific transport config */
@@ -49,7 +55,7 @@ namespace ipc
 	class ipc_config
 	{
 	public:
-		nano::error deserialize_json (nano::jsonconfig & json_a);
+		nano::error deserialize_json (bool & upgraded_a, nano::jsonconfig & json_a);
 		nano::error serialize_json (nano::jsonconfig & json) const;
 		ipc_config_domain_socket transport_domain;
 		ipc_config_tcp_socket transport_tcp;

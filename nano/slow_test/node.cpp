@@ -1,10 +1,13 @@
-#include <gtest/gtest.h>
 #include <nano/core_test/testutil.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/node/transport/udp.hpp>
 
+#include <gtest/gtest.h>
+
 #include <thread>
+
+using namespace std::chrono_literals;
 
 TEST (system, generate_mass_activity)
 {
@@ -50,7 +53,7 @@ TEST (system, receive_while_synchronizing)
 		nano::node_init init1;
 		auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 		ASSERT_FALSE (init1.error ());
-		nano::transport::channel_udp channel (node1->network.udp_channels, system.nodes[0]->network.endpoint ());
+		auto channel (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, system.nodes[0]->network.endpoint ()));
 		node1->network.send_keepalive (channel);
 		auto wallet (node1->wallets.create (1));
 		ASSERT_EQ (key.pub, wallet->insert_adhoc (key.prv));
@@ -367,7 +370,7 @@ TEST (peer_container, random_set)
 	auto current (std::chrono::steady_clock::now ());
 	for (auto i (0); i < 10000; ++i)
 	{
-		auto list (system.nodes[0]->network.udp_channels.random_set (15));
+		auto list (system.nodes[0]->network.random_set (15));
 	}
 	auto end (std::chrono::steady_clock::now ());
 	(void)end;
@@ -443,9 +446,77 @@ TEST (node, mass_vote_by_hash)
 	}
 }
 
+TEST (confirmation_height, many_accounts)
+{
+	bool delay_frontier_confirmation_height_updating = true;
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.online_weight_minimum = 100;
+	auto node = system.add_node (node_config, delay_frontier_confirmation_height_updating);
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+
+	// The number of frontiers should be more than the batch_write_size to test the amount of blocks confirmed is correct.
+	auto num_accounts = nano::confirmation_height_processor::batch_write_size * 2 + 50;
+	nano::keypair last_keypair = nano::test_genesis_key;
+	auto last_open_hash = node->latest (nano::test_genesis_key.pub);
+	{
+		auto transaction = node->store.tx_begin_write ();
+		for (auto i = num_accounts - 1; i > 0; --i)
+		{
+			nano::keypair key;
+			system.wallet (0)->insert_adhoc (key.prv);
+
+			nano::send_block send (last_open_hash, key.pub, nano::Gxrb_ratio, last_keypair.prv, last_keypair.pub, system.work.generate (last_open_hash));
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
+			nano::open_block open (send.hash (), last_keypair.pub, key.pub, key.prv, key.pub, system.work.generate (key.pub));
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, open).code);
+			last_open_hash = open.hash ();
+			last_keypair = key;
+		}
+	}
+
+	// Call block confirm on the last open block which will confirm everything
+	{
+		auto transaction = node->store.tx_begin_read ();
+		auto block = node->store.block_get (transaction, last_open_hash);
+		node->block_confirm (block);
+	}
+
+	system.deadline_set (60s);
+	while (true)
+	{
+		auto transaction = node->store.tx_begin_read ();
+		if (node->ledger.block_confirmed (transaction, last_open_hash))
+		{
+			break;
+		}
+
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	auto transaction (node->store.tx_begin_read ());
+	// All frontiers (except last) should have 2 blocks and both should be confirmed
+	for (auto i (node->store.latest_begin (transaction)), n (node->store.latest_end ()); i != n; ++i)
+	{
+		auto & account = i->first;
+		auto & account_info = i->second;
+		if (account != last_keypair.pub)
+		{
+			ASSERT_EQ (2, account_info.confirmation_height);
+			ASSERT_EQ (2, account_info.block_count);
+		}
+		else
+		{
+			ASSERT_EQ (1, account_info.confirmation_height);
+			ASSERT_EQ (1, account_info.block_count);
+		}
+	}
+
+	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), num_accounts * 2 - 2);
+}
+
 TEST (confirmation_height, long_chains)
 {
-	// The chains should be longer than the	batch_write_size to test the amount of blocks confirmed is correct.
 	bool delay_frontier_confirmation_height_updating = true;
 	nano::system system;
 	auto node = system.add_node (nano::node_config (24000, system.logging), delay_frontier_confirmation_height_updating);
@@ -454,7 +525,7 @@ TEST (confirmation_height, long_chains)
 	nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
 	system.wallet (0)->insert_adhoc (key1.prv);
 
-	auto num_blocks = nano::confirmation_height_processor::batch_write_size * 2 + 50; // Give it a slight offset so it's not completely evenly divisible
+	constexpr auto num_blocks = 10000;
 
 	// First open the other account
 	nano::send_block send (latest, key1.pub, nano::genesis_amount - nano::Gxrb_ratio + num_blocks + 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest));

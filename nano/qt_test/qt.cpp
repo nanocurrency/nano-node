@@ -1,15 +1,13 @@
-#include <algorithm>
-
-#include <gtest/gtest.h>
-
 #include <nano/core_test/testutil.hpp>
 #include <nano/node/testing.hpp>
-
 #include <nano/qt/qt.hpp>
+
+#include <gtest/gtest.h>
 
 #include <boost/property_tree/json_parser.hpp>
 
 #include <QTest>
+#include <algorithm>
 #include <thread>
 
 using namespace std::chrono_literals;
@@ -486,11 +484,12 @@ TEST (history, short_text)
 		auto transaction (store.tx_begin_write ());
 		store.initialize (transaction, genesis);
 		nano::keypair key;
-		nano::send_block send (ledger.latest (transaction, nano::test_genesis_key.pub), nano::test_genesis_key.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+		auto latest (ledger.latest (transaction, nano::test_genesis_key.pub));
+		nano::send_block send (latest, nano::test_genesis_key.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest));
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send).code);
-		nano::receive_block receive (send.hash (), send.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+		nano::receive_block receive (send.hash (), send.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send.hash ()));
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive).code);
-		nano::change_block change (receive.hash (), key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+		nano::change_block change (receive.hash (), key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (receive.hash ()));
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, change).code);
 	}
 	nano_qt::history history (ledger, nano::test_genesis_key.pub, *wallet);
@@ -598,7 +597,8 @@ TEST (wallet, republish)
 	nano::block_hash hash;
 	{
 		auto transaction (system.nodes[0]->store.tx_begin_write ());
-		nano::send_block block (system.nodes[0]->ledger.latest (transaction, nano::test_genesis_key.pub), key.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+		auto latest (system.nodes[0]->ledger.latest (transaction, nano::test_genesis_key.pub));
+		nano::send_block block (latest, key.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest));
 		hash = block.hash ();
 		ASSERT_EQ (nano::process_result::progress, system.nodes[0]->ledger.process (transaction, block).code);
 	}

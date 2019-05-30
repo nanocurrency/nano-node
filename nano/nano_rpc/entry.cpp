@@ -1,17 +1,18 @@
-#include <boost/lexical_cast.hpp>
-#include <boost/log/expressions.hpp>
-#include <boost/log/utility/setup/common_attributes.hpp>
-#include <boost/log/utility/setup/file.hpp>
-#include <boost/program_options.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/nano_wallet/icon.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/ipc.hpp>
-#include <nano/node/working.hpp>
 #include <nano/rpc/rpc.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
+#include <nano/secure/working.hpp>
+
+#include <boost/lexical_cast.hpp>
+#include <boost/log/expressions.hpp>
+#include <boost/log/utility/setup/common_attributes.hpp>
+#include <boost/log/utility/setup/file.hpp>
+#include <boost/program_options.hpp>
 
 namespace
 {
@@ -48,7 +49,7 @@ void run (boost::filesystem::path const & data_path)
 			nano::ipc_rpc_processor ipc_rpc_processor (io_ctx, rpc_config);
 			auto rpc = nano::get_rpc (io_ctx, rpc_config, ipc_rpc_processor);
 			rpc->start ();
-			runner = std::make_unique<nano::thread_runner> (io_ctx, rpc_config.io_threads);
+			runner = std::make_unique<nano::thread_runner> (io_ctx, rpc_config.rpc_process.io_threads);
 			runner->join ();
 		}
 		catch (const std::runtime_error & e)
