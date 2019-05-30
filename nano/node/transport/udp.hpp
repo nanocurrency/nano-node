@@ -1,9 +1,17 @@
 #pragma once
 
-#include <mutex>
 #include <nano/node/common.hpp>
-#include <nano/node/stats.hpp>
 #include <nano/node/transport/transport.hpp>
+
+#include <boost/asio/buffer.hpp>
+#include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/mem_fun.hpp>
+#include <boost/multi_index/member.hpp>
+#include <boost/multi_index/ordered_index.hpp>
+#include <boost/multi_index/random_access_index.hpp>
+#include <boost/multi_index_container.hpp>
+
+#include <mutex>
 
 namespace nano
 {

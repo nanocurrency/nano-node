@@ -1,5 +1,7 @@
 #include <nano/secure/versioning.hpp>
 
+#include <lmdb/libraries/liblmdb/lmdb.h>
+
 nano::account_info_v1::account_info_v1 (MDB_val const & val_a)
 {
 	assert (val_a.mv_size == sizeof (*this));
@@ -13,11 +15,6 @@ rep_block (rep_block_a),
 balance (balance_a),
 modified (modified_a)
 {
-}
-
-nano::mdb_val nano::account_info_v1::val () const
-{
-	return nano::mdb_val (sizeof (*this), const_cast<nano::account_info_v1 *> (this));
 }
 
 nano::pending_info_v3::pending_info_v3 (MDB_val const & val_a)
@@ -34,11 +31,6 @@ destination (destination_a)
 {
 }
 
-nano::mdb_val nano::pending_info_v3::val () const
-{
-	return nano::mdb_val (sizeof (*this), const_cast<nano::pending_info_v3 *> (this));
-}
-
 nano::account_info_v5::account_info_v5 (MDB_val const & val_a)
 {
 	assert (val_a.mv_size == sizeof (*this));
@@ -53,11 +45,6 @@ open_block (open_block_a),
 balance (balance_a),
 modified (modified_a)
 {
-}
-
-nano::mdb_val nano::account_info_v5::val () const
-{
-	return nano::mdb_val (sizeof (*this), const_cast<nano::account_info_v5 *> (this));
 }
 
 nano::account_info_v13::account_info_v13 (nano::block_hash const & head_a, nano::block_hash const & rep_block_a, nano::block_hash const & open_block_a, nano::amount const & balance_a, uint64_t modified_a, uint64_t block_count_a, nano::epoch epoch_a) :

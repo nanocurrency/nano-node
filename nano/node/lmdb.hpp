@@ -1,9 +1,5 @@
 #pragma once
 
-#include <boost/filesystem.hpp>
-#include <boost/optional.hpp>
-#include <lmdb/libraries/liblmdb/lmdb.h>
-
 #include <nano/lib/config.hpp>
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
@@ -12,7 +8,12 @@
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
 
+#include <boost/filesystem.hpp>
+#include <boost/optional.hpp>
+
 #include <thread>
+
+#include <lmdb/libraries/liblmdb/lmdb.h>
 
 namespace nano
 {

@@ -1,10 +1,12 @@
+#include <nano/lib/config.hpp>
+#include <nano/qt/qt.hpp>
+
 #include <boost/foreach.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
+
 #include <cmath>
 #include <iomanip>
-#include <nano/lib/config.hpp>
-#include <nano/qt/qt.hpp>
 #include <sstream>
 
 namespace

@@ -1,8 +1,7 @@
-#include <nano/node/lmdb.hpp>
-
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/lmdb.hpp>
 #include <nano/secure/versioning.hpp>
 
 #include <boost/endian/conversion.hpp>
@@ -1087,7 +1086,7 @@ void nano::mdb_store::upgrade_v1_to_v2 (nano::transaction const & transaction_a)
 				block = block_get (transaction_a, block->previous ());
 			}
 			v2.open_block = block->hash ();
-			auto status (mdb_put (env.tx (transaction_a), accounts_v0, nano::mdb_val (account), v2.val (), 0));
+			auto status (mdb_put (env.tx (transaction_a), accounts_v0, nano::mdb_val (account), nano::mdb_val (sizeof (v2), &v2), 0));
 			release_assert (status == 0);
 			account = account.number () + 1;
 		}
@@ -1111,7 +1110,7 @@ void nano::mdb_store::upgrade_v2_to_v3 (nano::transaction const & transaction_a)
 		assert (!visitor.result.is_zero ());
 		info.rep_block = visitor.result;
 		auto impl (boost::polymorphic_downcast<nano::mdb_iterator<nano::account, nano::account_info_v5> *> (i.get ()));
-		mdb_cursor_put (impl->cursor, nano::mdb_val (account_l), info.val (), MDB_CURRENT);
+		mdb_cursor_put (impl->cursor, nano::mdb_val (account_l), nano::mdb_val (sizeof (info), &info), MDB_CURRENT);
 		representation_add (transaction_a, visitor.result, info.balance.number ());
 	}
 }

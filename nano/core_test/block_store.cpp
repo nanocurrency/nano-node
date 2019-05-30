@@ -1,10 +1,11 @@
-#include <gtest/gtest.h>
 #include <nano/core_test/testutil.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
 #include <nano/secure/versioning.hpp>
+
+#include <gtest/gtest.h>
 
 #include <fstream>
 
@@ -820,7 +821,7 @@ TEST (block_store, upgrade_v2_v3)
 		ASSERT_FALSE (store.account_get (transaction, nano::test_genesis_key.pub, info));
 		info.rep_block = 42;
 		nano::account_info_v5 info_old (info.head, info.rep_block, info.open_block, info.balance, info.modified);
-		auto status (mdb_put (store.env.tx (transaction), store.accounts_v0, nano::mdb_val (nano::test_genesis_key.pub), info_old.val (), 0));
+		auto status (mdb_put (store.env.tx (transaction), store.accounts_v0, nano::mdb_val (nano::test_genesis_key.pub), nano::mdb_val (sizeof (info_old), &info_old), 0));
 		assert (status == 0);
 	}
 	nano::logger_mt logger;
@@ -852,7 +853,7 @@ TEST (block_store, upgrade_v3_v4)
 		auto transaction (store.tx_begin_write ());
 		store.version_put (transaction, 3);
 		nano::pending_info_v3 info (key1.pub, 100, key2.pub);
-		auto status (mdb_put (store.env.tx (transaction), store.pending_v0, nano::mdb_val (key3.pub), info.val (), 0));
+		auto status (mdb_put (store.env.tx (transaction), store.pending_v0, nano::mdb_val (key3.pub), nano::mdb_val (sizeof (info), &info), 0));
 		ASSERT_EQ (0, status);
 	}
 	nano::logger_mt logger;
@@ -1733,7 +1734,7 @@ void modify_genesis_account_info_to_v5 (nano::mdb_store & store, nano::transacti
 	nano::account_info info;
 	store.account_get (transaction_a, nano::test_genesis_key.pub, info);
 	nano::account_info_v5 info_old (info.head, info.rep_block, info.open_block, info.balance, info.modified);
-	auto status (mdb_put (store.env.tx (transaction_a), store.accounts_v0, nano::mdb_val (nano::test_genesis_key.pub), info_old.val (), 0));
+	auto status (mdb_put (store.env.tx (transaction_a), store.accounts_v0, nano::mdb_val (nano::test_genesis_key.pub), nano::mdb_val (sizeof (info_old), &info_old), 0));
 	assert (status == 0);
 }
 }

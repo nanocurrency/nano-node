@@ -1,13 +1,13 @@
-#include <nano/node/bootstrap.hpp>
-
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/node/bootstrap.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
 #include <nano/node/transport/udp.hpp>
 
-#include <algorithm>
 #include <boost/log/trivial.hpp>
+
+#include <algorithm>
 
 constexpr double bootstrap_connection_scale_target_blocks = 50000.0;
 constexpr double bootstrap_connection_warmup_time_sec = 5.0;
@@ -1163,6 +1163,9 @@ void nano::bootstrap_attempt::pool_connection (std::shared_ptr<nano::bootstrap_c
 	std::lock_guard<std::mutex> lock (mutex);
 	if (!stopped && !client_a->pending_stop)
 	{
+		// Idle bootstrap client socket
+		client_a->channel->socket->start_timer (node->network_params.node.idle_timeout);
+		// Push into idle deque
 		idle.push_front (client_a);
 	}
 	condition.notify_all ();
@@ -1931,6 +1934,8 @@ node (node_a)
 
 void nano::bootstrap_server::receive ()
 {
+	// Increase timeout to receive TCP header (idle server socket)
+	socket->set_timeout (node->network_params.node.idle_timeout);
 	auto this_l (shared_from_this ());
 	socket->async_read (receive_buffer, 8, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		// Set remote_endpoint
@@ -1938,6 +1943,8 @@ void nano::bootstrap_server::receive ()
 		{
 			this_l->remote_endpoint = this_l->socket->remote_endpoint ();
 		}
+		// Decrease timeout to default
+		this_l->socket->set_timeout (this_l->node->config.tcp_io_timeout);
 		// Receive header
 		this_l->receive_header_action (ec, size_a);
 	});
@@ -2388,6 +2395,7 @@ public:
 			auto cookie (connection->node->network.tcp_channels.assign_syn_cookie (connection->remote_endpoint));
 			nano::node_id_handshake response_message (cookie, response);
 			auto bytes = response_message.to_bytes ();
+			// clang-format off
 			connection->socket->async_write (bytes, [ bytes, connection = connection ](boost::system::error_code const & ec, size_t size_a) {
 				if (ec)
 				{
@@ -2404,6 +2412,7 @@ public:
 					connection->finish_request ();
 				}
 			});
+			// clang-format on
 		}
 		else if (message_a.response)
 		{
