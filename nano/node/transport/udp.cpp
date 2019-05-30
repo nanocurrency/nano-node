@@ -1,6 +1,6 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/stats.hpp>
 #include <nano/node/node.hpp>
-#include <nano/node/stats.hpp>
 #include <nano/node/transport/udp.hpp>
 
 nano::transport::channel_udp::channel_udp (nano::transport::udp_channels & channels_a, nano::endpoint const & endpoint_a, unsigned network_version_a) :

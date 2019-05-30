@@ -1,4 +1,4 @@
-#include <nano/node/stats.hpp>
+#include <nano/lib/stats.hpp>
 
 #include <boost/asio.hpp>
 #include <boost/format.hpp>

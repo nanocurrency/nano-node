@@ -1,6 +1,6 @@
+#include <nano/lib/stats.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/lib/work.hpp>
-#include <nano/node/common.hpp>
-#include <nano/node/stats.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/ledger.hpp>
 

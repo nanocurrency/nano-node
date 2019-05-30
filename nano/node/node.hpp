@@ -1,10 +1,12 @@
 #pragma once
 
+#include <nano/lib/stats.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap.hpp>
 #include <nano/node/confirmation_height_processor.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/logging.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node_observers.hpp>
@@ -13,7 +15,7 @@
 #include <nano/node/portmapping.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/signatures.hpp>
-#include <nano/node/stats.hpp>
+#include <nano/node/vote_processor.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/secure/ledger.hpp>
@@ -25,63 +27,19 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index_container.hpp>
+#include <boost/thread/latch.hpp>
 #include <boost/thread/thread.hpp>
 
 #include <atomic>
 #include <condition_variable>
 #include <memory>
 #include <queue>
+#include <vector>
 
 namespace nano
 {
 class channel;
 class node;
-class vote_info final
-{
-public:
-	std::chrono::steady_clock::time_point time;
-	uint64_t sequence;
-	nano::block_hash hash;
-};
-class election_vote_result final
-{
-public:
-	election_vote_result () = default;
-	election_vote_result (bool, bool);
-	bool replay{ false };
-	bool processed{ false };
-};
-class election final : public std::enable_shared_from_this<nano::election>
-{
-	std::function<void(std::shared_ptr<nano::block>)> confirmation_action;
-
-public:
-	election (nano::node &, std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const &);
-	nano::election_vote_result vote (nano::account, uint64_t, nano::block_hash);
-	nano::tally_t tally (nano::transaction const &);
-	// Check if we have vote quorum
-	bool have_quorum (nano::tally_t const &, nano::uint128_t) const;
-	// Change our winner to agree with the network
-	void compute_rep_votes (nano::transaction const &);
-	void confirm_once ();
-	// Confirm this block if quorum is met
-	void confirm_if_quorum (nano::transaction const &);
-	void log_votes (nano::tally_t const &) const;
-	bool publish (std::shared_ptr<nano::block> block_a);
-	size_t last_votes_size ();
-	void update_dependent ();
-	void stop ();
-	nano::node & node;
-	std::unordered_map<nano::account, nano::vote_info> last_votes;
-	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks;
-	std::chrono::steady_clock::time_point election_start;
-	nano::election_status status;
-	std::atomic<bool> confirmed;
-	bool stopped;
-	std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
-	unsigned announcements;
-	std::unordered_set<nano::block_hash> dependent_blocks;
-};
 class operation final
 {
 public:
@@ -110,7 +68,7 @@ class gap_information final
 public:
 	std::chrono::steady_clock::time_point arrival;
 	nano::block_hash hash;
-	std::unordered_set<nano::account> voters;
+	std::vector<nano::account> voters;
 };
 class gap_cache final
 {
@@ -191,37 +149,6 @@ public:
 	bool wallets_store_init{ false };
 };
 
-class vote_processor final
-{
-public:
-	explicit vote_processor (nano::node &);
-	void vote (std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>);
-	// node.active.mutex lock required
-	nano::vote_code vote_blocking (nano::transaction const &, std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>, bool = false);
-	void verify_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>> &);
-	void flush ();
-	void calculate_weights ();
-	nano::node & node;
-	void stop ();
-
-private:
-	void process_loop ();
-	std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>> votes;
-	// Representatives levels for random early detection
-	std::unordered_set<nano::account> representatives_1;
-	std::unordered_set<nano::account> representatives_2;
-	std::unordered_set<nano::account> representatives_3;
-	std::condition_variable condition;
-	std::mutex mutex;
-	bool started;
-	bool stopped;
-	bool active;
-	boost::thread thread;
-
-	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_processor & vote_processor, const std::string & name);
-};
-
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_processor & vote_processor, const std::string & name);
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (rep_crawler & rep_crawler, const std::string & name);
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_processor & block_processor, const std::string & name);
 
@@ -280,6 +207,7 @@ public:
 	void ongoing_online_weight_calculation_queue ();
 	bool online () const;
 	boost::asio::io_context & io_ctx;
+	boost::latch node_initialized_latch;
 	nano::network_params network_params;
 	nano::node_config config;
 	std::shared_ptr<nano::websocket::listener> websocket_server;
@@ -307,7 +235,6 @@ public:
 	boost::thread block_processor_thread;
 	nano::block_arrival block_arrival;
 	nano::online_reps online_reps;
-	nano::wallets wallets;
 	nano::votes_cache votes_cache;
 	nano::stat stats;
 	nano::keypair node_id;
@@ -317,6 +244,7 @@ public:
 	nano::active_transactions active;
 	nano::confirmation_height_processor confirmation_height_processor;
 	nano::payment_observer_processor payment_observer_processor;
+	nano::wallets wallets;
 	const std::chrono::steady_clock::time_point startup_time;
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
 	static double constexpr price_max = 16.0;

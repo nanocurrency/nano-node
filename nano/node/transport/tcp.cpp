@@ -1,5 +1,5 @@
+#include <nano/lib/stats.hpp>
 #include <nano/node/node.hpp>
-#include <nano/node/stats.hpp>
 #include <nano/node/transport/tcp.hpp>
 
 nano::transport::channel_tcp::channel_tcp (nano::node & node_a, std::shared_ptr<nano::socket> socket_a) :
@@ -465,7 +465,7 @@ void nano::transport::tcp_channels::ongoing_keepalive ()
 		channel->send (message);
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.period / 2, [node_w]() {
+	node.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.half_period, [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->network.tcp_channels.ongoing_keepalive ();
