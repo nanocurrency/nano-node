@@ -1913,9 +1913,8 @@ nano::bootstrap_server::~bootstrap_server ()
 
 void nano::bootstrap_server::stop ()
 {
-	if (!stopped)
+	if (!stopped.exchange (true))
 	{
-		stopped = true;
 		std::lock_guard<std::mutex> lock (mutex);
 		if (socket != nullptr)
 		{
