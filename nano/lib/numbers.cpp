@@ -1,14 +1,12 @@
-#include <nano/lib/utility.hpp>
-
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/numbers.hpp>
-
-#include <crypto/ed25519-donna/ed25519.h>
+#include <nano/lib/utility.hpp>
 
 #include <crypto/blake2/blake2.h>
-
 #include <crypto/cryptopp/aes.h>
 #include <crypto/cryptopp/modes.h>
+
+#include <crypto/ed25519-donna/ed25519.h>
 
 namespace
 {

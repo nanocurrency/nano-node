@@ -1,6 +1,6 @@
 #include <nano/node/active_transactions.hpp>
-
 #include <nano/node/node.hpp>
+
 #include <numeric>
 
 size_t constexpr nano::active_transactions::max_broadcast_queue;
@@ -12,7 +12,6 @@ node (node_a),
 multipliers_cb (20, 1.),
 trended_active_difficulty (node.network_params.network.publish_threshold),
 next_frontier_check (steady_clock::now () + (delay_frontier_confirmation_height_updating ? 60s : 0s)),
-counter (),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::request_loop);
 	request_loop ();
@@ -301,9 +300,13 @@ void nano::active_transactions::request_loop ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	started = true;
-
 	lock.unlock ();
 	condition.notify_all ();
+
+	// The wallets and active_transactions objects are mutually dependent, so we need a fully
+	// constructed node before proceeding.
+	this->node.node_initialized_latch.wait ();
+
 	lock.lock ();
 
 	while (!stopped)

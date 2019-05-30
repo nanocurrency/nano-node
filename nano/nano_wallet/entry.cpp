@@ -8,9 +8,9 @@
 #include <nano/node/ipc.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node_rpc_config.hpp>
-#include <nano/node/working.hpp>
 #include <nano/qt/qt.hpp>
 #include <nano/rpc/rpc.hpp>
+#include <nano/secure/working.hpp>
 
 #include <boost/make_shared.hpp>
 #include <boost/program_options.hpp>
@@ -372,7 +372,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 int main (int argc, char * const * argv)
 {
 	nano::set_umask ();
-
+	nano::block_memory_pool_cleanup_guard block_memory_pool_cleanup_guard;
 	try
 	{
 		QApplication application (argc, const_cast<char **> (argv));

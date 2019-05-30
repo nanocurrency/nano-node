@@ -4,10 +4,9 @@
 
 #include <boost/thread.hpp>
 
-#include <set>
-
 #include <QtGui>
 #include <QtWidgets>
+#include <set>
 
 namespace nano_qt
 {

@@ -1,7 +1,8 @@
 #pragma once
+#include <nano/rpc/rpc.hpp>
+
 #include <boost/asio/ssl/context.hpp>
 #include <boost/asio/ssl/stream.hpp>
-#include <nano/rpc/rpc.hpp>
 
 namespace nano
 {

@@ -1,13 +1,15 @@
 #pragma once
 
-#include <atomic>
+#include <nano/lib/timer.hpp>
+
 #include <boost/iostreams/concepts.hpp>
 #include <boost/log/sources/logger.hpp>
 #include <boost/log/utility/setup/console.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
+
+#include <atomic>
 #include <condition_variable>
 #include <mutex>
-#include <nano/lib/timer.hpp>
 #include <string>
 
 #define GTEST_TEST_ERROR_CODE(expression, text, actual, expected, fail)                       \

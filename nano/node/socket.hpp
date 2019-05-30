@@ -2,6 +2,7 @@
 
 #include <boost/asio.hpp>
 #include <boost/optional.hpp>
+
 #include <chrono>
 #include <deque>
 #include <memory>
@@ -34,10 +35,10 @@ public:
 	/**
 	 * Constructor
 	 * @param node Owning node
-	 * @param max_idle_time If no activity occurs within the idle time, the socket is closed. If not set, the tcp_idle_time config option is used.
+	 * @param io_timeout If tcp async operation is not completed within the timeout, the socket is closed. If not set, the tcp_io_timeout config option is used.
 	 * @param concurrency write concurrency
 	 */
-	explicit socket (std::shared_ptr<nano::node> node, boost::optional<std::chrono::seconds> max_idle_time = boost::none, concurrency = concurrency::single_writer);
+	explicit socket (std::shared_ptr<nano::node> node, boost::optional<std::chrono::seconds> io_timeout = boost::none, concurrency = concurrency::single_writer);
 	virtual ~socket ();
 	void async_connect (boost::asio::ip::tcp::endpoint const &, std::function<void(boost::system::error_code const &)>);
 	void async_read (std::shared_ptr<std::vector<uint8_t>>, size_t, std::function<void(boost::system::error_code const &, size_t)>);
@@ -48,7 +49,8 @@ public:
 	/** Returns true if the socket has timed out */
 	bool has_timed_out () const;
 	/** This can be called to change the maximum idle time, e.g. based on the type of traffic detected. */
-	void set_max_idle_timeout (std::chrono::seconds max_idle_time_a);
+	void set_timeout (std::chrono::seconds io_timeout_a);
+	void start_timer (std::chrono::seconds deadline_a);
 	/** Change write concurrent */
 	void set_writer_concurrency (concurrency writer_concurrency_a);
 
@@ -74,14 +76,13 @@ protected:
 	std::atomic<uint64_t> next_deadline;
 	std::atomic<uint64_t> last_completion_time;
 	std::atomic<bool> timed_out{ false };
-	boost::optional<std::chrono::seconds> max_idle_time;
+	boost::optional<std::chrono::seconds> io_timeout;
 
 	/** Set by close() - completion handlers must check this. This is more reliable than checking
 	 error codes as the OS may have already completed the async operation. */
 	std::atomic<bool> closed{ false };
 	void close_internal ();
 	void write_queued_messages ();
-	void start_timer (std::chrono::seconds deadline_a);
 	void start_timer ();
 	void stop_timer ();
 	void checkup ();

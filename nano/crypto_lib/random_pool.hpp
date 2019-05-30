@@ -1,6 +1,7 @@
 #pragma once
 
 #include <crypto/cryptopp/osrng.h>
+
 #include <mutex>
 
 namespace nano

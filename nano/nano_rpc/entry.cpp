@@ -1,17 +1,18 @@
-#include <boost/lexical_cast.hpp>
-#include <boost/log/expressions.hpp>
-#include <boost/log/utility/setup/common_attributes.hpp>
-#include <boost/log/utility/setup/file.hpp>
-#include <boost/program_options.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/nano_wallet/icon.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/ipc.hpp>
-#include <nano/node/working.hpp>
 #include <nano/rpc/rpc.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
+#include <nano/secure/working.hpp>
+
+#include <boost/lexical_cast.hpp>
+#include <boost/log/expressions.hpp>
+#include <boost/log/utility/setup/common_attributes.hpp>
+#include <boost/log/utility/setup/file.hpp>
+#include <boost/program_options.hpp>
 
 namespace
 {

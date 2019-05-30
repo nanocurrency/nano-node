@@ -1,13 +1,13 @@
-#include <boost/property_tree/json_parser.hpp>
-
-#include <fstream>
-
-#include <gtest/gtest.h>
 #include <nano/core_test/testutil.hpp>
-
 #include <nano/lib/interface.h>
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
+
+#include <gtest/gtest.h>
+
+#include <boost/property_tree/json_parser.hpp>
+
+#include <fstream>
 
 #include <crypto/ed25519-donna/ed25519.h>
 

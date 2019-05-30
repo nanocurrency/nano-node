@@ -1,10 +1,12 @@
 #pragma once
 
+#include <nano/lib/config.hpp>
+#include <nano/lib/errors.hpp>
+
 #include <boost/asio.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/thread.hpp>
-#include <nano/lib/config.hpp>
-#include <nano/lib/errors.hpp>
+
 #include <string>
 
 namespace nano

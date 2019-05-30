@@ -7,12 +7,13 @@
 #include <nano/node/node.hpp>
 #include <nano/node/payment_observer_processor.hpp>
 #include <nano/node/testing.hpp>
-#include <sstream>
-
-#include <argon2.h>
 
 #include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
+
+#include <sstream>
+
+#include <argon2.h>
 
 // Some builds (mac) fail due to "Boost.Stacktrace requires `_Unwind_Backtrace` function".
 #ifndef _WIN32
@@ -74,7 +75,7 @@ void update_flags (nano::node_flags & flags_a, boost::program_options::variables
 int main (int argc, char * const * argv)
 {
 	nano::set_umask ();
-
+	nano::block_memory_pool_cleanup_guard block_memory_pool_cleanup_guard;
 	boost::program_options::options_description description ("Command line options");
 	nano::add_node_options (description);
 

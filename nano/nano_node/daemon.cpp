@@ -1,6 +1,3 @@
-#include <boost/property_tree/json_parser.hpp>
-#include <fstream>
-#include <iostream>
 #include <nano/lib/utility.hpp>
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/daemonconfig.hpp>
@@ -8,9 +5,14 @@
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/openclwork.hpp>
-#include <nano/node/working.hpp>
 #include <nano/rpc/rpc.hpp>
-#include <signal.h>
+#include <nano/secure/working.hpp>
+
+#include <boost/property_tree/json_parser.hpp>
+
+#include <csignal>
+#include <fstream>
+#include <iostream>
 
 #ifndef BOOST_PROCESS_SUPPORTED
 #error BOOST_PROCESS_SUPPORTED must be set, check configuration
@@ -68,7 +70,7 @@ int output_memory_load_address (dl_phdr_info * info, size_t, void *)
 
 void my_abort_signal_handler (int signum)
 {
-	::signal (signum, SIG_DFL);
+	std::signal (signum, SIG_DFL);
 	boost::stacktrace::safe_dump_to ("nano_node_backtrace.dump");
 
 #ifdef __linux__
@@ -80,8 +82,8 @@ void my_abort_signal_handler (int signum)
 void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::node_flags const & flags)
 {
 	// Override segmentation fault and aborting.
-	::signal (SIGSEGV, &my_abort_signal_handler);
-	::signal (SIGABRT, &my_abort_signal_handler);
+	std::signal (SIGSEGV, &my_abort_signal_handler);
+	std::signal (SIGABRT, &my_abort_signal_handler);
 
 	boost::filesystem::create_directories (data_path);
 	boost::system::error_code error_chmod;

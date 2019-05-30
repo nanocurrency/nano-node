@@ -1,7 +1,8 @@
 #pragma once
 
-#include <chrono>
 #include <nano/lib/errors.hpp>
+
+#include <chrono>
 
 namespace nano
 {
