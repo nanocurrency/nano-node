@@ -65,6 +65,48 @@ private:
 	std::vector<nano::message_buffer> entries;
 	bool stopped;
 };
+/**
+  * Response channels for TCP realtime network
+*/
+class response_channels final
+{
+public:
+	void add (nano::tcp_endpoint const &, std::vector<nano::tcp_endpoint>);
+	std::vector<nano::tcp_endpoint> search (nano::tcp_endpoint const &);
+	void remove (nano::tcp_endpoint const &);
+	size_t size ();
+	std::unique_ptr<seq_con_info_component> collect_seq_con_info (std::string const &);
+
+private:
+	std::mutex response_channels_mutex;
+	std::unordered_map<nano::tcp_endpoint, std::vector<nano::tcp_endpoint>> channels;
+};
+/**
+  * Node ID cookies for node ID handshakes
+*/
+class syn_cookies final
+{
+public:
+	void purge (std::chrono::steady_clock::time_point const &);
+	// Returns boost::none if the IP is rate capped on syn cookie requests,
+	// or if the endpoint already has a syn cookie query
+	boost::optional<nano::uint256_union> assign (nano::endpoint const &);
+	// Returns false if valid, true if invalid (true on error convention)
+	// Also removes the syn cookie from the store if valid
+	bool validate (nano::endpoint const &, nano::account const &, nano::signature const &);
+	std::unique_ptr<seq_con_info_component> collect_seq_con_info (std::string const &);
+
+private:
+	class syn_cookie_info final
+	{
+	public:
+		nano::uint256_union cookie;
+		std::chrono::steady_clock::time_point created_at;
+	};
+	mutable std::mutex syn_cookie_mutex;
+	std::unordered_map<nano::endpoint, syn_cookie_info> cookies;
+	std::unordered_map<boost::asio::ip::address, unsigned> cookies_per_ip;
+};
 class network final
 {
 public:
@@ -109,13 +151,14 @@ public:
 	// Get the next peer for attempting a tcp bootstrap connection
 	nano::tcp_endpoint bootstrap_peer ();
 	// Response channels
-	void add_response_channels (nano::tcp_endpoint const &, std::vector<nano::tcp_endpoint>);
-	std::shared_ptr<nano::transport::channel> search_response_channel (nano::tcp_endpoint const &, nano::account const &);
-	void remove_response_channel (nano::tcp_endpoint const &);
-	size_t response_channels_size ();
+	nano::response_channels response_channels;
+	std::shared_ptr<nano::transport::channel> find_response_channel (nano::tcp_endpoint const &, nano::account const &);
 	nano::endpoint endpoint ();
 	void cleanup (std::chrono::steady_clock::time_point const &);
 	void ongoing_cleanup ();
+	// Node ID cookies cleanup
+	nano::syn_cookies syn_cookies;
+	void ongoing_syn_cookie_cleanup ();
 	size_t size () const;
 	size_t size_sqrt () const;
 	bool empty () const;
@@ -131,9 +174,5 @@ public:
 	static unsigned const broadcast_interval_ms = 10;
 	static size_t const buffer_size = 512;
 	static size_t const confirm_req_hashes_max = 6;
-
-private:
-	std::mutex response_channels_mutex;
-	std::unordered_map<nano::tcp_endpoint, std::vector<nano::tcp_endpoint>> response_channels;
 };
 }
