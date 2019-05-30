@@ -256,21 +256,22 @@ void nano::frontier_req_client::next (nano::transaction const & transaction_a)
 		size_t max_size (128);
 		for (auto i (connection->node->store.latest_begin (transaction_a, current.number () + 1)), n (connection->node->store.latest_end ()); i != n && accounts.size () != max_size; ++i)
 		{
-			nano::account_info info (i->second);
-			accounts.push_back (std::make_pair (nano::account (i->first), info.head));
+			nano::account_info const & info (i->second);
+			nano::account const & account (i->first);
+			accounts.emplace_back (account, info.head);
 		}
 		/* If loop breaks before max_size, then latest_end () is reached
 		Add empty record to finish frontier_req_server */
 		if (accounts.size () != max_size)
 		{
-			accounts.push_back (std::make_pair (nano::account (0), nano::block_hash (0)));
+			accounts.emplace_back (nano::account (0), nano::block_hash (0));
 		}
 	}
 	// Retrieving accounts from deque
-	auto account_pair (accounts.front ());
-	accounts.pop_front ();
+	auto const & account_pair (accounts.front ());
 	current = account_pair.first;
 	frontier = account_pair.second;
+	accounts.pop_front ();
 }
 
 nano::bulk_pull_client::bulk_pull_client (std::shared_ptr<nano::bootstrap_client> connection_a, nano::pull_info const & pull_a) :
@@ -3234,24 +3235,25 @@ void nano::frontier_req_server::next ()
 		auto transaction (connection->node->store.tx_begin_read ());
 		for (auto i (connection->node->store.latest_begin (transaction, current.number () + 1)), n (connection->node->store.latest_end ()); i != n && accounts.size () != max_size; ++i)
 		{
-			nano::account_info info (i->second);
+			nano::account_info const & info (i->second);
 			if (!skip_old || (now - info.modified) <= request->age)
 			{
-				accounts.push_back (std::make_pair (nano::account (i->first), info.head));
+				nano::account const & account (i->first);
+				accounts.emplace_back (account, info.head);
 			}
 		}
 		/* If loop breaks before max_size, then latest_end () is reached
 		Add empty record to finish frontier_req_server */
 		if (accounts.size () != max_size)
 		{
-			accounts.push_back (std::make_pair (nano::account (0), nano::block_hash (0)));
+			accounts.emplace_back (nano::account (0), nano::block_hash (0));
 		}
 	}
 	// Retrieving accounts from deque
-	auto account_pair (accounts.front ());
-	accounts.pop_front ();
+	auto const & account_pair (accounts.front ());
 	current = account_pair.first;
 	frontier = account_pair.second;
+	accounts.pop_front ();
 }
 
 void nano::pulls_cache::add (nano::pull_info const & pull_a)
