@@ -1,6 +1,8 @@
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/node.hpp>
 
+#include <boost/pool/pool_alloc.hpp>
+
 #include <numeric>
 
 size_t constexpr nano::active_transactions::max_broadcast_queue;
@@ -358,7 +360,7 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, std::
 		auto existing (roots.find (root));
 		if (existing == roots.end ())
 		{
-			auto election (std::make_shared<nano::election> (node, block_a, confirmation_action_a));
+			auto election (std::allocate_shared<nano::election> (boost::fast_pool_allocator<nano::election> (), node, block_a, confirmation_action_a));
 			uint64_t difficulty (0);
 			auto error (nano::work_validate (*block_a, &difficulty));
 			release_assert (!error);

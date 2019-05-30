@@ -455,7 +455,7 @@ nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::block_type type
 			}
 			else
 			{
-				std::shared_ptr<nano::block> block (nano::deserialize_block (stream_a, type_a, uniquer_a));
+				std::shared_ptr<nano::block> block (nano::deserialize_block (stream_a, type_a, true, uniquer_a));
 				if (block == nullptr)
 				{
 					throw std::runtime_error ("Block is null");
@@ -615,7 +615,7 @@ bool nano::vote::deserialize (nano::stream & stream_a, nano::block_uniquer * uni
 			}
 			else
 			{
-				std::shared_ptr<nano::block> block (nano::deserialize_block (stream_a, type, uniquer_a));
+				std::shared_ptr<nano::block> block (nano::deserialize_block (stream_a, type, true, uniquer_a));
 				if (block == nullptr)
 				{
 					throw std::runtime_error ("Block is empty");
