@@ -92,13 +92,6 @@ namespace transport
 		bool reachout (nano::endpoint const &);
 		std::unique_ptr<seq_con_info_component> collect_seq_con_info (std::string const &);
 		void purge (std::chrono::steady_clock::time_point const &);
-		void purge_syn_cookies (std::chrono::steady_clock::time_point const &);
-		// Returns boost::none if the IP is rate capped on syn cookie requests,
-		// or if the endpoint already has a syn cookie query
-		boost::optional<nano::uint256_union> assign_syn_cookie (nano::tcp_endpoint const &);
-		// Returns false if valid, true if invalid (true on error convention)
-		// Also removes the syn cookie from the store if valid
-		bool validate_syn_cookie (nano::tcp_endpoint const &, nano::account const &, nano::signature const &);
 		void ongoing_keepalive ();
 		void list (std::deque<std::shared_ptr<nano::transport::channel>> &);
 		void modify (std::shared_ptr<nano::transport::channel_tcp>, std::function<void(std::shared_ptr<nano::transport::channel_tcp>)>);
@@ -110,7 +103,6 @@ namespace transport
 		nano::node & node;
 
 	private:
-		void ongoing_syn_cookie_cleanup ();
 		class endpoint_tag
 		{
 		};
@@ -169,14 +161,7 @@ namespace transport
 			nano::tcp_endpoint endpoint;
 			std::chrono::steady_clock::time_point last_attempt;
 		};
-		class syn_cookie_info final
-		{
-		public:
-			nano::uint256_union cookie;
-			std::chrono::steady_clock::time_point created_at;
-		};
 		mutable std::mutex mutex;
-		mutable std::mutex syn_cookie_mutex;
 		boost::multi_index_container<
 		channel_tcp_wrapper,
 		boost::multi_index::indexed_by<
@@ -193,8 +178,6 @@ namespace transport
 		boost::multi_index::hashed_unique<boost::multi_index::member<tcp_endpoint_attempt, nano::tcp_endpoint, &tcp_endpoint_attempt::endpoint>>,
 		boost::multi_index::ordered_non_unique<boost::multi_index::member<tcp_endpoint_attempt, std::chrono::steady_clock::time_point, &tcp_endpoint_attempt::last_attempt>>>>
 		attempts;
-		std::unordered_map<nano::tcp_endpoint, syn_cookie_info> syn_cookies;
-		std::unordered_map<boost::asio::ip::address, unsigned> syn_cookies_per_ip;
 		std::atomic<bool> stopped{ false };
 	};
 } // namespace transport
