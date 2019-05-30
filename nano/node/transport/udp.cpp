@@ -230,13 +230,13 @@ void nano::transport::udp_channels::clean_node_id (nano::endpoint const & endpoi
 	}
 }
 
-nano::tcp_endpoint nano::transport::udp_channels::bootstrap_peer ()
+nano::tcp_endpoint nano::transport::udp_channels::bootstrap_peer (uint8_t connection_protocol_version_min)
 {
 	nano::tcp_endpoint result (boost::asio::ip::address_v6::any (), 0);
 	std::lock_guard<std::mutex> lock (mutex);
 	for (auto i (channels.get<last_bootstrap_attempt_tag> ().begin ()), n (channels.get<last_bootstrap_attempt_tag> ().end ()); i != n;)
 	{
-		if (i->channel->get_network_version () >= protocol_version_reasonable_min)
+		if (i->channel->get_network_version () >= connection_protocol_version_min)
 		{
 			result = nano::transport::map_endpoint_to_tcp (i->endpoint ());
 			channels.get<last_bootstrap_attempt_tag> ().modify (i, [](channel_udp_wrapper & wrapper_a) {

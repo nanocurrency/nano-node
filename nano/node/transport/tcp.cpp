@@ -468,13 +468,12 @@ void nano::transport::tcp_channels::ongoing_keepalive ()
 	if (!node.network_params.network.is_test_network ())
 	{
 		size_t random_count (std::min (static_cast<size_t> (6), static_cast<size_t> (std::ceil (std::sqrt (node.network.udp_channels.size ())))));
-		auto random_udp_list (node.network.udp_channels.random_set (random_count));
-		for (auto udp_channel : random_udp_list)
+		for (auto i (0); i<= random_count; ++i)
 		{
-			auto endpoint (udp_channel->get_endpoint ());
-			if (find_channel (nano::transport::map_endpoint_to_tcp (endpoint)) == nullptr)
+			auto tcp_endpoint (node.network.udp_channels.bootstrap_peer (nano::tcp_realtime_protocol_version_min));
+			if (find_channel (tcp_endpoint) == nullptr)
 			{
-				start_tcp (endpoint);
+				start_tcp (nano::transport::map_tcp_to_endpoint (tcp_endpoint));
 			}
 		}
 	}
