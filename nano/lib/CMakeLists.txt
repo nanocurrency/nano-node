@@ -14,7 +14,6 @@ add_library (nano_lib
 	${platform_sources}
 	errors.hpp
 	errors.cpp
-	expected.hpp
 	blockbuilders.hpp
 	blockbuilders.cpp
 	blocks.hpp

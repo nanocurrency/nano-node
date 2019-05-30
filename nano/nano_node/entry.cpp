@@ -15,6 +15,22 @@
 
 #include <argon2.h>
 
+// Some builds (mac) fail due to "Boost.Stacktrace requires `_Unwind_Backtrace` function".
+#ifndef _WIN32
+#ifndef _GNU_SOURCE
+#define BEFORE_GNU_SOURCE 0
+#define _GNU_SOURCE
+#else
+#define BEFORE_GNU_SOURCE 1
+#endif
+#endif
+#include <boost/stacktrace.hpp>
+#ifndef _WIN32
+#if !BEFORE_GNU_SOURCE
+#undef _GNU_SOURCE
+#endif
+#endif
+
 namespace
 {
 void update_flags (nano::node_flags & flags_a, boost::program_options::variables_map const & vm)
@@ -91,6 +107,7 @@ int main (int argc, char * const * argv)
 		("debug_opencl", "OpenCL work generation")
 		("debug_profile_verify", "Profile work verification")
 		("debug_profile_kdf", "Profile kdf function")
+		("debug_output_last_backtrace_dump", "Displays the contents of the latest backtrace in the event of a nano_node crash")
 		("debug_sys_logging", "Test the system logger")
 		("debug_verify_profile", "Profile signature verification")
 		("debug_verify_profile_batch", "Profile batch signature verification")
@@ -242,7 +259,7 @@ int main (int argc, char * const * argv)
 			nano::uint128_t total;
 			for (auto i (node.node->store.representation_begin (transaction)), n (node.node->store.representation_end ()); i != n; ++i)
 			{
-				nano::account account (i->first);
+				nano::account const & account (i->first);
 				auto amount (node.node->store.representation_get (transaction, account));
 				total += amount;
 				std::cout << boost::str (boost::format ("%1% %2% %3%\n") % account.to_account () % amount.convert_to<std::string> () % total.convert_to<std::string> ());
@@ -250,7 +267,7 @@ int main (int argc, char * const * argv)
 			std::map<nano::account, nano::uint128_t> calculated;
 			for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n; ++i)
 			{
-				nano::account_info info (i->second);
+				nano::account_info const & info (i->second);
 				nano::block_hash rep_block (node.node->ledger.representative_calculated (transaction, info.head));
 				auto block (node.node->store.block_get (transaction, rep_block));
 				calculated[block->representative ()] += info.balance.number ();
@@ -460,6 +477,18 @@ int main (int argc, char * const * argv)
 				}
 				auto end1 (std::chrono::high_resolution_clock::now ());
 				std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
+			}
+		}
+		else if (vm.count ("debug_output_last_backtrace_dump"))
+		{
+			if (boost::filesystem::exists ("nano_node_backtrace.dump"))
+			{
+				// There is a backtrace, so output the contents
+				std::ifstream ifs ("nano_node_backtrace.dump");
+
+				boost::stacktrace::stacktrace st = boost::stacktrace::stacktrace::from_dump (ifs);
+				std::cout << "Latest crash backtrace:\n"
+				          << st << std::endl;
 			}
 		}
 		else if (vm.count ("debug_verify_profile"))
@@ -783,8 +812,8 @@ int main (int argc, char * const * argv)
 				{
 					std::cout << boost::str (boost::format ("%1% accounts validated\n") % count);
 				}
-				nano::account_info info (i->second);
-				nano::account account (i->first);
+				nano::account_info const & info (i->second);
+				nano::account const & account (i->first);
 
 				if (info.confirmation_height > info.block_count)
 				{
@@ -885,8 +914,8 @@ int main (int argc, char * const * argv)
 				{
 					std::cout << boost::str (boost::format ("%1% pending blocks validated\n") % count);
 				}
-				nano::pending_key key (i->first);
-				nano::pending_info info (i->second);
+				nano::pending_key const & key (i->first);
+				nano::pending_info const & info (i->second);
 				// Check block existance
 				auto block (node.node->store.block_get (transaction, key.hash));
 				if (block == nullptr)
@@ -947,8 +976,8 @@ int main (int argc, char * const * argv)
 				std::cout << boost::str (boost::format ("Performing bootstrap emulation, %1% blocks in ledger...") % block_count) << std::endl;
 				for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n; ++i)
 				{
-					nano::account account (i->first);
-					nano::account_info info (i->second);
+					nano::account const & account (i->first);
+					nano::account_info const & info (i->second);
 					auto hash (info.head);
 					while (!hash.is_zero ())
 					{
@@ -1006,7 +1035,7 @@ int main (int argc, char * const * argv)
 			uint64_t sum = 0;
 			for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n; ++i)
 			{
-				nano::account_info info (i->second);
+				nano::account_info const & info (i->second);
 				sum += info.confirmation_height;
 			}
 			std::cout << "Total cemented block count: " << sum << std::endl;

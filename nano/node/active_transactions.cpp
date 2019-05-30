@@ -12,7 +12,6 @@ node (node_a),
 multipliers_cb (20, 1.),
 trended_active_difficulty (node.network_params.network.publish_threshold),
 next_frontier_check (steady_clock::now () + (delay_frontier_confirmation_height_updating ? 60s : 0s)),
-counter (),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::request_loop);
 	request_loop ();
@@ -45,7 +44,7 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 		size_t elections_count (0);
 		for (auto i (node.store.latest_begin (transaction_a, next_frontier_account)), n (node.store.latest_end ()); i != n && !stopped && elections_count < max_elections; ++i)
 		{
-			nano::account_info info (i->second);
+			nano::account_info const & info (i->second);
 			if (info.block_count != info.confirmation_height)
 			{
 				auto block (node.store.block_get (transaction_a, info.head));
@@ -301,9 +300,13 @@ void nano::active_transactions::request_loop ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	started = true;
-
 	lock.unlock ();
 	condition.notify_all ();
+
+	// The wallets and active_transactions objects are mutually dependent, so we need a fully
+	// constructed node before proceeding.
+	this->node.node_initialized_latch.wait ();
+
 	lock.lock ();
 
 	while (!stopped)

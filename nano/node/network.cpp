@@ -279,9 +279,19 @@ void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> blo
 	auto count (0);
 	while (!endpoints_a->empty () && count < max_reps)
 	{
-		nano::confirm_req req (block_a);
 		auto channel (endpoints_a->back ());
-		channel->send (req);
+		// Confirmation request with full block
+		if (node.network_params.network.is_live_network ())
+		{
+			nano::confirm_req req (block_a);
+			channel->send (req);
+		}
+		// Confirmation request with hash + root
+		else
+		{
+			nano::confirm_req req (block_a->hash (), block_a->root ());
+			channel->send (req);
+		}
 		endpoints_a->pop_back ();
 		count++;
 	}
