@@ -130,7 +130,7 @@ public:
 	std::function<void(std::shared_ptr<nano::transport::channel>)> channel_observer;
 	static unsigned const broadcast_interval_ms = 10;
 	static size_t const buffer_size = 512;
-	static size_t const confirm_req_hashes_max = 6;
+	static size_t const confirm_req_hashes_max = 7;
 
 private:
 	std::mutex response_channels_mutex;
