@@ -4675,7 +4675,10 @@ TEST (rpc, ledger)
 	system.wallet (0)->insert_adhoc (key.prv);
 	auto & node1 (*system.nodes[0]);
 	auto latest (node1.latest (nano::test_genesis_key.pub));
-	nano::send_block send (latest, key.pub, 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (latest));
+	auto genesis_balance (nano::genesis_amount);
+	auto send_amount (genesis_balance - 100);
+	genesis_balance -= send_amount;
+	nano::send_block send (latest, key.pub, genesis_balance, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (latest));
 	node1.process (send);
 	nano::open_block open (send.hash (), nano::test_genesis_key.pub, key.pub, key.prv, key.pub, node1.work_generate_blocking (key.pub));
 	ASSERT_EQ (nano::process_result::progress, node1.process (open).code);
@@ -4689,68 +4692,104 @@ TEST (rpc, ledger)
 	rpc.start ();
 	boost::property_tree::ptree request;
 	request.put ("action", "ledger");
-	request.put ("sorting", "1");
+	request.put ("sorting", true);
 	request.put ("count", "1");
-	test_response response (request, rpc.config.port, system.io_ctx);
-	system.deadline_set (5s);
-	while (response.status == 0)
 	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	for (auto & accounts : response.json.get_child ("accounts"))
-	{
-		std::string account_text (accounts.first);
-		ASSERT_EQ (key.pub.to_account (), account_text);
-		std::string frontier (accounts.second.get<std::string> ("frontier"));
-		ASSERT_EQ (open.hash ().to_string (), frontier);
-		std::string open_block (accounts.second.get<std::string> ("open_block"));
-		ASSERT_EQ (open.hash ().to_string (), open_block);
-		std::string representative_block (accounts.second.get<std::string> ("representative_block"));
-		ASSERT_EQ (open.hash ().to_string (), representative_block);
-		std::string balance_text (accounts.second.get<std::string> ("balance"));
-		ASSERT_EQ ("340282366920938463463374607431768211355", balance_text);
-		std::string modified_timestamp (accounts.second.get<std::string> ("modified_timestamp"));
-		ASSERT_LT (std::abs ((long)time - stol (modified_timestamp)), 5);
-		std::string block_count (accounts.second.get<std::string> ("block_count"));
-		ASSERT_EQ ("1", block_count);
-		boost::optional<std::string> weight (accounts.second.get_optional<std::string> ("weight"));
-		ASSERT_FALSE (weight.is_initialized ());
-		boost::optional<std::string> pending (accounts.second.get_optional<std::string> ("pending"));
-		ASSERT_FALSE (pending.is_initialized ());
-		boost::optional<std::string> representative (accounts.second.get_optional<std::string> ("representative"));
-		ASSERT_FALSE (representative.is_initialized ());
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		for (auto & account : response.json.get_child ("accounts"))
+		{
+			std::string account_text (account.first);
+			ASSERT_EQ (key.pub.to_account (), account_text);
+			std::string frontier (account.second.get<std::string> ("frontier"));
+			ASSERT_EQ (open.hash ().to_string (), frontier);
+			std::string open_block (account.second.get<std::string> ("open_block"));
+			ASSERT_EQ (open.hash ().to_string (), open_block);
+			std::string representative_block (account.second.get<std::string> ("representative_block"));
+			ASSERT_EQ (open.hash ().to_string (), representative_block);
+			std::string balance_text (account.second.get<std::string> ("balance"));
+			ASSERT_EQ (send_amount.convert_to<std::string> (), balance_text);
+			std::string modified_timestamp (account.second.get<std::string> ("modified_timestamp"));
+			ASSERT_LT (std::abs ((long)time - stol (modified_timestamp)), 5);
+			std::string block_count (account.second.get<std::string> ("block_count"));
+			ASSERT_EQ ("1", block_count);
+			boost::optional<std::string> weight (account.second.get_optional<std::string> ("weight"));
+			ASSERT_FALSE (weight.is_initialized ());
+			boost::optional<std::string> pending (account.second.get_optional<std::string> ("pending"));
+			ASSERT_FALSE (pending.is_initialized ());
+			boost::optional<std::string> representative (account.second.get_optional<std::string> ("representative"));
+			ASSERT_FALSE (representative.is_initialized ());
+		}
 	}
 	// Test for optional values
-	request.put ("weight", "1");
-	request.put ("pending", "1");
-	request.put ("representative", "true");
-	test_response response2 (request, rpc.config.port, system.io_ctx);
-	system.deadline_set (5s);
-	while (response2.status == 0)
+	request.put ("weight", true);
+	request.put ("pending", true);
+	request.put ("representative", true);
 	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	for (auto & accounts : response2.json.get_child ("accounts"))
-	{
-		boost::optional<std::string> weight (accounts.second.get_optional<std::string> ("weight"));
-		ASSERT_TRUE (weight.is_initialized ());
-		ASSERT_EQ ("0", weight.get ());
-		boost::optional<std::string> pending (accounts.second.get_optional<std::string> ("pending"));
-		ASSERT_TRUE (pending.is_initialized ());
-		ASSERT_EQ ("0", pending.get ());
-		boost::optional<std::string> representative (accounts.second.get_optional<std::string> ("representative"));
-		ASSERT_TRUE (representative.is_initialized ());
-		ASSERT_EQ (nano::test_genesis_key.pub.to_account (), representative.get ());
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		for (auto & account : response.json.get_child ("accounts"))
+		{
+			boost::optional<std::string> weight (account.second.get_optional<std::string> ("weight"));
+			ASSERT_TRUE (weight.is_initialized ());
+			ASSERT_EQ ("0", weight.get ());
+			boost::optional<std::string> pending (account.second.get_optional<std::string> ("pending"));
+			ASSERT_TRUE (pending.is_initialized ());
+			ASSERT_EQ ("0", pending.get ());
+			boost::optional<std::string> representative (account.second.get_optional<std::string> ("representative"));
+			ASSERT_TRUE (representative.is_initialized ());
+			ASSERT_EQ (nano::test_genesis_key.pub.to_account (), representative.get ());
+		}
 	}
 	// Test threshold
-	request.put ("threshold", "340282366920938463463374607431768211356"); // balance + 1
-	test_response response3 (request, rpc.config.port, system.io_ctx);
-	system.deadline_set (5s);
-	while (response3.status == 0)
+	request.put ("count", 2);
+	request.put ("threshold", genesis_balance + 1);
 	{
-		ASSERT_NO_ERROR (system.poll ());
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		auto & accounts (response.json.get_child ("accounts"));
+		ASSERT_EQ (1, accounts.size ());
+		auto account (accounts.begin ());
+		ASSERT_EQ (key.pub.to_account (), account->first);
+		std::string balance_text (account->second.get<std::string> ("balance"));
+		ASSERT_EQ (send_amount.convert_to<std::string> (), balance_text);
 	}
-	ASSERT_EQ (0, response3.json.get_child ("accounts").size ());
+	auto send2_amount (50);
+	genesis_balance -= send2_amount;
+	nano::send_block send2 (send.hash (), key.pub, genesis_balance, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (send.hash ()));
+	node1.process (send2);
+	// When asking for pending, pending amount is taken into account for threshold so the account must show up
+	request.put ("count", 2);
+	request.put ("threshold", (send_amount + send2_amount).convert_to<std::string> ());
+	request.put ("pending", true);
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		auto & accounts (response.json.get_child ("accounts"));
+		ASSERT_EQ (1, accounts.size ());
+		auto account (accounts.begin ());
+		ASSERT_EQ (key.pub.to_account (), account->first);
+		std::string balance_text (account->second.get<std::string> ("balance"));
+		ASSERT_EQ (send_amount.convert_to<std::string> (), balance_text);
+		std::string pending_text (account->second.get<std::string> ("pending"));
+		ASSERT_EQ (std::to_string (send2_amount), pending_text);
+	}
 }
 
 TEST (rpc, accounts_create)
