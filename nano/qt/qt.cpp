@@ -276,7 +276,7 @@ void nano_qt::accounts::refresh_wallet_balance ()
 	nano::uint128_t pending (0);
 	for (auto i (this->wallet.wallet_m->store.begin (transaction)), j (this->wallet.wallet_m->store.end ()); i != j; ++i)
 	{
-		nano::public_key key (i->first);
+		nano::public_key const & key (i->first);
 		balance = balance + (this->wallet.node.ledger.account_balance (block_transaction, key));
 		pending = pending + (this->wallet.node.ledger.account_pending (block_transaction, key));
 	}
@@ -1965,7 +1965,7 @@ void nano_qt::advanced_actions::refresh_ledger ()
 	{
 		QList<QStandardItem *> items;
 		items.push_back (new QStandardItem (QString (nano::block_hash (i->first).to_account ().c_str ())));
-		nano::account_info info (i->second);
+		nano::account_info const & info (i->second);
 		std::string balance;
 		nano::amount (info.balance.number () / wallet.rendering_ratio).encode_dec (balance);
 		items.push_back (new QStandardItem (QString (balance.c_str ())));

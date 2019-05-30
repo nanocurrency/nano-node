@@ -1000,8 +1000,8 @@ void nano::node::unchecked_cleanup ()
 		// Max 128k records to clean, max 2 minutes reading to prevent slow i/o systems start issues
 		for (auto i (store.unchecked_begin (transaction)), n (store.unchecked_end ()); i != n && cleaning_list.size () < 128 * 1024 && nano::seconds_since_epoch () - now < 120; ++i)
 		{
-			nano::unchecked_key key (i->first);
-			nano::unchecked_info info (i->second);
+			nano::unchecked_key const & key (i->first);
+			nano::unchecked_info const & info (i->second);
 			if ((now - info.modified) > static_cast<uint64_t> (config.unchecked_cutoff_time.count ()))
 			{
 				cleaning_list.push_back (key);
@@ -1455,7 +1455,7 @@ public:
 	{
 		for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
 		{
-			auto wallet (i->second);
+			auto const & wallet (i->second);
 			auto transaction_l (node.wallets.tx_begin_read ());
 			if (wallet->store.exists (transaction_l, account_a))
 			{
