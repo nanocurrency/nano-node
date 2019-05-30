@@ -2730,7 +2730,8 @@ TEST (confirmation_height, prioritize_frontiers)
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send8).code);
 	}
 
-	node->active.prioritize_frontiers_for_confirmation (std::chrono::seconds (1));
+	auto transaction = node->store.tx_begin_read ();
+	node->active.prioritize_frontiers_for_confirmation (transaction, std::chrono::seconds (1));
 	constexpr auto num_accounts = 4;
 	ASSERT_EQ (node->active.priority_cementable_frontiers_size (), num_accounts);
 	// Check the order of accounts is as expected (greatest number of uncemented blocks at the front)

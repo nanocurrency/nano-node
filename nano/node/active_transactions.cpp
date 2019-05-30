@@ -51,7 +51,7 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 		}
 
 		// Spend time prioritizing accounts to reduce voting traffic
-		prioritize_frontiers_for_confirmation (is_test_network ? std::chrono::milliseconds (50) : std::chrono::seconds (2));
+		prioritize_frontiers_for_confirmation (transaction_a, is_test_network ? std::chrono::milliseconds (50) : std::chrono::seconds (2));
 
 		size_t elections_count (0);
 		std::unique_lock<std::mutex> lock (mutex);
@@ -85,11 +85,6 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 		int fully_confirmed_factor = (elections_count < max_elections) ? 4 : 1;
 		// Calculate next check time
 		next_frontier_check = steady_clock::now () + (representative_factor * fully_confirmed_factor / test_network_factor);
-		// Set next account to 0 if all frontiers were confirmed
-		if (elections_count <= max_elections)
-		{
-			next_frontier_account = 0;
-		}
 	}
 }
 
@@ -341,16 +336,15 @@ void nano::active_transactions::request_loop ()
 	}
 }
 
-void nano::active_transactions::prioritize_frontiers_for_confirmation (std::chrono::milliseconds time_a)
+void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::transaction const & transaction_a, std::chrono::milliseconds time_a)
 {
 	// Don't try to prioritize when there are a large number of pending confirmation heights as blocks can be cemented in the meantime, making the prioritization less reliable
 	nano::timer<std::chrono::milliseconds> timer;
 	timer.start ();
 	if (node.pending_confirmation_height.size () < confirmed_frontiers_max_pending_cut_off)
 	{
-		auto transaction = node.store.tx_begin_read ();
 		auto priority_cementable_frontiers_size = priority_cementable_frontiers.size ();
-		auto i (node.store.latest_begin (transaction, next_frontier_account));
+		auto i (node.store.latest_begin (transaction_a, next_frontier_account));
 		auto n (node.store.latest_end ());
 		std::unique_lock<std::mutex> lock_a (mutex, std::defer_lock);
 		for (; i != n && !stopped && (priority_cementable_frontiers_size < max_priority_cementable_frontiers); ++i)
