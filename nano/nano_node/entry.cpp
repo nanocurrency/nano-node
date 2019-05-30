@@ -15,6 +15,22 @@
 
 #include <argon2.h>
 
+// Some builds (mac) fail due to "Boost.Stacktrace requires `_Unwind_Backtrace` function".
+#ifndef _WIN32
+#ifndef _GNU_SOURCE
+#define BEFORE_GNU_SOURCE 0
+#define _GNU_SOURCE
+#else
+#define BEFORE_GNU_SOURCE 1
+#endif
+#endif
+#include <boost/stacktrace.hpp>
+#ifndef _WIN32
+#if !BEFORE_GNU_SOURCE
+#undef _GNU_SOURCE
+#endif
+#endif
+
 namespace
 {
 void update_flags (nano::node_flags & flags_a, boost::program_options::variables_map const & vm)
@@ -91,6 +107,7 @@ int main (int argc, char * const * argv)
 		("debug_opencl", "OpenCL work generation")
 		("debug_profile_verify", "Profile work verification")
 		("debug_profile_kdf", "Profile kdf function")
+		("debug_output_last_backtrace_dump", "Displays the contents of the latest backtrace in the event of a nano_node crash")
 		("debug_sys_logging", "Test the system logger")
 		("debug_verify_profile", "Profile signature verification")
 		("debug_verify_profile_batch", "Profile batch signature verification")
@@ -460,6 +477,18 @@ int main (int argc, char * const * argv)
 				}
 				auto end1 (std::chrono::high_resolution_clock::now ());
 				std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
+			}
+		}
+		else if (vm.count ("debug_output_last_backtrace_dump"))
+		{
+			if (boost::filesystem::exists ("nano_node_backtrace.dump"))
+			{
+				// There is a backtrace, so output the contents
+				std::ifstream ifs ("nano_node_backtrace.dump");
+
+				boost::stacktrace::stacktrace st = boost::stacktrace::stacktrace::from_dump (ifs);
+				std::cout << "Latest crash backtrace:\n"
+				          << st << std::endl;
 			}
 		}
 		else if (vm.count ("debug_verify_profile"))
