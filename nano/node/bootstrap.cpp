@@ -1904,7 +1904,7 @@ nano::bootstrap_server::~bootstrap_server ()
 	if (node_id_handshake_finished)
 	{
 		--node->bootstrap.realtime_count;
-		node->network.remove_response_channel (remote_endpoint);
+		node->network.response_channels.remove (remote_endpoint);
 	}
 	stop ();
 	std::lock_guard<std::mutex> lock (node->bootstrap.mutex);
@@ -2391,7 +2391,7 @@ public:
 		{
 			boost::optional<std::pair<nano::account, nano::signature>> response (std::make_pair (connection->node->node_id.pub, nano::sign_message (connection->node->node_id.prv, connection->node->node_id.pub, *message_a.query)));
 			assert (!nano::validate_message (response->first, *message_a.query, response->second));
-			auto cookie (connection->node->network.tcp_channels.assign_syn_cookie (connection->remote_endpoint));
+			auto cookie (connection->node->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (connection->remote_endpoint)));
 			nano::node_id_handshake response_message (cookie, response);
 			auto bytes = response_message.to_bytes ();
 			// clang-format off
@@ -2416,7 +2416,7 @@ public:
 		else if (message_a.response)
 		{
 			connection->remote_node_id = message_a.response->first;
-			if (!connection->node->network.tcp_channels.validate_syn_cookie (connection->remote_endpoint, connection->remote_node_id, message_a.response->second) && connection->remote_node_id != connection->node->node_id.pub)
+			if (!connection->node->network.syn_cookies.validate (nano::transport::map_tcp_to_endpoint (connection->remote_endpoint), connection->remote_node_id, message_a.response->second) && connection->remote_node_id != connection->node->node_id.pub)
 			{
 				connection->node_id_handshake_finished = true;
 				++connection->node->bootstrap.realtime_count;
