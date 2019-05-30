@@ -78,6 +78,8 @@ add_library (node
 	signatures.cpp
 	socket.hpp
 	socket.cpp
+	vote_processor.hpp
+	vote_processor.cpp
 	voting.hpp
 	voting.cpp
 	wallet.hpp
