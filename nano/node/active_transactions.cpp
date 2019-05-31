@@ -133,6 +133,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 				if there are less than 100 active elections */
 				if (election_l->announcements % announcement_long == 1 && roots_size < 100 && !node.network_params.network.is_test_network ())
 				{
+					bool escalated (false);
 					std::shared_ptr<nano::block> previous;
 					auto previous_hash (election_l->status.winner->previous ());
 					if (!previous_hash.is_zero ())
@@ -141,6 +142,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 						if (previous != nullptr && !node.block_confirmed_or_being_confirmed (previous_hash) && blocks.find (previous_hash) == blocks.end ())
 						{
 							add (std::move (previous));
+							escalated = true;
 						}
 					}
 					/* If previous block not existing/not commited yet, block_source can cause segfault for state blocks
@@ -154,10 +156,14 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 							if (source != nullptr && !node.block_confirmed_or_being_confirmed (source_hash))
 							{
 								add (std::move (source));
+								escalated = true;
 							}
 						}
 					}
-					election_l->update_dependent ();
+					if (escalated)
+					{
+						election_l->update_dependent ();
+					}
 				}
 			}
 			if (election_l->announcements < announcement_long || election_l->announcements % announcement_long == could_fit_delay)
