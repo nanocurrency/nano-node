@@ -952,7 +952,7 @@ void nano::json_handler::block_confirm ()
 				{
 					std::lock_guard<std::mutex> lock (node.active.mutex);
 					node.active.confirmed.push_back (status);
-					if (node.active.confirmed.size () > node.active.election_history_size)
+					if (node.active.confirmed.size () > node.config.election_history_size)
 					{
 						node.active.confirmed.pop_front ();
 					}

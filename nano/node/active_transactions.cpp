@@ -109,7 +109,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 			if (election_l->confirmed)
 			{
 				confirmed.push_back (election_l->status);
-				if (confirmed.size () > election_history_size)
+				if (confirmed.size () > node.config.election_history_size)
 				{
 					confirmed.pop_front ();
 				}

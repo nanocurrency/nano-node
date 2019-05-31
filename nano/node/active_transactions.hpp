@@ -131,7 +131,6 @@ public:
 	// Threshold to start logging blocks haven't yet been confirmed
 	static unsigned constexpr announcement_long = 20;
 	size_t long_unconfirmed_size = 0;
-	static size_t constexpr election_history_size = 2048;
 	static size_t constexpr max_broadcast_queue = 1000;
 	boost::circular_buffer<double> multipliers_cb;
 	uint64_t trended_active_difficulty;
