@@ -617,6 +617,8 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (node & node, const
 	composite->add_component (collect_seq_con_info (node.bootstrap, "bootstrap"));
 	composite->add_component (node.network.tcp_channels.collect_seq_con_info ("tcp_channels"));
 	composite->add_component (node.network.udp_channels.collect_seq_con_info ("udp_channels"));
+	composite->add_component (node.network.response_channels.collect_seq_con_info ("response_channels"));
+	composite->add_component (node.network.syn_cookies.collect_seq_con_info ("syn_cookies"));
 	composite->add_component (collect_seq_con_info (node.observers, "observers"));
 	composite->add_component (collect_seq_con_info (node.wallets, "wallets"));
 	composite->add_component (collect_seq_con_info (node.vote_processor, "vote_processor"));
@@ -803,25 +805,28 @@ void nano::node::start ()
 
 void nano::node::stop ()
 {
-	logger.always_log ("Node stopping");
-	block_processor.stop ();
-	if (block_processor_thread.joinable ())
+	if (!stopped.exchange (true))
 	{
-		block_processor_thread.join ();
+		logger.always_log ("Node stopping");
+		block_processor.stop ();
+		if (block_processor_thread.joinable ())
+		{
+			block_processor_thread.join ();
+		}
+		vote_processor.stop ();
+		confirmation_height_processor.stop ();
+		active.stop ();
+		network.stop ();
+		if (websocket_server)
+		{
+			websocket_server->stop ();
+		}
+		bootstrap_initiator.stop ();
+		bootstrap.stop ();
+		port_mapping.stop ();
+		checker.stop ();
+		wallets.stop ();
 	}
-	vote_processor.stop ();
-	confirmation_height_processor.stop ();
-	active.stop ();
-	network.stop ();
-	if (websocket_server)
-	{
-		websocket_server->stop ();
-	}
-	bootstrap_initiator.stop ();
-	bootstrap.stop ();
-	port_mapping.stop ();
-	checker.stop ();
-	wallets.stop ();
 }
 
 void nano::node::keepalive_preconfigured (std::vector<std::string> const & peers_a)
@@ -1000,8 +1005,8 @@ void nano::node::unchecked_cleanup ()
 		// Max 128k records to clean, max 2 minutes reading to prevent slow i/o systems start issues
 		for (auto i (store.unchecked_begin (transaction)), n (store.unchecked_end ()); i != n && cleaning_list.size () < 128 * 1024 && nano::seconds_since_epoch () - now < 120; ++i)
 		{
-			nano::unchecked_key key (i->first);
-			nano::unchecked_info info (i->second);
+			nano::unchecked_key const & key (i->first);
+			nano::unchecked_info const & info (i->second);
 			if ((now - info.modified) > static_cast<uint64_t> (config.unchecked_cutoff_time.count ()))
 			{
 				cleaning_list.push_back (key);
@@ -1455,7 +1460,7 @@ public:
 	{
 		for (auto i (node.wallets.items.begin ()), n (node.wallets.items.end ()); i != n; ++i)
 		{
-			auto wallet (i->second);
+			auto const & wallet (i->second);
 			auto transaction_l (node.wallets.tx_begin_read ());
 			if (wallet->store.exists (transaction_l, account_a))
 			{
@@ -1775,87 +1780,4 @@ peering_port (peering_port_a)
 nano::inactive_node::~inactive_node ()
 {
 	node->stop ();
-}
-
-nano::message_buffer_manager::message_buffer_manager (nano::stat & stats_a, size_t size, size_t count) :
-stats (stats_a),
-free (count),
-full (count),
-slab (size * count),
-entries (count),
-stopped (false)
-{
-	assert (count > 0);
-	assert (size > 0);
-	auto slab_data (slab.data ());
-	auto entry_data (entries.data ());
-	for (auto i (0); i < count; ++i, ++entry_data)
-	{
-		*entry_data = { slab_data + i * size, 0, nano::endpoint () };
-		free.push_back (entry_data);
-	}
-}
-nano::message_buffer * nano::message_buffer_manager::allocate ()
-{
-	std::unique_lock<std::mutex> lock (mutex);
-	while (!stopped && free.empty () && full.empty ())
-	{
-		stats.inc (nano::stat::type::udp, nano::stat::detail::blocking, nano::stat::dir::in);
-		condition.wait (lock);
-	}
-	nano::message_buffer * result (nullptr);
-	if (!free.empty ())
-	{
-		result = free.front ();
-		free.pop_front ();
-	}
-	if (result == nullptr && !full.empty ())
-	{
-		result = full.front ();
-		full.pop_front ();
-		stats.inc (nano::stat::type::udp, nano::stat::detail::overflow, nano::stat::dir::in);
-	}
-	release_assert (result || stopped);
-	return result;
-}
-void nano::message_buffer_manager::enqueue (nano::message_buffer * data_a)
-{
-	assert (data_a != nullptr);
-	{
-		std::lock_guard<std::mutex> lock (mutex);
-		full.push_back (data_a);
-	}
-	condition.notify_all ();
-}
-nano::message_buffer * nano::message_buffer_manager::dequeue ()
-{
-	std::unique_lock<std::mutex> lock (mutex);
-	while (!stopped && full.empty ())
-	{
-		condition.wait (lock);
-	}
-	nano::message_buffer * result (nullptr);
-	if (!full.empty ())
-	{
-		result = full.front ();
-		full.pop_front ();
-	}
-	return result;
-}
-void nano::message_buffer_manager::release (nano::message_buffer * data_a)
-{
-	assert (data_a != nullptr);
-	{
-		std::lock_guard<std::mutex> lock (mutex);
-		free.push_back (data_a);
-	}
-	condition.notify_all ();
-}
-void nano::message_buffer_manager::stop ()
-{
-	{
-		std::lock_guard<std::mutex> lock (mutex);
-		stopped = true;
-	}
-	condition.notify_all ();
 }
