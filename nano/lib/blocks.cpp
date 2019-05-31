@@ -1,6 +1,6 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/blocks.hpp>
-#include <nano/lib/memory_pool.hpp>
+#include <nano/lib/memory.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
 
@@ -18,25 +18,13 @@ bool blocks_equal (T const & first, nano::block const & second)
 }
 
 template <typename block>
-std::shared_ptr<block> deserialize_block (nano::stream & stream_a, bool use_pool)
+std::shared_ptr<block> deserialize_block (nano::stream & stream_a, bool use_memory_pool)
 {
 	auto error (false);
-	std::shared_ptr<block> result;
-	if (use_pool)
+	auto result = nano::make_shared<block> (use_memory_pool, error, stream_a);
+	if (error)
 	{
-		result = std::allocate_shared<block> (boost::fast_pool_allocator<block> (), error, stream_a);
-		if (error)
-		{
-			result = nullptr;
-		}
-	}
-	else
-	{
-		auto obj = std::make_unique<block> (error, stream_a);
-		if (!error)
-		{
-			result = std::move (obj);
-		}
+		result = nullptr;
 	}
 
 	return result;
@@ -1271,46 +1259,46 @@ std::shared_ptr<nano::block> nano::deserialize_block_json (boost::property_tree:
 	return result;
 }
 
-std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, bool use_pool)
+std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, bool use_memory_pool)
 {
 	nano::block_type type;
 	auto error (try_read (stream_a, type));
 	std::shared_ptr<nano::block> result;
 	if (!error)
 	{
-		result = nano::deserialize_block (stream_a, type, use_pool);
+		result = nano::deserialize_block (stream_a, type, use_memory_pool);
 	}
 	return result;
 }
 
-std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, nano::block_type type_a, bool use_pool, nano::block_uniquer * uniquer_a)
+std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, nano::block_type type_a, bool use_memory_pool, nano::block_uniquer * uniquer_a)
 {
 	std::shared_ptr<nano::block> result;
 	switch (type_a)
 	{
 		case nano::block_type::receive:
 		{
-			result = ::deserialize_block<nano::receive_block> (stream_a, use_pool);
+			result = ::deserialize_block<nano::receive_block> (stream_a, use_memory_pool);
 			break;
 		}
 		case nano::block_type::send:
 		{
-			result = ::deserialize_block<nano::send_block> (stream_a, use_pool);
+			result = ::deserialize_block<nano::send_block> (stream_a, use_memory_pool);
 			break;
 		}
 		case nano::block_type::open:
 		{
-			result = ::deserialize_block<nano::open_block> (stream_a, use_pool);
+			result = ::deserialize_block<nano::open_block> (stream_a, use_memory_pool);
 			break;
 		}
 		case nano::block_type::change:
 		{
-			result = ::deserialize_block<nano::change_block> (stream_a, use_pool);
+			result = ::deserialize_block<nano::change_block> (stream_a, use_memory_pool);
 			break;
 		}
 		case nano::block_type::state:
 		{
-			result = ::deserialize_block<nano::state_block> (stream_a, use_pool);
+			result = ::deserialize_block<nano::state_block> (stream_a, use_memory_pool);
 			break;
 		}
 		default:

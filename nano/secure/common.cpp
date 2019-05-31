@@ -311,9 +311,9 @@ void nano::unchecked_info::serialize (nano::stream & stream_a) const
 	nano::write (stream_a, verified);
 }
 
-bool nano::unchecked_info::deserialize (nano::stream & stream_a)
+bool nano::unchecked_info::deserialize (nano::stream & stream_a, bool use_memory_pool)
 {
-	block = nano::deserialize_block (stream_a);
+	block = nano::deserialize_block (stream_a, use_memory_pool);
 	bool error (block == nullptr);
 	if (!error)
 	{
@@ -432,12 +432,12 @@ signature (other_a.signature)
 {
 }
 
-nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::block_uniquer * uniquer_a)
+nano::vote::vote (bool & error_a, nano::stream & stream_a, bool use_memory_pool, nano::block_uniquer * uniquer_a)
 {
-	error_a = deserialize (stream_a, uniquer_a);
+	error_a = deserialize (stream_a, use_memory_pool, uniquer_a);
 }
 
-nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::block_type type_a, nano::block_uniquer * uniquer_a)
+nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::block_type type_a, bool use_memory_pool, nano::block_uniquer * uniquer_a)
 {
 	try
 	{
@@ -455,7 +455,7 @@ nano::vote::vote (bool & error_a, nano::stream & stream_a, nano::block_type type
 			}
 			else
 			{
-				std::shared_ptr<nano::block> block (nano::deserialize_block (stream_a, type_a, true, uniquer_a));
+				std::shared_ptr<nano::block> block (nano::deserialize_block (stream_a, type_a, use_memory_pool, uniquer_a));
 				if (block == nullptr)
 				{
 					throw std::runtime_error ("Block is null");
@@ -588,7 +588,7 @@ void nano::vote::serialize (nano::stream & stream_a) const
 	}
 }
 
-bool nano::vote::deserialize (nano::stream & stream_a, nano::block_uniquer * uniquer_a)
+bool nano::vote::deserialize (nano::stream & stream_a, bool use_memory_pool, nano::block_uniquer * uniquer_a)
 {
 	auto error (false);
 	try
@@ -615,7 +615,7 @@ bool nano::vote::deserialize (nano::stream & stream_a, nano::block_uniquer * uni
 			}
 			else
 			{
-				std::shared_ptr<nano::block> block (nano::deserialize_block (stream_a, type, true, uniquer_a));
+				std::shared_ptr<nano::block> block (nano::deserialize_block (stream_a, type, use_memory_pool, uniquer_a));
 				if (block == nullptr)
 				{
 					throw std::runtime_error ("Block is empty");

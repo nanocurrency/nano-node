@@ -434,7 +434,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 	if (!ec)
 	{
 		nano::bufferstream stream (connection->receive_buffer->data (), size_a);
-		std::shared_ptr<nano::block> block (nano::deserialize_block (stream, type_a, connection->node->flags.fast_bootstrap));
+		std::shared_ptr<nano::block> block (nano::deserialize_block (stream, type_a, connection->node->config.use_memory_pool));
 		if (block != nullptr && !nano::work_validate (*block))
 		{
 			auto hash (block->hash ());
@@ -2209,7 +2209,7 @@ void nano::bootstrap_server::receive_confirm_ack_action (boost::system::error_co
 	{
 		auto error (false);
 		nano::bufferstream stream (receive_buffer->data (), size_a);
-		std::unique_ptr<nano::confirm_ack> request (new nano::confirm_ack (error, stream, header_a));
+		std::unique_ptr<nano::confirm_ack> request (new nano::confirm_ack (error, stream, header_a, node->config.use_memory_pool));
 		if (!error)
 		{
 			if (node_id_handshake_finished)
@@ -3117,7 +3117,7 @@ void nano::bulk_push_server::received_block (boost::system::error_code const & e
 	if (!ec)
 	{
 		nano::bufferstream stream (receive_buffer->data (), size_a);
-		auto block (nano::deserialize_block (stream, type_a, connection->node->flags.fast_bootstrap));
+		auto block (nano::deserialize_block (stream, type_a, connection->node->config.use_memory_pool));
 		if (block != nullptr && !nano::work_validate (*block))
 		{
 			if (!connection->node->block_processor.full ())

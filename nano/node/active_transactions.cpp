@@ -422,7 +422,7 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, std::
 		auto existing (roots.find (root));
 		if (existing == roots.end ())
 		{
-			auto election (std::allocate_shared<nano::election> (boost::fast_pool_allocator<nano::election> (), node, block_a, confirmation_action_a));
+			auto election (nano::make_shared<nano::election> (node.config.use_memory_pool, node, block_a, confirmation_action_a));
 			uint64_t difficulty (0);
 			auto error (nano::work_validate (*block_a, &difficulty));
 			release_assert (!error);

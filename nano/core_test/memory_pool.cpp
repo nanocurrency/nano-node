@@ -1,9 +1,7 @@
-#include <nano/lib/memory_pool.hpp>
+#include <nano/lib/memory.hpp>
 #include <nano/secure/common.hpp>
 
 #include <gtest/gtest.h>
-
-#include <boost/pool/pool_alloc.hpp>
 
 #include <memory>
 #include <vector>
@@ -56,12 +54,12 @@ size_t get_allocated_size ()
 
 TEST (memory_pool, validate_cleanup)
 {
-	std::allocate_shared<nano::open_block> (boost::fast_pool_allocator<nano::open_block> ());
-	std::allocate_shared<nano::receive_block> (boost::fast_pool_allocator<nano::receive_block> ());
-	std::allocate_shared<nano::send_block> (boost::fast_pool_allocator<nano::send_block> ());
-	std::allocate_shared<nano::change_block> (boost::fast_pool_allocator<nano::change_block> ());
-	std::allocate_shared<nano::state_block> (boost::fast_pool_allocator<nano::state_block> ());
-	std::allocate_shared<nano::vote> (boost::fast_pool_allocator<nano::vote> ());
+	nano::make_shared<nano::open_block> (true);
+	nano::make_shared<nano::receive_block> (true);
+	nano::make_shared<nano::send_block> (true);
+	nano::make_shared<nano::change_block> (true);
+	nano::make_shared<nano::state_block> (true);
+	nano::make_shared<nano::vote> (true);
 
 	ASSERT_TRUE (nano::purge_singleton_pool_memory<nano::open_block> ());
 	ASSERT_TRUE (nano::purge_singleton_pool_memory<nano::receive_block> ());

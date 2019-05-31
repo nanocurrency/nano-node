@@ -356,8 +356,8 @@ private:
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_uniquer & block_uniquer, const std::string & name);
 
-std::shared_ptr<nano::block> deserialize_block (nano::stream &, bool use_pool = true);
-std::shared_ptr<nano::block> deserialize_block (nano::stream &, nano::block_type, bool use_pool = true, nano::block_uniquer * = nullptr);
+std::shared_ptr<nano::block> deserialize_block (nano::stream &, bool use_memory_pool);
+std::shared_ptr<nano::block> deserialize_block (nano::stream &, nano::block_type, bool use_memory_pool, nano::block_uniquer * = nullptr);
 std::shared_ptr<nano::block> deserialize_block_json (boost::property_tree::ptree const &, nano::block_uniquer * = nullptr);
 void serialize_block (nano::stream &, nano::block const &);
 void block_memory_pool_purge ();

@@ -1,8 +1,9 @@
 #pragma once
 
-#include <boost/pool/singleton_pool.hpp>
+#include <boost/pool/pool_alloc.hpp>
 
 #include <functional>
+#include <memory>
 #include <vector>
 
 namespace nano
@@ -39,4 +40,17 @@ public:
 private:
 	std::vector<std::function<void()>> cleanup_funcs;
 };
+
+template <typename T, typename... Args>
+std::shared_ptr<T> make_shared (bool use_memory_pool, Args &&... args)
+{
+	if (use_memory_pool)
+	{
+		return std::allocate_shared<T> (boost::fast_pool_allocator<T> (), std::forward<Args> (args)...);
+	}
+	else
+	{
+		return std::make_shared<T> (std::forward<Args> (args)...);
+	}
+}
 }

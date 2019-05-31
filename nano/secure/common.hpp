@@ -177,7 +177,7 @@ public:
 	unchecked_info () = default;
 	unchecked_info (std::shared_ptr<nano::block>, nano::account const &, uint64_t, nano::signature_verification = nano::signature_verification::unknown);
 	void serialize (nano::stream &) const;
-	bool deserialize (nano::stream &);
+	bool deserialize (nano::stream &, bool use_memory_pool);
 	std::shared_ptr<nano::block> block;
 	nano::account account{ 0 };
 	/** Seconds since posix epoch */
@@ -216,8 +216,8 @@ class vote final
 public:
 	vote () = default;
 	vote (nano::vote const &);
-	vote (bool &, nano::stream &, nano::block_uniquer * = nullptr);
-	vote (bool &, nano::stream &, nano::block_type, nano::block_uniquer * = nullptr);
+	vote (bool &, nano::stream &, bool use_memory_pool, nano::block_uniquer * = nullptr);
+	vote (bool &, nano::stream &, nano::block_type, bool use_memory_pool, nano::block_uniquer * = nullptr);
 	vote (nano::account const &, nano::raw_key const &, uint64_t, std::shared_ptr<nano::block>);
 	vote (nano::account const &, nano::raw_key const &, uint64_t, std::vector<nano::block_hash> const &);
 	std::string hashes_string () const;
@@ -228,7 +228,7 @@ public:
 	void serialize (nano::stream &, nano::block_type) const;
 	void serialize (nano::stream &) const;
 	void serialize_json (boost::property_tree::ptree & tree) const;
-	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
+	bool deserialize (nano::stream &, bool use_memory_pool, nano::block_uniquer * = nullptr);
 	bool validate () const;
 	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> begin () const;
 	boost::transform_iterator<nano::iterate_vote_blocks_as_hash, nano::vote_blocks_vec_iter> end () const;

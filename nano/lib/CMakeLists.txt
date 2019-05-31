@@ -29,8 +29,8 @@ add_library (nano_lib
 	json_error_response.hpp
 	jsonconfig.hpp
 	logger_mt.hpp
-	memory_pool.hpp
-	memory_pool.cpp
+	memory.hpp
+	memory.cpp
 	numbers.hpp
 	numbers.cpp
 	rpc_handler_interface.hpp
