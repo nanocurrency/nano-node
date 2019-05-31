@@ -251,7 +251,7 @@ public:
 private:
 	nano::node & node;
 	std::shared_ptr<nano::bootstrap_attempt> attempt;
-	bool stopped;
+	std::atomic<bool> stopped;
 	std::mutex mutex;
 	std::condition_variable condition;
 	std::mutex observers_mutex;
