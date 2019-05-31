@@ -139,7 +139,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 					if (!previous_hash.is_zero ())
 					{
 						previous = node.store.block_get (transaction, previous_hash);
-						if (previous != nullptr && !node.block_confirmed_or_being_confirmed (previous_hash) && blocks.find (previous_hash) == blocks.end ())
+						if (previous != nullptr && blocks.find (previous_hash) == blocks.end () && !node.block_confirmed_or_being_confirmed (transaction, previous_hash) )
 						{
 							add (std::move (previous));
 							escalated = true;
@@ -153,7 +153,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 						if (!source_hash.is_zero () && source_hash != previous_hash && blocks.find (source_hash) == blocks.end ())
 						{
 							auto source (node.store.block_get (transaction, source_hash));
-							if (source != nullptr && !node.block_confirmed_or_being_confirmed (source_hash))
+							if (source != nullptr && !node.block_confirmed_or_being_confirmed (transaction, source_hash))
 							{
 								add (std::move (source));
 								escalated = true;
