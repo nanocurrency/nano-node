@@ -585,10 +585,6 @@ void nano::confirm_req::serialize (nano::stream & stream_a) const
 	if (header.block_type () == nano::block_type::not_a_block)
 	{
 		assert (!roots_hashes.empty ());
-		// Calculate size
-		assert (roots_hashes.size () <= 32);
-		auto count = static_cast<uint8_t> (roots_hashes.size ());
-		write (stream_a, count);
 		// Write hashes & roots
 		for (auto & root_hash : roots_hashes)
 		{
@@ -611,8 +607,7 @@ bool nano::confirm_req::deserialize (nano::stream & stream_a, nano::block_unique
 	{
 		if (header.block_type () == nano::block_type::not_a_block)
 		{
-			uint8_t count (0);
-			read (stream_a, count);
+			uint8_t count (header.count_get ());
 			for (auto i (0); i != count && !result; ++i)
 			{
 				nano::block_hash block_hash (0);
@@ -680,7 +675,7 @@ size_t nano::confirm_req::size (nano::block_type type_a, size_t count)
 	}
 	else if (type_a == nano::block_type::not_a_block)
 	{
-		result = sizeof (uint8_t) + count * (sizeof (nano::uint256_union) + sizeof (nano::block_hash));
+		result = count * (sizeof (nano::uint256_union) + sizeof (nano::block_hash));
 	}
 	return result;
 }
