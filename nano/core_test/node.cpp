@@ -1645,10 +1645,11 @@ TEST (node, bootstrap_bulk_push)
 // Bootstrapping a forked open block should succeed.
 TEST (node, bootstrap_fork_open)
 {
-	nano::system system0 (24000, 2);
+	auto delay_frontier_confirmation_height_updating = true;
+	nano::system system0;
+	auto node0 = system0.add_node (nano::node_config (24000, system0.logging), delay_frontier_confirmation_height_updating);
+	auto node1 = system0.add_node (nano::node_config (24001, system0.logging), delay_frontier_confirmation_height_updating);
 	system0.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	auto node0 (system0.nodes[0]);
-	auto node1 (system0.nodes[1]);
 	nano::keypair key0;
 	nano::send_block send0 (system0.nodes[0]->latest (nano::test_genesis_key.pub), key0.pub, nano::genesis_amount - 500, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
 	nano::open_block open0 (send0.hash (), 1, key0.pub, key0.prv, key0.pub, 0);
@@ -2448,8 +2449,9 @@ TEST (node, block_processor_reject_state)
 
 TEST (node, block_processor_reject_rolled_back)
 {
-	nano::system system (24000, 1);
-	auto & node (*system.nodes[0]);
+	auto delay_frontier_confirmation_height_updating = true;
+	nano::system system;
+	auto & node = *system.add_node (nano::node_config (24000, system.logging), delay_frontier_confirmation_height_updating);
 	nano::genesis genesis;
 	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node.work_generate_blocking (*send1);
@@ -2642,7 +2644,7 @@ TEST (node, unchecked_cleanup)
 	}
 }
 
-/** This checks that a  node can be opened (without being blocked) when a write lock is held elsewhere */
+/** This checks that a node can be opened (without being blocked) when a write lock is held elsewhere */
 TEST (node, dont_write_lock_node)
 {
 	auto path = nano::unique_path ();
@@ -2675,6 +2677,72 @@ TEST (node, dont_write_lock_node)
 	finished_promise.set_value ();
 }
 
+namespace nano
+{
+TEST (confirmation_height, prioritize_frontiers)
+{
+	// Prevent frontiers being confirmed as it will affect the priorization checking
+	auto delay_frontier_confirmation_height_updating = true;
+	nano::system system;
+	auto node = system.add_node (nano::node_config (24001, system.logging), delay_frontier_confirmation_height_updating);
+
+	nano::keypair key1;
+	nano::keypair key2;
+	nano::keypair key3;
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	nano::block_hash latest1 (system.nodes[0]->latest (nano::test_genesis_key.pub));
+	system.wallet (0)->insert_adhoc (key1.prv);
+	system.wallet (0)->insert_adhoc (key2.prv);
+	system.wallet (0)->insert_adhoc (key3.prv);
+
+	// Send different numbers of blocks all accounts
+	nano::send_block send1 (latest1, key1.pub, node->config.online_weight_minimum.number () + 10000, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest1));
+	nano::send_block send2 (send1.hash (), key1.pub, node->config.online_weight_minimum.number () + 8500, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send1.hash ()));
+	nano::send_block send3 (send2.hash (), key1.pub, node->config.online_weight_minimum.number () + 8000, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send2.hash ()));
+	nano::send_block send4 (send3.hash (), key2.pub, node->config.online_weight_minimum.number () + 7500, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send3.hash ()));
+	nano::send_block send5 (send4.hash (), key3.pub, system.nodes.front ()->config.online_weight_minimum.number () + 6500, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send4.hash ()));
+
+	// Open all accounts and add other sends to get different
+	nano::open_block open1 (send1.hash (), nano::genesis_account, key1.pub, key1.prv, key1.pub, system.work.generate (key1.pub));
+	nano::send_block send6 (open1.hash (), nano::test_genesis_key.pub, 500, key1.prv, key1.pub, system.work.generate (open1.hash ()));
+
+	nano::open_block open2 (send4.hash (), nano::genesis_account, key2.pub, key2.prv, key2.pub, system.work.generate (key2.pub));
+
+	nano::open_block open3 (send5.hash (), nano::genesis_account, key3.pub, key3.prv, key3.pub, system.work.generate (key3.pub));
+	nano::send_block send7 (open3.hash (), nano::test_genesis_key.pub, 500, key3.prv, key3.pub, system.work.generate (open3.hash ()));
+	nano::send_block send8 (send7.hash (), nano::test_genesis_key.pub, 200, key3.prv, key3.pub, system.work.generate (send7.hash ()));
+
+	{
+		auto transaction = node->store.tx_begin_write ();
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send1).code);
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send2).code);
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send3).code);
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send4).code);
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send5).code);
+
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, open1).code);
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send6).code);
+
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, open2).code);
+
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, open3).code);
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send7).code);
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send8).code);
+	}
+
+	auto transaction = node->store.tx_begin_read ();
+	node->active.prioritize_frontiers_for_confirmation (transaction, std::chrono::seconds (1));
+	constexpr auto num_accounts = 4;
+	ASSERT_EQ (node->active.priority_cementable_frontiers_size (), num_accounts);
+	// Check the order of accounts is as expected (greatest number of uncemented blocks at the front)
+	std::array<nano::account, num_accounts> desired_order { nano::genesis_account, key3.pub, key1.pub, key2.pub };
+	// clang-format off
+	std::equal (desired_order.begin (), desired_order.end (), node->active.priority_cementable_frontiers.begin (), node->active.priority_cementable_frontiers.end (), [](nano::account const & account, nano::cementable_account const & cementable_account) {
+		return (account == cementable_account.account);
+	});
+	// clang-format on
+}
+}
 
 TEST (active_difficulty, recalculate_work)
 {

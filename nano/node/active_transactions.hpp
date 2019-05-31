@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/timer.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/circular_buffer.hpp>
@@ -9,6 +10,7 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index_container.hpp>
+#include <boost/pool/pool_alloc.hpp>
 #include <boost/thread/thread.hpp>
 
 #include <atomic>
@@ -16,6 +18,7 @@
 #include <deque>
 #include <memory>
 #include <queue>
+#include <set>
 #include <unordered_map>
 
 namespace nano
@@ -59,6 +62,15 @@ private:
 	// blocks/sec confirmed
 	double rate = 0;
 	std::mutex mutex;
+};
+
+class cementable_account final
+{
+public:
+	cementable_account (nano::account const & account_a, size_t blocks_uncemented_a);
+	nano::account account;
+	// This is just used for sorting
+	size_t blocks_uncemented{ 0 };
 };
 
 // Core class for determining consensus
@@ -123,6 +135,7 @@ public:
 	static size_t constexpr max_broadcast_queue = 1000;
 	boost::circular_buffer<double> multipliers_cb;
 	uint64_t trended_active_difficulty;
+	size_t priority_cementable_frontiers_size ();
 
 private:
 	// Call action with confirmed block, may be different than what we started with
@@ -137,8 +150,18 @@ private:
 	std::condition_variable condition;
 	bool started{ false };
 	std::atomic<bool> stopped{ false };
-	static size_t constexpr confirmed_frontiers_max_pending_cut_off = 100;
+	// clang-format off
+	std::function<bool (nano::cementable_account const &, nano::cementable_account const &)> comp = [] (nano::cementable_account const & lhs, nano::cementable_account const & rhs) {
+		return lhs.blocks_uncemented < rhs.blocks_uncemented;
+	};
+	// clang-format on
+	void prioritize_frontiers_for_confirmation (nano::transaction const &, std::chrono::milliseconds);
+	std::set<nano::cementable_account, decltype (comp), boost::fast_pool_allocator<nano::cementable_account>> priority_cementable_frontiers{ comp };
+	static size_t constexpr max_priority_cementable_frontiers{ 100000 };
+	static size_t constexpr confirmed_frontiers_max_pending_cut_off{ 1000 };
 	boost::thread thread;
+
+	friend class confirmation_height_prioritize_frontiers_Test;
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transactions & active_transactions, const std::string & name);
