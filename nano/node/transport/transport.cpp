@@ -213,7 +213,7 @@ bool nano::bandwidth_limiter::should_drop (const nano::stat::detail & detail_a, 
 {
 	using namespace std::chrono_literals;
 	bool result (false);
-	static constexpr nano::stat::detail could_drop[] = { nano::stat::detail::confirm_req, nano::stat::detail::confirm_ack, nano::stat::detail::publish };
+	static constexpr std::array<nano::stat::detail, 4> could_drop{ nano::stat::detail::confirm_req, nano::stat::detail::confirm_ack, nano::stat::detail::publish, nano::stat::detail::republish_vote };
 	auto should_keep (std::find (std::begin (could_drop), std::end (could_drop), detail_a));
 	if (limit == 0 || should_keep == std::end (could_drop))
 	{
