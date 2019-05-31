@@ -50,7 +50,7 @@ public:
 	unsigned bootstrap_connections_max{ 64 };
 	nano::websocket::config websocket_config;
 	nano::diagnostics_config diagnostics_config;
-	size_t election_history_size{ 2048 };
+	size_t confirmation_history_size{ 2048 };
 	std::string callback_address;
 	uint16_t callback_port{ 0 };
 	std::string callback_target;

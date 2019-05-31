@@ -129,7 +129,7 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	nano::jsonconfig diagnostics_l;
 	diagnostics_config.serialize_json (diagnostics_l);
 	json.put_child ("diagnostics", diagnostics_l);
-	json.put ("election_history_size", election_history_size);
+	json.put ("confirmation_history_size", confirmation_history_size);
 
 	return json.get_error ();
 }
@@ -246,7 +246,7 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.put ("external_port", external_port);
 			json.put ("tcp_incoming_connections_max", tcp_incoming_connections_max);
 			json.put ("vote_generator_delay", vote_generator_delay.count ());
-			json.put ("election_history_size", election_history_size);
+			json.put ("confirmation_history_size", confirmation_history_size);
 		}
 		case 17:
 			break;
@@ -393,7 +393,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		auto pow_sleep_interval_l (pow_sleep_interval.count ());
 		json.get (pow_sleep_interval_key, pow_sleep_interval_l);
 		pow_sleep_interval = std::chrono::nanoseconds (pow_sleep_interval_l);
-		json.get<size_t> ("election_history_size", election_history_size);
+		json.get<size_t> ("confirmation_history_size", confirmation_history_size);
 
 		// Validate ranges
 		if (online_weight_quorum > 100)
