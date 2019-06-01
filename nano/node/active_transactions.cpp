@@ -356,12 +356,15 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 				lock_a.lock ();
 				auto num_uncemented = info.block_count - info.confirmation_height;
 				auto it = priority_cementable_frontiers.find (account);
-				if (it != priority_cementable_frontiers.end () && it->blocks_uncemented != num_uncemented)
+				if (it != priority_cementable_frontiers.end ())
 				{
-					// Account already exists and there is now a different uncemented block count so update it in the container
-					priority_cementable_frontiers.modify (it, [num_uncemented](nano::cementable_account & info) {
-						info.blocks_uncemented = num_uncemented;
-					});
+					if (it->blocks_uncemented != num_uncemented)
+					{
+						// Account already exists and there is now a different uncemented block count so update it in the container
+						priority_cementable_frontiers.modify (it, [num_uncemented](nano::cementable_account & info) {
+							info.blocks_uncemented = num_uncemented;
+						});
+					}
 				}
 				else
 				{
