@@ -12,14 +12,14 @@ endif ()
 
 add_library (nano_lib
 	${platform_sources}
-	errors.hpp
-	errors.cpp
 	blockbuilders.hpp
 	blockbuilders.cpp
 	blocks.hpp
 	blocks.cpp
 	config.hpp
 	config.cpp
+	errors.hpp
+	errors.cpp
 	interface.h
 	interface.cpp
 	ipc.hpp
@@ -29,11 +29,13 @@ add_library (nano_lib
 	json_error_response.hpp
 	jsonconfig.hpp
 	logger_mt.hpp
+	memory.hpp
+	memory.cpp
+	numbers.hpp
+	numbers.cpp
 	rpc_handler_interface.hpp
 	rpcconfig.hpp
 	rpcconfig.cpp
-	numbers.hpp
-	numbers.cpp
 	stats.hpp
 	stats.cpp
 	timer.hpp

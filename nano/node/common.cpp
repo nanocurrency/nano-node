@@ -1,9 +1,12 @@
-
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/memory.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/wallet.hpp>
 
 #include <boost/endian/conversion.hpp>
+#include <boost/pool/pool_alloc.hpp>
 
 std::bitset<16> constexpr nano::message_header::block_type_mask;
 std::bitset<16> constexpr nano::message_header::count_mask;
@@ -517,10 +520,10 @@ void nano::publish::serialize (nano::stream & stream_a) const
 	block->serialize (stream_a);
 }
 
-bool nano::publish::deserialize (nano::stream & stream_a, nano::block_uniquer * uniquer_a)
+bool nano::publish::deserialize (nano::stream & stream_a, bool use_memory_pool, nano::block_uniquer * uniquer_a)
 {
 	assert (header.type == nano::message_type::publish);
-	block = nano::deserialize_block (stream_a, header.block_type (), uniquer_a);
+	block = nano::deserialize_block (stream_a, header.block_type (), use_memory_pool, uniquer_a);
 	auto result (block == nullptr);
 	return result;
 }
@@ -596,7 +599,7 @@ void nano::confirm_req::serialize (nano::stream & stream_a) const
 	}
 }
 
-bool nano::confirm_req::deserialize (nano::stream & stream_a, nano::block_uniquer * uniquer_a)
+bool nano::confirm_req::deserialize (nano::stream & stream_a, bool use_memory_pool, nano::block_uniquer * uniquer_a)
 {
 	bool result (false);
 	assert (header.type == nano::message_type::confirm_req);
@@ -624,7 +627,7 @@ bool nano::confirm_req::deserialize (nano::stream & stream_a, nano::block_unique
 		}
 		else
 		{
-			block = nano::deserialize_block (stream_a, header.block_type (), uniquer_a);
+			block = nano::deserialize_block (stream_a, header.block_type (), true, uniquer_a);
 			result = block == nullptr;
 		}
 	}
@@ -677,9 +680,9 @@ size_t nano::confirm_req::size (nano::block_type type_a, size_t count)
 	return result;
 }
 
-nano::confirm_ack::confirm_ack (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a, nano::vote_uniquer * uniquer_a) :
+nano::confirm_ack::confirm_ack (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a, bool use_memory_pool, nano::vote_uniquer * uniquer_a) :
 message (header_a),
-vote (std::make_shared<nano::vote> (error_a, stream_a, header.block_type ()))
+vote (nano::make_shared<nano::vote> (use_memory_pool, error_a, stream_a, header.block_type (), use_memory_pool))
 {
 	if (!error_a && uniquer_a)
 	{
@@ -1135,4 +1138,9 @@ bool nano::parse_tcp_endpoint (std::string const & string, nano::tcp_endpoint & 
 		endpoint_a = nano::tcp_endpoint (address, port);
 	}
 	return result;
+}
+
+nano::node_singleton_memory_pool_purge_guard::node_singleton_memory_pool_purge_guard () :
+cleanup_guard ({ nano::block_memory_pool_purge, nano::purge_singleton_pool_memory<nano::vote>, nano::purge_singleton_pool_memory<nano::election> })
+{
 }

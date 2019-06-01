@@ -3,6 +3,7 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/interface.h>
+#include <nano/lib/memory.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/asio.hpp>
@@ -236,7 +237,7 @@ public:
 	virtual void visit (nano::message_visitor &) const = 0;
 	virtual std::shared_ptr<std::vector<uint8_t>> to_bytes () const
 	{
-		std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
+		auto bytes = std::make_shared<std::vector<uint8_t>> ();
 		nano::vectorstream stream (*bytes);
 		serialize (stream);
 		return bytes;
@@ -297,7 +298,7 @@ public:
 	explicit publish (std::shared_ptr<nano::block>);
 	void visit (nano::message_visitor &) const override;
 	void serialize (nano::stream &) const override;
-	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
+	bool deserialize (nano::stream &, bool use_memory_pool, nano::block_uniquer * = nullptr);
 	bool operator== (nano::publish const &) const;
 	std::shared_ptr<nano::block> block;
 };
@@ -309,7 +310,7 @@ public:
 	confirm_req (std::vector<std::pair<nano::block_hash, nano::block_hash>> const &);
 	confirm_req (nano::block_hash const &, nano::block_hash const &);
 	void serialize (nano::stream &) const override;
-	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
+	bool deserialize (nano::stream &, bool use_memory_pool, nano::block_uniquer * = nullptr);
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::confirm_req const &) const;
 	std::shared_ptr<nano::block> block;
@@ -320,7 +321,7 @@ public:
 class confirm_ack final : public message
 {
 public:
-	confirm_ack (bool &, nano::stream &, nano::message_header const &, nano::vote_uniquer * = nullptr);
+	confirm_ack (bool &, nano::stream &, nano::message_header const &, bool use_memory_pool, nano::vote_uniquer * = nullptr);
 	explicit confirm_ack (std::shared_ptr<nano::vote>);
 	void serialize (nano::stream &) const override;
 	void visit (nano::message_visitor &) const override;
@@ -409,5 +410,15 @@ public:
 	virtual void frontier_req (nano::frontier_req const &) = 0;
 	virtual void node_id_handshake (nano::node_id_handshake const &) = 0;
 	virtual ~message_visitor ();
+};
+
+/** Helper guard which contains all the necessary purge (remove all memory even if used) functions */
+class node_singleton_memory_pool_purge_guard
+{
+public:
+	node_singleton_memory_pool_purge_guard ();
+
+private:
+	nano::cleanup_guard cleanup_guard;
 };
 }

@@ -16,6 +16,7 @@ add_executable (core_test
 	node.cpp
 	message.cpp
 	message_parser.cpp
+	memory_pool.cpp
 	processor_service.cpp
 	peer_container.cpp
 	signing.cpp
