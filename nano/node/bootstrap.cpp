@@ -1646,7 +1646,6 @@ thread ([this]() {
 nano::bootstrap_initiator::~bootstrap_initiator ()
 {
 	stop ();
-	thread.join ();
 }
 
 void nano::bootstrap_initiator::bootstrap ()
@@ -1769,15 +1768,22 @@ std::shared_ptr<nano::bootstrap_attempt> nano::bootstrap_initiator::current_atte
 
 void nano::bootstrap_initiator::stop ()
 {
+	if (!stopped.exchange (true))
 	{
-		std::unique_lock<std::mutex> lock (mutex);
-		stopped = true;
-		if (attempt != nullptr)
 		{
-			attempt->stop ();
+			std::lock_guard<std::mutex> guard (mutex);
+			if (attempt != nullptr)
+			{
+				attempt->stop ();
+			}
+		}
+		condition.notify_all ();
+
+		if (thread.joinable ())
+		{
+			thread.join ();
 		}
 	}
-	condition.notify_all ();
 }
 
 void nano::bootstrap_initiator::notify_listeners (bool in_progress_a)
