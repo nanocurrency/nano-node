@@ -354,19 +354,19 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 			if (info.block_count > info.confirmation_height && !node.pending_confirmation_height.is_processing_block (info.head))
 			{
 				lock_a.lock ();
-				// clang-format off
-				auto it = std::find_if (priority_cementable_frontiers.begin (), priority_cementable_frontiers.end (), [&account](auto const & cemented_frontier) {
-					return (account == cemented_frontier.account);
-				});
-				// clang-format on
-
 				auto num_uncemented = info.block_count - info.confirmation_height;
-				// If exists already then remove it first
-				if (it != priority_cementable_frontiers.end ())
+				auto it = priority_cementable_frontiers.find (account);
+				if (it != priority_cementable_frontiers.end () && it->blocks_uncemented != num_uncemented)
 				{
-					priority_cementable_frontiers.erase (it);
+					// Account already exists and there is now a different uncemented block count so update it in the container
+					priority_cementable_frontiers.modify (it, [num_uncemented](nano::cementable_account & info) {
+						info.blocks_uncemented = num_uncemented;
+					});
 				}
-				priority_cementable_frontiers.emplace (account, num_uncemented);
+				else
+				{
+					priority_cementable_frontiers.emplace (account, num_uncemented);
+				}
 				priority_cementable_frontiers_size = priority_cementable_frontiers.size ();
 				lock_a.unlock ();
 			}
