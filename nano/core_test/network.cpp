@@ -2238,9 +2238,14 @@ TEST (bandwidth_limiter, validate)
 		ASSERT_LT (limiter.get_rate (), config.bandwidth_limit);
 		//adding another should not drop as 1s has elapsed
 		ASSERT_EQ (limiter.should_drop (full_confirm_ack), 0);
-		std::this_thread::sleep_for (1s);
-		//rate should have reset when time was reset and should now be full_confirm_ack
-		ASSERT_EQ (limiter.get_rate (), full_confirm_ack);
+		auto done (false);
+		//validate rate wind down to 0
+		while (!done)
+		{
+			auto should_drop (limiter.should_drop (0));
+			std::this_thread::sleep_for (50ms);
+			done = limiter.get_rate () == 0;
+		}
 	}
 	// test bounded 3Mb
 	{
@@ -2259,7 +2264,13 @@ TEST (bandwidth_limiter, validate)
 		//adding another should not drop as 1s has elapsed
 		ASSERT_EQ (limiter.should_drop (full_confirm_ack), 0);
 		//rate should have reset when time was reset and should now be 144 bytes
-		std::this_thread::sleep_for (1s);
-		ASSERT_EQ (limiter.get_rate (), full_confirm_ack);
+		auto done (false);
+		//validate rate wind down to 0
+		while (!done)
+		{
+			auto should_drop (limiter.should_drop (0));
+			std::this_thread::sleep_for (50ms);
+			done = limiter.get_rate () == 0;
+		}
 	}
 }
