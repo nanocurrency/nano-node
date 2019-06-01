@@ -1062,6 +1062,12 @@ bool nano::ledger::block_confirmed (nano::transaction const & transaction_a, nan
 	return confirmed;
 }
 
+bool nano::ledger::block_confirmed (nano::block_hash const & hash_a) const
+{
+	auto transaction (store.tx_begin_read ());
+	return block_confirmed (transaction, hash_a);
+}
+
 namespace nano
 {
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (ledger & ledger, const std::string & name)

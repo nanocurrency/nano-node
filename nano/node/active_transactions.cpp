@@ -427,6 +427,9 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, std::
 	auto error (true);
 	if (!stopped)
 	{
+		auto hash (block_a->hash ());
+		// Check if existing block is already confirmed
+		assert (node.ledger.block_exists (block_a->type (), hash) ? !node.ledger.block_confirmed (hash) : true);
 		auto root (block_a->qualified_root ());
 		auto existing (roots.find (root));
 		if (existing == roots.end ())
@@ -436,8 +439,8 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, std::
 			auto error (nano::work_validate (*block_a, &difficulty));
 			release_assert (!error);
 			roots.insert (nano::conflict_info{ root, difficulty, difficulty, election });
-			blocks.insert (std::make_pair (block_a->hash (), election));
-			adjust_difficulty (block_a->hash ());
+			blocks.insert (std::make_pair (hash, election));
+			adjust_difficulty (hash);
 		}
 		error = existing != roots.end ();
 		if (error)
