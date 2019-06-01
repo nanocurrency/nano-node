@@ -462,7 +462,7 @@ void nano::transport::tcp_channels::ongoing_keepalive ()
 	for (auto & channel : send_list)
 	{
 		std::weak_ptr<nano::node> node_w (node.shared ());
-		channel->send (message);
+		channel->send (message, nullptr, true); // is ongoing keepalive;
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	node.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.half_period, [node_w]() {

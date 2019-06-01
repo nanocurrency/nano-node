@@ -723,7 +723,7 @@ void nano::transport::udp_channels::ongoing_keepalive ()
 	for (auto i (channels.get<last_packet_received_tag> ().begin ()); i != keepalive_cutoff; ++i)
 	{
 		i->channel->set_last_packet_sent (std::chrono::steady_clock::now ());
-		i->channel->send (message);
+		i->channel->send (message, nullptr, true); // is ongoing keepalive
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	node.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.period, [node_w]() {

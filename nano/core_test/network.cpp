@@ -2211,10 +2211,6 @@ TEST (network, replace_port)
 TEST (bandwidth_limiter, validate)
 {
 	size_t full_confirm_ack (488 + 8);
-	size_t full_confirm_req (385 + 8);
-
-	auto detail_req = nano::stat::detail::confirm_req;
-	auto detail_ack = nano::stat::detail::confirm_ack;
 
 	// test unbounded
 	{
@@ -2223,7 +2219,7 @@ TEST (bandwidth_limiter, validate)
 
 		while (now + 1s >= std::chrono::steady_clock::now ())
 		{
-			ASSERT_FALSE (limiter.should_drop (detail_ack, full_confirm_ack));
+			ASSERT_FALSE (limiter.should_drop (full_confirm_ack));
 			std::this_thread::sleep_for (50ms);
 		}
 	}
@@ -2235,14 +2231,15 @@ TEST (bandwidth_limiter, validate)
 
 		while (now + 1s >= std::chrono::steady_clock::now ())
 		{
-			auto should_drop (limiter.should_drop (detail_ack, full_confirm_ack));
+			auto should_drop (limiter.should_drop (full_confirm_ack));
 			std::this_thread::sleep_for (50ms);
 		}
 
 		ASSERT_LT (limiter.get_rate (), config.bandwidth_limit);
 		//adding another should not drop as 1s has elapsed
-		ASSERT_EQ (limiter.should_drop (detail_ack, full_confirm_ack), 0);
-		//rate should have reset when time was reset and should now be 144 bytes
+		ASSERT_EQ (limiter.should_drop (full_confirm_ack), 0);
+		std::this_thread::sleep_for (1s);
+		//rate should have reset when time was reset and should now be full_confirm_ack
 		ASSERT_EQ (limiter.get_rate (), full_confirm_ack);
 	}
 	// test bounded 3Mb
@@ -2253,63 +2250,16 @@ TEST (bandwidth_limiter, validate)
 
 		while (now + 1s >= std::chrono::steady_clock::now ())
 		{
-			auto should_drop (limiter.should_drop (detail_ack, full_confirm_ack));
+			auto should_drop (limiter.should_drop (full_confirm_ack));
 			std::this_thread::sleep_for (50ms);
 		}
 
 		//max we can send per second would be 20 messages of payload size 144 bytes passing 3Mbps drops messages
 		ASSERT_LT (limiter.get_rate (), config.bandwidth_limit * 2);
 		//adding another should not drop as 1s has elapsed
-		ASSERT_EQ (limiter.should_drop (detail_ack, full_confirm_ack), 0);
+		ASSERT_EQ (limiter.should_drop (full_confirm_ack), 0);
 		//rate should have reset when time was reset and should now be 144 bytes
+		std::this_thread::sleep_for (1s);
 		ASSERT_EQ (limiter.get_rate (), full_confirm_ack);
-	}
-	// test unbounded req
-	{
-		nano::bandwidth_limiter limiter (0);
-		auto now (std::chrono::steady_clock::now ());
-
-		while (now + 1s >= std::chrono::steady_clock::now ())
-		{
-			ASSERT_FALSE (limiter.should_drop (detail_req, full_confirm_req));
-			std::this_thread::sleep_for (50ms);
-		}
-	}
-	// test bounded default req
-	{
-		nano::node_config config;
-		nano::bandwidth_limiter limiter (config.bandwidth_limit);
-		auto now (std::chrono::steady_clock::now ());
-
-		while (now + 1s >= std::chrono::steady_clock::now ())
-		{
-			auto should_drop (limiter.should_drop (detail_req, full_confirm_req));
-			std::this_thread::sleep_for (50ms);
-		}
-
-		ASSERT_LT (limiter.get_rate (), config.bandwidth_limit);
-		//adding another should not drop as 1s has elapsed
-		ASSERT_EQ (limiter.should_drop (detail_req, full_confirm_req), 0);
-		//rate should have reset when time was reset and should now be 144 bytes
-		ASSERT_EQ (limiter.get_rate (), full_confirm_req);
-	}
-	// test bounded 3Mb req
-	{
-		nano::node_config config;
-		nano::bandwidth_limiter limiter (config.bandwidth_limit * 2);
-		auto now (std::chrono::steady_clock::now ());
-
-		while (now + 1s >= std::chrono::steady_clock::now ())
-		{
-			auto should_drop (limiter.should_drop (detail_req, full_confirm_req));
-			std::this_thread::sleep_for (50ms);
-		}
-
-		//max we can send per second would be 20 messages of payload size 144 bytes passing 3Mbps drops messages
-		ASSERT_LT (limiter.get_rate (), config.bandwidth_limit * 2);
-		//adding another should not drop as 1s has elapsed
-		ASSERT_EQ (limiter.should_drop (detail_req, full_confirm_req), 0);
-		//rate should have reset when time was reset and should now be 144 bytes
-		ASSERT_EQ (limiter.get_rate (), full_confirm_req);
 	}
 }

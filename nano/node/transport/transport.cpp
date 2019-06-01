@@ -2,6 +2,8 @@
 #include <nano/node/node.hpp>
 #include <nano/node/transport/transport.hpp>
 
+#include <numeric>
+
 namespace
 {
 class callback_visitor : public nano::message_visitor
@@ -73,13 +75,13 @@ node (node_a)
 {
 }
 
-void nano::transport::channel::send (nano::message const & message_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a)
+void nano::transport::channel::send (nano::message const & message_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a, bool const & is_dropable)
 {
 	callback_visitor visitor;
 	message_a.visit (visitor);
 	auto buffer (message_a.to_bytes ());
 	auto detail (visitor.result);
-	if (!limiter.should_drop (detail, buffer->size ()))
+	if (is_dropable || !limiter.should_drop (buffer->size ()))
 	{
 		send_buffer (buffer, detail, callback_a);
 		node.stats.inc (nano::stat::type::message, detail, nano::stat::dir::out);
@@ -205,28 +207,30 @@ bool nano::transport::reserved_address (nano::endpoint const & endpoint_a, bool 
 nano::bandwidth_limiter::bandwidth_limiter (const size_t limit_a) :
 last_poll (std::chrono::steady_clock::now ()),
 limit (limit_a),
-rate (0)
+rate (0),
+trended_rate (0)
 {
 }
 
-bool nano::bandwidth_limiter::should_drop (const nano::stat::detail & detail_a, const size_t & message_size)
+bool nano::bandwidth_limiter::should_drop (const size_t & message_size)
 {
 	using namespace std::chrono_literals;
 	bool result (false);
-	static constexpr std::array<nano::stat::detail, 4> could_drop{ nano::stat::detail::confirm_req, nano::stat::detail::confirm_ack, nano::stat::detail::publish, nano::stat::detail::republish_vote };
-	auto should_keep (std::find (std::begin (could_drop), std::end (could_drop), detail_a));
-	if (limit == 0 || should_keep == std::end (could_drop))
+	if (limit == 0) //never drop if limit is 0
 	{
 		return result;
 	}
 	std::lock_guard<std::mutex> lock (mutex);
 
-	if (last_poll + 1s < std::chrono::steady_clock::now ())
+	if (last_poll + 50ms < std::chrono::steady_clock::now ())
 	{
 		last_poll = std::chrono::steady_clock::now ();
+		rate_buffer.push_back (rate);
+		auto sum = std::accumulate (rate_buffer.begin (), rate_buffer.end (), 0);
+		trended_rate = sum / rate_buffer.size ();
 		rate = 0;
 	}
-	if (message_size + rate > limit)
+	if (trended_rate > limit)
 	{
 		result = true;
 	}
@@ -240,5 +244,5 @@ bool nano::bandwidth_limiter::should_drop (const nano::stat::detail & detail_a, 
 size_t nano::bandwidth_limiter::get_rate ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	return rate;
+	return trended_rate;
 }

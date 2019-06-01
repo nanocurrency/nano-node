@@ -79,7 +79,8 @@ void nano::frontier_req_client::run ()
 				this_l->connection->node->logger.try_log (boost::str (boost::format ("Error while sending bootstrap request %1%") % ec.message ()));
 			}
 		}
-	});
+	},
+	true); // is bootstrap traffic
 }
 
 std::shared_ptr<nano::bootstrap_client> nano::bootstrap_client::shared ()
@@ -345,7 +346,8 @@ void nano::bulk_pull_client::request ()
 			}
 			this_l->connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_request_failure, nano::stat::dir::in);
 		}
-	});
+	},
+	true); // is bootstrap traffic
 }
 
 void nano::bulk_pull_client::receive_block ()
@@ -530,7 +532,8 @@ void nano::bulk_push_client::start ()
 				this_l->connection->node->logger.try_log (boost::str (boost::format ("Unable to send bulk_push request: %1%") % ec.message ()));
 			}
 		}
-	});
+	},
+	true); // is bootstrap traffic
 }
 
 void nano::bulk_push_client::push (nano::transaction const & transaction_a)
@@ -667,7 +670,8 @@ void nano::bulk_pull_account_client::request ()
 			}
 			this_l->connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_error_starting_request, nano::stat::dir::in);
 		}
-	});
+	},
+	true); // is bootstrap traffic
 }
 
 void nano::bulk_pull_account_client::receive_pending ()
