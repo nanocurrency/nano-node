@@ -135,14 +135,16 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 				if there are less than 100 active elections */
 				if (election_l->announcements % announcement_long == 1 && roots_size < 100 && !node.network_params.network.is_test_network ())
 				{
+					bool escalated (false);
 					std::shared_ptr<nano::block> previous;
 					auto previous_hash (election_l->status.winner->previous ());
 					if (!previous_hash.is_zero ())
 					{
 						previous = node.store.block_get (transaction, previous_hash);
-						if (previous != nullptr)
+						if (previous != nullptr && blocks.find (previous_hash) == blocks.end () && !node.block_confirmed_or_being_confirmed (transaction, previous_hash))
 						{
 							add (std::move (previous));
+							escalated = true;
 						}
 					}
 					/* If previous block not existing/not commited yet, block_source can cause segfault for state blocks
@@ -150,16 +152,20 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 					if (previous_hash.is_zero () || previous != nullptr)
 					{
 						auto source_hash (node.ledger.block_source (transaction, *election_l->status.winner));
-						if (!source_hash.is_zero ())
+						if (!source_hash.is_zero () && source_hash != previous_hash && blocks.find (source_hash) == blocks.end ())
 						{
 							auto source (node.store.block_get (transaction, source_hash));
-							if (source != nullptr)
+							if (source != nullptr && !node.block_confirmed_or_being_confirmed (transaction, source_hash))
 							{
 								add (std::move (source));
+								escalated = true;
 							}
 						}
 					}
-					election_l->update_dependent ();
+					if (escalated)
+					{
+						election_l->update_dependent ();
+					}
 				}
 			}
 			if (election_l->announcements < announcement_long || election_l->announcements % announcement_long == could_fit_delay)

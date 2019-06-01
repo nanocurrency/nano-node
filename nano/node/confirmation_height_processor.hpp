@@ -40,7 +40,6 @@ public:
 	~confirmation_height_processor ();
 	void add (nano::block_hash const &);
 	void stop ();
-	bool is_processing_block (nano::block_hash const &);
 
 	/** The maximum amount of accounts to iterate over while writing */
 	static uint64_t constexpr batch_write_size = 2048;
