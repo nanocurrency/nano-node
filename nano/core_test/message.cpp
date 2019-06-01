@@ -79,7 +79,7 @@ TEST (message, confirm_ack_serialization)
 	nano::bufferstream stream2 (bytes.data (), bytes.size ());
 	bool error (false);
 	nano::message_header header (error, stream2);
-	nano::confirm_ack con2 (error, stream2, header);
+	nano::confirm_ack con2 (error, stream2, header, true);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (con1, con2);
 	ASSERT_EQ (header.block_type (), nano::block_type::send);
@@ -106,7 +106,7 @@ TEST (message, confirm_ack_hash_serialization)
 	nano::bufferstream stream2 (bytes.data (), bytes.size ());
 	bool error (false);
 	nano::message_header header (error, stream2);
-	nano::confirm_ack con2 (error, stream2, header);
+	nano::confirm_ack con2 (error, stream2, header, true);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (con1, con2);
 	std::vector<nano::block_hash> vote_blocks;
