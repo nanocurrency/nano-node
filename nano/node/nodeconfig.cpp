@@ -120,6 +120,7 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("external_address", external_address.to_string ());
 	json.put ("external_port", external_port);
 	json.put ("tcp_incoming_connections_max", tcp_incoming_connections_max);
+	json.put ("use_memory_pool", use_memory_pool);
 	nano::jsonconfig websocket_l;
 	websocket_config.serialize_json (websocket_l);
 	json.put_child ("websocket", websocket_l);
@@ -246,6 +247,7 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.put ("external_port", external_port);
 			json.put ("tcp_incoming_connections_max", tcp_incoming_connections_max);
 			json.put ("vote_generator_delay", vote_generator_delay.count ());
+			json.put ("use_memory_pool", use_memory_pool);
 			json.put ("confirmation_history_size", confirmation_history_size);
 		}
 		case 17:
@@ -393,6 +395,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		auto pow_sleep_interval_l (pow_sleep_interval.count ());
 		json.get (pow_sleep_interval_key, pow_sleep_interval_l);
 		pow_sleep_interval = std::chrono::nanoseconds (pow_sleep_interval_l);
+		json.get<bool> ("use_memory_pool", use_memory_pool);
 		json.get<size_t> ("confirmation_history_size", confirmation_history_size);
 
 		// Validate ranges

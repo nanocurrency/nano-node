@@ -1,4 +1,4 @@
-#include <nano/lib/blocks.hpp>
+#include <nano/node/common.hpp>
 
 #include <gtest/gtest.h>
 
@@ -13,7 +13,7 @@ void force_nano_test_network ();
 int main (int argc, char ** argv)
 {
 	nano::force_nano_test_network ();
-	nano::block_memory_pool_cleanup_guard block_memory_pool_cleanup_guard;
+	nano::node_singleton_memory_pool_purge_guard memory_pool_cleanup_guard;
 	QApplication application (argc, argv);
 	test_application = &application;
 	testing::InitGoogleTest (&argc, argv);

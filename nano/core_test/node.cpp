@@ -707,6 +707,7 @@ TEST (node_config, v16_v17_upgrade)
 	ASSERT_FALSE (tree.get_optional_child ("tcp_incoming_connections_max"));
 	ASSERT_FALSE (tree.get_optional_child ("vote_generator_delay"));
 	ASSERT_FALSE (tree.get_optional_child ("diagnostics"));
+	ASSERT_FALSE (tree.get_optional_child ("use_memory_pool"));
 	ASSERT_FALSE (tree.get_optional_child ("confirmation_history_size"));
 
 	config.deserialize_json (upgraded, tree);
@@ -718,6 +719,7 @@ TEST (node_config, v16_v17_upgrade)
 	ASSERT_TRUE (!!tree.get_optional_child ("tcp_incoming_connections_max"));
 	ASSERT_TRUE (!!tree.get_optional_child ("vote_generator_delay"));
 	ASSERT_TRUE (!!tree.get_optional_child ("diagnostics"));
+	ASSERT_TRUE (!!tree.get_optional_child ("use_memory_pool"));
 	ASSERT_TRUE (!!tree.get_optional_child ("confirmation_history_size"));
 
 	ASSERT_TRUE (upgraded);
@@ -753,6 +755,7 @@ TEST (node_config, v17_values)
 		nano::jsonconfig diagnostics_l;
 		diagnostics_l.put_child ("txn_tracking", txn_tracking_l);
 		tree.put_child ("diagnostics", diagnostics_l);
+		tree.put ("use_memory_pool", true);
 		tree.put ("confirmation_history_size", 2048);
 	}
 
@@ -767,6 +770,7 @@ TEST (node_config, v17_values)
 	ASSERT_EQ (config.diagnostics_config.txn_tracking.min_read_txn_time.count (), 0);
 	ASSERT_EQ (config.diagnostics_config.txn_tracking.min_write_txn_time.count (), 0);
 	ASSERT_TRUE (config.diagnostics_config.txn_tracking.ignore_writes_below_block_processor_max_time);
+	ASSERT_TRUE (config.use_memory_pool);
 	ASSERT_EQ (config.confirmation_history_size, 2048);
 
 	// Check config is correct with other values
@@ -784,6 +788,7 @@ TEST (node_config, v17_values)
 	nano::jsonconfig diagnostics_l;
 	diagnostics_l.replace_child ("txn_tracking", txn_tracking_l);
 	tree.replace_child ("diagnostics", diagnostics_l);
+	tree.put ("use_memory_pool", false);
 	tree.put ("confirmation_history_size", std::numeric_limits<unsigned long long>::max ());
 
 	upgraded = false;
@@ -800,6 +805,7 @@ TEST (node_config, v17_values)
 	ASSERT_EQ (config.tcp_incoming_connections_max, std::numeric_limits<unsigned>::max ());
 	ASSERT_EQ (config.diagnostics_config.txn_tracking.min_write_txn_time.count (), std::numeric_limits<unsigned>::max ());
 	ASSERT_FALSE (config.diagnostics_config.txn_tracking.ignore_writes_below_block_processor_max_time);
+	ASSERT_FALSE (config.use_memory_pool);
 	ASSERT_EQ (config.confirmation_history_size, std::numeric_limits<unsigned long long>::max ());
 }
 
@@ -2695,28 +2701,35 @@ TEST (confirmation_height, prioritize_frontiers)
 	nano::keypair key1;
 	nano::keypair key2;
 	nano::keypair key3;
+	nano::keypair key4;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::block_hash latest1 (system.nodes[0]->latest (nano::test_genesis_key.pub));
 	system.wallet (0)->insert_adhoc (key1.prv);
 	system.wallet (0)->insert_adhoc (key2.prv);
 	system.wallet (0)->insert_adhoc (key3.prv);
+	system.wallet (0)->insert_adhoc (key4.prv);
 
 	// Send different numbers of blocks all accounts
 	nano::send_block send1 (latest1, key1.pub, node->config.online_weight_minimum.number () + 10000, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest1));
 	nano::send_block send2 (send1.hash (), key1.pub, node->config.online_weight_minimum.number () + 8500, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send1.hash ()));
 	nano::send_block send3 (send2.hash (), key1.pub, node->config.online_weight_minimum.number () + 8000, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send2.hash ()));
 	nano::send_block send4 (send3.hash (), key2.pub, node->config.online_weight_minimum.number () + 7500, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send3.hash ()));
-	nano::send_block send5 (send4.hash (), key3.pub, system.nodes.front ()->config.online_weight_minimum.number () + 6500, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send4.hash ()));
+	nano::send_block send5 (send4.hash (), key3.pub, node->config.online_weight_minimum.number () + 6500, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send4.hash ()));
+	nano::send_block send6 (send5.hash (), key4.pub, node->config.online_weight_minimum.number () + 6000, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send5.hash ()));
 
-	// Open all accounts and add other sends to get different
+	// Open all accounts and add other sends to get different uncemented counts (as well as some which are the same) 
 	nano::open_block open1 (send1.hash (), nano::genesis_account, key1.pub, key1.prv, key1.pub, system.work.generate (key1.pub));
-	nano::send_block send6 (open1.hash (), nano::test_genesis_key.pub, 500, key1.prv, key1.pub, system.work.generate (open1.hash ()));
+	nano::send_block send7 (open1.hash (), nano::test_genesis_key.pub, 500, key1.prv, key1.pub, system.work.generate (open1.hash ()));
 
 	nano::open_block open2 (send4.hash (), nano::genesis_account, key2.pub, key2.prv, key2.pub, system.work.generate (key2.pub));
 
 	nano::open_block open3 (send5.hash (), nano::genesis_account, key3.pub, key3.prv, key3.pub, system.work.generate (key3.pub));
-	nano::send_block send7 (open3.hash (), nano::test_genesis_key.pub, 500, key3.prv, key3.pub, system.work.generate (open3.hash ()));
-	nano::send_block send8 (send7.hash (), nano::test_genesis_key.pub, 200, key3.prv, key3.pub, system.work.generate (send7.hash ()));
+	nano::send_block send8 (open3.hash (), nano::test_genesis_key.pub, 500, key3.prv, key3.pub, system.work.generate (open3.hash ()));
+	nano::send_block send9 (send8.hash (), nano::test_genesis_key.pub, 200, key3.prv, key3.pub, system.work.generate (send8.hash ()));
+
+	nano::open_block open4 (send6.hash (), nano::genesis_account, key4.pub, key4.prv, key4.pub, system.work.generate (key4.pub));
+	nano::send_block send10 (open4.hash (), nano::test_genesis_key.pub, 500, key4.prv, key4.pub, system.work.generate (open4.hash ()));
+	nano::send_block send11 (send10.hash (), nano::test_genesis_key.pub, 200, key4.prv, key4.pub, system.work.generate (send10.hash ()));
 
 	{
 		auto transaction = node->store.tx_begin_write ();
@@ -2725,28 +2738,57 @@ TEST (confirmation_height, prioritize_frontiers)
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send3).code);
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send4).code);
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send5).code);
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send6).code);
 
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, open1).code);
-		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send6).code);
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send7).code);
 
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, open2).code);
 
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, open3).code);
-		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send7).code);
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send8).code);
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send9).code);
+
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, open4).code);
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send10).code);
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send11).code);
 	}
 
 	auto transaction = node->store.tx_begin_read ();
 	node->active.prioritize_frontiers_for_confirmation (transaction, std::chrono::seconds (1));
-	constexpr auto num_accounts = 4;
+	constexpr auto num_accounts = 5;
 	ASSERT_EQ (node->active.priority_cementable_frontiers_size (), num_accounts);
-	// Check the order of accounts is as expected (greatest number of uncemented blocks at the front)
-	std::array<nano::account, num_accounts> desired_order { nano::genesis_account, key3.pub, key1.pub, key2.pub };
+	// Check the order of accounts is as expected (greatest number of uncemented blocks at the front). key3 and key4 have the same value, the order is unspecified so check both
+	std::array<nano::account, num_accounts> desired_order_1 { nano::genesis_account, key3.pub, key4.pub, key1.pub, key2.pub };
+	std::array<nano::account, num_accounts> desired_order_2 { nano::genesis_account, key4.pub, key3.pub, key1.pub, key2.pub };
 	// clang-format off
-	std::equal (desired_order.begin (), desired_order.end (), node->active.priority_cementable_frontiers.begin (), node->active.priority_cementable_frontiers.end (), [](nano::account const & account, nano::cementable_account const & cementable_account) {
-		return (account == cementable_account.account);
-	});
+	auto priority_orders_match = [&priority_cementable_frontiers = node->active.priority_cementable_frontiers](std::array<nano::account, num_accounts> const & desired_order) {
+		return std::equal (desired_order.begin (), desired_order.end (), priority_cementable_frontiers.get<1> ().begin (), priority_cementable_frontiers.get<1> ().end (), [](nano::account const & account, nano::cementable_account const & cementable_account) {
+			return (account == cementable_account.account);
+		});
+	};
 	// clang-format on
+	ASSERT_TRUE (priority_orders_match (desired_order_1) || priority_orders_match (desired_order_2));
+
+	// Check that accounts which already exist have their order modified when the uncemented count changes.
+	{
+		auto transaction = node->store.tx_begin_write ();
+		nano::send_block send12 (send9.hash (), nano::test_genesis_key.pub, 100, key3.prv, key3.pub, system.work.generate (send9.hash ()));
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send12).code);
+		nano::send_block send13 (send12.hash (), nano::test_genesis_key.pub, 90, key3.prv, key3.pub, system.work.generate (send12.hash ()));
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send13).code);
+		nano::send_block send14 (send13.hash (), nano::test_genesis_key.pub, 80, key3.prv, key3.pub, system.work.generate (send13.hash ()));
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send14).code);
+		nano::send_block send15 (send14.hash (), nano::test_genesis_key.pub, 70, key3.prv, key3.pub, system.work.generate (send14.hash ()));
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send15).code);
+		nano::send_block send16 (send15.hash (), nano::test_genesis_key.pub, 60, key3.prv, key3.pub, system.work.generate (send15.hash ()));
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send16).code);
+		nano::send_block send17 (send16.hash (), nano::test_genesis_key.pub, 50, key3.prv, key3.pub, system.work.generate (send16.hash ()));
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send17).code);
+	}
+	transaction.refresh ();
+	node->active.prioritize_frontiers_for_confirmation (transaction, std::chrono::seconds (1));
+	ASSERT_TRUE (priority_orders_match ({ key3.pub, nano::genesis_account, key4.pub, key1.pub, key2.pub }));
 }
 }
 

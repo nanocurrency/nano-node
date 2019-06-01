@@ -69,8 +69,7 @@ class cementable_account final
 public:
 	cementable_account (nano::account const & account_a, size_t blocks_uncemented_a);
 	nano::account account;
-	// This is just used for sorting
-	size_t blocks_uncemented{ 0 };
+	uint64_t blocks_uncemented{ 0 };
 };
 
 // Core class for determining consensus
@@ -149,13 +148,16 @@ private:
 	std::condition_variable condition;
 	bool started{ false };
 	std::atomic<bool> stopped{ false };
-	// clang-format off
-	std::function<bool (nano::cementable_account const &, nano::cementable_account const &)> comp = [] (nano::cementable_account const & lhs, nano::cementable_account const & rhs) {
-		return lhs.blocks_uncemented < rhs.blocks_uncemented;
-	};
-	// clang-format on
 	void prioritize_frontiers_for_confirmation (nano::transaction const &, std::chrono::milliseconds);
-	std::set<nano::cementable_account, decltype (comp), boost::fast_pool_allocator<nano::cementable_account>> priority_cementable_frontiers{ comp };
+	boost::multi_index_container<
+	nano::cementable_account,
+	boost::multi_index::indexed_by<
+	boost::multi_index::hashed_unique<
+	boost::multi_index::member<nano::cementable_account, nano::account, &nano::cementable_account::account>>,
+	boost::multi_index::ordered_non_unique<
+	boost::multi_index::member<nano::cementable_account, uint64_t, &nano::cementable_account::blocks_uncemented>,
+	std::greater<uint64_t>>>>
+	priority_cementable_frontiers;
 	static size_t constexpr max_priority_cementable_frontiers{ 100000 };
 	static size_t constexpr confirmed_frontiers_max_pending_cut_off{ 1000 };
 	boost::thread thread;

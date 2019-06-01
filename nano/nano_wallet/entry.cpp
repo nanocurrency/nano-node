@@ -372,7 +372,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 int main (int argc, char * const * argv)
 {
 	nano::set_umask ();
-	nano::block_memory_pool_cleanup_guard block_memory_pool_cleanup_guard;
+	nano::node_singleton_memory_pool_purge_guard memory_pool_cleanup_guard;
 	try
 	{
 		QApplication application (argc, const_cast<char **> (argv));
