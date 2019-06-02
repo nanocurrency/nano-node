@@ -428,7 +428,7 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, std::
 	if (!stopped)
 	{
 		// Check if existing block is already confirmed
-		assert (node.ledger.block_confirmed_or_not_exists (*block_a));
+		assert (node.ledger.block_not_confirmed_or_not_exists (*block_a));
 		auto root (block_a->qualified_root ());
 		auto existing (roots.find (root));
 		if (existing == roots.end ())

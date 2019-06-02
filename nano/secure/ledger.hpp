@@ -28,7 +28,7 @@ public:
 	std::shared_ptr<nano::block> successor (nano::transaction const &, nano::qualified_root const &);
 	std::shared_ptr<nano::block> forked_block (nano::transaction const &, nano::block const &);
 	bool block_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
-	bool block_confirmed_or_not_exists (nano::block const & block_a) const;
+	bool block_not_confirmed_or_not_exists (nano::block const & block_a) const;
 	nano::block_hash latest (nano::transaction const &, nano::account const &);
 	nano::block_hash latest_root (nano::transaction const &, nano::account const &);
 	nano::block_hash representative (nano::transaction const &, nano::block_hash const &);
