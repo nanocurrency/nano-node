@@ -366,7 +366,6 @@ void nano::transport::tcp_channels::ongoing_keepalive ()
 	lock.unlock ();
 	for (auto & channel : send_list)
 	{
-		std::weak_ptr<nano::node> node_w (node.shared ());
 		channel->send (message);
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
