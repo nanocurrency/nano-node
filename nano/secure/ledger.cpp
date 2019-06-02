@@ -1062,10 +1062,16 @@ bool nano::ledger::block_confirmed (nano::transaction const & transaction_a, nan
 	return confirmed;
 }
 
-bool nano::ledger::block_confirmed (nano::block_hash const & hash_a) const
+bool nano::ledger::block_confirmed_or_not_exists (nano::block const & block_a) const
 {
+	bool result (true);
+	auto hash (block_a.hash ());
 	auto transaction (store.tx_begin_read ());
-	return block_confirmed (transaction, hash_a);
+	if (store.block_exists (transaction, block_a.type (), hash))
+	{
+		result = block_confirmed (transaction, hash);
+	}
+	return result;
 }
 
 namespace nano

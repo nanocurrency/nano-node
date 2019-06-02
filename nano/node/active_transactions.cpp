@@ -427,13 +427,13 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, std::
 	auto error (true);
 	if (!stopped)
 	{
-		auto hash (block_a->hash ());
 		// Check if existing block is already confirmed
-		assert (node.ledger.block_exists (block_a->type (), hash) ? !node.ledger.block_confirmed (hash) : true);
+		assert (node.ledger.block_confirmed_or_not_exists (*block_a));
 		auto root (block_a->qualified_root ());
 		auto existing (roots.find (root));
 		if (existing == roots.end ())
 		{
+			auto hash (block_a->hash ());
 			auto election (nano::make_shared<nano::election> (node.config.use_memory_pool, node, block_a, confirmation_action_a));
 			uint64_t difficulty (0);
 			auto error (nano::work_validate (*block_a, &difficulty));
