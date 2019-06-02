@@ -186,7 +186,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 					}
 				}
 			}
-			if (election_l->announcements % 4 == 1)
+			if (election_l->announcements % announcement_long == 1)
 			{
 				auto rep_channels (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> ());
 				auto reps (node.rep_crawler.representatives (std::numeric_limits<size_t>::max ()));
