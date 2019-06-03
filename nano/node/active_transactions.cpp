@@ -766,13 +766,21 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 	return result;
 }
 
-void nano::active_transactions::confirm_block (nano::block_hash const & hash_a)
+void nano::active_transactions::confirm_block (std::shared_ptr<nano::block> block_a)
 {
+	auto hash (block_a->hash ());
 	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (blocks.find (hash_a));
-	if (existing != blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->status.winner->hash () == hash_a)
+	auto existing (blocks.find (hash));
+	if (existing != blocks.end ())
 	{
-		existing->second->confirm_once (nano::election_observer_type::confirmed_confirmation_height);
+		if (!existing->second->confirmed && !existing->second->stopped && existing->second->status.winner->hash () == hash)
+		{
+			existing->second->confirm_once (nano::election_observer_type::confirmed_confirmation_height);
+		}
+	}
+	else
+	{
+		node.observers.active.notify (nano::election_status{ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero () }, nano::election_observer_type::inactive_confirmation_height);
 	}
 }
 

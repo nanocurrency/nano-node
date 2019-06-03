@@ -51,6 +51,7 @@ enum class election_observer_type : uint8_t
 {
 	confirmed,
 	confirmed_confirmation_height,
+	inactive_confirmation_height,
 	forked,
 	added,
 	stopped
@@ -116,7 +117,7 @@ public:
 	size_t size ();
 	void stop ();
 	bool publish (std::shared_ptr<nano::block> block_a);
-	void confirm_block (nano::block_hash const &);
+	void confirm_block (std::shared_ptr<nano::block>);
 	boost::multi_index_container<
 	nano::conflict_info,
 	boost::multi_index::indexed_by<

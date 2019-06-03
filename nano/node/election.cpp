@@ -309,7 +309,6 @@ void nano::election::clear_blocks ()
 	for (auto & block : blocks)
 	{
 		auto erased (node.active.blocks.erase (block.first));
-		(void)erased;
 		assert (erased == 1);
 	}
 }
