@@ -201,7 +201,7 @@ flags (flags_a),
 alarm (alarm_a),
 work (work_a),
 logger (config_a.logging.min_time_between_log_output),
-store_impl (std::make_unique<nano::mdb_store> (init_a.block_store_init, logger, application_path_a / "data.ldb", config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_max_dbs, !flags.disable_unchecked_drop, flags.sideband_batch_size)),
+store_impl (std::make_unique<nano::mdb_store> (init_a.block_store_init, logger, application_path_a / "data.ldb", config_a.use_memory_pool, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_max_dbs, !flags.disable_unchecked_drop, flags.sideband_batch_size)),
 store (*store_impl),
 wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (init_a.wallets_store_init, application_path_a / "wallets.ldb", config_a.lmdb_max_dbs)),
 wallets_store (*wallets_store_impl),
@@ -1412,7 +1412,7 @@ void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 
 bool nano::node::block_confirmed_or_being_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
-	return ledger.block_confirmed (transaction_a, hash_a) || confirmation_height_processor.is_processing_block (hash_a);
+	return ledger.block_confirmed (transaction_a, hash_a) || pending_confirmation_height.is_processing_block (hash_a);
 }
 
 nano::uint128_t nano::node::delta () const

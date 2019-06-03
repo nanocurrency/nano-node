@@ -1,6 +1,8 @@
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/node.hpp>
 
+#include <boost/pool/pool_alloc.hpp>
+
 #include <numeric>
 
 size_t constexpr nano::active_transactions::max_broadcast_queue;
@@ -133,14 +135,16 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 				if there are less than 100 active elections */
 				if (election_l->announcements % announcement_long == 1 && roots_size < 100 && !node.network_params.network.is_test_network ())
 				{
+					bool escalated (false);
 					std::shared_ptr<nano::block> previous;
 					auto previous_hash (election_l->status.winner->previous ());
 					if (!previous_hash.is_zero ())
 					{
 						previous = node.store.block_get (transaction, previous_hash);
-						if (previous != nullptr)
+						if (previous != nullptr && blocks.find (previous_hash) == blocks.end () && !node.block_confirmed_or_being_confirmed (transaction, previous_hash))
 						{
 							add (std::move (previous));
+							escalated = true;
 						}
 					}
 					/* If previous block not existing/not commited yet, block_source can cause segfault for state blocks
@@ -148,16 +152,20 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 					if (previous_hash.is_zero () || previous != nullptr)
 					{
 						auto source_hash (node.ledger.block_source (transaction, *election_l->status.winner));
-						if (!source_hash.is_zero ())
+						if (!source_hash.is_zero () && source_hash != previous_hash && blocks.find (source_hash) == blocks.end ())
 						{
 							auto source (node.store.block_get (transaction, source_hash));
-							if (source != nullptr)
+							if (source != nullptr && !node.block_confirmed_or_being_confirmed (transaction, source_hash))
 							{
 								add (std::move (source));
+								escalated = true;
 							}
 						}
 					}
-					election_l->update_dependent ();
+					if (escalated)
+					{
+						election_l->update_dependent ();
+					}
 				}
 			}
 			if (election_l->announcements < announcement_long || election_l->announcements % announcement_long == could_fit_delay)
@@ -354,19 +362,22 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 			if (info.block_count > info.confirmation_height && !node.pending_confirmation_height.is_processing_block (info.head))
 			{
 				lock_a.lock ();
-				// clang-format off
-				auto it = std::find_if (priority_cementable_frontiers.begin (), priority_cementable_frontiers.end (), [&account](auto const & cemented_frontier) {
-					return (account == cemented_frontier.account);
-				});
-				// clang-format on
-
 				auto num_uncemented = info.block_count - info.confirmation_height;
-				// If exists already then remove it first
+				auto it = priority_cementable_frontiers.find (account);
 				if (it != priority_cementable_frontiers.end ())
 				{
-					priority_cementable_frontiers.erase (it);
+					if (it->blocks_uncemented != num_uncemented)
+					{
+						// Account already exists and there is now a different uncemented block count so update it in the container
+						priority_cementable_frontiers.modify (it, [num_uncemented](nano::cementable_account & info) {
+							info.blocks_uncemented = num_uncemented;
+						});
+					}
 				}
-				priority_cementable_frontiers.emplace (account, num_uncemented);
+				else
+				{
+					priority_cementable_frontiers.emplace (account, num_uncemented);
+				}
 				priority_cementable_frontiers_size = priority_cementable_frontiers.size ();
 				lock_a.unlock ();
 			}
@@ -420,7 +431,7 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, std::
 		auto existing (roots.find (root));
 		if (existing == roots.end ())
 		{
-			auto election (std::make_shared<nano::election> (node, block_a, confirmation_action_a));
+			auto election (nano::make_shared<nano::election> (node.config.use_memory_pool, node, block_a, confirmation_action_a));
 			uint64_t difficulty (0);
 			auto error (nano::work_validate (*block_a, &difficulty));
 			release_assert (!error);

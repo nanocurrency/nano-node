@@ -366,8 +366,20 @@ void nano::transport::tcp_channels::ongoing_keepalive ()
 	lock.unlock ();
 	for (auto & channel : send_list)
 	{
-		std::weak_ptr<nano::node> node_w (node.shared ());
 		channel->send (message);
+	}
+	// Attempt to start TCP connections to known UDP peers
+	if (!node.network_params.network.is_test_network ())
+	{
+		size_t random_count (std::min (static_cast<size_t> (6), static_cast<size_t> (std::ceil (std::sqrt (node.network.udp_channels.size ())))));
+		for (auto i (0); i <= random_count; ++i)
+		{
+			auto tcp_endpoint (node.network.udp_channels.bootstrap_peer (nano::tcp_realtime_protocol_version_min));
+			if (find_channel (tcp_endpoint) == nullptr)
+			{
+				start_tcp (nano::transport::map_tcp_to_endpoint (tcp_endpoint));
+			}
+		}
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	node.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.half_period, [node_w]() {

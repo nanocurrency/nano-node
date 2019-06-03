@@ -636,7 +636,12 @@ void nano::network::random_fill (std::array<nano::endpoint, 8> & target_a) const
 
 nano::tcp_endpoint nano::network::bootstrap_peer ()
 {
-	auto result (udp_channels.bootstrap_peer ());
+	nano::tcp_endpoint result (boost::asio::ip::address_v6::any (), 0);
+	bool use_udp_peer (nano::random_pool::generate_word32 (0, 1));
+	if (use_udp_peer || tcp_channels.size () == 0)
+	{
+		result = udp_channels.bootstrap_peer ();
+	}
 	if (result == nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0))
 	{
 		result = tcp_channels.bootstrap_peer ();

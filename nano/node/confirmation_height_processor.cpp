@@ -73,12 +73,6 @@ void nano::confirmation_height_processor::add (nano::block_hash const & hash_a)
 	condition.notify_one ();
 }
 
-// This only check top-level blocks having their confirmation height sets, not anything below
-bool nano::confirmation_height_processor::is_processing_block (nano::block_hash const & hash_a)
-{
-	return pending_confirmations.is_processing_block (hash_a);
-}
-
 /**
  * For all the blocks below this height which have been implicitly confirmed check if they
  * are open/receive blocks, and if so follow the source blocks and iteratively repeat to genesis.
