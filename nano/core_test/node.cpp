@@ -377,9 +377,13 @@ TEST (node, search_pending_confirmed)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	bool confirmed (false);
+	system.deadline_set (5s);
+	while (!confirmed)
 	{
 		auto transaction (node->store.tx_begin_read ());
-		ASSERT_TRUE (node->ledger.block_confirmed (transaction, send2->hash ()));
+		confirmed = node->ledger.block_confirmed (transaction, send2->hash ());
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	{
 		auto transaction (node->wallets.tx_begin_write ());
@@ -1554,8 +1558,10 @@ TEST (node, broadcast_elected)
 
 TEST (node, rep_self_vote)
 {
-	nano::system system (24000, 1);
-	auto node0 (system.nodes[0]);
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.online_weight_minimum = std::numeric_limits<nano::uint128_t>::max ();
+	auto node0 = system.add_node (node_config);
 	nano::keypair rep_big;
 	{
 		auto transaction0 (node0->store.tx_begin_write ());
