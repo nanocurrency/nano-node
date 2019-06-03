@@ -46,11 +46,19 @@ void nano::election::confirm_once (nano::election_observer_type type_a)
 			node_l->process_confirmed (winner_l);
 			confirmation_action_l (winner_l);
 		});
-		if (announcements > node_l->active.announcement_long)
+		if (announcements > node.active.announcement_long)
 		{
-			--node_l->active.long_unconfirmed_size;
+			--node.active.long_unconfirmed_size;
 		}
 		observers_result (type_a);
+		node.active.confirmed.push_back (status);
+		if (node.active.confirmed.size () > node.config.confirmation_history_size)
+		{
+			node.active.confirmed.pop_front ();
+		}
+		clear_blocks ();
+		clear_dependent ();
+		node.active.roots.erase (winner_l->qualified_root ());
 	}
 }
 
