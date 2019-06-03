@@ -48,7 +48,9 @@ public:
 	bool publish (std::shared_ptr<nano::block> block_a);
 	size_t last_votes_size ();
 	void update_dependent ();
+	void clear_dependent ();
 	void observers_result (nano::election_observer_type);
+	void clear_blocks ();
 	void stop ();
 	nano::node & node;
 	std::unordered_map<nano::account, nano::vote_info> last_votes;

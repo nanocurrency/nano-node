@@ -267,13 +267,21 @@ void nano::election::update_dependent ()
 	}
 }
 
+void nano::election::clear_dependent ()
+{
+	for (auto & dependent_block : dependent_blocks)
+	{
+		node.active.adjust_difficulty (dependent_block);
+	}
+}
+
 void nano::election::observers_result (nano::election_observer_type type_a)
 {
 	// Elections observer
 	node.observers.active.notify (status, type_a);
 	if (blocks.size () > 1)
 	{
-		auto type_blocks (type_a == nano::election_observer_type::stopped ? nano::election_observer_type::stopped: nano::election_observer_type::forked);
+		auto type_blocks (type_a == nano::election_observer_type::stopped ? nano::election_observer_type::stopped : nano::election_observer_type::forked);
 		for (auto & item : last_tally)
 		{
 			if (item.first != status.winner->hash ())
@@ -285,5 +293,15 @@ void nano::election::observers_result (nano::election_observer_type type_a)
 				}
 			}
 		}
+	}
+}
+
+void nano::election::clear_blocks ()
+{
+	for (auto & block : blocks)
+	{
+		auto erased (node.active.blocks.erase (block.first));
+		(void)erased;
+		assert (erased == 1);
 	}
 }

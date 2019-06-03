@@ -180,7 +180,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 				}
 				else
 				{
-					if (election_l->announcements != 0 && !election_l->confirmed)
+					if (election_l->announcements != 0)
 					{
 						election_l->stop ();
 						inactive.insert (root);
@@ -304,16 +304,8 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 	{
 		auto root_it (roots.find (*i));
 		assert (root_it != roots.end ());
-		for (auto & block : root_it->election->blocks)
-		{
-			auto erased (blocks.erase (block.first));
-			(void)erased;
-			assert (erased == 1);
-		}
-		for (auto & dependent_block : root_it->election->dependent_blocks)
-		{
-			adjust_difficulty (dependent_block);
-		}
+		root_it->election->clear_blocks ();
+		root_it->election->clear_dependent ();
 		roots.erase (*i);
 	}
 	long_unconfirmed_size = unconfirmed_count;
@@ -662,13 +654,9 @@ void nano::active_transactions::erase (nano::block const & block_a)
 	auto root_it (roots.find (block_a.qualified_root ()));
 	if (root_it != roots.end ())
 	{
-		for (auto & block : root_it->election->blocks)
-		{
-			auto erased (blocks.erase (block.first));
-			(void)erased;
-			assert (erased == 1);
-		}
 		root_it->election->stop ();
+		root_it->election->clear_blocks ();
+		root_it->election->clear_dependent ();
 		roots.erase (root_it);
 		node.logger.try_log (boost::str (boost::format ("Election erased for block block %1% root %2%") % block_a.hash ().to_string () % block_a.root ().to_string ()));
 	}
@@ -733,13 +721,9 @@ void nano::active_transactions::flush_lowest ()
 			if (election->announcements > announcement_long && !election->confirmed && !node.wallets.watcher.is_watched (it->root))
 			{
 				it = decltype (it){ sorted_roots.erase (std::next (it).base ()) };
-				for (auto & block : election->blocks)
-				{
-					auto erased (blocks.erase (block.first));
-					(void)erased;
-					assert (erased == 1);
-				}
 				election->stop ();
+				election->clear_blocks ();
+				election->clear_dependent ();
 				count++;
 			}
 			else
