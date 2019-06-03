@@ -180,9 +180,10 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 				}
 				else
 				{
-					if (election_l->announcements != 0)
+					if (election_l->announcements != 0 && !election_l->confirmed)
 					{
 						election_l->stop ();
+						inactive.insert (root);
 					}
 				}
 			}
