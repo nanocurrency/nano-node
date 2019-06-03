@@ -347,7 +347,6 @@ TEST (websocket, confirmation_options)
 		client_thread_2_finished = true;
 	});
 
-
 	node1->block_processor.flush ();
 	// Wait for the subscribe action to be acknowledged
 	system.deadline_set (5s);
