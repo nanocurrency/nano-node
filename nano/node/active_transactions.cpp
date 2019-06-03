@@ -658,9 +658,17 @@ std::deque<nano::election_status> nano::active_transactions::list_confirmed ()
 void nano::active_transactions::erase (nano::block const & block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	if (roots.find (block_a.qualified_root ()) != roots.end ())
+	auto root_it (roots.find (block_a.qualified_root ()));
+	if (root_it != roots.end ())
 	{
-		roots.erase (block_a.qualified_root ());
+		for (auto & block : root_it->election->blocks)
+		{
+			auto erased (blocks.erase (block.first));
+			(void)erased;
+			assert (erased == 1);
+		}
+		root_it->election->stop ();
+		roots.erase (root_it);
 		node.logger.try_log (boost::str (boost::format ("Election erased for block block %1% root %2%") % block_a.hash ().to_string () % block_a.root ().to_string ()));
 	}
 }
@@ -724,6 +732,13 @@ void nano::active_transactions::flush_lowest ()
 			if (election->announcements > announcement_long && !election->confirmed && !node.wallets.watcher.is_watched (it->root))
 			{
 				it = decltype (it){ sorted_roots.erase (std::next (it).base ()) };
+				for (auto & block : election->blocks)
+				{
+					auto erased (blocks.erase (block.first));
+					(void)erased;
+					assert (erased == 1);
+				}
+				election->stop ();
 				count++;
 			}
 			else
@@ -772,7 +787,7 @@ void nano::active_transactions::confirm_block (nano::block_hash const & hash_a)
 	auto existing (blocks.find (hash_a));
 	if (existing != blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->status.winner->hash () == hash_a)
 	{
-		existing->second->confirm_once ();
+		existing->second->confirm_once (nano::election_observer_type::confirmed_confirmation_height);
 	}
 }
 

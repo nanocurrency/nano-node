@@ -11,7 +11,7 @@ nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> bloc
 confirmation_action (confirmation_action_a),
 node (node_a),
 election_start (std::chrono::steady_clock::now ()),
-status ({ block_a, 0 }),
+status ({ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero () }),
 confirmed (false),
 stopped (false),
 announcements (0)
@@ -19,6 +19,7 @@ announcements (0)
 	last_votes.insert (std::make_pair (node.network_params.random.not_an_account, nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () }));
 	blocks.insert (std::make_pair (block_a->hash (), block_a));
 	update_dependent ();
+	node.observers.active.notify (status, nano::election_observer_type::added);
 }
 
 void nano::election::compute_rep_votes (nano::transaction const & transaction_a)
@@ -32,7 +33,7 @@ void nano::election::compute_rep_votes (nano::transaction const & transaction_a)
 	}
 }
 
-void nano::election::confirm_once ()
+void nano::election::confirm_once (nano::election_observer_type type_a)
 {
 	if (!confirmed.exchange (true))
 	{
@@ -49,12 +50,19 @@ void nano::election::confirm_once ()
 		{
 			--node_l->active.long_unconfirmed_size;
 		}
+		observers_result (type_a);
 	}
 }
 
 void nano::election::stop ()
 {
-	stopped = true;
+	if (!stopped && !confirmed)
+	{
+		stopped = true;
+		status.election_end = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
+		status.election_duration = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now () - election_start);
+		observers_result (nano::election_observer_type::stopped);
+	}
 }
 
 bool nano::election::have_quorum (nano::tally_t const & tally_a, nano::uint128_t tally_sum) const
@@ -211,6 +219,7 @@ bool nano::election::publish (std::shared_ptr<nano::block> block_a)
 			if (blocks.find (block_a->hash ()) == blocks.end ())
 			{
 				blocks.insert (std::make_pair (block_a->hash (), block_a));
+				node.observers.active.notify (nano::election_status{ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now () - election_start) }, nano::election_observer_type::added);
 				confirm_if_quorum (transaction);
 				node.network.flood_block (block_a);
 			}
@@ -253,6 +262,27 @@ void nano::election::update_dependent ()
 			if (existing->second->dependent_blocks.find (hash) == existing->second->dependent_blocks.end ())
 			{
 				existing->second->dependent_blocks.insert (hash);
+			}
+		}
+	}
+}
+
+void nano::election::observers_result (nano::election_observer_type type_a)
+{
+	// Elections observer
+	node.observers.active.notify (status, type_a);
+	if (blocks.size () > 1)
+	{
+		auto type_blocks (type_a == nano::election_observer_type::stopped ? nano::election_observer_type::stopped: nano::election_observer_type::forked);
+		for (auto & item : last_tally)
+		{
+			if (item.first != status.winner->hash ())
+			{
+				auto block (blocks.find (item.first));
+				if (block != blocks.end ())
+				{
+					node.observers.active.notify (nano::election_status{ block->second, item.second, status.election_end, status.election_duration }, type_blocks);
+				}
 			}
 		}
 	}

@@ -47,6 +47,15 @@ public:
 	std::chrono::milliseconds election_duration;
 };
 
+enum class election_observer_type : uint8_t
+{
+	confirmed,
+	confirmed_confirmation_height,
+	forked,
+	added,
+	stopped
+};
+
 class transaction_counter final
 {
 public:

@@ -343,6 +343,9 @@ startup_time (std::chrono::steady_clock::now ())
 					}
 				}
 			});
+			observers.active.add ([this](nano::election_status const & status_a, nano::election_observer_type type_a) {
+				// Dummy
+			});
 		}
 		observers.endpoint.add ([this](std::shared_ptr<nano::transport::channel> channel_a) {
 			if (channel_a->get_type () == nano::transport::transport_type::udp)

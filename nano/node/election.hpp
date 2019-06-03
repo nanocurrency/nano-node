@@ -41,13 +41,14 @@ public:
 	bool have_quorum (nano::tally_t const &, nano::uint128_t) const;
 	// Change our winner to agree with the network
 	void compute_rep_votes (nano::transaction const &);
-	void confirm_once ();
+	void confirm_once (nano::election_observer_type = nano::election_observer_type::confirmed);
 	// Confirm this block if quorum is met
 	void confirm_if_quorum (nano::transaction const &);
 	void log_votes (nano::tally_t const &) const;
 	bool publish (std::shared_ptr<nano::block> block_a);
 	size_t last_votes_size ();
 	void update_dependent ();
+	void observers_result (nano::election_observer_type);
 	void stop ();
 	nano::node & node;
 	std::unordered_map<nano::account, nano::vote_info> last_votes;

@@ -3,6 +3,7 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/node/active_transactions.hpp>
 #include <nano/node/transport/transport.hpp>
 #include <nano/secure/blockstore.hpp>
 
@@ -15,6 +16,7 @@ public:
 	blocks_t blocks;
 	nano::observer_set<bool> wallet;
 	nano::observer_set<nano::transaction const &, std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>> vote;
+	nano::observer_set<nano::election_status const &, nano::election_observer_type> active;
 	nano::observer_set<nano::account const &, bool> account_balance;
 	nano::observer_set<std::shared_ptr<nano::transport::channel>> endpoint;
 	nano::observer_set<> disconnect;
