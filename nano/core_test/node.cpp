@@ -708,6 +708,7 @@ TEST (node_config, v16_v17_upgrade)
 	ASSERT_FALSE (tree.get_optional_child ("vote_generator_delay"));
 	ASSERT_FALSE (tree.get_optional_child ("diagnostics"));
 	ASSERT_FALSE (tree.get_optional_child ("use_memory_pool"));
+	ASSERT_FALSE (tree.get_optional_child ("confirmation_history_size"));
 
 	config.deserialize_json (upgraded, tree);
 	// The config options should be added after the upgrade
@@ -719,6 +720,7 @@ TEST (node_config, v16_v17_upgrade)
 	ASSERT_TRUE (!!tree.get_optional_child ("vote_generator_delay"));
 	ASSERT_TRUE (!!tree.get_optional_child ("diagnostics"));
 	ASSERT_TRUE (!!tree.get_optional_child ("use_memory_pool"));
+	ASSERT_TRUE (!!tree.get_optional_child ("confirmation_history_size"));
 
 	ASSERT_TRUE (upgraded);
 	auto version (tree.get<std::string> ("version"));
@@ -754,6 +756,7 @@ TEST (node_config, v17_values)
 		diagnostics_l.put_child ("txn_tracking", txn_tracking_l);
 		tree.put_child ("diagnostics", diagnostics_l);
 		tree.put ("use_memory_pool", true);
+		tree.put ("confirmation_history_size", 2048);
 	}
 
 	config.deserialize_json (upgraded, tree);
@@ -768,6 +771,7 @@ TEST (node_config, v17_values)
 	ASSERT_EQ (config.diagnostics_config.txn_tracking.min_write_txn_time.count (), 0);
 	ASSERT_TRUE (config.diagnostics_config.txn_tracking.ignore_writes_below_block_processor_max_time);
 	ASSERT_TRUE (config.use_memory_pool);
+	ASSERT_EQ (config.confirmation_history_size, 2048);
 
 	// Check config is correct with other values
 	tree.put ("tcp_io_timeout", std::numeric_limits<unsigned long>::max () - 100);
@@ -785,6 +789,7 @@ TEST (node_config, v17_values)
 	diagnostics_l.replace_child ("txn_tracking", txn_tracking_l);
 	tree.replace_child ("diagnostics", diagnostics_l);
 	tree.put ("use_memory_pool", false);
+	tree.put ("confirmation_history_size", std::numeric_limits<unsigned long long>::max ());
 
 	upgraded = false;
 	config.deserialize_json (upgraded, tree);
@@ -801,6 +806,7 @@ TEST (node_config, v17_values)
 	ASSERT_EQ (config.diagnostics_config.txn_tracking.min_write_txn_time.count (), std::numeric_limits<unsigned>::max ());
 	ASSERT_FALSE (config.diagnostics_config.txn_tracking.ignore_writes_below_block_processor_max_time);
 	ASSERT_FALSE (config.use_memory_pool);
+	ASSERT_EQ (config.confirmation_history_size, std::numeric_limits<unsigned long long>::max ());
 }
 
 // Regression test to ensure that deserializing includes changes node via get_required_child
