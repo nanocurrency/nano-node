@@ -718,7 +718,7 @@ void nano::active_transactions::flush_lowest ()
 		if (count != 2)
 		{
 			auto election = it->election;
-			if (election->announcements > announcement_long && !election->confirmed && !node.wallets.watcher.is_watched (it->root))
+			if (election->announcements > announcement_long && !election->confirmed && !election->stopped && !node.wallets.watcher.is_watched (it->root))
 			{
 				it = decltype (it){ sorted_roots.erase (std::next (it).base ()) };
 				election->stop ();
@@ -757,10 +757,11 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 	auto result (true);
 	if (existing != roots.end ())
 	{
-		result = existing->election->publish (block_a);
-		if (!result)
+		auto election (existing->election);
+		result = election->publish (block_a);
+		if (!result && !election->confirmed)
 		{
-			blocks.insert (std::make_pair (block_a->hash (), existing->election));
+			blocks.insert (std::make_pair (block_a->hash (), election));
 		}
 	}
 	return result;

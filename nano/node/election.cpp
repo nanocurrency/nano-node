@@ -231,6 +231,10 @@ bool nano::election::publish (std::shared_ptr<nano::block> block_a)
 				confirm_if_quorum (transaction);
 				node.network.flood_block (block_a);
 			}
+			else
+			{
+				result = true;
+			}
 		}
 	}
 	return result;
@@ -309,6 +313,7 @@ void nano::election::clear_blocks ()
 	for (auto & block : blocks)
 	{
 		auto erased (node.active.blocks.erase (block.first));
-		assert (erased == 1);
+		// clear_blocks () can be called in active_transactions::publish () before blocks insertion if election was confirmed
+		assert (erased == 1 || confirmed);
 	}
 }

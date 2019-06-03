@@ -826,7 +826,8 @@ TEST (votes, add_existing)
 	node1.active.start (send1);
 	auto vote1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 1, send1));
 	ASSERT_FALSE (node1.active.vote (vote1));
-	ASSERT_FALSE (node1.active.publish (send1));
+	// Block is already processed from vote
+	ASSERT_TRUE (node1.active.publish (send1));
 	std::unique_lock<std::mutex> lock (node1.active.mutex);
 	auto votes1 (node1.active.roots.find (send1->qualified_root ())->election);
 	ASSERT_EQ (1, votes1->last_votes[nano::test_genesis_key.pub].sequence);
