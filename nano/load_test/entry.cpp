@@ -50,6 +50,8 @@ void write_config_files (boost::filesystem::path const & data_path, int index)
 	json.read_and_update (daemon_config, data_path / "config.json");
 	auto node_l = json.get_required_child ("node");
 	node_l.put ("peering_port", peering_port_start + index);
+	// Alternate use of memory pool
+	node_l.put ("use_memory_pools", (index % 2) == 0);
 	auto tcp = node_l.get_required_child ("ipc").get_required_child ("tcp");
 	tcp.put ("enable", true);
 	tcp.put ("port", ipc_port_start + index);
