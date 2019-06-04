@@ -147,10 +147,9 @@ void * nano::write_mdb_txn::get_handle () const
 	return handle;
 }
 
-nano::mdb_val::mdb_val (bool use_memory_pool_a, nano::epoch epoch_a) :
+nano::mdb_val::mdb_val (nano::epoch epoch_a) :
 value ({ 0, nullptr }),
-epoch (epoch_a),
-use_memory_pool (use_memory_pool_a)
+epoch (epoch_a)
 {
 }
 
@@ -197,8 +196,8 @@ mdb_val (sizeof (val_a), const_cast<nano::pending_key *> (&val_a))
 	static_assert (std::is_standard_layout<nano::pending_key>::value, "Standard layout is required");
 }
 
-nano::mdb_val::mdb_val (nano::unchecked_info const & val_a, bool use_memory_pool_a) :
-buffer (std::make_shared<std::vector<uint8_t>> ()), use_memory_pool (use_memory_pool_a)
+nano::mdb_val::mdb_val (nano::unchecked_info const & val_a) :
+buffer (std::make_shared<std::vector<uint8_t>> ())
 {
 	{
 		nano::vectorstream stream (*buffer);
@@ -219,8 +218,8 @@ mdb_val (sizeof (val_a), const_cast<nano::endpoint_key *> (&val_a))
 	static_assert (std::is_standard_layout<nano::endpoint_key>::value, "Standard layout is required");
 }
 
-nano::mdb_val::mdb_val (std::shared_ptr<nano::block> const & val_a, bool use_memory_pool_a) :
-buffer (std::make_shared<std::vector<uint8_t>> ()), use_memory_pool (use_memory_pool_a)
+nano::mdb_val::mdb_val (std::shared_ptr<nano::block> const & val_a) :
+buffer (std::make_shared<std::vector<uint8_t>> ())
 {
 	{
 		nano::vectorstream stream (*buffer);
@@ -298,7 +297,7 @@ nano::mdb_val::operator nano::unchecked_info () const
 {
 	nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data), value.mv_size);
 	nano::unchecked_info result;
-	bool error (result.deserialize (stream, use_memory_pool));
+	bool error (result.deserialize (stream));
 	assert (!error);
 	return result;
 }
@@ -343,7 +342,7 @@ nano::mdb_val::operator nano::no_value () const
 nano::mdb_val::operator std::shared_ptr<nano::block> () const
 {
 	nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data), value.mv_size);
-	std::shared_ptr<nano::block> result (nano::deserialize_block (stream, use_memory_pool));
+	std::shared_ptr<nano::block> result (nano::deserialize_block (stream));
 	return result;
 }
 
@@ -396,7 +395,7 @@ nano::mdb_val::operator std::shared_ptr<nano::vote> () const
 {
 	nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data), value.mv_size);
 	auto error (false);
-	auto result (nano::make_shared<nano::vote> (use_memory_pool, error, stream, use_memory_pool));
+	auto result (nano::make_shared<nano::vote> (error, stream));
 	assert (!error);
 	return result;
 }
@@ -602,8 +601,8 @@ bool nano::mdb_iterator<T, U>::operator== (nano::store_iterator_impl<T, U> const
 template <typename T, typename U>
 void nano::mdb_iterator<T, U>::clear ()
 {
-	current.first = nano::mdb_val (current.first.use_memory_pool, current.first.epoch);
-	current.second = nano::mdb_val (current.second.use_memory_pool, current.second.epoch);
+	current.first = nano::mdb_val (current.first.epoch);
+	current.second = nano::mdb_val (current.second.epoch);
 	assert (is_end_sentinal ());
 }
 
@@ -823,12 +822,11 @@ nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> nano::mdb_store
 	return nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> (nullptr);
 }
 
-nano::mdb_store::mdb_store (bool & error_a, nano::logger_mt & logger_a, boost::filesystem::path const & path_a, bool use_memory_pool_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, bool drop_unchecked, size_t const batch_size) :
+nano::mdb_store::mdb_store (bool & error_a, nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, bool drop_unchecked, size_t const batch_size) :
 logger (logger_a),
 env (error_a, path_a, lmdb_max_dbs),
 mdb_txn_tracker (logger_a, txn_tracking_config_a, block_processor_batch_max_time_a),
-txn_tracking_enabled (txn_tracking_config_a.enable),
-use_memory_pool (use_memory_pool_a)
+txn_tracking_enabled (txn_tracking_config_a.enable)
 {
 	if (!error_a)
 	{
@@ -964,7 +962,7 @@ void nano::mdb_store::version_put (nano::transaction const & transaction_a, int 
 int nano::mdb_store::version_get (nano::transaction const & transaction_a) const
 {
 	nano::uint256_union version_key (1);
-	nano::mdb_val data (use_memory_pool);
+	nano::mdb_val data;
 	auto error (mdb_get (env.tx (transaction_a), meta, nano::mdb_val (version_key), data));
 	int result (1);
 	if (error != MDB_NOTFOUND)
@@ -1474,7 +1472,7 @@ void nano::mdb_store::block_put (nano::transaction const & transaction_a, nano::
 
 boost::optional<MDB_val> nano::mdb_store::block_raw_get_by_type (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_type & type_a) const
 {
-	nano::mdb_val value (use_memory_pool);
+	nano::mdb_val value;
 	auto status (MDB_NOTFOUND);
 	switch (type_a)
 	{
@@ -1526,7 +1524,7 @@ boost::optional<MDB_val> nano::mdb_store::block_raw_get_by_type (nano::transacti
 
 MDB_val nano::mdb_store::block_raw_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_type & type_a) const
 {
-	nano::mdb_val result (use_memory_pool);
+	nano::mdb_val result;
 	// Table lookups are ordered by match probability
 	nano::block_type block_types[]{ nano::block_type::state, nano::block_type::send, nano::block_type::receive, nano::block_type::open, nano::block_type::change };
 	for (auto current_type : block_types)
@@ -1681,7 +1679,7 @@ std::shared_ptr<nano::block> nano::mdb_store::block_get (nano::transaction const
 	if (value.mv_size != 0)
 	{
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data), value.mv_size);
-		result = nano::deserialize_block (stream, type, use_memory_pool);
+		result = nano::deserialize_block (stream, type);
 		assert (result != nullptr);
 		if (sideband_a)
 		{
@@ -2161,7 +2159,7 @@ nano::store_iterator<nano::pending_key, nano::pending_info> nano::mdb_store::pen
 bool nano::mdb_store::block_info_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_info & block_info_a) const
 {
 	assert (!full_sideband (transaction_a));
-	nano::mdb_val value (use_memory_pool);
+	nano::mdb_val value;
 	auto status (mdb_get (env.tx (transaction_a), blocks_info, nano::mdb_val (hash_a), value));
 	release_assert (status == 0 || status == MDB_NOTFOUND);
 	bool result (true);
@@ -2180,7 +2178,7 @@ bool nano::mdb_store::block_info_get (nano::transaction const & transaction_a, n
 
 nano::uint128_t nano::mdb_store::representation_get (nano::transaction const & transaction_a, nano::account const & account_a)
 {
-	nano::mdb_val value (use_memory_pool);
+	nano::mdb_val value;
 	auto status (mdb_get (env.tx (transaction_a), representation, nano::mdb_val (account_a), value));
 	release_assert (status == 0 || status == MDB_NOTFOUND);
 	nano::uint128_t result = 0;
@@ -2210,7 +2208,7 @@ void nano::mdb_store::unchecked_clear (nano::transaction const & transaction_a)
 
 void nano::mdb_store::unchecked_put (nano::transaction const & transaction_a, nano::unchecked_key const & key_a, nano::unchecked_info const & info_a)
 {
-	auto status (mdb_put (env.tx (transaction_a), unchecked, nano::mdb_val (key_a), nano::mdb_val (info_a, use_memory_pool), 0));
+	auto status (mdb_put (env.tx (transaction_a), unchecked, nano::mdb_val (key_a), nano::mdb_val (info_a), 0));
 	release_assert (status == 0);
 }
 
@@ -2223,7 +2221,7 @@ void nano::mdb_store::unchecked_put (nano::transaction const & transaction_a, na
 
 std::shared_ptr<nano::vote> nano::mdb_store::vote_get (nano::transaction const & transaction_a, nano::account const & account_a)
 {
-	nano::mdb_val value (use_memory_pool);
+	nano::mdb_val value;
 	auto status (mdb_get (env.tx (transaction_a), vote, nano::mdb_val (account_a), value));
 	release_assert (status == 0 || status == MDB_NOTFOUND);
 	if (status == 0)
