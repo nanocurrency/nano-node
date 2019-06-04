@@ -76,20 +76,20 @@ public:
 class mdb_val
 {
 public:
-	mdb_val (bool use_memory_pool = true, nano::epoch = nano::epoch::unspecified);
+	mdb_val (nano::epoch = nano::epoch::unspecified);
 	mdb_val (nano::account_info const &);
 	mdb_val (nano::account_info_v13 const &);
 	mdb_val (nano::block_info const &);
 	mdb_val (MDB_val const &, nano::epoch = nano::epoch::unspecified);
 	mdb_val (nano::pending_info const &);
 	mdb_val (nano::pending_key const &);
-	mdb_val (nano::unchecked_info const &, bool);
+	mdb_val (nano::unchecked_info const &);
 	mdb_val (size_t, void *);
 	mdb_val (nano::uint128_union const &);
 	mdb_val (nano::uint256_union const &);
 	mdb_val (nano::endpoint_key const &);
-	mdb_val (std::shared_ptr<nano::block> const &, bool);
-	mdb_val (std::shared_ptr<nano::vote> const &, bool);
+	mdb_val (std::shared_ptr<nano::block> const &);
+	mdb_val (std::shared_ptr<nano::vote> const &);
 	mdb_val (uint64_t);
 	void * data () const;
 	size_t size () const;
@@ -117,7 +117,6 @@ public:
 	MDB_val value;
 	std::shared_ptr<std::vector<uint8_t>> buffer;
 	nano::epoch epoch{ nano::epoch::unspecified };
-	bool use_memory_pool{ true };
 };
 class block_store;
 
@@ -183,7 +182,7 @@ class mdb_store : public block_store
 	friend class nano::block_predecessor_set;
 
 public:
-	mdb_store (bool &, nano::logger_mt &, boost::filesystem::path const &, bool use_memory_pool_a = true, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), int lmdb_max_dbs = 128, bool drop_unchecked = false, size_t batch_size = 512);
+	mdb_store (bool &, nano::logger_mt &, boost::filesystem::path const &, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), int lmdb_max_dbs = 128, bool drop_unchecked = false, size_t batch_size = 512);
 	nano::write_transaction tx_begin_write () override;
 	nano::read_transaction tx_begin_read () override;
 
@@ -442,7 +441,6 @@ private:
 	nano::mdb_txn_tracker mdb_txn_tracker;
 	nano::mdb_txn_callbacks create_txn_callbacks ();
 	bool txn_tracking_enabled;
-	bool use_memory_pool;
 	static int constexpr version{ 14 };
 };
 class wallet_value
