@@ -510,7 +510,7 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			res = "accept_failure";
 			break;
 		case nano::stat::detail::tcp_write_drop:
-			res = "write_drop";
+			res = "tcp_write_drop";
 			break;
 		case nano::stat::detail::unreachable_host:
 			res = "unreachable_host";
