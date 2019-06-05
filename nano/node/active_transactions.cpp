@@ -770,7 +770,7 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 void nano::active_transactions::confirm_block (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_sideband const & sideband_a)
 {
 	auto hash (block_a->hash ());
-	std::lock_guard<std::mutex> lock (mutex);
+	std::unique_lock<std::mutex> lock (mutex);
 	auto existing (blocks.find (hash));
 	if (existing != blocks.end ())
 	{
@@ -781,6 +781,7 @@ void nano::active_transactions::confirm_block (nano::transaction const & transac
 	}
 	else
 	{
+		lock.unlock ();
 		nano::account account (0);
 		nano::uint128_t amount (0);
 		bool is_state_send (false);
