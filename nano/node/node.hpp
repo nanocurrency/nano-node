@@ -210,6 +210,7 @@ public:
 	boost::latch node_initialized_latch;
 	nano::network_params network_params;
 	nano::node_config config;
+	nano::stat stats;
 	std::shared_ptr<nano::websocket::listener> websocket_server;
 	nano::node_flags flags;
 	nano::alarm & alarm;
@@ -236,7 +237,6 @@ public:
 	nano::block_arrival block_arrival;
 	nano::online_reps online_reps;
 	nano::votes_cache votes_cache;
-	nano::stat stats;
 	nano::keypair node_id;
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer;
