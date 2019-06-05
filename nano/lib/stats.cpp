@@ -260,47 +260,50 @@ void nano::stat::update (uint32_t key_a, uint64_t value)
 	auto now (std::chrono::steady_clock::now ());
 
 	std::unique_lock<std::mutex> lock (stat_mutex);
-	auto entry (get_entry_impl (key_a, config.interval, config.capacity));
-
-	// Counters
-	auto old (entry->counter.get_value ());
-	entry->counter.add (value);
-	entry->count_observers.notify (old, entry->counter.get_value ());
-
-	std::chrono::duration<double, std::milli> duration = now - log_last_count_writeout;
-	if (config.log_interval_counters > 0 && duration.count () > config.log_interval_counters)
+	if (!stopped)
 	{
-		log_counters_impl (log_count);
-		log_last_count_writeout = now;
-	}
+		auto entry (get_entry_impl (key_a, config.interval, config.capacity));
 
-	// Samples
-	if (config.sampling_enabled && entry->sample_interval > 0)
-	{
-		entry->sample_current.add (value, false);
+		// Counters
+		auto old (entry->counter.get_value ());
+		entry->counter.add (value);
+		entry->count_observers.notify (old, entry->counter.get_value ());
 
-		std::chrono::duration<double, std::milli> duration = now - entry->sample_start_time;
-		if (duration.count () > entry->sample_interval)
+		std::chrono::duration<double, std::milli> duration = now - log_last_count_writeout;
+		if (config.log_interval_counters > 0 && duration.count () > config.log_interval_counters)
 		{
-			entry->sample_start_time = now;
+			log_counters_impl (log_count);
+			log_last_count_writeout = now;
+		}
 
-			// Make a snapshot of samples for thread safety and to get a stable container
-			entry->sample_current.set_timestamp (std::chrono::system_clock::now ());
-			entry->samples.push_back (entry->sample_current);
-			entry->sample_current.set_value (0);
+		// Samples
+		if (config.sampling_enabled && entry->sample_interval > 0)
+		{
+			entry->sample_current.add (value, false);
 
-			if (!entry->sample_observers.observers.empty ())
+			std::chrono::duration<double, std::milli> duration = now - entry->sample_start_time;
+			if (duration.count () > entry->sample_interval)
 			{
-				auto snapshot (entry->samples);
-				entry->sample_observers.notify (snapshot);
-			}
+				entry->sample_start_time = now;
 
-			// Log sink
-			duration = now - log_last_sample_writeout;
-			if (config.log_interval_samples > 0 && duration.count () > config.log_interval_samples)
-			{
-				log_samples_impl (log_sample);
-				log_last_sample_writeout = now;
+				// Make a snapshot of samples for thread safety and to get a stable container
+				entry->sample_current.set_timestamp (std::chrono::system_clock::now ());
+				entry->samples.push_back (entry->sample_current);
+				entry->sample_current.set_value (0);
+
+				if (!entry->sample_observers.observers.empty ())
+				{
+					auto snapshot (entry->samples);
+					entry->sample_observers.notify (snapshot);
+				}
+
+				// Log sink
+				duration = now - log_last_sample_writeout;
+				if (config.log_interval_samples > 0 && duration.count () > config.log_interval_samples)
+				{
+					log_samples_impl (log_sample);
+					log_last_sample_writeout = now;
+				}
 			}
 		}
 	}
@@ -311,6 +314,12 @@ std::chrono::seconds nano::stat::last_reset ()
 	std::unique_lock<std::mutex> lock (stat_mutex);
 	auto now (std::chrono::steady_clock::now ());
 	return std::chrono::duration_cast<std::chrono::seconds> (now - timestamp);
+}
+
+void nano::stat::stop ()
+{
+	std::lock_guard<std::mutex> guard (stat_mutex);
+	stopped = true;
 }
 
 void nano::stat::clear ()
