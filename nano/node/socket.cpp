@@ -69,9 +69,13 @@ void nano::socket::async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, 
 			boost::asio::post (strand, boost::asio::bind_executor (strand, [buffer_a, callback_a, this_l]() {
 				bool write_in_progress = !this_l->send_queue.empty ();
 				auto queue_size = this_l->send_queue.size ();
-				if (queue_size < queue_size_max)
+				if (queue_size < this_l->queue_size_max)
 				{
 					this_l->send_queue.emplace_back (nano::socket::queue_item{ buffer_a, callback_a });
+				}
+				else
+				{
+					this_l->node->stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_drop, nano::stat::dir::out);
 				}
 				if (!write_in_progress)
 				{
