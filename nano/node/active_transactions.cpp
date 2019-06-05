@@ -767,7 +767,7 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 	return result;
 }
 
-void nano::active_transactions::confirm_block (std::shared_ptr<nano::block> block_a)
+void nano::active_transactions::confirm_block (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_sideband const & sideband_a)
 {
 	auto hash (block_a->hash ());
 	std::lock_guard<std::mutex> lock (mutex);
@@ -776,12 +776,17 @@ void nano::active_transactions::confirm_block (std::shared_ptr<nano::block> bloc
 	{
 		if (!existing->second->confirmed && !existing->second->stopped && existing->second->status.winner->hash () == hash)
 		{
-			existing->second->confirm_once (nano::election_observer_type::confirmed_confirmation_height);
+			existing->second->confirm_once (nano::election_status_type::active_confirmation_height);
 		}
 	}
 	else
 	{
-		node.observers.active.notify (nano::election_status{ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero () }, nano::election_observer_type::inactive_confirmation_height);
+		nano::account account (0);
+		nano::uint128_t amount (0);
+		bool is_state_send (false);
+		nano::account pending_account (0);
+		node.process_confirmed_data (transaction_a, block_a, hash, sideband_a, account, amount, is_state_send, pending_account);
+		node.observers.blocks.notify (nano::election_status{ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), nano::election_status_type::inactive_confirmation_height }, account, amount, is_state_send);
 	}
 }
 

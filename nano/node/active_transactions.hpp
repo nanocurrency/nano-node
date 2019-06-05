@@ -25,6 +25,7 @@ namespace nano
 {
 class node;
 class block;
+class block_sideband;
 class vote;
 class election;
 class transaction;
@@ -38,6 +39,16 @@ public:
 	std::shared_ptr<nano::election> election;
 };
 
+enum class election_status_type : uint8_t
+{
+	ongoing = 0,
+	active_confirmed_quorum = 1,
+	active_confirmation_height = 2,
+	inactive_confirmation_height = 3,
+	rpc_confirmation_height = 4,
+	stopped = 5
+};
+
 class election_status final
 {
 public:
@@ -45,16 +56,7 @@ public:
 	nano::amount tally;
 	std::chrono::milliseconds election_end;
 	std::chrono::milliseconds election_duration;
-};
-
-enum class election_observer_type : uint8_t
-{
-	confirmed,
-	confirmed_confirmation_height,
-	inactive_confirmation_height,
-	forked,
-	added,
-	stopped
+	election_status_type type;
 };
 
 class transaction_counter final
@@ -117,7 +119,7 @@ public:
 	size_t size ();
 	void stop ();
 	bool publish (std::shared_ptr<nano::block> block_a);
-	void confirm_block (std::shared_ptr<nano::block>);
+	void confirm_block (nano::transaction const &, std::shared_ptr<nano::block>, nano::block_sideband const &);
 	boost::multi_index_container<
 	nano::conflict_info,
 	boost::multi_index::indexed_by<

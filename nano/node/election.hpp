@@ -41,7 +41,7 @@ public:
 	bool have_quorum (nano::tally_t const &, nano::uint128_t) const;
 	// Change our winner to agree with the network
 	void compute_rep_votes (nano::transaction const &);
-	void confirm_once (nano::election_observer_type = nano::election_observer_type::confirmed);
+	void confirm_once (nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
 	// Confirm this block if quorum is met
 	void confirm_if_quorum (nano::transaction const &);
 	void log_votes (nano::tally_t const &) const;
@@ -49,7 +49,6 @@ public:
 	size_t last_votes_size ();
 	void update_dependent ();
 	void clear_dependent ();
-	void observers_result (nano::election_observer_type);
 	void clear_blocks ();
 	void stop ();
 	nano::node & node;
