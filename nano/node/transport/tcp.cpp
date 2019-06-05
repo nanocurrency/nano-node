@@ -242,7 +242,7 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 			{
 				node.network.process_message (message_a, channel);
 			}
-			else
+			else if (!node.flags.disable_udp || (message_a.header.type != nano::message_type::confirm_req && message_a.header.type != nano::message_type::confirm_req))
 			{
 				auto udp_channel (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, nano::transport::map_tcp_to_endpoint (endpoint_a)));
 				node.network.process_message (message_a, udp_channel);
@@ -369,7 +369,7 @@ void nano::transport::tcp_channels::ongoing_keepalive ()
 		channel->send (message);
 	}
 	// Attempt to start TCP connections to known UDP peers
-	if (!node.network_params.network.is_test_network ())
+	if (!node.network_params.network.is_test_network () && !node.flags.disable_udp)
 	{
 		size_t random_count (std::min (static_cast<size_t> (6), static_cast<size_t> (std::ceil (std::sqrt (node.network.udp_channels.size ())))));
 		for (auto i (0); i <= random_count; ++i)
@@ -550,7 +550,7 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 
 void nano::transport::tcp_channels::udp_fallback (nano::endpoint const & endpoint_a, std::function<void(std::shared_ptr<nano::transport::channel>)> const & callback_a)
 {
-	if (callback_a)
+	if (callback_a && !node.flags.disable_udp)
 	{
 		auto channel_udp (node.network.udp_channels.create (endpoint_a));
 		callback_a (channel_udp);

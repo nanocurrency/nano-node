@@ -62,7 +62,10 @@ void nano::network::start ()
 {
 	ongoing_cleanup ();
 	ongoing_syn_cookie_cleanup ();
-	udp_channels.start ();
+	if (!node.flags.disable_udp)
+	{
+		udp_channels.start ();
+	}
 	tcp_channels.start ();
 }
 
