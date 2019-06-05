@@ -73,9 +73,9 @@ void nano::socket::async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, 
 				{
 					this_l->send_queue.emplace_back (nano::socket::queue_item{ buffer_a, callback_a });
 				}
-				else
+				else if (auto node_l = this_l->node.lock ())
 				{
-					this_l->node->stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_drop, nano::stat::dir::out);
+					node_l->stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_drop, nano::stat::dir::out);
 				}
 				if (!write_in_progress)
 				{
