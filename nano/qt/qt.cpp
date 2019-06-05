@@ -1267,10 +1267,10 @@ void nano_qt::wallet::start ()
 			this_l->push_main_stack (this_l->send_blocks_window);
 		}
 	});
-	node.observers.blocks.add ([this_w](std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::uint128_t const & amount_a, bool) {
+	node.observers.blocks.add ([this_w](nano::election_status const & status_a, nano::account const & account_a, nano::uint128_t const & amount_a, bool) {
 		if (auto this_l = this_w.lock ())
 		{
-			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, block_a, account_a]() {
+			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, status_a, account_a]() {
 				if (auto this_l = this_w.lock ())
 				{
 					if (this_l->wallet_m->exists (account_a))

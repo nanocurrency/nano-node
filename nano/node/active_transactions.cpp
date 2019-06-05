@@ -183,6 +183,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 					if (election_l->announcements != 0)
 					{
 						election_l->stop ();
+						inactive.insert (root);
 					}
 				}
 			}
@@ -303,16 +304,8 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 	{
 		auto root_it (roots.find (*i));
 		assert (root_it != roots.end ());
-		for (auto & block : root_it->election->blocks)
-		{
-			auto erased (blocks.erase (block.first));
-			(void)erased;
-			assert (erased == 1);
-		}
-		for (auto & dependent_block : root_it->election->dependent_blocks)
-		{
-			adjust_difficulty (dependent_block);
-		}
+		root_it->election->clear_blocks ();
+		root_it->election->clear_dependent ();
 		roots.erase (*i);
 	}
 	long_unconfirmed_size = unconfirmed_count;
@@ -658,9 +651,13 @@ std::deque<nano::election_status> nano::active_transactions::list_confirmed ()
 void nano::active_transactions::erase (nano::block const & block_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	if (roots.find (block_a.qualified_root ()) != roots.end ())
+	auto root_it (roots.find (block_a.qualified_root ()));
+	if (root_it != roots.end ())
 	{
-		roots.erase (block_a.qualified_root ());
+		root_it->election->stop ();
+		root_it->election->clear_blocks ();
+		root_it->election->clear_dependent ();
+		roots.erase (root_it);
 		node.logger.try_log (boost::str (boost::format ("Election erased for block block %1% root %2%") % block_a.hash ().to_string () % block_a.root ().to_string ()));
 	}
 }
@@ -721,9 +718,12 @@ void nano::active_transactions::flush_lowest ()
 		if (count != 2)
 		{
 			auto election = it->election;
-			if (election->announcements > announcement_long && !election->confirmed && !node.wallets.watcher.is_watched (it->root))
+			if (election->announcements > announcement_long && !election->confirmed && !election->stopped && !node.wallets.watcher.is_watched (it->root))
 			{
 				it = decltype (it){ sorted_roots.erase (std::next (it).base ()) };
+				election->stop ();
+				election->clear_blocks ();
+				election->clear_dependent ();
 				count++;
 			}
 			else
@@ -757,22 +757,37 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 	auto result (true);
 	if (existing != roots.end ())
 	{
-		result = existing->election->publish (block_a);
-		if (!result)
+		auto election (existing->election);
+		result = election->publish (block_a);
+		if (!result && !election->confirmed)
 		{
-			blocks.insert (std::make_pair (block_a->hash (), existing->election));
+			blocks.insert (std::make_pair (block_a->hash (), election));
 		}
 	}
 	return result;
 }
 
-void nano::active_transactions::confirm_block (nano::block_hash const & hash_a)
+void nano::active_transactions::confirm_block (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_sideband const & sideband_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (blocks.find (hash_a));
-	if (existing != blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->status.winner->hash () == hash_a)
+	auto hash (block_a->hash ());
+	std::unique_lock<std::mutex> lock (mutex);
+	auto existing (blocks.find (hash));
+	if (existing != blocks.end ())
 	{
-		existing->second->confirm_once ();
+		if (!existing->second->confirmed && !existing->second->stopped && existing->second->status.winner->hash () == hash)
+		{
+			existing->second->confirm_once (nano::election_status_type::active_confirmation_height);
+		}
+	}
+	else
+	{
+		lock.unlock ();
+		nano::account account (0);
+		nano::uint128_t amount (0);
+		bool is_state_send (false);
+		nano::account pending_account (0);
+		node.process_confirmed_data (transaction_a, block_a, hash, sideband_a, account, amount, is_state_send, pending_account);
+		node.observers.blocks.notify (nano::election_status{ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), nano::election_status_type::inactive_confirmation_height }, account, amount, is_state_send);
 	}
 }
 

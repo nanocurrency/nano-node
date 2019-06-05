@@ -307,6 +307,7 @@ public:
 
 	virtual bool block_info_get (nano::transaction const &, nano::block_hash const &, nano::block_info &) const = 0;
 	virtual nano::uint128_t block_balance (nano::transaction const &, nano::block_hash const &) = 0;
+	nano::uint128_t block_balance_calculated (std::shared_ptr<nano::block>, nano::block_sideband const &) const;
 	virtual nano::epoch block_version (nano::transaction const &, nano::block_hash const &) = 0;
 
 	virtual nano::uint128_t representation_get (nano::transaction const &, nano::account const &) = 0;

@@ -170,7 +170,8 @@ public:
 	std::shared_ptr<nano::node> shared ();
 	int store_version ();
 	void receive_confirmed (nano::transaction const &, std::shared_ptr<nano::block>, nano::block_hash const &);
-	void process_confirmed (std::shared_ptr<nano::block>, uint8_t = 0);
+	void process_confirmed_data (nano::transaction const &, std::shared_ptr<nano::block>, nano::block_hash const &, nano::block_sideband const &, nano::account &, nano::uint128_t &, bool &, nano::account &);
+	void process_confirmed (nano::election_status const &, uint8_t = 0);
 	void process_active (std::shared_ptr<nano::block>);
 	nano::process_return process (nano::block const &);
 	void keepalive_preconfigured (std::vector<std::string> const &);

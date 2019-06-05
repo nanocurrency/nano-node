@@ -944,11 +944,7 @@ void nano::json_handler::block_confirm ()
 			else
 			{
 				// Add record in confirmation history for confirmed block
-				nano::election_status status;
-				status.winner = block_l;
-				status.tally = 0;
-				status.election_end = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
-				status.election_duration = std::chrono::milliseconds::zero ();
+				nano::election_status status{ block_l, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), nano::election_status_type::rpc_confirmation_height };
 				{
 					std::lock_guard<std::mutex> lock (node.active.mutex);
 					node.active.confirmed.push_back (status);
@@ -966,7 +962,7 @@ void nano::json_handler::block_confirm ()
 				{
 					is_state_send = node.ledger.is_send (transaction, *state);
 				}
-				node.observers.blocks.notify (block_l, account, amount, is_state_send);
+				node.observers.blocks.notify (status, account, amount, is_state_send);
 			}
 			response_l.put ("started", "1");
 		}

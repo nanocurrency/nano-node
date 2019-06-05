@@ -251,7 +251,8 @@ startup_time (std::chrono::steady_clock::now ())
 		};
 		if (!config.callback_address.empty ())
 		{
-			observers.blocks.add ([this](std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
+			observers.blocks.add ([this](nano::election_status const & status_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
+				auto block_a (status_a.winner);
 				if (this->block_arrival.recent (block_a->hash ()))
 				{
 					auto node_l (shared_from_this ());
@@ -312,9 +313,10 @@ startup_time (std::chrono::steady_clock::now ())
 		}
 		if (websocket_server)
 		{
-			observers.blocks.add ([this](std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
+			observers.blocks.add ([this](nano::election_status const & status_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
 				if (this->websocket_server->any_subscriber (nano::websocket::topic::confirmation))
 				{
+					auto block_a (status_a.winner);
 					if (this->block_arrival.recent (block_a->hash ()))
 					{
 						std::string subtype;
@@ -1519,29 +1521,57 @@ void nano::node::receive_confirmed (nano::transaction const & transaction_a, std
 	block_a->visit (visitor);
 }
 
-void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a, uint8_t iteration)
+void nano::node::process_confirmed_data (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_hash const & hash_a, nano::block_sideband const & sideband_a, nano::account & account_a, nano::uint128_t & amount_a, bool & is_state_send_a, nano::account & pending_account_a)
 {
+	// Faster account calculation
+	account_a = block_a->account ();
+	if (account_a.is_zero ())
+	{
+		account_a = sideband_a.account;
+	}
+	// Faster amount calculation
+	auto previous (block_a->previous ());
+	auto previous_balance (ledger.balance (transaction_a, previous));
+	auto block_balance (store.block_balance_calculated (block_a, sideband_a));
+	if (hash_a != ledger.network_params.ledger.genesis_account)
+	{
+		amount_a = block_balance > previous_balance ? block_balance - previous_balance : previous_balance - block_balance;
+	}
+	else
+	{
+		amount_a = ledger.network_params.ledger.genesis_amount;
+	}
+	if (auto state = dynamic_cast<nano::state_block *> (block_a.get ()))
+	{
+		if (state->hashables.balance < previous_balance)
+		{
+			is_state_send_a = true;
+		}
+		pending_account_a = state->hashables.link;
+	}
+	if (auto send = dynamic_cast<nano::send_block *> (block_a.get ()))
+	{
+		pending_account_a = send->hashables.destination;
+	}
+}
+
+void nano::node::process_confirmed (nano::election_status const & status_a, uint8_t iteration)
+{
+	auto block_a (status_a.winner);
 	auto hash (block_a->hash ());
-	if (ledger.block_exists (block_a->type (), hash))
+	nano::block_sideband sideband;
+	auto transaction (store.tx_begin_read ());
+	if (store.block_get (transaction, hash, &sideband) != nullptr)
 	{
 		confirmation_height_processor.add (hash);
 
-		auto transaction (store.tx_begin_read ());
 		receive_confirmed (transaction, block_a, hash);
-		auto account (ledger.account (transaction, hash));
-		auto amount (ledger.amount (transaction, hash));
+		nano::account account (0);
+		nano::uint128_t amount (0);
 		bool is_state_send (false);
 		nano::account pending_account (0);
-		if (auto state = dynamic_cast<nano::state_block *> (block_a.get ()))
-		{
-			is_state_send = ledger.is_send (transaction, *state);
-			pending_account = state->hashables.link;
-		}
-		if (auto send = dynamic_cast<nano::send_block *> (block_a.get ()))
-		{
-			pending_account = send->hashables.destination;
-		}
-		observers.blocks.notify (block_a, account, amount, is_state_send);
+		process_confirmed_data (transaction, block_a, hash, sideband, account, amount, is_state_send, pending_account);
+		observers.blocks.notify (status_a, account, amount, is_state_send);
 		if (amount > 0)
 		{
 			observers.account_balance.notify (account, false);
@@ -1556,10 +1586,10 @@ void nano::node::process_confirmed (std::shared_ptr<nano::block> block_a, uint8_
 	{
 		iteration++;
 		std::weak_ptr<nano::node> node_w (shared ());
-		alarm.add (std::chrono::steady_clock::now () + network_params.node.process_confirmed_interval, [node_w, block_a, iteration]() {
+		alarm.add (std::chrono::steady_clock::now () + network_params.node.process_confirmed_interval, [node_w, status_a, iteration]() {
 			if (auto node_l = node_w.lock ())
 			{
-				node_l->process_confirmed (block_a, iteration);
+				node_l->process_confirmed (status_a, iteration);
 			}
 		});
 	}
