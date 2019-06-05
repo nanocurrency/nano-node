@@ -8,6 +8,8 @@
 
 namespace nano
 {
+extern bool use_memory_pools;
+
 /** This makes some heuristic assumptions about the implementation defined shared_ptr internals.
     Should only be used in the memory pool purge functions at exit, which doesn't matter much if
     it is incorrect (other than reports from heap memory analysers) */
@@ -42,9 +44,9 @@ private:
 };
 
 template <typename T, typename... Args>
-std::shared_ptr<T> make_shared (bool use_memory_pool, Args &&... args)
+std::shared_ptr<T> make_shared (Args &&... args)
 {
-	if (use_memory_pool)
+	if (nano::use_memory_pools)
 	{
 		return std::allocate_shared<T> (boost::fast_pool_allocator<T> (), std::forward<Args> (args)...);
 	}

@@ -1,3 +1,4 @@
+#include <nano/lib/memory.hpp>
 #include <nano/node/common.hpp>
 
 #include <gtest/gtest.h>
@@ -10,6 +11,7 @@ void force_nano_test_network ();
 int main (int argc, char ** argv)
 {
 	nano::force_nano_test_network ();
+	nano::use_memory_pools = false;
 	nano::node_singleton_memory_pool_purge_guard cleanup_guard;
 	testing::InitGoogleTest (&argc, argv);
 	auto res = RUN_ALL_TESTS ();
