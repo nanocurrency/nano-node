@@ -7,12 +7,27 @@
 #include <chrono>
 
 nano::websocket::confirmation_options::confirmation_options (boost::property_tree::ptree const & options_a, nano::node & node_a) :
-node (node_a),
-all_local_accounts (options_a.get<bool> ("all_local_accounts", false))
+node (node_a)
 {
+	// Non-filtering options
+	include_block = options_a.get<bool> ("include_block", true);
+
+	// Filtering options
+	auto all_local_accounts_l (options_a.get_optional<bool> ("all_local_accounts"));
+	if (all_local_accounts_l.is_initialized ())
+	{
+		all_local_accounts = all_local_accounts_l.get ();
+		has_filtering_options = true;
+
+		if (!include_block)
+		{
+			node.logger.always_log ("Websocket: Filtering option \"all_local_accounts\" requires that \"include_block\" is set to true to be effective");
+		}
+	}
 	auto accounts_l (options_a.get_child_optional ("accounts"));
 	if (accounts_l)
 	{
+		has_filtering_options = true;
 		for (auto account_l : *accounts_l)
 		{
 			nano::account result_l (0);
@@ -26,6 +41,11 @@ all_local_accounts (options_a.get<bool> ("all_local_accounts", false))
 				node.logger.always_log ("Websocket: invalid account provided for filtering blocks: ", account_l.second.data ());
 			}
 		}
+
+		if (!include_block)
+		{
+			node.logger.always_log ("Websocket: Filtering option \"accounts\" requires that \"include_block\" is set to true to be effective");
+		}
 	}
 	// Warn the user if the options resulted in an empty filter
 	if (!all_local_accounts && accounts.empty ())
@@ -36,7 +56,7 @@ all_local_accounts (options_a.get<bool> ("all_local_accounts", false))
 
 bool nano::websocket::confirmation_options::should_filter (nano::websocket::message const & message_a) const
 {
-	bool should_filter_l (true);
+	bool should_filter_l (has_filtering_options);
 	auto destination_opt_l (message_a.contents.get_optional<std::string> ("message.block.link_as_account"));
 	if (destination_opt_l)
 	{
@@ -416,6 +436,45 @@ void nano::websocket::listener::on_accept (boost::system::error_code ec)
 	}
 }
 
+void nano::websocket::listener::broadcast_confirmation (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype)
+{
+	nano::websocket::message_builder builder;
+
+	std::lock_guard<std::mutex> lk (sessions_mutex);
+	boost::optional<nano::websocket::message> msg_with_block;
+	boost::optional<nano::websocket::message> msg_without_block;
+	for (auto & weak_session : sessions)
+	{
+		auto session_ptr (weak_session.lock ());
+		if (session_ptr)
+		{
+			auto subscription (session_ptr->subscriptions.find (nano::websocket::topic::confirmation));
+			if (subscription != session_ptr->subscriptions.end ())
+			{
+				auto conf_options (dynamic_cast<nano::websocket::confirmation_options *> (subscription->second.get ()));
+				auto include_block (conf_options == nullptr ? true : conf_options->get_include_block ());
+
+				if (include_block && !msg_with_block)
+				{
+					msg_with_block = builder.block_confirmed (block_a, account_a, amount_a, subtype, include_block);
+				}
+				else if (!include_block && !msg_without_block)
+				{
+					msg_without_block = builder.block_confirmed (block_a, account_a, amount_a, subtype, include_block);
+				}
+				else
+				{
+					assert (false);
+				}
+
+				session_ptr->write (include_block ? msg_with_block.get () : msg_without_block.get ());
+			}
+		}
+	}
+
+	auto msg (builder.block_confirmed (block_a, account_a, amount_a, subtype, true));
+}
+
 void nano::websocket::listener::broadcast (nano::websocket::message message_a)
 {
 	std::lock_guard<std::mutex> lk (sessions_mutex);
@@ -441,7 +500,7 @@ void nano::websocket::listener::decrease_subscriber_count (nano::websocket::topi
 	count -= 1;
 }
 
-nano::websocket::message nano::websocket::message_builder::block_confirmed (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype)
+nano::websocket::message nano::websocket::message_builder::block_confirmed (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, bool include_block_a)
 {
 	nano::websocket::message message_l (nano::websocket::topic::confirmation);
 	set_common_fields (message_l);
@@ -451,13 +510,18 @@ nano::websocket::message nano::websocket::message_builder::block_confirmed (std:
 	message_node_l.add ("account", account_a.to_account ());
 	message_node_l.add ("amount", amount_a.to_string_dec ());
 	message_node_l.add ("hash", block_a->hash ().to_string ());
-	boost::property_tree::ptree block_node_l;
-	block_a->serialize_json (block_node_l);
-	if (!subtype.empty ())
+
+	if (include_block_a)
 	{
-		block_node_l.add ("subtype", subtype);
+		boost::property_tree::ptree block_node_l;
+		block_a->serialize_json (block_node_l);
+		if (!subtype.empty ())
+		{
+			block_node_l.add ("subtype", subtype);
+		}
+		message_node_l.add_child ("block", block_node_l);
 	}
-	message_node_l.add_child ("block", block_node_l);
+
 	message_l.contents.add_child ("message", message_node_l);
 
 	return message_l;

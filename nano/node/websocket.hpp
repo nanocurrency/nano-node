@@ -77,7 +77,7 @@ namespace websocket
 	class message_builder final
 	{
 	public:
-		message block_confirmed (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype);
+		message block_confirmed (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, bool include_block);
 		message vote_received (std::shared_ptr<nano::vote> vote_a);
 
 	private:
@@ -85,7 +85,7 @@ namespace websocket
 		void set_common_fields (message & message_a);
 	};
 
-	/** Filtering options for subscriptions */
+	/** Options for subscriptions */
 	class options
 	{
 	public:
@@ -102,10 +102,12 @@ namespace websocket
 	};
 
 	/**
-	 * Filtering options for block confirmation subscriptions
-	 * Possible filtering options:
-	 * * "all_local_accounts" (bool) - will only not filter blocks that have local wallet accounts as source/destination
-	 * * "accounts" (array of std::strings) - will only not filter blocks that have these accounts as source/destination
+	 * Options for block confirmation subscriptions
+	 * Non-filtering options:
+	 * - "include_block" (bool, default true) - if false, do not include block contents. Only account, amount and hash will be included.
+	 * Filtering options:
+	 * - "all_local_accounts" (bool) - will only not filter blocks that have local wallet accounts as source/destination
+	 * - "accounts" (array of std::strings) - will only not filter blocks that have these accounts as source/destination
 	 * @remark Both options can be given, the resulting filter is an intersection of individual filters
 	 * @warn Legacy blocks are always filtered (not broadcasted)
 	 */
@@ -122,8 +124,16 @@ namespace websocket
 		 */
 		bool should_filter (message const & message_a) const override;
 
+		/** Returns whether or not block contents should be included */
+		bool get_include_block () const
+		{
+			return include_block;
+		}
+
 	private:
 		nano::node & node;
+		bool include_block{ true };
+		bool has_filtering_options{ false };
 		bool all_local_accounts{ false };
 		std::unordered_set<std::string> accounts;
 	};
@@ -154,6 +164,8 @@ namespace websocket
 	/** A websocket session managing its own lifetime */
 	class session final : public std::enable_shared_from_this<session>
 	{
+		friend class listener;
+
 	public:
 		/** Constructor that takes ownership over \p socket_a */
 		explicit session (nano::websocket::listener & listener_a, socket_type socket_a);
@@ -217,6 +229,9 @@ namespace websocket
 
 		/** Close all websocket sessions and stop listening for new connections */
 		void stop ();
+
+		/** Broadcast block confirmation. The content of the message depends on subscription options (such as "include_block") */
+		void broadcast_confirmation (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype);
 
 		/** Broadcast \p message to all session subscribing to the message topic. */
 		void broadcast (nano::websocket::message message_a);

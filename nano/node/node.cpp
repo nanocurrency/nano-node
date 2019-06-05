@@ -339,9 +339,8 @@ startup_time (std::chrono::steady_clock::now ())
 								subtype = "receive";
 							}
 						}
-						nano::websocket::message_builder builder;
-						auto msg (builder.block_confirmed (block_a, account_a, amount_a, subtype));
-						this->websocket_server->broadcast (msg);
+
+						this->websocket_server->broadcast_confirmation (block_a, account_a, amount_a, subtype);
 					}
 				}
 			});
