@@ -345,9 +345,6 @@ startup_time (std::chrono::steady_clock::now ())
 					}
 				}
 			});
-			observers.active_stopped.add ([this](nano::block_hash const & hash_a) {
-				// Dummy
-			});
 		}
 		observers.endpoint.add ([this](std::shared_ptr<nano::transport::channel> channel_a) {
 			if (channel_a->get_type () == nano::transport::transport_type::udp)
