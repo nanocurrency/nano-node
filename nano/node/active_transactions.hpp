@@ -117,7 +117,7 @@ public:
 	// Minimum number of block announcements
 	static unsigned constexpr announcement_min = 2;
 	// Threshold to start logging blocks haven't yet been confirmed
-	static unsigned constexpr announcement_long = 20;
+	static unsigned constexpr announcement_long = 2;
 	size_t long_unconfirmed_size = 0;
 	static size_t constexpr max_broadcast_queue = 1000;
 	boost::circular_buffer<double> multipliers_cb;
