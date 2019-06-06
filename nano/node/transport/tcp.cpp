@@ -242,8 +242,9 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 			{
 				node.network.process_message (message_a, channel);
 			}
-			else if (!node.flags.disable_udp || (message_a.header.type != nano::message_type::confirm_req && message_a.header.type != nano::message_type::confirm_req))
+			else if (!node.flags.disable_udp || (message_a.header.type != nano::message_type::confirm_req && message_a.header.type != nano::message_type::confirm_ack))
 			{
+				// confirm_req & confirm_ack are only message types that can produce response
 				auto udp_channel (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, nano::transport::map_tcp_to_endpoint (endpoint_a)));
 				node.network.process_message (message_a, udp_channel);
 			}
