@@ -407,6 +407,7 @@ startup_time (std::chrono::steady_clock::now ())
 				}
 			});
 		}
+
 		if (NANO_VERSION_PATCH == 0)
 		{
 			logger.always_log ("Node starting, version: ", NANO_MAJOR_MINOR_VERSION);
@@ -415,6 +416,9 @@ startup_time (std::chrono::steady_clock::now ())
 		{
 			logger.always_log ("Node starting, version: ", NANO_MAJOR_MINOR_RC_VERSION);
 		}
+
+		auto network_label = network_params.network.get_current_network_as_string ();
+		logger.always_log ("Active network: ", network_label);
 
 		logger.always_log (boost::str (boost::format ("Work pool running %1% threads") % work.threads.size ()));
 
