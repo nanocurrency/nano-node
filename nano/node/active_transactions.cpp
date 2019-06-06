@@ -92,6 +92,7 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 
 void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & lock_a)
 {
+	std::unordered_set<nano::qualified_root> inactive;
 	auto transaction (node.store.tx_begin_read ());
 	unsigned unconfirmed_count (0);
 	unsigned unconfirmed_announcements (0);
@@ -312,7 +313,6 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 	{
 		node.logger.try_log (boost::str (boost::format ("%1% blocks have been unconfirmed averaging %2% announcements") % unconfirmed_count % (unconfirmed_announcements / unconfirmed_count)));
 	}
-	inactive.clear ();
 }
 
 void nano::active_transactions::request_loop ()
@@ -673,7 +673,6 @@ void nano::active_transactions::flush_lowest ()
 			auto election = it->election;
 			if (election->announcements > announcement_long && !election->confirmed && !election->stopped && !node.wallets.watcher.is_watched (it->root))
 			{
-				inactive.insert (it->root);
 				it = decltype (it){ sorted_roots.erase (std::next (it).base ()) };
 				election->stop ();
 				election->clear_blocks ();
