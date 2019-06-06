@@ -713,6 +713,7 @@ TEST (node_config, v16_v17_upgrade)
 	ASSERT_FALSE (tree.get_optional_child ("diagnostics"));
 	ASSERT_FALSE (tree.get_optional_child ("use_memory_pools"));
 	ASSERT_FALSE (tree.get_optional_child ("confirmation_history_size"));
+	ASSERT_FALSE (tree.get_optional_child ("active_elections_size"));
 
 	config.deserialize_json (upgraded, tree);
 	// The config options should be added after the upgrade
@@ -725,6 +726,7 @@ TEST (node_config, v16_v17_upgrade)
 	ASSERT_TRUE (!!tree.get_optional_child ("diagnostics"));
 	ASSERT_TRUE (!!tree.get_optional_child ("use_memory_pools"));
 	ASSERT_TRUE (!!tree.get_optional_child ("confirmation_history_size"));
+	ASSERT_TRUE (!!tree.get_optional_child ("active_elections_size"));
 
 	ASSERT_TRUE (upgraded);
 	auto version (tree.get<std::string> ("version"));
@@ -761,6 +763,7 @@ TEST (node_config, v17_values)
 		tree.put_child ("diagnostics", diagnostics_l);
 		tree.put ("use_memory_pools", true);
 		tree.put ("confirmation_history_size", 2048);
+		tree.put ("active_elections_size", 8000);
 	}
 
 	config.deserialize_json (upgraded, tree);
@@ -776,6 +779,7 @@ TEST (node_config, v17_values)
 	ASSERT_TRUE (config.diagnostics_config.txn_tracking.ignore_writes_below_block_processor_max_time);
 	ASSERT_TRUE (config.use_memory_pools);
 	ASSERT_EQ (config.confirmation_history_size, 2048);
+	ASSERT_EQ (config.active_elections_size, 8000);
 
 	// Check config is correct with other values
 	tree.put ("tcp_io_timeout", std::numeric_limits<unsigned long>::max () - 100);
@@ -794,6 +798,7 @@ TEST (node_config, v17_values)
 	tree.replace_child ("diagnostics", diagnostics_l);
 	tree.put ("use_memory_pools", false);
 	tree.put ("confirmation_history_size", std::numeric_limits<unsigned long long>::max ());
+	tree.put ("active_elections_size", std::numeric_limits<unsigned long long>::max ());
 
 	upgraded = false;
 	config.deserialize_json (upgraded, tree);
@@ -811,6 +816,7 @@ TEST (node_config, v17_values)
 	ASSERT_FALSE (config.diagnostics_config.txn_tracking.ignore_writes_below_block_processor_max_time);
 	ASSERT_FALSE (config.use_memory_pools);
 	ASSERT_EQ (config.confirmation_history_size, std::numeric_limits<unsigned long long>::max ());
+	ASSERT_EQ (config.active_elections_size, std::numeric_limits<unsigned long long>::max ());
 }
 
 // Regression test to ensure that deserializing includes changes node via get_required_child
