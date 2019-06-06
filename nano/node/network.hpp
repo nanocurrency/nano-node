@@ -115,6 +115,12 @@ public:
 	void start ();
 	void stop ();
 	void flood_message (nano::message const &);
+	void flood_keepalive ()
+	{
+		nano::keepalive message;
+		random_fill (message.peers);
+		flood_message (message);
+	}
 	void flood_vote (std::shared_ptr<nano::vote> vote_a)
 	{
 		nano::confirm_ack message (vote_a);
@@ -159,6 +165,7 @@ public:
 	// Node ID cookies cleanup
 	nano::syn_cookies syn_cookies;
 	void ongoing_syn_cookie_cleanup ();
+	void ongoing_keepalive ();
 	size_t size () const;
 	size_t size_sqrt () const;
 	bool empty () const;

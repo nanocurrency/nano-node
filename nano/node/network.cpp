@@ -67,6 +67,7 @@ void nano::network::start ()
 		udp_channels.start ();
 	}
 	tcp_channels.start ();
+	ongoing_keepalive ();
 }
 
 void nano::network::stop ()
@@ -743,6 +744,18 @@ void nano::network::ongoing_syn_cookie_cleanup ()
 		if (auto node_l = node_w.lock ())
 		{
 			node_l->network.ongoing_syn_cookie_cleanup ();
+		}
+	});
+}
+
+void nano::network::ongoing_keepalive ()
+{
+	flood_keepalive ();
+	std::weak_ptr<nano::node> node_w (node.shared ());
+	node.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.half_period, [node_w]() {
+		if (auto node_l = node_w.lock ())
+		{
+			node_l->network.ongoing_keepalive ();
 		}
 	});
 }

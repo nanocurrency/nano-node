@@ -131,6 +131,7 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	diagnostics_config.serialize_json (diagnostics_l);
 	json.put_child ("diagnostics", diagnostics_l);
 	json.put ("confirmation_history_size", confirmation_history_size);
+	json.put ("active_elections_size", active_elections_size);
 
 	return json.get_error ();
 }
@@ -249,6 +250,7 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.put ("vote_generator_delay", vote_generator_delay.count ());
 			json.put ("use_memory_pools", use_memory_pools);
 			json.put ("confirmation_history_size", confirmation_history_size);
+			json.put ("active_elections_size", active_elections_size);
 		}
 		case 17:
 			break;
@@ -398,6 +400,8 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get<bool> ("use_memory_pools", use_memory_pools);
 		json.get<size_t> ("confirmation_history_size", confirmation_history_size);
 
+		json.get<size_t> ("active_elections_size", active_elections_size);
+		nano::network_params network;
 		// Validate ranges
 		if (online_weight_quorum > 100)
 		{
@@ -410,6 +414,10 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		if (io_threads == 0)
 		{
 			json.get_error ().set ("io_threads must be non-zero");
+		}
+		if (active_elections_size <= 250 && !network.network.is_test_network ())
+		{
+			json.get_error ().set ("active_elections_size must be grater than 250");
 		}
 	}
 	catch (std::runtime_error const & ex)
