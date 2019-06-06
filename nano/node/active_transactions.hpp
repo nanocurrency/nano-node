@@ -59,23 +59,6 @@ public:
 	election_status_type type;
 };
 
-class transaction_counter final
-{
-public:
-	// increment counter
-	void add ();
-	// clear counter and reset trend_last after calculating a new rate, guarded to only run once a sec
-	void trend_sample ();
-	double get_rate ();
-
-private:
-	std::chrono::steady_clock::time_point trend_last = std::chrono::steady_clock::now ();
-	size_t counter = 0;
-	// blocks/sec confirmed
-	double rate = 0;
-	std::mutex mutex;
-};
-
 class cementable_account final
 {
 public:
@@ -108,11 +91,6 @@ public:
 	uint64_t active_difficulty ();
 	std::deque<std::shared_ptr<nano::block>> list_blocks (bool = false);
 	void erase (nano::block const &);
-	//check if we should flush
-	//if counter.rate == 0 set minimum_size before considering flushing to 4 for testing convenience
-	//else minimum_size is rate * 10
-	//when roots.size > minimum_size check counter.rate and adjusted expected percentage long unconfirmed before kicking in
-	bool should_flush ();
 	//drop 2 from roots based on adjusted_difficulty
 	void flush_lowest ();
 	bool empty ();
@@ -132,7 +110,6 @@ public:
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
 	std::deque<nano::election_status> list_confirmed ();
 	std::deque<nano::election_status> confirmed;
-	nano::transaction_counter counter;
 	nano::node & node;
 	std::mutex mutex;
 	// Maximum number of conflicts to vote on per interval, lowest root hash first

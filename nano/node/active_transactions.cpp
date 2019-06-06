@@ -435,8 +435,7 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, std::
 		error = existing != roots.end ();
 		if (error)
 		{
-			counter.add ();
-			if (should_flush ())
+			if (roots.size () >= node.config.active_elections_size)
 			{
 				flush_lowest ();
 			}
@@ -662,52 +661,6 @@ void nano::active_transactions::erase (nano::block const & block_a)
 	}
 }
 
-bool nano::active_transactions::should_flush ()
-{
-	bool result (false);
-	counter.trend_sample ();
-	size_t minimum_size (1);
-	auto rate (counter.get_rate ());
-	if (roots.size () > 100000)
-	{
-		return true;
-	}
-	if (rate == 0)
-	{
-		//set minimum size to 4 for test network
-		minimum_size = node.network_params.network.is_test_network () ? 4 : 512;
-	}
-	else
-	{
-		minimum_size = rate * 512;
-	}
-	if (roots.size () >= minimum_size)
-	{
-		if (rate <= 10)
-		{
-			if (roots.size () * .75 < long_unconfirmed_size)
-			{
-				result = true;
-			}
-		}
-		else if (rate <= 100)
-		{
-			if (roots.size () * .50 < long_unconfirmed_size)
-			{
-				result = true;
-			}
-		}
-		else if (rate <= 1000)
-		{
-			if (roots.size () * .25 < long_unconfirmed_size)
-			{
-				result = true;
-			}
-		}
-	}
-	return result;
-}
-
 void nano::active_transactions::flush_lowest ()
 {
 	size_t count (0);
@@ -823,30 +776,5 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transaction
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "confirmed", confirmed_count, sizeof (decltype (active_transactions.confirmed)::value_type) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "priority_cementable_frontiers_count", active_transactions.priority_cementable_frontiers_size (), sizeof (nano::cementable_account) }));
 	return composite;
-}
-
-void transaction_counter::add ()
-{
-	std::lock_guard<std::mutex> lock (mutex);
-	counter++;
-}
-
-void transaction_counter::trend_sample ()
-{
-	std::lock_guard<std::mutex> lock (mutex);
-	auto now (std::chrono::steady_clock::now ());
-	if (now >= trend_last + 1s && counter != 0)
-	{
-		auto elapsed = std::chrono::duration_cast<std::chrono::seconds> (now - trend_last);
-		rate = counter / elapsed.count ();
-		counter = 0;
-		trend_last = std::chrono::steady_clock::now ();
-	}
-}
-
-double transaction_counter::get_rate ()
-{
-	std::lock_guard<std::mutex> lock (mutex);
-	return rate;
 }
 }
