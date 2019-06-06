@@ -74,14 +74,10 @@ balance_label (new QLabel),
 wallet (wallet_a)
 {
 	your_account_label->setStyleSheet ("font-weight: bold;");
-	std::string network = "Live";
-	if (wallet.node.network_params.network.is_beta_network ())
+	std::string network = wallet.node.network_params.network.get_current_network_as_string ();
+	if (!network.empty ())
 	{
-		network = "Beta";
-	}
-	else if (wallet.node.network_params.network.is_test_network ())
-	{
-		network = "Test";
+		network[0] = std::toupper (network[0]);
 	}
 	if (NANO_VERSION_PATCH == 0)
 	{
@@ -1267,10 +1263,10 @@ void nano_qt::wallet::start ()
 			this_l->push_main_stack (this_l->send_blocks_window);
 		}
 	});
-	node.observers.blocks.add ([this_w](std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::uint128_t const & amount_a, bool) {
+	node.observers.blocks.add ([this_w](nano::election_status const & status_a, nano::account const & account_a, nano::uint128_t const & amount_a, bool) {
 		if (auto this_l = this_w.lock ())
 		{
-			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, block_a, account_a]() {
+			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, status_a, account_a]() {
 				if (auto this_l = this_w.lock ())
 				{
 					if (this_l->wallet_m->exists (account_a))

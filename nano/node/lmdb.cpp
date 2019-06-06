@@ -1357,25 +1357,7 @@ nano::uint128_t nano::mdb_store::block_balance (nano::transaction const & transa
 {
 	nano::block_sideband sideband;
 	auto block (block_get (transaction_a, hash_a, &sideband));
-	nano::uint128_t result;
-	switch (block->type ())
-	{
-		case nano::block_type::open:
-		case nano::block_type::receive:
-		case nano::block_type::change:
-			result = sideband.balance.number ();
-			break;
-		case nano::block_type::send:
-			result = boost::polymorphic_downcast<nano::send_block *> (block.get ())->hashables.balance.number ();
-			break;
-		case nano::block_type::state:
-			result = boost::polymorphic_downcast<nano::state_block *> (block.get ())->hashables.balance.number ();
-			break;
-		case nano::block_type::invalid:
-		case nano::block_type::not_a_block:
-			release_assert (false);
-			break;
-	}
+	nano::uint128_t result (block_balance_calculated (block, sideband));
 	return result;
 }
 
