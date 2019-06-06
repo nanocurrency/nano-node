@@ -281,10 +281,11 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 	auto next_height = height_not_set;
 	while ((num_to_confirm > 0) && !hash.is_zero ())
 	{
-		active.confirm_block (hash);
-		auto block (store.block_get (transaction_a, hash));
+		nano::block_sideband sideband;
+		auto block (store.block_get (transaction_a, hash, &sideband));
 		if (block)
 		{
+			active.confirm_block (transaction_a, block, sideband);
 			auto source (block->source ());
 			if (source.is_zero ())
 			{

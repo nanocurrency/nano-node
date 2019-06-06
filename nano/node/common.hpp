@@ -298,7 +298,7 @@ public:
 	explicit publish (std::shared_ptr<nano::block>);
 	void visit (nano::message_visitor &) const override;
 	void serialize (nano::stream &) const override;
-	bool deserialize (nano::stream &, bool use_memory_pool, nano::block_uniquer * = nullptr);
+	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
 	bool operator== (nano::publish const &) const;
 	std::shared_ptr<nano::block> block;
 };
@@ -310,7 +310,7 @@ public:
 	confirm_req (std::vector<std::pair<nano::block_hash, nano::block_hash>> const &);
 	confirm_req (nano::block_hash const &, nano::block_hash const &);
 	void serialize (nano::stream &) const override;
-	bool deserialize (nano::stream &, bool use_memory_pool, nano::block_uniquer * = nullptr);
+	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::confirm_req const &) const;
 	std::shared_ptr<nano::block> block;
@@ -321,7 +321,7 @@ public:
 class confirm_ack final : public message
 {
 public:
-	confirm_ack (bool &, nano::stream &, nano::message_header const &, bool use_memory_pool, nano::vote_uniquer * = nullptr);
+	confirm_ack (bool &, nano::stream &, nano::message_header const &, nano::vote_uniquer * = nullptr);
 	explicit confirm_ack (std::shared_ptr<nano::vote>);
 	void serialize (nano::stream &) const override;
 	void visit (nano::message_visitor &) const override;

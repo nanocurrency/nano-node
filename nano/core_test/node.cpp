@@ -377,9 +377,13 @@ TEST (node, search_pending_confirmed)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	bool confirmed (false);
+	system.deadline_set (5s);
+	while (!confirmed)
 	{
 		auto transaction (node->store.tx_begin_read ());
-		ASSERT_TRUE (node->ledger.block_confirmed (transaction, send2->hash ()));
+		confirmed = node->ledger.block_confirmed (transaction, send2->hash ());
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	{
 		auto transaction (node->wallets.tx_begin_write ());
@@ -707,7 +711,8 @@ TEST (node_config, v16_v17_upgrade)
 	ASSERT_FALSE (tree.get_optional_child ("tcp_incoming_connections_max"));
 	ASSERT_FALSE (tree.get_optional_child ("vote_generator_delay"));
 	ASSERT_FALSE (tree.get_optional_child ("diagnostics"));
-	ASSERT_FALSE (tree.get_optional_child ("use_memory_pool"));
+	ASSERT_FALSE (tree.get_optional_child ("use_memory_pools"));
+	ASSERT_FALSE (tree.get_optional_child ("confirmation_history_size"));
 
 	config.deserialize_json (upgraded, tree);
 	// The config options should be added after the upgrade
@@ -718,7 +723,8 @@ TEST (node_config, v16_v17_upgrade)
 	ASSERT_TRUE (!!tree.get_optional_child ("tcp_incoming_connections_max"));
 	ASSERT_TRUE (!!tree.get_optional_child ("vote_generator_delay"));
 	ASSERT_TRUE (!!tree.get_optional_child ("diagnostics"));
-	ASSERT_TRUE (!!tree.get_optional_child ("use_memory_pool"));
+	ASSERT_TRUE (!!tree.get_optional_child ("use_memory_pools"));
+	ASSERT_TRUE (!!tree.get_optional_child ("confirmation_history_size"));
 
 	ASSERT_TRUE (upgraded);
 	auto version (tree.get<std::string> ("version"));
@@ -753,7 +759,8 @@ TEST (node_config, v17_values)
 		nano::jsonconfig diagnostics_l;
 		diagnostics_l.put_child ("txn_tracking", txn_tracking_l);
 		tree.put_child ("diagnostics", diagnostics_l);
-		tree.put ("use_memory_pool", true);
+		tree.put ("use_memory_pools", true);
+		tree.put ("confirmation_history_size", 2048);
 	}
 
 	config.deserialize_json (upgraded, tree);
@@ -767,7 +774,8 @@ TEST (node_config, v17_values)
 	ASSERT_EQ (config.diagnostics_config.txn_tracking.min_read_txn_time.count (), 0);
 	ASSERT_EQ (config.diagnostics_config.txn_tracking.min_write_txn_time.count (), 0);
 	ASSERT_TRUE (config.diagnostics_config.txn_tracking.ignore_writes_below_block_processor_max_time);
-	ASSERT_TRUE (config.use_memory_pool);
+	ASSERT_TRUE (config.use_memory_pools);
+	ASSERT_EQ (config.confirmation_history_size, 2048);
 
 	// Check config is correct with other values
 	tree.put ("tcp_io_timeout", std::numeric_limits<unsigned long>::max () - 100);
@@ -784,7 +792,8 @@ TEST (node_config, v17_values)
 	nano::jsonconfig diagnostics_l;
 	diagnostics_l.replace_child ("txn_tracking", txn_tracking_l);
 	tree.replace_child ("diagnostics", diagnostics_l);
-	tree.put ("use_memory_pool", false);
+	tree.put ("use_memory_pools", false);
+	tree.put ("confirmation_history_size", std::numeric_limits<unsigned long long>::max ());
 
 	upgraded = false;
 	config.deserialize_json (upgraded, tree);
@@ -800,7 +809,8 @@ TEST (node_config, v17_values)
 	ASSERT_EQ (config.tcp_incoming_connections_max, std::numeric_limits<unsigned>::max ());
 	ASSERT_EQ (config.diagnostics_config.txn_tracking.min_write_txn_time.count (), std::numeric_limits<unsigned>::max ());
 	ASSERT_FALSE (config.diagnostics_config.txn_tracking.ignore_writes_below_block_processor_max_time);
-	ASSERT_FALSE (config.use_memory_pool);
+	ASSERT_FALSE (config.use_memory_pools);
+	ASSERT_EQ (config.confirmation_history_size, std::numeric_limits<unsigned long long>::max ());
 }
 
 // Regression test to ensure that deserializing includes changes node via get_required_child
@@ -1309,9 +1319,9 @@ TEST (node, coherent_observer)
 {
 	nano::system system (24000, 1);
 	auto & node1 (*system.nodes[0]);
-	node1.observers.blocks.add ([&node1](std::shared_ptr<nano::block> block_a, nano::account const &, nano::uint128_t const &, bool) {
+	node1.observers.blocks.add ([&node1](nano::election_status const & status_a, nano::account const &, nano::uint128_t const &, bool) {
 		auto transaction (node1.store.tx_begin_read ());
-		ASSERT_TRUE (node1.store.block_exists (transaction, block_a->hash ()));
+		ASSERT_TRUE (node1.store.block_exists (transaction, status_a.winner->hash ()));
 	});
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key;
@@ -1548,8 +1558,10 @@ TEST (node, broadcast_elected)
 
 TEST (node, rep_self_vote)
 {
-	nano::system system (24000, 1);
-	auto node0 (system.nodes[0]);
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.online_weight_minimum = std::numeric_limits<nano::uint128_t>::max ();
+	auto node0 = system.add_node (node_config);
 	nano::keypair rep_big;
 	{
 		auto transaction0 (node0->store.tx_begin_write ());

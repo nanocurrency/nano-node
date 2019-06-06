@@ -37,7 +37,7 @@ TEST (active_transactions, adjusted_difficulty_priority)
 		{
 			auto election (it->election);
 			election->confirm_once ();
-			it++;
+			it = node1.active.roots.begin ();
 		}
 	}
 
@@ -114,7 +114,7 @@ TEST (active_transactions, keep_local)
 		while (!node1.active.roots.empty () && it != node1.active.roots.end ())
 		{
 			(it->election)->confirm_once ();
-			it++;
+			it = node1.active.roots.begin ();
 		}
 	}
 	auto open1 (std::make_shared<nano::state_block> (key3.pub, 0, key3.pub, nano::xrb_ratio, send3->hash (), key3.prv, key3.pub, system.work.generate (key3.pub)));
@@ -178,7 +178,7 @@ TEST (active_transactions, prioritize_chains)
 		{
 			auto election (it->election);
 			election->confirm_once ();
-			it++;
+			it = node1.active.roots.get<1> ().begin ();
 		}
 	}
 

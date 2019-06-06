@@ -54,12 +54,12 @@ size_t get_allocated_size ()
 
 TEST (memory_pool, validate_cleanup)
 {
-	nano::make_shared<nano::open_block> (true);
-	nano::make_shared<nano::receive_block> (true);
-	nano::make_shared<nano::send_block> (true);
-	nano::make_shared<nano::change_block> (true);
-	nano::make_shared<nano::state_block> (true);
-	nano::make_shared<nano::vote> (true);
+	nano::make_shared<nano::open_block> ();
+	nano::make_shared<nano::receive_block> ();
+	nano::make_shared<nano::send_block> ();
+	nano::make_shared<nano::change_block> ();
+	nano::make_shared<nano::state_block> ();
+	nano::make_shared<nano::vote> ();
 
 	ASSERT_TRUE (nano::purge_singleton_pool_memory<nano::open_block> ());
 	ASSERT_TRUE (nano::purge_singleton_pool_memory<nano::receive_block> ());

@@ -50,6 +50,7 @@ public:
 	unsigned bootstrap_connections_max{ 64 };
 	nano::websocket::config websocket_config;
 	nano::diagnostics_config diagnostics_config;
+	size_t confirmation_history_size{ 2048 };
 	std::string callback_address;
 	uint16_t callback_port{ 0 };
 	std::string callback_target;
@@ -69,7 +70,7 @@ public:
 	size_t active_elections_size{ 4000 };
 	/** Default maximum incoming TCP connections, including realtime network & bootstrap */
 	unsigned tcp_incoming_connections_max{ 1024 };
-	bool use_memory_pool{ true };
+	bool use_memory_pools{ true };
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);

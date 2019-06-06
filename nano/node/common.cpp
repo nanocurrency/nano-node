@@ -520,10 +520,10 @@ void nano::publish::serialize (nano::stream & stream_a) const
 	block->serialize (stream_a);
 }
 
-bool nano::publish::deserialize (nano::stream & stream_a, bool use_memory_pool, nano::block_uniquer * uniquer_a)
+bool nano::publish::deserialize (nano::stream & stream_a, nano::block_uniquer * uniquer_a)
 {
 	assert (header.type == nano::message_type::publish);
-	block = nano::deserialize_block (stream_a, header.block_type (), use_memory_pool, uniquer_a);
+	block = nano::deserialize_block (stream_a, header.block_type (), uniquer_a);
 	auto result (block == nullptr);
 	return result;
 }
@@ -599,7 +599,7 @@ void nano::confirm_req::serialize (nano::stream & stream_a) const
 	}
 }
 
-bool nano::confirm_req::deserialize (nano::stream & stream_a, bool use_memory_pool, nano::block_uniquer * uniquer_a)
+bool nano::confirm_req::deserialize (nano::stream & stream_a, nano::block_uniquer * uniquer_a)
 {
 	bool result (false);
 	assert (header.type == nano::message_type::confirm_req);
@@ -627,7 +627,7 @@ bool nano::confirm_req::deserialize (nano::stream & stream_a, bool use_memory_po
 		}
 		else
 		{
-			block = nano::deserialize_block (stream_a, header.block_type (), true, uniquer_a);
+			block = nano::deserialize_block (stream_a, header.block_type (), uniquer_a);
 			result = block == nullptr;
 		}
 	}
@@ -680,9 +680,9 @@ size_t nano::confirm_req::size (nano::block_type type_a, size_t count)
 	return result;
 }
 
-nano::confirm_ack::confirm_ack (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a, bool use_memory_pool, nano::vote_uniquer * uniquer_a) :
+nano::confirm_ack::confirm_ack (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a, nano::vote_uniquer * uniquer_a) :
 message (header_a),
-vote (nano::make_shared<nano::vote> (use_memory_pool, error_a, stream_a, header.block_type (), use_memory_pool))
+vote (nano::make_shared<nano::vote> (error_a, stream_a, header.block_type ()))
 {
 	if (!error_a && uniquer_a)
 	{

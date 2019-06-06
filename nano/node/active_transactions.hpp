@@ -26,6 +26,7 @@ namespace nano
 {
 class node;
 class block;
+class block_sideband;
 class vote;
 class election;
 class transaction;
@@ -39,6 +40,16 @@ public:
 	std::shared_ptr<nano::election> election;
 };
 
+enum class election_status_type : uint8_t
+{
+	ongoing = 0,
+	active_confirmed_quorum = 1,
+	active_confirmation_height = 2,
+	inactive_confirmation_height = 3,
+	rpc_confirmation_height = 4,
+	stopped = 5
+};
+
 class election_status final
 {
 public:
@@ -46,6 +57,7 @@ public:
 	nano::amount tally;
 	std::chrono::milliseconds election_end;
 	std::chrono::milliseconds election_duration;
+	election_status_type type;
 };
 
 class cementable_account final
@@ -86,7 +98,7 @@ public:
 	size_t size ();
 	void stop ();
 	bool publish (std::shared_ptr<nano::block> block_a);
-	void confirm_block (nano::block_hash const &);
+	void confirm_block (nano::transaction const &, std::shared_ptr<nano::block>, nano::block_sideband const &);
 	boost::multi_index_container<
 	nano::conflict_info,
 	boost::multi_index::indexed_by<
@@ -109,7 +121,6 @@ public:
 	// Threshold to start logging blocks haven't yet been confirmed
 	static unsigned constexpr announcement_long = 20;
 	size_t long_unconfirmed_size = 0;
-	static size_t constexpr election_history_size = 2048;
 	static size_t constexpr max_broadcast_queue = 1000;
 	boost::circular_buffer<double> multipliers_cb;
 	uint64_t trended_active_difficulty;
