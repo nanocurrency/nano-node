@@ -248,7 +248,9 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.put ("external_port", external_port);
 			json.put ("tcp_incoming_connections_max", tcp_incoming_connections_max);
 			json.put ("vote_generator_delay", vote_generator_delay.count ());
-
+			json.put ("use_memory_pools", use_memory_pools);
+			json.put ("confirmation_history_size", confirmation_history_size);
+			json.put ("active_elections_size", active_elections_size);
 		}
 		case 17:
 			break;
