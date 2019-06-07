@@ -10,7 +10,7 @@
 nano::websocket::confirmation_options::confirmation_options (boost::property_tree::ptree const & options_a, nano::node & node_a) :
 node (node_a)
 {
-	// Non-filtering options
+	// Non-account filtering options
 	include_block = options_a.get<bool> ("include_block", true);
 
 	confirmation_types = 0;
@@ -37,7 +37,7 @@ node (node_a)
 		confirmation_types = type_all;
 	}
 
-	// Filtering options
+	// Account filtering options
 	auto all_local_accounts_l (options_a.get_optional<bool> ("all_local_accounts"));
 	if (all_local_accounts_l.is_initialized ())
 	{
