@@ -314,6 +314,21 @@ startup_time (std::chrono::steady_clock::now ())
 		if (websocket_server)
 		{
 			observers.blocks.add ([this](nano::election_status const & status_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
+				// can this be fired?
+				assert (status_a.type != nano::election_status_type::ongoing);
+
+				if (status_a.type == nano::election_status_type::active_confirmation_height)
+				{
+				}
+
+				if (status_a.type == nano::election_status_type::active_confirmed_quorum)
+				{
+				}
+
+				if (status_a.type == nano::election_status_type::inactive_confirmation_height)
+				{
+				}
+
 				if (this->websocket_server->any_subscriber (nano::websocket::topic::confirmation))
 				{
 					auto block_a (status_a.winner);
@@ -340,8 +355,16 @@ startup_time (std::chrono::steady_clock::now ())
 							}
 						}
 
-						this->websocket_server->broadcast_confirmation (block_a, account_a, amount_a, subtype);
+						this->websocket_server->broadcast_confirmation (block_a, account_a, amount_a, subtype, status_a.type);
 					}
+				}
+			});
+
+			observers.active_stopped.add ([this](nano::block_hash const & hash_a) {
+				if (this->websocket_server->any_subscriber (nano::websocket::topic::stopped_election))
+				{
+					nano::websocket::message_builder builder;
+					this->websocket_server->broadcast (builder.stopped_election (hash_a));
 				}
 			});
 		}
