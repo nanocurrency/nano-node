@@ -91,8 +91,12 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 	std::unique_ptr<nano::thread_runner> runner;
 	nano::daemon_config config (data_path);
 	auto error = nano::read_and_update_daemon_config (data_path, config);
+#ifdef __APPLE__
+	// TSAN can generate false-positives in shared/weak_ptr destructors
+	nano::use_memory_pools = !is_thread_sanitizer_build ? config.node.use_memory_pools : false;
+#else
 	nano::use_memory_pools = config.node.use_memory_pools;
-
+#endif
 	if (!error)
 	{
 		config.node.logging.init (data_path);

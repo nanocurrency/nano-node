@@ -54,6 +54,12 @@ size_t get_allocated_size ()
 
 TEST (memory_pool, validate_cleanup)
 {
+	// This might be turned off for TSAN on Mac for instance, so don't do this test
+	if (!nano::use_memory_pools)
+	{
+		return;
+	}
+
 	nano::make_shared<nano::open_block> ();
 	nano::make_shared<nano::receive_block> ();
 	nano::make_shared<nano::send_block> ();
