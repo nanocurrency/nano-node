@@ -2837,24 +2837,42 @@ TEST (confirmation_height, prioritize_frontiers)
 	ASSERT_TRUE (priority_orders_match (desired_order_1) || priority_orders_match (desired_order_2));
 
 	// Check that accounts which already exist have their order modified when the uncemented count changes.
+	nano::send_block send12 (send9.hash (), nano::test_genesis_key.pub, 100, key3.prv, key3.pub, system.work.generate (send9.hash ()));
+	nano::send_block send13 (send12.hash (), nano::test_genesis_key.pub, 90, key3.prv, key3.pub, system.work.generate (send12.hash ()));
+	nano::send_block send14 (send13.hash (), nano::test_genesis_key.pub, 80, key3.prv, key3.pub, system.work.generate (send13.hash ()));
+	nano::send_block send15 (send14.hash (), nano::test_genesis_key.pub, 70, key3.prv, key3.pub, system.work.generate (send14.hash ()));
+	nano::send_block send16 (send15.hash (), nano::test_genesis_key.pub, 60, key3.prv, key3.pub, system.work.generate (send15.hash ()));
+	nano::send_block send17 (send16.hash (), nano::test_genesis_key.pub, 50, key3.prv, key3.pub, system.work.generate (send16.hash ()));
 	{
 		auto transaction = node->store.tx_begin_write ();
-		nano::send_block send12 (send9.hash (), nano::test_genesis_key.pub, 100, key3.prv, key3.pub, system.work.generate (send9.hash ()));
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send12).code);
-		nano::send_block send13 (send12.hash (), nano::test_genesis_key.pub, 90, key3.prv, key3.pub, system.work.generate (send12.hash ()));
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send13).code);
-		nano::send_block send14 (send13.hash (), nano::test_genesis_key.pub, 80, key3.prv, key3.pub, system.work.generate (send13.hash ()));
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send14).code);
-		nano::send_block send15 (send14.hash (), nano::test_genesis_key.pub, 70, key3.prv, key3.pub, system.work.generate (send14.hash ()));
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send15).code);
-		nano::send_block send16 (send15.hash (), nano::test_genesis_key.pub, 60, key3.prv, key3.pub, system.work.generate (send15.hash ()));
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send16).code);
-		nano::send_block send17 (send16.hash (), nano::test_genesis_key.pub, 50, key3.prv, key3.pub, system.work.generate (send16.hash ()));
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send17).code);
 	}
 	transaction.refresh ();
 	node->active.prioritize_frontiers_for_confirmation (transaction, std::chrono::seconds (1));
 	ASSERT_TRUE (priority_orders_match ({ key3.pub, nano::genesis_account, key4.pub, key1.pub, key2.pub }));
+
+	// Check that the active transactions roots contains the frontiers
+	{
+		std::lock_guard<std::mutex> guard (node->active.mutex);
+		node->active.next_frontier_check = std::chrono::steady_clock::now ();
+	}
+
+	system.deadline_set (std::chrono::seconds (10));
+	while (node->active.size () != num_accounts)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	std::array <nano::qualified_root, num_accounts> frontiers { send17.qualified_root (), send6.qualified_root (), send7.qualified_root (), open2.qualified_root (), send11.qualified_root () };
+	for (auto & frontier : frontiers)
+	{
+		ASSERT_NE (node->active.roots.find (frontier), node->active.roots.end ());
+	}
 }
 }
 
