@@ -11,7 +11,7 @@ nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> bloc
 confirmation_action (confirmation_action_a),
 node (node_a),
 election_start (std::chrono::steady_clock::now ()),
-status ({ block_a, 0 }),
+status ({ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), nano::election_status_type::ongoing }),
 confirmed (false),
 stopped (false),
 announcements (0)
@@ -32,29 +32,44 @@ void nano::election::compute_rep_votes (nano::transaction const & transaction_a)
 	}
 }
 
-void nano::election::confirm_once ()
+void nano::election::confirm_once (nano::election_status_type type_a)
 {
 	if (!confirmed.exchange (true))
 	{
 		status.election_end = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
 		status.election_duration = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now () - election_start);
-		auto winner_l (status.winner);
+		status.type = type_a;
+		auto status_l (status);
 		auto node_l (node.shared ());
 		auto confirmation_action_l (confirmation_action);
-		node.background ([node_l, winner_l, confirmation_action_l]() {
-			node_l->process_confirmed (winner_l);
-			confirmation_action_l (winner_l);
+		node.background ([node_l, status_l, confirmation_action_l]() {
+			node_l->process_confirmed (status_l);
+			confirmation_action_l (status_l.winner);
 		});
-		if (announcements > node_l->active.announcement_long)
+		if (announcements > node.active.announcement_long)
 		{
-			--node_l->active.long_unconfirmed_size;
+			--node.active.long_unconfirmed_size;
 		}
+		node.active.confirmed.push_back (status);
+		if (node.active.confirmed.size () > node.config.confirmation_history_size)
+		{
+			node.active.confirmed.pop_front ();
+		}
+		clear_blocks ();
+		clear_dependent ();
+		node.active.roots.erase (status.winner->qualified_root ());
 	}
 }
 
 void nano::election::stop ()
 {
-	stopped = true;
+	if (!stopped && !confirmed)
+	{
+		stopped = true;
+		status.election_end = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
+		status.election_duration = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now () - election_start);
+		status.type = nano::election_status_type::stopped;
+	}
 }
 
 bool nano::election::have_quorum (nano::tally_t const & tally_a, nano::uint128_t tally_sum) const
@@ -63,7 +78,7 @@ bool nano::election::have_quorum (nano::tally_t const & tally_a, nano::uint128_t
 	if (tally_sum >= node.config.online_weight_minimum.number ())
 	{
 		auto i (tally_a.begin ());
-		auto first (i->first);
+		auto const & first (i->first);
 		++i;
 		auto second (i != tally_a.end () ? i->first : 0);
 		auto delta_l (node.delta ());
@@ -118,7 +133,7 @@ void nano::election::confirm_if_quorum (nano::transaction const & transaction_a)
 		{
 			log_votes (tally_l);
 		}
-		confirm_once ();
+		confirm_once (nano::election_status_type::active_confirmed_quorum);
 	}
 }
 
@@ -214,6 +229,10 @@ bool nano::election::publish (std::shared_ptr<nano::block> block_a)
 				confirm_if_quorum (transaction);
 				node.network.flood_block (block_a);
 			}
+			else
+			{
+				result = true;
+			}
 		}
 	}
 	return result;
@@ -254,6 +273,31 @@ void nano::election::update_dependent ()
 			{
 				existing->second->dependent_blocks.insert (hash);
 			}
+		}
+	}
+}
+
+void nano::election::clear_dependent ()
+{
+	for (auto & dependent_block : dependent_blocks)
+	{
+		node.active.adjust_difficulty (dependent_block);
+	}
+}
+
+void nano::election::clear_blocks ()
+{
+	auto winner_hash (status.winner->hash ());
+	for (auto & block : blocks)
+	{
+		auto & hash (block.first);
+		auto erased (node.active.blocks.erase (hash));
+		// clear_blocks () can be called in active_transactions::publish () before blocks insertion if election was confirmed
+		assert (erased == 1 || confirmed);
+		// Notify observers about dropped elections & blocks lost confirmed elections
+		if (stopped || hash != winner_hash)
+		{
+			node.observers.active_stopped.notify (hash);
 		}
 	}
 }

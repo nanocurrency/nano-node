@@ -120,6 +120,7 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("external_address", external_address.to_string ());
 	json.put ("external_port", external_port);
 	json.put ("tcp_incoming_connections_max", tcp_incoming_connections_max);
+	json.put ("use_memory_pools", use_memory_pools);
 	nano::jsonconfig websocket_l;
 	websocket_config.serialize_json (websocket_l);
 	json.put_child ("websocket", websocket_l);
@@ -129,6 +130,8 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	nano::jsonconfig diagnostics_l;
 	diagnostics_config.serialize_json (diagnostics_l);
 	json.put_child ("diagnostics", diagnostics_l);
+	json.put ("confirmation_history_size", confirmation_history_size);
+	json.put ("active_elections_size", active_elections_size);
 	json.put ("bandwidth_limit", bandwidth_limit);
 
 	return json.get_error ();
@@ -246,6 +249,9 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.put ("external_port", external_port);
 			json.put ("tcp_incoming_connections_max", tcp_incoming_connections_max);
 			json.put ("vote_generator_delay", vote_generator_delay.count ());
+			json.put ("use_memory_pools", use_memory_pools);
+			json.put ("confirmation_history_size", confirmation_history_size);
+			json.put ("active_elections_size", active_elections_size);
 			json.put ("bandwidth_limit", bandwidth_limit);
 		}
 		case 17:
@@ -389,13 +395,15 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get<boost::asio::ip::address_v6> ("external_address", external_address);
 		json.get<uint16_t> ("external_port", external_port);
 		json.get<unsigned> ("tcp_incoming_connections_max", tcp_incoming_connections_max);
-
+		
 		auto pow_sleep_interval_l (pow_sleep_interval.count ());
 		json.get (pow_sleep_interval_key, pow_sleep_interval_l);
 		pow_sleep_interval = std::chrono::nanoseconds (pow_sleep_interval_l);
-
+		json.get<bool> ("use_memory_pools", use_memory_pools);
+		json.get<size_t> ("confirmation_history_size", confirmation_history_size);
+		json.get<size_t> ("active_elections_size", active_elections_size);
+		nano::network_params network;
 		json.get<size_t> ("bandwidth_limit", bandwidth_limit);
-
 		// Validate ranges
 		if (online_weight_quorum > 100)
 		{
@@ -408,6 +416,10 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		if (io_threads == 0)
 		{
 			json.get_error ().set ("io_threads must be non-zero");
+		}
+		if (active_elections_size <= 250 && !network.network.is_test_network ())
+		{
+			json.get_error ().set ("active_elections_size must be grater than 250");
 		}
 		if (bandwidth_limit > std::numeric_limits<size_t>::max ())
 		{

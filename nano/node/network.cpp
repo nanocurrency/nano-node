@@ -61,8 +61,10 @@ nano::network::~network ()
 void nano::network::start ()
 {
 	ongoing_cleanup ();
+	ongoing_syn_cookie_cleanup ();
 	udp_channels.start ();
 	tcp_channels.start ();
+	ongoing_keepalive ();
 }
 
 void nano::network::stop ()
@@ -321,7 +323,7 @@ void nano::network::broadcast_confirm_req_batch (std::unordered_map<std::shared_
 		auto j (request_bundle_a.begin ());
 		count++;
 		std::vector<std::pair<nano::block_hash, nano::block_hash>> roots_hashes;
-		// Limit max request size hash + root to 6 pairs
+		// Limit max request size hash + root to 7 pairs
 		while (roots_hashes.size () <= confirm_req_hashes_max && !j->second.empty ())
 		{
 			roots_hashes.push_back (j->second.back ());
@@ -635,7 +637,12 @@ void nano::network::random_fill (std::array<nano::endpoint, 8> & target_a) const
 
 nano::tcp_endpoint nano::network::bootstrap_peer ()
 {
-	auto result (udp_channels.bootstrap_peer ());
+	nano::tcp_endpoint result (boost::asio::ip::address_v6::any (), 0);
+	bool use_udp_peer (nano::random_pool::generate_word32 (0, 1));
+	if (use_udp_peer || tcp_channels.size () == 0)
+	{
+		result = udp_channels.bootstrap_peer ();
+	}
 	if (result == nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0))
 	{
 		result = tcp_channels.bootstrap_peer ();
@@ -663,64 +670,40 @@ std::shared_ptr<nano::transport::channel> nano::network::find_node_id (nano::acc
 	return result;
 }
 
-void nano::network::add_response_channels (nano::tcp_endpoint const & endpoint_a, std::vector<nano::tcp_endpoint> insert_channels)
-{
-	std::lock_guard<std::mutex> lock (response_channels_mutex);
-	response_channels.emplace (endpoint_a, insert_channels);
-}
-
-std::shared_ptr<nano::transport::channel> nano::network::search_response_channel (nano::tcp_endpoint const & endpoint_a, nano::account const & node_id_a)
+std::shared_ptr<nano::transport::channel> nano::network::find_response_channel (nano::tcp_endpoint const & endpoint_a, nano::account const & node_id_a)
 {
 	// Search by node ID
 	std::shared_ptr<nano::transport::channel> result (find_node_id (node_id_a));
 	if (!result)
 	{
 		// Search in response channels
-		std::unique_lock<std::mutex> lock (response_channels_mutex);
-		auto existing (response_channels.find (endpoint_a));
-		if (existing != response_channels.end ())
+		auto channels_list (response_channels.search (endpoint_a));
+		// TCP
+		for (auto & i : channels_list)
 		{
-			auto channels_list (existing->second);
-			lock.unlock ();
-			// TCP
+			auto search_channel (tcp_channels.find_channel (i));
+			if (search_channel != nullptr)
+			{
+				result = search_channel;
+				break;
+			}
+		}
+		// UDP
+		if (!result)
+		{
 			for (auto & i : channels_list)
 			{
-				auto search_channel (tcp_channels.find_channel (i));
+				auto udp_endpoint (nano::transport::map_tcp_to_endpoint (i));
+				auto search_channel (udp_channels.channel (udp_endpoint));
 				if (search_channel != nullptr)
 				{
 					result = search_channel;
 					break;
 				}
 			}
-			// UDP
-			if (!result)
-			{
-				for (auto & i : channels_list)
-				{
-					auto udp_endpoint (nano::transport::map_tcp_to_endpoint (i));
-					auto search_channel (udp_channels.channel (udp_endpoint));
-					if (search_channel != nullptr)
-					{
-						result = search_channel;
-						break;
-					}
-				}
-			}
 		}
 	}
 	return result;
-}
-
-void nano::network::remove_response_channel (nano::tcp_endpoint const & endpoint_a)
-{
-	std::lock_guard<std::mutex> lock (response_channels_mutex);
-	response_channels.erase (endpoint_a);
-}
-
-size_t nano::network::response_channels_size ()
-{
-	std::lock_guard<std::mutex> lock (response_channels_mutex);
-	return response_channels.size ();
 }
 
 nano::endpoint nano::network::endpoint ()
@@ -750,6 +733,30 @@ void nano::network::ongoing_cleanup ()
 	});
 }
 
+void nano::network::ongoing_syn_cookie_cleanup ()
+{
+	syn_cookies.purge (std::chrono::steady_clock::now () - nano::transport::syn_cookie_cutoff);
+	std::weak_ptr<nano::node> node_w (node.shared ());
+	node.alarm.add (std::chrono::steady_clock::now () + (nano::transport::syn_cookie_cutoff * 2), [node_w]() {
+		if (auto node_l = node_w.lock ())
+		{
+			node_l->network.ongoing_syn_cookie_cleanup ();
+		}
+	});
+}
+
+void nano::network::ongoing_keepalive ()
+{
+	flood_keepalive ();
+	std::weak_ptr<nano::node> node_w (node.shared ());
+	node.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.half_period, [node_w]() {
+		if (auto node_l = node_w.lock ())
+		{
+			node_l->network.ongoing_keepalive ();
+		}
+	});
+}
+
 size_t nano::network::size () const
 {
 	return tcp_channels.size () + udp_channels.size ();
@@ -763,4 +770,222 @@ size_t nano::network::size_sqrt () const
 bool nano::network::empty () const
 {
 	return size () == 0;
+}
+
+nano::message_buffer_manager::message_buffer_manager (nano::stat & stats_a, size_t size, size_t count) :
+stats (stats_a),
+free (count),
+full (count),
+slab (size * count),
+entries (count),
+stopped (false)
+{
+	assert (count > 0);
+	assert (size > 0);
+	auto slab_data (slab.data ());
+	auto entry_data (entries.data ());
+	for (auto i (0); i < count; ++i, ++entry_data)
+	{
+		*entry_data = { slab_data + i * size, 0, nano::endpoint () };
+		free.push_back (entry_data);
+	}
+}
+
+nano::message_buffer * nano::message_buffer_manager::allocate ()
+{
+	std::unique_lock<std::mutex> lock (mutex);
+	while (!stopped && free.empty () && full.empty ())
+	{
+		stats.inc (nano::stat::type::udp, nano::stat::detail::blocking, nano::stat::dir::in);
+		condition.wait (lock);
+	}
+	nano::message_buffer * result (nullptr);
+	if (!free.empty ())
+	{
+		result = free.front ();
+		free.pop_front ();
+	}
+	if (result == nullptr && !full.empty ())
+	{
+		result = full.front ();
+		full.pop_front ();
+		stats.inc (nano::stat::type::udp, nano::stat::detail::overflow, nano::stat::dir::in);
+	}
+	release_assert (result || stopped);
+	return result;
+}
+
+void nano::message_buffer_manager::enqueue (nano::message_buffer * data_a)
+{
+	assert (data_a != nullptr);
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		full.push_back (data_a);
+	}
+	condition.notify_all ();
+}
+
+nano::message_buffer * nano::message_buffer_manager::dequeue ()
+{
+	std::unique_lock<std::mutex> lock (mutex);
+	while (!stopped && full.empty ())
+	{
+		condition.wait (lock);
+	}
+	nano::message_buffer * result (nullptr);
+	if (!full.empty ())
+	{
+		result = full.front ();
+		full.pop_front ();
+	}
+	return result;
+}
+
+void nano::message_buffer_manager::release (nano::message_buffer * data_a)
+{
+	assert (data_a != nullptr);
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		free.push_back (data_a);
+	}
+	condition.notify_all ();
+}
+
+void nano::message_buffer_manager::stop ()
+{
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		stopped = true;
+	}
+	condition.notify_all ();
+}
+
+void nano::response_channels::add (nano::tcp_endpoint const & endpoint_a, std::vector<nano::tcp_endpoint> insert_channels)
+{
+	std::lock_guard<std::mutex> lock (response_channels_mutex);
+	channels.emplace (endpoint_a, insert_channels);
+}
+
+std::vector<nano::tcp_endpoint> nano::response_channels::search (nano::tcp_endpoint const & endpoint_a)
+{
+	std::vector<nano::tcp_endpoint> result;
+	std::lock_guard<std::mutex> lock (response_channels_mutex);
+	auto existing (channels.find (endpoint_a));
+	if (existing != channels.end ())
+	{
+		result = existing->second;
+	}
+	return result;
+}
+
+void nano::response_channels::remove (nano::tcp_endpoint const & endpoint_a)
+{
+	std::lock_guard<std::mutex> lock (response_channels_mutex);
+	channels.erase (endpoint_a);
+}
+
+size_t nano::response_channels::size ()
+{
+	std::lock_guard<std::mutex> lock (response_channels_mutex);
+	return channels.size ();
+}
+
+std::unique_ptr<nano::seq_con_info_component> nano::response_channels::collect_seq_con_info (std::string const & name)
+{
+	size_t channels_count = 0;
+	{
+		std::lock_guard<std::mutex> response_channels_guard (response_channels_mutex);
+		channels_count = channels.size ();
+	}
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "channels", channels_count, sizeof (decltype (channels)::value_type) }));
+	return composite;
+}
+
+boost::optional<nano::uint256_union> nano::syn_cookies::assign (nano::endpoint const & endpoint_a)
+{
+	auto ip_addr (endpoint_a.address ());
+	assert (ip_addr.is_v6 ());
+	std::lock_guard<std::mutex> lock (syn_cookie_mutex);
+	unsigned & ip_cookies = cookies_per_ip[ip_addr];
+	boost::optional<nano::uint256_union> result;
+	if (ip_cookies < nano::transport::max_peers_per_ip)
+	{
+		if (cookies.find (endpoint_a) == cookies.end ())
+		{
+			nano::uint256_union query;
+			random_pool::generate_block (query.bytes.data (), query.bytes.size ());
+			syn_cookie_info info{ query, std::chrono::steady_clock::now () };
+			cookies[endpoint_a] = info;
+			++ip_cookies;
+			result = query;
+		}
+	}
+	return result;
+}
+
+bool nano::syn_cookies::validate (nano::endpoint const & endpoint_a, nano::account const & node_id, nano::signature const & sig)
+{
+	auto ip_addr (endpoint_a.address ());
+	assert (ip_addr.is_v6 ());
+	std::lock_guard<std::mutex> lock (syn_cookie_mutex);
+	auto result (true);
+	auto cookie_it (cookies.find (endpoint_a));
+	if (cookie_it != cookies.end () && !nano::validate_message (node_id, cookie_it->second.cookie, sig))
+	{
+		result = false;
+		cookies.erase (cookie_it);
+		unsigned & ip_cookies = cookies_per_ip[ip_addr];
+		if (ip_cookies > 0)
+		{
+			--ip_cookies;
+		}
+		else
+		{
+			assert (false && "More SYN cookies deleted than created for IP");
+		}
+	}
+	return result;
+}
+
+void nano::syn_cookies::purge (std::chrono::steady_clock::time_point const & cutoff_a)
+{
+	std::lock_guard<std::mutex> lock (syn_cookie_mutex);
+	auto it (cookies.begin ());
+	while (it != cookies.end ())
+	{
+		auto info (it->second);
+		if (info.created_at < cutoff_a)
+		{
+			unsigned & per_ip = cookies_per_ip[it->first.address ()];
+			if (per_ip > 0)
+			{
+				--per_ip;
+			}
+			else
+			{
+				assert (false && "More SYN cookies deleted than created for IP");
+			}
+			it = cookies.erase (it);
+		}
+		else
+		{
+			++it;
+		}
+	}
+}
+
+std::unique_ptr<nano::seq_con_info_component> nano::syn_cookies::collect_seq_con_info (std::string const & name)
+{
+	size_t syn_cookies_count = 0;
+	size_t syn_cookies_per_ip_count = 0;
+	{
+		std::lock_guard<std::mutex> syn_cookie_guard (syn_cookie_mutex);
+		syn_cookies_count = cookies.size ();
+		syn_cookies_per_ip_count = cookies_per_ip.size ();
+	}
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "syn_cookies", syn_cookies_count, sizeof (decltype (cookies)::value_type) }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "syn_cookies_per_ip", syn_cookies_per_ip_count, sizeof (decltype (cookies_per_ip)::value_type) }));
+	return composite;
 }

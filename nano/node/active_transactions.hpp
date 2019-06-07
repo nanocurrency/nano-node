@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/timer.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/circular_buffer.hpp>
@@ -9,6 +10,7 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index_container.hpp>
+#include <boost/pool/pool_alloc.hpp>
 #include <boost/thread/thread.hpp>
 
 #include <atomic>
@@ -16,12 +18,14 @@
 #include <deque>
 #include <memory>
 #include <queue>
+#include <set>
 #include <unordered_map>
 
 namespace nano
 {
 class node;
 class block;
+class block_sideband;
 class vote;
 class election;
 class transaction;
@@ -35,6 +39,16 @@ public:
 	std::shared_ptr<nano::election> election;
 };
 
+enum class election_status_type : uint8_t
+{
+	ongoing = 0,
+	active_confirmed_quorum = 1,
+	active_confirmation_height = 2,
+	inactive_confirmation_height = 3,
+	rpc_confirmation_height = 4,
+	stopped = 5
+};
+
 class election_status final
 {
 public:
@@ -42,23 +56,15 @@ public:
 	nano::amount tally;
 	std::chrono::milliseconds election_end;
 	std::chrono::milliseconds election_duration;
+	election_status_type type;
 };
 
-class transaction_counter final
+class cementable_account final
 {
 public:
-	// increment counter
-	void add ();
-	// clear counter and reset trend_last after calculating a new rate, guarded to only run once a sec
-	void trend_sample ();
-	double get_rate ();
-
-private:
-	std::chrono::steady_clock::time_point trend_last = std::chrono::steady_clock::now ();
-	size_t counter = 0;
-	// blocks/sec confirmed
-	double rate = 0;
-	std::mutex mutex;
+	cementable_account (nano::account const & account_a, size_t blocks_uncemented_a);
+	nano::account account;
+	uint64_t blocks_uncemented{ 0 };
 };
 
 // Core class for determining consensus
@@ -85,18 +91,13 @@ public:
 	uint64_t active_difficulty ();
 	std::deque<std::shared_ptr<nano::block>> list_blocks (bool = false);
 	void erase (nano::block const &);
-	//check if we should flush
-	//if counter.rate == 0 set minimum_size before considering flushing to 4 for testing convenience
-	//else minimum_size is rate * 10
-	//when roots.size > minimum_size check counter.rate and adjusted expected percentage long unconfirmed before kicking in
-	bool should_flush ();
 	//drop 2 from roots based on adjusted_difficulty
 	void flush_lowest ();
 	bool empty ();
 	size_t size ();
 	void stop ();
 	bool publish (std::shared_ptr<nano::block> block_a);
-	void confirm_block (nano::block_hash const &);
+	void confirm_block (nano::transaction const &, std::shared_ptr<nano::block>, nano::block_sideband const &);
 	boost::multi_index_container<
 	nano::conflict_info,
 	boost::multi_index::indexed_by<
@@ -109,7 +110,6 @@ public:
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
 	std::deque<nano::election_status> list_confirmed ();
 	std::deque<nano::election_status> confirmed;
-	nano::transaction_counter counter;
 	nano::node & node;
 	std::mutex mutex;
 	// Maximum number of conflicts to vote on per interval, lowest root hash first
@@ -117,12 +117,12 @@ public:
 	// Minimum number of block announcements
 	static unsigned constexpr announcement_min = 2;
 	// Threshold to start logging blocks haven't yet been confirmed
-	static unsigned constexpr announcement_long = 20;
+	static unsigned constexpr announcement_long = 2;
 	size_t long_unconfirmed_size = 0;
-	static size_t constexpr election_history_size = 2048;
 	static size_t constexpr max_broadcast_queue = 1000;
 	boost::circular_buffer<double> multipliers_cb;
 	uint64_t trended_active_difficulty;
+	size_t priority_cementable_frontiers_size ();
 
 private:
 	// Call action with confirmed block, may be different than what we started with
@@ -137,8 +137,21 @@ private:
 	std::condition_variable condition;
 	bool started{ false };
 	std::atomic<bool> stopped{ false };
-	static size_t constexpr confirmed_frontiers_max_pending_cut_off = 100;
+	void prioritize_frontiers_for_confirmation (nano::transaction const &, std::chrono::milliseconds);
+	boost::multi_index_container<
+	nano::cementable_account,
+	boost::multi_index::indexed_by<
+	boost::multi_index::hashed_unique<
+	boost::multi_index::member<nano::cementable_account, nano::account, &nano::cementable_account::account>>,
+	boost::multi_index::ordered_non_unique<
+	boost::multi_index::member<nano::cementable_account, uint64_t, &nano::cementable_account::blocks_uncemented>,
+	std::greater<uint64_t>>>>
+	priority_cementable_frontiers;
+	static size_t constexpr max_priority_cementable_frontiers{ 100000 };
+	static size_t constexpr confirmed_frontiers_max_pending_cut_off{ 1000 };
 	boost::thread thread;
+
+	friend class confirmation_height_prioritize_frontiers_Test;
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transactions & active_transactions, const std::string & name);

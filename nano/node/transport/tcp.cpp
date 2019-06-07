@@ -237,7 +237,7 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 		}
 		else
 		{
-			channel = node.network.search_response_channel (endpoint_a, node_id_a);
+			channel = node.network.find_response_channel (endpoint_a, node_id_a);
 			if (channel)
 			{
 				node.network.process_message (message_a, channel);
@@ -275,7 +275,7 @@ void nano::transport::tcp_channels::process_keepalive (nano::keepalive const & m
 		// Insert preferred response channels from first TCP keepalive
 		if (!insert_response_channels.empty ())
 		{
-			node.network.add_response_channels (endpoint_a, insert_response_channels);
+			node.network.response_channels.add (endpoint_a, insert_response_channels);
 		}
 		auto udp_channel (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, nano::transport::map_tcp_to_endpoint (endpoint_a)));
 		node.network.process_message (message_a, udp_channel);
@@ -285,7 +285,6 @@ void nano::transport::tcp_channels::process_keepalive (nano::keepalive const & m
 void nano::transport::tcp_channels::start ()
 {
 	ongoing_keepalive ();
-	ongoing_syn_cookie_cleanup ();
 }
 
 void nano::transport::tcp_channels::stop ()
@@ -329,24 +328,15 @@ std::unique_ptr<nano::seq_con_info_component> nano::transport::tcp_channels::col
 {
 	size_t channels_count = 0;
 	size_t attemps_count = 0;
-	size_t syn_cookies_count = 0;
-	size_t syn_cookies_per_ip_count = 0;
 	{
 		std::lock_guard<std::mutex> guard (mutex);
 		channels_count = channels.size ();
 		attemps_count = attempts.size ();
 	}
-	{
-		std::lock_guard<std::mutex> syn_cookie_guard (syn_cookie_mutex);
-		syn_cookies_count = syn_cookies.size ();
-		syn_cookies_per_ip_count = syn_cookies_per_ip.size ();
-	}
 
 	auto composite = std::make_unique<seq_con_info_composite> (name);
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "channels", channels_count, sizeof (decltype (channels)::value_type) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "attempts", attemps_count, sizeof (decltype (attempts)::value_type) }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "syn_cookies", syn_cookies_count, sizeof (decltype (syn_cookies)::value_type) }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "syn_cookies_per_ip", syn_cookies_per_ip_count, sizeof (decltype (syn_cookies_per_ip)::value_type) }));
 
 	return composite;
 }
@@ -359,91 +349,6 @@ void nano::transport::tcp_channels::purge (std::chrono::steady_clock::time_point
 	// Remove keepalive attempt tracking for attempts older than cutoff
 	auto attempts_cutoff (attempts.get<1> ().lower_bound (cutoff_a));
 	attempts.get<1> ().erase (attempts.get<1> ().begin (), attempts_cutoff);
-}
-
-boost::optional<nano::uint256_union> nano::transport::tcp_channels::assign_syn_cookie (nano::tcp_endpoint const & endpoint_a)
-{
-	auto ip_addr (endpoint_a.address ());
-	assert (ip_addr.is_v6 ());
-	std::lock_guard<std::mutex> lock (syn_cookie_mutex);
-	unsigned & ip_cookies = syn_cookies_per_ip[ip_addr];
-	boost::optional<nano::uint256_union> result;
-	if (ip_cookies < nano::transport::max_peers_per_ip)
-	{
-		if (syn_cookies.find (endpoint_a) == syn_cookies.end ())
-		{
-			nano::uint256_union query;
-			random_pool::generate_block (query.bytes.data (), query.bytes.size ());
-			syn_cookie_info info{ query, std::chrono::steady_clock::now () };
-			syn_cookies[endpoint_a] = info;
-			++ip_cookies;
-			result = query;
-		}
-	}
-	return result;
-}
-
-bool nano::transport::tcp_channels::validate_syn_cookie (nano::tcp_endpoint const & endpoint_a, nano::account const & node_id, nano::signature const & sig)
-{
-	auto ip_addr (endpoint_a.address ());
-	assert (ip_addr.is_v6 ());
-	std::lock_guard<std::mutex> lock (syn_cookie_mutex);
-	auto result (true);
-	auto cookie_it (syn_cookies.find (endpoint_a));
-	if (cookie_it != syn_cookies.end () && !nano::validate_message (node_id, cookie_it->second.cookie, sig))
-	{
-		result = false;
-		syn_cookies.erase (cookie_it);
-		unsigned & ip_cookies = syn_cookies_per_ip[ip_addr];
-		if (ip_cookies > 0)
-		{
-			--ip_cookies;
-		}
-		else
-		{
-			assert (false && "More SYN cookies deleted than created for IP");
-		}
-	}
-	return result;
-}
-
-void nano::transport::tcp_channels::purge_syn_cookies (std::chrono::steady_clock::time_point const & cutoff_a)
-{
-	std::lock_guard<std::mutex> lock (syn_cookie_mutex);
-	auto it (syn_cookies.begin ());
-	while (it != syn_cookies.end ())
-	{
-		auto info (it->second);
-		if (info.created_at < cutoff_a)
-		{
-			unsigned & per_ip = syn_cookies_per_ip[it->first.address ()];
-			if (per_ip > 0)
-			{
-				--per_ip;
-			}
-			else
-			{
-				assert (false && "More SYN cookies deleted than created for IP");
-			}
-			it = syn_cookies.erase (it);
-		}
-		else
-		{
-			++it;
-		}
-	}
-}
-
-void nano::transport::tcp_channels::ongoing_syn_cookie_cleanup ()
-{
-	purge_syn_cookies (std::chrono::steady_clock::now () - nano::transport::syn_cookie_cutoff);
-	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.alarm.add (std::chrono::steady_clock::now () + (nano::transport::syn_cookie_cutoff * 2), [node_w]() {
-		if (auto node_l = node_w.lock ())
-		{
-			node_l->network.tcp_channels.ongoing_syn_cookie_cleanup ();
-		}
-	});
 }
 
 void nano::transport::tcp_channels::ongoing_keepalive ()
@@ -461,8 +366,20 @@ void nano::transport::tcp_channels::ongoing_keepalive ()
 	lock.unlock ();
 	for (auto & channel : send_list)
 	{
-		std::weak_ptr<nano::node> node_w (node.shared ());
-		channel->send (message, nullptr, true); // is ongoing keepalive;
+		channel->send (message);
+	}
+	// Attempt to start TCP connections to known UDP peers
+	if (!node.network_params.network.is_test_network ())
+	{
+		size_t random_count (std::min (static_cast<size_t> (6), static_cast<size_t> (std::ceil (std::sqrt (node.network.udp_channels.size ())))));
+		for (auto i (0); i <= random_count; ++i)
+		{
+			auto tcp_endpoint (node.network.udp_channels.bootstrap_peer (nano::tcp_realtime_protocol_version_min));
+			if (find_channel (tcp_endpoint) == nullptr)
+			{
+				start_tcp (nano::transport::map_tcp_to_endpoint (tcp_endpoint));
+			}
+		}
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	node.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.half_period, [node_w]() {
@@ -518,7 +435,7 @@ void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a
 			if (!ec && channel)
 			{
 				// TCP node ID handshake
-				auto cookie (node_l->network.tcp_channels.assign_syn_cookie (nano::transport::map_endpoint_to_tcp (endpoint_a)));
+				auto cookie (node_l->network.syn_cookies.assign (endpoint_a));
 				nano::node_id_handshake message (cookie, boost::none);
 				auto bytes = message.to_bytes ();
 				if (node_l->config.logging.network_node_id_handshake_logging ())
@@ -572,7 +489,7 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 					{
 						channel_a->set_network_version (header.version_using);
 						auto node_id (message.response->first);
-						if (!node_l->network.tcp_channels.validate_syn_cookie (nano::transport::map_endpoint_to_tcp (endpoint_a), node_id, message.response->second) && node_id != node_l->node_id.pub && !node_l->network.tcp_channels.find_node_id (node_id))
+						if (!node_l->network.syn_cookies.validate (endpoint_a, node_id, message.response->second) && node_id != node_l->node_id.pub && !node_l->network.tcp_channels.find_node_id (node_id))
 						{
 							channel_a->set_node_id (node_id);
 							channel_a->set_last_packet_received (std::chrono::steady_clock::now ());

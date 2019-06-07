@@ -10,6 +10,7 @@
 
 #include <boost/property_tree/json_parser.hpp>
 
+#include <csignal>
 #include <fstream>
 #include <iostream>
 
@@ -21,14 +22,76 @@
 #include <boost/process.hpp>
 #endif
 
+// Some builds (mac) fail due to "Boost.Stacktrace requires `_Unwind_Backtrace` function".
+#ifndef _WIN32
+#ifndef _GNU_SOURCE
+#define BEFORE_GNU_SOURCE 0
+#define _GNU_SOURCE
+#else
+#define BEFORE_GNU_SOURCE 1
+#endif
+#endif
+// On Windows this include defines min/max macros, so keep below other includes
+// to reduce conflicts with other std functions
+#include <boost/stacktrace.hpp>
+#ifndef _WIN32
+#if !BEFORE_GNU_SOURCE
+#undef _GNU_SOURCE
+#endif
+#endif
+
+namespace
+{
+#ifdef __linux__
+#include <link.h>
+// Only on linux. This outputs the load addresses for the executable and shared libraries.
+// Useful for debugging should the virtual addresses be randomized.
+int output_memory_load_address (dl_phdr_info * info, size_t, void *)
+{
+	static int counter = 0;
+	std::ostringstream ss;
+	ss << "nano_node_crash_load_address_dump_" << counter << ".txt";
+	std::ofstream file (ss.str ());
+	file << "Name: " << info->dlpi_name << "\n";
+
+	for (auto i = 0; i < info->dlpi_phnum; ++i)
+	{
+		// Only care about the first load address
+		if (info->dlpi_phdr[i].p_type == PT_LOAD)
+		{
+			file << std::hex << (void *)(info->dlpi_addr + info->dlpi_phdr[i].p_vaddr);
+			break;
+		}
+	}
+	++counter;
+	return 0;
+}
+#endif
+
+void my_abort_signal_handler (int signum)
+{
+	std::signal (signum, SIG_DFL);
+	boost::stacktrace::safe_dump_to ("nano_node_backtrace.dump");
+
+#ifdef __linux__
+	dl_iterate_phdr (output_memory_load_address, nullptr);
+#endif
+}
+}
+
 void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::node_flags const & flags)
 {
+	// Override segmentation fault and aborting.
+	std::signal (SIGSEGV, &my_abort_signal_handler);
+	std::signal (SIGABRT, &my_abort_signal_handler);
+
 	boost::filesystem::create_directories (data_path);
 	boost::system::error_code error_chmod;
 	nano::set_secure_perm_directory (data_path, error_chmod);
 	std::unique_ptr<nano::thread_runner> runner;
 	nano::daemon_config config (data_path);
 	auto error = nano::read_and_update_daemon_config (data_path, config);
+	nano::use_memory_pools = config.node.use_memory_pools;
 
 	if (!error)
 	{
@@ -47,6 +110,11 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 			auto node (std::make_shared<nano::node> (init, io_ctx, data_path, alarm, config.node, opencl_work, flags));
 			if (!init.error ())
 			{
+				auto network_label = node->network_params.network.get_current_network_as_string ();
+				auto version = (NANO_VERSION_PATCH == 0) ? NANO_MAJOR_MINOR_VERSION : NANO_MAJOR_MINOR_RC_VERSION;
+				std::cout << "Network: " << network_label << ", version: " << version << std::endl
+				          << "Path: " << node->application_path.string () << std::endl;
+
 				node->start ();
 				nano::ipc::ipc_server ipc_server (*node, config.rpc);
 #if BOOST_PROCESS_SUPPORTED
