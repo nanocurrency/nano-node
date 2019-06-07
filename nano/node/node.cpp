@@ -314,20 +314,7 @@ startup_time (std::chrono::steady_clock::now ())
 		if (websocket_server)
 		{
 			observers.blocks.add ([this](nano::election_status const & status_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
-				// can this be fired?
 				assert (status_a.type != nano::election_status_type::ongoing);
-
-				if (status_a.type == nano::election_status_type::active_confirmation_height)
-				{
-				}
-
-				if (status_a.type == nano::election_status_type::active_confirmed_quorum)
-				{
-				}
-
-				if (status_a.type == nano::election_status_type::inactive_confirmation_height)
-				{
-				}
 
 				if (this->websocket_server->any_subscriber (nano::websocket::topic::confirmation))
 				{
