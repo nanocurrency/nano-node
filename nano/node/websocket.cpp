@@ -88,11 +88,11 @@ bool nano::websocket::confirmation_options::should_filter (nano::websocket::mess
 	{
 		should_filter_conf_type_l = false;
 	}
-	if (type_text_l == "active_confirmation_height" && confirmation_types & type_active_confirmation_height)
+	else if (type_text_l == "active_confirmation_height" && confirmation_types & type_active_confirmation_height)
 	{
 		should_filter_conf_type_l = false;
 	}
-	if (type_text_l == "inactive" && confirmation_types & type_inactive)
+	else if (type_text_l == "inactive" && confirmation_types & type_inactive)
 	{
 		should_filter_conf_type_l = false;
 	}
