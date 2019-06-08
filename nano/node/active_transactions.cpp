@@ -352,7 +352,7 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 		std::unique_lock<std::mutex> lk (mutex);
 		auto priority_cementable_frontiers_size = priority_cementable_frontiers.size ();
 		lk.unlock ();
-		for (; i != n && !stopped && (priority_cementable_frontiers_size < max_priority_cementable_frontiers); ++i)
+		for (; i != n && !stopped; ++i)
 		{
 			auto const & account (i->first);
 			auto const & info (i->second);
@@ -373,7 +373,23 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 				}
 				else
 				{
-					priority_cementable_frontiers.emplace (account, num_uncemented);
+					assert (priority_cementable_frontiers_size <= max_priority_cementable_frontiers);
+					if (priority_cementable_frontiers_size == max_priority_cementable_frontiers)
+					{
+						// The maximum amount of frontiers stored has been reached. Check if the current frontier
+						// has more uncemented blocks than the lowest uncemented frontier in the collection if so replace it.
+						auto least_uncemented_frontier_it = priority_cementable_frontiers.get<1> ().end ();
+						--least_uncemented_frontier_it;
+						if (num_uncemented > least_uncemented_frontier_it->blocks_uncemented)
+						{
+							priority_cementable_frontiers.get<1> ().erase (least_uncemented_frontier_it);
+							priority_cementable_frontiers.emplace (account, num_uncemented);
+						}
+					}
+					else
+					{
+						priority_cementable_frontiers.emplace (account, num_uncemented);
+					}
 				}
 				priority_cementable_frontiers_size = priority_cementable_frontiers.size ();
 				lk.unlock ();
