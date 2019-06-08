@@ -51,5 +51,4 @@ public:
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (gap_cache & gap_cache, const std::string & name);
-
 }
