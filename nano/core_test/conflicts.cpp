@@ -207,7 +207,7 @@ TEST (conflicts, dependency)
 	node1->active.start (send1);
 	node1->active.start (state_open1);
 	ASSERT_EQ (2, node1->active.size ());
-	// Check dependecy for send block
+	// Check dependency for send block
 	{
 		std::lock_guard<std::mutex> guard (node1->active.mutex);
 		auto existing1 (node1->active.roots.find (send1->qualified_root ()));
