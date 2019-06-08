@@ -427,19 +427,15 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, std::
 			auto hash (block_a->hash ());
 			auto election (nano::make_shared<nano::election> (node, block_a, confirmation_action_a));
 			uint64_t difficulty (0);
-			auto error (nano::work_validate (*block_a, &difficulty));
+			error = nano::work_validate (*block_a, &difficulty);
 			release_assert (!error);
 			roots.insert (nano::conflict_info{ root, difficulty, difficulty, election });
 			blocks.insert (std::make_pair (hash, election));
 			adjust_difficulty (hash);
 		}
-		else
+		else if (roots.size () >= node.config.active_elections_size)
 		{
-			error = true;
-			if (roots.size () >= node.config.active_elections_size)
-			{
-				flush_lowest ();
-			}
+			flush_lowest ();
 		}
 	}
 	return error;
