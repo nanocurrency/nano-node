@@ -45,7 +45,6 @@ enum class election_status_type : uint8_t
 	active_confirmed_quorum = 1,
 	active_confirmation_height = 2,
 	inactive_confirmation_height = 3,
-	rpc_confirmation_height = 4,
 	stopped = 5
 };
 
