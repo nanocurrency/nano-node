@@ -7,10 +7,12 @@
 #include <nano/node/bootstrap.hpp>
 #include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/gap_cache.hpp>
 #include <nano/node/logging.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/online_reps.hpp>
 #include <nano/node/payment_observer_processor.hpp>
 #include <nano/node/portmapping.hpp>
 #include <nano/node/repcrawler.hpp>
@@ -63,34 +65,6 @@ public:
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (alarm & alarm, const std::string & name);
 
-class gap_information final
-{
-public:
-	std::chrono::steady_clock::time_point arrival;
-	nano::block_hash hash;
-	std::vector<nano::account> voters;
-};
-class gap_cache final
-{
-public:
-	explicit gap_cache (nano::node &);
-	void add (nano::transaction const &, nano::block_hash const &, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now ());
-	void vote (std::shared_ptr<nano::vote>);
-	nano::uint128_t bootstrap_threshold (nano::transaction const &);
-	size_t size ();
-	boost::multi_index_container<
-	nano::gap_information,
-	boost::multi_index::indexed_by<
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<gap_information, std::chrono::steady_clock::time_point, &gap_information::arrival>>,
-	boost::multi_index::hashed_unique<boost::multi_index::member<gap_information, nano::block_hash, &gap_information::hash>>>>
-	blocks;
-	size_t const max = 256;
-	std::mutex mutex;
-	nano::node & node;
-};
-
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (gap_cache & gap_cache, const std::string & name);
-
 class work_pool;
 class block_arrival_info final
 {
@@ -118,28 +92,6 @@ public:
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_arrival & block_arrival, const std::string & name);
-
-class online_reps final
-{
-public:
-	online_reps (nano::node &, nano::uint128_t);
-	void observe (nano::account const &);
-	void sample ();
-	nano::uint128_t online_stake () const;
-	std::vector<nano::account> list ();
-
-private:
-	nano::uint128_t trend (nano::transaction &);
-	mutable std::mutex mutex;
-	nano::node & node;
-	std::unordered_set<nano::account> reps;
-	nano::uint128_t online;
-	nano::uint128_t minimum;
-
-	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (online_reps & online_reps, const std::string & name);
-};
-
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (online_reps & online_reps, const std::string & name);
 
 class node_init final
 {
