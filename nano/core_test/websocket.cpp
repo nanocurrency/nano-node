@@ -296,7 +296,7 @@ TEST (websocket, confirmation_options)
 	std::thread client_thread ([&client_thread_finished]() {
 		// Subscribe initially with a specific invalid account
 		auto response = websocket_test_call ("::1", "24078",
-		R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"accounts": ["xrb_invalid"]}})json", true, true, 1s);
+		R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"confirmation_type": "active_quorum", "accounts": ["xrb_invalid"]}})json", true, true, 1s);
 
 		ASSERT_FALSE (response);
 		client_thread_finished = true;
@@ -334,7 +334,7 @@ TEST (websocket, confirmation_options)
 	std::thread client_thread_2 ([&client_thread_2_finished]() {
 		// Re-subscribe with options for all local wallet accounts
 		auto response = websocket_test_call ("::1", "24078",
-		R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"all_local_accounts": "true"}})json", true, true);
+		R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"confirmation_type": "active_quorum", "all_local_accounts": "true"}})json", true, true);
 
 		ASSERT_TRUE (response);
 		boost::property_tree::ptree event;
@@ -375,7 +375,7 @@ TEST (websocket, confirmation_options)
 	std::atomic<bool> client_thread_3_finished{ false };
 	std::thread client_thread_3 ([&client_thread_3_finished]() {
 		auto response = websocket_test_call ("::1", "24078",
-		R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"all_local_accounts": "true"}})json", true, true, 1s);
+		R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"confirmation_type": "active_quorum", "all_local_accounts": "true"}})json", true, true, 1s);
 
 		ASSERT_FALSE (response);
 		client_thread_3_finished = true;
