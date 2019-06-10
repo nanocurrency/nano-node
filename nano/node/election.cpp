@@ -50,14 +50,11 @@ void nano::election::confirm_once (nano::election_status_type type_a)
 		{
 			--node.active.long_unconfirmed_size;
 		}
-		node.active.confirmed.push_back (status);
-		if (node.active.confirmed.size () > node.config.confirmation_history_size)
-		{
-			node.active.confirmed.pop_front ();
-		}
+		auto root (status.winner->qualified_root ());
+		node.active.add_confirmed (status, root);
 		clear_blocks ();
 		clear_dependent ();
-		node.active.roots.erase (status.winner->qualified_root ());
+		node.active.roots.erase (root);
 	}
 }
 

@@ -110,11 +110,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 		{
 			if (election_l->confirmed)
 			{
-				confirmed.push_back (election_l->status);
-				if (confirmed.size () > node.config.confirmation_history_size)
-				{
-					confirmed.pop_front ();
-				}
+				add_confirmed (election_l->status, root);
 			}
 			inactive.insert (root);
 		}
@@ -303,10 +299,12 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 	for (auto i (inactive.begin ()), n (inactive.end ()); i != n; ++i)
 	{
 		auto root_it (roots.find (*i));
-		assert (root_it != roots.end ());
-		root_it->election->clear_blocks ();
-		root_it->election->clear_dependent ();
-		roots.erase (*i);
+		if (root_it != roots.end ())
+		{
+			root_it->election->clear_blocks ();
+			root_it->election->clear_dependent ();
+			roots.erase (root_it);
+		}
 	}
 	long_unconfirmed_size = unconfirmed_count;
 	if (unconfirmed_count > 0)
@@ -422,23 +420,22 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, std::
 	{
 		auto root (block_a->qualified_root ());
 		auto existing (roots.find (root));
-		if (existing == roots.end ())
+		if (existing == roots.end () && confirmed_set.get<1> ().find (root) == confirmed_set.get<1> ().end ())
 		{
+			// Check if existing block is already confirmed
+			assert (node.ledger.block_not_confirmed_or_not_exists (*block_a));
+			auto hash (block_a->hash ());
 			auto election (nano::make_shared<nano::election> (node, block_a, confirmation_action_a));
 			uint64_t difficulty (0);
-			auto error (nano::work_validate (*block_a, &difficulty));
+			error = nano::work_validate (*block_a, &difficulty);
 			release_assert (!error);
 			roots.insert (nano::conflict_info{ root, difficulty, difficulty, election });
-			blocks.insert (std::make_pair (block_a->hash (), election));
-			adjust_difficulty (block_a->hash ());
+			blocks.insert (std::make_pair (hash, election));
+			adjust_difficulty (hash);
 		}
-		error = existing != roots.end ();
-		if (error)
+		else if (roots.size () >= node.config.active_elections_size)
 		{
-			if (roots.size () >= node.config.active_elections_size)
-			{
-				flush_lowest ();
-			}
+			flush_lowest ();
 		}
 	}
 	return error;
@@ -645,6 +642,20 @@ std::deque<nano::election_status> nano::active_transactions::list_confirmed ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	return confirmed;
+}
+
+void nano::active_transactions::add_confirmed (nano::election_status const & status_a, nano::qualified_root const & root_a)
+{
+	confirmed.push_back (status_a);
+	auto inserted (confirmed_set.insert (nano::confirmed_set_info{ std::chrono::steady_clock::now (), root_a }));
+	if (confirmed.size () > node.config.confirmation_history_size)
+	{
+		confirmed.pop_front ();
+		if (inserted.second)
+		{
+			confirmed_set.erase (confirmed_set.begin ());
+		}
+	}
 }
 
 void nano::active_transactions::erase (nano::block const & block_a)

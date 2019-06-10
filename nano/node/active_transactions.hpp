@@ -66,6 +66,13 @@ public:
 	uint64_t blocks_uncemented{ 0 };
 };
 
+class confirmed_set_info final
+{
+public:
+	std::chrono::steady_clock::time_point time;
+	nano::uint512_union root;
+};
+
 // Core class for determining consensus
 // Holds all active blocks i.e. recently added blocks that need confirmation
 class active_transactions final
@@ -109,6 +116,7 @@ public:
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
 	std::deque<nano::election_status> list_confirmed ();
 	std::deque<nano::election_status> confirmed;
+	void add_confirmed (nano::election_status const &, nano::qualified_root const &);
 	nano::node & node;
 	std::mutex mutex;
 	// Maximum number of conflicts to vote on per interval, lowest root hash first
@@ -136,6 +144,12 @@ private:
 	std::condition_variable condition;
 	bool started{ false };
 	std::atomic<bool> stopped{ false };
+	boost::multi_index_container<
+	nano::confirmed_set_info,
+	boost::multi_index::indexed_by<
+	boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::confirmed_set_info, std::chrono::steady_clock::time_point, &nano::confirmed_set_info::time>>,
+	boost::multi_index::hashed_unique<boost::multi_index::member<nano::confirmed_set_info, nano::qualified_root, &nano::confirmed_set_info::root>>>>
+	confirmed_set;
 	void prioritize_frontiers_for_confirmation (nano::transaction const &, std::chrono::milliseconds);
 	boost::multi_index_container<
 	nano::cementable_account,

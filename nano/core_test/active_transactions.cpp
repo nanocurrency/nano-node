@@ -8,10 +8,11 @@ using namespace std::chrono_literals;
 
 TEST (active_transactions, adjusted_difficulty_priority)
 {
+	bool delay_frontier_confirmation_height_updating = true;
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
 	node_config.enable_voting = false;
-	auto & node1 = *system.add_node (node_config);
+	auto & node1 = *system.add_node (node_config, delay_frontier_confirmation_height_updating);
 	nano::genesis genesis;
 	nano::keypair key1, key2, key3;
 

@@ -1062,6 +1062,18 @@ bool nano::ledger::block_confirmed (nano::transaction const & transaction_a, nan
 	return confirmed;
 }
 
+bool nano::ledger::block_not_confirmed_or_not_exists (nano::block const & block_a) const
+{
+	bool result (true);
+	auto hash (block_a.hash ());
+	auto transaction (store.tx_begin_read ());
+	if (store.block_exists (transaction, block_a.type (), hash))
+	{
+		result = !block_confirmed (transaction, hash);
+	}
+	return result;
+}
+
 namespace nano
 {
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (ledger & ledger, const std::string & name)
