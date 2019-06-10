@@ -395,7 +395,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get<boost::asio::ip::address_v6> ("external_address", external_address);
 		json.get<uint16_t> ("external_port", external_port);
 		json.get<unsigned> ("tcp_incoming_connections_max", tcp_incoming_connections_max);
-		
+
 		auto pow_sleep_interval_l (pow_sleep_interval.count ());
 		json.get (pow_sleep_interval_key, pow_sleep_interval_l);
 		pow_sleep_interval = std::chrono::nanoseconds (pow_sleep_interval_l);
