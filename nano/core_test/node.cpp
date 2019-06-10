@@ -2868,7 +2868,7 @@ TEST (confirmation_height, prioritize_frontiers)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
-	std::array <nano::qualified_root, num_accounts> frontiers { send17.qualified_root (), send6.qualified_root (), send7.qualified_root (), open2.qualified_root (), send11.qualified_root () };
+	std::array<nano::qualified_root, num_accounts> frontiers{ send17.qualified_root (), send6.qualified_root (), send7.qualified_root (), open2.qualified_root (), send11.qualified_root () };
 	for (auto & frontier : frontiers)
 	{
 		ASSERT_NE (node->active.roots.find (frontier), node->active.roots.end ());
