@@ -79,7 +79,7 @@ void nano::network::send_keepalive (std::shared_ptr<nano::transport::channel> ch
 {
 	nano::keepalive message;
 	random_fill (message.peers);
-	channel_a->send (message, nullptr, false); // is_dropable false keepalives must flow 
+	channel_a->send (message, nullptr, false); // is_dropable false keepalives must flow
 }
 
 void nano::network::send_keepalive_self (std::shared_ptr<nano::transport::channel> channel_a)
@@ -102,7 +102,7 @@ void nano::network::send_keepalive_self (std::shared_ptr<nano::transport::channe
 			message.peers[0] = nano::endpoint (boost::asio::ip::address_v6{}, endpoint ().port ());
 		}
 	}
-	channel_a->send (message, nullptr, false); // is_dropable false keepalives must flow 
+	channel_a->send (message, nullptr, false); // is_dropable false keepalives must flow
 }
 
 void nano::network::send_node_id_handshake (std::shared_ptr<nano::transport::channel> channel_a, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to)
@@ -118,7 +118,7 @@ void nano::network::send_node_id_handshake (std::shared_ptr<nano::transport::cha
 	{
 		node.logger.try_log (boost::str (boost::format ("Node ID handshake sent with node ID %1% to %2%: query %3%, respond_to %4% (signature %5%)") % node.node_id.pub.to_account () % channel_a->get_endpoint () % (query ? query->to_string () : std::string ("[none]")) % (respond_to ? respond_to->to_string () : std::string ("[none]")) % (response ? response->second.to_string () : std::string ("[none]"))));
 	}
-	channel_a->send (message, nullptr, false);// is_dropable false keepalives must flow 
+	channel_a->send (message, nullptr, false); // is_dropable false keepalives must flow
 }
 
 template <typename T>

@@ -18,7 +18,7 @@ public:
 
 private:
 	//last time rate was adjusted
-	std::chrono::steady_clock::time_point last_poll;
+	std::chrono::steady_clock::time_point next_trend;
 	//trend rate over 20 poll periods
 	boost::circular_buffer<size_t> rate_buffer{ 20, 0 };
 	//limit bandwidth to
