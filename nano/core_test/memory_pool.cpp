@@ -54,8 +54,8 @@ size_t get_allocated_size ()
 
 TEST (memory_pool, validate_cleanup)
 {
-	// This might be turned off for TSAN on Mac for instance, so don't do this test
-	if (!nano::use_memory_pools)
+	// This might be turned off, e.g on Mac for instance, so don't do this test
+	if (!nano::get_use_memory_pools ())
 	{
 		return;
 	}

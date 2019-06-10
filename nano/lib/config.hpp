@@ -19,11 +19,13 @@ static const char * NANO_MAJOR_MINOR_VERSION = xstr (NANO_VERSION_MAJOR) "." xst
 static const char * NANO_MAJOR_MINOR_RC_VERSION = xstr (NANO_VERSION_MAJOR) "." xstr (NANO_VERSION_MINOR) "RC" xstr (NANO_VERSION_PATCH);
 /** Is TSAN/ASAN test build */
 #if defined(__has_feature)
-static const bool is_thread_sanitizer_build = __has_feature (thread_sanitizer);
-static const bool is_sanitizer_build = is_thread_sanitizer_build || __has_feature (address_sanitizer);
+#if __has_feature(thread_sanitizer) || __has_feature(address_sanitizer)
+static const bool is_sanitizer_build = true;
 #else
 static const bool is_sanitizer_build = false;
-static const bool is_thread_sanitizer_build = false;
+#endif
+#else
+static const bool is_sanitizer_build = false;
 #endif
 
 namespace nano

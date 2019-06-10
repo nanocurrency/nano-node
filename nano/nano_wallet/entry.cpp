@@ -237,12 +237,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	int result (0);
 	nano::jsonconfig json;
 	auto error (json.read_and_update (config, config_path));
-#ifdef __APPLE__
-	// TSAN can generate false-positives in shared/weak_ptr destructors
-	nano::use_memory_pools = !is_thread_sanitizer_build ? config.node.use_memory_pools : false;
-#else
-	nano::use_memory_pools = config.node.use_memory_pools;
-#endif
+	nano::set_use_memory_pools (config.node.use_memory_pools);
 	nano::set_secure_perm_file (config_path, error_chmod);
 	if (!error)
 	{
