@@ -88,7 +88,7 @@ TEST (channels, fill_random_clear)
 TEST (channels, fill_random_full)
 {
 	nano::system system (24000, 1);
-	for (auto i (0); i < 100; ++i)
+	for (uint16_t i (0u); i < 100u; ++i)
 	{
 		system.nodes[0]->network.udp_channels.insert (nano::endpoint (boost::asio::ip::address_v6::loopback (), i), 0);
 	}

@@ -25,7 +25,7 @@ public:
 	bool opencl_enable{ false };
 	nano::opencl_config opencl;
 	boost::filesystem::path data_path;
-	int json_version () const
+	unsigned json_version () const
 	{
 		return 2;
 	}

@@ -1,13 +1,12 @@
 #pragma once
 
+#include <nano/crypto/blake2/blake2.h>
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/secure/utility.hpp>
-
-#include <crypto/blake2/blake2.h>
 
 #include <boost/iterator/transform_iterator.hpp>
 #include <boost/property_tree/ptree.hpp>

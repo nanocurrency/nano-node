@@ -27,6 +27,15 @@ TEST (socket, concurrent_writes)
 	std::function<void(std::shared_ptr<nano::socket>)> reader = [&read_count_completion, &total_message_count, &reader](std::shared_ptr<nano::socket> socket_a) {
 		auto buff (std::make_shared<std::vector<uint8_t>> ());
 		buff->resize (1);
+#ifndef _WIN32
+#pragma GCC diagnostic push
+#if defined(__has_warning)
+#if __has_warning("-Wunused-lambda-capture")
+/** total_message_count is constexpr and a capture isn't needed. However, removing it fails to compile on VS2017 due to a known compiler bug. */
+#pragma GCC diagnostic ignored "-Wunused-lambda-capture"
+#endif
+#endif
+#endif
 		socket_a->async_read (buff, 1, [&read_count_completion, &reader, &total_message_count, socket_a, buff](boost::system::error_code const & ec, size_t size_a) {
 			if (!ec)
 			{
@@ -40,6 +49,9 @@ TEST (socket, concurrent_writes)
 				std::cerr << "async_read: " << ec.message () << std::endl;
 			}
 		});
+#ifndef _WIN32
+#pragma GCC diagnostic pop
+#endif
 	};
 
 	boost::asio::ip::tcp::endpoint endpoint (boost::asio::ip::address_v4::any (), 25000);
@@ -90,8 +102,15 @@ TEST (socket, concurrent_writes)
 	std::vector<std::thread> client_threads;
 	for (int i = 0; i < client_count; i++)
 	{
-		// Note: this gives a warning on most compilers because message_count is constexpr and a
-		// capture isn't needed. However, removing it fails to compile on VS2017 due to a known compiler bug.
+#ifndef _WIN32
+#pragma GCC diagnostic push
+#if defined(__has_warning)
+#if __has_warning("-Wunused-lambda-capture")
+/** total_message_count is constexpr and a capture isn't needed. However, removing it fails to compile on VS2017 due to a known compiler bug. */
+#pragma GCC diagnostic ignored "-Wunused-lambda-capture"
+#endif
+#endif
+#endif
 		client_threads.emplace_back ([&client, &message_count]() {
 			for (int i = 0; i < message_count; i++)
 			{
@@ -100,6 +119,9 @@ TEST (socket, concurrent_writes)
 				client->async_write (buff);
 			}
 		});
+#ifndef _WIN32
+#pragma GCC diagnostic pop
+#endif
 	}
 
 	ASSERT_FALSE (read_count_completion.await_count_for (10s));

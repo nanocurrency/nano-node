@@ -65,7 +65,7 @@ public:
 	uintmax_t rotation_size{ 4 * 1024 * 1024 };
 	std::chrono::milliseconds min_time_between_log_output{ 5 };
 	static void release_file_sink ();
-	int json_version () const
+	unsigned json_version () const
 	{
 		return 7;
 	}

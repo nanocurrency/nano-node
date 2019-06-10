@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/boost/asio.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/active_transactions.hpp>
@@ -22,7 +23,6 @@
 #include <nano/node/websocket.hpp>
 #include <nano/secure/ledger.hpp>
 
-#include <boost/asio/thread_pool.hpp>
 #include <boost/iostreams/device/array.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>

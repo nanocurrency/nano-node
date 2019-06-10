@@ -234,7 +234,7 @@ public:
 		// A separate io_context for domain sockets may facilitate better performance on some systems.
 		if (concurrency_a > 0)
 		{
-			runner = std::make_unique<nano::thread_runner> (*io_ctx, concurrency_a);
+			runner = std::make_unique<nano::thread_runner> (*io_ctx, static_cast<unsigned> (concurrency_a));
 		}
 	}
 
@@ -301,7 +301,7 @@ node_rpc_config (node_rpc_config_a)
 		if (node_a.config.ipc_config.transport_domain.enabled)
 		{
 #if defined(BOOST_ASIO_HAS_LOCAL_SOCKETS)
-			size_t threads = node_a.config.ipc_config.transport_domain.io_threads;
+			auto threads = node_a.config.ipc_config.transport_domain.io_threads;
 			file_remover = std::make_unique<dsock_file_remover> (node_a.config.ipc_config.transport_domain.path);
 			boost::asio::local::stream_protocol::endpoint ep{ node_a.config.ipc_config.transport_domain.path };
 			transports.push_back (std::make_shared<socket_transport<boost::asio::local::stream_protocol::acceptor, boost::asio::local::stream_protocol::socket, boost::asio::local::stream_protocol::endpoint>> (*this, ep, node_a.config.ipc_config.transport_domain, threads));
@@ -312,7 +312,7 @@ node_rpc_config (node_rpc_config_a)
 
 		if (node_a.config.ipc_config.transport_tcp.enabled)
 		{
-			size_t threads = node_a.config.ipc_config.transport_tcp.io_threads;
+			auto threads = node_a.config.ipc_config.transport_tcp.io_threads;
 			transports.push_back (std::make_shared<socket_transport<boost::asio::ip::tcp::acceptor, boost::asio::ip::tcp::socket, boost::asio::ip::tcp::endpoint>> (*this, boost::asio::ip::tcp::endpoint (boost::asio::ip::tcp::v6 (), node_a.config.ipc_config.transport_tcp.port), node_a.config.ipc_config.transport_tcp, threads));
 		}
 

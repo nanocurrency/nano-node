@@ -1,8 +1,8 @@
+#include <nano/crypto/blake2/blake2.h>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
 
-#include <crypto/blake2/blake2.h>
 #include <crypto/cryptopp/aes.h>
 #include <crypto/cryptopp/modes.h>
 
@@ -817,6 +817,11 @@ std::string nano::to_string (double const value_a, int const precision_a)
 	return stream.str ();
 }
 
+#ifdef _WIN32
+#pragma warning(push)
+#pragma warning(disable : 4146) // warning C4146: unary minus operator applied to unsigned type, result still unsigned
+#endif
+
 uint64_t nano::difficulty::from_multiplier (double const multiplier_a, uint64_t const base_difficulty_a)
 {
 	assert (multiplier_a > 0.);
@@ -828,3 +833,7 @@ double nano::difficulty::to_multiplier (uint64_t const difficulty_a, uint64_t co
 	assert (difficulty_a > 0);
 	return static_cast<double> (-base_difficulty_a) / (-difficulty_a);
 }
+
+#ifdef _WIN32
+#pragma warning(pop)
+#endif

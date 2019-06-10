@@ -32,7 +32,7 @@ namespace ipc
 		 */
 		std::string path{ "/tmp/nano" };
 
-		int json_version () const
+		unsigned json_version () const
 		{
 			return 1;
 		}

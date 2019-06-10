@@ -1,13 +1,11 @@
+#include <nano/boost/asio.hpp>
+#include <nano/boost/beast.hpp>
+#include <nano/boost/process.hpp>
 #include <nano/core_test/testutil.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/secure/utility.hpp>
 
-#include <boost/asio/connect.hpp>
-#include <boost/asio/ip/tcp.hpp>
-#include <boost/beast/core.hpp>
-#include <boost/beast/http.hpp>
-#include <boost/beast/version.hpp>
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/program_options.hpp>
 
@@ -30,14 +28,6 @@ namespace beast = boost::beast;
 namespace http = beast::http;
 namespace net = boost::asio;
 using tcp = net::ip::tcp;
-
-#ifndef BOOST_PROCESS_SUPPORTED
-#error BOOST_PROCESS_SUPPORTED must be set, check configuration
-#endif
-
-#if BOOST_PROCESS_SUPPORTED
-#include <boost/process.hpp>
-#endif
 
 constexpr auto rpc_port_start = 60000;
 constexpr auto peering_port_start = 61000;

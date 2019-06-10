@@ -1,14 +1,10 @@
 #pragma once
 
+#include <nano/boost/asio.hpp>
+#include <nano/boost/beast.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/numbers.hpp>
 
-#include <boost/asio/bind_executor.hpp>
-#include <boost/asio/buffer.hpp>
-#include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/strand.hpp>
-#include <boost/beast/core.hpp>
-#include <boost/beast/websocket.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <algorithm>

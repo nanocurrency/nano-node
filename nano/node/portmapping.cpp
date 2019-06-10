@@ -82,7 +82,7 @@ void nano::port_mapping::refresh_mapping ()
 			}
 			if (add_port_mapping_error == UPNPCOMMAND_SUCCESS)
 			{
-				protocol.external_port = std::atoi (actual_external_port.data ());
+				protocol.external_port = static_cast<uint16_t> (std::atoi (actual_external_port.data ()));
 			}
 			else
 			{
