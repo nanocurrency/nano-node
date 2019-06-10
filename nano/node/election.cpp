@@ -75,7 +75,6 @@ bool nano::election::have_quorum (nano::tally_t const & tally_a, nano::uint128_t
 	if (tally_sum >= node.config.online_weight_minimum.number ())
 	{
 		auto i (tally_a.begin ());
-		auto const & first (i->first);
 		++i;
 		auto second (i != tally_a.end () ? i->first : 0);
 		auto delta_l (node.delta ());
