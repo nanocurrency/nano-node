@@ -335,6 +335,12 @@ void nano::active_transactions::request_loop ()
 	{
 		request_confirm (lock);
 		update_active_difficulty (lock);
+
+		// This prevents unnecessary waiting if stopped is set in-between the above check and now
+		if (stopped)
+		{
+			break;
+		}
 		const auto extra_delay (std::min (roots.size (), max_broadcast_queue) * node.network.broadcast_interval_ms * 2);
 		condition.wait_for (lock, std::chrono::milliseconds (node.network_params.network.request_interval_ms + extra_delay));
 	}
