@@ -90,7 +90,6 @@ int main (int argc, char * const * argv)
 		return 1;
 	}
 	boost::program_options::notify (vm);
-	int result (0);
 
 	auto network (vm.find ("network"));
 	if (network != vm.end ())
@@ -134,7 +133,6 @@ int main (int argc, char * const * argv)
 	else
 	{
 		std::cout << description << std::endl;
-		result = -1;
 	}
 
 	return 1;
