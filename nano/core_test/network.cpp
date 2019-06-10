@@ -2231,7 +2231,7 @@ TEST (bandwidth_limiter, validate)
 
 		while (now + 1s >= std::chrono::steady_clock::now ())
 		{
-			auto should_drop (limiter.should_drop (full_confirm_ack));
+			limiter.should_drop (full_confirm_ack);
 			std::this_thread::sleep_for (50ms);
 		}
 
@@ -2242,7 +2242,7 @@ TEST (bandwidth_limiter, validate)
 		//validate rate wind down to 0
 		while (!done)
 		{
-			auto should_drop (limiter.should_drop (0));
+			limiter.should_drop (0);
 			std::this_thread::sleep_for (50ms);
 			done = limiter.get_rate () == 0;
 		}
@@ -2255,11 +2255,10 @@ TEST (bandwidth_limiter, validate)
 
 		while (now + 1s >= std::chrono::steady_clock::now ())
 		{
-			auto should_drop (limiter.should_drop (full_confirm_ack));
+			limiter.should_drop (full_confirm_ack);
 			std::this_thread::sleep_for (50ms);
 		}
 
-		//max we can send per second would be 20 messages of payload size 144 bytes passing 3Mbps drops messages
 		ASSERT_LT (limiter.get_rate (), config.bandwidth_limit * 2);
 		//adding another should not drop as 1s has elapsed
 		ASSERT_EQ (limiter.should_drop (full_confirm_ack), 0);
