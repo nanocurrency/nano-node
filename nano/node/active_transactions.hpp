@@ -45,7 +45,6 @@ enum class election_status_type : uint8_t
 	active_confirmed_quorum = 1,
 	active_confirmation_height = 2,
 	inactive_confirmation_height = 3,
-	rpc_confirmation_height = 4,
 	stopped = 5
 };
 
@@ -65,6 +64,13 @@ public:
 	cementable_account (nano::account const & account_a, size_t blocks_uncemented_a);
 	nano::account account;
 	uint64_t blocks_uncemented{ 0 };
+};
+
+class confirmed_set_info final
+{
+public:
+	std::chrono::steady_clock::time_point time;
+	nano::uint512_union root;
 };
 
 // Core class for determining consensus
@@ -110,6 +116,7 @@ public:
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
 	std::deque<nano::election_status> list_confirmed ();
 	std::deque<nano::election_status> confirmed;
+	void add_confirmed (nano::election_status const &, nano::qualified_root const &);
 	nano::node & node;
 	std::mutex mutex;
 	// Maximum number of conflicts to vote on per interval, lowest root hash first
@@ -137,6 +144,12 @@ private:
 	std::condition_variable condition;
 	bool started{ false };
 	std::atomic<bool> stopped{ false };
+	boost::multi_index_container<
+	nano::confirmed_set_info,
+	boost::multi_index::indexed_by<
+	boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::confirmed_set_info, std::chrono::steady_clock::time_point, &nano::confirmed_set_info::time>>,
+	boost::multi_index::hashed_unique<boost::multi_index::member<nano::confirmed_set_info, nano::qualified_root, &nano::confirmed_set_info::root>>>>
+	confirmed_set;
 	void prioritize_frontiers_for_confirmation (nano::transaction const &, std::chrono::milliseconds);
 	boost::multi_index_container<
 	nano::cementable_account,
@@ -147,11 +160,13 @@ private:
 	boost::multi_index::member<nano::cementable_account, uint64_t, &nano::cementable_account::blocks_uncemented>,
 	std::greater<uint64_t>>>>
 	priority_cementable_frontiers;
+	bool frontiers_fully_confirmed{ false };
 	static size_t constexpr max_priority_cementable_frontiers{ 100000 };
 	static size_t constexpr confirmed_frontiers_max_pending_cut_off{ 1000 };
 	boost::thread thread;
 
 	friend class confirmation_height_prioritize_frontiers_Test;
+	friend class confirmation_height_prioritize_frontiers_overwrite_Test;
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transactions & active_transactions, const std::string & name);

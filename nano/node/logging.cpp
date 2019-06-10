@@ -145,10 +145,9 @@ bool nano::logging::upgrade_json (unsigned version_a, nano::jsonconfig & json)
 
 nano::error nano::logging::deserialize_json (bool & upgraded_a, nano::jsonconfig & json)
 {
-	int version_l;
+	int version_l{ 1 };
 	if (!json.has_key ("version"))
 	{
-		version_l = 1;
 		json.put ("version", version_l);
 
 		auto work_peers_l (json.get_optional_child ("work_peers"));

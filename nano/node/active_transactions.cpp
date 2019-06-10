@@ -42,7 +42,9 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 	int test_network_factor = is_test_network ? 1000 : 1;
 	auto roots_size = size ();
 	auto max_elections = (max_broadcast_queue / 4);
+	std::unique_lock<std::mutex> lk (mutex);
 	auto check_time_exceeded = std::chrono::steady_clock::now () >= next_frontier_check;
+	lk.unlock ();
 	auto low_active_elections = roots_size < max_elections;
 	if (check_time_exceeded || (!is_test_network && low_active_elections))
 	{
@@ -53,20 +55,22 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 		}
 
 		// Spend time prioritizing accounts to reduce voting traffic
-		prioritize_frontiers_for_confirmation (transaction_a, is_test_network ? std::chrono::milliseconds (50) : std::chrono::seconds (2));
+		auto time_to_spend_prioritizing = (frontiers_fully_confirmed ? std::chrono::milliseconds (200) : std::chrono::seconds (2));
+		prioritize_frontiers_for_confirmation (transaction_a, is_test_network ? std::chrono::milliseconds (50) : time_to_spend_prioritizing);
 
 		size_t elections_count (0);
-		std::unique_lock<std::mutex> lock (mutex);
+		lk.lock ();
 		while (!priority_cementable_frontiers.empty () && !stopped && elections_count < max_elections)
 		{
-			auto cementable_account = *priority_cementable_frontiers.begin ();
-			priority_cementable_frontiers.erase (priority_cementable_frontiers.begin ());
-			lock.unlock ();
+			auto cementable_account_front_it = priority_cementable_frontiers.get<1> ().begin ();
+			auto cementable_account = *cementable_account_front_it;
+			priority_cementable_frontiers.get<1> ().erase (cementable_account_front_it);
+			lk.unlock ();
 			nano::account_info info;
 			auto error = node.store.account_get (transaction_a, cementable_account.account, info);
 			release_assert (!error);
 
-			if (info.block_count > info.confirmation_height && !this->node.pending_confirmation_height.is_processing_block (info.head))
+			if (info.block_count > info.confirmation_height && !node.pending_confirmation_height.is_processing_block (info.head))
 			{
 				auto block (this->node.store.block_get (transaction_a, info.head));
 				if (!this->start (block))
@@ -79,12 +83,11 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 					}
 				}
 			}
-			lock.lock ();
+			lk.lock ();
 		}
-		lock.unlock ();
-
+		frontiers_fully_confirmed = (elections_count < max_elections);
 		// 4 times slower check if all frontiers were confirmed
-		int fully_confirmed_factor = (elections_count < max_elections) ? 4 : 1;
+		auto fully_confirmed_factor = frontiers_fully_confirmed ? 4 : 1;
 		// Calculate next check time
 		next_frontier_check = steady_clock::now () + (representative_factor * fully_confirmed_factor / test_network_factor);
 	}
@@ -110,11 +113,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 		{
 			if (election_l->confirmed)
 			{
-				confirmed.push_back (election_l->status);
-				if (confirmed.size () > node.config.confirmation_history_size)
-				{
-					confirmed.pop_front ();
-				}
+				add_confirmed (election_l->status, root);
 			}
 			inactive.insert (root);
 		}
@@ -303,10 +302,12 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 	for (auto i (inactive.begin ()), n (inactive.end ()); i != n; ++i)
 	{
 		auto root_it (roots.find (*i));
-		assert (root_it != roots.end ());
-		root_it->election->clear_blocks ();
-		root_it->election->clear_dependent ();
-		roots.erase (*i);
+		if (root_it != roots.end ())
+		{
+			root_it->election->clear_blocks ();
+			root_it->election->clear_dependent ();
+			roots.erase (root_it);
+		}
 	}
 	long_unconfirmed_size = unconfirmed_count;
 	if (unconfirmed_count > 0)
@@ -344,18 +345,19 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 	timer.start ();
 	if (node.pending_confirmation_height.size () < confirmed_frontiers_max_pending_cut_off)
 	{
-		auto priority_cementable_frontiers_size = priority_cementable_frontiers.size ();
 		auto i (node.store.latest_begin (transaction_a, next_frontier_account));
 		auto n (node.store.latest_end ());
-		std::unique_lock<std::mutex> lock_a (mutex, std::defer_lock);
-		for (; i != n && !stopped && (priority_cementable_frontiers_size < max_priority_cementable_frontiers); ++i)
+		std::unique_lock<std::mutex> lk (mutex);
+		auto priority_cementable_frontiers_size = priority_cementable_frontiers.size ();
+		lk.unlock ();
+		for (; i != n && !stopped; ++i)
 		{
 			auto const & account (i->first);
 			auto const & info (i->second);
 			if (info.block_count > info.confirmation_height && !node.pending_confirmation_height.is_processing_block (info.head))
 			{
-				lock_a.lock ();
 				auto num_uncemented = info.block_count - info.confirmation_height;
+				lk.lock ();
 				auto it = priority_cementable_frontiers.find (account);
 				if (it != priority_cementable_frontiers.end ())
 				{
@@ -369,10 +371,26 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 				}
 				else
 				{
-					priority_cementable_frontiers.emplace (account, num_uncemented);
+					assert (priority_cementable_frontiers_size <= max_priority_cementable_frontiers);
+					if (priority_cementable_frontiers_size == max_priority_cementable_frontiers)
+					{
+						// The maximum amount of frontiers stored has been reached. Check if the current frontier
+						// has more uncemented blocks than the lowest uncemented frontier in the collection if so replace it.
+						auto least_uncemented_frontier_it = priority_cementable_frontiers.get<1> ().end ();
+						--least_uncemented_frontier_it;
+						if (num_uncemented > least_uncemented_frontier_it->blocks_uncemented)
+						{
+							priority_cementable_frontiers.get<1> ().erase (least_uncemented_frontier_it);
+							priority_cementable_frontiers.emplace (account, num_uncemented);
+						}
+					}
+					else
+					{
+						priority_cementable_frontiers.emplace (account, num_uncemented);
+					}
 				}
 				priority_cementable_frontiers_size = priority_cementable_frontiers.size ();
-				lock_a.unlock ();
+				lk.unlock ();
 			}
 
 			next_frontier_account = account.number () + 1;
@@ -422,23 +440,22 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, std::
 	{
 		auto root (block_a->qualified_root ());
 		auto existing (roots.find (root));
-		if (existing == roots.end ())
+		if (existing == roots.end () && confirmed_set.get<1> ().find (root) == confirmed_set.get<1> ().end ())
 		{
+			// Check if existing block is already confirmed
+			assert (node.ledger.block_not_confirmed_or_not_exists (*block_a));
+			auto hash (block_a->hash ());
 			auto election (nano::make_shared<nano::election> (node, block_a, confirmation_action_a));
 			uint64_t difficulty (0);
-			auto error (nano::work_validate (*block_a, &difficulty));
+			error = nano::work_validate (*block_a, &difficulty);
 			release_assert (!error);
 			roots.insert (nano::conflict_info{ root, difficulty, difficulty, election });
-			blocks.insert (std::make_pair (block_a->hash (), election));
-			adjust_difficulty (block_a->hash ());
+			blocks.insert (std::make_pair (hash, election));
+			adjust_difficulty (hash);
 		}
-		error = existing != roots.end ();
-		if (error)
+		else if (roots.size () >= node.config.active_elections_size)
 		{
-			if (roots.size () >= node.config.active_elections_size)
-			{
-				flush_lowest ();
-			}
+			flush_lowest ();
 		}
 	}
 	return error;
@@ -645,6 +662,20 @@ std::deque<nano::election_status> nano::active_transactions::list_confirmed ()
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	return confirmed;
+}
+
+void nano::active_transactions::add_confirmed (nano::election_status const & status_a, nano::qualified_root const & root_a)
+{
+	confirmed.push_back (status_a);
+	auto inserted (confirmed_set.insert (nano::confirmed_set_info{ std::chrono::steady_clock::now (), root_a }));
+	if (confirmed.size () > node.config.confirmation_history_size)
+	{
+		confirmed.pop_front ();
+		if (inserted.second)
+		{
+			confirmed_set.erase (confirmed_set.begin ());
+		}
+	}
 }
 
 void nano::active_transactions::erase (nano::block const & block_a)

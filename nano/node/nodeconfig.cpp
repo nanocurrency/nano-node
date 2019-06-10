@@ -402,8 +402,8 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get<bool> ("use_memory_pools", use_memory_pools);
 		json.get<size_t> ("confirmation_history_size", confirmation_history_size);
 		json.get<size_t> ("active_elections_size", active_elections_size);
-		nano::network_params network;
 		json.get<size_t> ("bandwidth_limit", bandwidth_limit);
+		nano::network_params network;
 		// Validate ranges
 		if (online_weight_quorum > 100)
 		{

@@ -1410,7 +1410,7 @@ void nano::work_watcher::run ()
 		next_attempt = std::chrono::steady_clock::now () + std::chrono::seconds (5);
 		for (auto i (blocks.begin ()), n (blocks.end ()); i != n;)
 		{
-			std::unique_lock<std::mutex> lock (node.active.mutex);
+			std::unique_lock<std::mutex> active_lock (node.active.mutex);
 			auto confirmed (false);
 			auto existing (node.active.roots.find ((i->second)->qualified_root ()));
 			if (node.active.roots.end () != existing)
@@ -1428,7 +1428,7 @@ void nano::work_watcher::run ()
 					confirmed = this->node.block_confirmed_or_being_confirmed (transaction, (i->second)->hash ());
 				}
 			}
-			lock.unlock ();
+			active_lock.unlock ();
 
 			if (confirmed)
 			{
@@ -1442,24 +1442,27 @@ void nano::work_watcher::run ()
 		for (auto & i : blocks)
 		{
 			uint64_t difficulty (0);
-			nano::work_validate (i.second->root (), i.second->block_work (), &difficulty);
+			auto root = i.second->root ();
+			nano::work_validate (root, i.second->block_work (), &difficulty);
 			if (node.active.active_difficulty () > difficulty)
 			{
-				lock.unlock ();
+				auto qualified_root = i.second->qualified_root ();
+				auto hash = i.second->hash ();
 				nano::state_block_builder builder;
 				std::error_code ec;
 				builder.from (*i.second);
-				builder.work (node.work_generate_blocking (i.second->root (), node.active.active_difficulty ()));
+				lock.unlock ();
+				builder.work (node.work_generate_blocking (root, node.active.active_difficulty ()));
 				std::shared_ptr<state_block> block (builder.build (ec));
 				if (!ec)
 				{
 					{
 						std::lock_guard<std::mutex> active_lock (node.active.mutex);
-						auto existing (node.active.roots.find (i.second->qualified_root ()));
+						auto existing (node.active.roots.find (qualified_root));
 						if (existing != node.active.roots.end ())
 						{
 							auto election (existing->election);
-							if (election->status.winner->hash () == i.second->hash ())
+							if (election->status.winner->hash () == hash)
 							{
 								election->status.winner = block;
 							}
@@ -1471,10 +1474,18 @@ void nano::work_watcher::run ()
 					node.network.flood_block (block);
 					node.active.update_difficulty (*block.get ());
 					lock.lock ();
+					if (stopped)
+					{
+						break;
+					}
 					i.second = block;
 					lock.unlock ();
 				}
 				lock.lock ();
+				if (stopped)
+				{
+					break;
+				}
 			}
 		}
 	} // !stopped

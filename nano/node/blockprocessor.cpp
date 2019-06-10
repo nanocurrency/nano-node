@@ -529,6 +529,5 @@ void nano::block_processor::queue_unchecked (nano::transaction const & transacti
 		}
 		add (info);
 	}
-	std::lock_guard<std::mutex> lock (node.gap_cache.mutex);
-	node.gap_cache.blocks.get<1> ().erase (hash_a);
+	node.gap_cache.erase (hash_a);
 }

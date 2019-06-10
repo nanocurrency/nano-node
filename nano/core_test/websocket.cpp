@@ -72,7 +72,6 @@ boost::optional<std::string> websocket_test_call (std::string host, std::string 
 
 	if (ws.is_open ())
 	{
-		boost::beast::error_code ec_ignored;
 		ws.async_close (boost::beast::websocket::close_code::normal, [](boost::beast::error_code const & ec) {
 			// A synchronous close usually hangs in tests when the server's io_context stops looping
 			// An async_close solves this problem
@@ -296,7 +295,7 @@ TEST (websocket, confirmation_options)
 	std::thread client_thread ([&client_thread_finished]() {
 		// Subscribe initially with a specific invalid account
 		auto response = websocket_test_call ("::1", "24078",
-		R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"accounts": ["xrb_invalid"]}})json", true, true, 1s);
+		R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"confirmation_type": "active_quorum", "accounts": ["xrb_invalid"]}})json", true, true, 1s);
 
 		ASSERT_FALSE (response);
 		client_thread_finished = true;
@@ -315,11 +314,12 @@ TEST (websocket, confirmation_options)
 	nano::keypair key;
 	auto balance = nano::genesis_amount;
 	auto send_amount = node1->config.online_weight_minimum.number () + 1;
+	nano::block_hash previous (node1->latest (nano::test_genesis_key.pub));
 	{
-		nano::block_hash previous (node1->latest (nano::test_genesis_key.pub));
 		balance -= send_amount;
 		auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous, nano::test_genesis_key.pub, balance, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous)));
 		node1->process_active (send);
+		previous = send->hash ();
 	}
 
 	// Wait for client thread to finish, no confirmation message should be received with given filter
@@ -334,7 +334,7 @@ TEST (websocket, confirmation_options)
 	std::thread client_thread_2 ([&client_thread_2_finished]() {
 		// Re-subscribe with options for all local wallet accounts
 		auto response = websocket_test_call ("::1", "24078",
-		R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"all_local_accounts": "true"}})json", true, true);
+		R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"confirmation_type": "active_quorum", "all_local_accounts": "true"}})json", true, true);
 
 		ASSERT_TRUE (response);
 		boost::property_tree::ptree event;
@@ -346,6 +346,7 @@ TEST (websocket, confirmation_options)
 		client_thread_2_finished = true;
 	});
 
+	node1->block_processor.flush ();
 	// Wait for the subscribe action to be acknowledged
 	system.deadline_set (5s);
 	while (!ack_ready)
@@ -358,12 +359,13 @@ TEST (websocket, confirmation_options)
 
 	// Quick-confirm another block
 	{
-		nano::block_hash previous (node1->latest (nano::test_genesis_key.pub));
 		balance -= send_amount;
 		auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous, nano::test_genesis_key.pub, balance, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous)));
 		node1->process_active (send);
+		previous = send->hash ();
 	}
 
+	node1->block_processor.flush ();
 	// Wait for confirmation message
 	system.deadline_set (5s);
 	while (!client_thread_2_finished)
@@ -375,7 +377,7 @@ TEST (websocket, confirmation_options)
 	std::atomic<bool> client_thread_3_finished{ false };
 	std::thread client_thread_3 ([&client_thread_3_finished]() {
 		auto response = websocket_test_call ("::1", "24078",
-		R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"all_local_accounts": "true"}})json", true, true, 1s);
+		R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"confirmation_type": "active_quorum", "all_local_accounts": "true"}})json", true, true, 1s);
 
 		ASSERT_FALSE (response);
 		client_thread_3_finished = true;
@@ -384,12 +386,13 @@ TEST (websocket, confirmation_options)
 	// Confirm a legacy block
 	// When filtering options are enabled, legacy blocks are always filtered
 	{
-		nano::block_hash previous (node1->latest (nano::test_genesis_key.pub));
 		balance -= send_amount;
 		auto send (std::make_shared<nano::send_block> (previous, key.pub, balance, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous)));
 		node1->process_active (send);
+		previous = send->hash ();
 	}
 
+	node1->block_processor.flush ();
 	// Wait for client thread to finish, no confirmation message should be received
 	system.deadline_set (5s);
 	while (!client_thread_3_finished)
