@@ -1,6 +1,6 @@
+#include <nano/lib/stats.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/lib/work.hpp>
-#include <nano/node/common.hpp>
-#include <nano/node/stats.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/ledger.hpp>
 
@@ -695,12 +695,12 @@ nano::uint128_t nano::ledger::account_pending (nano::transaction const & transac
 	nano::account end (account_a.number () + 1);
 	for (auto i (store.pending_v0_begin (transaction_a, nano::pending_key (account_a, 0))), n (store.pending_v0_begin (transaction_a, nano::pending_key (end, 0))); i != n; ++i)
 	{
-		nano::pending_info info (i->second);
+		nano::pending_info const & info (i->second);
 		result += info.amount.number ();
 	}
 	for (auto i (store.pending_v1_begin (transaction_a, nano::pending_key (account_a, 0))), n (store.pending_v1_begin (transaction_a, nano::pending_key (end, 0))); i != n; ++i)
 	{
-		nano::pending_info info (i->second);
+		nano::pending_info const & info (i->second);
 		result += info.amount.number ();
 	}
 	return result;
@@ -1060,6 +1060,18 @@ bool nano::ledger::block_confirmed (nano::transaction const & transaction_a, nan
 		confirmed = (account_info.confirmation_height >= block_height);
 	}
 	return confirmed;
+}
+
+bool nano::ledger::block_not_confirmed_or_not_exists (nano::block const & block_a) const
+{
+	bool result (true);
+	auto hash (block_a.hash ());
+	auto transaction (store.tx_begin_read ());
+	if (store.block_exists (transaction, block_a.type (), hash))
+	{
+		result = !block_confirmed (transaction, hash);
+	}
+	return result;
 }
 
 namespace nano

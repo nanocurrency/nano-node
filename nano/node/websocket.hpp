@@ -1,6 +1,8 @@
 #pragma once
 
-#include <algorithm>
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/numbers.hpp>
+
 #include <boost/asio/bind_executor.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -8,14 +10,14 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/property_tree/json_parser.hpp>
+
+#include <algorithm>
 #include <cstdlib>
 #include <deque>
 #include <functional>
 #include <iostream>
 #include <memory>
 #include <mutex>
-#include <nano/lib/blocks.hpp>
-#include <nano/lib/numbers.hpp>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -34,6 +36,7 @@ using socket_type = boost::asio::basic_stream_socket<boost::asio::ip::tcp, boost
 namespace nano
 {
 class node;
+enum class election_status_type : uint8_t;
 namespace websocket
 {
 	class listener;
@@ -46,6 +49,8 @@ namespace websocket
 		ack,
 		/** A confirmation message */
 		confirmation,
+		/** Stopped election message (dropped elections due to bounding or block lost the elections) */
+		stopped_election,
 		/** A vote message **/
 		vote,
 		/** Auxiliary length, not a valid topic, must be the last enum */
@@ -75,7 +80,8 @@ namespace websocket
 	class message_builder final
 	{
 	public:
-		message block_confirmed (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype);
+		message block_confirmed (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, bool include_block, nano::election_status_type election_status_type_a);
+		message stopped_election (nano::block_hash const & hash_a);
 		message vote_received (std::shared_ptr<nano::vote> vote_a);
 
 	private:
@@ -83,7 +89,7 @@ namespace websocket
 		void set_common_fields (message & message_a);
 	};
 
-	/** Filtering options for subscriptions */
+	/** Options for subscriptions */
 	class options
 	{
 	public:
@@ -100,10 +106,12 @@ namespace websocket
 	};
 
 	/**
-	 * Filtering options for block confirmation subscriptions
-	 * Possible filtering options:
-	 * * "all_local_accounts" (bool) - will only not filter blocks that have local wallet accounts as source/destination
-	 * * "accounts" (array of std::strings) - will only not filter blocks that have these accounts as source/destination
+	 * Options for block confirmation subscriptions
+	 * Non-filtering options:
+	 * - "include_block" (bool, default true) - if false, do not include block contents. Only account, amount and hash will be included.
+	 * Filtering options:
+	 * - "all_local_accounts" (bool) - will only not filter blocks that have local wallet accounts as source/destination
+	 * - "accounts" (array of std::strings) - will only not filter blocks that have these accounts as source/destination
 	 * @remark Both options can be given, the resulting filter is an intersection of individual filters
 	 * @warn Legacy blocks are always filtered (not broadcasted)
 	 */
@@ -120,9 +128,24 @@ namespace websocket
 		 */
 		bool should_filter (message const & message_a) const override;
 
+		/** Returns whether or not block contents should be included */
+		bool get_include_block () const
+		{
+			return include_block;
+		}
+
+		static constexpr const uint8_t type_active_quorum = 1;
+		static constexpr const uint8_t type_active_confirmation_height = 2;
+		static constexpr const uint8_t type_inactive = 4;
+		static constexpr const uint8_t type_all_active = type_active_quorum | type_active_confirmation_height;
+		static constexpr const uint8_t type_all = type_all_active | type_inactive;
+
 	private:
 		nano::node & node;
+		bool include_block{ true };
+		bool has_account_filtering_options{ false };
 		bool all_local_accounts{ false };
+		uint8_t confirmation_types{ type_all };
 		std::unordered_set<std::string> accounts;
 	};
 
@@ -152,6 +175,8 @@ namespace websocket
 	/** A websocket session managing its own lifetime */
 	class session final : public std::enable_shared_from_this<session>
 	{
+		friend class listener;
+
 	public:
 		/** Constructor that takes ownership over \p socket_a */
 		explicit session (nano::websocket::listener & listener_a, socket_type socket_a);
@@ -216,6 +241,9 @@ namespace websocket
 		/** Close all websocket sessions and stop listening for new connections */
 		void stop ();
 
+		/** Broadcast block confirmation. The content of the message depends on subscription options (such as "include_block") */
+		void broadcast_confirmation (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, nano::election_status_type election_status_type_a);
+
 		/** Broadcast \p message to all session subscribing to the message topic. */
 		void broadcast (nano::websocket::message message_a);
 
@@ -228,19 +256,31 @@ namespace websocket
 		 * Per-topic subscribers check. Relies on all sessions correctly increasing and
 		 * decreasing the subscriber counts themselves.
 		 */
-		bool any_subscribers (nano::websocket::topic const & topic_a);
-		/** Adds to subscription count of a specific topic*/
-		void increase_subscription_count (nano::websocket::topic const & topic_a);
-		/** Removes from subscription count of a specific topic*/
-		void decrease_subscription_count (nano::websocket::topic const & topic_a);
+		bool any_subscriber (nano::websocket::topic const & topic_a) const
+		{
+			return subscriber_count (topic_a) > 0;
+		}
+		/** Getter for subscriber count of a specific topic*/
+		size_t subscriber_count (nano::websocket::topic const & topic_a) const
+		{
+			return topic_subscriber_count[static_cast<std::size_t> (topic_a)];
+		}
 
 	private:
+		/** A websocket session can increase and decrease subscription counts. */
+		friend nano::websocket::session;
+
+		/** Adds to subscription count of a specific topic*/
+		void increase_subscriber_count (nano::websocket::topic const & topic_a);
+		/** Removes from subscription count of a specific topic*/
+		void decrease_subscriber_count (nano::websocket::topic const & topic_a);
+
 		nano::node & node;
 		boost::asio::ip::tcp::acceptor acceptor;
 		socket_type socket;
 		std::mutex sessions_mutex;
 		std::vector<std::weak_ptr<session>> sessions;
-		std::array<std::atomic<std::size_t>, number_topics> topic_subscription_count{};
+		std::array<std::atomic<std::size_t>, number_topics> topic_subscriber_count{};
 		std::atomic<bool> stopped{ false };
 	};
 }

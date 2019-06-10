@@ -1,9 +1,11 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/memory.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
 
 #include <boost/endian/conversion.hpp>
+#include <boost/pool/pool_alloc.hpp>
 
 /** Compare blocks, first by type, then content. This is an optimization over dynamic_cast, which is very slow on some platforms. */
 namespace
@@ -14,6 +16,27 @@ bool blocks_equal (T const & first, nano::block const & second)
 	static_assert (std::is_base_of<nano::block, T>::value, "Input parameter is not a block type");
 	return (first.type () == second.type ()) && (static_cast<T const &> (second)) == first;
 }
+
+template <typename block>
+std::shared_ptr<block> deserialize_block (nano::stream & stream_a)
+{
+	auto error (false);
+	auto result = nano::make_shared<block> (error, stream_a);
+	if (error)
+	{
+		result = nullptr;
+	}
+
+	return result;
+}
+}
+
+void nano::block_memory_pool_purge ()
+{
+	nano::purge_singleton_pool_memory<nano::open_block> ();
+	nano::purge_singleton_pool_memory<nano::state_block> ();
+	nano::purge_singleton_pool_memory<nano::send_block> ();
+	nano::purge_singleton_pool_memory<nano::change_block> ();
 }
 
 std::string nano::block::to_json () const
@@ -1236,7 +1259,7 @@ std::shared_ptr<nano::block> nano::deserialize_block_json (boost::property_tree:
 	return result;
 }
 
-std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, nano::block_uniquer * uniquer_a)
+std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a)
 {
 	nano::block_type type;
 	auto error (try_read (stream_a, type));
@@ -1255,52 +1278,27 @@ std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, n
 	{
 		case nano::block_type::receive:
 		{
-			bool error (false);
-			std::unique_ptr<nano::receive_block> obj (new nano::receive_block (error, stream_a));
-			if (!error)
-			{
-				result = std::move (obj);
-			}
+			result = ::deserialize_block<nano::receive_block> (stream_a);
 			break;
 		}
 		case nano::block_type::send:
 		{
-			bool error (false);
-			std::unique_ptr<nano::send_block> obj (new nano::send_block (error, stream_a));
-			if (!error)
-			{
-				result = std::move (obj);
-			}
+			result = ::deserialize_block<nano::send_block> (stream_a);
 			break;
 		}
 		case nano::block_type::open:
 		{
-			bool error (false);
-			std::unique_ptr<nano::open_block> obj (new nano::open_block (error, stream_a));
-			if (!error)
-			{
-				result = std::move (obj);
-			}
+			result = ::deserialize_block<nano::open_block> (stream_a);
 			break;
 		}
 		case nano::block_type::change:
 		{
-			bool error (false);
-			std::unique_ptr<nano::change_block> obj (new nano::change_block (error, stream_a));
-			if (!error)
-			{
-				result = std::move (obj);
-			}
+			result = ::deserialize_block<nano::change_block> (stream_a);
 			break;
 		}
 		case nano::block_type::state:
 		{
-			bool error (false);
-			std::unique_ptr<nano::state_block> obj (new nano::state_block (error, stream_a));
-			if (!error)
-			{
-				result = std::move (obj);
-			}
+			result = ::deserialize_block<nano::state_block> (stream_a);
 			break;
 		}
 		default:

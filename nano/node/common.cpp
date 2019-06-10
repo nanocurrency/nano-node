@@ -1,10 +1,12 @@
-
-#include <nano/node/common.hpp>
-
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/memory.hpp>
 #include <nano/lib/work.hpp>
+#include <nano/node/common.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/wallet.hpp>
 
 #include <boost/endian/conversion.hpp>
+#include <boost/pool/pool_alloc.hpp>
 
 std::bitset<16> constexpr nano::message_header::block_type_mask;
 std::bitset<16> constexpr nano::message_header::count_mask;
@@ -583,10 +585,6 @@ void nano::confirm_req::serialize (nano::stream & stream_a) const
 	if (header.block_type () == nano::block_type::not_a_block)
 	{
 		assert (!roots_hashes.empty ());
-		// Calculate size
-		assert (roots_hashes.size () <= 32);
-		auto count = static_cast<uint8_t> (roots_hashes.size ());
-		write (stream_a, count);
 		// Write hashes & roots
 		for (auto & root_hash : roots_hashes)
 		{
@@ -609,8 +607,7 @@ bool nano::confirm_req::deserialize (nano::stream & stream_a, nano::block_unique
 	{
 		if (header.block_type () == nano::block_type::not_a_block)
 		{
-			uint8_t count (0);
-			read (stream_a, count);
+			uint8_t count (header.count_get ());
 			for (auto i (0); i != count && !result; ++i)
 			{
 				nano::block_hash block_hash (0);
@@ -678,14 +675,14 @@ size_t nano::confirm_req::size (nano::block_type type_a, size_t count)
 	}
 	else if (type_a == nano::block_type::not_a_block)
 	{
-		result = sizeof (uint8_t) + count * (sizeof (nano::uint256_union) + sizeof (nano::block_hash));
+		result = count * (sizeof (nano::uint256_union) + sizeof (nano::block_hash));
 	}
 	return result;
 }
 
 nano::confirm_ack::confirm_ack (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a, nano::vote_uniquer * uniquer_a) :
 message (header_a),
-vote (std::make_shared<nano::vote> (error_a, stream_a, header.block_type ()))
+vote (nano::make_shared<nano::vote> (error_a, stream_a, header.block_type ()))
 {
 	if (!error_a && uniquer_a)
 	{
@@ -1141,4 +1138,9 @@ bool nano::parse_tcp_endpoint (std::string const & string, nano::tcp_endpoint & 
 		endpoint_a = nano::tcp_endpoint (address, port);
 	}
 	return result;
+}
+
+nano::node_singleton_memory_pool_purge_guard::node_singleton_memory_pool_purge_guard () :
+cleanup_guard ({ nano::block_memory_pool_purge, nano::purge_singleton_pool_memory<nano::vote>, nano::purge_singleton_pool_memory<nano::election> })
+{
 }

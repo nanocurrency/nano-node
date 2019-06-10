@@ -1,15 +1,17 @@
 #pragma once
 
-#include <atomic>
+#include <nano/lib/errors.hpp>
+#include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/utility.hpp>
+
 #include <boost/circular_buffer.hpp>
 #include <boost/property_tree/ptree.hpp>
+
+#include <atomic>
 #include <chrono>
 #include <map>
 #include <memory>
 #include <mutex>
-#include <nano/lib/errors.hpp>
-#include <nano/lib/jsonconfig.hpp>
-#include <nano/lib/utility.hpp>
 #include <string>
 #include <unordered_map>
 
@@ -301,6 +303,7 @@ public:
 		// tcp
 		tcp_accept_success,
 		tcp_accept_failure,
+		tcp_write_drop,
 
 		// ipc
 		invocations,
@@ -454,6 +457,9 @@ public:
 	/** Returns a new JSON log sink */
 	std::unique_ptr<stat_log_sink> log_sink_json () const;
 
+	/** Stop stats being output */
+	void stop ();
+
 private:
 	static std::string type_to_string (uint32_t key);
 	static std::string detail_to_string (uint32_t key);
@@ -497,6 +503,9 @@ private:
 	std::map<uint32_t, std::shared_ptr<nano::stat_entry>> entries;
 	std::chrono::steady_clock::time_point log_last_count_writeout{ std::chrono::steady_clock::now () };
 	std::chrono::steady_clock::time_point log_last_sample_writeout{ std::chrono::steady_clock::now () };
+
+	/** Whether stats should be output */
+	bool stopped{ false };
 
 	/** All access to stat is thread safe, including calls from observers on the same thread */
 	std::mutex stat_mutex;

@@ -4,9 +4,11 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
 
-#include <boost/property_tree/json_parser.hpp>
-#include <cassert>
 #include <crypto/blake2/blake2.h>
+
+#include <boost/property_tree/json_parser.hpp>
+
+#include <cassert>
 #include <streambuf>
 #include <unordered_map>
 
@@ -354,8 +356,9 @@ private:
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_uniquer & block_uniquer, const std::string & name);
 
-std::shared_ptr<nano::block> deserialize_block (nano::stream &, nano::block_uniquer * = nullptr);
+std::shared_ptr<nano::block> deserialize_block (nano::stream &);
 std::shared_ptr<nano::block> deserialize_block (nano::stream &, nano::block_type, nano::block_uniquer * = nullptr);
 std::shared_ptr<nano::block> deserialize_block_json (boost::property_tree::ptree const &, nano::block_uniquer * = nullptr);
 void serialize_block (nano::stream &, nano::block const &);
+void block_memory_pool_purge ();
 }

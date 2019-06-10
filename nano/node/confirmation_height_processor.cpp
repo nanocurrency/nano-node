@@ -1,14 +1,15 @@
-#include <nano/node/confirmation_height_processor.hpp>
-
-#include <boost/optional.hpp>
-#include <cassert>
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/stats.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/active_transactions.hpp>
-#include <nano/node/stats.hpp>
+#include <nano/node/confirmation_height_processor.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
+
+#include <boost/optional.hpp>
+
+#include <cassert>
 #include <numeric>
 
 nano::confirmation_height_processor::confirmation_height_processor (nano::pending_confirmation_height & pending_confirmation_height_a, nano::block_store & store_a, nano::stat & stats_a, nano::active_transactions & active_a, nano::block_hash const & epoch_link_a, nano::logger_mt & logger_a) :
@@ -70,12 +71,6 @@ void nano::confirmation_height_processor::add (nano::block_hash const & hash_a)
 		pending_confirmations.pending.insert (hash_a);
 	}
 	condition.notify_one ();
-}
-
-// This only check top-level blocks having their confirmation height sets, not anything below
-bool nano::confirmation_height_processor::is_processing_block (nano::block_hash const & hash_a)
-{
-	return pending_confirmations.is_processing_block (hash_a);
 }
 
 /**
@@ -286,10 +281,11 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 	auto next_height = height_not_set;
 	while ((num_to_confirm > 0) && !hash.is_zero ())
 	{
-		active.confirm_block (hash);
-		auto block (store.block_get (transaction_a, hash));
+		nano::block_sideband sideband;
+		auto block (store.block_get (transaction_a, hash, &sideband));
 		if (block)
 		{
+			active.confirm_block (transaction_a, block, sideband);
 			auto source (block->source ());
 			if (source.is_zero ())
 			{

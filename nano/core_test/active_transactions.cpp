@@ -1,82 +1,20 @@
-#include <gtest/gtest.h>
 #include <nano/core_test/testutil.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/node/testing.hpp>
 
+#include <gtest/gtest.h>
+
 using namespace std::chrono_literals;
-
-TEST (transaction_counter, validate)
-{
-	auto now = std::chrono::steady_clock::now ();
-	nano::transaction_counter counter;
-	auto count (0);
-	ASSERT_EQ (count, counter.get_rate ());
-	while (std::chrono::steady_clock::now () < now + 1s)
-	{
-		count++;
-		counter.add ();
-	}
-	counter.trend_sample ();
-	ASSERT_EQ (count, counter.get_rate ());
-}
-
-TEST (active_transactions, long_unconfirmed_size)
-{
-	nano::system system;
-	nano::node_config node_config (24000, system.logging);
-	node_config.enable_voting = false;
-	auto & node1 = *system.add_node (node_config);
-	auto & wallet (*system.wallet (0));
-	nano::genesis genesis;
-	wallet.insert_adhoc (nano::test_genesis_key.prv);
-	nano::keypair key1;
-	auto send1 (wallet.send_action (nano::test_genesis_key.pub, nano::test_genesis_key.pub, nano::Mxrb_ratio));
-	auto send2 (wallet.send_action (nano::test_genesis_key.pub, nano::test_genesis_key.pub, nano::Mxrb_ratio));
-	auto send3 (wallet.send_action (nano::test_genesis_key.pub, nano::test_genesis_key.pub, nano::Mxrb_ratio));
-	system.deadline_set (10s);
-	while (node1.active.size () != 3)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	auto done (false);
-	while (!done)
-	{
-		ASSERT_FALSE (node1.active.empty ());
-		{
-			std::lock_guard<std::mutex> guard (node1.active.mutex);
-			done = node1.active.long_unconfirmed_size == 3;
-		}
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	{
-		//since send1 is long_unconfirmed the other two should be as well
-		std::lock_guard<std::mutex> lock (node1.active.mutex);
-		ASSERT_EQ (node1.active.long_unconfirmed_size, 3);
-	}
-	{
-		std::lock_guard<std::mutex> guard (node1.active.mutex);
-		auto existing (node1.active.roots.find (send1->qualified_root ()));
-		ASSERT_NE (node1.active.roots.end (), existing);
-		//force election to appear confirmed
-		auto election (existing->election);
-		election->confirm_once ();
-	}
-	{
-		//only 2 should appear unconfirmed now
-		std::lock_guard<std::mutex> lock (node1.active.mutex);
-		ASSERT_EQ (node1.active.long_unconfirmed_size, 2);
-	}
-}
 
 TEST (active_transactions, adjusted_difficulty_priority)
 {
+	bool delay_frontier_confirmation_height_updating = true;
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
 	node_config.enable_voting = false;
-	auto & node1 = *system.add_node (node_config);
+	auto & node1 = *system.add_node (node_config, delay_frontier_confirmation_height_updating);
 	nano::genesis genesis;
 	nano::keypair key1, key2, key3;
-	auto transaction (node1.store.tx_begin_read ());
 
 	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 10 * nano::xrb_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (genesis.hash ())));
 	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 20 * nano::xrb_ratio, key2.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send1->hash ())));
@@ -100,7 +38,7 @@ TEST (active_transactions, adjusted_difficulty_priority)
 		{
 			auto election (it->election);
 			election->confirm_once ();
-			it++;
+			it = node1.active.roots.begin ();
 		}
 	}
 
@@ -152,6 +90,7 @@ TEST (active_transactions, keep_local)
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
 	node_config.enable_voting = false;
+	node_config.active_elections_size = 3; //bound to 3, wont drop wallet created transactions, but good to test dropping remote
 	auto & node1 = *system.add_node (node_config, delay_frontier_confirmation_height_updating);
 	auto & wallet (*system.wallet (0));
 	nano::genesis genesis;
@@ -176,7 +115,7 @@ TEST (active_transactions, keep_local)
 		while (!node1.active.roots.empty () && it != node1.active.roots.end ())
 		{
 			(it->election)->confirm_once ();
-			it++;
+			it = node1.active.roots.begin ();
 		}
 	}
 	auto open1 (std::make_shared<nano::state_block> (key3.pub, 0, key3.pub, nano::xrb_ratio, send3->hash (), key3.prv, key3.pub, system.work.generate (key3.pub)));
@@ -187,18 +126,6 @@ TEST (active_transactions, keep_local)
 	system.deadline_set (10s);
 	while (node1.active.size () != 4)
 	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	auto done (false);
-	//wait for all to be long_unconfirmed
-	system.deadline_set (10s);
-	while (!done)
-	{
-		ASSERT_FALSE (node1.active.empty ());
-		{
-			std::lock_guard<std::mutex> guard (node1.active.mutex);
-			done = node1.active.long_unconfirmed_size == 4;
-		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	auto send5 (wallet.send_action (nano::test_genesis_key.pub, key1.pub, node1.config.receive_minimum.number ()));
@@ -218,6 +145,7 @@ TEST (active_transactions, prioritize_chains)
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
 	node_config.enable_voting = false;
+	node_config.active_elections_size = 4; //bound to 3, wont drop wallet created transactions, but good to test dropping remote
 	auto & node1 = *system.add_node (node_config, delay_frontier_confirmation_height_updating);
 	nano::genesis genesis;
 	nano::keypair key1, key2, key3;
@@ -251,7 +179,7 @@ TEST (active_transactions, prioritize_chains)
 		{
 			auto election (it->election);
 			election->confirm_once ();
-			it++;
+			it = node1.active.roots.get<1> ().begin ();
 		}
 	}
 
@@ -265,7 +193,7 @@ TEST (active_transactions, prioritize_chains)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-
+	system.deadline_set (10s);
 	bool done (false);
 	//wait for all to be long_unconfirmed
 	while (!done)

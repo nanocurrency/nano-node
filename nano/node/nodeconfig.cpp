@@ -113,13 +113,14 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("block_processor_batch_max_time", block_processor_batch_max_time.count ());
 	json.put ("allow_local_peers", allow_local_peers);
 	json.put ("vote_minimum", vote_minimum.to_string_dec ());
+	json.put ("vote_generator_delay", vote_generator_delay.count ());
 	json.put ("unchecked_cutoff_time", unchecked_cutoff_time.count ());
 	json.put ("tcp_io_timeout", tcp_io_timeout.count ());
-	json.put ("tcp_idle_timeout", tcp_idle_timeout.count ());
 	json.put ("pow_sleep_interval", pow_sleep_interval.count ());
 	json.put ("external_address", external_address.to_string ());
 	json.put ("external_port", external_port);
 	json.put ("tcp_incoming_connections_max", tcp_incoming_connections_max);
+	json.put ("use_memory_pools", use_memory_pools);
 	nano::jsonconfig websocket_l;
 	websocket_config.serialize_json (websocket_l);
 	json.put_child ("websocket", websocket_l);
@@ -129,6 +130,8 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	nano::jsonconfig diagnostics_l;
 	diagnostics_config.serialize_json (diagnostics_l);
 	json.put_child ("diagnostics", diagnostics_l);
+	json.put ("confirmation_history_size", confirmation_history_size);
+	json.put ("active_elections_size", active_elections_size);
 
 	return json.get_error ();
 }
@@ -240,11 +243,14 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			diagnostics_config.serialize_json (diagnostics_l);
 			json.put_child ("diagnostics", diagnostics_l);
 			json.put ("tcp_io_timeout", tcp_io_timeout.count ());
-			json.put ("tcp_idle_timeout", tcp_idle_timeout.count ());
 			json.put (pow_sleep_interval_key, pow_sleep_interval.count ());
 			json.put ("external_address", external_address.to_string ());
 			json.put ("external_port", external_port);
 			json.put ("tcp_incoming_connections_max", tcp_incoming_connections_max);
+			json.put ("vote_generator_delay", vote_generator_delay.count ());
+			json.put ("use_memory_pools", use_memory_pools);
+			json.put ("confirmation_history_size", confirmation_history_size);
+			json.put ("active_elections_size", active_elections_size);
 		}
 		case 17:
 			break;
@@ -340,6 +346,9 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 			json.get_error ().set ("vote_minimum contains an invalid decimal amount");
 		}
 
+		auto vote_generator_delay_l (json.get<unsigned long> ("vote_generator_delay"));
+		vote_generator_delay = std::chrono::milliseconds (vote_generator_delay_l);
+
 		auto block_processor_batch_max_time_l (json.get<unsigned long> ("block_processor_batch_max_time"));
 		block_processor_batch_max_time = std::chrono::milliseconds (block_processor_batch_max_time_l);
 		auto unchecked_cutoff_time_l = static_cast<unsigned long> (unchecked_cutoff_time.count ());
@@ -349,9 +358,6 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		auto tcp_io_timeout_l = static_cast<unsigned long> (tcp_io_timeout.count ());
 		json.get ("tcp_io_timeout", tcp_io_timeout_l);
 		tcp_io_timeout = std::chrono::seconds (tcp_io_timeout_l);
-		auto tcp_idle_timeout_l = static_cast<unsigned long> (tcp_idle_timeout.count ());
-		json.get ("tcp_idle_timeout", tcp_idle_timeout_l);
-		tcp_idle_timeout = std::chrono::seconds (tcp_idle_timeout_l);
 
 		auto ipc_config_l (json.get_optional_child ("ipc"));
 		if (ipc_config_l)
@@ -391,7 +397,11 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		auto pow_sleep_interval_l (pow_sleep_interval.count ());
 		json.get (pow_sleep_interval_key, pow_sleep_interval_l);
 		pow_sleep_interval = std::chrono::nanoseconds (pow_sleep_interval_l);
+		json.get<bool> ("use_memory_pools", use_memory_pools);
+		json.get<size_t> ("confirmation_history_size", confirmation_history_size);
 
+		json.get<size_t> ("active_elections_size", active_elections_size);
+		nano::network_params network;
 		// Validate ranges
 		if (online_weight_quorum > 100)
 		{
@@ -404,6 +414,10 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		if (io_threads == 0)
 		{
 			json.get_error ().set ("io_threads must be non-zero");
+		}
+		if (active_elections_size <= 250 && !network.network.is_test_network ())
+		{
+			json.get_error ().set ("active_elections_size must be grater than 250");
 		}
 	}
 	catch (std::runtime_error const & ex)

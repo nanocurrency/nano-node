@@ -1,6 +1,7 @@
-#include <gtest/gtest.h>
 #include <nano/node/node.hpp>
 #include <nano/node/testing.hpp>
+
+#include <gtest/gtest.h>
 
 TEST (peer_container, empty_peers)
 {

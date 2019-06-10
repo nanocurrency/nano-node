@@ -1,8 +1,8 @@
 #pragma once
 
-#include <boost/multiprecision/cpp_int.hpp>
-
 #include <crypto/cryptopp/osrng.h>
+
+#include <boost/multiprecision/cpp_int.hpp>
 
 namespace nano
 {

@@ -1,3 +1,8 @@
+#include <nano/core_test/testutil.hpp>
+#include <nano/node/daemonconfig.hpp>
+#include <nano/node/testing.hpp>
+#include <nano/secure/utility.hpp>
+
 #include <boost/asio/connect.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/beast/core.hpp>
@@ -5,13 +10,17 @@
 #include <boost/beast/version.hpp>
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/program_options.hpp>
+
 #include <csignal>
 #include <iomanip>
-#include <nano/core_test/testutil.hpp>
-#include <nano/node/daemonconfig.hpp>
-#include <nano/node/testing.hpp>
-#include <nano/secure/utility.hpp>
 #include <random>
+
+/* Boost v1.70 introduced breaking changes; the conditional compilation allows 1.6x to be supported as well. */
+#if BOOST_VERSION < 107000
+using socket_type = boost::asio::ip::tcp::socket;
+#else
+using socket_type = boost::asio::basic_stream_socket<boost::asio::ip::tcp, boost::asio::io_context::executor_type>;
+#endif
 
 namespace nano
 {
@@ -42,6 +51,8 @@ void write_config_files (boost::filesystem::path const & data_path, int index)
 	json.read_and_update (daemon_config, data_path / "config.json");
 	auto node_l = json.get_required_child ("node");
 	node_l.put ("peering_port", peering_port_start + index);
+	// Alternate use of memory pool
+	node_l.put ("use_memory_pools", (index % 2) == 0);
 	auto tcp = node_l.get_required_child ("ipc").get_required_child ("tcp");
 	tcp.put ("enable", true);
 	tcp.put ("port", ipc_port_start + index);
@@ -148,7 +159,7 @@ public:
 	}
 
 private:
-	tcp::socket socket;
+	socket_type socket;
 	boost::asio::strand<boost::asio::io_context::executor_type> strand;
 	boost::beast::flat_buffer buffer;
 	http::request<http::string_body> req;
@@ -164,6 +175,7 @@ class send_session final : public std::enable_shared_from_this<send_session>
 {
 public:
 	send_session (boost::asio::io_context & ioc, std::atomic<int> & send_calls_remaining, std::string const & wallet, std::string const & source, std::string const & destination, tcp::resolver::results_type const & results) :
+	io_ctx (ioc),
 	socket (ioc),
 	strand (socket.get_executor ()),
 	send_calls_remaining (send_calls_remaining),
@@ -216,7 +228,7 @@ public:
 					boost::property_tree::read_json (body, json);
 					auto block = json.get<std::string> ("block");
 
-					std::make_shared<receive_session> (this_l->socket.get_io_context (), this_l->send_calls_remaining, this_l->wallet, this_l->destination, block, this_l->results)->run ();
+					std::make_shared<receive_session> (this_l->io_ctx, this_l->send_calls_remaining, this_l->wallet, this_l->destination, block, this_l->results)->run ();
 
 					this_l->socket.shutdown (tcp::socket::shutdown_both, ec);
 					if (ec && ec != boost::system::errc::not_connected)
@@ -229,7 +241,8 @@ public:
 	}
 
 private:
-	tcp::socket socket;
+	boost::asio::io_context & io_ctx;
+	socket_type socket;
 	boost::asio::strand<boost::asio::io_context::executor_type> strand;
 	boost::beast::flat_buffer buffer;
 	http::request<http::string_body> req;

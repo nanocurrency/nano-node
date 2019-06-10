@@ -1,17 +1,15 @@
-#include <nano/node/wallet.hpp>
-
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/xorshift.hpp>
 
-#include <argon2.h>
-
 #include <boost/filesystem.hpp>
 #include <boost/polymorphic_cast.hpp>
 
 #include <future>
+
+#include <argon2.h>
 
 nano::uint256_union nano::wallet_store::check (nano::transaction const & transaction_a)
 {
@@ -116,7 +114,7 @@ void nano::wallet_store::deterministic_clear (nano::transaction const & transact
 		{
 			case nano::key_type::deterministic:
 			{
-				nano::uint256_union key (i->first);
+				nano::uint256_union const & key (i->first);
 				erase (transaction_a, key);
 				i = begin (transaction_a, key);
 				break;
@@ -370,7 +368,7 @@ std::vector<nano::account> nano::wallet_store::accounts (nano::transaction const
 	std::vector<nano::account> result;
 	for (auto i (begin (transaction_a)), n (end ()); i != n; ++i)
 	{
-		nano::account account (i->first);
+		nano::account const & account (i->first);
 		result.push_back (account);
 	}
 	return result;
@@ -442,7 +440,7 @@ nano::wallet_value nano::wallet_store::entry_get_raw (nano::transaction const & 
 
 void nano::wallet_store::entry_put_raw (nano::transaction const & transaction_a, nano::public_key const & pub_a, nano::wallet_value const & entry_a)
 {
-	auto status (mdb_put (tx (transaction_a), handle, nano::mdb_val (pub_a), entry_a.val (), 0));
+	auto status (mdb_put (tx (transaction_a), handle, nano::mdb_val (pub_a), nano::mdb_val (sizeof (entry_a), const_cast<nano::wallet_value *> (&entry_a)), 0));
 	assert (status == 0);
 }
 
@@ -650,7 +648,7 @@ void nano::wallet_store::upgrade_v1_v2 (nano::transaction const & transaction_a)
 	empty_password.decrypt (value.key, kdf, salt (transaction_a).owords[0]);
 	for (auto i (begin (transaction_a)), n (end ()); i != n; ++i)
 	{
-		nano::public_key key (i->first);
+		nano::public_key const & key (i->first);
 		nano::raw_key prv;
 		if (fetch (transaction_a, key, prv))
 		{
@@ -1240,7 +1238,7 @@ bool nano::wallet::search_pending ()
 		for (auto i (store.begin (transaction)), n (store.end ()); i != n; ++i)
 		{
 			auto block_transaction (wallets.node.store.tx_begin_read ());
-			nano::account account (i->first);
+			nano::account const & account (i->first);
 			// Don't search pending for watch-only accounts
 			if (!nano::wallet_value (i->second).key.is_zero ())
 			{
@@ -1412,7 +1410,7 @@ void nano::work_watcher::run ()
 		next_attempt = std::chrono::steady_clock::now () + std::chrono::seconds (5);
 		for (auto i (blocks.begin ()), n (blocks.end ()); i != n;)
 		{
-			std::unique_lock<std::mutex> lock (node.active.mutex);
+			std::unique_lock<std::mutex> active_lock (node.active.mutex);
 			auto confirmed (false);
 			auto existing (node.active.roots.find ((i->second)->qualified_root ()));
 			if (node.active.roots.end () != existing)
@@ -1430,7 +1428,7 @@ void nano::work_watcher::run ()
 					confirmed = this->node.block_confirmed_or_being_confirmed (transaction, (i->second)->hash ());
 				}
 			}
-			lock.unlock ();
+			active_lock.unlock ();
 
 			if (confirmed)
 			{
@@ -1444,24 +1442,27 @@ void nano::work_watcher::run ()
 		for (auto & i : blocks)
 		{
 			uint64_t difficulty (0);
-			nano::work_validate (i.second->root (), i.second->block_work (), &difficulty);
+			auto root = i.second->root ();
+			nano::work_validate (root, i.second->block_work (), &difficulty);
 			if (node.active.active_difficulty () > difficulty)
 			{
-				lock.unlock ();
+				auto qualified_root = i.second->qualified_root ();
+				auto hash = i.second->hash ();
 				nano::state_block_builder builder;
 				std::error_code ec;
 				builder.from (*i.second);
-				builder.work (node.work_generate_blocking (i.second->root (), node.active.active_difficulty ()));
+				lock.unlock ();
+				builder.work (node.work_generate_blocking (root, node.active.active_difficulty ()));
 				std::shared_ptr<state_block> block (builder.build (ec));
 				if (!ec)
 				{
 					{
 						std::lock_guard<std::mutex> active_lock (node.active.mutex);
-						auto existing (node.active.roots.find (i.second->qualified_root ()));
+						auto existing (node.active.roots.find (qualified_root));
 						if (existing != node.active.roots.end ())
 						{
 							auto election (existing->election);
-							if (election->status.winner->hash () == i.second->hash ())
+							if (election->status.winner->hash () == hash)
 							{
 								election->status.winner = block;
 							}
@@ -1473,10 +1474,18 @@ void nano::work_watcher::run ()
 					node.network.flood_block (block);
 					node.active.update_difficulty (*block.get ());
 					lock.lock ();
+					if (stopped)
+					{
+						break;
+					}
 					i.second = block;
 					lock.unlock ();
 				}
 				lock.lock ();
+				if (stopped)
+				{
+					break;
+				}
 			}
 		}
 	} // !stopped
@@ -1765,6 +1774,7 @@ void nano::wallets::stop ()
 	{
 		thread.join ();
 	}
+	watcher.stop ();
 }
 
 nano::write_transaction nano::wallets::tx_begin_write ()

@@ -1,13 +1,13 @@
-#include <nano/node/bootstrap.hpp>
-
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/node/bootstrap.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
 #include <nano/node/transport/udp.hpp>
 
-#include <algorithm>
 #include <boost/log/trivial.hpp>
+
+#include <algorithm>
 
 constexpr double bootstrap_connection_scale_target_blocks = 50000.0;
 constexpr double bootstrap_connection_warmup_time_sec = 5.0;
@@ -256,21 +256,22 @@ void nano::frontier_req_client::next (nano::transaction const & transaction_a)
 		size_t max_size (128);
 		for (auto i (connection->node->store.latest_begin (transaction_a, current.number () + 1)), n (connection->node->store.latest_end ()); i != n && accounts.size () != max_size; ++i)
 		{
-			nano::account_info info (i->second);
-			accounts.push_back (std::make_pair (nano::account (i->first), info.head));
+			nano::account_info const & info (i->second);
+			nano::account const & account (i->first);
+			accounts.emplace_back (account, info.head);
 		}
 		/* If loop breaks before max_size, then latest_end () is reached
 		Add empty record to finish frontier_req_server */
 		if (accounts.size () != max_size)
 		{
-			accounts.push_back (std::make_pair (nano::account (0), nano::block_hash (0)));
+			accounts.emplace_back (nano::account (0), nano::block_hash (0));
 		}
 	}
 	// Retrieving accounts from deque
-	auto account_pair (accounts.front ());
-	accounts.pop_front ();
+	auto const & account_pair (accounts.front ());
 	current = account_pair.first;
 	frontier = account_pair.second;
+	accounts.pop_front ();
 }
 
 nano::bulk_pull_client::bulk_pull_client (std::shared_ptr<nano::bootstrap_client> connection_a, nano::pull_info const & pull_a) :
@@ -1162,6 +1163,9 @@ void nano::bootstrap_attempt::pool_connection (std::shared_ptr<nano::bootstrap_c
 	std::lock_guard<std::mutex> lock (mutex);
 	if (!stopped && !client_a->pending_stop)
 	{
+		// Idle bootstrap client socket
+		client_a->channel->socket->start_timer (node->network_params.node.idle_timeout);
+		// Push into idle deque
 		idle.push_front (client_a);
 	}
 	condition.notify_all ();
@@ -1642,7 +1646,6 @@ thread ([this]() {
 nano::bootstrap_initiator::~bootstrap_initiator ()
 {
 	stop ();
-	thread.join ();
 }
 
 void nano::bootstrap_initiator::bootstrap ()
@@ -1765,15 +1768,22 @@ std::shared_ptr<nano::bootstrap_attempt> nano::bootstrap_initiator::current_atte
 
 void nano::bootstrap_initiator::stop ()
 {
+	if (!stopped.exchange (true))
 	{
-		std::unique_lock<std::mutex> lock (mutex);
-		stopped = true;
-		if (attempt != nullptr)
 		{
-			attempt->stop ();
+			std::lock_guard<std::mutex> guard (mutex);
+			if (attempt != nullptr)
+			{
+				attempt->stop ();
+			}
+		}
+		condition.notify_all ();
+
+		if (thread.joinable ())
+		{
+			thread.join ();
 		}
 	}
-	condition.notify_all ();
 }
 
 void nano::bootstrap_initiator::notify_listeners (bool in_progress_a)
@@ -1900,7 +1910,7 @@ nano::bootstrap_server::~bootstrap_server ()
 	if (node_id_handshake_finished)
 	{
 		--node->bootstrap.realtime_count;
-		node->network.remove_response_channel (remote_endpoint);
+		node->network.response_channels.remove (remote_endpoint);
 	}
 	stop ();
 	std::lock_guard<std::mutex> lock (node->bootstrap.mutex);
@@ -1909,9 +1919,8 @@ nano::bootstrap_server::~bootstrap_server ()
 
 void nano::bootstrap_server::stop ()
 {
-	if (!stopped)
+	if (!stopped.exchange (true))
 	{
-		stopped = true;
 		std::lock_guard<std::mutex> lock (mutex);
 		if (socket != nullptr)
 		{
@@ -1930,6 +1939,8 @@ node (node_a)
 
 void nano::bootstrap_server::receive ()
 {
+	// Increase timeout to receive TCP header (idle server socket)
+	socket->set_timeout (node->network_params.node.idle_timeout);
 	auto this_l (shared_from_this ());
 	socket->async_read (receive_buffer, 8, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		// Set remote_endpoint
@@ -1937,6 +1948,8 @@ void nano::bootstrap_server::receive ()
 		{
 			this_l->remote_endpoint = this_l->socket->remote_endpoint ();
 		}
+		// Decrease timeout to default
+		this_l->socket->set_timeout (this_l->node->config.tcp_io_timeout);
 		// Receive header
 		this_l->receive_header_action (ec, size_a);
 	});
@@ -2384,9 +2397,10 @@ public:
 		{
 			boost::optional<std::pair<nano::account, nano::signature>> response (std::make_pair (connection->node->node_id.pub, nano::sign_message (connection->node->node_id.prv, connection->node->node_id.pub, *message_a.query)));
 			assert (!nano::validate_message (response->first, *message_a.query, response->second));
-			auto cookie (connection->node->network.tcp_channels.assign_syn_cookie (connection->remote_endpoint));
+			auto cookie (connection->node->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (connection->remote_endpoint)));
 			nano::node_id_handshake response_message (cookie, response);
 			auto bytes = response_message.to_bytes ();
+			// clang-format off
 			connection->socket->async_write (bytes, [ bytes, connection = connection ](boost::system::error_code const & ec, size_t size_a) {
 				if (ec)
 				{
@@ -2403,11 +2417,12 @@ public:
 					connection->finish_request ();
 				}
 			});
+			// clang-format on
 		}
 		else if (message_a.response)
 		{
 			connection->remote_node_id = message_a.response->first;
-			if (!connection->node->network.tcp_channels.validate_syn_cookie (connection->remote_endpoint, connection->remote_node_id, message_a.response->second) && connection->remote_node_id != connection->node->node_id.pub)
+			if (!connection->node->network.syn_cookies.validate (nano::transport::map_tcp_to_endpoint (connection->remote_endpoint), connection->remote_node_id, message_a.response->second) && connection->remote_node_id != connection->node->node_id.pub)
 			{
 				connection->node_id_handshake_finished = true;
 				++connection->node->bootstrap.realtime_count;
@@ -3225,24 +3240,25 @@ void nano::frontier_req_server::next ()
 		auto transaction (connection->node->store.tx_begin_read ());
 		for (auto i (connection->node->store.latest_begin (transaction, current.number () + 1)), n (connection->node->store.latest_end ()); i != n && accounts.size () != max_size; ++i)
 		{
-			nano::account_info info (i->second);
+			nano::account_info const & info (i->second);
 			if (!skip_old || (now - info.modified) <= request->age)
 			{
-				accounts.push_back (std::make_pair (nano::account (i->first), info.head));
+				nano::account const & account (i->first);
+				accounts.emplace_back (account, info.head);
 			}
 		}
 		/* If loop breaks before max_size, then latest_end () is reached
 		Add empty record to finish frontier_req_server */
 		if (accounts.size () != max_size)
 		{
-			accounts.push_back (std::make_pair (nano::account (0), nano::block_hash (0)));
+			accounts.emplace_back (nano::account (0), nano::block_hash (0));
 		}
 	}
 	// Retrieving accounts from deque
-	auto account_pair (accounts.front ());
-	accounts.pop_front ();
+	auto const & account_pair (accounts.front ());
 	current = account_pair.first;
 	frontier = account_pair.second;
+	accounts.pop_front ();
 }
 
 void nano::pulls_cache::add (nano::pull_info const & pull_a)

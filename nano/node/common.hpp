@@ -3,6 +3,7 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/interface.h>
+#include <nano/lib/memory.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/asio.hpp>
@@ -236,7 +237,7 @@ public:
 	virtual void visit (nano::message_visitor &) const = 0;
 	virtual std::shared_ptr<std::vector<uint8_t>> to_bytes () const
 	{
-		std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
+		auto bytes = std::make_shared<std::vector<uint8_t>> ();
 		nano::vectorstream stream (*bytes);
 		serialize (stream);
 		return bytes;
@@ -411,11 +412,13 @@ public:
 	virtual ~message_visitor ();
 };
 
-/**
- * Returns seconds passed since unix epoch (posix time)
- */
-inline uint64_t seconds_since_epoch ()
+/** Helper guard which contains all the necessary purge (remove all memory even if used) functions */
+class node_singleton_memory_pool_purge_guard
 {
-	return std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
-}
+public:
+	node_singleton_memory_pool_purge_guard ();
+
+private:
+	nano::cleanup_guard cleanup_guard;
+};
 }

@@ -1,9 +1,17 @@
 #pragma once
 
-#include <mutex>
 #include <nano/node/common.hpp>
-#include <nano/node/stats.hpp>
 #include <nano/node/transport/transport.hpp>
+
+#include <boost/asio/buffer.hpp>
+#include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/mem_fun.hpp>
+#include <boost/multi_index/member.hpp>
+#include <boost/multi_index/ordered_index.hpp>
+#include <boost/multi_index/random_access_index.hpp>
+#include <boost/multi_index_container.hpp>
+
+#include <mutex>
 
 namespace nano
 {
@@ -64,7 +72,7 @@ namespace transport
 		std::shared_ptr<nano::transport::channel_udp> find_node_id (nano::account const &);
 		void clean_node_id (nano::endpoint const &, nano::account const &);
 		// Get the next peer for attempting a tcp bootstrap connection
-		nano::tcp_endpoint bootstrap_peer ();
+		nano::tcp_endpoint bootstrap_peer (uint8_t connection_protocol_version_min = nano::protocol_version_reasonable_min);
 		void receive ();
 		void start ();
 		void stop ();
@@ -78,13 +86,6 @@ namespace transport
 		bool reachout (nano::endpoint const &);
 		std::unique_ptr<seq_con_info_component> collect_seq_con_info (std::string const &);
 		void purge (std::chrono::steady_clock::time_point const &);
-		void purge_syn_cookies (std::chrono::steady_clock::time_point const &);
-		// Returns boost::none if the IP is rate capped on syn cookie requests,
-		// or if the endpoint already has a syn cookie query
-		boost::optional<nano::uint256_union> assign_syn_cookie (nano::endpoint const &);
-		// Returns false if valid, true if invalid (true on error convention)
-		// Also removes the syn cookie from the store if valid
-		bool validate_syn_cookie (nano::endpoint const &, nano::account const &, nano::signature const &);
 		void ongoing_keepalive ();
 		void list (std::deque<std::shared_ptr<nano::transport::channel>> &);
 		void modify (std::shared_ptr<nano::transport::channel_udp>, std::function<void(std::shared_ptr<nano::transport::channel_udp>)>);
@@ -92,7 +93,6 @@ namespace transport
 
 	private:
 		void close_socket ();
-		void ongoing_syn_cookie_cleanup ();
 		class endpoint_tag
 		{
 		};
@@ -150,12 +150,6 @@ namespace transport
 			nano::endpoint endpoint;
 			std::chrono::steady_clock::time_point last_attempt;
 		};
-		class syn_cookie_info final
-		{
-		public:
-			nano::uint256_union cookie;
-			std::chrono::steady_clock::time_point created_at;
-		};
 		mutable std::mutex mutex;
 		boost::multi_index_container<
 		channel_udp_wrapper,
@@ -173,8 +167,6 @@ namespace transport
 		boost::multi_index::hashed_unique<boost::multi_index::member<endpoint_attempt, nano::endpoint, &endpoint_attempt::endpoint>>,
 		boost::multi_index::ordered_non_unique<boost::multi_index::member<endpoint_attempt, std::chrono::steady_clock::time_point, &endpoint_attempt::last_attempt>>>>
 		attempts;
-		std::unordered_map<nano::endpoint, syn_cookie_info> syn_cookies;
-		std::unordered_map<boost::asio::ip::address, unsigned> syn_cookies_per_ip;
 		boost::asio::strand<boost::asio::io_context::executor_type> strand;
 		boost::asio::ip::udp::socket socket;
 		nano::endpoint local_endpoint;

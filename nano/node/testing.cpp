@@ -1,11 +1,13 @@
-#include <boost/property_tree/json_parser.hpp>
-#include <boost/property_tree/ptree.hpp>
-#include <cstdlib>
 #include <nano/core_test/testutil.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/node/transport/udp.hpp>
+
+#include <boost/property_tree/json_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
+
+#include <cstdlib>
 
 std::string nano::error_system_messages::message (int ev) const
 {
@@ -253,7 +255,7 @@ void nano::system::generate_receive (nano::node & node_a)
 		auto i (node_a.store.pending_begin (transaction, nano::pending_key (random_block, 0)));
 		if (i != node_a.store.pending_end ())
 		{
-			nano::pending_key send_hash (i->first);
+			nano::pending_key const & send_hash (i->first);
 			send_block = node_a.store.block_get (transaction, send_hash.hash);
 		}
 	}

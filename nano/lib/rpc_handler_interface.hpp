@@ -1,5 +1,8 @@
 #pragma once
 
+#include <functional>
+#include <string>
+
 namespace nano
 {
 class rpc;

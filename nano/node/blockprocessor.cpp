@@ -1,8 +1,9 @@
-#include <cassert>
 #include <nano/lib/timer.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/node.hpp>
 #include <nano/secure/blockstore.hpp>
+
+#include <cassert>
 
 std::chrono::milliseconds constexpr nano::block_processor::confirmation_request_delay;
 
@@ -136,12 +137,12 @@ void nano::block_processor::verify_state_blocks (nano::transaction const & trans
 	std::deque<nano::unchecked_info> items;
 	for (auto i (0); i < max_count && !state_blocks.empty (); i++)
 	{
-		auto item (state_blocks.front ());
-		state_blocks.pop_front ();
+		auto & item (state_blocks.front ());
 		if (!node.ledger.store.block_exists (transaction_a, item.block->type (), item.block->hash ()))
 		{
-			items.push_back (item);
+			items.push_back (std::move (item));
 		}
+		state_blocks.pop_front ();
 	}
 	lock_a.unlock ();
 	if (!items.empty ())
@@ -165,7 +166,7 @@ void nano::block_processor::verify_state_blocks (nano::transaction const & trans
 		verifications.resize (size, 0);
 		for (auto i (0); i < size; ++i)
 		{
-			auto item (items[i]);
+			auto & item (items[i]);
 			hashes.push_back (item.block->hash ());
 			messages.push_back (hashes.back ().bytes.data ());
 			lengths.push_back (sizeof (decltype (hashes)::value_type));
@@ -189,27 +190,27 @@ void nano::block_processor::verify_state_blocks (nano::transaction const & trans
 		for (auto i (0); i < size; ++i)
 		{
 			assert (verifications[i] == 1 || verifications[i] == 0);
-			auto item (items.front ());
+			auto & item (items.front ());
 			if (!item.block->link ().is_zero () && node.ledger.is_epoch_link (item.block->link ()))
 			{
 				// Epoch blocks
 				if (verifications[i] == 1)
 				{
 					item.verified = nano::signature_verification::valid_epoch;
-					blocks.push_back (item);
+					blocks.push_back (std::move (item));
 				}
 				else
 				{
 					// Possible regular state blocks with epoch link (send subtype)
 					item.verified = nano::signature_verification::unknown;
-					blocks.push_back (item);
+					blocks.push_back (std::move (item));
 				}
 			}
 			else if (verifications[i] == 1)
 			{
 				// Non epoch blocks
 				item.verified = nano::signature_verification::valid;
-				blocks.push_back (item);
+				blocks.push_back (std::move (item));
 			}
 			items.pop_front ();
 		}
@@ -528,6 +529,5 @@ void nano::block_processor::queue_unchecked (nano::transaction const & transacti
 		}
 		add (info);
 	}
-	std::lock_guard<std::mutex> lock (node.gap_cache.mutex);
-	node.gap_cache.blocks.get<1> ().erase (hash_a);
+	node.gap_cache.erase (hash_a);
 }

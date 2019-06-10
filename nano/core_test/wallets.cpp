@@ -1,9 +1,9 @@
-#include <gtest/gtest.h>
-
 #include <nano/core_test/testutil.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/secure/versioning.hpp>
+
+#include <gtest/gtest.h>
 
 #include <boost/polymorphic_cast.hpp>
 

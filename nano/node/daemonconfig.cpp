@@ -81,7 +81,7 @@ bool nano::daemon_config::upgrade_json (unsigned version_a, nano::jsonconfig & j
 	{
 		case 1:
 		{
-			bool opencl_enable_l;
+			bool opencl_enable_l{ false };
 			json.get_optional<bool> ("opencl_enable", opencl_enable_l);
 			if (!opencl_enable_l)
 			{

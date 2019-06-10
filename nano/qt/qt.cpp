@@ -1,10 +1,12 @@
+#include <nano/lib/config.hpp>
+#include <nano/qt/qt.hpp>
+
 #include <boost/foreach.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
+
 #include <cmath>
 #include <iomanip>
-#include <nano/lib/config.hpp>
-#include <nano/qt/qt.hpp>
 #include <sstream>
 
 namespace
@@ -72,14 +74,10 @@ balance_label (new QLabel),
 wallet (wallet_a)
 {
 	your_account_label->setStyleSheet ("font-weight: bold;");
-	std::string network = "Live";
-	if (wallet.node.network_params.network.is_beta_network ())
+	std::string network = wallet.node.network_params.network.get_current_network_as_string ();
+	if (!network.empty ())
 	{
-		network = "Beta";
-	}
-	else if (wallet.node.network_params.network.is_test_network ())
-	{
-		network = "Test";
+		network[0] = std::toupper (network[0]);
 	}
 	if (NANO_VERSION_PATCH == 0)
 	{
@@ -274,7 +272,7 @@ void nano_qt::accounts::refresh_wallet_balance ()
 	nano::uint128_t pending (0);
 	for (auto i (this->wallet.wallet_m->store.begin (transaction)), j (this->wallet.wallet_m->store.end ()); i != j; ++i)
 	{
-		nano::public_key key (i->first);
+		nano::public_key const & key (i->first);
 		balance = balance + (this->wallet.node.ledger.account_balance (block_transaction, key));
 		pending = pending + (this->wallet.node.ledger.account_pending (block_transaction, key));
 	}
@@ -1265,10 +1263,10 @@ void nano_qt::wallet::start ()
 			this_l->push_main_stack (this_l->send_blocks_window);
 		}
 	});
-	node.observers.blocks.add ([this_w](std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::uint128_t const & amount_a, bool) {
+	node.observers.blocks.add ([this_w](nano::election_status const & status_a, nano::account const & account_a, nano::uint128_t const & amount_a, bool) {
 		if (auto this_l = this_w.lock ())
 		{
-			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, block_a, account_a]() {
+			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, status_a, account_a]() {
 				if (auto this_l = this_w.lock ())
 				{
 					if (this_l->wallet_m->exists (account_a))
@@ -1963,7 +1961,7 @@ void nano_qt::advanced_actions::refresh_ledger ()
 	{
 		QList<QStandardItem *> items;
 		items.push_back (new QStandardItem (QString (nano::block_hash (i->first).to_account ().c_str ())));
-		nano::account_info info (i->second);
+		nano::account_info const & info (i->second);
 		std::string balance;
 		nano::amount (info.balance.number () / wallet.rendering_ratio).encode_dec (balance);
 		items.push_back (new QStandardItem (QString (balance.c_str ())));

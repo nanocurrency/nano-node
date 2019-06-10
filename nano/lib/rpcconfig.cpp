@@ -1,7 +1,8 @@
-#include <boost/dll/runtime_symbol_info.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/rpcconfig.hpp>
+
+#include <boost/dll/runtime_symbol_info.hpp>
 
 nano::error nano::rpc_secure_config::serialize_json (nano::jsonconfig & json) const
 {

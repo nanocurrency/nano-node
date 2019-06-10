@@ -1,5 +1,8 @@
-#include <QApplication>
+#include <nano/node/common.hpp>
+
 #include <gtest/gtest.h>
+
+#include <QApplication>
 QApplication * test_application = nullptr;
 namespace nano
 {
@@ -10,6 +13,7 @@ void force_nano_test_network ();
 int main (int argc, char ** argv)
 {
 	nano::force_nano_test_network ();
+	nano::node_singleton_memory_pool_purge_guard memory_pool_cleanup_guard;
 	QApplication application (argc, argv);
 	test_application = &application;
 	testing::InitGoogleTest (&argc, argv);

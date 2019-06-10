@@ -1,7 +1,9 @@
-#include <gtest/gtest.h>
-
+#include <nano/lib/logger_mt.hpp>
+#include <nano/node/lmdb.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/versioning.hpp>
+
+#include <gtest/gtest.h>
 
 TEST (versioning, account_info_v1)
 {
@@ -17,7 +19,7 @@ TEST (versioning, account_info_v1)
 		auto transaction (store.tx_begin_write ());
 		nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0, 0);
 		store.block_put (transaction, open.hash (), open, sideband);
-		auto status (mdb_put (store.env.tx (transaction), store.accounts_v0, nano::mdb_val (account), v1.val (), 0));
+		auto status (mdb_put (store.env.tx (transaction), store.accounts_v0, nano::mdb_val (account), nano::mdb_val (sizeof (v1), &v1), 0));
 		ASSERT_EQ (0, status);
 		store.version_put (transaction, 1);
 	}
@@ -53,7 +55,7 @@ TEST (versioning, account_info_v5)
 		auto transaction (store.tx_begin_write ());
 		nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0, 0);
 		store.block_put (transaction, open.hash (), open, sideband);
-		auto status (mdb_put (store.env.tx (transaction), store.accounts_v0, nano::mdb_val (account), v5.val (), 0));
+		auto status (mdb_put (store.env.tx (transaction), store.accounts_v0, nano::mdb_val (account), nano::mdb_val (sizeof (v5), &v5), 0));
 		ASSERT_EQ (0, status);
 		store.version_put (transaction, 5);
 	}

@@ -1,5 +1,6 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/config.hpp>
+#include <nano/node/common.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/qt/qt.hpp>
 
@@ -8,6 +9,7 @@
 int main (int argc, char ** argv)
 {
 	nano::network_constants::set_active_network (nano::nano_networks::nano_test_network);
+	nano::node_singleton_memory_pool_purge_guard memory_pool_cleanup_guard;
 	QApplication application (argc, argv);
 	QCoreApplication::setOrganizationName ("Nano");
 	QCoreApplication::setOrganizationDomain ("nano.org");

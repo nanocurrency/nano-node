@@ -7,13 +7,13 @@
 #include <nano/lib/utility.hpp>
 #include <nano/secure/utility.hpp>
 
+#include <crypto/blake2/blake2.h>
+
 #include <boost/iterator/transform_iterator.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/variant.hpp>
 
 #include <unordered_map>
-
-#include <crypto/blake2/blake2.h>
 
 namespace boost
 {
@@ -38,7 +38,7 @@ struct hash<::nano::uint512_union>
 }
 namespace nano
 {
-const uint8_t protocol_version = 0x10;
+const uint8_t protocol_version = 0x11;
 const uint8_t protocol_version_min = 0x0d;
 
 /*
@@ -47,6 +47,11 @@ const uint8_t protocol_version_min = 0x0d;
  * nodes older than this version.
  */
 const uint8_t protocol_version_reasonable_min = 0x0d;
+
+/*
+ * Do not start TCP realtime network connections to nodes older than this version
+ */
+const uint8_t tcp_realtime_protocol_version_min = 0x11;
 
 /**
  * A key pair. The private key is generated from the random pool, or passed in
@@ -348,6 +353,9 @@ class node_constants
 public:
 	node_constants (nano::network_constants & network_constants);
 	std::chrono::seconds period;
+	std::chrono::milliseconds half_period;
+	/** Default maximum idle time for a socket before it's automatically closed */
+	std::chrono::seconds idle_timeout;
 	std::chrono::seconds cutoff;
 	std::chrono::seconds syn_cookie_cutoff;
 	std::chrono::minutes backup_interval;

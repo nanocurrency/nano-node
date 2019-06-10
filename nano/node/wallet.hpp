@@ -1,12 +1,14 @@
 #pragma once
 
-#include <boost/thread/thread.hpp>
-#include <mutex>
 #include <nano/lib/config.hpp>
 #include <nano/node/lmdb.hpp>
 #include <nano/node/openclwork.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
+
+#include <boost/thread/thread.hpp>
+
+#include <mutex>
 #include <unordered_set>
 
 namespace nano

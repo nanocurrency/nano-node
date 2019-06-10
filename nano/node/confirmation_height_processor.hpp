@@ -1,9 +1,10 @@
 #pragma once
 
-#include <condition_variable>
-#include <mutex>
 #include <nano/lib/numbers.hpp>
 #include <nano/secure/common.hpp>
+
+#include <condition_variable>
+#include <mutex>
 #include <thread>
 #include <unordered_set>
 
@@ -39,7 +40,6 @@ public:
 	~confirmation_height_processor ();
 	void add (nano::block_hash const &);
 	void stop ();
-	bool is_processing_block (nano::block_hash const &);
 
 	/** The maximum amount of accounts to iterate over while writing */
 	static uint64_t constexpr batch_write_size = 2048;

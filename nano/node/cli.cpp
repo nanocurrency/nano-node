@@ -603,7 +603,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 						std::cout << boost::str (boost::format ("Seed: %1%\n") % seed.data.to_string ());
 						for (auto i (existing->second->store.begin (transaction)), m (existing->second->store.end ()); i != m; ++i)
 						{
-							nano::account account (i->first);
+							nano::account const & account (i->first);
 							nano::raw_key key;
 							auto error (existing->second->store.fetch (transaction, account, key));
 							assert (!error);
@@ -930,7 +930,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		auto transaction (node.node->store.tx_begin_read ());
 		for (auto i (node.node->store.vote_begin (transaction)), n (node.node->store.vote_end ()); i != n; ++i)
 		{
-			auto vote (i->second);
+			auto const & vote (i->second);
 			std::cerr << boost::str (boost::format ("%1%\n") % vote->to_json ());
 		}
 	}
