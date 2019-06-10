@@ -55,26 +55,25 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 		}
 
 		// Spend time prioritizing accounts to reduce voting traffic
-		prioritize_frontiers_for_confirmation (transaction_a, is_test_network ? std::chrono::milliseconds (50) : std::chrono::seconds (2));
+		auto time_to_spend_prioritizing = (frontiers_fully_confirmed ? std::chrono::milliseconds (200) : std::chrono::seconds (2));
+		prioritize_frontiers_for_confirmation (transaction_a, is_test_network ? std::chrono::milliseconds (50) : time_to_spend_prioritizing);
 
 		size_t elections_count (0);
 		lk.lock ();
 		while (!priority_cementable_frontiers.empty () && !stopped && elections_count < max_elections)
 		{
-			auto cementable_account = *priority_cementable_frontiers.get<1> ().begin ();
-			priority_cementable_frontiers.get<1> ().erase (priority_cementable_frontiers.get<1> ().begin ());
+			auto cementable_account_front_it = priority_cementable_frontiers.get<1> ().begin ();
+			auto cementable_account = *cementable_account_front_it;
+			priority_cementable_frontiers.get<1> ().erase (cementable_account_front_it);
 			lk.unlock ();
 			nano::account_info info;
 			auto error = node.store.account_get (transaction_a, cementable_account.account, info);
 			release_assert (!error);
 
-			if (info.block_count > info.confirmation_height && !this->node.pending_confirmation_height.is_processing_block (info.head))
+			if (info.block_count > info.confirmation_height && !node.pending_confirmation_height.is_processing_block (info.head))
 			{
 				auto block (node.store.block_get (transaction_a, info.head));
-				lk.lock ();
-				auto root_exists = roots.find (block->qualified_root ()) != roots.end ();
-				lk.unlock ();
-				if (!root_exists && !start (block))
+				if (!start (block))
 				{
 					++elections_count;
 					// Calculate votes for local representatives
@@ -86,8 +85,9 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 			}
 			lk.lock ();
 		}
+		frontiers_fully_confirmed = (elections_count < max_elections);
 		// 4 times slower check if all frontiers were confirmed
-		int fully_confirmed_factor = (elections_count < max_elections) ? 4 : 1;
+		auto fully_confirmed_factor = frontiers_fully_confirmed ? 4 : 1;
 		// Calculate next check time
 		next_frontier_check = steady_clock::now () + (representative_factor * fully_confirmed_factor / test_network_factor);
 	}
