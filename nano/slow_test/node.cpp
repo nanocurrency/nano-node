@@ -594,3 +594,88 @@ TEST (confirmation_height, long_chains)
 
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), num_blocks * 2 + 2);
 }
+
+namespace nano
+{
+TEST (confirmation_height, prioritize_frontiers_overwrite)
+{
+	bool delay_frontier_confirmation_height_updating = true;
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	auto node = system.add_node (node_config, delay_frontier_confirmation_height_updating);
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+
+	// As this test can take a while extend the next frontier check
+	{
+		std::lock_guard<std::mutex> guard (node->active.mutex);
+		node->active.next_frontier_check = std::chrono::steady_clock::now () + 3600s;
+	}
+
+	auto num_accounts = node->active.max_priority_cementable_frontiers;
+	nano::keypair last_keypair = nano::test_genesis_key;
+	auto last_open_hash = node->latest (nano::test_genesis_key.pub);
+	// Clear confirmation height so that the genesis account has the same amount of uncemented blocks as the other frontiers
+	{
+		auto transaction = node->store.tx_begin_write ();
+		node->store.confirmation_height_clear (transaction);
+	}
+
+	{
+		auto transaction = node->store.tx_begin_write ();
+		for (auto i = num_accounts - 1; i > 0; --i)
+		{
+			nano::keypair key;
+			system.wallet (0)->insert_adhoc (key.prv);
+
+			nano::send_block send (last_open_hash, key.pub, nano::Gxrb_ratio - 1, last_keypair.prv, last_keypair.pub, system.work.generate (last_open_hash));
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
+			nano::open_block open (send.hash (), last_keypair.pub, key.pub, key.prv, key.pub, system.work.generate (key.pub));
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, open).code);
+			last_open_hash = open.hash ();
+			last_keypair = key;
+		}
+	}
+
+	auto transaction = node->store.tx_begin_read ();
+	{
+		node->active.prioritize_frontiers_for_confirmation (transaction, std::chrono::seconds (60));
+		ASSERT_EQ (node->active.priority_cementable_frontiers_size (), num_accounts);
+		auto last_frontier_it = node->active.priority_cementable_frontiers.get<1> ().end ();
+		--last_frontier_it;
+		ASSERT_EQ (last_frontier_it->account, last_keypair.pub);
+		ASSERT_EQ (last_frontier_it->blocks_uncemented, 1);
+	}
+
+	// Add a new frontier with 1 block, it should not be added to the frontier container
+	nano::keypair key;
+	auto latest_genesis = node->latest (nano::test_genesis_key.pub);
+	nano::send_block send (latest_genesis, key.pub, nano::Gxrb_ratio - 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest_genesis));
+	nano::open_block open (send.hash (), nano::test_genesis_key.pub, key.pub, key.prv, key.pub, system.work.generate (key.pub));
+	{
+		auto transaction = node->store.tx_begin_write ();
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, open).code);
+	}
+	transaction.refresh ();
+	node->active.prioritize_frontiers_for_confirmation (transaction, std::chrono::seconds (60));
+	ASSERT_EQ (node->active.priority_cementable_frontiers_size (), num_accounts);
+	auto last_frontier_it = node->active.priority_cementable_frontiers.get<1> ().end ();
+	--last_frontier_it;
+	ASSERT_EQ (last_frontier_it->account, last_keypair.pub);
+	ASSERT_EQ (last_frontier_it->blocks_uncemented, 1);
+
+	nano::send_block send1 (send.hash (), key.pub, nano::Gxrb_ratio - 2, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send.hash ()));
+	nano::receive_block receive (open.hash (), send1.hash (), key.prv, key.pub, system.work.generate (open.hash ()));
+	{
+		auto transaction = node->store.tx_begin_write ();
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send1).code);
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, receive).code);
+	}
+
+	transaction.refresh ();
+	node->active.prioritize_frontiers_for_confirmation (transaction, std::chrono::seconds (5));
+	ASSERT_EQ (node->active.priority_cementable_frontiers_size (), num_accounts);
+	ASSERT_EQ (node->active.priority_cementable_frontiers.find (last_keypair.pub), node->active.priority_cementable_frontiers.end ());
+	ASSERT_NE (node->active.priority_cementable_frontiers.find (key.pub), node->active.priority_cementable_frontiers.end ());
+}
+}

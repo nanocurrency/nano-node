@@ -160,11 +160,13 @@ private:
 	boost::multi_index::member<nano::cementable_account, uint64_t, &nano::cementable_account::blocks_uncemented>,
 	std::greater<uint64_t>>>>
 	priority_cementable_frontiers;
+	bool frontiers_fully_confirmed{ false };
 	static size_t constexpr max_priority_cementable_frontiers{ 100000 };
 	static size_t constexpr confirmed_frontiers_max_pending_cut_off{ 1000 };
 	boost::thread thread;
 
 	friend class confirmation_height_prioritize_frontiers_Test;
+	friend class confirmation_height_prioritize_frontiers_overwrite_Test;
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transactions & active_transactions, const std::string & name);
