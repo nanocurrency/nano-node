@@ -26,20 +26,20 @@ uint64_t nano::work_value (nano::block_hash const & root_a, uint64_t work_a)
 {
 	uint64_t result;
 
-	#ifdef NANO_FUZZER_TEST
-		static nano::network_constants network_constants;
-		if (!network_constants.is_test_network ())
-		{
-			std::exit(1);
-		}
-		result = network_constants.publish_threshold + 10'000;
-	#else
-		blake2b_state hash;
-		blake2b_init (&hash, sizeof (result));
-		blake2b_update (&hash, reinterpret_cast<uint8_t *> (&work_a), sizeof (work_a));
-		blake2b_update (&hash, root_a.bytes.data (), root_a.bytes.size ());
-		blake2b_final (&hash, reinterpret_cast<uint8_t *> (&result), sizeof (result));
-	#endif
+#ifdef NANO_FUZZER_TEST
+	static nano::network_constants network_constants;
+	if (!network_constants.is_test_network ())
+	{
+		std::exit (1);
+	}
+	result = network_constants.publish_threshold + 10'000;
+#else
+	blake2b_state hash;
+	blake2b_init (&hash, sizeof (result));
+	blake2b_update (&hash, reinterpret_cast<uint8_t *> (&work_a), sizeof (work_a));
+	blake2b_update (&hash, root_a.bytes.data (), root_a.bytes.size ());
+	blake2b_final (&hash, reinterpret_cast<uint8_t *> (&result), sizeof (result));
+#endif
 
 	return result;
 }
