@@ -367,7 +367,7 @@ void nano::transport::tcp_channels::ongoing_keepalive ()
 	lock.unlock ();
 	for (auto & channel : send_list)
 	{
-		channel->send (message, nullptr, false); // is_dropable false keepalives must flow
+		channel->send (message);
 	}
 	// Attempt to start TCP connections to known UDP peers
 	if (!node.network_params.network.is_test_network () && !node.flags.disable_udp)

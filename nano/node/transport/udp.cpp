@@ -636,7 +636,7 @@ void nano::transport::udp_channels::ongoing_keepalive ()
 	lock.unlock ();
 	for (auto & channel : send_list)
 	{
-		channel->send (message, nullptr, false); // is_dropable false keepalives must flow
+		channel->send (message);
 	}
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	node.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.period, [node_w]() {
