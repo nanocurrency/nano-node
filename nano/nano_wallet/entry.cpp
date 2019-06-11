@@ -237,6 +237,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	int result (0);
 	nano::jsonconfig json;
 	auto error (json.read_and_update (config, config_path));
+	nano::set_use_memory_pools (config.node.use_memory_pools);
 	nano::set_secure_perm_file (config_path, error_chmod);
 	if (!error)
 	{
