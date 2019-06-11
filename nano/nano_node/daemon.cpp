@@ -91,8 +91,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 	std::unique_ptr<nano::thread_runner> runner;
 	nano::daemon_config config (data_path);
 	auto error = nano::read_and_update_daemon_config (data_path, config);
-	nano::use_memory_pools = config.node.use_memory_pools;
-
+	nano::set_use_memory_pools (config.node.use_memory_pools);
 	if (!error)
 	{
 		config.node.logging.init (data_path);
