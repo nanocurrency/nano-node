@@ -3239,7 +3239,7 @@ void nano::json_handler::republish ()
 				}
 				hash = node.store.block_successor (transaction, hash);
 			}
-			node.network.flood_block_batch (republish_bundle, 25);
+			node.network.flood_block_batch (std::move (republish_bundle), 25);
 			response_l.put ("success", ""); // obsolete
 			response_l.add_child ("blocks", blocks);
 		}
@@ -4318,7 +4318,7 @@ void nano::json_handler::wallet_republish ()
 				blocks.push_back (std::make_pair ("", entry));
 			}
 		}
-		node.network.flood_block_batch (republish_bundle, 25);
+		node.network.flood_block_batch (std::move (republish_bundle), 25);
 		response_l.add_child ("blocks", blocks);
 	}
 	response_errors ();

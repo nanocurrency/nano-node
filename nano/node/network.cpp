@@ -233,12 +233,14 @@ void nano::network::flood_block_batch (std::deque<std::shared_ptr<nano::block>> 
 	if (!blocks_a.empty ())
 	{
 		std::weak_ptr<nano::node> node_w (node.shared ());
-		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a + std::rand () % delay_a), [node_w, blocks_a, delay_a]() {
+		// clang-format off
+		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a + std::rand () % delay_a), [node_w, blocks (std::move (blocks_a)), delay_a]() {
 			if (auto node_l = node_w.lock ())
 			{
-				node_l->network.flood_block_batch (blocks_a, delay_a);
+				node_l->network.flood_block_batch (std::move (blocks), delay_a);
 			}
 		});
+		// clang-format on
 	}
 }
 
