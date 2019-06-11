@@ -214,7 +214,7 @@ nano::vote_code nano::vote_processor::vote_blocking (nano::transaction const & t
 				if (max_vote->sequence > vote_a->sequence + 10000)
 				{
 					nano::confirm_ack confirm (max_vote);
-					channel_a->send_buffer (confirm.to_bytes (), nano::stat::detail::confirm_ack);
+					channel_a->send (confirm); // this is non essential traffic as it will be resolicited if not received
 				}
 				break;
 			case nano::vote_code::invalid:
