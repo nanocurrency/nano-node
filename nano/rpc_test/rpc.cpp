@@ -6425,7 +6425,7 @@ TEST (rpc, simultaneous_calls)
 
 	promise.get_future ().wait ();
 
-	system.deadline_set (10s);
+	system.deadline_set (60s);
 	while (std::any_of (test_responses.begin (), test_responses.end (), [](const auto & test_response) { return test_response->status == 0; }))
 	{
 		ASSERT_NO_ERROR (system.poll ());
