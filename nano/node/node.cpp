@@ -436,6 +436,8 @@ startup_time (std::chrono::steady_clock::now ())
 			logger.always_log ("Constructing node");
 		}
 
+		logger.always_log (boost::str (boost::format ("Outbound Voting Bandwidth limited to %1% bytes per second") % config.bandwidth_limit));
+
 		// First do a pass with a read to see if any writing needs doing, this saves needing to open a write lock (and potentially blocking)
 		auto is_initialized (false);
 		{

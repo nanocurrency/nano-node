@@ -140,10 +140,9 @@ bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a
 				result = true;
 				auto vote (node_a.store.vote_generate (transaction_a, pub_a, prv_a, std::vector<nano::block_hash> (1, hash)));
 				nano::confirm_ack confirm (vote);
-				auto vote_bytes = confirm.to_bytes ();
 				for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 				{
-					j->get ()->send_buffer (vote_bytes, nano::stat::detail::confirm_ack);
+					j->get ()->send (confirm);
 				}
 				node_a.votes_cache.add (vote);
 			});
@@ -154,10 +153,9 @@ bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a
 			for (auto & vote : votes)
 			{
 				nano::confirm_ack confirm (vote);
-				auto vote_bytes = confirm.to_bytes ();
 				for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 				{
-					j->get ()->send_buffer (vote_bytes, nano::stat::detail::confirm_ack);
+					j->get ()->send (confirm);
 				}
 			}
 		}
@@ -165,10 +163,9 @@ bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a
 		if (also_publish)
 		{
 			nano::publish publish (block_a);
-			auto publish_bytes (publish.to_bytes ());
 			for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 			{
-				j->get ()->send_buffer (publish_bytes, nano::stat::detail::publish);
+				j->get ()->send (publish);
 			}
 		}
 	}
@@ -194,7 +191,7 @@ void nano::network::confirm_hashes (nano::transaction const & transaction_a, std
 				nano::vectorstream stream (*bytes);
 				confirm.serialize (stream);
 			}
-			channel_a->send_buffer (bytes, nano::stat::detail::confirm_ack);
+			channel_a->send (confirm);
 			this->node.votes_cache.add (vote);
 		});
 	}
@@ -208,8 +205,7 @@ bool nano::network::send_votes_cache (std::shared_ptr<nano::transport::channel> 
 	for (auto & vote : votes)
 	{
 		nano::confirm_ack confirm (vote);
-		auto vote_bytes = confirm.to_bytes ();
-		channel_a->send_buffer (vote_bytes, nano::stat::detail::confirm_ack);
+		channel_a->send (confirm);
 	}
 	// Returns true if votes were sent
 	bool result (!votes.empty ());

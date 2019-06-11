@@ -2207,3 +2207,57 @@ TEST (network, replace_port)
 	ASSERT_EQ (system.nodes[0]->network.udp_channels.size (), 0);
 	node1->stop ();
 }
+
+TEST (bandwidth_limiter, validate)
+{
+	size_t const full_confirm_ack (488 + 8);
+	{
+		nano::bandwidth_limiter limiter_0 (0);
+		nano::bandwidth_limiter limiter_1 (1024);
+		nano::bandwidth_limiter limiter_256 (1024 * 256);
+		nano::bandwidth_limiter limiter_1024 (1024 * 1024);
+		nano::bandwidth_limiter limiter_1536 (1024 * 1536);
+
+		auto now (std::chrono::steady_clock::now ());
+
+		while (now + 1s >= std::chrono::steady_clock::now ())
+		{
+			ASSERT_FALSE (limiter_0.should_drop (full_confirm_ack)); // will never drop
+			ASSERT_TRUE (limiter_1.should_drop (full_confirm_ack)); // always drop as message > limit / rate_buffer.size ()
+			limiter_256.should_drop (full_confirm_ack);
+			limiter_1024.should_drop (full_confirm_ack);
+			limiter_1536.should_drop (full_confirm_ack);
+			std::this_thread::sleep_for (10ms);
+		}
+		ASSERT_FALSE (limiter_0.should_drop (full_confirm_ack)); // will never drop
+		ASSERT_TRUE (limiter_1.should_drop (full_confirm_ack)); // always drop as message > limit / rate_buffer.size ()
+		ASSERT_FALSE (limiter_256.should_drop (full_confirm_ack)); // as a second has passed counter is started and nothing is dropped
+		ASSERT_FALSE (limiter_1024.should_drop (full_confirm_ack)); // as a second has passed counter is started and nothing is dropped
+		ASSERT_FALSE (limiter_1536.should_drop (full_confirm_ack)); // as a second has passed counter is started and nothing is dropped
+	}
+
+	{
+		nano::bandwidth_limiter limiter_0 (0);
+		nano::bandwidth_limiter limiter_1 (1024);
+		nano::bandwidth_limiter limiter_256 (1024 * 256);
+		nano::bandwidth_limiter limiter_1024 (1024 * 1024);
+		nano::bandwidth_limiter limiter_1536 (1024 * 1536);
+
+		auto now (std::chrono::steady_clock::now ());
+		//trend rate for 5 sec
+		while (now + 5s >= std::chrono::steady_clock::now ())
+		{
+			ASSERT_FALSE (limiter_0.should_drop (full_confirm_ack)); // will never drop
+			ASSERT_TRUE (limiter_1.should_drop (full_confirm_ack)); // always drop as message > limit / rate_buffer.size ()
+			limiter_256.should_drop (full_confirm_ack);
+			limiter_1024.should_drop (full_confirm_ack);
+			limiter_1536.should_drop (full_confirm_ack);
+			std::this_thread::sleep_for (50ms);
+		}
+		ASSERT_EQ (limiter_0.get_rate (), 0); //should be 0 as rate is not gathered if not needed
+		ASSERT_EQ (limiter_1.get_rate (), 0); //should be 0 since nothing is small enough to pass through is tracked
+		ASSERT_EQ (limiter_256.get_rate (), full_confirm_ack); //should be 0 since nothing is small enough to pass through is tracked
+		ASSERT_EQ (limiter_1024.get_rate (), full_confirm_ack); //should be 0 since nothing is small enough to pass through is tracked
+		ASSERT_EQ (limiter_1536.get_rate (), full_confirm_ack); //should be 0 since nothing is small enough to pass through is tracked
+	}
+}
