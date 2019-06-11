@@ -59,7 +59,7 @@ boost::optional<std::string> websocket_test_call (std::string host, std::string 
 	{
 		assert (response_deadline > 0s);
 		auto buffer (std::make_shared<boost::beast::flat_buffer> ());
-		ws->async_read (*buffer, [&ret, ws, buffer](boost::beast::error_code const & ec, std::size_t const n) {
+		ws->async_read (*buffer, [&ret, ioc, ws, buffer](boost::beast::error_code const & ec, std::size_t const n) {
 			if (!ec)
 			{
 				std::ostringstream res;
@@ -72,7 +72,7 @@ boost::optional<std::string> websocket_test_call (std::string host, std::string 
 
 	if (ws->is_open ())
 	{
-		ws->async_close (boost::beast::websocket::close_code::normal, [ws](boost::beast::error_code const & ec) {
+		ws->async_close (boost::beast::websocket::close_code::normal, [ioc, ws](boost::beast::error_code const & ec) {
 			// A synchronous close usually hangs in tests when the server's io_context stops looping
 			// An async_close solves this problem
 		});
