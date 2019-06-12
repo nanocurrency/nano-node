@@ -253,7 +253,7 @@ startup_time (std::chrono::steady_clock::now ())
 		{
 			observers.blocks.add ([this](nano::election_status const & status_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
 				auto block_a (status_a.winner);
-				if (this->block_arrival.recent (block_a->hash ()))
+				if ((status_a.type == nano::election_status_type::active_confirmed_quorum || status_a.type == nano::election_status_type::active_confirmation_height) && this->block_arrival.recent (block_a->hash ()))
 				{
 					auto node_l (shared_from_this ());
 					background ([node_l, block_a, account_a, amount_a, is_state_send_a]() {
