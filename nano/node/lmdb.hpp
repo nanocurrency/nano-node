@@ -56,10 +56,10 @@ public:
 /**
  * RAII wrapper for MDB_env
  */
-class mdb_env
+class mdb_env final
 {
 public:
-	mdb_env (bool &, boost::filesystem::path const &, int max_dbs = 128, size_t map_size = 128ULL * 1024 * 1024 * 1024);
+	mdb_env (bool &, boost::filesystem::path const &, int max_dbs = 128, bool use_no_mem_init = false, size_t map_size = 128ULL * 1024 * 1024 * 1024);
 	~mdb_env ();
 	operator MDB_env * () const;
 	// clang-format off
