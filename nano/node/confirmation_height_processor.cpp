@@ -285,7 +285,10 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 		auto block (store.block_get (transaction_a, hash, &sideband));
 		if (block)
 		{
-			active.confirm_block (transaction_a, block, sideband);
+			if (!pending_confirmations.is_processing_block (hash))
+			{
+				active.confirm_block (transaction_a, block, sideband);
+			}
 			auto source (block->source ());
 			if (source.is_zero ())
 			{
