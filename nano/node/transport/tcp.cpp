@@ -543,6 +543,12 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 										{
 											callback_a (channel_a);
 										}
+										// Listen for possible responses
+										channel_a->response_server = std::make_shared<nano::bootstrap_server> (channel_a->socket, node_l);
+										channel_a->response_server->keepalive_first = false;
+										channel_a->response_server->node_id_handshake_finished = true;
+										channel_a->response_server->remote_node_id = channel_a->get_node_id ().get ();
+										channel_a->response_server->receive ();
 									}
 									else
 									{

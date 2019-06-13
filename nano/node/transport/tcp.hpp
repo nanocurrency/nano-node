@@ -13,6 +13,7 @@
 
 namespace nano
 {
+class bootstrap_server;
 namespace transport
 {
 	class tcp_channels;
@@ -34,6 +35,7 @@ namespace transport
 			return &node == &other_a.node && socket == other_a.socket;
 		}
 		std::shared_ptr<nano::socket> socket;
+		std::shared_ptr<nano::bootstrap_server> response_server;
 		bool server{ false };
 
 		nano::endpoint get_endpoint () const override
