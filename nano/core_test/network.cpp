@@ -2110,6 +2110,33 @@ TEST (confirmation_height, conflict_rollback_cemented)
 	ASSERT_FALSE (node2.store.block_exists (transaction2, publish1.block->hash ()));
 }
 
+TEST (confirmation_height, observers)
+{
+	auto amount (std::numeric_limits<nano::uint128_t>::max ());
+	nano::system system (24000, 1);
+	auto node1 (system.nodes[0]);
+	nano::keypair key1;
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	nano::block_hash latest1 (node1->latest (nano::test_genesis_key.pub));
+	auto send1 (std::make_shared<nano::send_block> (latest1, key1.pub, amount - node1->config.receive_minimum.number (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest1)));
+
+	node1->observers.blocks.add ([node1](nano::election_status const & status_a, nano::account const &, nano::amount const &, bool) {
+		node1->stats.inc (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out);
+	});
+
+	node1->process_active (send1);
+	node1->block_processor.flush ();
+	bool confirmed (false);
+	system.deadline_set (10s);
+	while (!confirmed)
+	{
+		auto transaction = node1->store.tx_begin_read ();
+		confirmed = node1->ledger.block_confirmed (transaction, send1->hash ());
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (1, node1->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out));
+}
+
 TEST (bootstrap, tcp_listener_timeout_empty)
 {
 	nano::system system (24000, 1);
