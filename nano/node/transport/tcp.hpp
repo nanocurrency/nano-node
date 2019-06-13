@@ -34,6 +34,7 @@ namespace transport
 			return &node == &other_a.node && socket == other_a.socket;
 		}
 		std::shared_ptr<nano::socket> socket;
+		bool server{ false };
 
 		nano::endpoint get_endpoint () const override
 		{
@@ -85,7 +86,7 @@ namespace transport
 		void receive ();
 		void start ();
 		void stop ();
-		void process_message (nano::message const &, nano::tcp_endpoint const &, nano::account const &);
+		void process_message (nano::message const &, nano::tcp_endpoint const &, nano::account const &, std::shared_ptr<nano::socket>);
 		void process_keepalive (nano::keepalive const &, nano::tcp_endpoint const &, bool);
 		bool max_ip_connections (nano::tcp_endpoint const &);
 		// Should we reach out to this endpoint with a keepalive message
