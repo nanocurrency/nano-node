@@ -53,6 +53,8 @@ namespace websocket
 		stopped_election,
 		/** A vote message **/
 		vote,
+		/** TODO */
+		active_difficulty,
 		/** Auxiliary length, not a valid topic, must be the last enum */
 		_length
 	};

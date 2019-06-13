@@ -316,6 +316,11 @@ nano::websocket::topic to_topic (std::string topic_a)
 	{
 		topic = nano::websocket::topic::ack;
 	}
+	else if (topic_a == "active_difficulty")
+	{
+		topic = nano::websocket::topic::active_difficulty;
+	}
+
 	return topic;
 }
 

@@ -160,6 +160,40 @@ TEST (websocket, subscription_edge)
 	node1->stop ();
 }
 
+/** Tests clients subscribing multiple times or unsubscribing without a subscription */
+TEST (websocket, subscribe_active_difficulty)
+{
+  nano::system system (24000, 1);
+  nano::node_init init1;
+  nano::node_config config;
+  nano::node_flags node_flags;
+  config.websocket_config.enabled = true;
+  config.websocket_config.port = 24078;
+
+  auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
+  node1->start ();
+  system.nodes.push_back (node1);
+
+  ASSERT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::active_difficulty));
+
+  // First subscription
+  {
+    ack_ready = false;
+    std::thread subscription_thread ([]() {
+      websocket_test_call ("::1", "24078", R"json({"action": "subscribe", "topic": "active_difficulty", "ack": true})json", true, false);
+    });
+    system.deadline_set (5s);
+    while (!ack_ready)
+    {
+      ASSERT_NO_ERROR (system.poll ());
+    }
+    subscription_thread.join ();
+    ASSERT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::active_difficulty));
+  }
+
+  node1->stop ();
+}
+
 /** Subscribes to block confirmations, confirms a block and then awaits websocket notification */
 TEST (websocket, confirmation)
 {
