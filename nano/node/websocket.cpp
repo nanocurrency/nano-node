@@ -83,7 +83,7 @@ bool nano::websocket::confirmation_options::should_filter (nano::websocket::mess
 {
 	bool should_filter_conf_type_l (true);
 
-	auto type_text_l (message_a.contents.get<std::string> ("confirmation_type"));
+	auto type_text_l (message_a.contents.get<std::string> ("message.confirmation_type"));
 	if (type_text_l == "active_quorum" && confirmation_types & type_active_quorum)
 	{
 		should_filter_conf_type_l = false;
@@ -585,7 +585,7 @@ nano::websocket::message nano::websocket::message_builder::block_confirmed (std:
 		default:
 			break;
 	};
-	message_l.contents.add ("confirmation_type", confirmation_type);
+	message_node_l.add ("confirmation_type", confirmation_type);
 
 	if (include_block_a)
 	{
