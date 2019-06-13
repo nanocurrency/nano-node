@@ -46,7 +46,7 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 	auto check_time_exceeded = std::chrono::steady_clock::now () >= next_frontier_check;
 	lk.unlock ();
 	auto low_active_elections = roots_size < max_elections;
-	if (check_time_exceeded || (!is_test_network && low_active_elections))
+	if (roots_size <= node.config.active_elections_size && (check_time_exceeded || (!is_test_network && low_active_elections)))
 	{
 		// When the number of active elections is low increase max number of elections for setting confirmation height.
 		if (max_broadcast_queue > roots_size + max_elections)
