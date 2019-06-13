@@ -448,11 +448,12 @@ TEST (node, mass_vote_by_hash)
 
 TEST (confirmation_height, many_accounts)
 {
-	bool delay_frontier_confirmation_height_updating = true;
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
 	node_config.online_weight_minimum = 100;
-	auto node = system.add_node (node_config, delay_frontier_confirmation_height_updating);
+	nano::node_flags node_flags;
+	node_flags.delay_frontier_confirmation_height_updating = true;
+	auto node = system.add_node (node_config, node_flags);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 
 	// The number of frontiers should be more than the batch_write_size to test the amount of blocks confirmed is correct.
@@ -517,9 +518,10 @@ TEST (confirmation_height, many_accounts)
 
 TEST (confirmation_height, long_chains)
 {
-	bool delay_frontier_confirmation_height_updating = true;
 	nano::system system;
-	auto node = system.add_node (nano::node_config (24000, system.logging), delay_frontier_confirmation_height_updating);
+	nano::node_flags node_flags;
+	node_flags.delay_frontier_confirmation_height_updating = true;
+	auto node = system.add_node (nano::node_config (24000, system.logging), node_flags);
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
@@ -599,10 +601,11 @@ namespace nano
 {
 TEST (confirmation_height, prioritize_frontiers_overwrite)
 {
-	bool delay_frontier_confirmation_height_updating = true;
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
-	auto node = system.add_node (node_config, delay_frontier_confirmation_height_updating);
+	nano::node_flags node_flags;
+	node_flags.delay_frontier_confirmation_height_updating = true;
+	auto node = system.add_node (node_config, node_flags);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 
 	// As this test can take a while extend the next frontier check

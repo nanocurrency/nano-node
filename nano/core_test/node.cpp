@@ -1675,10 +1675,11 @@ TEST (node, bootstrap_bulk_push)
 // Bootstrapping a forked open block should succeed.
 TEST (node, bootstrap_fork_open)
 {
-	auto delay_frontier_confirmation_height_updating = true;
 	nano::system system0;
-	auto node0 = system0.add_node (nano::node_config (24000, system0.logging), delay_frontier_confirmation_height_updating);
-	auto node1 = system0.add_node (nano::node_config (24001, system0.logging), delay_frontier_confirmation_height_updating);
+	nano::node_flags node_flags;
+	node_flags.delay_frontier_confirmation_height_updating = true;
+	auto node0 = system0.add_node (nano::node_config (24000, system0.logging), node_flags);
+	auto node1 = system0.add_node (nano::node_config (24001, system0.logging), node_flags);
 	system0.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key0;
 	nano::send_block send0 (system0.nodes[0]->latest (nano::test_genesis_key.pub), key0.pub, nano::genesis_amount - 500, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
@@ -2333,10 +2334,11 @@ TEST (node, vote_by_hash_epoch_block_republish)
 
 TEST (node, epoch_conflict_confirm)
 {
-	auto delay_frontier_confirmation_height_updating = true;
 	nano::system system;
-	auto node0 = system.add_node (nano::node_config (24000, system.logging), delay_frontier_confirmation_height_updating);
-	auto node1 = system.add_node (nano::node_config (24001, system.logging), delay_frontier_confirmation_height_updating);
+	nano::node_flags node_flags;
+	node_flags.delay_frontier_confirmation_height_updating = true;
+	auto node0 = system.add_node (nano::node_config (24000, system.logging), node_flags);
+	auto node1 = system.add_node (nano::node_config (24001, system.logging), node_flags);
 	nano::keypair key;
 	nano::genesis genesis;
 	nano::keypair epoch_signer (nano::test_genesis_key);
@@ -2533,9 +2535,10 @@ TEST (node, block_processor_reject_state)
 
 TEST (node, block_processor_reject_rolled_back)
 {
-	auto delay_frontier_confirmation_height_updating = true;
 	nano::system system;
-	auto & node = *system.add_node (nano::node_config (24000, system.logging), delay_frontier_confirmation_height_updating);
+	nano::node_flags node_flags;
+	node_flags.delay_frontier_confirmation_height_updating = true;
+	auto & node = *system.add_node (nano::node_config (24000, system.logging), node_flags);
 	nano::genesis genesis;
 	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node.work_generate_blocking (*send1);
@@ -2770,10 +2773,11 @@ namespace nano
 {
 TEST (confirmation_height, prioritize_frontiers)
 {
-	// Prevent frontiers being confirmed as it will affect the priorization checking
-	auto delay_frontier_confirmation_height_updating = true;
 	nano::system system;
-	auto node = system.add_node (nano::node_config (24001, system.logging), delay_frontier_confirmation_height_updating);
+	// Prevent frontiers being confirmed as it will affect the priorization checking
+	nano::node_flags node_flags;
+	node_flags.delay_frontier_confirmation_height_updating = true;
+	auto node = system.add_node (nano::node_config (24001, system.logging), node_flags);
 
 	nano::keypair key1;
 	nano::keypair key2;

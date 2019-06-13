@@ -23,10 +23,10 @@ std::string nano::error_system_messages::message (int ev) const
 }
 
 /** Returns the node added. */
-std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & node_config_a, bool delay_frontier_confirmation_height_updating_a, nano::transport::transport_type type_a)
+std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & node_config_a, nano::node_flags node_flags_a, nano::transport::transport_type type_a)
 {
 	nano::node_init init;
-	auto node (std::make_shared<nano::node> (init, io_ctx, nano::unique_path (), alarm, node_config_a, work, node_flags (), delay_frontier_confirmation_height_updating_a));
+	auto node (std::make_shared<nano::node> (init, io_ctx, nano::unique_path (), alarm, node_config_a, work, node_flags_a));
 	assert (!init.error ());
 	node->start ();
 	nano::uint256_union wallet;
@@ -115,7 +115,7 @@ system ()
 	for (uint16_t i (0); i < count_a; ++i)
 	{
 		nano::node_config config (port_a + i, logging);
-		nano::system::add_node (config, false, type_a);
+		nano::system::add_node (config, nano::node_flags (), type_a);
 	}
 }
 

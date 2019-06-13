@@ -194,7 +194,7 @@ node (init_a, io_ctx_a, application_path_a, alarm_a, nano::node_config (peering_
 {
 }
 
-nano::node::node (nano::node_init & init_a, boost::asio::io_context & io_ctx_a, boost::filesystem::path const & application_path_a, nano::alarm & alarm_a, nano::node_config const & config_a, nano::work_pool & work_a, nano::node_flags flags_a, bool delay_frontier_confirmation_height_updating) :
+nano::node::node (nano::node_init & init_a, boost::asio::io_context & io_ctx_a, boost::filesystem::path const & application_path_a, nano::alarm & alarm_a, nano::node_config const & config_a, nano::work_pool & work_a, nano::node_flags flags_a) :
 io_ctx (io_ctx_a),
 node_initialized_latch (1),
 config (config_a),
@@ -225,7 +225,7 @@ block_processor_thread ([this]() {
 }),
 online_reps (*this, config.online_weight_minimum.number ()),
 vote_uniquer (block_uniquer),
-active (*this, delay_frontier_confirmation_height_updating),
+active (*this),
 confirmation_height_processor (pending_confirmation_height, store, ledger.stats, active, ledger.epoch_link, logger),
 payment_observer_processor (observers.blocks),
 wallets (init_a.wallets_store_init, *this),
