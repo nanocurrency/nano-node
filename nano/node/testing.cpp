@@ -63,7 +63,7 @@ std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & no
 				new1 = node1->network.size ();
 				new2 = node2->network.size ();
 			} while (new1 == starting1 || new2 == starting2);
-			if (type_a == nano::transport::transport_type::tcp)
+			if (type_a == nano::transport::transport_type::tcp && node_config_a.tcp_incoming_connections_max != 0)
 			{
 				// Wait for initial connection finish
 				decltype (starting_listener1) new_listener1;
