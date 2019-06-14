@@ -252,6 +252,7 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 			else if (!node_id_a.is_zero ())
 			{
 				// Add temporary channel
+				socket_a->set_writer_concurrency (nano::socket::concurrency::multi_writer);
 				auto temporary_channel (std::make_shared<nano::transport::channel_tcp> (node, socket_a));
 				temporary_channel->set_node_id (node_id_a);
 				temporary_channel->set_network_version (message_a.header.version_using);
