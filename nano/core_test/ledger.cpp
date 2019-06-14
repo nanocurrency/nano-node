@@ -810,11 +810,12 @@ TEST (votes, add_two)
 // Higher sequence numbers change the vote
 TEST (votes, add_existing)
 {
-	bool delay_frontier_confirmation_height_updating = true;
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
 	node_config.online_weight_minimum = std::numeric_limits<nano::uint128_t>::max ();
-	auto & node1 = *system.add_node (node_config, delay_frontier_confirmation_height_updating);
+	nano::node_flags node_flags;
+	node_flags.delay_frontier_confirmation_height_updating = true;
+	auto & node1 = *system.add_node (node_config, node_flags);
 	nano::genesis genesis;
 	nano::keypair key1;
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));

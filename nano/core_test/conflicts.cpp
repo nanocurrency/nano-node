@@ -192,9 +192,10 @@ TEST (conflicts, reprioritize)
 
 TEST (conflicts, dependency)
 {
-	bool delay_frontier_confirmation_height_updating (true);
 	nano::system system;
-	auto node1 = system.add_node (nano::node_config (24000, system.logging), delay_frontier_confirmation_height_updating);
+	nano::node_flags node_flags;
+	node_flags.delay_frontier_confirmation_height_updating = true;
+	auto node1 = system.add_node (nano::node_config (24000, system.logging), node_flags);
 	nano::genesis genesis;
 	nano::keypair key1;
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, nano::genesis_amount - nano::xrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));

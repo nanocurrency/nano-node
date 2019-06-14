@@ -9,11 +9,11 @@ size_t constexpr nano::active_transactions::max_broadcast_queue;
 
 using namespace std::chrono;
 
-nano::active_transactions::active_transactions (nano::node & node_a, bool delay_frontier_confirmation_height_updating) :
+nano::active_transactions::active_transactions (nano::node & node_a) :
 node (node_a),
 multipliers_cb (20, 1.),
 trended_active_difficulty (node.network_params.network.publish_threshold),
-next_frontier_check (steady_clock::now () + (delay_frontier_confirmation_height_updating ? 60s : 0s)),
+next_frontier_check (steady_clock::now () + (node_a.flags.delay_frontier_confirmation_height_updating ? 60s : 0s)),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::request_loop);
 	request_loop ();
