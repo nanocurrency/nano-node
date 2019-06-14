@@ -78,7 +78,7 @@ public:
 class active_transactions final
 {
 public:
-	explicit active_transactions (nano::node &, bool delay_frontier_confirmation_height_updating = false);
+	explicit active_transactions (nano::node &);
 	~active_transactions ();
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
