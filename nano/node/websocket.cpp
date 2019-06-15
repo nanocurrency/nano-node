@@ -343,6 +343,10 @@ std::string from_topic (nano::websocket::topic topic_a)
 	{
 		topic = "ack";
 	}
+	else if (topic_a == nano::websocket::topic::active_difficulty)
+	{
+		topic = "active_difficulty";
+	}
 	return topic;
 }
 }
