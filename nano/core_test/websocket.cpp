@@ -160,38 +160,70 @@ TEST (websocket, subscription_edge)
 	node1->stop ();
 }
 
-/** Tests clients subscribing multiple times or unsubscribing without a subscription */
+// Test client subscribing to changes in active_difficulty
 TEST (websocket, subscribe_active_difficulty)
 {
-  nano::system system (24000, 1);
-  nano::node_init init1;
-  nano::node_config config;
-  nano::node_flags node_flags;
-  config.websocket_config.enabled = true;
-  config.websocket_config.port = 24078;
+	nano::system system (24000, 1);
+	nano::node_init init1;
+	nano::node_config config;
+	nano::node_flags node_flags;
+	config.websocket_config.enabled = true;
+	config.websocket_config.port = 24078;
 
-  auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
-  node1->start ();
-  system.nodes.push_back (node1);
+	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
+	node1->start ();
+	system.nodes.push_back (node1);
 
-  ASSERT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::active_difficulty));
+	ASSERT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::active_difficulty));
 
-  // First subscription
-  {
-    ack_ready = false;
-    std::thread subscription_thread ([]() {
-      websocket_test_call ("::1", "24078", R"json({"action": "subscribe", "topic": "active_difficulty", "ack": true})json", true, false);
-    });
-    system.deadline_set (5s);
-    while (!ack_ready)
-    {
-      ASSERT_NO_ERROR (system.poll ());
-    }
-    subscription_thread.join ();
-    ASSERT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::active_difficulty));
-  }
+	// Subscribe to active_difficulty and wait for response asynchronously
+	ack_ready = false;  
+	auto client_task = ([&node1]() -> boost::optional<std::string> {
+		auto response = websocket_test_call ("::1", "24078", R"json({"action": "subscribe", "topic": "active_difficulty", "ack": true})json", true, true);
+		return response;
+	});
+	auto client_future = std::async(client_task);
+	
+	// Wait for acknowledge
+	system.deadline_set (5s);
+	while (!ack_ready)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::active_difficulty));
+	
+	// Fake history records to force trended_active_difficulty change
+	node1->active.multipliers_cb.push_front (10.);
+	
+	// Wait to receive the active_difficulty message
+	system.deadline_set (5s);
+	while (client_future.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	
+	// Check active_difficulty response
+	auto response = client_future.get();
+	ASSERT_TRUE (response);
+	std::stringstream stream;
+	stream << response;
+	boost::property_tree::ptree event;
+	boost::property_tree::read_json (stream, event);
+	ASSERT_EQ (event.get<std::string> ("topic"), "active_difficulty");
+		
+	auto message_contents = event.get_child("message");
+	uint64_t network_minimum;
+	nano::from_string_hex(message_contents.get<std::string>("network_minimum"), network_minimum);
+	ASSERT_EQ(network_minimum, node1->network_params.network.publish_threshold);
+		
+	uint64_t network_current;
+	nano::from_string_hex(message_contents.get<std::string>("network_current"), network_current);
+	ASSERT_EQ(network_current, node1->active.active_difficulty());
+		
+	double multiplier = std::stod(message_contents.get<std::string>("multiplier"));
+	ASSERT_NEAR(multiplier, nano::difficulty::to_multiplier (node1->active.active_difficulty(), node1->network_params.network.publish_threshold), 1e-6);
 
-  node1->stop ();
+	node1->stop ();
 }
 
 /** Subscribes to block confirmations, confirms a block and then awaits websocket notification */
