@@ -1,6 +1,7 @@
 #include <nano/core_test/testutil.hpp>
 #include <nano/node/testing.hpp>
 
+#include <csignal>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -11,6 +12,12 @@ namespace nano
 {
 void cleanup_test_directories_on_exit ();
 void force_nano_test_network ();
+
+void signal_handler(int signal)
+{
+    nano::cleanup_test_directories_on_exit ();
+}
+
 }
 namespace
 {
@@ -31,6 +38,9 @@ void network_generic_test (const uint8_t * Data, size_t Size)
 		nano::force_nano_test_network ();
 		initialized = true;
 		std::cout << "Initializing....\n";
+
+        std::signal(SIGINT, nano::signal_handler);
+        std::signal(SIGTERM, nano::signal_handler);
 
 		auto nano_fuzzer_network = std::getenv ("NANO_FUZZER_NETWORK");
 		if (nano_fuzzer_network)
@@ -76,8 +86,6 @@ void network_generic_test (const uint8_t * Data, size_t Size)
 extern "C" int LLVMFuzzerTestOneInput (const uint8_t * Data, size_t Size)
 {
 	network_generic_test (Data, Size);
-
-	//nano::cleanup_test_directories_on_exit ();
 	return 0;
 }
 
