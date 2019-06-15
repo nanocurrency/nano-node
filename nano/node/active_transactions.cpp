@@ -280,7 +280,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 	// Rebroadcast unconfirmed blocks
 	if (!rebroadcast_bundle.empty ())
 	{
-		node.network.flood_block_batch (rebroadcast_bundle);
+		node.network.flood_block_batch (std::move (rebroadcast_bundle));
 	}
 	// Batch confirmation request
 	if (!node.network_params.network.is_live_network () && !requests_bundle.empty ())
