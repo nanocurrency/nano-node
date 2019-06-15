@@ -289,6 +289,12 @@ private:
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_listener & bootstrap_listener, const std::string & name);
 
 class message;
+enum class bootstrap_server_type
+{
+	undefined,
+	bootstrap,
+	realtime
+};
 class bootstrap_server final : public std::enable_shared_from_this<nano::bootstrap_server>
 {
 public:
@@ -317,8 +323,7 @@ public:
 	std::mutex mutex;
 	std::queue<std::unique_ptr<nano::message>> requests;
 	std::atomic<bool> stopped{ false };
-	std::atomic<bool> bootstrap_connection{ false };
-	std::atomic<bool> node_id_handshake_finished{ false };
+	std::atomic<nano::bootstrap_server_type> type{ nano::bootstrap_server_type::undefined };
 	std::atomic<bool> keepalive_first{ true };
 	nano::tcp_endpoint remote_endpoint{ boost::asio::ip::address_v6::any (), 0 };
 	nano::account remote_node_id{ 0 };

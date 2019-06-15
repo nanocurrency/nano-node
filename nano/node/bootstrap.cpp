@@ -1907,11 +1907,11 @@ nano::bootstrap_server::~bootstrap_server ()
 	{
 		node->logger.try_log ("Exiting incoming TCP/bootstrap server");
 	}
-	if (bootstrap_connection)
+	if (type == nano::bootstrap_server_type::bootstrap)
 	{
 		--node->bootstrap.bootstrap_count;
 	}
-	if (node_id_handshake_finished)
+	else if (type == nano::bootstrap_server_type::realtime)
 	{
 		--node->bootstrap.realtime_count;
 		node->network.response_channels.remove (remote_endpoint);
@@ -2150,7 +2150,7 @@ void nano::bootstrap_server::receive_keepalive_action (boost::system::error_code
 		std::unique_ptr<nano::keepalive> request (new nano::keepalive (error, stream, header_a));
 		if (!error)
 		{
-			if (node_id_handshake_finished)
+			if (type == nano::bootstrap_server_type::realtime)
 			{
 				add_request (std::unique_ptr<nano::message> (request.release ()));
 			}
@@ -2175,7 +2175,7 @@ void nano::bootstrap_server::receive_publish_action (boost::system::error_code c
 		std::unique_ptr<nano::publish> request (new nano::publish (error, stream, header_a));
 		if (!error)
 		{
-			if (node_id_handshake_finished)
+			if (type == nano::bootstrap_server_type::realtime)
 			{
 				add_request (std::unique_ptr<nano::message> (request.release ()));
 			}
@@ -2200,7 +2200,7 @@ void nano::bootstrap_server::receive_confirm_req_action (boost::system::error_co
 		std::unique_ptr<nano::confirm_req> request (new nano::confirm_req (error, stream, header_a));
 		if (!error)
 		{
-			if (node_id_handshake_finished)
+			if (type == nano::bootstrap_server_type::realtime)
 			{
 				add_request (std::unique_ptr<nano::message> (request.release ()));
 			}
@@ -2222,7 +2222,7 @@ void nano::bootstrap_server::receive_confirm_ack_action (boost::system::error_co
 		std::unique_ptr<nano::confirm_ack> request (new nano::confirm_ack (error, stream, header_a));
 		if (!error)
 		{
-			if (node_id_handshake_finished)
+			if (type == nano::bootstrap_server_type::realtime)
 			{
 				add_request (std::unique_ptr<nano::message> (request.release ()));
 			}
@@ -2244,7 +2244,7 @@ void nano::bootstrap_server::receive_node_id_handshake_action (boost::system::er
 		std::unique_ptr<nano::node_id_handshake> request (new nano::node_id_handshake (error, stream, header_a));
 		if (!error)
 		{
-			if (!node_id_handshake_finished)
+			if (type == nano::bootstrap_server_type::undefined)
 			{
 				add_request (std::unique_ptr<nano::message> (request.release ()));
 			}
@@ -2349,6 +2349,7 @@ public:
 	}
 	void publish (nano::publish const & message_a) override
 	{
+		assert (connection->type == nano::bootstrap_server_type::realtime);
 		connection->finish_request_async ();
 		auto connection_l (connection->shared_from_this ());
 		connection->node->background ([connection_l, message_a]() {
@@ -2357,6 +2358,7 @@ public:
 	}
 	void confirm_req (nano::confirm_req const & message_a) override
 	{
+		assert (connection->type == nano::bootstrap_server_type::realtime);
 		connection->finish_request_async ();
 		auto connection_l (connection->shared_from_this ());
 		connection->node->background ([connection_l, message_a]() {
@@ -2365,6 +2367,7 @@ public:
 	}
 	void confirm_ack (nano::confirm_ack const & message_a) override
 	{
+		assert (connection->type == nano::bootstrap_server_type::realtime);
 		connection->finish_request_async ();
 		auto connection_l (connection->shared_from_this ());
 		connection->node->background ([connection_l, message_a]() {
@@ -2428,7 +2431,7 @@ public:
 			connection->remote_node_id = message_a.response->first;
 			if (!connection->node->network.syn_cookies.validate (nano::transport::map_tcp_to_endpoint (connection->remote_endpoint), connection->remote_node_id, message_a.response->second) && connection->remote_node_id != connection->node->node_id.pub)
 			{
-				connection->node_id_handshake_finished = true;
+				connection->type = nano::bootstrap_server_type::realtime;
 				++connection->node->bootstrap.realtime_count;
 				connection->finish_request_async ();
 			}
@@ -2442,6 +2445,7 @@ public:
 		{
 			connection->finish_request_async ();
 		}
+		assert (connection->remote_node_id.is_zero () || connection->type == nano::bootstrap_server_type::realtime);
 		auto connection_l (connection->shared_from_this ());
 		connection->node->background ([connection_l, message_a]() {
 			connection_l->node->network.tcp_channels.process_message (message_a, connection_l->remote_endpoint, connection_l->remote_node_id, connection_l->socket);
@@ -2460,12 +2464,12 @@ void nano::bootstrap_server::run_next ()
 
 bool nano::bootstrap_server::is_bootstrap_connection ()
 {
-	if (!bootstrap_connection && !node->flags.disable_bootstrap_listener && node->bootstrap.bootstrap_count < node->config.bootstrap_connections_max)
+	if (type == nano::bootstrap_server_type::undefined && !node->flags.disable_bootstrap_listener && node->bootstrap.bootstrap_count < node->config.bootstrap_connections_max)
 	{
 		++node->bootstrap.bootstrap_count;
-		bootstrap_connection = true;
+		type = nano::bootstrap_server_type::bootstrap;
 	}
-	return bootstrap_connection;
+	return type == nano::bootstrap_server_type::bootstrap;
 }
 
 /**
