@@ -2698,6 +2698,21 @@ TEST (rpc, block_count)
 	rpc.start ();
 	boost::property_tree::ptree request1;
 	request1.put ("action", "block_count");
+	{
+		test_response response1 (request1, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response1.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response1.status);
+		ASSERT_EQ ("1", response1.json.get<std::string> ("count"));
+		ASSERT_EQ ("0", response1.json.get<std::string> ("unchecked"));
+		{
+			ASSERT_FALSE (response1.json.get_optional<std::string> ("cemented").is_initialized ());
+		}
+	}
+	request1.put ("include_cemented", "true");
 	test_response response1 (request1, rpc.config.port, system.io_ctx);
 	system.deadline_set (5s);
 	while (response1.status == 0)
@@ -2707,6 +2722,7 @@ TEST (rpc, block_count)
 	ASSERT_EQ (200, response1.status);
 	ASSERT_EQ ("1", response1.json.get<std::string> ("count"));
 	ASSERT_EQ ("0", response1.json.get<std::string> ("unchecked"));
+	ASSERT_EQ ("1", response1.json.get<std::string> ("cemented"));
 }
 
 TEST (rpc, frontier_count)
