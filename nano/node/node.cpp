@@ -249,6 +249,9 @@ startup_time (std::chrono::steady_clock::now ())
 		network.disconnect_observer = [this]() {
 			observers.disconnect.notify ();
 		};
+		active.difficulty_observer = [this](uint64_t active_difficulty) {
+			observers.difficulty.notify (active_difficulty);
+		};
 		if (!config.callback_address.empty ())
 		{
 			observers.blocks.add ([this](nano::election_status const & status_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
@@ -350,6 +353,15 @@ startup_time (std::chrono::steady_clock::now ())
 					nano::websocket::message_builder builder;
 					this->websocket_server->broadcast (builder.stopped_election (hash_a));
 				}
+			});
+			
+			observers.difficulty.add ([this](uint64_t active_difficulty) {
+				if (this->websocket_server->any_subscriber (nano::websocket::topic::active_difficulty))
+				{
+					nano::websocket::message_builder builder;
+					auto msg (builder.difficulty_changed (network_params.network.publish_threshold, active_difficulty));
+					this->websocket_server->broadcast (msg);
+				}      
 			});
 		}
 		observers.endpoint.add ([this](std::shared_ptr<nano::transport::channel> channel_a) {
