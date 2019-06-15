@@ -639,7 +639,12 @@ void nano::active_transactions::update_active_difficulty (std::unique_lock<std::
 	auto sum (std::accumulate (multipliers_cb.begin (), multipliers_cb.end (), double(0)));
 	auto difficulty = nano::difficulty::from_multiplier (sum / multipliers_cb.size (), node.network_params.network.publish_threshold);
 	assert (difficulty >= node.network_params.network.publish_threshold);
+	
+	bool notify_change = trended_active_difficulty != difficulty;
 	trended_active_difficulty = difficulty;
+	if(notify_change){
+    difficulty_observer(trended_active_difficulty);
+  }
 }
 
 uint64_t nano::active_transactions::active_difficulty ()
