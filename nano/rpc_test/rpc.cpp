@@ -6441,10 +6441,7 @@ TEST (rpc, active_difficulty)
 		ASSERT_EQ (trend_it++->second.get<double> (""), 1.);
 		ASSERT_EQ (trend_it++->second.get<double> (""), 4.2);
 		ASSERT_EQ (trend_it++->second.get<double> (""), 1.5);
-		while (trend_it != trend.end ())
-		{
-			ASSERT_EQ (trend_it++->second.get<double> (""), 1.);
-		}
+		ASSERT_TRUE (std::all_of (trend_it, trend.end (), [](auto & item) { return item.second.template get<double> ("") == 1.; }));
 	}
 }
 
