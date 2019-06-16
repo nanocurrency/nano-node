@@ -293,7 +293,8 @@ enum class bootstrap_server_type
 {
 	undefined,
 	bootstrap,
-	realtime
+	realtime,
+	realtime_response_server // special type for tcp channel response server
 };
 class bootstrap_server final : public std::enable_shared_from_this<nano::bootstrap_server>
 {

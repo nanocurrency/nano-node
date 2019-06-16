@@ -1915,6 +1915,13 @@ nano::bootstrap_server::~bootstrap_server ()
 	{
 		--node->bootstrap.realtime_count;
 		node->network.response_channels.remove (remote_endpoint);
+		// Clear temporary channel
+		auto exisiting_response_channel (node->network.tcp_channels.find_channel (remote_endpoint));
+		if (exisiting_response_channel != nullptr)
+		{
+			exisiting_response_channel->server = false;
+			node->network.tcp_channels.erase (remote_endpoint);
+		}
 	}
 	stop ();
 	std::lock_guard<std::mutex> lock (node->bootstrap.mutex);
@@ -2150,7 +2157,7 @@ void nano::bootstrap_server::receive_keepalive_action (boost::system::error_code
 		std::unique_ptr<nano::keepalive> request (new nano::keepalive (error, stream, header_a));
 		if (!error)
 		{
-			if (type == nano::bootstrap_server_type::realtime)
+			if (type == nano::bootstrap_server_type::realtime || type == nano::bootstrap_server_type::realtime_response_server)
 			{
 				add_request (std::unique_ptr<nano::message> (request.release ()));
 			}
@@ -2175,7 +2182,7 @@ void nano::bootstrap_server::receive_publish_action (boost::system::error_code c
 		std::unique_ptr<nano::publish> request (new nano::publish (error, stream, header_a));
 		if (!error)
 		{
-			if (type == nano::bootstrap_server_type::realtime)
+			if (type == nano::bootstrap_server_type::realtime || type == nano::bootstrap_server_type::realtime_response_server)
 			{
 				add_request (std::unique_ptr<nano::message> (request.release ()));
 			}
@@ -2200,7 +2207,7 @@ void nano::bootstrap_server::receive_confirm_req_action (boost::system::error_co
 		std::unique_ptr<nano::confirm_req> request (new nano::confirm_req (error, stream, header_a));
 		if (!error)
 		{
-			if (type == nano::bootstrap_server_type::realtime)
+			if (type == nano::bootstrap_server_type::realtime || type == nano::bootstrap_server_type::realtime_response_server)
 			{
 				add_request (std::unique_ptr<nano::message> (request.release ()));
 			}
@@ -2222,7 +2229,7 @@ void nano::bootstrap_server::receive_confirm_ack_action (boost::system::error_co
 		std::unique_ptr<nano::confirm_ack> request (new nano::confirm_ack (error, stream, header_a));
 		if (!error)
 		{
-			if (type == nano::bootstrap_server_type::realtime)
+			if (type == nano::bootstrap_server_type::realtime || type == nano::bootstrap_server_type::realtime_response_server)
 			{
 				add_request (std::unique_ptr<nano::message> (request.release ()));
 			}
@@ -2349,29 +2356,26 @@ public:
 	}
 	void publish (nano::publish const & message_a) override
 	{
-		assert (connection->type == nano::bootstrap_server_type::realtime);
 		connection->finish_request_async ();
 		auto connection_l (connection->shared_from_this ());
 		connection->node->background ([connection_l, message_a]() {
-			connection_l->node->network.tcp_channels.process_message (message_a, connection_l->remote_endpoint, connection_l->remote_node_id, connection_l->socket);
+			connection_l->node->network.tcp_channels.process_message (message_a, connection_l->remote_endpoint, connection_l->remote_node_id, connection_l->socket, connection->type);
 		});
 	}
 	void confirm_req (nano::confirm_req const & message_a) override
 	{
-		assert (connection->type == nano::bootstrap_server_type::realtime);
 		connection->finish_request_async ();
 		auto connection_l (connection->shared_from_this ());
 		connection->node->background ([connection_l, message_a]() {
-			connection_l->node->network.tcp_channels.process_message (message_a, connection_l->remote_endpoint, connection_l->remote_node_id, connection_l->socket);
+			connection_l->node->network.tcp_channels.process_message (message_a, connection_l->remote_endpoint, connection_l->remote_node_id, connection_l->socket, connection->type);
 		});
 	}
 	void confirm_ack (nano::confirm_ack const & message_a) override
 	{
-		assert (connection->type == nano::bootstrap_server_type::realtime);
 		connection->finish_request_async ();
 		auto connection_l (connection->shared_from_this ());
 		connection->node->background ([connection_l, message_a]() {
-			connection_l->node->network.tcp_channels.process_message (message_a, connection_l->remote_endpoint, connection_l->remote_node_id, connection_l->socket);
+			connection_l->node->network.tcp_channels.process_message (message_a, connection_l->remote_endpoint, connection_l->remote_node_id, connection_l->socket, connection->type);
 		});
 	}
 	void bulk_pull (nano::bulk_pull const &) override
@@ -2448,7 +2452,7 @@ public:
 		assert (connection->remote_node_id.is_zero () || connection->type == nano::bootstrap_server_type::realtime);
 		auto connection_l (connection->shared_from_this ());
 		connection->node->background ([connection_l, message_a]() {
-			connection_l->node->network.tcp_channels.process_message (message_a, connection_l->remote_endpoint, connection_l->remote_node_id, connection_l->socket);
+			connection_l->node->network.tcp_channels.process_message (message_a, connection_l->remote_endpoint, connection_l->remote_node_id, connection_l->socket, connection->type);
 		});
 	}
 	std::shared_ptr<nano::bootstrap_server> connection;
