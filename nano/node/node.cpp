@@ -319,31 +319,28 @@ startup_time (std::chrono::steady_clock::now ())
 				if (this->websocket_server->any_subscriber (nano::websocket::topic::confirmation))
 				{
 					auto block_a (status_a.winner);
-					if (this->block_arrival.recent (block_a->hash ()))
+					std::string subtype;
+					if (is_state_send_a)
 					{
-						std::string subtype;
-						if (is_state_send_a)
-						{
-							subtype = "send";
-						}
-						else if (block_a->type () == nano::block_type::state)
-						{
-							if (block_a->link ().is_zero ())
-							{
-								subtype = "change";
-							}
-							else if (amount_a == 0 && !this->ledger.epoch_link.is_zero () && this->ledger.is_epoch_link (block_a->link ()))
-							{
-								subtype = "epoch";
-							}
-							else
-							{
-								subtype = "receive";
-							}
-						}
-
-						this->websocket_server->broadcast_confirmation (block_a, account_a, amount_a, subtype, status_a.type);
+						subtype = "send";
 					}
+					else if (block_a->type () == nano::block_type::state)
+					{
+						if (block_a->link ().is_zero ())
+						{
+							subtype = "change";
+						}
+						else if (amount_a == 0 && !this->ledger.epoch_link.is_zero () && this->ledger.is_epoch_link (block_a->link ()))
+						{
+							subtype = "epoch";
+						}
+						else
+						{
+							subtype = "receive";
+						}
+					}
+
+					this->websocket_server->broadcast_confirmation (block_a, account_a, amount_a, subtype, status_a.type);
 				}
 			});
 

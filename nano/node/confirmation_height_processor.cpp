@@ -12,6 +12,21 @@
 #include <cassert>
 #include <numeric>
 
+namespace
+{
+class confirmed_iterated_pair
+{
+public:
+	confirmed_iterated_pair (uint64_t confirmed_height_a, uint64_t iterated_height_a) :
+	confirmed_height (confirmed_height_a), iterated_height (iterated_height_a)
+	{
+	}
+
+	uint64_t confirmed_height;
+	uint64_t iterated_height;
+};
+}
+
 nano::confirmation_height_processor::confirmation_height_processor (nano::pending_confirmation_height & pending_confirmation_height_a, nano::block_store & store_a, nano::stat & stats_a, nano::active_transactions & active_a, nano::block_hash const & epoch_link_a, nano::logger_mt & logger_a) :
 pending_confirmations (pending_confirmation_height_a),
 store (store_a),
@@ -87,8 +102,9 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 	std::deque<conf_height_details> pending_writes;
 	assert (receive_source_pairs_size == 0);
 
-	// Store the highest confirmation heights for accounts in pending_writes to reduce unnecessary iterating
-	std::unordered_map<account, uint64_t> confirmation_height_pending_write_cache;
+	// Store the highest confirmation heights for accounts in pending_writes to reduce unnecessary iterating,
+	// and iterated height to prevent iterating over the same blocks more than once from self-sends or "circular" sends between the same accounts.
+	std::unordered_map<account, confirmed_iterated_pair> confirmed_iterated_pairs;
 
 	release_assert (receive_source_pairs.empty ());
 	auto error = false;
@@ -118,22 +134,30 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 		nano::account account (store.block_account (read_transaction, current));
 		release_assert (!store.account_get (read_transaction, account, account_info));
 		auto confirmation_height = account_info.confirmation_height;
-
-		auto account_it = confirmation_height_pending_write_cache.find (account);
-		if (account_it != confirmation_height_pending_write_cache.cend () && account_it->second > confirmation_height)
+		auto iterated_height = confirmation_height;
+		auto account_it = confirmed_iterated_pairs.find (account);
+		if (account_it != confirmed_iterated_pairs.cend ())
 		{
-			confirmation_height = account_it->second;
+			if (account_it->second.confirmed_height > confirmation_height)
+			{
+				confirmation_height = account_it->second.confirmed_height;
+				iterated_height = confirmation_height;
+			}
+			if (account_it->second.iterated_height > iterated_height)
+			{
+				iterated_height = account_it->second.iterated_height;
+			}
 		}
 
 		auto count_before_receive = receive_source_pairs.size ();
-		if (block_height > confirmation_height)
+		if (block_height > iterated_height)
 		{
-			if ((block_height - confirmation_height) > 20000)
+			if ((block_height - iterated_height) > 20000)
 			{
 				logger.always_log ("Iterating over a large account chain for setting confirmation height. The top block: ", current.to_string ());
 			}
 
-			collect_unconfirmed_receive_and_sources_for_account (block_height, confirmation_height, current, account, read_transaction);
+			collect_unconfirmed_receive_and_sources_for_account (block_height, iterated_height, current, account, read_transaction);
 		}
 
 		// No longer need the read transaction
@@ -147,13 +171,17 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 			if (block_height > confirmation_height)
 			{
 				// Check whether the previous block has been seen. If so, the rest of sends below have already been seen so don't count them
-				if (account_it != confirmation_height_pending_write_cache.cend ())
+				if (account_it != confirmed_iterated_pairs.cend ())
 				{
-					account_it->second = block_height;
+					account_it->second.confirmed_height = block_height;
+					if (block_height > iterated_height)
+					{
+						account_it->second.iterated_height = block_height;
+					}
 				}
 				else
 				{
-					confirmation_height_pending_write_cache.emplace (account, block_height);
+					confirmed_iterated_pairs.emplace (account, confirmed_iterated_pair{ block_height, block_height });
 				}
 
 				pending_writes.emplace_back (account, current, block_height, block_height - confirmation_height);
@@ -163,17 +191,17 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 			{
 				// Check whether the previous block has been seen. If so, the rest of sends below have already been seen so don't count them
 				auto const & receive_account = receive_details->account;
-				auto receive_account_it = confirmation_height_pending_write_cache.find (receive_account);
-				if (receive_account_it != confirmation_height_pending_write_cache.cend ())
+				auto receive_account_it = confirmed_iterated_pairs.find (receive_account);
+				if (receive_account_it != confirmed_iterated_pairs.cend ())
 				{
 					// Get current height
-					auto current_height = receive_account_it->second;
-					receive_account_it->second = receive_details->height;
+					auto current_height = receive_account_it->second.confirmed_height;
+					receive_account_it->second.confirmed_height = receive_details->height;
 					receive_details->num_blocks_confirmed = receive_details->height - current_height;
 				}
 				else
 				{
-					confirmation_height_pending_write_cache.emplace (receive_account, receive_details->height);
+					confirmed_iterated_pairs.emplace (receive_account, confirmed_iterated_pair{ receive_details->height, receive_details->height });
 				}
 
 				pending_writes.push_back (*receive_details);
@@ -184,6 +212,17 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 				// Pop from the end
 				receive_source_pairs.erase (receive_source_pairs.end () - 1);
 				--receive_source_pairs_size;
+			}
+		}
+		else if (block_height > iterated_height)
+		{
+			if (account_it != confirmed_iterated_pairs.cend ())
+			{
+				account_it->second.iterated_height = block_height;
+			}
+			else
+			{
+				confirmed_iterated_pairs.emplace (account, confirmed_iterated_pair{ confirmation_height, block_height });
 			}
 		}
 

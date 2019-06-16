@@ -1497,6 +1497,16 @@ TEST (bootstrap, tcp_node_id_handshake)
 	}
 }
 
+namespace
+{
+void add_callback_stats (nano::node & node)
+{
+	node.observers.blocks.add ([& stats = node.stats](nano::election_status const & status_a, nano::account const &, nano::amount const &, bool) {
+		stats.inc (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out);
+	});
+}
+}
+
 TEST (confirmation_height, single)
 {
 	auto amount (std::numeric_limits<nano::uint128_t>::max ());
@@ -1511,6 +1521,7 @@ TEST (confirmation_height, single)
 	nano::account_info account_info;
 	for (auto & node : system.nodes)
 	{
+		add_callback_stats (*node);
 		auto transaction = node->store.tx_begin_read ();
 		ASSERT_FALSE (node->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
 		ASSERT_EQ (1, account_info.confirmation_height);
@@ -1540,6 +1551,8 @@ TEST (confirmation_height, single)
 		// Rollbacks should fail as these blocks have been cemented
 		ASSERT_TRUE (node->ledger.rollback (transaction, latest1));
 		ASSERT_TRUE (node->ledger.rollback (transaction, send1->hash ()));
+		ASSERT_EQ (1, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
+		ASSERT_EQ (1, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out));
 	}
 }
 
@@ -1579,6 +1592,8 @@ TEST (confirmation_height, multiple_accounts)
 
 	for (auto & node : system.nodes)
 	{
+		add_callback_stats (*node);
+
 		auto transaction = node->store.tx_begin_write ();
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send1).code);
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send2).code);
@@ -1644,8 +1659,6 @@ TEST (confirmation_height, multiple_accounts)
 		ASSERT_EQ (2, account_info.confirmation_height);
 		ASSERT_EQ (2, account_info.block_count);
 
-		ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), 10);
-
 		// The accounts for key1 and key2 have 1 more block in the chain than is confirmed.
 		// So this can be rolled back, but the one before that cannot. Check that this is the case
 		{
@@ -1667,6 +1680,8 @@ TEST (confirmation_height, multiple_accounts)
 			ASSERT_TRUE (node->ledger.rollback (transaction, open1.hash ()));
 			ASSERT_TRUE (node->ledger.rollback (transaction, send2.hash ()));
 		}
+		ASSERT_EQ (10, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
+		ASSERT_EQ (10, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out));
 	}
 }
 
@@ -1697,6 +1712,8 @@ TEST (confirmation_height, gap_bootstrap)
 	node1.block_processor.add (receive1);
 	node1.block_processor.flush ();
 
+	add_callback_stats (node1);
+
 	// Receive 2 comes in on the live network, however the chain has not been finished so it gets added to unchecked
 	node1.process_active (receive2);
 	node1.block_processor.flush ();
@@ -1716,7 +1733,7 @@ TEST (confirmation_height, gap_bootstrap)
 	node1.block_processor.add (open1);
 	node1.block_processor.flush ();
 
-	// Confirmation height should still be 0 and unchecked should now be 0
+	// Confirmation height should be unchanged and unchecked should now be 0
 	{
 		auto transaction (node1.store.tx_begin_read ());
 		auto unchecked_count (node1.store.unchecked_count (transaction));
@@ -1728,6 +1745,8 @@ TEST (confirmation_height, gap_bootstrap)
 		ASSERT_FALSE (node1.store.account_get (transaction, destination.pub, account_info));
 		ASSERT_EQ (0, account_info.confirmation_height);
 	}
+	ASSERT_EQ (0, node1.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
+	ASSERT_EQ (0, node1.stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out));
 }
 
 TEST (confirmation_height, gap_live)
@@ -1763,6 +1782,8 @@ TEST (confirmation_height, gap_live)
 		node->block_processor.add (send3);
 		node->block_processor.add (receive1);
 		node->block_processor.flush ();
+
+		add_callback_stats (*node);
 
 		// Receive 2 comes in on the live network, however the chain has not been finished so it gets added to unchecked
 		node->process_active (receive2);
@@ -1802,6 +1823,9 @@ TEST (confirmation_height, gap_live)
 		ASSERT_EQ (4, account_info.confirmation_height);
 		ASSERT_FALSE (node->store.account_get (transaction, destination.pub, account_info));
 		ASSERT_EQ (3, account_info.confirmation_height);
+
+		ASSERT_EQ (6, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
+		ASSERT_EQ (6, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out));
 	}
 }
 
@@ -1850,6 +1874,8 @@ TEST (confirmation_height, send_receive_between_2_accounts)
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send6).code);
 	}
 
+	add_callback_stats (*node);
+
 	node->process_active (receive4);
 	node->block_processor.flush ();
 
@@ -1876,7 +1902,8 @@ TEST (confirmation_height, send_receive_between_2_accounts)
 	ASSERT_EQ (5, account_info.confirmation_height);
 	ASSERT_EQ (5, account_info.block_count);
 
-	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), 10);
+	ASSERT_EQ (10, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
+	ASSERT_EQ (10, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out));
 }
 
 TEST (confirmation_height, send_receive_self)
@@ -1911,6 +1938,8 @@ TEST (confirmation_height, send_receive_self)
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send4).code);
 	}
 
+	add_callback_stats (*node);
+
 	node->block_confirm (receive3);
 
 	system.deadline_set (10s);
@@ -1930,7 +1959,8 @@ TEST (confirmation_height, send_receive_self)
 	ASSERT_FALSE (node->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
 	ASSERT_EQ (7, account_info.confirmation_height);
 	ASSERT_EQ (8, account_info.block_count);
-	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), 6);
+	ASSERT_EQ (6, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
+	ASSERT_EQ (6, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out));
 }
 
 TEST (confirmation_height, all_block_types)
@@ -2003,6 +2033,7 @@ TEST (confirmation_height, all_block_types)
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, state_receive3).code);
 	}
 
+	add_callback_stats (*node);
 	node->block_confirm (state_send2);
 
 	system.deadline_set (10s);
@@ -2031,7 +2062,8 @@ TEST (confirmation_height, all_block_types)
 	ASSERT_EQ (7, account_info.confirmation_height);
 	ASSERT_LE (8, account_info.block_count);
 
-	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), 15);
+	ASSERT_EQ (15, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
+	ASSERT_EQ (15, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out));
 }
 
 /* Bulk of the this test was taken from the node.fork_flip test */
@@ -2120,9 +2152,7 @@ TEST (confirmation_height, observers)
 	nano::block_hash latest1 (node1->latest (nano::test_genesis_key.pub));
 	auto send1 (std::make_shared<nano::send_block> (latest1, key1.pub, amount - node1->config.receive_minimum.number (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest1)));
 
-	node1->observers.blocks.add ([node1](nano::election_status const & status_a, nano::account const &, nano::amount const &, bool) {
-		node1->stats.inc (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out);
-	});
+	add_callback_stats (*node1);
 
 	node1->process_active (send1);
 	node1->block_processor.flush ();
@@ -2134,7 +2164,60 @@ TEST (confirmation_height, observers)
 		confirmed = node1->ledger.block_confirmed (transaction, send1->hash ());
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	ASSERT_EQ (1, node1->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
 	ASSERT_EQ (1, node1->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out));
+}
+
+namespace nano
+{
+TEST (confirmation_height, pending_observer_callbacks)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.delay_frontier_confirmation_height_updating = true;
+	auto node = system.add_node (nano::node_config (24000, system.logging), node_flags);
+
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
+
+	nano::keypair key1;
+	auto & store = node->store;
+	nano::send_block send (latest, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest));
+	auto send1 = std::make_shared<nano::send_block> (send.hash (), key1.pub, nano::genesis_amount - nano::Gxrb_ratio * 2, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send.hash ()));
+
+	{
+		auto transaction = node->store.tx_begin_write ();
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send1).code);
+	}
+
+	add_callback_stats (*node);
+
+	node->confirmation_height_processor.add (send1->hash ());
+
+	while (true)
+	{
+		if (node->pending_confirmation_height.size () == 0)
+		{
+			break;
+		}
+	}
+	// Can have timing issues.
+	node->confirmation_height_processor.add (send.hash ());
+	{
+		std::unique_lock<std::mutex> lk (node->pending_confirmation_height.mutex);
+		while (!node->pending_confirmation_height.current_hash.is_zero ())
+		{
+			lk.unlock ();
+			std::this_thread::yield ();
+			lk.lock ();
+		}
+	}
+
+	// Confirm the callback is not called under this circumstance
+	ASSERT_EQ (2, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
+	ASSERT_EQ (0, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out));
+}
 }
 
 TEST (bootstrap, tcp_listener_timeout_empty)
