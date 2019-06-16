@@ -14,7 +14,7 @@
 namespace nano
 {
 class bootstrap_server;
-class bootstrap_server_type;
+enum class bootstrap_server_type;
 namespace transport
 {
 	class tcp_channels;
