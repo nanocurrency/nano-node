@@ -177,13 +177,13 @@ TEST (websocket, subscribe_active_difficulty)
 	ASSERT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::active_difficulty));
 
 	// Subscribe to active_difficulty and wait for response asynchronously
-	ack_ready = false;  
+	ack_ready = false;
 	auto client_task = ([&node1]() -> boost::optional<std::string> {
 		auto response = websocket_test_call ("::1", "24078", R"json({"action": "subscribe", "topic": "active_difficulty", "ack": true})json", true, true);
 		return response;
 	});
-	auto client_future = std::async(client_task);
-	
+	auto client_future = std::async (client_task);
+
 	// Wait for acknowledge
 	system.deadline_set (5s);
 	while (!ack_ready)
@@ -191,37 +191,37 @@ TEST (websocket, subscribe_active_difficulty)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::active_difficulty));
-	
+
 	// Fake history records to force trended_active_difficulty change
 	node1->active.multipliers_cb.push_front (10.);
-	
+
 	// Wait to receive the active_difficulty message
 	system.deadline_set (5s);
-	while (client_future.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+	while (client_future.wait_for (std::chrono::seconds (0)) != std::future_status::ready)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	
+
 	// Check active_difficulty response
-	auto response = client_future.get();
+	auto response = client_future.get ();
 	ASSERT_TRUE (response);
 	std::stringstream stream;
 	stream << response;
 	boost::property_tree::ptree event;
 	boost::property_tree::read_json (stream, event);
 	ASSERT_EQ (event.get<std::string> ("topic"), "active_difficulty");
-		
-	auto message_contents = event.get_child("message");
+
+	auto message_contents = event.get_child ("message");
 	uint64_t network_minimum;
-	nano::from_string_hex(message_contents.get<std::string>("network_minimum"), network_minimum);
-	ASSERT_EQ(network_minimum, node1->network_params.network.publish_threshold);
-		
+	nano::from_string_hex (message_contents.get<std::string> ("network_minimum"), network_minimum);
+	ASSERT_EQ (network_minimum, node1->network_params.network.publish_threshold);
+
 	uint64_t network_current;
-	nano::from_string_hex(message_contents.get<std::string>("network_current"), network_current);
-	ASSERT_EQ(network_current, node1->active.active_difficulty());
-		
-	double multiplier = std::stod(message_contents.get<std::string>("multiplier"));
-	ASSERT_NEAR(multiplier, nano::difficulty::to_multiplier (node1->active.active_difficulty(), node1->network_params.network.publish_threshold), 1e-6);
+	nano::from_string_hex (message_contents.get<std::string> ("network_current"), network_current);
+	ASSERT_EQ (network_current, node1->active.active_difficulty ());
+
+	double multiplier = std::stod (message_contents.get<std::string> ("multiplier"));
+	ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (node1->active.active_difficulty (), node1->network_params.network.publish_threshold), 1e-6);
 
 	node1->stop ();
 }
