@@ -11,7 +11,10 @@ using namespace std::chrono_literals;
 
 TEST (system, generate_mass_activity)
 {
-	nano::system system (24000, 1);
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.enable_voting = false; // Prevent blocks cementing
+	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	uint32_t count (20);
 	system.generate_mass_activity (count, *system.nodes[0]);
@@ -25,7 +28,11 @@ TEST (system, generate_mass_activity)
 
 TEST (system, generate_mass_activity_long)
 {
-	nano::system system (24000, 1);
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.enable_voting = false; // Prevent blocks cementing
+	auto node = system.add_node (node_config);
+	system.wallet (0)->wallets.watcher.stop (); // Stop work watcher
 	nano::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	uint32_t count (1000000000);
@@ -44,7 +51,10 @@ TEST (system, receive_while_synchronizing)
 {
 	std::vector<boost::thread> threads;
 	{
-		nano::system system (24000, 1);
+		nano::system system;
+		nano::node_config node_config (24000, system.logging);
+		node_config.enable_voting = false; // Prevent blocks cementing
+		auto node = system.add_node (node_config);
 		nano::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
 		system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 		uint32_t count (1000);
@@ -56,6 +66,7 @@ TEST (system, receive_while_synchronizing)
 		auto channel (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, system.nodes[0]->network.endpoint ()));
 		node1->network.send_keepalive (channel);
 		auto wallet (node1->wallets.create (1));
+		wallet->insert_adhoc (nano::test_genesis_key.prv); // For voting
 		ASSERT_EQ (key.pub, wallet->insert_adhoc (key.prv));
 		node1->start ();
 		system.nodes.push_back (node1);
@@ -91,21 +102,22 @@ TEST (ledger, deep_account_compute)
 	nano::genesis genesis;
 	auto transaction (store.tx_begin_write ());
 	store.initialize (transaction, genesis);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::keypair key;
 	auto balance (nano::genesis_amount - 1);
-	nano::send_block send (genesis.hash (), key.pub, balance, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	nano::send_block send (genesis.hash (), key.pub, balance, nano::test_genesis_key.prv, nano::test_genesis_key.pub, pool.generate (genesis.hash ()));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send).code);
-	nano::open_block open (send.hash (), nano::test_genesis_key.pub, key.pub, key.prv, key.pub, 0);
+	nano::open_block open (send.hash (), nano::test_genesis_key.pub, key.pub, key.prv, key.pub, pool.generate (key.pub));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, open).code);
 	auto sprevious (send.hash ());
 	auto rprevious (open.hash ());
 	for (auto i (0), n (100000); i != n; ++i)
 	{
 		balance -= 1;
-		nano::send_block send (sprevious, key.pub, balance, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+		nano::send_block send (sprevious, key.pub, balance, nano::test_genesis_key.prv, nano::test_genesis_key.pub, pool.generate (sprevious));
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send).code);
 		sprevious = send.hash ();
-		nano::receive_block receive (rprevious, send.hash (), key.prv, key.pub, 0);
+		nano::receive_block receive (rprevious, send.hash (), key.prv, key.pub, pool.generate (rprevious));
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive).code);
 		rprevious = receive.hash ();
 		if (i % 100 == 0)
@@ -177,6 +189,7 @@ TEST (store, load)
 	}
 }
 
+// ulimit -n increasing may be required
 TEST (node, fork_storm)
 {
 	nano::system system (24000, 64);
@@ -189,6 +202,7 @@ TEST (node, fork_storm)
 		balance -= 1;
 		nano::keypair key;
 		nano::send_block send (previous, key.pub, balance, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+		system.nodes[j]->work_generate_blocking (send);
 		previous = send.hash ();
 		for (auto i (0); i != system.nodes.size (); ++i)
 		{
@@ -219,6 +233,7 @@ TEST (node, fork_storm)
 			}
 			else
 			{
+				std::lock_guard<std::mutex> lock (node_a->active.mutex);
 				if (node_a->active.roots.begin ()->election->last_votes_size () == 1)
 				{
 					++single;
