@@ -267,9 +267,9 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 				temporary_channel->set_last_packet_received (std::chrono::steady_clock::now ());
 				temporary_channel->set_last_packet_sent (std::chrono::steady_clock::now ());
 				temporary_channel->server = true;
-				assert (type_a == nano::bootstrap_server_type::realtime || type_a == nano::bootstrap_server_type::realtime_response_server);
 				// Don't insert temporary channels for response_server
-				if (type_a != nano::bootstrap_server_type::realtime_response_server)
+				assert (type_a == nano::bootstrap_server_type::realtime);
+				if (type_a == nano::bootstrap_server_type::realtime)
 				{
 					insert (temporary_channel);
 				}
@@ -279,6 +279,7 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 			{
 				// Initial node_id_handshake request without node ID
 				assert (message_a.header.type == nano::message_type::node_id_handshake);
+				assert (type_a == nano::bootstrap_server_type::undefined);
 				node.stats.inc (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in);
 			}
 		}
