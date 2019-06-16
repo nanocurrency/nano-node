@@ -6382,6 +6382,72 @@ TEST (rpc, database_txn_tracker)
 	thread.join ();
 }
 
+TEST (rpc, active_difficulty)
+{
+	nano::system system (24000, 1);
+	auto node = system.nodes.front ();
+	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
+	nano::rpc_config rpc_config (true);
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "active_difficulty");
+	node->active.multipliers_cb.push_front (1.5);
+	node->active.multipliers_cb.push_front (4.2);
+	std::mutex mutex;
+	std::unique_lock<std::mutex> lock (mutex);
+	// Also pushes 1.0 to the front of multipliers_cb
+	node->active.update_active_difficulty (lock);
+	auto trend_size (node->active.multipliers_cb.size ());
+	ASSERT_NE (0, trend_size);
+	auto expected_multiplier{ (1.5 + 4.2 + (trend_size - 2) * 1) / trend_size };
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		auto network_minimum_text (response.json.get<std::string> ("network_minimum"));
+		uint64_t network_minimum;
+		ASSERT_FALSE (nano::from_string_hex (network_minimum_text, network_minimum));
+		ASSERT_EQ (node->network_params.network.publish_threshold, network_minimum);
+		auto multiplier (response.json.get<double> ("multiplier"));
+		ASSERT_NEAR (expected_multiplier, multiplier, 1e-6);
+		auto network_current_text (response.json.get<std::string> ("network_current"));
+		uint64_t network_current;
+		ASSERT_FALSE (nano::from_string_hex (network_current_text, network_current));
+		ASSERT_EQ (nano::difficulty::from_multiplier (expected_multiplier, node->network_params.network.publish_threshold), network_current);
+		ASSERT_EQ (response.json.not_found (), response.json.find ("difficulty_trend"));
+	}
+	// Test include_trend optional
+	request.put ("include_trend", true);
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		auto trend_opt (response.json.get_child_optional ("difficulty_trend"));
+		ASSERT_TRUE (trend_opt.is_initialized ());
+		auto & trend (trend_opt.get ());
+		ASSERT_EQ (trend_size, trend.size ());
+		auto trend_it (trend.begin ());
+		ASSERT_EQ (trend_it++->second.get<double> (""), 1.);
+		ASSERT_EQ (trend_it++->second.get<double> (""), 4.2);
+		ASSERT_EQ (trend_it++->second.get<double> (""), 1.5);
+		while (trend_it != trend.end ())
+		{
+			ASSERT_EQ (trend_it++->second.get<double> (""), 1.);
+		}
+	}
+}
+
 // This is mainly to check for threading issues with TSAN
 TEST (rpc, simultaneous_calls)
 {
