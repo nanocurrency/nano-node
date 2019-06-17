@@ -29,6 +29,7 @@ private:
 	/** This is the last block popped off the confirmation height pending collection */
 	nano::block_hash current_hash{ 0 };
 	friend class confirmation_height_processor;
+	friend class confirmation_height_pending_observer_callbacks_Test;
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (pending_confirmation_height &, const std::string &);
@@ -86,6 +87,7 @@ private:
 	bool write_pending (std::deque<conf_height_details> &, int64_t);
 
 	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (confirmation_height_processor &, const std::string &);
+	friend class confirmation_height_pending_observer_callbacks_Test;
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (confirmation_height_processor &, const std::string &);

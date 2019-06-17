@@ -271,6 +271,69 @@ TEST (websocket, confirmation)
 	node1->stop ();
 }
 
+/** Tests getting notification of an erased election */
+TEST (websocket, stopped_election)
+{
+	nano::system system (24000, 1);
+	nano::node_init init1;
+	nano::node_config config;
+	nano::node_flags node_flags;
+	config.websocket_config.enabled = true;
+	config.websocket_config.port = 24078;
+
+	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
+	nano::uint256_union wallet;
+	nano::random_pool::generate_block (wallet.bytes.data (), wallet.bytes.size ());
+	node1->wallets.create (wallet);
+	node1->start ();
+	system.nodes.push_back (node1);
+
+	// Start websocket test-client in a separate thread
+	ack_ready = false;
+	std::atomic<bool> client_thread_finished{ false };
+	ASSERT_FALSE (node1->websocket_server->any_subscriber (nano::websocket::topic::confirmation));
+	std::thread client_thread ([&client_thread_finished]() {
+		auto response = websocket_test_call ("::1", "24078",
+		R"json({"action": "subscribe", "topic": "stopped_election", "ack": "true"})json", true, true, 5s);
+
+		ASSERT_TRUE (response);
+		boost::property_tree::ptree event;
+		std::stringstream stream;
+		stream << response.get ();
+		boost::property_tree::read_json (stream, event);
+		ASSERT_EQ (event.get<std::string> ("topic"), "stopped_election");
+		client_thread_finished = true;
+	});
+
+	// Wait for subscribe acknowledgement
+	system.deadline_set (5s);
+	while (!ack_ready)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ack_ready = false;
+
+	// Create election, then erase it, causing a websocket message to be emitted
+	nano::keypair key1;
+	nano::genesis genesis;
+	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+	nano::publish publish1 (send1);
+	auto channel1 (node1->network.udp_channels.create (node1->network.endpoint ()));
+	node1->network.process_message (publish1, channel1);
+	node1->block_processor.flush ();
+	node1->active.erase (*send1);
+
+	// Wait for subscribe acknowledgement
+	system.deadline_set (5s);
+	while (!client_thread_finished)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	client_thread.join ();
+	node1->stop ();
+}
+
 /** Tests the filtering options of block confirmations */
 TEST (websocket, confirmation_options)
 {

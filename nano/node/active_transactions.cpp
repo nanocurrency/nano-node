@@ -9,11 +9,11 @@ size_t constexpr nano::active_transactions::max_broadcast_queue;
 
 using namespace std::chrono;
 
-nano::active_transactions::active_transactions (nano::node & node_a, bool delay_frontier_confirmation_height_updating) :
+nano::active_transactions::active_transactions (nano::node & node_a) :
 node (node_a),
 multipliers_cb (20, 1.),
 trended_active_difficulty (node.network_params.network.publish_threshold),
-next_frontier_check (steady_clock::now () + (delay_frontier_confirmation_height_updating ? 60s : 0s)),
+next_frontier_check (steady_clock::now () + (node_a.flags.delay_frontier_confirmation_height_updating ? 60s : 0s)),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::request_loop);
 	request_loop ();
@@ -46,7 +46,7 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 	auto check_time_exceeded = std::chrono::steady_clock::now () >= next_frontier_check;
 	lk.unlock ();
 	auto low_active_elections = roots_size < max_elections;
-	if (check_time_exceeded || (!is_test_network && low_active_elections))
+	if (roots_size <= node.config.active_elections_size && (check_time_exceeded || (!is_test_network && low_active_elections)))
 	{
 		// When the number of active elections is low increase max number of elections for setting confirmation height.
 		if (max_broadcast_queue > roots_size + max_elections)
@@ -280,7 +280,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 	// Rebroadcast unconfirmed blocks
 	if (!rebroadcast_bundle.empty ())
 	{
-		node.network.flood_block_batch (rebroadcast_bundle);
+		node.network.flood_block_batch (std::move (rebroadcast_bundle));
 	}
 	// Batch confirmation request
 	if (!node.network_params.network.is_live_network () && !requests_bundle.empty ())

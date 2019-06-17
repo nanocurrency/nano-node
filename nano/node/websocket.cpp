@@ -83,7 +83,7 @@ bool nano::websocket::confirmation_options::should_filter (nano::websocket::mess
 {
 	bool should_filter_conf_type_l (true);
 
-	auto type_text_l (message_a.contents.get<std::string> ("confirmation_type"));
+	auto type_text_l (message_a.contents.get<std::string> ("message.confirmation_type"));
 	if (type_text_l == "active_quorum" && confirmation_types & type_active_quorum)
 	{
 		should_filter_conf_type_l = false;
@@ -550,11 +550,12 @@ void nano::websocket::listener::decrease_subscriber_count (nano::websocket::topi
 
 nano::websocket::message nano::websocket::message_builder::stopped_election (nano::block_hash const & hash_a)
 {
-	nano::websocket::message message_l (nano::websocket::topic::confirmation);
+	nano::websocket::message message_l (nano::websocket::topic::stopped_election);
 	set_common_fields (message_l);
 
 	boost::property_tree::ptree message_node_l;
 	message_node_l.add ("hash", hash_a.to_string ());
+	message_l.contents.add_child ("message", message_node_l);
 
 	return message_l;
 }
@@ -585,7 +586,7 @@ nano::websocket::message nano::websocket::message_builder::block_confirmed (std:
 		default:
 			break;
 	};
-	message_l.contents.add ("confirmation_type", confirmation_type);
+	message_node_l.add ("confirmation_type", confirmation_type);
 
 	if (include_block_a)
 	{

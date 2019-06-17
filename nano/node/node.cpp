@@ -194,7 +194,7 @@ node (init_a, io_ctx_a, application_path_a, alarm_a, nano::node_config (peering_
 {
 }
 
-nano::node::node (nano::node_init & init_a, boost::asio::io_context & io_ctx_a, boost::filesystem::path const & application_path_a, nano::alarm & alarm_a, nano::node_config const & config_a, nano::work_pool & work_a, nano::node_flags flags_a, bool delay_frontier_confirmation_height_updating) :
+nano::node::node (nano::node_init & init_a, boost::asio::io_context & io_ctx_a, boost::filesystem::path const & application_path_a, nano::alarm & alarm_a, nano::node_config const & config_a, nano::work_pool & work_a, nano::node_flags flags_a) :
 io_ctx (io_ctx_a),
 node_initialized_latch (1),
 config (config_a),
@@ -225,7 +225,7 @@ block_processor_thread ([this]() {
 }),
 online_reps (*this, config.online_weight_minimum.number ()),
 vote_uniquer (block_uniquer),
-active (*this, delay_frontier_confirmation_height_updating),
+active (*this),
 confirmation_height_processor (pending_confirmation_height, store, ledger.stats, active, ledger.epoch_link, logger),
 payment_observer_processor (observers.blocks),
 wallets (init_a.wallets_store_init, *this),
@@ -253,7 +253,7 @@ startup_time (std::chrono::steady_clock::now ())
 		{
 			observers.blocks.add ([this](nano::election_status const & status_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
 				auto block_a (status_a.winner);
-				if (this->block_arrival.recent (block_a->hash ()))
+				if ((status_a.type == nano::election_status_type::active_confirmed_quorum || status_a.type == nano::election_status_type::active_confirmation_height) && this->block_arrival.recent (block_a->hash ()))
 				{
 					auto node_l (shared_from_this ());
 					background ([node_l, block_a, account_a, amount_a, is_state_send_a]() {
@@ -319,31 +319,28 @@ startup_time (std::chrono::steady_clock::now ())
 				if (this->websocket_server->any_subscriber (nano::websocket::topic::confirmation))
 				{
 					auto block_a (status_a.winner);
-					if (this->block_arrival.recent (block_a->hash ()))
+					std::string subtype;
+					if (is_state_send_a)
 					{
-						std::string subtype;
-						if (is_state_send_a)
-						{
-							subtype = "send";
-						}
-						else if (block_a->type () == nano::block_type::state)
-						{
-							if (block_a->link ().is_zero ())
-							{
-								subtype = "change";
-							}
-							else if (amount_a == 0 && !this->ledger.epoch_link.is_zero () && this->ledger.is_epoch_link (block_a->link ()))
-							{
-								subtype = "epoch";
-							}
-							else
-							{
-								subtype = "receive";
-							}
-						}
-
-						this->websocket_server->broadcast_confirmation (block_a, account_a, amount_a, subtype, status_a.type);
+						subtype = "send";
 					}
+					else if (block_a->type () == nano::block_type::state)
+					{
+						if (block_a->link ().is_zero ())
+						{
+							subtype = "change";
+						}
+						else if (amount_a == 0 && !this->ledger.epoch_link.is_zero () && this->ledger.is_epoch_link (block_a->link ()))
+						{
+							subtype = "epoch";
+						}
+						else
+						{
+							subtype = "receive";
+						}
+					}
+
+					this->websocket_server->broadcast_confirmation (block_a, account_a, amount_a, subtype, status_a.type);
 				}
 			});
 
