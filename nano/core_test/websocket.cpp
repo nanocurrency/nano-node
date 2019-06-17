@@ -220,7 +220,7 @@ TEST (websocket, subscribe_active_difficulty)
 	nano::from_string_hex (message_contents.get<std::string> ("network_current"), network_current);
 	ASSERT_EQ (network_current, node1->active.active_difficulty ());
 
-	double multiplier = std::stod (message_contents.get<std::string> ("multiplier"));
+	double multiplier = message_contents.get<double> ("multiplier");
 	ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (node1->active.active_difficulty (), node1->network_params.network.publish_threshold), 1e-6);
 
 	node1->stop ();
