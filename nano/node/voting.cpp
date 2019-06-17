@@ -5,8 +5,6 @@
 
 nano::vote_generator::vote_generator (nano::node & node_a) :
 node (node_a),
-stopped (false),
-started (false),
 thread ([this]() { run (); })
 {
 	std::unique_lock<std::mutex> lock (mutex);
@@ -23,6 +21,7 @@ void nano::vote_generator::add (nano::block_hash const & hash_a)
 	if (hashes.size () >= node.config.vote_generator_threshold)
 	{
 		// Potentially high load, notify to wait for more hashes
+		wakeup = true;
 		lock.unlock ();
 		condition.notify_all ();
 	}
@@ -32,6 +31,7 @@ void nano::vote_generator::stop ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	stopped = true;
+	wakeup = true;
 
 	lock.unlock ();
 	condition.notify_all ();
@@ -77,12 +77,16 @@ void nano::vote_generator::run ()
 		{
 			send (lock);
 		}
-		else if (condition.wait_for (lock, node.config.vote_generator_delay, [this]() { return !this->hashes.empty () && this->hashes.size () < this->node.config.vote_generator_threshold; }))
+		else
 		{
-			// Likely not under high load, ok to send lower number of hashes
-			if (!stopped && !hashes.empty ())
+			wakeup = false;
+			if (!condition.wait_for (lock, node.config.vote_generator_delay, [this]() { return this->wakeup; }))
 			{
-				send (lock);
+				// Did not wake up early. Likely not under high load, ok to send lower number of hashes
+				if (!hashes.empty ())
+				{
+					send (lock);
+				}
 			}
 		}
 	}
