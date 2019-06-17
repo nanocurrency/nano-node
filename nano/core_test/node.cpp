@@ -710,6 +710,7 @@ TEST (node_config, v16_v17_upgrade)
 	ASSERT_FALSE (tree.get_optional_child ("external_port"));
 	ASSERT_FALSE (tree.get_optional_child ("tcp_incoming_connections_max"));
 	ASSERT_FALSE (tree.get_optional_child ("vote_generator_delay"));
+	ASSERT_FALSE (tree.get_optional_child ("vote_generator_threshold"));
 	ASSERT_FALSE (tree.get_optional_child ("diagnostics"));
 	ASSERT_FALSE (tree.get_optional_child ("use_memory_pools"));
 	ASSERT_FALSE (tree.get_optional_child ("confirmation_history_size"));
@@ -724,6 +725,7 @@ TEST (node_config, v16_v17_upgrade)
 	ASSERT_TRUE (!!tree.get_optional_child ("external_port"));
 	ASSERT_TRUE (!!tree.get_optional_child ("tcp_incoming_connections_max"));
 	ASSERT_TRUE (!!tree.get_optional_child ("vote_generator_delay"));
+	ASSERT_TRUE (!!tree.get_optional_child ("vote_generator_threshold"));
 	ASSERT_TRUE (!!tree.get_optional_child ("diagnostics"));
 	ASSERT_TRUE (!!tree.get_optional_child ("use_memory_pools"));
 	ASSERT_TRUE (!!tree.get_optional_child ("confirmation_history_size"));
@@ -755,6 +757,7 @@ TEST (node_config, v17_values)
 		tree.put ("external_port", 0);
 		tree.put ("tcp_incoming_connections_max", 1);
 		tree.put ("vote_generator_delay", 50);
+		tree.put ("vote_generator_threshold", 3);
 		nano::jsonconfig txn_tracking_l;
 		txn_tracking_l.put ("enable", false);
 		txn_tracking_l.put ("min_read_txn_time", 0);
@@ -792,6 +795,7 @@ TEST (node_config, v17_values)
 	tree.put ("external_port", std::numeric_limits<uint16_t>::max () - 1);
 	tree.put ("tcp_incoming_connections_max", std::numeric_limits<unsigned>::max ());
 	tree.put ("vote_generator_delay", std::numeric_limits<unsigned long>::max () - 100);
+	tree.put ("vote_generator_threshold", 10);
 	nano::jsonconfig txn_tracking_l;
 	txn_tracking_l.put ("enable", true);
 	txn_tracking_l.put ("min_read_txn_time", 1234);
@@ -814,6 +818,7 @@ TEST (node_config, v17_values)
 	ASSERT_EQ (config.external_port, std::numeric_limits<uint16_t>::max () - 1);
 	ASSERT_EQ (config.tcp_incoming_connections_max, std::numeric_limits<unsigned>::max ());
 	ASSERT_EQ (config.vote_generator_delay.count (), std::numeric_limits<unsigned long>::max () - 100);
+	ASSERT_EQ (config.vote_generator_threshold, 10);
 	ASSERT_TRUE (config.diagnostics_config.txn_tracking.enable);
 	ASSERT_EQ (config.diagnostics_config.txn_tracking.min_read_txn_time.count (), 1234);
 	ASSERT_EQ (config.tcp_incoming_connections_max, std::numeric_limits<unsigned>::max ());
@@ -2793,7 +2798,7 @@ TEST (confirmation_height, prioritize_frontiers)
 	nano::send_block send5 (send4.hash (), key3.pub, node->config.online_weight_minimum.number () + 6500, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send4.hash ()));
 	nano::send_block send6 (send5.hash (), key4.pub, node->config.online_weight_minimum.number () + 6000, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send5.hash ()));
 
-	// Open all accounts and add other sends to get different uncemented counts (as well as some which are the same) 
+	// Open all accounts and add other sends to get different uncemented counts (as well as some which are the same)
 	nano::open_block open1 (send1.hash (), nano::genesis_account, key1.pub, key1.prv, key1.pub, system.work.generate (key1.pub));
 	nano::send_block send7 (open1.hash (), nano::test_genesis_key.pub, 500, key1.prv, key1.pub, system.work.generate (open1.hash ()));
 

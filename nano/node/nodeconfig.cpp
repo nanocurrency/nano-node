@@ -114,6 +114,7 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("allow_local_peers", allow_local_peers);
 	json.put ("vote_minimum", vote_minimum.to_string_dec ());
 	json.put ("vote_generator_delay", vote_generator_delay.count ());
+	json.put ("vote_generator_threshold", vote_generator_threshold);
 	json.put ("unchecked_cutoff_time", unchecked_cutoff_time.count ());
 	json.put ("tcp_io_timeout", tcp_io_timeout.count ());
 	json.put ("pow_sleep_interval", pow_sleep_interval.count ());
@@ -249,6 +250,7 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.put ("external_port", external_port);
 			json.put ("tcp_incoming_connections_max", tcp_incoming_connections_max);
 			json.put ("vote_generator_delay", vote_generator_delay.count ());
+			json.put ("vote_generator_threshold", vote_generator_threshold);
 			json.put ("use_memory_pools", use_memory_pools);
 			json.put ("confirmation_history_size", confirmation_history_size);
 			json.put ("active_elections_size", active_elections_size);
@@ -352,6 +354,10 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get<unsigned long> ("vote_generator_delay", delay_l);
 		vote_generator_delay = std::chrono::milliseconds (delay_l);
 
+		unsigned threshold_l = vote_generator_threshold;
+		json.get<unsigned> ("vote_generator_threshold", threshold_l);
+		vote_generator_threshold = threshold_l;
+
 		auto block_processor_batch_max_time_l (json.get<unsigned long> ("block_processor_batch_max_time"));
 		block_processor_batch_max_time = std::chrono::milliseconds (block_processor_batch_max_time_l);
 		auto unchecked_cutoff_time_l = static_cast<unsigned long> (unchecked_cutoff_time.count ());
@@ -412,7 +418,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		}
 		if (password_fanout < 16 || password_fanout > 1024 * 1024)
 		{
-			json.get_error ().set ("password_fanout must a number between 16 and 1048576");
+			json.get_error ().set ("password_fanout must be a number between 16 and 1048576");
 		}
 		if (io_threads == 0)
 		{
@@ -425,6 +431,10 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		if (bandwidth_limit > std::numeric_limits<size_t>::max ())
 		{
 			json.get_error ().set ("bandwidth_limit unbounded = 0, default = 1572864, max = 18446744073709551615");
+		}
+		if (vote_generator_threshold < 1 || vote_generator_threshold > 12)
+		{
+			json.get_error ().set ("vote_generator_threshold must be a number between 1 and 12");
 		}
 	}
 	catch (std::runtime_error const & ex)
