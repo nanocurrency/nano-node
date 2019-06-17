@@ -348,8 +348,9 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 			json.get_error ().set ("vote_minimum contains an invalid decimal amount");
 		}
 
-		auto vote_generator_delay_l (json.get<unsigned long> ("vote_generator_delay"));
-		vote_generator_delay = std::chrono::milliseconds (vote_generator_delay_l);
+		unsigned long delay_l = vote_generator_delay.count ();
+		json.get<unsigned long> ("vote_generator_delay", delay_l);
+		vote_generator_delay = std::chrono::milliseconds (delay_l);
 
 		auto block_processor_batch_max_time_l (json.get<unsigned long> ("block_processor_batch_max_time"));
 		block_processor_batch_max_time = std::chrono::milliseconds (block_processor_batch_max_time_l);
