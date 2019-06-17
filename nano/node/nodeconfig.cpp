@@ -354,9 +354,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get<unsigned long> ("vote_generator_delay", delay_l);
 		vote_generator_delay = std::chrono::milliseconds (delay_l);
 
-		unsigned threshold_l = vote_generator_threshold;
-		json.get<unsigned> ("vote_generator_threshold", threshold_l);
-		vote_generator_threshold = threshold_l;
+		json.get<unsigned> ("vote_generator_threshold", vote_generator_threshold);
 
 		auto block_processor_batch_max_time_l (json.get<unsigned long> ("block_processor_batch_max_time"));
 		block_processor_batch_max_time = std::chrono::milliseconds (block_processor_batch_max_time_l);
