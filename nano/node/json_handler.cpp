@@ -836,11 +836,24 @@ void nano::json_handler::accounts_pending ()
 
 void nano::json_handler::active_difficulty ()
 {
+	auto include_trend (request.get<bool> ("include_trend", false));
 	response_l.put ("network_minimum", nano::to_string_hex (node.network_params.network.publish_threshold));
 	auto difficulty_active = node.active.active_difficulty ();
 	response_l.put ("network_current", nano::to_string_hex (difficulty_active));
 	auto multiplier = nano::difficulty::to_multiplier (difficulty_active, node.network_params.network.publish_threshold);
 	response_l.put ("multiplier", nano::to_string (multiplier));
+	if (include_trend)
+	{
+		boost::property_tree::ptree trend_entry_l;
+		auto trend_l (node.active.difficulty_trend ());
+		for (auto multiplier_l : trend_l)
+		{
+			boost::property_tree::ptree entry;
+			entry.put ("", nano::to_string (multiplier_l));
+			trend_entry_l.push_back (std::make_pair ("", entry));
+		}
+		response_l.add_child ("difficulty_trend", trend_entry_l);
+	}
 	response_errors ();
 }
 
