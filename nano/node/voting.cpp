@@ -18,11 +18,13 @@ thread ([this]() { run (); })
 
 void nano::vote_generator::add (nano::block_hash const & hash_a)
 {
+	std::unique_lock<std::mutex> lock (mutex);
+	hashes.push_back (hash_a);
+	if (hashes.size () >= 12)
 	{
-		std::lock_guard<std::mutex> lock (mutex);
-		hashes.push_back (hash_a);
+		lock.unlock ();
+		condition.notify_all ();
 	}
-	condition.notify_all ();
 }
 
 void nano::vote_generator::stop ()
@@ -68,35 +70,15 @@ void nano::vote_generator::run ()
 	lock.unlock ();
 	condition.notify_all ();
 	lock.lock ();
-	auto min (std::numeric_limits<std::chrono::steady_clock::time_point>::min ());
-	auto cutoff (min);
 	while (!stopped)
 	{
-		auto now (std::chrono::steady_clock::now ());
-		if (hashes.size () >= 12)
+		if (!hashes.empty ())
 		{
 			send (lock);
 		}
-		else if (cutoff == min) // && hashes.size () < 12
+		else
 		{
-			cutoff = now + node.config.vote_generator_delay;
-			condition.wait_until (lock, cutoff);
-		}
-		else if (now < cutoff) // && hashes.size () < 12
-		{
-			condition.wait_until (lock, cutoff);
-		}
-		else // now >= cutoff && hashes.size () < 12
-		{
-			cutoff = min;
-			if (!hashes.empty ())
-			{
-				send (lock);
-			}
-			else
-			{
-				condition.wait (lock);
-			}
+			condition.wait_for (lock, node.config.vote_generator_delay, [this] { return this->hashes.size () >= 12; });
 		}
 	}
 }
