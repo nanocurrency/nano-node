@@ -130,6 +130,7 @@ public:
 	boost::circular_buffer<double> multipliers_cb;
 	uint64_t trended_active_difficulty;
 	size_t priority_cementable_frontiers_size ();
+	boost::circular_buffer<double> difficulty_trend ();
 
 private:
 	// Call action with confirmed block, may be different than what we started with
