@@ -1414,7 +1414,7 @@ TEST (bulk_pull_account, basics)
 	auto send1 (system.wallet (0)->send_action (nano::genesis_account, key1.pub, 25));
 	auto send2 (system.wallet (0)->send_action (nano::genesis_account, key1.pub, 10));
 	auto send3 (system.wallet (0)->send_action (nano::genesis_account, key1.pub, 2));
-	system.deadline_set (10s);
+	system.deadline_set (5s);
 	while (system.nodes[0]->balance (key1.pub) != 25)
 	{
 		ASSERT_NO_ERROR (system.poll ());
