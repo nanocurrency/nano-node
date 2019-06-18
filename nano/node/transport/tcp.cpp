@@ -377,7 +377,7 @@ void nano::transport::tcp_channels::ongoing_keepalive ()
 		for (auto i (0); i <= random_count; ++i)
 		{
 			auto tcp_endpoint (node.network.udp_channels.bootstrap_peer (nano::tcp_realtime_protocol_version_min));
-			if (find_channel (tcp_endpoint) == nullptr && tcp_endpoint != invalid_endpoint)
+			if (tcp_endpoint != invalid_endpoint && find_channel (tcp_endpoint) == nullptr)
 			{
 				start_tcp (nano::transport::map_tcp_to_endpoint (tcp_endpoint));
 			}
