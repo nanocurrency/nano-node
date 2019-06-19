@@ -67,7 +67,8 @@ void nano::frontier_req_client::run ()
 	request.age = std::numeric_limits<decltype (request.age)>::max ();
 	request.count = std::numeric_limits<decltype (request.count)>::max ();
 	auto this_l (shared_from_this ());
-	connection->channel->send (request, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->channel->send (
+	request, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
 			this_l->receive_frontier ();
@@ -334,7 +335,8 @@ void nano::bulk_pull_client::request ()
 		connection->node->logger.always_log (boost::str (boost::format ("%1% accounts in pull queue") % connection->attempt->pulls.size ()));
 	}
 	auto this_l (shared_from_this ());
-	connection->channel->send (req, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->channel->send (
+	req, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
 			this_l->receive_block ();
@@ -520,7 +522,8 @@ void nano::bulk_push_client::start ()
 {
 	nano::bulk_push message;
 	auto this_l (shared_from_this ());
-	connection->channel->send (message, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->channel->send (
+	message, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		auto transaction (this_l->connection->node->store.tx_begin_read ());
 		if (!ec)
 		{
@@ -657,7 +660,8 @@ void nano::bulk_pull_account_client::request ()
 		connection->node->logger.always_log (boost::str (boost::format ("%1% accounts in pull queue") % connection->attempt->wallet_accounts.size ()));
 	}
 	auto this_l (shared_from_this ());
-	connection->channel->send (req, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->channel->send (
+	req, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
 			this_l->receive_pending ();

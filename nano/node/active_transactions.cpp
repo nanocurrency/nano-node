@@ -787,6 +787,12 @@ size_t nano::active_transactions::priority_cementable_frontiers_size ()
 	return priority_cementable_frontiers.size ();
 }
 
+boost::circular_buffer<double> nano::active_transactions::difficulty_trend ()
+{
+	std::lock_guard<std::mutex> guard (mutex);
+	return multipliers_cb;
+}
+
 nano::cementable_account::cementable_account (nano::account const & account_a, size_t blocks_uncemented_a) :
 account (account_a), blocks_uncemented (blocks_uncemented_a)
 {

@@ -176,12 +176,18 @@ void nano::socket::checkup ()
 				{
 					if (auto node_l = this_l->node.lock ())
 					{
-						this_l->timed_out = true;
-						this_l->close ();
 						if (node_l->config.logging.network_timeout_logging ())
 						{
-							node_l->logger.try_log (boost::str (boost::format ("Disconnecting from %1% due to timeout") % this_l->remote_endpoint ()));
+							// The remote end may have closed the connection before this side timing out, in which case the remote address is no longer available.
+							boost::system::error_code ec_remote_l;
+							boost::asio::ip::tcp::endpoint remote_endpoint_l = this_l->tcp_socket.remote_endpoint (ec_remote_l);
+							if (!ec_remote_l)
+							{
+								node_l->logger.try_log (boost::str (boost::format ("Disconnecting from %1% due to timeout") % remote_endpoint_l));
+							}
 						}
+						this_l->timed_out = true;
+						this_l->close ();
 					}
 				}
 				else if (!this_l->closed)
