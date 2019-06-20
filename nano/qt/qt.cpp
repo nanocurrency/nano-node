@@ -808,7 +808,7 @@ wallet (wallet_a)
 	});
 
 	QObject::connect (clear, &QPushButton::released, [this]() {
-		wallet.node.stats.clear ();
+		this->wallet.node.stats.clear ();
 		refresh_stats ();
 	});
 
