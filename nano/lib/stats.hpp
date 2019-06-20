@@ -232,6 +232,7 @@ public:
 		ipc,
 		tcp,
 		udp,
+		observer,
 		confirmation_height,
 		drop
 	};
@@ -246,6 +247,11 @@ public:
 		insufficient_work,
 		http_callback,
 		unreachable_host,
+
+		// observer specific
+		observer_confirmation_active_quorum,
+		observer_confirmation_active_conf_height,
+		observer_confirmation_inactive,
 
 		// ledger, block, bootstrap
 		send,
