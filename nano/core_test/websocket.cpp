@@ -161,7 +161,7 @@ TEST (websocket, subscription_edge)
 }
 
 // Test client subscribing to changes in active_difficulty
-TEST (websocket, subscribe_active_difficulty)
+TEST (websocket, active_difficulty)
 {
 	nano::system system (24000, 1);
 	nano::node_init init1;
@@ -182,7 +182,7 @@ TEST (websocket, subscribe_active_difficulty)
 		auto response = websocket_test_call ("::1", "24078", R"json({"action": "subscribe", "topic": "active_difficulty", "ack": true})json", true, true);
 		return response;
 	});
-	auto client_future = std::async (client_task);
+	auto client_future = std::async (std::launch::async, client_task);
 
 	// Wait for acknowledge
 	system.deadline_set (5s);
