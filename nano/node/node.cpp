@@ -249,9 +249,6 @@ startup_time (std::chrono::steady_clock::now ())
 		network.disconnect_observer = [this]() {
 			observers.disconnect.notify ();
 		};
-		active.difficulty_observer = [this](uint64_t active_difficulty) {
-			observers.difficulty.notify (active_difficulty);
-		};
 		if (!config.callback_address.empty ())
 		{
 			observers.blocks.add ([this](nano::election_status const & status_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {

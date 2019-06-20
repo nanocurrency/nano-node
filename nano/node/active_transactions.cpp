@@ -644,7 +644,7 @@ void nano::active_transactions::update_active_difficulty (std::unique_lock<std::
 	trended_active_difficulty = difficulty;
 	if (notify_change)
 	{
-		difficulty_observer (trended_active_difficulty);
+		node.observers.difficulty.notify(trended_active_difficulty);
 	}
 }
 
