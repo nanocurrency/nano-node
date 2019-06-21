@@ -1033,14 +1033,7 @@ int main (int argc, char * const * argv)
 		{
 			nano::inactive_node node (data_path);
 			auto transaction (node.node->store.tx_begin_read ());
-
-			uint64_t sum = 0;
-			for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n; ++i)
-			{
-				nano::account_info const & info (i->second);
-				sum += info.confirmation_height;
-			}
-			std::cout << "Total cemented block count: " << sum << std::endl;
+			std::cout << "Total cemented block count: " << node.node->store.cemented_count (transaction) << std::endl;
 		}
 		else if (vm.count ("debug_sys_logging"))
 		{

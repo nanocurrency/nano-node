@@ -2687,26 +2687,71 @@ TEST (rpc, work_peer_many)
 
 TEST (rpc, block_count)
 {
-	nano::system system (24000, 1);
-	auto & node1 (*system.nodes[0]);
-	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::node_rpc_config node_rpc_config;
-	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
-	nano::rpc_config rpc_config (true);
-	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
-	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
-	rpc.start ();
-	boost::property_tree::ptree request1;
-	request1.put ("action", "block_count");
-	test_response response1 (request1, rpc.config.port, system.io_ctx);
-	system.deadline_set (5s);
-	while (response1.status == 0)
 	{
-		ASSERT_NO_ERROR (system.poll ());
+		nano::system system (24000, 1);
+		auto & node1 (*system.nodes[0]);
+		enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
+		nano::node_rpc_config node_rpc_config;
+		nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
+		nano::rpc_config rpc_config (true);
+		nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+		nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+		rpc.start ();
+		boost::property_tree::ptree request1;
+		request1.put ("action", "block_count");
+		{
+			test_response response1 (request1, rpc.config.port, system.io_ctx);
+			system.deadline_set (5s);
+			while (response1.status == 0)
+			{
+				ASSERT_NO_ERROR (system.poll ());
+			}
+			ASSERT_EQ (200, response1.status);
+			ASSERT_EQ ("1", response1.json.get<std::string> ("count"));
+			ASSERT_EQ ("0", response1.json.get<std::string> ("unchecked"));
+			{
+				ASSERT_FALSE (response1.json.get_optional<std::string> ("cemented").is_initialized ());
+			}
+		}
+		request1.put ("include_cemented", "true");
+		test_response response1 (request1, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response1.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response1.status);
+		ASSERT_EQ ("1", response1.json.get<std::string> ("count"));
+		ASSERT_EQ ("0", response1.json.get<std::string> ("unchecked"));
+		ASSERT_EQ ("1", response1.json.get<std::string> ("cemented"));
 	}
-	ASSERT_EQ (200, response1.status);
-	ASSERT_EQ ("1", response1.json.get<std::string> ("count"));
-	ASSERT_EQ ("0", response1.json.get<std::string> ("unchecked"));
+
+	// Should not be able to get the cemented count when enable_control is false.
+	{
+		nano::system system (24000, 1);
+		auto & node1 (*system.nodes[0]);
+		enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
+		nano::node_rpc_config node_rpc_config;
+		nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
+		nano::rpc_config rpc_config (false);
+		nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+		nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+		rpc.start ();
+		boost::property_tree::ptree request1;
+		request1.put ("action", "block_count");
+		request1.put ("include_cemented", "true");
+		{
+			test_response response1 (request1, rpc.config.port, system.io_ctx);
+			system.deadline_set (5s);
+			while (response1.status == 0)
+			{
+				ASSERT_NO_ERROR (system.poll ());
+			}
+			ASSERT_EQ (200, response1.status);
+			std::error_code ec (nano::error_rpc::rpc_control_disabled);
+			ASSERT_EQ (response1.json.get<std::string> ("error"), ec.message ());
+		}
+	}
 }
 
 TEST (rpc, frontier_count)

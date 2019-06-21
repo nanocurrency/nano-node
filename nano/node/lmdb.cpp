@@ -2028,6 +2028,17 @@ void nano::mdb_store::confirmation_height_clear (nano::transaction const & trans
 	}
 }
 
+uint64_t nano::mdb_store::cemented_count (nano::transaction const & transaction_a)
+{
+	uint64_t sum = 0;
+	for (auto i (latest_begin (transaction_a)), n (latest_end ()); i != n; ++i)
+	{
+		nano::account_info const & info (i->second);
+		sum += info.confirmation_height;
+	}
+	return sum;
+}
+
 void nano::mdb_store::pending_put (nano::transaction const & transaction_a, nano::pending_key const & key_a, nano::pending_info const & pending_a)
 {
 	auto status (mdb_put (env.tx (transaction_a), get_pending_db (pending_a.epoch), nano::mdb_val (key_a), nano::mdb_val (pending_a), 0));
