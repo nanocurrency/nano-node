@@ -6397,10 +6397,10 @@ TEST (rpc, active_difficulty)
 	request.put ("action", "active_difficulty");
 	node->active.multipliers_cb.push_front (1.5);
 	node->active.multipliers_cb.push_front (4.2);
-	std::mutex mutex;
-	std::unique_lock<std::mutex> lock (mutex);
+	std::unique_lock<std::mutex> lock (node->active.mutex);
 	// Also pushes 1.0 to the front of multipliers_cb
 	node->active.update_active_difficulty (lock);
+	lock.unlock ();
 	auto trend_size (node->active.multipliers_cb.size ());
 	ASSERT_NE (0, trend_size);
 	auto expected_multiplier{ (1.5 + 4.2 + (trend_size - 2) * 1) / trend_size };
@@ -6437,11 +6437,19 @@ TEST (rpc, active_difficulty)
 		ASSERT_TRUE (trend_opt.is_initialized ());
 		auto & trend (trend_opt.get ());
 		ASSERT_EQ (trend_size, trend.size ());
-		auto trend_it (trend.begin ());
-		ASSERT_EQ (trend_it++->second.get<double> (""), 1.);
-		ASSERT_EQ (trend_it++->second.get<double> (""), 4.2);
-		ASSERT_EQ (trend_it++->second.get<double> (""), 1.5);
-		ASSERT_TRUE (std::all_of (trend_it, trend.end (), [](auto & item) { return item.second.template get<double> ("") == 1.; }));
+
+		system.deadline_set (5s);
+		bool done = false;
+		while (!done)
+		{
+			// Look for the sequence 4.2, 1.5; we don't know where as the active transaction request loop may prepend values concurrently
+			double values[2]{ 4.2, 1.5 };
+			auto it = std::search (trend.begin (), trend.end (), values, values + 2, [](auto a, double b) {
+				return a.second.template get<double> ("") == b;
+			});
+			done = it != trend.end ();
+			ASSERT_NO_ERROR (system.poll ());
+		}
 	}
 }
 
