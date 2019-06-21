@@ -6395,9 +6395,9 @@ TEST (rpc, active_difficulty)
 	rpc.start ();
 	boost::property_tree::ptree request;
 	request.put ("action", "active_difficulty");
+	std::unique_lock<std::mutex> lock (node->active.mutex);
 	node->active.multipliers_cb.push_front (1.5);
 	node->active.multipliers_cb.push_front (4.2);
-	std::unique_lock<std::mutex> lock (node->active.mutex);
 	// Also pushes 1.0 to the front of multipliers_cb
 	node->active.update_active_difficulty (lock);
 	lock.unlock ();
