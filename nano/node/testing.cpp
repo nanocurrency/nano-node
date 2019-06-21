@@ -115,7 +115,7 @@ system ()
 	for (uint16_t i (0); i < count_a; ++i)
 	{
 		nano::node_config config (port_a + i, logging);
-		nano::system::add_node (config, nano::node_flags (), type_a);
+		add_node (config, nano::node_flags (), type_a);
 	}
 }
 

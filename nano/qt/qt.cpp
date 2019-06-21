@@ -778,6 +778,7 @@ nano_qt::stats_viewer::stats_viewer (nano_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
 refresh (new QPushButton ("Refresh")),
+clear (new QPushButton ("Clear Statistics")),
 model (new QStandardItemModel),
 view (new QTableView),
 back (new QPushButton ("Back")),
@@ -795,6 +796,7 @@ wallet (wallet_a)
 	layout->setContentsMargins (0, 0, 0, 0);
 	layout->addWidget (view);
 	layout->addWidget (refresh);
+	layout->addWidget (clear);
 	layout->addWidget (back);
 	window->setLayout (layout);
 
@@ -802,6 +804,11 @@ wallet (wallet_a)
 		this->wallet.pop_main_stack ();
 	});
 	QObject::connect (refresh, &QPushButton::released, [this]() {
+		refresh_stats ();
+	});
+
+	QObject::connect (clear, &QPushButton::released, [this]() {
+		this->wallet.node.stats.clear ();
 		refresh_stats ();
 	});
 
