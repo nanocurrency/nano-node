@@ -2617,7 +2617,7 @@ TEST (node, peers)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	// Wait to finish  TCP node ID handshakes
+	// Wait to finish TCP node ID handshakes
 	system.deadline_set (10s);
 	while (system.nodes.back ()->network.response_channels.size () == 0 || system.nodes.front ()->network.response_channels.size () == 0)
 	{
@@ -2808,7 +2808,7 @@ TEST (node, bidirectional_tcp)
 	while (!confirmed)
 	{
 		auto transaction1 (node1->store.tx_begin_read ());
-		auto transaction2 (node1->store.tx_begin_read ());
+		auto transaction2 (node2->store.tx_begin_read ());
 		confirmed = node1->ledger.block_confirmed (transaction1, send1->hash ()) && node2->ledger.block_confirmed (transaction2, send1->hash ());
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -2832,7 +2832,7 @@ TEST (node, bidirectional_tcp)
 	while (!confirmed)
 	{
 		auto transaction1 (node1->store.tx_begin_read ());
-		auto transaction2 (node1->store.tx_begin_read ());
+		auto transaction2 (node2->store.tx_begin_read ());
 		confirmed = node1->ledger.block_confirmed (transaction1, send2->hash ()) && node2->ledger.block_confirmed (transaction2, send2->hash ());
 		ASSERT_NO_ERROR (system.poll ());
 	}
