@@ -12,12 +12,11 @@ namespace nano
 {
 void cleanup_test_directories_on_exit ();
 void force_nano_test_network ();
-
+/** Clean up test directories on process tear-down */
 void signal_handler(int signal)
 {
     nano::cleanup_test_directories_on_exit ();
 }
-
 }
 namespace
 {
