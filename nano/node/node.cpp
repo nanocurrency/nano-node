@@ -218,7 +218,7 @@ port_mapping (*this),
 vote_processor (*this),
 rep_crawler (*this),
 warmed_up (0),
-block_processor (*this),
+block_processor (*this, write_database_queue),
 block_processor_thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::block_processing);
 	this->block_processor.process_blocks ();
@@ -226,7 +226,7 @@ block_processor_thread ([this]() {
 online_reps (*this, config.online_weight_minimum.number ()),
 vote_uniquer (block_uniquer),
 active (*this),
-confirmation_height_processor (pending_confirmation_height, store, ledger.stats, active, ledger.epoch_link, logger),
+confirmation_height_processor (pending_confirmation_height, store, ledger.stats, active, ledger.epoch_link, write_database_queue, logger),
 payment_observer_processor (observers.blocks),
 wallets (init_a.wallets_store_init, *this),
 startup_time (std::chrono::steady_clock::now ())
@@ -726,6 +726,7 @@ void nano::node::stop ()
 		checker.stop ();
 		wallets.stop ();
 		stats.stop ();
+		write_database_queue.stop ();
 	}
 }
 

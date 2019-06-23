@@ -461,7 +461,7 @@ TEST (node, mass_vote_by_hash)
 	}
 }
 
-TEST (confirmation_height, many_accounts)
+TEST (confirmation_height, many_accounts_single_confirmation)
 {
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
@@ -529,6 +529,48 @@ TEST (confirmation_height, many_accounts)
 	}
 
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), num_accounts * 2 - 2);
+}
+
+TEST (confirmation_height, many_accounts_many_confirmations)
+{
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.online_weight_minimum = 100;
+	nano::node_flags node_flags;
+	node_flags.delay_frontier_confirmation_height_updating = true;
+	auto node = system.add_node (node_config, node_flags);
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+
+	auto num_accounts = 10000;
+	auto latest_genesis = node->latest (nano::test_genesis_key.pub);
+	std::vector<std::shared_ptr<nano::open_block>> open_blocks;
+	{
+		auto transaction = node->store.tx_begin_write ();
+		for (auto i = num_accounts - 1; i > 0; --i)
+		{
+			nano::keypair key;
+			system.wallet (0)->insert_adhoc (key.prv);
+
+			nano::send_block send (latest_genesis, key.pub, nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest_genesis));
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
+			auto open = std::make_shared<nano::open_block> (send.hash (), nano::test_genesis_key.pub, key.pub, key.prv, key.pub, system.work.generate (key.pub));
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *open).code);
+			open_blocks.push_back (std::move (open));
+			latest_genesis = send.hash ();
+		}
+	}
+
+	// Confirm all of the accounts
+	for (auto & open_block : open_blocks)
+	{
+		node->block_confirm (open_block);
+	}
+
+	system.deadline_set (60s);
+	while (node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in) != (num_accounts - 1) * 2)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 }
 
 TEST (confirmation_height, long_chains)
