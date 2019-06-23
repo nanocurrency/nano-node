@@ -26,11 +26,11 @@ nano::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, 
 			release_assert (status2 == 0);
 			auto running_within_valgrind = (RUNNING_ON_VALGRIND > 0);
 			auto map_size = map_size_a;
-			auto half_gig = 512 * 1024 * 1024;
-			if (running_within_valgrind && map_size_a > half_gig)
+			auto max_valgrind_map_size = 16 * 1024 * 1024;
+			if (running_within_valgrind && map_size_a > max_valgrind_map_size)
 			{
 				// In order to run LMDB under Valgrind, the maximum map size must be smaller than half your available RAM
-				map_size = half_gig;
+				map_size = max_valgrind_map_size;
 			}
 			auto status3 (mdb_env_set_mapsize (environment, map_size));
 			release_assert (status3 == 0);
