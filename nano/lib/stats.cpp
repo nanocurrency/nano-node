@@ -377,6 +377,9 @@ std::string nano::stat::type_to_string (uint32_t key)
 		case nano::stat::type::message:
 			res = "message";
 			break;
+		case nano::stat::type::observer:
+			res = "observer";
+			break;
 		case nano::stat::type::confirmation_height:
 			res = "confirmation_height";
 			break;
@@ -421,6 +424,15 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 		case nano::stat::detail::bulk_push:
 			res = "bulk_push";
+			break;
+		case nano::stat::detail::observer_confirmation_active_quorum:
+			res = "observer_confirmation_active_quorum";
+			break;
+		case nano::stat::detail::observer_confirmation_active_conf_height:
+			res = "observer_confirmation_active_conf_height";
+			break;
+		case nano::stat::detail::observer_confirmation_inactive:
+			res = "observer_confirmation_inactive";
 			break;
 		case nano::stat::detail::error_socket_close:
 			res = "error_socket_close";
