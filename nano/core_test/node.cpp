@@ -256,6 +256,12 @@ TEST (node, auto_bootstrap)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	};
+	system.deadline_set (5s);
+	while (node1->stats.count (nano::stat::type::observer, nano::stat::detail::observer_confirmation_active_quorum, nano::stat::dir::out) < 0 || node1->stats.count (nano::stat::type::observer, nano::stat::detail::observer_confirmation_active_conf_height, nano::stat::dir::out) < 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
 	node1->stop ();
 }
 
@@ -1564,6 +1570,11 @@ TEST (node, broadcast_elected)
 			ASSERT_TRUE (node0->ledger.block_exists (fork0->hash ()));
 			ASSERT_TRUE (node1->ledger.block_exists (fork0->hash ()));
 			ASSERT_NO_ERROR (ec);
+		}
+		system.deadline_set (5s);
+		while (node1->stats.count (nano::stat::type::observer, nano::stat::detail::observer_confirmation_inactive, nano::stat::dir::out) < 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
 		}
 	}
 }
