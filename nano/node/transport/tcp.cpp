@@ -430,7 +430,7 @@ void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a
 	if (node.flags.disable_tcp_realtime)
 	{
 		node.network.tcp_channels.udp_fallback (endpoint_a, callback_a);
-		break;
+		return;
 	}
 	auto socket (std::make_shared<nano::socket> (node.shared_from_this (), boost::none, nano::socket::concurrency::multi_writer));
 	auto channel (std::make_shared<nano::transport::channel_tcp> (node, socket));
