@@ -4,6 +4,7 @@
 #include <nano/lib/work.hpp>
 #include <nano/node/xorshift.hpp>
 
+#include <iostream>
 #include <future>
 
 bool nano::work_validate (nano::block_hash const & root_a, uint64_t work_a, uint64_t * difficulty_a)
@@ -22,27 +23,31 @@ bool nano::work_validate (nano::block const & block_a, uint64_t * difficulty_a)
 	return work_validate (block_a.root (), block_a.block_work (), difficulty_a);
 }
 
+#ifndef NANO_FUZZER_TEST
 uint64_t nano::work_value (nano::block_hash const & root_a, uint64_t work_a)
 {
 	uint64_t result;
-
-#ifdef NANO_FUZZER_TEST
-	static nano::network_constants network_constants;
-	if (!network_constants.is_test_network ())
-	{
-		std::exit (1);
-	}
-	result = network_constants.publish_threshold + 10'000;
-#else
 	blake2b_state hash;
 	blake2b_init (&hash, sizeof (result));
 	blake2b_update (&hash, reinterpret_cast<uint8_t *> (&work_a), sizeof (work_a));
 	blake2b_update (&hash, root_a.bytes.data (), root_a.bytes.size ());
 	blake2b_final (&hash, reinterpret_cast<uint8_t *> (&result), sizeof (result));
-#endif
-
 	return result;
 }
+#else
+uint64_t nano::work_value (nano::block_hash const & root_a, uint64_t work_a)
+{
+	uint64_t result;
+	static nano::network_constants network_constants;
+	if (!network_constants.is_test_network ())
+	{
+		std::cerr << "Fuzzer requires the test network" << std::endl;
+		std::exit (1);
+	}
+	result = network_constants.publish_threshold + 10'000;
+	return result;
+}
+#endif
 
 nano::work_pool::work_pool (unsigned max_threads_a, std::chrono::nanoseconds pow_rate_limiter_a, std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> opencl_a) :
 ticket (0),

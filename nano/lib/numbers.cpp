@@ -9,6 +9,8 @@
 
 #include <crypto/ed25519-donna/ed25519.h>
 
+#include <iostream>
+
 namespace
 {
 char const * base58_reverse ("~012345678~~~~~~~9:;<=>?@~ABCDE~FGHIJKLMNOP~~~~~~QRSTUVWXYZ[~\\]^_`abcdefghi");
@@ -418,48 +420,60 @@ nano::public_key nano::pub_key (nano::private_key const & privatekey_a)
 	return result;
 }
 
+#ifndef NANO_FUZZER_TEST
 bool nano::validate_message (nano::public_key const & public_key, nano::uint256_union const & message, nano::uint512_union const & signature)
 {
-#ifdef NANO_FUZZER_TEST
-	static nano::network_constants network_constants;
-	static int invocations = 0;
-	++invocations;
-
-	if (!network_constants.is_test_network ())
-	{
-		std::exit (1);
-	}
-	return (invocations % 20 == 0) ? true : false;
-#else
 	auto result (0 != ed25519_sign_open (message.bytes.data (), sizeof (message.bytes), public_key.bytes.data (), signature.bytes.data ()));
 	return result;
-#endif
 }
 
 bool nano::validate_message_batch (const unsigned char ** m, size_t * mlen, const unsigned char ** pk, const unsigned char ** RS, size_t num, int * valid)
 {
-#ifdef NANO_FUZZER_TEST
+	bool result (0 == ed25519_sign_open_batch (m, mlen, pk, RS, num, valid));
+	return result;
+}
+#else
+bool nano::validate_message (nano::public_key const & public_key, nano::uint256_union const & message, nano::uint512_union const & signature)
+{
 	static nano::network_constants network_constants;
 	static int invocations = 0;
 	++invocations;
 
 	if (!network_constants.is_test_network ())
 	{
+		std::cerr << "Fuzzer requires the test network" << std::endl;
+		std::exit (1);
+	}
+	// Fail occasionally during fuzzing
+	return (invocations % 500 == 0) ? true : false;
+}
+
+bool nano::validate_message_batch (const unsigned char ** m, size_t * mlen, const unsigned char ** pk, const unsigned char ** RS, size_t num, int * valid)
+{
+	static nano::network_constants network_constants;
+	static int invocations = 0;
+	++invocations;
+
+	if (!network_constants.is_test_network ())
+	{
+		std::cerr << "Fuzzer requires the test network" << std::endl;
 		std::exit (1);
 	}
 	for (size_t i = 0; i < num; i++)
 	{
-		if (invocations % 20 == 0)
+		// Fail occasionally during fuzzing
+		if (invocations % 500 == 0)
+		{
 			valid[i] = 0;
+		}
 		else
+		{
 			valid[i] = 1;
+		}
 	}
 	return false;
-#else
-	bool result (0 == ed25519_sign_open_batch (m, mlen, pk, RS, num, valid));
-	return result;
-#endif
 }
+#endif
 
 nano::uint128_union::uint128_union (std::string const & string_a)
 {
