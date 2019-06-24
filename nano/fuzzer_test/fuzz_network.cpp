@@ -21,7 +21,7 @@ namespace nano
 {
 void force_nano_test_network ();
 /** Clean up test directories on process tear-down */
-void signal_handler(int signal)
+void signal_handler (int signal)
 {
 	runner->stop_event_processing ();
 	std::exit (signal);
@@ -30,14 +30,14 @@ void signal_handler(int signal)
 /** Create two peered nodes once, then use send_buffer to inject fuzzing data */
 void network_generic_test (const uint8_t * fuzzer_data, size_t fuzzer_data_size)
 {
-	static std::atomic<bool> initialized { false };
+	static std::atomic<bool> initialized{ false };
 	if (!initialized.exchange (true))
 	{
 		nano::force_nano_test_network ();
 		std::cout << "Initializing....\n";
 
-        std::signal(SIGINT, nano::signal_handler);
-        std::signal(SIGTERM, nano::signal_handler);
+		std::signal (SIGINT, nano::signal_handler);
+		std::signal (SIGTERM, nano::signal_handler);
 
 		system1 = std::make_shared<nano::system> (24000, 1);
 		runner = std::make_shared<nano::thread_runner> (system1->io_ctx, 4);

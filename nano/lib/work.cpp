@@ -4,8 +4,8 @@
 #include <nano/lib/work.hpp>
 #include <nano/node/xorshift.hpp>
 
-#include <iostream>
 #include <future>
+#include <iostream>
 
 bool nano::work_validate (nano::block_hash const & root_a, uint64_t work_a, uint64_t * difficulty_a)
 {

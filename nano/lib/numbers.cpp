@@ -7,9 +7,9 @@
 #include <crypto/cryptopp/aes.h>
 #include <crypto/cryptopp/modes.h>
 
-#include <crypto/ed25519-donna/ed25519.h>
-
 #include <iostream>
+
+#include <crypto/ed25519-donna/ed25519.h>
 
 namespace
 {
