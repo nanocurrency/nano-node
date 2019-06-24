@@ -13,9 +13,7 @@
 #include <cassert>
 #include <numeric>
 
-using namespace std::chrono_literals;
-
-nano::confirmation_height_processor::confirmation_height_processor (nano::pending_confirmation_height & pending_confirmation_height_a, nano::block_store & store_a, nano::stat & stats_a, nano::active_transactions & active_a, nano::block_hash const & epoch_link_a, nano::write_database_queue & write_database_queue_a, nano::logger_mt & logger_a) :
+nano::confirmation_height_processor::confirmation_height_processor (nano::pending_confirmation_height & pending_confirmation_height_a, nano::block_store & store_a, nano::stat & stats_a, nano::active_transactions & active_a, nano::block_hash const & epoch_link_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logger_mt & logger_a) :
 pending_confirmations (pending_confirmation_height_a),
 store (store_a),
 stats (stats_a),
@@ -23,6 +21,7 @@ active (active_a),
 epoch_link (epoch_link_a),
 logger (logger_a),
 write_database_queue (write_database_queue_a),
+batch_separate_pending_min_time (batch_separate_pending_min_time_a),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::confirmation_height_processing);
 	this->run ();
@@ -227,9 +226,8 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 
 		auto max_write_size_reached = (pending_writes.size () >= batch_write_size);
 		// When there are a lot of pending confirmation height blocks, it is more efficient to
-		// bulk some of them up to enable better write performance which become the bottleneck.
-		constexpr auto min_time_passed = 50ms;
-		auto min_time_exceeded = (timer.since_start () >= min_time_passed);
+		// bulk some of them up to enable better write performance which becomes the bottleneck.
+		auto min_time_exceeded = (timer.since_start () >= batch_separate_pending_min_time);
 		auto finished_iterating = receive_source_pairs.empty ();
 		auto no_pending = pending_confirmations.size () == 0;
 		auto should_output = finished_iterating && (no_pending || min_time_exceeded);
