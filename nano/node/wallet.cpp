@@ -1962,7 +1962,7 @@ nano::store_iterator<nano::uint256_union, nano::wallet_value> nano::wallet_store
 	return nano::store_iterator<nano::uint256_union, nano::wallet_value> (nullptr);
 }
 nano::mdb_wallets_store::mdb_wallets_store (bool & error_a, boost::filesystem::path const & path_a, int lmdb_max_dbs) :
-environment (error_a, path_a, lmdb_max_dbs, 1ULL * 1024 * 1024 * 1024)
+environment (error_a, path_a, lmdb_max_dbs, false, 1ULL * 1024 * 1024 * 1024)
 {
 }
 MDB_txn * nano::wallet_store::tx (nano::transaction const & transaction_a) const

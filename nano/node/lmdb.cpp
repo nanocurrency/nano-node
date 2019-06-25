@@ -9,7 +9,9 @@
 
 #include <queue>
 
-nano::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, int max_dbs, size_t map_size_a)
+#include <valgrind/valgrind.h>
+
+nano::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, int max_dbs_a, bool use_no_mem_init_a, size_t map_size_a)
 {
 	boost::system::error_code error_mkdir, error_chmod;
 	if (path_a.has_parent_path ())
@@ -20,14 +22,28 @@ nano::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, 
 		{
 			auto status1 (mdb_env_create (&environment));
 			release_assert (status1 == 0);
-			auto status2 (mdb_env_set_maxdbs (environment, max_dbs));
+			auto status2 (mdb_env_set_maxdbs (environment, max_dbs_a));
 			release_assert (status2 == 0);
-			auto status3 (mdb_env_set_mapsize (environment, map_size_a));
+			auto running_within_valgrind = (RUNNING_ON_VALGRIND > 0);
+			auto map_size = map_size_a;
+			auto max_valgrind_map_size = 16 * 1024 * 1024;
+			if (running_within_valgrind && map_size_a > max_valgrind_map_size)
+			{
+				// In order to run LMDB under Valgrind, the maximum map size must be smaller than half your available RAM
+				map_size = max_valgrind_map_size;
+			}
+			auto status3 (mdb_env_set_mapsize (environment, map_size));
 			release_assert (status3 == 0);
 			// It seems if there's ever more threads than mdb_env_set_maxreaders has read slots available, we get failures on transaction creation unless MDB_NOTLS is specified
 			// This can happen if something like 256 io_threads are specified in the node config
 			// MDB_NORDAHEAD will allow platforms that support it to load the DB in memory as needed.
-			auto status4 (mdb_env_open (environment, path_a.string ().c_str (), MDB_NOSUBDIR | MDB_NOTLS | MDB_NORDAHEAD, 00600));
+			// MDB_NOMEMINIT prevents zeroing malloc'ed pages. Can provide improvement for non-sensitive data but may make memory checkers noisy (e.g valgrind).
+			auto environment_flags = MDB_NOSUBDIR | MDB_NOTLS | MDB_NORDAHEAD;
+			if (!running_within_valgrind && use_no_mem_init_a)
+			{
+				environment_flags |= MDB_NOMEMINIT;
+			}
+			auto status4 (mdb_env_open (environment, path_a.string ().c_str (), environment_flags, 00600));
 			if (status4 != 0)
 			{
 				std::cerr << "Could not open lmdb environment: " << status4;
@@ -824,7 +840,7 @@ nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> nano::mdb_store
 
 nano::mdb_store::mdb_store (bool & error_a, nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, bool drop_unchecked, size_t const batch_size) :
 logger (logger_a),
-env (error_a, path_a, lmdb_max_dbs),
+env (error_a, path_a, lmdb_max_dbs, true),
 mdb_txn_tracker (logger_a, txn_tracking_config_a, block_processor_batch_max_time_a),
 txn_tracking_enabled (txn_tracking_config_a.enable)
 {
