@@ -988,6 +988,58 @@ TEST (json, backup)
 	ASSERT_EQ (get_file_count (), 2);
 }
 
+TEST (node_flags, disable_tcp_realtime)
+{
+	nano::system system (24000, 1);
+	auto node1 = system.nodes[0];
+	nano::node_flags node_flags;
+	node_flags.disable_tcp_realtime = true;
+	auto node2 = system.add_node (nano::node_config (24001, system.logging), node_flags);
+	ASSERT_EQ (1, node1->network.size ());
+	auto list1 (node1->network.list (2));
+	ASSERT_EQ (node2->network.endpoint (), list1[0]->get_endpoint ());
+	ASSERT_EQ (nano::transport::transport_type::udp, list1[0]->get_type ());
+	ASSERT_EQ (1, node2->network.size ());
+	auto list2 (node2->network.list (2));
+	ASSERT_EQ (node1->network.endpoint (), list2[0]->get_endpoint ());
+	ASSERT_EQ (nano::transport::transport_type::udp, list2[0]->get_type ());
+}
+
+TEST (node_flags, disable_udp)
+{
+	nano::system system (24000, 1);
+	auto node1 = system.nodes[0];
+	nano::node_flags node_flags;
+	node_flags.disable_udp = true;
+	nano::node_init init;
+	auto node2 (std::make_shared<nano::node> (init, system.io_ctx, nano::unique_path (), system.alarm, nano::node_config (24001, system.logging), system.work, node_flags));
+	system.nodes.push_back (node2);
+	node2->start ();
+	// Send UDP message
+	auto channel (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, node2->network.endpoint ()));
+	node1->network.send_keepalive (channel);
+	std::this_thread::sleep_for (std::chrono::milliseconds (500));
+	// Check empty network
+	ASSERT_EQ (0, node1->network.size ());
+	ASSERT_EQ (0, node2->network.size ());
+	// Send TCP handshake
+	node1->network.merge_peer (node2->network.endpoint ());
+	system.deadline_set (5s);
+	while (node1->bootstrap.realtime_count != 1 || node2->bootstrap.realtime_count != 1)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (1, node1->network.size ());
+	auto list1 (node1->network.list (2));
+	ASSERT_EQ (node2->network.endpoint (), list1[0]->get_endpoint ());
+	ASSERT_EQ (nano::transport::transport_type::tcp, list1[0]->get_type ());
+	ASSERT_EQ (1, node2->network.size ());
+	auto list2 (node2->network.list (2));
+	ASSERT_EQ (node1->network.endpoint (), list2[0]->get_endpoint ());
+	ASSERT_EQ (nano::transport::transport_type::tcp, list2[0]->get_type ());
+	node2->stop ();
+}
+
 TEST (node, fork_publish)
 {
 	std::weak_ptr<nano::node> node0;
