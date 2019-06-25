@@ -352,6 +352,24 @@ startup_time (std::chrono::steady_clock::now ())
 				}
 			});
 		}
+		// Add block confirmation type stats regardless of http-callback and websocket subscriptions
+		observers.blocks.add ([this](nano::election_status const & status_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
+			assert (status_a.type != nano::election_status_type::ongoing);
+			switch (status_a.type)
+			{
+				case nano::election_status_type::active_confirmed_quorum:
+					this->stats.inc (nano::stat::type::observer, nano::stat::detail::observer_confirmation_active_quorum, nano::stat::dir::out);
+					break;
+				case nano::election_status_type::active_confirmation_height:
+					this->stats.inc (nano::stat::type::observer, nano::stat::detail::observer_confirmation_active_conf_height, nano::stat::dir::out);
+					break;
+				case nano::election_status_type::inactive_confirmation_height:
+					this->stats.inc (nano::stat::type::observer, nano::stat::detail::observer_confirmation_inactive, nano::stat::dir::out);
+					break;
+				default:
+					break;
+			}
+		});
 		observers.endpoint.add ([this](std::shared_ptr<nano::transport::channel> channel_a) {
 			if (channel_a->get_type () == nano::transport::transport_type::udp)
 			{
