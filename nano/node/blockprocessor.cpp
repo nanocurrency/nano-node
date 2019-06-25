@@ -242,7 +242,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 		}
 	}
 	lock_a.unlock ();
-	auto write_guard = write_database_queue.wait (nano::writer::process_batch);
+	auto scoped_write_guard = write_database_queue.wait (nano::writer::process_batch);
 	auto transaction (node.store.tx_begin_write ());
 	timer_l.restart ();
 	lock_a.lock ();

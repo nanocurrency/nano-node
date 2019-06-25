@@ -24,7 +24,6 @@ guard_finish_callback ([&queue = queue, &mutex = mutex]() {
 {
 }
 
-// Blocks until we are at the head of the queue
 nano::write_guard nano::write_database_queue::wait (nano::writer writer)
 {
 	std::unique_lock<std::mutex> lk (mutex);
@@ -49,7 +48,6 @@ bool nano::write_database_queue::contains (nano::writer writer)
 	return std::find (queue.cbegin (), queue.cend (), writer) != queue.cend ();
 }
 
-// Returns true if this writer is now at the front
 bool nano::write_database_queue::process (nano::writer writer)
 {
 	auto result = false;

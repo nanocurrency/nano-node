@@ -8,7 +8,7 @@
 
 namespace nano
 {
-// Order is irrelevant
+/** Distinct areas write locking is done, order is irrelevant */
 enum class writer
 {
 	confirmation_height,
@@ -30,14 +30,19 @@ class write_database_queue final
 {
 public:
 	write_database_queue ();
-	// Blocks until we are at the head of the queue
+	/** Blocks until we are at the head of the queue */
 	write_guard wait (nano::writer writer);
 
-	// Returns true if this writer is now at the front
+	/** Returns true if this writer is now at the front of the queue */
 	bool process (nano::writer writer);
+
+	/** Returns true if this writer is anywhere in the queue */
 	bool contains (nano::writer writer);
 
+	/** Doesn't actually pop anything until the returned write_guard is out of scope */
 	write_guard pop ();
+
+	/** This will release anything which is being blocked by the wait function */
 	void stop ();
 
 private:

@@ -72,7 +72,7 @@ void nano::confirmation_height_processor::run ()
 			if (!pending_writes.empty ())
 			{
 				lk.unlock ();
-				auto write_guard = write_database_queue.wait (nano::writer::confirmation_height);
+				auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
 				write_pending (pending_writes);
 				lk.lock ();
 			}
@@ -236,7 +236,7 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 		{
 			if (write_database_queue.process (nano::writer::confirmation_height))
 			{
-				auto write_guard = write_database_queue.pop ();
+				auto scoped_write_guard = write_database_queue.pop ();
 				auto error = write_pending (pending_writes);
 				// Don't set any more blocks as confirmed from the original hash if an inconsistency is found
 				if (error)
