@@ -47,4 +47,4 @@ Please see the [contributors guide](https://docs.nano.org/protocol-design/overvi
 ### Contact us
 
 We want to hear about any trouble, success, delight, or pain you experience when
-using Nano. Let us know by [filing an issue](https://github.com/nanocurrency/nano-node/issues), joining us on [reddit](https://reddit.com/r/nanocurrency), or joining us on [Discord](https://chat.nano.org/).
+using Nano. Let us know by [filing an issue](https://github.com/nanocurrency/nano-node/issues), joining us on [Reddit](https://reddit.com/r/nanocurrency), or joining us on [Discord](https://chat.nano.org/).
