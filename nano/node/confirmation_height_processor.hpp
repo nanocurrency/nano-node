@@ -15,6 +15,7 @@ class stat;
 class active_transactions;
 class read_transaction;
 class logger_mt;
+class write_database_queue;
 
 class pending_confirmation_height
 {
@@ -37,7 +38,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (pending_confirmati
 class confirmation_height_processor final
 {
 public:
-	confirmation_height_processor (pending_confirmation_height &, nano::block_store &, nano::stat &, nano::active_transactions &, nano::block_hash const &, nano::logger_mt &);
+	confirmation_height_processor (pending_confirmation_height &, nano::block_store &, nano::stat &, nano::active_transactions &, nano::block_hash const &, nano::write_database_queue &, std::chrono::milliseconds, nano::logger_mt &);
 	~confirmation_height_processor ();
 	void add (nano::block_hash const &);
 	void stop ();
@@ -69,6 +70,14 @@ private:
 		nano::block_hash source_hash;
 	};
 
+	class confirmed_iterated_pair
+	{
+	public:
+		confirmed_iterated_pair (uint64_t confirmed_height_a, uint64_t iterated_height_a);
+		uint64_t confirmed_height;
+		uint64_t iterated_height;
+	};
+
 	std::condition_variable condition;
 	nano::pending_confirmation_height & pending_confirmations;
 	std::atomic<bool> stopped{ false };
@@ -79,12 +88,20 @@ private:
 	nano::logger_mt & logger;
 	std::atomic<uint64_t> receive_source_pairs_size{ 0 };
 	std::vector<receive_source_pair> receive_source_pairs;
+
+	std::deque<conf_height_details> pending_writes;
+	// Store the highest confirmation heights for accounts in pending_writes to reduce unnecessary iterating,
+	// and iterated height to prevent iterating over the same blocks more than once from self-sends or "circular" sends between the same accounts.
+	std::unordered_map<account, confirmed_iterated_pair> confirmed_iterated_pairs;
+	nano::timer<std::chrono::milliseconds> timer;
+	nano::write_database_queue & write_database_queue;
+	std::chrono::milliseconds batch_separate_pending_min_time;
 	std::thread thread;
 
 	void run ();
 	void add_confirmation_height (nano::block_hash const &);
 	void collect_unconfirmed_receive_and_sources_for_account (uint64_t, uint64_t, nano::block_hash const &, nano::account const &, nano::read_transaction const &);
-	bool write_pending (std::deque<conf_height_details> &, int64_t);
+	bool write_pending (std::deque<conf_height_details> &);
 
 	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (confirmation_height_processor &, const std::string &);
 	friend class confirmation_height_pending_observer_callbacks_Test;
