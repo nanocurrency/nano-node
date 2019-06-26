@@ -2310,10 +2310,10 @@ TEST (node, vote_by_hash_bundle)
 		system.nodes[0]->block_confirm (send);
 	}
 
-	// Verify bundling. We're content with 8 hashes for the test, although
-	// reaching 12 should be common on most hardware.
-	system.deadline_set (10s);
-	while (max_hashes.load () < 8)
+	// Verify that bundling occurs. While reaching 12 should be common on most hardware in release mode,
+	// we set this low enough to allow the test to pass on CI/with santitizers.
+	system.deadline_set (20s);
+	while (max_hashes.load () < 3)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
