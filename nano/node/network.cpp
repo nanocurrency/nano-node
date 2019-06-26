@@ -66,7 +66,10 @@ void nano::network::start ()
 	{
 		udp_channels.start ();
 	}
-	tcp_channels.start ();
+	if (!node.flags.disable_tcp_realtime)
+	{
+		tcp_channels.start ();
+	}
 	ongoing_keepalive ();
 }
 
