@@ -2255,7 +2255,7 @@ void nano::bootstrap_server::receive_node_id_handshake_action (boost::system::er
 		std::unique_ptr<nano::node_id_handshake> request (new nano::node_id_handshake (error, stream, header_a));
 		if (!error)
 		{
-			if (type == nano::bootstrap_server_type::undefined)
+			if (type == nano::bootstrap_server_type::undefined && !node->flags.disable_tcp_realtime)
 			{
 				add_request (std::unique_ptr<nano::message> (request.release ()));
 			}

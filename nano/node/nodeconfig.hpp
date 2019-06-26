@@ -89,6 +89,7 @@ public:
 	bool disable_legacy_bootstrap{ false };
 	bool disable_wallet_bootstrap{ false };
 	bool disable_bootstrap_listener{ false };
+	bool disable_tcp_realtime{ false };
 	bool disable_udp{ false };
 	bool disable_unchecked_cleanup{ false };
 	bool disable_unchecked_drop{ true };

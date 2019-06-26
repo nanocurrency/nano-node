@@ -45,7 +45,13 @@ void update_flags (nano::node_flags & flags_a, boost::program_options::variables
 	flags_a.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
 	flags_a.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
 	flags_a.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
+	flags_a.disable_tcp_realtime = (vm.count ("disable_tcp_realtime") > 0);
 	flags_a.disable_udp = (vm.count ("disable_udp") > 0);
+	if (flags_a.disable_tcp_realtime && flags_a.disable_udp)
+	{
+		std::cerr << "Flags --disable_tcp_realtime and --disable_udp cannot be used together" << std::endl;
+		std::exit (1);
+	}
 	flags_a.disable_unchecked_cleanup = (vm.count ("disable_unchecked_cleanup") > 0);
 	flags_a.disable_unchecked_drop = (vm.count ("disable_unchecked_drop") > 0);
 	flags_a.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
@@ -90,6 +96,7 @@ int main (int argc, char * const * argv)
 		("disable_legacy_bootstrap", "Disables legacy bootstrap")
 		("disable_wallet_bootstrap", "Disables wallet lazy bootstrap")
 		("disable_bootstrap_listener", "Disables bootstrap processing for TCP listener (not including realtime network TCP connections)")
+		("disable_tcp_realtime", "Disables TCP realtime network")
 		("disable_udp", "Disables UDP realtime network")
 		("disable_unchecked_cleanup", "Disables periodic cleanup of old records from unchecked table")
 		("disable_unchecked_drop", "Disables drop of unchecked table at startup")
