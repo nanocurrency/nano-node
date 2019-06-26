@@ -97,10 +97,23 @@ namespace transport
 			last_packet_sent = time_a;
 		}
 
-		boost::optional<nano::account> get_node_id () const
+		boost::optional<nano::account> get_node_id_optional () const
 		{
 			std::lock_guard<std::mutex> lk (channel_mutex);
 			return node_id;
+		}
+
+		nano::account get_node_id () const
+		{
+			std::lock_guard<std::mutex> lk (channel_mutex);
+			if (node_id.is_initialized ())
+			{
+				return node_id.get ();
+			}
+			else
+			{
+				return 0;
+			}
 		}
 
 		void set_node_id (nano::account node_id_a)
@@ -121,6 +134,7 @@ namespace transport
 
 		mutable std::mutex channel_mutex;
 		nano::bandwidth_limiter limiter;
+		nano::node & node;
 
 	private:
 		std::chrono::steady_clock::time_point last_bootstrap_attempt{ std::chrono::steady_clock::time_point () };
@@ -128,9 +142,6 @@ namespace transport
 		std::chrono::steady_clock::time_point last_packet_sent{ std::chrono::steady_clock::time_point () };
 		boost::optional<nano::account> node_id{ boost::none };
 		std::atomic<unsigned> network_version{ nano::protocol_version };
-
-	protected:
-		nano::node & node;
 	};
 } // namespace transport
 } // namespace nano

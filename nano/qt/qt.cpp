@@ -1949,7 +1949,7 @@ void nano_qt::advanced_actions::refresh_peers ()
 		version->setData (QVariant (channel->get_network_version ()), Qt::DisplayRole);
 		items.push_back (version);
 		QString node_id ("");
-		auto node_id_l (channel->get_node_id ());
+		auto node_id_l (channel->get_node_id_optional ());
 		if (node_id_l.is_initialized ())
 		{
 			node_id = node_id_l.get ().to_account ().c_str ();

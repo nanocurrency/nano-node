@@ -97,7 +97,7 @@ bool nano::transport::tcp_channels::insert (std::shared_ptr<nano::transport::cha
 		auto existing (channels.get<endpoint_tag> ().find (endpoint));
 		if (existing == channels.get<endpoint_tag> ().end ())
 		{
-			auto node_id (channel_a->get_node_id ().get ());
+			auto node_id (channel_a->get_node_id ());
 			if (!channel_a->server)
 			{
 				channels.get<node_id_tag> ().erase (node_id);
@@ -240,40 +240,36 @@ nano::tcp_endpoint nano::transport::tcp_channels::bootstrap_peer ()
 	return result;
 }
 
-void nano::transport::tcp_channels::process_message (nano::message const & message_a, nano::tcp_endpoint const & endpoint_a, nano::account const & node_id_a, std::shared_ptr<nano::socket> socket_a, nano::bootstrap_server_type type_a)
+void nano::transport::tcp_channels::process_message (nano::message const & message_a, std::shared_ptr<nano::transport::channel_tcp> channel_a, nano::bootstrap_server_type type_a)
 {
 	if (!stopped)
 	{
-		auto channel (node.network.find_channel (nano::transport::map_tcp_to_endpoint (endpoint_a)));
+		auto channel (node.network.find_channel (channel_a->get_endpoint ()));
 		if (channel)
 		{
 			node.network.process_message (message_a, channel);
 		}
 		else
 		{
-			channel = node.network.find_response_channel (endpoint_a, node_id_a);
+			auto node_id (channel_a->get_node_id ());
+			channel = node.network.find_response_channel (channel_a->get_tcp_endpoint (), node_id);
 			if (channel)
 			{
 				node.network.process_message (message_a, channel);
 			}
-			else if (!node_id_a.is_zero ())
+			else if (!node_id.is_zero ())
 			{
 				// Add temporary channel
-				socket_a->set_writer_concurrency (nano::socket::concurrency::multi_writer);
-				auto temporary_channel (std::make_shared<nano::transport::channel_tcp> (node, socket_a));
-				assert (endpoint_a == temporary_channel->get_tcp_endpoint ());
-				temporary_channel->set_node_id (node_id_a);
-				temporary_channel->set_network_version (message_a.header.version_using);
-				temporary_channel->set_last_packet_received (std::chrono::steady_clock::now ());
-				temporary_channel->set_last_packet_sent (std::chrono::steady_clock::now ());
-				temporary_channel->server = true;
+				channel_a->socket->set_writer_concurrency (nano::socket::concurrency::multi_writer);
+				channel_a->set_last_packet_received (std::chrono::steady_clock::now ());
+				channel_a->set_last_packet_sent (std::chrono::steady_clock::now ());
 				// Don't insert temporary channels for response_server
 				assert (type_a == nano::bootstrap_server_type::realtime);
 				if (type_a == nano::bootstrap_server_type::realtime)
 				{
-					insert (temporary_channel);
+					insert (channel_a);
 				}
-				node.network.process_message (message_a, temporary_channel);
+				node.network.process_message (message_a, channel_a);
 			}
 			else
 			{
@@ -572,10 +568,9 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 											callback_a (channel_a);
 										}
 										// Listen for possible responses
-										channel_a->response_server = std::make_shared<nano::bootstrap_server> (channel_a->socket, node_l);
+										channel_a->response_server = std::make_shared<nano::bootstrap_server> (channel_a);
 										channel_a->response_server->keepalive_first = false;
 										channel_a->response_server->type = nano::bootstrap_server_type::realtime_response_server;
-										channel_a->response_server->remote_node_id = channel_a->get_node_id ().get ();
 										channel_a->response_server->receive ();
 									}
 									else

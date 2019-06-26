@@ -2848,11 +2848,11 @@ TEST (node, bidirectional_tcp)
 	auto list1 (node1->network.list (1));
 	ASSERT_EQ (nano::transport::transport_type::tcp, list1[0]->get_type ());
 	ASSERT_NE (node2->network.endpoint (), list1[0]->get_endpoint ()); // Ephemeral port
-	ASSERT_EQ (node2->node_id.pub, list1[0]->get_node_id ().get ());
+	ASSERT_EQ (node2->node_id.pub, list1[0]->get_node_id ());
 	auto list2 (node2->network.list (1));
 	ASSERT_EQ (nano::transport::transport_type::tcp, list2[0]->get_type ());
 	ASSERT_EQ (node1->network.endpoint (), list2[0]->get_endpoint ());
-	ASSERT_EQ (node1->node_id.pub, list2[0]->get_node_id ().get ());
+	ASSERT_EQ (node1->node_id.pub, list2[0]->get_node_id ());
 	// Test block propagation from node 1
 	nano::genesis genesis;
 	nano::keypair key;

@@ -89,7 +89,7 @@ namespace transport
 		void receive ();
 		void start ();
 		void stop ();
-		void process_message (nano::message const &, nano::tcp_endpoint const &, nano::account const &, std::shared_ptr<nano::socket>, nano::bootstrap_server_type);
+		void process_message (nano::message const &, std::shared_ptr<nano::transport::channel_tcp>, nano::bootstrap_server_type);
 		void process_keepalive (nano::keepalive const &, nano::tcp_endpoint const &, bool);
 		bool max_ip_connections (nano::tcp_endpoint const &);
 		// Should we reach out to this endpoint with a keepalive message
@@ -147,16 +147,9 @@ namespace transport
 			}
 			nano::account node_id () const
 			{
-				auto node_id_l (channel->get_node_id ());
-				if (node_id_l.is_initialized ())
-				{
-					return node_id_l.get ();
-				}
-				else
-				{
-					assert (false);
-					return 0;
-				}
+				auto node_id (channel->get_node_id ());
+				assert (!node_id.is_zero ());
+				return node_id;
 			}
 		};
 		class tcp_endpoint_attempt final

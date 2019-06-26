@@ -134,15 +134,7 @@ namespace transport
 			}
 			nano::account node_id () const
 			{
-				auto node_id_l (channel->get_node_id ());
-				if (node_id_l.is_initialized ())
-				{
-					return node_id_l.get ();
-				}
-				else
-				{
-					return 0;
-				}
+				return channel->get_node_id ();
 			}
 		};
 		class endpoint_attempt final
