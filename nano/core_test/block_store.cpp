@@ -767,7 +767,6 @@ TEST (block_store, cemented_count)
 	auto transaction (store.tx_begin_write ());
 	ASSERT_EQ (0, store.cemented_count (transaction));
 	nano::genesis genesis;
-	auto hash (genesis.hash ());
 	store.initialize (transaction, genesis);
 	ASSERT_EQ (1, store.cemented_count (transaction));
 }

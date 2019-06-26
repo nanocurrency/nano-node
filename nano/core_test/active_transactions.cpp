@@ -86,7 +86,6 @@ TEST (active_transactions, adjusted_difficulty_priority)
 
 TEST (active_transactions, keep_local)
 {
-	bool delay_frontier_confirmation_height_updating = true;
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
 	node_config.enable_voting = false;
