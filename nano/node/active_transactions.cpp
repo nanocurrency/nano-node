@@ -448,8 +448,6 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, std::
 		auto existing (roots.find (root));
 		if (existing == roots.end () && confirmed_set.get<1> ().find (root) == confirmed_set.get<1> ().end ())
 		{
-			// Check if existing block is already confirmed
-			assert (node.ledger.block_not_confirmed_or_not_exists (*block_a));
 			auto hash (block_a->hash ());
 			auto election (nano::make_shared<nano::election> (node, block_a, confirmation_action_a));
 			uint64_t difficulty (0);
