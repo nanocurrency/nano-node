@@ -20,6 +20,7 @@
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
+#include <nano/node/write_database_queue.hpp>
 #include <nano/secure/ledger.hpp>
 
 #include <boost/asio/thread_pool.hpp>
@@ -159,6 +160,7 @@ public:
 	void ongoing_online_weight_calculation ();
 	void ongoing_online_weight_calculation_queue ();
 	bool online () const;
+	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
 	boost::latch node_initialized_latch;
 	nano::network_params network_params;

@@ -92,6 +92,8 @@ add_library (node
 	websocket.cpp
 	websocketconfig.hpp
 	websocketconfig.cpp
+	write_database_queue.hpp
+	write_database_queue.cpp
 	xorshift.hpp)
 
 target_link_libraries (node

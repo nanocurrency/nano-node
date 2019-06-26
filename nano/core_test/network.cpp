@@ -2168,6 +2168,43 @@ TEST (confirmation_height, observers)
 	ASSERT_EQ (1, node1->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out));
 }
 
+// This tests when a read has been done and the block no longer exists by the time a write is done
+TEST (confirmation_height, modified_chain)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.delay_frontier_confirmation_height_updating = true;
+	auto node = system.add_node (nano::node_config (24000, system.logging), node_flags);
+
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
+
+	nano::keypair key1;
+	auto & store = node->store;
+	auto send = std::make_shared<nano::send_block> (latest, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest));
+
+	{
+		auto transaction = node->store.tx_begin_write ();
+		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send).code);
+	}
+
+	node->confirmation_height_processor.add (send->hash ());
+
+	{
+		// The write guard prevents the confirmation height processor doing any writes
+		auto write_guard = node->write_database_queue.wait (nano::writer::process_batch);
+		while (!node->write_database_queue.contains (nano::writer::confirmation_height))
+			;
+
+		store.block_del (store.tx_begin_write (), send->hash ());
+	}
+
+	while (node->write_database_queue.contains (nano::writer::confirmation_height))
+		;
+
+	ASSERT_EQ (1, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block, nano::stat::dir::in));
+}
+
 namespace nano
 {
 TEST (confirmation_height, pending_observer_callbacks)

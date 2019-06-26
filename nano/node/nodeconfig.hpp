@@ -75,6 +75,7 @@ public:
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
 	size_t bandwidth_limit{ 1536 * 1024 };
+	std::chrono::milliseconds conf_height_processor_batch_min_time{ 50 };
 	static int json_version ()
 	{
 		return 17;
