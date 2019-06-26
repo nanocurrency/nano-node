@@ -218,16 +218,7 @@ std::shared_ptr<nano::transport::channel_udp> nano::transport::udp_channels::fin
 void nano::transport::udp_channels::clean_node_id (nano::account const & node_id_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	std::vector<nano::endpoint> endpoints;
-	auto existing (channels.get<node_id_tag> ().equal_range (node_id_a));
-	for (auto & record : boost::make_iterator_range (existing))
-	{
-		endpoints.push_back (record.endpoint ());
-	}
-	for (auto & endpoint : endpoints)
-	{
-		channels.get<endpoint_tag> ().erase (endpoint);
-	}
+	channels.get<node_id_tag> ().erase (node_id_a);
 }
 
 void nano::transport::udp_channels::clean_node_id (nano::endpoint const & endpoint_a, nano::account const & node_id_a)
