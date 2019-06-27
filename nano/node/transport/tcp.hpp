@@ -13,6 +13,8 @@
 
 namespace nano
 {
+class bootstrap_server;
+enum class bootstrap_server_type;
 namespace transport
 {
 	class tcp_channels;
@@ -34,6 +36,8 @@ namespace transport
 			return &node == &other_a.node && socket == other_a.socket;
 		}
 		std::shared_ptr<nano::socket> socket;
+		std::shared_ptr<nano::bootstrap_server> response_server;
+		bool server{ false };
 
 		nano::endpoint get_endpoint () const override
 		{
@@ -85,7 +89,7 @@ namespace transport
 		void receive ();
 		void start ();
 		void stop ();
-		void process_message (nano::message const &, nano::tcp_endpoint const &, nano::account const &);
+		void process_message (nano::message const &, nano::tcp_endpoint const &, nano::account const &, std::shared_ptr<nano::socket>, nano::bootstrap_server_type);
 		void process_keepalive (nano::keepalive const &, nano::tcp_endpoint const &, bool);
 		bool max_ip_connections (nano::tcp_endpoint const &);
 		// Should we reach out to this endpoint with a keepalive message
@@ -143,16 +147,9 @@ namespace transport
 			}
 			nano::account node_id () const
 			{
-				auto node_id_l (channel->get_node_id ());
-				if (node_id_l.is_initialized ())
-				{
-					return node_id_l.get ();
-				}
-				else
-				{
-					assert (false);
-					return 0;
-				}
+				auto node_id (channel->get_node_id ());
+				assert (!node_id.is_zero ());
+				return node_id;
 			}
 		};
 		class tcp_endpoint_attempt final

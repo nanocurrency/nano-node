@@ -70,6 +70,7 @@ namespace transport
 		std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (size_t) const;
 		bool store_all (bool = true);
 		std::shared_ptr<nano::transport::channel_udp> find_node_id (nano::account const &);
+		void clean_node_id (nano::account const &);
 		void clean_node_id (nano::endpoint const &, nano::account const &);
 		// Get the next peer for attempting a tcp bootstrap connection
 		nano::tcp_endpoint bootstrap_peer (uint8_t connection_protocol_version_min = nano::protocol_version_reasonable_min);
@@ -133,15 +134,7 @@ namespace transport
 			}
 			nano::account node_id () const
 			{
-				auto node_id_l (channel->get_node_id ());
-				if (node_id_l.is_initialized ())
-				{
-					return node_id_l.get ();
-				}
-				else
-				{
-					return 0;
-				}
+				return channel->get_node_id ();
 			}
 		};
 		class endpoint_attempt final

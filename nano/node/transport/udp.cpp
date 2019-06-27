@@ -215,6 +215,12 @@ std::shared_ptr<nano::transport::channel_udp> nano::transport::udp_channels::fin
 	return result;
 }
 
+void nano::transport::udp_channels::clean_node_id (nano::account const & node_id_a)
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	channels.get<node_id_tag> ().erase (node_id_a);
+}
+
 void nano::transport::udp_channels::clean_node_id (nano::endpoint const & endpoint_a, nano::account const & node_id_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
