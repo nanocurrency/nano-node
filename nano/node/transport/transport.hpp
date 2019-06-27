@@ -134,7 +134,6 @@ namespace transport
 
 		mutable std::mutex channel_mutex;
 		nano::bandwidth_limiter limiter;
-		nano::node & node;
 
 	private:
 		std::chrono::steady_clock::time_point last_bootstrap_attempt{ std::chrono::steady_clock::time_point () };
@@ -142,6 +141,9 @@ namespace transport
 		std::chrono::steady_clock::time_point last_packet_sent{ std::chrono::steady_clock::time_point () };
 		boost::optional<nano::account> node_id{ boost::none };
 		std::atomic<unsigned> network_version{ nano::protocol_version };
+
+	protected:
+		nano::node & node;
 	};
 } // namespace transport
 } // namespace nano

@@ -299,7 +299,7 @@ enum class bootstrap_server_type
 class bootstrap_server final : public std::enable_shared_from_this<nano::bootstrap_server>
 {
 public:
-	bootstrap_server (std::shared_ptr<nano::transport::channel_tcp>);
+	bootstrap_server (std::shared_ptr<nano::socket>, std::shared_ptr<nano::node>);
 	~bootstrap_server ();
 	void stop ();
 	void receive ();
@@ -319,8 +319,8 @@ public:
 	void timeout ();
 	bool is_bootstrap_connection ();
 	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
+	std::shared_ptr<nano::socket> socket;
 	std::shared_ptr<nano::node> node;
-	std::shared_ptr<nano::transport::channel_tcp> channel;
 	std::mutex mutex;
 	std::queue<std::unique_ptr<nano::message>> requests;
 	std::atomic<bool> stopped{ false };
@@ -328,6 +328,7 @@ public:
 	std::atomic<bool> keepalive_first{ true };
 	// Remote enpoint used to remove response channel even after socket closing
 	nano::tcp_endpoint remote_endpoint{ boost::asio::ip::address_v6::any (), 0 };
+	nano::account remote_node_id{ 0 };
 };
 class bulk_pull;
 class bulk_pull_server final : public std::enable_shared_from_this<nano::bulk_pull_server>
