@@ -34,8 +34,9 @@ private:
 	std::condition_variable condition;
 	std::deque<nano::block_hash> hashes;
 	nano::network_params network_params;
-	bool stopped;
-	bool started;
+	bool stopped{ false };
+	bool started{ false };
+	bool wakeup{ false };
 	boost::thread thread;
 
 	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_generator & vote_generator, const std::string & name);

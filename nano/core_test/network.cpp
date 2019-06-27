@@ -2218,7 +2218,6 @@ TEST (confirmation_height, pending_observer_callbacks)
 	nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
 
 	nano::keypair key1;
-	auto & store = node->store;
 	nano::send_block send (latest, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest));
 	auto send1 = std::make_shared<nano::send_block> (send.hash (), key1.pub, nano::genesis_amount - nano::Gxrb_ratio * 2, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send.hash ()));
 
