@@ -1936,7 +1936,6 @@ void nano::bootstrap_server::stop ()
 {
 	if (!stopped.exchange (true))
 	{
-		std::lock_guard<std::mutex> lock (mutex);
 		if (channel->socket != nullptr)
 		{
 			channel->socket->close ();
