@@ -316,6 +316,11 @@ nano::websocket::topic to_topic (std::string topic_a)
 	{
 		topic = nano::websocket::topic::ack;
 	}
+	else if (topic_a == "active_difficulty")
+	{
+		topic = nano::websocket::topic::active_difficulty;
+	}
+
 	return topic;
 }
 
@@ -337,6 +342,10 @@ std::string from_topic (nano::websocket::topic topic_a)
 	else if (topic_a == nano::websocket::topic::ack)
 	{
 		topic = "ack";
+	}
+	else if (topic_a == nano::websocket::topic::active_difficulty)
+	{
+		topic = "active_difficulty";
 	}
 	return topic;
 }
@@ -613,6 +622,22 @@ nano::websocket::message nano::websocket::message_builder::vote_received (std::s
 	boost::property_tree::ptree vote_node_l;
 	vote_a->serialize_json (vote_node_l);
 	message_l.contents.add_child ("message", vote_node_l);
+	return message_l;
+}
+
+nano::websocket::message nano::websocket::message_builder::difficulty_changed (uint64_t publish_threshold, uint64_t difficulty_active)
+{
+	nano::websocket::message message_l (nano::websocket::topic::active_difficulty);
+	set_common_fields (message_l);
+
+	// Active difficulty information
+	boost::property_tree::ptree difficulty_l;
+	difficulty_l.put ("network_minimum", nano::to_string_hex (publish_threshold));
+	difficulty_l.put ("network_current", nano::to_string_hex (difficulty_active));
+	auto multiplier = nano::difficulty::to_multiplier (difficulty_active, publish_threshold);
+	difficulty_l.put ("multiplier", nano::to_string (multiplier));
+
+	message_l.contents.add_child ("message", difficulty_l);
 	return message_l;
 }
 

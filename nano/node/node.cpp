@@ -351,6 +351,15 @@ startup_time (std::chrono::steady_clock::now ())
 					this->websocket_server->broadcast (builder.stopped_election (hash_a));
 				}
 			});
+
+			observers.difficulty.add ([this](uint64_t active_difficulty) {
+				if (this->websocket_server->any_subscriber (nano::websocket::topic::active_difficulty))
+				{
+					nano::websocket::message_builder builder;
+					auto msg (builder.difficulty_changed (network_params.network.publish_threshold, active_difficulty));
+					this->websocket_server->broadcast (msg);
+				}
+			});
 		}
 		// Add block confirmation type stats regardless of http-callback and websocket subscriptions
 		observers.blocks.add ([this](nano::election_status const & status_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
