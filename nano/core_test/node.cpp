@@ -2691,7 +2691,12 @@ TEST (node, peers)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-
+	// Wait to finish TCP node ID handshakes
+	system.deadline_set (10s);
+	while (system.nodes.back ()->network.response_channels.size () == 0 || system.nodes.front ()->network.response_channels.size () == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	// Confirm that the peers match with the endpoints we are expecting
 	ASSERT_EQ (1, system.nodes.front ()->network.size ());
 	auto list1 (system.nodes[0]->network.list (2));
@@ -2836,6 +2841,75 @@ TEST (node, dont_write_lock_node)
 	// Check inactive node can finish executing while a write lock is open
 	nano::inactive_node node (path);
 	finished_promise.set_value ();
+}
+
+TEST (node, bidirectional_tcp)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.delay_frontier_confirmation_height_updating = true;
+	node_flags.disable_udp = true; // Disable UDP connections
+	auto node1 = system.add_node (nano::node_config (24000, system.logging), node_flags);
+	nano::node_config node_config (24001, system.logging);
+	node_config.tcp_incoming_connections_max = 0; // Disable incoming TCP connections for node 2
+	auto node2 = system.add_node (node_config, node_flags);
+	// Check network connections
+	ASSERT_EQ (1, node1->network.size ());
+	ASSERT_EQ (1, node2->network.size ());
+	auto list1 (node1->network.list (1));
+	ASSERT_EQ (nano::transport::transport_type::tcp, list1[0]->get_type ());
+	ASSERT_NE (node2->network.endpoint (), list1[0]->get_endpoint ()); // Ephemeral port
+	ASSERT_EQ (node2->node_id.pub, list1[0]->get_node_id ());
+	auto list2 (node2->network.list (1));
+	ASSERT_EQ (nano::transport::transport_type::tcp, list2[0]->get_type ());
+	ASSERT_EQ (node1->network.endpoint (), list2[0]->get_endpoint ());
+	ASSERT_EQ (node1->node_id.pub, list2[0]->get_node_id ());
+	// Test block propagation from node 1
+	nano::genesis genesis;
+	nano::keypair key;
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1->work_generate_blocking (genesis.hash ())));
+	node1->process_active (send1);
+	node1->block_processor.flush ();
+	system.deadline_set (5s);
+	while (!node1->ledger.block_exists (send1->hash ()) || !node2->ledger.block_exists (send1->hash ()))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	// Test block confirmation from node 1
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	bool confirmed (false);
+	system.deadline_set (10s);
+	while (!confirmed)
+	{
+		auto transaction1 (node1->store.tx_begin_read ());
+		auto transaction2 (node2->store.tx_begin_read ());
+		confirmed = node1->ledger.block_confirmed (transaction1, send1->hash ()) && node2->ledger.block_confirmed (transaction2, send1->hash ());
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	// Test block propagation from node 2
+	{
+		auto transaction (system.wallet (0)->wallets.tx_begin_write ());
+		system.wallet (0)->store.erase (transaction, nano::test_genesis_key.pub);
+	}
+	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1->work_generate_blocking (send1->hash ())));
+	node2->process_active (send2);
+	node2->block_processor.flush ();
+	system.deadline_set (5s);
+	while (!node1->ledger.block_exists (send2->hash ()) || !node2->ledger.block_exists (send2->hash ()))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	// Test block confirmation from node 2
+	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
+	confirmed = false;
+	system.deadline_set (10s);
+	while (!confirmed)
+	{
+		auto transaction1 (node1->store.tx_begin_read ());
+		auto transaction2 (node2->store.tx_begin_read ());
+		confirmed = node1->ledger.block_confirmed (transaction1, send2->hash ()) && node2->ledger.block_confirmed (transaction2, send2->hash ());
+		ASSERT_NO_ERROR (system.poll ());
+	}
 }
 
 namespace nano

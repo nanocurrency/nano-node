@@ -11,9 +11,16 @@ socket (socket_a)
 nano::transport::channel_tcp::~channel_tcp ()
 {
 	std::lock_guard<std::mutex> lk (channel_mutex);
-	if (socket)
+	// Close socket. Exception: socket is used by bootstrap_server
+	if (socket && !server)
 	{
 		socket->close ();
+	}
+	// Remove response server
+	if (response_server != nullptr)
+	{
+		response_server->stop ();
+		response_server = nullptr;
 	}
 }
 
@@ -90,12 +97,19 @@ bool nano::transport::tcp_channels::insert (std::shared_ptr<nano::transport::cha
 		auto existing (channels.get<endpoint_tag> ().find (endpoint));
 		if (existing == channels.get<endpoint_tag> ().end ())
 		{
+			auto node_id (channel_a->get_node_id ());
+			if (!channel_a->server)
+			{
+				channels.get<node_id_tag> ().erase (node_id);
+			}
 			channels.get<endpoint_tag> ().insert ({ channel_a });
 			error = false;
 			lock.unlock ();
 			node.network.channel_observer (channel_a);
 			// Remove UDP channel to same IP:port if exists
 			node.network.udp_channels.erase (udp_endpoint);
+			// Remove UDP channels with same node ID
+			node.network.udp_channels.clean_node_id (node_id);
 		}
 	}
 	return error;
@@ -226,7 +240,7 @@ nano::tcp_endpoint nano::transport::tcp_channels::bootstrap_peer ()
 	return result;
 }
 
-void nano::transport::tcp_channels::process_message (nano::message const & message_a, nano::tcp_endpoint const & endpoint_a, nano::account const & node_id_a)
+void nano::transport::tcp_channels::process_message (nano::message const & message_a, nano::tcp_endpoint const & endpoint_a, nano::account const & node_id_a, std::shared_ptr<nano::socket> socket_a, nano::bootstrap_server_type type_a)
 {
 	if (!stopped)
 	{
@@ -242,11 +256,31 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 			{
 				node.network.process_message (message_a, channel);
 			}
-			else if (!node.flags.disable_udp || (message_a.header.type != nano::message_type::confirm_req && message_a.header.type != nano::message_type::confirm_ack))
+			else if (!node_id_a.is_zero ())
 			{
-				// confirm_req & confirm_ack are only message types that can produce response
-				auto udp_channel (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, nano::transport::map_tcp_to_endpoint (endpoint_a)));
-				node.network.process_message (message_a, udp_channel);
+				// Add temporary channel
+				socket_a->set_writer_concurrency (nano::socket::concurrency::multi_writer);
+				auto temporary_channel (std::make_shared<nano::transport::channel_tcp> (node, socket_a));
+				assert (endpoint_a == temporary_channel->get_tcp_endpoint ());
+				temporary_channel->set_node_id (node_id_a);
+				temporary_channel->set_network_version (message_a.header.version_using);
+				temporary_channel->set_last_packet_received (std::chrono::steady_clock::now ());
+				temporary_channel->set_last_packet_sent (std::chrono::steady_clock::now ());
+				temporary_channel->server = true;
+				// Don't insert temporary channels for response_server
+				assert (type_a == nano::bootstrap_server_type::realtime);
+				if (type_a == nano::bootstrap_server_type::realtime)
+				{
+					insert (temporary_channel);
+				}
+				node.network.process_message (message_a, temporary_channel);
+			}
+			else
+			{
+				// Initial node_id_handshake request without node ID
+				assert (message_a.header.type == nano::message_type::node_id_handshake);
+				assert (type_a == nano::bootstrap_server_type::undefined);
+				node.stats.inc (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in);
 			}
 		}
 	}
@@ -291,12 +325,19 @@ void nano::transport::tcp_channels::start ()
 void nano::transport::tcp_channels::stop ()
 {
 	stopped = true;
+	std::unique_lock<std::mutex> lock (mutex);
 	// Close all TCP sockets
 	for (auto i (channels.begin ()), j (channels.end ()); i != j; ++i)
 	{
 		if (i->channel->socket != nullptr)
 		{
 			i->channel->socket->close ();
+		}
+		// Remove response server
+		if (i->channel->response_server != nullptr)
+		{
+			i->channel->response_server->stop ();
+			i->channel->response_server = nullptr;
 		}
 	}
 }
@@ -496,7 +537,18 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 					{
 						channel_a->set_network_version (header.version_using);
 						auto node_id (message.response->first);
-						if (!node_l->network.syn_cookies.validate (endpoint_a, node_id, message.response->second) && node_id != node_l->node_id.pub && !node_l->network.tcp_channels.find_node_id (node_id))
+						bool process (!node_l->network.syn_cookies.validate (endpoint_a, node_id, message.response->second) && node_id != node_l->node_id.pub);
+						if (process)
+						{
+							/* If node ID is known, don't establish new connection
+							Exception: temporary channels from bootstrap_server */
+							auto existing_channel (node_l->network.tcp_channels.find_node_id (node_id));
+							if (existing_channel)
+							{
+								process = existing_channel->server;
+							}
+						}
+						if (process)
 						{
 							channel_a->set_node_id (node_id);
 							channel_a->set_last_packet_received (std::chrono::steady_clock::now ());
@@ -519,6 +571,12 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 										{
 											callback_a (channel_a);
 										}
+										// Listen for possible responses
+										channel_a->response_server = std::make_shared<nano::bootstrap_server> (channel_a->socket, node_l);
+										channel_a->response_server->keepalive_first = false;
+										channel_a->response_server->type = nano::bootstrap_server_type::realtime_response_server;
+										channel_a->response_server->remote_node_id = channel_a->get_node_id ();
+										channel_a->response_server->receive ();
 									}
 									else
 									{
@@ -531,7 +589,6 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 								}
 							});
 						}
-						// If node ID is known, don't establish new connection
 					}
 					else
 					{

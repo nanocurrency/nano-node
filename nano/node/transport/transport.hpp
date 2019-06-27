@@ -97,10 +97,23 @@ namespace transport
 			last_packet_sent = time_a;
 		}
 
-		boost::optional<nano::account> get_node_id () const
+		boost::optional<nano::account> get_node_id_optional () const
 		{
 			std::lock_guard<std::mutex> lk (channel_mutex);
 			return node_id;
+		}
+
+		nano::account get_node_id () const
+		{
+			std::lock_guard<std::mutex> lk (channel_mutex);
+			if (node_id.is_initialized ())
+			{
+				return node_id.get ();
+			}
+			else
+			{
+				return 0;
+			}
 		}
 
 		void set_node_id (nano::account node_id_a)

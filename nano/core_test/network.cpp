@@ -2335,7 +2335,7 @@ TEST (network, replace_port)
 		}
 	}
 	auto peers_list (system.nodes[0]->network.list (std::numeric_limits<size_t>::max ()));
-	ASSERT_EQ (peers_list[0]->get_node_id ().get (), node1->node_id.pub);
+	ASSERT_EQ (peers_list[0]->get_node_id (), node1->node_id.pub);
 	auto channel (std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, node1->network.endpoint ()));
 	system.nodes[0]->network.send_keepalive (channel);
 	system.deadline_set (5s);
