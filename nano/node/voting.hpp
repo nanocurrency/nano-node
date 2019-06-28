@@ -38,7 +38,7 @@ private:
 	bool stopped{ false };
 	bool started{ false };
 	bool wakeup{ false };
-	std::chrono::steady_clock::time_point vote_start;
+	nano::timer<std::chrono::milliseconds> timer;
 	boost::thread thread;
 
 	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_generator & vote_generator, const std::string & name);

@@ -17,7 +17,7 @@ void nano::vote_generator::add (nano::block_hash const & hash_a)
 	std::unique_lock<std::mutex> lock (mutex);
 	if (hashes.empty ())
 	{
-		vote_start = std::chrono::steady_clock::now ();
+		timer.restart ();
 	}
 	hashes.push_back (hash_a);
 	if (hashes.size () >= node.config.vote_generator_threshold)
@@ -84,7 +84,7 @@ void nano::vote_generator::run ()
 			wakeup = false;
 			auto triggered = condition.wait_for (lock, node.config.vote_generator_delay, [this]() { return this->wakeup; });
 			// Pack and send vote with lower number of hashes if the condition timed out or the latency limit was reached
-			if (!hashes.empty () && (!triggered || std::chrono::steady_clock::now () - vote_start > node.config.vote_generator_maximum_latency))
+			if (!hashes.empty () && (!triggered || timer.since_start () > node.config.vote_generator_maximum_latency))
 			{
 				send (lock);
 			}
