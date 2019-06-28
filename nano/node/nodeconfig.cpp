@@ -115,6 +115,7 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("vote_minimum", vote_minimum.to_string_dec ());
 	json.put ("vote_generator_delay", vote_generator_delay.count ());
 	json.put ("vote_generator_threshold", vote_generator_threshold);
+	json.put ("vote_generator_maximum_latency", vote_generator_maximum_latency.count ());
 	json.put ("unchecked_cutoff_time", unchecked_cutoff_time.count ());
 	json.put ("tcp_io_timeout", tcp_io_timeout.count ());
 	json.put ("pow_sleep_interval", pow_sleep_interval.count ());
@@ -251,6 +252,7 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.put ("tcp_incoming_connections_max", tcp_incoming_connections_max);
 			json.put ("vote_generator_delay", vote_generator_delay.count ());
 			json.put ("vote_generator_threshold", vote_generator_threshold);
+			json.put ("vote_generator_maximum_latency", vote_generator_maximum_latency.count ());
 			json.put ("use_memory_pools", use_memory_pools);
 			json.put ("confirmation_history_size", confirmation_history_size);
 			json.put ("active_elections_size", active_elections_size);
@@ -356,6 +358,10 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		vote_generator_delay = std::chrono::milliseconds (delay_l);
 
 		json.get<unsigned> ("vote_generator_threshold", vote_generator_threshold);
+
+		unsigned long maximum_latency_l = vote_generator_maximum_latency.count ();
+		json.get<unsigned long> ("vote_generator_maximum_latency", maximum_latency_l);
+		vote_generator_maximum_latency = std::chrono::milliseconds (maximum_latency_l);
 
 		auto block_processor_batch_max_time_l (json.get<unsigned long> ("block_processor_batch_max_time"));
 		block_processor_batch_max_time = std::chrono::milliseconds (block_processor_batch_max_time_l);

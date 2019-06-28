@@ -717,6 +717,7 @@ TEST (node_config, v16_v17_upgrade)
 	ASSERT_FALSE (tree.get_optional_child ("tcp_incoming_connections_max"));
 	ASSERT_FALSE (tree.get_optional_child ("vote_generator_delay"));
 	ASSERT_FALSE (tree.get_optional_child ("vote_generator_threshold"));
+	ASSERT_FALSE (tree.get_optional_child ("vote_generator_maximum_latency"));
 	ASSERT_FALSE (tree.get_optional_child ("diagnostics"));
 	ASSERT_FALSE (tree.get_optional_child ("use_memory_pools"));
 	ASSERT_FALSE (tree.get_optional_child ("confirmation_history_size"));
@@ -733,6 +734,7 @@ TEST (node_config, v16_v17_upgrade)
 	ASSERT_TRUE (!!tree.get_optional_child ("tcp_incoming_connections_max"));
 	ASSERT_TRUE (!!tree.get_optional_child ("vote_generator_delay"));
 	ASSERT_TRUE (!!tree.get_optional_child ("vote_generator_threshold"));
+	ASSERT_TRUE (!!tree.get_optional_child ("vote_generator_maximum_latency"));
 	ASSERT_TRUE (!!tree.get_optional_child ("diagnostics"));
 	ASSERT_TRUE (!!tree.get_optional_child ("use_memory_pools"));
 	ASSERT_TRUE (!!tree.get_optional_child ("confirmation_history_size"));
@@ -766,6 +768,7 @@ TEST (node_config, v17_values)
 		tree.put ("tcp_incoming_connections_max", 1);
 		tree.put ("vote_generator_delay", 50);
 		tree.put ("vote_generator_threshold", 3);
+		tree.put ("vote_generator_maximum_latency", 250);
 		nano::jsonconfig txn_tracking_l;
 		txn_tracking_l.put ("enable", false);
 		txn_tracking_l.put ("min_read_txn_time", 0);
@@ -806,6 +809,7 @@ TEST (node_config, v17_values)
 	tree.put ("tcp_incoming_connections_max", std::numeric_limits<unsigned>::max ());
 	tree.put ("vote_generator_delay", std::numeric_limits<unsigned long>::max () - 100);
 	tree.put ("vote_generator_threshold", 10);
+	tree.put ("vote_generator_maximum_latency", std::numeric_limits<unsigned long>::max () - 100);
 	nano::jsonconfig txn_tracking_l;
 	txn_tracking_l.put ("enable", true);
 	txn_tracking_l.put ("min_read_txn_time", 1234);
@@ -830,6 +834,7 @@ TEST (node_config, v17_values)
 	ASSERT_EQ (config.tcp_incoming_connections_max, std::numeric_limits<unsigned>::max ());
 	ASSERT_EQ (config.vote_generator_delay.count (), std::numeric_limits<unsigned long>::max () - 100);
 	ASSERT_EQ (config.vote_generator_threshold, 10);
+	ASSERT_EQ (config.vote_generator_maximum_latency.count (), std::numeric_limits<unsigned long>::max () - 100);
 	ASSERT_TRUE (config.diagnostics_config.txn_tracking.enable);
 	ASSERT_EQ (config.diagnostics_config.txn_tracking.min_read_txn_time.count (), 1234);
 	ASSERT_EQ (config.tcp_incoming_connections_max, std::numeric_limits<unsigned>::max ());

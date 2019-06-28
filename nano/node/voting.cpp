@@ -1,8 +1,6 @@
 #include <nano/node/node.hpp>
 #include <nano/node/voting.hpp>
 
-#include <chrono>
-
 nano::vote_generator::vote_generator (nano::node & node_a) :
 node (node_a),
 thread ([this]() { run (); })
@@ -17,6 +15,10 @@ thread ([this]() { run (); })
 void nano::vote_generator::add (nano::block_hash const & hash_a)
 {
 	std::unique_lock<std::mutex> lock (mutex);
+	if (hashes.empty ())
+	{
+		vote_start = std::chrono::steady_clock::now ();
+	}
 	hashes.push_back (hash_a);
 	if (hashes.size () >= node.config.vote_generator_threshold)
 	{
@@ -80,13 +82,11 @@ void nano::vote_generator::run ()
 		else
 		{
 			wakeup = false;
-			if (!condition.wait_for (lock, node.config.vote_generator_delay, [this]() { return this->wakeup; }))
+			auto triggered = condition.wait_for (lock, node.config.vote_generator_delay, [this]() { return this->wakeup; });
+			// Pack and send vote with lower number of hashes if the condition timed out or the latency limit was reached
+			if (!hashes.empty () && (!triggered || std::chrono::steady_clock::now () - vote_start > node.config.vote_generator_maximum_latency))
 			{
-				// Did not wake up early. Likely not under high load, ok to send lower number of hashes
-				if (!hashes.empty ())
-				{
-					send (lock);
-				}
+				send (lock);
 			}
 		}
 	}

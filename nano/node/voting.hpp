@@ -12,6 +12,7 @@
 #include <boost/multi_index_container.hpp>
 #include <boost/thread.hpp>
 
+#include <chrono>
 #include <condition_variable>
 #include <deque>
 #include <mutex>
@@ -37,6 +38,7 @@ private:
 	bool stopped{ false };
 	bool started{ false };
 	bool wakeup{ false };
+	std::chrono::steady_clock::time_point vote_start;
 	boost::thread thread;
 
 	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_generator & vote_generator, const std::string & name);
