@@ -39,7 +39,7 @@ public:
 	nano::amount vote_minimum{ nano::Gxrb_ratio };
 	std::chrono::milliseconds vote_generator_delay{ std::chrono::milliseconds (50) };
 	unsigned vote_generator_threshold{ 3 };
-	std::chrono::milliseconds vote_generator_maximum_latency{ std::chrono::milliseconds (250) };
+	std::chrono::milliseconds vote_generator_maximum_latency{ std::chrono::milliseconds (150) };
 	nano::amount online_weight_minimum{ 60000 * nano::Gxrb_ratio };
 	unsigned online_weight_quorum{ 50 };
 	unsigned password_fanout{ 1024 };

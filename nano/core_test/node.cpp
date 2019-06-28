@@ -768,7 +768,7 @@ TEST (node_config, v17_values)
 		tree.put ("tcp_incoming_connections_max", 1);
 		tree.put ("vote_generator_delay", 50);
 		tree.put ("vote_generator_threshold", 3);
-		tree.put ("vote_generator_maximum_latency", 250);
+		tree.put ("vote_generator_maximum_latency", 150);
 		nano::jsonconfig txn_tracking_l;
 		txn_tracking_l.put ("enable", false);
 		txn_tracking_l.put ("min_read_txn_time", 0);
