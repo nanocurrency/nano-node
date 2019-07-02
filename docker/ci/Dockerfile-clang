@@ -1,4 +1,4 @@
-FROM nanocurrency/nano-base
+FROM nanocurrency/nano-env:base
 
 ENV CXX=/usr/bin/clang++
 ENV CC=/usr/bin/clang

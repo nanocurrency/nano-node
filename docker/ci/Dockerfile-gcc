@@ -1,4 +1,4 @@
-FROM nanocurrency/nano-base
+FROM nanocurrency/nano-env:base
 
 ENV BOOST_ROOT=/usr/local
 ADD util/build_prep/bootstrap_boost.sh bootstrap_boost.sh
