@@ -1,17 +1,4 @@
-FROM ubuntu:16.04
-
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update -qq && apt-get install -yqq \
-    cmake wget bzip2
-
-RUN apt-get update -qq && apt-get install -yqq \
-    qt5-default \
-    valgrind \
-    xorg xvfb xauth xfonts-100dpi xfonts-75dpi xfonts-scalable xfonts-cyrillic
-
-RUN apt-get update -qq && apt-get install -yqq \
-    clang-3.9 lldb-3.9
+FROM nanocurrency/nano-base
 
 ENV CXX=/usr/bin/clang++
 ENV CC=/usr/bin/clang
