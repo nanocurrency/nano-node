@@ -368,7 +368,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 			{
 				std::lock_guard<std::mutex> lock (node_l->active.mutex);
 				auto existing (node_l->active.blocks.find (block_a->hash ()));
-				if (existing != node_l->active.blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->announcements == 0)
+				if (existing != node_l->active.blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->confirmation_request_count == 0)
 				{
 					send_request = true;
 				}
