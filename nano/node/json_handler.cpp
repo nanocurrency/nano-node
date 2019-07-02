@@ -1629,7 +1629,7 @@ void nano::json_handler::confirmation_active ()
 		std::lock_guard<std::mutex> lock (node.active.mutex);
 		for (auto i (node.active.roots.begin ()), n (node.active.roots.end ()); i != n; ++i)
 		{
-			if (i->election->announcements >= announcements && !i->election->confirmed && !i->election->stopped)
+			if (i->election->confirmation_request_count >= announcements && !i->election->confirmed && !i->election->stopped)
 			{
 				boost::property_tree::ptree entry;
 				entry.put ("", i->root.to_string ());
@@ -1706,7 +1706,7 @@ void nano::json_handler::confirmation_info ()
 		auto conflict_info (node.active.roots.find (root));
 		if (conflict_info != node.active.roots.end ())
 		{
-			response_l.put ("announcements", std::to_string (conflict_info->election->announcements));
+			response_l.put ("announcements", std::to_string (conflict_info->election->confirmation_request_count));
 			auto election (conflict_info->election);
 			nano::uint128_t total (0);
 			response_l.put ("last_winner", election->status.winner->hash ().to_string ());
