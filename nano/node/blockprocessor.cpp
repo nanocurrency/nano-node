@@ -341,7 +341,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 	}
 	lock_a.unlock ();
 
-	if (node.config.logging.timing_logging ())
+	if (node.config.logging.timing_logging () && number_of_blocks_processed != 0)
 	{
 		node.logger.always_log (boost::str (boost::format ("Processed %1% blocks (%2% blocks were forced) in %3% %4%") % number_of_blocks_processed % number_of_forced_processed % timer_l.stop ().count () % timer_l.unit ()));
 	}
