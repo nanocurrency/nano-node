@@ -457,7 +457,7 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, std::
 			blocks.insert (std::make_pair (hash, election));
 			adjust_difficulty (hash);
 		}
-		else if (roots.size () >= node.config.active_elections_size)
+		if (roots.size () >= node.config.active_elections_size)
 		{
 			flush_lowest ();
 		}
