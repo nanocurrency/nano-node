@@ -41,5 +41,5 @@ after_build:
 artifacts:
 - path: nano*.zip
   name: nano_release_%network%
-- path: Nano_Installer-*.exe
-  name: Nano_Installer_%network%
+- path: nano-node-*.exe
+  name: nano-node-%network%

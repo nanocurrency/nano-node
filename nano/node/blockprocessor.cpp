@@ -341,7 +341,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 	}
 	lock_a.unlock ();
 
-	if (node.config.logging.timing_logging ())
+	if (node.config.logging.timing_logging () && number_of_blocks_processed != 0)
 	{
 		node.logger.always_log (boost::str (boost::format ("Processed %1% blocks (%2% blocks were forced) in %3% %4%") % number_of_blocks_processed % number_of_forced_processed % timer_l.stop ().count () % timer_l.unit ()));
 	}
@@ -368,7 +368,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 			{
 				std::lock_guard<std::mutex> lock (node_l->active.mutex);
 				auto existing (node_l->active.blocks.find (block_a->hash ()));
-				if (existing != node_l->active.blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->announcements == 0)
+				if (existing != node_l->active.blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->confirmation_request_count == 0)
 				{
 					send_request = true;
 				}
