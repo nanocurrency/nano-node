@@ -267,8 +267,8 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 				temporary_channel->set_last_packet_received (std::chrono::steady_clock::now ());
 				temporary_channel->set_last_packet_sent (std::chrono::steady_clock::now ());
 				temporary_channel->server = true;
+				assert (type_a == nano::bootstrap_server_type::realtime || type_a == nano::bootstrap_server_type::realtime_response_server);
 				// Don't insert temporary channels for response_server
-				assert (type_a == nano::bootstrap_server_type::realtime);
 				if (type_a == nano::bootstrap_server_type::realtime)
 				{
 					insert (temporary_channel);
