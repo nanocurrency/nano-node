@@ -46,12 +46,15 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 	auto check_time_exceeded = std::chrono::steady_clock::now () >= next_frontier_check;
 	lk.unlock ();
 	auto low_active_elections = roots_size < max_elections;
-	if (roots_size <= node.config.active_elections_size && (check_time_exceeded || (!is_test_network && low_active_elections)))
+	// To minimise dropping real-time transactions, set the maximum number of elections
+	// for cementing frontiers to half the total active election maximum.
+	const auto max_active = node.config.active_elections_size / 2;
+	if (roots_size <= max_active && (check_time_exceeded || (!is_test_network && low_active_elections)))
 	{
 		// When the number of active elections is low increase max number of elections for setting confirmation height.
-		if (max_broadcast_queue > roots_size + max_elections)
+		if (max_active > roots_size + max_elections)
 		{
-			max_elections = max_broadcast_queue - roots_size;
+			max_elections = max_active - roots_size;
 		}
 
 		// Spend time prioritizing accounts to reduce voting traffic
