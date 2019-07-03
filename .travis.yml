@@ -1,10 +1,30 @@
 language: cpp
 
 stages:
+  - build_base
+  - build_env
   - test
   - deploy
 jobs:
   include:
+    - stage: build_base
+      name: "base"
+      if: branch = docker_cache
+      script:
+        - if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi
+      env: 
+        - secure: "jYlg5yC8plC4zbV4sCt8BNXEHOgvF4tydJbbUsyPvmWqIKU4rScQOKvN4euDUa1UFc9dz7UxNahGuyEGQAWjG2jmvdgDG97+ImXOZa/kRnCsyJX/3R+k6dQZ/8MN9Ax6FOpXfOoHxHOZLBzE5PBIbaeF+Okcw9ks6eawXZDu2JLckGDxLDWXTz6x+NbZLE2wlm7UI9aladZBsAR/KHlYH3ms+xgZAxcrzZ2p2BFfhHpnplOYcNhivpLn0BP66DZ6/7HtpPYkfXmqTCZZ0HkxzJ2ayZ9PuvbVXL/cHXCxRJCNweRQsPYsdowzv+k/J74X2yN0jNCsSbWU619MXxzBPJGmTq20iSvEYvX0I+uEP1PCocP7PWfvfkjlj5Ts5vPJcpBZeAUgl1yjPxA4NrwRQ7iJni14VrK8dSxjQvubV/zyK2ey2vUU7e8nOpzqw/66UPDQmvDe7byadgHIacSG55ge7zZIeI6AeK1QGh5nRnLWaMMqb0drT7ZaM6BS7iwRTBVBzw2ZjKV67MRRU0O7PY+jsNx8JG58ycXqKvP4hB6tKEV+8YMSdSDl/f06FFZJT96p4sCQmUaVecXokzTyfq7ugFgWuiRRwRqcH/wi3LMLHY7JseHBw9S8bJ98dOFEcoZCUoviwnxNSXOqA3tXGudduQh4KsCDYDUKJNzDtAo="
+    - stage: build_env
+      name: "clang"
+      script: 
+        - if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi
+      env: 
+        - secure: "jYlg5yC8plC4zbV4sCt8BNXEHOgvF4tydJbbUsyPvmWqIKU4rScQOKvN4euDUa1UFc9dz7UxNahGuyEGQAWjG2jmvdgDG97+ImXOZa/kRnCsyJX/3R+k6dQZ/8MN9Ax6FOpXfOoHxHOZLBzE5PBIbaeF+Okcw9ks6eawXZDu2JLckGDxLDWXTz6x+NbZLE2wlm7UI9aladZBsAR/KHlYH3ms+xgZAxcrzZ2p2BFfhHpnplOYcNhivpLn0BP66DZ6/7HtpPYkfXmqTCZZ0HkxzJ2ayZ9PuvbVXL/cHXCxRJCNweRQsPYsdowzv+k/J74X2yN0jNCsSbWU619MXxzBPJGmTq20iSvEYvX0I+uEP1PCocP7PWfvfkjlj5Ts5vPJcpBZeAUgl1yjPxA4NrwRQ7iJni14VrK8dSxjQvubV/zyK2ey2vUU7e8nOpzqw/66UPDQmvDe7byadgHIacSG55ge7zZIeI6AeK1QGh5nRnLWaMMqb0drT7ZaM6BS7iwRTBVBzw2ZjKV67MRRU0O7PY+jsNx8JG58ycXqKvP4hB6tKEV+8YMSdSDl/f06FFZJT96p4sCQmUaVecXokzTyfq7ugFgWuiRRwRqcH/wi3LMLHY7JseHBw9S8bJ98dOFEcoZCUoviwnxNSXOqA3tXGudduQh4KsCDYDUKJNzDtAo="
+    - name: "gcc"
+      script: 
+        - if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi
+      env: 
+        - secure: "jYlg5yC8plC4zbV4sCt8BNXEHOgvF4tydJbbUsyPvmWqIKU4rScQOKvN4euDUa1UFc9dz7UxNahGuyEGQAWjG2jmvdgDG97+ImXOZa/kRnCsyJX/3R+k6dQZ/8MN9Ax6FOpXfOoHxHOZLBzE5PBIbaeF+Okcw9ks6eawXZDu2JLckGDxLDWXTz6x+NbZLE2wlm7UI9aladZBsAR/KHlYH3ms+xgZAxcrzZ2p2BFfhHpnplOYcNhivpLn0BP66DZ6/7HtpPYkfXmqTCZZ0HkxzJ2ayZ9PuvbVXL/cHXCxRJCNweRQsPYsdowzv+k/J74X2yN0jNCsSbWU619MXxzBPJGmTq20iSvEYvX0I+uEP1PCocP7PWfvfkjlj5Ts5vPJcpBZeAUgl1yjPxA4NrwRQ7iJni14VrK8dSxjQvubV/zyK2ey2vUU7e8nOpzqw/66UPDQmvDe7byadgHIacSG55ge7zZIeI6AeK1QGh5nRnLWaMMqb0drT7ZaM6BS7iwRTBVBzw2ZjKV67MRRU0O7PY+jsNx8JG58ycXqKvP4hB6tKEV+8YMSdSDl/f06FFZJT96p4sCQmUaVecXokzTyfq7ugFgWuiRRwRqcH/wi3LMLHY7JseHBw9S8bJ98dOFEcoZCUoviwnxNSXOqA3tXGudduQh4KsCDYDUKJNzDtAo="
     - stage: test
       name: "GCC + ONE_TIME_TESTS"      
       os: linux
@@ -36,29 +56,17 @@ jobs:
       install:
         - brew install ccache;
         - export PATH="/usr/local/opt/ccache/libexec:$PATH";
-    - stage: deploy
-      name: "clang"
+    - stage: deploy    
+      name: "live"
       script: 
         - if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi
       env: 
-        - secure: "jYlg5yC8plC4zbV4sCt8BNXEHOgvF4tydJbbUsyPvmWqIKU4rScQOKvN4euDUa1UFc9dz7UxNahGuyEGQAWjG2jmvdgDG97+ImXOZa/kRnCsyJX/3R+k6dQZ/8MN9Ax6FOpXfOoHxHOZLBzE5PBIbaeF+Okcw9ks6eawXZDu2JLckGDxLDWXTz6x+NbZLE2wlm7UI9aladZBsAR/KHlYH3ms+xgZAxcrzZ2p2BFfhHpnplOYcNhivpLn0BP66DZ6/7HtpPYkfXmqTCZZ0HkxzJ2ayZ9PuvbVXL/cHXCxRJCNweRQsPYsdowzv+k/J74X2yN0jNCsSbWU619MXxzBPJGmTq20iSvEYvX0I+uEP1PCocP7PWfvfkjlj5Ts5vPJcpBZeAUgl1yjPxA4NrwRQ7iJni14VrK8dSxjQvubV/zyK2ey2vUU7e8nOpzqw/66UPDQmvDe7byadgHIacSG55ge7zZIeI6AeK1QGh5nRnLWaMMqb0drT7ZaM6BS7iwRTBVBzw2ZjKV67MRRU0O7PY+jsNx8JG58ycXqKvP4hB6tKEV+8YMSdSDl/f06FFZJT96p4sCQmUaVecXokzTyfq7ugFgWuiRRwRqcH/wi3LMLHY7JseHBw9S8bJ98dOFEcoZCUoviwnxNSXOqA3tXGudduQh4KsCDYDUKJNzDtAo="
-    - name: "gcc"
+        - secure: "jYlg5yC8plC4zbV4sCt8BNXEHOgvF4tydJbbUsyPvmWqIKU4rScQOKvN4euDUa1UFc9dz7UxNahGuyEGQAWjG2jmvdgDG97+ImXOZa/kRnCsyJX/3R+k6dQZ/8MN9Ax6FOpXfOoHxHOZLBzE5PBIbaeF+Okcw9ks6eawXZDu2JLckGDxLDWXTz6x+NbZLE2wlm7UI9aladZBsAR/KHlYH3ms+xgZAxcrzZ2p2BFfhHpnplOYcNhivpLn0BP66DZ6/7HtpPYkfXmqTCZZ0HkxzJ2ayZ9PuvbVXL/cHXCxRJCNweRQsPYsdowzv+k/J74X2yN0jNCsSbWU619MXxzBPJGmTq20iSvEYvX0I+uEP1PCocP7PWfvfkjlj5Ts5vPJcpBZeAUgl1yjPxA4NrwRQ7iJni14VrK8dSxjQvubV/zyK2ey2vUU7e8nOpzqw/66UPDQmvDe7byadgHIacSG55ge7zZIeI6AeK1QGh5nRnLWaMMqb0drT7ZaM6BS7iwRTBVBzw2ZjKV67MRRU0O7PY+jsNx8JG58ycXqKvP4hB6tKEV+8YMSdSDl/f06FFZJT96p4sCQmUaVecXokzTyfq7ugFgWuiRRwRqcH/wi3LMLHY7JseHBw9S8bJ98dOFEcoZCUoviwnxNSXOqA3tXGudduQh4KsCDYDUKJNzDtAo=" 
+    - name: "beta"
       script: 
         - if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi
       env: 
-        - secure: "jYlg5yC8plC4zbV4sCt8BNXEHOgvF4tydJbbUsyPvmWqIKU4rScQOKvN4euDUa1UFc9dz7UxNahGuyEGQAWjG2jmvdgDG97+ImXOZa/kRnCsyJX/3R+k6dQZ/8MN9Ax6FOpXfOoHxHOZLBzE5PBIbaeF+Okcw9ks6eawXZDu2JLckGDxLDWXTz6x+NbZLE2wlm7UI9aladZBsAR/KHlYH3ms+xgZAxcrzZ2p2BFfhHpnplOYcNhivpLn0BP66DZ6/7HtpPYkfXmqTCZZ0HkxzJ2ayZ9PuvbVXL/cHXCxRJCNweRQsPYsdowzv+k/J74X2yN0jNCsSbWU619MXxzBPJGmTq20iSvEYvX0I+uEP1PCocP7PWfvfkjlj5Ts5vPJcpBZeAUgl1yjPxA4NrwRQ7iJni14VrK8dSxjQvubV/zyK2ey2vUU7e8nOpzqw/66UPDQmvDe7byadgHIacSG55ge7zZIeI6AeK1QGh5nRnLWaMMqb0drT7ZaM6BS7iwRTBVBzw2ZjKV67MRRU0O7PY+jsNx8JG58ycXqKvP4hB6tKEV+8YMSdSDl/f06FFZJT96p4sCQmUaVecXokzTyfq7ugFgWuiRRwRqcH/wi3LMLHY7JseHBw9S8bJ98dOFEcoZCUoviwnxNSXOqA3tXGudduQh4KsCDYDUKJNzDtAo="
-    - name: "other"
-      script: 
-        - if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi
-      env: 
-        - secure: "jYlg5yC8plC4zbV4sCt8BNXEHOgvF4tydJbbUsyPvmWqIKU4rScQOKvN4euDUa1UFc9dz7UxNahGuyEGQAWjG2jmvdgDG97+ImXOZa/kRnCsyJX/3R+k6dQZ/8MN9Ax6FOpXfOoHxHOZLBzE5PBIbaeF+Okcw9ks6eawXZDu2JLckGDxLDWXTz6x+NbZLE2wlm7UI9aladZBsAR/KHlYH3ms+xgZAxcrzZ2p2BFfhHpnplOYcNhivpLn0BP66DZ6/7HtpPYkfXmqTCZZ0HkxzJ2ayZ9PuvbVXL/cHXCxRJCNweRQsPYsdowzv+k/J74X2yN0jNCsSbWU619MXxzBPJGmTq20iSvEYvX0I+uEP1PCocP7PWfvfkjlj5Ts5vPJcpBZeAUgl1yjPxA4NrwRQ7iJni14VrK8dSxjQvubV/zyK2ey2vUU7e8nOpzqw/66UPDQmvDe7byadgHIacSG55ge7zZIeI6AeK1QGh5nRnLWaMMqb0drT7ZaM6BS7iwRTBVBzw2ZjKV67MRRU0O7PY+jsNx8JG58ycXqKvP4hB6tKEV+8YMSdSDl/f06FFZJT96p4sCQmUaVecXokzTyfq7ugFgWuiRRwRqcH/wi3LMLHY7JseHBw9S8bJ98dOFEcoZCUoviwnxNSXOqA3tXGudduQh4KsCDYDUKJNzDtAo="
-    - name: "base"
-      if: branch = docker_cache
-      script:
-        - if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi
-      env: 
-        - secure: "jYlg5yC8plC4zbV4sCt8BNXEHOgvF4tydJbbUsyPvmWqIKU4rScQOKvN4euDUa1UFc9dz7UxNahGuyEGQAWjG2jmvdgDG97+ImXOZa/kRnCsyJX/3R+k6dQZ/8MN9Ax6FOpXfOoHxHOZLBzE5PBIbaeF+Okcw9ks6eawXZDu2JLckGDxLDWXTz6x+NbZLE2wlm7UI9aladZBsAR/KHlYH3ms+xgZAxcrzZ2p2BFfhHpnplOYcNhivpLn0BP66DZ6/7HtpPYkfXmqTCZZ0HkxzJ2ayZ9PuvbVXL/cHXCxRJCNweRQsPYsdowzv+k/J74X2yN0jNCsSbWU619MXxzBPJGmTq20iSvEYvX0I+uEP1PCocP7PWfvfkjlj5Ts5vPJcpBZeAUgl1yjPxA4NrwRQ7iJni14VrK8dSxjQvubV/zyK2ey2vUU7e8nOpzqw/66UPDQmvDe7byadgHIacSG55ge7zZIeI6AeK1QGh5nRnLWaMMqb0drT7ZaM6BS7iwRTBVBzw2ZjKV67MRRU0O7PY+jsNx8JG58ycXqKvP4hB6tKEV+8YMSdSDl/f06FFZJT96p4sCQmUaVecXokzTyfq7ugFgWuiRRwRqcH/wi3LMLHY7JseHBw9S8bJ98dOFEcoZCUoviwnxNSXOqA3tXGudduQh4KsCDYDUKJNzDtAo="
-
+        - secure: "jYlg5yC8plC4zbV4sCt8BNXEHOgvF4tydJbbUsyPvmWqIKU4rScQOKvN4euDUa1UFc9dz7UxNahGuyEGQAWjG2jmvdgDG97+ImXOZa/kRnCsyJX/3R+k6dQZ/8MN9Ax6FOpXfOoHxHOZLBzE5PBIbaeF+Okcw9ks6eawXZDu2JLckGDxLDWXTz6x+NbZLE2wlm7UI9aladZBsAR/KHlYH3ms+xgZAxcrzZ2p2BFfhHpnplOYcNhivpLn0BP66DZ6/7HtpPYkfXmqTCZZ0HkxzJ2ayZ9PuvbVXL/cHXCxRJCNweRQsPYsdowzv+k/J74X2yN0jNCsSbWU619MXxzBPJGmTq20iSvEYvX0I+uEP1PCocP7PWfvfkjlj5Ts5vPJcpBZeAUgl1yjPxA4NrwRQ7iJni14VrK8dSxjQvubV/zyK2ey2vUU7e8nOpzqw/66UPDQmvDe7byadgHIacSG55ge7zZIeI6AeK1QGh5nRnLWaMMqb0drT7ZaM6BS7iwRTBVBzw2ZjKV67MRRU0O7PY+jsNx8JG58ycXqKvP4hB6tKEV+8YMSdSDl/f06FFZJT96p4sCQmUaVecXokzTyfq7ugFgWuiRRwRqcH/wi3LMLHY7JseHBw9S8bJ98dOFEcoZCUoviwnxNSXOqA3tXGudduQh4KsCDYDUKJNzDtAo=" 
 cache:
   - ccache: true
   - directories:
