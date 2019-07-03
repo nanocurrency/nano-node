@@ -777,7 +777,7 @@ TEST (node_config, v17_values)
 		tree.put ("use_memory_pools", true);
 		tree.put ("confirmation_history_size", 2048);
 		tree.put ("active_elections_size", 8000);
-		tree.put ("bandwidth_limit", 1572864);
+		tree.put ("bandwidth_limit", 5242880);
 		tree.put ("conf_height_processor_batch_min_time", 0);
 	}
 
@@ -795,7 +795,7 @@ TEST (node_config, v17_values)
 	ASSERT_TRUE (config.use_memory_pools);
 	ASSERT_EQ (config.confirmation_history_size, 2048);
 	ASSERT_EQ (config.active_elections_size, 8000);
-	ASSERT_EQ (config.bandwidth_limit, 1572864);
+	ASSERT_EQ (config.bandwidth_limit, 5242880);
 	ASSERT_EQ (config.conf_height_processor_batch_min_time.count (), 0);
 
 	// Check config is correct with other values
