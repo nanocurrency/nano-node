@@ -1,14 +1,6 @@
-FROM ubuntu:16.04
+FROM nanocurrency/nano-env:gcc
 
 ARG NETWORK=live
-
-ENV BOOST_ROOT=/tmp/boost_install
-
-ADD ci /tmp/ci
-ADD util /tmp/util
-
-RUN /tmp/util/build_prep/update-common && /tmp/util/build_prep/ubuntu/prep.sh
-
 ADD ./ /tmp/src
 
 RUN mkdir /tmp/build && \
