@@ -186,89 +186,86 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 					}
 				}
 			}
-			if (election_l->confirmation_request_count % high_confirmation_request_count == 1)
+			auto rep_channels (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> ());
+			auto reps (node.rep_crawler.representatives (std::numeric_limits<size_t>::max ()));
+
+			// Add all rep endpoints that haven't already voted. We use a set since multiple
+			// reps may exist on an endpoint.
+			std::unordered_set<std::shared_ptr<nano::transport::channel>> channels;
+			for (auto & rep : reps)
 			{
-				auto rep_channels (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> ());
-				auto reps (node.rep_crawler.representatives (std::numeric_limits<size_t>::max ()));
-
-				// Add all rep endpoints that haven't already voted. We use a set since multiple
-				// reps may exist on an endpoint.
-				std::unordered_set<std::shared_ptr<nano::transport::channel>> channels;
-				for (auto & rep : reps)
+				if (election_l->last_votes.find (rep.account) == election_l->last_votes.end ())
 				{
-					if (election_l->last_votes.find (rep.account) == election_l->last_votes.end ())
-					{
-						channels.insert (rep.channel);
+					channels.insert (rep.channel);
 
-						if (node.config.logging.vote_logging ())
-						{
-							node.logger.try_log ("Representative did not respond to confirm_req, retrying: ", rep.account.to_account ());
-						}
+					if (node.config.logging.vote_logging ())
+					{
+						node.logger.try_log ("Representative did not respond to confirm_req, retrying: ", rep.account.to_account ());
 					}
 				}
+			}
 
-				rep_channels->insert (rep_channels->end (), channels.begin (), channels.end ());
+			rep_channels->insert (rep_channels->end (), channels.begin (), channels.end ());
 
-				if ((!rep_channels->empty () && node.rep_crawler.total_weight () > node.config.online_weight_minimum.number ()) || roots_size > 5)
+			if ((!rep_channels->empty () && node.rep_crawler.total_weight () > node.config.online_weight_minimum.number ()) || roots_size > 5)
+			{
+				// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
+				if (node.network_params.network.is_live_network ())
 				{
-					// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
-					if (node.network_params.network.is_live_network ())
+					if (confirm_req_bundle.size () < max_broadcast_queue)
 					{
-						if (confirm_req_bundle.size () < max_broadcast_queue)
-						{
-							confirm_req_bundle.push_back (std::make_pair (election_l->status.winner, rep_channels));
-						}
-					}
-					else
-					{
-						for (auto & rep : *rep_channels)
-						{
-							auto rep_request (requests_bundle.find (rep));
-							auto block (election_l->status.winner);
-							auto root_hash (std::make_pair (block->hash (), block->root ()));
-							if (rep_request == requests_bundle.end ())
-							{
-								if (requests_bundle.size () < max_broadcast_queue)
-								{
-									std::vector<std::pair<nano::block_hash, nano::block_hash>> insert_vector = { root_hash };
-									requests_bundle.insert (std::make_pair (rep, insert_vector));
-								}
-							}
-							else if (rep_request->second.size () < max_broadcast_queue * nano::network::confirm_req_hashes_max)
-							{
-								rep_request->second.push_back (root_hash);
-							}
-						}
+						confirm_req_bundle.push_back (std::make_pair (election_l->status.winner, rep_channels));
 					}
 				}
 				else
 				{
-					if (node.network_params.network.is_live_network ())
+					for (auto & rep : *rep_channels)
 					{
-						auto deque_l (node.network.udp_channels.random_set (100));
-						auto vec (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> ());
-						for (auto i : deque_l)
+						auto rep_request (requests_bundle.find (rep));
+						auto block (election_l->status.winner);
+						auto root_hash (std::make_pair (block->hash (), block->root ()));
+						if (rep_request == requests_bundle.end ())
 						{
-							vec->push_back (i);
-						}
-						confirm_req_bundle.push_back (std::make_pair (election_l->status.winner, vec));
-					}
-					else
-					{
-						for (auto & rep : *rep_channels)
-						{
-							auto rep_request (requests_bundle.find (rep));
-							auto block (election_l->status.winner);
-							auto root_hash (std::make_pair (block->hash (), block->root ()));
-							if (rep_request == requests_bundle.end ())
+							if (requests_bundle.size () < max_broadcast_queue)
 							{
 								std::vector<std::pair<nano::block_hash, nano::block_hash>> insert_vector = { root_hash };
 								requests_bundle.insert (std::make_pair (rep, insert_vector));
 							}
-							else
-							{
-								rep_request->second.push_back (root_hash);
-							}
+						}
+						else if (rep_request->second.size () < max_broadcast_queue * nano::network::confirm_req_hashes_max)
+						{
+							rep_request->second.push_back (root_hash);
+						}
+					}
+				}
+			}
+			else
+			{
+				if (node.network_params.network.is_live_network ())
+				{
+					auto deque_l (node.network.udp_channels.random_set (100));
+					auto vec (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> ());
+					for (auto i : deque_l)
+					{
+						vec->push_back (i);
+					}
+					confirm_req_bundle.push_back (std::make_pair (election_l->status.winner, vec));
+				}
+				else
+				{
+					for (auto & rep : *rep_channels)
+					{
+						auto rep_request (requests_bundle.find (rep));
+						auto block (election_l->status.winner);
+						auto root_hash (std::make_pair (block->hash (), block->root ()));
+						if (rep_request == requests_bundle.end ())
+						{
+							std::vector<std::pair<nano::block_hash, nano::block_hash>> insert_vector = { root_hash };
+							requests_bundle.insert (std::make_pair (rep, insert_vector));
+						}
+						else
+						{
+							rep_request->second.push_back (root_hash);
 						}
 					}
 				}
