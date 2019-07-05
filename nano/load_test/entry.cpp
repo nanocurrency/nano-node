@@ -44,6 +44,8 @@ constexpr auto rpc_port_start = 60000;
 constexpr auto peering_port_start = 61000;
 constexpr auto ipc_port_start = 62000;
 
+volatile sig_atomic_t sig_int_or_term = 0;
+
 void write_config_files (boost::filesystem::path const & data_path, int index)
 {
 	nano::daemon_config daemon_config (data_path);
@@ -481,6 +483,7 @@ int main (int argc, char * const * argv)
 	assert (!nano::signal_handler_impl);
 	nano::signal_handler_impl = [&ioc]() {
 		ioc.stop ();
+		sig_int_or_term = 1;
 	};
 
 	std::signal (SIGINT, &nano::signal_handler);
@@ -595,8 +598,14 @@ int main (int argc, char * const * argv)
 		stop_rpc (ioc, primary_node_results);
 	});
 	nano::thread_runner runner (ioc, simultaneous_process_calls);
-	t.join ();
 	runner.join ();
+	if (sig_int_or_term)
+	{
+		// User killed the process so just exit, don't wait until other processes are finished (could take a while)
+		std::exit (2);
+	}
+
+	t.join ();
 
 #if BOOST_PROCESS_SUPPORTED
 	for (auto & node : nodes)
