@@ -79,7 +79,7 @@
         "use_memory_pools": "true",
         "websocket": {
             "enable": "false",
-            "address": "::ffff:127.0.0.1",
+            "address": "::ffff:0.0.0.0",
             "port": "57000"
         },
         "ipc": {
