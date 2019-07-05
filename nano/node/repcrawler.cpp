@@ -216,7 +216,7 @@ void nano::rep_crawler::cleanup_reps ()
 		if (i->get_type () == nano::transport::transport_type::tcp)
 		{
 			auto find_channel (node.network.tcp_channels.find_channel (i->get_tcp_endpoint ()));
-			if (find_channel != nullptr && *find_channel == *dynamic_cast<nano::transport::channel_tcp *> (i.get ()))
+			if (find_channel != nullptr && *find_channel == *static_cast<nano::transport::channel_tcp *> (i.get ()))
 			{
 				equal = true;
 			}
@@ -224,7 +224,7 @@ void nano::rep_crawler::cleanup_reps ()
 		else if (i->get_type () == nano::transport::transport_type::udp)
 		{
 			auto find_channel (node.network.udp_channels.channel (i->get_endpoint ()));
-			if (find_channel != nullptr && *find_channel == *dynamic_cast<nano::transport::channel_udp *> (i.get ()))
+			if (find_channel != nullptr && *find_channel == *static_cast<nano::transport::channel_udp *> (i.get ()))
 			{
 				equal = true;
 			}
