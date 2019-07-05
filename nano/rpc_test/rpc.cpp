@@ -2687,26 +2687,71 @@ TEST (rpc, work_peer_many)
 
 TEST (rpc, block_count)
 {
-	nano::system system (24000, 1);
-	auto & node1 (*system.nodes[0]);
-	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::node_rpc_config node_rpc_config;
-	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
-	nano::rpc_config rpc_config (true);
-	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
-	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
-	rpc.start ();
-	boost::property_tree::ptree request1;
-	request1.put ("action", "block_count");
-	test_response response1 (request1, rpc.config.port, system.io_ctx);
-	system.deadline_set (5s);
-	while (response1.status == 0)
 	{
-		ASSERT_NO_ERROR (system.poll ());
+		nano::system system (24000, 1);
+		auto & node1 (*system.nodes[0]);
+		enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
+		nano::node_rpc_config node_rpc_config;
+		nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
+		nano::rpc_config rpc_config (true);
+		nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+		nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+		rpc.start ();
+		boost::property_tree::ptree request1;
+		request1.put ("action", "block_count");
+		{
+			test_response response1 (request1, rpc.config.port, system.io_ctx);
+			system.deadline_set (5s);
+			while (response1.status == 0)
+			{
+				ASSERT_NO_ERROR (system.poll ());
+			}
+			ASSERT_EQ (200, response1.status);
+			ASSERT_EQ ("1", response1.json.get<std::string> ("count"));
+			ASSERT_EQ ("0", response1.json.get<std::string> ("unchecked"));
+			{
+				ASSERT_FALSE (response1.json.get_optional<std::string> ("cemented").is_initialized ());
+			}
+		}
+		request1.put ("include_cemented", "true");
+		test_response response1 (request1, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response1.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response1.status);
+		ASSERT_EQ ("1", response1.json.get<std::string> ("count"));
+		ASSERT_EQ ("0", response1.json.get<std::string> ("unchecked"));
+		ASSERT_EQ ("1", response1.json.get<std::string> ("cemented"));
 	}
-	ASSERT_EQ (200, response1.status);
-	ASSERT_EQ ("1", response1.json.get<std::string> ("count"));
-	ASSERT_EQ ("0", response1.json.get<std::string> ("unchecked"));
+
+	// Should not be able to get the cemented count when enable_control is false.
+	{
+		nano::system system (24000, 1);
+		auto & node1 (*system.nodes[0]);
+		enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
+		nano::node_rpc_config node_rpc_config;
+		nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
+		nano::rpc_config rpc_config (false);
+		nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+		nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+		rpc.start ();
+		boost::property_tree::ptree request1;
+		request1.put ("action", "block_count");
+		request1.put ("include_cemented", "true");
+		{
+			test_response response1 (request1, rpc.config.port, system.io_ctx);
+			system.deadline_set (5s);
+			while (response1.status == 0)
+			{
+				ASSERT_NO_ERROR (system.poll ());
+			}
+			ASSERT_EQ (200, response1.status);
+			std::error_code ec (nano::error_rpc::rpc_control_disabled);
+			ASSERT_EQ (response1.json.get<std::string> ("error"), ec.message ());
+		}
+	}
 }
 
 TEST (rpc, frontier_count)
@@ -4467,54 +4512,89 @@ TEST (rpc, blocks_info)
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
 	rpc.start ();
+	auto check_blocks = [&system](test_response & response) {
+		for (auto & blocks : response.json.get_child ("blocks"))
+		{
+			std::string hash_text (blocks.first);
+			ASSERT_EQ (system.nodes[0]->latest (nano::genesis_account).to_string (), hash_text);
+			std::string account_text (blocks.second.get<std::string> ("block_account"));
+			ASSERT_EQ (nano::test_genesis_key.pub.to_account (), account_text);
+			std::string amount_text (blocks.second.get<std::string> ("amount"));
+			ASSERT_EQ (nano::genesis_amount.convert_to<std::string> (), amount_text);
+			std::string blocks_text (blocks.second.get<std::string> ("contents"));
+			ASSERT_FALSE (blocks_text.empty ());
+			boost::optional<std::string> pending (blocks.second.get_optional<std::string> ("pending"));
+			ASSERT_FALSE (pending.is_initialized ());
+			boost::optional<std::string> source (blocks.second.get_optional<std::string> ("source_account"));
+			ASSERT_FALSE (source.is_initialized ());
+			std::string balance_text (blocks.second.get<std::string> ("balance"));
+			ASSERT_EQ (nano::genesis_amount.convert_to<std::string> (), balance_text);
+			ASSERT_TRUE (blocks.second.get<bool> ("confirmed")); // Genesis block is confirmed by default
+		}
+	};
 	boost::property_tree::ptree request;
 	request.put ("action", "blocks_info");
 	boost::property_tree::ptree entry;
-	boost::property_tree::ptree peers_l;
+	boost::property_tree::ptree hashes;
 	entry.put ("", system.nodes[0]->latest (nano::genesis_account).to_string ());
-	peers_l.push_back (std::make_pair ("", entry));
-	request.add_child ("hashes", peers_l);
-	test_response response (request, rpc.config.port, system.io_ctx);
-	system.deadline_set (5s);
-	while (response.status == 0)
+	hashes.push_back (std::make_pair ("", entry));
+	request.add_child ("hashes", hashes);
 	{
-		ASSERT_NO_ERROR (system.poll ());
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		check_blocks (response);
 	}
-	ASSERT_EQ (200, response.status);
-	for (auto & blocks : response.json.get_child ("blocks"))
+	std::string random_hash = nano::block_hash ().to_string ();
+	entry.put ("", random_hash);
+	hashes.push_back (std::make_pair ("", entry));
+	request.erase ("hashes");
+	request.add_child ("hashes", hashes);
 	{
-		std::string hash_text (blocks.first);
-		ASSERT_EQ (system.nodes[0]->latest (nano::genesis_account).to_string (), hash_text);
-		std::string account_text (blocks.second.get<std::string> ("block_account"));
-		ASSERT_EQ (nano::test_genesis_key.pub.to_account (), account_text);
-		std::string amount_text (blocks.second.get<std::string> ("amount"));
-		ASSERT_EQ (nano::genesis_amount.convert_to<std::string> (), amount_text);
-		std::string blocks_text (blocks.second.get<std::string> ("contents"));
-		ASSERT_FALSE (blocks_text.empty ());
-		boost::optional<std::string> pending (blocks.second.get_optional<std::string> ("pending"));
-		ASSERT_FALSE (pending.is_initialized ());
-		boost::optional<std::string> source (blocks.second.get_optional<std::string> ("source_account"));
-		ASSERT_FALSE (source.is_initialized ());
-		std::string balance_text (blocks.second.get<std::string> ("balance"));
-		ASSERT_EQ (nano::genesis_amount.convert_to<std::string> (), balance_text);
-		ASSERT_TRUE (blocks.second.get<bool> ("confirmed")); // Genesis block is confirmed by default
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ ("Block not found", response.json.get<std::string> ("error"));
 	}
-	// Test for optional values
+	request.put ("include_not_found", "true");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		check_blocks (response);
+		auto & blocks_not_found (response.json.get_child ("blocks_not_found"));
+		ASSERT_EQ (1, blocks_not_found.size ());
+		ASSERT_EQ (random_hash, blocks_not_found.begin ()->second.get<std::string> (""));
+	}
 	request.put ("source", "true");
 	request.put ("pending", "1");
-	test_response response2 (request, rpc.config.port, system.io_ctx);
-	system.deadline_set (5s);
-	while (response2.status == 0)
 	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	ASSERT_EQ (200, response2.status);
-	for (auto & blocks : response2.json.get_child ("blocks"))
-	{
-		std::string source (blocks.second.get<std::string> ("source_account"));
-		ASSERT_EQ ("0", source);
-		std::string pending (blocks.second.get<std::string> ("pending"));
-		ASSERT_EQ ("0", pending);
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		for (auto & blocks : response.json.get_child ("blocks"))
+		{
+			std::string source (blocks.second.get<std::string> ("source_account"));
+			ASSERT_EQ ("0", source);
+			std::string pending (blocks.second.get<std::string> ("pending"));
+			ASSERT_EQ ("0", pending);
+		}
 	}
 }
 
@@ -4540,15 +4620,15 @@ TEST (rpc, blocks_info_subtype)
 	rpc.start ();
 	boost::property_tree::ptree request;
 	request.put ("action", "blocks_info");
-	boost::property_tree::ptree peers_l;
+	boost::property_tree::ptree hashes;
 	boost::property_tree::ptree entry;
 	entry.put ("", send->hash ().to_string ());
-	peers_l.push_back (std::make_pair ("", entry));
+	hashes.push_back (std::make_pair ("", entry));
 	entry.put ("", receive->hash ().to_string ());
-	peers_l.push_back (std::make_pair ("", entry));
+	hashes.push_back (std::make_pair ("", entry));
 	entry.put ("", change->hash ().to_string ());
-	peers_l.push_back (std::make_pair ("", entry));
-	request.add_child ("hashes", peers_l);
+	hashes.push_back (std::make_pair ("", entry));
+	request.add_child ("hashes", hashes);
 	test_response response (request, rpc.config.port, system.io_ctx);
 	system.deadline_set (5s);
 	while (response.status == 0)
@@ -4675,7 +4755,10 @@ TEST (rpc, ledger)
 	system.wallet (0)->insert_adhoc (key.prv);
 	auto & node1 (*system.nodes[0]);
 	auto latest (node1.latest (nano::test_genesis_key.pub));
-	nano::send_block send (latest, key.pub, 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (latest));
+	auto genesis_balance (nano::genesis_amount);
+	auto send_amount (genesis_balance - 100);
+	genesis_balance -= send_amount;
+	nano::send_block send (latest, key.pub, genesis_balance, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (latest));
 	node1.process (send);
 	nano::open_block open (send.hash (), nano::test_genesis_key.pub, key.pub, key.prv, key.pub, node1.work_generate_blocking (key.pub));
 	ASSERT_EQ (nano::process_result::progress, node1.process (open).code);
@@ -4689,58 +4772,103 @@ TEST (rpc, ledger)
 	rpc.start ();
 	boost::property_tree::ptree request;
 	request.put ("action", "ledger");
-	request.put ("sorting", "1");
+	request.put ("sorting", true);
 	request.put ("count", "1");
-	test_response response (request, rpc.config.port, system.io_ctx);
-	system.deadline_set (5s);
-	while (response.status == 0)
 	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	for (auto & accounts : response.json.get_child ("accounts"))
-	{
-		std::string account_text (accounts.first);
-		ASSERT_EQ (key.pub.to_account (), account_text);
-		std::string frontier (accounts.second.get<std::string> ("frontier"));
-		ASSERT_EQ (open.hash ().to_string (), frontier);
-		std::string open_block (accounts.second.get<std::string> ("open_block"));
-		ASSERT_EQ (open.hash ().to_string (), open_block);
-		std::string representative_block (accounts.second.get<std::string> ("representative_block"));
-		ASSERT_EQ (open.hash ().to_string (), representative_block);
-		std::string balance_text (accounts.second.get<std::string> ("balance"));
-		ASSERT_EQ ("340282366920938463463374607431768211355", balance_text);
-		std::string modified_timestamp (accounts.second.get<std::string> ("modified_timestamp"));
-		ASSERT_LT (std::abs ((long)time - stol (modified_timestamp)), 5);
-		std::string block_count (accounts.second.get<std::string> ("block_count"));
-		ASSERT_EQ ("1", block_count);
-		boost::optional<std::string> weight (accounts.second.get_optional<std::string> ("weight"));
-		ASSERT_FALSE (weight.is_initialized ());
-		boost::optional<std::string> pending (accounts.second.get_optional<std::string> ("pending"));
-		ASSERT_FALSE (pending.is_initialized ());
-		boost::optional<std::string> representative (accounts.second.get_optional<std::string> ("representative"));
-		ASSERT_FALSE (representative.is_initialized ());
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		for (auto & account : response.json.get_child ("accounts"))
+		{
+			std::string account_text (account.first);
+			ASSERT_EQ (key.pub.to_account (), account_text);
+			std::string frontier (account.second.get<std::string> ("frontier"));
+			ASSERT_EQ (open.hash ().to_string (), frontier);
+			std::string open_block (account.second.get<std::string> ("open_block"));
+			ASSERT_EQ (open.hash ().to_string (), open_block);
+			std::string representative_block (account.second.get<std::string> ("representative_block"));
+			ASSERT_EQ (open.hash ().to_string (), representative_block);
+			std::string balance_text (account.second.get<std::string> ("balance"));
+			ASSERT_EQ (send_amount.convert_to<std::string> (), balance_text);
+			std::string modified_timestamp (account.second.get<std::string> ("modified_timestamp"));
+			ASSERT_LT (std::abs ((long)time - stol (modified_timestamp)), 5);
+			std::string block_count (account.second.get<std::string> ("block_count"));
+			ASSERT_EQ ("1", block_count);
+			boost::optional<std::string> weight (account.second.get_optional<std::string> ("weight"));
+			ASSERT_FALSE (weight.is_initialized ());
+			boost::optional<std::string> pending (account.second.get_optional<std::string> ("pending"));
+			ASSERT_FALSE (pending.is_initialized ());
+			boost::optional<std::string> representative (account.second.get_optional<std::string> ("representative"));
+			ASSERT_FALSE (representative.is_initialized ());
+		}
 	}
 	// Test for optional values
-	request.put ("weight", "1");
-	request.put ("pending", "1");
-	request.put ("representative", "true");
-	test_response response2 (request, rpc.config.port, system.io_ctx);
-	system.deadline_set (5s);
-	while (response2.status == 0)
+	request.put ("weight", true);
+	request.put ("pending", true);
+	request.put ("representative", true);
 	{
-		ASSERT_NO_ERROR (system.poll ());
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		for (auto & account : response.json.get_child ("accounts"))
+		{
+			boost::optional<std::string> weight (account.second.get_optional<std::string> ("weight"));
+			ASSERT_TRUE (weight.is_initialized ());
+			ASSERT_EQ ("0", weight.get ());
+			boost::optional<std::string> pending (account.second.get_optional<std::string> ("pending"));
+			ASSERT_TRUE (pending.is_initialized ());
+			ASSERT_EQ ("0", pending.get ());
+			boost::optional<std::string> representative (account.second.get_optional<std::string> ("representative"));
+			ASSERT_TRUE (representative.is_initialized ());
+			ASSERT_EQ (nano::test_genesis_key.pub.to_account (), representative.get ());
+		}
 	}
-	for (auto & accounts : response2.json.get_child ("accounts"))
+	// Test threshold
+	request.put ("count", 2);
+	request.put ("threshold", genesis_balance + 1);
 	{
-		boost::optional<std::string> weight (accounts.second.get_optional<std::string> ("weight"));
-		ASSERT_TRUE (weight.is_initialized ());
-		ASSERT_EQ ("0", weight.get ());
-		boost::optional<std::string> pending (accounts.second.get_optional<std::string> ("pending"));
-		ASSERT_TRUE (pending.is_initialized ());
-		ASSERT_EQ ("0", pending.get ());
-		boost::optional<std::string> representative (accounts.second.get_optional<std::string> ("representative"));
-		ASSERT_TRUE (representative.is_initialized ());
-		ASSERT_EQ (nano::test_genesis_key.pub.to_account (), representative.get ());
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		auto & accounts (response.json.get_child ("accounts"));
+		ASSERT_EQ (1, accounts.size ());
+		auto account (accounts.begin ());
+		ASSERT_EQ (key.pub.to_account (), account->first);
+		std::string balance_text (account->second.get<std::string> ("balance"));
+		ASSERT_EQ (send_amount.convert_to<std::string> (), balance_text);
+	}
+	auto send2_amount (50);
+	genesis_balance -= send2_amount;
+	nano::send_block send2 (send.hash (), key.pub, genesis_balance, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (send.hash ()));
+	node1.process (send2);
+	// When asking for pending, pending amount is taken into account for threshold so the account must show up
+	request.put ("count", 2);
+	request.put ("threshold", (send_amount + send2_amount).convert_to<std::string> ());
+	request.put ("pending", true);
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		auto & accounts (response.json.get_child ("accounts"));
+		ASSERT_EQ (1, accounts.size ());
+		auto account (accounts.begin ());
+		ASSERT_EQ (key.pub.to_account (), account->first);
+		std::string balance_text (account->second.get<std::string> ("balance"));
+		ASSERT_EQ (send_amount.convert_to<std::string> (), balance_text);
+		std::string pending_text (account->second.get<std::string> ("pending"));
+		ASSERT_EQ (std::to_string (send2_amount), pending_text);
 	}
 }
 
@@ -5375,9 +5503,10 @@ TEST (rpc, online_reps)
 TEST (rpc, confirmation_height_currently_processing)
 {
 	// The chains should be longer than the	batch_write_size to test the amount of blocks confirmed is correct.
-	bool delay_frontier_confirmation_height_updating = true;
 	nano::system system;
-	auto node = system.add_node (nano::node_config (24000, system.logging), delay_frontier_confirmation_height_updating);
+	nano::node_flags node_flags;
+	node_flags.delay_frontier_confirmation_height_updating = true;
+	auto node = system.add_node (nano::node_config (24000, system.logging), node_flags);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 
 	// Do enough blocks to reliably call RPC before the confirmation height has finished
@@ -5725,7 +5854,7 @@ TEST (rpc, unopened)
 	ASSERT_FALSE (genesis.is_zero ());
 	auto send (system.wallet (0)->send_action (nano::test_genesis_key.pub, account1, 1));
 	ASSERT_NE (nullptr, send);
-	auto send2 (system.wallet (0)->send_action (nano::test_genesis_key.pub, account2, 2));
+	auto send2 (system.wallet (0)->send_action (nano::test_genesis_key.pub, account2, 10));
 	ASSERT_NE (nullptr, send2);
 	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
@@ -5748,7 +5877,7 @@ TEST (rpc, unopened)
 		auto & accounts (response.json.get_child ("accounts"));
 		ASSERT_EQ (2, accounts.size ());
 		ASSERT_EQ ("1", accounts.get<std::string> (account1.to_account ()));
-		ASSERT_EQ ("2", accounts.get<std::string> (account2.to_account ()));
+		ASSERT_EQ ("10", accounts.get<std::string> (account2.to_account ()));
 	}
 	{
 		// starting at second account should get a single result
@@ -5764,7 +5893,7 @@ TEST (rpc, unopened)
 		ASSERT_EQ (200, response.status);
 		auto & accounts (response.json.get_child ("accounts"));
 		ASSERT_EQ (1, accounts.size ());
-		ASSERT_EQ ("2", accounts.get<std::string> (account2.to_account ()));
+		ASSERT_EQ ("10", accounts.get<std::string> (account2.to_account ()));
 	}
 	{
 		// starting at third account should get no results
@@ -5796,6 +5925,22 @@ TEST (rpc, unopened)
 		auto & accounts (response.json.get_child ("accounts"));
 		ASSERT_EQ (1, accounts.size ());
 		ASSERT_EQ ("1", accounts.get<std::string> (account1.to_account ()));
+	}
+	{
+		// using threshold at 5 should get a single result
+		boost::property_tree::ptree request;
+		request.put ("action", "unopened");
+		request.put ("threshold", 5);
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		auto & accounts (response.json.get_child ("accounts"));
+		ASSERT_EQ (1, accounts.size ());
+		ASSERT_EQ ("10", accounts.get<std::string> (account2.to_account ()));
 	}
 }
 
@@ -6122,7 +6267,7 @@ TEST (rpc, block_confirmed)
 	node->process_active (send);
 	node->block_processor.flush ();
 	system.deadline_set (10s);
-	while (!node->confirmation_height_processor.is_processing_block (send->hash ()))
+	while (!node->pending_confirmation_height.is_processing_block (send->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -6141,7 +6286,7 @@ TEST (rpc, block_confirmed)
 	}
 
 	// Should no longer be processing the block after confirmation is set
-	ASSERT_FALSE (node->confirmation_height_processor.is_processing_block (send->hash ()));
+	ASSERT_FALSE (node->pending_confirmation_height.is_processing_block (send->hash ()));
 
 	// Requesting confirmation for this should now succeed
 	request.put ("hash", send->hash ().to_string ());
@@ -6282,6 +6427,77 @@ TEST (rpc, database_txn_tracker)
 	thread.join ();
 }
 
+TEST (rpc, active_difficulty)
+{
+	nano::system system (24000, 1);
+	auto node = system.nodes.front ();
+	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
+	nano::rpc_config rpc_config (true);
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "active_difficulty");
+	std::unique_lock<std::mutex> lock (node->active.mutex);
+	node->active.multipliers_cb.push_front (1.5);
+	node->active.multipliers_cb.push_front (4.2);
+	// Also pushes 1.0 to the front of multipliers_cb
+	node->active.update_active_difficulty (lock);
+	lock.unlock ();
+	auto trend_size (node->active.multipliers_cb.size ());
+	ASSERT_NE (0, trend_size);
+	auto expected_multiplier{ (1.5 + 4.2 + (trend_size - 2) * 1) / trend_size };
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		auto network_minimum_text (response.json.get<std::string> ("network_minimum"));
+		uint64_t network_minimum;
+		ASSERT_FALSE (nano::from_string_hex (network_minimum_text, network_minimum));
+		ASSERT_EQ (node->network_params.network.publish_threshold, network_minimum);
+		auto multiplier (response.json.get<double> ("multiplier"));
+		ASSERT_NEAR (expected_multiplier, multiplier, 1e-6);
+		auto network_current_text (response.json.get<std::string> ("network_current"));
+		uint64_t network_current;
+		ASSERT_FALSE (nano::from_string_hex (network_current_text, network_current));
+		ASSERT_EQ (nano::difficulty::from_multiplier (expected_multiplier, node->network_params.network.publish_threshold), network_current);
+		ASSERT_EQ (response.json.not_found (), response.json.find ("difficulty_trend"));
+	}
+	// Test include_trend optional
+	request.put ("include_trend", true);
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		auto trend_opt (response.json.get_child_optional ("difficulty_trend"));
+		ASSERT_TRUE (trend_opt.is_initialized ());
+		auto & trend (trend_opt.get ());
+		ASSERT_EQ (trend_size, trend.size ());
+
+		system.deadline_set (5s);
+		bool done = false;
+		while (!done)
+		{
+			// Look for the sequence 4.2, 1.5; we don't know where as the active transaction request loop may prepend values concurrently
+			double values[2]{ 4.2, 1.5 };
+			auto it = std::search (trend.begin (), trend.end (), values, values + 2, [](auto a, double b) {
+				return a.second.template get<double> ("") == b;
+			});
+			done = it != trend.end ();
+			ASSERT_NO_ERROR (system.poll ());
+		}
+	}
+}
+
 // This is mainly to check for threading issues with TSAN
 TEST (rpc, simultaneous_calls)
 {
@@ -6326,7 +6542,7 @@ TEST (rpc, simultaneous_calls)
 
 	promise.get_future ().wait ();
 
-	system.deadline_set (10s);
+	system.deadline_set (60s);
 	while (std::any_of (test_responses.begin (), test_responses.end (), [](const auto & test_response) { return test_response->status == 0; }))
 	{
 		ASSERT_NO_ERROR (system.poll ());

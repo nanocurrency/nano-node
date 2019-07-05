@@ -74,14 +74,10 @@ balance_label (new QLabel),
 wallet (wallet_a)
 {
 	your_account_label->setStyleSheet ("font-weight: bold;");
-	std::string network = "Live";
-	if (wallet.node.network_params.network.is_beta_network ())
+	std::string network = wallet.node.network_params.network.get_current_network_as_string ();
+	if (!network.empty ())
 	{
-		network = "Beta";
-	}
-	else if (wallet.node.network_params.network.is_test_network ())
-	{
-		network = "Test";
+		network[0] = std::toupper (network[0]);
 	}
 	if (NANO_VERSION_PATCH == 0)
 	{
@@ -276,7 +272,7 @@ void nano_qt::accounts::refresh_wallet_balance ()
 	nano::uint128_t pending (0);
 	for (auto i (this->wallet.wallet_m->store.begin (transaction)), j (this->wallet.wallet_m->store.end ()); i != j; ++i)
 	{
-		nano::public_key key (i->first);
+		nano::public_key const & key (i->first);
 		balance = balance + (this->wallet.node.ledger.account_balance (block_transaction, key));
 		pending = pending + (this->wallet.node.ledger.account_pending (block_transaction, key));
 	}
@@ -782,6 +778,7 @@ nano_qt::stats_viewer::stats_viewer (nano_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
 refresh (new QPushButton ("Refresh")),
+clear (new QPushButton ("Clear Statistics")),
 model (new QStandardItemModel),
 view (new QTableView),
 back (new QPushButton ("Back")),
@@ -799,6 +796,7 @@ wallet (wallet_a)
 	layout->setContentsMargins (0, 0, 0, 0);
 	layout->addWidget (view);
 	layout->addWidget (refresh);
+	layout->addWidget (clear);
 	layout->addWidget (back);
 	window->setLayout (layout);
 
@@ -806,6 +804,11 @@ wallet (wallet_a)
 		this->wallet.pop_main_stack ();
 	});
 	QObject::connect (refresh, &QPushButton::released, [this]() {
+		refresh_stats ();
+	});
+
+	QObject::connect (clear, &QPushButton::released, [this]() {
+		this->wallet.node.stats.clear ();
 		refresh_stats ();
 	});
 
@@ -1267,10 +1270,10 @@ void nano_qt::wallet::start ()
 			this_l->push_main_stack (this_l->send_blocks_window);
 		}
 	});
-	node.observers.blocks.add ([this_w](std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::uint128_t const & amount_a, bool) {
+	node.observers.blocks.add ([this_w](nano::election_status const & status_a, nano::account const & account_a, nano::uint128_t const & amount_a, bool) {
 		if (auto this_l = this_w.lock ())
 		{
-			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, block_a, account_a]() {
+			this_l->application.postEvent (&this_l->processor, new eventloop_event ([this_w, status_a, account_a]() {
 				if (auto this_l = this_w.lock ())
 				{
 					if (this_l->wallet_m->exists (account_a))
@@ -1946,7 +1949,7 @@ void nano_qt::advanced_actions::refresh_peers ()
 		version->setData (QVariant (channel->get_network_version ()), Qt::DisplayRole);
 		items.push_back (version);
 		QString node_id ("");
-		auto node_id_l (channel->get_node_id ());
+		auto node_id_l (channel->get_node_id_optional ());
 		if (node_id_l.is_initialized ())
 		{
 			node_id = node_id_l.get ().to_account ().c_str ();
@@ -1965,7 +1968,7 @@ void nano_qt::advanced_actions::refresh_ledger ()
 	{
 		QList<QStandardItem *> items;
 		items.push_back (new QStandardItem (QString (nano::block_hash (i->first).to_account ().c_str ())));
-		nano::account_info info (i->second);
+		nano::account_info const & info (i->second);
 		std::string balance;
 		nano::amount (info.balance.number () / wallet.rendering_ratio).encode_dec (balance);
 		items.push_back (new QStandardItem (QString (balance.c_str ())));

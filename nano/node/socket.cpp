@@ -68,7 +68,15 @@ void nano::socket::async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, 
 		{
 			boost::asio::post (strand, boost::asio::bind_executor (strand, [buffer_a, callback_a, this_l]() {
 				bool write_in_progress = !this_l->send_queue.empty ();
-				this_l->send_queue.emplace_back (nano::socket::queue_item{ buffer_a, callback_a });
+				auto queue_size = this_l->send_queue.size ();
+				if (queue_size < this_l->queue_size_max)
+				{
+					this_l->send_queue.emplace_back (nano::socket::queue_item{ buffer_a, callback_a });
+				}
+				else if (auto node_l = this_l->node.lock ())
+				{
+					node_l->stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_drop, nano::stat::dir::out);
+				}
 				if (!write_in_progress)
 				{
 					this_l->write_queued_messages ();
@@ -168,12 +176,18 @@ void nano::socket::checkup ()
 				{
 					if (auto node_l = this_l->node.lock ())
 					{
-						this_l->timed_out = true;
-						this_l->close ();
 						if (node_l->config.logging.network_timeout_logging ())
 						{
-							node_l->logger.try_log (boost::str (boost::format ("Disconnecting from %1% due to timeout") % this_l->remote_endpoint ()));
+							// The remote end may have closed the connection before this side timing out, in which case the remote address is no longer available.
+							boost::system::error_code ec_remote_l;
+							boost::asio::ip::tcp::endpoint remote_endpoint_l = this_l->tcp_socket.remote_endpoint (ec_remote_l);
+							if (!ec_remote_l)
+							{
+								node_l->logger.try_log (boost::str (boost::format ("Disconnecting from %1% due to timeout") % remote_endpoint_l));
+							}
 						}
+						this_l->timed_out = true;
+						this_l->close ();
 					}
 				}
 				else if (!this_l->closed)

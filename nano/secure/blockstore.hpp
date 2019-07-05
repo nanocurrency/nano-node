@@ -281,6 +281,7 @@ public:
 	virtual size_t account_count (nano::transaction const &) = 0;
 	virtual void confirmation_height_clear (nano::transaction const &, nano::account const & account, nano::account_info const & account_info) = 0;
 	virtual void confirmation_height_clear (nano::transaction const &) = 0;
+	virtual uint64_t cemented_count (nano::transaction const &) = 0;
 	virtual nano::store_iterator<nano::account, nano::account_info> latest_v0_begin (nano::transaction const &, nano::account const &) = 0;
 	virtual nano::store_iterator<nano::account, nano::account_info> latest_v0_begin (nano::transaction const &) = 0;
 	virtual nano::store_iterator<nano::account, nano::account_info> latest_v0_end () = 0;
@@ -307,6 +308,7 @@ public:
 
 	virtual bool block_info_get (nano::transaction const &, nano::block_hash const &, nano::block_info &) const = 0;
 	virtual nano::uint128_t block_balance (nano::transaction const &, nano::block_hash const &) = 0;
+	nano::uint128_t block_balance_calculated (std::shared_ptr<nano::block>, nano::block_sideband const &) const;
 	virtual nano::epoch block_version (nano::transaction const &, nano::block_hash const &) = 0;
 
 	virtual nano::uint128_t representation_get (nano::transaction const &, nano::account const &) = 0;

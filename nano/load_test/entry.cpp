@@ -11,6 +11,7 @@
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/program_options.hpp>
 
+#include <csignal>
 #include <iomanip>
 #include <random>
 
@@ -50,6 +51,8 @@ void write_config_files (boost::filesystem::path const & data_path, int index)
 	json.read_and_update (daemon_config, data_path / "config.json");
 	auto node_l = json.get_required_child ("node");
 	node_l.put ("peering_port", peering_port_start + index);
+	// Alternate use of memory pool
+	node_l.put ("use_memory_pools", (index % 2) == 0);
 	auto tcp = node_l.get_required_child ("ipc").get_required_child ("tcp");
 	tcp.put ("enable", true);
 	tcp.put ("port", ipc_port_start + index);
@@ -474,6 +477,15 @@ int main (int argc, char * const * argv)
 	std::cout << "Connecting nodes..." << std::endl;
 
 	boost::asio::io_context ioc;
+
+	assert (!nano::signal_handler_impl);
+	nano::signal_handler_impl = [&ioc]() {
+		ioc.stop ();
+	};
+
+	std::signal (SIGINT, &nano::signal_handler);
+	std::signal (SIGTERM, &nano::signal_handler);
+
 	tcp::resolver resolver{ ioc };
 	auto const primary_node_results = resolver.resolve ("::1", std::to_string (rpc_port_start));
 

@@ -12,7 +12,7 @@ namespace
 class rollback_visitor : public nano::block_visitor
 {
 public:
-	rollback_visitor (nano::transaction const & transaction_a, nano::ledger & ledger_a, std::vector<nano::block_hash> & list_a) :
+	rollback_visitor (nano::transaction const & transaction_a, nano::ledger & ledger_a, std::vector<std::shared_ptr<nano::block>> & list_a) :
 	transaction (transaction_a),
 	ledger (ledger_a),
 	list (list_a)
@@ -153,7 +153,7 @@ public:
 	}
 	nano::transaction const & transaction;
 	nano::ledger & ledger;
-	std::vector<nano::block_hash> & list;
+	std::vector<std::shared_ptr<nano::block>> & list;
 	bool error{ false };
 };
 
@@ -695,12 +695,12 @@ nano::uint128_t nano::ledger::account_pending (nano::transaction const & transac
 	nano::account end (account_a.number () + 1);
 	for (auto i (store.pending_v0_begin (transaction_a, nano::pending_key (account_a, 0))), n (store.pending_v0_begin (transaction_a, nano::pending_key (end, 0))); i != n; ++i)
 	{
-		nano::pending_info info (i->second);
+		nano::pending_info const & info (i->second);
 		result += info.amount.number ();
 	}
 	for (auto i (store.pending_v1_begin (transaction_a, nano::pending_key (account_a, 0))), n (store.pending_v1_begin (transaction_a, nano::pending_key (end, 0))); i != n; ++i)
 	{
-		nano::pending_info info (i->second);
+		nano::pending_info const & info (i->second);
 		result += info.amount.number ();
 	}
 	return result;
@@ -832,7 +832,7 @@ nano::uint128_t nano::ledger::weight (nano::transaction const & transaction_a, n
 }
 
 // Rollback blocks until `block_a' doesn't exist or it tries to penetrate the confirmation height
-bool nano::ledger::rollback (nano::transaction const & transaction_a, nano::block_hash const & block_a, std::vector<nano::block_hash> & list_a)
+bool nano::ledger::rollback (nano::transaction const & transaction_a, nano::block_hash const & block_a, std::vector<std::shared_ptr<nano::block>> & list_a)
 {
 	assert (store.block_exists (transaction_a, block_a));
 	auto account_l (account (transaction_a, block_a));
@@ -847,7 +847,7 @@ bool nano::ledger::rollback (nano::transaction const & transaction_a, nano::bloc
 		if (block_account_height > account_info.confirmation_height)
 		{
 			auto block (store.block_get (transaction_a, account_info.head));
-			list_a.push_back (account_info.head);
+			list_a.push_back (block);
 			block->visit (rollback);
 			error = rollback.error;
 		}
@@ -861,7 +861,7 @@ bool nano::ledger::rollback (nano::transaction const & transaction_a, nano::bloc
 
 bool nano::ledger::rollback (nano::transaction const & transaction_a, nano::block_hash const & block_a)
 {
-	std::vector<nano::block_hash> rollback_list;
+	std::vector<std::shared_ptr<nano::block>> rollback_list;
 	return rollback (transaction_a, block_a, rollback_list);
 }
 
@@ -1060,6 +1060,18 @@ bool nano::ledger::block_confirmed (nano::transaction const & transaction_a, nan
 		confirmed = (account_info.confirmation_height >= block_height);
 	}
 	return confirmed;
+}
+
+bool nano::ledger::block_not_confirmed_or_not_exists (nano::block const & block_a) const
+{
+	bool result (true);
+	auto hash (block_a.hash ());
+	auto transaction (store.tx_begin_read ());
+	if (store.block_exists (transaction, block_a.type (), hash))
+	{
+		result = !block_confirmed (transaction, hash);
+	}
+	return result;
 }
 
 namespace nano

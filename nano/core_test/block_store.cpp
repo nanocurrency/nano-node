@@ -758,6 +758,19 @@ TEST (block_store, account_count)
 	ASSERT_EQ (1, store.account_count (transaction));
 }
 
+TEST (block_store, cemented_count)
+{
+	nano::logger_mt logger;
+	bool init (false);
+	nano::mdb_store store (init, logger, nano::unique_path ());
+	ASSERT_TRUE (!init);
+	auto transaction (store.tx_begin_write ());
+	ASSERT_EQ (0, store.cemented_count (transaction));
+	nano::genesis genesis;
+	store.initialize (transaction, genesis);
+	ASSERT_EQ (1, store.cemented_count (transaction));
+}
+
 TEST (block_store, sequence_increment)
 {
 	nano::logger_mt logger;

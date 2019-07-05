@@ -48,6 +48,11 @@ const uint8_t protocol_version_min = 0x0d;
  */
 const uint8_t protocol_version_reasonable_min = 0x0d;
 
+/*
+ * Do not start TCP realtime network connections to nodes older than this version
+ */
+const uint8_t tcp_realtime_protocol_version_min = 0x11;
+
 /**
  * A key pair. The private key is generated from the random pool, or passed in
  * as a hex string. The public key is derived using ed25519.
@@ -348,6 +353,7 @@ class node_constants
 public:
 	node_constants (nano::network_constants & network_constants);
 	std::chrono::seconds period;
+	std::chrono::milliseconds half_period;
 	/** Default maximum idle time for a socket before it's automatically closed */
 	std::chrono::seconds idle_timeout;
 	std::chrono::seconds cutoff;

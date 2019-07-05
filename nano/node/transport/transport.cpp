@@ -2,6 +2,8 @@
 #include <nano/node/node.hpp>
 #include <nano/node/transport/transport.hpp>
 
+#include <numeric>
+
 namespace
 {
 class callback_visitor : public nano::message_visitor
@@ -68,18 +70,31 @@ nano::tcp_endpoint nano::transport::map_endpoint_to_tcp (nano::endpoint const & 
 }
 
 nano::transport::channel::channel (nano::node & node_a) :
+limiter (node_a.config.bandwidth_limit),
 node (node_a)
 {
 }
 
-void nano::transport::channel::send (nano::message const & message_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a)
+void nano::transport::channel::send (nano::message const & message_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a, bool const & is_dropable)
 {
 	callback_visitor visitor;
 	message_a.visit (visitor);
 	auto buffer (message_a.to_bytes ());
 	auto detail (visitor.result);
-	send_buffer (buffer, detail, callback_a);
-	node.stats.inc (nano::stat::type::message, detail, nano::stat::dir::out);
+	if (!is_dropable || !limiter.should_drop (buffer->size ()))
+	{
+		send_buffer (buffer, detail, callback_a);
+		node.stats.inc (nano::stat::type::message, detail, nano::stat::dir::out);
+	}
+	else
+	{
+		node.stats.inc (nano::stat::type::drop, detail, nano::stat::dir::out);
+		if (node.config.logging.network_packet_logging ())
+		{
+			auto key = static_cast<uint8_t> (detail) << 8;
+			node.logger.always_log (boost::str (boost::format ("%1% of size %2% dropped") % node.stats.detail_to_string (key) % buffer->size ()));
+		}
+	}
 }
 
 namespace
@@ -187,4 +202,47 @@ bool nano::transport::reserved_address (nano::endpoint const & endpoint_a, bool 
 		}
 	}
 	return result;
+}
+
+using namespace std::chrono_literals;
+
+nano::bandwidth_limiter::bandwidth_limiter (const size_t limit_a) :
+next_trend (std::chrono::steady_clock::now () + 50ms),
+limit (limit_a),
+rate (0),
+trended_rate (0)
+{
+}
+
+bool nano::bandwidth_limiter::should_drop (const size_t & message_size)
+{
+	bool result (false);
+	if (limit == 0) //never drop if limit is 0
+	{
+		return result;
+	}
+	std::lock_guard<std::mutex> lock (mutex);
+
+	if (message_size > limit / rate_buffer.size () || rate + message_size > limit)
+	{
+		result = true;
+	}
+	else
+	{
+		rate = rate + message_size;
+	}
+	if (next_trend < std::chrono::steady_clock::now ())
+	{
+		next_trend = std::chrono::steady_clock::now () + 50ms;
+		rate_buffer.push_back (rate);
+		trended_rate = std::accumulate (rate_buffer.begin (), rate_buffer.end (), 0) / rate_buffer.size ();
+		rate = 0;
+	}
+	return result;
+}
+
+size_t nano::bandwidth_limiter::get_rate ()
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	return trended_rate;
 }

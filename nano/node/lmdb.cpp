@@ -9,7 +9,9 @@
 
 #include <queue>
 
-nano::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, int max_dbs, size_t map_size_a)
+#include <valgrind/valgrind.h>
+
+nano::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, int max_dbs_a, bool use_no_mem_init_a, size_t map_size_a)
 {
 	boost::system::error_code error_mkdir, error_chmod;
 	if (path_a.has_parent_path ())
@@ -20,14 +22,28 @@ nano::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, 
 		{
 			auto status1 (mdb_env_create (&environment));
 			release_assert (status1 == 0);
-			auto status2 (mdb_env_set_maxdbs (environment, max_dbs));
+			auto status2 (mdb_env_set_maxdbs (environment, max_dbs_a));
 			release_assert (status2 == 0);
-			auto status3 (mdb_env_set_mapsize (environment, map_size_a));
+			auto running_within_valgrind = (RUNNING_ON_VALGRIND > 0);
+			auto map_size = map_size_a;
+			auto max_valgrind_map_size = 16 * 1024 * 1024;
+			if (running_within_valgrind && map_size_a > max_valgrind_map_size)
+			{
+				// In order to run LMDB under Valgrind, the maximum map size must be smaller than half your available RAM
+				map_size = max_valgrind_map_size;
+			}
+			auto status3 (mdb_env_set_mapsize (environment, map_size));
 			release_assert (status3 == 0);
 			// It seems if there's ever more threads than mdb_env_set_maxreaders has read slots available, we get failures on transaction creation unless MDB_NOTLS is specified
 			// This can happen if something like 256 io_threads are specified in the node config
 			// MDB_NORDAHEAD will allow platforms that support it to load the DB in memory as needed.
-			auto status4 (mdb_env_open (environment, path_a.string ().c_str (), MDB_NOSUBDIR | MDB_NOTLS | MDB_NORDAHEAD, 00600));
+			// MDB_NOMEMINIT prevents zeroing malloc'ed pages. Can provide improvement for non-sensitive data but may make memory checkers noisy (e.g valgrind).
+			auto environment_flags = MDB_NOSUBDIR | MDB_NOTLS | MDB_NORDAHEAD;
+			if (!running_within_valgrind && use_no_mem_init_a)
+			{
+				environment_flags |= MDB_NOMEMINIT;
+			}
+			auto status4 (mdb_env_open (environment, path_a.string ().c_str (), environment_flags, 00600));
 			if (status4 != 0)
 			{
 				std::cerr << "Could not open lmdb environment: " << status4;
@@ -395,7 +411,7 @@ nano::mdb_val::operator std::shared_ptr<nano::vote> () const
 {
 	nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.mv_data), value.mv_size);
 	auto error (false);
-	std::shared_ptr<nano::vote> result (std::make_shared<nano::vote> (error, stream));
+	auto result (nano::make_shared<nano::vote> (error, stream));
 	assert (!error);
 	return result;
 }
@@ -824,7 +840,7 @@ nano::store_iterator<nano::account, std::shared_ptr<nano::vote>> nano::mdb_store
 
 nano::mdb_store::mdb_store (bool & error_a, nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, bool drop_unchecked, size_t const batch_size) :
 logger (logger_a),
-env (error_a, path_a, lmdb_max_dbs),
+env (error_a, path_a, lmdb_max_dbs, true),
 mdb_txn_tracker (logger_a, txn_tracking_config_a, block_processor_batch_max_time_a),
 txn_tracking_enabled (txn_tracking_config_a.enable)
 {
@@ -976,7 +992,7 @@ int nano::mdb_store::version_get (nano::transaction const & transaction_a) const
 
 void nano::mdb_store::peer_put (nano::transaction const & transaction_a, nano::endpoint_key const & endpoint_a)
 {
-	nano::mdb_val zero (0);
+	nano::mdb_val zero (static_cast<uint64_t> (0));
 	auto status (mdb_put (env.tx (transaction_a), peers, nano::mdb_val (endpoint_a), zero, 0));
 	release_assert (status == 0);
 }
@@ -1121,8 +1137,8 @@ void nano::mdb_store::upgrade_v3_to_v4 (nano::transaction const & transaction_a)
 	std::queue<std::pair<nano::pending_key, nano::pending_info>> items;
 	for (auto i (nano::store_iterator<nano::block_hash, nano::pending_info_v3> (std::make_unique<nano::mdb_iterator<nano::block_hash, nano::pending_info_v3>> (transaction_a, pending_v0))), n (nano::store_iterator<nano::block_hash, nano::pending_info_v3> (nullptr)); i != n; ++i)
 	{
-		nano::block_hash hash (i->first);
-		nano::pending_info_v3 info (i->second);
+		nano::block_hash const & hash (i->first);
+		nano::pending_info_v3 const & info (i->second);
 		items.push (std::make_pair (nano::pending_key (info.destination, hash), nano::pending_info (info.source, info.amount, nano::epoch::epoch_0)));
 	}
 	mdb_drop (env.tx (transaction_a), pending_v0, 0);
@@ -1138,7 +1154,7 @@ void nano::mdb_store::upgrade_v4_to_v5 (nano::transaction const & transaction_a)
 	version_put (transaction_a, 5);
 	for (auto i (nano::store_iterator<nano::account, nano::account_info_v5> (std::make_unique<nano::mdb_iterator<nano::account, nano::account_info_v5>> (transaction_a, accounts_v0))), n (nano::store_iterator<nano::account, nano::account_info_v5> (nullptr)); i != n; ++i)
 	{
-		nano::account_info_v5 info (i->second);
+		nano::account_info_v5 const & info (i->second);
 		nano::block_hash successor (0);
 		auto block (block_get (transaction_a, info.head));
 		while (block != nullptr)
@@ -1176,7 +1192,7 @@ void nano::mdb_store::upgrade_v5_to_v6 (nano::transaction const & transaction_a)
 	std::deque<std::pair<nano::account, nano::account_info_v13>> headers;
 	for (auto i (nano::store_iterator<nano::account, nano::account_info_v5> (std::make_unique<nano::mdb_iterator<nano::account, nano::account_info_v5>> (transaction_a, accounts_v0))), n (nano::store_iterator<nano::account, nano::account_info_v5> (nullptr)); i != n; ++i)
 	{
-		nano::account account (i->first);
+		nano::account const & account (i->first);
 		nano::account_info_v5 info_old (i->second);
 		uint64_t block_count (0);
 		auto hash (info_old.head);
@@ -1332,7 +1348,7 @@ void nano::mdb_store::upgrade_v13_to_v14 (nano::transaction const & transaction_
 	account_infos.reserve (account_count (transaction_a));
 	for (; i != n; ++i)
 	{
-		nano::account_info_v13 account_info_v13 (i->second);
+		nano::account_info_v13 const & account_info_v13 (i->second);
 		account_infos.emplace_back (i->first, nano::account_info{ account_info_v13.head, account_info_v13.rep_block, account_info_v13.open_block, account_info_v13.balance, account_info_v13.modified, account_info_v13.block_count, zeroed_confirmation_height, account_info_v13.epoch });
 	}
 
@@ -1357,25 +1373,7 @@ nano::uint128_t nano::mdb_store::block_balance (nano::transaction const & transa
 {
 	nano::block_sideband sideband;
 	auto block (block_get (transaction_a, hash_a, &sideband));
-	nano::uint128_t result;
-	switch (block->type ())
-	{
-		case nano::block_type::open:
-		case nano::block_type::receive:
-		case nano::block_type::change:
-			result = sideband.balance.number ();
-			break;
-		case nano::block_type::send:
-			result = boost::polymorphic_downcast<nano::send_block *> (block.get ())->hashables.balance.number ();
-			break;
-		case nano::block_type::state:
-			result = boost::polymorphic_downcast<nano::state_block *> (block.get ())->hashables.balance.number ();
-			break;
-		case nano::block_type::invalid:
-		case nano::block_type::not_a_block:
-			release_assert (false);
-			break;
-	}
+	nano::uint128_t result (block_balance_calculated (block, sideband));
 	return result;
 }
 
@@ -2046,6 +2044,17 @@ void nano::mdb_store::confirmation_height_clear (nano::transaction const & trans
 	}
 }
 
+uint64_t nano::mdb_store::cemented_count (nano::transaction const & transaction_a)
+{
+	uint64_t sum = 0;
+	for (auto i (latest_begin (transaction_a)), n (latest_end ()); i != n; ++i)
+	{
+		nano::account_info const & info (i->second);
+		sum += info.confirmation_height;
+	}
+	return sum;
+}
+
 void nano::mdb_store::pending_put (nano::transaction const & transaction_a, nano::pending_key const & key_a, nano::pending_info const & pending_a)
 {
 	auto status (mdb_put (env.tx (transaction_a), get_pending_db (pending_a.epoch), nano::mdb_val (key_a), nano::mdb_val (pending_a), 0));
@@ -2238,7 +2247,7 @@ std::vector<nano::unchecked_info> nano::mdb_store::unchecked_get (nano::transact
 	std::vector<nano::unchecked_info> result;
 	for (auto i (unchecked_begin (transaction_a, nano::unchecked_key (hash_a, 0))), n (unchecked_end ()); i != n && nano::block_hash (i->first.key ()) == hash_a; ++i)
 	{
-		nano::unchecked_info unchecked_info (i->second);
+		nano::unchecked_info const & unchecked_info (i->second);
 		result.push_back (unchecked_info);
 	}
 	return result;

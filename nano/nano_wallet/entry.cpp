@@ -237,6 +237,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	int result (0);
 	nano::jsonconfig json;
 	auto error (json.read_and_update (config, config_path));
+	nano::set_use_memory_pools (config.node.use_memory_pools);
 	nano::set_secure_perm_file (config_path, error_chmod);
 	if (!error)
 	{
@@ -372,7 +373,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 int main (int argc, char * const * argv)
 {
 	nano::set_umask ();
-	nano::block_memory_pool_cleanup_guard block_memory_pool_cleanup_guard;
+	nano::node_singleton_memory_pool_purge_guard memory_pool_cleanup_guard;
 	try
 	{
 		QApplication application (argc, const_cast<char **> (argv));

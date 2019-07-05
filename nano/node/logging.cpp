@@ -133,7 +133,6 @@ bool nano::logging::upgrade_json (unsigned version_a, nano::jsonconfig & json)
 			json.put ("min_time_between_output", min_time_between_log_output.count ());
 			json.put ("network_timeout", network_timeout_logging_value);
 			json.erase ("log_rpc");
-			json.put ("long_database_txns", false);
 			break;
 		case 7:
 			break;
@@ -146,10 +145,9 @@ bool nano::logging::upgrade_json (unsigned version_a, nano::jsonconfig & json)
 
 nano::error nano::logging::deserialize_json (bool & upgraded_a, nano::jsonconfig & json)
 {
-	int version_l;
+	int version_l{ 1 };
 	if (!json.has_key ("version"))
 	{
-		version_l = 1;
 		json.put ("version", version_l);
 
 		auto work_peers_l (json.get_optional_child ("work_peers"));

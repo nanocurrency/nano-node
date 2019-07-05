@@ -14,6 +14,8 @@
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/program_options.hpp>
 
+#include <csignal>
+
 namespace
 {
 void logging_init (boost::filesystem::path const & application_path_a)
@@ -49,6 +51,16 @@ void run (boost::filesystem::path const & data_path)
 			nano::ipc_rpc_processor ipc_rpc_processor (io_ctx, rpc_config);
 			auto rpc = nano::get_rpc (io_ctx, rpc_config, ipc_rpc_processor);
 			rpc->start ();
+
+			assert (!nano::signal_handler_impl);
+			nano::signal_handler_impl = [&io_ctx, &rpc]() {
+				rpc->stop ();
+				io_ctx.stop ();
+			};
+
+			std::signal (SIGINT, &nano::signal_handler);
+			std::signal (SIGTERM, &nano::signal_handler);
+
 			runner = std::make_unique<nano::thread_runner> (io_ctx, rpc_config.rpc_process.io_threads);
 			runner->join ();
 		}
@@ -90,7 +102,6 @@ int main (int argc, char * const * argv)
 		return 1;
 	}
 	boost::program_options::notify (vm);
-	int result (0);
 
 	auto network (vm.find ("network"));
 	if (network != vm.end ())
@@ -134,7 +145,6 @@ int main (int argc, char * const * argv)
 	else
 	{
 		std::cout << description << std::endl;
-		result = -1;
 	}
 
 	return 1;

@@ -7,16 +7,20 @@
 #include <nano/node/bootstrap.hpp>
 #include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/election.hpp>
+#include <nano/node/gap_cache.hpp>
 #include <nano/node/logging.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node_observers.hpp>
 #include <nano/node/nodeconfig.hpp>
+#include <nano/node/online_reps.hpp>
 #include <nano/node/payment_observer_processor.hpp>
 #include <nano/node/portmapping.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/signatures.hpp>
+#include <nano/node/vote_processor.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
+#include <nano/node/write_database_queue.hpp>
 #include <nano/secure/ledger.hpp>
 
 #include <boost/asio/thread_pool.hpp>
@@ -26,12 +30,14 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index_container.hpp>
+#include <boost/thread/latch.hpp>
 #include <boost/thread/thread.hpp>
 
 #include <atomic>
 #include <condition_variable>
 #include <memory>
 #include <queue>
+#include <vector>
 
 namespace nano
 {
@@ -59,34 +65,6 @@ public:
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (alarm & alarm, const std::string & name);
-
-class gap_information final
-{
-public:
-	std::chrono::steady_clock::time_point arrival;
-	nano::block_hash hash;
-	std::unordered_set<nano::account> voters;
-};
-class gap_cache final
-{
-public:
-	explicit gap_cache (nano::node &);
-	void add (nano::transaction const &, nano::block_hash const &, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now ());
-	void vote (std::shared_ptr<nano::vote>);
-	nano::uint128_t bootstrap_threshold (nano::transaction const &);
-	size_t size ();
-	boost::multi_index_container<
-	nano::gap_information,
-	boost::multi_index::indexed_by<
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<gap_information, std::chrono::steady_clock::time_point, &gap_information::arrival>>,
-	boost::multi_index::hashed_unique<boost::multi_index::member<gap_information, nano::block_hash, &gap_information::hash>>>>
-	blocks;
-	size_t const max = 256;
-	std::mutex mutex;
-	nano::node & node;
-};
-
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (gap_cache & gap_cache, const std::string & name);
 
 class work_pool;
 class block_arrival_info final
@@ -116,28 +94,6 @@ public:
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_arrival & block_arrival, const std::string & name);
 
-class online_reps final
-{
-public:
-	online_reps (nano::node &, nano::uint128_t);
-	void observe (nano::account const &);
-	void sample ();
-	nano::uint128_t online_stake () const;
-	std::vector<nano::account> list ();
-
-private:
-	nano::uint128_t trend (nano::transaction &);
-	mutable std::mutex mutex;
-	nano::node & node;
-	std::unordered_set<nano::account> reps;
-	nano::uint128_t online;
-	nano::uint128_t minimum;
-
-	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (online_reps & online_reps, const std::string & name);
-};
-
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (online_reps & online_reps, const std::string & name);
-
 class node_init final
 {
 public:
@@ -146,37 +102,6 @@ public:
 	bool wallets_store_init{ false };
 };
 
-class vote_processor final
-{
-public:
-	explicit vote_processor (nano::node &);
-	void vote (std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>);
-	// node.active.mutex lock required
-	nano::vote_code vote_blocking (nano::transaction const &, std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>, bool = false);
-	void verify_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>> &);
-	void flush ();
-	void calculate_weights ();
-	nano::node & node;
-	void stop ();
-
-private:
-	void process_loop ();
-	std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>> votes;
-	// Representatives levels for random early detection
-	std::unordered_set<nano::account> representatives_1;
-	std::unordered_set<nano::account> representatives_2;
-	std::unordered_set<nano::account> representatives_3;
-	std::condition_variable condition;
-	std::mutex mutex;
-	bool started;
-	bool stopped;
-	bool active;
-	boost::thread thread;
-
-	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_processor & vote_processor, const std::string & name);
-};
-
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_processor & vote_processor, const std::string & name);
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (rep_crawler & rep_crawler, const std::string & name);
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_processor & block_processor, const std::string & name);
 
@@ -184,7 +109,7 @@ class node final : public std::enable_shared_from_this<nano::node>
 {
 public:
 	node (nano::node_init &, boost::asio::io_context &, uint16_t, boost::filesystem::path const &, nano::alarm &, nano::logging const &, nano::work_pool &);
-	node (nano::node_init &, boost::asio::io_context &, boost::filesystem::path const &, nano::alarm &, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags (), bool delay_frontier_confirmation_height_updating = false);
+	node (nano::node_init &, boost::asio::io_context &, boost::filesystem::path const &, nano::alarm &, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags ());
 	~node ();
 	template <typename T>
 	void background (T action_a)
@@ -198,7 +123,8 @@ public:
 	std::shared_ptr<nano::node> shared ();
 	int store_version ();
 	void receive_confirmed (nano::transaction const &, std::shared_ptr<nano::block>, nano::block_hash const &);
-	void process_confirmed (std::shared_ptr<nano::block>, uint8_t = 0);
+	void process_confirmed_data (nano::transaction const &, std::shared_ptr<nano::block>, nano::block_hash const &, nano::block_sideband const &, nano::account &, nano::uint128_t &, bool &, nano::account &);
+	void process_confirmed (nano::election_status const &, uint8_t = 0);
 	void process_active (std::shared_ptr<nano::block>);
 	nano::process_return process (nano::block const &);
 	void keepalive_preconfigured (std::vector<std::string> const &);
@@ -234,9 +160,12 @@ public:
 	void ongoing_online_weight_calculation ();
 	void ongoing_online_weight_calculation_queue ();
 	bool online () const;
+	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
+	boost::latch node_initialized_latch;
 	nano::network_params network_params;
 	nano::node_config config;
+	nano::stat stats;
 	std::shared_ptr<nano::websocket::listener> websocket_server;
 	nano::node_flags flags;
 	nano::alarm & alarm;
@@ -262,9 +191,7 @@ public:
 	boost::thread block_processor_thread;
 	nano::block_arrival block_arrival;
 	nano::online_reps online_reps;
-	nano::wallets wallets;
 	nano::votes_cache votes_cache;
-	nano::stat stats;
 	nano::keypair node_id;
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer;
@@ -272,8 +199,10 @@ public:
 	nano::active_transactions active;
 	nano::confirmation_height_processor confirmation_height_processor;
 	nano::payment_observer_processor payment_observer_processor;
+	nano::wallets wallets;
 	const std::chrono::steady_clock::time_point startup_time;
 	std::chrono::seconds unchecked_cutoff = std::chrono::seconds (7 * 24 * 60 * 60); // Week
+	std::atomic<bool> stopped{ false };
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
 };

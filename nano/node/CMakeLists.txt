@@ -32,6 +32,8 @@ add_library (node
 	diagnosticsconfig.cpp
 	election.hpp
 	election.cpp
+	gap_cache.hpp
+	gap_cache.cpp
 	ipc.hpp
 	ipc.cpp
 	ipcconfig.hpp
@@ -56,6 +58,8 @@ add_library (node
 	node_rpc_config.cpp
 	node.hpp
 	node.cpp
+	online_reps.hpp
+	online_reps.cpp
 	openclconfig.hpp
 	openclconfig.cpp
 	openclwork.hpp
@@ -78,6 +82,8 @@ add_library (node
 	signatures.cpp
 	socket.hpp
 	socket.cpp
+	vote_processor.hpp
+	vote_processor.cpp
 	voting.hpp
 	voting.cpp
 	wallet.hpp
@@ -86,6 +92,8 @@ add_library (node
 	websocket.cpp
 	websocketconfig.hpp
 	websocketconfig.cpp
+	write_database_queue.hpp
+	write_database_queue.cpp
 	xorshift.hpp)
 
 target_link_libraries (node

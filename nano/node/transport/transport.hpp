@@ -8,6 +8,27 @@
 
 namespace nano
 {
+class bandwidth_limiter final
+{
+public:
+	// initialize with rate 0 = unbounded
+	bandwidth_limiter (const size_t);
+	bool should_drop (const size_t &);
+	size_t get_rate ();
+
+private:
+	//last time rate was adjusted
+	std::chrono::steady_clock::time_point next_trend;
+	//trend rate over 20 poll periods
+	boost::circular_buffer<size_t> rate_buffer{ 20, 0 };
+	//limit bandwidth to
+	const size_t limit;
+	//rate, increment if message_size + rate < rate
+	size_t rate;
+	//trended rate to even out spikes in traffic
+	size_t trended_rate;
+	std::mutex mutex;
+};
 namespace transport
 {
 	class message;
@@ -32,7 +53,7 @@ namespace transport
 		virtual ~channel () = default;
 		virtual size_t hash_code () const = 0;
 		virtual bool operator== (nano::transport::channel const &) const = 0;
-		void send (nano::message const &, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr);
+		void send (nano::message const &, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr, bool const & = true);
 		virtual void send_buffer (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) = 0;
 		virtual std::function<void(boost::system::error_code const &, size_t)> callback (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) const = 0;
 		virtual std::string to_string () const = 0;
@@ -76,10 +97,23 @@ namespace transport
 			last_packet_sent = time_a;
 		}
 
-		boost::optional<nano::account> get_node_id () const
+		boost::optional<nano::account> get_node_id_optional () const
 		{
 			std::lock_guard<std::mutex> lk (channel_mutex);
 			return node_id;
+		}
+
+		nano::account get_node_id () const
+		{
+			std::lock_guard<std::mutex> lk (channel_mutex);
+			if (node_id.is_initialized ())
+			{
+				return node_id.get ();
+			}
+			else
+			{
+				return 0;
+			}
 		}
 
 		void set_node_id (nano::account node_id_a)
@@ -99,6 +133,7 @@ namespace transport
 		}
 
 		mutable std::mutex channel_mutex;
+		nano::bandwidth_limiter limiter;
 
 	private:
 		std::chrono::steady_clock::time_point last_bootstrap_attempt{ std::chrono::steady_clock::time_point () };
