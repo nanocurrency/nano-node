@@ -316,7 +316,7 @@ void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> blo
 
 void nano::network::broadcast_confirm_req_batch (std::unordered_map<std::shared_ptr<nano::transport::channel>, std::vector<std::pair<nano::block_hash, nano::block_hash>>> request_bundle_a, unsigned delay_a, bool resumption)
 {
-	const size_t max_reps = 10;
+	const size_t max_reps = 50;
 	if (!resumption && node.config.logging.network_logging ())
 	{
 		node.logger.try_log (boost::str (boost::format ("Broadcasting batch confirm req to %1% representatives") % request_bundle_a.size ()));
@@ -325,19 +325,26 @@ void nano::network::broadcast_confirm_req_batch (std::unordered_map<std::shared_
 	while (!request_bundle_a.empty () && count < max_reps)
 	{
 		auto j (request_bundle_a.begin ());
-		count++;
-		std::vector<std::pair<nano::block_hash, nano::block_hash>> roots_hashes;
-		// Limit max request size hash + root to 7 pairs
-		while (roots_hashes.size () <= confirm_req_hashes_max && !j->second.empty ())
+		while (j != request_bundle_a.end ())
 		{
-			roots_hashes.push_back (j->second.back ());
-			j->second.pop_back ();
-		}
-		nano::confirm_req req (roots_hashes);
-		j->first->send (req);
-		if (j->second.empty ())
-		{
-			request_bundle_a.erase (j);
+			count++;
+			std::vector<std::pair<nano::block_hash, nano::block_hash>> roots_hashes;
+			// Limit max request size hash + root to 7 pairs
+			while (roots_hashes.size () <= confirm_req_hashes_max && !j->second.empty ())
+			{
+				roots_hashes.push_back (j->second.back ());
+				j->second.pop_back ();
+			}
+			nano::confirm_req req (roots_hashes);
+			j->first->send (req);
+			if (j->second.empty ())
+			{
+				j = request_bundle_a.erase (j);
+			}
+			else
+			{
+				++j;
+			}
 		}
 	}
 	if (!request_bundle_a.empty ())
@@ -346,7 +353,7 @@ void nano::network::broadcast_confirm_req_batch (std::unordered_map<std::shared_
 		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a), [node_w, request_bundle_a, delay_a]() {
 			if (auto node_l = node_w.lock ())
 			{
-				node_l->network.broadcast_confirm_req_batch (request_bundle_a, delay_a + 50, true);
+				node_l->network.broadcast_confirm_req_batch (request_bundle_a, delay_a, true);
 			}
 		});
 	}
