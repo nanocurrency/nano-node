@@ -324,7 +324,8 @@ void nano::network::broadcast_confirm_req_batch (std::unordered_map<std::shared_
 	auto count (0);
 	while (!request_bundle_a.empty () && count < max_reps)
 	{
-		for (auto j (request_bundle_a.begin ()), n (request_bundle_a.end ()); j != n; ++j)
+		auto j (request_bundle_a.begin ());
+		while (j != request_bundle_a.end ())
 		{
 			count++;
 			std::vector<std::pair<nano::block_hash, nano::block_hash>> roots_hashes;
@@ -338,8 +339,11 @@ void nano::network::broadcast_confirm_req_batch (std::unordered_map<std::shared_
 			j->first->send (req);
 			if (j->second.empty ())
 			{
-				request_bundle_a.erase (j);
-				break;
+				j = request_bundle_a.erase (j);
+			}
+			else
+			{
+				++j;
 			}
 		}
 	}
