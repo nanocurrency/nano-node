@@ -6,7 +6,7 @@
     "max_json_depth": "20",
     "max_request_size": "33554432",
     "process": {
-        "io_threads": "32",
+        "io_threads": "4",
         "ipc_port": "56000",
         "num_ipc_connections": "4"
     }
