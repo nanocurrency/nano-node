@@ -193,7 +193,10 @@ TEST (websocket, active_difficulty)
 	ASSERT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::active_difficulty));
 
 	// Fake history records to force trended_active_difficulty change
-	node1->active.multipliers_cb.push_front (10.);
+	{
+		std::unique_lock<std::mutex> lock (node1->active.mutex);
+		node1->active.multipliers_cb.push_front (10.);
+	}
 
 	// Wait to receive the active_difficulty message
 	system.deadline_set (5s);
