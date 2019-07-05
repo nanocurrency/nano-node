@@ -130,6 +130,9 @@ private:
 	/** When a rep request is made, this is called to update the last-request timestamp. */
 	void on_rep_request (std::shared_ptr<nano::transport::channel> channel_a);
 
+	/** Clean representatives with inactive channels */
+	void cleanup_reps ();
+
 	/** Protects the probable_reps container */
 	mutable std::mutex probable_reps_mutex;
 
