@@ -2453,10 +2453,12 @@ public:
 		{
 			connection->finish_request_async ();
 		}
-		assert (connection->remote_node_id.is_zero () || connection->type == nano::bootstrap_server_type::realtime);
+		auto node_id (connection->remote_node_id);
+		nano::bootstrap_server_type type (connection->type);
+		assert (node_id.is_zero () || type == nano::bootstrap_server_type::realtime);
 		auto connection_l (connection->shared_from_this ());
-		connection->node->background ([connection_l, message_a]() {
-			connection_l->node->network.tcp_channels.process_message (message_a, connection_l->remote_endpoint, connection_l->remote_node_id, connection_l->socket, connection_l->type);
+		connection->node->background ([connection_l, message_a, node_id, type]() {
+			connection_l->node->network.tcp_channels.process_message (message_a, connection_l->remote_endpoint, node_id, connection_l->socket, type);
 		});
 	}
 	std::shared_ptr<nano::bootstrap_server> connection;
