@@ -124,7 +124,7 @@ public:
 	// Threshold for considering confirmation request count high
 	static unsigned constexpr high_confirmation_request_count = 2;
 	size_t long_unconfirmed_size = 0;
-	static size_t constexpr max_broadcast_queue = 1000;
+	static size_t constexpr max_broadcast_queue = 2000;
 	boost::circular_buffer<double> multipliers_cb;
 	uint64_t trended_active_difficulty;
 	size_t priority_cementable_frontiers_size ();
