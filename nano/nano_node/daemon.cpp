@@ -49,19 +49,20 @@ namespace
 #include <sys/stat.h>
 #include <unistd.h>
 
-// Only on linux. This outputs the load addresses for the executable and shared libraries.
+// This outputs the load addresses for the executable and shared libraries.
 // Useful for debugging should the virtual addresses be randomized.
 int output_memory_load_address (dl_phdr_info * info, size_t, void *)
 {
 	static int counter = 0;
-	assert (counter < 99);
+	assert (counter <= 99);
 	// Create filename
 	const char file_prefix[] = "nano_node_crash_load_address_dump_";
-	std::array<char, sizeof (file_prefix) + 6> buf;
-	sprintf (buf.data (), "%s%d.txt", file_prefix, counter);
+	// Holds the filename prefix, a unique (max 2 digits) number and extension (null terminator is included in file_prefix size)
+	char filename[sizeof (file_prefix) + 2 + 4];
+	snprintf (filename, sizeof (filename), "%s%d.txt", file_prefix, counter);
 
 	// Open file
-	const auto file_descriptor = ::open (buf.data (), O_CREAT | O_WRONLY | O_TRUNC,
+	const auto file_descriptor = ::open (filename, O_CREAT | O_WRONLY | O_TRUNC,
 #if defined(S_IWRITE) && defined(S_IREAD)
 	S_IWRITE | S_IREAD
 #else
