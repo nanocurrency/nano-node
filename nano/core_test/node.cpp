@@ -1926,6 +1926,63 @@ TEST (node, rep_weight)
 	ASSERT_EQ (*channel0, reps[0].channel_ref ());
 }
 
+TEST (node, rep_remove)
+{
+	nano::system system (24000, 1);
+	auto & node (*system.nodes[0]);
+	// Add inactive UDP representative channel
+	nano::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), 24001);
+	auto channel0 (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, endpoint0));
+	nano::amount amount100 (100);
+	node.network.udp_channels.insert (endpoint0, nano::protocol_version);
+	nano::keypair keypair1;
+	node.rep_crawler.response (channel0, keypair1.pub, amount100);
+	ASSERT_EQ (1, node.rep_crawler.representative_count ());
+	auto reps (node.rep_crawler.representatives (1));
+	ASSERT_EQ (1, reps.size ());
+	ASSERT_EQ (100, reps[0].weight.number ());
+	ASSERT_EQ (keypair1.pub, reps[0].account);
+	ASSERT_EQ (*channel0, reps[0].channel_ref ());
+	// Add working representative
+	auto node1 = system.add_node (nano::node_config (24002, system.logging));
+	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
+	auto channel1 (node.network.find_channel (node1->network.endpoint ()));
+	ASSERT_NE (nullptr, channel1);
+	node.rep_crawler.response (channel1, nano::test_genesis_key.pub, nano::genesis_amount);
+	ASSERT_EQ (2, node.rep_crawler.representative_count ());
+	// Add inactive TCP representative channel
+	nano::node_init init;
+	auto node2 (std::make_shared<nano::node> (init, system.io_ctx, nano::unique_path (), system.alarm, nano::node_config (24003, system.logging), system.work));
+	std::atomic<bool> done{ false };
+	std::weak_ptr<nano::node> node_w (node.shared ());
+	node.network.tcp_channels.start_tcp (node2->network.endpoint (), [node_w, &done](std::shared_ptr<nano::transport::channel> channel2) {
+		if (auto node_l = node_w.lock ())
+		{
+			nano::keypair keypair2;
+			node_l->rep_crawler.response (channel2, keypair2.pub, nano::Gxrb_ratio);
+			ASSERT_EQ (3, node_l->rep_crawler.representative_count ());
+			done = true;
+		}
+	});
+	system.deadline_set (10s);
+	while (!done)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	node2->stop ();
+	// Remove inactive representatives
+	system.deadline_set (10s);
+	while (node.rep_crawler.representative_count () != 1)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	reps = node.rep_crawler.representatives (1);
+	ASSERT_EQ (nano::test_genesis_key.pub, reps[0].account);
+	ASSERT_EQ (1, node.network.size ());
+	auto list (node.network.list (1));
+	ASSERT_EQ (node1->network.endpoint (), list[0]->get_endpoint ());
+}
+
 // Test that nodes can disable representative voting
 TEST (node, no_voting)
 {

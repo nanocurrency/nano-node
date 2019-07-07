@@ -91,7 +91,7 @@ bool nano::transport::tcp_channels::insert (std::shared_ptr<nano::transport::cha
 	assert (endpoint.address ().is_v6 ());
 	auto udp_endpoint (nano::transport::map_tcp_to_endpoint (endpoint));
 	bool error (true);
-	if (!node.network.not_a_peer (udp_endpoint, node.config.allow_local_peers))
+	if (!node.network.not_a_peer (udp_endpoint, node.config.allow_local_peers) && !stopped)
 	{
 		std::unique_lock<std::mutex> lock (mutex);
 		auto existing (channels.get<endpoint_tag> ().find (endpoint));
@@ -340,6 +340,7 @@ void nano::transport::tcp_channels::stop ()
 			i->channel->response_server = nullptr;
 		}
 	}
+	channels.clear ();
 }
 
 bool nano::transport::tcp_channels::max_ip_connections (nano::tcp_endpoint const & endpoint_a)
@@ -428,7 +429,10 @@ void nano::transport::tcp_channels::ongoing_keepalive ()
 	node.alarm.add (std::chrono::steady_clock::now () + node.network_params.node.half_period, [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
-			node_l->network.tcp_channels.ongoing_keepalive ();
+			if (!node_l->network.tcp_channels.stopped)
+			{
+				node_l->network.tcp_channels.ongoing_keepalive ();
+			}
 		}
 	});
 }
