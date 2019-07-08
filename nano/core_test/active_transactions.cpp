@@ -6,6 +6,33 @@
 
 using namespace std::chrono_literals;
 
+TEST (active_transactions, bounded_active_elections)
+{
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.enable_voting = false;
+	node_config.active_elections_size = 5;
+	auto & node1 = *system.add_node (node_config);
+	nano::genesis genesis;
+	size_t count (1);
+	auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - count * nano::xrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+	auto previous_size = node1.active.size ();
+	bool done (false);
+	while (!done)
+	{
+		count++;
+		node1.process_active (send);
+		done = previous_size > node1.active.size ();
+		ASSERT_LT (node1.active.size (), node1.config.active_elections_size); //triggers after reverting #2116 
+		ASSERT_NO_ERROR (system.poll ());
+		auto previous_hash = send->hash ();
+		send = std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous_hash, nano::test_genesis_key.pub, nano::genesis_amount - count * nano::xrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous_hash));
+		previous_size = node1.active.size ();
+		//sleep this thread for the max delay between request loop rounds possible for such a asmall active_elections_size
+		std::this_thread::sleep_for (std::chrono::milliseconds (node1.network_params.network.request_interval_ms + (node_config.active_elections_size * 20)));  
+	}
+}
+
 TEST (active_transactions, adjusted_difficulty_priority)
 {
 	nano::system system;
