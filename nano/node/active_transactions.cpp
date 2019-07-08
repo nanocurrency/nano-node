@@ -235,7 +235,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 								requests_bundle.insert (std::make_pair (rep, insert_vector));
 							}
 						}
-						else if (rep_request->second.size () < max_broadcast_queue * nano::network::confirm_req_hashes_max * std::max (static_cast<size_t> (1), nano::network::max_representatives / requests_bundle.size ()))
+						else if (rep_request->second.size () < max_broadcast_queue * nano::network::confirm_req_hashes_max)
 						{
 							rep_request->second.push_back (root_hash);
 						}
@@ -285,7 +285,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 	// Batch confirmation request
 	if (!node.network_params.network.is_live_network () && !requests_bundle.empty ())
 	{
-		node.network.broadcast_confirm_req_batch (requests_bundle, 15);
+		node.network.broadcast_confirm_req_batch (requests_bundle, 50);
 	}
 	//confirm_req broadcast
 	if (!confirm_req_bundle.empty ())
