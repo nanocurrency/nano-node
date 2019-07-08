@@ -51,13 +51,18 @@ void nano::rpc_handler::process_request ()
 		}
 		else
 		{
-			std::stringstream ss;
-			ss << body;
 			boost::property_tree::ptree request;
-			boost::property_tree::read_json (ss, request);
+			{
+				std::stringstream ss;
+				ss << body;
+				boost::property_tree::read_json (ss, request);
+			}
 
 			auto action = request.get<std::string> ("action");
-			logger.always_log (boost::str (boost::format ("%1% ") % request_id), filter_request (request));
+			// Creating same string via stringstream as using it directly is generating a TSAN warning
+			std::stringstream ss;
+			ss << request_id;
+			logger.always_log (ss.str (), " ", filter_request (request));
 
 			// Check if this is a RPC command which requires RPC enabled control
 			std::error_code rpc_control_disabled_ec = nano::error_rpc::rpc_control_disabled;

@@ -2,9 +2,17 @@
 
 #include <nano/rpc/rpc_handler.hpp>
 
+#include <boost/asio/strand.hpp>
 #include <boost/beast.hpp>
 
 #include <atomic>
+
+/* Boost v1.70 introduced breaking changes; the conditional compilation allows 1.6x to be supported as well. */
+#if BOOST_VERSION < 107000
+using socket_type = boost::asio::ip::tcp::socket;
+#else
+using socket_type = boost::asio::basic_stream_socket<boost::asio::ip::tcp, boost::asio::io_context::executor_type>;
+#endif
 
 namespace nano
 {
@@ -25,9 +33,10 @@ public:
 
 	void read ();
 
-	boost::asio::ip::tcp::socket socket;
+	socket_type socket;
 	boost::beast::flat_buffer buffer;
 	boost::beast::http::response<boost::beast::http::string_body> res;
+	boost::asio::strand<boost::asio::io_context::executor_type> strand;
 	std::atomic_flag responded;
 	boost::asio::io_context & io_ctx;
 	nano::logger_mt & logger;

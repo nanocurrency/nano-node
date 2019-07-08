@@ -22,6 +22,6 @@ public:
 	void on_shutdown (const boost::system::error_code & error);
 
 private:
-	boost::asio::ssl::stream<boost::asio::ip::tcp::socket &> stream;
+	boost::asio::ssl::stream<socket_type &> stream;
 };
 }
