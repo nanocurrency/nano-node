@@ -158,6 +158,13 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 			collect_unconfirmed_receive_and_sources_for_account (block_height, iterated_height, current, account, read_transaction);
 		}
 
+		// Exit early when the processor has been stopped, otherwise this function may take a
+		// while (and hence keep the process running) if updating a long chain.
+		if (stopped)
+		{
+			break;
+		}
+
 		// No longer need the read transaction
 		read_transaction.reset ();
 
@@ -246,13 +253,6 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 			}
 		}
 
-		// Exit early when the processor has been stopped, otherwise this function may take a
-		// while (and hence keep the process running) if updating a long chain.
-		if (stopped)
-		{
-			break;
-		}
-
 		read_transaction.renew ();
 	} while (!receive_source_pairs.empty () || current != hash_a);
 }
@@ -328,7 +328,7 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 	// Store heights of blocks
 	constexpr auto height_not_set = std::numeric_limits<uint64_t>::max ();
 	auto next_height = height_not_set;
-	while ((num_to_confirm > 0) && !hash.is_zero ())
+	while ((num_to_confirm > 0) && !hash.is_zero () && !stopped)
 	{
 		nano::block_sideband sideband;
 		auto block (store.block_get (transaction_a, hash, &sideband));
