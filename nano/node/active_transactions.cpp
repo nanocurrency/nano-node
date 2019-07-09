@@ -107,6 +107,13 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 	std::deque<std::shared_ptr<nano::block>> rebroadcast_bundle;
 	std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>>> confirm_req_bundle;
 
+	// Confirm frontiers when there aren't many confirmations already pending
+	lock_a.unlock ();
+	if (node.pending_confirmation_height.size () < confirmed_frontiers_max_pending_cut_off)
+	{
+		confirm_frontiers (transaction);
+	}
+	lock_a.lock ();
 	auto roots_size (roots.size ());
 	for (auto i (roots.get<1> ().begin ()), n (roots.get<1> ().end ()); i != n; ++i)
 	{
@@ -291,11 +298,6 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 	if (!confirm_req_bundle.empty ())
 	{
 		node.network.broadcast_confirm_req_batch (confirm_req_bundle);
-	}
-	// Confirm frontiers when there aren't many confirmations already pending
-	if (node.pending_confirmation_height.size () < confirmed_frontiers_max_pending_cut_off)
-	{
-		confirm_frontiers (transaction);
 	}
 	lock_a.lock ();
 	// Erase inactive elections
