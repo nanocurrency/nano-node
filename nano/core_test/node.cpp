@@ -776,7 +776,7 @@ TEST (node_config, v17_values)
 		tree.put_child ("diagnostics", diagnostics_l);
 		tree.put ("use_memory_pools", true);
 		tree.put ("confirmation_history_size", 2048);
-		tree.put ("active_elections_size", 8000);
+		tree.put ("active_elections_size", 50000);
 		tree.put ("bandwidth_limit", 5242880);
 		tree.put ("conf_height_processor_batch_min_time", 0);
 	}
@@ -794,7 +794,7 @@ TEST (node_config, v17_values)
 	ASSERT_TRUE (config.diagnostics_config.txn_tracking.ignore_writes_below_block_processor_max_time);
 	ASSERT_TRUE (config.use_memory_pools);
 	ASSERT_EQ (config.confirmation_history_size, 2048);
-	ASSERT_EQ (config.active_elections_size, 8000);
+	ASSERT_EQ (config.active_elections_size, 50000);
 	ASSERT_EQ (config.bandwidth_limit, 5242880);
 	ASSERT_EQ (config.conf_height_processor_batch_min_time.count (), 0);
 
