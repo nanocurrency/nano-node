@@ -43,31 +43,60 @@
 namespace
 {
 #ifdef __linux__
+
+#include <fcntl.h>
 #include <link.h>
-// Only on linux. This outputs the load addresses for the executable and shared libraries.
+#include <sys/stat.h>
+#include <unistd.h>
+
+// This outputs the load addresses for the executable and shared libraries.
 // Useful for debugging should the virtual addresses be randomized.
 int output_memory_load_address (dl_phdr_info * info, size_t, void *)
 {
 	static int counter = 0;
-	std::ostringstream ss;
-	ss << "nano_node_crash_load_address_dump_" << counter << ".txt";
-	std::ofstream file (ss.str ());
-	file << "Name: " << info->dlpi_name << "\n";
+	assert (counter <= 99);
+	// Create filename
+	const char file_prefix[] = "nano_node_crash_load_address_dump_";
+	// Holds the filename prefix, a unique (max 2 digits) number and extension (null terminator is included in file_prefix size)
+	char filename[sizeof (file_prefix) + 2 + 4];
+	snprintf (filename, sizeof (filename), "%s%d.txt", file_prefix, counter);
 
+	// Open file
+	const auto file_descriptor = ::open (filename, O_CREAT | O_WRONLY | O_TRUNC,
+#if defined(S_IWRITE) && defined(S_IREAD)
+	S_IWRITE | S_IREAD
+#else
+	0
+#endif
+	);
+
+	// Write the name of shared library
+	::write (file_descriptor, "Name: ", 6);
+	::write (file_descriptor, info->dlpi_name, strlen (info->dlpi_name));
+	::write (file_descriptor, "\n", 1);
+
+	// Write the first load address found
 	for (auto i = 0; i < info->dlpi_phnum; ++i)
 	{
-		// Only care about the first load address
 		if (info->dlpi_phdr[i].p_type == PT_LOAD)
 		{
-			file << std::hex << (void *)(info->dlpi_addr + info->dlpi_phdr[i].p_vaddr);
+			auto load_address = info->dlpi_addr + info->dlpi_phdr[i].p_vaddr;
+
+			// Each byte of the pointer is two hexadecimal characters, plus the 0x prefix and null terminator
+			char load_address_as_hex_str[sizeof (load_address) * 2 + 2 + 1];
+			snprintf (load_address_as_hex_str, sizeof (load_address_as_hex_str), "%p", (void *)load_address);
+			::write (file_descriptor, load_address_as_hex_str, strlen (load_address_as_hex_str));
 			break;
 		}
 	}
+
+	::close (file_descriptor);
 	++counter;
 	return 0;
 }
 #endif
 
+// Only async-signal-safe functions are allowed to be called here
 void my_abort_signal_handler (int signum)
 {
 	std::signal (signum, SIG_DFL);
@@ -77,6 +106,11 @@ void my_abort_signal_handler (int signum)
 	dl_iterate_phdr (output_memory_load_address, nullptr);
 #endif
 }
+}
+
+namespace
+{
+volatile sig_atomic_t sig_int_or_term = 0;
 }
 
 void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::node_flags const & flags)
@@ -167,14 +201,9 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 				}
 
 				assert (!nano::signal_handler_impl);
-				nano::signal_handler_impl = [&io_ctx, &ipc_server, &rpc, &node]() {
-					ipc_server.stop ();
-					node->stop ();
-					if (rpc)
-					{
-						rpc->stop ();
-					}
+				nano::signal_handler_impl = [&io_ctx]() {
 					io_ctx.stop ();
+					sig_int_or_term = 1;
 				};
 
 				std::signal (SIGINT, &nano::signal_handler);
@@ -182,6 +211,16 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 
 				runner = std::make_unique<nano::thread_runner> (io_ctx, node->config.io_threads);
 				runner->join ();
+
+				if (sig_int_or_term == 1)
+				{
+					ipc_server.stop ();
+					node->stop ();
+					if (rpc)
+					{
+						rpc->stop ();
+					}
+				}
 #if BOOST_PROCESS_SUPPORTED
 				if (rpc_process)
 				{
