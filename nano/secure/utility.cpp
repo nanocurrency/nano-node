@@ -120,6 +120,5 @@ void signal_handler (int sig)
 	{
 		signal_handler_impl ();
 	}
-	std::exit (sig);
 }
 }
