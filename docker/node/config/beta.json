@@ -105,7 +105,7 @@
             }
         },
         "confirmation_history_size": "2048",
-        "active_elections_size": "8000",
+        "active_elections_size": "50000",
         "bandwidth_limit": "5242880"
     },
     "opencl_enable": "false",
