@@ -48,7 +48,7 @@ with open(args.output, 'wb') as of:
     for rep in reps:
         if rep["weight"] == 0:
             break
-        acc_val = long(hexlify(b32decode(rep["account"].encode("utf-8").replace("xrb_", "").translate(tbl) + "====")), 16)
+        acc_val = long(hexlify(b32decode(rep["account"].encode("utf-8").replace("nano_", "").translate(tbl) + "====")), 16)
         acc_bytes = unhexlify("%064X" % (((acc_val >> 36) & ((1 << 256) - 1))))
         weight_bytes = unhexlify("%032X" % rep["weight"])
         of.write(acc_bytes)
