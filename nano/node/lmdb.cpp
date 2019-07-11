@@ -9,8 +9,6 @@
 
 #include <queue>
 
-#include <valgrind/valgrind.h>
-
 nano::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, int max_dbs_a, bool use_no_mem_init_a, size_t map_size_a)
 {
 	boost::system::error_code error_mkdir, error_chmod;
@@ -24,10 +22,9 @@ nano::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, 
 			release_assert (status1 == 0);
 			auto status2 (mdb_env_set_maxdbs (environment, max_dbs_a));
 			release_assert (status2 == 0);
-			auto running_within_valgrind = (RUNNING_ON_VALGRIND > 0);
 			auto map_size = map_size_a;
 			auto max_valgrind_map_size = 16 * 1024 * 1024;
-			if (running_within_valgrind && map_size_a > max_valgrind_map_size)
+			if (running_within_valgrind () && map_size_a > max_valgrind_map_size)
 			{
 				// In order to run LMDB under Valgrind, the maximum map size must be smaller than half your available RAM
 				map_size = max_valgrind_map_size;
@@ -39,7 +36,7 @@ nano::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, 
 			// MDB_NORDAHEAD will allow platforms that support it to load the DB in memory as needed.
 			// MDB_NOMEMINIT prevents zeroing malloc'ed pages. Can provide improvement for non-sensitive data but may make memory checkers noisy (e.g valgrind).
 			auto environment_flags = MDB_NOSUBDIR | MDB_NOTLS | MDB_NORDAHEAD;
-			if (!running_within_valgrind && use_no_mem_init_a)
+			if (!running_within_valgrind () && use_no_mem_init_a)
 			{
 				environment_flags |= MDB_NOMEMINIT;
 			}
