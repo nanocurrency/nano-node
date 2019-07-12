@@ -307,7 +307,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_processor & v
 	size_t representatives_3_count = 0;
 
 	{
-		std::lock_guard<std::mutex> (vote_processor.mutex);
+		std::lock_guard<std::mutex> guard (vote_processor.mutex);
 		votes_count = vote_processor.votes.size ();
 		representatives_1_count = vote_processor.representatives_1.size ();
 		representatives_2_count = vote_processor.representatives_2.size ();

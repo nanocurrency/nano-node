@@ -9,8 +9,6 @@
 
 #include <queue>
 
-#include <valgrind/valgrind.h>
-
 nano::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, int max_dbs_a, bool use_no_mem_init_a, size_t map_size_a)
 {
 	boost::system::error_code error_mkdir, error_chmod;
@@ -24,10 +22,9 @@ nano::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, 
 			release_assert (status1 == 0);
 			auto status2 (mdb_env_set_maxdbs (environment, max_dbs_a));
 			release_assert (status2 == 0);
-			auto running_within_valgrind = (RUNNING_ON_VALGRIND > 0);
 			auto map_size = map_size_a;
 			auto max_valgrind_map_size = 16 * 1024 * 1024;
-			if (running_within_valgrind && map_size_a > max_valgrind_map_size)
+			if (running_within_valgrind () && map_size_a > max_valgrind_map_size)
 			{
 				// In order to run LMDB under Valgrind, the maximum map size must be smaller than half your available RAM
 				map_size = max_valgrind_map_size;
@@ -39,7 +36,7 @@ nano::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, 
 			// MDB_NORDAHEAD will allow platforms that support it to load the DB in memory as needed.
 			// MDB_NOMEMINIT prevents zeroing malloc'ed pages. Can provide improvement for non-sensitive data but may make memory checkers noisy (e.g valgrind).
 			auto environment_flags = MDB_NOSUBDIR | MDB_NOTLS | MDB_NORDAHEAD;
-			if (!running_within_valgrind && use_no_mem_init_a)
+			if (!running_within_valgrind () && use_no_mem_init_a)
 			{
 				environment_flags |= MDB_NOMEMINIT;
 			}
@@ -1331,31 +1328,37 @@ void nano::mdb_store::upgrade_v12_to_v13 (nano::write_transaction & transaction_
 	}
 	if (account == not_an_account)
 	{
-		logger.always_log (boost::str (boost::format ("Completed sideband upgrade")));
+		logger.always_log ("Completed sideband upgrade");
 		version_put (transaction_a, 13);
 	}
 }
 
 void nano::mdb_store::upgrade_v13_to_v14 (nano::transaction const & transaction_a)
 {
-	// Upgrade all accounts to have a confirmation of 0
+	// Upgrade all accounts to have a confirmation of 0 (except genesis which should have 1)
 	version_put (transaction_a, 14);
 	nano::store_iterator<nano::account, nano::account_info_v13> i (std::make_unique<nano::mdb_merge_iterator<nano::account, nano::account_info_v13>> (transaction_a, accounts_v0, accounts_v1));
 	nano::store_iterator<nano::account, nano::account_info_v13> n (nullptr);
-	constexpr uint64_t zeroed_confirmation_height (0);
 
 	std::vector<std::pair<nano::account, nano::account_info>> account_infos;
 	account_infos.reserve (account_count (transaction_a));
 	for (; i != n; ++i)
 	{
 		nano::account_info_v13 const & account_info_v13 (i->second);
-		account_infos.emplace_back (i->first, nano::account_info{ account_info_v13.head, account_info_v13.rep_block, account_info_v13.open_block, account_info_v13.balance, account_info_v13.modified, account_info_v13.block_count, zeroed_confirmation_height, account_info_v13.epoch });
+		uint64_t confirmation_height = 0;
+		if (i->first == network_params.ledger.genesis_account)
+		{
+			confirmation_height = 1;
+		}
+		account_infos.emplace_back (i->first, nano::account_info{ account_info_v13.head, account_info_v13.rep_block, account_info_v13.open_block, account_info_v13.balance, account_info_v13.modified, account_info_v13.block_count, confirmation_height, account_info_v13.epoch });
 	}
 
 	for (auto const & account_info : account_infos)
 	{
 		account_put (transaction_a, account_info.first, account_info.second);
 	}
+
+	logger.always_log ("Completed confirmation height upgrade");
 
 	nano::uint256_union node_id_mdb_key (3);
 	auto error (mdb_del (env.tx (transaction_a), meta, nano::mdb_val (node_id_mdb_key), nullptr));

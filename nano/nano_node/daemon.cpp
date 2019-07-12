@@ -32,6 +32,11 @@ void my_abort_signal_handler (int signum)
 }
 }
 
+namespace
+{
+volatile sig_atomic_t sig_int_or_term = 0;
+}
+
 void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::node_flags const & flags)
 {
 	// Override segmentation fault and aborting.
@@ -120,14 +125,9 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 				}
 
 				assert (!nano::signal_handler_impl);
-				nano::signal_handler_impl = [&io_ctx, &ipc_server, &rpc, &node]() {
-					ipc_server.stop ();
-					node->stop ();
-					if (rpc)
-					{
-						rpc->stop ();
-					}
+				nano::signal_handler_impl = [&io_ctx]() {
 					io_ctx.stop ();
+					sig_int_or_term = 1;
 				};
 
 				std::signal (SIGINT, &nano::signal_handler);
@@ -135,6 +135,16 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 
 				runner = std::make_unique<nano::thread_runner> (io_ctx, node->config.io_threads);
 				runner->join ();
+
+				if (sig_int_or_term == 1)
+				{
+					ipc_server.stop ();
+					node->stop ();
+					if (rpc)
+					{
+						rpc->stop ();
+					}
+				}
 #if BOOST_PROCESS_SUPPORTED
 				if (rpc_process)
 				{
