@@ -21,6 +21,7 @@
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/websocket.hpp>
+#include <nano/node/write_database_queue.hpp>
 #include <nano/secure/ledger.hpp>
 
 #include <boost/iostreams/device/array.hpp>
@@ -108,7 +109,7 @@ class node final : public std::enable_shared_from_this<nano::node>
 {
 public:
 	node (nano::node_init &, boost::asio::io_context &, uint16_t, boost::filesystem::path const &, nano::alarm &, nano::logging const &, nano::work_pool &);
-	node (nano::node_init &, boost::asio::io_context &, boost::filesystem::path const &, nano::alarm &, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags (), bool delay_frontier_confirmation_height_updating = false);
+	node (nano::node_init &, boost::asio::io_context &, boost::filesystem::path const &, nano::alarm &, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags ());
 	~node ();
 	template <typename T>
 	void background (T action_a)
@@ -159,6 +160,7 @@ public:
 	void ongoing_online_weight_calculation ();
 	void ongoing_online_weight_calculation_queue ();
 	bool online () const;
+	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
 	boost::latch node_initialized_latch;
 	nano::network_params network_params;

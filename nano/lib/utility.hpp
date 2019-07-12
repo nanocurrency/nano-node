@@ -79,6 +79,16 @@ bool is_windows_elevated ();
 bool event_log_reg_entry_exists ();
 
 /*
+ * Create the load memory addresses for the executable and shared libraries.
+ */
+void create_load_memory_address_files ();
+
+/*
+ * Dumps a stacktrace file which can be read using the --debug_output_last_backtrace_dump CLI command
+ */
+void dump_crash_stacktrace ();
+
+/*
  * Functions for understanding the role of the current thread
  */
 namespace thread_role

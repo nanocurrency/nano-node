@@ -1,10 +1,24 @@
 language: cpp
 
 stages:
+  - build_base
+  - build_env
   - test
   - deploy
 jobs:
   include:
+    - stage: build_base
+      name: "base"
+      if: branch = docker_cache
+      script:
+        - if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi
+    - stage: build_env
+      name: "clang"
+      script: 
+        - if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi
+    - name: "gcc"
+      script: 
+        - if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi
     - stage: test
       name: "GCC + ONE_TIME_TESTS"      
       os: linux
@@ -19,7 +33,7 @@ jobs:
             - doxygen
       before_install:
         - sudo mkdir -p /etc/docker && echo '{"ipv6":true,"fixed-cidr-v6":"2001:db8:1::/64"}' | sudo tee /etc/docker/daemon.json && sudo service docker restart;
-        - ci/build-docker-image.sh docker/ci/Dockerfile-gcc nanocurrency/nano-ci-gcc;
+        - ci/build-docker-image.sh docker/ci/Dockerfile-gcc nanocurrency/nano-env:gcc;
     - name: "clang"
       os: linux
       compiler: clang
@@ -27,7 +41,7 @@ jobs:
       sudo: required
       before_install:
         - sudo mkdir -p /etc/docker && echo '{"ipv6":true,"fixed-cidr-v6":"2001:db8:1::/64"}' | sudo tee /etc/docker/daemon.json && sudo service docker restart;
-        - ci/build-docker-image.sh docker/ci/Dockerfile-clang nanocurrency/nano-ci-clang;
+        - ci/build-docker-image.sh docker/ci/Dockerfile-clang nanocurrency/nano-env:clang;
     - name: "osx"
       os: osx
       compiler: clang
@@ -36,12 +50,13 @@ jobs:
       install:
         - brew install ccache;
         - export PATH="/usr/local/opt/ccache/libexec:$PATH";
-    - stage: deploy
+    - stage: deploy    
+      name: "live"
       script: 
         - if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi
-      env: 
-        - secure: "jYlg5yC8plC4zbV4sCt8BNXEHOgvF4tydJbbUsyPvmWqIKU4rScQOKvN4euDUa1UFc9dz7UxNahGuyEGQAWjG2jmvdgDG97+ImXOZa/kRnCsyJX/3R+k6dQZ/8MN9Ax6FOpXfOoHxHOZLBzE5PBIbaeF+Okcw9ks6eawXZDu2JLckGDxLDWXTz6x+NbZLE2wlm7UI9aladZBsAR/KHlYH3ms+xgZAxcrzZ2p2BFfhHpnplOYcNhivpLn0BP66DZ6/7HtpPYkfXmqTCZZ0HkxzJ2ayZ9PuvbVXL/cHXCxRJCNweRQsPYsdowzv+k/J74X2yN0jNCsSbWU619MXxzBPJGmTq20iSvEYvX0I+uEP1PCocP7PWfvfkjlj5Ts5vPJcpBZeAUgl1yjPxA4NrwRQ7iJni14VrK8dSxjQvubV/zyK2ey2vUU7e8nOpzqw/66UPDQmvDe7byadgHIacSG55ge7zZIeI6AeK1QGh5nRnLWaMMqb0drT7ZaM6BS7iwRTBVBzw2ZjKV67MRRU0O7PY+jsNx8JG58ycXqKvP4hB6tKEV+8YMSdSDl/f06FFZJT96p4sCQmUaVecXokzTyfq7ugFgWuiRRwRqcH/wi3LMLHY7JseHBw9S8bJ98dOFEcoZCUoviwnxNSXOqA3tXGudduQh4KsCDYDUKJNzDtAo="
-
+    - name: "beta"
+      script: 
+        - if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi
 cache:
   - ccache: true
   - directories:
@@ -52,4 +67,7 @@ script:
   - if [ -n "$ONE_TIME_TESTS" ]; then ci/check-commit-format.sh; fi
   - if [ -n "$ONE_TIME_TESTS" ]; then doxygen doxygen.config; fi # TODO also deploy the built HTML
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ci/build-travis.sh "/usr/local/opt/qt5/lib/cmake/Qt5"; fi
-  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then docker run -v $TRAVIS_BUILD_DIR:/workspace -v $HOME/.ccache:/ccache nanocurrency/nano-ci-$TRAVIS_COMPILER /bin/bash -c "apt install ccache; cd /workspace && ASAN=${ASAN} TSAN=${TSAN} CCACHE_DIR=/ccache ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then docker run -v $TRAVIS_BUILD_DIR:/workspace -v $HOME/.ccache:/ccache nanocurrency/nano-env:$TRAVIS_COMPILER /bin/bash -c "apt install ccache; cd /workspace && ASAN=${ASAN} TSAN=${TSAN} CCACHE_DIR=/ccache ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"; fi
+
+env: 
+  - secure: "k8kmpD+xRS57ukdvlvaXT0WN4H0rr/aHSjV+l5IUUFpKx5N+DEsb+7ElIepKzqQrGG6qE71cFwDyn6rDwW/Objb9aiEITnvJBzk1XrOVgbc5AnlqDm8LKvqToD/VnQiojyXhBQe2wa//nEZ3PC9dv7hE5zb/K/U5z+LaE9T1cPPk1jHQMCUAFT7QGCK0YeX/gAZqPbLZdHHQChEi+Gu/XY0gc5Bl8Idbp8W7Aky9Ps06lKXPORkE1G2xQfJFrNPB3CKjxev/eoXGBJmNYzxkJlUHmyenjwgdDh9TWiOK2uKH1K6olLIx/qFuIgFRVJFv0QFzCjqqjOJJF1EN9i1M21Lm4wi1iJxYShAP86ZKkC/WmtRn1xNTEMHZJeZ3TXX+B3ybLEWTamHS1Ia8HOif18nrQE3O0aRC/NNfH1kewX+94UNxmSfHtL5Waa41shxeG5waemyQg+HR5zCEtrb5l1btgbfGrR8BMbHYLLe4ywJqMx3n8Iy6ZzC6Xx8+X1zTZZ3zDYPBHUalA+ZoYu2rrFG2+SARP0W/VKqCIKaB+lQKYpbv7ojXGrrDJe7MA/raTLL2pTfSkcx0qxJvcsbPLGI1MdG3mD7M8HncrZbw+sKI1LZ04gyWt3til6d3vSlbIkd6kCxxZh69nd1/KJy8rYrMYjqxxNSTctkGyVb2DtY=" 

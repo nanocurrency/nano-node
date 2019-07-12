@@ -78,7 +78,7 @@ public:
 class active_transactions final
 {
 public:
-	explicit active_transactions (nano::node &, bool delay_frontier_confirmation_height_updating = false);
+	explicit active_transactions (nano::node &);
 	~active_transactions ();
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
@@ -119,17 +119,16 @@ public:
 	void add_confirmed (nano::election_status const &, nano::qualified_root const &);
 	nano::node & node;
 	std::mutex mutex;
-	// Maximum number of conflicts to vote on per interval, lowest root hash first
-	static unsigned constexpr announcements_per_interval = 32;
-	// Minimum number of block announcements
-	static unsigned constexpr announcement_min = 2;
-	// Threshold to start logging blocks haven't yet been confirmed
-	static unsigned constexpr announcement_long = 2;
+	// Minimum number of confirmation requests
+	static unsigned constexpr minimum_confirmation_request_count = 2;
+	// Threshold for considering confirmation request count high
+	static unsigned constexpr high_confirmation_request_count = 2;
 	size_t long_unconfirmed_size = 0;
 	static size_t constexpr max_broadcast_queue = 1000;
 	boost::circular_buffer<double> multipliers_cb;
 	uint64_t trended_active_difficulty;
 	size_t priority_cementable_frontiers_size ();
+	boost::circular_buffer<double> difficulty_trend ();
 
 private:
 	// Call action with confirmed block, may be different than what we started with

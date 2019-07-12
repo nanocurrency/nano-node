@@ -253,6 +253,11 @@ public:
 		code = code_a;
 	}
 
+	error (boost::system::error_code code_a)
+	{
+		code = std::make_error_code (static_cast<std::errc> (code_a.value ()));
+	}
+
 	error (std::string message_a)
 	{
 		code = nano::error_common::generic;

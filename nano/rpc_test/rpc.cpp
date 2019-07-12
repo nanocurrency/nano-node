@@ -2687,26 +2687,71 @@ TEST (rpc, work_peer_many)
 
 TEST (rpc, block_count)
 {
-	nano::system system (24000, 1);
-	auto & node1 (*system.nodes[0]);
-	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
-	nano::node_rpc_config node_rpc_config;
-	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
-	nano::rpc_config rpc_config (true);
-	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
-	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
-	rpc.start ();
-	boost::property_tree::ptree request1;
-	request1.put ("action", "block_count");
-	test_response response1 (request1, rpc.config.port, system.io_ctx);
-	system.deadline_set (5s);
-	while (response1.status == 0)
 	{
-		ASSERT_NO_ERROR (system.poll ());
+		nano::system system (24000, 1);
+		auto & node1 (*system.nodes[0]);
+		enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
+		nano::node_rpc_config node_rpc_config;
+		nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
+		nano::rpc_config rpc_config (true);
+		nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+		nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+		rpc.start ();
+		boost::property_tree::ptree request1;
+		request1.put ("action", "block_count");
+		{
+			test_response response1 (request1, rpc.config.port, system.io_ctx);
+			system.deadline_set (5s);
+			while (response1.status == 0)
+			{
+				ASSERT_NO_ERROR (system.poll ());
+			}
+			ASSERT_EQ (200, response1.status);
+			ASSERT_EQ ("1", response1.json.get<std::string> ("count"));
+			ASSERT_EQ ("0", response1.json.get<std::string> ("unchecked"));
+			{
+				ASSERT_FALSE (response1.json.get_optional<std::string> ("cemented").is_initialized ());
+			}
+		}
+		request1.put ("include_cemented", "true");
+		test_response response1 (request1, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response1.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response1.status);
+		ASSERT_EQ ("1", response1.json.get<std::string> ("count"));
+		ASSERT_EQ ("0", response1.json.get<std::string> ("unchecked"));
+		ASSERT_EQ ("1", response1.json.get<std::string> ("cemented"));
 	}
-	ASSERT_EQ (200, response1.status);
-	ASSERT_EQ ("1", response1.json.get<std::string> ("count"));
-	ASSERT_EQ ("0", response1.json.get<std::string> ("unchecked"));
+
+	// Should not be able to get the cemented count when enable_control is false.
+	{
+		nano::system system (24000, 1);
+		auto & node1 (*system.nodes[0]);
+		enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
+		nano::node_rpc_config node_rpc_config;
+		nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
+		nano::rpc_config rpc_config (false);
+		nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+		nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+		rpc.start ();
+		boost::property_tree::ptree request1;
+		request1.put ("action", "block_count");
+		request1.put ("include_cemented", "true");
+		{
+			test_response response1 (request1, rpc.config.port, system.io_ctx);
+			system.deadline_set (5s);
+			while (response1.status == 0)
+			{
+				ASSERT_NO_ERROR (system.poll ());
+			}
+			ASSERT_EQ (200, response1.status);
+			std::error_code ec (nano::error_rpc::rpc_control_disabled);
+			ASSERT_EQ (response1.json.get<std::string> ("error"), ec.message ());
+		}
+	}
 }
 
 TEST (rpc, frontier_count)
@@ -5458,9 +5503,10 @@ TEST (rpc, online_reps)
 TEST (rpc, confirmation_height_currently_processing)
 {
 	// The chains should be longer than the	batch_write_size to test the amount of blocks confirmed is correct.
-	bool delay_frontier_confirmation_height_updating = true;
 	nano::system system;
-	auto node = system.add_node (nano::node_config (24000, system.logging), delay_frontier_confirmation_height_updating);
+	nano::node_flags node_flags;
+	node_flags.delay_frontier_confirmation_height_updating = true;
+	auto node = system.add_node (nano::node_config (24000, system.logging), node_flags);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 
 	// Do enough blocks to reliably call RPC before the confirmation height has finished
@@ -6381,6 +6427,77 @@ TEST (rpc, database_txn_tracker)
 	thread.join ();
 }
 
+TEST (rpc, active_difficulty)
+{
+	nano::system system (24000, 1);
+	auto node = system.nodes.front ();
+	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
+	nano::rpc_config rpc_config (true);
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "active_difficulty");
+	std::unique_lock<std::mutex> lock (node->active.mutex);
+	node->active.multipliers_cb.push_front (1.5);
+	node->active.multipliers_cb.push_front (4.2);
+	// Also pushes 1.0 to the front of multipliers_cb
+	node->active.update_active_difficulty (lock);
+	lock.unlock ();
+	auto trend_size (node->active.multipliers_cb.size ());
+	ASSERT_NE (0, trend_size);
+	auto expected_multiplier{ (1.5 + 4.2 + (trend_size - 2) * 1) / trend_size };
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		auto network_minimum_text (response.json.get<std::string> ("network_minimum"));
+		uint64_t network_minimum;
+		ASSERT_FALSE (nano::from_string_hex (network_minimum_text, network_minimum));
+		ASSERT_EQ (node->network_params.network.publish_threshold, network_minimum);
+		auto multiplier (response.json.get<double> ("multiplier"));
+		ASSERT_NEAR (expected_multiplier, multiplier, 1e-6);
+		auto network_current_text (response.json.get<std::string> ("network_current"));
+		uint64_t network_current;
+		ASSERT_FALSE (nano::from_string_hex (network_current_text, network_current));
+		ASSERT_EQ (nano::difficulty::from_multiplier (expected_multiplier, node->network_params.network.publish_threshold), network_current);
+		ASSERT_EQ (response.json.not_found (), response.json.find ("difficulty_trend"));
+	}
+	// Test include_trend optional
+	request.put ("include_trend", true);
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		auto trend_opt (response.json.get_child_optional ("difficulty_trend"));
+		ASSERT_TRUE (trend_opt.is_initialized ());
+		auto & trend (trend_opt.get ());
+		ASSERT_EQ (trend_size, trend.size ());
+
+		system.deadline_set (5s);
+		bool done = false;
+		while (!done)
+		{
+			// Look for the sequence 4.2, 1.5; we don't know where as the active transaction request loop may prepend values concurrently
+			double values[2]{ 4.2, 1.5 };
+			auto it = std::search (trend.begin (), trend.end (), values, values + 2, [](auto a, double b) {
+				return a.second.template get<double> ("") == b;
+			});
+			done = it != trend.end ();
+			ASSERT_NO_ERROR (system.poll ());
+		}
+	}
+}
+
 // This is mainly to check for threading issues with TSAN
 TEST (rpc, simultaneous_calls)
 {
@@ -6425,7 +6542,7 @@ TEST (rpc, simultaneous_calls)
 
 	promise.get_future ().wait ();
 
-	system.deadline_set (10s);
+	system.deadline_set (60s);
 	while (std::any_of (test_responses.begin (), test_responses.end (), [](const auto & test_response) { return test_response->status == 0; }))
 	{
 		ASSERT_NO_ERROR (system.poll ());

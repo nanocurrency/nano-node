@@ -38,6 +38,7 @@ public:
 	nano::amount receive_minimum{ nano::xrb_ratio };
 	nano::amount vote_minimum{ nano::Gxrb_ratio };
 	std::chrono::milliseconds vote_generator_delay{ std::chrono::milliseconds (50) };
+	unsigned vote_generator_threshold{ 3 };
 	nano::amount online_weight_minimum{ 60000 * nano::Gxrb_ratio };
 	unsigned online_weight_quorum{ 50 };
 	unsigned password_fanout{ 1024 };
@@ -67,13 +68,15 @@ public:
 	/** Timeout for initiated async operations */
 	std::chrono::seconds tcp_io_timeout{ (network_params.network.is_test_network () && !is_sanitizer_build) ? std::chrono::seconds (5) : std::chrono::seconds (15) };
 	std::chrono::nanoseconds pow_sleep_interval{ 0 };
-	size_t active_elections_size{ 8000 };
+	size_t active_elections_size{ 50000 };
 	/** Default maximum incoming TCP connections, including realtime network & bootstrap */
 	unsigned tcp_incoming_connections_max{ 1024 };
 	bool use_memory_pools{ true };
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
+	size_t bandwidth_limit{ 5 * 1024 * 1024 }; // 5Mb/s
+	std::chrono::milliseconds conf_height_processor_batch_min_time{ 50 };
 	static unsigned json_version ()
 	{
 		return 17;
@@ -88,10 +91,12 @@ public:
 	bool disable_legacy_bootstrap{ false };
 	bool disable_wallet_bootstrap{ false };
 	bool disable_bootstrap_listener{ false };
+	bool disable_tcp_realtime{ false };
 	bool disable_udp{ false };
 	bool disable_unchecked_cleanup{ false };
 	bool disable_unchecked_drop{ true };
 	bool fast_bootstrap{ false };
+	bool delay_frontier_confirmation_height_updating{ false };
 	size_t sideband_batch_size{ 512 };
 	size_t block_processor_batch_size{ 0 };
 	size_t block_processor_full_size{ 65536 };

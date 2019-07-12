@@ -67,7 +67,8 @@ void nano::frontier_req_client::run ()
 	request.age = std::numeric_limits<decltype (request.age)>::max ();
 	request.count = std::numeric_limits<decltype (request.count)>::max ();
 	auto this_l (shared_from_this ());
-	connection->channel->send (request, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->channel->send (
+	request, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
 			this_l->receive_frontier ();
@@ -79,7 +80,8 @@ void nano::frontier_req_client::run ()
 				this_l->connection->node->logger.try_log (boost::str (boost::format ("Error while sending bootstrap request %1%") % ec.message ()));
 			}
 		}
-	});
+	},
+	false); // is bootstrap traffic is_dropable false
 }
 
 std::shared_ptr<nano::bootstrap_client> nano::bootstrap_client::shared ()
@@ -333,7 +335,8 @@ void nano::bulk_pull_client::request ()
 		connection->node->logger.always_log (boost::str (boost::format ("%1% accounts in pull queue") % connection->attempt->pulls.size ()));
 	}
 	auto this_l (shared_from_this ());
-	connection->channel->send (req, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->channel->send (
+	req, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
 			this_l->receive_block ();
@@ -346,7 +349,8 @@ void nano::bulk_pull_client::request ()
 			}
 			this_l->connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_request_failure, nano::stat::dir::in);
 		}
-	});
+	},
+	false); // is bootstrap traffic is_dropable false
 }
 
 void nano::bulk_pull_client::receive_block ()
@@ -518,7 +522,8 @@ void nano::bulk_push_client::start ()
 {
 	nano::bulk_push message;
 	auto this_l (shared_from_this ());
-	connection->channel->send (message, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->channel->send (
+	message, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		auto transaction (this_l->connection->node->store.tx_begin_read ());
 		if (!ec)
 		{
@@ -531,7 +536,8 @@ void nano::bulk_push_client::start ()
 				this_l->connection->node->logger.try_log (boost::str (boost::format ("Unable to send bulk_push request: %1%") % ec.message ()));
 			}
 		}
-	});
+	},
+	false); // is bootstrap traffic is_dropable false
 }
 
 void nano::bulk_push_client::push (nano::transaction const & transaction_a)
@@ -654,7 +660,8 @@ void nano::bulk_pull_account_client::request ()
 		connection->node->logger.always_log (boost::str (boost::format ("%1% accounts in pull queue") % connection->attempt->wallet_accounts.size ()));
 	}
 	auto this_l (shared_from_this ());
-	connection->channel->send (req, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->channel->send (
+	req, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
 			this_l->receive_pending ();
@@ -668,7 +675,8 @@ void nano::bulk_pull_account_client::request ()
 			}
 			this_l->connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_error_starting_request, nano::stat::dir::in);
 		}
-	});
+	},
+	false); // is bootstrap traffic is_dropable false
 }
 
 void nano::bulk_pull_account_client::receive_pending ()
@@ -1904,14 +1912,21 @@ nano::bootstrap_server::~bootstrap_server ()
 	{
 		node->logger.try_log ("Exiting incoming TCP/bootstrap server");
 	}
-	if (bootstrap_connection)
+	if (type == nano::bootstrap_server_type::bootstrap)
 	{
 		--node->bootstrap.bootstrap_count;
 	}
-	if (node_id_handshake_finished)
+	else if (type == nano::bootstrap_server_type::realtime)
 	{
 		--node->bootstrap.realtime_count;
 		node->network.response_channels.remove (remote_endpoint);
+		// Clear temporary channel
+		auto exisiting_response_channel (node->network.tcp_channels.find_channel (remote_endpoint));
+		if (exisiting_response_channel != nullptr)
+		{
+			exisiting_response_channel->server = false;
+			node->network.tcp_channels.erase (remote_endpoint);
+		}
 	}
 	stop ();
 	std::lock_guard<std::mutex> lock (node->bootstrap.mutex);
@@ -1922,7 +1937,6 @@ void nano::bootstrap_server::stop ()
 {
 	if (!stopped.exchange (true))
 	{
-		std::lock_guard<std::mutex> lock (mutex);
 		if (socket != nullptr)
 		{
 			socket->close ();
@@ -2147,7 +2161,7 @@ void nano::bootstrap_server::receive_keepalive_action (boost::system::error_code
 		std::unique_ptr<nano::keepalive> request (new nano::keepalive (error, stream, header_a));
 		if (!error)
 		{
-			if (node_id_handshake_finished)
+			if (type == nano::bootstrap_server_type::realtime || type == nano::bootstrap_server_type::realtime_response_server)
 			{
 				add_request (std::unique_ptr<nano::message> (request.release ()));
 			}
@@ -2172,7 +2186,7 @@ void nano::bootstrap_server::receive_publish_action (boost::system::error_code c
 		std::unique_ptr<nano::publish> request (new nano::publish (error, stream, header_a));
 		if (!error)
 		{
-			if (node_id_handshake_finished)
+			if (type == nano::bootstrap_server_type::realtime || type == nano::bootstrap_server_type::realtime_response_server)
 			{
 				add_request (std::unique_ptr<nano::message> (request.release ()));
 			}
@@ -2197,7 +2211,7 @@ void nano::bootstrap_server::receive_confirm_req_action (boost::system::error_co
 		std::unique_ptr<nano::confirm_req> request (new nano::confirm_req (error, stream, header_a));
 		if (!error)
 		{
-			if (node_id_handshake_finished)
+			if (type == nano::bootstrap_server_type::realtime || type == nano::bootstrap_server_type::realtime_response_server)
 			{
 				add_request (std::unique_ptr<nano::message> (request.release ()));
 			}
@@ -2219,7 +2233,7 @@ void nano::bootstrap_server::receive_confirm_ack_action (boost::system::error_co
 		std::unique_ptr<nano::confirm_ack> request (new nano::confirm_ack (error, stream, header_a));
 		if (!error)
 		{
-			if (node_id_handshake_finished)
+			if (type == nano::bootstrap_server_type::realtime || type == nano::bootstrap_server_type::realtime_response_server)
 			{
 				add_request (std::unique_ptr<nano::message> (request.release ()));
 			}
@@ -2241,7 +2255,7 @@ void nano::bootstrap_server::receive_node_id_handshake_action (boost::system::er
 		std::unique_ptr<nano::node_id_handshake> request (new nano::node_id_handshake (error, stream, header_a));
 		if (!error)
 		{
-			if (!node_id_handshake_finished)
+			if (type == nano::bootstrap_server_type::undefined && !node->flags.disable_tcp_realtime)
 			{
 				add_request (std::unique_ptr<nano::message> (request.release ()));
 			}
@@ -2349,7 +2363,7 @@ public:
 		connection->finish_request_async ();
 		auto connection_l (connection->shared_from_this ());
 		connection->node->background ([connection_l, message_a]() {
-			connection_l->node->network.tcp_channels.process_message (message_a, connection_l->remote_endpoint, connection_l->remote_node_id);
+			connection_l->node->network.tcp_channels.process_message (message_a, connection_l->remote_endpoint, connection_l->remote_node_id, connection_l->socket, connection_l->type);
 		});
 	}
 	void confirm_req (nano::confirm_req const & message_a) override
@@ -2357,7 +2371,7 @@ public:
 		connection->finish_request_async ();
 		auto connection_l (connection->shared_from_this ());
 		connection->node->background ([connection_l, message_a]() {
-			connection_l->node->network.tcp_channels.process_message (message_a, connection_l->remote_endpoint, connection_l->remote_node_id);
+			connection_l->node->network.tcp_channels.process_message (message_a, connection_l->remote_endpoint, connection_l->remote_node_id, connection_l->socket, connection_l->type);
 		});
 	}
 	void confirm_ack (nano::confirm_ack const & message_a) override
@@ -2365,7 +2379,7 @@ public:
 		connection->finish_request_async ();
 		auto connection_l (connection->shared_from_this ());
 		connection->node->background ([connection_l, message_a]() {
-			connection_l->node->network.tcp_channels.process_message (message_a, connection_l->remote_endpoint, connection_l->remote_node_id);
+			connection_l->node->network.tcp_channels.process_message (message_a, connection_l->remote_endpoint, connection_l->remote_node_id, connection_l->socket, connection_l->type);
 		});
 	}
 	void bulk_pull (nano::bulk_pull const &) override
@@ -2422,10 +2436,11 @@ public:
 		}
 		else if (message_a.response)
 		{
-			connection->remote_node_id = message_a.response->first;
-			if (!connection->node->network.syn_cookies.validate (nano::transport::map_tcp_to_endpoint (connection->remote_endpoint), connection->remote_node_id, message_a.response->second) && connection->remote_node_id != connection->node->node_id.pub)
+			auto node_id (message_a.response->first);
+			connection->remote_node_id = node_id;
+			if (!connection->node->network.syn_cookies.validate (nano::transport::map_tcp_to_endpoint (connection->remote_endpoint), node_id, message_a.response->second) && node_id != connection->node->node_id.pub)
 			{
-				connection->node_id_handshake_finished = true;
+				connection->type = nano::bootstrap_server_type::realtime;
 				++connection->node->bootstrap.realtime_count;
 				connection->finish_request_async ();
 			}
@@ -2439,9 +2454,12 @@ public:
 		{
 			connection->finish_request_async ();
 		}
+		auto node_id (connection->remote_node_id);
+		nano::bootstrap_server_type type (connection->type);
+		assert (node_id.is_zero () || type == nano::bootstrap_server_type::realtime);
 		auto connection_l (connection->shared_from_this ());
-		connection->node->background ([connection_l, message_a]() {
-			connection_l->node->network.tcp_channels.process_message (message_a, connection_l->remote_endpoint, connection_l->remote_node_id);
+		connection->node->background ([connection_l, message_a, node_id, type]() {
+			connection_l->node->network.tcp_channels.process_message (message_a, connection_l->remote_endpoint, node_id, connection_l->socket, type);
 		});
 	}
 	std::shared_ptr<nano::bootstrap_server> connection;
@@ -2457,12 +2475,12 @@ void nano::bootstrap_server::run_next ()
 
 bool nano::bootstrap_server::is_bootstrap_connection ()
 {
-	if (!bootstrap_connection && !node->flags.disable_bootstrap_listener && node->bootstrap.bootstrap_count < node->config.bootstrap_connections_max)
+	if (type == nano::bootstrap_server_type::undefined && !node->flags.disable_bootstrap_listener && node->bootstrap.bootstrap_count < node->config.bootstrap_connections_max)
 	{
 		++node->bootstrap.bootstrap_count;
-		bootstrap_connection = true;
+		type = nano::bootstrap_server_type::bootstrap;
 	}
-	return bootstrap_connection;
+	return type == nano::bootstrap_server_type::bootstrap;
 }
 
 /**

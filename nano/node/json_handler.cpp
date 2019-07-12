@@ -836,11 +836,24 @@ void nano::json_handler::accounts_pending ()
 
 void nano::json_handler::active_difficulty ()
 {
+	auto include_trend (request.get<bool> ("include_trend", false));
 	response_l.put ("network_minimum", nano::to_string_hex (node.network_params.network.publish_threshold));
 	auto difficulty_active = node.active.active_difficulty ();
 	response_l.put ("network_current", nano::to_string_hex (difficulty_active));
 	auto multiplier = nano::difficulty::to_multiplier (difficulty_active, node.network_params.network.publish_threshold);
 	response_l.put ("multiplier", nano::to_string (multiplier));
+	if (include_trend)
+	{
+		boost::property_tree::ptree trend_entry_l;
+		auto trend_l (node.active.difficulty_trend ());
+		for (auto multiplier_l : trend_l)
+		{
+			boost::property_tree::ptree entry;
+			entry.put ("", nano::to_string (multiplier_l));
+			trend_entry_l.push_back (std::make_pair ("", entry));
+		}
+		response_l.add_child ("difficulty_trend", trend_entry_l);
+	}
 	response_errors ();
 }
 
@@ -1148,6 +1161,13 @@ void nano::json_handler::block_count ()
 	auto transaction (node.store.tx_begin_read ());
 	response_l.put ("count", std::to_string (node.store.block_count (transaction).sum ()));
 	response_l.put ("unchecked", std::to_string (node.store.unchecked_count (transaction)));
+
+	const auto include_cemented = request.get<bool> ("include_cemented", false);
+	if (include_cemented)
+	{
+		response_l.put ("cemented", std::to_string (node.store.cemented_count (transaction)));
+	}
+
 	response_errors ();
 }
 
@@ -1609,7 +1629,7 @@ void nano::json_handler::confirmation_active ()
 		std::lock_guard<std::mutex> lock (node.active.mutex);
 		for (auto i (node.active.roots.begin ()), n (node.active.roots.end ()); i != n; ++i)
 		{
-			if (i->election->announcements >= announcements && !i->election->confirmed && !i->election->stopped)
+			if (i->election->confirmation_request_count >= announcements && !i->election->confirmed && !i->election->stopped)
 			{
 				boost::property_tree::ptree entry;
 				entry.put ("", i->root.to_string ());
@@ -1686,7 +1706,7 @@ void nano::json_handler::confirmation_info ()
 		auto conflict_info (node.active.roots.find (root));
 		if (conflict_info != node.active.roots.end ())
 		{
-			response_l.put ("announcements", std::to_string (conflict_info->election->announcements));
+			response_l.put ("announcements", std::to_string (conflict_info->election->confirmation_request_count));
 			auto election (conflict_info->election);
 			nano::uint128_t total (0);
 			response_l.put ("last_winner", election->status.winner->hash ().to_string ());
@@ -2509,7 +2529,7 @@ void nano::json_handler::peers ()
 		{
 			boost::property_tree::ptree pending_tree;
 			pending_tree.put ("protocol_version", std::to_string (channel->get_network_version ()));
-			auto node_id_l (channel->get_node_id ());
+			auto node_id_l (channel->get_node_id_optional ());
 			if (node_id_l.is_initialized ())
 			{
 				pending_tree.put ("node_id", node_id_l.get ().to_account ());
@@ -3239,7 +3259,7 @@ void nano::json_handler::republish ()
 				}
 				hash = node.store.block_successor (transaction, hash);
 			}
-			node.network.flood_block_batch (republish_bundle, 25);
+			node.network.flood_block_batch (std::move (republish_bundle), 25);
 			response_l.put ("success", ""); // obsolete
 			response_l.add_child ("blocks", blocks);
 		}
@@ -4318,7 +4338,7 @@ void nano::json_handler::wallet_republish ()
 				blocks.push_back (std::make_pair ("", entry));
 			}
 		}
-		node.network.flood_block_batch (republish_bundle, 25);
+		node.network.flood_block_batch (std::move (republish_bundle), 25);
 		response_l.add_child ("blocks", blocks);
 	}
 	response_errors ();

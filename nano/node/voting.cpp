@@ -5,8 +5,6 @@
 
 nano::vote_generator::vote_generator (nano::node & node_a) :
 node (node_a),
-stopped (false),
-started (false),
 thread ([this]() { run (); })
 {
 	std::unique_lock<std::mutex> lock (mutex);
@@ -18,17 +16,22 @@ thread ([this]() { run (); })
 
 void nano::vote_generator::add (nano::block_hash const & hash_a)
 {
+	std::unique_lock<std::mutex> lock (mutex);
+	hashes.push_back (hash_a);
+	if (hashes.size () >= node.config.vote_generator_threshold)
 	{
-		std::lock_guard<std::mutex> lock (mutex);
-		hashes.push_back (hash_a);
+		// Potentially high load, notify to wait for more hashes
+		wakeup = true;
+		lock.unlock ();
+		condition.notify_all ();
 	}
-	condition.notify_all ();
 }
 
 void nano::vote_generator::stop ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	stopped = true;
+	wakeup = true;
 
 	lock.unlock ();
 	condition.notify_all ();
@@ -68,34 +71,22 @@ void nano::vote_generator::run ()
 	lock.unlock ();
 	condition.notify_all ();
 	lock.lock ();
-	auto min (std::numeric_limits<std::chrono::steady_clock::time_point>::min ());
-	auto cutoff (min);
 	while (!stopped)
 	{
-		auto now (std::chrono::steady_clock::now ());
 		if (hashes.size () >= 12)
 		{
 			send (lock);
 		}
-		else if (cutoff == min) // && hashes.size () < 12
+		else
 		{
-			cutoff = now + node.config.vote_generator_delay;
-			condition.wait_until (lock, cutoff);
-		}
-		else if (now < cutoff) // && hashes.size () < 12
-		{
-			condition.wait_until (lock, cutoff);
-		}
-		else // now >= cutoff && hashes.size () < 12
-		{
-			cutoff = min;
-			if (!hashes.empty ())
+			wakeup = false;
+			if (!condition.wait_for (lock, node.config.vote_generator_delay, [this]() { return this->wakeup; }))
 			{
-				send (lock);
-			}
-			else
-			{
-				condition.wait (lock);
+				// Did not wake up early. Likely not under high load, ok to send lower number of hashes
+				if (!hashes.empty ())
+				{
+					send (lock);
+				}
 			}
 		}
 	}

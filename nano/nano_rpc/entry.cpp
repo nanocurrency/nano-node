@@ -14,6 +14,8 @@
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/program_options.hpp>
 
+#include <csignal>
+
 namespace
 {
 void logging_init (boost::filesystem::path const & application_path_a)
@@ -30,6 +32,8 @@ void logging_init (boost::filesystem::path const & application_path_a)
 		boost::log::add_file_log (boost::log::keywords::target = path, boost::log::keywords::file_name = path / "rpc_log_%Y-%m-%d_%H-%M-%S.%N.log", boost::log::keywords::rotation_size = rotation_size, boost::log::keywords::auto_flush = flush, boost::log::keywords::scan_method = boost::log::sinks::file::scan_method::scan_matching, boost::log::keywords::max_size = max_size, boost::log::keywords::format = "[%TimeStamp%]: %Message%");
 	}
 }
+
+volatile sig_atomic_t sig_int_or_term = 0;
 
 void run (boost::filesystem::path const & data_path)
 {
@@ -49,8 +53,23 @@ void run (boost::filesystem::path const & data_path)
 			nano::ipc_rpc_processor ipc_rpc_processor (io_ctx, rpc_config);
 			auto rpc = nano::get_rpc (io_ctx, rpc_config, ipc_rpc_processor);
 			rpc->start ();
+
+			assert (!nano::signal_handler_impl);
+			nano::signal_handler_impl = [&io_ctx]() {
+				io_ctx.stop ();
+				sig_int_or_term = 1;
+			};
+
+			std::signal (SIGINT, &nano::signal_handler);
+			std::signal (SIGTERM, &nano::signal_handler);
+
 			runner = std::make_unique<nano::thread_runner> (io_ctx, rpc_config.rpc_process.io_threads);
 			runner->join ();
+
+			if (sig_int_or_term == 1)
+			{
+				rpc->stop ();
+			}
 		}
 		catch (const std::runtime_error & e)
 		{

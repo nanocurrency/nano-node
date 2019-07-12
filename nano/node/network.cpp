@@ -66,7 +66,10 @@ void nano::network::start ()
 	{
 		udp_channels.start ();
 	}
-	tcp_channels.start ();
+	if (!node.flags.disable_tcp_realtime)
+	{
+		tcp_channels.start ();
+	}
 	ongoing_keepalive ();
 }
 
@@ -140,10 +143,9 @@ bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a
 				result = true;
 				auto vote (node_a.store.vote_generate (transaction_a, pub_a, prv_a, std::vector<nano::block_hash> (1, hash)));
 				nano::confirm_ack confirm (vote);
-				auto vote_bytes = confirm.to_bytes ();
 				for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 				{
-					j->get ()->send_buffer (vote_bytes, nano::stat::detail::confirm_ack);
+					j->get ()->send (confirm);
 				}
 				node_a.votes_cache.add (vote);
 			});
@@ -154,10 +156,9 @@ bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a
 			for (auto & vote : votes)
 			{
 				nano::confirm_ack confirm (vote);
-				auto vote_bytes = confirm.to_bytes ();
 				for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 				{
-					j->get ()->send_buffer (vote_bytes, nano::stat::detail::confirm_ack);
+					j->get ()->send (confirm);
 				}
 			}
 		}
@@ -165,10 +166,9 @@ bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a
 		if (also_publish)
 		{
 			nano::publish publish (block_a);
-			auto publish_bytes (publish.to_bytes ());
 			for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
 			{
-				j->get ()->send_buffer (publish_bytes, nano::stat::detail::publish);
+				j->get ()->send (publish);
 			}
 		}
 	}
@@ -194,7 +194,7 @@ void nano::network::confirm_hashes (nano::transaction const & transaction_a, std
 				nano::vectorstream stream (*bytes);
 				confirm.serialize (stream);
 			}
-			channel_a->send_buffer (bytes, nano::stat::detail::confirm_ack);
+			channel_a->send (confirm);
 			this->node.votes_cache.add (vote);
 		});
 	}
@@ -208,8 +208,7 @@ bool nano::network::send_votes_cache (std::shared_ptr<nano::transport::channel> 
 	for (auto & vote : votes)
 	{
 		nano::confirm_ack confirm (vote);
-		auto vote_bytes = confirm.to_bytes ();
-		channel_a->send_buffer (vote_bytes, nano::stat::detail::confirm_ack);
+		channel_a->send (confirm);
 	}
 	// Returns true if votes were sent
 	bool result (!votes.empty ());
@@ -233,12 +232,14 @@ void nano::network::flood_block_batch (std::deque<std::shared_ptr<nano::block>> 
 	if (!blocks_a.empty ())
 	{
 		std::weak_ptr<nano::node> node_w (node.shared ());
-		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a + std::rand () % delay_a), [node_w, blocks_a, delay_a]() {
+		// clang-format off
+		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a + std::rand () % delay_a), [node_w, blocks (std::move (blocks_a)), delay_a]() {
 			if (auto node_l = node_w.lock ())
 			{
-				node_l->network.flood_block_batch (blocks_a, delay_a);
+				node_l->network.flood_block_batch (std::move (blocks), delay_a);
 			}
 		});
+		// clang-format on
 	}
 }
 
@@ -315,7 +316,7 @@ void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> blo
 
 void nano::network::broadcast_confirm_req_batch (std::unordered_map<std::shared_ptr<nano::transport::channel>, std::vector<std::pair<nano::block_hash, nano::block_hash>>> request_bundle_a, unsigned delay_a, bool resumption)
 {
-	const size_t max_reps = 10;
+	const size_t max_reps = 50;
 	if (!resumption && node.config.logging.network_logging ())
 	{
 		node.logger.try_log (boost::str (boost::format ("Broadcasting batch confirm req to %1% representatives") % request_bundle_a.size ()));
@@ -324,19 +325,26 @@ void nano::network::broadcast_confirm_req_batch (std::unordered_map<std::shared_
 	while (!request_bundle_a.empty () && count < max_reps)
 	{
 		auto j (request_bundle_a.begin ());
-		count++;
-		std::vector<std::pair<nano::block_hash, nano::block_hash>> roots_hashes;
-		// Limit max request size hash + root to 7 pairs
-		while (roots_hashes.size () <= confirm_req_hashes_max && !j->second.empty ())
+		while (j != request_bundle_a.end ())
 		{
-			roots_hashes.push_back (j->second.back ());
-			j->second.pop_back ();
-		}
-		nano::confirm_req req (roots_hashes);
-		j->first->send (req);
-		if (j->second.empty ())
-		{
-			request_bundle_a.erase (j);
+			count++;
+			std::vector<std::pair<nano::block_hash, nano::block_hash>> roots_hashes;
+			// Limit max request size hash + root to 7 pairs
+			while (roots_hashes.size () <= confirm_req_hashes_max && !j->second.empty ())
+			{
+				roots_hashes.push_back (j->second.back ());
+				j->second.pop_back ();
+			}
+			nano::confirm_req req (roots_hashes);
+			j->first->send (req);
+			if (j->second.empty ())
+			{
+				j = request_bundle_a.erase (j);
+			}
+			else
+			{
+				++j;
+			}
 		}
 	}
 	if (!request_bundle_a.empty ())
@@ -345,7 +353,7 @@ void nano::network::broadcast_confirm_req_batch (std::unordered_map<std::shared_
 		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a), [node_w, request_bundle_a, delay_a]() {
 			if (auto node_l = node_w.lock ())
 			{
-				node_l->network.broadcast_confirm_req_batch (request_bundle_a, delay_a + 50, true);
+				node_l->network.broadcast_confirm_req_batch (request_bundle_a, delay_a, true);
 			}
 		});
 	}

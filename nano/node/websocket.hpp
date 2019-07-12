@@ -49,6 +49,8 @@ namespace websocket
 		stopped_election,
 		/** A vote message **/
 		vote,
+		/** An active difficulty message */
+		active_difficulty,
 		/** Auxiliary length, not a valid topic, must be the last enum */
 		_length
 	};
@@ -79,6 +81,7 @@ namespace websocket
 		message block_confirmed (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, bool include_block, nano::election_status_type election_status_type_a);
 		message stopped_election (nano::block_hash const & hash_a);
 		message vote_received (std::shared_ptr<nano::vote> vote_a);
+		message difficulty_changed (uint64_t publish_threshold, uint64_t difficulty_active);
 
 	private:
 		/** Set the common fields for messages: timestamp and topic. */

@@ -7,12 +7,13 @@
 
 std::chrono::milliseconds constexpr nano::block_processor::confirmation_request_delay;
 
-nano::block_processor::block_processor (nano::node & node_a) :
+nano::block_processor::block_processor (nano::node & node_a, nano::write_database_queue & write_database_queue_a) :
 generator (node_a),
 stopped (false),
 active (false),
 next_log (std::chrono::steady_clock::now ()),
-node (node_a)
+node (node_a),
+write_database_queue (write_database_queue_a)
 {
 }
 
@@ -241,6 +242,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 		}
 	}
 	lock_a.unlock ();
+	auto scoped_write_guard = write_database_queue.wait (nano::writer::process_batch);
 	auto transaction (node.store.tx_begin_write ());
 	timer_l.restart ();
 	lock_a.lock ();
@@ -294,7 +296,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 			{
 				// Replace our block with the winner and roll back any dependent blocks
 				node.logger.always_log (boost::str (boost::format ("Rolling back %1% and replacing with %2%") % successor->hash ().to_string () % hash.to_string ()));
-				std::vector<nano::block_hash> rollback_list;
+				std::vector<std::shared_ptr<nano::block>> rollback_list;
 				if (node.ledger.rollback (transaction, successor->hash (), rollback_list))
 				{
 					node.logger.always_log (nano::severity_level::error, boost::str (boost::format ("Failed to roll back %1% because it or a successor was confirmed") % successor->hash ().to_string ()));
@@ -317,10 +319,12 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 					}
 				}
 				lock_a.unlock ();
-				// Deleting from votes cache
+				// Deleting from votes cache & wallet work watcher, stop active transaction
 				for (auto & i : rollback_list)
 				{
-					node.votes_cache.remove (i);
+					node.votes_cache.remove (i->hash ());
+					node.wallets.watcher.remove (i);
+					node.active.erase (*i);
 				}
 			}
 		}
@@ -337,7 +341,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 	}
 	lock_a.unlock ();
 
-	if (node.config.logging.timing_logging ())
+	if (node.config.logging.timing_logging () && number_of_blocks_processed != 0)
 	{
 		node.logger.always_log (boost::str (boost::format ("Processed %1% blocks (%2% blocks were forced) in %3% %4%") % number_of_blocks_processed % number_of_forced_processed % timer_l.stop ().count () % timer_l.unit ()));
 	}
@@ -364,7 +368,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 			{
 				std::lock_guard<std::mutex> lock (node_l->active.mutex);
 				auto existing (node_l->active.blocks.find (block_a->hash ()));
-				if (existing != node_l->active.blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->announcements == 0)
+				if (existing != node_l->active.blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->confirmation_request_count == 0)
 				{
 					send_request = true;
 				}

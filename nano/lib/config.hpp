@@ -156,4 +156,7 @@ inline boost::filesystem::path get_rpc_config_path (boost::filesystem::path cons
 
 /** Called by gtest_main to enforce test network */
 void force_nano_test_network ();
+
+/** Checks if we are running inside a valgrind instance */
+bool running_within_valgrind ();
 }

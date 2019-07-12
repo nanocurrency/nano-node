@@ -778,6 +778,7 @@ nano_qt::stats_viewer::stats_viewer (nano_qt::wallet & wallet_a) :
 window (new QWidget),
 layout (new QVBoxLayout),
 refresh (new QPushButton ("Refresh")),
+clear (new QPushButton ("Clear Statistics")),
 model (new QStandardItemModel),
 view (new QTableView),
 back (new QPushButton ("Back")),
@@ -795,6 +796,7 @@ wallet (wallet_a)
 	layout->setContentsMargins (0, 0, 0, 0);
 	layout->addWidget (view);
 	layout->addWidget (refresh);
+	layout->addWidget (clear);
 	layout->addWidget (back);
 	window->setLayout (layout);
 
@@ -802,6 +804,11 @@ wallet (wallet_a)
 		this->wallet.pop_main_stack ();
 	});
 	QObject::connect (refresh, &QPushButton::released, [this]() {
+		refresh_stats ();
+	});
+
+	QObject::connect (clear, &QPushButton::released, [this]() {
+		this->wallet.node.stats.clear ();
 		refresh_stats ();
 	});
 
@@ -1942,7 +1949,7 @@ void nano_qt::advanced_actions::refresh_peers ()
 		version->setData (QVariant (channel->get_network_version ()), Qt::DisplayRole);
 		items.push_back (version);
 		QString node_id ("");
-		auto node_id_l (channel->get_node_id ());
+		auto node_id_l (channel->get_node_id_optional ());
 		if (node_id_l.is_initialized ())
 		{
 			node_id = node_id_l.get ().to_account ().c_str ();

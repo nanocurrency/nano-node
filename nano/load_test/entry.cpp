@@ -9,6 +9,7 @@
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/program_options.hpp>
 
+#include <csignal>
 #include <iomanip>
 #include <random>
 
@@ -466,6 +467,15 @@ int main (int argc, char * const * argv)
 	std::cout << "Connecting nodes..." << std::endl;
 
 	boost::asio::io_context ioc;
+
+	assert (!nano::signal_handler_impl);
+	nano::signal_handler_impl = [&ioc]() {
+		ioc.stop ();
+	};
+
+	std::signal (SIGINT, &nano::signal_handler);
+	std::signal (SIGTERM, &nano::signal_handler);
+
 	tcp::resolver resolver{ ioc };
 	auto const primary_node_results = resolver.resolve ("::1", std::to_string (rpc_port_start));
 

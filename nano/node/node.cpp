@@ -193,7 +193,7 @@ node (init_a, io_ctx_a, application_path_a, alarm_a, nano::node_config (peering_
 {
 }
 
-nano::node::node (nano::node_init & init_a, boost::asio::io_context & io_ctx_a, boost::filesystem::path const & application_path_a, nano::alarm & alarm_a, nano::node_config const & config_a, nano::work_pool & work_a, nano::node_flags flags_a, bool delay_frontier_confirmation_height_updating) :
+nano::node::node (nano::node_init & init_a, boost::asio::io_context & io_ctx_a, boost::filesystem::path const & application_path_a, nano::alarm & alarm_a, nano::node_config const & config_a, nano::work_pool & work_a, nano::node_flags flags_a) :
 io_ctx (io_ctx_a),
 node_initialized_latch (1),
 config (config_a),
@@ -217,15 +217,15 @@ port_mapping (*this),
 vote_processor (*this),
 rep_crawler (*this),
 warmed_up (0),
-block_processor (*this),
+block_processor (*this, write_database_queue),
 block_processor_thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::block_processing);
 	this->block_processor.process_blocks ();
 }),
 online_reps (*this, config.online_weight_minimum.number ()),
 vote_uniquer (block_uniquer),
-active (*this, delay_frontier_confirmation_height_updating),
-confirmation_height_processor (pending_confirmation_height, store, ledger.stats, active, ledger.epoch_link, logger),
+active (*this),
+confirmation_height_processor (pending_confirmation_height, store, ledger.stats, active, ledger.epoch_link, write_database_queue, config.conf_height_processor_batch_min_time, logger),
 payment_observer_processor (observers.blocks),
 wallets (init_a.wallets_store_init, *this),
 startup_time (std::chrono::steady_clock::now ())
@@ -252,7 +252,7 @@ startup_time (std::chrono::steady_clock::now ())
 		{
 			observers.blocks.add ([this](nano::election_status const & status_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
 				auto block_a (status_a.winner);
-				if (this->block_arrival.recent (block_a->hash ()))
+				if ((status_a.type == nano::election_status_type::active_confirmed_quorum || status_a.type == nano::election_status_type::active_confirmation_height) && this->block_arrival.recent (block_a->hash ()))
 				{
 					auto node_l (shared_from_this ());
 					background ([node_l, block_a, account_a, amount_a, is_state_send_a]() {
@@ -318,31 +318,28 @@ startup_time (std::chrono::steady_clock::now ())
 				if (this->websocket_server->any_subscriber (nano::websocket::topic::confirmation))
 				{
 					auto block_a (status_a.winner);
-					if (this->block_arrival.recent (block_a->hash ()))
+					std::string subtype;
+					if (is_state_send_a)
 					{
-						std::string subtype;
-						if (is_state_send_a)
-						{
-							subtype = "send";
-						}
-						else if (block_a->type () == nano::block_type::state)
-						{
-							if (block_a->link ().is_zero ())
-							{
-								subtype = "change";
-							}
-							else if (amount_a == 0 && !this->ledger.epoch_link.is_zero () && this->ledger.is_epoch_link (block_a->link ()))
-							{
-								subtype = "epoch";
-							}
-							else
-							{
-								subtype = "receive";
-							}
-						}
-
-						this->websocket_server->broadcast_confirmation (block_a, account_a, amount_a, subtype, status_a.type);
+						subtype = "send";
 					}
+					else if (block_a->type () == nano::block_type::state)
+					{
+						if (block_a->link ().is_zero ())
+						{
+							subtype = "change";
+						}
+						else if (amount_a == 0 && !this->ledger.epoch_link.is_zero () && this->ledger.is_epoch_link (block_a->link ()))
+						{
+							subtype = "epoch";
+						}
+						else
+						{
+							subtype = "receive";
+						}
+					}
+
+					this->websocket_server->broadcast_confirmation (block_a, account_a, amount_a, subtype, status_a.type);
 				}
 			});
 
@@ -353,7 +350,34 @@ startup_time (std::chrono::steady_clock::now ())
 					this->websocket_server->broadcast (builder.stopped_election (hash_a));
 				}
 			});
+
+			observers.difficulty.add ([this](uint64_t active_difficulty) {
+				if (this->websocket_server->any_subscriber (nano::websocket::topic::active_difficulty))
+				{
+					nano::websocket::message_builder builder;
+					auto msg (builder.difficulty_changed (network_params.network.publish_threshold, active_difficulty));
+					this->websocket_server->broadcast (msg);
+				}
+			});
 		}
+		// Add block confirmation type stats regardless of http-callback and websocket subscriptions
+		observers.blocks.add ([this](nano::election_status const & status_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
+			assert (status_a.type != nano::election_status_type::ongoing);
+			switch (status_a.type)
+			{
+				case nano::election_status_type::active_confirmed_quorum:
+					this->stats.inc (nano::stat::type::observer, nano::stat::detail::observer_confirmation_active_quorum, nano::stat::dir::out);
+					break;
+				case nano::election_status_type::active_confirmation_height:
+					this->stats.inc (nano::stat::type::observer, nano::stat::detail::observer_confirmation_active_conf_height, nano::stat::dir::out);
+					break;
+				case nano::election_status_type::inactive_confirmation_height:
+					this->stats.inc (nano::stat::type::observer, nano::stat::detail::observer_confirmation_inactive, nano::stat::dir::out);
+					break;
+				default:
+					break;
+			}
+		});
 		observers.endpoint.add ([this](std::shared_ptr<nano::transport::channel> channel_a) {
 			if (channel_a->get_type () == nano::transport::transport_type::udp)
 			{
@@ -434,6 +458,8 @@ startup_time (std::chrono::steady_clock::now ())
 		{
 			logger.always_log ("Constructing node");
 		}
+
+		logger.always_log (boost::str (boost::format ("Outbound Voting Bandwidth limited to %1% bytes per second") % config.bandwidth_limit));
 
 		// First do a pass with a read to see if any writing needs doing, this saves needing to open a write lock (and potentially blocking)
 		auto is_initialized (false);
@@ -726,6 +752,7 @@ void nano::node::stop ()
 		checker.stop ();
 		wallets.stop ();
 		stats.stop ();
+		write_database_queue.stop ();
 	}
 }
 

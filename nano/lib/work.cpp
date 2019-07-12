@@ -224,7 +224,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (work_pool & work_p
 
 	size_t count = 0;
 	{
-		std::lock_guard<std::mutex> (work_pool.mutex);
+		std::lock_guard<std::mutex> guard (work_pool.mutex);
 		count = work_pool.pending.size ();
 	}
 	auto sizeof_element = sizeof (decltype (work_pool.pending)::value_type);

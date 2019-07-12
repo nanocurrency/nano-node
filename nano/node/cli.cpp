@@ -315,8 +315,19 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				if (!node.node->store.account_get (transaction, account, account_info))
 				{
 					auto transaction (node.node->store.tx_begin_write ());
-					node.node->store.confirmation_height_clear (transaction, account, account_info);
-					std::cout << "Confirmation height of account " << account_str << " is set to 0" << std::endl;
+					auto conf_height_reset_num = 0;
+					if (account == node.node->network_params.ledger.genesis_account)
+					{
+						conf_height_reset_num = 1;
+						account_info.confirmation_height = conf_height_reset_num;
+						node.node->store.account_put (transaction, account, account_info);
+					}
+					else
+					{
+						node.node->store.confirmation_height_clear (transaction, account, account_info);
+					}
+
+					std::cout << "Confirmation height of account " << account_str << " is set to " << conf_height_reset_num << std::endl;
 				}
 				else
 				{

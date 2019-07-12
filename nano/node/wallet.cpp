@@ -1412,11 +1412,16 @@ void nano::work_watcher::run ()
 		{
 			std::unique_lock<std::mutex> active_lock (node.active.mutex);
 			auto confirmed (false);
-			auto existing (node.active.roots.find ((i->second)->qualified_root ()));
+			auto existing (node.active.roots.find (i->first));
 			if (node.active.roots.end () != existing)
 			{
 				//block may not be in existing yet
 				confirmed = existing->election->confirmed.load ();
+			}
+			else if (i->second == nullptr)
+			{
+				// removed
+				confirmed = true;
 			}
 			else
 			{
@@ -1442,9 +1447,13 @@ void nano::work_watcher::run ()
 		for (auto & i : blocks)
 		{
 			uint64_t difficulty (0);
-			auto root = i.second->root ();
-			nano::work_validate (root, i.second->block_work (), &difficulty);
-			if (node.active.active_difficulty () > difficulty)
+			nano::block_hash root (0);
+			if (i.second != nullptr)
+			{
+				root = i.second->root ();
+				nano::work_validate (root, i.second->block_work (), &difficulty);
+			}
+			if (node.active.active_difficulty () > difficulty && i.second != nullptr)
 			{
 				auto qualified_root = i.second->qualified_root ();
 				auto hash = i.second->hash ();
@@ -1466,7 +1475,7 @@ void nano::work_watcher::run ()
 							{
 								election->status.winner = block;
 							}
-							auto current (election->blocks.find (block->hash ()));
+							auto current (election->blocks.find (hash));
 							assert (current != election->blocks.end ());
 							current->second = block;
 						}
@@ -1478,7 +1487,10 @@ void nano::work_watcher::run ()
 					{
 						break;
 					}
-					i.second = block;
+					if (i.second != nullptr)
+					{
+						i.second = block;
+					}
 					lock.unlock ();
 				}
 				lock.lock ();
@@ -1498,6 +1510,17 @@ void nano::work_watcher::add (std::shared_ptr<nano::block> block_a)
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		blocks[block_l->qualified_root ()] = block_l;
+	}
+}
+
+void nano::work_watcher::remove (std::shared_ptr<nano::block> block_a)
+{
+	auto root (block_a->qualified_root ());
+	std::lock_guard<std::mutex> lock (mutex);
+	auto existing (blocks.find (root));
+	if (existing != blocks.end () && existing->second->hash () == block_a->hash ())
+	{
+		existing->second = nullptr;
 	}
 }
 
@@ -1939,7 +1962,7 @@ nano::store_iterator<nano::uint256_union, nano::wallet_value> nano::wallet_store
 	return nano::store_iterator<nano::uint256_union, nano::wallet_value> (nullptr);
 }
 nano::mdb_wallets_store::mdb_wallets_store (bool & error_a, boost::filesystem::path const & path_a, int lmdb_max_dbs) :
-environment (error_a, path_a, lmdb_max_dbs, 1ULL * 1024 * 1024 * 1024)
+environment (error_a, path_a, lmdb_max_dbs, false, 1ULL * 1024 * 1024 * 1024)
 {
 }
 MDB_txn * nano::wallet_store::tx (nano::transaction const & transaction_a) const

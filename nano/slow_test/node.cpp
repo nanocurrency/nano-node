@@ -11,7 +11,10 @@ using namespace std::chrono_literals;
 
 TEST (system, generate_mass_activity)
 {
-	nano::system system (24000, 1);
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.enable_voting = false; // Prevent blocks cementing
+	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	uint32_t count (20);
 	system.generate_mass_activity (count, *system.nodes[0]);
@@ -25,7 +28,11 @@ TEST (system, generate_mass_activity)
 
 TEST (system, generate_mass_activity_long)
 {
-	nano::system system (24000, 1);
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.enable_voting = false; // Prevent blocks cementing
+	auto node = system.add_node (node_config);
+	system.wallet (0)->wallets.watcher.stop (); // Stop work watcher
 	nano::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	uint32_t count (1000000000);
@@ -44,7 +51,10 @@ TEST (system, receive_while_synchronizing)
 {
 	std::vector<boost::thread> threads;
 	{
-		nano::system system (24000, 1);
+		nano::system system;
+		nano::node_config node_config (24000, system.logging);
+		node_config.enable_voting = false; // Prevent blocks cementing
+		auto node = system.add_node (node_config);
 		nano::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
 		system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 		uint32_t count (1000);
@@ -56,6 +66,7 @@ TEST (system, receive_while_synchronizing)
 		auto channel (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, system.nodes[0]->network.endpoint ()));
 		node1->network.send_keepalive (channel);
 		auto wallet (node1->wallets.create (1));
+		wallet->insert_adhoc (nano::test_genesis_key.prv); // For voting
 		ASSERT_EQ (key.pub, wallet->insert_adhoc (key.prv));
 		node1->start ();
 		system.nodes.push_back (node1);
@@ -91,21 +102,22 @@ TEST (ledger, deep_account_compute)
 	nano::genesis genesis;
 	auto transaction (store.tx_begin_write ());
 	store.initialize (transaction, genesis);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::keypair key;
 	auto balance (nano::genesis_amount - 1);
-	nano::send_block send (genesis.hash (), key.pub, balance, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+	nano::send_block send (genesis.hash (), key.pub, balance, nano::test_genesis_key.prv, nano::test_genesis_key.pub, pool.generate (genesis.hash ()));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send).code);
-	nano::open_block open (send.hash (), nano::test_genesis_key.pub, key.pub, key.prv, key.pub, 0);
+	nano::open_block open (send.hash (), nano::test_genesis_key.pub, key.pub, key.prv, key.pub, pool.generate (key.pub));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, open).code);
 	auto sprevious (send.hash ());
 	auto rprevious (open.hash ());
 	for (auto i (0), n (100000); i != n; ++i)
 	{
 		balance -= 1;
-		nano::send_block send (sprevious, key.pub, balance, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+		nano::send_block send (sprevious, key.pub, balance, nano::test_genesis_key.prv, nano::test_genesis_key.pub, pool.generate (sprevious));
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send).code);
 		sprevious = send.hash ();
-		nano::receive_block receive (rprevious, send.hash (), key.prv, key.pub, 0);
+		nano::receive_block receive (rprevious, send.hash (), key.prv, key.pub, pool.generate (rprevious));
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive).code);
 		rprevious = receive.hash ();
 		if (i % 100 == 0)
@@ -177,6 +189,7 @@ TEST (store, load)
 	}
 }
 
+// ulimit -n increasing may be required
 TEST (node, fork_storm)
 {
 	nano::system system (24000, 64);
@@ -189,6 +202,7 @@ TEST (node, fork_storm)
 		balance -= 1;
 		nano::keypair key;
 		nano::send_block send (previous, key.pub, balance, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
+		system.nodes[j]->work_generate_blocking (send);
 		previous = send.hash ();
 		for (auto i (0); i != system.nodes.size (); ++i)
 		{
@@ -219,6 +233,7 @@ TEST (node, fork_storm)
 			}
 			else
 			{
+				std::lock_guard<std::mutex> lock (node_a->active.mutex);
 				if (node_a->active.roots.begin ()->election->last_votes_size () == 1)
 				{
 					++single;
@@ -446,13 +461,14 @@ TEST (node, mass_vote_by_hash)
 	}
 }
 
-TEST (confirmation_height, many_accounts)
+TEST (confirmation_height, many_accounts_single_confirmation)
 {
-	bool delay_frontier_confirmation_height_updating = true;
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
 	node_config.online_weight_minimum = 100;
-	auto node = system.add_node (node_config, delay_frontier_confirmation_height_updating);
+	nano::node_flags node_flags;
+	node_flags.delay_frontier_confirmation_height_updating = true;
+	auto node = system.add_node (node_config, node_flags);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 
 	// The number of frontiers should be more than the batch_write_size to test the amount of blocks confirmed is correct.
@@ -515,11 +531,54 @@ TEST (confirmation_height, many_accounts)
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), num_accounts * 2 - 2);
 }
 
+TEST (confirmation_height, many_accounts_many_confirmations)
+{
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.online_weight_minimum = 100;
+	nano::node_flags node_flags;
+	node_flags.delay_frontier_confirmation_height_updating = true;
+	auto node = system.add_node (node_config, node_flags);
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+
+	auto num_accounts = 10000;
+	auto latest_genesis = node->latest (nano::test_genesis_key.pub);
+	std::vector<std::shared_ptr<nano::open_block>> open_blocks;
+	{
+		auto transaction = node->store.tx_begin_write ();
+		for (auto i = num_accounts - 1; i > 0; --i)
+		{
+			nano::keypair key;
+			system.wallet (0)->insert_adhoc (key.prv);
+
+			nano::send_block send (latest_genesis, key.pub, nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest_genesis));
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
+			auto open = std::make_shared<nano::open_block> (send.hash (), nano::test_genesis_key.pub, key.pub, key.prv, key.pub, system.work.generate (key.pub));
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *open).code);
+			open_blocks.push_back (std::move (open));
+			latest_genesis = send.hash ();
+		}
+	}
+
+	// Confirm all of the accounts
+	for (auto & open_block : open_blocks)
+	{
+		node->block_confirm (open_block);
+	}
+
+	system.deadline_set (60s);
+	while (node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in) != (num_accounts - 1) * 2)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
 TEST (confirmation_height, long_chains)
 {
-	bool delay_frontier_confirmation_height_updating = true;
 	nano::system system;
-	auto node = system.add_node (nano::node_config (24000, system.logging), delay_frontier_confirmation_height_updating);
+	nano::node_flags node_flags;
+	node_flags.delay_frontier_confirmation_height_updating = true;
+	auto node = system.add_node (nano::node_config (24000, system.logging), node_flags);
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
@@ -599,10 +658,11 @@ namespace nano
 {
 TEST (confirmation_height, prioritize_frontiers_overwrite)
 {
-	bool delay_frontier_confirmation_height_updating = true;
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
-	auto node = system.add_node (node_config, delay_frontier_confirmation_height_updating);
+	nano::node_flags node_flags;
+	node_flags.delay_frontier_confirmation_height_updating = true;
+	auto node = system.add_node (node_config, node_flags);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 
 	// As this test can take a while extend the next frontier check

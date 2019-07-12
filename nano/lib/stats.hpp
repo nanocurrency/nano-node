@@ -232,7 +232,9 @@ public:
 		ipc,
 		tcp,
 		udp,
-		confirmation_height
+		observer,
+		confirmation_height,
+		drop
 	};
 
 	/** Optional detail type */
@@ -245,6 +247,11 @@ public:
 		insufficient_work,
 		http_callback,
 		unreachable_host,
+
+		// observer specific
+		observer_confirmation_active_quorum,
+		observer_confirmation_active_conf_height,
+		observer_confirmation_inactive,
 
 		// ledger, block, bootstrap
 		send,
@@ -457,12 +464,14 @@ public:
 	/** Returns a new JSON log sink */
 	std::unique_ptr<stat_log_sink> log_sink_json () const;
 
+	/** Returns string representation of detail */
+	static std::string detail_to_string (uint32_t key);
+
 	/** Stop stats being output */
 	void stop ();
 
 private:
 	static std::string type_to_string (uint32_t key);
-	static std::string detail_to_string (uint32_t key);
 	static std::string dir_to_string (uint32_t key);
 
 	/** Constructs a key given type, detail and direction. This is used as input to update(...) and get_entry(...) */

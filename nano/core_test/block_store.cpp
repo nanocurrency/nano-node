@@ -758,6 +758,19 @@ TEST (block_store, account_count)
 	ASSERT_EQ (1, store.account_count (transaction));
 }
 
+TEST (block_store, cemented_count)
+{
+	nano::logger_mt logger;
+	bool init (false);
+	nano::mdb_store store (init, logger, nano::unique_path ());
+	ASSERT_TRUE (!init);
+	auto transaction (store.tx_begin_write ());
+	ASSERT_EQ (0, store.cemented_count (transaction));
+	nano::genesis genesis;
+	store.initialize (transaction, genesis);
+	ASSERT_EQ (1, store.cemented_count (transaction));
+}
+
 TEST (block_store, sequence_increment)
 {
 	nano::logger_mt logger;
@@ -1560,10 +1573,10 @@ TEST (block_store, upgrade_v13_v14)
 	ASSERT_FALSE (error);
 	auto transaction (store.tx_begin_write ());
 
-	// This should now work and have confirmation height of 0
+	// This should now work and have a confirmation height of 1
 	nano::account_info account_info;
 	ASSERT_FALSE (store.account_get (transaction, nano::genesis_account, account_info));
-	ASSERT_EQ (account_info.confirmation_height, 0);
+	ASSERT_EQ (account_info.confirmation_height, 1);
 	ASSERT_LT (13, store.version_get (transaction));
 
 	// Test deleting node ID
@@ -1618,7 +1631,7 @@ TEST (block_store, confirmation_height)
 	ASSERT_EQ (stored_account_info.confirmation_height, 0);
 }
 
-// Upgrade many accounts to add a confirmation height of 0
+// Upgrade many accounts and check they all have a confirmation height of 0 (except genesis which should have 1)
 TEST (block_store, upgrade_confirmation_height_many)
 {
 	auto error (false);
@@ -1648,7 +1661,7 @@ TEST (block_store, upgrade_confirmation_height_many)
 		ASSERT_EQ (store.account_count (transaction), total_num_accounts);
 	}
 
-	// Loop over them all and confirm all have a confirmation height of 0
+	// Loop over them all and confirm they all have the correct confirmation heights
 	nano::logger_mt logger;
 	nano::mdb_store store (error, logger, path);
 	auto transaction (store.tx_begin_read ());
@@ -1656,8 +1669,15 @@ TEST (block_store, upgrade_confirmation_height_many)
 
 	for (auto i (store.latest_begin (transaction)), n (store.latest_end ()); i != n; ++i)
 	{
-		nano::account_info current (i->second);
-		ASSERT_EQ (current.confirmation_height, 0);
+		nano::account_info & current (i->second);
+		if (i->first == nano::genesis_account)
+		{
+			ASSERT_EQ (current.confirmation_height, 1);
+		}
+		else
+		{
+			ASSERT_EQ (current.confirmation_height, 0);
+		}
 	}
 }
 

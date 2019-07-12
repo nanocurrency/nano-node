@@ -267,6 +267,7 @@ public:
 	QWidget * window;
 	QVBoxLayout * layout;
 	QPushButton * refresh;
+	QPushButton * clear;
 	QStandardItemModel * model;
 	QTableView * view;
 	QPushButton * back;
