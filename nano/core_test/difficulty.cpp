@@ -1,3 +1,4 @@
+#include <nano/lib/config.hpp>
 #include <nano/lib/numbers.hpp>
 
 #include <gtest/gtest.h>
@@ -27,8 +28,12 @@ TEST (difficulty, multipliers)
 		uint64_t difficulty_nil = 0;
 		double multiplier_nil = 0.;
 #ifndef NDEBUG
-		ASSERT_DEATH_IF_SUPPORTED (nano::difficulty::to_multiplier (difficulty_nil, base), "");
-		ASSERT_DEATH_IF_SUPPORTED (nano::difficulty::from_multiplier (multiplier_nil, base), "");
+		// Causes valgrind to be noisy
+		if (!nano::running_within_valgrind ())
+		{
+			ASSERT_DEATH_IF_SUPPORTED (nano::difficulty::to_multiplier (difficulty_nil, base), "");
+			ASSERT_DEATH_IF_SUPPORTED (nano::difficulty::from_multiplier (multiplier_nil, base), "");
+		}
 #endif
 	}
 }
