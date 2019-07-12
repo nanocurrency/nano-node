@@ -15,14 +15,6 @@
 #include <fstream>
 #include <iostream>
 
-#ifndef BOOST_PROCESS_SUPPORTED
-#error BOOST_PROCESS_SUPPORTED must be set, check configuration
-#endif
-
-#if BOOST_PROCESS_SUPPORTED
-#include <boost/process.hpp>
-#endif
-
 namespace
 {
 void my_abort_signal_handler (int signum)
