@@ -1,10 +1,9 @@
 #pragma once
 
+#include <nano/crypto/blake2/blake2.h>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
-
-#include <crypto/blake2/blake2.h>
 
 #include <boost/property_tree/json_parser.hpp>
 

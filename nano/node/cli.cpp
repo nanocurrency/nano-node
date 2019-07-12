@@ -1,5 +1,4 @@
 #include <nano/lib/config.hpp>
-#include <nano/lib/interface.h>
 #include <nano/node/cli.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/daemonconfig.hpp>

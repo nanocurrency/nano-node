@@ -1,6 +1,7 @@
 #pragma once
 
-#include <boost/asio.hpp>
+#include <nano/boost/asio.hpp>
+
 #include <boost/filesystem.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/thread/thread.hpp>

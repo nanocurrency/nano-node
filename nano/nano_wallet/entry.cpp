@@ -1,3 +1,4 @@
+#include <nano/boost/process.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
@@ -16,14 +17,6 @@
 #include <boost/program_options.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
-
-#ifndef BOOST_PROCESS_SUPPORTED
-#error BOOST_PROCESS_SUPPORTED must be set, check configuration
-#endif
-
-#if BOOST_PROCESS_SUPPORTED
-#include <boost/process.hpp>
-#endif
 
 class qt_wallet_config
 {
@@ -180,7 +173,7 @@ public:
 	bool opencl_enable{ false };
 	nano::opencl_config opencl;
 	boost::filesystem::path data_path;
-	int json_version () const
+	unsigned json_version () const
 	{
 		return 4;
 	}

@@ -235,7 +235,7 @@ bool nano::bandwidth_limiter::should_drop (const size_t & message_size)
 	{
 		next_trend = std::chrono::steady_clock::now () + 50ms;
 		rate_buffer.push_back (rate);
-		trended_rate = std::accumulate (rate_buffer.begin (), rate_buffer.end (), 0) / rate_buffer.size ();
+		trended_rate = std::accumulate (rate_buffer.begin (), rate_buffer.end (), size_t{ 0 }) / rate_buffer.size ();
 		rate = 0;
 	}
 	return result;

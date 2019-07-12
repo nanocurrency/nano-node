@@ -1,3 +1,4 @@
+#include <nano/boost/process.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/daemonconfig.hpp>
@@ -13,14 +14,6 @@
 #include <csignal>
 #include <fstream>
 #include <iostream>
-
-#ifndef BOOST_PROCESS_SUPPORTED
-#error BOOST_PROCESS_SUPPORTED must be set, check configuration
-#endif
-
-#if BOOST_PROCESS_SUPPORTED
-#include <boost/process.hpp>
-#endif
 
 namespace
 {

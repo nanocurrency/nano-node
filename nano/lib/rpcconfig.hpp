@@ -1,9 +1,9 @@
 #pragma once
 
+#include <nano/boost/asio.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/errors.hpp>
 
-#include <boost/asio.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/thread.hpp>
 
@@ -59,7 +59,7 @@ public:
 	rpc_secure_config secure;
 	uint8_t max_json_depth{ 20 };
 	uint64_t max_request_size{ 32 * 1024 * 1024 };
-	static int json_version ()
+	static unsigned json_version ()
 	{
 		return 1;
 	}

@@ -895,7 +895,7 @@ public:
 		auto version (block_version (transaction_a, hash_a));
 		assert (value.size () != 0);
 		std::vector<uint8_t> data (static_cast<uint8_t *> (value.data ()), static_cast<uint8_t *> (value.data ()) + value.size ());
-		std::fill_n (data.begin () + block_successor_offset (transaction_a, value.size (), type), sizeof (nano::uint256_union), 0);
+		std::fill_n (data.begin () + block_successor_offset (transaction_a, value.size (), type), sizeof (nano::uint256_union), uint8_t{ 0 });
 		block_raw_put (transaction_a, data, type, version, hash_a);
 	}
 

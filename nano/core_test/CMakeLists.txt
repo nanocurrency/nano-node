@@ -8,7 +8,6 @@ add_executable (core_test
 	difficulty.cpp
 	entry.cpp
 	gap_cache.cpp
-	interface.cpp
 	ipc.cpp
 	ledger.cpp
 	logger.cpp

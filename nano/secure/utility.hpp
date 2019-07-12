@@ -1,7 +1,6 @@
 #pragma once
 
 #include <nano/lib/errors.hpp>
-#include <nano/lib/interface.h>
 #include <nano/lib/numbers.hpp>
 
 #include <crypto/cryptopp/osrng.h>

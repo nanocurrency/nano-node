@@ -20,8 +20,6 @@ add_library (nano_lib
 	config.cpp
 	errors.hpp
 	errors.cpp
-	interface.h
-	interface.cpp
 	ipc.hpp
 	ipc.cpp
 	ipc_client.hpp

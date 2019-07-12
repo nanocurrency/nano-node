@@ -1,6 +1,7 @@
 #pragma once
 
-#include <boost/asio.hpp>
+#include <nano/boost/asio.hpp>
+
 #include <boost/optional.hpp>
 
 #include <chrono>

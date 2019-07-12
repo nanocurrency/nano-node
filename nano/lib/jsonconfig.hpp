@@ -1,9 +1,9 @@
 #pragma once
 
+#include <nano/boost/asio.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/utility.hpp>
 
-#include <boost/asio.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/optional.hpp>

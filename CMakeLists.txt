@@ -49,7 +49,7 @@ if (WIN32)
 	endif()
 
 else ()
-	add_compile_options(-Werror=switch)
+	add_compile_options(-Werror)
 
 	if ((${USING_TSAN} AND ${USING_ASAN}) OR
 	    (${USING_TSAN} AND ${USING_ASAN_INT}))

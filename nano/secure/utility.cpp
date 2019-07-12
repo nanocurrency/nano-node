@@ -1,5 +1,4 @@
 #include <nano/lib/config.hpp>
-#include <nano/lib/interface.h>
 #include <nano/secure/utility.hpp>
 #include <nano/secure/working.hpp>
 

@@ -1,5 +1,4 @@
 #include <nano/core_test/testutil.hpp>
-#include <nano/lib/interface.h>
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
 

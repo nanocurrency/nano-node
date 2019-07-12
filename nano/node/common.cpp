@@ -90,7 +90,7 @@ void nano::message_header::block_type_set (nano::block_type type_a)
 
 uint8_t nano::message_header::count_get () const
 {
-	return ((extensions & count_mask) >> 12).to_ullong ();
+	return static_cast<uint8_t> (((extensions & count_mask) >> 12).to_ullong ());
 }
 
 void nano::message_header::count_set (uint8_t count_a)
@@ -561,7 +561,7 @@ roots_hashes (roots_hashes_a)
 	// not_a_block (1) block type for hashes + roots request
 	header.block_type_set (nano::block_type::not_a_block);
 	assert (roots_hashes.size () < 16);
-	header.count_set (roots_hashes.size ());
+	header.count_set (static_cast<uint8_t> (roots_hashes.size ()));
 }
 
 nano::confirm_req::confirm_req (nano::block_hash const & hash_a, nano::block_hash const & root_a) :
@@ -571,7 +571,8 @@ roots_hashes (std::vector<std::pair<nano::block_hash, nano::block_hash>> (1, std
 	assert (!roots_hashes.empty ());
 	// not_a_block (1) block type for hashes + roots request
 	header.block_type_set (nano::block_type::not_a_block);
-	header.count_set (roots_hashes.size ());
+	assert (roots_hashes.size () < 16);
+	header.count_set (static_cast<uint8_t> (roots_hashes.size ()));
 }
 
 void nano::confirm_req::visit (nano::message_visitor & visitor_a) const
@@ -700,7 +701,7 @@ vote (vote_a)
 	{
 		header.block_type_set (nano::block_type::not_a_block);
 		assert (vote_a->blocks.size () < 16);
-		header.count_set (vote_a->blocks.size ());
+		header.count_set (static_cast<uint8_t> (vote_a->blocks.size ()));
 	}
 	else
 	{

@@ -1,8 +1,7 @@
 #pragma once
 
+#include <nano/boost/asio.hpp>
 #include <nano/lib/utility.hpp>
-
-#include <boost/asio.hpp>
 
 #include <atomic>
 #include <future>
@@ -39,7 +38,7 @@ public:
 private:
 	struct Task final
 	{
-		Task (nano::signature_check_set & check, int pending) :
+		Task (nano::signature_check_set & check, size_t pending) :
 		check (check), pending (pending)
 		{
 		}
@@ -48,7 +47,7 @@ private:
 			release_assert (pending == 0);
 		}
 		nano::signature_check_set & check;
-		std::atomic<int> pending;
+		std::atomic<size_t> pending;
 	};
 
 	bool verify_batch (const nano::signature_check_set & check_a, size_t index, size_t size);

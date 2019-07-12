@@ -599,7 +599,7 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 		// Possible overflow check, will not occur for negative levels
 		if ((multiplier + highest_level) > 10000000000)
 		{
-			divider = ((multiplier + highest_level) / 10000000000) + 1;
+			divider = static_cast<uint64_t> (((multiplier + highest_level) / 10000000000) + 1);
 		}
 
 		// Set adjusted difficulty

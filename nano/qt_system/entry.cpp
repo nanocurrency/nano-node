@@ -15,7 +15,7 @@ int main (int argc, char ** argv)
 	QCoreApplication::setOrganizationDomain ("nano.org");
 	QCoreApplication::setApplicationName ("Nano Wallet");
 	nano_qt::eventloop_processor processor;
-	static int count (16);
+	static uint16_t count (16);
 	nano::system system (24000, count);
 	nano::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
 	std::unique_ptr<QTabWidget> client_tabs (new QTabWidget);
