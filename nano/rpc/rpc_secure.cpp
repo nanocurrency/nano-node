@@ -101,7 +101,7 @@ ssl_context (boost::asio::ssl::context::tlsv12_server)
 void nano::rpc_secure::accept ()
 {
 	auto connection (std::make_shared<nano::rpc_connection_secure> (config, io_ctx, logger, rpc_handler_interface, this->ssl_context));
-	acceptor.async_accept (connection->socket, [this, connection](boost::system::error_code const & ec) {
+	acceptor.async_accept (connection->socket, boost::asio::bind_executor (connection->strand, [this, connection](boost::system::error_code const & ec) {
 		if (acceptor.is_open ())
 		{
 			accept ();
@@ -114,5 +114,5 @@ void nano::rpc_secure::accept ()
 		{
 			logger.always_log (boost::str (boost::format ("Error accepting RPC connections: %1%") % ec));
 		}
-	});
+	}));
 }
