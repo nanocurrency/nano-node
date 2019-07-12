@@ -22,89 +22,13 @@
 #include <boost/process.hpp>
 #endif
 
-// Some builds (mac) fail due to "Boost.Stacktrace requires `_Unwind_Backtrace` function".
-#ifndef _WIN32
-#ifndef _GNU_SOURCE
-#define BEFORE_GNU_SOURCE 0
-#define _GNU_SOURCE
-#else
-#define BEFORE_GNU_SOURCE 1
-#endif
-#endif
-// On Windows this include defines min/max macros, so keep below other includes
-// to reduce conflicts with other std functions
-#include <boost/stacktrace.hpp>
-#ifndef _WIN32
-#if !BEFORE_GNU_SOURCE
-#undef _GNU_SOURCE
-#endif
-#endif
-
 namespace
 {
-#ifdef __linux__
-
-#include <fcntl.h>
-#include <link.h>
-#include <sys/stat.h>
-#include <unistd.h>
-
-// This outputs the load addresses for the executable and shared libraries.
-// Useful for debugging should the virtual addresses be randomized.
-int output_memory_load_address (dl_phdr_info * info, size_t, void *)
-{
-	static int counter = 0;
-	assert (counter <= 99);
-	// Create filename
-	const char file_prefix[] = "nano_node_crash_load_address_dump_";
-	// Holds the filename prefix, a unique (max 2 digits) number and extension (null terminator is included in file_prefix size)
-	char filename[sizeof (file_prefix) + 2 + 4];
-	snprintf (filename, sizeof (filename), "%s%d.txt", file_prefix, counter);
-
-	// Open file
-	const auto file_descriptor = ::open (filename, O_CREAT | O_WRONLY | O_TRUNC,
-#if defined(S_IWRITE) && defined(S_IREAD)
-	S_IWRITE | S_IREAD
-#else
-	0
-#endif
-	);
-
-	// Write the name of shared library
-	::write (file_descriptor, "Name: ", 6);
-	::write (file_descriptor, info->dlpi_name, strlen (info->dlpi_name));
-	::write (file_descriptor, "\n", 1);
-
-	// Write the first load address found
-	for (auto i = 0; i < info->dlpi_phnum; ++i)
-	{
-		if (info->dlpi_phdr[i].p_type == PT_LOAD)
-		{
-			auto load_address = info->dlpi_addr + info->dlpi_phdr[i].p_vaddr;
-
-			// Each byte of the pointer is two hexadecimal characters, plus the 0x prefix and null terminator
-			char load_address_as_hex_str[sizeof (load_address) * 2 + 2 + 1];
-			snprintf (load_address_as_hex_str, sizeof (load_address_as_hex_str), "%p", (void *)load_address);
-			::write (file_descriptor, load_address_as_hex_str, strlen (load_address_as_hex_str));
-			break;
-		}
-	}
-
-	::close (file_descriptor);
-	++counter;
-	return 0;
-}
-#endif
-
-// Only async-signal-safe functions are allowed to be called here
 void my_abort_signal_handler (int signum)
 {
 	std::signal (signum, SIG_DFL);
-	boost::stacktrace::safe_dump_to ("nano_node_backtrace.dump");
-
-#ifdef __linux__
-	dl_iterate_phdr (output_memory_load_address, nullptr);
-#endif
+	nano::dump_crash_stacktrace ();
+	nano::create_load_memory_address_files ();
 }
 }
 
