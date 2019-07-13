@@ -27,28 +27,39 @@ int create_load_memory_address_file (dl_phdr_info * info, size_t, void *)
 	0
 #endif
 	);
-
-	// Write the name of shared library
-	::write (file_descriptor, "Name: ", 6);
-	::write (file_descriptor, info->dlpi_name, strlen (info->dlpi_name));
-	::write (file_descriptor, "\n", 1);
-
-	// Write the first load address found
-	for (auto i = 0; i < info->dlpi_phnum; ++i)
+	assert (file_descriptor);
+	if (file_descriptor)
 	{
-		if (info->dlpi_phdr[i].p_type == PT_LOAD)
+		// Write the name of shared library
+		if (::write (file_descriptor, "Name: ", 6))
 		{
-			auto load_address = info->dlpi_addr + info->dlpi_phdr[i].p_vaddr;
+			if (::write (file_descriptor, info->dlpi_name, strlen (info->dlpi_name)))
+			{
+				if (::write (file_descriptor, "\n", 1))
+				{
+					// Write the first load address found
+					for (auto i = 0; i < info->dlpi_phnum; ++i)
+					{
+						if (info->dlpi_phdr[i].p_type == PT_LOAD)
+						{
+							auto load_address = info->dlpi_addr + info->dlpi_phdr[i].p_vaddr;
 
-			// Each byte of the pointer is two hexadecimal characters, plus the 0x prefix and null terminator
-			char load_address_as_hex_str[sizeof (load_address) * 2 + 2 + 1];
-			snprintf (load_address_as_hex_str, sizeof (load_address_as_hex_str), "%p", (void *)load_address);
-			::write (file_descriptor, load_address_as_hex_str, strlen (load_address_as_hex_str));
-			break;
+							// Each byte of the pointer is two hexadecimal characters, plus the 0x prefix and null terminator
+							char load_address_as_hex_str[sizeof (load_address) * 2 + 2 + 1];
+							snprintf (load_address_as_hex_str, sizeof (load_address_as_hex_str), "%p", (void *)load_address);
+							if (::write (file_descriptor, load_address_as_hex_str, strlen (load_address_as_hex_str)))
+							{
+								// Intentionally empty to satisfy compiler that the return value of write is used
+							}
+							break;
+						}
+					}
+				}
+			}
 		}
-	}
 
-	::close (file_descriptor);
+		::close (file_descriptor);
+	}
 	++counter;
 	return 0;
 }
