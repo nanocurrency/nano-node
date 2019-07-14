@@ -75,6 +75,7 @@ enum class error_rpc
 	bad_difficulty_format,
 	bad_key,
 	bad_link,
+	bad_multiplier_format,
 	bad_previous,
 	bad_representative_number,
 	bad_source,

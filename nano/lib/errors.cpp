@@ -124,6 +124,8 @@ std::string nano::error_rpc_messages::message (int ev) const
 			return "Bad key";
 		case nano::error_rpc::bad_link:
 			return "Bad link number";
+		case nano::error_rpc::bad_multiplier_format:
+			return "Bad multiplier";
 		case nano::error_rpc::bad_previous:
 			return "Bad previous";
 		case nano::error_rpc::bad_representative_number:
