@@ -2436,10 +2436,10 @@ public:
 		}
 		else if (message_a.response)
 		{
-			auto node_id (message_a.response->first);
-			connection->remote_node_id = node_id;
+			nano::account node_id (message_a.response->first);
 			if (!connection->node->network.syn_cookies.validate (nano::transport::map_tcp_to_endpoint (connection->remote_endpoint), node_id, message_a.response->second) && node_id != connection->node->node_id.pub)
 			{
+				connection->remote_node_id = node_id;
 				connection->type = nano::bootstrap_server_type::realtime;
 				++connection->node->bootstrap.realtime_count;
 				connection->finish_request_async ();
@@ -2454,7 +2454,7 @@ public:
 		{
 			connection->finish_request_async ();
 		}
-		auto node_id (connection->remote_node_id);
+		nano::account node_id (connection->remote_node_id);
 		nano::bootstrap_server_type type (connection->type);
 		assert (node_id.is_zero () || type == nano::bootstrap_server_type::realtime);
 		auto connection_l (connection->shared_from_this ());
