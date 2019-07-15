@@ -152,8 +152,7 @@ private:
 	boost::multi_index::hashed_unique<boost::multi_index::member<nano::confirmed_set_info, nano::qualified_root, &nano::confirmed_set_info::root>>>>
 	confirmed_set;
 	void prioritize_frontiers_for_confirmation (nano::transaction const &, std::chrono::milliseconds);
-	using prioritize_num_uncemented = 
-	boost::multi_index_container<
+	using prioritize_num_uncemented = boost::multi_index_container<
 	nano::cementable_account,
 	boost::multi_index::indexed_by<
 	boost::multi_index::hashed_unique<
