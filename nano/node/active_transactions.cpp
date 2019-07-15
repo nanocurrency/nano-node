@@ -63,31 +63,35 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 
 		size_t elections_count (0);
 		lk.lock ();
-		while (!priority_cementable_frontiers.empty () && !stopped && elections_count < max_elections)
-		{
-			auto cementable_account_front_it = priority_cementable_frontiers.get<1> ().begin ();
-			auto cementable_account = *cementable_account_front_it;
-			priority_cementable_frontiers.get<1> ().erase (cementable_account_front_it);
-			lk.unlock ();
-			nano::account_info info;
-			auto error = node.store.account_get (transaction_a, cementable_account.account, info);
-			release_assert (!error);
-
-			if (info.block_count > info.confirmation_height && !node.pending_confirmation_height.is_processing_block (info.head))
+		auto start_elections_for_prioritized_frontiers = [&transaction_a, &elections_count, max_elections, &lk, &representative, this](prioritize_num_uncemented & cementable_frontiers) {
+			while (!cementable_frontiers.empty () && !this->stopped && elections_count < max_elections)
 			{
-				auto block (node.store.block_get (transaction_a, info.head));
-				if (!start (block))
+				auto cementable_account_front_it = cementable_frontiers.get<1> ().begin ();
+				auto cementable_account = *cementable_account_front_it;
+				cementable_frontiers.get<1> ().erase (cementable_account_front_it);
+				lk.unlock ();
+				nano::account_info info;
+				auto error = this->node.store.account_get (transaction_a, cementable_account.account, info);
+				release_assert (!error);
+
+				if (info.block_count > info.confirmation_height && !this->node.pending_confirmation_height.is_processing_block (info.head))
 				{
-					++elections_count;
-					// Calculate votes for local representatives
-					if (representative)
+					auto block (this->node.store.block_get (transaction_a, info.head));
+					if (!this->start (block))
 					{
-						node.block_processor.generator.add (block->hash ());
+						++elections_count;
+						// Calculate votes for local representatives
+						if (representative)
+						{
+							this->node.block_processor.generator.add (block->hash ());
+						}
 					}
 				}
+				lk.lock ();
 			}
-			lk.lock ();
-		}
+		};
+		start_elections_for_prioritized_frontiers (priority_cementable_frontiers);
+		start_elections_for_prioritized_frontiers (priority_local_cementable_frontiers);
 		frontiers_fully_confirmed = (elections_count < max_elections);
 		// 4 times slower check if all frontiers were confirmed
 		auto fully_confirmed_factor = frontiers_fully_confirmed ? 4 : 1;
@@ -346,73 +350,128 @@ void nano::active_transactions::request_loop ()
 	}
 }
 
+void nano::active_transactions::prioritize_account_for_confirmation (nano::active_transactions::prioritize_num_uncemented & cementable_frontiers_a, size_t & cementable_frontiers_size_a, nano::account const & account_a, nano::account_info const & info_a)
+{
+	if (info_a.block_count > info_a.confirmation_height && !node.pending_confirmation_height.is_processing_block (info_a.head))
+	{
+		auto num_uncemented = info_a.block_count - info_a.confirmation_height;
+		std::lock_guard<std::mutex> guard (mutex);
+		auto it = cementable_frontiers_a.find (account_a);
+		if (it != cementable_frontiers_a.end ())
+		{
+			if (it->blocks_uncemented != num_uncemented)
+			{
+				// Account already exists and there is now a different uncemented block count so update it in the container
+				cementable_frontiers_a.modify (it, [num_uncemented](nano::cementable_account & info) {
+					info.blocks_uncemented = num_uncemented;
+				});
+			}
+		}
+		else
+		{
+			assert (cementable_frontiers_size_a <= max_priority_cementable_frontiers);
+			if (cementable_frontiers_size_a == max_priority_cementable_frontiers)
+			{
+				// The maximum amount of frontiers stored has been reached. Check if the current frontier
+				// has more uncemented blocks than the lowest uncemented frontier in the collection if so replace it.
+				auto least_uncemented_frontier_it = cementable_frontiers_a.get<1> ().end ();
+				--least_uncemented_frontier_it;
+				if (num_uncemented > least_uncemented_frontier_it->blocks_uncemented)
+				{
+					cementable_frontiers_a.get<1> ().erase (least_uncemented_frontier_it);
+					cementable_frontiers_a.emplace (account_a, num_uncemented);
+				}
+			}
+			else
+			{
+				cementable_frontiers_a.emplace (account_a, num_uncemented);
+			}
+		}
+		cementable_frontiers_size_a = cementable_frontiers_a.size ();
+	}
+}
+
 void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::transaction const & transaction_a, std::chrono::milliseconds time_a)
 {
 	// Don't try to prioritize when there are a large number of pending confirmation heights as blocks can be cemented in the meantime, making the prioritization less reliable
 	nano::timer<std::chrono::milliseconds> timer;
-	timer.start ();
 	if (node.pending_confirmation_height.size () < confirmed_frontiers_max_pending_cut_off)
 	{
-		auto i (node.store.latest_begin (transaction_a, next_frontier_account));
-		auto n (node.store.latest_end ());
 		std::unique_lock<std::mutex> lk (mutex);
 		auto priority_cementable_frontiers_size = priority_cementable_frontiers.size ();
+		auto priority_local_cementable_frontiers_size = priority_local_cementable_frontiers.size ();
 		lk.unlock ();
+
+		timer.start ();
+
+		if (!skip_local)
+		{
+			// Prioritize local accounts first
+			std::vector<std::pair<nano::account, nano::account_info>> accounts;
+			{
+				std::lock_guard<std::mutex> lock (node.wallets.mutex);
+				auto wallet_transaction (node.wallets.tx_begin_read ());
+				for (auto & item : node.wallets.items)
+				{
+					auto & wallet (item.second);
+					nano::account_info info;
+					std::lock_guard<std::recursive_mutex> wallet_lock (wallet->store.mutex);
+
+					auto i (wallet->store.begin (wallet_transaction, next_local_frontier_account));
+					auto n (wallet->store.end ());
+					for (; i != n; ++i)
+					{
+						auto & account (i->first);
+						if (!node.store.account_get (transaction_a, account, info))
+						{
+							// If it exists in normal priority collection delete from there.
+							auto it = priority_cementable_frontiers.find (account);
+							if (it != priority_cementable_frontiers.end ())
+							{
+								priority_cementable_frontiers.erase (it);
+							}
+
+							prioritize_account_for_confirmation (priority_local_cementable_frontiers, priority_local_cementable_frontiers_size, account, info);
+
+							if (timer.since_start () >= time_a)
+							{
+								break;
+							}
+						}
+						next_local_frontier_account = account.number () + 1;
+					}
+					// Go back to the beginning when we have reached the end of the local accounts and make sure we skip local accounts
+					if (i == n)
+					{
+						next_local_frontier_account = 0;
+						skip_local = true;
+					}
+				}
+			}
+		}
+
+		auto i (node.store.latest_begin (transaction_a, next_frontier_account));
+		auto n (node.store.latest_end ());
 		for (; i != n && !stopped; ++i)
 		{
 			auto const & account (i->first);
 			auto const & info (i->second);
-			if (info.block_count > info.confirmation_height && !node.pending_confirmation_height.is_processing_block (info.head))
+			if (priority_local_cementable_frontiers.find (account) == priority_local_cementable_frontiers.end ())
 			{
-				auto num_uncemented = info.block_count - info.confirmation_height;
-				lk.lock ();
-				auto it = priority_cementable_frontiers.find (account);
-				if (it != priority_cementable_frontiers.end ())
-				{
-					if (it->blocks_uncemented != num_uncemented)
-					{
-						// Account already exists and there is now a different uncemented block count so update it in the container
-						priority_cementable_frontiers.modify (it, [num_uncemented](nano::cementable_account & info) {
-							info.blocks_uncemented = num_uncemented;
-						});
-					}
-				}
-				else
-				{
-					assert (priority_cementable_frontiers_size <= max_priority_cementable_frontiers);
-					if (priority_cementable_frontiers_size == max_priority_cementable_frontiers)
-					{
-						// The maximum amount of frontiers stored has been reached. Check if the current frontier
-						// has more uncemented blocks than the lowest uncemented frontier in the collection if so replace it.
-						auto least_uncemented_frontier_it = priority_cementable_frontiers.get<1> ().end ();
-						--least_uncemented_frontier_it;
-						if (num_uncemented > least_uncemented_frontier_it->blocks_uncemented)
-						{
-							priority_cementable_frontiers.get<1> ().erase (least_uncemented_frontier_it);
-							priority_cementable_frontiers.emplace (account, num_uncemented);
-						}
-					}
-					else
-					{
-						priority_cementable_frontiers.emplace (account, num_uncemented);
-					}
-				}
-				priority_cementable_frontiers_size = priority_cementable_frontiers.size ();
-				lk.unlock ();
+				prioritize_account_for_confirmation (priority_cementable_frontiers, priority_cementable_frontiers_size, account, info);
 			}
-
 			next_frontier_account = account.number () + 1;
-
 			if (timer.since_start () >= time_a)
 			{
 				break;
 			}
 		}
 
-		// Go back to the beginning when we have reached the end of the accounts
+		// Go back to the beginning when we have reached the end of the accounts and start with local accounts next time
 		if (i == n)
 		{
 			next_frontier_account = 0;
+			skip_local = false;
 		}
 	}
 }
@@ -789,6 +848,12 @@ size_t nano::active_transactions::priority_cementable_frontiers_size ()
 	return priority_cementable_frontiers.size ();
 }
 
+size_t nano::active_transactions::priority_local_cementable_frontiers_size ()
+{
+	std::lock_guard<std::mutex> guard (mutex);
+	return priority_local_cementable_frontiers.size ();
+}
+
 boost::circular_buffer<double> nano::active_transactions::difficulty_trend ()
 {
 	std::lock_guard<std::mutex> guard (mutex);
@@ -819,6 +884,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transaction
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "roots", roots_count, sizeof (decltype (active_transactions.roots)::value_type) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "blocks", blocks_count, sizeof (decltype (active_transactions.blocks)::value_type) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "confirmed", confirmed_count, sizeof (decltype (active_transactions.confirmed)::value_type) }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "priority_local_cementable_frontiers_count", active_transactions.priority_local_cementable_frontiers_size (), sizeof (nano::cementable_account) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "priority_cementable_frontiers_count", active_transactions.priority_cementable_frontiers_size (), sizeof (nano::cementable_account) }));
 	return composite;
 }

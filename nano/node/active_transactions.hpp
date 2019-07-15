@@ -128,6 +128,7 @@ public:
 	boost::circular_buffer<double> multipliers_cb;
 	uint64_t trended_active_difficulty;
 	size_t priority_cementable_frontiers_size ();
+	size_t priority_local_cementable_frontiers_size ();
 	boost::circular_buffer<double> difficulty_trend ();
 
 private:
@@ -139,6 +140,7 @@ private:
 	void request_confirm (std::unique_lock<std::mutex> &);
 	void confirm_frontiers (nano::transaction const &);
 	nano::account next_frontier_account{ 0 };
+	nano::account next_local_frontier_account{ 0 };
 	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
 	std::condition_variable condition;
 	bool started{ false };
@@ -150,6 +152,7 @@ private:
 	boost::multi_index::hashed_unique<boost::multi_index::member<nano::confirmed_set_info, nano::qualified_root, &nano::confirmed_set_info::root>>>>
 	confirmed_set;
 	void prioritize_frontiers_for_confirmation (nano::transaction const &, std::chrono::milliseconds);
+	using prioritize_num_uncemented = 
 	boost::multi_index_container<
 	nano::cementable_account,
 	boost::multi_index::indexed_by<
@@ -157,9 +160,12 @@ private:
 	boost::multi_index::member<nano::cementable_account, nano::account, &nano::cementable_account::account>>,
 	boost::multi_index::ordered_non_unique<
 	boost::multi_index::member<nano::cementable_account, uint64_t, &nano::cementable_account::blocks_uncemented>,
-	std::greater<uint64_t>>>>
-	priority_cementable_frontiers;
+	std::greater<uint64_t>>>>;
+	prioritize_num_uncemented priority_local_cementable_frontiers;
+	prioritize_num_uncemented priority_cementable_frontiers;
 	bool frontiers_fully_confirmed{ false };
+	bool skip_local{ false };
+	void prioritize_account_for_confirmation (prioritize_num_uncemented &, size_t &, nano::account const &, nano::account_info const &);
 	static size_t constexpr max_priority_cementable_frontiers{ 100000 };
 	static size_t constexpr confirmed_frontiers_max_pending_cut_off{ 1000 };
 	boost::thread thread;
