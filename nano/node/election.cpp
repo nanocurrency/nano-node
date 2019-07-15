@@ -156,7 +156,7 @@ nano::election_vote_result nano::election::vote (nano::account rep, uint64_t seq
 	auto supply (node.online_reps.online_stake ());
 	auto weight (node.ledger.weight (transaction, rep));
 	auto should_process (false);
-	if (node.network_params.network.is_test_network () || weight > supply / 1000) // 0.1% or above
+	if (node.network_params.network.is_test_network () || weight > node.minimum_principal_weight ())
 	{
 		unsigned int cooldown;
 		if (weight < supply / 100) // 0.1% to 1%
