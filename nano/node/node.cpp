@@ -809,7 +809,7 @@ nano::account nano::node::representative (nano::account const & account_a)
 
 nano::uint128_t nano::node::minimum_principal_weight ()
 {
-	return online_reps.online_stake () / 1000; // 0.1% of trended online stake
+	return online_reps.online_stake () / network_params.network.principal_weight_factor;
 }
 
 void nano::node::ongoing_rep_calculation ()
