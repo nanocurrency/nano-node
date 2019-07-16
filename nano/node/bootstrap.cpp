@@ -2436,7 +2436,7 @@ public:
 		}
 		else if (message_a.response)
 		{
-			nano::account node_id (message_a.response->first);
+			nano::account const & node_id (message_a.response->first);
 			if (!connection->node->network.syn_cookies.validate (nano::transport::map_tcp_to_endpoint (connection->remote_endpoint), node_id, message_a.response->second) && node_id != connection->node->node_id.pub)
 			{
 				connection->remote_node_id = node_id;
