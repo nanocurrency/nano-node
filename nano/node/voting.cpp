@@ -114,6 +114,16 @@ void nano::votes_cache::add (std::shared_ptr<nano::vote> const & vote_a)
 		{
 			// Insert new votes (old hash)
 			cache.get<1> ().modify (existing, [vote_a](nano::cached_votes & cache_a) {
+				// Erase old vote for same representative & hash
+				for (auto i (cache_a.votes.begin ()), n (cache_a.votes.end ()); i != n; ++i)
+				{
+					if ((*i)->account == vote_a->account)
+					{
+						cache_a.votes.erase (i);
+						break;
+					}
+				}
+				// Insert new vote
 				cache_a.votes.push_back (vote_a);
 			});
 		}
