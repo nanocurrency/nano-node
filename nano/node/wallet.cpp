@@ -418,6 +418,7 @@ void nano::wallet_store::insert_watch (nano::transaction const & transaction_a, 
 void nano::wallet_store::erase (nano::transaction const & transaction_a, nano::public_key const & pub)
 {
 	auto status (mdb_del (tx (transaction_a), handle, nano::mdb_val (pub), nullptr));
+	(void)status;
 	assert (status == 0);
 }
 
@@ -441,6 +442,7 @@ nano::wallet_value nano::wallet_store::entry_get_raw (nano::transaction const & 
 void nano::wallet_store::entry_put_raw (nano::transaction const & transaction_a, nano::public_key const & pub_a, nano::wallet_value const & entry_a)
 {
 	auto status (mdb_put (tx (transaction_a), handle, nano::mdb_val (pub_a), nano::mdb_val (sizeof (entry_a), const_cast<nano::wallet_value *> (&entry_a)), 0));
+	(void)status;
 	assert (status == 0);
 }
 
@@ -910,6 +912,7 @@ void nano::wallet::serialize (std::string & json_a)
 void nano::wallet_store::destroy (nano::transaction const & transaction_a)
 {
 	auto status (mdb_drop (tx (transaction_a), handle, 1));
+	(void)status;
 	assert (status == 0);
 	handle = 0;
 }
@@ -1000,9 +1003,11 @@ std::shared_ptr<nano::block> nano::wallet::change_action (nano::account const & 
 			{
 				nano::account_info info;
 				auto error1 (wallets.node.ledger.store.account_get (block_transaction, source_a, info));
+				(void)error1;
 				assert (!error1);
 				nano::raw_key prv;
 				auto error2 (store.fetch (transaction, source_a, prv));
+				(void)error2;
 				assert (!error2);
 				if (work_a == 0)
 				{
@@ -1075,9 +1080,11 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 					{
 						nano::account_info info;
 						auto error1 (wallets.node.ledger.store.account_get (block_transaction, source_a, info));
+						(void)error1;
 						assert (!error1);
 						nano::raw_key prv;
 						auto error2 (store.fetch (transaction, source_a, prv));
+						(void)error2;
 						assert (!error2);
 						std::shared_ptr<nano::block> rep_block = wallets.node.ledger.store.block_get (block_transaction, info.rep_block);
 						assert (rep_block != nullptr);
@@ -1755,6 +1762,7 @@ void nano::wallets::foreach_representative (nano::transaction const & transactio
 						{
 							nano::raw_key prv;
 							auto error (wallet.store.fetch (transaction_l, account, prv));
+							(void)error;
 							assert (!error);
 							action_a (account, prv);
 						}
@@ -1813,6 +1821,7 @@ nano::read_transaction nano::wallets::tx_begin_read ()
 void nano::wallets::clear_send_ids (nano::transaction const & transaction_a)
 {
 	auto status (mdb_drop (env.tx (transaction_a), send_action_ids, 0));
+	(void)status;
 	assert (status == 0);
 }
 
@@ -1887,6 +1896,7 @@ void nano::wallets::split_if_needed (nano::transaction & transaction_destination
 					nano::uint256_union id;
 					std::string text (i->first.data (), i->first.size ());
 					auto error1 (id.decode_hex (text));
+					(void)error1;
 					assert (!error1);
 					assert (strlen (text.c_str ()) == text.size ());
 					move_table (text, tx_source, tx_destination);
@@ -1900,12 +1910,15 @@ void nano::wallets::move_table (std::string const & name_a, MDB_txn * tx_source,
 {
 	MDB_dbi handle_source;
 	auto error2 (mdb_dbi_open (tx_source, name_a.c_str (), MDB_CREATE, &handle_source));
+	(void)error2;
 	assert (!error2);
 	MDB_dbi handle_destination;
 	auto error3 (mdb_dbi_open (tx_destination, name_a.c_str (), MDB_CREATE, &handle_destination));
+	(void)error3;
 	assert (!error3);
 	MDB_cursor * cursor;
 	auto error4 (mdb_cursor_open (tx_source, handle_source, &cursor));
+	(void)error4;
 	assert (!error4);
 	MDB_val val_key;
 	MDB_val val_value;
@@ -1913,10 +1926,12 @@ void nano::wallets::move_table (std::string const & name_a, MDB_txn * tx_source,
 	while (cursor_status == MDB_SUCCESS)
 	{
 		auto error5 (mdb_put (tx_destination, handle_destination, &val_key, &val_value, 0));
+		(void)error5;
 		assert (!error5);
 		cursor_status = mdb_cursor_get (cursor, &val_key, &val_value, MDB_NEXT);
 	}
 	auto error6 (mdb_drop (tx_source, handle_source, 1));
+	(void)error6;
 	assert (!error6);
 }
 

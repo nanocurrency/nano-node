@@ -172,6 +172,7 @@ wallet (wallet_a)
 		if (selection.size () == 1)
 		{
 			auto error (this->wallet.account.decode_account (model->item (selection[0].row (), 1)->text ().toStdString ()));
+			(void)error;
 			assert (!error);
 			this->wallet.refresh ();
 		}
@@ -2234,6 +2235,7 @@ void nano_qt::block_creation::create_send ()
 					{
 						nano::account_info info;
 						auto error (wallet.node.store.account_get (block_transaction, account_l, info));
+						(void)error;
 						assert (!error);
 						auto rep_block (wallet.node.store.block_get (block_transaction, info.rep_block));
 						assert (rep_block != nullptr);

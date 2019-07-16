@@ -530,6 +530,7 @@ void nano::active_transactions::update_difficulty (nano::block const & block_a)
 	{
 		uint64_t difficulty;
 		auto error (nano::work_validate (block_a, &difficulty));
+		(void)error;
 		assert (!error);
 		if (difficulty > existing->difficulty)
 		{
