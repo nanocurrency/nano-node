@@ -135,6 +135,7 @@ public:
 	nano::uint128_t weight (nano::account const &);
 	nano::account representative (nano::account const &);
 	nano::uint128_t minimum_principal_weight ();
+	nano::uint128_t minimum_principal_weight (nano::uint128_t const &);
 	void ongoing_rep_calculation ();
 	void ongoing_bootstrap ();
 	void ongoing_store_flush ();
