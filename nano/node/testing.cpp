@@ -144,6 +144,7 @@ std::shared_ptr<nano::wallet> nano::system::wallet (size_t index_a)
 {
 	assert (nodes.size () > index_a);
 	auto size (nodes[index_a]->wallets.items.size ());
+	(void)size;
 	assert (size == 1);
 	return nodes[index_a]->wallets.items.begin ()->second;
 }
@@ -241,6 +242,7 @@ void nano::system::generate_rollback (nano::node & node_a, std::vector<nano::acc
 			accounts_a.pop_back ();
 			std::vector<std::shared_ptr<nano::block>> rollback_list;
 			auto error = node_a.ledger.rollback (transaction, hash, rollback_list);
+			(void)error;
 			assert (!error);
 			for (auto & i : rollback_list)
 			{
@@ -342,6 +344,7 @@ void nano::system::generate_send_existing (nano::node & node_a, std::vector<nano
 	if (!amount.is_zero ())
 	{
 		auto hash (wallet (0)->send_sync (source, destination, amount));
+		(void)hash;
 		assert (!hash.is_zero ());
 	}
 }
@@ -353,6 +356,7 @@ void nano::system::generate_change_known (nano::node & node_a, std::vector<nano:
 	{
 		nano::account destination (get_random_account (accounts_a));
 		auto change_error (wallet (0)->change_sync (source, destination));
+		(void)change_error;
 		assert (!change_error);
 	}
 }
@@ -365,6 +369,7 @@ void nano::system::generate_change_unknown (nano::node & node_a, std::vector<nan
 		nano::keypair key;
 		nano::account destination (key.pub);
 		auto change_error (wallet (0)->change_sync (source, destination));
+		(void)change_error;
 		assert (!change_error);
 	}
 }
@@ -384,6 +389,7 @@ void nano::system::generate_send_new (nano::node & node_a, std::vector<nano::acc
 		auto pub (node_a.wallets.items.begin ()->second->deterministic_insert ());
 		accounts_a.push_back (pub);
 		auto hash (wallet (0)->send_sync (source, pub, amount));
+		(void)hash;
 		assert (!hash.is_zero ());
 	}
 }

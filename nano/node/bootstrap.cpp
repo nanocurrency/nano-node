@@ -147,10 +147,12 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 		nano::account account;
 		nano::bufferstream account_stream (connection->receive_buffer->data (), sizeof (account));
 		auto error1 (nano::try_read (account_stream, account));
+		(void)error1;
 		assert (!error1);
 		nano::block_hash latest;
 		nano::bufferstream latest_stream (connection->receive_buffer->data () + sizeof (account), sizeof (latest));
 		auto error2 (nano::try_read (latest_stream, latest));
+		(void)error2;
 		assert (!error2);
 		if (count == 0)
 		{
@@ -693,10 +695,12 @@ void nano::bulk_pull_account_client::receive_pending ()
 				nano::block_hash pending;
 				nano::bufferstream frontier_stream (this_l->connection->receive_buffer->data (), sizeof (nano::uint256_union));
 				auto error1 (nano::try_read (frontier_stream, pending));
+				(void)error1;
 				assert (!error1);
 				nano::amount balance;
 				nano::bufferstream balance_stream (this_l->connection->receive_buffer->data () + sizeof (nano::uint256_union), sizeof (nano::uint128_union));
 				auto error2 (nano::try_read (balance_stream, balance));
+				(void)error2;
 				assert (!error2);
 				if (this_l->total_blocks == 0 || !pending.is_zero ())
 				{
@@ -3297,6 +3301,7 @@ void nano::pulls_cache::add (nano::pull_info const & pull_a)
 		{
 			// Insert new pull
 			auto inserted (cache.insert (nano::cached_pulls{ std::chrono::steady_clock::now (), head_512, pull_a.head }));
+			(void)inserted;
 			assert (inserted.second);
 		}
 		else

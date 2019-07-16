@@ -467,6 +467,7 @@ public:
 						{
 							nano::account_info info;
 							auto error (node.store.account_get (transaction, root_hash.second, info));
+							(void)error;
 							assert (!error);
 							successor = info.open_block;
 						}

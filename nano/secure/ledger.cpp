@@ -32,6 +32,7 @@ public:
 		{
 			nano::account_info info;
 			auto error (ledger.store.account_get (transaction, pending.source, info));
+			(void)error;
 			assert (!error);
 			ledger.store.pending_del (transaction, key);
 			ledger.store.representation_add (transaction, ledger.representative (transaction, hash), pending.amount.number ());
@@ -52,6 +53,7 @@ public:
 		auto source_account (ledger.account (transaction, block_a.hashables.source));
 		nano::account_info info;
 		auto error (ledger.store.account_get (transaction, destination_account, info));
+		(void)error;
 		assert (!error);
 		ledger.store.representation_add (transaction, ledger.representative (transaction, hash), 0 - amount);
 		ledger.change_latest (transaction, destination_account, block_a.hashables.previous, representative, ledger.balance (transaction, block_a.hashables.previous), info.block_count - 1);
@@ -82,6 +84,7 @@ public:
 		auto account (ledger.account (transaction, block_a.hashables.previous));
 		nano::account_info info;
 		auto error (ledger.store.account_get (transaction, account, info));
+		(void)error;
 		assert (!error);
 		auto balance (ledger.balance (transaction, block_a.hashables.previous));
 		ledger.store.representation_add (transaction, representative, balance);
@@ -430,6 +433,7 @@ void ledger_processor::change_block (nano::change_block const & block_a)
 				{
 					nano::account_info info;
 					auto latest_error (ledger.store.account_get (transaction, account, info));
+					(void)latest_error;
 					assert (!latest_error);
 					assert (info.head == block_a.hashables.previous);
 					// Validate block if not verified outside of ledger
@@ -488,6 +492,7 @@ void ledger_processor::send_block (nano::send_block const & block_a)
 						result.verified = nano::signature_verification::valid;
 						nano::account_info info;
 						auto latest_error (ledger.store.account_get (transaction, account, info));
+						(void)latest_error;
 						assert (!latest_error);
 						assert (info.head == block_a.hashables.previous);
 						result.code = info.balance.number () >= block_a.hashables.balance.number () ? nano::process_result::progress : nano::process_result::negative_spend; // Is this trying to spend a negative amount (Malicious)
@@ -559,6 +564,7 @@ void ledger_processor::receive_block (nano::receive_block const & block_a)
 										auto new_balance (info.balance.number () + pending.amount.number ());
 										nano::account_info source_info;
 										auto error (ledger.store.account_get (transaction, pending.source, source_info));
+										(void)error;
 										assert (!error);
 										ledger.store.pending_del (transaction, key);
 										nano::block_sideband sideband (nano::block_type::receive, account, 0, new_balance, info.block_count + 1, nano::seconds_since_epoch ());
@@ -621,6 +627,7 @@ void ledger_processor::open_block (nano::open_block const & block_a)
 							{
 								nano::account_info source_info;
 								auto error (ledger.store.account_get (transaction, pending.source, source_info));
+								(void)error;
 								assert (!error);
 								ledger.store.pending_del (transaction, key);
 								nano::block_sideband sideband (nano::block_type::open, block_a.hashables.account, 0, pending.amount, 1, nano::seconds_since_epoch ());
@@ -843,6 +850,7 @@ bool nano::ledger::rollback (nano::transaction const & transaction_a, nano::bloc
 	while (!error && store.block_exists (transaction_a, block_a))
 	{
 		auto latest_error (store.account_get (transaction_a, account_l, account_info));
+		(void)latest_error;
 		assert (!latest_error);
 		if (block_account_height > account_info.confirmation_height)
 		{
@@ -1015,6 +1023,7 @@ std::shared_ptr<nano::block> nano::ledger::successor (nano::transaction const & 
 	{
 		nano::account_info info;
 		auto error (store.account_get (transaction_a, root_a.uint256s[1], info));
+		(void)error;
 		assert (!error);
 		successor = info.open_block;
 	}
@@ -1041,6 +1050,7 @@ std::shared_ptr<nano::block> nano::ledger::forked_block (nano::transaction const
 	{
 		nano::account_info info;
 		auto error (store.account_get (transaction_a, root, info));
+		(void)error;
 		assert (!error);
 		result = store.block_get (transaction_a, info.open_block);
 		assert (result != nullptr);

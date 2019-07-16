@@ -175,7 +175,7 @@ TEST (websocket, active_difficulty)
 
 	// Subscribe to active_difficulty and wait for response asynchronously
 	ack_ready = false;
-	auto client_task = ([&node1]() -> boost::optional<std::string> {
+	auto client_task = ([]() -> boost::optional<std::string> {
 		auto response = websocket_test_call ("::1", "24078", R"json({"action": "subscribe", "topic": "active_difficulty", "ack": true})json", true, true);
 		return response;
 	});
