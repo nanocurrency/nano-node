@@ -1,3 +1,8 @@
+if (NANO_ROCKSDB)
+  set (rocksdb_test rocksdb_test.cpp)
+  set (rocksdb_libs ${ROCKSDB_LIBRARIES} ${ZLIB_LIBRARIES})
+endif ()
+
 add_executable (core_test
 	core_test_main.cc
 	testutil.hpp
@@ -18,6 +23,7 @@ add_executable (core_test
 	memory_pool.cpp
 	processor_service.cpp
 	peer_container.cpp
+	${rocksdb_test}
 	signing.cpp
 	socket.cpp
 	timer.cpp
@@ -34,4 +40,4 @@ target_compile_definitions(core_test
 			-DNANO_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR}
 			-DNANO_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH}
 			-DBOOST_PROCESS_SUPPORTED=${BOOST_PROCESS_SUPPORTED})
-target_link_libraries (core_test node secure gtest libminiupnpc-static Boost::boost)
+target_link_libraries (core_test node secure gtest libminiupnpc-static Boost::boost ${rocksdb_libs})
