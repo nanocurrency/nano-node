@@ -10,8 +10,7 @@ TEST (gap_cache, add_new)
 	nano::system system (24000, 1);
 	nano::gap_cache cache (*system.nodes[0]);
 	auto block1 (std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5));
-	auto transaction (system.nodes[0]->store.tx_begin_write ());
-	cache.add (transaction, block1->hash ());
+	cache.add (block1->hash ());
 }
 
 TEST (gap_cache, add_existing)
@@ -19,8 +18,7 @@ TEST (gap_cache, add_existing)
 	nano::system system (24000, 1);
 	nano::gap_cache cache (*system.nodes[0]);
 	auto block1 (std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5));
-	auto transaction (system.nodes[0]->store.tx_begin_write ());
-	cache.add (transaction, block1->hash ());
+	cache.add (block1->hash ());
 	std::unique_lock<std::mutex> lock (cache.mutex);
 	auto existing1 (cache.blocks.get<1> ().find (block1->hash ()));
 	ASSERT_NE (cache.blocks.get<1> ().end (), existing1);
@@ -31,7 +29,7 @@ TEST (gap_cache, add_existing)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	cache.add (transaction, block1->hash ());
+	cache.add (block1->hash ());
 	ASSERT_EQ (1, cache.size ());
 	lock.lock ();
 	auto existing2 (cache.blocks.get<1> ().find (block1->hash ()));
@@ -44,8 +42,7 @@ TEST (gap_cache, comparison)
 	nano::system system (24000, 1);
 	nano::gap_cache cache (*system.nodes[0]);
 	auto block1 (std::make_shared<nano::send_block> (1, 0, 2, nano::keypair ().prv, 4, 5));
-	auto transaction (system.nodes[0]->store.tx_begin_write ());
-	cache.add (transaction, block1->hash ());
+	cache.add (block1->hash ());
 	std::unique_lock<std::mutex> lock (cache.mutex);
 	auto existing1 (cache.blocks.get<1> ().find (block1->hash ()));
 	ASSERT_NE (cache.blocks.get<1> ().end (), existing1);
@@ -57,7 +54,7 @@ TEST (gap_cache, comparison)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	auto block3 (std::make_shared<nano::send_block> (0, 42, 1, nano::keypair ().prv, 3, 4));
-	cache.add (transaction, block3->hash ());
+	cache.add (block3->hash ());
 	ASSERT_EQ (2, cache.size ());
 	lock.lock ();
 	auto existing2 (cache.blocks.get<1> ().find (block3->hash ()));

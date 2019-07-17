@@ -2,6 +2,7 @@
 
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/node/gap_cache.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/circular_buffer.hpp>
@@ -117,6 +118,7 @@ public:
 	std::deque<nano::election_status> list_confirmed ();
 	std::deque<nano::election_status> confirmed;
 	void add_confirmed (nano::election_status const &, nano::qualified_root const &);
+	std::vector<nano::account> find_inactive_votes_cache (nano::block_hash const &);
 	nano::node & node;
 	std::mutex mutex;
 	// Minimum number of confirmation requests
@@ -129,6 +131,7 @@ public:
 	uint64_t trended_active_difficulty;
 	size_t priority_cementable_frontiers_size ();
 	boost::circular_buffer<double> difficulty_trend ();
+	size_t inactive_votes_cache_size ();
 
 private:
 	// Call action with confirmed block, may be different than what we started with
@@ -138,6 +141,7 @@ private:
 	void request_loop ();
 	void request_confirm (std::unique_lock<std::mutex> &);
 	void confirm_frontiers (nano::transaction const &);
+	void add_inactive_votes_cache (nano::block_hash const &, nano::account const &);
 	nano::account next_frontier_account{ 0 };
 	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
 	std::condition_variable condition;
@@ -162,6 +166,13 @@ private:
 	bool frontiers_fully_confirmed{ false };
 	static size_t constexpr max_priority_cementable_frontiers{ 100000 };
 	static size_t constexpr confirmed_frontiers_max_pending_cut_off{ 1000 };
+	boost::multi_index_container<
+	nano::gap_information,
+	boost::multi_index::indexed_by<
+	boost::multi_index::ordered_non_unique<boost::multi_index::member<gap_information, std::chrono::steady_clock::time_point, &gap_information::arrival>>,
+	boost::multi_index::hashed_unique<boost::multi_index::member<gap_information, nano::block_hash, &gap_information::hash>>>>
+	inactive_votes_cache;
+	static size_t constexpr inactive_votes_cache_max{ 2048 };
 	boost::thread thread;
 
 	friend class confirmation_height_prioritize_frontiers_Test;

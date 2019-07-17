@@ -298,3 +298,22 @@ void nano::election::clear_blocks ()
 		}
 	}
 }
+
+void nano::election::insert_inactive_votes_cache ()
+{
+	auto winner_hash (status.winner->hash ());
+	auto reps (node.active.find_inactive_votes_cache (winner_hash));
+	for (auto & rep : reps)
+	{
+		auto last_vote_it (last_votes.find (rep));
+		if (last_vote_it == last_votes.end ())
+		{
+			last_votes[rep] = { std::chrono::steady_clock::now () - std::chrono::seconds (15), 0, winner_hash };
+		}
+	}
+	if (!confirmed && !reps.empty ())
+	{
+		auto transaction (node.store.tx_begin_read ());
+		confirm_if_quorum (transaction);
+	}
+}
