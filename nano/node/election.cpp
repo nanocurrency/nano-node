@@ -308,7 +308,7 @@ void nano::election::insert_inactive_votes_cache ()
 		auto last_vote_it (last_votes.find (rep));
 		if (last_vote_it == last_votes.end ())
 		{
-			last_votes[rep] = { std::chrono::steady_clock::now () - std::chrono::seconds (15), 0, winner_hash };
+			last_votes[rep] = { std::chrono::steady_clock::time_point::min (), 0, winner_hash };
 		}
 	}
 	if (!confirmed && !reps.empty ())
