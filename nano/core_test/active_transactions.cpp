@@ -278,7 +278,7 @@ TEST (active_transactions, inactive_votes_cache)
 	auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, std::vector<nano::block_hash> (1, send->hash ())));
 	system.nodes[0]->vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, system.nodes[0]->network.endpoint ()));
 	system.deadline_set (5s);
-	while (!system.nodes[0]->active.inactive_votes_cache_size () != 1)
+	while (system.nodes[0]->active.inactive_votes_cache_size () != 1)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
