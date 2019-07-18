@@ -269,7 +269,6 @@ TEST (active_transactions, prioritize_chains)
 	ASSERT_EQ (node1.active.size (), 4);
 }
 
-
 TEST (active_transactions, inactive_votes_cache)
 {
 	nano::system system (24000, 1);
@@ -294,4 +293,3 @@ TEST (active_transactions, inactive_votes_cache)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 }
-
