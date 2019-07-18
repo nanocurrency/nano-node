@@ -39,6 +39,7 @@ void write (nano::stream & stream_a, T const & value)
 {
 	static_assert (std::is_standard_layout<T>::value, "Can't stream write non-standard layout types");
 	auto amount_written (stream_a.sputn (reinterpret_cast<uint8_t const *> (&value), sizeof (value)));
+	(void)amount_written;
 	assert (amount_written == sizeof (value));
 }
 class block_visitor;

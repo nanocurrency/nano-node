@@ -108,6 +108,7 @@ void nano::votes_cache::add (std::shared_ptr<nano::vote> const & vote_a)
 			}
 			// Insert new votes (new hash)
 			auto inserted (cache.insert (nano::cached_votes{ std::chrono::steady_clock::now (), hash, std::vector<std::shared_ptr<nano::vote>> (1, vote_a) }));
+			(void)inserted;
 			assert (inserted.second);
 		}
 		else

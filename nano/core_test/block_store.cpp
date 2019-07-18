@@ -835,6 +835,7 @@ TEST (block_store, upgrade_v2_v3)
 		info.rep_block = 42;
 		nano::account_info_v5 info_old (info.head, info.rep_block, info.open_block, info.balance, info.modified);
 		auto status (mdb_put (store.env.tx (transaction), store.accounts_v0, nano::mdb_val (nano::test_genesis_key.pub), nano::mdb_val (sizeof (info_old), &info_old), 0));
+		(void)status;
 		assert (status == 0);
 	}
 	nano::logger_mt logger;
@@ -1746,6 +1747,7 @@ void modify_account_info_to_v13 (nano::mdb_store & store, nano::transaction cons
 	ASSERT_FALSE (store.account_get (transaction_a, account, info));
 	nano::account_info_v13 account_info_v13 (info.head, info.rep_block, info.open_block, info.balance, info.modified, info.block_count, info.epoch);
 	auto status (mdb_put (store.env.tx (transaction_a), store.get_account_db (info.epoch), nano::mdb_val (account), nano::mdb_val (account_info_v13), 0));
+	(void)status;
 	assert (status == 0);
 }
 
@@ -1755,6 +1757,7 @@ void modify_genesis_account_info_to_v5 (nano::mdb_store & store, nano::transacti
 	store.account_get (transaction_a, nano::test_genesis_key.pub, info);
 	nano::account_info_v5 info_old (info.head, info.rep_block, info.open_block, info.balance, info.modified);
 	auto status (mdb_put (store.env.tx (transaction_a), store.accounts_v0, nano::mdb_val (nano::test_genesis_key.pub), nano::mdb_val (sizeof (info_old), &info_old), 0));
+	(void)status;
 	assert (status == 0);
 }
 }

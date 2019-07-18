@@ -616,6 +616,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 							nano::account const & account (i->first);
 							nano::raw_key key;
 							auto error (existing->second->store.fetch (transaction, account, key));
+							(void)error;
 							assert (!error);
 							std::cout << boost::str (boost::format ("Pub: %1% Prv: %2%\n") % account.to_account () % key.data.to_string ());
 							if (nano::pub_key (key.data) != account)

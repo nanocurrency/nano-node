@@ -177,6 +177,7 @@ public:
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (data ()), size ());
 		nano::unchecked_info result;
 		bool error (result.deserialize (stream));
+		(void)error;
 		assert (!error);
 		return result;
 	}
@@ -202,6 +203,7 @@ public:
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (data ()), size ());
 		std::array<char, 64> result;
 		auto error = nano::try_read (stream, result);
+		(void)error;
 		assert (!error);
 		return result;
 	}
@@ -274,6 +276,7 @@ public:
 		uint64_t result;
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (data ()), size ());
 		auto error (nano::try_read (stream, result));
+		(void)error;
 		assert (!error);
 		boost::endian::big_to_native_inplace (result);
 		return result;
@@ -788,6 +791,7 @@ public:
 				if (full_sideband (transaction_a) || entry_has_sideband (value.size (), type))
 				{
 					auto error (sideband_a->deserialize (stream));
+					(void)error;
 					assert (!error);
 				}
 				else
@@ -874,6 +878,7 @@ public:
 			assert (value.size () >= result.bytes.size ());
 			nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()) + block_successor_offset (transaction_a, value.size (), type), result.bytes.size ());
 			auto error (nano::try_read (stream, result.bytes));
+			(void)error;
 			assert (!error);
 		}
 		else

@@ -911,6 +911,7 @@ void nano::mdb_store::upgrade_v8_to_v9 (nano::transaction const & transaction_a)
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (i->second.data ()), i->second.size ());
 		uint64_t sequence;
 		auto error (nano::try_read (stream, sequence));
+		(void)error;
 		// Create a dummy vote with the same sequence number for easy upgrading.  This won't have a valid signature.
 		nano::vote dummy (nano::account (i->first), junk.prv, sequence, block);
 		std::vector<uint8_t> vector;
@@ -1066,7 +1067,7 @@ MDB_dbi nano::mdb_store::block_database (nano::block_type type_a, nano::epoch ep
 	{
 		assert (epoch_a == nano::epoch::epoch_0);
 	}
-	MDB_dbi result;
+	MDB_dbi result = 0;
 	switch (type_a)
 	{
 		case nano::block_type::send:
@@ -1558,8 +1559,10 @@ bool nano::mdb_store::block_info_get (nano::transaction const & transaction_a, n
 		assert (value.size () == sizeof (block_info_a.account.bytes) + sizeof (block_info_a.balance.bytes));
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
 		auto error1 (nano::try_read (stream, block_info_a.account));
+		(void)error1;
 		assert (!error1);
 		auto error2 (nano::try_read (stream, block_info_a.balance));
+		(void)error2;
 		assert (!error2);
 	}
 	return result;
@@ -1576,6 +1579,7 @@ nano::uint128_t nano::mdb_store::representation_get (nano::transaction const & t
 		nano::uint128_union rep;
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
 		auto error (nano::try_read (stream, rep));
+		(void)error;
 		assert (!error);
 		result = rep.number ();
 	}

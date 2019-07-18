@@ -1,7 +1,7 @@
 FROM nanocurrency/nano-env:base
 
 RUN apt-get update -qq && apt-get install -yqq \
-    clang-3.9 lldb-3.9
+    clang-3.9 lldb-3.9 librocksdb-dev
 
 ENV CXX=/usr/bin/clang++
 ENV CC=/usr/bin/clang
