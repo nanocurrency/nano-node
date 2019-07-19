@@ -118,6 +118,7 @@ public:
 	std::deque<nano::election_status> list_confirmed ();
 	std::deque<nano::election_status> confirmed;
 	void add_confirmed (nano::election_status const &, nano::qualified_root const &);
+	void add_inactive_votes_cache (nano::block_hash const &, nano::account const &);
 	std::vector<nano::account> find_inactive_votes_cache (nano::block_hash const &);
 	nano::node & node;
 	std::mutex mutex;
@@ -141,7 +142,6 @@ private:
 	void request_loop ();
 	void request_confirm (std::unique_lock<std::mutex> &);
 	void confirm_frontiers (nano::transaction const &);
-	void add_inactive_votes_cache (nano::block_hash const &, nano::account const &);
 	nano::account next_frontier_account{ 0 };
 	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
 	std::condition_variable condition;
