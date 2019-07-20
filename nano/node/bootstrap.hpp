@@ -62,7 +62,7 @@ class bulk_pull_account_client;
 class bootstrap_attempt final : public std::enable_shared_from_this<bootstrap_attempt>
 {
 public:
-	explicit bootstrap_attempt (std::shared_ptr<nano::node> node_a);
+	explicit bootstrap_attempt (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a = nano::bootstrap_mode::legacy);
 	~bootstrap_attempt ();
 	void run ();
 	std::shared_ptr<nano::bootstrap_client> connection (std::unique_lock<std::mutex> &);

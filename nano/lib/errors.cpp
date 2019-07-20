@@ -154,6 +154,10 @@ std::string nano::error_rpc_messages::message (int ev) const
 			return "Active confirmation not found";
 		case nano::error_rpc::difficulty_limit:
 			return "Difficulty above config limit or below publish threshold";
+		case nano::error_rpc::disabled_bootstrap_lazy:
+			return "Lazy bootstrap is disabled";
+		case nano::error_rpc::disabled_bootstrap_legacy:
+			return "Legacy bootstrap is disabled";
 		case nano::error_rpc::invalid_balance:
 			return "Invalid balance number";
 		case nano::error_rpc::invalid_destinations:
