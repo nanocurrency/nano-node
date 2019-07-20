@@ -95,8 +95,18 @@ void nano::rep_crawler::query (std::vector<std::shared_ptr<nano::transport::chan
 	for (auto i (channels_a.begin ()), n (channels_a.end ()); i != n; ++i)
 	{
 		on_rep_request (*i);
-		nano::confirm_req message (block);
-		(*i)->send (message);
+		// Confirmation request with hash + root
+		if ((*i)->get_network_version () >= nano::tcp_realtime_protocol_version_min)
+		{
+			nano::confirm_req message (hash, block->root ());
+			(*i)->send (message);
+		}
+		// Confirmation request with full block
+		else
+		{
+			nano::confirm_req message (block);
+			(*i)->send (message);
+		}
 	}
 
 	// A representative must respond with a vote within the deadline
