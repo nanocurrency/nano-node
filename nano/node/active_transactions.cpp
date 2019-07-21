@@ -217,7 +217,8 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 
 			rep_channels->insert (rep_channels->end (), channels.begin (), channels.end ());
 
-			if ((rep_channels->empty () || node.rep_crawler.total_weight () < node.config.online_weight_minimum.number ()) && roots_size <= 5 && node.network_params.network.is_live_network ())
+			bool low_reps_weight (rep_channels->empty () || node.rep_crawler.total_weight () < node.config.online_weight_minimum.number ());
+			if (low_reps_weight && roots_size <= 5 && !node.network_params.network.is_test_network ())
 			{
 				// Spam mode
 				auto deque_l (node.network.udp_channels.random_set (100));
