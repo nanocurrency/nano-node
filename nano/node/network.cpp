@@ -243,6 +243,22 @@ void nano::network::flood_block_batch (std::deque<std::shared_ptr<nano::block>> 
 	}
 }
 
+void nano::network::send_confirm_req (std::shared_ptr<nano::transport::channel> channel_a, std::shared_ptr<nano::block> block_a)
+{
+	// Confirmation request with hash + root
+	if (channel_a->get_network_version () >= nano::tcp_realtime_protocol_version_min)
+	{
+		nano::confirm_req req (block_a->hash (), block_a->root ());
+		channel_a->send (req);
+	}
+	// Confirmation request with full block
+	else
+	{
+		nano::confirm_req req (block_a);
+		channel_a->send (req);
+	}
+}
+
 void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> block_a)
 {
 	auto list (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> (node.rep_crawler.representative_endpoints (std::numeric_limits<size_t>::max ())));
@@ -285,18 +301,7 @@ void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> blo
 	while (!endpoints_a->empty () && count < max_reps)
 	{
 		auto channel (endpoints_a->back ());
-		// Confirmation request with hash + root
-		if (channel->get_network_version () >= nano::tcp_realtime_protocol_version_min)
-		{
-			nano::confirm_req req (block_a->hash (), block_a->root ());
-			channel->send (req);
-		}
-		// Confirmation request with full block
-		else
-		{
-			nano::confirm_req req (block_a);
-			channel->send (req);
-		}
+		send_confirm_req (channel, block_a);
 		endpoints_a->pop_back ();
 		count++;
 	}
