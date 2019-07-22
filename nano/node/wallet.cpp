@@ -1060,7 +1060,7 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 				if (block != nullptr)
 				{
 					cached_block = true;
-					wallets.node.network.flood_block (block);
+					wallets.node.network.flood_block (block, false);
 				}
 			}
 			else if (status != MDB_NOTFOUND)
@@ -1487,7 +1487,7 @@ void nano::work_watcher::run ()
 							current->second = block;
 						}
 					}
-					node.network.flood_block (block);
+					node.network.flood_block (block, false);
 					node.active.update_difficulty (*block.get ());
 					lock.lock ();
 					if (stopped)

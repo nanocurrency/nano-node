@@ -352,7 +352,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	// Start collecting quorum on block
 	node.active.start (block_a);
 	// Announce block contents to the network
-	node.network.flood_block (block_a);
+	node.network.flood_block (block_a, false);
 	if (node.config.enable_voting)
 	{
 		// Announce our weighted vote to the network
