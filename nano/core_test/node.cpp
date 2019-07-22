@@ -2310,6 +2310,61 @@ TEST (node, local_votes_cache)
 	ASSERT_FALSE (node.votes_cache.find (send3->hash ()).empty ());
 }
 
+TEST (node, local_votes_cache_generate_new_vote)
+{
+	nano::system system (24000, 1);
+	auto & node (*system.nodes[0]);
+	nano::genesis genesis;
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node.work_generate_blocking (genesis.hash ())));
+	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node.work_generate_blocking (send1->hash ())));
+	{
+		auto transaction (node.store.tx_begin_write ());
+		ASSERT_EQ (nano::process_result::progress, node.ledger.process (transaction, *send1).code);
+	}
+	// Repsond with cached vote
+	nano::confirm_req message1 (send1);
+	auto channel (node.network.udp_channels.create (node.network.endpoint ()));
+	for (auto i (0); i < 100; ++i)
+	{
+		node.network.process_message (message1, channel);
+	}
+	auto votes1 (node.votes_cache.find (send1->hash ()));
+	ASSERT_EQ (1, votes1.size ());
+	ASSERT_EQ (1, votes1[0]->blocks.size ());
+	ASSERT_EQ (send1->hash (), boost::get<nano::block_hash> (votes1[0]->blocks[0]));
+	{
+		std::lock_guard<std::mutex> lock (boost::polymorphic_downcast<nano::mdb_store *> (node.store_impl.get ())->cache_mutex);
+		auto transaction (node.store.tx_begin_read ());
+		auto current_vote (node.store.vote_current (transaction, nano::test_genesis_key.pub));
+		ASSERT_EQ (current_vote->sequence, 1);
+		ASSERT_EQ (current_vote, votes1[0]);
+	}
+	{
+		auto transaction (node.store.tx_begin_write ());
+		ASSERT_EQ (nano::process_result::progress, node.ledger.process (transaction, *send2).code);
+	}
+	// Generate new vote for request with 2 hashes (one of hashes is cached)
+	std::vector<std::pair<nano::block_hash, nano::block_hash>> roots_hashes{ std::make_pair (send1->hash (), send1->root ()), std::make_pair (send2->hash (), send2->root ()) };
+	nano::confirm_req message2 (roots_hashes);
+	for (auto i (0); i < 100; ++i)
+	{
+		node.network.process_message (message2, channel);
+	}
+	auto votes2 (node.votes_cache.find (send1->hash ()));
+	ASSERT_EQ (1, votes2.size ());
+	ASSERT_EQ (2, votes2[0]->blocks.size ());
+	{
+		std::lock_guard<std::mutex> lock (boost::polymorphic_downcast<nano::mdb_store *> (node.store_impl.get ())->cache_mutex);
+		auto transaction (node.store.tx_begin_read ());
+		auto current_vote (node.store.vote_current (transaction, nano::test_genesis_key.pub));
+		ASSERT_EQ (current_vote->sequence, 2);
+		ASSERT_EQ (current_vote, votes2[0]);
+	}
+	ASSERT_FALSE (node.votes_cache.find (send1->hash ()).empty ());
+	ASSERT_FALSE (node.votes_cache.find (send2->hash ()).empty ());
+}
+
 TEST (node, vote_republish)
 {
 	nano::system system (24000, 2);
