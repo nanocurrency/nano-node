@@ -2193,14 +2193,20 @@ TEST (confirmation_height, modified_chain)
 	{
 		// The write guard prevents the confirmation height processor doing any writes
 		auto write_guard = node->write_database_queue.wait (nano::writer::process_batch);
+		system.deadline_set (10s);
 		while (!node->write_database_queue.contains (nano::writer::confirmation_height))
-			;
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
 
 		store.block_del (store.tx_begin_write (), send->hash ());
 	}
 
+	system.deadline_set (10s);
 	while (node->write_database_queue.contains (nano::writer::confirmation_height))
-		;
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block, nano::stat::dir::in));
 }
