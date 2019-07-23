@@ -128,8 +128,8 @@ public:
 	}
 	void flood_block (std::shared_ptr<nano::block> block_a, bool const is_droppable_a = true)
 	{
-	nano::publish publish (block_a);
-	flood_message (publish, is_droppable_a);
+		nano::publish publish (block_a);
+		flood_message (publish, is_droppable_a);
 	}
 
 	void flood_block_batch (std::deque<std::shared_ptr<nano::block>>, unsigned = broadcast_interval_ms);
