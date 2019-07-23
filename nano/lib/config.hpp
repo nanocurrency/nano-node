@@ -17,6 +17,18 @@
 */
 static const char * NANO_MAJOR_MINOR_VERSION = xstr (NANO_VERSION_MAJOR) "." xstr (NANO_VERSION_MINOR);
 static const char * NANO_MAJOR_MINOR_RC_VERSION = xstr (NANO_VERSION_MAJOR) "." xstr (NANO_VERSION_MINOR) "RC" xstr (NANO_VERSION_PATCH);
+
+#if defined(__clang__)
+/* Clang/LLVM. ---------------------------------------------- */
+static const char * BUILD_INFO = xstr (GIT_COMMIT_HASH) "-clang";
+#elif (defined(__GNUC__) || defined(__GNUG__)) && !(defined(__clang__) || defined(__INTEL_COMPILER))
+/* GNU GCC/G++. --------------------------------------------- */
+static const char * BUILD_INFO = xstr (GIT_COMMIT_HASH) "-gcc";
+#elif defined(_MSC_VER)
+/* Microsoft Visual Studio. --------------------------------- */
+static const char * BUILD_INFO = xstr (GIT_COMMIT_HASH) "-msvc";
+#endif
+
 /** Is TSAN/ASAN test build */
 #if defined(__has_feature)
 #if __has_feature(thread_sanitizer) || __has_feature(address_sanitizer)

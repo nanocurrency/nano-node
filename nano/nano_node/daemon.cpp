@@ -63,7 +63,8 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 				auto network_label = node->network_params.network.get_current_network_as_string ();
 				auto version = (NANO_VERSION_PATCH == 0) ? NANO_MAJOR_MINOR_VERSION : NANO_MAJOR_MINOR_RC_VERSION;
 				std::cout << "Network: " << network_label << ", version: " << version << std::endl
-				          << "Path: " << node->application_path.string () << std::endl;
+				          << "Path: " << node->application_path.string () << std::endl
+				          << "Build Info: " << BUILD_INFO << std::endl;
 
 				node->start ();
 				nano::ipc::ipc_server ipc_server (*node, config.rpc);
