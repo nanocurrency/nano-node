@@ -9,16 +9,16 @@ jobs:
   include:
     - stage: build_base
       name: "base"
-      if: branch=master
+      if: branch=master AND type=push
       script:
         - if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi; fi
     - stage: build_env
       name: "clang"
-      if: branch=master
+      if: branch=master AND type=push
       script: 
         - if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi; fi
     - name: "gcc"
-      if: branch=master
+      if: branch=master AND type=push
       script: 
         - if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi; fi
     - stage: test
@@ -54,13 +54,13 @@ jobs:
         - export PATH="/usr/local/opt/ccache/libexec:$PATH";
     - stage: deploy
       name: "live"
-      if: branch=~/^(master|releases\/v*) AND !tag=~RC
+      if: branch=~/^(master|releases\/v*) AND !tag=~RC AND type=push
       script: 
-        - if [ "$TRAVIS_PULL_REQUEST" = "false" ]; if then [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi; fi
+        - if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi; fi
     - name: "beta"
-      if: branch=~/^(master|releases\/v*)
+      if: branch=~/^(master|releases\/v*) AND type=push
       script: 
-        - if [ "$TRAVIS_PULL_REQUEST" = "false" ]; if then [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi; fi
+        - if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi; fi
 cache:
   - ccache: true
   - directories:
