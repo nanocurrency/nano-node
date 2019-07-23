@@ -115,7 +115,7 @@ nano::node_constants::node_constants (nano::network_constants & network_constant
 
 nano::voting_constants::voting_constants (nano::network_constants & network_constants)
 {
-	max_cache = network_constants.is_test_network () ? 2 : 1000;
+	max_cache = network_constants.is_test_network () ? 2 : 4 * 1024;
 }
 
 nano::portmapping_constants::portmapping_constants (nano::network_constants & network_constants)
@@ -162,6 +162,7 @@ prv (std::move (prv_a))
 nano::keypair::keypair (std::string const & prv_a)
 {
 	auto error (prv.data.decode_hex (prv_a));
+	(void)error;
 	assert (!error);
 	ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
 }

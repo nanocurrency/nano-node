@@ -46,7 +46,7 @@ jobs:
       os: osx
       compiler: clang
       before_install:
-        - brew update && brew install qt5 && brew cask install xquartz && brew upgrade cmake;
+        - brew update && brew install qt5 && brew cask install xquartz && brew upgrade cmake && brew install rocksdb;
       install:
         - brew install ccache;
         - export PATH="/usr/local/opt/ccache/libexec:$PATH";

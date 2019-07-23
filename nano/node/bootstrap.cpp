@@ -147,10 +147,12 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 		nano::account account;
 		nano::bufferstream account_stream (connection->receive_buffer->data (), sizeof (account));
 		auto error1 (nano::try_read (account_stream, account));
+		(void)error1;
 		assert (!error1);
 		nano::block_hash latest;
 		nano::bufferstream latest_stream (connection->receive_buffer->data () + sizeof (account), sizeof (latest));
 		auto error2 (nano::try_read (latest_stream, latest));
+		(void)error2;
 		assert (!error2);
 		if (count == 0)
 		{
@@ -693,10 +695,12 @@ void nano::bulk_pull_account_client::receive_pending ()
 				nano::block_hash pending;
 				nano::bufferstream frontier_stream (this_l->connection->receive_buffer->data (), sizeof (nano::uint256_union));
 				auto error1 (nano::try_read (frontier_stream, pending));
+				(void)error1;
 				assert (!error1);
 				nano::amount balance;
 				nano::bufferstream balance_stream (this_l->connection->receive_buffer->data () + sizeof (nano::uint256_union), sizeof (nano::uint128_union));
 				auto error2 (nano::try_read (balance_stream, balance));
+				(void)error2;
 				assert (!error2);
 				if (this_l->total_blocks == 0 || !pending.is_zero ())
 				{
@@ -2436,10 +2440,10 @@ public:
 		}
 		else if (message_a.response)
 		{
-			auto node_id (message_a.response->first);
-			connection->remote_node_id = node_id;
+			nano::account const & node_id (message_a.response->first);
 			if (!connection->node->network.syn_cookies.validate (nano::transport::map_tcp_to_endpoint (connection->remote_endpoint), node_id, message_a.response->second) && node_id != connection->node->node_id.pub)
 			{
+				connection->remote_node_id = node_id;
 				connection->type = nano::bootstrap_server_type::realtime;
 				++connection->node->bootstrap.realtime_count;
 				connection->finish_request_async ();
@@ -2454,7 +2458,7 @@ public:
 		{
 			connection->finish_request_async ();
 		}
-		auto node_id (connection->remote_node_id);
+		nano::account node_id (connection->remote_node_id);
 		nano::bootstrap_server_type type (connection->type);
 		assert (node_id.is_zero () || type == nano::bootstrap_server_type::realtime);
 		auto connection_l (connection->shared_from_this ());
@@ -3297,6 +3301,7 @@ void nano::pulls_cache::add (nano::pull_info const & pull_a)
 		{
 			// Insert new pull
 			auto inserted (cache.insert (nano::cached_pulls{ std::chrono::steady_clock::now (), head_512, pull_a.head }));
+			(void)inserted;
 			assert (inserted.second);
 		}
 		else

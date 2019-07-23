@@ -288,6 +288,7 @@ void nano::election::clear_blocks ()
 	{
 		auto & hash (block.first);
 		auto erased (node.active.blocks.erase (hash));
+		(void)erased;
 		// clear_blocks () can be called in active_transactions::publish () before blocks insertion if election was confirmed
 		assert (erased == 1 || confirmed);
 		// Notify observers about dropped elections & blocks lost confirmed elections

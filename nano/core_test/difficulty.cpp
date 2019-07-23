@@ -24,10 +24,11 @@ TEST (difficulty, multipliers)
 	}
 
 	{
+#ifndef NDEBUG
 		uint64_t base = 0xffffffc000000000;
 		uint64_t difficulty_nil = 0;
 		double multiplier_nil = 0.;
-#ifndef NDEBUG
+
 		// Causes valgrind to be noisy
 		if (!nano::running_within_valgrind ())
 		{
