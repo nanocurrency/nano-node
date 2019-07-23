@@ -114,7 +114,7 @@ public:
 	~network ();
 	void start ();
 	void stop ();
-	void flood_message (nano::message const &, bool const & = true);
+	void flood_message (nano::message const &, bool const = true);
 	void flood_keepalive ()
 	{
 		nano::keepalive message;
@@ -126,7 +126,12 @@ public:
 		nano::confirm_ack message (vote_a);
 		flood_message (message);
 	}
-	void flood_block (std::shared_ptr<nano::block>, bool const & = true);
+	void flood_block (std::shared_ptr<nano::block> block_a, bool const is_droppable_a = true)
+	{
+	nano::publish publish (block_a);
+	flood_message (publish, is_droppable_a);
+	}
+
 	void flood_block_batch (std::deque<std::shared_ptr<nano::block>>, unsigned = broadcast_interval_ms);
 	void merge_peers (std::array<nano::endpoint, 8> const &);
 	void merge_peer (nano::endpoint const &);

@@ -215,19 +215,13 @@ bool nano::network::send_votes_cache (std::shared_ptr<nano::transport::channel> 
 	return result;
 }
 
-void nano::network::flood_message (nano::message const & message_a, bool const & is_dropable)
+void nano::network::flood_message (nano::message const & message_a, bool const is_droppable_a)
 {
 	auto list (list_fanout ());
 	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
 	{
-		(*i)->send (message_a, nullptr, is_dropable);
+		(*i)->send (message_a, nullptr, is_droppable_a);
 	}
-}
-
-void nano::network::flood_block (std::shared_ptr<nano::block> block_a, bool const & is_dropable)
-{
-	nano::publish publish (block_a);
-	flood_message (publish, is_dropable);
 }
 
 void nano::network::flood_block_batch (std::deque<std::shared_ptr<nano::block>> blocks_a, unsigned delay_a)
