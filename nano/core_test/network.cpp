@@ -2188,11 +2188,10 @@ TEST (confirmation_height, modified_chain)
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *send).code);
 	}
 
-	node->confirmation_height_processor.add (send->hash ());
-
 	{
 		// The write guard prevents the confirmation height processor doing any writes
 		auto write_guard = node->write_database_queue.wait (nano::writer::process_batch);
+		node->confirmation_height_processor.add (send->hash ());
 		system.deadline_set (10s);
 		while (!node->write_database_queue.contains (nano::writer::confirmation_height))
 		{
