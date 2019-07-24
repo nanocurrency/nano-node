@@ -1497,8 +1497,15 @@ void nano::json_handler::bootstrap ()
 		uint16_t port;
 		if (!nano::parse_port (port_text, port))
 		{
-			node.bootstrap_initiator.bootstrap (nano::endpoint (address, port));
-			response_l.put ("success", "");
+			if (!node.flags.disable_legacy_bootstrap)
+			{
+				node.bootstrap_initiator.bootstrap (nano::endpoint (address, port));
+				response_l.put ("success", "");
+			}
+			else
+			{
+				ec = nano::error_rpc::disabled_bootstrap_legacy;
+			}
 		}
 		else
 		{
@@ -1514,8 +1521,15 @@ void nano::json_handler::bootstrap ()
 
 void nano::json_handler::bootstrap_any ()
 {
-	node.bootstrap_initiator.bootstrap ();
-	response_l.put ("success", "");
+	if (!node.flags.disable_legacy_bootstrap)
+	{
+		node.bootstrap_initiator.bootstrap ();
+		response_l.put ("success", "");
+	}
+	else
+	{
+		ec = nano::error_rpc::disabled_bootstrap_legacy;
+	}
 	response_errors ();
 }
 
@@ -1525,8 +1539,15 @@ void nano::json_handler::bootstrap_lazy ()
 	const bool force = request.get<bool> ("force", false);
 	if (!ec)
 	{
-		node.bootstrap_initiator.bootstrap_lazy (hash, force);
-		response_l.put ("started", "1");
+		if (!node.flags.disable_lazy_bootstrap)
+		{
+			node.bootstrap_initiator.bootstrap_lazy (hash, force);
+			response_l.put ("started", "1");
+		}
+		else
+		{
+			ec = nano::error_rpc::disabled_bootstrap_lazy;
+		}
 	}
 	response_errors ();
 }
