@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/boost/asio.hpp>
+#include <nano/lib/alarm.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/active_transactions.hpp>
@@ -41,30 +42,7 @@
 
 namespace nano
 {
-class channel;
 class node;
-class operation final
-{
-public:
-	bool operator> (nano::operation const &) const;
-	std::chrono::steady_clock::time_point wakeup;
-	std::function<void()> function;
-};
-class alarm final
-{
-public:
-	explicit alarm (boost::asio::io_context &);
-	~alarm ();
-	void add (std::chrono::steady_clock::time_point const &, std::function<void()> const &);
-	void run ();
-	boost::asio::io_context & io_ctx;
-	std::mutex mutex;
-	std::condition_variable condition;
-	std::priority_queue<operation, std::vector<operation>, std::greater<operation>> operations;
-	boost::thread thread;
-};
-
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (alarm & alarm, const std::string & name);
 
 class work_pool;
 class block_arrival_info final
