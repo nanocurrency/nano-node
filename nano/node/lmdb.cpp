@@ -626,6 +626,7 @@ void nano::mdb_store::open_databases (bool & error_a, nano::transaction const & 
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "online_weight", flags, &online_weight) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "meta", flags, &meta) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "peers", flags, &peers) != 0;
+	error_a |= mdb_dbi_open (env.tx (transaction_a), "confirmation_height", flags, &confirmation_height) != 0;
 	if (!full_sideband (transaction_a))
 	{
 		error_a |= mdb_dbi_open (env.tx (transaction_a), "blocks_info", flags, &blocks_info) != 0;
@@ -733,7 +734,6 @@ bool nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, size
 		case 8:
 			upgrade_v8_to_v9 (transaction_a);
 		case 9:
-			upgrade_v9_to_v10 (transaction_a);
 		case 10:
 			upgrade_v10_to_v11 (transaction_a);
 		case 11:
@@ -743,6 +743,8 @@ bool nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, size
 		case 13:
 			upgrade_v13_to_v14 (transaction_a);
 		case 14:
+			upgrade_v14_to_v15 (transaction_a);
+		case 15:
 			break;
 		default:
 			logger.always_log (boost::str (boost::format ("The version of the ledger (%1%) is too high for this node") % version_l));
@@ -926,10 +928,6 @@ void nano::mdb_store::upgrade_v8_to_v9 (nano::transaction const & transaction_a)
 	mdb_drop (env.tx (transaction_a), sequence, 1);
 }
 
-void nano::mdb_store::upgrade_v9_to_v10 (nano::transaction const & transaction_a)
-{
-}
-
 void nano::mdb_store::upgrade_v10_to_v11 (nano::transaction const & transaction_a)
 {
 	version_put (transaction_a, 11);
@@ -1017,7 +1015,7 @@ void nano::mdb_store::upgrade_v13_to_v14 (nano::transaction const & transaction_
 	nano::store_iterator<nano::account, nano::account_info_v13> i (std::make_unique<nano::mdb_merge_iterator<nano::account, nano::account_info_v13>> (transaction_a, accounts_v0, accounts_v1));
 	nano::store_iterator<nano::account, nano::account_info_v13> n (nullptr);
 
-	std::vector<std::pair<nano::account, nano::account_info>> account_infos;
+	std::vector<std::pair<nano::account, nano::account_info_v14>> account_infos;
 	account_infos.reserve (account_count (transaction_a));
 	for (; i != n; ++i)
 	{
@@ -1027,12 +1025,13 @@ void nano::mdb_store::upgrade_v13_to_v14 (nano::transaction const & transaction_
 		{
 			confirmation_height = 1;
 		}
-		account_infos.emplace_back (i->first, nano::account_info{ account_info_v13.head, account_info_v13.rep_block, account_info_v13.open_block, account_info_v13.balance, account_info_v13.modified, account_info_v13.block_count, confirmation_height, account_info_v13.epoch });
+		account_infos.emplace_back (i->first, nano::account_info_v14{ account_info_v13.head, account_info_v13.rep_block, account_info_v13.open_block, account_info_v13.balance, account_info_v13.modified, account_info_v13.block_count, confirmation_height, account_info_v13.epoch });
 	}
 
 	for (auto const & account_info : account_infos)
 	{
-		account_put (transaction_a, account_info.first, account_info.second);
+		auto status1 (mdb_put (env.tx (transaction_a), get_account_db (account_info.second.epoch), nano::mdb_val (account_info.first), nano::mdb_val (account_info.second), 0));
+		release_assert (status1 == 0);
 	}
 
 	logger.always_log ("Completed confirmation height upgrade");
@@ -1040,6 +1039,30 @@ void nano::mdb_store::upgrade_v13_to_v14 (nano::transaction const & transaction_
 	nano::uint256_union node_id_mdb_key (3);
 	auto error (mdb_del (env.tx (transaction_a), meta, nano::mdb_val (node_id_mdb_key), nullptr));
 	release_assert (!error || error == MDB_NOTFOUND);
+}
+
+void nano::mdb_store::upgrade_v14_to_v15 (nano::transaction const & transaction_a)
+{
+	version_put (transaction_a, 15);
+
+	// Move confirmation height from account_info database to its own table
+	std::vector<std::pair<nano::account, nano::account_info>> account_infos;
+	account_infos.reserve (account_count (transaction_a));
+	std::vector<std::pair<nano::account, uint64_t>> confirmation_heights;
+
+	nano::store_iterator<nano::account, nano::account_info_v14> i (std::make_unique<nano::mdb_merge_iterator<nano::account, nano::account_info_v14>> (transaction_a, accounts_v0, accounts_v1));
+	nano::store_iterator<nano::account, nano::account_info_v14> n (nullptr);
+	for (; i != n; ++i)
+	{
+		auto const & account_info_v14 (i->second);
+		account_infos.emplace_back (i->first, nano::account_info{ account_info_v14.head, account_info_v14.rep_block, account_info_v14.open_block, account_info_v14.balance, account_info_v14.modified, account_info_v14.block_count, account_info_v14.epoch });
+		confirmation_height_put (transaction_a, i->first, i->second.confirmation_height);
+	}
+
+	for (auto const & account_info : account_infos)
+	{
+		account_put (transaction_a, account_info.first, account_info.second);
+	}
 }
 
 void nano::mdb_store::clear (MDB_dbi db_a)
@@ -1400,6 +1423,11 @@ size_t nano::mdb_store::account_count (nano::transaction const & transaction_a)
 	return count (transaction_a, { accounts_v0, accounts_v1 });
 }
 
+uint64_t nano::mdb_store::confirmation_height_count (nano::transaction const & transaction_a)
+{
+	return count (transaction_a, confirmation_height);
+}
+
 MDB_dbi nano::mdb_store::get_account_db (nano::epoch epoch_a) const
 {
 	MDB_dbi db;
@@ -1436,8 +1464,43 @@ MDB_dbi nano::mdb_store::get_pending_db (nano::epoch epoch_a) const
 	return db;
 }
 
+void nano::mdb_store::confirmation_height_put (nano::transaction const & transaction_a, nano::account const & account_a, uint64_t confirmation_height_a)
+{
+	auto status (mdb_put (env.tx (transaction_a), confirmation_height, nano::mdb_val (account_a), nano::mdb_val (confirmation_height_a), 0));
+	release_assert (status == MDB_SUCCESS);
+}
+
+bool nano::mdb_store::confirmation_height_get (nano::transaction const & transaction_a, nano::account const & account_a, uint64_t & confirmation_height_a)
+{
+	nano::mdb_val value;
+	auto status (mdb_get (env.tx (transaction_a), confirmation_height, nano::mdb_val (account_a), value));
+	release_assert (status == MDB_SUCCESS || status == MDB_NOTFOUND);
+	confirmation_height_a = 0;
+	if (status == MDB_SUCCESS)
+	{
+		confirmation_height_a = static_cast<uint64_t> (value);
+	}
+	return (status != MDB_SUCCESS);
+}
+
+void nano::mdb_store::confirmation_height_del (nano::transaction const & transaction_a, nano::account const & account_a)
+{
+	auto status (mdb_del (env.tx (transaction_a), confirmation_height, nano::mdb_val (account_a), nullptr));
+	release_assert (status == MDB_SUCCESS);
+}
+
+bool nano::mdb_store::confirmation_height_exists (nano::transaction const & transaction_a, nano::account const & account_a)
+{
+	nano::mdb_val junk;
+	auto status (mdb_get (env.tx (transaction_a), confirmation_height, nano::mdb_val (account_a), junk));
+	release_assert (status == MDB_SUCCESS || status == MDB_NOTFOUND);
+	return (status == MDB_SUCCESS);
+}
+
 void nano::mdb_store::account_put (nano::transaction const & transaction_a, nano::account const & account_a, nano::account_info const & info_a)
 {
+	// Check we are still in sync with other tables
+	assert (confirmation_height_exists (transaction_a, account_a));
 	auto status (mdb_put (env.tx (transaction_a), get_account_db (info_a.epoch), nano::mdb_val (account_a), nano::mdb_val (info_a), 0));
 	release_assert (status == 0);
 }
@@ -1698,6 +1761,21 @@ size_t nano::mdb_store::count (nano::transaction const & transaction_a, std::ini
 		total_count += count (transaction_a, db);
 	}
 	return total_count;
+}
+
+nano::store_iterator<nano::account, uint64_t> nano::mdb_store::confirmation_height_begin (nano::transaction const & transaction_a, nano::account const & account_a)
+{
+	return nano::store_iterator<nano::account, uint64_t> (std::make_unique<nano::mdb_iterator<nano::account, uint64_t>> (transaction_a, confirmation_height, nano::mdb_val (account_a)));
+}
+
+nano::store_iterator<nano::account, uint64_t> nano::mdb_store::confirmation_height_begin (nano::transaction const & transaction_a)
+{
+	return nano::store_iterator<nano::account, uint64_t> (std::make_unique<nano::mdb_iterator<nano::account, uint64_t>> (transaction_a, confirmation_height));
+}
+
+nano::store_iterator<nano::account, uint64_t> nano::mdb_store::confirmation_height_end ()
+{
+	return nano::store_iterator<nano::account, uint64_t> (nullptr);
 }
 
 nano::store_iterator<nano::account, nano::account_info> nano::mdb_store::latest_begin (nano::transaction const & transaction_a, nano::account const & account_a)

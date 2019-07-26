@@ -216,6 +216,16 @@ public:
 	nano::store_iterator<nano::endpoint_key, nano::no_value> peers_begin (nano::transaction const & transaction_a) override;
 	nano::store_iterator<nano::endpoint_key, nano::no_value> peers_end () override;
 
+	void confirmation_height_put (nano::transaction const & transaction_a, nano::account const & account_a, uint64_t confirmation_height_a) override;
+	bool confirmation_height_get (nano::transaction const & transaction_a, nano::account const & account_a, uint64_t & confirmation_height_a) override;
+	void confirmation_height_del (nano::transaction const & transaction_a, nano::account const & account_a) override;
+	bool confirmation_height_exists (nano::transaction const & transaction_a, nano::account const & account_a) override;
+	uint64_t confirmation_height_count (nano::transaction const & transaction_a) override;
+
+	nano::store_iterator<nano::account, uint64_t> confirmation_height_begin (nano::transaction const & transaction_a, nano::account const & account_a) override;
+	nano::store_iterator<nano::account, uint64_t> confirmation_height_begin (nano::transaction const & transaction_a) override;
+	nano::store_iterator<nano::account, uint64_t> confirmation_height_end () override;
+
 	MDB_dbi get_account_db (nano::epoch epoch_a) const;
 	void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::milliseconds, std::chrono::milliseconds) override;
 
@@ -328,8 +338,14 @@ public:
 	/*
 	 * Endpoints for peers
 	 * nano::endpoint_key -> no_value
-	*/
+	 */
 	MDB_dbi peers{ 0 };
+
+	/*
+	 * Confirmation height of an account
+	 * nano::account -> uint64_t
+	 */
+	MDB_dbi confirmation_height{ 0 };
 
 private:
 	MDB_dbi block_database (nano::block_type, nano::epoch);
@@ -347,17 +363,17 @@ private:
 	void upgrade_v6_to_v7 (nano::transaction const &);
 	void upgrade_v7_to_v8 (nano::transaction const &);
 	void upgrade_v8_to_v9 (nano::transaction const &);
-	void upgrade_v9_to_v10 (nano::transaction const &);
 	void upgrade_v10_to_v11 (nano::transaction const &);
 	void upgrade_v11_to_v12 (nano::transaction const &);
 	void upgrade_v12_to_v13 (nano::write_transaction &, size_t);
 	void upgrade_v13_to_v14 (nano::transaction const &);
+	void upgrade_v14_to_v15 (nano::transaction const &);
 	MDB_dbi get_pending_db (nano::epoch epoch_a) const;
 	void open_databases (bool &, nano::transaction const &, unsigned);
 	nano::mdb_txn_tracker mdb_txn_tracker;
 	nano::mdb_txn_callbacks create_txn_callbacks ();
 	bool txn_tracking_enabled;
-	static int constexpr version{ 14 };
+	static int constexpr version{ 15 };
 
 	size_t count (nano::transaction const &, MDB_dbi) const;
 	size_t count (nano::transaction const &, std::initializer_list<MDB_dbi>) const;

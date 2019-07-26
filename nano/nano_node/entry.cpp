@@ -823,10 +823,12 @@ int main (int argc, char * const * argv)
 				}
 				nano::account_info const & info (i->second);
 				nano::account const & account (i->first);
+				uint64_t confirmation_height;
+				node.node->store.confirmation_height_get (transaction, account, confirmation_height);
 
-				if (info.confirmation_height > info.block_count)
+				if (confirmation_height > info.block_count)
 				{
-					std::cerr << "Confirmation height " << info.confirmation_height << " greater than block count " << info.block_count << " for account: " << account.to_account () << std::endl;
+					std::cerr << "Confirmation height " << confirmation_height << " greater than block count " << info.block_count << " for account: " << account.to_account () << std::endl;
 				}
 
 				auto hash (info.open_block);
