@@ -39,9 +39,8 @@ TEST (active_transactions, adjusted_difficulty_priority)
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
 	node_config.enable_voting = false;
-	nano::node_flags node_flags;
-	node_flags.delay_frontier_confirmation_height_updating = true;
-	auto & node1 = *system.add_node (node_config, node_flags);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto & node1 = *system.add_node (node_config);
 	nano::genesis genesis;
 	nano::keypair key1, key2, key3;
 
@@ -118,10 +117,9 @@ TEST (active_transactions, keep_local)
 	nano::node_config node_config (24000, system.logging);
 	node_config.enable_voting = false;
 	node_config.active_elections_size = 3; //bound to 3, wont drop wallet created transactions, but good to test dropping remote
-	//delay_frontier_confirmation_height_updating to allow the test to before
-	nano::node_flags node_flags;
-	node_flags.delay_frontier_confirmation_height_updating = true;
-	auto & node1 = *system.add_node (node_config, node_flags);
+	// Disable frontier confirmation to allow the test to finish before
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto & node1 = *system.add_node (node_config);
 	auto & wallet (*system.wallet (0));
 	nano::genesis genesis;
 	//key 1/2 will be managed by the wallet
@@ -174,10 +172,9 @@ TEST (active_transactions, prioritize_chains)
 	nano::node_config node_config (24000, system.logging);
 	node_config.enable_voting = false;
 	node_config.active_elections_size = 4; //bound to 3, wont drop wallet created transactions, but good to test dropping remote
-	//delay_frontier_confirmation_height_updating to allow the test to before
-	nano::node_flags node_flags;
-	node_flags.delay_frontier_confirmation_height_updating = true;
-	auto & node1 = *system.add_node (node_config, node_flags);
+	// Disable frontier confirmation to allow the test to finish before
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto & node1 = *system.add_node (node_config);
 	nano::genesis genesis;
 	nano::keypair key1, key2, key3;
 

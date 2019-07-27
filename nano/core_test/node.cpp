@@ -842,6 +842,70 @@ TEST (node_config, v17_values)
 	ASSERT_EQ (config.conf_height_processor_batch_min_time.count (), 500);
 }
 
+TEST (node_config, v17_v18_upgrade)
+{
+	auto path (nano::unique_path ());
+	nano::jsonconfig tree;
+	add_required_children_node_config_tree (tree);
+	tree.put ("version", "17");
+
+	auto upgraded (false);
+	nano::node_config config;
+	config.logging.init (path);
+	// These config options should not be present
+	ASSERT_FALSE (tree.get_optional_child ("frontiers_confirmation"));
+
+	config.deserialize_json (upgraded, tree);
+	// The config options should be added after the upgrade
+	ASSERT_TRUE (!!tree.get_optional_child ("frontiers_confirmation"));
+
+	ASSERT_TRUE (upgraded);
+	auto version (tree.get<std::string> ("version"));
+
+	// Check version is updated
+	ASSERT_GT (std::stoull (version), 16);
+}
+
+TEST (node_config, v18_values)
+{
+	nano::jsonconfig tree;
+	add_required_children_node_config_tree (tree);
+
+	auto path (nano::unique_path ());
+	auto upgraded (false);
+	nano::node_config config;
+	config.logging.init (path);
+
+	// Check config is correct
+	{
+		tree.put ("frontiers_confirmation", "auto");
+	}
+
+	config.deserialize_json (upgraded, tree);
+	ASSERT_FALSE (upgraded);
+	ASSERT_EQ (config.frontiers_confirmation, nano::frontiers_confirmation_mode::automatic);
+
+	// Check config is correct with other values
+	tree.put ("frontiers_confirmation", "disabled");
+
+	upgraded = false;
+	config.deserialize_json (upgraded, tree);
+	ASSERT_FALSE (upgraded);
+	ASSERT_EQ (config.frontiers_confirmation, nano::frontiers_confirmation_mode::disabled);
+
+	tree.put ("frontiers_confirmation", "lazy");
+	config.deserialize_json (upgraded, tree);
+	ASSERT_EQ (config.frontiers_confirmation, nano::frontiers_confirmation_mode::lazy);
+	tree.put ("frontiers_confirmation", "always");
+	config.deserialize_json (upgraded, tree);
+	ASSERT_EQ (config.frontiers_confirmation, nano::frontiers_confirmation_mode::always);
+
+	// Check invalid values
+	tree.put ("frontiers_confirmation", "randomstring");
+	ASSERT_TRUE (config.deserialize_json (upgraded, tree));
+	ASSERT_EQ (config.frontiers_confirmation, nano::frontiers_confirmation_mode::invalid);
+}
+
 // Regression test to ensure that deserializing includes changes node via get_required_child
 TEST (node_config, required_child)
 {
@@ -1750,10 +1814,11 @@ TEST (node, bootstrap_bulk_push)
 TEST (node, bootstrap_fork_open)
 {
 	nano::system system0;
-	nano::node_flags node_flags;
-	node_flags.delay_frontier_confirmation_height_updating = true;
-	auto node0 = system0.add_node (nano::node_config (24000, system0.logging), node_flags);
-	auto node1 = system0.add_node (nano::node_config (24001, system0.logging), node_flags);
+	nano::node_config node_config (24000, system0.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto node0 = system0.add_node (node_config);
+	node_config.peering_port = 24001;
+	auto node1 = system0.add_node (node_config);
 	system0.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key0;
 	nano::send_block send0 (system0.nodes[0]->latest (nano::test_genesis_key.pub), key0.pub, nano::genesis_amount - 500, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
@@ -1787,9 +1852,11 @@ TEST (node, bootstrap_fork_open)
 TEST (node, bootstrap_confirm_frontiers)
 {
 	nano::system system0 (24000, 1);
-	nano::system system1 (24001, 1);
+	nano::system system1;
 	auto node0 (system0.nodes[0]);
-	auto node1 (system1.nodes[0]);
+	nano::node_config node_config (24001, system0.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::lazy;
+	auto node1 = system1.add_node (node_config);
 	system0.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key0;
 	// node0 knows about send0 but node1 doesn't.
@@ -2521,10 +2588,11 @@ TEST (node, vote_by_hash_epoch_block_republish)
 TEST (node, epoch_conflict_confirm)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.delay_frontier_confirmation_height_updating = true;
-	auto node0 = system.add_node (nano::node_config (24000, system.logging), node_flags);
-	auto node1 = system.add_node (nano::node_config (24001, system.logging), node_flags);
+	nano::node_config node_config (24000, system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto node0 = system.add_node (node_config);
+	node_config.peering_port = 24001;
+	auto node1 = system.add_node (node_config);
 	nano::keypair key;
 	nano::genesis genesis;
 	nano::keypair epoch_signer (nano::test_genesis_key);
@@ -2722,9 +2790,9 @@ TEST (node, block_processor_reject_state)
 TEST (node, block_processor_reject_rolled_back)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.delay_frontier_confirmation_height_updating = true;
-	auto & node = *system.add_node (nano::node_config (24000, system.logging), node_flags);
+	nano::node_config node_config (24000, system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto & node = *system.add_node (node_config);
 	nano::genesis genesis;
 	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node.work_generate_blocking (*send1);
@@ -2959,10 +3027,11 @@ TEST (node, bidirectional_tcp)
 {
 	nano::system system;
 	nano::node_flags node_flags;
-	node_flags.delay_frontier_confirmation_height_updating = true;
 	node_flags.disable_udp = true; // Disable UDP connections
-	auto node1 = system.add_node (nano::node_config (24000, system.logging), node_flags);
-	nano::node_config node_config (24001, system.logging);
+	nano::node_config node_config (24000, system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto node1 = system.add_node (node_config, node_flags);
+	node_config.peering_port = 24001;
 	node_config.tcp_incoming_connections_max = 0; // Disable incoming TCP connections for node 2
 	auto node2 = system.add_node (node_config, node_flags);
 	// Check network connections
@@ -3030,15 +3099,14 @@ TEST (confirmation_height, prioritize_frontiers)
 {
 	nano::system system;
 	// Prevent frontiers being confirmed as it will affect the priorization checking
-	nano::node_flags node_flags;
-	node_flags.delay_frontier_confirmation_height_updating = true;
-	auto node = system.add_node (nano::node_config (24001, system.logging), node_flags);
+	nano::node_config node_config (24001, system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::automatic;
+	auto node = system.add_node (node_config);
 
 	nano::keypair key1;
 	nano::keypair key2;
 	nano::keypair key3;
 	nano::keypair key4;
-	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::block_hash latest1 (system.nodes[0]->latest (nano::test_genesis_key.pub));
 	system.wallet (0)->insert_adhoc (key1.prv);
 	system.wallet (0)->insert_adhoc (key2.prv);
@@ -3132,6 +3200,8 @@ TEST (confirmation_height, prioritize_frontiers)
 		node->active.next_frontier_check = std::chrono::steady_clock::now ();
 	}
 
+	
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	system.deadline_set (std::chrono::seconds (10));
 	while (node->active.size () != num_accounts)
 	{
@@ -3144,6 +3214,82 @@ TEST (confirmation_height, prioritize_frontiers)
 		ASSERT_NE (node->active.roots.find (frontier), node->active.roots.end ());
 	}
 }
+}
+
+TEST (confirmation_height, frontiers_confirmation_mode)
+{
+	nano::genesis genesis;
+	nano::keypair key;
+	// Always mode
+	{
+		nano::system system;
+		nano::node_config node_config (24000, system.logging);
+		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::always;
+		auto node = system.add_node (node_config);
+		nano::state_block send (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node->work_generate_blocking (genesis.hash ()));
+		{
+			auto transaction = node->store.tx_begin_write ();
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
+		}
+		system.deadline_set (5s);
+		while (node->active.size () != 1)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+	}
+	// Auto mode
+	{
+		nano::system system;
+		nano::node_config node_config (24000, system.logging);
+		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::automatic;
+		auto node = system.add_node (node_config);
+		nano::state_block send (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node->work_generate_blocking (genesis.hash ()));
+		{
+			auto transaction = node->store.tx_begin_write ();
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
+		}
+		std::this_thread::sleep_for (std::chrono::seconds (1));
+		ASSERT_EQ (0, node->active.size ());
+		// Automatic mode is activated with principal representative
+		system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+		system.deadline_set (5s);
+		while (node->active.empty ())
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+	}
+	// Lazy mode
+	{
+		nano::system system;
+		nano::node_config node_config (24000, system.logging);
+		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::lazy;
+		auto node = system.add_node (node_config);
+		nano::state_block send (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node->work_generate_blocking (genesis.hash ()));
+		{
+			auto transaction = node->store.tx_begin_write ();
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
+		}
+		system.deadline_set (5s);
+		while (node->active.size () != 1)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+	}
+	// Disabled mode
+	{
+		nano::system system;
+		nano::node_config node_config (24000, system.logging);
+		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+		auto node = system.add_node (node_config);
+		nano::state_block send (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node->work_generate_blocking (genesis.hash ()));
+		{
+			auto transaction = node->store.tx_begin_write ();
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
+		}
+		system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+		std::this_thread::sleep_for (std::chrono::seconds (1));
+		ASSERT_EQ (0, node->active.size ());
+	}
 }
 
 TEST (active_difficulty, recalculate_work)

@@ -16,6 +16,15 @@
 
 namespace nano
 {
+enum class frontiers_confirmation_mode : uint8_t
+{
+	always, // Always confirm frontiers
+	automatic, // Confirm frontiers if node contains representative with at least 50% of principal weight
+	lazy, // Confirm frontiers less often
+	disabled, // Do not confirm frontiers
+	invalid
+};
+
 /**
  * Node configuration
  */
@@ -77,9 +86,12 @@ public:
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
 	size_t bandwidth_limit{ 5 * 1024 * 1024 }; // 5Mb/s
 	std::chrono::milliseconds conf_height_processor_batch_min_time{ 50 };
+	nano::frontiers_confirmation_mode frontiers_confirmation{ nano::frontiers_confirmation_mode::automatic };
+	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;
+	nano::frontiers_confirmation_mode deserialize_frontiers_confirmation (std::string const &);
 	static unsigned json_version ()
 	{
-		return 17;
+		return 18;
 	}
 };
 
@@ -96,7 +108,6 @@ public:
 	bool disable_unchecked_cleanup{ false };
 	bool disable_unchecked_drop{ true };
 	bool fast_bootstrap{ false };
-	bool delay_frontier_confirmation_height_updating{ false };
 	size_t sideband_batch_size{ 512 };
 	size_t block_processor_batch_size{ 0 };
 	size_t block_processor_full_size{ 65536 };

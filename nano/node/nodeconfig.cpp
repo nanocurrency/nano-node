@@ -134,6 +134,7 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("confirmation_history_size", confirmation_history_size);
 	json.put ("active_elections_size", active_elections_size);
 	json.put ("bandwidth_limit", bandwidth_limit);
+	json.put ("frontiers_confirmation", serialize_frontiers_confirmation (frontiers_confirmation));
 
 	return json.get_error ();
 }
@@ -258,6 +259,10 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.put ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time.count ());
 		}
 		case 17:
+		{
+			json.put ("frontiers_confirmation", serialize_frontiers_confirmation (frontiers_confirmation));
+		}
+		case 18:
 			break;
 		default:
 			throw std::runtime_error ("Unknown node_config version");
@@ -413,6 +418,8 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		auto conf_height_processor_batch_min_time_l (conf_height_processor_batch_min_time.count ());
 		json.get ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time_l);
 		conf_height_processor_batch_min_time = std::chrono::milliseconds (conf_height_processor_batch_min_time_l);
+		auto frontiers_confirmation_l (json.get<std::string> ("frontiers_confirmation"));
+		frontiers_confirmation = deserialize_frontiers_confirmation (frontiers_confirmation_l);
 
 		nano::network_constants network;
 		// Validate ranges
@@ -440,12 +447,57 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		{
 			json.get_error ().set ("vote_generator_threshold must be a number between 1 and 12");
 		}
+		if (frontiers_confirmation == nano::frontiers_confirmation_mode::invalid)
+		{
+			json.get_error ().set ("invalid frontier_confirmation value (available: always, auto, lazy ,disabled)");
+		}
 	}
 	catch (std::runtime_error const & ex)
 	{
 		json.get_error ().set (ex.what ());
 	}
 	return json.get_error ();
+}
+
+std::string nano::node_config::serialize_frontiers_confirmation (nano::frontiers_confirmation_mode mode_a) const
+{
+	switch (mode_a)
+	{
+		case nano::frontiers_confirmation_mode::always:
+			return "always";
+		case nano::frontiers_confirmation_mode::automatic:
+			return "auto";
+		case nano::frontiers_confirmation_mode::lazy:
+			return "lazy";
+		case nano::frontiers_confirmation_mode::disabled:
+			return "disabled";
+		default:
+			return "auto";
+	}
+}
+
+nano::frontiers_confirmation_mode nano::node_config::deserialize_frontiers_confirmation (std::string const & string_a)
+{
+	if (string_a == "always")
+	{
+		return nano::frontiers_confirmation_mode::always;
+	}
+	else if (string_a == "auto")
+	{
+		return nano::frontiers_confirmation_mode::automatic;
+	}
+	else if (string_a == "lazy")
+	{
+		return nano::frontiers_confirmation_mode::lazy;
+	}
+	if (string_a == "disabled")
+	{
+		return nano::frontiers_confirmation_mode::disabled;
+	}
+	else
+	{
+		return nano::frontiers_confirmation_mode::invalid;
+	}
 }
 
 nano::account nano::node_config::random_representative ()

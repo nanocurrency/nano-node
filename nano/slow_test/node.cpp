@@ -466,9 +466,8 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
 	node_config.online_weight_minimum = 100;
-	nano::node_flags node_flags;
-	node_flags.delay_frontier_confirmation_height_updating = true;
-	auto node = system.add_node (node_config, node_flags);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 
 	// The number of frontiers should be more than the batch_write_size to test the amount of blocks confirmed is correct.
@@ -536,9 +535,8 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
 	node_config.online_weight_minimum = 100;
-	nano::node_flags node_flags;
-	node_flags.delay_frontier_confirmation_height_updating = true;
-	auto node = system.add_node (node_config, node_flags);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 
 	auto num_accounts = 10000;
@@ -576,9 +574,9 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 TEST (confirmation_height, long_chains)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.delay_frontier_confirmation_height_updating = true;
-	auto node = system.add_node (nano::node_config (24000, system.logging), node_flags);
+	nano::node_config node_config (24000, system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto node = system.add_node (node_config);
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
@@ -660,9 +658,8 @@ TEST (confirmation_height, prioritize_frontiers_overwrite)
 {
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
-	nano::node_flags node_flags;
-	node_flags.delay_frontier_confirmation_height_updating = true;
-	auto node = system.add_node (node_config, node_flags);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 
 	// As this test can take a while extend the next frontier check
