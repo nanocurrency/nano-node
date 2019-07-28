@@ -3200,7 +3200,6 @@ TEST (confirmation_height, prioritize_frontiers)
 		node->active.next_frontier_check = std::chrono::steady_clock::now ();
 	}
 
-	
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	system.deadline_set (std::chrono::seconds (10));
 	while (node->active.size () != num_accounts)
