@@ -60,85 +60,6 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 	});
 }
 
-bool nano::operation::operator> (nano::operation const & other_a) const
-{
-	return wakeup > other_a.wakeup;
-}
-
-nano::alarm::alarm (boost::asio::io_context & io_ctx_a) :
-io_ctx (io_ctx_a),
-thread ([this]() {
-	nano::thread_role::set (nano::thread_role::name::alarm);
-	run ();
-})
-{
-}
-
-nano::alarm::~alarm ()
-{
-	add (std::chrono::steady_clock::now (), nullptr);
-	thread.join ();
-}
-
-void nano::alarm::run ()
-{
-	std::unique_lock<std::mutex> lock (mutex);
-	auto done (false);
-	while (!done)
-	{
-		if (!operations.empty ())
-		{
-			auto & operation (operations.top ());
-			if (operation.function)
-			{
-				if (operation.wakeup <= std::chrono::steady_clock::now ())
-				{
-					io_ctx.post (operation.function);
-					operations.pop ();
-				}
-				else
-				{
-					auto wakeup (operation.wakeup);
-					condition.wait_until (lock, wakeup);
-				}
-			}
-			else
-			{
-				done = true;
-			}
-		}
-		else
-		{
-			condition.wait (lock);
-		}
-	}
-}
-
-void nano::alarm::add (std::chrono::steady_clock::time_point const & wakeup_a, std::function<void()> const & operation)
-{
-	{
-		std::lock_guard<std::mutex> lock (mutex);
-		operations.push (nano::operation ({ wakeup_a, operation }));
-	}
-	condition.notify_all ();
-}
-
-namespace nano
-{
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (alarm & alarm, const std::string & name)
-{
-	auto composite = std::make_unique<seq_con_info_composite> (name);
-	size_t count = 0;
-	{
-		std::lock_guard<std::mutex> guard (alarm.mutex);
-		count = alarm.operations.size ();
-	}
-	auto sizeof_element = sizeof (decltype (alarm.operations)::value_type);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "operations", count, sizeof_element }));
-	return composite;
-}
-}
-
 bool nano::node_init::error () const
 {
 	return block_store_init || wallets_store_init;
@@ -188,8 +109,8 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_processor & 
 }
 }
 
-nano::node::node (nano::node_init & init_a, boost::asio::io_context & io_ctx_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, nano::alarm & alarm_a, nano::logging const & logging_a, nano::work_pool & work_a) :
-node (init_a, io_ctx_a, application_path_a, alarm_a, nano::node_config (peering_port_a, logging_a), work_a)
+nano::node::node (nano::node_init & init_a, boost::asio::io_context & io_ctx_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, nano::alarm & alarm_a, nano::logging const & logging_a, nano::work_pool & work_a, nano::node_flags flags_a) :
+node (init_a, io_ctx_a, application_path_a, alarm_a, nano::node_config (peering_port_a, logging_a), work_a, flags_a)
 {
 }
 
@@ -1640,4 +1561,9 @@ peering_port (peering_port_a)
 nano::inactive_node::~inactive_node ()
 {
 	node->stop ();
+}
+
+std::unique_ptr<nano::block_store> nano::make_store (bool & init, nano::logger_mt & logger, boost::filesystem::path const & path)
+{
+	return std::make_unique<nano::mdb_store> (init, logger, path);
 }
