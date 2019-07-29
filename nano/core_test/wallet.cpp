@@ -1,5 +1,6 @@
 #include <nano/core_test/testutil.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/node/lmdb/wallet_value.hpp>
 #include <nano/node/testing.hpp>
 
 #include <gtest/gtest.h>

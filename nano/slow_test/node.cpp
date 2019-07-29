@@ -95,13 +95,13 @@ TEST (ledger, deep_account_compute)
 {
 	nano::logger_mt logger;
 	bool init (false);
-	nano::mdb_store store (init, logger, nano::unique_path ());
+	auto store = nano::make_store (init, logger, nano::unique_path ());
 	ASSERT_FALSE (init);
 	nano::stat stats;
-	nano::ledger ledger (store, stats);
+	nano::ledger ledger (*store, stats);
 	nano::genesis genesis;
-	auto transaction (store.tx_begin_write ());
-	store.initialize (transaction, genesis);
+	auto transaction (store->tx_begin_write ());
+	store->initialize (transaction, genesis);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::keypair key;
 	auto balance (nano::genesis_amount - 1);
@@ -124,10 +124,8 @@ TEST (ledger, deep_account_compute)
 		{
 			std::cerr << i << ' ';
 		}
-		auto account (ledger.account (transaction, sprevious));
-		(void)account;
-		auto balance (ledger.balance (transaction, rprevious));
-		(void)balance;
+		ledger.account (transaction, sprevious);
+		ledger.balance (transaction, rprevious);
 	}
 }
 

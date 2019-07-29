@@ -2108,7 +2108,7 @@ TEST (node, vote_replay)
 	}
 	{
 		auto transaction (system.nodes[0]->store.tx_begin_read ());
-		std::lock_guard<std::mutex> lock (boost::polymorphic_downcast<nano::mdb_store *> (system.nodes[0]->store_impl.get ())->cache_mutex);
+		std::lock_guard<std::mutex> lock (system.nodes[0]->store.get_cache_mutex ());
 		auto vote (system.nodes[0]->store.vote_current (transaction, nano::test_genesis_key.pub));
 		ASSERT_EQ (nullptr, vote);
 	}
@@ -2121,7 +2121,7 @@ TEST (node, vote_replay)
 	{
 		auto ec = system.poll ();
 		auto transaction (system.nodes[0]->store.tx_begin_read ());
-		std::lock_guard<std::mutex> lock (boost::polymorphic_downcast<nano::mdb_store *> (system.nodes[0]->store_impl.get ())->cache_mutex);
+		std::lock_guard<std::mutex> lock (system.nodes[0]->store.get_cache_mutex ());
 		auto vote (system.nodes[0]->store.vote_current (transaction, nano::test_genesis_key.pub));
 		done = vote && (vote->sequence >= 10000);
 		ASSERT_NO_ERROR (ec);
@@ -2351,7 +2351,7 @@ TEST (node, local_votes_cache)
 		node.network.process_message (message2, channel);
 	}
 	{
-		std::lock_guard<std::mutex> lock (boost::polymorphic_downcast<nano::mdb_store *> (node.store_impl.get ())->cache_mutex);
+		std::lock_guard<std::mutex> lock (node.store.get_cache_mutex ());
 		auto transaction (node.store.tx_begin_read ());
 		auto current_vote (node.store.vote_current (transaction, nano::test_genesis_key.pub));
 		ASSERT_EQ (current_vote->sequence, 2);
@@ -2367,7 +2367,7 @@ TEST (node, local_votes_cache)
 		node.network.process_message (message3, channel);
 	}
 	{
-		std::lock_guard<std::mutex> lock (boost::polymorphic_downcast<nano::mdb_store *> (node.store_impl.get ())->cache_mutex);
+		std::lock_guard<std::mutex> lock (node.store.get_cache_mutex ());
 		auto transaction (node.store.tx_begin_read ());
 		auto current_vote (node.store.vote_current (transaction, nano::test_genesis_key.pub));
 		ASSERT_EQ (current_vote->sequence, 3);
@@ -2401,7 +2401,7 @@ TEST (node, local_votes_cache_generate_new_vote)
 	ASSERT_EQ (1, votes1[0]->blocks.size ());
 	ASSERT_EQ (send1->hash (), boost::get<nano::block_hash> (votes1[0]->blocks[0]));
 	{
-		std::lock_guard<std::mutex> lock (boost::polymorphic_downcast<nano::mdb_store *> (node.store_impl.get ())->cache_mutex);
+		std::lock_guard<std::mutex> lock (node.store.get_cache_mutex ());
 		auto transaction (node.store.tx_begin_read ());
 		auto current_vote (node.store.vote_current (transaction, nano::test_genesis_key.pub));
 		ASSERT_EQ (current_vote->sequence, 1);
@@ -2422,7 +2422,7 @@ TEST (node, local_votes_cache_generate_new_vote)
 	ASSERT_EQ (1, votes2.size ());
 	ASSERT_EQ (2, votes2[0]->blocks.size ());
 	{
-		std::lock_guard<std::mutex> lock (boost::polymorphic_downcast<nano::mdb_store *> (node.store_impl.get ())->cache_mutex);
+		std::lock_guard<std::mutex> lock (node.store.get_cache_mutex ());
 		auto transaction (node.store.tx_begin_read ());
 		auto current_vote (node.store.vote_current (transaction, nano::test_genesis_key.pub));
 		ASSERT_EQ (current_vote->sequence, 2);
@@ -2937,10 +2937,14 @@ TEST (node, peer_cache_restart)
 	// Restart node
 	{
 		nano::node_init init;
-		auto node (std::make_shared<nano::node> (init, system.io_ctx, 24002, path, system.alarm, system.logging, system.work));
+		nano::node_flags node_flags;
+		node_flags.read_only = true;
+		auto node (std::make_shared<nano::node> (init, system.io_ctx, 24002, path, system.alarm, system.logging, system.work, node_flags));
 		system.nodes.push_back (node);
 		// Check cached peers after restart
-		node->start ();
+		node->network.start ();
+		node->add_initial_peers ();
+
 		auto & store = node->store;
 		{
 			auto transaction (store.tx_begin_read ());
