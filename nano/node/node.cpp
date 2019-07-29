@@ -188,8 +188,8 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_processor & 
 }
 }
 
-nano::node::node (nano::node_init & init_a, boost::asio::io_context & io_ctx_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, nano::alarm & alarm_a, nano::logging const & logging_a, nano::work_pool & work_a) :
-node (init_a, io_ctx_a, application_path_a, alarm_a, nano::node_config (peering_port_a, logging_a), work_a)
+nano::node::node (nano::node_init & init_a, boost::asio::io_context & io_ctx_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, nano::alarm & alarm_a, nano::logging const & logging_a, nano::work_pool & work_a, nano::node_flags flags_a) :
+node (init_a, io_ctx_a, application_path_a, alarm_a, nano::node_config (peering_port_a, logging_a), work_a, flags_a)
 {
 }
 
@@ -1640,4 +1640,9 @@ peering_port (peering_port_a)
 nano::inactive_node::~inactive_node ()
 {
 	node->stop ();
+}
+
+std::unique_ptr<nano::block_store> nano::make_store (bool & init, nano::logger_mt & logger, boost::filesystem::path const & path)
+{
+	return std::make_unique<nano::mdb_store> (init, logger, path);
 }
