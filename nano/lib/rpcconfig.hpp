@@ -41,7 +41,7 @@ class rpc_process_config final
 public:
 	nano::network_constants network_constants;
 	unsigned io_threads{ std::max<unsigned> (4, boost::thread::hardware_concurrency ()) };
-	boost::asio::ip::address_v6 ipc_address{ boost::asio::ip::address_v6::loopback () };	
+	boost::asio::ip::address_v6 ipc_address{ boost::asio::ip::address_v6::loopback () };
 	uint16_t ipc_port{ network_constants.default_ipc_port };
 	unsigned num_ipc_connections{ network_constants.is_live_network () ? 8u : network_constants.is_beta_network () ? 4u : 1u };
 	static unsigned json_version ()
