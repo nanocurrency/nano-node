@@ -49,10 +49,15 @@ add_library (node
 	json_handler.cpp
 	json_payment_observer.hpp	
 	json_payment_observer.cpp
-	lmdb.hpp
-	lmdb.cpp
-	lmdb_txn_tracker.hpp
-	lmdb_txn_tracker.cpp
+	lmdb/lmdb.hpp
+	lmdb/lmdb.cpp
+	lmdb/lmdb_env.hpp
+	lmdb/lmdb_env.cpp
+	lmdb/lmdb_iterator.hpp
+	lmdb/lmdb_txn.hpp
+	lmdb/lmdb_txn.cpp
+	lmdb/wallet_value.hpp
+	lmdb/wallet_value.cpp
 	logging.hpp
 	logging.cpp
 	network.hpp

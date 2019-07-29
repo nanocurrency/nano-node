@@ -2,7 +2,7 @@
 #include <nano/rpc/rpc_request_processor.hpp>
 
 nano::rpc_request_processor::rpc_request_processor (boost::asio::io_context & io_ctx, nano::rpc_config & rpc_config) :
-ipc_address (rpc_config.address.to_string ()),
+ipc_address (rpc_config.rpc_process.ipc_address.to_string ()),
 ipc_port (rpc_config.rpc_process.ipc_port),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::rpc_request_processor);
@@ -113,7 +113,7 @@ void nano::rpc_request_processor::try_reconnect_and_execute_request (std::shared
 		}
 		else
 		{
-			json_error_response (rpc_request->response, "There is a problem connecting to the node. Make sure ipc->tcp is enabled in node config and ports match");
+			json_error_response (rpc_request->response, "There is a problem connecting to the node. Make sure ipc->tcp is enabled in the node config, ipc ports match and ipc_address is the ip where the node is located");
 			make_available (*connection);
 		}
 	});
