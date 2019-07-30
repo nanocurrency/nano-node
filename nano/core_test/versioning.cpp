@@ -1,5 +1,5 @@
 #include <nano/lib/logger_mt.hpp>
-#include <nano/node/lmdb.hpp>
+#include <nano/node/lmdb/lmdb.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/versioning.hpp>
 

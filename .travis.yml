@@ -9,16 +9,18 @@ jobs:
   include:
     - stage: build_base
       name: "base"
-      if: branch = docker_cache
+      if: branch=master AND type=push
       script:
-        - if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi
+        - if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi; fi
     - stage: build_env
       name: "clang"
+      if: branch=master AND type=push
       script: 
-        - if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi
+        - if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi; fi
     - name: "gcc"
+      if: branch=master AND type=push
       script: 
-        - if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi
+        - if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi; fi
     - stage: test
       name: "GCC + ONE_TIME_TESTS"      
       os: linux
@@ -50,13 +52,15 @@ jobs:
       install:
         - brew install ccache;
         - export PATH="/usr/local/opt/ccache/libexec:$PATH";
-    - stage: deploy    
+    - stage: deploy
       name: "live"
+      if: branch=~/^(master|releases\/v*)$/ AND !tag=~RC AND type=push
       script: 
-        - if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi
+        - if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi; fi
     - name: "beta"
+      if: branch=~/^(master|releases\/v*)$/ AND type=push
       script: 
-        - if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi
+        - if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi; fi
 cache:
   - ccache: true
   - directories:

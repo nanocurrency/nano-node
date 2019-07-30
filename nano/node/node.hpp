@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/boost/asio.hpp>
+#include <nano/lib/alarm.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/active_transactions.hpp>
@@ -41,30 +42,7 @@
 
 namespace nano
 {
-class channel;
 class node;
-class operation final
-{
-public:
-	bool operator> (nano::operation const &) const;
-	std::chrono::steady_clock::time_point wakeup;
-	std::function<void()> function;
-};
-class alarm final
-{
-public:
-	explicit alarm (boost::asio::io_context &);
-	~alarm ();
-	void add (std::chrono::steady_clock::time_point const &, std::function<void()> const &);
-	void run ();
-	boost::asio::io_context & io_ctx;
-	std::mutex mutex;
-	std::condition_variable condition;
-	std::priority_queue<operation, std::vector<operation>, std::greater<operation>> operations;
-	boost::thread thread;
-};
-
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (alarm & alarm, const std::string & name);
 
 class work_pool;
 class block_arrival_info final
@@ -108,7 +86,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_processor & 
 class node final : public std::enable_shared_from_this<nano::node>
 {
 public:
-	node (nano::node_init &, boost::asio::io_context &, uint16_t, boost::filesystem::path const &, nano::alarm &, nano::logging const &, nano::work_pool &);
+	node (nano::node_init &, boost::asio::io_context &, uint16_t, boost::filesystem::path const &, nano::alarm &, nano::logging const &, nano::work_pool &, nano::node_flags = nano::node_flags ());
 	node (nano::node_init &, boost::asio::io_context &, boost::filesystem::path const &, nano::alarm &, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags ());
 	~node ();
 	template <typename T>
@@ -134,6 +112,8 @@ public:
 	std::pair<nano::uint128_t, nano::uint128_t> balance_pending (nano::account const &);
 	nano::uint128_t weight (nano::account const &);
 	nano::account representative (nano::account const &);
+	nano::uint128_t minimum_principal_weight ();
+	nano::uint128_t minimum_principal_weight (nano::uint128_t const &);
 	void ongoing_rep_calculation ();
 	void ongoing_bootstrap ();
 	void ongoing_store_flush ();
