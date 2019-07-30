@@ -17,7 +17,7 @@ file(READ ${CMAKE_SOURCE_DIR}/rep_weights_live.bin liveweights HEX)
 string(REGEX REPLACE "(..)" "0x\\1," liveweights ${liveweights})
 file (WRITE ${CMAKE_BINARY_DIR}/bootstrap_weights_live.cpp "#include <cstddef>\n"
 	"namespace nano {\n"
-		"	unsigned char nano_bootstrap_weights_live[] = {${liveweights} 0x00};\n"
+	"	unsigned char nano_bootstrap_weights_live[] = {${liveweights} 0x00};\n"
 	"	size_t nano_bootstrap_weights_live_size = sizeof(nano_bootstrap_weights_live) - 1;\n"
 	"}\n")
 
@@ -26,10 +26,10 @@ if (EXISTS ${CMAKE_SOURCE_DIR}/rep_weights_beta.bin)
 	string(REGEX REPLACE "(..)" "0x\\1," betaweights ${betaweights})
 endif ()
 file (WRITE ${CMAKE_BINARY_DIR}/bootstrap_weights_beta.cpp "#include <cstddef>\n"
-		"namespace nano {\n"
-		"	unsigned char nano_bootstrap_weights_beta[] = {${betaweights} 0x00};\n"
-		"	size_t nano_bootstrap_weights_beta_size = sizeof(nano_bootstrap_weights_beta) - 1;\n"
-		"}\n")
+	"namespace nano {\n"
+	"	unsigned char nano_bootstrap_weights_beta[] = {${betaweights} 0x00};\n"
+	"	size_t nano_bootstrap_weights_beta_size = sizeof(nano_bootstrap_weights_beta) - 1;\n"
+	"}\n")
 
 add_library (secure
 	${PLATFORM_SECURE_SOURCE}
