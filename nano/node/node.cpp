@@ -313,12 +313,10 @@ startup_time (std::chrono::steady_clock::now ())
 			this->gap_cache.vote (vote_a);
 			this->online_reps.observe (vote_a->account);
 			nano::uint128_t rep_weight;
-			nano::uint128_t min_rep_weight;
 			{
 				rep_weight = ledger.weight (transaction, vote_a->account);
-				min_rep_weight = online_reps.online_stake () / 1000;
 			}
-			if (rep_weight > min_rep_weight)
+			if (rep_weight > minimum_principal_weight ())
 			{
 				bool rep_crawler_exists (false);
 				for (auto hash : *vote_a)
@@ -728,6 +726,16 @@ nano::account nano::node::representative (nano::account const & account_a)
 		result = info.rep_block;
 	}
 	return result;
+}
+
+nano::uint128_t nano::node::minimum_principal_weight ()
+{
+	return minimum_principal_weight (online_reps.online_stake ());
+}
+
+nano::uint128_t nano::node::minimum_principal_weight (nano::uint128_t const & online_stake)
+{
+	return online_stake / network_params.network.principal_weight_factor;
 }
 
 void nano::node::ongoing_rep_calculation ()
