@@ -2818,6 +2818,7 @@ void nano::json_handler::payment_wait ()
 void nano::json_handler::process ()
 {
 	const bool json_block_l = request.get<bool> ("json_block", false);
+	const bool watch_work_l = request.get<bool> ("watch_work", true);
 	std::shared_ptr<nano::block> block;
 	if (json_block_l)
 	{
@@ -2906,7 +2907,7 @@ void nano::json_handler::process ()
 				auto transaction (node.store.tx_begin_write ());
 				// Set current time to trigger automatic rebroadcast and election
 				nano::unchecked_info info (block, block->account (), nano::seconds_since_epoch (), nano::signature_verification::unknown);
-				result = node.block_processor.process_one (transaction, info);
+				result = node.block_processor.process_one (transaction, info, watch_work_l);
 			}
 			switch (result.code)
 			{

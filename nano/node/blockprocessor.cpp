@@ -347,10 +347,15 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 	}
 }
 
-void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a)
+void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a, const bool watch_work_a)
 {
 	// Start collecting quorum on block
 	node.active.start (block_a);
+	//add block to watcher if desired after block has been added to active
+	if (watch_work_a)
+	{
+		node.wallets.watcher.add (block_a);
+	}
 	// Announce block contents to the network
 	node.network.flood_block (block_a, false);
 	if (node.config.enable_voting)
@@ -382,7 +387,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	});
 }
 
-nano::process_return nano::block_processor::process_one (nano::transaction const & transaction_a, nano::unchecked_info info_a)
+nano::process_return nano::block_processor::process_one (nano::transaction const & transaction_a, nano::unchecked_info info_a, const bool work_watcher_a)
 {
 	nano::process_return result;
 	auto hash (info_a.block->hash ());
@@ -400,7 +405,7 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 			}
 			if (info_a.modified > nano::seconds_since_epoch () - 300 && node.block_arrival.recent (hash))
 			{
-				process_live (hash, info_a.block);
+				process_live (hash, info_a.block, work_watcher_a);
 			}
 			queue_unchecked (transaction_a, hash);
 			break;
@@ -515,10 +520,10 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 	return result;
 }
 
-nano::process_return nano::block_processor::process_one (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a)
+nano::process_return nano::block_processor::process_one (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, const bool watch_work_a)
 {
 	nano::unchecked_info info (block_a, block_a->account (), 0, nano::signature_verification::unknown);
-	auto result (process_one (transaction_a, info));
+	auto result (process_one (transaction_a, info, watch_work_a));
 	return result;
 }
 
