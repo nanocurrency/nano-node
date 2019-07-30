@@ -2416,6 +2416,7 @@ TEST (rpc, version)
 	{
 		ASSERT_EQ (boost::str (boost::format ("Nano %1%") % NANO_MAJOR_MINOR_RC_VERSION), response1.json.get<std::string> ("node_vendor"));
 	}
+	ASSERT_EQ (BUILD_INFO, response1.json.get<std::string> ("build_info"));
 	auto headers (response1.resp.base ());
 	auto allow (headers.at ("Allow"));
 	auto content_type (headers.at ("Content-Type"));

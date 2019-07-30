@@ -3771,6 +3771,7 @@ void nano::json_handler::version ()
 	{
 		response_l.put ("node_vendor", boost::str (boost::format ("Nano %1%") % NANO_MAJOR_MINOR_RC_VERSION));
 	}
+	response_l.put ("build_info", BUILD_INFO);
 	response_errors ();
 }
 
