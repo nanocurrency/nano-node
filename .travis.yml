@@ -54,11 +54,11 @@ jobs:
         - export PATH="/usr/local/opt/ccache/libexec:$PATH";
     - stage: deploy
       name: "live"
-      if: branch=~/^(master|releases\/v*)$/ AND !tag=~RC AND type=push
+      if: branch=~master|releases\/v* AND !tag=~RC|DB AND type=push
       script: 
         - if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi; fi
     - name: "beta"
-      if: branch=~/^(master|releases\/v*)$/ AND type=push
+      if: (branch=~master|releases\/v* AND type=push) OR tag =~RC|DB
       script: 
         - if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi; fi
 cache:
