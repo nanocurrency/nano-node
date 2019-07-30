@@ -26,7 +26,7 @@ while getopts 'hmcCkpvB:' OPT; do
 			exit 0
 			;;
 		m)
-			bootstrapArgs+=('--with-libraries=thread,log,filesystem,program_options')
+			bootstrapArgs+=('--with-libraries=system,thread,log,filesystem,program_options')
 			;;
 		c)
 			useClang='true'
