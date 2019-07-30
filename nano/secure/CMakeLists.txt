@@ -36,6 +36,7 @@ add_library (secure
 	common.hpp
 	common.cpp
 	blockstore.hpp
+	blockstore_partial.hpp
 	blockstore.cpp
 	ledger.hpp
 	ledger.cpp

@@ -90,6 +90,8 @@ enum class error_rpc
 	confirmation_height_not_processing,
 	confirmation_not_found,
 	difficulty_limit,
+	disabled_bootstrap_lazy,
+	disabled_bootstrap_legacy,
 	invalid_balance,
 	invalid_destinations,
 	invalid_offset,
