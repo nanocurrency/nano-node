@@ -63,8 +63,9 @@ public:
 	{
 		// Local work threshold for rate-limiting publishing blocks. ~5 seconds of work.
 		uint64_t constexpr publish_test_threshold = 0xff00000000000000;
+		uint64_t constexpr publish_beta_threshold = 0xfffffc0000000000;
 		uint64_t constexpr publish_full_threshold = 0xffffffc000000000;
-		publish_threshold = is_test_network () ? publish_test_threshold : publish_full_threshold;
+		publish_threshold = is_test_network () ? publish_test_threshold : is_beta_network () ? publish_beta_threshold : publish_full_threshold;
 
 		// A representative is classified as principal based on its weight and this factor
 		principal_weight_factor = 1000; // 0.1%
