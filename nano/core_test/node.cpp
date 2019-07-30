@@ -3040,7 +3040,7 @@ TEST (confirmation_height, prioritize_frontiers)
 	};
 	// clang-format on
 	{
-		node->active.prioritize_frontiers_for_confirmation (transaction, std::chrono::seconds (1));
+		node->active.prioritize_frontiers_for_confirmation (transaction, std::chrono::seconds (1), std::chrono::seconds (1));
 		ASSERT_EQ (node->active.priority_cementable_frontiers_size (), num_accounts);
 		// Check the order of accounts is as expected (greatest number of uncemented blocks at the front). key3 and key4 have the same value, the order is unspecified so check both
 		std::array<nano::account, num_accounts> desired_order_1{ nano::genesis_account, key3.pub, key4.pub, key1.pub, key2.pub };
@@ -3053,11 +3053,11 @@ TEST (confirmation_height, prioritize_frontiers)
 		system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 		system.wallet (0)->insert_adhoc (key1.prv);
 		system.wallet (0)->insert_adhoc (key2.prv);
-		node->active.prioritize_frontiers_for_confirmation (transaction, std::chrono::seconds (1));
+		node->active.prioritize_frontiers_for_confirmation (transaction, std::chrono::seconds (1), std::chrono::seconds (1));
 		ASSERT_EQ (node->active.priority_cementable_frontiers_size (), num_accounts - 3);
-		ASSERT_EQ (node->active.priority_local_cementable_frontiers_size (), num_accounts - 2);
+		ASSERT_EQ (node->active.priority_wallet_cementable_frontiers_size (), num_accounts - 2);
 		std::array<nano::account, 3> local_desired_order{ nano::genesis_account, key1.pub, key2.pub };
-		ASSERT_TRUE (priority_orders_match (node->active.priority_local_cementable_frontiers, local_desired_order));
+		ASSERT_TRUE (priority_orders_match (node->active.priority_wallet_cementable_frontiers, local_desired_order));
 		std::array<nano::account, 2> desired_order_1{ key3.pub, key4.pub };
 		std::array<nano::account, 2> desired_order_2{ key4.pub, key3.pub };
 		ASSERT_TRUE (priority_orders_match (node->active.priority_cementable_frontiers, desired_order_1) || priority_orders_match (node->active.priority_cementable_frontiers, desired_order_2));
@@ -3067,12 +3067,12 @@ TEST (confirmation_height, prioritize_frontiers)
 		// Add the remainder of accounts to node wallets and check size/ordering is correct
 		system.wallet (0)->insert_adhoc (key3.prv);
 		system.wallet (0)->insert_adhoc (key4.prv);
-		node->active.prioritize_frontiers_for_confirmation (transaction, std::chrono::seconds (1));
+		node->active.prioritize_frontiers_for_confirmation (transaction, std::chrono::seconds (1), std::chrono::seconds (1));
 		ASSERT_EQ (node->active.priority_cementable_frontiers_size (), 0);
-		ASSERT_EQ (node->active.priority_local_cementable_frontiers_size (), num_accounts);
+		ASSERT_EQ (node->active.priority_wallet_cementable_frontiers_size (), num_accounts);
 		std::array<nano::account, num_accounts> desired_order_1{ nano::genesis_account, key3.pub, key4.pub, key1.pub, key2.pub };
 		std::array<nano::account, num_accounts> desired_order_2{ nano::genesis_account, key4.pub, key3.pub, key1.pub, key2.pub };
-		ASSERT_TRUE (priority_orders_match (node->active.priority_local_cementable_frontiers, desired_order_1) || priority_orders_match (node->active.priority_local_cementable_frontiers, desired_order_2));
+		ASSERT_TRUE (priority_orders_match (node->active.priority_wallet_cementable_frontiers, desired_order_1) || priority_orders_match (node->active.priority_wallet_cementable_frontiers, desired_order_2));
 	}
 
 	// Check that accounts which already exist have their order modified when the uncemented count changes.
@@ -3092,8 +3092,8 @@ TEST (confirmation_height, prioritize_frontiers)
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send17).code);
 	}
 	transaction.refresh ();
-	node->active.prioritize_frontiers_for_confirmation (transaction, std::chrono::seconds (1));
-	ASSERT_TRUE (priority_orders_match (node->active.priority_local_cementable_frontiers, std::array<nano::account, num_accounts>{ key3.pub, nano::genesis_account, key4.pub, key1.pub, key2.pub }));
+	node->active.prioritize_frontiers_for_confirmation (transaction, std::chrono::seconds (1), std::chrono::seconds (1));
+	ASSERT_TRUE (priority_orders_match (node->active.priority_wallet_cementable_frontiers, std::array<nano::account, num_accounts>{ key3.pub, nano::genesis_account, key4.pub, key1.pub, key2.pub }));
 
 	// Check that the active transactions roots contains the frontiers
 	{

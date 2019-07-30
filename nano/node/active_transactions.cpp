@@ -58,8 +58,9 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 		}
 
 		// Spend time prioritizing accounts to reduce voting traffic
-		auto time_to_spend_prioritizing = (frontiers_fully_confirmed ? std::chrono::milliseconds (200) : std::chrono::seconds (2));
-		prioritize_frontiers_for_confirmation (transaction_a, is_test_network ? std::chrono::milliseconds (50) : time_to_spend_prioritizing);
+		auto time_spent_prioritizing_ledger_accounts = (frontiers_fully_confirmed ? std::chrono::milliseconds (200) : std::chrono::seconds (2));
+		auto time_spent_prioritizing_wallet_accounts = std::chrono::milliseconds (50);
+		prioritize_frontiers_for_confirmation (transaction_a, is_test_network ? std::chrono::milliseconds (50) : time_spent_prioritizing_ledger_accounts, time_spent_prioritizing_wallet_accounts);
 
 		size_t elections_count (0);
 		lk.lock ();
@@ -91,7 +92,7 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 			}
 		};
 		start_elections_for_prioritized_frontiers (priority_cementable_frontiers);
-		start_elections_for_prioritized_frontiers (priority_local_cementable_frontiers);
+		start_elections_for_prioritized_frontiers (priority_wallet_cementable_frontiers);
 		frontiers_fully_confirmed = (elections_count < max_elections);
 		// 4 times slower check if all frontiers were confirmed
 		auto fully_confirmed_factor = frontiers_fully_confirmed ? 4 : 1;
@@ -391,33 +392,40 @@ void nano::active_transactions::prioritize_account_for_confirmation (nano::activ
 	}
 }
 
-void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::transaction const & transaction_a, std::chrono::milliseconds time_a)
+void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::transaction const & transaction_a, std::chrono::milliseconds ledger_accounts_time_a, std::chrono::milliseconds wallet_account_time_a)
 {
 	// Don't try to prioritize when there are a large number of pending confirmation heights as blocks can be cemented in the meantime, making the prioritization less reliable
-	nano::timer<std::chrono::milliseconds> timer;
 	if (node.pending_confirmation_height.size () < confirmed_frontiers_max_pending_cut_off)
 	{
 		std::unique_lock<std::mutex> lk (mutex);
 		auto priority_cementable_frontiers_size = priority_cementable_frontiers.size ();
-		auto priority_local_cementable_frontiers_size = priority_local_cementable_frontiers.size ();
+		auto priority_wallet_cementable_frontiers_size = priority_wallet_cementable_frontiers.size ();
 		lk.unlock ();
 
-		timer.start ();
+		nano::timer<std::chrono::milliseconds> wallet_account_timer;
+		wallet_account_timer.start ();
 
-		if (!skip_local)
+		if (!skip_wallets)
 		{
-			// Prioritize local accounts first
-			std::vector<std::pair<nano::account, nano::account_info>> accounts;
+			// Prioritize wallet accounts first
 			{
 				std::lock_guard<std::mutex> lock (node.wallets.mutex);
 				auto wallet_transaction (node.wallets.tx_begin_read ());
 				for (auto & item : node.wallets.items)
 				{
-					auto & wallet (item.second);
+					// Skip this wallet if it has been traversed already while there are others still awaiting
+					if (wallet_accounts_already_iterated.find (item.first) != wallet_accounts_already_iterated.end ())
+					{
+						continue;
+					}
+
 					nano::account_info info;
+					auto & wallet (item.second);
 					std::lock_guard<std::recursive_mutex> wallet_lock (wallet->store.mutex);
 
-					auto i (wallet->store.begin (wallet_transaction, next_local_frontier_account));
+					auto & next_wallet_frontier_account = next_wallet_frontier_accounts.emplace (item.first, wallet_store::special_count).first->second;
+
+					auto i (wallet->store.begin (wallet_transaction, next_wallet_frontier_account));
 					auto n (wallet->store.end ());
 					for (; i != n; ++i)
 					{
@@ -431,24 +439,34 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 								priority_cementable_frontiers.erase (it);
 							}
 
-							prioritize_account_for_confirmation (priority_local_cementable_frontiers, priority_local_cementable_frontiers_size, account, info);
+							prioritize_account_for_confirmation (priority_wallet_cementable_frontiers, priority_wallet_cementable_frontiers_size, account, info);
 
-							if (timer.since_start () >= time_a)
+							if (wallet_account_timer.since_start () >= wallet_account_time_a)
 							{
 								break;
 							}
 						}
-						next_local_frontier_account = account.number () + 1;
+						next_wallet_frontier_account = account.number () + 1;
 					}
-					// Go back to the beginning when we have reached the end of the local accounts and make sure we skip local accounts
+					// Go back to the beginning when we have reached the end of the wallet accounts for this wallet
 					if (i == n)
 					{
-						next_local_frontier_account = 0;
-						skip_local = true;
+						wallet_accounts_already_iterated.emplace (item.first);
+						next_wallet_frontier_accounts.at (item.first) = wallet_store::special_count;
+
+						// Skip wallet accounts when they have all been traversed
+						if (std::addressof (item) == std::addressof (*(--node.wallets.items.end ())))
+						{
+							wallet_accounts_already_iterated.clear ();
+							skip_wallets = true;
+						}
 					}
 				}
 			}
 		}
+
+		nano::timer<std::chrono::milliseconds> timer;
+		timer.start ();
 
 		auto i (node.store.latest_begin (transaction_a, next_frontier_account));
 		auto n (node.store.latest_end ());
@@ -456,22 +474,22 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 		{
 			auto const & account (i->first);
 			auto const & info (i->second);
-			if (priority_local_cementable_frontiers.find (account) == priority_local_cementable_frontiers.end ())
+			if (priority_wallet_cementable_frontiers.find (account) == priority_wallet_cementable_frontiers.end ())
 			{
 				prioritize_account_for_confirmation (priority_cementable_frontiers, priority_cementable_frontiers_size, account, info);
 			}
 			next_frontier_account = account.number () + 1;
-			if (timer.since_start () >= time_a)
+			if (timer.since_start () >= ledger_accounts_time_a)
 			{
 				break;
 			}
 		}
 
-		// Go back to the beginning when we have reached the end of the accounts and start with local accounts next time
+		// Go back to the beginning when we have reached the end of the accounts and start with wallet accounts next time
 		if (i == n)
 		{
 			next_frontier_account = 0;
-			skip_local = false;
+			skip_wallets = false;
 		}
 	}
 }
@@ -848,10 +866,10 @@ size_t nano::active_transactions::priority_cementable_frontiers_size ()
 	return priority_cementable_frontiers.size ();
 }
 
-size_t nano::active_transactions::priority_local_cementable_frontiers_size ()
+size_t nano::active_transactions::priority_wallet_cementable_frontiers_size ()
 {
 	std::lock_guard<std::mutex> guard (mutex);
-	return priority_local_cementable_frontiers.size ();
+	return priority_wallet_cementable_frontiers.size ();
 }
 
 boost::circular_buffer<double> nano::active_transactions::difficulty_trend ()
@@ -884,7 +902,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transaction
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "roots", roots_count, sizeof (decltype (active_transactions.roots)::value_type) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "blocks", blocks_count, sizeof (decltype (active_transactions.blocks)::value_type) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "confirmed", confirmed_count, sizeof (decltype (active_transactions.confirmed)::value_type) }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "priority_local_cementable_frontiers_count", active_transactions.priority_local_cementable_frontiers_size (), sizeof (nano::cementable_account) }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "priority_wallet_cementable_frontiers_count", active_transactions.priority_wallet_cementable_frontiers_size (), sizeof (nano::cementable_account) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "priority_cementable_frontiers_count", active_transactions.priority_cementable_frontiers_size (), sizeof (nano::cementable_account) }));
 	return composite;
 }
