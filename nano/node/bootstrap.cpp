@@ -282,7 +282,7 @@ nano::bulk_pull_client::bulk_pull_client (std::shared_ptr<nano::bootstrap_client
 connection (connection_a),
 known_account (0),
 pull (pull_a),
-total_blocks (0),
+pull_blocks (0),
 unexpected_count (0)
 {
 	std::lock_guard<std::mutex> mutex (connection->attempt->mutex);
@@ -299,7 +299,7 @@ nano::bulk_pull_client::~bulk_pull_client ()
 		{
 			pull.account = expected;
 		}
-		pull.processed += total_blocks - unexpected_count;
+		pull.processed += pull_blocks - unexpected_count;
 		connection->attempt->requeue_pull (pull);
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
@@ -461,7 +461,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 			{
 				unexpected_count++;
 			}
-			if (total_blocks == 0 && block_expected)
+			if (pull_blocks == 0 && block_expected)
 			{
 				known_account = block->account ();
 			}
@@ -470,8 +470,8 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 				connection->start_time = std::chrono::steady_clock::now ();
 			}
 			connection->attempt->total_blocks++;
-			bool stop_pull (connection->attempt->process_block (block, known_account, total_blocks, block_expected));
-			total_blocks++;
+			bool stop_pull (connection->attempt->process_block (block, known_account, pull_blocks, block_expected));
+			pull_blocks++;
 			if (!stop_pull && !connection->hard_stop.load ())
 			{
 				/* Process block in lazy pull if not stopped
@@ -631,7 +631,7 @@ void nano::bulk_push_client::push_block (nano::block const & block_a)
 nano::bulk_pull_account_client::bulk_pull_account_client (std::shared_ptr<nano::bootstrap_client> connection_a, nano::account const & account_a) :
 connection (connection_a),
 account (account_a),
-total_blocks (0)
+pull_blocks (0)
 {
 	connection->attempt->condition.notify_all ();
 }
@@ -702,11 +702,11 @@ void nano::bulk_pull_account_client::receive_pending ()
 				auto error2 (nano::try_read (balance_stream, balance));
 				(void)error2;
 				assert (!error2);
-				if (this_l->total_blocks == 0 || !pending.is_zero ())
+				if (this_l->pull_blocks == 0 || !pending.is_zero ())
 				{
-					if (this_l->total_blocks == 0 || balance.number () >= this_l->connection->node->config.receive_minimum.number ())
+					if (this_l->pull_blocks == 0 || balance.number () >= this_l->connection->node->config.receive_minimum.number ())
 					{
-						this_l->total_blocks++;
+						this_l->pull_blocks++;
 						{
 							if (!pending.is_zero ())
 							{
@@ -1416,7 +1416,7 @@ void nano::bootstrap_attempt::lazy_run ()
 	idle.clear ();
 }
 
-bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_a, nano::account const & known_account_a, uint64_t total_blocks, bool block_expected)
+bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_a, nano::account const & known_account_a, uint64_t pull_blocks, bool block_expected)
 {
 	bool stop_pull (false);
 	if (mode != nano::bootstrap_mode::legacy && block_expected)
@@ -1495,7 +1495,7 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_
 				}
 				lazy_blocks.insert (hash);
 				// Adding lazy balances
-				if (total_blocks == 0)
+				if (pull_blocks == 0)
 				{
 					lazy_balances.insert (std::make_pair (hash, balance));
 				}
@@ -1511,7 +1511,7 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_
 				// Disabled until server rewrite
 				// stop_pull = true;
 				// Force drop lazy bootstrap connection for long bulk_pull
-				if (total_blocks > node->network_params.bootstrap.lazy_max_pull_blocks)
+				if (pull_blocks > node->network_params.bootstrap.lazy_max_pull_blocks)
 				{
 					stop_pull = true;
 				}
@@ -1553,7 +1553,7 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_
 			// Disabled until server rewrite
 			// stop_pull = true;
 			// Force drop lazy bootstrap connection for long bulk_pull
-			if (total_blocks > node->network_params.bootstrap.lazy_max_pull_blocks)
+			if (pull_blocks > node->network_params.bootstrap.lazy_max_pull_blocks)
 			{
 				stop_pull = true;
 			}
