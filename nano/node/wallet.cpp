@@ -808,8 +808,7 @@ nano::public_key nano::wallet::deterministic_insert (nano::transaction const & t
 		{
 			work_ensure (key, key);
 		}
-		auto supply (wallets.node.online_reps.online_stake ());
-		auto half_principal_weight ((supply / 1000) / 2);
+		auto half_principal_weight (wallets.node.minimum_principal_weight () / 2);
 		auto block_transaction (wallets.node.store.tx_begin_read ());
 		if (wallets.check_rep (block_transaction, key, half_principal_weight))
 		{
@@ -853,8 +852,7 @@ nano::public_key nano::wallet::insert_adhoc (nano::transaction const & transacti
 		{
 			work_ensure (key, wallets.node.ledger.latest_root (block_transaction, key));
 		}
-		auto supply (wallets.node.online_reps.online_stake ());
-		auto half_principal_weight ((supply / 1000) / 2);
+		auto half_principal_weight (wallets.node.minimum_principal_weight () / 2);
 		if (wallets.check_rep (block_transaction, key, half_principal_weight))
 		{
 			std::lock_guard<std::mutex> lock (representatives_mutex);
@@ -1849,8 +1847,7 @@ void nano::wallets::compute_reps ()
 	std::lock_guard<std::mutex> lock (mutex);
 	reps_count = 0;
 	half_principal_reps_count = 0;
-	auto supply (node.online_reps.online_stake ());
-	auto half_principal_weight ((supply / 1000) / 2);
+	auto half_principal_weight (node.minimum_principal_weight () / 2);
 	auto ledger_transaction (node.store.tx_begin_read ());
 	auto transaction (tx_begin_read ());
 	for (auto i (items.begin ()), n (items.end ()); i != n; ++i)

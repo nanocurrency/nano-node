@@ -490,7 +490,7 @@ nano::frontiers_confirmation_mode nano::node_config::deserialize_frontiers_confi
 	{
 		return nano::frontiers_confirmation_mode::lazy;
 	}
-	if (string_a == "disabled")
+	else if (string_a == "disabled")
 	{
 		return nano::frontiers_confirmation_mode::disabled;
 	}
