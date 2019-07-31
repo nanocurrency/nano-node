@@ -128,6 +128,7 @@ public:
 	void work_generate_blocking (nano::block &);
 	uint64_t work_generate_blocking (nano::uint256_union const &, uint64_t);
 	uint64_t work_generate_blocking (nano::uint256_union const &);
+	void work_generate_start (nano::uint256_union const &, std::function<void(uint64_t)>, uint64_t);
 	void work_generate (nano::uint256_union const &, std::function<void(uint64_t)>, uint64_t);
 	void work_generate (nano::uint256_union const &, std::function<void(uint64_t)>);
 	void add_initial_peers ();
