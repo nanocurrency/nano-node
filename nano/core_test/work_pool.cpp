@@ -41,7 +41,7 @@ TEST (work, cancel)
 		pool.generate (key, [&done](boost::optional<uint64_t> work_a) {
 			done = !work_a;
 		});
-		pool.cancel (pool.network_constants.is_live_network () ? key : key ^ static_cast<uint64_t> (pool.network_constants.current_network));
+		pool.cancel (key);
 		++iterations;
 		ASSERT_LT (iterations, 200);
 	}

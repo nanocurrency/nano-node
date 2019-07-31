@@ -4452,7 +4452,8 @@ void nano::json_handler::work_generate ()
 		}
 		else
 		{
-			node.work_generate (hash, callback, difficulty);
+			// Double XOR with nano::node::work_generate () function
+			node.work_generate (node.network_params.network.is_live_network () ? hash : hash ^ static_cast<uint64_t> (node.network_params.network.current_network), callback, difficulty);
 		}
 	}
 	// Because of callback
@@ -4467,7 +4468,7 @@ void nano::json_handler::work_cancel ()
 	auto hash (hash_impl ());
 	if (!ec)
 	{
-		node.work.cancel (node.network_params.network.is_live_network () ? hash : hash ^ static_cast<uint64_t> (node.network_params.network.current_network));
+		node.work.cancel (hash);
 	}
 	response_errors ();
 }

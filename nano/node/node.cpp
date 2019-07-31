@@ -1214,7 +1214,7 @@ void nano::node::work_generate (nano::uint256_union const & hash_a, std::functio
 
 void nano::node::work_generate (nano::uint256_union const & hash_a, std::function<void(uint64_t)> callback_a, uint64_t difficulty_a)
 {
-	auto work_generation (std::make_shared<distributed_work> (shared (), hash_a, callback_a, difficulty_a));
+	auto work_generation (std::make_shared<distributed_work> (shared (), network_params.network.is_live_network () ? hash_a : hash_a ^ static_cast<uint64_t> (network_params.network.current_network), callback_a, difficulty_a));
 	work_generation->start ();
 }
 

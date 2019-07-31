@@ -185,13 +185,13 @@ void nano::work_pool::generate (nano::uint256_union const & hash_a, std::functio
 	boost::optional<uint64_t> result;
 	if (opencl)
 	{
-		result = opencl (network_constants.is_live_network () ? hash_a : hash_a ^ static_cast<uint64_t> (network_constants.current_network), difficulty_a);
+		result = opencl (hash_a, difficulty_a);
 	}
 	if (!result)
 	{
 		{
 			std::lock_guard<std::mutex> lock (mutex);
-			pending.push_back ({ network_constants.is_live_network () ? hash_a : hash_a ^ static_cast<uint64_t> (network_constants.current_network), callback_a, difficulty_a });
+			pending.push_back ({ hash_a, callback_a, difficulty_a });
 		}
 		producer_condition.notify_all ();
 	}
