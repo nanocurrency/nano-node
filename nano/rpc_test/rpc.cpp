@@ -2416,6 +2416,10 @@ TEST (rpc, version)
 	{
 		ASSERT_EQ (boost::str (boost::format ("Nano %1%") % NANO_MAJOR_MINOR_RC_VERSION), response1.json.get<std::string> ("node_vendor"));
 	}
+	auto network_label (node1->network_params.network.get_current_network_as_string ());
+	ASSERT_EQ (network_label, response1.json.get<std::string> ("network"));
+	auto genesis_open (node1->latest (nano::test_genesis_key.pub));
+	ASSERT_EQ (genesis_open.to_string (), response1.json.get<std::string> ("network_identifier"));
 	ASSERT_EQ (BUILD_INFO, response1.json.get<std::string> ("build_info"));
 	auto headers (response1.resp.base ());
 	auto allow (headers.at ("Allow"));

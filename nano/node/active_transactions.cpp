@@ -255,9 +255,9 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 				{
 					auto deque_l (node.network.udp_channels.random_set (100));
 					auto vec (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> ());
-					for (auto i : deque_l)
+					for (auto j : deque_l)
 					{
-						vec->push_back (i);
+						vec->push_back (j);
 					}
 					confirm_req_bundle.push_back (std::make_pair (election_l->status.winner, vec));
 				}
