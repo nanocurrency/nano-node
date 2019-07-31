@@ -4,10 +4,9 @@
 
 #include <boost/thread.hpp>
 
-#include <set>
-
 #include <QtGui>
 #include <QtWidgets>
+#include <set>
 
 namespace nano_qt
 {
@@ -268,6 +267,7 @@ public:
 	QWidget * window;
 	QVBoxLayout * layout;
 	QPushButton * refresh;
+	QPushButton * clear;
 	QStandardItemModel * model;
 	QTableView * view;
 	QPushButton * back;

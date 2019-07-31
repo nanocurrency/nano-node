@@ -1,10 +1,12 @@
 #pragma once
 
-#include <atomic>
-#include <boost/asio.hpp>
-#include <boost/property_tree/ptree.hpp>
+#include <nano/boost/asio.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/ipc.hpp>
+
+#include <boost/property_tree/ptree.hpp>
+
+#include <atomic>
 #include <string>
 #include <vector>
 

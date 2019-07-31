@@ -1,19 +1,18 @@
 #pragma once
 
+#include <nano/crypto/blake2/blake2.h>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
+
 #include <cassert>
-#include <crypto/blake2/blake2.h>
 #include <streambuf>
 #include <unordered_map>
 
 namespace nano
 {
-std::string to_string_hex (uint64_t);
-bool from_string_hex (std::string const &, uint64_t &);
 // We operate on streams of uint8_t by convention
 using stream = std::basic_streambuf<uint8_t>;
 // Read a raw byte stream the size of `T' and fill value.
@@ -40,6 +39,7 @@ void write (nano::stream & stream_a, T const & value)
 {
 	static_assert (std::is_standard_layout<T>::value, "Can't stream write non-standard layout types");
 	auto amount_written (stream_a.sputn (reinterpret_cast<uint8_t const *> (&value), sizeof (value)));
+	(void)amount_written;
 	assert (amount_written == sizeof (value));
 }
 class block_visitor;
@@ -356,8 +356,9 @@ private:
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_uniquer & block_uniquer, const std::string & name);
 
-std::shared_ptr<nano::block> deserialize_block (nano::stream &, nano::block_uniquer * = nullptr);
+std::shared_ptr<nano::block> deserialize_block (nano::stream &);
 std::shared_ptr<nano::block> deserialize_block (nano::stream &, nano::block_type, nano::block_uniquer * = nullptr);
 std::shared_ptr<nano::block> deserialize_block_json (boost::property_tree::ptree const &, nano::block_uniquer * = nullptr);
 void serialize_block (nano::stream &, nano::block const &);
+void block_memory_pool_purge ();
 }

@@ -1,16 +1,22 @@
 #pragma once
 
-#include <boost/thread/thread.hpp>
-#include <mutex>
 #include <nano/lib/config.hpp>
-#include <nano/node/lmdb.hpp>
+#include <nano/node/lmdb/lmdb.hpp>
+#include <nano/node/lmdb/wallet_value.hpp>
 #include <nano/node/openclwork.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
+
+#include <boost/thread/thread.hpp>
+
+#include <mutex>
 #include <unordered_set>
 
 namespace nano
 {
+class node;
+class node_config;
+class wallets;
 // The fan spreads a key out over the heap to decrease the likelihood of it being recovered by memory inspection
 class fan final
 {
@@ -24,7 +30,6 @@ private:
 	std::mutex mutex;
 	void value_get (nano::raw_key &);
 };
-class node_config;
 class kdf final
 {
 public:
@@ -111,7 +116,6 @@ public:
 private:
 	MDB_txn * tx (nano::transaction const &) const;
 };
-class wallets;
 // A wallet is a set of account keys encrypted by a common encryption key
 class wallet final : public std::enable_shared_from_this<nano::wallet>
 {
@@ -138,7 +142,6 @@ public:
 	void receive_async (std::shared_ptr<nano::block>, nano::account const &, nano::uint128_t const &, std::function<void(std::shared_ptr<nano::block>)> const &, uint64_t = 0, bool = true);
 	nano::block_hash send_sync (nano::account const &, nano::account const &, nano::uint128_t const &);
 	void send_async (nano::account const &, nano::account const &, nano::uint128_t const &, std::function<void(std::shared_ptr<nano::block>)> const &, uint64_t = 0, bool = true, boost::optional<std::string> = {});
-	void work_apply (nano::account const &, std::function<void(uint64_t)>);
 	void work_cache_blocking (nano::account const &, nano::block_hash const &);
 	void work_update (nano::transaction const &, nano::account const &, nano::block_hash const &, uint64_t);
 	void work_ensure (nano::account const &, nano::block_hash const &);
@@ -157,8 +160,24 @@ public:
 	std::mutex representatives_mutex;
 	std::unordered_set<nano::account> representatives;
 };
-class node;
 
+class work_watcher
+{
+public:
+	work_watcher (nano::node &);
+	~work_watcher ();
+	void stop ();
+	void run ();
+	void add (std::shared_ptr<nano::block>);
+	void remove (std::shared_ptr<nano::block>);
+	bool is_watched (nano::qualified_root const &);
+	std::mutex mutex;
+	nano::node & node;
+	std::condition_variable condition;
+	std::atomic<bool> stopped;
+	std::unordered_map<nano::qualified_root, std::shared_ptr<nano::state_block>> blocks;
+	std::thread thread;
+};
 /**
  * The wallets set is all the wallets a node controls.
  * A node may contain multiple wallets independently encrypted and operated.
@@ -166,7 +185,7 @@ class node;
 class wallets final
 {
 public:
-	wallets (bool &, nano::node &);
+	wallets (bool, nano::node &);
 	~wallets ();
 	std::shared_ptr<nano::wallet> open (nano::uint256_union const &);
 	std::shared_ptr<nano::wallet> create (nano::uint256_union const &);
@@ -174,6 +193,7 @@ public:
 	void search_pending_all ();
 	void destroy (nano::uint256_union const &);
 	void reload ();
+	void do_work_regeneration ();
 	void do_wallet_actions ();
 	void queue_wallet_action (nano::uint128_t const &, std::shared_ptr<nano::wallet>, std::function<void(nano::wallet &)> const &);
 	void foreach_representative (nano::transaction const &, std::function<void(nano::public_key const &, nano::raw_key const &)> const &);
@@ -197,22 +217,17 @@ public:
 	nano::node & node;
 	nano::mdb_env & env;
 	std::atomic<bool> stopped;
+	nano::work_watcher watcher;
 	boost::thread thread;
 	static nano::uint128_t const generate_priority;
 	static nano::uint128_t const high_priority;
 	std::atomic<uint64_t> reps_count{ 0 };
 
 	/** Start read-write transaction */
-	nano::transaction tx_begin_write ();
+	nano::write_transaction tx_begin_write ();
 
 	/** Start read-only transaction */
-	nano::transaction tx_begin_read ();
-
-	/**
-	 * Start a read-only or read-write transaction
-	 * @param write If true, start a read-write transaction
-	 */
-	nano::transaction tx_begin (bool write = false);
+	nano::read_transaction tx_begin_read ();
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (wallets & wallets, const std::string & name);

@@ -1,8 +1,12 @@
-#include <boost/log/utility/setup/console.hpp>
-#include <chrono>
-#include <gtest/gtest.h>
+#include <nano/core_test/testutil.hpp>
 #include <nano/node/logging.hpp>
 #include <nano/secure/utility.hpp>
+
+#include <gtest/gtest.h>
+
+#include <boost/log/utility/setup/console.hpp>
+
+#include <chrono>
 #include <regex>
 
 using namespace std::chrono_literals;
@@ -15,6 +19,7 @@ TEST (logging, serialization)
 	logging1.ledger_logging_value = !logging1.ledger_logging_value;
 	logging1.ledger_duplicate_logging_value = !logging1.ledger_duplicate_logging_value;
 	logging1.network_logging_value = !logging1.network_logging_value;
+	logging1.network_timeout_logging_value = !logging1.network_timeout_logging_value;
 	logging1.network_message_logging_value = !logging1.network_message_logging_value;
 	logging1.network_publish_logging_value = !logging1.network_publish_logging_value;
 	logging1.network_packet_logging_value = !logging1.network_packet_logging_value;
@@ -37,6 +42,7 @@ TEST (logging, serialization)
 	ASSERT_EQ (logging1.ledger_logging_value, logging2.ledger_logging_value);
 	ASSERT_EQ (logging1.ledger_duplicate_logging_value, logging2.ledger_duplicate_logging_value);
 	ASSERT_EQ (logging1.network_logging_value, logging2.network_logging_value);
+	ASSERT_EQ (logging1.network_timeout_logging_value, logging2.network_timeout_logging_value);
 	ASSERT_EQ (logging1.network_message_logging_value, logging2.network_message_logging_value);
 	ASSERT_EQ (logging1.network_publish_logging_value, logging2.network_publish_logging_value);
 	ASSERT_EQ (logging1.network_packet_logging_value, logging2.network_packet_logging_value);
@@ -81,34 +87,13 @@ TEST (logging, upgrade_v6_v7)
 	logging1.serialize_json (tree);
 	tree.erase ("version");
 	tree.erase ("min_time_between_output");
+	tree.erase ("network_timeout_logging_value");
 	bool upgraded (false);
 	ASSERT_FALSE (logging2.deserialize_json (upgraded, tree));
 	ASSERT_TRUE (upgraded);
 	ASSERT_LE (7, tree.get<int> ("version"));
 	ASSERT_EQ (5, tree.get<uintmax_t> ("min_time_between_output"));
-}
-
-namespace
-{
-class boost_log_cerr_redirect
-{
-public:
-	boost_log_cerr_redirect (std::streambuf * new_buffer) :
-	old (std::cerr.rdbuf (new_buffer))
-	{
-		console_sink = (boost::log::add_console_log (std::cerr, boost::log::keywords::format = "%Message%"));
-	}
-
-	~boost_log_cerr_redirect ()
-	{
-		std::cerr.rdbuf (old);
-		boost::log::core::get ()->remove_sink (console_sink);
-	}
-
-private:
-	std::streambuf * old;
-	boost::shared_ptr<boost::log::sinks::synchronous_sink<boost::log::sinks::text_ostream_backend>> console_sink;
-};
+	ASSERT_EQ (false, tree.get<bool> ("network_timeout_logging_value"));
 }
 
 TEST (logger, changing_time_interval)
@@ -129,7 +114,7 @@ TEST (logger, try_log)
 {
 	auto path1 (nano::unique_path ());
 	std::stringstream ss;
-	boost_log_cerr_redirect redirect_cerr (ss.rdbuf ());
+	nano::boost_log_cerr_redirect redirect_cerr (ss.rdbuf ());
 	nano::logger_mt my_logger (100ms);
 	auto output1 = "logger.try_log1";
 	auto error (my_logger.try_log (output1));
@@ -154,7 +139,7 @@ TEST (logger, always_log)
 {
 	auto path1 (nano::unique_path ());
 	std::stringstream ss;
-	boost_log_cerr_redirect redirect_cerr (ss.rdbuf ());
+	nano::boost_log_cerr_redirect redirect_cerr (ss.rdbuf ());
 	nano::logger_mt my_logger (20s); // Make time interval effectively unreachable
 	auto output1 = "logger.always_log1";
 	auto error (my_logger.try_log (output1));

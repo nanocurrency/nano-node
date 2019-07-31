@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/crypto/blake2/blake2.h>
 #include <nano/lib/blockbuilders.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
@@ -12,8 +13,6 @@
 #include <boost/variant.hpp>
 
 #include <unordered_map>
-
-#include <crypto/blake2/blake2.h>
 
 namespace boost
 {
@@ -38,7 +37,7 @@ struct hash<::nano::uint512_union>
 }
 namespace nano
 {
-const uint8_t protocol_version = 0x10;
+const uint8_t protocol_version = 0x11;
 const uint8_t protocol_version_min = 0x0d;
 
 /*
@@ -47,6 +46,11 @@ const uint8_t protocol_version_min = 0x0d;
  * nodes older than this version.
  */
 const uint8_t protocol_version_reasonable_min = 0x0d;
+
+/*
+ * Do not start TCP realtime network connections to nodes older than this version
+ */
+const uint8_t tcp_realtime_protocol_version_min = 0x11;
 
 /**
  * A key pair. The private key is generated from the random pool, or passed in
@@ -330,11 +334,16 @@ public:
 	nano::account genesis_account;
 	std::string genesis_block;
 	nano::uint128_t genesis_amount;
-	nano::account const & not_an_account ();
 	nano::account burn_account;
+};
 
-private:
-	nano::account not_an_account_m;
+/** Constants which depend on random values (this class should never be used globally due to CryptoPP globals potentially not being initialized) */
+class random_constants
+{
+public:
+	random_constants ();
+	nano::account not_an_account;
+	nano::uint128_union random_128;
 };
 
 /** Node related constants whose value depends on the active network */
@@ -343,6 +352,9 @@ class node_constants
 public:
 	node_constants (nano::network_constants & network_constants);
 	std::chrono::seconds period;
+	std::chrono::milliseconds half_period;
+	/** Default maximum idle time for a socket before it's automatically closed */
+	std::chrono::seconds idle_timeout;
 	std::chrono::seconds cutoff;
 	std::chrono::seconds syn_cookie_cutoff;
 	std::chrono::minutes backup_interval;
@@ -396,6 +408,7 @@ public:
 	unsigned kdf_work;
 	network_constants network;
 	ledger_constants ledger;
+	random_constants random;
 	voting_constants voting;
 	node_constants node;
 	portmapping_constants portmapping;

@@ -1,7 +1,9 @@
-#include <gtest/gtest.h>
-
+#include <nano/lib/logger_mt.hpp>
+#include <nano/node/lmdb/lmdb.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/versioning.hpp>
+
+#include <gtest/gtest.h>
 
 TEST (versioning, account_info_v1)
 {
@@ -10,23 +12,23 @@ TEST (versioning, account_info_v1)
 	nano::open_block open (1, 2, 3, nullptr);
 	nano::account_info_v1 v1 (open.hash (), open.hash (), 3, 4);
 	{
-		nano::logging logging;
+		nano::logger_mt logger;
 		auto error (false);
-		nano::mdb_store store (error, logging, file);
+		nano::mdb_store store (error, logger, file);
 		ASSERT_FALSE (error);
-		auto transaction (store.tx_begin (true));
+		auto transaction (store.tx_begin_write ());
 		nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0, 0);
 		store.block_put (transaction, open.hash (), open, sideband);
-		auto status (mdb_put (store.env.tx (transaction), store.accounts_v0, nano::mdb_val (account), v1.val (), 0));
+		auto status (mdb_put (store.env.tx (transaction), store.accounts_v0, nano::mdb_val (account), nano::mdb_val (sizeof (v1), &v1), 0));
 		ASSERT_EQ (0, status);
 		store.version_put (transaction, 1);
 	}
 
-	nano::logging logging;
+	nano::logger_mt logger;
 	auto error (false);
-	nano::mdb_store store (error, logging, file);
+	nano::mdb_store store (error, logger, file);
 	ASSERT_FALSE (error);
-	auto transaction (store.tx_begin ());
+	auto transaction (store.tx_begin_read ());
 	nano::account_info v_latest;
 	ASSERT_FALSE (store.account_get (transaction, account, v_latest));
 	ASSERT_EQ (open.hash (), v_latest.open_block);
@@ -46,23 +48,23 @@ TEST (versioning, account_info_v5)
 	nano::open_block open (1, 2, 3, nullptr);
 	nano::account_info_v5 v5 (open.hash (), open.hash (), open.hash (), 3, 4);
 	{
-		nano::logging logging;
+		nano::logger_mt logger;
 		auto error (false);
-		nano::mdb_store store (error, logging, file);
+		nano::mdb_store store (error, logger, file);
 		ASSERT_FALSE (error);
-		auto transaction (store.tx_begin (true));
+		auto transaction (store.tx_begin_write ());
 		nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0, 0);
 		store.block_put (transaction, open.hash (), open, sideband);
-		auto status (mdb_put (store.env.tx (transaction), store.accounts_v0, nano::mdb_val (account), v5.val (), 0));
+		auto status (mdb_put (store.env.tx (transaction), store.accounts_v0, nano::mdb_val (account), nano::mdb_val (sizeof (v5), &v5), 0));
 		ASSERT_EQ (0, status);
 		store.version_put (transaction, 5);
 	}
 
-	nano::logging logging;
+	nano::logger_mt logger;
 	auto error (false);
-	nano::mdb_store store (error, logging, file);
+	nano::mdb_store store (error, logger, file);
 	ASSERT_FALSE (error);
-	auto transaction (store.tx_begin ());
+	auto transaction (store.tx_begin_read ());
 	nano::account_info v_latest;
 	ASSERT_FALSE (store.account_get (transaction, account, v_latest));
 	ASSERT_EQ (v5.open_block, v_latest.open_block);
@@ -82,11 +84,11 @@ TEST (versioning, account_info_v13)
 	nano::open_block open (1, 2, 3, nullptr);
 	nano::account_info_v13 v13 (open.hash (), open.hash (), open.hash (), 3, 4, 10, nano::epoch::epoch_0);
 	{
-		nano::logging logging;
+		nano::logger_mt logger;
 		auto error (false);
-		nano::mdb_store store (error, logging, file);
+		nano::mdb_store store (error, logger, file);
 		ASSERT_FALSE (error);
-		auto transaction (store.tx_begin (true));
+		auto transaction (store.tx_begin_write ());
 		nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0, 0);
 		store.block_put (transaction, open.hash (), open, sideband);
 		auto status (mdb_put (store.env.tx (transaction), store.accounts_v0, nano::mdb_val (account), nano::mdb_val (v13), 0));
@@ -94,11 +96,11 @@ TEST (versioning, account_info_v13)
 		store.version_put (transaction, 13);
 	}
 
-	nano::logging logging;
+	nano::logger_mt logger;
 	auto error (false);
-	nano::mdb_store store (error, logging, file);
+	nano::mdb_store store (error, logger, file);
 	ASSERT_FALSE (error);
-	auto transaction (store.tx_begin ());
+	auto transaction (store.tx_begin_read ());
 	nano::account_info v_latest;
 	ASSERT_FALSE (store.account_get (transaction, account, v_latest));
 	ASSERT_EQ (v13.open_block, v_latest.open_block);

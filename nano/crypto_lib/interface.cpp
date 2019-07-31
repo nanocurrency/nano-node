@@ -1,4 +1,4 @@
-#include <crypto/blake2/blake2.h>
+#include <nano/crypto/blake2/blake2.h>
 #include <nano/crypto_lib/random_pool.hpp>
 
 extern "C" {

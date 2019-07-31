@@ -1,6 +1,7 @@
-#include <gtest/gtest.h>
 #include <nano/core_test/testutil.hpp>
 #include <nano/node/testing.hpp>
+
+#include <gtest/gtest.h>
 
 using namespace std::chrono_literals;
 
@@ -9,7 +10,7 @@ TEST (gap_cache, add_new)
 	nano::system system (24000, 1);
 	nano::gap_cache cache (*system.nodes[0]);
 	auto block1 (std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5));
-	auto transaction (system.nodes[0]->store.tx_begin (true));
+	auto transaction (system.nodes[0]->store.tx_begin_write ());
 	cache.add (transaction, block1->hash ());
 }
 
@@ -18,7 +19,7 @@ TEST (gap_cache, add_existing)
 	nano::system system (24000, 1);
 	nano::gap_cache cache (*system.nodes[0]);
 	auto block1 (std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5));
-	auto transaction (system.nodes[0]->store.tx_begin (true));
+	auto transaction (system.nodes[0]->store.tx_begin_write ());
 	cache.add (transaction, block1->hash ());
 	std::unique_lock<std::mutex> lock (cache.mutex);
 	auto existing1 (cache.blocks.get<1> ().find (block1->hash ()));
@@ -43,7 +44,7 @@ TEST (gap_cache, comparison)
 	nano::system system (24000, 1);
 	nano::gap_cache cache (*system.nodes[0]);
 	auto block1 (std::make_shared<nano::send_block> (1, 0, 2, nano::keypair ().prv, 4, 5));
-	auto transaction (system.nodes[0]->store.tx_begin (true));
+	auto transaction (system.nodes[0]->store.tx_begin_write ());
 	cache.add (transaction, block1->hash ());
 	std::unique_lock<std::mutex> lock (cache.mutex);
 	auto existing1 (cache.blocks.get<1> ().find (block1->hash ()));
@@ -72,7 +73,7 @@ TEST (gap_cache, gap_bootstrap)
 	nano::keypair key;
 	auto send (std::make_shared<nano::send_block> (latest, key.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest)));
 	{
-		auto transaction (system.nodes[0]->store.tx_begin (true));
+		auto transaction (system.nodes[0]->store.tx_begin_write ());
 		ASSERT_EQ (nano::process_result::progress, system.nodes[0]->block_processor.process_one (transaction, send).code);
 	}
 	ASSERT_EQ (nano::genesis_amount - 100, system.nodes[0]->balance (nano::genesis_account));
@@ -87,7 +88,7 @@ TEST (gap_cache, gap_bootstrap)
 	{
 		// The separate publish and vote system doesn't work very well here because it's instantly confirmed.
 		// We help it get the block and vote out here.
-		auto transaction (system.nodes[0]->store.tx_begin ());
+		auto transaction (system.nodes[0]->store.tx_begin_read ());
 		system.nodes[0]->network.flood_block (latest_block);
 	}
 	while (system.nodes[1]->balance (nano::genesis_account) != nano::genesis_amount - 200)
@@ -114,7 +115,7 @@ TEST (gap_cache, two_dependencies)
 	system.nodes[0]->block_processor.add (send1, nano::seconds_since_epoch ());
 	system.nodes[0]->block_processor.flush ();
 	ASSERT_EQ (0, system.nodes[0]->gap_cache.size ());
-	auto transaction (system.nodes[0]->store.tx_begin ());
+	auto transaction (system.nodes[0]->store.tx_begin_read ());
 	ASSERT_TRUE (system.nodes[0]->store.block_exists (transaction, send1->hash ()));
 	ASSERT_TRUE (system.nodes[0]->store.block_exists (transaction, send2->hash ()));
 	ASSERT_TRUE (system.nodes[0]->store.block_exists (transaction, open->hash ()));

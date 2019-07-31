@@ -1,5 +1,4 @@
 #include <nano/lib/config.hpp>
-#include <nano/lib/interface.h>
 #include <nano/node/cli.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/daemonconfig.hpp>
@@ -316,8 +315,19 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				if (!node.node->store.account_get (transaction, account, account_info))
 				{
 					auto transaction (node.node->store.tx_begin_write ());
-					node.node->store.confirmation_height_clear (transaction, account, account_info);
-					std::cout << "Confirmation height of account " << account_str << " is set to 0" << std::endl;
+					auto conf_height_reset_num = 0;
+					if (account == node.node->network_params.ledger.genesis_account)
+					{
+						conf_height_reset_num = 1;
+						account_info.confirmation_height = conf_height_reset_num;
+						node.node->store.account_put (transaction, account, account_info);
+					}
+					else
+					{
+						node.node->store.confirmation_height_clear (transaction, account, account_info);
+					}
+
+					std::cout << "Confirmation height of account " << account_str << " is set to " << conf_height_reset_num << std::endl;
 				}
 				else
 				{
@@ -369,7 +379,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			environment.dump (std::cout);
 			std::stringstream stream;
 			environment.dump (stream);
-			node.logging.logger.always_log (stream.str ());
+			node.node->logger.always_log (stream.str ());
 		}
 		else
 		{
@@ -603,9 +613,10 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 						std::cout << boost::str (boost::format ("Seed: %1%\n") % seed.data.to_string ());
 						for (auto i (existing->second->store.begin (transaction)), m (existing->second->store.end ()); i != m; ++i)
 						{
-							nano::account account (i->first);
+							nano::account const & account (i->first);
 							nano::raw_key key;
 							auto error (existing->second->store.fetch (transaction, account, key));
+							(void)error;
 							assert (!error);
 							std::cout << boost::str (boost::format ("Pub: %1% Prv: %2%\n") % account.to_account () % key.data.to_string ());
 							if (nano::pub_key (key.data) != account)
@@ -930,7 +941,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		auto transaction (node.node->store.tx_begin_read ());
 		for (auto i (node.node->store.vote_begin (transaction)), n (node.node->store.vote_end ()); i != n; ++i)
 		{
-			auto vote (i->second);
+			auto const & vote (i->second);
 			std::cerr << boost::str (boost::format ("%1%\n") % vote->to_json ());
 		}
 	}

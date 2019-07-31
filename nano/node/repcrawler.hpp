@@ -1,16 +1,18 @@
 #pragma once
 
-#include <boost/asio.hpp>
+#include <nano/boost/asio.hpp>
+#include <nano/node/common.hpp>
+#include <nano/node/transport/transport.hpp>
+
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/mem_fun.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index_container.hpp>
+
 #include <chrono>
 #include <memory>
-#include <nano/node/common.hpp>
-#include <nano/node/transport/transport.hpp>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -96,7 +98,7 @@ public:
 	bool response (std::shared_ptr<nano::transport::channel> channel_a, nano::account const & rep_account_a, nano::amount const & weight_a);
 
 	/** Get total available weight from representatives */
-	nano::uint128_t total_weight ();
+	nano::uint128_t total_weight () const;
 
 	/** Request a list of the top \p count_a known representatives. The maximum number of reps returned is 16. */
 	std::vector<representative> representatives (size_t count_a);
@@ -128,8 +130,11 @@ private:
 	/** When a rep request is made, this is called to update the last-request timestamp. */
 	void on_rep_request (std::shared_ptr<nano::transport::channel> channel_a);
 
+	/** Clean representatives with inactive channels */
+	void cleanup_reps ();
+
 	/** Protects the probable_reps container */
-	std::mutex probable_reps_mutex;
+	mutable std::mutex probable_reps_mutex;
 
 	/** Probable representatives */
 	probably_rep_t probable_reps;

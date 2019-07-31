@@ -1,21 +1,24 @@
 #pragma once
 
+#include <nano/lib/blocks.hpp>
+#include <nano/node/voting.hpp>
+#include <nano/secure/common.hpp>
+
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index_container.hpp>
+
 #include <chrono>
 #include <memory>
-#include <nano/lib/blocks.hpp>
-#include <nano/node/voting.hpp>
-#include <nano/secure/common.hpp>
 #include <unordered_set>
 
 namespace nano
 {
 class node;
 class transaction;
+class write_database_queue;
 
 class rolled_hash
 {
@@ -30,7 +33,7 @@ public:
 class block_processor final
 {
 public:
-	explicit block_processor (nano::node &);
+	explicit block_processor (nano::node &, nano::write_database_queue &);
 	~block_processor ();
 	void stop ();
 	void flush ();
@@ -68,6 +71,7 @@ private:
 	static size_t const rolled_back_max = 1024;
 	std::condition_variable condition;
 	nano::node & node;
+	nano::write_database_queue & write_database_queue;
 	std::mutex mutex;
 
 	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_processor & block_processor, const std::string & name);

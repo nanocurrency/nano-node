@@ -1,7 +1,15 @@
 cmake_minimum_required (VERSION 3.4)
 project (nano-node)
 
-set (CPACK_PACKAGE_VERSION_MAJOR "19")
+# Get the latest abbreviated commit hash of the working branch
+execute_process(
+  COMMAND git log -1 --format=%h
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  OUTPUT_VARIABLE GIT_COMMIT_HASH
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+set (CPACK_PACKAGE_VERSION_MAJOR "20")
 set (CPACK_PACKAGE_VERSION_MINOR "0")
 set (CPACK_PACKAGE_VERSION_PATCH "0")
 set (CPACK_PACKAGE_VENDOR "Nano Currency")
@@ -13,6 +21,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set (NANO_GUI OFF CACHE BOOL "")
 set (NANO_TEST OFF CACHE BOOL "")
 set (NANO_SECURE_RPC OFF CACHE BOOL "")
+set (NANO_ROCKSDB OFF CACHE BOOL "")
 
 option(NANO_ASAN_INT "Enable ASan+UBSan+Integer overflow" OFF)
 option(NANO_ASAN "Enable ASan+UBSan" OFF)
@@ -37,6 +46,7 @@ set(USING_TSAN (NANO_TSAN OR RAIBLOCKS_TSAN))
 find_package(Threads)
 
 if (WIN32)
+	find_library (PSAPI Psapi)
 	add_definitions(-D_WIN32_WINNT=0x0600
 					-DWINVER=0x0600
 					-DWIN32_LEAN_AND_MEAN
@@ -48,7 +58,7 @@ if (WIN32)
 	endif()
 
 else ()
-	add_compile_options(-Werror=switch)
+	add_compile_options(-Werror)
 
 	if ((${USING_TSAN} AND ${USING_ASAN}) OR
 	    (${USING_TSAN} AND ${USING_ASAN_INT}))
@@ -65,7 +75,7 @@ else ()
 	elseif (${USING_TSAN})
 		add_compile_options(-fsanitize=thread)
 		if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-			add_compile_options("-fsanitize-blacklist=${PROJECT_SOURCE_DIR}/tsan_blacklist")
+			add_compile_options("-fsanitize-blacklist=${PROJECT_SOURCE_DIR}/tsan_clang_blacklist")
 		endif()
 		add_definitions(-DED25519_NO_INLINE_ASM)
 	endif()
@@ -127,7 +137,7 @@ else ()
 	elseif (${USING_TSAN})
 		set (PLATFORM_LINK_FLAGS "${PLATFORM_LINK_FLAGS} -fsanitize=thread")
 		if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-			set (PLATFORM_LINK_FLAGS "${PLATFORM_LINK_FLAGS} -fsanitize-blacklist=${PROJECT_SOURCE_DIR}/tsan_blacklist")
+			set (PLATFORM_LINK_FLAGS "${PLATFORM_LINK_FLAGS} -fsanitize-blacklist=${PROJECT_SOURCE_DIR}/tsan_clang_blacklist")
 		endif()
 	endif()
 endif ()
@@ -151,11 +161,14 @@ include_directories (${CMAKE_SOURCE_DIR})
 set(Boost_USE_STATIC_LIBS        ON)
 set(Boost_USE_MULTITHREADED      ON)
 
-if (BOOST_ROOT)
-	list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
-endif ()
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
-find_package (Boost 1.67.0 REQUIRED COMPONENTS filesystem log thread program_options system)
+find_package (Boost 1.67.0 REQUIRED COMPONENTS filesystem log log_setup thread program_options system)
+if (NANO_ROCKSDB)
+	find_package (RocksDB REQUIRED)
+	find_package (ZLIB REQUIRED)
+	include_directories (${ROCKSDB_INCLUDE_DIRS})
+endif ()
 
 # There is a compile bug with boost 1.69 interprocess headers on Mac
 if (APPLE AND Boost_VERSION EQUAL 106900)
@@ -264,10 +277,6 @@ target_include_directories(argon2 PUBLIC crypto/phc-winner-argon2/include)
 target_include_directories(argon2 PUBLIC crypto/phc-winner-argon2/src)
 target_include_directories(argon2 PUBLIC crypto/blake2)
 
-add_library (xxhash
-	crypto/xxhash/xxhash.c
-	crypto/xxhash/xxhash.h)
-
 add_library (lmdb
 	lmdb/libraries/liblmdb/lmdb.h
 	lmdb/libraries/liblmdb/mdb.c
@@ -304,19 +313,21 @@ add_subdirectory(nano/rpc)
 add_subdirectory(nano/nano_rpc)
 
 if (NANO_TEST OR RAIBLOCKS_TEST)
-    if(WIN32)
-        if(MSVC_VERSION)
-            if(MSVC_VERSION GREATER_EQUAL 1910)
-                add_definitions(-DGTEST_LANG_CXX11=1)
-                add_definitions(-DGTEST_HAS_TR1_TUPLE=0)
-            endif()
-        endif()
-        set (gtest_force_shared_crt ON)
-    else ()
-        set (gtest_force_shared_crt OFF)
-    endif()
+	if(WIN32)
+		if(MSVC_VERSION)
+			if(MSVC_VERSION GREATER_EQUAL 1910)
+				add_definitions(-DGTEST_LANG_CXX11=1)
+				add_definitions(-DGTEST_HAS_TR1_TUPLE=0)
+			endif()
+		endif()
+		set (gtest_force_shared_crt ON)
+	else ()
+		set (gtest_force_shared_crt OFF)
+endif()
 
-    add_subdirectory (gtest/googletest)
+	add_subdirectory(nano/load_test)
+
+	add_subdirectory (gtest/googletest)
 	# FIXME: This fixes gtest include directories without modifying gtest's
 	# CMakeLists.txt. Ideally we should use GTest::GTest and GTest::Main as
 	# dependencies but it requires building gtest differently
@@ -342,13 +353,14 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 		nano/qt/qt.hpp)
 
 	target_link_libraries(qt
-		secure nano_lib node libminiupnpc-static Qt5::Gui Qt5::Widgets)
+		node secure nano_lib libminiupnpc-static Qt5::Gui Qt5::Widgets)
 
 	target_compile_definitions(qt
 		PRIVATE
 		-DNANO_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
 		-DNANO_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR}
-		-DNANO_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH})
+		-DNANO_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH}
+		-DGIT_COMMIT_HASH=${GIT_COMMIT_HASH})
 
 	if (WIN32)
 		set (PLATFORM_GUI_TARGET_PROPERTIES WIN32)
@@ -415,6 +427,8 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 	if (APPLE)
 		CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/Info.plist.in ${CMAKE_SOURCE_DIR}/Info.plist @ONLY)
 		install (TARGETS nano_wallet DESTINATION Nano.app/Contents/MacOS)
+		install (TARGETS nano_node DESTINATION Nano.app/Contents/MacOS)
+		install (TARGETS nano_rpc DESTINATION Nano.app/Contents/MacOS)
 		install (FILES Info.plist DESTINATION Nano.app/Contents)
 		install (FILES qt.conf DESTINATION Nano.app/Contents/Resources)
 		install (DIRECTORY ${Qt5_DIR}/../../QtCore.framework DESTINATION Nano.app/Contents/Frameworks)
@@ -430,10 +444,14 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 		else ()
 			set (WIN_REDIST vc_redist.x86.exe)
 		endif ()
-		set (CPACK_NSIS_EXTRA_INSTALL_COMMANDS "ExecWait '\\\"$INSTDIR\\\\${WIN_REDIST}\\\" /quiet /norestart'")
+		set (CPACK_NSIS_EXTRA_INSTALL_COMMANDS "ExecWait '\\\"$INSTDIR\\\\${WIN_REDIST}\\\" /quiet /norestart'
+												WriteRegDWORD HKLM 'SYSTEM\\\\CurrentControlSet\\\\Services\\\\EventLog\\\\Nano\\\\Nano' 'TypesSupported' '0x7'
+												WriteRegStr HKLM 'SYSTEM\\\\CurrentControlSet\\\\Services\\\\EventLog\\\\Nano\\\\Nano' 'EventMessageFile' '$INSTDIR\\\\nano_wallet.exe'")
+		set (CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS "DeleteRegKey HKLM 'SYSTEM\\\\CurrentControlSet\\\\Services\\\\EventLog\\\\Nano'")
+		set (CPACK_PACKAGE_INSTALL_DIRECTORY "nanocurrency")
 		set (CPACK_NSIS_MUI_ICON ${CMAKE_SOURCE_DIR}/Nano.ico)
 		set (CPACK_NSIS_DISPLAY_NAME "Nano")
-		set (CPACK_PACKAGE_NAME "Nano_Installer")
+		set (CPACK_PACKAGE_NAME "nano-node")
 		set (CPACK_NSIS_PACKAGE_NAME "Nano")
 		set (CPACK_NSIS_URL_INFO_ABOUT "https://nano.org")
 		set (CPACK_NSIS_CONTACT "info@nano.org")
@@ -452,9 +470,7 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 		install (FILES ${Qt5WindowsPlugin} DESTINATION platforms)
 	else ()
 		install(TARGETS nano_wallet
-				RUNTIME DESTINATION bin
-				LIBRARY DESTINATION lib
-				ARCHIVE DESTINATION lib
+				RUNTIME DESTINATION .
 		)
 	endif ()
 endif ()

@@ -28,6 +28,7 @@ public:
 	std::shared_ptr<nano::block> successor (nano::transaction const &, nano::qualified_root const &);
 	std::shared_ptr<nano::block> forked_block (nano::transaction const &, nano::block const &);
 	bool block_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
+	bool block_not_confirmed_or_not_exists (nano::block const & block_a) const;
 	nano::block_hash latest (nano::transaction const &, nano::account const &);
 	nano::block_hash latest_root (nano::transaction const &, nano::account const &);
 	nano::block_hash representative (nano::transaction const &, nano::block_hash const &);
@@ -40,7 +41,7 @@ public:
 	nano::block_hash block_destination (nano::transaction const &, nano::block const &);
 	nano::block_hash block_source (nano::transaction const &, nano::block const &);
 	nano::process_return process (nano::transaction const &, nano::block const &, nano::signature_verification = nano::signature_verification::unknown);
-	bool rollback (nano::transaction const &, nano::block_hash const &, std::vector<nano::block_hash> &);
+	bool rollback (nano::transaction const &, nano::block_hash const &, std::vector<std::shared_ptr<nano::block>> &);
 	bool rollback (nano::transaction const &, nano::block_hash const &);
 	void change_latest (nano::transaction const &, nano::account const &, nano::block_hash const &, nano::account const &, nano::uint128_union const &, uint64_t, bool = false, nano::epoch = nano::epoch::epoch_0);
 	void dump_account_chain (nano::account const &);

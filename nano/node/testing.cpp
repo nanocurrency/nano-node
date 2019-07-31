@@ -1,11 +1,13 @@
-#include <boost/property_tree/json_parser.hpp>
-#include <boost/property_tree/ptree.hpp>
-#include <cstdlib>
 #include <nano/core_test/testutil.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/node/transport/udp.hpp>
+
+#include <boost/property_tree/json_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
+
+#include <cstdlib>
 
 std::string nano::error_system_messages::message (int ev) const
 {
@@ -20,9 +22,83 @@ std::string nano::error_system_messages::message (int ev) const
 	return "Invalid error code";
 }
 
-nano::system::system (uint16_t port_a, uint16_t count_a, boost::optional<bool> delay_frontier_confirmation_height_updating_a) :
-alarm (io_ctx),
-work (1)
+/** Returns the node added. */
+std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & node_config_a, nano::node_flags node_flags_a, nano::transport::transport_type type_a)
+{
+	nano::node_init init;
+	auto node (std::make_shared<nano::node> (init, io_ctx, nano::unique_path (), alarm, node_config_a, work, node_flags_a));
+	assert (!init.error ());
+	node->start ();
+	nano::uint256_union wallet;
+	nano::random_pool::generate_block (wallet.bytes.data (), wallet.bytes.size ());
+	node->wallets.create (wallet);
+	nodes.reserve (nodes.size () + 1);
+	nodes.push_back (node);
+	if (nodes.size () > 1)
+	{
+		auto begin = nodes.end () - 2;
+		for (auto i (begin), j (begin + 1), n (nodes.end ()); j != n; ++i, ++j)
+		{
+			auto node1 (*i);
+			auto node2 (*j);
+			auto starting1 (node1->network.size ());
+			size_t starting_listener1 (node1->bootstrap.realtime_count);
+			decltype (starting1) new1;
+			auto starting2 (node2->network.size ());
+			size_t starting_listener2 (node2->bootstrap.realtime_count);
+			decltype (starting2) new2;
+			if (type_a == nano::transport::transport_type::tcp)
+			{
+				(*j)->network.merge_peer ((*i)->network.endpoint ());
+			}
+			else
+			{
+				// UDP connection
+				auto channel (std::make_shared<nano::transport::channel_udp> ((*j)->network.udp_channels, (*i)->network.endpoint ()));
+				(*j)->network.send_keepalive (channel);
+			}
+			do
+			{
+				poll ();
+				new1 = node1->network.size ();
+				new2 = node2->network.size ();
+			} while (new1 == starting1 || new2 == starting2);
+			if (type_a == nano::transport::transport_type::tcp && node_config_a.tcp_incoming_connections_max != 0 && !node_flags_a.disable_tcp_realtime)
+			{
+				// Wait for initial connection finish
+				decltype (starting_listener1) new_listener1;
+				decltype (starting_listener2) new_listener2;
+				do
+				{
+					poll ();
+					new_listener1 = node1->bootstrap.realtime_count;
+					new_listener2 = node2->bootstrap.realtime_count;
+				} while (new_listener1 == starting_listener1 || new_listener2 == starting_listener2);
+			}
+		}
+		auto iterations1 (0);
+		while (std::any_of (begin, nodes.end (), [](std::shared_ptr<nano::node> const & node_a) { return node_a->bootstrap_initiator.in_progress (); }))
+		{
+			poll ();
+			++iterations1;
+			assert (iterations1 < 10000);
+		}
+	}
+	else
+	{
+		auto iterations1 (0);
+		while (node->bootstrap_initiator.in_progress ())
+		{
+			poll ();
+			++iterations1;
+			assert (iterations1 < 10000);
+		}
+	}
+
+	return node;
+}
+
+nano::system::system ()
 {
 	auto scale_str = std::getenv ("DEADLINE_SCALE_FACTOR");
 	if (scale_str)
@@ -30,43 +106,16 @@ work (1)
 		deadline_scaling_factor = std::stod (scale_str);
 	}
 	logging.init (nano::unique_path ());
+}
+
+nano::system::system (uint16_t port_a, uint16_t count_a, nano::transport::transport_type type_a) :
+system ()
+{
 	nodes.reserve (count_a);
 	for (uint16_t i (0); i < count_a; ++i)
 	{
-		nano::node_init init;
 		nano::node_config config (port_a + i, logging);
-		bool delay_frontier_confirmation_height_updating = delay_frontier_confirmation_height_updating_a ? *delay_frontier_confirmation_height_updating_a : false;
-		auto node (std::make_shared<nano::node> (init, io_ctx, nano::unique_path (), alarm, config, work, nano::node_flags (), delay_frontier_confirmation_height_updating));
-		assert (!init.error ());
-		node->start ();
-		nano::uint256_union wallet;
-		nano::random_pool::generate_block (wallet.bytes.data (), wallet.bytes.size ());
-		node->wallets.create (wallet);
-		nodes.push_back (node);
-	}
-	for (auto i (nodes.begin ()), j (nodes.begin () + 1), n (nodes.end ()); j != n; ++i, ++j)
-	{
-		auto node1 (*i);
-		auto node2 (*j);
-		auto starting1 (node1->network.size ());
-		decltype (starting1) new1;
-		auto starting2 (node2->network.size ());
-		decltype (starting2) new2;
-		nano::transport::channel_udp channel ((*j)->network.udp_channels, (*i)->network.endpoint ());
-		(*j)->network.send_keepalive (channel);
-		do
-		{
-			poll ();
-			new1 = node1->network.size ();
-			new2 = node2->network.size ();
-		} while (new1 == starting1 || new2 == starting2);
-	}
-	auto iterations1 (0);
-	while (std::any_of (nodes.begin (), nodes.end (), [](std::shared_ptr<nano::node> const & node_a) { return node_a->bootstrap_initiator.in_progress (); }))
-	{
-		poll ();
-		++iterations1;
-		assert (iterations1 < 10000);
+		add_node (config, nano::node_flags (), type_a);
 	}
 }
 
@@ -77,11 +126,10 @@ nano::system::~system ()
 		i->stop ();
 	}
 
-		// clang-format off
+#ifndef _WIN32
 	// Windows cannot remove the log and data files while they are still owned by this process.
 	// They will be removed later
-		// clang-format on
-#ifndef _WIN32
+
 	// Clean up tmp directories created by the tests. Since it's sometimes useful to
 	// see log files after test failures, an environment variable is supported to
 	// retain the files.
@@ -96,6 +144,7 @@ std::shared_ptr<nano::wallet> nano::system::wallet (size_t index_a)
 {
 	assert (nodes.size () > index_a);
 	auto size (nodes[index_a]->wallets.items.size ());
+	(void)size;
 	assert (size == 1);
 	return nodes[index_a]->wallets.items.begin ()->second;
 }
@@ -191,8 +240,15 @@ void nano::system::generate_rollback (nano::node & node_a, std::vector<nano::acc
 		{
 			accounts_a[index] = accounts_a[accounts_a.size () - 1];
 			accounts_a.pop_back ();
-			auto error = node_a.ledger.rollback (transaction, hash);
+			std::vector<std::shared_ptr<nano::block>> rollback_list;
+			auto error = node_a.ledger.rollback (transaction, hash, rollback_list);
+			(void)error;
 			assert (!error);
+			for (auto & i : rollback_list)
+			{
+				node_a.wallets.watcher.remove (i);
+				node_a.active.erase (*i);
+			}
 		}
 	}
 }
@@ -207,7 +263,7 @@ void nano::system::generate_receive (nano::node & node_a)
 		auto i (node_a.store.pending_begin (transaction, nano::pending_key (random_block, 0)));
 		if (i != node_a.store.pending_end ())
 		{
-			nano::pending_key send_hash (i->first);
+			nano::pending_key const & send_hash (i->first);
 			send_block = node_a.store.block_get (transaction, send_hash.hash);
 		}
 	}
@@ -288,6 +344,7 @@ void nano::system::generate_send_existing (nano::node & node_a, std::vector<nano
 	if (!amount.is_zero ())
 	{
 		auto hash (wallet (0)->send_sync (source, destination, amount));
+		(void)hash;
 		assert (!hash.is_zero ());
 	}
 }
@@ -299,6 +356,7 @@ void nano::system::generate_change_known (nano::node & node_a, std::vector<nano:
 	{
 		nano::account destination (get_random_account (accounts_a));
 		auto change_error (wallet (0)->change_sync (source, destination));
+		(void)change_error;
 		assert (!change_error);
 	}
 }
@@ -311,6 +369,7 @@ void nano::system::generate_change_unknown (nano::node & node_a, std::vector<nan
 		nano::keypair key;
 		nano::account destination (key.pub);
 		auto change_error (wallet (0)->change_sync (source, destination));
+		(void)change_error;
 		assert (!change_error);
 	}
 }
@@ -330,6 +389,7 @@ void nano::system::generate_send_new (nano::node & node_a, std::vector<nano::acc
 		auto pub (node_a.wallets.items.begin ()->second->deterministic_insert ());
 		accounts_a.push_back (pub);
 		auto hash (wallet (0)->send_sync (source, pub, amount));
+		(void)hash;
 		assert (!hash.is_zero ());
 	}
 }

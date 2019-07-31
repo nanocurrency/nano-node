@@ -1,8 +1,8 @@
 #pragma once
 
-#include <boost/multiprecision/cpp_int.hpp>
-
 #include <crypto/cryptopp/osrng.h>
+
+#include <boost/multiprecision/cpp_int.hpp>
 
 namespace nano
 {
@@ -126,6 +126,22 @@ bool validate_message (nano::public_key const &, nano::uint256_union const &, na
 bool validate_message_batch (const unsigned char **, size_t *, const unsigned char **, const unsigned char **, size_t, int *);
 void deterministic_key (nano::uint256_union const &, uint32_t, nano::uint256_union &);
 nano::public_key pub_key (nano::private_key const &);
+
+/* Conversion methods */
+std::string to_string_hex (uint64_t const);
+bool from_string_hex (std::string const &, uint64_t &);
+
+/**
+ * Convert a double to string in fixed format
+ * @param precision_a (optional) use a specific precision (default is the maximum)
+ */
+std::string to_string (double const, int const precision_a = std::numeric_limits<double>::digits10);
+
+namespace difficulty
+{
+	uint64_t from_multiplier (double const, uint64_t const);
+	double to_multiplier (uint64_t const, uint64_t const);
+}
 }
 
 namespace std

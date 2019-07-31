@@ -36,6 +36,7 @@ void nano::rep_crawler::ongoing_crawl ()
 {
 	auto now (std::chrono::steady_clock::now ());
 	auto total_weight_l (total_weight ());
+	cleanup_reps ();
 	query (get_crawl_targets (total_weight_l));
 	auto sufficient_weight (total_weight_l > node.config.online_weight_minimum.number ());
 	// If online weight drops below minimum, reach out to preconfigured peers
@@ -56,29 +57,21 @@ void nano::rep_crawler::ongoing_crawl ()
 
 std::vector<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::get_crawl_targets (nano::uint128_t total_weight_a)
 {
-	std::unordered_set<std::shared_ptr<nano::transport::channel>> channels;
 	constexpr size_t conservative_count = 10;
 	constexpr size_t aggressive_count = 40;
 
 	// Crawl more aggressively if we lack sufficient total peer weight.
 	bool sufficient_weight (total_weight_a > node.config.online_weight_minimum.number ());
 	uint16_t required_peer_count = sufficient_weight ? conservative_count : aggressive_count;
-	std::lock_guard<std::mutex> lock (probable_reps_mutex);
 
-	// First, add known rep endpoints, ordered by ascending last-requested time.
-	for (auto i (probable_reps.get<tag_last_request> ().begin ()), n (probable_reps.get<tag_last_request> ().end ()); i != n && channels.size () < required_peer_count; ++i)
-	{
-		channels.insert (i->channel);
-	};
-
-	// Add additional random peers. We do this even if we have enough weight, in order to pick up reps
+	// Add random peers. We do this even if we have enough weight, in order to pick up reps
 	// that didn't respond when first observed. If the current total weight isn't sufficient, this
 	// will be more aggressive. When the node first starts, the rep container is empty and all
 	// endpoints will originate from random peers.
 	required_peer_count += required_peer_count / 2;
 
 	// The rest of the endpoints are picked randomly
-	auto random_peers (node.network.udp_channels.random_set (required_peer_count));
+	auto random_peers (node.network.random_set (required_peer_count));
 	std::vector<std::shared_ptr<nano::transport::channel>> result;
 	result.insert (result.end (), random_peers.begin (), random_peers.end ());
 	return result;
@@ -89,6 +82,15 @@ void nano::rep_crawler::query (std::vector<std::shared_ptr<nano::transport::chan
 	auto transaction (node.store.tx_begin_read ());
 	std::shared_ptr<nano::block> block (node.store.block_random (transaction));
 	auto hash (block->hash ());
+	// Don't send same block multiple times in tests
+	if (node.network_params.network.is_test_network ())
+	{
+		for (auto i (0); exists (hash) && i < 4; ++i)
+		{
+			block = node.store.block_random (transaction);
+			hash = block->hash ();
+		}
+	}
 	add (hash);
 	for (auto i (channels_a.begin ()), n (channels_a.end ()); i != n; ++i)
 	{
@@ -140,7 +142,7 @@ bool nano::rep_crawler::response (std::shared_ptr<nano::transport::channel> chan
 	return updated;
 }
 
-nano::uint128_t nano::rep_crawler::total_weight ()
+nano::uint128_t nano::rep_crawler::total_weight () const
 {
 	std::lock_guard<std::mutex> lock (probable_reps_mutex);
 	nano::uint128_t result (0);
@@ -193,6 +195,45 @@ void nano::rep_crawler::on_rep_request (std::shared_ptr<nano::transport::channel
 		channel_ref_index.modify (itr_pair.first, [](nano::representative & value_a) {
 			value_a.last_request = std::chrono::steady_clock::now ();
 		});
+	}
+}
+
+void nano::rep_crawler::cleanup_reps ()
+{
+	std::vector<std::shared_ptr<nano::transport::channel>> channels;
+	{
+		// Check known rep channels
+		std::lock_guard<std::mutex> lock (probable_reps_mutex);
+		for (auto i (probable_reps.get<tag_last_request> ().begin ()), n (probable_reps.get<tag_last_request> ().end ()); i != n; ++i)
+		{
+			channels.push_back (i->channel);
+		}
+	}
+	// Remove reps with inactive channels
+	for (auto i : channels)
+	{
+		bool equal (false);
+		if (i->get_type () == nano::transport::transport_type::tcp)
+		{
+			auto find_channel (node.network.tcp_channels.find_channel (i->get_tcp_endpoint ()));
+			if (find_channel != nullptr && *find_channel == *static_cast<nano::transport::channel_tcp *> (i.get ()))
+			{
+				equal = true;
+			}
+		}
+		else if (i->get_type () == nano::transport::transport_type::udp)
+		{
+			auto find_channel (node.network.udp_channels.channel (i->get_endpoint ()));
+			if (find_channel != nullptr && *find_channel == *static_cast<nano::transport::channel_udp *> (i.get ()))
+			{
+				equal = true;
+			}
+		}
+		if (!equal)
+		{
+			std::lock_guard<std::mutex> lock (probable_reps_mutex);
+			probable_reps.get<tag_channel_ref> ().erase (*i);
+		}
 	}
 }
 

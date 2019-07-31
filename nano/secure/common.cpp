@@ -1,21 +1,16 @@
-#include <nano/secure/common.hpp>
-
+#include <nano/core_test/testutil.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
-#include <nano/lib/interface.h>
+#include <nano/lib/config.hpp>
 #include <nano/lib/numbers.hpp>
-#include <nano/node/common.hpp>
 #include <nano/secure/blockstore.hpp>
-#include <nano/secure/versioning.hpp>
+#include <nano/secure/common.hpp>
 
 #include <boost/endian/conversion.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
-#include <queue>
-
 #include <iostream>
 #include <limits>
-#include <nano/core_test/testutil.hpp>
-#include <nano/lib/config.hpp>
+#include <queue>
 
 #include <crypto/ed25519-donna/ed25519.h>
 
@@ -38,7 +33,7 @@ char const * test_genesis_data = R"%%%({
 	"source": "B0311EA55708D6A53C75CDBF88300259C6D018522FE3D4D0A242E431F9E8B6D0",
 	"representative": "xrb_3e3j5tkog48pnny9dmfzj1r16pg8t1e76dz5tmac6iq689wyjfpiij4txtdo",
 	"account": "xrb_3e3j5tkog48pnny9dmfzj1r16pg8t1e76dz5tmac6iq689wyjfpiij4txtdo",
-	"work": "9680625b39d3363d",
+	"work": "7b42a00ee91d5810",
 	"signature": "ECDA914373A2F0CA1296475BAEE40500A7F0A7AD72A5A80C81D7FAB7F6C802B2CC7DB50F5DD0FB25B2EF11761FA7344A158DD5A700B21BD47DE5BD0F63153A02"
 	})%%%";
 
@@ -92,24 +87,21 @@ nano_live_genesis (live_genesis_data),
 genesis_account (network_a == nano::nano_networks::nano_test_network ? nano_test_account : network_a == nano::nano_networks::nano_beta_network ? nano_beta_account : nano_live_account),
 genesis_block (network_a == nano::nano_networks::nano_test_network ? nano_test_genesis : network_a == nano::nano_networks::nano_beta_network ? nano_beta_genesis : nano_live_genesis),
 genesis_amount (std::numeric_limits<nano::uint128_t>::max ()),
-burn_account (0),
-not_an_account_m (0)
+burn_account (0)
 {
 }
 
-nano::account const & nano::ledger_constants::not_an_account ()
+nano::random_constants::random_constants ()
 {
-	if (not_an_account_m.is_zero ())
-	{
-		// Randomly generating these mean no two nodes will ever have the same sentinel values which protects against some insecure algorithms
-		nano::random_pool::generate_block (not_an_account_m.bytes.data (), not_an_account_m.bytes.size ());
-	}
-	return not_an_account_m;
+	nano::random_pool::generate_block (not_an_account.bytes.data (), not_an_account.bytes.size ());
+	nano::random_pool::generate_block (random_128.bytes.data (), random_128.bytes.size ());
 }
 
 nano::node_constants::node_constants (nano::network_constants & network_constants)
 {
 	period = network_constants.is_test_network () ? std::chrono::seconds (1) : std::chrono::seconds (60);
+	half_period = network_constants.is_test_network () ? std::chrono::milliseconds (500) : std::chrono::milliseconds (30 * 1000);
+	idle_timeout = network_constants.is_test_network () ? period * 15 : period * 2;
 	cutoff = period * 5;
 	syn_cookie_cutoff = std::chrono::seconds (5);
 	backup_interval = std::chrono::minutes (5);
@@ -123,7 +115,7 @@ nano::node_constants::node_constants (nano::network_constants & network_constant
 
 nano::voting_constants::voting_constants (nano::network_constants & network_constants)
 {
-	max_cache = network_constants.is_test_network () ? 2 : 1000;
+	max_cache = network_constants.is_test_network () ? 2 : 4 * 1024;
 }
 
 nano::portmapping_constants::portmapping_constants (nano::network_constants & network_constants)
@@ -170,6 +162,7 @@ prv (std::move (prv_a))
 nano::keypair::keypair (std::string const & prv_a)
 {
 	auto error (prv.data.decode_hex (prv_a));
+	(void)error;
 	assert (!error);
 	ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
 }

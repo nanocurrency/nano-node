@@ -1,7 +1,15 @@
+if (NANO_ROCKSDB)
+	set (rocksdb_libs ${ROCKSDB_LIBRARIES} ${ZLIB_LIBRARIES})
+endif ()
+
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	# No opencl
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 	set (platform_sources plat/windows/openclapi.cpp)
+	set (psapi_lib Psapi)
+	if (NANO_ROCKSDB)
+		set (rocksdb_libs ${rocksdb_libs} Shlwapi Rpcrt4)
+	endif ()
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	set (platform_sources plat/posix/openclapi.cpp)
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
@@ -12,6 +20,9 @@ endif ()
 
 add_library (node
 	${platform_sources}
+	active_transactions.hpp
+	active_transactions.cpp
+	blockprocessor.cpp
 	blockprocessor.hpp
 	blockprocessor.cpp
 	bootstrap.hpp
@@ -20,8 +31,16 @@ add_library (node
 	cli.cpp
 	common.hpp
 	common.cpp
-	daemonconfig.cpp
+	confirmation_height_processor.hpp
+	confirmation_height_processor.cpp
 	daemonconfig.hpp
+	daemonconfig.cpp
+	diagnosticsconfig.hpp
+	diagnosticsconfig.cpp
+	election.hpp
+	election.cpp
+	gap_cache.hpp
+	gap_cache.cpp
 	ipc.hpp
 	ipc.cpp
 	ipcconfig.hpp
@@ -30,10 +49,19 @@ add_library (node
 	json_handler.cpp
 	json_payment_observer.hpp	
 	json_payment_observer.cpp
-	lmdb.hpp
-	lmdb.cpp
+	lmdb/lmdb.hpp
+	lmdb/lmdb.cpp
+	lmdb/lmdb_env.hpp
+	lmdb/lmdb_env.cpp
+	lmdb/lmdb_iterator.hpp
+	lmdb/lmdb_txn.hpp
+	lmdb/lmdb_txn.cpp
+	lmdb/wallet_value.hpp
+	lmdb/wallet_value.cpp
 	logging.hpp
 	logging.cpp
+	network.hpp
+	network.cpp
 	nodeconfig.hpp
 	nodeconfig.cpp
 	node_observers.hpp
@@ -42,6 +70,8 @@ add_library (node
 	node_rpc_config.cpp
 	node.hpp
 	node.cpp
+	online_reps.hpp
+	online_reps.cpp
 	openclconfig.hpp
 	openclconfig.cpp
 	openclwork.hpp
@@ -62,8 +92,10 @@ add_library (node
 	transport/udp.cpp
 	signatures.hpp
 	signatures.cpp
-	stats.hpp
-	stats.cpp
+	socket.hpp
+	socket.cpp
+	vote_processor.hpp
+	vote_processor.cpp
 	voting.hpp
 	voting.cpp
 	wallet.hpp
@@ -72,7 +104,8 @@ add_library (node
 	websocket.cpp
 	websocketconfig.hpp
 	websocketconfig.cpp
-	working.hpp
+	write_database_queue.hpp
+	write_database_queue.cpp
 	xorshift.hpp)
 
 target_link_libraries (node
@@ -89,11 +122,14 @@ target_link_libraries (node
 	Boost::system
 	Boost::thread
 	Boost::boost
+	${rocksdb_libs}
 	${CMAKE_DL_LIBS}
+	${psapi_lib}
 	)
 
 target_compile_definitions(node
 	PRIVATE
 		-DNANO_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
 		-DNANO_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR}
-		-DNANO_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH})
+		-DNANO_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH}
+		-DGIT_COMMIT_HASH=${GIT_COMMIT_HASH})

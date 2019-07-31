@@ -1,7 +1,8 @@
-#include <boost/format.hpp>
 #include <nano/lib/rpc_handler_interface.hpp>
 #include <nano/rpc/rpc.hpp>
 #include <nano/rpc/rpc_connection.hpp>
+
+#include <boost/format.hpp>
 
 #ifdef NANO_SECURE_RPC
 #include <nano/rpc/rpc_secure.hpp>
@@ -44,8 +45,8 @@ void nano::rpc::start ()
 
 void nano::rpc::accept ()
 {
-	auto connection (std::make_shared<nano::rpc_connection> (config, network_constants, io_ctx, logger, rpc_handler_interface));
-	acceptor.async_accept (connection->socket, [this, connection](boost::system::error_code const & ec) {
+	auto connection (std::make_shared<nano::rpc_connection> (config, io_ctx, logger, rpc_handler_interface));
+	acceptor.async_accept (connection->socket, boost::asio::bind_executor (connection->strand, [this, connection](boost::system::error_code const & ec) {
 		if (ec != boost::asio::error::operation_aborted && acceptor.is_open ())
 		{
 			accept ();
@@ -58,7 +59,7 @@ void nano::rpc::accept ()
 		{
 			logger.always_log (boost::str (boost::format ("Error accepting RPC connections: %1% (%2%)") % ec.message () % ec.value ()));
 		}
-	});
+	}));
 }
 
 void nano::rpc::stop ()

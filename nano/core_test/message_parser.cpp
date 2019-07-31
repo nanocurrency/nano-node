@@ -1,5 +1,6 @@
-#include <gtest/gtest.h>
 #include <nano/node/testing.hpp>
+
+#include <gtest/gtest.h>
 
 namespace
 {

@@ -15,6 +15,7 @@ nano::error nano::ipc::ipc_config::serialize_json (nano::jsonconfig & json) cons
 	json.put_child ("tcp", tcp_l);
 
 	nano::jsonconfig domain_l;
+	domain_l.put ("version", transport_domain.json_version ());
 	if (transport_domain.io_threads >= 0)
 	{
 		domain_l.put ("io_threads", transport_domain.io_threads);
@@ -27,7 +28,7 @@ nano::error nano::ipc::ipc_config::serialize_json (nano::jsonconfig & json) cons
 	return json.get_error ();
 }
 
-nano::error nano::ipc::ipc_config::deserialize_json (nano::jsonconfig & json)
+nano::error nano::ipc::ipc_config::deserialize_json (bool & upgraded_a, nano::jsonconfig & json)
 {
 	auto tcp_l (json.get_optional_child ("tcp"));
 	if (tcp_l)
@@ -42,6 +43,15 @@ nano::error nano::ipc::ipc_config::deserialize_json (nano::jsonconfig & json)
 	auto domain_l (json.get_optional_child ("local"));
 	if (domain_l)
 	{
+		auto version_l (domain_l->get_optional<unsigned> ("version"));
+		if (!version_l)
+		{
+			version_l = 1;
+			domain_l->put ("version", *version_l);
+			domain_l->put ("allow_unsafe", transport_domain.allow_unsafe);
+			upgraded_a = true;
+		}
+
 		domain_l->get_optional<long> ("io_threads", transport_domain.io_threads, -1);
 		domain_l->get_optional<bool> ("allow_unsafe", transport_domain.allow_unsafe);
 		domain_l->get<bool> ("enable", transport_domain.enabled);

@@ -473,18 +473,30 @@ void nano::opencl_environment::dump (std::ostream & stream)
 			clGetDeviceInfo (*j, CL_DEVICE_COMPILER_AVAILABLE, 0, nullptr, &compilerAvailableCount);
 			std::vector<uint8_t> compilerAvailableInfo (compilerAvailableCount);
 			clGetDeviceInfo (*j, CL_DEVICE_COMPILER_AVAILABLE, compilerAvailableCount, compilerAvailableInfo.data (), 0);
-			stream << '\t' << "Compiler available: " << (compilerAvailableInfo[0] ? "true" : "false") << std::endl;
+			stream << "\tCompiler available: " << (compilerAvailableInfo[0] ? "true" : "false") << std::endl;
 			size_t computeUnitsAvailableCount = 0;
 			clGetDeviceInfo (*j, CL_DEVICE_MAX_COMPUTE_UNITS, 0, nullptr, &computeUnitsAvailableCount);
 			std::vector<uint8_t> computeUnitsAvailableInfo (computeUnitsAvailableCount);
 			clGetDeviceInfo (*j, CL_DEVICE_MAX_COMPUTE_UNITS, computeUnitsAvailableCount, computeUnitsAvailableInfo.data (), 0);
 			uint64_t computeUnits (computeUnitsAvailableInfo[0] | (computeUnitsAvailableInfo[1] << 8) | (computeUnitsAvailableInfo[2] << 16) | (computeUnitsAvailableInfo[3] << 24));
-			stream << '\t' << "Compute units available: " << computeUnits << std::endl;
+			stream << "\tCompute units available: " << computeUnits << std::endl;
+			cl_ulong size{ 0 };
+			clGetDeviceInfo (*j, CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, sizeof (cl_ulong), &size, 0);
+			stream << "\tMemory size" << std::endl;
+			stream << "\t\tConstant buffer: " << size << std::endl;
+			clGetDeviceInfo (*j, CL_DEVICE_LOCAL_MEM_SIZE, sizeof (cl_ulong), &size, 0);
+			stream << "\t\tLocal memory   : " << size << std::endl;
+			clGetDeviceInfo (*j, CL_DEVICE_GLOBAL_MEM_SIZE, sizeof (cl_ulong), &size, 0);
+			stream << "\t\tGlobal memory  : " << size << std::endl;
+			clGetDeviceInfo (*j, CL_DEVICE_GLOBAL_MEM_CACHE_SIZE, sizeof (cl_ulong), &size, 0);
+			stream << "\t\tGlobal cache   : " << size << std::endl;
+			clGetDeviceInfo (*j, CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof (cl_ulong), &size, 0);
+			stream << "\t\tMax allocation : " << size << std::endl;
 		}
 	}
 }
 
-nano::opencl_work::opencl_work (bool & error_a, nano::opencl_config const & config_a, nano::opencl_environment & environment_a, nano::logging & logging_a) :
+nano::opencl_work::opencl_work (bool & error_a, nano::opencl_config const & config_a, nano::opencl_environment & environment_a, nano::logger_mt & logger_a) :
 config (config_a),
 context (0),
 attempt_buffer (0),
@@ -494,7 +506,7 @@ difficulty_buffer (0),
 program (0),
 kernel (0),
 queue (0),
-logging (logging_a)
+logger (logger_a)
 {
 	error_a |= config.platform >= environment_a.platforms.size ();
 	if (!error_a)
@@ -577,85 +589,85 @@ logging (logging_a)
 															}
 															else
 															{
-																logging.logger.always_log (boost::str (boost::format ("Bind argument 3 error %1%") % arg3_error));
+																logger.always_log (boost::str (boost::format ("Bind argument 3 error %1%") % arg3_error));
 															}
 														}
 														else
 														{
-															logging.logger.always_log (boost::str (boost::format ("Bind argument 2 error %1%") % arg2_error));
+															logger.always_log (boost::str (boost::format ("Bind argument 2 error %1%") % arg2_error));
 														}
 													}
 													else
 													{
-														logging.logger.always_log (boost::str (boost::format ("Bind argument 1 error %1%") % arg1_error));
+														logger.always_log (boost::str (boost::format ("Bind argument 1 error %1%") % arg1_error));
 													}
 												}
 												else
 												{
-													logging.logger.always_log (boost::str (boost::format ("Bind argument 0 error %1%") % arg0_error));
+													logger.always_log (boost::str (boost::format ("Bind argument 0 error %1%") % arg0_error));
 												}
 											}
 											else
 											{
-												logging.logger.always_log (boost::str (boost::format ("Create kernel error %1%") % kernel_error));
+												logger.always_log (boost::str (boost::format ("Create kernel error %1%") % kernel_error));
 											}
 										}
 										else
 										{
-											logging.logger.always_log (boost::str (boost::format ("Build program error %1%") % clBuildProgramError));
+											logger.always_log (boost::str (boost::format ("Build program error %1%") % clBuildProgramError));
 											for (auto i (selected_devices.begin ()), n (selected_devices.end ()); i != n; ++i)
 											{
 												size_t log_size (0);
 												clGetProgramBuildInfo (program, *i, CL_PROGRAM_BUILD_LOG, 0, nullptr, &log_size);
 												std::vector<char> log (log_size);
 												clGetProgramBuildInfo (program, *i, CL_PROGRAM_BUILD_LOG, log.size (), log.data (), nullptr);
-												logging.logger.always_log (log.data ());
+												logger.always_log (log.data ());
 											}
 										}
 									}
 									else
 									{
-										logging.logger.always_log (boost::str (boost::format ("Create program error %1%") % program_error));
+										logger.always_log (boost::str (boost::format ("Create program error %1%") % program_error));
 									}
 								}
 								else
 								{
-									logging.logger.always_log (boost::str (boost::format ("Difficulty buffer error %1%") % difficulty_error));
+									logger.always_log (boost::str (boost::format ("Difficulty buffer error %1%") % difficulty_error));
 								}
 							}
 							else
 							{
-								logging.logger.always_log (boost::str (boost::format ("Item buffer error %1%") % item_error));
+								logger.always_log (boost::str (boost::format ("Item buffer error %1%") % item_error));
 							}
 						}
 						else
 						{
-							logging.logger.always_log (boost::str (boost::format ("Result buffer error %1%") % result_error));
+							logger.always_log (boost::str (boost::format ("Result buffer error %1%") % result_error));
 						}
 					}
 					else
 					{
-						logging.logger.always_log (boost::str (boost::format ("Attempt buffer error %1%") % attempt_error));
+						logger.always_log (boost::str (boost::format ("Attempt buffer error %1%") % attempt_error));
 					}
 				}
 				else
 				{
-					logging.logger.always_log (boost::str (boost::format ("Unable to create command queue %1%") % queue_error));
+					logger.always_log (boost::str (boost::format ("Unable to create command queue %1%") % queue_error));
 				}
 			}
 			else
 			{
-				logging.logger.always_log (boost::str (boost::format ("Unable to create context %1%") % createContextError));
+				logger.always_log (boost::str (boost::format ("Unable to create context %1%") % createContextError));
 			}
 		}
 		else
 		{
-			logging.logger.always_log (boost::str (boost::format ("Requested device %1%, and only have %2%") % config.device % platform.devices.size ()));
+			logger.always_log (boost::str (boost::format ("Requested device %1%, and only have %2%") % config.device % platform.devices.size ()));
 		}
 	}
 	else
 	{
-		logging.logger.always_log (boost::str (boost::format ("Requested platform %1% and only have %2%") % config.platform % environment_a.platforms.size ()));
+		logger.always_log (boost::str (boost::format ("Requested platform %1% and only have %2%") % config.platform % environment_a.platforms.size ()));
 	}
 }
 
@@ -708,37 +720,37 @@ boost::optional<uint64_t> nano::opencl_work::generate_work (nano::uint256_union 
 							else
 							{
 								error = true;
-								logging.logger.always_log (boost::str (boost::format ("Error finishing queue %1%") % finishError));
+								logger.always_log (boost::str (boost::format ("Error finishing queue %1%") % finishError));
 							}
 						}
 						else
 						{
 							error = true;
-							logging.logger.always_log (boost::str (boost::format ("Error reading result %1%") % read_error1));
+							logger.always_log (boost::str (boost::format ("Error reading result %1%") % read_error1));
 						}
 					}
 					else
 					{
 						error = true;
-						logging.logger.always_log (boost::str (boost::format ("Error enqueueing kernel %1%") % enqueue_error));
+						logger.always_log (boost::str (boost::format ("Error enqueueing kernel %1%") % enqueue_error));
 					}
 				}
 				else
 				{
 					error = true;
-					logging.logger.always_log (boost::str (boost::format ("Error writing item %1%") % write_error3));
+					logger.always_log (boost::str (boost::format ("Error writing item %1%") % write_error3));
 				}
 			}
 			else
 			{
 				error = true;
-				logging.logger.always_log (boost::str (boost::format ("Error writing item %1%") % write_error2));
+				logger.always_log (boost::str (boost::format ("Error writing item %1%") % write_error2));
 			}
 		}
 		else
 		{
 			error = true;
-			logging.logger.always_log (boost::str (boost::format ("Error writing attempt %1%") % write_error1));
+			logger.always_log (boost::str (boost::format ("Error writing attempt %1%") % write_error1));
 		}
 	}
 	boost::optional<uint64_t> value;
@@ -749,7 +761,7 @@ boost::optional<uint64_t> nano::opencl_work::generate_work (nano::uint256_union 
 	return value;
 }
 
-std::unique_ptr<nano::opencl_work> nano::opencl_work::create (bool create_a, nano::opencl_config const & config_a, nano::logging & logging_a)
+std::unique_ptr<nano::opencl_work> nano::opencl_work::create (bool create_a, nano::opencl_config const & config_a, nano::logger_mt & logger_a)
 {
 	std::unique_ptr<nano::opencl_work> result;
 	if (create_a)
@@ -758,10 +770,10 @@ std::unique_ptr<nano::opencl_work> nano::opencl_work::create (bool create_a, nan
 		nano::opencl_environment environment (error);
 		std::stringstream stream;
 		environment.dump (stream);
-		logging_a.logger.always_log (stream.str ());
+		logger_a.always_log (stream.str ());
 		if (!error)
 		{
-			result.reset (new nano::opencl_work (error, config_a, environment, logging_a));
+			result.reset (new nano::opencl_work (error, config_a, environment, logger_a));
 			if (error)
 			{
 				result.reset ();

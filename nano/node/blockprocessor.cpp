@@ -1,17 +1,19 @@
-#include <cassert>
 #include <nano/lib/timer.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/node.hpp>
 #include <nano/secure/blockstore.hpp>
 
+#include <cassert>
+
 std::chrono::milliseconds constexpr nano::block_processor::confirmation_request_delay;
 
-nano::block_processor::block_processor (nano::node & node_a) :
+nano::block_processor::block_processor (nano::node & node_a, nano::write_database_queue & write_database_queue_a) :
 generator (node_a),
 stopped (false),
 active (false),
 next_log (std::chrono::steady_clock::now ()),
-node (node_a)
+node (node_a),
+write_database_queue (write_database_queue_a)
 {
 }
 
@@ -136,12 +138,12 @@ void nano::block_processor::verify_state_blocks (nano::transaction const & trans
 	std::deque<nano::unchecked_info> items;
 	for (auto i (0); i < max_count && !state_blocks.empty (); i++)
 	{
-		auto item (state_blocks.front ());
-		state_blocks.pop_front ();
+		auto & item (state_blocks.front ());
 		if (!node.ledger.store.block_exists (transaction_a, item.block->type (), item.block->hash ()))
 		{
-			items.push_back (item);
+			items.push_back (std::move (item));
 		}
+		state_blocks.pop_front ();
 	}
 	lock_a.unlock ();
 	if (!items.empty ())
@@ -165,7 +167,7 @@ void nano::block_processor::verify_state_blocks (nano::transaction const & trans
 		verifications.resize (size, 0);
 		for (auto i (0); i < size; ++i)
 		{
-			auto item (items[i]);
+			auto & item (items[i]);
 			hashes.push_back (item.block->hash ());
 			messages.push_back (hashes.back ().bytes.data ());
 			lengths.push_back (sizeof (decltype (hashes)::value_type));
@@ -189,27 +191,27 @@ void nano::block_processor::verify_state_blocks (nano::transaction const & trans
 		for (auto i (0); i < size; ++i)
 		{
 			assert (verifications[i] == 1 || verifications[i] == 0);
-			auto item (items.front ());
+			auto & item (items.front ());
 			if (!item.block->link ().is_zero () && node.ledger.is_epoch_link (item.block->link ()))
 			{
 				// Epoch blocks
 				if (verifications[i] == 1)
 				{
 					item.verified = nano::signature_verification::valid_epoch;
-					blocks.push_back (item);
+					blocks.push_back (std::move (item));
 				}
 				else
 				{
 					// Possible regular state blocks with epoch link (send subtype)
 					item.verified = nano::signature_verification::unknown;
-					blocks.push_back (item);
+					blocks.push_back (std::move (item));
 				}
 			}
 			else if (verifications[i] == 1)
 			{
 				// Non epoch blocks
 				item.verified = nano::signature_verification::valid;
-				blocks.push_back (item);
+				blocks.push_back (std::move (item));
 			}
 			items.pop_front ();
 		}
@@ -240,6 +242,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 		}
 	}
 	lock_a.unlock ();
+	auto scoped_write_guard = write_database_queue.wait (nano::writer::process_batch);
 	auto transaction (node.store.tx_begin_write ());
 	timer_l.restart ();
 	lock_a.lock ();
@@ -293,10 +296,10 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 			{
 				// Replace our block with the winner and roll back any dependent blocks
 				node.logger.always_log (boost::str (boost::format ("Rolling back %1% and replacing with %2%") % successor->hash ().to_string () % hash.to_string ()));
-				std::vector<nano::block_hash> rollback_list;
+				std::vector<std::shared_ptr<nano::block>> rollback_list;
 				if (node.ledger.rollback (transaction, successor->hash (), rollback_list))
 				{
-					node.logger.always_log (boost::str (boost::format ("Failed to roll back %1% because it or a successor was confirmed") % successor->hash ().to_string ()));
+					node.logger.always_log (nano::severity_level::error, boost::str (boost::format ("Failed to roll back %1% because it or a successor was confirmed") % successor->hash ().to_string ()));
 				}
 				else
 				{
@@ -316,10 +319,12 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 					}
 				}
 				lock_a.unlock ();
-				// Deleting from votes cache
+				// Deleting from votes cache & wallet work watcher, stop active transaction
 				for (auto & i : rollback_list)
 				{
-					node.votes_cache.remove (i);
+					node.votes_cache.remove (i->hash ());
+					node.wallets.watcher.remove (i);
+					node.active.erase (*i);
 				}
 			}
 		}
@@ -336,7 +341,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 	}
 	lock_a.unlock ();
 
-	if (node.config.logging.timing_logging ())
+	if (node.config.logging.timing_logging () && number_of_blocks_processed != 0)
 	{
 		node.logger.always_log (boost::str (boost::format ("Processed %1% blocks (%2% blocks were forced) in %3% %4%") % number_of_blocks_processed % number_of_forced_processed % timer_l.stop ().count () % timer_l.unit ()));
 	}
@@ -363,7 +368,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 			{
 				std::lock_guard<std::mutex> lock (node_l->active.mutex);
 				auto existing (node_l->active.blocks.find (block_a->hash ()));
-				if (existing != node_l->active.blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->announcements == 0)
+				if (existing != node_l->active.blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->confirmation_request_count == 0)
 				{
 					send_request = true;
 				}
@@ -528,6 +533,5 @@ void nano::block_processor::queue_unchecked (nano::transaction const & transacti
 		}
 		add (info);
 	}
-	std::lock_guard<std::mutex> lock (node.gap_cache.mutex);
-	node.gap_cache.blocks.get<1> ().erase (hash_a);
+	node.gap_cache.erase (hash_a);
 }

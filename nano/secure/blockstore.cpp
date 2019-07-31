@@ -1,10 +1,7 @@
-#include <nano/node/common.hpp>
-#include <nano/node/wallet.hpp>
 #include <nano/secure/blockstore.hpp>
 
-#include <boost/polymorphic_cast.hpp>
-
 #include <boost/endian/conversion.hpp>
+#include <boost/polymorphic_cast.hpp>
 
 nano::block_sideband::block_sideband (nano::block_type type_a, nano::account const & account_a, nano::block_hash const & successor_a, nano::amount const & balance_a, uint64_t height_a, uint64_t timestamp_a) :
 type (type_a),
@@ -366,4 +363,50 @@ void nano::representative_visitor::change_block (nano::change_block const & bloc
 void nano::representative_visitor::state_block (nano::state_block const & block_a)
 {
 	result = block_a.hash ();
+}
+
+nano::read_transaction::read_transaction (std::unique_ptr<nano::read_transaction_impl> read_transaction_impl) :
+impl (std::move (read_transaction_impl))
+{
+}
+
+void * nano::read_transaction::get_handle () const
+{
+	return impl->get_handle ();
+}
+
+void nano::read_transaction::reset () const
+{
+	impl->reset ();
+}
+
+void nano::read_transaction::renew () const
+{
+	impl->renew ();
+}
+
+void nano::read_transaction::refresh () const
+{
+	reset ();
+	renew ();
+}
+
+nano::write_transaction::write_transaction (std::unique_ptr<nano::write_transaction_impl> write_transaction_impl) :
+impl (std::move (write_transaction_impl))
+{
+}
+
+void * nano::write_transaction::get_handle () const
+{
+	return impl->get_handle ();
+}
+
+void nano::write_transaction::commit () const
+{
+	impl->commit ();
+}
+
+void nano::write_transaction::renew ()
+{
+	impl->renew ();
 }

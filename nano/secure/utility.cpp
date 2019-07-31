@@ -1,8 +1,6 @@
 #include <nano/lib/config.hpp>
-#include <nano/lib/interface.h>
-#include <nano/node/logging.hpp>
-#include <nano/node/working.hpp>
 #include <nano/secure/utility.hpp>
+#include <nano/secure/working.hpp>
 
 static std::vector<boost::filesystem::path> all_unique_paths;
 
@@ -109,4 +107,17 @@ void nano::remove_temporary_directories ()
 			std::cerr << "Could not remove temporary lock file: " << ec.message () << std::endl;
 		}
 	}
+}
+
+namespace nano
+{
+/** A wrapper for handling signals */
+std::function<void()> signal_handler_impl;
+void signal_handler (int sig)
+{
+	if (signal_handler_impl != nullptr)
+	{
+		signal_handler_impl ();
+	}
+}
 }

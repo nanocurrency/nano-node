@@ -1,5 +1,7 @@
-#include <crypto/cryptopp/osrng.h>
 #include <nano/lib/blockbuilders.hpp>
+
+#include <crypto/cryptopp/osrng.h>
+
 #include <unordered_map>
 
 namespace
@@ -183,7 +185,7 @@ std::error_code check_fields_set (uint8_t block_all_flags, uint8_t build_state)
 	if (res)
 	{
 		// Convert the first bit set to a field mask and look up the error code.
-		auto build_flags_mask = ffs_mask (res);
+		auto build_flags_mask = static_cast<uint8_t> (ffs_mask (res));
 		assert (ec_map.find (build_flags_mask) != ec_map.end ());
 		ec = ec_map[build_flags_mask];
 	}

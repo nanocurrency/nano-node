@@ -1,15 +1,17 @@
 #pragma once
 
-#include <atomic>
+#include <nano/lib/errors.hpp>
+#include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/utility.hpp>
+
 #include <boost/circular_buffer.hpp>
 #include <boost/property_tree/ptree.hpp>
+
+#include <atomic>
 #include <chrono>
 #include <map>
 #include <memory>
 #include <mutex>
-#include <nano/lib/errors.hpp>
-#include <nano/lib/jsonconfig.hpp>
-#include <nano/lib/utility.hpp>
 #include <string>
 #include <unordered_map>
 
@@ -217,7 +219,7 @@ public:
 	enum class type : uint8_t
 	{
 		traffic,
-		traffic_bootstrap,
+		traffic_tcp,
 		error,
 		message,
 		block,
@@ -228,7 +230,11 @@ public:
 		http_callback,
 		peering,
 		ipc,
-		udp
+		tcp,
+		udp,
+		observer,
+		confirmation_height,
+		drop
 	};
 
 	/** Optional detail type */
@@ -241,6 +247,11 @@ public:
 		insufficient_work,
 		http_callback,
 		unreachable_host,
+
+		// observer specific
+		observer_confirmation_active_quorum,
+		observer_confirmation_active_conf_height,
+		observer_confirmation_inactive,
 
 		// ledger, block, bootstrap
 		send,
@@ -266,8 +277,13 @@ public:
 
 		// bootstrap specific
 		bulk_pull,
-		bulk_push,
 		bulk_pull_account,
+		bulk_pull_deserialize_receive_block,
+		bulk_pull_error_starting_request,
+		bulk_pull_failed_account,
+		bulk_pull_receive_block_failure,
+		bulk_pull_request_failure,
+		bulk_push,
 		frontier_req,
 		error_socket_close,
 
@@ -291,11 +307,20 @@ public:
 		invalid_node_id_handshake_message,
 		outdated_version,
 
+		// tcp
+		tcp_accept_success,
+		tcp_accept_failure,
+		tcp_write_drop,
+
 		// ipc
 		invocations,
 
 		// peering
 		handshake,
+
+		// confirmation height
+		blocks_confirmed,
+		invalid_block
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */
@@ -439,9 +464,14 @@ public:
 	/** Returns a new JSON log sink */
 	std::unique_ptr<stat_log_sink> log_sink_json () const;
 
+	/** Returns string representation of detail */
+	static std::string detail_to_string (uint32_t key);
+
+	/** Stop stats being output */
+	void stop ();
+
 private:
 	static std::string type_to_string (uint32_t key);
-	static std::string detail_to_string (uint32_t key);
 	static std::string dir_to_string (uint32_t key);
 
 	/** Constructs a key given type, detail and direction. This is used as input to update(...) and get_entry(...) */
@@ -482,6 +512,9 @@ private:
 	std::map<uint32_t, std::shared_ptr<nano::stat_entry>> entries;
 	std::chrono::steady_clock::time_point log_last_count_writeout{ std::chrono::steady_clock::now () };
 	std::chrono::steady_clock::time_point log_last_sample_writeout{ std::chrono::steady_clock::now () };
+
+	/** Whether stats should be output */
+	bool stopped{ false };
 
 	/** All access to stat is thread safe, including calls from observers on the same thread */
 	std::mutex stat_mutex;

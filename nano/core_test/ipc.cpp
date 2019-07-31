@@ -1,12 +1,15 @@
-#include <boost/property_tree/json_parser.hpp>
-#include <chrono>
-#include <gtest/gtest.h>
-#include <memory>
 #include <nano/core_test/testutil.hpp>
 #include <nano/lib/ipc_client.hpp>
 #include <nano/node/ipc.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/rpc/rpc.hpp>
+
+#include <gtest/gtest.h>
+
+#include <boost/property_tree/json_parser.hpp>
+
+#include <chrono>
+#include <memory>
 #include <sstream>
 #include <vector>
 
@@ -17,7 +20,8 @@ TEST (ipc, asynchronous)
 	nano::system system (24000, 1);
 	system.nodes[0]->config.ipc_config.transport_tcp.enabled = true;
 	system.nodes[0]->config.ipc_config.transport_tcp.port = 24077;
-	nano::ipc::ipc_server ipc (*system.nodes[0]);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc (*system.nodes[0], node_rpc_config);
 	nano::ipc::ipc_client client (system.nodes[0]->io_ctx);
 
 	auto req (nano::ipc::prepare_request (nano::ipc::payload_encoding::json_legacy, std::string (R"({"action": "block_count"})")));
@@ -59,7 +63,8 @@ TEST (ipc, synchronous)
 	nano::system system (24000, 1);
 	system.nodes[0]->config.ipc_config.transport_tcp.enabled = true;
 	system.nodes[0]->config.ipc_config.transport_tcp.port = 24077;
-	nano::ipc::ipc_server ipc (*system.nodes[0]);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc (*system.nodes[0], node_rpc_config);
 	nano::ipc::ipc_client client (system.nodes[0]->io_ctx);
 
 	// Start blocking IPC client in a separate thread
@@ -83,4 +88,23 @@ TEST (ipc, synchronous)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+}
+
+TEST (ipc, config_upgrade_v0_v1)
+{
+	auto path1 (nano::unique_path ());
+	auto path2 (nano::unique_path ());
+	nano::ipc::ipc_config config1;
+	nano::ipc::ipc_config config2;
+	nano::jsonconfig tree;
+	config1.serialize_json (tree);
+	nano::jsonconfig local = tree.get_required_child ("local");
+	local.erase ("version");
+	local.erase ("allow_unsafe");
+	bool upgraded (false);
+	ASSERT_FALSE (config2.deserialize_json (upgraded, tree));
+	nano::jsonconfig local2 = tree.get_required_child ("local");
+	ASSERT_TRUE (upgraded);
+	ASSERT_LE (1, local2.get<int> ("version"));
+	ASSERT_FALSE (local2.get<bool> ("allow_unsafe"));
 }

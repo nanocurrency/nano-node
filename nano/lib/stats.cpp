@@ -1,8 +1,9 @@
-#include <nano/node/stats.hpp>
+#include <nano/boost/asio.hpp>
+#include <nano/lib/stats.hpp>
 
-#include <boost/asio.hpp>
 #include <boost/format.hpp>
 #include <boost/property_tree/json_parser.hpp>
+
 #include <ctime>
 #include <fstream>
 #include <iostream>
@@ -259,47 +260,50 @@ void nano::stat::update (uint32_t key_a, uint64_t value)
 	auto now (std::chrono::steady_clock::now ());
 
 	std::unique_lock<std::mutex> lock (stat_mutex);
-	auto entry (get_entry_impl (key_a, config.interval, config.capacity));
-
-	// Counters
-	auto old (entry->counter.get_value ());
-	entry->counter.add (value);
-	entry->count_observers.notify (old, entry->counter.get_value ());
-
-	std::chrono::duration<double, std::milli> duration = now - log_last_count_writeout;
-	if (config.log_interval_counters > 0 && duration.count () > config.log_interval_counters)
+	if (!stopped)
 	{
-		log_counters_impl (log_count);
-		log_last_count_writeout = now;
-	}
+		auto entry (get_entry_impl (key_a, config.interval, config.capacity));
 
-	// Samples
-	if (config.sampling_enabled && entry->sample_interval > 0)
-	{
-		entry->sample_current.add (value, false);
+		// Counters
+		auto old (entry->counter.get_value ());
+		entry->counter.add (value);
+		entry->count_observers.notify (old, entry->counter.get_value ());
 
-		std::chrono::duration<double, std::milli> duration = now - entry->sample_start_time;
-		if (duration.count () > entry->sample_interval)
+		std::chrono::duration<double, std::milli> duration = now - log_last_count_writeout;
+		if (config.log_interval_counters > 0 && duration.count () > config.log_interval_counters)
 		{
-			entry->sample_start_time = now;
+			log_counters_impl (log_count);
+			log_last_count_writeout = now;
+		}
 
-			// Make a snapshot of samples for thread safety and to get a stable container
-			entry->sample_current.set_timestamp (std::chrono::system_clock::now ());
-			entry->samples.push_back (entry->sample_current);
-			entry->sample_current.set_value (0);
+		// Samples
+		if (config.sampling_enabled && entry->sample_interval > 0)
+		{
+			entry->sample_current.add (value, false);
 
-			if (!entry->sample_observers.observers.empty ())
+			std::chrono::duration<double, std::milli> duration = now - entry->sample_start_time;
+			if (duration.count () > entry->sample_interval)
 			{
-				auto snapshot (entry->samples);
-				entry->sample_observers.notify (snapshot);
-			}
+				entry->sample_start_time = now;
 
-			// Log sink
-			duration = now - log_last_sample_writeout;
-			if (config.log_interval_samples > 0 && duration.count () > config.log_interval_samples)
-			{
-				log_samples_impl (log_sample);
-				log_last_sample_writeout = now;
+				// Make a snapshot of samples for thread safety and to get a stable container
+				entry->sample_current.set_timestamp (std::chrono::system_clock::now ());
+				entry->samples.push_back (entry->sample_current);
+				entry->sample_current.set_value (0);
+
+				if (!entry->sample_observers.observers.empty ())
+				{
+					auto snapshot (entry->samples);
+					entry->sample_observers.notify (snapshot);
+				}
+
+				// Log sink
+				duration = now - log_last_sample_writeout;
+				if (config.log_interval_samples > 0 && duration.count () > config.log_interval_samples)
+				{
+					log_samples_impl (log_sample);
+					log_last_sample_writeout = now;
+				}
 			}
 		}
 	}
@@ -310,6 +314,12 @@ std::chrono::seconds nano::stat::last_reset ()
 	std::unique_lock<std::mutex> lock (stat_mutex);
 	auto now (std::chrono::steady_clock::now ());
 	return std::chrono::duration_cast<std::chrono::seconds> (now - timestamp);
+}
+
+void nano::stat::stop ()
+{
+	std::lock_guard<std::mutex> guard (stat_mutex);
+	stopped = true;
 }
 
 void nano::stat::clear ()
@@ -343,6 +353,9 @@ std::string nano::stat::type_to_string (uint32_t key)
 		case nano::stat::type::ledger:
 			res = "ledger";
 			break;
+		case nano::stat::type::tcp:
+			res = "tcp";
+			break;
 		case nano::stat::type::udp:
 			res = "udp";
 			break;
@@ -355,7 +368,7 @@ std::string nano::stat::type_to_string (uint32_t key)
 		case nano::stat::type::traffic:
 			res = "traffic";
 			break;
-		case nano::stat::type::traffic_bootstrap:
+		case nano::stat::type::traffic_tcp:
 			res = "traffic_bootstrap";
 			break;
 		case nano::stat::type::vote:
@@ -364,6 +377,14 @@ std::string nano::stat::type_to_string (uint32_t key)
 		case nano::stat::type::message:
 			res = "message";
 			break;
+		case nano::stat::type::observer:
+			res = "observer";
+			break;
+		case nano::stat::type::confirmation_height:
+			res = "confirmation_height";
+			break;
+		case nano::stat::type::drop:
+			res = "drop";
 	}
 	return res;
 }
@@ -386,8 +407,32 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::bulk_pull_account:
 			res = "bulk_pull_account";
 			break;
+		case nano::stat::detail::bulk_pull_deserialize_receive_block:
+			res = "bulk_pull_deserialize_receive_block";
+			break;
+		case nano::stat::detail::bulk_pull_error_starting_request:
+			res = "bulk_pull_error_starting_request";
+			break;
+		case nano::stat::detail::bulk_pull_failed_account:
+			res = "bulk_pull_failed_account";
+			break;
+		case nano::stat::detail::bulk_pull_receive_block_failure:
+			res = "bulk_pull_receive_block_failure";
+			break;
+		case nano::stat::detail::bulk_pull_request_failure:
+			res = "bulk_pull_request_failure";
+			break;
 		case nano::stat::detail::bulk_push:
 			res = "bulk_push";
+			break;
+		case nano::stat::detail::observer_confirmation_active_quorum:
+			res = "observer_confirmation_active_quorum";
+			break;
+		case nano::stat::detail::observer_confirmation_active_conf_height:
+			res = "observer_confirmation_active_conf_height";
+			break;
+		case nano::stat::detail::observer_confirmation_inactive:
+			res = "observer_confirmation_inactive";
 			break;
 		case nano::stat::detail::error_socket_close:
 			res = "error_socket_close";
@@ -473,6 +518,15 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::overflow:
 			res = "overflow";
 			break;
+		case nano::stat::detail::tcp_accept_success:
+			res = "accept_success";
+			break;
+		case nano::stat::detail::tcp_accept_failure:
+			res = "accept_failure";
+			break;
+		case nano::stat::detail::tcp_write_drop:
+			res = "tcp_write_drop";
+			break;
 		case nano::stat::detail::unreachable_host:
 			res = "unreachable_host";
 			break;
@@ -506,6 +560,11 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::outdated_version:
 			res = "outdated_version";
 			break;
+		case nano::stat::detail::invalid_block:
+			res = "invalid_block";
+			break;
+		case nano::stat::detail::blocks_confirmed:
+			res = "blocks_confirmed";
 	}
 	return res;
 }

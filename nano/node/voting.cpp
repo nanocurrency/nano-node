@@ -1,11 +1,10 @@
+#include <nano/node/node.hpp>
 #include <nano/node/voting.hpp>
 
-#include <nano/node/node.hpp>
+#include <chrono>
 
 nano::vote_generator::vote_generator (nano::node & node_a) :
 node (node_a),
-stopped (false),
-started (false),
 thread ([this]() { run (); })
 {
 	std::unique_lock<std::mutex> lock (mutex);
@@ -17,17 +16,22 @@ thread ([this]() { run (); })
 
 void nano::vote_generator::add (nano::block_hash const & hash_a)
 {
+	std::unique_lock<std::mutex> lock (mutex);
+	hashes.push_back (hash_a);
+	if (hashes.size () >= node.config.vote_generator_threshold)
 	{
-		std::lock_guard<std::mutex> lock (mutex);
-		hashes.push_back (hash_a);
+		// Potentially high load, notify to wait for more hashes
+		wakeup = true;
+		lock.unlock ();
+		condition.notify_all ();
 	}
-	condition.notify_all ();
 }
 
 void nano::vote_generator::stop ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
 	stopped = true;
+	wakeup = true;
 
 	lock.unlock ();
 	condition.notify_all ();
@@ -69,13 +73,21 @@ void nano::vote_generator::run ()
 	lock.lock ();
 	while (!stopped)
 	{
-		if (!hashes.empty ())
+		if (hashes.size () >= 12)
 		{
 			send (lock);
 		}
 		else
 		{
-			condition.wait (lock);
+			wakeup = false;
+			if (!condition.wait_for (lock, node.config.vote_generator_delay, [this]() { return this->wakeup; }))
+			{
+				// Did not wake up early. Likely not under high load, ok to send lower number of hashes
+				if (!hashes.empty ())
+				{
+					send (lock);
+				}
+			}
 		}
 	}
 }
@@ -96,13 +108,28 @@ void nano::votes_cache::add (std::shared_ptr<nano::vote> const & vote_a)
 			}
 			// Insert new votes (new hash)
 			auto inserted (cache.insert (nano::cached_votes{ std::chrono::steady_clock::now (), hash, std::vector<std::shared_ptr<nano::vote>> (1, vote_a) }));
+			(void)inserted;
 			assert (inserted.second);
 		}
 		else
 		{
 			// Insert new votes (old hash)
 			cache.get<1> ().modify (existing, [vote_a](nano::cached_votes & cache_a) {
-				cache_a.votes.push_back (vote_a);
+				// Replace old vote for same representative & hash
+				bool replaced (false);
+				for (auto i (cache_a.votes.begin ()), n (cache_a.votes.end ()); i != n && !replaced; ++i)
+				{
+					if ((*i)->account == vote_a->account)
+					{
+						*i = vote_a;
+						replaced = true;
+					}
+				}
+				// Insert new vote
+				if (!replaced)
+				{
+					cache_a.votes.push_back (vote_a);
+				}
 			});
 		}
 	}
