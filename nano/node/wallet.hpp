@@ -1,7 +1,8 @@
 #pragma once
 
 #include <nano/lib/config.hpp>
-#include <nano/node/lmdb.hpp>
+#include <nano/node/lmdb/lmdb.hpp>
+#include <nano/node/lmdb/wallet_value.hpp>
 #include <nano/node/openclwork.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
@@ -122,7 +123,6 @@ public:
 	std::shared_ptr<nano::block> change_action (nano::account const &, nano::account const &, uint64_t = 0, bool = true);
 	std::shared_ptr<nano::block> receive_action (nano::block const &, nano::account const &, nano::uint128_union const &, uint64_t = 0, bool = true);
 	std::shared_ptr<nano::block> send_action (nano::account const &, nano::account const &, nano::uint128_t const &, uint64_t = 0, bool = true, boost::optional<std::string> = {});
-	std::shared_ptr<nano::block> regenerate_action (nano::qualified_root const &, std::shared_ptr<nano::block_builder>);
 	wallet (bool &, nano::transaction &, nano::wallets &, std::string const &);
 	wallet (bool &, nano::transaction &, nano::wallets &, std::string const &, std::string const &);
 	void enter_initial_password ();
@@ -142,7 +142,6 @@ public:
 	void receive_async (std::shared_ptr<nano::block>, nano::account const &, nano::uint128_t const &, std::function<void(std::shared_ptr<nano::block>)> const &, uint64_t = 0, bool = true);
 	nano::block_hash send_sync (nano::account const &, nano::account const &, nano::uint128_t const &);
 	void send_async (nano::account const &, nano::account const &, nano::uint128_t const &, std::function<void(std::shared_ptr<nano::block>)> const &, uint64_t = 0, bool = true, boost::optional<std::string> = {});
-	void work_apply (nano::account const &, std::function<void(uint64_t)>);
 	void work_cache_blocking (nano::account const &, nano::block_hash const &);
 	void work_update (nano::transaction const &, nano::account const &, nano::block_hash const &, uint64_t);
 	void work_ensure (nano::account const &, nano::block_hash const &);

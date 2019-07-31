@@ -2416,6 +2416,11 @@ TEST (rpc, version)
 	{
 		ASSERT_EQ (boost::str (boost::format ("Nano %1%") % NANO_MAJOR_MINOR_RC_VERSION), response1.json.get<std::string> ("node_vendor"));
 	}
+	auto network_label (node1->network_params.network.get_current_network_as_string ());
+	ASSERT_EQ (network_label, response1.json.get<std::string> ("network"));
+	auto genesis_open (node1->latest (nano::test_genesis_key.pub));
+	ASSERT_EQ (genesis_open.to_string (), response1.json.get<std::string> ("network_identifier"));
+	ASSERT_EQ (BUILD_INFO, response1.json.get<std::string> ("build_info"));
 	auto headers (response1.resp.base ());
 	auto allow (headers.at ("Allow"));
 	auto content_type (headers.at ("Content-Type"));
@@ -2527,6 +2532,73 @@ TEST (rpc, work_generate_difficulty)
 	{
 		uint64_t difficulty (node_rpc_config.max_work_generate_difficulty + 1);
 		request.put ("difficulty", nano::to_string_hex (difficulty));
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		std::error_code ec (nano::error_rpc::difficulty_limit);
+		ASSERT_EQ (response.json.get<std::string> ("error"), ec.message ());
+	}
+}
+
+TEST (rpc, work_generate_multiplier)
+{
+	nano::system system (24000, 1);
+	auto node (system.nodes[0]);
+	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
+	nano::rpc_config rpc_config (true);
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	nano::block_hash hash (1);
+	boost::property_tree::ptree request;
+	request.put ("action", "work_generate");
+	request.put ("hash", hash.to_string ());
+	{
+		// When both difficulty and multiplier are given, should use multiplier
+		// Give base difficulty and very high multiplier to test
+		request.put ("difficulty", nano::to_string_hex (0xff00000000000000));
+		double multiplier{ 100.0 };
+		request.put ("multiplier", multiplier);
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (10s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		auto work_text (response.json.get<std::string> ("work"));
+		uint64_t work;
+		ASSERT_FALSE (nano::from_string_hex (work_text, work));
+		uint64_t result_difficulty;
+		ASSERT_FALSE (nano::work_validate (hash, work, &result_difficulty));
+		auto response_difficulty_text (response.json.get<std::string> ("difficulty"));
+		uint64_t response_difficulty;
+		ASSERT_FALSE (nano::from_string_hex (response_difficulty_text, response_difficulty));
+		ASSERT_EQ (result_difficulty, response_difficulty);
+		auto result_multiplier = response.json.get<double> ("multiplier");
+		ASSERT_GE (result_multiplier, multiplier);
+	}
+	{
+		request.put ("multiplier", -1.5);
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		std::error_code ec (nano::error_rpc::bad_multiplier_format);
+		ASSERT_EQ (response.json.get<std::string> ("error"), ec.message ());
+	}
+	{
+		double max_multiplier (nano::difficulty::to_multiplier (node_rpc_config.max_work_generate_difficulty, node->network_params.network.publish_threshold));
+		request.put ("multiplier", max_multiplier + 1);
 		test_response response (request, rpc.config.port, system.io_ctx);
 		system.deadline_set (5s);
 		while (response.status == 0)
@@ -6596,6 +6668,7 @@ TEST (rpc_config, serialization)
 	config1.enable_control = true;
 	config1.max_json_depth = 10;
 	config1.rpc_process.io_threads = 2;
+	config1.rpc_process.ipc_address = boost::asio::ip::address_v6::any ();
 	config1.rpc_process.ipc_port = 2000;
 	config1.rpc_process.num_ipc_connections = 99;
 	nano::jsonconfig tree;
@@ -6606,6 +6679,7 @@ TEST (rpc_config, serialization)
 	ASSERT_NE (config2.enable_control, config1.enable_control);
 	ASSERT_NE (config2.max_json_depth, config1.max_json_depth);
 	ASSERT_NE (config2.rpc_process.io_threads, config1.rpc_process.io_threads);
+	ASSERT_NE (config2.rpc_process.ipc_address, config1.rpc_process.ipc_address);
 	ASSERT_NE (config2.rpc_process.ipc_port, config1.rpc_process.ipc_port);
 	ASSERT_NE (config2.rpc_process.num_ipc_connections, config1.rpc_process.num_ipc_connections);
 	bool upgraded{ false };
@@ -6615,6 +6689,7 @@ TEST (rpc_config, serialization)
 	ASSERT_EQ (config2.enable_control, config1.enable_control);
 	ASSERT_EQ (config2.max_json_depth, config1.max_json_depth);
 	ASSERT_EQ (config2.rpc_process.io_threads, config1.rpc_process.io_threads);
+	ASSERT_EQ (config2.rpc_process.ipc_address, config1.rpc_process.ipc_address);
 	ASSERT_EQ (config2.rpc_process.ipc_port, config1.rpc_process.ipc_port);
 	ASSERT_EQ (config2.rpc_process.num_ipc_connections, config1.rpc_process.num_ipc_connections);
 }

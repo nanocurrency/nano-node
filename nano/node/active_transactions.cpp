@@ -607,9 +607,11 @@ void nano::active_transactions::update_active_difficulty (std::unique_lock<std::
 	{
 		std::vector<uint64_t> active_root_difficulties;
 		active_root_difficulties.reserve (roots.size ());
+		auto min_election_time (std::chrono::milliseconds (node.network_params.network.request_interval_ms));
+		auto cutoff (std::chrono::steady_clock::now () - min_election_time);
 		for (auto & root : roots)
 		{
-			if (!root.election->confirmed && !root.election->stopped)
+			if (!root.election->confirmed && !root.election->stopped && root.election->election_start < cutoff)
 			{
 				active_root_difficulties.push_back (root.adjusted_difficulty);
 			}

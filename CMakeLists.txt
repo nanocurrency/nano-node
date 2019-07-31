@@ -1,6 +1,14 @@
 cmake_minimum_required (VERSION 3.4)
 project (nano-node)
 
+# Get the latest abbreviated commit hash of the working branch
+execute_process(
+  COMMAND git log -1 --format=%h
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  OUTPUT_VARIABLE GIT_COMMIT_HASH
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
 set (CPACK_PACKAGE_VERSION_MAJOR "20")
 set (CPACK_PACKAGE_VERSION_MINOR "0")
 set (CPACK_PACKAGE_VERSION_PATCH "0")
@@ -155,7 +163,7 @@ set(Boost_USE_MULTITHREADED      ON)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
-find_package (Boost 1.67.0 REQUIRED COMPONENTS filesystem log thread program_options system)
+find_package (Boost 1.67.0 REQUIRED COMPONENTS filesystem log log_setup thread program_options system)
 if (NANO_ROCKSDB)
 	find_package (RocksDB REQUIRED)
 	find_package (ZLIB REQUIRED)
@@ -351,7 +359,8 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 		PRIVATE
 		-DNANO_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
 		-DNANO_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR}
-		-DNANO_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH})
+		-DNANO_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH}
+		-DGIT_COMMIT_HASH=${GIT_COMMIT_HASH})
 
 	if (WIN32)
 		set (PLATFORM_GUI_TARGET_PROPERTIES WIN32)

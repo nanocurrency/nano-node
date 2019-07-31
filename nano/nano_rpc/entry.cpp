@@ -148,6 +148,7 @@ int main (int argc, char * const * argv)
 		{
 			std::cout << "Version " << NANO_MAJOR_MINOR_RC_VERSION << std::endl;
 		}
+		std::cout << "Build Info " << BUILD_INFO << std::endl;
 	}
 	else
 	{

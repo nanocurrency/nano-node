@@ -321,6 +321,39 @@ uint64_t nano::json_handler::work_optional_impl ()
 	return result;
 }
 
+uint64_t nano::json_handler::difficulty_optional_impl ()
+{
+	uint64_t difficulty (node.network_params.network.publish_threshold);
+	boost::optional<std::string> difficulty_text (request.get_optional<std::string> ("difficulty"));
+	if (!ec && difficulty_text.is_initialized ())
+	{
+		if (nano::from_string_hex (difficulty_text.get (), difficulty))
+		{
+			ec = nano::error_rpc::bad_difficulty_format;
+		}
+	}
+	return difficulty;
+}
+
+double nano::json_handler::multiplier_optional_impl (uint64_t & difficulty)
+{
+	double multiplier (1.);
+	boost::optional<std::string> multiplier_text (request.get_optional<std::string> ("multiplier"));
+	if (!ec && multiplier_text.is_initialized ())
+	{
+		auto success = boost::conversion::try_lexical_convert<double> (multiplier_text.get (), multiplier);
+		if (success && multiplier > 0.)
+		{
+			difficulty = nano::difficulty::from_multiplier (multiplier, node.network_params.network.publish_threshold);
+		}
+		else
+		{
+			ec = nano::error_rpc::bad_multiplier_format;
+		}
+	}
+	return multiplier;
+}
+
 namespace
 {
 bool decode_unsigned (std::string const & text, uint64_t & number)
@@ -1497,8 +1530,15 @@ void nano::json_handler::bootstrap ()
 		uint16_t port;
 		if (!nano::parse_port (port_text, port))
 		{
-			node.bootstrap_initiator.bootstrap (nano::endpoint (address, port));
-			response_l.put ("success", "");
+			if (!node.flags.disable_legacy_bootstrap)
+			{
+				node.bootstrap_initiator.bootstrap (nano::endpoint (address, port));
+				response_l.put ("success", "");
+			}
+			else
+			{
+				ec = nano::error_rpc::disabled_bootstrap_legacy;
+			}
 		}
 		else
 		{
@@ -1514,8 +1554,15 @@ void nano::json_handler::bootstrap ()
 
 void nano::json_handler::bootstrap_any ()
 {
-	node.bootstrap_initiator.bootstrap ();
-	response_l.put ("success", "");
+	if (!node.flags.disable_legacy_bootstrap)
+	{
+		node.bootstrap_initiator.bootstrap ();
+		response_l.put ("success", "");
+	}
+	else
+	{
+		ec = nano::error_rpc::disabled_bootstrap_legacy;
+	}
 	response_errors ();
 }
 
@@ -1525,8 +1572,15 @@ void nano::json_handler::bootstrap_lazy ()
 	const bool force = request.get<bool> ("force", false);
 	if (!ec)
 	{
-		node.bootstrap_initiator.bootstrap_lazy (hash, force);
-		response_l.put ("started", "1");
+		if (!node.flags.disable_lazy_bootstrap)
+		{
+			node.bootstrap_initiator.bootstrap_lazy (hash, force);
+			response_l.put ("started", "1");
+		}
+		else
+		{
+			ec = nano::error_rpc::disabled_bootstrap_lazy;
+		}
 	}
 	response_errors ();
 }
@@ -3750,6 +3804,9 @@ void nano::json_handler::version ()
 	{
 		response_l.put ("node_vendor", boost::str (boost::format ("Nano %1%") % NANO_MAJOR_MINOR_RC_VERSION));
 	}
+	response_l.put ("network", node.network_params.network.get_current_network_as_string ());
+	response_l.put ("network_identifier", nano::genesis ().hash ().to_string ());
+	response_l.put ("build_info", BUILD_INFO);
 	response_errors ();
 }
 
@@ -4387,15 +4444,8 @@ void nano::json_handler::wallet_work_get ()
 void nano::json_handler::work_generate ()
 {
 	auto hash (hash_impl ());
-	uint64_t difficulty (node.network_params.network.publish_threshold);
-	boost::optional<std::string> difficulty_text (request.get_optional<std::string> ("difficulty"));
-	if (!ec && difficulty_text.is_initialized ())
-	{
-		if (nano::from_string_hex (difficulty_text.get (), difficulty))
-		{
-			ec = nano::error_rpc::bad_difficulty_format;
-		}
-	}
+	auto difficulty (difficulty_optional_impl ());
+	auto multiplier (multiplier_optional_impl (difficulty));
 	if (!ec && (difficulty > node_rpc_config.max_work_generate_difficulty || difficulty < node.network_params.network.publish_threshold))
 	{
 		ec = nano::error_rpc::difficulty_limit;
@@ -4491,23 +4541,17 @@ void nano::json_handler::work_validate ()
 {
 	auto hash (hash_impl ());
 	auto work (work_optional_impl ());
-	uint64_t difficulty (node.network_params.network.publish_threshold);
-	boost::optional<std::string> difficulty_text (request.get_optional<std::string> ("difficulty"));
-	if (!ec && difficulty_text.is_initialized ())
-	{
-		if (nano::from_string_hex (difficulty_text.get (), difficulty))
-		{
-			ec = nano::error_rpc::bad_difficulty_format;
-		}
-	}
+	auto difficulty (difficulty_optional_impl ());
+	auto multiplier (multiplier_optional_impl (difficulty));
+	(void)multiplier;
 	if (!ec)
 	{
 		uint64_t result_difficulty (0);
 		nano::work_validate (hash, work, &result_difficulty);
 		response_l.put ("valid", (result_difficulty >= difficulty) ? "1" : "0");
 		response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
-		auto multiplier = nano::difficulty::to_multiplier (result_difficulty, node.network_params.network.publish_threshold);
-		response_l.put ("multiplier", nano::to_string (multiplier));
+		auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, node.network_params.network.publish_threshold);
+		response_l.put ("multiplier", nano::to_string (result_multiplier));
 	}
 	response_errors ();
 }
