@@ -8,7 +8,7 @@
 bool nano::work_validate (nano::block_hash const & root_a, uint64_t work_a, uint64_t * difficulty_a)
 {
 	static nano::network_constants network_constants;
-	auto value (nano::work_value (root_a, work_a));
+	auto value (nano::work_value (!network_constants.is_beta_network () ? root_a : root_a ^ static_cast<uint64_t> (network_constants.current_network), work_a));
 	if (difficulty_a != nullptr)
 	{
 		*difficulty_a = value;

@@ -4480,7 +4480,7 @@ void nano::json_handler::work_generate ()
 		}
 		else
 		{
-			node.work_generate (hash, callback, difficulty);
+			node.work_generate_start (hash, callback, difficulty);
 		}
 	}
 	// Because of callback
