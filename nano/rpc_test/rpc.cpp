@@ -107,10 +107,9 @@ void enable_ipc_transport_tcp (nano::ipc::ipc_config_tcp_socket & transport_tcp)
 void reset_confirmation_height (nano::block_store & store, nano::account const & account)
 {
 	auto transaction = store.tx_begin_write ();
-	nano::account_info account_info;
-	store.account_get (transaction, account, account_info);
-	account_info.confirmation_height = 0;
-	store.account_put (transaction, account, account_info);
+	uint64_t confirmation_height;
+	store.confirmation_height_get (transaction, account, confirmation_height);
+	store.confirmation_height_clear (transaction, account, confirmation_height);
 }
 
 void check_block_response_count (nano::system & system, nano::rpc & rpc, boost::property_tree::ptree & request, uint64_t size_count)
@@ -1212,7 +1211,8 @@ TEST (rpc, frontier)
 		{
 			nano::keypair key;
 			source[key.pub] = key.prv.data;
-			system.nodes[0]->store.account_put (transaction, key.pub, nano::account_info (key.prv.data, 0, 0, 0, 0, 0, 0, nano::epoch::epoch_0));
+			system.nodes[0]->store.confirmation_height_put (transaction, key.pub, 0);
+			system.nodes[0]->store.account_put (transaction, key.pub, nano::account_info (key.prv.data, 0, 0, 0, 0, 0, nano::epoch::epoch_0));
 		}
 	}
 	nano::keypair key;
@@ -1259,7 +1259,8 @@ TEST (rpc, frontier_limited)
 		{
 			nano::keypair key;
 			source[key.pub] = key.prv.data;
-			system.nodes[0]->store.account_put (transaction, key.pub, nano::account_info (key.prv.data, 0, 0, 0, 0, 0, 0, nano::epoch::epoch_0));
+			system.nodes[0]->store.confirmation_height_put (transaction, key.pub, 0);
+			system.nodes[0]->store.account_put (transaction, key.pub, nano::account_info (key.prv.data, 0, 0, 0, 0, 0, nano::epoch::epoch_0));
 		}
 	}
 	nano::keypair key;
@@ -1296,7 +1297,8 @@ TEST (rpc, frontier_startpoint)
 		{
 			nano::keypair key;
 			source[key.pub] = key.prv.data;
-			system.nodes[0]->store.account_put (transaction, key.pub, nano::account_info (key.prv.data, 0, 0, 0, 0, 0, 0, nano::epoch::epoch_0));
+			system.nodes[0]->store.confirmation_height_put (transaction, key.pub, 0);
+			system.nodes[0]->store.account_put (transaction, key.pub, nano::account_info (key.prv.data, 0, 0, 0, 0, 0, nano::epoch::epoch_0));
 		}
 	}
 	nano::keypair key;
@@ -4433,11 +4435,8 @@ TEST (rpc, account_info)
 	auto time (nano::seconds_since_epoch ());
 
 	{
-		auto transaction = system.nodes[0]->store.tx_begin_write ();
-		nano::account_info account_info;
-		ASSERT_FALSE (node1.store.account_get (transaction, nano::test_genesis_key.pub, account_info));
-		account_info.confirmation_height = 1;
-		node1.store.account_put (transaction, nano::test_genesis_key.pub, account_info);
+		auto transaction = node1.store.tx_begin_write ();
+		node1.store.confirmation_height_put (transaction, nano::test_genesis_key.pub, 1);
 	}
 
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);

@@ -37,7 +37,9 @@ TEST (versioning, account_info_v1)
 	ASSERT_EQ (v1.modified, v_latest.modified);
 	ASSERT_EQ (v1.rep_block, v_latest.rep_block);
 	ASSERT_EQ (1, v_latest.block_count);
-	ASSERT_EQ (0, v_latest.confirmation_height);
+	uint64_t confirmation_height;
+	ASSERT_FALSE (store.confirmation_height_get (transaction, account, confirmation_height));
+	ASSERT_EQ (0, confirmation_height);
 	ASSERT_EQ (nano::epoch::epoch_0, v_latest.epoch);
 }
 
@@ -73,7 +75,9 @@ TEST (versioning, account_info_v5)
 	ASSERT_EQ (v5.modified, v_latest.modified);
 	ASSERT_EQ (v5.rep_block, v_latest.rep_block);
 	ASSERT_EQ (1, v_latest.block_count);
-	ASSERT_EQ (0, v_latest.confirmation_height);
+	uint64_t confirmation_height;
+	ASSERT_FALSE (store.confirmation_height_get (transaction, account, confirmation_height));
+	ASSERT_EQ (0, confirmation_height);
 	ASSERT_EQ (nano::epoch::epoch_0, v_latest.epoch);
 }
 
@@ -109,6 +113,8 @@ TEST (versioning, account_info_v13)
 	ASSERT_EQ (v13.modified, v_latest.modified);
 	ASSERT_EQ (v13.rep_block, v_latest.rep_block);
 	ASSERT_EQ (v13.block_count, v_latest.block_count);
-	ASSERT_EQ (0, v_latest.confirmation_height);
+	uint64_t confirmation_height;
+	ASSERT_FALSE (store.confirmation_height_get (transaction, account, confirmation_height));
+	ASSERT_EQ (0, confirmation_height);
 	ASSERT_EQ (v13.epoch, v_latest.epoch);
 }

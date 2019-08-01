@@ -52,6 +52,11 @@ public:
 	{
 	}
 
+	db_val (nano::account_info_v14 const & val_a) :
+	db_val (val_a.db_size (), const_cast<nano::account_info_v14 *> (&val_a))
+	{
+	}
+
 	db_val (nano::pending_info const & val_a) :
 	db_val (sizeof (val_a.source) + sizeof (val_a.amount), const_cast<nano::pending_info *> (&val_a))
 	{
@@ -119,6 +124,15 @@ public:
 	explicit operator nano::account_info_v13 () const
 	{
 		nano::account_info_v13 result;
+		result.epoch = epoch;
+		assert (size () == result.db_size ());
+		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + result.db_size (), reinterpret_cast<uint8_t *> (&result));
+		return result;
+	}
+
+	explicit operator nano::account_info_v14 () const
+	{
+		nano::account_info_v14 result;
 		result.epoch = epoch;
 		assert (size () == result.db_size ());
 		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + result.db_size (), reinterpret_cast<uint8_t *> (&result));
@@ -548,7 +562,8 @@ public:
 		vote,
 		online_weight,
 		meta,
-		peers
+		peers,
+		confirmation_height
 	};
 
 	virtual ~block_store () = default;
@@ -575,7 +590,7 @@ public:
 	virtual void account_del (nano::transaction const &, nano::account const &) = 0;
 	virtual bool account_exists (nano::transaction const &, nano::account const &) = 0;
 	virtual size_t account_count (nano::transaction const &) = 0;
-	virtual void confirmation_height_clear (nano::transaction const &, nano::account const & account, nano::account_info const & account_info) = 0;
+	virtual void confirmation_height_clear (nano::transaction const &, nano::account const & account, uint64_t existing_confirmation_height) = 0;
 	virtual void confirmation_height_clear (nano::transaction const &) = 0;
 	virtual uint64_t cemented_count (nano::transaction const &) = 0;
 	virtual nano::store_iterator<nano::account, nano::account_info> latest_v0_begin (nano::transaction const &, nano::account const &) = 0;
@@ -653,6 +668,16 @@ public:
 	virtual void peer_clear (nano::transaction const & transaction_a) = 0;
 	virtual nano::store_iterator<nano::endpoint_key, nano::no_value> peers_begin (nano::transaction const & transaction_a) = 0;
 	virtual nano::store_iterator<nano::endpoint_key, nano::no_value> peers_end () = 0;
+
+	virtual void confirmation_height_put (nano::transaction const & transaction_a, nano::account const & account_a, uint64_t confirmation_height_a) = 0;
+	virtual bool confirmation_height_get (nano::transaction const & transaction_a, nano::account const & account_a, uint64_t & confirmation_height_a) = 0;
+	virtual bool confirmation_height_exists (nano::transaction const & transaction_a, nano::account const & account_a) const = 0;
+	virtual void confirmation_height_del (nano::transaction const & transaction_a, nano::account const & account_a) = 0;
+	virtual uint64_t confirmation_height_count (nano::transaction const & transaction_a) = 0;
+	virtual nano::store_iterator<nano::account, uint64_t> confirmation_height_begin (nano::transaction const & transaction_a, nano::account const & account_a) = 0;
+	virtual nano::store_iterator<nano::account, uint64_t> confirmation_height_begin (nano::transaction const & transaction_a) = 0;
+	virtual nano::store_iterator<nano::account, uint64_t> confirmation_height_end () = 0;
+
 	virtual uint64_t block_account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
 	virtual std::mutex & get_cache_mutex () = 0;
 

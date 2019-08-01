@@ -514,7 +514,9 @@ void nano::json_handler::account_info ()
 		const bool pending = request.get<bool> ("pending", false);
 		auto transaction (node.store.tx_begin_read ());
 		nano::account_info info;
-		if (!node.store.account_get (transaction, account, info))
+		uint64_t confirmation_height;
+		auto error = node.store.account_get (transaction, account, info) | node.store.confirmation_height_get (transaction, account, confirmation_height);
+		if (!error)
 		{
 			response_l.put ("frontier", info.head.to_string ());
 			response_l.put ("open_block", info.open_block.to_string ());
@@ -525,7 +527,7 @@ void nano::json_handler::account_info ()
 			response_l.put ("modified_timestamp", std::to_string (info.modified));
 			response_l.put ("block_count", std::to_string (info.block_count));
 			response_l.put ("account_version", info.epoch == nano::epoch::epoch_1 ? "1" : "0");
-			response_l.put ("confirmation_height", std::to_string (info.confirmation_height));
+			response_l.put ("confirmation_height", std::to_string (confirmation_height));
 			if (representative)
 			{
 				auto block (node.store.block_get (transaction, info.rep_block));
