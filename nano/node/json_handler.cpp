@@ -4448,6 +4448,7 @@ void nano::json_handler::work_generate ()
 	auto hash (hash_impl ());
 	auto difficulty (difficulty_optional_impl ());
 	auto multiplier (multiplier_optional_impl (difficulty));
+	(void)multiplier;
 	if (!ec && (difficulty > node_rpc_config.max_work_generate_difficulty || difficulty < node.network_params.network.publish_threshold))
 	{
 		ec = nano::error_rpc::difficulty_limit;
@@ -4466,8 +4467,8 @@ void nano::json_handler::work_generate ()
 				uint64_t result_difficulty;
 				nano::work_validate (hash, work, &result_difficulty);
 				response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
-				auto multiplier = nano::difficulty::to_multiplier (result_difficulty, this->node.network_params.network.publish_threshold);
-				response_l.put ("multiplier", nano::to_string (multiplier));
+				auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, this->node.network_params.network.publish_threshold);
+				response_l.put ("multiplier", nano::to_string (result_multiplier));
 				boost::property_tree::write_json (ostream, response_l);
 				rpc_l->response (ostream.str ());
 			}
