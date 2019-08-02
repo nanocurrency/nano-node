@@ -387,7 +387,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	});
 }
 
-nano::process_return nano::block_processor::process_one (nano::transaction const & transaction_a, nano::unchecked_info info_a, const bool work_watcher_a)
+nano::process_return nano::block_processor::process_one (nano::transaction const & transaction_a, nano::unchecked_info info_a, const bool watch_work_a)
 {
 	nano::process_return result;
 	auto hash (info_a.block->hash ());
@@ -405,7 +405,7 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 			}
 			if (info_a.modified > nano::seconds_since_epoch () - 300 && node.block_arrival.recent (hash))
 			{
-				process_live (hash, info_a.block, work_watcher_a);
+				process_live (hash, info_a.block, watch_work_a);
 			}
 			queue_unchecked (transaction_a, hash);
 			break;
