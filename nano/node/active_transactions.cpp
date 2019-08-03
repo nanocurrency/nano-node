@@ -38,7 +38,7 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 	bool half_princpal_representative (representative && node.wallets.half_principal_reps_count > 0);
 	/* Check less frequently for lazy mode */
 	bool lazy_mode (!half_princpal_representative && node.config.frontiers_confirmation == nano::frontiers_confirmation_mode::lazy);
-	auto lazy_factor = lazy_mode ? 3min : 15min;
+	auto lazy_factor = !lazy_mode ? 3min : 15min;
 	// Decrease check time for test network
 	auto is_test_network = node.network_params.network.is_test_network ();
 	int test_network_factor = is_test_network ? 1000 : 1;
