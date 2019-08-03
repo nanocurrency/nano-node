@@ -2198,7 +2198,7 @@ TEST (rpc, peers_node_id)
 	ASSERT_EQ (2, peers_node.size ());
 	auto tree1 (peers_node.get_child ("[::1]:24001"));
 	ASSERT_EQ (std::to_string (nano::protocol_version), tree1.get<std::string> ("protocol_version"));
-	ASSERT_EQ (system.nodes[1]->node_id.pub.to_account (), tree1.get<std::string> ("node_id"));
+	ASSERT_EQ (system.nodes[1]->node_id.pub.to_node_id (), tree1.get<std::string> ("node_id"));
 	std::stringstream endpoint_text;
 	endpoint_text << endpoint;
 	auto tree2 (peers_node.get_child (endpoint_text.str ()));
@@ -5886,6 +5886,7 @@ TEST (rpc, node_id)
 	ASSERT_EQ (200, response.status);
 	ASSERT_EQ (system.nodes[0]->node_id.prv.data.to_string (), response.json.get<std::string> ("private"));
 	ASSERT_EQ (system.nodes[0]->node_id.pub.to_account (), response.json.get<std::string> ("as_account"));
+	ASSERT_EQ (system.nodes[0]->node_id.pub.to_node_id (), response.json.get<std::string> ("as_node_id"));
 }
 
 TEST (rpc, stats_clear)
