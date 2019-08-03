@@ -69,7 +69,7 @@ std::string nano::uint256_union::to_account () const
 
 std::string nano::uint256_union::to_node_id () const
 {
-	return to_account ().replace (0, 4, "node");;
+	return to_account ().replace (0, 4, "node");
 }
 
 bool nano::uint256_union::decode_account (std::string const & source_a)
