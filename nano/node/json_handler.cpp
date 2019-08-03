@@ -2502,7 +2502,7 @@ void nano::json_handler::node_id ()
 		response_l.put ("private", node.node_id.prv.data.to_string ());
 		response_l.put ("public", node.node_id.pub.to_string ());
 		response_l.put ("as_account", node.node_id.pub.to_account ());
-		response_l.put ("as_node_id", node.node_id.pub.to_node_id ());
+		response_l.put ("node_id", node.node_id.pub.to_node_id ());
 	}
 	response_errors ();
 }
