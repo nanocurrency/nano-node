@@ -193,6 +193,7 @@ nano::election_vote_result nano::election::vote (nano::account rep, uint64_t seq
 		}
 		if (should_process)
 		{
+			node.stats.inc (nano::stat::type::vote, nano::stat::detail::vote_new);
 			last_votes[rep] = { std::chrono::steady_clock::now (), sequence, block_hash };
 			if (!confirmed)
 			{
@@ -305,7 +306,11 @@ void nano::election::insert_inactive_votes_cache ()
 	auto reps (node.active.find_inactive_votes_cache (winner_hash));
 	for (auto & rep : reps)
 	{
-		last_votes.emplace (rep, nano::vote_info{ std::chrono::steady_clock::time_point::min (), 0, winner_hash });
+		auto inserted (last_votes.emplace (rep, nano::vote_info{ std::chrono::steady_clock::time_point::min (), 0, winner_hash }));
+		if (inserted.second)
+		{
+			node.stats.inc (nano::stat::type::vote, nano::stat::detail::vote_cached);
+		}
 	}
 	if (!confirmed && !reps.empty ())
 	{

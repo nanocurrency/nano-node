@@ -512,6 +512,12 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::vote_overflow:
 			res = "vote_overflow";
 			break;
+		case nano::stat::detail::vote_new:
+			res = "vote_new";
+			break;
+		case nano::stat::detail::vote_cached:
+			res = "vote_cached";
+			break;
 		case nano::stat::detail::blocking:
 			res = "blocking";
 			break;

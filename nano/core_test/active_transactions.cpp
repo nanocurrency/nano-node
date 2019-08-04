@@ -292,6 +292,7 @@ TEST (active_transactions, inactive_votes_cache)
 		confirmed = system.nodes[0]->ledger.block_confirmed (transaction, send->hash ());
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	ASSERT_EQ (1, system.nodes[0]->stats.count (nano::stat::type::vote, nano::stat::detail::vote_cached));
 }
 
 TEST (active_transactions, inactive_votes_cache_existing_vote)
@@ -327,6 +328,7 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 		active_lock.unlock ();
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	ASSERT_EQ (1, system.nodes[0]->stats.count (nano::stat::type::vote, nano::stat::detail::vote_new));
 	std::lock_guard<std::mutex> active_guard (node->active.mutex);
 	auto last_vote1 (election->last_votes[key.pub]);
 	ASSERT_EQ (send->hash (), last_vote1.hash);
@@ -341,4 +343,5 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 	ASSERT_EQ (last_vote1.hash, last_vote2.hash);
 	ASSERT_EQ (last_vote1.sequence, last_vote2.sequence);
 	ASSERT_EQ (last_vote1.time, last_vote2.time);
+	ASSERT_EQ (0, system.nodes[0]->stats.count (nano::stat::type::vote, nano::stat::detail::vote_cached));
 }

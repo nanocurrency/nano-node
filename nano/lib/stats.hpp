@@ -292,6 +292,8 @@ public:
 		vote_replay,
 		vote_invalid,
 		vote_overflow,
+		vote_new,
+		vote_cached,
 
 		// udp
 		blocking,
