@@ -260,7 +260,7 @@ startup_time (std::chrono::steady_clock::now ())
 						}
 					}
 
-					this->websocket_server->broadcast_confirmation (block_a, account_a, amount_a, subtype, status_a.type);
+					this->websocket_server->broadcast_confirmation (block_a, account_a, amount_a, subtype, status_a);
 				}
 			});
 
