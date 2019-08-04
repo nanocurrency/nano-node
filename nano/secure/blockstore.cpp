@@ -410,3 +410,8 @@ void nano::write_transaction::renew ()
 {
 	impl->renew ();
 }
+
+bool nano::write_transaction::contains (nano::tables table_a) const
+{
+	return impl->contains (table_a);
+}

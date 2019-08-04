@@ -242,6 +242,7 @@ TEST (node, auto_bootstrap)
 	node1->network.send_keepalive (channel);
 	node1->start ();
 	system.nodes.push_back (node1);
+	system.deadline_set (10s);
 	while (!node1->bootstrap_initiator.in_progress ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -2937,15 +2938,15 @@ TEST (node, dont_write_lock_node)
 	std::thread ([&path, &write_lock_held_promise, &finished_promise]() {
 		nano::logger_mt logger;
 		bool init (false);
-		nano::mdb_store store (init, logger, path / "data.ldb");
+		auto store = nano::make_store (init, logger, path, false, true);
 		nano::genesis genesis;
 		{
-			auto transaction (store.tx_begin_write ());
-			store.initialize (transaction, genesis);
+			auto transaction (store->tx_begin_write ());
+			store->initialize (transaction, genesis);
 		}
 
 		// Hold write lock open until main thread is done needing it
-		auto transaction (store.tx_begin_write ());
+		auto transaction (store->tx_begin_write ());
 		write_lock_held_promise.set_value ();
 		finished_promise.get_future ().wait ();
 	})

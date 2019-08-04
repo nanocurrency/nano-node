@@ -1,5 +1,6 @@
 if (NANO_ROCKSDB)
 	set (rocksdb_libs ${ROCKSDB_LIBRARIES} ${ZLIB_LIBRARIES})
+	set (rocksdb_sources rocksdb/rocksdb.hpp rocksdb/rocksdb.cpp rocksdb/rocksdb_iterator.hpp rocksdb/rocksdb_iterator.cpp rocksdb/rocksdb_txn.hpp rocksdb/rocksdb_txn.cpp)
 endif ()
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
@@ -20,6 +21,7 @@ endif ()
 
 add_library (node
 	${platform_sources}
+	${rocksdb_sources}
 	active_transactions.hpp
 	active_transactions.cpp
 	blockprocessor.cpp
@@ -35,8 +37,6 @@ add_library (node
 	confirmation_height_processor.cpp
 	daemonconfig.hpp
 	daemonconfig.cpp
-	diagnosticsconfig.hpp
-	diagnosticsconfig.cpp
 	election.hpp
 	election.cpp
 	gap_cache.hpp

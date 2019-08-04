@@ -191,7 +191,7 @@ bool nano::transport::tcp_channels::store_all (bool clear_peers)
 	if (!endpoints.empty ())
 	{
 		// Clear all peers then refresh with the current list of peers
-		auto transaction (node.store.tx_begin_write ());
+		auto transaction (node.store.tx_begin_write ({ tables::peers }));
 		if (clear_peers)
 		{
 			node.store.peer_clear (transaction);

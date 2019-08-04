@@ -20,6 +20,8 @@ add_library (nano_lib
 	blocks.cpp
 	config.hpp
 	config.cpp
+	diagnosticsconfig.hpp
+	diagnosticsconfig.cpp
 	errors.hpp
 	errors.cpp
 	ipc.hpp

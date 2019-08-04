@@ -192,7 +192,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (node & node, const
 class inactive_node final
 {
 public:
-	inactive_node (boost::filesystem::path const & path = nano::working_path (), uint16_t = 24000);
+	inactive_node (boost::filesystem::path const & path = nano::working_path (), uint16_t = 24000, bool read_only_a = true);
 	~inactive_node ();
 	boost::filesystem::path path;
 	std::shared_ptr<boost::asio::io_context> io_context;

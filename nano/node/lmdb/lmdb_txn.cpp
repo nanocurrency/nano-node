@@ -110,6 +110,12 @@ void * nano::write_mdb_txn::get_handle () const
 	return handle;
 }
 
+bool nano::write_mdb_txn::contains (nano::tables table_a) const
+{
+	// LMDB locks on every write
+	return true;
+}
+
 nano::mdb_txn_tracker::mdb_txn_tracker (nano::logger_mt & logger_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a) :
 logger (logger_a),
 txn_tracking_config (txn_tracking_config_a),

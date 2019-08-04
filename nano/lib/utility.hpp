@@ -195,6 +195,9 @@ inline std::unique_ptr<seq_con_info_component> collect_seq_con_info (observer_se
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "observers", count, sizeof_element }));
 	return composite;
 }
+
+void remove_all_files_in_dir (boost::filesystem::path const & dir);
+void move_all_files_to_dir (boost::filesystem::path const & from, boost::filesystem::path const & to);
 }
 
 void release_assert_internal (bool check, const char * check_expr, const char * file, unsigned int line);

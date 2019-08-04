@@ -243,7 +243,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 	}
 	lock_a.unlock ();
 	auto scoped_write_guard = write_database_queue.wait (nano::writer::process_batch);
-	auto transaction (node.store.tx_begin_write ());
+	auto transaction (node.store.tx_begin_write ({ nano::tables::accounts_v0, nano::tables::accounts_v1, nano::tables::change_blocks, nano::tables::open_blocks, nano::tables::receive_blocks, nano::tables::send_blocks, nano::tables::state_blocks_v0, nano::tables::state_blocks_v1, nano::tables::representation, nano::tables::pending_v0, nano::tables::pending_v1, nano::tables::frontiers, nano::tables::unchecked, nano::tables::cached_counts }, { nano::tables::confirmation_height }));
 	timer_l.restart ();
 	lock_a.lock ();
 	// Processing blocks
@@ -382,7 +382,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	});
 }
 
-nano::process_return nano::block_processor::process_one (nano::transaction const & transaction_a, nano::unchecked_info info_a)
+nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, nano::unchecked_info info_a)
 {
 	nano::process_return result;
 	auto hash (info_a.block->hash ());
@@ -515,14 +515,14 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 	return result;
 }
 
-nano::process_return nano::block_processor::process_one (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a)
+nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, std::shared_ptr<nano::block> block_a)
 {
 	nano::unchecked_info info (block_a, block_a->account (), 0, nano::signature_verification::unknown);
 	auto result (process_one (transaction_a, info));
 	return result;
 }
 
-void nano::block_processor::queue_unchecked (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
+void nano::block_processor::queue_unchecked (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a)
 {
 	auto unchecked_blocks (node.store.unchecked_get (transaction_a, hash_a));
 	for (auto & info : unchecked_blocks)
