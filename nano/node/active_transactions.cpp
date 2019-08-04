@@ -72,8 +72,11 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 			nano::account_info info;
 			auto error = node.store.account_get (transaction_a, cementable_account.account, info);
 			release_assert (!error);
+			uint64_t confirmation_height;
+			error = node.store.confirmation_height_get (transaction_a, cementable_account.account, confirmation_height);
+			release_assert (!error);
 
-			if (info.block_count > info.confirmation_height && !node.pending_confirmation_height.is_processing_block (info.head))
+			if (info.block_count > confirmation_height && !node.pending_confirmation_height.is_processing_block (info.head))
 			{
 				auto block (node.store.block_get (transaction_a, info.head));
 				if (!start (block))
@@ -217,20 +220,26 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 
 			rep_channels->insert (rep_channels->end (), channels.begin (), channels.end ());
 
-			if ((!rep_channels->empty () && node.rep_crawler.total_weight () > node.config.online_weight_minimum.number ()) || roots_size > 5)
+			bool low_reps_weight (rep_channels->empty () || node.rep_crawler.total_weight () < node.config.online_weight_minimum.number ());
+			if (low_reps_weight && roots_size <= 5 && !node.network_params.network.is_test_network ())
 			{
-				// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
-				if (node.network_params.network.is_live_network ())
+				// Spam mode
+				auto deque_l (node.network.udp_channels.random_set (100));
+				auto vec (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> ());
+				for (auto i : deque_l)
 				{
-					if (confirm_req_bundle.size () < max_broadcast_queue)
-					{
-						confirm_req_bundle.push_back (std::make_pair (election_l->status.winner, rep_channels));
-					}
+					vec->push_back (i);
 				}
-				else
+				confirm_req_bundle.push_back (std::make_pair (election_l->status.winner, vec));
+			}
+			else
+			{
+				auto single_confirm_req_channels (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> ());
+				for (auto & rep : *rep_channels)
 				{
-					for (auto & rep : *rep_channels)
+					if (rep->get_network_version () >= nano::tcp_realtime_protocol_version_min)
 					{
+						// Send batch request to peers supporting confirm_req by hash + root
 						auto rep_request (requests_bundle.find (rep));
 						auto block (election_l->status.winner);
 						auto root_hash (std::make_pair (block->hash (), block->root ()));
@@ -247,37 +256,15 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 							rep_request->second.push_back (root_hash);
 						}
 					}
-				}
-			}
-			else
-			{
-				if (node.network_params.network.is_live_network ())
-				{
-					auto deque_l (node.network.udp_channels.random_set (100));
-					auto vec (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> ());
-					for (auto i : deque_l)
+					else
 					{
-						vec->push_back (i);
+						single_confirm_req_channels->push_back (rep);
 					}
-					confirm_req_bundle.push_back (std::make_pair (election_l->status.winner, vec));
 				}
-				else
+				// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
+				if (confirm_req_bundle.size () < max_broadcast_queue && !single_confirm_req_channels->empty ())
 				{
-					for (auto & rep : *rep_channels)
-					{
-						auto rep_request (requests_bundle.find (rep));
-						auto block (election_l->status.winner);
-						auto root_hash (std::make_pair (block->hash (), block->root ()));
-						if (rep_request == requests_bundle.end ())
-						{
-							std::vector<std::pair<nano::block_hash, nano::block_hash>> insert_vector = { root_hash };
-							requests_bundle.insert (std::make_pair (rep, insert_vector));
-						}
-						else
-						{
-							rep_request->second.push_back (root_hash);
-						}
-					}
+					confirm_req_bundle.push_back (std::make_pair (election_l->status.winner, single_confirm_req_channels));
 				}
 			}
 		}
@@ -290,7 +277,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 		node.network.flood_block_batch (std::move (rebroadcast_bundle));
 	}
 	// Batch confirmation request
-	if (!node.network_params.network.is_live_network () && !requests_bundle.empty ())
+	if (!requests_bundle.empty ())
 	{
 		node.network.broadcast_confirm_req_batch (requests_bundle, 50);
 	}
@@ -362,9 +349,13 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 		{
 			auto const & account (i->first);
 			auto const & info (i->second);
-			if (info.block_count > info.confirmation_height && !node.pending_confirmation_height.is_processing_block (info.head))
+
+			uint64_t confirmation_height;
+			release_assert (!node.store.confirmation_height_get (transaction_a, account, confirmation_height));
+
+			if (info.block_count > confirmation_height && !node.pending_confirmation_height.is_processing_block (info.head))
 			{
-				auto num_uncemented = info.block_count - info.confirmation_height;
+				auto num_uncemented = info.block_count - confirmation_height;
 				lk.lock ();
 				auto it = priority_cementable_frontiers.find (account);
 				if (it != priority_cementable_frontiers.end ())
@@ -632,9 +623,11 @@ void nano::active_transactions::update_active_difficulty (std::unique_lock<std::
 	{
 		std::vector<uint64_t> active_root_difficulties;
 		active_root_difficulties.reserve (roots.size ());
+		auto min_election_time (std::chrono::milliseconds (node.network_params.network.request_interval_ms));
+		auto cutoff (std::chrono::steady_clock::now () - min_election_time);
 		for (auto & root : roots)
 		{
-			if (!root.election->confirmed && !root.election->stopped)
+			if (!root.election->confirmed && !root.election->stopped && root.election->election_start < cutoff)
 			{
 				active_root_difficulties.push_back (root.adjusted_difficulty);
 			}

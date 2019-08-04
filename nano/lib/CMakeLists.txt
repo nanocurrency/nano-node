@@ -12,6 +12,8 @@ endif ()
 
 add_library (nano_lib
 	${platform_sources}
+	alarm.hpp
+	alarm.cpp
 	blockbuilders.hpp
 	blockbuilders.cpp
 	blocks.hpp

@@ -103,7 +103,6 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 {
 	boost::optional<conf_height_details> receive_details;
 	auto current = hash_a;
-	nano::account_info account_info;
 	assert (receive_source_pairs_size == 0);
 	release_assert (receive_source_pairs.empty ());
 
@@ -130,8 +129,8 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 
 		auto block_height (store.block_account_height (read_transaction, current));
 		nano::account account (store.block_account (read_transaction, current));
-		release_assert (!store.account_get (read_transaction, account, account_info));
-		auto confirmation_height = account_info.confirmation_height;
+		uint64_t confirmation_height;
+		release_assert (!store.confirmation_height_get (read_transaction, account, confirmation_height));
 		auto iterated_height = confirmation_height;
 		auto account_it = confirmed_iterated_pairs.find (account);
 		if (account_it != confirmed_iterated_pairs.cend ())
@@ -262,7 +261,6 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
  */
 bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_details> & all_pending_a)
 {
-	nano::account_info account_info;
 	auto total_pending_write_block_count = std::accumulate (all_pending_a.cbegin (), all_pending_a.cend (), uint64_t (0), [](uint64_t total, conf_height_details const & conf_height_details_a) {
 		return total += conf_height_details_a.num_blocks_confirmed;
 	});
@@ -275,9 +273,10 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 		while (!all_pending_a.empty ())
 		{
 			const auto & pending = all_pending_a.front ();
-			auto error = store.account_get (transaction, pending.account, account_info);
+			uint64_t confirmation_height;
+			auto error = store.confirmation_height_get (transaction, pending.account, confirmation_height);
 			release_assert (!error);
-			if (pending.height > account_info.confirmation_height)
+			if (pending.height > confirmation_height)
 			{
 #ifndef NDEBUG
 				// Do more thorough checking in Debug mode, indicates programming error.
@@ -300,10 +299,10 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 					return true;
 				}
 
-				stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - account_info.confirmation_height);
-				assert (pending.num_blocks_confirmed == pending.height - account_info.confirmation_height);
-				account_info.confirmation_height = pending.height;
-				store.account_put (transaction, pending.account, account_info);
+				stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - confirmation_height);
+				assert (pending.num_blocks_confirmed == pending.height - confirmation_height);
+				confirmation_height = pending.height;
+				store.confirmation_height_put (transaction, pending.account, confirmation_height);
 			}
 			total_pending_write_block_count -= pending.num_blocks_confirmed;
 			++num_accounts_processed;

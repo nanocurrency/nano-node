@@ -124,6 +124,8 @@ std::string nano::error_rpc_messages::message (int ev) const
 			return "Bad key";
 		case nano::error_rpc::bad_link:
 			return "Bad link number";
+		case nano::error_rpc::bad_multiplier_format:
+			return "Bad multiplier";
 		case nano::error_rpc::bad_previous:
 			return "Bad previous";
 		case nano::error_rpc::bad_representative_number:
@@ -154,6 +156,10 @@ std::string nano::error_rpc_messages::message (int ev) const
 			return "Active confirmation not found";
 		case nano::error_rpc::difficulty_limit:
 			return "Difficulty above config limit or below publish threshold";
+		case nano::error_rpc::disabled_bootstrap_lazy:
+			return "Lazy bootstrap is disabled";
+		case nano::error_rpc::disabled_bootstrap_legacy:
+			return "Legacy bootstrap is disabled";
 		case nano::error_rpc::invalid_balance:
 			return "Invalid balance number";
 		case nano::error_rpc::invalid_destinations:
