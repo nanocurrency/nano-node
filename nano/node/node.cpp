@@ -475,7 +475,7 @@ void nano::node::do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, 
 						boost::beast::http::async_read (*sock, *sb, *resp, [node_l, sb, resp, sock, address, port, i_a, target, body, resolver](boost::system::error_code const & ec, size_t bytes_transferred) mutable {
 							if (!ec)
 							{
-								if (resp->result () == boost::beast::http::status::ok)
+								if (boost::beast::http::to_status_class (resp->result ()) == boost::beast::http::status_class::successful)
 								{
 									node_l->stats.inc (nano::stat::type::http_callback, nano::stat::detail::initiate, nano::stat::dir::out);
 								}
