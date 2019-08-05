@@ -3104,7 +3104,7 @@ TEST (confirmation_height, prioritize_frontiers)
 	nano::system system;
 	// Prevent frontiers being confirmed as it will affect the priorization checking
 	nano::node_config node_config (24001, system.logging);
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::automatic;
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node = system.add_node (node_config);
 
 	nano::keypair key1;
@@ -3229,7 +3229,6 @@ TEST (confirmation_height, prioritize_frontiers)
 		node->active.next_frontier_check = std::chrono::steady_clock::now ();
 	}
 
-	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	system.deadline_set (std::chrono::seconds (10));
 	while (node->active.size () != num_accounts)
 	{
