@@ -398,20 +398,20 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 			{
 				std::lock_guard<std::mutex> lock (node.wallets.mutex);
 				auto wallet_transaction (node.wallets.tx_begin_read ());
-				for (auto & item : node.wallets.items)
+				auto const & items = node.wallets.items;
+				for (auto item_it = items.cbegin (); item_it != items.cend (); ++item_it)
 				{
 					// Skip this wallet if it has been traversed already while there are others still awaiting
-					if (wallet_accounts_already_iterated.find (item.first) != wallet_accounts_already_iterated.end ())
+					if (wallet_accounts_already_iterated.find (item_it->first) != wallet_accounts_already_iterated.end ())
 					{
 						continue;
 					}
 
 					nano::account_info info;
-
-					auto & wallet (item.second);
+					auto & wallet (item_it->second);
 					std::lock_guard<std::recursive_mutex> wallet_lock (wallet->store.mutex);
 
-					auto & next_wallet_frontier_account = next_wallet_frontier_accounts.emplace (item.first, wallet_store::special_count).first->second;
+					auto & next_wallet_frontier_account = next_wallet_frontier_accounts.emplace (item_it->first, wallet_store::special_count).first->second;
 
 					auto i (wallet->store.begin (wallet_transaction, next_wallet_frontier_account));
 					auto n (wallet->store.end ());
@@ -440,11 +440,11 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 					// Go back to the beginning when we have reached the end of the wallet accounts for this wallet
 					if (i == n)
 					{
-						wallet_accounts_already_iterated.emplace (item.first);
-						next_wallet_frontier_accounts.at (item.first) = wallet_store::special_count;
+						wallet_accounts_already_iterated.emplace (item_it->first);
+						next_wallet_frontier_accounts.at (item_it->first) = wallet_store::special_count;
 
 						// Skip wallet accounts when they have all been traversed
-						if (std::addressof (item) == std::addressof (*(--node.wallets.items.end ())))
+						if (std::next (item_it) == items.cend ())
 						{
 							wallet_accounts_already_iterated.clear ();
 							skip_wallets = true;
