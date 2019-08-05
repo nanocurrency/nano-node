@@ -38,7 +38,6 @@ public:
 private:
 	rocksdb::Transaction * txn;
 	rocksdb::OptimisticTransactionDB * db;
-	bool requires_lock;
 	std::vector<nano::tables> tables_requiring_locks;
 	std::vector<nano::tables> tables_no_locks;
 	std::unordered_map<nano::tables, std::mutex> & mutexes;
