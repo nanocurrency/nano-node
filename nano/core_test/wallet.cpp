@@ -8,6 +8,7 @@
 #include <fstream>
 
 using namespace std::chrono_literals;
+unsigned constexpr nano::wallet_store::version_current;
 
 TEST (wallet, no_key)
 {
@@ -698,7 +699,7 @@ TEST (wallet, version_1_upgrade)
 	wallet->store.version_put (transaction, 1);
 	wallet->enter_password (transaction, "1");
 	ASSERT_TRUE (wallet->store.valid_password (transaction));
-	ASSERT_EQ (wallet->store.version_current, wallet->store.version (transaction));
+	ASSERT_EQ (nano::wallet_store::version_current, wallet->store.version (transaction));
 	nano::raw_key prv;
 	ASSERT_FALSE (wallet->store.fetch (transaction, key.pub, prv));
 	ASSERT_EQ (key.prv, prv);
@@ -710,7 +711,7 @@ TEST (wallet, version_1_upgrade)
 	wallet->store.version_put (transaction, 1);
 	wallet->enter_password (transaction, "1");
 	ASSERT_TRUE (wallet->store.valid_password (transaction));
-	ASSERT_EQ (wallet->store.version_current, wallet->store.version (transaction));
+	ASSERT_EQ (nano::wallet_store::version_current, wallet->store.version (transaction));
 	nano::raw_key prv2;
 	ASSERT_FALSE (wallet->store.fetch (transaction, key.pub, prv2));
 	ASSERT_EQ (key.prv, prv2);
@@ -821,7 +822,7 @@ TEST (wallet, version_2_upgrade)
 	ASSERT_FALSE (wallet->store.exists (transaction, nano::wallet_store::deterministic_index_special));
 	ASSERT_FALSE (wallet->store.exists (transaction, nano::wallet_store::seed_special));
 	wallet->store.attempt_password (transaction, "1");
-	ASSERT_EQ (wallet->store.version_current, wallet->store.version (transaction));
+	ASSERT_EQ (nano::wallet_store::version_current, wallet->store.version (transaction));
 	ASSERT_TRUE (wallet->store.exists (transaction, nano::wallet_store::deterministic_index_special));
 	ASSERT_TRUE (wallet->store.exists (transaction, nano::wallet_store::seed_special));
 	ASSERT_FALSE (wallet->deterministic_insert (transaction).is_zero ());
@@ -835,7 +836,7 @@ TEST (wallet, version_3_upgrade)
 	wallet->store.rekey (transaction, "1");
 	wallet->enter_password (transaction, "1");
 	ASSERT_TRUE (wallet->store.valid_password (transaction));
-	ASSERT_EQ (wallet->store.version_current, wallet->store.version (transaction));
+	ASSERT_EQ (nano::wallet_store::version_current, wallet->store.version (transaction));
 	nano::keypair key;
 	nano::raw_key seed;
 	nano::uint256_union seed_ciphertext;
@@ -853,7 +854,7 @@ TEST (wallet, version_3_upgrade)
 	wallet->store.version_put (transaction, 3);
 	wallet->enter_password (transaction, "1");
 	ASSERT_TRUE (wallet->store.valid_password (transaction));
-	ASSERT_EQ (wallet->store.version_current, wallet->store.version (transaction));
+	ASSERT_EQ (nano::wallet_store::version_current, wallet->store.version (transaction));
 	nano::raw_key prv;
 	ASSERT_FALSE (wallet->store.fetch (transaction, key.pub, prv));
 	ASSERT_EQ (key.prv, prv);
@@ -861,6 +862,66 @@ TEST (wallet, version_3_upgrade)
 	wallet->store.seed (seed_compare, transaction);
 	ASSERT_EQ (seed, seed_compare);
 	ASSERT_NE (seed_ciphertext, wallet->store.entry_get_raw (transaction, nano::wallet_store::seed_special).key);
+}
+
+TEST (wallet, upgrade_backup)
+{
+	nano::system system (24000, 1);
+	auto dir (nano::unique_path ());
+	namespace fs = boost::filesystem;
+	fs::create_directory (dir);
+	/** Returns 'path' if backup file cannot be found */
+	// clang-format off
+	auto get_backup_path = [&dir]() {
+		for (fs::directory_iterator itr (dir); itr != fs::directory_iterator (); ++itr)
+		{
+			if (itr->path ().filename ().string ().find ("backup.wallets.ldb") != std::string::npos)
+			{
+				return itr->path ();
+			}
+		}
+		return dir;
+	};
+	// clang-format on
+
+	nano::keypair id;
+	{
+		nano::node_init init1;
+		auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, dir, system.alarm, system.logging, system.work));
+		ASSERT_FALSE (init1.error ());
+		auto wallet (node1->wallets.create (id.pub));
+		ASSERT_NE (nullptr, wallet);
+		auto transaction (node1->wallets.tx_begin_write ());
+		wallet->store.version_put (transaction, 3);
+	}
+	ASSERT_EQ (get_backup_path ().string (), dir.string ());
+
+	// Check with config backup_before_upgrade = false
+	{
+		nano::node_init init1;
+		auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, dir, system.alarm, system.logging, system.work));
+		ASSERT_FALSE (init1.error ());
+		auto wallet (node1->wallets.open (id.pub));
+		ASSERT_NE (nullptr, wallet);
+		auto transaction (node1->wallets.tx_begin_write ());
+		ASSERT_LT (3, wallet->store.version (transaction));
+		wallet->store.version_put (transaction, 3);
+	}
+	ASSERT_EQ (get_backup_path ().string (), dir.string ());
+
+	// Now do the upgrade and confirm that backup is saved
+	{
+		nano::node_config node_config (24001, system.logging);
+		node_config.backup_before_upgrade = true;
+		nano::node_init init1;
+		auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, nano::unique_path (), system.alarm, node_config, system.work));
+		ASSERT_FALSE (init1.error ());
+		auto wallet (node1->wallets.open (id.pub));
+		ASSERT_NE (nullptr, wallet);
+		auto transaction (node1->wallets.tx_begin_read ());
+		ASSERT_LT (3, wallet->store.version (transaction));
+	}
+	ASSERT_NE (get_backup_path ().string (), dir.string ());
 }
 
 TEST (wallet, no_work)

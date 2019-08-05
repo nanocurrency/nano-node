@@ -77,9 +77,10 @@ public:
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
 	size_t bandwidth_limit{ 5 * 1024 * 1024 }; // 5Mb/s
 	std::chrono::milliseconds conf_height_processor_batch_min_time{ 50 };
+	bool backup_before_upgrade{ false };
 	static unsigned json_version ()
 	{
-		return 17;
+		return 18;
 	}
 };
 

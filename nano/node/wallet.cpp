@@ -1607,6 +1607,24 @@ thread ([this]() {
 			}
 		}
 	}
+	// Backup before upgrade wallets
+	bool backup_required (false);
+	if (node.config.backup_before_upgrade)
+	{
+		auto transaction (tx_begin_read ());
+		for (auto & item : items)
+		{
+			if (item.second->store.version (transaction) != nano::wallet_store::version_current)
+			{
+				backup_required = true;
+				break;
+			}
+		}
+	}
+	if (backup_required)
+	{
+		backup_before_upgrade ();
+	}
 	for (auto & item : items)
 	{
 		item.second->enter_initial_password ();
@@ -1934,6 +1952,14 @@ void nano::wallets::move_table (std::string const & name_a, MDB_txn * tx_source,
 	auto error6 (mdb_drop (tx_source, handle_source, 1));
 	(void)error6;
 	assert (!error6);
+}
+
+void nano::wallets::backup_before_upgrade ()
+{
+	const char *store_path;
+	mdb_env_get_path (env, &store_path);
+	auto backup_path = boost::filesystem::path (store_path).parent_path () / "backup.wallets.ldb";
+	mdb_env_copy (env, backup_path.string ().c_str ());
 }
 
 nano::uint128_t const nano::wallets::generate_priority = std::numeric_limits<nano::uint128_t>::max ();

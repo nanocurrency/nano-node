@@ -39,7 +39,7 @@ void mdb_val::convert_buffer_to_value ()
 }
 }
 
-nano::mdb_store::mdb_store (bool & error_a, nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, bool drop_unchecked, size_t const batch_size) :
+nano::mdb_store::mdb_store (bool & error_a, nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, bool drop_unchecked, size_t const batch_size, bool backup_before_upgrade) :
 logger (logger_a),
 env (error_a, path_a, lmdb_max_dbs, true),
 mdb_txn_tracker (logger_a, txn_tracking_config_a, block_processor_batch_max_time_a),
@@ -60,9 +60,15 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 
 		// Only open a write lock when upgrades are needed. This is because CLI commands
 		// open inactive nodes which can otherwise be locked here if there is a long write
-		// (can be a few minutes with the --fastbootstrap flag for instance)
+		// (can be a few minutes with the --fast_bootstrap flag for instance)
 		if (!is_fully_upgraded)
 		{
+			// Backup database before upgrade
+			if (backup_before_upgrade)
+			{
+				auto backup_path = path_a.parent_path () / "backup.upgrade.ldb";
+				mdb_env_copy (env, backup_path.string ().c_str ());
+			}
 			auto transaction (tx_begin_write ());
 			open_databases (error_a, transaction, MDB_CREATE);
 			if (!error_a)

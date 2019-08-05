@@ -134,6 +134,7 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("confirmation_history_size", confirmation_history_size);
 	json.put ("active_elections_size", active_elections_size);
 	json.put ("bandwidth_limit", bandwidth_limit);
+	json.put ("backup_before_upgrade", backup_before_upgrade);
 
 	return json.get_error ();
 }
@@ -258,6 +259,10 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.put ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time.count ());
 		}
 		case 17:
+		{
+			json.put ("backup_before_upgrade", backup_before_upgrade);
+		}
+		case 18:
 			break;
 		default:
 			throw std::runtime_error ("Unknown node_config version");
@@ -409,6 +414,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get<size_t> ("confirmation_history_size", confirmation_history_size);
 		json.get<size_t> ("active_elections_size", active_elections_size);
 		json.get<size_t> ("bandwidth_limit", bandwidth_limit);
+		json.get<bool> ("backup_before_upgrade", backup_before_upgrade);
 
 		auto conf_height_processor_batch_min_time_l (conf_height_processor_batch_min_time.count ());
 		json.get ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time_l);

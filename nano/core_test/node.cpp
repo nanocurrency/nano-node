@@ -842,6 +842,58 @@ TEST (node_config, v17_values)
 	ASSERT_EQ (config.conf_height_processor_batch_min_time.count (), 500);
 }
 
+TEST (node_config, v17_v18_upgrade)
+{
+	auto path (nano::unique_path ());
+	nano::jsonconfig tree;
+	add_required_children_node_config_tree (tree);
+	tree.put ("version", "17");
+
+	auto upgraded (false);
+	nano::node_config config;
+	config.logging.init (path);
+	// These config options should not be present
+	ASSERT_FALSE (tree.get_optional_child ("backup_before_upgrade"));
+
+	config.deserialize_json (upgraded, tree);
+	// The config options should be added after the upgrade
+	ASSERT_TRUE (!!tree.get_optional_child ("backup_before_upgrade"));
+
+	ASSERT_TRUE (upgraded);
+	auto version (tree.get<std::string> ("version"));
+
+	// Check version is updated
+	ASSERT_GT (std::stoull (version), 17);
+}
+
+TEST (node_config, v18_values)
+{
+	nano::jsonconfig tree;
+	add_required_children_node_config_tree (tree);
+
+	auto path (nano::unique_path ());
+	auto upgraded (false);
+	nano::node_config config;
+	config.logging.init (path);
+
+	// Check config is correct
+	{
+		tree.put ("backup_before_upgrade", true);
+	}
+
+	config.deserialize_json (upgraded, tree);
+	ASSERT_FALSE (upgraded);
+	ASSERT_EQ (config.backup_before_upgrade, true);
+
+	// Check config is correct with other values
+	tree.put ("backup_before_upgrade", false);
+
+	upgraded = false;
+	config.deserialize_json (upgraded, tree);
+	ASSERT_FALSE (upgraded);
+	ASSERT_EQ (config.backup_before_upgrade, false);
+}
+
 // Regression test to ensure that deserializing includes changes node via get_required_child
 TEST (node_config, required_child)
 {
