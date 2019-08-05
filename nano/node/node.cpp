@@ -404,7 +404,7 @@ startup_time (std::chrono::steady_clock::now ())
 		}
 
 		node_id = nano::keypair ();
-		logger.always_log ("Node ID: ", node_id.pub.to_account ());
+		logger.always_log ("Node ID: ", node_id.pub.to_node_id ());
 
 		const uint8_t * weight_buffer = network_params.network.is_live_network () ? nano_bootstrap_weights_live : nano_bootstrap_weights_beta;
 		size_t weight_size = network_params.network.is_live_network () ? nano_bootstrap_weights_live_size : nano_bootstrap_weights_beta_size;
