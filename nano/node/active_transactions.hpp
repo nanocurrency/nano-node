@@ -166,7 +166,7 @@ private:
 	std::unordered_map<nano::uint256_union, nano::account> next_wallet_frontier_accounts;
 	bool frontiers_fully_confirmed{ false };
 	bool skip_wallets{ false };
-	void prioritize_account_for_confirmation (prioritize_num_uncemented &, size_t &, nano::account const &, nano::account_info const &);
+	void prioritize_account_for_confirmation (prioritize_num_uncemented &, size_t &, nano::account const &, nano::account_info const &, uint64_t);
 	static size_t constexpr max_priority_cementable_frontiers{ 100000 };
 	static size_t constexpr confirmed_frontiers_max_pending_cut_off{ 1000 };
 	boost::thread thread;

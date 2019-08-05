@@ -115,7 +115,7 @@ nano::node_constants::node_constants (nano::network_constants & network_constant
 
 nano::voting_constants::voting_constants (nano::network_constants & network_constants)
 {
-	max_cache = network_constants.is_test_network () ? 2 : 1000;
+	max_cache = network_constants.is_test_network () ? 2 : 4 * 1024;
 }
 
 nano::portmapping_constants::portmapping_constants (nano::network_constants & network_constants)
@@ -162,6 +162,7 @@ prv (std::move (prv_a))
 nano::keypair::keypair (std::string const & prv_a)
 {
 	auto error (prv.data.decode_hex (prv_a));
+	(void)error;
 	assert (!error);
 	ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
 }
@@ -173,14 +174,13 @@ void nano::serialize_block (nano::stream & stream_a, nano::block const & block_a
 	block_a.serialize (stream_a);
 }
 
-nano::account_info::account_info (nano::block_hash const & head_a, nano::block_hash const & rep_block_a, nano::block_hash const & open_block_a, nano::amount const & balance_a, uint64_t modified_a, uint64_t block_count_a, uint64_t confirmation_height_a, nano::epoch epoch_a) :
+nano::account_info::account_info (nano::block_hash const & head_a, nano::block_hash const & rep_block_a, nano::block_hash const & open_block_a, nano::amount const & balance_a, uint64_t modified_a, uint64_t block_count_a, nano::epoch epoch_a) :
 head (head_a),
 rep_block (rep_block_a),
 open_block (open_block_a),
 balance (balance_a),
 modified (modified_a),
 block_count (block_count_a),
-confirmation_height (confirmation_height_a),
 epoch (epoch_a)
 {
 }
@@ -196,7 +196,6 @@ bool nano::account_info::deserialize (nano::stream & stream_a)
 		nano::read (stream_a, balance.bytes);
 		nano::read (stream_a, modified);
 		nano::read (stream_a, block_count);
-		nano::read (stream_a, confirmation_height);
 	}
 	catch (std::runtime_error const &)
 	{
@@ -208,7 +207,7 @@ bool nano::account_info::deserialize (nano::stream & stream_a)
 
 bool nano::account_info::operator== (nano::account_info const & other_a) const
 {
-	return head == other_a.head && rep_block == other_a.rep_block && open_block == other_a.open_block && balance == other_a.balance && modified == other_a.modified && block_count == other_a.block_count && confirmation_height == other_a.confirmation_height && epoch == other_a.epoch;
+	return head == other_a.head && rep_block == other_a.rep_block && open_block == other_a.open_block && balance == other_a.balance && modified == other_a.modified && block_count == other_a.block_count && epoch == other_a.epoch;
 }
 
 bool nano::account_info::operator!= (nano::account_info const & other_a) const
@@ -224,8 +223,7 @@ size_t nano::account_info::db_size () const
 	assert (reinterpret_cast<const uint8_t *> (&open_block) + sizeof (open_block) == reinterpret_cast<const uint8_t *> (&balance));
 	assert (reinterpret_cast<const uint8_t *> (&balance) + sizeof (balance) == reinterpret_cast<const uint8_t *> (&modified));
 	assert (reinterpret_cast<const uint8_t *> (&modified) + sizeof (modified) == reinterpret_cast<const uint8_t *> (&block_count));
-	assert (reinterpret_cast<const uint8_t *> (&block_count) + sizeof (block_count) == reinterpret_cast<const uint8_t *> (&confirmation_height));
-	return sizeof (head) + sizeof (rep_block) + sizeof (open_block) + sizeof (balance) + sizeof (modified) + sizeof (block_count) + sizeof (confirmation_height);
+	return sizeof (head) + sizeof (rep_block) + sizeof (open_block) + sizeof (balance) + sizeof (modified) + sizeof (block_count);
 }
 
 size_t nano::block_counts::sum () const

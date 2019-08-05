@@ -26,6 +26,7 @@ cmake \
     -DACTIVE_NETWORK=nano_test_network \
     -DNANO_TEST=ON \
     -DNANO_GUI=ON \
+    -DNANO_ROCKSDB=ON \
     -DCMAKE_BUILD_TYPE=Debug \
     -DCMAKE_VERBOSE_MAKEFILE=ON \
     -DBOOST_ROOT=/usr/local \

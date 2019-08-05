@@ -147,10 +147,12 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 		nano::account account;
 		nano::bufferstream account_stream (connection->receive_buffer->data (), sizeof (account));
 		auto error1 (nano::try_read (account_stream, account));
+		(void)error1;
 		assert (!error1);
 		nano::block_hash latest;
 		nano::bufferstream latest_stream (connection->receive_buffer->data () + sizeof (account), sizeof (latest));
 		auto error2 (nano::try_read (latest_stream, latest));
+		(void)error2;
 		assert (!error2);
 		if (count == 0)
 		{
@@ -693,10 +695,12 @@ void nano::bulk_pull_account_client::receive_pending ()
 				nano::block_hash pending;
 				nano::bufferstream frontier_stream (this_l->connection->receive_buffer->data (), sizeof (nano::uint256_union));
 				auto error1 (nano::try_read (frontier_stream, pending));
+				(void)error1;
 				assert (!error1);
 				nano::amount balance;
 				nano::bufferstream balance_stream (this_l->connection->receive_buffer->data () + sizeof (nano::uint256_union), sizeof (nano::uint128_union));
 				auto error2 (nano::try_read (balance_stream, balance));
+				(void)error2;
 				assert (!error2);
 				if (this_l->total_blocks == 0 || !pending.is_zero ())
 				{
@@ -754,7 +758,7 @@ count (count_a)
 {
 }
 
-nano::bootstrap_attempt::bootstrap_attempt (std::shared_ptr<nano::node> node_a) :
+nano::bootstrap_attempt::bootstrap_attempt (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a) :
 next_log (std::chrono::steady_clock::now ()),
 connections (0),
 pulling (0),
@@ -763,7 +767,7 @@ account_count (0),
 total_blocks (0),
 runs_count (0),
 stopped (false),
-mode (nano::bootstrap_mode::legacy),
+mode (mode_a),
 lazy_stopped (0)
 {
 	node->logger.always_log ("Starting bootstrap attempt");
@@ -890,6 +894,7 @@ bool nano::bootstrap_attempt::still_pulling ()
 
 void nano::bootstrap_attempt::run ()
 {
+	assert (!node->flags.disable_legacy_bootstrap);
 	populate_connections ();
 	std::unique_lock<std::mutex> lock (mutex);
 	auto frontier_failure (true);
@@ -1339,6 +1344,7 @@ void nano::bootstrap_attempt::lazy_clear ()
 
 void nano::bootstrap_attempt::lazy_run ()
 {
+	assert (!node->flags.disable_lazy_bootstrap);
 	populate_connections ();
 	auto start_time (std::chrono::steady_clock::now ());
 	auto max_time (std::chrono::minutes (node->flags.disable_legacy_bootstrap ? 48 * 60 : 30));
@@ -1610,6 +1616,7 @@ bool nano::bootstrap_attempt::wallet_finished ()
 
 void nano::bootstrap_attempt::wallet_run ()
 {
+	assert (!node->flags.disable_wallet_bootstrap);
 	populate_connections ();
 	auto start_time (std::chrono::steady_clock::now ());
 	auto max_time (std::chrono::minutes (10));
@@ -1704,8 +1711,7 @@ void nano::bootstrap_initiator::bootstrap_lazy (nano::block_hash const & hash_a,
 		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate_lazy, nano::stat::dir::out);
 		if (attempt == nullptr)
 		{
-			attempt = std::make_shared<nano::bootstrap_attempt> (node.shared ());
-			attempt->mode = nano::bootstrap_mode::lazy;
+			attempt = std::make_shared<nano::bootstrap_attempt> (node.shared (), nano::bootstrap_mode::lazy);
 		}
 		attempt->lazy_start (hash_a);
 	}
@@ -1719,8 +1725,7 @@ void nano::bootstrap_initiator::bootstrap_wallet (std::deque<nano::account> & ac
 		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate_wallet_lazy, nano::stat::dir::out);
 		if (attempt == nullptr)
 		{
-			attempt = std::make_shared<nano::bootstrap_attempt> (node.shared ());
-			attempt->mode = nano::bootstrap_mode::wallet_lazy;
+			attempt = std::make_shared<nano::bootstrap_attempt> (node.shared (), nano::bootstrap_mode::wallet_lazy);
 		}
 		attempt->wallet_start (accounts_a);
 	}
@@ -2436,10 +2441,10 @@ public:
 		}
 		else if (message_a.response)
 		{
-			auto node_id (message_a.response->first);
-			connection->remote_node_id = node_id;
+			nano::account const & node_id (message_a.response->first);
 			if (!connection->node->network.syn_cookies.validate (nano::transport::map_tcp_to_endpoint (connection->remote_endpoint), node_id, message_a.response->second) && node_id != connection->node->node_id.pub)
 			{
+				connection->remote_node_id = node_id;
 				connection->type = nano::bootstrap_server_type::realtime;
 				++connection->node->bootstrap.realtime_count;
 				connection->finish_request_async ();
@@ -2454,7 +2459,7 @@ public:
 		{
 			connection->finish_request_async ();
 		}
-		auto node_id (connection->remote_node_id);
+		nano::account node_id (connection->remote_node_id);
 		nano::bootstrap_server_type type (connection->type);
 		assert (node_id.is_zero () || type == nano::bootstrap_server_type::realtime);
 		auto connection_l (connection->shared_from_this ());
@@ -3297,6 +3302,7 @@ void nano::pulls_cache::add (nano::pull_info const & pull_a)
 		{
 			// Insert new pull
 			auto inserted (cache.insert (nano::cached_pulls{ std::chrono::steady_clock::now (), head_512, pull_a.head }));
+			(void)inserted;
 			assert (inserted.second);
 		}
 		else

@@ -1,6 +1,14 @@
 cmake_minimum_required (VERSION 3.4)
 project (nano-node)
 
+# Get the latest abbreviated commit hash of the working branch
+execute_process(
+  COMMAND git log -1 --format=%h
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  OUTPUT_VARIABLE GIT_COMMIT_HASH
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
 set (CPACK_PACKAGE_VERSION_MAJOR "20")
 set (CPACK_PACKAGE_VERSION_MINOR "0")
 set (CPACK_PACKAGE_VERSION_PATCH "0")
@@ -13,6 +21,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set (NANO_GUI OFF CACHE BOOL "")
 set (NANO_TEST OFF CACHE BOOL "")
 set (NANO_SECURE_RPC OFF CACHE BOOL "")
+set (NANO_ROCKSDB OFF CACHE BOOL "")
 
 option(NANO_ASAN_INT "Enable ASan+UBSan+Integer overflow" OFF)
 option(NANO_ASAN "Enable ASan+UBSan" OFF)
@@ -152,11 +161,14 @@ include_directories (${CMAKE_SOURCE_DIR})
 set(Boost_USE_STATIC_LIBS        ON)
 set(Boost_USE_MULTITHREADED      ON)
 
-if (BOOST_ROOT)
-	list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
-endif ()
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
-find_package (Boost 1.67.0 REQUIRED COMPONENTS filesystem log thread program_options system)
+find_package (Boost 1.67.0 REQUIRED COMPONENTS filesystem log log_setup thread program_options system)
+if (NANO_ROCKSDB)
+	find_package (RocksDB REQUIRED)
+	find_package (ZLIB REQUIRED)
+	include_directories (${ROCKSDB_INCLUDE_DIRS})
+endif ()
 
 # There is a compile bug with boost 1.69 interprocess headers on Mac
 if (APPLE AND Boost_VERSION EQUAL 106900)
@@ -301,21 +313,21 @@ add_subdirectory(nano/rpc)
 add_subdirectory(nano/nano_rpc)
 
 if (NANO_TEST OR RAIBLOCKS_TEST)
-    if(WIN32)
-        if(MSVC_VERSION)
-            if(MSVC_VERSION GREATER_EQUAL 1910)
-                add_definitions(-DGTEST_LANG_CXX11=1)
-                add_definitions(-DGTEST_HAS_TR1_TUPLE=0)
-            endif()
-        endif()
-        set (gtest_force_shared_crt ON)
-    else ()
-        set (gtest_force_shared_crt OFF)
-    endif()
+	if(WIN32)
+		if(MSVC_VERSION)
+			if(MSVC_VERSION GREATER_EQUAL 1910)
+				add_definitions(-DGTEST_LANG_CXX11=1)
+				add_definitions(-DGTEST_HAS_TR1_TUPLE=0)
+			endif()
+		endif()
+		set (gtest_force_shared_crt ON)
+	else ()
+		set (gtest_force_shared_crt OFF)
+endif()
 
-    add_subdirectory(nano/load_test)
+	add_subdirectory(nano/load_test)
 
-    add_subdirectory (gtest/googletest)
+	add_subdirectory (gtest/googletest)
 	# FIXME: This fixes gtest include directories without modifying gtest's
 	# CMakeLists.txt. Ideally we should use GTest::GTest and GTest::Main as
 	# dependencies but it requires building gtest differently
@@ -347,7 +359,8 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 		PRIVATE
 		-DNANO_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
 		-DNANO_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR}
-		-DNANO_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH})
+		-DNANO_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH}
+		-DGIT_COMMIT_HASH=${GIT_COMMIT_HASH})
 
 	if (WIN32)
 		set (PLATFORM_GUI_TARGET_PROPERTIES WIN32)

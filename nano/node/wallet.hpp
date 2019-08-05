@@ -1,7 +1,8 @@
 #pragma once
 
 #include <nano/lib/config.hpp>
-#include <nano/node/lmdb.hpp>
+#include <nano/node/lmdb/lmdb.hpp>
+#include <nano/node/lmdb/wallet_value.hpp>
 #include <nano/node/openclwork.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>

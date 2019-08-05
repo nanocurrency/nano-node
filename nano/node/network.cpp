@@ -243,6 +243,22 @@ void nano::network::flood_block_batch (std::deque<std::shared_ptr<nano::block>> 
 	}
 }
 
+void nano::network::send_confirm_req (std::shared_ptr<nano::transport::channel> channel_a, std::shared_ptr<nano::block> block_a)
+{
+	// Confirmation request with hash + root
+	if (channel_a->get_network_version () >= nano::tcp_realtime_protocol_version_min)
+	{
+		nano::confirm_req req (block_a->hash (), block_a->root ());
+		channel_a->send (req);
+	}
+	// Confirmation request with full block
+	else
+	{
+		nano::confirm_req req (block_a);
+		channel_a->send (req);
+	}
+}
+
 void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> block_a)
 {
 	auto list (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> (node.rep_crawler.representative_endpoints (std::numeric_limits<size_t>::max ())));
@@ -285,18 +301,7 @@ void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> blo
 	while (!endpoints_a->empty () && count < max_reps)
 	{
 		auto channel (endpoints_a->back ());
-		// Confirmation request with full block
-		if (node.network_params.network.is_live_network ())
-		{
-			nano::confirm_req req (block_a);
-			channel->send (req);
-		}
-		// Confirmation request with hash + root
-		else
-		{
-			nano::confirm_req req (block_a->hash (), block_a->root ());
-			channel->send (req);
-		}
+		send_confirm_req (channel, block_a);
 		endpoints_a->pop_back ();
 		count++;
 	}
@@ -451,9 +456,17 @@ public:
 			{
 				auto transaction (node.store.tx_begin_read ());
 				std::vector<nano::block_hash> blocks_bundle;
+				std::vector<std::shared_ptr<nano::vote>> cached_votes;
+				size_t cached_count (0);
 				for (auto & root_hash : message_a.roots_hashes)
 				{
-					if (!node.network.send_votes_cache (channel, root_hash.first) && node.store.block_exists (transaction, root_hash.first))
+					auto find_votes (node.votes_cache.find (root_hash.first));
+					if (!find_votes.empty ())
+					{
+						++cached_count;
+						cached_votes.insert (cached_votes.end (), find_votes.begin (), find_votes.end ());
+					}
+					if (!find_votes.empty () || node.store.block_exists (transaction, root_hash.first))
 					{
 						blocks_bundle.push_back (root_hash.first);
 					}
@@ -467,15 +480,19 @@ public:
 						{
 							nano::account_info info;
 							auto error (node.store.account_get (transaction, root_hash.second, info));
+							(void)error;
 							assert (!error);
 							successor = info.open_block;
 						}
 						if (!successor.is_zero ())
 						{
-							if (!node.network.send_votes_cache (channel, successor))
+							auto find_successor_votes (node.votes_cache.find (successor));
+							if (!find_successor_votes.empty ())
 							{
-								blocks_bundle.push_back (successor);
+								++cached_count;
+								cached_votes.insert (cached_votes.end (), find_successor_votes.begin (), find_successor_votes.end ());
 							}
+							blocks_bundle.push_back (successor);
 							auto successor_block (node.store.block_get (transaction, successor));
 							assert (successor_block != nullptr);
 							nano::publish publish (successor_block);
@@ -483,9 +500,21 @@ public:
 						}
 					}
 				}
-				if (!blocks_bundle.empty ())
+				/* Decide to send cached votes or to create new vote
+				If there is at least one new hash to confirm, then create new batch vote
+				Otherwise use more bandwidth & save local resources required to sign vote */
+				if (!blocks_bundle.empty () && cached_count < blocks_bundle.size ())
 				{
 					node.network.confirm_hashes (transaction, channel, blocks_bundle);
+				}
+				else
+				{
+					// Send from cache
+					for (auto & vote : cached_votes)
+					{
+						nano::confirm_ack confirm (vote);
+						channel->send (confirm);
+					}
 				}
 			}
 		}

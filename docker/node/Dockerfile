@@ -3,13 +3,11 @@ FROM nanocurrency/nano-env:gcc
 ARG NETWORK=live
 ADD ./ /tmp/src
 
-RUN num_cores=$(($(grep -c ^processor /proc/cpuinfo) + 1))
-
 RUN mkdir /tmp/build && \
     cd /tmp/build && \
     cmake /tmp/src -DBOOST_ROOT=${BOOST_ROOT} -DACTIVE_NETWORK=nano_${NETWORK}_network && \
-    make nano_node -j $num_cores && \
-    make nano_rpc -j $num_cores && \
+    make nano_node -j $(nproc) && \
+    make nano_rpc -j $(nproc) && \
     cd .. && \
     echo ${NETWORK} > /etc/nano-network
 

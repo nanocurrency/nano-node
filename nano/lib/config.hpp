@@ -17,6 +17,9 @@
 */
 static const char * NANO_MAJOR_MINOR_VERSION = xstr (NANO_VERSION_MAJOR) "." xstr (NANO_VERSION_MINOR);
 static const char * NANO_MAJOR_MINOR_RC_VERSION = xstr (NANO_VERSION_MAJOR) "." xstr (NANO_VERSION_MINOR) "RC" xstr (NANO_VERSION_PATCH);
+
+static const char * BUILD_INFO = xstr (GIT_COMMIT_HASH BOOST_COMPILER) " \"BOOST " xstr (BOOST_VERSION) "\" BUILT " xstr (__DATE__);
+
 /** Is TSAN/ASAN test build */
 #if defined(__has_feature)
 #if __has_feature(thread_sanitizer) || __has_feature(address_sanitizer)
@@ -63,6 +66,9 @@ public:
 		uint64_t constexpr publish_full_threshold = 0xffffffc000000000;
 		publish_threshold = is_test_network () ? publish_test_threshold : publish_full_threshold;
 
+		// A representative is classified as principal based on its weight and this factor
+		principal_weight_factor = 1000; // 0.1%
+
 		default_node_port = is_live_network () ? 7075 : is_beta_network () ? 54000 : 44000;
 		default_rpc_port = is_live_network () ? 7076 : is_beta_network () ? 55000 : 45000;
 		default_ipc_port = is_live_network () ? 7077 : is_beta_network () ? 56000 : 46000;
@@ -73,6 +79,7 @@ public:
 	/** The network this param object represents. This may differ from the global active network; this is needed for certain --debug... commands */
 	nano_networks current_network;
 	uint64_t publish_threshold;
+	unsigned principal_weight_factor;
 	uint16_t default_node_port;
 	uint16_t default_rpc_port;
 	uint16_t default_ipc_port;

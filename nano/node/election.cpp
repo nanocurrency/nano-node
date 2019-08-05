@@ -153,17 +153,17 @@ nano::election_vote_result nano::election::vote (nano::account rep, uint64_t seq
 	// see republish_vote documentation for an explanation of these rules
 	auto transaction (node.store.tx_begin_read ());
 	auto replay (false);
-	auto supply (node.online_reps.online_stake ());
+	auto online_stake (node.online_reps.online_stake ());
 	auto weight (node.ledger.weight (transaction, rep));
 	auto should_process (false);
-	if (node.network_params.network.is_test_network () || weight > supply / 1000) // 0.1% or above
+	if (node.network_params.network.is_test_network () || weight > node.minimum_principal_weight (online_stake))
 	{
 		unsigned int cooldown;
-		if (weight < supply / 100) // 0.1% to 1%
+		if (weight < online_stake / 100) // 0.1% to 1%
 		{
 			cooldown = 15;
 		}
-		else if (weight < supply / 20) // 1% to 5%
+		else if (weight < online_stake / 20) // 1% to 5%
 		{
 			cooldown = 5;
 		}
@@ -288,6 +288,7 @@ void nano::election::clear_blocks ()
 	{
 		auto & hash (block.first);
 		auto erased (node.active.blocks.erase (hash));
+		(void)erased;
 		// clear_blocks () can be called in active_transactions::publish () before blocks insertion if election was confirmed
 		assert (erased == 1 || confirmed);
 		// Notify observers about dropped elections & blocks lost confirmed elections
