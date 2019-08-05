@@ -65,7 +65,7 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 		{
 			if (backup_before_upgrade)
 			{
-				create_backup_file (env, path_a);
+				create_backup_file (env, path_a, logger_a);
 			}
 			auto transaction (tx_begin_write ());
 			open_databases (error_a, transaction, MDB_CREATE);
@@ -501,7 +501,7 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::transaction const & transaction_
 }
 
 /** Takes a filepath, appends '_backup_<timestamp>' to the end (but before any extension) and saves that file in the same directory */
-void nano::mdb_store::create_backup_file (nano::mdb_env & env_a, boost::filesystem::path const & filepath_a)
+void nano::mdb_store::create_backup_file (nano::mdb_env & env_a, boost::filesystem::path const & filepath_a, nano::logger_mt & logger_a)
 {
 	auto extension = filepath_a.extension ();
 	auto filename_without_extension = filepath_a.filename ().replace_extension ("");
@@ -512,15 +512,22 @@ void nano::mdb_store::create_backup_file (nano::mdb_env & env_a, boost::filesyst
 	backup_filename += std::to_string (std::chrono::system_clock::now ().time_since_epoch ().count ());
 	backup_filename += extension;
 	auto backup_filepath = backup_path / backup_filename;
+	auto start_message (boost::str (boost::format ("Performing %1% backup before database upgrade...") % filepath_a.filename ()));
+	logger_a.always_log (start_message);
+	std::cout << start_message << std::endl;
 	auto error (mdb_env_copy (env_a, backup_filepath.string ().c_str ()));
 	if (error)
 	{
-		std::cerr << boost::str (boost::format ("%1% backup failed") % filepath_a.filename ()) << std::endl;
+		auto error_message (boost::str (boost::format ("%1% backup failed") % filepath_a.filename ()));
+		logger_a.always_log (error_message);
+		std::cerr << error_message << std::endl;
 		std::exit (1);
 	}
 	else
 	{
-		std::cout << boost::str (boost::format ("Backup created: %1%") % backup_filename) << std::endl;
+		auto success_message (boost::str (boost::format ("Backup created: %1%") % backup_filename));
+		logger_a.always_log (success_message);
+		std::cout << success_message << std::endl;
 	}
 }
 

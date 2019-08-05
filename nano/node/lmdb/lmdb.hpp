@@ -42,7 +42,7 @@ public:
 
 	void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::milliseconds, std::chrono::milliseconds) override;
 
-	static void create_backup_file (nano::mdb_env &, boost::filesystem::path const &);
+	static void create_backup_file (nano::mdb_env &, boost::filesystem::path const &, nano::logger_mt &);
 
 	nano::logger_mt & logger;
 
