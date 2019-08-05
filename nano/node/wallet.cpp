@@ -1623,7 +1623,10 @@ thread ([this]() {
 	}
 	if (backup_required)
 	{
-		backup_before_upgrade ();
+		const char * store_path;
+		mdb_env_get_path (env, &store_path);
+		const boost::filesystem::path path (store_path);
+		nano::mdb_store::create_backup_file (env, path);
 	}
 	for (auto & item : items)
 	{
@@ -1952,14 +1955,6 @@ void nano::wallets::move_table (std::string const & name_a, MDB_txn * tx_source,
 	auto error6 (mdb_drop (tx_source, handle_source, 1));
 	(void)error6;
 	assert (!error6);
-}
-
-void nano::wallets::backup_before_upgrade ()
-{
-	const char *store_path;
-	mdb_env_get_path (env, &store_path);
-	auto backup_path = boost::filesystem::path (store_path).parent_path () / "backup.wallets.ldb";
-	mdb_env_copy (env, backup_path.string ().c_str ());
 }
 
 nano::uint128_t const nano::wallets::generate_priority = std::numeric_limits<nano::uint128_t>::max ();

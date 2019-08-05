@@ -63,11 +63,9 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 		// (can be a few minutes with the --fast_bootstrap flag for instance)
 		if (!is_fully_upgraded)
 		{
-			// Backup database before upgrade
 			if (backup_before_upgrade)
 			{
-				auto backup_path = path_a.parent_path () / "backup.upgrade.ldb";
-				mdb_env_copy (env, backup_path.string ().c_str ());
+				create_backup_file (env, path_a);
 			}
 			auto transaction (tx_begin_write ());
 			open_databases (error_a, transaction, MDB_CREATE);
@@ -499,6 +497,30 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::transaction const & transaction_
 	for (auto const & account_info : account_infos)
 	{
 		account_put (transaction_a, account_info.first, account_info.second);
+	}
+}
+
+/** Takes a filepath, appends '_backup_<timestamp>' to the end (but before any extension) and saves that file in the same directory */
+void nano::mdb_store::create_backup_file (nano::mdb_env & env_a, boost::filesystem::path const & filepath_a)
+{
+	auto extension = filepath_a.extension ();
+	auto filename_without_extension = filepath_a.filename ().replace_extension ("");
+	auto orig_filepath = filepath_a;
+	auto & backup_path = orig_filepath.remove_filename ();
+	auto backup_filename = filename_without_extension;
+	backup_filename += "_backup_";
+	backup_filename += std::to_string (std::chrono::system_clock::now ().time_since_epoch ().count ());
+	backup_filename += extension;
+	auto backup_filepath = backup_path / backup_filename;
+	auto error (mdb_env_copy (env_a, backup_filepath.string ().c_str ()));
+	if (error)
+	{
+		std::cerr << boost::str (boost::format ("%1% backup failed") % filepath_a.filename ()) << std::endl;
+		std::exit (1);
+	}
+	else
+	{
+		std::cout << boost::str (boost::format ("Backup created: %1%") % backup_filename) << std::endl;
 	}
 }
 

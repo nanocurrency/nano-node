@@ -204,7 +204,6 @@ public:
 	void ongoing_compute_reps ();
 	void split_if_needed (nano::transaction &, nano::block_store &);
 	void move_table (std::string const &, MDB_txn *, MDB_txn *);
-	void backup_before_upgrade ();
 	nano::network_params network_params;
 	std::function<void(bool)> observer;
 	std::unordered_map<nano::uint256_union, std::shared_ptr<nano::wallet>> items;

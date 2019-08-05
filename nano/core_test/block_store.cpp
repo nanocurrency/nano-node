@@ -1657,13 +1657,13 @@ TEST (mdb_block_store, upgrade_backup)
 	auto dir (nano::unique_path ());
 	namespace fs = boost::filesystem;
 	fs::create_directory (dir);
-	auto path = dir / dir.leaf ();
+	auto path = dir / "data.ldb";
 	/** Returns 'dir' if backup file cannot be found */
 	// clang-format off
 	auto get_backup_path = [&dir]() {
 		for (fs::directory_iterator itr (dir); itr != fs::directory_iterator (); ++itr)
 		{
-			if (itr->path ().filename ().string ().find ("backup.upgrade.ldb") != std::string::npos)
+			if (itr->path ().filename ().string ().find ("data_backup_") != std::string::npos)
 			{
 				return itr->path ();
 			}

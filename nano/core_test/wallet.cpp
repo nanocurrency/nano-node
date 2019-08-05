@@ -875,7 +875,7 @@ TEST (wallet, upgrade_backup)
 	auto get_backup_path = [&dir]() {
 		for (fs::directory_iterator itr (dir); itr != fs::directory_iterator (); ++itr)
 		{
-			if (itr->path ().filename ().string ().find ("backup.wallets.ldb") != std::string::npos)
+			if (itr->path ().filename ().string ().find ("wallets_backup_") != std::string::npos)
 			{
 				return itr->path ();
 			}
@@ -914,7 +914,7 @@ TEST (wallet, upgrade_backup)
 		nano::node_config node_config (24001, system.logging);
 		node_config.backup_before_upgrade = true;
 		nano::node_init init1;
-		auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, nano::unique_path (), system.alarm, node_config, system.work));
+		auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, dir, system.alarm, node_config, system.work));
 		ASSERT_FALSE (init1.error ());
 		auto wallet (node1->wallets.open (id.pub));
 		ASSERT_NE (nullptr, wallet);
