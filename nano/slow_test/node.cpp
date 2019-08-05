@@ -695,7 +695,7 @@ TEST (confirmation_height, prioritize_frontiers_overwrite)
 
 	auto transaction = node->store.tx_begin_read ();
 	{
-		node->active.prioritize_frontiers_for_confirmation (transaction, std::chrono::seconds (60));
+		node->active.prioritize_frontiers_for_confirmation (transaction, std::chrono::seconds (60), std::chrono::seconds (1));
 		ASSERT_EQ (node->active.priority_cementable_frontiers_size (), num_accounts);
 		auto last_frontier_it = node->active.priority_cementable_frontiers.get<1> ().end ();
 		--last_frontier_it;
@@ -714,7 +714,7 @@ TEST (confirmation_height, prioritize_frontiers_overwrite)
 		ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, open).code);
 	}
 	transaction.refresh ();
-	node->active.prioritize_frontiers_for_confirmation (transaction, std::chrono::seconds (60));
+	node->active.prioritize_frontiers_for_confirmation (transaction, std::chrono::seconds (60), std::chrono::seconds (1));
 	ASSERT_EQ (node->active.priority_cementable_frontiers_size (), num_accounts);
 	auto last_frontier_it = node->active.priority_cementable_frontiers.get<1> ().end ();
 	--last_frontier_it;
@@ -730,7 +730,7 @@ TEST (confirmation_height, prioritize_frontiers_overwrite)
 	}
 
 	transaction.refresh ();
-	node->active.prioritize_frontiers_for_confirmation (transaction, std::chrono::seconds (5));
+	node->active.prioritize_frontiers_for_confirmation (transaction, std::chrono::seconds (5), std::chrono::seconds (1));
 	ASSERT_EQ (node->active.priority_cementable_frontiers_size (), num_accounts);
 	ASSERT_EQ (node->active.priority_cementable_frontiers.find (last_keypair.pub), node->active.priority_cementable_frontiers.end ());
 	ASSERT_NE (node->active.priority_cementable_frontiers.find (key.pub), node->active.priority_cementable_frontiers.end ());
