@@ -22,6 +22,7 @@ set (NANO_GUI OFF CACHE BOOL "")
 set (NANO_TEST OFF CACHE BOOL "")
 set (NANO_SECURE_RPC OFF CACHE BOOL "")
 set (NANO_ROCKSDB OFF CACHE BOOL "")
+set (NANO_WARN_TO_ERR OFF CACHE BOOL "")
 
 option(NANO_ASAN_INT "Enable ASan+UBSan+Integer overflow" OFF)
 option(NANO_ASAN "Enable ASan+UBSan" OFF)
@@ -58,7 +59,9 @@ if (WIN32)
 	endif()
 
 else ()
-	add_compile_options(-Werror)
+	if (NANO_WARN_TO_ERR)
+		add_compile_options(-Werror)
+	endif ()
 
 	if ((${USING_TSAN} AND ${USING_ASAN}) OR
 	    (${USING_TSAN} AND ${USING_ASAN_INT}))

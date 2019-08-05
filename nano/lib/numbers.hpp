@@ -73,6 +73,7 @@ union uint256_union final
 	bool decode_dec (std::string const &);
 	void encode_account (std::string &) const;
 	std::string to_account () const;
+	std::string to_node_id () const;
 	bool decode_account (std::string const &);
 	std::array<uint8_t, 32> bytes;
 	std::array<char, 32> chars;
