@@ -870,7 +870,7 @@ TEST (wallet, upgrade_backup)
 	auto dir (nano::unique_path ());
 	namespace fs = boost::filesystem;
 	fs::create_directory (dir);
-	/** Returns 'path' if backup file cannot be found */
+	/** Returns 'dir' if backup file cannot be found */
 	// clang-format off
 	auto get_backup_path = [&dir]() {
 		for (fs::directory_iterator itr (dir); itr != fs::directory_iterator (); ++itr)
