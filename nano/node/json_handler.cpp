@@ -214,13 +214,13 @@ nano::account nano::json_handler::account_impl (std::string account_text, std::e
 		{
 			account_text = request.get<std::string> ("account");
 		}
-		bool deprecated (false);
-		if (result.decode_account_deprecation (account_text, deprecated))
+		if (result.decode_account (account_text))
 		{
 			ec = ec_a;
 		}
-		if (deprecated)
+		else if (account_text[3] == '-' || account_text[4] == '-')
 		{
+			// nano- and xrb- prefixes are deprecated
 			response_l.put ("deprecated_account_format", "1");
 		}
 	}
@@ -3771,15 +3771,9 @@ void nano::json_handler::version ()
 
 void nano::json_handler::validate_account_number ()
 {
-	std::string account_text (request.get<std::string> ("account"));
-	bool deprecated (false);
-	nano::uint256_union account;
-	auto error (account.decode_account_deprecation (account_text, deprecated));
-	response_l.put ("valid", error ? "0" : "1");
-	if (deprecated)
-	{
-		response_l.put ("deprecated_account_format", "1");
-	}
+	auto account (account_impl ());
+	response_l.put ("valid", ec ? "0" : "1");
+	ec = std::error_code (); // error is just invalid account
 	response_errors ();
 }
 

@@ -129,17 +129,6 @@ bool nano::uint256_union::decode_account (std::string const & source_a)
 	return error;
 }
 
-bool nano::uint256_union::decode_account_deprecation (std::string const & source_a, bool & deprecated_a)
-{
-	auto error (decode_account (source_a));
-	// nano- and xrb- prefixes are deprecated
-	if (!error && (source_a[3] == '-' || source_a[4] == '-'))
-	{
-		deprecated_a = true;
-	}
-	return error;
-}
-
 nano::uint256_union::uint256_union (nano::uint256_t const & number_a)
 {
 	bytes.fill (0);

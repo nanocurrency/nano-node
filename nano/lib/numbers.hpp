@@ -75,7 +75,6 @@ union uint256_union final
 	std::string to_account () const;
 	std::string to_node_id () const;
 	bool decode_account (std::string const &);
-	bool decode_account_deprecation (std::string const &, bool &);
 	std::array<uint8_t, 32> bytes;
 	std::array<char, 32> chars;
 	std::array<uint32_t, 8> dwords;
