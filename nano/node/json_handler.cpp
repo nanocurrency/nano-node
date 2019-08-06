@@ -2918,20 +2918,12 @@ void nano::json_handler::process ()
 	{
 		if (!nano::work_validate (*block))
 		{
-			auto hash (block->hash ());
-			node.block_arrival.add (hash);
-			nano::process_return result;
-			{
-				auto transaction (node.store.tx_begin_write ());
-				// Set current time to trigger automatic rebroadcast and election
-				nano::unchecked_info info (block, block->account (), nano::seconds_since_epoch (), nano::signature_verification::unknown);
-				result = node.block_processor.process_one (transaction, info);
-			}
+			auto result (node.process_local (block));
 			switch (result.code)
 			{
 				case nano::process_result::progress:
 				{
-					response_l.put ("hash", hash.to_string ());
+					response_l.put ("hash", block->hash ().to_string ());
 					break;
 				}
 				case nano::process_result::gap_previous:
@@ -2982,7 +2974,7 @@ void nano::json_handler::process ()
 					{
 						node.active.erase (*block);
 						node.block_processor.force (block);
-						response_l.put ("hash", hash.to_string ());
+						response_l.put ("hash", block->hash ().to_string ());
 					}
 					else
 					{

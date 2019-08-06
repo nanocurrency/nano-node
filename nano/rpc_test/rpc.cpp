@@ -5886,7 +5886,7 @@ TEST (rpc, node_id)
 	ASSERT_EQ (200, response.status);
 	ASSERT_EQ (system.nodes[0]->node_id.prv.data.to_string (), response.json.get<std::string> ("private"));
 	ASSERT_EQ (system.nodes[0]->node_id.pub.to_account (), response.json.get<std::string> ("as_account"));
-	ASSERT_EQ (system.nodes[0]->node_id.pub.to_node_id (), response.json.get<std::string> ("as_node_id"));
+	ASSERT_EQ (system.nodes[0]->node_id.pub.to_node_id (), response.json.get<std::string> ("node_id"));
 }
 
 TEST (rpc, stats_clear)
