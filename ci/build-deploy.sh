@@ -28,6 +28,7 @@ cmake \
     -DBOOST_ROOT=/usr/local \
     -DQt5_DIR=${qt_dir} \
     -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+    -DCI_BUILD=true \
     ..
 
 if [[ "$OS" == 'Linux' ]]; then
