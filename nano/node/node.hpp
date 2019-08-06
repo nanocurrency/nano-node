@@ -105,6 +105,7 @@ public:
 	void process_confirmed (nano::election_status const &, uint8_t = 0);
 	void process_active (std::shared_ptr<nano::block>);
 	nano::process_return process (nano::block const &);
+	nano::process_return process_local (std::shared_ptr<nano::block>);
 	void keepalive_preconfigured (std::vector<std::string> const &);
 	nano::block_hash latest (nano::account const &);
 	nano::uint128_t balance (nano::account const &);
