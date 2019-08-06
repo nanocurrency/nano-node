@@ -894,8 +894,9 @@ void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const
 	auto existing (inactive_votes_cache.get<1> ().find (hash_a));
 	if (existing != inactive_votes_cache.get<1> ().end ())
 	{
-		inactive_votes_cache.get<1> ().modify (existing, [](nano::gap_information & info) {
+		inactive_votes_cache.get<1> ().modify (existing, [representative_a](nano::gap_information & info) {
 			info.arrival = std::chrono::steady_clock::now ();
+			info.voters.push_back (representative_a);
 		});
 	}
 	else
