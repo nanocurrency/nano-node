@@ -7,11 +7,17 @@
 #include <algorithm>
 #include <chrono>
 
+nano::websocket::confirmation_options::confirmation_options (nano::node & node_a) :
+node (node_a)
+{
+}
+
 nano::websocket::confirmation_options::confirmation_options (boost::property_tree::ptree const & options_a, nano::node & node_a) :
 node (node_a)
 {
 	// Non-account filtering options
 	include_block = options_a.get<bool> ("include_block", true);
+	include_election_info = options_a.get<bool> ("include_election_info", false);
 
 	confirmation_types = 0;
 	auto type_l (options_a.get<std::string> ("confirmation_type", "all"));
@@ -497,7 +503,7 @@ void nano::websocket::listener::on_accept (boost::system::error_code ec)
 	}
 }
 
-void nano::websocket::listener::broadcast_confirmation (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, nano::election_status_type election_status_type_a)
+void nano::websocket::listener::broadcast_confirmation (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, nano::election_status const & election_status_a)
 {
 	nano::websocket::message_builder builder;
 
@@ -512,16 +518,21 @@ void nano::websocket::listener::broadcast_confirmation (std::shared_ptr<nano::bl
 			auto subscription (session_ptr->subscriptions.find (nano::websocket::topic::confirmation));
 			if (subscription != session_ptr->subscriptions.end ())
 			{
+				nano::websocket::confirmation_options default_options (node);
 				auto conf_options (dynamic_cast<nano::websocket::confirmation_options *> (subscription->second.get ()));
+				if (conf_options == nullptr)
+				{
+					conf_options = &default_options;
+				}
 				auto include_block (conf_options == nullptr ? true : conf_options->get_include_block ());
 
 				if (include_block && !msg_with_block)
 				{
-					msg_with_block = builder.block_confirmed (block_a, account_a, amount_a, subtype, include_block, election_status_type_a);
+					msg_with_block = builder.block_confirmed (block_a, account_a, amount_a, subtype, include_block, election_status_a, *conf_options);
 				}
 				else if (!include_block && !msg_without_block)
 				{
-					msg_without_block = builder.block_confirmed (block_a, account_a, amount_a, subtype, include_block, election_status_type_a);
+					msg_without_block = builder.block_confirmed (block_a, account_a, amount_a, subtype, include_block, election_status_a, *conf_options);
 				}
 				else
 				{
@@ -571,7 +582,7 @@ nano::websocket::message nano::websocket::message_builder::stopped_election (nan
 	return message_l;
 }
 
-nano::websocket::message nano::websocket::message_builder::block_confirmed (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, bool include_block_a, nano::election_status_type election_status_type_a)
+nano::websocket::message nano::websocket::message_builder::block_confirmed (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, bool include_block_a, nano::election_status const & election_status_a, nano::websocket::confirmation_options const & options_a)
 {
 	nano::websocket::message message_l (nano::websocket::topic::confirmation);
 	set_common_fields (message_l);
@@ -583,7 +594,7 @@ nano::websocket::message nano::websocket::message_builder::block_confirmed (std:
 	message_node_l.add ("hash", block_a->hash ().to_string ());
 
 	std::string confirmation_type = "unknown";
-	switch (election_status_type_a)
+	switch (election_status_a.type)
 	{
 		case nano::election_status_type::active_confirmed_quorum:
 			confirmation_type = "active_quorum";
@@ -598,6 +609,15 @@ nano::websocket::message nano::websocket::message_builder::block_confirmed (std:
 			break;
 	};
 	message_node_l.add ("confirmation_type", confirmation_type);
+
+	if (options_a.get_include_election_info ())
+	{
+		boost::property_tree::ptree election_node_l;
+		election_node_l.add ("duration", election_status_a.election_duration.count ());
+		election_node_l.add ("time", election_status_a.election_end.count ());
+		election_node_l.add ("tally", election_status_a.tally.to_string_dec ());
+		message_node_l.add_child ("election_info", election_node_l);
+	}
 
 	if (include_block_a)
 	{

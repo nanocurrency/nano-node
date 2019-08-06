@@ -2502,6 +2502,7 @@ void nano::json_handler::node_id ()
 		response_l.put ("private", node.node_id.prv.data.to_string ());
 		response_l.put ("public", node.node_id.pub.to_string ());
 		response_l.put ("as_account", node.node_id.pub.to_account ());
+		response_l.put ("node_id", node.node_id.pub.to_node_id ());
 	}
 	response_errors ();
 }
@@ -2588,7 +2589,7 @@ void nano::json_handler::peers ()
 			auto node_id_l (channel->get_node_id_optional ());
 			if (node_id_l.is_initialized ())
 			{
-				pending_tree.put ("node_id", node_id_l.get ().to_account ());
+				pending_tree.put ("node_id", node_id_l.get ().to_node_id ());
 			}
 			else
 			{
@@ -2934,20 +2935,12 @@ void nano::json_handler::process ()
 	{
 		if (!nano::work_validate (*block))
 		{
-			auto hash (block->hash ());
-			node.block_arrival.add (hash);
-			nano::process_return result;
-			{
-				auto transaction (node.store.tx_begin_write ());
-				// Set current time to trigger automatic rebroadcast and election
-				nano::unchecked_info info (block, block->account (), nano::seconds_since_epoch (), nano::signature_verification::unknown);
-				result = node.block_processor.process_one (transaction, info);
-			}
+			auto result (node.process_local (block));
 			switch (result.code)
 			{
 				case nano::process_result::progress:
 				{
-					response_l.put ("hash", hash.to_string ());
+					response_l.put ("hash", block->hash ().to_string ());
 					break;
 				}
 				case nano::process_result::gap_previous:
@@ -2998,7 +2991,7 @@ void nano::json_handler::process ()
 					{
 						node.active.erase (*block);
 						node.block_processor.force (block);
-						response_l.put ("hash", hash.to_string ());
+						response_l.put ("hash", block->hash ().to_string ());
 					}
 					else
 					{
