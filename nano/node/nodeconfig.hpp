@@ -19,8 +19,7 @@ namespace nano
 enum class frontiers_confirmation_mode : uint8_t
 {
 	always, // Always confirm frontiers
-	automatic, // Confirm frontiers if node contains representative with at least 50% of principal weight
-	lazy, // Confirm frontiers less often
+	automatic, // Always mode if node contains representative with at least 50% of principal weight, less frequest requests if not
 	disabled, // Do not confirm frontiers
 	invalid
 };

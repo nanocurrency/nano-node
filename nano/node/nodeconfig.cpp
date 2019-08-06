@@ -449,7 +449,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		}
 		if (frontiers_confirmation == nano::frontiers_confirmation_mode::invalid)
 		{
-			json.get_error ().set ("invalid frontier_confirmation value (available: always, auto, lazy ,disabled)");
+			json.get_error ().set ("invalid frontier_confirmation value (available: always, auto ,disabled)");
 		}
 	}
 	catch (std::runtime_error const & ex)
@@ -467,8 +467,6 @@ std::string nano::node_config::serialize_frontiers_confirmation (nano::frontiers
 			return "always";
 		case nano::frontiers_confirmation_mode::automatic:
 			return "auto";
-		case nano::frontiers_confirmation_mode::lazy:
-			return "lazy";
 		case nano::frontiers_confirmation_mode::disabled:
 			return "disabled";
 		default:
@@ -485,10 +483,6 @@ nano::frontiers_confirmation_mode nano::node_config::deserialize_frontiers_confi
 	else if (string_a == "auto")
 	{
 		return nano::frontiers_confirmation_mode::automatic;
-	}
-	else if (string_a == "lazy")
-	{
-		return nano::frontiers_confirmation_mode::lazy;
 	}
 	else if (string_a == "disabled")
 	{

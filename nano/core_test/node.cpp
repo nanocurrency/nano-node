@@ -893,9 +893,6 @@ TEST (node_config, v18_values)
 	ASSERT_FALSE (upgraded);
 	ASSERT_EQ (config.frontiers_confirmation, nano::frontiers_confirmation_mode::disabled);
 
-	tree.put ("frontiers_confirmation", "lazy");
-	config.deserialize_json (upgraded, tree);
-	ASSERT_EQ (config.frontiers_confirmation, nano::frontiers_confirmation_mode::lazy);
 	tree.put ("frontiers_confirmation", "always");
 	config.deserialize_json (upgraded, tree);
 	ASSERT_EQ (config.frontiers_confirmation, nano::frontiers_confirmation_mode::always);
@@ -1852,11 +1849,9 @@ TEST (node, bootstrap_fork_open)
 TEST (node, bootstrap_confirm_frontiers)
 {
 	nano::system system0 (24000, 1);
-	nano::system system1;
+	nano::system system1 (24001, 1);
 	auto node0 (system0.nodes[0]);
-	nano::node_config node_config (24001, system0.logging);
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::lazy;
-	auto node1 = system1.add_node (node_config);
+	auto node1 (system0.nodes[0]);
 	system0.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key0;
 	// node0 knows about send0 but node1 doesn't.
@@ -3222,6 +3217,7 @@ TEST (confirmation_height, prioritize_frontiers)
 	transaction.refresh ();
 	node->active.prioritize_frontiers_for_confirmation (transaction, std::chrono::seconds (1), std::chrono::seconds (1));
 	ASSERT_TRUE (priority_orders_match (node->active.priority_wallet_cementable_frontiers, std::array<nano::account, num_accounts>{ key3.pub, nano::genesis_account, key4.pub, key1.pub, key2.pub }));
+	node->active.confirm_frontiers (transaction);
 
 	// Check that the active transactions roots contains the frontiers
 	{
@@ -3269,27 +3265,6 @@ TEST (confirmation_height, frontiers_confirmation_mode)
 		nano::system system;
 		nano::node_config node_config (24000, system.logging);
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::automatic;
-		auto node = system.add_node (node_config);
-		nano::state_block send (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node->work_generate_blocking (genesis.hash ()));
-		{
-			auto transaction = node->store.tx_begin_write ();
-			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
-		}
-		std::this_thread::sleep_for (std::chrono::seconds (1));
-		ASSERT_EQ (0, node->active.size ());
-		// Automatic mode is activated with principal representative
-		system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-		system.deadline_set (5s);
-		while (node->active.empty ())
-		{
-			ASSERT_NO_ERROR (system.poll ());
-		}
-	}
-	// Lazy mode
-	{
-		nano::system system;
-		nano::node_config node_config (24000, system.logging);
-		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::lazy;
 		auto node = system.add_node (node_config);
 		nano::state_block send (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node->work_generate_blocking (genesis.hash ()));
 		{
