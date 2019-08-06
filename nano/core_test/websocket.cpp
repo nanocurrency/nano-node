@@ -463,7 +463,7 @@ TEST (websocket, confirmation_options)
 	std::thread client_thread_2 ([&client_thread_2_finished]() {
 		// Re-subscribe with options for all local wallet accounts
 		auto response = websocket_test_call ("::1", "24078",
-		R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"confirmation_type": "active_quorum", "all_local_accounts": "true"}})json", true, true);
+		R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"confirmation_type": "active_quorum", "all_local_accounts": "true", "include_election_info": "true"}})json", true, true);
 
 		ASSERT_TRUE (response);
 		boost::property_tree::ptree event;
@@ -471,6 +471,20 @@ TEST (websocket, confirmation_options)
 		stream << response.get ();
 		boost::property_tree::read_json (stream, event);
 		ASSERT_EQ (event.get<std::string> ("topic"), "confirmation");
+		try
+		{
+			boost::property_tree::ptree election_info = event.get_child ("message.election_info");
+			auto tally (election_info.get<std::string> ("tally"));
+			auto time (election_info.get<std::string> ("time"));
+			election_info.get<std::string> ("duration");
+			// Make sure tally and time are non-zero. Duration may be zero on testnet, so we only check that it's present (exception thrown otherwise)
+			ASSERT_NE ("0", tally);
+			ASSERT_NE ("0", time);
+		}
+		catch (std::runtime_error const & ex)
+		{
+			FAIL () << ex.what ();
+		}
 
 		client_thread_2_finished = true;
 	});

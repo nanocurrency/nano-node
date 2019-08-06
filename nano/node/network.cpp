@@ -122,7 +122,7 @@ void nano::network::send_node_id_handshake (std::shared_ptr<nano::transport::cha
 	nano::node_id_handshake message (query, response);
 	if (node.config.logging.network_node_id_handshake_logging ())
 	{
-		node.logger.try_log (boost::str (boost::format ("Node ID handshake sent with node ID %1% to %2%: query %3%, respond_to %4% (signature %5%)") % node.node_id.pub.to_account () % channel_a->get_endpoint () % (query ? query->to_string () : std::string ("[none]")) % (respond_to ? respond_to->to_string () : std::string ("[none]")) % (response ? response->second.to_string () : std::string ("[none]"))));
+		node.logger.try_log (boost::str (boost::format ("Node ID handshake sent with node ID %1% to %2%: query %3%, respond_to %4% (signature %5%)") % node.node_id.pub.to_node_id () % channel_a->get_endpoint () % (query ? query->to_string () : std::string ("[none]")) % (respond_to ? respond_to->to_string () : std::string ("[none]")) % (response ? response->second.to_string () : std::string ("[none]"))));
 	}
 	channel_a->send (message);
 }
@@ -243,6 +243,22 @@ void nano::network::flood_block_batch (std::deque<std::shared_ptr<nano::block>> 
 	}
 }
 
+void nano::network::send_confirm_req (std::shared_ptr<nano::transport::channel> channel_a, std::shared_ptr<nano::block> block_a)
+{
+	// Confirmation request with hash + root
+	if (channel_a->get_network_version () >= nano::tcp_realtime_protocol_version_min)
+	{
+		nano::confirm_req req (block_a->hash (), block_a->root ());
+		channel_a->send (req);
+	}
+	// Confirmation request with full block
+	else
+	{
+		nano::confirm_req req (block_a);
+		channel_a->send (req);
+	}
+}
+
 void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> block_a)
 {
 	auto list (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> (node.rep_crawler.representative_endpoints (std::numeric_limits<size_t>::max ())));
@@ -285,18 +301,7 @@ void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> blo
 	while (!endpoints_a->empty () && count < max_reps)
 	{
 		auto channel (endpoints_a->back ());
-		// Confirmation request with full block
-		if (node.network_params.network.is_live_network ())
-		{
-			nano::confirm_req req (block_a);
-			channel->send (req);
-		}
-		// Confirmation request with hash + root
-		else
-		{
-			nano::confirm_req req (block_a->hash (), block_a->root ());
-			channel->send (req);
-		}
+		send_confirm_req (channel, block_a);
 		endpoints_a->pop_back ();
 		count++;
 	}

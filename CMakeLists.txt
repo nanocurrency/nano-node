@@ -1,6 +1,14 @@
 cmake_minimum_required (VERSION 3.4)
 project (nano-node)
 
+# Get the latest abbreviated commit hash of the working branch
+execute_process(
+  COMMAND git log -1 --format=%h
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  OUTPUT_VARIABLE GIT_COMMIT_HASH
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
 set (CPACK_PACKAGE_VERSION_MAJOR "20")
 set (CPACK_PACKAGE_VERSION_MINOR "0")
 set (CPACK_PACKAGE_VERSION_PATCH "0")
@@ -14,6 +22,7 @@ set (NANO_GUI OFF CACHE BOOL "")
 set (NANO_TEST OFF CACHE BOOL "")
 set (NANO_SECURE_RPC OFF CACHE BOOL "")
 set (NANO_ROCKSDB OFF CACHE BOOL "")
+set (NANO_WARN_TO_ERR OFF CACHE BOOL "")
 
 option(NANO_ASAN_INT "Enable ASan+UBSan+Integer overflow" OFF)
 option(NANO_ASAN "Enable ASan+UBSan" OFF)
@@ -50,7 +59,9 @@ if (WIN32)
 	endif()
 
 else ()
-	add_compile_options(-Werror)
+	if (NANO_WARN_TO_ERR)
+		add_compile_options(-Werror)
+	endif ()
 
 	if ((${USING_TSAN} AND ${USING_ASAN}) OR
 	    (${USING_TSAN} AND ${USING_ASAN_INT}))
@@ -155,7 +166,7 @@ set(Boost_USE_MULTITHREADED      ON)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
-find_package (Boost 1.67.0 REQUIRED COMPONENTS filesystem log thread program_options system)
+find_package (Boost 1.67.0 REQUIRED COMPONENTS filesystem log log_setup thread program_options system)
 if (NANO_ROCKSDB)
 	find_package (RocksDB REQUIRED)
 	find_package (ZLIB REQUIRED)
@@ -351,7 +362,8 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 		PRIVATE
 		-DNANO_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
 		-DNANO_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR}
-		-DNANO_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH})
+		-DNANO_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH}
+		-DGIT_COMMIT_HASH=${GIT_COMMIT_HASH})
 
 	if (WIN32)
 		set (PLATFORM_GUI_TARGET_PROPERTIES WIN32)

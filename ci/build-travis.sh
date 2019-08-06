@@ -27,6 +27,7 @@ cmake \
     -DNANO_TEST=ON \
     -DNANO_GUI=ON \
     -DNANO_ROCKSDB=ON \
+    -DNANO_WARN_TO_ERR=ON \
     -DCMAKE_BUILD_TYPE=Debug \
     -DCMAKE_VERBOSE_MAKEFILE=ON \
     -DBOOST_ROOT=/usr/local \

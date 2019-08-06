@@ -154,6 +154,12 @@ public:
 	*/
 	MDB_dbi peers{ 0 };
 
+	/*
+	 * Confirmation height of an account
+	 * nano::account -> uint64_t
+	 */
+	MDB_dbi confirmation_height{ 0 };
+
 	bool exists (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a) const;
 
 	int get (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, nano::mdb_val & value_a) const;
@@ -198,6 +204,7 @@ private:
 	void upgrade_v11_to_v12 (nano::transaction const &);
 	void upgrade_v12_to_v13 (nano::write_transaction &, size_t);
 	void upgrade_v13_to_v14 (nano::transaction const &);
+	void upgrade_v14_to_v15 (nano::transaction const &);
 	void open_databases (bool &, nano::transaction const &, unsigned);
 
 	int drop (nano::transaction const & transaction_a, tables table_a) override;
