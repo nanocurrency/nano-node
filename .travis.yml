@@ -61,7 +61,7 @@ jobs:
       name: "live docker"
       if: tag IS present AND !tag=~RC|DB
       script: 
-        if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi;
+        if [ -n "$DOCKER_PASSWORD" ]; then TRAVIS_TAG="${TRAVIS_TAG}" ci/deploy-docker.sh; fi;
     - name: "live linux"
       os: linux
       compiler: gcc
@@ -99,7 +99,7 @@ jobs:
       name: "beta docker"
       if: tag =~RC|DB
       script: 
-        - if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi;
+        - if [ -n "$DOCKER_PASSWORD" ]; then TRAVIS_TAG="${TRAVIS_TAG}" ci/deploy-docker.sh; fi;
     - name: "beta linux"
       os: linux
       env:

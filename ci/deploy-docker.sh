@@ -32,7 +32,7 @@ if [ -n "$DOCKER_PASSWORD" ]; then
         fi
 
         docker_image_name="nanocurrency/nano${network_tag_suffix}"
-        "$scripts"/custom-timeout.sh 30 docker build --build-arg NETWORK="$network" -f docker/node/Dockerfile -t "$docker_image_name" .
+        "$scripts"/custom-timeout.sh 30 docker build --build-arg NETWORK="$network" --build-arg CI_BUILD=true --build-arg TRAVIS_TAG="$TRAVIS_TAG" -f docker/node/Dockerfile -t "$docker_image_name" .
         for tag in "${tags[@]}"; do
             # Sanitize docker tag
             # https://docs.docker.com/engine/reference/commandline/tag/

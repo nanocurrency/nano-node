@@ -1,11 +1,13 @@
 FROM nanocurrency/nano-env:gcc
 
 ARG NETWORK=live
+ARG TRAVIS_TAG=DEV_BUILD
+ARG CI_BUILD=OFF
 ADD ./ /tmp/src
 
 RUN mkdir /tmp/build && \
     cd /tmp/build && \
-    cmake /tmp/src -DBOOST_ROOT=${BOOST_ROOT} -DACTIVE_NETWORK=nano_${NETWORK}_network && \
+    cmake /tmp/src -DCI_BUILD=${CI_BUILD} -DBOOST_ROOT=${BOOST_ROOT} -DACTIVE_NETWORK=nano_${NETWORK}_network && \
     make nano_node -j $(nproc) && \
     make nano_rpc -j $(nproc) && \
     cd .. && \
