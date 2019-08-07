@@ -61,10 +61,7 @@ public:
 	network_constants (nano_networks network_a) :
 	current_network (network_a)
 	{
-		// Local work threshold for rate-limiting publishing blocks. ~5 seconds of work.
-		uint64_t constexpr publish_test_threshold = 0xff00000000000000;
-		uint64_t constexpr publish_full_threshold = 0xffffffc000000000;
-		publish_threshold = is_test_network () ? publish_test_threshold : publish_full_threshold;
+		publish_threshold = is_test_network () ? publish_test_threshold : is_beta_network () ? publish_beta_threshold : publish_full_threshold;
 
 		// A representative is classified as principal based on its weight and this factor
 		principal_weight_factor = 1000; // 0.1%
@@ -75,6 +72,11 @@ public:
 		default_websocket_port = is_live_network () ? 7078 : is_beta_network () ? 57000 : 47000;
 		request_interval_ms = is_test_network () ? (is_sanitizer_build ? 100 : 20) : 16000;
 	}
+
+	/** Network work thresholds. ~5 seconds of work for the live network */
+	static uint64_t const publish_full_threshold{ 0xffffffc000000000 };
+	static uint64_t const publish_beta_threshold{ 0xfffffc0000000000 }; // 16x lower than full
+	static uint64_t const publish_test_threshold{ 0xff00000000000000 }; // very low for tests
 
 	/** The network this param object represents. This may differ from the global active network; this is needed for certain --debug... commands */
 	nano_networks current_network;
