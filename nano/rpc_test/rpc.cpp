@@ -4426,19 +4426,8 @@ TEST (rpc, account_info)
 	nano::system system (24000, 1);
 	nano::keypair key;
 	nano::genesis genesis;
-	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	system.wallet (0)->insert_adhoc (key.prv);
+
 	auto & node1 (*system.nodes[0]);
-	auto latest (system.nodes[0]->latest (nano::test_genesis_key.pub));
-	nano::send_block send (latest, key.pub, 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (latest));
-	system.nodes[0]->process (send);
-	auto time (nano::seconds_since_epoch ());
-
-	{
-		auto transaction = node1.store.tx_begin_write ();
-		node1.store.confirmation_height_put (transaction, nano::test_genesis_key.pub, 1);
-	}
-
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
@@ -4446,53 +4435,87 @@ TEST (rpc, account_info)
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
 	rpc.start ();
+
 	boost::property_tree::ptree request;
 	request.put ("action", "account_info");
-	request.put ("account", nano::test_genesis_key.pub.to_account ());
-	test_response response (request, rpc.config.port, system.io_ctx);
-	system.deadline_set (5s);
-	while (response.status == 0)
+	request.put ("account", nano::account ().to_account ());
+
+	// Test for a non existing account
 	{
-		ASSERT_NO_ERROR (system.poll ());
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+
+		auto error (response.json.get_optional<std::string> ("error"));
+		ASSERT_TRUE (error.is_initialized ());
+		ASSERT_EQ (error.get (), "Account not found");
 	}
-	ASSERT_EQ (200, response.status);
-	std::string frontier (response.json.get<std::string> ("frontier"));
-	ASSERT_EQ (send.hash ().to_string (), frontier);
-	std::string open_block (response.json.get<std::string> ("open_block"));
-	ASSERT_EQ (genesis.hash ().to_string (), open_block);
-	std::string representative_block (response.json.get<std::string> ("representative_block"));
-	ASSERT_EQ (genesis.hash ().to_string (), representative_block);
-	std::string balance (response.json.get<std::string> ("balance"));
-	ASSERT_EQ ("100", balance);
-	std::string modified_timestamp (response.json.get<std::string> ("modified_timestamp"));
-	ASSERT_LT (std::abs ((long)time - stol (modified_timestamp)), 5);
-	std::string block_count (response.json.get<std::string> ("block_count"));
-	ASSERT_EQ ("2", block_count);
-	std::string confirmation_height (response.json.get<std::string> ("confirmation_height"));
-	ASSERT_EQ ("1", confirmation_height);
-	ASSERT_EQ (0, response.json.get<uint8_t> ("account_version"));
-	boost::optional<std::string> weight (response.json.get_optional<std::string> ("weight"));
-	ASSERT_FALSE (weight.is_initialized ());
-	boost::optional<std::string> pending (response.json.get_optional<std::string> ("pending"));
-	ASSERT_FALSE (pending.is_initialized ());
-	boost::optional<std::string> representative (response.json.get_optional<std::string> ("representative"));
-	ASSERT_FALSE (representative.is_initialized ());
+
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (key.prv);
+	auto latest (system.nodes[0]->latest (nano::test_genesis_key.pub));
+	nano::send_block send (latest, key.pub, 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node1.work_generate_blocking (latest));
+	system.nodes[0]->process (send);
+	auto time (nano::seconds_since_epoch ());
+	{
+		auto transaction = node1.store.tx_begin_write ();
+		node1.store.confirmation_height_put (transaction, nano::test_genesis_key.pub, 1);
+	}
+
+	request.put ("account", nano::test_genesis_key.pub.to_account ());
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+
+		ASSERT_EQ (200, response.status);
+		std::string frontier (response.json.get<std::string> ("frontier"));
+		ASSERT_EQ (send.hash ().to_string (), frontier);
+		std::string open_block (response.json.get<std::string> ("open_block"));
+		ASSERT_EQ (genesis.hash ().to_string (), open_block);
+		std::string representative_block (response.json.get<std::string> ("representative_block"));
+		ASSERT_EQ (genesis.hash ().to_string (), representative_block);
+		std::string balance (response.json.get<std::string> ("balance"));
+		ASSERT_EQ ("100", balance);
+		std::string modified_timestamp (response.json.get<std::string> ("modified_timestamp"));
+		ASSERT_LT (std::abs ((long)time - stol (modified_timestamp)), 5);
+		std::string block_count (response.json.get<std::string> ("block_count"));
+		ASSERT_EQ ("2", block_count);
+		std::string confirmation_height (response.json.get<std::string> ("confirmation_height"));
+		ASSERT_EQ ("1", confirmation_height);
+		ASSERT_EQ (0, response.json.get<uint8_t> ("account_version"));
+		boost::optional<std::string> weight (response.json.get_optional<std::string> ("weight"));
+		ASSERT_FALSE (weight.is_initialized ());
+		boost::optional<std::string> pending (response.json.get_optional<std::string> ("pending"));
+		ASSERT_FALSE (pending.is_initialized ());
+		boost::optional<std::string> representative (response.json.get_optional<std::string> ("representative"));
+		ASSERT_FALSE (representative.is_initialized ());
+	}
+
 	// Test for optional values
 	request.put ("weight", "true");
 	request.put ("pending", "1");
 	request.put ("representative", "1");
-	test_response response2 (request, rpc.config.port, system.io_ctx);
-	system.deadline_set (5s);
-	while (response2.status == 0)
 	{
-		ASSERT_NO_ERROR (system.poll ());
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		std::string weight2 (response.json.get<std::string> ("weight"));
+		ASSERT_EQ ("100", weight2);
+		std::string pending2 (response.json.get<std::string> ("pending"));
+		ASSERT_EQ ("0", pending2);
+		std::string representative2 (response.json.get<std::string> ("representative"));
+		ASSERT_EQ (nano::test_genesis_key.pub.to_account (), representative2);
 	}
-	std::string weight2 (response2.json.get<std::string> ("weight"));
-	ASSERT_EQ ("100", weight2);
-	std::string pending2 (response2.json.get<std::string> ("pending"));
-	ASSERT_EQ ("0", pending2);
-	std::string representative2 (response2.json.get<std::string> ("representative"));
-	ASSERT_EQ (nano::test_genesis_key.pub.to_account (), representative2);
 }
 
 /** Make sure we can use json block literals instead of string as input */
