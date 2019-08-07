@@ -2854,6 +2854,7 @@ void nano::json_handler::payment_wait ()
 void nano::json_handler::process ()
 {
 	const bool json_block_l = request.get<bool> ("json_block", false);
+	const bool watch_work_l = request.get<bool> ("watch_work", true);
 	std::shared_ptr<nano::block> block;
 	if (json_block_l)
 	{
@@ -2935,7 +2936,7 @@ void nano::json_handler::process ()
 	{
 		if (!nano::work_validate (*block))
 		{
-			auto result (node.process_local (block));
+			auto result (node.process_local (block, watch_work_l));
 			switch (result.code)
 			{
 				case nano::process_result::progress:
