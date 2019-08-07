@@ -80,7 +80,7 @@ wallet (wallet_a)
 		network[0] = std::toupper (network[0]);
 	}
 	version = new QLabel (boost::str (boost::format ("%1% %2% network") % NANO_VERSION_STRING % network).c_str ());
-	
+
 	self_layout->addWidget (your_account_label);
 	self_layout->addStretch ();
 	self_layout->addWidget (version);
