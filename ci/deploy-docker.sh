@@ -13,7 +13,7 @@ if [ -n "$DOCKER_PASSWORD" ]; then
         "$scripts"/custom-timeout.sh 30 docker push "$ci_image_name"
     fi
 
-    if [[ "$TRAVIS_BUILD_STAGE_NAME" =~ "artifacts" ]]; then
+    if [[ "$TRAVIS_BUILD_STAGE_NAME" =~ "Artifacts" ]]; then
         tags=()
         if [[ "${TRAVIS_TAG}" =~ ("RC"|"DB") ]]; then
             tags+=("$TRAVIS_TAG" latest-including-rc)
