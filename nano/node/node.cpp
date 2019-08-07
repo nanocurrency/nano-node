@@ -359,14 +359,7 @@ startup_time (std::chrono::steady_clock::now ())
 			});
 		}
 
-		if (NANO_VERSION_PATCH == 0)
-		{
-			logger.always_log ("Node starting, version: ", NANO_MAJOR_MINOR_VERSION);
-		}
-		else
-		{
-			logger.always_log ("Node starting, version: ", NANO_MAJOR_MINOR_RC_VERSION);
-		}
+		logger.always_log ("Node starting, version: ", NANO_VERSION_STRING);
 		logger.always_log ("Build information: ", BUILD_INFO);
 
 		auto network_label = network_params.network.get_current_network_as_string ();
