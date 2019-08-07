@@ -223,7 +223,7 @@ TEST (rpc, account_create)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response2.status);
-	ASSERT_EQ (response2.json.get<std::string> ("error"), "Invalid index");
+	ASSERT_EQ (std::error_code (nano::error_common::invalid_index).message (), response2.json.get<std::string> ("error"));
 }
 
 TEST (rpc, account_weight)
@@ -440,7 +440,7 @@ TEST (rpc, send_fail)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	done = true;
-	ASSERT_EQ (response.json.get<std::string> ("error"), "Account not found in wallet");
+	ASSERT_EQ (std::error_code (nano::error_common::account_not_found_wallet).message (), response.json.get<std::string> ("error"));
 	thread2.join ();
 }
 
@@ -471,7 +471,7 @@ TEST (rpc, send_work)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (response.json.get<std::string> ("error"), "Invalid work");
+	ASSERT_EQ (std::error_code (nano::error_common::invalid_work).message (), response.json.get<std::string> ("error"));
 	request.erase ("work");
 	request.put ("work", nano::to_string_hex (system.nodes[0]->work_generate_blocking (system.nodes[0]->latest (nano::test_genesis_key.pub))));
 	test_response response2 (request, rpc.config.port, system.io_ctx);
@@ -540,7 +540,7 @@ TEST (rpc, send_idempotent)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response3.status);
-	ASSERT_EQ (response3.json.get<std::string> ("error"), "Insufficient balance");
+	ASSERT_EQ (std::error_code (nano::error_common::insufficient_balance).message (), response3.json.get<std::string> ("error"));
 }
 
 TEST (rpc, stop)
@@ -4451,7 +4451,7 @@ TEST (rpc, account_info)
 
 		auto error (response.json.get_optional<std::string> ("error"));
 		ASSERT_TRUE (error.is_initialized ());
-		ASSERT_EQ (error.get (), "Account not found");
+		ASSERT_EQ (error.get (), std::error_code (nano::error_common::account_not_found).message ());
 	}
 
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
@@ -4656,7 +4656,7 @@ TEST (rpc, blocks_info)
 			ASSERT_NO_ERROR (system.poll ());
 		}
 		ASSERT_EQ (200, response.status);
-		ASSERT_EQ ("Block not found", response.json.get<std::string> ("error"));
+		ASSERT_EQ (std::error_code (nano::error_blocks::not_found).message (), response.json.get<std::string> ("error"));
 	}
 	request.put ("include_not_found", "true");
 	{
@@ -5379,7 +5379,7 @@ TEST (rpc, wallet_create_fail)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ ("Failed to create wallet. Increase lmdb_max_dbs in node config", response.json.get<std::string> ("error"));
+	ASSERT_EQ (std::error_code (nano::error_common::wallet_lmdb_max_dbs).message (), response.json.get<std::string> ("error"));
 }
 
 TEST (rpc, wallet_ledger)
@@ -5830,7 +5830,7 @@ TEST (rpc, block_confirm_absent)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
-	ASSERT_EQ ("Block not found", response.json.get<std::string> ("error"));
+	ASSERT_EQ (std::error_code (nano::error_blocks::not_found).message (), response.json.get<std::string> ("error"));
 }
 
 TEST (rpc, block_confirm_confirmed)
@@ -6317,7 +6317,7 @@ TEST (rpc, block_confirmed)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
-	ASSERT_EQ ("Invalid block hash", response.json.get<std::string> ("error"));
+	ASSERT_EQ (std::error_code (nano::error_blocks::invalid_block_hash).message (), response.json.get<std::string> ("error"));
 
 	request.put ("hash", "0");
 	test_response response1 (request, rpc.config.port, system.io_ctx);
@@ -6327,7 +6327,7 @@ TEST (rpc, block_confirmed)
 		system.poll ();
 	}
 	ASSERT_EQ (200, response1.status);
-	ASSERT_EQ ("Block not found", response1.json.get<std::string> ("error"));
+	ASSERT_EQ (std::error_code (nano::error_blocks::not_found).message (), response1.json.get<std::string> ("error"));
 
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key;
