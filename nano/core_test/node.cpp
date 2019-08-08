@@ -3220,11 +3220,6 @@ TEST (confirmation_height, prioritize_frontiers)
 	node->active.confirm_frontiers (transaction);
 
 	// Check that the active transactions roots contains the frontiers
-	{
-		std::lock_guard<std::mutex> guard (node->active.mutex);
-		node->active.next_frontier_check = std::chrono::steady_clock::now ();
-	}
-
 	system.deadline_set (std::chrono::seconds (10));
 	while (node->active.size () != num_accounts)
 	{
