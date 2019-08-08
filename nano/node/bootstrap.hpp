@@ -160,7 +160,7 @@ public:
 	nano::block_hash expected;
 	nano::account known_account;
 	nano::pull_info pull;
-	uint64_t total_blocks;
+	uint64_t pull_blocks;
 	uint64_t unexpected_count;
 };
 class bootstrap_client final : public std::enable_shared_from_this<bootstrap_client>
@@ -203,7 +203,7 @@ public:
 	void receive_pending ();
 	std::shared_ptr<nano::bootstrap_client> connection;
 	nano::account account;
-	uint64_t total_blocks;
+	uint64_t pull_blocks;
 };
 class cached_pulls final
 {

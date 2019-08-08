@@ -550,9 +550,9 @@ public:
 		return result;
 	}
 
-	void representation_put (nano::write_transaction const & transaction_a, nano::account const & account_a, nano::uint128_t const & representation_a) override
+	void representation_put (nano::write_transaction const & transaction_a, nano::account const & account_a, nano::uint128_union const & representation_a) override
 	{
-		nano::db_val<Val> rep{ nano::uint128_union (representation_a) };
+		nano::db_val<Val> rep (representation_a);
 		auto status (put (transaction_a, tables::representation, account_a, rep));
 		release_assert (success (status));
 	}

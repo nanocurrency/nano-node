@@ -38,3 +38,8 @@ TEST (difficulty, multipliers)
 #endif
 	}
 }
+
+TEST (difficulty, network_constants)
+{
+	ASSERT_NEAR (16., nano::difficulty::to_multiplier (nano::network_constants::publish_full_threshold, nano::network_constants::publish_beta_threshold), 1e-10);
+}

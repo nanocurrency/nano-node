@@ -264,7 +264,7 @@ startup_time (std::chrono::steady_clock::now ())
 						}
 					}
 
-					this->websocket_server->broadcast_confirmation (block_a, account_a, amount_a, subtype, status_a.type);
+					this->websocket_server->broadcast_confirmation (block_a, account_a, amount_a, subtype, status_a);
 				}
 			});
 
@@ -408,7 +408,7 @@ startup_time (std::chrono::steady_clock::now ())
 		}
 
 		node_id = nano::keypair ();
-		logger.always_log ("Node ID: ", node_id.pub.to_account ());
+		logger.always_log ("Node ID: ", node_id.pub.to_node_id ());
 
 		const uint8_t * weight_buffer = network_params.network.is_live_network () ? nano_bootstrap_weights_live : nano_bootstrap_weights_beta;
 		size_t weight_size = network_params.network.is_live_network () ? nano_bootstrap_weights_live_size : nano_bootstrap_weights_beta_size;
@@ -479,7 +479,7 @@ void nano::node::do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, 
 						boost::beast::http::async_read (*sock, *sb, *resp, [node_l, sb, resp, sock, address, port, i_a, target, body, resolver](boost::system::error_code const & ec, size_t bytes_transferred) mutable {
 							if (!ec)
 							{
-								if (resp->result () == boost::beast::http::status::ok)
+								if (boost::beast::http::to_status_class (resp->result ()) == boost::beast::http::status_class::successful)
 								{
 									node_l->stats.inc (nano::stat::type::http_callback, nano::stat::detail::initiate, nano::stat::dir::out);
 								}
@@ -611,6 +611,19 @@ nano::process_return nano::node::process (nano::block const & block_a)
 	auto transaction (store.tx_begin_write (tables_l, { tables::confirmation_height }));
 	auto result (ledger.process (transaction, block_a));
 	return result;
+}
+
+nano::process_return nano::node::process_local (std::shared_ptr<nano::block> block_a)
+{
+	// Add block hash as recently arrived to trigger automatic rebroadcast and election
+	block_arrival.add (block_a->hash ());
+	// Set current time to trigger automatic rebroadcast and election
+	nano::unchecked_info info (block_a, block_a->account (), nano::seconds_since_epoch (), nano::signature_verification::unknown);
+	// Notify block processor to release write lock
+	block_processor.wait_write ();
+	// Process block
+	auto transaction (store.tx_begin_write ());
+	return block_processor.process_one (transaction, info);
 }
 
 void nano::node::start ()

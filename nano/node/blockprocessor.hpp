@@ -42,6 +42,7 @@ public:
 	void add (nano::unchecked_info const &);
 	void add (std::shared_ptr<nano::block>, uint64_t = 0);
 	void force (std::shared_ptr<nano::block>);
+	void wait_write ();
 	bool should_log (bool);
 	bool have_blocks ();
 	void process_blocks ();
@@ -58,6 +59,7 @@ private:
 	void process_live (nano::block_hash const &, std::shared_ptr<nano::block>);
 	bool stopped;
 	bool active;
+	bool awaiting_write{ false };
 	std::chrono::steady_clock::time_point next_log;
 	std::deque<nano::unchecked_info> state_blocks;
 	std::deque<nano::unchecked_info> blocks;

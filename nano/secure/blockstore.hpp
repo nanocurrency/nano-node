@@ -627,7 +627,7 @@ public:
 	virtual nano::epoch block_version (nano::transaction const &, nano::block_hash const &) = 0;
 
 	virtual nano::uint128_t representation_get (nano::transaction const &, nano::account const &) = 0;
-	virtual void representation_put (nano::write_transaction const &, nano::account const &, nano::uint128_t const &) = 0;
+	virtual void representation_put (nano::write_transaction const &, nano::account const &, nano::uint128_union const &) = 0;
 	virtual void representation_add (nano::write_transaction const &, nano::account const &, nano::uint128_t const &) = 0;
 	virtual nano::store_iterator<nano::account, nano::uint128_union> representation_begin (nano::transaction const &) = 0;
 	virtual nano::store_iterator<nano::account, nano::uint128_union> representation_end () = 0;
