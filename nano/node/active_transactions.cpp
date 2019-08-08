@@ -909,16 +909,16 @@ void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const
 	}
 }
 
-std::vector<nano::account> nano::active_transactions::find_inactive_votes_cache (nano::block_hash const & hash_a)
+nano::gap_information nano::active_transactions::find_inactive_votes_cache (nano::block_hash const & hash_a)
 {
 	auto existing (inactive_votes_cache.get<1> ().find (hash_a));
 	if (existing != inactive_votes_cache.get<1> ().end ())
 	{
-		return existing->voters;
+		return *existing;
 	}
 	else
 	{
-		return std::vector<nano::account>{};
+		return nano::gap_information{ std::chrono::steady_clock::time_point{}, 0, std::vector<nano::account>{} };
 	}
 }
 

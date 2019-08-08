@@ -292,7 +292,7 @@ TEST (active_transactions, inactive_votes_cache)
 		confirmed = system.nodes[0]->ledger.block_confirmed (transaction, send->hash ());
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (1, system.nodes[0]->stats.count (nano::stat::type::vote, nano::stat::detail::vote_cached));
+	ASSERT_EQ (1, system.nodes[0]->stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
 }
 
 TEST (active_transactions, inactive_votes_cache_existing_vote)
@@ -328,14 +328,14 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 		active_lock.unlock ();
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (1, system.nodes[0]->stats.count (nano::stat::type::vote, nano::stat::detail::vote_new));
+	ASSERT_EQ (1, system.nodes[0]->stats.count (nano::stat::type::election, nano::stat::detail::vote_new));
 	std::lock_guard<std::mutex> active_guard (node->active.mutex);
 	auto last_vote1 (election->last_votes[key.pub]);
 	ASSERT_EQ (send->hash (), last_vote1.hash);
 	ASSERT_EQ (1, last_vote1.sequence);
 	// Attempt to change vote with inactive_votes_cache
 	node->active.add_inactive_votes_cache (send->hash (), key.pub);
-	ASSERT_EQ (1, node->active.find_inactive_votes_cache (send->hash ()).size ());
+	ASSERT_EQ (1, node->active.find_inactive_votes_cache (send->hash ()).voters.size ());
 	election->insert_inactive_votes_cache ();
 	// Check that election data is not changed
 	ASSERT_EQ (2, election->last_votes.size ());
@@ -343,7 +343,7 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 	ASSERT_EQ (last_vote1.hash, last_vote2.hash);
 	ASSERT_EQ (last_vote1.sequence, last_vote2.sequence);
 	ASSERT_EQ (last_vote1.time, last_vote2.time);
-	ASSERT_EQ (0, system.nodes[0]->stats.count (nano::stat::type::vote, nano::stat::detail::vote_cached));
+	ASSERT_EQ (0, system.nodes[0]->stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
 }
 
 TEST (active_transactions, inactive_votes_cache_multiple_votes)
@@ -362,7 +362,7 @@ TEST (active_transactions, inactive_votes_cache_multiple_votes)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (2, system.nodes[0]->active.find_inactive_votes_cache (send->hash ()).size ());
+	ASSERT_EQ (2, system.nodes[0]->active.find_inactive_votes_cache (send->hash ()).voters.size ());
 	system.nodes[0]->process_active (send);
 	system.nodes[0]->block_processor.flush ();
 	while (system.nodes[0]->active.size () != 1)
@@ -375,5 +375,5 @@ TEST (active_transactions, inactive_votes_cache_multiple_votes)
 		ASSERT_NE (system.nodes[0]->active.roots.end (), it);
 		ASSERT_EQ (3, it->election->last_votes.size ()); // 2 votes and 1 default not_an_acount
 	}
-	ASSERT_EQ (2, system.nodes[0]->stats.count (nano::stat::type::vote, nano::stat::detail::vote_cached));
+	ASSERT_EQ (2, system.nodes[0]->stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
 }

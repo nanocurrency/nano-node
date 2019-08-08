@@ -120,7 +120,7 @@ public:
 	std::deque<nano::election_status> confirmed;
 	void add_confirmed (nano::election_status const &, nano::qualified_root const &);
 	void add_inactive_votes_cache (nano::block_hash const &, nano::account const &);
-	std::vector<nano::account> find_inactive_votes_cache (nano::block_hash const &);
+	nano::gap_information find_inactive_votes_cache (nano::block_hash const &);
 	nano::node & node;
 	std::mutex mutex;
 	// Minimum number of confirmation requests

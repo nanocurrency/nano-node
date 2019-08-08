@@ -374,6 +374,9 @@ std::string nano::stat::type_to_string (uint32_t key)
 		case nano::stat::type::vote:
 			res = "vote";
 			break;
+		case nano::stat::type::election:
+			res = "election";
+			break;
 		case nano::stat::type::message:
 			res = "message";
 			break;
@@ -517,6 +520,12 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 		case nano::stat::detail::vote_cached:
 			res = "vote_cached";
+			break;
+		case nano::stat::detail::late_block:
+			res = "late_block";
+			break;
+		case nano::stat::detail::late_block_seconds:
+			res = "late_block_seconds";
 			break;
 		case nano::stat::detail::blocking:
 			res = "blocking";
