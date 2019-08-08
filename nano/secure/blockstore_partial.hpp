@@ -824,7 +824,7 @@ public:
 	{
 		nano::db_val<Val> value;
 		auto status = get (transaction_a, tables::confirmation_height, nano::db_val<Val> (account_a), value);
-		release_assert (success (status) || !not_found (status));
+		release_assert (success (status) || not_found (status));
 		confirmation_height_a = 0;
 		if (success (status))
 		{

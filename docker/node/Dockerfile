@@ -19,4 +19,6 @@ COPY docker/node/entry.sh /entry.sh
 COPY docker/node/config /usr/share/nano/config
 RUN chmod +x /entry.sh
 RUN ln -s /usr/bin/nano_node /usr/bin/rai_node
-CMD ["/bin/bash",  "/entry.sh"]
+ENV PATH="${PATH}:/usr/bin"
+ENTRYPOINT ["/bin/bash",  "/entry.sh"]
+CMD ["nano_node daemon -l"]
