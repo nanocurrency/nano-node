@@ -11,6 +11,12 @@ OS=`uname`
 mkdir build
 pushd build
 
+if [[ ${RELEASE-0} -eq 1 ]]; then
+    BUILD_TYPE="RelWithDebInfo"
+else
+    BUILD_TYPE="Debug"
+fi
+
 if [[ ${ASAN_INT-0} -eq 1 ]]; then
     SANITIZERS="-DNANO_ASAN_INT=ON"
 elif [[ ${ASAN-0} -eq 1 ]]; then
@@ -28,7 +34,7 @@ cmake \
     -DNANO_GUI=ON \
     -DNANO_ROCKSDB=ON \
     -DNANO_WARN_TO_ERR=ON \
-    -DCMAKE_BUILD_TYPE=Debug \
+    -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
     -DCMAKE_VERBOSE_MAKEFILE=ON \
     -DBOOST_ROOT=/usr/local \
     -DQt5_DIR=${qt_dir} \
