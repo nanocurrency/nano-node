@@ -166,8 +166,8 @@ private:
 	std::condition_variable cv;
 	std::deque<std::function<void()>> queue;
 	std::mutex mutex;
-	std::thread thread;
 	std::atomic<bool> stopped{ false };
+	std::thread thread;
 
 	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (worker &, const std::string &);
 };
