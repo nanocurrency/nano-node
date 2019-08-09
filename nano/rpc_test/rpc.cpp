@@ -2653,10 +2653,6 @@ TEST (rpc, work_peer_bad)
 {
 	nano::system system (24000, 2);
 	auto & node1 (*system.nodes[0]);
-	auto & node2 (*system.nodes[1]);
-	nano::keypair key;
-	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	system.wallet (0)->insert_adhoc (key.prv);
 	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
@@ -2664,16 +2660,48 @@ TEST (rpc, work_peer_bad)
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
 	rpc.start ();
-	node2.config.work_peers.push_back (std::make_pair (boost::asio::ip::address_v6::any ().to_string (), 0));
+
+	// Invalid address, will get blacklisted when resolving
+	std::string address_invalid ("invalid");
+	auto port (0);
+	node1.config.work_peers.push_back (std::make_pair (address_invalid, port));
+
+	// Valid address but will get blacklisted when failure in trying to reach it
+	auto address (boost::asio::ip::address_v6::any ().to_string ());
+	node1.config.work_peers.push_back (std::make_pair (address, port));
+
 	nano::block_hash hash1 (1);
 	std::atomic<uint64_t> work (0);
-	node2.work_generate (hash1, [&work](uint64_t work_a) {
+	node1.work_generate (hash1, [&work](uint64_t work_a) {
 		work = work_a;
 	});
 	system.deadline_set (5s);
 	while (nano::work_validate (hash1, work))
 	{
 		ASSERT_NO_ERROR (system.poll ());
+	}
+	boost::property_tree::ptree request;
+	request.put ("action", "work_peers");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		auto & peers_node (response.json.get_child ("work_peers"));
+		ASSERT_TRUE (peers_node.empty ());
+		auto & blacklisted_node (response.json.get_child ("blacklisted"));
+		std::vector<std::string> blacklisted;
+		for (auto i (blacklisted_node.begin ()), n (blacklisted_node.end ()); i != n; ++i)
+		{
+			blacklisted.push_back (i->second.get<std::string> (""));
+		}
+		ASSERT_EQ (2, blacklisted.size ());
+		// Unresolved address gets blacklisted first
+		ASSERT_EQ (address_invalid + ":" + std::to_string (port), blacklisted[0]);
+		ASSERT_EQ (address + ":" + std::to_string (port), blacklisted[1]);
 	}
 }
 
