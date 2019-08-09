@@ -224,7 +224,7 @@ bool nano::election::publish (std::shared_ptr<nano::block> block_a)
 			{
 				blocks.insert (std::make_pair (block_a->hash (), block_a));
 				confirm_if_quorum (transaction);
-				node.network.flood_block (block_a);
+				node.network.flood_block (block_a, false);
 			}
 			else
 			{

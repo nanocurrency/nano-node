@@ -75,13 +75,13 @@ node (node_a)
 {
 }
 
-void nano::transport::channel::send (nano::message const & message_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a, bool const & is_dropable)
+void nano::transport::channel::send (nano::message const & message_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a, bool const is_droppable_a)
 {
 	callback_visitor visitor;
 	message_a.visit (visitor);
 	auto buffer (message_a.to_bytes ());
 	auto detail (visitor.result);
-	if (!is_dropable || !limiter.should_drop (buffer->size ()))
+	if (!is_droppable_a || !limiter.should_drop (buffer->size ()))
 	{
 		send_buffer (buffer, detail, callback_a);
 		node.stats.inc (nano::stat::type::message, detail, nano::stat::dir::out);
