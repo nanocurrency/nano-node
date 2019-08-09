@@ -1169,7 +1169,12 @@ public:
 		handle_failure (last);
 		if (blacklist)
 		{
-			node->config.work_peers.erase (std::remove (node->config.work_peers.begin (), node->config.work_peers.end (), lookup[address]), node->config.work_peers.end ());
+			auto peer (lookup.find (address));
+			if (peer != lookup.end ())
+			{
+				node->blacklisted_work_peers.push_back (peer->second);
+				node->config.work_peers.erase (std::remove (node->config.work_peers.begin (), node->config.work_peers.end (), peer->second), node->config.work_peers.end ());
+			}
 		}
 	}
 	void handle_failure (bool last)
