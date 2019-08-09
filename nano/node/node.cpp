@@ -5,6 +5,7 @@
 #include <nano/node/node.hpp>
 #include <nano/rpc/rpc.hpp>
 
+#include <boost/asio/steady_timer.hpp>
 #include <boost/polymorphic_cast.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
@@ -933,14 +934,25 @@ public:
 	work_request (boost::asio::io_context & io_ctx_a, boost::asio::ip::address address_a, uint16_t port_a) :
 	address (address_a),
 	port (port_a),
-	socket (io_ctx_a)
+	socket (io_ctx_a),
+	deadline (io_ctx_a)
 	{
+		deadline.async_wait (boost::bind (&work_request::check_deadline, this));
+	}
+	void check_deadline ()
+	{
+		if (deadline.expiry () <= boost::asio::steady_timer::clock_type::now ())
+		{
+			socket.close ();
+		}
+		deadline.async_wait (boost::bind (&work_request::check_deadline, this));
 	}
 	boost::asio::ip::address address;
 	uint16_t port;
 	boost::beast::flat_buffer buffer;
 	boost::beast::http::response<boost::beast::http::string_body> response;
 	boost::asio::ip::tcp::socket socket;
+	boost::asio::steady_timer deadline;
 };
 class distributed_work : public std::enable_shared_from_this<distributed_work>
 {
@@ -977,6 +989,7 @@ public:
 			if (!ec)
 			{
 				outstanding[parsed_address] = current.second;
+				this_l->lookup[parsed_address] = current;
 				start ();
 			}
 			else
@@ -987,7 +1000,9 @@ public:
 						for (auto i (i_a), n (boost::asio::ip::udp::resolver::iterator{}); i != n; ++i)
 						{
 							auto endpoint (i->endpoint ());
-							this_l->outstanding[endpoint.address ()] = endpoint.port ();
+							auto address (endpoint.address ());
+							this_l->outstanding[address] = endpoint.port ();
+							this_l->lookup[address] = current;
 						}
 					}
 					else
@@ -1011,6 +1026,7 @@ public:
 				auto service (i.second);
 				node->background ([this_l, host, service]() {
 					auto connection (std::make_shared<work_request> (this_l->node->io_ctx, host, service));
+					connection->deadline.expires_after (std::chrono::seconds (5));
 					connection->socket.async_connect (nano::tcp_endpoint (host, service), [this_l, connection](boost::system::error_code const & ec) {
 						if (!ec)
 						{
@@ -1062,8 +1078,8 @@ public:
 						}
 						else
 						{
-							this_l->node->logger.try_log (boost::str (boost::format ("Unable to connect to work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
-							this_l->failure (connection->address);
+							this_l->node->logger.always_log (boost::str (boost::format ("Unable to connect to work_peer, blacklisting %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
+							this_l->failure (connection->address, true);
 						}
 					});
 				});
@@ -1147,10 +1163,14 @@ public:
 			callback (work_a);
 		}
 	}
-	void failure (boost::asio::ip::address const & address)
+	void failure (boost::asio::ip::address const & address, bool blacklist = false)
 	{
 		auto last (remove (address));
 		handle_failure (last);
+		if (blacklist)
+		{
+			node->config.work_peers.erase (std::remove (node->config.work_peers.begin (), node->config.work_peers.end (), lookup[address]), node->config.work_peers.end ());
+		}
 	}
 	void handle_failure (bool last)
 	{
@@ -1205,6 +1225,7 @@ public:
 	std::mutex mutex;
 	std::map<boost::asio::ip::address, uint16_t> outstanding;
 	std::vector<std::pair<std::string, uint16_t>> need_resolve;
+	std::map<boost::asio::ip::address, std::pair<std::string, uint16_t>> lookup;
 	std::atomic_flag completed;
 	uint64_t difficulty;
 };
