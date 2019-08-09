@@ -613,6 +613,7 @@ TEST (block_store, latest_find)
 	ASSERT_EQ (second, find3);
 }
 
+#if !NANO_ROCKSDB
 TEST (block_store, bad_path)
 {
 	nano::logger_mt logger;
@@ -620,6 +621,7 @@ TEST (block_store, bad_path)
 	auto store = nano::make_store (init, logger, boost::filesystem::path ("///"));
 	ASSERT_TRUE (init);
 }
+#endif
 
 TEST (block_store, DISABLED_already_open) // File can be shared
 {

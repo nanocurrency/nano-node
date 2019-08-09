@@ -78,7 +78,7 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 
 		if (!error_a && drop_unchecked)
 		{
-			auto transaction (tx_begin_write ({ tables::unchecked, nano::tables::cached_counts }));
+			auto transaction (tx_begin_write ({ nano::tables::cached_counts, tables::unchecked }));
 			unchecked_clear (transaction);
 		}
 	}

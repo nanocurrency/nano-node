@@ -1,6 +1,6 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/node/rocksdb/rocksdb.hpp>
-#include <nano/node/rocksdb/rocksdb_iterator.cpp>
+#include <nano/node/rocksdb/rocksdb_iterator.hpp>
 #include <nano/node/rocksdb/rocksdb_txn.hpp>
 
 #include <boost/endian/conversion.hpp>
@@ -43,17 +43,15 @@ void rocksdb_val::convert_buffer_to_value ()
 nano::rocksdb_store::rocksdb_store (bool & error_a, nano::logger_mt & logger_a, boost::filesystem::path const & path_a, bool drop_unchecked_a, bool open_read_only_a) :
 logger (logger_a)
 {
-	// Make this path is created if it doesn't exist already
-	if (!boost::filesystem::exists (path_a))
-	{
-		boost::system::error_code error_mkdir, error_chmod;
-		boost::filesystem::create_directories (path_a, error_mkdir);
-		nano::set_secure_perm_directory (path_a, error_chmod);
-		error_a |= static_cast<bool> (error_mkdir);
-	}
+	boost::system::error_code error_mkdir, error_chmod;
+	boost::filesystem::create_directories (path_a, error_mkdir);
+	nano::set_secure_perm_directory (path_a, error_chmod);
+	error_a |= static_cast<bool> (error_mkdir);
 
 	if (!error_a)
 	{
+		auto table_options = get_table_options ();
+		table_factory.reset (rocksdb::NewBlockBasedTableFactory (table_options));
 		if (!open_read_only_a)
 		{
 			construct_column_family_mutexes ();
@@ -63,7 +61,7 @@ logger (logger_a)
 
 	if (!error_a && !open_read_only_a && drop_unchecked_a)
 	{
-		auto transaction (tx_begin_write ({ tables::unchecked, nano::tables::cached_counts }));
+		auto transaction (tx_begin_write ({ nano::tables::cached_counts, tables::unchecked }));
 		unchecked_clear (transaction);
 	}
 }
@@ -84,26 +82,22 @@ void nano::rocksdb_store::open (bool & error_a, boost::filesystem::path const & 
 	std::vector<rocksdb::ColumnFamilyDescriptor> column_families;
 	for (const auto & cf_name : names)
 	{
-		column_families.emplace_back (cf_name, get_column_family_options ());
+		column_families.emplace_back (cf_name, get_cf_options ());
 	}
 
-	rocksdb::Options options;
+	auto options = get_db_options ();
 	rocksdb::Status s;
+
 	if (open_read_only_a)
 	{
 		s = rocksdb::DB::OpenForReadOnly (options, path_a.string (), column_families, &handles, &db);
 	}
 	else
 	{
-		options.create_if_missing = true;
-		options.create_missing_column_families = true;
-		// Optimize RocksDB. This is the easiest way to get RocksDB to perform well
-		options.IncreaseParallelism (std::thread::hardware_concurrency ());
-		options.OptimizeLevelStyleCompaction ();
 		s = rocksdb::OptimisticTransactionDB::Open (options, path_a.string (), column_families, &handles, &optimistic_db);
 		if (optimistic_db)
 		{
-			db = optimistic_db->GetBaseDB ();
+			db = optimistic_db;
 		}
 	}
 
@@ -135,6 +129,9 @@ nano::write_transaction nano::rocksdb_store::tx_begin_write (std::vector<nano::t
 	{
 		txn = std::make_unique<nano::write_rocksdb_txn> (optimistic_db, tables_requiring_locks_a, tables_no_locks_a, write_lock_mutexes);
 	}
+
+	// Tables must be kept in alphabetical order. These can be used for mutex locking, so order is important to prevent deadlocking
+	assert (std::is_sorted (tables_requiring_locks_a.begin (), tables_requiring_locks_a.end ()));
 
 	return nano::write_transaction{ std::move (txn) };
 }
@@ -225,7 +222,7 @@ int nano::rocksdb_store::del (nano::write_transaction const & transaction_a, tab
 	assert (transaction_a.contains (table_a));
 	if (!exists (transaction_a, table_a, key_a))
 	{
-		return rocksdb::Status::kNotFound;
+		return status_code_not_found ();
 	}
 	else
 	{
@@ -250,8 +247,8 @@ void nano::rocksdb_store::version_put (nano::write_transaction const & transacti
 {
 	assert (transaction_a.contains (tables::meta));
 	nano::uint256_union version_key (1);
-	nano::rocksdb_val version_value{ nano::uint256_union (version_a) };
-	auto status (put (transaction_a, tables::meta, version_key, version_value));
+	nano::uint256_union version_value (version_a);
+	auto status (put (transaction_a, tables::meta, version_key, nano::rocksdb_val (version_value)));
 	release_assert (success (status));
 }
 
@@ -276,9 +273,12 @@ int nano::rocksdb_store::get (nano::transaction const & transaction_a, tables ta
 		status = tx (transaction_a)->Get (options, handle, key_a, &slice);
 	}
 
-	value_a.buffer = std::make_shared<std::vector<uint8_t>> (slice.size ());
-	std::memcpy (value_a.buffer->data (), slice.data (), slice.size ());
-	value_a.convert_buffer_to_value ();
+	if (status.ok ())
+	{
+		value_a.buffer = std::make_shared<std::vector<uint8_t>> (slice.size ());
+		std::memcpy (value_a.buffer->data (), slice.data (), slice.size ());
+		value_a.convert_buffer_to_value ();
+	}
 	return status.code ();
 }
 
@@ -338,7 +338,7 @@ int nano::rocksdb_store::put (nano::write_transaction const & transaction_a, tab
 	{
 		if (!exists (transaction_a, table_a, key_a))
 		{
-			// Adding a new entry so counts need adjusting (use RMW otherwise known as merge)
+			// Adding a new entry so counts need adjusting
 			increment (transaction_a, tables::cached_counts, rocksdb_val (rocksdb::Slice (table_to_column_family (table_a)->GetName ())), 1);
 		}
 	}
@@ -407,33 +407,32 @@ int nano::rocksdb_store::drop (nano::write_transaction const & transaction_a, ta
 	assert (transaction_a.contains (table_a));
 	auto col = table_to_column_family (table_a);
 
+	int status = static_cast<int> (rocksdb::Status::Code::kOk);
 	if (is_caching_counts (table_a))
 	{
 		// Reset counter to 0
-		return put (transaction_a, table_a, nano::rocksdb_val (rocksdb::Slice (col->GetName ())), nano::rocksdb_val (uint64_t{ 0 }));
+		status = put (transaction_a, tables::cached_counts, nano::rocksdb_val (rocksdb::Slice (col->GetName ())), nano::rocksdb_val (uint64_t{ 0 }));
 	}
 
-#if defined(_WIN32) && !defined(NDEBUG)
-	// Dropping and creating column families is very slow in Debug mode with MSVC, causing a lot of tests to time out.
-	// Mainly due to peer caching called every second, so when clearing peers just delete them manually.
-	static nano::network_constants network;
-	if (table_a == tables::peers && network.is_test_network ())
+	if (success (status))
 	{
-		int status = 0;
-		for (auto i = peers_begin (transaction_a), n = peers_end (); i != n; ++i)
+		// Dropping/Creating families like in node::ongoing_peer_clear can cause write stalls, just delete them manually.
+		if (table_a == tables::peers)
 		{
-			status = del (transaction_a, tables::peers, nano::rocksdb_val (i->first));
-			release_assert (success (status));
+			int status = 0;
+			for (auto i = peers_begin (transaction_a), n = peers_end (); i != n; ++i)
+			{
+				status = del (transaction_a, tables::peers, nano::rocksdb_val (i->first));
+				release_assert (success (status));
+			}
+			return status;
 		}
-		return status;
+		else
+		{
+			return clear (col);
+		}
 	}
-	else
-	{
-		return clear (col);
-	}
-#else
-	return clear (col);
-#endif
+	return status;
 }
 
 int nano::rocksdb_store::clear (rocksdb::ColumnFamilyHandle * column_family)
@@ -446,8 +445,8 @@ int nano::rocksdb_store::clear (rocksdb::ColumnFamilyHandle * column_family)
 	// So need to add it back as we just want to clear the contents
 	auto handle_it = std::find (handles.begin (), handles.end (), column_family);
 	assert (handle_it != handles.cend ());
-	auto s = db->CreateColumnFamily (get_column_family_options (), name, &column_family);
-	release_assert (s.ok ());
+	status = db->CreateColumnFamily (get_cf_options (), name, &column_family);
+	release_assert (status.ok ());
 	*handle_it = column_family;
 	return status.code ();
 }
@@ -460,17 +459,90 @@ void nano::rocksdb_store::construct_column_family_mutexes ()
 	}
 }
 
-rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_column_family_options () const
+rocksdb::Options nano::rocksdb_store::get_db_options () const
 {
-	auto column_family_options = rocksdb::ColumnFamilyOptions ();
-	column_family_options.max_write_buffer_number = 6;
-	column_family_options.max_write_buffer_number_to_maintain = 6;
-	return column_family_options;
+	rocksdb::Options options;
+	options.create_if_missing = true;
+	options.create_missing_column_families = true;
+
+	// Sets the compaction priority
+	options.compaction_pri = rocksdb::CompactionPri::kMinOverlappingRatio;
+
+	// Start agressively flushing WAL files when they reach over 1GB
+	options.max_total_wal_size = 1 * 1024 * 1024 * 1024LL;
+
+	if (!low_end_system ())
+	{
+		// Adds a separate write queue for memtable/WAL
+		options.enable_pipelined_write = true;
+
+		// Optimize RocksDB. This is the easiest way to get RocksDB to perform well
+		options.IncreaseParallelism (std::thread::hardware_concurrency ());
+		options.OptimizeLevelStyleCompaction ();
+	}
+	return options;
+}
+
+/** As options are currently hardcoded, a heuristic is taken based off the number of cores to modify config options */
+bool nano::rocksdb_store::low_end_system () const
+{
+	return (std::thread::hardware_concurrency () < 2);
+}
+
+rocksdb::BlockBasedTableOptions nano::rocksdb_store::get_table_options () const
+{
+	rocksdb::BlockBasedTableOptions table_options;
+	if (!low_end_system ())
+	{
+		// 512MB block cache
+		table_options.block_cache = rocksdb::NewLRUCache (512 * 1024 * 1024LL);
+
+		// Bloom filter to help with point reads
+		table_options.filter_policy.reset (rocksdb::NewBloomFilterPolicy (10, false));
+		table_options.block_size = 16 * 1024;
+		table_options.cache_index_and_filter_blocks = true;
+		table_options.pin_l0_filter_and_index_blocks_in_cache = true;
+	}
+	return table_options;
+}
+
+rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_cf_options () const
+{
+	rocksdb::ColumnFamilyOptions cf_options;
+	cf_options.table_factory = table_factory;
+
+	if (!low_end_system ())
+	{
+		cf_options.level_compaction_dynamic_level_bytes = true;
+
+		// Number of files in level which triggers compaction. Size of L0 and L1 should be kept similar as this is the only compaction which is single threaded
+		cf_options.level0_file_num_compaction_trigger = 4;
+
+		// L1 size, compaction is triggered for L0 at this size (512MB)
+		cf_options.max_bytes_for_level_base = 512 * 1024 * 1024LL;
+
+		// Each level is a multiple of the above. L1 will be 512MB. Le will be 512 * 8 = 2GB. L3 will be 2GB * 8 = 16GB, and so on...
+		cf_options.max_bytes_for_level_multiplier = 8;
+
+		// Size of level 1 sst files (128MB)
+		cf_options.target_file_size_base = 128 * 1024 * 1024LL;
+
+		// Size of each memtable (128MB)
+		cf_options.write_buffer_size = 128 * 1024 * 1024LL;
+
+		// Number of memtables to keep in memory (1 active, rest inactive/immutable)
+		cf_options.max_write_buffer_number = 3;
+
+		// Files older than this (1 day) will be scheduled for compaction when there is no other background work. This can lead to more writes however.
+		cf_options.ttl = 1 * 24 * 60 * 60;
+	}
+
+	return cf_options;
 }
 
 std::vector<nano::tables> nano::rocksdb_store::all_tables () const
 {
-	return std::vector<nano::tables>{ tables::frontiers, tables::accounts_v0, tables::accounts_v1, tables::send_blocks, tables::receive_blocks, tables::open_blocks, tables::change_blocks, tables::state_blocks_v0, tables::state_blocks_v1, tables::pending_v0, tables::pending_v1, tables::representation, tables::unchecked, tables::vote, tables::online_weight, tables::meta, tables::peers, tables::cached_counts, tables::confirmation_height };
+	return std::vector<nano::tables>{ tables::accounts_v0, tables::accounts_v1, tables::cached_counts, tables::change_blocks, tables::confirmation_height, tables::frontiers, tables::meta, tables::online_weight, tables::open_blocks, tables::peers, tables::pending_v0, tables::pending_v1, tables::receive_blocks, tables::representation, tables::send_blocks, tables::state_blocks_v0, tables::state_blocks_v1, tables::unchecked, tables::vote };
 }
 
 bool nano::rocksdb_store::copy_db (boost::filesystem::path const & destination_path)
@@ -479,7 +551,8 @@ bool nano::rocksdb_store::copy_db (boost::filesystem::path const & destination_p
 	{
 		rocksdb::BackupEngine * backup_engine_raw;
 		rocksdb::BackupableDBOptions backup_options (destination_path.string ());
-		backup_options.share_table_files = true; // Use incremental backups (default)
+		// Use incremental backups (default)
+		backup_options.share_table_files = true;
 		auto status = rocksdb::BackupEngine::Open (rocksdb::Env::Default (), backup_options, &backup_engine_raw);
 		backup_engine.reset (backup_engine_raw);
 		if (!status.ok ())

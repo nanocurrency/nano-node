@@ -1,6 +1,6 @@
 if (NANO_ROCKSDB)
 	set (rocksdb_libs ${ROCKSDB_LIBRARIES} ${ZLIB_LIBRARIES})
-	set (rocksdb_sources rocksdb/rocksdb.hpp rocksdb/rocksdb.cpp rocksdb/rocksdb_iterator.hpp rocksdb/rocksdb_iterator.cpp rocksdb/rocksdb_txn.hpp rocksdb/rocksdb_txn.cpp)
+	set (rocksdb_sources rocksdb/rocksdb.hpp rocksdb/rocksdb.cpp rocksdb/rocksdb_iterator.hpp rocksdb/rocksdb_txn.hpp rocksdb/rocksdb_txn.cpp)
 endif ()
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")

@@ -249,7 +249,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 	}
 	lock_a.unlock ();
 	auto scoped_write_guard = write_database_queue.wait (nano::writer::process_batch);
-	auto transaction (node.store.tx_begin_write ({ nano::tables::accounts_v0, nano::tables::accounts_v1, nano::tables::change_blocks, nano::tables::open_blocks, nano::tables::receive_blocks, nano::tables::send_blocks, nano::tables::state_blocks_v0, nano::tables::state_blocks_v1, nano::tables::representation, nano::tables::pending_v0, nano::tables::pending_v1, nano::tables::frontiers, nano::tables::unchecked, nano::tables::cached_counts }, { nano::tables::confirmation_height }));
+	auto transaction (node.store.tx_begin_write ({ nano::tables::accounts_v0, nano::tables::accounts_v1, nano::tables::cached_counts, nano::tables::change_blocks, nano::tables::frontiers, nano::tables::open_blocks, nano::tables::pending_v0, nano::tables::pending_v1, nano::tables::receive_blocks, nano::tables::representation, nano::tables::send_blocks, nano::tables::state_blocks_v0, nano::tables::state_blocks_v1, nano::tables::unchecked }, { nano::tables::confirmation_height }));
 	timer_l.restart ();
 	lock_a.lock ();
 	// Processing blocks
@@ -335,8 +335,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 			}
 		}
 		number_of_blocks_processed++;
-		auto process_result (process_one (transaction, info));
-		(void)process_result;
+		process_one (transaction, info);
 		lock_a.lock ();
 		/* Verify more state blocks if blocks deque is empty
 		 Because verification is long process, avoid large deque verification inside of write transaction */

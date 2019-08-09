@@ -73,21 +73,23 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 				lk.unlock ();
 				nano::account_info info;
 				auto error = node.store.account_get (transaction_a, cementable_account.account, info);
-				release_assert (!error);
-				uint64_t confirmation_height;
-				error = node.store.confirmation_height_get (transaction_a, cementable_account.account, confirmation_height);
-				release_assert (!error);
-
-				if (info.block_count > confirmation_height && !this->node.pending_confirmation_height.is_processing_block (info.head))
+				if (!error)
 				{
-					auto block (this->node.store.block_get (transaction_a, info.head));
-					if (!this->start (block))
+					uint64_t confirmation_height;
+					error = node.store.confirmation_height_get (transaction_a, cementable_account.account, confirmation_height);
+					release_assert (!error);
+
+					if (info.block_count > confirmation_height && !this->node.pending_confirmation_height.is_processing_block (info.head))
 					{
-						++elections_count;
-						// Calculate votes for local representatives
-						if (representative)
+						auto block (this->node.store.block_get (transaction_a, info.head));
+						if (!this->start (block))
 						{
-							this->node.block_processor.generator.add (block->hash ());
+							++elections_count;
+							// Calculate votes for local representatives
+							if (representative)
+							{
+								this->node.block_processor.generator.add (block->hash ());
+							}
 						}
 					}
 				}

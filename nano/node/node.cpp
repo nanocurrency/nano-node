@@ -607,8 +607,7 @@ void nano::node::process_active (std::shared_ptr<nano::block> incoming)
 
 nano::process_return nano::node::process (nano::block const & block_a)
 {
-	std::vector<tables> tables_l = { tables::change_blocks, tables::open_blocks, tables::receive_blocks, tables::send_blocks, tables::state_blocks_v0, tables::state_blocks_v1, tables::frontiers, tables::accounts_v0, tables::accounts_v1, tables::pending_v0, tables::pending_v1, tables::representation, tables::cached_counts };
-	auto transaction (store.tx_begin_write (tables_l, { tables::confirmation_height }));
+	auto transaction (store.tx_begin_write ({ tables::accounts_v0, tables::accounts_v1, tables::cached_counts, tables::change_blocks, tables::frontiers, tables::open_blocks, tables::pending_v0, tables::pending_v1, tables::receive_blocks, tables::representation, tables::send_blocks, tables::state_blocks_v0, tables::state_blocks_v1 }, { tables::confirmation_height }));
 	auto result (ledger.process (transaction, block_a));
 	return result;
 }
@@ -1595,7 +1594,7 @@ nano::inactive_node::~inactive_node ()
 std::unique_ptr<nano::block_store> nano::make_store (bool & init, nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, bool drop_unchecked, size_t batch_size)
 {
 #if NANO_ROCKSDB
-	return std::make_unique<nano::rocksdb_store> (init, logger, add_db_postfix ? path / "rocksdb" : path, false, read_only);
+	return std::make_unique<nano::rocksdb_store> (init, logger, add_db_postfix ? path / "rocksdb" : path, drop_unchecked, read_only);
 #else
 	return std::make_unique<nano::mdb_store> (init, logger, add_db_postfix ? path / "data.ldb" : path, txn_tracking_config_a, block_processor_batch_max_time_a, lmdb_max_dbs, drop_unchecked, batch_size);
 #endif

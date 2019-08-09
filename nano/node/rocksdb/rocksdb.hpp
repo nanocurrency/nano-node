@@ -1,18 +1,19 @@
 #pragma once
 
-#include <rocksdb/db.h>
-#include <rocksdb/filter_policy.h>
-#include <rocksdb/options.h>
-#include <rocksdb/slice.h>
-#include <rocksdb/utilities/optimistic_transaction_db.h>
-#include <rocksdb/utilities/transaction.h>
-
 #include <nano/lib/config.hpp>
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/node/rocksdb/rocksdb_iterator.hpp>
 #include <nano/secure/blockstore_partial.hpp>
 #include <nano/secure/common.hpp>
+
+#include <rocksdb/db.h>
+#include <rocksdb/filter_policy.h>
+#include <rocksdb/options.h>
+#include <rocksdb/slice.h>
+#include <rocksdb/table.h>
+#include <rocksdb/utilities/optimistic_transaction_db.h>
+#include <rocksdb/utilities/transaction.h>
 
 namespace nano
 {
@@ -71,9 +72,10 @@ public:
 private:
 	nano::logger_mt & logger;
 	std::vector<rocksdb::ColumnFamilyHandle *> handles;
-	// Optimistic transactions are using in write mode
+	// Optimistic transactions are used in write mode
 	rocksdb::OptimisticTransactionDB * optimistic_db = nullptr;
 	rocksdb::DB * db = nullptr;
+	std::shared_ptr<rocksdb::TableFactory> table_factory;
 	std::unordered_map<nano::tables, std::mutex> write_lock_mutexes;
 
 	rocksdb::Transaction * tx (nano::transaction const & transaction_a) const;
@@ -93,7 +95,10 @@ private:
 
 	int increment (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a, uint64_t amount_a);
 	int decrement (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a, uint64_t amount_a);
-	rocksdb::ColumnFamilyOptions get_column_family_options () const;
+	bool low_end_system () const;
+	rocksdb::ColumnFamilyOptions get_cf_options () const;
 	void construct_column_family_mutexes ();
+	rocksdb::Options get_db_options () const;
+	rocksdb::BlockBasedTableOptions get_table_options () const;
 };
 }

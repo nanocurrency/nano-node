@@ -21,6 +21,8 @@ else
     SANITIZERS=""
 fi
 
+ulimit -S -n 8192
+
 cmake \
     -G'Unix Makefiles' \
     -DACTIVE_NETWORK=nano_test_network \

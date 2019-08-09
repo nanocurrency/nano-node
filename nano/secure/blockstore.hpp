@@ -477,28 +477,29 @@ private:
 	std::unique_ptr<nano::store_iterator_impl<T, U>> impl;
 };
 
+// Keep this in alphabetical order
 enum class tables
 {
-	frontiers,
 	accounts_v0,
 	accounts_v1,
-	send_blocks,
-	receive_blocks,
-	open_blocks,
+	blocks_info, // LMDB only
+	cached_counts, // RocksDB only
 	change_blocks,
-	state_blocks_v0,
-	state_blocks_v1,
+	confirmation_height,
+	frontiers,
+	meta,
+	online_weight,
+	open_blocks,
+	peers,
 	pending_v0,
 	pending_v1,
-	blocks_info, // LMDB only
+	receive_blocks,
 	representation,
+	send_blocks,
+	state_blocks_v0,
+	state_blocks_v1,
 	unchecked,
-	vote,
-	online_weight,
-	meta,
-	peers,
-	confirmation_height,
-	cached_counts // RocksDB only
+	vote
 };
 
 class transaction_impl

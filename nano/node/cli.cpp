@@ -202,16 +202,18 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		try
 		{
+			std::cout << "Vacuuming database copy in ";
 #if NANO_ROCKSDB
 			auto source_path = data_path / "rocksdb";
 			auto backup_path = source_path / "backup";
 			auto vacuum_path = backup_path / "vacuumed";
+			std::cout << source_path << "\n";
 #else
 			auto source_path = data_path / "data.ldb";
 			auto backup_path = data_path / "backup.vacuum.ldb";
 			auto vacuum_path = data_path / "vacuumed.ldb";
+			std::cout << data_path << "\n";
 #endif
-			std::cout << "Vacuuming database copy in " << data_path << std::endl;
 			std::cout << "This may take a while..." << std::endl;
 
 			bool success = copy_database (data_path, vm, vacuum_path, ec);
@@ -219,7 +221,6 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			{
 				// Note that these throw on failure
 				std::cout << "Finalizing" << std::endl;
-
 #ifdef NANO_ROCKSDB
 				nano::remove_all_files_in_dir (backup_path);
 				nano::move_all_files_to_dir (source_path, backup_path);
@@ -257,7 +258,6 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			auto source_path = data_path / "data.ldb";
 			auto snapshot_path = data_path / "snapshot.ldb";
 #endif
-
 			std::cout << "Database snapshot of " << source_path << " to " << snapshot_path << " in progress" << std::endl;
 			std::cout << "This may take a while..." << std::endl;
 
