@@ -7,7 +7,7 @@ node (node_a)
 {
 }
 
-void nano::gap_cache::add (nano::transaction const & transaction_a, nano::block_hash const & hash_a, std::chrono::steady_clock::time_point time_point_a)
+void nano::gap_cache::add (nano::block_hash const & hash_a, std::chrono::steady_clock::time_point time_point_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto existing (blocks.get<1> ().find (hash_a));

@@ -2263,8 +2263,10 @@ TEST (node, confirm_quorum)
 
 TEST (node, local_votes_cache)
 {
-	nano::system system (24000, 1);
-	auto & node (*system.nodes[0]);
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.delay_frontier_confirmation_height_updating = true;
+	auto & node (*system.add_node (nano::node_config (24000, system.logging), node_flags));
 	nano::genesis genesis;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node.work_generate_blocking (genesis.hash ())));
@@ -2312,8 +2314,10 @@ TEST (node, local_votes_cache)
 
 TEST (node, local_votes_cache_generate_new_vote)
 {
-	nano::system system (24000, 1);
-	auto & node (*system.nodes[0]);
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.delay_frontier_confirmation_height_updating = true;
+	auto & node (*system.add_node (nano::node_config (24000, system.logging), node_flags));
 	nano::genesis genesis;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node.work_generate_blocking (genesis.hash ())));
