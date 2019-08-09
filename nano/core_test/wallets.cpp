@@ -87,13 +87,15 @@ TEST (wallets, upgrade)
 		nano::node_init init1;
 		auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, path, system.alarm, system.logging, system.work));
 		ASSERT_FALSE (init1.error ());
-		node1->wallets.create (id.pub);
+		bool error (false);
+		nano::wallets wallets (error, *node1);
+		wallets.create (id.pub);
 		auto transaction_source (node1->wallets.env.tx_begin_write ());
 		auto tx_source = static_cast<MDB_txn *> (transaction_source.get_handle ());
 		auto & mdb_store (dynamic_cast<nano::mdb_store &> (node1->store));
 		auto transaction_destination (mdb_store.tx_begin_write ());
 		auto tx_destination = static_cast<MDB_txn *> (transaction_destination.get_handle ());
-		node1->wallets.move_table (id.pub.to_string (), tx_source, tx_destination);
+		wallets.move_table (id.pub.to_string (), tx_source, tx_destination);
 		node1->store.version_put (transaction_destination, 11);
 
 		nano::account_info info;
