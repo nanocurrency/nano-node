@@ -1007,7 +1007,7 @@ public:
 					}
 					else
 					{
-						this_l->node->logger.try_log (boost::str (boost::format ("Error resolving work peer, blacklisting: %1%:%2%: %3%") % current.first % current.second % ec.message ()));
+						this_l->node->logger.always_log (boost::str (boost::format ("Error resolving work peer, blacklisting: %1%:%2%: %3%") % current.first % current.second % ec.message ()));
 						this_l->blacklist (current);
 					}
 					this_l->start ();
