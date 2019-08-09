@@ -45,7 +45,7 @@ const uint8_t protocol_version_min = 0x0d;
  * Also, on the beta network do not process messages from
  * nodes older than this version.
  */
-const uint8_t protocol_version_reasonable_min = 0x0d;
+const uint8_t protocol_version_reasonable_min = 0x11;
 
 /*
  * Do not start TCP realtime network connections to nodes older than this version
