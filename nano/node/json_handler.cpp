@@ -4593,6 +4593,18 @@ void nano::json_handler::work_peers ()
 void nano::json_handler::work_peers_clear ()
 {
 	node.config.work_peers.clear ();
+	node.blacklisted_work_peers.clear ();
+	response_l.put ("success", "");
+	response_errors ();
+}
+
+void nano::json_handler::work_peers_reset ()
+{
+	for (auto & peer : node.blacklisted_work_peers)
+	{
+		node.config.work_peers.push_back (peer);
+	}
+	node.blacklisted_work_peers.clear ();
 	response_l.put ("success", "");
 	response_errors ();
 }
@@ -4739,6 +4751,7 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("work_peer_add", &nano::json_handler::work_peer_add);
 	no_arg_funcs.emplace ("work_peers", &nano::json_handler::work_peers);
 	no_arg_funcs.emplace ("work_peers_clear", &nano::json_handler::work_peers_clear);
+	no_arg_funcs.emplace ("work_peers_reset", &nano::json_handler::work_peers_reset);
 	return no_arg_funcs;
 }
 

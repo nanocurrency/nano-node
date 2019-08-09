@@ -2703,6 +2703,39 @@ TEST (rpc, work_peer_bad)
 		ASSERT_EQ (address_invalid + ":" + std::to_string (port), blacklisted[0]);
 		ASSERT_EQ (address + ":" + std::to_string (port), blacklisted[1]);
 	}
+
+	request.put ("action", "work_peers_reset");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+	}
+
+	request.put ("action", "work_peers");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		auto & blacklisted_node (response.json.get_child ("blacklisted"));
+		ASSERT_TRUE (blacklisted_node.empty ());
+		auto & peers_node (response.json.get_child ("work_peers"));
+		std::vector<std::string> peers;
+		for (auto i (peers_node.begin ()), n (peers_node.end ()); i != n; ++i)
+		{
+			peers.push_back (i->second.get<std::string> (""));
+		}
+		ASSERT_EQ (2, peers.size ());
+		ASSERT_EQ (address_invalid + ":" + std::to_string (port), peers[0]);
+		ASSERT_EQ (address + ":" + std::to_string (port), peers[1]);
+	}
 }
 
 TEST (rpc, work_peer_one)

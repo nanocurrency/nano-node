@@ -130,6 +130,7 @@ public:
 	void work_peer_add ();
 	void work_peers ();
 	void work_peers_clear ();
+	void work_peers_reset ();
 	void work_set ();
 	void work_validate ();
 	std::string body;
