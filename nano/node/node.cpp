@@ -1007,7 +1007,8 @@ public:
 					}
 					else
 					{
-						this_l->node->logger.try_log (boost::str (boost::format ("Error resolving work peer: %1%:%2%: %3%") % current.first % current.second % ec.message ()));
+						this_l->node->logger.try_log (boost::str (boost::format ("Error resolving work peer, blacklisting: %1%:%2%: %3%") % current.first % current.second % ec.message ()));
+						this_l->blacklist (current);
 					}
 					this_l->start ();
 				});
@@ -1079,7 +1080,8 @@ public:
 						else
 						{
 							this_l->node->logger.always_log (boost::str (boost::format ("Unable to connect to work_peer, blacklisting %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
-							this_l->failure (connection->address, true);
+							this_l->failure (connection->address);
+							this_l->blacklist (connection->address);
 						}
 					});
 				});
@@ -1163,19 +1165,10 @@ public:
 			callback (work_a);
 		}
 	}
-	void failure (boost::asio::ip::address const & address, bool blacklist = false)
+	void failure (boost::asio::ip::address const & address)
 	{
 		auto last (remove (address));
 		handle_failure (last);
-		if (blacklist)
-		{
-			auto peer (lookup.find (address));
-			if (peer != lookup.end ())
-			{
-				node->blacklisted_work_peers.push_back (peer->second);
-				node->config.work_peers.erase (std::remove (node->config.work_peers.begin (), node->config.work_peers.end (), peer->second), node->config.work_peers.end ());
-			}
-		}
 	}
 	void handle_failure (bool last)
 	{
@@ -1222,6 +1215,19 @@ public:
 		std::lock_guard<std::mutex> lock (mutex);
 		outstanding.erase (address);
 		return outstanding.empty ();
+	}
+	void blacklist (std::pair<std::string, uint16_t> const & peer)
+	{
+		node->blacklisted_work_peers.push_back (peer);
+		node->config.work_peers.erase (std::remove (node->config.work_peers.begin (), node->config.work_peers.end (), peer), node->config.work_peers.end ());
+	}
+	void blacklist (boost::asio::ip::address const & address)
+	{
+		auto peer (lookup.find (address));
+		if (peer != lookup.end ())
+		{
+			blacklist (peer->second);
+		}
 	}
 	std::function<void(uint64_t)> callback;
 	unsigned int backoff; // in seconds
