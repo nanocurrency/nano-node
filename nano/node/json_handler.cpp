@@ -4579,6 +4579,14 @@ void nano::json_handler::work_peers ()
 		work_peers_l.push_back (std::make_pair ("", entry));
 	}
 	response_l.add_child ("work_peers", work_peers_l);
+	boost::property_tree::ptree blacklisted_work_peers_l;
+	for (auto i (node.blacklisted_work_peers.begin ()), n (node.blacklisted_work_peers.end ()); i != n; ++i)
+	{
+		boost::property_tree::ptree entry;
+		entry.put ("", boost::str (boost::format ("%1%:%2%") % i->first % i->second));
+		blacklisted_work_peers_l.push_back (std::make_pair ("", entry));
+	}
+	response_l.add_child ("blacklisted", blacklisted_work_peers_l);
 	response_errors ();
 }
 
