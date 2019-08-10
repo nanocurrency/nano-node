@@ -441,8 +441,9 @@ int nano::rocksdb_store::clear (rocksdb::ColumnFamilyHandle * column_family)
 	auto name = column_family->GetName ();
 	auto status = db->DropColumnFamily (column_family);
 	release_assert (status.ok ());
+	delete column_family;
 
-	// So need to add it back as we just want to clear the contents
+	// Need to add it back as we just want to clear the contents
 	auto handle_it = std::find (handles.begin (), handles.end (), column_family);
 	assert (handle_it != handles.cend ());
 	status = db->CreateColumnFamily (get_cf_options (), name, &column_family);
