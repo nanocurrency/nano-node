@@ -13,9 +13,9 @@ if [ -n "$DOCKER_PASSWORD" ]; then
         "$scripts"/custom-timeout.sh 30 docker push "$ci_image_name"
     fi
 
-    if [[ "$TRAVIS_BUILD_STAGE_NAME" == "Deploy" ]]; then
+    if [[ "$TRAVIS_BUILD_STAGE_NAME" =~ "Artifacts" ]]; then
         tags=()
-        if [[ "${TRAVIS_TAG}" =~ 'RC' ]]; then
+        if [[ "${TRAVIS_TAG}" =~ ("RC"|"DB") ]]; then
             tags+=("$TRAVIS_TAG" latest-including-rc)
         elif [ -n "$TRAVIS_TAG" ]; then
             tags+=("$TRAVIS_TAG" latest latest-including-rc)
@@ -23,14 +23,16 @@ if [ -n "$DOCKER_PASSWORD" ]; then
             tags+=("$TRAVIS_BRANCH")
         fi
 
-        if [[ "$TRAVIS_JOB_NAME" == "live" ]]; then
+        if [[ "$TRAVIS_JOB_NAME" =~ "live" ]]; then
             network_tag_suffix=''
+            network="live"
         else
-            network_tag_suffix="-$TRAVIS_JOB_NAME"
+            network_tag_suffix="-beta"
+            network="beta"
         fi
 
         docker_image_name="nanocurrency/nano${network_tag_suffix}"
-        "$scripts"/custom-timeout.sh 30 docker build --build-arg NETWORK="$TRAVIS_JOB_NAME" -f docker/node/Dockerfile -t "$docker_image_name" .
+        "$scripts"/custom-timeout.sh 30 docker build --build-arg NETWORK="$network" --build-arg CI_BUILD=true --build-arg TRAVIS_TAG="$TRAVIS_TAG" -f docker/node/Dockerfile -t "$docker_image_name" .
         for tag in "${tags[@]}"; do
             # Sanitize docker tag
             # https://docs.docker.com/engine/reference/commandline/tag/

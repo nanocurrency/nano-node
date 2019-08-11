@@ -9,12 +9,20 @@ execute_process(
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
+option (CI_BUILD false)
+
 set (CPACK_PACKAGE_VERSION_MAJOR "20")
 set (CPACK_PACKAGE_VERSION_MINOR "0")
 set (CPACK_PACKAGE_VERSION_PATCH "0")
 set (CPACK_PACKAGE_VENDOR "Nano Currency")
 
-set(CMAKE_INSTALL_RPATH "@executable_path/../Frameworks")
+if (CI_BUILD)
+	set (TAG_VERSION_STRING "$ENV{TRAVIS_TAG}")
+else()
+	set (TAG_VERSION_STRING "V${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}")
+endif()
+
+set (CMAKE_INSTALL_RPATH "@executable_path/../Frameworks")
 # Create all libraries and executables in the root binary dir
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
@@ -360,9 +368,7 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 
 	target_compile_definitions(qt
 		PRIVATE
-		-DNANO_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
-		-DNANO_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR}
-		-DNANO_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH}
+		-DTAG_VERSION_STRING=${TAG_VERSION_STRING}
 		-DGIT_COMMIT_HASH=${GIT_COMMIT_HASH})
 
 	if (WIN32)
@@ -428,6 +434,7 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 	endif ()
 
 	if (APPLE)
+		set (CPACK_GENERATOR "DragNDrop")
 		CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/Info.plist.in ${CMAKE_SOURCE_DIR}/Info.plist @ONLY)
 		install (TARGETS nano_wallet DESTINATION Nano.app/Contents/MacOS)
 		install (TARGETS nano_node DESTINATION Nano.app/Contents/MacOS)
@@ -435,6 +442,7 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 		install (FILES Info.plist DESTINATION Nano.app/Contents)
 		install (FILES qt.conf DESTINATION Nano.app/Contents/Resources)
 		install (DIRECTORY ${Qt5_DIR}/../../QtCore.framework DESTINATION Nano.app/Contents/Frameworks)
+		install (DIRECTORY ${Qt5_DIR}/../../QtDBus.framework DESTINATION Nano.app/Contents/Frameworks)
 		install (DIRECTORY ${Qt5_DIR}/../../QtGui.framework DESTINATION Nano.app/Contents/Frameworks)
 		install (DIRECTORY ${Qt5_DIR}/../../QtPrintSupport.framework DESTINATION Nano.app/Contents/Frameworks)
 		install (DIRECTORY ${Qt5_DIR}/../../QtTest.framework DESTINATION Nano.app/Contents/Frameworks)
@@ -472,6 +480,7 @@ if (NANO_GUI OR RAIBLOCKS_GUI)
 		install (FILES ${Qt5_bin_DIR}/Qt5WinExtras.dll DESTINATION .)
 		install (FILES ${Qt5WindowsPlugin} DESTINATION platforms)
 	else ()
+		set(CPACK_GENERATOR "TBZ2")
 		install(TARGETS nano_wallet
 				RUNTIME DESTINATION .
 		)
