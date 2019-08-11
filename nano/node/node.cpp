@@ -608,7 +608,7 @@ nano::process_return nano::node::process (nano::block const & block_a)
 	return result;
 }
 
-nano::process_return nano::node::process_local (std::shared_ptr<nano::block> block_a)
+nano::process_return nano::node::process_local (std::shared_ptr<nano::block> block_a, bool const work_watcher_a)
 {
 	// Add block hash as recently arrived to trigger automatic rebroadcast and election
 	block_arrival.add (block_a->hash ());
@@ -618,7 +618,7 @@ nano::process_return nano::node::process_local (std::shared_ptr<nano::block> blo
 	block_processor.wait_write ();
 	// Process block
 	auto transaction (store.tx_begin_write ());
-	return block_processor.process_one (transaction, info);
+	return block_processor.process_one (transaction, info, work_watcher_a);
 }
 
 void nano::node::start ()
