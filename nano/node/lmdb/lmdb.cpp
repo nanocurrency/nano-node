@@ -479,7 +479,6 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::transaction const & transaction_
 	// Move confirmation height from account_info database to its own table
 	std::vector<std::pair<nano::account, nano::account_info>> account_infos;
 	account_infos.reserve (account_count (transaction_a));
-	std::vector<std::pair<nano::account, uint64_t>> confirmation_heights;
 
 	nano::store_iterator<nano::account, nano::account_info_v14> i (std::make_unique<nano::mdb_merge_iterator<nano::account, nano::account_info_v14>> (transaction_a, accounts_v0, accounts_v1));
 	nano::store_iterator<nano::account, nano::account_info_v14> n (nullptr);

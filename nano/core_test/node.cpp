@@ -925,11 +925,11 @@ TEST (node_config, random_rep)
 	ASSERT_NE (config1.preconfigured_representatives.end (), std::find (config1.preconfigured_representatives.begin (), config1.preconfigured_representatives.end (), rep));
 }
 
-class json_initial_value_test
+class json_initial_value_test final
 {
 public:
-	json_initial_value_test (std::string text_a) :
-	text (std::move (text_a))
+	explicit json_initial_value_test (std::string const & text_a) :
+	text (text_a)
 	{
 	}
 	nano::error serialize_json (nano::jsonconfig & json)
@@ -940,7 +940,7 @@ public:
 	std::string text;
 };
 
-class json_upgrade_test
+class json_upgrade_test final
 {
 public:
 	nano::error deserialize_json (bool & upgraded, nano::jsonconfig & json)

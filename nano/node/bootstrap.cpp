@@ -2345,7 +2345,7 @@ namespace
 class request_response_visitor : public nano::message_visitor
 {
 public:
-	request_response_visitor (std::shared_ptr<nano::bootstrap_server> connection_a) :
+	explicit request_response_visitor (std::shared_ptr<nano::bootstrap_server> const & connection_a) :
 	connection (connection_a)
 	{
 	}

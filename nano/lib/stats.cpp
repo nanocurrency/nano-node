@@ -62,7 +62,7 @@ public:
 		tree.clear ();
 	}
 
-	void write_header (std::string header, std::chrono::system_clock::time_point & walltime) override
+	void write_header (std::string const & header, std::chrono::system_clock::time_point & walltime) override
 	{
 		std::time_t now = std::chrono::system_clock::to_time_t (walltime);
 		tm tm = *localtime (&now);
@@ -70,7 +70,7 @@ public:
 		tree.put ("created", tm_to_string (tm));
 	}
 
-	void write_entry (tm & tm, std::string type, std::string detail, std::string dir, uint64_t value) override
+	void write_entry (tm & tm, std::string const & type, std::string const & detail, std::string const & dir, uint64_t value) override
 	{
 		boost::property_tree::ptree entry;
 		entry.put ("time", boost::format ("%02d:%02d:%02d") % tm.tm_hour % tm.tm_min % tm.tm_sec);
@@ -108,7 +108,7 @@ public:
 	std::ofstream log;
 	std::string filename;
 
-	file_writer (std::string filename) :
+	explicit file_writer (std::string const & filename) :
 	filename (filename)
 	{
 		log.open (filename.c_str (), std::ofstream::out);
@@ -122,14 +122,14 @@ public:
 		return log;
 	}
 
-	void write_header (std::string header, std::chrono::system_clock::time_point & walltime) override
+	void write_header (std::string const & header, std::chrono::system_clock::time_point & walltime) override
 	{
 		std::time_t now = std::chrono::system_clock::to_time_t (walltime);
 		tm tm = *localtime (&now);
 		log << header << "," << boost::format ("%04d.%02d.%02d %02d:%02d:%02d") % (1900 + tm.tm_year) % (tm.tm_mon + 1) % tm.tm_mday % tm.tm_hour % tm.tm_min % tm.tm_sec << std::endl;
 	}
 
-	void write_entry (tm & tm, std::string type, std::string detail, std::string dir, uint64_t value) override
+	void write_entry (tm & tm, std::string const & type, std::string const & detail, std::string const & dir, uint64_t value) override
 	{
 		log << boost::format ("%02d:%02d:%02d") % tm.tm_hour % tm.tm_min % tm.tm_sec << "," << type << "," << detail << "," << dir << "," << value << std::endl;
 	}

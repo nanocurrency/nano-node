@@ -99,7 +99,7 @@ private:
 class client_impl : public nano::ipc::ipc_client_impl
 {
 public:
-	client_impl (boost::asio::io_context & io_ctx_a) :
+	explicit client_impl (boost::asio::io_context & io_ctx_a) :
 	io_ctx (io_ctx_a)
 	{
 	}

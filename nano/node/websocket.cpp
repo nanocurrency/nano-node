@@ -305,7 +305,7 @@ void nano::websocket::session::read ()
 
 namespace
 {
-nano::websocket::topic to_topic (std::string topic_a)
+nano::websocket::topic to_topic (std::string const & topic_a)
 {
 	nano::websocket::topic topic = nano::websocket::topic::invalid;
 	if (topic_a == "confirmation")

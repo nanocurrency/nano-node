@@ -18,11 +18,9 @@ TEST (system, generate_mass_activity)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	uint32_t count (20);
 	system.generate_mass_activity (count, *system.nodes[0]);
-	size_t accounts (0);
 	auto transaction (system.nodes[0]->store.tx_begin_read ());
 	for (auto i (system.nodes[0]->store.latest_begin (transaction)), n (system.nodes[0]->store.latest_end ()); i != n; ++i)
 	{
-		++accounts;
 	}
 }
 
@@ -37,11 +35,9 @@ TEST (system, generate_mass_activity_long)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	uint32_t count (1000000000);
 	system.generate_mass_activity (count, *system.nodes[0]);
-	size_t accounts (0);
 	auto transaction (system.nodes[0]->store.tx_begin_read ());
 	for (auto i (system.nodes[0]->store.latest_begin (transaction)), n (system.nodes[0]->store.latest_end ()); i != n; ++i)
 	{
-		++accounts;
 	}
 	system.stop ();
 	runner.join ();
@@ -218,13 +214,11 @@ TEST (node, fork_storm)
 	}
 	auto again (true);
 
-	int empty (0);
-	int single (0);
 	int iteration (0);
 	while (again)
 	{
-		empty = 0;
-		single = 0;
+		auto empty = 0;
+		auto single = 0;
 		std::for_each (system.nodes.begin (), system.nodes.end (), [&](std::shared_ptr<nano::node> const & node_a) {
 			if (node_a->active.empty ())
 			{

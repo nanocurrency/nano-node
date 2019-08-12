@@ -182,7 +182,7 @@ namespace
 class traffic_generator : public std::enable_shared_from_this<traffic_generator>
 {
 public:
-	traffic_generator (uint32_t count_a, uint32_t wait_a, std::shared_ptr<nano::node> node_a, nano::system & system_a) :
+	traffic_generator (uint32_t count_a, uint32_t wait_a, std::shared_ptr<nano::node> const & node_a, nano::system & system_a) :
 	count (count_a),
 	wait (wait_a),
 	node (node_a),
@@ -314,12 +314,9 @@ nano::account nano::system::get_random_account (std::vector<nano::account> & acc
 nano::uint128_t nano::system::get_random_amount (nano::transaction const & transaction_a, nano::node & node_a, nano::account const & account_a)
 {
 	nano::uint128_t balance (node_a.ledger.account_balance (transaction_a, account_a));
-	std::string balance_text (balance.convert_to<std::string> ());
 	nano::uint128_union random_amount;
 	nano::random_pool::generate_block (random_amount.bytes.data (), sizeof (random_amount.bytes));
-	auto result (((nano::uint256_t{ random_amount.number () } * balance) / nano::uint256_t{ std::numeric_limits<nano::uint128_t>::max () }).convert_to<nano::uint128_t> ());
-	std::string text (result.convert_to<std::string> ());
-	return result;
+	return (((nano::uint256_t{ random_amount.number () } * balance) / nano::uint256_t{ std::numeric_limits<nano::uint128_t>::max () }).convert_to<nano::uint128_t> ());
 }
 
 void nano::system::generate_send_existing (nano::node & node_a, std::vector<nano::account> & accounts_a)
