@@ -27,10 +27,10 @@
 
 namespace
 {
-class matches_txn
+class matches_txn final
 {
 public:
-	matches_txn (const nano::transaction_impl * transaction_impl_a) :
+	explicit matches_txn (const nano::transaction_impl * transaction_impl_a) :
 	transaction_impl (transaction_impl_a)
 	{
 	}

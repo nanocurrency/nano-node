@@ -238,13 +238,16 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 	lock_a.lock ();
 	timer_l.start ();
 	// Limit state blocks verification time
-	size_t max_verification_batch (node.flags.block_processor_verification_size != 0 ? node.flags.block_processor_verification_size : 2048 * (node.config.signature_checker_threads + 1));
-	if (!state_blocks.empty ())
+
 	{
-		auto transaction (node.store.tx_begin_read ());
-		while (!state_blocks.empty () && timer_l.before_deadline (std::chrono::seconds (2)))
+		if (!state_blocks.empty ())
 		{
-			verify_state_blocks (transaction, lock_a, max_verification_batch);
+			size_t max_verification_batch (node.flags.block_processor_verification_size != 0 ? node.flags.block_processor_verification_size : 2048 * (node.config.signature_checker_threads + 1));
+			auto transaction (node.store.tx_begin_read ());
+			while (!state_blocks.empty () && timer_l.before_deadline (std::chrono::seconds (2)))
+			{
+				verify_state_blocks (transaction, lock_a, max_verification_batch);
+			}
 		}
 	}
 	lock_a.unlock ();

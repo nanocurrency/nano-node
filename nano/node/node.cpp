@@ -938,12 +938,12 @@ public:
 class distributed_work : public std::enable_shared_from_this<distributed_work>
 {
 public:
-	distributed_work (std::shared_ptr<nano::node> const & node_a, nano::block_hash const & root_a, std::function<void(uint64_t)> callback_a, uint64_t difficulty_a) :
+	distributed_work (std::shared_ptr<nano::node> const & node_a, nano::block_hash const & root_a, std::function<void(uint64_t)> const & callback_a, uint64_t difficulty_a) :
 	distributed_work (1, node_a, root_a, callback_a, difficulty_a)
 	{
 		assert (node_a != nullptr);
 	}
-	distributed_work (unsigned int backoff_a, std::shared_ptr<nano::node> const & node_a, nano::block_hash const & root_a, std::function<void(uint64_t)> callback_a, uint64_t difficulty_a) :
+	distributed_work (unsigned int backoff_a, std::shared_ptr<nano::node> const & node_a, nano::block_hash const & root_a, std::function<void(uint64_t)> const & callback_a, uint64_t difficulty_a) :
 	callback (callback_a),
 	backoff (backoff_a),
 	node (node_a),
@@ -1311,7 +1311,7 @@ namespace
 class confirmed_visitor : public nano::block_visitor
 {
 public:
-	confirmed_visitor (nano::transaction const & transaction_a, nano::node & node_a, std::shared_ptr<nano::block> block_a, nano::block_hash const & hash_a) :
+	confirmed_visitor (nano::transaction const & transaction_a, nano::node & node_a, std::shared_ptr<nano::block> const & block_a, nano::block_hash const & hash_a) :
 	transaction (transaction_a),
 	node (node_a),
 	block (block_a),
