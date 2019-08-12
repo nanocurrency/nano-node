@@ -4561,7 +4561,7 @@ void nano::json_handler::work_peer_add ()
 	{
 		auto peer (std::make_pair (address_text, port));
 		node.config.work_peers.insert (peer);
-		node.blacklisted_work_peers.erase (peer);
+		node.excluded_work_peers.erase (peer);
 		response_l.put ("success", "");
 	}
 	else
@@ -4581,29 +4581,29 @@ void nano::json_handler::work_peers ()
 		work_peers_l.push_back (std::make_pair ("", entry));
 	}
 	response_l.add_child ("work_peers", work_peers_l);
-	boost::property_tree::ptree blacklisted_work_peers_l;
-	for (auto i (node.blacklisted_work_peers.begin ()), n (node.blacklisted_work_peers.end ()); i != n; ++i)
+	boost::property_tree::ptree excluded_work_peers_l;
+	for (auto i (node.excluded_work_peers.begin ()), n (node.excluded_work_peers.end ()); i != n; ++i)
 	{
 		boost::property_tree::ptree entry;
 		entry.put ("", boost::str (boost::format ("%1%:%2%") % i->first % i->second));
-		blacklisted_work_peers_l.push_back (std::make_pair ("", entry));
+		excluded_work_peers_l.push_back (std::make_pair ("", entry));
 	}
-	response_l.add_child ("blacklisted", blacklisted_work_peers_l);
+	response_l.add_child ("excluded", excluded_work_peers_l);
 	response_errors ();
 }
 
 void nano::json_handler::work_peers_clear ()
 {
 	node.config.work_peers.clear ();
-	node.blacklisted_work_peers.clear ();
+	node.excluded_work_peers.clear ();
 	response_l.put ("success", "");
 	response_errors ();
 }
 
 void nano::json_handler::work_peers_reset ()
 {
-	node.config.work_peers.insert (node.blacklisted_work_peers.begin (), node.blacklisted_work_peers.end ());
-	node.blacklisted_work_peers.clear ();
+	node.config.work_peers.insert (node.excluded_work_peers.begin (), node.excluded_work_peers.end ());
+	node.excluded_work_peers.clear ();
 	response_l.put ("success", "");
 	response_errors ();
 }

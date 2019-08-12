@@ -2661,12 +2661,12 @@ TEST (rpc, work_peer_bad)
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
 	rpc.start ();
 
-	// Invalid address, will get blacklisted when resolving
+	// Invalid address, will get excluded when resolving
 	std::string address_invalid ("invalid");
 	auto port (0);
 	node1.config.work_peers.insert (std::make_pair (address_invalid, port));
 
-	// Valid address but will get blacklisted when failure in trying to reach it
+	// Valid address but will get excluded when failure in trying to reach it
 	auto address (boost::asio::ip::address_v6::any ().to_string ());
 	node1.config.work_peers.insert (std::make_pair (address, port));
 
@@ -2692,15 +2692,15 @@ TEST (rpc, work_peer_bad)
 		ASSERT_EQ (200, response.status);
 		auto & peers_node (response.json.get_child ("work_peers"));
 		ASSERT_TRUE (peers_node.empty ());
-		auto & blacklisted_node (response.json.get_child ("blacklisted"));
-		std::vector<std::string> blacklisted;
-		for (auto i (blacklisted_node.begin ()), n (blacklisted_node.end ()); i != n; ++i)
+		auto & excluded_node (response.json.get_child ("excluded"));
+		std::vector<std::string> excluded;
+		for (auto i (excluded_node.begin ()), n (excluded_node.end ()); i != n; ++i)
 		{
-			blacklisted.push_back (i->second.get<std::string> (""));
+			excluded.push_back (i->second.get<std::string> (""));
 		}
-		ASSERT_EQ (2, blacklisted.size ());
-		ASSERT_NE (blacklisted.end (), std::find (blacklisted.begin (), blacklisted.end (), address_invalid + ":" + std::to_string (port)));
-		ASSERT_NE (blacklisted.end (), std::find (blacklisted.begin (), blacklisted.end (), address + ":" + std::to_string (port)));
+		ASSERT_EQ (2, excluded.size ());
+		ASSERT_NE (excluded.end (), std::find (excluded.begin (), excluded.end (), address_invalid + ":" + std::to_string (port)));
+		ASSERT_NE (excluded.end (), std::find (excluded.begin (), excluded.end (), address + ":" + std::to_string (port)));
 	}
 
 	request.put ("action", "work_peers_reset");
@@ -2723,8 +2723,8 @@ TEST (rpc, work_peer_bad)
 			ASSERT_NO_ERROR (system.poll ());
 		}
 		ASSERT_EQ (200, response.status);
-		auto & blacklisted_node (response.json.get_child ("blacklisted"));
-		ASSERT_TRUE (blacklisted_node.empty ());
+		auto & excluded_node (response.json.get_child ("excluded"));
+		ASSERT_TRUE (excluded_node.empty ());
 		auto & peers_node (response.json.get_child ("work_peers"));
 		std::vector<std::string> peers;
 		for (auto i (peers_node.begin ()), n (peers_node.end ()); i != n; ++i)

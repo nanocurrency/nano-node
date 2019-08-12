@@ -1007,8 +1007,8 @@ public:
 					}
 					else
 					{
-						this_l->node->logger.always_log (boost::str (boost::format ("Error resolving work peer, blacklisting: %1%:%2%: %3%") % current.first % current.second % ec.message ()));
-						this_l->blacklist (current);
+						this_l->node->logger.always_log (boost::str (boost::format ("Error resolving work peer, excluding: %1%:%2%: %3%") % current.first % current.second % ec.message ()));
+						this_l->exclude (current);
 					}
 					this_l->start ();
 				});
@@ -1079,9 +1079,9 @@ public:
 						}
 						else
 						{
-							this_l->node->logger.always_log (boost::str (boost::format ("Unable to connect to work_peer, blacklisting %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
+							this_l->node->logger.always_log (boost::str (boost::format ("Unable to connect to work_peer, excluding %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
 							this_l->failure (connection->address);
-							this_l->blacklist (connection->address);
+							this_l->exclude (connection->address);
 						}
 					});
 				});
@@ -1216,17 +1216,17 @@ public:
 		outstanding.erase (address);
 		return outstanding.empty ();
 	}
-	void blacklist (std::pair<std::string, uint16_t> const & peer)
+	void exclude (std::pair<std::string, uint16_t> const & peer)
 	{
-		node->blacklisted_work_peers.insert (peer);
+		node->excluded_work_peers.insert (peer);
 		node->config.work_peers.erase (peer);
 	}
-	void blacklist (boost::asio::ip::address const & address)
+	void exclude (boost::asio::ip::address const & address)
 	{
 		auto peer (lookup.find (address));
 		if (peer != lookup.end ())
 		{
-			blacklist (peer->second);
+			exclude (peer->second);
 		}
 	}
 	std::function<void(uint64_t)> callback;
