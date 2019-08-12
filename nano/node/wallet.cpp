@@ -981,11 +981,15 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block const & s
 			wallets.node.work_generate_blocking (*block, wallets.node.active.active_difficulty ());
 		}
 		wallets.watcher.add (block);
-		wallets.node.process_active (block);
-		wallets.node.block_processor.flush ();
-		if (generate_work_a)
+		bool error (wallets.node.process_local (block).code != nano::process_result::progress);
+		if (!error && generate_work_a)
 		{
 			work_ensure (account, block->hash ());
+		}
+		// Return null block after ledger process error
+		if (error)
+		{
+			block = nullptr;
 		}
 	}
 	return block;
@@ -1026,11 +1030,15 @@ std::shared_ptr<nano::block> nano::wallet::change_action (nano::account const & 
 			wallets.node.work_generate_blocking (*block, wallets.node.active.active_difficulty ());
 		}
 		wallets.watcher.add (block);
-		wallets.node.process_active (block);
-		wallets.node.block_processor.flush ();
-		if (generate_work_a)
+		bool error (wallets.node.process_local (block).code != nano::process_result::progress);
+		if (!error && generate_work_a)
 		{
 			work_ensure (source_a, block->hash ());
+		}
+		// Return null block after ledger process error
+		if (error)
+		{
+			block = nullptr;
 		}
 	}
 	return block;
@@ -1061,7 +1069,7 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 				if (block != nullptr)
 				{
 					cached_block = true;
-					wallets.node.network.flood_block (block);
+					wallets.node.network.flood_block (block, false);
 				}
 			}
 			else if (status != MDB_NOTFOUND)
@@ -1136,11 +1144,15 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 			wallets.node.work_generate_blocking (*block, wallets.node.active.active_difficulty ());
 		}
 		wallets.watcher.add (block);
-		wallets.node.process_active (block);
-		wallets.node.block_processor.flush ();
-		if (generate_work_a)
+		error = (wallets.node.process_local (block).code != nano::process_result::progress);
+		if (!error && generate_work_a)
 		{
 			work_ensure (source_a, block->hash ());
+		}
+		// Return null block after ledger process error
+		if (error)
+		{
+			block = nullptr;
 		}
 	}
 	return block;
@@ -1488,7 +1500,7 @@ void nano::work_watcher::run ()
 							current->second = block;
 						}
 					}
-					node.network.flood_block (block);
+					node.network.flood_block (block, false);
 					node.active.update_difficulty (*block.get ());
 					lock.lock ();
 					if (stopped)

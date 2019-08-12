@@ -878,19 +878,23 @@ TEST (node_config, v18_values)
 
 	// Check config is correct
 	{
+		tree.put ("vote_generator_delay", 100);
 		tree.put ("backup_before_upgrade", true);
 	}
 
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
+	ASSERT_EQ (config.vote_generator_delay.count (), 100);
 	ASSERT_EQ (config.backup_before_upgrade, true);
 
 	// Check config is correct with other values
+	tree.put ("vote_generator_delay", std::numeric_limits<unsigned long>::max () - 100);
 	tree.put ("backup_before_upgrade", false);
 
 	upgraded = false;
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
+	ASSERT_EQ (config.vote_generator_delay.count (), std::numeric_limits<unsigned long>::max () - 100);
 	ASSERT_EQ (config.backup_before_upgrade, false);
 }
 

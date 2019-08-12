@@ -205,7 +205,7 @@ bool nano::json_handler::wallet_account_impl (nano::transaction const & transact
 	return result;
 }
 
-nano::account nano::json_handler::account_impl (std::string account_text)
+nano::account nano::json_handler::account_impl (std::string account_text, std::error_code ec_a)
 {
 	nano::account result (0);
 	if (!ec)
@@ -216,7 +216,12 @@ nano::account nano::json_handler::account_impl (std::string account_text)
 		}
 		if (result.decode_account (account_text))
 		{
-			ec = nano::error_common::bad_account_number;
+			ec = ec_a;
+		}
+		else if (account_text[3] == '-' || account_text[4] == '-')
+		{
+			// nano- and xrb- prefixes are deprecated
+			response_l.put ("deprecated_account_format", "1");
 		}
 	}
 	return result;
@@ -598,8 +603,7 @@ void nano::json_handler::account_move ()
 				std::vector<nano::public_key> accounts;
 				for (auto i (accounts_text.begin ()), n (accounts_text.end ()); i != n; ++i)
 				{
-					nano::public_key account;
-					account.decode_account (i->second.get<std::string> (""));
+					auto account (account_impl (i->second.get<std::string> ("")));
 					accounts.push_back (account);
 				}
 				auto transaction (node.wallets.tx_begin_write ());
@@ -662,61 +666,54 @@ void nano::json_handler::account_representative_set ()
 {
 	auto wallet (wallet_impl ());
 	auto account (account_impl ());
+	std::string representative_text (request.get<std::string> ("representative"));
+	auto representative (account_impl (representative_text, nano::error_rpc::bad_representative_number));
 	if (!ec)
 	{
-		std::string representative_text (request.get<std::string> ("representative"));
-		nano::account representative;
-		if (!representative.decode_account (representative_text))
+		auto work (work_optional_impl ());
+		if (!ec && work)
 		{
-			auto work (work_optional_impl ());
-			if (!ec && work)
-			{
-				auto transaction (node.wallets.tx_begin_write ());
-				wallet_locked_impl (transaction, wallet);
-				wallet_account_impl (transaction, wallet, account);
-				if (!ec)
-				{
-					nano::account_info info;
-					auto block_transaction (node.store.tx_begin_read ());
-					if (!node.store.account_get (block_transaction, account, info))
-					{
-						if (nano::work_validate (info.head, work))
-						{
-							ec = nano::error_common::invalid_work;
-						}
-					}
-					else
-					{
-						ec = nano::error_common::account_not_found;
-					}
-				}
-			}
+			auto transaction (node.wallets.tx_begin_write ());
+			wallet_locked_impl (transaction, wallet);
+			wallet_account_impl (transaction, wallet, account);
 			if (!ec)
 			{
-				bool generate_work (work == 0); // Disable work generation if "work" option is provided
-				auto response_a (response);
-				// clang-format off
-				wallet->change_async (account, representative, [response_a](std::shared_ptr<nano::block> block) {
-					if (block != nullptr)
+				nano::account_info info;
+				auto block_transaction (node.store.tx_begin_read ());
+				if (!node.store.account_get (block_transaction, account, info))
+				{
+					if (nano::work_validate (info.head, work))
 					{
-						boost::property_tree::ptree response_l;
-						response_l.put ("block", block->hash ().to_string ());
-						std::stringstream ostream;
-						boost::property_tree::write_json (ostream, response_l);
-						response_a (ostream.str ());
+						ec = nano::error_common::invalid_work;
 					}
-					else
-					{
-						json_error_response (response_a, "Error generating block");
-					}
-				},
-				work, generate_work);
-				// clang-format on
+				}
+				else
+				{
+					ec = nano::error_common::account_not_found;
+				}
 			}
 		}
-		else
+		if (!ec)
 		{
-			ec = nano::error_rpc::bad_representative_number;
+			bool generate_work (work == 0); // Disable work generation if "work" option is provided
+			auto response_a (response);
+			auto response_data (std::make_shared<boost::property_tree::ptree> (response_l));
+			// clang-format off
+			wallet->change_async (account, representative, [response_a, response_data](std::shared_ptr<nano::block> block) {
+				if (block != nullptr)
+				{
+					response_data->put ("block", block->hash ().to_string ());
+					std::stringstream ostream;
+					boost::property_tree::write_json (ostream, *response_data);
+					response_a (ostream.str ());
+				}
+				else
+				{
+					json_error_response (response_a, "Error generating block");
+				}
+			},
+			work, generate_work);
+			// clang-format on
 		}
 	}
 	// Because of change_async
@@ -1234,32 +1231,23 @@ void nano::json_handler::block_create ()
 				ec = nano::error_common::bad_wallet_number;
 			}
 		}
-		nano::uint256_union account (0);
+		nano::account account (0);
 		boost::optional<std::string> account_text (request.get_optional<std::string> ("account"));
 		if (!ec && account_text.is_initialized ())
 		{
-			if (account.decode_account (account_text.get ()))
-			{
-				ec = nano::error_common::bad_account_number;
-			}
+			account = account_impl (account_text.get ());
 		}
 		nano::uint256_union representative (0);
 		boost::optional<std::string> representative_text (request.get_optional<std::string> ("representative"));
 		if (!ec && representative_text.is_initialized ())
 		{
-			if (representative.decode_account (representative_text.get ()))
-			{
-				ec = nano::error_rpc::bad_representative_number;
-			}
+			representative = account_impl (representative_text.get (), nano::error_rpc::bad_representative_number);
 		}
 		nano::uint256_union destination (0);
 		boost::optional<std::string> destination_text (request.get_optional<std::string> ("destination"));
 		if (!ec && destination_text.is_initialized ())
 		{
-			if (destination.decode_account (destination_text.get ()))
-			{
-				ec = nano::error_rpc::bad_destination;
-			}
+			destination = account_impl (destination_text.get (), nano::error_rpc::bad_destination);
 		}
 		nano::block_hash source (0);
 		boost::optional<std::string> source_text (request.get_optional<std::string> ("source"));
@@ -2181,15 +2169,13 @@ void nano::json_handler::account_history ()
 	{
 		for (auto & a : (*accounts_filter_node))
 		{
-			nano::public_key account;
-			auto error (account.decode_account (a.second.get<std::string> ("")));
-			if (!error)
+			auto account (account_impl (a.second.get<std::string> ("")));
+			if (!ec)
 			{
 				accounts_to_filter.push_back (account);
 			}
 			else
 			{
-				ec = nano::error_common::bad_account_number;
 				break;
 			}
 		}
@@ -2343,10 +2329,7 @@ void nano::json_handler::ledger ()
 		boost::optional<std::string> account_text (request.get_optional<std::string> ("account"));
 		if (account_text.is_initialized ())
 		{
-			if (start.decode_account (account_text.get ()))
-			{
-				ec = nano::error_common::bad_account_number;
-			}
+			start = account_impl (account_text.get ());
 		}
 		uint64_t modified_since (0);
 		boost::optional<std::string> modified_since_text (request.get_optional<std::string> ("modified_since"));
@@ -2854,6 +2837,7 @@ void nano::json_handler::payment_wait ()
 void nano::json_handler::process ()
 {
 	const bool json_block_l = request.get<bool> ("json_block", false);
+	const bool watch_work_l = request.get<bool> ("watch_work", true);
 	std::shared_ptr<nano::block> block;
 	if (json_block_l)
 	{
@@ -2935,20 +2919,12 @@ void nano::json_handler::process ()
 	{
 		if (!nano::work_validate (*block))
 		{
-			auto hash (block->hash ());
-			node.block_arrival.add (hash);
-			nano::process_return result;
-			{
-				auto transaction (node.store.tx_begin_write ());
-				// Set current time to trigger automatic rebroadcast and election
-				nano::unchecked_info info (block, block->account (), nano::seconds_since_epoch (), nano::signature_verification::unknown);
-				result = node.block_processor.process_one (transaction, info);
-			}
+			auto result (node.process_local (block, watch_work_l));
 			switch (result.code)
 			{
 				case nano::process_result::progress:
 				{
-					response_l.put ("hash", hash.to_string ());
+					response_l.put ("hash", block->hash ().to_string ());
 					break;
 				}
 				case nano::process_result::gap_previous:
@@ -2999,7 +2975,7 @@ void nano::json_handler::process ()
 					{
 						node.active.erase (*block);
 						node.block_processor.force (block);
-						response_l.put ("hash", hash.to_string ());
+						response_l.put ("hash", block->hash ().to_string ());
 					}
 					else
 					{
@@ -3166,15 +3142,13 @@ void nano::json_handler::representatives_online ()
 	{
 		for (auto & a : (*accounts_node))
 		{
-			nano::public_key account;
-			auto error (account.decode_account (a.second.get<std::string> ("")));
-			if (!error)
+			auto account (account_impl (a.second.get<std::string> ("")));
+			if (!ec)
 			{
 				accounts_to_filter.push_back (account);
 			}
 			else
 			{
-				ec = nano::error_common::bad_account_number;
 				break;
 			}
 		}
@@ -3358,94 +3332,80 @@ void nano::json_handler::send ()
 	{
 		ec = nano::error_common::invalid_amount;
 	}
+	std::string source_text (request.get<std::string> ("source"));
+	auto source (account_impl (source_text, nano::error_rpc::bad_source));
+	std::string destination_text (request.get<std::string> ("destination"));
+	auto destination (account_impl (destination_text, nano::error_rpc::bad_destination));
 	if (!ec)
 	{
-		std::string source_text (request.get<std::string> ("source"));
-		nano::account source;
-		if (!source.decode_account (source_text))
+		auto work (work_optional_impl ());
+		nano::uint128_t balance (0);
+		if (!ec)
 		{
-			std::string destination_text (request.get<std::string> ("destination"));
-			nano::account destination;
-			if (!destination.decode_account (destination_text))
+			auto transaction (node.wallets.tx_begin_read ());
+			auto block_transaction (node.store.tx_begin_read ());
+			if (wallet->store.valid_password (transaction))
 			{
-				auto work (work_optional_impl ());
-				nano::uint128_t balance (0);
-				if (!ec)
+				if (wallet->store.find (transaction, source) != wallet->store.end ())
 				{
-					auto transaction (node.wallets.tx_begin_read ());
-					auto block_transaction (node.store.tx_begin_read ());
-					if (wallet->store.valid_password (transaction))
+					nano::account_info info;
+					if (!node.store.account_get (block_transaction, source, info))
 					{
-						if (wallet->store.find (transaction, source) != wallet->store.end ())
-						{
-							nano::account_info info;
-							if (!node.store.account_get (block_transaction, source, info))
-							{
-								balance = (info.balance).number ();
-							}
-							else
-							{
-								ec = nano::error_common::account_not_found;
-							}
-							if (!ec && work)
-							{
-								if (nano::work_validate (info.head, work))
-								{
-									ec = nano::error_common::invalid_work;
-								}
-							}
-						}
-						else
-						{
-							ec = nano::error_common::account_not_found_wallet;
-						}
+						balance = (info.balance).number ();
 					}
 					else
 					{
-						ec = nano::error_common::wallet_locked;
+						ec = nano::error_common::account_not_found;
+					}
+					if (!ec && work)
+					{
+						if (nano::work_validate (info.head, work))
+						{
+							ec = nano::error_common::invalid_work;
+						}
 					}
 				}
-				if (!ec)
+				else
 				{
-					bool generate_work (work == 0); // Disable work generation if "work" option is provided
-					boost::optional<std::string> send_id (request.get_optional<std::string> ("id"));
-					auto rpc_l (shared_from_this ());
-					auto response_a (response);
-					// clang-format off
-					wallet->send_async (source, destination, amount.number (), [balance, amount, response_a](std::shared_ptr<nano::block> block_a) {
-						if (block_a != nullptr)
-						{
-							boost::property_tree::ptree response_l;
-							response_l.put ("block", block_a->hash ().to_string ());
-							std::stringstream ostream;
-							boost::property_tree::write_json (ostream, response_l);
-							response_a (ostream.str ());
-						}
-						else
-						{
-							if (balance >= amount.number ())
-							{
-								json_error_response (response_a, "Error generating block");
-							}
-							else
-							{
-								std::error_code ec (nano::error_common::insufficient_balance);
-								json_error_response (response_a, ec.message ());
-							}
-						}
-					},
-					work, generate_work, send_id);
-					// clang-format on
+					ec = nano::error_common::account_not_found_wallet;
 				}
 			}
 			else
 			{
-				ec = nano::error_rpc::bad_destination;
+				ec = nano::error_common::wallet_locked;
 			}
 		}
-		else
+		if (!ec)
 		{
-			ec = nano::error_rpc::bad_source;
+			bool generate_work (work == 0); // Disable work generation if "work" option is provided
+			boost::optional<std::string> send_id (request.get_optional<std::string> ("id"));
+			auto rpc_l (shared_from_this ());
+			auto response_a (response);
+			auto response_data (std::make_shared<boost::property_tree::ptree> (response_l));
+			// clang-format off
+			wallet->send_async (source, destination, amount.number (), [balance, amount, response_a, response_data](std::shared_ptr<nano::block> block_a) {
+				if (block_a != nullptr)
+				{
+					response_data->put ("block", block_a->hash ().to_string ());
+					std::stringstream ostream;
+					boost::property_tree::write_json (ostream, *response_data);
+					response_a (ostream.str ());
+				}
+				else
+				{
+					if (balance >= amount.number ())
+					{
+						json_error_response (response_a, "Error generating block");
+					}
+					else
+					{
+						std::error_code ec (nano::error_common::insufficient_balance);
+						json_error_response (response_a, ec.message ());
+					}
+				}
+			},
+			work, generate_work, send_id);
+			// clang-format on
 		}
 	}
 	// Because of send_async
@@ -3733,10 +3693,7 @@ void nano::json_handler::unopened ()
 	boost::optional<std::string> account_text (request.get_optional<std::string> ("account"));
 	if (account_text.is_initialized ())
 	{
-		if (start.decode_account (account_text.get ()))
-		{
-			ec = nano::error_common::bad_account_number;
-		}
+		start = account_impl (account_text.get ());
 	}
 	if (!ec)
 	{
@@ -3799,14 +3756,7 @@ void nano::json_handler::version ()
 	response_l.put ("rpc_version", "1");
 	response_l.put ("store_version", std::to_string (node.store_version ()));
 	response_l.put ("protocol_version", std::to_string (nano::protocol_version));
-	if (NANO_VERSION_PATCH == 0)
-	{
-		response_l.put ("node_vendor", boost::str (boost::format ("Nano %1%") % NANO_MAJOR_MINOR_VERSION));
-	}
-	else
-	{
-		response_l.put ("node_vendor", boost::str (boost::format ("Nano %1%") % NANO_MAJOR_MINOR_RC_VERSION));
-	}
+	response_l.put ("node_vendor", boost::str (boost::format ("Nano %1%") % NANO_VERSION_STRING));
 	response_l.put ("network", node.network_params.network.get_current_network_as_string ());
 	response_l.put ("network_identifier", nano::genesis ().hash ().to_string ());
 	response_l.put ("build_info", BUILD_INFO);
@@ -3815,10 +3765,9 @@ void nano::json_handler::version ()
 
 void nano::json_handler::validate_account_number ()
 {
-	std::string account_text (request.get<std::string> ("account"));
-	nano::uint256_union account;
-	auto error (account.decode_account (account_text));
-	response_l.put ("valid", error ? "0" : "1");
+	auto account (account_impl ());
+	response_l.put ("valid", ec ? "0" : "1");
+	ec = std::error_code (); // error is just invalid account
 	response_errors ();
 }
 
@@ -4309,58 +4258,51 @@ void nano::json_handler::wallet_representative ()
 void nano::json_handler::wallet_representative_set ()
 {
 	auto wallet (wallet_impl ());
+	std::string representative_text (request.get<std::string> ("representative"));
+	auto representative (account_impl (representative_text, nano::error_rpc::bad_representative_number));
 	if (!ec)
 	{
-		std::string representative_text (request.get<std::string> ("representative"));
-		nano::account representative;
-		if (!representative.decode_account (representative_text))
+		bool update_existing_accounts (request.get<bool> ("update_existing_accounts", false));
 		{
-			bool update_existing_accounts (request.get<bool> ("update_existing_accounts", false));
+			auto transaction (node.wallets.tx_begin_write ());
+			if (wallet->store.valid_password (transaction) || !update_existing_accounts)
 			{
-				auto transaction (node.wallets.tx_begin_write ());
-				if (wallet->store.valid_password (transaction) || !update_existing_accounts)
-				{
-					wallet->store.representative_set (transaction, representative);
-					response_l.put ("set", "1");
-				}
-				else
-				{
-					ec = nano::error_common::wallet_locked;
-				}
+				wallet->store.representative_set (transaction, representative);
+				response_l.put ("set", "1");
 			}
-			// Change representative for all wallet accounts
-			if (!ec && update_existing_accounts)
+			else
 			{
-				std::vector<nano::account> accounts;
+				ec = nano::error_common::wallet_locked;
+			}
+		}
+		// Change representative for all wallet accounts
+		if (!ec && update_existing_accounts)
+		{
+			std::vector<nano::account> accounts;
+			{
+				auto transaction (node.wallets.tx_begin_read ());
+				auto block_transaction (node.store.tx_begin_read ());
+				for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 				{
-					auto transaction (node.wallets.tx_begin_read ());
-					auto block_transaction (node.store.tx_begin_read ());
-					for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
+					nano::account const & account (i->first);
+					nano::account_info info;
+					if (!node.store.account_get (block_transaction, account, info))
 					{
-						nano::account const & account (i->first);
-						nano::account_info info;
-						if (!node.store.account_get (block_transaction, account, info))
+						auto block (node.store.block_get (block_transaction, info.rep_block));
+						assert (block != nullptr);
+						if (block->representative () != representative)
 						{
-							auto block (node.store.block_get (block_transaction, info.rep_block));
-							assert (block != nullptr);
-							if (block->representative () != representative)
-							{
-								accounts.push_back (account);
-							}
+							accounts.push_back (account);
 						}
 					}
 				}
-				for (auto & account : accounts)
-				{
-					// clang-format off
-					wallet->change_async (account, representative, [](std::shared_ptr<nano::block>) {}, 0, false);
-					// clang-format on
-				}
 			}
-		}
-		else
-		{
-			ec = nano::error_rpc::bad_representative_number;
+			for (auto & account : accounts)
+			{
+				// clang-format off
+				wallet->change_async (account, representative, [](std::shared_ptr<nano::block>) {}, 0, false);
+				// clang-format on
+			}
 		}
 	}
 	response_errors ();

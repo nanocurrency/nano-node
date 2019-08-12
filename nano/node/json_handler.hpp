@@ -143,7 +143,7 @@ public:
 	std::shared_ptr<nano::wallet> wallet_impl ();
 	bool wallet_locked_impl (nano::transaction const &, std::shared_ptr<nano::wallet>);
 	bool wallet_account_impl (nano::transaction const &, std::shared_ptr<nano::wallet>, nano::account const &);
-	nano::account account_impl (std::string = "");
+	nano::account account_impl (std::string = "", std::error_code = nano::error_common::bad_account_number);
 	nano::amount amount_impl ();
 	std::shared_ptr<nano::block> block_impl (bool = true);
 	std::shared_ptr<nano::block> block_json_impl (bool = true);

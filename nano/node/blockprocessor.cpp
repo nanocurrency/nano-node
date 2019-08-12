@@ -92,6 +92,12 @@ void nano::block_processor::force (std::shared_ptr<nano::block> block_a)
 	condition.notify_all ();
 }
 
+void nano::block_processor::wait_write ()
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	awaiting_write = true;
+}
+
 void nano::block_processor::process_blocks ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
@@ -249,7 +255,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 	// Processing blocks
 	auto first_time (true);
 	unsigned number_of_blocks_processed (0), number_of_forced_processed (0);
-	while ((!blocks.empty () || !forced.empty ()) && (timer_l.before_deadline (node.config.block_processor_batch_max_time) || (number_of_blocks_processed < node.flags.block_processor_batch_size)))
+	while ((!blocks.empty () || !forced.empty ()) && (timer_l.before_deadline (node.config.block_processor_batch_max_time) || (number_of_blocks_processed < node.flags.block_processor_batch_size)) && !awaiting_write)
 	{
 		auto log_this_record (false);
 		if (node.config.logging.timing_logging ())
@@ -339,6 +345,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 			verify_state_blocks (transaction, lock_a, 256 * (node.config.signature_checker_threads + 1));
 		}
 	}
+	awaiting_write = false;
 	lock_a.unlock ();
 
 	if (node.config.logging.timing_logging () && number_of_blocks_processed != 0)
@@ -347,12 +354,17 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 	}
 }
 
-void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a)
+void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a, const bool watch_work_a)
 {
 	// Start collecting quorum on block
 	node.active.start (block_a);
+	//add block to watcher if desired after block has been added to active
+	if (watch_work_a)
+	{
+		node.wallets.watcher.add (block_a);
+	}
 	// Announce block contents to the network
-	node.network.flood_block (block_a);
+	node.network.flood_block (block_a, false);
 	if (node.config.enable_voting)
 	{
 		// Announce our weighted vote to the network
@@ -382,7 +394,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	});
 }
 
-nano::process_return nano::block_processor::process_one (nano::transaction const & transaction_a, nano::unchecked_info info_a)
+nano::process_return nano::block_processor::process_one (nano::transaction const & transaction_a, nano::unchecked_info info_a, const bool watch_work_a)
 {
 	nano::process_return result;
 	auto hash (info_a.block->hash ());
@@ -400,7 +412,7 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 			}
 			if (info_a.modified > nano::seconds_since_epoch () - 300 && node.block_arrival.recent (hash))
 			{
-				process_live (hash, info_a.block);
+				process_live (hash, info_a.block, watch_work_a);
 			}
 			queue_unchecked (transaction_a, hash);
 			break;
@@ -515,10 +527,10 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 	return result;
 }
 
-nano::process_return nano::block_processor::process_one (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a)
+nano::process_return nano::block_processor::process_one (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, const bool watch_work_a)
 {
 	nano::unchecked_info info (block_a, block_a->account (), 0, nano::signature_verification::unknown);
-	auto result (process_one (transaction_a, info));
+	auto result (process_one (transaction_a, info, watch_work_a));
 	return result;
 }
 
