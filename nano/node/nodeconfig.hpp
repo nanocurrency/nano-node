@@ -37,7 +37,7 @@ public:
 	unsigned bootstrap_fraction_numerator{ 1 };
 	nano::amount receive_minimum{ nano::xrb_ratio };
 	nano::amount vote_minimum{ nano::Gxrb_ratio };
-	std::chrono::milliseconds vote_generator_delay{ std::chrono::milliseconds (50) };
+	std::chrono::milliseconds vote_generator_delay{ std::chrono::milliseconds (100) };
 	unsigned vote_generator_threshold{ 3 };
 	nano::amount online_weight_minimum{ 60000 * nano::Gxrb_ratio };
 	unsigned online_weight_quorum{ 50 };
@@ -79,7 +79,7 @@ public:
 	std::chrono::milliseconds conf_height_processor_batch_min_time{ 50 };
 	static unsigned json_version ()
 	{
-		return 17;
+		return 18;
 	}
 };
 

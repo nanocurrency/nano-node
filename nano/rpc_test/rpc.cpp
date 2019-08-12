@@ -1581,6 +1581,66 @@ TEST (rpc, process_block)
 	ASSERT_EQ (send.hash ().to_string (), send_hash);
 }
 
+TEST (rpc, process_block_with_work_watcher)
+{
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.enable_voting = false;
+	auto & node1 = *system.add_node (node_config);
+	nano::keypair key;
+	auto latest (system.nodes[0]->latest (nano::test_genesis_key.pub));
+	auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, latest, nano::test_genesis_key.pub, nano::genesis_amount - 100, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest)));
+	uint64_t difficulty1 (0);
+	nano::work_validate (*send, &difficulty1);
+	auto multiplier1 = nano::difficulty::to_multiplier (difficulty1, node1.network_params.network.publish_threshold);
+	enable_ipc_transport_tcp (node1.config.ipc_config.transport_tcp);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
+	nano::rpc_config rpc_config (true);
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "process");
+	request.put ("work_watcher", true);
+	std::string json;
+	send->serialize_json (json);
+	request.put ("block", json);
+	test_response response (request, rpc.config.port, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+	system.deadline_set (10s);
+	while (system.nodes[0]->latest (nano::test_genesis_key.pub) != send->hash ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	system.deadline_set (10s);
+	auto updated (false);
+	uint64_t updated_difficulty;
+	while (!updated)
+	{
+		std::unique_lock<std::mutex> lock (node1.active.mutex);
+		//fill multipliers_cb and update active difficulty;
+		for (auto i (0); i < node1.active.multipliers_cb.size (); i++)
+		{
+			node1.active.multipliers_cb.push_back (multiplier1 * (1 + i / 100.));
+		}
+		node1.active.update_active_difficulty (lock);
+		auto const existing (node1.active.roots.find (send->qualified_root ()));
+		//if existing is junk the block has been confirmed already
+		ASSERT_NE (existing, node1.active.roots.end ());
+		updated = existing->difficulty != difficulty1;
+		updated_difficulty = existing->difficulty;
+		lock.unlock ();
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_GT (updated_difficulty, difficulty1);
+}
+
 TEST (rpc, process_block_no_work)
 {
 	nano::system system (24000, 1);
@@ -2410,14 +2470,7 @@ TEST (rpc, version)
 		ASSERT_EQ (std::to_string (node1->store.version_get (transaction)), response1.json.get<std::string> ("store_version"));
 	}
 	ASSERT_EQ (std::to_string (nano::protocol_version), response1.json.get<std::string> ("protocol_version"));
-	if (NANO_VERSION_PATCH == 0)
-	{
-		ASSERT_EQ (boost::str (boost::format ("Nano %1%") % NANO_MAJOR_MINOR_VERSION), response1.json.get<std::string> ("node_vendor"));
-	}
-	else
-	{
-		ASSERT_EQ (boost::str (boost::format ("Nano %1%") % NANO_MAJOR_MINOR_RC_VERSION), response1.json.get<std::string> ("node_vendor"));
-	}
+	ASSERT_EQ (boost::str (boost::format ("Nano %1%") % NANO_VERSION_STRING), response1.json.get<std::string> ("node_vendor"));
 	auto network_label (node1->network_params.network.get_current_network_as_string ());
 	ASSERT_EQ (network_label, response1.json.get<std::string> ("network"));
 	auto genesis_open (node1->latest (nano::test_genesis_key.pub));
@@ -6736,4 +6789,44 @@ TEST (rpc_config, migrate)
 	ASSERT_FALSE (updated);
 
 	ASSERT_EQ (rpc_config.port, 11111);
+}
+
+TEST (rpc, deprecated_account_format)
+{
+	nano::system system (24000, 1);
+	nano::genesis genesis;
+	auto node = system.nodes.front ();
+	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
+	nano::rpc_config rpc_config (true);
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "account_info");
+	request.put ("account", nano::test_genesis_key.pub.to_account ());
+	test_response response (request, rpc.config.port, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+	boost::optional<std::string> deprecated_account_format (response.json.get_optional<std::string> ("deprecated_account_format"));
+	ASSERT_FALSE (deprecated_account_format.is_initialized ());
+	std::string account_text (nano::test_genesis_key.pub.to_account ());
+	account_text[4] = '-';
+	request.put ("account", account_text);
+	test_response response2 (request, rpc.config.port, system.io_ctx);
+	system.deadline_set (5s);
+	while (response2.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response2.status);
+	std::string frontier (response.json.get<std::string> ("frontier"));
+	ASSERT_EQ (genesis.hash ().to_string (), frontier);
+	boost::optional<std::string> deprecated_account_format2 (response2.json.get_optional<std::string> ("deprecated_account_format"));
+	ASSERT_TRUE (deprecated_account_format2.is_initialized ());
 }
