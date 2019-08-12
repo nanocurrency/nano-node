@@ -12,6 +12,7 @@
 #include <nano/secure/common.hpp>
 
 #include <chrono>
+#include <unordered_set>
 #include <vector>
 
 namespace nano
@@ -31,7 +32,7 @@ public:
 	nano::network_params network_params;
 	uint16_t peering_port{ 0 };
 	nano::logging logging;
-	std::vector<std::pair<std::string, uint16_t>> work_peers;
+	std::unordered_set<std::pair<std::string, uint16_t>, boost::hash<std::pair<std::string, uint16_t>>> work_peers;
 	std::vector<std::string> preconfigured_peers;
 	std::vector<nano::account> preconfigured_representatives;
 	unsigned bootstrap_fraction_numerator{ 1 };

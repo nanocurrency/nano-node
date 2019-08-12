@@ -967,10 +967,10 @@ public:
 	backoff (backoff_a),
 	node (node_a),
 	root (root_a),
-	need_resolve (node_a->config.work_peers),
 	difficulty (difficulty_a)
 	{
 		assert (node_a != nullptr);
+		need_resolve.insert (need_resolve.end (), node_a->config.work_peers.begin (), node_a->config.work_peers.end ());
 		completed.clear ();
 	}
 	void start ()
@@ -1218,8 +1218,8 @@ public:
 	}
 	void blacklist (std::pair<std::string, uint16_t> const & peer)
 	{
-		node->blacklisted_work_peers.push_back (peer);
-		node->config.work_peers.erase (std::remove (node->config.work_peers.begin (), node->config.work_peers.end (), peer), node->config.work_peers.end ());
+		node->blacklisted_work_peers.insert (peer);
+		node->config.work_peers.erase (peer);
 	}
 	void blacklist (boost::asio::ip::address const & address)
 	{

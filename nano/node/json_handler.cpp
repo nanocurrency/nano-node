@@ -4559,7 +4559,9 @@ void nano::json_handler::work_peer_add ()
 	uint16_t port;
 	if (!nano::parse_port (port_text, port))
 	{
-		node.config.work_peers.push_back (std::make_pair (address_text, port));
+		auto peer (std::make_pair (address_text, port));
+		node.config.work_peers.insert (peer);
+		node.blacklisted_work_peers.erase (peer);
 		response_l.put ("success", "");
 	}
 	else
@@ -4600,10 +4602,7 @@ void nano::json_handler::work_peers_clear ()
 
 void nano::json_handler::work_peers_reset ()
 {
-	for (auto & peer : node.blacklisted_work_peers)
-	{
-		node.config.work_peers.push_back (peer);
-	}
+	node.config.work_peers.insert (node.blacklisted_work_peers.begin (), node.blacklisted_work_peers.end ());
 	node.blacklisted_work_peers.clear ();
 	response_l.put ("success", "");
 	response_errors ();

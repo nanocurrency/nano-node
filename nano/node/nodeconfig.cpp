@@ -298,7 +298,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 				if (!result)
 				{
 					auto address (entry.substr (0, port_position));
-					this->work_peers.push_back (std::make_pair (address, port));
+					this->work_peers.insert (std::make_pair (address, port));
 				}
 			}
 		});

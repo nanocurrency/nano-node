@@ -2664,11 +2664,11 @@ TEST (rpc, work_peer_bad)
 	// Invalid address, will get blacklisted when resolving
 	std::string address_invalid ("invalid");
 	auto port (0);
-	node1.config.work_peers.push_back (std::make_pair (address_invalid, port));
+	node1.config.work_peers.insert (std::make_pair (address_invalid, port));
 
 	// Valid address but will get blacklisted when failure in trying to reach it
 	auto address (boost::asio::ip::address_v6::any ().to_string ());
-	node1.config.work_peers.push_back (std::make_pair (address, port));
+	node1.config.work_peers.insert (std::make_pair (address, port));
 
 	nano::block_hash hash1 (1);
 	std::atomic<uint64_t> work (0);
@@ -2699,9 +2699,8 @@ TEST (rpc, work_peer_bad)
 			blacklisted.push_back (i->second.get<std::string> (""));
 		}
 		ASSERT_EQ (2, blacklisted.size ());
-		// Unresolved address gets blacklisted first
-		ASSERT_EQ (address_invalid + ":" + std::to_string (port), blacklisted[0]);
-		ASSERT_EQ (address + ":" + std::to_string (port), blacklisted[1]);
+		ASSERT_NE (blacklisted.end (), std::find (blacklisted.begin (), blacklisted.end (), address_invalid + ":" + std::to_string (port)));
+		ASSERT_NE (blacklisted.end (), std::find (blacklisted.begin (), blacklisted.end (), address + ":" + std::to_string (port)));
 	}
 
 	request.put ("action", "work_peers_reset");
@@ -2733,8 +2732,8 @@ TEST (rpc, work_peer_bad)
 			peers.push_back (i->second.get<std::string> (""));
 		}
 		ASSERT_EQ (2, peers.size ());
-		ASSERT_EQ (address_invalid + ":" + std::to_string (port), peers[0]);
-		ASSERT_EQ (address + ":" + std::to_string (port), peers[1]);
+		ASSERT_NE (peers.end (), std::find (peers.begin (), peers.end (), address_invalid + ":" + std::to_string (port)));
+		ASSERT_NE (peers.end (), std::find (peers.begin (), peers.end (), address + ":" + std::to_string (port)));
 	}
 }
 
@@ -2753,7 +2752,7 @@ TEST (rpc, work_peer_one)
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
 	rpc.start ();
-	node2.config.work_peers.push_back (std::make_pair (node1.network.endpoint ().address ().to_string (), rpc.config.port));
+	node2.config.work_peers.insert (std::make_pair (node1.network.endpoint ().address ().to_string (), rpc.config.port));
 	nano::keypair key1;
 	uint64_t work (0);
 	node2.work_generate (key1.pub, [&work](uint64_t work_a) {
@@ -2799,9 +2798,9 @@ TEST (rpc, work_peer_many)
 	nano::ipc_rpc_processor ipc_rpc_processor4 (system4.io_ctx, config4);
 	nano::rpc rpc4 (system2.io_ctx, config4, ipc_rpc_processor4);
 	rpc4.start ();
-	node1.config.work_peers.push_back (std::make_pair (node2.network.endpoint ().address ().to_string (), rpc2.config.port));
-	node1.config.work_peers.push_back (std::make_pair (node3.network.endpoint ().address ().to_string (), rpc3.config.port));
-	node1.config.work_peers.push_back (std::make_pair (node4.network.endpoint ().address ().to_string (), rpc4.config.port));
+	node1.config.work_peers.insert (std::make_pair (node2.network.endpoint ().address ().to_string (), rpc2.config.port));
+	node1.config.work_peers.insert (std::make_pair (node3.network.endpoint ().address ().to_string (), rpc3.config.port));
+	node1.config.work_peers.insert (std::make_pair (node4.network.endpoint ().address ().to_string (), rpc4.config.port));
 
 	for (auto i (0); i < 10; ++i)
 	{
