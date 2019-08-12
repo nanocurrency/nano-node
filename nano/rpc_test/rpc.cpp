@@ -6793,3 +6793,43 @@ TEST (rpc_config, migrate)
 
 	ASSERT_EQ (rpc_config.port, 11111);
 }
+
+TEST (rpc, deprecated_account_format)
+{
+	nano::system system (24000, 1);
+	nano::genesis genesis;
+	auto node = system.nodes.front ();
+	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
+	nano::rpc_config rpc_config (true);
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "account_info");
+	request.put ("account", nano::test_genesis_key.pub.to_account ());
+	test_response response (request, rpc.config.port, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+	boost::optional<std::string> deprecated_account_format (response.json.get_optional<std::string> ("deprecated_account_format"));
+	ASSERT_FALSE (deprecated_account_format.is_initialized ());
+	std::string account_text (nano::test_genesis_key.pub.to_account ());
+	account_text[4] = '-';
+	request.put ("account", account_text);
+	test_response response2 (request, rpc.config.port, system.io_ctx);
+	system.deadline_set (5s);
+	while (response2.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response2.status);
+	std::string frontier (response.json.get<std::string> ("frontier"));
+	ASSERT_EQ (genesis.hash ().to_string (), frontier);
+	boost::optional<std::string> deprecated_account_format2 (response2.json.get_optional<std::string> ("deprecated_account_format"));
+	ASSERT_TRUE (deprecated_account_format2.is_initialized ());
+}
