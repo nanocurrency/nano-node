@@ -165,6 +165,7 @@ std::unordered_set<std::string> create_rpc_control_impls ()
 	set.emplace ("work_peer_add");
 	set.emplace ("work_peers");
 	set.emplace ("work_peers_clear");
+	set.emplace ("work_peers_reset");
 	set.emplace ("wallet_seed");
 	return set;
 }
