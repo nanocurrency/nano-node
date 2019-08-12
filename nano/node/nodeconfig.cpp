@@ -257,6 +257,8 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 		}
 		case 17:
 		{
+			// Update values
+			json.put ("vote_generator_delay", vote_generator_delay.count ());
 			json.put ("frontiers_confirmation", serialize_frontiers_confirmation (frontiers_confirmation));
 		}
 		case 18:
@@ -440,9 +442,9 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		{
 			json.get_error ().set ("bandwidth_limit unbounded = 0, default = 5242880, max = 18446744073709551615");
 		}
-		if (vote_generator_threshold < 1 || vote_generator_threshold > 12)
+		if (vote_generator_threshold < 1 || vote_generator_threshold > 11)
 		{
-			json.get_error ().set ("vote_generator_threshold must be a number between 1 and 12");
+			json.get_error ().set ("vote_generator_threshold must be a number between 1 and 11");
 		}
 		if (frontiers_confirmation == nano::frontiers_confirmation_mode::invalid)
 		{

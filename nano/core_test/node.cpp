@@ -863,7 +863,7 @@ TEST (node_config, v17_v18_upgrade)
 	auto version (tree.get<std::string> ("version"));
 
 	// Check version is updated
-	ASSERT_GT (std::stoull (version), 16);
+	ASSERT_GT (std::stoull (version), 17);
 }
 
 TEST (node_config, v18_values)
@@ -878,23 +878,29 @@ TEST (node_config, v18_values)
 
 	// Check config is correct
 	{
+		tree.put ("vote_generator_delay", 100);
 		tree.put ("frontiers_confirmation", "auto");
 	}
 
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
+	ASSERT_EQ (config.vote_generator_delay.count (), 100);
 	ASSERT_EQ (config.frontiers_confirmation, nano::frontiers_confirmation_mode::automatic);
 
 	// Check config is correct with other values
+	tree.put ("vote_generator_delay", std::numeric_limits<unsigned long>::max () - 100);
 	tree.put ("frontiers_confirmation", "disabled");
 
 	upgraded = false;
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
+	ASSERT_EQ (config.vote_generator_delay.count (), std::numeric_limits<unsigned long>::max () - 100);
 	ASSERT_EQ (config.frontiers_confirmation, nano::frontiers_confirmation_mode::disabled);
 
 	tree.put ("frontiers_confirmation", "always");
+	upgraded = false;
 	config.deserialize_json (upgraded, tree);
+	ASSERT_FALSE (upgraded);
 	ASSERT_EQ (config.frontiers_confirmation, nano::frontiers_confirmation_mode::always);
 
 	// Check invalid values
