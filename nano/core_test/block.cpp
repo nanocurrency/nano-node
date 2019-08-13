@@ -456,7 +456,6 @@ TEST (block_builder, from)
 
 TEST (block_builder, zeroed_state_block)
 {
-	std::error_code ec;
 	nano::block_builder builder;
 	nano::keypair key;
 	// Make sure manually- and builder constructed all-zero blocks have equal hashes, and check signature.

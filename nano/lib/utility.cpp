@@ -185,7 +185,7 @@ io_guard (boost::asio::make_work_guard (io_ctx_a))
 			{
 				std::cerr << ex.what () << std::endl;
 #ifndef NDEBUG
-				throw ex;
+				throw;
 #endif
 			}
 			catch (...)

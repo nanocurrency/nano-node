@@ -167,12 +167,12 @@ public:
 	}
 
 	/** Write a header enrty to the log */
-	virtual void write_header (std::string header, std::chrono::system_clock::time_point & walltime)
+	virtual void write_header (std::string const & header, std::chrono::system_clock::time_point & walltime)
 	{
 	}
 
 	/** Write a counter or sampling entry to the log */
-	virtual void write_entry (tm & tm, std::string type, std::string detail, std::string dir, uint64_t value)
+	virtual void write_entry (tm & tm, std::string const & type, std::string const & detail, std::string const & dir, uint64_t value)
 	{
 	}
 

@@ -40,12 +40,12 @@ void nano::message_header::serialize (nano::stream & stream_a) const
 
 bool nano::message_header::deserialize (nano::stream & stream_a)
 {
-	static nano::network_params network_params;
-	uint16_t extensions_l;
-	std::array<uint8_t, 2> magic_number_l;
 	auto error (false);
 	try
 	{
+		static nano::network_params network_params;
+		uint16_t extensions_l;
+		std::array<uint8_t, 2> magic_number_l;
 		read (stream_a, magic_number_l);
 		if (magic_number_l != network_params.header_magic_number)
 		{

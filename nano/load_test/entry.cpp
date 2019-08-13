@@ -289,7 +289,6 @@ void keepalive_rpc (boost::asio::io_context & ioc, tcp::resolver::results_type c
 
 account key_create_rpc (boost::asio::io_context & ioc, tcp::resolver::results_type const & results)
 {
-	std::string request_string;
 	boost::property_tree::ptree request;
 	request.put ("action", "key_create");
 
@@ -305,7 +304,6 @@ account key_create_rpc (boost::asio::io_context & ioc, tcp::resolver::results_ty
 
 std::string wallet_create_rpc (boost::asio::io_context & ioc, tcp::resolver::results_type const & results)
 {
-	std::string request_string;
 	boost::property_tree::ptree request;
 	request.put ("action", "wallet_create");
 

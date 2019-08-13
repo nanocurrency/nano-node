@@ -1022,7 +1022,6 @@ void nano::json_handler::block_confirm ()
 void nano::json_handler::blocks ()
 {
 	const bool json_block_l = request.get<bool> ("json_block", false);
-	std::vector<std::string> hashes;
 	boost::property_tree::ptree blocks;
 	auto transaction (node.store.tx_begin_read ());
 	for (boost::property_tree::ptree::value_type & hashes : request.get_child ("hashes"))
@@ -1071,7 +1070,6 @@ void nano::json_handler::blocks_info ()
 	const bool json_block_l = request.get<bool> ("json_block", false);
 	const bool include_not_found = request.get<bool> ("include_not_found", false);
 
-	std::vector<std::string> hashes;
 	boost::property_tree::ptree blocks;
 	boost::property_tree::ptree blocks_not_found;
 	auto transaction (node.store.tx_begin_read ());
@@ -2182,7 +2180,6 @@ void nano::json_handler::account_history ()
 	}
 	nano::account account;
 	nano::block_hash hash;
-	bool output_raw (request.get_optional<bool> ("raw") == true);
 	bool reverse (request.get_optional<bool> ("reverse") == true);
 	auto head_str (request.get_optional<std::string> ("head"));
 	auto transaction (node.store.tx_begin_read ());
@@ -2232,6 +2229,7 @@ void nano::json_handler::account_history ()
 	if (!ec)
 	{
 		boost::property_tree::ptree history;
+		bool output_raw (request.get_optional<bool> ("raw") == true);
 		response_l.put ("account", account.to_account ());
 		nano::block_sideband sideband;
 		auto block (node.store.block_get (transaction, hash, &sideband));
