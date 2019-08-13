@@ -136,14 +136,15 @@ void nano::election::confirm_if_quorum (nano::transaction const & transaction_a)
 void nano::election::log_votes (nano::tally_t const & tally_a) const
 {
 	std::stringstream tally;
-	tally << boost::str (boost::format ("\nVote tally for root %1%") % status.winner->root ().to_string ());
+	std::string line_end (node.config.logging.single_line_record () ? "\t" : "\n");
+	tally << boost::str (boost::format ("%1%Vote tally for root %2%") % line_end % status.winner->root ().to_string ());
 	for (auto i (tally_a.begin ()), n (tally_a.end ()); i != n; ++i)
 	{
-		tally << boost::str (boost::format ("\nBlock %1% weight %2%") % i->second->hash ().to_string () % i->first.convert_to<std::string> ());
+		tally << boost::str (boost::format ("%1%Block %2% weight %3%") % line_end % i->second->hash ().to_string () % i->first.convert_to<std::string> ());
 	}
 	for (auto i (last_votes.begin ()), n (last_votes.end ()); i != n; ++i)
 	{
-		tally << boost::str (boost::format ("\n%1% %2%") % i->first.to_account () % i->second.hash.to_string ());
+		tally << boost::str (boost::format ("%1%%2% %3%") % line_end % i->first.to_account () % i->second.hash.to_string ());
 	}
 	node.logger.try_log (tally.str ());
 }

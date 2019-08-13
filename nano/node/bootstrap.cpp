@@ -447,7 +447,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 			if (connection->node->config.logging.bulk_pull_logging ())
 			{
 				std::string block_l;
-				block->serialize_json (block_l);
+				block->serialize_json (block_l, connection->node->config.logging.single_line_record ());
 				connection->node->logger.try_log (boost::str (boost::format ("Pulled block %1% %2%") % hash.to_string () % block_l));
 			}
 			// Is block expected?
