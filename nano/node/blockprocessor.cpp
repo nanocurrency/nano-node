@@ -410,7 +410,7 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 			if (node.config.logging.ledger_logging ())
 			{
 				std::string block;
-				info_a.block->serialize_json (block);
+				info_a.block->serialize_json (block, node.config.logging.single_line_record ());
 				node.logger.try_log (boost::str (boost::format ("Processing block %1%: %2%") % hash.to_string () % block));
 			}
 			if (info_a.modified > nano::seconds_since_epoch () - 300 && node.block_arrival.recent (hash))

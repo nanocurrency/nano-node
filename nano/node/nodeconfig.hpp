@@ -85,6 +85,7 @@ public:
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
 	size_t bandwidth_limit{ 5 * 1024 * 1024 }; // 5Mb/s
 	std::chrono::milliseconds conf_height_processor_batch_min_time{ 50 };
+	bool backup_before_upgrade{ false };
 	nano::frontiers_confirmation_mode frontiers_confirmation{ nano::frontiers_confirmation_mode::automatic };
 	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;
 	nano::frontiers_confirmation_mode deserialize_frontiers_confirmation (std::string const &);

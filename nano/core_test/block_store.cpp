@@ -1715,6 +1715,46 @@ TEST (mdb_block_store, upgrade_v14_v15)
 	ASSERT_LT (14, store.version_get (transaction));
 }
 
+TEST (mdb_block_store, upgrade_backup)
+{
+	auto dir (nano::unique_path ());
+	namespace fs = boost::filesystem;
+	fs::create_directory (dir);
+	auto path = dir / "data.ldb";
+	/** Returns 'dir' if backup file cannot be found */
+	// clang-format off
+	auto get_backup_path = [&dir]() {
+		for (fs::directory_iterator itr (dir); itr != fs::directory_iterator (); ++itr)
+		{
+			if (itr->path ().filename ().string ().find ("data_backup_") != std::string::npos)
+			{
+				return itr->path ();
+			}
+		}
+		return dir;
+	};
+	// clang-format on
+
+	{
+		nano::logger_mt logger;
+		nano::genesis genesis;
+		auto error (false);
+		nano::mdb_store store (error, logger, path);
+		auto transaction (store.tx_begin_write ());
+		store.version_put (transaction, 14);
+	}
+	ASSERT_EQ (get_backup_path ().string (), dir.string ());
+
+	// Now do the upgrade and confirm that backup is saved
+	nano::logger_mt logger;
+	auto error (false);
+	nano::mdb_store store (error, logger, path, nano::txn_tracking_config{}, std::chrono::seconds (5), 128, false, 512, true);
+	ASSERT_FALSE (error);
+	auto transaction (store.tx_begin_read ());
+	ASSERT_LT (14, store.version_get (transaction));
+	ASSERT_NE (get_backup_path ().string (), dir.string ());
+}
+
 // Test various confirmation height values as well as clearing them
 TEST (block_store, confirmation_height)
 {

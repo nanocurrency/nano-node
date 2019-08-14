@@ -98,7 +98,7 @@ public:
 	static unsigned const version_2 = 2;
 	static unsigned const version_3 = 3;
 	static unsigned const version_4 = 4;
-	unsigned const version_current = version_4;
+	static unsigned constexpr version_current = version_4;
 	static nano::uint256_union const version_special;
 	static nano::uint256_union const wallet_key_special;
 	static nano::uint256_union const salt_special;

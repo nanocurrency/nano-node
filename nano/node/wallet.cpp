@@ -1619,6 +1619,27 @@ thread ([this]() {
 			}
 		}
 	}
+	// Backup before upgrade wallets
+	bool backup_required (false);
+	if (node.config.backup_before_upgrade)
+	{
+		auto transaction (tx_begin_read ());
+		for (auto & item : items)
+		{
+			if (item.second->store.version (transaction) != nano::wallet_store::version_current)
+			{
+				backup_required = true;
+				break;
+			}
+		}
+	}
+	if (backup_required)
+	{
+		const char * store_path;
+		mdb_env_get_path (env, &store_path);
+		const boost::filesystem::path path (store_path);
+		nano::mdb_store::create_backup_file (env, path, node_a.logger);
+	}
 	for (auto & item : items)
 	{
 		item.second->enter_initial_password ();
