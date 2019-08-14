@@ -48,6 +48,12 @@ bool nano::block_processor::full ()
 	return (blocks.size () + state_blocks.size ()) > node.flags.block_processor_full_size;
 }
 
+bool nano::block_processor::half_full ()
+{
+	std::unique_lock<std::mutex> lock (mutex);
+	return (blocks.size () + state_blocks.size ()) > node.flags.block_processor_full_size / 2;
+}
+
 void nano::block_processor::add (std::shared_ptr<nano::block> block_a, uint64_t origination)
 {
 	nano::unchecked_info info (block_a, 0, origination, nano::signature_verification::unknown);
