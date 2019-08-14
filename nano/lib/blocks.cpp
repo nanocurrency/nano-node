@@ -227,12 +227,12 @@ bool nano::send_block::deserialize (nano::stream & stream_a)
 	return error;
 }
 
-void nano::send_block::serialize_json (std::string & string_a) const
+void nano::send_block::serialize_json (std::string & string_a, bool single_line) const
 {
 	boost::property_tree::ptree tree;
 	serialize_json (tree);
 	std::stringstream ostream;
-	boost::property_tree::write_json (ostream, tree);
+	boost::property_tree::write_json (ostream, tree, !single_line);
 	string_a = ostream.str ();
 }
 
@@ -547,12 +547,12 @@ bool nano::open_block::deserialize (nano::stream & stream_a)
 	return error;
 }
 
-void nano::open_block::serialize_json (std::string & string_a) const
+void nano::open_block::serialize_json (std::string & string_a, bool single_line) const
 {
 	boost::property_tree::ptree tree;
 	serialize_json (tree);
 	std::stringstream ostream;
-	boost::property_tree::write_json (ostream, tree);
+	boost::property_tree::write_json (ostream, tree, !single_line);
 	string_a = ostream.str ();
 }
 
@@ -789,12 +789,12 @@ bool nano::change_block::deserialize (nano::stream & stream_a)
 	return error;
 }
 
-void nano::change_block::serialize_json (std::string & string_a) const
+void nano::change_block::serialize_json (std::string & string_a, bool single_line) const
 {
 	boost::property_tree::ptree tree;
 	serialize_json (tree);
 	std::stringstream ostream;
-	boost::property_tree::write_json (ostream, tree);
+	boost::property_tree::write_json (ostream, tree, !single_line);
 	string_a = ostream.str ();
 }
 
@@ -1077,12 +1077,12 @@ bool nano::state_block::deserialize (nano::stream & stream_a)
 	return error;
 }
 
-void nano::state_block::serialize_json (std::string & string_a) const
+void nano::state_block::serialize_json (std::string & string_a, bool single_line) const
 {
 	boost::property_tree::ptree tree;
 	serialize_json (tree);
 	std::stringstream ostream;
-	boost::property_tree::write_json (ostream, tree);
+	boost::property_tree::write_json (ostream, tree, !single_line);
 	string_a = ostream.str ();
 }
 
@@ -1349,12 +1349,12 @@ bool nano::receive_block::deserialize (nano::stream & stream_a)
 	return error;
 }
 
-void nano::receive_block::serialize_json (std::string & string_a) const
+void nano::receive_block::serialize_json (std::string & string_a, bool single_line) const
 {
 	boost::property_tree::ptree tree;
 	serialize_json (tree);
 	std::stringstream ostream;
-	boost::property_tree::write_json (ostream, tree);
+	boost::property_tree::write_json (ostream, tree, !single_line);
 	string_a = ostream.str ();
 }
 

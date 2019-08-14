@@ -77,7 +77,7 @@ public:
 	virtual nano::block_hash link () const;
 	virtual nano::account representative () const;
 	virtual void serialize (nano::stream &) const = 0;
-	virtual void serialize_json (std::string &) const = 0;
+	virtual void serialize_json (std::string &, bool = false) const = 0;
 	virtual void serialize_json (boost::property_tree::ptree &) const = 0;
 	virtual void visit (nano::block_visitor &) const = 0;
 	virtual bool operator== (nano::block const &) const = 0;
@@ -117,7 +117,7 @@ public:
 	nano::block_hash root () const override;
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
-	void serialize_json (std::string &) const override;
+	void serialize_json (std::string &, bool = false) const override;
 	void serialize_json (boost::property_tree::ptree &) const override;
 	bool deserialize_json (boost::property_tree::ptree const &);
 	void visit (nano::block_visitor &) const override;
@@ -161,7 +161,7 @@ public:
 	nano::block_hash root () const override;
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
-	void serialize_json (std::string &) const override;
+	void serialize_json (std::string &, bool = false) const override;
 	void serialize_json (boost::property_tree::ptree &) const override;
 	bool deserialize_json (boost::property_tree::ptree const &);
 	void visit (nano::block_visitor &) const override;
@@ -209,7 +209,7 @@ public:
 	nano::account representative () const override;
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
-	void serialize_json (std::string &) const override;
+	void serialize_json (std::string &, bool = false) const override;
 	void serialize_json (boost::property_tree::ptree &) const override;
 	bool deserialize_json (boost::property_tree::ptree const &);
 	void visit (nano::block_visitor &) const override;
@@ -253,7 +253,7 @@ public:
 	nano::account representative () const override;
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
-	void serialize_json (std::string &) const override;
+	void serialize_json (std::string &, bool = false) const override;
 	void serialize_json (boost::property_tree::ptree &) const override;
 	bool deserialize_json (boost::property_tree::ptree const &);
 	void visit (nano::block_visitor &) const override;
@@ -312,7 +312,7 @@ public:
 	nano::account representative () const override;
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
-	void serialize_json (std::string &) const override;
+	void serialize_json (std::string &, bool = false) const override;
 	void serialize_json (boost::property_tree::ptree &) const override;
 	bool deserialize_json (boost::property_tree::ptree const &);
 	void visit (nano::block_visitor &) const override;
