@@ -375,9 +375,9 @@ class bulk_push_server final : public std::enable_shared_from_this<nano::bulk_pu
 {
 public:
 	explicit bulk_push_server (std::shared_ptr<nano::bootstrap_server> const &);
+	void throttled_receive ();
 	void receive ();
 	void received_type ();
-	void throttled_received_block (boost::system::error_code const &, size_t, nano::block_type);
 	void received_block (boost::system::error_code const &, size_t, nano::block_type);
 	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
 	std::shared_ptr<nano::bootstrap_server> connection;
