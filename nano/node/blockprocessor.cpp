@@ -42,16 +42,20 @@ void nano::block_processor::flush ()
 	}
 }
 
-bool nano::block_processor::full ()
+size_t nano::block_processor::size ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	return (blocks.size () + state_blocks.size ()) > node.flags.block_processor_full_size;
+	return (blocks.size () + state_blocks.size () + forced.size ());
+}
+
+bool nano::block_processor::full ()
+{
+	return size () > node.flags.block_processor_full_size;
 }
 
 bool nano::block_processor::half_full ()
 {
-	std::unique_lock<std::mutex> lock (mutex);
-	return (blocks.size () + state_blocks.size ()) > node.flags.block_processor_full_size / 2;
+	return size () > node.flags.block_processor_full_size / 2;
 }
 
 void nano::block_processor::add (std::shared_ptr<nano::block> block_a, uint64_t origination)

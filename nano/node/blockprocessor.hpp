@@ -37,6 +37,7 @@ public:
 	~block_processor ();
 	void stop ();
 	void flush ();
+	size_t size ();
 	bool full ();
 	bool half_full ();
 	void add (nano::unchecked_info const &);

@@ -3056,7 +3056,6 @@ connection (connection_a)
 	receive_buffer->resize (256);
 }
 
-
 void nano::bulk_push_server::throttled_receive ()
 {
 	if (!connection->node->block_processor.half_full ())
