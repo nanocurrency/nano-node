@@ -1703,7 +1703,9 @@ TEST (node, rep_self_vote)
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
 	node_config.online_weight_minimum = std::numeric_limits<nano::uint128_t>::max ();
-	auto node0 = system.add_node (node_config);
+	nano::node_flags node_flags;
+	node_flags.delay_frontier_confirmation_height_updating = true;
+	auto node0 = system.add_node (node_config, node_flags);
 	nano::keypair rep_big;
 	{
 		auto transaction0 (node0->store.tx_begin_write ());
