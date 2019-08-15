@@ -20,6 +20,7 @@ add_library (nano_lib
 	blocks.cpp
 	config.hpp
 	config.cpp
+	configbase.hpp
 	errors.hpp
 	errors.cpp
 	ipc.hpp
@@ -36,9 +37,11 @@ add_library (nano_lib
 	rpc_handler_interface.hpp
 	rpcconfig.hpp
 	rpcconfig.cpp
+	walletconfig.hpp
 	stats.hpp
 	stats.cpp
 	timer.hpp
+	tomlconfig.hpp
 	utility.hpp
 	utility.cpp
 	work.hpp

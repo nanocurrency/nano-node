@@ -16,6 +16,7 @@
 
 namespace nano
 {
+class tomlconfig;
 /**
  * Node configuration
  */
@@ -26,6 +27,8 @@ public:
 	node_config (uint16_t, nano::logging const &);
 	nano::error serialize_json (nano::jsonconfig &) const;
 	nano::error deserialize_json (bool &, nano::jsonconfig &);
+	nano::error serialize_toml (nano::tomlconfig &) const;
+	nano::error deserialize_toml (nano::tomlconfig &);
 	bool upgrade_json (unsigned, nano::jsonconfig &);
 	nano::account random_representative ();
 	nano::network_params network_params;

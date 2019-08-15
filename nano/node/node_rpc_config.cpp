@@ -2,6 +2,7 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/rpcconfig.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/node/node_rpc_config.hpp>
 
 nano::error nano::node_rpc_config::serialize_json (nano::jsonconfig & json) const
@@ -15,6 +16,39 @@ nano::error nano::node_rpc_config::serialize_json (nano::jsonconfig & json) cons
 	child_process_l.put ("rpc_path", child_process.rpc_path);
 	json.put_child ("child_process", child_process_l);
 	return json.get_error ();
+}
+
+nano::error nano::node_rpc_config::serialize_toml (nano::tomlconfig & toml) const
+{
+	toml.put ("enable_sign_hash", enable_sign_hash);
+	toml.put ("max_work_generate_difficulty", nano::to_string_hex (max_work_generate_difficulty));
+
+	nano::tomlconfig child_process_l;
+	child_process_l.put ("enable", child_process.enable);
+	child_process_l.put ("rpc_path", child_process.rpc_path);
+	toml.put_child ("child_process", child_process_l);
+	return toml.get_error ();
+}
+
+nano::error nano::node_rpc_config::deserialize_toml (nano::tomlconfig & toml)
+{
+	toml.get_optional ("enable_sign_hash", enable_sign_hash);
+	toml.get_optional<bool> ("enable_sign_hash", enable_sign_hash);
+	std::string max_work_generate_difficulty_text;
+	toml.get_optional<std::string> ("max_work_generate_difficulty", max_work_generate_difficulty_text);
+	if (!max_work_generate_difficulty_text.empty ())
+	{
+		nano::from_string_hex (max_work_generate_difficulty_text, max_work_generate_difficulty);
+	}
+
+	auto child_process_l (toml.get_optional_child ("child_process"));
+	if (child_process_l)
+	{
+		child_process_l->get_optional<bool> ("enable", child_process.enable);
+		child_process_l->get_optional<std::string> ("rpc_path", child_process.rpc_path);
+	}
+
+	return toml.get_error ();
 }
 
 nano::error nano::node_rpc_config::deserialize_json (bool & upgraded_a, nano::jsonconfig & json, boost::filesystem::path const & data_path)
