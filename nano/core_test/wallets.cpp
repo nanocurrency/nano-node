@@ -84,9 +84,8 @@ TEST (wallets, upgrade)
 	auto path (nano::unique_path ());
 	nano::keypair id;
 	{
-		nano::node_init init1;
-		auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, path, system.alarm, system.logging, system.work));
-		ASSERT_FALSE (init1.error ());
+		auto node1 (std::make_shared<nano::node> (system.io_ctx, 24001, path, system.alarm, system.logging, system.work));
+		ASSERT_FALSE (node1->init_error ());
 		bool error (false);
 		nano::wallets wallets (error, *node1);
 		wallets.create (id.pub);
@@ -105,8 +104,7 @@ TEST (wallets, upgrade)
 		(void)status;
 		assert (status == 0);
 	}
-	nano::node_init init1;
-	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, path, system.alarm, system.logging, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, 24001, path, system.alarm, system.logging, system.work));
 	ASSERT_EQ (1, node1->wallets.items.size ());
 	ASSERT_EQ (id.pub, node1->wallets.items.begin ()->first);
 	auto transaction_new (node1->wallets.env.tx_begin_write ());

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/rep_weights.hpp>
 #include <nano/secure/blockstore.hpp>
 
 namespace nano
@@ -23,7 +24,7 @@ public:
 	 * If using a different store version than the latest then you may need
 	 * to modify some of the objects in the store to be appropriate for the version before an upgrade.
 	 */
-	void initialize (nano::transaction const & transaction_a, nano::genesis const & genesis_a) override
+	void initialize (nano::transaction const & transaction_a, nano::genesis const & genesis_a, nano::rep_weights & rep_weights) override
 	{
 		auto hash_l (genesis_a.hash ());
 		assert (latest_v0_begin (transaction_a) == latest_v0_end ());
@@ -32,7 +33,7 @@ public:
 		block_put (transaction_a, hash_l, *genesis_a.open, sideband);
 		confirmation_height_put (transaction_a, network_params.ledger.genesis_account, 1);
 		account_put (transaction_a, network_params.ledger.genesis_account, { hash_l, genesis_a.open->hash (), genesis_a.open->hash (), std::numeric_limits<nano::uint128_t>::max (), nano::seconds_since_epoch (), 1, nano::epoch::epoch_0 });
-		representation_put (transaction_a, network_params.ledger.genesis_account, std::numeric_limits<nano::uint128_t>::max ());
+		rep_weights.representation_put (network_params.ledger.genesis_account, std::numeric_limits<nano::uint128_t>::max ());
 		frontier_put (transaction_a, hash_l, network_params.ledger.genesis_account);
 	}
 
@@ -42,15 +43,6 @@ public:
 		auto block (block_get (transaction_a, hash_a, &sideband));
 		nano::uint128_t result (block_balance_calculated (block, sideband));
 		return result;
-	}
-
-	void representation_add (nano::transaction const & transaction_a, nano::block_hash const & source_a, nano::uint128_t const & amount_a) override
-	{
-		auto source_block (block_get (transaction_a, source_a));
-		assert (source_block != nullptr);
-		auto source_rep (source_block->representative ());
-		auto source_previous (representation_get (transaction_a, source_rep));
-		representation_put (transaction_a, source_rep, source_previous + amount_a);
 	}
 
 	bool account_exists (nano::transaction const & transaction_a, nano::account const & account_a) override
@@ -327,11 +319,6 @@ public:
 		return result;
 	}
 
-	nano::store_iterator<nano::account, nano::uint128_union> representation_end () override
-	{
-		return nano::store_iterator<nano::account, nano::uint128_union> (nullptr);
-	}
-
 	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_end () override
 	{
 		return nano::store_iterator<nano::unchecked_key, nano::unchecked_info> (nullptr);
@@ -529,31 +516,6 @@ public:
 	void frontier_del (nano::transaction const & transaction_a, nano::block_hash const & block_a) override
 	{
 		auto status (del (transaction_a, tables::frontiers, block_a));
-		release_assert (success (status));
-	}
-
-	nano::uint128_t representation_get (nano::transaction const & transaction_a, nano::account const & account_a) override
-	{
-		nano::db_val<Val> value;
-		auto status (get (transaction_a, tables::representation, nano::db_val<Val> (account_a), value));
-		release_assert (success (status) || not_found (status));
-		nano::uint128_t result = 0;
-		if (success (status))
-		{
-			nano::uint128_union rep;
-			nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
-			auto error (nano::try_read (stream, rep));
-			(void)error;
-			assert (!error);
-			result = rep.number ();
-		}
-		return result;
-	}
-
-	void representation_put (nano::transaction const & transaction_a, nano::account const & account_a, nano::uint128_union const & representation_a) override
-	{
-		nano::db_val<Val> rep (representation_a);
-		auto status (put (transaction_a, tables::representation, account_a, rep));
 		release_assert (success (status));
 	}
 
@@ -902,11 +864,6 @@ public:
 	nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const & transaction_a) override
 	{
 		return make_merge_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending_v0, tables::pending_v1);
-	}
-
-	nano::store_iterator<nano::account, nano::uint128_union> representation_begin (nano::transaction const & transaction_a) override
-	{
-		return make_iterator<nano::account, nano::uint128_union> (transaction_a, tables::representation);
 	}
 
 	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const & transaction_a) override

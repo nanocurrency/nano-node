@@ -1875,8 +1875,7 @@ TEST (rpc, process_subtype_receive)
 TEST (rpc, keepalive)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
-	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 	node1->start ();
 	system.nodes.push_back (node1);
 	auto node = system.nodes.front ();
@@ -5888,7 +5887,6 @@ TEST (rpc, block_confirm_absent)
 TEST (rpc, block_confirm_confirmed)
 {
 	nano::system system (24000, 1);
-	nano::node_init init;
 	auto path (nano::unique_path ());
 	nano::node_config config;
 	config.peering_port = 24001;
@@ -5896,7 +5894,7 @@ TEST (rpc, block_confirm_confirmed)
 	config.callback_port = 24002;
 	config.callback_target = "/";
 	config.logging.init (path);
-	auto node (std::make_shared<nano::node> (init, system.io_ctx, path, system.alarm, config, system.work));
+	auto node (std::make_shared<nano::node> (system.io_ctx, path, system.alarm, config, system.work));
 	node->start ();
 	system.nodes.push_back (node);
 	nano::genesis genesis;

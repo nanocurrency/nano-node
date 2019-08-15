@@ -886,9 +886,8 @@ TEST (wallet, upgrade_backup)
 
 	nano::keypair id;
 	{
-		nano::node_init init1;
-		auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, dir, system.alarm, system.logging, system.work));
-		ASSERT_FALSE (init1.error ());
+		auto node1 (std::make_shared<nano::node> (system.io_ctx, 24001, dir, system.alarm, system.logging, system.work));
+		ASSERT_FALSE (node1->init_error ());
 		auto wallet (node1->wallets.create (id.pub));
 		ASSERT_NE (nullptr, wallet);
 		auto transaction (node1->wallets.tx_begin_write ());
@@ -898,13 +897,12 @@ TEST (wallet, upgrade_backup)
 
 	// Check with config backup_before_upgrade = false
 	{
-		nano::node_init init1;
-		auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, dir, system.alarm, system.logging, system.work));
-		ASSERT_FALSE (init1.error ());
+		auto node1 (std::make_shared<nano::node> (system.io_ctx, 24001, dir, system.alarm, system.logging, system.work));
+		ASSERT_FALSE (node1->init_error ());
 		auto wallet (node1->wallets.open (id.pub));
 		ASSERT_NE (nullptr, wallet);
 		auto transaction (node1->wallets.tx_begin_write ());
-		ASSERT_LT (3, wallet->store.version (transaction));
+		ASSERT_LT (3u, wallet->store.version (transaction));
 		wallet->store.version_put (transaction, 3);
 	}
 	ASSERT_EQ (get_backup_path ().string (), dir.string ());
@@ -913,13 +911,12 @@ TEST (wallet, upgrade_backup)
 	{
 		nano::node_config node_config (24001, system.logging);
 		node_config.backup_before_upgrade = true;
-		nano::node_init init1;
-		auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, dir, system.alarm, node_config, system.work));
-		ASSERT_FALSE (init1.error ());
+		auto node1 (std::make_shared<nano::node> (system.io_ctx, dir, system.alarm, node_config, system.work));
+		ASSERT_FALSE (node1->init_error ());
 		auto wallet (node1->wallets.open (id.pub));
 		ASSERT_NE (nullptr, wallet);
 		auto transaction (node1->wallets.tx_begin_read ());
-		ASSERT_LT (3, wallet->store.version (transaction));
+		ASSERT_LT (3u, wallet->store.version (transaction));
 	}
 	ASSERT_NE (get_backup_path ().string (), dir.string ());
 }

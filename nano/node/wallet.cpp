@@ -2010,10 +2010,16 @@ nano::store_iterator<nano::uint256_union, nano::wallet_value> nano::wallet_store
 {
 	return nano::store_iterator<nano::uint256_union, nano::wallet_value> (nullptr);
 }
-nano::mdb_wallets_store::mdb_wallets_store (bool & error_a, boost::filesystem::path const & path_a, int lmdb_max_dbs) :
-environment (error_a, path_a, lmdb_max_dbs, false, 1ULL * 1024 * 1024 * 1024)
+nano::mdb_wallets_store::mdb_wallets_store (boost::filesystem::path const & path_a, int lmdb_max_dbs) :
+environment (error, path_a, lmdb_max_dbs, false, 1ULL * 1024 * 1024 * 1024)
 {
 }
+
+bool nano::mdb_wallets_store::init_error () const
+{
+	return error;
+}
+
 MDB_txn * nano::wallet_store::tx (nano::transaction const & transaction_a) const
 {
 	return static_cast<MDB_txn *> (transaction_a.get_handle ());
@@ -2035,7 +2041,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (wallets & wallets,
 	auto sizeof_item_element = sizeof (decltype (wallets.items)::value_type);
 	auto sizeof_actions_element = sizeof (decltype (wallets.actions)::value_type);
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "items", items_count, sizeof_item_element }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "actions_count", actions_count, sizeof_actions_element }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "actions", actions_count, sizeof_actions_element }));
 	return composite;
 }
 }

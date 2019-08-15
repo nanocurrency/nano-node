@@ -1784,7 +1784,7 @@ void nano::json_handler::confirmation_info ()
 						if (i->second->hash () == ii->second.hash)
 						{
 							nano::account const & representative (ii->first);
-							auto amount (node.store.representation_get (transaction, representative));
+							auto amount (node.ledger.rep_weights.representation_get (representative));
 							representatives.emplace (std::move (amount), representative);
 						}
 					}
@@ -3100,30 +3100,37 @@ void nano::json_handler::representatives ()
 	{
 		const bool sorting = request.get<bool> ("sorting", false);
 		boost::property_tree::ptree representatives;
-		auto transaction (node.store.tx_begin_read ());
+		auto rep_amounts = node.ledger.rep_weights.get_rep_amounts ();
 		if (!sorting) // Simple
 		{
-			for (auto i (node.store.representation_begin (transaction)), n (node.store.representation_end ()); i != n && representatives.size () < count; ++i)
+			std::map<nano::account, nano::uint128_t> ordered (rep_amounts.begin (), rep_amounts.end ());
+			for (auto & rep_amount : rep_amounts)
 			{
-				nano::account const & account (i->first);
-				auto amount (node.store.representation_get (transaction, account));
+				auto const & account (rep_amount.first);
+				auto const & amount (rep_amount.second);
 				representatives.put (account.to_account (), amount.convert_to<std::string> ());
+
+				if (representatives.size () > count)
+				{
+					break;
+				}
 			}
 		}
 		else // Sorting
 		{
-			std::vector<std::pair<nano::uint128_union, std::string>> representation;
-			for (auto i (node.store.representation_begin (transaction)), n (node.store.representation_end ()); i != n; ++i)
+			std::vector<std::pair<nano::uint128_t, std::string>> representation;
+
+			for (auto & rep_amount : rep_amounts)
 			{
-				nano::account const & account (i->first);
-				auto amount (node.store.representation_get (transaction, account));
-				representation.push_back (std::make_pair (amount, account.to_account ()));
+				auto const & account (rep_amount.first);
+				auto const & amount (rep_amount.second);
+				representation.emplace_back (amount, account.to_account ());
 			}
 			std::sort (representation.begin (), representation.end ());
 			std::reverse (representation.begin (), representation.end ());
 			for (auto i (representation.begin ()), n (representation.end ()); i != n && representatives.size () < count; ++i)
 			{
-				representatives.put (i->second, (i->first).number ().convert_to<std::string> ());
+				representatives.put (i->second, (i->first).convert_to<std::string> ());
 			}
 		}
 		response_l.add_child ("representatives", representatives);

@@ -235,11 +235,14 @@ class wallets_store
 {
 public:
 	virtual ~wallets_store () = default;
+	virtual bool init_error () const = 0;
 };
 class mdb_wallets_store final : public wallets_store
 {
 public:
-	mdb_wallets_store (bool &, boost::filesystem::path const &, int lmdb_max_dbs = 128);
+	mdb_wallets_store (boost::filesystem::path const &, int lmdb_max_dbs = 128);
 	nano::mdb_env environment;
+	bool init_error () const override;
+	bool error{ false };
 };
 }

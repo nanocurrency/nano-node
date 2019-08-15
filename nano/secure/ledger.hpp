@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/config.hpp>
+#include <nano/lib/rep_weights.hpp>
 #include <nano/secure/common.hpp>
 
 namespace nano
@@ -47,11 +48,15 @@ public:
 	void dump_account_chain (nano::account const &);
 	bool could_fit (nano::transaction const &, nano::block const &);
 	bool is_epoch_link (nano::uint256_union const &);
+	void set_bootstrap_weight (nano::account const & account, nano::uint128_t const & weight);
+	//	std::unordered_map<nano::account, nano::uint128_t> construct_reps ();
 	static nano::uint128_t const unit;
 	nano::network_params network_params;
 	nano::block_store & store;
+	nano::rep_weights rep_weights;
 	nano::stat & stats;
 	std::unordered_map<nano::account, nano::uint128_t> bootstrap_weights;
+	std::atomic<size_t> bootstrap_weights_size{ 0 };
 	uint64_t bootstrap_weight_max_blocks{ 1 };
 	std::atomic<bool> check_bootstrap_weights;
 	nano::uint256_union epoch_link;
