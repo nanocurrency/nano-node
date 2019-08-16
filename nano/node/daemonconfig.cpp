@@ -16,7 +16,7 @@ nano::error nano::daemon_config::serialize_toml (nano::tomlconfig & toml)
 {
 	nano::tomlconfig rpc_l;
 	rpc.serialize_toml (rpc_l);
-	rpc_l.doc ("enable", "Enable or disable RPC.\ntype:bool");
+	rpc_l.doc ("enable", "Enable or disable RPC\ntype:bool");
 	rpc_l.put ("enable", rpc_enable);
 	toml.put_child ("rpc", rpc_l);
 
@@ -27,7 +27,7 @@ nano::error nano::daemon_config::serialize_toml (nano::tomlconfig & toml)
 
 	nano::tomlconfig opencl_l;
 	opencl.serialize_toml (opencl_l);
-	opencl_l.doc ("enable", "Enable or disable OpenCL work generation.\ntype:bool");
+	opencl_l.doc ("enable", "Enable or disable OpenCL work generation\ntype:bool");
 	opencl_l.put ("enable", opencl_enable);
 	toml.put_child ("opencl", opencl_l);
 

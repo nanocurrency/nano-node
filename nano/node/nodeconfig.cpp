@@ -65,36 +65,36 @@ logging (logging_a)
 
 nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 {
-	toml.put ("peering_port", peering_port, "Node peering port.\ntype:uint16");
-	toml.put ("bootstrap_fraction_numerator", bootstrap_fraction_numerator);
-	toml.put ("receive_minimum", receive_minimum.to_string_dec (), "Minimum receive amount.\ntype:string,amount,raw");
-	toml.put ("online_weight_minimum", online_weight_minimum.to_string_dec (), "Online weight minimum required to confirm block.\ntype:string,amount,raw");
-	toml.put ("online_weight_quorum", online_weight_quorum, "Percentage of votes required to rollback blocks.\ntype:uint64");
-	toml.put ("password_fanout", password_fanout, "Password fanout factor.\ntype:uint64");
-	toml.put ("io_threads", io_threads, "Number of threads dedicated to I/O opeations.\ntype:uint64");
-	toml.put ("network_threads", network_threads, "Number of threads dedicated to processing network messages.\ntype:uint64");
-	toml.put ("work_threads", work_threads, "Number of threads dedicated to CPU generated work. Defaults to all available CPU threads; set lower value for 24/7 services.\ntype:uint64");
-	toml.put ("signature_checker_threads", signature_checker_threads, "Number of additional threads dedicated to signature verification.\ntype:uint64");
+	toml.put ("peering_port", peering_port, "Node peering port\ntype:uint16");
+	toml.put ("bootstrap_fraction_numerator", bootstrap_fraction_numerator, "Change bootstrap threshold (online stake / 256 * bootstrap_fraction_numerator)\ntype:uint32");
+	toml.put ("receive_minimum", receive_minimum.to_string_dec (), "Minimum receive amount\ntype:string,amount,raw");
+	toml.put ("online_weight_minimum", online_weight_minimum.to_string_dec (), "Online weight minimum required to confirm block\ntype:string,amount,raw");
+	toml.put ("online_weight_quorum", online_weight_quorum, "Percentage of votes required to rollback blocks\ntype:uint64");
+	toml.put ("password_fanout", password_fanout, "Password fanout factor\ntype:uint64");
+	toml.put ("io_threads", io_threads, "Number of threads dedicated to I/O opeations\ntype:uint64");
+	toml.put ("network_threads", network_threads, "Number of threads dedicated to processing network messages\ntype:uint64");
+	toml.put ("work_threads", work_threads, "Number of threads dedicated to CPU generated work. Defaults to all available CPU threads.\ntype:uint64");
+	toml.put ("signature_checker_threads", signature_checker_threads, "Number of additional threads dedicated to signature verification\ntype:uint64");
 	toml.put ("enable_voting", enable_voting, "Enable or disable voting. Enabling voting requires additional system resources.\ntype:bool");
 	toml.put ("bootstrap_connections", bootstrap_connections, "Number of outbound bootstrap connections. Must be a power of 2.\ntype:uint64");
-	toml.put ("bootstrap_connections_max", bootstrap_connections_max, "Maximum number of inbound bootstrap connections.\ntype:uint64");
+	toml.put ("bootstrap_connections_max", bootstrap_connections_max, "Maximum number of inbound bootstrap connections\ntype:uint64");
 	toml.put ("lmdb_max_dbs", lmdb_max_dbs, "Maximum open lmdb databases. Increase default if more than 100 wallets is required.\ntype:uint64");
-	toml.put ("block_processor_batch_max_time", block_processor_batch_max_time.count (), "The maximum time the block processor can process blocks at a time.\ntype:milliseconds");
-	toml.put ("allow_local_peers", allow_local_peers, "Enable or disable local host peering.\ntype:bool");
-	toml.put ("vote_minimum", vote_minimum.to_string_dec (), "Do not vote if delegated weight is under this threshold.\ntype:string,amount,raw");
+	toml.put ("block_processor_batch_max_time", block_processor_batch_max_time.count (), "The maximum time the block processor can process blocks at a time\ntype:milliseconds");
+	toml.put ("allow_local_peers", allow_local_peers, "Enable or disable local host peering\ntype:bool");
+	toml.put ("vote_minimum", vote_minimum.to_string_dec (), "Do not vote if delegated weight is under this threshold\ntype:string,amount,raw");
 	toml.put ("vote_generator_delay", vote_generator_delay.count (), "Delay before votes are sent to allow for better bundling of hashes in votes.\nHigh performance nodes may need slightly higher values to optimize vote bandwidth.\ntype:milliseconds");
-	toml.put ("vote_generator_threshold", vote_generator_threshold, "Number of bundled hashes required for an additional generator delay.\ntype:uint64,[1..11]");
-	toml.put ("unchecked_cutoff_time", unchecked_cutoff_time.count (), "Number of seconds unchecked entry survives before being cleaned.\ntype:seconds");
-	toml.put ("tcp_io_timeout", tcp_io_timeout.count (), "Timeout for TCP connect-, read- and write operations.\ntype:seconds");
+	toml.put ("vote_generator_threshold", vote_generator_threshold, "Number of bundled hashes required for an additional generator delay\ntype:uint64,[1..11]");
+	toml.put ("unchecked_cutoff_time", unchecked_cutoff_time.count (), "Number of seconds unchecked entry survives before being cleaned\ntype:seconds");
+	toml.put ("tcp_io_timeout", tcp_io_timeout.count (), "Timeout for TCP connect-, read- and write operations\ntype:seconds");
 	toml.put ("pow_sleep_interval", pow_sleep_interval.count (), "The amount to sleep after each batch of POW calculations. Reduces max CPU usage at the expensive of a longer.\ntype:nanoseconds");
-	toml.put ("external_address", external_address.to_string (), "The external address of this node (NAT)\ntype:string,ip");
-	toml.put ("external_port", external_port, "The external port number of this node (NAT)\ntype:uint16");
-	toml.put ("tcp_incoming_connections_max", tcp_incoming_connections_max, "Maximum number of incoming TCP connections.\ntype:uint64");
+	toml.put ("external_address", external_address.to_string (), "The external address of this node (NAT). If not set, the node will request this information via UPnP.\ntype:string,ip");
+	toml.put ("external_port", external_port, "The external port number of this node (NAT). If not set, the node will request this information via UPnP.\ntype:uint16");
+	toml.put ("tcp_incoming_connections_max", tcp_incoming_connections_max, "Maximum number of incoming TCP connections\ntype:uint64");
 	toml.put ("use_memory_pools", use_memory_pools, "If true, allocate memory from memory pools. Enabling this may improve performance. Memory is never released to the OS.\ntype:bool");
-	toml.put ("confirmation_history_size", confirmation_history_size, "Controls confirmation history size, default setting preserves existing behavior.\ntype:uint64");
-	toml.put ("active_elections_size", active_elections_size, "Limits number of active elections in container before dropping will be considered (other conditions must also be satisfied).\ntype:uint64,[250..]");
-	toml.put ("bandwidth_limit", bandwidth_limit, "Outbound voting traffic limit in bytes/sec after which messages will be dropped.\ntype:uint64");
-	toml.put ("backup_before_upgrade", backup_before_upgrade, "Backup the ledger database before performing upgrades.\ntype:bool");
+	toml.put ("confirmation_history_size", confirmation_history_size, "Maximum confirmation history size\ntype:uint64");
+	toml.put ("active_elections_size", active_elections_size, "Limits number of active elections before dropping will be considered (other conditions must also be satisfied)\ntype:uint64,[250..]");
+	toml.put ("bandwidth_limit", bandwidth_limit, "Outbound traffic limit in bytes/sec after which messages will be dropped\ntype:uint64");
+	toml.put ("backup_before_upgrade", backup_before_upgrade, "Backup the ledger database before performing upgrades\ntype:bool");
 
 	auto work_peers_l (toml.create_array ("work_peers", "A list of \"address:port\" entries to identify work peers"));
 	for (auto i (work_peers.begin ()), n (work_peers.end ()); i != n; ++i)
@@ -114,10 +114,10 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 		preconfigured_representatives_l->push_back (i->to_account ());
 	}
 	nano::tomlconfig callback_l;
-	callback_l.put ("address", callback_address, "HTTP callback address.\ntype:string,ip");
-	callback_l.put ("port", callback_port, "HTTP callback port number.\ntype:uint16");
-	callback_l.put ("target", callback_target, "HTTP callback target path.\ntype:string");
-	toml.put_child ("callback", callback_l);
+	callback_l.put ("address", callback_address, "Callback address\ntype:string,ip");
+	callback_l.put ("port", callback_port, "Callback port number\ntype:uint16");
+	callback_l.put ("target", callback_target, "Callback target path\ntype:string,uri");
+	toml.put_child ("httpcallback", callback_l);
 
 	nano::tomlconfig logging_l;
 	logging.serialize_toml (logging_l);
@@ -146,6 +146,14 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 {
 	try
 	{
+		if (toml.has_key ("httpcallback"))
+		{
+			auto callback_l (toml.get_required_child ("httpcallback"));
+			toml.get<std::string> ("address", callback_address);
+			toml.get<uint16_t> ("port", callback_port);
+			toml.get<std::string> ("target", callback_target);
+		}
+
 		if (toml.has_key ("logging"))
 		{
 			auto logging_l (toml.get_required_child ("logging"));
@@ -265,9 +273,6 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get<unsigned> ("network_threads", network_threads);
 		toml.get<unsigned> ("bootstrap_connections", bootstrap_connections);
 		toml.get<unsigned> ("bootstrap_connections_max", bootstrap_connections_max);
-		toml.get<std::string> ("callback_address", callback_address);
-		toml.get<uint16_t> ("callback_port", callback_port);
-		toml.get<std::string> ("callback_target", callback_target);
 		toml.get<int> ("lmdb_max_dbs", lmdb_max_dbs);
 		toml.get<bool> ("enable_voting", enable_voting);
 		toml.get<bool> ("allow_local_peers", allow_local_peers);
@@ -305,7 +310,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		}
 		if (active_elections_size <= 250 && !network.is_test_network ())
 		{
-			toml.get_error ().set ("active_elections_size must be grater than 250");
+			toml.get_error ().set ("active_elections_size must be greater than 250");
 		}
 		if (bandwidth_limit > std::numeric_limits<size_t>::max ())
 		{
