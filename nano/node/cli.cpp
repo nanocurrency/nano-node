@@ -348,10 +348,6 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			std::cout << "Confirmation heights of all accounts (except genesis) are set to 0" << std::endl;
 		}
 	}
-	else if (vm.count ("config"))
-	{
-		// TODO: override config options
-	}
 	else if (vm.count ("generate_config"))
 	{
 		auto type = vm["generate_config"].as<std::string> ();

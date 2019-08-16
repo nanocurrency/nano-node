@@ -4,6 +4,9 @@
 #include <nano/lib/walletconfig.hpp>
 #include <nano/node/daemonconfig.hpp>
 
+#include <sstream>
+#include <vector>
+
 nano::daemon_config::daemon_config (boost::filesystem::path const & data_path_a) :
 data_path (data_path_a)
 {
@@ -127,7 +130,7 @@ nano::error nano::daemon_config::deserialize_json (bool & upgraded_a, nano::json
 
 namespace nano
 {
-nano::error read_node_config_toml (boost::filesystem::path const & data_path_a, nano::daemon_config & config_a)
+nano::error read_node_config_toml (boost::filesystem::path const & data_path_a, nano::daemon_config & config_a, std::vector<std::string> const & config_overrides)
 {
 	nano::error error;
 	auto json_config_path = nano::get_config_path (data_path_a);
@@ -199,10 +202,20 @@ nano::error read_node_config_toml (boost::filesystem::path const & data_path_a, 
 	// Parse and deserialize
 	nano::tomlconfig toml;
 
+	std::stringstream config_stream;
+	for (auto const & entry : config_overrides)
+	{
+		config_stream << entry << std::endl;
+	}
+
 	// Make sure we don't create an empty toml file if it doesn't exist. Running without a toml file is the default.
 	if (!error && boost::filesystem::exists (toml_config_path))
 	{
-		error = toml.read (toml_config_path);
+		toml.read (config_stream, toml_config_path);
+	}
+	else if (!error)
+	{
+		toml.read (config_stream);
 	}
 
 	if (!error)

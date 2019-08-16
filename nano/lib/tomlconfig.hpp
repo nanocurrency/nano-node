@@ -47,13 +47,19 @@ public:
 	 */
 	nano::error & read (boost::filesystem::path const & path_a)
 	{
+		std::stringstream stream_override_empty;
+		return read (stream_override_empty, path_a);
+	}
+
+	nano::error & read (std::istream & stream_overrides, boost::filesystem::path const & path_a)
+	{
 		std::fstream stream;
 		open_or_create (stream, path_a.string ());
 		if (!stream.fail ())
 		{
 			try
 			{
-				read (stream);
+				read (stream_overrides, stream);
 			}
 			catch (std::runtime_error const & ex)
 			{
@@ -81,15 +87,16 @@ public:
 		tree->accept (writer);
 	}
 
-	void read (std::istream & stream_base_a, std::istream & stream_override_a)
+	/** Read from two streams where keys in the first will take precedence over those in the second stream. */
+	void read (std::istream & stream_first_a, std::istream & stream_second_a)
 	{
-		tree = cpptoml::parse_base_and_override_files (stream_base_a, stream_override_a, true);
+		tree = cpptoml::parse_base_and_override_files (stream_first_a, stream_second_a, cpptoml::parser::merge_type::ignore, true);
 	}
 
 	void read (std::istream & stream_a)
 	{
 		std::stringstream stream_override_empty;
-		tree = cpptoml::parse_base_and_override_files (stream_a, stream_override_empty, true);
+		tree = cpptoml::parse_base_and_override_files (stream_a, stream_override_empty, cpptoml::parser::merge_type::ignore, true);
 	}
 
 	/** Open configuration file, create if necessary */
@@ -470,9 +477,7 @@ private:
 	/** The config node being managed */
 	std::shared_ptr<cpptoml::table> tree;
 
-	/**
-	 * Compare two stringified configs, remove keys where values are equal
-	 */
+	/** Compare two stringified configs, remove keys where values are equal */
 	void erase_defaults (std::shared_ptr<cpptoml::table> base, std::shared_ptr<cpptoml::table> other, std::shared_ptr<cpptoml::table> update_target)
 	{
 		std::vector<std::string> erased;
