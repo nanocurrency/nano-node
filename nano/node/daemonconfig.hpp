@@ -32,6 +32,6 @@ public:
 	}
 };
 
-nano::error read_node_config_toml (boost::filesystem::path const &, nano::daemon_config & config_a, std::vector<std::string> const & config_overrides);
+nano::error read_node_config_toml (boost::filesystem::path const &, nano::daemon_config & config_a, std::vector<std::string> const & config_overrides = std::vector<std::string> ());
 nano::error read_and_update_daemon_config (boost::filesystem::path const &, nano::daemon_config & config_a, nano::jsonconfig & json_a);
 }
