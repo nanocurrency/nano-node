@@ -295,22 +295,30 @@ TEST (toml, optional_child)
 
 TEST (toml, dot_child_syntax)
 {
+	std::stringstream ss_override;
+	ss_override << R"toml(
+		node.a = 1
+		node.b = 2
+	)toml";
+
 	std::stringstream ss;
 	ss << R"toml(
-	node.a=1
-	[node]
-	b=2
+		[node]
+		b=5
+		c=3
 	)toml";
 
 	nano::tomlconfig t;
-	t.read (ss);
+	t.read (ss_override, ss);
 
 	auto node = t.get_required_child ("node");
-	uint16_t a, b;
+	uint16_t a, b, c;
 	node.get<uint16_t> ("a", a);
 	ASSERT_EQ (a, 1);
 	node.get<uint16_t> ("b", b);
 	ASSERT_EQ (b, 2);
+	node.get<uint16_t> ("c", c);
+	ASSERT_EQ (c, 3);
 }
 
 TEST (toml, base_override)
@@ -327,7 +335,7 @@ TEST (toml, base_override)
 	)toml";
 
 	nano::tomlconfig t;
-	t.read (ss_base, ss_override);
+	t.read (ss_override, ss_base);
 
 	// Query optional existent value
 	uint16_t port = 0;
