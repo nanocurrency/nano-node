@@ -106,6 +106,8 @@ nano::error nano::logging::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("rotation_size", rotation_size, "Log file rotation size in character count\ntype:uint64");
 	toml.put ("flush", flush, "If enabled, immediately flush new entries to log file. This may negatively affect logging performance.\ntype:bool");
 	toml.put ("min_time_between_output", min_time_between_log_output.count (), "Minimum time that must pass for low priority entries to be logged\ntype:milliseconds");
+	toml.put ("single_line_record", single_line_record_value, "Keep log entries on single lines\ntype:bool");
+
 	return toml.get_error ();
 }
 
@@ -130,6 +132,7 @@ nano::error nano::logging::deserialize_toml (nano::tomlconfig & toml)
 	toml.get<bool> ("timing", timing_logging_value);
 	toml.get<bool> ("log_to_cerr", log_to_cerr_value);
 	toml.get<bool> ("flush", flush);
+	toml.get<bool> ("single_line_record", single_line_record_value);
 	toml.get<uintmax_t> ("max_size", max_size);
 	toml.get<uintmax_t> ("rotation_size", rotation_size);
 	uintmax_t min_time_between_log_output_raw;
