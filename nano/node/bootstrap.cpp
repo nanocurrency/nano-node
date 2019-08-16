@@ -364,8 +364,8 @@ void nano::bulk_pull_client::throttled_receive_block ()
 	else
 	{
 		auto this_l (shared_from_this ());
-		connection->node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this_l]() {
-			if (!this_l->connection->attempt->stopped)
+		connection->node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (1), [this_l]() {
+			if (!this_l->connection->stopped && !this_l->connection->attempt->stopped)
 			{
 				this_l->throttled_receive_block ();
 			}
@@ -497,7 +497,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 				to prevent spam */
 				if (connection->attempt->mode != nano::bootstrap_mode::legacy || unexpected_count < 16384)
 				{
-					receive_block ();
+					throttled_receive_block ();
 				}
 			}
 			else if (stop_pull && block_expected)
@@ -3065,8 +3065,11 @@ void nano::bulk_push_server::throttled_receive ()
 	else
 	{
 		auto this_l (shared_from_this ());
-		connection->node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this_l]() {
-			this_l->throttled_receive ();
+		connection->node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (1), [this_l]() {
+			if (!this_l->connection->stopped)
+			{
+				this_l->throttled_receive ();
+			}
 		});
 	}
 }
