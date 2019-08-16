@@ -48,6 +48,7 @@ public:
 	nano::error & read (boost::filesystem::path const & path_a)
 	{
 		std::stringstream stream_override_empty;
+		stream_override_empty << std::endl;
 		return read (stream_override_empty, path_a);
 	}
 
@@ -96,7 +97,8 @@ public:
 	void read (std::istream & stream_a)
 	{
 		std::stringstream stream_override_empty;
-		tree = cpptoml::parse_base_and_override_files (stream_a, stream_override_empty, cpptoml::parser::merge_type::ignore, true);
+		stream_override_empty << std::endl;
+		tree = cpptoml::parse_base_and_override_files (stream_override_empty, stream_a, cpptoml::parser::merge_type::ignore, true);
 	}
 
 	/** Open configuration file, create if necessary */

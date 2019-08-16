@@ -207,6 +207,7 @@ nano::error read_node_config_toml (boost::filesystem::path const & data_path_a, 
 	{
 		config_stream << entry << std::endl;
 	}
+	config_stream << std::endl;
 
 	// Make sure we don't create an empty toml file if it doesn't exist. Running without a toml file is the default.
 	if (!error && boost::filesystem::exists (toml_config_path))

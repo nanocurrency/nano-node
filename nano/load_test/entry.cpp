@@ -369,7 +369,7 @@ int main (int argc, char * const * argv)
 		("simultaneous_process_calls", boost::program_options::value<int> ()->default_value (20), "Number of simultaneous rpc sends to do")
 		("destination_count", boost::program_options::value<int> ()->default_value (2), "How many destination accounts to choose between")
 		("node_path", boost::program_options::value<std::string> (), "The path to the nano_node to test")
-		("rpc_path", boost::program_options::value<std::string> (), "The path to do nano_rpc to test");
+		("rpc_path", boost::program_options::value<std::string> (), "The path to the nano_rpc to test");
 	// clang-format on
 
 	boost::program_options::variables_map vm;
