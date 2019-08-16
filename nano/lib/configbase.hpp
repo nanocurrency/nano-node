@@ -94,5 +94,4 @@ protected:
 	/** If set, automatically construct error messages based on parameters and type information. */
 	bool auto_error_message{ true };
 };
-
 }
