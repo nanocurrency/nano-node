@@ -365,7 +365,7 @@ void nano::bulk_pull_client::throttled_receive_block ()
 	{
 		auto this_l (shared_from_this ());
 		connection->node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (1), [this_l]() {
-			if (!this_l->connection->stopped && !this_l->connection->attempt->stopped)
+			if (!this_l->connection->pending_stop && !this_l->connection->attempt->stopped)
 			{
 				this_l->throttled_receive_block ();
 			}
