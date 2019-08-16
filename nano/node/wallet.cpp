@@ -1424,9 +1424,6 @@ void nano::work_watcher::run ()
 	std::chrono::steady_clock::time_point next_attempt;
 	while (!stopped)
 	{
-		condition.wait_until (lock, next_attempt, [this, &next_attempt]() {
-			return stopped || next_attempt < std::chrono::steady_clock::now ();
-		});
 		next_attempt = std::chrono::steady_clock::now () + std::chrono::seconds (5);
 		for (auto i (blocks.begin ()), n (blocks.end ()); i != n;)
 		{
@@ -1520,6 +1517,10 @@ void nano::work_watcher::run ()
 				}
 			}
 		}
+
+		condition.wait_until (lock, next_attempt, [this, &next_attempt]() {
+			return stopped || next_attempt < std::chrono::steady_clock::now ();
+		});
 	} // !stopped
 }
 
