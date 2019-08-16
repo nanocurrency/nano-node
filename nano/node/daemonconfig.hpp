@@ -16,8 +16,8 @@ class daemon_config
 public:
 	daemon_config () = default;
 	daemon_config (boost::filesystem::path const & data_path);
-	[[deprecated]] nano::error deserialize_json (bool &, nano::jsonconfig &);
-	[[deprecated]] nano::error serialize_json (nano::jsonconfig &);
+	nano::error deserialize_json (bool &, nano::jsonconfig &);
+	nano::error serialize_json (nano::jsonconfig &);
 	nano::error deserialize_toml (nano::tomlconfig &);
 	nano::error serialize_toml (nano::tomlconfig &);
 	bool rpc_enable{ false };
