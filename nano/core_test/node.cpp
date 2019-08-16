@@ -854,10 +854,12 @@ TEST (node_config, v17_v18_upgrade)
 	config.logging.init (path);
 	// These config options should not be present
 	ASSERT_FALSE (tree.get_optional_child ("backup_before_upgrade"));
+	ASSERT_FALSE (tree.get_optional_child ("work_watcher_period"));
 
 	config.deserialize_json (upgraded, tree);
 	// The config options should be added after the upgrade
 	ASSERT_TRUE (!!tree.get_optional_child ("backup_before_upgrade"));
+	ASSERT_TRUE (!!tree.get_optional_child ("work_watcher_period"));
 
 	ASSERT_TRUE (upgraded);
 	auto version (tree.get<std::string> ("version"));
@@ -880,22 +882,26 @@ TEST (node_config, v18_values)
 	{
 		tree.put ("vote_generator_delay", 100);
 		tree.put ("backup_before_upgrade", true);
+		tree.put ("work_watcher_period", 5);
 	}
 
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
 	ASSERT_EQ (config.vote_generator_delay.count (), 100);
 	ASSERT_EQ (config.backup_before_upgrade, true);
+	ASSERT_EQ (config.work_watcher_period.count (), 5);
 
 	// Check config is correct with other values
 	tree.put ("vote_generator_delay", std::numeric_limits<unsigned long>::max () - 100);
 	tree.put ("backup_before_upgrade", false);
+	tree.put ("work_watcher_period", 999);
 
 	upgraded = false;
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
 	ASSERT_EQ (config.vote_generator_delay.count (), std::numeric_limits<unsigned long>::max () - 100);
 	ASSERT_EQ (config.backup_before_upgrade, false);
+	ASSERT_EQ (config.work_watcher_period.count (), 999);
 }
 
 // Regression test to ensure that deserializing includes changes node via get_required_child

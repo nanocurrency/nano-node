@@ -132,6 +132,7 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("active_elections_size", active_elections_size);
 	json.put ("bandwidth_limit", bandwidth_limit);
 	json.put ("backup_before_upgrade", backup_before_upgrade);
+	json.put ("work_watcher_period", work_watcher_period.count ());
 
 	return json.get_error ();
 }
@@ -259,6 +260,7 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 		{
 			json.put ("vote_generator_delay", vote_generator_delay.count ()); // Update value
 			json.put ("backup_before_upgrade", backup_before_upgrade);
+			json.put ("work_watcher_period", work_watcher_period.count ());
 		}
 		case 18:
 			break;
@@ -413,6 +415,10 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get<size_t> ("active_elections_size", active_elections_size);
 		json.get<size_t> ("bandwidth_limit", bandwidth_limit);
 		json.get<bool> ("backup_before_upgrade", backup_before_upgrade);
+
+		auto work_watcher_period_l = work_watcher_period.count ();
+		json.get ("work_watcher_period", work_watcher_period_l);
+		work_watcher_period = std::chrono::seconds (work_watcher_period_l);
 
 		auto conf_height_processor_batch_min_time_l (conf_height_processor_batch_min_time.count ());
 		json.get ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time_l);
