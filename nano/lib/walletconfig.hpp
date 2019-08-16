@@ -41,8 +41,8 @@ public:
 		std::string wallet_string;
 		wallet.encode_hex (wallet_string);
 
-		toml.put ("wallet", wallet_string, "Wallet identifier.\ntype:string,hex");
-		toml.put ("account", account.to_account (), "Current wallet account.\ntype:string,hex");
+		toml.put ("wallet", wallet_string, "Wallet identifier\ntype:string,hex");
+		toml.put ("account", account.to_account (), "Current wallet account\ntype:string,account");
 		return toml.get_error ();
 	}
 
