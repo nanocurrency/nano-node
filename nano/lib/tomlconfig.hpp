@@ -75,19 +75,6 @@ public:
 		return *error;
 	}
 
-	void write (boost::filesystem::path const & path_a)
-	{
-		std::fstream stream;
-		open_or_create (stream, path_a.string ());
-		write (stream);
-	}
-
-	void write (std::ostream & stream_a) const
-	{
-		cpptoml::toml_writer writer{ stream_a, "" };
-		tree->accept (writer);
-	}
-
 	/** Read from two streams where keys in the first will take precedence over those in the second stream. */
 	void read (std::istream & stream_first_a, std::istream & stream_second_a)
 	{
@@ -99,6 +86,19 @@ public:
 		std::stringstream stream_override_empty;
 		stream_override_empty << std::endl;
 		tree = cpptoml::parse_base_and_override_files (stream_override_empty, stream_a, cpptoml::parser::merge_type::ignore, true);
+	}
+
+	void write (boost::filesystem::path const & path_a)
+	{
+		std::fstream stream;
+		open_or_create (stream, path_a.string ());
+		write (stream);
+	}
+
+	void write (std::ostream & stream_a) const
+	{
+		cpptoml::toml_writer writer{ stream_a, "" };
+		tree->accept (writer);
 	}
 
 	/** Open configuration file, create if necessary */
