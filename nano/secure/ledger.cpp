@@ -691,7 +691,7 @@ epoch_signer (epoch_signer_a)
 		{
 			nano::account_info const & info (i->second);
 			nano::block_hash rep_block (representative_calculated (transaction, info.head));
-			auto block (store.block_get (transaction, info.head));
+			auto block (store.block_get (transaction, info.rep_block));
 			assert (block != nullptr);
 			rep_weights.representation_add (block->representative (), info.balance.number ());
 		}
