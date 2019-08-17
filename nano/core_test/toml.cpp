@@ -96,164 +96,6 @@ TEST (toml, daemon_config_update_array)
 	ASSERT_EQ (c.node.preconfigured_peers[0], "test-peer.org");
 }
 
-/** Deserialize a toml file with non-default values */
-TEST (toml, daemon_config_deserialize)
-{
-	std::stringstream ss;
-	ss << R"toml(
-		[node]
-		active_elections_size = 50000
-		allow_local_peers = true
-		bandwidth_limit = 5242880
-		block_processor_batch_max_time = 5000
-		bootstrap_connections = 4
-		bootstrap_connections_max = 64
-		bootstrap_fraction_numerator = 1
-		callback_address = ""
-		callback_port = 0
-		callback_target = ""
-		confirmation_history_size = 2048
-		enable_voting = true
-		external_address = "::"
-		external_port = 0
-		io_threads = 4
-		lmdb_max_dbs = 128
-		network_threads = 4
-		online_weight_minimum = "60000000000000000000000000000000000000"
-		online_weight_quorum = 50
-		password_fanout = 1024
-		peering_port = 44000
-		pow_sleep_interval = 0
-		preconfigured_peers = ["test-peer.org"]
-		preconfigured_representatives = ["nano_3e3j5tkog48pnny9dmfzj1r16pg8t1e76dz5tmac6iq689wyjfpiij4txtdo"]
-		receive_minimum = "1000000000000000000000000"
-		signature_checker_threads = 3
-		tcp_incoming_connections_max = 1024
-		tcp_io_timeout = 5
-		unchecked_cutoff_time = 14400
-		use_memory_pools = true
-		vote_generator_delay = 100
-		vote_generator_threshold = 3
-		vote_minimum = "1000000000000000000000000000000000"
-		work_peers = []
-		work_threads = 4
-
-		[node.diagnostics.txn_tracking]
-		enable = true
-		ignore_writes_below_block_processor_max_time = false
-		min_read_txn_time = 1
-		min_write_txn_time = 2
-
-		[node.logging]
-		bulk_pull = true
-		flush = true
-		insufficient_work = true
-		ledger = true
-		ledger_duplicate = true
-		log_ipc = true
-		log_to_cerr = true
-		max_size = 1
-		min_time_between_output = 5
-		network = true
-		network_keepalive = true
-		network_message = true
-		network_node_id_handshake = true
-		network_packet = true
-		network_publish = true
-		network_timeout = true
-		node_lifetime_tracing = true
-		rotation_size = 2
-		timing = true
-		upnp_details = true
-		vote = true
-		work_generation_time = true
-
-		[node.websocket]
-		enable = true
-		address = "0:0:0:0:0:ffff:7f01:101"
-		port = 1234
-
-		[node.ipc.local]
-		allow_unsafe = true
-		enable = true
-		io_timeout = 20
-		path = "/tmp/test"
-
-		[node.ipc.tcp]
-		enable = true
-		io_timeout = 20
-		port = 10000
-
-		[node.statistics.log]
-		headers = false
-		filename_counters = "test1.stat"
-		filename_samples = "test2.stat"
-		interval_counters = 1
-		interval_samples = 2
-		rotation_count = 3
-
-		[node.statistics.sampling]
-		enable = true
-		interval = 1
-		capacity = 2
-
-		[opencl]
-		enable = true
-		device = 1
-		platform = 2
-		threads = 3
-
-		[rpc]
-		enable = true
-		enable_sign_hash = true
-		max_work_generate_difficulty = "ffffffffc0001234"
-
-		[rpc.child_process]
-		enable = true
-		rpc_path = "/my/path"
-	)toml";
-
-	nano::tomlconfig toml;
-	toml.read (ss);
-	nano::daemon_config conf;
-	conf.deserialize_toml (toml);
-	// Verify that items of various types parse correctly
-	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
-	ASSERT_TRUE (conf.opencl_enable);
-	ASSERT_EQ (conf.opencl.device, 1);
-	ASSERT_EQ (conf.opencl.platform, 2);
-	ASSERT_EQ (conf.opencl.threads, 3);
-	ASSERT_EQ (conf.rpc_enable, true);
-	ASSERT_EQ (conf.rpc.enable_sign_hash, true);
-	ASSERT_EQ (conf.rpc.max_work_generate_difficulty, 0xffffffffc0001234);
-	ASSERT_EQ (conf.rpc.child_process.enable, true);
-	ASSERT_EQ (conf.rpc.child_process.rpc_path, "/my/path");
-	ASSERT_EQ (conf.node.preconfigured_peers[0], "test-peer.org");
-	ASSERT_EQ (conf.node.receive_minimum.to_string_dec (), "1000000000000000000000000");
-	ASSERT_EQ (conf.node.peering_port, 44000);
-	ASSERT_EQ (conf.node.logging.bulk_pull_logging_value, true);
-	ASSERT_EQ (conf.node.logging.max_size, 1);
-	ASSERT_EQ (conf.node.websocket_config.enabled, true);
-	boost::system::error_code bec;
-	auto address_l (boost::asio::ip::address_v6::from_string ("0:0:0:0:0:ffff:7f01:101", bec));
-	ASSERT_EQ (conf.node.websocket_config.address, address_l);
-	ASSERT_EQ (conf.node.websocket_config.port, 1234);
-	ASSERT_EQ (conf.node.ipc_config.transport_domain.allow_unsafe, true);
-	ASSERT_EQ (conf.node.ipc_config.transport_domain.enabled, true);
-	ASSERT_EQ (conf.node.ipc_config.transport_domain.io_timeout, 20);
-	ASSERT_EQ (conf.node.ipc_config.transport_domain.path, "/tmp/test");
-	ASSERT_EQ (conf.node.ipc_config.transport_tcp.enabled, true);
-	ASSERT_EQ (conf.node.ipc_config.transport_tcp.io_timeout, 20);
-	ASSERT_EQ (conf.node.ipc_config.transport_tcp.port, 10000);
-	ASSERT_EQ (conf.node.diagnostics_config.txn_tracking.enable, true);
-	ASSERT_EQ (conf.node.stat_config.sampling_enabled, true);
-	ASSERT_EQ (conf.node.stat_config.interval, 1);
-	ASSERT_EQ (conf.node.stat_config.capacity, 2);
-	ASSERT_EQ (conf.node.stat_config.log_headers, false);
-	ASSERT_EQ (conf.node.stat_config.log_counters_filename, "test1.stat");
-	ASSERT_EQ (conf.node.stat_config.log_samples_filename, "test2.stat");
-}
-
 /** Empty config file should match a default config object */
 TEST (toml, daemon_config_deserialize_defaults)
 {
@@ -293,6 +135,8 @@ TEST (toml, optional_child)
 	ASSERT_FALSE (c2);
 }
 
+/** Config settings passed via CLI overrides the config file settings. This is solved
+using an override stream. */
 TEST (toml, dot_child_syntax)
 {
 	std::stringstream ss_override;
@@ -389,4 +233,199 @@ TEST (toml, array)
 		ASSERT_TRUE (item == std::string ("item ") + std::to_string (i));
 		i++;
 	});
+}
+
+/** Deserialize a toml file with non-default values */
+TEST (toml, daemon_config_deserialize_no_defaults)
+{
+	std::stringstream ss;
+
+	// A config file with values that differs from test-net defaults
+	ss << R"toml(
+	[node]
+	active_elections_size = 999
+	allow_local_peers = false
+	backup_before_upgrade = true
+	bandwidth_limit = 999
+	block_processor_batch_max_time = 999
+	bootstrap_connections = 999
+	bootstrap_connections_max = 999
+	bootstrap_fraction_numerator = 999
+	confirmation_history_size = 999
+	enable_voting = false
+	external_address = "0:0:0:0:0:ffff:7f01:101"
+	external_port = 999
+	io_threads = 999
+	lmdb_max_dbs = 999
+	network_threads = 999
+	online_weight_minimum = "999"
+	online_weight_quorum = 99
+	password_fanout = 999
+	peering_port = 999
+	pow_sleep_interval= 999
+	preconfigured_peers = ["test.org"]
+	preconfigured_representatives = ["nano_3arg3asgtigae3xckabaaewkx3bzsh7nwz7jkmjos79ihyaxwphhm6qgjps4"]
+	receive_minimum = "999"
+	signature_checker_threads = 999
+	tcp_incoming_connections_max = 999
+	tcp_io_timeout = 999
+	unchecked_cutoff_time = 999
+	use_memory_pools = false
+	vote_generator_delay = 999
+	vote_generator_threshold = 9
+	vote_minimum = "999"
+	work_peers = ["test.org:999"]
+	work_threads = 999
+	[node.diagnostics.txn_tracking]
+	enable = true
+	ignore_writes_below_block_processor_max_time = false
+	min_read_txn_time = 999
+	min_write_txn_time = 999
+
+	[node.httpcallback]
+	address = "test.org"
+	port = 999
+	target = "/test"
+
+	[node.ipc.local]
+	allow_unsafe = true
+	enable = true
+	io_timeout = 999
+	path = "/tmp/test"
+
+	[node.ipc.tcp]
+	enable = true
+	io_timeout = 999
+	port = 999
+
+	[node.logging]
+	bulk_pull = true
+	flush = false
+	insufficient_work = false
+	ledger = true
+	ledger_duplicate = true
+	log_ipc = false
+	log_to_cerr = true
+	max_size = 999
+	min_time_between_output = 5
+	network = false
+	network_keepalive = true
+	network_message = true
+	network_node_id_handshake = true
+	network_packet = true
+	network_publish = true
+	network_timeout = true
+	node_lifetime_tracing = true
+	rotation_size = 999
+	single_line_record = true
+	timing = true
+	upnp_details = true
+	vote = true
+	work_generation_time = false
+
+	[node.statistics.log]
+	filename_counters = "testcounters.stat"
+	filename_samples = "testsamples.stat"
+	headers = false
+	interval_counters = 999
+	interval_samples = 999
+	rotation_count = 999
+
+	[node.statistics.sampling]
+	capacity = 999
+	enable = true
+	interval = 999
+
+	[node.websocket]
+	address = "0:0:0:0:0:ffff:7f01:101"
+	enable = true
+	port = 999
+
+	[opencl]
+	device = 999
+	enable = true
+	platform = 999
+	threads = 999
+
+	[rpc]
+	enable = true
+	enable_sign_hash = true
+	max_work_generate_difficulty = "ffffffffc9999999"
+
+	[rpc.child_process]
+	enable = true
+	rpc_path = "/test/nano_rpc"
+	)toml";
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+	nano::daemon_config conf;
+	nano::daemon_config defaults;
+	conf.deserialize_toml (toml);
+
+	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
+	ASSERT_NE (conf.opencl_enable, defaults.opencl_enable);
+	ASSERT_NE (conf.opencl.device, defaults.opencl.device);
+	ASSERT_NE (conf.opencl.platform, defaults.opencl.platform);
+	ASSERT_NE (conf.opencl.threads, defaults.opencl.threads);
+	ASSERT_NE (conf.rpc_enable, defaults.rpc_enable);
+	ASSERT_NE (conf.rpc.enable_sign_hash, defaults.rpc.enable_sign_hash);
+	ASSERT_NE (conf.rpc.max_work_generate_difficulty, defaults.rpc.max_work_generate_difficulty);
+	ASSERT_NE (conf.rpc.child_process.enable, defaults.rpc.child_process.enable);
+	ASSERT_NE (conf.rpc.child_process.rpc_path, defaults.rpc.child_process.rpc_path);
+
+	ASSERT_NE (conf.node.active_elections_size, defaults.node.active_elections_size);
+	ASSERT_NE (conf.node.allow_local_peers, defaults.node.allow_local_peers);
+	ASSERT_NE (conf.node.backup_before_upgrade, defaults.node.backup_before_upgrade);
+	ASSERT_NE (conf.node.bandwidth_limit, defaults.node.bandwidth_limit);
+	ASSERT_NE (conf.node.block_processor_batch_max_time, defaults.node.block_processor_batch_max_time);
+	ASSERT_NE (conf.node.bootstrap_connections, defaults.node.bootstrap_connections);
+	ASSERT_NE (conf.node.bootstrap_connections_max, defaults.node.bootstrap_connections_max);
+	ASSERT_NE (conf.node.bootstrap_fraction_numerator, defaults.node.bootstrap_fraction_numerator);
+	ASSERT_NE (conf.node.confirmation_history_size, defaults.node.confirmation_history_size);
+	ASSERT_NE (conf.node.enable_voting, defaults.node.enable_voting);
+	ASSERT_NE (conf.node.external_address, defaults.node.external_address);
+	ASSERT_NE (conf.node.external_port, defaults.node.external_port);
+	ASSERT_NE (conf.node.io_threads, defaults.node.io_threads);
+	ASSERT_NE (conf.node.lmdb_max_dbs, defaults.node.lmdb_max_dbs);
+	ASSERT_NE (conf.node.network_threads, defaults.node.network_threads);
+	ASSERT_NE (conf.node.online_weight_minimum, defaults.node.online_weight_minimum);
+	ASSERT_NE (conf.node.online_weight_quorum, defaults.node.online_weight_quorum);
+	ASSERT_NE (conf.node.password_fanout, defaults.node.password_fanout);
+	ASSERT_NE (conf.node.peering_port, defaults.node.peering_port);
+	ASSERT_NE (conf.node.pow_sleep_interval, defaults.node.pow_sleep_interval);
+	ASSERT_NE (conf.node.preconfigured_peers, defaults.node.preconfigured_peers);
+	ASSERT_NE (conf.node.preconfigured_representatives, defaults.node.preconfigured_representatives);
+	ASSERT_NE (conf.node.receive_minimum, defaults.node.receive_minimum);
+	ASSERT_NE (conf.node.signature_checker_threads, defaults.node.signature_checker_threads);
+	ASSERT_NE (conf.node.tcp_incoming_connections_max, defaults.node.tcp_incoming_connections_max);
+	ASSERT_NE (conf.node.tcp_io_timeout, defaults.node.tcp_io_timeout);
+	ASSERT_NE (conf.node.unchecked_cutoff_time, defaults.node.unchecked_cutoff_time);
+	ASSERT_NE (conf.node.use_memory_pools, defaults.node.use_memory_pools);
+	ASSERT_NE (conf.node.vote_generator_delay, defaults.node.vote_generator_delay);
+	ASSERT_NE (conf.node.vote_generator_threshold, defaults.node.vote_generator_threshold);
+	ASSERT_NE (conf.node.vote_minimum, defaults.node.vote_minimum);
+	ASSERT_NE (conf.node.work_peers, defaults.node.work_peers);
+	ASSERT_NE (conf.node.work_threads, defaults.node.work_threads);
+
+	ASSERT_NE (conf.node.logging.bulk_pull_logging_value, defaults.node.logging.bulk_pull_logging_value);
+	ASSERT_NE (conf.node.logging.max_size, defaults.node.logging.max_size);
+
+	ASSERT_NE (conf.node.websocket_config.enabled, defaults.node.websocket_config.enabled);
+	ASSERT_NE (conf.node.websocket_config.address, defaults.node.websocket_config.address);
+	ASSERT_NE (conf.node.websocket_config.port, defaults.node.websocket_config.port);
+	ASSERT_NE (conf.node.ipc_config.transport_domain.allow_unsafe, defaults.node.ipc_config.transport_domain.allow_unsafe);
+	ASSERT_NE (conf.node.ipc_config.transport_domain.enabled, defaults.node.ipc_config.transport_domain.enabled);
+	ASSERT_NE (conf.node.ipc_config.transport_domain.io_timeout, defaults.node.ipc_config.transport_domain.io_timeout);
+	ASSERT_NE (conf.node.ipc_config.transport_domain.path, defaults.node.ipc_config.transport_domain.path);
+	ASSERT_NE (conf.node.ipc_config.transport_tcp.enabled, defaults.node.ipc_config.transport_tcp.enabled);
+	ASSERT_NE (conf.node.ipc_config.transport_tcp.io_timeout, defaults.node.ipc_config.transport_tcp.io_timeout);
+	ASSERT_NE (conf.node.ipc_config.transport_tcp.port, defaults.node.ipc_config.transport_tcp.port);
+	ASSERT_NE (conf.node.diagnostics_config.txn_tracking.enable, defaults.node.diagnostics_config.txn_tracking.enable);
+	ASSERT_NE (conf.node.stat_config.sampling_enabled, defaults.node.stat_config.sampling_enabled);
+	ASSERT_NE (conf.node.stat_config.interval, defaults.node.stat_config.interval);
+	ASSERT_NE (conf.node.stat_config.capacity, defaults.node.stat_config.capacity);
+	ASSERT_NE (conf.node.stat_config.log_headers, defaults.node.stat_config.log_headers);
+	ASSERT_NE (conf.node.stat_config.log_counters_filename, defaults.node.stat_config.log_counters_filename);
+	ASSERT_NE (conf.node.stat_config.log_samples_filename, defaults.node.stat_config.log_samples_filename);
 }

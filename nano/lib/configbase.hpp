@@ -43,7 +43,7 @@ class configbase : public nano::error_aware<>
 {
 public:
 	configbase () = default;
-	configbase (std::shared_ptr<nano::error> error_a) :
+	configbase (std::shared_ptr<nano::error> const & error_a) :
 	error (error_a)
 	{
 	}

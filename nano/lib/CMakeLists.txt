@@ -37,13 +37,14 @@ add_library (nano_lib
 	rpc_handler_interface.hpp
 	rpcconfig.hpp
 	rpcconfig.cpp
-	walletconfig.hpp
 	stats.hpp
 	stats.cpp
 	timer.hpp
 	tomlconfig.hpp
 	utility.hpp
 	utility.cpp
+	walletconfig.hpp
+	walletconfig.cpp
 	work.hpp
 	work.cpp)
 

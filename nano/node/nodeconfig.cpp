@@ -187,7 +187,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		if (toml.has_key ("work_peers"))
 		{
 			work_peers.clear ();
-			toml.array_entries_required<std::string> ("work_peers", [this](std::string entry) {
+			toml.array_entries_required<std::string> ("work_peers", [this](std::string const & entry) {
 				auto port_position (entry.rfind (':'));
 				bool result = port_position == -1;
 				if (!result)
@@ -198,7 +198,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 					if (!result)
 					{
 						auto address (entry.substr (0, port_position));
-						this->work_peers.push_back (std::make_pair (address, port));
+						this->work_peers.emplace_back (address, port);
 					}
 				}
 			});

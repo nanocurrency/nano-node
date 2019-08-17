@@ -27,7 +27,7 @@ public:
 		error = std::make_shared<nano::error> ();
 	}
 
-	tomlconfig (std::shared_ptr<cpptoml::table> tree_a, std::shared_ptr<nano::error> error_a = nullptr) :
+	tomlconfig (std::shared_ptr<cpptoml::table> const & tree_a, std::shared_ptr<nano::error> const & error_a = nullptr) :
 	nano::configbase (error_a), tree (tree_a)
 	{
 		if (!error)
@@ -36,7 +36,7 @@ public:
 		}
 	}
 
-	void doc (std::string const & key, std::string doc)
+	void doc (std::string const & key, std::string const & doc)
 	{
 		tree->document (key, doc);
 	}
@@ -486,7 +486,7 @@ private:
 		assert (other != nullptr);
 		for (auto & item : *other)
 		{
-			std::string key = item.first;
+			std::string const & key = item.first;
 			if (other->contains (key) && base->contains (key))
 			{
 				auto value = item.second;
