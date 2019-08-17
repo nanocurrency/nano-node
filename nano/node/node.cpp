@@ -127,7 +127,7 @@ flags (flags_a),
 alarm (alarm_a),
 work (work_a),
 logger (config_a.logging.min_time_between_log_output),
-store_impl (nano::make_store (init_a.block_store_init, logger, application_path_a, flags.read_only, true, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_max_dbs, !flags.disable_unchecked_drop, flags.sideband_batch_size)),
+store_impl (nano::make_store (init_a.block_store_init, logger, application_path_a, flags.read_only, true, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_max_dbs, !flags.disable_unchecked_drop, flags.sideband_batch_size, config_a.backup_before_upgrade)),
 store (*store_impl),
 wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (init_a.wallets_store_init, application_path_a / "wallets.ldb", config_a.lmdb_max_dbs)),
 wallets_store (*wallets_store_impl),
@@ -942,12 +942,12 @@ public:
 class distributed_work : public std::enable_shared_from_this<distributed_work>
 {
 public:
-	distributed_work (std::shared_ptr<nano::node> const & node_a, nano::block_hash const & root_a, std::function<void(uint64_t)> callback_a, uint64_t difficulty_a) :
+	distributed_work (std::shared_ptr<nano::node> const & node_a, nano::block_hash const & root_a, std::function<void(uint64_t)> const & callback_a, uint64_t difficulty_a) :
 	distributed_work (1, node_a, root_a, callback_a, difficulty_a)
 	{
 		assert (node_a != nullptr);
 	}
-	distributed_work (unsigned int backoff_a, std::shared_ptr<nano::node> const & node_a, nano::block_hash const & root_a, std::function<void(uint64_t)> callback_a, uint64_t difficulty_a) :
+	distributed_work (unsigned int backoff_a, std::shared_ptr<nano::node> const & node_a, nano::block_hash const & root_a, std::function<void(uint64_t)> const & callback_a, uint64_t difficulty_a) :
 	callback (callback_a),
 	backoff (backoff_a),
 	node (node_a),
@@ -1315,7 +1315,7 @@ namespace
 class confirmed_visitor : public nano::block_visitor
 {
 public:
-	confirmed_visitor (nano::transaction const & transaction_a, nano::node & node_a, std::shared_ptr<nano::block> block_a, nano::block_hash const & hash_a) :
+	confirmed_visitor (nano::transaction const & transaction_a, nano::node & node_a, std::shared_ptr<nano::block> const & block_a, nano::block_hash const & hash_a) :
 	transaction (transaction_a),
 	node (node_a),
 	block (block_a),
@@ -1584,11 +1584,11 @@ nano::inactive_node::~inactive_node ()
 	node->stop ();
 }
 
-std::unique_ptr<nano::block_store> nano::make_store (bool & init, nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, bool drop_unchecked, size_t batch_size)
+std::unique_ptr<nano::block_store> nano::make_store (bool & init, nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, bool drop_unchecked, size_t batch_size, bool backup_before_upgrade)
 {
 #if NANO_ROCKSDB
 	return std::make_unique<nano::rocksdb_store> (init, logger, add_db_postfix ? path / "rocksdb" : path, drop_unchecked, read_only);
 #else
-	return std::make_unique<nano::mdb_store> (init, logger, add_db_postfix ? path / "data.ldb" : path, txn_tracking_config_a, block_processor_batch_max_time_a, lmdb_max_dbs, drop_unchecked, batch_size);
+	return std::make_unique<nano::mdb_store> (init, logger, add_db_postfix ? path / "data.ldb" : path, txn_tracking_config_a, block_processor_batch_max_time_a, lmdb_max_dbs, drop_unchecked, batch_size, backup_before_upgrade);
 #endif
 }

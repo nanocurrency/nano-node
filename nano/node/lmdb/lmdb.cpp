@@ -39,7 +39,7 @@ void mdb_val::convert_buffer_to_value ()
 }
 }
 
-nano::mdb_store::mdb_store (bool & error_a, nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, bool drop_unchecked, size_t const batch_size) :
+nano::mdb_store::mdb_store (bool & error_a, nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, bool drop_unchecked, size_t const batch_size, bool backup_before_upgrade) :
 logger (logger_a),
 env (error_a, path_a, lmdb_max_dbs, true),
 mdb_txn_tracker (logger_a, txn_tracking_config_a, block_processor_batch_max_time_a),
@@ -60,9 +60,13 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 
 		// Only open a write lock when upgrades are needed. This is because CLI commands
 		// open inactive nodes which can otherwise be locked here if there is a long write
-		// (can be a few minutes with the --fastbootstrap flag for instance)
+		// (can be a few minutes with the --fast_bootstrap flag for instance)
 		if (!is_fully_upgraded)
 		{
+			if (backup_before_upgrade)
+			{
+				create_backup_file (env, path_a, logger_a);
+			}
 			auto transaction (tx_begin_write ());
 			open_databases (error_a, transaction, MDB_CREATE);
 			if (!error_a)
@@ -479,7 +483,6 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction const & transa
 	// Move confirmation height from account_info database to its own table
 	std::vector<std::pair<nano::account, nano::account_info>> account_infos;
 	account_infos.reserve (account_count (transaction_a));
-	std::vector<std::pair<nano::account, uint64_t>> confirmation_heights;
 
 	nano::store_iterator<nano::account, nano::account_info_v14> i (std::make_unique<nano::mdb_merge_iterator<nano::account, nano::account_info_v14>> (transaction_a, accounts_v0, accounts_v1));
 	nano::store_iterator<nano::account, nano::account_info_v14> n (nullptr);
@@ -493,6 +496,37 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction const & transa
 	for (auto const & account_info : account_infos)
 	{
 		account_put (transaction_a, account_info.first, account_info.second);
+	}
+}
+
+/** Takes a filepath, appends '_backup_<timestamp>' to the end (but before any extension) and saves that file in the same directory */
+void nano::mdb_store::create_backup_file (nano::mdb_env & env_a, boost::filesystem::path const & filepath_a, nano::logger_mt & logger_a)
+{
+	auto extension = filepath_a.extension ();
+	auto filename_without_extension = filepath_a.filename ().replace_extension ("");
+	auto orig_filepath = filepath_a;
+	auto & backup_path = orig_filepath.remove_filename ();
+	auto backup_filename = filename_without_extension;
+	backup_filename += "_backup_";
+	backup_filename += std::to_string (std::chrono::system_clock::now ().time_since_epoch ().count ());
+	backup_filename += extension;
+	auto backup_filepath = backup_path / backup_filename;
+	auto start_message (boost::str (boost::format ("Performing %1% backup before database upgrade...") % filepath_a.filename ()));
+	logger_a.always_log (start_message);
+	std::cout << start_message << std::endl;
+	auto error (mdb_env_copy (env_a, backup_filepath.string ().c_str ()));
+	if (error)
+	{
+		auto error_message (boost::str (boost::format ("%1% backup failed") % filepath_a.filename ()));
+		logger_a.always_log (error_message);
+		std::cerr << error_message << std::endl;
+		std::exit (1);
+	}
+	else
+	{
+		auto success_message (boost::str (boost::format ("Backup created: %1%") % backup_filename));
+		logger_a.always_log (success_message);
+		std::cout << success_message << std::endl;
 	}
 }
 

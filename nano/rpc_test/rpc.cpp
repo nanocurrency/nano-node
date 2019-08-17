@@ -3126,7 +3126,6 @@ TEST (rpc, account_representative)
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
 	rpc.start ();
 	boost::property_tree::ptree request;
-	std::string wallet;
 	request.put ("account", nano::genesis_account.to_account ());
 	request.put ("action", "account_representative");
 	test_response response (request, rpc.config.port, system.io_ctx);
@@ -5657,9 +5656,9 @@ TEST (rpc, confirmation_height_currently_processing)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 
 	// Do enough blocks to reliably call RPC before the confirmation height has finished
-	constexpr auto num_blocks = 1000;
 	auto previous_genesis_chain_hash = node->latest (nano::test_genesis_key.pub);
 	{
+		constexpr auto num_blocks = 1000;
 		auto transaction = node->store.tx_begin_write ();
 		for (auto i = num_blocks; i > 0; --i)
 		{

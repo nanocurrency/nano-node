@@ -19,10 +19,6 @@ void show_line_ok (QLineEdit & line)
 {
 	line.setStyleSheet ("QLineEdit { color: black }");
 }
-void show_line_success (QLineEdit & line)
-{
-	line.setStyleSheet ("QLineEdit { color: blue }");
-}
 void show_label_error (QLabel & label)
 {
 	label.setStyleSheet ("QLabel { color: red }");

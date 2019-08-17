@@ -38,7 +38,9 @@ public:
 	~block_processor ();
 	void stop ();
 	void flush ();
+	size_t size ();
 	bool full ();
+	bool half_full ();
 	void add (nano::unchecked_info const &);
 	void add (std::shared_ptr<nano::block>, uint64_t = 0);
 	void force (std::shared_ptr<nano::block>);

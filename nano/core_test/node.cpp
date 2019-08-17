@@ -854,12 +854,11 @@ TEST (node_config, v17_v18_upgrade)
 	nano::node_config config;
 	config.logging.init (path);
 	// These config options should not be present
-	//...
+	ASSERT_FALSE (tree.get_optional_child ("backup_before_upgrade"));
 
 	config.deserialize_json (upgraded, tree);
-
 	// The config options should be added after the upgrade
-	// ...
+	ASSERT_TRUE (!!tree.get_optional_child ("backup_before_upgrade"));
 
 	ASSERT_TRUE (upgraded);
 	auto version (tree.get<std::string> ("version"));
@@ -881,19 +880,23 @@ TEST (node_config, v18_values)
 	// Check config is correct
 	{
 		tree.put ("vote_generator_delay", 100);
+		tree.put ("backup_before_upgrade", true);
 	}
 
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
 	ASSERT_EQ (config.vote_generator_delay.count (), 100);
+	ASSERT_EQ (config.backup_before_upgrade, true);
 
 	// Check config is correct with other values
 	tree.put ("vote_generator_delay", std::numeric_limits<unsigned long>::max () - 100);
+	tree.put ("backup_before_upgrade", false);
 
 	upgraded = false;
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
 	ASSERT_EQ (config.vote_generator_delay.count (), std::numeric_limits<unsigned long>::max () - 100);
+	ASSERT_EQ (config.backup_before_upgrade, false);
 }
 
 // Regression test to ensure that deserializing includes changes node via get_required_child
@@ -926,11 +929,11 @@ TEST (node_config, random_rep)
 	ASSERT_NE (config1.preconfigured_representatives.end (), std::find (config1.preconfigured_representatives.begin (), config1.preconfigured_representatives.end (), rep));
 }
 
-class json_initial_value_test
+class json_initial_value_test final
 {
 public:
-	json_initial_value_test (std::string text_a) :
-	text (std::move (text_a))
+	explicit json_initial_value_test (std::string const & text_a) :
+	text (text_a)
 	{
 	}
 	nano::error serialize_json (nano::jsonconfig & json)
@@ -941,7 +944,7 @@ public:
 	std::string text;
 };
 
-class json_upgrade_test
+class json_upgrade_test final
 {
 public:
 	nano::error deserialize_json (bool & upgraded, nano::jsonconfig & json)
@@ -2798,6 +2801,63 @@ TEST (node, block_processor_reject_rolled_back)
 	node.block_processor.flush ();
 	ASSERT_FALSE (node.ledger.block_exists (send1->hash ()));
 	ASSERT_TRUE (node.active.empty ());
+}
+
+TEST (node, block_processor_full)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.block_processor_full_size = 2;
+	auto & node = *system.add_node (nano::node_config (24000, system.logging), node_flags);
+	nano::genesis genesis;
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	node.work_generate_blocking (*send1);
+	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	node.work_generate_blocking (*send2);
+	auto send3 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send2->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 3 * nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	node.work_generate_blocking (*send3);
+	// The write guard prevents block processor doing any writes
+	auto write_guard = node.write_database_queue.wait (nano::writer::confirmation_height);
+	node.block_processor.add (send1);
+	ASSERT_FALSE (node.block_processor.full ());
+	node.block_processor.add (send2);
+	ASSERT_FALSE (node.block_processor.full ());
+	node.block_processor.add (send3);
+	// Block processor may be not full during state blocks signatures verification
+	system.deadline_set (2s);
+	while (!node.block_processor.full ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
+TEST (node, block_processor_half_full)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.block_processor_full_size = 4;
+	auto & node = *system.add_node (nano::node_config (24000, system.logging), node_flags);
+	nano::genesis genesis;
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	node.work_generate_blocking (*send1);
+	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	node.work_generate_blocking (*send2);
+	auto send3 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send2->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 3 * nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
+	node.work_generate_blocking (*send3);
+	// The write guard prevents block processor doing any writes
+	auto write_guard = node.write_database_queue.wait (nano::writer::confirmation_height);
+	node.block_processor.add (send1);
+	ASSERT_FALSE (node.block_processor.half_full ());
+	node.block_processor.add (send2);
+	ASSERT_FALSE (node.block_processor.half_full ());
+	node.block_processor.add (send3);
+	// Block processor may be not half_full during state blocks signatures verification
+	system.deadline_set (2s);
+	while (!node.block_processor.half_full ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_FALSE (node.block_processor.full ());
 }
 
 TEST (node, confirm_back)

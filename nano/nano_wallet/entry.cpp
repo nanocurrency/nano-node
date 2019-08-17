@@ -18,10 +18,10 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
-class qt_wallet_config
+class qt_wallet_config final
 {
 public:
-	qt_wallet_config (boost::filesystem::path const & data_path_a)
+	explicit qt_wallet_config (boost::filesystem::path const & data_path_a)
 	{
 		nano::random_pool::generate_block (wallet.bytes.data (), wallet.bytes.size ());
 		assert (!wallet.is_zero ());

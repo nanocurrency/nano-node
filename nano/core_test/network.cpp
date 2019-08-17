@@ -1043,7 +1043,7 @@ TEST (frontier_req, time_bound)
 	std::unique_ptr<nano::frontier_req> req2 (new nano::frontier_req);
 	req2->start.clear ();
 	req2->age = 1;
-	req2->count = std::numeric_limits<decltype (req->count)>::max ();
+	req2->count = std::numeric_limits<decltype (req2->count)>::max ();
 	auto connection2 (std::make_shared<nano::bootstrap_server> (nullptr, system.nodes[0]));
 	connection2->requests.push (std::unique_ptr<nano::message>{});
 	auto request2 (std::make_shared<nano::frontier_req_server> (connection, std::move (req2)));
@@ -1068,7 +1068,7 @@ TEST (frontier_req, time_cutoff)
 	std::unique_ptr<nano::frontier_req> req2 (new nano::frontier_req);
 	req2->start.clear ();
 	req2->age = 3;
-	req2->count = std::numeric_limits<decltype (req->count)>::max ();
+	req2->count = std::numeric_limits<decltype (req2->count)>::max ();
 	auto connection2 (std::make_shared<nano::bootstrap_server> (nullptr, system.nodes[0]));
 	connection2->requests.push (std::unique_ptr<nano::message>{});
 	auto request2 (std::make_shared<nano::frontier_req_server> (connection, std::move (req2)));

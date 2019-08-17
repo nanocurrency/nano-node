@@ -129,19 +129,17 @@ TEST (work, difficulty)
 	uint64_t difficulty1 (0xff00000000000000);
 	uint64_t difficulty2 (0xfff0000000000000);
 	uint64_t difficulty3 (0xffff000000000000);
-	uint64_t work1 (0);
 	uint64_t nonce1 (0);
 	do
 	{
-		work1 = pool.generate (root, difficulty1);
+		auto work1 = pool.generate (root, difficulty1);
 		nano::work_validate (root, work1, &nonce1);
 	} while (nonce1 > difficulty2);
 	ASSERT_GT (nonce1, difficulty1);
-	uint64_t work2 (0);
 	uint64_t nonce2 (0);
 	do
 	{
-		work2 = pool.generate (root, difficulty2);
+		auto work2 = pool.generate (root, difficulty2);
 		nano::work_validate (root, work2, &nonce2);
 	} while (nonce2 > difficulty3);
 	ASSERT_GT (nonce2, difficulty2);
@@ -160,11 +158,10 @@ TEST (work, eco_pow)
 			nano::uint256_union root (1);
 			uint64_t difficulty1 (0xff00000000000000);
 			uint64_t difficulty2 (0xfff0000000000000);
-			uint64_t work (0);
 			uint64_t nonce (0);
 			do
 			{
-				work = pool.generate (root, difficulty1);
+				auto work = pool.generate (root, difficulty1);
 				nano::work_validate (root, work, &nonce);
 			} while (nonce > difficulty2);
 			ASSERT_GT (nonce, difficulty1);

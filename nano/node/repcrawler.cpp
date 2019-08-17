@@ -187,7 +187,6 @@ void nano::rep_crawler::on_rep_request (std::shared_ptr<nano::transport::channel
 	probably_rep_t::index<tag_channel_ref>::type & channel_ref_index = probable_reps.get<tag_channel_ref> ();
 
 	// Find and update the timestamp on all reps available on the endpoint (a single host may have multiple reps)
-	std::vector<probable_rep_itr_t> view;
 	auto itr_pair = probable_reps.get<tag_channel_ref> ().equal_range (*channel_a);
 	for (; itr_pair.first != itr_pair.second; itr_pair.first++)
 	{

@@ -394,7 +394,7 @@ namespace
 class network_message_visitor : public nano::message_visitor
 {
 public:
-	network_message_visitor (nano::node & node_a, std::shared_ptr<nano::transport::channel> channel_a) :
+	network_message_visitor (nano::node & node_a, std::shared_ptr<nano::transport::channel> const & channel_a) :
 	node (node_a),
 	channel (channel_a)
 	{
@@ -418,6 +418,10 @@ public:
 		if (!node.block_processor.full ())
 		{
 			node.process_active (message_a.block);
+		}
+		else
+		{
+			node.stats.inc (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::in);
 		}
 		node.active.publish (message_a.block);
 	}
@@ -534,6 +538,10 @@ public:
 				if (!node.block_processor.full ())
 				{
 					node.process_active (block);
+				}
+				else
+				{
+					node.stats.inc (nano::stat::type::drop, nano::stat::detail::confirm_ack, nano::stat::dir::in);
 				}
 				node.active.publish (block);
 			}
