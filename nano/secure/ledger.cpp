@@ -691,9 +691,9 @@ epoch_signer (epoch_signer_a)
 		{
 			nano::account_info const & info (i->second);
 			nano::block_hash rep_block (representative_calculated (transaction, info.head));
-			auto source_block (store.block_get (transaction, rep_block));
-			auto source_rep (source_block->representative ());
-			rep_weights.representation_add (source_rep, info.balance.number ());
+			auto block (store.block_get (transaction, info.head));
+			assert (block != nullptr);
+			rep_weights.representation_add (block->representative (), info.balance.number ());
 		}
 	}
 }
@@ -835,21 +835,6 @@ nano::block_hash nano::ledger::block_source (nano::transaction const & transacti
 		result = state_block->hashables.link;
 	}
 	return result;
-}
-
-void nano::ledger::set_bootstrap_weight (nano::account const & account_a, nano::uint128_t const & weight_a)
-{
-	auto weight_it = bootstrap_weights.find (account_a);
-	if (weight_it != bootstrap_weights.end ())
-	{
-		weight_it->second = weight_a;
-	}
-	else
-	{
-		bootstrap_weights.emplace (account_a, weight_a);
-	}
-
-	bootstrap_weights_size = bootstrap_weights.size ();
 }
 
 // Vote weight of an account

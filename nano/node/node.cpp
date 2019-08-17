@@ -420,7 +420,7 @@ startup_time (std::chrono::steady_clock::now ())
 							break;
 						}
 						logger.always_log ("Using bootstrap rep weight: ", account.to_account (), " -> ", weight.format_balance (Mxrb_ratio, 0, true), " XRB");
-						ledger.set_bootstrap_weight (account, weight.number ());
+						ledger.bootstrap_weights[account] = weight.number ();
 					}
 				}
 			}

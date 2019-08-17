@@ -48,8 +48,6 @@ public:
 	void dump_account_chain (nano::account const &);
 	bool could_fit (nano::transaction const &, nano::block const &);
 	bool is_epoch_link (nano::uint256_union const &);
-	void set_bootstrap_weight (nano::account const & account, nano::uint128_t const & weight);
-	//	std::unordered_map<nano::account, nano::uint128_t> construct_reps ();
 	static nano::uint128_t const unit;
 	nano::network_params network_params;
 	nano::block_store & store;
