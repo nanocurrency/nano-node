@@ -21,19 +21,8 @@ TEST (toml, diff)
 	// Defaults
 	std::stringstream ss;
 	ss << R"toml(
-	[node]
-	allow_local_peers = false
-	block_processor_batch_max_time = 5000
-	preconfigured_peers = ["peer1.org", "peer2.org"]
-	same_array = ["1", "2"]
-
-	[node.diagnostics.txn_tracking]
-	enable = true
-
-	[rpc]
-	enable = false
-	enable_sign_hash = true
-	max_work_generate_difficulty = "ffffffffc0001234"
+	a = false
+	b = false
 	)toml";
 
 	defaults.read (ss);
@@ -41,24 +30,15 @@ TEST (toml, diff)
 	// User file. The rpc section is the same and doesn't need to be emitted
 	std::stringstream ss_override;
 	ss_override << R"toml(
-	[node]
-	allow_local_peers = true
-	block_processor_batch_max_time = 5000
-	preconfigured_peers = ["peer1.org", "peer2.org", "peer3.org"]
-	same_array = ["1", "2"]
-
-	[node.diagnostics.txn_tracking]
-	enable = false
-
-	[rpc]
-	enable = false
-	enable_sign_hash = true
-	max_work_generate_difficulty = "ffffffffc0001234"
+	a = true
+	b = false
 	)toml";
 
 	other.read (ss_override);
-
 	other.erase_default_values (defaults);
+
+	ASSERT_TRUE (other.has_key ("a"));
+	ASSERT_FALSE (other.has_key ("b"));
 }
 
 /** Diff on equal toml files leads to an empty result */
@@ -81,7 +61,6 @@ TEST (toml, diff_equal)
 	)toml";
 
 	other.read (ss_override);
-
 	other.erase_default_values (defaults);
 	ASSERT_TRUE (other.empty ());
 }
