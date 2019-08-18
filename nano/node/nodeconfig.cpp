@@ -149,9 +149,9 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		if (toml.has_key ("httpcallback"))
 		{
 			auto callback_l (toml.get_required_child ("httpcallback"));
-			toml.get<std::string> ("address", callback_address);
-			toml.get<uint16_t> ("port", callback_port);
-			toml.get<std::string> ("target", callback_target);
+			callback_l.get<std::string> ("address", callback_address);
+			callback_l.get<uint16_t> ("port", callback_port);
+			callback_l.get<std::string> ("target", callback_target);
 		}
 
 		if (toml.has_key ("logging"))

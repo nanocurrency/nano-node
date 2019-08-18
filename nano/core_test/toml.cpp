@@ -1,5 +1,6 @@
 #include <nano/core_test/testutil.hpp>
 #include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/testing.hpp>
@@ -235,7 +236,7 @@ TEST (toml, array)
 	});
 }
 
-/** Deserialize a toml file with non-default values */
+/** Deserialize a node config with non-default values */
 TEST (toml, daemon_config_deserialize_no_defaults)
 {
 	std::stringstream ss;
@@ -307,7 +308,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	log_ipc = false
 	log_to_cerr = true
 	max_size = 999
-	min_time_between_output = 5
+	min_time_between_output = 999
 	network = false
 	network_keepalive = true
 	network_message = true
@@ -364,6 +365,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	conf.deserialize_toml (toml);
 
 	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
+
 	ASSERT_NE (conf.opencl_enable, defaults.opencl_enable);
 	ASSERT_NE (conf.opencl.device, defaults.opencl.device);
 	ASSERT_NE (conf.opencl.platform, defaults.opencl.platform);
@@ -409,11 +411,37 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.work_threads, defaults.node.work_threads);
 
 	ASSERT_NE (conf.node.logging.bulk_pull_logging_value, defaults.node.logging.bulk_pull_logging_value);
+	ASSERT_NE (conf.node.logging.flush, defaults.node.logging.flush);
+	ASSERT_NE (conf.node.logging.insufficient_work_logging_value, defaults.node.logging.insufficient_work_logging_value);
+	ASSERT_NE (conf.node.logging.ledger_logging_value, defaults.node.logging.ledger_logging_value);
+	ASSERT_NE (conf.node.logging.ledger_duplicate_logging_value, defaults.node.logging.ledger_duplicate_logging_value);
+	ASSERT_NE (conf.node.logging.log_ipc_value, defaults.node.logging.log_ipc_value);
+	ASSERT_NE (conf.node.logging.log_to_cerr_value, defaults.node.logging.log_to_cerr_value);
 	ASSERT_NE (conf.node.logging.max_size, defaults.node.logging.max_size);
+	ASSERT_NE (conf.node.logging.min_time_between_log_output.count (), defaults.node.logging.min_time_between_log_output.count ());
+	ASSERT_NE (conf.node.logging.network_logging_value, defaults.node.logging.network_logging_value);
+	ASSERT_NE (conf.node.logging.network_keepalive_logging_value, defaults.node.logging.network_keepalive_logging_value);
+	ASSERT_NE (conf.node.logging.network_message_logging_value, defaults.node.logging.network_message_logging_value);
+	ASSERT_NE (conf.node.logging.network_node_id_handshake_logging_value, defaults.node.logging.network_node_id_handshake_logging_value);
+	ASSERT_NE (conf.node.logging.network_packet_logging_value, defaults.node.logging.network_packet_logging_value);
+	ASSERT_NE (conf.node.logging.network_publish_logging_value, defaults.node.logging.network_publish_logging_value);
+	ASSERT_NE (conf.node.logging.network_timeout_logging_value, defaults.node.logging.network_timeout_logging_value);
+	ASSERT_NE (conf.node.logging.node_lifetime_tracing_value, defaults.node.logging.node_lifetime_tracing_value);
+	ASSERT_NE (conf.node.logging.rotation_size, defaults.node.logging.rotation_size);
+	ASSERT_NE (conf.node.logging.single_line_record_value, defaults.node.logging.single_line_record_value);
+	ASSERT_NE (conf.node.logging.timing_logging_value, defaults.node.logging.timing_logging_value);
+	ASSERT_NE (conf.node.logging.upnp_details_logging_value, defaults.node.logging.upnp_details_logging_value);
+	ASSERT_NE (conf.node.logging.vote_logging_value, defaults.node.logging.vote_logging_value);
+	ASSERT_NE (conf.node.logging.work_generation_time_value, defaults.node.logging.work_generation_time_value);
 
 	ASSERT_NE (conf.node.websocket_config.enabled, defaults.node.websocket_config.enabled);
 	ASSERT_NE (conf.node.websocket_config.address, defaults.node.websocket_config.address);
 	ASSERT_NE (conf.node.websocket_config.port, defaults.node.websocket_config.port);
+
+	ASSERT_NE (conf.node.callback_address, defaults.node.callback_address);
+	ASSERT_NE (conf.node.callback_port, defaults.node.callback_port);
+	ASSERT_NE (conf.node.callback_target, defaults.node.callback_target);
+
 	ASSERT_NE (conf.node.ipc_config.transport_domain.allow_unsafe, defaults.node.ipc_config.transport_domain.allow_unsafe);
 	ASSERT_NE (conf.node.ipc_config.transport_domain.enabled, defaults.node.ipc_config.transport_domain.enabled);
 	ASSERT_NE (conf.node.ipc_config.transport_domain.io_timeout, defaults.node.ipc_config.transport_domain.io_timeout);
@@ -421,11 +449,58 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.ipc_config.transport_tcp.enabled, defaults.node.ipc_config.transport_tcp.enabled);
 	ASSERT_NE (conf.node.ipc_config.transport_tcp.io_timeout, defaults.node.ipc_config.transport_tcp.io_timeout);
 	ASSERT_NE (conf.node.ipc_config.transport_tcp.port, defaults.node.ipc_config.transport_tcp.port);
+
 	ASSERT_NE (conf.node.diagnostics_config.txn_tracking.enable, defaults.node.diagnostics_config.txn_tracking.enable);
+	ASSERT_NE (conf.node.diagnostics_config.txn_tracking.ignore_writes_below_block_processor_max_time, defaults.node.diagnostics_config.txn_tracking.ignore_writes_below_block_processor_max_time);
+	ASSERT_NE (conf.node.diagnostics_config.txn_tracking.min_read_txn_time, defaults.node.diagnostics_config.txn_tracking.min_read_txn_time);
+	ASSERT_NE (conf.node.diagnostics_config.txn_tracking.min_write_txn_time, defaults.node.diagnostics_config.txn_tracking.min_write_txn_time);
+
 	ASSERT_NE (conf.node.stat_config.sampling_enabled, defaults.node.stat_config.sampling_enabled);
 	ASSERT_NE (conf.node.stat_config.interval, defaults.node.stat_config.interval);
 	ASSERT_NE (conf.node.stat_config.capacity, defaults.node.stat_config.capacity);
+	ASSERT_NE (conf.node.stat_config.log_rotation_count, defaults.node.stat_config.log_rotation_count);
+	ASSERT_NE (conf.node.stat_config.log_interval_samples, defaults.node.stat_config.log_interval_samples);
+	ASSERT_NE (conf.node.stat_config.log_interval_counters, defaults.node.stat_config.log_interval_counters);
 	ASSERT_NE (conf.node.stat_config.log_headers, defaults.node.stat_config.log_headers);
 	ASSERT_NE (conf.node.stat_config.log_counters_filename, defaults.node.stat_config.log_counters_filename);
 	ASSERT_NE (conf.node.stat_config.log_samples_filename, defaults.node.stat_config.log_samples_filename);
+}
+
+/** Deserialize an rpc config with non-default values */
+TEST (toml, rpc_config_deserialize_no_defaults)
+{
+	std::stringstream ss;
+
+	// A config file with values that differs from test-net defaults
+	ss << R"toml(
+	address = "0:0:0:0:0:ffff:7f01:101"
+	enable_control = true
+	max_json_depth = 9
+	max_request_size = 999
+	port = 999
+	[process]
+	io_threads = 999
+	ipc_address = "0:0:0:0:0:ffff:7f01:101"
+	ipc_port = 999
+	num_ipc_connections = 999
+	)toml";
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+	nano::rpc_config conf;
+	nano::rpc_config defaults;
+	conf.deserialize_toml (toml);
+
+	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
+
+	ASSERT_NE (conf.address, defaults.address);
+	ASSERT_NE (conf.enable_control, defaults.enable_control);
+	ASSERT_NE (conf.max_json_depth, defaults.max_json_depth);
+	ASSERT_NE (conf.max_request_size, defaults.max_request_size);
+	ASSERT_NE (conf.port, defaults.port);
+
+	ASSERT_NE (conf.rpc_process.io_threads, defaults.rpc_process.io_threads);
+	ASSERT_NE (conf.rpc_process.ipc_address, defaults.rpc_process.ipc_address);
+	ASSERT_NE (conf.rpc_process.ipc_port, defaults.rpc_process.ipc_port);
+	ASSERT_NE (conf.rpc_process.num_ipc_connections, defaults.rpc_process.num_ipc_connections);
 }
