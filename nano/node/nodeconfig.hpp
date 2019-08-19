@@ -78,6 +78,7 @@ public:
 	size_t bandwidth_limit{ 5 * 1024 * 1024 }; // 5Mb/s
 	std::chrono::milliseconds conf_height_processor_batch_min_time{ 50 };
 	bool backup_before_upgrade{ false };
+	std::chrono::seconds work_watcher_period{ std::chrono::seconds (5) };
 	static unsigned json_version ()
 	{
 		return 18;

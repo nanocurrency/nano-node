@@ -1424,10 +1424,7 @@ void nano::work_watcher::run ()
 	std::chrono::steady_clock::time_point next_attempt;
 	while (!stopped)
 	{
-		condition.wait_until (lock, next_attempt, [this, &next_attempt]() {
-			return stopped || next_attempt < std::chrono::steady_clock::now ();
-		});
-		next_attempt = std::chrono::steady_clock::now () + std::chrono::seconds (5);
+		next_attempt = std::chrono::steady_clock::now () + node.config.work_watcher_period;
 		for (auto i (blocks.begin ()), n (blocks.end ()); i != n;)
 		{
 			std::unique_lock<std::mutex> active_lock (node.active.mutex);
@@ -1519,6 +1516,13 @@ void nano::work_watcher::run ()
 					break;
 				}
 			}
+		}
+
+		if (!stopped)
+		{
+			condition.wait_until (lock, next_attempt, [this, &next_attempt]() {
+				return stopped || next_attempt < std::chrono::steady_clock::now ();
+			});
 		}
 	} // !stopped
 }
