@@ -1518,9 +1518,12 @@ void nano::work_watcher::run ()
 			}
 		}
 
-		condition.wait_until (lock, next_attempt, [this, &next_attempt]() {
-			return stopped || next_attempt < std::chrono::steady_clock::now ();
-		});
+		if (!stopped)
+		{
+			condition.wait_until (lock, next_attempt, [this, &next_attempt]() {
+				return stopped || next_attempt < std::chrono::steady_clock::now ();
+			});
+		}
 	} // !stopped
 }
 
