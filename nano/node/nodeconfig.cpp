@@ -450,6 +450,10 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		{
 			json.get_error ().set ("vote_generator_threshold must be a number between 1 and 11");
 		}
+		if (work_watcher_period < std::chrono::seconds (1))
+		{
+			json.get_error ().set ("work_watcher_period must be equal or larger than 1");
+		}
 	}
 	catch (std::runtime_error const & ex)
 	{
