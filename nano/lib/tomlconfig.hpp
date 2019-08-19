@@ -338,7 +338,7 @@ public:
 
 protected:
 	template <typename T, typename = std::enable_if_t<nano::is_lexical_castable<T>::value>>
-	tomlconfig & get_config (bool optional, std::string key, T & target, T default_value = T ())
+	tomlconfig & get_config (bool optional, std::string const & key, T & target, T default_value = T ())
 	{
 		try
 		{
@@ -369,7 +369,7 @@ protected:
 
 	// boost's lexical cast doesn't handle (u)int8_t
 	template <typename T, typename = std::enable_if_t<std::is_same<T, uint8_t>::value>>
-	tomlconfig & get_config (bool optional, std::string key, uint8_t & target, uint8_t default_value = T ())
+	tomlconfig & get_config (bool optional, std::string const & key, uint8_t & target, uint8_t default_value = T ())
 	{
 		try
 		{
@@ -404,7 +404,7 @@ protected:
 	}
 
 	template <typename T, typename = std::enable_if_t<std::is_same<T, bool>::value>>
-	tomlconfig & get_config (bool optional, std::string key, bool & target, bool default_value = false)
+	tomlconfig & get_config (bool optional, std::string const & key, bool & target, bool default_value = false)
 	{
 		auto bool_conv = [this, &target, &key, optional](std::string val) {
 			if (val == "true")
