@@ -366,6 +366,11 @@ startup_time (std::chrono::steady_clock::now ())
 		logger.always_log ("Active network: ", network_label);
 
 		logger.always_log (boost::str (boost::format ("Work pool running %1% threads") % work.threads.size ()));
+		logger.always_log (boost::str (boost::format ("%1% work peers configured") % config.work_peers.size ()));
+		if (config.work_peers.empty () && config.work_threads == 0 && !work.opencl)
+		{
+			logger.always_log ("Work generation is disabled");
+		}
 
 		if (config.logging.node_lifetime_tracing ())
 		{
@@ -1136,7 +1141,7 @@ public:
 					this_l->node->logger.try_log (boost::str (boost::format ("Error cancelling operation with work_peer %1% %2%: %3%") % connection->address % connection->port % ec.message () % ec.value ()));
 				}
 			}
-			if (connection) // connection can be hanging
+			if (connection) // may be hanging
 			{
 				try
 				{
