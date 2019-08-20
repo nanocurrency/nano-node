@@ -95,6 +95,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("active_elections_size", active_elections_size, "Limits number of active elections before dropping will be considered (other conditions must also be satisfied)\ntype:uint64,[250..]");
 	toml.put ("bandwidth_limit", bandwidth_limit, "Outbound traffic limit in bytes/sec after which messages will be dropped\ntype:uint64");
 	toml.put ("backup_before_upgrade", backup_before_upgrade, "Backup the ledger database before performing upgrades\ntype:bool");
+	toml.put ("work_watcher_period", work_watcher_period.count (), "Time between checks for confirmation and re-generating higher difficulty work if unconfirmed, for blocks in the work watcher.\ntype:seconds");
 
 	auto work_peers_l (toml.create_array ("work_peers", "A list of \"address:port\" entries to identify work peers"));
 	for (auto i (work_peers.begin ()), n (work_peers.end ()); i != n; ++i)
@@ -289,6 +290,10 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get<size_t> ("active_elections_size", active_elections_size);
 		toml.get<size_t> ("bandwidth_limit", bandwidth_limit);
 		toml.get<bool> ("backup_before_upgrade", backup_before_upgrade);
+
+		auto work_watcher_period_l = work_watcher_period.count ();
+		toml.get ("work_watcher_period", work_watcher_period_l);
+		work_watcher_period = std::chrono::seconds (work_watcher_period_l);
 
 		auto conf_height_processor_batch_min_time_l (conf_height_processor_batch_min_time.count ());
 		toml.get ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time_l);
