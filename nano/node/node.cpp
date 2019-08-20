@@ -1126,35 +1126,38 @@ public:
 	}
 	void stop ()
 	{
-		stopped = true;
-		auto this_l (shared_from_this ());
-		std::lock_guard<std::mutex> lock (mutex);
-		for (auto & i : connections)
+		if (!stopped)
 		{
-			auto connection = i.second.lock ();
-			if (connection && connection->awaiting_work)
+			stopped = true;
+			auto this_l (shared_from_this ());
+			std::lock_guard<std::mutex> lock (mutex);
+			for (auto & i : connections)
 			{
-				boost::system::error_code ec;
-				connection->socket.cancel (ec);
-				if (ec)
+				auto connection = i.second.lock ();
+				if (connection && connection->awaiting_work)
 				{
-					this_l->node->logger.try_log (boost::str (boost::format ("Error cancelling operation with work_peer %1% %2%: %3%") % connection->address % connection->port % ec.message () % ec.value ()));
+					boost::system::error_code ec;
+					connection->socket.cancel (ec);
+					if (ec)
+					{
+						this_l->node->logger.try_log (boost::str (boost::format ("Error cancelling operation with work_peer %1% %2%: %3%") % connection->address % connection->port % ec.message () % ec.value ()));
+					}
+				}
+				if (connection) // may be hanging
+				{
+					try
+					{
+						connection->socket.close ();
+					}
+					catch (const boost::system::system_error & ec)
+					{
+						this_l->node->logger.try_log (boost::str (boost::format ("Error closing socket with work_peer %1% %2%: %3%") % connection->address % connection->port % ec.what () % ec.code ()));
+					}
 				}
 			}
-			if (connection) // may be hanging
-			{
-				try
-				{
-					connection->socket.close ();
-				}
-				catch (const boost::system::system_error & ec)
-				{
-					this_l->node->logger.try_log (boost::str (boost::format ("Error closing socket with work_peer %1% %2%: %3%") % connection->address % connection->port % ec.what () % ec.code ()));
-				}
-			}
+			connections.clear ();
+			outstanding.clear ();
 		}
-		connections.clear ();
-		outstanding.clear ();
 	}
 	void success (std::string const & body_a, boost::asio::ip::address const & address)
 	{
@@ -1273,7 +1276,7 @@ public:
 	std::vector<std::pair<std::string, uint16_t>> need_resolve;
 	std::atomic_flag completed;
 	uint64_t difficulty;
-	bool stopped{ false };
+	std::atomic_bool stopped{ false };
 };
 }
 
