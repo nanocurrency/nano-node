@@ -30,7 +30,7 @@ TEST (system, generate_mass_activity_long)
 	nano::node_config node_config (24000, system.logging);
 	node_config.enable_voting = false; // Prevent blocks cementing
 	auto node = system.add_node (node_config);
-	system.wallet (0)->wallets.watcher.stop (); // Stop work watcher
+	system.wallet (0)->wallets.watcher->stop (); // Stop work watcher
 	nano::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	uint32_t count (1000000000);

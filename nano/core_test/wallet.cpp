@@ -1107,6 +1107,7 @@ TEST (wallet, update_work_action)
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
 	node_config.enable_voting = false;
+	node_config.work_watcher_period = 1s;
 	auto & node = *system.add_node (node_config);
 	auto & wallet (*system.wallet (0));
 	wallet.insert_adhoc (nano::test_genesis_key.prv);
@@ -1115,7 +1116,7 @@ TEST (wallet, update_work_action)
 	uint64_t difficulty1 (0);
 	nano::work_validate (*block, &difficulty1);
 	auto multiplier1 = nano::difficulty::to_multiplier (difficulty1, node.network_params.network.publish_threshold);
-	system.deadline_set (10s);
+	system.deadline_set (5s);
 	auto updated (false);
 	uint64_t updated_difficulty;
 	while (!updated)

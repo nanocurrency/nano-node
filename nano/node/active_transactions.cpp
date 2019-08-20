@@ -787,7 +787,7 @@ void nano::active_transactions::flush_lowest ()
 		if (count != 2)
 		{
 			auto election = it->election;
-			if (election->confirmation_request_count > high_confirmation_request_count && !election->confirmed && !election->stopped && !node.wallets.watcher.is_watched (it->root))
+			if (election->confirmation_request_count > high_confirmation_request_count && !election->confirmed && !election->stopped && !node.wallets.watcher->is_watched (it->root))
 			{
 				it = decltype (it){ sorted_roots.erase (std::next (it).base ()) };
 				election->stop ();
