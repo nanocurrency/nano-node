@@ -995,9 +995,10 @@ public:
 	}
 	void start_work ()
 	{
+		auto this_l (shared_from_this ());
+
 		if (!outstanding.empty ())
 		{
-			auto this_l (shared_from_this ());
 			std::lock_guard<std::mutex> lock (mutex);
 			for (auto const & i : outstanding)
 			{
@@ -1099,9 +1100,17 @@ public:
 				});
 			}
 		}
-		else
+		if (node->config.work_threads != 0 || node->work.opencl)
 		{
-			handle_failure (true);
+			// clang-format off
+			node->work.generate (root, [this_l](boost::optional<uint64_t> const & work_a) {
+				if (work_a)
+				{
+					this_l->set_once (work_a.value ());
+				}
+			},
+			difficulty);
+			// clang-format on
 		}
 	}
 	void stop ()
@@ -1121,7 +1130,7 @@ public:
 					this_l->node->logger.try_log (boost::str (boost::format ("Error cancelling operation with work_peer %1% %2%: %3%") % connection->address % connection->port % ec.message () % ec.value ()));
 				}
 			}
-			else if (connection)
+			else if (connection) // connection can be hanging
 			{
 				try
 				{
@@ -1152,7 +1161,10 @@ public:
 				if (!nano::work_validate (root, work, &result_difficulty) && result_difficulty >= difficulty)
 				{
 					set_once (work);
-					stop ();
+					if (node->config.work_threads != 0 || node->work.opencl)
+					{
+						node->work.cancel (root);
+					}
 				}
 				else
 				{
@@ -1177,6 +1189,7 @@ public:
 		if (!completed.test_and_set ())
 		{
 			callback (work_a);
+			stop ();
 		}
 	}
 	void failure (boost::asio::ip::address const & address)
@@ -1190,37 +1203,24 @@ public:
 		{
 			if (!completed.test_and_set ())
 			{
-				if (node->config.work_threads != 0 || node->work.opencl)
+				if (backoff == 1 && node->config.logging.work_generation_time ())
 				{
-					auto callback_l (callback);
-					// clang-format off
-					node->work.generate (root, [callback_l](boost::optional<uint64_t> const & work_a) {
-						callback_l (work_a.value ());
-					},
-					difficulty);
-					// clang-format on
+					node->logger.try_log ("Work peer(s) failed to generate work for root ", root.to_string (), ", retrying...");
 				}
-				else
-				{
-					if (backoff == 1 && node->config.logging.work_generation_time ())
+				auto now (std::chrono::steady_clock::now ());
+				auto root_l (root);
+				auto callback_l (callback);
+				std::weak_ptr<nano::node> node_w (node);
+				auto next_backoff (std::min (backoff * 2, (unsigned int)60 * 5));
+				// clang-format off
+				node->alarm.add (now + std::chrono::seconds (backoff), [ node_w, root_l, callback_l, next_backoff, difficulty = difficulty ] {
+					if (auto node_l = node_w.lock ())
 					{
-						node->logger.try_log ("Work peer(s) failed to generate work for root ", root.to_string (), ", retrying...");
+						auto work_generation (std::make_shared<distributed_work> (next_backoff, node_l, root_l, callback_l, difficulty));
+						work_generation->start ();
 					}
-					auto now (std::chrono::steady_clock::now ());
-					auto root_l (root);
-					auto callback_l (callback);
-					std::weak_ptr<nano::node> node_w (node);
-					auto next_backoff (std::min (backoff * 2, (unsigned int)60 * 5));
-					// clang-format off
-					node->alarm.add (now + std::chrono::seconds (backoff), [ node_w, root_l, callback_l, next_backoff, difficulty = difficulty ] {
-						if (auto node_l = node_w.lock ())
-						{
-							auto work_generation (std::make_shared<distributed_work> (next_backoff, node_l, root_l, callback_l, difficulty));
-							work_generation->start ();
-						}
-					});
-					// clang-format on
-				}
+				});
+				// clang-format on
 			}
 		}
 	}
