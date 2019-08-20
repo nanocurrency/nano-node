@@ -934,6 +934,7 @@ public:
 	boost::beast::flat_buffer buffer;
 	boost::beast::http::response<boost::beast::http::string_body> response;
 	boost::asio::ip::tcp::socket socket;
+	std::atomic_bool awaiting_work{ false };
 };
 class distributed_work : public std::enable_shared_from_this<distributed_work>
 {
@@ -1004,6 +1005,7 @@ public:
 				auto service (i.second);
 				node->background ([this_l, host, service]() {
 					auto connection (std::make_shared<work_request> (this_l->node->io_ctx, host, service));
+					this_l->connecting (host, connection);
 					connection->socket.async_connect (nano::tcp_endpoint (host, service), [this_l, connection](boost::system::error_code const & ec) {
 						if (!ec)
 						{
@@ -1027,9 +1029,11 @@ public:
 							boost::beast::http::async_write (connection->socket, *request, [this_l, connection, request](boost::system::error_code const & ec, size_t bytes_transferred) {
 								if (!ec)
 								{
+									this_l->requested (connection->address);
 									boost::beast::http::async_read (connection->socket, connection->buffer, connection->response, [this_l, connection](boost::system::error_code const & ec, size_t bytes_transferred) {
 										if (!ec)
 										{
+											this_l->received (connection->address);
 											if (connection->response.result () == boost::beast::http::status::ok)
 											{
 												this_l->success (connection->response.body (), connection->address);
@@ -1039,6 +1043,38 @@ public:
 												this_l->node->logger.try_log (boost::str (boost::format ("Work peer responded with an error %1% %2%: %3%") % connection->address % connection->port % connection->response.result ()));
 												this_l->failure (connection->address);
 											}
+										}
+										else if (ec == boost::system::errc::operation_canceled)
+										{
+											connection->socket.async_wait (boost::asio::socket_base::wait_write, [this_l, connection](boost::system::error_code const & ec) {
+												if (!ec)
+												{
+													std::string request_string;
+													{
+														boost::property_tree::ptree request;
+														request.put ("action", "work_cancel");
+														request.put ("hash", this_l->root.to_string ());
+														std::stringstream ostream;
+														boost::property_tree::write_json (ostream, request);
+														request_string = ostream.str ();
+													}
+													auto request (std::make_shared<boost::beast::http::request<boost::beast::http::string_body>> ());
+													request->method (boost::beast::http::verb::post);
+													request->set (boost::beast::http::field::content_type, "application/json");
+													request->target ("/");
+													request->version (11);
+													request->body () = request_string;
+													request->prepare_payload ();
+
+													boost::beast::http::async_write (connection->socket, *request, [this_l, request, connection](boost::system::error_code const & ec, size_t bytes_transferred) {
+														if (ec)
+														{
+															this_l->node->logger.try_log (boost::str (boost::format ("Unable to send work_cancel to work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
+														}
+													});
+												}
+											});
+											this_l->failure (connection->address);
 										}
 										else
 										{
@@ -1070,33 +1106,34 @@ public:
 	}
 	void stop ()
 	{
+		stopped = true;
 		auto this_l (shared_from_this ());
 		std::lock_guard<std::mutex> lock (mutex);
-		for (auto const & i : outstanding)
+		for (auto & i : connections)
 		{
-			auto host (i.first);
-			node->background ([this_l, host]() {
-				std::string request_string;
+			auto connection = i.second.lock ();
+			if (connection && connection->awaiting_work)
+			{
+				boost::system::error_code ec;
+				connection->socket.cancel (ec);
+				if (ec)
 				{
-					boost::property_tree::ptree request;
-					request.put ("action", "work_cancel");
-					request.put ("hash", this_l->root.to_string ());
-					std::stringstream ostream;
-					boost::property_tree::write_json (ostream, request);
-					request_string = ostream.str ();
+					this_l->node->logger.try_log (boost::str (boost::format ("Error cancelling operation with work_peer %1% %2%: %3%") % connection->address % connection->port % ec.message () % ec.value ()));
 				}
-				boost::beast::http::request<boost::beast::http::string_body> request;
-				request.method (boost::beast::http::verb::post);
-				request.set (boost::beast::http::field::content_type, "application/json");
-				request.target ("/");
-				request.version (11);
-				request.body () = request_string;
-				request.prepare_payload ();
-				auto socket (std::make_shared<boost::asio::ip::tcp::socket> (this_l->node->io_ctx));
-				boost::beast::http::async_write (*socket, request, [socket](boost::system::error_code const & ec, size_t bytes_transferred) {
-				});
-			});
+			}
+			else if (connection)
+			{
+				try
+				{
+					connection->socket.close ();
+				}
+				catch (const boost::system::system_error & ec)
+				{
+					this_l->node->logger.try_log (boost::str (boost::format ("Error closing socket with work_peer %1% %2%: %3%") % connection->address % connection->port % ec.what () % ec.code ()));
+				}
+			}
 		}
+		connections.clear ();
 		outstanding.clear ();
 	}
 	void success (std::string const & body_a, boost::asio::ip::address const & address)
@@ -1193,15 +1230,39 @@ public:
 		outstanding.erase (address);
 		return outstanding.empty ();
 	}
+	void connecting (boost::asio::ip::address const & address, std::shared_ptr<work_request> & connection)
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		connections[address] = connection;
+	}
+	void requested (boost::asio::ip::address const & address)
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		auto existing (connections.find (address));
+		if (existing != connections.end ())
+		{
+			if (auto connection = existing->second.lock ())
+			{
+				connection->awaiting_work = true;
+			}
+		}
+	}
+	void received (boost::asio::ip::address const & address)
+	{
+		std::lock_guard<std::mutex> lock (mutex);
+		connections.erase (address);
+	}
 	std::function<void(uint64_t)> callback;
 	unsigned int backoff; // in seconds
 	std::shared_ptr<nano::node> node;
 	nano::block_hash root;
 	std::mutex mutex;
 	std::map<boost::asio::ip::address, uint16_t> outstanding;
+	std::map<boost::asio::ip::address, std::weak_ptr<work_request>> connections;
 	std::vector<std::pair<std::string, uint16_t>> need_resolve;
 	std::atomic_flag completed;
 	uint64_t difficulty;
+	bool stopped{ false };
 };
 }
 
