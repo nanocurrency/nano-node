@@ -1528,7 +1528,7 @@ void nano::work_watcher::remove (std::shared_ptr<nano::block> block_a)
 	auto existing (watched.find (root));
 	if (existing != watched.end () && existing->second->hash () == block_a->hash ())
 	{
-		existing->second = nullptr;
+		watched.erase (existing);
 	}
 }
 
