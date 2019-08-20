@@ -1130,10 +1130,9 @@ public:
 	}
 	void stop (bool const local_stop)
 	{
-		std::lock_guard<std::mutex> lock (mutex);
-		if (!stopped)
+		if (!stopped.exchange (true))
 		{
-			stopped = true;
+			std::lock_guard<std::mutex> lock (mutex);
 			if (local_stop && (node->config.work_threads != 0 || node->work.opencl))
 			{
 				node->work.cancel (root);
@@ -1259,7 +1258,7 @@ public:
 	std::vector<std::pair<std::string, uint16_t>> need_resolve;
 	std::atomic_flag completed;
 	uint64_t difficulty;
-	std::atomic_bool stopped{ false };
+	std::atomic<bool> stopped{ false };
 };
 }
 
