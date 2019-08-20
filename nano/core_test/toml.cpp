@@ -256,6 +256,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	vote_minimum = "999"
 	work_peers = ["test.org:999"]
 	work_threads = 999
+	work_watcher_period = 999
 	[node.diagnostics.txn_tracking]
 	enable = true
 	ignore_writes_below_block_processor_max_time = false
@@ -370,6 +371,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.io_threads, defaults.node.io_threads);
 	ASSERT_NE (conf.node.lmdb_max_dbs, defaults.node.lmdb_max_dbs);
 	ASSERT_NE (conf.node.network_threads, defaults.node.network_threads);
+	ASSERT_NE (conf.node.work_watcher_period, defaults.node.work_watcher_period);
 	ASSERT_NE (conf.node.online_weight_minimum, defaults.node.online_weight_minimum);
 	ASSERT_NE (conf.node.online_weight_quorum, defaults.node.online_weight_quorum);
 	ASSERT_NE (conf.node.password_fanout, defaults.node.password_fanout);
