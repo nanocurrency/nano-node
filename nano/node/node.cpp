@@ -948,6 +948,10 @@ public:
 	{
 		assert (node_a != nullptr);
 	}
+	~distributed_work ()
+	{
+		stop ();
+	}
 	distributed_work (unsigned int backoff_a, std::shared_ptr<nano::node> const & node_a, nano::block_hash const & root_a, std::function<void(uint64_t)> const & callback_a, uint64_t difficulty_a) :
 	callback (callback_a),
 	backoff (backoff_a),
@@ -1128,7 +1132,10 @@ public:
 		if (!stopped)
 		{
 			stopped = true;
-			auto this_l (shared_from_this ());
+			if (node->config.work_threads != 0 || node->work.opencl)
+			{
+				node->work.cancel (root);
+			}
 			for (auto & i : connections)
 			{
 				auto connection = i.lock ();
@@ -1138,7 +1145,7 @@ public:
 					connection->socket.cancel (ec);
 					if (ec)
 					{
-						this_l->node->logger.try_log (boost::str (boost::format ("Error cancelling operation with work_peer %1% %2%: %3%") % connection->address % connection->port % ec.message () % ec.value ()));
+						node->logger.try_log (boost::str (boost::format ("Error cancelling operation with work_peer %1% %2%: %3%") % connection->address % connection->port % ec.message () % ec.value ()));
 					}
 					try
 					{
@@ -1146,7 +1153,7 @@ public:
 					}
 					catch (const boost::system::system_error & ec)
 					{
-						this_l->node->logger.try_log (boost::str (boost::format ("Error closing socket with work_peer %1% %2%: %3%") % connection->address % connection->port % ec.what () % ec.code ()));
+						node->logger.try_log (boost::str (boost::format ("Error closing socket with work_peer %1% %2%: %3%") % connection->address % connection->port % ec.what () % ec.code ()));
 					}
 				}
 			}
@@ -1170,10 +1177,6 @@ public:
 				if (!nano::work_validate (root, work, &result_difficulty) && result_difficulty >= difficulty)
 				{
 					set_once (work);
-					if (node->config.work_threads != 0 || node->work.opencl)
-					{
-						node->work.cancel (root);
-					}
 				}
 				else
 				{
