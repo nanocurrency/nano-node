@@ -664,6 +664,7 @@ void nano::node::stop ()
 	if (!stopped.exchange (true))
 	{
 		logger.always_log ("Node stopping");
+		work.stop ();
 		block_processor.stop ();
 		if (block_processor_thread.joinable ())
 		{
@@ -950,7 +951,7 @@ public:
 	}
 	~distributed_work ()
 	{
-		stop ();
+		stop (true);
 	}
 	distributed_work (unsigned int backoff_a, std::shared_ptr<nano::node> const & node_a, nano::block_hash const & root_a, std::function<void(uint64_t)> const & callback_a, uint64_t difficulty_a) :
 	callback (callback_a),
@@ -1087,6 +1088,7 @@ public:
 				if (work_a)
 				{
 					this_l->set_once (work_a.value ());
+					this_l->stop (false);
 				}
 			},
 			difficulty);
@@ -1126,13 +1128,13 @@ public:
 			}
 		});
 	}
-	void stop ()
+	void stop (bool const local_stop)
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		if (!stopped)
 		{
 			stopped = true;
-			if (node->config.work_threads != 0 || node->work.opencl)
+			if (local_stop && (node->config.work_threads != 0 || node->work.opencl))
 			{
 				node->work.cancel (root);
 			}
@@ -1177,6 +1179,7 @@ public:
 				if (!nano::work_validate (root, work, &result_difficulty) && result_difficulty >= difficulty)
 				{
 					set_once (work);
+					stop (true);
 				}
 				else
 				{
@@ -1201,7 +1204,6 @@ public:
 		if (!completed.test_and_set ())
 		{
 			callback (work_a);
-			stop ();
 		}
 	}
 	void failure (boost::asio::ip::address const & address)
