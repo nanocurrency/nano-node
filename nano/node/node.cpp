@@ -664,7 +664,6 @@ void nano::node::stop ()
 	if (!stopped.exchange (true))
 	{
 		logger.always_log ("Node stopping");
-		work.stop ();
 		block_processor.stop ();
 		if (block_processor_thread.joinable ())
 		{
@@ -685,6 +684,7 @@ void nano::node::stop ()
 		wallets.stop ();
 		stats.stop ();
 		write_database_queue.stop ();
+		// work is not stopped on purpose due to testing setup
 	}
 }
 
