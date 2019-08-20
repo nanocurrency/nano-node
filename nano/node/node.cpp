@@ -1047,34 +1047,7 @@ public:
 										}
 										else if (ec == boost::system::errc::operation_canceled)
 										{
-											connection->socket.async_wait (boost::asio::socket_base::wait_write, [this_l, connection](boost::system::error_code const & ec) {
-												if (!ec)
-												{
-													std::string request_string;
-													{
-														boost::property_tree::ptree request;
-														request.put ("action", "work_cancel");
-														request.put ("hash", this_l->root.to_string ());
-														std::stringstream ostream;
-														boost::property_tree::write_json (ostream, request);
-														request_string = ostream.str ();
-													}
-													auto request (std::make_shared<boost::beast::http::request<boost::beast::http::string_body>> ());
-													request->method (boost::beast::http::verb::post);
-													request->set (boost::beast::http::field::content_type, "application/json");
-													request->target ("/");
-													request->version (11);
-													request->body () = request_string;
-													request->prepare_payload ();
-
-													boost::beast::http::async_write (connection->socket, *request, [this_l, request, connection](boost::system::error_code const & ec, size_t bytes_transferred) {
-														if (ec)
-														{
-															this_l->node->logger.try_log (boost::str (boost::format ("Unable to send work_cancel to work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
-														}
-													});
-												}
-											});
+											this_l->cancel (connection);
 											this_l->failure (connection->address);
 										}
 										else
@@ -1113,6 +1086,39 @@ public:
 			// clang-format on
 		}
 	}
+	void cancel (std::shared_ptr<work_request> connection)
+	{
+		auto this_l (shared_from_this ());
+		auto cancelling (std::make_shared<work_request> (node->io_ctx, connection->address, connection->port));
+		cancelling->socket.async_connect (nano::tcp_endpoint (cancelling->address, cancelling->port), [this_l, cancelling](boost::system::error_code const & ec) {
+			if (!ec)
+			{
+				std::string request_string;
+				{
+					boost::property_tree::ptree request;
+					request.put ("action", "work_cancel");
+					request.put ("hash", this_l->root.to_string ());
+					std::stringstream ostream;
+					boost::property_tree::write_json (ostream, request);
+					request_string = ostream.str ();
+				}
+				auto request (std::make_shared<boost::beast::http::request<boost::beast::http::string_body>> ());
+				request->method (boost::beast::http::verb::post);
+				request->set (boost::beast::http::field::content_type, "application/json");
+				request->target ("/");
+				request->version (11);
+				request->body () = request_string;
+				request->prepare_payload ();
+
+				boost::beast::http::async_write (cancelling->socket, *request, [this_l, request, cancelling](boost::system::error_code const & ec, size_t bytes_transferred) {
+					if (ec)
+					{
+						this_l->node->logger.try_log (boost::str (boost::format ("Unable to send work_cancel to work_peer %1% %2%: %3% (%4%)") % cancelling->address % cancelling->port % ec.message () % ec.value ()));
+					}
+				});
+			}
+		});
+	}
 	void stop ()
 	{
 		stopped = true;
@@ -1130,7 +1136,7 @@ public:
 					this_l->node->logger.try_log (boost::str (boost::format ("Error cancelling operation with work_peer %1% %2%: %3%") % connection->address % connection->port % ec.message () % ec.value ()));
 				}
 			}
-			else if (connection) // connection can be hanging
+			if (connection) // connection can be hanging
 			{
 				try
 				{
