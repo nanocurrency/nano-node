@@ -358,11 +358,11 @@ TEST (active_transactions, inactive_votes_cache_multiple_votes)
 	auto vote2 (std::make_shared<nano::vote> (key2.pub, key2.prv, 0, std::vector<nano::block_hash> (1, send->hash ())));
 	system.nodes[0]->vote_processor.vote (vote2, std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, system.nodes[0]->network.endpoint ()));
 	system.deadline_set (5s);
-	while (system.nodes[0]->active.inactive_votes_cache_size () != 1)
+	while (system.nodes[0]->active.find_inactive_votes_cache (send->hash ()).voters.size () != 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (2, system.nodes[0]->active.find_inactive_votes_cache (send->hash ()).voters.size ());
+	ASSERT_EQ (1, system.nodes[0]->active.inactive_votes_cache_size ());
 	system.nodes[0]->process_active (send);
 	system.nodes[0]->block_processor.flush ();
 	while (system.nodes[0]->active.size () != 1)
