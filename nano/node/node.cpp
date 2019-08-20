@@ -939,7 +939,6 @@ public:
 	boost::beast::flat_buffer buffer;
 	boost::beast::http::response<boost::beast::http::string_body> response;
 	boost::asio::ip::tcp::socket socket;
-	std::atomic_bool awaiting_work{ false };
 };
 class distributed_work : public std::enable_shared_from_this<distributed_work>
 {
@@ -1011,7 +1010,7 @@ public:
 				auto service (i.second);
 				node->background ([this_l, host, service]() {
 					auto connection (std::make_shared<work_request> (this_l->node->io_ctx, host, service));
-					this_l->connecting (host, connection);
+					this_l->add_connection (connection);
 					connection->socket.async_connect (nano::tcp_endpoint (host, service), [this_l, connection](boost::system::error_code const & ec) {
 						if (!ec)
 						{
@@ -1035,11 +1034,9 @@ public:
 							boost::beast::http::async_write (connection->socket, *request, [this_l, connection, request](boost::system::error_code const & ec, size_t bytes_transferred) {
 								if (!ec)
 								{
-									this_l->requested (connection->address);
 									boost::beast::http::async_read (connection->socket, connection->buffer, connection->response, [this_l, connection](boost::system::error_code const & ec, size_t bytes_transferred) {
 										if (!ec)
 										{
-											this_l->received (connection->address);
 											if (connection->response.result () == boost::beast::http::status::ok)
 											{
 												this_l->success (connection->response.body (), connection->address);
@@ -1052,6 +1049,7 @@ public:
 										}
 										else if (ec == boost::system::errc::operation_canceled)
 										{
+											// The only case where we send a cancel is if we preempt stopped waiting for the response
 											this_l->cancel (connection);
 											this_l->failure (connection->address);
 										}
@@ -1133,8 +1131,8 @@ public:
 			std::lock_guard<std::mutex> lock (mutex);
 			for (auto & i : connections)
 			{
-				auto connection = i.second.lock ();
-				if (connection && connection->awaiting_work)
+				auto connection = i.lock ();
+				if (connection)
 				{
 					boost::system::error_code ec;
 					connection->socket.cancel (ec);
@@ -1142,9 +1140,6 @@ public:
 					{
 						this_l->node->logger.try_log (boost::str (boost::format ("Error cancelling operation with work_peer %1% %2%: %3%") % connection->address % connection->port % ec.message () % ec.value ()));
 					}
-				}
-				if (connection) // may be hanging
-				{
 					try
 					{
 						connection->socket.close ();
@@ -1244,35 +1239,18 @@ public:
 		outstanding.erase (address);
 		return outstanding.empty ();
 	}
-	void connecting (boost::asio::ip::address const & address, std::shared_ptr<work_request> & connection)
+	void add_connection (std::shared_ptr<work_request> & connection)
 	{
 		std::lock_guard<std::mutex> lock (mutex);
-		connections[address] = connection;
-	}
-	void requested (boost::asio::ip::address const & address)
-	{
-		std::lock_guard<std::mutex> lock (mutex);
-		auto existing (connections.find (address));
-		if (existing != connections.end ())
-		{
-			if (auto connection = existing->second.lock ())
-			{
-				connection->awaiting_work = true;
-			}
-		}
-	}
-	void received (boost::asio::ip::address const & address)
-	{
-		std::lock_guard<std::mutex> lock (mutex);
-		connections.erase (address);
+		connections.push_back (connection); // weak_ptr
 	}
 	std::function<void(uint64_t)> callback;
 	unsigned int backoff; // in seconds
 	std::shared_ptr<nano::node> node;
 	nano::block_hash root;
 	std::mutex mutex;
-	std::map<boost::asio::ip::address, uint16_t> outstanding;
-	std::map<boost::asio::ip::address, std::weak_ptr<work_request>> connections;
+	std::unordered_map<boost::asio::ip::address, uint16_t> outstanding;
+	std::vector<std::weak_ptr<work_request>> connections;
 	std::vector<std::pair<std::string, uint16_t>> need_resolve;
 	std::atomic_flag completed;
 	uint64_t difficulty;
