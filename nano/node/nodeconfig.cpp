@@ -131,6 +131,8 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("confirmation_history_size", confirmation_history_size);
 	json.put ("active_elections_size", active_elections_size);
 	json.put ("bandwidth_limit", bandwidth_limit);
+	json.put ("backup_before_upgrade", backup_before_upgrade);
+	json.put ("work_watcher_period", work_watcher_period.count ());
 
 	return json.get_error ();
 }
@@ -255,6 +257,12 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.put ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time.count ());
 		}
 		case 17:
+		{
+			json.put ("vote_generator_delay", vote_generator_delay.count ()); // Update value
+			json.put ("backup_before_upgrade", backup_before_upgrade);
+			json.put ("work_watcher_period", work_watcher_period.count ());
+		}
+		case 18:
 			break;
 		default:
 			throw std::runtime_error ("Unknown node_config version");
@@ -406,6 +414,11 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get<size_t> ("confirmation_history_size", confirmation_history_size);
 		json.get<size_t> ("active_elections_size", active_elections_size);
 		json.get<size_t> ("bandwidth_limit", bandwidth_limit);
+		json.get<bool> ("backup_before_upgrade", backup_before_upgrade);
+
+		auto work_watcher_period_l = work_watcher_period.count ();
+		json.get ("work_watcher_period", work_watcher_period_l);
+		work_watcher_period = std::chrono::seconds (work_watcher_period_l);
 
 		auto conf_height_processor_batch_min_time_l (conf_height_processor_batch_min_time.count ());
 		json.get ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time_l);
@@ -433,9 +446,13 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		{
 			json.get_error ().set ("bandwidth_limit unbounded = 0, default = 5242880, max = 18446744073709551615");
 		}
-		if (vote_generator_threshold < 1 || vote_generator_threshold > 12)
+		if (vote_generator_threshold < 1 || vote_generator_threshold > 11)
 		{
-			json.get_error ().set ("vote_generator_threshold must be a number between 1 and 12");
+			json.get_error ().set ("vote_generator_threshold must be a number between 1 and 11");
+		}
+		if (work_watcher_period < std::chrono::seconds (1))
+		{
+			json.get_error ().set ("work_watcher_period must be equal or larger than 1");
 		}
 	}
 	catch (std::runtime_error const & ex)

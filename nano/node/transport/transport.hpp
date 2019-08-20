@@ -53,7 +53,7 @@ namespace transport
 		virtual ~channel () = default;
 		virtual size_t hash_code () const = 0;
 		virtual bool operator== (nano::transport::channel const &) const = 0;
-		void send (nano::message const &, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr, bool const & = true);
+		void send (nano::message const &, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr, bool const = true);
 		virtual void send_buffer (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) = 0;
 		virtual std::function<void(boost::system::error_code const &, size_t)> callback (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) const = 0;
 		virtual std::string to_string () const = 0;

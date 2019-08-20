@@ -96,6 +96,25 @@ TEST (logging, upgrade_v6_v7)
 	ASSERT_EQ (false, tree.get<bool> ("network_timeout_logging_value"));
 }
 
+TEST (logging, upgrade_v7_v8)
+{
+	auto path1 (nano::unique_path ());
+	auto path2 (nano::unique_path ());
+	nano::logging logging1;
+	logging1.init (path1);
+	nano::logging logging2;
+	logging2.init (path2);
+	nano::jsonconfig tree;
+	logging1.serialize_json (tree);
+	tree.erase ("version");
+	tree.erase ("single_line_record");
+	bool upgraded (false);
+	ASSERT_FALSE (logging2.deserialize_json (upgraded, tree));
+	ASSERT_TRUE (upgraded);
+	ASSERT_LE (8, tree.get<int> ("version"));
+	ASSERT_EQ (false, tree.get<bool> ("single_line_record"));
+}
+
 TEST (logger, changing_time_interval)
 {
 	auto path1 (nano::unique_path ());

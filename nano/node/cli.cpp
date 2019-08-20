@@ -682,7 +682,6 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		if (vm.count ("file") == 1)
 		{
-			bool forced (false);
 			std::string filename (vm["file"].as<std::string> ());
 			std::ifstream stream;
 			stream.open (filename.c_str ());
@@ -695,6 +694,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				{
 					password = vm["password"].as<std::string> ();
 				}
+				bool forced (false);
 				if (vm.count ("force") == 1)
 				{
 					forced = vm["force"].as<bool> ();

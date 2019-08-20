@@ -53,7 +53,7 @@ public:
 	 * no error has occurred. On error, the error is logged, the read cycle stops and the session ends. Clients
 	 * are expected to implement reconnect logic.
 	 */
-	void async_read_exactly (void * buff_a, size_t size_a, std::function<void()> callback_a)
+	void async_read_exactly (void * buff_a, size_t size_a, std::function<void()> const & callback_a)
 	{
 		async_read_exactly (buff_a, size_a, std::chrono::seconds (config_transport.io_timeout), callback_a);
 	}
@@ -62,7 +62,7 @@ public:
 	 * Async read of exactly \p size_a bytes and a specific \p timeout_a.
 	 * @see async_read_exactly (void *, size_t, std::function<void()>)
 	 */
-	void async_read_exactly (void * buff_a, size_t size_a, std::chrono::seconds timeout_a, std::function<void()> callback_a)
+	void async_read_exactly (void * buff_a, size_t size_a, std::chrono::seconds timeout_a, std::function<void()> const & callback_a)
 	{
 		timer_start (timeout_a);
 		auto this_l (this->shared_from_this ());

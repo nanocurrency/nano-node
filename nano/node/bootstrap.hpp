@@ -153,6 +153,7 @@ public:
 	~bulk_pull_client ();
 	void request ();
 	void receive_block ();
+	void throttled_receive_block ();
 	void received_type ();
 	void received_block (boost::system::error_code const &, size_t, nano::block_type);
 	nano::block_hash first ();
@@ -160,7 +161,7 @@ public:
 	nano::block_hash expected;
 	nano::account known_account;
 	nano::pull_info pull;
-	uint64_t total_blocks;
+	uint64_t pull_blocks;
 	uint64_t unexpected_count;
 };
 class bootstrap_client final : public std::enable_shared_from_this<bootstrap_client>
@@ -203,7 +204,7 @@ public:
 	void receive_pending ();
 	std::shared_ptr<nano::bootstrap_client> connection;
 	nano::account account;
-	uint64_t total_blocks;
+	uint64_t pull_blocks;
 };
 class cached_pulls final
 {
@@ -374,6 +375,7 @@ class bulk_push_server final : public std::enable_shared_from_this<nano::bulk_pu
 {
 public:
 	explicit bulk_push_server (std::shared_ptr<nano::bootstrap_server> const &);
+	void throttled_receive ();
 	void receive ();
 	void received_type ();
 	void received_block (boost::system::error_code const &, size_t, nano::block_type);

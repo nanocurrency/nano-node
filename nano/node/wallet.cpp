@@ -1069,7 +1069,7 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 				if (block != nullptr)
 				{
 					cached_block = true;
-					wallets.node.network.flood_block (block);
+					wallets.node.network.flood_block (block, false);
 				}
 			}
 			else if (status != MDB_NOTFOUND)
@@ -1424,10 +1424,7 @@ void nano::work_watcher::run ()
 	std::chrono::steady_clock::time_point next_attempt;
 	while (!stopped)
 	{
-		condition.wait_until (lock, next_attempt, [this, &next_attempt]() {
-			return stopped || next_attempt < std::chrono::steady_clock::now ();
-		});
-		next_attempt = std::chrono::steady_clock::now () + std::chrono::seconds (5);
+		next_attempt = std::chrono::steady_clock::now () + node.config.work_watcher_period;
 		for (auto i (blocks.begin ()), n (blocks.end ()); i != n;)
 		{
 			std::unique_lock<std::mutex> active_lock (node.active.mutex);
@@ -1500,7 +1497,7 @@ void nano::work_watcher::run ()
 							current->second = block;
 						}
 					}
-					node.network.flood_block (block);
+					node.network.flood_block (block, false);
 					node.active.update_difficulty (*block.get ());
 					lock.lock ();
 					if (stopped)
@@ -1519,6 +1516,13 @@ void nano::work_watcher::run ()
 					break;
 				}
 			}
+		}
+
+		if (!stopped)
+		{
+			condition.wait_until (lock, next_attempt, [this, &next_attempt]() {
+				return stopped || next_attempt < std::chrono::steady_clock::now ();
+			});
 		}
 	} // !stopped
 }
@@ -1618,6 +1622,27 @@ thread ([this]() {
 				// Couldn't open wallet
 			}
 		}
+	}
+	// Backup before upgrade wallets
+	bool backup_required (false);
+	if (node.config.backup_before_upgrade)
+	{
+		auto transaction (tx_begin_read ());
+		for (auto & item : items)
+		{
+			if (item.second->store.version (transaction) != nano::wallet_store::version_current)
+			{
+				backup_required = true;
+				break;
+			}
+		}
+	}
+	if (backup_required)
+	{
+		const char * store_path;
+		mdb_env_get_path (env, &store_path);
+		const boost::filesystem::path path (store_path);
+		nano::mdb_store::create_backup_file (env, path, node_a.logger);
 	}
 	for (auto & item : items)
 	{

@@ -19,10 +19,6 @@ void show_line_ok (QLineEdit & line)
 {
 	line.setStyleSheet ("QLineEdit { color: black }");
 }
-void show_line_success (QLineEdit & line)
-{
-	line.setStyleSheet ("QLineEdit { color: blue }");
-}
 void show_label_error (QLabel & label)
 {
 	label.setStyleSheet ("QLabel { color: red }");
@@ -79,14 +75,8 @@ wallet (wallet_a)
 	{
 		network[0] = std::toupper (network[0]);
 	}
-	if (NANO_VERSION_PATCH == 0)
-	{
-		version = new QLabel (boost::str (boost::format ("Version %1% %2% network") % NANO_MAJOR_MINOR_VERSION % network).c_str ());
-	}
-	else
-	{
-		version = new QLabel (boost::str (boost::format ("Version %1% %2% network") % NANO_MAJOR_MINOR_RC_VERSION % network).c_str ());
-	}
+	version = new QLabel (boost::str (boost::format ("%1% %2% network") % NANO_VERSION_STRING % network).c_str ());
+
 	self_layout->addWidget (your_account_label);
 	self_layout->addStretch ();
 	self_layout->addWidget (version);

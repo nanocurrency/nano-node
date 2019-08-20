@@ -123,7 +123,7 @@ flags (flags_a),
 alarm (alarm_a),
 work (work_a),
 logger (config_a.logging.min_time_between_log_output),
-store_impl (std::make_unique<nano::mdb_store> (init_a.block_store_init, logger, application_path_a / "data.ldb", config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_max_dbs, !flags.disable_unchecked_drop, flags.sideband_batch_size)),
+store_impl (std::make_unique<nano::mdb_store> (init_a.block_store_init, logger, application_path_a / "data.ldb", config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_max_dbs, !flags.disable_unchecked_drop, flags.sideband_batch_size, config_a.backup_before_upgrade)),
 store (*store_impl),
 wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (init_a.wallets_store_init, application_path_a / "wallets.ldb", config_a.lmdb_max_dbs)),
 wallets_store (*wallets_store_impl),
@@ -359,14 +359,7 @@ startup_time (std::chrono::steady_clock::now ())
 			});
 		}
 
-		if (NANO_VERSION_PATCH == 0)
-		{
-			logger.always_log ("Node starting, version: ", NANO_MAJOR_MINOR_VERSION);
-		}
-		else
-		{
-			logger.always_log ("Node starting, version: ", NANO_MAJOR_MINOR_RC_VERSION);
-		}
+		logger.always_log ("Node starting, version: ", NANO_VERSION_STRING);
 		logger.always_log ("Build information: ", BUILD_INFO);
 
 		auto network_label = network_params.network.get_current_network_as_string ();
@@ -608,7 +601,7 @@ nano::process_return nano::node::process (nano::block const & block_a)
 	return result;
 }
 
-nano::process_return nano::node::process_local (std::shared_ptr<nano::block> block_a)
+nano::process_return nano::node::process_local (std::shared_ptr<nano::block> block_a, bool const work_watcher_a)
 {
 	// Add block hash as recently arrived to trigger automatic rebroadcast and election
 	block_arrival.add (block_a->hash ());
@@ -618,7 +611,7 @@ nano::process_return nano::node::process_local (std::shared_ptr<nano::block> blo
 	block_processor.wait_write ();
 	// Process block
 	auto transaction (store.tx_begin_write ());
-	return block_processor.process_one (transaction, info);
+	return block_processor.process_one (transaction, info, work_watcher_a);
 }
 
 void nano::node::start ()
@@ -945,12 +938,12 @@ public:
 class distributed_work : public std::enable_shared_from_this<distributed_work>
 {
 public:
-	distributed_work (std::shared_ptr<nano::node> const & node_a, nano::block_hash const & root_a, std::function<void(uint64_t)> callback_a, uint64_t difficulty_a) :
+	distributed_work (std::shared_ptr<nano::node> const & node_a, nano::block_hash const & root_a, std::function<void(uint64_t)> const & callback_a, uint64_t difficulty_a) :
 	distributed_work (1, node_a, root_a, callback_a, difficulty_a)
 	{
 		assert (node_a != nullptr);
 	}
-	distributed_work (unsigned int backoff_a, std::shared_ptr<nano::node> const & node_a, nano::block_hash const & root_a, std::function<void(uint64_t)> callback_a, uint64_t difficulty_a) :
+	distributed_work (unsigned int backoff_a, std::shared_ptr<nano::node> const & node_a, nano::block_hash const & root_a, std::function<void(uint64_t)> const & callback_a, uint64_t difficulty_a) :
 	callback (callback_a),
 	backoff (backoff_a),
 	node (node_a),
@@ -1026,6 +1019,7 @@ public:
 							}
 							auto request (std::make_shared<boost::beast::http::request<boost::beast::http::string_body>> ());
 							request->method (boost::beast::http::verb::post);
+							request->set (boost::beast::http::field::content_type, "application/json");
 							request->target ("/");
 							request->version (11);
 							request->body () = request_string;
@@ -1093,6 +1087,7 @@ public:
 				}
 				boost::beast::http::request<boost::beast::http::string_body> request;
 				request.method (boost::beast::http::verb::post);
+				request.set (boost::beast::http::field::content_type, "application/json");
 				request.target ("/");
 				request.version (11);
 				request.body () = request_string;
@@ -1318,7 +1313,7 @@ namespace
 class confirmed_visitor : public nano::block_visitor
 {
 public:
-	confirmed_visitor (nano::transaction const & transaction_a, nano::node & node_a, std::shared_ptr<nano::block> block_a, nano::block_hash const & hash_a) :
+	confirmed_visitor (nano::transaction const & transaction_a, nano::node & node_a, std::shared_ptr<nano::block> const & block_a, nano::block_hash const & hash_a) :
 	transaction (transaction_a),
 	node (node_a),
 	block (block_a),

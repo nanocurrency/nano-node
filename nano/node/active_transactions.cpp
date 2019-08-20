@@ -384,11 +384,13 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 	// Don't try to prioritize when there are a large number of pending confirmation heights as blocks can be cemented in the meantime, making the prioritization less reliable
 	if (node.pending_confirmation_height.size () < confirmed_frontiers_max_pending_cut_off)
 	{
-		std::unique_lock<std::mutex> lk (mutex);
-		auto priority_cementable_frontiers_size = priority_cementable_frontiers.size ();
-		auto priority_wallet_cementable_frontiers_size = priority_wallet_cementable_frontiers.size ();
-		lk.unlock ();
-
+		size_t priority_cementable_frontiers_size;
+		size_t priority_wallet_cementable_frontiers_size;
+		{
+			std::lock_guard<std::mutex> guard (mutex);
+			priority_cementable_frontiers_size = priority_cementable_frontiers.size ();
+			priority_wallet_cementable_frontiers_size = priority_wallet_cementable_frontiers.size ();
+		}
 		nano::timer<std::chrono::milliseconds> wallet_account_timer;
 		wallet_account_timer.start ();
 
@@ -425,7 +427,9 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 							auto it = priority_cementable_frontiers.find (account);
 							if (it != priority_cementable_frontiers.end ())
 							{
+								std::lock_guard<std::mutex> guard (mutex);
 								priority_cementable_frontiers.erase (it);
+								priority_cementable_frontiers_size = priority_cementable_frontiers.size ();
 							}
 
 							prioritize_account_for_confirmation (priority_wallet_cementable_frontiers, priority_wallet_cementable_frontiers_size, account, info, confirmation_height);

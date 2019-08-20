@@ -42,10 +42,20 @@ void nano::block_processor::flush ()
 	}
 }
 
-bool nano::block_processor::full ()
+size_t nano::block_processor::size ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	return (blocks.size () + state_blocks.size ()) > node.flags.block_processor_full_size;
+	return (blocks.size () + state_blocks.size () + forced.size ());
+}
+
+bool nano::block_processor::full ()
+{
+	return size () > node.flags.block_processor_full_size;
+}
+
+bool nano::block_processor::half_full ()
+{
+	return size () > node.flags.block_processor_full_size / 2;
 }
 
 void nano::block_processor::add (std::shared_ptr<nano::block> block_a, uint64_t origination)
@@ -238,13 +248,16 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 	lock_a.lock ();
 	timer_l.start ();
 	// Limit state blocks verification time
-	size_t max_verification_batch (node.flags.block_processor_verification_size != 0 ? node.flags.block_processor_verification_size : 2048 * (node.config.signature_checker_threads + 1));
-	if (!state_blocks.empty ())
+
 	{
-		auto transaction (node.store.tx_begin_read ());
-		while (!state_blocks.empty () && timer_l.before_deadline (std::chrono::seconds (2)))
+		if (!state_blocks.empty ())
 		{
-			verify_state_blocks (transaction, lock_a, max_verification_batch);
+			size_t max_verification_batch (node.flags.block_processor_verification_size != 0 ? node.flags.block_processor_verification_size : 2048 * (node.config.signature_checker_threads + 1));
+			auto transaction (node.store.tx_begin_read ());
+			while (!state_blocks.empty () && timer_l.before_deadline (std::chrono::seconds (2)))
+			{
+				verify_state_blocks (transaction, lock_a, max_verification_batch);
+			}
 		}
 	}
 	lock_a.unlock ();
@@ -354,12 +367,17 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 	}
 }
 
-void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a)
+void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a, const bool watch_work_a)
 {
 	// Start collecting quorum on block
 	node.active.start (block_a);
+	//add block to watcher if desired after block has been added to active
+	if (watch_work_a)
+	{
+		node.wallets.watcher.add (block_a);
+	}
 	// Announce block contents to the network
-	node.network.flood_block (block_a);
+	node.network.flood_block (block_a, false);
 	if (node.config.enable_voting)
 	{
 		// Announce our weighted vote to the network
@@ -389,7 +407,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	});
 }
 
-nano::process_return nano::block_processor::process_one (nano::transaction const & transaction_a, nano::unchecked_info info_a)
+nano::process_return nano::block_processor::process_one (nano::transaction const & transaction_a, nano::unchecked_info info_a, const bool watch_work_a)
 {
 	nano::process_return result;
 	auto hash (info_a.block->hash ());
@@ -402,12 +420,12 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 			if (node.config.logging.ledger_logging ())
 			{
 				std::string block;
-				info_a.block->serialize_json (block);
+				info_a.block->serialize_json (block, node.config.logging.single_line_record ());
 				node.logger.try_log (boost::str (boost::format ("Processing block %1%: %2%") % hash.to_string () % block));
 			}
 			if (info_a.modified > nano::seconds_since_epoch () - 300 && node.block_arrival.recent (hash))
 			{
-				process_live (hash, info_a.block);
+				process_live (hash, info_a.block, watch_work_a);
 			}
 			queue_unchecked (transaction_a, hash);
 			break;
@@ -522,10 +540,10 @@ nano::process_return nano::block_processor::process_one (nano::transaction const
 	return result;
 }
 
-nano::process_return nano::block_processor::process_one (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a)
+nano::process_return nano::block_processor::process_one (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, const bool watch_work_a)
 {
 	nano::unchecked_info info (block_a, block_a->account (), 0, nano::signature_verification::unknown);
-	auto result (process_one (transaction_a, info));
+	auto result (process_one (transaction_a, info, watch_work_a));
 	return result;
 }
 

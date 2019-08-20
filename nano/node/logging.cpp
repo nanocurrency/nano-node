@@ -105,6 +105,7 @@ nano::error nano::logging::serialize_json (nano::jsonconfig & json) const
 	json.put ("rotation_size", rotation_size);
 	json.put ("flush", flush);
 	json.put ("min_time_between_output", min_time_between_log_output.count ());
+	json.put ("single_line_record", single_line_record_value);
 	return json.get_error ();
 }
 
@@ -135,6 +136,8 @@ bool nano::logging::upgrade_json (unsigned version_a, nano::jsonconfig & json)
 			json.erase ("log_rpc");
 			break;
 		case 7:
+			json.put ("single_line_record", single_line_record_value);
+		case 8:
 			break;
 		default:
 			throw std::runtime_error ("Unknown logging_config version");
@@ -183,6 +186,7 @@ nano::error nano::logging::deserialize_json (bool & upgraded_a, nano::jsonconfig
 	json.get<bool> ("timing", timing_logging_value);
 	json.get<bool> ("log_to_cerr", log_to_cerr_value);
 	json.get<bool> ("flush", flush);
+	json.get<bool> ("single_line_record", single_line_record_value);
 	json.get<uintmax_t> ("max_size", max_size);
 	json.get<uintmax_t> ("rotation_size", rotation_size);
 	uintmax_t min_time_between_log_output_raw;
@@ -284,4 +288,9 @@ bool nano::logging::timing_logging () const
 bool nano::logging::log_to_cerr () const
 {
 	return log_to_cerr_value;
+}
+
+bool nano::logging::single_line_record () const
+{
+	return single_line_record_value;
 }

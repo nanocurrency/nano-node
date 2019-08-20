@@ -81,7 +81,7 @@ void nano::frontier_req_client::run ()
 			}
 		}
 	},
-	false); // is bootstrap traffic is_dropable false
+	false); // is bootstrap traffic is_droppable false
 }
 
 std::shared_ptr<nano::bootstrap_client> nano::bootstrap_client::shared ()
@@ -282,7 +282,7 @@ nano::bulk_pull_client::bulk_pull_client (std::shared_ptr<nano::bootstrap_client
 connection (connection_a),
 known_account (0),
 pull (pull_a),
-total_blocks (0),
+pull_blocks (0),
 unexpected_count (0)
 {
 	std::lock_guard<std::mutex> mutex (connection->attempt->mutex);
@@ -299,7 +299,7 @@ nano::bulk_pull_client::~bulk_pull_client ()
 		{
 			pull.account = expected;
 		}
-		pull.processed += total_blocks - unexpected_count;
+		pull.processed += pull_blocks - unexpected_count;
 		connection->attempt->requeue_pull (pull);
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
@@ -341,7 +341,7 @@ void nano::bulk_pull_client::request ()
 	req, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
-			this_l->receive_block ();
+			this_l->throttled_receive_block ();
 		}
 		else
 		{
@@ -352,7 +352,25 @@ void nano::bulk_pull_client::request ()
 			this_l->connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_request_failure, nano::stat::dir::in);
 		}
 	},
-	false); // is bootstrap traffic is_dropable false
+	false); // is bootstrap traffic is_droppable false
+}
+
+void nano::bulk_pull_client::throttled_receive_block ()
+{
+	if (!connection->node->block_processor.half_full ())
+	{
+		receive_block ();
+	}
+	else
+	{
+		auto this_l (shared_from_this ());
+		connection->node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (1), [this_l]() {
+			if (!this_l->connection->pending_stop && !this_l->connection->attempt->stopped)
+			{
+				this_l->throttled_receive_block ();
+			}
+		});
+	}
 }
 
 void nano::bulk_pull_client::receive_block ()
@@ -447,7 +465,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 			if (connection->node->config.logging.bulk_pull_logging ())
 			{
 				std::string block_l;
-				block->serialize_json (block_l);
+				block->serialize_json (block_l, connection->node->config.logging.single_line_record ());
 				connection->node->logger.try_log (boost::str (boost::format ("Pulled block %1% %2%") % hash.to_string () % block_l));
 			}
 			// Is block expected?
@@ -461,7 +479,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 			{
 				unexpected_count++;
 			}
-			if (total_blocks == 0 && block_expected)
+			if (pull_blocks == 0 && block_expected)
 			{
 				known_account = block->account ();
 			}
@@ -470,8 +488,8 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 				connection->start_time = std::chrono::steady_clock::now ();
 			}
 			connection->attempt->total_blocks++;
-			total_blocks++;
-			bool stop_pull (connection->attempt->process_block (block, known_account, total_blocks, block_expected));
+			bool stop_pull (connection->attempt->process_block (block, known_account, pull_blocks, block_expected));
+			pull_blocks++;
 			if (!stop_pull && !connection->hard_stop.load ())
 			{
 				/* Process block in lazy pull if not stopped
@@ -479,7 +497,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 				to prevent spam */
 				if (connection->attempt->mode != nano::bootstrap_mode::legacy || unexpected_count < 16384)
 				{
-					receive_block ();
+					throttled_receive_block ();
 				}
 			}
 			else if (stop_pull && block_expected)
@@ -539,7 +557,7 @@ void nano::bulk_push_client::start ()
 			}
 		}
 	},
-	false); // is bootstrap traffic is_dropable false
+	false); // is bootstrap traffic is_droppable false
 }
 
 void nano::bulk_push_client::push (nano::transaction const & transaction_a)
@@ -631,7 +649,7 @@ void nano::bulk_push_client::push_block (nano::block const & block_a)
 nano::bulk_pull_account_client::bulk_pull_account_client (std::shared_ptr<nano::bootstrap_client> connection_a, nano::account const & account_a) :
 connection (connection_a),
 account (account_a),
-total_blocks (0)
+pull_blocks (0)
 {
 	connection->attempt->condition.notify_all ();
 }
@@ -678,7 +696,7 @@ void nano::bulk_pull_account_client::request ()
 			this_l->connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_error_starting_request, nano::stat::dir::in);
 		}
 	},
-	false); // is bootstrap traffic is_dropable false
+	false); // is bootstrap traffic is_droppable false
 }
 
 void nano::bulk_pull_account_client::receive_pending ()
@@ -702,11 +720,11 @@ void nano::bulk_pull_account_client::receive_pending ()
 				auto error2 (nano::try_read (balance_stream, balance));
 				(void)error2;
 				assert (!error2);
-				if (this_l->total_blocks == 0 || !pending.is_zero ())
+				if (this_l->pull_blocks == 0 || !pending.is_zero ())
 				{
-					if (this_l->total_blocks == 0 || balance.number () >= this_l->connection->node->config.receive_minimum.number ())
+					if (this_l->pull_blocks == 0 || balance.number () >= this_l->connection->node->config.receive_minimum.number ())
 					{
-						this_l->total_blocks++;
+						this_l->pull_blocks++;
 						{
 							if (!pending.is_zero ())
 							{
@@ -918,14 +936,7 @@ void nano::bootstrap_attempt::run ()
 		{
 			if (!pulls.empty ())
 			{
-				if (!node->block_processor.full ())
-				{
-					request_pull (lock);
-				}
-				else
-				{
-					condition.wait_for (lock, std::chrono::seconds (15));
-				}
+				request_pull (lock);
 			}
 			else
 			{
@@ -1356,14 +1367,7 @@ void nano::bootstrap_attempt::lazy_run ()
 		{
 			if (!pulls.empty ())
 			{
-				if (!node->block_processor.full ())
-				{
-					request_pull (lock);
-				}
-				else
-				{
-					condition.wait_for (lock, std::chrono::seconds (15));
-				}
+				request_pull (lock);
 			}
 			else
 			{
@@ -1416,7 +1420,7 @@ void nano::bootstrap_attempt::lazy_run ()
 	idle.clear ();
 }
 
-bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_a, nano::account const & known_account_a, uint64_t total_blocks, bool block_expected)
+bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_a, nano::account const & known_account_a, uint64_t pull_blocks, bool block_expected)
 {
 	bool stop_pull (false);
 	if (mode != nano::bootstrap_mode::legacy && block_expected)
@@ -1495,7 +1499,7 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_
 				}
 				lazy_blocks.insert (hash);
 				// Adding lazy balances
-				if (total_blocks == 0)
+				if (pull_blocks == 0)
 				{
 					lazy_balances.insert (std::make_pair (hash, balance));
 				}
@@ -1511,7 +1515,7 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_
 				// Disabled until server rewrite
 				// stop_pull = true;
 				// Force drop lazy bootstrap connection for long bulk_pull
-				if (total_blocks > node->network_params.bootstrap.lazy_max_pull_blocks)
+				if (pull_blocks > node->network_params.bootstrap.lazy_max_pull_blocks)
 				{
 					stop_pull = true;
 				}
@@ -1553,7 +1557,7 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_
 			// Disabled until server rewrite
 			// stop_pull = true;
 			// Force drop lazy bootstrap connection for long bulk_pull
-			if (total_blocks > node->network_params.bootstrap.lazy_max_pull_blocks)
+			if (pull_blocks > node->network_params.bootstrap.lazy_max_pull_blocks)
 			{
 				stop_pull = true;
 			}
@@ -2345,7 +2349,7 @@ namespace
 class request_response_visitor : public nano::message_visitor
 {
 public:
-	request_response_visitor (std::shared_ptr<nano::bootstrap_server> connection_a) :
+	explicit request_response_visitor (std::shared_ptr<nano::bootstrap_server> const & connection_a) :
 	connection (connection_a)
 	{
 	}
@@ -2400,7 +2404,7 @@ public:
 	void bulk_push (nano::bulk_push const &) override
 	{
 		auto response (std::make_shared<nano::bulk_push_server> (connection));
-		response->receive ();
+		response->throttled_receive ();
 	}
 	void frontier_req (nano::frontier_req const &) override
 	{
@@ -3052,6 +3056,24 @@ connection (connection_a)
 	receive_buffer->resize (256);
 }
 
+void nano::bulk_push_server::throttled_receive ()
+{
+	if (!connection->node->block_processor.half_full ())
+	{
+		receive ();
+	}
+	else
+	{
+		auto this_l (shared_from_this ());
+		connection->node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (1), [this_l]() {
+			if (!this_l->connection->stopped)
+			{
+				this_l->throttled_receive ();
+			}
+		});
+	}
+}
+
 void nano::bulk_push_server::receive ()
 {
 	if (connection->node->bootstrap_initiator.in_progress ())
@@ -3150,11 +3172,8 @@ void nano::bulk_push_server::received_block (boost::system::error_code const & e
 		auto block (nano::deserialize_block (stream, type_a));
 		if (block != nullptr && !nano::work_validate (*block))
 		{
-			if (!connection->node->block_processor.full ())
-			{
-				connection->node->process_active (std::move (block));
-			}
-			receive ();
+			connection->node->process_active (std::move (block));
+			throttled_receive ();
 		}
 		else
 		{
