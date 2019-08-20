@@ -64,6 +64,7 @@ void nano::vote_processor::process_loop ()
 					if (count % 100 == 0)
 					{
 						active_single_lock.unlock ();
+						transaction.refresh ();
 						active_single_lock.lock ();
 					}
 					count++;
