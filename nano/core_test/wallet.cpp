@@ -1112,29 +1112,40 @@ TEST (wallet, update_work_action)
 	auto & wallet (*system.wallet (0));
 	wallet.insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key;
-	auto const block (wallet.send_action (nano::test_genesis_key.pub, key.pub, nano::genesis_amount));
+	auto const block1 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 100));
 	uint64_t difficulty1 (0);
-	nano::work_validate (*block, &difficulty1);
-	auto multiplier1 = nano::difficulty::to_multiplier (difficulty1, node.network_params.network.publish_threshold);
+	nano::work_validate (*block1, &difficulty1);
+	auto const block2 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 200));
+	uint64_t difficulty2 (0);
+	nano::work_validate (*block2, &difficulty2);
+	auto multiplier = nano::difficulty::to_multiplier (std::max (difficulty1, difficulty2), node.network_params.network.publish_threshold);
 	system.deadline_set (5s);
-	auto updated (false);
-	uint64_t updated_difficulty;
-	while (!updated)
+	uint64_t updated_difficulty1{ difficulty1 }, updated_difficulty2{ difficulty2 };
 	{
 		std::unique_lock<std::mutex> lock (node.active.mutex);
 		//fill multipliers_cb and update active difficulty;
 		for (auto i (0); i < node.active.multipliers_cb.size (); i++)
 		{
-			node.active.multipliers_cb.push_back (multiplier1 * (1 + i / 100.));
+			node.active.multipliers_cb.push_back (multiplier * (1 + i / 100.));
 		}
 		node.active.update_active_difficulty (lock);
-		auto const existing (node.active.roots.find (block->qualified_root ()));
-		//if existing is junk the block has been confirmed already
-		ASSERT_NE (existing, node.active.roots.end ());
-		updated = existing->difficulty != difficulty1;
-		updated_difficulty = existing->difficulty;
-		lock.unlock ();
+	}
+	while (updated_difficulty1 == difficulty1 || updated_difficulty2 == difficulty2)
+	{
+		{
+			auto const existing (node.active.roots.find (block1->qualified_root ()));
+			//if existing is junk the block has been confirmed already
+			ASSERT_NE (existing, node.active.roots.end ());
+			updated_difficulty1 = existing->difficulty;
+		}
+		{
+			auto const existing (node.active.roots.find (block2->qualified_root ()));
+			//if existing is junk the block has been confirmed already
+			ASSERT_NE (existing, node.active.roots.end ());
+			updated_difficulty2 = existing->difficulty;
+		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_GT (updated_difficulty, difficulty1);
+	ASSERT_GT (updated_difficulty1, difficulty1);
+	ASSERT_GT (updated_difficulty2, difficulty2);
 }
