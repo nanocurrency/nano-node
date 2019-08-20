@@ -1010,7 +1010,7 @@ public:
 				auto service (i.second);
 				node->background ([this_l, host, service]() {
 					auto connection (std::make_shared<work_request> (this_l->node->io_ctx, host, service));
-					this_l->add_connection (connection);
+					this_l->add (connection);
 					connection->socket.async_connect (nano::tcp_endpoint (host, service), [this_l, connection](boost::system::error_code const & ec) {
 						if (!ec)
 						{
@@ -1124,11 +1124,11 @@ public:
 	}
 	void stop ()
 	{
+		std::lock_guard<std::mutex> lock (mutex);
 		if (!stopped)
 		{
 			stopped = true;
 			auto this_l (shared_from_this ());
-			std::lock_guard<std::mutex> lock (mutex);
 			for (auto & i : connections)
 			{
 				auto connection = i.lock ();
@@ -1239,17 +1239,17 @@ public:
 		outstanding.erase (address);
 		return outstanding.empty ();
 	}
-	void add_connection (std::shared_ptr<work_request> & connection)
+	void add (std::shared_ptr<work_request> & connection)
 	{
 		std::lock_guard<std::mutex> lock (mutex);
-		connections.push_back (connection); // weak_ptr
+		connections.push_back (connection);
 	}
 	std::function<void(uint64_t)> callback;
 	unsigned int backoff; // in seconds
 	std::shared_ptr<nano::node> node;
 	nano::block_hash root;
 	std::mutex mutex;
-	std::unordered_map<boost::asio::ip::address, uint16_t> outstanding;
+	std::map<boost::asio::ip::address, uint16_t> outstanding;
 	std::vector<std::weak_ptr<work_request>> connections;
 	std::vector<std::pair<std::string, uint16_t>> need_resolve;
 	std::atomic_flag completed;
