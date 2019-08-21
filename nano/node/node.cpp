@@ -1426,22 +1426,9 @@ void nano::node::process_confirmed (nano::election_status const & status_a, uint
 	auto transaction (store.tx_begin_read ());
 	if (store.block_get (transaction, hash, &sideband) != nullptr)
 	{
-		confirmation_height_processor.add (hash);
-
-		receive_confirmed (transaction, block_a, hash);
-		nano::account account (0);
-		nano::uint128_t amount (0);
-		bool is_state_send (false);
-		nano::account pending_account (0);
-		process_confirmed_data (transaction, block_a, hash, sideband, account, amount, is_state_send, pending_account);
-		observers.blocks.notify (status_a, account, amount, is_state_send);
-		if (amount > 0)
+		if (status_a.type == nano::election_status_type::active_confirmed_quorum)
 		{
-			observers.account_balance.notify (account, false);
-			if (!pending_account.is_zero ())
-			{
-				observers.account_balance.notify (pending_account, true);
-			}
+			confirmation_height_processor.add (hash);
 		}
 	}
 	// Limit to 0.5 * 20 = 10 seconds (more than max block_processor::process_batch finish time)

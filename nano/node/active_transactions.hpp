@@ -104,7 +104,8 @@ public:
 	size_t size ();
 	void stop ();
 	bool publish (std::shared_ptr<nano::block> block_a);
-	void confirm_block (nano::transaction const &, std::shared_ptr<nano::block>, nano::block_sideband const &);
+	boost::optional<nano::election_status_type> confirm_block (nano::transaction const &, std::shared_ptr<nano::block>, nano::block_sideband const &);
+	void post_confirmation_height_set (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_sideband const & sideband_a, nano::election_status_type election_status_type_a);
 	boost::multi_index_container<
 	nano::conflict_info,
 	boost::multi_index::indexed_by<
