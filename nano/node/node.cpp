@@ -1023,6 +1023,7 @@ public:
 							}
 							auto request (std::make_shared<boost::beast::http::request<boost::beast::http::string_body>> ());
 							request->method (boost::beast::http::verb::post);
+							request->set (boost::beast::http::field::content_type, "application/json");
 							request->target ("/");
 							request->version (11);
 							request->body () = request_string;
@@ -1090,6 +1091,7 @@ public:
 				}
 				boost::beast::http::request<boost::beast::http::string_body> request;
 				request.method (boost::beast::http::verb::post);
+				request.set (boost::beast::http::field::content_type, "application/json");
 				request.target ("/");
 				request.version (11);
 				request.body () = request_string;
