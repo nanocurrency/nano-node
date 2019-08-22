@@ -181,6 +181,7 @@ void nano::work_pool::generate (nano::uint256_union const & hash_a, std::functio
 	boost::optional<uint64_t> result;
 	if (opencl)
 	{
+		std::lock_guard<std::mutex> guard (opencl_mutex);
 		result = opencl (hash_a, difficulty_a);
 	}
 	if (!result)
