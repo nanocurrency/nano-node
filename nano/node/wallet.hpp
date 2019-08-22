@@ -167,8 +167,9 @@ public:
 	work_watcher (nano::node &);
 	~work_watcher ();
 	void stop ();
-	void watch (std::shared_ptr<nano::block>);
-	void watching (std::shared_ptr<nano::state_block>, nano::qualified_root const &);
+	void add (std::shared_ptr<nano::block>);
+	void update (nano::qualified_root const &, std::shared_ptr<nano::state_block>);
+	void watching (nano::qualified_root const &, std::shared_ptr<nano::state_block>);
 	void remove (std::shared_ptr<nano::block>);
 	bool is_watched (nano::qualified_root const &);
 	std::mutex mutex;
