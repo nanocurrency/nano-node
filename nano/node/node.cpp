@@ -962,7 +962,7 @@ public:
 	difficulty (difficulty_a)
 	{
 		assert (node_a != nullptr);
-		completed.clear ();
+		assert (!completed);
 	}
 	void start ()
 	{
@@ -1006,9 +1006,27 @@ public:
 	{
 		auto this_l (shared_from_this ());
 
+		// Start work generation if peers are not acting correctly, or if there are no peers configured
+		if ((outstanding.empty () || node->unresponsive_work_peers) && (node->config.work_threads != 0 || node->work.opencl))
+		{
+			local_generation_started = true;
+			// clang-format off
+			node->background ([this_l]() {
+				this_l->node->work.generate (this_l->root, [this_l](boost::optional<uint64_t> const & work_a) {
+					if (work_a)
+					{
+						this_l->set_once (work_a.value ());
+						this_l->stop (false);
+					}
+				},
+				this_l->difficulty);
+			});
+			// clang-format on
+		}
+
 		if (!outstanding.empty ())
 		{
-			std::lock_guard<std::mutex> lock (mutex);
+			std::lock_guard<std::mutex> guard (mutex);
 			for (auto const & i : outstanding)
 			{
 				auto host (i.first);
@@ -1080,21 +1098,6 @@ public:
 					});
 				});
 			}
-		}
-		// Start work generation if peers are not acting correctly, or if there are no peers configured
-		if ((outstanding.empty () || node->unresponsive_work_peers) && (node->config.work_threads != 0 || node->work.opencl))
-		{
-			local_generation_started = true;
-			// clang-format off
-			node->work.generate (root, [this_l](boost::optional<uint64_t> const & work_a) {
-				if (work_a)
-				{
-					this_l->set_once (work_a.value ());
-					this_l->stop (false);
-				}
-			},
-			difficulty);
-			// clang-format on
 		}
 	}
 	void cancel (std::shared_ptr<work_request> connection)
@@ -1203,7 +1206,7 @@ public:
 	}
 	void set_once (uint64_t work_a)
 	{
-		if (!completed.test_and_set ())
+		if (!completed.exchange (true))
 		{
 			callback (work_a);
 		}
@@ -1218,20 +1221,18 @@ public:
 		if (last)
 		{
 			node->unresponsive_work_peers = true;
-			if (!completed.test_and_set ())
+			if (!completed && !local_generation_started)
 			{
-				if (!local_generation_started && node->config.work_threads == 0 && !node->work.opencl)
+				if (backoff == 1 && node->config.logging.work_generation_time ())
 				{
-					if (backoff == 1 && node->config.logging.work_generation_time ())
-					{
-						node->logger.try_log ("Work peer(s) failed to generate work for root ", root.to_string (), ", retrying...");
-					}
-					auto now (std::chrono::steady_clock::now ());
-					auto root_l (root);
-					auto callback_l (callback);
-					std::weak_ptr<nano::node> node_w (node);
-					auto next_backoff (std::min (backoff * 2, (unsigned int)60 * 5));
-					// clang-format off
+					node->logger.always_log ("Work peer(s) failed to generate work for root ", root.to_string (), ", retrying...");
+				}
+				auto now (std::chrono::steady_clock::now ());
+				auto root_l (root);
+				auto callback_l (callback);
+				std::weak_ptr<nano::node> node_w (node);
+				auto next_backoff (std::min (backoff * 2, (unsigned int)60 * 5));
+				// clang-format off
 				node->alarm.add (now + std::chrono::seconds (backoff), [ node_w, root_l, callback_l, next_backoff, difficulty = difficulty ] {
 					if (auto node_l = node_w.lock ())
 					{
@@ -1239,19 +1240,7 @@ public:
 						work_generation->start ();
 					}
 				});
-					// clang-format on
-				}
-				else if (!local_generation_started)
-				{
-					if (node->config.logging.work_generation_time ())
-					{
-						node->logger.try_log ("Work peer(s) failed to generate work for root ", root.to_string (), ", using local work generation as backup");
-					}
-					auto work (node->work_generate_blocking (root, difficulty));
-					set_once (work);
-					callback (work);
-					stop (false);
-				}
+				// clang-format on
 			}
 		}
 	}
@@ -1274,8 +1263,8 @@ public:
 	std::map<boost::asio::ip::address, uint16_t> outstanding;
 	std::vector<std::weak_ptr<work_request>> connections;
 	std::vector<std::pair<std::string, uint16_t>> need_resolve;
-	std::atomic_flag completed;
 	uint64_t difficulty;
+	std::atomic<bool> completed{ false };
 	std::atomic<bool> local_generation_started{ false };
 	std::atomic<bool> stopped{ false };
 };
