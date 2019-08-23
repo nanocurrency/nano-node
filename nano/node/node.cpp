@@ -1027,71 +1027,69 @@ public:
 			{
 				auto host (i.first);
 				auto service (i.second);
-				node->background ([this_l, host, service]() {
-					auto connection (std::make_shared<work_request> (this_l->node->io_ctx, host, service));
-					this_l->add (connection);
-					connection->socket.async_connect (nano::tcp_endpoint (host, service), [this_l, connection](boost::system::error_code const & ec) {
-						if (!ec)
+				auto connection (std::make_shared<work_request> (this_l->node->io_ctx, host, service));
+				connections.push_back (connection);
+				connection->socket.async_connect (nano::tcp_endpoint (host, service), [this_l, connection](boost::system::error_code const & ec) {
+					if (!ec)
+					{
+						std::string request_string;
 						{
-							std::string request_string;
+							boost::property_tree::ptree request;
+							request.put ("action", "work_generate");
+							request.put ("hash", this_l->root.to_string ());
+							request.put ("difficulty", nano::to_string_hex (this_l->difficulty));
+							std::stringstream ostream;
+							boost::property_tree::write_json (ostream, request);
+							request_string = ostream.str ();
+						}
+						auto request (std::make_shared<boost::beast::http::request<boost::beast::http::string_body>> ());
+						request->method (boost::beast::http::verb::post);
+						request->set (boost::beast::http::field::content_type, "application/json");
+						request->target ("/");
+						request->version (11);
+						request->body () = request_string;
+						request->prepare_payload ();
+						boost::beast::http::async_write (connection->socket, *request, [this_l, connection, request](boost::system::error_code const & ec, size_t bytes_transferred) {
+							if (!ec)
 							{
-								boost::property_tree::ptree request;
-								request.put ("action", "work_generate");
-								request.put ("hash", this_l->root.to_string ());
-								request.put ("difficulty", nano::to_string_hex (this_l->difficulty));
-								std::stringstream ostream;
-								boost::property_tree::write_json (ostream, request);
-								request_string = ostream.str ();
-							}
-							auto request (std::make_shared<boost::beast::http::request<boost::beast::http::string_body>> ());
-							request->method (boost::beast::http::verb::post);
-							request->set (boost::beast::http::field::content_type, "application/json");
-							request->target ("/");
-							request->version (11);
-							request->body () = request_string;
-							request->prepare_payload ();
-							boost::beast::http::async_write (connection->socket, *request, [this_l, connection, request](boost::system::error_code const & ec, size_t bytes_transferred) {
-								if (!ec)
-								{
-									boost::beast::http::async_read (connection->socket, connection->buffer, connection->response, [this_l, connection](boost::system::error_code const & ec, size_t bytes_transferred) {
-										if (!ec)
+								boost::beast::http::async_read (connection->socket, connection->buffer, connection->response, [this_l, connection](boost::system::error_code const & ec, size_t bytes_transferred) {
+									if (!ec)
+									{
+										if (connection->response.result () == boost::beast::http::status::ok)
 										{
-											if (connection->response.result () == boost::beast::http::status::ok)
-											{
-												this_l->success (connection->response.body (), connection->address);
-											}
-											else
-											{
-												this_l->node->logger.try_log (boost::str (boost::format ("Work peer responded with an error %1% %2%: %3%") % connection->address % connection->port % connection->response.result ()));
-												this_l->failure (connection->address);
-											}
-										}
-										else if (ec == boost::system::errc::operation_canceled)
-										{
-											// The only case where we send a cancel is if we preempt stopped waiting for the response
-											this_l->cancel (connection);
-											this_l->failure (connection->address);
+											this_l->success (connection->response.body (), connection->address);
 										}
 										else
 										{
-											this_l->node->logger.try_log (boost::str (boost::format ("Unable to read from work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
+											this_l->node->logger.try_log (boost::str (boost::format ("Work peer responded with an error %1% %2%: %3%") % connection->address % connection->port % connection->response.result ()));
 											this_l->failure (connection->address);
 										}
-									});
-								}
-								else
-								{
-									this_l->node->logger.try_log (boost::str (boost::format ("Unable to write to work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
-									this_l->failure (connection->address);
-								}
-							});
-						}
-						else
-						{
-							this_l->node->logger.try_log (boost::str (boost::format ("Unable to connect to work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
-							this_l->failure (connection->address);
-						}
-					});
+									}
+									else if (ec == boost::system::errc::operation_canceled)
+									{
+										// The only case where we send a cancel is if we preempt stopped waiting for the response
+										this_l->cancel (connection);
+										this_l->failure (connection->address);
+									}
+									else
+									{
+										this_l->node->logger.try_log (boost::str (boost::format ("Unable to read from work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
+										this_l->failure (connection->address);
+									}
+								});
+							}
+							else
+							{
+								this_l->node->logger.try_log (boost::str (boost::format ("Unable to write to work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
+								this_l->failure (connection->address);
+							}
+						});
+					}
+					else
+					{
+						this_l->node->logger.try_log (boost::str (boost::format ("Unable to connect to work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
+						this_l->failure (connection->address);
+					}
 				});
 			}
 		}
@@ -1216,27 +1214,30 @@ public:
 	{
 		if (last)
 		{
-			node->unresponsive_work_peers = true;
-			if (!completed && !local_generation_started)
+			if (!completed)
 			{
-				if (backoff == 1 && node->config.logging.work_generation_time ())
+				node->unresponsive_work_peers = true;
+				if (!local_generation_started)
 				{
-					node->logger.always_log ("Work peer(s) failed to generate work for root ", root.to_string (), ", retrying...");
-				}
-				auto now (std::chrono::steady_clock::now ());
-				auto root_l (root);
-				auto callback_l (callback);
-				std::weak_ptr<nano::node> node_w (node);
-				auto next_backoff (std::min (backoff * 2, (unsigned int)60 * 5));
-				// clang-format off
-				node->alarm.add (now + std::chrono::seconds (backoff), [ node_w, root_l, callback_l, next_backoff, difficulty = difficulty ] {
-					if (auto node_l = node_w.lock ())
+					if (backoff == 1 && node->config.logging.work_generation_time ())
 					{
-						auto work_generation (std::make_shared<distributed_work> (next_backoff, node_l, root_l, callback_l, difficulty));
-						work_generation->start ();
+						node->logger.always_log ("Work peer(s) failed to generate work for root ", root.to_string (), ", retrying...");
 					}
-				});
-				// clang-format on
+					auto now (std::chrono::steady_clock::now ());
+					auto root_l (root);
+					auto callback_l (callback);
+					std::weak_ptr<nano::node> node_w (node);
+					auto next_backoff (std::min (backoff * 2, (unsigned int)60 * 5));
+					// clang-format off
+					node->alarm.add (now + std::chrono::seconds (backoff), [ node_w, root_l, callback_l, next_backoff, difficulty = difficulty ] {
+						if (auto node_l = node_w.lock ())
+						{
+							auto work_generation (std::make_shared<distributed_work> (next_backoff, node_l, root_l, callback_l, difficulty));
+							work_generation->start ();
+						}
+					});
+					// clang-format on
+				}
 			}
 		}
 	}
@@ -1245,11 +1246,6 @@ public:
 		std::lock_guard<std::mutex> lock (mutex);
 		outstanding.erase (address);
 		return outstanding.empty ();
-	}
-	void add (std::shared_ptr<work_request> & connection)
-	{
-		std::lock_guard<std::mutex> lock (mutex);
-		connections.push_back (connection);
 	}
 	std::function<void(uint64_t)> callback;
 	unsigned int backoff; // in seconds
