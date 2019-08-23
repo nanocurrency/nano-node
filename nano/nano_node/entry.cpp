@@ -113,6 +113,7 @@ int main (int argc, char * const * argv)
 		("debug_account_count", "Display the number of accounts")
 		("debug_mass_activity", "Generates fake debug activity")
 		("debug_profile_generate", "Profile work generation")
+		("debug_profile_validate", "Profile work validation")
 		("debug_opencl", "OpenCL work generation")
 		("debug_profile_verify", "Profile work verification")
 		("debug_profile_kdf", "Profile kdf function")
@@ -358,6 +359,24 @@ int main (int argc, char * const * argv)
 				auto end1 (std::chrono::high_resolution_clock::now ());
 				std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
 			}
+		}
+		else if (vm.count ("debug_profile_validate"))
+		{
+			uint64_t difficulty{ nano::network_constants::publish_full_threshold };
+			std::cerr << "Starting validation profiling" << std::endl;
+			auto start (std::chrono::steady_clock::now ());
+			bool valid{ false };
+			nano::block_hash hash{ 0 };
+			uint64_t count{ 10000000 }; // 10M
+			for (uint64_t i (0); i < count; ++i)
+			{
+				valid = nano::work_value (hash, i) > difficulty;
+			}
+			auto total_time (std::chrono::duration_cast<std::chrono::nanoseconds> (std::chrono::steady_clock::now () - start).count ());
+			std::ostringstream oss (valid ? "true" : "false"); // IO forces compiler to not dismiss the variable
+			uint64_t average (total_time / count);
+			std::cerr << "Average validation time: " << std::to_string (average) << " ns" << std::endl;
+			return average;
 		}
 		else if (vm.count ("debug_opencl"))
 		{
