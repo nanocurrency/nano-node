@@ -257,6 +257,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	work_peers = ["test.org:999"]
 	work_threads = 999
 	work_watcher_period = 999
+	frontiers_confirmation = "always"
 	[node.diagnostics.txn_tracking]
 	enable = true
 	ignore_writes_below_block_processor_max_time = false
@@ -370,6 +371,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.external_port, defaults.node.external_port);
 	ASSERT_NE (conf.node.io_threads, defaults.node.io_threads);
 	ASSERT_NE (conf.node.lmdb_max_dbs, defaults.node.lmdb_max_dbs);
+	ASSERT_NE (conf.node.frontiers_confirmation, defaults.node.frontiers_confirmation);
 	ASSERT_NE (conf.node.network_threads, defaults.node.network_threads);
 	ASSERT_NE (conf.node.work_watcher_period, defaults.node.work_watcher_period);
 	ASSERT_NE (conf.node.online_weight_minimum, defaults.node.online_weight_minimum);
@@ -484,4 +486,22 @@ TEST (toml, rpc_config_deserialize_no_defaults)
 	ASSERT_NE (conf.rpc_process.ipc_address, defaults.rpc_process.ipc_address);
 	ASSERT_NE (conf.rpc_process.ipc_port, defaults.rpc_process.ipc_port);
 	ASSERT_NE (conf.rpc_process.num_ipc_connections, defaults.rpc_process.num_ipc_connections);
+}
+
+/** Deserialize a node config with incorrect values */
+TEST (toml, daemon_config_deserialize_errors)
+{
+	std::stringstream ss_frontiers_confirmation;
+	ss_frontiers_confirmation << R"toml(
+	[node]
+	frontiers_confirmation = "randomstring"
+	)toml";
+
+	nano::tomlconfig toml;
+	toml.read (ss_frontiers_confirmation);
+	nano::daemon_config conf;
+	conf.deserialize_toml (toml);
+
+	ASSERT_EQ (toml.get_error ().get_message (), "frontiers_confirmation value is invalid (available: always, auto, disabled)");
+	ASSERT_EQ (conf.node.frontiers_confirmation, nano::frontiers_confirmation_mode::invalid);
 }

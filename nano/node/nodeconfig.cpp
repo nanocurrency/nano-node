@@ -96,6 +96,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("bandwidth_limit", bandwidth_limit, "Outbound traffic limit in bytes/sec after which messages will be dropped\ntype:uint64");
 	toml.put ("backup_before_upgrade", backup_before_upgrade, "Backup the ledger database before performing upgrades\ntype:bool");
 	toml.put ("work_watcher_period", work_watcher_period.count (), "Time between checks for confirmation and re-generating higher difficulty work if unconfirmed, for blocks in the work watcher.\ntype:seconds");
+	toml.put ("frontiers_confirmation", serialize_frontiers_confirmation (frontiers_confirmation), "Mode for force frontiers confirmation\ntype:string");
 
 	auto work_peers_l (toml.create_array ("work_peers", "A list of \"address:port\" entries to identify work peers"));
 	for (auto i (work_peers.begin ()), n (work_peers.end ()); i != n; ++i)
@@ -298,6 +299,8 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		auto conf_height_processor_batch_min_time_l (conf_height_processor_batch_min_time.count ());
 		toml.get ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time_l);
 		conf_height_processor_batch_min_time = std::chrono::milliseconds (conf_height_processor_batch_min_time_l);
+		auto frontiers_confirmation_l (toml.get<std::string> ("frontiers_confirmation"));
+		frontiers_confirmation = deserialize_frontiers_confirmation (frontiers_confirmation_l);
 
 		nano::network_constants network;
 		// Validate ranges
@@ -328,6 +331,10 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		if (work_watcher_period < std::chrono::seconds (1))
 		{
 			toml.get_error ().set ("work_watcher_period must be equal or larger than 1");
+		}
+		if (frontiers_confirmation == nano::frontiers_confirmation_mode::invalid)
+		{
+			toml.get_error ().set ("frontiers_confirmation value is invalid (available: always, auto, disabled)");
 		}
 	}
 	catch (std::runtime_error const & ex)
@@ -409,7 +416,6 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("bandwidth_limit", bandwidth_limit);
 	json.put ("backup_before_upgrade", backup_before_upgrade);
 	json.put ("work_watcher_period", work_watcher_period.count ());
-	json.put ("frontiers_confirmation", serialize_frontiers_confirmation (frontiers_confirmation));
 
 	return json.get_error ();
 }
@@ -538,7 +544,6 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.put ("vote_generator_delay", vote_generator_delay.count ()); // Update value
 			json.put ("backup_before_upgrade", backup_before_upgrade);
 			json.put ("work_watcher_period", work_watcher_period.count ());
-			json.put ("frontiers_confirmation", serialize_frontiers_confirmation (frontiers_confirmation));
 		}
 		case 18:
 			break;
@@ -701,8 +706,6 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		auto conf_height_processor_batch_min_time_l (conf_height_processor_batch_min_time.count ());
 		json.get ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time_l);
 		conf_height_processor_batch_min_time = std::chrono::milliseconds (conf_height_processor_batch_min_time_l);
-		auto frontiers_confirmation_l (json.get<std::string> ("frontiers_confirmation"));
-		frontiers_confirmation = deserialize_frontiers_confirmation (frontiers_confirmation_l);
 
 		nano::network_constants network;
 		// Validate ranges
@@ -733,10 +736,6 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		if (work_watcher_period < std::chrono::seconds (1))
 		{
 			json.get_error ().set ("work_watcher_period must be equal or larger than 1");
-		}
-		if (frontiers_confirmation == nano::frontiers_confirmation_mode::invalid)
-		{
-			json.get_error ().set ("invalid frontier_confirmation value (available: always, auto ,disabled)");
 		}
 	}
 	catch (std::runtime_error const & ex)
