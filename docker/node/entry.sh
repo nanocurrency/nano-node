@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 set -Eeuo pipefail
 
 usage() {
@@ -98,9 +97,7 @@ else
 	mkdir -p "${nanodir}"
 fi
 
-tomlMissing=$([ ! -f "${nanodir}/config-node.toml" ])
-jsonMissing=$([ ! -f "${nanodir}/config.json" ])
-if [ [ ${tomlMissing} ] && [ ${jsonMissing} ] ]; then
+if [ ! -f "${nanodir}/config-node.toml" ] && [ ! -f "${nanodir}/config.json" ]; then
 	echo "Config file not found, adding default."
 	cp "/usr/share/nano/config/config-node.toml" "${nanodir}/config-node.toml"
 	cp "/usr/share/nano/config/config-rpc.toml" "${nanodir}/config-rpc.toml"
