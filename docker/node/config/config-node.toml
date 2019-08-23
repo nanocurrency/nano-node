@@ -1,0 +1,12 @@
+
+[node.websocket]
+
+# WebSocket server bind address
+# type:string,ip
+address = "::ffff:0.0.0.0"
+
+[rpc]
+
+# Enable or disable RPC
+# type:bool
+enable = true
