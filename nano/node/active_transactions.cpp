@@ -115,9 +115,9 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 	std::deque<std::shared_ptr<nano::block>> rebroadcast_bundle;
 	std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>>> confirm_req_bundle;
 
-	// Confirm frontiers when there aren't many confirmations already pending
+	// Confirm frontiers when there aren't many confirmations already pending and node finished initial bootstrap
 	lock_a.unlock ();
-	if (node.pending_confirmation_height.size () < confirmed_frontiers_max_pending_cut_off)
+	if (node.pending_confirmation_height.size () < confirmed_frontiers_max_pending_cut_off && node.store.block_count (transaction).sum () >= node.ledger.bootstrap_weight_max_blocks)
 	{
 		confirm_frontiers (transaction);
 	}
