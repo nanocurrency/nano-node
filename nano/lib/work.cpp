@@ -73,7 +73,7 @@ void nano::work_pool::loop (uint64_t thread)
 	blake2b_init (&hash, sizeof (output));
 	std::unique_lock<std::mutex> lock (mutex);
 	auto pow_sleep = pow_rate_limiter;
-	while (!done || !pending.empty ())
+	while (!done)
 	{
 		auto empty (pending.empty ());
 		if (thread == 0)
@@ -139,26 +139,29 @@ void nano::work_pool::loop (uint64_t thread)
 void nano::work_pool::cancel (nano::uint256_union const & root_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
-	if (!pending.empty ())
+	if (!done)
 	{
-		if (pending.front ().item == root_a)
+		if (!pending.empty ())
 		{
-			++ticket;
+			if (pending.front ().item == root_a)
+			{
+				++ticket;
+			}
 		}
+		pending.remove_if ([&root_a](decltype (pending)::value_type const & item_a) {
+			bool result;
+			if (item_a.item == root_a)
+			{
+				item_a.callback (boost::none);
+				result = true;
+			}
+			else
+			{
+				result = false;
+			}
+			return result;
+		});
 	}
-	pending.remove_if ([&root_a](decltype (pending)::value_type const & item_a) {
-		bool result;
-		if (item_a.item == root_a)
-		{
-			item_a.callback (boost::none);
-			result = true;
-		}
-		else
-		{
-			result = false;
-		}
-		return result;
-	});
 }
 
 void nano::work_pool::stop ()
@@ -166,6 +169,7 @@ void nano::work_pool::stop ()
 	{
 		std::lock_guard<std::mutex> lock (mutex);
 		done = true;
+		++ticket;
 	}
 	producer_condition.notify_all ();
 }
