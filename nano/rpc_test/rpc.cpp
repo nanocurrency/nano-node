@@ -2623,8 +2623,10 @@ TEST (rpc, work_generate)
 
 TEST (rpc, work_generate_difficulty)
 {
-	nano::system system (24000, 1);
-	auto node (system.nodes[0]);
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.max_work_generate_difficulty = 0xffff000000000000;
+	auto node = system.add_node (node_config);
 	scoped_io_thread_name_change scoped_thread_name_io;
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
 	nano::node_rpc_config node_rpc_config;
@@ -2695,8 +2697,10 @@ TEST (rpc, work_generate_difficulty)
 
 TEST (rpc, work_generate_multiplier)
 {
-	nano::system system (24000, 1);
-	auto node (system.nodes[0]);
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.max_work_generate_difficulty = 0xffff000000000000;
+	auto node = system.add_node (node_config);
 	scoped_io_thread_name_change scoped_thread_name_io;
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
 	nano::node_rpc_config node_rpc_config;
