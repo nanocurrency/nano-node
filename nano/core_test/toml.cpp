@@ -93,7 +93,6 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (c.opencl.platform, defaults.opencl.platform);
 	ASSERT_EQ (c.opencl.threads, defaults.opencl.threads);
 	ASSERT_EQ (c.rpc.enable_sign_hash, false);
-	ASSERT_EQ (c.rpc.max_work_generate_difficulty, 0xffffffffc0000000);
 	ASSERT_EQ (c.rpc.child_process.enable, false);
 }
 
@@ -257,6 +256,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	work_peers = ["test.org:999"]
 	work_threads = 999
 	work_watcher_period = 999
+	max_work_generate_multiplier = 1.0
 	[node.diagnostics.txn_tracking]
 	enable = true
 	ignore_writes_below_block_processor_max_time = false
@@ -331,7 +331,6 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	[rpc]
 	enable = true
 	enable_sign_hash = true
-	max_work_generate_difficulty = "ffffffffc9999999"
 
 	[rpc.child_process]
 	enable = true
@@ -352,7 +351,6 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.opencl.threads, defaults.opencl.threads);
 	ASSERT_NE (conf.rpc_enable, defaults.rpc_enable);
 	ASSERT_NE (conf.rpc.enable_sign_hash, defaults.rpc.enable_sign_hash);
-	ASSERT_NE (conf.rpc.max_work_generate_difficulty, defaults.rpc.max_work_generate_difficulty);
 	ASSERT_NE (conf.rpc.child_process.enable, defaults.rpc.child_process.enable);
 	ASSERT_NE (conf.rpc.child_process.rpc_path, defaults.rpc.child_process.rpc_path);
 
@@ -370,6 +368,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.external_port, defaults.node.external_port);
 	ASSERT_NE (conf.node.io_threads, defaults.node.io_threads);
 	ASSERT_NE (conf.node.lmdb_max_dbs, defaults.node.lmdb_max_dbs);
+	ASSERT_NE (conf.node.max_work_generate_multiplier, defaults.node.max_work_generate_multiplier);
 	ASSERT_NE (conf.node.network_threads, defaults.node.network_threads);
 	ASSERT_NE (conf.node.work_watcher_period, defaults.node.work_watcher_period);
 	ASSERT_NE (conf.node.online_weight_minimum, defaults.node.online_weight_minimum);

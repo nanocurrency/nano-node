@@ -978,7 +978,7 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block const & s
 		if (nano::work_validate (*block))
 		{
 			wallets.node.logger.try_log (boost::str (boost::format ("Cached or provided work for block %1% account %2% is invalid, regenerating") % block->hash ().to_string () % account.to_account ()));
-			wallets.node.work_generate_blocking (*block, wallets.node.active.active_difficulty ());
+			wallets.node.work_generate_blocking (*block, wallets.node.active.limited_active_difficulty ());
 		}
 		wallets.watcher.add (block);
 		bool error (wallets.node.process_local (block).code != nano::process_result::progress);
@@ -1027,7 +1027,7 @@ std::shared_ptr<nano::block> nano::wallet::change_action (nano::account const & 
 		if (nano::work_validate (*block))
 		{
 			wallets.node.logger.try_log (boost::str (boost::format ("Cached or provided work for block %1% account %2% is invalid, regenerating") % block->hash ().to_string () % source_a.to_account ()));
-			wallets.node.work_generate_blocking (*block, wallets.node.active.active_difficulty ());
+			wallets.node.work_generate_blocking (*block, wallets.node.active.limited_active_difficulty ());
 		}
 		wallets.watcher.add (block);
 		bool error (wallets.node.process_local (block).code != nano::process_result::progress);
@@ -1141,7 +1141,7 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 		if (nano::work_validate (*block))
 		{
 			wallets.node.logger.try_log (boost::str (boost::format ("Cached or provided work for block %1% account %2% is invalid, regenerating") % block->hash ().to_string () % account_a.to_account ()));
-			wallets.node.work_generate_blocking (*block, wallets.node.active.active_difficulty ());
+			wallets.node.work_generate_blocking (*block, wallets.node.active.limited_active_difficulty ());
 		}
 		wallets.watcher.add (block);
 		error = (wallets.node.process_local (block).code != nano::process_result::progress);
@@ -1470,7 +1470,8 @@ void nano::work_watcher::run ()
 				root = i.second->root ();
 				nano::work_validate (root, i.second->block_work (), &difficulty);
 			}
-			if (node.active.active_difficulty () > difficulty && i.second != nullptr)
+			auto active_difficulty (node.active.limited_active_difficulty ());
+			if (active_difficulty > difficulty && i.second != nullptr)
 			{
 				auto qualified_root = i.second->qualified_root ();
 				auto hash = i.second->hash ();
@@ -1478,7 +1479,7 @@ void nano::work_watcher::run ()
 				std::error_code ec;
 				builder.from (*i.second);
 				lock.unlock ();
-				builder.work (node.work_generate_blocking (root, node.active.active_difficulty ()));
+				builder.work (node.work_generate_blocking (root, active_difficulty));
 				std::shared_ptr<state_block> block (builder.build (ec));
 				if (!ec)
 				{

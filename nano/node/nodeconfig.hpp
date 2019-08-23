@@ -82,6 +82,8 @@ public:
 	std::chrono::milliseconds conf_height_processor_batch_min_time{ 50 };
 	bool backup_before_upgrade{ false };
 	std::chrono::seconds work_watcher_period{ std::chrono::seconds (5) };
+	double max_work_generate_multiplier{ 64. };
+	uint64_t max_work_generate_difficulty{ nano::network_constants::publish_full_threshold };
 	static unsigned json_version ()
 	{
 		return 18;
