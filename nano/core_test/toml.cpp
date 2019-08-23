@@ -484,3 +484,20 @@ TEST (toml, rpc_config_deserialize_no_defaults)
 	ASSERT_NE (conf.rpc_process.ipc_port, defaults.rpc_process.ipc_port);
 	ASSERT_NE (conf.rpc_process.num_ipc_connections, defaults.rpc_process.num_ipc_connections);
 }
+
+/** Deserialize a node config with incorrect values */
+TEST (toml, daemon_config_deserialize_errors)
+{
+	std::stringstream ss_max_work_generate_multiplier;
+	ss_max_work_generate_multiplier << R"toml(
+	[node]
+	max_work_generate_multiplier = 0.9
+	)toml";
+
+	nano::tomlconfig toml;
+	toml.read (ss_max_work_generate_multiplier);
+	nano::daemon_config conf;
+	conf.deserialize_toml (toml);
+
+	ASSERT_EQ (toml.get_error ().get_message (), "max_work_generate_multiplier must be greater than or equal to 1");
+}
