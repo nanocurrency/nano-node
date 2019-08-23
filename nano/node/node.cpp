@@ -1081,8 +1081,8 @@ public:
 				});
 			}
 		}
-		// Start work generation if peers are not acting correctly
-		if (node->unresponsive_work_peers && (node->config.work_threads != 0 || node->work.opencl))
+		// Start work generation if peers are not acting correctly, or if there are no peers configured
+		if ((outstanding.empty () || node->unresponsive_work_peers) && (node->config.work_threads != 0 || node->work.opencl))
 		{
 			local_generation_started = true;
 			// clang-format off
