@@ -7,6 +7,9 @@ namespace nano
 class shared_const_buffer
 {
 public:
+	using value_type = boost::asio::const_buffer;
+	using const_iterator = const boost::asio::const_buffer *;
+
 	explicit shared_const_buffer (std::vector<uint8_t> const & data);
 	explicit shared_const_buffer (uint8_t data);
 	explicit shared_const_buffer (std::string const & data);
@@ -27,7 +30,7 @@ static_assert (boost::asio::is_const_buffer_sequence<shared_const_buffer>::value
 
 template <typename AsyncWriteStream, typename WriteHandler>
 BOOST_ASIO_INITFN_RESULT_TYPE (WriteHandler, void(boost::system::error_code, std::size_t))
-async_write (AsyncWriteStream & s, const nano::shared_const_buffer & buffer, WriteHandler && handler)
+async_write (AsyncWriteStream & s, nano::shared_const_buffer const & buffer, WriteHandler && handler)
 {
 	return boost::asio::async_write (s, buffer, std::move (handler));
 }
