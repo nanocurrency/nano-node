@@ -584,6 +584,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (node & node, const
 	composite->add_component (collect_seq_con_info (node.vote_uniquer, "vote_uniquer"));
 	composite->add_component (collect_seq_con_info (node.confirmation_height_processor, "confirmation_height_processor"));
 	composite->add_component (collect_seq_con_info (node.pending_confirmation_height, "pending_confirmation_height"));
+	composite->add_component (collect_seq_con_info (node.worker, "worker"));
 	return composite;
 }
 }
@@ -679,6 +680,7 @@ void nano::node::stop ()
 		wallets.stop ();
 		stats.stop ();
 		write_database_queue.stop ();
+		worker.stop ();
 	}
 }
 
@@ -790,7 +792,9 @@ void nano::node::ongoing_store_flush ()
 	alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
-			node_l->ongoing_store_flush ();
+			node_l->worker.push_task ([node_l]() {
+				node_l->ongoing_store_flush ();
+			});
 		}
 	});
 }
@@ -803,7 +807,9 @@ void nano::node::ongoing_peer_store ()
 	alarm.add (std::chrono::steady_clock::now () + network_params.node.peer_interval, [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
-			node_l->ongoing_peer_store ();
+			node_l->worker.push_task ([node_l]() {
+				node_l->ongoing_peer_store ();
+			});
 		}
 	});
 }
@@ -834,7 +840,9 @@ void nano::node::search_pending ()
 	wallets.search_pending_all ();
 	auto this_l (shared ());
 	alarm.add (std::chrono::steady_clock::now () + network_params.node.search_pending_interval, [this_l]() {
-		this_l->search_pending ();
+		this_l->worker.push_task ([this_l]() {
+			this_l->search_pending ();
+		});
 	});
 }
 
@@ -898,7 +906,9 @@ void nano::node::ongoing_unchecked_cleanup ()
 	}
 	auto this_l (shared ());
 	alarm.add (std::chrono::steady_clock::now () + network_params.node.unchecked_cleaning_interval, [this_l]() {
-		this_l->ongoing_unchecked_cleanup ();
+		this_l->worker.push_task ([this_l]() {
+			this_l->ongoing_unchecked_cleanup ();
+		});
 	});
 }
 
@@ -1292,7 +1302,9 @@ void nano::node::ongoing_online_weight_calculation_queue ()
 	alarm.add (std::chrono::steady_clock::now () + (std::chrono::seconds (network_params.node.weight_period)), [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
-			node_l->ongoing_online_weight_calculation ();
+			node_l->worker.push_task ([node_l]() {
+				node_l->ongoing_online_weight_calculation ();
+			});
 		}
 	});
 }

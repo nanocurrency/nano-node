@@ -28,6 +28,7 @@ add_executable (core_test
 	socket.cpp
 	timer.cpp
 	uint256_union.cpp
+	utility.cpp
 	versioning.cpp
 	wallet.cpp
 	wallets.cpp
