@@ -99,6 +99,8 @@ public:
 	bool fast_bootstrap{ false };
 	bool delay_frontier_confirmation_height_updating{ false };
 	bool read_only{ false };
+	/** Whether to read all frontiers and construct the representative weights */
+	bool cache_representative_weights_from_frontiers { true };
 	size_t sideband_batch_size{ 512 };
 	size_t block_processor_batch_size{ 0 };
 	size_t block_processor_full_size{ 65536 };

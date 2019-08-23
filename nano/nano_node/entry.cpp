@@ -263,7 +263,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_dump_representatives"))
 		{
-			nano::inactive_node node (data_path);
+			nano::inactive_node node (data_path, 24000, true);
 			auto transaction (node.node->store.tx_begin_read ());
 			nano::uint128_t total;
 			auto rep_amounts = node.node->ledger.rep_weights.get_rep_amounts ();

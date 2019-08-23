@@ -11,7 +11,7 @@ void nano::rep_weights::representation_add (nano::account const & source_rep, na
 void nano::rep_weights::representation_put (nano::account const & account_a, nano::uint128_union const & representation_a)
 {
 	std::lock_guard<std::mutex> guard (mutex);
-	return put (account_a, representation_a);
+	put (account_a, representation_a);
 }
 
 nano::uint128_t nano::rep_weights::representation_get (nano::account const & account_a)
@@ -50,7 +50,7 @@ nano::uint128_t nano::rep_weights::get (nano::account const & account_a)
 	}
 	else
 	{
-		return nano::uint128_t{};
+		return nano::uint128_t{ 0 };
 	}
 }
 

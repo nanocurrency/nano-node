@@ -1553,7 +1553,7 @@ bool nano::node::init_error () const
 	return store.init_error () || wallets_store.init_error ();
 }
 
-nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, uint16_t peering_port_a) :
+nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, uint16_t peering_port_a, bool cache_reps_a) :
 path (path_a),
 io_context (std::make_shared<boost::asio::io_context> ()),
 alarm (*io_context),
@@ -1569,7 +1569,9 @@ peering_port (peering_port_a)
 	nano::set_secure_perm_directory (path, error_chmod);
 	logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
 	logging.init (path);
-	node = std::make_shared<nano::node> (*io_context, peering_port, path, alarm, logging, work);
+	nano::node_flags node_flags;
+	node_flags.cache_representative_weights_from_frontiers = cache_reps_a;
+	node = std::make_shared<nano::node> (*io_context, peering_port, path, alarm, logging, work, node_flags);
 	node->active.stop ();
 }
 
