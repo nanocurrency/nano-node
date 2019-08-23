@@ -56,8 +56,9 @@ if [[ "${TEMP_OPTS[0]}" = 'nano_node' ]]; then
 		        db_size=${i//-v/}
 			echo "Vacuum DB if over $db_size GB on startup"
 		elif [[ "$i" = '-l' ]]; then
-			echo "\"log_to_cerr\":\"true\""
-			log_to_cerr=1
+			echo "log_to_cerr = true"
+			command+=("--config")
+			command+=("node.logging.log_to_cerr=true")
 		else
 		 	command+=("$i")
 		fi
@@ -97,16 +98,12 @@ else
 	mkdir -p "${nanodir}"
 fi
 
-if [ ! -f "${nanodir}/config.json" ]; then
-	echo "Config File not found, adding default."
-	cp "/usr/share/nano/config/${network}.json" "${nanodir}/config.json"
-	cp "/usr/share/nano/config/${network}_rpc.json" "${nanodir}/rpc_config.json"
-fi
-
-if [[ $log_to_cerr -eq 1 ]]; then
-	sed -i 's/"log_to_cerr": "false",/"log_to_cerr": "true",/g' "${nanodir}/config.json"
-else
-	sed -i 's/"log_to_cerr": "true",/"log_to_cerr": "false",/g' "${nanodir}/config.json"
+tomlMissing=$([ ! -f "${nanodir}/config-node.toml" ])
+jsonMissing=$([ ! -f "${nanodir}/config.json" ])
+if [ [ ${tomlMissing} ] && [ ${jsonMissing} ] ]; then
+	echo "Config file not found, adding default."
+	cp "/usr/share/nano/config/config-node.toml" "${nanodir}/config-node.toml"
+	cp "/usr/share/nano/config/config-rpc.toml" "${nanodir}/config-rpc.toml"
 fi
 
 if [[ "${command[1]}" = "--daemon" ]]; then
