@@ -110,7 +110,8 @@ namespace thread_role
 		rpc_request_processor,
 		rpc_process_container,
 		work_watcher,
-		confirmation_height_processing
+		confirmation_height_processing,
+		worker
 	};
 	/*
 	 * Get/Set the identifier for the current thread
@@ -151,6 +152,27 @@ public:
 	std::vector<boost::thread> threads;
 	boost::asio::executor_work_guard<boost::asio::io_context::executor_type> io_guard;
 };
+
+class worker final
+{
+public:
+	worker ();
+	~worker ();
+	void run ();
+	void push_task (std::function<void()> func);
+	void stop ();
+
+private:
+	std::condition_variable cv;
+	std::deque<std::function<void()>> queue;
+	std::mutex mutex;
+	std::atomic<bool> stopped{ false };
+	std::thread thread;
+
+	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (worker &, const std::string &);
+};
+
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (worker & worker, const std::string & name);
 
 /**
  * Returns seconds passed since unix epoch (posix time)

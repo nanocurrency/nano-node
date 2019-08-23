@@ -43,7 +43,7 @@ void run (boost::filesystem::path const & data_path)
 	std::unique_ptr<nano::thread_runner> runner;
 
 	nano::rpc_config rpc_config;
-	auto error = nano::read_and_update_rpc_config (data_path, rpc_config);
+	auto error = nano::read_rpc_config_toml (data_path, rpc_config);
 	if (!error)
 	{
 		logging_init (data_path);

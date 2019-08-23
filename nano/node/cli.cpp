@@ -1,4 +1,5 @@
 #include <nano/lib/config.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/daemonconfig.hpp>
@@ -43,6 +44,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("unchecked_clear", "Clear unchecked blocks")
 	("confirmation_height_clear", "Clear confirmation height")
 	("diagnostics", "Run internal diagnostics")
+	("generate_config", boost::program_options::value<std::string> (), "Write configuration to stdout, populated with defaults suitable for this system. Pass the configuration type node or rpc.")
 	("key_create", "Generates a adhoc random keypair and prints it to stdout")
 	("key_expand", "Derive public key and account number from <key>")
 	("wallet_add_adhoc", "Insert <key> in to <wallet>")
@@ -346,20 +348,32 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			std::cout << "Confirmation heights of all accounts (except genesis) are set to 0" << std::endl;
 		}
 	}
+	else if (vm.count ("generate_config"))
+	{
+		auto type = vm["generate_config"].as<std::string> ();
+
+		if (type == "node")
+		{
+			nano::daemon_config config (data_path);
+			nano::tomlconfig toml;
+			config.serialize_toml (toml);
+			std::cout << toml.to_string () << std::endl;
+		}
+		else if (type == "rpc")
+		{
+			nano::rpc_config config (false);
+			nano::tomlconfig toml;
+			config.serialize_toml (toml);
+			std::cout << toml.to_string () << std::endl;
+		}
+		else
+		{
+			std::cerr << "Invalid configuration type " << type << ". Must be node or rpc." << std::endl;
+		}
+	}
 	else if (vm.count ("diagnostics"))
 	{
 		inactive_node node (data_path);
-
-		// Check/upgrade the config.json file.
-		{
-			nano::daemon_config config (data_path);
-			auto error = nano::read_and_update_daemon_config (data_path, config);
-			if (error)
-			{
-				std::cerr << "Error deserializing config: " << error.get_message () << std::endl;
-			}
-		}
-
 		std::cout << "Testing hash function" << std::endl;
 		nano::raw_key key;
 		key.data.clear ();

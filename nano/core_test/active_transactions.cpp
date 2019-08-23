@@ -71,10 +71,15 @@ TEST (active_transactions, adjusted_difficulty_priority)
 		}
 	}
 
-	system.deadline_set (10s);
-	while (node1.active.confirmed.size () != 4)
 	{
-		ASSERT_NO_ERROR (system.poll ());
+		system.deadline_set (10s);
+		std::unique_lock<std::mutex> active_lock (node1.active.mutex);
+		while (node1.active.confirmed.size () != 4)
+		{
+			active_lock.unlock ();
+			ASSERT_NO_ERROR (system.poll ());
+			active_lock.lock ();
+		}
 	}
 
 	//genesis and key1,key2 are opened
