@@ -1010,18 +1010,14 @@ public:
 		if ((outstanding.empty () || node->unresponsive_work_peers) && (node->config.work_threads != 0 || node->work.opencl))
 		{
 			local_generation_started = true;
-			// clang-format off
-			node->background ([this_l]() {
-				this_l->node->work.generate (this_l->root, [this_l](boost::optional<uint64_t> const & work_a) {
-					if (work_a)
-					{
-						this_l->set_once (work_a.value ());
-						this_l->stop (false);
-					}
-				},
-				this_l->difficulty);
-			});
-			// clang-format on
+			node->work.generate (this_l->root, [this_l](boost::optional<uint64_t> const & work_a) {
+				if (work_a)
+				{
+					this_l->set_once (work_a.value ());
+					this_l->stop (false);
+				}
+			},
+			difficulty);
 		}
 
 		if (!outstanding.empty ())
