@@ -344,7 +344,6 @@ public:
 	void no_block_sent (boost::system::error_code const &, size_t);
 	std::shared_ptr<nano::bootstrap_server> connection;
 	std::unique_ptr<nano::bulk_pull> request;
-	std::shared_ptr<std::vector<uint8_t>> send_buffer;
 	nano::block_hash current;
 	bool include_start;
 	nano::bulk_pull::count_t max_count;
@@ -364,7 +363,6 @@ public:
 	void complete (boost::system::error_code const &, size_t);
 	std::shared_ptr<nano::bootstrap_server> connection;
 	std::unique_ptr<nano::bulk_pull_account> request;
-	std::shared_ptr<std::vector<uint8_t>> send_buffer;
 	std::unordered_set<nano::uint256_union> deduplication;
 	nano::pending_key current_key;
 	bool pending_address_only;
@@ -396,7 +394,6 @@ public:
 	nano::account current;
 	nano::block_hash frontier;
 	std::unique_ptr<nano::frontier_req> request;
-	std::shared_ptr<std::vector<uint8_t>> send_buffer;
 	size_t count;
 	std::deque<std::pair<nano::account, nano::block_hash>> accounts;
 };

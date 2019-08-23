@@ -114,9 +114,9 @@ TEST (socket, concurrent_writes)
 		client_threads.emplace_back ([&client, &message_count]() {
 			for (int i = 0; i < message_count; i++)
 			{
-				auto buff (std::make_shared<std::vector<uint8_t>> ());
-				buff->push_back ('A' + i);
-				client->async_write (buff);
+				std::vector<uint8_t> buff;
+				buff.push_back ('A' + i);
+				client->async_write (nano::shared_const_buffer (std::move (buff)));
 			}
 		});
 #ifndef _WIN32

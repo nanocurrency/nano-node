@@ -453,10 +453,10 @@ TEST (node, connect_after_junk)
 	nano::system system (24000, 1);
 	nano::node_init init1;
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
-	auto junk_buffer (std::make_shared<std::vector<uint8_t>> ());
-	junk_buffer->push_back (0);
+	std::vector<uint8_t> junk_buffer;
+	junk_buffer.push_back (0);
 	auto channel1 (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, system.nodes[0]->network.endpoint ()));
-	channel1->send_buffer (junk_buffer, nano::stat::detail::bulk_pull, [](boost::system::error_code const &, size_t) {});
+	channel1->send_buffer (nano::shared_const_buffer (std::move (junk_buffer)), nano::stat::detail::bulk_pull, [](boost::system::error_code const &, size_t) {});
 	system.deadline_set (10s);
 	while (system.nodes[0]->stats.count (nano::stat::type::error) == 0)
 	{
@@ -1506,13 +1506,13 @@ TEST (node, fork_no_vote_quorum)
 	ASSERT_FALSE (system.wallet (1)->store.fetch (transaction, key1, key3));
 	auto vote (std::make_shared<nano::vote> (key1, key3, 0, send2));
 	nano::confirm_ack confirm (vote);
-	std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
+	std::vector<uint8_t> buffer;
 	{
-		nano::vectorstream stream (*bytes);
+		nano::vectorstream stream (buffer);
 		confirm.serialize (stream);
 	}
 	nano::transport::channel_udp channel (node2.network.udp_channels, node3.network.endpoint ());
-	channel.send_buffer (bytes, nano::stat::detail::confirm_ack);
+	channel.send_buffer (nano::shared_const_buffer (std::move (buffer)), nano::stat::detail::confirm_ack);
 	while (node3.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::in) < 3)
 	{
 		ASSERT_NO_ERROR (system.poll ());

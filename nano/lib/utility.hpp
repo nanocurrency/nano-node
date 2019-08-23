@@ -196,6 +196,7 @@ inline std::unique_ptr<seq_con_info_component> collect_seq_con_info (observer_se
 	return composite;
 }
 }
+// Have our own async_write which we must use?
 
 void release_assert_internal (bool check, const char * check_expr, const char * file, unsigned int line);
 #define release_assert(check) release_assert_internal (check, #check, __FILE__, __LINE__)

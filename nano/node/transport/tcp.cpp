@@ -41,20 +41,20 @@ bool nano::transport::channel_tcp::operator== (nano::transport::channel const & 
 	return result;
 }
 
-void nano::transport::channel_tcp::send_buffer (std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a)
+void nano::transport::channel_tcp::send_buffer (nano::shared_const_buffer const & buffer_a, nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a)
 {
-	socket->async_write (buffer_a, tcp_callback (buffer_a, detail_a, socket->remote_endpoint (), callback_a));
+	socket->async_write (buffer_a, tcp_callback (detail_a, socket->remote_endpoint (), callback_a));
 }
 
-std::function<void(boost::system::error_code const &, size_t)> nano::transport::channel_tcp::callback (std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
+std::function<void(boost::system::error_code const &, size_t)> nano::transport::channel_tcp::callback (nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
 {
 	return callback_a;
 }
 
-std::function<void(boost::system::error_code const &, size_t)> nano::transport::channel_tcp::tcp_callback (std::shared_ptr<std::vector<uint8_t>> buffer_a, nano::stat::detail detail_a, nano::tcp_endpoint const & endpoint_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
+std::function<void(boost::system::error_code const &, size_t)> nano::transport::channel_tcp::tcp_callback (nano::stat::detail detail_a, nano::tcp_endpoint const & endpoint_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
 {
 	// clang-format off
-	return [ buffer_a, endpoint_a, node = std::weak_ptr<nano::node> (node.shared ()), callback_a ](boost::system::error_code const & ec, size_t size_a)
+	return [endpoint_a, node = std::weak_ptr<nano::node> (node.shared ()), callback_a ](boost::system::error_code const & ec, size_t size_a)
 	{
 		if (auto node_l = node.lock ())
 		{
@@ -489,7 +489,7 @@ void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a
 				// TCP node ID handshake
 				auto cookie (node_l->network.syn_cookies.assign (endpoint_a));
 				nano::node_id_handshake message (cookie, boost::none);
-				auto bytes = message.to_bytes ();
+				auto bytes = message.to_shared_const_buffer ();
 				if (node_l->config.logging.network_node_id_handshake_logging ())
 				{
 					node_l->logger.try_log (boost::str (boost::format ("Node ID handshake request sent with node ID %1% to %2%: query %3%") % node_l->node_id.pub.to_node_id () % endpoint_a % (*cookie).to_string ()));
@@ -558,7 +558,7 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 							channel_a->set_last_packet_received (std::chrono::steady_clock::now ());
 							boost::optional<std::pair<nano::account, nano::signature>> response (std::make_pair (node_l->node_id.pub, nano::sign_message (node_l->node_id.prv, node_l->node_id.pub, *message.query)));
 							nano::node_id_handshake response_message (boost::none, response);
-							auto bytes = response_message.to_bytes ();
+							auto bytes = response_message.to_shared_const_buffer ();
 							if (node_l->config.logging.network_node_id_handshake_logging ())
 							{
 								node_l->logger.try_log (boost::str (boost::format ("Node ID handshake response sent with node ID %1% to %2%: query %3%") % node_l->node_id.pub.to_node_id () % endpoint_a % (*message.query).to_string ()));

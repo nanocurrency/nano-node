@@ -27,8 +27,8 @@ namespace transport
 		channel_udp (nano::transport::udp_channels &, nano::endpoint const &, unsigned = nano::protocol_version);
 		size_t hash_code () const override;
 		bool operator== (nano::transport::channel const &) const override;
-		void send_buffer (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) override;
-		std::function<void(boost::system::error_code const &, size_t)> callback (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) const override;
+		void send_buffer (nano::shared_const_buffer const &, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) override;
+		std::function<void(boost::system::error_code const &, size_t)> callback (nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) const override;
 		std::string to_string () const override;
 		bool operator== (nano::transport::channel_udp const & other_a) const
 		{
@@ -77,7 +77,7 @@ namespace transport
 		void receive ();
 		void start ();
 		void stop ();
-		void send (boost::asio::const_buffer buffer_a, nano::endpoint endpoint_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a);
+		void send (nano::shared_const_buffer const & buffer_a, nano::endpoint endpoint_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a);
 		nano::endpoint get_local_endpoint () const;
 		void receive_action (nano::message_buffer *);
 		void process_packets ();
