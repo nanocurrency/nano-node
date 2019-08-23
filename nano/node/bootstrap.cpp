@@ -341,7 +341,7 @@ void nano::bulk_pull_client::request ()
 	req, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
-			this_l->receive_block ();
+			this_l->throttled_receive_block ();
 		}
 		else
 		{
@@ -353,6 +353,24 @@ void nano::bulk_pull_client::request ()
 		}
 	},
 	false); // is bootstrap traffic is_droppable false
+}
+
+void nano::bulk_pull_client::throttled_receive_block ()
+{
+	if (!connection->node->block_processor.half_full ())
+	{
+		receive_block ();
+	}
+	else
+	{
+		auto this_l (shared_from_this ());
+		connection->node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (1), [this_l]() {
+			if (!this_l->connection->pending_stop && !this_l->connection->attempt->stopped)
+			{
+				this_l->throttled_receive_block ();
+			}
+		});
+	}
 }
 
 void nano::bulk_pull_client::receive_block ()
@@ -479,7 +497,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 				to prevent spam */
 				if (connection->attempt->mode != nano::bootstrap_mode::legacy || unexpected_count < 16384)
 				{
-					receive_block ();
+					throttled_receive_block ();
 				}
 			}
 			else if (stop_pull && block_expected)
@@ -918,14 +936,7 @@ void nano::bootstrap_attempt::run ()
 		{
 			if (!pulls.empty ())
 			{
-				if (!node->block_processor.full ())
-				{
-					request_pull (lock);
-				}
-				else
-				{
-					condition.wait_for (lock, std::chrono::seconds (15));
-				}
+				request_pull (lock);
 			}
 			else
 			{
@@ -1356,14 +1367,7 @@ void nano::bootstrap_attempt::lazy_run ()
 		{
 			if (!pulls.empty ())
 			{
-				if (!node->block_processor.full ())
-				{
-					request_pull (lock);
-				}
-				else
-				{
-					condition.wait_for (lock, std::chrono::seconds (15));
-				}
+				request_pull (lock);
 			}
 			else
 			{
@@ -2400,7 +2404,7 @@ public:
 	void bulk_push (nano::bulk_push const &) override
 	{
 		auto response (std::make_shared<nano::bulk_push_server> (connection));
-		response->receive ();
+		response->throttled_receive ();
 	}
 	void frontier_req (nano::frontier_req const &) override
 	{
@@ -3052,6 +3056,24 @@ connection (connection_a)
 	receive_buffer->resize (256);
 }
 
+void nano::bulk_push_server::throttled_receive ()
+{
+	if (!connection->node->block_processor.half_full ())
+	{
+		receive ();
+	}
+	else
+	{
+		auto this_l (shared_from_this ());
+		connection->node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (1), [this_l]() {
+			if (!this_l->connection->stopped)
+			{
+				this_l->throttled_receive ();
+			}
+		});
+	}
+}
+
 void nano::bulk_push_server::receive ()
 {
 	if (connection->node->bootstrap_initiator.in_progress ())
@@ -3150,11 +3172,8 @@ void nano::bulk_push_server::received_block (boost::system::error_code const & e
 		auto block (nano::deserialize_block (stream, type_a));
 		if (block != nullptr && !nano::work_validate (*block))
 		{
-			if (!connection->node->block_processor.full ())
-			{
-				connection->node->process_active (std::move (block));
-			}
-			receive ();
+			connection->node->process_active (std::move (block));
+			throttled_receive ();
 		}
 		else
 		{

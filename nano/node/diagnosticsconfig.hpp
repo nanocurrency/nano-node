@@ -7,7 +7,7 @@
 namespace nano
 {
 class jsonconfig;
-
+class tomlconfig;
 class txn_tracking_config final
 {
 public:
@@ -24,6 +24,8 @@ class diagnostics_config final
 public:
 	nano::error serialize_json (nano::jsonconfig &) const;
 	nano::error deserialize_json (nano::jsonconfig &);
+	nano::error serialize_toml (nano::tomlconfig &) const;
+	nano::error deserialize_toml (nano::tomlconfig &);
 
 	txn_tracking_config txn_tracking;
 };

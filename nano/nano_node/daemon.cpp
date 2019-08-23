@@ -41,7 +41,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 	nano::set_secure_perm_directory (data_path, error_chmod);
 	std::unique_ptr<nano::thread_runner> runner;
 	nano::daemon_config config (data_path);
-	auto error = nano::read_and_update_daemon_config (data_path, config);
+	auto error = nano::read_node_config_toml (data_path, config, flags.config_overrides);
 	nano::set_use_memory_pools (config.node.use_memory_pools);
 	if (!error)
 	{
@@ -78,10 +78,11 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 					{
 						// Launch rpc in-process
 						nano::rpc_config rpc_config;
-						auto error = nano::read_and_update_rpc_config (data_path, rpc_config);
+						auto error = nano::read_rpc_config_toml (data_path, rpc_config);
 						if (error)
 						{
-							throw std::runtime_error ("Could not deserialize rpc_config file");
+							std::cout << error.get_message () << std::endl;
+							std::exit (1);
 						}
 						rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, config.rpc, [&ipc_server, &alarm, &io_ctx]() {
 							ipc_server.stop ();

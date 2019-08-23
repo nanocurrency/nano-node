@@ -90,6 +90,7 @@ int main (int argc, char * const * argv)
 	description.add_options ()
 		("help", "Print out options")
 		("version", "Prints out version")
+		("config", boost::program_options::value<std::vector<std::string>>()->multitoken(), "Pass node configuration values. This takes precedence over any values in the configuration file. This option can be repeated multiple times.")
 		("daemon", "Start node daemon")
 		("disable_backup", "Disable wallet automatic backups")
 		("disable_lazy_bootstrap", "Disables lazy bootstrap")
@@ -181,6 +182,12 @@ int main (int argc, char * const * argv)
 			nano_daemon::daemon daemon;
 			nano::node_flags flags;
 			update_flags (flags, vm);
+
+			auto config (vm.find ("config"));
+			if (config != vm.end ())
+			{
+				flags.config_overrides = config->second.as<std::vector<std::string>> ();
+			}
 			daemon.run (data_path, flags);
 		}
 		else if (vm.count ("debug_block_count"))
