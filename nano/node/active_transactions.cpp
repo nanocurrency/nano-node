@@ -242,7 +242,7 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 				auto single_confirm_req_channels (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> ());
 				for (auto & rep : *rep_channels)
 				{
-					if (rep->get_network_version () >= nano::tcp_realtime_protocol_version_min)
+					if (rep->get_network_version () >= node.network_params.protocol.tcp_realtime_protocol_version_min)
 					{
 						// Send batch request to peers supporting confirm_req by hash + root
 						auto rep_request (requests_bundle.find (rep));

@@ -744,10 +744,10 @@ TEST (votes, check_signature)
 	auto vote1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 1, send1));
 	vote1->signature.bytes[0] ^= 1;
 	auto transaction (node1.store.tx_begin_read ());
-	ASSERT_EQ (nano::vote_code::invalid, node1.vote_processor.vote_blocking (transaction, vote1, std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, nano::endpoint (boost::asio::ip::address_v6 (), 0))));
+	ASSERT_EQ (nano::vote_code::invalid, node1.vote_processor.vote_blocking (transaction, vote1, std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, nano::endpoint (boost::asio::ip::address_v6 (), 0), node1.network_params.protocol.protocol_version)));
 	vote1->signature.bytes[0] ^= 1;
-	ASSERT_EQ (nano::vote_code::vote, node1.vote_processor.vote_blocking (transaction, vote1, std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, nano::endpoint (boost::asio::ip::address_v6 (), 0))));
-	ASSERT_EQ (nano::vote_code::replay, node1.vote_processor.vote_blocking (transaction, vote1, std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, nano::endpoint (boost::asio::ip::address_v6 (), 0))));
+	ASSERT_EQ (nano::vote_code::vote, node1.vote_processor.vote_blocking (transaction, vote1, std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, nano::endpoint (boost::asio::ip::address_v6 (), 0), node1.network_params.protocol.protocol_version)));
+	ASSERT_EQ (nano::vote_code::replay, node1.vote_processor.vote_blocking (transaction, vote1, std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, nano::endpoint (boost::asio::ip::address_v6 (), 0), node1.network_params.protocol.protocol_version)));
 }
 
 TEST (votes, add_one)
@@ -876,7 +876,7 @@ TEST (votes, add_old)
 	auto vote1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 2, send1));
 	std::lock_guard<std::mutex> lock (node1.active.mutex);
 	auto votes1 (node1.active.roots.find (send1->qualified_root ())->election);
-	auto channel (std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, node1.network.endpoint ()));
+	auto channel (std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, node1.network.endpoint (), node1.network_params.protocol.protocol_version));
 	node1.vote_processor.vote_blocking (transaction, vote1, channel);
 	nano::keypair key2;
 	auto send2 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
@@ -913,7 +913,7 @@ TEST (votes, add_old_different_account)
 	ASSERT_EQ (1, votes1->last_votes.size ());
 	ASSERT_EQ (1, votes2->last_votes.size ());
 	auto vote1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 2, send1));
-	auto channel (std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, node1.network.endpoint ()));
+	auto channel (std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, node1.network.endpoint (), node1.network_params.protocol.protocol_version));
 	auto vote_result1 (node1.vote_processor.vote_blocking (transaction, vote1, channel));
 	ASSERT_EQ (nano::vote_code::vote, vote_result1);
 	ASSERT_EQ (2, votes1->last_votes.size ());
@@ -948,7 +948,7 @@ TEST (votes, add_cooldown)
 	std::unique_lock<std::mutex> lock (node1.active.mutex);
 	auto votes1 (node1.active.roots.find (send1->qualified_root ())->election);
 	auto vote1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 1, send1));
-	auto channel (std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, node1.network.endpoint ()));
+	auto channel (std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, node1.network.endpoint (), node1.network_params.protocol.protocol_version));
 	node1.vote_processor.vote_blocking (transaction, vote1, channel);
 	nano::keypair key2;
 	auto send2 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));

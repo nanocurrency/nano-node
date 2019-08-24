@@ -2291,7 +2291,7 @@ TEST (rpc, peers)
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::endpoint endpoint (boost::asio::ip::address_v6::from_string ("fc00::1"), 4000);
 	auto node = system.nodes.front ();
-	node->network.udp_channels.insert (endpoint, nano::protocol_version);
+	node->network.udp_channels.insert (endpoint, node->network_params.protocol.protocol_version);
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
@@ -2310,11 +2310,11 @@ TEST (rpc, peers)
 	ASSERT_EQ (200, response.status);
 	auto & peers_node (response.json.get_child ("peers"));
 	ASSERT_EQ (2, peers_node.size ());
-	ASSERT_EQ (std::to_string (nano::protocol_version), peers_node.get<std::string> ("[::1]:24001"));
+	ASSERT_EQ (std::to_string (node->network_params.protocol.protocol_version), peers_node.get<std::string> ("[::1]:24001"));
 	// Previously "[::ffff:80.80.80.80]:4000", but IPv4 address cause "No such node thrown in the test body" issue with peers_node.get
 	std::stringstream endpoint_text;
 	endpoint_text << endpoint;
-	ASSERT_EQ (std::to_string (nano::protocol_version), peers_node.get<std::string> (endpoint_text.str ()));
+	ASSERT_EQ (std::to_string (node->network_params.protocol.protocol_version), peers_node.get<std::string> (endpoint_text.str ()));
 }
 
 TEST (rpc, peers_node_id)
@@ -2323,7 +2323,7 @@ TEST (rpc, peers_node_id)
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::endpoint endpoint (boost::asio::ip::address_v6::from_string ("fc00::1"), 4000);
 	auto node = system.nodes.front ();
-	node->network.udp_channels.insert (endpoint, nano::protocol_version);
+	node->network.udp_channels.insert (endpoint, node->network_params.protocol.protocol_version);
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
@@ -2344,12 +2344,12 @@ TEST (rpc, peers_node_id)
 	auto & peers_node (response.json.get_child ("peers"));
 	ASSERT_EQ (2, peers_node.size ());
 	auto tree1 (peers_node.get_child ("[::1]:24001"));
-	ASSERT_EQ (std::to_string (nano::protocol_version), tree1.get<std::string> ("protocol_version"));
+	ASSERT_EQ (std::to_string (node->network_params.protocol.protocol_version), tree1.get<std::string> ("protocol_version"));
 	ASSERT_EQ (system.nodes[1]->node_id.pub.to_node_id (), tree1.get<std::string> ("node_id"));
 	std::stringstream endpoint_text;
 	endpoint_text << endpoint;
 	auto tree2 (peers_node.get_child (endpoint_text.str ()));
-	ASSERT_EQ (std::to_string (nano::protocol_version), tree2.get<std::string> ("protocol_version"));
+	ASSERT_EQ (std::to_string (node->network_params.protocol.protocol_version), tree2.get<std::string> ("protocol_version"));
 	ASSERT_EQ ("", tree2.get<std::string> ("node_id"));
 }
 
@@ -2561,7 +2561,7 @@ TEST (rpc, version)
 		auto transaction (system.nodes[0]->store.tx_begin_read ());
 		ASSERT_EQ (std::to_string (node1->store.version_get (transaction)), response1.json.get<std::string> ("store_version"));
 	}
-	ASSERT_EQ (std::to_string (nano::protocol_version), response1.json.get<std::string> ("protocol_version"));
+	ASSERT_EQ (std::to_string (node1->network_params.protocol.protocol_version), response1.json.get<std::string> ("protocol_version"));
 	ASSERT_EQ (boost::str (boost::format ("Nano %1%") % NANO_VERSION_STRING), response1.json.get<std::string> ("node_vendor"));
 	auto network_label (node1->network_params.network.get_current_network_as_string ());
 	ASSERT_EQ (network_label, response1.json.get<std::string> ("network"));

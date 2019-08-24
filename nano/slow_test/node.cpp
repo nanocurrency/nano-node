@@ -59,7 +59,7 @@ TEST (system, receive_while_synchronizing)
 		nano::node_init init1;
 		auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 		ASSERT_FALSE (init1.error ());
-		auto channel (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, system.nodes[0]->network.endpoint ()));
+		auto channel (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, system.nodes[0]->network.endpoint (), node1->network_params.protocol.protocol_version));
 		node1->network.send_keepalive (channel);
 		auto wallet (node1->wallets.create (1));
 		wallet->insert_adhoc (nano::test_genesis_key.prv); // For voting
@@ -412,7 +412,7 @@ TEST (store, vote_load)
 	for (auto i (0); i < 1000000; ++i)
 	{
 		auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, i, block));
-		node.vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, system.nodes[0]->network.endpoint ()));
+		node.vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, system.nodes[0]->network.endpoint (), system.nodes[0]->network_params.protocol.protocol_version));
 	}
 }
 
