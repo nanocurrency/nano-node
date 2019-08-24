@@ -446,6 +446,36 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.stat_config.log_samples_filename, defaults.node.stat_config.log_samples_filename);
 }
 
+/** There should be no required values **/
+TEST (toml, daemon_config_no_required)
+{
+	std::stringstream ss;
+
+	// A config with no values, only categories
+	ss << R"toml(
+	[node]
+	[node.diagnostics.txn_tracking]
+	[node.httpcallback]
+	[node.ipc.local]
+	[node.ipc.tcp]
+	[node.logging]
+	[node.statistics.log]
+	[node.statistics.sampling]
+	[node.websocket]
+	[opencl]
+	[rpc]
+	[rpc.child_process]
+	)toml";
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+	nano::daemon_config conf;
+	nano::daemon_config defaults;
+	conf.deserialize_toml (toml);
+
+	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
+}
+
 /** Deserialize an rpc config with non-default values */
 TEST (toml, rpc_config_deserialize_no_defaults)
 {
@@ -483,6 +513,27 @@ TEST (toml, rpc_config_deserialize_no_defaults)
 	ASSERT_NE (conf.rpc_process.ipc_address, defaults.rpc_process.ipc_address);
 	ASSERT_NE (conf.rpc_process.ipc_port, defaults.rpc_process.ipc_port);
 	ASSERT_NE (conf.rpc_process.num_ipc_connections, defaults.rpc_process.num_ipc_connections);
+}
+
+/** There should be no required values **/
+TEST (toml, rpc_config_no_required)
+{
+	std::stringstream ss;
+
+	// A config with no values, only categories
+	ss << R"toml(
+	[version]
+	[process]
+	[secure]
+	)toml";
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+	nano::rpc_config conf;
+	nano::rpc_config defaults;
+	conf.deserialize_toml (toml);
+
+	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
 }
 
 /** Deserialize a node config with incorrect values */
