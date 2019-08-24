@@ -100,9 +100,7 @@ void nano::work_pool::loop (uint64_t thread)
 			if (opt_work.is_initialized ())
 			{
 				work = *opt_work;
-				blake2b_update (&hash, reinterpret_cast<uint8_t *> (&work), sizeof (work));
-				blake2b_update (&hash, current_l.item.bytes.data (), current_l.item.bytes.size ());
-				blake2b_final (&hash, reinterpret_cast<uint8_t *> (&output), sizeof (output));
+				output = work_value (current_l.item, work);
 			}
 			else
 			{
