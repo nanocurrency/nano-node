@@ -727,6 +727,11 @@ uint64_t nano::active_transactions::active_difficulty ()
 	return trended_active_difficulty;
 }
 
+uint64_t nano::active_transactions::limited_active_difficulty ()
+{
+	return std::min (active_difficulty (), node.config.max_work_generate_difficulty);
+}
+
 // List of active blocks in elections
 std::deque<std::shared_ptr<nano::block>> nano::active_transactions::list_blocks (bool single_lock)
 {
