@@ -257,8 +257,10 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 
 		toml.get<unsigned> ("vote_generator_threshold", vote_generator_threshold);
 
-		auto block_processor_batch_max_time_l (toml.get<unsigned long> ("block_processor_batch_max_time"));
+		auto block_processor_batch_max_time_l = block_processor_batch_max_time.count ();
+		toml.get ("block_processor_batch_max_time", block_processor_batch_max_time_l);
 		block_processor_batch_max_time = std::chrono::milliseconds (block_processor_batch_max_time_l);
+
 		auto unchecked_cutoff_time_l = static_cast<unsigned long> (unchecked_cutoff_time.count ());
 		toml.get ("unchecked_cutoff_time", unchecked_cutoff_time_l);
 		unchecked_cutoff_time = std::chrono::seconds (unchecked_cutoff_time_l);
