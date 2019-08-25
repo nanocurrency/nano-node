@@ -1558,6 +1558,7 @@ TEST (rpc, account_history)
 	ASSERT_NE (nullptr, send2);
 	auto receive2 (system.wallet (0)->receive_action (*send2, account2, system.nodes[0]->config.receive_minimum.number ()));
 	scoped_thread_name_io.renew ();
+	// Test filter for send blocks
 	ASSERT_NE (nullptr, receive2);
 	{
 		boost::property_tree::ptree request;
@@ -1565,6 +1566,26 @@ TEST (rpc, account_history)
 		request.put ("account", nano::test_genesis_key.pub.to_account ());
 		boost::property_tree::ptree other_account;
 		other_account.put ("", account2.to_account ());
+		boost::property_tree::ptree filtered_accounts;
+		filtered_accounts.push_back (std::make_pair ("", other_account));
+		request.add_child ("account_filter", filtered_accounts);
+		request.put ("count", 100);
+		test_response response (request, rpc.config.port, system.io_ctx);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		auto history_node (response.json.get_child ("history"));
+		ASSERT_EQ (history_node.size (), 1);
+	}
+	// Test filter for receive blocks
+	ASSERT_NE (nullptr, receive2);
+	{
+		boost::property_tree::ptree request;
+		request.put ("action", "account_history");
+		request.put ("account", account2.to_account ());
+		boost::property_tree::ptree other_account;
+		other_account.put ("", nano::test_genesis_key.pub.to_account ());
 		boost::property_tree::ptree filtered_accounts;
 		filtered_accounts.push_back (std::make_pair ("", other_account));
 		request.add_child ("account_filter", filtered_accounts);
