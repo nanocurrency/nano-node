@@ -12,6 +12,7 @@
 namespace nano
 {
 class jsonconfig;
+class tomlconfig;
 
 /** Configuration options for RPC TLS */
 class rpc_secure_config final
@@ -19,6 +20,8 @@ class rpc_secure_config final
 public:
 	nano::error serialize_json (nano::jsonconfig &) const;
 	nano::error deserialize_json (nano::jsonconfig &);
+	nano::error serialize_toml (nano::tomlconfig &) const;
+	nano::error deserialize_toml (nano::tomlconfig &);
 
 	/** If true, enable TLS */
 	bool enable{ false };
@@ -56,6 +59,8 @@ public:
 	explicit rpc_config (bool = false);
 	nano::error serialize_json (nano::jsonconfig &) const;
 	nano::error deserialize_json (bool & upgraded_a, nano::jsonconfig &);
+	nano::error serialize_toml (nano::tomlconfig &) const;
+	nano::error deserialize_toml (nano::tomlconfig &);
 
 	nano::rpc_process_config rpc_process;
 	boost::asio::ip::address_v6 address{ boost::asio::ip::address_v6::loopback () };
@@ -70,6 +75,7 @@ public:
 	}
 };
 
+nano::error read_rpc_config_toml (boost::filesystem::path const & data_path_a, nano::rpc_config & config_a);
 nano::error read_and_update_rpc_config (boost::filesystem::path const & data_path, nano::rpc_config & config_a);
 
 std::string get_default_rpc_filepath ();

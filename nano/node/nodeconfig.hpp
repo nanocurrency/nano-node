@@ -16,6 +16,7 @@
 
 namespace nano
 {
+class tomlconfig;
 /**
  * Node configuration
  */
@@ -26,6 +27,8 @@ public:
 	node_config (uint16_t, nano::logging const &);
 	nano::error serialize_json (nano::jsonconfig &) const;
 	nano::error deserialize_json (bool &, nano::jsonconfig &);
+	nano::error serialize_toml (nano::tomlconfig &) const;
+	nano::error deserialize_toml (nano::tomlconfig &);
 	bool upgrade_json (unsigned, nano::jsonconfig &);
 	nano::account random_representative ();
 	nano::network_params network_params;
@@ -79,6 +82,8 @@ public:
 	std::chrono::milliseconds conf_height_processor_batch_min_time{ 50 };
 	bool backup_before_upgrade{ false };
 	std::chrono::seconds work_watcher_period{ std::chrono::seconds (5) };
+	double max_work_generate_multiplier{ 64. };
+	uint64_t max_work_generate_difficulty{ nano::network_constants::publish_full_threshold };
 	static unsigned json_version ()
 	{
 		return 18;
@@ -88,6 +93,7 @@ public:
 class node_flags final
 {
 public:
+	std::vector<std::string> config_overrides;
 	bool disable_backup{ false };
 	bool disable_lazy_bootstrap{ false };
 	bool disable_legacy_bootstrap{ false };

@@ -18,7 +18,7 @@
 namespace nano
 {
 class node;
-
+class tomlconfig;
 /**
  * Serialize and deserialize the 'statistics' node from config.json
  * All configuration values have defaults. In particular, file logging of statistics
@@ -29,6 +29,8 @@ class stat_config final
 public:
 	/** Reads the JSON statistics node */
 	nano::error deserialize_json (nano::jsonconfig & json);
+	nano::error deserialize_toml (nano::tomlconfig & toml);
+	nano::error serialize_toml (nano::tomlconfig & toml) const;
 
 	/** If true, sampling of counters is enabled */
 	bool sampling_enabled{ false };

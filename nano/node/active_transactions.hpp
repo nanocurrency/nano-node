@@ -97,6 +97,7 @@ public:
 	void adjust_difficulty (nano::block_hash const &);
 	void update_active_difficulty (std::unique_lock<std::mutex> &);
 	uint64_t active_difficulty ();
+	uint64_t limited_active_difficulty ();
 	std::deque<std::shared_ptr<nano::block>> list_blocks (bool = false);
 	void erase (nano::block const &);
 	//drop 2 from roots based on adjusted_difficulty
