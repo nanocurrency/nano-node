@@ -93,7 +93,6 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (c.opencl.platform, defaults.opencl.platform);
 	ASSERT_EQ (c.opencl.threads, defaults.opencl.threads);
 	ASSERT_EQ (c.rpc.enable_sign_hash, false);
-	ASSERT_EQ (c.rpc.max_work_generate_difficulty, 0xffffffffc0000000);
 	ASSERT_EQ (c.rpc.child_process.enable, false);
 }
 
@@ -257,6 +256,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	work_peers = ["test.org:999"]
 	work_threads = 999
 	work_watcher_period = 999
+	max_work_generate_multiplier = 1.0
 	frontiers_confirmation = "always"
 	[node.diagnostics.txn_tracking]
 	enable = true
@@ -332,7 +332,6 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	[rpc]
 	enable = true
 	enable_sign_hash = true
-	max_work_generate_difficulty = "ffffffffc9999999"
 
 	[rpc.child_process]
 	enable = true
@@ -353,7 +352,6 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.opencl.threads, defaults.opencl.threads);
 	ASSERT_NE (conf.rpc_enable, defaults.rpc_enable);
 	ASSERT_NE (conf.rpc.enable_sign_hash, defaults.rpc.enable_sign_hash);
-	ASSERT_NE (conf.rpc.max_work_generate_difficulty, defaults.rpc.max_work_generate_difficulty);
 	ASSERT_NE (conf.rpc.child_process.enable, defaults.rpc.child_process.enable);
 	ASSERT_NE (conf.rpc.child_process.rpc_path, defaults.rpc.child_process.rpc_path);
 
@@ -371,6 +369,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.external_port, defaults.node.external_port);
 	ASSERT_NE (conf.node.io_threads, defaults.node.io_threads);
 	ASSERT_NE (conf.node.lmdb_max_dbs, defaults.node.lmdb_max_dbs);
+	ASSERT_NE (conf.node.max_work_generate_multiplier, defaults.node.max_work_generate_multiplier);
 	ASSERT_NE (conf.node.frontiers_confirmation, defaults.node.frontiers_confirmation);
 	ASSERT_NE (conf.node.network_threads, defaults.node.network_threads);
 	ASSERT_NE (conf.node.work_watcher_period, defaults.node.work_watcher_period);
@@ -449,6 +448,36 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.stat_config.log_samples_filename, defaults.node.stat_config.log_samples_filename);
 }
 
+/** There should be no required values **/
+TEST (toml, daemon_config_no_required)
+{
+	std::stringstream ss;
+
+	// A config with no values, only categories
+	ss << R"toml(
+	[node]
+	[node.diagnostics.txn_tracking]
+	[node.httpcallback]
+	[node.ipc.local]
+	[node.ipc.tcp]
+	[node.logging]
+	[node.statistics.log]
+	[node.statistics.sampling]
+	[node.websocket]
+	[opencl]
+	[rpc]
+	[rpc.child_process]
+	)toml";
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+	nano::daemon_config conf;
+	nano::daemon_config defaults;
+	conf.deserialize_toml (toml);
+
+	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
+}
+
 /** Deserialize an rpc config with non-default values */
 TEST (toml, rpc_config_deserialize_no_defaults)
 {
@@ -488,20 +517,54 @@ TEST (toml, rpc_config_deserialize_no_defaults)
 	ASSERT_NE (conf.rpc_process.num_ipc_connections, defaults.rpc_process.num_ipc_connections);
 }
 
+/** There should be no required values **/
+TEST (toml, rpc_config_no_required)
+{
+	std::stringstream ss;
+
+	// A config with no values, only categories
+	ss << R"toml(
+	[version]
+	[process]
+	[secure]
+	)toml";
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+	nano::rpc_config conf;
+	nano::rpc_config defaults;
+	conf.deserialize_toml (toml);
+
+	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
+}
+
 /** Deserialize a node config with incorrect values */
 TEST (toml, daemon_config_deserialize_errors)
 {
+	std::stringstream ss_max_work_generate_multiplier;
+	ss_max_work_generate_multiplier << R"toml(
+	[node]
+	max_work_generate_multiplier = 0.9
+	)toml";
+
+	nano::tomlconfig toml;
+	toml.read (ss_max_work_generate_multiplier);
+	nano::daemon_config conf;
+	conf.deserialize_toml (toml);
+
+	ASSERT_EQ (toml.get_error ().get_message (), "max_work_generate_multiplier must be greater than or equal to 1");
+
 	std::stringstream ss_frontiers_confirmation;
 	ss_frontiers_confirmation << R"toml(
 	[node]
 	frontiers_confirmation = "randomstring"
 	)toml";
 
-	nano::tomlconfig toml;
-	toml.read (ss_frontiers_confirmation);
-	nano::daemon_config conf;
-	conf.deserialize_toml (toml);
+	nano::tomlconfig toml2;
+	toml2.read (ss_frontiers_confirmation);
+	nano::daemon_config conf2;
+	conf2.deserialize_toml (toml2);
 
-	ASSERT_EQ (toml.get_error ().get_message (), "frontiers_confirmation value is invalid (available: always, auto, disabled)");
-	ASSERT_EQ (conf.node.frontiers_confirmation, nano::frontiers_confirmation_mode::invalid);
+	ASSERT_EQ (toml2.get_error ().get_message (), "frontiers_confirmation value is invalid (available: always, auto, disabled)");
+	ASSERT_EQ (conf2.node.frontiers_confirmation, nano::frontiers_confirmation_mode::invalid);
 }

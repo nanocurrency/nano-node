@@ -43,13 +43,13 @@ nano::error nano::rpc_secure_config::serialize_toml (nano::tomlconfig & toml) co
 
 nano::error nano::rpc_secure_config::deserialize_toml (nano::tomlconfig & toml)
 {
-	toml.get_required<bool> ("enable", enable);
-	toml.get_required<bool> ("verbose_logging", verbose_logging);
-	toml.get_required<std::string> ("server_key_passphrase", server_key_passphrase);
-	toml.get_required<std::string> ("server_cert_path", server_cert_path);
-	toml.get_required<std::string> ("server_key_path", server_key_path);
-	toml.get_required<std::string> ("server_dh_path", server_dh_path);
-	toml.get_required<std::string> ("client_certs_path", client_certs_path);
+	toml.get<bool> ("enable", enable);
+	toml.get<bool> ("verbose_logging", verbose_logging);
+	toml.get<std::string> ("server_key_passphrase", server_key_passphrase);
+	toml.get<std::string> ("server_cert_path", server_cert_path);
+	toml.get<std::string> ("server_key_path", server_key_path);
+	toml.get<std::string> ("server_dh_path", server_dh_path);
+	toml.get<std::string> ("client_certs_path", client_certs_path);
 	return toml.get_error ();
 }
 

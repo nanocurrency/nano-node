@@ -2623,8 +2623,10 @@ TEST (rpc, work_generate)
 
 TEST (rpc, work_generate_difficulty)
 {
-	nano::system system (24000, 1);
-	auto node (system.nodes[0]);
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.max_work_generate_difficulty = 0xffff000000000000;
+	auto node = system.add_node (node_config);
 	scoped_io_thread_name_change scoped_thread_name_io;
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
 	nano::node_rpc_config node_rpc_config;
@@ -2679,7 +2681,7 @@ TEST (rpc, work_generate_difficulty)
 		ASSERT_GE (result_difficulty, difficulty);
 	}
 	{
-		uint64_t difficulty (node_rpc_config.max_work_generate_difficulty + 1);
+		uint64_t difficulty (node->config.max_work_generate_difficulty + 1);
 		request.put ("difficulty", nano::to_string_hex (difficulty));
 		test_response response (request, rpc.config.port, system.io_ctx);
 		system.deadline_set (5s);
@@ -2695,8 +2697,10 @@ TEST (rpc, work_generate_difficulty)
 
 TEST (rpc, work_generate_multiplier)
 {
-	nano::system system (24000, 1);
-	auto node (system.nodes[0]);
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.max_work_generate_difficulty = 0xffff000000000000;
+	auto node = system.add_node (node_config);
 	scoped_io_thread_name_change scoped_thread_name_io;
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
 	nano::node_rpc_config node_rpc_config;
@@ -2747,7 +2751,7 @@ TEST (rpc, work_generate_multiplier)
 		ASSERT_EQ (response.json.get<std::string> ("error"), ec.message ());
 	}
 	{
-		double max_multiplier (nano::difficulty::to_multiplier (node_rpc_config.max_work_generate_difficulty, node->network_params.network.publish_threshold));
+		double max_multiplier (nano::difficulty::to_multiplier (node->config.max_work_generate_difficulty, node->network_params.network.publish_threshold));
 		request.put ("multiplier", max_multiplier + 1);
 		test_response response (request, rpc.config.port, system.io_ctx);
 		system.deadline_set (5s);

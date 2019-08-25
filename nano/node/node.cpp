@@ -1020,7 +1020,8 @@ public:
 		if ((outstanding.empty () || node->unresponsive_work_peers) && (node->config.work_threads != 0 || node->work.opencl))
 		{
 			local_generation_started = true;
-			node->work.generate (this_l->root, [this_l](boost::optional<uint64_t> const & work_a) {
+			node->work.generate (
+			this_l->root, [this_l](boost::optional<uint64_t> const & work_a) {
 				if (work_a)
 				{
 					this_l->set_once (work_a.value ());

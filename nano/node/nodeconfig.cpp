@@ -35,6 +35,7 @@ logging (logging_a)
 	const char * epoch_message ("epoch v1 block");
 	strncpy ((char *)epoch_block_link.bytes.data (), epoch_message, epoch_block_link.bytes.size ());
 	epoch_block_signer = network_params.ledger.genesis_account;
+	max_work_generate_difficulty = nano::difficulty::from_multiplier (max_work_generate_multiplier, network_params.network.publish_threshold);
 	switch (network_params.network.network ())
 	{
 		case nano::nano_networks::nano_test_network:
@@ -96,6 +97,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("bandwidth_limit", bandwidth_limit, "Outbound traffic limit in bytes/sec after which messages will be dropped\ntype:uint64");
 	toml.put ("backup_before_upgrade", backup_before_upgrade, "Backup the ledger database before performing upgrades\ntype:bool");
 	toml.put ("work_watcher_period", work_watcher_period.count (), "Time between checks for confirmation and re-generating higher difficulty work if unconfirmed, for blocks in the work watcher.\ntype:seconds");
+	toml.put ("max_work_generate_multiplier", max_work_generate_multiplier, "Maximum allowed difficulty multiplier for work generation\ntype:double,[1..]");
 	toml.put ("frontiers_confirmation", serialize_frontiers_confirmation (frontiers_confirmation), "Mode for force frontiers confirmation\ntype:string");
 
 	auto work_peers_l (toml.create_array ("work_peers", "A list of \"address:port\" entries to identify work peers"));
@@ -232,19 +234,31 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 			toml.get_error ().set ("At least one representative account must be set");
 		}
 
-		auto receive_minimum_l (toml.get<std::string> ("receive_minimum"));
+		auto receive_minimum_l (receive_minimum.to_string_dec ());
+		if (toml.has_key ("receive_minimum"))
+		{
+			receive_minimum_l = toml.get<std::string> ("receive_minimum");
+		}
 		if (receive_minimum.decode_dec (receive_minimum_l))
 		{
 			toml.get_error ().set ("receive_minimum contains an invalid decimal amount");
 		}
 
-		auto online_weight_minimum_l (toml.get<std::string> ("online_weight_minimum"));
+		auto online_weight_minimum_l (online_weight_minimum.to_string_dec ());
+		if (toml.has_key ("online_weight_minimum"))
+		{
+			online_weight_minimum_l = toml.get<std::string> ("online_weight_minimum");
+		}
 		if (online_weight_minimum.decode_dec (online_weight_minimum_l))
 		{
 			toml.get_error ().set ("online_weight_minimum contains an invalid decimal amount");
 		}
 
-		auto vote_minimum_l (toml.get<std::string> ("vote_minimum"));
+		auto vote_minimum_l (vote_minimum.to_string_dec ());
+		if (toml.has_key ("vote_minimum"))
+		{
+			vote_minimum_l = toml.get<std::string> ("vote_minimum");
+		}
 		if (vote_minimum.decode_dec (vote_minimum_l))
 		{
 			toml.get_error ().set ("vote_minimum contains an invalid decimal amount");
@@ -303,6 +317,9 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		frontiers_confirmation = deserialize_frontiers_confirmation (frontiers_confirmation_l);
 
 		nano::network_constants network;
+		toml.get<double> ("max_work_generate_multiplier", max_work_generate_multiplier);
+		max_work_generate_difficulty = nano::difficulty::from_multiplier (max_work_generate_multiplier, network.publish_threshold);
+
 		// Validate ranges
 		if (online_weight_quorum > 100)
 		{
@@ -331,6 +348,10 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		if (work_watcher_period < std::chrono::seconds (1))
 		{
 			toml.get_error ().set ("work_watcher_period must be equal or larger than 1");
+		}
+		if (max_work_generate_multiplier < 1)
+		{
+			toml.get_error ().set ("max_work_generate_multiplier must be greater than or equal to 1");
 		}
 		if (frontiers_confirmation == nano::frontiers_confirmation_mode::invalid)
 		{
@@ -723,7 +744,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		}
 		if (active_elections_size <= 250 && !network.is_test_network ())
 		{
-			json.get_error ().set ("active_elections_size must be grater than 250");
+			json.get_error ().set ("active_elections_size must be greater than 250");
 		}
 		if (bandwidth_limit > std::numeric_limits<size_t>::max ())
 		{
