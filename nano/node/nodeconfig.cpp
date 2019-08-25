@@ -313,12 +313,16 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		auto conf_height_processor_batch_min_time_l (conf_height_processor_batch_min_time.count ());
 		toml.get ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time_l);
 		conf_height_processor_batch_min_time = std::chrono::milliseconds (conf_height_processor_batch_min_time_l);
-		auto frontiers_confirmation_l (toml.get<std::string> ("frontiers_confirmation"));
-		frontiers_confirmation = deserialize_frontiers_confirmation (frontiers_confirmation_l);
 
 		nano::network_constants network;
 		toml.get<double> ("max_work_generate_multiplier", max_work_generate_multiplier);
 		max_work_generate_difficulty = nano::difficulty::from_multiplier (max_work_generate_multiplier, network.publish_threshold);
+
+		if (toml.has_key ("frontiers_confirmation"))
+		{
+			auto frontiers_confirmation_l (toml.get<std::string> ("frontiers_confirmation"));
+			frontiers_confirmation = deserialize_frontiers_confirmation (frontiers_confirmation_l);
+		}
 
 		// Validate ranges
 		if (online_weight_quorum > 100)
