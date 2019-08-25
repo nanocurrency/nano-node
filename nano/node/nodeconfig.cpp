@@ -233,19 +233,31 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 			toml.get_error ().set ("At least one representative account must be set");
 		}
 
-		auto receive_minimum_l (toml.get<std::string> ("receive_minimum"));
+		auto receive_minimum_l (receive_minimum.to_string_dec ());
+		if (toml.has_key ("receive_minimum"))
+		{
+			receive_minimum_l = toml.get<std::string> ("receive_minimum");
+		}
 		if (receive_minimum.decode_dec (receive_minimum_l))
 		{
 			toml.get_error ().set ("receive_minimum contains an invalid decimal amount");
 		}
 
-		auto online_weight_minimum_l (toml.get<std::string> ("online_weight_minimum"));
+		auto online_weight_minimum_l (online_weight_minimum.to_string_dec ());
+		if (toml.has_key ("online_weight_minimum"))
+		{
+			online_weight_minimum_l = toml.get<std::string> ("online_weight_minimum");
+		}
 		if (online_weight_minimum.decode_dec (online_weight_minimum_l))
 		{
 			toml.get_error ().set ("online_weight_minimum contains an invalid decimal amount");
 		}
 
-		auto vote_minimum_l (toml.get<std::string> ("vote_minimum"));
+		auto vote_minimum_l (vote_minimum.to_string_dec ());
+		if (toml.has_key ("vote_minimum"))
+		{
+			vote_minimum_l = toml.get<std::string> ("vote_minimum");
+		}
 		if (vote_minimum.decode_dec (vote_minimum_l))
 		{
 			toml.get_error ().set ("vote_minimum contains an invalid decimal amount");
