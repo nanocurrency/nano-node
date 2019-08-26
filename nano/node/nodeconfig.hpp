@@ -87,7 +87,7 @@ public:
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
-	size_t bandwidth_limit{ 5 * 1024 * 1024 }; // 5Mb/s
+	size_t bandwidth_limit{ 5 * 1024 * 1024 }; // 5MB/s
 	std::chrono::milliseconds conf_height_processor_batch_min_time{ 50 };
 	bool backup_before_upgrade{ false };
 	std::chrono::seconds work_watcher_period{ std::chrono::seconds (5) };
