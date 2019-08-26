@@ -1396,6 +1396,9 @@ nano::work_watcher::work_watcher (nano::node & node_a) :
 node (node_a),
 stopped (false)
 {
+	node.observers.blocks.add ([this](nano::election_status const & status_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
+		this->remove (status_a.winner);
+	});
 }
 
 nano::work_watcher::~work_watcher ()
@@ -1434,39 +1437,12 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 	std::weak_ptr<nano::work_watcher> watcher_w (shared_from_this ());
 	node.alarm.add (std::chrono::steady_clock::now () + node.config.work_watcher_period, [block_a, root_a, watcher_w]() {
 		auto watcher_l = watcher_w.lock ();
-		if (watcher_l && !watcher_l->stopped)
+		if (watcher_l && !watcher_l->stopped && block_a != nullptr)
 		{
-			std::unique_lock<std::mutex> active_lock (watcher_l->node.active.mutex);
-			auto confirmed (false);
-			auto existing (watcher_l->node.active.roots.find (root_a));
-			if (watcher_l->node.active.roots.end () != existing)
+			std::unique_lock<std::mutex> lock (watcher_l->mutex);
+			if (watcher_l->watched.find (root_a) != watcher_l->watched.end ()) // not yet confirmed
 			{
-				//block may not be in existing yet
-				confirmed = existing->election->confirmed.load ();
-			}
-			else if (block_a == nullptr)
-			{
-				// removed
-				confirmed = true;
-			}
-			else
-			{
-				//and so we fall back to ledger confirmation
-				auto transaction (watcher_l->node.store.tx_begin_read ());
-				auto block = watcher_l->node.store.block_get (transaction, block_a->hash ());
-				if (block)
-				{
-					confirmed = watcher_l->node.block_confirmed_or_being_confirmed (transaction, block_a->hash ());
-				}
-			}
-			active_lock.unlock ();
-
-			if (confirmed)
-			{
-				watcher_l->remove (block_a);
-			}
-			else if (block_a != nullptr)
-			{
+				lock.unlock ();
 				bool updated_l{ false };
 				uint64_t difficulty (0);
 				auto root_l (block_a->root ());
@@ -1518,12 +1494,13 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 
 void nano::work_watcher::remove (std::shared_ptr<nano::block> block_a)
 {
-	auto root (block_a->qualified_root ());
+	auto root_l (block_a->qualified_root ());
 	std::lock_guard<std::mutex> lock (mutex);
-	auto existing (watched.find (root));
+	auto existing (watched.find (root_l));
 	if (existing != watched.end () && existing->second->hash () == block_a->hash ())
 	{
 		watched.erase (existing);
+		node.work.cancel (block_a->root ());
 	}
 }
 
