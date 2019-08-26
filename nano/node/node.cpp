@@ -954,7 +954,7 @@ public:
 class distributed_work : public std::enable_shared_from_this<distributed_work>
 {
 public:
-	distributed_work (std::shared_ptr<nano::node> const & node_a, nano::block_hash const & root_a, std::function<void(uint64_t)> const & callback_a, uint64_t difficulty_a) :
+	distributed_work (std::shared_ptr<nano::node> const & node_a, nano::block_hash const & root_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a) :
 	distributed_work (1, node_a, root_a, callback_a, difficulty_a)
 	{
 		assert (node_a != nullptr);
@@ -963,7 +963,7 @@ public:
 	{
 		stop (true);
 	}
-	distributed_work (unsigned int backoff_a, std::shared_ptr<nano::node> const & node_a, nano::block_hash const & root_a, std::function<void(uint64_t)> const & callback_a, uint64_t difficulty_a) :
+	distributed_work (unsigned int backoff_a, std::shared_ptr<nano::node> const & node_a, nano::block_hash const & root_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a) :
 	callback (callback_a),
 	backoff (backoff_a),
 	node (node_a),
@@ -1022,11 +1022,8 @@ public:
 			local_generation_started = true;
 			node->work.generate (
 			this_l->root, [this_l](boost::optional<uint64_t> const & work_a) {
-				if (work_a)
-				{
-					this_l->set_once (work_a.value ());
-					this_l->stop (false);
-				}
+				this_l->set_once (work_a);
+				this_l->stop (false);
 			},
 			difficulty);
 		}
@@ -1209,7 +1206,7 @@ public:
 			handle_failure (last);
 		}
 	}
-	void set_once (uint64_t work_a)
+	void set_once (boost::optional<uint64_t> work_a)
 	{
 		if (!completed.exchange (true))
 		{
@@ -1258,7 +1255,7 @@ public:
 		outstanding.erase (address);
 		return outstanding.empty ();
 	}
-	std::function<void(uint64_t)> callback;
+	std::function<void(boost::optional<uint64_t>)> callback;
 	unsigned int backoff; // in seconds
 	std::shared_ptr<nano::node> node;
 	nano::block_hash root;
@@ -1283,12 +1280,12 @@ void nano::node::work_generate_blocking (nano::block & block_a, uint64_t difficu
 	block_a.block_work_set (work_generate_blocking (block_a.root (), difficulty_a));
 }
 
-void nano::node::work_generate (nano::uint256_union const & hash_a, std::function<void(uint64_t)> callback_a)
+void nano::node::work_generate (nano::uint256_union const & hash_a, std::function<void(boost::optional<uint64_t>)> callback_a)
 {
 	work_generate (hash_a, callback_a, network_params.network.publish_threshold);
 }
 
-void nano::node::work_generate (nano::uint256_union const & hash_a, std::function<void(uint64_t)> callback_a, uint64_t difficulty_a)
+void nano::node::work_generate (nano::uint256_union const & hash_a, std::function<void(boost::optional<uint64_t>)> callback_a, uint64_t difficulty_a)
 {
 	auto work_generation (std::make_shared<distributed_work> (shared (), hash_a, callback_a, difficulty_a));
 	work_generation->start ();
@@ -1304,8 +1301,8 @@ uint64_t nano::node::work_generate_blocking (nano::uint256_union const & hash_a,
 	std::promise<uint64_t> promise;
 	std::future<uint64_t> future = promise.get_future ();
 	// clang-format off
-	work_generate (hash_a, [&promise](uint64_t work_a) {
-		promise.set_value (work_a);
+	work_generate (hash_a, [&promise](boost::optional<uint64_t> work_a) {
+		promise.set_value (*work_a);
 	},
 	difficulty_a);
 	// clang-format on
