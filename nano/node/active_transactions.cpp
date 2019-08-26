@@ -13,7 +13,7 @@ nano::active_transactions::active_transactions (nano::node & node_a) :
 node (node_a),
 multipliers_cb (20, 1.),
 trended_active_difficulty (node.network_params.network.publish_threshold),
-next_frontier_check (steady_clock::now () + (node_a.flags.delay_frontier_confirmation_height_updating ? 60s : 0s)),
+next_frontier_check (steady_clock::now ()),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::request_loop);
 	request_loop ();
@@ -35,8 +35,10 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 {
 	// Limit maximum count of elections to start
 	bool representative (node.config.enable_voting && node.wallets.reps_count > 0);
-	/* Check less frequently for non-representative nodes */
-	auto representative_factor = representative ? 3min : 15min;
+	bool half_princpal_representative (representative && node.wallets.half_principal_reps_count > 0);
+	/* Check less frequently for regular nodes in auto mode */
+	bool agressive_mode (half_princpal_representative || node.config.frontiers_confirmation == nano::frontiers_confirmation_mode::always);
+	auto agressive_factor = agressive_mode ? 3min : 15min;
 	// Decrease check time for test network
 	auto is_test_network = node.network_params.network.is_test_network ();
 	int test_network_factor = is_test_network ? 1000 : 1;
@@ -46,10 +48,11 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 	auto check_time_exceeded = std::chrono::steady_clock::now () >= next_frontier_check;
 	lk.unlock ();
 	auto low_active_elections = roots_size < max_elections;
+	bool wallets_check_required = (!skip_wallets || !priority_wallet_cementable_frontiers.empty ()) && !agressive_mode;
 	// To minimise dropping real-time transactions, set the maximum number of elections
 	// for cementing frontiers to half the total active election maximum.
 	const auto max_active = node.config.active_elections_size / 2;
-	if (roots_size <= max_active && (check_time_exceeded || (!is_test_network && low_active_elections)))
+	if (roots_size <= max_active && (check_time_exceeded || wallets_check_required || (!is_test_network && low_active_elections && agressive_mode)))
 	{
 		// When the number of active elections is low increase max number of elections for setting confirmation height.
 		if (max_active > roots_size + max_elections)
@@ -100,7 +103,7 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 		// 4 times slower check if all frontiers were confirmed
 		auto fully_confirmed_factor = frontiers_fully_confirmed ? 4 : 1;
 		// Calculate next check time
-		next_frontier_check = steady_clock::now () + (representative_factor * fully_confirmed_factor / test_network_factor);
+		next_frontier_check = steady_clock::now () + (agressive_factor * fully_confirmed_factor / test_network_factor);
 	}
 }
 
@@ -115,9 +118,10 @@ void nano::active_transactions::request_confirm (std::unique_lock<std::mutex> & 
 	std::deque<std::shared_ptr<nano::block>> rebroadcast_bundle;
 	std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>>> confirm_req_bundle;
 
-	// Confirm frontiers when there aren't many confirmations already pending and node finished initial bootstrap
+	/* Confirm frontiers when there aren't many confirmations already pending and node finished initial bootstrap
+	In auto mode start confirm only if node contains almost principal representative (half of required for principal weight) */
 	lock_a.unlock ();
-	if (node.pending_confirmation_height.size () < confirmed_frontiers_max_pending_cut_off && node.store.block_count (transaction).sum () >= node.ledger.bootstrap_weight_max_blocks)
+	if (node.config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled && node.pending_confirmation_height.size () < confirmed_frontiers_max_pending_cut_off && node.store.block_count (transaction).sum () >= node.ledger.bootstrap_weight_max_blocks)
 	{
 		confirm_frontiers (transaction);
 	}
@@ -401,6 +405,10 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 				std::lock_guard<std::mutex> lock (node.wallets.mutex);
 				auto wallet_transaction (node.wallets.tx_begin_read ());
 				auto const & items = node.wallets.items;
+				if (items.empty ())
+				{
+					skip_wallets = true;
+				}
 				for (auto item_it = items.cbegin (); item_it != items.cend (); ++item_it)
 				{
 					// Skip this wallet if it has been traversed already while there are others still awaiting

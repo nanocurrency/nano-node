@@ -17,6 +17,15 @@
 namespace nano
 {
 class tomlconfig;
+
+enum class frontiers_confirmation_mode : uint8_t
+{
+	always, // Always confirm frontiers
+	automatic, // Always mode if node contains representative with at least 50% of principal weight, less frequest requests if not
+	disabled, // Do not confirm frontiers
+	invalid
+};
+
 /**
  * Node configuration
  */
@@ -84,6 +93,9 @@ public:
 	std::chrono::seconds work_watcher_period{ std::chrono::seconds (5) };
 	double max_work_generate_multiplier{ 64. };
 	uint64_t max_work_generate_difficulty{ nano::network_constants::publish_full_threshold };
+	nano::frontiers_confirmation_mode frontiers_confirmation{ nano::frontiers_confirmation_mode::automatic };
+	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;
+	nano::frontiers_confirmation_mode deserialize_frontiers_confirmation (std::string const &);
 	static unsigned json_version ()
 	{
 		return 18;
@@ -104,7 +116,6 @@ public:
 	bool disable_unchecked_cleanup{ false };
 	bool disable_unchecked_drop{ true };
 	bool fast_bootstrap{ false };
-	bool delay_frontier_confirmation_height_updating{ false };
 	bool read_only{ false };
 	size_t sideband_batch_size{ 512 };
 	size_t block_processor_batch_size{ 0 };
