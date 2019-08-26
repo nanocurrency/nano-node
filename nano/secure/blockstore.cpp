@@ -394,6 +394,10 @@ void nano::read_transaction::refresh () const
 nano::write_transaction::write_transaction (std::unique_ptr<nano::write_transaction_impl> write_transaction_impl) :
 impl (std::move (write_transaction_impl))
 {
+	/*
+	 * For IO threads, we do not want them to block on creating write transactions.
+	 */
+	assert (nano::thread_role::get () != nano::thread_role::name::io);
 }
 
 void * nano::write_transaction::get_handle () const

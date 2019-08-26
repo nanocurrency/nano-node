@@ -162,6 +162,21 @@ inline boost::filesystem::path get_rpc_config_path (boost::filesystem::path cons
 	return data_path / "rpc_config.json";
 }
 
+inline boost::filesystem::path get_node_toml_config_path (boost::filesystem::path const & data_path)
+{
+	return data_path / "config-node.toml";
+}
+
+inline boost::filesystem::path get_rpc_toml_config_path (boost::filesystem::path const & data_path)
+{
+	return data_path / "config-rpc.toml";
+}
+
+inline boost::filesystem::path get_qtwallet_toml_config_path (boost::filesystem::path const & data_path)
+{
+	return data_path / "config-qtwallet.toml";
+}
+
 /** Called by gtest_main to enforce test network */
 void force_nano_test_network ();
 

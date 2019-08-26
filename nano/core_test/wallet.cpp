@@ -956,7 +956,7 @@ TEST (wallet, password_race)
 	nano::system system (24000, 1);
 	nano::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
 	auto wallet = system.wallet (0);
-	system.nodes[0]->background ([&wallet]() {
+	std::thread thread ([&wallet]() {
 		for (int i = 0; i < 100; i++)
 		{
 			auto transaction (wallet->wallets.tx_begin_write ());
@@ -974,6 +974,7 @@ TEST (wallet, password_race)
 			break;
 		}
 	}
+	thread.join ();
 	system.stop ();
 	runner.join ();
 }
@@ -990,29 +991,34 @@ TEST (wallet, password_race_corrupt_seed)
 		wallet->store.seed (seed, transaction);
 		ASSERT_FALSE (wallet->store.attempt_password (transaction, "4567"));
 	}
+	std::vector<std::thread> threads;
 	for (int i = 0; i < 100; i++)
 	{
-		system.nodes[0]->background ([&wallet]() {
+		threads.emplace_back ([&wallet]() {
 			for (int i = 0; i < 10; i++)
 			{
 				auto transaction (wallet->wallets.tx_begin_write ());
 				wallet->store.rekey (transaction, "0000");
 			}
 		});
-		system.nodes[0]->background ([&wallet]() {
+		threads.emplace_back ([&wallet]() {
 			for (int i = 0; i < 10; i++)
 			{
 				auto transaction (wallet->wallets.tx_begin_write ());
 				wallet->store.rekey (transaction, "1234");
 			}
 		});
-		system.nodes[0]->background ([&wallet]() {
+		threads.emplace_back ([&wallet]() {
 			for (int i = 0; i < 10; i++)
 			{
 				auto transaction (wallet->wallets.tx_begin_read ());
 				wallet->store.attempt_password (transaction, "1234");
 			}
 		});
+	}
+	for (auto & thread : threads)
+	{
+		thread.join ();
 	}
 	system.stop ();
 	runner.join ();

@@ -44,6 +44,7 @@ public:
 	opencl_work (bool &, nano::opencl_config const &, nano::opencl_environment &, nano::logger_mt &);
 	~opencl_work ();
 	boost::optional<uint64_t> generate_work (nano::uint256_union const &, uint64_t const);
+	boost::optional<uint64_t> generate_work (nano::uint256_union const &, uint64_t const, std::atomic<int> &);
 	static std::unique_ptr<opencl_work> create (bool, nano::opencl_config const &, nano::logger_mt &);
 	nano::opencl_config const & config;
 	std::mutex mutex;
