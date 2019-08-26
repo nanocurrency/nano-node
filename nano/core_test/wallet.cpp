@@ -1175,3 +1175,48 @@ TEST (wallet, work_watcher_removed)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 }
+
+TEST (wallet, work_watcher_cancel)
+{
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.work_watcher_period = 1s;
+	node_config.max_work_generate_multiplier = 1e6;
+	auto & node = *system.add_node (node_config);
+	auto & wallet (*system.wallet (0));
+	wallet.insert_adhoc (nano::test_genesis_key.prv);
+	nano::keypair key;
+	auto const block1 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 100));
+	uint64_t difficulty1 (0);
+	nano::work_validate (*block1, &difficulty1);
+	{
+		std::unique_lock<std::mutex> lock (node.active.mutex);
+		//fill multipliers_cb and update active difficulty;
+		for (auto i (0); i < node.active.multipliers_cb.size (); i++)
+		{
+			node.active.multipliers_cb.push_back (node_config.max_work_generate_multiplier);
+		}
+		node.active.update_active_difficulty (lock);
+	}
+	// Wait for work generation to start
+	system.deadline_set (3s);
+	while (!node.work.pending.size () != 1)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	// Cancel the ongoing work
+	node.work.cancel (block1->root ());
+	{
+		std::unique_lock<std::mutex> lock (wallet.wallets.watcher->mutex);
+		auto existing (wallet.wallets.watcher->watched.find (block1->qualified_root ()));
+		ASSERT_NE (wallet.wallets.watcher->watched.end (), existing);
+		auto block2 (existing->second);
+		// Block must be the same
+		ASSERT_NE (nullptr, block1);
+		ASSERT_NE (nullptr, block2);
+		ASSERT_EQ (*block1, *block2);
+		// but should still be under watch
+		lock.unlock ();
+		ASSERT_TRUE (wallet.wallets.watcher->is_watched (block1->qualified_root ()));
+	}
+}
