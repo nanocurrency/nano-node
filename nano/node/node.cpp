@@ -1302,7 +1302,7 @@ uint64_t nano::node::work_generate_blocking (nano::uint256_union const & hash_a,
 	std::future<uint64_t> future = promise.get_future ();
 	// clang-format off
 	work_generate (hash_a, [&promise](boost::optional<uint64_t> work_a) {
-		promise.set_value (*work_a);
+		promise.set_value (work_a.value_or (0));
 	},
 	difficulty_a);
 	// clang-format on
