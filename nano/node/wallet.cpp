@@ -1440,7 +1440,7 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 		if (watcher_l && !watcher_l->stopped && block_a != nullptr)
 		{
 			std::unique_lock<std::mutex> lock (watcher_l->mutex);
-			if (watcher_l->watched.find (root_a) != watcher_l->watched.end ()) // not yet confirmed
+			if (watcher_l->watched.find (root_a) != watcher_l->watched.end ()) // not yet confirmed or cancelled
 			{
 				lock.unlock ();
 				bool updated_l{ false };
@@ -1450,12 +1450,20 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 				auto active_difficulty (watcher_l->node.active.limited_active_difficulty ());
 				if (active_difficulty > difficulty)
 				{
-					auto work_l (watcher_l->node.work_generate_blocking (root_l, active_difficulty));
-					if (!watcher_l->stopped)
+					std::promise<boost::optional<uint64_t>> promise;
+					std::future<boost::optional<uint64_t>> future = promise.get_future ();
+					// clang-format off
+					watcher_l->node.work.generate (root_l, [&promise](boost::optional<uint64_t> work_a) {
+						promise.set_value (work_a);
+					},
+					active_difficulty);
+					// clang-format on
+					auto work_l = future.get ();
+					if (work_l.is_initialized () && !watcher_l->stopped)
 					{
 						nano::state_block_builder builder;
 						std::error_code ec;
-						std::shared_ptr<nano::state_block> block (builder.from (*block_a).work (work_l).build (ec));
+						std::shared_ptr<nano::state_block> block (builder.from (*block_a).work (*work_l).build (ec));
 
 						if (!ec)
 						{
