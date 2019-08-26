@@ -62,12 +62,16 @@ network_params (network_constants::active_network)
 }
 
 nano::network_params::network_params (nano::nano_networks network_a) :
-network (network_a), ledger (network), voting (network), node (network), portmapping (network), bootstrap (network)
+network (network_a), protocol (network_a), ledger (network), voting (network), node (network), portmapping (network), bootstrap (network)
 {
 	unsigned constexpr kdf_full_work = 64 * 1024;
 	unsigned constexpr kdf_test_work = 8;
 	kdf_work = network.is_test_network () ? kdf_test_work : kdf_full_work;
 	header_magic_number = network.is_test_network () ? std::array<uint8_t, 2>{ { 'R', 'A' } } : network.is_beta_network () ? std::array<uint8_t, 2>{ { 'N', 'B' } } : std::array<uint8_t, 2>{ { 'R', 'C' } };
+}
+
+nano::protocol_constants::protocol_constants (nano::nano_networks network_a)
+{
 }
 
 nano::ledger_constants::ledger_constants (nano::network_constants & network_constants) :
