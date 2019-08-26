@@ -1200,7 +1200,7 @@ TEST (wallet, work_watcher_cancel)
 	}
 	// Wait for work generation to start
 	system.deadline_set (3s);
-	while (!node.work.pending.size () != 1)
+	while (node.work.pending.empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
