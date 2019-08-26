@@ -73,6 +73,7 @@ nano::transport::channel::channel (nano::node & node_a) :
 limiter (node_a.config.bandwidth_limit),
 node (node_a)
 {
+	set_network_version (node_a.network_params.protocol.protocol_version);
 }
 
 void nano::transport::channel::send (nano::message const & message_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a, bool const is_droppable_a)

@@ -32,7 +32,7 @@ uint64_t nano::work_value (nano::block_hash const & root_a, uint64_t work_a)
 	return result;
 }
 
-nano::work_pool::work_pool (unsigned max_threads_a, std::chrono::nanoseconds pow_rate_limiter_a, std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> opencl_a) :
+nano::work_pool::work_pool (unsigned max_threads_a, std::chrono::nanoseconds pow_rate_limiter_a, std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t, std::atomic<int> &)> opencl_a) :
 ticket (0),
 done (false),
 pow_rate_limiter (pow_rate_limiter_a),
@@ -42,6 +42,11 @@ opencl (opencl_a)
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
 	auto count (network_constants.is_test_network () ? 1 : std::min (max_threads_a, std::max (1u, boost::thread::hardware_concurrency ())));
+	if (opencl)
+	{
+		// One thread to handle OpenCL
+		++count;
+	}
 	for (auto i (0u); i < count; ++i)
 	{
 		auto thread (boost::thread (attrs, [this, i]() {
@@ -87,27 +92,40 @@ void nano::work_pool::loop (uint64_t thread)
 			int ticket_l (ticket);
 			lock.unlock ();
 			output = 0;
-			// ticket != ticket_l indicates a different thread found a solution and we should stop
-			while (ticket == ticket_l && output < current_l.difficulty)
+			boost::optional<uint64_t> opt_work;
+			if (thread == 0 && opencl)
 			{
-				// Don't query main memory every iteration in order to reduce memory bus traffic
-				// All operations here operate on stack memory
-				// Count iterations down to zero since comparing to zero is easier than comparing to another number
-				unsigned iteration (256);
-				while (iteration && output < current_l.difficulty)
+				opt_work = opencl (current_l.item, current_l.difficulty, ticket);
+			}
+			if (opt_work.is_initialized ())
+			{
+				work = *opt_work;
+				output = work_value (current_l.item, work);
+			}
+			else
+			{
+				// ticket != ticket_l indicates a different thread found a solution and we should stop
+				while (ticket == ticket_l && output < current_l.difficulty)
 				{
-					work = rng.next ();
-					blake2b_update (&hash, reinterpret_cast<uint8_t *> (&work), sizeof (work));
-					blake2b_update (&hash, current_l.item.bytes.data (), current_l.item.bytes.size ());
-					blake2b_final (&hash, reinterpret_cast<uint8_t *> (&output), sizeof (output));
-					blake2b_init (&hash, sizeof (output));
-					iteration -= 1;
-				}
+					// Don't query main memory every iteration in order to reduce memory bus traffic
+					// All operations here operate on stack memory
+					// Count iterations down to zero since comparing to zero is easier than comparing to another number
+					unsigned iteration (256);
+					while (iteration && output < current_l.difficulty)
+					{
+						work = rng.next ();
+						blake2b_update (&hash, reinterpret_cast<uint8_t *> (&work), sizeof (work));
+						blake2b_update (&hash, current_l.item.bytes.data (), current_l.item.bytes.size ());
+						blake2b_final (&hash, reinterpret_cast<uint8_t *> (&output), sizeof (output));
+						blake2b_init (&hash, sizeof (output));
+						iteration -= 1;
+					}
 
-				// Add a rate limiter (if specified) to the pow calculation to save some CPUs which don't want to operate at full throttle
-				if (pow_sleep != std::chrono::nanoseconds (0))
-				{
-					std::this_thread::sleep_for (pow_sleep);
+					// Add a rate limiter (if specified) to the pow calculation to save some CPUs which don't want to operate at full throttle
+					if (pow_sleep != std::chrono::nanoseconds (0))
+					{
+						std::this_thread::sleep_for (pow_sleep);
+					}
 				}
 			}
 			lock.lock ();
@@ -183,22 +201,11 @@ void nano::work_pool::generate (nano::uint256_union const & hash_a, std::functio
 {
 	assert (!hash_a.is_zero ());
 	boost::optional<uint64_t> result;
-	if (opencl)
 	{
-		result = opencl (hash_a, difficulty_a);
+		std::lock_guard<std::mutex> lock (mutex);
+		pending.push_back ({ hash_a, callback_a, difficulty_a });
 	}
-	if (!result)
-	{
-		{
-			std::lock_guard<std::mutex> lock (mutex);
-			pending.push_back ({ hash_a, callback_a, difficulty_a });
-		}
-		producer_condition.notify_all ();
-	}
-	else
-	{
-		callback_a (result);
-	}
+	producer_condition.notify_all ();
 }
 
 uint64_t nano::work_pool::generate (nano::uint256_union const & hash_a)

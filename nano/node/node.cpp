@@ -365,7 +365,7 @@ startup_time (std::chrono::steady_clock::now ())
 		auto network_label = network_params.network.get_current_network_as_string ();
 		logger.always_log ("Active network: ", network_label);
 
-		logger.always_log (boost::str (boost::format ("Work pool running %1% threads") % work.threads.size ()));
+		logger.always_log (boost::str (boost::format ("Work pool running %1% threads %2%") % work.threads.size () % (work.opencl ? "(1 for OpenCL)" : "")));
 		logger.always_log (boost::str (boost::format ("%1% work peers configured") % config.work_peers.size ()));
 		if (config.work_peers.empty () && config.work_threads == 0 && !work.opencl)
 		{
