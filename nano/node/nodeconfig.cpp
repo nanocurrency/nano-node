@@ -98,6 +98,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("backup_before_upgrade", backup_before_upgrade, "Backup the ledger database before performing upgrades\ntype:bool");
 	toml.put ("work_watcher_period", work_watcher_period.count (), "Time between checks for confirmation and re-generating higher difficulty work if unconfirmed, for blocks in the work watcher.\ntype:seconds");
 	toml.put ("max_work_generate_multiplier", max_work_generate_multiplier, "Maximum allowed difficulty multiplier for work generation\ntype:double,[1..]");
+	toml.put ("frontiers_confirmation", serialize_frontiers_confirmation (frontiers_confirmation), "Mode for force frontiers confirmation\ntype:string");
 
 	auto work_peers_l (toml.create_array ("work_peers", "A list of \"address:port\" entries to identify work peers"));
 	for (auto i (work_peers.begin ()), n (work_peers.end ()); i != n; ++i)
@@ -319,6 +320,12 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get<double> ("max_work_generate_multiplier", max_work_generate_multiplier);
 		max_work_generate_difficulty = nano::difficulty::from_multiplier (max_work_generate_multiplier, network.publish_threshold);
 
+		if (toml.has_key ("frontiers_confirmation"))
+		{
+			auto frontiers_confirmation_l (toml.get<std::string> ("frontiers_confirmation"));
+			frontiers_confirmation = deserialize_frontiers_confirmation (frontiers_confirmation_l);
+		}
+
 		// Validate ranges
 		if (online_weight_quorum > 100)
 		{
@@ -351,6 +358,10 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		if (max_work_generate_multiplier < 1)
 		{
 			toml.get_error ().set ("max_work_generate_multiplier must be greater than or equal to 1");
+		}
+		if (frontiers_confirmation == nano::frontiers_confirmation_mode::invalid)
+		{
+			toml.get_error ().set ("frontiers_confirmation value is invalid (available: always, auto, disabled)");
 		}
 	}
 	catch (std::runtime_error const & ex)
@@ -759,6 +770,41 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get_error ().set (ex.what ());
 	}
 	return json.get_error ();
+}
+
+std::string nano::node_config::serialize_frontiers_confirmation (nano::frontiers_confirmation_mode mode_a) const
+{
+	switch (mode_a)
+	{
+		case nano::frontiers_confirmation_mode::always:
+			return "always";
+		case nano::frontiers_confirmation_mode::automatic:
+			return "auto";
+		case nano::frontiers_confirmation_mode::disabled:
+			return "disabled";
+		default:
+			return "auto";
+	}
+}
+
+nano::frontiers_confirmation_mode nano::node_config::deserialize_frontiers_confirmation (std::string const & string_a)
+{
+	if (string_a == "always")
+	{
+		return nano::frontiers_confirmation_mode::always;
+	}
+	else if (string_a == "auto")
+	{
+		return nano::frontiers_confirmation_mode::automatic;
+	}
+	else if (string_a == "disabled")
+	{
+		return nano::frontiers_confirmation_mode::disabled;
+	}
+	else
+	{
+		return nano::frontiers_confirmation_mode::invalid;
+	}
 }
 
 nano::account nano::node_config::random_representative ()

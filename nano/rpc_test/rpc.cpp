@@ -5863,9 +5863,9 @@ TEST (rpc, confirmation_height_currently_processing)
 {
 	// The chains should be longer than the	batch_write_size to test the amount of blocks confirmed is correct.
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.delay_frontier_confirmation_height_updating = true;
-	auto node = system.add_node (nano::node_config (24000, system.logging), node_flags);
+	nano::node_config node_config (24000, system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 
 	// Do enough blocks to reliably call RPC before the confirmation height has finished

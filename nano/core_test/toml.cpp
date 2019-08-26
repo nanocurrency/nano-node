@@ -257,6 +257,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	work_threads = 999
 	work_watcher_period = 999
 	max_work_generate_multiplier = 1.0
+	frontiers_confirmation = "always"
 	[node.diagnostics.txn_tracking]
 	enable = true
 	ignore_writes_below_block_processor_max_time = false
@@ -369,6 +370,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.io_threads, defaults.node.io_threads);
 	ASSERT_NE (conf.node.lmdb_max_dbs, defaults.node.lmdb_max_dbs);
 	ASSERT_NE (conf.node.max_work_generate_multiplier, defaults.node.max_work_generate_multiplier);
+	ASSERT_NE (conf.node.frontiers_confirmation, defaults.node.frontiers_confirmation);
 	ASSERT_NE (conf.node.network_threads, defaults.node.network_threads);
 	ASSERT_NE (conf.node.work_watcher_period, defaults.node.work_watcher_period);
 	ASSERT_NE (conf.node.online_weight_minimum, defaults.node.online_weight_minimum);
@@ -551,4 +553,18 @@ TEST (toml, daemon_config_deserialize_errors)
 	conf.deserialize_toml (toml);
 
 	ASSERT_EQ (toml.get_error ().get_message (), "max_work_generate_multiplier must be greater than or equal to 1");
+
+	std::stringstream ss_frontiers_confirmation;
+	ss_frontiers_confirmation << R"toml(
+	[node]
+	frontiers_confirmation = "randomstring"
+	)toml";
+
+	nano::tomlconfig toml2;
+	toml2.read (ss_frontiers_confirmation);
+	nano::daemon_config conf2;
+	conf2.deserialize_toml (toml2);
+
+	ASSERT_EQ (toml2.get_error ().get_message (), "frontiers_confirmation value is invalid (available: always, auto, disabled)");
+	ASSERT_EQ (conf2.node.frontiers_confirmation, nano::frontiers_confirmation_mode::invalid);
 }
