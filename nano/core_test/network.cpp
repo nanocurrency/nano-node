@@ -132,11 +132,6 @@ TEST (network, send_node_id_handshake_tcp)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	system.deadline_set (5s);
-	while (system.nodes[0]->network.response_channels.size () != 1 || node1->network.response_channels.size () != 1)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	system.deadline_set (5s);
 	while (system.nodes[0]->stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in) < initial_keepalive + 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());

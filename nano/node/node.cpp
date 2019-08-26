@@ -575,7 +575,6 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (node & node, const
 	composite->add_component (collect_seq_con_info (node.bootstrap, "bootstrap"));
 	composite->add_component (node.network.tcp_channels.collect_seq_con_info ("tcp_channels"));
 	composite->add_component (node.network.udp_channels.collect_seq_con_info ("udp_channels"));
-	composite->add_component (node.network.response_channels.collect_seq_con_info ("response_channels"));
 	composite->add_component (node.network.syn_cookies.collect_seq_con_info ("syn_cookies"));
 	composite->add_component (collect_seq_con_info (node.observers, "observers"));
 	composite->add_component (collect_seq_con_info (node.wallets, "wallets"));
