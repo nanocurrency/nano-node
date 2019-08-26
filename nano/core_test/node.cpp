@@ -2925,6 +2925,12 @@ TEST (node, peers)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	// Wait to finish TCP node ID handshakes
+	system.deadline_set (10s);
+	while (system.nodes[0]->bootstrap.realtime_count == 0 || system.nodes[1]->bootstrap.realtime_count == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	// Confirm that the peers match with the endpoints we are expecting
 	ASSERT_EQ (1, system.nodes.front ()->network.size ());
 	auto list1 (system.nodes[0]->network.list (2));
