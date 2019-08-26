@@ -95,6 +95,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("confirmation_history_size", confirmation_history_size, "Maximum confirmation history size\ntype:uint64");
 	toml.put ("active_elections_size", active_elections_size, "Limits number of active elections before dropping will be considered (other conditions must also be satisfied)\ntype:uint64,[250..]");
 	toml.put ("bandwidth_limit", bandwidth_limit, "Outbound traffic limit in bytes/sec after which messages will be dropped\ntype:uint64");
+	toml.put ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time.count (), "Minimum write batching time when there are blocks pending confirmation height\ntype:milliseconds");
 	toml.put ("backup_before_upgrade", backup_before_upgrade, "Backup the ledger database before performing upgrades\ntype:bool");
 	toml.put ("work_watcher_period", work_watcher_period.count (), "Time between checks for confirmation and re-generating higher difficulty work if unconfirmed, for blocks in the work watcher.\ntype:seconds");
 	toml.put ("max_work_generate_multiplier", max_work_generate_multiplier, "Maximum allowed difficulty multiplier for work generation\ntype:double,[1..]");
