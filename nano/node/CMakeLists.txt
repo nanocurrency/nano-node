@@ -37,6 +37,8 @@ add_library (node
 	daemonconfig.cpp
 	diagnosticsconfig.hpp
 	diagnosticsconfig.cpp
+	distributed_work.cpp
+	distributed_work.hpp
 	election.hpp
 	election.cpp
 	gap_cache.hpp

@@ -1508,7 +1508,7 @@ void nano::work_watcher::remove (std::shared_ptr<nano::block> block_a)
 	if (existing != watched.end () && existing->second->hash () == block_a->hash ())
 	{
 		watched.erase (existing);
-		node.work.cancel (block_a->root ());
+		node.observers.work_cancel.notify (block_a->root ());
 	}
 }
 
