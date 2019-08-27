@@ -1638,15 +1638,11 @@ wallet (wallet_a)
 						show_button_ok (*lock_toggle);
 
 						// if wallet is still not unlocked by now, change button text
-						this->wallet.node.worker.push_task ([this]() {
-							auto transaction (this->wallet.wallet_m->wallets.tx_begin_write ());
-							if (!this->wallet.wallet_m->store.valid_password (transaction))
-							{
-								this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this]() {
-									lock_toggle->setText ("Unlock");
-								}));
-							}
-						});
+						auto transaction (this->wallet.wallet_m->wallets.tx_begin_write ());
+						if (!this->wallet.wallet_m->store.valid_password (transaction))
+						{
+							lock_toggle->setText ("Unlock");
+						}
 					}));
 				});
 			}
