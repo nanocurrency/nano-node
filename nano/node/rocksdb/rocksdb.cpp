@@ -462,26 +462,29 @@ void nano::rocksdb_store::construct_column_family_mutexes ()
 
 rocksdb::Options nano::rocksdb_store::get_db_options () const
 {
-	rocksdb::Options options;
-	options.create_if_missing = true;
-	options.create_missing_column_families = true;
+	rocksdb::Options db_options;
+	db_options.create_if_missing = true;
+	db_options.create_missing_column_families = true;
 
 	// Sets the compaction priority
-	options.compaction_pri = rocksdb::CompactionPri::kMinOverlappingRatio;
+	db_options.compaction_pri = rocksdb::CompactionPri::kMinOverlappingRatio;
 
 	// Start agressively flushing WAL files when they reach over 1GB
-	options.max_total_wal_size = 1 * 1024 * 1024 * 1024LL;
+	db_options.max_total_wal_size = 1 * 1024 * 1024 * 1024LL;
+
+	// Some column families need to be atomically flushed
+	db_options.atomic_flush = true;
 
 	if (!low_end_system ())
 	{
 		// Adds a separate write queue for memtable/WAL
-		options.enable_pipelined_write = true;
+		db_options.enable_pipelined_write = true;
 
 		// Optimize RocksDB. This is the easiest way to get RocksDB to perform well
-		options.IncreaseParallelism (std::thread::hardware_concurrency ());
-		options.OptimizeLevelStyleCompaction ();
+		db_options.IncreaseParallelism (std::thread::hardware_concurrency ());
+		db_options.OptimizeLevelStyleCompaction ();
 	}
-	return options;
+	return db_options;
 }
 
 /** As options are currently hardcoded, a heuristic is taken based off the number of cores to modify config options */
@@ -554,6 +557,9 @@ bool nano::rocksdb_store::copy_db (boost::filesystem::path const & destination_p
 		rocksdb::BackupableDBOptions backup_options (destination_path.string ());
 		// Use incremental backups (default)
 		backup_options.share_table_files = true;
+
+		// Increase number of threads used for copying
+		backup_options.max_background_operations = std::thread::hardware_concurrency ();
 		auto status = rocksdb::BackupEngine::Open (rocksdb::Env::Default (), backup_options, &backup_engine_raw);
 		backup_engine.reset (backup_engine_raw);
 		if (!status.ok ())
@@ -562,7 +568,7 @@ bool nano::rocksdb_store::copy_db (boost::filesystem::path const & destination_p
 		}
 	}
 
-	auto status = backup_engine->CreateNewBackup (db, true);
+	auto status = backup_engine->CreateNewBackup (db);
 	if (!status.ok ())
 	{
 		return false;
@@ -601,5 +607,13 @@ bool nano::rocksdb_store::copy_db (boost::filesystem::path const & destination_p
 	// Now generate the relevant files from the backup
 	status = backup_engine->RestoreDBFromLatestBackup (destination_path.string (), destination_path.string ());
 	delete backup_engine_read;
-	return status.ok ();
+
+	// Open it so that it flushes all WAL files
+	if (status.ok ())
+	{
+		auto error{ false };
+		nano::rocksdb_store rocksdb_store (error, logger, destination_path.string (), false, false);
+		return !error;
+	}
+	return false;
 }
