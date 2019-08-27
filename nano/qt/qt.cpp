@@ -1411,8 +1411,10 @@ void nano_qt::wallet::update_connected ()
 void nano_qt::wallet::empty_password ()
 {
 	this->node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (3), [this]() {
-		auto transaction (wallet_m->wallets.tx_begin_write ());
-		wallet_m->enter_password (transaction, std::string (""));
+		this->node.worker.push_task ([this]() {
+			auto transaction (wallet_m->wallets.tx_begin_write ());
+			wallet_m->enter_password (transaction, std::string (""));
+		});
 	});
 }
 
@@ -1636,11 +1638,15 @@ wallet (wallet_a)
 						show_button_ok (*lock_toggle);
 
 						// if wallet is still not unlocked by now, change button text
-						auto transaction (this->wallet.wallet_m->wallets.tx_begin_write ());
-						if (!this->wallet.wallet_m->store.valid_password (transaction))
-						{
-							lock_toggle->setText ("Unlock");
-						}
+						this->wallet.node.worker.push_task ([this]() {
+							auto transaction (this->wallet.wallet_m->wallets.tx_begin_write ());
+							if (!this->wallet.wallet_m->store.valid_password (transaction))
+							{
+								this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this]() {
+									lock_toggle->setText ("Unlock");
+								}));
+							}
+						});
 					}));
 				});
 			}
