@@ -196,6 +196,7 @@ else ()
 	set (BOOST_PROCESS_SUPPORTED 1)
 endif ()
 
+include_directories(cpptoml/include)
 add_subdirectory(crypto/ed25519-donna)
 
 set (UPNPC_BUILD_SHARED OFF CACHE BOOL "")

@@ -76,7 +76,7 @@ TEST (network, send_node_id_handshake)
 	system.nodes.push_back (node1);
 	auto initial (system.nodes[0]->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in));
 	auto initial_node1 (node1->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in));
-	auto channel (std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, node1->network.endpoint ()));
+	auto channel (std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, node1->network.endpoint (), node1->network_params.protocol.protocol_version));
 	system.nodes[0]->network.send_keepalive (channel);
 	ASSERT_EQ (0, system.nodes[0]->network.size ());
 	ASSERT_EQ (0, node1->network.size ());
@@ -165,7 +165,7 @@ TEST (network, last_contacted)
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 	node1->start ();
 	system.nodes.push_back (node1);
-	auto channel1 (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, nano::endpoint (boost::asio::ip::address_v6::loopback (), 24000)));
+	auto channel1 (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, nano::endpoint (boost::asio::ip::address_v6::loopback (), 24000), node1->network_params.protocol.protocol_version));
 	node1->network.send_keepalive (channel1);
 	system.deadline_set (10s);
 
@@ -202,7 +202,7 @@ TEST (network, multi_keepalive)
 	node1->start ();
 	system.nodes.push_back (node1);
 	ASSERT_EQ (0, node1->network.size ());
-	auto channel1 (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, system.nodes[0]->network.endpoint ()));
+	auto channel1 (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, system.nodes[0]->network.endpoint (), node1->network_params.protocol.protocol_version));
 	node1->network.send_keepalive (channel1);
 	ASSERT_EQ (0, node1->network.size ());
 	ASSERT_EQ (0, system.nodes[0]->network.size ());
@@ -216,7 +216,7 @@ TEST (network, multi_keepalive)
 	ASSERT_FALSE (init2.error ());
 	node2->start ();
 	system.nodes.push_back (node2);
-	auto channel2 (std::make_shared<nano::transport::channel_udp> (node2->network.udp_channels, system.nodes[0]->network.endpoint ()));
+	auto channel2 (std::make_shared<nano::transport::channel_udp> (node2->network.udp_channels, system.nodes[0]->network.endpoint (), node2->network_params.protocol.protocol_version));
 	node2->network.send_keepalive (channel2);
 	system.deadline_set (10s);
 	while (node1->network.size () != 2 || system.nodes[0]->network.size () != 2 || node2->network.size () != 2)
@@ -330,7 +330,7 @@ TEST (network, send_insufficient_work)
 	auto block (std::make_shared<nano::send_block> (0, 1, 20, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	nano::publish publish (block);
 	auto node1 (system.nodes[1]->shared ());
-	nano::transport::channel_udp channel (system.nodes[0]->network.udp_channels, system.nodes[1]->network.endpoint ());
+	nano::transport::channel_udp channel (system.nodes[0]->network.udp_channels, system.nodes[1]->network.endpoint (), system.nodes[0]->network_params.protocol.protocol_version);
 	channel.send (publish, [](boost::system::error_code const & ec, size_t size) {});
 	ASSERT_EQ (0, system.nodes[0]->stats.count (nano::stat::type::error, nano::stat::detail::insufficient_work));
 	system.deadline_set (10s);
@@ -843,7 +843,7 @@ TEST (bootstrap_processor, lazy_hash)
 	system.nodes[0]->block_processor.flush ();
 	// Start lazy bootstrap with last block in chain known
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
-	node1->network.udp_channels.insert (system.nodes[0]->network.endpoint (), nano::protocol_version);
+	node1->network.udp_channels.insert (system.nodes[0]->network.endpoint (), node1->network_params.protocol.protocol_version);
 	node1->bootstrap_initiator.bootstrap_lazy (receive2->hash ());
 	// Check processed blocks
 	system.deadline_set (10s);
@@ -880,7 +880,7 @@ TEST (bootstrap_processor, lazy_max_pull_count)
 	system.nodes[0]->block_processor.flush ();
 	// Start lazy bootstrap with last block in chain known
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
-	node1->network.udp_channels.insert (system.nodes[0]->network.endpoint (), nano::protocol_version);
+	node1->network.udp_channels.insert (system.nodes[0]->network.endpoint (), node1->network_params.protocol.protocol_version);
 	node1->bootstrap_initiator.bootstrap_lazy (change3->hash ());
 	// Check processed blocks
 	system.deadline_set (10s);
@@ -911,7 +911,7 @@ TEST (bootstrap_processor, wallet_lazy_frontier)
 	system.nodes[0]->block_processor.flush ();
 	// Start wallet lazy bootstrap
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
-	node1->network.udp_channels.insert (system.nodes[0]->network.endpoint (), nano::protocol_version);
+	node1->network.udp_channels.insert (system.nodes[0]->network.endpoint (), node1->network_params.protocol.protocol_version);
 	auto wallet (node1->wallets.create (nano::uint256_union ()));
 	ASSERT_NE (nullptr, wallet);
 	wallet->insert_adhoc (key2.prv);
@@ -943,7 +943,7 @@ TEST (bootstrap_processor, wallet_lazy_pending)
 	system.nodes[0]->block_processor.flush ();
 	// Start wallet lazy bootstrap
 	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
-	node1->network.udp_channels.insert (system.nodes[0]->network.endpoint (), nano::protocol_version);
+	node1->network.udp_channels.insert (system.nodes[0]->network.endpoint (), node1->network_params.protocol.protocol_version);
 	auto wallet (node1->wallets.create (nano::uint256_union ()));
 	ASSERT_NE (nullptr, wallet);
 	wallet->insert_adhoc (key2.prv);
@@ -1559,10 +1559,11 @@ TEST (confirmation_height, single)
 TEST (confirmation_height, multiple_accounts)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.delay_frontier_confirmation_height_updating = true;
-	system.add_node (nano::node_config (24001, system.logging), node_flags);
-	system.add_node (nano::node_config (24002, system.logging), node_flags);
+	nano::node_config node_config (24001, system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	system.add_node (node_config);
+	node_config.peering_port = 24002;
+	system.add_node (node_config);
 	nano::keypair key1;
 	nano::keypair key2;
 	nano::keypair key3;
@@ -1757,10 +1758,11 @@ TEST (confirmation_height, gap_bootstrap)
 TEST (confirmation_height, gap_live)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.delay_frontier_confirmation_height_updating = true;
-	system.add_node (nano::node_config (24001, system.logging), node_flags);
-	system.add_node (nano::node_config (24002, system.logging), node_flags);
+	nano::node_config node_config (24001, system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	system.add_node (node_config);
+	node_config.peering_port = 24002;
+	system.add_node (node_config);
 	nano::keypair destination;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	system.wallet (1)->insert_adhoc (destination.prv);
@@ -1837,9 +1839,9 @@ TEST (confirmation_height, gap_live)
 TEST (confirmation_height, send_receive_between_2_accounts)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.delay_frontier_confirmation_height_updating = true;
-	auto node = system.add_node (nano::node_config (24000, system.logging), node_flags);
+	nano::node_config node_config (24000, system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto node = system.add_node (node_config);
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
@@ -1917,9 +1919,9 @@ TEST (confirmation_height, send_receive_between_2_accounts)
 TEST (confirmation_height, send_receive_self)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.delay_frontier_confirmation_height_updating = true;
-	auto node = system.add_node (nano::node_config (24000, system.logging), node_flags);
+	nano::node_config node_config (24000, system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
 
@@ -1976,9 +1978,9 @@ TEST (confirmation_height, send_receive_self)
 TEST (confirmation_height, all_block_types)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.delay_frontier_confirmation_height_updating = true;
-	auto node = system.add_node (nano::node_config (24000, system.logging), node_flags);
+	nano::node_config node_config (24000, system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
 	nano::keypair key1;
@@ -2178,9 +2180,9 @@ TEST (confirmation_height, observers)
 TEST (confirmation_height, modified_chain)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.delay_frontier_confirmation_height_updating = true;
-	auto node = system.add_node (nano::node_config (24000, system.logging), node_flags);
+	nano::node_config node_config (24000, system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto node = system.add_node (node_config);
 
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
@@ -2216,9 +2218,9 @@ namespace nano
 TEST (confirmation_height, pending_observer_callbacks)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.delay_frontier_confirmation_height_updating = true;
-	auto node = system.add_node (nano::node_config (24000, system.logging), node_flags);
+	nano::node_config node_config (24000, system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto node = system.add_node (node_config);
 
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
@@ -2334,7 +2336,7 @@ TEST (network, replace_port)
 	node1->start ();
 	system.nodes.push_back (node1);
 	{
-		auto channel (system.nodes[0]->network.udp_channels.insert (nano::endpoint (node1->network.endpoint ().address (), 23000), nano::protocol_version));
+		auto channel (system.nodes[0]->network.udp_channels.insert (nano::endpoint (node1->network.endpoint ().address (), 23000), node1->network_params.protocol.protocol_version));
 		if (channel)
 		{
 			channel->set_node_id (node1->node_id.pub);
@@ -2342,7 +2344,7 @@ TEST (network, replace_port)
 	}
 	auto peers_list (system.nodes[0]->network.list (std::numeric_limits<size_t>::max ()));
 	ASSERT_EQ (peers_list[0]->get_node_id (), node1->node_id.pub);
-	auto channel (std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, node1->network.endpoint ()));
+	auto channel (std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, node1->network.endpoint (), node1->network_params.protocol.protocol_version));
 	system.nodes[0]->network.send_keepalive (channel);
 	system.deadline_set (5s);
 	while (!system.nodes[0]->network.udp_channels.channel (node1->network.endpoint ()))

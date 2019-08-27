@@ -20,6 +20,7 @@ add_executable (core_test
 	peer_container.cpp
 	signing.cpp
 	socket.cpp
+	toml.cpp
 	timer.cpp
 	uint256_union.cpp
 	utility.cpp

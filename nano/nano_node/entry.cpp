@@ -90,6 +90,7 @@ int main (int argc, char * const * argv)
 	description.add_options ()
 		("help", "Print out options")
 		("version", "Prints out version")
+		("config", boost::program_options::value<std::vector<std::string>>()->multitoken(), "Pass node configuration values. This takes precedence over any values in the configuration file. This option can be repeated multiple times.")
 		("daemon", "Start node daemon")
 		("disable_backup", "Disable wallet automatic backups")
 		("disable_lazy_bootstrap", "Disables lazy bootstrap")
@@ -181,6 +182,12 @@ int main (int argc, char * const * argv)
 			nano_daemon::daemon daemon;
 			nano::node_flags flags;
 			update_flags (flags, vm);
+
+			auto config (vm.find ("config"));
+			if (config != vm.end ())
+			{
+				flags.config_overrides = config->second.as<std::vector<std::string>> ();
+			}
 			daemon.run (data_path, flags);
 		}
 		else if (vm.count ("debug_block_count"))
@@ -433,10 +440,10 @@ int main (int argc, char * const * argv)
 						{
 							nano::logger_mt logger;
 							auto opencl (nano::opencl_work::create (true, { platform, device, threads }, logger));
-							nano::work_pool work_pool (std::numeric_limits<unsigned>::max (), std::chrono::nanoseconds (0), opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a) {
+							nano::work_pool work_pool (std::numeric_limits<unsigned>::max (), std::chrono::nanoseconds (0), opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
 								return opencl->generate_work (root_a, difficulty_a);
 							}
-							                                                                                                       : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> (nullptr));
+							                                                                                                       : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t, std::atomic<int> &)> (nullptr));
 							nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
 							std::cerr << boost::str (boost::format ("Starting OpenCL generation profiling. Platform: %1%. Device: %2%. Threads: %3%. Difficulty: %4$#x\n") % platform % device % threads % difficulty);
 							for (uint64_t i (0); true; ++i)
@@ -757,7 +764,7 @@ int main (int argc, char * const * argv)
 			while (!votes.empty ())
 			{
 				auto vote (votes.front ());
-				auto channel (std::make_shared<nano::transport::channel_udp> (node->network.udp_channels, node->network.endpoint ()));
+				auto channel (std::make_shared<nano::transport::channel_udp> (node->network.udp_channels, node->network.endpoint (), node->network_params.protocol.protocol_version));
 				node->vote_processor.vote (vote, channel);
 				votes.pop_front ();
 			}
