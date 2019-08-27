@@ -65,7 +65,7 @@ void nano::distributed_work::start_work ()
 	{
 		local_generation_started = true;
 		node.work.generate (
-		this_l->root, [this_l](boost::optional<uint64_t> const & work_a) {
+		root, [this_l](boost::optional<uint64_t> const & work_a) {
 			this_l->set_once (work_a);
 			this_l->stop (false);
 		},
@@ -323,7 +323,7 @@ void nano::distributed_work_factory::make (unsigned int backoff_a, nano::block_h
 	work[root_a].emplace_back (distributed);
 }
 
-void nano::distributed_work_factory::cancel (nano::block_hash const & root_a)
+void nano::distributed_work_factory::cancel (nano::block_hash const & root_a, bool const local_stop)
 {
 	{
 		std::lock_guard<std::mutex> guard (mutex);
@@ -335,8 +335,8 @@ void nano::distributed_work_factory::cancel (nano::block_hash const & root_a)
 				if (auto distributed_l = distributed_w.lock ())
 				{
 					// Send work_cancel to work peers
-					// Local work generation cancel is handled by the work pool
-					distributed_l->stop (false);
+					// Cancels local generation if local_stop is true, but usually should be done by the work pool
+					distributed_l->stop (local_stop);
 				}
 			}
 			work.erase (existing_l);
