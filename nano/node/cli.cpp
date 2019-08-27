@@ -209,6 +209,11 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			auto source_path = data_path / "rocksdb";
 			auto backup_path = source_path / "backup";
 			auto vacuum_path = backup_path / "vacuumed";
+			if (!boost::filesystem::exists (vacuum_path))
+			{
+				boost::filesystem::create_directories (vacuum_path);
+			}
+
 			std::cout << source_path << "\n";
 #else
 			auto source_path = data_path / "data.ldb";
@@ -237,7 +242,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			}
 			else
 			{
-				std::cerr << "Vacuum failed (copy_with_compaction returned false)" << std::endl;
+				std::cerr << "Vacuum failed (copying returned false)" << std::endl;
 			}
 		}
 		catch (const boost::filesystem::filesystem_error & ex)
@@ -270,7 +275,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			}
 			else
 			{
-				std::cerr << "Snapshot Failed (copy_with_compaction returned false)" << std::endl;
+				std::cerr << "Snapshot Failed (copying returned false)" << std::endl;
 			}
 		}
 		catch (const boost::filesystem::filesystem_error & ex)
