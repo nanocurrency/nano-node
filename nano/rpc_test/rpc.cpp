@@ -1675,6 +1675,7 @@ TEST (rpc, process_block_with_work_watcher)
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
 	node_config.enable_voting = false;
+	node_config.work_watcher_period = 1s;
 	auto & node1 = *system.add_node (node_config);
 	nano::keypair key;
 	auto latest (system.nodes[0]->latest (nano::test_genesis_key.pub));

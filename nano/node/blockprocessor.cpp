@@ -342,7 +342,7 @@ void nano::block_processor::process_batch (std::unique_lock<std::mutex> & lock_a
 				for (auto & i : rollback_list)
 				{
 					node.votes_cache.remove (i->hash ());
-					node.wallets.watcher.remove (i);
+					node.wallets.watcher->remove (i);
 					node.active.erase (*i);
 				}
 			}
@@ -374,7 +374,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	//add block to watcher if desired after block has been added to active
 	if (watch_work_a)
 	{
-		node.wallets.watcher.add (block_a);
+		node.wallets.watcher->add (block_a);
 	}
 	// Announce block contents to the network
 	node.network.flood_block (block_a, false);
