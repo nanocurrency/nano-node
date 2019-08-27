@@ -67,11 +67,10 @@ public:
 	void make (nano::block_hash const &, std::function<void(boost::optional<uint64_t>)> const &, uint64_t);
 	void make (unsigned int, nano::block_hash const &, std::function<void(boost::optional<uint64_t>)> const &, uint64_t);
 	void cancel (nano::block_hash const &);
-
-private:
 	void cleanup ();
+
+	std::unordered_map<nano::block_hash, std::vector<std::weak_ptr<nano::distributed_work>>> work;
 	std::mutex mutex;
 	nano::node & node;
-	std::unordered_map<nano::block_hash, std::vector<std::weak_ptr<nano::distributed_work>>> work;
 };
 }

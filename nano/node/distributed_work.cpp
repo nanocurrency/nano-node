@@ -348,11 +348,20 @@ void nano::distributed_work_factory::cancel (nano::block_hash const & root_a)
 void nano::distributed_work_factory::cleanup ()
 {
 	std::lock_guard<std::mutex> guard (mutex);
-	for (auto & item_l : work)
+	for (auto it (work.begin ()), end (work.end ()); it != end;)
 	{
-		item_l.second.erase (std::remove_if (item_l.second.begin (), item_l.second.end (), [](auto distributed_a) {
+		it->second.erase (std::remove_if (it->second.begin (), it->second.end (), [](auto distributed_a) {
 			return distributed_a.expired ();
 		}),
-		item_l.second.end ());
+		it->second.end ());
+
+		if (it->second.empty ())
+		{
+			it = work.erase (it);
+		}
+		else
+		{
+			++it;
+		}
 	}
 }
