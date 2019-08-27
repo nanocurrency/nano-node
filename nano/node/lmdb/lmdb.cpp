@@ -39,7 +39,7 @@ void mdb_val::convert_buffer_to_value ()
 }
 }
 
-nano::mdb_store::mdb_store (bool & error_a, nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, bool drop_unchecked, size_t const batch_size, bool backup_before_upgrade) :
+nano::mdb_store::mdb_store (bool & error_a, nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, size_t const batch_size, bool backup_before_upgrade) :
 logger (logger_a),
 env (error_a, path_a, lmdb_max_dbs, true),
 mdb_txn_tracker (logger_a, txn_tracking_config_a, block_processor_batch_max_time_a),
@@ -78,12 +78,6 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 		{
 			auto transaction (tx_begin_read ());
 			open_databases (error_a, transaction, 0);
-		}
-
-		if (!error_a && drop_unchecked)
-		{
-			auto transaction (tx_begin_write ());
-			unchecked_clear (transaction);
 		}
 	}
 }

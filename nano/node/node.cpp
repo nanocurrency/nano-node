@@ -123,7 +123,7 @@ flags (flags_a),
 alarm (alarm_a),
 work (work_a),
 logger (config_a.logging.min_time_between_log_output),
-store_impl (std::make_unique<nano::mdb_store> (init_a.block_store_init, logger, application_path_a / "data.ldb", config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_max_dbs, !flags.disable_unchecked_drop, flags.sideband_batch_size, config_a.backup_before_upgrade)),
+store_impl (std::make_unique<nano::mdb_store> (init_a.block_store_init, logger, application_path_a / "data.ldb", config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_max_dbs, flags.sideband_batch_size, config_a.backup_before_upgrade)),
 store (*store_impl),
 wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (init_a.wallets_store_init, application_path_a / "wallets.ldb", config_a.lmdb_max_dbs)),
 wallets_store (*wallets_store_impl),
@@ -404,17 +404,20 @@ startup_time (std::chrono::steady_clock::now ())
 		node_id = nano::keypair ();
 		logger.always_log ("Node ID: ", node_id.pub.to_node_id ());
 
-		const uint8_t * weight_buffer = network_params.network.is_live_network () ? nano_bootstrap_weights_live : nano_bootstrap_weights_beta;
-		size_t weight_size = network_params.network.is_live_network () ? nano_bootstrap_weights_live_size : nano_bootstrap_weights_beta_size;
-		if (network_params.network.is_live_network () || network_params.network.is_beta_network ())
+		if ((network_params.network.is_live_network () || network_params.network.is_beta_network ()) && !flags.inactive_node)
 		{
+			// Use bootstrap weights if initial bootstrap is not completed
+			bool use_bootstrap_weight (false);
+			const uint8_t * weight_buffer = network_params.network.is_live_network () ? nano_bootstrap_weights_live : nano_bootstrap_weights_beta;
+			size_t weight_size = network_params.network.is_live_network () ? nano_bootstrap_weights_live_size : nano_bootstrap_weights_beta_size;
 			nano::bufferstream weight_stream ((const uint8_t *)weight_buffer, weight_size);
 			nano::uint128_union block_height;
 			if (!nano::try_read (weight_stream, block_height))
 			{
 				auto max_blocks = (uint64_t)block_height.number ();
 				auto transaction (store.tx_begin_read ());
-				if (ledger.store.block_count (transaction).sum () < max_blocks)
+				use_bootstrap_weight = ledger.store.block_count (transaction).sum () < max_blocks;
+				if (use_bootstrap_weight)
 				{
 					ledger.bootstrap_weight_max_blocks = max_blocks;
 					while (true)
@@ -433,6 +436,12 @@ startup_time (std::chrono::steady_clock::now ())
 						ledger.bootstrap_weights[account] = weight.number ();
 					}
 				}
+			}
+			// Drop unchecked blocks if initial bootstrap is completed
+			if (!flags.disable_unchecked_drop && !use_bootstrap_weight)
+			{
+				auto transaction (store.tx_begin_write ());
+				store.unchecked_clear (transaction);
 			}
 		}
 	}
@@ -1641,7 +1650,9 @@ peering_port (peering_port_a)
 	nano::set_secure_perm_directory (path, error_chmod);
 	logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
 	logging.init (path);
-	node = std::make_shared<nano::node> (init, *io_context, peering_port, path, alarm, logging, work);
+	nano::node_flags flags;
+	flags.inactive_node = true;
+	node = std::make_shared<nano::node> (init, *io_context, peering_port, path, alarm, logging, work, flags);
 	node->active.stop ();
 }
 
