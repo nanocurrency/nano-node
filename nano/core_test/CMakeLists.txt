@@ -11,6 +11,7 @@ add_executable (core_test
 	block_store.cpp
 	conflicts.cpp
 	difficulty.cpp
+	distributed_work.cpp
 	entry.cpp
 	gap_cache.cpp
 	ipc.cpp
