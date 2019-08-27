@@ -472,9 +472,6 @@ rocksdb::Options nano::rocksdb_store::get_db_options () const
 	// Start agressively flushing WAL files when they reach over 1GB
 	db_options.max_total_wal_size = 1 * 1024 * 1024 * 1024LL;
 
-	// Some column families need to be atomically flushed
-	db_options.atomic_flush = true;
-
 	if (!low_end_system ())
 	{
 		// Adds a separate write queue for memtable/WAL
