@@ -1558,6 +1558,7 @@ TEST (rpc, account_history)
 	ASSERT_NE (nullptr, send2);
 	auto receive2 (system.wallet (0)->receive_action (*send2, account2, system.nodes[0]->config.receive_minimum.number ()));
 	scoped_thread_name_io.renew ();
+	// Test filter for send blocks
 	ASSERT_NE (nullptr, receive2);
 	{
 		boost::property_tree::ptree request;
@@ -1565,6 +1566,26 @@ TEST (rpc, account_history)
 		request.put ("account", nano::test_genesis_key.pub.to_account ());
 		boost::property_tree::ptree other_account;
 		other_account.put ("", account2.to_account ());
+		boost::property_tree::ptree filtered_accounts;
+		filtered_accounts.push_back (std::make_pair ("", other_account));
+		request.add_child ("account_filter", filtered_accounts);
+		request.put ("count", 100);
+		test_response response (request, rpc.config.port, system.io_ctx);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		auto history_node (response.json.get_child ("history"));
+		ASSERT_EQ (history_node.size (), 1);
+	}
+	// Test filter for receive blocks
+	ASSERT_NE (nullptr, receive2);
+	{
+		boost::property_tree::ptree request;
+		request.put ("action", "account_history");
+		request.put ("account", account2.to_account ());
+		boost::property_tree::ptree other_account;
+		other_account.put ("", nano::test_genesis_key.pub.to_account ());
 		boost::property_tree::ptree filtered_accounts;
 		filtered_accounts.push_back (std::make_pair ("", other_account));
 		request.add_child ("account_filter", filtered_accounts);
@@ -2290,7 +2311,7 @@ TEST (rpc, peers)
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::endpoint endpoint (boost::asio::ip::address_v6::from_string ("fc00::1"), 4000);
 	auto node = system.nodes.front ();
-	node->network.udp_channels.insert (endpoint, nano::protocol_version);
+	node->network.udp_channels.insert (endpoint, node->network_params.protocol.protocol_version);
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
@@ -2309,11 +2330,11 @@ TEST (rpc, peers)
 	ASSERT_EQ (200, response.status);
 	auto & peers_node (response.json.get_child ("peers"));
 	ASSERT_EQ (2, peers_node.size ());
-	ASSERT_EQ (std::to_string (nano::protocol_version), peers_node.get<std::string> ("[::1]:24001"));
+	ASSERT_EQ (std::to_string (node->network_params.protocol.protocol_version), peers_node.get<std::string> ("[::1]:24001"));
 	// Previously "[::ffff:80.80.80.80]:4000", but IPv4 address cause "No such node thrown in the test body" issue with peers_node.get
 	std::stringstream endpoint_text;
 	endpoint_text << endpoint;
-	ASSERT_EQ (std::to_string (nano::protocol_version), peers_node.get<std::string> (endpoint_text.str ()));
+	ASSERT_EQ (std::to_string (node->network_params.protocol.protocol_version), peers_node.get<std::string> (endpoint_text.str ()));
 }
 
 TEST (rpc, peers_node_id)
@@ -2322,7 +2343,7 @@ TEST (rpc, peers_node_id)
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::endpoint endpoint (boost::asio::ip::address_v6::from_string ("fc00::1"), 4000);
 	auto node = system.nodes.front ();
-	node->network.udp_channels.insert (endpoint, nano::protocol_version);
+	node->network.udp_channels.insert (endpoint, node->network_params.protocol.protocol_version);
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
@@ -2343,12 +2364,12 @@ TEST (rpc, peers_node_id)
 	auto & peers_node (response.json.get_child ("peers"));
 	ASSERT_EQ (2, peers_node.size ());
 	auto tree1 (peers_node.get_child ("[::1]:24001"));
-	ASSERT_EQ (std::to_string (nano::protocol_version), tree1.get<std::string> ("protocol_version"));
+	ASSERT_EQ (std::to_string (node->network_params.protocol.protocol_version), tree1.get<std::string> ("protocol_version"));
 	ASSERT_EQ (system.nodes[1]->node_id.pub.to_node_id (), tree1.get<std::string> ("node_id"));
 	std::stringstream endpoint_text;
 	endpoint_text << endpoint;
 	auto tree2 (peers_node.get_child (endpoint_text.str ()));
-	ASSERT_EQ (std::to_string (nano::protocol_version), tree2.get<std::string> ("protocol_version"));
+	ASSERT_EQ (std::to_string (node->network_params.protocol.protocol_version), tree2.get<std::string> ("protocol_version"));
 	ASSERT_EQ ("", tree2.get<std::string> ("node_id"));
 }
 
@@ -2560,7 +2581,7 @@ TEST (rpc, version)
 		auto transaction (system.nodes[0]->store.tx_begin_read ());
 		ASSERT_EQ (std::to_string (node1->store.version_get (transaction)), response1.json.get<std::string> ("store_version"));
 	}
-	ASSERT_EQ (std::to_string (nano::protocol_version), response1.json.get<std::string> ("protocol_version"));
+	ASSERT_EQ (std::to_string (node1->network_params.protocol.protocol_version), response1.json.get<std::string> ("protocol_version"));
 	ASSERT_EQ (boost::str (boost::format ("Nano %1%") % NANO_VERSION_STRING), response1.json.get<std::string> ("node_vendor"));
 	auto network_label (node1->network_params.network.get_current_network_as_string ());
 	ASSERT_EQ (network_label, response1.json.get<std::string> ("network"));
@@ -2622,8 +2643,10 @@ TEST (rpc, work_generate)
 
 TEST (rpc, work_generate_difficulty)
 {
-	nano::system system (24000, 1);
-	auto node (system.nodes[0]);
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.max_work_generate_difficulty = 0xffff000000000000;
+	auto node = system.add_node (node_config);
 	scoped_io_thread_name_change scoped_thread_name_io;
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
 	nano::node_rpc_config node_rpc_config;
@@ -2678,7 +2701,7 @@ TEST (rpc, work_generate_difficulty)
 		ASSERT_GE (result_difficulty, difficulty);
 	}
 	{
-		uint64_t difficulty (node_rpc_config.max_work_generate_difficulty + 1);
+		uint64_t difficulty (node->config.max_work_generate_difficulty + 1);
 		request.put ("difficulty", nano::to_string_hex (difficulty));
 		test_response response (request, rpc.config.port, system.io_ctx);
 		system.deadline_set (5s);
@@ -2694,8 +2717,10 @@ TEST (rpc, work_generate_difficulty)
 
 TEST (rpc, work_generate_multiplier)
 {
-	nano::system system (24000, 1);
-	auto node (system.nodes[0]);
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.max_work_generate_difficulty = 0xffff000000000000;
+	auto node = system.add_node (node_config);
 	scoped_io_thread_name_change scoped_thread_name_io;
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
 	nano::node_rpc_config node_rpc_config;
@@ -2746,7 +2771,7 @@ TEST (rpc, work_generate_multiplier)
 		ASSERT_EQ (response.json.get<std::string> ("error"), ec.message ());
 	}
 	{
-		double max_multiplier (nano::difficulty::to_multiplier (node_rpc_config.max_work_generate_difficulty, node->network_params.network.publish_threshold));
+		double max_multiplier (nano::difficulty::to_multiplier (node->config.max_work_generate_difficulty, node->network_params.network.publish_threshold));
 		request.put ("multiplier", max_multiplier + 1);
 		test_response response (request, rpc.config.port, system.io_ctx);
 		system.deadline_set (5s);
@@ -5837,9 +5862,9 @@ TEST (rpc, confirmation_height_currently_processing)
 {
 	// The chains should be longer than the	batch_write_size to test the amount of blocks confirmed is correct.
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.delay_frontier_confirmation_height_updating = true;
-	auto node = system.add_node (nano::node_config (24000, system.logging), node_flags);
+	nano::node_config node_config (24000, system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 
 	// Do enough blocks to reliably call RPC before the confirmation height has finished

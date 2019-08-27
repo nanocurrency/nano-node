@@ -9,7 +9,6 @@ nano::error nano::node_rpc_config::serialize_json (nano::jsonconfig & json) cons
 {
 	json.put ("version", json_version ());
 	json.put ("enable_sign_hash", enable_sign_hash);
-	json.put ("max_work_generate_difficulty", nano::to_string_hex (max_work_generate_difficulty));
 
 	nano::jsonconfig child_process_l;
 	child_process_l.put ("enable", child_process.enable);
@@ -21,7 +20,6 @@ nano::error nano::node_rpc_config::serialize_json (nano::jsonconfig & json) cons
 nano::error nano::node_rpc_config::serialize_toml (nano::tomlconfig & toml) const
 {
 	toml.put ("enable_sign_hash", enable_sign_hash, "Allow or disallow signing of hashes\ntype:bool");
-	toml.put ("max_work_generate_difficulty", nano::to_string_hex (max_work_generate_difficulty), "Maximum allowed difficulty request for work generation\ntype:string,hex");
 
 	nano::tomlconfig child_process_l;
 	child_process_l.put ("enable", child_process.enable, "Enable or disable RPC child process. If false, an in-process RPC server is used.\ntype:bool");
@@ -34,12 +32,6 @@ nano::error nano::node_rpc_config::deserialize_toml (nano::tomlconfig & toml)
 {
 	toml.get_optional ("enable_sign_hash", enable_sign_hash);
 	toml.get_optional<bool> ("enable_sign_hash", enable_sign_hash);
-	std::string max_work_generate_difficulty_text;
-	toml.get_optional<std::string> ("max_work_generate_difficulty", max_work_generate_difficulty_text);
-	if (!max_work_generate_difficulty_text.empty ())
-	{
-		nano::from_string_hex (max_work_generate_difficulty_text, max_work_generate_difficulty);
-	}
 
 	auto child_process_l (toml.get_optional_child ("child_process"));
 	if (child_process_l)
@@ -68,7 +60,6 @@ nano::error nano::node_rpc_config::deserialize_json (bool & upgraded_a, nano::js
 		migrate (json, data_path);
 
 		json.put ("enable_sign_hash", enable_sign_hash);
-		json.put ("max_work_generate_difficulty", nano::to_string_hex (max_work_generate_difficulty));
 
 		// Remove options no longer needed after migration
 		json.erase ("enable_control");
@@ -88,12 +79,6 @@ nano::error nano::node_rpc_config::deserialize_json (bool & upgraded_a, nano::js
 	}
 
 	json.get_optional<bool> ("enable_sign_hash", enable_sign_hash);
-	std::string max_work_generate_difficulty_text;
-	json.get_optional<std::string> ("max_work_generate_difficulty", max_work_generate_difficulty_text);
-	if (!max_work_generate_difficulty_text.empty ())
-	{
-		nano::from_string_hex (max_work_generate_difficulty_text, max_work_generate_difficulty);
-	}
 
 	auto child_process_l (json.get_optional_child ("child_process"));
 	if (child_process_l)

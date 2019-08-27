@@ -360,7 +360,7 @@ startup_time (std::chrono::steady_clock::now ())
 		auto network_label = network_params.network.get_current_network_as_string ();
 		logger.always_log ("Active network: ", network_label);
 
-		logger.always_log (boost::str (boost::format ("Work pool running %1% threads") % work.threads.size ()));
+		logger.always_log (boost::str (boost::format ("Work pool running %1% threads %2%") % work.threads.size () % (work.opencl ? "(1 for OpenCL)" : "")));
 		logger.always_log (boost::str (boost::format ("%1% work peers configured") % config.work_peers.size ()));
 		if (config.work_peers.empty () && config.work_threads == 0 && !work.opencl)
 		{
@@ -1015,7 +1015,8 @@ public:
 		if ((outstanding.empty () || node->unresponsive_work_peers) && (node->config.work_threads != 0 || node->work.opencl))
 		{
 			local_generation_started = true;
-			node->work.generate (this_l->root, [this_l](boost::optional<uint64_t> const & work_a) {
+			node->work.generate (
+			this_l->root, [this_l](boost::optional<uint64_t> const & work_a) {
 				if (work_a)
 				{
 					this_l->set_once (work_a.value ());

@@ -17,6 +17,15 @@
 namespace nano
 {
 class tomlconfig;
+
+enum class frontiers_confirmation_mode : uint8_t
+{
+	always, // Always confirm frontiers
+	automatic, // Always mode if node contains representative with at least 50% of principal weight, less frequest requests if not
+	disabled, // Do not confirm frontiers
+	invalid
+};
+
 /**
  * Node configuration
  */
@@ -78,10 +87,15 @@ public:
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
-	size_t bandwidth_limit{ 5 * 1024 * 1024 }; // 5Mb/s
+	size_t bandwidth_limit{ 5 * 1024 * 1024 }; // 5MB/s
 	std::chrono::milliseconds conf_height_processor_batch_min_time{ 50 };
 	bool backup_before_upgrade{ false };
 	std::chrono::seconds work_watcher_period{ std::chrono::seconds (5) };
+	double max_work_generate_multiplier{ 64. };
+	uint64_t max_work_generate_difficulty{ nano::network_constants::publish_full_threshold };
+	nano::frontiers_confirmation_mode frontiers_confirmation{ nano::frontiers_confirmation_mode::automatic };
+	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;
+	nano::frontiers_confirmation_mode deserialize_frontiers_confirmation (std::string const &);
 	static unsigned json_version ()
 	{
 		return 18;
@@ -102,7 +116,6 @@ public:
 	bool disable_unchecked_cleanup{ false };
 	bool disable_unchecked_drop{ true };
 	bool fast_bootstrap{ false };
-	bool delay_frontier_confirmation_height_updating{ false };
 	bool read_only{ false };
 	/** Whether to read all frontiers and construct the representative weights */
 	bool cache_representative_weights_from_frontiers{ true };

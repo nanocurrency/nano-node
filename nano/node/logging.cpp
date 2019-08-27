@@ -135,9 +135,9 @@ nano::error nano::logging::deserialize_toml (nano::tomlconfig & toml)
 	toml.get<bool> ("single_line_record", single_line_record_value);
 	toml.get<uintmax_t> ("max_size", max_size);
 	toml.get<uintmax_t> ("rotation_size", rotation_size);
-	uintmax_t min_time_between_log_output_raw;
-	toml.get<uintmax_t> ("min_time_between_output", min_time_between_log_output_raw);
-	min_time_between_log_output = std::chrono::milliseconds (min_time_between_log_output_raw);
+	auto min_time_between_log_output_l = min_time_between_log_output.count ();
+	toml.get ("min_time_between_output", min_time_between_log_output_l);
+	min_time_between_log_output = std::chrono::milliseconds (min_time_between_log_output_l);
 
 	return toml.get_error ();
 }

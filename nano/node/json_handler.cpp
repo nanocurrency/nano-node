@@ -2134,7 +2134,8 @@ public:
 			}
 			else
 			{
-				if (should_ignore_account (block_a.hashables.link))
+				auto account (handler.node.ledger.account (transaction, block_a.hashables.link));
+				if (should_ignore_account (account))
 				{
 					tree.clear ();
 					return;
@@ -2147,7 +2148,7 @@ public:
 				{
 					tree.put ("type", "receive");
 				}
-				tree.put ("account", handler.node.ledger.account (transaction, block_a.hashables.link).to_account ());
+				tree.put ("account", account.to_account ());
 				tree.put ("amount", (balance - previous_balance).convert_to<std::string> ());
 			}
 		}
@@ -3792,7 +3793,7 @@ void nano::json_handler::version ()
 {
 	response_l.put ("rpc_version", "1");
 	response_l.put ("store_version", std::to_string (node.store_version ()));
-	response_l.put ("protocol_version", std::to_string (nano::protocol_version));
+	response_l.put ("protocol_version", std::to_string (node.network_params.protocol.protocol_version));
 	response_l.put ("node_vendor", boost::str (boost::format ("Nano %1%") % NANO_VERSION_STRING));
 	response_l.put ("network", node.network_params.network.get_current_network_as_string ());
 	response_l.put ("network_identifier", nano::genesis ().hash ().to_string ());
@@ -4447,7 +4448,7 @@ void nano::json_handler::work_generate ()
 	auto difficulty (difficulty_optional_impl ());
 	auto multiplier (multiplier_optional_impl (difficulty));
 	(void)multiplier;
-	if (!ec && (difficulty > node_rpc_config.max_work_generate_difficulty || difficulty < node.network_params.network.publish_threshold))
+	if (!ec && (difficulty > node.config.max_work_generate_difficulty || difficulty < node.network_params.network.publish_threshold))
 	{
 		ec = nano::error_rpc::difficulty_limit;
 	}

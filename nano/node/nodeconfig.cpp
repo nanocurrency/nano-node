@@ -35,6 +35,7 @@ logging (logging_a)
 	const char * epoch_message ("epoch v1 block");
 	strncpy ((char *)epoch_block_link.bytes.data (), epoch_message, epoch_block_link.bytes.size ());
 	epoch_block_signer = network_params.ledger.genesis_account;
+	max_work_generate_difficulty = nano::difficulty::from_multiplier (max_work_generate_multiplier, network_params.network.publish_threshold);
 	switch (network_params.network.network ())
 	{
 		case nano::nano_networks::nano_test_network:
@@ -94,8 +95,11 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("confirmation_history_size", confirmation_history_size, "Maximum confirmation history size\ntype:uint64");
 	toml.put ("active_elections_size", active_elections_size, "Limits number of active elections before dropping will be considered (other conditions must also be satisfied)\ntype:uint64,[250..]");
 	toml.put ("bandwidth_limit", bandwidth_limit, "Outbound traffic limit in bytes/sec after which messages will be dropped\ntype:uint64");
+	toml.put ("conf_height_processor_batch_min_time", conf_height_processor_batch_min_time.count (), "Minimum write batching time when there are blocks pending confirmation height\ntype:milliseconds");
 	toml.put ("backup_before_upgrade", backup_before_upgrade, "Backup the ledger database before performing upgrades\ntype:bool");
 	toml.put ("work_watcher_period", work_watcher_period.count (), "Time between checks for confirmation and re-generating higher difficulty work if unconfirmed, for blocks in the work watcher.\ntype:seconds");
+	toml.put ("max_work_generate_multiplier", max_work_generate_multiplier, "Maximum allowed difficulty multiplier for work generation\ntype:double,[1..]");
+	toml.put ("frontiers_confirmation", serialize_frontiers_confirmation (frontiers_confirmation), "Mode for force frontiers confirmation\ntype:string");
 
 	auto work_peers_l (toml.create_array ("work_peers", "A list of \"address:port\" entries to identify work peers"));
 	for (auto i (work_peers.begin ()), n (work_peers.end ()); i != n; ++i)
@@ -231,19 +235,31 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 			toml.get_error ().set ("At least one representative account must be set");
 		}
 
-		auto receive_minimum_l (toml.get<std::string> ("receive_minimum"));
+		auto receive_minimum_l (receive_minimum.to_string_dec ());
+		if (toml.has_key ("receive_minimum"))
+		{
+			receive_minimum_l = toml.get<std::string> ("receive_minimum");
+		}
 		if (receive_minimum.decode_dec (receive_minimum_l))
 		{
 			toml.get_error ().set ("receive_minimum contains an invalid decimal amount");
 		}
 
-		auto online_weight_minimum_l (toml.get<std::string> ("online_weight_minimum"));
+		auto online_weight_minimum_l (online_weight_minimum.to_string_dec ());
+		if (toml.has_key ("online_weight_minimum"))
+		{
+			online_weight_minimum_l = toml.get<std::string> ("online_weight_minimum");
+		}
 		if (online_weight_minimum.decode_dec (online_weight_minimum_l))
 		{
 			toml.get_error ().set ("online_weight_minimum contains an invalid decimal amount");
 		}
 
-		auto vote_minimum_l (toml.get<std::string> ("vote_minimum"));
+		auto vote_minimum_l (vote_minimum.to_string_dec ());
+		if (toml.has_key ("vote_minimum"))
+		{
+			vote_minimum_l = toml.get<std::string> ("vote_minimum");
+		}
 		if (vote_minimum.decode_dec (vote_minimum_l))
 		{
 			toml.get_error ().set ("vote_minimum contains an invalid decimal amount");
@@ -255,8 +271,10 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 
 		toml.get<unsigned> ("vote_generator_threshold", vote_generator_threshold);
 
-		auto block_processor_batch_max_time_l (toml.get<unsigned long> ("block_processor_batch_max_time"));
+		auto block_processor_batch_max_time_l = block_processor_batch_max_time.count ();
+		toml.get ("block_processor_batch_max_time", block_processor_batch_max_time_l);
 		block_processor_batch_max_time = std::chrono::milliseconds (block_processor_batch_max_time_l);
+
 		auto unchecked_cutoff_time_l = static_cast<unsigned long> (unchecked_cutoff_time.count ());
 		toml.get ("unchecked_cutoff_time", unchecked_cutoff_time_l);
 		unchecked_cutoff_time = std::chrono::seconds (unchecked_cutoff_time_l);
@@ -300,6 +318,15 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		conf_height_processor_batch_min_time = std::chrono::milliseconds (conf_height_processor_batch_min_time_l);
 
 		nano::network_constants network;
+		toml.get<double> ("max_work_generate_multiplier", max_work_generate_multiplier);
+		max_work_generate_difficulty = nano::difficulty::from_multiplier (max_work_generate_multiplier, network.publish_threshold);
+
+		if (toml.has_key ("frontiers_confirmation"))
+		{
+			auto frontiers_confirmation_l (toml.get<std::string> ("frontiers_confirmation"));
+			frontiers_confirmation = deserialize_frontiers_confirmation (frontiers_confirmation_l);
+		}
+
 		// Validate ranges
 		if (online_weight_quorum > 100)
 		{
@@ -328,6 +355,14 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		if (work_watcher_period < std::chrono::seconds (1))
 		{
 			toml.get_error ().set ("work_watcher_period must be equal or larger than 1");
+		}
+		if (max_work_generate_multiplier < 1)
+		{
+			toml.get_error ().set ("max_work_generate_multiplier must be greater than or equal to 1");
+		}
+		if (frontiers_confirmation == nano::frontiers_confirmation_mode::invalid)
+		{
+			toml.get_error ().set ("frontiers_confirmation value is invalid (available: always, auto, disabled)");
 		}
 	}
 	catch (std::runtime_error const & ex)
@@ -716,7 +751,7 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		}
 		if (active_elections_size <= 250 && !network.is_test_network ())
 		{
-			json.get_error ().set ("active_elections_size must be grater than 250");
+			json.get_error ().set ("active_elections_size must be greater than 250");
 		}
 		if (bandwidth_limit > std::numeric_limits<size_t>::max ())
 		{
@@ -736,6 +771,41 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get_error ().set (ex.what ());
 	}
 	return json.get_error ();
+}
+
+std::string nano::node_config::serialize_frontiers_confirmation (nano::frontiers_confirmation_mode mode_a) const
+{
+	switch (mode_a)
+	{
+		case nano::frontiers_confirmation_mode::always:
+			return "always";
+		case nano::frontiers_confirmation_mode::automatic:
+			return "auto";
+		case nano::frontiers_confirmation_mode::disabled:
+			return "disabled";
+		default:
+			return "auto";
+	}
+}
+
+nano::frontiers_confirmation_mode nano::node_config::deserialize_frontiers_confirmation (std::string const & string_a)
+{
+	if (string_a == "always")
+	{
+		return nano::frontiers_confirmation_mode::always;
+	}
+	else if (string_a == "auto")
+	{
+		return nano::frontiers_confirmation_mode::automatic;
+	}
+	else if (string_a == "disabled")
+	{
+		return nano::frontiers_confirmation_mode::disabled;
+	}
+	else
+	{
+		return nano::frontiers_confirmation_mode::invalid;
+	}
 }
 
 nano::account nano::node_config::random_representative ()

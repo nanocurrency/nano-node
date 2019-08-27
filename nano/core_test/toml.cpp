@@ -76,25 +76,165 @@ TEST (toml, daemon_config_update_array)
 	ASSERT_EQ (c.node.preconfigured_peers[0], "test-peer.org");
 }
 
+/** Empty rpc config file should match a default config object */
+TEST (toml, rpc_config_deserialize_defaults)
+{
+	std::stringstream ss;
+
+	// A config file with values that differs from test-net defaults
+	ss << R"toml(
+	[process]
+	)toml";
+
+	nano::tomlconfig t;
+	t.read (ss);
+	nano::rpc_config conf;
+	nano::rpc_config defaults;
+	conf.deserialize_toml (t);
+
+	ASSERT_FALSE (t.get_error ()) << t.get_error ().get_message ();
+
+	ASSERT_EQ (conf.address, defaults.address);
+	ASSERT_EQ (conf.enable_control, defaults.enable_control);
+	ASSERT_EQ (conf.max_json_depth, defaults.max_json_depth);
+	ASSERT_EQ (conf.max_request_size, defaults.max_request_size);
+	ASSERT_EQ (conf.port, defaults.port);
+
+	ASSERT_EQ (conf.rpc_process.io_threads, defaults.rpc_process.io_threads);
+	ASSERT_EQ (conf.rpc_process.ipc_address, defaults.rpc_process.ipc_address);
+	ASSERT_EQ (conf.rpc_process.ipc_port, defaults.rpc_process.ipc_port);
+	ASSERT_EQ (conf.rpc_process.num_ipc_connections, defaults.rpc_process.num_ipc_connections);
+}
+
 /** Empty config file should match a default config object */
 TEST (toml, daemon_config_deserialize_defaults)
 {
 	std::stringstream ss;
 	ss << R"toml(
+	[node]
+	[node.diagnostics.txn_tracking]
+	[node.httpcallback]
+	[node.ipc.local]
+	[node.ipc.tcp]
+	[node.logging]
+	[node.statistics.log]
+	[node.statistics.sampling]
+	[node.websocket]
+	[opencl]
+	[rpc]
+	[rpc.child_process]
 	)toml";
 
 	nano::tomlconfig t;
 	t.read (ss);
-	nano::daemon_config c;
+	nano::daemon_config conf;
 	nano::daemon_config defaults;
-	c.deserialize_toml (t);
-	ASSERT_EQ (c.opencl_enable, defaults.opencl_enable);
-	ASSERT_EQ (c.opencl.device, defaults.opencl.device);
-	ASSERT_EQ (c.opencl.platform, defaults.opencl.platform);
-	ASSERT_EQ (c.opencl.threads, defaults.opencl.threads);
-	ASSERT_EQ (c.rpc.enable_sign_hash, false);
-	ASSERT_EQ (c.rpc.max_work_generate_difficulty, 0xffffffffc0000000);
-	ASSERT_EQ (c.rpc.child_process.enable, false);
+	conf.deserialize_toml (t);
+
+	ASSERT_FALSE (t.get_error ()) << t.get_error ().get_message ();
+
+	ASSERT_EQ (conf.opencl_enable, defaults.opencl_enable);
+	ASSERT_EQ (conf.opencl.device, defaults.opencl.device);
+	ASSERT_EQ (conf.opencl.platform, defaults.opencl.platform);
+	ASSERT_EQ (conf.opencl.threads, defaults.opencl.threads);
+	ASSERT_EQ (conf.rpc_enable, defaults.rpc_enable);
+	ASSERT_EQ (conf.rpc.enable_sign_hash, defaults.rpc.enable_sign_hash);
+	ASSERT_EQ (conf.rpc.child_process.enable, defaults.rpc.child_process.enable);
+	ASSERT_EQ (conf.rpc.child_process.rpc_path, defaults.rpc.child_process.rpc_path);
+
+	ASSERT_EQ (conf.node.active_elections_size, defaults.node.active_elections_size);
+	ASSERT_EQ (conf.node.allow_local_peers, defaults.node.allow_local_peers);
+	ASSERT_EQ (conf.node.backup_before_upgrade, defaults.node.backup_before_upgrade);
+	ASSERT_EQ (conf.node.bandwidth_limit, defaults.node.bandwidth_limit);
+	ASSERT_EQ (conf.node.block_processor_batch_max_time, defaults.node.block_processor_batch_max_time);
+	ASSERT_EQ (conf.node.bootstrap_connections, defaults.node.bootstrap_connections);
+	ASSERT_EQ (conf.node.bootstrap_connections_max, defaults.node.bootstrap_connections_max);
+	ASSERT_EQ (conf.node.bootstrap_fraction_numerator, defaults.node.bootstrap_fraction_numerator);
+	ASSERT_EQ (conf.node.conf_height_processor_batch_min_time, defaults.node.conf_height_processor_batch_min_time);
+	ASSERT_EQ (conf.node.confirmation_history_size, defaults.node.confirmation_history_size);
+	ASSERT_EQ (conf.node.enable_voting, defaults.node.enable_voting);
+	ASSERT_EQ (conf.node.external_address, defaults.node.external_address);
+	ASSERT_EQ (conf.node.external_port, defaults.node.external_port);
+	ASSERT_EQ (conf.node.io_threads, defaults.node.io_threads);
+	ASSERT_EQ (conf.node.lmdb_max_dbs, defaults.node.lmdb_max_dbs);
+	ASSERT_EQ (conf.node.max_work_generate_multiplier, defaults.node.max_work_generate_multiplier);
+	ASSERT_EQ (conf.node.network_threads, defaults.node.network_threads);
+	ASSERT_EQ (conf.node.work_watcher_period, defaults.node.work_watcher_period);
+	ASSERT_EQ (conf.node.online_weight_minimum, defaults.node.online_weight_minimum);
+	ASSERT_EQ (conf.node.online_weight_quorum, defaults.node.online_weight_quorum);
+	ASSERT_EQ (conf.node.password_fanout, defaults.node.password_fanout);
+	ASSERT_EQ (conf.node.peering_port, defaults.node.peering_port);
+	ASSERT_EQ (conf.node.pow_sleep_interval, defaults.node.pow_sleep_interval);
+	ASSERT_EQ (conf.node.preconfigured_peers, defaults.node.preconfigured_peers);
+	ASSERT_EQ (conf.node.preconfigured_representatives, defaults.node.preconfigured_representatives);
+	ASSERT_EQ (conf.node.receive_minimum, defaults.node.receive_minimum);
+	ASSERT_EQ (conf.node.signature_checker_threads, defaults.node.signature_checker_threads);
+	ASSERT_EQ (conf.node.tcp_incoming_connections_max, defaults.node.tcp_incoming_connections_max);
+	ASSERT_EQ (conf.node.tcp_io_timeout, defaults.node.tcp_io_timeout);
+	ASSERT_EQ (conf.node.unchecked_cutoff_time, defaults.node.unchecked_cutoff_time);
+	ASSERT_EQ (conf.node.use_memory_pools, defaults.node.use_memory_pools);
+	ASSERT_EQ (conf.node.vote_generator_delay, defaults.node.vote_generator_delay);
+	ASSERT_EQ (conf.node.vote_generator_threshold, defaults.node.vote_generator_threshold);
+	ASSERT_EQ (conf.node.vote_minimum, defaults.node.vote_minimum);
+	ASSERT_EQ (conf.node.work_peers, defaults.node.work_peers);
+	ASSERT_EQ (conf.node.work_threads, defaults.node.work_threads);
+
+	ASSERT_EQ (conf.node.logging.bulk_pull_logging_value, defaults.node.logging.bulk_pull_logging_value);
+	ASSERT_EQ (conf.node.logging.flush, defaults.node.logging.flush);
+	ASSERT_EQ (conf.node.logging.insufficient_work_logging_value, defaults.node.logging.insufficient_work_logging_value);
+	ASSERT_EQ (conf.node.logging.ledger_logging_value, defaults.node.logging.ledger_logging_value);
+	ASSERT_EQ (conf.node.logging.ledger_duplicate_logging_value, defaults.node.logging.ledger_duplicate_logging_value);
+	ASSERT_EQ (conf.node.logging.log_ipc_value, defaults.node.logging.log_ipc_value);
+	ASSERT_EQ (conf.node.logging.log_to_cerr_value, defaults.node.logging.log_to_cerr_value);
+	ASSERT_EQ (conf.node.logging.max_size, defaults.node.logging.max_size);
+	ASSERT_EQ (conf.node.logging.min_time_between_log_output.count (), defaults.node.logging.min_time_between_log_output.count ());
+	ASSERT_EQ (conf.node.logging.network_logging_value, defaults.node.logging.network_logging_value);
+	ASSERT_EQ (conf.node.logging.network_keepalive_logging_value, defaults.node.logging.network_keepalive_logging_value);
+	ASSERT_EQ (conf.node.logging.network_message_logging_value, defaults.node.logging.network_message_logging_value);
+	ASSERT_EQ (conf.node.logging.network_node_id_handshake_logging_value, defaults.node.logging.network_node_id_handshake_logging_value);
+	ASSERT_EQ (conf.node.logging.network_packet_logging_value, defaults.node.logging.network_packet_logging_value);
+	ASSERT_EQ (conf.node.logging.network_publish_logging_value, defaults.node.logging.network_publish_logging_value);
+	ASSERT_EQ (conf.node.logging.network_timeout_logging_value, defaults.node.logging.network_timeout_logging_value);
+	ASSERT_EQ (conf.node.logging.node_lifetime_tracing_value, defaults.node.logging.node_lifetime_tracing_value);
+	ASSERT_EQ (conf.node.logging.rotation_size, defaults.node.logging.rotation_size);
+	ASSERT_EQ (conf.node.logging.single_line_record_value, defaults.node.logging.single_line_record_value);
+	ASSERT_EQ (conf.node.logging.timing_logging_value, defaults.node.logging.timing_logging_value);
+	ASSERT_EQ (conf.node.logging.upnp_details_logging_value, defaults.node.logging.upnp_details_logging_value);
+	ASSERT_EQ (conf.node.logging.vote_logging_value, defaults.node.logging.vote_logging_value);
+	ASSERT_EQ (conf.node.logging.work_generation_time_value, defaults.node.logging.work_generation_time_value);
+
+	ASSERT_EQ (conf.node.websocket_config.enabled, defaults.node.websocket_config.enabled);
+	ASSERT_EQ (conf.node.websocket_config.address, defaults.node.websocket_config.address);
+	ASSERT_EQ (conf.node.websocket_config.port, defaults.node.websocket_config.port);
+
+	ASSERT_EQ (conf.node.callback_address, defaults.node.callback_address);
+	ASSERT_EQ (conf.node.callback_port, defaults.node.callback_port);
+	ASSERT_EQ (conf.node.callback_target, defaults.node.callback_target);
+
+	ASSERT_EQ (conf.node.ipc_config.transport_domain.allow_unsafe, defaults.node.ipc_config.transport_domain.allow_unsafe);
+	ASSERT_EQ (conf.node.ipc_config.transport_domain.enabled, defaults.node.ipc_config.transport_domain.enabled);
+	ASSERT_EQ (conf.node.ipc_config.transport_domain.io_timeout, defaults.node.ipc_config.transport_domain.io_timeout);
+	ASSERT_EQ (conf.node.ipc_config.transport_domain.io_threads, defaults.node.ipc_config.transport_domain.io_threads);
+	ASSERT_EQ (conf.node.ipc_config.transport_domain.path, defaults.node.ipc_config.transport_domain.path);
+	ASSERT_EQ (conf.node.ipc_config.transport_tcp.enabled, defaults.node.ipc_config.transport_tcp.enabled);
+	ASSERT_EQ (conf.node.ipc_config.transport_tcp.io_timeout, defaults.node.ipc_config.transport_tcp.io_timeout);
+	ASSERT_EQ (conf.node.ipc_config.transport_tcp.io_threads, defaults.node.ipc_config.transport_tcp.io_threads);
+	ASSERT_EQ (conf.node.ipc_config.transport_tcp.port, defaults.node.ipc_config.transport_tcp.port);
+
+	ASSERT_EQ (conf.node.diagnostics_config.txn_tracking.enable, defaults.node.diagnostics_config.txn_tracking.enable);
+	ASSERT_EQ (conf.node.diagnostics_config.txn_tracking.ignore_writes_below_block_processor_max_time, defaults.node.diagnostics_config.txn_tracking.ignore_writes_below_block_processor_max_time);
+	ASSERT_EQ (conf.node.diagnostics_config.txn_tracking.min_read_txn_time, defaults.node.diagnostics_config.txn_tracking.min_read_txn_time);
+	ASSERT_EQ (conf.node.diagnostics_config.txn_tracking.min_write_txn_time, defaults.node.diagnostics_config.txn_tracking.min_write_txn_time);
+
+	ASSERT_EQ (conf.node.stat_config.sampling_enabled, defaults.node.stat_config.sampling_enabled);
+	ASSERT_EQ (conf.node.stat_config.interval, defaults.node.stat_config.interval);
+	ASSERT_EQ (conf.node.stat_config.capacity, defaults.node.stat_config.capacity);
+	ASSERT_EQ (conf.node.stat_config.log_rotation_count, defaults.node.stat_config.log_rotation_count);
+	ASSERT_EQ (conf.node.stat_config.log_interval_samples, defaults.node.stat_config.log_interval_samples);
+	ASSERT_EQ (conf.node.stat_config.log_interval_counters, defaults.node.stat_config.log_interval_counters);
+	ASSERT_EQ (conf.node.stat_config.log_headers, defaults.node.stat_config.log_headers);
+	ASSERT_EQ (conf.node.stat_config.log_counters_filename, defaults.node.stat_config.log_counters_filename);
+	ASSERT_EQ (conf.node.stat_config.log_samples_filename, defaults.node.stat_config.log_samples_filename);
 }
 
 TEST (toml, optional_child)
@@ -220,7 +360,6 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 {
 	std::stringstream ss;
 
-	// A config file with values that differs from test-net defaults
 	ss << R"toml(
 	[node]
 	active_elections_size = 999
@@ -231,6 +370,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	bootstrap_connections = 999
 	bootstrap_connections_max = 999
 	bootstrap_fraction_numerator = 999
+	conf_height_processor_batch_min_time = 999
 	confirmation_history_size = 999
 	enable_voting = false
 	external_address = "0:0:0:0:0:ffff:7f01:101"
@@ -257,6 +397,8 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	work_peers = ["test.org:999"]
 	work_threads = 999
 	work_watcher_period = 999
+	max_work_generate_multiplier = 1.0
+	frontiers_confirmation = "always"
 	[node.diagnostics.txn_tracking]
 	enable = true
 	ignore_writes_below_block_processor_max_time = false
@@ -272,11 +414,13 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	allow_unsafe = true
 	enable = true
 	io_timeout = 999
+	io_threads = 999
 	path = "/tmp/test"
 
 	[node.ipc.tcp]
 	enable = true
 	io_timeout = 999
+	io_threads = 999
 	port = 999
 
 	[node.logging]
@@ -331,7 +475,6 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	[rpc]
 	enable = true
 	enable_sign_hash = true
-	max_work_generate_difficulty = "ffffffffc9999999"
 
 	[rpc.child_process]
 	enable = true
@@ -352,7 +495,6 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.opencl.threads, defaults.opencl.threads);
 	ASSERT_NE (conf.rpc_enable, defaults.rpc_enable);
 	ASSERT_NE (conf.rpc.enable_sign_hash, defaults.rpc.enable_sign_hash);
-	ASSERT_NE (conf.rpc.max_work_generate_difficulty, defaults.rpc.max_work_generate_difficulty);
 	ASSERT_NE (conf.rpc.child_process.enable, defaults.rpc.child_process.enable);
 	ASSERT_NE (conf.rpc.child_process.rpc_path, defaults.rpc.child_process.rpc_path);
 
@@ -364,12 +506,15 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.bootstrap_connections, defaults.node.bootstrap_connections);
 	ASSERT_NE (conf.node.bootstrap_connections_max, defaults.node.bootstrap_connections_max);
 	ASSERT_NE (conf.node.bootstrap_fraction_numerator, defaults.node.bootstrap_fraction_numerator);
+	ASSERT_NE (conf.node.conf_height_processor_batch_min_time, defaults.node.conf_height_processor_batch_min_time);
 	ASSERT_NE (conf.node.confirmation_history_size, defaults.node.confirmation_history_size);
 	ASSERT_NE (conf.node.enable_voting, defaults.node.enable_voting);
 	ASSERT_NE (conf.node.external_address, defaults.node.external_address);
 	ASSERT_NE (conf.node.external_port, defaults.node.external_port);
 	ASSERT_NE (conf.node.io_threads, defaults.node.io_threads);
 	ASSERT_NE (conf.node.lmdb_max_dbs, defaults.node.lmdb_max_dbs);
+	ASSERT_NE (conf.node.max_work_generate_multiplier, defaults.node.max_work_generate_multiplier);
+	ASSERT_NE (conf.node.frontiers_confirmation, defaults.node.frontiers_confirmation);
 	ASSERT_NE (conf.node.network_threads, defaults.node.network_threads);
 	ASSERT_NE (conf.node.work_watcher_period, defaults.node.work_watcher_period);
 	ASSERT_NE (conf.node.online_weight_minimum, defaults.node.online_weight_minimum);
@@ -426,9 +571,11 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.ipc_config.transport_domain.allow_unsafe, defaults.node.ipc_config.transport_domain.allow_unsafe);
 	ASSERT_NE (conf.node.ipc_config.transport_domain.enabled, defaults.node.ipc_config.transport_domain.enabled);
 	ASSERT_NE (conf.node.ipc_config.transport_domain.io_timeout, defaults.node.ipc_config.transport_domain.io_timeout);
+	ASSERT_NE (conf.node.ipc_config.transport_domain.io_threads, defaults.node.ipc_config.transport_domain.io_threads);
 	ASSERT_NE (conf.node.ipc_config.transport_domain.path, defaults.node.ipc_config.transport_domain.path);
 	ASSERT_NE (conf.node.ipc_config.transport_tcp.enabled, defaults.node.ipc_config.transport_tcp.enabled);
 	ASSERT_NE (conf.node.ipc_config.transport_tcp.io_timeout, defaults.node.ipc_config.transport_tcp.io_timeout);
+	ASSERT_NE (conf.node.ipc_config.transport_tcp.io_threads, defaults.node.ipc_config.transport_tcp.io_threads);
 	ASSERT_NE (conf.node.ipc_config.transport_tcp.port, defaults.node.ipc_config.transport_tcp.port);
 
 	ASSERT_NE (conf.node.diagnostics_config.txn_tracking.enable, defaults.node.diagnostics_config.txn_tracking.enable);
@@ -445,6 +592,36 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.stat_config.log_headers, defaults.node.stat_config.log_headers);
 	ASSERT_NE (conf.node.stat_config.log_counters_filename, defaults.node.stat_config.log_counters_filename);
 	ASSERT_NE (conf.node.stat_config.log_samples_filename, defaults.node.stat_config.log_samples_filename);
+}
+
+/** There should be no required values **/
+TEST (toml, daemon_config_no_required)
+{
+	std::stringstream ss;
+
+	// A config with no values, only categories
+	ss << R"toml(
+	[node]
+	[node.diagnostics.txn_tracking]
+	[node.httpcallback]
+	[node.ipc.local]
+	[node.ipc.tcp]
+	[node.logging]
+	[node.statistics.log]
+	[node.statistics.sampling]
+	[node.websocket]
+	[opencl]
+	[rpc]
+	[rpc.child_process]
+	)toml";
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+	nano::daemon_config conf;
+	nano::daemon_config defaults;
+	conf.deserialize_toml (toml);
+
+	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
 }
 
 /** Deserialize an rpc config with non-default values */
@@ -484,4 +661,56 @@ TEST (toml, rpc_config_deserialize_no_defaults)
 	ASSERT_NE (conf.rpc_process.ipc_address, defaults.rpc_process.ipc_address);
 	ASSERT_NE (conf.rpc_process.ipc_port, defaults.rpc_process.ipc_port);
 	ASSERT_NE (conf.rpc_process.num_ipc_connections, defaults.rpc_process.num_ipc_connections);
+}
+
+/** There should be no required values **/
+TEST (toml, rpc_config_no_required)
+{
+	std::stringstream ss;
+
+	// A config with no values, only categories
+	ss << R"toml(
+	[version]
+	[process]
+	[secure]
+	)toml";
+
+	nano::tomlconfig toml;
+	toml.read (ss);
+	nano::rpc_config conf;
+	nano::rpc_config defaults;
+	conf.deserialize_toml (toml);
+
+	ASSERT_FALSE (toml.get_error ()) << toml.get_error ().get_message ();
+}
+
+/** Deserialize a node config with incorrect values */
+TEST (toml, daemon_config_deserialize_errors)
+{
+	std::stringstream ss_max_work_generate_multiplier;
+	ss_max_work_generate_multiplier << R"toml(
+	[node]
+	max_work_generate_multiplier = 0.9
+	)toml";
+
+	nano::tomlconfig toml;
+	toml.read (ss_max_work_generate_multiplier);
+	nano::daemon_config conf;
+	conf.deserialize_toml (toml);
+
+	ASSERT_EQ (toml.get_error ().get_message (), "max_work_generate_multiplier must be greater than or equal to 1");
+
+	std::stringstream ss_frontiers_confirmation;
+	ss_frontiers_confirmation << R"toml(
+	[node]
+	frontiers_confirmation = "randomstring"
+	)toml";
+
+	nano::tomlconfig toml2;
+	toml2.read (ss_frontiers_confirmation);
+	nano::daemon_config conf2;
+	conf2.deserialize_toml (toml2);
+
+	ASSERT_EQ (toml2.get_error ().get_message (), "frontiers_confirmation value is invalid (available: always, auto, disabled)");
+	ASSERT_EQ (conf2.node.frontiers_confirmation, nano::frontiers_confirmation_mode::invalid);
 }

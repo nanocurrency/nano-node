@@ -199,6 +199,7 @@ public:
 	bool exists (nano::transaction const &, nano::public_key const &);
 	void stop ();
 	void clear_send_ids (nano::transaction const &);
+	bool check_rep (nano::transaction const &, nano::account const &, nano::uint128_t const &);
 	void compute_reps ();
 	void ongoing_compute_reps ();
 	void split_if_needed (nano::transaction &, nano::block_store &);
@@ -221,6 +222,7 @@ public:
 	static nano::uint128_t const generate_priority;
 	static nano::uint128_t const high_priority;
 	std::atomic<uint64_t> reps_count{ 0 };
+	std::atomic<uint64_t> half_principal_reps_count{ 0 }; // Representatives with at least 50% of principal representative requirements
 
 	/** Start read-write transaction */
 	nano::write_transaction tx_begin_write ();

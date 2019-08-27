@@ -80,10 +80,10 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 		std::shared_ptr<nano_qt::wallet> gui;
 		nano::set_application_icon (application);
 		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, logger));
-		nano::work_pool work (config.node.work_threads, config.node.pow_sleep_interval, opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a) {
+		nano::work_pool work (config.node.work_threads, config.node.pow_sleep_interval, opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
 			return opencl->generate_work (root_a, difficulty_a);
 		}
-		                                                                                       : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> (nullptr));
+		                                                                                       : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t, std::atomic<int> &)> (nullptr));
 		nano::alarm alarm (io_ctx);
 		nano::node_flags flags;
 
