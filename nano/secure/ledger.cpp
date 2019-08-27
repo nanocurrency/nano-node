@@ -677,14 +677,14 @@ bool nano::shared_ptr_block_hash::operator() (std::shared_ptr<nano::block> const
 	return lhs->hash () == rhs->hash ();
 }
 
-nano::ledger::ledger (nano::block_store & store_a, nano::stat & stat_a, nano::uint256_union const & epoch_link_a, nano::account const & epoch_signer_a) :
+nano::ledger::ledger (nano::block_store & store_a, nano::stat & stat_a, nano::uint256_union const & epoch_link_a, nano::account const & epoch_signer_a, bool cache_reps_a) :
 store (store_a),
 stats (stat_a),
 check_bootstrap_weights (true),
 epoch_link (epoch_link_a),
 epoch_signer (epoch_signer_a)
 {
-	if (!store.init_error ())
+	if (!store.init_error () && cache_reps_a)
 	{
 		auto transaction = store.tx_begin_read ();
 		for (auto i (store.latest_begin (transaction)), n (store.latest_end ()); i != n; ++i)
