@@ -442,6 +442,7 @@ startup_time (std::chrono::steady_clock::now ())
 			{
 				auto transaction (store.tx_begin_write ());
 				store.unchecked_clear (transaction);
+				logger.always_log ("Dropping unchecked blocks");
 			}
 		}
 	}
