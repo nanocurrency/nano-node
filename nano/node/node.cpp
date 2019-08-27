@@ -393,6 +393,7 @@ startup_time (std::chrono::steady_clock::now ())
 		nano::genesis genesis;
 		if (!is_initialized)
 		{
+			release_assert (!flags.read_only);
 			auto transaction (store.tx_begin_write ());
 			// Store was empty meaning we just created it, add the genesis block
 			store.initialize (transaction, genesis);
@@ -401,7 +402,16 @@ startup_time (std::chrono::steady_clock::now ())
 		auto transaction (store.tx_begin_read ());
 		if (!store.block_exists (transaction, genesis.hash ()))
 		{
-			logger.always_log ("Genesis block not found. Make sure the node network ID is correct.");
+			std::stringstream ss;
+			ss << "Genesis block not found. Make sure the node network ID is correct.";
+			if (network_params.network.is_beta_network ())
+			{
+				ss << " Beta network may have reset, try clearing database files";
+			}
+			auto str = ss.str ();
+
+			logger.always_log (str);
+			std::cerr << str << std::endl;
 			std::exit (1);
 		}
 
