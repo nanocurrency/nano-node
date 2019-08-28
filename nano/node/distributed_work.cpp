@@ -1,6 +1,18 @@
 #include <nano/node/distributed_work.hpp>
 #include <nano/node/node.hpp>
 
+std::shared_ptr<request_type> nano::work_peer_request::get_prepared_json_request (std::string const & request_string_a) const
+{
+	auto request (std::make_shared<boost::beast::http::request<boost::beast::http::string_body>> ());
+	request->method (boost::beast::http::verb::post);
+	request->set (boost::beast::http::field::content_type, "application/json");
+	request->target ("/");
+	request->version (11);
+	request->body () = request_string_a;
+	request->prepare_payload ();
+	return request;
+}
+
 nano::distributed_work::distributed_work (unsigned int backoff_a, nano::node & node_a, nano::block_hash const & root_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a) :
 callback (callback_a),
 backoff (backoff_a),
@@ -94,13 +106,7 @@ void nano::distributed_work::start_work ()
 						boost::property_tree::write_json (ostream, request);
 						request_string = ostream.str ();
 					}
-					auto request (std::make_shared<boost::beast::http::request<boost::beast::http::string_body>> ());
-					request->method (boost::beast::http::verb::post);
-					request->set (boost::beast::http::field::content_type, "application/json");
-					request->target ("/");
-					request->version (11);
-					request->body () = request_string;
-					request->prepare_payload ();
+					auto request (connection->get_prepared_json_request (request_string));
 					boost::beast::http::async_write (connection->socket, *request, [this_l, connection, request](boost::system::error_code const & ec, size_t bytes_transferred) {
 						if (!ec)
 						{
@@ -163,14 +169,7 @@ void nano::distributed_work::cancel (std::shared_ptr<nano::work_peer_request> co
 				boost::property_tree::write_json (ostream, request);
 				request_string = ostream.str ();
 			}
-			auto request (std::make_shared<boost::beast::http::request<boost::beast::http::string_body>> ());
-			request->method (boost::beast::http::verb::post);
-			request->set (boost::beast::http::field::content_type, "application/json");
-			request->target ("/");
-			request->version (11);
-			request->body () = request_string;
-			request->prepare_payload ();
-
+			auto request (cancelling_l->get_prepared_json_request (request_string));
 			boost::beast::http::async_write (cancelling_l->socket, *request, [this_l, request, cancelling_l](boost::system::error_code const & ec, size_t bytes_transferred) {
 				if (ec)
 				{

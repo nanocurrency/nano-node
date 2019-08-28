@@ -8,6 +8,8 @@
 
 #include <unordered_map>
 
+using request_type = boost::beast::http::request<boost::beast::http::string_body>;
+
 namespace nano
 {
 class node;
@@ -21,6 +23,7 @@ public:
 	socket (io_ctx_a)
 	{
 	}
+	std::shared_ptr<request_type> get_prepared_json_request (std::string const &) const;
 	boost::asio::ip::address address;
 	uint16_t port;
 	boost::beast::flat_buffer buffer;
