@@ -1199,7 +1199,7 @@ TEST (wallet, work_watcher_cancel)
 		node.active.update_active_difficulty (lock);
 	}
 	// Wait for work generation to start
-	system.deadline_set (3s);
+	system.deadline_set (5s);
 	while (node.work.pending.empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
