@@ -268,31 +268,28 @@ void nano::distributed_work::failure (boost::asio::ip::address const & address)
 
 void nano::distributed_work::handle_failure (bool const last)
 {
-	if (last)
+	if (last && !completed)
 	{
-		if (!completed)
+		node.unresponsive_work_peers = true;
+		if (!local_generation_started)
 		{
-			node.unresponsive_work_peers = true;
-			if (!local_generation_started)
+			if (backoff == 1 && node.config.logging.work_generation_time ())
 			{
-				if (backoff == 1 && node.config.logging.work_generation_time ())
-				{
-					node.logger.always_log ("Work peer(s) failed to generate work for root ", root.to_string (), ", retrying...");
-				}
-				auto now (std::chrono::steady_clock::now ());
-				auto root_l (root);
-				auto callback_l (callback);
-				std::weak_ptr<nano::node> node_w (node.shared ());
-				auto next_backoff (std::min (backoff * 2, (unsigned int)60 * 5));
-				// clang-format off
-					node.alarm.add (now + std::chrono::seconds (backoff), [ node_w, root_l, callback_l, next_backoff, difficulty = difficulty ] {
-						if (auto node_l = node_w.lock ())
-						{
-							node_l->distributed_work.make (next_backoff, root_l, callback_l, difficulty);
-						}
-					});
-				// clang-format on
+				node.logger.always_log ("Work peer(s) failed to generate work for root ", root.to_string (), ", retrying...");
 			}
+			auto now (std::chrono::steady_clock::now ());
+			auto root_l (root);
+			auto callback_l (callback);
+			std::weak_ptr<nano::node> node_w (node.shared ());
+			auto next_backoff (std::min (backoff * 2, (unsigned int)60 * 5));
+			// clang-format off
+			node.alarm.add (now + std::chrono::seconds (backoff), [ node_w, root_l, callback_l, next_backoff, difficulty = difficulty ] {
+				if (auto node_l = node_w.lock ())
+				{
+					node_l->distributed_work.make (next_backoff, root_l, callback_l, difficulty);
+				}
+			});
+			// clang-format on
 		}
 	}
 }
