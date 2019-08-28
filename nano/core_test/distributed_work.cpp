@@ -121,4 +121,7 @@ TEST (distributed_work, no_peers_multi)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	node->distributed_work.cleanup ();
+	ASSERT_EQ (0, node->distributed_work.work.size ());
+	count = 0;
 }
