@@ -32,7 +32,7 @@ public:
 	using block_store_partial::block_exists;
 	using block_store_partial::unchecked_put;
 
-	mdb_store (bool &, nano::logger_mt &, boost::filesystem::path const &, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), int lmdb_max_dbs = 128, size_t batch_size = 512, bool backup_before_upgrade = false);
+	mdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), int lmdb_max_dbs = 128, size_t batch_size = 512, bool backup_before_upgrade = false);
 	nano::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
 	nano::read_transaction tx_begin_read () override;
 
@@ -44,8 +44,11 @@ public:
 
 	static void create_backup_file (nano::mdb_env &, boost::filesystem::path const &, nano::logger_mt &);
 
+private:
 	nano::logger_mt & logger;
+	bool error{ false };
 
+public:
 	nano::mdb_env env;
 
 	/**
@@ -115,13 +118,13 @@ public:
 	MDB_dbi pending_v1{ 0 };
 
 	/**
-	 * Maps block hash to account and balance.
+	 * Maps block hash to account and balance. (Removed)
 	 * block_hash -> nano::account, nano::amount
 	 */
 	MDB_dbi blocks_info{ 0 };
 
 	/**
-	 * Representative weights.
+	 * Representative weights. (Removed)
 	 * nano::account -> nano::uint128_t
 	 */
 	MDB_dbi representation{ 0 };
@@ -193,6 +196,8 @@ public:
 	{
 		return nano::store_iterator<Key, Value> (std::make_unique<nano::mdb_merge_iterator<Key, Value>> (transaction_a, table_to_dbi (table1_a), table_to_dbi (table2_a)));
 	}
+
+	bool init_error () const override;
 
 private:
 	bool do_upgrades (nano::write_transaction &, size_t);

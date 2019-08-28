@@ -16,7 +16,7 @@ class transaction;
 class online_reps final
 {
 public:
-	online_reps (nano::node &, nano::uint128_t, bool);
+	online_reps (nano::node &, nano::uint128_t);
 
 	/** Add voting account \p rep_account to the set of online representatives */
 	void observe (nano::account const & rep_account);

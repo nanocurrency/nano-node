@@ -84,7 +84,7 @@ bool copy_database (boost::filesystem::path const & data_path, boost::program_op
 	bool needs_to_write = vm.count ("unchecked_clear") || vm.count ("clear_send_ids") || vm.count ("online_weight_clear") || vm.count ("peer_clear") || vm.count ("confirmation_height_clear");
 
 	nano::inactive_node node (data_path, 24000, !needs_to_write);
-	if (!node.init.error ())
+	if (!node.node->init_error ())
 	{
 		if (vm.count ("unchecked_clear"))
 		{
@@ -291,7 +291,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
 		inactive_node node (data_path, 24000, false);
-		if (!node.init.error ())
+		if (!node.node->init_error ())
 		{
 			auto transaction (node.node->store.tx_begin_write ());
 			node.node->store.unchecked_clear (transaction);
@@ -306,7 +306,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
 		inactive_node node (data_path, 24000, false);
-		if (!node.init.error ())
+		if (!node.node->init_error ())
 		{
 			auto transaction (node.node->wallets.tx_begin_write ());
 			node.node->wallets.clear_send_ids (transaction);
@@ -321,7 +321,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
 		inactive_node node (data_path, 24000, false);
-		if (!node.init.error ())
+		if (!node.node->init_error ())
 		{
 			auto transaction (node.node->store.tx_begin_write ());
 			node.node->store.online_weight_clear (transaction);
@@ -336,7 +336,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
 		inactive_node node (data_path, 24000, false);
-		if (!node.init.error ())
+		if (!node.node->init_error ())
 		{
 			auto transaction (node.node->store.tx_begin_write ());
 			node.node->store.peer_clear (transaction);
@@ -351,7 +351,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
 		inactive_node node (data_path, 24000, false);
-		if (!node.init.error ())
+		if (!node.node->init_error ())
 		{
 			auto account_it = vm.find ("account");
 			if (account_it != vm.cend ())

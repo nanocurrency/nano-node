@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/config.hpp>
+#include <nano/lib/rep_weights.hpp>
 #include <nano/secure/common.hpp>
 
 namespace nano
@@ -18,7 +19,7 @@ using tally_t = std::map<nano::uint128_t, std::shared_ptr<nano::block>, std::gre
 class ledger final
 {
 public:
-	ledger (nano::block_store &, nano::stat &, nano::uint256_union const & = 1, nano::account const & = 0);
+	ledger (nano::block_store &, nano::stat &, nano::uint256_union const & = 1, nano::account const & = 0, bool = true);
 	nano::account account (nano::transaction const &, nano::block_hash const &) const;
 	nano::uint128_t amount (nano::transaction const &, nano::block_hash const &);
 	nano::uint128_t balance (nano::transaction const &, nano::block_hash const &) const;
@@ -50,8 +51,10 @@ public:
 	static nano::uint128_t const unit;
 	nano::network_params network_params;
 	nano::block_store & store;
+	nano::rep_weights rep_weights;
 	nano::stat & stats;
 	std::unordered_map<nano::account, nano::uint128_t> bootstrap_weights;
+	std::atomic<size_t> bootstrap_weights_size{ 0 };
 	uint64_t bootstrap_weight_max_blocks{ 1 };
 	std::atomic<bool> check_bootstrap_weights;
 	nano::uint256_union epoch_link;

@@ -3,11 +3,11 @@
 
 #include <cassert>
 
-nano::online_reps::online_reps (nano::node & node_a, nano::uint128_t minimum_a, bool block_store_error_a) :
+nano::online_reps::online_reps (nano::node & node_a, nano::uint128_t minimum_a) :
 node (node_a),
 minimum (minimum_a)
 {
-	if (!block_store_error_a)
+	if (!node.ledger.store.init_error ())
 	{
 		auto transaction (node.ledger.store.tx_begin_read ());
 		online = trend (transaction);

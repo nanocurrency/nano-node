@@ -40,15 +40,15 @@ void rocksdb_val::convert_buffer_to_value ()
 }
 }
 
-nano::rocksdb_store::rocksdb_store (bool & error_a, nano::logger_mt & logger_a, boost::filesystem::path const & path_a, bool open_read_only_a) :
+nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, bool open_read_only_a) :
 logger (logger_a)
 {
 	boost::system::error_code error_mkdir, error_chmod;
 	boost::filesystem::create_directories (path_a, error_mkdir);
 	nano::set_secure_perm_directory (path_a, error_chmod);
-	error_a |= static_cast<bool> (error_mkdir);
+	error = static_cast<bool> (error_mkdir);
 
-	if (!error_a)
+	if (!error)
 	{
 		auto table_options = get_table_options ();
 		table_factory.reset (rocksdb::NewBlockBasedTableFactory (table_options));
@@ -56,7 +56,7 @@ logger (logger_a)
 		{
 			construct_column_family_mutexes ();
 		}
-		open (error_a, path_a, open_read_only_a);
+		open (error, path_a, open_read_only_a);
 	}
 }
 
@@ -602,9 +602,13 @@ bool nano::rocksdb_store::copy_db (boost::filesystem::path const & destination_p
 	// Open it so that it flushes all WAL files
 	if (status.ok ())
 	{
-		auto error{ false };
-		nano::rocksdb_store rocksdb_store (error, logger, destination_path.string (), false, false);
-		return !error;
+		nano::rocksdb_store rocksdb_store (logger, destination_path.string (), false, false);
+		return !rocksdb_store.init_error ();
 	}
 	return false;
+}
+
+bool nano::rocksdb_store::init_error () const
+{
+	return error;
 }

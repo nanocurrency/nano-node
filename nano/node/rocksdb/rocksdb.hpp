@@ -24,7 +24,7 @@ class logging_mt;
 class rocksdb_store : public block_store_partial<rocksdb::Slice, rocksdb_store>
 {
 public:
-	rocksdb_store (bool &, nano::logger_mt &, boost::filesystem::path const &, bool open_read_only = false);
+	rocksdb_store (nano::logger_mt &, boost::filesystem::path const &, bool open_read_only = false);
 	~rocksdb_store ();
 	nano::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
 	nano::read_transaction tx_begin_read () override;
@@ -69,7 +69,10 @@ public:
 		return nano::store_iterator<Key, Value> (std::make_unique<nano::rocksdb_merge_iterator<Key, Value>> (db, transaction_a, table_to_column_family (table1_a), table_to_column_family (table2_a)));
 	}
 
+	bool init_error () const override;
+
 private:
+	bool error{ false };
 	nano::logger_mt & logger;
 	std::vector<rocksdb::ColumnFamilyHandle *> handles;
 	// Optimistic transactions are used in write mode
