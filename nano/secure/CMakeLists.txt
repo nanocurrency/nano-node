@@ -40,6 +40,8 @@ add_library (secure
 	blockstore.hpp
 	blockstore_partial.hpp
 	blockstore.cpp
+	epoch.cpp
+	epoch.hpp
 	ledger.hpp
 	ledger.cpp
 	utility.hpp

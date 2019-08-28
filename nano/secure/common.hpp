@@ -6,6 +6,7 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/secure/epoch.hpp>
 #include <nano/secure/utility.hpp>
 
 #include <boost/iterator/transform_iterator.hpp>
@@ -49,17 +50,6 @@ public:
 	keypair (nano::raw_key &&);
 	nano::public_key pub;
 	nano::raw_key prv;
-};
-
-/**
- * Tag for which epoch an entry belongs to
- */
-enum class epoch : uint8_t
-{
-	invalid = 0,
-	unspecified = 1,
-	epoch_0 = 2,
-	epoch_1 = 3
 };
 
 /**
