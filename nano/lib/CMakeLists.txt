@@ -21,6 +21,8 @@ add_library (nano_lib
 	config.hpp
 	config.cpp
 	configbase.hpp
+	diagnosticsconfig.hpp
+	diagnosticsconfig.cpp
 	errors.hpp
 	errors.cpp
 	ipc.hpp
@@ -34,6 +36,8 @@ add_library (nano_lib
 	memory.cpp
 	numbers.hpp
 	numbers.cpp
+	rep_weights.hpp
+	rep_weights.cpp
 	rpc_handler_interface.hpp
 	rpcconfig.hpp
 	rpcconfig.cpp

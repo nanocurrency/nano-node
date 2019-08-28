@@ -1,9 +1,9 @@
 #pragma once
 
 #include <nano/lib/config.hpp>
+#include <nano/lib/diagnosticsconfig.hpp>
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
-#include <nano/node/diagnosticsconfig.hpp>
 #include <nano/node/lmdb/lmdb_env.hpp>
 #include <nano/node/lmdb/lmdb_iterator.hpp>
 #include <nano/node/lmdb/lmdb_txn.hpp>
@@ -32,20 +32,23 @@ public:
 	using block_store_partial::block_exists;
 	using block_store_partial::unchecked_put;
 
-	mdb_store (bool &, nano::logger_mt &, boost::filesystem::path const &, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), int lmdb_max_dbs = 128, bool drop_unchecked = false, size_t batch_size = 512, bool backup_before_upgrade = false);
-	nano::write_transaction tx_begin_write () override;
+	mdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), int lmdb_max_dbs = 128, bool drop_unchecked = false, size_t batch_size = 512, bool backup_before_upgrade = false);
+	nano::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
 	nano::read_transaction tx_begin_read () override;
 
 	bool block_info_get (nano::transaction const &, nano::block_hash const &, nano::block_info &) const override;
 
-	void version_put (nano::transaction const &, int) override;
+	void version_put (nano::write_transaction const &, int) override;
 
 	void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::milliseconds, std::chrono::milliseconds) override;
 
 	static void create_backup_file (nano::mdb_env &, boost::filesystem::path const &, nano::logger_mt &);
 
+private:
 	nano::logger_mt & logger;
+	bool error{ false };
 
+public:
 	nano::mdb_env env;
 
 	/**
@@ -115,13 +118,13 @@ public:
 	MDB_dbi pending_v1{ 0 };
 
 	/**
-	 * Maps block hash to account and balance.
+	 * Maps block hash to account and balance. (Removed)
 	 * block_hash -> nano::account, nano::amount
 	 */
 	MDB_dbi blocks_info{ 0 };
 
 	/**
-	 * Representative weights.
+	 * Representative weights. (Removed)
 	 * nano::account -> nano::uint128_t
 	 */
 	MDB_dbi representation{ 0 };
@@ -165,52 +168,56 @@ public:
 	bool exists (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a) const;
 
 	int get (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, nano::mdb_val & value_a) const;
-	int put (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, const nano::mdb_val & value_a) const;
-	int del (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a) const;
+	int put (nano::write_transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, const nano::mdb_val & value_a) const;
+	int del (nano::write_transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a) const;
+
+	bool copy_db (boost::filesystem::path const & destination_file) override;
 
 	template <typename Key, typename Value>
-	nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a)
+	nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a) const
 	{
 		return nano::store_iterator<Key, Value> (std::make_unique<nano::mdb_iterator<Key, Value>> (transaction_a, table_to_dbi (table_a)));
 	}
 
 	template <typename Key, typename Value>
-	nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key)
+	nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key) const
 	{
 		return nano::store_iterator<Key, Value> (std::make_unique<nano::mdb_iterator<Key, Value>> (transaction_a, table_to_dbi (table_a), key));
 	}
 
 	template <typename Key, typename Value>
-	nano::store_iterator<Key, Value> make_merge_iterator (nano::transaction const & transaction_a, tables table1_a, tables table2_a, nano::mdb_val const & key)
+	nano::store_iterator<Key, Value> make_merge_iterator (nano::transaction const & transaction_a, tables table1_a, tables table2_a, nano::mdb_val const & key) const
 	{
 		return nano::store_iterator<Key, Value> (std::make_unique<nano::mdb_merge_iterator<Key, Value>> (transaction_a, table_to_dbi (table1_a), table_to_dbi (table2_a), key));
 	}
 
 	template <typename Key, typename Value>
-	nano::store_iterator<Key, Value> make_merge_iterator (nano::transaction const & transaction_a, tables table1_a, tables table2_a)
+	nano::store_iterator<Key, Value> make_merge_iterator (nano::transaction const & transaction_a, tables table1_a, tables table2_a) const
 	{
 		return nano::store_iterator<Key, Value> (std::make_unique<nano::mdb_merge_iterator<Key, Value>> (transaction_a, table_to_dbi (table1_a), table_to_dbi (table2_a)));
 	}
 
+	bool init_error () const override;
+
 private:
 	bool do_upgrades (nano::write_transaction &, size_t);
-	void upgrade_v1_to_v2 (nano::transaction const &);
-	void upgrade_v2_to_v3 (nano::transaction const &);
-	void upgrade_v3_to_v4 (nano::transaction const &);
-	void upgrade_v4_to_v5 (nano::transaction const &);
-	void upgrade_v5_to_v6 (nano::transaction const &);
-	void upgrade_v6_to_v7 (nano::transaction const &);
-	void upgrade_v7_to_v8 (nano::transaction const &);
-	void upgrade_v8_to_v9 (nano::transaction const &);
-	void upgrade_v10_to_v11 (nano::transaction const &);
-	void upgrade_v11_to_v12 (nano::transaction const &);
+	void upgrade_v1_to_v2 (nano::write_transaction const &);
+	void upgrade_v2_to_v3 (nano::write_transaction const &);
+	void upgrade_v3_to_v4 (nano::write_transaction const &);
+	void upgrade_v4_to_v5 (nano::write_transaction const &);
+	void upgrade_v5_to_v6 (nano::write_transaction const &);
+	void upgrade_v6_to_v7 (nano::write_transaction const &);
+	void upgrade_v7_to_v8 (nano::write_transaction const &);
+	void upgrade_v8_to_v9 (nano::write_transaction const &);
+	void upgrade_v10_to_v11 (nano::write_transaction const &);
+	void upgrade_v11_to_v12 (nano::write_transaction const &);
 	void upgrade_v12_to_v13 (nano::write_transaction &, size_t);
-	void upgrade_v13_to_v14 (nano::transaction const &);
-	void upgrade_v14_to_v15 (nano::transaction const &);
+	void upgrade_v13_to_v14 (nano::write_transaction const &);
+	void upgrade_v14_to_v15 (nano::write_transaction const &);
 	void open_databases (bool &, nano::transaction const &, unsigned);
 
-	int drop (nano::transaction const & transaction_a, tables table_a) override;
-	int clear (nano::transaction const & transaction_a, MDB_dbi handle_a);
+	int drop (nano::write_transaction const & transaction_a, tables table_a) override;
+	int clear (nano::write_transaction const & transaction_a, MDB_dbi handle_a);
 
 	bool not_found (int status) const override;
 	bool success (int status) const override;

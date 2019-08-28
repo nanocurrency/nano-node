@@ -1675,6 +1675,7 @@ TEST (rpc, process_block_with_work_watcher)
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
 	node_config.enable_voting = false;
+	node_config.work_watcher_period = 1s;
 	auto & node1 = *system.add_node (node_config);
 	nano::keypair key;
 	auto latest (system.nodes[0]->latest (nano::test_genesis_key.pub));
@@ -1969,8 +1970,7 @@ TEST (rpc, process_subtype_receive)
 TEST (rpc, keepalive)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
-	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 	node1->start ();
 	system.nodes.push_back (node1);
 	auto node = system.nodes.front ();
@@ -6107,7 +6107,6 @@ TEST (rpc, block_confirm_absent)
 TEST (rpc, block_confirm_confirmed)
 {
 	nano::system system (24000, 1);
-	nano::node_init init;
 	auto path (nano::unique_path ());
 	nano::node_config config;
 	config.peering_port = 24001;
@@ -6115,7 +6114,7 @@ TEST (rpc, block_confirm_confirmed)
 	config.callback_port = 24002;
 	config.callback_target = "/";
 	config.logging.init (path);
-	auto node (std::make_shared<nano::node> (init, system.io_ctx, path, system.alarm, config, system.work));
+	auto node (std::make_shared<nano::node> (system.io_ctx, path, system.alarm, config, system.work));
 	node->start ();
 	system.nodes.push_back (node);
 	nano::genesis genesis;
@@ -6645,11 +6644,6 @@ TEST (rpc, block_confirmed)
 	auto send = std::make_shared<nano::send_block> (latest, key.pub, 10, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest));
 	node->process_active (send);
 	node->block_processor.flush ();
-	system.deadline_set (10s);
-	while (!node->pending_confirmation_height.is_processing_block (send->hash ()))
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
 
 	// Wait until the confirmation height has been set
 	system.deadline_set (10s);
@@ -6680,6 +6674,7 @@ TEST (rpc, block_confirmed)
 	ASSERT_TRUE (response3.json.get<bool> ("confirmed"));
 }
 
+#if !NANO_ROCKSDB
 TEST (rpc, database_txn_tracker)
 {
 	// First try when database tracking is disabled
@@ -6807,6 +6802,7 @@ TEST (rpc, database_txn_tracker)
 	ASSERT_TRUE (!std::get<3> (json_l.front ()).empty ());
 	thread.join ();
 }
+#endif
 
 TEST (rpc, active_difficulty)
 {

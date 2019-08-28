@@ -301,7 +301,8 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 	while (total_pending_write_block_count > 0)
 	{
 		uint64_t num_accounts_processed = 0;
-		auto transaction (store.tx_begin_write ());
+
+		auto transaction (store.tx_begin_write ({}, { nano::tables::confirmation_height }));
 		while (!all_pending_a.empty ())
 		{
 			const auto & pending = all_pending_a.front ();

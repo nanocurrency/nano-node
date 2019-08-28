@@ -2,6 +2,7 @@
 
 #include <nano/boost/asio.hpp>
 #include <nano/lib/alarm.hpp>
+#include <nano/lib/rep_weights.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/active_transactions.hpp>
@@ -72,22 +73,14 @@ public:
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_arrival & block_arrival, const std::string & name);
 
-class node_init final
-{
-public:
-	bool error () const;
-	bool block_store_init{ false };
-	bool wallets_store_init{ false };
-};
-
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (rep_crawler & rep_crawler, const std::string & name);
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_processor & block_processor, const std::string & name);
 
 class node final : public std::enable_shared_from_this<nano::node>
 {
 public:
-	node (nano::node_init &, boost::asio::io_context &, uint16_t, boost::filesystem::path const &, nano::alarm &, nano::logging const &, nano::work_pool &, nano::node_flags = nano::node_flags ());
-	node (nano::node_init &, boost::asio::io_context &, boost::filesystem::path const &, nano::alarm &, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags ());
+	node (boost::asio::io_context &, uint16_t, boost::filesystem::path const &, nano::alarm &, nano::logging const &, nano::work_pool &, nano::node_flags = nano::node_flags ());
+	node (boost::asio::io_context &, boost::filesystem::path const &, nano::alarm &, nano::node_config const &, nano::work_pool &, nano::node_flags = nano::node_flags ());
 	~node ();
 	template <typename T>
 	void background (T action_a)
@@ -141,6 +134,7 @@ public:
 	void ongoing_online_weight_calculation ();
 	void ongoing_online_weight_calculation_queue ();
 	bool online () const;
+	bool init_error () const;
 	nano::worker worker;
 	nano::write_database_queue write_database_queue;
 	boost::asio::io_context & io_ctx;
@@ -195,13 +189,12 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (node & node, const
 class inactive_node final
 {
 public:
-	inactive_node (boost::filesystem::path const & path = nano::working_path (), uint16_t = 24000);
+	inactive_node (boost::filesystem::path const & path = nano::working_path (), uint16_t = 24000, bool = true, bool = false);
 	~inactive_node ();
 	boost::filesystem::path path;
 	std::shared_ptr<boost::asio::io_context> io_context;
 	nano::alarm alarm;
 	nano::logging logging;
-	nano::node_init init;
 	nano::work_pool work;
 	uint16_t peering_port;
 	std::shared_ptr<nano::node> node;

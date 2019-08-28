@@ -39,13 +39,13 @@ void mdb_val::convert_buffer_to_value ()
 }
 }
 
-nano::mdb_store::mdb_store (bool & error_a, nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, bool drop_unchecked, size_t const batch_size, bool backup_before_upgrade) :
+nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, bool drop_unchecked, size_t const batch_size, bool backup_before_upgrade) :
 logger (logger_a),
-env (error_a, path_a, lmdb_max_dbs, true),
+env (error, path_a, lmdb_max_dbs, true),
 mdb_txn_tracker (logger_a, txn_tracking_config_a, block_processor_batch_max_time_a),
 txn_tracking_enabled (txn_tracking_config_a.enable)
 {
-	if (!error_a)
+	if (!error)
 	{
 		auto is_fully_upgraded (false);
 		{
@@ -68,21 +68,21 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 				create_backup_file (env, path_a, logger_a);
 			}
 			auto transaction (tx_begin_write ());
-			open_databases (error_a, transaction, MDB_CREATE);
-			if (!error_a)
+			open_databases (error, transaction, MDB_CREATE);
+			if (!error)
 			{
-				error_a |= do_upgrades (transaction, batch_size);
+				error |= do_upgrades (transaction, batch_size);
 			}
 		}
 		else
 		{
 			auto transaction (tx_begin_read ());
-			open_databases (error_a, transaction, 0);
+			open_databases (error, transaction, 0);
 		}
 
-		if (!error_a && drop_unchecked)
+		if (!error && drop_unchecked)
 		{
-			auto transaction (tx_begin_write ());
+			auto transaction (tx_begin_write ({ nano::tables::cached_counts, tables::unchecked }));
 			unchecked_clear (transaction);
 		}
 	}
@@ -93,7 +93,7 @@ void nano::mdb_store::serialize_mdb_tracker (boost::property_tree::ptree & json,
 	mdb_txn_tracker.serialize_json (json, min_read_time, min_write_time);
 }
 
-nano::write_transaction nano::mdb_store::tx_begin_write ()
+nano::write_transaction nano::mdb_store::tx_begin_write (std::vector<nano::tables> const &, std::vector<nano::tables> const &)
 {
 	return env.tx_begin_write (create_txn_callbacks ());
 }
@@ -133,7 +133,6 @@ void nano::mdb_store::open_databases (bool & error_a, nano::transaction const & 
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "state_v1", flags, &state_blocks_v1) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "pending", flags, &pending_v0) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "pending_v1", flags, &pending_v1) != 0;
-	error_a |= mdb_dbi_open (env.tx (transaction_a), "representation", flags, &representation) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "unchecked", flags, &unchecked) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "vote", flags, &vote) != 0;
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "online_weight", flags, &online_weight) != 0;
@@ -189,7 +188,7 @@ bool nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, size
 	return error;
 }
 
-void nano::mdb_store::upgrade_v1_to_v2 (nano::transaction const & transaction_a)
+void nano::mdb_store::upgrade_v1_to_v2 (nano::write_transaction const & transaction_a)
 {
 	version_put (transaction_a, 2);
 	nano::account account (1);
@@ -223,7 +222,7 @@ void nano::mdb_store::upgrade_v1_to_v2 (nano::transaction const & transaction_a)
 	}
 }
 
-void nano::mdb_store::upgrade_v2_to_v3 (nano::transaction const & transaction_a)
+void nano::mdb_store::upgrade_v2_to_v3 (nano::write_transaction const & transaction_a)
 {
 	version_put (transaction_a, 3);
 	mdb_drop (env.tx (transaction_a), representation, 0);
@@ -237,11 +236,10 @@ void nano::mdb_store::upgrade_v2_to_v3 (nano::transaction const & transaction_a)
 		info.rep_block = visitor.result;
 		auto impl (boost::polymorphic_downcast<nano::mdb_iterator<nano::account, nano::account_info_v5> *> (i.get ()));
 		mdb_cursor_put (impl->cursor, nano::mdb_val (account_l), nano::mdb_val (sizeof (info), &info), MDB_CURRENT);
-		representation_add (transaction_a, visitor.result, info.balance.number ());
 	}
 }
 
-void nano::mdb_store::upgrade_v3_to_v4 (nano::transaction const & transaction_a)
+void nano::mdb_store::upgrade_v3_to_v4 (nano::write_transaction const & transaction_a)
 {
 	version_put (transaction_a, 4);
 	std::queue<std::pair<nano::pending_key, nano::pending_info>> items;
@@ -259,7 +257,7 @@ void nano::mdb_store::upgrade_v3_to_v4 (nano::transaction const & transaction_a)
 	}
 }
 
-void nano::mdb_store::upgrade_v4_to_v5 (nano::transaction const & transaction_a)
+void nano::mdb_store::upgrade_v4_to_v5 (nano::write_transaction const & transaction_a)
 {
 	version_put (transaction_a, 5);
 	for (auto i (nano::store_iterator<nano::account, nano::account_info_v5> (std::make_unique<nano::mdb_iterator<nano::account, nano::account_info_v5>> (transaction_a, accounts_v0))), n (nano::store_iterator<nano::account, nano::account_info_v5> (nullptr)); i != n; ++i)
@@ -296,7 +294,7 @@ void nano::mdb_store::upgrade_v4_to_v5 (nano::transaction const & transaction_a)
 	}
 }
 
-void nano::mdb_store::upgrade_v5_to_v6 (nano::transaction const & transaction_a)
+void nano::mdb_store::upgrade_v5_to_v6 (nano::write_transaction const & transaction_a)
 {
 	version_put (transaction_a, 6);
 	std::deque<std::pair<nano::account, nano::account_info_v13>> headers;
@@ -322,20 +320,20 @@ void nano::mdb_store::upgrade_v5_to_v6 (nano::transaction const & transaction_a)
 	}
 }
 
-void nano::mdb_store::upgrade_v6_to_v7 (nano::transaction const & transaction_a)
+void nano::mdb_store::upgrade_v6_to_v7 (nano::write_transaction const & transaction_a)
 {
 	version_put (transaction_a, 7);
 	mdb_drop (env.tx (transaction_a), unchecked, 0);
 }
 
-void nano::mdb_store::upgrade_v7_to_v8 (nano::transaction const & transaction_a)
+void nano::mdb_store::upgrade_v7_to_v8 (nano::write_transaction const & transaction_a)
 {
 	version_put (transaction_a, 8);
 	mdb_drop (env.tx (transaction_a), unchecked, 1);
 	mdb_dbi_open (env.tx (transaction_a), "unchecked", MDB_CREATE | MDB_DUPSORT, &unchecked);
 }
 
-void nano::mdb_store::upgrade_v8_to_v9 (nano::transaction const & transaction_a)
+void nano::mdb_store::upgrade_v8_to_v9 (nano::write_transaction const & transaction_a)
 {
 	version_put (transaction_a, 9);
 	MDB_dbi sequence;
@@ -363,7 +361,7 @@ void nano::mdb_store::upgrade_v8_to_v9 (nano::transaction const & transaction_a)
 	mdb_drop (env.tx (transaction_a), sequence, 1);
 }
 
-void nano::mdb_store::upgrade_v10_to_v11 (nano::transaction const & transaction_a)
+void nano::mdb_store::upgrade_v10_to_v11 (nano::write_transaction const & transaction_a)
 {
 	version_put (transaction_a, 11);
 	MDB_dbi unsynced;
@@ -371,7 +369,7 @@ void nano::mdb_store::upgrade_v10_to_v11 (nano::transaction const & transaction_
 	mdb_drop (env.tx (transaction_a), unsynced, 1);
 }
 
-void nano::mdb_store::upgrade_v11_to_v12 (nano::transaction const & transaction_a)
+void nano::mdb_store::upgrade_v11_to_v12 (nano::write_transaction const & transaction_a)
 {
 	version_put (transaction_a, 12);
 	mdb_drop (env.tx (transaction_a), unchecked, 1);
@@ -443,7 +441,7 @@ void nano::mdb_store::upgrade_v12_to_v13 (nano::write_transaction & transaction_
 	}
 }
 
-void nano::mdb_store::upgrade_v13_to_v14 (nano::transaction const & transaction_a)
+void nano::mdb_store::upgrade_v13_to_v14 (nano::write_transaction const & transaction_a)
 {
 	// Upgrade all accounts to have a confirmation of 0 (except genesis which should have 1)
 	version_put (transaction_a, 14);
@@ -476,7 +474,7 @@ void nano::mdb_store::upgrade_v13_to_v14 (nano::transaction const & transaction_
 	release_assert (!error || error == MDB_NOTFOUND);
 }
 
-void nano::mdb_store::upgrade_v14_to_v15 (nano::transaction const & transaction_a)
+void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction const & transaction_a)
 {
 	version_put (transaction_a, 15);
 
@@ -496,6 +494,14 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::transaction const & transaction_
 	for (auto const & account_info : account_infos)
 	{
 		account_put (transaction_a, account_info.first, account_info.second);
+	}
+
+	// Representation table is no longer used
+	if (representation != 0)
+	{
+		auto status (mdb_drop (env.tx (transaction_a), representation, 1));
+		release_assert (status == MDB_SUCCESS);
+		representation = 0;
 	}
 }
 
@@ -530,7 +536,7 @@ void nano::mdb_store::create_backup_file (nano::mdb_env & env_a, boost::filesyst
 	}
 }
 
-void nano::mdb_store::version_put (nano::transaction const & transaction_a, int version_a)
+void nano::mdb_store::version_put (nano::write_transaction const & transaction_a, int version_a)
 {
 	nano::uint256_union version_key (1);
 	nano::uint256_union version_value (version_a);
@@ -584,22 +590,22 @@ int nano::mdb_store::get (nano::transaction const & transaction_a, tables table_
 	return mdb_get (env.tx (transaction_a), table_to_dbi (table_a), key_a, value_a);
 }
 
-int nano::mdb_store::put (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, const nano::mdb_val & value_a) const
+int nano::mdb_store::put (nano::write_transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a, const nano::mdb_val & value_a) const
 {
 	return (mdb_put (env.tx (transaction_a), table_to_dbi (table_a), key_a, value_a, 0));
 }
 
-int nano::mdb_store::del (nano::transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a) const
+int nano::mdb_store::del (nano::write_transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a) const
 {
 	return (mdb_del (env.tx (transaction_a), table_to_dbi (table_a), key_a, nullptr));
 }
 
-int nano::mdb_store::drop (nano::transaction const & transaction_a, tables table_a)
+int nano::mdb_store::drop (nano::write_transaction const & transaction_a, tables table_a)
 {
 	return clear (transaction_a, table_to_dbi (table_a));
 }
 
-int nano::mdb_store::clear (nano::transaction const & transaction_a, MDB_dbi handle_a)
+int nano::mdb_store::clear (nano::write_transaction const & transaction_a, MDB_dbi handle_a)
 {
 	return mdb_drop (env.tx (transaction_a), handle_a, 0);
 }
@@ -645,8 +651,6 @@ MDB_dbi nano::mdb_store::table_to_dbi (tables table_a) const
 			return pending_v1;
 		case tables::blocks_info:
 			return blocks_info;
-		case tables::representation:
-			return representation;
 		case tables::unchecked:
 			return unchecked;
 		case tables::vote:
@@ -667,7 +671,7 @@ MDB_dbi nano::mdb_store::table_to_dbi (tables table_a) const
 
 bool nano::mdb_store::not_found (int status) const
 {
-	return (MDB_NOTFOUND == status);
+	return (status_code_not_found () == status);
 }
 
 bool nano::mdb_store::success (int status) const
@@ -678,4 +682,14 @@ bool nano::mdb_store::success (int status) const
 int nano::mdb_store::status_code_not_found () const
 {
 	return MDB_NOTFOUND;
+}
+
+bool nano::mdb_store::copy_db (boost::filesystem::path const & destination_file)
+{
+	return !mdb_env_copy2 (env.environment, destination_file.string ().c_str (), MDB_CP_COMPACT);
+}
+
+bool nano::mdb_store::init_error () const
+{
+	return error;
 }

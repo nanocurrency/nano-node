@@ -18,6 +18,7 @@ namespace nano
 {
 class node;
 class transaction;
+class write_transaction;
 class write_database_queue;
 
 class rolled_hash
@@ -47,14 +48,14 @@ public:
 	bool should_log (bool);
 	bool have_blocks ();
 	void process_blocks ();
-	nano::process_return process_one (nano::transaction const &, nano::unchecked_info, const bool = false);
-	nano::process_return process_one (nano::transaction const &, std::shared_ptr<nano::block>, const bool = false);
+	nano::process_return process_one (nano::write_transaction const &, nano::unchecked_info, const bool = false);
+	nano::process_return process_one (nano::write_transaction const &, std::shared_ptr<nano::block>, const bool = false);
 	nano::vote_generator generator;
 	// Delay required for average network propagartion before requesting confirmation
 	static std::chrono::milliseconds constexpr confirmation_request_delay{ 1500 };
 
 private:
-	void queue_unchecked (nano::transaction const &, nano::block_hash const &);
+	void queue_unchecked (nano::write_transaction const &, nano::block_hash const &);
 	void verify_state_blocks (nano::transaction const & transaction_a, std::unique_lock<std::mutex> &, size_t = std::numeric_limits<size_t>::max ());
 	void process_batch (std::unique_lock<std::mutex> &);
 	void process_live (nano::block_hash const &, std::shared_ptr<nano::block>, const bool = false);
