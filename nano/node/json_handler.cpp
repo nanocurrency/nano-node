@@ -4439,8 +4439,7 @@ void nano::json_handler::work_generate ()
 {
 	auto hash (hash_impl ());
 	auto difficulty (difficulty_optional_impl ());
-	auto multiplier (multiplier_optional_impl (difficulty));
-	(void)multiplier;
+	multiplier_optional_impl (difficulty);
 	if (!ec && (difficulty > node.config.max_work_generate_difficulty || difficulty < node.network_params.network.publish_threshold))
 	{
 		ec = nano::error_rpc::difficulty_limit;
@@ -4540,8 +4539,7 @@ void nano::json_handler::work_validate ()
 	auto hash (hash_impl ());
 	auto work (work_optional_impl ());
 	auto difficulty (difficulty_optional_impl ());
-	auto multiplier (multiplier_optional_impl (difficulty));
-	(void)multiplier;
+	multiplier_optional_impl (difficulty);
 	if (!ec)
 	{
 		uint64_t result_difficulty (0);

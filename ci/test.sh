@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 build_dir=${1-${PWD}}
-TIMEOUT_DEFAULT=180
+TIMEOUT_DEFAULT=360
 
 BUSYBOX_BASH=${BUSYBOX_BASH-0}
 

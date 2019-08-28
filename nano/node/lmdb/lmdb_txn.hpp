@@ -1,7 +1,7 @@
 #pragma once
 
+#include <nano/lib/diagnosticsconfig.hpp>
 #include <nano/lib/timer.hpp>
-#include <nano/node/diagnosticsconfig.hpp>
 #include <nano/secure/blockstore.hpp>
 
 #include <boost/property_tree/ptree.hpp>
@@ -46,6 +46,7 @@ public:
 	void commit () const override;
 	void renew () override;
 	void * get_handle () const override;
+	bool contains (nano::tables table_a) const override;
 	MDB_txn * handle;
 	nano::mdb_env const & env;
 	mdb_txn_callbacks txn_callbacks;

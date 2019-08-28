@@ -12,7 +12,8 @@ enum class error_cli
 	generic = 1,
 	parse_error = 2,
 	invalid_arguments = 3,
-	unknown_command = 4
+	unknown_command = 4,
+	database_write_error = 5
 };
 
 void add_node_options (boost::program_options::options_description &);

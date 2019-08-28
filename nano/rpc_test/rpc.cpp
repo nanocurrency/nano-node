@@ -6649,11 +6649,6 @@ TEST (rpc, block_confirmed)
 	auto send = std::make_shared<nano::send_block> (latest, key.pub, 10, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest));
 	node->process_active (send);
 	node->block_processor.flush ();
-	system.deadline_set (10s);
-	while (!node->pending_confirmation_height.is_processing_block (send->hash ()))
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
 
 	// Wait until the confirmation height has been set
 	system.deadline_set (10s);
@@ -6684,6 +6679,7 @@ TEST (rpc, block_confirmed)
 	ASSERT_TRUE (response3.json.get<bool> ("confirmed"));
 }
 
+#if !NANO_ROCKSDB
 TEST (rpc, database_txn_tracker)
 {
 	// First try when database tracking is disabled
@@ -6811,6 +6807,7 @@ TEST (rpc, database_txn_tracker)
 	ASSERT_TRUE (!std::get<3> (json_l.front ()).empty ());
 	thread.join ();
 }
+#endif
 
 TEST (rpc, active_difficulty)
 {

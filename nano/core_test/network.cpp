@@ -1544,7 +1544,7 @@ TEST (confirmation_height, single)
 			ASSERT_NO_ERROR (system.poll ());
 		}
 
-		auto transaction = node->store.tx_begin_read ();
+		auto transaction = node->store.tx_begin_write ();
 		ASSERT_FALSE (node->store.confirmation_height_get (transaction, nano::test_genesis_key.pub, confirmation_height));
 		ASSERT_EQ (2, confirmation_height);
 
