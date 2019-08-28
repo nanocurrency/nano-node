@@ -95,16 +95,6 @@ void nano::rpc_handler::process_request ()
 						error = true;
 					}
 				}
-				else if (action == "block_count")
-				{
-					// Cemented blocks can take a while to generate so require control
-					auto include_cemented = request.get_optional<bool> ("include_cemented");
-					if (include_cemented.is_initialized () && *include_cemented && !rpc_config.enable_control)
-					{
-						json_error_response (response, rpc_control_disabled_ec.message ());
-						error = true;
-					}
-				}
 			}
 
 			if (!error)
