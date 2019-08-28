@@ -602,7 +602,7 @@ bool nano::rocksdb_store::copy_db (boost::filesystem::path const & destination_p
 	// Open it so that it flushes all WAL files
 	if (status.ok ())
 	{
-		nano::rocksdb_store rocksdb_store (logger, destination_path.string (), false, false);
+		nano::rocksdb_store rocksdb_store (logger, destination_path.string (), false);
 		return !rocksdb_store.init_error ();
 	}
 	return false;
