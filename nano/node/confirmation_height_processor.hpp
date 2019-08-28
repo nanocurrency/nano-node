@@ -34,6 +34,7 @@ private:
 	friend class confirmation_height_processor;
 	friend class confirmation_height_pending_observer_callbacks_Test;
 	friend class confirmation_height_dependent_election_Test;
+	friend class confirmation_height_dependent_election_after_already_cemented_Test;
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (pending_confirmation_height &, const std::string &);

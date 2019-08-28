@@ -119,6 +119,7 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 	release_assert (receive_source_pairs.empty ());
 
 	auto read_transaction (store.tx_begin_read ());
+	auto last_iteration = false;
 	// Traverse account chain and all sources for receive blocks iteratively
 	do
 	{
@@ -136,6 +137,7 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 			{
 				current = hash_a;
 				receive_details = boost::none;
+				last_iteration = true;
 			}
 		}
 
@@ -155,6 +157,23 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 			if (account_it->second.iterated_height > iterated_height)
 			{
 				iterated_height = account_it->second.iterated_height;
+			}
+		}
+
+		if (!last_iteration && current == hash_a && confirmation_height >= block_height)
+		{
+			auto it = std::find_if (pending_writes.begin (), pending_writes.end (), [&hash_a](auto & conf_height_details) {
+				auto it = std::find_if (conf_height_details.block_callbacks_required.begin (), conf_height_details.block_callbacks_required.end (), [&hash_a](auto & callback_data) {
+					return callback_data.block->hash () == hash_a;
+				});
+				return (it != conf_height_details.block_callbacks_required.end ());
+			});
+
+			if (it == pending_writes.end ())
+			{
+				// This is a block which has been added to the processor but already has its confirmation height set (or about to be set)
+				// Just need to perform active cleanup, no callbacks are needed.
+				active.clear_block (hash_a);
 			}
 		}
 

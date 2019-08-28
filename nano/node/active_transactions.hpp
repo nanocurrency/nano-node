@@ -133,6 +133,7 @@ public:
 	size_t priority_cementable_frontiers_size ();
 	size_t priority_wallet_cementable_frontiers_size ();
 	boost::circular_buffer<double> difficulty_trend ();
+	void clear_block (nano::block_hash const & hash_a);
 
 private:
 	// Call action with confirmed block, may be different than what we started with

@@ -894,6 +894,18 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 	return result;
 }
 
+void nano::active_transactions::clear_block (nano::block_hash const & hash_a)
+{
+	std::lock_guard<std::mutex> guard (mutex);
+	auto existing (blocks.find (hash_a));
+	if (existing != blocks.end ())
+	{
+		auto election = existing->second;
+		election->clear_blocks ();
+		election->clear_dependent ();
+	}
+}
+
 // Returns the type of election status requiring callbacks calling later
 boost::optional<nano::election_status_type> nano::active_transactions::confirm_block (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_sideband const & sideband_a)
 {
