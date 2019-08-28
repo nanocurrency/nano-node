@@ -89,17 +89,17 @@ TEST (distributed_work, no_peers_multi)
 	{
 		node->distributed_work.make (hash, callback, node->network_params.network.publish_threshold);
 	}
-	system.deadline_set (5s);
-	while (count < total)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
 	// 1 root, and _total_ requests for that root are expected
 	ASSERT_EQ (1, node->distributed_work.work.size ());
 	{
 		auto requests (node->distributed_work.work.begin ());
 		ASSERT_EQ (hash, requests->first);
 		ASSERT_EQ (total, requests->second.size ());
+	}
+	system.deadline_set (5s);
+	while (count < total)
+	{
+		ASSERT_NO_ERROR (system.poll ());
 	}
 
 	node->distributed_work.cleanup ();
@@ -116,5 +116,10 @@ TEST (distributed_work, no_peers_multi)
 	for (auto & requests : node->distributed_work.work)
 	{
 		ASSERT_EQ (1, requests.second.size ());
+	}
+	system.deadline_set (5s);
+	while (count < total)
+	{
+		ASSERT_NO_ERROR (system.poll ());
 	}
 }
