@@ -677,22 +677,33 @@ bool nano::shared_ptr_block_hash::operator() (std::shared_ptr<nano::block> const
 	return lhs->hash () == rhs->hash ();
 }
 
-nano::ledger::ledger (nano::block_store & store_a, nano::stat & stat_a, nano::uint256_union const & epoch_link_a, nano::account const & epoch_signer_a, bool cache_reps_a) :
+nano::ledger::ledger (nano::block_store & store_a, nano::stat & stat_a, nano::uint256_union const & epoch_link_a, nano::account const & epoch_signer_a, bool cache_reps_a, bool cache_cemented_count_a) :
 store (store_a),
 stats (stat_a),
 check_bootstrap_weights (true),
 epoch_link (epoch_link_a),
 epoch_signer (epoch_signer_a)
 {
-	if (!store.init_error () && cache_reps_a)
+	if (!store.init_error ())
 	{
 		auto transaction = store.tx_begin_read ();
-		for (auto i (store.latest_begin (transaction)), n (store.latest_end ()); i != n; ++i)
+		if (cache_reps_a)
 		{
-			nano::account_info const & info (i->second);
-			auto block (store.block_get (transaction, info.rep_block));
-			assert (block != nullptr);
-			rep_weights.representation_add (block->representative (), info.balance.number ());
+			for (auto i (store.latest_begin (transaction)), n (store.latest_end ()); i != n; ++i)
+			{
+				nano::account_info const & info (i->second);
+				auto block (store.block_get (transaction, info.rep_block));
+				assert (block != nullptr);
+				rep_weights.representation_add (block->representative (), info.balance.number ());
+			}
+		}
+
+		if (cache_cemented_count_a)
+		{
+			for (auto i (store.confirmation_height_begin (transaction)), n (store.confirmation_height_end ()); i != n; ++i)
+			{
+				cemented_count += i->second;
+			}
 		}
 	}
 }

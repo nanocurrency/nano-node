@@ -10,7 +10,9 @@ using namespace std::chrono_literals;
 
 TEST (socket, concurrent_writes)
 {
-	nano::inactive_node inactivenode (nano::working_path (), 24000, false);
+	auto node_flags = nano::inactive_node_flag_defaults ();
+	node_flags.read_only = false;
+	nano::inactive_node inactivenode (nano::working_path (), 24000, node_flags);
 	auto node = inactivenode.node;
 
 	// This gives more realistic execution than using system#poll, allowing writes to

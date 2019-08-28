@@ -481,7 +481,7 @@ TEST (history, short_text)
 	nano::ledger ledger (store, system.nodes[0]->stats);
 	{
 		auto transaction (store.tx_begin_write ());
-		store.initialize (transaction, genesis, ledger.rep_weights);
+		store.initialize (transaction, genesis, ledger.rep_weights, ledger.cemented_count);
 		nano::keypair key;
 		auto latest (ledger.latest (transaction, nano::test_genesis_key.pub));
 		nano::send_block send (latest, nano::test_genesis_key.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest));
