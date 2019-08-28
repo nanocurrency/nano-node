@@ -21,6 +21,8 @@ add_library (nano_lib
 	config.hpp
 	config.cpp
 	configbase.hpp
+	diagnosticsconfig.hpp
+	diagnosticsconfig.cpp
 	errors.hpp
 	errors.cpp
 	ipc.hpp

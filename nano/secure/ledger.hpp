@@ -41,10 +41,10 @@ public:
 	bool is_send (nano::transaction const &, nano::state_block const &) const;
 	nano::block_hash block_destination (nano::transaction const &, nano::block const &);
 	nano::block_hash block_source (nano::transaction const &, nano::block const &);
-	nano::process_return process (nano::transaction const &, nano::block const &, nano::signature_verification = nano::signature_verification::unknown);
-	bool rollback (nano::transaction const &, nano::block_hash const &, std::vector<std::shared_ptr<nano::block>> &);
-	bool rollback (nano::transaction const &, nano::block_hash const &);
-	void change_latest (nano::transaction const &, nano::account const &, nano::block_hash const &, nano::account const &, nano::uint128_union const &, uint64_t, bool = false, nano::epoch = nano::epoch::epoch_0);
+	nano::process_return process (nano::write_transaction const &, nano::block const &, nano::signature_verification = nano::signature_verification::unknown);
+	bool rollback (nano::write_transaction const &, nano::block_hash const &, std::vector<std::shared_ptr<nano::block>> &);
+	bool rollback (nano::write_transaction const &, nano::block_hash const &);
+	void change_latest (nano::write_transaction const &, nano::account const &, nano::block_hash const &, nano::account const &, nano::uint128_union const &, uint64_t, bool = false, nano::epoch = nano::epoch::epoch_0);
 	void dump_account_chain (nano::account const &);
 	bool could_fit (nano::transaction const &, nano::block const &);
 	bool is_epoch_link (nano::uint256_union const &);

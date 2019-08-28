@@ -298,6 +298,30 @@ std::unique_ptr<nano::seq_con_info_component> nano::collect_seq_con_info (nano::
 	return composite;
 }
 
+void nano::remove_all_files_in_dir (boost::filesystem::path const & dir)
+{
+	for (auto & p : boost::filesystem::directory_iterator (dir))
+	{
+		auto path = p.path ();
+		if (boost::filesystem::is_regular_file (path))
+		{
+			boost::filesystem::remove (path);
+		}
+	}
+}
+
+void nano::move_all_files_to_dir (boost::filesystem::path const & from, boost::filesystem::path const & to)
+{
+	for (auto & p : boost::filesystem::directory_iterator (from))
+	{
+		auto path = p.path ();
+		if (boost::filesystem::is_regular_file (path))
+		{
+			boost::filesystem::rename (path, to / path.filename ());
+		}
+	}
+}
+
 /*
  * Backing code for "release_assert", which is itself a macro
  */

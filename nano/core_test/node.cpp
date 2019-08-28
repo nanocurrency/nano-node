@@ -239,6 +239,7 @@ TEST (node, auto_bootstrap)
 	node1->network.send_keepalive (channel);
 	node1->start ();
 	system.nodes.push_back (node1);
+	system.deadline_set (10s);
 	while (!node1->bootstrap_initiator.in_progress ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -492,7 +493,7 @@ TEST (node, confirm_locked)
 {
 	nano::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	auto transaction (system.nodes[0]->store.tx_begin_read ());
+	auto transaction (system.wallet (0)->wallets.tx_begin_read ());
 	system.wallet (0)->enter_password (transaction, "1");
 	auto block (std::make_shared<nano::send_block> (0, 0, 0, nano::keypair ().prv, 0, 0));
 	system.nodes[0]->network.flood_block (block);
@@ -3048,16 +3049,16 @@ TEST (node, dont_write_lock_node)
 	// clang-format off
 	std::thread ([&path, &write_lock_held_promise, &finished_promise]() {
 		nano::logger_mt logger;
-		nano::mdb_store store (logger, path / "data.ldb");
+		auto store = nano::make_store (logger, path, false, true);
 		{
 			nano::genesis genesis;
 			nano::rep_weights rep_weights;
-			auto transaction (store.tx_begin_write ());
-			store.initialize (transaction, genesis, rep_weights);
+			auto transaction (store->tx_begin_write ());
+			store->initialize (transaction, genesis, rep_weights);
 		}
 
 		// Hold write lock open until main thread is done needing it
-		auto transaction (store.tx_begin_write ());
+		auto transaction (store->tx_begin_write ());
 		write_lock_held_promise.set_value ();
 		finished_promise.get_future ().wait ();
 	})

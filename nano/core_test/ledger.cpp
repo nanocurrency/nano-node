@@ -8,15 +8,17 @@
 
 using namespace std::chrono_literals;
 
+#if !NANO_ROCKSDB
 // Init returns an error if it can't open files at the path
 TEST (ledger, store_error)
 {
 	nano::logger_mt logger;
 	auto store = nano::make_store (logger, boost::filesystem::path ("///"));
-	ASSERT_FALSE (!store->init_error ());
+	ASSERT_TRUE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats);
 }
+#endif
 
 // Ledger can be initialized and returns a basic query for an empty account
 TEST (ledger, empty)

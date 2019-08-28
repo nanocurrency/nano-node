@@ -576,12 +576,14 @@ TEST (block_store, latest_find)
 	ASSERT_EQ (second, find3);
 }
 
+#if !NANO_ROCKSDB
 TEST (block_store, bad_path)
 {
 	nano::logger_mt logger;
 	auto store = nano::make_store (logger, boost::filesystem::path ("///"));
 	ASSERT_TRUE (store->init_error ());
 }
+#endif
 
 TEST (block_store, DISABLED_already_open) // File can be shared
 {
@@ -1783,13 +1785,17 @@ TEST (block_store, incompatible_version)
 
 		// Put version to an unreachable number so that it should always be incompatible
 		auto transaction (store->tx_begin_write ());
-		store->version_put (transaction, std::numeric_limits<unsigned>::max ());
+		store->version_put (transaction, std::numeric_limits<int>::max ());
 	}
 
 	// Now try and read it, should give an error
 	{
-		auto store = nano::make_store (logger, path);
+		auto store = nano::make_store (logger, path, true);
 		ASSERT_TRUE (store->init_error ());
+
+		auto transaction = store->tx_begin_read ();
+		auto version_l = store->version_get (transaction);
+		ASSERT_EQ (version_l, std::numeric_limits<int>::max ());
 	}
 }
 
@@ -1833,7 +1839,7 @@ void modify_account_info_to_v13 (nano::mdb_store & store, nano::transaction cons
 	nano::account_info info;
 	ASSERT_FALSE (store.account_get (transaction_a, account, info));
 	nano::account_info_v13 account_info_v13 (info.head, info.rep_block, info.open_block, info.balance, info.modified, info.block_count, info.epoch);
-	auto status (mdb_put (store.env.tx (transaction_a), store.get_account_db (info.epoch) == nano::block_store_partial<MDB_val, nano::mdb_store>::tables::accounts_v0 ? store.accounts_v0 : store.accounts_v1, nano::mdb_val (account), nano::mdb_val (account_info_v13), 0));
+	auto status (mdb_put (store.env.tx (transaction_a), store.get_account_db (info.epoch) == nano::tables::accounts_v0 ? store.accounts_v0 : store.accounts_v1, nano::mdb_val (account), nano::mdb_val (account_info_v13), 0));
 	(void)status;
 	assert (status == 0);
 }
@@ -1843,7 +1849,7 @@ void modify_account_info_to_v14 (nano::mdb_store & store, nano::transaction cons
 	nano::account_info info;
 	ASSERT_FALSE (store.account_get (transaction_a, account, info));
 	nano::account_info_v14 account_info_v14 (info.head, info.rep_block, info.open_block, info.balance, info.modified, info.block_count, confirmation_height, info.epoch);
-	auto status (mdb_put (store.env.tx (transaction_a), store.get_account_db (info.epoch) == nano::block_store_partial<MDB_val, nano::mdb_store>::tables::accounts_v0 ? store.accounts_v0 : store.accounts_v1, nano::mdb_val (account), nano::mdb_val (account_info_v14), 0));
+	auto status (mdb_put (store.env.tx (transaction_a), store.get_account_db (info.epoch) == nano::tables::accounts_v0 ? store.accounts_v0 : store.accounts_v1, nano::mdb_val (account), nano::mdb_val (account_info_v14), 0));
 	(void)status;
 	assert (status == 0);
 }
