@@ -12,7 +12,7 @@ namespace
 class rollback_visitor : public nano::block_visitor
 {
 public:
-	rollback_visitor (nano::transaction const & transaction_a, nano::ledger & ledger_a, std::vector<std::shared_ptr<nano::block>> & list_a) :
+	rollback_visitor (nano::write_transaction const & transaction_a, nano::ledger & ledger_a, std::vector<std::shared_ptr<nano::block>> & list_a) :
 	transaction (transaction_a),
 	ledger (ledger_a),
 	list (list_a)
@@ -154,7 +154,7 @@ public:
 		}
 		ledger.store.block_del (transaction, hash);
 	}
-	nano::transaction const & transaction;
+	nano::write_transaction const & transaction;
 	nano::ledger & ledger;
 	std::vector<std::shared_ptr<nano::block>> & list;
 	bool error{ false };
@@ -163,7 +163,7 @@ public:
 class ledger_processor : public nano::block_visitor
 {
 public:
-	ledger_processor (nano::ledger &, nano::transaction const &, nano::signature_verification = nano::signature_verification::unknown);
+	ledger_processor (nano::ledger &, nano::write_transaction const &, nano::signature_verification = nano::signature_verification::unknown);
 	virtual ~ledger_processor () = default;
 	void send_block (nano::send_block const &) override;
 	void receive_block (nano::receive_block const &) override;
@@ -173,7 +173,7 @@ public:
 	void state_block_impl (nano::state_block const &);
 	void epoch_block_impl (nano::state_block const &);
 	nano::ledger & ledger;
-	nano::transaction const & transaction;
+	nano::write_transaction const & transaction;
 	nano::signature_verification verification;
 	nano::process_return result;
 };
@@ -647,7 +647,7 @@ void ledger_processor::open_block (nano::open_block const & block_a)
 	}
 }
 
-ledger_processor::ledger_processor (nano::ledger & ledger_a, nano::transaction const & transaction_a, nano::signature_verification verification_a) :
+ledger_processor::ledger_processor (nano::ledger & ledger_a, nano::write_transaction const & transaction_a, nano::signature_verification verification_a) :
 ledger (ledger_a),
 transaction (transaction_a),
 verification (verification_a)
@@ -713,7 +713,7 @@ nano::uint128_t nano::ledger::account_pending (nano::transaction const & transac
 	return result;
 }
 
-nano::process_return nano::ledger::process (nano::transaction const & transaction_a, nano::block const & block_a, nano::signature_verification verification)
+nano::process_return nano::ledger::process (nano::write_transaction const & transaction_a, nano::block const & block_a, nano::signature_verification verification)
 {
 	assert (!nano::work_validate (block_a));
 	ledger_processor processor (*this, transaction_a, verification);
@@ -839,7 +839,7 @@ nano::uint128_t nano::ledger::weight (nano::transaction const & transaction_a, n
 }
 
 // Rollback blocks until `block_a' doesn't exist or it tries to penetrate the confirmation height
-bool nano::ledger::rollback (nano::transaction const & transaction_a, nano::block_hash const & block_a, std::vector<std::shared_ptr<nano::block>> & list_a)
+bool nano::ledger::rollback (nano::write_transaction const & transaction_a, nano::block_hash const & block_a, std::vector<std::shared_ptr<nano::block>> & list_a)
 {
 	assert (store.block_exists (transaction_a, block_a));
 	auto account_l (account (transaction_a, block_a));
@@ -870,7 +870,7 @@ bool nano::ledger::rollback (nano::transaction const & transaction_a, nano::bloc
 	return error;
 }
 
-bool nano::ledger::rollback (nano::transaction const & transaction_a, nano::block_hash const & block_a)
+bool nano::ledger::rollback (nano::write_transaction const & transaction_a, nano::block_hash const & block_a)
 {
 	std::vector<std::shared_ptr<nano::block>> rollback_list;
 	return rollback (transaction_a, block_a, rollback_list);
@@ -989,7 +989,7 @@ bool nano::ledger::is_epoch_link (nano::uint256_union const & link_a)
 	return link_a == epoch_link;
 }
 
-void nano::ledger::change_latest (nano::transaction const & transaction_a, nano::account const & account_a, nano::block_hash const & hash_a, nano::block_hash const & rep_block_a, nano::amount const & balance_a, uint64_t block_count_a, bool is_state, nano::epoch epoch_a)
+void nano::ledger::change_latest (nano::write_transaction const & transaction_a, nano::account const & account_a, nano::block_hash const & hash_a, nano::block_hash const & rep_block_a, nano::amount const & balance_a, uint64_t block_count_a, bool is_state, nano::epoch epoch_a)
 {
 	nano::account_info info;
 	auto exists (!store.account_get (transaction_a, account_a, info));

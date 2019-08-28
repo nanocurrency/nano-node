@@ -5,6 +5,10 @@
 #include <nano/node/node.hpp>
 #include <nano/rpc/rpc.hpp>
 
+#if NANO_ROCKSDB
+#include <nano/node/rocksdb/rocksdb.hpp>
+#endif
+
 #include <boost/polymorphic_cast.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
@@ -123,7 +127,7 @@ flags (flags_a),
 alarm (alarm_a),
 work (work_a),
 logger (config_a.logging.min_time_between_log_output),
-store_impl (std::make_unique<nano::mdb_store> (init_a.block_store_init, logger, application_path_a / "data.ldb", config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_max_dbs, flags.sideband_batch_size, config_a.backup_before_upgrade)),
+store_impl (nano::make_store (init_a.block_store_init, logger, application_path_a, flags.read_only, true, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_max_dbs, flags.sideband_batch_size, config_a.backup_before_upgrade)),
 store (*store_impl),
 wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (init_a.wallets_store_init, application_path_a / "wallets.ldb", config_a.lmdb_max_dbs)),
 wallets_store (*wallets_store_impl),
@@ -143,7 +147,7 @@ block_processor_thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::block_processing);
 	this->block_processor.process_blocks ();
 }),
-online_reps (*this, config.online_weight_minimum.number ()),
+online_reps (*this, config.online_weight_minimum.number (), init_a.block_store_init),
 vote_uniquer (block_uniquer),
 active (*this),
 confirmation_height_processor (pending_confirmation_height, store, ledger.stats, active, ledger.epoch_link, write_database_queue, config.conf_height_processor_batch_min_time, logger),
@@ -389,6 +393,7 @@ startup_time (std::chrono::steady_clock::now ())
 		nano::genesis genesis;
 		if (!is_initialized)
 		{
+			release_assert (!flags.read_only);
 			auto transaction (store.tx_begin_write ());
 			// Store was empty meaning we just created it, add the genesis block
 			store.initialize (transaction, genesis);
@@ -397,7 +402,16 @@ startup_time (std::chrono::steady_clock::now ())
 		auto transaction (store.tx_begin_read ());
 		if (!store.block_exists (transaction, genesis.hash ()))
 		{
-			logger.always_log ("Genesis block not found. Make sure the node network ID is correct.");
+			std::stringstream ss;
+			ss << "Genesis block not found. Make sure the node network ID is correct.";
+			if (network_params.network.is_beta_network ())
+			{
+				ss << " Beta network may have reset, try clearing database files";
+			}
+			auto str = ss.str ();
+
+			logger.always_log (str);
+			std::cerr << str << std::endl;
 			std::exit (1);
 		}
 
@@ -530,9 +544,9 @@ void nano::node::do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, 
 	}
 }
 
-bool nano::node::copy_with_compaction (boost::filesystem::path const & destination_file)
+bool nano::node::copy_with_compaction (boost::filesystem::path const & destination)
 {
-	return !mdb_env_copy2 (boost::polymorphic_downcast<nano::mdb_store *> (store_impl.get ())->env.environment, destination_file.string ().c_str (), MDB_CP_COMPACT);
+	return store.copy_db (destination);
 }
 
 void nano::node::process_fork (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a)
@@ -612,7 +626,7 @@ void nano::node::process_active (std::shared_ptr<nano::block> incoming)
 
 nano::process_return nano::node::process (nano::block const & block_a)
 {
-	auto transaction (store.tx_begin_write ());
+	auto transaction (store.tx_begin_write ({ tables::accounts_v0, tables::accounts_v1, tables::cached_counts, tables::change_blocks, tables::frontiers, tables::open_blocks, tables::pending_v0, tables::pending_v1, tables::receive_blocks, tables::representation, tables::send_blocks, tables::state_blocks_v0, tables::state_blocks_v1 }, { tables::confirmation_height }));
 	auto result (ledger.process (transaction, block_a));
 	return result;
 }
@@ -801,7 +815,7 @@ void nano::node::ongoing_bootstrap ()
 void nano::node::ongoing_store_flush ()
 {
 	{
-		auto transaction (store.tx_begin_write ());
+		auto transaction (store.tx_begin_write ({ tables::vote }));
 		store.flush (transaction);
 	}
 	std::weak_ptr<nano::node> node_w (shared_from_this ());
@@ -1635,7 +1649,7 @@ int nano::node::store_version ()
 	return store.version_get (transaction);
 }
 
-nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, uint16_t peering_port_a) :
+nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, uint16_t peering_port_a, bool read_only_a) :
 path (path_a),
 io_context (std::make_shared<boost::asio::io_context> ()),
 alarm (*io_context),
@@ -1651,9 +1665,10 @@ peering_port (peering_port_a)
 	nano::set_secure_perm_directory (path, error_chmod);
 	logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
 	logging.init (path);
-	nano::node_flags flags;
-	flags.inactive_node = true;
-	node = std::make_shared<nano::node> (init, *io_context, peering_port, path, alarm, logging, work, flags);
+	auto node_flags = nano::node_flags ();
+	node_flags.read_only = read_only_a;
+	node_flags.inactive_node = true;
+	node = std::make_shared<nano::node> (init, *io_context, peering_port, path, alarm, logging, work, node_flags);
 	node->active.stop ();
 }
 
@@ -1662,7 +1677,11 @@ nano::inactive_node::~inactive_node ()
 	node->stop ();
 }
 
-std::unique_ptr<nano::block_store> nano::make_store (bool & init, nano::logger_mt & logger, boost::filesystem::path const & path)
+std::unique_ptr<nano::block_store> nano::make_store (bool & init, nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, bool drop_unchecked, size_t batch_size, bool backup_before_upgrade)
 {
-	return std::make_unique<nano::mdb_store> (init, logger, path);
+#if NANO_ROCKSDB
+	return std::make_unique<nano::rocksdb_store> (init, logger, add_db_postfix ? path / "rocksdb" : path, drop_unchecked, read_only);
+#else
+	return std::make_unique<nano::mdb_store> (init, logger, add_db_postfix ? path / "data.ldb" : path, txn_tracking_config_a, block_processor_batch_max_time_a, lmdb_max_dbs, drop_unchecked, batch_size, backup_before_upgrade);
+#endif
 }
