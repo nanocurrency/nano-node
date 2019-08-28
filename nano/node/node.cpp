@@ -452,7 +452,7 @@ startup_time (std::chrono::steady_clock::now ())
 				}
 			}
 			// Drop unchecked blocks if initial bootstrap is completed
-			if (!flags.disable_unchecked_drop && !use_bootstrap_weight)
+			if (!flags.disable_unchecked_drop && !use_bootstrap_weight && !flags.read_only)
 			{
 				auto transaction (store.tx_begin_write ());
 				store.unchecked_clear (transaction);
@@ -1677,11 +1677,11 @@ nano::inactive_node::~inactive_node ()
 	node->stop ();
 }
 
-std::unique_ptr<nano::block_store> nano::make_store (bool & init, nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, bool drop_unchecked, size_t batch_size, bool backup_before_upgrade)
+std::unique_ptr<nano::block_store> nano::make_store (bool & init, nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, size_t batch_size, bool backup_before_upgrade)
 {
 #if NANO_ROCKSDB
-	return std::make_unique<nano::rocksdb_store> (init, logger, add_db_postfix ? path / "rocksdb" : path, drop_unchecked, read_only);
+	return std::make_unique<nano::rocksdb_store> (init, logger, add_db_postfix ? path / "rocksdb" : path, read_only);
 #else
-	return std::make_unique<nano::mdb_store> (init, logger, add_db_postfix ? path / "data.ldb" : path, txn_tracking_config_a, block_processor_batch_max_time_a, lmdb_max_dbs, drop_unchecked, batch_size, backup_before_upgrade);
+	return std::make_unique<nano::mdb_store> (init, logger, add_db_postfix ? path / "data.ldb" : path, txn_tracking_config_a, block_processor_batch_max_time_a, lmdb_max_dbs, batch_size, backup_before_upgrade);
 #endif
 }

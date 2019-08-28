@@ -40,7 +40,7 @@ void rocksdb_val::convert_buffer_to_value ()
 }
 }
 
-nano::rocksdb_store::rocksdb_store (bool & error_a, nano::logger_mt & logger_a, boost::filesystem::path const & path_a, bool drop_unchecked_a, bool open_read_only_a) :
+nano::rocksdb_store::rocksdb_store (bool & error_a, nano::logger_mt & logger_a, boost::filesystem::path const & path_a, bool open_read_only_a) :
 logger (logger_a)
 {
 	boost::system::error_code error_mkdir, error_chmod;
@@ -57,12 +57,6 @@ logger (logger_a)
 			construct_column_family_mutexes ();
 		}
 		open (error_a, path_a, open_read_only_a);
-	}
-
-	if (!error_a && !open_read_only_a && drop_unchecked_a)
-	{
-		auto transaction (tx_begin_write ({ nano::tables::cached_counts, tables::unchecked }));
-		unchecked_clear (transaction);
 	}
 }
 
