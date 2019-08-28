@@ -263,9 +263,10 @@ void nano::vote_processor::calculate_weights ()
 		representatives_3.clear ();
 		auto supply (node.online_reps.online_stake ());
 		auto transaction (node.store.tx_begin_read ());
-		for (auto i (node.store.representation_begin (transaction)), n (node.store.representation_end ()); i != n; ++i)
+		auto rep_amounts = node.ledger.rep_weights.get_rep_amounts ();
+		for (auto const & rep_amount : rep_amounts)
 		{
-			nano::account const & representative (i->first);
+			nano::account const & representative (rep_amount.first);
 			auto weight (node.ledger.weight (transaction, representative));
 			if (weight > supply / 1000) // 0.1% or above (level 1)
 			{
