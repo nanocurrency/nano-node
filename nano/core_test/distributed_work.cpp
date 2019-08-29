@@ -56,11 +56,7 @@ TEST (distributed_work, no_peers_cancel)
 	// now using observer
 	done = false;
 	node->distributed_work.make (hash, callback_to_cancel, nano::difficulty::from_multiplier (1000000, node->network_params.network.publish_threshold));
-	system.deadline_set (1s);
-	while (node->distributed_work.work.empty ())
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	ASSERT_EQ (1, node->distributed_work.work.size ());
 	node->observers.work_cancel.notify (hash);
 	while (!done)
 	{
