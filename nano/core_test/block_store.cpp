@@ -259,8 +259,9 @@ TEST (block_store, genesis)
 	nano::genesis genesis;
 	auto hash (genesis.hash ());
 	nano::rep_weights rep_weights;
+	std::atomic<uint64_t> cemented_count{ 0 };
 	auto transaction (store->tx_begin_write ());
-	store->initialize (transaction, genesis, rep_weights);
+	store->initialize (transaction, genesis, rep_weights, cemented_count);
 	nano::account_info info;
 	ASSERT_FALSE (store->account_get (transaction, nano::genesis_account, info));
 	ASSERT_EQ (hash, info.head);
@@ -733,17 +734,17 @@ TEST (block_store, account_count)
 	ASSERT_EQ (1, store->account_count (transaction));
 }
 
-TEST (block_store, cemented_count)
+TEST (block_store, cemented_count_cache)
 {
 	nano::logger_mt logger;
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	auto transaction (store->tx_begin_write ());
-	ASSERT_EQ (0, store->cemented_count (transaction));
 	nano::genesis genesis;
 	nano::rep_weights rep_weights;
-	store->initialize (transaction, genesis, rep_weights);
-	ASSERT_EQ (1, store->cemented_count (transaction));
+	std::atomic<uint64_t> cemented_count{ 0 };
+	store->initialize (transaction, genesis, rep_weights, cemented_count);
+	ASSERT_EQ (1, cemented_count);
 }
 
 TEST (block_store, sequence_increment)
@@ -790,7 +791,7 @@ TEST (mdb_block_store, upgrade_v2_v3)
 		auto hash (genesis.hash ());
 		nano::stat stats;
 		nano::ledger ledger (store, stats);
-		store.initialize (transaction, genesis, ledger.rep_weights);
+		store.initialize (transaction, genesis, ledger.rep_weights, ledger.cemented_count);
 		nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 		nano::change_block change (hash, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, pool.generate (hash));
 		change_hash = change.hash ();
@@ -870,7 +871,7 @@ TEST (mdb_block_store, upgrade_v4_v5)
 		nano::genesis genesis;
 		nano::stat stats;
 		nano::ledger ledger (store, stats);
-		store.initialize (transaction, genesis, ledger.rep_weights);
+		store.initialize (transaction, genesis, ledger.rep_weights, ledger.cemented_count);
 		store.version_put (transaction, 4);
 		nano::account_info info;
 		ASSERT_FALSE (store.account_get (transaction, nano::test_genesis_key.pub, info));
@@ -900,8 +901,9 @@ TEST (block_store, block_random)
 	nano::genesis genesis;
 	{
 		nano::rep_weights rep_weights;
+		std::atomic<uint64_t> cemented_count{ 0 };
 		auto transaction (store->tx_begin_write ());
-		store->initialize (transaction, genesis, rep_weights);
+		store->initialize (transaction, genesis, rep_weights, cemented_count);
 	}
 	auto transaction (store->tx_begin_read ());
 	auto block (store->block_random (transaction));
@@ -919,7 +921,8 @@ TEST (mdb_block_store, upgrade_v5_v6)
 		auto transaction (store.tx_begin_write ());
 		nano::genesis genesis;
 		nano::rep_weights rep_weights;
-		store.initialize (transaction, genesis, rep_weights);
+		std::atomic<uint64_t> cemented_count{ 0 };
+		store.initialize (transaction, genesis, rep_weights, cemented_count);
 		store.version_put (transaction, 5);
 		modify_genesis_account_info_to_v5 (store, transaction);
 	}
@@ -942,7 +945,8 @@ TEST (mdb_block_store, upgrade_v6_v7)
 		auto transaction (store.tx_begin_write ());
 		nano::genesis genesis;
 		nano::rep_weights rep_weights;
-		store.initialize (transaction, genesis, rep_weights);
+		std::atomic<uint64_t> cemented_count{ 0 };
+		store.initialize (transaction, genesis, rep_weights, cemented_count);
 		store.version_put (transaction, 6);
 		modify_account_info_to_v13 (store, transaction, nano::genesis_account);
 		auto send1 (std::make_shared<nano::send_block> (0, 0, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
@@ -1104,7 +1108,8 @@ TEST (block_store, state_block)
 	{
 		auto transaction (store->tx_begin_write ());
 		nano::rep_weights rep_weights;
-		store->initialize (transaction, genesis, rep_weights);
+		std::atomic<uint64_t> cemented_count{ 0 };
+		store->initialize (transaction, genesis, rep_weights, cemented_count);
 		ASSERT_EQ (nano::block_type::state, block1.type ());
 		nano::block_sideband sideband1 (nano::block_type::state, 0, 0, 0, 0, 0);
 		store->block_put (transaction, block1.hash (), block1, sideband1);
@@ -1159,7 +1164,8 @@ TEST (mdb_block_store, upgrade_sideband_genesis)
 		auto transaction (store.tx_begin_write ());
 		store.version_put (transaction, 11);
 		nano::rep_weights rep_weights;
-		store.initialize (transaction, genesis, rep_weights);
+		std::atomic<uint64_t> cemented_count{ 0 };
+		store.initialize (transaction, genesis, rep_weights, cemented_count);
 		modify_account_info_to_v13 (store, transaction, nano::genesis_account);
 		nano::block_sideband sideband;
 		auto genesis_block (store.block_get (transaction, genesis.hash (), &sideband));
@@ -1194,7 +1200,7 @@ TEST (mdb_block_store, upgrade_sideband_two_blocks)
 		nano::ledger ledger (store, stat);
 		auto transaction (store.tx_begin_write ());
 		store.version_put (transaction, 11);
-		store.initialize (transaction, genesis, ledger.rep_weights);
+		store.initialize (transaction, genesis, ledger.rep_weights, ledger.cemented_count);
 		nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 		nano::state_block block (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, pool.generate (genesis.hash ()));
 		hash2 = block.hash ();
@@ -1232,7 +1238,7 @@ TEST (mdb_block_store, upgrade_sideband_two_accounts)
 		nano::ledger ledger (store, stat);
 		auto transaction (store.tx_begin_write ());
 		store.version_put (transaction, 11);
-		store.initialize (transaction, genesis, ledger.rep_weights);
+		store.initialize (transaction, genesis, ledger.rep_weights, ledger.cemented_count);
 		nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 		nano::state_block block1 (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, pool.generate (genesis.hash ()));
 		hash2 = block1.hash ();
@@ -1275,7 +1281,7 @@ TEST (mdb_block_store, insert_after_legacy)
 	nano::ledger ledger (store, stat);
 	auto transaction (store.tx_begin_write ());
 	store.version_put (transaction, 11);
-	store.initialize (transaction, genesis, ledger.rep_weights);
+	store.initialize (transaction, genesis, ledger.rep_weights, ledger.cemented_count);
 	write_legacy_sideband (store, transaction, *genesis.open, 0, store.open_blocks);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::state_block block (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, pool.generate (genesis.hash ()));
@@ -1292,7 +1298,7 @@ TEST (mdb_block_store, legacy_account_computed)
 	nano::ledger ledger (store, stats);
 	nano::genesis genesis;
 	auto transaction (store.tx_begin_write ());
-	store.initialize (transaction, genesis, ledger.rep_weights);
+	store.initialize (transaction, genesis, ledger.rep_weights, ledger.cemented_count);
 	store.version_put (transaction, 11);
 	write_legacy_sideband (store, transaction, *genesis.open, 0, store.open_blocks);
 	ASSERT_EQ (nano::genesis_account, ledger.account (transaction, genesis.hash ()));
@@ -1313,7 +1319,7 @@ TEST (mdb_block_store, upgrade_sideband_epoch)
 		nano::ledger ledger (store, stat, 42, nano::test_genesis_key.pub);
 		auto transaction (store.tx_begin_write ());
 		store.version_put (transaction, 11);
-		store.initialize (transaction, genesis, ledger.rep_weights);
+		store.initialize (transaction, genesis, ledger.rep_weights, ledger.cemented_count);
 		nano::state_block block1 (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount, 42, nano::test_genesis_key.prv, nano::test_genesis_key.pub, pool.generate (genesis.hash ()));
 		hash2 = block1.hash ();
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block1).code);
@@ -1352,7 +1358,7 @@ TEST (mdb_block_store, sideband_height)
 	nano::ledger ledger (store, stat);
 	ledger.epoch_signer = epoch_key.pub;
 	auto transaction (store.tx_begin_write ());
-	store.initialize (transaction, genesis, ledger.rep_weights);
+	store.initialize (transaction, genesis, ledger.rep_weights, ledger.cemented_count);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::send_block send (genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, pool.generate (genesis.hash ()));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send).code);
@@ -1551,7 +1557,8 @@ TEST (mdb_block_store, upgrade_v13_v14)
 		nano::mdb_store store (logger, path);
 		auto transaction (store.tx_begin_write ());
 		nano::rep_weights rep_weights;
-		store.initialize (transaction, genesis, rep_weights);
+		std::atomic<uint64_t> cemented_count{ 0 };
+		store.initialize (transaction, genesis, rep_weights, cemented_count);
 		nano::account_info account_info;
 		ASSERT_FALSE (store.account_get (transaction, nano::genesis_account, account_info));
 		uint64_t confirmation_height;
@@ -1604,7 +1611,8 @@ TEST (mdb_block_store, upgrade_v14_v15)
 		nano::mdb_store store (logger, path);
 		auto transaction (store.tx_begin_write ());
 		nano::rep_weights rep_weights;
-		store.initialize (transaction, genesis, rep_weights);
+		std::atomic<uint64_t> cemented_count{ 0 };
+		store.initialize (transaction, genesis, rep_weights, cemented_count);
 		nano::account_info account_info;
 		ASSERT_FALSE (store.account_get (transaction, nano::genesis_account, account_info));
 		uint64_t confirmation_height;
@@ -1745,7 +1753,8 @@ TEST (block_store, upgrade_confirmation_height_many)
 		auto transaction (store.tx_begin_write ());
 		store.version_put (transaction, 13);
 		nano::rep_weights rep_weights;
-		store.initialize (transaction, genesis, rep_weights);
+		std::atomic<uint64_t> cemented_count{ 0 };
+		store.initialize (transaction, genesis, rep_weights, cemented_count);
 		modify_account_info_to_v13 (store, transaction, nano::genesis_account);
 
 		// Add many accounts

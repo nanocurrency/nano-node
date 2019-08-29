@@ -270,7 +270,9 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_dump_representatives"))
 		{
-			nano::inactive_node node (data_path, 24000, true);
+			auto node_flags = nano::inactive_node_flag_defaults ();
+			node_flags.cache_representative_weights_from_frontiers = true;
+			nano::inactive_node node (data_path, 24000, node_flags);
 			auto transaction (node.node->store.tx_begin_read ());
 			nano::uint128_t total;
 			auto rep_amounts = node.node->ledger.rep_weights.get_rep_amounts ();
@@ -1031,9 +1033,10 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_cemented_block_count"))
 		{
-			nano::inactive_node node (data_path);
-			auto transaction (node.node->store.tx_begin_read ());
-			std::cout << "Total cemented block count: " << node.node->store.cemented_count (transaction) << std::endl;
+			auto node_flags = nano::inactive_node_flag_defaults ();
+			node_flags.cache_cemented_count_from_frontiers = true;
+			nano::inactive_node node (data_path, 24000, node_flags);
+			std::cout << "Total cemented block count: " << node.node->ledger.cemented_count << std::endl;
 		}
 		else if (vm.count ("debug_sys_logging"))
 		{
