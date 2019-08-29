@@ -34,9 +34,10 @@ class gap_cache final
 {
 public:
 	explicit gap_cache (nano::node &);
-	void add (nano::transaction const &, nano::block_hash const &, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now ());
+	void add (nano::block_hash const &, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now ());
 	void erase (nano::block_hash const & hash_a);
 	void vote (std::shared_ptr<nano::vote>);
+	void bootstrap_check (nano::transaction const &, std::vector<nano::account> const &, nano::block_hash const &);
 	nano::uint128_t bootstrap_threshold (nano::transaction const &);
 	size_t size ();
 	boost::multi_index_container<

@@ -7,7 +7,7 @@ node (node_a)
 {
 }
 
-void nano::gap_cache::add (nano::transaction const & transaction_a, nano::block_hash const & hash_a, std::chrono::steady_clock::time_point time_point_a)
+void nano::gap_cache::add (nano::block_hash const & hash_a, std::chrono::steady_clock::time_point time_point_a)
 {
 	std::lock_guard<std::mutex> lock (mutex);
 	auto existing (blocks.get<1> ().find (hash_a));
@@ -54,48 +54,53 @@ void nano::gap_cache::vote (std::shared_ptr<nano::vote> vote_a)
 
 			if (is_new)
 			{
-				uint128_t tally;
-				for (auto & voter : existing->voters)
-				{
-					tally += node.ledger.weight (transaction, voter);
-				}
-				bool start_bootstrap (false);
-				if (!node.flags.disable_lazy_bootstrap)
-				{
-					if (tally >= node.config.online_weight_minimum.number ())
-					{
-						start_bootstrap = true;
-					}
-				}
-				else if (!node.flags.disable_legacy_bootstrap && tally > bootstrap_threshold (transaction))
-				{
-					start_bootstrap = true;
-				}
-				if (start_bootstrap)
-				{
-					auto node_l (node.shared ());
-					auto now (std::chrono::steady_clock::now ());
-					node.alarm.add (node_l->network_params.network.is_test_network () ? now + std::chrono::milliseconds (5) : now + std::chrono::seconds (5), [node_l, hash]() {
-						auto transaction (node_l->store.tx_begin_read ());
-						if (!node_l->store.block_exists (transaction, hash))
-						{
-							if (!node_l->bootstrap_initiator.in_progress ())
-							{
-								node_l->logger.try_log (boost::str (boost::format ("Missing block %1% which has enough votes to warrant lazy bootstrapping it") % hash.to_string ()));
-							}
-							if (!node_l->flags.disable_lazy_bootstrap)
-							{
-								node_l->bootstrap_initiator.bootstrap_lazy (hash);
-							}
-							else if (!node_l->flags.disable_legacy_bootstrap)
-							{
-								node_l->bootstrap_initiator.bootstrap ();
-							}
-						}
-					});
-				}
+				bootstrap_check (transaction, existing->voters, hash);
 			}
 		}
+	}
+}
+
+void nano::gap_cache::bootstrap_check (nano::transaction const & transaction_a, std::vector<nano::account> const & voters_a, nano::block_hash const & hash_a)
+{
+	uint128_t tally;
+	for (auto & voter : voters_a)
+	{
+		tally += node.ledger.weight (transaction_a, voter);
+	}
+	bool start_bootstrap (false);
+	if (!node.flags.disable_lazy_bootstrap)
+	{
+		if (tally >= node.config.online_weight_minimum.number ())
+		{
+			start_bootstrap = true;
+		}
+	}
+	else if (!node.flags.disable_legacy_bootstrap && tally > bootstrap_threshold (transaction_a))
+	{
+		start_bootstrap = true;
+	}
+	if (start_bootstrap)
+	{
+		auto node_l (node.shared ());
+		auto now (std::chrono::steady_clock::now ());
+		node.alarm.add (node_l->network_params.network.is_test_network () ? now + std::chrono::milliseconds (5) : now + std::chrono::seconds (5), [node_l, hash_a]() {
+			auto transaction (node_l->store.tx_begin_read ());
+			if (!node_l->store.block_exists (transaction, hash_a))
+			{
+				if (!node_l->bootstrap_initiator.in_progress ())
+				{
+					node_l->logger.try_log (boost::str (boost::format ("Missing block %1% which has enough votes to warrant lazy bootstrapping it") % hash_a.to_string ()));
+				}
+				if (!node_l->flags.disable_lazy_bootstrap)
+				{
+					node_l->bootstrap_initiator.bootstrap_lazy (hash_a);
+				}
+				else if (!node_l->flags.disable_legacy_bootstrap)
+				{
+					node_l->bootstrap_initiator.bootstrap ();
+				}
+			}
+		});
 	}
 }
 
