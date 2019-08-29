@@ -1,6 +1,8 @@
 #pragma once
 
 #include <nano/boost/asio.hpp>
+#include <nano/lib/asio.hpp>
+#include <nano/lib/utility.hpp>
 
 #include <boost/optional.hpp>
 
@@ -43,7 +45,7 @@ public:
 	virtual ~socket ();
 	void async_connect (boost::asio::ip::tcp::endpoint const &, std::function<void(boost::system::error_code const &)>);
 	void async_read (std::shared_ptr<std::vector<uint8_t>>, size_t, std::function<void(boost::system::error_code const &, size_t)>);
-	void async_write (std::shared_ptr<std::vector<uint8_t>>, std::function<void(boost::system::error_code const &, size_t)> = nullptr);
+	void async_write (nano::shared_const_buffer const &, std::function<void(boost::system::error_code const &, size_t)> = nullptr);
 
 	void close ();
 	boost::asio::ip::tcp::endpoint remote_endpoint () const;
@@ -60,7 +62,7 @@ protected:
 	class queue_item
 	{
 	public:
-		std::shared_ptr<std::vector<uint8_t>> buffer;
+		nano::shared_const_buffer buffer;
 		std::function<void(boost::system::error_code const &, size_t)> callback;
 	};
 

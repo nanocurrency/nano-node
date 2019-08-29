@@ -70,7 +70,7 @@ namespace websocket
 		{
 		}
 
-		std::shared_ptr<std::string> to_string () const;
+		std::string to_string () const;
 		nano::websocket::topic topic;
 		boost::property_tree::ptree contents;
 	};

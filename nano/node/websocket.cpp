@@ -244,14 +244,13 @@ void nano::websocket::session::write (nano::websocket::message message_a)
 
 void nano::websocket::session::write_queued_messages ()
 {
-	auto msg (send_queue.front ());
-	auto msg_str (msg.to_string ());
+	auto msg (send_queue.front ().to_string ());
 	auto this_l (shared_from_this ());
 
 	// clang-format off
-	ws.async_write (boost::asio::buffer (msg_str->data (), msg_str->size ()),
+	ws.async_write (nano::shared_const_buffer (msg),
 	boost::asio::bind_executor (strand,
-	[msg_str, this_l](boost::system::error_code ec, std::size_t bytes_transferred) {
+	[this_l](boost::system::error_code ec, std::size_t bytes_transferred) {
 		this_l->send_queue.pop_front ();
 		if (!ec)
 		{
@@ -673,10 +672,10 @@ void nano::websocket::message_builder::set_common_fields (nano::websocket::messa
 	message_a.contents.add ("time", std::to_string (milli_since_epoch));
 }
 
-std::shared_ptr<std::string> nano::websocket::message::to_string () const
+std::string nano::websocket::message::to_string () const
 {
 	std::ostringstream ostream;
 	boost::property_tree::write_json (ostream, contents);
 	ostream.flush ();
-	return std::make_shared<std::string> (ostream.str ());
+	return ostream.str ();
 }
