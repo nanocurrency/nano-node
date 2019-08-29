@@ -9,6 +9,7 @@
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap.hpp>
 #include <nano/node/confirmation_height_processor.hpp>
+#include <nano/node/distributed_work.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/gap_cache.hpp>
 #include <nano/node/logging.hpp>
@@ -122,8 +123,8 @@ public:
 	void work_generate_blocking (nano::block &);
 	uint64_t work_generate_blocking (nano::uint256_union const &, uint64_t);
 	uint64_t work_generate_blocking (nano::uint256_union const &);
-	void work_generate (nano::uint256_union const &, std::function<void(uint64_t)>, uint64_t);
-	void work_generate (nano::uint256_union const &, std::function<void(uint64_t)>);
+	void work_generate (nano::uint256_union const &, std::function<void(boost::optional<uint64_t>)>, uint64_t);
+	void work_generate (nano::uint256_union const &, std::function<void(boost::optional<uint64_t>)>);
 	void add_initial_peers ();
 	void block_confirm (std::shared_ptr<nano::block>);
 	bool block_confirmed_or_being_confirmed (nano::transaction const &, nano::block_hash const &);
@@ -146,6 +147,7 @@ public:
 	nano::node_flags flags;
 	nano::alarm & alarm;
 	nano::work_pool & work;
+	nano::distributed_work_factory distributed_work;
 	nano::logger_mt logger;
 	std::unique_ptr<nano::block_store> store_impl;
 	nano::block_store & store;

@@ -4490,7 +4490,7 @@ void nano::json_handler::work_cancel ()
 	auto hash (hash_impl ());
 	if (!ec)
 	{
-		node.work.cancel (hash);
+		node.observers.work_cancel.notify (hash);
 	}
 	response_errors ();
 }

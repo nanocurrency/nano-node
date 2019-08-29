@@ -37,6 +37,8 @@ add_library (node
 	confirmation_height_processor.cpp
 	daemonconfig.hpp
 	daemonconfig.cpp
+	distributed_work.hpp
+	distributed_work.cpp
 	election.hpp
 	election.cpp
 	gap_cache.hpp
