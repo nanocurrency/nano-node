@@ -95,7 +95,7 @@ TEST (ledger, deep_account_compute)
 	nano::ledger ledger (*store, stats);
 	nano::genesis genesis;
 	auto transaction (store->tx_begin_write ());
-	store->initialize (transaction, genesis, ledger.rep_weights);
+	store->initialize (transaction, genesis, ledger.rep_weights, ledger.cemented_count);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::keypair key;
 	auto balance (nano::genesis_amount - 1);

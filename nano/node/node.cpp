@@ -145,7 +145,7 @@ block_processor_thread ([this]() {
 online_reps (*this, config.online_weight_minimum.number ()),
 vote_uniquer (block_uniquer),
 active (*this),
-confirmation_height_processor (pending_confirmation_height, store, ledger.stats, active, ledger.epoch_link, write_database_queue, config.conf_height_processor_batch_min_time, logger),
+confirmation_height_processor (pending_confirmation_height, store, ledger.stats, active, ledger.epoch_link, write_database_queue, config.conf_height_processor_batch_min_time, logger, ledger.cemented_count),
 payment_observer_processor (observers.blocks),
 wallets (wallets_store.init_error (), *this),
 startup_time (std::chrono::steady_clock::now ())
@@ -391,7 +391,7 @@ startup_time (std::chrono::steady_clock::now ())
 			release_assert (!flags.read_only);
 			auto transaction (store.tx_begin_write ());
 			// Store was empty meaning we just created it, add the genesis block
-			store.initialize (transaction, genesis, ledger.rep_weights);
+			store.initialize (transaction, genesis, ledger.rep_weights, ledger.cemented_count);
 		}
 
 		auto transaction (store.tx_begin_read ());
@@ -1626,7 +1626,7 @@ bool nano::node::init_error () const
 	return store.init_error () || wallets_store.init_error ();
 }
 
-nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, uint16_t peering_port_a, bool read_only_a, bool cache_reps_a) :
+nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, uint16_t peering_port_a, nano::node_flags const & node_flags) :
 path (path_a),
 io_context (std::make_shared<boost::asio::io_context> ()),
 alarm (*io_context),
@@ -1642,9 +1642,6 @@ peering_port (peering_port_a)
 	nano::set_secure_perm_directory (path, error_chmod);
 	logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
 	logging.init (path);
-	nano::node_flags node_flags;
-	node_flags.read_only = read_only_a;
-	node_flags.cache_representative_weights_from_frontiers = cache_reps_a;
 	node = std::make_shared<nano::node> (*io_context, peering_port, path, alarm, logging, work, node_flags);
 	node->active.stop ();
 }
@@ -1652,6 +1649,15 @@ peering_port (peering_port_a)
 nano::inactive_node::~inactive_node ()
 {
 	node->stop ();
+}
+
+nano::node_flags const & nano::inactive_node_flag_defaults ()
+{
+	static nano::node_flags node_flags;
+	node_flags.read_only = true;
+	node_flags.cache_representative_weights_from_frontiers = false;
+	node_flags.cache_cemented_count_from_frontiers = false;
+	return node_flags;
 }
 
 std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, bool drop_unchecked, size_t batch_size, bool backup_before_upgrade)

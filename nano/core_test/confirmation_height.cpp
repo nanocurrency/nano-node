@@ -422,6 +422,7 @@ TEST (confirmation_height, send_receive_between_2_accounts)
 
 	ASSERT_EQ (10, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
 	ASSERT_EQ (10, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out));
+	ASSERT_EQ (11, node->ledger.cemented_count);
 }
 
 TEST (confirmation_height, send_receive_self)
@@ -481,6 +482,7 @@ TEST (confirmation_height, send_receive_self)
 	ASSERT_EQ (8, account_info.block_count);
 	ASSERT_EQ (6, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
 	ASSERT_EQ (6, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out));
+	ASSERT_EQ (confirmation_height, node->ledger.cemented_count);
 }
 
 TEST (confirmation_height, all_block_types)
@@ -588,6 +590,7 @@ TEST (confirmation_height, all_block_types)
 
 	ASSERT_EQ (15, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
 	ASSERT_EQ (15, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out));
+	ASSERT_EQ (16, node->ledger.cemented_count);
 }
 
 /* Bulk of the this test was taken from the node.fork_flip test */
@@ -769,6 +772,7 @@ TEST (confirmation_height, pending_observer_callbacks)
 	// Confirm the callback is not called under this circumstance
 	ASSERT_EQ (2, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
 	ASSERT_EQ (0, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out));
+	ASSERT_EQ (3, node->ledger.cemented_count);
 }
 
 TEST (confirmation_height, prioritize_frontiers)

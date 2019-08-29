@@ -24,7 +24,7 @@ public:
 	 * If using a different store version than the latest then you may need
 	 * to modify some of the objects in the store to be appropriate for the version before an upgrade.
 	 */
-	void initialize (nano::write_transaction const & transaction_a, nano::genesis const & genesis_a, nano::rep_weights & rep_weights) override
+	void initialize (nano::write_transaction const & transaction_a, nano::genesis const & genesis_a, nano::rep_weights & rep_weights, std::atomic<uint64_t> & cemented_count) override
 	{
 		auto hash_l (genesis_a.hash ());
 		assert (latest_v0_begin (transaction_a) == latest_v0_end ());
@@ -32,6 +32,7 @@ public:
 		nano::block_sideband sideband (nano::block_type::open, network_params.ledger.genesis_account, 0, network_params.ledger.genesis_amount, 1, nano::seconds_since_epoch ());
 		block_put (transaction_a, hash_l, *genesis_a.open, sideband);
 		confirmation_height_put (transaction_a, network_params.ledger.genesis_account, 1);
+		++cemented_count;
 		account_put (transaction_a, network_params.ledger.genesis_account, { hash_l, genesis_a.open->hash (), genesis_a.open->hash (), std::numeric_limits<nano::uint128_t>::max (), nano::seconds_since_epoch (), 1, nano::epoch::epoch_0 });
 		rep_weights.representation_put (network_params.ledger.genesis_account, std::numeric_limits<nano::uint128_t>::max ());
 		frontier_put (transaction_a, hash_l, network_params.ledger.genesis_account);
@@ -242,16 +243,6 @@ public:
 		std::vector<uint8_t> data (static_cast<uint8_t *> (value.data ()), static_cast<uint8_t *> (value.data ()) + value.size ());
 		std::fill_n (data.begin () + block_successor_offset (transaction_a, value.size (), type), sizeof (nano::uint256_union), uint8_t{ 0 });
 		block_raw_put (transaction_a, data, type, version, hash_a);
-	}
-
-	uint64_t cemented_count (nano::transaction const & transaction_a) override
-	{
-		uint64_t sum = 0;
-		for (auto i (confirmation_height_begin (transaction_a)), n (confirmation_height_end ()); i != n; ++i)
-		{
-			sum += i->second;
-		}
-		return sum;
 	}
 
 	void unchecked_put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a, std::shared_ptr<nano::block> const & block_a) override
