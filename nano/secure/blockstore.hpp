@@ -574,7 +574,7 @@ class block_store
 {
 public:
 	virtual ~block_store () = default;
-	virtual void initialize (nano::write_transaction const &, nano::genesis const &, nano::rep_weights &) = 0;
+	virtual void initialize (nano::write_transaction const &, nano::genesis const &, nano::rep_weights &, std::atomic<uint64_t> &) = 0;
 	virtual void block_put (nano::write_transaction const &, nano::block_hash const &, nano::block const &, nano::block_sideband const &, nano::epoch version = nano::epoch::epoch_0) = 0;
 	virtual nano::block_hash block_successor (nano::transaction const &, nano::block_hash const &) const = 0;
 	virtual void block_successor_clear (nano::write_transaction const &, nano::block_hash const &) = 0;
@@ -599,7 +599,6 @@ public:
 	virtual size_t account_count (nano::transaction const &) = 0;
 	virtual void confirmation_height_clear (nano::write_transaction const &, nano::account const & account, uint64_t existing_confirmation_height) = 0;
 	virtual void confirmation_height_clear (nano::write_transaction const &) = 0;
-	virtual uint64_t cemented_count (nano::transaction const &) = 0;
 	virtual nano::store_iterator<nano::account, nano::account_info> latest_v0_begin (nano::transaction const &, nano::account const &) = 0;
 	virtual nano::store_iterator<nano::account, nano::account_info> latest_v0_begin (nano::transaction const &) = 0;
 	virtual nano::store_iterator<nano::account, nano::account_info> latest_v0_end () = 0;

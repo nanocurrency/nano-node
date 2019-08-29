@@ -2961,24 +2961,11 @@ TEST (rpc, block_count)
 			ASSERT_EQ (200, response1.status);
 			ASSERT_EQ ("1", response1.json.get<std::string> ("count"));
 			ASSERT_EQ ("0", response1.json.get<std::string> ("unchecked"));
-			{
-				ASSERT_FALSE (response1.json.get_optional<std::string> ("cemented").is_initialized ());
-			}
+			ASSERT_EQ ("1", response1.json.get<std::string> ("cemented"));
 		}
-		request1.put ("include_cemented", "true");
-		test_response response1 (request1, rpc.config.port, system.io_ctx);
-		system.deadline_set (5s);
-		while (response1.status == 0)
-		{
-			ASSERT_NO_ERROR (system.poll ());
-		}
-		ASSERT_EQ (200, response1.status);
-		ASSERT_EQ ("1", response1.json.get<std::string> ("count"));
-		ASSERT_EQ ("0", response1.json.get<std::string> ("unchecked"));
-		ASSERT_EQ ("1", response1.json.get<std::string> ("cemented"));
 	}
 
-	// Should not be able to get the cemented count when enable_control is false.
+	// Should be able to get all counts even when enable_control is false.
 	{
 		nano::system system (24000, 1);
 		auto & node1 (*system.nodes[0]);
@@ -2991,7 +2978,6 @@ TEST (rpc, block_count)
 		rpc.start ();
 		boost::property_tree::ptree request1;
 		request1.put ("action", "block_count");
-		request1.put ("include_cemented", "true");
 		{
 			test_response response1 (request1, rpc.config.port, system.io_ctx);
 			system.deadline_set (5s);
@@ -3000,8 +2986,9 @@ TEST (rpc, block_count)
 				ASSERT_NO_ERROR (system.poll ());
 			}
 			ASSERT_EQ (200, response1.status);
-			std::error_code ec (nano::error_rpc::rpc_control_disabled);
-			ASSERT_EQ (response1.json.get<std::string> ("error"), ec.message ());
+			ASSERT_EQ ("1", response1.json.get<std::string> ("count"));
+			ASSERT_EQ ("0", response1.json.get<std::string> ("unchecked"));
+			ASSERT_EQ ("1", response1.json.get<std::string> ("cemented"));
 		}
 	}
 }
