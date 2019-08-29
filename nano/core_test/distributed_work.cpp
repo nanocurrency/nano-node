@@ -79,7 +79,7 @@ TEST (distributed_work, no_peers_multi)
 	// Test many works for the same root
 	for (unsigned i{ 0 }; i < total; ++i)
 	{
-		node->distributed_work.make (hash, callback, node->network_params.network.publish_threshold);
+		node->distributed_work.make (hash, callback, nano::difficulty::from_multiplier (10, node->network_params.network.publish_threshold));
 	}
 	// 1 root, and _total_ requests for that root are expected
 	ASSERT_EQ (1, node->distributed_work.work.size ());
@@ -102,8 +102,8 @@ TEST (distributed_work, no_peers_multi)
 		nano::block_hash hash_i (i + 1);
 		node->distributed_work.make (hash_i, callback, node->network_params.network.publish_threshold);
 	}
-	// 10 roots expected with 1 work each
-	ASSERT_EQ (10, node->distributed_work.work.size ());
+	// 10 roots expected with 1 work each, but some may have completed so test for some
+	ASSERT_GT (node->distributed_work.work.size (), 5);
 	for (auto & requests : node->distributed_work.work)
 	{
 		ASSERT_EQ (1, requests.second.size ());
