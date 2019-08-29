@@ -1206,7 +1206,7 @@ void nano::json_handler::block_count ()
 	auto transaction (node.store.tx_begin_read ());
 	response_l.put ("count", std::to_string (node.store.block_count (transaction).sum ()));
 	response_l.put ("unchecked", std::to_string (node.store.unchecked_count (transaction)));
-	response_l.put ("cemented", std::to_string (node.store.cemented_count (transaction)));
+	response_l.put ("cemented", std::to_string (node.ledger.cemented_count));
 	response_errors ();
 }
 
@@ -4490,7 +4490,7 @@ void nano::json_handler::work_cancel ()
 	auto hash (hash_impl ());
 	if (!ec)
 	{
-		node.work.cancel (hash);
+		node.observers.work_cancel.notify (hash);
 	}
 	response_errors ();
 }

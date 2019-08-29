@@ -2842,8 +2842,9 @@ TEST (rpc, work_peer_bad)
 	node2.config.work_peers.push_back (std::make_pair (boost::asio::ip::address_v6::any ().to_string (), 0));
 	nano::block_hash hash1 (1);
 	std::atomic<uint64_t> work (0);
-	node2.work_generate (hash1, [&work](uint64_t work_a) {
-		work = work_a;
+	node2.work_generate (hash1, [&work](boost::optional<uint64_t> work_a) {
+		ASSERT_TRUE (work_a.is_initialized ());
+		work = *work_a;
 	});
 	system.deadline_set (5s);
 	while (nano::work_validate (hash1, work))
@@ -2871,8 +2872,9 @@ TEST (rpc, work_peer_one)
 	node2.config.work_peers.push_back (std::make_pair (node1.network.endpoint ().address ().to_string (), rpc.config.port));
 	nano::keypair key1;
 	uint64_t work (0);
-	node2.work_generate (key1.pub, [&work](uint64_t work_a) {
-		work = work_a;
+	node2.work_generate (key1.pub, [&work](boost::optional<uint64_t> work_a) {
+		ASSERT_TRUE (work_a.is_initialized ());
+		work = *work_a;
 	});
 	system.deadline_set (5s);
 	while (nano::work_validate (key1.pub, work))
@@ -2923,8 +2925,9 @@ TEST (rpc, work_peer_many)
 	{
 		nano::keypair key1;
 		uint64_t work (0);
-		node1.work_generate (key1.pub, [&work](uint64_t work_a) {
-			work = work_a;
+		node1.work_generate (key1.pub, [&work](boost::optional<uint64_t> work_a) {
+			ASSERT_TRUE (work_a.is_initialized ());
+			work = *work_a;
 		});
 		while (nano::work_validate (key1.pub, work))
 		{

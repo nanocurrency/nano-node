@@ -121,6 +121,7 @@ stats (config.stat_config),
 flags (flags_a),
 alarm (alarm_a),
 work (work_a),
+distributed_work (*this),
 logger (config_a.logging.min_time_between_log_output),
 store_impl (nano::make_store (logger, application_path_a, flags.read_only, true, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_max_dbs, !flags.disable_unchecked_drop, flags.sideband_batch_size, config_a.backup_before_upgrade)),
 store (*store_impl),
@@ -145,7 +146,7 @@ block_processor_thread ([this]() {
 online_reps (*this, config.online_weight_minimum.number ()),
 vote_uniquer (block_uniquer),
 active (*this),
-confirmation_height_processor (pending_confirmation_height, store, ledger.stats, active, ledger.epoch_link, write_database_queue, config.conf_height_processor_batch_min_time, logger),
+confirmation_height_processor (pending_confirmation_height, store, ledger.stats, active, ledger.epoch_link, write_database_queue, config.conf_height_processor_batch_min_time, logger, ledger.cemented_count),
 payment_observer_processor (observers.blocks),
 wallets (wallets_store.init_error (), *this),
 startup_time (std::chrono::steady_clock::now ())
@@ -346,7 +347,7 @@ startup_time (std::chrono::steady_clock::now ())
 				}
 			}
 		});
-		if (this->websocket_server)
+		if (websocket_server)
 		{
 			observers.vote.add ([this](nano::transaction const & transaction, std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a) {
 				if (this->websocket_server->any_subscriber (nano::websocket::topic::vote))
@@ -357,6 +358,11 @@ startup_time (std::chrono::steady_clock::now ())
 				}
 			});
 		}
+		// Cancelling local work generation
+		observers.work_cancel.add ([this](nano::block_hash const & root_a) {
+			this->work.cancel (root_a);
+			this->distributed_work.cancel (root_a);
+		});
 
 		logger.always_log ("Node starting, version: ", NANO_VERSION_STRING);
 		logger.always_log ("Build information: ", BUILD_INFO);
@@ -391,7 +397,7 @@ startup_time (std::chrono::steady_clock::now ())
 			release_assert (!flags.read_only);
 			auto transaction (store.tx_begin_write ());
 			// Store was empty meaning we just created it, add the genesis block
-			store.initialize (transaction, genesis, ledger.rep_weights);
+			store.initialize (transaction, genesis, ledger.rep_weights, ledger.cemented_count);
 		}
 
 		auto transaction (store.tx_begin_read ());
@@ -943,345 +949,6 @@ int nano::node::price (nano::uint128_t const & balance_a, int amount_a)
 	return static_cast<int> (result * 100.0);
 }
 
-namespace
-{
-class work_request
-{
-public:
-	work_request (boost::asio::io_context & io_ctx_a, boost::asio::ip::address address_a, uint16_t port_a) :
-	address (address_a),
-	port (port_a),
-	socket (io_ctx_a)
-	{
-	}
-	boost::asio::ip::address address;
-	uint16_t port;
-	boost::beast::flat_buffer buffer;
-	boost::beast::http::response<boost::beast::http::string_body> response;
-	boost::asio::ip::tcp::socket socket;
-};
-class distributed_work : public std::enable_shared_from_this<distributed_work>
-{
-public:
-	distributed_work (std::shared_ptr<nano::node> const & node_a, nano::block_hash const & root_a, std::function<void(uint64_t)> const & callback_a, uint64_t difficulty_a) :
-	distributed_work (1, node_a, root_a, callback_a, difficulty_a)
-	{
-		assert (node_a != nullptr);
-	}
-	~distributed_work ()
-	{
-		stop (true);
-	}
-	distributed_work (unsigned int backoff_a, std::shared_ptr<nano::node> const & node_a, nano::block_hash const & root_a, std::function<void(uint64_t)> const & callback_a, uint64_t difficulty_a) :
-	callback (callback_a),
-	backoff (backoff_a),
-	node (node_a),
-	root (root_a),
-	need_resolve (node_a->config.work_peers),
-	difficulty (difficulty_a)
-	{
-		assert (node_a != nullptr);
-		assert (!completed);
-	}
-	void start ()
-	{
-		if (need_resolve.empty ())
-		{
-			start_work ();
-		}
-		else
-		{
-			auto current (need_resolve.back ());
-			need_resolve.pop_back ();
-			auto this_l (shared_from_this ());
-			boost::system::error_code ec;
-			auto parsed_address (boost::asio::ip::address_v6::from_string (current.first, ec));
-			if (!ec)
-			{
-				outstanding[parsed_address] = current.second;
-				start ();
-			}
-			else
-			{
-				node->network.resolver.async_resolve (boost::asio::ip::udp::resolver::query (current.first, std::to_string (current.second)), [current, this_l](boost::system::error_code const & ec, boost::asio::ip::udp::resolver::iterator i_a) {
-					if (!ec)
-					{
-						for (auto i (i_a), n (boost::asio::ip::udp::resolver::iterator{}); i != n; ++i)
-						{
-							auto endpoint (i->endpoint ());
-							this_l->outstanding[endpoint.address ()] = endpoint.port ();
-						}
-					}
-					else
-					{
-						this_l->node->logger.try_log (boost::str (boost::format ("Error resolving work peer: %1%:%2%: %3%") % current.first % current.second % ec.message ()));
-					}
-					this_l->start ();
-				});
-			}
-		}
-	}
-	void start_work ()
-	{
-		auto this_l (shared_from_this ());
-
-		// Start work generation if peers are not acting correctly, or if there are no peers configured
-		if ((outstanding.empty () || node->unresponsive_work_peers) && (node->config.work_threads != 0 || node->work.opencl))
-		{
-			local_generation_started = true;
-			node->work.generate (
-			this_l->root, [this_l](boost::optional<uint64_t> const & work_a) {
-				if (work_a)
-				{
-					this_l->set_once (work_a.value ());
-					this_l->stop (false);
-				}
-			},
-			difficulty);
-		}
-
-		if (!outstanding.empty ())
-		{
-			std::lock_guard<std::mutex> guard (mutex);
-			for (auto const & i : outstanding)
-			{
-				auto host (i.first);
-				auto service (i.second);
-				auto connection (std::make_shared<work_request> (this_l->node->io_ctx, host, service));
-				connections.push_back (connection);
-				connection->socket.async_connect (nano::tcp_endpoint (host, service), [this_l, connection](boost::system::error_code const & ec) {
-					if (!ec)
-					{
-						std::string request_string;
-						{
-							boost::property_tree::ptree request;
-							request.put ("action", "work_generate");
-							request.put ("hash", this_l->root.to_string ());
-							request.put ("difficulty", nano::to_string_hex (this_l->difficulty));
-							std::stringstream ostream;
-							boost::property_tree::write_json (ostream, request);
-							request_string = ostream.str ();
-						}
-						auto request (std::make_shared<boost::beast::http::request<boost::beast::http::string_body>> ());
-						request->method (boost::beast::http::verb::post);
-						request->set (boost::beast::http::field::content_type, "application/json");
-						request->target ("/");
-						request->version (11);
-						request->body () = request_string;
-						request->prepare_payload ();
-						boost::beast::http::async_write (connection->socket, *request, [this_l, connection, request](boost::system::error_code const & ec, size_t bytes_transferred) {
-							if (!ec)
-							{
-								boost::beast::http::async_read (connection->socket, connection->buffer, connection->response, [this_l, connection](boost::system::error_code const & ec, size_t bytes_transferred) {
-									if (!ec)
-									{
-										if (connection->response.result () == boost::beast::http::status::ok)
-										{
-											this_l->success (connection->response.body (), connection->address);
-										}
-										else
-										{
-											this_l->node->logger.try_log (boost::str (boost::format ("Work peer responded with an error %1% %2%: %3%") % connection->address % connection->port % connection->response.result ()));
-											this_l->failure (connection->address);
-										}
-									}
-									else if (ec == boost::system::errc::operation_canceled)
-									{
-										// The only case where we send a cancel is if we preempt stopped waiting for the response
-										this_l->cancel (connection);
-										this_l->failure (connection->address);
-									}
-									else
-									{
-										this_l->node->logger.try_log (boost::str (boost::format ("Unable to read from work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
-										this_l->failure (connection->address);
-									}
-								});
-							}
-							else
-							{
-								this_l->node->logger.try_log (boost::str (boost::format ("Unable to write to work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
-								this_l->failure (connection->address);
-							}
-						});
-					}
-					else
-					{
-						this_l->node->logger.try_log (boost::str (boost::format ("Unable to connect to work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
-						this_l->failure (connection->address);
-					}
-				});
-			}
-		}
-	}
-	void cancel (std::shared_ptr<work_request> connection)
-	{
-		auto this_l (shared_from_this ());
-		auto cancelling (std::make_shared<work_request> (node->io_ctx, connection->address, connection->port));
-		cancelling->socket.async_connect (nano::tcp_endpoint (cancelling->address, cancelling->port), [this_l, cancelling](boost::system::error_code const & ec) {
-			if (!ec)
-			{
-				std::string request_string;
-				{
-					boost::property_tree::ptree request;
-					request.put ("action", "work_cancel");
-					request.put ("hash", this_l->root.to_string ());
-					std::stringstream ostream;
-					boost::property_tree::write_json (ostream, request);
-					request_string = ostream.str ();
-				}
-				auto request (std::make_shared<boost::beast::http::request<boost::beast::http::string_body>> ());
-				request->method (boost::beast::http::verb::post);
-				request->set (boost::beast::http::field::content_type, "application/json");
-				request->target ("/");
-				request->version (11);
-				request->body () = request_string;
-				request->prepare_payload ();
-
-				boost::beast::http::async_write (cancelling->socket, *request, [this_l, request, cancelling](boost::system::error_code const & ec, size_t bytes_transferred) {
-					if (ec)
-					{
-						this_l->node->logger.try_log (boost::str (boost::format ("Unable to send work_cancel to work_peer %1% %2%: %3% (%4%)") % cancelling->address % cancelling->port % ec.message () % ec.value ()));
-					}
-				});
-			}
-		});
-	}
-	void stop (bool const local_stop)
-	{
-		if (!stopped.exchange (true))
-		{
-			std::lock_guard<std::mutex> lock (mutex);
-			if (local_stop && (node->config.work_threads != 0 || node->work.opencl))
-			{
-				node->work.cancel (root);
-			}
-			for (auto & i : connections)
-			{
-				auto connection = i.lock ();
-				if (connection)
-				{
-					boost::system::error_code ec;
-					connection->socket.cancel (ec);
-					if (ec)
-					{
-						node->logger.try_log (boost::str (boost::format ("Error cancelling operation with work_peer %1% %2%: %3%") % connection->address % connection->port % ec.message () % ec.value ()));
-					}
-					try
-					{
-						connection->socket.close ();
-					}
-					catch (const boost::system::system_error & ec)
-					{
-						node->logger.try_log (boost::str (boost::format ("Error closing socket with work_peer %1% %2%: %3%") % connection->address % connection->port % ec.what () % ec.code ()));
-					}
-				}
-			}
-			connections.clear ();
-			outstanding.clear ();
-		}
-	}
-	void success (std::string const & body_a, boost::asio::ip::address const & address)
-	{
-		auto last (remove (address));
-		std::stringstream istream (body_a);
-		try
-		{
-			boost::property_tree::ptree result;
-			boost::property_tree::read_json (istream, result);
-			auto work_text (result.get<std::string> ("work"));
-			uint64_t work;
-			if (!nano::from_string_hex (work_text, work))
-			{
-				uint64_t result_difficulty (0);
-				if (!nano::work_validate (root, work, &result_difficulty) && result_difficulty >= difficulty)
-				{
-					node->unresponsive_work_peers = false;
-					set_once (work);
-					stop (true);
-				}
-				else
-				{
-					node->logger.try_log (boost::str (boost::format ("Incorrect work response from %1% for root %2% with diffuculty %3%: %4%") % address % root.to_string () % nano::to_string_hex (difficulty) % work_text));
-					handle_failure (last);
-				}
-			}
-			else
-			{
-				node->logger.try_log (boost::str (boost::format ("Work response from %1% wasn't a number: %2%") % address % work_text));
-				handle_failure (last);
-			}
-		}
-		catch (...)
-		{
-			node->logger.try_log (boost::str (boost::format ("Work response from %1% wasn't parsable: %2%") % address % body_a));
-			handle_failure (last);
-		}
-	}
-	void set_once (uint64_t work_a)
-	{
-		if (!completed.exchange (true))
-		{
-			callback (work_a);
-		}
-	}
-	void failure (boost::asio::ip::address const & address)
-	{
-		auto last (remove (address));
-		handle_failure (last);
-	}
-	void handle_failure (bool last)
-	{
-		if (last)
-		{
-			if (!completed)
-			{
-				node->unresponsive_work_peers = true;
-				if (!local_generation_started)
-				{
-					if (backoff == 1 && node->config.logging.work_generation_time ())
-					{
-						node->logger.always_log ("Work peer(s) failed to generate work for root ", root.to_string (), ", retrying...");
-					}
-					auto now (std::chrono::steady_clock::now ());
-					auto root_l (root);
-					auto callback_l (callback);
-					std::weak_ptr<nano::node> node_w (node);
-					auto next_backoff (std::min (backoff * 2, (unsigned int)60 * 5));
-					// clang-format off
-					node->alarm.add (now + std::chrono::seconds (backoff), [ node_w, root_l, callback_l, next_backoff, difficulty = difficulty ] {
-						if (auto node_l = node_w.lock ())
-						{
-							auto work_generation (std::make_shared<distributed_work> (next_backoff, node_l, root_l, callback_l, difficulty));
-							work_generation->start ();
-						}
-					});
-					// clang-format on
-				}
-			}
-		}
-	}
-	bool remove (boost::asio::ip::address const & address)
-	{
-		std::lock_guard<std::mutex> lock (mutex);
-		outstanding.erase (address);
-		return outstanding.empty ();
-	}
-	std::function<void(uint64_t)> callback;
-	unsigned int backoff; // in seconds
-	std::shared_ptr<nano::node> node;
-	nano::block_hash root;
-	std::mutex mutex;
-	std::map<boost::asio::ip::address, uint16_t> outstanding;
-	std::vector<std::weak_ptr<work_request>> connections;
-	std::vector<std::pair<std::string, uint16_t>> need_resolve;
-	uint64_t difficulty;
-	std::atomic<bool> completed{ false };
-	std::atomic<bool> local_generation_started{ false };
-	std::atomic<bool> stopped{ false };
-};
-}
-
 void nano::node::work_generate_blocking (nano::block & block_a)
 {
 	work_generate_blocking (block_a, network_params.network.publish_threshold);
@@ -1292,15 +959,14 @@ void nano::node::work_generate_blocking (nano::block & block_a, uint64_t difficu
 	block_a.block_work_set (work_generate_blocking (block_a.root (), difficulty_a));
 }
 
-void nano::node::work_generate (nano::uint256_union const & hash_a, std::function<void(uint64_t)> callback_a)
+void nano::node::work_generate (nano::uint256_union const & hash_a, std::function<void(boost::optional<uint64_t>)> callback_a)
 {
 	work_generate (hash_a, callback_a, network_params.network.publish_threshold);
 }
 
-void nano::node::work_generate (nano::uint256_union const & hash_a, std::function<void(uint64_t)> callback_a, uint64_t difficulty_a)
+void nano::node::work_generate (nano::uint256_union const & hash_a, std::function<void(boost::optional<uint64_t>)> callback_a, uint64_t difficulty_a)
 {
-	auto work_generation (std::make_shared<distributed_work> (shared (), hash_a, callback_a, difficulty_a));
-	work_generation->start ();
+	distributed_work.make (hash_a, callback_a, difficulty_a);
 }
 
 uint64_t nano::node::work_generate_blocking (nano::uint256_union const & block_a)
@@ -1313,8 +979,8 @@ uint64_t nano::node::work_generate_blocking (nano::uint256_union const & hash_a,
 	std::promise<uint64_t> promise;
 	std::future<uint64_t> future = promise.get_future ();
 	// clang-format off
-	work_generate (hash_a, [&promise](uint64_t work_a) {
-		promise.set_value (work_a);
+	work_generate (hash_a, [&promise](boost::optional<uint64_t> work_a) {
+		promise.set_value (work_a.value_or (0));
 	},
 	difficulty_a);
 	// clang-format on
@@ -1639,7 +1305,7 @@ bool nano::node::init_error () const
 	return store.init_error () || wallets_store.init_error ();
 }
 
-nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, uint16_t peering_port_a, bool read_only_a, bool cache_reps_a) :
+nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, uint16_t peering_port_a, nano::node_flags const & node_flags) :
 path (path_a),
 io_context (std::make_shared<boost::asio::io_context> ()),
 alarm (*io_context),
@@ -1655,9 +1321,6 @@ peering_port (peering_port_a)
 	nano::set_secure_perm_directory (path, error_chmod);
 	logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
 	logging.init (path);
-	nano::node_flags node_flags;
-	node_flags.read_only = read_only_a;
-	node_flags.cache_representative_weights_from_frontiers = cache_reps_a;
 	node = std::make_shared<nano::node> (*io_context, peering_port, path, alarm, logging, work, node_flags);
 	node->active.stop ();
 }
@@ -1665,6 +1328,15 @@ peering_port (peering_port_a)
 nano::inactive_node::~inactive_node ()
 {
 	node->stop ();
+}
+
+nano::node_flags const & nano::inactive_node_flag_defaults ()
+{
+	static nano::node_flags node_flags;
+	node_flags.read_only = true;
+	node_flags.cache_representative_weights_from_frontiers = false;
+	node_flags.cache_cemented_count_from_frontiers = false;
+	return node_flags;
 }
 
 std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, bool drop_unchecked, size_t batch_size, bool backup_before_upgrade)
