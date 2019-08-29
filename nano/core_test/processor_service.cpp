@@ -11,14 +11,13 @@
 TEST (processor_service, bad_send_signature)
 {
 	nano::logger_mt logger;
-	bool init (false);
-	auto store = nano::make_store (init, logger, nano::unique_path ());
-	ASSERT_FALSE (init);
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats);
 	nano::genesis genesis;
 	auto transaction (store->tx_begin_write ());
-	store->initialize (transaction, genesis);
+	store->initialize (transaction, genesis, ledger.rep_weights);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::account_info info1;
 	ASSERT_FALSE (store->account_get (transaction, nano::test_genesis_key.pub, info1));
@@ -31,14 +30,13 @@ TEST (processor_service, bad_send_signature)
 TEST (processor_service, bad_receive_signature)
 {
 	nano::logger_mt logger;
-	bool init (false);
-	auto store = nano::make_store (init, logger, nano::unique_path ());
-	ASSERT_FALSE (init);
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats);
 	nano::genesis genesis;
 	auto transaction (store->tx_begin_write ());
-	store->initialize (transaction, genesis);
+	store->initialize (transaction, genesis, ledger.rep_weights);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::account_info info1;
 	ASSERT_FALSE (store->account_get (transaction, nano::test_genesis_key.pub, info1));

@@ -7,8 +7,11 @@ nano::online_reps::online_reps (nano::node & node_a, nano::uint128_t minimum_a) 
 node (node_a),
 minimum (minimum_a)
 {
-	auto transaction (node.ledger.store.tx_begin_read ());
-	online = trend (transaction);
+	if (!node.ledger.store.init_error ())
+	{
+		auto transaction (node.ledger.store.tx_begin_read ());
+		online = trend (transaction);
+	}
 }
 
 void nano::online_reps::observe (nano::account const & rep_a)

@@ -1,6 +1,11 @@
 FROM nanocurrency/nano-env:base
 
-RUN apt-get install -yqq librocksdb-dev
+RUN apt-get install -yqq git
+
+RUN git clone https://github.com/facebook/rocksdb.git && \
+    cd rocksdb && \
+    make static_lib && \
+    make install
 
 ENV BOOST_ROOT=/usr/local
 ADD util/build_prep/bootstrap_boost.sh bootstrap_boost.sh

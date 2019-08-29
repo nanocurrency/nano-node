@@ -24,7 +24,7 @@ namespace transport
 		friend class nano::transport::udp_channels;
 
 	public:
-		channel_udp (nano::transport::udp_channels &, nano::endpoint const &, unsigned = nano::protocol_version);
+		channel_udp (nano::transport::udp_channels &, nano::endpoint const &, uint8_t protocol_version);
 		size_t hash_code () const override;
 		bool operator== (nano::transport::channel const &) const override;
 		void send_buffer (nano::shared_const_buffer const &, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) override;
@@ -73,7 +73,7 @@ namespace transport
 		void clean_node_id (nano::account const &);
 		void clean_node_id (nano::endpoint const &, nano::account const &);
 		// Get the next peer for attempting a tcp bootstrap connection
-		nano::tcp_endpoint bootstrap_peer (uint8_t connection_protocol_version_min = nano::protocol_version_reasonable_min);
+		nano::tcp_endpoint bootstrap_peer (uint8_t connection_protocol_version_min);
 		void receive ();
 		void start ();
 		void stop ();

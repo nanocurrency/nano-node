@@ -122,12 +122,12 @@ namespace transport
 			node_id = node_id_a;
 		}
 
-		unsigned get_network_version () const
+		uint8_t get_network_version () const
 		{
 			return network_version;
 		}
 
-		void set_network_version (unsigned network_version_a)
+		void set_network_version (uint8_t network_version_a)
 		{
 			network_version = network_version_a;
 		}
@@ -140,7 +140,7 @@ namespace transport
 		std::chrono::steady_clock::time_point last_packet_received{ std::chrono::steady_clock::time_point () };
 		std::chrono::steady_clock::time_point last_packet_sent{ std::chrono::steady_clock::time_point () };
 		boost::optional<nano::account> node_id{ boost::none };
-		std::atomic<unsigned> network_version{ nano::protocol_version };
+		std::atomic<uint8_t> network_version{ 0 };
 
 	protected:
 		nano::node & node;

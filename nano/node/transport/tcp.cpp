@@ -191,7 +191,7 @@ bool nano::transport::tcp_channels::store_all (bool clear_peers)
 	if (!endpoints.empty ())
 	{
 		// Clear all peers then refresh with the current list of peers
-		auto transaction (node.store.tx_begin_write ());
+		auto transaction (node.store.tx_begin_write ({ tables::peers }));
 		if (clear_peers)
 		{
 			node.store.peer_clear (transaction);
@@ -224,7 +224,7 @@ nano::tcp_endpoint nano::transport::tcp_channels::bootstrap_peer ()
 	std::lock_guard<std::mutex> lock (mutex);
 	for (auto i (channels.get<last_bootstrap_attempt_tag> ().begin ()), n (channels.get<last_bootstrap_attempt_tag> ().end ()); i != n;)
 	{
-		if (i->channel->get_network_version () >= protocol_version_reasonable_min)
+		if (i->channel->get_network_version () >= node.network_params.protocol.protocol_version_bootstrap_min)
 		{
 			result = i->endpoint ();
 			channels.get<last_bootstrap_attempt_tag> ().modify (i, [](channel_tcp_wrapper & wrapper_a) {
@@ -312,7 +312,7 @@ void nano::transport::tcp_channels::process_keepalive (nano::keepalive const & m
 		{
 			node.network.response_channels.add (endpoint_a, insert_response_channels);
 		}
-		auto udp_channel (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, nano::transport::map_tcp_to_endpoint (endpoint_a)));
+		auto udp_channel (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, nano::transport::map_tcp_to_endpoint (endpoint_a), node.network_params.protocol.protocol_version));
 		node.network.process_message (message_a, udp_channel);
 	}
 }
@@ -418,7 +418,7 @@ void nano::transport::tcp_channels::ongoing_keepalive ()
 		size_t random_count (std::min (static_cast<size_t> (6), static_cast<size_t> (std::ceil (std::sqrt (node.network.udp_channels.size ())))));
 		for (auto i (0); i <= random_count; ++i)
 		{
-			auto tcp_endpoint (node.network.udp_channels.bootstrap_peer (nano::tcp_realtime_protocol_version_min));
+			auto tcp_endpoint (node.network.udp_channels.bootstrap_peer (node.network_params.protocol.tcp_realtime_protocol_version_min));
 			if (tcp_endpoint != invalid_endpoint && find_channel (tcp_endpoint) == nullptr)
 			{
 				start_tcp (nano::transport::map_tcp_to_endpoint (tcp_endpoint));
@@ -534,7 +534,7 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 				auto error (false);
 				nano::bufferstream stream (receive_buffer_a->data (), size_a);
 				nano::message_header header (error, stream);
-				if (!error && header.type == nano::message_type::node_id_handshake && header.version_using >= nano::protocol_version_min)
+				if (!error && header.type == nano::message_type::node_id_handshake && header.version_using >= node_l->network_params.protocol.protocol_version_min)
 				{
 					nano::node_id_handshake message (error, stream, header);
 					if (!error && message.response && message.query)

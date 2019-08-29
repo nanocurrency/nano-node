@@ -30,7 +30,7 @@ TEST (system, generate_mass_activity_long)
 	nano::node_config node_config (24000, system.logging);
 	node_config.enable_voting = false; // Prevent blocks cementing
 	auto node = system.add_node (node_config);
-	system.wallet (0)->wallets.watcher.stop (); // Stop work watcher
+	system.wallet (0)->wallets.watcher->stop (); // Stop work watcher
 	nano::thread_runner runner (system.io_ctx, system.nodes[0]->config.io_threads);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	uint32_t count (1000000000);
@@ -56,10 +56,9 @@ TEST (system, receive_while_synchronizing)
 		uint32_t count (1000);
 		system.generate_mass_activity (count, *system.nodes[0]);
 		nano::keypair key;
-		nano::node_init init1;
-		auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
-		ASSERT_FALSE (init1.error ());
-		auto channel (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, system.nodes[0]->network.endpoint ()));
+		auto node1 (std::make_shared<nano::node> (system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
+		ASSERT_FALSE (node1->init_error ());
+		auto channel (std::make_shared<nano::transport::channel_udp> (node1->network.udp_channels, system.nodes[0]->network.endpoint (), node1->network_params.protocol.protocol_version));
 		node1->network.send_keepalive (channel);
 		auto wallet (node1->wallets.create (1));
 		wallet->insert_adhoc (nano::test_genesis_key.prv); // For voting
@@ -90,14 +89,13 @@ TEST (system, receive_while_synchronizing)
 TEST (ledger, deep_account_compute)
 {
 	nano::logger_mt logger;
-	bool init (false);
-	auto store = nano::make_store (init, logger, nano::unique_path ());
-	ASSERT_FALSE (init);
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_FALSE (store->init_error ());
 	nano::stat stats;
 	nano::ledger ledger (*store, stats);
 	nano::genesis genesis;
 	auto transaction (store->tx_begin_write ());
-	store->initialize (transaction, genesis);
+	store->initialize (transaction, genesis, ledger.rep_weights);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::keypair key;
 	auto balance (nano::genesis_amount - 1);
@@ -412,7 +410,7 @@ TEST (store, vote_load)
 	for (auto i (0); i < 1000000; ++i)
 	{
 		auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, i, block));
-		node.vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, system.nodes[0]->network.endpoint ()));
+		node.vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, system.nodes[0]->network.endpoint (), system.nodes[0]->network_params.protocol.protocol_version));
 	}
 }
 
@@ -462,9 +460,8 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
 	node_config.online_weight_minimum = 100;
-	nano::node_flags node_flags;
-	node_flags.delay_frontier_confirmation_height_updating = true;
-	auto node = system.add_node (node_config, node_flags);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 
 	// As this test can take a while extend the next frontier check
@@ -534,9 +531,8 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
 	node_config.online_weight_minimum = 100;
-	nano::node_flags node_flags;
-	node_flags.delay_frontier_confirmation_height_updating = true;
-	auto node = system.add_node (node_config, node_flags);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 
 	// As this test can take a while extend the next frontier check
@@ -580,9 +576,9 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 TEST (confirmation_height, long_chains)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.delay_frontier_confirmation_height_updating = true;
-	auto node = system.add_node (nano::node_config (24000, system.logging), node_flags);
+	nano::node_config node_config (24000, system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto node = system.add_node (node_config);
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
@@ -673,9 +669,8 @@ TEST (confirmation_height, prioritize_frontiers_overwrite)
 {
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
-	nano::node_flags node_flags;
-	node_flags.delay_frontier_confirmation_height_updating = true;
-	auto node = system.add_node (node_config, node_flags);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 
 	// As this test can take a while extend the next frontier check

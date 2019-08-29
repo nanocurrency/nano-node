@@ -1,4 +1,5 @@
 #include <nano/lib/config.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/daemonconfig.hpp>
@@ -21,6 +22,8 @@ std::string nano::error_cli_messages::message (int ev) const
 			return "Invalid arguments";
 		case nano::error_cli::unknown_command:
 			return "Unknown command";
+		case nano::error_cli::database_write_error:
+			return "Database write error";
 	}
 
 	return "Invalid error code";
@@ -43,6 +46,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("unchecked_clear", "Clear unchecked blocks")
 	("confirmation_height_clear", "Clear confirmation height")
 	("diagnostics", "Run internal diagnostics")
+	("generate_config", boost::program_options::value<std::string> (), "Write configuration to stdout, populated with defaults suitable for this system. Pass the configuration type node or rpc.")
 	("key_create", "Generates a adhoc random keypair and prints it to stdout")
 	("key_expand", "Derive public key and account number from <key>")
 	("wallet_add_adhoc", "Insert <key> in to <wallet>")
@@ -64,6 +68,57 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("wallet", boost::program_options::value<std::string> (), "Defines <wallet> for other commands")
 	("force", boost::program_options::value<bool>(), "Bool to force command if allowed");
 	// clang-format on
+}
+
+namespace
+{
+void database_write_lock_error (std::error_code & ec)
+{
+	std::cerr << "Write database error, this cannot be run while the node is already running\n";
+	ec = nano::error_cli::database_write_error;
+}
+
+bool copy_database (boost::filesystem::path const & data_path, boost::program_options::variables_map & vm, boost::filesystem::path const & output_path, std::error_code & ec)
+{
+	bool success = false;
+	bool needs_to_write = vm.count ("unchecked_clear") || vm.count ("clear_send_ids") || vm.count ("online_weight_clear") || vm.count ("peer_clear") || vm.count ("confirmation_height_clear");
+
+	nano::inactive_node node (data_path, 24000, !needs_to_write);
+	if (!node.node->init_error ())
+	{
+		if (vm.count ("unchecked_clear"))
+		{
+			auto transaction (node.node->store.tx_begin_write ());
+			node.node->store.unchecked_clear (transaction);
+		}
+		if (vm.count ("clear_send_ids"))
+		{
+			auto transaction (node.node->wallets.tx_begin_write ());
+			node.node->wallets.clear_send_ids (transaction);
+		}
+		if (vm.count ("online_weight_clear"))
+		{
+			auto transaction (node.node->store.tx_begin_write ());
+			node.node->store.online_weight_clear (transaction);
+		}
+		if (vm.count ("peer_clear"))
+		{
+			auto transaction (node.node->store.tx_begin_write ());
+			node.node->store.peer_clear (transaction);
+		}
+		if (vm.count ("confirmation_height_clear"))
+		{
+			reset_confirmation_heights (node.node->store);
+		}
+
+		success = node.node->copy_with_compaction (output_path);
+	}
+	else
+	{
+		database_write_lock_error (ec);
+	}
+	return success;
+}
 }
 
 std::error_code nano::handle_node_options (boost::program_options::variables_map & vm)
@@ -149,53 +204,45 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		try
 		{
-			auto vacuum_path = data_path / "vacuumed.ldb";
-			auto source_path = data_path / "data.ldb";
-			auto backup_path = data_path / "backup.vacuum.ldb";
-
-			std::cout << "Vacuuming database copy in " << data_path << std::endl;
-			std::cout << "This may take a while..." << std::endl;
-
-			// Scope the node so the mdb environment gets cleaned up properly before
-			// the original file is replaced with the vacuumed file.
-			bool success = false;
+			std::cout << "Vacuuming database copy in ";
+#if NANO_ROCKSDB
+			auto source_path = data_path / "rocksdb";
+			auto backup_path = source_path / "backup";
+			auto vacuum_path = backup_path / "vacuumed";
+			if (!boost::filesystem::exists (vacuum_path))
 			{
-				inactive_node node (data_path);
-				if (vm.count ("unchecked_clear"))
-				{
-					auto transaction (node.node->store.tx_begin_write ());
-					node.node->store.unchecked_clear (transaction);
-				}
-				if (vm.count ("clear_send_ids"))
-				{
-					auto transaction (node.node->wallets.tx_begin_write ());
-					node.node->wallets.clear_send_ids (transaction);
-				}
-				if (vm.count ("online_weight_clear"))
-				{
-					auto transaction (node.node->store.tx_begin_write ());
-					node.node->store.online_weight_clear (transaction);
-				}
-				if (vm.count ("peer_clear"))
-				{
-					auto transaction (node.node->store.tx_begin_write ());
-					node.node->store.peer_clear (transaction);
-				}
-				success = node.node->copy_with_compaction (vacuum_path);
+				boost::filesystem::create_directories (vacuum_path);
 			}
 
+			std::cout << source_path << "\n";
+#else
+			auto source_path = data_path / "data.ldb";
+			auto backup_path = data_path / "backup.vacuum.ldb";
+			auto vacuum_path = data_path / "vacuumed.ldb";
+			std::cout << data_path << "\n";
+#endif
+			std::cout << "This may take a while..." << std::endl;
+
+			bool success = copy_database (data_path, vm, vacuum_path, ec);
 			if (success)
 			{
 				// Note that these throw on failure
 				std::cout << "Finalizing" << std::endl;
+#ifdef NANO_ROCKSDB
+				nano::remove_all_files_in_dir (backup_path);
+				nano::move_all_files_to_dir (source_path, backup_path);
+				nano::move_all_files_to_dir (vacuum_path, source_path);
+				boost::filesystem::remove_all (vacuum_path);
+#else
 				boost::filesystem::remove (backup_path);
 				boost::filesystem::rename (source_path, backup_path);
 				boost::filesystem::rename (vacuum_path, source_path);
+#endif
 				std::cout << "Vacuum completed" << std::endl;
 			}
 			else
 			{
-				std::cerr << "Vacuum failed (copy_with_compaction returned false)" << std::endl;
+				std::cerr << "Vacuum failed (copying returned false)" << std::endl;
 			}
 		}
 		catch (const boost::filesystem::filesystem_error & ex)
@@ -211,51 +258,24 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		try
 		{
-			boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
-
+#if NANO_ROCKSDB
+			auto source_path = data_path / "rocksdb";
+			auto snapshot_path = source_path / "backup";
+#else
 			auto source_path = data_path / "data.ldb";
 			auto snapshot_path = data_path / "snapshot.ldb";
-
+#endif
 			std::cout << "Database snapshot of " << source_path << " to " << snapshot_path << " in progress" << std::endl;
 			std::cout << "This may take a while..." << std::endl;
 
-			bool success = false;
-			{
-				inactive_node node (data_path);
-				if (vm.count ("unchecked_clear"))
-				{
-					auto transaction (node.node->store.tx_begin_write ());
-					node.node->store.unchecked_clear (transaction);
-				}
-				if (vm.count ("clear_send_ids"))
-				{
-					auto transaction (node.node->wallets.tx_begin_write ());
-					node.node->wallets.clear_send_ids (transaction);
-				}
-				if (vm.count ("online_weight_clear"))
-				{
-					auto transaction (node.node->store.tx_begin_write ());
-					node.node->store.online_weight_clear (transaction);
-				}
-				if (vm.count ("peer_clear"))
-				{
-					auto transaction (node.node->store.tx_begin_write ());
-					node.node->store.peer_clear (transaction);
-				}
-				if (vm.count ("confirmation_height_clear"))
-				{
-					reset_confirmation_heights (node.node->store);
-				}
-
-				success = node.node->copy_with_compaction (snapshot_path);
-			}
+			bool success = copy_database (data_path, vm, snapshot_path, ec);
 			if (success)
 			{
 				std::cout << "Snapshot completed, This can be found at " << snapshot_path << std::endl;
 			}
 			else
 			{
-				std::cerr << "Snapshot Failed (copy_with_compaction returned false)" << std::endl;
+				std::cerr << "Snapshot Failed (copying returned false)" << std::endl;
 			}
 		}
 		catch (const boost::filesystem::filesystem_error & ex)
@@ -270,96 +290,143 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	else if (vm.count ("unchecked_clear"))
 	{
 		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
-		inactive_node node (data_path);
-		auto transaction (node.node->store.tx_begin_write ());
-		node.node->store.unchecked_clear (transaction);
-		std::cout << "Unchecked blocks deleted" << std::endl;
+		inactive_node node (data_path, 24000, false);
+		if (!node.node->init_error ())
+		{
+			auto transaction (node.node->store.tx_begin_write ());
+			node.node->store.unchecked_clear (transaction);
+			std::cout << "Unchecked blocks deleted" << std::endl;
+		}
+		else
+		{
+			database_write_lock_error (ec);
+		}
 	}
 	else if (vm.count ("clear_send_ids"))
 	{
 		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
-		inactive_node node (data_path);
-		auto transaction (node.node->wallets.tx_begin_write ());
-		node.node->wallets.clear_send_ids (transaction);
-		std::cout << "Send IDs deleted" << std::endl;
+		inactive_node node (data_path, 24000, false);
+		if (!node.node->init_error ())
+		{
+			auto transaction (node.node->wallets.tx_begin_write ());
+			node.node->wallets.clear_send_ids (transaction);
+			std::cout << "Send IDs deleted" << std::endl;
+		}
+		else
+		{
+			database_write_lock_error (ec);
+		}
 	}
 	else if (vm.count ("online_weight_clear"))
 	{
 		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
-		inactive_node node (data_path);
-		auto transaction (node.node->store.tx_begin_write ());
-		node.node->store.online_weight_clear (transaction);
-		std::cout << "Onine weight records are removed" << std::endl;
+		inactive_node node (data_path, 24000, false);
+		if (!node.node->init_error ())
+		{
+			auto transaction (node.node->store.tx_begin_write ());
+			node.node->store.online_weight_clear (transaction);
+			std::cout << "Onine weight records are removed" << std::endl;
+		}
+		else
+		{
+			database_write_lock_error (ec);
+		}
 	}
 	else if (vm.count ("peer_clear"))
 	{
 		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
-		inactive_node node (data_path);
-		auto transaction (node.node->store.tx_begin_write ());
-		node.node->store.peer_clear (transaction);
-		std::cout << "Database peers are removed" << std::endl;
+		inactive_node node (data_path, 24000, false);
+		if (!node.node->init_error ())
+		{
+			auto transaction (node.node->store.tx_begin_write ());
+			node.node->store.peer_clear (transaction);
+			std::cout << "Database peers are removed" << std::endl;
+		}
+		else
+		{
+			database_write_lock_error (ec);
+		}
 	}
 	else if (vm.count ("confirmation_height_clear"))
 	{
 		boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
-		inactive_node node (data_path);
-		auto account_it = vm.find ("account");
-		if (account_it != vm.cend ())
+		inactive_node node (data_path, 24000, false);
+		if (!node.node->init_error ())
 		{
-			auto account_str = account_it->second.as<std::string> ();
-			nano::account account;
-			if (!account.decode_account (account_str))
+			auto account_it = vm.find ("account");
+			if (account_it != vm.cend ())
 			{
-				uint64_t confirmation_height;
-				auto transaction (node.node->store.tx_begin_read ());
-				if (!node.node->store.confirmation_height_get (transaction, account, confirmation_height))
+				auto account_str = account_it->second.as<std::string> ();
+				nano::account account;
+				if (!account.decode_account (account_str))
 				{
-					auto transaction (node.node->store.tx_begin_write ());
-					auto conf_height_reset_num = 0;
-					if (account == node.node->network_params.ledger.genesis_account)
+					uint64_t confirmation_height;
+					auto transaction (node.node->store.tx_begin_read ());
+					if (!node.node->store.confirmation_height_get (transaction, account, confirmation_height))
 					{
-						conf_height_reset_num = 1;
-						node.node->store.confirmation_height_put (transaction, account, confirmation_height);
+						auto transaction (node.node->store.tx_begin_write ());
+						auto conf_height_reset_num = 0;
+						if (account == node.node->network_params.ledger.genesis_account)
+						{
+							conf_height_reset_num = 1;
+							node.node->store.confirmation_height_put (transaction, account, confirmation_height);
+						}
+						else
+						{
+							node.node->store.confirmation_height_clear (transaction, account, confirmation_height);
+						}
+
+						std::cout << "Confirmation height of account " << account_str << " is set to " << conf_height_reset_num << std::endl;
 					}
 					else
 					{
-						node.node->store.confirmation_height_clear (transaction, account, confirmation_height);
+						std::cerr << "Could not find account" << std::endl;
+						ec = nano::error_cli::generic;
 					}
-
-					std::cout << "Confirmation height of account " << account_str << " is set to " << conf_height_reset_num << std::endl;
 				}
 				else
 				{
-					std::cerr << "Could not find account" << std::endl;
-					ec = nano::error_cli::generic;
+					std::cerr << "Invalid account id\n";
+					ec = nano::error_cli::invalid_arguments;
 				}
 			}
 			else
 			{
-				std::cerr << "Invalid account id\n";
-				ec = nano::error_cli::invalid_arguments;
+				reset_confirmation_heights (node.node->store);
+				std::cout << "Confirmation heights of all accounts (except genesis which is set to 1) are set to 0" << std::endl;
 			}
 		}
 		else
 		{
-			reset_confirmation_heights (node.node->store);
-			std::cout << "Confirmation heights of all accounts (except genesis) are set to 0" << std::endl;
+			database_write_lock_error (ec);
+		}
+	}
+	else if (vm.count ("generate_config"))
+	{
+		auto type = vm["generate_config"].as<std::string> ();
+
+		if (type == "node")
+		{
+			nano::daemon_config config (data_path);
+			nano::tomlconfig toml;
+			config.serialize_toml (toml);
+			std::cout << toml.to_string () << std::endl;
+		}
+		else if (type == "rpc")
+		{
+			nano::rpc_config config (false);
+			nano::tomlconfig toml;
+			config.serialize_toml (toml);
+			std::cout << toml.to_string () << std::endl;
+		}
+		else
+		{
+			std::cerr << "Invalid configuration type " << type << ". Must be node or rpc." << std::endl;
 		}
 	}
 	else if (vm.count ("diagnostics"))
 	{
 		inactive_node node (data_path);
-
-		// Check/upgrade the config.json file.
-		{
-			nano::daemon_config config (data_path);
-			auto error = nano::read_and_update_daemon_config (data_path, config);
-			if (error)
-			{
-				std::cerr << "Error deserializing config: " << error.get_message () << std::endl;
-			}
-		}
-
 		std::cout << "Testing hash function" << std::endl;
 		nano::raw_key key;
 		key.data.clear ();

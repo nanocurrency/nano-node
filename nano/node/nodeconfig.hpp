@@ -1,11 +1,11 @@
 #pragma once
 
 #include <nano/lib/config.hpp>
+#include <nano/lib/diagnosticsconfig.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/stats.hpp>
-#include <nano/node/diagnosticsconfig.hpp>
 #include <nano/node/ipcconfig.hpp>
 #include <nano/node/logging.hpp>
 #include <nano/node/websocketconfig.hpp>
@@ -16,6 +16,16 @@
 
 namespace nano
 {
+class tomlconfig;
+
+enum class frontiers_confirmation_mode : uint8_t
+{
+	always, // Always confirm frontiers
+	automatic, // Always mode if node contains representative with at least 50% of principal weight, less frequest requests if not
+	disabled, // Do not confirm frontiers
+	invalid
+};
+
 /**
  * Node configuration
  */
@@ -26,6 +36,8 @@ public:
 	node_config (uint16_t, nano::logging const &);
 	nano::error serialize_json (nano::jsonconfig &) const;
 	nano::error deserialize_json (bool &, nano::jsonconfig &);
+	nano::error serialize_toml (nano::tomlconfig &) const;
+	nano::error deserialize_toml (nano::tomlconfig &);
 	bool upgrade_json (unsigned, nano::jsonconfig &);
 	nano::account random_representative ();
 	nano::network_params network_params;
@@ -75,10 +87,15 @@ public:
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
-	size_t bandwidth_limit{ 5 * 1024 * 1024 }; // 5Mb/s
+	size_t bandwidth_limit{ 5 * 1024 * 1024 }; // 5MB/s
 	std::chrono::milliseconds conf_height_processor_batch_min_time{ 50 };
 	bool backup_before_upgrade{ false };
 	std::chrono::seconds work_watcher_period{ std::chrono::seconds (5) };
+	double max_work_generate_multiplier{ 64. };
+	uint64_t max_work_generate_difficulty{ nano::network_constants::publish_full_threshold };
+	nano::frontiers_confirmation_mode frontiers_confirmation{ nano::frontiers_confirmation_mode::automatic };
+	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;
+	nano::frontiers_confirmation_mode deserialize_frontiers_confirmation (std::string const &);
 	static unsigned json_version ()
 	{
 		return 18;
@@ -88,6 +105,7 @@ public:
 class node_flags final
 {
 public:
+	std::vector<std::string> config_overrides;
 	bool disable_backup{ false };
 	bool disable_lazy_bootstrap{ false };
 	bool disable_legacy_bootstrap{ false };
@@ -98,8 +116,9 @@ public:
 	bool disable_unchecked_cleanup{ false };
 	bool disable_unchecked_drop{ true };
 	bool fast_bootstrap{ false };
-	bool delay_frontier_confirmation_height_updating{ false };
 	bool read_only{ false };
+	/** Whether to read all frontiers and construct the representative weights */
+	bool cache_representative_weights_from_frontiers{ true };
 	size_t sideband_batch_size{ 512 };
 	size_t block_processor_batch_size{ 0 };
 	size_t block_processor_full_size{ 65536 };

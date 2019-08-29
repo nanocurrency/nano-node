@@ -5,6 +5,10 @@
 #include <nano/node/node.hpp>
 #include <nano/rpc/rpc.hpp>
 
+#if NANO_ROCKSDB
+#include <nano/node/rocksdb/rocksdb.hpp>
+#endif
+
 #include <boost/polymorphic_cast.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
@@ -60,11 +64,6 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 	});
 }
 
-bool nano::node_init::error () const
-{
-	return block_store_init || wallets_store_init;
-}
-
 namespace nano
 {
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (rep_crawler & rep_crawler, const std::string & name)
@@ -109,12 +108,12 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_processor & 
 }
 }
 
-nano::node::node (nano::node_init & init_a, boost::asio::io_context & io_ctx_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, nano::alarm & alarm_a, nano::logging const & logging_a, nano::work_pool & work_a, nano::node_flags flags_a) :
-node (init_a, io_ctx_a, application_path_a, alarm_a, nano::node_config (peering_port_a, logging_a), work_a, flags_a)
+nano::node::node (boost::asio::io_context & io_ctx_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, nano::alarm & alarm_a, nano::logging const & logging_a, nano::work_pool & work_a, nano::node_flags flags_a) :
+node (io_ctx_a, application_path_a, alarm_a, nano::node_config (peering_port_a, logging_a), work_a, flags_a)
 {
 }
 
-nano::node::node (nano::node_init & init_a, boost::asio::io_context & io_ctx_a, boost::filesystem::path const & application_path_a, nano::alarm & alarm_a, nano::node_config const & config_a, nano::work_pool & work_a, nano::node_flags flags_a) :
+nano::node::node (boost::asio::io_context & io_ctx_a, boost::filesystem::path const & application_path_a, nano::alarm & alarm_a, nano::node_config const & config_a, nano::work_pool & work_a, nano::node_flags flags_a) :
 io_ctx (io_ctx_a),
 node_initialized_latch (1),
 config (config_a),
@@ -123,12 +122,12 @@ flags (flags_a),
 alarm (alarm_a),
 work (work_a),
 logger (config_a.logging.min_time_between_log_output),
-store_impl (std::make_unique<nano::mdb_store> (init_a.block_store_init, logger, application_path_a / "data.ldb", config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_max_dbs, !flags.disable_unchecked_drop, flags.sideband_batch_size, config_a.backup_before_upgrade)),
+store_impl (nano::make_store (logger, application_path_a, flags.read_only, true, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_max_dbs, !flags.disable_unchecked_drop, flags.sideband_batch_size, config_a.backup_before_upgrade)),
 store (*store_impl),
-wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (init_a.wallets_store_init, application_path_a / "wallets.ldb", config_a.lmdb_max_dbs)),
+wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_max_dbs)),
 wallets_store (*wallets_store_impl),
 gap_cache (*this),
-ledger (store, stats, config.epoch_block_link, config.epoch_block_signer),
+ledger (store, stats, config.epoch_block_link, config.epoch_block_signer, flags_a.cache_representative_weights_from_frontiers),
 checker (config.signature_checker_threads),
 network (*this, config.peering_port),
 bootstrap_initiator (*this),
@@ -148,10 +147,10 @@ vote_uniquer (block_uniquer),
 active (*this),
 confirmation_height_processor (pending_confirmation_height, store, ledger.stats, active, ledger.epoch_link, write_database_queue, config.conf_height_processor_batch_min_time, logger),
 payment_observer_processor (observers.blocks),
-wallets (init_a.wallets_store_init, *this),
+wallets (wallets_store.init_error (), *this),
 startup_time (std::chrono::steady_clock::now ())
 {
-	if (!init_a.error ())
+	if (!init_error ())
 	{
 		if (config.websocket_config.enabled)
 		{
@@ -365,7 +364,12 @@ startup_time (std::chrono::steady_clock::now ())
 		auto network_label = network_params.network.get_current_network_as_string ();
 		logger.always_log ("Active network: ", network_label);
 
-		logger.always_log (boost::str (boost::format ("Work pool running %1% threads") % work.threads.size ()));
+		logger.always_log (boost::str (boost::format ("Work pool running %1% threads %2%") % work.threads.size () % (work.opencl ? "(1 for OpenCL)" : "")));
+		logger.always_log (boost::str (boost::format ("%1% work peers configured") % config.work_peers.size ()));
+		if (config.work_peers.empty () && config.work_threads == 0 && !work.opencl)
+		{
+			logger.always_log ("Work generation is disabled");
+		}
 
 		if (config.logging.node_lifetime_tracing ())
 		{
@@ -384,15 +388,25 @@ startup_time (std::chrono::steady_clock::now ())
 		nano::genesis genesis;
 		if (!is_initialized)
 		{
+			release_assert (!flags.read_only);
 			auto transaction (store.tx_begin_write ());
 			// Store was empty meaning we just created it, add the genesis block
-			store.initialize (transaction, genesis);
+			store.initialize (transaction, genesis, ledger.rep_weights);
 		}
 
 		auto transaction (store.tx_begin_read ());
 		if (!store.block_exists (transaction, genesis.hash ()))
 		{
-			logger.always_log ("Genesis block not found. Make sure the node network ID is correct.");
+			std::stringstream ss;
+			ss << "Genesis block not found. Make sure the node network ID is correct.";
+			if (network_params.network.is_beta_network ())
+			{
+				ss << " Beta network may have reset, try clearing database files";
+			}
+			auto str = ss.str ();
+
+			logger.always_log (str);
+			std::cerr << str << std::endl;
 			std::exit (1);
 		}
 
@@ -515,9 +529,9 @@ void nano::node::do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, 
 	}
 }
 
-bool nano::node::copy_with_compaction (boost::filesystem::path const & destination_file)
+bool nano::node::copy_with_compaction (boost::filesystem::path const & destination)
 {
-	return !mdb_env_copy2 (boost::polymorphic_downcast<nano::mdb_store *> (store_impl.get ())->env.environment, destination_file.string ().c_str (), MDB_CP_COMPACT);
+	return store.copy_db (destination);
 }
 
 void nano::node::process_fork (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a)
@@ -584,6 +598,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (node & node, const
 	composite->add_component (collect_seq_con_info (node.vote_uniquer, "vote_uniquer"));
 	composite->add_component (collect_seq_con_info (node.confirmation_height_processor, "confirmation_height_processor"));
 	composite->add_component (collect_seq_con_info (node.pending_confirmation_height, "pending_confirmation_height"));
+	composite->add_component (collect_seq_con_info (node.worker, "worker"));
 	return composite;
 }
 }
@@ -596,7 +611,7 @@ void nano::node::process_active (std::shared_ptr<nano::block> incoming)
 
 nano::process_return nano::node::process (nano::block const & block_a)
 {
-	auto transaction (store.tx_begin_write ());
+	auto transaction (store.tx_begin_write ({ tables::accounts_v0, tables::accounts_v1, tables::cached_counts, tables::change_blocks, tables::frontiers, tables::open_blocks, tables::pending_v0, tables::pending_v1, tables::receive_blocks, tables::representation, tables::send_blocks, tables::state_blocks_v0, tables::state_blocks_v1 }, { tables::confirmation_height }));
 	auto result (ledger.process (transaction, block_a));
 	return result;
 }
@@ -679,6 +694,8 @@ void nano::node::stop ()
 		wallets.stop ();
 		stats.stop ();
 		write_database_queue.stop ();
+		worker.stop ();
+		// work pool is not stopped on purpose due to testing setup
 	}
 }
 
@@ -783,14 +800,16 @@ void nano::node::ongoing_bootstrap ()
 void nano::node::ongoing_store_flush ()
 {
 	{
-		auto transaction (store.tx_begin_write ());
+		auto transaction (store.tx_begin_write ({ tables::vote }));
 		store.flush (transaction);
 	}
 	std::weak_ptr<nano::node> node_w (shared_from_this ());
 	alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
-			node_l->ongoing_store_flush ();
+			node_l->worker.push_task ([node_l]() {
+				node_l->ongoing_store_flush ();
+			});
 		}
 	});
 }
@@ -803,7 +822,9 @@ void nano::node::ongoing_peer_store ()
 	alarm.add (std::chrono::steady_clock::now () + network_params.node.peer_interval, [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
-			node_l->ongoing_peer_store ();
+			node_l->worker.push_task ([node_l]() {
+				node_l->ongoing_peer_store ();
+			});
 		}
 	});
 }
@@ -834,7 +855,9 @@ void nano::node::search_pending ()
 	wallets.search_pending_all ();
 	auto this_l (shared ());
 	alarm.add (std::chrono::steady_clock::now () + network_params.node.search_pending_interval, [this_l]() {
-		this_l->search_pending ();
+		this_l->worker.push_task ([this_l]() {
+			this_l->search_pending ();
+		});
 	});
 }
 
@@ -898,7 +921,9 @@ void nano::node::ongoing_unchecked_cleanup ()
 	}
 	auto this_l (shared ());
 	alarm.add (std::chrono::steady_clock::now () + network_params.node.unchecked_cleaning_interval, [this_l]() {
-		this_l->ongoing_unchecked_cleanup ();
+		this_l->worker.push_task ([this_l]() {
+			this_l->ongoing_unchecked_cleanup ();
+		});
 	});
 }
 
@@ -943,6 +968,10 @@ public:
 	{
 		assert (node_a != nullptr);
 	}
+	~distributed_work ()
+	{
+		stop (true);
+	}
 	distributed_work (unsigned int backoff_a, std::shared_ptr<nano::node> const & node_a, nano::block_hash const & root_a, std::function<void(uint64_t)> const & callback_a, uint64_t difficulty_a) :
 	callback (callback_a),
 	backoff (backoff_a),
@@ -952,7 +981,7 @@ public:
 	difficulty (difficulty_a)
 	{
 		assert (node_a != nullptr);
-		completed.clear ();
+		assert (!completed);
 	}
 	void start ()
 	{
@@ -994,88 +1023,104 @@ public:
 	}
 	void start_work ()
 	{
+		auto this_l (shared_from_this ());
+
+		// Start work generation if peers are not acting correctly, or if there are no peers configured
+		if ((outstanding.empty () || node->unresponsive_work_peers) && (node->config.work_threads != 0 || node->work.opencl))
+		{
+			local_generation_started = true;
+			node->work.generate (
+			this_l->root, [this_l](boost::optional<uint64_t> const & work_a) {
+				if (work_a)
+				{
+					this_l->set_once (work_a.value ());
+					this_l->stop (false);
+				}
+			},
+			difficulty);
+		}
+
 		if (!outstanding.empty ())
 		{
-			auto this_l (shared_from_this ());
-			std::lock_guard<std::mutex> lock (mutex);
+			std::lock_guard<std::mutex> guard (mutex);
 			for (auto const & i : outstanding)
 			{
 				auto host (i.first);
 				auto service (i.second);
-				node->background ([this_l, host, service]() {
-					auto connection (std::make_shared<work_request> (this_l->node->io_ctx, host, service));
-					connection->socket.async_connect (nano::tcp_endpoint (host, service), [this_l, connection](boost::system::error_code const & ec) {
-						if (!ec)
+				auto connection (std::make_shared<work_request> (this_l->node->io_ctx, host, service));
+				connections.push_back (connection);
+				connection->socket.async_connect (nano::tcp_endpoint (host, service), [this_l, connection](boost::system::error_code const & ec) {
+					if (!ec)
+					{
+						std::string request_string;
 						{
-							std::string request_string;
+							boost::property_tree::ptree request;
+							request.put ("action", "work_generate");
+							request.put ("hash", this_l->root.to_string ());
+							request.put ("difficulty", nano::to_string_hex (this_l->difficulty));
+							std::stringstream ostream;
+							boost::property_tree::write_json (ostream, request);
+							request_string = ostream.str ();
+						}
+						auto request (std::make_shared<boost::beast::http::request<boost::beast::http::string_body>> ());
+						request->method (boost::beast::http::verb::post);
+						request->set (boost::beast::http::field::content_type, "application/json");
+						request->target ("/");
+						request->version (11);
+						request->body () = request_string;
+						request->prepare_payload ();
+						boost::beast::http::async_write (connection->socket, *request, [this_l, connection, request](boost::system::error_code const & ec, size_t bytes_transferred) {
+							if (!ec)
 							{
-								boost::property_tree::ptree request;
-								request.put ("action", "work_generate");
-								request.put ("hash", this_l->root.to_string ());
-								request.put ("difficulty", nano::to_string_hex (this_l->difficulty));
-								std::stringstream ostream;
-								boost::property_tree::write_json (ostream, request);
-								request_string = ostream.str ();
-							}
-							auto request (std::make_shared<boost::beast::http::request<boost::beast::http::string_body>> ());
-							request->method (boost::beast::http::verb::post);
-							request->set (boost::beast::http::field::content_type, "application/json");
-							request->target ("/");
-							request->version (11);
-							request->body () = request_string;
-							request->prepare_payload ();
-							boost::beast::http::async_write (connection->socket, *request, [this_l, connection, request](boost::system::error_code const & ec, size_t bytes_transferred) {
-								if (!ec)
-								{
-									boost::beast::http::async_read (connection->socket, connection->buffer, connection->response, [this_l, connection](boost::system::error_code const & ec, size_t bytes_transferred) {
-										if (!ec)
+								boost::beast::http::async_read (connection->socket, connection->buffer, connection->response, [this_l, connection](boost::system::error_code const & ec, size_t bytes_transferred) {
+									if (!ec)
+									{
+										if (connection->response.result () == boost::beast::http::status::ok)
 										{
-											if (connection->response.result () == boost::beast::http::status::ok)
-											{
-												this_l->success (connection->response.body (), connection->address);
-											}
-											else
-											{
-												this_l->node->logger.try_log (boost::str (boost::format ("Work peer responded with an error %1% %2%: %3%") % connection->address % connection->port % connection->response.result ()));
-												this_l->failure (connection->address);
-											}
+											this_l->success (connection->response.body (), connection->address);
 										}
 										else
 										{
-											this_l->node->logger.try_log (boost::str (boost::format ("Unable to read from work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
+											this_l->node->logger.try_log (boost::str (boost::format ("Work peer responded with an error %1% %2%: %3%") % connection->address % connection->port % connection->response.result ()));
 											this_l->failure (connection->address);
 										}
-									});
-								}
-								else
-								{
-									this_l->node->logger.try_log (boost::str (boost::format ("Unable to write to work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
-									this_l->failure (connection->address);
-								}
-							});
-						}
-						else
-						{
-							this_l->node->logger.try_log (boost::str (boost::format ("Unable to connect to work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
-							this_l->failure (connection->address);
-						}
-					});
+									}
+									else if (ec == boost::system::errc::operation_canceled)
+									{
+										// The only case where we send a cancel is if we preempt stopped waiting for the response
+										this_l->cancel (connection);
+										this_l->failure (connection->address);
+									}
+									else
+									{
+										this_l->node->logger.try_log (boost::str (boost::format ("Unable to read from work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
+										this_l->failure (connection->address);
+									}
+								});
+							}
+							else
+							{
+								this_l->node->logger.try_log (boost::str (boost::format ("Unable to write to work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
+								this_l->failure (connection->address);
+							}
+						});
+					}
+					else
+					{
+						this_l->node->logger.try_log (boost::str (boost::format ("Unable to connect to work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
+						this_l->failure (connection->address);
+					}
 				});
 			}
 		}
-		else
-		{
-			handle_failure (true);
-		}
 	}
-	void stop ()
+	void cancel (std::shared_ptr<work_request> connection)
 	{
 		auto this_l (shared_from_this ());
-		std::lock_guard<std::mutex> lock (mutex);
-		for (auto const & i : outstanding)
-		{
-			auto host (i.first);
-			node->background ([this_l, host]() {
+		auto cancelling (std::make_shared<work_request> (node->io_ctx, connection->address, connection->port));
+		cancelling->socket.async_connect (nano::tcp_endpoint (cancelling->address, cancelling->port), [this_l, cancelling](boost::system::error_code const & ec) {
+			if (!ec)
+			{
 				std::string request_string;
 				{
 					boost::property_tree::ptree request;
@@ -1085,19 +1130,56 @@ public:
 					boost::property_tree::write_json (ostream, request);
 					request_string = ostream.str ();
 				}
-				boost::beast::http::request<boost::beast::http::string_body> request;
-				request.method (boost::beast::http::verb::post);
-				request.set (boost::beast::http::field::content_type, "application/json");
-				request.target ("/");
-				request.version (11);
-				request.body () = request_string;
-				request.prepare_payload ();
-				auto socket (std::make_shared<boost::asio::ip::tcp::socket> (this_l->node->io_ctx));
-				boost::beast::http::async_write (*socket, request, [socket](boost::system::error_code const & ec, size_t bytes_transferred) {
+				auto request (std::make_shared<boost::beast::http::request<boost::beast::http::string_body>> ());
+				request->method (boost::beast::http::verb::post);
+				request->set (boost::beast::http::field::content_type, "application/json");
+				request->target ("/");
+				request->version (11);
+				request->body () = request_string;
+				request->prepare_payload ();
+
+				boost::beast::http::async_write (cancelling->socket, *request, [this_l, request, cancelling](boost::system::error_code const & ec, size_t bytes_transferred) {
+					if (ec)
+					{
+						this_l->node->logger.try_log (boost::str (boost::format ("Unable to send work_cancel to work_peer %1% %2%: %3% (%4%)") % cancelling->address % cancelling->port % ec.message () % ec.value ()));
+					}
 				});
-			});
+			}
+		});
+	}
+	void stop (bool const local_stop)
+	{
+		if (!stopped.exchange (true))
+		{
+			std::lock_guard<std::mutex> lock (mutex);
+			if (local_stop && (node->config.work_threads != 0 || node->work.opencl))
+			{
+				node->work.cancel (root);
+			}
+			for (auto & i : connections)
+			{
+				auto connection = i.lock ();
+				if (connection)
+				{
+					boost::system::error_code ec;
+					connection->socket.cancel (ec);
+					if (ec)
+					{
+						node->logger.try_log (boost::str (boost::format ("Error cancelling operation with work_peer %1% %2%: %3%") % connection->address % connection->port % ec.message () % ec.value ()));
+					}
+					try
+					{
+						connection->socket.close ();
+					}
+					catch (const boost::system::system_error & ec)
+					{
+						node->logger.try_log (boost::str (boost::format ("Error closing socket with work_peer %1% %2%: %3%") % connection->address % connection->port % ec.what () % ec.code ()));
+					}
+				}
+			}
+			connections.clear ();
+			outstanding.clear ();
 		}
-		outstanding.clear ();
 	}
 	void success (std::string const & body_a, boost::asio::ip::address const & address)
 	{
@@ -1114,8 +1196,9 @@ public:
 				uint64_t result_difficulty (0);
 				if (!nano::work_validate (root, work, &result_difficulty) && result_difficulty >= difficulty)
 				{
+					node->unresponsive_work_peers = false;
 					set_once (work);
-					stop ();
+					stop (true);
 				}
 				else
 				{
@@ -1137,7 +1220,7 @@ public:
 	}
 	void set_once (uint64_t work_a)
 	{
-		if (!completed.test_and_set ())
+		if (!completed.exchange (true))
 		{
 			callback (work_a);
 		}
@@ -1151,23 +1234,14 @@ public:
 	{
 		if (last)
 		{
-			if (!completed.test_and_set ())
+			if (!completed)
 			{
-				if (node->config.work_threads != 0 || node->work.opencl)
-				{
-					auto callback_l (callback);
-					// clang-format off
-					node->work.generate (root, [callback_l](boost::optional<uint64_t> const & work_a) {
-						callback_l (work_a.value ());
-					},
-					difficulty);
-					// clang-format on
-				}
-				else
+				node->unresponsive_work_peers = true;
+				if (!local_generation_started)
 				{
 					if (backoff == 1 && node->config.logging.work_generation_time ())
 					{
-						node->logger.try_log ("Work peer(s) failed to generate work for root ", root.to_string (), ", retrying...");
+						node->logger.always_log ("Work peer(s) failed to generate work for root ", root.to_string (), ", retrying...");
 					}
 					auto now (std::chrono::steady_clock::now ());
 					auto root_l (root);
@@ -1199,9 +1273,12 @@ public:
 	nano::block_hash root;
 	std::mutex mutex;
 	std::map<boost::asio::ip::address, uint16_t> outstanding;
+	std::vector<std::weak_ptr<work_request>> connections;
 	std::vector<std::pair<std::string, uint16_t>> need_resolve;
-	std::atomic_flag completed;
 	uint64_t difficulty;
+	std::atomic<bool> completed{ false };
+	std::atomic<bool> local_generation_started{ false };
+	std::atomic<bool> stopped{ false };
 };
 }
 
@@ -1292,7 +1369,9 @@ void nano::node::ongoing_online_weight_calculation_queue ()
 	alarm.add (std::chrono::steady_clock::now () + (std::chrono::seconds (network_params.node.weight_period)), [node_w]() {
 		if (auto node_l = node_w.lock ())
 		{
-			node_l->ongoing_online_weight_calculation ();
+			node_l->worker.push_task ([node_l]() {
+				node_l->ongoing_online_weight_calculation ();
+			});
 		}
 	});
 }
@@ -1555,7 +1634,12 @@ int nano::node::store_version ()
 	return store.version_get (transaction);
 }
 
-nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, uint16_t peering_port_a) :
+bool nano::node::init_error () const
+{
+	return store.init_error () || wallets_store.init_error ();
+}
+
+nano::inactive_node::inactive_node (boost::filesystem::path const & path_a, uint16_t peering_port_a, bool read_only_a, bool cache_reps_a) :
 path (path_a),
 io_context (std::make_shared<boost::asio::io_context> ()),
 alarm (*io_context),
@@ -1571,7 +1655,10 @@ peering_port (peering_port_a)
 	nano::set_secure_perm_directory (path, error_chmod);
 	logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
 	logging.init (path);
-	node = std::make_shared<nano::node> (init, *io_context, peering_port, path, alarm, logging, work);
+	nano::node_flags node_flags;
+	node_flags.read_only = read_only_a;
+	node_flags.cache_representative_weights_from_frontiers = cache_reps_a;
+	node = std::make_shared<nano::node> (*io_context, peering_port, path, alarm, logging, work, node_flags);
 	node->active.stop ();
 }
 
@@ -1580,7 +1667,11 @@ nano::inactive_node::~inactive_node ()
 	node->stop ();
 }
 
-std::unique_ptr<nano::block_store> nano::make_store (bool & init, nano::logger_mt & logger, boost::filesystem::path const & path)
+std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, bool drop_unchecked, size_t batch_size, bool backup_before_upgrade)
 {
-	return std::make_unique<nano::mdb_store> (init, logger, path);
+#if NANO_ROCKSDB
+	return std::make_unique<nano::rocksdb_store> (logger, add_db_postfix ? path / "rocksdb" : path, drop_unchecked, read_only);
+#else
+	return std::make_unique<nano::mdb_store> (logger, add_db_postfix ? path / "data.ldb" : path, txn_tracking_config_a, block_processor_batch_max_time_a, lmdb_max_dbs, drop_unchecked, batch_size, backup_before_upgrade);
+#endif
 }

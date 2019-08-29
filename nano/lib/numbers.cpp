@@ -202,7 +202,7 @@ void nano::uint256_union::encode_hex (std::string & text) const
 {
 	assert (text.empty ());
 	std::stringstream stream;
-	stream << std::hex << std::noshowbase << std::setw (64) << std::setfill ('0');
+	stream << std::hex << std::uppercase << std::noshowbase << std::setw (64) << std::setfill ('0');
 	stream << number ();
 	text = stream.str ();
 }
@@ -319,7 +319,7 @@ void nano::uint512_union::encode_hex (std::string & text) const
 {
 	assert (text.empty ());
 	std::stringstream stream;
-	stream << std::hex << std::noshowbase << std::setw (128) << std::setfill ('0');
+	stream << std::hex << std::uppercase << std::noshowbase << std::setw (128) << std::setfill ('0');
 	stream << number ();
 	text = stream.str ();
 }
@@ -476,7 +476,7 @@ void nano::uint128_union::encode_hex (std::string & text) const
 {
 	assert (text.empty ());
 	std::stringstream stream;
-	stream << std::hex << std::noshowbase << std::setw (32) << std::setfill ('0');
+	stream << std::hex << std::uppercase << std::noshowbase << std::setw (32) << std::setfill ('0');
 	stream << number ();
 	text = stream.str ();
 }
