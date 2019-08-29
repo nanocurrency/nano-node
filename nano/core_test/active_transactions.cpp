@@ -160,18 +160,15 @@ TEST (active_transactions, adjusted_difficulty_overflow_max)
 		auto send2_root (node1.active.roots.find (send2->qualified_root ()));
 		auto open1_root (node1.active.roots.find (open1->qualified_root ()));
 		auto open2_root (node1.active.roots.find (open2->qualified_root ()));
-		node1.active.roots.modify (send1_root, [](nano::conflict_info & info_a) {
-			info_a.difficulty = std::numeric_limits<std::uint64_t>::max ();
-		});
-		node1.active.roots.modify (send2_root, [](nano::conflict_info & info_a) {
-			info_a.difficulty = std::numeric_limits<std::uint64_t>::max ();
-		});
-		node1.active.roots.modify (open1_root, [](nano::conflict_info & info_a) {
-			info_a.difficulty = std::numeric_limits<std::uint64_t>::max ();
-		});
-		node1.active.roots.modify (open2_root, [](nano::conflict_info & info_a) {
-			info_a.difficulty = std::numeric_limits<std::uint64_t>::max ();
-		});
+		auto modify_difficulty = [&roots = node1.active.roots](auto & existing_root) {
+			roots.modify (existing_root, [](nano::conflict_info & info_a) {
+				info_a.difficulty = std::numeric_limits<std::uint64_t>::max ();
+			});
+		};
+		modify_difficulty (send1_root);
+		modify_difficulty (send2_root);
+		modify_difficulty (open1_root);
+		modify_difficulty (open2_root);
 		node1.active.adjust_difficulty (send2->hash ());
 		// Test overflow
 		ASSERT_EQ (node1.active.roots.get<1> ().begin ()->election->status.winner->hash (), send1->hash ());
@@ -216,21 +213,16 @@ TEST (active_transactions, adjusted_difficulty_overflow_min)
 		auto open1_root (node1.active.roots.find (open1->qualified_root ()));
 		auto open2_root (node1.active.roots.find (open2->qualified_root ()));
 		auto send3_root (node1.active.roots.find (send3->qualified_root ()));
-		node1.active.roots.modify (send1_root, [](nano::conflict_info & info_a) {
-			info_a.difficulty = std::numeric_limits<std::uint64_t>::min () + 1;
-		});
-		node1.active.roots.modify (send2_root, [](nano::conflict_info & info_a) {
-			info_a.difficulty = std::numeric_limits<std::uint64_t>::min () + 1;
-		});
-		node1.active.roots.modify (open1_root, [](nano::conflict_info & info_a) {
-			info_a.difficulty = std::numeric_limits<std::uint64_t>::min () + 1;
-		});
-		node1.active.roots.modify (open2_root, [](nano::conflict_info & info_a) {
-			info_a.difficulty = std::numeric_limits<std::uint64_t>::min () + 1;
-		});
-		node1.active.roots.modify (send3_root, [](nano::conflict_info & info_a) {
-			info_a.difficulty = std::numeric_limits<std::uint64_t>::min () + 1;
-		});
+		auto modify_difficulty = [&roots = node1.active.roots](auto & existing_root) {
+			roots.modify (existing_root, [](nano::conflict_info & info_a) {
+				info_a.difficulty = std::numeric_limits<std::uint64_t>::min () + 1;
+			});
+		};
+		modify_difficulty (send1_root);
+		modify_difficulty (send2_root);
+		modify_difficulty (open1_root);
+		modify_difficulty (open2_root);
+		modify_difficulty (send3_root);
 		node1.active.adjust_difficulty (send1->hash ());
 		// Test overflow
 		ASSERT_EQ (node1.active.roots.get<1> ().begin ()->election->status.winner->hash (), send1->hash ());
