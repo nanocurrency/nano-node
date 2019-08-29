@@ -70,7 +70,7 @@ public:
 	void make (nano::block_hash const &, std::function<void(boost::optional<uint64_t>)> const &, uint64_t);
 	void make (unsigned int, nano::block_hash const &, std::function<void(boost::optional<uint64_t>)> const &, uint64_t);
 	void cancel (nano::block_hash const &, bool const local_stop = false);
-	void cleanup ();
+	void cleanup_finished ();
 
 	std::unordered_map<nano::block_hash, std::vector<std::weak_ptr<nano::distributed_work>>> work;
 	std::mutex mutex;
