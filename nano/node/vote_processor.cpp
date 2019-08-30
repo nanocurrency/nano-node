@@ -13,10 +13,7 @@ thread ([this]() {
 })
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	while (!started)
-	{
-		condition.wait (lock);
-	}
+	condition.wait (lock, [this] { return this->started; });
 }
 
 void nano::vote_processor::process_loop ()
