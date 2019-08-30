@@ -95,20 +95,17 @@ public:
 		// json and write the response to the ipc socket with a length prefix.
 		auto this_l (this->shared_from_this ());
 		auto response_handler_l ([this_l, request_id_l](std::string const & body) {
-			this_l->response_body = body;
-			this_l->size_response = boost::endian::native_to_big (static_cast<uint32_t> (this_l->response_body.size ()));
-			std::vector<boost::asio::mutable_buffer> bufs = {
-				boost::asio::buffer (&this_l->size_response, sizeof (this_l->size_response)),
-				boost::asio::buffer (this_l->response_body)
-			};
-
+			auto big = boost::endian::native_to_big (static_cast<uint32_t> (body.size ()));
+			std::vector<uint8_t> buffer;
+			buffer.insert (buffer.end (), reinterpret_cast<std::uint8_t *> (&big), reinterpret_cast<std::uint8_t *> (&big) + sizeof (std::uint32_t));
+			buffer.insert (buffer.end (), body.begin (), body.end ());
 			if (this_l->node.config.logging.log_ipc ())
 			{
 				this_l->node.logger.always_log (boost::str (boost::format ("IPC/RPC request %1% completed in: %2% %3%") % request_id_l % this_l->session_timer.stop ().count () % this_l->session_timer.unit ()));
 			}
 
 			this_l->timer_start (std::chrono::seconds (this_l->config_transport.io_timeout));
-			boost::asio::async_write (this_l->socket, bufs, [this_l](boost::system::error_code const & error_a, size_t size_a) {
+			nano::async_write (this_l->socket, nano::shared_const_buffer (buffer), [this_l](boost::system::error_code const & error_a, size_t size_a) {
 				this_l->timer_cancel ();
 				if (!error_a)
 				{
@@ -200,10 +197,6 @@ private:
 
 	/** Buffer sizes are read into this */
 	uint32_t buffer_size{ 0 };
-
-	/** RPC response */
-	std::string response_body;
-	uint32_t size_response{ 0 };
 
 	/** Buffer used to store data received from the client */
 	std::vector<uint8_t> buffer;

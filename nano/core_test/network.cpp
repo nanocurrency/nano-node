@@ -1445,13 +1445,13 @@ TEST (bootstrap, tcp_node_id_handshake)
 	auto bootstrap_endpoint (system.nodes[0]->bootstrap.endpoint ());
 	auto cookie (system.nodes[0]->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (bootstrap_endpoint)));
 	nano::node_id_handshake node_id_handshake (cookie, boost::none);
-	auto input (node_id_handshake.to_bytes ());
+	auto input (node_id_handshake.to_shared_const_buffer ());
 	std::atomic<bool> write_done (false);
 	socket->async_connect (bootstrap_endpoint, [&input, socket, &write_done](boost::system::error_code const & ec) {
 		ASSERT_FALSE (ec);
 		socket->async_write (input, [&input, &write_done](boost::system::error_code const & ec, size_t size_a) {
 			ASSERT_FALSE (ec);
-			ASSERT_EQ (input->size (), size_a);
+			ASSERT_EQ (input.size (), size_a);
 			write_done = true;
 		});
 	});
@@ -2283,12 +2283,12 @@ TEST (bootstrap, tcp_listener_timeout_node_id_handshake)
 	auto socket (std::make_shared<nano::socket> (node0));
 	auto cookie (node0->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (node0->bootstrap.endpoint ())));
 	nano::node_id_handshake node_id_handshake (cookie, boost::none);
-	auto input (node_id_handshake.to_bytes ());
+	auto input (node_id_handshake.to_shared_const_buffer ());
 	socket->async_connect (node0->bootstrap.endpoint (), [&input, socket](boost::system::error_code const & ec) {
 		ASSERT_FALSE (ec);
 		socket->async_write (input, [&input](boost::system::error_code const & ec, size_t size_a) {
 			ASSERT_FALSE (ec);
-			ASSERT_EQ (input->size (), size_a);
+			ASSERT_EQ (input.size (), size_a);
 		});
 	});
 	system.deadline_set (std::chrono::seconds (5));

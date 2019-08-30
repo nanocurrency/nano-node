@@ -1692,7 +1692,7 @@ TEST (mdb_block_store, upgrade_backup)
 
 	// Now do the upgrade and confirm that backup is saved
 	nano::logger_mt logger;
-	nano::mdb_store store (logger, path, nano::txn_tracking_config{}, std::chrono::seconds (5), 128, false, 512, true);
+	nano::mdb_store store (logger, path, nano::txn_tracking_config{}, std::chrono::seconds (5), 128, 512, true);
 	ASSERT_FALSE (store.init_error ());
 	auto transaction (store.tx_begin_read ());
 	ASSERT_LT (14, store.version_get (transaction));

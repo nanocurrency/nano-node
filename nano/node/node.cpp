@@ -123,7 +123,7 @@ alarm (alarm_a),
 work (work_a),
 distributed_work (*this),
 logger (config_a.logging.min_time_between_log_output),
-store_impl (nano::make_store (logger, application_path_a, flags.read_only, true, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_max_dbs, !flags.disable_unchecked_drop, flags.sideband_batch_size, config_a.backup_before_upgrade)),
+store_impl (nano::make_store (logger, application_path_a, flags.read_only, true, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_max_dbs, flags.sideband_batch_size, config_a.backup_before_upgrade)),
 store (*store_impl),
 wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_max_dbs)),
 wallets_store (*wallets_store_impl),
@@ -419,17 +419,20 @@ startup_time (std::chrono::steady_clock::now ())
 		node_id = nano::keypair ();
 		logger.always_log ("Node ID: ", node_id.pub.to_node_id ());
 
-		const uint8_t * weight_buffer = network_params.network.is_live_network () ? nano_bootstrap_weights_live : nano_bootstrap_weights_beta;
-		size_t weight_size = network_params.network.is_live_network () ? nano_bootstrap_weights_live_size : nano_bootstrap_weights_beta_size;
-		if (network_params.network.is_live_network () || network_params.network.is_beta_network ())
+		if ((network_params.network.is_live_network () || network_params.network.is_beta_network ()) && !flags.inactive_node)
 		{
+			// Use bootstrap weights if initial bootstrap is not completed
+			bool use_bootstrap_weight (false);
+			const uint8_t * weight_buffer = network_params.network.is_live_network () ? nano_bootstrap_weights_live : nano_bootstrap_weights_beta;
+			size_t weight_size = network_params.network.is_live_network () ? nano_bootstrap_weights_live_size : nano_bootstrap_weights_beta_size;
 			nano::bufferstream weight_stream ((const uint8_t *)weight_buffer, weight_size);
 			nano::uint128_union block_height;
 			if (!nano::try_read (weight_stream, block_height))
 			{
 				auto max_blocks = (uint64_t)block_height.number ();
 				auto transaction (store.tx_begin_read ());
-				if (ledger.store.block_count (transaction).sum () < max_blocks)
+				use_bootstrap_weight = ledger.store.block_count (transaction).sum () < max_blocks;
+				if (use_bootstrap_weight)
 				{
 					ledger.bootstrap_weight_max_blocks = max_blocks;
 					while (true)
@@ -448,6 +451,13 @@ startup_time (std::chrono::steady_clock::now ())
 						ledger.bootstrap_weights[account] = weight.number ();
 					}
 				}
+			}
+			// Drop unchecked blocks if initial bootstrap is completed
+			if (!flags.disable_unchecked_drop && !use_bootstrap_weight && !flags.read_only)
+			{
+				auto transaction (store.tx_begin_write ());
+				store.unchecked_clear (transaction);
+				logger.always_log ("Dropping unchecked blocks");
 			}
 		}
 	}
@@ -1333,17 +1343,18 @@ nano::inactive_node::~inactive_node ()
 nano::node_flags const & nano::inactive_node_flag_defaults ()
 {
 	static nano::node_flags node_flags;
+	node_flags.inactive_node = true;
 	node_flags.read_only = true;
 	node_flags.cache_representative_weights_from_frontiers = false;
 	node_flags.cache_cemented_count_from_frontiers = false;
 	return node_flags;
 }
 
-std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, bool drop_unchecked, size_t batch_size, bool backup_before_upgrade)
+std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, size_t batch_size, bool backup_before_upgrade)
 {
 #if NANO_ROCKSDB
-	return std::make_unique<nano::rocksdb_store> (logger, add_db_postfix ? path / "rocksdb" : path, drop_unchecked, read_only);
+	return std::make_unique<nano::rocksdb_store> (logger, add_db_postfix ? path / "rocksdb" : path, read_only);
 #else
-	return std::make_unique<nano::mdb_store> (logger, add_db_postfix ? path / "data.ldb" : path, txn_tracking_config_a, block_processor_batch_max_time_a, lmdb_max_dbs, drop_unchecked, batch_size, backup_before_upgrade);
+	return std::make_unique<nano::mdb_store> (logger, add_db_postfix ? path / "data.ldb" : path, txn_tracking_config_a, block_processor_batch_max_time_a, lmdb_max_dbs, batch_size, backup_before_upgrade);
 #endif
 }
