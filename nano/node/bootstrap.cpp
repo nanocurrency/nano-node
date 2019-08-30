@@ -983,7 +983,9 @@ void nano::bootstrap_attempt::run ()
 
 std::shared_ptr<nano::bootstrap_client> nano::bootstrap_attempt::connection (std::unique_lock<std::mutex> & lock_a)
 {
+	// clang-format off
 	condition.wait (lock_a, [& stopped = stopped, &idle = idle] { return stopped || !idle.empty (); });
+	// clang-format on
 	std::shared_ptr<nano::bootstrap_client> result;
 	if (!idle.empty ())
 	{
