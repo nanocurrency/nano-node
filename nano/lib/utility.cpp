@@ -238,9 +238,9 @@ thread ([this]() {
 
 void nano::worker::run ()
 {
-	std::unique_lock<std::mutex> lk (mutex);
 	while (!stopped)
 	{
+		std::unique_lock<std::mutex> lk (mutex);
 		if (!queue.empty ())
 		{
 			auto func = queue.front ();
@@ -250,7 +250,6 @@ void nano::worker::run ()
 			// So that we reduce locking for anything being pushed as that will
 			// most likely be on an io-thread
 			std::this_thread::yield ();
-			lk.lock ();
 		}
 		else
 		{
