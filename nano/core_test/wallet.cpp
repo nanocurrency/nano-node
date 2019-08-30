@@ -1162,12 +1162,12 @@ TEST (wallet, work_watcher_removed)
 	auto & wallet (*system.wallet (0));
 	wallet.insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key;
-	ASSERT_EQ (0, wallet.wallets.watcher->watched.size ());
+	ASSERT_EQ (0, wallet.wallets.watcher->size ());
 	auto const block (wallet.send_action (nano::test_genesis_key.pub, key.pub, 100));
-	ASSERT_EQ (1, wallet.wallets.watcher->watched.size ());
+	ASSERT_EQ (1, wallet.wallets.watcher->size ());
 	auto transaction (wallet.wallets.tx_begin_write ());
 	system.deadline_set (3s);
-	while (!wallet.wallets.watcher->watched.empty ())
+	while (0 == wallet.wallets.watcher->size ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}

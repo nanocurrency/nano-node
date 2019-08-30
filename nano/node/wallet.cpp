@@ -1514,9 +1514,15 @@ void nano::work_watcher::remove (std::shared_ptr<nano::block> block_a)
 
 bool nano::work_watcher::is_watched (nano::qualified_root const & root_a)
 {
-	std::unique_lock<std::mutex> lock (mutex);
+	std::lock_guard<std::mutex> guard (mutex);
 	auto exists (watched.find (root_a));
 	return exists != watched.end ();
+}
+
+size_t nano::work_watcher::size ()
+{
+	std::lock_guard<std::mutex> guard (mutex);
+	return watched.size ();
 }
 
 void nano::wallets::do_wallet_actions ()
