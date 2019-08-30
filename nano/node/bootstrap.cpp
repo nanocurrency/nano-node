@@ -983,7 +983,7 @@ void nano::bootstrap_attempt::run ()
 
 std::shared_ptr<nano::bootstrap_client> nano::bootstrap_attempt::connection (std::unique_lock<std::mutex> & lock_a)
 {
-	condition.wait (lock_a, [this] { return this->stopped || !this->idle.empty (); });
+	condition.wait (lock_a, [& stopped = stopped, &idle = idle] { return stopped || !idle.empty (); });
 	std::shared_ptr<nano::bootstrap_client> result;
 	if (!idle.empty ())
 	{
@@ -1688,7 +1688,7 @@ void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bo
 		if (attempt != nullptr)
 		{
 			attempt->stop ();
-			condition.wait (lock, [this] { return this->attempt == nullptr; });
+			condition.wait (lock, [attempt = attempt] { return attempt == nullptr; });
 		}
 		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out);
 		attempt = std::make_shared<nano::bootstrap_attempt> (node.shared ());
@@ -1706,7 +1706,7 @@ void nano::bootstrap_initiator::bootstrap_lazy (nano::block_hash const & hash_a,
 			if (attempt != nullptr)
 			{
 				attempt->stop ();
-				condition.wait (lock, [this] { return this->attempt == nullptr; });
+				condition.wait (lock, [attempt = attempt] { return attempt == nullptr; });
 			}
 		}
 		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate_lazy, nano::stat::dir::out);

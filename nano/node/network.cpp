@@ -845,7 +845,7 @@ nano::message_buffer * nano::message_buffer_manager::allocate ()
 	if (!stopped && free.empty () && full.empty ())
 	{
 		stats.inc (nano::stat::type::udp, nano::stat::detail::blocking, nano::stat::dir::in);
-		condition.wait (lock, [this] { return this->stopped || !this->free.empty () || !this->full.empty (); });
+		condition.wait (lock, [& stopped = stopped, &free = free, &full = full] { return stopped || !free.empty () || !full.empty (); });
 	}
 	nano::message_buffer * result (nullptr);
 	if (!free.empty ())

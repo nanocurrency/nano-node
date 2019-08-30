@@ -20,7 +20,7 @@ thread ([this]() {
 })
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	condition.wait (lock, [this] { return this->started; });
+	condition.wait (lock, [& started = started] { return started; });
 }
 
 nano::active_transactions::~active_transactions ()
@@ -502,7 +502,7 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 void nano::active_transactions::stop ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	condition.wait (lock, [this] { return this->started; });
+	condition.wait (lock, [& started = started] { return started; });
 	stopped = true;
 	lock.unlock ();
 	condition.notify_all ();
