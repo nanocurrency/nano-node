@@ -250,7 +250,6 @@ void nano::worker::run ()
 			// So that we reduce locking for anything being pushed as that will
 			// most likely be on an io-thread
 			std::this_thread::yield ();
-			lk.lock ();
 		}
 		else
 		{

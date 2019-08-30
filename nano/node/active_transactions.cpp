@@ -20,10 +20,7 @@ thread ([this]() {
 })
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	while (!started)
-	{
-		condition.wait (lock);
-	}
+	condition.wait (lock, [& started = started] { return started; });
 }
 
 nano::active_transactions::~active_transactions ()
@@ -340,7 +337,8 @@ void nano::active_transactions::request_loop ()
 			break;
 		}
 		const auto extra_delay (std::min (roots.size (), max_broadcast_queue) * node.network.broadcast_interval_ms * 2);
-		condition.wait_for (lock, std::chrono::milliseconds (node.network_params.network.request_interval_ms + extra_delay));
+		const auto wakeup (std::chrono::steady_clock::now () + std::chrono::milliseconds (node.network_params.network.request_interval_ms + extra_delay));
+		condition.wait_until (lock, wakeup, [&wakeup] { return std::chrono::steady_clock::now () >= wakeup; });
 	}
 }
 
@@ -504,10 +502,7 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 void nano::active_transactions::stop ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	while (!started)
-	{
-		condition.wait (lock);
-	}
+	condition.wait (lock, [& started = started] { return started; });
 	stopped = true;
 	lock.unlock ();
 	condition.notify_all ();

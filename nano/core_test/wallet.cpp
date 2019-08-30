@@ -1130,11 +1130,11 @@ TEST (wallet, work_watcher_update)
 		//fill multipliers_cb and update active difficulty;
 		for (auto i (0); i < node.active.multipliers_cb.size (); i++)
 		{
-			node.active.multipliers_cb.push_back (multiplier * (2 + i / 100.));
+			node.active.multipliers_cb.push_back (multiplier * (1.5 + i / 100.));
 		}
 		node.active.update_active_difficulty (lock);
 	}
-	system.deadline_set (10s);
+	system.deadline_set (20s);
 	while (updated_difficulty1 == difficulty1 || updated_difficulty2 == difficulty2)
 	{
 		{
