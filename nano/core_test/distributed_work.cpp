@@ -11,13 +11,15 @@ TEST (distributed_work, no_peers)
 	auto node (system.nodes[0]);
 	nano::block_hash hash;
 	boost::optional<uint64_t> work;
-	auto callback = [&work](boost::optional<uint64_t> work_a) {
+	std::atomic<bool> done{ false };
+	auto callback = [&work, &done](boost::optional<uint64_t> work_a) {
 		ASSERT_TRUE (work_a.is_initialized ());
 		work = work_a;
+		done = true;
 	};
 	node->distributed_work.make (hash, callback, node->network_params.network.publish_threshold);
 	system.deadline_set (5s);
-	while (!work.is_initialized ())
+	while (!done)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
