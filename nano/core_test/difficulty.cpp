@@ -5,6 +5,9 @@
 
 TEST (difficulty, multipliers)
 {
+	// For ASSERT_DEATH_IF_SUPPORTED
+	testing::FLAGS_gtest_death_test_style = "threadsafe";
+
 	{
 		uint64_t base = 0xff00000000000000;
 		uint64_t difficulty = 0xfff27e7a57c285cd;
