@@ -1450,48 +1450,50 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 				auto active_difficulty (watcher_l->node.active.limited_active_difficulty ());
 				if (active_difficulty > difficulty)
 				{
-					std::promise<boost::optional<uint64_t>> promise;
-					std::future<boost::optional<uint64_t>> future = promise.get_future ();
-					// clang-format off
-					watcher_l->node.work.generate (root_l, [&promise](boost::optional<uint64_t> work_a) {
-						promise.set_value (work_a);
-					},
-					active_difficulty);
-					// clang-format on
-					auto work_l = future.get ();
-					if (work_l.is_initialized () && !watcher_l->stopped)
-					{
-						nano::state_block_builder builder;
-						std::error_code ec;
-						std::shared_ptr<nano::state_block> block (builder.from (*block_a).work (*work_l).build (ec));
-
-						if (!ec)
+					watcher_l->node.work.generate (root_l, [watcher_l, block_a, root_a](boost::optional<uint64_t> work_a) {
+						if (block_a != nullptr && watcher_l != nullptr && !watcher_l->stopped)
 						{
+							bool updated_l{ false };
+							if (work_a.is_initialized ())
 							{
-								auto hash (block_a->hash ());
-								std::lock_guard<std::mutex> active_guard (watcher_l->node.active.mutex);
-								auto existing (watcher_l->node.active.roots.find (root_a));
-								if (existing != watcher_l->node.active.roots.end ())
+								nano::state_block_builder builder;
+								std::error_code ec;
+								std::shared_ptr<nano::state_block> block (builder.from (*block_a).work (*work_a).build (ec));
+
+								if (!ec)
 								{
-									auto election (existing->election);
-									if (election->status.winner->hash () == hash)
 									{
-										election->status.winner = block;
+										auto hash (block_a->hash ());
+										std::lock_guard<std::mutex> active_guard (watcher_l->node.active.mutex);
+										auto existing (watcher_l->node.active.roots.find (root_a));
+										if (existing != watcher_l->node.active.roots.end ())
+										{
+											auto election (existing->election);
+											if (election->status.winner->hash () == hash)
+											{
+												election->status.winner = block;
+											}
+											auto current (election->blocks.find (hash));
+											assert (current != election->blocks.end ());
+											current->second = block;
+										}
 									}
-									auto current (election->blocks.find (hash));
-									assert (current != election->blocks.end ());
-									current->second = block;
+									watcher_l->node.network.flood_block (block, false);
+									watcher_l->node.active.update_difficulty (*block.get ());
+									watcher_l->update (root_a, block);
+									updated_l = true;
+									watcher_l->watching (root_a, block);
 								}
 							}
-							watcher_l->node.network.flood_block (block, false);
-							watcher_l->node.active.update_difficulty (*block.get ());
-							watcher_l->update (root_a, block);
-							updated_l = true;
-							watcher_l->watching (root_a, block);
+							if (!updated_l)
+							{
+								watcher_l->watching (root_a, block_a);
+							}
 						}
-					}
+					},
+					active_difficulty);
 				}
-				if (!updated_l)
+				else
 				{
 					watcher_l->watching (root_a, block_a);
 				}
