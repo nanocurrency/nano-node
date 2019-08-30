@@ -1,3 +1,4 @@
+#include <nano/lib/asio.hpp>
 #include <nano/lib/ipc.hpp>
 #include <nano/lib/ipc_client.hpp>
 
@@ -11,8 +12,15 @@ class channel
 {
 public:
 	virtual void async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, size_t size_a, std::function<void(boost::system::error_code const &, size_t)> callback_a) = 0;
-	virtual void async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, std::function<void(boost::system::error_code const &, size_t)> callback_a) = 0;
+	virtual void async_write (nano::shared_const_buffer const & buffer_a, std::function<void(boost::system::error_code const &, size_t)> callback_a) = 0;
 };
+
+/* Boost v1.70 introduced breaking changes; the conditional compilation allows 1.6x to be supported as well. */
+#if BOOST_VERSION < 107000
+using socket_type = boost::asio::ip::tcp::socket;
+#else
+using socket_type = boost::asio::basic_stream_socket<boost::asio::ip::tcp, boost::asio::io_context::executor_type>;
+#endif
 
 /** Domain and TCP client socket */
 template <typename SOCKET_TYPE, typename ENDPOINT_TYPE>
@@ -20,7 +28,7 @@ class socket_client : public nano::ipc::socket_base, public channel
 {
 public:
 	socket_client (boost::asio::io_context & io_ctx_a, ENDPOINT_TYPE endpoint_a) :
-	socket_base (io_ctx_a), endpoint (endpoint_a), socket (io_ctx_a), resolver (io_ctx_a)
+	socket_base (io_ctx_a), endpoint (endpoint_a), socket (io_ctx_a), resolver (io_ctx_a), strand (io_ctx_a.get_executor ())
 	{
 	}
 
@@ -45,29 +53,29 @@ public:
 	void async_connect (std::function<void(boost::system::error_code const &)> callback_a)
 	{
 		this->timer_start (io_timeout);
-		socket.async_connect (endpoint, [this, callback_a](boost::system::error_code const & ec) {
+		socket.async_connect (endpoint, boost::asio::bind_executor (strand, [this, callback_a](boost::system::error_code const & ec) {
 			this->timer_cancel ();
 			callback_a (ec);
-		});
+		}));
 	}
 
 	void async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, size_t size_a, std::function<void(boost::system::error_code const &, size_t)> callback_a) override
 	{
 		this->timer_start (io_timeout);
 		buffer_a->resize (size_a);
-		boost::asio::async_read (socket, boost::asio::buffer (buffer_a->data (), size_a), [this, callback_a](boost::system::error_code const & ec, size_t size_a) {
+		boost::asio::async_read (socket, boost::asio::buffer (buffer_a->data (), size_a), boost::asio::bind_executor (this->strand, [this, callback_a](boost::system::error_code const & ec, size_t size_a) {
 			this->timer_cancel ();
 			callback_a (ec, size_a);
-		});
+		}));
 	}
 
-	void async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, std::function<void(boost::system::error_code const &, size_t)> callback_a) override
+	void async_write (nano::shared_const_buffer const & buffer_a, std::function<void(boost::system::error_code const &, size_t)> callback_a) override
 	{
 		this->timer_start (io_timeout);
-		boost::asio::async_write (socket, boost::asio::buffer (buffer_a->data (), buffer_a->size ()), [this, callback_a, buffer_a](boost::system::error_code const & ec, size_t size_a) {
+		nano::async_write (socket, buffer_a, boost::asio::bind_executor (this->strand, [this, callback_a](boost::system::error_code const & ec, size_t size_a) {
 			this->timer_cancel ();
 			callback_a (ec, size_a);
-		});
+		}));
 	}
 
 	/** Shut down and close socket */
@@ -82,6 +90,7 @@ private:
 	SOCKET_TYPE socket;
 	boost::asio::ip::tcp::resolver resolver;
 	std::chrono::seconds io_timeout{ 60 };
+	boost::asio::strand<boost::asio::io_context::executor_type> strand;
 };
 
 /**
@@ -91,14 +100,14 @@ private:
 class client_impl : public nano::ipc::ipc_client_impl
 {
 public:
-	client_impl (boost::asio::io_context & io_ctx_a) :
+	explicit client_impl (boost::asio::io_context & io_ctx_a) :
 	io_ctx (io_ctx_a)
 	{
 	}
 
 	void connect (std::string const & host_a, uint16_t port_a, std::function<void(nano::error)> callback_a)
 	{
-		tcp_client = std::make_shared<socket_client<boost::asio::ip::tcp::socket, boost::asio::ip::tcp::endpoint>> (io_ctx, boost::asio::ip::tcp::endpoint (boost::asio::ip::tcp::v6 (), port_a));
+		tcp_client = std::make_shared<socket_client<socket_type, boost::asio::ip::tcp::endpoint>> (io_ctx, boost::asio::ip::tcp::endpoint (boost::asio::ip::tcp::v6 (), port_a));
 
 		tcp_client->async_resolve (host_a, port_a, [this, callback_a](boost::system::error_code const & ec_resolve_a, boost::asio::ip::tcp::endpoint endpoint_a) {
 			if (!ec_resolve_a)
@@ -136,7 +145,7 @@ public:
 
 private:
 	boost::asio::io_context & io_ctx;
-	std::shared_ptr<socket_client<boost::asio::ip::tcp::socket, boost::asio::ip::tcp::endpoint>> tcp_client;
+	std::shared_ptr<socket_client<socket_type, boost::asio::ip::tcp::endpoint>> tcp_client;
 #if defined(BOOST_ASIO_HAS_LOCAL_SOCKETS)
 	std::shared_ptr<socket_client<boost::asio::local::stream_protocol::socket, boost::asio::local::stream_protocol::endpoint>> domain_client;
 #endif
@@ -170,7 +179,7 @@ nano::error nano::ipc::ipc_client::connect (std::string const & host, uint16_t p
 	return result_l.get_future ().get ();
 }
 
-void nano::ipc::ipc_client::async_write (std::shared_ptr<std::vector<uint8_t>> buffer_a, std::function<void(nano::error, size_t)> callback_a)
+void nano::ipc::ipc_client::async_write (nano::shared_const_buffer const & buffer_a, std::function<void(nano::error, size_t)> callback_a)
 {
 	auto client (boost::polymorphic_downcast<client_impl *> (impl.get ()));
 	client->get_channel ().async_write (buffer_a, [callback_a](const boost::system::error_code & ec_a, size_t bytes_written_a) {
@@ -186,23 +195,23 @@ void nano::ipc::ipc_client::async_read (std::shared_ptr<std::vector<uint8_t>> bu
 	});
 }
 
-std::shared_ptr<std::vector<uint8_t>> nano::ipc::prepare_request (nano::ipc::payload_encoding encoding_a, std::string const & payload_a)
+nano::shared_const_buffer nano::ipc::prepare_request (nano::ipc::payload_encoding encoding_a, std::string const & payload_a)
 {
-	auto buffer_l (std::make_shared<std::vector<uint8_t>> ());
+	std::vector<uint8_t> buffer_l;
 	if (encoding_a == nano::ipc::payload_encoding::json_legacy)
 	{
-		buffer_l->push_back ('N');
-		buffer_l->push_back (static_cast<uint8_t> (encoding_a));
-		buffer_l->push_back (0);
-		buffer_l->push_back (0);
+		buffer_l.push_back ('N');
+		buffer_l.push_back (static_cast<uint8_t> (encoding_a));
+		buffer_l.push_back (0);
+		buffer_l.push_back (0);
 
 		auto payload_length = static_cast<uint32_t> (payload_a.size ());
 		uint32_t be = boost::endian::native_to_big (payload_length);
 		char * chars = reinterpret_cast<char *> (&be);
-		buffer_l->insert (buffer_l->end (), chars, chars + sizeof (uint32_t));
-		buffer_l->insert (buffer_l->end (), payload_a.begin (), payload_a.end ());
+		buffer_l.insert (buffer_l.end (), chars, chars + sizeof (uint32_t));
+		buffer_l.insert (buffer_l.end (), payload_a.begin (), payload_a.end ());
 	}
-	return buffer_l;
+	return nano::shared_const_buffer{ std::move (buffer_l) };
 }
 
 std::string nano::ipc::request (nano::ipc::ipc_client & ipc_client, std::string const & rpc_action_a)

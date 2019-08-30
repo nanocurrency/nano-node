@@ -6,14 +6,41 @@
 
 using namespace std::chrono_literals;
 
+TEST (active_transactions, bounded_active_elections)
+{
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.enable_voting = false;
+	node_config.active_elections_size = 5;
+	auto & node1 = *system.add_node (node_config);
+	nano::genesis genesis;
+	size_t count (1);
+	auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - count * nano::xrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+	auto previous_size = node1.active.size ();
+	bool done (false);
+	system.deadline_set (5s);
+	while (!done)
+	{
+		count++;
+		node1.process_active (send);
+		done = previous_size > node1.active.size ();
+		ASSERT_LT (node1.active.size (), node1.config.active_elections_size); //triggers after reverting #2116
+		ASSERT_NO_ERROR (system.poll ());
+		auto previous_hash = send->hash ();
+		send = std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous_hash, nano::test_genesis_key.pub, nano::genesis_amount - count * nano::xrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous_hash));
+		previous_size = node1.active.size ();
+		//sleep this thread for the max delay between request loop rounds possible for such a small active_elections_size
+		std::this_thread::sleep_for (std::chrono::milliseconds (node1.network_params.network.request_interval_ms + (node_config.active_elections_size * 20)));
+	}
+}
+
 TEST (active_transactions, adjusted_difficulty_priority)
 {
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
 	node_config.enable_voting = false;
-	nano::node_flags node_flags;
-	node_flags.delay_frontier_confirmation_height_updating = true;
-	auto & node1 = *system.add_node (node_config, node_flags);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto & node1 = *system.add_node (node_config);
 	nano::genesis genesis;
 	nano::keypair key1, key2, key3;
 
@@ -43,10 +70,15 @@ TEST (active_transactions, adjusted_difficulty_priority)
 		}
 	}
 
-	system.deadline_set (10s);
-	while (node1.active.confirmed.size () != 4)
 	{
-		ASSERT_NO_ERROR (system.poll ());
+		system.deadline_set (10s);
+		std::unique_lock<std::mutex> active_lock (node1.active.mutex);
+		while (node1.active.confirmed.size () != 4)
+		{
+			active_lock.unlock ();
+			ASSERT_NO_ERROR (system.poll ());
+			active_lock.lock ();
+		}
 	}
 
 	//genesis and key1,key2 are opened
@@ -90,10 +122,9 @@ TEST (active_transactions, keep_local)
 	nano::node_config node_config (24000, system.logging);
 	node_config.enable_voting = false;
 	node_config.active_elections_size = 3; //bound to 3, wont drop wallet created transactions, but good to test dropping remote
-	//delay_frontier_confirmation_height_updating to allow the test to before
-	nano::node_flags node_flags;
-	node_flags.delay_frontier_confirmation_height_updating = true;
-	auto & node1 = *system.add_node (node_config, node_flags);
+	// Disable frontier confirmation to allow the test to finish before
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto & node1 = *system.add_node (node_config);
 	auto & wallet (*system.wallet (0));
 	nano::genesis genesis;
 	//key 1/2 will be managed by the wallet
@@ -146,10 +177,9 @@ TEST (active_transactions, prioritize_chains)
 	nano::node_config node_config (24000, system.logging);
 	node_config.enable_voting = false;
 	node_config.active_elections_size = 4; //bound to 3, wont drop wallet created transactions, but good to test dropping remote
-	//delay_frontier_confirmation_height_updating to allow the test to before
-	nano::node_flags node_flags;
-	node_flags.delay_frontier_confirmation_height_updating = true;
-	auto & node1 = *system.add_node (node_config, node_flags);
+	// Disable frontier confirmation to allow the test to finish before
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto & node1 = *system.add_node (node_config);
 	nano::genesis genesis;
 	nano::keypair key1, key2, key3;
 

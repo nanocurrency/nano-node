@@ -7,11 +7,17 @@
 #include <algorithm>
 #include <chrono>
 
+nano::websocket::confirmation_options::confirmation_options (nano::node & node_a) :
+node (node_a)
+{
+}
+
 nano::websocket::confirmation_options::confirmation_options (boost::property_tree::ptree const & options_a, nano::node & node_a) :
 node (node_a)
 {
 	// Non-account filtering options
 	include_block = options_a.get<bool> ("include_block", true);
+	include_election_info = options_a.get<bool> ("include_election_info", false);
 
 	confirmation_types = 0;
 	auto type_l (options_a.get<std::string> ("confirmation_type", "all"));
@@ -108,6 +114,8 @@ bool nano::websocket::confirmation_options::should_filter (nano::websocket::mess
 			nano::account source_l (0), destination_l (0);
 			auto decode_source_ok_l (!source_l.decode_account (source_text_l));
 			auto decode_destination_ok_l (!destination_l.decode_account (destination_opt_l.get ()));
+			(void)decode_source_ok_l;
+			(void)decode_destination_ok_l;
 			assert (decode_source_ok_l && decode_destination_ok_l);
 			if (node.wallets.exists (transaction_l, source_l) || node.wallets.exists (transaction_l, destination_l))
 			{
@@ -236,14 +244,13 @@ void nano::websocket::session::write (nano::websocket::message message_a)
 
 void nano::websocket::session::write_queued_messages ()
 {
-	auto msg (send_queue.front ());
-	auto msg_str (msg.to_string ());
+	auto msg (send_queue.front ().to_string ());
 	auto this_l (shared_from_this ());
 
 	// clang-format off
-	ws.async_write (boost::asio::buffer (msg_str->data (), msg_str->size ()),
+	ws.async_write (nano::shared_const_buffer (msg),
 	boost::asio::bind_executor (strand,
-	[msg_str, this_l](boost::system::error_code ec, std::size_t bytes_transferred) {
+	[this_l](boost::system::error_code ec, std::size_t bytes_transferred) {
 		this_l->send_queue.pop_front ();
 		if (!ec)
 		{
@@ -297,7 +304,7 @@ void nano::websocket::session::read ()
 
 namespace
 {
-nano::websocket::topic to_topic (std::string topic_a)
+nano::websocket::topic to_topic (std::string const & topic_a)
 {
 	nano::websocket::topic topic = nano::websocket::topic::invalid;
 	if (topic_a == "confirmation")
@@ -495,7 +502,7 @@ void nano::websocket::listener::on_accept (boost::system::error_code ec)
 	}
 }
 
-void nano::websocket::listener::broadcast_confirmation (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, nano::election_status_type election_status_type_a)
+void nano::websocket::listener::broadcast_confirmation (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, nano::election_status const & election_status_a)
 {
 	nano::websocket::message_builder builder;
 
@@ -510,16 +517,21 @@ void nano::websocket::listener::broadcast_confirmation (std::shared_ptr<nano::bl
 			auto subscription (session_ptr->subscriptions.find (nano::websocket::topic::confirmation));
 			if (subscription != session_ptr->subscriptions.end ())
 			{
+				nano::websocket::confirmation_options default_options (node);
 				auto conf_options (dynamic_cast<nano::websocket::confirmation_options *> (subscription->second.get ()));
+				if (conf_options == nullptr)
+				{
+					conf_options = &default_options;
+				}
 				auto include_block (conf_options == nullptr ? true : conf_options->get_include_block ());
 
 				if (include_block && !msg_with_block)
 				{
-					msg_with_block = builder.block_confirmed (block_a, account_a, amount_a, subtype, include_block, election_status_type_a);
+					msg_with_block = builder.block_confirmed (block_a, account_a, amount_a, subtype, include_block, election_status_a, *conf_options);
 				}
 				else if (!include_block && !msg_without_block)
 				{
-					msg_without_block = builder.block_confirmed (block_a, account_a, amount_a, subtype, include_block, election_status_type_a);
+					msg_without_block = builder.block_confirmed (block_a, account_a, amount_a, subtype, include_block, election_status_a, *conf_options);
 				}
 				else
 				{
@@ -569,7 +581,7 @@ nano::websocket::message nano::websocket::message_builder::stopped_election (nan
 	return message_l;
 }
 
-nano::websocket::message nano::websocket::message_builder::block_confirmed (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, bool include_block_a, nano::election_status_type election_status_type_a)
+nano::websocket::message nano::websocket::message_builder::block_confirmed (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, bool include_block_a, nano::election_status const & election_status_a, nano::websocket::confirmation_options const & options_a)
 {
 	nano::websocket::message message_l (nano::websocket::topic::confirmation);
 	set_common_fields (message_l);
@@ -581,7 +593,7 @@ nano::websocket::message nano::websocket::message_builder::block_confirmed (std:
 	message_node_l.add ("hash", block_a->hash ().to_string ());
 
 	std::string confirmation_type = "unknown";
-	switch (election_status_type_a)
+	switch (election_status_a.type)
 	{
 		case nano::election_status_type::active_confirmed_quorum:
 			confirmation_type = "active_quorum";
@@ -596,6 +608,15 @@ nano::websocket::message nano::websocket::message_builder::block_confirmed (std:
 			break;
 	};
 	message_node_l.add ("confirmation_type", confirmation_type);
+
+	if (options_a.get_include_election_info ())
+	{
+		boost::property_tree::ptree election_node_l;
+		election_node_l.add ("duration", election_status_a.election_duration.count ());
+		election_node_l.add ("time", election_status_a.election_end.count ());
+		election_node_l.add ("tally", election_status_a.tally.to_string_dec ());
+		message_node_l.add_child ("election_info", election_node_l);
+	}
 
 	if (include_block_a)
 	{
@@ -651,10 +672,10 @@ void nano::websocket::message_builder::set_common_fields (nano::websocket::messa
 	message_a.contents.add ("time", std::to_string (milli_since_epoch));
 }
 
-std::shared_ptr<std::string> nano::websocket::message::to_string () const
+std::string nano::websocket::message::to_string () const
 {
 	std::ostringstream ostream;
 	boost::property_tree::write_json (ostream, contents);
 	ostream.flush ();
-	return std::make_shared<std::string> (ostream.str ());
+	return ostream.str ();
 }

@@ -27,7 +27,7 @@ void nano::election::compute_rep_votes (nano::transaction const & transaction_a)
 	{
 		node.wallets.foreach_representative (transaction_a, [this, &transaction_a](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
 			auto vote (this->node.store.vote_generate (transaction_a, pub_a, prv_a, status.winner));
-			this->node.vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (this->node.network.udp_channels, this->node.network.endpoint ()));
+			this->node.vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (this->node.network.udp_channels, this->node.network.endpoint (), this->node.network_params.protocol.protocol_version));
 		});
 	}
 }
@@ -136,14 +136,15 @@ void nano::election::confirm_if_quorum (nano::transaction const & transaction_a)
 void nano::election::log_votes (nano::tally_t const & tally_a) const
 {
 	std::stringstream tally;
-	tally << boost::str (boost::format ("\nVote tally for root %1%") % status.winner->root ().to_string ());
+	std::string line_end (node.config.logging.single_line_record () ? "\t" : "\n");
+	tally << boost::str (boost::format ("%1%Vote tally for root %2%") % line_end % status.winner->root ().to_string ());
 	for (auto i (tally_a.begin ()), n (tally_a.end ()); i != n; ++i)
 	{
-		tally << boost::str (boost::format ("\nBlock %1% weight %2%") % i->second->hash ().to_string () % i->first.convert_to<std::string> ());
+		tally << boost::str (boost::format ("%1%Block %2% weight %3%") % line_end % i->second->hash ().to_string () % i->first.convert_to<std::string> ());
 	}
 	for (auto i (last_votes.begin ()), n (last_votes.end ()); i != n; ++i)
 	{
-		tally << boost::str (boost::format ("\n%1% %2%") % i->first.to_account () % i->second.hash.to_string ());
+		tally << boost::str (boost::format ("%1%%2% %3%") % line_end % i->first.to_account () % i->second.hash.to_string ());
 	}
 	node.logger.try_log (tally.str ());
 }
@@ -153,17 +154,17 @@ nano::election_vote_result nano::election::vote (nano::account rep, uint64_t seq
 	// see republish_vote documentation for an explanation of these rules
 	auto transaction (node.store.tx_begin_read ());
 	auto replay (false);
-	auto supply (node.online_reps.online_stake ());
+	auto online_stake (node.online_reps.online_stake ());
 	auto weight (node.ledger.weight (transaction, rep));
 	auto should_process (false);
-	if (node.network_params.network.is_test_network () || weight > supply / 1000) // 0.1% or above
+	if (node.network_params.network.is_test_network () || weight > node.minimum_principal_weight (online_stake))
 	{
 		unsigned int cooldown;
-		if (weight < supply / 100) // 0.1% to 1%
+		if (weight < online_stake / 100) // 0.1% to 1%
 		{
 			cooldown = 15;
 		}
-		else if (weight < supply / 20) // 1% to 5%
+		else if (weight < online_stake / 20) // 1% to 5%
 		{
 			cooldown = 5;
 		}
@@ -223,7 +224,7 @@ bool nano::election::publish (std::shared_ptr<nano::block> block_a)
 			{
 				blocks.insert (std::make_pair (block_a->hash (), block_a));
 				confirm_if_quorum (transaction);
-				node.network.flood_block (block_a);
+				node.network.flood_block (block_a, false);
 			}
 			else
 			{
@@ -288,6 +289,7 @@ void nano::election::clear_blocks ()
 	{
 		auto & hash (block.first);
 		auto erased (node.active.blocks.erase (hash));
+		(void)erased;
 		// clear_blocks () can be called in active_transactions::publish () before blocks insertion if election was confirmed
 		assert (erased == 1 || confirmed);
 		// Notify observers about dropped elections & blocks lost confirmed elections

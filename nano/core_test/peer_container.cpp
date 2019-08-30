@@ -21,9 +21,9 @@ TEST (peer_container, no_recontact)
 	ASSERT_EQ (0, network.size ());
 	network.channel_observer = [&observed_peer](std::shared_ptr<nano::transport::channel>) { ++observed_peer; };
 	system.nodes[0]->network.disconnect_observer = [&observed_disconnect]() { observed_disconnect = true; };
-	auto channel (network.udp_channels.insert (endpoint1, nano::protocol_version));
+	auto channel (network.udp_channels.insert (endpoint1, system.nodes[0]->network_params.protocol.protocol_version));
 	ASSERT_EQ (1, network.size ());
-	ASSERT_EQ (channel, network.udp_channels.insert (endpoint1, nano::protocol_version));
+	ASSERT_EQ (channel, network.udp_channels.insert (endpoint1, system.nodes[0]->network_params.protocol.protocol_version));
 	system.nodes[0]->network.cleanup (std::chrono::steady_clock::now () + std::chrono::seconds (5));
 	ASSERT_TRUE (network.empty ());
 	ASSERT_EQ (1, observed_peer);
@@ -88,7 +88,7 @@ TEST (channels, fill_random_clear)
 TEST (channels, fill_random_full)
 {
 	nano::system system (24000, 1);
-	for (auto i (0); i < 100; ++i)
+	for (uint16_t i (0u); i < 100u; ++i)
 	{
 		system.nodes[0]->network.udp_channels.insert (nano::endpoint (boost::asio::ip::address_v6::loopback (), i), 0);
 	}
@@ -121,7 +121,7 @@ TEST (peer_container, list_fanout)
 	ASSERT_TRUE (list1.empty ());
 	for (auto i (0); i < 1000; ++i)
 	{
-		ASSERT_NE (nullptr, system.nodes[0]->network.udp_channels.insert (nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000 + i), nano::protocol_version));
+		ASSERT_NE (nullptr, system.nodes[0]->network.udp_channels.insert (nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000 + i), system.nodes[0]->network_params.protocol.protocol_version));
 	}
 	auto list2 (system.nodes[0]->network.list_fanout ());
 	ASSERT_EQ (32, list2.size ());
@@ -133,7 +133,7 @@ TEST (peer_container, reachout)
 	nano::system system (24000, 1);
 	nano::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), 24000);
 	// Make sure having been contacted by them already indicates we shouldn't reach out
-	system.nodes[0]->network.udp_channels.insert (endpoint0, nano::protocol_version);
+	system.nodes[0]->network.udp_channels.insert (endpoint0, system.nodes[0]->network_params.protocol.protocol_version);
 	ASSERT_TRUE (system.nodes[0]->network.reachout (endpoint0));
 	nano::endpoint endpoint1 (boost::asio::ip::address_v6::loopback (), 24001);
 	ASSERT_FALSE (system.nodes[0]->network.reachout (endpoint1));

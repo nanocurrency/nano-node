@@ -53,7 +53,7 @@ public:
 	 * no error has occurred. On error, the error is logged, the read cycle stops and the session ends. Clients
 	 * are expected to implement reconnect logic.
 	 */
-	void async_read_exactly (void * buff_a, size_t size_a, std::function<void()> callback_a)
+	void async_read_exactly (void * buff_a, size_t size_a, std::function<void()> const & callback_a)
 	{
 		async_read_exactly (buff_a, size_a, std::chrono::seconds (config_transport.io_timeout), callback_a);
 	}
@@ -62,7 +62,7 @@ public:
 	 * Async read of exactly \p size_a bytes and a specific \p timeout_a.
 	 * @see async_read_exactly (void *, size_t, std::function<void()>)
 	 */
-	void async_read_exactly (void * buff_a, size_t size_a, std::chrono::seconds timeout_a, std::function<void()> callback_a)
+	void async_read_exactly (void * buff_a, size_t size_a, std::chrono::seconds timeout_a, std::function<void()> const & callback_a)
 	{
 		timer_start (timeout_a);
 		auto this_l (this->shared_from_this ());
@@ -95,20 +95,17 @@ public:
 		// json and write the response to the ipc socket with a length prefix.
 		auto this_l (this->shared_from_this ());
 		auto response_handler_l ([this_l, request_id_l](std::string const & body) {
-			this_l->response_body = body;
-			this_l->size_response = boost::endian::native_to_big (static_cast<uint32_t> (this_l->response_body.size ()));
-			std::vector<boost::asio::mutable_buffer> bufs = {
-				boost::asio::buffer (&this_l->size_response, sizeof (this_l->size_response)),
-				boost::asio::buffer (this_l->response_body)
-			};
-
+			auto big = boost::endian::native_to_big (static_cast<uint32_t> (body.size ()));
+			std::vector<uint8_t> buffer;
+			buffer.insert (buffer.end (), reinterpret_cast<std::uint8_t *> (&big), reinterpret_cast<std::uint8_t *> (&big) + sizeof (std::uint32_t));
+			buffer.insert (buffer.end (), body.begin (), body.end ());
 			if (this_l->node.config.logging.log_ipc ())
 			{
 				this_l->node.logger.always_log (boost::str (boost::format ("IPC/RPC request %1% completed in: %2% %3%") % request_id_l % this_l->session_timer.stop ().count () % this_l->session_timer.unit ()));
 			}
 
 			this_l->timer_start (std::chrono::seconds (this_l->config_transport.io_timeout));
-			boost::asio::async_write (this_l->socket, bufs, [this_l](boost::system::error_code const & error_a, size_t size_a) {
+			nano::async_write (this_l->socket, nano::shared_const_buffer (buffer), [this_l](boost::system::error_code const & error_a, size_t size_a) {
 				this_l->timer_cancel ();
 				if (!error_a)
 				{
@@ -129,6 +126,9 @@ public:
 		// Note that if the rpc action is async, the shared_ptr<json_handler> lifetime will be extended by the action handler
 		auto handler (std::make_shared<nano::json_handler> (node, server.node_rpc_config, body, response_handler_l, [& server = server]() {
 			server.stop ();
+			server.node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (3), [& io_ctx = server.node.alarm.io_ctx]() {
+				io_ctx.stop ();
+			});
 		}));
 		// For unsafe actions to be allowed, the unsafe encoding must be used AND the transport config must allow it
 		handler->process_request (allow_unsafe && config_transport.allow_unsafe);
@@ -198,10 +198,6 @@ private:
 	/** Buffer sizes are read into this */
 	uint32_t buffer_size{ 0 };
 
-	/** RPC response */
-	std::string response_body;
-	uint32_t size_response{ 0 };
-
 	/** Buffer used to store data received from the client */
 	std::vector<uint8_t> buffer;
 
@@ -234,7 +230,7 @@ public:
 		// A separate io_context for domain sockets may facilitate better performance on some systems.
 		if (concurrency_a > 0)
 		{
-			runner = std::make_unique<nano::thread_runner> (*io_ctx, concurrency_a);
+			runner = std::make_unique<nano::thread_runner> (*io_ctx, static_cast<unsigned> (concurrency_a));
 		}
 	}
 
@@ -301,7 +297,7 @@ node_rpc_config (node_rpc_config_a)
 		if (node_a.config.ipc_config.transport_domain.enabled)
 		{
 #if defined(BOOST_ASIO_HAS_LOCAL_SOCKETS)
-			size_t threads = node_a.config.ipc_config.transport_domain.io_threads;
+			auto threads = node_a.config.ipc_config.transport_domain.io_threads;
 			file_remover = std::make_unique<dsock_file_remover> (node_a.config.ipc_config.transport_domain.path);
 			boost::asio::local::stream_protocol::endpoint ep{ node_a.config.ipc_config.transport_domain.path };
 			transports.push_back (std::make_shared<socket_transport<boost::asio::local::stream_protocol::acceptor, boost::asio::local::stream_protocol::socket, boost::asio::local::stream_protocol::endpoint>> (*this, ep, node_a.config.ipc_config.transport_domain, threads));
@@ -312,7 +308,7 @@ node_rpc_config (node_rpc_config_a)
 
 		if (node_a.config.ipc_config.transport_tcp.enabled)
 		{
-			size_t threads = node_a.config.ipc_config.transport_tcp.io_threads;
+			auto threads = node_a.config.ipc_config.transport_tcp.io_threads;
 			transports.push_back (std::make_shared<socket_transport<boost::asio::ip::tcp::acceptor, boost::asio::ip::tcp::socket, boost::asio::ip::tcp::endpoint>> (*this, boost::asio::ip::tcp::endpoint (boost::asio::ip::tcp::v6 (), node_a.config.ipc_config.transport_tcp.port), node_a.config.ipc_config.transport_tcp, threads));
 		}
 

@@ -38,7 +38,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (pending_confirmati
 class confirmation_height_processor final
 {
 public:
-	confirmation_height_processor (pending_confirmation_height &, nano::block_store &, nano::stat &, nano::active_transactions &, nano::block_hash const &, nano::write_database_queue &, std::chrono::milliseconds, nano::logger_mt &);
+	confirmation_height_processor (pending_confirmation_height &, nano::block_store &, nano::stat &, nano::active_transactions &, nano::block_hash const &, nano::write_database_queue &, std::chrono::milliseconds, nano::logger_mt &, std::atomic<uint64_t> &);
 	~confirmation_height_processor ();
 	void add (nano::block_hash const &);
 	void stop ();
@@ -96,6 +96,7 @@ private:
 	nano::timer<std::chrono::milliseconds> timer;
 	nano::write_database_queue & write_database_queue;
 	std::chrono::milliseconds batch_separate_pending_min_time;
+	std::atomic<uint64_t> & cemented_count;
 	std::thread thread;
 
 	void run ();

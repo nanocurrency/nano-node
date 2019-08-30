@@ -1,6 +1,7 @@
 #pragma once
 
-#include <boost/asio.hpp>
+#include <nano/boost/asio.hpp>
+
 #include <boost/filesystem.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/thread/thread.hpp>
@@ -78,6 +79,16 @@ bool is_windows_elevated ();
 bool event_log_reg_entry_exists ();
 
 /*
+ * Create the load memory addresses for the executable and shared libraries.
+ */
+void create_load_memory_address_files ();
+
+/*
+ * Dumps a stacktrace file which can be read using the --debug_output_last_backtrace_dump CLI command
+ */
+void dump_crash_stacktrace ();
+
+/*
  * Functions for understanding the role of the current thread
  */
 namespace thread_role
@@ -99,7 +110,8 @@ namespace thread_role
 		rpc_request_processor,
 		rpc_process_container,
 		work_watcher,
-		confirmation_height_processing
+		confirmation_height_processing,
+		worker
 	};
 	/*
 	 * Get/Set the identifier for the current thread
@@ -140,6 +152,27 @@ public:
 	std::vector<boost::thread> threads;
 	boost::asio::executor_work_guard<boost::asio::io_context::executor_type> io_guard;
 };
+
+class worker final
+{
+public:
+	worker ();
+	~worker ();
+	void run ();
+	void push_task (std::function<void()> func);
+	void stop ();
+
+private:
+	std::condition_variable cv;
+	std::deque<std::function<void()>> queue;
+	std::mutex mutex;
+	std::atomic<bool> stopped{ false };
+	std::thread thread;
+
+	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (worker &, const std::string &);
+};
+
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (worker & worker, const std::string & name);
 
 /**
  * Returns seconds passed since unix epoch (posix time)
@@ -184,7 +217,11 @@ inline std::unique_ptr<seq_con_info_component> collect_seq_con_info (observer_se
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "observers", count, sizeof_element }));
 	return composite;
 }
+
+void remove_all_files_in_dir (boost::filesystem::path const & dir);
+void move_all_files_to_dir (boost::filesystem::path const & from, boost::filesystem::path const & to);
 }
+// Have our own async_write which we must use?
 
 void release_assert_internal (bool check, const char * check_expr, const char * file, unsigned int line);
 #define release_assert(check) release_assert_internal (check, #check, __FILE__, __LINE__)

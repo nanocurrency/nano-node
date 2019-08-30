@@ -365,30 +365,6 @@ void nano::representative_visitor::state_block (nano::state_block const & block_
 	result = block_a.hash ();
 }
 
-nano::uint128_t nano::block_store::block_balance_calculated (std::shared_ptr<nano::block> block_a, nano::block_sideband const & sideband_a) const
-{
-	nano::uint128_t result;
-	switch (block_a->type ())
-	{
-		case nano::block_type::open:
-		case nano::block_type::receive:
-		case nano::block_type::change:
-			result = sideband_a.balance.number ();
-			break;
-		case nano::block_type::send:
-			result = boost::polymorphic_downcast<nano::send_block *> (block_a.get ())->hashables.balance.number ();
-			break;
-		case nano::block_type::state:
-			result = boost::polymorphic_downcast<nano::state_block *> (block_a.get ())->hashables.balance.number ();
-			break;
-		case nano::block_type::invalid:
-		case nano::block_type::not_a_block:
-			release_assert (false);
-			break;
-	}
-	return result;
-}
-
 nano::read_transaction::read_transaction (std::unique_ptr<nano::read_transaction_impl> read_transaction_impl) :
 impl (std::move (read_transaction_impl))
 {
@@ -418,6 +394,10 @@ void nano::read_transaction::refresh () const
 nano::write_transaction::write_transaction (std::unique_ptr<nano::write_transaction_impl> write_transaction_impl) :
 impl (std::move (write_transaction_impl))
 {
+	/*
+	 * For IO threads, we do not want them to block on creating write transactions.
+	 */
+	assert (nano::thread_role::get () != nano::thread_role::name::io);
 }
 
 void * nano::write_transaction::get_handle () const
@@ -433,4 +413,9 @@ void nano::write_transaction::commit () const
 void nano::write_transaction::renew ()
 {
 	impl->renew ();
+}
+
+bool nano::write_transaction::contains (nano::tables table_a) const
+{
+	return impl->contains (table_a);
 }

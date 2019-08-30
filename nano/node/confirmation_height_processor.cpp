@@ -13,7 +13,7 @@
 #include <cassert>
 #include <numeric>
 
-nano::confirmation_height_processor::confirmation_height_processor (nano::pending_confirmation_height & pending_confirmation_height_a, nano::block_store & store_a, nano::stat & stats_a, nano::active_transactions & active_a, nano::block_hash const & epoch_link_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logger_mt & logger_a) :
+nano::confirmation_height_processor::confirmation_height_processor (nano::pending_confirmation_height & pending_confirmation_height_a, nano::block_store & store_a, nano::stat & stats_a, nano::active_transactions & active_a, nano::block_hash const & epoch_link_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logger_mt & logger_a, std::atomic<uint64_t> & cemented_count_a) :
 pending_confirmations (pending_confirmation_height_a),
 store (store_a),
 stats (stats_a),
@@ -22,6 +22,7 @@ epoch_link (epoch_link_a),
 logger (logger_a),
 write_database_queue (write_database_queue_a),
 batch_separate_pending_min_time (batch_separate_pending_min_time_a),
+cemented_count (cemented_count_a),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::confirmation_height_processing);
 	this->run ();
@@ -103,7 +104,6 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 {
 	boost::optional<conf_height_details> receive_details;
 	auto current = hash_a;
-	nano::account_info account_info;
 	assert (receive_source_pairs_size == 0);
 	release_assert (receive_source_pairs.empty ());
 
@@ -130,8 +130,8 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 
 		auto block_height (store.block_account_height (read_transaction, current));
 		nano::account account (store.block_account (read_transaction, current));
-		release_assert (!store.account_get (read_transaction, account, account_info));
-		auto confirmation_height = account_info.confirmation_height;
+		uint64_t confirmation_height;
+		release_assert (!store.confirmation_height_get (read_transaction, account, confirmation_height));
 		auto iterated_height = confirmation_height;
 		auto account_it = confirmed_iterated_pairs.find (account);
 		if (account_it != confirmed_iterated_pairs.cend ())
@@ -156,6 +156,13 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 			}
 
 			collect_unconfirmed_receive_and_sources_for_account (block_height, iterated_height, current, account, read_transaction);
+		}
+
+		// Exit early when the processor has been stopped, otherwise this function may take a
+		// while (and hence keep the process running) if updating a long chain.
+		if (stopped)
+		{
+			break;
 		}
 
 		// No longer need the read transaction
@@ -246,13 +253,6 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 			}
 		}
 
-		// Exit early when the processor has been stopped, otherwise this function may take a
-		// while (and hence keep the process running) if updating a long chain.
-		if (stopped)
-		{
-			break;
-		}
-
 		read_transaction.renew ();
 	} while (!receive_source_pairs.empty () || current != hash_a);
 }
@@ -262,7 +262,6 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
  */
 bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_details> & all_pending_a)
 {
-	nano::account_info account_info;
 	auto total_pending_write_block_count = std::accumulate (all_pending_a.cbegin (), all_pending_a.cend (), uint64_t (0), [](uint64_t total, conf_height_details const & conf_height_details_a) {
 		return total += conf_height_details_a.num_blocks_confirmed;
 	});
@@ -271,13 +270,15 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 	while (total_pending_write_block_count > 0)
 	{
 		uint64_t num_accounts_processed = 0;
-		auto transaction (store.tx_begin_write ());
+
+		auto transaction (store.tx_begin_write ({}, { nano::tables::confirmation_height }));
 		while (!all_pending_a.empty ())
 		{
 			const auto & pending = all_pending_a.front ();
-			auto error = store.account_get (transaction, pending.account, account_info);
+			uint64_t confirmation_height;
+			auto error = store.confirmation_height_get (transaction, pending.account, confirmation_height);
 			release_assert (!error);
-			if (pending.height > account_info.confirmation_height)
+			if (pending.height > confirmation_height)
 			{
 #ifndef NDEBUG
 				// Do more thorough checking in Debug mode, indicates programming error.
@@ -300,10 +301,11 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 					return true;
 				}
 
-				stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - account_info.confirmation_height);
-				assert (pending.num_blocks_confirmed == pending.height - account_info.confirmation_height);
-				account_info.confirmation_height = pending.height;
-				store.account_put (transaction, pending.account, account_info);
+				stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - confirmation_height);
+				assert (pending.num_blocks_confirmed == pending.height - confirmation_height);
+				confirmation_height = pending.height;
+				cemented_count += pending.num_blocks_confirmed;
+				store.confirmation_height_put (transaction, pending.account, confirmation_height);
 			}
 			total_pending_write_block_count -= pending.num_blocks_confirmed;
 			++num_accounts_processed;
@@ -328,7 +330,7 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 	// Store heights of blocks
 	constexpr auto height_not_set = std::numeric_limits<uint64_t>::max ();
 	auto next_height = height_not_set;
-	while ((num_to_confirm > 0) && !hash.is_zero ())
+	while ((num_to_confirm > 0) && !hash.is_zero () && !stopped)
 	{
 		nano::block_sideband sideband;
 		auto block (store.block_get (transaction_a, hash, &sideband));

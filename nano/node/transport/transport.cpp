@@ -73,15 +73,16 @@ nano::transport::channel::channel (nano::node & node_a) :
 limiter (node_a.config.bandwidth_limit),
 node (node_a)
 {
+	set_network_version (node_a.network_params.protocol.protocol_version);
 }
 
-void nano::transport::channel::send (nano::message const & message_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a, bool const & is_dropable)
+void nano::transport::channel::send (nano::message const & message_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a, bool const is_droppable_a)
 {
 	callback_visitor visitor;
 	message_a.visit (visitor);
-	auto buffer (message_a.to_bytes ());
+	auto buffer (message_a.to_shared_const_buffer ());
 	auto detail (visitor.result);
-	if (!is_dropable || !limiter.should_drop (buffer->size ()))
+	if (!is_droppable_a || !limiter.should_drop (buffer.size ()))
 	{
 		send_buffer (buffer, detail, callback_a);
 		node.stats.inc (nano::stat::type::message, detail, nano::stat::dir::out);
@@ -92,7 +93,7 @@ void nano::transport::channel::send (nano::message const & message_a, std::funct
 		if (node.config.logging.network_packet_logging ())
 		{
 			auto key = static_cast<uint8_t> (detail) << 8;
-			node.logger.always_log (boost::str (boost::format ("%1% of size %2% dropped") % node.stats.detail_to_string (key) % buffer->size ()));
+			node.logger.always_log (boost::str (boost::format ("%1% of size %2% dropped") % node.stats.detail_to_string (key) % buffer.size ()));
 		}
 	}
 }
@@ -235,7 +236,7 @@ bool nano::bandwidth_limiter::should_drop (const size_t & message_size)
 	{
 		next_trend = std::chrono::steady_clock::now () + 50ms;
 		rate_buffer.push_back (rate);
-		trended_rate = std::accumulate (rate_buffer.begin (), rate_buffer.end (), 0) / rate_buffer.size ();
+		trended_rate = std::accumulate (rate_buffer.begin (), rate_buffer.end (), size_t{ 0 }) / rate_buffer.size ();
 		rate = 0;
 	}
 	return result;

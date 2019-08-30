@@ -1,3 +1,4 @@
+#include <nano/boost/process.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/daemonconfig.hpp>
@@ -14,69 +15,19 @@
 #include <fstream>
 #include <iostream>
 
-#ifndef BOOST_PROCESS_SUPPORTED
-#error BOOST_PROCESS_SUPPORTED must be set, check configuration
-#endif
-
-#if BOOST_PROCESS_SUPPORTED
-#include <boost/process.hpp>
-#endif
-
-// Some builds (mac) fail due to "Boost.Stacktrace requires `_Unwind_Backtrace` function".
-#ifndef _WIN32
-#ifndef _GNU_SOURCE
-#define BEFORE_GNU_SOURCE 0
-#define _GNU_SOURCE
-#else
-#define BEFORE_GNU_SOURCE 1
-#endif
-#endif
-// On Windows this include defines min/max macros, so keep below other includes
-// to reduce conflicts with other std functions
-#include <boost/stacktrace.hpp>
-#ifndef _WIN32
-#if !BEFORE_GNU_SOURCE
-#undef _GNU_SOURCE
-#endif
-#endif
-
 namespace
 {
-#ifdef __linux__
-#include <link.h>
-// Only on linux. This outputs the load addresses for the executable and shared libraries.
-// Useful for debugging should the virtual addresses be randomized.
-int output_memory_load_address (dl_phdr_info * info, size_t, void *)
-{
-	static int counter = 0;
-	std::ostringstream ss;
-	ss << "nano_node_crash_load_address_dump_" << counter << ".txt";
-	std::ofstream file (ss.str ());
-	file << "Name: " << info->dlpi_name << "\n";
-
-	for (auto i = 0; i < info->dlpi_phnum; ++i)
-	{
-		// Only care about the first load address
-		if (info->dlpi_phdr[i].p_type == PT_LOAD)
-		{
-			file << std::hex << (void *)(info->dlpi_addr + info->dlpi_phdr[i].p_vaddr);
-			break;
-		}
-	}
-	++counter;
-	return 0;
-}
-#endif
-
 void my_abort_signal_handler (int signum)
 {
 	std::signal (signum, SIG_DFL);
-	boost::stacktrace::safe_dump_to ("nano_node_backtrace.dump");
-
-#ifdef __linux__
-	dl_iterate_phdr (output_memory_load_address, nullptr);
-#endif
+	nano::dump_crash_stacktrace ();
+	nano::create_load_memory_address_files ();
 }
+}
+
+namespace
+{
+volatile sig_atomic_t sig_int_or_term = 0;
 }
 
 void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::node_flags const & flags)
@@ -90,7 +41,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 	nano::set_secure_perm_directory (data_path, error_chmod);
 	std::unique_ptr<nano::thread_runner> runner;
 	nano::daemon_config config (data_path);
-	auto error = nano::read_and_update_daemon_config (data_path, config);
+	auto error = nano::read_node_config_toml (data_path, config, flags.config_overrides);
 	nano::set_use_memory_pools (config.node.use_memory_pools);
 	if (!error)
 	{
@@ -98,21 +49,20 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 		nano::logger_mt logger{ config.node.logging.min_time_between_log_output };
 		boost::asio::io_context io_ctx;
 		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, logger));
-		nano::work_pool opencl_work (config.node.work_threads, config.node.pow_sleep_interval, opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a) {
-			return opencl->generate_work (root_a, difficulty_a);
+		nano::work_pool opencl_work (config.node.work_threads, config.node.pow_sleep_interval, opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a, std::atomic<int> & ticket_a) {
+			return opencl->generate_work (root_a, difficulty_a, ticket_a);
 		}
-		                                                                                              : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> (nullptr));
+		                                                                                              : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t, std::atomic<int> &)> (nullptr));
 		nano::alarm alarm (io_ctx);
-		nano::node_init init;
 		try
 		{
-			auto node (std::make_shared<nano::node> (init, io_ctx, data_path, alarm, config.node, opencl_work, flags));
-			if (!init.error ())
+			auto node (std::make_shared<nano::node> (io_ctx, data_path, alarm, config.node, opencl_work, flags));
+			if (!node->init_error ())
 			{
 				auto network_label = node->network_params.network.get_current_network_as_string ();
-				auto version = (NANO_VERSION_PATCH == 0) ? NANO_MAJOR_MINOR_VERSION : NANO_MAJOR_MINOR_RC_VERSION;
-				std::cout << "Network: " << network_label << ", version: " << version << std::endl
-				          << "Path: " << node->application_path.string () << std::endl;
+				std::cout << "Network: " << network_label << ", version: " << NANO_VERSION_STRING << "\n"
+				          << "Path: " << node->application_path.string () << "\n"
+				          << "Build Info: " << BUILD_INFO << std::endl;
 
 				node->start ();
 				nano::ipc::ipc_server ipc_server (*node, config.rpc);
@@ -128,13 +78,17 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 					{
 						// Launch rpc in-process
 						nano::rpc_config rpc_config;
-						auto error = nano::read_and_update_rpc_config (data_path, rpc_config);
+						auto error = nano::read_rpc_config_toml (data_path, rpc_config);
 						if (error)
 						{
-							throw std::runtime_error ("Could not deserialize rpc_config file");
+							std::cout << error.get_message () << std::endl;
+							std::exit (1);
 						}
-						rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, config.rpc, [&ipc_server]() {
+						rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, config.rpc, [&ipc_server, &alarm, &io_ctx]() {
 							ipc_server.stop ();
+							alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (3), [&io_ctx]() {
+								io_ctx.stop ();
+							});
 						});
 						rpc = nano::get_rpc (io_ctx, rpc_config, *rpc_handler);
 						rpc->start ();
@@ -164,14 +118,9 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 				}
 
 				assert (!nano::signal_handler_impl);
-				nano::signal_handler_impl = [&io_ctx, &ipc_server, &rpc, &node]() {
-					ipc_server.stop ();
-					node->stop ();
-					if (rpc)
-					{
-						rpc->stop ();
-					}
+				nano::signal_handler_impl = [&io_ctx]() {
 					io_ctx.stop ();
+					sig_int_or_term = 1;
 				};
 
 				std::signal (SIGINT, &nano::signal_handler);
@@ -179,6 +128,16 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 
 				runner = std::make_unique<nano::thread_runner> (io_ctx, node->config.io_threads);
 				runner->join ();
+
+				if (sig_int_or_term == 1)
+				{
+					ipc_server.stop ();
+					node->stop ();
+					if (rpc)
+					{
+						rpc->stop ();
+					}
+				}
 #if BOOST_PROCESS_SUPPORTED
 				if (rpc_process)
 				{

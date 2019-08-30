@@ -8,8 +8,20 @@ set -o nounset
 set -o xtrace
 OS=`uname`
 
+# This is to prevent out of scope access in async_write from asio which is not picked up by static analysers
+if [[ $(grep -rl --exclude="*asio.hpp" "asio::async_write" ./nano) ]]; then
+    echo "using boost::asio::async_write directly is not permitted (except in nano/lib/asio.hpp). Use nano::async_write instead"
+    exit 1
+fi
+
 mkdir build
 pushd build
+
+if [[ ${RELEASE-0} -eq 1 ]]; then
+    BUILD_TYPE="RelWithDebInfo"
+else
+    BUILD_TYPE="Debug"
+fi
 
 if [[ ${ASAN_INT-0} -eq 1 ]]; then
     SANITIZERS="-DNANO_ASAN_INT=ON"
@@ -21,19 +33,22 @@ else
     SANITIZERS=""
 fi
 
+ulimit -S -n 8192
+
 cmake \
     -G'Unix Makefiles' \
     -DACTIVE_NETWORK=nano_test_network \
     -DNANO_TEST=ON \
     -DNANO_GUI=ON \
-    -DCMAKE_BUILD_TYPE=Debug \
+    -DNANO_ROCKSDB=ON \
+    -DNANO_WARN_TO_ERR=ON \
+    -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
     -DCMAKE_VERBOSE_MAKEFILE=ON \
     -DBOOST_ROOT=/usr/local \
     -DQt5_DIR=${qt_dir} \
     -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
     ${SANITIZERS} \
     ..
-
 
 if [[ "$OS" == 'Linux' ]]; then
     cmake --build ${PWD} -- -j2

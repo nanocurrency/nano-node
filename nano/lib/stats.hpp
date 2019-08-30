@@ -18,7 +18,7 @@
 namespace nano
 {
 class node;
-
+class tomlconfig;
 /**
  * Serialize and deserialize the 'statistics' node from config.json
  * All configuration values have defaults. In particular, file logging of statistics
@@ -29,6 +29,8 @@ class stat_config final
 public:
 	/** Reads the JSON statistics node */
 	nano::error deserialize_json (nano::jsonconfig & json);
+	nano::error deserialize_toml (nano::tomlconfig & toml);
+	nano::error serialize_toml (nano::tomlconfig & toml) const;
 
 	/** If true, sampling of counters is enabled */
 	bool sampling_enabled{ false };
@@ -167,12 +169,12 @@ public:
 	}
 
 	/** Write a header enrty to the log */
-	virtual void write_header (std::string header, std::chrono::system_clock::time_point & walltime)
+	virtual void write_header (std::string const & header, std::chrono::system_clock::time_point & walltime)
 	{
 	}
 
 	/** Write a counter or sampling entry to the log */
-	virtual void write_entry (tm & tm, std::string type, std::string detail, std::string dir, uint64_t value)
+	virtual void write_entry (tm & tm, std::string const & type, std::string const & detail, std::string const & dir, uint64_t value)
 	{
 	}
 

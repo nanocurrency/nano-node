@@ -1,3 +1,5 @@
+#include <nano/boost/asio.hpp>
+#include <nano/boost/beast.hpp>
 #include <nano/core_test/testutil.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/node/testing.hpp>
@@ -5,11 +7,6 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/asio.hpp>
-#include <boost/asio/connect.hpp>
-#include <boost/asio/ip/tcp.hpp>
-#include <boost/beast/core.hpp>
-#include <boost/beast/websocket.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <chrono>
@@ -85,13 +82,12 @@ boost::optional<std::string> websocket_test_call (std::string host, std::string 
 TEST (websocket, subscription_edge)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
 	nano::node_config config;
 	nano::node_flags node_flags;
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = 24078;
 
-	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
 	node1->start ();
 	system.nodes.push_back (node1);
 
@@ -164,13 +160,12 @@ TEST (websocket, subscription_edge)
 TEST (websocket, active_difficulty)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
 	nano::node_config config;
 	nano::node_flags node_flags;
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = 24078;
 
-	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
 	node1->start ();
 	system.nodes.push_back (node1);
 
@@ -178,7 +173,7 @@ TEST (websocket, active_difficulty)
 
 	// Subscribe to active_difficulty and wait for response asynchronously
 	ack_ready = false;
-	auto client_task = ([&node1]() -> boost::optional<std::string> {
+	auto client_task = ([]() -> boost::optional<std::string> {
 		auto response = websocket_test_call ("::1", "24078", R"json({"action": "subscribe", "topic": "active_difficulty", "ack": true})json", true, true);
 		return response;
 	});
@@ -233,13 +228,12 @@ TEST (websocket, active_difficulty)
 TEST (websocket, confirmation)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
 	nano::node_config config;
 	nano::node_flags node_flags;
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = 24078;
 
-	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
 	nano::uint256_union wallet;
 	nano::random_pool::generate_block (wallet.bytes.data (), wallet.bytes.size ());
 	node1->wallets.create (wallet);
@@ -344,13 +338,12 @@ TEST (websocket, confirmation)
 TEST (websocket, stopped_election)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
 	nano::node_config config;
 	nano::node_flags node_flags;
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = 24078;
 
-	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
 	nano::uint256_union wallet;
 	nano::random_pool::generate_block (wallet.bytes.data (), wallet.bytes.size ());
 	node1->wallets.create (wallet);
@@ -407,13 +400,12 @@ TEST (websocket, stopped_election)
 TEST (websocket, confirmation_options)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
 	nano::node_config config;
 	nano::node_flags node_flags;
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = 24078;
 
-	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
 	nano::uint256_union wallet;
 	nano::random_pool::generate_block (wallet.bytes.data (), wallet.bytes.size ());
 	node1->wallets.create (wallet);
@@ -466,7 +458,7 @@ TEST (websocket, confirmation_options)
 	std::thread client_thread_2 ([&client_thread_2_finished]() {
 		// Re-subscribe with options for all local wallet accounts
 		auto response = websocket_test_call ("::1", "24078",
-		R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"confirmation_type": "active_quorum", "all_local_accounts": "true"}})json", true, true);
+		R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"confirmation_type": "active_quorum", "all_local_accounts": "true", "include_election_info": "true"}})json", true, true);
 
 		ASSERT_TRUE (response);
 		boost::property_tree::ptree event;
@@ -474,6 +466,20 @@ TEST (websocket, confirmation_options)
 		stream << response.get ();
 		boost::property_tree::read_json (stream, event);
 		ASSERT_EQ (event.get<std::string> ("topic"), "confirmation");
+		try
+		{
+			boost::property_tree::ptree election_info = event.get_child ("message.election_info");
+			auto tally (election_info.get<std::string> ("tally"));
+			auto time (election_info.get<std::string> ("time"));
+			election_info.get<std::string> ("duration");
+			// Make sure tally and time are non-zero. Duration may be zero on testnet, so we only check that it's present (exception thrown otherwise)
+			ASSERT_NE ("0", tally);
+			ASSERT_NE ("0", time);
+		}
+		catch (std::runtime_error const & ex)
+		{
+			FAIL () << ex.what ();
+		}
 
 		client_thread_2_finished = true;
 	});
@@ -543,13 +549,12 @@ TEST (websocket, confirmation_options)
 TEST (websocket, vote)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
 	nano::node_config config;
 	nano::node_flags node_flags;
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = 24078;
 
-	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
 	nano::uint256_union wallet;
 	nano::random_pool::generate_block (wallet.bytes.data (), wallet.bytes.size ());
 	node1->wallets.create (wallet);
@@ -607,13 +612,12 @@ TEST (websocket, vote)
 TEST (websocket, vote_options)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
 	nano::node_config config;
 	nano::node_flags node_flags;
 	config.websocket_config.enabled = true;
 	config.websocket_config.port = 24078;
 
-	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
 	nano::uint256_union wallet;
 	nano::random_pool::generate_block (wallet.bytes.data (), wallet.bytes.size ());
 	node1->wallets.create (wallet);

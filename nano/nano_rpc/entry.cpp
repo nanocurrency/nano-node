@@ -33,6 +33,8 @@ void logging_init (boost::filesystem::path const & application_path_a)
 	}
 }
 
+volatile sig_atomic_t sig_int_or_term = 0;
+
 void run (boost::filesystem::path const & data_path)
 {
 	boost::filesystem::create_directories (data_path);
@@ -41,7 +43,7 @@ void run (boost::filesystem::path const & data_path)
 	std::unique_ptr<nano::thread_runner> runner;
 
 	nano::rpc_config rpc_config;
-	auto error = nano::read_and_update_rpc_config (data_path, rpc_config);
+	auto error = nano::read_rpc_config_toml (data_path, rpc_config);
 	if (!error)
 	{
 		logging_init (data_path);
@@ -53,9 +55,9 @@ void run (boost::filesystem::path const & data_path)
 			rpc->start ();
 
 			assert (!nano::signal_handler_impl);
-			nano::signal_handler_impl = [&io_ctx, &rpc]() {
-				rpc->stop ();
+			nano::signal_handler_impl = [&io_ctx]() {
 				io_ctx.stop ();
+				sig_int_or_term = 1;
 			};
 
 			std::signal (SIGINT, &nano::signal_handler);
@@ -63,6 +65,11 @@ void run (boost::filesystem::path const & data_path)
 
 			runner = std::make_unique<nano::thread_runner> (io_ctx, rpc_config.rpc_process.io_threads);
 			runner->join ();
+
+			if (sig_int_or_term == 1)
+			{
+				rpc->stop ();
+			}
 		}
 		catch (const std::runtime_error & e)
 		{
@@ -133,14 +140,8 @@ int main (int argc, char * const * argv)
 	}
 	else if (vm.count ("version"))
 	{
-		if (NANO_VERSION_PATCH == 0)
-		{
-			std::cout << "Version " << NANO_MAJOR_MINOR_VERSION << std::endl;
-		}
-		else
-		{
-			std::cout << "Version " << NANO_MAJOR_MINOR_RC_VERSION << std::endl;
-		}
+		std::cout << "Version " << NANO_VERSION_STRING << "\n"
+		          << "Build Info " << BUILD_INFO << std::endl;
 	}
 	else
 	{

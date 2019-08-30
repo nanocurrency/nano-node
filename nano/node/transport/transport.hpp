@@ -53,9 +53,9 @@ namespace transport
 		virtual ~channel () = default;
 		virtual size_t hash_code () const = 0;
 		virtual bool operator== (nano::transport::channel const &) const = 0;
-		void send (nano::message const &, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr, bool const & = true);
-		virtual void send_buffer (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) = 0;
-		virtual std::function<void(boost::system::error_code const &, size_t)> callback (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) const = 0;
+		void send (nano::message const &, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr, bool const = true);
+		virtual void send_buffer (nano::shared_const_buffer const &, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) = 0;
+		virtual std::function<void(boost::system::error_code const &, size_t)> callback (nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) const = 0;
 		virtual std::string to_string () const = 0;
 		virtual nano::endpoint get_endpoint () const = 0;
 		virtual nano::tcp_endpoint get_tcp_endpoint () const = 0;
@@ -122,12 +122,12 @@ namespace transport
 			node_id = node_id_a;
 		}
 
-		unsigned get_network_version () const
+		uint8_t get_network_version () const
 		{
 			return network_version;
 		}
 
-		void set_network_version (unsigned network_version_a)
+		void set_network_version (uint8_t network_version_a)
 		{
 			network_version = network_version_a;
 		}
@@ -140,7 +140,7 @@ namespace transport
 		std::chrono::steady_clock::time_point last_packet_received{ std::chrono::steady_clock::time_point () };
 		std::chrono::steady_clock::time_point last_packet_sent{ std::chrono::steady_clock::time_point () };
 		boost::optional<nano::account> node_id{ boost::none };
-		std::atomic<unsigned> network_version{ nano::protocol_version };
+		std::atomic<uint8_t> network_version{ 0 };
 
 	protected:
 		nano::node & node;

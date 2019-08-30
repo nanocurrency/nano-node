@@ -15,11 +15,14 @@
 
 namespace nano
 {
+class tomlconfig;
 class logging final
 {
 public:
 	nano::error serialize_json (nano::jsonconfig &) const;
 	nano::error deserialize_json (bool &, nano::jsonconfig &);
+	nano::error serialize_toml (nano::tomlconfig &) const;
+	nano::error deserialize_toml (nano::tomlconfig &);
 	bool upgrade_json (unsigned, nano::jsonconfig &);
 	bool ledger_logging () const;
 	bool ledger_duplicate_logging () const;
@@ -40,6 +43,7 @@ public:
 	bool callback_logging () const;
 	bool work_generation_time () const;
 	bool log_to_cerr () const;
+	bool single_line_record () const;
 	void init (boost::filesystem::path const &);
 
 	bool ledger_logging_value{ false };
@@ -64,10 +68,11 @@ public:
 	uintmax_t max_size{ 128 * 1024 * 1024 };
 	uintmax_t rotation_size{ 4 * 1024 * 1024 };
 	std::chrono::milliseconds min_time_between_log_output{ 5 };
+	bool single_line_record_value{ false };
 	static void release_file_sink ();
-	int json_version () const
+	unsigned json_version () const
 	{
-		return 7;
+		return 8;
 	}
 
 private:

@@ -1,6 +1,7 @@
+#include <nano/boost/asio.hpp>
 #include <nano/lib/stats.hpp>
+#include <nano/lib/tomlconfig.hpp>
 
-#include <boost/asio.hpp>
 #include <boost/format.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
@@ -40,6 +41,55 @@ nano::error nano::stat_config::deserialize_json (nano::jsonconfig & json)
 	return json.get_error ();
 }
 
+nano::error nano::stat_config::deserialize_toml (nano::tomlconfig & toml)
+{
+	auto sampling_l (toml.get_optional_child ("sampling"));
+	if (sampling_l)
+	{
+		sampling_l->get<bool> ("enable", sampling_enabled);
+		sampling_l->get<size_t> ("capacity", capacity);
+		sampling_l->get<size_t> ("interval", interval);
+	}
+
+	auto log_l (toml.get_optional_child ("log"));
+	if (log_l)
+	{
+		log_l->get<bool> ("headers", log_headers);
+		log_l->get<size_t> ("interval_counters", log_interval_counters);
+		log_l->get<size_t> ("interval_samples", log_interval_samples);
+		log_l->get<size_t> ("rotation_count", log_rotation_count);
+		log_l->get<std::string> ("filename_counters", log_counters_filename);
+		log_l->get<std::string> ("filename_samples", log_samples_filename);
+
+		// Don't allow specifying the same file name for counter and samples logs
+		if (log_counters_filename == log_samples_filename)
+		{
+			toml.get_error ().set ("The statistics counter and samples config values must be different");
+		}
+	}
+
+	return toml.get_error ();
+}
+
+nano::error nano::stat_config::serialize_toml (nano::tomlconfig & toml) const
+{
+	nano::tomlconfig sampling_l;
+	sampling_l.put ("enable", sampling_enabled, "Enable or disable samling.\ntype:bool");
+	sampling_l.put ("capacity", capacity, "How many sample intervals to keep in the ring buffer.\ntype:uint64");
+	sampling_l.put ("interval", interval, "Sample interval.\ntype:milliseconds");
+	toml.put_child ("sampling", sampling_l);
+
+	nano::tomlconfig log_l;
+	log_l.put ("headers", log_headers, "If true, write headers on each counter or samples writeout.\nThe header contains log type and the current wall time.\ntype:bool");
+	log_l.put ("interval_counters", log_interval_counters, "How often to log counters. 0 disables logging.\ntype:milliseconds");
+	log_l.put ("interval_samples", log_interval_samples, "How often to log samples. 0 disables logging.\ntype:milliseconds");
+	log_l.put ("rotation_count", log_rotation_count, "Maximum number of log outputs before rotating the file.\ntype:uint64");
+	log_l.put ("filename_counters", log_counters_filename, "Log file name for counters.\ntype:string");
+	log_l.put ("filename_samples", log_samples_filename, "Log file name for samples.\ntype:string");
+	toml.put_child ("log", log_l);
+	return toml.get_error ();
+}
+
 std::string nano::stat_log_sink::tm_to_string (tm & tm)
 {
 	return (boost::format ("%04d.%02d.%02d %02d:%02d:%02d") % (1900 + tm.tm_year) % (tm.tm_mon + 1) % tm.tm_mday % tm.tm_hour % tm.tm_min % tm.tm_sec).str ();
@@ -62,7 +112,7 @@ public:
 		tree.clear ();
 	}
 
-	void write_header (std::string header, std::chrono::system_clock::time_point & walltime) override
+	void write_header (std::string const & header, std::chrono::system_clock::time_point & walltime) override
 	{
 		std::time_t now = std::chrono::system_clock::to_time_t (walltime);
 		tm tm = *localtime (&now);
@@ -70,7 +120,7 @@ public:
 		tree.put ("created", tm_to_string (tm));
 	}
 
-	void write_entry (tm & tm, std::string type, std::string detail, std::string dir, uint64_t value) override
+	void write_entry (tm & tm, std::string const & type, std::string const & detail, std::string const & dir, uint64_t value) override
 	{
 		boost::property_tree::ptree entry;
 		entry.put ("time", boost::format ("%02d:%02d:%02d") % tm.tm_hour % tm.tm_min % tm.tm_sec);
@@ -108,7 +158,7 @@ public:
 	std::ofstream log;
 	std::string filename;
 
-	file_writer (std::string filename) :
+	explicit file_writer (std::string const & filename) :
 	filename (filename)
 	{
 		log.open (filename.c_str (), std::ofstream::out);
@@ -122,14 +172,14 @@ public:
 		return log;
 	}
 
-	void write_header (std::string header, std::chrono::system_clock::time_point & walltime) override
+	void write_header (std::string const & header, std::chrono::system_clock::time_point & walltime) override
 	{
 		std::time_t now = std::chrono::system_clock::to_time_t (walltime);
 		tm tm = *localtime (&now);
 		log << header << "," << boost::format ("%04d.%02d.%02d %02d:%02d:%02d") % (1900 + tm.tm_year) % (tm.tm_mon + 1) % tm.tm_mday % tm.tm_hour % tm.tm_min % tm.tm_sec << std::endl;
 	}
 
-	void write_entry (tm & tm, std::string type, std::string detail, std::string dir, uint64_t value) override
+	void write_entry (tm & tm, std::string const & type, std::string const & detail, std::string const & dir, uint64_t value) override
 	{
 		log << boost::format ("%02d:%02d:%02d") % tm.tm_hour % tm.tm_min % tm.tm_sec << "," << type << "," << detail << "," << dir << "," << value << std::endl;
 	}

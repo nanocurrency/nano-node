@@ -1,7 +1,8 @@
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/utility.hpp>
-#include <nano/node/lmdb_txn_tracker.hpp>
+#include <nano/node/lmdb/lmdb_env.hpp>
+#include <nano/node/lmdb/lmdb_txn.hpp>
 #include <nano/secure/blockstore.hpp>
 
 #include <boost/polymorphic_cast.hpp>
@@ -26,10 +27,10 @@
 
 namespace
 {
-class matches_txn
+class matches_txn final
 {
 public:
-	matches_txn (const nano::transaction_impl * transaction_impl_a) :
+	explicit matches_txn (const nano::transaction_impl * transaction_impl_a) :
 	transaction_impl (transaction_impl_a)
 	{
 	}
@@ -42,6 +43,77 @@ public:
 private:
 	const nano::transaction_impl * transaction_impl;
 };
+}
+
+nano::read_mdb_txn::read_mdb_txn (nano::mdb_env const & environment_a, nano::mdb_txn_callbacks txn_callbacks_a) :
+txn_callbacks (txn_callbacks_a)
+{
+	auto status (mdb_txn_begin (environment_a, nullptr, MDB_RDONLY, &handle));
+	release_assert (status == 0);
+	txn_callbacks.txn_start (this);
+}
+
+nano::read_mdb_txn::~read_mdb_txn ()
+{
+	// This uses commit rather than abort, as it is needed when opening databases with a read only transaction
+	auto status (mdb_txn_commit (handle));
+	release_assert (status == MDB_SUCCESS);
+	txn_callbacks.txn_end (this);
+}
+
+void nano::read_mdb_txn::reset ()
+{
+	mdb_txn_reset (handle);
+	txn_callbacks.txn_end (this);
+}
+
+void nano::read_mdb_txn::renew ()
+{
+	auto status (mdb_txn_renew (handle));
+	release_assert (status == 0);
+	txn_callbacks.txn_start (this);
+}
+
+void * nano::read_mdb_txn::get_handle () const
+{
+	return handle;
+}
+
+nano::write_mdb_txn::write_mdb_txn (nano::mdb_env const & environment_a, nano::mdb_txn_callbacks txn_callbacks_a) :
+env (environment_a),
+txn_callbacks (txn_callbacks_a)
+{
+	renew ();
+}
+
+nano::write_mdb_txn::~write_mdb_txn ()
+{
+	commit ();
+}
+
+void nano::write_mdb_txn::commit () const
+{
+	auto status (mdb_txn_commit (handle));
+	release_assert (status == MDB_SUCCESS);
+	txn_callbacks.txn_end (this);
+}
+
+void nano::write_mdb_txn::renew ()
+{
+	auto status (mdb_txn_begin (env, nullptr, 0, &handle));
+	release_assert (status == MDB_SUCCESS);
+	txn_callbacks.txn_start (this);
+}
+
+void * nano::write_mdb_txn::get_handle () const
+{
+	return handle;
+}
+
+bool nano::write_mdb_txn::contains (nano::tables table_a) const
+{
+	// LMDB locks on every write
+	return true;
 }
 
 nano::mdb_txn_tracker::mdb_txn_tracker (nano::logger_mt & logger_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a) :

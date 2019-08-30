@@ -45,7 +45,7 @@ IncludeCategories:
   - Regex:           '<boost/.*>'
     Priority:        4
   # Headers in other third party libraries
-  - Regex:           '<(gtest|crypto)/([A-Za-z0-9.\/-_])+>'
+  - Regex:           '<(gtest|crypto|miniupnp)/([A-Za-z0-9.\/-_])+>'
     Priority:        3
   # Headers from nano workspace.
   - Regex:           '<nano/([A-Za-z0-9.\/-_])+>'

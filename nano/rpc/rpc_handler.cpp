@@ -51,13 +51,18 @@ void nano::rpc_handler::process_request ()
 		}
 		else
 		{
-			std::stringstream ss;
-			ss << body;
 			boost::property_tree::ptree request;
-			boost::property_tree::read_json (ss, request);
+			{
+				std::stringstream ss;
+				ss << body;
+				boost::property_tree::read_json (ss, request);
+			}
 
 			auto action = request.get<std::string> ("action");
-			logger.always_log (boost::str (boost::format ("%1% ") % request_id), filter_request (request));
+			// Creating same string via stringstream as using it directly is generating a TSAN warning
+			std::stringstream ss;
+			ss << request_id;
+			logger.always_log (ss.str (), " ", filter_request (request));
 
 			// Check if this is a RPC command which requires RPC enabled control
 			std::error_code rpc_control_disabled_ec = nano::error_rpc::rpc_control_disabled;
@@ -83,17 +88,8 @@ void nano::rpc_handler::process_request ()
 				else if (action == "process")
 				{
 					auto force = request.get_optional<bool> ("force");
-					if (force.is_initialized () && *force && !rpc_config.enable_control)
-					{
-						json_error_response (response, rpc_control_disabled_ec.message ());
-						error = true;
-					}
-				}
-				else if (action == "block_count")
-				{
-					// Cemented blocks can take a while to generate so require control
-					auto include_cemented = request.get_optional<bool> ("include_cemented");
-					if (include_cemented.is_initialized () && *include_cemented && !rpc_config.enable_control)
+					auto watch_work = request.get_optional<bool> ("watch_work");
+					if (((force.is_initialized () && *force) || (watch_work.is_initialized () && !*watch_work)) && !rpc_config.enable_control)
 					{
 						json_error_response (response, rpc_control_disabled_ec.message ());
 						error = true;

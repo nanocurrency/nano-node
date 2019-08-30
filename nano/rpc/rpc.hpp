@@ -1,10 +1,9 @@
 #pragma once
 
+#include <nano/boost/asio.hpp>
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/rpc_handler_interface.hpp>
 #include <nano/lib/rpcconfig.hpp>
-
-#include <boost/asio.hpp>
 
 namespace nano
 {

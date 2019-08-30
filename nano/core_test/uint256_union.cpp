@@ -1,6 +1,4 @@
 #include <nano/core_test/testutil.hpp>
-#include <nano/lib/interface.h>
-#include <nano/lib/jsonconfig.hpp>
 #include <nano/secure/common.hpp>
 
 #include <gtest/gtest.h>
@@ -372,36 +370,6 @@ TEST (uint256_union, decode_nano_variant)
 	nano::uint256_union key;
 	ASSERT_FALSE (key.decode_account ("xrb_1111111111111111111111111111111111111111111111111111hifc8npp"));
 	ASSERT_FALSE (key.decode_account ("nano_1111111111111111111111111111111111111111111111111111hifc8npp"));
-}
-
-TEST (uint256_union, decode_account_variations)
-{
-	for (int i = 0; i < 100; i++)
-	{
-		nano::raw_key key;
-		xrb_generate_random (key.data.bytes.data ());
-		nano::uint256_union pub;
-		xrb_key_account (key.data.bytes.data (), pub.bytes.data ());
-
-		char account[66] = { 0 };
-		xrb_uint256_to_address (pub.bytes.data (), account);
-
-		/*
-		 * Handle different offsets for the underscore separator
-		 * for "xrb_" prefixed and "nano_" prefixed accounts
-		 */
-		unsigned offset = (account[0] == 'x') ? 4 : 5;
-
-		// Replace first digit after xrb_ with '0'..'9', make sure only one of them is valid
-		int errors = 0;
-		for (int variation = 0; variation < 10; variation++)
-		{
-			account[offset] = static_cast<char> (variation + 48);
-			errors += xrb_valid_address (account);
-		}
-
-		ASSERT_EQ (errors, 9);
-	}
 }
 
 TEST (uint256_union, account_transcode)

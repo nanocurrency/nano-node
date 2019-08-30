@@ -1,46 +1,20 @@
 #pragma once
 
+#include <nano/boost/asio.hpp>
+#include <nano/lib/configbase.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/utility.hpp>
 
-#include <boost/asio.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/lexical_cast.hpp>
-#include <boost/optional.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <fstream>
 
 namespace nano
 {
-/** Type trait to determine if T is compatible with boost's lexical_cast */
-template <class T>
-struct is_lexical_castable : std::integral_constant<bool,
-                             (std::is_default_constructible<T>::value && (boost::has_right_shift<std::basic_istream<wchar_t>, T>::value || boost::has_right_shift<std::basic_istream<char>, T>::value))>
-{
-};
-
-/* Type descriptions are used to automatically construct configuration error messages */
-// clang-format off
-template <typename T> inline std::string type_desc (void) { return "an unknown type"; }
-template <> inline std::string type_desc<int8_t> (void) { return "an integer between -128 and 127"; }
-template <> inline std::string type_desc<uint8_t> (void) { return "an integer between 0 and 255"; }
-template <> inline std::string type_desc<int16_t> (void) { return "an integer between -32768 and 32767"; }
-template <> inline std::string type_desc<uint16_t> (void) { return "an integer between 0 and 65535"; }
-template <> inline std::string type_desc<int32_t> (void) { return "a 32-bit signed integer"; }
-template <> inline std::string type_desc<uint32_t> (void) { return "a 32-bit unsigned integer"; }
-template <> inline std::string type_desc<int64_t> (void) { return "a 64-bit signed integer"; }
-template <> inline std::string type_desc<uint64_t> (void) { return "a 64-bit unsigned integer"; }
-template <> inline std::string type_desc<float> (void) { return "a single precision floating point number"; }
-template <> inline std::string type_desc<double> (void) { return "a double precison floating point number"; }
-template <> inline std::string type_desc<char> (void) { return "a character"; }
-template <> inline std::string type_desc<std::string> (void) { return "a string"; }
-template <> inline std::string type_desc<bool> (void) { return "a boolean"; }
-template <> inline std::string type_desc<boost::asio::ip::address_v6> (void) { return "an IP address"; }
-// clang-format on
-
 /** Manages a node in a boost configuration tree. */
-class jsonconfig : public nano::error_aware<>
+class jsonconfig : public nano::configbase
 {
 public:
 	jsonconfig () :
@@ -50,7 +24,7 @@ public:
 	}
 
 	jsonconfig (boost::property_tree::ptree & tree_a, std::shared_ptr<nano::error> error_a = nullptr) :
-	tree (tree_a), error (error_a)
+	nano::configbase (error_a), tree (tree_a)
 	{
 		if (!error)
 		{
@@ -234,17 +208,6 @@ public:
 		return *this;
 	}
 
-	/** Iterate array entries */
-	template <typename T>
-	jsonconfig & array_entries (std::function<void(T)> callback)
-	{
-		for (auto & entry : tree)
-		{
-			callback (entry.second.get<T> (""));
-		}
-		return *this;
-	}
-
 	/** Returns true if \p key_a is present */
 	bool has_key (std::string const & key_a)
 	{
@@ -255,6 +218,17 @@ public:
 	jsonconfig & erase (std::string const & key_a)
 	{
 		tree.erase (key_a);
+		return *this;
+	}
+
+	/** Iterate array entries */
+	template <typename T>
+	jsonconfig & array_entries (std::function<void(T)> callback)
+	{
+		for (auto & entry : tree)
+		{
+			callback (entry.second.get<T> (""));
+		}
 		return *this;
 	}
 
@@ -300,8 +274,7 @@ public:
 	}
 
 	/**
-	 * Get value of required key
-	 * @note May set nano::error_config::missing_value if \p key is missing, nano::error_config::invalid_value if value is invalid.
+	 * Get value of optional key. Use default value of data type if missing.
 	 */
 	template <typename T>
 	T get (std::string const & key)
@@ -322,44 +295,7 @@ public:
 		return *this;
 	}
 
-	/** Turn on or off automatic error message generation */
-	void set_auto_error_message (bool auto_a)
-	{
-		auto_error_message = auto_a;
-	}
-
-	nano::error & get_error () override
-	{
-		return *error;
-	}
-
 protected:
-	template <typename T>
-	void construct_error_message (bool optional, std::string const & key)
-	{
-		if (auto_error_message && *error)
-		{
-			if (optional)
-			{
-				error->set_message (key + " is not " + type_desc<T> ());
-			}
-			else
-			{
-				error->set_message (key + " is required and must be " + type_desc<T> ());
-			}
-		}
-	}
-
-	/** Set error if not already set. That is, first error remains until get_error().clear() is called. */
-	template <typename T, typename V>
-	void conditionally_set_error (V error_a, bool optional, std::string const & key)
-	{
-		if (!*error)
-		{
-			*error = error_a;
-			construct_error_message<T> (optional, key);
-		}
-	}
 	template <typename T, typename = std::enable_if_t<nano::is_lexical_castable<T>::value>>
 	jsonconfig & get_config (bool optional, std::string key, T & target, T default_value = T ())
 	{
@@ -495,10 +431,5 @@ private:
 	/** The property node being managed */
 	boost::property_tree::ptree & tree;
 	boost::property_tree::ptree tree_default;
-	/** If set, automatically construct error messages based on parameters and type information. */
-	bool auto_error_message{ true };
-
-	/** We're a nano::error_aware type. Child nodes share the error state. */
-	std::shared_ptr<nano::error> error;
 };
 }

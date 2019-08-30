@@ -1,6 +1,26 @@
 #include <nano/lib/utility.hpp>
 
+#include <boost/dll/runtime_symbol_info.hpp>
+
 #include <iostream>
+
+// Some builds (mac) fail due to "Boost.Stacktrace requires `_Unwind_Backtrace` function".
+#ifndef _WIN32
+#ifndef _GNU_SOURCE
+#define BEFORE_GNU_SOURCE 0
+#define _GNU_SOURCE
+#else
+#define BEFORE_GNU_SOURCE 1
+#endif
+#endif
+// On Windows this include defines min/max macros, so keep below other includes
+// to reduce conflicts with other std functions
+#include <boost/stacktrace.hpp>
+#ifndef _WIN32
+#if !BEFORE_GNU_SOURCE
+#undef _GNU_SOURCE
+#endif
+#endif
 
 namespace nano
 {
@@ -40,6 +60,11 @@ bool seq_con_info_leaf::is_composite () const
 const seq_con_info & seq_con_info_leaf::get_info () const
 {
 	return info;
+}
+
+void dump_crash_stacktrace ()
+{
+	boost::stacktrace::safe_dump_to ("nano_node_backtrace.dump");
 }
 
 namespace thread_role
@@ -109,6 +134,9 @@ namespace thread_role
 			case nano::thread_role::name::confirmation_height_processing:
 				thread_role_name_string = "Conf height";
 				break;
+			case nano::thread_role::name::worker:
+				thread_role_name_string = "Worker";
+				break;
 		}
 
 		/*
@@ -160,7 +188,7 @@ io_guard (boost::asio::make_work_guard (io_ctx_a))
 			{
 				std::cerr << ex.what () << std::endl;
 #ifndef NDEBUG
-				throw ex;
+				throw;
 #endif
 			}
 			catch (...)
@@ -200,6 +228,99 @@ void nano::thread_runner::stop_event_processing ()
 	io_guard.get_executor ().context ().stop ();
 }
 
+nano::worker::worker () :
+thread ([this]() {
+	nano::thread_role::set (nano::thread_role::name::worker);
+	this->run ();
+})
+{
+}
+
+void nano::worker::run ()
+{
+	while (!stopped)
+	{
+		std::unique_lock<std::mutex> lk (mutex);
+		if (!queue.empty ())
+		{
+			auto func = queue.front ();
+			queue.pop_front ();
+			lk.unlock ();
+			func ();
+			// So that we reduce locking for anything being pushed as that will
+			// most likely be on an io-thread
+			std::this_thread::yield ();
+		}
+		else
+		{
+			cv.wait (lk);
+		}
+	}
+}
+
+nano::worker::~worker ()
+{
+	stop ();
+}
+
+void nano::worker::push_task (std::function<void()> func_a)
+{
+	{
+		std::lock_guard<std::mutex> guard (mutex);
+		queue.emplace_back (func_a);
+	}
+
+	cv.notify_one ();
+}
+
+void nano::worker::stop ()
+{
+	stopped = true;
+	cv.notify_one ();
+	if (thread.joinable ())
+	{
+		thread.join ();
+	}
+}
+
+std::unique_ptr<nano::seq_con_info_component> nano::collect_seq_con_info (nano::worker & worker, const std::string & name)
+{
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+
+	size_t count = 0;
+	{
+		std::lock_guard<std::mutex> guard (worker.mutex);
+		count = worker.queue.size ();
+	}
+	auto sizeof_element = sizeof (decltype (worker.queue)::value_type);
+	composite->add_component (std::make_unique<nano::seq_con_info_leaf> (nano::seq_con_info{ "queue", count, sizeof_element }));
+	return composite;
+}
+
+void nano::remove_all_files_in_dir (boost::filesystem::path const & dir)
+{
+	for (auto & p : boost::filesystem::directory_iterator (dir))
+	{
+		auto path = p.path ();
+		if (boost::filesystem::is_regular_file (path))
+		{
+			boost::filesystem::remove (path);
+		}
+	}
+}
+
+void nano::move_all_files_to_dir (boost::filesystem::path const & from, boost::filesystem::path const & to)
+{
+	for (auto & p : boost::filesystem::directory_iterator (from))
+	{
+		auto path = p.path ();
+		if (boost::filesystem::is_regular_file (path))
+		{
+			boost::filesystem::rename (path, to / path.filename ());
+		}
+	}
+}
+
 /*
  * Backing code for "release_assert", which is itself a macro
  */
@@ -210,6 +331,33 @@ void release_assert_internal (bool check, const char * check_expr, const char * 
 		return;
 	}
 
-	std::cerr << "Assertion (" << check_expr << ") failed " << file << ":" << line << std::endl;
+	std::cerr << "Assertion (" << check_expr << ") failed " << file << ":" << line << "\n\n";
+
+	// Output stack trace to cerr
+	auto stacktrace = boost::stacktrace::stacktrace ();
+	std::stringstream ss;
+	ss << stacktrace;
+	auto backtrace_str = ss.str ();
+	std::cerr << backtrace_str << std::endl;
+
+	// "abort" at the end of this function will go into any signal handlers (the daemon ones will generate a stack trace and load memory address files on non-Windows systems).
+	// As there is no async-signal-safe way to generate stacktraces on Windows so must be done before aborting
+#ifdef _WIN32
+	{
+		// Try construct the stacktrace dump in the same folder as the the running executable, otherwise use the current directory.
+		boost::system::error_code err;
+		auto running_executable_filepath = boost::dll::program_location (err);
+		std::string filename = "nano_node_backtrace_release_assert.txt";
+		std::string filepath = filename;
+		if (!err)
+		{
+			filepath = (running_executable_filepath.parent_path () / filename).string ();
+		}
+
+		std::ofstream file (filepath);
+		nano::set_secure_perm_file (filepath);
+		file << backtrace_str;
+	}
+#endif
 	abort ();
 }

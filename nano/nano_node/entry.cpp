@@ -90,6 +90,7 @@ int main (int argc, char * const * argv)
 	description.add_options ()
 		("help", "Print out options")
 		("version", "Prints out version")
+		("config", boost::program_options::value<std::vector<std::string>>()->multitoken(), "Pass node configuration values. This takes precedence over any values in the configuration file. This option can be repeated multiple times.")
 		("daemon", "Start node daemon")
 		("disable_backup", "Disable wallet automatic backups")
 		("disable_lazy_bootstrap", "Disables lazy bootstrap")
@@ -181,6 +182,12 @@ int main (int argc, char * const * argv)
 			nano_daemon::daemon daemon;
 			nano::node_flags flags;
 			update_flags (flags, vm);
+
+			auto config (vm.find ("config"));
+			if (config != vm.end ())
+			{
+				flags.config_overrides = config->second.as<std::vector<std::string>> ();
+			}
 			daemon.run (data_path, flags);
 		}
 		else if (vm.count ("debug_block_count"))
@@ -263,29 +270,17 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_dump_representatives"))
 		{
-			nano::inactive_node node (data_path);
+			auto node_flags = nano::inactive_node_flag_defaults ();
+			node_flags.cache_representative_weights_from_frontiers = true;
+			nano::inactive_node node (data_path, 24000, node_flags);
 			auto transaction (node.node->store.tx_begin_read ());
 			nano::uint128_t total;
-			for (auto i (node.node->store.representation_begin (transaction)), n (node.node->store.representation_end ()); i != n; ++i)
+			auto rep_amounts = node.node->ledger.rep_weights.get_rep_amounts ();
+			std::map<nano::account, nano::uint128_t> ordered_reps (rep_amounts.begin (), rep_amounts.end ());
+			for (auto const & rep : ordered_reps)
 			{
-				nano::account const & account (i->first);
-				auto amount (node.node->store.representation_get (transaction, account));
-				total += amount;
-				std::cout << boost::str (boost::format ("%1% %2% %3%\n") % account.to_account () % amount.convert_to<std::string> () % total.convert_to<std::string> ());
-			}
-			std::map<nano::account, nano::uint128_t> calculated;
-			for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n; ++i)
-			{
-				nano::account_info const & info (i->second);
-				nano::block_hash rep_block (node.node->ledger.representative_calculated (transaction, info.head));
-				auto block (node.node->store.block_get (transaction, rep_block));
-				calculated[block->representative ()] += info.balance.number ();
-			}
-			total = 0;
-			for (auto i (calculated.begin ()), n (calculated.end ()); i != n; ++i)
-			{
-				total += i->second;
-				std::cout << boost::str (boost::format ("%1% %2% %3%\n") % i->first.to_account () % i->second.convert_to<std::string> () % total.convert_to<std::string> ());
+				total += rep.second;
+				std::cout << boost::str (boost::format ("%1% %2% %3%\n") % rep.first.to_account () % rep.second.convert_to<std::string> () % total.convert_to<std::string> ());
 			}
 		}
 		else if (vm.count ("debug_dump_frontier_unchecked_dependents"))
@@ -433,10 +428,10 @@ int main (int argc, char * const * argv)
 						{
 							nano::logger_mt logger;
 							auto opencl (nano::opencl_work::create (true, { platform, device, threads }, logger));
-							nano::work_pool work_pool (std::numeric_limits<unsigned>::max (), std::chrono::nanoseconds (0), opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a) {
+							nano::work_pool work_pool (std::numeric_limits<unsigned>::max (), std::chrono::nanoseconds (0), opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
 								return opencl->generate_work (root_a, difficulty_a);
 							}
-							                                                                                                       : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t)> (nullptr));
+							                                                                                                       : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t, std::atomic<int> &)> (nullptr));
 							nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
 							std::cerr << boost::str (boost::format ("Starting OpenCL generation profiling. Platform: %1%. Device: %2%. Threads: %3%. Difficulty: %4$#x\n") % platform % device % threads % difficulty);
 							for (uint64_t i (0); true; ++i)
@@ -558,12 +553,11 @@ int main (int argc, char * const * argv)
 			size_t max_blocks (2 * num_accounts * num_interations + num_accounts * 2); //  1,000,000 + 2* 100,000 = 1,200,000 blocks
 			std::cerr << boost::str (boost::format ("Starting pregenerating %1% blocks\n") % max_blocks);
 			nano::system system (24000, 1);
-			nano::node_init init;
 			nano::work_pool work (std::numeric_limits<unsigned>::max ());
 			nano::logging logging;
 			auto path (nano::unique_path ());
 			logging.init (path);
-			auto node (std::make_shared<nano::node> (init, system.io_ctx, 24001, path, system.alarm, logging, work));
+			auto node (std::make_shared<nano::node> (system.io_ctx, 24001, path, system.alarm, logging, work));
 			nano::block_hash genesis_latest (node->latest (test_params.ledger.test_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 			// Generating keys
@@ -670,12 +664,11 @@ int main (int argc, char * const * argv)
 			size_t max_votes (num_elections * num_representatives); // 40,000 * 25 = 1,000,000 votes
 			std::cerr << boost::str (boost::format ("Starting pregenerating %1% votes\n") % max_votes);
 			nano::system system (24000, 1);
-			nano::node_init init;
 			nano::work_pool work (std::numeric_limits<unsigned>::max ());
 			nano::logging logging;
 			auto path (nano::unique_path ());
 			logging.init (path);
-			auto node (std::make_shared<nano::node> (init, system.io_ctx, 24001, path, system.alarm, logging, work));
+			auto node (std::make_shared<nano::node> (system.io_ctx, 24001, path, system.alarm, logging, work));
 			nano::block_hash genesis_latest (node->latest (test_params.ledger.test_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 			// Generating keys
@@ -757,7 +750,7 @@ int main (int argc, char * const * argv)
 			while (!votes.empty ())
 			{
 				auto vote (votes.front ());
-				auto channel (std::make_shared<nano::transport::channel_udp> (node->network.udp_channels, node->network.endpoint ()));
+				auto channel (std::make_shared<nano::transport::channel_udp> (node->network.udp_channels, node->network.endpoint (), node->network_params.protocol.protocol_version));
 				node->vote_processor.vote (vote, channel);
 				votes.pop_front ();
 			}
@@ -823,10 +816,12 @@ int main (int argc, char * const * argv)
 				}
 				nano::account_info const & info (i->second);
 				nano::account const & account (i->first);
+				uint64_t confirmation_height;
+				node.node->store.confirmation_height_get (transaction, account, confirmation_height);
 
-				if (info.confirmation_height > info.block_count)
+				if (confirmation_height > info.block_count)
 				{
-					std::cerr << "Confirmation height " << info.confirmation_height << " greater than block count " << info.block_count << " for account: " << account.to_account () << std::endl;
+					std::cerr << "Confirmation height " << confirmation_height << " greater than block count " << info.block_count << " for account: " << account.to_account () << std::endl;
 				}
 
 				auto hash (info.open_block);
@@ -1038,9 +1033,10 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_cemented_block_count"))
 		{
-			nano::inactive_node node (data_path);
-			auto transaction (node.node->store.tx_begin_read ());
-			std::cout << "Total cemented block count: " << node.node->store.cemented_count (transaction) << std::endl;
+			auto node_flags = nano::inactive_node_flag_defaults ();
+			node_flags.cache_cemented_count_from_frontiers = true;
+			nano::inactive_node node (data_path, 24000, node_flags);
+			std::cout << "Total cemented block count: " << node.node->ledger.cemented_count << std::endl;
 		}
 		else if (vm.count ("debug_sys_logging"))
 		{
@@ -1056,14 +1052,8 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("version"))
 		{
-			if (NANO_VERSION_PATCH == 0)
-			{
-				std::cout << "Version " << NANO_MAJOR_MINOR_VERSION << std::endl;
-			}
-			else
-			{
-				std::cout << "Version " << NANO_MAJOR_MINOR_RC_VERSION << std::endl;
-			}
+			std::cout << "Version " << NANO_VERSION_STRING << "\n"
+			          << "Build Info " << BUILD_INFO << std::endl;
 		}
 		else
 		{

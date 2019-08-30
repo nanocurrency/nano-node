@@ -1,8 +1,9 @@
+#include <nano/lib/asio.hpp>
 #include <nano/lib/json_error_response.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
 
 nano::rpc_request_processor::rpc_request_processor (boost::asio::io_context & io_ctx, nano::rpc_config & rpc_config) :
-ipc_address (rpc_config.address.to_string ()),
+ipc_address (rpc_config.rpc_process.ipc_address.to_string ()),
 ipc_port (rpc_config.rpc_process.ipc_port),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::rpc_request_processor);
@@ -83,7 +84,7 @@ void nano::rpc_request_processor::make_available (nano::ipc_connection & connect
 }
 
 // Connection does not exist or has been closed, try to connect to it again and then resend IPC request
-void nano::rpc_request_processor::try_reconnect_and_execute_request (std::shared_ptr<nano::ipc_connection> connection, std::shared_ptr<std::vector<uint8_t>> req, std::shared_ptr<std::vector<uint8_t>> res, std::shared_ptr<nano::rpc_request> rpc_request)
+void nano::rpc_request_processor::try_reconnect_and_execute_request (std::shared_ptr<nano::ipc_connection> connection, nano::shared_const_buffer const & req, std::shared_ptr<std::vector<uint8_t>> res, std::shared_ptr<nano::rpc_request> rpc_request)
 {
 	connection->client.async_connect (ipc_address, ipc_port, [this, connection, req, res, rpc_request](nano::error err) {
 		if (!err)
@@ -113,7 +114,7 @@ void nano::rpc_request_processor::try_reconnect_and_execute_request (std::shared
 		}
 		else
 		{
-			json_error_response (rpc_request->response, "There is a problem connecting to the node. Make sure ipc->tcp is enabled in node config and ports match");
+			json_error_response (rpc_request->response, "There is a problem connecting to the node. Make sure ipc->tcp is enabled in the node config, ipc ports match and ipc_address is the ip where the node is located");
 			make_available (*connection);
 		}
 	});

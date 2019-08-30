@@ -20,6 +20,7 @@
 #include <queue>
 #include <set>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace nano
 {
@@ -95,6 +96,7 @@ public:
 	void adjust_difficulty (nano::block_hash const &);
 	void update_active_difficulty (std::unique_lock<std::mutex> &);
 	uint64_t active_difficulty ();
+	uint64_t limited_active_difficulty ();
 	std::deque<std::shared_ptr<nano::block>> list_blocks (bool = false);
 	void erase (nano::block const &);
 	//drop 2 from roots based on adjusted_difficulty
@@ -128,6 +130,7 @@ public:
 	boost::circular_buffer<double> multipliers_cb;
 	uint64_t trended_active_difficulty;
 	size_t priority_cementable_frontiers_size ();
+	size_t priority_wallet_cementable_frontiers_size ();
 	boost::circular_buffer<double> difficulty_trend ();
 
 private:
@@ -149,23 +152,31 @@ private:
 	boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::confirmed_set_info, std::chrono::steady_clock::time_point, &nano::confirmed_set_info::time>>,
 	boost::multi_index::hashed_unique<boost::multi_index::member<nano::confirmed_set_info, nano::qualified_root, &nano::confirmed_set_info::root>>>>
 	confirmed_set;
-	void prioritize_frontiers_for_confirmation (nano::transaction const &, std::chrono::milliseconds);
-	boost::multi_index_container<
+	void prioritize_frontiers_for_confirmation (nano::transaction const &, std::chrono::milliseconds, std::chrono::milliseconds);
+	using prioritize_num_uncemented = boost::multi_index_container<
 	nano::cementable_account,
 	boost::multi_index::indexed_by<
 	boost::multi_index::hashed_unique<
 	boost::multi_index::member<nano::cementable_account, nano::account, &nano::cementable_account::account>>,
 	boost::multi_index::ordered_non_unique<
 	boost::multi_index::member<nano::cementable_account, uint64_t, &nano::cementable_account::blocks_uncemented>,
-	std::greater<uint64_t>>>>
-	priority_cementable_frontiers;
+	std::greater<uint64_t>>>>;
+	prioritize_num_uncemented priority_wallet_cementable_frontiers;
+	prioritize_num_uncemented priority_cementable_frontiers;
+	std::unordered_set<nano::account> wallet_accounts_already_iterated;
+	std::unordered_map<nano::uint256_union, nano::account> next_wallet_frontier_accounts;
 	bool frontiers_fully_confirmed{ false };
+	bool skip_wallets{ false };
+	void prioritize_account_for_confirmation (prioritize_num_uncemented &, size_t &, nano::account const &, nano::account_info const &, uint64_t);
 	static size_t constexpr max_priority_cementable_frontiers{ 100000 };
 	static size_t constexpr confirmed_frontiers_max_pending_cut_off{ 1000 };
 	boost::thread thread;
 
 	friend class confirmation_height_prioritize_frontiers_Test;
 	friend class confirmation_height_prioritize_frontiers_overwrite_Test;
+	friend class confirmation_height_many_accounts_single_confirmation_Test;
+	friend class confirmation_height_many_accounts_many_confirmations_Test;
+	friend class confirmation_height_long_chains_Test;
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transactions & active_transactions, const std::string & name);

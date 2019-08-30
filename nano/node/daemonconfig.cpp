@@ -1,9 +1,66 @@
 #include <nano/lib/config.hpp>
+#include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/tomlconfig.hpp>
+#include <nano/lib/walletconfig.hpp>
 #include <nano/node/daemonconfig.hpp>
+
+#include <sstream>
+#include <vector>
 
 nano::daemon_config::daemon_config (boost::filesystem::path const & data_path_a) :
 data_path (data_path_a)
 {
+}
+
+nano::error nano::daemon_config::serialize_toml (nano::tomlconfig & toml)
+{
+	nano::tomlconfig rpc_l;
+	rpc.serialize_toml (rpc_l);
+	rpc_l.doc ("enable", "Enable or disable RPC\ntype:bool");
+	rpc_l.put ("enable", rpc_enable);
+	toml.put_child ("rpc", rpc_l);
+
+	nano::tomlconfig node_l;
+	node.serialize_toml (node_l);
+	nano::tomlconfig node (node_l);
+	toml.put_child ("node", node);
+
+	nano::tomlconfig opencl_l;
+	opencl.serialize_toml (opencl_l);
+	opencl_l.doc ("enable", "Enable or disable OpenCL work generation\ntype:bool");
+	opencl_l.put ("enable", opencl_enable);
+	toml.put_child ("opencl", opencl_l);
+
+	return toml.get_error ();
+}
+
+nano::error nano::daemon_config::deserialize_toml (nano::tomlconfig & toml)
+{
+	auto rpc_l (toml.get_optional_child ("rpc"));
+
+	if (!toml.get_error () && rpc_l)
+	{
+		rpc_l->get_optional<bool> ("enable", rpc_enable);
+		rpc.deserialize_toml (*rpc_l);
+	}
+
+	auto node_l (toml.get_optional_child ("node"));
+	if (!toml.get_error () && node_l)
+	{
+		node.deserialize_toml (*node_l);
+	}
+
+	if (!toml.get_error ())
+	{
+		auto opencl_l (toml.get_optional_child ("opencl"));
+		if (!toml.get_error () && opencl_l)
+		{
+			opencl_l->get_optional<bool> ("enable", opencl_enable);
+			opencl.deserialize_toml (*opencl_l);
+		}
+	}
+
+	return toml.get_error ();
 }
 
 nano::error nano::daemon_config::serialize_json (nano::jsonconfig & json)
@@ -35,9 +92,6 @@ nano::error nano::daemon_config::deserialize_json (bool & upgraded_a, nano::json
 		{
 			int version_l;
 			json.get_optional<int> ("version", version_l);
-
-			upgraded_a |= upgrade_json (version_l, json);
-
 			json.get_optional<bool> ("rpc_enable", rpc_enable);
 
 			auto rpc_l (json.get_required_child ("rpc"));
@@ -74,43 +128,110 @@ nano::error nano::daemon_config::deserialize_json (bool & upgraded_a, nano::json
 	return json.get_error ();
 }
 
-bool nano::daemon_config::upgrade_json (unsigned version_a, nano::jsonconfig & json)
-{
-	json.put ("version", json_version ());
-	switch (version_a)
-	{
-		case 1:
-		{
-			bool opencl_enable_l{ false };
-			json.get_optional<bool> ("opencl_enable", opencl_enable_l);
-			if (!opencl_enable_l)
-			{
-				json.put ("opencl_enable", false);
-			}
-			auto opencl_l (json.get_optional_child ("opencl"));
-			if (!opencl_l)
-			{
-				nano::jsonconfig opencl_l;
-				opencl.serialize_json (opencl_l);
-				json.put_child ("opencl", opencl_l);
-			}
-		}
-		case 2:
-			break;
-		default:
-			throw std::runtime_error ("Unknown daemon_config version");
-	}
-	return version_a < json_version ();
-}
-
 namespace nano
 {
-nano::error read_and_update_daemon_config (boost::filesystem::path const & data_path, nano::daemon_config & config_a)
+nano::error read_node_config_toml (boost::filesystem::path const & data_path_a, nano::daemon_config & config_a, std::vector<std::string> const & config_overrides)
+{
+	nano::error error;
+	auto json_config_path = nano::get_config_path (data_path_a);
+	auto toml_config_path = nano::get_node_toml_config_path (data_path_a);
+	auto toml_qt_config_path = nano::get_qtwallet_toml_config_path (data_path_a);
+	if (boost::filesystem::exists (json_config_path))
+	{
+		if (boost::filesystem::exists (toml_config_path))
+		{
+			error = "Both json and toml node configuration files exists. "
+			        "Either remove the config.json file and restart, or remove "
+			        "the config-node.toml file to start migration on next launch.";
+		}
+		else
+		{
+			// Migrate
+			nano::daemon_config config_old_l;
+			nano::jsonconfig json;
+			read_and_update_daemon_config (data_path_a, config_old_l, json);
+			error = json.get_error ();
+
+			// Move qt wallet entries to wallet config file
+			if (!error && json.has_key ("wallet") && json.has_key ("account"))
+			{
+				if (!boost::filesystem::exists (toml_config_path))
+				{
+					nano::wallet_config wallet_conf;
+					error = wallet_conf.parse (json.get<std::string> ("wallet"), json.get<std::string> ("account"));
+					if (!error)
+					{
+						nano::tomlconfig wallet_toml_l;
+						wallet_conf.serialize_toml (wallet_toml_l);
+						wallet_toml_l.write (toml_qt_config_path);
+
+						boost::system::error_code error_chmod;
+						nano::set_secure_perm_file (toml_qt_config_path, error_chmod);
+					}
+				}
+				else
+				{
+					std::cout << "Not migrating wallet and account as wallet config file already exists" << std::endl;
+				}
+			}
+
+			if (!error)
+			{
+				nano::tomlconfig toml_l;
+				config_old_l.serialize_toml (toml_l);
+
+				// Only write out non-default values
+				nano::daemon_config config_defaults_l;
+				nano::tomlconfig toml_defaults_l;
+				config_defaults_l.serialize_toml (toml_defaults_l);
+
+				toml_l.erase_default_values (toml_defaults_l);
+				if (!toml_l.empty ())
+				{
+					toml_l.write (toml_config_path);
+					boost::system::error_code error_chmod;
+					nano::set_secure_perm_file (toml_config_path, error_chmod);
+				}
+
+				auto backup_path = data_path_a / "config_backup_toml_migration.json";
+				boost::filesystem::rename (json_config_path, backup_path);
+			}
+		}
+	}
+
+	// Parse and deserialize
+	nano::tomlconfig toml;
+
+	std::stringstream config_stream;
+	for (auto const & entry : config_overrides)
+	{
+		config_stream << entry << std::endl;
+	}
+	config_stream << std::endl;
+
+	// Make sure we don't create an empty toml file if it doesn't exist. Running without a toml file is the default.
+	if (!error && boost::filesystem::exists (toml_config_path))
+	{
+		toml.read (config_stream, toml_config_path);
+	}
+	else if (!error)
+	{
+		toml.read (config_stream);
+	}
+
+	if (!error)
+	{
+		error = config_a.deserialize_toml (toml);
+	}
+
+	return error;
+}
+
+nano::error read_and_update_daemon_config (boost::filesystem::path const & data_path, nano::daemon_config & config_a, nano::jsonconfig & json_a)
 {
 	boost::system::error_code error_chmod;
-	nano::jsonconfig json;
 	auto config_path = nano::get_config_path (data_path);
-	auto error (json.read_and_update (config_a, config_path));
+	auto error (json_a.read_and_update (config_a, config_path));
 	nano::set_secure_perm_file (config_path, error_chmod);
 	return error;
 }

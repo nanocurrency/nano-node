@@ -1,3 +1,4 @@
+#include <nano/lib/timer.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/vote_processor.hpp>
 
@@ -12,18 +13,12 @@ thread ([this]() {
 })
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	while (!started)
-	{
-		condition.wait (lock);
-	}
+	condition.wait (lock, [& started = started] { return started; });
 }
 
 void nano::vote_processor::process_loop ()
 {
-	std::chrono::steady_clock::time_point start_time, end_time;
-	std::chrono::steady_clock::duration elapsed_time;
-	std::chrono::milliseconds elapsed_time_ms;
-	uint64_t elapsed_time_ms_int;
+	nano::timer<std::chrono::milliseconds> elapsed;
 	bool log_this_iteration;
 
 	std::unique_lock<std::mutex> lock (mutex);
@@ -48,7 +43,7 @@ void nano::vote_processor::process_loop ()
 				 * there are a sufficient number of items for it to be relevant
 				 */
 				log_this_iteration = true;
-				start_time = std::chrono::steady_clock::now ();
+				elapsed.start ();
 			}
 			active = true;
 			lock.unlock ();
@@ -64,6 +59,7 @@ void nano::vote_processor::process_loop ()
 					if (count % 100 == 0)
 					{
 						active_single_lock.unlock ();
+						transaction.refresh ();
 						active_single_lock.lock ();
 					}
 					count++;
@@ -76,22 +72,9 @@ void nano::vote_processor::process_loop ()
 			condition.notify_all ();
 			lock.lock ();
 
-			if (log_this_iteration)
+			if (log_this_iteration && elapsed.stop () > std::chrono::milliseconds (100))
 			{
-				end_time = std::chrono::steady_clock::now ();
-				elapsed_time = end_time - start_time;
-				elapsed_time_ms = std::chrono::duration_cast<std::chrono::milliseconds> (elapsed_time);
-				elapsed_time_ms_int = elapsed_time_ms.count ();
-
-				if (elapsed_time_ms_int >= 100)
-				{
-					/*
-					 * If the time spent was less than 100ms then
-					 * the results are probably not useful as well,
-					 * so don't spam the logs.
-					 */
-					node.logger.try_log (boost::str (boost::format ("Processed %1% votes in %2% milliseconds (rate of %3% votes per second)") % votes_l.size () % elapsed_time_ms_int % ((votes_l.size () * 1000ULL) / elapsed_time_ms_int)));
-				}
+				node.logger.try_log (boost::str (boost::format ("Processed %1% votes in %2% milliseconds (rate of %3% votes per second)") % votes_l.size () % elapsed.value ().count () % ((votes_l.size () * 1000ULL) / elapsed.value ().count ())));
 			}
 		}
 		else
@@ -277,9 +260,10 @@ void nano::vote_processor::calculate_weights ()
 		representatives_3.clear ();
 		auto supply (node.online_reps.online_stake ());
 		auto transaction (node.store.tx_begin_read ());
-		for (auto i (node.store.representation_begin (transaction)), n (node.store.representation_end ()); i != n; ++i)
+		auto rep_amounts = node.ledger.rep_weights.get_rep_amounts ();
+		for (auto const & rep_amount : rep_amounts)
 		{
-			nano::account const & representative (i->first);
+			nano::account const & representative (rep_amount.first);
 			auto weight (node.ledger.weight (transaction, representative));
 			if (weight > supply / 1000) // 0.1% or above (level 1)
 			{
@@ -307,7 +291,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_processor & v
 	size_t representatives_3_count = 0;
 
 	{
-		std::lock_guard<std::mutex> (vote_processor.mutex);
+		std::lock_guard<std::mutex> guard (vote_processor.mutex);
 		votes_count = vote_processor.votes.size ();
 		representatives_1_count = vote_processor.representatives_1.size ();
 		representatives_2_count = vote_processor.representatives_2.size ();

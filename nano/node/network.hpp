@@ -1,10 +1,10 @@
 #pragma once
 
+#include <nano/boost/asio.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/transport/tcp.hpp>
 #include <nano/node/transport/udp.hpp>
 
-#include <boost/asio/thread_pool.hpp>
 #include <boost/thread/thread.hpp>
 
 #include <memory>
@@ -114,7 +114,7 @@ public:
 	~network ();
 	void start ();
 	void stop ();
-	void flood_message (nano::message const &);
+	void flood_message (nano::message const &, bool const = true);
 	void flood_keepalive ()
 	{
 		nano::keepalive message;
@@ -126,17 +126,19 @@ public:
 		nano::confirm_ack message (vote_a);
 		flood_message (message);
 	}
-	void flood_block (std::shared_ptr<nano::block> block_a)
+	void flood_block (std::shared_ptr<nano::block> block_a, bool const is_droppable_a = true)
 	{
 		nano::publish publish (block_a);
-		flood_message (publish);
+		flood_message (publish, is_droppable_a);
 	}
+
 	void flood_block_batch (std::deque<std::shared_ptr<nano::block>>, unsigned = broadcast_interval_ms);
 	void merge_peers (std::array<nano::endpoint, 8> const &);
 	void merge_peer (nano::endpoint const &);
 	void send_keepalive (std::shared_ptr<nano::transport::channel>);
 	void send_keepalive_self (std::shared_ptr<nano::transport::channel>);
 	void send_node_id_handshake (std::shared_ptr<nano::transport::channel>, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to);
+	void send_confirm_req (std::shared_ptr<nano::transport::channel>, std::shared_ptr<nano::block>);
 	void broadcast_confirm_req (std::shared_ptr<nano::block>);
 	void broadcast_confirm_req_base (std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>, unsigned, bool = false);
 	void broadcast_confirm_req_batch (std::unordered_map<std::shared_ptr<nano::transport::channel>, std::vector<std::pair<nano::block_hash, nano::block_hash>>>, unsigned = broadcast_interval_ms, bool = false);
