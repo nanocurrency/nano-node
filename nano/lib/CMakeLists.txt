@@ -40,6 +40,8 @@ add_library (nano_lib
 	numbers.cpp
 	rep_weights.hpp
 	rep_weights.cpp
+	rocksdbconfig.hpp
+	rocksdbconfig.cpp
 	rpc_handler_interface.hpp
 	rpcconfig.hpp
 	rpcconfig.cpp

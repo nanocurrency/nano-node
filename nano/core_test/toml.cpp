@@ -120,6 +120,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	[node.statistics.log]
 	[node.statistics.sampling]
 	[node.websocket]
+	[node.rocksdb]
 	[opencl]
 	[rpc]
 	[rpc.child_process]
@@ -235,6 +236,8 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.stat_config.log_headers, defaults.node.stat_config.log_headers);
 	ASSERT_EQ (conf.node.stat_config.log_counters_filename, defaults.node.stat_config.log_counters_filename);
 	ASSERT_EQ (conf.node.stat_config.log_samples_filename, defaults.node.stat_config.log_samples_filename);
+
+	ASSERT_EQ (conf.node.rocksdb_config.enable, defaults.node.rocksdb_config.enable);
 }
 
 TEST (toml, optional_child)
@@ -466,6 +469,9 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	enable = true
 	port = 999
 
+	[node.rocksdb]
+	enable = true
+
 	[opencl]
 	device = 999
 	enable = true
@@ -592,6 +598,8 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.stat_config.log_headers, defaults.node.stat_config.log_headers);
 	ASSERT_NE (conf.node.stat_config.log_counters_filename, defaults.node.stat_config.log_counters_filename);
 	ASSERT_NE (conf.node.stat_config.log_samples_filename, defaults.node.stat_config.log_samples_filename);
+
+	ASSERT_NE (conf.node.rocksdb_config.enable, defaults.node.rocksdb_config.enable);
 }
 
 /** There should be no required values **/
@@ -610,6 +618,7 @@ TEST (toml, daemon_config_no_required)
 	[node.statistics.log]
 	[node.statistics.sampling]
 	[node.websocket]
+	[node.rocksdb]
 	[opencl]
 	[rpc]
 	[rpc.child_process]

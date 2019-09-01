@@ -5,6 +5,7 @@
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/rocksdbconfig.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/node/ipcconfig.hpp>
 #include <nano/node/logging.hpp>
@@ -93,6 +94,8 @@ public:
 	std::chrono::seconds work_watcher_period{ std::chrono::seconds (5) };
 	double max_work_generate_multiplier{ 64. };
 	uint64_t max_work_generate_difficulty{ nano::network_constants::publish_full_threshold };
+	nano::rocksdb_config rocksdb_config;
+
 	nano::frontiers_confirmation_mode frontiers_confirmation{ nano::frontiers_confirmation_mode::automatic };
 	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;
 	nano::frontiers_confirmation_mode deserialize_frontiers_confirmation (std::string const &);
