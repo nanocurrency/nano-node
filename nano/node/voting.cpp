@@ -8,10 +8,7 @@ node (node_a),
 thread ([this]() { run (); })
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	while (!started)
-	{
-		condition.wait (lock);
-	}
+	condition.wait (lock, [& started = started] { return started; });
 }
 
 void nano::vote_generator::add (nano::block_hash const & hash_a)

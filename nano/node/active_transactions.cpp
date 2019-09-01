@@ -20,10 +20,7 @@ thread ([this]() {
 })
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	while (!started)
-	{
-		condition.wait (lock);
-	}
+	condition.wait (lock, [& started = started] { return started; });
 }
 
 nano::active_transactions::~active_transactions ()
@@ -340,7 +337,8 @@ void nano::active_transactions::request_loop ()
 			break;
 		}
 		const auto extra_delay (std::min (roots.size (), max_broadcast_queue) * node.network.broadcast_interval_ms * 2);
-		condition.wait_for (lock, std::chrono::milliseconds (node.network_params.network.request_interval_ms + extra_delay));
+		const auto wakeup (std::chrono::steady_clock::now () + std::chrono::milliseconds (node.network_params.network.request_interval_ms + extra_delay));
+		condition.wait_until (lock, wakeup, [&wakeup] { return std::chrono::steady_clock::now () >= wakeup; });
 	}
 }
 
@@ -504,10 +502,7 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 void nano::active_transactions::stop ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	while (!started)
-	{
-		condition.wait (lock);
-	}
+	condition.wait (lock, [& started = started] { return started; });
 	stopped = true;
 	lock.unlock ();
 	condition.notify_all ();
@@ -634,6 +629,8 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 	std::unordered_set<nano::block_hash> processed_blocks;
 	std::vector<std::pair<nano::qualified_root, int64_t>> elections_list;
 	double sum (0.);
+	int64_t highest_level (0);
+	int64_t lowest_level (0);
 	while (!remaining_blocks.empty ())
 	{
 		auto const & item (remaining_blocks.front ());
@@ -670,6 +667,14 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 				{
 					sum += nano::difficulty::to_multiplier (existing_root->difficulty, node.network_params.network.publish_threshold);
 					elections_list.emplace_back (root, level);
+					if (level > highest_level)
+					{
+						highest_level = level;
+					}
+					else if (level < lowest_level)
+					{
+						lowest_level = level;
+					}
 				}
 			}
 		}
@@ -679,19 +684,26 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 	{
 		double multiplier = sum / elections_list.size ();
 		uint64_t average = nano::difficulty::from_multiplier (multiplier, node.network_params.network.publish_threshold);
-		auto highest_level = elections_list.back ().second;
-		uint64_t divider = 1;
-		// Possible overflow check, will not occur for negative levels
-		if ((multiplier + highest_level) > 10000000000)
+		// Prevent overflow
+		int64_t limiter (0);
+		if (std::numeric_limits<std::uint64_t>::max () - average < highest_level)
 		{
-			divider = static_cast<uint64_t> (((multiplier + highest_level) / 10000000000) + 1);
+			// Highest adjusted difficulty value should be std::numeric_limits<std::uint64_t>::max ()
+			limiter = std::numeric_limits<std::uint64_t>::max () - average + highest_level;
+			assert (std::numeric_limits<std::uint64_t>::max () == average + highest_level - limiter);
+		}
+		else if (average < std::numeric_limits<std::uint64_t>::min () - lowest_level)
+		{
+			// Lowest adjusted difficulty value should be std::numeric_limits<std::uint64_t>::min ()
+			limiter = std::numeric_limits<std::uint64_t>::min () - average + lowest_level;
+			assert (std::numeric_limits<std::uint64_t>::min () == average + lowest_level - limiter);
 		}
 
 		// Set adjusted difficulty
 		for (auto & item : elections_list)
 		{
 			auto existing_root (roots.find (item.first));
-			uint64_t difficulty_a = average + item.second / divider;
+			uint64_t difficulty_a = average + item.second - limiter;
 			roots.modify (existing_root, [difficulty_a](nano::conflict_info & info_a) {
 				info_a.adjusted_difficulty = difficulty_a;
 			});
