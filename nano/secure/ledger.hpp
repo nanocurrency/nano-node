@@ -47,6 +47,7 @@ public:
 	void dump_account_chain (nano::account const &);
 	bool could_fit (nano::transaction const &, nano::block const &);
 	bool is_epoch_link (nano::uint256_union const &);
+	nano::account signer (nano::uint256_union const &) const;
 	static nano::uint128_t const unit;
 	nano::network_params network_params;
 	nano::block_store & store;
@@ -55,6 +56,7 @@ public:
 	uint64_t bootstrap_weight_max_blocks{ 1 };
 	std::atomic<bool> check_bootstrap_weights;
 	nano::uint256_union epoch_link;
+private:
 	nano::account epoch_signer;
 };
 

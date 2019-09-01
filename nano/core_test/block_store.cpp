@@ -1410,7 +1410,6 @@ TEST (mdb_block_store, sideband_height)
 	nano::logger_mt logger;
 	bool error (false);
 	nano::genesis genesis;
-	nano::keypair epoch_key;
 	nano::keypair key1;
 	nano::keypair key2;
 	nano::keypair key3;
@@ -1418,7 +1417,6 @@ TEST (mdb_block_store, sideband_height)
 	ASSERT_FALSE (error);
 	nano::stat stat;
 	nano::ledger ledger (store, stat);
-	ledger.epoch_signer = epoch_key.pub;
 	auto transaction (store.tx_begin_write ());
 	store.initialize (transaction, genesis);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
@@ -1436,10 +1434,10 @@ TEST (mdb_block_store, sideband_height)
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_send3).code);
 	nano::state_block state_open (key1.pub, 0, 0, nano::Gxrb_ratio, state_send1.hash (), key1.prv, key1.pub, pool.generate (key1.pub));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_open).code);
-	nano::state_block epoch (key1.pub, state_open.hash (), 0, nano::Gxrb_ratio, ledger.epoch_link, epoch_key.prv, epoch_key.pub, pool.generate (state_open.hash ()));
+	nano::state_block epoch (key1.pub, state_open.hash (), 0, nano::Gxrb_ratio, ledger.epoch_link, nano::test_genesis_key.prv, nano::test_genesis_key.pub, pool.generate (state_open.hash ()));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, epoch).code);
 	ASSERT_EQ (nano::epoch::epoch_1, store.block_version (transaction, epoch.hash ()));
-	nano::state_block epoch_open (key2.pub, 0, 0, 0, ledger.epoch_link, epoch_key.prv, epoch_key.pub, pool.generate (key2.pub));
+	nano::state_block epoch_open (key2.pub, 0, 0, 0, ledger.epoch_link, nano::test_genesis_key.prv, nano::test_genesis_key.pub, pool.generate (key2.pub));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, epoch_open).code);
 	ASSERT_EQ (nano::epoch::epoch_1, store.block_version (transaction, epoch_open.hash ()));
 	nano::state_block state_receive (key2.pub, epoch_open.hash (), 0, nano::Gxrb_ratio, state_send2.hash (), key2.prv, key2.pub, pool.generate (epoch_open.hash ()));

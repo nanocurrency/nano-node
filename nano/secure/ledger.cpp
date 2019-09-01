@@ -199,7 +199,7 @@ void ledger_processor::state_block (nano::state_block const & block_a)
 				if (validate_message (block_a.hashables.account, block_a.hash (), block_a.signature))
 				{
 					// Is epoch block signed correctly
-					if (validate_message (ledger.epoch_signer, block_a.hash (), block_a.signature))
+					if (validate_message (ledger.signer (block_a.link ()), block_a.hash (), block_a.signature))
 					{
 						result.verified = nano::signature_verification::invalid;
 						result.code = nano::process_result::bad_signature;
@@ -357,11 +357,11 @@ void ledger_processor::epoch_block_impl (nano::state_block const & block_a)
 		// Validate block if not verified outside of ledger
 		if (result.verified != nano::signature_verification::valid_epoch)
 		{
-			result.code = validate_message (ledger.epoch_signer, hash, block_a.signature) ? nano::process_result::bad_signature : nano::process_result::progress; // Is this block signed correctly (Unambiguous)
+			result.code = validate_message (ledger.signer (block_a.link ()), hash, block_a.signature) ? nano::process_result::bad_signature : nano::process_result::progress; // Is this block signed correctly (Unambiguous)
 		}
 		if (result.code == nano::process_result::progress)
 		{
-			assert (!validate_message (ledger.epoch_signer, hash, block_a.signature));
+			assert (!validate_message (ledger.signer (block_a.link ()), hash, block_a.signature));
 			result.verified = nano::signature_verification::valid_epoch;
 			result.code = block_a.hashables.account.is_zero () ? nano::process_result::opened_burn_account : nano::process_result::progress; // Is this for the burn account? (Unambiguous)
 			if (result.code == nano::process_result::progress)
@@ -988,6 +988,13 @@ bool nano::ledger::could_fit (nano::transaction const & transaction_a, nano::blo
 bool nano::ledger::is_epoch_link (nano::uint256_union const & link_a)
 {
 	return link_a == epoch_link;
+}
+
+nano::account nano::ledger::signer (nano::uint256_union const & link_a) const
+{
+	assert (!epoch_link.is_zero ());
+	assert (epoch_link == link_a);
+	return epoch_signer;
 }
 
 void nano::ledger::change_latest (nano::transaction const & transaction_a, nano::account const & account_a, nano::block_hash const & hash_a, nano::block_hash const & rep_block_a, nano::amount const & balance_a, uint64_t block_count_a, bool is_state, nano::epoch epoch_a)

@@ -2129,7 +2129,7 @@ public:
 				if (raw && accounts_filter.empty ())
 				{
 					tree.put ("subtype", "epoch");
-					tree.put ("account", handler.node.ledger.epoch_signer.to_account ());
+					tree.put ("account", handler.node.ledger.signer (block_a.link ()).to_account ());
 				}
 			}
 			else

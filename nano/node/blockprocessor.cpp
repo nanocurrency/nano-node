@@ -190,7 +190,7 @@ void nano::block_processor::verify_state_blocks (nano::transaction const & trans
 			nano::account account (item.block->account ());
 			if (!item.block->link ().is_zero () && node.ledger.is_epoch_link (item.block->link ()))
 			{
-				account = node.ledger.epoch_signer;
+				account = node.ledger.signer (item.block->link ());
 			}
 			else if (!item.account.is_zero ())
 			{

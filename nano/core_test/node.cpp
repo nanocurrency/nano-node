@@ -2551,12 +2551,9 @@ TEST (node, vote_by_hash_epoch_block_republish)
 	nano::system system (24000, 2);
 	nano::keypair key2;
 	system.wallet (1)->insert_adhoc (key2.prv);
-	nano::keypair epoch_signer;
-	system.nodes[0]->ledger.epoch_signer = epoch_signer.pub;
-	system.nodes[1]->ledger.epoch_signer = epoch_signer.pub;
 	nano::genesis genesis;
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, std::numeric_limits<nano::uint128_t>::max () - system.nodes[0]->config.receive_minimum.number (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (genesis.hash ())));
-	auto epoch1 (std::make_shared<nano::state_block> (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount, system.nodes[0]->ledger.epoch_link, epoch_signer.prv, epoch_signer.pub, system.work.generate (genesis.hash ())));
+	auto epoch1 (std::make_shared<nano::state_block> (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount, system.nodes[0]->ledger.epoch_link, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (genesis.hash ())));
 	system.nodes[0]->process_active (send1);
 	system.deadline_set (5s);
 	while (!system.nodes[1]->block (send1->hash ()))
