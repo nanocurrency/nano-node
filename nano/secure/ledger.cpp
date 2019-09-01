@@ -989,7 +989,7 @@ bool nano::ledger::is_epoch_link (nano::uint256_union const & link_a)
 
 nano::account nano::ledger::signer (nano::uint256_union const & link_a) const
 {
-	return network_params.ledger.epochs.signer (link_a);
+	return network_params.ledger.epochs.signer (network_params.ledger.epochs.epoch (link_a));
 }
 
 nano::uint256_union nano::ledger::link (nano::epoch epoch_a) const
