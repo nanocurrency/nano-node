@@ -60,7 +60,7 @@ TEST (active_transactions, adjusted_difficulty_priority)
 
 	// Check adjusted difficulty
 	{
-		std::lock_guard<std::mutex> active_guard (node1.active.mutex);
+		nano::lock_guard<std::mutex> active_guard (node1.active.mutex);
 		ASSERT_EQ (node1.active.roots.get<1> ().begin ()->election->status.winner->hash (), send1->hash ());
 		ASSERT_LT (node1.active.roots.find (send2->qualified_root ())->adjusted_difficulty, node1.active.roots.find (send1->qualified_root ())->adjusted_difficulty);
 		ASSERT_LT (node1.active.roots.find (open1->qualified_root ())->adjusted_difficulty, node1.active.roots.find (send1->qualified_root ())->adjusted_difficulty);
@@ -70,7 +70,7 @@ TEST (active_transactions, adjusted_difficulty_priority)
 	// Confirm elections
 	while (node1.active.size () != 0)
 	{
-		std::lock_guard<std::mutex> active_guard (node1.active.mutex);
+		nano::lock_guard<std::mutex> active_guard (node1.active.mutex);
 		auto it (node1.active.roots.begin ());
 		while (!node1.active.roots.empty () && it != node1.active.roots.end ())
 		{
@@ -81,7 +81,7 @@ TEST (active_transactions, adjusted_difficulty_priority)
 	}
 	{
 		system.deadline_set (10s);
-		std::unique_lock<std::mutex> active_lock (node1.active.mutex);
+		nano::unique_lock<std::mutex> active_lock (node1.active.mutex);
 		while (node1.active.confirmed.size () != 4)
 		{
 			active_lock.unlock ();
@@ -113,7 +113,7 @@ TEST (active_transactions, adjusted_difficulty_priority)
 	}
 
 	// Check adjusted difficulty
-	std::lock_guard<std::mutex> lock (node1.active.mutex);
+	nano::lock_guard<std::mutex> lock (node1.active.mutex);
 	uint64_t last_adjusted (0);
 	for (auto i (node1.active.roots.get<1> ().begin ()), n (node1.active.roots.get<1> ().end ()); i != n; ++i)
 	{
@@ -154,7 +154,7 @@ TEST (active_transactions, adjusted_difficulty_overflow_max)
 	}
 
 	{
-		std::lock_guard<std::mutex> active_guard (node1.active.mutex);
+		nano::lock_guard<std::mutex> active_guard (node1.active.mutex);
 		// Update difficulty to maximum
 		auto send1_root (node1.active.roots.find (send1->qualified_root ()));
 		auto send2_root (node1.active.roots.find (send2->qualified_root ()));
@@ -207,7 +207,7 @@ TEST (active_transactions, adjusted_difficulty_overflow_min)
 	}
 
 	{
-		std::lock_guard<std::mutex> active_guard (node1.active.mutex);
+		nano::lock_guard<std::mutex> active_guard (node1.active.mutex);
 		// Update difficulty to minimum
 		auto send1_root (node1.active.roots.find (send1->qualified_root ()));
 		auto send2_root (node1.active.roots.find (send2->qualified_root ()));
@@ -264,7 +264,7 @@ TEST (active_transactions, keep_local)
 	}
 	while (node1.active.size () != 0)
 	{
-		std::lock_guard<std::mutex> active_guard (node1.active.mutex);
+		nano::lock_guard<std::mutex> active_guard (node1.active.mutex);
 		auto it (node1.active.roots.begin ());
 		while (!node1.active.roots.empty () && it != node1.active.roots.end ())
 		{
@@ -327,7 +327,7 @@ TEST (active_transactions, prioritize_chains)
 	}
 	while (node1.active.size () != 0)
 	{
-		std::lock_guard<std::mutex> active_guard (node1.active.mutex);
+		nano::lock_guard<std::mutex> active_guard (node1.active.mutex);
 		auto it (node1.active.roots.get<1> ().begin ());
 		while (!node1.active.roots.empty () && it != node1.active.roots.get<1> ().end ())
 		{
@@ -353,7 +353,7 @@ TEST (active_transactions, prioritize_chains)
 	while (!done)
 	{
 		{
-			std::lock_guard<std::mutex> guard (node1.active.mutex);
+			nano::lock_guard<std::mutex> guard (node1.active.mutex);
 			done = node1.active.long_unconfirmed_size == 4;
 		}
 		ASSERT_NO_ERROR (system.poll ());
@@ -371,7 +371,7 @@ TEST (active_transactions, prioritize_chains)
 	while (!done)
 	{
 		{
-			std::lock_guard<std::mutex> guard (node1.active.mutex);
+			nano::lock_guard<std::mutex> guard (node1.active.mutex);
 			done = node1.active.long_unconfirmed_size == 4;
 		}
 		ASSERT_NO_ERROR (system.poll ());

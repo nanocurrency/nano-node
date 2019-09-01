@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/timer.hpp>
+#include <nano/lib/utility.hpp>
 
 #include <boost/iostreams/concepts.hpp>
 #include <boost/log/sources/logger.hpp>
@@ -52,20 +53,20 @@ public:
 	stringstream_mt_sink () = default;
 	stringstream_mt_sink (const stringstream_mt_sink & sink)
 	{
-		std::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard<std::mutex> guard (mutex);
 		ss << sink.ss.str ();
 	}
 
 	std::streamsize write (const char * string_to_write, std::streamsize size)
 	{
-		std::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard<std::mutex> guard (mutex);
 		ss << std::string (string_to_write, size);
 		return size;
 	}
 
 	std::string str ()
 	{
-		std::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard<std::mutex> guard (mutex);
 		return ss.str ();
 	}
 
@@ -94,6 +95,23 @@ private:
 	boost::shared_ptr<boost::log::sinks::synchronous_sink<boost::log::sinks::text_ostream_backend>> console_sink;
 };
 
+class cout_redirect
+{
+public:
+	cout_redirect (std::streambuf * new_buffer)
+	{
+		std::cout.rdbuf (new_buffer);
+	}
+
+	~cout_redirect ()
+	{
+		std::cout.rdbuf (old);
+	}
+
+private:
+	std::streambuf * old{ std::cout.rdbuf () };
+};
+
 namespace util
 {
 	/**
@@ -115,7 +133,7 @@ namespace util
 		}
 
 	protected:
-		std::condition_variable cv;
+		nano::condition_variable cv;
 		std::mutex mutex;
 	};
 
@@ -149,7 +167,7 @@ namespace util
 				error = count < required_count;
 				if (error)
 				{
-					std::unique_lock<std::mutex> lock (mutex);
+					nano::unique_lock<std::mutex> lock (mutex);
 					cv.wait_for (lock, std::chrono::milliseconds (1));
 				}
 			}

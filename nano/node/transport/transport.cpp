@@ -222,7 +222,7 @@ bool nano::bandwidth_limiter::should_drop (const size_t & message_size)
 	{
 		return result;
 	}
-	std::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<std::mutex> lock (mutex);
 
 	if (message_size > limit / rate_buffer.size () || rate + message_size > limit)
 	{
@@ -244,6 +244,6 @@ bool nano::bandwidth_limiter::should_drop (const size_t & message_size)
 
 size_t nano::bandwidth_limiter::get_rate ()
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<std::mutex> lock (mutex);
 	return trended_rate;
 }

@@ -86,7 +86,7 @@ void nano::distributed_work::start_work ()
 
 	if (!outstanding.empty ())
 	{
-		std::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard<std::mutex> guard (mutex);
 		for (auto const & i : outstanding)
 		{
 			auto host (i.first);
@@ -184,7 +184,7 @@ void nano::distributed_work::stop (bool const local_stop_a)
 {
 	if (!stopped.exchange (true))
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<std::mutex> guard (mutex);
 		if (local_stop_a && (node.config.work_threads != 0 || node.work.opencl))
 		{
 			node.work.cancel (root);
@@ -303,7 +303,7 @@ void nano::distributed_work::handle_failure (bool const last)
 
 bool nano::distributed_work::remove (boost::asio::ip::address const & address)
 {
-	std::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard<std::mutex> guard (mutex);
 	outstanding.erase (address);
 	return outstanding.empty ();
 }
@@ -323,7 +323,7 @@ void nano::distributed_work_factory::make (unsigned int backoff_a, nano::block_h
 	cleanup_finished ();
 	auto distributed (std::make_shared<nano::distributed_work> (backoff_a, node, root_a, callback_a, difficulty_a));
 	{
-		std::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard<std::mutex> guard (mutex);
 		work[root_a].emplace_back (distributed);
 	}
 	distributed->start ();
@@ -332,7 +332,7 @@ void nano::distributed_work_factory::make (unsigned int backoff_a, nano::block_h
 void nano::distributed_work_factory::cancel (nano::block_hash const & root_a, bool const local_stop)
 {
 	{
-		std::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard<std::mutex> guard (mutex);
 		auto existing_l (work.find (root_a));
 		if (existing_l != work.end ())
 		{
@@ -352,7 +352,7 @@ void nano::distributed_work_factory::cancel (nano::block_hash const & root_a, bo
 
 void nano::distributed_work_factory::cleanup_finished ()
 {
-	std::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard<std::mutex> guard (mutex);
 	for (auto it (work.begin ()), end (work.end ()); it != end;)
 	{
 		it->second.erase (std::remove_if (it->second.begin (), it->second.end (), [](auto distributed_a) {

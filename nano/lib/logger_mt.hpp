@@ -1,5 +1,7 @@
 #pragma once
 
+#include <nano/lib/locks.hpp>
+
 #include <boost/log/sources/severity_logger.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/manipulators/to_log.hpp>
@@ -105,7 +107,7 @@ public:
 	{
 		auto error (true);
 		auto time_now = std::chrono::steady_clock::now ();
-		std::unique_lock<std::mutex> lk (last_log_time_mutex);
+		nano::unique_lock<std::mutex> lk (last_log_time_mutex);
 		if (((time_now - last_log_time) > min_log_delta) || last_log_time == std::chrono::steady_clock::time_point{})
 		{
 			last_log_time = time_now;

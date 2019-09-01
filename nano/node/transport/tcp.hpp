@@ -41,7 +41,7 @@ namespace transport
 
 		nano::endpoint get_endpoint () const override
 		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<std::mutex> lk (channel_mutex);
 			if (socket)
 			{
 				return nano::transport::map_tcp_to_endpoint (socket->remote_endpoint ());
@@ -54,7 +54,7 @@ namespace transport
 
 		nano::tcp_endpoint get_tcp_endpoint () const override
 		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<std::mutex> lk (channel_mutex);
 			if (socket)
 			{
 				return socket->remote_endpoint ();
