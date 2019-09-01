@@ -14,13 +14,14 @@
 #include <cassert>
 #include <numeric>
 
-nano::confirmation_height_processor::confirmation_height_processor (nano::pending_confirmation_height & pending_confirmation_height_a, nano::ledger & ledger_a, nano::active_transactions & active_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logger_mt & logger_a) :
+nano::confirmation_height_processor::confirmation_height_processor (nano::pending_confirmation_height & pending_confirmation_height_a, nano::ledger & ledger_a, nano::active_transactions & active_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logger_mt & logger_a, std::atomic<uint64_t> & cemented_count_a) :
 pending_confirmations (pending_confirmation_height_a),
 ledger (ledger_a),
 active (active_a),
 logger (logger_a),
 write_database_queue (write_database_queue_a),
 batch_separate_pending_min_time (batch_separate_pending_min_time_a),
+cemented_count (cemented_count_a),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::confirmation_height_processing);
 	this->run ();
@@ -268,7 +269,7 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 	while (total_pending_write_block_count > 0)
 	{
 		uint64_t num_accounts_processed = 0;
-		auto transaction (ledger.store.tx_begin_write ());
+		auto transaction (ledger.store.tx_begin_write ({}, { nano::tables::confirmation_height }));
 		while (!all_pending_a.empty ())
 		{
 			const auto & pending = all_pending_a.front ();
@@ -301,6 +302,7 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - confirmation_height);
 				assert (pending.num_blocks_confirmed == pending.height - confirmation_height);
 				confirmation_height = pending.height;
+				cemented_count += pending.num_blocks_confirmed;
 				ledger.store.confirmation_height_put (transaction, pending.account, confirmation_height);
 			}
 			total_pending_write_block_count -= pending.num_blocks_confirmed;

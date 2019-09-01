@@ -48,7 +48,6 @@ void nano::rpc_connection::write_result (std::string body, unsigned version, boo
 	else
 	{
 		assert (false && "RPC already responded and should only respond once");
-		// Guards `res' from being clobbered while async_write is being serviced
 	}
 }
 

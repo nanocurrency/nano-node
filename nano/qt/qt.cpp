@@ -1411,8 +1411,10 @@ void nano_qt::wallet::update_connected ()
 void nano_qt::wallet::empty_password ()
 {
 	this->node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (3), [this]() {
-		auto transaction (wallet_m->wallets.tx_begin_write ());
-		wallet_m->enter_password (transaction, std::string (""));
+		this->node.worker.push_task ([this]() {
+			auto transaction (wallet_m->wallets.tx_begin_write ());
+			wallet_m->enter_password (transaction, std::string (""));
+		});
 	});
 }
 

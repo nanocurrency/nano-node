@@ -842,10 +842,12 @@ stopped (false)
 nano::message_buffer * nano::message_buffer_manager::allocate ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	while (!stopped && free.empty () && full.empty ())
+	if (!stopped && free.empty () && full.empty ())
 	{
 		stats.inc (nano::stat::type::udp, nano::stat::detail::blocking, nano::stat::dir::in);
-		condition.wait (lock);
+		// clang-format off
+		condition.wait (lock, [& stopped = stopped, &free = free, &full = full] { return stopped || !free.empty () || !full.empty (); });
+		// clang-format on
 	}
 	nano::message_buffer * result (nullptr);
 	if (!free.empty ())

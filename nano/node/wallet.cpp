@@ -1450,48 +1450,50 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 				auto active_difficulty (watcher_l->node.active.limited_active_difficulty ());
 				if (active_difficulty > difficulty)
 				{
-					std::promise<boost::optional<uint64_t>> promise;
-					std::future<boost::optional<uint64_t>> future = promise.get_future ();
-					// clang-format off
-					watcher_l->node.work.generate (root_l, [&promise](boost::optional<uint64_t> work_a) {
-						promise.set_value (work_a);
-					},
-					active_difficulty);
-					// clang-format on
-					auto work_l = future.get ();
-					if (work_l.is_initialized () && !watcher_l->stopped)
-					{
-						nano::state_block_builder builder;
-						std::error_code ec;
-						std::shared_ptr<nano::state_block> block (builder.from (*block_a).work (*work_l).build (ec));
-
-						if (!ec)
+					watcher_l->node.work.generate (root_l, [watcher_l, block_a, root_a](boost::optional<uint64_t> work_a) {
+						if (block_a != nullptr && watcher_l != nullptr && !watcher_l->stopped)
 						{
+							bool updated_l{ false };
+							if (work_a.is_initialized ())
 							{
-								auto hash (block_a->hash ());
-								std::lock_guard<std::mutex> active_guard (watcher_l->node.active.mutex);
-								auto existing (watcher_l->node.active.roots.find (root_a));
-								if (existing != watcher_l->node.active.roots.end ())
+								nano::state_block_builder builder;
+								std::error_code ec;
+								std::shared_ptr<nano::state_block> block (builder.from (*block_a).work (*work_a).build (ec));
+
+								if (!ec)
 								{
-									auto election (existing->election);
-									if (election->status.winner->hash () == hash)
 									{
-										election->status.winner = block;
+										auto hash (block_a->hash ());
+										std::lock_guard<std::mutex> active_guard (watcher_l->node.active.mutex);
+										auto existing (watcher_l->node.active.roots.find (root_a));
+										if (existing != watcher_l->node.active.roots.end ())
+										{
+											auto election (existing->election);
+											if (election->status.winner->hash () == hash)
+											{
+												election->status.winner = block;
+											}
+											auto current (election->blocks.find (hash));
+											assert (current != election->blocks.end ());
+											current->second = block;
+										}
 									}
-									auto current (election->blocks.find (hash));
-									assert (current != election->blocks.end ());
-									current->second = block;
+									watcher_l->node.network.flood_block (block, false);
+									watcher_l->node.active.update_difficulty (*block.get ());
+									watcher_l->update (root_a, block);
+									updated_l = true;
+									watcher_l->watching (root_a, block);
 								}
 							}
-							watcher_l->node.network.flood_block (block, false);
-							watcher_l->node.active.update_difficulty (*block.get ());
-							watcher_l->update (root_a, block);
-							updated_l = true;
-							watcher_l->watching (root_a, block);
+							if (!updated_l)
+							{
+								watcher_l->watching (root_a, block_a);
+							}
 						}
-					}
+					},
+					active_difficulty);
 				}
-				if (!updated_l)
+				else
 				{
 					watcher_l->watching (root_a, block_a);
 				}
@@ -1508,15 +1510,21 @@ void nano::work_watcher::remove (std::shared_ptr<nano::block> block_a)
 	if (existing != watched.end () && existing->second->hash () == block_a->hash ())
 	{
 		watched.erase (existing);
-		node.work.cancel (block_a->root ());
+		node.observers.work_cancel.notify (block_a->root ());
 	}
 }
 
 bool nano::work_watcher::is_watched (nano::qualified_root const & root_a)
 {
-	std::unique_lock<std::mutex> lock (mutex);
+	std::lock_guard<std::mutex> guard (mutex);
 	auto exists (watched.find (root_a));
 	return exists != watched.end ();
+}
+
+size_t nano::work_watcher::size ()
+{
+	std::lock_guard<std::mutex> guard (mutex);
+	return watched.size ();
 }
 
 void nano::wallets::do_wallet_actions ()
@@ -1995,10 +2003,16 @@ nano::store_iterator<nano::uint256_union, nano::wallet_value> nano::wallet_store
 {
 	return nano::store_iterator<nano::uint256_union, nano::wallet_value> (nullptr);
 }
-nano::mdb_wallets_store::mdb_wallets_store (bool & error_a, boost::filesystem::path const & path_a, int lmdb_max_dbs) :
-environment (error_a, path_a, lmdb_max_dbs, false, 1ULL * 1024 * 1024 * 1024)
+nano::mdb_wallets_store::mdb_wallets_store (boost::filesystem::path const & path_a, int lmdb_max_dbs) :
+environment (error, path_a, lmdb_max_dbs, false, 1ULL * 1024 * 1024 * 1024)
 {
 }
+
+bool nano::mdb_wallets_store::init_error () const
+{
+	return error;
+}
+
 MDB_txn * nano::wallet_store::tx (nano::transaction const & transaction_a) const
 {
 	return static_cast<MDB_txn *> (transaction_a.get_handle ());
@@ -2020,7 +2034,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (wallets & wallets,
 	auto sizeof_item_element = sizeof (decltype (wallets.items)::value_type);
 	auto sizeof_actions_element = sizeof (decltype (wallets.actions)::value_type);
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "items", items_count, sizeof_item_element }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "actions_count", actions_count, sizeof_actions_element }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "actions", actions_count, sizeof_actions_element }));
 	return composite;
 }
 }

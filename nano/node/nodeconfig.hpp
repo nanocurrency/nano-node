@@ -1,11 +1,11 @@
 #pragma once
 
 #include <nano/lib/config.hpp>
+#include <nano/lib/diagnosticsconfig.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/stats.hpp>
-#include <nano/node/diagnosticsconfig.hpp>
 #include <nano/node/ipcconfig.hpp>
 #include <nano/node/logging.hpp>
 #include <nano/node/websocketconfig.hpp>
@@ -115,6 +115,11 @@ public:
 	bool disable_unchecked_drop{ true };
 	bool fast_bootstrap{ false };
 	bool read_only{ false };
+	/** Whether to read all frontiers and construct the representative weights */
+	bool cache_representative_weights_from_frontiers{ true };
+	/** Whether to read all frontiers and construct the total cemented count */
+	bool cache_cemented_count_from_frontiers{ true };
+	bool inactive_node{ false };
 	size_t sideband_batch_size{ 512 };
 	size_t block_processor_batch_size{ 0 };
 	size_t block_processor_full_size{ 65536 };

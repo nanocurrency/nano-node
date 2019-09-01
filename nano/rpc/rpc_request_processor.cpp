@@ -1,3 +1,4 @@
+#include <nano/lib/asio.hpp>
 #include <nano/lib/json_error_response.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
 
@@ -83,7 +84,7 @@ void nano::rpc_request_processor::make_available (nano::ipc_connection & connect
 }
 
 // Connection does not exist or has been closed, try to connect to it again and then resend IPC request
-void nano::rpc_request_processor::try_reconnect_and_execute_request (std::shared_ptr<nano::ipc_connection> connection, std::shared_ptr<std::vector<uint8_t>> req, std::shared_ptr<std::vector<uint8_t>> res, std::shared_ptr<nano::rpc_request> rpc_request)
+void nano::rpc_request_processor::try_reconnect_and_execute_request (std::shared_ptr<nano::ipc_connection> connection, nano::shared_const_buffer const & req, std::shared_ptr<std::vector<uint8_t>> res, std::shared_ptr<nano::rpc_request> rpc_request)
 {
 	connection->client.async_connect (ipc_address, ipc_port, [this, connection, req, res, rpc_request](nano::error err) {
 		if (!err)

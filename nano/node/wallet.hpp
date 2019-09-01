@@ -172,6 +172,7 @@ public:
 	void watching (nano::qualified_root const &, std::shared_ptr<nano::state_block>);
 	void remove (std::shared_ptr<nano::block>);
 	bool is_watched (nano::qualified_root const &);
+	size_t size ();
 	std::mutex mutex;
 	nano::node & node;
 	std::unordered_map<nano::qualified_root, std::shared_ptr<nano::state_block>> watched;
@@ -236,11 +237,14 @@ class wallets_store
 {
 public:
 	virtual ~wallets_store () = default;
+	virtual bool init_error () const = 0;
 };
 class mdb_wallets_store final : public wallets_store
 {
 public:
-	mdb_wallets_store (bool &, boost::filesystem::path const &, int lmdb_max_dbs = 128);
+	mdb_wallets_store (boost::filesystem::path const &, int lmdb_max_dbs = 128);
 	nano::mdb_env environment;
+	bool init_error () const override;
+	bool error{ false };
 };
 }
