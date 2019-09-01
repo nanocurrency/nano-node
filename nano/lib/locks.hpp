@@ -1,13 +1,12 @@
 #pragma once
 
+#include <nano/lib/timer.hpp>
+#if NANO_TIMED_LOCKS > 0
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
-
-#include <nano/lib/timer.hpp>
-
 #include <boost/fiber/condition_variable.hpp>
-
+#endif
 #include <mutex>
 #include <unordered_map>
 
