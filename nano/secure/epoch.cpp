@@ -2,33 +2,28 @@
 
 nano::uint256_union nano::epochs::link (nano::epoch epoch_a) const
 {
-	assert (epoch_a == nano::epoch::epoch_1);
-	return link_m;
+	return epochs_m.at (epoch_a).link;
 }
 
-bool nano::epochs::is_epoch_link (nano::uint256_union const & link_a)
+bool nano::epochs::is_epoch_link (nano::uint256_union const & link_a) const
 {
-	return link_a == link_m;
+	return std::any_of (epochs_m.begin (), epochs_m.end (), [link_a] (decltype (epochs_m)::value_type const & item_a) { return item_a.second.link == link_a; });
 }
 
 nano::public_key nano::epochs::signer (nano::epoch epoch_a) const
 {
-	assert (epoch_a == nano::epoch::epoch_1);
-	assert (!signer_m.is_zero ());
-	return signer_m;
+	return epochs_m.at (epoch_a).signer;
 }
 
 nano::epoch nano::epochs::epoch (nano::uint256_union const & link_a) const
 {
-	assert (link_a == link_m);
-	return nano::epoch::epoch_1;
+	auto existing (std::find_if (epochs_m.begin (), epochs_m.end (), [link_a] (decltype (epochs_m)::value_type const & item_a) { return item_a.second.link == link_a; }));
+	assert (existing != epochs_m.end ());
+	return existing->first;
 }
 
 void nano::epochs::add (nano::epoch epoch_a, nano::public_key const & signer_a, nano::uint256_union const & link_a)
 {
-	assert (epoch_a == nano::epoch::epoch_1);
-	assert (link_m.is_zero ());
-	assert (signer_m.is_zero ());
-	signer_m = signer_a;
-	link_m = link_a;
+	assert (epochs_m.find (epoch_a) == epochs_m.end ());
+	epochs_m [epoch_a] = { signer_a, link_a };
 }
