@@ -12,6 +12,7 @@ add_executable (core_test
 	conflicts.cpp
 	difficulty.cpp
 	entry.cpp
+	epochs.cpp
 	gap_cache.cpp
 	ipc.cpp
 	ledger.cpp

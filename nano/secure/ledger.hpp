@@ -56,9 +56,7 @@ public:
 	std::unordered_map<nano::account, nano::uint128_t> bootstrap_weights;
 	uint64_t bootstrap_weight_max_blocks{ 1 };
 	std::atomic<bool> check_bootstrap_weights;
-private:
-	nano::uint256_union epoch_link;
-	nano::account epoch_signer;
+	nano::epochs epochs;
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (ledger & ledger, const std::string & name);

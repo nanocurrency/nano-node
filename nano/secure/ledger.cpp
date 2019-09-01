@@ -673,9 +673,10 @@ store (store_a),
 stats (stat_a),
 check_bootstrap_weights (true)
 {
+	nano::uint256_union epoch_link;
 	const char * epoch_message ("epoch v1 block");
 	strncpy ((char *)epoch_link.bytes.data (), epoch_message, epoch_link.bytes.size ());
-	epoch_signer = network_params.ledger.genesis_account;
+	epochs.add (nano::epoch::epoch_1, network_params.ledger.genesis_account, epoch_link);
 }
 
 // Balance for account containing hash
@@ -987,20 +988,17 @@ bool nano::ledger::could_fit (nano::transaction const & transaction_a, nano::blo
 
 bool nano::ledger::is_epoch_link (nano::uint256_union const & link_a)
 {
-	return link_a == epoch_link;
+	return epochs.is_epoch_link (link_a);
 }
 
 nano::account nano::ledger::signer (nano::uint256_union const & link_a) const
 {
-	assert (!epoch_link.is_zero ());
-	assert (epoch_link == link_a);
-	return epoch_signer;
+	return epochs.signer (link_a);
 }
 
 nano::uint256_union nano::ledger::link (nano::epoch epoch_a) const
 {
-	assert (epoch_a == nano::epoch::epoch_1);
-	return epoch_link;
+	return epochs.link (nano::epoch::epoch_1);
 }
 
 void nano::ledger::change_latest (nano::transaction const & transaction_a, nano::account const & account_a, nano::block_hash const & hash_a, nano::block_hash const & rep_block_a, nano::amount const & balance_a, uint64_t block_count_a, bool is_state, nano::epoch epoch_a)
