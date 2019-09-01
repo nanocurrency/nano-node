@@ -48,6 +48,7 @@ public:
 	bool could_fit (nano::transaction const &, nano::block const &);
 	bool is_epoch_link (nano::uint256_union const &);
 	nano::account signer (nano::uint256_union const &) const;
+	nano::uint256_union link (nano::epoch) const;
 	static nano::uint128_t const unit;
 	nano::network_params network_params;
 	nano::block_store & store;
@@ -55,8 +56,8 @@ public:
 	std::unordered_map<nano::account, nano::uint128_t> bootstrap_weights;
 	uint64_t bootstrap_weight_max_blocks{ 1 };
 	std::atomic<bool> check_bootstrap_weights;
-	nano::uint256_union epoch_link;
 private:
+	nano::uint256_union epoch_link;
 	nano::account epoch_signer;
 };
 

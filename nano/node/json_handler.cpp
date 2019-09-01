@@ -929,7 +929,7 @@ void state_subtype (nano::transaction const & transaction_a, nano::node & node_a
 		{
 			tree_a.put ("subtype", "change");
 		}
-		else if (balance_a == previous_balance && !node_a.ledger.epoch_link.is_zero () && node_a.ledger.is_epoch_link (block_a->link ()))
+		else if (balance_a == previous_balance && node_a.ledger.is_epoch_link (block_a->link ()))
 		{
 			tree_a.put ("subtype", "epoch");
 		}
@@ -2124,7 +2124,7 @@ public:
 					tree.put ("subtype", "change");
 				}
 			}
-			else if (balance == previous_balance && !handler.node.ledger.epoch_link.is_zero () && handler.node.ledger.is_epoch_link (block_a.hashables.link))
+			else if (balance == previous_balance && handler.node.ledger.is_epoch_link (block_a.hashables.link))
 			{
 				if (raw && accounts_filter.empty ())
 				{

@@ -1459,7 +1459,7 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_
 						balance = block_l->hashables.balance.number ();
 						nano::block_hash link (block_l->hashables.link);
 						// If link is not epoch link or 0. And if block from link unknown
-						if (!link.is_zero () && link != node->ledger.epoch_link && lazy_blocks.find (link) == lazy_blocks.end () && !node->store.block_exists (transaction, link))
+						if (!link.is_zero () && !node->ledger.is_epoch_link (link) && lazy_blocks.find (link) == lazy_blocks.end () && !node->store.block_exists (transaction, link))
 						{
 							nano::block_hash previous (block_l->hashables.previous);
 							// If state block previous is 0 then source block required

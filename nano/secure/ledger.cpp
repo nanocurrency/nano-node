@@ -183,7 +183,7 @@ void ledger_processor::state_block (nano::state_block const & block_a)
 	result.code = nano::process_result::progress;
 	auto is_epoch_block (false);
 	// Check if this is an epoch block
-	if (!ledger.epoch_link.is_zero () && ledger.is_epoch_link (block_a.hashables.link))
+	if (ledger.is_epoch_link (block_a.hashables.link))
 	{
 		nano::amount prev_balance (0);
 		if (!block_a.hashables.previous.is_zero ())
@@ -995,6 +995,12 @@ nano::account nano::ledger::signer (nano::uint256_union const & link_a) const
 	assert (!epoch_link.is_zero ());
 	assert (epoch_link == link_a);
 	return epoch_signer;
+}
+
+nano::uint256_union nano::ledger::link (nano::epoch epoch_a) const
+{
+	assert (epoch_a == nano::epoch::epoch_1);
+	return epoch_link;
 }
 
 void nano::ledger::change_latest (nano::transaction const & transaction_a, nano::account const & account_a, nano::block_hash const & hash_a, nano::block_hash const & rep_block_a, nano::amount const & balance_a, uint64_t block_count_a, bool is_state, nano::epoch epoch_a)
