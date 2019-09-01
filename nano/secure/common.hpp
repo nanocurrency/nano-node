@@ -328,6 +328,7 @@ public:
 	std::string genesis_block;
 	nano::uint128_t genesis_amount;
 	nano::account burn_account;
+	nano::epochs epochs;
 };
 
 /** Constants which depend on random values (this class should never be used globally due to CryptoPP globals potentially not being initialized) */

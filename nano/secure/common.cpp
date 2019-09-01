@@ -93,6 +93,10 @@ genesis_block (network_a == nano::nano_networks::nano_test_network ? nano_test_g
 genesis_amount (std::numeric_limits<nano::uint128_t>::max ()),
 burn_account (0)
 {
+	nano::uint256_union epoch_link;
+	const char * epoch_message ("epoch v1 block");
+	strncpy ((char *)epoch_link.bytes.data (), epoch_message, epoch_link.bytes.size ());
+	epochs.add (nano::epoch::epoch_1, genesis_account, epoch_link);
 }
 
 nano::random_constants::random_constants ()
