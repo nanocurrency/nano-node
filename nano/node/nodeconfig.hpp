@@ -71,8 +71,6 @@ public:
 	bool allow_local_peers{ !network_params.network.is_live_network () }; // disable by default for live network
 	nano::stat_config stat_config;
 	nano::ipc::ipc_config ipc_config;
-	nano::uint256_union epoch_block_link;
-	nano::account epoch_block_signer;
 	boost::asio::ip::address_v6 external_address{ boost::asio::ip::address_v6{} };
 	uint16_t external_port{ 0 };
 	std::chrono::milliseconds block_processor_batch_max_time{ std::chrono::milliseconds (5000) };

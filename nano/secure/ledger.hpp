@@ -18,7 +18,7 @@ using tally_t = std::map<nano::uint128_t, std::shared_ptr<nano::block>, std::gre
 class ledger final
 {
 public:
-	ledger (nano::block_store &, nano::stat &, nano::uint256_union const & = 1, nano::account const & = 0);
+	ledger (nano::block_store &, nano::stat &);
 	nano::account account (nano::transaction const &, nano::block_hash const &) const;
 	nano::uint128_t amount (nano::transaction const &, nano::block_hash const &);
 	nano::uint128_t balance (nano::transaction const &, nano::block_hash const &) const;

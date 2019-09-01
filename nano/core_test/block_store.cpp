@@ -1377,11 +1377,11 @@ TEST (mdb_block_store, upgrade_sideband_epoch)
 		nano::mdb_store store (error, logger, path);
 		ASSERT_FALSE (error);
 		nano::stat stat;
-		nano::ledger ledger (store, stat, 42, nano::test_genesis_key.pub);
+		nano::ledger ledger (store, stat);
 		auto transaction (store.tx_begin_write ());
 		store.version_put (transaction, 11);
 		store.initialize (transaction, genesis);
-		nano::state_block block1 (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount, 42, nano::test_genesis_key.prv, nano::test_genesis_key.pub, pool.generate (genesis.hash ()));
+		nano::state_block block1 (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount, ledger.epoch_link, nano::test_genesis_key.prv, nano::test_genesis_key.pub, pool.generate (genesis.hash ()));
 		hash2 = block1.hash ();
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block1).code);
 		ASSERT_EQ (nano::epoch::epoch_1, store.block_version (transaction, hash2));
@@ -1392,7 +1392,7 @@ TEST (mdb_block_store, upgrade_sideband_epoch)
 	nano::logger_mt logger;
 	nano::mdb_store store (error, logger, path);
 	nano::stat stat;
-	nano::ledger ledger (store, stat, 42, nano::test_genesis_key.pub);
+	nano::ledger ledger (store, stat);
 	ASSERT_FALSE (error);
 	auto transaction (store.tx_begin_write ());
 	ASSERT_TRUE (store.full_sideband (transaction));

@@ -668,13 +668,14 @@ bool nano::shared_ptr_block_hash::operator() (std::shared_ptr<nano::block> const
 	return lhs->hash () == rhs->hash ();
 }
 
-nano::ledger::ledger (nano::block_store & store_a, nano::stat & stat_a, nano::uint256_union const & epoch_link_a, nano::account const & epoch_signer_a) :
+nano::ledger::ledger (nano::block_store & store_a, nano::stat & stat_a) :
 store (store_a),
 stats (stat_a),
-check_bootstrap_weights (true),
-epoch_link (epoch_link_a),
-epoch_signer (epoch_signer_a)
+check_bootstrap_weights (true)
 {
+	const char * epoch_message ("epoch v1 block");
+	strncpy ((char *)epoch_link.bytes.data (), epoch_message, epoch_link.bytes.size ());
+	epoch_signer = network_params.ledger.genesis_account;
 }
 
 // Balance for account containing hash
