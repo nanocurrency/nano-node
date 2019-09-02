@@ -338,7 +338,9 @@ void nano::active_transactions::request_loop ()
 		}
 		const auto extra_delay (std::min (roots.size (), max_broadcast_queue) * node.network.broadcast_interval_ms * 2);
 		const auto wakeup (std::chrono::steady_clock::now () + std::chrono::milliseconds (node.network_params.network.request_interval_ms + extra_delay));
-		condition.wait_until (lock, wakeup, [&wakeup] { return std::chrono::steady_clock::now () >= wakeup; });
+		// clang-format off
+		condition.wait_until (lock, wakeup, [&wakeup, &stopped = stopped] { return stopped || std::chrono::steady_clock::now () >= wakeup; });
+		// clang-format on
 	}
 }
 
@@ -502,7 +504,10 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 void nano::active_transactions::stop ()
 {
 	std::unique_lock<std::mutex> lock (mutex);
-	condition.wait (lock, [& started = started] { return started; });
+	if (!started)
+	{
+		condition.wait (lock, [& started = started] { return started; });
+	}
 	stopped = true;
 	lock.unlock ();
 	condition.notify_all ();
