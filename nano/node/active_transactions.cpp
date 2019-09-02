@@ -542,6 +542,7 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, std::
 			roots.insert (nano::conflict_info{ root, difficulty, difficulty, election });
 			blocks.insert (std::make_pair (hash, election));
 			adjust_difficulty (hash);
+			election->insert_inactive_votes_cache ();
 		}
 		if (roots.size () >= node.config.active_elections_size)
 		{
@@ -574,6 +575,10 @@ bool nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a, bool s
 				{
 					result = existing->second->vote (vote_a->account, vote_a->sequence, block_hash);
 				}
+				else
+				{
+					add_inactive_votes_cache (block_hash, vote_a->account);
+				}
 			}
 			else
 			{
@@ -582,6 +587,10 @@ bool nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a, bool s
 				if (existing != roots.end ())
 				{
 					result = existing->election->vote (vote_a->account, vote_a->sequence, block->hash ());
+				}
+				else
+				{
+					add_inactive_votes_cache (block->hash (), vote_a->account);
 				}
 			}
 			replay = replay || result.replay;
@@ -914,6 +923,57 @@ boost::circular_buffer<double> nano::active_transactions::difficulty_trend ()
 	return multipliers_cb;
 }
 
+size_t nano::active_transactions::inactive_votes_cache_size ()
+{
+	std::lock_guard<std::mutex> guard (mutex);
+	return inactive_votes_cache.size ();
+}
+
+void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const & hash_a, nano::account const & representative_a)
+{
+	auto existing (inactive_votes_cache.get<1> ().find (hash_a));
+	if (existing != inactive_votes_cache.get<1> ().end ())
+	{
+		auto is_new (false);
+		inactive_votes_cache.get<1> ().modify (existing, [representative_a, &is_new](nano::gap_information & info) {
+			auto it = std::find (info.voters.begin (), info.voters.end (), representative_a);
+			is_new = (it == info.voters.end ());
+			if (is_new)
+			{
+				info.arrival = std::chrono::steady_clock::now ();
+				info.voters.push_back (representative_a);
+			}
+		});
+
+		if (is_new)
+		{
+			auto transaction (node.store.tx_begin_read ());
+			node.gap_cache.bootstrap_check (transaction, existing->voters, hash_a);
+		}
+	}
+	else
+	{
+		inactive_votes_cache.insert ({ std::chrono::steady_clock::now (), hash_a, std::vector<nano::account> (1, representative_a) });
+		if (inactive_votes_cache.size () > inactive_votes_cache_max)
+		{
+			inactive_votes_cache.get<0> ().erase (inactive_votes_cache.get<0> ().begin ());
+		}
+	}
+}
+
+nano::gap_information nano::active_transactions::find_inactive_votes_cache (nano::block_hash const & hash_a)
+{
+	auto existing (inactive_votes_cache.get<1> ().find (hash_a));
+	if (existing != inactive_votes_cache.get<1> ().end ())
+	{
+		return *existing;
+	}
+	else
+	{
+		return nano::gap_information{ std::chrono::steady_clock::time_point{}, 0, std::vector<nano::account>{} };
+	}
+}
+
 nano::cementable_account::cementable_account (nano::account const & account_a, size_t blocks_uncemented_a) :
 account (account_a), blocks_uncemented (blocks_uncemented_a)
 {
@@ -940,6 +1000,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transaction
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "confirmed", confirmed_count, sizeof (decltype (active_transactions.confirmed)::value_type) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "priority_wallet_cementable_frontiers_count", active_transactions.priority_wallet_cementable_frontiers_size (), sizeof (nano::cementable_account) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "priority_cementable_frontiers_count", active_transactions.priority_cementable_frontiers_size (), sizeof (nano::cementable_account) }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "inactive_votes_cache_count", active_transactions.inactive_votes_cache_size (), sizeof (nano::gap_information) }));
 	return composite;
 }
 }

@@ -194,6 +194,7 @@ nano::election_vote_result nano::election::vote (nano::account rep, uint64_t seq
 		}
 		if (should_process)
 		{
+			node.stats.inc (nano::stat::type::election, nano::stat::detail::vote_new);
 			last_votes[rep] = { std::chrono::steady_clock::now (), sequence, block_hash };
 			if (!confirmed)
 			{
@@ -297,5 +298,30 @@ void nano::election::clear_blocks ()
 		{
 			node.observers.active_stopped.notify (hash);
 		}
+	}
+}
+
+void nano::election::insert_inactive_votes_cache ()
+{
+	auto winner_hash (status.winner->hash ());
+	auto cache (node.active.find_inactive_votes_cache (winner_hash));
+	for (auto & rep : cache.voters)
+	{
+		auto inserted (last_votes.emplace (rep, nano::vote_info{ std::chrono::steady_clock::time_point::min (), 0, winner_hash }));
+		if (inserted.second)
+		{
+			node.stats.inc (nano::stat::type::election, nano::stat::detail::vote_cached);
+		}
+	}
+	if (!confirmed && !cache.voters.empty ())
+	{
+		auto delay (std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - cache.arrival));
+		if (delay > late_blocks_delay)
+		{
+			node.stats.inc (nano::stat::type::election, nano::stat::detail::late_block);
+			node.stats.add (nano::stat::type::election, nano::stat::detail::late_block_seconds, nano::stat::dir::in, delay.count (), true);
+		}
+		auto transaction (node.store.tx_begin_read ());
+		confirm_if_quorum (transaction);
 	}
 }
