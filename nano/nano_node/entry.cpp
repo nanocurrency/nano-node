@@ -807,6 +807,7 @@ int main (int argc, char * const * argv)
 			auto transaction (node.node->store.tx_begin_read ());
 			std::cout << boost::str (boost::format ("Performing blocks hash, signature, work validation...\n"));
 			size_t count (0);
+			uint64_t block_count (0);
 			for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n; ++i)
 			{
 				++count;
@@ -827,12 +828,13 @@ int main (int argc, char * const * argv)
 				auto hash (info.open_block);
 				nano::block_hash calculated_hash (0);
 				nano::block_sideband sideband;
+				auto block (node.node->store.block_get (transaction, hash, &sideband)); // Block data
 				uint64_t height (0);
 				uint64_t previous_timestamp (0);
-				while (!hash.is_zero ())
+				nano::block_hash calculated_representative_block (0);
+				while (!hash.is_zero () && block != nullptr)
 				{
-					// Retrieving block data
-					auto block (node.node->store.block_get (transaction, hash, &sideband));
+					++block_count;
 					// Check for state & open blocks if account field is correct
 					if (block->type () == nano::block_type::open || block->type () == nano::block_type::state)
 					{
@@ -850,6 +852,15 @@ int main (int argc, char * const * argv)
 					if (calculated_hash != block->previous ())
 					{
 						std::cerr << boost::str (boost::format ("Incorrect previous field for block %1%\n") % hash.to_string ());
+					}
+					// Check if previous & type for open blocks are correct
+					if (height == 0 && !block->previous ().is_zero ())
+					{
+						std::cerr << boost::str (boost::format ("Incorrect previous for open block %1%\n") % hash.to_string ());
+					}
+					if (height == 0 && block->type () != nano::block_type::open && block->type () != nano::block_type::state)
+					{
+						std::cerr << boost::str (boost::format ("Incorrect type for open block %1%\n") % hash.to_string ());
 					}
 					// Check if block data is correct (calculating hash)
 					calculated_hash = block->hash ();
@@ -897,24 +908,53 @@ int main (int argc, char * const * argv)
 						std::cerr << boost::str (boost::format ("Incorrect sideband timestamp for block %1%\n") % hash.to_string ());
 					}
 					previous_timestamp = sideband.timestamp;
+					// Calculate representative block
+					if (block->type () == nano::block_type::open || block->type () == nano::block_type::change || block->type () == nano::block_type::state)
+					{
+						calculated_representative_block = hash;
+					}
 					// Retrieving successor block hash
 					hash = node.node->store.block_successor (transaction, hash);
+					// Retrieving block data
+					if (!hash.is_zero ())
+					{
+						block = node.node->store.block_get (transaction, hash, &sideband);
+					}
 				}
+				// Check if required block exists
+				if (!hash.is_zero () && block == nullptr)
+				{
+					std::cerr << boost::str (boost::format ("Required block in account %1% chain was not found in ledger: %2%\n") % account.to_account () % hash.to_string ());
+				}
+				// Check account block count
 				if (info.block_count != height)
 				{
 					std::cerr << boost::str (boost::format ("Incorrect block count for account %1%. Actual: %2%. Expected: %3%\n") % account.to_account () % height % info.block_count);
 				}
+				// Check account head block (frontier)
 				if (info.head != calculated_hash)
 				{
 					std::cerr << boost::str (boost::format ("Incorrect frontier for account %1%. Actual: %2%. Expected: %3%\n") % account.to_account () % calculated_hash.to_string () % info.head.to_string ());
 				}
+				// Check account representative block
+				if (info.rep_block != calculated_representative_block)
+				{
+					std::cerr << boost::str (boost::format ("Incorrect representative block for account %1%. Actual: %2%. Expected: %3%\n") % account.to_account () % calculated_representative_block.to_string () % info.rep_block.to_string ());
+				}
 			}
 			std::cout << boost::str (boost::format ("%1% accounts validated\n") % count);
+			// Validate total block count
+			auto ledger_block_count (node.node->store.block_count (transaction).sum ());
+			if (block_count != ledger_block_count)
+			{
+				std::cerr << boost::str (boost::format ("Incorrect total block count. Blocks validated %1%. Block count in database: %2%\n") % block_count % ledger_block_count);
+			}
+			// Validate pending blocks
 			count = 0;
 			for (auto i (node.node->store.pending_begin (transaction)), n (node.node->store.pending_end ()); i != n; ++i)
 			{
 				++count;
-				if ((count % 50000) == 0)
+				if ((count % 200000) == 0)
 				{
 					std::cout << boost::str (boost::format ("%1% pending blocks validated\n") % count);
 				}
@@ -924,7 +964,7 @@ int main (int argc, char * const * argv)
 				auto block (node.node->store.block_get (transaction, key.hash));
 				if (block == nullptr)
 				{
-					std::cerr << boost::str (boost::format ("Pending block not existing %1%\n") % key.hash.to_string ());
+					std::cerr << boost::str (boost::format ("Pending block does not exist %1%\n") % key.hash.to_string ());
 				}
 				else
 				{
