@@ -613,6 +613,10 @@ void nano::active_transactions::update_difficulty (nano::block const & block_a)
 		assert (!error);
 		if (difficulty > existing->difficulty)
 		{
+			if (node.config.logging.active_update_logging ())
+			{
+				node.logger.try_log (boost::str (boost::format ("Block %1% was updated from difficulty %2% to %3%") % block_a.hash ().to_string () % nano::to_string_hex (existing->difficulty) % nano::to_string_hex (difficulty)));
+			}
 			roots.modify (existing, [difficulty](nano::conflict_info & info_a) {
 				info_a.difficulty = difficulty;
 			});
