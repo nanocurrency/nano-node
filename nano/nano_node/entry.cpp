@@ -807,6 +807,7 @@ int main (int argc, char * const * argv)
 			auto transaction (node.node->store.tx_begin_read ());
 			std::cout << boost::str (boost::format ("Performing blocks hash, signature, work validation...\n"));
 			size_t count (0);
+			uint64_t block_count (0);
 			for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n; ++i)
 			{
 				++count;
@@ -833,6 +834,7 @@ int main (int argc, char * const * argv)
 				nano::block_hash calculated_representative_block (0);
 				while (!hash.is_zero () && block != nullptr)
 				{
+					++block_count;
 					// Check for state & open blocks if account field is correct
 					if (block->type () == nano::block_type::open || block->type () == nano::block_type::state)
 					{
@@ -941,6 +943,13 @@ int main (int argc, char * const * argv)
 				}
 			}
 			std::cout << boost::str (boost::format ("%1% accounts validated\n") % count);
+			// Validate total block count
+			auto ledger_block_count (node.node->store.block_count (transaction).sum ());
+			if (block_count != ledger_block_count)
+			{
+				std::cerr << boost::str (boost::format ("Incorrect total block count. Blocks validated %1%. Block count in database: %2%\n") % block_count % ledger_block_count);
+			}
+			// Validate pending blocks
 			count = 0;
 			for (auto i (node.node->store.pending_begin (transaction)), n (node.node->store.pending_end ()); i != n; ++i)
 			{
