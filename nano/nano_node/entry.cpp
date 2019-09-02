@@ -827,13 +827,12 @@ int main (int argc, char * const * argv)
 				auto hash (info.open_block);
 				nano::block_hash calculated_hash (0);
 				nano::block_sideband sideband;
+				auto block (node.node->store.block_get (transaction, hash, &sideband)); // Block data
 				uint64_t height (0);
 				uint64_t previous_timestamp (0);
 				nano::block_hash calculated_representative_block (0);
-				while (!hash.is_zero ())
+				while (!hash.is_zero () && block != nullptr)
 				{
-					// Retrieving block data
-					auto block (node.node->store.block_get (transaction, hash, &sideband));
 					// Check for state & open blocks if account field is correct
 					if (block->type () == nano::block_type::open || block->type () == nano::block_type::state)
 					{
@@ -914,6 +913,16 @@ int main (int argc, char * const * argv)
 					}
 					// Retrieving successor block hash
 					hash = node.node->store.block_successor (transaction, hash);
+					// Retrieving block data
+					if (!hash.is_zero ())
+					{
+						block = node.node->store.block_get (transaction, hash, &sideband);
+					}
+				}
+				// Check if required block exists
+				if (!hash.is_zero () && block == nullptr)
+				{
+					std::cerr << boost::str (boost::format ("Required block in account %1% chain was not found in ledger: %2%\n") % account.to_account () % hash.to_string ());
 				}
 				// Check account block count
 				if (info.block_count != height)
