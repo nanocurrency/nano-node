@@ -88,11 +88,11 @@ TEST (difficulty, overflow)
 
 TEST (difficulty, zero)
 {
-	// Tests with difficulty 0 should return 0 with any multiplier
+	// Tests with base difficulty 0 should return 0 with any multiplier
 	{
 		uint64_t base = 0; // Min possible difficulty
 		uint64_t difficulty = 0;
-		double multiplier = 0.001; // Decrease difficulty
+		double multiplier = 0.000000001; // Decrease difficulty
 
 	ASSERT_EQ (difficulty, nano::difficulty::from_multiplier (multiplier, base));
 	}
@@ -100,7 +100,7 @@ TEST (difficulty, zero)
 	{
 		uint64_t base = 0; // Min possible difficulty
 		uint64_t difficulty = 0;
-		double multiplier = 1000000.0; // Increase difficulty
+		double multiplier = 1000000000.0; // Increase difficulty
 
 	ASSERT_EQ (difficulty, nano::difficulty::from_multiplier (multiplier, base));
 	}
