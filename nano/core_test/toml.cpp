@@ -200,6 +200,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.logging.rotation_size, defaults.node.logging.rotation_size);
 	ASSERT_EQ (conf.node.logging.single_line_record_value, defaults.node.logging.single_line_record_value);
 	ASSERT_EQ (conf.node.logging.timing_logging_value, defaults.node.logging.timing_logging_value);
+	ASSERT_EQ (conf.node.logging.active_update_value, defaults.node.logging.active_update_value);
 	ASSERT_EQ (conf.node.logging.upnp_details_logging_value, defaults.node.logging.upnp_details_logging_value);
 	ASSERT_EQ (conf.node.logging.vote_logging_value, defaults.node.logging.vote_logging_value);
 	ASSERT_EQ (conf.node.logging.work_generation_time_value, defaults.node.logging.work_generation_time_value);
@@ -447,6 +448,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	rotation_size = 999
 	single_line_record = true
 	timing = true
+	active_update = true
 	upnp_details = true
 	vote = true
 	work_generation_time = false
@@ -562,6 +564,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.logging.rotation_size, defaults.node.logging.rotation_size);
 	ASSERT_NE (conf.node.logging.single_line_record_value, defaults.node.logging.single_line_record_value);
 	ASSERT_NE (conf.node.logging.timing_logging_value, defaults.node.logging.timing_logging_value);
+	ASSERT_NE (conf.node.logging.active_update_value, defaults.node.logging.active_update_value);
 	ASSERT_NE (conf.node.logging.upnp_details_logging_value, defaults.node.logging.upnp_details_logging_value);
 	ASSERT_NE (conf.node.logging.vote_logging_value, defaults.node.logging.vote_logging_value);
 	ASSERT_NE (conf.node.logging.work_generation_time_value, defaults.node.logging.work_generation_time_value);
