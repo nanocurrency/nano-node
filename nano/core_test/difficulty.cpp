@@ -82,7 +82,7 @@ TEST (difficulty, overflow)
 		uint64_t difficulty = 0;
 		double multiplier = 0.999; // Decrease difficulty
 
-	ASSERT_EQ (difficulty, nano::difficulty::from_multiplier (multiplier, base));
+		ASSERT_EQ (difficulty, nano::difficulty::from_multiplier (multiplier, base));
 	}
 }
 
@@ -94,7 +94,7 @@ TEST (difficulty, zero)
 		uint64_t difficulty = 0;
 		double multiplier = 0.000000001; // Decrease difficulty
 
-	ASSERT_EQ (difficulty, nano::difficulty::from_multiplier (multiplier, base));
+		ASSERT_EQ (difficulty, nano::difficulty::from_multiplier (multiplier, base));
 	}
 
 	{
@@ -102,6 +102,6 @@ TEST (difficulty, zero)
 		uint64_t difficulty = 0;
 		double multiplier = 1000000000.0; // Increase difficulty
 
-	ASSERT_EQ (difficulty, nano::difficulty::from_multiplier (multiplier, base));
+		ASSERT_EQ (difficulty, nano::difficulty::from_multiplier (multiplier, base));
 	}
 }
