@@ -67,21 +67,41 @@ TEST (difficulty, network_constants)
 
 TEST (difficulty, overflow)
 {
-	// Overflow max
+	// Overflow max (attempt to overflow & receive lower difficulty)
 	{
-		uint64_t base = std::numeric_limits<std::uint64_t>::max ();
+		uint64_t base = std::numeric_limits<std::uint64_t>::max (); // Max possible difficulty
 		uint64_t difficulty = std::numeric_limits<std::uint64_t>::max ();
-		double expected_multiplier = 1.001;
+		double multiplier = 1.001; // Try to increase difficulty above max
 
-		ASSERT_EQ (difficulty, nano::difficulty::from_multiplier (expected_multiplier, base));
+		ASSERT_EQ (difficulty, nano::difficulty::from_multiplier (multiplier, base));
 	}
 
-	// Overflow min
+	// Overflow min (attempt to overflow & receive higher difficulty)
 	{
-		uint64_t base = 1;
+		uint64_t base = 1; // Min possible difficulty before 0
 		uint64_t difficulty = 0;
-		double expected_multiplier = 0.999;
+		double multiplier = 0.999; // Decrease difficulty
 
-		ASSERT_EQ (difficulty, nano::difficulty::from_multiplier (expected_multiplier, base));
+	ASSERT_EQ (difficulty, nano::difficulty::from_multiplier (multiplier, base));
+	}
+}
+
+TEST (difficulty, zero)
+{
+	// Tests with difficulty 0 should return 0 with any multiplier
+	{
+		uint64_t base = 0; // Min possible difficulty
+		uint64_t difficulty = 0;
+		double multiplier = 0.001; // Decrease difficulty
+
+	ASSERT_EQ (difficulty, nano::difficulty::from_multiplier (multiplier, base));
+	}
+
+	{
+		uint64_t base = 0; // Min possible difficulty
+		uint64_t difficulty = 0;
+		double multiplier = 1000000.0; // Increase difficulty
+
+	ASSERT_EQ (difficulty, nano::difficulty::from_multiplier (multiplier, base));
 	}
 }
