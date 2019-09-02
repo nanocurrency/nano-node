@@ -686,7 +686,7 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 		uint64_t average = nano::difficulty::from_multiplier (multiplier, node.network_params.network.publish_threshold);
 		// Prevent overflow
 		int64_t limiter (0);
-		if (std::numeric_limits<std::uint64_t>::max () - average < highest_level)
+		if (std::numeric_limits<std::uint64_t>::max () - average < static_cast<uint64_t> (highest_level))
 		{
 			// Highest adjusted difficulty value should be std::numeric_limits<std::uint64_t>::max ()
 			limiter = std::numeric_limits<std::uint64_t>::max () - average + highest_level;

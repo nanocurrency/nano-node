@@ -1,7 +1,3 @@
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-
 #include <nano/secure/working.hpp>
 
 #include <shlobj.h>
