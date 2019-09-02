@@ -64,6 +64,7 @@ public:
 	bool operator== (nano::account_info const &) const;
 	bool operator!= (nano::account_info const &) const;
 	size_t db_size () const;
+	nano::epoch epoch () const;
 	nano::block_hash head{ 0 };
 	nano::block_hash rep_block{ 0 };
 	nano::block_hash open_block{ 0 };
@@ -71,7 +72,7 @@ public:
 	/** Seconds since posix epoch */
 	uint64_t modified{ 0 };
 	uint64_t block_count{ 0 };
-	nano::epoch epoch{ nano::epoch::epoch_0 };
+	nano::epoch epoch_m{ nano::epoch::epoch_0 };
 };
 
 /**

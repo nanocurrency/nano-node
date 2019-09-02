@@ -189,7 +189,7 @@ open_block (open_block_a),
 balance (balance_a),
 modified (modified_a),
 block_count (block_count_a),
-epoch (epoch_a)
+epoch_m (epoch_a)
 {
 }
 
@@ -215,7 +215,7 @@ bool nano::account_info::deserialize (nano::stream & stream_a)
 
 bool nano::account_info::operator== (nano::account_info const & other_a) const
 {
-	return head == other_a.head && rep_block == other_a.rep_block && open_block == other_a.open_block && balance == other_a.balance && modified == other_a.modified && block_count == other_a.block_count && epoch == other_a.epoch;
+	return head == other_a.head && rep_block == other_a.rep_block && open_block == other_a.open_block && balance == other_a.balance && modified == other_a.modified && block_count == other_a.block_count && epoch () == other_a.epoch ();
 }
 
 bool nano::account_info::operator!= (nano::account_info const & other_a) const
@@ -232,6 +232,11 @@ size_t nano::account_info::db_size () const
 	assert (reinterpret_cast<const uint8_t *> (&balance) + sizeof (balance) == reinterpret_cast<const uint8_t *> (&modified));
 	assert (reinterpret_cast<const uint8_t *> (&modified) + sizeof (modified) == reinterpret_cast<const uint8_t *> (&block_count));
 	return sizeof (head) + sizeof (rep_block) + sizeof (open_block) + sizeof (balance) + sizeof (modified) + sizeof (block_count);
+}
+	
+nano::epoch nano::account_info::epoch () const
+{
+	return epoch_m;
 }
 
 size_t nano::block_counts::sum () const

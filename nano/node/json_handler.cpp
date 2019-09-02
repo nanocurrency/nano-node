@@ -534,7 +534,7 @@ void nano::json_handler::account_info ()
 			response_l.put ("balance", balance);
 			response_l.put ("modified_timestamp", std::to_string (info.modified));
 			response_l.put ("block_count", std::to_string (info.block_count));
-			response_l.put ("account_version", info.epoch == nano::epoch::epoch_1 ? "1" : "0");
+			response_l.put ("account_version", info.epoch () == nano::epoch::epoch_1 ? "1" : "0");
 			response_l.put ("confirmation_height", std::to_string (confirmation_height));
 			if (representative)
 			{

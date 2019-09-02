@@ -273,7 +273,7 @@ void ledger_processor::state_block_impl (nano::state_block const & block_a)
 				auto account_error (ledger.store.account_get (transaction, block_a.hashables.account, info));
 				if (!account_error)
 				{
-					epoch = info.epoch;
+					epoch = info.epoch ();
 					// Account already exists
 					result.code = block_a.hashables.previous.is_zero () ? nano::process_result::fork : nano::process_result::progress; // Has this account already been opened? (Ambigious)
 					if (result.code == nano::process_result::progress)
@@ -404,7 +404,7 @@ void ledger_processor::epoch_block_impl (nano::state_block const & block_a)
 				}
 				if (result.code == nano::process_result::progress)
 				{
-					result.code = info.epoch == nano::epoch::epoch_0 ? nano::process_result::progress : nano::process_result::block_position;
+					result.code = info.epoch () == nano::epoch::epoch_0 ? nano::process_result::progress : nano::process_result::block_position;
 					if (result.code == nano::process_result::progress)
 					{
 						result.code = block_a.hashables.balance == info.balance ? nano::process_result::progress : nano::process_result::balance_mismatch;
@@ -1048,7 +1048,7 @@ void nano::ledger::change_latest (nano::write_transaction const & transaction_a,
 			assert (!store.confirmation_height_exists (transaction_a, account_a));
 			store.confirmation_height_put (transaction_a, account_a, 0);
 		}
-		if (!old_a.head.is_zero () && old_a.epoch != new_a.epoch)
+		if (!old_a.head.is_zero () && old_a.epoch () != new_a.epoch ())
 		{
 			// store.account_put won't erase existing entries if they're in different tables
 			store.account_del (transaction_a, account_a);

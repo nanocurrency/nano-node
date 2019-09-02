@@ -1845,8 +1845,8 @@ void modify_account_info_to_v13 (nano::mdb_store & store, nano::transaction cons
 {
 	nano::account_info info;
 	ASSERT_FALSE (store.account_get (transaction_a, account, info));
-	nano::account_info_v13 account_info_v13 (info.head, info.rep_block, info.open_block, info.balance, info.modified, info.block_count, info.epoch);
-	auto status (mdb_put (store.env.tx (transaction_a), store.get_account_db (info.epoch) == nano::tables::accounts_v0 ? store.accounts_v0 : store.accounts_v1, nano::mdb_val (account), nano::mdb_val (account_info_v13), 0));
+	nano::account_info_v13 account_info_v13 (info.head, info.rep_block, info.open_block, info.balance, info.modified, info.block_count, info.epoch ());
+	auto status (mdb_put (store.env.tx (transaction_a), store.get_account_db (info.epoch ()) == nano::tables::accounts_v0 ? store.accounts_v0 : store.accounts_v1, nano::mdb_val (account), nano::mdb_val (account_info_v13), 0));
 	(void)status;
 	assert (status == 0);
 }
@@ -1855,8 +1855,8 @@ void modify_account_info_to_v14 (nano::mdb_store & store, nano::transaction cons
 {
 	nano::account_info info;
 	ASSERT_FALSE (store.account_get (transaction_a, account, info));
-	nano::account_info_v14 account_info_v14 (info.head, info.rep_block, info.open_block, info.balance, info.modified, info.block_count, confirmation_height, info.epoch);
-	auto status (mdb_put (store.env.tx (transaction_a), store.get_account_db (info.epoch) == nano::tables::accounts_v0 ? store.accounts_v0 : store.accounts_v1, nano::mdb_val (account), nano::mdb_val (account_info_v14), 0));
+	nano::account_info_v14 account_info_v14 (info.head, info.rep_block, info.open_block, info.balance, info.modified, info.block_count, confirmation_height, info.epoch ());
+	auto status (mdb_put (store.env.tx (transaction_a), store.get_account_db (info.epoch ()) == nano::tables::accounts_v0 ? store.accounts_v0 : store.accounts_v1, nano::mdb_val (account), nano::mdb_val (account_info_v14), 0));
 	(void)status;
 	assert (status == 0);
 }

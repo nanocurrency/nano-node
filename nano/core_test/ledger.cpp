@@ -2303,13 +2303,13 @@ TEST (ledger, epoch_blocks_general)
 	ASSERT_EQ (nano::process_result::block_position, ledger.process (transaction, epoch2).code);
 	nano::account_info genesis_info;
 	ASSERT_FALSE (ledger.store.account_get (transaction, nano::genesis_account, genesis_info));
-	ASSERT_EQ (genesis_info.epoch, nano::epoch::epoch_1);
+	ASSERT_EQ (genesis_info.epoch (), nano::epoch::epoch_1);
 	ASSERT_FALSE (ledger.rollback (transaction, epoch1.hash ()));
 	ASSERT_FALSE (ledger.store.account_get (transaction, nano::genesis_account, genesis_info));
-	ASSERT_EQ (genesis_info.epoch, nano::epoch::epoch_0);
+	ASSERT_EQ (genesis_info.epoch (), nano::epoch::epoch_0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, epoch1).code);
 	ASSERT_FALSE (ledger.store.account_get (transaction, nano::genesis_account, genesis_info));
-	ASSERT_EQ (genesis_info.epoch, nano::epoch::epoch_1);
+	ASSERT_EQ (genesis_info.epoch (), nano::epoch::epoch_1);
 	nano::change_block change1 (epoch1.hash (), nano::genesis_account, nano::test_genesis_key.prv, nano::test_genesis_key.pub, pool.generate (epoch1.hash ()));
 	ASSERT_EQ (nano::process_result::block_position, ledger.process (transaction, change1).code);
 	nano::state_block send1 (nano::genesis_account, epoch1.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, destination.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, pool.generate (epoch1.hash ()));
@@ -2357,13 +2357,13 @@ TEST (ledger, epoch_blocks_receive_upgrade)
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive2).code);
 	nano::account_info destination_info;
 	ASSERT_FALSE (ledger.store.account_get (transaction, destination.pub, destination_info));
-	ASSERT_EQ (destination_info.epoch, nano::epoch::epoch_1);
+	ASSERT_EQ (destination_info.epoch (), nano::epoch::epoch_1);
 	ASSERT_FALSE (ledger.rollback (transaction, receive2.hash ()));
 	ASSERT_FALSE (ledger.store.account_get (transaction, destination.pub, destination_info));
-	ASSERT_EQ (destination_info.epoch, nano::epoch::epoch_0);
+	ASSERT_EQ (destination_info.epoch (), nano::epoch::epoch_0);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive2).code);
 	ASSERT_FALSE (ledger.store.account_get (transaction, destination.pub, destination_info));
-	ASSERT_EQ (destination_info.epoch, nano::epoch::epoch_1);
+	ASSERT_EQ (destination_info.epoch (), nano::epoch::epoch_1);
 	nano::keypair destination2;
 	nano::state_block send3 (destination.pub, receive2.hash (), destination.pub, nano::Gxrb_ratio, destination2.pub, destination.prv, destination.pub, pool.generate (receive2.hash ()));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send3).code);
@@ -2592,7 +2592,7 @@ TEST (ledger, unchecked_epoch)
 		ASSERT_EQ (unchecked_count, 0);
 		nano::account_info info;
 		ASSERT_FALSE (node1.store.account_get (transaction, destination.pub, info));
-		ASSERT_EQ (info.epoch, nano::epoch::epoch_1);
+		ASSERT_EQ (info.epoch (), nano::epoch::epoch_1);
 	}
 }
 
@@ -2636,7 +2636,7 @@ TEST (ledger, unchecked_epoch_invalid)
 		ASSERT_EQ (unchecked_count, 0);
 		nano::account_info info;
 		ASSERT_FALSE (node1.store.account_get (transaction, destination.pub, info));
-		ASSERT_NE (info.epoch, nano::epoch::epoch_1);
+		ASSERT_NE (info.epoch  (), nano::epoch::epoch_1);
 	}
 }
 
