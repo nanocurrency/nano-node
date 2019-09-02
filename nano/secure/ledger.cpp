@@ -146,7 +146,7 @@ public:
 
 		assert (!error);
 		auto previous_version (ledger.store.block_version (transaction, block_a.hashables.previous));
-		ledger.change_latest (transaction, block_a.hashables.account, block_a.hashables.previous, representative, balance, info.block_count - 1, false, previous_version);
+		ledger.change_latest (transaction, block_a.hashables.account, block_a.hashables.previous, representative, balance, info.block_count - 1, previous_version);
 
 		auto previous (ledger.store.block_get (transaction, block_a.hashables.previous));
 		if (previous != nullptr)
@@ -343,7 +343,7 @@ void ledger_processor::state_block_impl (nano::state_block const & block_a)
 						ledger.store.pending_del (transaction, nano::pending_key (block_a.hashables.account, block_a.hashables.link));
 					}
 
-					ledger.change_latest (transaction, block_a.hashables.account, hash, hash, block_a.hashables.balance, info.block_count + 1, true, epoch);
+					ledger.change_latest (transaction, block_a.hashables.account, hash, hash, block_a.hashables.balance, info.block_count + 1, epoch);
 					if (!ledger.store.frontier_get (transaction, info.head).is_zero ())
 					{
 						ledger.store.frontier_del (transaction, info.head);
@@ -409,7 +409,7 @@ void ledger_processor::epoch_block_impl (nano::state_block const & block_a)
 							result.amount = 0;
 							nano::block_sideband sideband (nano::block_type::state, block_a.hashables.account /* unused */, 0, 0 /* unused */, info.block_count + 1, nano::seconds_since_epoch ());
 							ledger.store.block_put (transaction, hash, block_a, sideband, nano::epoch::epoch_1);
-							ledger.change_latest (transaction, block_a.hashables.account, hash, hash, info.balance, info.block_count + 1, true, nano::epoch::epoch_1);
+							ledger.change_latest (transaction, block_a.hashables.account, hash, hash, info.balance, info.block_count + 1, nano::epoch::epoch_1);
 							if (!ledger.store.frontier_get (transaction, info.head).is_zero ())
 							{
 								ledger.store.frontier_del (transaction, info.head);
@@ -1028,7 +1028,7 @@ nano::uint256_union nano::ledger::link (nano::epoch epoch_a) const
 	return network_params.ledger.epochs.link (nano::epoch::epoch_1);
 }
 
-void nano::ledger::change_latest (nano::write_transaction const & transaction_a, nano::account const & account_a, nano::block_hash const & hash_a, nano::block_hash const & rep_block_a, nano::amount const & balance_a, uint64_t block_count_a, bool is_state, nano::epoch epoch_a)
+void nano::ledger::change_latest (nano::write_transaction const & transaction_a, nano::account const & account_a, nano::block_hash const & hash_a, nano::block_hash const & rep_block_a, nano::amount const & balance_a, uint64_t block_count_a, nano::epoch epoch_a)
 {
 	nano::account_info info;
 	auto exists (!store.account_get (transaction_a, account_a, info));
