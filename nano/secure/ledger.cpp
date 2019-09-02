@@ -45,7 +45,8 @@ public:
 			assert (!error);
 			ledger.store.pending_del (transaction, key);
 			representation_add (transaction, ledger, ledger.representative (transaction, hash), pending.amount.number ());
-			ledger.change_latest (transaction, pending.source, block_a.hashables.previous, info.rep_block, ledger.balance (transaction, block_a.hashables.previous), info.block_count - 1);
+			nano::account_info new_info (block_a.hashables.previous, info.rep_block, info.open_block, ledger.balance (transaction, block_a.hashables.previous), nano::seconds_since_epoch (), info.block_count - 1, nano::epoch::epoch_0);
+			ledger.change_latest (transaction, pending.source, info, new_info);
 			ledger.store.block_del (transaction, hash);
 			ledger.store.frontier_del (transaction, hash);
 			ledger.store.frontier_put (transaction, block_a.hashables.previous, pending.source);
@@ -65,7 +66,8 @@ public:
 		(void)error;
 		assert (!error);
 		representation_add (transaction, ledger, ledger.representative (transaction, hash), 0 - amount);
-		ledger.change_latest (transaction, destination_account, block_a.hashables.previous, representative, ledger.balance (transaction, block_a.hashables.previous), info.block_count - 1);
+		nano::account_info new_info (block_a.hashables.previous, representative, info.open_block, ledger.balance (transaction, block_a.hashables.previous), nano::seconds_since_epoch (), info.block_count - 1, nano::epoch::epoch_0);
+		ledger.change_latest (transaction, destination_account, info, new_info);
 		ledger.store.block_del (transaction, hash);
 		ledger.store.pending_put (transaction, nano::pending_key (destination_account, block_a.hashables.source), { source_account, amount, nano::epoch::epoch_0 });
 		ledger.store.frontier_del (transaction, hash);
@@ -80,7 +82,8 @@ public:
 		auto destination_account (ledger.account (transaction, hash));
 		auto source_account (ledger.account (transaction, block_a.hashables.source));
 		representation_add (transaction, ledger, ledger.representative (transaction, hash), 0 - amount);
-		ledger.change_latest (transaction, destination_account, 0, 0, 0, 0);
+		nano::account_info new_info;
+		ledger.change_latest (transaction, destination_account, new_info, new_info);
 		ledger.store.block_del (transaction, hash);
 		ledger.store.pending_put (transaction, nano::pending_key (destination_account, block_a.hashables.source), { source_account, amount, nano::epoch::epoch_0 });
 		ledger.store.frontier_del (transaction, hash);
@@ -99,7 +102,8 @@ public:
 		representation_add (transaction, ledger, representative, balance);
 		representation_add (transaction, ledger, hash, 0 - balance);
 		ledger.store.block_del (transaction, hash);
-		ledger.change_latest (transaction, account, block_a.hashables.previous, representative, info.balance, info.block_count - 1);
+		nano::account_info new_info (block_a.hashables.previous, representative, info.open_block, info.balance, nano::seconds_since_epoch (), info.block_count - 1, nano::epoch::epoch_0);
+		ledger.change_latest (transaction, account, info, new_info);
 		ledger.store.frontier_del (transaction, hash);
 		ledger.store.frontier_put (transaction, block_a.hashables.previous, account);
 		ledger.store.block_successor_clear (transaction, block_a.hashables.previous);
@@ -146,7 +150,8 @@ public:
 
 		assert (!error);
 		auto previous_version (ledger.store.block_version (transaction, block_a.hashables.previous));
-		ledger.change_latest (transaction, block_a.hashables.account, block_a.hashables.previous, representative, balance, info.block_count - 1, previous_version);
+		nano::account_info new_info (block_a.hashables.previous, representative, info.open_block, balance, nano::seconds_since_epoch (), info.block_count - 1, previous_version);
+		ledger.change_latest (transaction, block_a.hashables.account, info, new_info);
 
 		auto previous (ledger.store.block_get (transaction, block_a.hashables.previous));
 		if (previous != nullptr)
@@ -343,7 +348,8 @@ void ledger_processor::state_block_impl (nano::state_block const & block_a)
 						ledger.store.pending_del (transaction, nano::pending_key (block_a.hashables.account, block_a.hashables.link));
 					}
 
-					ledger.change_latest (transaction, block_a.hashables.account, hash, hash, block_a.hashables.balance, info.block_count + 1, epoch);
+					nano::account_info new_info (hash, hash, info.open_block.is_zero () ? hash : info.open_block, block_a.hashables.balance, nano::seconds_since_epoch (), info.block_count + 1, epoch);
+					ledger.change_latest (transaction, block_a.hashables.account, info, new_info);
 					if (!ledger.store.frontier_get (transaction, info.head).is_zero ())
 					{
 						ledger.store.frontier_del (transaction, info.head);
@@ -409,7 +415,8 @@ void ledger_processor::epoch_block_impl (nano::state_block const & block_a)
 							result.amount = 0;
 							nano::block_sideband sideband (nano::block_type::state, block_a.hashables.account /* unused */, 0, 0 /* unused */, info.block_count + 1, nano::seconds_since_epoch ());
 							ledger.store.block_put (transaction, hash, block_a, sideband, nano::epoch::epoch_1);
-							ledger.change_latest (transaction, block_a.hashables.account, hash, hash, info.balance, info.block_count + 1, nano::epoch::epoch_1);
+							nano::account_info new_info (hash, hash, info.open_block.is_zero () ? hash : info.open_block, info.balance, nano::seconds_since_epoch (), info.block_count + 1, nano::epoch::epoch_1);
+							ledger.change_latest (transaction, block_a.hashables.account, info, new_info);
 							if (!ledger.store.frontier_get (transaction, info.head).is_zero ())
 							{
 								ledger.store.frontier_del (transaction, info.head);
@@ -459,7 +466,8 @@ void ledger_processor::change_block (nano::change_block const & block_a)
 						auto balance (ledger.balance (transaction, block_a.hashables.previous));
 						representation_add (transaction, ledger, hash, balance);
 						representation_add (transaction, ledger, info.rep_block, 0 - balance);
-						ledger.change_latest (transaction, account, hash, hash, info.balance, info.block_count + 1);
+						nano::account_info new_info (hash, hash, info.open_block, info.balance, nano::seconds_since_epoch (), info.block_count + 1, nano::epoch::epoch_0);
+						ledger.change_latest (transaction, account, info, new_info);
 						ledger.store.frontier_del (transaction, block_a.hashables.previous);
 						ledger.store.frontier_put (transaction, hash, account);
 						result.account = account;
@@ -511,7 +519,8 @@ void ledger_processor::send_block (nano::send_block const & block_a)
 							representation_add (transaction, ledger, info.rep_block, 0 - amount);
 							nano::block_sideband sideband (nano::block_type::send, account, 0, block_a.hashables.balance /* unused */, info.block_count + 1, nano::seconds_since_epoch ());
 							ledger.store.block_put (transaction, hash, block_a, sideband);
-							ledger.change_latest (transaction, account, hash, info.rep_block, block_a.hashables.balance, info.block_count + 1);
+							nano::account_info new_info (hash, info.rep_block, info.open_block, block_a.hashables.balance, nano::seconds_since_epoch (), info.block_count + 1, nano::epoch::epoch_0);
+							ledger.change_latest (transaction, account, info, new_info);
 							ledger.store.pending_put (transaction, nano::pending_key (block_a.hashables.destination, hash), { account, amount, nano::epoch::epoch_0 });
 							ledger.store.frontier_del (transaction, block_a.hashables.previous);
 							ledger.store.frontier_put (transaction, hash, account);
@@ -578,7 +587,8 @@ void ledger_processor::receive_block (nano::receive_block const & block_a)
 										ledger.store.pending_del (transaction, key);
 										nano::block_sideband sideband (nano::block_type::receive, account, 0, new_balance, info.block_count + 1, nano::seconds_since_epoch ());
 										ledger.store.block_put (transaction, hash, block_a, sideband);
-										ledger.change_latest (transaction, account, hash, info.rep_block, new_balance, info.block_count + 1);
+										nano::account_info new_info (hash, info.rep_block, info.open_block, new_balance, nano::seconds_since_epoch (), info.block_count + 1, nano::epoch::epoch_0);
+										ledger.change_latest (transaction, account, info, new_info);
 										representation_add (transaction, ledger, info.rep_block, pending.amount.number ());
 										ledger.store.frontier_del (transaction, block_a.hashables.previous);
 										ledger.store.frontier_put (transaction, hash, account);
@@ -641,7 +651,8 @@ void ledger_processor::open_block (nano::open_block const & block_a)
 								ledger.store.pending_del (transaction, key);
 								nano::block_sideband sideband (nano::block_type::open, block_a.hashables.account, 0, pending.amount, 1, nano::seconds_since_epoch ());
 								ledger.store.block_put (transaction, hash, block_a, sideband);
-								ledger.change_latest (transaction, block_a.hashables.account, hash, hash, pending.amount.number (), 1);
+								nano::account_info new_info (hash, hash, hash, pending.amount.number (), nano::seconds_since_epoch (), 1, nano::epoch::epoch_0);
+								ledger.change_latest (transaction, block_a.hashables.account, info, new_info);
 								representation_add (transaction, ledger, hash, pending.amount.number ());
 								ledger.store.frontier_put (transaction, hash, block_a.hashables.account);
 								result.account = block_a.hashables.account;
@@ -1028,42 +1039,25 @@ nano::uint256_union nano::ledger::link (nano::epoch epoch_a) const
 	return network_params.ledger.epochs.link (nano::epoch::epoch_1);
 }
 
-void nano::ledger::change_latest (nano::write_transaction const & transaction_a, nano::account const & account_a, nano::block_hash const & hash_a, nano::block_hash const & rep_block_a, nano::amount const & balance_a, uint64_t block_count_a, nano::epoch epoch_a)
+void nano::ledger::change_latest (nano::write_transaction const & transaction_a, nano::account const & account_a, nano::account_info const & old_a, nano::account_info const & new_a)
 {
-	nano::account_info info;
-	auto exists (!store.account_get (transaction_a, account_a, info));
-	if (!exists)
+	if (!new_a.head.is_zero ())
 	{
-		assert (store.block_get (transaction_a, hash_a)->previous ().is_zero ());
-		info.open_block = hash_a;
-	}
-	if (!hash_a.is_zero ())
-	{
-		info.head = hash_a;
-		info.rep_block = rep_block_a;
-		info.balance = balance_a;
-		info.modified = nano::seconds_since_epoch ();
-		info.block_count = block_count_a;
-		if (exists && info.epoch != epoch_a)
+		if (old_a.head.is_zero () && new_a.open_block == new_a.head)
 		{
-			// otherwise we'd end up with a duplicate
-			store.account_del (transaction_a, account_a);
-		}
-		info.epoch = epoch_a;
-		if (!store.confirmation_height_exists (transaction_a, account_a))
-		{
-			// Make sure the accounts table is in sync with the confirmation height table
+			assert (!store.confirmation_height_exists (transaction_a, account_a));
 			store.confirmation_height_put (transaction_a, account_a, 0);
 		}
-		store.account_put (transaction_a, account_a, info);
+		if (!old_a.head.is_zero () && old_a.epoch != new_a.epoch)
+		{
+			// store.account_put won't erase existing entries if they're in different tables
+			store.account_del (transaction_a, account_a);
+		}
+		store.account_put (transaction_a, account_a, new_a);
 	}
 	else
 	{
-		if (store.confirmation_height_exists (transaction_a, account_a))
-		{
-			// Make sure the accounts table is in sync with the confirmation height table
-			store.confirmation_height_del (transaction_a, account_a);
-		}
+		store.confirmation_height_del (transaction_a, account_a);
 		store.account_del (transaction_a, account_a);
 	}
 }
