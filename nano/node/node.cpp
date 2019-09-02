@@ -915,6 +915,10 @@ void nano::node::unchecked_cleanup ()
 			}
 		}
 	}
+	if (!cleaning_list.empty ())
+	{
+		logger.always_log (boost::str (boost::format ("Deleting %1% old unchecked blocks") % cleaning_list.size ()));
+	}
 	// Delete old unchecked keys in batches
 	while (!cleaning_list.empty ())
 	{
@@ -931,7 +935,7 @@ void nano::node::unchecked_cleanup ()
 
 void nano::node::ongoing_unchecked_cleanup ()
 {
-	if (!bootstrap_initiator.in_progress ())
+	if (!bootstrap_initiator.in_progress () && ledger.block_count () >= ledger.bootstrap_weight_max_blocks)
 	{
 		unchecked_cleanup ();
 	}
