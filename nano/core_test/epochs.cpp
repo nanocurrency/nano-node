@@ -19,5 +19,4 @@ TEST (epochs, is_epoch_link)
 	ASSERT_EQ (key2.pub, epochs.signer (nano::epoch::epoch_2));
 	ASSERT_EQ (nano::uint256_union (42), epochs.link (nano::epoch::epoch_1));
 	ASSERT_EQ (nano::uint256_union (43), epochs.link (nano::epoch::epoch_2));
-	
 }

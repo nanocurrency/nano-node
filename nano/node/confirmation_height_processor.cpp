@@ -6,8 +6,8 @@
 #include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/write_database_queue.hpp>
 #include <nano/secure/blockstore.hpp>
-#include <nano/secure/ledger.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/secure/ledger.hpp>
 
 #include <boost/optional.hpp>
 

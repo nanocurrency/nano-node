@@ -233,7 +233,7 @@ size_t nano::account_info::db_size () const
 	assert (reinterpret_cast<const uint8_t *> (&modified) + sizeof (modified) == reinterpret_cast<const uint8_t *> (&block_count));
 	return sizeof (head) + sizeof (rep_block) + sizeof (open_block) + sizeof (balance) + sizeof (modified) + sizeof (block_count);
 }
-	
+
 nano::epoch nano::account_info::epoch () const
 {
 	return epoch_m;

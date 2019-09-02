@@ -2636,7 +2636,7 @@ TEST (ledger, unchecked_epoch_invalid)
 		ASSERT_EQ (unchecked_count, 0);
 		nano::account_info info;
 		ASSERT_FALSE (node1.store.account_get (transaction, destination.pub, info));
-		ASSERT_NE (info.epoch  (), nano::epoch::epoch_1);
+		ASSERT_NE (info.epoch (), nano::epoch::epoch_1);
 	}
 }
 

@@ -33,7 +33,8 @@ public:
 	nano::public_key signer (nano::epoch epoch_a) const;
 	nano::epoch epoch (nano::uint256_union const & link_a) const;
 	void add (nano::epoch epoch_a, nano::public_key const & signer_a, nano::uint256_union const & link_a);
+
 private:
-	std::unordered_map <nano::epoch, nano::epoch_info> epochs_m;
+	std::unordered_map<nano::epoch, nano::epoch_info> epochs_m;
 };
 }
