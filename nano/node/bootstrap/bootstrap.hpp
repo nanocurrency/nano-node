@@ -51,12 +51,12 @@ public:
 	explicit bootstrap_attempt (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a = nano::bootstrap_mode::legacy);
 	~bootstrap_attempt ();
 	void run ();
-	std::shared_ptr<nano::bootstrap_client> connection (std::unique_lock<std::mutex> &);
+	std::shared_ptr<nano::bootstrap_client> connection (nano::unique_lock<std::mutex> &);
 	bool consume_future (std::future<bool> &);
 	void populate_connections ();
-	bool request_frontier (std::unique_lock<std::mutex> &);
-	void request_pull (std::unique_lock<std::mutex> &);
-	void request_push (std::unique_lock<std::mutex> &);
+	bool request_frontier (nano::unique_lock<std::mutex> &);
+	void request_pull (nano::unique_lock<std::mutex> &);
+	void request_push (nano::unique_lock<std::mutex> &);
 	void add_connection (nano::endpoint const &);
 	void connect_client (nano::tcp_endpoint const &);
 	void pool_connection (std::shared_ptr<nano::bootstrap_client>);
@@ -75,7 +75,7 @@ public:
 	bool lazy_finished ();
 	void lazy_pull_flush ();
 	void lazy_clear ();
-	void request_pending (std::unique_lock<std::mutex> &);
+	void request_pending (nano::unique_lock<std::mutex> &);
 	void requeue_pending (nano::account const &);
 	void wallet_run ();
 	void wallet_start (std::deque<nano::account> &);

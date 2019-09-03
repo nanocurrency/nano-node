@@ -37,7 +37,7 @@ void nano::bootstrap_listener::stop ()
 {
 	decltype (connections) connections_l;
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<std::mutex> lock (mutex);
 		on = false;
 		connections_l.swap (connections);
 	}
@@ -50,7 +50,7 @@ void nano::bootstrap_listener::stop ()
 
 size_t nano::bootstrap_listener::connection_count ()
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<std::mutex> lock (mutex);
 	return connections.size ();
 }
 
@@ -58,7 +58,7 @@ void nano::bootstrap_listener::accept_action (boost::system::error_code const & 
 {
 	auto connection (std::make_shared<nano::bootstrap_server> (socket_a, node.shared ()));
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<std::mutex> lock (mutex);
 		connections[connection.get ()] = connection;
 		connection->receive ();
 	}
@@ -103,7 +103,7 @@ nano::bootstrap_server::~bootstrap_server ()
 		}
 	}
 	stop ();
-	std::lock_guard<std::mutex> lock (node->bootstrap.mutex);
+	nano::lock_guard<std::mutex> lock (node->bootstrap.mutex);
 	node->bootstrap.connections.erase (this);
 }
 
@@ -445,7 +445,7 @@ void nano::bootstrap_server::receive_node_id_handshake_action (boost::system::er
 void nano::bootstrap_server::add_request (std::unique_ptr<nano::message> message_a)
 {
 	assert (message_a != nullptr);
-	std::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<std::mutex> lock (mutex);
 	auto start (requests.empty ());
 	requests.push (std::move (message_a));
 	if (start)
@@ -456,7 +456,7 @@ void nano::bootstrap_server::add_request (std::unique_ptr<nano::message> message
 
 void nano::bootstrap_server::finish_request ()
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<std::mutex> lock (mutex);
 	requests.pop ();
 	if (!requests.empty ())
 	{
@@ -496,7 +496,7 @@ void nano::bootstrap_server::timeout ()
 				node->logger.try_log ("Closing incoming tcp / bootstrap server by timeout");
 			}
 			{
-				std::lock_guard<std::mutex> lock (node->bootstrap.mutex);
+				nano::lock_guard<std::mutex> lock (node->bootstrap.mutex);
 				node->bootstrap.connections.erase (this);
 			}
 			socket->close ();
@@ -504,7 +504,7 @@ void nano::bootstrap_server::timeout ()
 	}
 	else
 	{
-		std::lock_guard<std::mutex> lock (node->bootstrap.mutex);
+		nano::lock_guard<std::mutex> lock (node->bootstrap.mutex);
 		node->bootstrap.connections.erase (this);
 	}
 }

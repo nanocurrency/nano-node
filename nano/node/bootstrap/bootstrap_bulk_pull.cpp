@@ -19,7 +19,7 @@ pull (pull_a),
 pull_blocks (0),
 unexpected_count (0)
 {
-	std::lock_guard<std::mutex> mutex (connection->attempt->mutex);
+	nano::lock_guard<std::mutex> mutex (connection->attempt->mutex);
 	connection->attempt->condition.notify_all ();
 }
 
@@ -45,7 +45,7 @@ nano::bulk_pull_client::~bulk_pull_client ()
 		connection->node->bootstrap_initiator.cache.remove (pull);
 	}
 	{
-		std::lock_guard<std::mutex> mutex (connection->attempt->mutex);
+		nano::lock_guard<std::mutex> mutex (connection->attempt->mutex);
 		--connection->attempt->pulling;
 	}
 	connection->attempt->condition.notify_all ();
@@ -62,12 +62,12 @@ void nano::bulk_pull_client::request ()
 
 	if (connection->node->config.logging.bulk_pull_logging ())
 	{
-		std::unique_lock<std::mutex> lock (connection->attempt->mutex);
+		nano::unique_lock<std::mutex> lock (connection->attempt->mutex);
 		connection->node->logger.try_log (boost::str (boost::format ("Requesting account %1% from %2%. %3% accounts in queue") % pull.account.to_account () % connection->channel->to_string () % connection->attempt->pulls.size ()));
 	}
 	else if (connection->node->config.logging.network_logging () && connection->attempt->should_log ())
 	{
-		std::unique_lock<std::mutex> lock (connection->attempt->mutex);
+		nano::unique_lock<std::mutex> lock (connection->attempt->mutex);
 		connection->node->logger.always_log (boost::str (boost::format ("%1% accounts in pull queue") % connection->attempt->pulls.size ()));
 	}
 	auto this_l (shared_from_this ());
@@ -274,7 +274,7 @@ pull_blocks (0)
 nano::bulk_pull_account_client::~bulk_pull_account_client ()
 {
 	{
-		std::lock_guard<std::mutex> mutex (connection->attempt->mutex);
+		nano::lock_guard<std::mutex> mutex (connection->attempt->mutex);
 		--connection->attempt->pulling;
 	}
 	connection->attempt->condition.notify_all ();
@@ -288,12 +288,12 @@ void nano::bulk_pull_account_client::request ()
 	req.flags = nano::bulk_pull_account_flags::pending_hash_and_amount;
 	if (connection->node->config.logging.bulk_pull_logging ())
 	{
-		std::unique_lock<std::mutex> lock (connection->attempt->mutex);
+		nano::unique_lock<std::mutex> lock (connection->attempt->mutex);
 		connection->node->logger.try_log (boost::str (boost::format ("Requesting pending for account %1% from %2%. %3% accounts in queue") % req.account.to_account () % connection->channel->to_string () % connection->attempt->wallet_accounts.size ()));
 	}
 	else if (connection->node->config.logging.network_logging () && connection->attempt->should_log ())
 	{
-		std::unique_lock<std::mutex> lock (connection->attempt->mutex);
+		nano::unique_lock<std::mutex> lock (connection->attempt->mutex);
 		connection->node->logger.always_log (boost::str (boost::format ("%1% accounts in pull queue") % connection->attempt->wallet_accounts.size ()));
 	}
 	auto this_l (shared_from_this ());
