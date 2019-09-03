@@ -940,17 +940,16 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block const & s
 					{
 						store.work_get (transaction, account, work_a);
 					}
-					nano::account_info info;
-					auto new_account (wallets.node.ledger.store.account_get (block_transaction, account, info));
-					if (!new_account)
+					auto state (wallets.node.ledger.account_state (block_transaction, account));
+					if (!state.head ().is_zero ())
 					{
-						std::shared_ptr<nano::block> rep_block = wallets.node.ledger.store.block_get (block_transaction, info.rep_block);
+						auto rep_block (wallets.node.ledger.store.block_get (block_transaction, state.rep ()));
 						assert (rep_block != nullptr);
-						block.reset (new nano::state_block (account, info.head, rep_block->representative (), info.balance.number () + pending_info.amount.number (), hash, prv, account, work_a));
+						block = std::make_shared<nano::state_block> (account, state.head (), rep_block->representative (), state.balance ().number () + pending_info.amount.number (), hash, prv, account, work_a);
 					}
 					else
 					{
-						block.reset (new nano::state_block (account, 0, representative_a, pending_info.amount, hash, prv, account, work_a));
+						block = std::make_shared<nano::state_block> (account, 0, representative_a, pending_info.amount, hash, prv, account, work_a);
 					}
 				}
 				else
@@ -1004,21 +1003,21 @@ std::shared_ptr<nano::block> nano::wallet::change_action (nano::account const & 
 		if (store.valid_password (transaction))
 		{
 			auto existing (store.find (transaction, source_a));
-			if (existing != store.end () && !wallets.node.ledger.latest (block_transaction, source_a).is_zero ())
+			if (existing != store.end ())
 			{
-				nano::account_info info;
-				auto error1 (wallets.node.ledger.store.account_get (block_transaction, source_a, info));
-				(void)error1;
-				assert (!error1);
-				nano::raw_key prv;
-				auto error2 (store.fetch (transaction, source_a, prv));
-				(void)error2;
-				assert (!error2);
-				if (work_a == 0)
+				auto state (wallets.node.ledger.account_state (block_transaction, source_a));
+				if (!state.head ().is_zero ())
 				{
-					store.work_get (transaction, source_a, work_a);
+					nano::raw_key prv;
+					auto error2 (store.fetch (transaction, source_a, prv));
+					(void)error2;
+					assert (!error2);
+					if (work_a == 0)
+					{
+						store.work_get (transaction, source_a, work_a);
+					}
+					block = std::make_shared<nano::state_block> (source_a, state.head (), representative_a, state.balance (), 0, prv, source_a, work_a);
 				}
-				block.reset (new nano::state_block (source_a, info.head, representative_a, info.balance, 0, prv, source_a, work_a));
 			}
 		}
 	}

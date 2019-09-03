@@ -1899,13 +1899,13 @@ void nano::json_handler::delegators ()
 		auto transaction (node.store.tx_begin_read ());
 		for (auto i (node.store.latest_begin (transaction)), n (node.store.latest_end ()); i != n; ++i)
 		{
-			nano::account_info const & info (i->second);
-			auto block (node.store.block_get (transaction, info.rep_block));
+			auto state (node.ledger.account_state (transaction, nano::account_info (i->second)));
+			auto block (node.store.block_get (transaction, state.rep ()));
 			assert (block != nullptr);
 			if (block->representative () == account)
 			{
 				std::string balance;
-				nano::uint128_union (info.balance).encode_dec (balance);
+				nano::uint128_union (state.balance ()).encode_dec (balance);
 				nano::account const & account (i->first);
 				delegators.put (account.to_account (), balance);
 			}
@@ -3378,10 +3378,10 @@ void nano::json_handler::send ()
 			{
 				if (wallet->store.find (transaction, source) != wallet->store.end ())
 				{
-					nano::account_info info;
-					if (!node.store.account_get (block_transaction, source, info))
+					auto state (node.ledger.account_state (block_transaction, source));
+					if (!state.head ().is_zero ())
 					{
-						balance = (info.balance).number ();
+						balance = state.balance ().number ();
 					}
 					else
 					{
@@ -3389,7 +3389,7 @@ void nano::json_handler::send ()
 					}
 					if (!ec && work)
 					{
-						if (nano::work_validate (info.head, work))
+						if (nano::work_validate (state.head (), work))
 						{
 							ec = nano::error_common::invalid_work;
 						}

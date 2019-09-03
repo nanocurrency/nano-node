@@ -33,7 +33,7 @@ public:
 		block_put (transaction_a, hash_l, *genesis_a.open, sideband);
 		confirmation_height_put (transaction_a, network_params.ledger.genesis_account, 1);
 		++cemented_count;
-		account_put (transaction_a, network_params.ledger.genesis_account, { hash_l, genesis_a.open->hash (), genesis_a.open->hash (), std::numeric_limits<nano::uint128_t>::max (), nano::epoch::epoch_0 });
+		account_put (transaction_a, network_params.ledger.genesis_account, { hash_l, genesis_a.open->hash (), genesis_a.open->hash (), nano::epoch::epoch_0 });
 		rep_weights.representation_put (network_params.ledger.genesis_account, std::numeric_limits<nano::uint128_t>::max ());
 		frontier_put (transaction_a, hash_l, network_params.ledger.genesis_account);
 	}

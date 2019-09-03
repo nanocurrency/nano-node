@@ -157,16 +157,16 @@ TEST (wallet, spend_all_one)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key2;
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::test_genesis_key.pub, key2.pub, std::numeric_limits<nano::uint128_t>::max ()));
-	nano::account_info info2;
+	nano::account_state state2;
 	{
 		auto transaction (system.nodes[0]->store.tx_begin_read ());
-		system.nodes[0]->store.account_get (transaction, nano::test_genesis_key.pub, info2);
-		ASSERT_NE (latest1, info2.head);
-		auto block (system.nodes[0]->store.block_get (transaction, info2.head));
+		state2 = system.nodes[0]->ledger.account_state (transaction, nano::test_genesis_key.pub);
+		ASSERT_NE (latest1, state2.head ());
+		auto block (system.nodes[0]->store.block_get (transaction, state2.head ()));
 		ASSERT_NE (nullptr, block);
 		ASSERT_EQ (latest1, block->previous ());
 	}
-	ASSERT_TRUE (info2.balance.is_zero ());
+	ASSERT_TRUE (state2.balance ().is_zero ());
 	ASSERT_EQ (0, system.nodes[0]->balance (nano::test_genesis_key.pub));
 }
 
@@ -197,16 +197,16 @@ TEST (wallet, spend)
 	// Sending from empty accounts should always be an error.  Accounts need to be opened with an open block, not a send block.
 	ASSERT_EQ (nullptr, system.wallet (0)->send_action (0, key2.pub, 0));
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::test_genesis_key.pub, key2.pub, std::numeric_limits<nano::uint128_t>::max ()));
-	nano::account_info info2;
+	nano::account_state state2;
 	{
 		auto transaction (system.nodes[0]->store.tx_begin_read ());
-		system.nodes[0]->store.account_get (transaction, nano::test_genesis_key.pub, info2);
-		ASSERT_NE (latest1, info2.head);
-		auto block (system.nodes[0]->store.block_get (transaction, info2.head));
+		state2 = system.nodes[0]->ledger.account_state (transaction, nano::test_genesis_key.pub);
+		ASSERT_NE (latest1, state2.head ());
+		auto block (system.nodes[0]->store.block_get (transaction, state2.head ()));
 		ASSERT_NE (nullptr, block);
 		ASSERT_EQ (latest1, block->previous ());
 	}
-	ASSERT_TRUE (info2.balance.is_zero ());
+	ASSERT_TRUE (state2.balance ().is_zero ());
 	ASSERT_EQ (0, system.nodes[0]->balance (nano::test_genesis_key.pub));
 }
 

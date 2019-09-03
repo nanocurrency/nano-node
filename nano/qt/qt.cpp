@@ -1961,12 +1961,12 @@ void nano_qt::advanced_actions::refresh_ledger ()
 	{
 		QList<QStandardItem *> items;
 		items.push_back (new QStandardItem (QString (nano::block_hash (i->first).to_account ().c_str ())));
-		nano::account_info const & info (i->second);
+		auto state (wallet.node.ledger.account_state (transaction, nano::account_info (i->second)));
 		std::string balance;
-		nano::amount (info.balance.number () / wallet.rendering_ratio).encode_dec (balance);
+		nano::amount (state.balance ().number () / wallet.rendering_ratio).encode_dec (balance);
 		items.push_back (new QStandardItem (QString (balance.c_str ())));
 		std::string block_hash;
-		info.head.encode_hex (block_hash);
+		state.head ().encode_hex (block_hash);
 		items.push_back (new QStandardItem (QString (block_hash.c_str ())));
 		ledger_model->appendRow (items);
 	}
@@ -2288,17 +2288,16 @@ void nano_qt::block_creation::create_receive ()
 				nano::pending_info pending;
 				if (!wallet.node.store.pending_get (block_transaction, pending_key, pending))
 				{
-					nano::account_info info;
-					auto error (wallet.node.store.account_get (block_transaction, pending_key.account, info));
-					if (!error)
+					auto state (wallet.node.ledger.account_state (block_transaction, pending_key.account));
+					if (!state.head ().is_zero ())
 					{
 						nano::raw_key key;
 						auto error (wallet.wallet_m->store.fetch (transaction, pending_key.account, key));
 						if (!error)
 						{
-							auto rep_block (wallet.node.store.block_get (block_transaction, info.rep_block));
+							auto rep_block (wallet.node.store.block_get (block_transaction, state.rep ()));
 							assert (rep_block != nullptr);
-							nano::state_block receive (pending_key.account, info.head, rep_block->representative (), info.balance.number () + pending.amount.number (), source_l, key, pending_key.account, 0);
+							nano::state_block receive (pending_key.account, state.head (), rep_block->representative (), state.balance ().number () + pending.amount.number (), source_l, key, pending_key.account, 0);
 							wallet.node.work_generate_blocking (receive);
 							std::string block_l;
 							receive.serialize_json (block_l);
@@ -2355,15 +2354,14 @@ void nano_qt::block_creation::create_change ()
 		{
 			auto transaction (wallet.node.wallets.tx_begin_read ());
 			auto block_transaction (wallet.node.store.tx_begin_read ());
-			nano::account_info info;
-			auto error (wallet.node.store.account_get (block_transaction, account_l, info));
-			if (!error)
+			auto state (wallet.node.ledger.account_state (block_transaction, account_l));
+			if (!state.head ().is_zero ())
 			{
 				nano::raw_key key;
 				auto error (wallet.wallet_m->store.fetch (transaction, account_l, key));
 				if (!error)
 				{
-					nano::state_block change (account_l, info.head, representative_l, info.balance, 0, key, account_l, 0);
+					nano::state_block change (account_l, state.head (), representative_l, state.balance (), 0, key, account_l, 0);
 					wallet.node.work_generate_blocking (change);
 					std::string block_l;
 					change.serialize_json (block_l);
