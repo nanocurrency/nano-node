@@ -862,7 +862,7 @@ int main (int argc, char * const * argv)
 					{
 						bool invalid (true);
 						// Epoch blocks
-						if (!node.node->ledger.epoch_link.is_zero () && block->type () == nano::block_type::state)
+						if (block->type () == nano::block_type::state)
 						{
 							auto & state_block (static_cast<nano::state_block &> (*block.get ()));
 							nano::amount prev_balance (0);
@@ -872,7 +872,7 @@ int main (int argc, char * const * argv)
 							}
 							if (node.node->ledger.is_epoch_link (state_block.hashables.link) && state_block.hashables.balance == prev_balance)
 							{
-								invalid = validate_message (node.node->ledger.epoch_signer, hash, block->block_signature ());
+								invalid = validate_message (node.node->ledger.signer (block->link ()), hash, block->block_signature ());
 							}
 						}
 						if (invalid)
