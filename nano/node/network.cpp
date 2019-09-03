@@ -718,42 +718,6 @@ std::shared_ptr<nano::transport::channel> nano::network::find_node_id (nano::acc
 	return result;
 }
 
-std::shared_ptr<nano::transport::channel> nano::network::find_response_channel (nano::tcp_endpoint const & endpoint_a, nano::account const & node_id_a)
-{
-	// Search by node ID
-	std::shared_ptr<nano::transport::channel> result (find_node_id (node_id_a));
-	if (!result)
-	{
-		// Search in response channels
-		auto channels_list (response_channels.search (endpoint_a));
-		// TCP
-		for (auto & i : channels_list)
-		{
-			auto search_channel (tcp_channels.find_channel (i));
-			if (search_channel != nullptr)
-			{
-				result = search_channel;
-				break;
-			}
-		}
-		// UDP
-		if (!result)
-		{
-			for (auto & i : channels_list)
-			{
-				auto udp_endpoint (nano::transport::map_tcp_to_endpoint (i));
-				auto search_channel (udp_channels.channel (udp_endpoint));
-				if (search_channel != nullptr)
-				{
-					result = search_channel;
-					break;
-				}
-			}
-		}
-	}
-	return result;
-}
-
 nano::endpoint nano::network::endpoint ()
 {
 	return udp_channels.get_local_endpoint ();
@@ -908,48 +872,6 @@ void nano::message_buffer_manager::stop ()
 		stopped = true;
 	}
 	condition.notify_all ();
-}
-
-void nano::response_channels::add (nano::tcp_endpoint const & endpoint_a, std::vector<nano::tcp_endpoint> insert_channels)
-{
-	nano::lock_guard<std::mutex> lock (response_channels_mutex);
-	channels.emplace (endpoint_a, insert_channels);
-}
-
-std::vector<nano::tcp_endpoint> nano::response_channels::search (nano::tcp_endpoint const & endpoint_a)
-{
-	std::vector<nano::tcp_endpoint> result;
-	nano::lock_guard<std::mutex> lock (response_channels_mutex);
-	auto existing (channels.find (endpoint_a));
-	if (existing != channels.end ())
-	{
-		result = existing->second;
-	}
-	return result;
-}
-
-void nano::response_channels::remove (nano::tcp_endpoint const & endpoint_a)
-{
-	nano::lock_guard<std::mutex> lock (response_channels_mutex);
-	channels.erase (endpoint_a);
-}
-
-size_t nano::response_channels::size ()
-{
-	nano::lock_guard<std::mutex> lock (response_channels_mutex);
-	return channels.size ();
-}
-
-std::unique_ptr<nano::seq_con_info_component> nano::response_channels::collect_seq_con_info (std::string const & name)
-{
-	size_t channels_count = 0;
-	{
-		nano::lock_guard<std::mutex> response_channels_guard (response_channels_mutex);
-		channels_count = channels.size ();
-	}
-	auto composite = std::make_unique<seq_con_info_composite> (name);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "channels", channels_count, sizeof (decltype (channels)::value_type) }));
-	return composite;
 }
 
 boost::optional<nano::uint256_union> nano::syn_cookies::assign (nano::endpoint const & endpoint_a)

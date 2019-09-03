@@ -70,7 +70,6 @@ public:
 	std::queue<std::unique_ptr<nano::message>> requests;
 	std::atomic<bool> stopped{ false };
 	std::atomic<nano::bootstrap_server_type> type{ nano::bootstrap_server_type::undefined };
-	std::atomic<bool> keepalive_first{ true };
 	// Remote enpoint used to remove response channel even after socket closing
 	nano::tcp_endpoint remote_endpoint{ boost::asio::ip::address_v6::any (), 0 };
 	nano::account remote_node_id{ 0 };

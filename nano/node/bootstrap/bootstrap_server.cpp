@@ -93,7 +93,6 @@ nano::bootstrap_server::~bootstrap_server ()
 	else if (type == nano::bootstrap_server_type::realtime)
 	{
 		--node->bootstrap.realtime_count;
-		node->network.response_channels.remove (remote_endpoint);
 		// Clear temporary channel
 		auto exisiting_response_channel (node->network.tcp_channels.find_channel (remote_endpoint));
 		if (exisiting_response_channel != nullptr)
@@ -521,15 +520,10 @@ public:
 	virtual ~request_response_visitor () = default;
 	void keepalive (nano::keepalive const & message_a) override
 	{
-		bool first_keepalive (connection->keepalive_first);
-		if (first_keepalive)
-		{
-			connection->keepalive_first = false;
-		}
 		connection->finish_request_async ();
 		auto connection_l (connection->shared_from_this ());
-		connection->node->background ([connection_l, message_a, first_keepalive]() {
-			connection_l->node->network.tcp_channels.process_keepalive (message_a, connection_l->remote_endpoint, first_keepalive);
+		connection->node->background ([connection_l, message_a]() {
+			connection_l->node->network.tcp_channels.process_keepalive (message_a, connection_l->remote_endpoint);
 		});
 	}
 	void publish (nano::publish const & message_a) override

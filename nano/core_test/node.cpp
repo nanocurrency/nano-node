@@ -2920,7 +2920,7 @@ TEST (node, peers)
 	}
 	// Wait to finish TCP node ID handshakes
 	system.deadline_set (10s);
-	while (system.nodes.back ()->network.response_channels.size () == 0 || system.nodes.front ()->network.response_channels.size () == 0)
+	while (system.nodes[0]->bootstrap.realtime_count == 0 || system.nodes[1]->bootstrap.realtime_count == 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
