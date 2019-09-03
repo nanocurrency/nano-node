@@ -51,9 +51,10 @@ TEST (ledger, genesis_balance)
 	ASSERT_EQ (nano::genesis_amount, amount);
 	nano::account_info info;
 	ASSERT_FALSE (store->account_get (transaction, nano::genesis_account, info));
+	nano::account_state state (transaction, *store, info);
 	// Frontier time should have been updated when genesis balance was added
-	ASSERT_GE (nano::seconds_since_epoch (), info.modified);
-	ASSERT_LT (nano::seconds_since_epoch () - info.modified, 10);
+	ASSERT_GE (nano::seconds_since_epoch (), state.modified ());
+	ASSERT_LT (nano::seconds_since_epoch () - state.modified (), 10);
 	// Genesis block should be confirmed by default
 	uint64_t confirmation_height;
 	ASSERT_FALSE (store->confirmation_height_get (transaction, nano::genesis_account, confirmation_height));

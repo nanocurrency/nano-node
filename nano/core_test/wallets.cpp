@@ -97,10 +97,11 @@ TEST (wallets, upgrade)
 		auto tx_destination = static_cast<MDB_txn *> (transaction_destination.get_handle ());
 		wallets.move_table (id.pub.to_string (), tx_source, tx_destination);
 		node1->store.version_put (transaction_destination, 11);
+		node1->stop ();
 
 		nano::account_info info;
 		ASSERT_FALSE (mdb_store.account_get (transaction_destination, nano::genesis_account, info));
-		nano::account_info_v13 account_info_v13 (info.head, info.rep_block, info.open_block, info.balance, info.modified, info.block_count, info.epoch ());
+		nano::account_info_v13 account_info_v13 (info.head, info.rep_block, info.open_block, info.balance, nano::seconds_since_epoch (), info.block_count, info.epoch ());
 		auto status (mdb_put (mdb_store.env.tx (transaction_destination), mdb_store.get_account_db (info.epoch ()) == nano::tables::accounts_v0 ? mdb_store.accounts_v0 : mdb_store.accounts_v1, nano::mdb_val (nano::test_genesis_key.pub), nano::mdb_val (account_info_v13), 0));
 		(void)status;
 		assert (status == 0);

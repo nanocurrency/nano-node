@@ -521,24 +521,24 @@ void nano::json_handler::account_info ()
 		const bool weight = request.get<bool> ("weight", false);
 		const bool pending = request.get<bool> ("pending", false);
 		auto transaction (node.store.tx_begin_read ());
-		nano::account_info info;
 		uint64_t confirmation_height;
-		auto error = node.store.account_get (transaction, account, info) | node.store.confirmation_height_get (transaction, account, confirmation_height);
+		auto state (node.ledger.account_state (transaction, account));
+		auto error = state.head ().is_zero () || node.store.confirmation_height_get (transaction, account, confirmation_height);
 		if (!error)
 		{
-			response_l.put ("frontier", info.head.to_string ());
-			response_l.put ("open_block", info.open_block.to_string ());
-			response_l.put ("representative_block", info.rep_block.to_string ());
+			response_l.put ("frontier", state.head ().to_string ());
+			response_l.put ("open_block", state.open ().to_string ());
+			response_l.put ("representative_block", state.rep ().to_string ());
 			std::string balance;
-			nano::uint128_union (info.balance).encode_dec (balance);
+			nano::uint128_union (state.balance ()).encode_dec (balance);
 			response_l.put ("balance", balance);
-			response_l.put ("modified_timestamp", std::to_string (info.modified));
-			response_l.put ("block_count", std::to_string (info.block_count));
-			response_l.put ("account_version", info.epoch () == nano::epoch::epoch_1 ? "1" : "0");
+			response_l.put ("modified_timestamp", std::to_string (state.modified ()));
+			response_l.put ("block_count", std::to_string (state.block_count ()));
+			response_l.put ("account_version", state.epoch () == nano::epoch::epoch_1 ? "1" : "0");
 			response_l.put ("confirmation_height", std::to_string (confirmation_height));
 			if (representative)
 			{
-				auto block (node.store.block_get (transaction, info.rep_block));
+				auto block (node.store.block_get (transaction, state.rep ()));
 				assert (block != nullptr);
 				response_l.put ("representative", block->representative ().to_account ());
 			}
@@ -2358,31 +2358,31 @@ void nano::json_handler::ledger ()
 		{
 			for (auto i (node.store.latest_begin (transaction, start)), n (node.store.latest_end ()); i != n && accounts.size () < count; ++i)
 			{
-				nano::account_info const & info (i->second);
-				if (info.modified >= modified_since && (pending || info.balance.number () >= threshold.number ()))
+				nano::account_state state (transaction, node.store, i->second);
+				if (state.modified () >= modified_since && (pending || state.balance ().number () >= threshold.number ()))
 				{
 					nano::account const & account (i->first);
 					boost::property_tree::ptree response_a;
 					if (pending)
 					{
 						auto account_pending (node.ledger.account_pending (transaction, account));
-						if (info.balance.number () + account_pending < threshold.number ())
+						if (state.balance ().number () + account_pending < threshold.number ())
 						{
 							continue;
 						}
 						response_a.put ("pending", account_pending.convert_to<std::string> ());
 					}
-					response_a.put ("frontier", info.head.to_string ());
-					response_a.put ("open_block", info.open_block.to_string ());
-					response_a.put ("representative_block", info.rep_block.to_string ());
+					response_a.put ("frontier", state.head ().to_string ());
+					response_a.put ("open_block", state.open ().to_string ());
+					response_a.put ("representative_block", state.rep ().to_string ());
 					std::string balance;
-					nano::uint128_union (info.balance).encode_dec (balance);
+					nano::uint128_union (state.balance ()).encode_dec (balance);
 					response_a.put ("balance", balance);
-					response_a.put ("modified_timestamp", std::to_string (info.modified));
-					response_a.put ("block_count", std::to_string (info.block_count));
+					response_a.put ("modified_timestamp", std::to_string (state.modified ()));
+					response_a.put ("block_count", std::to_string (state.block_count ()));
 					if (representative)
 					{
-						auto block (node.store.block_get (transaction, info.rep_block));
+						auto block (node.store.block_get (transaction, state.rep ()));
 						assert (block != nullptr);
 						response_a.put ("representative", block->representative ().to_account ());
 					}
@@ -2400,43 +2400,43 @@ void nano::json_handler::ledger ()
 			std::vector<std::pair<nano::uint128_union, nano::account>> ledger_l;
 			for (auto i (node.store.latest_begin (transaction, start)), n (node.store.latest_end ()); i != n; ++i)
 			{
-				nano::account_info const & info (i->second);
-				nano::uint128_union balance (info.balance);
-				if (info.modified >= modified_since)
+				nano::account_state state (transaction, node.store, i->second);
+				nano::uint128_union balance (state.balance ());
+				if (state.modified () >= modified_since)
 				{
 					ledger_l.emplace_back (balance, i->first);
 				}
 			}
 			std::sort (ledger_l.begin (), ledger_l.end ());
 			std::reverse (ledger_l.begin (), ledger_l.end ());
-			nano::account_info info;
 			for (auto i (ledger_l.begin ()), n (ledger_l.end ()); i != n && accounts.size () < count; ++i)
 			{
-				node.store.account_get (transaction, i->second, info);
-				if (pending || info.balance.number () >= threshold.number ())
+				nano::account_state state (transaction, node.store, i->second);
+				assert (!state.head ().is_zero ());
+				if (pending || state.balance ().number () >= threshold.number ())
 				{
 					nano::account const & account (i->second);
 					boost::property_tree::ptree response_a;
 					if (pending)
 					{
 						auto account_pending (node.ledger.account_pending (transaction, account));
-						if (info.balance.number () + account_pending < threshold.number ())
+						if (state.balance ().number () + account_pending < threshold.number ())
 						{
 							continue;
 						}
 						response_a.put ("pending", account_pending.convert_to<std::string> ());
 					}
-					response_a.put ("frontier", info.head.to_string ());
-					response_a.put ("open_block", info.open_block.to_string ());
-					response_a.put ("representative_block", info.rep_block.to_string ());
+					response_a.put ("frontier", state.head ().to_string ());
+					response_a.put ("open_block", state.open ().to_string ());
+					response_a.put ("representative_block", state.rep ().to_string ());
 					std::string balance;
 					(i->first).encode_dec (balance);
 					response_a.put ("balance", balance);
-					response_a.put ("modified_timestamp", std::to_string (info.modified));
-					response_a.put ("block_count", std::to_string (info.block_count));
+					response_a.put ("modified_timestamp", std::to_string (state.modified ()));
+					response_a.put ("block_count", std::to_string (state.block_count ()));
 					if (representative)
 					{
-						auto block (node.store.block_get (transaction, info.rep_block));
+						auto block (node.store.block_get (transaction, state.rep ()));
 						assert (block != nullptr);
 						response_a.put ("representative", block->representative ().to_account ());
 					}
@@ -4098,11 +4098,11 @@ void nano::json_handler::wallet_history ()
 		for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 		{
 			nano::account const & account (i->first);
-			nano::account_info info;
-			if (!node.store.account_get (block_transaction, account, info))
+			nano::account_state state (block_transaction, node.store, account);
+			if (!state.head ().is_zero ())
 			{
-				auto timestamp (info.modified);
-				auto hash (info.head);
+				auto timestamp (state.modified ());
+				auto hash (state.head ());
 				while (timestamp >= modified_since && !hash.is_zero ())
 				{
 					nano::block_sideband sideband;
@@ -4172,23 +4172,23 @@ void nano::json_handler::wallet_ledger ()
 		for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 		{
 			nano::account const & account (i->first);
-			nano::account_info info;
-			if (!node.store.account_get (block_transaction, account, info))
+			nano::account_state state (block_transaction, node.store, account);
+			if (!state.head ().is_zero ())
 			{
-				if (info.modified >= modified_since)
+				if (state.modified () >= modified_since)
 				{
 					boost::property_tree::ptree entry;
-					entry.put ("frontier", info.head.to_string ());
-					entry.put ("open_block", info.open_block.to_string ());
-					entry.put ("representative_block", info.rep_block.to_string ());
+					entry.put ("frontier", state.head ().to_string ());
+					entry.put ("open_block", state.open ().to_string ());
+					entry.put ("representative_block", state.rep ().to_string ());
 					std::string balance;
-					nano::uint128_union (info.balance).encode_dec (balance);
+					nano::uint128_union (state.balance ()).encode_dec (balance);
 					entry.put ("balance", balance);
-					entry.put ("modified_timestamp", std::to_string (info.modified));
-					entry.put ("block_count", std::to_string (info.block_count));
+					entry.put ("modified_timestamp", std::to_string (state.modified ()));
+					entry.put ("block_count", std::to_string (state.block_count ()));
 					if (representative)
 					{
-						auto block (node.store.block_get (block_transaction, info.rep_block));
+						auto block (node.store.block_get (block_transaction, state.rep ()));
 						assert (block != nullptr);
 						entry.put ("representative", block->representative ().to_account ());
 					}

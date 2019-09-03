@@ -19,10 +19,18 @@ class account_state final
 {
 public:
 	account_state (nano::transaction const &, nano::block_store &, nano::account const &);
-	std::shared_ptr<nano::block> head () const;
+	account_state (nano::transaction const &, nano::block_store &, nano::account_info const &);
+	nano::uint256_union head () const;
+	nano::uint256_union rep () const;
+	nano::uint256_union open () const;
+	nano::amount balance () const;
+	uint64_t block_count () const;
+	std::shared_ptr<nano::block> block () const;
+	uint64_t modified () const;
+	nano::epoch epoch () const;
 private:
 	nano::account_info info;
-	std::shared_ptr<nano::block> block;
+	std::shared_ptr<nano::block> block_m;
 	nano::block_sideband sideband;
 };
 using tally_t = std::map<nano::uint128_t, std::shared_ptr<nano::block>, std::greater<nano::uint128_t>>;
