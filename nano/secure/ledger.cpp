@@ -688,6 +688,15 @@ bool nano::shared_ptr_block_hash::operator() (std::shared_ptr<nano::block> const
 	return lhs->hash () == rhs->hash ();
 }
 
+nano::account_state::account_state (nano::transaction const & transaction_a, nano::block_store & store_a, nano::account const & account_a)
+{
+	auto error (store_a.account_get (transaction_a, account_a, info));
+	if (!error)
+	{
+		block = store_a.block_get (transaction_a, info.head, &sideband);
+	}
+}
+
 nano::ledger::ledger (nano::block_store & store_a, nano::stat & stat_a, bool cache_reps_a, bool cache_cemented_count_a) :
 store (store_a),
 stats (stat_a),
@@ -1037,6 +1046,12 @@ nano::account nano::ledger::signer (nano::uint256_union const & link_a) const
 nano::uint256_union nano::ledger::link (nano::epoch epoch_a) const
 {
 	return network_params.ledger.epochs.link (nano::epoch::epoch_1);
+}
+
+nano::account_state nano::ledger::account_state (nano::transaction const & transaction_a, nano::account const & account_a)
+{
+	nano::account_state result (transaction_a, store, account_a);
+	return result;
 }
 
 void nano::ledger::change_latest (nano::write_transaction const & transaction_a, nano::account const & account_a, nano::account_info const & old_a, nano::account_info const & new_a)

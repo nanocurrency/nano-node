@@ -15,6 +15,16 @@ public:
 	size_t operator() (std::shared_ptr<nano::block> const &) const;
 	bool operator() (std::shared_ptr<nano::block> const &, std::shared_ptr<nano::block> const &) const;
 };
+class account_state final
+{
+public:
+	account_state (nano::transaction const &, nano::block_store &, nano::account const &);
+	std::shared_ptr<nano::block> head () const;
+private:
+	nano::account_info info;
+	std::shared_ptr<nano::block> block;
+	nano::block_sideband sideband;
+};
 using tally_t = std::map<nano::uint128_t, std::shared_ptr<nano::block>, std::greater<nano::uint128_t>>;
 class ledger final
 {
@@ -44,6 +54,7 @@ public:
 	nano::process_return process (nano::write_transaction const &, nano::block const &, nano::signature_verification = nano::signature_verification::unknown);
 	bool rollback (nano::write_transaction const &, nano::block_hash const &, std::vector<std::shared_ptr<nano::block>> &);
 	bool rollback (nano::write_transaction const &, nano::block_hash const &);
+	nano::account_state account_state (nano::transaction const &, nano::account const &);
 	void change_latest (nano::write_transaction const &, nano::account const &, nano::account_info const &, nano::account_info const &);
 	void dump_account_chain (nano::account const &);
 	bool could_fit (nano::transaction const &, nano::block const &);
