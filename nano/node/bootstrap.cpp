@@ -608,8 +608,7 @@ void nano::bulk_push_client::push (nano::transaction const & transaction_a)
 
 void nano::bulk_push_client::send_finished ()
 {
-	auto buffer (std::make_shared<std::vector<uint8_t>> ());
-	buffer->push_back (static_cast<uint8_t> (nano::block_type::not_a_block));
+	nano::shared_const_buffer buffer (static_cast<uint8_t> (nano::block_type::not_a_block));
 	auto this_l (shared_from_this ());
 	connection->channel->send_buffer (buffer, nano::stat::detail::all, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		try
@@ -624,13 +623,13 @@ void nano::bulk_push_client::send_finished ()
 
 void nano::bulk_push_client::push_block (nano::block const & block_a)
 {
-	auto buffer (std::make_shared<std::vector<uint8_t>> ());
+	std::vector<uint8_t> buffer;
 	{
-		nano::vectorstream stream (*buffer);
+		nano::vectorstream stream (buffer);
 		nano::serialize_block (stream, block_a);
 	}
 	auto this_l (shared_from_this ());
-	connection->channel->send_buffer (buffer, nano::stat::detail::all, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->channel->send_buffer (nano::shared_const_buffer (std::move (buffer)), nano::stat::detail::all, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
 			auto transaction (this_l->connection->node->store.tx_begin_read ());
@@ -983,10 +982,9 @@ void nano::bootstrap_attempt::run ()
 
 std::shared_ptr<nano::bootstrap_client> nano::bootstrap_attempt::connection (std::unique_lock<std::mutex> & lock_a)
 {
-	while (!stopped && idle.empty ())
-	{
-		condition.wait (lock_a);
-	}
+	// clang-format off
+	condition.wait (lock_a, [& stopped = stopped, &idle = idle] { return stopped || !idle.empty (); });
+	// clang-format on
 	std::shared_ptr<nano::bootstrap_client> result;
 	if (!idle.empty ())
 	{
@@ -1688,10 +1686,12 @@ void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bo
 	std::unique_lock<std::mutex> lock (mutex);
 	if (!stopped)
 	{
-		while (attempt != nullptr)
+		if (attempt != nullptr)
 		{
 			attempt->stop ();
-			condition.wait (lock);
+			// clang-format off
+			condition.wait (lock, [attempt = attempt, &stopped = stopped] { return stopped || attempt == nullptr; });
+			// clang-format on
 		}
 		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out);
 		attempt = std::make_shared<nano::bootstrap_attempt> (node.shared ());
@@ -1706,10 +1706,12 @@ void nano::bootstrap_initiator::bootstrap_lazy (nano::block_hash const & hash_a,
 		std::unique_lock<std::mutex> lock (mutex);
 		if (force)
 		{
-			while (attempt != nullptr)
+			if (attempt != nullptr)
 			{
 				attempt->stop ();
-				condition.wait (lock);
+				// clang-format off
+				condition.wait (lock, [attempt = attempt, &stopped = stopped] { return stopped || attempt == nullptr; });
+				// clang-format on
 			}
 		}
 		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate_lazy, nano::stat::dir::out);
@@ -2423,9 +2425,9 @@ public:
 			assert (!nano::validate_message (response->first, *message_a.query, response->second));
 			auto cookie (connection->node->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (connection->remote_endpoint)));
 			nano::node_id_handshake response_message (cookie, response);
-			auto bytes = response_message.to_bytes ();
+			auto shared_const_buffer = response_message.to_shared_const_buffer ();
 			// clang-format off
-			connection->socket->async_write (bytes, [ bytes, connection = connection ](boost::system::error_code const & ec, size_t size_a) {
+			connection->socket->async_write (shared_const_buffer, [connection = connection ](boost::system::error_code const & ec, size_t size_a) {
 				if (ec)
 				{
 					if (connection->node->config.logging.network_node_id_handshake_logging ())
@@ -2577,9 +2579,9 @@ void nano::bulk_pull_server::send_next ()
 	auto block (get_next ());
 	if (block != nullptr)
 	{
+		std::vector<uint8_t> send_buffer;
 		{
-			send_buffer->clear ();
-			nano::vectorstream stream (*send_buffer);
+			nano::vectorstream stream (send_buffer);
 			nano::serialize_block (stream, *block);
 		}
 		auto this_l (shared_from_this ());
@@ -2587,7 +2589,7 @@ void nano::bulk_pull_server::send_next ()
 		{
 			connection->node->logger.try_log (boost::str (boost::format ("Sending block: %1%") % block->hash ().to_string ()));
 		}
-		connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
+		connection->socket->async_write (nano::shared_const_buffer (std::move (send_buffer)), [this_l](boost::system::error_code const & ec, size_t size_a) {
 			this_l->sent_action (ec, size_a);
 		});
 	}
@@ -2686,8 +2688,7 @@ void nano::bulk_pull_server::sent_action (boost::system::error_code const & ec, 
 
 void nano::bulk_pull_server::send_finished ()
 {
-	send_buffer->clear ();
-	send_buffer->push_back (static_cast<uint8_t> (nano::block_type::not_a_block));
+	nano::shared_const_buffer send_buffer (static_cast<uint8_t> (nano::block_type::not_a_block));
 	auto this_l (shared_from_this ());
 	if (connection->node->config.logging.bulk_pull_logging ())
 	{
@@ -2716,8 +2717,7 @@ void nano::bulk_pull_server::no_block_sent (boost::system::error_code const & ec
 
 nano::bulk_pull_server::bulk_pull_server (std::shared_ptr<nano::bootstrap_server> const & connection_a, std::unique_ptr<nano::bulk_pull> request_a) :
 connection (connection_a),
-request (std::move (request_a)),
-send_buffer (std::make_shared<std::vector<uint8_t>> ())
+request (std::move (request_a))
 {
 	set_current_end ();
 }
@@ -2787,17 +2787,16 @@ void nano::bulk_pull_account_server::send_frontier ()
 		nano::uint128_union account_frontier_balance (account_frontier_balance_int);
 
 		// Write the frontier block hash and balance into a buffer
-		send_buffer->clear ();
+		std::vector<uint8_t> send_buffer;
 		{
-			nano::vectorstream output_stream (*send_buffer);
-
+			nano::vectorstream output_stream (send_buffer);
 			write (output_stream, account_frontier_hash.bytes);
 			write (output_stream, account_frontier_balance.bytes);
 		}
 
 		// Send the buffer to the requestor
 		auto this_l (shared_from_this ());
-		connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
+		connection->socket->async_write (nano::shared_const_buffer (std::move (send_buffer)), [this_l](boost::system::error_code const & ec, size_t size_a) {
 			this_l->sent_action (ec, size_a);
 		});
 	}
@@ -2818,11 +2817,11 @@ void nano::bulk_pull_account_server::send_next_block ()
 		/*
 		 * If we have a new item, emit it to the socket
 		 */
-		send_buffer->clear ();
 
+		std::vector<uint8_t> send_buffer;
 		if (pending_address_only)
 		{
-			nano::vectorstream output_stream (*send_buffer);
+			nano::vectorstream output_stream (send_buffer);
 
 			if (connection->node->config.logging.bulk_pull_logging ())
 			{
@@ -2833,7 +2832,7 @@ void nano::bulk_pull_account_server::send_next_block ()
 		}
 		else
 		{
-			nano::vectorstream output_stream (*send_buffer);
+			nano::vectorstream output_stream (send_buffer);
 
 			if (connection->node->config.logging.bulk_pull_logging ())
 			{
@@ -2853,7 +2852,7 @@ void nano::bulk_pull_account_server::send_next_block ()
 		}
 
 		auto this_l (shared_from_this ());
-		connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
+		connection->socket->async_write (nano::shared_const_buffer (std::move (send_buffer)), [this_l](boost::system::error_code const & ec, size_t size_a) {
 			this_l->sent_action (ec, size_a);
 		});
 	}
@@ -2975,10 +2974,9 @@ void nano::bulk_pull_account_server::send_finished ()
 	 * "pending_include_address" flag is not set) or 640-bits of zeros
 	 * (if that flag is set).
 	 */
-	send_buffer->clear ();
-
+	std::vector<uint8_t> send_buffer;
 	{
-		nano::vectorstream output_stream (*send_buffer);
+		nano::vectorstream output_stream (send_buffer);
 		nano::uint256_union account_zero (0);
 		nano::uint128_union balance_zero (0);
 
@@ -3001,7 +2999,7 @@ void nano::bulk_pull_account_server::send_finished ()
 		connection->node->logger.try_log ("Bulk sending for an account finished");
 	}
 
-	connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->socket->async_write (nano::shared_const_buffer (std::move (send_buffer)), [this_l](boost::system::error_code const & ec, size_t size_a) {
 		this_l->complete (ec, size_a);
 	});
 }
@@ -3040,7 +3038,6 @@ void nano::bulk_pull_account_server::complete (boost::system::error_code const &
 nano::bulk_pull_account_server::bulk_pull_account_server (std::shared_ptr<nano::bootstrap_server> const & connection_a, std::unique_ptr<nano::bulk_pull_account> request_a) :
 connection (connection_a),
 request (std::move (request_a)),
-send_buffer (std::make_shared<std::vector<uint8_t>> ()),
 current_key (0, 0)
 {
 	/*
@@ -3190,7 +3187,6 @@ connection (connection_a),
 current (request_a->start.number () - 1),
 frontier (0),
 request (std::move (request_a)),
-send_buffer (std::make_shared<std::vector<uint8_t>> ()),
 count (0)
 {
 	next ();
@@ -3200,9 +3196,9 @@ void nano::frontier_req_server::send_next ()
 {
 	if (!current.is_zero () && count < request->count)
 	{
+		std::vector<uint8_t> send_buffer;
 		{
-			send_buffer->clear ();
-			nano::vectorstream stream (*send_buffer);
+			nano::vectorstream stream (send_buffer);
 			write (stream, current.bytes);
 			write (stream, frontier.bytes);
 		}
@@ -3212,7 +3208,7 @@ void nano::frontier_req_server::send_next ()
 			connection->node->logger.try_log (boost::str (boost::format ("Sending frontier for %1% %2%") % current.to_account () % frontier.to_string ()));
 		}
 		next ();
-		connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
+		connection->socket->async_write (nano::shared_const_buffer (std::move (send_buffer)), [this_l](boost::system::error_code const & ec, size_t size_a) {
 			this_l->sent_action (ec, size_a);
 		});
 	}
@@ -3224,9 +3220,9 @@ void nano::frontier_req_server::send_next ()
 
 void nano::frontier_req_server::send_finished ()
 {
+	std::vector<uint8_t> send_buffer;
 	{
-		send_buffer->clear ();
-		nano::vectorstream stream (*send_buffer);
+		nano::vectorstream stream (send_buffer);
 		nano::uint256_union zero (0);
 		write (stream, zero.bytes);
 		write (stream, zero.bytes);
@@ -3236,7 +3232,7 @@ void nano::frontier_req_server::send_finished ()
 	{
 		connection->node->logger.try_log ("Frontier sending finished");
 	}
-	connection->socket->async_write (send_buffer, [this_l](boost::system::error_code const & ec, size_t size_a) {
+	connection->socket->async_write (nano::shared_const_buffer (std::move (send_buffer)), [this_l](boost::system::error_code const & ec, size_t size_a) {
 		this_l->no_block_sent (ec, size_a);
 	});
 }

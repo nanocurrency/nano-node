@@ -21,6 +21,7 @@ public:
 	nano::observer_set<std::shared_ptr<nano::transport::channel>> endpoint;
 	nano::observer_set<> disconnect;
 	nano::observer_set<uint64_t> difficulty;
+	nano::observer_set<nano::block_hash const &> work_cancel;
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (node_observers & node_observers, const std::string & name);

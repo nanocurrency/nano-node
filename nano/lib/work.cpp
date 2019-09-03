@@ -170,7 +170,10 @@ void nano::work_pool::cancel (nano::uint256_union const & root_a)
 			bool result;
 			if (item_a.item == root_a)
 			{
-				item_a.callback (boost::none);
+				if (item_a.callback)
+				{
+					item_a.callback (boost::none);
+				}
 				result = true;
 			}
 			else
@@ -225,6 +228,12 @@ uint64_t nano::work_pool::generate (nano::uint256_union const & hash_a, uint64_t
 	// clang-format on
 	auto result (future.get ());
 	return result.value ();
+}
+
+size_t nano::work_pool::size ()
+{
+	std::lock_guard<std::mutex> lock (mutex);
+	return pending.size ();
 }
 
 namespace nano

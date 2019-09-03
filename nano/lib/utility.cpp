@@ -250,7 +250,6 @@ void nano::worker::run ()
 			// So that we reduce locking for anything being pushed as that will
 			// most likely be on an io-thread
 			std::this_thread::yield ();
-			lk.lock ();
 		}
 		else
 		{
@@ -296,6 +295,30 @@ std::unique_ptr<nano::seq_con_info_component> nano::collect_seq_con_info (nano::
 	auto sizeof_element = sizeof (decltype (worker.queue)::value_type);
 	composite->add_component (std::make_unique<nano::seq_con_info_leaf> (nano::seq_con_info{ "queue", count, sizeof_element }));
 	return composite;
+}
+
+void nano::remove_all_files_in_dir (boost::filesystem::path const & dir)
+{
+	for (auto & p : boost::filesystem::directory_iterator (dir))
+	{
+		auto path = p.path ();
+		if (boost::filesystem::is_regular_file (path))
+		{
+			boost::filesystem::remove (path);
+		}
+	}
+}
+
+void nano::move_all_files_to_dir (boost::filesystem::path const & from, boost::filesystem::path const & to)
+{
+	for (auto & p : boost::filesystem::directory_iterator (from))
+	{
+		auto path = p.path ();
+		if (boost::filesystem::is_regular_file (path))
+		{
+			boost::filesystem::rename (path, to / path.filename ());
+		}
+	}
 }
 
 /*
