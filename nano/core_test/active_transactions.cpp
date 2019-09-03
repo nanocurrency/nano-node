@@ -422,12 +422,16 @@ TEST (active_transactions, inactive_votes_cache)
 
 TEST (active_transactions, inactive_votes_cache_existing_vote)
 {
-	nano::system system (24000, 1);
-	auto node (system.nodes[0]);
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto node = system.add_node (node_config);
 	nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
 	nano::keypair key;
-	auto send (std::make_shared<nano::send_block> (latest, key.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest)));
+	auto send (std::make_shared<nano::send_block> (latest, key.pub, nano::genesis_amount - 100 * nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest)));
+	auto open (std::make_shared<nano::state_block> (key.pub, 0, key.pub, 100 * nano::Gxrb_ratio, send->hash (), key.prv, key.pub, system.work.generate (key.pub))); // Increase key weight
 	node->process_active (send);
+	node->block_processor.add (open);
 	node->block_processor.flush ();
 	system.deadline_set (5s);
 	while (node->active.size () != 1)
@@ -441,6 +445,7 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 		ASSERT_NE (node->active.roots.end (), it);
 		election = it->election;
 	}
+	ASSERT_GT (node->weight (key.pub), node->minimum_principal_weight ());
 	// Insert vote
 	auto vote1 (std::make_shared<nano::vote> (key.pub, key.prv, 1, std::vector<nano::block_hash> (1, send->hash ())));
 	node->vote_processor.vote (vote1, std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, system.nodes[0]->network.endpoint (), system.nodes[0]->network_params.protocol.protocol_version));
@@ -473,27 +478,32 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 
 TEST (active_transactions, inactive_votes_cache_multiple_votes)
 {
-	nano::system system (24000, 1);
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto node = system.add_node (node_config);
 	nano::block_hash latest (system.nodes[0]->latest (nano::test_genesis_key.pub));
 	nano::keypair key1;
-	nano::keypair key2;
-	auto send (std::make_shared<nano::send_block> (latest, key1.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest)));
-	auto vote1 (std::make_shared<nano::vote> (key1.pub, key1.prv, 0, std::vector<nano::block_hash> (1, send->hash ())));
+	auto send1 (std::make_shared<nano::send_block> (latest, key1.pub, nano::genesis_amount - 100 * nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest)));
+	auto send2 (std::make_shared<nano::send_block> (send1->hash (), key1.pub, 100 * nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send1->hash ()))); // Decrease genesis weight to prevent election confirmation
+	auto open (std::make_shared<nano::state_block> (key1.pub, 0, key1.pub, 100 * nano::Gxrb_ratio, send1->hash (), key1.prv, key1.pub, system.work.generate (key1.pub))); // Increase key1 weight
+	node->block_processor.add (send1);
+	node->block_processor.add (send2);
+	node->block_processor.add (open);
+	node->block_processor.flush ();
+	// Process votes
+	auto vote1 (std::make_shared<nano::vote> (key1.pub, key1.prv, 0, std::vector<nano::block_hash> (1, send1->hash ())));
 	system.nodes[0]->vote_processor.vote (vote1, std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, system.nodes[0]->network.endpoint (), system.nodes[0]->network_params.protocol.protocol_version));
-	auto vote2 (std::make_shared<nano::vote> (key2.pub, key2.prv, 0, std::vector<nano::block_hash> (1, send->hash ())));
+	auto vote2 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, std::vector<nano::block_hash> (1, send1->hash ())));
 	system.nodes[0]->vote_processor.vote (vote2, std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, system.nodes[0]->network.endpoint (), system.nodes[0]->network_params.protocol.protocol_version));
 	system.deadline_set (5s);
-	while (system.nodes[0]->active.find_inactive_votes_cache (send->hash ()).voters.size () != 2)
+	while (system.nodes[0]->active.find_inactive_votes_cache (send1->hash ()).voters.size () != 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (1, system.nodes[0]->active.inactive_votes_cache_size ());
-	system.nodes[0]->process_active (send);
-	system.nodes[0]->block_processor.flush ();
-	while (system.nodes[0]->active.size () != 1)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	// Start election
+	system.nodes[0]->active.start (send1);
 	{
 		std::lock_guard<std::mutex> active_guard (system.nodes[0]->active.mutex);
 		auto it (system.nodes[0]->active.roots.begin ());
