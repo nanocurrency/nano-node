@@ -1625,26 +1625,30 @@ TEST (confirmation_height, multiple_accounts)
 			ASSERT_NO_ERROR (system.poll ());
 		}
 
-		nano::account_info account_info;
+		nano::account_state state;
 		uint64_t confirmation_height;
 		auto & store = node->store;
 		auto transaction = node->store.tx_begin_read ();
-		ASSERT_FALSE (store.account_get (transaction, nano::test_genesis_key.pub, account_info));
+		state = node->ledger.account_state (transaction, nano::test_genesis_key.pub);
+		ASSERT_FALSE (state.head ().is_zero ());
 		ASSERT_FALSE (node->store.confirmation_height_get (transaction, nano::test_genesis_key.pub, confirmation_height));
 		ASSERT_EQ (4, confirmation_height);
-		ASSERT_EQ (4, account_info.block_count);
-		ASSERT_FALSE (store.account_get (transaction, key1.pub, account_info));
+		ASSERT_EQ (4, state.block_count ());
+		state = node->ledger.account_state (transaction, key1.pub);
+		ASSERT_FALSE (state.head ().is_zero ());
 		ASSERT_FALSE (node->store.confirmation_height_get (transaction, key1.pub, confirmation_height));
 		ASSERT_EQ (2, confirmation_height);
-		ASSERT_EQ (3, account_info.block_count);
-		ASSERT_FALSE (store.account_get (transaction, key2.pub, account_info));
+		ASSERT_EQ (3, state.block_count ());
+		state = node->ledger.account_state (transaction, key2.pub);
+		ASSERT_FALSE (state.head ().is_zero ());
 		ASSERT_FALSE (node->store.confirmation_height_get (transaction, key2.pub, confirmation_height));
 		ASSERT_EQ (3, confirmation_height);
-		ASSERT_EQ (4, account_info.block_count);
-		ASSERT_FALSE (store.account_get (transaction, key3.pub, account_info));
+		ASSERT_EQ (4, state.block_count ());
+		state = node->ledger.account_state (transaction, key3.pub);
+		ASSERT_FALSE (state.head ().is_zero ());
 		ASSERT_FALSE (node->store.confirmation_height_get (transaction, key3.pub, confirmation_height));
 		ASSERT_EQ (2, confirmation_height);
-		ASSERT_EQ (2, account_info.block_count);
+		ASSERT_EQ (2, state.block_count ());
 
 		// The accounts for key1 and key2 have 1 more block in the chain than is confirmed.
 		// So this can be rolled back, but the one before that cannot. Check that this is the case
@@ -1881,17 +1885,19 @@ TEST (confirmation_height, send_receive_between_2_accounts)
 
 	auto transaction (node->store.tx_begin_read ());
 
-	nano::account_info account_info;
+	nano::account_state state;
 	uint64_t confirmation_height;
-	ASSERT_FALSE (node->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
+	state = node->ledger.account_state (transaction, nano::test_genesis_key.pub);
+	ASSERT_FALSE (state.head ().is_zero ());
 	ASSERT_FALSE (node->store.confirmation_height_get (transaction, nano::test_genesis_key.pub, confirmation_height));
 	ASSERT_EQ (6, confirmation_height);
-	ASSERT_EQ (7, account_info.block_count);
+	ASSERT_EQ (7, state.block_count ());
 
-	ASSERT_FALSE (node->store.account_get (transaction, key1.pub, account_info));
+	state = node->ledger.account_state (transaction, key1.pub);
+	ASSERT_FALSE (state.head ().is_zero ());
 	ASSERT_FALSE (node->store.confirmation_height_get (transaction, key1.pub, confirmation_height));
 	ASSERT_EQ (5, confirmation_height);
-	ASSERT_EQ (5, account_info.block_count);
+	ASSERT_EQ (5, state.block_count ());
 
 	ASSERT_EQ (10, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
 	ASSERT_EQ (10, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out));
@@ -1947,12 +1953,12 @@ TEST (confirmation_height, send_receive_self)
 	}
 
 	auto transaction (node->store.tx_begin_read ());
-	nano::account_info account_info;
-	ASSERT_FALSE (node->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
+	auto state (node->ledger.account_state (transaction, nano::test_genesis_key.pub));
+	ASSERT_FALSE (state.head ().is_zero ());
 	uint64_t confirmation_height;
 	ASSERT_FALSE (node->store.confirmation_height_get (transaction, nano::test_genesis_key.pub, confirmation_height));
 	ASSERT_EQ (7, confirmation_height);
-	ASSERT_EQ (8, account_info.block_count);
+	ASSERT_EQ (8, state.block_count ());
 	ASSERT_EQ (6, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
 	ASSERT_EQ (6, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out));
 	ASSERT_EQ (confirmation_height, node->ledger.cemented_count);
@@ -2041,22 +2047,25 @@ TEST (confirmation_height, all_block_types)
 	}
 
 	auto transaction (node->store.tx_begin_read ());
-	nano::account_info account_info;
+	nano::account_state state;
 	uint64_t confirmation_height;
-	ASSERT_FALSE (node->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
+	state = node->ledger.account_state (transaction, nano::test_genesis_key.pub);
+	ASSERT_FALSE (state.head ().is_zero ());
 	ASSERT_FALSE (node->store.confirmation_height_get (transaction, nano::test_genesis_key.pub, confirmation_height));
 	ASSERT_EQ (3, confirmation_height);
-	ASSERT_LE (4, account_info.block_count);
+	ASSERT_LE (4, state.block_count ());
 
-	ASSERT_FALSE (node->store.account_get (transaction, key1.pub, account_info));
+	state = node->ledger.account_state (transaction, key1.pub);
+	ASSERT_FALSE (state.head ().is_zero ());
 	ASSERT_FALSE (node->store.confirmation_height_get (transaction, key1.pub, confirmation_height));
 	ASSERT_EQ (6, confirmation_height);
-	ASSERT_LE (7, account_info.block_count);
+	ASSERT_LE (7, state.block_count ());
 
-	ASSERT_FALSE (node->store.account_get (transaction, key2.pub, account_info));
+	state = node->ledger.account_state (transaction, key2.pub);
+	ASSERT_FALSE (state.head ().is_zero ());
 	ASSERT_FALSE (node->store.confirmation_height_get (transaction, key2.pub, confirmation_height));
 	ASSERT_EQ (7, confirmation_height);
-	ASSERT_LE (8, account_info.block_count);
+	ASSERT_LE (8, state.block_count ());
 
 	ASSERT_EQ (15, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
 	ASSERT_EQ (15, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out));

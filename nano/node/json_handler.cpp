@@ -441,10 +441,10 @@ void nano::json_handler::account_block_count ()
 	if (!ec)
 	{
 		auto transaction (node.store.tx_begin_read ());
-		nano::account_info info;
-		if (!node.store.account_get (transaction, account, info))
+		auto state (node.ledger.account_state (transaction, account));
+		if (!state.head ().is_zero ())
 		{
-			response_l.put ("block_count", std::to_string (info.block_count));
+			response_l.put ("block_count", std::to_string (state.block_count ()));
 		}
 		else
 		{

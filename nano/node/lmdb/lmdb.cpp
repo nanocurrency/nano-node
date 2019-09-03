@@ -481,7 +481,7 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction const & transa
 	for (; i != n; ++i)
 	{
 		auto const & account_info_v14 (i->second);
-		account_infos.emplace_back (i->first, nano::account_info{ account_info_v14.head, account_info_v14.rep_block, account_info_v14.open_block, account_info_v14.balance, account_info_v14.block_count, account_info_v14.epoch });
+		account_infos.emplace_back (i->first, nano::account_info{ account_info_v14.head, account_info_v14.rep_block, account_info_v14.open_block, account_info_v14.balance, account_info_v14.epoch });
 		confirmation_height_put (transaction_a, i->first, i->second.confirmation_height);
 	}
 

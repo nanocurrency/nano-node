@@ -59,7 +59,7 @@ class account_info final
 {
 public:
 	account_info () = default;
-	account_info (nano::block_hash const &, nano::block_hash const &, nano::block_hash const &, nano::amount const &, uint64_t, epoch);
+	account_info (nano::block_hash const &, nano::block_hash const &, nano::block_hash const &, nano::amount const &, epoch);
 	bool deserialize (nano::stream &);
 	bool operator== (nano::account_info const &) const;
 	bool operator!= (nano::account_info const &) const;
@@ -69,10 +69,7 @@ public:
 	nano::block_hash rep_block{ 0 };
 	nano::block_hash open_block{ 0 };
 	nano::amount balance{ 0 };
-	/** Seconds since posix epoch */
-	uint64_t block_count{ 0 };
 	nano::epoch epoch_m{ nano::epoch::epoch_0 };
-	uint64_t modified_m{ 0 };
 };
 
 /**

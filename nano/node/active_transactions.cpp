@@ -71,17 +71,16 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 				auto cementable_account = *cementable_account_front_it;
 				cementable_frontiers.get<1> ().erase (cementable_account_front_it);
 				lk.unlock ();
-				nano::account_info info;
-				auto error = node.store.account_get (transaction_a, cementable_account.account, info);
-				if (!error)
+				auto state (node.ledger.account_state (transaction_a, cementable_account.account));
+				if (!state.head ().is_zero ())
 				{
 					uint64_t confirmation_height;
-					error = node.store.confirmation_height_get (transaction_a, cementable_account.account, confirmation_height);
+					auto error (node.store.confirmation_height_get (transaction_a, cementable_account.account, confirmation_height));
 					release_assert (!error);
 
-					if (info.block_count > confirmation_height && !this->node.pending_confirmation_height.is_processing_block (info.head))
+					if (state.block_count () > confirmation_height && !this->node.pending_confirmation_height.is_processing_block (state.head ()))
 					{
-						auto block (this->node.store.block_get (transaction_a, info.head));
+						auto block (this->node.store.block_get (transaction_a, state.head ()));
 						if (!this->start (block))
 						{
 							++elections_count;
@@ -342,11 +341,11 @@ void nano::active_transactions::request_loop ()
 	}
 }
 
-void nano::active_transactions::prioritize_account_for_confirmation (nano::active_transactions::prioritize_num_uncemented & cementable_frontiers_a, size_t & cementable_frontiers_size_a, nano::account const & account_a, nano::account_info const & info_a, uint64_t confirmation_height)
+void nano::active_transactions::prioritize_account_for_confirmation (nano::active_transactions::prioritize_num_uncemented & cementable_frontiers_a, size_t & cementable_frontiers_size_a, nano::account const & account_a, nano::account_state const & state_a, uint64_t confirmation_height)
 {
-	if (info_a.block_count > confirmation_height && !node.pending_confirmation_height.is_processing_block (info_a.head))
+	if (state_a.block_count () > confirmation_height && !node.pending_confirmation_height.is_processing_block (state_a.head ()))
 	{
-		auto num_uncemented = info_a.block_count - confirmation_height;
+		auto num_uncemented = state_a.block_count () - confirmation_height;
 		std::lock_guard<std::mutex> guard (mutex);
 		auto it = cementable_frontiers_a.find (account_a);
 		if (it != cementable_frontiers_a.end ())
@@ -417,7 +416,6 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 						continue;
 					}
 
-					nano::account_info info;
 					auto & wallet (item_it->second);
 					std::lock_guard<std::recursive_mutex> wallet_lock (wallet->store.mutex);
 
@@ -429,7 +427,8 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 					for (; i != n; ++i)
 					{
 						auto & account (i->first);
-						if (!node.store.account_get (transaction_a, account, info) && !node.store.confirmation_height_get (transaction_a, account, confirmation_height))
+						auto state (node.ledger.account_state (transaction_a, account));
+						if (!state.head ().is_zero () && !node.store.confirmation_height_get (transaction_a, account, confirmation_height))
 						{
 							// If it exists in normal priority collection delete from there.
 							auto it = priority_cementable_frontiers.find (account);
@@ -440,7 +439,7 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 								priority_cementable_frontiers_size = priority_cementable_frontiers.size ();
 							}
 
-							prioritize_account_for_confirmation (priority_wallet_cementable_frontiers, priority_wallet_cementable_frontiers_size, account, info, confirmation_height);
+							prioritize_account_for_confirmation (priority_wallet_cementable_frontiers, priority_wallet_cementable_frontiers_size, account, state, confirmation_height);
 
 							if (wallet_account_timer.since_start () >= wallet_account_time_a)
 							{
@@ -475,12 +474,12 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 		for (; i != n && !stopped; ++i)
 		{
 			auto const & account (i->first);
-			auto const & info (i->second);
+			auto state (node.ledger.account_state (transaction_a, i->second));
 			if (priority_wallet_cementable_frontiers.find (account) == priority_wallet_cementable_frontiers.end ())
 			{
 				if (!node.store.confirmation_height_get (transaction_a, account, confirmation_height))
 				{
-					prioritize_account_for_confirmation (priority_cementable_frontiers, priority_cementable_frontiers_size, account, info, confirmation_height);
+					prioritize_account_for_confirmation (priority_cementable_frontiers, priority_cementable_frontiers_size, account, state, confirmation_height);
 				}
 			}
 			next_frontier_account = account.number () + 1;

@@ -84,27 +84,27 @@ TEST (ledger, process_send)
 	nano::genesis genesis;
 	store->initialize (transaction, genesis, ledger.rep_weights, ledger.cemented_count);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
-	nano::account_info info1;
-	ASSERT_FALSE (store->account_get (transaction, nano::test_genesis_key.pub, info1));
+	auto state1 (ledger.account_state (transaction, nano::test_genesis_key.pub));
+	assert (!state1.head ().is_zero ());
 	nano::keypair key2;
-	nano::send_block send (info1.head, key2.pub, 50, nano::test_genesis_key.prv, nano::test_genesis_key.pub, pool.generate (info1.head));
+	nano::send_block send (state1.head (), key2.pub, 50, nano::test_genesis_key.prv, nano::test_genesis_key.pub, pool.generate (state1.head ()));
 	nano::block_hash hash1 (send.hash ());
-	ASSERT_EQ (nano::test_genesis_key.pub, store->frontier_get (transaction, info1.head));
-	ASSERT_EQ (1, info1.block_count);
+	ASSERT_EQ (nano::test_genesis_key.pub, store->frontier_get (transaction, state1.head ()));
+	ASSERT_EQ (1, state1.block_count ());
 	// This was a valid block, it should progress.
 	auto return1 (ledger.process (transaction, send));
 	ASSERT_EQ (nano::genesis_amount - 50, ledger.amount (transaction, hash1));
-	ASSERT_TRUE (store->frontier_get (transaction, info1.head).is_zero ());
+	ASSERT_TRUE (store->frontier_get (transaction, state1.head ()).is_zero ());
 	ASSERT_EQ (nano::test_genesis_key.pub, store->frontier_get (transaction, hash1));
 	ASSERT_EQ (nano::process_result::progress, return1.code);
 	ASSERT_EQ (nano::test_genesis_key.pub, return1.account);
 	ASSERT_EQ (nano::genesis_amount - 50, return1.amount.number ());
 	ASSERT_EQ (50, ledger.account_balance (transaction, nano::test_genesis_key.pub));
 	ASSERT_EQ (nano::genesis_amount - 50, ledger.account_pending (transaction, key2.pub));
-	nano::account_info info2;
-	ASSERT_FALSE (store->account_get (transaction, nano::test_genesis_key.pub, info2));
-	ASSERT_EQ (2, info2.block_count);
-	auto latest6 (store->block_get (transaction, info2.head));
+	auto state2 (ledger.account_state (transaction, nano::test_genesis_key.pub));
+	assert (!state2.head ().is_zero ());
+	ASSERT_EQ (2, state2.block_count ());
+	auto latest6 (store->block_get (transaction, state2.head ()));
 	ASSERT_NE (nullptr, latest6);
 	auto latest7 (dynamic_cast<nano::send_block *> (latest6.get ()));
 	ASSERT_NE (nullptr, latest7);
@@ -155,12 +155,12 @@ TEST (ledger, process_send)
 	ASSERT_EQ (hash1, info6.head);
 	ASSERT_FALSE (ledger.rollback (transaction, info6.head));
 	ASSERT_EQ (nano::genesis_amount, ledger.weight (transaction, nano::test_genesis_key.pub));
-	ASSERT_EQ (nano::test_genesis_key.pub, store->frontier_get (transaction, info1.head));
+	ASSERT_EQ (nano::test_genesis_key.pub, store->frontier_get (transaction, state1.head ()));
 	ASSERT_TRUE (store->frontier_get (transaction, hash1).is_zero ());
-	nano::account_info info7;
-	ASSERT_FALSE (ledger.store.account_get (transaction, nano::test_genesis_key.pub, info7));
-	ASSERT_EQ (1, info7.block_count);
-	ASSERT_EQ (info1.head, info7.head);
+	auto state7 (ledger.account_state (transaction, nano::test_genesis_key.pub));
+	assert (!state7.head ().is_zero ());
+	ASSERT_EQ (1, state7.block_count ());
+	ASSERT_EQ (state1.head (), state7.head ());
 	nano::pending_info pending2;
 	ASSERT_TRUE (ledger.store.pending_get (transaction, nano::pending_key (key2.pub, hash1), pending2));
 	ASSERT_EQ (nano::genesis_amount, ledger.account_balance (transaction, nano::test_genesis_key.pub));
@@ -504,10 +504,11 @@ TEST (system, DISABLED_generate_send_existing)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair stake_preserver;
 	auto send_block (system.wallet (0)->send_action (nano::genesis_account, stake_preserver.pub, nano::genesis_amount / 3 * 2, true));
-	nano::account_info info1;
+	nano::account_state state1;
 	{
 		auto transaction (system.nodes[0]->store.tx_begin_read ());
-		ASSERT_FALSE (system.nodes[0]->store.account_get (transaction, nano::test_genesis_key.pub, info1));
+		state1 = system.nodes[0]->ledger.account_state (transaction, nano::test_genesis_key.pub);
+		assert (!state1.head ().is_zero ());
 	}
 	std::vector<nano::account> accounts;
 	accounts.push_back (nano::test_genesis_key.pub);
@@ -520,24 +521,26 @@ TEST (system, DISABLED_generate_send_existing)
 		ASSERT_EQ (nano::process_result::progress, system.nodes[0]->ledger.process (transaction, *open_block).code);
 	}
 	ASSERT_GT (system.nodes[0]->balance (stake_preserver.pub), system.nodes[0]->balance (nano::genesis_account));
-	nano::account_info info2;
+	nano::account_state state2;
 	{
 		auto transaction (system.nodes[0]->store.tx_begin_read ());
-		ASSERT_FALSE (system.nodes[0]->store.account_get (transaction, nano::test_genesis_key.pub, info2));
+		state2 = system.nodes[0]->ledger.account_state (transaction, nano::test_genesis_key.pub);
+		assert (!state2.head ().is_zero ());
 	}
-	ASSERT_NE (info1.head, info2.head);
+	ASSERT_NE (state1.head (), state2.head ());
 	system.deadline_set (15s);
-	while (info2.block_count < info1.block_count + 2)
+	while (state2.block_count () < state2.block_count () + 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 		auto transaction (system.nodes[0]->store.tx_begin_read ());
-		ASSERT_FALSE (system.nodes[0]->store.account_get (transaction, nano::test_genesis_key.pub, info2));
+		state2 = system.nodes[0]->ledger.account_state (transaction, nano::test_genesis_key.pub);
+		assert (!state2.head ().is_zero ());
 	}
-	ASSERT_EQ (info1.block_count + 2, info2.block_count);
-	ASSERT_EQ (info2.balance, nano::genesis_amount / 3);
+	ASSERT_EQ (state1.block_count () + 2, state2.block_count ());
+	ASSERT_EQ (state2.balance (), nano::genesis_amount / 3);
 	{
 		auto transaction (system.nodes[0]->store.tx_begin_read ());
-		ASSERT_NE (system.nodes[0]->ledger.amount (transaction, info2.head), 0);
+		ASSERT_NE (system.nodes[0]->ledger.amount (transaction, state2.head ()), 0);
 	}
 	system.stop ();
 	runner.join ();

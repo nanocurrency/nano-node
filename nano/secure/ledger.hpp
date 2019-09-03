@@ -18,6 +18,7 @@ public:
 class account_state final
 {
 public:
+	account_state () = default;
 	account_state (nano::transaction const &, nano::block_store &, nano::account const &);
 	account_state (nano::transaction const &, nano::block_store &, nano::account_info const &);
 	nano::uint256_union head () const;
@@ -28,8 +29,10 @@ public:
 	std::shared_ptr<nano::block> block () const;
 	uint64_t modified () const;
 	nano::epoch epoch () const;
+	nano::account_info const & info () const;
+
 private:
-	nano::account_info info;
+	nano::account_info info_m;
 	std::shared_ptr<nano::block> block_m;
 	nano::block_sideband sideband;
 };
@@ -63,6 +66,7 @@ public:
 	bool rollback (nano::write_transaction const &, nano::block_hash const &, std::vector<std::shared_ptr<nano::block>> &);
 	bool rollback (nano::write_transaction const &, nano::block_hash const &);
 	nano::account_state account_state (nano::transaction const &, nano::account const &);
+	nano::account_state account_state (nano::transaction const &, nano::account_info const &);
 	void change_latest (nano::write_transaction const &, nano::account const &, nano::account_info const &, nano::account_info const &);
 	void dump_account_chain (nano::account const &);
 	bool could_fit (nano::transaction const &, nano::block const &);

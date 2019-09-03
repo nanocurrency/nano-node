@@ -33,7 +33,6 @@ TEST (versioning, account_info_v1)
 	ASSERT_EQ (v1.balance, v_latest.balance);
 	ASSERT_EQ (v1.head, v_latest.head);
 	ASSERT_EQ (v1.rep_block, v_latest.rep_block);
-	ASSERT_EQ (1, v_latest.block_count);
 	uint64_t confirmation_height;
 	ASSERT_FALSE (store.confirmation_height_get (transaction, account, confirmation_height));
 	ASSERT_EQ (0, confirmation_height);
@@ -68,7 +67,6 @@ TEST (versioning, account_info_v5)
 	ASSERT_EQ (v5.balance, v_latest.balance);
 	ASSERT_EQ (v5.head, v_latest.head);
 	ASSERT_EQ (v5.rep_block, v_latest.rep_block);
-	ASSERT_EQ (1, v_latest.block_count);
 	uint64_t confirmation_height;
 	ASSERT_FALSE (store.confirmation_height_get (transaction, account, confirmation_height));
 	ASSERT_EQ (0, confirmation_height);
@@ -103,7 +101,6 @@ TEST (versioning, account_info_v13)
 	ASSERT_EQ (v13.balance, v_latest.balance);
 	ASSERT_EQ (v13.head, v_latest.head);
 	ASSERT_EQ (v13.rep_block, v_latest.rep_block);
-	ASSERT_EQ (v13.block_count, v_latest.block_count);
 	uint64_t confirmation_height;
 	ASSERT_FALSE (store.confirmation_height_get (transaction, account, confirmation_height));
 	ASSERT_EQ (0, confirmation_height);
