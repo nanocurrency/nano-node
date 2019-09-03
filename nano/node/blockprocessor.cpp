@@ -152,15 +152,7 @@ void nano::block_processor::verify_state_blocks (nano::transaction const & trans
 	assert (!mutex.try_lock ());
 	nano::timer<std::chrono::milliseconds> timer_l (nano::timer_state::started);
 	std::deque<nano::unchecked_info> items;
-	for (auto i (0); i < max_count && !state_blocks.empty (); i++)
-	{
-		auto & item (state_blocks.front ());
-		if (!node.ledger.store.block_exists (transaction_a, item.block->type (), item.block->hash ()))
-		{
-			items.push_back (std::move (item));
-		}
-		state_blocks.pop_front ();
-	}
+	items.swap (state_blocks);
 	lock_a.unlock ();
 	if (!items.empty ())
 	{
