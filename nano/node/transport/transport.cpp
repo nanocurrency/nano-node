@@ -80,9 +80,9 @@ void nano::transport::channel::send (nano::message const & message_a, std::funct
 {
 	callback_visitor visitor;
 	message_a.visit (visitor);
-	auto buffer (message_a.to_bytes ());
+	auto buffer (message_a.to_shared_const_buffer ());
 	auto detail (visitor.result);
-	if (!is_droppable_a || !limiter.should_drop (buffer->size ()))
+	if (!is_droppable_a || !limiter.should_drop (buffer.size ()))
 	{
 		send_buffer (buffer, detail, callback_a);
 		node.stats.inc (nano::stat::type::message, detail, nano::stat::dir::out);
@@ -93,7 +93,7 @@ void nano::transport::channel::send (nano::message const & message_a, std::funct
 		if (node.config.logging.network_packet_logging ())
 		{
 			auto key = static_cast<uint8_t> (detail) << 8;
-			node.logger.always_log (boost::str (boost::format ("%1% of size %2% dropped") % node.stats.detail_to_string (key) % buffer->size ()));
+			node.logger.always_log (boost::str (boost::format ("%1% of size %2% dropped") % node.stats.detail_to_string (key) % buffer.size ()));
 		}
 	}
 }
@@ -222,7 +222,7 @@ bool nano::bandwidth_limiter::should_drop (const size_t & message_size)
 	{
 		return result;
 	}
-	std::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<std::mutex> lock (mutex);
 
 	if (message_size > limit / rate_buffer.size () || rate + message_size > limit)
 	{
@@ -244,6 +244,6 @@ bool nano::bandwidth_limiter::should_drop (const size_t & message_size)
 
 size_t nano::bandwidth_limiter::get_rate ()
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<std::mutex> lock (mutex);
 	return trended_rate;
 }

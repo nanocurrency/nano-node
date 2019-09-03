@@ -38,13 +38,14 @@ public:
 	void generate (nano::uint256_union const &, std::function<void(boost::optional<uint64_t> const &)>, uint64_t);
 	uint64_t generate (nano::uint256_union const &);
 	uint64_t generate (nano::uint256_union const &, uint64_t);
+	size_t size ();
 	nano::network_constants network_constants;
 	std::atomic<int> ticket;
 	bool done;
 	std::vector<boost::thread> threads;
 	std::list<nano::work_item> pending;
 	std::mutex mutex;
-	std::condition_variable producer_condition;
+	nano::condition_variable producer_condition;
 	std::chrono::nanoseconds pow_rate_limiter;
 	std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t, std::atomic<int> &)> opencl;
 	nano::observer_set<bool> work_observers;

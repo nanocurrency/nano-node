@@ -1675,6 +1675,7 @@ TEST (rpc, process_block_with_work_watcher)
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
 	node_config.enable_voting = false;
+	node_config.work_watcher_period = 1s;
 	auto & node1 = *system.add_node (node_config);
 	nano::keypair key;
 	auto latest (system.nodes[0]->latest (nano::test_genesis_key.pub));
@@ -1712,7 +1713,7 @@ TEST (rpc, process_block_with_work_watcher)
 	uint64_t updated_difficulty;
 	while (!updated)
 	{
-		std::unique_lock<std::mutex> lock (node1.active.mutex);
+		nano::unique_lock<std::mutex> lock (node1.active.mutex);
 		//fill multipliers_cb and update active difficulty;
 		for (auto i (0); i < node1.active.multipliers_cb.size (); i++)
 		{
@@ -1969,8 +1970,7 @@ TEST (rpc, process_subtype_receive)
 TEST (rpc, keepalive)
 {
 	nano::system system (24000, 1);
-	nano::node_init init1;
-	auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 	node1->start ();
 	system.nodes.push_back (node1);
 	auto node = system.nodes.front ();
@@ -2842,8 +2842,9 @@ TEST (rpc, work_peer_bad)
 	node2.config.work_peers.push_back (std::make_pair (boost::asio::ip::address_v6::any ().to_string (), 0));
 	nano::block_hash hash1 (1);
 	std::atomic<uint64_t> work (0);
-	node2.work_generate (hash1, [&work](uint64_t work_a) {
-		work = work_a;
+	node2.work_generate (hash1, [&work](boost::optional<uint64_t> work_a) {
+		ASSERT_TRUE (work_a.is_initialized ());
+		work = *work_a;
 	});
 	system.deadline_set (5s);
 	while (nano::work_validate (hash1, work))
@@ -2871,8 +2872,9 @@ TEST (rpc, work_peer_one)
 	node2.config.work_peers.push_back (std::make_pair (node1.network.endpoint ().address ().to_string (), rpc.config.port));
 	nano::keypair key1;
 	uint64_t work (0);
-	node2.work_generate (key1.pub, [&work](uint64_t work_a) {
-		work = work_a;
+	node2.work_generate (key1.pub, [&work](boost::optional<uint64_t> work_a) {
+		ASSERT_TRUE (work_a.is_initialized ());
+		work = *work_a;
 	});
 	system.deadline_set (5s);
 	while (nano::work_validate (key1.pub, work))
@@ -2923,8 +2925,9 @@ TEST (rpc, work_peer_many)
 	{
 		nano::keypair key1;
 		uint64_t work (0);
-		node1.work_generate (key1.pub, [&work](uint64_t work_a) {
-			work = work_a;
+		node1.work_generate (key1.pub, [&work](boost::optional<uint64_t> work_a) {
+			ASSERT_TRUE (work_a.is_initialized ());
+			work = *work_a;
 		});
 		while (nano::work_validate (key1.pub, work))
 		{
@@ -2961,24 +2964,11 @@ TEST (rpc, block_count)
 			ASSERT_EQ (200, response1.status);
 			ASSERT_EQ ("1", response1.json.get<std::string> ("count"));
 			ASSERT_EQ ("0", response1.json.get<std::string> ("unchecked"));
-			{
-				ASSERT_FALSE (response1.json.get_optional<std::string> ("cemented").is_initialized ());
-			}
+			ASSERT_EQ ("1", response1.json.get<std::string> ("cemented"));
 		}
-		request1.put ("include_cemented", "true");
-		test_response response1 (request1, rpc.config.port, system.io_ctx);
-		system.deadline_set (5s);
-		while (response1.status == 0)
-		{
-			ASSERT_NO_ERROR (system.poll ());
-		}
-		ASSERT_EQ (200, response1.status);
-		ASSERT_EQ ("1", response1.json.get<std::string> ("count"));
-		ASSERT_EQ ("0", response1.json.get<std::string> ("unchecked"));
-		ASSERT_EQ ("1", response1.json.get<std::string> ("cemented"));
 	}
 
-	// Should not be able to get the cemented count when enable_control is false.
+	// Should be able to get all counts even when enable_control is false.
 	{
 		nano::system system (24000, 1);
 		auto & node1 (*system.nodes[0]);
@@ -2991,7 +2981,6 @@ TEST (rpc, block_count)
 		rpc.start ();
 		boost::property_tree::ptree request1;
 		request1.put ("action", "block_count");
-		request1.put ("include_cemented", "true");
 		{
 			test_response response1 (request1, rpc.config.port, system.io_ctx);
 			system.deadline_set (5s);
@@ -3000,8 +2989,9 @@ TEST (rpc, block_count)
 				ASSERT_NO_ERROR (system.poll ());
 			}
 			ASSERT_EQ (200, response1.status);
-			std::error_code ec (nano::error_rpc::rpc_control_disabled);
-			ASSERT_EQ (response1.json.get<std::string> ("error"), ec.message ());
+			ASSERT_EQ ("1", response1.json.get<std::string> ("count"));
+			ASSERT_EQ ("0", response1.json.get<std::string> ("unchecked"));
+			ASSERT_EQ ("1", response1.json.get<std::string> ("cemented"));
 		}
 	}
 }
@@ -6107,7 +6097,6 @@ TEST (rpc, block_confirm_absent)
 TEST (rpc, block_confirm_confirmed)
 {
 	nano::system system (24000, 1);
-	nano::node_init init;
 	auto path (nano::unique_path ());
 	nano::node_config config;
 	config.peering_port = 24001;
@@ -6115,7 +6104,7 @@ TEST (rpc, block_confirm_confirmed)
 	config.callback_port = 24002;
 	config.callback_target = "/";
 	config.logging.init (path);
-	auto node (std::make_shared<nano::node> (init, system.io_ctx, path, system.alarm, config, system.work));
+	auto node (std::make_shared<nano::node> (system.io_ctx, path, system.alarm, config, system.work));
 	node->start ();
 	system.nodes.push_back (node);
 	nano::genesis genesis;
@@ -6645,11 +6634,6 @@ TEST (rpc, block_confirmed)
 	auto send = std::make_shared<nano::send_block> (latest, key.pub, 10, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (latest));
 	node->process_active (send);
 	node->block_processor.flush ();
-	system.deadline_set (10s);
-	while (!node->pending_confirmation_height.is_processing_block (send->hash ()))
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
 
 	// Wait until the confirmation height has been set
 	system.deadline_set (10s);
@@ -6680,6 +6664,7 @@ TEST (rpc, block_confirmed)
 	ASSERT_TRUE (response3.json.get<bool> ("confirmed"));
 }
 
+#if !NANO_ROCKSDB
 TEST (rpc, database_txn_tracker)
 {
 	// First try when database tracking is disabled
@@ -6807,6 +6792,7 @@ TEST (rpc, database_txn_tracker)
 	ASSERT_TRUE (!std::get<3> (json_l.front ()).empty ());
 	thread.join ();
 }
+#endif
 
 TEST (rpc, active_difficulty)
 {
@@ -6822,7 +6808,7 @@ TEST (rpc, active_difficulty)
 	rpc.start ();
 	boost::property_tree::ptree request;
 	request.put ("action", "active_difficulty");
-	std::unique_lock<std::mutex> lock (node->active.mutex);
+	nano::unique_lock<std::mutex> lock (node->active.mutex);
 	node->active.multipliers_cb.push_front (1.5);
 	node->active.multipliers_cb.push_front (4.2);
 	// Also pushes 1.0 to the front of multipliers_cb

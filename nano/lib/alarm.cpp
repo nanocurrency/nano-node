@@ -23,7 +23,7 @@ nano::alarm::~alarm ()
 
 void nano::alarm::run ()
 {
-	std::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<std::mutex> lock (mutex);
 	auto done (false);
 	while (!done)
 	{
@@ -58,7 +58,7 @@ void nano::alarm::run ()
 void nano::alarm::add (std::chrono::steady_clock::time_point const & wakeup_a, std::function<void()> const & operation)
 {
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<std::mutex> guard (mutex);
 		operations.push (nano::operation ({ wakeup_a, operation }));
 	}
 	condition.notify_all ();
@@ -71,7 +71,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (alarm & alarm, con
 	auto composite = std::make_unique<seq_con_info_composite> (name);
 	size_t count = 0;
 	{
-		std::lock_guard<std::mutex> guard (alarm.mutex);
+		nano::lock_guard<std::mutex> guard (alarm.mutex);
 		count = alarm.operations.size ();
 	}
 	auto sizeof_element = sizeof (decltype (alarm.operations)::value_type);

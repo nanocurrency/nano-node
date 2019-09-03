@@ -54,16 +54,17 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 		}
 		                                                                                              : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t, std::atomic<int> &)> (nullptr));
 		nano::alarm alarm (io_ctx);
-		nano::node_init init;
 		try
 		{
-			auto node (std::make_shared<nano::node> (init, io_ctx, data_path, alarm, config.node, opencl_work, flags));
-			if (!init.error ())
+			auto node (std::make_shared<nano::node> (io_ctx, data_path, alarm, config.node, opencl_work, flags));
+			if (!node->init_error ())
 			{
+				auto database_backend = dynamic_cast<nano::mdb_store *> (node->store_impl.get ()) ? "LMDB" : "RocksDB";
 				auto network_label = node->network_params.network.get_current_network_as_string ();
 				std::cout << "Network: " << network_label << ", version: " << NANO_VERSION_STRING << "\n"
 				          << "Path: " << node->application_path.string () << "\n"
-				          << "Build Info: " << BUILD_INFO << std::endl;
+				          << "Build Info: " << BUILD_INFO << "\n"
+				          << "Database backend: " << database_backend << std::endl;
 
 				node->start ();
 				nano::ipc::ipc_server ipc_server (*node, config.rpc);

@@ -886,9 +886,8 @@ TEST (wallet, upgrade_backup)
 
 	nano::keypair id;
 	{
-		nano::node_init init1;
-		auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, dir, system.alarm, system.logging, system.work));
-		ASSERT_FALSE (init1.error ());
+		auto node1 (std::make_shared<nano::node> (system.io_ctx, 24001, dir, system.alarm, system.logging, system.work));
+		ASSERT_FALSE (node1->init_error ());
 		auto wallet (node1->wallets.create (id.pub));
 		ASSERT_NE (nullptr, wallet);
 		auto transaction (node1->wallets.tx_begin_write ());
@@ -898,13 +897,12 @@ TEST (wallet, upgrade_backup)
 
 	// Check with config backup_before_upgrade = false
 	{
-		nano::node_init init1;
-		auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, 24001, dir, system.alarm, system.logging, system.work));
-		ASSERT_FALSE (init1.error ());
+		auto node1 (std::make_shared<nano::node> (system.io_ctx, 24001, dir, system.alarm, system.logging, system.work));
+		ASSERT_FALSE (node1->init_error ());
 		auto wallet (node1->wallets.open (id.pub));
 		ASSERT_NE (nullptr, wallet);
 		auto transaction (node1->wallets.tx_begin_write ());
-		ASSERT_LT (3, wallet->store.version (transaction));
+		ASSERT_LT (3u, wallet->store.version (transaction));
 		wallet->store.version_put (transaction, 3);
 	}
 	ASSERT_EQ (get_backup_path ().string (), dir.string ());
@@ -913,13 +911,12 @@ TEST (wallet, upgrade_backup)
 	{
 		nano::node_config node_config (24001, system.logging);
 		node_config.backup_before_upgrade = true;
-		nano::node_init init1;
-		auto node1 (std::make_shared<nano::node> (init1, system.io_ctx, dir, system.alarm, node_config, system.work));
-		ASSERT_FALSE (init1.error ());
+		auto node1 (std::make_shared<nano::node> (system.io_ctx, dir, system.alarm, node_config, system.work));
+		ASSERT_FALSE (node1->init_error ());
 		auto wallet (node1->wallets.open (id.pub));
 		ASSERT_NE (nullptr, wallet);
 		auto transaction (node1->wallets.tx_begin_read ());
-		ASSERT_LT (3, wallet->store.version (transaction));
+		ASSERT_LT (3u, wallet->store.version (transaction));
 	}
 	ASSERT_NE (get_backup_path ().string (), dir.string ());
 }
@@ -1108,38 +1105,127 @@ TEST (wallet, deterministic_restore)
 	ASSERT_TRUE (wallet->exists (pub));
 }
 
-TEST (wallet, update_work_action)
+TEST (wallet, work_watcher_update)
 {
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
 	node_config.enable_voting = false;
+	node_config.work_watcher_period = 1s;
 	auto & node = *system.add_node (node_config);
 	auto & wallet (*system.wallet (0));
 	wallet.insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key;
-	auto const block (wallet.send_action (nano::test_genesis_key.pub, key.pub, nano::genesis_amount));
+	auto const block1 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 100));
 	uint64_t difficulty1 (0);
-	nano::work_validate (*block, &difficulty1);
-	auto multiplier1 = nano::difficulty::to_multiplier (difficulty1, node.network_params.network.publish_threshold);
-	system.deadline_set (10s);
-	auto updated (false);
-	uint64_t updated_difficulty;
-	while (!updated)
+	nano::work_validate (*block1, &difficulty1);
+	auto const block2 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 200));
+	uint64_t difficulty2 (0);
+	nano::work_validate (*block2, &difficulty2);
+	auto multiplier = nano::difficulty::to_multiplier (std::max (difficulty1, difficulty2), node.network_params.network.publish_threshold);
+	uint64_t updated_difficulty1{ difficulty1 }, updated_difficulty2{ difficulty2 };
 	{
-		std::unique_lock<std::mutex> lock (node.active.mutex);
+		nano::unique_lock<std::mutex> lock (node.active.mutex);
+		// Prevent active difficulty repopulating multipliers
+		node.network_params.network.request_interval_ms = 10000;
 		//fill multipliers_cb and update active difficulty;
 		for (auto i (0); i < node.active.multipliers_cb.size (); i++)
 		{
-			node.active.multipliers_cb.push_back (multiplier1 * (1 + i / 100.));
+			node.active.multipliers_cb.push_back (multiplier * (1.5 + i / 100.));
 		}
 		node.active.update_active_difficulty (lock);
-		auto const existing (node.active.roots.find (block->qualified_root ()));
-		//if existing is junk the block has been confirmed already
-		ASSERT_NE (existing, node.active.roots.end ());
-		updated = existing->difficulty != difficulty1;
-		updated_difficulty = existing->difficulty;
-		lock.unlock ();
+	}
+	system.deadline_set (20s);
+	while (updated_difficulty1 == difficulty1 || updated_difficulty2 == difficulty2)
+	{
+		{
+			nano::lock_guard<std::mutex> guard (node.active.mutex);
+			{
+				auto const existing (node.active.roots.find (block1->qualified_root ()));
+				//if existing is junk the block has been confirmed already
+				ASSERT_NE (existing, node.active.roots.end ());
+				updated_difficulty1 = existing->difficulty;
+			}
+			{
+				auto const existing (node.active.roots.find (block2->qualified_root ()));
+				//if existing is junk the block has been confirmed already
+				ASSERT_NE (existing, node.active.roots.end ());
+				updated_difficulty2 = existing->difficulty;
+			}
+		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_GT (updated_difficulty, difficulty1);
+	ASSERT_GT (updated_difficulty1, difficulty1);
+	ASSERT_GT (updated_difficulty2, difficulty2);
+}
+
+TEST (wallet, work_watcher_removed)
+{
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.work_watcher_period = 1s;
+	auto & node = *system.add_node (node_config);
+	auto & wallet (*system.wallet (0));
+	wallet.insert_adhoc (nano::test_genesis_key.prv);
+	nano::keypair key;
+	ASSERT_EQ (0, wallet.wallets.watcher->size ());
+	auto const block (wallet.send_action (nano::test_genesis_key.pub, key.pub, 100));
+	ASSERT_EQ (1, wallet.wallets.watcher->size ());
+	auto transaction (wallet.wallets.tx_begin_write ());
+	system.deadline_set (3s);
+	while (0 == wallet.wallets.watcher->size ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
+TEST (wallet, work_watcher_cancel)
+{
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.work_watcher_period = 1s;
+	node_config.max_work_generate_multiplier = 1e6;
+	node_config.max_work_generate_difficulty = nano::difficulty::from_multiplier (node_config.max_work_generate_multiplier, nano::network_constants::publish_test_threshold);
+	node_config.enable_voting = false;
+	auto & node = *system.add_node (node_config);
+	auto & wallet (*system.wallet (0));
+	wallet.insert_adhoc (nano::test_genesis_key.prv, false);
+	nano::keypair key;
+	auto work1 (node.work_generate_blocking (nano::test_genesis_key.pub));
+	auto const block1 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 100, work1, false));
+	uint64_t difficulty1 (0);
+	nano::work_validate (*block1, &difficulty1);
+	{
+		nano::unique_lock<std::mutex> lock (node.active.mutex);
+		// Prevent active difficulty repopulating multipliers
+		node.network_params.network.request_interval_ms = 10000;
+		// Fill multipliers_cb and update active difficulty;
+		for (auto i (0); i < node.active.multipliers_cb.size (); i++)
+		{
+			node.active.multipliers_cb.push_back (node.config.max_work_generate_multiplier);
+		}
+		node.active.update_active_difficulty (lock);
+	}
+	// Wait for work generation to start
+	system.deadline_set (5s);
+	while (0 == node.work.size ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	// Cancel the ongoing work
+	ASSERT_EQ (1, node.work.size ());
+	node.work.cancel (block1->root ());
+	ASSERT_EQ (0, node.work.size ());
+	{
+		nano::unique_lock<std::mutex> lock (wallet.wallets.watcher->mutex);
+		auto existing (wallet.wallets.watcher->watched.find (block1->qualified_root ()));
+		ASSERT_NE (wallet.wallets.watcher->watched.end (), existing);
+		auto block2 (existing->second);
+		// Block must be the same
+		ASSERT_NE (nullptr, block1);
+		ASSERT_NE (nullptr, block2);
+		ASSERT_EQ (*block1, *block2);
+		// but should still be under watch
+		lock.unlock ();
+		ASSERT_TRUE (wallet.wallets.watcher->is_watched (block1->qualified_root ()));
+	}
 }

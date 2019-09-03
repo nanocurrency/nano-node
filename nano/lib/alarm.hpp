@@ -1,10 +1,11 @@
 #pragma once
 
+#include <nano/lib/utility.hpp>
+
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
 
 #include <chrono>
-#include <condition_variable>
 #include <functional>
 #include <mutex>
 #include <queue>
@@ -30,7 +31,7 @@ public:
 	void run ();
 	boost::asio::io_context & io_ctx;
 	std::mutex mutex;
-	std::condition_variable condition;
+	nano::condition_variable condition;
 	std::priority_queue<operation, std::vector<operation>, std::greater<operation>> operations;
 	boost::thread thread;
 };

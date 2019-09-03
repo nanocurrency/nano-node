@@ -12,11 +12,8 @@ thread ([this]() {
 	process_loop ();
 })
 {
-	std::unique_lock<std::mutex> lock (mutex);
-	while (!started)
-	{
-		condition.wait (lock);
-	}
+	nano::unique_lock<std::mutex> lock (mutex);
+	condition.wait (lock, [& started = started] { return started; });
 }
 
 void nano::vote_processor::process_loop ()
@@ -24,7 +21,7 @@ void nano::vote_processor::process_loop ()
 	nano::timer<std::chrono::milliseconds> elapsed;
 	bool log_this_iteration;
 
-	std::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<std::mutex> lock (mutex);
 	started = true;
 
 	lock.unlock ();
@@ -52,7 +49,7 @@ void nano::vote_processor::process_loop ()
 			lock.unlock ();
 			verify_votes (votes_l);
 			{
-				std::unique_lock<std::mutex> active_single_lock (node.active.mutex);
+				nano::unique_lock<std::mutex> active_single_lock (node.active.mutex);
 				auto transaction (node.store.tx_begin_read ());
 				uint64_t count (1);
 				for (auto & i : votes_l)
@@ -89,7 +86,7 @@ void nano::vote_processor::process_loop ()
 
 void nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a)
 {
-	std::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<std::mutex> lock (mutex);
 	if (!stopped)
 	{
 		bool process (false);
@@ -234,7 +231,7 @@ nano::vote_code nano::vote_processor::vote_blocking (nano::transaction const & t
 void nano::vote_processor::stop ()
 {
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<std::mutex> lock (mutex);
 		stopped = true;
 	}
 	condition.notify_all ();
@@ -246,7 +243,7 @@ void nano::vote_processor::stop ()
 
 void nano::vote_processor::flush ()
 {
-	std::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<std::mutex> lock (mutex);
 	while (active || !votes.empty ())
 	{
 		condition.wait (lock);
@@ -255,7 +252,7 @@ void nano::vote_processor::flush ()
 
 void nano::vote_processor::calculate_weights ()
 {
-	std::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<std::mutex> lock (mutex);
 	if (!stopped)
 	{
 		representatives_1.clear ();
@@ -263,9 +260,10 @@ void nano::vote_processor::calculate_weights ()
 		representatives_3.clear ();
 		auto supply (node.online_reps.online_stake ());
 		auto transaction (node.store.tx_begin_read ());
-		for (auto i (node.store.representation_begin (transaction)), n (node.store.representation_end ()); i != n; ++i)
+		auto rep_amounts = node.ledger.rep_weights.get_rep_amounts ();
+		for (auto const & rep_amount : rep_amounts)
 		{
-			nano::account const & representative (i->first);
+			nano::account const & representative (rep_amount.first);
 			auto weight (node.ledger.weight (transaction, representative));
 			if (weight > supply / 1000) // 0.1% or above (level 1)
 			{
@@ -293,7 +291,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_processor & v
 	size_t representatives_3_count = 0;
 
 	{
-		std::lock_guard<std::mutex> guard (vote_processor.mutex);
+		nano::lock_guard<std::mutex> guard (vote_processor.mutex);
 		votes_count = vote_processor.votes.size ();
 		representatives_1_count = vote_processor.representatives_1.size ();
 		representatives_2_count = vote_processor.representatives_2.size ();

@@ -58,7 +58,7 @@ public:
 private:
 	nano::stat & stats;
 	std::mutex mutex;
-	std::condition_variable condition;
+	nano::condition_variable condition;
 	boost::circular_buffer<nano::message_buffer *> free;
 	boost::circular_buffer<nano::message_buffer *> full;
 	std::vector<uint8_t> slab;

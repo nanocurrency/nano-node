@@ -25,9 +25,8 @@ std::string nano::error_system_messages::message (int ev) const
 /** Returns the node added. */
 std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & node_config_a, nano::node_flags node_flags_a, nano::transport::transport_type type_a)
 {
-	nano::node_init init;
-	auto node (std::make_shared<nano::node> (init, io_ctx, nano::unique_path (), alarm, node_config_a, work, node_flags_a));
-	assert (!init.error ());
+	auto node (std::make_shared<nano::node> (io_ctx, nano::unique_path (), alarm, node_config_a, work, node_flags_a));
+	assert (!node->init_error ());
 	node->start ();
 	nano::uint256_union wallet;
 	nano::random_pool::generate_block (wallet.bytes.data (), wallet.bytes.size ());
@@ -246,7 +245,7 @@ void nano::system::generate_rollback (nano::node & node_a, std::vector<nano::acc
 			assert (!error);
 			for (auto & i : rollback_list)
 			{
-				node_a.wallets.watcher.remove (i);
+				node_a.wallets.watcher->remove (i);
 				node_a.active.erase (*i);
 			}
 		}

@@ -110,6 +110,12 @@ void * nano::write_mdb_txn::get_handle () const
 	return handle;
 }
 
+bool nano::write_mdb_txn::contains (nano::tables table_a) const
+{
+	// LMDB locks on every write
+	return true;
+}
+
 nano::mdb_txn_tracker::mdb_txn_tracker (nano::logger_mt & logger_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a) :
 logger (logger_a),
 txn_tracking_config (txn_tracking_config_a),
@@ -122,7 +128,7 @@ void nano::mdb_txn_tracker::serialize_json (boost::property_tree::ptree & json, 
 	// Copying is cheap compared to generating the stack trace strings, so reduce time holding the mutex
 	std::vector<mdb_txn_stats> copy_stats;
 	{
-		std::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard<std::mutex> guard (mutex);
 		copy_stats = stats;
 	}
 
@@ -191,7 +197,7 @@ void nano::mdb_txn_tracker::output_finished (nano::mdb_txn_stats const & mdb_txn
 
 void nano::mdb_txn_tracker::add (const nano::transaction_impl * transaction_impl)
 {
-	std::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard<std::mutex> guard (mutex);
 	// clang-format off
 	assert (std::find_if (stats.cbegin (), stats.cend (), matches_txn (transaction_impl)) == stats.cend ());
 	// clang-format on
@@ -201,7 +207,7 @@ void nano::mdb_txn_tracker::add (const nano::transaction_impl * transaction_impl
 /** Can be called without error if transaction does not exist */
 void nano::mdb_txn_tracker::erase (const nano::transaction_impl * transaction_impl)
 {
-	std::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard<std::mutex> guard (mutex);
 	// clang-format off
 	auto it = std::find_if (stats.begin (), stats.end (), matches_txn (transaction_impl));
 	// clang-format on

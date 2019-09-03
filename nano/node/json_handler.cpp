@@ -1006,7 +1006,7 @@ void nano::json_handler::block_confirm ()
 				// Add record in confirmation history for confirmed block
 				nano::election_status status{ block_l, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), nano::election_status_type::active_confirmation_height };
 				{
-					std::lock_guard<std::mutex> lock (node.active.mutex);
+					nano::lock_guard<std::mutex> lock (node.active.mutex);
 					node.active.confirmed.push_back (status);
 					if (node.active.confirmed.size () > node.config.confirmation_history_size)
 					{
@@ -1206,13 +1206,7 @@ void nano::json_handler::block_count ()
 	auto transaction (node.store.tx_begin_read ());
 	response_l.put ("count", std::to_string (node.store.block_count (transaction).sum ()));
 	response_l.put ("unchecked", std::to_string (node.store.unchecked_count (transaction)));
-
-	const auto include_cemented = request.get<bool> ("include_cemented", false);
-	if (include_cemented)
-	{
-		response_l.put ("cemented", std::to_string (node.store.cemented_count (transaction)));
-	}
-
+	response_l.put ("cemented", std::to_string (node.ledger.cemented_count));
 	response_errors ();
 }
 
@@ -1683,7 +1677,7 @@ void nano::json_handler::confirmation_active ()
 	}
 	boost::property_tree::ptree elections;
 	{
-		std::lock_guard<std::mutex> lock (node.active.mutex);
+		nano::lock_guard<std::mutex> lock (node.active.mutex);
 		for (auto i (node.active.roots.begin ()), n (node.active.roots.end ()); i != n; ++i)
 		{
 			if (i->election->confirmation_request_count >= announcements && !i->election->confirmed && !i->election->stopped)
@@ -1759,7 +1753,7 @@ void nano::json_handler::confirmation_info ()
 	nano::qualified_root root;
 	if (!root.decode_hex (root_text))
 	{
-		std::lock_guard<std::mutex> lock (node.active.mutex);
+		nano::lock_guard<std::mutex> lock (node.active.mutex);
 		auto conflict_info (node.active.roots.find (root));
 		if (conflict_info != node.active.roots.end ())
 		{
@@ -1799,7 +1793,7 @@ void nano::json_handler::confirmation_info ()
 						if (i->second->hash () == ii->second.hash)
 						{
 							nano::account const & representative (ii->first);
-							auto amount (node.store.representation_get (transaction, representative));
+							auto amount (node.ledger.rep_weights.representation_get (representative));
 							representatives.emplace (std::move (amount), representative);
 						}
 					}
@@ -3131,30 +3125,37 @@ void nano::json_handler::representatives ()
 	{
 		const bool sorting = request.get<bool> ("sorting", false);
 		boost::property_tree::ptree representatives;
-		auto transaction (node.store.tx_begin_read ());
+		auto rep_amounts = node.ledger.rep_weights.get_rep_amounts ();
 		if (!sorting) // Simple
 		{
-			for (auto i (node.store.representation_begin (transaction)), n (node.store.representation_end ()); i != n && representatives.size () < count; ++i)
+			std::map<nano::account, nano::uint128_t> ordered (rep_amounts.begin (), rep_amounts.end ());
+			for (auto & rep_amount : rep_amounts)
 			{
-				nano::account const & account (i->first);
-				auto amount (node.store.representation_get (transaction, account));
+				auto const & account (rep_amount.first);
+				auto const & amount (rep_amount.second);
 				representatives.put (account.to_account (), amount.convert_to<std::string> ());
+
+				if (representatives.size () > count)
+				{
+					break;
+				}
 			}
 		}
 		else // Sorting
 		{
-			std::vector<std::pair<nano::uint128_union, std::string>> representation;
-			for (auto i (node.store.representation_begin (transaction)), n (node.store.representation_end ()); i != n; ++i)
+			std::vector<std::pair<nano::uint128_t, std::string>> representation;
+
+			for (auto & rep_amount : rep_amounts)
 			{
-				nano::account const & account (i->first);
-				auto amount (node.store.representation_get (transaction, account));
-				representation.push_back (std::make_pair (amount, account.to_account ()));
+				auto const & account (rep_amount.first);
+				auto const & amount (rep_amount.second);
+				representation.emplace_back (amount, account.to_account ());
 			}
 			std::sort (representation.begin (), representation.end ());
 			std::reverse (representation.begin (), representation.end ());
 			for (auto i (representation.begin ()), n (representation.end ()); i != n && representatives.size () < count; ++i)
 			{
-				representatives.put (i->second, (i->first).number ().convert_to<std::string> ());
+				representatives.put (i->second, (i->first).convert_to<std::string> ());
 			}
 		}
 		response_l.add_child ("representatives", representatives);
@@ -4439,8 +4440,7 @@ void nano::json_handler::work_generate ()
 {
 	auto hash (hash_impl ());
 	auto difficulty (difficulty_optional_impl ());
-	auto multiplier (multiplier_optional_impl (difficulty));
-	(void)multiplier;
+	multiplier_optional_impl (difficulty);
 	if (!ec && (difficulty > node.config.max_work_generate_difficulty || difficulty < node.network_params.network.publish_threshold))
 	{
 		ec = nano::error_rpc::difficulty_limit;
@@ -4490,7 +4490,7 @@ void nano::json_handler::work_cancel ()
 	auto hash (hash_impl ());
 	if (!ec)
 	{
-		node.work.cancel (hash);
+		node.observers.work_cancel.notify (hash);
 	}
 	response_errors ();
 }
@@ -4540,8 +4540,7 @@ void nano::json_handler::work_validate ()
 	auto hash (hash_impl ());
 	auto work (work_optional_impl ());
 	auto difficulty (difficulty_optional_impl ());
-	auto multiplier (multiplier_optional_impl (difficulty));
-	(void)multiplier;
+	multiplier_optional_impl (difficulty);
 	if (!ec)
 	{
 		uint64_t result_difficulty (0);

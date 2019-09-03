@@ -13,7 +13,7 @@
 #include <cassert>
 #include <numeric>
 
-nano::confirmation_height_processor::confirmation_height_processor (nano::pending_confirmation_height & pending_confirmation_height_a, nano::block_store & store_a, nano::stat & stats_a, nano::active_transactions & active_a, nano::block_hash const & epoch_link_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logger_mt & logger_a) :
+nano::confirmation_height_processor::confirmation_height_processor (nano::pending_confirmation_height & pending_confirmation_height_a, nano::block_store & store_a, nano::stat & stats_a, nano::active_transactions & active_a, nano::block_hash const & epoch_link_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logger_mt & logger_a, std::atomic<uint64_t> & cemented_count_a) :
 pending_confirmations (pending_confirmation_height_a),
 store (store_a),
 stats (stats_a),
@@ -22,6 +22,7 @@ epoch_link (epoch_link_a),
 logger (logger_a),
 write_database_queue (write_database_queue_a),
 batch_separate_pending_min_time (batch_separate_pending_min_time_a),
+cemented_count (cemented_count_a),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::confirmation_height_processing);
 	this->run ();
@@ -46,7 +47,7 @@ void nano::confirmation_height_processor::stop ()
 
 void nano::confirmation_height_processor::run ()
 {
-	std::unique_lock<std::mutex> lk (pending_confirmations.mutex);
+	nano::unique_lock<std::mutex> lk (pending_confirmations.mutex);
 	while (!stopped)
 	{
 		if (!pending_confirmations.pending.empty ())
@@ -87,7 +88,7 @@ void nano::confirmation_height_processor::run ()
 void nano::confirmation_height_processor::add (nano::block_hash const & hash_a)
 {
 	{
-		std::lock_guard<std::mutex> lk (pending_confirmations.mutex);
+		nano::lock_guard<std::mutex> lk (pending_confirmations.mutex);
 		pending_confirmations.pending.insert (hash_a);
 	}
 	condition.notify_one ();
@@ -269,7 +270,8 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 	while (total_pending_write_block_count > 0)
 	{
 		uint64_t num_accounts_processed = 0;
-		auto transaction (store.tx_begin_write ());
+
+		auto transaction (store.tx_begin_write ({}, { nano::tables::confirmation_height }));
 		while (!all_pending_a.empty ())
 		{
 			const auto & pending = all_pending_a.front ();
@@ -302,6 +304,7 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 				stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - confirmation_height);
 				assert (pending.num_blocks_confirmed == pending.height - confirmation_height);
 				confirmation_height = pending.height;
+				cemented_count += pending.num_blocks_confirmed;
 				store.confirmation_height_put (transaction, pending.account, confirmation_height);
 			}
 			total_pending_write_block_count -= pending.num_blocks_confirmed;
@@ -409,14 +412,14 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (confirmation_heigh
 
 size_t nano::pending_confirmation_height::size ()
 {
-	std::lock_guard<std::mutex> lk (mutex);
+	nano::lock_guard<std::mutex> lk (mutex);
 	return pending.size ();
 }
 
 bool nano::pending_confirmation_height::is_processing_block (nano::block_hash const & hash_a)
 {
 	// First check the hash currently being processed
-	std::lock_guard<std::mutex> lk (mutex);
+	nano::lock_guard<std::mutex> lk (mutex);
 	if (!current_hash.is_zero () && current_hash == hash_a)
 	{
 		return true;
@@ -428,7 +431,7 @@ bool nano::pending_confirmation_height::is_processing_block (nano::block_hash co
 
 nano::block_hash nano::pending_confirmation_height::current ()
 {
-	std::lock_guard<std::mutex> lk (mutex);
+	nano::lock_guard<std::mutex> lk (mutex);
 	return current_hash;
 }
 

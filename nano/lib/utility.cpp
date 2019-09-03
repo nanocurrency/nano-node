@@ -67,6 +67,14 @@ void dump_crash_stacktrace ()
 	boost::stacktrace::safe_dump_to ("nano_node_backtrace.dump");
 }
 
+std::string generate_stacktrace ()
+{
+	auto stacktrace = boost::stacktrace::stacktrace ();
+	std::stringstream ss;
+	ss << stacktrace;
+	return ss.str ();
+}
+
 namespace thread_role
 {
 	/*
@@ -240,7 +248,7 @@ void nano::worker::run ()
 {
 	while (!stopped)
 	{
-		std::unique_lock<std::mutex> lk (mutex);
+		nano::unique_lock<std::mutex> lk (mutex);
 		if (!queue.empty ())
 		{
 			auto func = queue.front ();
@@ -250,7 +258,6 @@ void nano::worker::run ()
 			// So that we reduce locking for anything being pushed as that will
 			// most likely be on an io-thread
 			std::this_thread::yield ();
-			lk.lock ();
 		}
 		else
 		{
@@ -267,7 +274,7 @@ nano::worker::~worker ()
 void nano::worker::push_task (std::function<void()> func_a)
 {
 	{
-		std::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard<std::mutex> guard (mutex);
 		queue.emplace_back (func_a);
 	}
 
@@ -290,12 +297,36 @@ std::unique_ptr<nano::seq_con_info_component> nano::collect_seq_con_info (nano::
 
 	size_t count = 0;
 	{
-		std::lock_guard<std::mutex> guard (worker.mutex);
+		nano::lock_guard<std::mutex> guard (worker.mutex);
 		count = worker.queue.size ();
 	}
 	auto sizeof_element = sizeof (decltype (worker.queue)::value_type);
 	composite->add_component (std::make_unique<nano::seq_con_info_leaf> (nano::seq_con_info{ "queue", count, sizeof_element }));
 	return composite;
+}
+
+void nano::remove_all_files_in_dir (boost::filesystem::path const & dir)
+{
+	for (auto & p : boost::filesystem::directory_iterator (dir))
+	{
+		auto path = p.path ();
+		if (boost::filesystem::is_regular_file (path))
+		{
+			boost::filesystem::remove (path);
+		}
+	}
+}
+
+void nano::move_all_files_to_dir (boost::filesystem::path const & from, boost::filesystem::path const & to)
+{
+	for (auto & p : boost::filesystem::directory_iterator (from))
+	{
+		auto path = p.path ();
+		if (boost::filesystem::is_regular_file (path))
+		{
+			boost::filesystem::rename (path, to / path.filename ());
+		}
+	}
 }
 
 /*
@@ -311,10 +342,7 @@ void release_assert_internal (bool check, const char * check_expr, const char * 
 	std::cerr << "Assertion (" << check_expr << ") failed " << file << ":" << line << "\n\n";
 
 	// Output stack trace to cerr
-	auto stacktrace = boost::stacktrace::stacktrace ();
-	std::stringstream ss;
-	ss << stacktrace;
-	auto backtrace_str = ss.str ();
+	auto backtrace_str = nano::generate_stacktrace ();
 	std::cerr << backtrace_str << std::endl;
 
 	// "abort" at the end of this function will go into any signal handlers (the daemon ones will generate a stack trace and load memory address files on non-Windows systems).

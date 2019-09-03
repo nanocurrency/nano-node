@@ -54,8 +54,8 @@ namespace transport
 		virtual size_t hash_code () const = 0;
 		virtual bool operator== (nano::transport::channel const &) const = 0;
 		void send (nano::message const &, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr, bool const = true);
-		virtual void send_buffer (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) = 0;
-		virtual std::function<void(boost::system::error_code const &, size_t)> callback (std::shared_ptr<std::vector<uint8_t>>, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) const = 0;
+		virtual void send_buffer (nano::shared_const_buffer const &, nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) = 0;
+		virtual std::function<void(boost::system::error_code const &, size_t)> callback (nano::stat::detail, std::function<void(boost::system::error_code const &, size_t)> const & = nullptr) const = 0;
 		virtual std::string to_string () const = 0;
 		virtual nano::endpoint get_endpoint () const = 0;
 		virtual nano::tcp_endpoint get_tcp_endpoint () const = 0;
@@ -63,49 +63,49 @@ namespace transport
 
 		std::chrono::steady_clock::time_point get_last_bootstrap_attempt () const
 		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<std::mutex> lk (channel_mutex);
 			return last_bootstrap_attempt;
 		}
 
 		void set_last_bootstrap_attempt (std::chrono::steady_clock::time_point const time_a)
 		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<std::mutex> lk (channel_mutex);
 			last_bootstrap_attempt = time_a;
 		}
 
 		std::chrono::steady_clock::time_point get_last_packet_received () const
 		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<std::mutex> lk (channel_mutex);
 			return last_packet_received;
 		}
 
 		void set_last_packet_received (std::chrono::steady_clock::time_point const time_a)
 		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<std::mutex> lk (channel_mutex);
 			last_packet_received = time_a;
 		}
 
 		std::chrono::steady_clock::time_point get_last_packet_sent () const
 		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<std::mutex> lk (channel_mutex);
 			return last_packet_sent;
 		}
 
 		void set_last_packet_sent (std::chrono::steady_clock::time_point const time_a)
 		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<std::mutex> lk (channel_mutex);
 			last_packet_sent = time_a;
 		}
 
 		boost::optional<nano::account> get_node_id_optional () const
 		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<std::mutex> lk (channel_mutex);
 			return node_id;
 		}
 
 		nano::account get_node_id () const
 		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<std::mutex> lk (channel_mutex);
 			if (node_id.is_initialized ())
 			{
 				return node_id.get ();
@@ -118,7 +118,7 @@ namespace transport
 
 		void set_node_id (nano::account node_id_a)
 		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<std::mutex> lk (channel_mutex);
 			node_id = node_id_a;
 		}
 
