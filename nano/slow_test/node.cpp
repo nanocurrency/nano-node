@@ -514,12 +514,12 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 	for (auto i (node->store.latest_begin (transaction)), n (node->store.latest_end ()); i != n; ++i)
 	{
 		auto & account = i->first;
-		auto & account_info = i->second;
+		auto state (node->ledger.account_state (transaction, nano::account_info (i->second)));
 		auto count = (account != last_keypair.pub) ? 2 : 1;
 		uint64_t confirmation_height;
 		ASSERT_FALSE (node->store.confirmation_height_get (transaction, account, confirmation_height));
 		ASSERT_EQ (count, confirmation_height);
-		ASSERT_EQ (count, account_info.block_count);
+		ASSERT_EQ (count, state.block_count ());
 	}
 
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), num_accounts * 2 - 2);
@@ -649,17 +649,18 @@ TEST (confirmation_height, long_chains)
 	}
 
 	auto transaction (node->store.tx_begin_read ());
-	nano::account_info account_info;
-	ASSERT_FALSE (node->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
+	auto state (node->ledger.account_state (transaction, nano::test_genesis_key.pub));
+	ASSERT_FALSE (state.head ().is_zero ());
 	uint64_t confirmation_height;
 	ASSERT_FALSE (node->store.confirmation_height_get (transaction, nano::test_genesis_key.pub, confirmation_height));
 	ASSERT_EQ (num_blocks + 2, confirmation_height);
-	ASSERT_EQ (num_blocks + 3, account_info.block_count); // Includes the unpocketed send
+	ASSERT_EQ (num_blocks + 3, state.block_count ()); // Includes the unpocketed send
 
-	ASSERT_FALSE (node->store.account_get (transaction, key1.pub, account_info));
+	state = node->ledger.account_state (transaction, key1.pub);
+	ASSERT_FALSE (state.head ().is_zero ());
 	ASSERT_FALSE (node->store.confirmation_height_get (transaction, key1.pub, confirmation_height));
 	ASSERT_EQ (num_blocks + 1, confirmation_height);
-	ASSERT_EQ (num_blocks + 1, account_info.block_count);
+	ASSERT_EQ (num_blocks + 1, state.block_count ());
 
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), num_blocks * 2 + 2);
 }

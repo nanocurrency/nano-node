@@ -814,17 +814,17 @@ int main (int argc, char * const * argv)
 				{
 					std::cout << boost::str (boost::format ("%1% accounts validated\n") % count);
 				}
-				nano::account_info const & info (i->second);
 				nano::account const & account (i->first);
+				auto state (node.node->ledger.account_state (transaction, nano::account_info (i->second)));
 				uint64_t confirmation_height;
 				node.node->store.confirmation_height_get (transaction, account, confirmation_height);
 
-				if (confirmation_height > info.block_count)
+				if (confirmation_height > state.block_count ())
 				{
-					std::cerr << "Confirmation height " << confirmation_height << " greater than block count " << info.block_count << " for account: " << account.to_account () << std::endl;
+					std::cerr << "Confirmation height " << confirmation_height << " greater than block count " << state.block_count () << " for account: " << account.to_account () << std::endl;
 				}
 
-				auto hash (info.open_block);
+				auto hash (state.open ());
 				nano::block_hash calculated_hash (0);
 				nano::block_sideband sideband;
 				uint64_t height (0);
@@ -900,13 +900,13 @@ int main (int argc, char * const * argv)
 					// Retrieving successor block hash
 					hash = node.node->store.block_successor (transaction, hash);
 				}
-				if (info.block_count != height)
+				if (state.block_count () != height)
 				{
-					std::cerr << boost::str (boost::format ("Incorrect block count for account %1%. Actual: %2%. Expected: %3%\n") % account.to_account () % height % info.block_count);
+					std::cerr << boost::str (boost::format ("Incorrect block count for account %1%. Actual: %2%. Expected: %3%\n") % account.to_account () % height % state.block_count ());
 				}
-				if (info.head != calculated_hash)
+				if (state.head () != calculated_hash)
 				{
-					std::cerr << boost::str (boost::format ("Incorrect frontier for account %1%. Actual: %2%. Expected: %3%\n") % account.to_account () % calculated_hash.to_string () % info.head.to_string ());
+					std::cerr << boost::str (boost::format ("Incorrect frontier for account %1%. Actual: %2%. Expected: %3%\n") % account.to_account () % calculated_hash.to_string () % state.head ().to_string ());
 				}
 			}
 			std::cout << boost::str (boost::format ("%1% accounts validated\n") % count);
