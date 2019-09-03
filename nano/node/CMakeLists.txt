@@ -27,8 +27,16 @@ add_library (node
 	blockprocessor.cpp
 	blockprocessor.hpp
 	blockprocessor.cpp
-	bootstrap.hpp
-	bootstrap.cpp
+	bootstrap/bootstrap_bulk_pull.hpp
+	bootstrap/bootstrap_bulk_pull.cpp
+	bootstrap/bootstrap_bulk_push.hpp
+	bootstrap/bootstrap_bulk_push.cpp
+	bootstrap/bootstrap_frontier.hpp
+	bootstrap/bootstrap_frontier.cpp
+	bootstrap/bootstrap_server.hpp
+	bootstrap/bootstrap_server.cpp
+	bootstrap/bootstrap.hpp
+	bootstrap/bootstrap.cpp
 	cli.hpp
 	cli.cpp
 	common.hpp

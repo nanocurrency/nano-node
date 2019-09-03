@@ -7,7 +7,11 @@
 #include <nano/lib/work.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/blockprocessor.hpp>
-#include <nano/node/bootstrap.hpp>
+#include <nano/node/bootstrap/bootstrap.hpp>
+#include <nano/node/bootstrap/bootstrap_bulk_pull.hpp>
+#include <nano/node/bootstrap/bootstrap_bulk_push.hpp>
+#include <nano/node/bootstrap/bootstrap_frontier.hpp>
+#include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/distributed_work.hpp>
 #include <nano/node/election.hpp>
