@@ -1,0 +1,93 @@
+#pragma once
+
+#include <nano/node/common.hpp>
+#include <nano/node/socket.hpp>
+
+#include <unordered_set>
+
+namespace nano
+{
+class pull_info
+{
+public:
+	using count_t = nano::bulk_pull::count_t;
+	pull_info () = default;
+	pull_info (nano::account const &, nano::block_hash const &, nano::block_hash const &, count_t = 0);
+	nano::account account{ 0 };
+	nano::block_hash head{ 0 };
+	nano::block_hash head_original{ 0 };
+	nano::block_hash end{ 0 };
+	count_t count{ 0 };
+	unsigned attempts{ 0 };
+	uint64_t processed{ 0 };
+};
+class bootstrap_client;
+class bulk_pull_client final : public std::enable_shared_from_this<nano::bulk_pull_client>
+{
+public:
+	bulk_pull_client (std::shared_ptr<nano::bootstrap_client>, nano::pull_info const &);
+	~bulk_pull_client ();
+	void request ();
+	void receive_block ();
+	void throttled_receive_block ();
+	void received_type ();
+	void received_block (boost::system::error_code const &, size_t, nano::block_type);
+	nano::block_hash first ();
+	std::shared_ptr<nano::bootstrap_client> connection;
+	nano::block_hash expected;
+	nano::account known_account;
+	nano::pull_info pull;
+	uint64_t pull_blocks;
+	uint64_t unexpected_count;
+};
+class bulk_pull_account_client final : public std::enable_shared_from_this<nano::bulk_pull_account_client>
+{
+public:
+	bulk_pull_account_client (std::shared_ptr<nano::bootstrap_client>, nano::account const &);
+	~bulk_pull_account_client ();
+	void request ();
+	void receive_pending ();
+	std::shared_ptr<nano::bootstrap_client> connection;
+	nano::account account;
+	uint64_t pull_blocks;
+};
+class bootstrap_server;
+class bulk_pull;
+class bulk_pull_server final : public std::enable_shared_from_this<nano::bulk_pull_server>
+{
+public:
+	bulk_pull_server (std::shared_ptr<nano::bootstrap_server> const &, std::unique_ptr<nano::bulk_pull>);
+	void set_current_end ();
+	std::shared_ptr<nano::block> get_next ();
+	void send_next ();
+	void sent_action (boost::system::error_code const &, size_t);
+	void send_finished ();
+	void no_block_sent (boost::system::error_code const &, size_t);
+	std::shared_ptr<nano::bootstrap_server> connection;
+	std::unique_ptr<nano::bulk_pull> request;
+	nano::block_hash current;
+	bool include_start;
+	nano::bulk_pull::count_t max_count;
+	nano::bulk_pull::count_t sent_count;
+};
+class bulk_pull_account;
+class bulk_pull_account_server final : public std::enable_shared_from_this<nano::bulk_pull_account_server>
+{
+public:
+	bulk_pull_account_server (std::shared_ptr<nano::bootstrap_server> const &, std::unique_ptr<nano::bulk_pull_account>);
+	void set_params ();
+	std::pair<std::unique_ptr<nano::pending_key>, std::unique_ptr<nano::pending_info>> get_next ();
+	void send_frontier ();
+	void send_next_block ();
+	void sent_action (boost::system::error_code const &, size_t);
+	void send_finished ();
+	void complete (boost::system::error_code const &, size_t);
+	std::shared_ptr<nano::bootstrap_server> connection;
+	std::unique_ptr<nano::bulk_pull_account> request;
+	std::unordered_set<nano::uint256_union> deduplication;
+	nano::pending_key current_key;
+	bool pending_address_only;
+	bool pending_include_address;
+	bool invalid_request;
+};
+}
