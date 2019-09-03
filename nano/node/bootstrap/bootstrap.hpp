@@ -43,10 +43,8 @@ enum class bootstrap_mode
 	lazy,
 	wallet_lazy
 };
-class pull_info;
 class frontier_req_client;
 class bulk_push_client;
-class bulk_pull_account_client;
 class bootstrap_attempt final : public std::enable_shared_from_this<bootstrap_attempt>
 {
 public:
