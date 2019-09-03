@@ -931,32 +931,38 @@ size_t nano::active_transactions::inactive_votes_cache_size ()
 
 void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const & hash_a, nano::account const & representative_a)
 {
-	auto existing (inactive_votes_cache.get<1> ().find (hash_a));
-	if (existing != inactive_votes_cache.get<1> ().end ())
+	/* Check principal representative status
+	nano::ledger::weight (...) call is too expensive due to read transaction requirements
+	Replace with nano::ledger::weight (...) after proper changes */
+	if (node.ledger.rep_weights.representation_get (representative_a) > node.minimum_principal_weight ())
 	{
-		auto is_new (false);
-		inactive_votes_cache.get<1> ().modify (existing, [representative_a, &is_new](nano::gap_information & info) {
-			auto it = std::find (info.voters.begin (), info.voters.end (), representative_a);
-			is_new = (it == info.voters.end ());
+		auto existing (inactive_votes_cache.get<1> ().find (hash_a));
+		if (existing != inactive_votes_cache.get<1> ().end ())
+		{
+			auto is_new (false);
+			inactive_votes_cache.get<1> ().modify (existing, [representative_a, &is_new](nano::gap_information & info) {
+				auto it = std::find (info.voters.begin (), info.voters.end (), representative_a);
+				is_new = (it == info.voters.end ());
+				if (is_new)
+				{
+					info.arrival = std::chrono::steady_clock::now ();
+					info.voters.push_back (representative_a);
+				}
+			});
+
 			if (is_new)
 			{
-				info.arrival = std::chrono::steady_clock::now ();
-				info.voters.push_back (representative_a);
+				auto transaction (node.store.tx_begin_read ());
+				node.gap_cache.bootstrap_check (transaction, existing->voters, hash_a);
 			}
-		});
-
-		if (is_new)
-		{
-			auto transaction (node.store.tx_begin_read ());
-			node.gap_cache.bootstrap_check (transaction, existing->voters, hash_a);
 		}
-	}
-	else
-	{
-		inactive_votes_cache.insert ({ std::chrono::steady_clock::now (), hash_a, std::vector<nano::account> (1, representative_a) });
-		if (inactive_votes_cache.size () > inactive_votes_cache_max)
+		else
 		{
-			inactive_votes_cache.get<0> ().erase (inactive_votes_cache.get<0> ().begin ());
+			inactive_votes_cache.insert ({ std::chrono::steady_clock::now (), hash_a, std::vector<nano::account> (1, representative_a) });
+			if (inactive_votes_cache.size () > inactive_votes_cache_max)
+			{
+				inactive_votes_cache.get<0> ().erase (inactive_votes_cache.get<0> ().begin ());
+			}
 		}
 	}
 }
