@@ -76,7 +76,7 @@ void nano::work_pool::loop (uint64_t thread)
 	uint64_t output;
 	blake2b_state hash;
 	blake2b_init (&hash, sizeof (output));
-	std::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<std::mutex> lock (mutex);
 	auto pow_sleep = pow_rate_limiter;
 	while (!done)
 	{
@@ -156,7 +156,7 @@ void nano::work_pool::loop (uint64_t thread)
 
 void nano::work_pool::cancel (nano::uint256_union const & root_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<std::mutex> lock (mutex);
 	if (!done)
 	{
 		if (!pending.empty ())
@@ -188,7 +188,7 @@ void nano::work_pool::cancel (nano::uint256_union const & root_a)
 void nano::work_pool::stop ()
 {
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<std::mutex> lock (mutex);
 		done = true;
 		++ticket;
 	}
@@ -205,7 +205,7 @@ void nano::work_pool::generate (nano::uint256_union const & hash_a, std::functio
 	assert (!hash_a.is_zero ());
 	boost::optional<uint64_t> result;
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<std::mutex> lock (mutex);
 		pending.push_back ({ hash_a, callback_a, difficulty_a });
 	}
 	producer_condition.notify_all ();
@@ -232,7 +232,7 @@ uint64_t nano::work_pool::generate (nano::uint256_union const & hash_a, uint64_t
 
 size_t nano::work_pool::size ()
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<std::mutex> lock (mutex);
 	return pending.size ();
 }
 
@@ -244,7 +244,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (work_pool & work_p
 
 	size_t count = 0;
 	{
-		std::lock_guard<std::mutex> guard (work_pool.mutex);
+		nano::lock_guard<std::mutex> guard (work_pool.mutex);
 		count = work_pool.pending.size ();
 	}
 	auto sizeof_element = sizeof (decltype (work_pool.pending)::value_type);

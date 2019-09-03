@@ -14,6 +14,12 @@ if [[ $(grep -rl --exclude="*asio.hpp" "asio::async_write" ./nano) ]]; then
     exit 1
 fi
 
+# prevent unsolicited use of std::lock_guard & std::unique_lock outside of allowed areas
+if [[ $(grep -rl --exclude={"*random_pool.cpp","*random_pool.hpp","*locks.hpp"} "std::unique_lock\|std::lock_guard" ./nano) ]]; then
+    echo "using std::unique_lock or std::lock_guard is not permitted (except in nano/lib/locks.hpp and non-nano dependent libraries). Use the nano::* versions instead"
+    exit 1
+fi
+
 mkdir build
 pushd build
 

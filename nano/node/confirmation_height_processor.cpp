@@ -47,7 +47,7 @@ void nano::confirmation_height_processor::stop ()
 
 void nano::confirmation_height_processor::run ()
 {
-	std::unique_lock<std::mutex> lk (pending_confirmations.mutex);
+	nano::unique_lock<std::mutex> lk (pending_confirmations.mutex);
 	while (!stopped)
 	{
 		if (!pending_confirmations.pending.empty ())
@@ -88,7 +88,7 @@ void nano::confirmation_height_processor::run ()
 void nano::confirmation_height_processor::add (nano::block_hash const & hash_a)
 {
 	{
-		std::lock_guard<std::mutex> lk (pending_confirmations.mutex);
+		nano::lock_guard<std::mutex> lk (pending_confirmations.mutex);
 		pending_confirmations.pending.insert (hash_a);
 	}
 	condition.notify_one ();
@@ -412,14 +412,14 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (confirmation_heigh
 
 size_t nano::pending_confirmation_height::size ()
 {
-	std::lock_guard<std::mutex> lk (mutex);
+	nano::lock_guard<std::mutex> lk (mutex);
 	return pending.size ();
 }
 
 bool nano::pending_confirmation_height::is_processing_block (nano::block_hash const & hash_a)
 {
 	// First check the hash currently being processed
-	std::lock_guard<std::mutex> lk (mutex);
+	nano::lock_guard<std::mutex> lk (mutex);
 	if (!current_hash.is_zero () && current_hash == hash_a)
 	{
 		return true;
@@ -431,7 +431,7 @@ bool nano::pending_confirmation_height::is_processing_block (nano::block_hash co
 
 nano::block_hash nano::pending_confirmation_height::current ()
 {
-	std::lock_guard<std::mutex> lk (mutex);
+	nano::lock_guard<std::mutex> lk (mutex);
 	return current_hash;
 }
 
