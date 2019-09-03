@@ -338,7 +338,9 @@ void nano::active_transactions::request_loop ()
 		}
 		const auto extra_delay (std::min (roots.size (), max_broadcast_queue) * node.network.broadcast_interval_ms * 2);
 		const auto wakeup (std::chrono::steady_clock::now () + std::chrono::milliseconds (node.network_params.network.request_interval_ms + extra_delay));
-		condition.wait_until (lock, wakeup, [&wakeup] { return std::chrono::steady_clock::now () >= wakeup; });
+		// clang-format off
+		condition.wait_until (lock, wakeup, [&wakeup, &stopped = stopped] { return stopped || std::chrono::steady_clock::now () >= wakeup; });
+		// clang-format on
 	}
 }
 
@@ -502,7 +504,10 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 void nano::active_transactions::stop ()
 {
 	nano::unique_lock<std::mutex> lock (mutex);
-	condition.wait (lock, [& started = started] { return started; });
+	if (!started)
+	{
+		condition.wait (lock, [& started = started] { return started; });
+	}
 	stopped = true;
 	lock.unlock ();
 	condition.notify_all ();
@@ -613,6 +618,10 @@ void nano::active_transactions::update_difficulty (nano::block const & block_a)
 		assert (!error);
 		if (difficulty > existing->difficulty)
 		{
+			if (node.config.logging.active_update_logging ())
+			{
+				node.logger.try_log (boost::str (boost::format ("Block %1% was updated from difficulty %2% to %3%") % block_a.hash ().to_string () % nano::to_string_hex (existing->difficulty) % nano::to_string_hex (difficulty)));
+			}
 			roots.modify (existing, [difficulty](nano::conflict_info & info_a) {
 				info_a.difficulty = difficulty;
 			});

@@ -1,3 +1,4 @@
+#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/walletconfig.hpp>
 
@@ -7,7 +8,7 @@ nano::wallet_config::wallet_config ()
 	assert (!wallet.is_zero ());
 }
 
-nano::error nano::wallet_config::parse (std::string wallet_a, std::string account_a)
+nano::error nano::wallet_config::parse (std::string const & wallet_a, std::string const & account_a)
 {
 	nano::error error;
 	if (wallet.decode_hex (wallet_a))

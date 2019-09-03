@@ -1,6 +1,7 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/rocksdbconfig.hpp>
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/nodeconfig.hpp>
@@ -144,6 +145,10 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	stat_config.serialize_toml (stat_l);
 	toml.put_child ("statistics", stat_l);
 
+	nano::tomlconfig rocksdb_l;
+	rocksdb_config.serialize_toml (rocksdb_l);
+	toml.put_child ("rocksdb", rocksdb_l);
+
 	return toml.get_error ();
 }
 
@@ -187,6 +192,12 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			auto stat_config_l (toml.get_required_child ("statistics"));
 			stat_config.deserialize_toml (stat_config_l);
+		}
+
+		if (toml.has_key ("rocksdb"))
+		{
+			auto rocksdb_config_l (toml.get_required_child ("rocksdb"));
+			rocksdb_config.deserialize_toml (rocksdb_config_l);
 		}
 
 		if (toml.has_key ("work_peers"))

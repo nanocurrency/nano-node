@@ -234,6 +234,8 @@ TEST (active_transactions, adjusted_difficulty_overflow_min)
 		ASSERT_LT (open2_root->adjusted_difficulty, send2_root->adjusted_difficulty);
 		ASSERT_LT (send3_root->adjusted_difficulty, open2_root->adjusted_difficulty);
 		ASSERT_EQ (send3_root->adjusted_difficulty, std::numeric_limits<std::uint64_t>::min ());
+		// Clear roots with too low difficulty to prevent issues
+		node1.active.roots.clear ();
 	}
 }
 
