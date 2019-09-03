@@ -440,7 +440,7 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 	}
 	std::shared_ptr<nano::election> election;
 	{
-		std::lock_guard<std::mutex> active_guard (node->active.mutex);
+		nano::lock_guard<std::mutex> active_guard (node->active.mutex);
 		auto it (node->active.roots.begin ());
 		ASSERT_NE (node->active.roots.end (), it);
 		election = it->election;
@@ -453,13 +453,13 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 	bool done (false);
 	while (!done)
 	{
-		std::unique_lock<std::mutex> active_lock (node->active.mutex);
+		nano::unique_lock<std::mutex> active_lock (node->active.mutex);
 		done = (election->last_votes.size () == 2);
 		active_lock.unlock ();
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (1, system.nodes[0]->stats.count (nano::stat::type::election, nano::stat::detail::vote_new));
-	std::lock_guard<std::mutex> active_guard (node->active.mutex);
+	nano::lock_guard<std::mutex> active_guard (node->active.mutex);
 	auto last_vote1 (election->last_votes[key.pub]);
 	ASSERT_EQ (send->hash (), last_vote1.hash);
 	ASSERT_EQ (1, last_vote1.sequence);
@@ -505,7 +505,7 @@ TEST (active_transactions, inactive_votes_cache_multiple_votes)
 	// Start election
 	system.nodes[0]->active.start (send1);
 	{
-		std::lock_guard<std::mutex> active_guard (system.nodes[0]->active.mutex);
+		nano::lock_guard<std::mutex> active_guard (system.nodes[0]->active.mutex);
 		auto it (system.nodes[0]->active.roots.begin ());
 		ASSERT_NE (system.nodes[0]->active.roots.end (), it);
 		ASSERT_EQ (3, it->election->last_votes.size ()); // 2 votes and 1 default not_an_acount

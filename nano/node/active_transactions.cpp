@@ -925,7 +925,7 @@ boost::circular_buffer<double> nano::active_transactions::difficulty_trend ()
 
 size_t nano::active_transactions::inactive_votes_cache_size ()
 {
-	std::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard<std::mutex> guard (mutex);
 	return inactive_votes_cache.size ();
 }
 
