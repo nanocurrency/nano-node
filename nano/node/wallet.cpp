@@ -1450,7 +1450,7 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 				auto active_difficulty (watcher_l->node.active.limited_active_difficulty ());
 				if (active_difficulty > difficulty)
 				{
-					watcher_l->node.work.generate (root_l, [watcher_l, block_a, root_a](boost::optional<uint64_t> work_a) {
+					watcher_l->node.work_generate (root_l, [watcher_l, block_a, root_a](boost::optional<uint64_t> work_a) {
 						if (block_a != nullptr && watcher_l != nullptr && !watcher_l->stopped)
 						{
 							bool updated_l{ false };
