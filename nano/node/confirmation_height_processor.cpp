@@ -286,7 +286,7 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 				assert (network_constants.is_test_network () || block != nullptr);
 				assert (network_constants.is_test_network () || sideband.height == pending.height);
 #else
-				auto block = store.block_get (transaction, pending.hash);
+				auto block = ledger.store.block_get (transaction, pending.hash);
 #endif
 				// Check that the block still exists as there may have been changes outside this processor.
 				if (!block)
