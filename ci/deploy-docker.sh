@@ -20,7 +20,7 @@ if [ -n "$DOCKER_PASSWORD" ]; then
     elif [[ "$TRAVIS_BUILD_STAGE_NAME" =~ "Artifacts" ]]; then
         tags=()
         if [[ "${TRAVIS_TAG}" =~ ("RC"|"DB") ]]; then
-            tags+=("$TRAVIS_TAG" latest-including-rc)
+            tags+=("$TRAVIS_TAG" latest latest-including-rc)
         elif [ -n "$TRAVIS_TAG" ]; then
             tags+=("$TRAVIS_TAG" latest latest-including-rc)
         elif [ -n "$TRAVIS_BRANCH" ]; then
