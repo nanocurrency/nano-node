@@ -70,7 +70,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (rep_crawler & rep_
 {
 	size_t count = 0;
 	{
-		std::lock_guard<std::mutex> guard (rep_crawler.active_mutex);
+		nano::lock_guard<std::mutex> guard (rep_crawler.active_mutex);
 		count = rep_crawler.active.size ();
 	}
 
@@ -89,7 +89,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_processor & 
 	size_t rolled_back_count = 0;
 
 	{
-		std::lock_guard<std::mutex> guard (block_processor.mutex);
+		nano::lock_guard<std::mutex> guard (block_processor.mutex);
 		state_blocks_count = block_processor.state_blocks.size ();
 		blocks_count = block_processor.blocks.size ();
 		blocks_hashes_count = block_processor.blocks_hashes.size ();
@@ -881,12 +881,12 @@ void nano::node::bootstrap_wallet ()
 {
 	std::deque<nano::account> accounts;
 	{
-		std::lock_guard<std::mutex> lock (wallets.mutex);
+		nano::lock_guard<std::mutex> lock (wallets.mutex);
 		auto transaction (wallets.tx_begin_read ());
 		for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n && accounts.size () < 128; ++i)
 		{
 			auto & wallet (*i->second);
-			std::lock_guard<std::recursive_mutex> wallet_lock (wallet.store.mutex);
+			nano::lock_guard<std::recursive_mutex> wallet_lock (wallet.store.mutex);
 			for (auto j (wallet.store.begin (transaction)), m (wallet.store.end ()); j != m && accounts.size () < 128; ++j)
 			{
 				nano::account account (j->first);
@@ -915,6 +915,10 @@ void nano::node::unchecked_cleanup ()
 			}
 		}
 	}
+	if (!cleaning_list.empty ())
+	{
+		logger.always_log (boost::str (boost::format ("Deleting %1% old unchecked blocks") % cleaning_list.size ()));
+	}
 	// Delete old unchecked keys in batches
 	while (!cleaning_list.empty ())
 	{
@@ -931,7 +935,7 @@ void nano::node::unchecked_cleanup ()
 
 void nano::node::ongoing_unchecked_cleanup ()
 {
-	if (!bootstrap_initiator.in_progress ())
+	if (!bootstrap_initiator.in_progress () && ledger.block_count () >= ledger.bootstrap_weight_max_blocks)
 	{
 		unchecked_cleanup ();
 	}
@@ -1215,7 +1219,7 @@ void nano::node::process_confirmed (nano::election_status const & status_a, uint
 
 bool nano::block_arrival::add (nano::block_hash const & hash_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<std::mutex> lock (mutex);
 	auto now (std::chrono::steady_clock::now ());
 	auto inserted (arrival.insert (nano::block_arrival_info{ now, hash_a }));
 	auto result (!inserted.second);
@@ -1224,7 +1228,7 @@ bool nano::block_arrival::add (nano::block_hash const & hash_a)
 
 bool nano::block_arrival::recent (nano::block_hash const & hash_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<std::mutex> lock (mutex);
 	auto now (std::chrono::steady_clock::now ());
 	while (arrival.size () > arrival_size_min && arrival.begin ()->arrival + arrival_time_min < now)
 	{
@@ -1239,7 +1243,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_arrival & bl
 {
 	size_t count = 0;
 	{
-		std::lock_guard<std::mutex> guard (block_arrival.mutex);
+		nano::lock_guard<std::mutex> guard (block_arrival.mutex);
 		count = block_arrival.arrival.size ();
 	}
 

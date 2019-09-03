@@ -67,13 +67,13 @@ public:
 	stat_datapoint () = default;
 	stat_datapoint (stat_datapoint const & other_a)
 	{
-		std::lock_guard<std::mutex> lock (other_a.datapoint_mutex);
+		nano::lock_guard<std::mutex> lock (other_a.datapoint_mutex);
 		value = other_a.value;
 		timestamp = other_a.timestamp;
 	}
 	stat_datapoint & operator= (stat_datapoint const & other_a)
 	{
-		std::lock_guard<std::mutex> lock (other_a.datapoint_mutex);
+		nano::lock_guard<std::mutex> lock (other_a.datapoint_mutex);
 		value = other_a.value;
 		timestamp = other_a.timestamp;
 		return *this;
@@ -81,28 +81,28 @@ public:
 
 	uint64_t get_value ()
 	{
-		std::lock_guard<std::mutex> lock (datapoint_mutex);
+		nano::lock_guard<std::mutex> lock (datapoint_mutex);
 		return value;
 	}
 	void set_value (uint64_t value_a)
 	{
-		std::lock_guard<std::mutex> lock (datapoint_mutex);
+		nano::lock_guard<std::mutex> lock (datapoint_mutex);
 		value = value_a;
 	}
 	std::chrono::system_clock::time_point get_timestamp ()
 	{
-		std::lock_guard<std::mutex> lock (datapoint_mutex);
+		nano::lock_guard<std::mutex> lock (datapoint_mutex);
 		return timestamp;
 	}
 	void set_timestamp (std::chrono::system_clock::time_point timestamp_a)
 	{
-		std::lock_guard<std::mutex> lock (datapoint_mutex);
+		nano::lock_guard<std::mutex> lock (datapoint_mutex);
 		timestamp = timestamp_a;
 	}
 	/** Add \addend to the current value and optionally update the timestamp */
 	void add (uint64_t addend, bool update_timestamp = true)
 	{
-		std::lock_guard<std::mutex> lock (datapoint_mutex);
+		nano::lock_guard<std::mutex> lock (datapoint_mutex);
 		value += addend;
 		if (update_timestamp)
 		{

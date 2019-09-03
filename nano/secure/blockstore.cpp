@@ -273,7 +273,7 @@ nano::uint128_t nano::summation_visitor::compute_internal (nano::summation_visit
 					{
 						if (current->amount_hash == network_params.ledger.genesis_account)
 						{
-							sum_set (std::numeric_limits<nano::uint128_t>::max ());
+							sum_set ((std::numeric_limits<nano::uint128_t>::max) ());
 							current->amount_hash = 0;
 						}
 						else

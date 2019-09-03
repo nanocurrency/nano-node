@@ -825,7 +825,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 							{
 								bool error (true);
 								{
-									std::lock_guard<std::mutex> lock (node.node->wallets.mutex);
+									nano::lock_guard<std::mutex> lock (node.node->wallets.mutex);
 									auto transaction (node.node->wallets.tx_begin_write ());
 									nano::wallet wallet (error, transaction, node.node->wallets, wallet_id.to_string (), contents.str ());
 								}
@@ -837,7 +837,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 								else
 								{
 									node.node->wallets.reload ();
-									std::lock_guard<std::mutex> lock (node.node->wallets.mutex);
+									nano::lock_guard<std::mutex> lock (node.node->wallets.mutex);
 									release_assert (node.node->wallets.items.find (wallet_id) != node.node->wallets.items.end ());
 									std::cout << "Import completed\n";
 								}

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/boost/asio.hpp>
+#include <nano/lib/locks.hpp>
 
 #include <boost/filesystem.hpp>
 #include <boost/system/error_code.hpp>
@@ -89,6 +90,11 @@ void create_load_memory_address_files ();
 void dump_crash_stacktrace ();
 
 /*
+ * Generates the current stacktrace
+ */
+std::string generate_stacktrace ();
+
+/*
  * Functions for understanding the role of the current thread
  */
 namespace thread_role
@@ -163,7 +169,7 @@ public:
 	void stop ();
 
 private:
-	std::condition_variable cv;
+	nano::condition_variable cv;
 	std::deque<std::function<void()>> queue;
 	std::mutex mutex;
 	std::atomic<bool> stopped{ false };
@@ -188,12 +194,12 @@ class observer_set final
 public:
 	void add (std::function<void(T...)> const & observer_a)
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<std::mutex> lock (mutex);
 		observers.push_back (observer_a);
 	}
 	void notify (T... args)
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<std::mutex> lock (mutex);
 		for (auto & i : observers)
 		{
 			i (args...);
@@ -204,11 +210,11 @@ public:
 };
 
 template <typename... T>
-inline std::unique_ptr<seq_con_info_component> collect_seq_con_info (observer_set<T...> & observer_set, const std::string & name)
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (observer_set<T...> & observer_set, const std::string & name)
 {
 	size_t count = 0;
 	{
-		std::lock_guard<std::mutex> lock (observer_set.mutex);
+		nano::lock_guard<std::mutex> lock (observer_set.mutex);
 		count = observer_set.observers.size ();
 	}
 

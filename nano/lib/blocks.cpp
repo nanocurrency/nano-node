@@ -1567,7 +1567,7 @@ std::shared_ptr<nano::block> nano::block_uniquer::unique (std::shared_ptr<nano::
 	if (result != nullptr)
 	{
 		nano::uint256_union key (block_a->full_hash ());
-		std::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<std::mutex> lock (mutex);
 		auto & existing (blocks[key]);
 		if (auto block_l = existing.lock ())
 		{
@@ -1604,7 +1604,7 @@ std::shared_ptr<nano::block> nano::block_uniquer::unique (std::shared_ptr<nano::
 
 size_t nano::block_uniquer::size ()
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<std::mutex> lock (mutex);
 	return blocks.size ();
 }
 
