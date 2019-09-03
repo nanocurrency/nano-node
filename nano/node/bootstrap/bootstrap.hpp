@@ -68,6 +68,7 @@ public:
 	bool should_log ();
 	void add_bulk_push_target (nano::block_hash const &, nano::block_hash const &);
 	bool process_block (std::shared_ptr<nano::block>, nano::account const &, uint64_t, bool);
+	bool process_block_lazy (std::shared_ptr<nano::block>, nano::account const &, uint64_t);
 	void lazy_run ();
 	void lazy_start (nano::block_hash const &);
 	void lazy_add (nano::block_hash const &);

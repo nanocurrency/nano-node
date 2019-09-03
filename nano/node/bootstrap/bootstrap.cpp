@@ -709,143 +709,7 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_
 	bool stop_pull (false);
 	if (mode != nano::bootstrap_mode::legacy && block_expected)
 	{
-		auto hash (block_a->hash ());
-		std::unique_lock<std::mutex> lock (lazy_mutex);
-		// Processing new blocks
-		if (lazy_blocks.find (hash) == lazy_blocks.end ())
-		{
-			// Search block in ledger (old)
-			auto transaction (node->store.tx_begin_read ());
-			if (!node->store.block_exists (transaction, block_a->type (), hash))
-			{
-				nano::uint128_t balance (std::numeric_limits<nano::uint128_t>::max ());
-				nano::unchecked_info info (block_a, known_account_a, 0, nano::signature_verification::unknown);
-				node->block_processor.add (info);
-				// Search for new dependencies
-				if (!block_a->source ().is_zero () && !node->store.block_exists (transaction, block_a->source ()))
-				{
-					lazy_add (block_a->source ());
-				}
-				else if (block_a->type () == nano::block_type::send)
-				{
-					// Calculate balance for legacy send blocks
-					std::shared_ptr<nano::send_block> block_l (std::static_pointer_cast<nano::send_block> (block_a));
-					if (block_l != nullptr)
-					{
-						balance = block_l->hashables.balance.number ();
-					}
-				}
-				else if (block_a->type () == nano::block_type::state)
-				{
-					std::shared_ptr<nano::state_block> block_l (std::static_pointer_cast<nano::state_block> (block_a));
-					if (block_l != nullptr)
-					{
-						balance = block_l->hashables.balance.number ();
-						nano::block_hash link (block_l->hashables.link);
-						// If link is not epoch link or 0. And if block from link unknown
-						if (!link.is_zero () && link != node->ledger.epoch_link && lazy_blocks.find (link) == lazy_blocks.end () && !node->store.block_exists (transaction, link))
-						{
-							nano::block_hash previous (block_l->hashables.previous);
-							// If state block previous is 0 then source block required
-							if (previous.is_zero ())
-							{
-								lazy_add (link);
-							}
-							// In other cases previous block balance required to find out subtype of state block
-							else if (node->store.block_exists (transaction, previous))
-							{
-								nano::amount prev_balance (node->ledger.balance (transaction, previous));
-								if (prev_balance.number () <= balance)
-								{
-									lazy_add (link);
-								}
-							}
-							// Search balance of already processed previous blocks
-							else if (lazy_blocks.find (previous) != lazy_blocks.end ())
-							{
-								auto previous_balance (lazy_balances.find (previous));
-								if (previous_balance != lazy_balances.end ())
-								{
-									if (previous_balance->second <= balance)
-									{
-										lazy_add (link);
-									}
-									lazy_balances.erase (previous_balance);
-								}
-							}
-							// Insert in unknown state blocks if previous wasn't already processed
-							else
-							{
-								lazy_state_unknown.insert (std::make_pair (previous, std::make_pair (link, balance)));
-							}
-						}
-					}
-				}
-				lazy_blocks.insert (hash);
-				// Adding lazy balances
-				if (pull_blocks == 0)
-				{
-					lazy_balances.insert (std::make_pair (hash, balance));
-				}
-				// Removing lazy balances
-				if (!block_a->previous ().is_zero () && lazy_balances.find (block_a->previous ()) != lazy_balances.end ())
-				{
-					lazy_balances.erase (block_a->previous ());
-				}
-			}
-			// Drop bulk_pull if block is already known (ledger)
-			else
-			{
-				// Disabled until server rewrite
-				// stop_pull = true;
-				// Force drop lazy bootstrap connection for long bulk_pull
-				if (pull_blocks > node->network_params.bootstrap.lazy_max_pull_blocks)
-				{
-					stop_pull = true;
-				}
-			}
-			//Search unknown state blocks balances
-			auto find_state (lazy_state_unknown.find (hash));
-			if (find_state != lazy_state_unknown.end ())
-			{
-				auto next_block (find_state->second);
-				lazy_state_unknown.erase (hash);
-				// Retrieve balance for previous state blocks
-				if (block_a->type () == nano::block_type::state)
-				{
-					std::shared_ptr<nano::state_block> block_l (std::static_pointer_cast<nano::state_block> (block_a));
-					if (block_l->hashables.balance.number () <= next_block.second)
-					{
-						lazy_add (next_block.first);
-					}
-				}
-				// Retrieve balance for previous legacy send blocks
-				else if (block_a->type () == nano::block_type::send)
-				{
-					std::shared_ptr<nano::send_block> block_l (std::static_pointer_cast<nano::send_block> (block_a));
-					if (block_l->hashables.balance.number () <= next_block.second)
-					{
-						lazy_add (next_block.first);
-					}
-				}
-				// Weak assumption for other legacy block types
-				else
-				{
-					// Disabled
-				}
-			}
-		}
-		// Drop bulk_pull if block is already known (processed set)
-		else
-		{
-			// Disabled until server rewrite
-			// stop_pull = true;
-			// Force drop lazy bootstrap connection for long bulk_pull
-			if (pull_blocks > node->network_params.bootstrap.lazy_max_pull_blocks)
-			{
-				stop_pull = true;
-			}
-		}
+		stop_pull = process_block_lazy (block_a, known_account_a, pull_blocks);
 	}
 	else if (mode != nano::bootstrap_mode::legacy)
 	{
@@ -856,6 +720,149 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_
 	{
 		nano::unchecked_info info (block_a, known_account_a, 0, nano::signature_verification::unknown);
 		node->block_processor.add (info);
+	}
+	return stop_pull;
+}
+
+bool nano::bootstrap_attempt::process_block_lazy (std::shared_ptr<nano::block> block_a, nano::account const & known_account_a, uint64_t pull_blocks)
+{
+	bool stop_pull (false);
+	auto hash (block_a->hash ());
+	std::unique_lock<std::mutex> lock (lazy_mutex);
+	// Processing new blocks
+	if (lazy_blocks.find (hash) == lazy_blocks.end ())
+	{
+		// Search block in ledger (old)
+		auto transaction (node->store.tx_begin_read ());
+		if (!node->store.block_exists (transaction, block_a->type (), hash))
+		{
+			nano::uint128_t balance (std::numeric_limits<nano::uint128_t>::max ());
+			nano::unchecked_info info (block_a, known_account_a, 0, nano::signature_verification::unknown);
+			node->block_processor.add (info);
+			// Search for new dependencies
+			if (!block_a->source ().is_zero () && !node->store.block_exists (transaction, block_a->source ()))
+			{
+				lazy_add (block_a->source ());
+			}
+			else if (block_a->type () == nano::block_type::send)
+			{
+				// Calculate balance for legacy send blocks
+				std::shared_ptr<nano::send_block> block_l (std::static_pointer_cast<nano::send_block> (block_a));
+				if (block_l != nullptr)
+				{
+					balance = block_l->hashables.balance.number ();
+				}
+			}
+			else if (block_a->type () == nano::block_type::state)
+			{
+				std::shared_ptr<nano::state_block> block_l (std::static_pointer_cast<nano::state_block> (block_a));
+				if (block_l != nullptr)
+				{
+					balance = block_l->hashables.balance.number ();
+					nano::block_hash link (block_l->hashables.link);
+					// If link is not epoch link or 0. And if block from link unknown
+					if (!link.is_zero () && link != node->ledger.epoch_link && lazy_blocks.find (link) == lazy_blocks.end () && !node->store.block_exists (transaction, link))
+					{
+						nano::block_hash previous (block_l->hashables.previous);
+						// If state block previous is 0 then source block required
+						if (previous.is_zero ())
+						{
+							lazy_add (link);
+						}
+						// In other cases previous block balance required to find out subtype of state block
+						else if (node->store.block_exists (transaction, previous))
+						{
+							nano::amount prev_balance (node->ledger.balance (transaction, previous));
+							if (prev_balance.number () <= balance)
+							{
+								lazy_add (link);
+							}
+						}
+						// Search balance of already processed previous blocks
+						else if (lazy_blocks.find (previous) != lazy_blocks.end ())
+						{
+							auto previous_balance (lazy_balances.find (previous));
+							if (previous_balance != lazy_balances.end ())
+							{
+								if (previous_balance->second <= balance)
+								{
+									lazy_add (link);
+								}
+								lazy_balances.erase (previous_balance);
+							}
+						}
+						// Insert in unknown state blocks if previous wasn't already processed
+						else
+						{
+							lazy_state_unknown.insert (std::make_pair (previous, std::make_pair (link, balance)));
+						}
+					}
+				}
+			}
+			lazy_blocks.insert (hash);
+			// Adding lazy balances
+			if (pull_blocks == 0)
+			{
+				lazy_balances.insert (std::make_pair (hash, balance));
+			}
+			// Removing lazy balances
+			if (!block_a->previous ().is_zero () && lazy_balances.find (block_a->previous ()) != lazy_balances.end ())
+			{
+				lazy_balances.erase (block_a->previous ());
+			}
+		}
+		// Drop bulk_pull if block is already known (ledger)
+		else
+		{
+			// Disabled until server rewrite
+			// stop_pull = true;
+			// Force drop lazy bootstrap connection for long bulk_pull
+			if (pull_blocks > node->network_params.bootstrap.lazy_max_pull_blocks)
+			{
+				stop_pull = true;
+			}
+		}
+		//Search unknown state blocks balances
+		auto find_state (lazy_state_unknown.find (hash));
+		if (find_state != lazy_state_unknown.end ())
+		{
+			auto next_block (find_state->second);
+			lazy_state_unknown.erase (hash);
+			// Retrieve balance for previous state blocks
+			if (block_a->type () == nano::block_type::state)
+			{
+				std::shared_ptr<nano::state_block> block_l (std::static_pointer_cast<nano::state_block> (block_a));
+				if (block_l->hashables.balance.number () <= next_block.second)
+				{
+					lazy_add (next_block.first);
+				}
+			}
+			// Retrieve balance for previous legacy send blocks
+			else if (block_a->type () == nano::block_type::send)
+			{
+				std::shared_ptr<nano::send_block> block_l (std::static_pointer_cast<nano::send_block> (block_a));
+				if (block_l->hashables.balance.number () <= next_block.second)
+				{
+					lazy_add (next_block.first);
+				}
+			}
+			// Weak assumption for other legacy block types
+			else
+			{
+				// Disabled
+			}
+		}
+	}
+	// Drop bulk_pull if block is already known (processed set)
+	else
+	{
+		// Disabled until server rewrite
+		// stop_pull = true;
+		// Force drop lazy bootstrap connection for long bulk_pull
+		if (pull_blocks > node->network_params.bootstrap.lazy_max_pull_blocks)
+		{
+			stop_pull = true;
+		}
 	}
 	return stop_pull;
 }
