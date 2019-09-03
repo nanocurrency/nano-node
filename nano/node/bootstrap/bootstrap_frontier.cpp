@@ -1,5 +1,5 @@
-#include <nano/node/bootstrap/bootstrap_frontier.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
+#include <nano/node/bootstrap/bootstrap_frontier.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
 

@@ -69,7 +69,6 @@ boost::asio::ip::tcp::endpoint nano::bootstrap_listener::endpoint ()
 	return boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), listening_socket->listening_port ());
 }
 
-
 namespace nano
 {
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_listener & bootstrap_listener, const std::string & name)

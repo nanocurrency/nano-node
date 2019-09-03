@@ -1,5 +1,5 @@
-#include <nano/node/bootstrap/bootstrap_bulk_push.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
+#include <nano/node/bootstrap/bootstrap_bulk_push.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
 
@@ -118,7 +118,6 @@ void nano::bulk_push_client::push_block (nano::block const & block_a)
 		}
 	});
 }
-
 
 nano::bulk_push_server::bulk_push_server (std::shared_ptr<nano::bootstrap_server> const & connection_a) :
 receive_buffer (std::make_shared<std::vector<uint8_t>> ()),

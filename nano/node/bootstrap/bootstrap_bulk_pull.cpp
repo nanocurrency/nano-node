@@ -1,5 +1,5 @@
-#include <nano/node/bootstrap/bootstrap_bulk_pull.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
+#include <nano/node/bootstrap/bootstrap_bulk_pull.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
 
@@ -383,7 +383,6 @@ void nano::bulk_pull_account_client::receive_pending ()
 		}
 	});
 }
-
 
 /**
  * Handle a request for the pull of all blocks associated with an account
