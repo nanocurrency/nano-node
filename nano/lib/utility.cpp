@@ -67,6 +67,14 @@ void dump_crash_stacktrace ()
 	boost::stacktrace::safe_dump_to ("nano_node_backtrace.dump");
 }
 
+std::string generate_stacktrace ()
+{
+	auto stacktrace = boost::stacktrace::stacktrace ();
+	std::stringstream ss;
+	ss << stacktrace;
+	return ss.str ();
+}
+
 namespace thread_role
 {
 	/*
@@ -240,7 +248,7 @@ void nano::worker::run ()
 {
 	while (!stopped)
 	{
-		std::unique_lock<std::mutex> lk (mutex);
+		nano::unique_lock<std::mutex> lk (mutex);
 		if (!queue.empty ())
 		{
 			auto func = queue.front ();
@@ -266,7 +274,7 @@ nano::worker::~worker ()
 void nano::worker::push_task (std::function<void()> func_a)
 {
 	{
-		std::lock_guard<std::mutex> guard (mutex);
+		nano::lock_guard<std::mutex> guard (mutex);
 		queue.emplace_back (func_a);
 	}
 
@@ -289,7 +297,7 @@ std::unique_ptr<nano::seq_con_info_component> nano::collect_seq_con_info (nano::
 
 	size_t count = 0;
 	{
-		std::lock_guard<std::mutex> guard (worker.mutex);
+		nano::lock_guard<std::mutex> guard (worker.mutex);
 		count = worker.queue.size ();
 	}
 	auto sizeof_element = sizeof (decltype (worker.queue)::value_type);
@@ -334,10 +342,7 @@ void release_assert_internal (bool check, const char * check_expr, const char * 
 	std::cerr << "Assertion (" << check_expr << ") failed " << file << ":" << line << "\n\n";
 
 	// Output stack trace to cerr
-	auto stacktrace = boost::stacktrace::stacktrace ();
-	std::stringstream ss;
-	ss << stacktrace;
-	auto backtrace_str = ss.str ();
+	auto backtrace_str = nano::generate_stacktrace ();
 	std::cerr << backtrace_str << std::endl;
 
 	// "abort" at the end of this function will go into any signal handlers (the daemon ones will generate a stack trace and load memory address files on non-Windows systems).

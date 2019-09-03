@@ -17,7 +17,7 @@ public:
 	template <class Iter>
 	static void shuffle (Iter begin, Iter end)
 	{
-		std::lock_guard<std::mutex> lk (mutex);
+		std::lock_guard<std::mutex> guard (mutex);
 		pool.Shuffle (begin, end);
 	}
 

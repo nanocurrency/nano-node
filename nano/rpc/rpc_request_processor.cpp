@@ -10,7 +10,7 @@ thread ([this]() {
 	this->run ();
 })
 {
-	std::lock_guard<std::mutex> lk (this->request_mutex);
+	nano::lock_guard<std::mutex> lk (this->request_mutex);
 	this->connections.reserve (rpc_config.rpc_process.num_ipc_connections);
 	for (auto i = 0u; i < rpc_config.rpc_process.num_ipc_connections; ++i)
 	{
@@ -19,7 +19,7 @@ thread ([this]() {
 		// clang-format off
 		connection->client.async_connect (ipc_address, ipc_port, [ connection, &connections_mutex = this->connections_mutex ](nano::error err) {
 			// Even if there is an error this needs to be set so that another attempt can be made to connect with the ipc connection
-			std::lock_guard<std::mutex> lk (connections_mutex);
+			nano::lock_guard<std::mutex> lk (connections_mutex);
 			connection->is_available = true;
 		});
 		// clang-format on
@@ -34,7 +34,7 @@ nano::rpc_request_processor::~rpc_request_processor ()
 void nano::rpc_request_processor::stop ()
 {
 	{
-		std::lock_guard<std::mutex> lock (request_mutex);
+		nano::lock_guard<std::mutex> lock (request_mutex);
 		stopped = true;
 	}
 	condition.notify_one ();
@@ -47,7 +47,7 @@ void nano::rpc_request_processor::stop ()
 void nano::rpc_request_processor::add (std::shared_ptr<rpc_request> request)
 {
 	{
-		std::lock_guard<std::mutex> lk (request_mutex);
+		nano::lock_guard<std::mutex> lk (request_mutex);
 		requests.push_back (request);
 	}
 	condition.notify_one ();
@@ -79,7 +79,7 @@ void nano::rpc_request_processor::read_payload (std::shared_ptr<nano::ipc_connec
 
 void nano::rpc_request_processor::make_available (nano::ipc_connection & connection)
 {
-	std::lock_guard<std::mutex> lk (connections_mutex);
+	nano::lock_guard<std::mutex> lk (connections_mutex);
 	connection.is_available = true; // Allow people to use it now
 }
 
@@ -123,13 +123,13 @@ void nano::rpc_request_processor::try_reconnect_and_execute_request (std::shared
 void nano::rpc_request_processor::run ()
 {
 	// This should be a conditioned wait
-	std::unique_lock<std::mutex> lk (request_mutex);
+	nano::unique_lock<std::mutex> lk (request_mutex);
 	while (!stopped)
 	{
 		if (!requests.empty ())
 		{
 			lk.unlock ();
-			std::unique_lock<std::mutex> conditions_lk (connections_mutex);
+			nano::unique_lock<std::mutex> conditions_lk (connections_mutex);
 			// Find the first free ipc_client
 			auto it = std::find_if (connections.begin (), connections.end (), [](auto connection) -> bool {
 				return connection->is_available;

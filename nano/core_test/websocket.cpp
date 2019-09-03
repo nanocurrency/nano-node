@@ -189,7 +189,7 @@ TEST (websocket, active_difficulty)
 
 	// Fake history records to force trended_active_difficulty change
 	{
-		std::unique_lock<std::mutex> lock (node1->active.mutex);
+		nano::unique_lock<std::mutex> lock (node1->active.mutex);
 		node1->active.multipliers_cb.push_front (10.);
 	}
 

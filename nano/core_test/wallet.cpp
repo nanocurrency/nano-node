@@ -1124,7 +1124,7 @@ TEST (wallet, work_watcher_update)
 	auto multiplier = nano::difficulty::to_multiplier (std::max (difficulty1, difficulty2), node.network_params.network.publish_threshold);
 	uint64_t updated_difficulty1{ difficulty1 }, updated_difficulty2{ difficulty2 };
 	{
-		std::unique_lock<std::mutex> lock (node.active.mutex);
+		nano::unique_lock<std::mutex> lock (node.active.mutex);
 		// Prevent active difficulty repopulating multipliers
 		node.network_params.network.request_interval_ms = 10000;
 		//fill multipliers_cb and update active difficulty;
@@ -1138,7 +1138,7 @@ TEST (wallet, work_watcher_update)
 	while (updated_difficulty1 == difficulty1 || updated_difficulty2 == difficulty2)
 	{
 		{
-			std::lock_guard<std::mutex> guard (node.active.mutex);
+			nano::lock_guard<std::mutex> guard (node.active.mutex);
 			{
 				auto const existing (node.active.roots.find (block1->qualified_root ()));
 				//if existing is junk the block has been confirmed already
@@ -1195,7 +1195,7 @@ TEST (wallet, work_watcher_cancel)
 	uint64_t difficulty1 (0);
 	nano::work_validate (*block1, &difficulty1);
 	{
-		std::unique_lock<std::mutex> lock (node.active.mutex);
+		nano::unique_lock<std::mutex> lock (node.active.mutex);
 		// Prevent active difficulty repopulating multipliers
 		node.network_params.network.request_interval_ms = 10000;
 		// Fill multipliers_cb and update active difficulty;
@@ -1216,7 +1216,7 @@ TEST (wallet, work_watcher_cancel)
 	node.work.cancel (block1->root ());
 	ASSERT_EQ (0, node.work.size ());
 	{
-		std::unique_lock<std::mutex> lock (wallet.wallets.watcher->mutex);
+		nano::unique_lock<std::mutex> lock (wallet.wallets.watcher->mutex);
 		auto existing (wallet.wallets.watcher->watched.find (block1->qualified_root ()));
 		ASSERT_NE (wallet.wallets.watcher->watched.end (), existing);
 		auto block2 (existing->second);
