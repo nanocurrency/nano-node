@@ -224,7 +224,7 @@ TEST (node, fork_storm)
 			}
 			else
 			{
-				std::lock_guard<std::mutex> lock (node_a->active.mutex);
+				nano::lock_guard<std::mutex> lock (node_a->active.mutex);
 				if (node_a->active.roots.begin ()->election->last_votes_size () == 1)
 				{
 					++single;
@@ -466,7 +466,7 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 
 	// As this test can take a while extend the next frontier check
 	{
-		std::lock_guard<std::mutex> guard (node->active.mutex);
+		nano::lock_guard<std::mutex> guard (node->active.mutex);
 		node->active.next_frontier_check = std::chrono::steady_clock::now () + 7200s;
 	}
 
@@ -537,7 +537,7 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 
 	// As this test can take a while extend the next frontier check
 	{
-		std::lock_guard<std::mutex> guard (node->active.mutex);
+		nano::lock_guard<std::mutex> guard (node->active.mutex);
 		node->active.next_frontier_check = std::chrono::steady_clock::now () + 7200s;
 	}
 
@@ -586,7 +586,7 @@ TEST (confirmation_height, long_chains)
 
 	// As this test can take a while extend the next frontier check
 	{
-		std::lock_guard<std::mutex> guard (node->active.mutex);
+		nano::lock_guard<std::mutex> guard (node->active.mutex);
 		node->active.next_frontier_check = std::chrono::steady_clock::now () + 7200s;
 	}
 
@@ -676,7 +676,7 @@ TEST (confirmation_height, prioritize_frontiers_overwrite)
 
 	// As this test can take a while extend the next frontier check
 	{
-		std::lock_guard<std::mutex> guard (node->active.mutex);
+		nano::lock_guard<std::mutex> guard (node->active.mutex);
 		node->active.next_frontier_check = std::chrono::steady_clock::now () + 7200s;
 	}
 

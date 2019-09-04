@@ -695,7 +695,7 @@ boost::optional<uint64_t> nano::opencl_work::generate_work (nano::uint256_union 
 
 boost::optional<uint64_t> nano::opencl_work::generate_work (nano::uint256_union const & root_a, uint64_t const difficulty_a, std::atomic<int> & ticket_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<std::mutex> lock (mutex);
 	bool error (false);
 	int ticket_l (ticket_a);
 	uint64_t result (0);

@@ -5,9 +5,15 @@
 #include <nano/node/node.hpp>
 #include <nano/secure/versioning.hpp>
 
+#if NANO_ROCKSDB
+#include <nano/node/rocksdb/rocksdb.hpp>
+#endif
+
 #include <gtest/gtest.h>
 
 #include <fstream>
+
+#include <stdlib.h>
 
 namespace
 {
@@ -1818,6 +1824,32 @@ TEST (block_store, reset_renew_existing_transaction)
 	// Block should exist now
 	auto block_existing (store->block_get (read_transaction, hash1));
 	ASSERT_NE (nullptr, block_existing);
+}
+
+TEST (block_store, rocksdb_force_test_env_variable)
+{
+	nano::logger_mt logger;
+
+	// Set environment variable
+	constexpr auto env_var = "TEST_USE_ROCKSDB";
+	auto value = std::getenv (env_var);
+
+	auto store = nano::make_store (logger, nano::unique_path ());
+
+	auto mdb_cast = dynamic_cast<nano::mdb_store *> (store.get ());
+
+#if NANO_ROCKSDB
+	if (value && boost::lexical_cast<int> (value) == 1)
+	{
+		ASSERT_NE (boost::polymorphic_downcast<nano::rocksdb_store *> (store.get ()), nullptr);
+	}
+	else
+	{
+		ASSERT_NE (mdb_cast, nullptr);
+	}
+#else
+	ASSERT_NE (mdb_cast, nullptr);
+#endif
 }
 
 namespace

@@ -70,7 +70,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (rep_crawler & rep_
 {
 	size_t count = 0;
 	{
-		std::lock_guard<std::mutex> guard (rep_crawler.active_mutex);
+		nano::lock_guard<std::mutex> guard (rep_crawler.active_mutex);
 		count = rep_crawler.active.size ();
 	}
 
@@ -89,7 +89,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_processor & 
 	size_t rolled_back_count = 0;
 
 	{
-		std::lock_guard<std::mutex> guard (block_processor.mutex);
+		nano::lock_guard<std::mutex> guard (block_processor.mutex);
 		state_blocks_count = block_processor.state_blocks.size ();
 		blocks_count = block_processor.blocks.size ();
 		blocks_hashes_count = block_processor.blocks_hashes.size ();
@@ -123,7 +123,7 @@ alarm (alarm_a),
 work (work_a),
 distributed_work (*this),
 logger (config_a.logging.min_time_between_log_output),
-store_impl (nano::make_store (logger, application_path_a, flags.read_only, true, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_max_dbs, flags.sideband_batch_size, config_a.backup_before_upgrade)),
+store_impl (nano::make_store (logger, application_path_a, flags.read_only, true, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_max_dbs, flags.sideband_batch_size, config_a.backup_before_upgrade, config_a.rocksdb_config.enable)),
 store (*store_impl),
 wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_max_dbs)),
 wallets_store (*wallets_store_impl),
@@ -600,7 +600,6 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (node & node, const
 	composite->add_component (collect_seq_con_info (node.bootstrap, "bootstrap"));
 	composite->add_component (node.network.tcp_channels.collect_seq_con_info ("tcp_channels"));
 	composite->add_component (node.network.udp_channels.collect_seq_con_info ("udp_channels"));
-	composite->add_component (node.network.response_channels.collect_seq_con_info ("response_channels"));
 	composite->add_component (node.network.syn_cookies.collect_seq_con_info ("syn_cookies"));
 	composite->add_component (collect_seq_con_info (node.observers, "observers"));
 	composite->add_component (collect_seq_con_info (node.wallets, "wallets"));
@@ -881,12 +880,12 @@ void nano::node::bootstrap_wallet ()
 {
 	std::deque<nano::account> accounts;
 	{
-		std::lock_guard<std::mutex> lock (wallets.mutex);
+		nano::lock_guard<std::mutex> lock (wallets.mutex);
 		auto transaction (wallets.tx_begin_read ());
 		for (auto i (wallets.items.begin ()), n (wallets.items.end ()); i != n && accounts.size () < 128; ++i)
 		{
 			auto & wallet (*i->second);
-			std::lock_guard<std::recursive_mutex> wallet_lock (wallet.store.mutex);
+			nano::lock_guard<std::recursive_mutex> wallet_lock (wallet.store.mutex);
 			for (auto j (wallet.store.begin (transaction)), m (wallet.store.end ()); j != m && accounts.size () < 128; ++j)
 			{
 				nano::account account (j->first);
@@ -915,6 +914,10 @@ void nano::node::unchecked_cleanup ()
 			}
 		}
 	}
+	if (!cleaning_list.empty ())
+	{
+		logger.always_log (boost::str (boost::format ("Deleting %1% old unchecked blocks") % cleaning_list.size ()));
+	}
 	// Delete old unchecked keys in batches
 	while (!cleaning_list.empty ())
 	{
@@ -931,7 +934,7 @@ void nano::node::unchecked_cleanup ()
 
 void nano::node::ongoing_unchecked_cleanup ()
 {
-	if (!bootstrap_initiator.in_progress ())
+	if (!bootstrap_initiator.in_progress () && ledger.block_count () >= ledger.bootstrap_weight_max_blocks)
 	{
 		unchecked_cleanup ();
 	}
@@ -1215,7 +1218,7 @@ void nano::node::process_confirmed (nano::election_status const & status_a, uint
 
 bool nano::block_arrival::add (nano::block_hash const & hash_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<std::mutex> lock (mutex);
 	auto now (std::chrono::steady_clock::now ());
 	auto inserted (arrival.insert (nano::block_arrival_info{ now, hash_a }));
 	auto result (!inserted.second);
@@ -1224,7 +1227,7 @@ bool nano::block_arrival::add (nano::block_hash const & hash_a)
 
 bool nano::block_arrival::recent (nano::block_hash const & hash_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<std::mutex> lock (mutex);
 	auto now (std::chrono::steady_clock::now ());
 	while (arrival.size () > arrival_size_min && arrival.begin ()->arrival + arrival_time_min < now)
 	{
@@ -1239,7 +1242,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_arrival & bl
 {
 	size_t count = 0;
 	{
-		std::lock_guard<std::mutex> guard (block_arrival.mutex);
+		nano::lock_guard<std::mutex> guard (block_arrival.mutex);
 		count = block_arrival.arrival.size ();
 	}
 
@@ -1350,11 +1353,38 @@ nano::node_flags const & nano::inactive_node_flag_defaults ()
 	return node_flags;
 }
 
-std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, size_t batch_size, bool backup_before_upgrade)
+std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, size_t batch_size, bool backup_before_upgrade, bool use_rocksdb_backend)
 {
 #if NANO_ROCKSDB
-	return std::make_unique<nano::rocksdb_store> (logger, add_db_postfix ? path / "rocksdb" : path, read_only);
-#else
-	return std::make_unique<nano::mdb_store> (logger, add_db_postfix ? path / "data.ldb" : path, txn_tracking_config_a, block_processor_batch_max_time_a, lmdb_max_dbs, batch_size, backup_before_upgrade);
+	auto make_rocksdb = [&logger, add_db_postfix, &path, read_only]() {
+		return std::make_unique<nano::rocksdb_store> (logger, add_db_postfix ? path / "rocksdb" : path, read_only);
+	};
 #endif
+
+	if (use_rocksdb_backend)
+	{
+#if NANO_ROCKSDB
+		return make_rocksdb ();
+#else
+		// Can only use the rocksdb_store if the node has been build with rocksdb support
+		release_assert (false);
+		return nullptr;
+#endif
+	}
+	else
+	{
+#if NANO_ROCKSDB
+		/** To use RocksDB in tests make sure the node is built with the cmake variable -DNANO_ROCKSDB=ON and the environment variable TEST_USE_ROCKSDB=1 is set */
+		static nano::network_constants network_constants;
+		if (auto use_rocksdb_str = std::getenv ("TEST_USE_ROCKSDB") && network_constants.is_test_network ())
+		{
+			if (boost::lexical_cast<int> (use_rocksdb_str) == 1)
+			{
+				return make_rocksdb ();
+			}
+		}
+#endif
+	}
+
+	return std::make_unique<nano::mdb_store> (logger, add_db_postfix ? path / "data.ldb" : path, txn_tracking_config_a, block_processor_batch_max_time_a, lmdb_max_dbs, batch_size, backup_before_upgrade);
 }

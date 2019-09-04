@@ -95,7 +95,7 @@ public:
 	bool active (nano::qualified_root const &);
 	void update_difficulty (nano::block const &);
 	void adjust_difficulty (nano::block_hash const &);
-	void update_active_difficulty (std::unique_lock<std::mutex> &);
+	void update_active_difficulty (nano::unique_lock<std::mutex> &);
 	uint64_t active_difficulty ();
 	uint64_t limited_active_difficulty ();
 	std::deque<std::shared_ptr<nano::block>> list_blocks (bool = false);
@@ -140,11 +140,11 @@ private:
 	bool add (std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
 	// clang-format on
 	void request_loop ();
-	void request_confirm (std::unique_lock<std::mutex> &);
+	void request_confirm (nano::unique_lock<std::mutex> &);
 	void confirm_frontiers (nano::transaction const &);
 	nano::account next_frontier_account{ 0 };
 	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
-	std::condition_variable condition;
+	nano::condition_variable condition;
 	bool started{ false };
 	std::atomic<bool> stopped{ false };
 	boost::multi_index_container<

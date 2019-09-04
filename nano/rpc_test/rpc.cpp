@@ -1713,7 +1713,7 @@ TEST (rpc, process_block_with_work_watcher)
 	uint64_t updated_difficulty;
 	while (!updated)
 	{
-		std::unique_lock<std::mutex> lock (node1.active.mutex);
+		nano::unique_lock<std::mutex> lock (node1.active.mutex);
 		//fill multipliers_cb and update active difficulty;
 		for (auto i (0); i < node1.active.multipliers_cb.size (); i++)
 		{
@@ -6808,7 +6808,7 @@ TEST (rpc, active_difficulty)
 	rpc.start ();
 	boost::property_tree::ptree request;
 	request.put ("action", "active_difficulty");
-	std::unique_lock<std::mutex> lock (node->active.mutex);
+	nano::unique_lock<std::mutex> lock (node->active.mutex);
 	node->active.multipliers_cb.push_front (1.5);
 	node->active.multipliers_cb.push_front (4.2);
 	// Also pushes 1.0 to the front of multipliers_cb

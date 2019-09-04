@@ -37,13 +37,13 @@ namespace transport
 
 		nano::endpoint get_endpoint () const override
 		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<std::mutex> lk (channel_mutex);
 			return endpoint;
 		}
 
 		nano::tcp_endpoint get_tcp_endpoint () const override
 		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<std::mutex> lk (channel_mutex);
 			return nano::transport::map_endpoint_to_tcp (endpoint);
 		}
 

@@ -179,7 +179,7 @@ ws_listener (listener_a), ws (std::move (socket_a)), strand (ws.get_executor ())
 nano::websocket::session::~session ()
 {
 	{
-		std::unique_lock<std::mutex> lk (subscriptions_mutex);
+		nano::unique_lock<std::mutex> lk (subscriptions_mutex);
 		for (auto & subscription : subscriptions)
 		{
 			ws_listener.decrease_subscriber_count (subscription.first);
@@ -223,7 +223,7 @@ void nano::websocket::session::close ()
 void nano::websocket::session::write (nano::websocket::message message_a)
 {
 	// clang-format off
-	std::unique_lock<std::mutex> lk (subscriptions_mutex);
+	nano::unique_lock<std::mutex> lk (subscriptions_mutex);
 	auto subscription (subscriptions.find (message_a.topic));
 	if (message_a.topic == nano::websocket::topic::ack || (subscription != subscriptions.end () && !subscription->second->should_filter (message_a)))
 	{
@@ -382,7 +382,7 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 	if (action == "subscribe" && topic_l != nano::websocket::topic::invalid)
 	{
 		auto options_text_l (message_a.get_child_optional ("options"));
-		std::lock_guard<std::mutex> lk (subscriptions_mutex);
+		nano::lock_guard<std::mutex> lk (subscriptions_mutex);
 		std::unique_ptr<nano::websocket::options> options_l{ nullptr };
 		if (options_text_l && topic_l == nano::websocket::topic::confirmation)
 		{
@@ -412,7 +412,7 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 	}
 	else if (action == "unsubscribe" && topic_l != nano::websocket::topic::invalid)
 	{
-		std::lock_guard<std::mutex> lk (subscriptions_mutex);
+		nano::lock_guard<std::mutex> lk (subscriptions_mutex);
 		if (subscriptions.erase (topic_l))
 		{
 			ws_listener.get_node ().logger.always_log ("Websocket: removed subscription to topic: ", from_topic (topic_l));
@@ -431,7 +431,7 @@ void nano::websocket::listener::stop ()
 	stopped = true;
 	acceptor.close ();
 
-	std::lock_guard<std::mutex> lk (sessions_mutex);
+	nano::lock_guard<std::mutex> lk (sessions_mutex);
 	for (auto & weak_session : sessions)
 	{
 		auto session_ptr (weak_session.lock ());
@@ -506,7 +506,7 @@ void nano::websocket::listener::broadcast_confirmation (std::shared_ptr<nano::bl
 {
 	nano::websocket::message_builder builder;
 
-	std::lock_guard<std::mutex> lk (sessions_mutex);
+	nano::lock_guard<std::mutex> lk (sessions_mutex);
 	boost::optional<nano::websocket::message> msg_with_block;
 	boost::optional<nano::websocket::message> msg_without_block;
 	for (auto & weak_session : sessions)
@@ -546,7 +546,7 @@ void nano::websocket::listener::broadcast_confirmation (std::shared_ptr<nano::bl
 
 void nano::websocket::listener::broadcast (nano::websocket::message message_a)
 {
-	std::lock_guard<std::mutex> lk (sessions_mutex);
+	nano::lock_guard<std::mutex> lk (sessions_mutex);
 	for (auto & weak_session : sessions)
 	{
 		auto session_ptr (weak_session.lock ());

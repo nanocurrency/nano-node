@@ -1006,7 +1006,7 @@ void nano::json_handler::block_confirm ()
 				// Add record in confirmation history for confirmed block
 				nano::election_status status{ block_l, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), nano::election_status_type::active_confirmation_height };
 				{
-					std::lock_guard<std::mutex> lock (node.active.mutex);
+					nano::lock_guard<std::mutex> lock (node.active.mutex);
 					node.active.confirmed.push_back (status);
 					if (node.active.confirmed.size () > node.config.confirmation_history_size)
 					{
@@ -1677,7 +1677,7 @@ void nano::json_handler::confirmation_active ()
 	}
 	boost::property_tree::ptree elections;
 	{
-		std::lock_guard<std::mutex> lock (node.active.mutex);
+		nano::lock_guard<std::mutex> lock (node.active.mutex);
 		for (auto i (node.active.roots.begin ()), n (node.active.roots.end ()); i != n; ++i)
 		{
 			if (i->election->confirmation_request_count >= announcements && !i->election->confirmed && !i->election->stopped)
@@ -1753,7 +1753,7 @@ void nano::json_handler::confirmation_info ()
 	nano::qualified_root root;
 	if (!root.decode_hex (root_text))
 	{
-		std::lock_guard<std::mutex> lock (node.active.mutex);
+		nano::lock_guard<std::mutex> lock (node.active.mutex);
 		auto conflict_info (node.active.roots.find (root));
 		if (conflict_info != node.active.roots.end ())
 		{

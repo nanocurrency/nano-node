@@ -74,6 +74,7 @@ public:
 	bool is_epoch_link (nano::uint256_union const &);
 	nano::account signer (nano::uint256_union const &) const;
 	nano::uint256_union link (nano::epoch) const;
+	size_t block_count () const;
 	static nano::uint128_t const unit;
 	nano::network_params network_params;
 	nano::block_store & store;

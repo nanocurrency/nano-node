@@ -77,7 +77,7 @@ private:
 		uint64_t iterated_height;
 	};
 
-	std::condition_variable condition;
+	nano::condition_variable condition;
 	nano::pending_confirmation_height & pending_confirmations;
 	std::atomic<bool> stopped{ false };
 	nano::ledger & ledger;
