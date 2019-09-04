@@ -229,6 +229,7 @@ public:
 		rollback,
 		bootstrap,
 		vote,
+		election,
 		http_callback,
 		peering,
 		ipc,
@@ -294,6 +295,12 @@ public:
 		vote_replay,
 		vote_invalid,
 		vote_overflow,
+
+		// election specific
+		vote_new,
+		vote_cached,
+		late_block,
+		late_block_seconds,
 
 		// udp
 		blocking,

@@ -50,6 +50,7 @@ public:
 	void update_dependent ();
 	void clear_dependent ();
 	void clear_blocks ();
+	void insert_inactive_votes_cache ();
 	void stop ();
 	nano::node & node;
 	std::unordered_map<nano::account, nano::vote_info> last_votes;
@@ -61,5 +62,6 @@ public:
 	std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
 	unsigned confirmation_request_count;
 	std::unordered_set<nano::block_hash> dependent_blocks;
+	std::chrono::seconds late_blocks_delay{ 5 };
 };
 }

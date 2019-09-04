@@ -2605,8 +2605,10 @@ TEST (ledger, unchecked_epoch)
 
 TEST (ledger, unchecked_epoch_invalid)
 {
-	nano::system system (24000, 1);
-	auto & node1 (*system.nodes[0]);
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto & node1 (*system.add_node (node_config));
 	nano::genesis genesis;
 	nano::keypair destination;
 	auto send1 (std::make_shared<nano::state_block> (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, destination.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
