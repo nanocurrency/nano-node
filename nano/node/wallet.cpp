@@ -1367,27 +1367,18 @@ bool nano::wallet::live ()
 
 void nano::wallet::work_cache_blocking (nano::account const & account_a, nano::block_hash const & root_a)
 {
-	nano::timer<std::chrono::milliseconds> elapsed_l;
-	uint64_t work_l{ 0 };
 	auto opt_work_l (wallets.node.work_generate_blocking (root_a));
 	if (opt_work_l.is_initialized ())
 	{
-		work_l = *opt_work_l;
-		if (wallets.node.config.logging.work_generation_time ())
+		auto transaction_l (wallets.tx_begin_write ());
+		if (live () && store.exists (transaction_l, account_a))
 		{
-			/*
-		 	 * The difficulty parameter is the second parameter for `work_generate_blocking()`,
-		 	 * currently we don't supply one so we must fetch the default value.
-		 	*/
-			auto difficulty_l (wallets.node.network_params.network.publish_threshold);
-
-			wallets.node.logger.try_log ("Work generation for ", root_a.to_string (), ", with a difficulty of ", difficulty_l, " complete: ", elapsed_l.stop ().count (), " ms");
+			work_update (transaction_l, account_a, root_a, *opt_work_l);
 		}
 	}
-	auto transaction_l (wallets.tx_begin_write ());
-	if (live () && store.exists (transaction_l, account_a))
+	else
 	{
-		work_update (transaction_l, account_a, root_a, work_l);
+		wallets.node.logger.try_log (boost::str (boost::format ("Could not precache work for root %1 due to work generation failure") % root_a.to_string ()));
 	}
 }
 
