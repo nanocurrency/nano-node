@@ -183,7 +183,6 @@ void nano::rep_crawler::on_rep_request (std::shared_ptr<nano::transport::channel
 {
 	nano::lock_guard<std::mutex> lock (probable_reps_mutex);
 
-	using probable_rep_itr_t = probably_rep_t::index<tag_channel_ref>::type::iterator;
 	probably_rep_t::index<tag_channel_ref>::type & channel_ref_index = probable_reps.get<tag_channel_ref> ();
 
 	// Find and update the timestamp on all reps available on the endpoint (a single host may have multiple reps)

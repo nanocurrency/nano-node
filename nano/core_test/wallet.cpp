@@ -1164,6 +1164,7 @@ TEST (wallet, work_watcher_removed)
 	nano::node_config node_config (24000, system.logging);
 	node_config.work_watcher_period = 1s;
 	auto & node = *system.add_node (node_config);
+	(void)node;
 	auto & wallet (*system.wallet (0));
 	wallet.insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key;
