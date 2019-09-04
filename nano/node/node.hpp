@@ -123,10 +123,10 @@ public:
 	void bootstrap_wallet ();
 	void unchecked_cleanup ();
 	int price (nano::uint128_t const &, int);
-	void work_generate_blocking (nano::block &, uint64_t);
-	void work_generate_blocking (nano::block &);
-	uint64_t work_generate_blocking (nano::uint256_union const &, uint64_t);
-	uint64_t work_generate_blocking (nano::uint256_union const &);
+	boost::optional<uint64_t> work_generate_blocking (nano::block &, uint64_t);
+	boost::optional<uint64_t> work_generate_blocking (nano::block &);
+	boost::optional<uint64_t> work_generate_blocking (nano::uint256_union const &, uint64_t);
+	boost::optional<uint64_t> work_generate_blocking (nano::uint256_union const &);
 	void work_generate (nano::uint256_union const &, std::function<void(boost::optional<uint64_t>)>, uint64_t);
 	void work_generate (nano::uint256_union const &, std::function<void(boost::optional<uint64_t>)>);
 	void add_initial_peers ();
