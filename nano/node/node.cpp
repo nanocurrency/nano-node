@@ -962,14 +962,19 @@ int nano::node::price (nano::uint128_t const & balance_a, int amount_a)
 	return static_cast<int> (result * 100.0);
 }
 
-void nano::node::work_generate_blocking (nano::block & block_a)
+boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a)
 {
-	work_generate_blocking (block_a, network_params.network.publish_threshold);
+	return work_generate_blocking (block_a, network_params.network.publish_threshold);
 }
 
-void nano::node::work_generate_blocking (nano::block & block_a, uint64_t difficulty_a)
+boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a, uint64_t difficulty_a)
 {
-	block_a.block_work_set (work_generate_blocking (block_a.root (), difficulty_a));
+	auto opt_work_l (work_generate_blocking (block_a.root (), difficulty_a));
+	if (opt_work_l.is_initialized ())
+	{
+		block_a.block_work_set (*opt_work_l);
+	}
+	return opt_work_l;
 }
 
 void nano::node::work_generate (nano::uint256_union const & hash_a, std::function<void(boost::optional<uint64_t>)> callback_a)
@@ -982,12 +987,12 @@ void nano::node::work_generate (nano::uint256_union const & hash_a, std::functio
 	distributed_work.make (hash_a, callback_a, difficulty_a);
 }
 
-uint64_t nano::node::work_generate_blocking (nano::uint256_union const & block_a)
+boost::optional<uint64_t> nano::node::work_generate_blocking (nano::uint256_union const & block_a)
 {
 	return work_generate_blocking (block_a, network_params.network.publish_threshold);
 }
 
-uint64_t nano::node::work_generate_blocking (nano::uint256_union const & hash_a, uint64_t difficulty_a)
+boost::optional<uint64_t> nano::node::work_generate_blocking (nano::uint256_union const & hash_a, uint64_t difficulty_a)
 {
 	std::promise<uint64_t> promise;
 	std::future<uint64_t> future = promise.get_future ();

@@ -1191,7 +1191,7 @@ TEST (wallet, work_watcher_cancel)
 	wallet.insert_adhoc (nano::test_genesis_key.prv, false);
 	nano::keypair key;
 	auto work1 (node.work_generate_blocking (nano::test_genesis_key.pub));
-	auto const block1 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 100, work1, false));
+	auto const block1 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 100, *work1, false));
 	uint64_t difficulty1 (0);
 	nano::work_validate (*block1, &difficulty1);
 	{
