@@ -2306,7 +2306,7 @@ void nano_qt::block_creation::create_receive ()
 							auto rep_block (wallet.node.store.block_get (block_transaction, info.rep_block));
 							assert (rep_block != nullptr);
 							nano::state_block receive (pending_key.account, info.head, rep_block->representative (), info.balance.number () + pending.amount.number (), source_l, key, pending_key.account, 0);
-							if (wallet.node.work_generate_blocking (receive))
+							if (wallet.node.work_generate_blocking (receive).is_initialized ())
 							{
 								std::string block_l;
 								receive.serialize_json (block_l);
