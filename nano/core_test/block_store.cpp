@@ -1429,7 +1429,6 @@ TEST (mdb_block_store, sideband_height)
 TEST (block_store, peers)
 {
 	nano::logger_mt logger;
-	auto init (false);
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 
@@ -1557,7 +1556,6 @@ TEST (mdb_block_store, upgrade_v13_v14)
 	{
 		nano::logger_mt logger;
 		nano::genesis genesis;
-		auto error (false);
 		nano::mdb_store store (logger, path);
 		auto transaction (store.tx_begin_write ());
 		nano::rep_weights rep_weights;
@@ -1611,7 +1609,6 @@ TEST (mdb_block_store, upgrade_v14_v15)
 	{
 		nano::logger_mt logger;
 		nano::genesis genesis;
-		auto error (false);
 		nano::mdb_store store (logger, path);
 		auto transaction (store.tx_begin_write ());
 		nano::rep_weights rep_weights;
@@ -1708,7 +1705,6 @@ TEST (block_store, confirmation_height)
 {
 	auto path (nano::unique_path ());
 	nano::logger_mt logger;
-	auto error (false);
 	nano::mdb_store store (logger, path);
 
 	nano::account account1 (0);
@@ -1851,6 +1847,7 @@ TEST (block_store, rocksdb_force_test_env_variable)
 	// Set environment variable
 	constexpr auto env_var = "TEST_USE_ROCKSDB";
 	auto value = std::getenv (env_var);
+	(void)value;
 
 	auto store = nano::make_store (logger, nano::unique_path ());
 
