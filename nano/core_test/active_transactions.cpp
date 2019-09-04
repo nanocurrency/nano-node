@@ -512,3 +512,54 @@ TEST (active_transactions, inactive_votes_cache_multiple_votes)
 	}
 	ASSERT_EQ (2, system.nodes[0]->stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
 }
+
+TEST (active_transactions, update_difficulty)
+{
+	nano::system system (24000, 2);
+	auto & node1 = *system.nodes[0];
+	auto & node2 = *system.nodes[1];
+	nano::genesis genesis;
+	nano::keypair key1;
+	// Generate blocks & start elections
+	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+	uint64_t difficulty1 (0);
+	nano::work_validate (*send1, &difficulty1);
+	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 200, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send1->hash ())));
+	uint64_t difficulty2 (0);
+	nano::work_validate (*send2, &difficulty2);
+	node1.process_active (send1);
+	node1.process_active (send2);
+	node1.block_processor.flush ();
+	system.deadline_set (10s);
+	while (node1.active.size () != 2 || node2.active.size () != 2)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	// Update work with higher difficulty
+	node1.work_generate_blocking (*send1, difficulty1 + 1);
+	node1.work_generate_blocking (*send2, difficulty2 + 1);
+	node1.process_active (send1);
+	node1.process_active (send2);
+	node1.block_processor.flush ();
+	system.deadline_set (10s);
+	bool done (false);
+	while (!done)
+	{
+		{
+			// node1
+			nano::lock_guard<std::mutex> guard1 (node1.active.mutex);
+			auto const existing1 (node1.active.roots.find (send1->qualified_root ()));
+			ASSERT_NE (existing1, node1.active.roots.end ());
+			auto const existing2 (node1.active.roots.find (send2->qualified_root ()));
+			ASSERT_NE (existing2, node1.active.roots.end ());
+			// node2
+			nano::lock_guard<std::mutex> guard2 (node2.active.mutex);
+			auto const existing3 (node2.active.roots.find (send1->qualified_root ()));
+			ASSERT_NE (existing3, node2.active.roots.end ());
+			auto const existing4 (node2.active.roots.find (send2->qualified_root ()));
+			ASSERT_NE (existing4, node2.active.roots.end ());
+			done = (existing1->difficulty > difficulty1) && (existing2->difficulty > difficulty2) && (existing3->difficulty > difficulty1) && (existing4->difficulty > difficulty2);
+		}
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
