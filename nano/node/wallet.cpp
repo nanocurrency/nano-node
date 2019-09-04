@@ -1133,11 +1133,7 @@ bool nano::wallet::action_complete (std::shared_ptr<nano::block> block_a, nano::
 		if (nano::work_validate (*block_a))
 		{
 			wallets.node.logger.try_log (boost::str (boost::format ("Cached or provided work for block %1% account %2% is invalid, regenerating") % block_a->hash ().to_string () % account_a.to_account ()));
-			if (!wallets.node.work_generate_blocking (*block_a, wallets.node.active.limited_active_difficulty ()).is_initialized ())
-			{
-				wallets.node.logger.try_log (boost::str (boost::format ("Work generation failed or cancelled for %1%") % block_a->hash ().to_string ()));
-				error = true;
-			}
+			error = !wallets.node.work_generate_blocking (*block_a, wallets.node.active.limited_active_difficulty ()).is_initialized ();
 		}
 		if (!error)
 		{
