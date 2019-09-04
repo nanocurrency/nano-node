@@ -202,21 +202,21 @@ nano::error read_node_config_toml (boost::filesystem::path const & data_path_a, 
 	// Parse and deserialize
 	nano::tomlconfig toml;
 
-	std::stringstream config_stream;
+	std::stringstream config_overrides_stream;
 	for (auto const & entry : config_overrides)
 	{
-		config_stream << entry << std::endl;
+		config_overrides_stream << entry << std::endl;
 	}
-	config_stream << std::endl;
+	config_overrides_stream << std::endl;
 
 	// Make sure we don't create an empty toml file if it doesn't exist. Running without a toml file is the default.
 	if (!error && boost::filesystem::exists (toml_config_path))
 	{
-		toml.read (config_stream, toml_config_path);
+		error = toml.read (config_overrides_stream, toml_config_path);
 	}
 	else if (!error)
 	{
-		toml.read (config_stream);
+		toml.read (config_overrides_stream);
 	}
 
 	if (!error)

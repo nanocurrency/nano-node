@@ -187,7 +187,7 @@ nano::error nano::rpc_config::deserialize_toml (nano::tomlconfig & toml)
 
 namespace nano
 {
-nano::error read_rpc_config_toml (boost::filesystem::path const & data_path_a, nano::rpc_config & config_a)
+nano::error read_rpc_config_toml (boost::filesystem::path const & data_path_a, nano::rpc_config & config_a, std::vector<std::string> const & config_overrides)
 {
 	nano::error error;
 	auto json_config_path = nano::get_rpc_config_path (data_path_a);
@@ -233,10 +233,21 @@ nano::error read_rpc_config_toml (boost::filesystem::path const & data_path_a, n
 	// Parse and deserialize
 	nano::tomlconfig toml;
 
+	std::stringstream config_overrides_stream;
+	for (auto const & entry : config_overrides)
+	{
+		config_overrides_stream << entry << std::endl;
+	}
+	config_overrides_stream << std::endl;
+
 	// Make sure we don't create an empty toml file if it doesn't exist. Running without a toml file is the default.
 	if (!error && boost::filesystem::exists (toml_config_path))
 	{
-		error = toml.read (toml_config_path);
+		error = toml.read (config_overrides_stream, toml_config_path);
+	}
+	else if (!error)
+	{
+		toml.read (config_overrides_stream);
 	}
 
 	if (!error)
