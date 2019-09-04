@@ -33,7 +33,7 @@ public:
 		block_put (transaction_a, hash_l, *genesis_a.open, sideband);
 		confirmation_height_put (transaction_a, network_params.ledger.genesis_account, 1);
 		++cemented_count;
-		account_put (transaction_a, network_params.ledger.genesis_account, { hash_l, genesis_a.open->hash (), genesis_a.open->hash (), nano::epoch::epoch_0 });
+		account_put (transaction_a, network_params.ledger.genesis_account, { hash_l, genesis_a.open->hash (), genesis_a.open->hash () }, nano::epoch::epoch_0);
 		rep_weights.representation_put (network_params.ledger.genesis_account, std::numeric_limits<nano::uint128_t>::max ());
 		frontier_put (transaction_a, hash_l, network_params.ledger.genesis_account);
 	}
@@ -120,6 +120,10 @@ public:
 			nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
 			result = nano::deserialize_block (stream, type);
 			assert (result != nullptr);
+			if (value.epoch != nano::epoch::unspecified)
+			{
+				result->epoch_set (value.epoch);
+			}
 			if (sideband_a)
 			{
 				sideband_a->type = type;
@@ -584,16 +588,19 @@ public:
 			case nano::epoch::epoch_1:
 				db = tables::accounts_v1;
 				break;
+			case nano::epoch::epoch_2:
+				db = tables::accounts_v1;
+				break;
 		}
 		return db;
 	}
 
-	void account_put (nano::write_transaction const & transaction_a, nano::account const & account_a, nano::account_info const & info_a) override
+	void account_put (nano::write_transaction const & transaction_a, nano::account const & account_a, nano::account_info const & info_a, nano::epoch epoch_a) override
 	{
 		// Check we are still in sync with other tables
 		assert (confirmation_height_exists (transaction_a, account_a));
 		nano::db_val<Val> info (info_a);
-		auto status = put (transaction_a, get_account_db (info_a.epoch ()), account_a, info);
+		auto status = put (transaction_a, get_account_db (epoch_a), account_a, info);
 		release_assert (success (status));
 	}
 
@@ -636,7 +643,6 @@ public:
 		if (!result)
 		{
 			nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
-			info_a.epoch_m = epoch;
 			result = info_a.deserialize (stream);
 		}
 		return result;
@@ -1062,9 +1068,17 @@ protected:
 			case nano::block_type::state:
 			{
 				status = get (transaction_a, tables::state_blocks_v1, hash, value);
-				if (!success (status))
+				if (success (status))
+				{
+					value.epoch = nano::epoch::epoch_1;
+				}
+				else
 				{
 					status = get (transaction_a, tables::state_blocks_v0, hash, value);
+					if (success (status))
+					{
+						value.epoch = nano::epoch::epoch_0;
+					}
 				}
 				break;
 			}

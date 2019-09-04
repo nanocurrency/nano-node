@@ -473,7 +473,7 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction const & transa
 	version_put (transaction_a, 15);
 
 	// Move confirmation height from account_info database to its own table
-	std::vector<std::pair<nano::account, nano::account_info>> account_infos;
+	std::vector<std::tuple<nano::account, nano::account_info, nano::epoch>> account_infos;
 	account_infos.reserve (account_count (transaction_a));
 
 	nano::store_iterator<nano::account, nano::account_info_v14> i (std::make_unique<nano::mdb_merge_iterator<nano::account, nano::account_info_v14>> (transaction_a, accounts_v0, accounts_v1));
@@ -481,13 +481,13 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction const & transa
 	for (; i != n; ++i)
 	{
 		auto const & account_info_v14 (i->second);
-		account_infos.emplace_back (i->first, nano::account_info{ account_info_v14.head, account_info_v14.rep_block, account_info_v14.open_block, account_info_v14.epoch });
+		account_infos.emplace_back (i->first, nano::account_info{ account_info_v14.head, account_info_v14.rep_block, account_info_v14.open_block }, account_info_v14.epoch);
 		confirmation_height_put (transaction_a, i->first, i->second.confirmation_height);
 	}
 
 	for (auto const & account_info : account_infos)
 	{
-		account_put (transaction_a, account_info.first, account_info.second);
+		account_put (transaction_a, std::get<0> (account_info), std::get<1> (account_info), std::get<2> (account_info));
 	}
 
 	// Representation table is no longer used

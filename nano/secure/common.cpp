@@ -182,11 +182,10 @@ void nano::serialize_block (nano::stream & stream_a, nano::block const & block_a
 	block_a.serialize (stream_a);
 }
 
-nano::account_info::account_info (nano::block_hash const & head_a, nano::block_hash const & rep_block_a, nano::block_hash const & open_block_a, nano::epoch epoch_a) :
+nano::account_info::account_info (nano::block_hash const & head_a, nano::block_hash const & rep_block_a, nano::block_hash const & open_block_a) :
 head (head_a),
 rep_block (rep_block_a),
-open_block (open_block_a),
-epoch_m (epoch_a)
+open_block (open_block_a)
 {
 }
 
@@ -209,7 +208,7 @@ bool nano::account_info::deserialize (nano::stream & stream_a)
 
 bool nano::account_info::operator== (nano::account_info const & other_a) const
 {
-	return head == other_a.head && rep_block == other_a.rep_block && open_block == other_a.open_block && epoch () == other_a.epoch ();
+	return head == other_a.head && rep_block == other_a.rep_block && open_block == other_a.open_block;
 }
 
 bool nano::account_info::operator!= (nano::account_info const & other_a) const
@@ -223,11 +222,6 @@ size_t nano::account_info::db_size () const
 	assert (reinterpret_cast<const uint8_t *> (&head) + sizeof (head) == reinterpret_cast<const uint8_t *> (&rep_block));
 	assert (reinterpret_cast<const uint8_t *> (&rep_block) + sizeof (rep_block) == reinterpret_cast<const uint8_t *> (&open_block));
 	return sizeof (head) + sizeof (rep_block) + sizeof (open_block);
-}
-
-nano::epoch nano::account_info::epoch () const
-{
-	return epoch_m;
 }
 
 size_t nano::block_counts::sum () const

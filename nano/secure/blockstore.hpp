@@ -116,7 +116,6 @@ public:
 	explicit operator nano::account_info () const
 	{
 		nano::account_info result;
-		result.epoch_m = epoch;
 		assert (size () == result.db_size ());
 		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + result.db_size (), reinterpret_cast<uint8_t *> (&result));
 		return result;
@@ -592,7 +591,7 @@ public:
 	virtual nano::account frontier_get (nano::transaction const &, nano::block_hash const &) const = 0;
 	virtual void frontier_del (nano::write_transaction const &, nano::block_hash const &) = 0;
 
-	virtual void account_put (nano::write_transaction const &, nano::account const &, nano::account_info const &) = 0;
+	virtual void account_put (nano::write_transaction const &, nano::account const &, nano::account_info const &, nano::epoch) = 0;
 	virtual bool account_get (nano::transaction const &, nano::account const &, nano::account_info &) = 0;
 	virtual void account_del (nano::write_transaction const &, nano::account const &) = 0;
 	virtual bool account_exists (nano::transaction const &, nano::account const &) = 0;

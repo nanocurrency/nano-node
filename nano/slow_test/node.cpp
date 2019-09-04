@@ -171,7 +171,7 @@ TEST (store, load)
 					nano::block_hash hash;
 					nano::random_pool::generate_block (hash.bytes.data (), hash.bytes.size ());
 					system.nodes[0]->store.confirmation_height_put (transaction, hash, 0);
-					system.nodes[0]->store.account_put (transaction, hash, nano::account_info ());
+					system.nodes[0]->store.account_put (transaction, hash, {}, nano::epoch::epoch_0);
 				}
 			}
 		}));

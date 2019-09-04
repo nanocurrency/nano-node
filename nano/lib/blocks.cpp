@@ -357,6 +357,11 @@ bool nano::send_block::valid_predecessor (nano::block const & block_a) const
 	return result;
 }
 
+nano::epoch nano::send_block::epoch () const
+{
+	return nano::epoch::epoch_0;
+}
+
 nano::block_type nano::send_block::type () const
 {
 	return nano::block_type::send;
@@ -629,6 +634,11 @@ bool nano::open_block::valid_predecessor (nano::block const & block_a) const
 	return false;
 }
 
+nano::epoch nano::open_block::epoch () const
+{
+	return nano::epoch::epoch_0;
+}
+
 nano::block_hash nano::open_block::source () const
 {
 	return hashables.source;
@@ -878,6 +888,11 @@ bool nano::change_block::valid_predecessor (nano::block const & block_a) const
 	return result;
 }
 
+nano::epoch nano::change_block::epoch () const
+{
+	return nano::epoch::epoch_0;
+}
+
 nano::block_hash nano::change_block::root () const
 {
 	return hashables.previous;
@@ -968,12 +983,14 @@ void nano::state_hashables::hash (blake2b_state & hash_a) const
 nano::state_block::state_block (nano::account const & account_a, nano::block_hash const & previous_a, nano::account const & representative_a, nano::amount const & balance_a, nano::uint256_union const & link_a, nano::raw_key const & prv_a, nano::public_key const & pub_a, uint64_t work_a) :
 hashables (account_a, previous_a, representative_a, balance_a, link_a),
 signature (nano::sign_message (prv_a, pub_a, hash ())),
-work (work_a)
+work (work_a),
+epoch_m (nano::epoch::unspecified)
 {
 }
 
 nano::state_block::state_block (bool & error_a, nano::stream & stream_a) :
-hashables (error_a, stream_a)
+hashables (error_a, stream_a),
+epoch_m (nano::epoch::unspecified)
 {
 	if (!error_a)
 	{
@@ -991,7 +1008,8 @@ hashables (error_a, stream_a)
 }
 
 nano::state_block::state_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
-hashables (error_a, tree_a)
+hashables (error_a, tree_a),
+epoch_m (nano::epoch::unspecified)
 {
 	if (!error_a)
 	{
@@ -1170,6 +1188,16 @@ bool nano::state_block::operator== (nano::state_block const & other_a) const
 bool nano::state_block::valid_predecessor (nano::block const & block_a) const
 {
 	return true;
+}
+
+nano::epoch nano::state_block::epoch () const
+{
+	return epoch_m;
+}
+
+void nano::state_block::epoch_set (nano::epoch epoch_a)
+{
+	epoch_m = epoch_a;
 }
 
 nano::block_hash nano::state_block::root () const
@@ -1486,6 +1514,11 @@ bool nano::receive_block::valid_predecessor (nano::block const & block_a) const
 			break;
 	}
 	return result;
+}
+
+nano::epoch nano::receive_block::epoch () const
+{
+	return nano::epoch::epoch_0;
 }
 
 nano::block_hash nano::receive_block::previous () const

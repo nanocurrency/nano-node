@@ -35,7 +35,6 @@ TEST (versioning, account_info_v1)
 	uint64_t confirmation_height;
 	ASSERT_FALSE (store.confirmation_height_get (transaction, account, confirmation_height));
 	ASSERT_EQ (0, confirmation_height);
-	ASSERT_EQ (nano::epoch::epoch_0, v_latest.epoch ());
 }
 
 TEST (versioning, account_info_v5)
@@ -68,7 +67,6 @@ TEST (versioning, account_info_v5)
 	uint64_t confirmation_height;
 	ASSERT_FALSE (store.confirmation_height_get (transaction, account, confirmation_height));
 	ASSERT_EQ (0, confirmation_height);
-	ASSERT_EQ (nano::epoch::epoch_0, v_latest.epoch ());
 }
 
 TEST (versioning, account_info_v13)
@@ -101,5 +99,4 @@ TEST (versioning, account_info_v13)
 	uint64_t confirmation_height;
 	ASSERT_FALSE (store.confirmation_height_get (transaction, account, confirmation_height));
 	ASSERT_EQ (0, confirmation_height);
-	ASSERT_EQ (v13.epoch, v_latest.epoch ());
 }

@@ -13,6 +13,17 @@
 
 namespace nano
 {
+/**
+ * Tag for which epoch an entry belongs to
+ */
+enum class epoch : uint8_t
+{
+	invalid = 0,
+	unspecified = 1,
+	epoch_0 = 2,
+	epoch_1 = 3,
+	epoch_2 = 4
+};
 // We operate on streams of uint8_t by convention
 using stream = std::basic_streambuf<uint8_t>;
 // Read a raw byte stream the size of `T' and fill value.
@@ -87,6 +98,11 @@ public:
 	virtual ~block () = default;
 	virtual bool valid_predecessor (nano::block const &) const = 0;
 	static size_t size (nano::block_type);
+	virtual nano::epoch epoch () const = 0;
+	virtual void epoch_set (nano::epoch epoch_a)
+	{
+		assert (epoch_a == epoch ());
+	};
 };
 class send_hashables
 {
@@ -127,6 +143,7 @@ public:
 	bool operator== (nano::block const &) const override;
 	bool operator== (nano::send_block const &) const;
 	bool valid_predecessor (nano::block const &) const override;
+	nano::epoch epoch () const override;
 	send_hashables hashables;
 	nano::signature signature;
 	uint64_t work;
@@ -171,6 +188,7 @@ public:
 	bool operator== (nano::block const &) const override;
 	bool operator== (nano::receive_block const &) const;
 	bool valid_predecessor (nano::block const &) const override;
+	nano::epoch epoch () const override;
 	receive_hashables hashables;
 	nano::signature signature;
 	uint64_t work;
@@ -219,6 +237,7 @@ public:
 	bool operator== (nano::block const &) const override;
 	bool operator== (nano::open_block const &) const;
 	bool valid_predecessor (nano::block const &) const override;
+	nano::epoch epoch () const override;
 	nano::open_hashables hashables;
 	nano::signature signature;
 	uint64_t work;
@@ -263,6 +282,7 @@ public:
 	bool operator== (nano::block const &) const override;
 	bool operator== (nano::change_block const &) const;
 	bool valid_predecessor (nano::block const &) const override;
+	nano::epoch epoch () const override;
 	nano::change_hashables hashables;
 	nano::signature signature;
 	uint64_t work;
@@ -322,9 +342,12 @@ public:
 	bool operator== (nano::block const &) const override;
 	bool operator== (nano::state_block const &) const;
 	bool valid_predecessor (nano::block const &) const override;
+	nano::epoch epoch () const override;
+	void epoch_set (nano::epoch) override;
 	nano::state_hashables hashables;
 	nano::signature signature;
 	uint64_t work;
+	nano::epoch epoch_m;
 	static size_t constexpr size = nano::state_hashables::size + sizeof (signature) + sizeof (work);
 };
 class block_visitor

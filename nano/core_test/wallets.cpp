@@ -101,8 +101,8 @@ TEST (wallets, upgrade)
 
 		nano::account_info info;
 		ASSERT_FALSE (mdb_store.account_get (transaction_destination, nano::genesis_account, info));
-		nano::account_info_v13 account_info_v13 (info.head, info.rep_block, info.open_block, nano::genesis_amount, nano::seconds_since_epoch (), 1, info.epoch ());
-		auto status (mdb_put (mdb_store.env.tx (transaction_destination), mdb_store.get_account_db (info.epoch ()) == nano::tables::accounts_v0 ? mdb_store.accounts_v0 : mdb_store.accounts_v1, nano::mdb_val (nano::test_genesis_key.pub), nano::mdb_val (account_info_v13), 0));
+		nano::account_info_v13 account_info_v13 (info.head, info.rep_block, info.open_block, nano::genesis_amount, nano::seconds_since_epoch (), 1, nano::epoch::epoch_0);
+		auto status (mdb_put (mdb_store.env.tx (transaction_destination), mdb_store.get_account_db (nano::epoch::epoch_0) == nano::tables::accounts_v0 ? mdb_store.accounts_v0 : mdb_store.accounts_v1, nano::mdb_val (nano::test_genesis_key.pub), nano::mdb_val (account_info_v13), 0));
 		(void)status;
 		assert (status == 0);
 	}

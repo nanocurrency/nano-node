@@ -6,19 +6,7 @@
 
 namespace nano
 {
-/**
- * Tag for which epoch an entry belongs to
- */
-enum class epoch : uint8_t
-{
-	invalid = 0,
-	unspecified = 1,
-	epoch_begin = 2,
-	epoch_0 = 2,
-	epoch_1 = 3,
-	epoch_2 = 4,
-	epoch_end
-};
+enum class epoch : uint8_t;
 class epoch_info
 {
 public:
