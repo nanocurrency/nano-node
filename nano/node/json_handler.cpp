@@ -3798,6 +3798,7 @@ void nano::json_handler::version ()
 void nano::json_handler::validate_account_number ()
 {
 	auto account (account_impl ());
+	(void)account;
 	response_l.put ("valid", ec ? "0" : "1");
 	ec = std::error_code (); // error is just invalid account
 	response_errors ();

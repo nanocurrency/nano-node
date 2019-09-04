@@ -1443,7 +1443,6 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 			if (watcher_l->watched.find (root_a) != watcher_l->watched.end ()) // not yet confirmed or cancelled
 			{
 				lock.unlock ();
-				bool updated_l{ false };
 				uint64_t difficulty (0);
 				auto root_l (block_a->root ());
 				nano::work_validate (root_l, block_a->block_work (), &difficulty);
