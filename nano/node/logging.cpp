@@ -101,6 +101,7 @@ nano::error nano::logging::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("work_generation_time", work_generation_time_value, "Log work generation timing information\ntype:bool");
 	toml.put ("upnp_details", upnp_details_logging_value, "Log UPNP discovery details. WARNING: this may include information\nabout discovered devices, such as product identification. Please review before sharing logs.\ntype:bool");
 	toml.put ("timing", timing_logging_value, "Log detailed timing information for various node operations\ntype:bool");
+	toml.put ("active_update", active_update_value, "Log when a block is updated while in active transactions\ntype:bool");
 	toml.put ("log_to_cerr", log_to_cerr_value, "Log to standard error in addition to the log file\ntype:bool");
 	toml.put ("max_size", max_size, "Maximum log file size in bytes\ntype:uint64");
 	toml.put ("rotation_size", rotation_size, "Log file rotation size in character count\ntype:uint64");
@@ -130,6 +131,7 @@ nano::error nano::logging::deserialize_toml (nano::tomlconfig & toml)
 	toml.get<bool> ("work_generation_time", work_generation_time_value);
 	toml.get<bool> ("upnp_details", upnp_details_logging_value);
 	toml.get<bool> ("timing", timing_logging_value);
+	toml.get<bool> ("active_update", active_update_value);
 	toml.get<bool> ("log_to_cerr", log_to_cerr_value);
 	toml.get<bool> ("flush", flush);
 	toml.get<bool> ("single_line_record", single_line_record_value);
@@ -345,6 +347,11 @@ bool nano::logging::upnp_details_logging () const
 bool nano::logging::timing_logging () const
 {
 	return timing_logging_value;
+}
+
+bool nano::logging::active_update_logging () const
+{
+	return active_update_value;
 }
 
 bool nano::logging::log_to_cerr () const

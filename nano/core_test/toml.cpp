@@ -120,6 +120,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	[node.statistics.log]
 	[node.statistics.sampling]
 	[node.websocket]
+	[node.rocksdb]
 	[opencl]
 	[rpc]
 	[rpc.child_process]
@@ -199,6 +200,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.logging.rotation_size, defaults.node.logging.rotation_size);
 	ASSERT_EQ (conf.node.logging.single_line_record_value, defaults.node.logging.single_line_record_value);
 	ASSERT_EQ (conf.node.logging.timing_logging_value, defaults.node.logging.timing_logging_value);
+	ASSERT_EQ (conf.node.logging.active_update_value, defaults.node.logging.active_update_value);
 	ASSERT_EQ (conf.node.logging.upnp_details_logging_value, defaults.node.logging.upnp_details_logging_value);
 	ASSERT_EQ (conf.node.logging.vote_logging_value, defaults.node.logging.vote_logging_value);
 	ASSERT_EQ (conf.node.logging.work_generation_time_value, defaults.node.logging.work_generation_time_value);
@@ -235,6 +237,8 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.stat_config.log_headers, defaults.node.stat_config.log_headers);
 	ASSERT_EQ (conf.node.stat_config.log_counters_filename, defaults.node.stat_config.log_counters_filename);
 	ASSERT_EQ (conf.node.stat_config.log_samples_filename, defaults.node.stat_config.log_samples_filename);
+
+	ASSERT_EQ (conf.node.rocksdb_config.enable, defaults.node.rocksdb_config.enable);
 }
 
 TEST (toml, optional_child)
@@ -444,6 +448,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	rotation_size = 999
 	single_line_record = true
 	timing = true
+	active_update = true
 	upnp_details = true
 	vote = true
 	work_generation_time = false
@@ -465,6 +470,9 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	address = "0:0:0:0:0:ffff:7f01:101"
 	enable = true
 	port = 999
+
+	[node.rocksdb]
+	enable = true
 
 	[opencl]
 	device = 999
@@ -556,6 +564,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.logging.rotation_size, defaults.node.logging.rotation_size);
 	ASSERT_NE (conf.node.logging.single_line_record_value, defaults.node.logging.single_line_record_value);
 	ASSERT_NE (conf.node.logging.timing_logging_value, defaults.node.logging.timing_logging_value);
+	ASSERT_NE (conf.node.logging.active_update_value, defaults.node.logging.active_update_value);
 	ASSERT_NE (conf.node.logging.upnp_details_logging_value, defaults.node.logging.upnp_details_logging_value);
 	ASSERT_NE (conf.node.logging.vote_logging_value, defaults.node.logging.vote_logging_value);
 	ASSERT_NE (conf.node.logging.work_generation_time_value, defaults.node.logging.work_generation_time_value);
@@ -592,6 +601,8 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.stat_config.log_headers, defaults.node.stat_config.log_headers);
 	ASSERT_NE (conf.node.stat_config.log_counters_filename, defaults.node.stat_config.log_counters_filename);
 	ASSERT_NE (conf.node.stat_config.log_samples_filename, defaults.node.stat_config.log_samples_filename);
+
+	ASSERT_NE (conf.node.rocksdb_config.enable, defaults.node.rocksdb_config.enable);
 }
 
 /** There should be no required values **/
@@ -610,6 +621,7 @@ TEST (toml, daemon_config_no_required)
 	[node.statistics.log]
 	[node.statistics.sampling]
 	[node.websocket]
+	[node.rocksdb]
 	[opencl]
 	[rpc]
 	[rpc.child_process]

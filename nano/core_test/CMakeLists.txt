@@ -12,6 +12,7 @@ add_executable (core_test
 	gap_cache.cpp
 	ipc.cpp
 	ledger.cpp
+	locks.cpp
 	logger.cpp
 	network.cpp
 	node.cpp

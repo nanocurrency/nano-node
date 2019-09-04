@@ -41,7 +41,7 @@ namespace transport
 
 		nano::endpoint get_endpoint () const override
 		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<std::mutex> lk (channel_mutex);
 			if (socket)
 			{
 				return nano::transport::map_tcp_to_endpoint (socket->remote_endpoint ());
@@ -54,7 +54,7 @@ namespace transport
 
 		nano::tcp_endpoint get_tcp_endpoint () const override
 		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<std::mutex> lk (channel_mutex);
 			if (socket)
 			{
 				return socket->remote_endpoint ();
@@ -90,7 +90,7 @@ namespace transport
 		void start ();
 		void stop ();
 		void process_message (nano::message const &, nano::tcp_endpoint const &, nano::account const &, std::shared_ptr<nano::socket>, nano::bootstrap_server_type);
-		void process_keepalive (nano::keepalive const &, nano::tcp_endpoint const &, bool);
+		void process_keepalive (nano::keepalive const &, nano::tcp_endpoint const &);
 		bool max_ip_connections (nano::tcp_endpoint const &);
 		// Should we reach out to this endpoint with a keepalive message
 		bool reachout (nano::endpoint const &);

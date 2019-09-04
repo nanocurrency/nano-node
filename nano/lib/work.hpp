@@ -45,7 +45,7 @@ public:
 	std::vector<boost::thread> threads;
 	std::list<nano::work_item> pending;
 	std::mutex mutex;
-	std::condition_variable producer_condition;
+	nano::condition_variable producer_condition;
 	std::chrono::nanoseconds pow_rate_limiter;
 	std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t, std::atomic<int> &)> opencl;
 	nano::observer_set<bool> work_observers;

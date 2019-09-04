@@ -130,11 +130,6 @@ TEST (network, send_node_id_handshake_tcp)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	system.deadline_set (5s);
-	while (system.nodes[0]->network.response_channels.size () != 1 || node1->network.response_channels.size () != 1)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	system.deadline_set (5s);
 	while (system.nodes[0]->stats.count (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in) < initial_keepalive + 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -2093,7 +2088,7 @@ TEST (confirmation_height, conflict_rollback_cemented)
 	node1.block_processor.flush ();
 	node2.network.process_message (publish1, channel2);
 	node2.block_processor.flush ();
-	std::unique_lock<std::mutex> lock (node2.active.mutex);
+	nano::unique_lock<std::mutex> lock (node2.active.mutex);
 	auto conflict (node2.active.roots.find (nano::qualified_root (genesis.hash (), genesis.hash ())));
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
@@ -2230,7 +2225,7 @@ TEST (confirmation_height, pending_observer_callbacks)
 	// Can have timing issues.
 	node->confirmation_height_processor.add (send.hash ());
 	{
-		std::unique_lock<std::mutex> lk (node->pending_confirmation_height.mutex);
+		nano::unique_lock<std::mutex> lk (node->pending_confirmation_height.mutex);
 		while (!node->pending_confirmation_height.current_hash.is_zero ())
 		{
 			lk.unlock ();
@@ -2266,7 +2261,7 @@ TEST (bootstrap, tcp_listener_timeout_empty)
 	while (!disconnected)
 	{
 		{
-			std::lock_guard<std::mutex> guard (node0->bootstrap.mutex);
+			nano::lock_guard<std::mutex> guard (node0->bootstrap.mutex);
 			disconnected = node0->bootstrap.connections.empty ();
 		}
 		ASSERT_NO_ERROR (system.poll ());
@@ -2294,7 +2289,7 @@ TEST (bootstrap, tcp_listener_timeout_node_id_handshake)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	{
-		std::lock_guard<std::mutex> guard (node0->bootstrap.mutex);
+		nano::lock_guard<std::mutex> guard (node0->bootstrap.mutex);
 		ASSERT_EQ (node0->bootstrap.connections.size (), 1);
 	}
 	bool disconnected (false);
@@ -2302,7 +2297,7 @@ TEST (bootstrap, tcp_listener_timeout_node_id_handshake)
 	while (!disconnected)
 	{
 		{
-			std::lock_guard<std::mutex> guard (node0->bootstrap.mutex);
+			nano::lock_guard<std::mutex> guard (node0->bootstrap.mutex);
 			disconnected = node0->bootstrap.connections.empty ();
 		}
 		ASSERT_NO_ERROR (system.poll ());

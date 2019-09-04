@@ -718,42 +718,6 @@ std::shared_ptr<nano::transport::channel> nano::network::find_node_id (nano::acc
 	return result;
 }
 
-std::shared_ptr<nano::transport::channel> nano::network::find_response_channel (nano::tcp_endpoint const & endpoint_a, nano::account const & node_id_a)
-{
-	// Search by node ID
-	std::shared_ptr<nano::transport::channel> result (find_node_id (node_id_a));
-	if (!result)
-	{
-		// Search in response channels
-		auto channels_list (response_channels.search (endpoint_a));
-		// TCP
-		for (auto & i : channels_list)
-		{
-			auto search_channel (tcp_channels.find_channel (i));
-			if (search_channel != nullptr)
-			{
-				result = search_channel;
-				break;
-			}
-		}
-		// UDP
-		if (!result)
-		{
-			for (auto & i : channels_list)
-			{
-				auto udp_endpoint (nano::transport::map_tcp_to_endpoint (i));
-				auto search_channel (udp_channels.channel (udp_endpoint));
-				if (search_channel != nullptr)
-				{
-					result = search_channel;
-					break;
-				}
-			}
-		}
-	}
-	return result;
-}
-
 nano::endpoint nano::network::endpoint ()
 {
 	return udp_channels.get_local_endpoint ();
@@ -841,7 +805,7 @@ stopped (false)
 
 nano::message_buffer * nano::message_buffer_manager::allocate ()
 {
-	std::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<std::mutex> lock (mutex);
 	if (!stopped && free.empty () && full.empty ())
 	{
 		stats.inc (nano::stat::type::udp, nano::stat::detail::blocking, nano::stat::dir::in);
@@ -869,7 +833,7 @@ void nano::message_buffer_manager::enqueue (nano::message_buffer * data_a)
 {
 	assert (data_a != nullptr);
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<std::mutex> lock (mutex);
 		full.push_back (data_a);
 	}
 	condition.notify_all ();
@@ -877,7 +841,7 @@ void nano::message_buffer_manager::enqueue (nano::message_buffer * data_a)
 
 nano::message_buffer * nano::message_buffer_manager::dequeue ()
 {
-	std::unique_lock<std::mutex> lock (mutex);
+	nano::unique_lock<std::mutex> lock (mutex);
 	while (!stopped && full.empty ())
 	{
 		condition.wait (lock);
@@ -895,7 +859,7 @@ void nano::message_buffer_manager::release (nano::message_buffer * data_a)
 {
 	assert (data_a != nullptr);
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<std::mutex> lock (mutex);
 		free.push_back (data_a);
 	}
 	condition.notify_all ();
@@ -904,59 +868,17 @@ void nano::message_buffer_manager::release (nano::message_buffer * data_a)
 void nano::message_buffer_manager::stop ()
 {
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<std::mutex> lock (mutex);
 		stopped = true;
 	}
 	condition.notify_all ();
-}
-
-void nano::response_channels::add (nano::tcp_endpoint const & endpoint_a, std::vector<nano::tcp_endpoint> insert_channels)
-{
-	std::lock_guard<std::mutex> lock (response_channels_mutex);
-	channels.emplace (endpoint_a, insert_channels);
-}
-
-std::vector<nano::tcp_endpoint> nano::response_channels::search (nano::tcp_endpoint const & endpoint_a)
-{
-	std::vector<nano::tcp_endpoint> result;
-	std::lock_guard<std::mutex> lock (response_channels_mutex);
-	auto existing (channels.find (endpoint_a));
-	if (existing != channels.end ())
-	{
-		result = existing->second;
-	}
-	return result;
-}
-
-void nano::response_channels::remove (nano::tcp_endpoint const & endpoint_a)
-{
-	std::lock_guard<std::mutex> lock (response_channels_mutex);
-	channels.erase (endpoint_a);
-}
-
-size_t nano::response_channels::size ()
-{
-	std::lock_guard<std::mutex> lock (response_channels_mutex);
-	return channels.size ();
-}
-
-std::unique_ptr<nano::seq_con_info_component> nano::response_channels::collect_seq_con_info (std::string const & name)
-{
-	size_t channels_count = 0;
-	{
-		std::lock_guard<std::mutex> response_channels_guard (response_channels_mutex);
-		channels_count = channels.size ();
-	}
-	auto composite = std::make_unique<seq_con_info_composite> (name);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "channels", channels_count, sizeof (decltype (channels)::value_type) }));
-	return composite;
 }
 
 boost::optional<nano::uint256_union> nano::syn_cookies::assign (nano::endpoint const & endpoint_a)
 {
 	auto ip_addr (endpoint_a.address ());
 	assert (ip_addr.is_v6 ());
-	std::lock_guard<std::mutex> lock (syn_cookie_mutex);
+	nano::lock_guard<std::mutex> lock (syn_cookie_mutex);
 	unsigned & ip_cookies = cookies_per_ip[ip_addr];
 	boost::optional<nano::uint256_union> result;
 	if (ip_cookies < nano::transport::max_peers_per_ip)
@@ -978,7 +900,7 @@ bool nano::syn_cookies::validate (nano::endpoint const & endpoint_a, nano::accou
 {
 	auto ip_addr (endpoint_a.address ());
 	assert (ip_addr.is_v6 ());
-	std::lock_guard<std::mutex> lock (syn_cookie_mutex);
+	nano::lock_guard<std::mutex> lock (syn_cookie_mutex);
 	auto result (true);
 	auto cookie_it (cookies.find (endpoint_a));
 	if (cookie_it != cookies.end () && !nano::validate_message (node_id, cookie_it->second.cookie, sig))
@@ -1000,7 +922,7 @@ bool nano::syn_cookies::validate (nano::endpoint const & endpoint_a, nano::accou
 
 void nano::syn_cookies::purge (std::chrono::steady_clock::time_point const & cutoff_a)
 {
-	std::lock_guard<std::mutex> lock (syn_cookie_mutex);
+	nano::lock_guard<std::mutex> lock (syn_cookie_mutex);
 	auto it (cookies.begin ());
 	while (it != cookies.end ())
 	{
@@ -1030,7 +952,7 @@ std::unique_ptr<nano::seq_con_info_component> nano::syn_cookies::collect_seq_con
 	size_t syn_cookies_count = 0;
 	size_t syn_cookies_per_ip_count = 0;
 	{
-		std::lock_guard<std::mutex> syn_cookie_guard (syn_cookie_mutex);
+		nano::lock_guard<std::mutex> syn_cookie_guard (syn_cookie_mutex);
 		syn_cookies_count = cookies.size ();
 		syn_cookies_per_ip_count = cookies_per_ip.size ();
 	}

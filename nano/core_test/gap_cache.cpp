@@ -21,7 +21,7 @@ TEST (gap_cache, add_existing)
 	auto block1 (std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5));
 	auto transaction (system.nodes[0]->store.tx_begin_write ());
 	cache.add (transaction, block1->hash ());
-	std::unique_lock<std::mutex> lock (cache.mutex);
+	nano::unique_lock<std::mutex> lock (cache.mutex);
 	auto existing1 (cache.blocks.get<1> ().find (block1->hash ()));
 	ASSERT_NE (cache.blocks.get<1> ().end (), existing1);
 	auto arrival (existing1->arrival);
@@ -46,7 +46,7 @@ TEST (gap_cache, comparison)
 	auto block1 (std::make_shared<nano::send_block> (1, 0, 2, nano::keypair ().prv, 4, 5));
 	auto transaction (system.nodes[0]->store.tx_begin_write ());
 	cache.add (transaction, block1->hash ());
-	std::unique_lock<std::mutex> lock (cache.mutex);
+	nano::unique_lock<std::mutex> lock (cache.mutex);
 	auto existing1 (cache.blocks.get<1> ().find (block1->hash ()));
 	ASSERT_NE (cache.blocks.get<1> ().end (), existing1);
 	auto arrival (existing1->arrival);

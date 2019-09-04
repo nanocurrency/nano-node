@@ -1129,6 +1129,13 @@ bool nano::ledger::block_not_confirmed_or_not_exists (nano::block const & block_
 	return result;
 }
 
+size_t nano::ledger::block_count () const
+{
+	auto transaction (store.tx_begin_read ());
+	auto result (store.block_count (transaction).sum ());
+	return result;
+}
+
 namespace nano
 {
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (ledger & ledger, const std::string & name)

@@ -63,49 +63,49 @@ namespace transport
 
 		std::chrono::steady_clock::time_point get_last_bootstrap_attempt () const
 		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<std::mutex> lk (channel_mutex);
 			return last_bootstrap_attempt;
 		}
 
 		void set_last_bootstrap_attempt (std::chrono::steady_clock::time_point const time_a)
 		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<std::mutex> lk (channel_mutex);
 			last_bootstrap_attempt = time_a;
 		}
 
 		std::chrono::steady_clock::time_point get_last_packet_received () const
 		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<std::mutex> lk (channel_mutex);
 			return last_packet_received;
 		}
 
 		void set_last_packet_received (std::chrono::steady_clock::time_point const time_a)
 		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<std::mutex> lk (channel_mutex);
 			last_packet_received = time_a;
 		}
 
 		std::chrono::steady_clock::time_point get_last_packet_sent () const
 		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<std::mutex> lk (channel_mutex);
 			return last_packet_sent;
 		}
 
 		void set_last_packet_sent (std::chrono::steady_clock::time_point const time_a)
 		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<std::mutex> lk (channel_mutex);
 			last_packet_sent = time_a;
 		}
 
 		boost::optional<nano::account> get_node_id_optional () const
 		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<std::mutex> lk (channel_mutex);
 			return node_id;
 		}
 
 		nano::account get_node_id () const
 		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<std::mutex> lk (channel_mutex);
 			if (node_id.is_initialized ())
 			{
 				return node_id.get ();
@@ -118,7 +118,7 @@ namespace transport
 
 		void set_node_id (nano::account node_id_a)
 		{
-			std::lock_guard<std::mutex> lk (channel_mutex);
+			nano::lock_guard<std::mutex> lk (channel_mutex);
 			node_id = node_id_a;
 		}
 

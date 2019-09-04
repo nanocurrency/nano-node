@@ -9,7 +9,7 @@ node (node_a)
 
 void nano::gap_cache::add (nano::transaction const & transaction_a, nano::block_hash const & hash_a, std::chrono::steady_clock::time_point time_point_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<std::mutex> lock (mutex);
 	auto existing (blocks.get<1> ().find (hash_a));
 	if (existing != blocks.get<1> ().end ())
 	{
@@ -29,13 +29,13 @@ void nano::gap_cache::add (nano::transaction const & transaction_a, nano::block_
 
 void nano::gap_cache::erase (nano::block_hash const & hash_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<std::mutex> lock (mutex);
 	blocks.get<1> ().erase (hash_a);
 }
 
 void nano::gap_cache::vote (std::shared_ptr<nano::vote> vote_a)
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<std::mutex> lock (mutex);
 	auto transaction (node.store.tx_begin_read ());
 	for (auto hash : *vote_a)
 	{
@@ -107,7 +107,7 @@ nano::uint128_t nano::gap_cache::bootstrap_threshold (nano::transaction const & 
 
 size_t nano::gap_cache::size ()
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<std::mutex> lock (mutex);
 	return blocks.size ();
 }
 
