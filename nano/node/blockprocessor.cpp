@@ -40,6 +40,7 @@ void nano::block_processor::flush ()
 	{
 		condition.wait (lock);
 	}
+	blocks_filter.clear ();
 }
 
 size_t nano::block_processor::size ()
@@ -70,8 +71,9 @@ void nano::block_processor::add (nano::unchecked_info const & info_a)
 	{
 		{
 			auto hash (info_a.block->hash ());
+			auto filter_hash (filter_item (hash, info_a.block->block_signature ()));
 			nano::lock_guard<std::mutex> lock (mutex);
-			if (blocks_hashes.find (hash) == blocks_hashes.end () && rolled_back.get<1> ().find (hash) == rolled_back.get<1> ().end ())
+			if (blocks_filter.find (filter_hash) == blocks_filter.end () && rolled_back.get<1> ().find (hash) == rolled_back.get<1> ().end ())
 			{
 				if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
 				{
@@ -81,7 +83,7 @@ void nano::block_processor::add (nano::unchecked_info const & info_a)
 				{
 					blocks.push_back (info_a);
 				}
-				blocks_hashes.insert (hash);
+				blocks_filter.insert (filter_hash);
 			}
 		}
 		condition.notify_all ();
@@ -221,6 +223,10 @@ void nano::block_processor::verify_state_blocks (nano::unique_lock<std::mutex> &
 				item.verified = nano::signature_verification::valid;
 				blocks.push_back (std::move (item));
 			}
+			else
+			{
+				blocks_filter.erase (filter_item (hashes[i], blocks_signatures[i]));
+			}
 			items.pop_front ();
 		}
 		if (node.config.logging.timing_logging ())
@@ -283,22 +289,24 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 			node.logger.always_log (boost::str (boost::format ("%1% blocks (+ %2% state blocks) (+ %3% forced) in processing queue") % blocks.size () % state_blocks.size () % forced.size ()));
 		}
 		nano::unchecked_info info;
+		nano::block_hash hash (0);
 		bool force (false);
 		if (forced.empty ())
 		{
 			info = blocks.front ();
 			blocks.pop_front ();
-			blocks_hashes.erase (info.block->hash ());
+			hash = info.block->hash ();
+			blocks_filter.erase (filter_item (hash, info.block->block_signature ()));
 		}
 		else
 		{
 			info = nano::unchecked_info (forced.front (), 0, nano::seconds_since_epoch (), nano::signature_verification::unknown);
 			forced.pop_front ();
+			hash = info.block->hash ();
 			force = true;
 			number_of_forced_processed++;
 		}
 		lock_a.unlock ();
-		auto hash (info.block->hash ());
 		if (force)
 		{
 			auto successor (node.ledger.successor (transaction, info.block->qualified_root ()));
@@ -549,4 +557,17 @@ void nano::block_processor::queue_unchecked (nano::write_transaction const & tra
 		add (info);
 	}
 	node.gap_cache.erase (hash_a);
+}
+
+nano::block_hash nano::block_processor::filter_item (nano::block_hash const & hash_a, nano::signature const & signature_a)
+{
+	static nano::random_constants constants;
+	nano::block_hash result;
+	blake2b_state state;
+	blake2b_init (&state, sizeof (result.bytes));
+	blake2b_update (&state, constants.not_an_account.bytes.data (), constants.not_an_account.bytes.size ());
+	blake2b_update (&state, signature_a.bytes.data (), signature_a.bytes.size ());
+	blake2b_update (&state, hash_a.bytes.data (), hash_a.bytes.size ());
+	blake2b_final (&state, result.bytes.data (), sizeof (result.bytes));
+	return result;
 }
