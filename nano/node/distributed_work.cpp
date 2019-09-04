@@ -260,8 +260,9 @@ void nano::distributed_work::set_once (boost::optional<uint64_t> work_a)
 		callback (work_a);
 		if (node.config.logging.work_generation_time ())
 		{
-			node.logger.try_log (boost::str (boost::format ("Work generation for %1%, with a threshold difficulty of %2% (multiplier %3%x) complete: %4% ms")
-			% root.to_string () % nano::to_string_hex (difficulty) % nano::to_string (nano::difficulty::to_multiplier (difficulty, node.network_params.network.publish_threshold), 2) % elapsed.stop ().count ()));
+			boost::format unformatted_l ("Work generation for %1%, with a threshold difficulty of %2% (multiplier %3%x) complete: %4% ms");
+			auto multiplier_text_l (nano::to_string (nano::difficulty::to_multiplier (difficulty, node.network_params.network.publish_threshold), 2));
+			node.logger.try_log (boost::str (unformatted_l % root.to_string () % nano::to_string_hex (difficulty) % multiplier_text_l % elapsed.stop ().count ()));
 		}
 	}
 }
