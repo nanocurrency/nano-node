@@ -67,13 +67,13 @@ TEST (node, balance)
 TEST (node, representative)
 {
 	nano::system system (24000, 1);
-	auto block1 (system.nodes[0]->representative (nano::test_genesis_key.pub));
+	auto block1 (system.nodes[0]->rep_block (nano::test_genesis_key.pub));
 	{
 		auto transaction (system.nodes[0]->store.tx_begin_read ());
 		ASSERT_TRUE (system.nodes[0]->ledger.store.block_exists (transaction, block1));
 	}
 	nano::keypair key;
-	ASSERT_TRUE (system.nodes[0]->representative (key.pub).is_zero ());
+	ASSERT_TRUE (system.nodes[0]->rep_block (key.pub).is_zero ());
 }
 
 TEST (node, send_unkeyed)

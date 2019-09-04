@@ -944,9 +944,7 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block const & s
 					auto new_account (wallets.node.ledger.store.account_get (block_transaction, account, info));
 					if (!new_account)
 					{
-						std::shared_ptr<nano::block> rep_block = wallets.node.ledger.store.block_get (block_transaction, info.rep_block);
-						assert (rep_block != nullptr);
-						block.reset (new nano::state_block (account, info.head, rep_block->representative (), info.balance.number () + pending_info.amount.number (), hash, prv, account, work_a));
+						block.reset (new nano::state_block (account, info.head, info.representative, info.balance.number () + pending_info.amount.number (), hash, prv, account, work_a));
 					}
 					else
 					{
@@ -1073,13 +1071,11 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 						auto error2 (store.fetch (transaction, source_a, prv));
 						(void)error2;
 						assert (!error2);
-						std::shared_ptr<nano::block> rep_block = wallets.node.ledger.store.block_get (block_transaction, info.rep_block);
-						assert (rep_block != nullptr);
 						if (work_a == 0)
 						{
 							store.work_get (transaction, source_a, work_a);
 						}
-						block.reset (new nano::state_block (source_a, info.head, rep_block->representative (), balance - amount_a, account_a, prv, source_a, work_a));
+						block.reset (new nano::state_block (source_a, info.head, info.representative, balance - amount_a, account_a, prv, source_a, work_a));
 						if (id_mdb_val && block != nullptr)
 						{
 							auto status (mdb_put (wallets.env.tx (transaction), wallets.node.wallets.send_action_ids, *id_mdb_val, nano::mdb_val (block->hash ()), 0));
