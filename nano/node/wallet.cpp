@@ -1125,7 +1125,7 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 	return block;
 }
 
-bool nano::wallet::action_complete (std::shared_ptr<nano::block> block_a, nano::account const & account_a, bool const generate_work_a)
+bool nano::wallet::action_complete (std::shared_ptr<nano::block> const & block_a, nano::account const & account_a, bool const generate_work_a)
 {
 	bool error{ false };
 	if (block_a != nullptr)
