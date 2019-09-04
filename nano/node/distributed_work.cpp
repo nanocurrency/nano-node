@@ -19,7 +19,8 @@ backoff (backoff_a),
 node (node_a),
 root (root_a),
 need_resolve (node.config.work_peers),
-difficulty (difficulty_a)
+difficulty (difficulty_a),
+elapsed (nano::timer_state::started, "distributed work generation timer")
 {
 	assert (!completed);
 }
@@ -257,6 +258,11 @@ void nano::distributed_work::set_once (boost::optional<uint64_t> work_a)
 	if (!completed.exchange (true))
 	{
 		callback (work_a);
+		if (node.config.logging.work_generation_time ())
+		{
+			node.logger.try_log (boost::str (boost::format ("Work generation for %1%, with a threshold difficulty of %2% (multiplier %3%x) complete: %4% ms")
+			% root.to_string () % nano::to_string_hex (difficulty) % nano::to_string (nano::difficulty::to_multiplier (difficulty, node.network_params.network.publish_threshold), 2) % elapsed.stop ().count ()));
+		}
 	}
 }
 
@@ -270,12 +276,19 @@ void nano::distributed_work::handle_failure (bool const last)
 {
 	if (last && !completed)
 	{
-		node.unresponsive_work_peers = true;
+		if (!stopped) // stopped early = cancel
+		{
+			node.unresponsive_work_peers = true;
+		}
 		if (!local_generation_started)
 		{
 			if (stopped)
 			{
 				callback (boost::none);
+				if (node.config.logging.work_generation_time ())
+				{
+					node.logger.try_log (boost::str (boost::format ("Work generation for %1% was cancelled after %2% ms") % root.to_string () % elapsed.stop ().count ()));
+				}
 			}
 			else
 			{

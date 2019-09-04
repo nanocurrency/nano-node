@@ -3,6 +3,7 @@
 #include <nano/boost/asio.hpp>
 #include <nano/boost/beast.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/timer.hpp>
 
 #include <boost/optional.hpp>
 
@@ -61,6 +62,7 @@ public:
 	std::atomic<bool> completed{ false };
 	std::atomic<bool> local_generation_started{ false };
 	std::atomic<bool> stopped{ false };
+	nano::timer<std::chrono::milliseconds> elapsed; // logging only
 };
 
 class distributed_work_factory final
