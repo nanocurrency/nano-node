@@ -65,8 +65,9 @@ private:
 	std::chrono::steady_clock::time_point next_log;
 	std::deque<nano::unchecked_info> state_blocks;
 	std::deque<nano::unchecked_info> blocks;
-	std::unordered_set<nano::block_hash> blocks_hashes;
 	std::deque<std::shared_ptr<nano::block>> forced;
+	nano::block_hash filter_item (nano::block_hash const &, nano::signature const &);
+	std::unordered_set<nano::block_hash> blocks_filter;
 	boost::multi_index_container<
 	nano::rolled_hash,
 	boost::multi_index::indexed_by<

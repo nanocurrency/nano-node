@@ -84,7 +84,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_processor & 
 {
 	size_t state_blocks_count = 0;
 	size_t blocks_count = 0;
-	size_t blocks_hashes_count = 0;
+	size_t blocks_filter_count = 0;
 	size_t forced_count = 0;
 	size_t rolled_back_count = 0;
 
@@ -92,7 +92,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_processor & 
 		nano::lock_guard<std::mutex> guard (block_processor.mutex);
 		state_blocks_count = block_processor.state_blocks.size ();
 		blocks_count = block_processor.blocks.size ();
-		blocks_hashes_count = block_processor.blocks_hashes.size ();
+		blocks_filter_count = block_processor.blocks_filter.size ();
 		forced_count = block_processor.forced.size ();
 		rolled_back_count = block_processor.rolled_back.size ();
 	}
@@ -100,7 +100,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_processor & 
 	auto composite = std::make_unique<seq_con_info_composite> (name);
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "state_blocks", state_blocks_count, sizeof (decltype (block_processor.state_blocks)::value_type) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "blocks", blocks_count, sizeof (decltype (block_processor.blocks)::value_type) }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "blocks_hashes", blocks_hashes_count, sizeof (decltype (block_processor.blocks_hashes)::value_type) }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "blocks_filter", blocks_filter_count, sizeof (decltype (block_processor.blocks_filter)::value_type) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "forced", forced_count, sizeof (decltype (block_processor.forced)::value_type) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "rolled_back", rolled_back_count, sizeof (decltype (block_processor.rolled_back)::value_type) }));
 	composite->add_component (collect_seq_con_info (block_processor.generator, "generator"));
