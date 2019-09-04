@@ -15,9 +15,7 @@ enum class epoch : uint8_t
 	unspecified = 1,
 	epoch_begin = 2,
 	epoch_0 = 2,
-	epoch_1 = 3,
-	epoch_2 = 4,
-	epoch_end
+	epoch_1 = 3
 };
 class epoch_info
 {
