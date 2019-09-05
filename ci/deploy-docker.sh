@@ -35,7 +35,7 @@ if [ -n "$DOCKER_PASSWORD" ]; then
             network_tag_suffix="-beta"
             network="beta"
             # use cache from Master_beta_docker to prevent rebuilds
-            cached="--cache-from nanocurrency/nano-beta:master"
+            cached="--cache-from=nanocurrency/nano-beta:master"
             docker pull nanocurrency/nano-beta:master
         fi
 
