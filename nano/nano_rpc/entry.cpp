@@ -35,7 +35,7 @@ void logging_init (boost::filesystem::path const & application_path_a)
 
 volatile sig_atomic_t sig_int_or_term = 0;
 
-void run (boost::filesystem::path const & data_path)
+void run (boost::filesystem::path const & data_path, std::vector<std::string> const & config_overrides)
 {
 	boost::filesystem::create_directories (data_path);
 	boost::system::error_code error_chmod;
@@ -43,7 +43,7 @@ void run (boost::filesystem::path const & data_path)
 	std::unique_ptr<nano::thread_runner> runner;
 
 	nano::rpc_config rpc_config;
-	auto error = nano::read_rpc_config_toml (data_path, rpc_config);
+	auto error = nano::read_rpc_config_toml (data_path, rpc_config, config_overrides);
 	if (!error)
 	{
 		logging_init (data_path);
@@ -92,6 +92,7 @@ int main (int argc, char * const * argv)
 	// clang-format off
 	description.add_options ()
 		("help", "Print out options")
+		("config", boost::program_options::value<std::vector<std::string>>()->multitoken(), "Pass RPC configuration values. This takes precedence over any values in the configuration file. This option can be repeated multiple times.")
 		("daemon", "Start RPC daemon")
 		("data_path", boost::program_options::value<std::string> (), "Use the supplied path as the data directory")
 		("network", boost::program_options::value<std::string> (), "Use the supplied network (live, beta or test)")
@@ -136,7 +137,13 @@ int main (int argc, char * const * argv)
 	boost::filesystem::path data_path ((data_path_it != vm.end ()) ? data_path_it->second.as<std::string> () : nano::working_path ());
 	if (vm.count ("daemon") > 0)
 	{
-		run (data_path);
+		std::vector<std::string> config_overrides;
+		auto config (vm.find ("config"));
+		if (config != vm.end ())
+		{
+			config_overrides = config->second.as<std::vector<std::string>> ();
+		}
+		run (data_path, config_overrides);
 	}
 	else if (vm.count ("version"))
 	{
