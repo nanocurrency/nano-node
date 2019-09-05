@@ -7,7 +7,10 @@ namespace
 template <typename Mutex>
 void output (const char * str, std::chrono::milliseconds time, Mutex & mutex)
 {
+	static std::mutex cout_mutex;
 	auto stacktrace = nano::generate_stacktrace ();
+	// Guard standard out to keep the output from being interleaved
+	std::lock_guard<std::mutex> guard (cout_mutex);
 	std::cout << std::addressof (mutex) << " Mutex " << str << " for: " << time.count () << "ms\n"
 	          << stacktrace << std::endl;
 }

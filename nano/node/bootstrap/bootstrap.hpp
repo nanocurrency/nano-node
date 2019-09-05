@@ -80,6 +80,7 @@ public:
 	void wallet_run ();
 	void wallet_start (std::deque<nano::account> &);
 	bool wallet_finished ();
+	std::mutex next_log_mutex;
 	std::chrono::steady_clock::time_point next_log;
 	std::deque<std::weak_ptr<nano::bootstrap_client>> clients;
 	std::weak_ptr<nano::bootstrap_client> connection_frontier_request;
@@ -97,7 +98,7 @@ public:
 	std::atomic<bool> stopped;
 	nano::bootstrap_mode mode;
 	std::mutex mutex;
-	std::condition_variable condition;
+	nano::condition_variable condition;
 	// Lazy bootstrap
 	std::unordered_set<nano::block_hash> lazy_blocks;
 	std::unordered_map<nano::block_hash, std::pair<nano::block_hash, nano::uint128_t>> lazy_state_unknown;
@@ -176,7 +177,7 @@ private:
 	std::shared_ptr<nano::bootstrap_attempt> attempt;
 	std::atomic<bool> stopped;
 	std::mutex mutex;
-	std::condition_variable condition;
+	nano::condition_variable condition;
 	std::mutex observers_mutex;
 	std::vector<std::function<void(bool)>> observers;
 	boost::thread thread;
