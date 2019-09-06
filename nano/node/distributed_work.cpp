@@ -1,5 +1,6 @@
 #include <nano/node/distributed_work.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/websocket.hpp>
 
 std::shared_ptr<request_type> nano::work_peer_request::get_prepared_json_request (std::string const & request_string_a) const
 {
@@ -27,6 +28,22 @@ elapsed (nano::timer_state::started, "distributed work generation timer")
 
 nano::distributed_work::~distributed_work ()
 {
+	if (node.websocket_server->any_subscriber (nano::websocket::topic::work))
+	{
+		nano::websocket::message_builder builder;
+		if (completed)
+		{
+			node.websocket_server->broadcast (builder.work_generation (root, work_result, difficulty, node.network_params.network.publish_threshold, elapsed.value (), winner, bad_peers));
+		}
+		else if (stopped)
+		{
+			node.websocket_server->broadcast (builder.work_cancelled (root, difficulty, node.network_params.network.publish_threshold, elapsed.value (), bad_peers));
+		}
+		else
+		{
+			node.websocket_server->broadcast (builder.work_failed (root, difficulty, node.network_params.network.publish_threshold, elapsed.value (), bad_peers));
+		}
+	}
 	stop (true);
 }
 
@@ -116,11 +133,12 @@ void nano::distributed_work::start_work ()
 								{
 									if (connection->response.result () == boost::beast::http::status::ok)
 									{
-										this_l->success (connection->response.body (), connection->address);
+										this_l->success (connection->response.body (), connection->address, connection->port);
 									}
 									else
 									{
 										this_l->node.logger.try_log (boost::str (boost::format ("Work peer responded with an error %1% %2%: %3%") % connection->address % connection->port % connection->response.result ()));
+										this_l->add_bad_peer (connection->address, connection->port);
 										this_l->failure (connection->address);
 									}
 								}
@@ -133,6 +151,7 @@ void nano::distributed_work::start_work ()
 								else
 								{
 									this_l->node.logger.try_log (boost::str (boost::format ("Unable to read from work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
+									this_l->add_bad_peer (connection->address, connection->port);
 									this_l->failure (connection->address);
 								}
 							});
@@ -140,6 +159,7 @@ void nano::distributed_work::start_work ()
 						else
 						{
 							this_l->node.logger.try_log (boost::str (boost::format ("Unable to write to work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
+							this_l->add_bad_peer (connection->address, connection->port);
 							this_l->failure (connection->address);
 						}
 					});
@@ -147,6 +167,7 @@ void nano::distributed_work::start_work ()
 				else
 				{
 					this_l->node.logger.try_log (boost::str (boost::format ("Unable to connect to work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
+					this_l->add_bad_peer (connection->address, connection->port);
 					this_l->failure (connection->address);
 				}
 			});
@@ -154,10 +175,10 @@ void nano::distributed_work::start_work ()
 	}
 }
 
-void nano::distributed_work::cancel (std::shared_ptr<nano::work_peer_request> connection)
+void nano::distributed_work::cancel (std::shared_ptr<nano::work_peer_request> connection_a)
 {
 	auto this_l (shared_from_this ());
-	auto cancelling_l (std::make_shared<nano::work_peer_request> (node.io_ctx, connection->address, connection->port));
+	auto cancelling_l (std::make_shared<nano::work_peer_request> (node.io_ctx, connection_a->address, connection_a->port));
 	cancelling_l->socket.async_connect (nano::tcp_endpoint (cancelling_l->address, cancelling_l->port), [this_l, cancelling_l](boost::system::error_code const & ec) {
 		if (!ec)
 		{
@@ -215,9 +236,9 @@ void nano::distributed_work::stop (bool const local_stop_a)
 	}
 }
 
-void nano::distributed_work::success (std::string const & body_a, boost::asio::ip::address const & address)
+void nano::distributed_work::success (std::string const & body_a, boost::asio::ip::address const & address_a, uint16_t port_a)
 {
-	auto last (remove (address));
+	auto last (remove (address_a));
 	std::stringstream istream (body_a);
 	try
 	{
@@ -231,52 +252,59 @@ void nano::distributed_work::success (std::string const & body_a, boost::asio::i
 			if (!nano::work_validate (root, work, &result_difficulty) && result_difficulty >= difficulty)
 			{
 				node.unresponsive_work_peers = false;
-				set_once (work);
+				set_once (work, boost::str (boost::format ("%1%:%2%") % address_a % port_a));
 				stop (true);
 			}
 			else
 			{
-				node.logger.try_log (boost::str (boost::format ("Incorrect work response from %1% for root %2% with diffuculty %3%: %4%") % address % root.to_string () % nano::to_string_hex (difficulty) % work_text));
+				node.logger.try_log (boost::str (boost::format ("Incorrect work response from %1%:%2% for root %3% with diffuculty %4%: %5%") % address_a % port_a % root.to_string () % nano::to_string_hex (difficulty) % work_text));
+				add_bad_peer (address_a, port_a);
 				handle_failure (last);
 			}
 		}
 		else
 		{
-			node.logger.try_log (boost::str (boost::format ("Work response from %1% wasn't a number: %2%") % address % work_text));
+			node.logger.try_log (boost::str (boost::format ("Work response from %1%:%2% wasn't a number: %3%") % address_a % port_a % work_text));
+			add_bad_peer (address_a, port_a);
 			handle_failure (last);
 		}
 	}
 	catch (...)
 	{
-		node.logger.try_log (boost::str (boost::format ("Work response from %1% wasn't parsable: %2%") % address % body_a));
+		node.logger.try_log (boost::str (boost::format ("Work response from %1%:%2% wasn't parsable: %3%") % address_a % port_a % body_a));
+		add_bad_peer (address_a, port_a);
 		handle_failure (last);
 	}
 }
 
-void nano::distributed_work::set_once (boost::optional<uint64_t> work_a)
+void nano::distributed_work::set_once (boost::optional<uint64_t> work_a, std::string source_a)
 {
 	if (!completed.exchange (true))
 	{
 		callback (work_a);
+		elapsed.stop ();
+		winner = source_a;
+		work_result = *work_a;
 		if (node.config.logging.work_generation_time ())
 		{
 			boost::format unformatted_l ("Work generation for %1%, with a threshold difficulty of %2% (multiplier %3%x) complete: %4% ms");
 			auto multiplier_text_l (nano::to_string (nano::difficulty::to_multiplier (difficulty, node.network_params.network.publish_threshold), 2));
-			node.logger.try_log (boost::str (unformatted_l % root.to_string () % nano::to_string_hex (difficulty) % multiplier_text_l % elapsed.stop ().count ()));
+			node.logger.try_log (boost::str (unformatted_l % root.to_string () % nano::to_string_hex (difficulty) % multiplier_text_l % elapsed.value ().count ()));
 		}
 	}
 }
 
-void nano::distributed_work::failure (boost::asio::ip::address const & address)
+void nano::distributed_work::failure (boost::asio::ip::address const & address_a)
 {
-	auto last (remove (address));
+	auto last (remove (address_a));
 	handle_failure (last);
 }
 
-void nano::distributed_work::handle_failure (bool const last)
+void nano::distributed_work::handle_failure (bool const last_a)
 {
-	if (last && !completed)
+	if (last_a && !completed)
 	{
+		elapsed.stop ();
 		if (!stopped) // stopped early = cancel
 		{
 			node.unresponsive_work_peers = true;
@@ -288,7 +316,7 @@ void nano::distributed_work::handle_failure (bool const last)
 				callback (boost::none);
 				if (node.config.logging.work_generation_time ())
 				{
-					node.logger.try_log (boost::str (boost::format ("Work generation for %1% was cancelled after %2% ms") % root.to_string () % elapsed.stop ().count ()));
+					node.logger.try_log (boost::str (boost::format ("Work generation for %1% was cancelled after %2% ms") % root.to_string () % elapsed.value ().count ()));
 				}
 			}
 			else
@@ -315,11 +343,17 @@ void nano::distributed_work::handle_failure (bool const last)
 	}
 }
 
-bool nano::distributed_work::remove (boost::asio::ip::address const & address)
+bool nano::distributed_work::remove (boost::asio::ip::address const & address_a)
 {
 	nano::lock_guard<std::mutex> guard (mutex);
-	outstanding.erase (address);
+	outstanding.erase (address_a);
 	return outstanding.empty ();
+}
+
+void nano::distributed_work::add_bad_peer (boost::asio::ip::address const & address_a, uint16_t port_a)
+{
+	nano::lock_guard<std::mutex> guard (mutex);
+	bad_peers.emplace_back (boost::str (boost::format ("%1%:%2%") % address_a % port_a));
 }
 
 nano::distributed_work_factory::distributed_work_factory (nano::node & node_a) :
