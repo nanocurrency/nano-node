@@ -45,7 +45,7 @@ public:
 	void cancel (std::shared_ptr<nano::work_peer_request>);
 	void stop (bool const);
 	void success (std::string const &, boost::asio::ip::address const &, uint16_t const);
-	void set_once (boost::optional<uint64_t>, std::string source_a = "local");
+	void set_once (uint64_t, std::string source_a = "local");
 	void failure (boost::asio::ip::address const &);
 	void handle_failure (bool const);
 	bool remove (boost::asio::ip::address const &);

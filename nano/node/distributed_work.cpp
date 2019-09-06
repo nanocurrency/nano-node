@@ -96,7 +96,10 @@ void nano::distributed_work::start_work ()
 		local_generation_started = true;
 		node.work.generate (
 		root, [this_l](boost::optional<uint64_t> const & work_a) {
-			this_l->set_once (work_a);
+			if (work_a.is_initialized ())
+			{
+				this_l->set_once (*work_a);
+			}
 			this_l->stop (false);
 		},
 		difficulty);
@@ -233,6 +236,15 @@ void nano::distributed_work::stop (bool const local_stop_a)
 		}
 		connections.clear ();
 		outstanding.clear ();
+
+		if (!completed)
+		{
+			callback (boost::none);
+			if (node.config.logging.work_generation_time ())
+			{
+				node.logger.try_log (boost::str (boost::format ("Work generation for %1% was cancelled after %2% ms") % root.to_string () % elapsed.value ().count ()));
+			}
+		}
 	}
 }
 
@@ -277,14 +289,14 @@ void nano::distributed_work::success (std::string const & body_a, boost::asio::i
 	}
 }
 
-void nano::distributed_work::set_once (boost::optional<uint64_t> work_a, std::string source_a)
+void nano::distributed_work::set_once (uint64_t work_a, std::string source_a)
 {
 	if (!completed.exchange (true))
 	{
-		callback (work_a);
 		elapsed.stop ();
+		callback (work_a);
 		winner = source_a;
-		work_result = *work_a;
+		work_result = work_a;
 		if (node.config.logging.work_generation_time ())
 		{
 			boost::format unformatted_l ("Work generation for %1%, with a threshold difficulty of %2% (multiplier %3%x) complete: %4% ms");
@@ -308,18 +320,7 @@ void nano::distributed_work::handle_failure (bool const last_a)
 		if (!stopped) // stopped early = cancel
 		{
 			node.unresponsive_work_peers = true;
-		}
-		if (!local_generation_started)
-		{
-			if (stopped)
-			{
-				callback (boost::none);
-				if (node.config.logging.work_generation_time ())
-				{
-					node.logger.try_log (boost::str (boost::format ("Work generation for %1% was cancelled after %2% ms") % root.to_string () % elapsed.value ().count ()));
-				}
-			}
-			else
+			if (!local_generation_started)
 			{
 				if (backoff == 1 && node.config.logging.work_generation_time ())
 				{
