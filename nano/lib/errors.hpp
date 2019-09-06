@@ -32,6 +32,7 @@ enum class error_common
 	bad_threshold,
 	bad_wallet_number,
 	bad_work_format,
+	failure_work_generation,
 	missing_account,
 	missing_balance,
 	missing_link,

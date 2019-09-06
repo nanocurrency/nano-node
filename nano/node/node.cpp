@@ -84,7 +84,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_processor & 
 {
 	size_t state_blocks_count = 0;
 	size_t blocks_count = 0;
-	size_t blocks_hashes_count = 0;
+	size_t blocks_filter_count = 0;
 	size_t forced_count = 0;
 	size_t rolled_back_count = 0;
 
@@ -92,7 +92,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_processor & 
 		nano::lock_guard<std::mutex> guard (block_processor.mutex);
 		state_blocks_count = block_processor.state_blocks.size ();
 		blocks_count = block_processor.blocks.size ();
-		blocks_hashes_count = block_processor.blocks_hashes.size ();
+		blocks_filter_count = block_processor.blocks_filter.size ();
 		forced_count = block_processor.forced.size ();
 		rolled_back_count = block_processor.rolled_back.size ();
 	}
@@ -100,7 +100,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_processor & 
 	auto composite = std::make_unique<seq_con_info_composite> (name);
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "state_blocks", state_blocks_count, sizeof (decltype (block_processor.state_blocks)::value_type) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "blocks", blocks_count, sizeof (decltype (block_processor.blocks)::value_type) }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "blocks_hashes", blocks_hashes_count, sizeof (decltype (block_processor.blocks_hashes)::value_type) }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "blocks_filter", blocks_filter_count, sizeof (decltype (block_processor.blocks_filter)::value_type) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "forced", forced_count, sizeof (decltype (block_processor.forced)::value_type) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "rolled_back", rolled_back_count, sizeof (decltype (block_processor.rolled_back)::value_type) }));
 	composite->add_component (collect_seq_con_info (block_processor.generator, "generator"));
@@ -962,14 +962,19 @@ int nano::node::price (nano::uint128_t const & balance_a, int amount_a)
 	return static_cast<int> (result * 100.0);
 }
 
-void nano::node::work_generate_blocking (nano::block & block_a)
+boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a)
 {
-	work_generate_blocking (block_a, network_params.network.publish_threshold);
+	return work_generate_blocking (block_a, network_params.network.publish_threshold);
 }
 
-void nano::node::work_generate_blocking (nano::block & block_a, uint64_t difficulty_a)
+boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a, uint64_t difficulty_a)
 {
-	block_a.block_work_set (work_generate_blocking (block_a.root (), difficulty_a));
+	auto opt_work_l (work_generate_blocking (block_a.root (), difficulty_a));
+	if (opt_work_l.is_initialized ())
+	{
+		block_a.block_work_set (*opt_work_l);
+	}
+	return opt_work_l;
 }
 
 void nano::node::work_generate (nano::uint256_union const & hash_a, std::function<void(boost::optional<uint64_t>)> callback_a)
@@ -982,12 +987,12 @@ void nano::node::work_generate (nano::uint256_union const & hash_a, std::functio
 	distributed_work.make (hash_a, callback_a, difficulty_a);
 }
 
-uint64_t nano::node::work_generate_blocking (nano::uint256_union const & block_a)
+boost::optional<uint64_t> nano::node::work_generate_blocking (nano::uint256_union const & block_a)
 {
 	return work_generate_blocking (block_a, network_params.network.publish_threshold);
 }
 
-uint64_t nano::node::work_generate_blocking (nano::uint256_union const & hash_a, uint64_t difficulty_a)
+boost::optional<uint64_t> nano::node::work_generate_blocking (nano::uint256_union const & hash_a, uint64_t difficulty_a)
 {
 	std::promise<uint64_t> promise;
 	std::future<uint64_t> future = promise.get_future ();

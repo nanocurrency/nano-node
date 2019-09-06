@@ -56,7 +56,7 @@ public:
 
 private:
 	void queue_unchecked (nano::write_transaction const &, nano::block_hash const &);
-	void verify_state_blocks (nano::transaction const & transaction_a, nano::unique_lock<std::mutex> &, size_t = std::numeric_limits<size_t>::max ());
+	void verify_state_blocks (nano::unique_lock<std::mutex> &, size_t = std::numeric_limits<size_t>::max ());
 	void process_batch (nano::unique_lock<std::mutex> &);
 	void process_live (nano::block_hash const &, std::shared_ptr<nano::block>, const bool = false);
 	bool stopped;
@@ -65,8 +65,9 @@ private:
 	std::chrono::steady_clock::time_point next_log;
 	std::deque<nano::unchecked_info> state_blocks;
 	std::deque<nano::unchecked_info> blocks;
-	std::unordered_set<nano::block_hash> blocks_hashes;
 	std::deque<std::shared_ptr<nano::block>> forced;
+	nano::block_hash filter_item (nano::block_hash const &, nano::signature const &);
+	std::unordered_set<nano::block_hash> blocks_filter;
 	boost::multi_index_container<
 	nano::rolled_hash,
 	boost::multi_index::indexed_by<

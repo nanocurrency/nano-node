@@ -1163,6 +1163,8 @@ TEST (wallet, work_watcher_removed)
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
 	node_config.work_watcher_period = 1s;
+	auto & node = *system.add_node (node_config);
+	(void)node;
 	auto & wallet (*system.wallet (0));
 	wallet.insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key;
@@ -1190,7 +1192,7 @@ TEST (wallet, work_watcher_cancel)
 	wallet.insert_adhoc (nano::test_genesis_key.prv, false);
 	nano::keypair key;
 	auto work1 (node.work_generate_blocking (nano::test_genesis_key.pub));
-	auto const block1 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 100, work1, false));
+	auto const block1 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 100, *work1, false));
 	uint64_t difficulty1 (0);
 	nano::work_validate (*block1, &difficulty1);
 	{
