@@ -528,7 +528,7 @@ void nano::json_handler::account_info ()
 		{
 			response_l.put ("frontier", info.head.to_string ());
 			response_l.put ("open_block", info.open_block.to_string ());
-			response_l.put ("representative_block", info.rep_block.to_string ());
+			response_l.put ("representative_block", node.ledger.representative (transaction, info.head).to_string ());
 			std::string balance;
 			nano::uint128_union (info.balance).encode_dec (balance);
 			response_l.put ("balance", balance);
@@ -538,9 +538,7 @@ void nano::json_handler::account_info ()
 			response_l.put ("confirmation_height", std::to_string (confirmation_height));
 			if (representative)
 			{
-				auto block (node.store.block_get (transaction, info.rep_block));
-				assert (block != nullptr);
-				response_l.put ("representative", block->representative ().to_account ());
+				response_l.put ("representative", info.representative.to_account ());
 			}
 			if (weight)
 			{
@@ -659,9 +657,7 @@ void nano::json_handler::account_representative ()
 		nano::account_info info;
 		if (!node.store.account_get (transaction, account, info))
 		{
-			auto block (node.store.block_get (transaction, info.rep_block));
-			assert (block != nullptr);
-			response_l.put ("representative", block->representative ().to_account ());
+			response_l.put ("representative", info.representative.to_account ());
 		}
 		else
 		{
@@ -1955,9 +1951,7 @@ void nano::json_handler::delegators ()
 		for (auto i (node.store.latest_begin (transaction)), n (node.store.latest_end ()); i != n; ++i)
 		{
 			nano::account_info const & info (i->second);
-			auto block (node.store.block_get (transaction, info.rep_block));
-			assert (block != nullptr);
-			if (block->representative () == account)
+			if (info.representative == account)
 			{
 				std::string balance;
 				nano::uint128_union (info.balance).encode_dec (balance);
@@ -1980,9 +1974,7 @@ void nano::json_handler::delegators_count ()
 		for (auto i (node.store.latest_begin (transaction)), n (node.store.latest_end ()); i != n; ++i)
 		{
 			nano::account_info const & info (i->second);
-			auto block (node.store.block_get (transaction, info.rep_block));
-			assert (block != nullptr);
-			if (block->representative () == account)
+			if (info.representative == account)
 			{
 				++count;
 			}
@@ -2429,7 +2421,7 @@ void nano::json_handler::ledger ()
 					}
 					response_a.put ("frontier", info.head.to_string ());
 					response_a.put ("open_block", info.open_block.to_string ());
-					response_a.put ("representative_block", info.rep_block.to_string ());
+					response_a.put ("representative_block", node.ledger.representative (transaction, info.head).to_string ());
 					std::string balance;
 					nano::uint128_union (info.balance).encode_dec (balance);
 					response_a.put ("balance", balance);
@@ -2437,9 +2429,7 @@ void nano::json_handler::ledger ()
 					response_a.put ("block_count", std::to_string (info.block_count));
 					if (representative)
 					{
-						auto block (node.store.block_get (transaction, info.rep_block));
-						assert (block != nullptr);
-						response_a.put ("representative", block->representative ().to_account ());
+						response_a.put ("representative", info.representative.to_account ());
 					}
 					if (weight)
 					{
@@ -2483,7 +2473,7 @@ void nano::json_handler::ledger ()
 					}
 					response_a.put ("frontier", info.head.to_string ());
 					response_a.put ("open_block", info.open_block.to_string ());
-					response_a.put ("representative_block", info.rep_block.to_string ());
+					response_a.put ("representative_block", node.ledger.representative (transaction, info.head).to_string ());
 					std::string balance;
 					(i->first).encode_dec (balance);
 					response_a.put ("balance", balance);
@@ -2491,9 +2481,7 @@ void nano::json_handler::ledger ()
 					response_a.put ("block_count", std::to_string (info.block_count));
 					if (representative)
 					{
-						auto block (node.store.block_get (transaction, info.rep_block));
-						assert (block != nullptr);
-						response_a.put ("representative", block->representative ().to_account ());
+						response_a.put ("representative", info.representative.to_account ());
 					}
 					if (weight)
 					{
@@ -4236,7 +4224,7 @@ void nano::json_handler::wallet_ledger ()
 					boost::property_tree::ptree entry;
 					entry.put ("frontier", info.head.to_string ());
 					entry.put ("open_block", info.open_block.to_string ());
-					entry.put ("representative_block", info.rep_block.to_string ());
+					entry.put ("representative_block", node.ledger.representative (block_transaction, info.head).to_string ());
 					std::string balance;
 					nano::uint128_union (info.balance).encode_dec (balance);
 					entry.put ("balance", balance);
@@ -4244,9 +4232,7 @@ void nano::json_handler::wallet_ledger ()
 					entry.put ("block_count", std::to_string (info.block_count));
 					if (representative)
 					{
-						auto block (node.store.block_get (block_transaction, info.rep_block));
-						assert (block != nullptr);
-						entry.put ("representative", block->representative ().to_account ());
+						entry.put ("representative", info.representative.to_account ());
 					}
 					if (weight)
 					{
@@ -4393,9 +4379,7 @@ void nano::json_handler::wallet_representative_set ()
 						nano::account_info info;
 						if (!rpc_l->node.store.account_get (block_transaction, account, info))
 						{
-							auto block (rpc_l->node.store.block_get (block_transaction, info.rep_block));
-							assert (block != nullptr);
-							if (block->representative () != representative)
+							if (info.representative != representative)
 							{
 								accounts.push_back (account);
 							}

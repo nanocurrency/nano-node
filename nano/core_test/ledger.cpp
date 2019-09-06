@@ -294,11 +294,11 @@ TEST (ledger, rollback_representation)
 	ASSERT_EQ (nano::genesis_amount - 1, ledger.weight (transaction, key4.pub));
 	nano::account_info info1;
 	ASSERT_FALSE (store->account_get (transaction, key2.pub, info1));
-	ASSERT_EQ (open.hash (), info1.rep_block);
+	ASSERT_EQ (key4.pub, info1.representative);
 	ASSERT_FALSE (ledger.rollback (transaction, receive1.hash ()));
 	nano::account_info info2;
 	ASSERT_FALSE (store->account_get (transaction, key2.pub, info2));
-	ASSERT_EQ (open.hash (), info2.rep_block);
+	ASSERT_EQ (key4.pub, info2.representative);
 	ASSERT_EQ (0, ledger.weight (transaction, key2.pub));
 	ASSERT_EQ (nano::genesis_amount - 50, ledger.weight (transaction, key4.pub));
 	ASSERT_FALSE (ledger.rollback (transaction, open.hash ()));
@@ -308,11 +308,11 @@ TEST (ledger, rollback_representation)
 	ASSERT_EQ (nano::genesis_amount, ledger.weight (transaction, key3.pub));
 	nano::account_info info3;
 	ASSERT_FALSE (store->account_get (transaction, nano::test_genesis_key.pub, info3));
-	ASSERT_EQ (change2.hash (), info3.rep_block);
+	ASSERT_EQ (key3.pub, info3.representative);
 	ASSERT_FALSE (ledger.rollback (transaction, change2.hash ()));
 	nano::account_info info4;
 	ASSERT_FALSE (store->account_get (transaction, nano::test_genesis_key.pub, info4));
-	ASSERT_EQ (change1.hash (), info4.rep_block);
+	ASSERT_EQ (key5.pub, info4.representative);
 	ASSERT_EQ (nano::genesis_amount, ledger.weight (transaction, key5.pub));
 	ASSERT_EQ (0, ledger.weight (transaction, key3.pub));
 }

@@ -832,9 +832,7 @@ TEST (rpc, wallet_representative_set_force)
 		nano::account_info info;
 		if (!system.nodes[0]->store.account_get (transaction, nano::test_genesis_key.pub, info))
 		{
-			auto block (system.nodes[0]->store.block_get (transaction, info.rep_block));
-			assert (block != nullptr);
-			representative = block->representative ();
+			representative = info.representative;
 		}
 		ASSERT_NO_ERROR (system.poll ());
 	}

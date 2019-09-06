@@ -755,14 +755,14 @@ nano::uint128_t nano::node::weight (nano::account const & account_a)
 	return ledger.weight (transaction, account_a);
 }
 
-nano::account nano::node::representative (nano::account const & account_a)
+nano::block_hash nano::node::rep_block (nano::account const & account_a)
 {
 	auto transaction (store.tx_begin_read ());
 	nano::account_info info;
 	nano::account result (0);
 	if (!store.account_get (transaction, account_a, info))
 	{
-		result = info.rep_block;
+		result = ledger.representative (transaction, info.head);
 	}
 	return result;
 }

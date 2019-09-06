@@ -831,7 +831,7 @@ int main (int argc, char * const * argv)
 				auto block (node.node->store.block_get (transaction, hash, &sideband)); // Block data
 				uint64_t height (0);
 				uint64_t previous_timestamp (0);
-				nano::block_hash calculated_representative_block (0);
+				nano::account calculated_representative (0);
 				while (!hash.is_zero () && block != nullptr)
 				{
 					++block_count;
@@ -911,7 +911,7 @@ int main (int argc, char * const * argv)
 					// Calculate representative block
 					if (block->type () == nano::block_type::open || block->type () == nano::block_type::change || block->type () == nano::block_type::state)
 					{
-						calculated_representative_block = hash;
+						calculated_representative = block->representative ();
 					}
 					// Retrieving successor block hash
 					hash = node.node->store.block_successor (transaction, hash);
@@ -937,9 +937,9 @@ int main (int argc, char * const * argv)
 					std::cerr << boost::str (boost::format ("Incorrect frontier for account %1%. Actual: %2%. Expected: %3%\n") % account.to_account () % calculated_hash.to_string () % info.head.to_string ());
 				}
 				// Check account representative block
-				if (info.rep_block != calculated_representative_block)
+				if (info.representative != calculated_representative)
 				{
-					std::cerr << boost::str (boost::format ("Incorrect representative block for account %1%. Actual: %2%. Expected: %3%\n") % account.to_account () % calculated_representative_block.to_string () % info.rep_block.to_string ());
+					std::cerr << boost::str (boost::format ("Incorrect representative for account %1%. Actual: %2%. Expected: %3%\n") % account.to_account () % calculated_representative.to_string () % info.representative.to_string ());
 				}
 			}
 			std::cout << boost::str (boost::format ("%1% accounts validated\n") % count);
