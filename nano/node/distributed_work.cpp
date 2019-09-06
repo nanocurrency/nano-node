@@ -28,7 +28,7 @@ elapsed (nano::timer_state::started, "distributed work generation timer")
 
 nano::distributed_work::~distributed_work ()
 {
-	if (node.websocket_server->any_subscriber (nano::websocket::topic::work))
+	if (node.websocket_server && node.websocket_server->any_subscriber (nano::websocket::topic::work))
 	{
 		nano::websocket::message_builder builder;
 		if (completed)
