@@ -3228,7 +3228,6 @@ void nano::json_handler::representatives_online ()
 	if (!ec)
 	{
 		boost::property_tree::ptree representatives;
-		auto transaction (node.store.tx_begin_read ());
 		auto reps (node.online_reps.list ());
 		for (auto & i : reps)
 		{

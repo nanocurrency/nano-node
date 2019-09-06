@@ -253,7 +253,7 @@ TEST (node, auto_bootstrap)
 	while (node1->bootstrap_initiator.in_progress ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
-	};
+	}
 	system.deadline_set (5s);
 	while (node1->stats.count (nano::stat::type::observer, nano::stat::detail::observer_confirmation_active_quorum, nano::stat::dir::out) + node1->stats.count (nano::stat::type::observer, nano::stat::detail::observer_confirmation_active_conf_height, nano::stat::dir::out) < 2)
 	{
