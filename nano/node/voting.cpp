@@ -48,7 +48,7 @@ void nano::vote_generator::send (nano::unique_lock<std::mutex> & lock_a)
 	lock_a.unlock ();
 	{
 		auto transaction (node.store.tx_begin_read ());
-		node.wallets.foreach_representative (transaction, [this, &hashes_l, &transaction](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
+		node.wallets.foreach_representative ([this, &hashes_l, &transaction](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
 			auto vote (this->node.store.vote_generate (transaction, pub_a, prv_a, hashes_l));
 			this->node.vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (this->node.network.udp_channels, this->node.network.endpoint (), this->node.network_params.protocol.protocol_version));
 			this->node.votes_cache.add (vote);

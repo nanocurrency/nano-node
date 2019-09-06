@@ -542,7 +542,7 @@ void nano::json_handler::account_info ()
 			}
 			if (weight)
 			{
-				auto account_weight (node.ledger.weight (transaction, account));
+				auto account_weight (node.ledger.weight (account));
 				response_l.put ("weight", account_weight.convert_to<std::string> ());
 			}
 			if (pending)
@@ -1812,8 +1812,7 @@ void nano::json_handler::confirmation_info ()
 			auto election (conflict_info->election);
 			nano::uint128_t total (0);
 			response_l.put ("last_winner", election->status.winner->hash ().to_string ());
-			auto transaction (node.store.tx_begin_read ());
-			auto tally_l (election->tally (transaction));
+			auto tally_l (election->tally ());
 			boost::property_tree::ptree blocks;
 			for (auto i (tally_l.begin ()), n (tally_l.end ()); i != n; ++i)
 			{
@@ -2433,7 +2432,7 @@ void nano::json_handler::ledger ()
 					}
 					if (weight)
 					{
-						auto account_weight (node.ledger.weight (transaction, account));
+						auto account_weight (node.ledger.weight (account));
 						response_a.put ("weight", account_weight.convert_to<std::string> ());
 					}
 					accounts.push_back (std::make_pair (account.to_account (), response_a));
@@ -2485,7 +2484,7 @@ void nano::json_handler::ledger ()
 					}
 					if (weight)
 					{
-						auto account_weight (node.ledger.weight (transaction, account));
+						auto account_weight (node.ledger.weight (account));
 						response_a.put ("weight", account_weight.convert_to<std::string> ());
 					}
 					accounts.push_back (std::make_pair (account.to_account (), response_a));
@@ -3252,7 +3251,7 @@ void nano::json_handler::representatives_online ()
 			if (weight)
 			{
 				boost::property_tree::ptree weight_node;
-				auto account_weight (node.ledger.weight (transaction, i));
+				auto account_weight (node.ledger.weight (i));
 				weight_node.put ("weight", account_weight.convert_to<std::string> ());
 				representatives.add_child (i.to_account (), weight_node);
 			}
@@ -4236,7 +4235,7 @@ void nano::json_handler::wallet_ledger ()
 					}
 					if (weight)
 					{
-						auto account_weight (node.ledger.weight (block_transaction, account));
+						auto account_weight (node.ledger.weight (account));
 						entry.put ("weight", account_weight.convert_to<std::string> ());
 					}
 					if (pending)

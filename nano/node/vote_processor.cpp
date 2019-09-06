@@ -189,7 +189,7 @@ nano::vote_code nano::vote_processor::vote_blocking (nano::transaction const & t
 		switch (result)
 		{
 			case nano::vote_code::vote:
-				node.observers.vote.notify (transaction_a, vote_a, channel_a);
+				node.observers.vote.notify (vote_a, channel_a);
 			case nano::vote_code::replay:
 				// This tries to assist rep nodes that have lost track of their highest sequence number by replaying our highest known vote back to them
 				// Only do this if the sequence number is significantly different to account for network reordering
@@ -259,12 +259,11 @@ void nano::vote_processor::calculate_weights ()
 		representatives_2.clear ();
 		representatives_3.clear ();
 		auto supply (node.online_reps.online_stake ());
-		auto transaction (node.store.tx_begin_read ());
 		auto rep_amounts = node.ledger.rep_weights.get_rep_amounts ();
 		for (auto const & rep_amount : rep_amounts)
 		{
 			nano::account const & representative (rep_amount.first);
-			auto weight (node.ledger.weight (transaction, representative));
+			auto weight (node.ledger.weight (representative));
 			if (weight > supply / 1000) // 0.1% or above (level 1)
 			{
 				representatives_1.insert (representative);

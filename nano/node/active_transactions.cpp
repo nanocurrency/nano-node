@@ -120,7 +120,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	/* Confirm frontiers when there aren't many confirmations already pending and node finished initial bootstrap
 	In auto mode start confirm only if node contains almost principal representative (half of required for principal weight) */
 	lock_a.unlock ();
-	if (node.config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled && node.pending_confirmation_height.size () < confirmed_frontiers_max_pending_cut_off && node.store.block_count (transaction).sum () >= node.ledger.bootstrap_weight_max_blocks)
+	if (node.config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled && node.pending_confirmation_height.size () < confirmed_frontiers_max_pending_cut_off && node.ledger.block_count_cache >= node.ledger.bootstrap_weight_max_blocks)
 	{
 		confirm_frontiers (transaction);
 	}
@@ -147,7 +147,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 				// Log votes for very long unconfirmed elections
 				if (election_l->confirmation_request_count % 50 == 1)
 				{
-					auto tally_l (election_l->tally (transaction));
+					auto tally_l (election_l->tally ());
 					election_l->log_votes (tally_l);
 				}
 				/* Escalation for long unconfirmed elections
@@ -931,10 +931,8 @@ size_t nano::active_transactions::inactive_votes_cache_size ()
 
 void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const & hash_a, nano::account const & representative_a)
 {
-	/* Check principal representative status
-	nano::ledger::weight (...) call is too expensive due to read transaction requirements
-	Replace with nano::ledger::weight (...) after proper changes */
-	if (node.ledger.rep_weights.representation_get (representative_a) > node.minimum_principal_weight ())
+	// Check principal representative status
+	if (node.ledger.weight (representative_a) > node.minimum_principal_weight ())
 	{
 		auto existing (inactive_votes_cache.get<1> ().find (hash_a));
 		if (existing != inactive_votes_cache.get<1> ().end ())
@@ -952,8 +950,7 @@ void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const
 
 			if (is_new)
 			{
-				auto transaction (node.store.tx_begin_read ());
-				node.gap_cache.bootstrap_check (transaction, existing->voters, hash_a);
+				node.gap_cache.bootstrap_check (existing->voters, hash_a);
 			}
 		}
 		else

@@ -36,7 +36,6 @@ void nano::gap_cache::erase (nano::block_hash const & hash_a)
 void nano::gap_cache::vote (std::shared_ptr<nano::vote> vote_a)
 {
 	nano::lock_guard<std::mutex> lock (mutex);
-	auto transaction (node.store.tx_begin_read ());
 	for (auto hash : *vote_a)
 	{
 		auto existing (blocks.get<1> ().find (hash));
@@ -54,18 +53,18 @@ void nano::gap_cache::vote (std::shared_ptr<nano::vote> vote_a)
 
 			if (is_new)
 			{
-				bootstrap_check (transaction, existing->voters, hash);
+				bootstrap_check (existing->voters, hash);
 			}
 		}
 	}
 }
 
-void nano::gap_cache::bootstrap_check (nano::transaction const & transaction_a, std::vector<nano::account> const & voters_a, nano::block_hash const & hash_a)
+void nano::gap_cache::bootstrap_check (std::vector<nano::account> const & voters_a, nano::block_hash const & hash_a)
 {
 	uint128_t tally;
 	for (auto & voter : voters_a)
 	{
-		tally += node.ledger.weight (transaction_a, voter);
+		tally += node.ledger.weight (voter);
 	}
 	bool start_bootstrap (false);
 	if (!node.flags.disable_lazy_bootstrap)
@@ -75,7 +74,7 @@ void nano::gap_cache::bootstrap_check (nano::transaction const & transaction_a, 
 			start_bootstrap = true;
 		}
 	}
-	else if (!node.flags.disable_legacy_bootstrap && tally > bootstrap_threshold (transaction_a))
+	else if (!node.flags.disable_legacy_bootstrap && tally > bootstrap_threshold ())
 	{
 		start_bootstrap = true;
 	}
@@ -104,7 +103,7 @@ void nano::gap_cache::bootstrap_check (nano::transaction const & transaction_a, 
 	}
 }
 
-nano::uint128_t nano::gap_cache::bootstrap_threshold (nano::transaction const & transaction_a)
+nano::uint128_t nano::gap_cache::bootstrap_threshold ()
 {
 	auto result ((node.online_reps.online_stake () / 256) * node.config.bootstrap_fraction_numerator);
 	return result;

@@ -25,7 +25,7 @@ void nano::election::compute_rep_votes (nano::transaction const & transaction_a)
 {
 	if (node.config.enable_voting)
 	{
-		node.wallets.foreach_representative (transaction_a, [this, &transaction_a](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
+		node.wallets.foreach_representative ([this, &transaction_a](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
 			auto vote (this->node.store.vote_generate (transaction_a, pub_a, prv_a, status.winner));
 			this->node.vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (this->node.network.udp_channels, this->node.network.endpoint (), this->node.network_params.protocol.protocol_version));
 		});
@@ -83,12 +83,12 @@ bool nano::election::have_quorum (nano::tally_t const & tally_a, nano::uint128_t
 	return result;
 }
 
-nano::tally_t nano::election::tally (nano::transaction const & transaction_a)
+nano::tally_t nano::election::tally ()
 {
 	std::unordered_map<nano::block_hash, nano::uint128_t> block_weights;
 	for (auto vote_info : last_votes)
 	{
-		block_weights[vote_info.second.hash] += node.ledger.weight (transaction_a, vote_info.first);
+		block_weights[vote_info.second.hash] += node.ledger.weight (vote_info.first);
 	}
 	last_tally = block_weights;
 	nano::tally_t result;
@@ -103,9 +103,9 @@ nano::tally_t nano::election::tally (nano::transaction const & transaction_a)
 	return result;
 }
 
-void nano::election::confirm_if_quorum (nano::transaction const & transaction_a)
+void nano::election::confirm_if_quorum ()
 {
-	auto tally_l (tally (transaction_a));
+	auto tally_l (tally ());
 	assert (!tally_l.empty ());
 	auto winner (tally_l.begin ());
 	auto block_l (winner->second);
@@ -152,10 +152,9 @@ void nano::election::log_votes (nano::tally_t const & tally_a) const
 nano::election_vote_result nano::election::vote (nano::account rep, uint64_t sequence, nano::block_hash block_hash)
 {
 	// see republish_vote documentation for an explanation of these rules
-	auto transaction (node.store.tx_begin_read ());
 	auto replay (false);
 	auto online_stake (node.online_reps.online_stake ());
-	auto weight (node.ledger.weight (transaction, rep));
+	auto weight (node.ledger.weight (rep));
 	auto should_process (false);
 	if (node.network_params.network.is_test_network () || weight > node.minimum_principal_weight (online_stake))
 	{
@@ -198,7 +197,7 @@ nano::election_vote_result nano::election::vote (nano::account rep, uint64_t seq
 			last_votes[rep] = { std::chrono::steady_clock::now (), sequence, block_hash };
 			if (!confirmed)
 			{
-				confirm_if_quorum (transaction);
+				confirm_if_quorum ();
 			}
 		}
 	}
@@ -224,7 +223,7 @@ bool nano::election::publish (std::shared_ptr<nano::block> block_a)
 			if (blocks.find (block_a->hash ()) == blocks.end ())
 			{
 				blocks.insert (std::make_pair (block_a->hash (), block_a));
-				confirm_if_quorum (transaction);
+				confirm_if_quorum ();
 				node.network.flood_block (block_a, false);
 			}
 			else
@@ -321,7 +320,6 @@ void nano::election::insert_inactive_votes_cache ()
 			node.stats.inc (nano::stat::type::election, nano::stat::detail::late_block);
 			node.stats.add (nano::stat::type::election, nano::stat::detail::late_block_seconds, nano::stat::dir::in, delay.count (), true);
 		}
-		auto transaction (node.store.tx_begin_read ());
-		confirm_if_quorum (transaction);
+		confirm_if_quorum ();
 	}
 }

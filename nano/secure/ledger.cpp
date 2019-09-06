@@ -719,6 +719,9 @@ epoch_signer (epoch_signer_a)
 				cemented_count += i->second;
 			}
 		}
+
+		// Cache block count. 1 for not yet initialized ledger
+		block_count_cache = std::max (static_cast<size_t> (1), store.block_count (transaction).sum ());
 	}
 }
 
@@ -763,6 +766,10 @@ nano::process_return nano::ledger::process (nano::write_transaction const & tran
 	assert (!nano::work_validate (block_a));
 	ledger_processor processor (*this, transaction_a, verification);
 	block_a.visit (processor);
+	if (processor.result.code == nano::process_result::progress)
+	{
+		++block_count_cache;
+	}
 	return processor.result;
 }
 
@@ -862,12 +869,11 @@ nano::block_hash nano::ledger::block_source (nano::transaction const & transacti
 }
 
 // Vote weight of an account
-nano::uint128_t nano::ledger::weight (nano::transaction const & transaction_a, nano::account const & account_a)
+nano::uint128_t nano::ledger::weight (nano::account const & account_a)
 {
 	if (check_bootstrap_weights.load ())
 	{
-		auto blocks = store.block_count (transaction_a);
-		if (blocks.sum () < bootstrap_weight_max_blocks)
+		if (block_count_cache < bootstrap_weight_max_blocks)
 		{
 			auto weight = bootstrap_weights.find (account_a);
 			if (weight != bootstrap_weights.end ())
@@ -906,6 +912,10 @@ bool nano::ledger::rollback (nano::write_transaction const & transaction_a, nano
 			list_a.push_back (block);
 			block->visit (rollback);
 			error = rollback.error;
+			if (!error)
+			{
+				--block_count_cache;
+			}
 		}
 		else
 		{
@@ -1138,13 +1148,6 @@ bool nano::ledger::block_not_confirmed_or_not_exists (nano::block const & block_
 	{
 		result = !block_confirmed (transaction, hash);
 	}
-	return result;
-}
-
-size_t nano::ledger::block_count () const
-{
-	auto transaction (store.tx_begin_read ());
-	auto result (store.block_count (transaction).sum ());
 	return result;
 }
 

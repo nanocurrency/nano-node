@@ -309,12 +309,12 @@ startup_time (std::chrono::steady_clock::now ())
 				this->network.send_keepalive_self (channel_a);
 			}
 		});
-		observers.vote.add ([this](nano::transaction const & transaction, std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a) {
+		observers.vote.add ([this](std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a) {
 			this->gap_cache.vote (vote_a);
 			this->online_reps.observe (vote_a->account);
 			nano::uint128_t rep_weight;
 			{
-				rep_weight = ledger.weight (transaction, vote_a->account);
+				rep_weight = ledger.weight (vote_a->account);
 			}
 			if (rep_weight > minimum_principal_weight ())
 			{
@@ -349,7 +349,7 @@ startup_time (std::chrono::steady_clock::now ())
 		});
 		if (websocket_server)
 		{
-			observers.vote.add ([this](nano::transaction const & transaction, std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a) {
+			observers.vote.add ([this](std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a) {
 				if (this->websocket_server->any_subscriber (nano::websocket::topic::vote))
 				{
 					nano::websocket::message_builder builder;
@@ -400,8 +400,7 @@ startup_time (std::chrono::steady_clock::now ())
 			store.initialize (transaction, genesis, ledger.rep_weights, ledger.cemented_count);
 		}
 
-		auto transaction (store.tx_begin_read ());
-		if (!store.block_exists (transaction, genesis.hash ()))
+		if (!ledger.block_exists (genesis.hash ()))
 		{
 			std::stringstream ss;
 			ss << "Genesis block not found. Make sure the node network ID is correct.";
@@ -430,8 +429,7 @@ startup_time (std::chrono::steady_clock::now ())
 			if (!nano::try_read (weight_stream, block_height))
 			{
 				auto max_blocks = (uint64_t)block_height.number ();
-				auto transaction (store.tx_begin_read ());
-				use_bootstrap_weight = ledger.store.block_count (transaction).sum () < max_blocks;
+				use_bootstrap_weight = ledger.block_count_cache < max_blocks;
 				if (use_bootstrap_weight)
 				{
 					ledger.bootstrap_weight_max_blocks = max_blocks;
@@ -751,8 +749,7 @@ std::pair<nano::uint128_t, nano::uint128_t> nano::node::balance_pending (nano::a
 
 nano::uint128_t nano::node::weight (nano::account const & account_a)
 {
-	auto transaction (store.tx_begin_read ());
-	return ledger.weight (transaction, account_a);
+	return ledger.weight (account_a);
 }
 
 nano::block_hash nano::node::rep_block (nano::account const & account_a)
@@ -900,6 +897,7 @@ void nano::node::unchecked_cleanup ()
 {
 	std::deque<nano::unchecked_key> cleaning_list;
 	// Collect old unchecked keys
+	if (!flags.disable_unchecked_cleanup && ledger.block_count_cache >= ledger.bootstrap_weight_max_blocks)
 	{
 		auto now (nano::seconds_since_epoch ());
 		auto transaction (store.tx_begin_read ());
@@ -934,7 +932,7 @@ void nano::node::unchecked_cleanup ()
 
 void nano::node::ongoing_unchecked_cleanup ()
 {
-	if (!bootstrap_initiator.in_progress () && ledger.block_count () >= ledger.bootstrap_weight_max_blocks)
+	if (!bootstrap_initiator.in_progress ())
 	{
 		unchecked_cleanup ();
 	}

@@ -25,7 +25,7 @@ public:
 	nano::uint128_t balance (nano::transaction const &, nano::block_hash const &) const;
 	nano::uint128_t account_balance (nano::transaction const &, nano::account const &);
 	nano::uint128_t account_pending (nano::transaction const &, nano::account const &);
-	nano::uint128_t weight (nano::transaction const &, nano::account const &);
+	nano::uint128_t weight (nano::account const &);
 	std::shared_ptr<nano::block> successor (nano::transaction const &, nano::qualified_root const &);
 	std::shared_ptr<nano::block> forked_block (nano::transaction const &, nano::block const &);
 	bool block_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
@@ -48,11 +48,11 @@ public:
 	void dump_account_chain (nano::account const &);
 	bool could_fit (nano::transaction const &, nano::block const &);
 	bool is_epoch_link (nano::uint256_union const &);
-	size_t block_count () const;
 	static nano::uint128_t const unit;
 	nano::network_params network_params;
 	nano::block_store & store;
 	std::atomic<uint64_t> cemented_count{ 0 };
+	std::atomic<uint64_t> block_count_cache{ 0 };
 	nano::rep_weights rep_weights;
 	nano::stat & stats;
 	std::unordered_map<nano::account, nano::uint128_t> bootstrap_weights;

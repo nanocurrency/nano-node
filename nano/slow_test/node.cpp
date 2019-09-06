@@ -426,9 +426,8 @@ TEST (wallets, rep_scan)
 			wallet->deterministic_insert (transaction);
 		}
 	}
-	auto transaction (node.store.tx_begin_read ());
 	auto begin (std::chrono::steady_clock::now ());
-	node.wallets.foreach_representative (transaction, [](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
+	node.wallets.foreach_representative ([](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
 	});
 	ASSERT_LT (std::chrono::steady_clock::now () - begin, std::chrono::milliseconds (5));
 }

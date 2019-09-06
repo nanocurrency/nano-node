@@ -196,11 +196,11 @@ public:
 	void reload ();
 	void do_wallet_actions ();
 	void queue_wallet_action (nano::uint128_t const &, std::shared_ptr<nano::wallet>, std::function<void(nano::wallet &)> const &);
-	void foreach_representative (nano::transaction const &, std::function<void(nano::public_key const &, nano::raw_key const &)> const &);
+	void foreach_representative (std::function<void(nano::public_key const &, nano::raw_key const &)> const &);
 	bool exists (nano::transaction const &, nano::public_key const &);
 	void stop ();
 	void clear_send_ids (nano::transaction const &);
-	bool check_rep (nano::transaction const &, nano::account const &, nano::uint128_t const &);
+	bool check_rep (nano::account const &, nano::uint128_t const &);
 	void compute_reps ();
 	void ongoing_compute_reps ();
 	void split_if_needed (nano::transaction &, nano::block_store &);
