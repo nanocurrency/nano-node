@@ -680,9 +680,9 @@ nano::websocket::message nano::websocket::message_builder::work_generation (nano
 	work_l.put ("success", completed_a ? "true" : "false");
 	work_l.put ("reason", completed_a ? "" : cancelled_a ? "cancelled" : "failure");
 	work_l.put ("duration", duration_a.count ());
-	work_l.put ("hash", root_a.to_string ());
 
 	boost::property_tree::ptree request_l;
+	request_l.put ("hash", root_a.to_string ());
 	request_l.put ("difficulty", nano::to_string_hex (difficulty_a));
 	auto request_multiplier_l (nano::difficulty::to_multiplier (difficulty_a, publish_threshold_a));
 	request_l.put ("multiplier", nano::to_string (request_multiplier_l));
