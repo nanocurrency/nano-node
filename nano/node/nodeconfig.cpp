@@ -33,9 +33,6 @@ logging (logging_a)
 	{
 		peering_port = network_params.network.default_node_port;
 	}
-	const char * epoch_message ("epoch v1 block");
-	strncpy ((char *)epoch_block_link.bytes.data (), epoch_message, epoch_block_link.bytes.size ());
-	epoch_block_signer = network_params.ledger.genesis_account;
 	max_work_generate_difficulty = nano::difficulty::from_multiplier (max_work_generate_multiplier, network_params.network.publish_threshold);
 	switch (network_params.network.network ())
 	{

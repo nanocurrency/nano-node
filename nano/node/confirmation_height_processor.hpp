@@ -10,8 +10,7 @@
 
 namespace nano
 {
-class block_store;
-class stat;
+class ledger;
 class active_transactions;
 class read_transaction;
 class logger_mt;
@@ -38,7 +37,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (pending_confirmati
 class confirmation_height_processor final
 {
 public:
-	confirmation_height_processor (pending_confirmation_height &, nano::block_store &, nano::stat &, nano::active_transactions &, nano::block_hash const &, nano::write_database_queue &, std::chrono::milliseconds, nano::logger_mt &, std::atomic<uint64_t> &);
+	confirmation_height_processor (pending_confirmation_height &, nano::ledger &, nano::active_transactions &, nano::write_database_queue &, std::chrono::milliseconds, nano::logger_mt &, std::atomic<uint64_t> &);
 	~confirmation_height_processor ();
 	void add (nano::block_hash const &);
 	void stop ();
@@ -81,10 +80,8 @@ private:
 	nano::condition_variable condition;
 	nano::pending_confirmation_height & pending_confirmations;
 	std::atomic<bool> stopped{ false };
-	nano::block_store & store;
-	nano::stat & stats;
+	nano::ledger & ledger;
 	nano::active_transactions & active;
-	nano::block_hash const & epoch_link;
 	nano::logger_mt & logger;
 	std::atomic<uint64_t> receive_source_pairs_size{ 0 };
 	std::vector<receive_source_pair> receive_source_pairs;

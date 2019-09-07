@@ -128,7 +128,7 @@ store (*store_impl),
 wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_max_dbs)),
 wallets_store (*wallets_store_impl),
 gap_cache (*this),
-ledger (store, stats, config.epoch_block_link, config.epoch_block_signer, flags_a.cache_representative_weights_from_frontiers),
+ledger (store, stats, flags_a.cache_representative_weights_from_frontiers),
 checker (config.signature_checker_threads),
 network (*this, config.peering_port),
 bootstrap_initiator (*this),
@@ -146,7 +146,7 @@ block_processor_thread ([this]() {
 online_reps (*this, config.online_weight_minimum.number ()),
 vote_uniquer (block_uniquer),
 active (*this),
-confirmation_height_processor (pending_confirmation_height, store, ledger.stats, active, ledger.epoch_link, write_database_queue, config.conf_height_processor_batch_min_time, logger, ledger.cemented_count),
+confirmation_height_processor (pending_confirmation_height, ledger, active, write_database_queue, config.conf_height_processor_batch_min_time, logger, ledger.cemented_count),
 payment_observer_processor (observers.blocks),
 wallets (wallets_store.init_error (), *this),
 startup_time (std::chrono::steady_clock::now ())
@@ -196,7 +196,7 @@ startup_time (std::chrono::steady_clock::now ())
 							{
 								event.add ("subtype", "change");
 							}
-							else if (amount_a == 0 && !node_l->ledger.epoch_link.is_zero () && node_l->ledger.is_epoch_link (block_a->link ()))
+							else if (amount_a == 0 && node_l->ledger.is_epoch_link (block_a->link ()))
 							{
 								event.add ("subtype", "epoch");
 							}
@@ -250,7 +250,7 @@ startup_time (std::chrono::steady_clock::now ())
 						{
 							subtype = "change";
 						}
-						else if (amount_a == 0 && !this->ledger.epoch_link.is_zero () && this->ledger.is_epoch_link (block_a->link ()))
+						else if (amount_a == 0 && this->ledger.is_epoch_link (block_a->link ()))
 						{
 							subtype = "epoch";
 						}
@@ -1299,9 +1299,9 @@ bool nano::node::validate_block_by_previous (nano::transaction const & transacti
 		}
 		if (!result)
 		{
-			if (block_l->hashables.balance == prev_balance && !ledger.epoch_link.is_zero () && ledger.is_epoch_link (block_l->hashables.link))
+			if (block_l->hashables.balance == prev_balance && ledger.is_epoch_link (block_l->hashables.link))
 			{
-				account = ledger.epoch_signer;
+				account = ledger.signer (block_l->link ());
 			}
 		}
 	}

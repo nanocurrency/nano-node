@@ -6,6 +6,7 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/secure/epoch.hpp>
 #include <nano/secure/utility.hpp>
 
 #include <boost/iterator/transform_iterator.hpp>
@@ -52,17 +53,6 @@ public:
 };
 
 /**
- * Tag for which epoch an entry belongs to
- */
-enum class epoch : uint8_t
-{
-	invalid = 0,
-	unspecified = 1,
-	epoch_0 = 2,
-	epoch_1 = 3
-};
-
-/**
  * Latest information about an account
  */
 class account_info final
@@ -74,6 +64,7 @@ public:
 	bool operator== (nano::account_info const &) const;
 	bool operator!= (nano::account_info const &) const;
 	size_t db_size () const;
+	nano::epoch epoch () const;
 	nano::block_hash head{ 0 };
 	nano::account representative{ 0 };
 	nano::block_hash open_block{ 0 };
@@ -81,7 +72,7 @@ public:
 	/** Seconds since posix epoch */
 	uint64_t modified{ 0 };
 	uint64_t block_count{ 0 };
-	nano::epoch epoch{ nano::epoch::epoch_0 };
+	nano::epoch epoch_m{ nano::epoch::epoch_0 };
 };
 
 /**
@@ -338,6 +329,7 @@ public:
 	std::string genesis_block;
 	nano::uint128_t genesis_amount;
 	nano::account burn_account;
+	nano::epochs epochs;
 };
 
 /** Constants which depend on random values (this class should never be used globally due to CryptoPP globals potentially not being initialized) */

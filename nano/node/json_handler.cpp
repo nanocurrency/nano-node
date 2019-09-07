@@ -534,7 +534,7 @@ void nano::json_handler::account_info ()
 			response_l.put ("balance", balance);
 			response_l.put ("modified_timestamp", std::to_string (info.modified));
 			response_l.put ("block_count", std::to_string (info.block_count));
-			response_l.put ("account_version", info.epoch == nano::epoch::epoch_1 ? "1" : "0");
+			response_l.put ("account_version", info.epoch () == nano::epoch::epoch_1 ? "1" : "0");
 			response_l.put ("confirmation_height", std::to_string (confirmation_height));
 			if (representative)
 			{
@@ -925,7 +925,7 @@ void state_subtype (nano::transaction const & transaction_a, nano::node & node_a
 		{
 			tree_a.put ("subtype", "change");
 		}
-		else if (balance_a == previous_balance && !node_a.ledger.epoch_link.is_zero () && node_a.ledger.is_epoch_link (block_a->link ()))
+		else if (balance_a == previous_balance && node_a.ledger.is_epoch_link (block_a->link ()))
 		{
 			tree_a.put ("subtype", "epoch");
 		}
@@ -2165,12 +2165,12 @@ public:
 					tree.put ("subtype", "change");
 				}
 			}
-			else if (balance == previous_balance && !handler.node.ledger.epoch_link.is_zero () && handler.node.ledger.is_epoch_link (block_a.hashables.link))
+			else if (balance == previous_balance && handler.node.ledger.is_epoch_link (block_a.hashables.link))
 			{
 				if (raw && accounts_filter.empty ())
 				{
 					tree.put ("subtype", "epoch");
-					tree.put ("account", handler.node.ledger.epoch_signer.to_account ());
+					tree.put ("account", handler.node.ledger.signer (block_a.link ()).to_account ());
 				}
 			}
 			else

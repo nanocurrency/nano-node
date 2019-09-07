@@ -116,7 +116,7 @@ public:
 	explicit operator nano::account_info () const
 	{
 		nano::account_info result;
-		result.epoch = epoch;
+		result.epoch_m = epoch;
 		assert (size () == result.db_size ());
 		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + result.db_size (), reinterpret_cast<uint8_t *> (&result));
 		return result;

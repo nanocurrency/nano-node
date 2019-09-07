@@ -8,6 +8,7 @@ add_executable (core_test
 	difficulty.cpp
 	distributed_work.cpp
 	entry.cpp
+	epochs.cpp
 	gap_cache.cpp
 	ipc.cpp
 	ledger.cpp
