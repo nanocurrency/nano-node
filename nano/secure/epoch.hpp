@@ -2,6 +2,7 @@
 
 #include <nano/lib/numbers.hpp>
 
+#include <type_traits>
 #include <unordered_map>
 
 namespace nano
@@ -17,6 +18,21 @@ enum class epoch : uint8_t
 	epoch_0 = 2,
 	epoch_1 = 3
 };
+}
+namespace std
+{
+template <>
+struct hash<::nano::epoch>
+{
+	std::size_t operator() (::nano::epoch const & epoch_a) const
+	{
+		std::hash<std::underlying_type<::nano::epoch>::type> hash;
+		return hash (static_cast<std::underlying_type<::nano::epoch>::type> (epoch_a));
+	}
+};
+}
+namespace nano
+{
 class epoch_info
 {
 public:
