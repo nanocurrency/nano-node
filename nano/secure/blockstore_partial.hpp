@@ -593,7 +593,7 @@ public:
 		// Check we are still in sync with other tables
 		assert (confirmation_height_exists (transaction_a, account_a));
 		nano::db_val<Val> info (info_a);
-		auto status = put (transaction_a, get_account_db (info_a.epoch), account_a, info);
+		auto status = put (transaction_a, get_account_db (info_a.epoch ()), account_a, info);
 		release_assert (success (status));
 	}
 
@@ -636,7 +636,7 @@ public:
 		if (!result)
 		{
 			nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
-			info_a.epoch = epoch;
+			info_a.epoch_m = epoch;
 			result = info_a.deserialize (stream);
 		}
 		return result;

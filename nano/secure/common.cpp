@@ -93,6 +93,10 @@ genesis_block (network_a == nano::nano_networks::nano_test_network ? nano_test_g
 genesis_amount (std::numeric_limits<nano::uint128_t>::max ()),
 burn_account (0)
 {
+	nano::uint256_union epoch_link;
+	const char * epoch_message ("epoch v1 block");
+	strncpy ((char *)epoch_link.bytes.data (), epoch_message, epoch_link.bytes.size ());
+	epochs.add (nano::epoch::epoch_1, genesis_account, epoch_link);
 }
 
 nano::random_constants::random_constants ()
@@ -185,7 +189,7 @@ open_block (open_block_a),
 balance (balance_a),
 modified (modified_a),
 block_count (block_count_a),
-epoch (epoch_a)
+epoch_m (epoch_a)
 {
 }
 
@@ -211,7 +215,7 @@ bool nano::account_info::deserialize (nano::stream & stream_a)
 
 bool nano::account_info::operator== (nano::account_info const & other_a) const
 {
-	return head == other_a.head && representative == other_a.representative && open_block == other_a.open_block && balance == other_a.balance && modified == other_a.modified && block_count == other_a.block_count && epoch == other_a.epoch;
+	return head == other_a.head && representative == other_a.representative && open_block == other_a.open_block && balance == other_a.balance && modified == other_a.modified && block_count == other_a.block_count && epoch () == other_a.epoch ();
 }
 
 bool nano::account_info::operator!= (nano::account_info const & other_a) const
@@ -228,6 +232,11 @@ size_t nano::account_info::db_size () const
 	assert (reinterpret_cast<const uint8_t *> (&balance) + sizeof (balance) == reinterpret_cast<const uint8_t *> (&modified));
 	assert (reinterpret_cast<const uint8_t *> (&modified) + sizeof (modified) == reinterpret_cast<const uint8_t *> (&block_count));
 	return sizeof (head) + sizeof (representative) + sizeof (open_block) + sizeof (balance) + sizeof (modified) + sizeof (block_count);
+}
+
+nano::epoch nano::account_info::epoch () const
+{
+	return epoch_m;
 }
 
 size_t nano::block_counts::sum () const

@@ -19,7 +19,7 @@ using tally_t = std::map<nano::uint128_t, std::shared_ptr<nano::block>, std::gre
 class ledger final
 {
 public:
-	ledger (nano::block_store &, nano::stat &, nano::uint256_union const & = 1, nano::account const & = 0, bool = true, bool = true);
+	ledger (nano::block_store &, nano::stat &, bool = true, bool = true);
 	nano::account account (nano::transaction const &, nano::block_hash const &) const;
 	nano::uint128_t amount (nano::transaction const &, nano::block_hash const &);
 	nano::uint128_t balance (nano::transaction const &, nano::block_hash const &) const;
@@ -44,10 +44,13 @@ public:
 	nano::process_return process (nano::write_transaction const &, nano::block const &, nano::signature_verification = nano::signature_verification::unknown);
 	bool rollback (nano::write_transaction const &, nano::block_hash const &, std::vector<std::shared_ptr<nano::block>> &);
 	bool rollback (nano::write_transaction const &, nano::block_hash const &);
-	void change_latest (nano::write_transaction const &, nano::account const &, nano::block_hash const &, nano::account const &, nano::amount const &, uint64_t, bool = false, nano::epoch = nano::epoch::epoch_0);
+	void change_latest (nano::write_transaction const &, nano::account const &, nano::account_info const &, nano::account_info const &);
 	void dump_account_chain (nano::account const &);
 	bool could_fit (nano::transaction const &, nano::block const &);
 	bool is_epoch_link (nano::uint256_union const &);
+	nano::account signer (nano::uint256_union const &) const;
+	nano::uint256_union link (nano::epoch) const;
+	size_t block_count () const;
 	static nano::uint128_t const unit;
 	nano::network_params network_params;
 	nano::block_store & store;
@@ -59,8 +62,6 @@ public:
 	std::atomic<size_t> bootstrap_weights_size{ 0 };
 	uint64_t bootstrap_weight_max_blocks{ 1 };
 	std::atomic<bool> check_bootstrap_weights;
-	nano::uint256_union epoch_link;
-	nano::account epoch_signer;
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (ledger & ledger, const std::string & name);
