@@ -215,10 +215,10 @@ TEST (wallet, change)
 	nano::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key2;
-	auto block1 (system.nodes[0]->representative (nano::test_genesis_key.pub));
+	auto block1 (system.nodes[0]->rep_block (nano::test_genesis_key.pub));
 	ASSERT_FALSE (block1.is_zero ());
 	ASSERT_NE (nullptr, system.wallet (0)->change_action (nano::test_genesis_key.pub, key2.pub));
-	auto block2 (system.nodes[0]->representative (nano::test_genesis_key.pub));
+	auto block2 (system.nodes[0]->rep_block (nano::test_genesis_key.pub));
 	ASSERT_FALSE (block2.is_zero ());
 	ASSERT_NE (block1, block2);
 }

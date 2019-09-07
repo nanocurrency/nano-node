@@ -1673,9 +1673,7 @@ void nano_qt::settings::refresh_representative ()
 	auto error (wallet.node.store.account_get (transaction, this->wallet.account, info));
 	if (!error)
 	{
-		auto block (wallet.node.store.block_get (transaction, info.rep_block));
-		assert (block != nullptr);
-		current_representative->setText (QString (block->representative ().to_account ().c_str ()));
+		current_representative->setText (QString (info.representative.to_account ().c_str ()));
 	}
 	else
 	{
@@ -2229,9 +2227,7 @@ void nano_qt::block_creation::create_send ()
 						auto error (wallet.node.store.account_get (block_transaction, account_l, info));
 						(void)error;
 						assert (!error);
-						auto rep_block (wallet.node.store.block_get (block_transaction, info.rep_block));
-						assert (rep_block != nullptr);
-						nano::state_block send (account_l, info.head, rep_block->representative (), balance - amount_l.number (), destination_l, key, account_l, 0);
+						nano::state_block send (account_l, info.head, info.representative, balance - amount_l.number (), destination_l, key, account_l, 0);
 						if (wallet.node.work_generate_blocking (send).is_initialized ())
 						{
 							std::string block_l;
@@ -2303,9 +2299,7 @@ void nano_qt::block_creation::create_receive ()
 						auto error (wallet.wallet_m->store.fetch (transaction, pending_key.account, key));
 						if (!error)
 						{
-							auto rep_block (wallet.node.store.block_get (block_transaction, info.rep_block));
-							assert (rep_block != nullptr);
-							nano::state_block receive (pending_key.account, info.head, rep_block->representative (), info.balance.number () + pending.amount.number (), source_l, key, pending_key.account, 0);
+							nano::state_block receive (pending_key.account, info.head, info.representative, info.balance.number () + pending.amount.number (), source_l, key, pending_key.account, 0);
 							if (wallet.node.work_generate_blocking (receive).is_initialized ())
 							{
 								std::string block_l;

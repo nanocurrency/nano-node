@@ -812,8 +812,8 @@ TEST (mdb_block_store, upgrade_v2_v3)
 		ASSERT_EQ (6, ledger.weight (transaction, key2.pub));
 		nano::account_info info;
 		ASSERT_FALSE (store.account_get (transaction, nano::test_genesis_key.pub, info));
-		info.rep_block = 42;
-		nano::account_info_v5 info_old (info.head, info.rep_block, info.open_block, info.balance, info.modified);
+		auto rep_block = ledger.representative (transaction, ledger.latest (transaction, nano::test_genesis_key.pub));
+		nano::account_info_v5 info_old (info.head, rep_block, info.open_block, info.balance, info.modified);
 		auto status (mdb_put (store.env.tx (transaction), store.accounts_v0, nano::mdb_val (nano::test_genesis_key.pub), nano::mdb_val (sizeof (info_old), &info_old), 0));
 		(void)status;
 		assert (status == 0);
@@ -829,7 +829,7 @@ TEST (mdb_block_store, upgrade_v2_v3)
 	ASSERT_EQ (0, ledger.weight (transaction, key2.pub));
 	nano::account_info info;
 	ASSERT_FALSE (store.account_get (transaction, nano::test_genesis_key.pub, info));
-	ASSERT_EQ (change_hash, info.rep_block);
+	ASSERT_EQ (change_hash, ledger.representative (transaction, ledger.latest (transaction, nano::test_genesis_key.pub)));
 }
 
 TEST (mdb_block_store, upgrade_v3_v4)
@@ -1761,7 +1761,9 @@ TEST (block_store, upgrade_confirmation_height_many)
 		for (auto i = 0; i < total_num_accounts - 1; ++i)
 		{
 			nano::account account (i);
-			nano::open_block open (1, 2, 3, nullptr);
+			nano::open_block open (1, nano::genesis_account, 3, nullptr);
+			nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0, 0);
+			store.block_put (transaction, open.hash (), open, sideband);
 			nano::account_info_v13 account_info_v13 (open.hash (), open.hash (), open.hash (), 3, 4, 1, nano::epoch::epoch_1);
 			auto status (mdb_put (store.env.tx (transaction), store.accounts_v1, nano::mdb_val (account), nano::mdb_val (account_info_v13), 0));
 			ASSERT_EQ (status, 0);
@@ -1870,32 +1872,38 @@ TEST (block_store, rocksdb_force_test_env_variable)
 namespace
 {
 // These functions take the latest account_info and create a legacy one so that upgrade tests can be emulated more easily.
-void modify_account_info_to_v13 (nano::mdb_store & store, nano::transaction const & transaction_a, nano::account const & account)
+void modify_account_info_to_v13 (nano::mdb_store & store, nano::transaction const & transaction, nano::account const & account)
 {
 	nano::account_info info;
-	ASSERT_FALSE (store.account_get (transaction_a, account, info));
-	nano::account_info_v13 account_info_v13 (info.head, info.rep_block, info.open_block, info.balance, info.modified, info.block_count, info.epoch ());
-	auto status (mdb_put (store.env.tx (transaction_a), store.get_account_db (info.epoch ()) == nano::tables::accounts_v0 ? store.accounts_v0 : store.accounts_v1, nano::mdb_val (account), nano::mdb_val (account_info_v13), 0));
+	ASSERT_FALSE (store.account_get (transaction, account, info));
+	nano::representative_visitor visitor (transaction, store);
+	visitor.compute (info.head);
+	nano::account_info_v13 account_info_v13 (info.head, visitor.result, info.open_block, info.balance, info.modified, info.block_count, info.epoch ());
+	auto status (mdb_put (store.env.tx (transaction), store.get_account_db (info.epoch ()) == nano::tables::accounts_v0 ? store.accounts_v0 : store.accounts_v1, nano::mdb_val (account), nano::mdb_val (account_info_v13), 0));
 	(void)status;
 	assert (status == 0);
 }
 
-void modify_account_info_to_v14 (nano::mdb_store & store, nano::transaction const & transaction_a, nano::account const & account, uint64_t confirmation_height)
+void modify_account_info_to_v14 (nano::mdb_store & store, nano::transaction const & transaction, nano::account const & account, uint64_t confirmation_height)
 {
 	nano::account_info info;
-	ASSERT_FALSE (store.account_get (transaction_a, account, info));
-	nano::account_info_v14 account_info_v14 (info.head, info.rep_block, info.open_block, info.balance, info.modified, info.block_count, confirmation_height, info.epoch ());
-	auto status (mdb_put (store.env.tx (transaction_a), store.get_account_db (info.epoch ()) == nano::tables::accounts_v0 ? store.accounts_v0 : store.accounts_v1, nano::mdb_val (account), nano::mdb_val (account_info_v14), 0));
+	ASSERT_FALSE (store.account_get (transaction, account, info));
+	nano::representative_visitor visitor (transaction, store);
+	visitor.compute (info.head);
+	nano::account_info_v14 account_info_v14 (info.head, visitor.result, info.open_block, info.balance, info.modified, info.block_count, confirmation_height, info.epoch ());
+	auto status (mdb_put (store.env.tx (transaction), store.get_account_db (info.epoch ()) == nano::tables::accounts_v0 ? store.accounts_v0 : store.accounts_v1, nano::mdb_val (account), nano::mdb_val (account_info_v14), 0));
 	(void)status;
 	assert (status == 0);
 }
 
-void modify_genesis_account_info_to_v5 (nano::mdb_store & store, nano::transaction const & transaction_a)
+void modify_genesis_account_info_to_v5 (nano::mdb_store & store, nano::transaction const & transaction)
 {
 	nano::account_info info;
-	store.account_get (transaction_a, nano::test_genesis_key.pub, info);
-	nano::account_info_v5 info_old (info.head, info.rep_block, info.open_block, info.balance, info.modified);
-	auto status (mdb_put (store.env.tx (transaction_a), store.accounts_v0, nano::mdb_val (nano::test_genesis_key.pub), nano::mdb_val (sizeof (info_old), &info_old), 0));
+	store.account_get (transaction, nano::test_genesis_key.pub, info);
+	nano::representative_visitor visitor (transaction, store);
+	visitor.compute (info.head);
+	nano::account_info_v5 info_old (info.head, visitor.result, info.open_block, info.balance, info.modified);
+	auto status (mdb_put (store.env.tx (transaction), store.accounts_v0, nano::mdb_val (nano::test_genesis_key.pub), nano::mdb_val (sizeof (info_old), &info_old), 0));
 	(void)status;
 	assert (status == 0);
 }
