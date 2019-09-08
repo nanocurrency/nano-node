@@ -26,8 +26,11 @@ TEST (distributed_work, no_peers)
 	ASSERT_FALSE (nano::work_validate (hash, *work));
 	// should only be removed after cleanup
 	ASSERT_EQ (1, node->distributed_work.work.size ());
-	node->distributed_work.cleanup_finished ();
-	ASSERT_EQ (0, node->distributed_work.work.size ());
+	while (!node->distributed_work.work.empty ())
+	{
+		node->distributed_work.cleanup_finished ();
+		ASSERT_NO_ERROR (system.poll ());
+	}
 }
 
 TEST (distributed_work, no_peers_cancel)
@@ -99,8 +102,12 @@ TEST (distributed_work, no_peers_multi)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	node->distributed_work.cleanup_finished ();
-	ASSERT_EQ (0, node->distributed_work.work.size ());
+	system.deadline_set (5s);
+	while (node->distributed_work.work.empty ())
+	{
+		node->distributed_work.cleanup_finished ();
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	count = 0;
 	// Test many works for different roots
 	for (unsigned i{ 0 }; i < total; ++i)
@@ -119,7 +126,11 @@ TEST (distributed_work, no_peers_multi)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	node->distributed_work.cleanup_finished ();
-	ASSERT_EQ (0, node->distributed_work.work.size ());
+	system.deadline_set (5s);
+	while (node->distributed_work.work.empty ())
+	{
+		node->distributed_work.cleanup_finished ();
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	count = 0;
 }
