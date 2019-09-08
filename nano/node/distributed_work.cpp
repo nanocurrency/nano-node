@@ -289,7 +289,7 @@ void nano::distributed_work::success (std::string const & body_a, boost::asio::i
 	}
 }
 
-void nano::distributed_work::set_once (uint64_t work_a, std::string source_a)
+void nano::distributed_work::set_once (uint64_t work_a, std::string const & source_a)
 {
 	if (!completed.exchange (true))
 	{
@@ -339,6 +339,10 @@ void nano::distributed_work::handle_failure (bool const last_a)
 					}
 				});
 				// clang-format on
+			}
+			else
+			{
+				// wait for local work generation to complete
 			}
 		}
 	}

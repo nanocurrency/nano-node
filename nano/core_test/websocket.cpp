@@ -745,14 +745,14 @@ TEST (websocket, work)
 	auto work (node1->work_generate_blocking (hash));
 	ASSERT_TRUE (work.is_initialized ());
 
-	// Wait to receive the active_difficulty message
+	// Wait for the work notification
 	system.deadline_set (5s);
 	while (client_future.wait_for (std::chrono::seconds (0)) != std::future_status::ready)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
-	// Check active_difficulty response
+	// Check the work notification message
 	auto response = client_future.get ();
 	ASSERT_TRUE (response);
 	std::stringstream stream;
