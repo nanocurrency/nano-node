@@ -110,7 +110,7 @@ public:
 	std::shared_ptr<nano::block> block (nano::block_hash const &);
 	std::pair<nano::uint128_t, nano::uint128_t> balance_pending (nano::account const &);
 	nano::uint128_t weight (nano::account const &);
-	nano::account representative (nano::account const &);
+	nano::block_hash rep_block (nano::account const &);
 	nano::uint128_t minimum_principal_weight ();
 	nano::uint128_t minimum_principal_weight (nano::uint128_t const &);
 	void ongoing_rep_calculation ();
@@ -123,10 +123,10 @@ public:
 	void bootstrap_wallet ();
 	void unchecked_cleanup ();
 	int price (nano::uint128_t const &, int);
-	void work_generate_blocking (nano::block &, uint64_t);
-	void work_generate_blocking (nano::block &);
-	uint64_t work_generate_blocking (nano::uint256_union const &, uint64_t);
-	uint64_t work_generate_blocking (nano::uint256_union const &);
+	boost::optional<uint64_t> work_generate_blocking (nano::block &, uint64_t);
+	boost::optional<uint64_t> work_generate_blocking (nano::block &);
+	boost::optional<uint64_t> work_generate_blocking (nano::uint256_union const &, uint64_t);
+	boost::optional<uint64_t> work_generate_blocking (nano::uint256_union const &);
 	void work_generate (nano::uint256_union const &, std::function<void(boost::optional<uint64_t>)>, uint64_t);
 	void work_generate (nano::uint256_union const &, std::function<void(boost::optional<uint64_t>)>);
 	void add_initial_peers ();

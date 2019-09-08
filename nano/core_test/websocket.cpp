@@ -708,3 +708,80 @@ TEST (websocket, vote_options)
 	client_thread_2.join ();
 	node1->stop ();
 }
+
+// Test client subscribing to notifications for work generation
+TEST (websocket, work)
+{
+	nano::system system (24000, 1);
+	nano::node_config config;
+	nano::node_flags node_flags;
+	config.websocket_config.enabled = true;
+	config.websocket_config.port = 24078;
+
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
+	node1->start ();
+	system.nodes.push_back (node1);
+
+	ASSERT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::work));
+
+	// Subscribe to work and wait for response asynchronously
+	ack_ready = false;
+	auto client_task = ([]() -> boost::optional<std::string> {
+		auto response = websocket_test_call ("::1", "24078", R"json({"action": "subscribe", "topic": "work", "ack": true})json", true, true);
+		return response;
+	});
+	auto client_future = std::async (std::launch::async, client_task);
+
+	// Wait for acknowledge
+	system.deadline_set (5s);
+	while (!ack_ready)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::work));
+
+	// Generate work
+	nano::block_hash hash;
+	auto work (node1->work_generate_blocking (hash));
+	ASSERT_TRUE (work.is_initialized ());
+
+	// Wait for the work notification
+	system.deadline_set (5s);
+	while (client_future.wait_for (std::chrono::seconds (0)) != std::future_status::ready)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	// Check the work notification message
+	auto response = client_future.get ();
+	ASSERT_TRUE (response);
+	std::stringstream stream;
+	stream << response;
+	boost::property_tree::ptree event;
+	boost::property_tree::read_json (stream, event);
+	ASSERT_EQ (event.get<std::string> ("topic"), "work");
+
+	auto & contents = event.get_child ("message");
+	ASSERT_EQ (contents.get<std::string> ("success"), "true");
+	ASSERT_LT (contents.get<unsigned> ("duration"), 10000);
+
+	ASSERT_EQ (1, contents.count ("request"));
+	auto & request = contents.get_child ("request");
+	ASSERT_EQ (request.get<std::string> ("hash"), hash.to_string ());
+	ASSERT_EQ (request.get<std::string> ("difficulty"), nano::to_string_hex (node1->network_params.network.publish_threshold));
+	ASSERT_EQ (request.get<double> ("multiplier"), 1.0);
+
+	ASSERT_EQ (1, contents.count ("result"));
+	auto & result = contents.get_child ("result");
+	uint64_t result_difficulty;
+	nano::from_string_hex (result.get<std::string> ("difficulty"), result_difficulty);
+	ASSERT_GE (result_difficulty, node1->network_params.network.publish_threshold);
+	ASSERT_NEAR (result.get<double> ("multiplier"), nano::difficulty::to_multiplier (result_difficulty, node1->network_params.network.publish_threshold), 1e-6);
+	ASSERT_EQ (result.get<std::string> ("work"), nano::to_string_hex (work.get ()));
+
+	ASSERT_EQ (1, contents.count ("bad_peers"));
+	auto & bad_peers = contents.get_child ("bad_peers");
+	ASSERT_TRUE (bad_peers.empty ());
+
+	ASSERT_EQ (contents.get<std::string> ("reason"), "");
+}

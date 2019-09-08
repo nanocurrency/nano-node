@@ -21,8 +21,7 @@ enum class epoch : uint8_t
 	invalid = 0,
 	unspecified = 1,
 	epoch_0 = 2,
-	epoch_1 = 3,
-	epoch_2 = 4
+	epoch_1 = 3
 };
 // We operate on streams of uint8_t by convention
 using stream = std::basic_streambuf<uint8_t>;

@@ -481,7 +481,10 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction const & transa
 	for (; i != n; ++i)
 	{
 		auto const & account_info_v14 (i->second);
-		account_infos.emplace_back (i->first, nano::account_info{ account_info_v14.head, account_info_v14.rep_block, account_info_v14.open_block }, account_info_v14.epoch);
+		// Upgrade rep block to representative account
+		auto rep_block = block_get (transaction_a, account_info_v14.rep_block);
+		release_assert (rep_block != nullptr);
+		account_infos.emplace_back (i->first, nano::account_info{ account_info_v14.head, rep_block->representative (), account_info_v14.open_block }, account_info_v14.epoch);
 		confirmation_height_put (transaction_a, i->first, i->second.confirmation_height);
 	}
 

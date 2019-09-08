@@ -85,7 +85,7 @@ nano::bootstrap_attempt::~bootstrap_attempt ()
 
 bool nano::bootstrap_attempt::should_log ()
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<std::mutex> guard (next_log_mutex);
 	auto result (false);
 	auto now (std::chrono::steady_clock::now ());
 	if (next_log < now)

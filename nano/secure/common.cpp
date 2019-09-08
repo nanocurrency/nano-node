@@ -182,9 +182,9 @@ void nano::serialize_block (nano::stream & stream_a, nano::block const & block_a
 	block_a.serialize (stream_a);
 }
 
-nano::account_info::account_info (nano::block_hash const & head_a, nano::block_hash const & rep_block_a, nano::block_hash const & open_block_a) :
+nano::account_info::account_info (nano::block_hash const & head_a, nano::account const & representative_a, nano::block_hash const & open_block_a) :
 head (head_a),
-rep_block (rep_block_a),
+representative (representative_a),
 open_block (open_block_a)
 {
 }
@@ -195,7 +195,7 @@ bool nano::account_info::deserialize (nano::stream & stream_a)
 	try
 	{
 		nano::read (stream_a, head.bytes);
-		nano::read (stream_a, rep_block.bytes);
+		nano::read (stream_a, representative.bytes);
 		nano::read (stream_a, open_block.bytes);
 	}
 	catch (std::runtime_error const &)
@@ -208,7 +208,7 @@ bool nano::account_info::deserialize (nano::stream & stream_a)
 
 bool nano::account_info::operator== (nano::account_info const & other_a) const
 {
-	return head == other_a.head && rep_block == other_a.rep_block && open_block == other_a.open_block;
+	return head == other_a.head && representative == representative && open_block == other_a.open_block;
 }
 
 bool nano::account_info::operator!= (nano::account_info const & other_a) const
@@ -219,9 +219,9 @@ bool nano::account_info::operator!= (nano::account_info const & other_a) const
 size_t nano::account_info::db_size () const
 {
 	assert (reinterpret_cast<const uint8_t *> (this) == reinterpret_cast<const uint8_t *> (&head));
-	assert (reinterpret_cast<const uint8_t *> (&head) + sizeof (head) == reinterpret_cast<const uint8_t *> (&rep_block));
-	assert (reinterpret_cast<const uint8_t *> (&rep_block) + sizeof (rep_block) == reinterpret_cast<const uint8_t *> (&open_block));
-	return sizeof (head) + sizeof (rep_block) + sizeof (open_block);
+	assert (reinterpret_cast<const uint8_t *> (&head) + sizeof (head) == reinterpret_cast<const uint8_t *> (&representative));
+	assert (reinterpret_cast<const uint8_t *> (&representative) + sizeof (representative) == reinterpret_cast<const uint8_t *> (&open_block));
+	return sizeof (head) + sizeof (representative) + sizeof (open_block);
 }
 
 size_t nano::block_counts::sum () const

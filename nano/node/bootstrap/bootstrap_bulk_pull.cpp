@@ -19,7 +19,6 @@ pull (pull_a),
 pull_blocks (0),
 unexpected_count (0)
 {
-	nano::lock_guard<std::mutex> mutex (connection->attempt->mutex);
 	connection->attempt->condition.notify_all ();
 }
 

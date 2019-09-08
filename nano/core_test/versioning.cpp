@@ -31,7 +31,7 @@ TEST (versioning, account_info_v1)
 	ASSERT_FALSE (store.account_get (transaction, account, v_latest));
 	ASSERT_EQ (open.hash (), v_latest.open_block);
 	ASSERT_EQ (v1.head, v_latest.head);
-	ASSERT_EQ (v1.rep_block, v_latest.rep_block);
+	ASSERT_EQ (v1.rep_block, open.hash ());
 	uint64_t confirmation_height;
 	ASSERT_FALSE (store.confirmation_height_get (transaction, account, confirmation_height));
 	ASSERT_EQ (0, confirmation_height);
@@ -63,7 +63,7 @@ TEST (versioning, account_info_v5)
 	ASSERT_FALSE (store.account_get (transaction, account, v_latest));
 	ASSERT_EQ (v5.open_block, v_latest.open_block);
 	ASSERT_EQ (v5.head, v_latest.head);
-	ASSERT_EQ (v5.rep_block, v_latest.rep_block);
+	ASSERT_EQ (v5.rep_block, open.hash ());
 	uint64_t confirmation_height;
 	ASSERT_FALSE (store.confirmation_height_get (transaction, account, confirmation_height));
 	ASSERT_EQ (0, confirmation_height);
@@ -95,7 +95,7 @@ TEST (versioning, account_info_v13)
 	ASSERT_FALSE (store.account_get (transaction, account, v_latest));
 	ASSERT_EQ (v13.open_block, v_latest.open_block);
 	ASSERT_EQ (v13.head, v_latest.head);
-	ASSERT_EQ (v13.rep_block, v_latest.rep_block);
+	ASSERT_EQ (v13.rep_block, open.hash ());
 	uint64_t confirmation_height;
 	ASSERT_FALSE (store.confirmation_height_get (transaction, account, confirmation_height));
 	ASSERT_EQ (0, confirmation_height);

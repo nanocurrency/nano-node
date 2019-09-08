@@ -123,6 +123,7 @@ public:
 	std::shared_ptr<nano::block> change_action (nano::account const &, nano::account const &, uint64_t = 0, bool = true);
 	std::shared_ptr<nano::block> receive_action (nano::block const &, nano::account const &, nano::uint128_union const &, uint64_t = 0, bool = true);
 	std::shared_ptr<nano::block> send_action (nano::account const &, nano::account const &, nano::uint128_t const &, uint64_t = 0, bool = true, boost::optional<std::string> = {});
+	bool action_complete (std::shared_ptr<nano::block> const &, nano::account const &, bool const);
 	wallet (bool &, nano::transaction &, nano::wallets &, std::string const &);
 	wallet (bool &, nano::transaction &, nano::wallets &, std::string const &, std::string const &);
 	void enter_initial_password ();

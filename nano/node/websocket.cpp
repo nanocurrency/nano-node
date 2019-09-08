@@ -327,6 +327,10 @@ nano::websocket::topic to_topic (std::string const & topic_a)
 	{
 		topic = nano::websocket::topic::active_difficulty;
 	}
+	else if (topic_a == "work")
+	{
+		topic = nano::websocket::topic::work;
+	}
 
 	return topic;
 }
@@ -353,6 +357,10 @@ std::string from_topic (nano::websocket::topic topic_a)
 	else if (topic_a == nano::websocket::topic::active_difficulty)
 	{
 		topic = "active_difficulty";
+	}
+	else if (topic_a == nano::websocket::topic::work)
+	{
+		topic = "work";
 	}
 	return topic;
 }
@@ -646,20 +654,74 @@ nano::websocket::message nano::websocket::message_builder::vote_received (std::s
 	return message_l;
 }
 
-nano::websocket::message nano::websocket::message_builder::difficulty_changed (uint64_t publish_threshold, uint64_t difficulty_active)
+nano::websocket::message nano::websocket::message_builder::difficulty_changed (uint64_t publish_threshold_a, uint64_t difficulty_active_a)
 {
 	nano::websocket::message message_l (nano::websocket::topic::active_difficulty);
 	set_common_fields (message_l);
 
 	// Active difficulty information
 	boost::property_tree::ptree difficulty_l;
-	difficulty_l.put ("network_minimum", nano::to_string_hex (publish_threshold));
-	difficulty_l.put ("network_current", nano::to_string_hex (difficulty_active));
-	auto multiplier = nano::difficulty::to_multiplier (difficulty_active, publish_threshold);
+	difficulty_l.put ("network_minimum", nano::to_string_hex (publish_threshold_a));
+	difficulty_l.put ("network_current", nano::to_string_hex (difficulty_active_a));
+	auto multiplier = nano::difficulty::to_multiplier (difficulty_active_a, publish_threshold_a);
 	difficulty_l.put ("multiplier", nano::to_string (multiplier));
 
 	message_l.contents.add_child ("message", difficulty_l);
 	return message_l;
+}
+
+nano::websocket::message nano::websocket::message_builder::work_generation (nano::block_hash const & root_a, uint64_t work_a, uint64_t difficulty_a, uint64_t publish_threshold_a, std::chrono::milliseconds const & duration_a, std::string const & peer_a, std::vector<std::string> const & bad_peers_a, bool completed_a, bool cancelled_a)
+{
+	nano::websocket::message message_l (nano::websocket::topic::work);
+	set_common_fields (message_l);
+
+	// Active difficulty information
+	boost::property_tree::ptree work_l;
+	work_l.put ("success", completed_a ? "true" : "false");
+	work_l.put ("reason", completed_a ? "" : cancelled_a ? "cancelled" : "failure");
+	work_l.put ("duration", duration_a.count ());
+
+	boost::property_tree::ptree request_l;
+	request_l.put ("hash", root_a.to_string ());
+	request_l.put ("difficulty", nano::to_string_hex (difficulty_a));
+	auto request_multiplier_l (nano::difficulty::to_multiplier (difficulty_a, publish_threshold_a));
+	request_l.put ("multiplier", nano::to_string (request_multiplier_l));
+	work_l.add_child ("request", request_l);
+
+	if (completed_a)
+	{
+		boost::property_tree::ptree result_l;
+		result_l.put ("source", peer_a);
+		result_l.put ("work", nano::to_string_hex (work_a));
+		uint64_t result_difficulty_l;
+		nano::work_validate (root_a, work_a, &result_difficulty_l);
+		result_l.put ("difficulty", nano::to_string_hex (result_difficulty_l));
+		auto result_multiplier_l (nano::difficulty::to_multiplier (result_difficulty_l, publish_threshold_a));
+		result_l.put ("multiplier", nano::to_string (result_multiplier_l));
+		work_l.add_child ("result", result_l);
+	}
+
+	boost::property_tree::ptree bad_peers_l;
+	for (auto & peer_text : bad_peers_a)
+	{
+		boost::property_tree::ptree entry;
+		entry.put ("", peer_text);
+		bad_peers_l.push_back (std::make_pair ("", entry));
+	}
+	work_l.add_child ("bad_peers", bad_peers_l);
+
+	message_l.contents.add_child ("message", work_l);
+	return message_l;
+}
+
+nano::websocket::message nano::websocket::message_builder::work_cancelled (nano::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a)
+{
+	return work_generation (root_a, 0, difficulty_a, publish_threshold_a, duration_a, "", bad_peers_a, false, true);
+}
+
+nano::websocket::message nano::websocket::message_builder::work_failed (nano::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a)
+{
+	return work_generation (root_a, 0, difficulty_a, publish_threshold_a, duration_a, "", bad_peers_a, false, false);
 }
 
 void nano::websocket::message_builder::set_common_fields (nano::websocket::message & message_a)
