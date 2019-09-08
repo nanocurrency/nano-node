@@ -100,7 +100,7 @@ void nano::distributed_work::start_work ()
 			{
 				this_l->set_once (*work_a);
 			}
-			else if (!this_l->cancelled)
+			else if (!this_l->cancelled && !this_l->completed)
 			{
 				this_l->callback (boost::none);
 			}
