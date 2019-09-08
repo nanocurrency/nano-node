@@ -307,7 +307,7 @@ unsigned nano::bootstrap_attempt::target_connections (size_t pulls_remaining)
 
 	// Only scale up to bootstrap_connections_max for large pulls.
 	double step = std::min (1.0, std::max (0.0, (double)pulls_remaining / nano::bootstrap_limits::bootstrap_connection_scale_target_blocks));
-	double lazy_factor = (mode == nano::bootstrap_mode::lazy) ? (double)node->config.bootstrap_connections: 0.0;
+	double lazy_factor = (mode == nano::bootstrap_mode::lazy) ? (double)node->config.bootstrap_connections : 0.0;
 	double target = (double)node->config.bootstrap_connections + (double)(node->config.bootstrap_connections_max - node->config.bootstrap_connections) * step + lazy_factor;
 	return std::max (1U, (unsigned)(target + 0.5f));
 }
