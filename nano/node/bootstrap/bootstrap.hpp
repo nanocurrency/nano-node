@@ -68,18 +68,26 @@ public:
 	bool should_log ();
 	void add_bulk_push_target (nano::block_hash const &, nano::block_hash const &);
 	bool process_block (std::shared_ptr<nano::block>, nano::account const &, uint64_t, bool);
-	bool process_block_lazy (std::shared_ptr<nano::block>, nano::account const &, uint64_t);
+	/** Lazy bootstrap */
 	void lazy_run ();
 	void lazy_start (nano::block_hash const &);
 	void lazy_add (nano::block_hash const &);
+	void lazy_requeue (nano::block_hash const &);
 	bool lazy_finished ();
 	void lazy_pull_flush ();
 	void lazy_clear ();
+	bool process_block_lazy (std::shared_ptr<nano::block>, nano::account const &, uint64_t);
+	void lazy_block_state (std::shared_ptr<nano::block>);
+	void lazy_block_state_backlog_check (std::shared_ptr<nano::block>, nano::block_hash const &);
+	bool lazy_processed_or_exists (nano::block_hash const &);
+	/** Lazy bootstrap */
+	/** Wallet bootstrap */
 	void request_pending (nano::unique_lock<std::mutex> &);
 	void requeue_pending (nano::account const &);
 	void wallet_run ();
 	void wallet_start (std::deque<nano::account> &);
 	bool wallet_finished ();
+	/** Wallet bootstrap */
 	std::mutex next_log_mutex;
 	std::chrono::steady_clock::time_point next_log;
 	std::deque<std::weak_ptr<nano::bootstrap_client>> clients;
@@ -101,12 +109,10 @@ public:
 	nano::condition_variable condition;
 	// Lazy bootstrap
 	std::unordered_set<nano::block_hash> lazy_blocks;
-	std::unordered_map<nano::block_hash, std::pair<nano::block_hash, nano::uint128_t>> lazy_state_unknown;
+	std::unordered_map<nano::block_hash, std::pair<nano::block_hash, nano::uint128_t>> lazy_state_backlog;
 	std::unordered_map<nano::block_hash, nano::uint128_t> lazy_balances;
 	std::unordered_set<nano::block_hash> lazy_keys;
 	std::deque<nano::block_hash> lazy_pulls;
-	std::atomic<uint64_t> lazy_stopped;
-	uint64_t lazy_max_stopped = 256;
 	std::mutex lazy_mutex;
 	// Wallet lazy bootstrap
 	std::deque<nano::account> wallet_accounts;
