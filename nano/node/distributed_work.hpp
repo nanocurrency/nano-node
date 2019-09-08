@@ -44,11 +44,12 @@ public:
 	void start_work ();
 	void cancel (std::shared_ptr<nano::work_peer_request>);
 	void stop (bool const);
-	void success (std::string const &, boost::asio::ip::address const &);
-	void set_once (boost::optional<uint64_t>);
+	void success (std::string const &, boost::asio::ip::address const &, uint16_t const);
+	void set_once (uint64_t, std::string const & source_a = "local");
 	void failure (boost::asio::ip::address const &);
 	void handle_failure (bool const);
 	bool remove (boost::asio::ip::address const &);
+	void add_bad_peer (boost::asio::ip::address const &, uint16_t const);
 
 	std::function<void(boost::optional<uint64_t>)> callback;
 	unsigned int backoff; // in seconds
@@ -59,10 +60,13 @@ public:
 	std::vector<std::weak_ptr<nano::work_peer_request>> connections;
 	std::vector<std::pair<std::string, uint16_t>> need_resolve;
 	uint64_t difficulty;
+	uint64_t work_result{ 0 };
 	std::atomic<bool> completed{ false };
 	std::atomic<bool> local_generation_started{ false };
 	std::atomic<bool> stopped{ false };
 	nano::timer<std::chrono::milliseconds> elapsed; // logging only
+	std::vector<std::string> bad_peers; // websocket
+	std::string winner; // websocket
 };
 
 class distributed_work_factory final

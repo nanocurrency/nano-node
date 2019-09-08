@@ -146,7 +146,7 @@ block_processor_thread ([this]() {
 online_reps (*this, config.online_weight_minimum.number ()),
 vote_uniquer (block_uniquer),
 active (*this),
-confirmation_height_processor (pending_confirmation_height, ledger, active, write_database_queue, config.conf_height_processor_batch_min_time, logger, ledger.cemented_count),
+confirmation_height_processor (pending_confirmation_height, ledger, active, write_database_queue, config.conf_height_processor_batch_min_time, logger),
 payment_observer_processor (observers.blocks),
 wallets (wallets_store.init_error (), *this),
 startup_time (std::chrono::steady_clock::now ())
