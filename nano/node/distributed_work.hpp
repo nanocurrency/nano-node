@@ -42,10 +42,11 @@ public:
 	~distributed_work ();
 	void start ();
 	void start_work ();
-	void cancel (std::shared_ptr<nano::work_peer_request>);
-	void stop (bool const);
+	void cancel_connection (std::shared_ptr<nano::work_peer_request>);
 	void success (std::string const &, boost::asio::ip::address const &, uint16_t const);
+	void stop_once (bool const);
 	void set_once (uint64_t, std::string const & source_a = "local");
+	void cancel_once ();
 	void failure (boost::asio::ip::address const &);
 	void handle_failure (bool const);
 	bool remove (boost::asio::ip::address const &);
@@ -62,8 +63,9 @@ public:
 	uint64_t difficulty;
 	uint64_t work_result{ 0 };
 	std::atomic<bool> completed{ false };
-	std::atomic<bool> local_generation_started{ false };
+	std::atomic<bool> cancelled{ false };
 	std::atomic<bool> stopped{ false };
+	std::atomic<bool> local_generation_started{ false };
 	nano::timer<std::chrono::milliseconds> elapsed; // logging only
 	std::vector<std::string> bad_peers; // websocket
 	std::string winner; // websocket
