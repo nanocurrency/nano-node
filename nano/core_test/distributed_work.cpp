@@ -26,45 +26,52 @@ TEST (distributed_work, no_peers)
 	ASSERT_FALSE (nano::work_validate (hash, *work));
 	// should only be removed after cleanup
 	ASSERT_EQ (1, node->distributed_work.work.size ());
-	node->distributed_work.cleanup_finished ();
-	ASSERT_EQ (0, node->distributed_work.work.size ());
+	while (!node->distributed_work.work.empty ())
+	{
+		node->distributed_work.cleanup_finished ();
+		ASSERT_NO_ERROR (system.poll ());
+	}
 }
 
 TEST (distributed_work, no_peers_cancel)
 {
-	nano::system system (24000, 1);
-	auto node (system.nodes[0]);
+	nano::system system (24000, 0);
+	nano::node_config node_config (24000, system.logging);
+	node_config.max_work_generate_multiplier = 1e6;
+	node_config.max_work_generate_difficulty = nano::difficulty::from_multiplier (node_config.max_work_generate_multiplier, nano::network_constants::publish_test_threshold);
+	auto & node = *system.add_node (node_config);
 	nano::block_hash hash;
 	bool done{ false };
 	auto callback_to_cancel = [&done](boost::optional<uint64_t> work_a) {
 		ASSERT_FALSE (work_a.is_initialized ());
 		done = true;
 	};
-	node->distributed_work.make (hash, callback_to_cancel, nano::difficulty::from_multiplier (1000000, node->network_params.network.publish_threshold));
-	ASSERT_EQ (1, node->distributed_work.work.size ());
+	node.distributed_work.make (hash, callback_to_cancel, nano::difficulty::from_multiplier (1e6, node.network_params.network.publish_threshold));
+	ASSERT_EQ (1, node.distributed_work.work.size ());
 	// cleanup should not cancel or remove an ongoing work
-	node->distributed_work.cleanup_finished ();
-	ASSERT_EQ (1, node->distributed_work.work.size ());
+	node.distributed_work.cleanup_finished ();
+	ASSERT_EQ (1, node.distributed_work.work.size ());
 
 	// manually cancel
-	node->distributed_work.cancel (hash, true); // forces local stop
-	system.deadline_set (5s);
+	node.distributed_work.cancel (hash, true); // forces local stop
+	system.deadline_set (20s);
 	while (!done)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_TRUE (node->distributed_work.work.empty ());
+	ASSERT_TRUE (node.distributed_work.work.empty ());
 
 	// now using observer
 	done = false;
-	node->distributed_work.make (hash, callback_to_cancel, nano::difficulty::from_multiplier (1000000, node->network_params.network.publish_threshold));
-	ASSERT_EQ (1, node->distributed_work.work.size ());
-	node->observers.work_cancel.notify (hash);
+	node.distributed_work.make (hash, callback_to_cancel, nano::difficulty::from_multiplier (1000000, node.network_params.network.publish_threshold));
+	ASSERT_EQ (1, node.distributed_work.work.size ());
+	node.observers.work_cancel.notify (hash);
+	system.deadline_set (20s);
 	while (!done)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_TRUE (node->distributed_work.work.empty ());
+	ASSERT_TRUE (node.distributed_work.work.empty ());
 }
 
 TEST (distributed_work, no_peers_multi)
@@ -95,8 +102,12 @@ TEST (distributed_work, no_peers_multi)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	node->distributed_work.cleanup_finished ();
-	ASSERT_EQ (0, node->distributed_work.work.size ());
+	system.deadline_set (5s);
+	while (node->distributed_work.work.empty ())
+	{
+		node->distributed_work.cleanup_finished ();
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	count = 0;
 	// Test many works for different roots
 	for (unsigned i{ 0 }; i < total; ++i)
@@ -115,7 +126,11 @@ TEST (distributed_work, no_peers_multi)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	node->distributed_work.cleanup_finished ();
-	ASSERT_EQ (0, node->distributed_work.work.size ());
+	system.deadline_set (5s);
+	while (node->distributed_work.work.empty ())
+	{
+		node->distributed_work.cleanup_finished ();
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	count = 0;
 }
