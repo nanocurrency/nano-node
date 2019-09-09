@@ -336,8 +336,7 @@ void nano::active_transactions::request_loop ()
 		{
 			break;
 		}
-		const auto extra_delay (std::min (roots.size (), max_broadcast_queue) * node.network.broadcast_interval_ms * 2);
-		const auto wakeup (std::chrono::steady_clock::now () + std::chrono::milliseconds (node.network_params.network.request_interval_ms + extra_delay));
+		const auto wakeup (std::chrono::steady_clock::now () + std::chrono::milliseconds (node.network_params.network.request_interval_ms));
 		// clang-format off
 		condition.wait_until (lock, wakeup, [&wakeup, &stopped = stopped] { return stopped || std::chrono::steady_clock::now () >= wakeup; });
 		// clang-format on

@@ -30,7 +30,7 @@ TEST (active_transactions, bounded_active_elections)
 		send = std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous_hash, nano::test_genesis_key.pub, nano::genesis_amount - count * nano::xrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous_hash));
 		previous_size = node1.active.size ();
 		//sleep this thread for the max delay between request loop rounds possible for such a small active_elections_size
-		std::this_thread::sleep_for (std::chrono::milliseconds (node1.network_params.network.request_interval_ms + (node_config.active_elections_size * 20)));
+		std::this_thread::sleep_for (std::chrono::milliseconds (node1.network_params.network.request_interval_ms));
 	}
 }
 
@@ -160,12 +160,13 @@ TEST (active_transactions, adjusted_difficulty_overflow_max)
 		auto send2_root (node1.active.roots.find (send2->qualified_root ()));
 		auto open1_root (node1.active.roots.find (open1->qualified_root ()));
 		auto open2_root (node1.active.roots.find (open2->qualified_root ()));
-		auto modify_difficulty = [& roots = node1.active.roots](auto & existing_root)
-		{
+		// clang-format off
+		auto modify_difficulty = [& roots = node1.active.roots](auto & existing_root) {
 			roots.modify (existing_root, [](nano::conflict_info & info_a) {
 				info_a.difficulty = std::numeric_limits<std::uint64_t>::max ();
 			});
 		};
+		// clang-format on
 		modify_difficulty (send1_root);
 		modify_difficulty (send2_root);
 		modify_difficulty (open1_root);
@@ -214,12 +215,13 @@ TEST (active_transactions, adjusted_difficulty_overflow_min)
 		auto open1_root (node1.active.roots.find (open1->qualified_root ()));
 		auto open2_root (node1.active.roots.find (open2->qualified_root ()));
 		auto send3_root (node1.active.roots.find (send3->qualified_root ()));
-		auto modify_difficulty = [& roots = node1.active.roots](auto & existing_root)
-		{
+		// clang-format off
+		auto modify_difficulty = [& roots = node1.active.roots](auto & existing_root) {
 			roots.modify (existing_root, [](nano::conflict_info & info_a) {
 				info_a.difficulty = std::numeric_limits<std::uint64_t>::min () + 1;
 			});
 		};
+		// clang-format on
 		modify_difficulty (send1_root);
 		modify_difficulty (send2_root);
 		modify_difficulty (open1_root);

@@ -53,6 +53,8 @@ public:
 	nano::vote_generator generator;
 	// Delay required for average network propagartion before requesting confirmation
 	static std::chrono::milliseconds constexpr confirmation_request_delay{ 1500 };
+	// Threshold for not requesting confirmation when there are too many active elections
+	static size_t constexpr confirmation_request_cutoff{ 1000 };
 
 private:
 	void queue_unchecked (nano::write_transaction const &, nano::block_hash const &);
