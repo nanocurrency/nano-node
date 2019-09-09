@@ -397,7 +397,7 @@ startup_time (std::chrono::steady_clock::now ())
 			release_assert (!flags.read_only);
 			auto transaction (store.tx_begin_write ());
 			// Store was empty meaning we just created it, add the genesis block
-			store.initialize (transaction, genesis, ledger.rep_weights, ledger.cemented_count);
+			store.initialize (transaction, genesis, ledger.rep_weights, ledger.cemented_count, ledger.block_count_cache);
 		}
 
 		if (!ledger.block_exists (genesis.hash ()))

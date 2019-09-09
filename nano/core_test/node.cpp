@@ -3055,8 +3055,9 @@ TEST (node, dont_write_lock_node)
 			nano::genesis genesis;
 			nano::rep_weights rep_weights;
 			std::atomic<uint64_t> cemented_count{ 0 };
+			std::atomic<uint64_t> block_count_cache{ 0 };
 			auto transaction (store->tx_begin_write ());
-			store->initialize (transaction, genesis, rep_weights, cemented_count);
+			store->initialize (transaction, genesis, rep_weights, cemented_count, block_count_cache);
 		}
 
 		// Hold write lock open until main thread is done needing it
