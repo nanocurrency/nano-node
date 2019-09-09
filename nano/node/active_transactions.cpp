@@ -71,11 +71,11 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 				auto cementable_account = *cementable_account_front_it;
 				cementable_frontiers.get<1> ().erase (cementable_account_front_it);
 				lk.unlock ();
-				auto state (node.ledger.account_state (transaction_a, cementable_account.account));
+				auto state (this->node.ledger.account_state (transaction_a, cementable_account.account));
 				if (!state.head ().is_zero ())
 				{
 					uint64_t confirmation_height;
-					auto error (node.store.confirmation_height_get (transaction_a, cementable_account.account, confirmation_height));
+					auto error (this->node.store.confirmation_height_get (transaction_a, cementable_account.account, confirmation_height));
 					release_assert (!error);
 
 					if (state.block_count () > confirmation_height && !this->node.pending_confirmation_height.is_processing_block (state.head ()))
