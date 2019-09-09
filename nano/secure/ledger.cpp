@@ -769,11 +769,6 @@ nano::epoch nano::account_state::epoch () const
 	return block_m->epoch ();
 }
 
-nano::account_info const & nano::account_state::info () const
-{
-	return info_m;
-}
-
 nano::ledger::ledger (nano::block_store & store_a, nano::stat & stat_a, bool cache_reps_a, bool cache_cemented_count_a) :
 store (store_a),
 stats (stat_a),

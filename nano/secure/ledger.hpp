@@ -30,7 +30,6 @@ public:
 	std::shared_ptr<nano::block> block () const;
 	uint64_t modified () const;
 	nano::epoch epoch () const;
-	nano::account_info const & info () const;
 
 private:
 	nano::account_info info_m;
