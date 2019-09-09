@@ -113,6 +113,7 @@ public:
 	std::unordered_map<nano::block_hash, nano::uint128_t> lazy_balances;
 	std::unordered_set<nano::block_hash> lazy_keys;
 	std::deque<nano::block_hash> lazy_pulls;
+	std::chrono::steady_clock::time_point last_lazy_flush{ std::chrono::steady_clock::now () };
 	std::mutex lazy_mutex;
 	// Wallet lazy bootstrap
 	std::deque<nano::account> wallet_accounts;
@@ -204,5 +205,6 @@ public:
 	static constexpr double bootstrap_minimum_termination_time_sec = 30.0;
 	static constexpr unsigned bootstrap_max_new_connections = 10;
 	static constexpr unsigned bulk_push_cost_limit = 200;
+	static constexpr std::chrono::seconds lazy_flush_delay_sec = std::chrono::seconds (5);
 };
 }

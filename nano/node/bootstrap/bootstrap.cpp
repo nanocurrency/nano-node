@@ -16,6 +16,7 @@ constexpr double nano::bootstrap_limits::bootstrap_minimum_blocks_per_sec;
 constexpr unsigned nano::bootstrap_limits::bootstrap_frontier_retry_limit;
 constexpr double nano::bootstrap_limits::bootstrap_minimum_termination_time_sec;
 constexpr unsigned nano::bootstrap_limits::bootstrap_max_new_connections;
+constexpr std::chrono::seconds nano::bootstrap_limits::lazy_flush_delay_sec;
 
 nano::bootstrap_client::bootstrap_client (std::shared_ptr<nano::node> node_a, std::shared_ptr<nano::bootstrap_attempt> attempt_a, std::shared_ptr<nano::transport::channel_tcp> channel_a) :
 node (node_a),
@@ -598,6 +599,7 @@ void nano::bootstrap_attempt::lazy_requeue (nano::block_hash const & hash_a)
 void nano::bootstrap_attempt::lazy_pull_flush ()
 {
 	assert (!mutex.try_lock ());
+	last_lazy_flush = std::chrono::steady_clock::now ();
 	nano::unique_lock<std::mutex> lazy_lock (lazy_mutex);
 	auto transaction (node->store.tx_begin_read ());
 	for (auto & pull_start : lazy_pulls)
@@ -674,7 +676,7 @@ void nano::bootstrap_attempt::lazy_run ()
 			}
 			++iterations;
 			// Flushing lazy pulls
-			if (iterations % 100 == 0)
+			if (iterations % 100 == 0 || last_lazy_flush + nano::bootstrap_limits::lazy_flush_delay_sec < std::chrono::steady_clock::now ())
 			{
 				lazy_pull_flush ();
 			}
