@@ -711,9 +711,6 @@ check_bootstrap_weights (true)
 				cemented_count += i->second;
 			}
 		}
-
-		// Cache block count. 1 for not yet initialized ledger
-		block_count_cache = std::max (static_cast<size_t> (1), store.block_count (transaction).sum ());
 	}
 }
 

@@ -1581,8 +1581,8 @@ TEST (ledger, bootstrap_rep_weight)
 		nano::send_block send (info1.head, key2.pub, std::numeric_limits<nano::uint128_t>::max () - 50, nano::test_genesis_key.prv, nano::test_genesis_key.pub, pool.generate (info1.head));
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send).code);
 	}
+	ASSERT_EQ (2, ledger.block_count_cache);
 	{
-		auto transaction (store->tx_begin_read ());
 		ledger.bootstrap_weight_max_blocks = 3;
 		ledger.bootstrap_weights[key2.pub] = 1000;
 		ASSERT_EQ (1000, ledger.weight (key2.pub));
