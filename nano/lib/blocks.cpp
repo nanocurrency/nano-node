@@ -983,14 +983,12 @@ void nano::state_hashables::hash (blake2b_state & hash_a) const
 nano::state_block::state_block (nano::account const & account_a, nano::block_hash const & previous_a, nano::account const & representative_a, nano::amount const & balance_a, nano::uint256_union const & link_a, nano::raw_key const & prv_a, nano::public_key const & pub_a, uint64_t work_a) :
 hashables (account_a, previous_a, representative_a, balance_a, link_a),
 signature (nano::sign_message (prv_a, pub_a, hash ())),
-work (work_a),
-epoch_m (nano::epoch::unspecified)
+work (work_a)
 {
 }
 
 nano::state_block::state_block (bool & error_a, nano::stream & stream_a) :
-hashables (error_a, stream_a),
-epoch_m (nano::epoch::unspecified)
+hashables (error_a, stream_a)
 {
 	if (!error_a)
 	{
@@ -1008,8 +1006,7 @@ epoch_m (nano::epoch::unspecified)
 }
 
 nano::state_block::state_block (bool & error_a, boost::property_tree::ptree const & tree_a) :
-hashables (error_a, tree_a),
-epoch_m (nano::epoch::unspecified)
+hashables (error_a, tree_a)
 {
 	if (!error_a)
 	{

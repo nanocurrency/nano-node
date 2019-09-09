@@ -346,7 +346,7 @@ public:
 	nano::state_hashables hashables;
 	nano::signature signature;
 	uint64_t work;
-	nano::epoch epoch_m;
+	nano::epoch epoch_m{ nano::epoch::unspecified };
 	static size_t constexpr size = nano::state_hashables::size + sizeof (signature) + sizeof (work);
 };
 class block_visitor
