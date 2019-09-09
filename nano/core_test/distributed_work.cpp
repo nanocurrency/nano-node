@@ -55,11 +55,10 @@ TEST (distributed_work, no_peers_cancel)
 	// manually cancel
 	node.distributed_work.cancel (hash, true); // forces local stop
 	system.deadline_set (20s);
-	while (!done)
+	while (!done && !node.distributed_work.work.empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_TRUE (node.distributed_work.work.empty ());
 
 	// now using observer
 	done = false;
@@ -67,11 +66,10 @@ TEST (distributed_work, no_peers_cancel)
 	ASSERT_EQ (1, node.distributed_work.work.size ());
 	node.observers.work_cancel.notify (hash);
 	system.deadline_set (20s);
-	while (!done)
+	while (!done && !node.distributed_work.work.empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_TRUE (node.distributed_work.work.empty ());
 }
 
 TEST (distributed_work, no_peers_multi)
