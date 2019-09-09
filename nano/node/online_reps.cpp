@@ -16,8 +16,7 @@ minimum (minimum_a)
 
 void nano::online_reps::observe (nano::account const & rep_a)
 {
-	auto transaction (node.ledger.store.tx_begin_read ());
-	if (node.ledger.weight (transaction, rep_a) > 0)
+	if (node.ledger.weight (rep_a) > 0)
 	{
 		nano::lock_guard<std::mutex> lock (mutex);
 		reps.insert (rep_a);
@@ -43,7 +42,7 @@ void nano::online_reps::sample ()
 	}
 	for (auto & i : reps_copy)
 	{
-		current += node.ledger.weight (transaction, i);
+		current += node.ledger.weight (i);
 	}
 	node.ledger.store.online_weight_put (transaction, std::chrono::system_clock::now ().time_since_epoch ().count (), current);
 	auto trend_l (trend (transaction));

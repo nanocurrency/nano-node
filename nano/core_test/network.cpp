@@ -2118,7 +2118,7 @@ TEST (confirmation_height, conflict_rollback_cemented)
 	auto transaction1 (system.nodes[0]->store.tx_begin_read ());
 	auto transaction2 (system.nodes[1]->store.tx_begin_read ());
 	lock.lock ();
-	auto winner (*votes1->tally (transaction2).begin ());
+	auto winner (*votes1->tally ().begin ());
 	ASSERT_EQ (*publish1.block, *winner.second);
 	ASSERT_EQ (nano::genesis_amount - 100, winner.first);
 	ASSERT_TRUE (node1.store.block_exists (transaction1, publish1.block->hash ()));

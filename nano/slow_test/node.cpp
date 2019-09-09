@@ -95,7 +95,7 @@ TEST (ledger, deep_account_compute)
 	nano::ledger ledger (*store, stats);
 	nano::genesis genesis;
 	auto transaction (store->tx_begin_write ());
-	store->initialize (transaction, genesis, ledger.rep_weights, ledger.cemented_count);
+	store->initialize (transaction, genesis, ledger.rep_weights, ledger.cemented_count, ledger.block_count_cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::keypair key;
 	auto balance (nano::genesis_amount - 1);
@@ -426,9 +426,8 @@ TEST (wallets, rep_scan)
 			wallet->deterministic_insert (transaction);
 		}
 	}
-	auto transaction (node.store.tx_begin_read ());
 	auto begin (std::chrono::steady_clock::now ());
-	node.wallets.foreach_representative (transaction, [](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
+	node.wallets.foreach_representative ([](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
 	});
 	ASSERT_LT (std::chrono::steady_clock::now () - begin, std::chrono::milliseconds (5));
 }
