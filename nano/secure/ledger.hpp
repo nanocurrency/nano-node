@@ -22,10 +22,10 @@ public:
 	account_state (nano::account_info const &, std::shared_ptr<nano::block>, nano::block_sideband const &);
 	account_state (nano::transaction const &, nano::block_store &, nano::account const &);
 	account_state (nano::transaction const &, nano::block_store &, nano::account_info const &);
-	nano::uint256_union head () const;
-	nano::uint256_union rep () const;
-	nano::uint256_union open () const;
-	nano::amount balance () const;
+	nano::block_hash const & head () const;
+	nano::account const & rep () const;
+	nano::block_hash const & open () const;
+	nano::amount const & balance () const;
 	uint64_t block_count () const;
 	std::shared_ptr<nano::block> block () const;
 	uint64_t modified () const;

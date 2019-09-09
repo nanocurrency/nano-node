@@ -693,26 +693,27 @@ info_m (info_a)
 	block_m = store_a.block_get (transaction_a, info_m.head, &sideband);
 }
 
-nano::uint256_union nano::account_state::head () const
+nano::block_hash const & nano::account_state::head () const
 {
 	return info_m.head;
 }
 
-nano::uint256_union nano::account_state::rep () const
+nano::account const & nano::account_state::rep () const
 {
 	return info_m.representative;
 }
 
-nano::uint256_union nano::account_state::open () const
+nano::block_hash const & nano::account_state::open () const
 {
 	return info_m.open_block;
 }
 
-nano::amount nano::account_state::balance () const
+nano::amount const & nano::account_state::balance () const
 {
 	if (block_m == nullptr)
 	{
-		return 0;
+		release_assert (sideband.balance == 0);
+		return sideband.balance;
 	}
 	class balance_visitor : public nano::block_visitor
 	{
@@ -723,30 +724,30 @@ nano::amount nano::account_state::balance () const
 		}
 		void send_block (nano::send_block const & block_a) override
 		{
-			result = block_a.hashables.balance;
+			result = &block_a.hashables.balance;
 		}
 		void receive_block (nano::receive_block const &) override
 		{
-			result = state.sideband.balance;
+			result = &state.sideband.balance;
 		}
 		void open_block (nano::open_block const &) override
 		{
-			result = state.sideband.balance;
+			result = &state.sideband.balance;
 		}
 		void change_block (nano::change_block const &) override
 		{
-			result = state.sideband.balance;
+			result = &state.sideband.balance;
 		}
 		void state_block (nano::state_block const & block_a) override
 		{
-			result = block_a.hashables.balance;
+			result = &block_a.hashables.balance;
 		}
 		nano::account_state const & state;
-		nano::amount result;
+		nano::amount const * result;
 	};
 	balance_visitor visitor (*this);
 	block_m->visit (visitor);
-	return visitor.result;
+	return *visitor.result;
 }
 
 uint64_t nano::account_state::block_count () const
