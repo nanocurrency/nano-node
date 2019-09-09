@@ -633,7 +633,7 @@ bool nano::bootstrap_attempt::lazy_finished ()
 		}
 	}
 	// Finish lazy bootstrap without lazy pulls (in combination with still_pulling ())
-	if (!result && lazy_pulls.empty ())
+	if (!result && lazy_pulls.empty () && lazy_state_backlog.empty ())
 	{
 		result = true;
 	}
@@ -683,6 +683,11 @@ void nano::bootstrap_attempt::lazy_run ()
 		}
 		// Flushing lazy pulls
 		lazy_pull_flush ();
+		// Check if some blocks required for backlog were processed
+		if (pulls.empty ())
+		{
+			lazy_backlog_cleanup ();
+		}
 	}
 	if (!stopped)
 	{
@@ -834,9 +839,9 @@ void nano::bootstrap_attempt::lazy_block_state_backlog_check (std::shared_ptr<na
 		// Retrieve balance for previous state & send blocks
 		if (block_a->type () == nano::block_type::state || block_a->type () == nano::block_type::send)
 		{
-			if (block_a->balance ().number () <= next_block.second)
+			if (block_a->balance ().number () <= next_block.second) // balance
 			{
-				lazy_add (next_block.first);
+				lazy_add (next_block.first); // link
 			}
 		}
 		// Assumption for other legacy block types
@@ -845,6 +850,28 @@ void nano::bootstrap_attempt::lazy_block_state_backlog_check (std::shared_ptr<na
 			// Disabled
 		}
 		lazy_state_backlog.erase (find_state);
+	}
+}
+
+void nano::bootstrap_attempt::lazy_backlog_cleanup ()
+{
+	auto transaction (node->store.tx_begin_read ());
+	nano::lock_guard<std::mutex> lock (lazy_mutex);
+	for (auto it (lazy_state_backlog.begin ()), end (lazy_state_backlog.end ()); it != end && !stopped;)
+	{
+		if (node->store.block_exists (transaction, it->first))
+		{
+			auto next_block (it->second);
+			if (node->ledger.balance (transaction, it->first) <= next_block.second) // balance
+			{
+				lazy_add (next_block.first); // link
+			}
+			it = lazy_state_backlog.erase (it);
+		}
+		else
+		{
+			++it;
+		}
 	}
 }
 
