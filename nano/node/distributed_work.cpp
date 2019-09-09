@@ -35,7 +35,7 @@ nano::distributed_work::~distributed_work ()
 		{
 			node.websocket_server->broadcast (builder.work_generation (root, work_result, difficulty, node.network_params.network.publish_threshold, elapsed.value (), winner, bad_peers));
 		}
-		else if (stopped)
+		else if (cancelled)
 		{
 			node.websocket_server->broadcast (builder.work_cancelled (root, difficulty, node.network_params.network.publish_threshold, elapsed.value (), bad_peers));
 		}
@@ -44,7 +44,7 @@ nano::distributed_work::~distributed_work ()
 			node.websocket_server->broadcast (builder.work_failed (root, difficulty, node.network_params.network.publish_threshold, elapsed.value (), bad_peers));
 		}
 	}
-	stop (true);
+	stop_once (true);
 }
 
 void nano::distributed_work::start ()
@@ -100,7 +100,11 @@ void nano::distributed_work::start_work ()
 			{
 				this_l->set_once (*work_a);
 			}
-			this_l->stop (false);
+			else if (!this_l->cancelled && !this_l->completed)
+			{
+				this_l->callback (boost::none);
+			}
+			this_l->stop_once (false);
 		},
 		difficulty);
 	}
@@ -148,7 +152,7 @@ void nano::distributed_work::start_work ()
 								else if (ec == boost::system::errc::operation_canceled)
 								{
 									// The only case where we send a cancel is if we preempt stopped waiting for the response
-									this_l->cancel (connection);
+									this_l->cancel_connection (connection);
 									this_l->failure (connection->address);
 								}
 								else
@@ -178,7 +182,7 @@ void nano::distributed_work::start_work ()
 	}
 }
 
-void nano::distributed_work::cancel (std::shared_ptr<nano::work_peer_request> connection_a)
+void nano::distributed_work::cancel_connection (std::shared_ptr<nano::work_peer_request> connection_a)
 {
 	auto this_l (shared_from_this ());
 	auto cancelling_l (std::make_shared<nano::work_peer_request> (node.io_ctx, connection_a->address, connection_a->port));
@@ -205,7 +209,48 @@ void nano::distributed_work::cancel (std::shared_ptr<nano::work_peer_request> co
 	});
 }
 
-void nano::distributed_work::stop (bool const local_stop_a)
+void nano::distributed_work::success (std::string const & body_a, boost::asio::ip::address const & address_a, uint16_t port_a)
+{
+	auto last (remove (address_a));
+	std::stringstream istream (body_a);
+	try
+	{
+		boost::property_tree::ptree result;
+		boost::property_tree::read_json (istream, result);
+		auto work_text (result.get<std::string> ("work"));
+		uint64_t work;
+		if (!nano::from_string_hex (work_text, work))
+		{
+			uint64_t result_difficulty (0);
+			if (!nano::work_validate (root, work, &result_difficulty) && result_difficulty >= difficulty)
+			{
+				node.unresponsive_work_peers = false;
+				set_once (work, boost::str (boost::format ("%1%:%2%") % address_a % port_a));
+				stop_once (true);
+			}
+			else
+			{
+				node.logger.try_log (boost::str (boost::format ("Incorrect work response from %1%:%2% for root %3% with diffuculty %4%: %5%") % address_a % port_a % root.to_string () % nano::to_string_hex (difficulty) % work_text));
+				add_bad_peer (address_a, port_a);
+				handle_failure (last);
+			}
+		}
+		else
+		{
+			node.logger.try_log (boost::str (boost::format ("Work response from %1%:%2% wasn't a number: %3%") % address_a % port_a % work_text));
+			add_bad_peer (address_a, port_a);
+			handle_failure (last);
+		}
+	}
+	catch (...)
+	{
+		node.logger.try_log (boost::str (boost::format ("Work response from %1%:%2% wasn't parsable: %3%") % address_a % port_a % body_a));
+		add_bad_peer (address_a, port_a);
+		handle_failure (last);
+	}
+}
+
+void nano::distributed_work::stop_once (bool const local_stop_a)
 {
 	if (!stopped.exchange (true))
 	{
@@ -236,62 +281,12 @@ void nano::distributed_work::stop (bool const local_stop_a)
 		}
 		connections.clear ();
 		outstanding.clear ();
-
-		if (!completed)
-		{
-			callback (boost::none);
-			if (node.config.logging.work_generation_time ())
-			{
-				node.logger.try_log (boost::str (boost::format ("Work generation for %1% was cancelled after %2% ms") % root.to_string () % elapsed.value ().count ()));
-			}
-		}
-	}
-}
-
-void nano::distributed_work::success (std::string const & body_a, boost::asio::ip::address const & address_a, uint16_t port_a)
-{
-	auto last (remove (address_a));
-	std::stringstream istream (body_a);
-	try
-	{
-		boost::property_tree::ptree result;
-		boost::property_tree::read_json (istream, result);
-		auto work_text (result.get<std::string> ("work"));
-		uint64_t work;
-		if (!nano::from_string_hex (work_text, work))
-		{
-			uint64_t result_difficulty (0);
-			if (!nano::work_validate (root, work, &result_difficulty) && result_difficulty >= difficulty)
-			{
-				node.unresponsive_work_peers = false;
-				set_once (work, boost::str (boost::format ("%1%:%2%") % address_a % port_a));
-				stop (true);
-			}
-			else
-			{
-				node.logger.try_log (boost::str (boost::format ("Incorrect work response from %1%:%2% for root %3% with diffuculty %4%: %5%") % address_a % port_a % root.to_string () % nano::to_string_hex (difficulty) % work_text));
-				add_bad_peer (address_a, port_a);
-				handle_failure (last);
-			}
-		}
-		else
-		{
-			node.logger.try_log (boost::str (boost::format ("Work response from %1%:%2% wasn't a number: %3%") % address_a % port_a % work_text));
-			add_bad_peer (address_a, port_a);
-			handle_failure (last);
-		}
-	}
-	catch (...)
-	{
-		node.logger.try_log (boost::str (boost::format ("Work response from %1%:%2% wasn't parsable: %3%") % address_a % port_a % body_a));
-		add_bad_peer (address_a, port_a);
-		handle_failure (last);
 	}
 }
 
 void nano::distributed_work::set_once (uint64_t work_a, std::string const & source_a)
 {
-	if (!completed.exchange (true))
+	if (!cancelled && !completed.exchange (true))
 	{
 		elapsed.stop ();
 		callback (work_a);
@@ -306,6 +301,20 @@ void nano::distributed_work::set_once (uint64_t work_a, std::string const & sour
 	}
 }
 
+void nano::distributed_work::cancel_once ()
+{
+	if (!completed && !cancelled.exchange (true))
+	{
+		elapsed.stop ();
+		callback (boost::none);
+		stop_once (true);
+		if (node.config.logging.work_generation_time ())
+		{
+			node.logger.try_log (boost::str (boost::format ("Work generation for %1% was cancelled after %2% ms") % root.to_string () % elapsed.value ().count ()));
+		}
+	}
+}
+
 void nano::distributed_work::failure (boost::asio::ip::address const & address_a)
 {
 	auto last (remove (address_a));
@@ -314,36 +323,32 @@ void nano::distributed_work::failure (boost::asio::ip::address const & address_a
 
 void nano::distributed_work::handle_failure (bool const last_a)
 {
-	if (last_a && !completed)
+	if (last_a && !completed && !cancelled)
 	{
-		elapsed.stop ();
-		if (!stopped) // stopped early = cancel
+		node.unresponsive_work_peers = true;
+		if (!local_generation_started)
 		{
-			node.unresponsive_work_peers = true;
-			if (!local_generation_started)
+			if (backoff == 1 && node.config.logging.work_generation_time ())
 			{
-				if (backoff == 1 && node.config.logging.work_generation_time ())
+				node.logger.always_log ("Work peer(s) failed to generate work for root ", root.to_string (), ", retrying...");
+			}
+			auto now (std::chrono::steady_clock::now ());
+			auto root_l (root);
+			auto callback_l (callback);
+			std::weak_ptr<nano::node> node_w (node.shared ());
+			auto next_backoff (std::min (backoff * 2, (unsigned int)60 * 5));
+			// clang-format off
+			node.alarm.add (now + std::chrono::seconds (backoff), [ node_w, root_l, callback_l, next_backoff, difficulty = difficulty ] {
+				if (auto node_l = node_w.lock ())
 				{
-					node.logger.always_log ("Work peer(s) failed to generate work for root ", root.to_string (), ", retrying...");
+					node_l->distributed_work.make (next_backoff, root_l, callback_l, difficulty);
 				}
-				auto now (std::chrono::steady_clock::now ());
-				auto root_l (root);
-				auto callback_l (callback);
-				std::weak_ptr<nano::node> node_w (node.shared ());
-				auto next_backoff (std::min (backoff * 2, (unsigned int)60 * 5));
-				// clang-format off
-				node.alarm.add (now + std::chrono::seconds (backoff), [ node_w, root_l, callback_l, next_backoff, difficulty = difficulty ] {
-					if (auto node_l = node_w.lock ())
-					{
-						node_l->distributed_work.make (next_backoff, root_l, callback_l, difficulty);
-					}
-				});
-				// clang-format on
-			}
-			else
-			{
-				// wait for local work generation to complete
-			}
+			});
+			// clang-format on
+		}
+		else
+		{
+			// wait for local work generation to complete
 		}
 	}
 }
@@ -393,9 +398,8 @@ void nano::distributed_work_factory::cancel (nano::block_hash const & root_a, bo
 			{
 				if (auto distributed_l = distributed_w.lock ())
 				{
-					// Send work_cancel to work peers
-					// Cancels local generation if local_stop is true, but usually should be done by the work pool
-					distributed_l->stop (local_stop);
+					// Send work_cancel to work peers and stop local work generation
+					distributed_l->cancel_once ();
 				}
 			}
 			work.erase (existing_l);
