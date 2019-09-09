@@ -146,7 +146,7 @@ block_processor_thread ([this]() {
 online_reps (*this, config.online_weight_minimum.number ()),
 vote_uniquer (block_uniquer),
 active (*this),
-confirmation_height_processor (pending_confirmation_height, ledger, active, write_database_queue, config.conf_height_processor_batch_min_time, logger),
+confirmation_height_processor (pending_confirmation_height, ledger, active, write_database_queue, config.conf_height_processor_batch_min_time, logger, ledger.cemented_count),
 payment_observer_processor (observers.blocks),
 wallets (wallets_store.init_error (), *this),
 startup_time (std::chrono::steady_clock::now ())
@@ -397,7 +397,7 @@ startup_time (std::chrono::steady_clock::now ())
 			release_assert (!flags.read_only);
 			auto transaction (store.tx_begin_write ());
 			// Store was empty meaning we just created it, add the genesis block
-			store.initialize (transaction, genesis, ledger.rep_weights, ledger.cemented_count);
+			store.initialize (transaction, genesis, ledger.rep_weights, ledger.cemented_count, ledger.block_count_cache);
 		}
 
 		if (!ledger.block_exists (genesis.hash ()))
