@@ -306,9 +306,9 @@ unsigned nano::bootstrap_attempt::target_connections (size_t pulls_remaining)
 	}
 
 	// Only scale up to bootstrap_connections_max for large pulls.
-	double step = std::min (1.0, std::max (0.0, (double)pulls_remaining / nano::bootstrap_limits::bootstrap_connection_scale_target_blocks));
-	double lazy_factor = (mode == nano::bootstrap_mode::lazy) ? (double)node->config.bootstrap_connections : 0.0;
-	double target = (double)node->config.bootstrap_connections + (double)(node->config.bootstrap_connections_max - node->config.bootstrap_connections) * step + lazy_factor;
+	double step_scale = std::min (1.0, std::max (0.0, (double)pulls_remaining / nano::bootstrap_limits::bootstrap_connection_scale_target_blocks));
+	double lazy_term = (mode == nano::bootstrap_mode::lazy) ? (double)node->config.bootstrap_connections : 0.0;
+	double target = (double)node->config.bootstrap_connections + (double)(node->config.bootstrap_connections_max - node->config.bootstrap_connections) * step_scale + lazy_term;
 	return std::max (1U, (unsigned)(target + 0.5f));
 }
 
@@ -756,7 +756,7 @@ bool nano::bootstrap_attempt::process_block_lazy (std::shared_ptr<nano::block> b
 		}
 		lazy_blocks.insert (hash);
 		// Adding lazy balances for first processed block in pull
-		if (pull_blocks == 0 && (block_a->type () == nano::block_type::send || block_a->type () == nano::block_type::send))
+		if (pull_blocks == 0 && (block_a->type () == nano::block_type::state || block_a->type () == nano::block_type::send))
 		{
 			lazy_balances.insert (std::make_pair (hash, block_a->balance ().number ()));
 		}
