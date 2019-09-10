@@ -617,7 +617,7 @@ TEST (confirmation_height, conflict_rollback_cemented)
 	node1.block_processor.flush ();
 	node2.network.process_message (publish1, channel2);
 	node2.block_processor.flush ();
-	std::unique_lock<std::mutex> lock (node2.active.mutex);
+	nano::unique_lock<std::mutex> lock (node2.active.mutex);
 	auto conflict (node2.active.roots.find (nano::qualified_root (genesis.hash (), genesis.hash ())));
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
@@ -754,7 +754,7 @@ TEST (confirmation_height, pending_observer_callbacks)
 	// Can have timing issues.
 	node->confirmation_height_processor.add (send.hash ());
 	{
-		std::unique_lock<std::mutex> lk (node->pending_confirmation_height.mutex);
+		nano::unique_lock<std::mutex> lk (node->pending_confirmation_height.mutex);
 		while (!node->pending_confirmation_height.current_hash.is_zero ())
 		{
 			lk.unlock ();
@@ -1002,7 +1002,7 @@ TEST (confirmation_height, callback_confirmed_history)
 
 		ASSERT_EQ (0, node->active.list_confirmed ().size ());
 		{
-			std::lock_guard<std::mutex> guard (node->active.mutex);
+			nano::lock_guard<std::mutex> guard (node->active.mutex);
 			ASSERT_EQ (1, node->active.blocks.size ());
 		}
 
@@ -1037,7 +1037,7 @@ TEST (confirmation_height, callback_confirmed_history)
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::observer, nano::stat::detail::observer_confirmation_active_quorum, nano::stat::dir::out));
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::observer, nano::stat::detail::observer_confirmation_inactive, nano::stat::dir::out));
 
-	std::lock_guard<std::mutex> guard (node->active.mutex);
+	nano::lock_guard<std::mutex> guard (node->active.mutex);
 	ASSERT_EQ (0, node->active.blocks.size ());
 }
 
@@ -1085,7 +1085,7 @@ TEST (confirmation_height, dependent_election)
 	}
 
 	{
-		std::lock_guard<std::mutex> guard (node->pending_confirmation_height.mutex);
+		nano::lock_guard<std::mutex> guard (node->pending_confirmation_height.mutex);
 		ASSERT_EQ (*node->pending_confirmation_height.pending.begin (), send2->hash ());
 	}
 
@@ -1103,7 +1103,7 @@ TEST (confirmation_height, dependent_election)
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::observer, nano::stat::detail::observer_confirmation_inactive, nano::stat::dir::out));
 	ASSERT_EQ (3, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
 
-	std::lock_guard<std::mutex> guard (node->active.mutex);
+	nano::lock_guard<std::mutex> guard (node->active.mutex);
 	ASSERT_EQ (0, node->active.blocks.size ());
 }
 
@@ -1141,7 +1141,7 @@ TEST (confirmation_height, dependent_election_after_already_cemented)
 
 		ASSERT_EQ (0, node->active.list_confirmed ().size ());
 		{
-			std::lock_guard<std::mutex> guard (node->active.mutex);
+			nano::lock_guard<std::mutex> guard (node->active.mutex);
 			ASSERT_EQ (1, node->active.blocks.size ());
 		}
 
@@ -1169,7 +1169,7 @@ TEST (confirmation_height, dependent_election_after_already_cemented)
 	}
 
 	system.deadline_set (10s);
-	std::unique_lock<std::mutex> lk (node->active.mutex);
+	nano::unique_lock<std::mutex> lk (node->active.mutex);
 	while (node->active.blocks.size () > 0)
 	{
 		lk.unlock ();
