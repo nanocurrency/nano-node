@@ -154,7 +154,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 				++unconfirmed_count;
 				unconfirmed_request_count += election_l->confirmation_request_count;
 				// Log votes for very long unconfirmed elections
-				if (election_l->confirmation_request_count % 50 == 1)
+				if (election_l->confirmation_request_count % 200 == 1)
 				{
 					auto tally_l (election_l->tally ());
 					election_l->log_votes (tally_l);
