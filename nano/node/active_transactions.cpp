@@ -28,6 +28,15 @@ nano::active_transactions::~active_transactions ()
 	stop ();
 }
 
+void nano::active_transactions::notify ()
+{
+	{
+		// Force acquisition due to multiple waits in the main loop
+		(void)nano::lock_guard<std::mutex> (mutex);
+	}
+	condition.notify_all ();
+}
+
 void nano::active_transactions::confirm_frontiers (nano::transaction const & transaction_a)
 {
 	// Limit maximum count of elections to start
@@ -145,7 +154,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 				++unconfirmed_count;
 				unconfirmed_request_count += election_l->confirmation_request_count;
 				// Log votes for very long unconfirmed elections
-				if (election_l->confirmation_request_count % 50 == 1)
+				if (election_l->confirmation_request_count % 200 == 1)
 				{
 					auto tally_l (election_l->tally ());
 					election_l->log_votes (tally_l);
@@ -259,7 +268,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 								requests_bundle.insert (std::make_pair (rep, insert_vector));
 							}
 						}
-						else if (rep_request->second.size () < max_broadcast_queue * nano::network::confirm_req_hashes_max)
+						else if (rep_request->second.size () < max_broadcast_queue)
 						{
 							rep_request->second.push_back (root_hash);
 						}
@@ -278,6 +287,9 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 		}
 		++election_l->confirmation_request_count;
 	}
+	finished_block_broadcast = false;
+	finished_confirm_req_broadcast = false;
+
 	lock_a.unlock ();
 	// Rebroadcast unconfirmed blocks
 	if (!rebroadcast_bundle.empty ())
@@ -340,6 +352,11 @@ void nano::active_transactions::request_loop ()
 		// clang-format off
 		condition.wait_until (lock, wakeup, [&wakeup, &stopped = stopped] { return stopped || std::chrono::steady_clock::now () >= wakeup; });
 		// clang-format on
+		if (!stopped && !node.network_params.network.is_test_network () && (!finished_block_broadcast || !finished_confirm_req_broadcast))
+		{
+			condition.wait (lock, [this] { return this->stopped || (this->finished_block_broadcast && this->finished_confirm_req_broadcast); });
+		}
+		previous_size = roots.size ();
 	}
 }
 

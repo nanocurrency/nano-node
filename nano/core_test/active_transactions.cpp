@@ -6,7 +6,7 @@
 
 using namespace std::chrono_literals;
 
-TEST (active_transactions, bounded_active_elections)
+TEST (active_transactions, DISABLED_bounded_active_elections)
 {
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);

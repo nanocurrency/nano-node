@@ -82,6 +82,7 @@ class active_transactions final
 public:
 	explicit active_transactions (nano::node &);
 	~active_transactions ();
+	void notify ();
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
 	// clang-format off
@@ -127,7 +128,7 @@ public:
 	// Minimum number of confirmation requests
 	static unsigned constexpr minimum_confirmation_request_count = 2;
 	// Threshold for considering confirmation request count high
-	static unsigned constexpr high_confirmation_request_count = 2;
+	static unsigned constexpr high_confirmation_request_count = 8;
 	size_t long_unconfirmed_size = 0;
 	static size_t constexpr max_broadcast_queue = 1000;
 	boost::circular_buffer<double> multipliers_cb;
@@ -136,6 +137,9 @@ public:
 	size_t priority_wallet_cementable_frontiers_size ();
 	boost::circular_buffer<double> difficulty_trend ();
 	size_t inactive_votes_cache_size ();
+	std::atomic<size_t> previous_size{ 0 };
+	std::atomic<bool> finished_block_broadcast{ false };
+	std::atomic<bool> finished_confirm_req_broadcast{ false };
 
 private:
 	// Call action with confirmed block, may be different than what we started with

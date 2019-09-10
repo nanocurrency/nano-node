@@ -241,6 +241,11 @@ void nano::network::flood_block_batch (std::deque<std::shared_ptr<nano::block>> 
 		});
 		// clang-format on
 	}
+	else
+	{
+		node.active.finished_block_broadcast = true;
+		node.active.notify ();
+	}
 }
 
 void nano::network::send_confirm_req (std::shared_ptr<nano::transport::channel> channel_a, std::shared_ptr<nano::block> block_a)
@@ -361,6 +366,11 @@ void nano::network::broadcast_confirm_req_batch (std::unordered_map<std::shared_
 				node_l->network.broadcast_confirm_req_batch (request_bundle_a, delay_a, true);
 			}
 		});
+	}
+	else
+	{
+		node.active.finished_confirm_req_broadcast = true;
+		node.active.notify ();
 	}
 }
 
