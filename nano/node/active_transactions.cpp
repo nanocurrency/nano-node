@@ -259,7 +259,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 								requests_bundle.insert (std::make_pair (rep, insert_vector));
 							}
 						}
-						else if (rep_request->second.size () < max_broadcast_queue * nano::network::confirm_req_hashes_max)
+						else if (rep_request->second.size () < max_broadcast_queue)
 						{
 							rep_request->second.push_back (root_hash);
 						}
