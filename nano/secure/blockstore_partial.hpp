@@ -24,15 +24,17 @@ public:
 	 * If using a different store version than the latest then you may need
 	 * to modify some of the objects in the store to be appropriate for the version before an upgrade.
 	 */
-	void initialize (nano::write_transaction const & transaction_a, nano::genesis const & genesis_a, nano::rep_weights & rep_weights) override
+	void initialize (nano::write_transaction const & transaction_a, nano::genesis const & genesis_a, nano::rep_weights & rep_weights, std::atomic<uint64_t> & cemented_count, std::atomic<uint64_t> & block_count_cache) override
 	{
 		auto hash_l (genesis_a.hash ());
 		assert (latest_v0_begin (transaction_a) == latest_v0_end ());
 		assert (latest_v1_begin (transaction_a) == latest_v1_end ());
 		nano::block_sideband sideband (nano::block_type::open, network_params.ledger.genesis_account, 0, network_params.ledger.genesis_amount, 1, nano::seconds_since_epoch ());
 		block_put (transaction_a, hash_l, *genesis_a.open, sideband);
+		++block_count_cache;
 		confirmation_height_put (transaction_a, network_params.ledger.genesis_account, 1);
-		account_put (transaction_a, network_params.ledger.genesis_account, { hash_l, genesis_a.open->hash (), genesis_a.open->hash (), std::numeric_limits<nano::uint128_t>::max (), nano::seconds_since_epoch (), 1, nano::epoch::epoch_0 });
+		++cemented_count;
+		account_put (transaction_a, network_params.ledger.genesis_account, { hash_l, network_params.ledger.genesis_account, genesis_a.open->hash (), std::numeric_limits<nano::uint128_t>::max (), nano::seconds_since_epoch (), 1, nano::epoch::epoch_0 });
 		rep_weights.representation_put (network_params.ledger.genesis_account, std::numeric_limits<nano::uint128_t>::max ());
 		frontier_put (transaction_a, hash_l, network_params.ledger.genesis_account);
 	}
@@ -244,16 +246,6 @@ public:
 		block_raw_put (transaction_a, data, type, version, hash_a);
 	}
 
-	uint64_t cemented_count (nano::transaction const & transaction_a) override
-	{
-		uint64_t sum = 0;
-		for (auto i (confirmation_height_begin (transaction_a)), n (confirmation_height_end ()); i != n; ++i)
-		{
-			sum += i->second;
-		}
-		return sum;
-	}
-
 	void unchecked_put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a, std::shared_ptr<nano::block> const & block_a) override
 	{
 		nano::unchecked_key key (hash_a, block_a->hash ());
@@ -288,7 +280,7 @@ public:
 
 	std::shared_ptr<nano::vote> vote_generate (nano::transaction const & transaction_a, nano::account const & account_a, nano::raw_key const & key_a, std::shared_ptr<nano::block> block_a) override
 	{
-		std::lock_guard<std::mutex> lock (cache_mutex);
+		nano::lock_guard<std::mutex> lock (cache_mutex);
 		auto result (vote_current (transaction_a, account_a));
 		uint64_t sequence ((result ? result->sequence : 0) + 1);
 		result = std::make_shared<nano::vote> (account_a, key_a, sequence, block_a);
@@ -298,7 +290,7 @@ public:
 
 	std::shared_ptr<nano::vote> vote_generate (nano::transaction const & transaction_a, nano::account const & account_a, nano::raw_key const & key_a, std::vector<nano::block_hash> blocks_a) override
 	{
-		std::lock_guard<std::mutex> lock (cache_mutex);
+		nano::lock_guard<std::mutex> lock (cache_mutex);
 		auto result (vote_current (transaction_a, account_a));
 		uint64_t sequence ((result ? result->sequence : 0) + 1);
 		result = std::make_shared<nano::vote> (account_a, key_a, sequence, blocks_a);
@@ -308,7 +300,7 @@ public:
 
 	std::shared_ptr<nano::vote> vote_max (nano::transaction const & transaction_a, std::shared_ptr<nano::vote> vote_a) override
 	{
-		std::lock_guard<std::mutex> lock (cache_mutex);
+		nano::lock_guard<std::mutex> lock (cache_mutex);
 		auto current (vote_current (transaction_a, vote_a->account));
 		auto result (vote_a);
 		if (current != nullptr && current->sequence > result->sequence)
@@ -549,7 +541,7 @@ public:
 	void flush (nano::write_transaction const & transaction_a) override
 	{
 		{
-			std::lock_guard<std::mutex> lock (cache_mutex);
+			nano::lock_guard<std::mutex> lock (cache_mutex);
 			vote_cache_l1.swap (vote_cache_l2);
 			vote_cache_l1.clear ();
 		}
@@ -602,7 +594,7 @@ public:
 		// Check we are still in sync with other tables
 		assert (confirmation_height_exists (transaction_a, account_a));
 		nano::db_val<Val> info (info_a);
-		auto status = put (transaction_a, get_account_db (info_a.epoch), account_a, info);
+		auto status = put (transaction_a, get_account_db (info_a.epoch ()), account_a, info);
 		release_assert (success (status));
 	}
 
@@ -645,7 +637,7 @@ public:
 		if (!result)
 		{
 			nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
-			info_a.epoch = epoch;
+			info_a.epoch_m = epoch;
 			result = info_a.deserialize (stream);
 		}
 		return result;

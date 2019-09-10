@@ -8,18 +8,17 @@
 #include <nano/node/write_database_queue.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/secure/ledger.hpp>
 
 #include <boost/optional.hpp>
 
 #include <cassert>
 #include <numeric>
 
-nano::confirmation_height_processor::confirmation_height_processor (nano::pending_confirmation_height & pending_confirmation_height_a, nano::block_store & store_a, nano::stat & stats_a, nano::active_transactions & active_a, nano::block_hash const & epoch_link_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logger_mt & logger_a) :
+nano::confirmation_height_processor::confirmation_height_processor (nano::pending_confirmation_height & pending_confirmation_height_a, nano::ledger & ledger_a, nano::active_transactions & active_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logger_mt & logger_a) :
 pending_confirmations (pending_confirmation_height_a),
-store (store_a),
-stats (stats_a),
+ledger (ledger_a),
 active (active_a),
-epoch_link (epoch_link_a),
 logger (logger_a),
 write_database_queue (write_database_queue_a),
 batch_separate_pending_min_time (batch_separate_pending_min_time_a),
@@ -47,7 +46,7 @@ void nano::confirmation_height_processor::stop ()
 
 void nano::confirmation_height_processor::run ()
 {
-	std::unique_lock<std::mutex> lk (pending_confirmations.mutex);
+	nano::unique_lock<std::mutex> lk (pending_confirmations.mutex);
 	while (!stopped)
 	{
 		if (!paused && !pending_confirmations.pending.empty ())
@@ -99,7 +98,7 @@ void nano::confirmation_height_processor::unpause ()
 void nano::confirmation_height_processor::add (nano::block_hash const & hash_a)
 {
 	{
-		std::lock_guard<std::mutex> lk (pending_confirmations.mutex);
+		nano::lock_guard<std::mutex> lk (pending_confirmations.mutex);
 		pending_confirmations.pending.insert (hash_a);
 	}
 	condition.notify_one ();
@@ -118,7 +117,7 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 	assert (receive_source_pairs_size == 0);
 	release_assert (receive_source_pairs.empty ());
 
-	auto read_transaction (store.tx_begin_read ());
+	auto read_transaction (ledger.store.tx_begin_read ());
 	auto last_iteration = false;
 	// Traverse account chain and all sources for receive blocks iteratively
 	do
@@ -141,10 +140,10 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 			}
 		}
 
-		auto block_height (store.block_account_height (read_transaction, current));
-		nano::account account (store.block_account (read_transaction, current));
+		auto block_height (ledger.store.block_account_height (read_transaction, current));
+		nano::account account (ledger.store.block_account (read_transaction, current));
 		uint64_t confirmation_height;
-		release_assert (!store.confirmation_height_get (read_transaction, account, confirmation_height));
+		release_assert (!ledger.store.confirmation_height_get (read_transaction, account, confirmation_height));
 		auto iterated_height = confirmation_height;
 		auto account_it = confirmed_iterated_pairs.find (account);
 		if (account_it != confirmed_iterated_pairs.cend ())
@@ -301,31 +300,30 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 	while (total_pending_write_block_count > 0)
 	{
 		uint64_t num_accounts_processed = 0;
-
-		auto transaction (store.tx_begin_write ({}, { nano::tables::confirmation_height }));
+		auto transaction (ledger.store.tx_begin_write ({}, { nano::tables::confirmation_height }));
 		while (!all_pending_a.empty ())
 		{
 			const auto & pending = all_pending_a.front ();
 			uint64_t confirmation_height;
-			auto error = store.confirmation_height_get (transaction, pending.account, confirmation_height);
+			auto error = ledger.store.confirmation_height_get (transaction, pending.account, confirmation_height);
 			release_assert (!error);
 			if (pending.height > confirmation_height)
 			{
 #ifndef NDEBUG
 				// Do more thorough checking in Debug mode, indicates programming error.
 				nano::block_sideband sideband;
-				auto block = store.block_get (transaction, pending.hash, &sideband);
+				auto block = ledger.store.block_get (transaction, pending.hash, &sideband);
 				static nano::network_constants network_constants;
 				assert (network_constants.is_test_network () || block != nullptr);
 				assert (network_constants.is_test_network () || sideband.height == pending.height);
 #else
-				auto block = store.block_get (transaction, pending.hash);
+				auto block = ledger.store.block_get (transaction, pending.hash);
 #endif
 				// Check that the block still exists as there may have been changes outside this processor.
 				if (!block)
 				{
 					logger.always_log ("Failed to write confirmation height for: ", pending.hash.to_string ());
-					stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
+					ledger.stats.inc (nano::stat::type::confirmation_height, nano::stat::detail::invalid_block);
 					receive_source_pairs.clear ();
 					receive_source_pairs_size = 0;
 					all_pending_a.clear ();
@@ -337,10 +335,11 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 					active.post_confirmation_height_set (transaction, callback_data.block, callback_data.sideband, callback_data.election_status_type);
 				}
 
-				stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - confirmation_height);
+				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - confirmation_height);
 				assert (pending.num_blocks_confirmed == pending.height - confirmation_height);
 				confirmation_height = pending.height;
-				store.confirmation_height_put (transaction, pending.account, confirmation_height);
+				ledger.cemented_count += pending.num_blocks_confirmed;
+				ledger.store.confirmation_height_put (transaction, pending.account, confirmation_height);
 			}
 			total_pending_write_block_count -= pending.num_blocks_confirmed;
 			++num_accounts_processed;
@@ -368,7 +367,7 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 	while ((num_to_confirm > 0) && !hash.is_zero () && !stopped)
 	{
 		nano::block_sideband sideband;
-		auto block (store.block_get (transaction_a, hash, &sideband));
+		auto block (ledger.store.block_get (transaction_a, hash, &sideband));
 		if (block)
 		{
 			if (!pending_confirmations.is_processing_block (hash))
@@ -391,7 +390,7 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 				source = block->link ();
 			}
 
-			if (!source.is_zero () && source != epoch_link && store.source_exists (transaction_a, source))
+			if (!source.is_zero () && !ledger.is_epoch_link (source) && ledger.store.source_exists (transaction_a, source))
 			{
 				auto block_height = confirmation_height_a + num_to_confirm;
 				// Set the height for the receive block above (if there is one)
@@ -472,14 +471,14 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (confirmation_heigh
 
 size_t nano::pending_confirmation_height::size ()
 {
-	std::lock_guard<std::mutex> lk (mutex);
+	nano::lock_guard<std::mutex> lk (mutex);
 	return pending.size ();
 }
 
 bool nano::pending_confirmation_height::is_processing_block (nano::block_hash const & hash_a)
 {
 	// First check the hash currently being processed
-	std::lock_guard<std::mutex> lk (mutex);
+	nano::lock_guard<std::mutex> lk (mutex);
 	if (!current_hash.is_zero () && current_hash == hash_a)
 	{
 		return true;
@@ -491,7 +490,7 @@ bool nano::pending_confirmation_height::is_processing_block (nano::block_hash co
 
 nano::block_hash nano::pending_confirmation_height::current ()
 {
-	std::lock_guard<std::mutex> lk (mutex);
+	nano::lock_guard<std::mutex> lk (mutex);
 	return current_hash;
 }
 

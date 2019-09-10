@@ -7,8 +7,13 @@
 #include <nano/lib/work.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/blockprocessor.hpp>
-#include <nano/node/bootstrap.hpp>
+#include <nano/node/bootstrap/bootstrap.hpp>
+#include <nano/node/bootstrap/bootstrap_bulk_pull.hpp>
+#include <nano/node/bootstrap/bootstrap_bulk_push.hpp>
+#include <nano/node/bootstrap/bootstrap_frontier.hpp>
+#include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/confirmation_height_processor.hpp>
+#include <nano/node/distributed_work.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/gap_cache.hpp>
 #include <nano/node/logging.hpp>
@@ -105,7 +110,7 @@ public:
 	std::shared_ptr<nano::block> block (nano::block_hash const &);
 	std::pair<nano::uint128_t, nano::uint128_t> balance_pending (nano::account const &);
 	nano::uint128_t weight (nano::account const &);
-	nano::account representative (nano::account const &);
+	nano::block_hash rep_block (nano::account const &);
 	nano::uint128_t minimum_principal_weight ();
 	nano::uint128_t minimum_principal_weight (nano::uint128_t const &);
 	void ongoing_rep_calculation ();
@@ -118,12 +123,12 @@ public:
 	void bootstrap_wallet ();
 	void unchecked_cleanup ();
 	int price (nano::uint128_t const &, int);
-	void work_generate_blocking (nano::block &, uint64_t);
-	void work_generate_blocking (nano::block &);
-	uint64_t work_generate_blocking (nano::uint256_union const &, uint64_t);
-	uint64_t work_generate_blocking (nano::uint256_union const &);
-	void work_generate (nano::uint256_union const &, std::function<void(uint64_t)>, uint64_t);
-	void work_generate (nano::uint256_union const &, std::function<void(uint64_t)>);
+	boost::optional<uint64_t> work_generate_blocking (nano::block &, uint64_t);
+	boost::optional<uint64_t> work_generate_blocking (nano::block &);
+	boost::optional<uint64_t> work_generate_blocking (nano::uint256_union const &, uint64_t);
+	boost::optional<uint64_t> work_generate_blocking (nano::uint256_union const &);
+	void work_generate (nano::uint256_union const &, std::function<void(boost::optional<uint64_t>)>, uint64_t);
+	void work_generate (nano::uint256_union const &, std::function<void(boost::optional<uint64_t>)>);
 	void add_initial_peers ();
 	void block_confirm (std::shared_ptr<nano::block>);
 	bool block_confirmed_or_being_confirmed (nano::transaction const &, nano::block_hash const &);
@@ -146,6 +151,7 @@ public:
 	nano::node_flags flags;
 	nano::alarm & alarm;
 	nano::work_pool & work;
+	nano::distributed_work_factory distributed_work;
 	nano::logger_mt logger;
 	std::unique_ptr<nano::block_store> store_impl;
 	nano::block_store & store;
@@ -186,10 +192,12 @@ public:
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (node & node, const std::string & name);
 
+nano::node_flags const & inactive_node_flag_defaults ();
+
 class inactive_node final
 {
 public:
-	inactive_node (boost::filesystem::path const & path = nano::working_path (), uint16_t = 24000, bool = true, bool = false);
+	inactive_node (boost::filesystem::path const & path = nano::working_path (), uint16_t = 24000, nano::node_flags const & = nano::inactive_node_flag_defaults ());
 	~inactive_node ();
 	boost::filesystem::path path;
 	std::shared_ptr<boost::asio::io_context> io_context;

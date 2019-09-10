@@ -28,10 +28,10 @@ public:
 
 private:
 	void run ();
-	void send (std::unique_lock<std::mutex> &);
+	void send (nano::unique_lock<std::mutex> &);
 	nano::node & node;
 	std::mutex mutex;
-	std::condition_variable condition;
+	nano::condition_variable condition;
 	std::deque<nano::block_hash> hashes;
 	nano::network_params network_params;
 	bool stopped{ false };

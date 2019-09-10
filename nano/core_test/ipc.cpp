@@ -30,7 +30,7 @@ TEST (ipc, asynchronous)
 	client.async_connect ("::1", 24077, [&client, &req, &res, &call_completed](nano::error err) {
 		client.async_write (req, [&client, &req, &res, &call_completed](nano::error err_a, size_t size_a) {
 			ASSERT_NO_ERROR (static_cast<std::error_code> (err_a));
-			ASSERT_EQ (size_a, req->size ());
+			ASSERT_EQ (size_a, req.size ());
 			// Read length
 			client.async_read (res, sizeof (uint32_t), [&client, &res, &call_completed](nano::error err_read_a, size_t size_read_a) {
 				ASSERT_NO_ERROR (static_cast<std::error_code> (err_read_a));

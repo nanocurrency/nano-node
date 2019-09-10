@@ -3,6 +3,7 @@ language: cpp
 stages:
   - build_base
   - build_env
+  - master_beta_docker
   - tag_test
   - test
   - artifacts_beta
@@ -23,6 +24,11 @@ jobs:
       if: branch=master AND type=push
       script: 
         - if [ -n "$DOCKER_PASSWORD" ]; then ci/deploy-docker.sh; fi;
+    - stage: master_beta_docker
+      name: "beta docker master tag"
+      if: tag =~RC|DB
+      script: 
+        - if [ -n "$DOCKER_PASSWORD" ]; then TRAVIS_TAG="${TRAVIS_TAG}" ci/deploy-docker.sh; fi;
     - stage: tag_test
       name: "gcc"
       if: tag is present

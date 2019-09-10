@@ -40,7 +40,7 @@ private:
 	std::unordered_set<nano::account> representatives_1;
 	std::unordered_set<nano::account> representatives_2;
 	std::unordered_set<nano::account> representatives_3;
-	std::condition_variable condition;
+	nano::condition_variable condition;
 	std::mutex mutex;
 	bool started;
 	bool stopped;

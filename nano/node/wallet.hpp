@@ -123,6 +123,7 @@ public:
 	std::shared_ptr<nano::block> change_action (nano::account const &, nano::account const &, uint64_t = 0, bool = true);
 	std::shared_ptr<nano::block> receive_action (nano::block const &, nano::account const &, nano::uint128_union const &, uint64_t = 0, bool = true);
 	std::shared_ptr<nano::block> send_action (nano::account const &, nano::account const &, nano::uint128_t const &, uint64_t = 0, bool = true, boost::optional<std::string> = {});
+	bool action_complete (std::shared_ptr<nano::block> const &, nano::account const &, bool const);
 	wallet (bool &, nano::transaction &, nano::wallets &, std::string const &);
 	wallet (bool &, nano::transaction &, nano::wallets &, std::string const &, std::string const &);
 	void enter_initial_password ();
@@ -172,6 +173,7 @@ public:
 	void watching (nano::qualified_root const &, std::shared_ptr<nano::state_block>);
 	void remove (std::shared_ptr<nano::block>);
 	bool is_watched (nano::qualified_root const &);
+	size_t size ();
 	std::mutex mutex;
 	nano::node & node;
 	std::unordered_map<nano::qualified_root, std::shared_ptr<nano::state_block>> watched;
@@ -194,11 +196,11 @@ public:
 	void reload ();
 	void do_wallet_actions ();
 	void queue_wallet_action (nano::uint128_t const &, std::shared_ptr<nano::wallet>, std::function<void(nano::wallet &)> const &);
-	void foreach_representative (nano::transaction const &, std::function<void(nano::public_key const &, nano::raw_key const &)> const &);
+	void foreach_representative (std::function<void(nano::public_key const &, nano::raw_key const &)> const &);
 	bool exists (nano::transaction const &, nano::public_key const &);
 	void stop ();
 	void clear_send_ids (nano::transaction const &);
-	bool check_rep (nano::transaction const &, nano::account const &, nano::uint128_t const &);
+	bool check_rep (nano::account const &, nano::uint128_t const &);
 	void compute_reps ();
 	void ongoing_compute_reps ();
 	void split_if_needed (nano::transaction &, nano::block_store &);
@@ -209,7 +211,7 @@ public:
 	std::multimap<nano::uint128_t, std::pair<std::shared_ptr<nano::wallet>, std::function<void(nano::wallet &)>>, std::greater<nano::uint128_t>> actions;
 	std::mutex mutex;
 	std::mutex action_mutex;
-	std::condition_variable condition;
+	nano::condition_variable condition;
 	nano::kdf kdf;
 	MDB_dbi handle;
 	MDB_dbi send_action_ids;
