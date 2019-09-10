@@ -340,6 +340,7 @@ void nano::active_transactions::request_loop ()
 
 	while (!stopped)
 	{
+		previous_size = roots.size ();
 		request_confirm (lock);
 		update_active_difficulty (lock);
 

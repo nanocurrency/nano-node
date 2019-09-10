@@ -382,7 +382,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 		generator.add (hash_a);
 	}
 	// Request confirmation for new block with delay
-	if (node.active.size () < confirmation_request_cutoff)
+	if (node.active.previous_size < confirmation_request_cutoff)
 	{
 		std::weak_ptr<nano::node> node_w (node.shared ());
 		node.alarm.add (std::chrono::steady_clock::now () + confirmation_request_delay, [node_w, block_a]() {
