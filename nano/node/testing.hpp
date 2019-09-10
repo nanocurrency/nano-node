@@ -50,35 +50,5 @@ public:
 	std::chrono::time_point<std::chrono::steady_clock, std::chrono::duration<double>> deadline{ std::chrono::steady_clock::time_point::max () };
 	double deadline_scaling_factor{ 1.0 };
 };
-class landing_store final
-{
-public:
-	landing_store () = default;
-	landing_store (nano::account const &, nano::account const &, uint64_t, uint64_t);
-	landing_store (bool &, std::istream &);
-	nano::account source;
-	nano::account destination;
-	uint64_t start;
-	uint64_t last;
-	void serialize (std::ostream &) const;
-	bool deserialize (std::istream &);
-	bool operator== (nano::landing_store const &) const;
-};
-class landing final
-{
-public:
-	landing (nano::node &, std::shared_ptr<nano::wallet>, nano::landing_store &, boost::filesystem::path const &);
-	void write_store ();
-	nano::uint128_t distribution_amount (uint64_t);
-	void distribute_one ();
-	void distribute_ongoing ();
-	boost::filesystem::path path;
-	nano::landing_store & store;
-	std::shared_ptr<nano::wallet> wallet;
-	nano::node & node;
-	static int constexpr interval_exponent = 10;
-	static std::chrono::seconds constexpr distribution_interval = std::chrono::seconds (1 << interval_exponent); // 1024 seconds
-	static std::chrono::seconds constexpr sleep_seconds = std::chrono::seconds (7);
-};
 }
 REGISTER_ERROR_CODES (nano, error_system);

@@ -11,19 +11,19 @@ node (node_a)
 
 void nano::rep_crawler::add (nano::block_hash const & hash_a)
 {
-	std::lock_guard<std::mutex> lock (active_mutex);
+	nano::lock_guard<std::mutex> lock (active_mutex);
 	active.insert (hash_a);
 }
 
 void nano::rep_crawler::remove (nano::block_hash const & hash_a)
 {
-	std::lock_guard<std::mutex> lock (active_mutex);
+	nano::lock_guard<std::mutex> lock (active_mutex);
 	active.erase (hash_a);
 }
 
 bool nano::rep_crawler::exists (nano::block_hash const & hash_a)
 {
-	std::lock_guard<std::mutex> lock (active_mutex);
+	nano::lock_guard<std::mutex> lock (active_mutex);
 	return active.count (hash_a) != 0;
 }
 
@@ -95,8 +95,7 @@ void nano::rep_crawler::query (std::vector<std::shared_ptr<nano::transport::chan
 	for (auto i (channels_a.begin ()), n (channels_a.end ()); i != n; ++i)
 	{
 		on_rep_request (*i);
-		nano::confirm_req message (block);
-		(*i)->send (message);
+		node.network.send_confirm_req (*i, block);
 	}
 
 	// A representative must respond with a vote within the deadline
@@ -119,7 +118,7 @@ void nano::rep_crawler::query (std::shared_ptr<nano::transport::channel> channel
 bool nano::rep_crawler::response (std::shared_ptr<nano::transport::channel> channel_a, nano::account const & rep_account_a, nano::amount const & weight_a)
 {
 	auto updated (false);
-	std::lock_guard<std::mutex> lock (probable_reps_mutex);
+	nano::lock_guard<std::mutex> lock (probable_reps_mutex);
 	auto existing (probable_reps.find (rep_account_a));
 	if (existing != probable_reps.end ())
 	{
@@ -144,7 +143,7 @@ bool nano::rep_crawler::response (std::shared_ptr<nano::transport::channel> chan
 
 nano::uint128_t nano::rep_crawler::total_weight () const
 {
-	std::lock_guard<std::mutex> lock (probable_reps_mutex);
+	nano::lock_guard<std::mutex> lock (probable_reps_mutex);
 	nano::uint128_t result (0);
 	for (auto i (probable_reps.get<tag_weight> ().begin ()), n (probable_reps.get<tag_weight> ().end ()); i != n; ++i)
 	{
@@ -164,7 +163,7 @@ nano::uint128_t nano::rep_crawler::total_weight () const
 std::vector<nano::representative> nano::rep_crawler::representatives_by_weight ()
 {
 	std::vector<nano::representative> result;
-	std::lock_guard<std::mutex> lock (probable_reps_mutex);
+	nano::lock_guard<std::mutex> lock (probable_reps_mutex);
 	for (auto i (probable_reps.get<tag_weight> ().begin ()), n (probable_reps.get<tag_weight> ().end ()); i != n; ++i)
 	{
 		auto weight (i->weight.number ());
@@ -182,13 +181,11 @@ std::vector<nano::representative> nano::rep_crawler::representatives_by_weight (
 
 void nano::rep_crawler::on_rep_request (std::shared_ptr<nano::transport::channel> channel_a)
 {
-	std::lock_guard<std::mutex> lock (probable_reps_mutex);
+	nano::lock_guard<std::mutex> lock (probable_reps_mutex);
 
-	using probable_rep_itr_t = probably_rep_t::index<tag_channel_ref>::type::iterator;
 	probably_rep_t::index<tag_channel_ref>::type & channel_ref_index = probable_reps.get<tag_channel_ref> ();
 
 	// Find and update the timestamp on all reps available on the endpoint (a single host may have multiple reps)
-	std::vector<probable_rep_itr_t> view;
 	auto itr_pair = probable_reps.get<tag_channel_ref> ().equal_range (*channel_a);
 	for (; itr_pair.first != itr_pair.second; itr_pair.first++)
 	{
@@ -203,7 +200,7 @@ void nano::rep_crawler::cleanup_reps ()
 	std::vector<std::shared_ptr<nano::transport::channel>> channels;
 	{
 		// Check known rep channels
-		std::lock_guard<std::mutex> lock (probable_reps_mutex);
+		nano::lock_guard<std::mutex> lock (probable_reps_mutex);
 		for (auto i (probable_reps.get<tag_last_request> ().begin ()), n (probable_reps.get<tag_last_request> ().end ()); i != n; ++i)
 		{
 			channels.push_back (i->channel);
@@ -231,7 +228,7 @@ void nano::rep_crawler::cleanup_reps ()
 		}
 		if (!equal)
 		{
-			std::lock_guard<std::mutex> lock (probable_reps_mutex);
+			nano::lock_guard<std::mutex> lock (probable_reps_mutex);
 			probable_reps.get<tag_channel_ref> ().erase (*i);
 		}
 	}
@@ -241,7 +238,7 @@ std::vector<nano::representative> nano::rep_crawler::representatives (size_t cou
 {
 	std::vector<representative> result;
 	result.reserve (std::min (count_a, size_t (16)));
-	std::lock_guard<std::mutex> lock (probable_reps_mutex);
+	nano::lock_guard<std::mutex> lock (probable_reps_mutex);
 	for (auto i (probable_reps.get<tag_weight> ().begin ()), n (probable_reps.get<tag_weight> ().end ()); i != n && result.size () < count_a; ++i)
 	{
 		if (!i->weight.is_zero ())
@@ -266,6 +263,6 @@ std::vector<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::repres
 /** Total number of representatives */
 size_t nano::rep_crawler::representative_count ()
 {
-	std::lock_guard<std::mutex> lock (probable_reps_mutex);
+	nano::lock_guard<std::mutex> lock (probable_reps_mutex);
 	return probable_reps.size ();
 }

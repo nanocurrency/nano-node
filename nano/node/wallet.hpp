@@ -1,7 +1,8 @@
 #pragma once
 
 #include <nano/lib/config.hpp>
-#include <nano/node/lmdb.hpp>
+#include <nano/node/lmdb/lmdb.hpp>
+#include <nano/node/lmdb/wallet_value.hpp>
 #include <nano/node/openclwork.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
@@ -97,7 +98,7 @@ public:
 	static unsigned const version_2 = 2;
 	static unsigned const version_3 = 3;
 	static unsigned const version_4 = 4;
-	unsigned const version_current = version_4;
+	static unsigned constexpr version_current = version_4;
 	static nano::uint256_union const version_special;
 	static nano::uint256_union const wallet_key_special;
 	static nano::uint256_union const salt_special;
@@ -122,7 +123,7 @@ public:
 	std::shared_ptr<nano::block> change_action (nano::account const &, nano::account const &, uint64_t = 0, bool = true);
 	std::shared_ptr<nano::block> receive_action (nano::block const &, nano::account const &, nano::uint128_union const &, uint64_t = 0, bool = true);
 	std::shared_ptr<nano::block> send_action (nano::account const &, nano::account const &, nano::uint128_t const &, uint64_t = 0, bool = true, boost::optional<std::string> = {});
-	std::shared_ptr<nano::block> regenerate_action (nano::qualified_root const &, std::shared_ptr<nano::block_builder>);
+	bool action_complete (std::shared_ptr<nano::block> const &, nano::account const &, bool const);
 	wallet (bool &, nano::transaction &, nano::wallets &, std::string const &);
 	wallet (bool &, nano::transaction &, nano::wallets &, std::string const &, std::string const &);
 	void enter_initial_password ();
@@ -142,7 +143,6 @@ public:
 	void receive_async (std::shared_ptr<nano::block>, nano::account const &, nano::uint128_t const &, std::function<void(std::shared_ptr<nano::block>)> const &, uint64_t = 0, bool = true);
 	nano::block_hash send_sync (nano::account const &, nano::account const &, nano::uint128_t const &);
 	void send_async (nano::account const &, nano::account const &, nano::uint128_t const &, std::function<void(std::shared_ptr<nano::block>)> const &, uint64_t = 0, bool = true, boost::optional<std::string> = {});
-	void work_apply (nano::account const &, std::function<void(uint64_t)>);
 	void work_cache_blocking (nano::account const &, nano::block_hash const &);
 	void work_update (nano::transaction const &, nano::account const &, nano::block_hash const &, uint64_t);
 	void work_ensure (nano::account const &, nano::block_hash const &);
@@ -162,22 +162,22 @@ public:
 	std::unordered_set<nano::account> representatives;
 };
 
-class work_watcher
+class work_watcher final : public std::enable_shared_from_this<nano::work_watcher>
 {
 public:
 	work_watcher (nano::node &);
 	~work_watcher ();
 	void stop ();
-	void run ();
 	void add (std::shared_ptr<nano::block>);
+	void update (nano::qualified_root const &, std::shared_ptr<nano::state_block>);
+	void watching (nano::qualified_root const &, std::shared_ptr<nano::state_block>);
 	void remove (std::shared_ptr<nano::block>);
 	bool is_watched (nano::qualified_root const &);
+	size_t size ();
 	std::mutex mutex;
 	nano::node & node;
-	std::condition_variable condition;
+	std::unordered_map<nano::qualified_root, std::shared_ptr<nano::state_block>> watched;
 	std::atomic<bool> stopped;
-	std::unordered_map<nano::qualified_root, std::shared_ptr<nano::state_block>> blocks;
-	std::thread thread;
 };
 /**
  * The wallets set is all the wallets a node controls.
@@ -194,13 +194,13 @@ public:
 	void search_pending_all ();
 	void destroy (nano::uint256_union const &);
 	void reload ();
-	void do_work_regeneration ();
 	void do_wallet_actions ();
 	void queue_wallet_action (nano::uint128_t const &, std::shared_ptr<nano::wallet>, std::function<void(nano::wallet &)> const &);
-	void foreach_representative (nano::transaction const &, std::function<void(nano::public_key const &, nano::raw_key const &)> const &);
+	void foreach_representative (std::function<void(nano::public_key const &, nano::raw_key const &)> const &);
 	bool exists (nano::transaction const &, nano::public_key const &);
 	void stop ();
 	void clear_send_ids (nano::transaction const &);
+	bool check_rep (nano::account const &, nano::uint128_t const &);
 	void compute_reps ();
 	void ongoing_compute_reps ();
 	void split_if_needed (nano::transaction &, nano::block_store &);
@@ -211,18 +211,19 @@ public:
 	std::multimap<nano::uint128_t, std::pair<std::shared_ptr<nano::wallet>, std::function<void(nano::wallet &)>>, std::greater<nano::uint128_t>> actions;
 	std::mutex mutex;
 	std::mutex action_mutex;
-	std::condition_variable condition;
+	nano::condition_variable condition;
 	nano::kdf kdf;
 	MDB_dbi handle;
 	MDB_dbi send_action_ids;
 	nano::node & node;
 	nano::mdb_env & env;
 	std::atomic<bool> stopped;
-	nano::work_watcher watcher;
+	std::shared_ptr<nano::work_watcher> watcher;
 	boost::thread thread;
 	static nano::uint128_t const generate_priority;
 	static nano::uint128_t const high_priority;
 	std::atomic<uint64_t> reps_count{ 0 };
+	std::atomic<uint64_t> half_principal_reps_count{ 0 }; // Representatives with at least 50% of principal representative requirements
 
 	/** Start read-write transaction */
 	nano::write_transaction tx_begin_write ();
@@ -237,11 +238,14 @@ class wallets_store
 {
 public:
 	virtual ~wallets_store () = default;
+	virtual bool init_error () const = 0;
 };
 class mdb_wallets_store final : public wallets_store
 {
 public:
-	mdb_wallets_store (bool &, boost::filesystem::path const &, int lmdb_max_dbs = 128);
+	mdb_wallets_store (boost::filesystem::path const &, int lmdb_max_dbs = 128);
 	nano::mdb_env environment;
+	bool init_error () const override;
+	bool error{ false };
 };
 }

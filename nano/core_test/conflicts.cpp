@@ -18,7 +18,7 @@ TEST (conflicts, start_stop)
 	node1.active.start (send1);
 	ASSERT_EQ (1, node1.active.size ());
 	{
-		std::lock_guard<std::mutex> guard (node1.active.mutex);
+		nano::lock_guard<std::mutex> guard (node1.active.mutex);
 		auto existing1 (node1.active.roots.find (send1->qualified_root ()));
 		ASSERT_NE (node1.active.roots.end (), existing1);
 		auto votes1 (existing1->election);
@@ -45,7 +45,7 @@ TEST (conflicts, add_existing)
 	node1.active.vote (vote1);
 	ASSERT_EQ (1, node1.active.size ());
 	{
-		std::lock_guard<std::mutex> guard (node1.active.mutex);
+		nano::lock_guard<std::mutex> guard (node1.active.mutex);
 		auto votes1 (node1.active.roots.find (send2->qualified_root ())->election);
 		ASSERT_NE (nullptr, votes1);
 		ASSERT_EQ (2, votes1->last_votes.size ());
@@ -172,7 +172,7 @@ TEST (conflicts, reprioritize)
 	node1.process_active (send1);
 	node1.block_processor.flush ();
 	{
-		std::lock_guard<std::mutex> guard (node1.active.mutex);
+		nano::lock_guard<std::mutex> guard (node1.active.mutex);
 		auto existing1 (node1.active.roots.find (send1->qualified_root ()));
 		ASSERT_NE (node1.active.roots.end (), existing1);
 		ASSERT_EQ (difficulty1, existing1->difficulty);
@@ -183,7 +183,7 @@ TEST (conflicts, reprioritize)
 	node1.process_active (std::make_shared<nano::send_block> (send1_copy));
 	node1.block_processor.flush ();
 	{
-		std::lock_guard<std::mutex> guard (node1.active.mutex);
+		nano::lock_guard<std::mutex> guard (node1.active.mutex);
 		auto existing2 (node1.active.roots.find (send1->qualified_root ()));
 		ASSERT_NE (node1.active.roots.end (), existing2);
 		ASSERT_EQ (difficulty2, existing2->difficulty);
@@ -193,9 +193,9 @@ TEST (conflicts, reprioritize)
 TEST (conflicts, dependency)
 {
 	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.delay_frontier_confirmation_height_updating = true;
-	auto node1 = system.add_node (nano::node_config (24000, system.logging), node_flags);
+	nano::node_config node_config (24000, system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto node1 = system.add_node (node_config);
 	nano::genesis genesis;
 	nano::keypair key1;
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, nano::genesis_amount - nano::xrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
@@ -210,7 +210,7 @@ TEST (conflicts, dependency)
 	ASSERT_EQ (2, node1->active.size ());
 	// Check dependency for send block
 	{
-		std::lock_guard<std::mutex> guard (node1->active.mutex);
+		nano::lock_guard<std::mutex> guard (node1->active.mutex);
 		auto existing1 (node1->active.roots.find (send1->qualified_root ()));
 		ASSERT_NE (node1->active.roots.end (), existing1);
 		auto election1 (existing1->election);
@@ -241,8 +241,8 @@ TEST (conflicts, adjusted_difficulty)
 	node1.process_active (send3);
 	auto send4 (std::make_shared<nano::state_block> (key1.pub, send3->hash (), key1.pub, 0, key3.pub, key1.prv, key1.pub, system.work.generate (send3->hash ())));
 	node1.process_active (send4);
-	ASSERT_EQ (node1.ledger.epoch_signer, nano::test_genesis_key.pub);
-	auto open_epoch1 (std::make_shared<nano::state_block> (key2.pub, 0, 0, 0, node1.ledger.epoch_link, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (key2.pub)));
+	ASSERT_EQ (node1.ledger.signer (node1.ledger.link (nano::epoch::epoch_1)), nano::test_genesis_key.pub);
+	auto open_epoch1 (std::make_shared<nano::state_block> (key2.pub, 0, 0, 0, node1.ledger.link (nano::epoch::epoch_1), nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (key2.pub)));
 	node1.process_active (open_epoch1);
 	auto receive2 (std::make_shared<nano::state_block> (key2.pub, open_epoch1->hash (), 0, nano::xrb_ratio, send3->hash (), key2.prv, key2.pub, system.work.generate (open_epoch1->hash ())));
 	node1.process_active (receive2);
@@ -258,7 +258,7 @@ TEST (conflicts, adjusted_difficulty)
 	}
 	std::unordered_map<nano::block_hash, uint64_t> adjusted_difficulties;
 	{
-		std::lock_guard<std::mutex> guard (node1.active.mutex);
+		nano::lock_guard<std::mutex> guard (node1.active.mutex);
 		ASSERT_EQ (node1.active.roots.get<1> ().begin ()->election->status.winner->hash (), send1->hash ());
 		for (auto i (node1.active.roots.get<1> ().begin ()), n (node1.active.roots.get<1> ().end ()); i != n; ++i)
 		{
@@ -280,7 +280,7 @@ TEST (conflicts, adjusted_difficulty)
 	ASSERT_GT (adjusted_difficulties.find (open2->hash ())->second, adjusted_difficulties.find (change1->hash ())->second);
 	// Independent elections can have higher difficulty than adjusted tree
 	nano::keypair key4;
-	auto open_epoch2 (std::make_shared<nano::state_block> (key4.pub, 0, 0, 0, node1.ledger.epoch_link, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (key4.pub, adjusted_difficulties.find (send1->hash ())->second)));
+	auto open_epoch2 (std::make_shared<nano::state_block> (key4.pub, 0, 0, 0, node1.ledger.link (nano::epoch::epoch_1), nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (key4.pub, adjusted_difficulties.find (send1->hash ())->second)));
 	uint64_t difficulty;
 	ASSERT_FALSE (nano::work_validate (*open_epoch2, &difficulty));
 	ASSERT_GT (difficulty, adjusted_difficulties.find (send1->hash ())->second);
@@ -292,7 +292,7 @@ TEST (conflicts, adjusted_difficulty)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	{
-		std::lock_guard<std::mutex> guard (node1.active.mutex);
+		nano::lock_guard<std::mutex> guard (node1.active.mutex);
 		ASSERT_EQ (node1.active.roots.get<1> ().begin ()->election->status.winner->hash (), open_epoch2->hash ());
 	}
 }

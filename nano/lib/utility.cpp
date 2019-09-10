@@ -67,6 +67,14 @@ void dump_crash_stacktrace ()
 	boost::stacktrace::safe_dump_to ("nano_node_backtrace.dump");
 }
 
+std::string generate_stacktrace ()
+{
+	auto stacktrace = boost::stacktrace::stacktrace ();
+	std::stringstream ss;
+	ss << stacktrace;
+	return ss.str ();
+}
+
 namespace thread_role
 {
 	/*
@@ -134,6 +142,9 @@ namespace thread_role
 			case nano::thread_role::name::confirmation_height_processing:
 				thread_role_name_string = "Conf height";
 				break;
+			case nano::thread_role::name::worker:
+				thread_role_name_string = "Worker";
+				break;
 		}
 
 		/*
@@ -185,7 +196,7 @@ io_guard (boost::asio::make_work_guard (io_ctx_a))
 			{
 				std::cerr << ex.what () << std::endl;
 #ifndef NDEBUG
-				throw ex;
+				throw;
 #endif
 			}
 			catch (...)
@@ -225,6 +236,99 @@ void nano::thread_runner::stop_event_processing ()
 	io_guard.get_executor ().context ().stop ();
 }
 
+nano::worker::worker () :
+thread ([this]() {
+	nano::thread_role::set (nano::thread_role::name::worker);
+	this->run ();
+})
+{
+}
+
+void nano::worker::run ()
+{
+	while (!stopped)
+	{
+		nano::unique_lock<std::mutex> lk (mutex);
+		if (!queue.empty ())
+		{
+			auto func = queue.front ();
+			queue.pop_front ();
+			lk.unlock ();
+			func ();
+			// So that we reduce locking for anything being pushed as that will
+			// most likely be on an io-thread
+			std::this_thread::yield ();
+		}
+		else
+		{
+			cv.wait (lk);
+		}
+	}
+}
+
+nano::worker::~worker ()
+{
+	stop ();
+}
+
+void nano::worker::push_task (std::function<void()> func_a)
+{
+	{
+		nano::lock_guard<std::mutex> guard (mutex);
+		queue.emplace_back (func_a);
+	}
+
+	cv.notify_one ();
+}
+
+void nano::worker::stop ()
+{
+	stopped = true;
+	cv.notify_one ();
+	if (thread.joinable ())
+	{
+		thread.join ();
+	}
+}
+
+std::unique_ptr<nano::seq_con_info_component> nano::collect_seq_con_info (nano::worker & worker, const std::string & name)
+{
+	auto composite = std::make_unique<seq_con_info_composite> (name);
+
+	size_t count = 0;
+	{
+		nano::lock_guard<std::mutex> guard (worker.mutex);
+		count = worker.queue.size ();
+	}
+	auto sizeof_element = sizeof (decltype (worker.queue)::value_type);
+	composite->add_component (std::make_unique<nano::seq_con_info_leaf> (nano::seq_con_info{ "queue", count, sizeof_element }));
+	return composite;
+}
+
+void nano::remove_all_files_in_dir (boost::filesystem::path const & dir)
+{
+	for (auto & p : boost::filesystem::directory_iterator (dir))
+	{
+		auto path = p.path ();
+		if (boost::filesystem::is_regular_file (path))
+		{
+			boost::filesystem::remove (path);
+		}
+	}
+}
+
+void nano::move_all_files_to_dir (boost::filesystem::path const & from, boost::filesystem::path const & to)
+{
+	for (auto & p : boost::filesystem::directory_iterator (from))
+	{
+		auto path = p.path ();
+		if (boost::filesystem::is_regular_file (path))
+		{
+			boost::filesystem::rename (path, to / path.filename ());
+		}
+	}
+}
+
 /*
  * Backing code for "release_assert", which is itself a macro
  */
@@ -238,10 +342,7 @@ void release_assert_internal (bool check, const char * check_expr, const char * 
 	std::cerr << "Assertion (" << check_expr << ") failed " << file << ":" << line << "\n\n";
 
 	// Output stack trace to cerr
-	auto stacktrace = boost::stacktrace::stacktrace ();
-	std::stringstream ss;
-	ss << stacktrace;
-	auto backtrace_str = ss.str ();
+	auto backtrace_str = nano::generate_stacktrace ();
 	std::cerr << backtrace_str << std::endl;
 
 	// "abort" at the end of this function will go into any signal handlers (the daemon ones will generate a stack trace and load memory address files on non-Windows systems).

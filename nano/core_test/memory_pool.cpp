@@ -15,7 +15,7 @@ class record_allocations_new_delete_allocator
 public:
 	using value_type = T;
 
-	record_allocations_new_delete_allocator (std::vector<size_t> * allocated) :
+	explicit record_allocations_new_delete_allocator (std::vector<size_t> * allocated) :
 	allocated (allocated)
 	{
 	}
@@ -25,6 +25,9 @@ public:
 	{
 		allocated = a.allocated;
 	}
+
+	template <typename U>
+	record_allocations_new_delete_allocator & operator= (const record_allocations_new_delete_allocator<U> &) = delete;
 
 	T * allocate (size_t num_to_allocate)
 	{

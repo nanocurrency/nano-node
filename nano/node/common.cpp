@@ -10,11 +10,18 @@
 
 std::bitset<16> constexpr nano::message_header::block_type_mask;
 std::bitset<16> constexpr nano::message_header::count_mask;
-
+namespace
+{
+nano::protocol_constants const & get_protocol_constants ()
+{
+	static nano::network_params params;
+	return params.protocol;
+}
+}
 nano::message_header::message_header (nano::message_type type_a) :
-version_max (nano::protocol_version),
-version_using (nano::protocol_version),
-version_min (nano::protocol_version_min),
+version_max (get_protocol_constants ().protocol_version),
+version_using (get_protocol_constants ().protocol_version),
+version_min (get_protocol_constants ().protocol_version_min),
 type (type_a)
 {
 }
@@ -40,12 +47,12 @@ void nano::message_header::serialize (nano::stream & stream_a) const
 
 bool nano::message_header::deserialize (nano::stream & stream_a)
 {
-	static nano::network_params network_params;
-	uint16_t extensions_l;
-	std::array<uint8_t, 2> magic_number_l;
 	auto error (false);
 	try
 	{
+		static nano::network_params network_params;
+		uint16_t extensions_l;
+		std::array<uint8_t, 2> magic_number_l;
 		read (stream_a, magic_number_l);
 		if (magic_number_l != network_params.header_magic_number)
 		{
@@ -278,11 +285,7 @@ void nano::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t 
 		nano::message_header header (error, stream);
 		if (!error)
 		{
-			if (network_constants.is_beta_network () && header.version_using < nano::protocol_version_reasonable_min)
-			{
-				status = parse_status::outdated_version;
-			}
-			else if (header.version_using < nano::protocol_version_min)
+			if (header.version_using < get_protocol_constants ().protocol_version_min)
 			{
 				status = parse_status::outdated_version;
 			}

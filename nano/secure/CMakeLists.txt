@@ -13,21 +13,23 @@ endif ()
 # Embed bootstrap representative weights in executable. Both live
 # and beta weights are added to accommodate switching networks
 # from the command line.
-file (READ ${CMAKE_SOURCE_DIR}/rep_weights_live.bin filedata HEX)
-string (REGEX REPLACE "(..)" "0x\\1," filedata ${filedata})
+file(READ ${CMAKE_SOURCE_DIR}/rep_weights_live.bin liveweights HEX)
+string(REGEX REPLACE "(..)" "0x\\1," liveweights ${liveweights})
 file (WRITE ${CMAKE_BINARY_DIR}/bootstrap_weights_live.cpp "#include <cstddef>\n"
 	"namespace nano {\n"
-	"	unsigned char nano_bootstrap_weights_live[] = {${filedata} 0x00};\n"
+	"	unsigned char nano_bootstrap_weights_live[] = {${liveweights} 0x00};\n"
 	"	size_t nano_bootstrap_weights_live_size = sizeof(nano_bootstrap_weights_live) - 1;\n"
 	"}\n")
 
-file (READ ${CMAKE_SOURCE_DIR}/rep_weights_beta.bin filedata HEX)
-string (REGEX REPLACE "(..)" "0x\\1," filedata ${filedata})
+if (EXISTS ${CMAKE_SOURCE_DIR}/rep_weights_beta.bin)
+	file(READ ${CMAKE_SOURCE_DIR}/rep_weights_beta.bin betaweights HEX)
+	string(REGEX REPLACE "(..)" "0x\\1," betaweights ${betaweights})
+endif ()
 file (WRITE ${CMAKE_BINARY_DIR}/bootstrap_weights_beta.cpp "#include <cstddef>\n"
-"namespace nano {\n"
-"	unsigned char nano_bootstrap_weights_beta[] = {${filedata} 0x00};\n"
-"	size_t nano_bootstrap_weights_beta_size = sizeof(nano_bootstrap_weights_beta) - 1;\n"
-"}\n")
+	"namespace nano {\n"
+	"	unsigned char nano_bootstrap_weights_beta[] = {${betaweights} 0x00};\n"
+	"	size_t nano_bootstrap_weights_beta_size = sizeof(nano_bootstrap_weights_beta) - 1;\n"
+	"}\n")
 
 add_library (secure
 	${PLATFORM_SECURE_SOURCE}
@@ -36,7 +38,10 @@ add_library (secure
 	common.hpp
 	common.cpp
 	blockstore.hpp
+	blockstore_partial.hpp
 	blockstore.cpp
+	epoch.hpp
+	epoch.cpp
 	ledger.hpp
 	ledger.cpp
 	utility.hpp

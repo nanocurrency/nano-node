@@ -18,7 +18,7 @@
 namespace nano
 {
 class node;
-
+class tomlconfig;
 /**
  * Serialize and deserialize the 'statistics' node from config.json
  * All configuration values have defaults. In particular, file logging of statistics
@@ -29,6 +29,8 @@ class stat_config final
 public:
 	/** Reads the JSON statistics node */
 	nano::error deserialize_json (nano::jsonconfig & json);
+	nano::error deserialize_toml (nano::tomlconfig & toml);
+	nano::error serialize_toml (nano::tomlconfig & toml) const;
 
 	/** If true, sampling of counters is enabled */
 	bool sampling_enabled{ false };
@@ -65,13 +67,13 @@ public:
 	stat_datapoint () = default;
 	stat_datapoint (stat_datapoint const & other_a)
 	{
-		std::lock_guard<std::mutex> lock (other_a.datapoint_mutex);
+		nano::lock_guard<std::mutex> lock (other_a.datapoint_mutex);
 		value = other_a.value;
 		timestamp = other_a.timestamp;
 	}
 	stat_datapoint & operator= (stat_datapoint const & other_a)
 	{
-		std::lock_guard<std::mutex> lock (other_a.datapoint_mutex);
+		nano::lock_guard<std::mutex> lock (other_a.datapoint_mutex);
 		value = other_a.value;
 		timestamp = other_a.timestamp;
 		return *this;
@@ -79,28 +81,28 @@ public:
 
 	uint64_t get_value ()
 	{
-		std::lock_guard<std::mutex> lock (datapoint_mutex);
+		nano::lock_guard<std::mutex> lock (datapoint_mutex);
 		return value;
 	}
 	void set_value (uint64_t value_a)
 	{
-		std::lock_guard<std::mutex> lock (datapoint_mutex);
+		nano::lock_guard<std::mutex> lock (datapoint_mutex);
 		value = value_a;
 	}
 	std::chrono::system_clock::time_point get_timestamp ()
 	{
-		std::lock_guard<std::mutex> lock (datapoint_mutex);
+		nano::lock_guard<std::mutex> lock (datapoint_mutex);
 		return timestamp;
 	}
 	void set_timestamp (std::chrono::system_clock::time_point timestamp_a)
 	{
-		std::lock_guard<std::mutex> lock (datapoint_mutex);
+		nano::lock_guard<std::mutex> lock (datapoint_mutex);
 		timestamp = timestamp_a;
 	}
 	/** Add \addend to the current value and optionally update the timestamp */
 	void add (uint64_t addend, bool update_timestamp = true)
 	{
-		std::lock_guard<std::mutex> lock (datapoint_mutex);
+		nano::lock_guard<std::mutex> lock (datapoint_mutex);
 		value += addend;
 		if (update_timestamp)
 		{
@@ -167,12 +169,12 @@ public:
 	}
 
 	/** Write a header enrty to the log */
-	virtual void write_header (std::string header, std::chrono::system_clock::time_point & walltime)
+	virtual void write_header (std::string const & header, std::chrono::system_clock::time_point & walltime)
 	{
 	}
 
 	/** Write a counter or sampling entry to the log */
-	virtual void write_entry (tm & tm, std::string type, std::string detail, std::string dir, uint64_t value)
+	virtual void write_entry (tm & tm, std::string const & type, std::string const & detail, std::string const & dir, uint64_t value)
 	{
 	}
 
@@ -227,6 +229,7 @@ public:
 		rollback,
 		bootstrap,
 		vote,
+		election,
 		http_callback,
 		peering,
 		ipc,
@@ -292,6 +295,12 @@ public:
 		vote_replay,
 		vote_invalid,
 		vote_overflow,
+
+		// election specific
+		vote_new,
+		vote_cached,
+		late_block,
+		late_block_seconds,
 
 		// udp
 		blocking,

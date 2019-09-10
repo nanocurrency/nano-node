@@ -1,4 +1,6 @@
 #include <nano/lib/config.hpp>
+#include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/node/logging.hpp>
 
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -80,6 +82,68 @@ void nano::logging::release_file_sink ()
 	}
 }
 
+nano::error nano::logging::serialize_toml (nano::tomlconfig & toml) const
+{
+	toml.put ("ledger", ledger_logging_value, "Log ledger related messages\ntype:bool");
+	toml.put ("ledger_duplicate", ledger_duplicate_logging_value, "Log when a duplicate block is attempted inserted into the ledger\ntype:bool");
+	toml.put ("vote", vote_logging_value, "Vote logging. Enabling this option leads to a high volume\nof log messages which may affect node performance\ntype:bool");
+	toml.put ("network", network_logging_value, "Log network related messages\ntype:bool");
+	toml.put ("network_timeout", network_timeout_logging_value, "Log TCP timeouts\ntype:bool");
+	toml.put ("network_message", network_message_logging_value, "Log network errors and message details\ntype:bool");
+	toml.put ("network_publish", network_publish_logging_value, "Log publish related network messages\ntype:bool");
+	toml.put ("network_packet", network_packet_logging_value, "Log network packet activity\ntype:bool");
+	toml.put ("network_keepalive", network_keepalive_logging_value, "Log keepalive related messages\ntype:bool");
+	toml.put ("network_node_id_handshake", network_node_id_handshake_logging_value, "Log node-id handshake related messages\ntype:bool");
+	toml.put ("node_lifetime_tracing", node_lifetime_tracing_value, "Log node startup and shutdown messages\ntype:bool");
+	toml.put ("insufficient_work", insufficient_work_logging_value, "Log if insufficient work is detected\ntype:bool");
+	toml.put ("log_ipc", log_ipc_value, "Log IPC related activity\ntype:bool");
+	toml.put ("bulk_pull", bulk_pull_logging_value, "Log bulk pull errors and messages\ntype:bool");
+	toml.put ("work_generation_time", work_generation_time_value, "Log work generation timing information\ntype:bool");
+	toml.put ("upnp_details", upnp_details_logging_value, "Log UPNP discovery details. WARNING: this may include information\nabout discovered devices, such as product identification. Please review before sharing logs.\ntype:bool");
+	toml.put ("timing", timing_logging_value, "Log detailed timing information for various node operations\ntype:bool");
+	toml.put ("active_update", active_update_value, "Log when a block is updated while in active transactions\ntype:bool");
+	toml.put ("log_to_cerr", log_to_cerr_value, "Log to standard error in addition to the log file\ntype:bool");
+	toml.put ("max_size", max_size, "Maximum log file size in bytes\ntype:uint64");
+	toml.put ("rotation_size", rotation_size, "Log file rotation size in character count\ntype:uint64");
+	toml.put ("flush", flush, "If enabled, immediately flush new entries to log file. This may negatively affect logging performance.\ntype:bool");
+	toml.put ("min_time_between_output", min_time_between_log_output.count (), "Minimum time that must pass for low priority entries to be logged\ntype:milliseconds");
+	toml.put ("single_line_record", single_line_record_value, "Keep log entries on single lines\ntype:bool");
+
+	return toml.get_error ();
+}
+
+nano::error nano::logging::deserialize_toml (nano::tomlconfig & toml)
+{
+	toml.get<bool> ("ledger", ledger_logging_value);
+	toml.get<bool> ("ledger_duplicate", ledger_duplicate_logging_value);
+	toml.get<bool> ("vote", vote_logging_value);
+	toml.get<bool> ("network", network_logging_value);
+	toml.get<bool> ("network_timeout", network_timeout_logging_value);
+	toml.get<bool> ("network_message", network_message_logging_value);
+	toml.get<bool> ("network_publish", network_publish_logging_value);
+	toml.get<bool> ("network_packet", network_packet_logging_value);
+	toml.get<bool> ("network_keepalive", network_keepalive_logging_value);
+	toml.get<bool> ("network_node_id_handshake", network_node_id_handshake_logging_value);
+	toml.get<bool> ("node_lifetime_tracing", node_lifetime_tracing_value);
+	toml.get<bool> ("insufficient_work", insufficient_work_logging_value);
+	toml.get<bool> ("log_ipc", log_ipc_value);
+	toml.get<bool> ("bulk_pull", bulk_pull_logging_value);
+	toml.get<bool> ("work_generation_time", work_generation_time_value);
+	toml.get<bool> ("upnp_details", upnp_details_logging_value);
+	toml.get<bool> ("timing", timing_logging_value);
+	toml.get<bool> ("active_update", active_update_value);
+	toml.get<bool> ("log_to_cerr", log_to_cerr_value);
+	toml.get<bool> ("flush", flush);
+	toml.get<bool> ("single_line_record", single_line_record_value);
+	toml.get<uintmax_t> ("max_size", max_size);
+	toml.get<uintmax_t> ("rotation_size", rotation_size);
+	auto min_time_between_log_output_l = min_time_between_log_output.count ();
+	toml.get ("min_time_between_output", min_time_between_log_output_l);
+	min_time_between_log_output = std::chrono::milliseconds (min_time_between_log_output_l);
+
+	return toml.get_error ();
+}
+
 nano::error nano::logging::serialize_json (nano::jsonconfig & json) const
 {
 	json.put ("version", json_version ());
@@ -105,6 +169,7 @@ nano::error nano::logging::serialize_json (nano::jsonconfig & json) const
 	json.put ("rotation_size", rotation_size);
 	json.put ("flush", flush);
 	json.put ("min_time_between_output", min_time_between_log_output.count ());
+	json.put ("single_line_record", single_line_record_value);
 	return json.get_error ();
 }
 
@@ -135,6 +200,8 @@ bool nano::logging::upgrade_json (unsigned version_a, nano::jsonconfig & json)
 			json.erase ("log_rpc");
 			break;
 		case 7:
+			json.put ("single_line_record", single_line_record_value);
+		case 8:
 			break;
 		default:
 			throw std::runtime_error ("Unknown logging_config version");
@@ -183,6 +250,7 @@ nano::error nano::logging::deserialize_json (bool & upgraded_a, nano::jsonconfig
 	json.get<bool> ("timing", timing_logging_value);
 	json.get<bool> ("log_to_cerr", log_to_cerr_value);
 	json.get<bool> ("flush", flush);
+	json.get<bool> ("single_line_record", single_line_record_value);
 	json.get<uintmax_t> ("max_size", max_size);
 	json.get<uintmax_t> ("rotation_size", rotation_size);
 	uintmax_t min_time_between_log_output_raw;
@@ -281,7 +349,17 @@ bool nano::logging::timing_logging () const
 	return timing_logging_value;
 }
 
+bool nano::logging::active_update_logging () const
+{
+	return active_update_value;
+}
+
 bool nano::logging::log_to_cerr () const
 {
 	return log_to_cerr_value;
+}
+
+bool nano::logging::single_line_record () const
+{
+	return single_line_record_value;
 }

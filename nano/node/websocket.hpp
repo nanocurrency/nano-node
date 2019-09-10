@@ -36,6 +36,7 @@ enum class election_status_type : uint8_t;
 namespace websocket
 {
 	class listener;
+	class confirmation_options;
 
 	/** Supported topics */
 	enum class topic
@@ -51,6 +52,8 @@ namespace websocket
 		vote,
 		/** An active difficulty message */
 		active_difficulty,
+		/** Work generation message */
+		work,
 		/** Auxiliary length, not a valid topic, must be the last enum */
 		_length
 	};
@@ -69,7 +72,7 @@ namespace websocket
 		{
 		}
 
-		std::shared_ptr<std::string> to_string () const;
+		std::string to_string () const;
 		nano::websocket::topic topic;
 		boost::property_tree::ptree contents;
 	};
@@ -78,10 +81,13 @@ namespace websocket
 	class message_builder final
 	{
 	public:
-		message block_confirmed (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, bool include_block, nano::election_status_type election_status_type_a);
+		message block_confirmed (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, bool include_block, nano::election_status const & election_status_a, nano::websocket::confirmation_options const & options_a);
 		message stopped_election (nano::block_hash const & hash_a);
 		message vote_received (std::shared_ptr<nano::vote> vote_a);
-		message difficulty_changed (uint64_t publish_threshold, uint64_t difficulty_active);
+		message difficulty_changed (uint64_t publish_threshold_a, uint64_t difficulty_active_a);
+		message work_generation (nano::block_hash const & root_a, uint64_t const work_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::string const & peer_a, std::vector<std::string> const & bad_peers_a, bool const completed_a = true, bool const cancelled_a = false);
+		message work_cancelled (nano::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a);
+		message work_failed (nano::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a);
 
 	private:
 		/** Set the common fields for messages: timestamp and topic. */
@@ -117,7 +123,7 @@ namespace websocket
 	class confirmation_options final : public options
 	{
 	public:
-		confirmation_options ();
+		confirmation_options (nano::node & node_a);
 		confirmation_options (boost::property_tree::ptree const & options_a, nano::node & node_a);
 
 		/**
@@ -133,6 +139,12 @@ namespace websocket
 			return include_block;
 		}
 
+		/** Returns whether or not to include election info, such as tally and duration */
+		bool get_include_election_info () const
+		{
+			return include_election_info;
+		}
+
 		static constexpr const uint8_t type_active_quorum = 1;
 		static constexpr const uint8_t type_active_confirmation_height = 2;
 		static constexpr const uint8_t type_inactive = 4;
@@ -141,6 +153,7 @@ namespace websocket
 
 	private:
 		nano::node & node;
+		bool include_election_info{ false };
 		bool include_block{ true };
 		bool has_account_filtering_options{ false };
 		bool all_local_accounts{ false };
@@ -241,7 +254,7 @@ namespace websocket
 		void stop ();
 
 		/** Broadcast block confirmation. The content of the message depends on subscription options (such as "include_block") */
-		void broadcast_confirmation (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, nano::election_status_type election_status_type_a);
+		void broadcast_confirmation (std::shared_ptr<nano::block> block_a, nano::account const & account_a, nano::amount const & amount_a, std::string subtype, nano::election_status const & election_status_a);
 
 		/** Broadcast \p message to all session subscribing to the message topic. */
 		void broadcast (nano::websocket::message message_a);

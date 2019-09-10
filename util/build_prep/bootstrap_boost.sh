@@ -26,7 +26,7 @@ while getopts 'hmcCkpvB:' OPT; do
 			exit 0
 			;;
 		m)
-			bootstrapArgs+=('--with-libraries=thread,log,filesystem,program_options')
+			bootstrapArgs+=('--with-libraries=system,thread,log,filesystem,program_options,context,fiber')
 			;;
 		c)
 			useClang='true'
@@ -75,13 +75,18 @@ fi
 case "${boostVersion}" in
 	1.67)
 		BOOST_BASENAME=boost_1_67_0
-		BOOST_URL=https://netix.dl.sourceforge.net/project/boost/boost/1.67.0/${BOOST_BASENAME}.tar.bz2
+		BOOST_URL=https://dl.bintray.com/boostorg/release/1.67.0/source/${BOOST_BASENAME}.tar.bz2
 		BOOST_ARCHIVE_SHA256='2684c972994ee57fc5632e03bf044746f6eb45d4920c343937a465fd67a5adba'
 		;;
 	1.69)
 		BOOST_BASENAME=boost_1_69_0
-		BOOST_URL=https://netix.dl.sourceforge.net/project/boost/boost/1.69.0/${BOOST_BASENAME}.tar.bz2
+		BOOST_URL=https://dl.bintray.com/boostorg/release/1.69.0/source/${BOOST_BASENAME}.tar.bz2
 		BOOST_ARCHIVE_SHA256='8f32d4617390d1c2d16f26a27ab60d97807b35440d45891fa340fc2648b04406'
+		;;
+	1.70)
+		BOOST_BASENAME=boost_1_70_0
+		BOOST_URL=https://dl.bintray.com/boostorg/release/1.70.0/source/${BOOST_BASENAME}.tar.bz2
+		BOOST_ARCHIVE_SHA256='430ae8354789de4fd19ee52f3b1f739e1fba576f0aded0897c3c2bc00fb38778'
 		;;
 	*)
 		echo "Unsupported Boost version: ${boostVersion}" >&2

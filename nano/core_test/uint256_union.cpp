@@ -1,5 +1,4 @@
 #include <nano/core_test/testutil.hpp>
-#include <nano/lib/jsonconfig.hpp>
 #include <nano/secure/common.hpp>
 
 #include <gtest/gtest.h>

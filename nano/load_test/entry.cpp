@@ -2,6 +2,7 @@
 #include <nano/boost/beast.hpp>
 #include <nano/boost/process.hpp>
 #include <nano/core_test/testutil.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/secure/utility.hpp>
@@ -37,24 +38,27 @@ constexpr auto ipc_port_start = 62000;
 void write_config_files (boost::filesystem::path const & data_path, int index)
 {
 	nano::daemon_config daemon_config (data_path);
-	nano::jsonconfig json;
-	json.read_and_update (daemon_config, data_path / "config.json");
-	auto node_l = json.get_required_child ("node");
-	node_l.put ("peering_port", peering_port_start + index);
+	daemon_config.node.peering_port = peering_port_start + index;
+	daemon_config.node.ipc_config.transport_tcp.enabled = true;
+	daemon_config.node.ipc_config.transport_tcp.port = ipc_port_start + index;
+
 	// Alternate use of memory pool
-	node_l.put ("use_memory_pools", (index % 2) == 0);
-	auto tcp = node_l.get_required_child ("ipc").get_required_child ("tcp");
-	tcp.put ("enable", true);
-	tcp.put ("port", ipc_port_start + index);
-	json.write (data_path / "config.json");
+	daemon_config.node.use_memory_pools = (index % 2) == 0;
+
+	// Write daemon config
+	nano::tomlconfig toml;
+	daemon_config.serialize_toml (toml);
+	toml.write (nano::get_node_toml_config_path (data_path));
 
 	nano::rpc_config rpc_config;
-	nano::jsonconfig json1;
-	json1.read_and_update (rpc_config, data_path / "rpc_config.json");
-	json1.put ("port", rpc_port_start + index);
-	json1.put ("enable_control", true);
-	json1.get_required_child ("process").put ("ipc_port", ipc_port_start + index);
-	json1.write (data_path / "rpc_config.json");
+	rpc_config.port = rpc_port_start + index;
+	rpc_config.enable_control = true;
+	rpc_config.rpc_process.ipc_port = ipc_port_start + index;
+
+	// Write rpc config
+	nano::tomlconfig toml_rpc;
+	rpc_config.serialize_toml (toml_rpc);
+	toml_rpc.write (nano::get_rpc_toml_config_path (data_path));
 }
 
 // Report a failure
@@ -289,7 +293,6 @@ void keepalive_rpc (boost::asio::io_context & ioc, tcp::resolver::results_type c
 
 account key_create_rpc (boost::asio::io_context & ioc, tcp::resolver::results_type const & results)
 {
-	std::string request_string;
 	boost::property_tree::ptree request;
 	request.put ("action", "key_create");
 
@@ -305,7 +308,6 @@ account key_create_rpc (boost::asio::io_context & ioc, tcp::resolver::results_ty
 
 std::string wallet_create_rpc (boost::asio::io_context & ioc, tcp::resolver::results_type const & results)
 {
-	std::string request_string;
 	boost::property_tree::ptree request;
 	request.put ("action", "wallet_create");
 
@@ -367,7 +369,7 @@ int main (int argc, char * const * argv)
 		("simultaneous_process_calls", boost::program_options::value<int> ()->default_value (20), "Number of simultaneous rpc sends to do")
 		("destination_count", boost::program_options::value<int> ()->default_value (2), "How many destination accounts to choose between")
 		("node_path", boost::program_options::value<std::string> (), "The path to the nano_node to test")
-		("rpc_path", boost::program_options::value<std::string> (), "The path to do nano_rpc to test");
+		("rpc_path", boost::program_options::value<std::string> (), "The path to the nano_rpc to test");
 	// clang-format on
 
 	boost::program_options::variables_map vm;

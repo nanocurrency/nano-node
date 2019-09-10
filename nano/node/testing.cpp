@@ -25,9 +25,8 @@ std::string nano::error_system_messages::message (int ev) const
 /** Returns the node added. */
 std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & node_config_a, nano::node_flags node_flags_a, nano::transport::transport_type type_a)
 {
-	nano::node_init init;
-	auto node (std::make_shared<nano::node> (init, io_ctx, nano::unique_path (), alarm, node_config_a, work, node_flags_a));
-	assert (!init.error ());
+	auto node (std::make_shared<nano::node> (io_ctx, nano::unique_path (), alarm, node_config_a, work, node_flags_a));
+	assert (!node->init_error ());
 	node->start ();
 	nano::uint256_union wallet;
 	nano::random_pool::generate_block (wallet.bytes.data (), wallet.bytes.size ());
@@ -54,7 +53,7 @@ std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & no
 			else
 			{
 				// UDP connection
-				auto channel (std::make_shared<nano::transport::channel_udp> ((*j)->network.udp_channels, (*i)->network.endpoint ()));
+				auto channel (std::make_shared<nano::transport::channel_udp> ((*j)->network.udp_channels, (*i)->network.endpoint (), node1->network_params.protocol.protocol_version));
 				(*j)->network.send_keepalive (channel);
 			}
 			do
@@ -144,6 +143,7 @@ std::shared_ptr<nano::wallet> nano::system::wallet (size_t index_a)
 {
 	assert (nodes.size () > index_a);
 	auto size (nodes[index_a]->wallets.items.size ());
+	(void)size;
 	assert (size == 1);
 	return nodes[index_a]->wallets.items.begin ()->second;
 }
@@ -181,7 +181,7 @@ namespace
 class traffic_generator : public std::enable_shared_from_this<traffic_generator>
 {
 public:
-	traffic_generator (uint32_t count_a, uint32_t wait_a, std::shared_ptr<nano::node> node_a, nano::system & system_a) :
+	traffic_generator (uint32_t count_a, uint32_t wait_a, std::shared_ptr<nano::node> const & node_a, nano::system & system_a) :
 	count (count_a),
 	wait (wait_a),
 	node (node_a),
@@ -241,10 +241,11 @@ void nano::system::generate_rollback (nano::node & node_a, std::vector<nano::acc
 			accounts_a.pop_back ();
 			std::vector<std::shared_ptr<nano::block>> rollback_list;
 			auto error = node_a.ledger.rollback (transaction, hash, rollback_list);
+			(void)error;
 			assert (!error);
 			for (auto & i : rollback_list)
 			{
-				node_a.wallets.watcher.remove (i);
+				node_a.wallets.watcher->remove (i);
 				node_a.active.erase (*i);
 			}
 		}
@@ -312,12 +313,9 @@ nano::account nano::system::get_random_account (std::vector<nano::account> & acc
 nano::uint128_t nano::system::get_random_amount (nano::transaction const & transaction_a, nano::node & node_a, nano::account const & account_a)
 {
 	nano::uint128_t balance (node_a.ledger.account_balance (transaction_a, account_a));
-	std::string balance_text (balance.convert_to<std::string> ());
 	nano::uint128_union random_amount;
 	nano::random_pool::generate_block (random_amount.bytes.data (), sizeof (random_amount.bytes));
-	auto result (((nano::uint256_t{ random_amount.number () } * balance) / nano::uint256_t{ std::numeric_limits<nano::uint128_t>::max () }).convert_to<nano::uint128_t> ());
-	std::string text (result.convert_to<std::string> ());
-	return result;
+	return (((nano::uint256_t{ random_amount.number () } * balance) / nano::uint256_t{ std::numeric_limits<nano::uint128_t>::max () }).convert_to<nano::uint128_t> ());
 }
 
 void nano::system::generate_send_existing (nano::node & node_a, std::vector<nano::account> & accounts_a)
@@ -342,6 +340,7 @@ void nano::system::generate_send_existing (nano::node & node_a, std::vector<nano
 	if (!amount.is_zero ())
 	{
 		auto hash (wallet (0)->send_sync (source, destination, amount));
+		(void)hash;
 		assert (!hash.is_zero ());
 	}
 }
@@ -353,6 +352,7 @@ void nano::system::generate_change_known (nano::node & node_a, std::vector<nano:
 	{
 		nano::account destination (get_random_account (accounts_a));
 		auto change_error (wallet (0)->change_sync (source, destination));
+		(void)change_error;
 		assert (!change_error);
 	}
 }
@@ -365,6 +365,7 @@ void nano::system::generate_change_unknown (nano::node & node_a, std::vector<nan
 		nano::keypair key;
 		nano::account destination (key.pub);
 		auto change_error (wallet (0)->change_sync (source, destination));
+		(void)change_error;
 		assert (!change_error);
 	}
 }
@@ -384,6 +385,7 @@ void nano::system::generate_send_new (nano::node & node_a, std::vector<nano::acc
 		auto pub (node_a.wallets.items.begin ()->second->deterministic_insert ());
 		accounts_a.push_back (pub);
 		auto hash (wallet (0)->send_sync (source, pub, amount));
+		(void)hash;
 		assert (!hash.is_zero ());
 	}
 }
@@ -423,169 +425,6 @@ void nano::system::stop ()
 	}
 	work.stop ();
 }
-
-nano::landing_store::landing_store (nano::account const & source_a, nano::account const & destination_a, uint64_t start_a, uint64_t last_a) :
-source (source_a),
-destination (destination_a),
-start (start_a),
-last (last_a)
-{
-}
-
-nano::landing_store::landing_store (bool & error_a, std::istream & stream_a)
-{
-	error_a = deserialize (stream_a);
-}
-
-bool nano::landing_store::deserialize (std::istream & stream_a)
-{
-	bool result;
-	try
-	{
-		boost::property_tree::ptree tree;
-		boost::property_tree::read_json (stream_a, tree);
-		auto source_l (tree.get<std::string> ("source"));
-		auto destination_l (tree.get<std::string> ("destination"));
-		auto start_l (tree.get<std::string> ("start"));
-		auto last_l (tree.get<std::string> ("last"));
-		result = source.decode_account (source_l);
-		if (!result)
-		{
-			result = destination.decode_account (destination_l);
-			if (!result)
-			{
-				start = std::stoull (start_l);
-				last = std::stoull (last_l);
-			}
-		}
-	}
-	catch (std::logic_error const &)
-	{
-		result = true;
-	}
-	catch (std::runtime_error const &)
-	{
-		result = true;
-	}
-	return result;
-}
-
-void nano::landing_store::serialize (std::ostream & stream_a) const
-{
-	boost::property_tree::ptree tree;
-	tree.put ("source", source.to_account ());
-	tree.put ("destination", destination.to_account ());
-	tree.put ("start", std::to_string (start));
-	tree.put ("last", std::to_string (last));
-	boost::property_tree::write_json (stream_a, tree);
-}
-
-bool nano::landing_store::operator== (nano::landing_store const & other_a) const
-{
-	return source == other_a.source && destination == other_a.destination && start == other_a.start && last == other_a.last;
-}
-
-nano::landing::landing (nano::node & node_a, std::shared_ptr<nano::wallet> wallet_a, nano::landing_store & store_a, boost::filesystem::path const & path_a) :
-path (path_a),
-store (store_a),
-wallet (wallet_a),
-node (node_a)
-{
-}
-
-void nano::landing::write_store ()
-{
-	std::ofstream store_file;
-	store_file.open (path.string ());
-	if (!store_file.fail ())
-	{
-		store.serialize (store_file);
-	}
-	else
-	{
-		std::stringstream str;
-		store.serialize (str);
-		node.logger.always_log (boost::str (boost::format ("Error writing store file %1%") % str.str ()));
-	}
-}
-
-nano::uint128_t nano::landing::distribution_amount (uint64_t interval)
-{
-	// Halving period ~= Exponent of 2 in seconds approximately 1 year = 2^25 = 33554432
-	// Interval = Exponent of 2 in seconds approximately 1 minute = 2^10 = 64
-	uint64_t intervals_per_period (1 << (25 - interval_exponent));
-	nano::uint128_t result;
-	if (interval < intervals_per_period * 1)
-	{
-		// Total supply / 2^halving period / intervals per period
-		// 2^128 / 2^1 / (2^25 / 2^10)
-		result = nano::uint128_t (1) << (127 - (25 - interval_exponent)); // 50%
-	}
-	else if (interval < intervals_per_period * 2)
-	{
-		result = nano::uint128_t (1) << (126 - (25 - interval_exponent)); // 25%
-	}
-	else if (interval < intervals_per_period * 3)
-	{
-		result = nano::uint128_t (1) << (125 - (25 - interval_exponent)); // 13%
-	}
-	else if (interval < intervals_per_period * 4)
-	{
-		result = nano::uint128_t (1) << (124 - (25 - interval_exponent)); // 6.3%
-	}
-	else if (interval < intervals_per_period * 5)
-	{
-		result = nano::uint128_t (1) << (123 - (25 - interval_exponent)); // 3.1%
-	}
-	else if (interval < intervals_per_period * 6)
-	{
-		result = nano::uint128_t (1) << (122 - (25 - interval_exponent)); // 1.6%
-	}
-	else if (interval < intervals_per_period * 7)
-	{
-		result = nano::uint128_t (1) << (121 - (25 - interval_exponent)); // 0.8%
-	}
-	else if (interval < intervals_per_period * 8)
-	{
-		result = nano::uint128_t (1) << (121 - (25 - interval_exponent)); // 0.8*
-	}
-	else
-	{
-		result = 0;
-	}
-	return result;
-}
-
-void nano::landing::distribute_one ()
-{
-	auto now (nano::seconds_since_epoch ());
-	nano::block_hash last (1);
-	while (!last.is_zero () && store.last + distribution_interval.count () < now)
-	{
-		auto amount (distribution_amount ((store.last - store.start) >> interval_exponent));
-		last = wallet->send_sync (store.source, store.destination, amount);
-		if (!last.is_zero ())
-		{
-			node.logger.always_log (boost::str (boost::format ("Successfully distributed %1% in block %2%") % amount % last.to_string ()));
-			store.last += distribution_interval.count ();
-			write_store ();
-		}
-		else
-		{
-			node.logger.always_log ("Error while sending distribution");
-		}
-	}
-}
-
-void nano::landing::distribute_ongoing ()
-{
-	distribute_one ();
-	node.logger.always_log ("Waiting for next distribution cycle");
-	node.alarm.add (std::chrono::steady_clock::now () + sleep_seconds, [this]() { distribute_ongoing (); });
-}
-
-std::chrono::seconds constexpr nano::landing::distribution_interval;
-std::chrono::seconds constexpr nano::landing::sleep_seconds;
 
 namespace nano
 {

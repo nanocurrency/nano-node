@@ -7,16 +7,18 @@ nano::online_reps::online_reps (nano::node & node_a, nano::uint128_t minimum_a) 
 node (node_a),
 minimum (minimum_a)
 {
-	auto transaction (node.ledger.store.tx_begin_read ());
-	online = trend (transaction);
+	if (!node.ledger.store.init_error ())
+	{
+		auto transaction (node.ledger.store.tx_begin_read ());
+		online = trend (transaction);
+	}
 }
 
 void nano::online_reps::observe (nano::account const & rep_a)
 {
-	auto transaction (node.ledger.store.tx_begin_read ());
-	if (node.ledger.weight (transaction, rep_a) > 0)
+	if (node.ledger.weight (rep_a) > 0)
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<std::mutex> lock (mutex);
 		reps.insert (rep_a);
 	}
 }
@@ -35,16 +37,16 @@ void nano::online_reps::sample ()
 	nano::uint128_t current;
 	std::unordered_set<nano::account> reps_copy;
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<std::mutex> lock (mutex);
 		reps_copy.swap (reps);
 	}
 	for (auto & i : reps_copy)
 	{
-		current += node.ledger.weight (transaction, i);
+		current += node.ledger.weight (i);
 	}
 	node.ledger.store.online_weight_put (transaction, std::chrono::system_clock::now ().time_since_epoch ().count (), current);
 	auto trend_l (trend (transaction));
-	std::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<std::mutex> lock (mutex);
 	online = trend_l;
 }
 
@@ -66,14 +68,14 @@ nano::uint128_t nano::online_reps::trend (nano::transaction & transaction_a)
 
 nano::uint128_t nano::online_reps::online_stake () const
 {
-	std::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<std::mutex> lock (mutex);
 	return std::max (online, minimum);
 }
 
 std::vector<nano::account> nano::online_reps::list ()
 {
 	std::vector<nano::account> result;
-	std::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<std::mutex> lock (mutex);
 	for (auto & i : reps)
 	{
 		result.push_back (i);
@@ -87,7 +89,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (online_reps & onli
 {
 	size_t count = 0;
 	{
-		std::lock_guard<std::mutex> guard (online_reps.mutex);
+		nano::lock_guard<std::mutex> guard (online_reps.mutex);
 		count = online_reps.reps.size ();
 	}
 

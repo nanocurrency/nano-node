@@ -7,17 +7,6 @@ namespace
 class test_visitor : public nano::message_visitor
 {
 public:
-	test_visitor () :
-	keepalive_count (0),
-	publish_count (0),
-	confirm_req_count (0),
-	confirm_ack_count (0),
-	bulk_pull_count (0),
-	bulk_pull_account_count (0),
-	bulk_push_count (0),
-	frontier_req_count (0)
-	{
-	}
 	void keepalive (nano::keepalive const &) override
 	{
 		++keepalive_count;
@@ -54,15 +43,15 @@ public:
 	{
 		++node_id_handshake_count;
 	}
-	uint64_t keepalive_count;
-	uint64_t publish_count;
-	uint64_t confirm_req_count;
-	uint64_t confirm_ack_count;
-	uint64_t bulk_pull_count;
-	uint64_t bulk_pull_account_count;
-	uint64_t bulk_push_count;
-	uint64_t frontier_req_count;
-	uint64_t node_id_handshake_count;
+	uint64_t keepalive_count{ 0 };
+	uint64_t publish_count{ 0 };
+	uint64_t confirm_req_count{ 0 };
+	uint64_t confirm_ack_count{ 0 };
+	uint64_t bulk_pull_count{ 0 };
+	uint64_t bulk_pull_account_count{ 0 };
+	uint64_t bulk_push_count{ 0 };
+	uint64_t frontier_req_count{ 0 };
+	uint64_t node_id_handshake_count{ 0 };
 };
 }
 

@@ -19,10 +19,6 @@ void show_line_ok (QLineEdit & line)
 {
 	line.setStyleSheet ("QLineEdit { color: black }");
 }
-void show_line_success (QLineEdit & line)
-{
-	line.setStyleSheet ("QLineEdit { color: blue }");
-}
 void show_label_error (QLabel & label)
 {
 	label.setStyleSheet ("QLabel { color: red }");
@@ -79,14 +75,8 @@ wallet (wallet_a)
 	{
 		network[0] = std::toupper (network[0]);
 	}
-	if (NANO_VERSION_PATCH == 0)
-	{
-		version = new QLabel (boost::str (boost::format ("Version %1% %2% network") % NANO_MAJOR_MINOR_VERSION % network).c_str ());
-	}
-	else
-	{
-		version = new QLabel (boost::str (boost::format ("Version %1% %2% network") % NANO_MAJOR_MINOR_RC_VERSION % network).c_str ());
-	}
+	version = new QLabel (boost::str (boost::format ("%1% %2% network") % NANO_VERSION_STRING % network).c_str ());
+
 	self_layout->addWidget (your_account_label);
 	self_layout->addStretch ();
 	self_layout->addWidget (version);
@@ -172,6 +162,7 @@ wallet (wallet_a)
 		if (selection.size () == 1)
 		{
 			auto error (this->wallet.account.decode_account (model->item (selection[0].row (), 1)->text ().toStdString ()));
+			(void)error;
 			assert (!error);
 			this->wallet.refresh ();
 		}
@@ -575,10 +566,10 @@ public:
 				type = "Change";
 				account = block_a.hashables.representative;
 			}
-			else if (balance == previous_balance && !ledger.epoch_link.is_zero () && ledger.is_epoch_link (block_a.hashables.link))
+			else if (balance == previous_balance && ledger.is_epoch_link (block_a.hashables.link))
 			{
 				type = "Epoch";
-				account = ledger.epoch_signer;
+				account = ledger.signer (block_a.hashables.link);
 			}
 			else
 			{
@@ -1420,8 +1411,10 @@ void nano_qt::wallet::update_connected ()
 void nano_qt::wallet::empty_password ()
 {
 	this->node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (3), [this]() {
-		auto transaction (wallet_m->wallets.tx_begin_write ());
-		wallet_m->enter_password (transaction, std::string (""));
+		this->node.worker.push_task ([this]() {
+			auto transaction (wallet_m->wallets.tx_begin_write ());
+			wallet_m->enter_password (transaction, std::string (""));
+		});
 	});
 }
 
@@ -1680,9 +1673,7 @@ void nano_qt::settings::refresh_representative ()
 	auto error (wallet.node.store.account_get (transaction, this->wallet.account, info));
 	if (!error)
 	{
-		auto block (wallet.node.store.block_get (transaction, info.rep_block));
-		assert (block != nullptr);
-		current_representative->setText (QString (block->representative ().to_account ().c_str ()));
+		current_representative->setText (QString (info.representative.to_account ().c_str ()));
 	}
 	else
 	{
@@ -2234,16 +2225,22 @@ void nano_qt::block_creation::create_send ()
 					{
 						nano::account_info info;
 						auto error (wallet.node.store.account_get (block_transaction, account_l, info));
+						(void)error;
 						assert (!error);
-						auto rep_block (wallet.node.store.block_get (block_transaction, info.rep_block));
-						assert (rep_block != nullptr);
-						nano::state_block send (account_l, info.head, rep_block->representative (), balance - amount_l.number (), destination_l, key, account_l, 0);
-						wallet.node.work_generate_blocking (send);
-						std::string block_l;
-						send.serialize_json (block_l);
-						block->setPlainText (QString (block_l.c_str ()));
-						show_label_ok (*status);
-						status->setText ("Created block");
+						nano::state_block send (account_l, info.head, info.representative, balance - amount_l.number (), destination_l, key, account_l, 0);
+						if (wallet.node.work_generate_blocking (send).is_initialized ())
+						{
+							std::string block_l;
+							send.serialize_json (block_l);
+							block->setPlainText (QString (block_l.c_str ()));
+							show_label_ok (*status);
+							status->setText ("Created block");
+						}
+						else
+						{
+							show_label_error (*status);
+							status->setText ("Work generation failure");
+						}
 					}
 					else
 					{
@@ -2302,15 +2299,20 @@ void nano_qt::block_creation::create_receive ()
 						auto error (wallet.wallet_m->store.fetch (transaction, pending_key.account, key));
 						if (!error)
 						{
-							auto rep_block (wallet.node.store.block_get (block_transaction, info.rep_block));
-							assert (rep_block != nullptr);
-							nano::state_block receive (pending_key.account, info.head, rep_block->representative (), info.balance.number () + pending.amount.number (), source_l, key, pending_key.account, 0);
-							wallet.node.work_generate_blocking (receive);
-							std::string block_l;
-							receive.serialize_json (block_l);
-							block->setPlainText (QString (block_l.c_str ()));
-							show_label_ok (*status);
-							status->setText ("Created block");
+							nano::state_block receive (pending_key.account, info.head, info.representative, info.balance.number () + pending.amount.number (), source_l, key, pending_key.account, 0);
+							if (wallet.node.work_generate_blocking (receive).is_initialized ())
+							{
+								std::string block_l;
+								receive.serialize_json (block_l);
+								block->setPlainText (QString (block_l.c_str ()));
+								show_label_ok (*status);
+								status->setText ("Created block");
+							}
+							else
+							{
+								show_label_error (*status);
+								status->setText ("Work generation failure");
+							}
 						}
 						else
 						{
@@ -2370,12 +2372,19 @@ void nano_qt::block_creation::create_change ()
 				if (!error)
 				{
 					nano::state_block change (account_l, info.head, representative_l, info.balance, 0, key, account_l, 0);
-					wallet.node.work_generate_blocking (change);
-					std::string block_l;
-					change.serialize_json (block_l);
-					block->setPlainText (QString (block_l.c_str ()));
-					show_label_ok (*status);
-					status->setText ("Created block");
+					if (wallet.node.work_generate_blocking (change).is_initialized ())
+					{
+						std::string block_l;
+						change.serialize_json (block_l);
+						block->setPlainText (QString (block_l.c_str ()));
+						show_label_ok (*status);
+						status->setText ("Created block");
+					}
+					else
+					{
+						show_label_error (*status);
+						status->setText ("Work generation failure");
+					}
 				}
 				else
 				{
@@ -2433,12 +2442,19 @@ void nano_qt::block_creation::create_open ()
 							if (!error)
 							{
 								nano::state_block open (pending_key.account, 0, representative_l, pending.amount, source_l, key, pending_key.account, 0);
-								wallet.node.work_generate_blocking (open);
-								std::string block_l;
-								open.serialize_json (block_l);
-								block->setPlainText (QString (block_l.c_str ()));
-								show_label_ok (*status);
-								status->setText ("Created block");
+								if (wallet.node.work_generate_blocking (open).is_initialized ())
+								{
+									std::string block_l;
+									open.serialize_json (block_l);
+									block->setPlainText (QString (block_l.c_str ()));
+									show_label_ok (*status);
+									status->setText ("Created block");
+								}
+								else
+								{
+									show_label_error (*status);
+									status->setText ("Work generation failure");
+								}
 							}
 							else
 							{

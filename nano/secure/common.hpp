@@ -6,6 +6,7 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/secure/epoch.hpp>
 #include <nano/secure/utility.hpp>
 
 #include <boost/iterator/transform_iterator.hpp>
@@ -37,21 +38,6 @@ struct hash<::nano::uint512_union>
 }
 namespace nano
 {
-const uint8_t protocol_version = 0x11;
-const uint8_t protocol_version_min = 0x0d;
-
-/*
- * Do not bootstrap from nodes older than this version.
- * Also, on the beta network do not process messages from
- * nodes older than this version.
- */
-const uint8_t protocol_version_reasonable_min = 0x0d;
-
-/*
- * Do not start TCP realtime network connections to nodes older than this version
- */
-const uint8_t tcp_realtime_protocol_version_min = 0x11;
-
 /**
  * A key pair. The private key is generated from the random pool, or passed in
  * as a hex string. The public key is derived using ed25519.
@@ -67,37 +53,26 @@ public:
 };
 
 /**
- * Tag for which epoch an entry belongs to
- */
-enum class epoch : uint8_t
-{
-	invalid = 0,
-	unspecified = 1,
-	epoch_0 = 2,
-	epoch_1 = 3
-};
-
-/**
  * Latest information about an account
  */
 class account_info final
 {
 public:
 	account_info () = default;
-	account_info (nano::block_hash const &, nano::block_hash const &, nano::block_hash const &, nano::amount const &, uint64_t, uint64_t, uint64_t, epoch);
+	account_info (nano::block_hash const &, nano::account const &, nano::block_hash const &, nano::amount const &, uint64_t, uint64_t, epoch);
 	bool deserialize (nano::stream &);
 	bool operator== (nano::account_info const &) const;
 	bool operator!= (nano::account_info const &) const;
 	size_t db_size () const;
+	nano::epoch epoch () const;
 	nano::block_hash head{ 0 };
-	nano::block_hash rep_block{ 0 };
+	nano::account representative{ 0 };
 	nano::block_hash open_block{ 0 };
 	nano::amount balance{ 0 };
 	/** Seconds since posix epoch */
 	uint64_t modified{ 0 };
 	uint64_t block_count{ 0 };
-	uint64_t confirmation_height{ 0 };
-	nano::epoch epoch{ nano::epoch::epoch_0 };
+	nano::epoch epoch_m{ nano::epoch::epoch_0 };
 };
 
 /**
@@ -317,6 +292,25 @@ public:
 
 class network_params;
 
+/** Protocol versions whose value may depend on the active network */
+class protocol_constants
+{
+public:
+	protocol_constants (nano::nano_networks network_a);
+
+	/** Current protocol version */
+	uint8_t protocol_version = 0x11;
+
+	/** Minimum accepted protocol version */
+	uint8_t protocol_version_min = 0x0d;
+
+	/** Do not bootstrap from nodes older than this version. */
+	uint8_t protocol_version_bootstrap_min = 0x0d;
+
+	/** Do not start TCP realtime network connections to nodes older than this version */
+	uint8_t tcp_realtime_protocol_version_min = 0x11;
+};
+
 /** Genesis keys and ledger constants for network variants */
 class ledger_constants
 {
@@ -335,6 +329,7 @@ public:
 	std::string genesis_block;
 	nano::uint128_t genesis_amount;
 	nano::account burn_account;
+	nano::epochs epochs;
 };
 
 /** Constants which depend on random values (this class should never be used globally due to CryptoPP globals potentially not being initialized) */
@@ -407,6 +402,7 @@ public:
 	std::array<uint8_t, 2> header_magic_number;
 	unsigned kdf_work;
 	network_constants network;
+	protocol_constants protocol;
 	ledger_constants ledger;
 	random_constants random;
 	voting_constants voting;

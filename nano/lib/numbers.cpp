@@ -10,13 +10,6 @@
 
 namespace
 {
-char const * base58_reverse ("~012345678~~~~~~~9:;<=>?@~ABCDE~FGHIJKLMNOP~~~~~~QRSTUVWXYZ[~\\]^_`abcdefghi");
-uint8_t base58_decode (char value)
-{
-	assert (value >= '0');
-	assert (value <= '~');
-	return static_cast<uint8_t> (base58_reverse[value - 0x30] - 0x30);
-}
 char const * account_lookup ("13456789abcdefghijkmnopqrstuwxyz");
 char const * account_reverse ("~0~1234567~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~89:;<=>?@AB~CDEFGHIJK~LMNO~~~~~");
 char account_encode (uint8_t value)
@@ -65,6 +58,11 @@ std::string nano::uint256_union::to_account () const
 	std::string result;
 	encode_account (result);
 	return result;
+}
+
+std::string nano::uint256_union::to_node_id () const
+{
+	return to_account ().replace (0, 4, "node");
 }
 
 bool nano::uint256_union::decode_account (std::string const & source_a)
@@ -204,7 +202,7 @@ void nano::uint256_union::encode_hex (std::string & text) const
 {
 	assert (text.empty ());
 	std::stringstream stream;
-	stream << std::hex << std::noshowbase << std::setw (64) << std::setfill ('0');
+	stream << std::hex << std::uppercase << std::noshowbase << std::setw (64) << std::setfill ('0');
 	stream << number ();
 	text = stream.str ();
 }
@@ -321,7 +319,7 @@ void nano::uint512_union::encode_hex (std::string & text) const
 {
 	assert (text.empty ());
 	std::stringstream stream;
-	stream << std::hex << std::noshowbase << std::setw (128) << std::setfill ('0');
+	stream << std::hex << std::uppercase << std::noshowbase << std::setw (128) << std::setfill ('0');
 	stream << number ();
 	text = stream.str ();
 }
@@ -478,7 +476,7 @@ void nano::uint128_union::encode_hex (std::string & text) const
 {
 	assert (text.empty ());
 	std::stringstream stream;
-	stream << std::hex << std::noshowbase << std::setw (32) << std::setfill ('0');
+	stream << std::hex << std::uppercase << std::noshowbase << std::setw (32) << std::setfill ('0');
 	stream << number ();
 	text = stream.str ();
 }
@@ -825,7 +823,8 @@ std::string nano::to_string (double const value_a, int const precision_a)
 uint64_t nano::difficulty::from_multiplier (double const multiplier_a, uint64_t const base_difficulty_a)
 {
 	assert (multiplier_a > 0.);
-	return (-static_cast<uint64_t> ((-base_difficulty_a) / multiplier_a));
+	uint64_t reverse_difficulty (static_cast<uint64_t> ((-base_difficulty_a) / multiplier_a));
+	return (reverse_difficulty != 0 || base_difficulty_a == 0 || multiplier_a < 1. ? -reverse_difficulty : std::numeric_limits<std::uint64_t>::max ());
 }
 
 double nano::difficulty::to_multiplier (uint64_t const difficulty_a, uint64_t const base_difficulty_a)

@@ -1,17 +1,56 @@
 #pragma once
 
+#include <nano/lib/diagnosticsconfig.hpp>
 #include <nano/lib/timer.hpp>
-#include <nano/node/diagnosticsconfig.hpp>
+#include <nano/secure/blockstore.hpp>
 
 #include <boost/property_tree/ptree.hpp>
 #include <boost/stacktrace/stacktrace_fwd.hpp>
 
 #include <mutex>
 
+#include <lmdb/libraries/liblmdb/lmdb.h>
+
 namespace nano
 {
 class transaction_impl;
 class logger_mt;
+class mdb_env;
+
+class mdb_txn_callbacks
+{
+public:
+	// clang-format off
+	std::function<void (const nano::transaction_impl *)> txn_start{ [] (const nano::transaction_impl *) {} };
+	std::function<void (const nano::transaction_impl *)> txn_end{ [] (const nano::transaction_impl *) {} };
+	// clang-format on
+};
+
+class read_mdb_txn final : public read_transaction_impl
+{
+public:
+	read_mdb_txn (nano::mdb_env const &, mdb_txn_callbacks mdb_txn_callbacks);
+	~read_mdb_txn ();
+	void reset () override;
+	void renew () override;
+	void * get_handle () const override;
+	MDB_txn * handle;
+	mdb_txn_callbacks txn_callbacks;
+};
+
+class write_mdb_txn final : public write_transaction_impl
+{
+public:
+	write_mdb_txn (nano::mdb_env const &, mdb_txn_callbacks mdb_txn_callbacks);
+	~write_mdb_txn ();
+	void commit () const override;
+	void renew () override;
+	void * get_handle () const override;
+	bool contains (nano::tables table_a) const override;
+	MDB_txn * handle;
+	nano::mdb_env const & env;
+	mdb_txn_callbacks txn_callbacks;
+};
 
 class mdb_txn_stats
 {

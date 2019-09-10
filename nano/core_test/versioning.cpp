@@ -1,5 +1,5 @@
 #include <nano/lib/logger_mt.hpp>
-#include <nano/node/lmdb.hpp>
+#include <nano/node/lmdb/lmdb.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/versioning.hpp>
 
@@ -13,9 +13,8 @@ TEST (versioning, account_info_v1)
 	nano::account_info_v1 v1 (open.hash (), open.hash (), 3, 4);
 	{
 		nano::logger_mt logger;
-		auto error (false);
-		nano::mdb_store store (error, logger, file);
-		ASSERT_FALSE (error);
+		nano::mdb_store store (logger, file);
+		ASSERT_FALSE (store.init_error ());
 		auto transaction (store.tx_begin_write ());
 		nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0, 0);
 		store.block_put (transaction, open.hash (), open, sideband);
@@ -25,9 +24,8 @@ TEST (versioning, account_info_v1)
 	}
 
 	nano::logger_mt logger;
-	auto error (false);
-	nano::mdb_store store (error, logger, file);
-	ASSERT_FALSE (error);
+	nano::mdb_store store (logger, file);
+	ASSERT_FALSE (store.init_error ());
 	auto transaction (store.tx_begin_read ());
 	nano::account_info v_latest;
 	ASSERT_FALSE (store.account_get (transaction, account, v_latest));
@@ -35,10 +33,12 @@ TEST (versioning, account_info_v1)
 	ASSERT_EQ (v1.balance, v_latest.balance);
 	ASSERT_EQ (v1.head, v_latest.head);
 	ASSERT_EQ (v1.modified, v_latest.modified);
-	ASSERT_EQ (v1.rep_block, v_latest.rep_block);
+	ASSERT_EQ (v1.rep_block, open.hash ());
 	ASSERT_EQ (1, v_latest.block_count);
-	ASSERT_EQ (0, v_latest.confirmation_height);
-	ASSERT_EQ (nano::epoch::epoch_0, v_latest.epoch);
+	uint64_t confirmation_height;
+	ASSERT_FALSE (store.confirmation_height_get (transaction, account, confirmation_height));
+	ASSERT_EQ (0, confirmation_height);
+	ASSERT_EQ (nano::epoch::epoch_0, v_latest.epoch ());
 }
 
 TEST (versioning, account_info_v5)
@@ -49,9 +49,8 @@ TEST (versioning, account_info_v5)
 	nano::account_info_v5 v5 (open.hash (), open.hash (), open.hash (), 3, 4);
 	{
 		nano::logger_mt logger;
-		auto error (false);
-		nano::mdb_store store (error, logger, file);
-		ASSERT_FALSE (error);
+		nano::mdb_store store (logger, file);
+		ASSERT_FALSE (store.init_error ());
 		auto transaction (store.tx_begin_write ());
 		nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0, 0);
 		store.block_put (transaction, open.hash (), open, sideband);
@@ -61,9 +60,8 @@ TEST (versioning, account_info_v5)
 	}
 
 	nano::logger_mt logger;
-	auto error (false);
-	nano::mdb_store store (error, logger, file);
-	ASSERT_FALSE (error);
+	nano::mdb_store store (logger, file);
+	ASSERT_FALSE (store.init_error ());
 	auto transaction (store.tx_begin_read ());
 	nano::account_info v_latest;
 	ASSERT_FALSE (store.account_get (transaction, account, v_latest));
@@ -71,10 +69,12 @@ TEST (versioning, account_info_v5)
 	ASSERT_EQ (v5.balance, v_latest.balance);
 	ASSERT_EQ (v5.head, v_latest.head);
 	ASSERT_EQ (v5.modified, v_latest.modified);
-	ASSERT_EQ (v5.rep_block, v_latest.rep_block);
+	ASSERT_EQ (v5.rep_block, open.hash ());
 	ASSERT_EQ (1, v_latest.block_count);
-	ASSERT_EQ (0, v_latest.confirmation_height);
-	ASSERT_EQ (nano::epoch::epoch_0, v_latest.epoch);
+	uint64_t confirmation_height;
+	ASSERT_FALSE (store.confirmation_height_get (transaction, account, confirmation_height));
+	ASSERT_EQ (0, confirmation_height);
+	ASSERT_EQ (nano::epoch::epoch_0, v_latest.epoch ());
 }
 
 TEST (versioning, account_info_v13)
@@ -85,9 +85,8 @@ TEST (versioning, account_info_v13)
 	nano::account_info_v13 v13 (open.hash (), open.hash (), open.hash (), 3, 4, 10, nano::epoch::epoch_0);
 	{
 		nano::logger_mt logger;
-		auto error (false);
-		nano::mdb_store store (error, logger, file);
-		ASSERT_FALSE (error);
+		nano::mdb_store store (logger, file);
+		ASSERT_FALSE (store.init_error ());
 		auto transaction (store.tx_begin_write ());
 		nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0, 0);
 		store.block_put (transaction, open.hash (), open, sideband);
@@ -97,9 +96,8 @@ TEST (versioning, account_info_v13)
 	}
 
 	nano::logger_mt logger;
-	auto error (false);
-	nano::mdb_store store (error, logger, file);
-	ASSERT_FALSE (error);
+	nano::mdb_store store (logger, file);
+	ASSERT_FALSE (store.init_error ());
 	auto transaction (store.tx_begin_read ());
 	nano::account_info v_latest;
 	ASSERT_FALSE (store.account_get (transaction, account, v_latest));
@@ -107,8 +105,10 @@ TEST (versioning, account_info_v13)
 	ASSERT_EQ (v13.balance, v_latest.balance);
 	ASSERT_EQ (v13.head, v_latest.head);
 	ASSERT_EQ (v13.modified, v_latest.modified);
-	ASSERT_EQ (v13.rep_block, v_latest.rep_block);
+	ASSERT_EQ (v13.rep_block, open.hash ());
 	ASSERT_EQ (v13.block_count, v_latest.block_count);
-	ASSERT_EQ (0, v_latest.confirmation_height);
-	ASSERT_EQ (v13.epoch, v_latest.epoch);
+	uint64_t confirmation_height;
+	ASSERT_FALSE (store.confirmation_height_get (transaction, account, confirmation_height));
+	ASSERT_EQ (0, confirmation_height);
+	ASSERT_EQ (v13.epoch, v_latest.epoch ());
 }

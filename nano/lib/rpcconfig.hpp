@@ -8,10 +8,12 @@
 #include <boost/thread.hpp>
 
 #include <string>
+#include <vector>
 
 namespace nano
 {
 class jsonconfig;
+class tomlconfig;
 
 /** Configuration options for RPC TLS */
 class rpc_secure_config final
@@ -19,6 +21,8 @@ class rpc_secure_config final
 public:
 	nano::error serialize_json (nano::jsonconfig &) const;
 	nano::error deserialize_json (nano::jsonconfig &);
+	nano::error serialize_toml (nano::tomlconfig &) const;
+	nano::error deserialize_toml (nano::tomlconfig &);
 
 	/** If true, enable TLS */
 	bool enable{ false };
@@ -41,8 +45,13 @@ class rpc_process_config final
 public:
 	nano::network_constants network_constants;
 	unsigned io_threads{ std::max<unsigned> (4, boost::thread::hardware_concurrency ()) };
+	boost::asio::ip::address_v6 ipc_address{ boost::asio::ip::address_v6::loopback () };
 	uint16_t ipc_port{ network_constants.default_ipc_port };
 	unsigned num_ipc_connections{ network_constants.is_live_network () ? 8u : network_constants.is_beta_network () ? 4u : 1u };
+	static unsigned json_version ()
+	{
+		return 1;
+	}
 };
 
 class rpc_config final
@@ -51,6 +60,8 @@ public:
 	explicit rpc_config (bool = false);
 	nano::error serialize_json (nano::jsonconfig &) const;
 	nano::error deserialize_json (bool & upgraded_a, nano::jsonconfig &);
+	nano::error serialize_toml (nano::tomlconfig &) const;
+	nano::error deserialize_toml (nano::tomlconfig &);
 
 	nano::rpc_process_config rpc_process;
 	boost::asio::ip::address_v6 address{ boost::asio::ip::address_v6::loopback () };
@@ -65,6 +76,7 @@ public:
 	}
 };
 
+nano::error read_rpc_config_toml (boost::filesystem::path const & data_path_a, nano::rpc_config & config_a, std::vector<std::string> const & config_overrides = std::vector<std::string> ());
 nano::error read_and_update_rpc_config (boost::filesystem::path const & data_path, nano::rpc_config & config_a);
 
 std::string get_default_rpc_filepath ();

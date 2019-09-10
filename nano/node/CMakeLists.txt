@@ -1,8 +1,16 @@
+if (NANO_ROCKSDB)
+	set (rocksdb_libs ${ROCKSDB_LIBRARIES} ${ZLIB_LIBRARIES})
+	set (rocksdb_sources rocksdb/rocksdb.hpp rocksdb/rocksdb.cpp rocksdb/rocksdb_iterator.hpp rocksdb/rocksdb_txn.hpp rocksdb/rocksdb_txn.cpp)
+endif ()
+
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	# No opencl
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 	set (platform_sources plat/windows/openclapi.cpp)
 	set (psapi_lib Psapi)
+	if (NANO_ROCKSDB)
+		set (rocksdb_libs ${rocksdb_libs} Shlwapi Rpcrt4)
+	endif ()
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	set (platform_sources plat/posix/openclapi.cpp)
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
@@ -13,13 +21,22 @@ endif ()
 
 add_library (node
 	${platform_sources}
+	${rocksdb_sources}
 	active_transactions.hpp
 	active_transactions.cpp
 	blockprocessor.cpp
 	blockprocessor.hpp
 	blockprocessor.cpp
-	bootstrap.hpp
-	bootstrap.cpp
+	bootstrap/bootstrap_bulk_pull.hpp
+	bootstrap/bootstrap_bulk_pull.cpp
+	bootstrap/bootstrap_bulk_push.hpp
+	bootstrap/bootstrap_bulk_push.cpp
+	bootstrap/bootstrap_frontier.hpp
+	bootstrap/bootstrap_frontier.cpp
+	bootstrap/bootstrap_server.hpp
+	bootstrap/bootstrap_server.cpp
+	bootstrap/bootstrap.hpp
+	bootstrap/bootstrap.cpp
 	cli.hpp
 	cli.cpp
 	common.hpp
@@ -28,8 +45,8 @@ add_library (node
 	confirmation_height_processor.cpp
 	daemonconfig.hpp
 	daemonconfig.cpp
-	diagnosticsconfig.hpp
-	diagnosticsconfig.cpp
+	distributed_work.hpp
+	distributed_work.cpp
 	election.hpp
 	election.cpp
 	gap_cache.hpp
@@ -42,10 +59,15 @@ add_library (node
 	json_handler.cpp
 	json_payment_observer.hpp	
 	json_payment_observer.cpp
-	lmdb.hpp
-	lmdb.cpp
-	lmdb_txn_tracker.hpp
-	lmdb_txn_tracker.cpp
+	lmdb/lmdb.hpp
+	lmdb/lmdb.cpp
+	lmdb/lmdb_env.hpp
+	lmdb/lmdb_env.cpp
+	lmdb/lmdb_iterator.hpp
+	lmdb/lmdb_txn.hpp
+	lmdb/lmdb_txn.cpp
+	lmdb/wallet_value.hpp
+	lmdb/wallet_value.cpp
 	logging.hpp
 	logging.cpp
 	network.hpp
@@ -110,12 +132,12 @@ target_link_libraries (node
 	Boost::system
 	Boost::thread
 	Boost::boost
+	${rocksdb_libs}
 	${CMAKE_DL_LIBS}
 	${psapi_lib}
 	)
 
 target_compile_definitions(node
 	PRIVATE
-		-DNANO_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
-		-DNANO_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR}
-		-DNANO_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH})
+		-DTAG_VERSION_STRING=${TAG_VERSION_STRING}
+		-DGIT_COMMIT_HASH=${GIT_COMMIT_HASH})

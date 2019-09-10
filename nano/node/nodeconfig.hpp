@@ -1,11 +1,12 @@
 #pragma once
 
 #include <nano/lib/config.hpp>
+#include <nano/lib/diagnosticsconfig.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/rocksdbconfig.hpp>
 #include <nano/lib/stats.hpp>
-#include <nano/node/diagnosticsconfig.hpp>
 #include <nano/node/ipcconfig.hpp>
 #include <nano/node/logging.hpp>
 #include <nano/node/websocketconfig.hpp>
@@ -16,6 +17,16 @@
 
 namespace nano
 {
+class tomlconfig;
+
+enum class frontiers_confirmation_mode : uint8_t
+{
+	always, // Always confirm frontiers
+	automatic, // Always mode if node contains representative with at least 50% of principal weight, less frequest requests if not
+	disabled, // Do not confirm frontiers
+	invalid
+};
+
 /**
  * Node configuration
  */
@@ -26,6 +37,8 @@ public:
 	node_config (uint16_t, nano::logging const &);
 	nano::error serialize_json (nano::jsonconfig &) const;
 	nano::error deserialize_json (bool &, nano::jsonconfig &);
+	nano::error serialize_toml (nano::tomlconfig &) const;
+	nano::error deserialize_toml (nano::tomlconfig &);
 	bool upgrade_json (unsigned, nano::jsonconfig &);
 	nano::account random_representative ();
 	nano::network_params network_params;
@@ -37,7 +50,7 @@ public:
 	unsigned bootstrap_fraction_numerator{ 1 };
 	nano::amount receive_minimum{ nano::xrb_ratio };
 	nano::amount vote_minimum{ nano::Gxrb_ratio };
-	std::chrono::milliseconds vote_generator_delay{ std::chrono::milliseconds (50) };
+	std::chrono::milliseconds vote_generator_delay{ std::chrono::milliseconds (100) };
 	unsigned vote_generator_threshold{ 3 };
 	nano::amount online_weight_minimum{ 60000 * nano::Gxrb_ratio };
 	unsigned online_weight_quorum{ 50 };
@@ -59,8 +72,6 @@ public:
 	bool allow_local_peers{ !network_params.network.is_live_network () }; // disable by default for live network
 	nano::stat_config stat_config;
 	nano::ipc::ipc_config ipc_config;
-	nano::uint256_union epoch_block_link;
-	nano::account epoch_block_signer;
 	boost::asio::ip::address_v6 external_address{ boost::asio::ip::address_v6{} };
 	uint16_t external_port{ 0 };
 	std::chrono::milliseconds block_processor_batch_max_time{ std::chrono::milliseconds (5000) };
@@ -75,17 +86,27 @@ public:
 	static std::chrono::seconds constexpr keepalive_period = std::chrono::seconds (60);
 	static std::chrono::seconds constexpr keepalive_cutoff = keepalive_period * 5;
 	static std::chrono::minutes constexpr wallet_backup_interval = std::chrono::minutes (5);
-	size_t bandwidth_limit{ 5 * 1024 * 1024 }; // 5Mb/s
+	size_t bandwidth_limit{ 5 * 1024 * 1024 }; // 5MB/s
 	std::chrono::milliseconds conf_height_processor_batch_min_time{ 50 };
+	bool backup_before_upgrade{ false };
+	std::chrono::seconds work_watcher_period{ std::chrono::seconds (5) };
+	double max_work_generate_multiplier{ 64. };
+	uint64_t max_work_generate_difficulty{ nano::network_constants::publish_full_threshold };
+	nano::rocksdb_config rocksdb_config;
+
+	nano::frontiers_confirmation_mode frontiers_confirmation{ nano::frontiers_confirmation_mode::automatic };
+	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;
+	nano::frontiers_confirmation_mode deserialize_frontiers_confirmation (std::string const &);
 	static unsigned json_version ()
 	{
-		return 17;
+		return 18;
 	}
 };
 
 class node_flags final
 {
 public:
+	std::vector<std::string> config_overrides;
 	bool disable_backup{ false };
 	bool disable_lazy_bootstrap{ false };
 	bool disable_legacy_bootstrap{ false };
@@ -96,7 +117,12 @@ public:
 	bool disable_unchecked_cleanup{ false };
 	bool disable_unchecked_drop{ true };
 	bool fast_bootstrap{ false };
-	bool delay_frontier_confirmation_height_updating{ false };
+	bool read_only{ false };
+	/** Whether to read all frontiers and construct the representative weights */
+	bool cache_representative_weights_from_frontiers{ true };
+	/** Whether to read all frontiers and construct the total cemented count */
+	bool cache_cemented_count_from_frontiers{ true };
+	bool inactive_node{ false };
 	size_t sideband_batch_size{ 512 };
 	size_t block_processor_batch_size{ 0 };
 	size_t block_processor_full_size{ 65536 };

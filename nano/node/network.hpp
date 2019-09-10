@@ -58,28 +58,12 @@ public:
 private:
 	nano::stat & stats;
 	std::mutex mutex;
-	std::condition_variable condition;
+	nano::condition_variable condition;
 	boost::circular_buffer<nano::message_buffer *> free;
 	boost::circular_buffer<nano::message_buffer *> full;
 	std::vector<uint8_t> slab;
 	std::vector<nano::message_buffer> entries;
 	bool stopped;
-};
-/**
-  * Response channels for TCP realtime network
-*/
-class response_channels final
-{
-public:
-	void add (nano::tcp_endpoint const &, std::vector<nano::tcp_endpoint>);
-	std::vector<nano::tcp_endpoint> search (nano::tcp_endpoint const &);
-	void remove (nano::tcp_endpoint const &);
-	size_t size ();
-	std::unique_ptr<seq_con_info_component> collect_seq_con_info (std::string const &);
-
-private:
-	std::mutex response_channels_mutex;
-	std::unordered_map<nano::tcp_endpoint, std::vector<nano::tcp_endpoint>> channels;
 };
 /**
   * Node ID cookies for node ID handshakes
@@ -114,7 +98,7 @@ public:
 	~network ();
 	void start ();
 	void stop ();
-	void flood_message (nano::message const &);
+	void flood_message (nano::message const &, bool const = true);
 	void flood_keepalive ()
 	{
 		nano::keepalive message;
@@ -126,17 +110,19 @@ public:
 		nano::confirm_ack message (vote_a);
 		flood_message (message);
 	}
-	void flood_block (std::shared_ptr<nano::block> block_a)
+	void flood_block (std::shared_ptr<nano::block> block_a, bool const is_droppable_a = true)
 	{
 		nano::publish publish (block_a);
-		flood_message (publish);
+		flood_message (publish, is_droppable_a);
 	}
+
 	void flood_block_batch (std::deque<std::shared_ptr<nano::block>>, unsigned = broadcast_interval_ms);
 	void merge_peers (std::array<nano::endpoint, 8> const &);
 	void merge_peer (nano::endpoint const &);
 	void send_keepalive (std::shared_ptr<nano::transport::channel>);
 	void send_keepalive_self (std::shared_ptr<nano::transport::channel>);
 	void send_node_id_handshake (std::shared_ptr<nano::transport::channel>, boost::optional<nano::uint256_union> const & query, boost::optional<nano::uint256_union> const & respond_to);
+	void send_confirm_req (std::shared_ptr<nano::transport::channel>, std::shared_ptr<nano::block>);
 	void broadcast_confirm_req (std::shared_ptr<nano::block>);
 	void broadcast_confirm_req_base (std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>, unsigned, bool = false);
 	void broadcast_confirm_req_batch (std::unordered_map<std::shared_ptr<nano::transport::channel>, std::vector<std::pair<nano::block_hash, nano::block_hash>>>, unsigned = broadcast_interval_ms, bool = false);
@@ -156,9 +142,6 @@ public:
 	std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (size_t) const;
 	// Get the next peer for attempting a tcp bootstrap connection
 	nano::tcp_endpoint bootstrap_peer ();
-	// Response channels
-	nano::response_channels response_channels;
-	std::shared_ptr<nano::transport::channel> find_response_channel (nano::tcp_endpoint const &, nano::account const &);
 	nano::endpoint endpoint ();
 	void cleanup (std::chrono::steady_clock::time_point const &);
 	void ongoing_cleanup ();

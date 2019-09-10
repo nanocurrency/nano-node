@@ -10,7 +10,9 @@ using namespace std::chrono_literals;
 
 TEST (socket, concurrent_writes)
 {
-	nano::inactive_node inactivenode;
+	auto node_flags = nano::inactive_node_flag_defaults ();
+	node_flags.read_only = false;
+	nano::inactive_node inactivenode (nano::unique_path (), 24000, node_flags);
 	auto node = inactivenode.node;
 
 	// This gives more realistic execution than using system#poll, allowing writes to
@@ -114,9 +116,9 @@ TEST (socket, concurrent_writes)
 		client_threads.emplace_back ([&client, &message_count]() {
 			for (int i = 0; i < message_count; i++)
 			{
-				auto buff (std::make_shared<std::vector<uint8_t>> ());
-				buff->push_back ('A' + i);
-				client->async_write (buff);
+				std::vector<uint8_t> buff;
+				buff.push_back ('A' + i);
+				client->async_write (nano::shared_const_buffer (std::move (buff)));
 			}
 		});
 #ifndef _WIN32
