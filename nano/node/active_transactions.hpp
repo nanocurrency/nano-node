@@ -82,6 +82,7 @@ class active_transactions final
 public:
 	explicit active_transactions (nano::node &);
 	~active_transactions ();
+	void notify ();
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
 	// clang-format off
@@ -136,6 +137,8 @@ public:
 	size_t priority_wallet_cementable_frontiers_size ();
 	boost::circular_buffer<double> difficulty_trend ();
 	size_t inactive_votes_cache_size ();
+	std::atomic<bool> finished_block_broadcast{ false };
+	std::atomic<bool> finished_confirm_req_broadcast{ false };
 
 private:
 	// Call action with confirmed block, may be different than what we started with

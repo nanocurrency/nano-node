@@ -28,6 +28,15 @@ nano::active_transactions::~active_transactions ()
 	stop ();
 }
 
+void nano::active_transactions::notify ()
+{
+	{
+		// Force acquisition due to multiple waits in the main loop
+		(void)nano::lock_guard<std::mutex> (mutex);
+	}
+	condition.notify_all ();
+}
+
 void nano::active_transactions::confirm_frontiers (nano::transaction const & transaction_a)
 {
 	// Limit maximum count of elections to start
@@ -278,6 +287,9 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 		}
 		++election_l->confirmation_request_count;
 	}
+	finished_block_broadcast = false;
+	finished_confirm_req_broadcast = false;
+
 	lock_a.unlock ();
 	// Rebroadcast unconfirmed blocks
 	if (!rebroadcast_bundle.empty ())
@@ -340,6 +352,10 @@ void nano::active_transactions::request_loop ()
 		// clang-format off
 		condition.wait_until (lock, wakeup, [&wakeup, &stopped = stopped] { return stopped || std::chrono::steady_clock::now () >= wakeup; });
 		// clang-format on
+		if (!stopped && (!finished_block_broadcast || !finished_confirm_req_broadcast))
+		{
+			condition.wait (lock, [this] { return this->stopped || (this->finished_block_broadcast && this->finished_confirm_req_broadcast); });
+		}
 	}
 }
 
