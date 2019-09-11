@@ -53,6 +53,7 @@ public:
 	nano::uint256_union check (nano::transaction const &);
 	bool rekey (nano::transaction const &, std::string const &);
 	bool valid_password (nano::transaction const &);
+	bool valid_public_key (nano::public_key const &);
 	bool attempt_password (nano::transaction const &, std::string const &);
 	void wallet_key (nano::raw_key &, nano::transaction const &);
 	void seed (nano::raw_key &, nano::transaction const &);
@@ -69,7 +70,7 @@ public:
 	nano::account representative (nano::transaction const &);
 	void representative_set (nano::transaction const &, nano::account const &);
 	nano::public_key insert_adhoc (nano::transaction const &, nano::raw_key const &);
-	void insert_watch (nano::transaction const &, nano::public_key const &);
+	bool insert_watch (nano::transaction const &, nano::public_key const &);
 	void erase (nano::transaction const &, nano::public_key const &);
 	nano::wallet_value entry_get_raw (nano::transaction const &, nano::public_key const &);
 	void entry_put_raw (nano::transaction const &, nano::public_key const &, nano::wallet_value const &);
@@ -130,7 +131,7 @@ public:
 	bool enter_password (nano::transaction const &, std::string const &);
 	nano::public_key insert_adhoc (nano::raw_key const &, bool = true);
 	nano::public_key insert_adhoc (nano::transaction const &, nano::raw_key const &, bool = true);
-	void insert_watch (nano::transaction const &, nano::public_key const &);
+	bool insert_watch (nano::transaction const &, nano::public_key const &);
 	nano::public_key deterministic_insert (nano::transaction const &, bool = true);
 	nano::public_key deterministic_insert (uint32_t, bool = true);
 	nano::public_key deterministic_insert (bool = true);
