@@ -287,18 +287,18 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 		}
 		++election_l->confirmation_request_count;
 	}
-	finished_block_broadcast = false;
-	finished_confirm_req_broadcast = false;
 
 	lock_a.unlock ();
 	// Rebroadcast unconfirmed blocks
 	if (!rebroadcast_bundle.empty ())
 	{
+		finished_block_broadcast = false;
 		node.network.flood_block_batch (std::move (rebroadcast_bundle));
 	}
 	// Batch confirmation request
 	if (!requests_bundle.empty ())
 	{
+		finished_confirm_req_broadcast = false;
 		node.network.broadcast_confirm_req_batch (requests_bundle, 50);
 	}
 	//confirm_req broadcast
@@ -352,7 +352,7 @@ void nano::active_transactions::request_loop ()
 		// clang-format off
 		condition.wait_until (lock, wakeup, [&wakeup, &stopped = stopped] { return stopped || std::chrono::steady_clock::now () >= wakeup; });
 		// clang-format on
-		if (!stopped && !node.network_params.network.is_test_network () && (!finished_block_broadcast || !finished_confirm_req_broadcast))
+		if (!stopped && (!finished_block_broadcast || !finished_confirm_req_broadcast))
 		{
 			condition.wait (lock, [this] { return this->stopped || (this->finished_block_broadcast && this->finished_confirm_req_broadcast); });
 		}

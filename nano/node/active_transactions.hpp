@@ -138,8 +138,8 @@ public:
 	boost::circular_buffer<double> difficulty_trend ();
 	size_t inactive_votes_cache_size ();
 	std::atomic<size_t> previous_size{ 0 };
-	std::atomic<bool> finished_block_broadcast{ false };
-	std::atomic<bool> finished_confirm_req_broadcast{ false };
+	std::atomic<bool> finished_block_broadcast{ true };
+	std::atomic<bool> finished_confirm_req_broadcast{ true };
 
 private:
 	// Call action with confirmed block, may be different than what we started with
