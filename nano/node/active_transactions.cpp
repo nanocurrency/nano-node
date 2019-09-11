@@ -121,6 +121,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	auto transaction (node.store.tx_begin_read ());
 	unsigned unconfirmed_count (0);
 	unsigned unconfirmed_request_count (0);
+	unsigned could_fit_delay = node.network_params.network.is_test_network () ? high_confirmation_request_count - 1 : 1;
 	std::unordered_map<std::shared_ptr<nano::transport::channel>, std::vector<std::pair<nano::block_hash, nano::block_hash>>> batch_requests_bundle;
 	std::deque<std::shared_ptr<nano::block>> blocks_bundle;
 	std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>>> single_requests_bundle;
@@ -196,7 +197,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 					}
 				}
 			}
-			if ((election_l->confirmation_request_count > 2 && election_l->confirmation_request_count < 5) || election_l->confirmation_request_count % high_confirmation_request_count == 0)
+			if ((election_l->confirmation_request_count > 2 && election_l->confirmation_request_count < 5) || election_l->confirmation_request_count % high_confirmation_request_count == could_fit_delay)
 			{
 				if (node.ledger.could_fit (transaction, *election_l->status.winner))
 				{
