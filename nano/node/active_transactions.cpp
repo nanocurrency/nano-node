@@ -197,7 +197,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 					}
 				}
 			}
-			if ((election_l->confirmation_request_count > 2 && election_l->confirmation_request_count < 5) || election_l->confirmation_request_count % high_confirmation_request_count == could_fit_delay)
+			if (((election_l->confirmation_request_count + 1) % 4 == 0 && election_l->confirmation_request_count < high_confirmation_request_count) || election_l->confirmation_request_count % high_confirmation_request_count == could_fit_delay)
 			{
 				if (node.ledger.could_fit (transaction, *election_l->status.winner))
 				{
@@ -249,7 +249,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 				}
 				single_requests_bundle.push_back (std::make_pair (election_l->status.winner, vec));
 			}
-			else
+			else if (election_l->confirmation_request_count % 2 == 0)
 			{
 				auto single_confirm_req_channels (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> ());
 				for (auto & rep : *rep_channels)
