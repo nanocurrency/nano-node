@@ -289,7 +289,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 				}
 			}
 		}
-		if (should_increment_counter)
+		if (node.network_params.network.is_test_network () || should_increment_counter)
 		{
 			++election_l->confirmation_request_count;
 		}
