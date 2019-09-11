@@ -160,12 +160,13 @@ TEST (active_transactions, adjusted_difficulty_overflow_max)
 		auto send2_root (node1.active.roots.find (send2->qualified_root ()));
 		auto open1_root (node1.active.roots.find (open1->qualified_root ()));
 		auto open2_root (node1.active.roots.find (open2->qualified_root ()));
-		auto modify_difficulty = [& roots = node1.active.roots](auto & existing_root)
-		{
+		// clang-format off
+		auto modify_difficulty = [& roots = node1.active.roots](auto & existing_root) {
 			roots.modify (existing_root, [](nano::conflict_info & info_a) {
 				info_a.difficulty = std::numeric_limits<std::uint64_t>::max ();
 			});
 		};
+		// clang-format on
 		modify_difficulty (send1_root);
 		modify_difficulty (send2_root);
 		modify_difficulty (open1_root);
@@ -214,12 +215,13 @@ TEST (active_transactions, adjusted_difficulty_overflow_min)
 		auto open1_root (node1.active.roots.find (open1->qualified_root ()));
 		auto open2_root (node1.active.roots.find (open2->qualified_root ()));
 		auto send3_root (node1.active.roots.find (send3->qualified_root ()));
-		auto modify_difficulty = [& roots = node1.active.roots](auto & existing_root)
-		{
+		// clang-format off
+		auto modify_difficulty = [& roots = node1.active.roots](auto & existing_root) {
 			roots.modify (existing_root, [](nano::conflict_info & info_a) {
 				info_a.difficulty = std::numeric_limits<std::uint64_t>::min () + 1;
 			});
 		};
+		// clang-format on
 		modify_difficulty (send1_root);
 		modify_difficulty (send2_root);
 		modify_difficulty (open1_root);

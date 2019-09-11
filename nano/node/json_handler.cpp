@@ -3890,10 +3890,16 @@ void nano::json_handler::wallet_add_watch ()
 					auto account (rpc_l->account_impl (accounts.second.data ()));
 					if (!rpc_l->ec)
 					{
-						wallet->insert_watch (transaction, account);
+						if (wallet->insert_watch (transaction, account))
+						{
+							rpc_l->ec = nano::error_common::bad_public_key;
+						}
 					}
 				}
-				rpc_l->response_l.put ("success", "");
+				if (!rpc_l->ec)
+				{
+					rpc_l->response_l.put ("success", "");
+				}
 			}
 			else
 			{
