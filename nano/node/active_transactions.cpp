@@ -122,9 +122,9 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	unsigned unconfirmed_count (0);
 	unsigned unconfirmed_request_count (0);
 	unsigned could_fit_delay = node.network_params.network.is_test_network () ? high_confirmation_request_count - 1 : 1;
-	std::unordered_map<std::shared_ptr<nano::transport::channel>, std::vector<std::pair<nano::block_hash, nano::block_hash>>> requests_bundle;
-	std::deque<std::shared_ptr<nano::block>> rebroadcast_bundle;
-	std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>>> confirm_req_bundle;
+	std::unordered_map<std::shared_ptr<nano::transport::channel>, std::vector<std::pair<nano::block_hash, nano::block_hash>>> batch_requests_bundle;
+	std::deque<std::shared_ptr<nano::block>> blocks_bundle;
+	std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>>> single_requests_bundle;
 
 	/* Confirm frontiers when there aren't many confirmations already pending and node finished initial bootstrap
 	In auto mode start confirm only if node contains almost principal representative (half of required for principal weight) */
@@ -202,9 +202,9 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 				if (node.ledger.could_fit (transaction, *election_l->status.winner))
 				{
 					// Broadcast winner
-					if (rebroadcast_bundle.size () < max_broadcast_queue)
+					if (blocks_bundle.size () < max_broadcast_queue)
 					{
-						rebroadcast_bundle.push_back (election_l->status.winner);
+						blocks_bundle.push_back (election_l->status.winner);
 					}
 				}
 				else
@@ -247,7 +247,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 				{
 					vec->push_back (i);
 				}
-				confirm_req_bundle.push_back (std::make_pair (election_l->status.winner, vec));
+				single_requests_bundle.push_back (std::make_pair (election_l->status.winner, vec));
 			}
 			else
 			{
@@ -257,18 +257,15 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 					if (rep->get_network_version () >= node.network_params.protocol.tcp_realtime_protocol_version_min)
 					{
 						// Send batch request to peers supporting confirm_req by hash + root
-						auto rep_request (requests_bundle.find (rep));
+						auto rep_request (batch_requests_bundle.find (rep));
 						auto block (election_l->status.winner);
 						auto root_hash (std::make_pair (block->hash (), block->root ()));
-						if (rep_request == requests_bundle.end ())
+						if (rep_request == batch_requests_bundle.end ())
 						{
-							if (requests_bundle.size () < max_broadcast_queue)
-							{
-								std::vector<std::pair<nano::block_hash, nano::block_hash>> insert_vector = { root_hash };
-								requests_bundle.insert (std::make_pair (rep, insert_vector));
-							}
+							std::vector<std::pair<nano::block_hash, nano::block_hash>> insert_vector = { root_hash };
+							batch_requests_bundle.insert (std::make_pair (rep, insert_vector));
 						}
-						else if (rep_request->second.size () < max_broadcast_queue)
+						else if (rep_request->second.size () < (max_broadcast_queue / 4) * nano::network::confirm_req_hashes_max)
 						{
 							rep_request->second.push_back (root_hash);
 						}
@@ -279,9 +276,9 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 					}
 				}
 				// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
-				if (confirm_req_bundle.size () < max_broadcast_queue && !single_confirm_req_channels->empty ())
+				if (single_requests_bundle.size () < max_broadcast_queue && !single_confirm_req_channels->empty ())
 				{
-					confirm_req_bundle.push_back (std::make_pair (election_l->status.winner, single_confirm_req_channels));
+					single_requests_bundle.push_back (std::make_pair (election_l->status.winner, single_confirm_req_channels));
 				}
 			}
 		}
@@ -290,21 +287,33 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 
 	lock_a.unlock ();
 	// Rebroadcast unconfirmed blocks
-	if (!rebroadcast_bundle.empty ())
+	if (!blocks_bundle.empty ())
 	{
-		finished_block_broadcast = false;
-		node.network.flood_block_batch (std::move (rebroadcast_bundle));
+		finished_block_many = false;
+		node.network.flood_block_many (std::move (blocks_bundle), [this]() {
+			this->finished_block_many = true;
+			this->notify ();
+		},
+		10);
 	}
 	// Batch confirmation request
-	if (!requests_bundle.empty ())
+	if (!batch_requests_bundle.empty ())
 	{
-		finished_confirm_req_broadcast = false;
-		node.network.broadcast_confirm_req_batch (requests_bundle, 50);
+		finished_confirm_req_batch = false;
+		node.network.broadcast_confirm_req_batch (batch_requests_bundle, [this]() {
+			this->finished_confirm_req_batch = true;
+			this->notify ();
+		},
+		50);
 	}
 	//confirm_req broadcast
-	if (!confirm_req_bundle.empty ())
+	if (!single_requests_bundle.empty ())
 	{
-		node.network.broadcast_confirm_req_batch (confirm_req_bundle);
+		this->finished_confirm_req_many = false;
+		node.network.broadcast_confirm_req_many (single_requests_bundle, [this]() {
+			this->finished_confirm_req_many = true;
+			this->notify ();
+		});
 	}
 	lock_a.lock ();
 	// Erase inactive elections
@@ -352,9 +361,9 @@ void nano::active_transactions::request_loop ()
 		// clang-format off
 		condition.wait_until (lock, wakeup, [&wakeup, &stopped = stopped] { return stopped || std::chrono::steady_clock::now () >= wakeup; });
 		// clang-format on
-		if (!stopped && (!finished_block_broadcast || !finished_confirm_req_broadcast))
+		if (!stopped && (!finished_block_many || !finished_confirm_req_many || !finished_confirm_req_batch))
 		{
-			condition.wait (lock, [this] { return this->stopped || (this->finished_block_broadcast && this->finished_confirm_req_broadcast); });
+			condition.wait (lock, [this] { return this->stopped || (this->finished_block_many && this->finished_confirm_req_many && this->finished_confirm_req_batch); });
 		}
 		previous_size = roots.size ();
 	}
