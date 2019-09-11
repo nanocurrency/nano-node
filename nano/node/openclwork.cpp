@@ -687,13 +687,13 @@ nano::opencl_work::~opencl_work ()
 	}
 }
 
-boost::optional<uint64_t> nano::opencl_work::generate_work (nano::uint256_union const & root_a, uint64_t const difficulty_a)
+boost::optional<uint64_t> nano::opencl_work::generate_work (nano::root const & root_a, uint64_t const difficulty_a)
 {
 	std::atomic<int> ticket_l{ 0 };
 	return generate_work (root_a, difficulty_a, ticket_l);
 }
 
-boost::optional<uint64_t> nano::opencl_work::generate_work (nano::uint256_union const & root_a, uint64_t const difficulty_a, std::atomic<int> & ticket_a)
+boost::optional<uint64_t> nano::opencl_work::generate_work (nano::root const & root_a, uint64_t const difficulty_a, std::atomic<int> & ticket_a)
 {
 	nano::lock_guard<std::mutex> lock (mutex);
 	bool error (false);
@@ -708,7 +708,7 @@ boost::optional<uint64_t> nano::opencl_work::generate_work (nano::uint256_union 
 		cl_int write_error1 = clEnqueueWriteBuffer (queue, attempt_buffer, false, 0, sizeof (uint64_t), &result, 0, nullptr, nullptr);
 		if (write_error1 == CL_SUCCESS)
 		{
-			cl_int write_error2 = clEnqueueWriteBuffer (queue, item_buffer, false, 0, sizeof (nano::uint256_union), root_a.bytes.data (), 0, nullptr, nullptr);
+			cl_int write_error2 = clEnqueueWriteBuffer (queue, item_buffer, false, 0, sizeof (nano::root), root_a.bytes.data (), 0, nullptr, nullptr);
 			if (write_error2 == CL_SUCCESS)
 			{
 				cl_int write_error3 = clEnqueueWriteBuffer (queue, difficulty_buffer, false, 0, sizeof (uint64_t), &difficulty_a, 0, nullptr, nullptr);

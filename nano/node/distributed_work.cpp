@@ -14,7 +14,7 @@ std::shared_ptr<request_type> nano::work_peer_request::get_prepared_json_request
 	return request;
 }
 
-nano::distributed_work::distributed_work (unsigned int backoff_a, nano::node & node_a, nano::block_hash const & root_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a) :
+nano::distributed_work::distributed_work (unsigned int backoff_a, nano::node & node_a, nano::root const & root_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a) :
 callback (callback_a),
 backoff (backoff_a),
 node (node_a),
@@ -371,12 +371,12 @@ node (node_a)
 {
 }
 
-void nano::distributed_work_factory::make (nano::block_hash const & root_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a)
+void nano::distributed_work_factory::make (nano::root const & root_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a)
 {
 	make (1, root_a, callback_a, difficulty_a);
 }
 
-void nano::distributed_work_factory::make (unsigned int backoff_a, nano::block_hash const & root_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a)
+void nano::distributed_work_factory::make (unsigned int backoff_a, nano::root const & root_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a)
 {
 	cleanup_finished ();
 	auto distributed (std::make_shared<nano::distributed_work> (backoff_a, node, root_a, callback_a, difficulty_a));
@@ -387,7 +387,7 @@ void nano::distributed_work_factory::make (unsigned int backoff_a, nano::block_h
 	distributed->start ();
 }
 
-void nano::distributed_work_factory::cancel (nano::block_hash const & root_a, bool const local_stop)
+void nano::distributed_work_factory::cancel (nano::root const & root_a, bool const local_stop)
 {
 	{
 		nano::lock_guard<std::mutex> guard (mutex);

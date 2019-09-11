@@ -132,7 +132,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		if (vm.count ("wallet") == 1)
 		{
-			nano::uint256_union wallet_id;
+			nano::wallet_id wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
 				std::string password;
@@ -178,7 +178,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		if (vm.count ("key") == 1)
 		{
-			nano::uint256_union pub;
+			nano::account pub;
 			pub.decode_hex (vm["key"].as<std::string> ());
 			std::cout << "Account: " << pub.to_account () << std::endl;
 		}
@@ -192,7 +192,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		if (vm.count ("account") == 1)
 		{
-			nano::uint256_union account;
+			nano::account account;
 			account.decode_account (vm["account"].as<std::string> ());
 			std::cout << "Hex: " << account.to_string () << std::endl;
 		}
@@ -476,9 +476,9 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		if (vm.count ("key") == 1)
 		{
-			nano::uint256_union prv;
+			nano::private_key prv;
 			prv.decode_hex (vm["key"].as<std::string> ());
-			nano::uint256_union pub (nano::pub_key (prv));
+			nano::public_key pub (nano::pub_key (prv));
 			std::cout << "Private: " << prv.to_string () << std::endl
 			          << "Public: " << pub.to_string () << std::endl
 			          << "Account: " << pub.to_account () << std::endl;
@@ -493,7 +493,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		if (vm.count ("wallet") == 1 && vm.count ("key") == 1)
 		{
-			nano::uint256_union wallet_id;
+			nano::wallet_id wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
 				std::string password;
@@ -547,7 +547,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		if (vm.count ("wallet") == 1 && (vm.count ("seed") == 1 || vm.count ("key") == 1))
 		{
-			nano::uint256_union wallet_id;
+			nano::wallet_id wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
 				std::string password;
@@ -638,8 +638,8 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		if (!ec)
 		{
 			inactive_node node (data_path);
-			nano::keypair wallet_key;
-			auto wallet (node.node->wallets.create (wallet_key.pub));
+			auto wallet_key = nano::random_wallet_id ();
+			auto wallet (node.node->wallets.create (wallet_key));
 			if (wallet != nullptr)
 			{
 				if (vm.count ("password") > 0)
@@ -658,7 +658,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					auto transaction (wallet->wallets.tx_begin_write ());
 					wallet->change_seed (transaction, seed_key);
 				}
-				std::cout << wallet_key.pub.to_string () << std::endl;
+				std::cout << wallet_key.to_string () << std::endl;
 			}
 			else
 			{
@@ -676,7 +676,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			{
 				password = vm["password"].as<std::string> ();
 			}
-			nano::uint256_union wallet_id;
+			nano::wallet_id wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
 				inactive_node node (data_path);
@@ -697,7 +697,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 							(void)error;
 							assert (!error);
 							std::cout << boost::str (boost::format ("Pub: %1% Prv: %2%\n") % account.to_account () % key.data.to_string ());
-							if (nano::pub_key (key.data) != account)
+							if (nano::pub_key (key.as_private_key ()) != account)
 							{
 								std::cerr << boost::str (boost::format ("Invalid private key %1%\n") % key.data.to_string ());
 							}
@@ -731,7 +731,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		if (vm.count ("wallet") == 1)
 		{
-			nano::uint256_union wallet_id;
+			nano::wallet_id wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
 				inactive_node node (data_path);
@@ -780,7 +780,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				}
 				if (vm.count ("wallet") == 1)
 				{
-					nano::uint256_union wallet_id;
+					nano::wallet_id wallet_id;
 					if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 					{
 						inactive_node node (data_path);
@@ -877,7 +877,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			auto transaction (i->second->wallets.tx_begin_read ());
 			for (auto j (i->second->store.begin (transaction)), m (i->second->store.end ()); j != m; ++j)
 			{
-				std::cout << nano::uint256_union (j->first).to_account () << '\n';
+				std::cout << nano::account (j->first).to_account () << '\n';
 			}
 		}
 	}
@@ -886,7 +886,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		if (vm.count ("wallet") == 1 && vm.count ("account") == 1)
 		{
 			inactive_node node (data_path);
-			nano::uint256_union wallet_id;
+			nano::wallet_id wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
 				auto wallet (node.node->wallets.items.find (wallet_id));
@@ -935,7 +935,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		if (vm.count ("wallet") == 1)
 		{
-			nano::uint256_union wallet_id;
+			nano::wallet_id wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
 				inactive_node node (data_path);
@@ -970,7 +970,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		{
 			if (vm.count ("account") == 1)
 			{
-				nano::uint256_union wallet_id;
+				nano::wallet_id wallet_id;
 				if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 				{
 					nano::account account;

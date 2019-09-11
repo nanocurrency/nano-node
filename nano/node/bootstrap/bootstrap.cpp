@@ -544,7 +544,7 @@ void nano::bootstrap_attempt::requeue_pull (nano::pull_info const & pull_a)
 	{
 		if (node->config.logging.bulk_pull_logging ())
 		{
-			node->logger.try_log (boost::str (boost::format ("Failed to pull account %1% down to %2% after %3% attempts and %4% blocks processed") % pull.account.to_account () % pull.end.to_string () % pull.attempts % pull.processed));
+			node->logger.try_log (boost::str (boost::format ("Failed to pull account %1% down to %2% after %3% attempts and %4% blocks processed") % pull.root.to_account () % pull.end.to_string () % pull.attempts % pull.processed));
 		}
 		node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_failed_account, nano::stat::dir::in);
 
@@ -756,7 +756,7 @@ bool nano::bootstrap_attempt::process_block_lazy (std::shared_ptr<nano::block> b
 				if (block_l != nullptr)
 				{
 					balance = block_l->hashables.balance.number ();
-					nano::block_hash link (block_l->hashables.link);
+					auto const & link (block_l->hashables.link);
 					// If link is not epoch link or 0. And if block from link unknown
 					if (!link.is_zero () && !node->ledger.is_epoch_link (block_l->link ()) && lazy_blocks.find (link) == lazy_blocks.end () && !node->store.block_exists (transaction, link))
 					{
@@ -1140,7 +1140,7 @@ void nano::pulls_cache::add (nano::pull_info const & pull_a)
 			cache.erase (cache.begin ());
 		}
 		assert (cache.size () <= cache_size_max);
-		nano::uint512_union head_512 (pull_a.account, pull_a.head_original);
+		nano::uint512_union head_512 (pull_a.root, pull_a.head_original);
 		auto existing (cache.get<account_head_tag> ().find (head_512));
 		if (existing == cache.get<account_head_tag> ().end ())
 		{
@@ -1163,7 +1163,7 @@ void nano::pulls_cache::add (nano::pull_info const & pull_a)
 void nano::pulls_cache::update_pull (nano::pull_info & pull_a)
 {
 	nano::lock_guard<std::mutex> guard (pulls_cache_mutex);
-	nano::uint512_union head_512 (pull_a.account, pull_a.head_original);
+	nano::uint512_union head_512 (pull_a.root, pull_a.head_original);
 	auto existing (cache.get<account_head_tag> ().find (head_512));
 	if (existing != cache.get<account_head_tag> ().end ())
 	{
@@ -1174,7 +1174,7 @@ void nano::pulls_cache::update_pull (nano::pull_info & pull_a)
 void nano::pulls_cache::remove (nano::pull_info const & pull_a)
 {
 	nano::lock_guard<std::mutex> guard (pulls_cache_mutex);
-	nano::uint512_union head_512 (pull_a.account, pull_a.head_original);
+	nano::uint512_union head_512 (pull_a.root, pull_a.head_original);
 	cache.get<account_head_tag> ().erase (head_512);
 }
 

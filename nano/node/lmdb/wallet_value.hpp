@@ -14,7 +14,7 @@ public:
 	wallet_value (nano::db_val<MDB_val> const &);
 	wallet_value (nano::uint256_union const &, uint64_t);
 	nano::db_val<MDB_val> val () const;
-	nano::private_key key;
+	nano::uint256_union key;
 	uint64_t work;
 };
 }

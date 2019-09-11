@@ -133,33 +133,33 @@ public:
 	/** Sets all hashables, signature and work to zero. */
 	state_block_builder & zero ();
 	/** Set account */
-	state_block_builder & account (nano::account account);
+	state_block_builder & account (nano::account const & account);
 	/** Set account from hex representation of public key */
-	state_block_builder & account_hex (std::string account_hex);
+	state_block_builder & account_hex (std::string const & account_hex);
 	/** Set account from an xrb_ or nano_ address */
-	state_block_builder & account_address (std::string account_address);
+	state_block_builder & account_address (std::string const & account_address);
 	/** Set representative */
-	state_block_builder & representative (nano::account account);
+	state_block_builder & representative (nano::account const & account);
 	/** Set representative from hex representation of public key */
-	state_block_builder & representative_hex (std::string account_hex);
+	state_block_builder & representative_hex (std::string const & account_hex);
 	/** Set representative from an xrb_ or nano_ address */
-	state_block_builder & representative_address (std::string account_address);
+	state_block_builder & representative_address (std::string const & account_address);
 	/** Set previous block hash */
-	state_block_builder & previous (nano::block_hash previous);
+	state_block_builder & previous (nano::block_hash const & previous);
 	/** Set previous block hash from hex representation */
-	state_block_builder & previous_hex (std::string previous_hex);
+	state_block_builder & previous_hex (std::string const & previous_hex);
 	/** Set balance */
-	state_block_builder & balance (nano::amount balance);
+	state_block_builder & balance (nano::amount const & balance);
 	/** Set balance from decimal string */
-	state_block_builder & balance_dec (std::string balance_decimal);
+	state_block_builder & balance_dec (std::string const & balance_decimal);
 	/** Set balance from hex string */
-	state_block_builder & balance_hex (std::string balance_hex);
+	state_block_builder & balance_hex (std::string const & balance_hex);
 	/** Set link */
-	state_block_builder & link (nano::uint256_union link);
+	state_block_builder & link (nano::link const & link);
 	/** Set link from hex representation */
-	state_block_builder & link_hex (std::string link_hex);
+	state_block_builder & link_hex (std::string const & link_hex);
 	/** Set link from an xrb_ or nano_ address */
-	state_block_builder & link_address (std::string link_address);
+	state_block_builder & link_address (std::string const & link_address);
 	/** Provides validation for build() */
 	void validate ();
 
