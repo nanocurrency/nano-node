@@ -199,7 +199,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 				}
 				should_increment_counter = true;
 			}
-			if (((election_l->confirmation_request_count + 1) % 4 == 0 && election_l->confirmation_request_count < high_confirmation_request_count) || election_l->confirmation_request_count % high_confirmation_request_count == could_fit_delay)
+			if ((election_l->confirmation_request_count % 2 == 1 && election_l->confirmation_request_count < high_confirmation_request_count) || election_l->confirmation_request_count % high_confirmation_request_count == could_fit_delay)
 			{
 				if (node.ledger.could_fit (transaction, *election_l->status.winner))
 				{
