@@ -122,7 +122,7 @@ receive_buffer (std::make_shared<std::vector<uint8_t>> ()),
 socket (socket_a),
 node (node_a)
 {
-	receive_buffer->resize (512);
+	receive_buffer->resize (1024);
 }
 
 void nano::bootstrap_server::receive ()

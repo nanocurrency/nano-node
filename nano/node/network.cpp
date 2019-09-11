@@ -365,15 +365,13 @@ void nano::network::broadcast_confirm_req_batch (std::unordered_map<std::shared_
 	}
 	if (!request_bundle_a.empty ())
 	{
-		{
-			std::weak_ptr<nano::node> node_w (node.shared ());
-			node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a) - elapsed_l.stop (), [node_w, request_bundle_a, callback_a, delay_a]() {
-				if (auto node_l = node_w.lock ())
-				{
-					node_l->network.broadcast_confirm_req_batch (request_bundle_a, callback_a, delay_a, true);
-				}
-			});
-		}
+		std::weak_ptr<nano::node> node_w (node.shared ());
+		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a) - elapsed_l.stop (), [node_w, request_bundle_a, callback_a, delay_a]() {
+			if (auto node_l = node_w.lock ())
+			{
+				node_l->network.broadcast_confirm_req_batch (request_bundle_a, callback_a, delay_a, true);
+			}
+		});
 	}
 	else
 	{
