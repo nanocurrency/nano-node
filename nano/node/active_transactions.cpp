@@ -197,7 +197,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 					}
 				}
 			}
-			if (election_l->confirmation_request_count < high_confirmation_request_count || election_l->confirmation_request_count % high_confirmation_request_count == could_fit_delay)
+			if ((election_l->confirmation_request_count > 2 && election_l->confirmation_request_count < 5) || election_l->confirmation_request_count % high_confirmation_request_count == could_fit_delay)
 			{
 				if (node.ledger.could_fit (transaction, *election_l->status.winner))
 				{
@@ -304,7 +304,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 			this->finished_confirm_req_batch = true;
 			this->notify ();
 		},
-		50);
+		40);
 	}
 	//confirm_req broadcast
 	if (!single_requests_bundle.empty ())
@@ -313,7 +313,8 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 		node.network.broadcast_confirm_req_many (single_requests_bundle, [this]() {
 			this->finished_confirm_req_many = true;
 			this->notify ();
-		});
+		},
+		10);
 	}
 	lock_a.lock ();
 	// Erase inactive elections
