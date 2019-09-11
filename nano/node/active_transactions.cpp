@@ -137,6 +137,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	auto roots_size (roots.size ());
 	for (auto i (roots.get<1> ().begin ()), n (roots.get<1> ().end ()); i != n; ++i)
 	{
+		bool should_increment_counter{ false };
 		auto root (i->root);
 		auto election_l (i->election);
 		if ((election_l->confirmed || election_l->stopped) && election_l->confirmation_request_count >= minimum_confirmation_request_count - 1)
@@ -196,6 +197,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 						election_l->update_dependent ();
 					}
 				}
+				should_increment_counter = true;
 			}
 			if (((election_l->confirmation_request_count + 1) % 4 == 0 && election_l->confirmation_request_count < high_confirmation_request_count) || election_l->confirmation_request_count % high_confirmation_request_count == could_fit_delay)
 			{
@@ -205,6 +207,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 					if (blocks_bundle.size () < max_broadcast_queue)
 					{
 						blocks_bundle.push_back (election_l->status.winner);
+						should_increment_counter = true;
 					}
 				}
 				else
@@ -248,6 +251,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 					vec->push_back (i);
 				}
 				single_requests_bundle.push_back (std::make_pair (election_l->status.winner, vec));
+				should_increment_counter = true;
 			}
 			else if (election_l->confirmation_request_count % 2 == 0)
 			{
@@ -264,10 +268,12 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 						{
 							std::vector<std::pair<nano::block_hash, nano::block_hash>> insert_vector = { root_hash };
 							batch_requests_bundle.insert (std::make_pair (rep, insert_vector));
+							should_increment_counter = true;
 						}
 						else if (rep_request->second.size () < (max_broadcast_queue / 4) * nano::network::confirm_req_hashes_max)
 						{
 							rep_request->second.push_back (root_hash);
+							should_increment_counter = true;
 						}
 					}
 					else
@@ -279,10 +285,14 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 				if (single_requests_bundle.size () < max_broadcast_queue && !single_confirm_req_channels->empty ())
 				{
 					single_requests_bundle.push_back (std::make_pair (election_l->status.winner, single_confirm_req_channels));
+					should_increment_counter = true;
 				}
 			}
 		}
-		++election_l->confirmation_request_count;
+		if (should_increment_counter)
+		{
+			++election_l->confirmation_request_count;
+		}
 	}
 
 	lock_a.unlock ();
