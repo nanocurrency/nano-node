@@ -1,7 +1,7 @@
-#include <gtest/gtest.h>
-
 #include <nano/secure/common.hpp>
 #include <nano/secure/epoch.hpp>
+
+#include <gtest/gtest.h>
 
 TEST (epochs, is_epoch_link)
 {

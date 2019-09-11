@@ -10,6 +10,27 @@
 using namespace std::chrono_literals;
 unsigned constexpr nano::wallet_store::version_current;
 
+TEST (wallet, no_special_keys_accounts)
+{
+	bool init;
+	nano::mdb_env env (init, nano::unique_path ());
+	ASSERT_FALSE (init);
+	auto transaction (env.tx_begin_write ());
+	nano::kdf kdf;
+	nano::wallet_store wallet (init, kdf, transaction, nano::genesis_account, 1, "0");
+	ASSERT_FALSE (init);
+	nano::keypair key1;
+	ASSERT_FALSE (wallet.exists (transaction, key1.pub));
+	wallet.insert_adhoc (transaction, key1.prv);
+	ASSERT_TRUE (wallet.exists (transaction, key1.pub));
+
+	for (uint64_t account = 0; account < nano::wallet_store::special_count; account++)
+	{
+		nano::uint256_union account_l (account);
+		ASSERT_FALSE (wallet.exists (transaction, account_l));
+	}
+}
+
 TEST (wallet, no_key)
 {
 	bool init;
@@ -819,12 +840,12 @@ TEST (wallet, version_2_upgrade)
 	wallet->store.erase (transaction, nano::wallet_store::seed_special);
 	wallet->store.version_put (transaction, 2);
 	ASSERT_EQ (2, wallet->store.version (transaction));
-	ASSERT_FALSE (wallet->store.exists (transaction, nano::wallet_store::deterministic_index_special));
-	ASSERT_FALSE (wallet->store.exists (transaction, nano::wallet_store::seed_special));
+	ASSERT_EQ (wallet->store.find (transaction, nano::wallet_store::deterministic_index_special), wallet->store.end ());
+	ASSERT_EQ (wallet->store.find (transaction, nano::wallet_store::seed_special), wallet->store.end ());
 	wallet->store.attempt_password (transaction, "1");
 	ASSERT_EQ (nano::wallet_store::version_current, wallet->store.version (transaction));
-	ASSERT_TRUE (wallet->store.exists (transaction, nano::wallet_store::deterministic_index_special));
-	ASSERT_TRUE (wallet->store.exists (transaction, nano::wallet_store::seed_special));
+	ASSERT_NE (wallet->store.find (transaction, nano::wallet_store::deterministic_index_special), wallet->store.end ());
+	ASSERT_NE (wallet->store.find (transaction, nano::wallet_store::seed_special), wallet->store.end ());
 	ASSERT_FALSE (wallet->deterministic_insert (transaction).is_zero ());
 }
 
