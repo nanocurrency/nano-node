@@ -6,7 +6,7 @@
 
 using namespace std::chrono_literals;
 
-TEST (active_transactions, bounded_active_elections)
+TEST (active_transactions, DISABLED_bounded_active_elections)
 {
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
@@ -30,7 +30,7 @@ TEST (active_transactions, bounded_active_elections)
 		send = std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous_hash, nano::test_genesis_key.pub, nano::genesis_amount - count * nano::xrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous_hash));
 		previous_size = node1.active.size ();
 		//sleep this thread for the max delay between request loop rounds possible for such a small active_elections_size
-		std::this_thread::sleep_for (std::chrono::milliseconds (node1.network_params.network.request_interval_ms + (node_config.active_elections_size * 20)));
+		std::this_thread::sleep_for (std::chrono::milliseconds (node1.network_params.network.request_interval_ms));
 	}
 }
 

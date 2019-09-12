@@ -80,7 +80,7 @@ protected:
 	std::atomic<uint64_t> last_completion_time;
 	std::atomic<bool> timed_out{ false };
 	boost::optional<std::chrono::seconds> io_timeout;
-	size_t const queue_size_max = 128;
+	size_t const queue_size_max = 1024;
 
 	/** Set by close() - completion handlers must check this. This is more reliable than checking
 	 error codes as the OS may have already completed the async operation. */
