@@ -844,10 +844,10 @@ void nano::bootstrap_attempt::lazy_block_state_backlog_check (std::shared_ptr<na
 				lazy_add (next_block.first); // link
 			}
 		}
-		// Assumption for other legacy block types
-		else
+		// Use built-in table for other legacy block types
+		else if (node->bootstrap_initiator.lazy_lookup.find (next_block.first) != node->bootstrap_initiator.lazy_lookup.end ())
 		{
-			// Disabled
+			lazy_add (next_block.first);
 		}
 		lazy_state_backlog.erase (find_state);
 	}

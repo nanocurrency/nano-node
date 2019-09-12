@@ -178,6 +178,7 @@ public:
 	bool in_progress ();
 	std::shared_ptr<nano::bootstrap_attempt> current_attempt ();
 	nano::pulls_cache cache;
+	std::unordered_set<nano::block_hash> lazy_lookup;
 	void stop ();
 
 private:

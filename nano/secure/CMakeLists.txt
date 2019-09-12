@@ -31,10 +31,22 @@ file (WRITE ${CMAKE_BINARY_DIR}/bootstrap_weights_beta.cpp "#include <cstddef>\n
 	"	size_t nano_bootstrap_weights_beta_size = sizeof(nano_bootstrap_weights_beta) - 1;\n"
 	"}\n")
 
+# Embed lazy bootstrap lookup table
+if (EXISTS ${CMAKE_SOURCE_DIR}/bootstrap_lazy_lookup.bin)
+	file(READ ${CMAKE_SOURCE_DIR}/bootstrap_lazy_lookup.bin bootstrap_lazy_lookup HEX)
+	string(REGEX REPLACE "(..)" "0x\\1," bootstrap_lazy_lookup ${bootstrap_lazy_lookup})
+endif ()
+file (WRITE ${CMAKE_BINARY_DIR}/bootstrap_lazy_lookup.cpp "#include <cstddef>\n"
+	"namespace nano {\n"
+	"	unsigned char nano_bootstrap_lazy_lookup[] = {${bootstrap_lazy_lookup} 0x00};\n"
+	"	size_t nano_bootstrap_lazy_lookup_size = sizeof(nano_bootstrap_lazy_lookup) - 1;\n"
+	"}\n")
+
 add_library (secure
 	${PLATFORM_SECURE_SOURCE}
 	${CMAKE_BINARY_DIR}/bootstrap_weights_live.cpp
 	${CMAKE_BINARY_DIR}/bootstrap_weights_beta.cpp
+	${CMAKE_BINARY_DIR}/bootstrap_lazy_lookup.cpp
 	common.hpp
 	common.cpp
 	blockstore.hpp

@@ -60,6 +60,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("wallet_representative_get", "Prints default representative for <wallet>")
 	("wallet_representative_set", "Set <account> as default representative for <wallet>")
 	("vote_dump", "Dump most recent votes from representatives")
+	("generate_bootstrap_lazy_lookup", "Generate lookup table to help lazy bootstrap on live network")
 	("account", boost::program_options::value<std::string> (), "Defines <account> for other commands")
 	("file", boost::program_options::value<std::string> (), "Defines <file> for other commands")
 	("key", boost::program_options::value<std::string> (), "Defines the <key> for other commands, hex")
@@ -1022,6 +1023,55 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			auto const & vote (i->second);
 			std::cerr << boost::str (boost::format ("%1%\n") % vote->to_json ());
 		}
+	}
+	else if (vm.count ("generate_bootstrap_lazy_lookup") == 1)
+	{
+		inactive_node node (data_path);
+		auto transaction (node.node->store.tx_begin_read ());
+		std::cout << boost::str (boost::format ("Performing lazy bootstrap lookup generation...\n"));
+		size_t account_count (0);
+		std::vector<nano::block_hash> source_blocks;
+		for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n; ++i)
+		{
+			++account_count;
+			if ((account_count % 100000) == 0)
+			{
+				std::cout << boost::str (boost::format ("%1% accounts checked\n") % account_count);
+			}
+			nano::account_info const & info (i->second);
+			nano::account const & account (i->first);
+
+			auto hash (info.open_block);
+			auto block (node.node->store.block_get (transaction, hash)); // Block data
+			while (!hash.is_zero () && block != nullptr && block->type () != nano::block_type::state)
+			{
+				// Retrieving successor block hash
+				hash = node.node->store.block_successor (transaction, hash);
+				// Retrieving sucessor block data
+				if (!hash.is_zero ())
+				{
+					auto previous_type (block->type ());
+					block = node.node->store.block_get (transaction, hash);
+					if (block->type () == nano::block_type::state && !block->link ().is_zero () && !node.node->ledger.is_epoch_link (block->link ()))
+					{
+						auto state (dynamic_cast<nano::state_block *> (block.get ()));
+						// Generate only for receive state blocks where previous block is legacy receive, open or change (doesn't contain balance in block)
+						if (!node.node->ledger.is_send (transaction, *state))
+						{
+							if (previous_type == nano::block_type::receive || previous_type == nano::block_type::open || previous_type == nano::block_type::change)
+							{
+								source_blocks.push_back (block->link ());
+							}
+						}
+					}
+				}
+			}
+		}
+		std::ofstream lazy_binary;
+		lazy_binary.open ("bootstrap_lazy_lookup.bin", std::ofstream::out | std::ofstream::binary);
+		lazy_binary.write (reinterpret_cast<const char *> (&source_blocks[0]), source_blocks.size () * sizeof (nano::block_hash));
+		lazy_binary.close ();
+		std::cout << boost::str (boost::format ("%1% blocks written to bootstrap_lazy_lookup.bin\n") % source_blocks.size());
 	}
 	else
 	{

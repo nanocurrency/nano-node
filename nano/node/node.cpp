@@ -29,6 +29,8 @@ extern unsigned char nano_bootstrap_weights_live[];
 extern size_t nano_bootstrap_weights_live_size;
 extern unsigned char nano_bootstrap_weights_beta[];
 extern size_t nano_bootstrap_weights_beta_size;
+extern unsigned char nano_bootstrap_lazy_lookup[];
+extern size_t nano_bootstrap_lazy_lookup_size;
 }
 
 void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
@@ -456,6 +458,21 @@ startup_time (std::chrono::steady_clock::now ())
 				auto transaction (store.tx_begin_write ());
 				store.unchecked_clear (transaction);
 				logger.always_log ("Dropping unchecked blocks");
+			}
+			// Load lazy bootstrap lookup table
+			if (network_params.network.is_live_network () && use_bootstrap_weight)
+			{
+				nano::bufferstream lazy_stream ((const uint8_t *)nano_bootstrap_lazy_lookup, nano_bootstrap_lazy_lookup_size);
+				while (true)
+				{
+					nano::block_hash source_block;
+					if (nano::try_read (lazy_stream, source_block.bytes))
+					{
+						break;
+					}
+					bootstrap_initiator.lazy_lookup.emplace (source_block);
+				}
+				logger.always_log (boost::str (boost::format ("Using %1% blocks for lazy bootstrap lookup table") % bootstrap_initiator.lazy_lookup.size ()));
 			}
 		}
 	}
