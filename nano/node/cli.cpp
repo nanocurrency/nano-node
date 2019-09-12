@@ -1071,7 +1071,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		lazy_binary.open ("bootstrap_lazy_lookup.bin", std::ofstream::out | std::ofstream::binary);
 		lazy_binary.write (reinterpret_cast<const char *> (&source_blocks[0]), source_blocks.size () * sizeof (nano::block_hash));
 		lazy_binary.close ();
-		std::cout << boost::str (boost::format ("%1% blocks written to bootstrap_lazy_lookup.bin\n") % source_blocks.size());
+		std::cout << boost::str (boost::format ("%1% blocks written to bootstrap_lazy_lookup.bin\n") % source_blocks.size ());
 	}
 	else
 	{
