@@ -1064,7 +1064,7 @@ std::shared_ptr<nano::block> nano::ledger::successor (nano::transaction const & 
 		}
 		else
 		{
-			get_from_previous = true;	
+			get_from_previous = true;
 		}
 	}
 	else

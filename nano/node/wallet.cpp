@@ -955,7 +955,7 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block const & s
 					}
 					else
 					{
-						block.reset (new nano::state_block (account, 0, representative_a, pending_info.amount, reinterpret_cast <nano::link const &> (hash), prv, account, work_a));
+						block.reset (new nano::state_block (account, 0, representative_a, pending_info.amount, reinterpret_cast<nano::link const &> (hash), prv, account, work_a));
 					}
 				}
 				else
