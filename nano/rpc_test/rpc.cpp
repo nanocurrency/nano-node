@@ -5738,6 +5738,23 @@ TEST (rpc, wallet_add_watch)
 	std::string success (response.json.get<std::string> ("success"));
 	ASSERT_TRUE (success.empty ());
 	ASSERT_TRUE (system.wallet (0)->exists (nano::test_genesis_key.pub));
+
+	// Make sure using special wallet key as pubkey fails
+	nano::public_key bad_key (1);
+	entry.put ("", bad_key.to_account ());
+	peers_l.push_back (std::make_pair ("", entry));
+	request.erase ("accounts");
+	request.add_child ("accounts", peers_l);
+
+	test_response response_error (request, rpc.config.port, system.io_ctx);
+	system.deadline_set (5s);
+	while (response_error.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response_error.status);
+	std::error_code ec (nano::error_common::bad_public_key);
+	ASSERT_EQ (response_error.json.get<std::string> ("error"), ec.message ());
 }
 
 TEST (rpc, online_reps)

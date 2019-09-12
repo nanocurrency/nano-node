@@ -129,6 +129,12 @@ nano::qualified_root nano::block::qualified_root () const
 	return nano::qualified_root (previous (), root ());
 }
 
+nano::amount const & nano::block::balance () const
+{
+	static nano::amount amount{ 0 };
+	return amount;
+}
+
 void nano::send_block::visit (nano::block_visitor & visitor_a) const
 {
 	visitor_a.send_block (*this);
@@ -380,6 +386,11 @@ nano::block_hash const & nano::send_block::previous () const
 nano::root const & nano::send_block::root () const
 {
 	return hashables.previous;
+}
+
+nano::amount const & nano::send_block::balance () const
+{
+	return hashables.balance;
 }
 
 nano::signature const & nano::send_block::block_signature () const
@@ -1196,6 +1207,11 @@ nano::link const & nano::state_block::link () const
 nano::account const & nano::state_block::representative () const
 {
 	return hashables.representative;
+}
+
+nano::amount const & nano::state_block::balance () const
+{
+	return hashables.balance;
 }
 
 nano::signature const & nano::state_block::block_signature () const

@@ -474,7 +474,7 @@ public:
 					{
 						blocks_bundle.push_back (root_hash.first);
 					}
-					else
+					else if (!root_hash.second.is_zero ())
 					{
 						nano::block_hash successor (0);
 						// Search for block root
@@ -684,17 +684,18 @@ void nano::network::random_fill (std::array<nano::endpoint, 8> & target_a) const
 	}
 }
 
-nano::tcp_endpoint nano::network::bootstrap_peer ()
+nano::tcp_endpoint nano::network::bootstrap_peer (bool lazy_bootstrap)
 {
 	nano::tcp_endpoint result (boost::asio::ip::address_v6::any (), 0);
 	bool use_udp_peer (nano::random_pool::generate_word32 (0, 1));
+	auto protocol_min (lazy_bootstrap ? node.network_params.protocol.protocol_version_bootstrap_lazy_min : node.network_params.protocol.protocol_version_bootstrap_min);
 	if (use_udp_peer || tcp_channels.size () == 0)
 	{
-		result = udp_channels.bootstrap_peer (node.network_params.protocol.protocol_version_bootstrap_min);
+		result = udp_channels.bootstrap_peer (protocol_min);
 	}
 	if (result == nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0))
 	{
-		result = tcp_channels.bootstrap_peer ();
+		result = tcp_channels.bootstrap_peer (protocol_min);
 	}
 	return result;
 }

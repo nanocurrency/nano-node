@@ -226,6 +226,7 @@ void nano::block_processor::verify_state_blocks (nano::unique_lock<std::mutex> &
 			else
 			{
 				blocks_filter.erase (filter_item (hashes[i], blocks_signatures[i]));
+				requeue_invalid (hashes[i]);
 			}
 			items.pop_front ();
 		}
@@ -477,6 +478,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			{
 				node.logger.try_log (boost::str (boost::format ("Bad signature for: %1%") % hash.to_string ()));
 			}
+			requeue_invalid (hash);
 			break;
 		}
 		case nano::process_result::negative_spend:
@@ -570,4 +572,13 @@ nano::block_hash nano::block_processor::filter_item (nano::block_hash const & ha
 	blake2b_update (&state, hash_a.bytes.data (), hash_a.bytes.size ());
 	blake2b_final (&state, result.bytes.data (), sizeof (result.bytes));
 	return result;
+}
+
+void nano::block_processor::requeue_invalid (nano::block_hash const & hash_a)
+{
+	auto attempt (node.bootstrap_initiator.current_attempt ());
+	if (attempt != nullptr && attempt->mode == nano::bootstrap_mode::lazy)
+	{
+		attempt->lazy_requeue (hash_a);
+	}
 }

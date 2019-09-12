@@ -699,6 +699,9 @@ check_bootstrap_weights (true)
 				cemented_count += i->second;
 			}
 		}
+
+		// Cache block count
+		block_count_cache = store.block_count (transaction).sum ();
 	}
 }
 
