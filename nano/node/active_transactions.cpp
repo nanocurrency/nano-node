@@ -58,7 +58,7 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 		}
 
 		// Spend time prioritizing accounts to reduce voting traffic
-		auto time_spent_prioritizing_ledger_accounts = (frontiers_fully_confirmed ? std::chrono::milliseconds (200) : std::chrono::seconds (2));
+		auto time_spent_prioritizing_ledger_accounts = (std::chrono::seconds (2));
 		auto time_spent_prioritizing_wallet_accounts = std::chrono::milliseconds (50);
 		prioritize_frontiers_for_confirmation (transaction_a, is_test_network ? std::chrono::milliseconds (50) : time_spent_prioritizing_ledger_accounts, time_spent_prioritizing_wallet_accounts);
 
@@ -98,11 +98,7 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 		};
 		start_elections_for_prioritized_frontiers (priority_cementable_frontiers);
 		start_elections_for_prioritized_frontiers (priority_wallet_cementable_frontiers);
-		frontiers_fully_confirmed = (elections_count < max_elections);
-		// 4 times slower check if all frontiers were confirmed
-		auto fully_confirmed_factor = frontiers_fully_confirmed ? 4 : 1;
-		// Calculate next check time
-		next_frontier_check = steady_clock::now () + (agressive_factor * fully_confirmed_factor / test_network_factor);
+		next_frontier_check = steady_clock::now () + (agressive_factor / test_network_factor);
 	}
 }
 
@@ -120,7 +116,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	/* Confirm frontiers when there aren't many confirmations already pending and node finished initial bootstrap
 	In auto mode start confirm only if node contains almost principal representative (half of required for principal weight) */
 	lock_a.unlock ();
-	if (node.config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled && node.pending_confirmation_height.size () < confirmed_frontiers_max_pending_cut_off && node.ledger.block_count_cache >= node.ledger.bootstrap_weight_max_blocks)
+	if (node.config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled && node.ledger.block_count_cache > node.ledger.cemented_count && node.pending_confirmation_height.size () < confirmed_frontiers_max_pending_cut_off && node.ledger.block_count_cache >= node.ledger.bootstrap_weight_max_blocks)
 	{
 		confirm_frontiers (transaction);
 	}
