@@ -330,7 +330,6 @@ TEST (bootstrap_processor, push_diamond)
 	node1->stop ();
 }
 
-
 TEST (bootstrap_processor, push_one)
 {
 	nano::system system (24000, 1);
