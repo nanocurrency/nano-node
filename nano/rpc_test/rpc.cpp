@@ -7070,3 +7070,67 @@ TEST (rpc, deprecated_account_format)
 	boost::optional<std::string> deprecated_account_format2 (response2.json.get_optional<std::string> ("deprecated_account_format"));
 	ASSERT_TRUE (deprecated_account_format2.is_initialized ());
 }
+
+TEST (rpc, epoch_upgrade)
+{
+	nano::system system (24000, 1);
+	auto node = system.nodes.front ();
+	nano::keypair key1, key2;
+	nano::genesis genesis;
+	nano::keypair epoch_signer (nano::test_genesis_key);
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 1, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (genesis.hash ()))); // to opened account
+	ASSERT_EQ (nano::process_result::progress, node->process (*send1).code);
+	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2, key2.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send1->hash ()))); // to unopened account (pending)
+	ASSERT_EQ (nano::process_result::progress, node->process (*send2).code);
+	auto send3 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send2->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 3, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send2->hash ()))); // to burn (0)
+	ASSERT_EQ (nano::process_result::progress, node->process (*send3).code);
+	auto send4 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send3->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 4, std::numeric_limits<nano::uint256_t>::max (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send3->hash ()))); // to max account
+	ASSERT_EQ (nano::process_result::progress, node->process (*send4).code);
+	auto open (std::make_shared<nano::state_block> (key1.pub, 0, key1.pub, 1, send1->hash (), key1.prv, key1.pub, system.work.generate (key1.pub)));
+	ASSERT_EQ (nano::process_result::progress, node->process (*open).code);
+	// Check account count
+	{
+		auto transaction (node->store.tx_begin_read ());
+		ASSERT_EQ (2, node->store.account_count (transaction));
+		ASSERT_NE (node->store.latest_v0_begin (transaction), node->store.latest_v0_end ());
+		ASSERT_EQ (node->store.latest_v1_begin (transaction), node->store.latest_v1_end ());
+	}
+	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
+	nano::rpc_config rpc_config (true);
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "epoch_upgrade");
+	request.put ("epoch", 1);
+	request.put ("key", epoch_signer.prv.data.to_string ());
+	test_response response (request, rpc.config.port, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+	ASSERT_EQ ("1", response.json.get<std::string> ("started"));
+	system.deadline_set (5s);
+	bool done (false);
+	while (!done)
+	{
+		auto transaction (node->store.tx_begin_read ());
+		done = (4 == node->store.account_count (transaction));
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	// Check upgrade
+	{
+		auto transaction (node->store.tx_begin_read ());
+		ASSERT_EQ (4, node->store.account_count (transaction));
+		ASSERT_EQ (node->store.latest_v0_begin (transaction), node->store.latest_v0_end ());
+		ASSERT_NE (node->store.latest_v1_begin (transaction), node->store.latest_v1_end ());
+		ASSERT_TRUE (node->store.account_exists (transaction, key1.pub));
+		ASSERT_TRUE (node->store.account_exists (transaction, key2.pub));
+		ASSERT_TRUE (node->store.account_exists (transaction, std::numeric_limits<nano::uint256_t>::max ()));
+		ASSERT_FALSE (node->store.account_exists (transaction, 0));
+	}
+}

@@ -96,6 +96,8 @@ enum class error_rpc
 	disabled_bootstrap_legacy,
 	invalid_balance,
 	invalid_destinations,
+	invalid_epoch,
+	invalid_epoch_signer,
 	invalid_offset,
 	invalid_missing_type,
 	invalid_root,
