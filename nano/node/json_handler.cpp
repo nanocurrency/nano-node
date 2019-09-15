@@ -2011,19 +2011,18 @@ void nano::json_handler::deterministic_key ()
 	response_errors ();
 }
 
-void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::uint256_union const & prv_a, nano::epoch epoch)
+void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::uint256_union const & prv_a, nano::epoch epoch_a)
 {
 	nano::block_builder builder;
-	auto link (node_a->ledger.link (epoch));
+	auto link (node_a->ledger.link (epoch_a));
 	nano::raw_key raw_key;
 	raw_key.data = prv_a;
 	auto signer (nano::pub_key (prv_a));
 	assert (signer == node_a->ledger.signer (link));
 
-	auto previous_begin = [node_a, epoch](nano::account const & account_a)
-	{
+	auto previous_begin = [node_a, epoch_a](nano::account const & account_a) {
 		auto transaction (node_a->store.tx_begin_read ());
-		if (epoch == nano::epoch::epoch_1)
+		if (epoch_a == nano::epoch::epoch_1)
 		{
 			return node_a->store.latest_v0_begin (transaction, account_a);
 		}
@@ -2033,9 +2032,8 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::uint256_union con
 			return node_a->store.latest_v0_begin (transaction, account_a);
 		}
 	};
-	auto previous_end  = [node_a, epoch]()
-	{
-		if (epoch == nano::epoch::epoch_1)
+	auto previous_end  = [node_a, epoch_a]() {
+		if (epoch_a == nano::epoch::epoch_1)
 		{
 			return node_a->store.latest_v0_end ();
 		}
@@ -2045,11 +2043,10 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::uint256_union con
 			return node_a->store.latest_v0_end ();
 		}
 	};
-	auto previous_pending_begin = [node_a, epoch](nano::account const & account_a)
-	{
+	auto previous_pending_begin = [node_a, epoch_a](nano::account const & account_a) {
 		nano::pending_key pending_key (account_a, 0);
 		auto transaction (node_a->store.tx_begin_read ());
-		if (epoch == nano::epoch::epoch_1)
+		if (epoch_a == nano::epoch::epoch_1)
 		{
 			return node_a->store.pending_v0_begin (transaction, pending_key);
 		}
@@ -2059,9 +2056,8 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::uint256_union con
 			return node_a->store.pending_v0_begin (transaction, pending_key);
 		}
 	};
-	auto previous_pending_end  = [node_a, epoch]()
-	{
-		if (epoch == nano::epoch::epoch_1)
+	auto previous_pending_end  = [node_a, epoch_a]() {
+		if (epoch_a == nano::epoch::epoch_1)
 		{
 			return node_a->store.pending_v0_end ();
 		}
@@ -2084,19 +2080,19 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::uint256_union con
 		{
 			account = iterator->first;
 			nano::account_info const & info (iterator->second);
-			auto epoch_block = builder.state ()
-				.account (account)
-				.previous (info.head)
-				.representative (info.representative)
-				.balance (info.balance)
-				.link (link)
-				.sign (raw_key, signer)
-				.work (node_a->work_generate_blocking (info.head).value_or (0))
-				.build ();
-			if (!nano::validate_message (signer, epoch_block->hash (), epoch_block->block_signature ()) && !nano::work_validate (*epoch_block.get ()))
+			auto epoch = builder.state ()
+			             .account (account)
+			             .previous (info.head)
+			             .representative (info.representative)
+			             .balance (info.balance)
+			             .link (link)
+			             .sign (raw_key, signer)
+			             .work (node_a->work_generate_blocking (info.head).value_or (0))
+			             .build ();
+			if (!nano::validate_message (signer, epoch->hash (), epoch->block_signature ()) && !nano::work_validate (*epoch.get ()))
 			{
 				++count;
-				node_a->process_active (std::move (epoch_block));
+				node_a->process_active (std::move (epoch));
 			}
 			if (count % 1000 == 0)
 			{
@@ -2119,19 +2115,19 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::uint256_union con
 		auto transaction (node_a->store.tx_begin_read ());
 		if (!node_a->store.account_exists (transaction, account))
 		{
-			auto epoch_block = builder.state ()
-				.account (account)
-				.previous (0)
-				.representative (0)
-				.balance (0)
-				.link (link)
-				.sign (raw_key, signer)
-				.work (node_a->work_generate_blocking (account).value_or (0))
-				.build ();
-			if (!nano::validate_message (signer, epoch_block->hash (), epoch_block->block_signature ()) && !nano::work_validate (*epoch_block.get ()))
+			auto epoch = builder.state ()
+			             .account (account)
+			             .previous (0)
+			             .representative (0)
+			             .balance (0)
+			             .link (link)
+			             .sign (raw_key, signer)
+			             .work (node_a->work_generate_blocking (account).value_or (0))
+			             .build ();
+			if (!nano::validate_message (signer, epoch->hash (), epoch->block_signature ()) && !nano::work_validate (*epoch.get ()))
 			{
 				++count;
-				node_a->process_active (std::move (epoch_block));
+				node_a->process_active (std::move (epoch));
 			}
 			if (count % 1000 == 0)
 			{
