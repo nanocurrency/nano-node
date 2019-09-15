@@ -2098,6 +2098,10 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::uint256_union con
 				++count;
 				node_a->process_active (std::move (epoch_block));
 			}
+			if (count % 1000 == 0)
+			{
+				node_a->logger.always_log (boost::str (boost::format ("%1% accounts were upgraded to new epoch...") % count));
+			}
 			iterator = previous_begin (account.number () + 1);
 		}
 		account = 0;
@@ -2128,6 +2132,10 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::uint256_union con
 			{
 				++count;
 				node_a->process_active (std::move (epoch_block));
+			}
+			if (count % 1000 == 0)
+			{
+				node_a->logger.always_log (boost::str (boost::format ("%1% unopened accounts with pending blocks were upgraded to new epoch...") % count));
 			}
 		}
 		iterator = account.number () != std::numeric_limits<nano::uint256_t>::max () ? previous_pending_begin (account.number () + 1) : previous_pending_end ();
