@@ -113,7 +113,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	unsigned unconfirmed_count (0);
 	unsigned unconfirmed_request_count (0);
 	unsigned could_fit_delay = node.network_params.network.is_test_network () ? high_confirmation_request_count - 1 : 1;
-	std::unordered_map<std::shared_ptr<nano::transport::channel>, std::vector<std::pair<nano::block_hash, nano::block_hash>>> requests_bundle;
+	std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::block_hash>>> requests_bundle;
 	std::deque<std::shared_ptr<nano::block>> rebroadcast_bundle;
 	std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>>> confirm_req_bundle;
 
@@ -255,8 +255,8 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 						{
 							if (requests_bundle.size () < max_broadcast_queue)
 							{
-								std::vector<std::pair<nano::block_hash, nano::block_hash>> insert_vector = { root_hash };
-								requests_bundle.insert (std::make_pair (rep, insert_vector));
+								std::deque<std::pair<nano::block_hash, nano::block_hash>> insert_root_hash = { root_hash };
+								requests_bundle.insert (std::make_pair (rep, insert_root_hash));
 							}
 						}
 						else if (rep_request->second.size () < max_broadcast_queue * nano::network::confirm_req_hashes_max)
