@@ -137,6 +137,10 @@ target_link_libraries (node
 	${psapi_lib}
 	)
 
+if (NANO_STACKTRACE_BACKTRACE)
+	target_link_libraries(node backtrace)
+endif ()
+
 target_compile_definitions(node
 	PRIVATE
 		-DTAG_VERSION_STRING=${TAG_VERSION_STRING}

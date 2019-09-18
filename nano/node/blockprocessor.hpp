@@ -59,6 +59,7 @@ private:
 	void verify_state_blocks (nano::unique_lock<std::mutex> &, size_t = std::numeric_limits<size_t>::max ());
 	void process_batch (nano::unique_lock<std::mutex> &);
 	void process_live (nano::block_hash const &, std::shared_ptr<nano::block>, const bool = false);
+	void requeue_invalid (nano::block_hash const &);
 	bool stopped;
 	bool active;
 	bool awaiting_write{ false };

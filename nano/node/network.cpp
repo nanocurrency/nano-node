@@ -319,7 +319,7 @@ void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> blo
 	}
 }
 
-void nano::network::broadcast_confirm_req_batch (std::unordered_map<std::shared_ptr<nano::transport::channel>, std::vector<std::pair<nano::block_hash, nano::block_hash>>> request_bundle_a, unsigned delay_a, bool resumption)
+void nano::network::broadcast_confirm_req_batch (std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::block_hash>>> request_bundle_a, unsigned delay_a, bool resumption)
 {
 	const size_t max_reps = 50;
 	if (!resumption && node.config.logging.network_logging ())
@@ -337,8 +337,9 @@ void nano::network::broadcast_confirm_req_batch (std::unordered_map<std::shared_
 			// Limit max request size hash + root to 7 pairs
 			while (roots_hashes.size () < confirm_req_hashes_max && !j->second.empty ())
 			{
-				roots_hashes.push_back (j->second.back ());
-				j->second.pop_back ();
+				// expects ordering by priority, descending
+				roots_hashes.push_back (j->second.front ());
+				j->second.pop_front ();
 			}
 			nano::confirm_req req (roots_hashes);
 			j->first->send (req);
@@ -474,7 +475,7 @@ public:
 					{
 						blocks_bundle.push_back (root_hash.first);
 					}
-					else
+					else if (!root_hash.second.is_zero ())
 					{
 						nano::block_hash successor (0);
 						// Search for block root
@@ -683,17 +684,18 @@ void nano::network::random_fill (std::array<nano::endpoint, 8> & target_a) const
 	}
 }
 
-nano::tcp_endpoint nano::network::bootstrap_peer ()
+nano::tcp_endpoint nano::network::bootstrap_peer (bool lazy_bootstrap)
 {
 	nano::tcp_endpoint result (boost::asio::ip::address_v6::any (), 0);
 	bool use_udp_peer (nano::random_pool::generate_word32 (0, 1));
+	auto protocol_min (lazy_bootstrap ? node.network_params.protocol.protocol_version_bootstrap_lazy_min : node.network_params.protocol.protocol_version_bootstrap_min);
 	if (use_udp_peer || tcp_channels.size () == 0)
 	{
-		result = udp_channels.bootstrap_peer (node.network_params.protocol.protocol_version_bootstrap_min);
+		result = udp_channels.bootstrap_peer (protocol_min);
 	}
 	if (result == nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0))
 	{
-		result = tcp_channels.bootstrap_peer ();
+		result = tcp_channels.bootstrap_peer (protocol_min);
 	}
 	return result;
 }

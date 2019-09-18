@@ -76,6 +76,7 @@ public:
 	// Link field for state blocks, zero otherwise.
 	virtual nano::block_hash link () const;
 	virtual nano::account representative () const;
+	virtual nano::amount balance () const;
 	virtual void serialize (nano::stream &) const = 0;
 	virtual void serialize_json (std::string &, bool = false) const = 0;
 	virtual void serialize_json (boost::property_tree::ptree &) const = 0;
@@ -115,6 +116,7 @@ public:
 	void block_work_set (uint64_t) override;
 	nano::block_hash previous () const override;
 	nano::block_hash root () const override;
+	nano::amount balance () const override;
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
 	void serialize_json (std::string &, bool = false) const override;
@@ -310,6 +312,7 @@ public:
 	nano::block_hash root () const override;
 	nano::block_hash link () const override;
 	nano::account representative () const override;
+	nano::amount balance () const override;
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
 	void serialize_json (std::string &, bool = false) const override;

@@ -125,7 +125,7 @@ public:
 	void send_confirm_req (std::shared_ptr<nano::transport::channel>, std::shared_ptr<nano::block>);
 	void broadcast_confirm_req (std::shared_ptr<nano::block>);
 	void broadcast_confirm_req_base (std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>, unsigned, bool = false);
-	void broadcast_confirm_req_batch (std::unordered_map<std::shared_ptr<nano::transport::channel>, std::vector<std::pair<nano::block_hash, nano::block_hash>>>, unsigned = broadcast_interval_ms, bool = false);
+	void broadcast_confirm_req_batch (std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::block_hash>>>, unsigned = broadcast_interval_ms, bool = false);
 	void broadcast_confirm_req_batch (std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>>>, unsigned = broadcast_interval_ms);
 	void confirm_hashes (nano::transaction const &, std::shared_ptr<nano::transport::channel>, std::vector<nano::block_hash>);
 	bool send_votes_cache (std::shared_ptr<nano::transport::channel>, nano::block_hash const &);
@@ -141,7 +141,7 @@ public:
 	void random_fill (std::array<nano::endpoint, 8> &) const;
 	std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (size_t) const;
 	// Get the next peer for attempting a tcp bootstrap connection
-	nano::tcp_endpoint bootstrap_peer ();
+	nano::tcp_endpoint bootstrap_peer (bool = false);
 	nano::endpoint endpoint ();
 	void cleanup (std::chrono::steady_clock::time_point const &);
 	void ongoing_cleanup ();
