@@ -2758,28 +2758,28 @@ TEST (ledger, zero_rep)
 	nano::genesis genesis;
 	nano::block_builder builder;
 	auto block1 = builder.state ()
-	.account (nano::test_genesis_key.pub)
-	.previous (genesis.hash ())
-	.representative (0)
-	.balance (nano::genesis_amount)
-	.link (0)
-	.sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
-	.work (system.work.generate (genesis.hash ()))
-	.build ();
-	auto transaction (system.nodes [0]->store.tx_begin_write ());
-	ASSERT_EQ (nano::process_result::progress, system.nodes [0]->ledger.process (transaction, *block1).code);
-	ASSERT_EQ (0, system.nodes [0]->ledger.rep_weights.representation_get (nano::test_genesis_key.pub));
-	ASSERT_EQ (nano::genesis_amount, system.nodes [0]->ledger.rep_weights.representation_get (0));
+	              .account (nano::test_genesis_key.pub)
+	              .previous (genesis.hash ())
+	              .representative (0)
+	              .balance (nano::genesis_amount)
+	              .link (0)
+	              .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	              .work (system.work.generate (genesis.hash ()))
+	              .build ();
+	auto transaction (system.nodes[0]->store.tx_begin_write ());
+	ASSERT_EQ (nano::process_result::progress, system.nodes[0]->ledger.process (transaction, *block1).code);
+	ASSERT_EQ (0, system.nodes[0]->ledger.rep_weights.representation_get (nano::test_genesis_key.pub));
+	ASSERT_EQ (nano::genesis_amount, system.nodes[0]->ledger.rep_weights.representation_get (0));
 	auto block2 = builder.state ()
-	.account (nano::test_genesis_key.pub)
-	.previous (block1->hash ())
-	.representative (nano::test_genesis_key.pub)
-	.balance (nano::genesis_amount)
-	.link (0)
-	.sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
-	.work (system.work.generate (block1->hash ()))
-	.build ();
-	ASSERT_EQ (nano::process_result::progress, system.nodes [0]->ledger.process (transaction, *block2).code);
-	ASSERT_EQ (nano::genesis_amount, system.nodes [0]->ledger.rep_weights.representation_get (nano::test_genesis_key.pub));
-	ASSERT_EQ (0, system.nodes [0]->ledger.rep_weights.representation_get (0));
+	              .account (nano::test_genesis_key.pub)
+	              .previous (block1->hash ())
+	              .representative (nano::test_genesis_key.pub)
+	              .balance (nano::genesis_amount)
+	              .link (0)
+	              .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	              .work (system.work.generate (block1->hash ()))
+	              .build ();
+	ASSERT_EQ (nano::process_result::progress, system.nodes[0]->ledger.process (transaction, *block2).code);
+	ASSERT_EQ (nano::genesis_amount, system.nodes[0]->ledger.rep_weights.representation_get (nano::test_genesis_key.pub));
+	ASSERT_EQ (0, system.nodes[0]->ledger.rep_weights.representation_get (0));
 }
