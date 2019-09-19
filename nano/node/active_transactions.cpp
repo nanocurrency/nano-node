@@ -766,7 +766,7 @@ void nano::active_transactions::update_active_difficulty (nano::unique_lock<std:
 	{
 		std::vector<uint64_t> active_root_difficulties;
 		active_root_difficulties.reserve (roots.size ());
-		auto cutoff (std::chrono::steady_clock::now () - 2 * election_request_delay);
+		auto cutoff (std::chrono::steady_clock::now () - election_request_delay - 1s);
 		for (auto & root : roots)
 		{
 			if (!root.election->confirmed && !root.election->stopped && root.election->election_start < cutoff)
