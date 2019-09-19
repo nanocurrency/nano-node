@@ -124,18 +124,19 @@ public:
 	nano::gap_information find_inactive_votes_cache (nano::block_hash const &);
 	nano::node & node;
 	std::mutex mutex;
-	// Minimum number of confirmation requests
-	static unsigned constexpr minimum_confirmation_request_count = 2;
-	// Threshold for considering confirmation request count high
-	static unsigned constexpr high_confirmation_request_count = 2;
-	size_t long_unconfirmed_size = 0;
-	static size_t constexpr max_broadcast_queue = 1000;
+	std::chrono::seconds const long_election_threshold;
+	// Delay until requesting confirmation for an election
+	std::chrono::milliseconds const election_request_delay;
+	static size_t constexpr max_block_broadcasts = 5;
+	static size_t constexpr max_confirm_req_batches = 30;
+	static size_t constexpr max_confirm_req = 30;
 	boost::circular_buffer<double> multipliers_cb;
 	uint64_t trended_active_difficulty;
 	size_t priority_cementable_frontiers_size ();
 	size_t priority_wallet_cementable_frontiers_size ();
 	boost::circular_buffer<double> difficulty_trend ();
 	size_t inactive_votes_cache_size ();
+	std::atomic<unsigned> ongoing_broadcasts{ 0 };
 
 private:
 	// Call action with confirmed block, may be different than what we started with

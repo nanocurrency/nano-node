@@ -60,7 +60,8 @@ public:
 	std::atomic<bool> confirmed;
 	bool stopped;
 	std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
-	unsigned confirmation_request_count;
+	unsigned confirmation_request_count{ 0 };
+	unsigned confirmation_loop_count{ 0 };
 	std::unordered_set<nano::block_hash> dependent_blocks;
 	std::chrono::seconds late_blocks_delay{ 5 };
 };

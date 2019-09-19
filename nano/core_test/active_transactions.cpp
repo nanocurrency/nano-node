@@ -14,23 +14,23 @@ TEST (active_transactions, bounded_active_elections)
 	node_config.active_elections_size = 5;
 	auto & node1 = *system.add_node (node_config);
 	nano::genesis genesis;
-	size_t count (1);
+	size_t count (0);
 	auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - count * nano::xrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (genesis.hash ())));
-	auto previous_size = node1.active.size ();
 	bool done (false);
 	system.deadline_set (5s);
 	while (!done)
 	{
-		count++;
 		node1.process_active (send);
-		done = previous_size > node1.active.size ();
-		ASSERT_LT (node1.active.size (), node1.config.active_elections_size); //triggers after reverting #2116
+		node1.active.start (send);
 		ASSERT_NO_ERROR (system.poll ());
+		ASSERT_FALSE (node1.active.empty ());
+		ASSERT_LE (node1.active.size (), node1.config.active_elections_size);
+		++count;
+		done = count > node1.active.size ();
 		auto previous_hash = send->hash ();
 		send = std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous_hash, nano::test_genesis_key.pub, nano::genesis_amount - count * nano::xrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous_hash));
-		previous_size = node1.active.size ();
 		//sleep this thread for the max delay between request loop rounds possible for such a small active_elections_size
-		std::this_thread::sleep_for (std::chrono::milliseconds (node1.network_params.network.request_interval_ms + (node_config.active_elections_size * 20)));
+		std::this_thread::sleep_for (std::chrono::milliseconds (node1.network_params.network.request_interval_ms));
 	}
 }
 
@@ -246,14 +246,14 @@ TEST (active_transactions, keep_local)
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
 	node_config.enable_voting = false;
-	node_config.active_elections_size = 3; //bound to 3, wont drop wallet created transactions, but good to test dropping remote
+	node_config.active_elections_size = 2; //bound to 2, wont drop wallet created transactions, but good to test dropping remote
 	// Disable frontier confirmation to allow the test to finish before
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node1 = *system.add_node (node_config);
 	auto & wallet (*system.wallet (0));
 	nano::genesis genesis;
 	//key 1/2 will be managed by the wallet
-	nano::keypair key1, key2, key3, key4;
+	nano::keypair key1, key2, key3, key4, key5;
 	wallet.insert_adhoc (nano::test_genesis_key.prv);
 	wallet.insert_adhoc (key1.prv);
 	wallet.insert_adhoc (key2.prv);
@@ -262,6 +262,7 @@ TEST (active_transactions, keep_local)
 	auto send3 (wallet.send_action (nano::test_genesis_key.pub, key3.pub, node1.config.receive_minimum.number ()));
 	auto send4 (wallet.send_action (nano::test_genesis_key.pub, key4.pub, node1.config.receive_minimum.number ()));
 	system.deadline_set (10s);
+	// should not drop wallet created transactions
 	while (node1.active.size () != 4)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -276,24 +277,20 @@ TEST (active_transactions, keep_local)
 			it = node1.active.roots.begin ();
 		}
 	}
-	auto open1 (std::make_shared<nano::state_block> (key3.pub, 0, key3.pub, nano::xrb_ratio, send3->hash (), key3.prv, key3.pub, system.work.generate (key3.pub)));
+	auto open1 (std::make_shared<nano::state_block> (key1.pub, 0, key1.pub, nano::xrb_ratio, send3->hash (), key1.prv, key1.pub, system.work.generate (key1.pub)));
 	node1.process_active (open1);
-	auto open2 (std::make_shared<nano::state_block> (key4.pub, 0, key4.pub, nano::xrb_ratio, send4->hash (), key4.prv, key4.pub, system.work.generate (key4.pub)));
+	auto open2 (std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, nano::xrb_ratio, send4->hash (), key2.prv, key2.pub, system.work.generate (key2.pub)));
 	node1.process_active (open2);
-	//none are dropped since none are long_unconfirmed
 	system.deadline_set (10s);
-	while (node1.active.size () != 4)
+	while (node1.active.size () != 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	auto send5 (wallet.send_action (nano::test_genesis_key.pub, key1.pub, node1.config.receive_minimum.number ()));
-	node1.active.start (send5);
-	//drop two lowest non-wallet managed active_transactions before inserting a new into active as all are long_unconfirmed
-	system.deadline_set (10s);
-	while (node1.active.size () != 3)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	auto open3 (std::make_shared<nano::state_block> (key3.pub, 0, key3.pub, nano::xrb_ratio, send4->hash (), key3.prv, key3.pub, system.work.generate (key3.pub)));
+	node1.active.start (open3);
+	system.deadline_set (2s);
+	// bound to 2 elections, should not start another
+	ASSERT_EQ (2, node1.active.size ());
 }
 
 TEST (active_transactions, prioritize_chains)
@@ -301,7 +298,7 @@ TEST (active_transactions, prioritize_chains)
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
 	node_config.enable_voting = false;
-	node_config.active_elections_size = 4; //bound to 3, wont drop wallet created transactions, but good to test dropping remote
+	node_config.active_elections_size = 4; //bound to 4, wont drop wallet created transactions, but good to test dropping remote
 	// Disable frontier confirmation to allow the test to finish before
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node1 = *system.add_node (node_config);
@@ -352,32 +349,11 @@ TEST (active_transactions, prioritize_chains)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	system.deadline_set (10s);
-	bool done (false);
-	//wait for all to be long_unconfirmed
-	while (!done)
-	{
-		{
-			nano::lock_guard<std::mutex> guard (node1.active.mutex);
-			done = node1.active.long_unconfirmed_size == 4;
-		}
-		ASSERT_NO_ERROR (system.poll ());
-	}
 	std::this_thread::sleep_for (1s);
 	node1.process_active (open2);
 	system.deadline_set (10s);
 	while (node1.active.size () != 4)
 	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	//wait for all to be long_unconfirmed
-	done = false;
-	system.deadline_set (10s);
-	while (!done)
-	{
-		{
-			nano::lock_guard<std::mutex> guard (node1.active.mutex);
-			done = node1.active.long_unconfirmed_size == 4;
-		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	size_t seen (0);

@@ -5,12 +5,12 @@
 
 #include <numeric>
 
-size_t constexpr nano::active_transactions::max_broadcast_queue;
-
 using namespace std::chrono;
 
 nano::active_transactions::active_transactions (nano::node & node_a) :
 node (node_a),
+long_election_threshold (node.network_params.network.is_test_network () ? 2s : 24s),
+election_request_delay (node.network_params.network.is_test_network () ? 0s : 1s),
 multipliers_cb (20, 1.),
 trended_active_difficulty (node.network_params.network.publish_threshold),
 next_frontier_check (steady_clock::now ()),
@@ -40,10 +40,10 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 	auto is_test_network = node.network_params.network.is_test_network ();
 	int test_network_factor = is_test_network ? 1000 : 1;
 	auto roots_size = size ();
-	auto max_elections = (max_broadcast_queue / 4);
 	nano::unique_lock<std::mutex> lk (mutex);
 	auto check_time_exceeded = std::chrono::steady_clock::now () >= next_frontier_check;
 	lk.unlock ();
+	auto max_elections = (node.config.active_elections_size / 10);
 	auto low_active_elections = roots_size < max_elections;
 	bool wallets_check_required = (!skip_wallets || !priority_wallet_cementable_frontiers.empty ()) && !agressive_mode;
 	// To minimise dropping real-time transactions, set the maximum number of elections
@@ -108,10 +108,10 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	auto transaction (node.store.tx_begin_read ());
 	unsigned unconfirmed_count (0);
 	unsigned unconfirmed_request_count (0);
-	unsigned could_fit_delay = node.network_params.network.is_test_network () ? high_confirmation_request_count - 1 : 1;
-	std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::block_hash>>> requests_bundle;
-	std::deque<std::shared_ptr<nano::block>> rebroadcast_bundle;
-	std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>>> confirm_req_bundle;
+	unsigned const high_confirmation_request_count{ 16 };
+	std::deque<std::shared_ptr<nano::block>> blocks_bundle;
+	std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::block_hash>>> batch_requests_bundle;
+	std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>>> single_requests_bundle;
 
 	/* Confirm frontiers when there aren't many confirmations already pending and node finished initial bootstrap
 	In auto mode start confirm only if node contains almost principal representative (half of required for principal weight) */
@@ -121,27 +121,32 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 		confirm_frontiers (transaction);
 	}
 	lock_a.lock ();
+	auto const reps (node.rep_crawler.representatives (std::numeric_limits<size_t>::max ()));
 	auto roots_size (roots.size ());
+	// Any new request is only done at least 1 second after the election started
+	auto cutoff_l (std::chrono::steady_clock::now () - election_request_delay);
+	auto long_election_cutoff_l (std::chrono::steady_clock::now () - long_election_threshold);
 	for (auto i (roots.get<1> ().begin ()), n (roots.get<1> ().end ()); i != n; ++i)
 	{
-		auto root (i->root);
 		auto election_l (i->election);
-		if ((election_l->confirmed || election_l->stopped) && election_l->confirmation_request_count >= minimum_confirmation_request_count - 1)
+		auto root_l (i->root);
+		if ((election_l->confirmed || election_l->stopped))
 		{
 			if (election_l->confirmed)
 			{
-				add_confirmed (election_l->status, root);
+				add_confirmed (election_l->status, root_l);
 			}
-			inactive.insert (root);
+			inactive.insert (root_l);
 		}
-		else
+		else if (election_l->election_start < cutoff_l)
 		{
-			if (election_l->confirmation_request_count > high_confirmation_request_count)
+			bool increment_counter{ false };
+			if (election_l->election_start < long_election_cutoff_l)
 			{
 				++unconfirmed_count;
 				unconfirmed_request_count += election_l->confirmation_request_count;
 				// Log votes for very long unconfirmed elections
-				if (election_l->confirmation_request_count % 50 == 1)
+				if (election_l->confirmation_request_count % (4 * high_confirmation_request_count) == 1)
 				{
 					auto tally_l (election_l->tally ());
 					election_l->log_votes (tally_l);
@@ -183,28 +188,29 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 						election_l->update_dependent ();
 					}
 				}
+				increment_counter = true;
 			}
-			if (election_l->confirmation_request_count < high_confirmation_request_count || election_l->confirmation_request_count % high_confirmation_request_count == could_fit_delay)
+			else if (election_l->confirmation_request_count % 3 == 1)
 			{
 				if (node.ledger.could_fit (transaction, *election_l->status.winner))
 				{
 					// Broadcast winner
-					if (rebroadcast_bundle.size () < max_broadcast_queue)
+					if (blocks_bundle.size () < max_block_broadcasts)
 					{
-						rebroadcast_bundle.push_back (election_l->status.winner);
+						blocks_bundle.push_back (election_l->status.winner);
+						increment_counter = true;
 					}
 				}
 				else
 				{
-					if (election_l->confirmation_request_count != 0)
+					if (election_l->confirmation_loop_count != 0)
 					{
 						election_l->stop ();
-						inactive.insert (root);
+						inactive.insert (root_l);
 					}
 				}
 			}
 			auto rep_channels (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> ());
-			auto reps (node.rep_crawler.representatives (std::numeric_limits<size_t>::max ()));
 
 			// Add all rep endpoints that haven't already voted. We use a set since multiple
 			// reps may exist on an endpoint.
@@ -234,9 +240,10 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 				{
 					vec->push_back (i);
 				}
-				confirm_req_bundle.push_back (std::make_pair (election_l->status.winner, vec));
+				single_requests_bundle.push_back (std::make_pair (election_l->status.winner, vec));
+				increment_counter = true;
 			}
-			else
+			else if (election_l->confirmation_loop_count % 2 == 0)
 			{
 				auto single_confirm_req_channels (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> ());
 				for (auto & rep : *rep_channels)
@@ -244,20 +251,24 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 					if (rep->get_network_version () >= node.network_params.protocol.tcp_realtime_protocol_version_min)
 					{
 						// Send batch request to peers supporting confirm_req by hash + root
-						auto rep_request (requests_bundle.find (rep));
+						auto rep_request (batch_requests_bundle.find (rep));
 						auto block (election_l->status.winner);
 						auto root_hash (std::make_pair (block->hash (), block->root ()));
-						if (rep_request == requests_bundle.end ())
+						if (rep_request == batch_requests_bundle.end ())
 						{
-							if (requests_bundle.size () < max_broadcast_queue)
+							// Maximum number of representatives
+							if (batch_requests_bundle.size () < 3 * max_confirm_req_batches)
 							{
 								std::deque<std::pair<nano::block_hash, nano::block_hash>> insert_root_hash = { root_hash };
-								requests_bundle.insert (std::make_pair (rep, insert_root_hash));
+								batch_requests_bundle.insert (std::make_pair (rep, insert_root_hash));
+								increment_counter = true;
 							}
 						}
-						else if (rep_request->second.size () < max_broadcast_queue * nano::network::confirm_req_hashes_max)
+						// Maximum number of hashes
+						else if (rep_request->second.size () < max_confirm_req_batches * nano::network::confirm_req_hashes_max)
 						{
 							rep_request->second.push_back (root_hash);
+							increment_counter = true;
 						}
 					}
 					else
@@ -266,29 +277,50 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 					}
 				}
 				// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
-				if (confirm_req_bundle.size () < max_broadcast_queue && !single_confirm_req_channels->empty ())
+				if (single_requests_bundle.size () < max_confirm_req && !single_confirm_req_channels->empty ())
 				{
-					confirm_req_bundle.push_back (std::make_pair (election_l->status.winner, single_confirm_req_channels));
+					single_requests_bundle.push_back (std::make_pair (election_l->status.winner, single_confirm_req_channels));
+					increment_counter = true;
 				}
 			}
+			if (node.network_params.network.is_test_network () || increment_counter)
+			{
+				++election_l->confirmation_request_count;
+			}
 		}
-		++election_l->confirmation_request_count;
+		++election_l->confirmation_loop_count;
 	}
+
 	lock_a.unlock ();
 	// Rebroadcast unconfirmed blocks
-	if (!rebroadcast_bundle.empty ())
+	if (!blocks_bundle.empty ())
 	{
-		node.network.flood_block_batch (std::move (rebroadcast_bundle));
+		++ongoing_broadcasts;
+		node.network.flood_block_many (std::move (blocks_bundle), [this]() {
+			--this->ongoing_broadcasts;
+			this->condition.notify_all ();
+		},
+		40); // 250ms / (40ms / 1 block) > 5 blocks
 	}
 	// Batch confirmation request
-	if (!requests_bundle.empty ())
+	if (!batch_requests_bundle.empty ())
 	{
-		node.network.broadcast_confirm_req_batch (requests_bundle, 50);
+		++ongoing_broadcasts;
+		node.network.broadcast_confirm_req_batch (batch_requests_bundle, [this]() {
+			--this->ongoing_broadcasts;
+			this->condition.notify_all ();
+		},
+		5); // 250ms / (5ms / 5 batches) > 210 batches
 	}
 	//confirm_req broadcast
-	if (!confirm_req_bundle.empty ())
+	if (!single_requests_bundle.empty ())
 	{
-		node.network.broadcast_confirm_req_batch (confirm_req_bundle);
+		++ongoing_broadcasts;
+		node.network.broadcast_confirm_req_many (single_requests_bundle, [this]() {
+			--this->ongoing_broadcasts;
+			this->condition.notify_all ();
+		},
+		50); // 250ms / (50ms / 10 reqs) > 30 reqs
 	}
 	lock_a.lock ();
 	// Erase inactive elections
@@ -302,7 +334,6 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 			roots.erase (root_it);
 		}
 	}
-	long_unconfirmed_size = unconfirmed_count;
 	if (unconfirmed_count > 0)
 	{
 		node.logger.try_log (boost::str (boost::format ("%1% blocks have been unconfirmed averaging %2% confirmation requests") % unconfirmed_count % (unconfirmed_request_count / unconfirmed_count)));
@@ -327,16 +358,18 @@ void nano::active_transactions::request_loop ()
 		request_confirm (lock);
 		update_active_difficulty (lock);
 
-		// This prevents unnecessary waiting if stopped is set in-between the above check and now
-		if (stopped)
+		// Sleep until all broadcasts are done, plus the remaining loop time
+		const auto wakeup (std::chrono::steady_clock::now () + std::chrono::milliseconds (node.network_params.network.request_interval_ms));
+		while (!stopped && ongoing_broadcasts)
 		{
-			break;
+			condition.wait (lock);
 		}
-		const auto extra_delay (std::min (roots.size (), max_broadcast_queue) * node.network.broadcast_interval_ms * 2);
-		const auto wakeup (std::chrono::steady_clock::now () + std::chrono::milliseconds (node.network_params.network.request_interval_ms + extra_delay));
-		// clang-format off
-		condition.wait_until (lock, wakeup, [&wakeup, &stopped = stopped] { return stopped || std::chrono::steady_clock::now () >= wakeup; });
-		// clang-format on
+		if (!stopped)
+		{
+			// clang-format off
+			condition.wait_until (lock, wakeup, [&wakeup, &stopped = stopped] { return stopped || std::chrono::steady_clock::now () >= wakeup; });
+			// clang-format on
+		}
 	}
 }
 
@@ -540,7 +573,7 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, std::
 			adjust_difficulty (hash);
 			election->insert_inactive_votes_cache ();
 		}
-		if (roots.size () >= node.config.active_elections_size)
+		if (roots.size () > node.config.active_elections_size)
 		{
 			flush_lowest ();
 		}
@@ -733,8 +766,7 @@ void nano::active_transactions::update_active_difficulty (nano::unique_lock<std:
 	{
 		std::vector<uint64_t> active_root_difficulties;
 		active_root_difficulties.reserve (roots.size ());
-		auto min_election_time (std::chrono::milliseconds (node.network_params.network.request_interval_ms));
-		auto cutoff (std::chrono::steady_clock::now () - min_election_time);
+		auto cutoff (std::chrono::steady_clock::now () - 2 * election_request_delay);
 		for (auto & root : roots)
 		{
 			if (!root.election->confirmed && !root.election->stopped && root.election->election_start < cutoff)
@@ -820,30 +852,22 @@ void nano::active_transactions::erase (nano::block const & block_a)
 
 void nano::active_transactions::flush_lowest ()
 {
-	size_t count (0);
 	assert (!roots.empty ());
 	auto & sorted_roots = roots.get<1> ();
 	for (auto it = sorted_roots.rbegin (); it != sorted_roots.rend ();)
 	{
-		if (count != 2)
+		auto election = it->election;
+		if (!election->confirmed && !election->stopped && !node.wallets.watcher->is_watched (it->root))
 		{
-			auto election = it->election;
-			if (election->confirmation_request_count > high_confirmation_request_count && !election->confirmed && !election->stopped && !node.wallets.watcher->is_watched (it->root))
-			{
-				it = decltype (it){ sorted_roots.erase (std::next (it).base ()) };
-				election->stop ();
-				election->clear_blocks ();
-				election->clear_dependent ();
-				count++;
-			}
-			else
-			{
-				++it;
-			}
+			it = decltype (it){ sorted_roots.erase (std::next (it).base ()) };
+			election->stop ();
+			election->clear_blocks ();
+			election->clear_dependent ();
+			break;
 		}
 		else
 		{
-			break;
+			++it;
 		}
 	}
 }

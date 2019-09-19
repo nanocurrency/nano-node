@@ -205,7 +205,7 @@ TEST (node, node_receive_quorum)
 			nano::lock_guard<std::mutex> guard (system.nodes[0]->active.mutex);
 			auto info (system.nodes[0]->active.roots.find (nano::qualified_root (previous, previous)));
 			ASSERT_NE (system.nodes[0]->active.roots.end (), info);
-			done = info->election->confirmation_request_count > nano::active_transactions::minimum_confirmation_request_count;
+			done = info->election->confirmation_request_count > 2;
 		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -2312,7 +2312,7 @@ TEST (node, confirm_quorum)
 			nano::lock_guard<std::mutex> guard (system.nodes[0]->active.mutex);
 			auto info (system.nodes[0]->active.roots.find (nano::qualified_root (send1->hash (), send1->hash ())));
 			ASSERT_NE (system.nodes[0]->active.roots.end (), info);
-			done = info->election->confirmation_request_count > nano::active_transactions::minimum_confirmation_request_count;
+			done = info->election->confirmation_request_count > 2;
 		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
