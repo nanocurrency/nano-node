@@ -190,7 +190,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 				}
 				increment_counter = true;
 			}
-			else if (election_l->confirmation_request_count % 3 == 1)
+			else if ((election_l->confirmation_request_count + 1) % 3 == 0)
 			{
 				if (node.ledger.could_fit (transaction, *election_l->status.winner))
 				{
