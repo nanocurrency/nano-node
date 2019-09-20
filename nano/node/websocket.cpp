@@ -428,6 +428,12 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 		}
 		action_succeeded = true;
 	}
+	else if (action == "ping")
+	{
+		action_succeeded = true;
+		ack_l = "true";
+		action = "pong";
+	}
 	if (ack_l && action_succeeded)
 	{
 		send_ack (action, id_l);
