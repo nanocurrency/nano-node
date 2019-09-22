@@ -1368,7 +1368,7 @@ bool nano::wallet::live ()
 
 void nano::wallet::work_cache_blocking (nano::account const & account_a, nano::block_hash const & root_a)
 {
-	auto opt_work_l (wallets.node.work_generate_blocking (root_a));
+	auto opt_work_l (wallets.node.work_generate_blocking (root_a, account_a));
 	if (opt_work_l.is_initialized ())
 	{
 		auto transaction_l (wallets.tx_begin_write ());
@@ -1482,7 +1482,7 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 							}
 						}
 					},
-					active_difficulty);
+					active_difficulty, block_a->account ());
 				}
 				else
 				{

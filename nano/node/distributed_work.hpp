@@ -38,7 +38,7 @@ public:
 class distributed_work final : public std::enable_shared_from_this<nano::distributed_work>
 {
 public:
-	distributed_work (unsigned int, nano::node &, nano::block_hash const &, std::function<void(boost::optional<uint64_t>)> const &, uint64_t);
+	distributed_work (unsigned int, nano::node &, nano::block_hash const &, std::function<void(boost::optional<uint64_t>)> const &, uint64_t, boost::optional<nano::account> const & = boost::none);
 	~distributed_work ();
 	void start ();
 	void start_work ();
@@ -56,6 +56,7 @@ public:
 	unsigned int backoff; // in seconds
 	nano::node & node;
 	nano::block_hash root;
+	boost::optional<nano::account> const & account;
 	std::mutex mutex;
 	std::map<boost::asio::ip::address, uint16_t> outstanding;
 	std::vector<std::weak_ptr<nano::work_peer_request>> connections;
@@ -75,8 +76,8 @@ class distributed_work_factory final
 {
 public:
 	distributed_work_factory (nano::node &);
-	void make (nano::block_hash const &, std::function<void(boost::optional<uint64_t>)> const &, uint64_t);
-	void make (unsigned int, nano::block_hash const &, std::function<void(boost::optional<uint64_t>)> const &, uint64_t);
+	void make (nano::block_hash const &, std::function<void(boost::optional<uint64_t>)> const &, uint64_t, boost::optional<nano::account> const & = boost::none);
+	void make (unsigned int, nano::block_hash const &, std::function<void(boost::optional<uint64_t>)> const &, uint64_t, boost::optional<nano::account> const & = boost::none);
 	void cancel (nano::block_hash const &, bool const local_stop = false);
 	void cleanup_finished ();
 

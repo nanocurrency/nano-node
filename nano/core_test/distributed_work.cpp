@@ -17,7 +17,7 @@ TEST (distributed_work, no_peers)
 		work = work_a;
 		done = true;
 	};
-	node->distributed_work.make (hash, callback, node->network_params.network.publish_threshold);
+	node->distributed_work.make (hash, callback, node->network_params.network.publish_threshold, nano::account ());
 	system.deadline_set (5s);
 	while (!done)
 	{
