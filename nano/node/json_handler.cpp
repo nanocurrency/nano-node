@@ -1372,7 +1372,7 @@ void nano::json_handler::block_create ()
 					{
 						if (work == 0)
 						{
-							auto opt_work_l (node.work_generate_blocking (previous.is_zero () ? pub : previous, account));
+							auto opt_work_l (node.work_generate_blocking (previous.is_zero () ? pub : previous, nano::account (pub)));
 							if (opt_work_l.is_initialized ())
 							{
 								work = *opt_work_l;
@@ -1412,7 +1412,7 @@ void nano::json_handler::block_create ()
 					{
 						if (work == 0)
 						{
-							auto opt_work_l (node.work_generate_blocking (pub, account));
+							auto opt_work_l (node.work_generate_blocking (pub, nano::account (pub)));
 							if (opt_work_l.is_initialized ())
 							{
 								work = *opt_work_l;
@@ -1442,7 +1442,7 @@ void nano::json_handler::block_create ()
 					{
 						if (work == 0)
 						{
-							auto opt_work_l (node.work_generate_blocking (previous, account));
+							auto opt_work_l (node.work_generate_blocking (previous, nano::account (pub)));
 							if (opt_work_l.is_initialized ())
 							{
 								work = *opt_work_l;
@@ -1472,7 +1472,7 @@ void nano::json_handler::block_create ()
 					{
 						if (work == 0)
 						{
-							auto opt_work_l (node.work_generate_blocking (previous, account));
+							auto opt_work_l (node.work_generate_blocking (previous, nano::account (pub)));
 							if (opt_work_l.is_initialized ())
 							{
 								work = *opt_work_l;
@@ -1504,7 +1504,7 @@ void nano::json_handler::block_create ()
 						{
 							if (work == 0)
 							{
-								auto opt_work_l (node.work_generate_blocking (previous, account));
+								auto opt_work_l (node.work_generate_blocking (previous, nano::account (pub)));
 								if (opt_work_l.is_initialized ())
 								{
 									work = *opt_work_l;
