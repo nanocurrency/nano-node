@@ -36,8 +36,8 @@ public:
 	void cancel (nano::uint256_union const &);
 	void generate (nano::uint256_union const &, std::function<void(boost::optional<uint64_t> const &)>);
 	void generate (nano::uint256_union const &, std::function<void(boost::optional<uint64_t> const &)>, uint64_t);
-	uint64_t generate (nano::uint256_union const &);
-	uint64_t generate (nano::uint256_union const &, uint64_t);
+	boost::optional<uint64_t> generate (nano::uint256_union const &);
+	boost::optional<uint64_t> generate (nano::uint256_union const &, uint64_t);
 	size_t size ();
 	nano::network_constants network_constants;
 	std::atomic<int> ticket;

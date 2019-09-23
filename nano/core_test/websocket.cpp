@@ -276,7 +276,7 @@ TEST (websocket, confirmation)
 	{
 		nano::block_hash previous (node1->latest (nano::test_genesis_key.pub));
 		balance -= send_amount;
-		auto send (std::make_shared<nano::send_block> (previous, key.pub, balance, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous)));
+		auto send (std::make_shared<nano::send_block> (previous, key.pub, balance, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (previous)));
 		node1->process_active (send);
 	}
 
@@ -318,7 +318,7 @@ TEST (websocket, confirmation)
 	{
 		nano::block_hash previous (node1->latest (nano::test_genesis_key.pub));
 		balance -= send_amount;
-		auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous, nano::test_genesis_key.pub, balance, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous)));
+		auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous, nano::test_genesis_key.pub, balance, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (previous)));
 		node1->process_active (send);
 	}
 
@@ -378,7 +378,7 @@ TEST (websocket, stopped_election)
 	// Create election, then erase it, causing a websocket message to be emitted
 	nano::keypair key1;
 	nano::genesis genesis;
-	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
 	nano::publish publish1 (send1);
 	auto channel1 (node1->network.udp_channels.create (node1->network.endpoint ()));
 	node1->network.process_message (publish1, channel1);
@@ -441,7 +441,7 @@ TEST (websocket, confirmation_options)
 	nano::block_hash previous (node1->latest (nano::test_genesis_key.pub));
 	{
 		balance -= send_amount;
-		auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous, nano::test_genesis_key.pub, balance, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous)));
+		auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous, nano::test_genesis_key.pub, balance, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (previous)));
 		node1->process_active (send);
 		previous = send->hash ();
 	}
@@ -498,7 +498,7 @@ TEST (websocket, confirmation_options)
 	// Quick-confirm another block
 	{
 		balance -= send_amount;
-		auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous, nano::test_genesis_key.pub, balance, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous)));
+		auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous, nano::test_genesis_key.pub, balance, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (previous)));
 		node1->process_active (send);
 		previous = send->hash ();
 	}
@@ -525,7 +525,7 @@ TEST (websocket, confirmation_options)
 	// When filtering options are enabled, legacy blocks are always filtered
 	{
 		balance -= send_amount;
-		auto send (std::make_shared<nano::send_block> (previous, key.pub, balance, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous)));
+		auto send (std::make_shared<nano::send_block> (previous, key.pub, balance, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (previous)));
 		node1->process_active (send);
 		previous = send->hash ();
 	}
@@ -594,7 +594,7 @@ TEST (websocket, vote)
 	nano::keypair key;
 	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::block_hash previous (node1->latest (nano::test_genesis_key.pub));
-	auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous, nano::test_genesis_key.pub, nano::genesis_amount - (node1->config.online_weight_minimum.number () + 1), key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous)));
+	auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous, nano::test_genesis_key.pub, nano::genesis_amount - (node1->config.online_weight_minimum.number () + 1), key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (previous)));
 	node1->process_active (send);
 
 	// Wait for the websocket client to receive the vote message
@@ -662,7 +662,7 @@ TEST (websocket, vote_options)
 	auto confirm_block = [&]() {
 		nano::block_hash previous (node1->latest (nano::test_genesis_key.pub));
 		balance -= send_amount;
-		auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous, nano::test_genesis_key.pub, balance, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (previous)));
+		auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous, nano::test_genesis_key.pub, balance, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (previous)));
 		node1->process_active (send);
 	};
 	confirm_block ();

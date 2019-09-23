@@ -33,6 +33,24 @@ TEST (distributed_work, no_peers)
 	}
 }
 
+TEST (distributed_work, no_peers_disabled)
+{
+	nano::system system (24000, 0);
+	nano::node_config node_config (24000, system.logging);
+	node_config.work_threads = 0;
+	auto & node = *system.add_node (node_config);
+	bool done{ false };
+	auto callback_failure = [&done](boost::optional<uint64_t> work_a) {
+		ASSERT_FALSE (work_a.is_initialized ());
+		done = true;
+	};
+	node.distributed_work.make (nano::block_hash (), callback_failure, nano::network_constants::publish_test_threshold);
+	while (!done)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
 TEST (distributed_work, no_peers_cancel)
 {
 	nano::system system (24000, 0);
