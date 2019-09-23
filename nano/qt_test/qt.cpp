@@ -798,7 +798,7 @@ TEST (wallet, DISABLED_synchronizing)
 	{
 		auto transaction (system1.nodes[0]->store.tx_begin_write ());
 		auto latest (system1.nodes[0]->ledger.latest (transaction, nano::genesis_account));
-		nano::send_block send (latest, key1, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system1.work.generate (latest));
+		nano::send_block send (latest, key1, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system1.work.generate (latest));
 		system1.nodes[0]->ledger.process (transaction, send);
 	}
 	ASSERT_EQ (0, wallet->active_status.active.count (nano_qt::status_types::synchronizing));
