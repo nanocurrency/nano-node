@@ -190,7 +190,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 				}
 				increment_counter = true;
 			}
-			else if ((election_l->confirmation_request_count + 1) % 3 == 0)
+			else if (election_l->confirmation_request_count % 4 == 0)
 			{
 				if (node.ledger.could_fit (transaction, *election_l->status.winner))
 				{
@@ -243,7 +243,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 				single_requests_bundle.push_back (std::make_pair (election_l->status.winner, vec));
 				increment_counter = true;
 			}
-			else if (election_l->confirmation_loop_count % 2 == 0)
+			else if ((election_l->confirmation_loop_count + 1) % 4 == 1)
 			{
 				auto single_confirm_req_channels (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> ());
 				for (auto & rep : *rep_channels)
@@ -257,7 +257,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 						if (rep_request == batch_requests_bundle.end ())
 						{
 							// Maximum number of representatives
-							if (batch_requests_bundle.size () < 3 * max_confirm_req_batches)
+							if (batch_requests_bundle.size () < max_confirm_representatives)
 							{
 								std::deque<std::pair<nano::block_hash, nano::block_hash>> insert_root_hash = { root_hash };
 								batch_requests_bundle.insert (std::make_pair (rep, insert_root_hash));
@@ -300,7 +300,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 			--this->ongoing_broadcasts;
 			this->condition.notify_all ();
 		},
-		40); // 250ms / (40ms / 1 block) > 5 blocks
+		20); // 500ms / (20ms / 1 block) > 20 blocks
 	}
 	// Batch confirmation request
 	if (!batch_requests_bundle.empty ())
@@ -310,7 +310,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 			--this->ongoing_broadcasts;
 			this->condition.notify_all ();
 		},
-		5); // 250ms / (5ms / 5 batches) > 210 batches
+		20); // 500ms / (20ms / 5 batch size) > (15*7 = 105) batches
 	}
 	//confirm_req broadcast
 	if (!single_requests_bundle.empty ())
@@ -320,7 +320,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 			--this->ongoing_broadcasts;
 			this->condition.notify_all ();
 		},
-		50); // 250ms / (50ms / 10 reqs) > 30 reqs
+		250); // 500ms / (250ms / 10 reqs) > 15 reqs
 	}
 	lock_a.lock ();
 	// Erase inactive elections

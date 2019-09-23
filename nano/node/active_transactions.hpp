@@ -127,9 +127,10 @@ public:
 	std::chrono::seconds const long_election_threshold;
 	// Delay until requesting confirmation for an election
 	std::chrono::milliseconds const election_request_delay;
-	static size_t constexpr max_block_broadcasts = 5;
-	static size_t constexpr max_confirm_req_batches = 30;
-	static size_t constexpr max_confirm_req = 30;
+	static size_t constexpr max_block_broadcasts = 20;
+	static size_t constexpr max_confirm_representatives = 30;
+	static size_t constexpr max_confirm_req_batches = 15;
+	static size_t constexpr max_confirm_req = 15;
 	boost::circular_buffer<double> multipliers_cb;
 	uint64_t trended_active_difficulty;
 	size_t priority_cementable_frontiers_size ();
