@@ -125,10 +125,10 @@ public:
 	int price (nano::uint128_t const &, int);
 	boost::optional<uint64_t> work_generate_blocking (nano::block &, uint64_t);
 	boost::optional<uint64_t> work_generate_blocking (nano::block &);
-	boost::optional<uint64_t> work_generate_blocking (nano::uint256_union const &, uint64_t);
-	boost::optional<uint64_t> work_generate_blocking (nano::uint256_union const &);
-	void work_generate (nano::uint256_union const &, std::function<void(boost::optional<uint64_t>)>, uint64_t);
-	void work_generate (nano::uint256_union const &, std::function<void(boost::optional<uint64_t>)>);
+	boost::optional<uint64_t> work_generate_blocking (nano::uint256_union const &, uint64_t, boost::optional<nano::account> const & = boost::none);
+	boost::optional<uint64_t> work_generate_blocking (nano::uint256_union const &, boost::optional<nano::account> const & = boost::none);
+	void work_generate (nano::uint256_union const &, std::function<void(boost::optional<uint64_t>)>, uint64_t, boost::optional<nano::account> const & = boost::none);
+	void work_generate (nano::uint256_union const &, std::function<void(boost::optional<uint64_t>)>, boost::optional<nano::account> const & = boost::none);
 	void add_initial_peers ();
 	void block_confirm (std::shared_ptr<nano::block>);
 	bool block_confirmed_or_being_confirmed (nano::transaction const &, nano::block_hash const &);

@@ -967,7 +967,7 @@ boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & bloc
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a, uint64_t difficulty_a)
 {
-	auto opt_work_l (work_generate_blocking (block_a.root (), difficulty_a));
+	auto opt_work_l (work_generate_blocking (block_a.root (), difficulty_a, block_a.account ()));
 	if (opt_work_l.is_initialized ())
 	{
 		block_a.block_work_set (*opt_work_l);
@@ -975,22 +975,22 @@ boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & bloc
 	return opt_work_l;
 }
 
-void nano::node::work_generate (nano::uint256_union const & hash_a, std::function<void(boost::optional<uint64_t>)> callback_a)
+void nano::node::work_generate (nano::uint256_union const & hash_a, std::function<void(boost::optional<uint64_t>)> callback_a, boost::optional<nano::account> const & account_a)
 {
-	work_generate (hash_a, callback_a, network_params.network.publish_threshold);
+	work_generate (hash_a, callback_a, network_params.network.publish_threshold, account_a);
 }
 
-void nano::node::work_generate (nano::uint256_union const & hash_a, std::function<void(boost::optional<uint64_t>)> callback_a, uint64_t difficulty_a)
+void nano::node::work_generate (nano::uint256_union const & hash_a, std::function<void(boost::optional<uint64_t>)> callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
 {
-	distributed_work.make (hash_a, callback_a, difficulty_a);
+	distributed_work.make (hash_a, callback_a, difficulty_a, account_a);
 }
 
-boost::optional<uint64_t> nano::node::work_generate_blocking (nano::uint256_union const & block_a)
+boost::optional<uint64_t> nano::node::work_generate_blocking (nano::uint256_union const & hash_a, boost::optional<nano::account> const & account_a)
 {
-	return work_generate_blocking (block_a, network_params.network.publish_threshold);
+	return work_generate_blocking (hash_a, network_params.network.publish_threshold, account_a);
 }
 
-boost::optional<uint64_t> nano::node::work_generate_blocking (nano::uint256_union const & hash_a, uint64_t difficulty_a)
+boost::optional<uint64_t> nano::node::work_generate_blocking (nano::uint256_union const & hash_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
 {
 	std::promise<uint64_t> promise;
 	std::future<uint64_t> future = promise.get_future ();
@@ -998,7 +998,7 @@ boost::optional<uint64_t> nano::node::work_generate_blocking (nano::uint256_unio
 	work_generate (hash_a, [&promise](boost::optional<uint64_t> work_a) {
 		promise.set_value (work_a.value_or (0));
 	},
-	difficulty_a);
+	difficulty_a, account_a);
 	// clang-format on
 	return future.get ();
 }
