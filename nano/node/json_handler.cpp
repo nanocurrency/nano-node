@@ -670,7 +670,9 @@ void nano::json_handler::account_representative ()
 void nano::json_handler::account_representative_set ()
 {
 	auto rpc_l (shared_from_this ());
-	node.worker.push_task ([rpc_l, work_generation_enabled = node.work_generation_enabled ()]() {
+	// clang-format off
+	node.worker.push_task ([ rpc_l, work_generation_enabled = node.work_generation_enabled () ]() {
+		// clang-format on
 		auto wallet (rpc_l->wallet_impl ());
 		auto account (rpc_l->account_impl ());
 		std::string representative_text (rpc_l->request.get<std::string> ("representative"));
