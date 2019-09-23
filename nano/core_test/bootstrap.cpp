@@ -450,6 +450,40 @@ TEST (bootstrap_processor, lazy_unclear_state_link)
 	ASSERT_TRUE (node2->ledger.block_exists (receive->hash ()));
 }
 
+TEST (bootstrap_processor, lazy_destinations)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_legacy_bootstrap = true;
+	auto node1 = system.add_node (nano::node_config (24000, system.logging), node_flags);
+	nano::genesis genesis;
+	nano::keypair key1, key2;
+	// Generating test chain
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+	ASSERT_EQ (nano::process_result::progress, node1->process (*send1).code);
+	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, key2.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send1->hash ())));
+	ASSERT_EQ (nano::process_result::progress, node1->process (*send2).code);
+	auto open (std::make_shared<nano::open_block> (send1->hash (), key1.pub, key1.pub, key1.prv, key1.pub, system.work.generate (key1.pub)));
+	ASSERT_EQ (nano::process_result::progress, node1->process (*open).code);
+	auto state_open (std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, nano::Gxrb_ratio, send2->hash (), key2.prv, key2.pub, system.work.generate (key2.pub)));
+	ASSERT_EQ (nano::process_result::progress, node1->process (*state_open).code);
+	// Start lazy bootstrap with last block in sender chain
+	auto node2 = system.add_node (nano::node_config (24001, system.logging), node_flags);
+	node2->network.udp_channels.insert (node1->network.endpoint (), node1->network_params.protocol.protocol_version);
+	node2->bootstrap_initiator.bootstrap_lazy (send2->hash ());
+	// Check processed blocks
+	system.deadline_set (10s);
+	while (node2->bootstrap_initiator.in_progress ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	node2->block_processor.flush ();
+	ASSERT_TRUE (node2->ledger.block_exists (send1->hash ()));
+	ASSERT_TRUE (node2->ledger.block_exists (send2->hash ()));
+	ASSERT_TRUE (node2->ledger.block_exists (open->hash ()));
+	ASSERT_TRUE (node2->ledger.block_exists (state_open->hash ()));
+}
+
 TEST (bootstrap_processor, wallet_lazy_frontier)
 {
 	nano::system system (24000, 1);

@@ -43,12 +43,18 @@ enum class bootstrap_mode
 	lazy,
 	wallet_lazy
 };
-class lazy_state_backlog_item
+class lazy_state_backlog_item final
 {
 public:
 	nano::block_hash link{ 0 };
 	nano::uint128_t balance{ 0 };
 	bool confirmed{ false };
+};
+class lazy_destinations_item final
+{
+public:
+	nano::account account{ 0 };
+	uint64_t count{ 0 };
 };
 class frontier_req_client;
 class bulk_push_client;
@@ -87,6 +93,8 @@ public:
 	void lazy_block_state (std::shared_ptr<nano::block>, bool);
 	void lazy_block_state_backlog_check (std::shared_ptr<nano::block>, nano::block_hash const &);
 	void lazy_backlog_cleanup ();
+	void lazy_destinations_increment (nano::account const &);
+	void lazy_destinations_flush ();
 	bool lazy_processed_or_exists (nano::block_hash const &);
 	/** Lazy bootstrap */
 	/** Wallet bootstrap */
@@ -122,6 +130,19 @@ public:
 	std::unordered_set<nano::block_hash> lazy_keys;
 	std::deque<std::pair<nano::block_hash, bool>> lazy_pulls;
 	std::chrono::steady_clock::time_point last_lazy_flush{ std::chrono::steady_clock::now () };
+	class account_tag
+	{
+	};
+	class count_tag
+	{
+	};
+	boost::multi_index_container<
+	lazy_destinations_item,
+	boost::multi_index::indexed_by<
+	boost::multi_index::ordered_non_unique<boost::multi_index::tag<count_tag>, boost::multi_index::member<lazy_destinations_item, uint64_t, &lazy_destinations_item::count>, std::greater<uint64_t>>,
+	boost::multi_index::hashed_unique<boost::multi_index::tag<account_tag>, boost::multi_index::member<lazy_destinations_item, nano::account, &lazy_destinations_item::account>>>>
+	lazy_destinations;
+	std::chrono::steady_clock::time_point last_lazy_destinations_flush{ std::chrono::steady_clock::time_point{} };
 	std::mutex lazy_mutex;
 	// Wallet lazy bootstrap
 	std::deque<nano::account> wallet_accounts;
@@ -210,10 +231,12 @@ public:
 	static constexpr double bootstrap_minimum_elapsed_seconds_blockrate = 0.02;
 	static constexpr double bootstrap_minimum_frontier_blocks_per_sec = 1000.0;
 	static constexpr unsigned bootstrap_frontier_retry_limit = 16;
-	static constexpr unsigned bootstrap_lazy_retry_limit = 50;
+	static constexpr unsigned bootstrap_lazy_retry_limit = bootstrap_frontier_retry_limit * 10;
 	static constexpr double bootstrap_minimum_termination_time_sec = 30.0;
 	static constexpr unsigned bootstrap_max_new_connections = 10;
 	static constexpr unsigned bulk_push_cost_limit = 200;
 	static constexpr std::chrono::seconds lazy_flush_delay_sec = std::chrono::seconds (5);
+	static constexpr unsigned bootstrap_lazy_destinations_request_limit = 200;
+	static constexpr std::chrono::seconds lazy_destinations_flush_delay_min = std::chrono::minutes (2);
 };
 }

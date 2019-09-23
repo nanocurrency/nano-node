@@ -18,6 +18,8 @@ constexpr unsigned nano::bootstrap_limits::bootstrap_lazy_retry_limit;
 constexpr double nano::bootstrap_limits::bootstrap_minimum_termination_time_sec;
 constexpr unsigned nano::bootstrap_limits::bootstrap_max_new_connections;
 constexpr std::chrono::seconds nano::bootstrap_limits::lazy_flush_delay_sec;
+constexpr unsigned nano::bootstrap_limits::bootstrap_lazy_destinations_request_limit;
+constexpr std::chrono::seconds nano::bootstrap_limits::lazy_destinations_flush_delay_min;
 
 nano::bootstrap_client::bootstrap_client (std::shared_ptr<nano::node> node_a, std::shared_ptr<nano::bootstrap_attempt> attempt_a, std::shared_ptr<nano::transport::channel_tcp> channel_a) :
 node (node_a),
@@ -697,6 +699,7 @@ void nano::bootstrap_attempt::lazy_run ()
 		if (pulls.empty ())
 		{
 			lazy_backlog_cleanup ();
+			lazy_destinations_flush ();
 		}
 	}
 	if (!stopped)
@@ -771,6 +774,14 @@ bool nano::bootstrap_attempt::process_block_lazy (std::shared_ptr<nano::block> b
 		{
 			lazy_block_state (block_a, confirmed_head);
 		}
+		else if (block_a->type () == nano::block_type::send)
+		{
+			std::shared_ptr<nano::send_block> block_l (std::static_pointer_cast<nano::send_block> (block_a));
+			if (block_l != nullptr && !block_l->hashables.destination.is_zero ())
+			{
+				lazy_destinations_increment (block_l->hashables.destination);
+			}
+		}
 		lazy_blocks.insert (hash);
 		// Adding lazy balances for first processed block in pull
 		if (pull_blocks == 0 && (block_a->type () == nano::block_type::state || block_a->type () == nano::block_type::send))
@@ -816,6 +827,10 @@ void nano::bootstrap_attempt::lazy_block_state (std::shared_ptr<nano::block> blo
 				{
 					lazy_add (link, confirmed_head);
 				}
+				else
+				{
+					lazy_destinations_increment (link);
+				}
 			}
 			// Search balance of already processed previous blocks
 			else if (lazy_blocks.find (previous) != lazy_blocks.end ())
@@ -826,6 +841,10 @@ void nano::bootstrap_attempt::lazy_block_state (std::shared_ptr<nano::block> blo
 					if (previous_balance->second <= balance)
 					{
 						lazy_add (link, confirmed_head);
+					}
+					else
+					{
+						lazy_destinations_increment (link);
 					}
 					lazy_balances.erase (previous_balance);
 				}
@@ -853,6 +872,10 @@ void nano::bootstrap_attempt::lazy_block_state_backlog_check (std::shared_ptr<na
 			{
 				lazy_add (next_block.link, next_block.confirmed); // link
 			}
+			else
+			{
+				lazy_destinations_increment (next_block.link);
+			}
 		}
 		// Assumption for other legacy block types
 		else
@@ -876,11 +899,50 @@ void nano::bootstrap_attempt::lazy_backlog_cleanup ()
 			{
 				lazy_add (next_block.link, next_block.confirmed); // link
 			}
+			else
+			{
+				lazy_destinations_increment (next_block.link);
+			}
 			it = lazy_state_backlog.erase (it);
 		}
 		else
 		{
 			++it;
+		}
+	}
+}
+
+void nano::bootstrap_attempt::lazy_destinations_increment (nano::account const & destination_a)
+{
+	// Update accounts counter for send blocks
+	auto existing (lazy_destinations.get<account_tag> ().find (destination_a));
+	if (existing != lazy_destinations.get<account_tag> ().end ())
+	{
+		lazy_destinations.get<account_tag> ().modify (existing, [](nano::lazy_destinations_item & item_a) {
+			++item_a.count;
+		});
+	}
+	else
+	{
+		lazy_destinations.insert (nano::lazy_destinations_item{ destination_a, 1 });
+	}
+}
+
+void nano::bootstrap_attempt::lazy_destinations_flush ()
+{
+	size_t count (0);
+	nano::unique_lock<std::mutex> lazy_lock (lazy_mutex);
+	if (last_lazy_destinations_flush + nano::bootstrap_limits::lazy_destinations_flush_delay_min < std::chrono::steady_clock::now ())
+	{
+		for (auto it (lazy_destinations.get<count_tag> ().begin ()), end (lazy_destinations.get<count_tag> ().end ()); it != end && count < nano::bootstrap_limits::bootstrap_lazy_destinations_request_limit && !stopped;)
+		{
+			lazy_add (it->account, false);
+			it = lazy_destinations.get<count_tag> ().erase (it);
+			++count;
+		}
+		if (count > nano::bootstrap_limits::bootstrap_lazy_destinations_request_limit / 4)
+		{
+			last_lazy_destinations_flush = std::chrono::steady_clock::now ();
 		}
 	}
 }
