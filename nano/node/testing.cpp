@@ -408,7 +408,7 @@ void nano::system::generate_mass_activity (uint32_t count_a, nano::node & node_a
 				auto transaction (node_a.store.tx_begin_read ());
 				auto block_counts (node_a.store.block_count (transaction));
 				count = block_counts.sum ();
-				state = block_counts.state_v0 + block_counts.state_v1;
+				state = block_counts.state;
 			}
 			std::cerr << boost::str (boost::format ("Mass activity iteration %1% us %2% us/t %3% state: %4% old: %5%\n") % i % us % (us / 256) % state % (count - state));
 			previous = now;

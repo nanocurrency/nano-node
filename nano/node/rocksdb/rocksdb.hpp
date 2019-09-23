@@ -57,18 +57,6 @@ public:
 		return nano::store_iterator<Key, Value> (std::make_unique<nano::rocksdb_iterator<Key, Value>> (db, transaction_a, table_to_column_family (table_a), key));
 	}
 
-	template <typename Key, typename Value>
-	nano::store_iterator<Key, Value> make_merge_iterator (nano::transaction const & transaction_a, tables table1_a, tables table2_a, rocksdb_val const & key) const
-	{
-		return nano::store_iterator<Key, Value> (std::make_unique<nano::rocksdb_merge_iterator<Key, Value>> (db, transaction_a, table_to_column_family (table1_a), table_to_column_family (table2_a), key));
-	}
-
-	template <typename Key, typename Value>
-	nano::store_iterator<Key, Value> make_merge_iterator (nano::transaction const & transaction_a, tables table1_a, tables table2_a) const
-	{
-		return nano::store_iterator<Key, Value> (std::make_unique<nano::rocksdb_merge_iterator<Key, Value>> (db, transaction_a, table_to_column_family (table1_a), table_to_column_family (table2_a)));
-	}
-
 	bool init_error () const override;
 
 private:

@@ -3,13 +3,14 @@
 #include <boost/endian/conversion.hpp>
 #include <boost/polymorphic_cast.hpp>
 
-nano::block_sideband::block_sideband (nano::block_type type_a, nano::account const & account_a, nano::block_hash const & successor_a, nano::amount const & balance_a, uint64_t height_a, uint64_t timestamp_a) :
+nano::block_sideband::block_sideband (nano::block_type type_a, nano::account const & account_a, nano::block_hash const & successor_a, nano::amount const & balance_a, uint64_t height_a, uint64_t timestamp_a, nano::epoch epoch_a) :
 type (type_a),
 successor (successor_a),
 account (account_a),
 balance (balance_a),
 height (height_a),
-timestamp (timestamp_a)
+timestamp (timestamp_a),
+epoch (epoch_a)
 {
 }
 
@@ -30,6 +31,10 @@ size_t nano::block_sideband::size (nano::block_type type_a)
 		result += sizeof (balance);
 	}
 	result += sizeof (timestamp);
+	if (type_a == nano::block_type::state)
+	{
+		result += sizeof (epoch);
+	}
 	return result;
 }
 
@@ -49,6 +54,10 @@ void nano::block_sideband::serialize (nano::stream & stream_a) const
 		nano::write (stream_a, balance.bytes);
 	}
 	nano::write (stream_a, boost::endian::native_to_big (timestamp));
+	if (type == nano::block_type::state)
+	{
+		nano::write (stream_a, epoch);
+	}
 }
 
 bool nano::block_sideband::deserialize (nano::stream & stream_a)
@@ -76,6 +85,10 @@ bool nano::block_sideband::deserialize (nano::stream & stream_a)
 		}
 		nano::read (stream_a, timestamp);
 		boost::endian::big_to_native_inplace (timestamp);
+		if (type == nano::block_type::state)
+		{
+			nano::read (stream_a, epoch);
+		}
 	}
 	catch (std::runtime_error &)
 	{

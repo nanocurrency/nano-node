@@ -16,7 +16,8 @@ enum class epoch : uint8_t
 	unspecified = 1,
 	epoch_begin = 2,
 	epoch_0 = 2,
-	epoch_1 = 3
+	epoch_1 = 3,
+	epoch_2 = 4
 };
 }
 namespace std
@@ -26,8 +27,8 @@ struct hash<::nano::epoch>
 {
 	std::size_t operator() (::nano::epoch const & epoch_a) const
 	{
-		std::hash<std::underlying_type<::nano::epoch>::type> hash;
-		return hash (static_cast<std::underlying_type<::nano::epoch>::type> (epoch_a));
+		std::hash<std::underlying_type_t<::nano::epoch>> hash;
+		return hash (static_cast<std::underlying_type_t<::nano::epoch>> (epoch_a));
 	}
 };
 }

@@ -16,20 +16,19 @@
 namespace nano
 {
 /**
- * Encapsulates database specific container and provides uint256_union conversion of the data.
+ * Encapsulates database specific container
  */
 template <typename Val>
 class db_val
 {
 public:
-	db_val (Val const & value_a, nano::epoch epoch_a = nano::epoch::unspecified) :
-	value (value_a),
-	epoch (epoch_a)
+	db_val (Val const & value_a) :
+	value (value_a)
 	{
 	}
 
-	db_val (nano::epoch epoch_a = nano::epoch::unspecified) :
-	db_val (0, nullptr, epoch_a)
+	db_val () :
+	db_val (0, nullptr)
 	{
 	}
 
@@ -59,9 +58,15 @@ public:
 	}
 
 	db_val (nano::pending_info const & val_a) :
-	db_val (sizeof (val_a.source) + sizeof (val_a.amount), const_cast<nano::pending_info *> (&val_a))
+	db_val (val_a.db_size (), const_cast<nano::pending_info *> (&val_a))
 	{
 		static_assert (std::is_standard_layout<nano::pending_info>::value, "Standard layout is required");
+	}
+
+	db_val (nano::pending_info_v14 const & val_a) :
+	db_val (val_a.db_size (), const_cast<nano::pending_info_v14 *> (&val_a))
+	{
+		static_assert (std::is_standard_layout<nano::pending_info_v14>::value, "Standard layout is required");
 	}
 
 	db_val (nano::pending_key const & val_a) :
@@ -116,7 +121,6 @@ public:
 	explicit operator nano::account_info () const
 	{
 		nano::account_info result;
-		result.epoch_m = epoch;
 		assert (size () == result.db_size ());
 		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + result.db_size (), reinterpret_cast<uint8_t *> (&result));
 		return result;
@@ -125,7 +129,6 @@ public:
 	explicit operator nano::account_info_v13 () const
 	{
 		nano::account_info_v13 result;
-		result.epoch = epoch;
 		assert (size () == result.db_size ());
 		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + result.db_size (), reinterpret_cast<uint8_t *> (&result));
 		return result;
@@ -134,7 +137,6 @@ public:
 	explicit operator nano::account_info_v14 () const
 	{
 		nano::account_info_v14 result;
-		result.epoch = epoch;
 		assert (size () == result.db_size ());
 		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + result.db_size (), reinterpret_cast<uint8_t *> (&result));
 		return result;
@@ -149,11 +151,19 @@ public:
 		return result;
 	}
 
+	explicit operator nano::pending_info_v14 () const
+	{
+		nano::pending_info_v14 result;
+		assert (size () == result.db_size ());
+		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + result.db_size (), reinterpret_cast<uint8_t *> (&result));
+		return result;
+	}
+
 	explicit operator nano::pending_info () const
 	{
 		nano::pending_info result;
-		result.epoch = epoch;
-		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + sizeof (nano::pending_info::source) + sizeof (nano::pending_info::amount), reinterpret_cast<uint8_t *> (&result));
+		assert (size () == result.db_size ());
+		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + result.db_size (), reinterpret_cast<uint8_t *> (&result));
 		return result;
 	}
 
@@ -207,6 +217,21 @@ public:
 		nano::endpoint_key result;
 		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + sizeof (result), reinterpret_cast<uint8_t *> (&result));
 		return result;
+	}
+
+	explicit operator nano::state_block_w_sideband_v14 () const
+	{
+		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (data ()), size ());
+		auto error (false);
+		nano::state_block_w_sideband_v14 state_block_w_sideband_v14;
+		state_block_w_sideband_v14.state_block = std::make_shared<nano::state_block> (error, stream);
+		assert (!error);
+
+		state_block_w_sideband_v14.sideband.type = nano::block_type::state;
+		error = state_block_w_sideband_v14.sideband.deserialize (stream);
+		assert (!error);
+
+		return state_block_w_sideband_v14;
 	}
 
 	explicit operator nano::no_value () const
@@ -290,19 +315,18 @@ public:
 	// Must be specialized
 	void * data () const;
 	size_t size () const;
-	db_val (size_t size_a, void * data_a, nano::epoch epoch_a = nano::epoch::unspecified);
+	db_val (size_t size_a, void * data_a);
 	void convert_buffer_to_value ();
 
 	Val value;
 	std::shared_ptr<std::vector<uint8_t>> buffer;
-	nano::epoch epoch{ nano::epoch::unspecified };
 };
 
 class block_sideband final
 {
 public:
 	block_sideband () = default;
-	block_sideband (nano::block_type, nano::account const &, nano::block_hash const &, nano::amount const &, uint64_t, uint64_t);
+	block_sideband (nano::block_type, nano::account const &, nano::block_hash const &, nano::amount const &, uint64_t, uint64_t, nano::epoch);
 	void serialize (nano::stream &) const;
 	bool deserialize (nano::stream &);
 	static size_t size (nano::block_type);
@@ -312,6 +336,7 @@ public:
 	nano::amount balance{ 0 };
 	uint64_t height{ 0 };
 	uint64_t timestamp{ 0 };
+	nano::epoch epoch{ nano::epoch::epoch_0 };
 };
 class transaction;
 class block_store;
@@ -480,8 +505,7 @@ private:
 // Keep this in alphabetical order
 enum class tables
 {
-	accounts_v0,
-	accounts_v1,
+	accounts,
 	blocks_info, // LMDB only
 	cached_counts, // RocksDB only
 	change_blocks,
@@ -491,13 +515,11 @@ enum class tables
 	online_weight,
 	open_blocks,
 	peers,
-	pending_v0,
-	pending_v1,
+	pending,
 	receive_blocks,
 	representation,
 	send_blocks,
-	state_blocks_v0,
-	state_blocks_v1,
+	state_blocks,
 	unchecked,
 	vote
 };
@@ -575,7 +597,7 @@ class block_store
 public:
 	virtual ~block_store () = default;
 	virtual void initialize (nano::write_transaction const &, nano::genesis const &, nano::rep_weights &, std::atomic<uint64_t> &, std::atomic<uint64_t> &) = 0;
-	virtual void block_put (nano::write_transaction const &, nano::block_hash const &, nano::block const &, nano::block_sideband const &, nano::epoch version = nano::epoch::epoch_0) = 0;
+	virtual void block_put (nano::write_transaction const &, nano::block_hash const &, nano::block const &, nano::block_sideband const &) = 0;
 	virtual nano::block_hash block_successor (nano::transaction const &, nano::block_hash const &) const = 0;
 	virtual void block_successor_clear (nano::write_transaction const &, nano::block_hash const &) = 0;
 	virtual std::shared_ptr<nano::block> block_get (nano::transaction const &, nano::block_hash const &, nano::block_sideband * = nullptr) const = 0;
@@ -599,12 +621,6 @@ public:
 	virtual size_t account_count (nano::transaction const &) = 0;
 	virtual void confirmation_height_clear (nano::write_transaction const &, nano::account const & account, uint64_t existing_confirmation_height) = 0;
 	virtual void confirmation_height_clear (nano::write_transaction const &) = 0;
-	virtual nano::store_iterator<nano::account, nano::account_info> latest_v0_begin (nano::transaction const &, nano::account const &) = 0;
-	virtual nano::store_iterator<nano::account, nano::account_info> latest_v0_begin (nano::transaction const &) = 0;
-	virtual nano::store_iterator<nano::account, nano::account_info> latest_v0_end () = 0;
-	virtual nano::store_iterator<nano::account, nano::account_info> latest_v1_begin (nano::transaction const &, nano::account const &) = 0;
-	virtual nano::store_iterator<nano::account, nano::account_info> latest_v1_begin (nano::transaction const &) = 0;
-	virtual nano::store_iterator<nano::account, nano::account_info> latest_v1_end () = 0;
 	virtual nano::store_iterator<nano::account, nano::account_info> latest_begin (nano::transaction const &, nano::account const &) = 0;
 	virtual nano::store_iterator<nano::account, nano::account_info> latest_begin (nano::transaction const &) = 0;
 	virtual nano::store_iterator<nano::account, nano::account_info> latest_end () = 0;
@@ -613,12 +629,6 @@ public:
 	virtual void pending_del (nano::write_transaction const &, nano::pending_key const &) = 0;
 	virtual bool pending_get (nano::transaction const &, nano::pending_key const &, nano::pending_info &) = 0;
 	virtual bool pending_exists (nano::transaction const &, nano::pending_key const &) = 0;
-	virtual nano::store_iterator<nano::pending_key, nano::pending_info> pending_v0_begin (nano::transaction const &, nano::pending_key const &) = 0;
-	virtual nano::store_iterator<nano::pending_key, nano::pending_info> pending_v0_begin (nano::transaction const &) = 0;
-	virtual nano::store_iterator<nano::pending_key, nano::pending_info> pending_v0_end () = 0;
-	virtual nano::store_iterator<nano::pending_key, nano::pending_info> pending_v1_begin (nano::transaction const &, nano::pending_key const &) = 0;
-	virtual nano::store_iterator<nano::pending_key, nano::pending_info> pending_v1_begin (nano::transaction const &) = 0;
-	virtual nano::store_iterator<nano::pending_key, nano::pending_info> pending_v1_end () = 0;
 	virtual nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const &, nano::pending_key const &) = 0;
 	virtual nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const &) = 0;
 	virtual nano::store_iterator<nano::pending_key, nano::pending_info> pending_end () = 0;

@@ -93,10 +93,17 @@ genesis_block (network_a == nano::nano_networks::nano_test_network ? nano_test_g
 genesis_amount (std::numeric_limits<nano::uint128_t>::max ()),
 burn_account (0)
 {
-	nano::uint256_union epoch_link;
-	const char * epoch_message ("epoch v1 block");
-	strncpy ((char *)epoch_link.bytes.data (), epoch_message, epoch_link.bytes.size ());
-	epochs.add (nano::epoch::epoch_1, genesis_account, epoch_link);
+	nano::uint256_union epoch_link_v1;
+	const char * epoch_message_v1 ("epoch v1 block");
+	strncpy ((char *)epoch_link_v1.bytes.data (), epoch_message_v1, epoch_link_v1.bytes.size ());
+	epochs.add (nano::epoch::epoch_1, genesis_account, epoch_link_v1);
+
+	nano::uint256_union epoch_link_v2;
+	auto nano_live_epoch_v2_signer = genesis_account;
+	auto epoch_v2_signer (network_a == nano::nano_networks::nano_test_network ? nano_test_account : network_a == nano::nano_networks::nano_beta_network ? nano_beta_account : nano_live_epoch_v2_signer);
+	const char * epoch_message_v2 ("epoch v2 block");
+	strncpy ((char *)epoch_link_v2.bytes.data (), epoch_message_v2, epoch_link_v2.bytes.size ());
+	epochs.add (nano::epoch::epoch_2, epoch_v2_signer, epoch_link_v2);
 }
 
 nano::random_constants::random_constants ()
@@ -204,6 +211,7 @@ bool nano::account_info::deserialize (nano::stream & stream_a)
 		nano::read (stream_a, balance.bytes);
 		nano::read (stream_a, modified);
 		nano::read (stream_a, block_count);
+		nano::read (stream_a, epoch_m);
 	}
 	catch (std::runtime_error const &)
 	{
@@ -231,7 +239,8 @@ size_t nano::account_info::db_size () const
 	assert (reinterpret_cast<const uint8_t *> (&open_block) + sizeof (open_block) == reinterpret_cast<const uint8_t *> (&balance));
 	assert (reinterpret_cast<const uint8_t *> (&balance) + sizeof (balance) == reinterpret_cast<const uint8_t *> (&modified));
 	assert (reinterpret_cast<const uint8_t *> (&modified) + sizeof (modified) == reinterpret_cast<const uint8_t *> (&block_count));
-	return sizeof (head) + sizeof (representative) + sizeof (open_block) + sizeof (balance) + sizeof (modified) + sizeof (block_count);
+	assert (reinterpret_cast<const uint8_t *> (&block_count) + sizeof (block_count) == reinterpret_cast<const uint8_t *> (&epoch_m));
+	return sizeof (head) + sizeof (representative) + sizeof (open_block) + sizeof (balance) + sizeof (modified) + sizeof (block_count) + sizeof (epoch_m);
 }
 
 nano::epoch nano::account_info::epoch () const
@@ -241,7 +250,7 @@ nano::epoch nano::account_info::epoch () const
 
 size_t nano::block_counts::sum () const
 {
-	return send + receive + open + change + state_v0 + state_v1;
+	return send + receive + open + change + state;
 }
 
 nano::pending_info::pending_info (nano::account const & source_a, nano::amount const & amount_a, nano::epoch epoch_a) :
@@ -258,6 +267,7 @@ bool nano::pending_info::deserialize (nano::stream & stream_a)
 	{
 		nano::read (stream_a, source.bytes);
 		nano::read (stream_a, amount.bytes);
+		nano::read (stream_a, epoch);
 	}
 	catch (std::runtime_error const &)
 	{
@@ -265,6 +275,11 @@ bool nano::pending_info::deserialize (nano::stream & stream_a)
 	}
 
 	return error;
+}
+
+size_t nano::pending_info::db_size () const
+{
+	return sizeof (source) + sizeof (amount) + sizeof (epoch);
 }
 
 bool nano::pending_info::operator== (nano::pending_info const & other_a) const

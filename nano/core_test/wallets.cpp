@@ -78,14 +78,26 @@ TEST (wallets, remove)
 	}
 }
 
-#if !NANO_ROCKSDB
 TEST (wallets, upgrade)
 {
-	nano::system system (24000, 1);
+	// Don't test this in rocksdb mode
+	static nano::network_constants network_constants;
+	auto use_rocksdb_str = std::getenv ("TEST_USE_ROCKSDB");
+	if (use_rocksdb_str && boost::lexical_cast<int> (use_rocksdb_str) == 1)
+	{
+		return;
+	}
+
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	system.add_node (node_config);
 	auto path (nano::unique_path ());
 	nano::keypair id;
+	nano::node_config node_config1 (24001, system.logging);
+	node_config1.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	{
-		auto node1 (std::make_shared<nano::node> (system.io_ctx, 24001, path, system.alarm, system.logging, system.work));
+		auto node1 (std::make_shared<nano::node> (system.io_ctx, path, system.alarm, node_config1, system.work));
 		ASSERT_FALSE (node1->init_error ());
 		bool error (false);
 		nano::wallets wallets (error, *node1);
@@ -102,11 +114,11 @@ TEST (wallets, upgrade)
 		ASSERT_FALSE (mdb_store.account_get (transaction_destination, nano::genesis_account, info));
 		auto rep_block = node1->rep_block (nano::genesis_account);
 		nano::account_info_v13 account_info_v13 (info.head, rep_block, info.open_block, info.balance, info.modified, info.block_count, info.epoch ());
-		auto status (mdb_put (mdb_store.env.tx (transaction_destination), mdb_store.get_account_db (info.epoch ()) == nano::tables::accounts_v0 ? mdb_store.accounts_v0 : mdb_store.accounts_v1, nano::mdb_val (nano::test_genesis_key.pub), nano::mdb_val (account_info_v13), 0));
+		auto status (mdb_put (mdb_store.env.tx (transaction_destination), info.epoch () == nano::epoch::epoch_0 ? mdb_store.accounts_v0 : mdb_store.accounts_v1, nano::mdb_val (nano::test_genesis_key.pub), nano::mdb_val (account_info_v13), 0));
 		(void)status;
 		assert (status == 0);
 	}
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, 24001, path, system.alarm, system.logging, system.work));
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, path, system.alarm, node_config1, system.work));
 	ASSERT_EQ (1, node1->wallets.items.size ());
 	ASSERT_EQ (id.pub, node1->wallets.items.begin ()->first);
 	auto transaction_new (node1->wallets.env.tx_begin_write ());
@@ -118,7 +130,6 @@ TEST (wallets, upgrade)
 	MDB_dbi new_handle;
 	ASSERT_EQ (0, mdb_dbi_open (tx_new, id.pub.to_string ().c_str (), 0, &new_handle));
 }
-#endif
 
 // Keeps breaking whenever we add new DBs
 TEST (wallets, DISABLED_wallet_create_max)
