@@ -186,9 +186,9 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 					if (escalated)
 					{
 						election_l->update_dependent ();
+						increment_counter = true;
 					}
 				}
-				increment_counter = true;
 			}
 			else if (election_l->confirmation_request_count % 4 == 0)
 			{
