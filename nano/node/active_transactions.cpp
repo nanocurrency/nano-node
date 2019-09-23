@@ -320,7 +320,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 			--this->ongoing_broadcasts;
 			this->condition.notify_all ();
 		},
-		250); // 500ms / (250ms / 10 reqs) > 15 reqs
+		25); // 500ms / (25ms / 1 req) > 15 reqs
 	}
 	lock_a.lock ();
 	// Erase inactive elections
