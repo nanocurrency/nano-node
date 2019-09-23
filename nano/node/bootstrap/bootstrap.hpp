@@ -43,6 +43,13 @@ enum class bootstrap_mode
 	lazy,
 	wallet_lazy
 };
+class lazy_state_backlog_item
+{
+public:
+	nano::block_hash link{ 0 };
+	nano::uint128_t balance{ 0 };
+	bool confirmed{ false };
+};
 class frontier_req_client;
 class bulk_push_client;
 class bootstrap_attempt final : public std::enable_shared_from_this<bootstrap_attempt>
@@ -67,17 +74,17 @@ public:
 	unsigned target_connections (size_t pulls_remaining);
 	bool should_log ();
 	void add_bulk_push_target (nano::block_hash const &, nano::block_hash const &);
-	bool process_block (std::shared_ptr<nano::block>, nano::account const &, uint64_t, bool);
+	bool process_block (std::shared_ptr<nano::block>, nano::account const &, uint64_t, bool, bool);
 	/** Lazy bootstrap */
 	void lazy_run ();
 	void lazy_start (nano::block_hash const &);
-	void lazy_add (nano::block_hash const &);
+	void lazy_add (nano::block_hash const &, bool = true);
 	void lazy_requeue (nano::block_hash const &);
 	bool lazy_finished ();
 	void lazy_pull_flush ();
 	void lazy_clear ();
-	bool process_block_lazy (std::shared_ptr<nano::block>, nano::account const &, uint64_t);
-	void lazy_block_state (std::shared_ptr<nano::block>);
+	bool process_block_lazy (std::shared_ptr<nano::block>, nano::account const &, uint64_t, bool);
+	void lazy_block_state (std::shared_ptr<nano::block>, bool);
 	void lazy_block_state_backlog_check (std::shared_ptr<nano::block>, nano::block_hash const &);
 	void lazy_backlog_cleanup ();
 	bool lazy_processed_or_exists (nano::block_hash const &);
@@ -110,10 +117,10 @@ public:
 	nano::condition_variable condition;
 	// Lazy bootstrap
 	std::unordered_set<nano::block_hash> lazy_blocks;
-	std::unordered_map<nano::block_hash, std::pair<nano::block_hash, nano::uint128_t>> lazy_state_backlog;
+	std::unordered_map<nano::block_hash, nano::lazy_state_backlog_item> lazy_state_backlog;
 	std::unordered_map<nano::block_hash, nano::uint128_t> lazy_balances;
 	std::unordered_set<nano::block_hash> lazy_keys;
-	std::deque<nano::block_hash> lazy_pulls;
+	std::deque<std::pair<nano::block_hash, bool>> lazy_pulls;
 	std::chrono::steady_clock::time_point last_lazy_flush{ std::chrono::steady_clock::now () };
 	std::mutex lazy_mutex;
 	// Wallet lazy bootstrap
@@ -203,6 +210,7 @@ public:
 	static constexpr double bootstrap_minimum_elapsed_seconds_blockrate = 0.02;
 	static constexpr double bootstrap_minimum_frontier_blocks_per_sec = 1000.0;
 	static constexpr unsigned bootstrap_frontier_retry_limit = 16;
+	static constexpr unsigned bootstrap_lazy_retry_limit = 50;
 	static constexpr double bootstrap_minimum_termination_time_sec = 30.0;
 	static constexpr unsigned bootstrap_max_new_connections = 10;
 	static constexpr unsigned bulk_push_cost_limit = 200;

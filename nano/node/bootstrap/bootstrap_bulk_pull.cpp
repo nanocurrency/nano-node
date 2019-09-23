@@ -3,12 +3,13 @@
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
 
-nano::pull_info::pull_info (nano::account const & account_a, nano::block_hash const & head_a, nano::block_hash const & end_a, count_t count_a) :
+nano::pull_info::pull_info (nano::account const & account_a, nano::block_hash const & head_a, nano::block_hash const & end_a, count_t count_a, bool confirmed_head_a) :
 account (account_a),
 head (head_a),
 head_original (head_a),
 end (end_a),
-count (count_a)
+count (count_a),
+confirmed_head (confirmed_head_a)
 {
 }
 
@@ -52,6 +53,7 @@ nano::bulk_pull_client::~bulk_pull_client ()
 
 void nano::bulk_pull_client::request ()
 {
+	assert (!pull.head.is_zero () || !pull.confirmed_head);
 	expected = pull.head;
 	nano::bulk_pull req;
 	req.start = (pull.head == pull.head_original) ? pull.account : pull.head; // Account for new pulls, head for cached pulls
@@ -203,7 +205,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 			}
 			// Is block expected?
 			bool block_expected (false);
-			if (hash == expected)
+			if (hash == expected || (expected.is_zero () && !pull.confirmed_head))
 			{
 				expected = block->previous ();
 				block_expected = true;
@@ -221,7 +223,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 				connection->start_time = std::chrono::steady_clock::now ();
 			}
 			connection->attempt->total_blocks++;
-			bool stop_pull (connection->attempt->process_block (block, known_account, pull_blocks, block_expected));
+			bool stop_pull (connection->attempt->process_block (block, known_account, pull_blocks, block_expected, pull.confirmed_head));
 			pull_blocks++;
 			if (!stop_pull && !connection->hard_stop.load ())
 			{

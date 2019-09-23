@@ -12,7 +12,7 @@ class pull_info
 public:
 	using count_t = nano::bulk_pull::count_t;
 	pull_info () = default;
-	pull_info (nano::account const &, nano::block_hash const &, nano::block_hash const &, count_t = 0);
+	pull_info (nano::account const &, nano::block_hash const &, nano::block_hash const &, count_t = 0, bool = false);
 	nano::account account{ 0 };
 	nano::block_hash head{ 0 };
 	nano::block_hash head_original{ 0 };
@@ -20,6 +20,7 @@ public:
 	count_t count{ 0 };
 	unsigned attempts{ 0 };
 	uint64_t processed{ 0 };
+	bool confirmed_head{ false };
 };
 class bootstrap_client;
 class bulk_pull_client final : public std::enable_shared_from_this<nano::bulk_pull_client>

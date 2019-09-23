@@ -416,6 +416,40 @@ TEST (bootstrap_processor, lazy_max_pull_count)
 	node1->stop ();
 }
 
+TEST (bootstrap_processor, lazy_unclear_state_link)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_legacy_bootstrap = true;
+	auto node1 = system.add_node (nano::node_config (24000, system.logging), node_flags);
+	nano::genesis genesis;
+	nano::keypair key;
+	// Generating test chain
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (genesis.hash ())));
+	ASSERT_EQ (nano::process_result::progress, node1->process (*send1).code);
+	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send1->hash ())));
+	ASSERT_EQ (nano::process_result::progress, node1->process (*send2).code);
+	auto open (std::make_shared<nano::open_block> (send1->hash (), key.pub, key.pub, key.prv, key.pub, system.work.generate (key.pub)));
+	ASSERT_EQ (nano::process_result::progress, node1->process (*open).code);
+	auto receive (std::make_shared<nano::state_block> (key.pub, open->hash (), key.pub, 2 * nano::Gxrb_ratio, send2->hash (), key.prv, key.pub, system.work.generate (open->hash ()))); // It is not possible to define this block send/receive status based on previous block (legacy open)
+	ASSERT_EQ (nano::process_result::progress, node1->process (*receive).code);
+	// Start lazy bootstrap with last block in chain known
+	auto node2 = system.add_node (nano::node_config (24001, system.logging), node_flags);
+	node2->network.udp_channels.insert (node1->network.endpoint (), node1->network_params.protocol.protocol_version);
+	node2->bootstrap_initiator.bootstrap_lazy (receive->hash ());
+	// Check processed blocks
+	system.deadline_set (10s);
+	while (node2->bootstrap_initiator.in_progress ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	node2->block_processor.flush ();
+	ASSERT_TRUE (node2->ledger.block_exists (send1->hash ()));
+	ASSERT_TRUE (node2->ledger.block_exists (send2->hash ()));
+	ASSERT_TRUE (node2->ledger.block_exists (open->hash ()));
+	ASSERT_TRUE (node2->ledger.block_exists (receive->hash ()));
+}
+
 TEST (bootstrap_processor, wallet_lazy_frontier)
 {
 	nano::system system (24000, 1);
