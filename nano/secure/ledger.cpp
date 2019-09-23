@@ -227,12 +227,7 @@ bool ledger_processor::validate_epoch_block (nano::state_block const & block_a)
 			}
 		}
 	}
-	if (block_a.hashables.balance == prev_balance)
-	{
-		return true;
-	}
-
-	return false;
+	return (block_a.hashables.balance == prev_balance);
 }
 
 void ledger_processor::state_block (nano::state_block const & block_a)
