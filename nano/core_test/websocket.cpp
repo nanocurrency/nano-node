@@ -785,3 +785,27 @@ TEST (websocket, work)
 
 	ASSERT_EQ (contents.get<std::string> ("reason"), "");
 }
+
+/** Tests clients subscribing multiple times or unsubscribing without a subscription */
+TEST (websocket, ws_keepalive)
+{
+	nano::system system (24000, 1);
+	nano::node_config config;
+	nano::node_flags node_flags;
+	config.websocket_config.enabled = true;
+	config.websocket_config.port = 24078;
+
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
+	node1->start ();
+	system.nodes.push_back (node1);
+	ack_ready = false;
+	std::thread subscription_thread ([]() {
+		websocket_test_call ("::1", "24078", R"json({"action": "ping"})json", true, false);
+	});
+	system.deadline_set (5s);
+	while (!ack_ready)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	subscription_thread.join ();
+}
