@@ -239,6 +239,15 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.stat_config.log_samples_filename, defaults.node.stat_config.log_samples_filename);
 
 	ASSERT_EQ (conf.node.rocksdb_config.enable, defaults.node.rocksdb_config.enable);
+	ASSERT_EQ (conf.node.rocksdb_config.bloom_filter_bits, defaults.node.rocksdb_config.bloom_filter_bits);
+	ASSERT_EQ (conf.node.rocksdb_config.block_cache, defaults.node.rocksdb_config.block_cache);
+	ASSERT_EQ (conf.node.rocksdb_config.io_threads, defaults.node.rocksdb_config.io_threads);
+	ASSERT_EQ (conf.node.rocksdb_config.enable_pipelined_write, defaults.node.rocksdb_config.enable_pipelined_write);
+	ASSERT_EQ (conf.node.rocksdb_config.cache_index_and_filter_blocks, defaults.node.rocksdb_config.cache_index_and_filter_blocks);
+	ASSERT_EQ (conf.node.rocksdb_config.block_size, defaults.node.rocksdb_config.block_size);
+	ASSERT_EQ (conf.node.rocksdb_config.memtable_size, defaults.node.rocksdb_config.memtable_size);
+	ASSERT_EQ (conf.node.rocksdb_config.num_memtables, defaults.node.rocksdb_config.num_memtables);
+	ASSERT_EQ (conf.node.rocksdb_config.total_memtable_size, defaults.node.rocksdb_config.total_memtable_size);
 }
 
 TEST (toml, optional_child)
@@ -473,6 +482,15 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 
 	[node.rocksdb]
 	enable = true
+	bloom_filter_bits = 10
+	block_cache = 512
+	io_threads = 99
+	enable_pipelined_write = true
+	cache_index_and_filter_blocks = true
+	block_size = 16
+	memtable_size = 128
+	num_memtables = 3
+	total_memtable_size = 0
 
 	[opencl]
 	device = 999
@@ -603,6 +621,15 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.stat_config.log_samples_filename, defaults.node.stat_config.log_samples_filename);
 
 	ASSERT_NE (conf.node.rocksdb_config.enable, defaults.node.rocksdb_config.enable);
+	ASSERT_NE (conf.node.rocksdb_config.bloom_filter_bits, defaults.node.rocksdb_config.bloom_filter_bits);
+	ASSERT_NE (conf.node.rocksdb_config.block_cache, defaults.node.rocksdb_config.block_cache);
+	ASSERT_NE (conf.node.rocksdb_config.io_threads, defaults.node.rocksdb_config.io_threads);
+	ASSERT_NE (conf.node.rocksdb_config.enable_pipelined_write, defaults.node.rocksdb_config.enable_pipelined_write);
+	ASSERT_NE (conf.node.rocksdb_config.cache_index_and_filter_blocks, defaults.node.rocksdb_config.cache_index_and_filter_blocks);
+	ASSERT_NE (conf.node.rocksdb_config.block_size, defaults.node.rocksdb_config.block_size);
+	ASSERT_NE (conf.node.rocksdb_config.memtable_size, defaults.node.rocksdb_config.memtable_size);
+	ASSERT_NE (conf.node.rocksdb_config.num_memtables, defaults.node.rocksdb_config.num_memtables);
+	ASSERT_NE (conf.node.rocksdb_config.total_memtable_size, defaults.node.rocksdb_config.total_memtable_size);
 }
 
 /** There should be no required values **/

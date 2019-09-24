@@ -18,13 +18,14 @@
 namespace nano
 {
 class logging_mt;
+class rocksdb_config;
 /**
  * rocksdb implementation of the block store
  */
 class rocksdb_store : public block_store_partial<rocksdb::Slice, rocksdb_store>
 {
 public:
-	rocksdb_store (nano::logger_mt &, boost::filesystem::path const &, bool open_read_only = false);
+	rocksdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::rocksdb_config const & = nano::rocksdb_config{}, bool open_read_only = false);
 	~rocksdb_store ();
 	nano::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
 	nano::read_transaction tx_begin_read () override;
@@ -98,10 +99,10 @@ private:
 
 	int increment (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a, uint64_t amount_a);
 	int decrement (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a, uint64_t amount_a);
-	bool low_end_system () const;
 	rocksdb::ColumnFamilyOptions get_cf_options () const;
 	void construct_column_family_mutexes ();
 	rocksdb::Options get_db_options () const;
 	rocksdb::BlockBasedTableOptions get_table_options () const;
+	nano::rocksdb_config rocksdb_config;
 };
 }
