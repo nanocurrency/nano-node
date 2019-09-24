@@ -651,6 +651,7 @@ void nano::bootstrap_attempt::lazy_clear ()
 	lazy_pulls.clear ();
 	lazy_state_backlog.clear ();
 	lazy_balances.clear ();
+	lazy_destinations.clear ();
 }
 
 void nano::bootstrap_attempt::lazy_run ()
@@ -682,6 +683,12 @@ void nano::bootstrap_attempt::lazy_run ()
 			if (iterations % 100 == 0 || last_lazy_flush + nano::bootstrap_limits::lazy_flush_delay_sec < std::chrono::steady_clock::now ())
 			{
 				lazy_pull_flush ();
+			}
+			// Start destinations check & backlog cleanup
+			if (iterations % 200 == 0 && pulls.empty ())
+			{
+				lazy_backlog_cleanup ();
+				lazy_destinations_flush ();
 			}
 		}
 		// Flushing lazy pulls
