@@ -360,7 +360,7 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 			hash = block->previous ();
 		}
 
-		// We could be traversing a very large account so we don't want to have open read transactions for too long.
+		// We could be traversing a very large account so we don't want to open read transactions for too long.
 		if (num_to_confirm % batch_read_size == 0)
 		{
 			transaction_a.refresh ();

@@ -56,10 +56,12 @@ seq_con_info_leaf::seq_con_info_leaf (const seq_con_info & info) :
 info (info)
 {
 }
+
 bool seq_con_info_leaf::is_composite () const
 {
 	return false;
 }
+
 const seq_con_info & seq_con_info_leaf::get_info () const
 {
 	return info;
@@ -249,9 +251,9 @@ thread ([this]() {
 
 void nano::worker::run ()
 {
+	nano::unique_lock<std::mutex> lk (mutex);
 	while (!stopped)
 	{
-		nano::unique_lock<std::mutex> lk (mutex);
 		if (!queue.empty ())
 		{
 			auto func = queue.front ();
@@ -261,6 +263,7 @@ void nano::worker::run ()
 			// So that we reduce locking for anything being pushed as that will
 			// most likely be on an io-thread
 			std::this_thread::yield ();
+			lk.lock ();
 		}
 		else
 		{
@@ -286,7 +289,10 @@ void nano::worker::push_task (std::function<void()> func_a)
 
 void nano::worker::stop ()
 {
-	stopped = true;
+	{
+		nano::unique_lock<std::mutex> lk (mutex);
+		stopped = true;
+	}
 	cv.notify_one ();
 	if (thread.joinable ())
 	{

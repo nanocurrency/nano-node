@@ -80,6 +80,12 @@ public:
 		convert_buffer_to_value ();
 	}
 
+	db_val (nano::unchecked_key const & val_a) :
+	db_val (sizeof (val_a), const_cast<nano::unchecked_key *> (&val_a))
+	{
+		static_assert (std::is_standard_layout<nano::unchecked_key>::value, "Standard layout is required");
+	}
+
 	db_val (nano::block_info const & val_a) :
 	db_val (sizeof (val_a), const_cast<nano::block_info *> (&val_a))
 	{
@@ -176,20 +182,38 @@ public:
 		return result;
 	}
 
+	explicit operator nano::unchecked_key () const
+	{
+		nano::unchecked_key result;
+		assert (size () == sizeof (result));
+		static_assert (sizeof (nano::unchecked_key::previous) + sizeof (nano::pending_key::hash) == sizeof (result), "Packed class");
+		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + sizeof (result), reinterpret_cast<uint8_t *> (&result));
+		return result;
+	}
+
 	explicit operator nano::uint128_union () const
 	{
-		nano::uint128_union result;
-		assert (size () == sizeof (result));
-		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + sizeof (result), result.bytes.data ());
-		return result;
+		return convert<nano::uint128_union> ();
+	}
+
+	explicit operator nano::amount () const
+	{
+		return convert<nano::amount> ();
+	}
+
+	explicit operator nano::block_hash () const
+	{
+		return convert<nano::block_hash> ();
+	}
+
+	explicit operator nano::public_key () const
+	{
+		return convert<nano::public_key> ();
 	}
 
 	explicit operator nano::uint256_union () const
 	{
-		nano::uint256_union result;
-		assert (size () == sizeof (result));
-		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + sizeof (result), result.bytes.data ());
-		return result;
+		return convert<nano::uint256_union> ();
 	}
 
 	explicit operator std::array<char, 64> () const
@@ -296,6 +320,16 @@ public:
 	Val value;
 	std::shared_ptr<std::vector<uint8_t>> buffer;
 	nano::epoch epoch{ nano::epoch::unspecified };
+
+private:
+	template <typename T>
+	T convert () const
+	{
+		T result;
+		assert (size () == sizeof (result));
+		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + sizeof (result), result.bytes.data ());
+		return result;
+	}
 };
 
 class block_sideband final
@@ -584,7 +618,7 @@ public:
 	virtual bool block_exists (nano::transaction const &, nano::block_hash const &) = 0;
 	virtual bool block_exists (nano::transaction const &, nano::block_type, nano::block_hash const &) = 0;
 	virtual nano::block_counts block_count (nano::transaction const &) = 0;
-	virtual bool root_exists (nano::transaction const &, nano::uint256_union const &) = 0;
+	virtual bool root_exists (nano::transaction const &, nano::root const &) = 0;
 	virtual bool source_exists (nano::transaction const &, nano::block_hash const &) = 0;
 	virtual nano::account block_account (nano::transaction const &, nano::block_hash const &) const = 0;
 
