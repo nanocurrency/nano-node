@@ -46,7 +46,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("unchecked_clear", "Clear unchecked blocks")
 	("confirmation_height_clear", "Clear confirmation height")
 	("diagnostics", "Run internal diagnostics")
-	("generate_config", boost::program_options::value<std::string> (), "Write configuration to stdout, populated with defaults suitable for this system. Pass the configuration type node or rpc.")
+	("generate_config", boost::program_options::value<std::string> (), "Write configuration to stdout, populated with defaults suitable for this system. Pass the configuration type node or rpc. See also use_defaults.")
 	("key_create", "Generates a adhoc random keypair and prints it to stdout")
 	("key_expand", "Derive public key and account number from <key>")
 	("wallet_add_adhoc", "Insert <key> in to <wallet>")
@@ -66,7 +66,8 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("seed", boost::program_options::value<std::string> (), "Defines the <seed> for other commands, hex")
 	("password", boost::program_options::value<std::string> (), "Defines <password> for other commands")
 	("wallet", boost::program_options::value<std::string> (), "Defines <wallet> for other commands")
-	("force", boost::program_options::value<bool>(), "Bool to force command if allowed");
+	("force", boost::program_options::value<bool>(), "Bool to force command if allowed")
+	("use_defaults", "If present, the generate_config command will generate uncommented entries");
 	// clang-format on
 }
 
@@ -416,24 +417,35 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	else if (vm.count ("generate_config"))
 	{
 		auto type = vm["generate_config"].as<std::string> ();
-
+		nano::tomlconfig toml;
+		bool valid_type = false;
 		if (type == "node")
 		{
+			valid_type = true;
 			nano::daemon_config config (data_path);
-			nano::tomlconfig toml;
 			config.serialize_toml (toml);
-			std::cout << toml.to_string () << std::endl;
 		}
 		else if (type == "rpc")
 		{
+			valid_type = true;
 			nano::rpc_config config (false);
-			nano::tomlconfig toml;
 			config.serialize_toml (toml);
-			std::cout << toml.to_string () << std::endl;
 		}
 		else
 		{
 			std::cerr << "Invalid configuration type " << type << ". Must be node or rpc." << std::endl;
+		}
+
+		if (valid_type)
+		{
+			if (vm.count ("use_defaults"))
+			{
+				std::cout << toml.to_string () << std::endl;
+			}
+			else
+			{
+				std::cout << toml.to_string_commented_entries () << std::endl;
+			}
 		}
 	}
 	else if (vm.count ("diagnostics"))
