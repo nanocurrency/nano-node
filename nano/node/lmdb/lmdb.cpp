@@ -201,7 +201,7 @@ void nano::mdb_store::upgrade_v1_to_v2 (nano::write_transaction const & transact
 	{
 		nano::mdb_iterator<nano::account, nano::account_info_v1> i (transaction_a, accounts_v0, nano::mdb_val (account));
 		std::cerr << std::hex;
-		if (i != nano::mdb_iterator<nano::account, nano::account_info_v1> {})
+		if (i != nano::mdb_iterator<nano::account, nano::account_info_v1>{})
 		{
 			account = nano::account (i->first);
 			nano::account_info_v1 v1 (i->second);
