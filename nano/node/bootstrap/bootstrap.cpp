@@ -540,7 +540,7 @@ void nano::bootstrap_attempt::requeue_pull (nano::pull_info const & pull_a)
 		assert (pull.account == pull.head);
 		if (!lazy_processed_or_exists (pull.account))
 		{
-			// Retry for lazy pulls (not weak state block link assumptions)
+			// Retry for lazy pulls
 			nano::lock_guard<std::mutex> lock (mutex);
 			pulls.push_back (pull);
 			condition.notify_all ();
@@ -611,16 +611,7 @@ void nano::bootstrap_attempt::lazy_pull_flush ()
 		if (lazy_blocks.find (pull_start.first) == lazy_blocks.end () && !node->store.block_exists (transaction, pull_start.first))
 		{
 			assert (node->network_params.bootstrap.lazy_max_pull_blocks <= std::numeric_limits<nano::pull_info::count_t>::max ());
-			if (pull_start.second)
-			{
-				// Confirmed head block
-				pulls.push_back (nano::pull_info (pull_start.first, pull_start.first, nano::block_hash (0), static_cast<nano::pull_info::count_t> (node->network_params.bootstrap.lazy_max_pull_blocks), pull_start.second));
-			}
-			else
-			{
-				// Head is not confirmed. It can be account or hash or non-existing
-				pulls.push_back (nano::pull_info (pull_start.first, nano::block_hash (0), nano::block_hash (0), static_cast<nano::pull_info::count_t> (node->network_params.bootstrap.lazy_max_pull_blocks), pull_start.second));
-			}
+			pulls.push_back (nano::pull_info (pull_start.first, pull_start.first, nano::block_hash (0), static_cast<nano::pull_info::count_t> (node->network_params.bootstrap.lazy_max_pull_blocks), pull_start.second));
 		}
 	}
 	lazy_pulls.clear ();

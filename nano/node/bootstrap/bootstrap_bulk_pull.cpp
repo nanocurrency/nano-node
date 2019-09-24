@@ -205,7 +205,8 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 			}
 			// Is block expected?
 			bool block_expected (false);
-			if (hash == expected || (expected.is_zero () && !pull.confirmed_head))
+			bool unconfirmed_account_head (pull_blocks == 0 && !pull.confirmed_head && expected == pull.account && block->account () == pull.account);
+			if (hash == expected || unconfirmed_account_head)
 			{
 				expected = block->previous ();
 				block_expected = true;
