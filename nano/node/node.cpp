@@ -975,7 +975,7 @@ boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & bloc
 	return opt_work_l;
 }
 
-void nano::node::work_generate (nano::uint256_union const & root_a, std::function<void(boost::optional<uint64_t>)> callback_a, boost::optional<nano::account> const & account_a)
+void nano::node::work_generate (nano::root const & root_a, std::function<void(boost::optional<uint64_t>)> callback_a, boost::optional<nano::account> const & account_a)
 {
 	work_generate (root_a, callback_a, network_params.network.publish_threshold, account_a);
 }
@@ -987,7 +987,7 @@ void nano::node::work_generate (nano::root const & root_a, std::function<void(bo
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a, boost::optional<nano::account> const & account_a)
 {
-	return work_generate_blocking (hash_a, network_params.network.publish_threshold, account_a);
+	return work_generate_blocking (root_a, network_params.network.publish_threshold, account_a);
 }
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)

@@ -77,7 +77,7 @@ class distributed_work_factory final
 public:
 	distributed_work_factory (nano::node &);
 	void make (nano::root const &, std::function<void(boost::optional<uint64_t>)> const &, uint64_t, boost::optional<nano::account> const & = boost::none);
-	void make (unsigned int, nano::block_hash const &, std::function<void(boost::optional<uint64_t>)> const &, uint64_t, boost::optional<nano::account> const & = boost::none);
+	void make (unsigned int, nano::root const &, std::function<void(boost::optional<uint64_t>)> const &, uint64_t, boost::optional<nano::account> const & = boost::none);
 	void cancel (nano::root const &, bool const local_stop = false);
 	void cleanup_finished ();
 
