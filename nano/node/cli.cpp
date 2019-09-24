@@ -8,6 +8,7 @@
 namespace
 {
 void reset_confirmation_heights (nano::block_store & store);
+bool is_using_rocksdb (boost::filesystem::path const & data_path, std::error_code & ec);
 }
 
 std::string nano::error_cli_messages::message (int ev) const
@@ -24,6 +25,8 @@ std::string nano::error_cli_messages::message (int ev) const
 			return "Unknown command";
 		case nano::error_cli::database_write_error:
 			return "Database write error";
+		case nano::error_cli::reading_config:
+			return "Config file read error";
 	}
 
 	return "Invalid error code";
@@ -207,45 +210,59 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		try
 		{
-			std::cout << "Vacuuming database copy in ";
-#if NANO_ROCKSDB
-			auto source_path = data_path / "rocksdb";
-			auto backup_path = source_path / "backup";
-			auto vacuum_path = backup_path / "vacuumed";
-			if (!boost::filesystem::exists (vacuum_path))
+			auto using_rocksdb = is_using_rocksdb (data_path, ec);
+			if (!ec)
 			{
-				boost::filesystem::create_directories (vacuum_path);
-			}
+				std::cout << "Vacuuming database copy in ";
+				boost::filesystem::path source_path;
+				boost::filesystem::path backup_path;
+				boost::filesystem::path vacuum_path;
+				if (using_rocksdb)
+				{
+					source_path = data_path / "rocksdb";
+					backup_path = source_path / "backup";
+					vacuum_path = backup_path / "vacuumed";
+					if (!boost::filesystem::exists (vacuum_path))
+					{
+						boost::filesystem::create_directories (vacuum_path);
+					}
 
-			std::cout << source_path << "\n";
-#else
-			auto source_path = data_path / "data.ldb";
-			auto backup_path = data_path / "backup.vacuum.ldb";
-			auto vacuum_path = data_path / "vacuumed.ldb";
-			std::cout << data_path << "\n";
-#endif
-			std::cout << "This may take a while..." << std::endl;
+					std::cout << source_path << "\n";
+				}
+				else
+				{
+					source_path = data_path / "data.ldb";
+					backup_path = data_path / "backup.vacuum.ldb";
+					vacuum_path = data_path / "vacuumed.ldb";
+					std::cout << data_path << "\n";
+				}
+				std::cout << "This may take a while..." << std::endl;
 
-			bool success = copy_database (data_path, vm, vacuum_path, ec);
-			if (success)
-			{
-				// Note that these throw on failure
-				std::cout << "Finalizing" << std::endl;
+				bool success = copy_database (data_path, vm, vacuum_path, ec);
+				if (success)
+				{
+					// Note that these throw on failure
+					std::cout << "Finalizing" << std::endl;
 #ifdef NANO_ROCKSDB
-				nano::remove_all_files_in_dir (backup_path);
-				nano::move_all_files_to_dir (source_path, backup_path);
-				nano::move_all_files_to_dir (vacuum_path, source_path);
-				boost::filesystem::remove_all (vacuum_path);
+					nano::remove_all_files_in_dir (backup_path);
+					nano::move_all_files_to_dir (source_path, backup_path);
+					nano::move_all_files_to_dir (vacuum_path, source_path);
+					boost::filesystem::remove_all (vacuum_path);
 #else
-				boost::filesystem::remove (backup_path);
-				boost::filesystem::rename (source_path, backup_path);
-				boost::filesystem::rename (vacuum_path, source_path);
+					boost::filesystem::remove (backup_path);
+					boost::filesystem::rename (source_path, backup_path);
+					boost::filesystem::rename (vacuum_path, source_path);
 #endif
-				std::cout << "Vacuum completed" << std::endl;
+					std::cout << "Vacuum completed" << std::endl;
+				}
+				else
+				{
+					std::cerr << "Vacuum failed (copying returned false)" << std::endl;
+				}
 			}
 			else
 			{
-				std::cerr << "Vacuum failed (copying returned false)" << std::endl;
+				std::cerr << "Vacuum failed. RocksDB is enabled but the node has not been built with RocksDB support" << std::endl;
 			}
 		}
 		catch (const boost::filesystem::filesystem_error & ex)
@@ -261,24 +278,38 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		try
 		{
-#if NANO_ROCKSDB
-			auto source_path = data_path / "rocksdb";
-			auto snapshot_path = source_path / "backup";
-#else
-			auto source_path = data_path / "data.ldb";
-			auto snapshot_path = data_path / "snapshot.ldb";
-#endif
-			std::cout << "Database snapshot of " << source_path << " to " << snapshot_path << " in progress" << std::endl;
-			std::cout << "This may take a while..." << std::endl;
-
-			bool success = copy_database (data_path, vm, snapshot_path, ec);
-			if (success)
+			auto using_rocksdb = is_using_rocksdb (data_path, ec);
+			if (!ec)
 			{
-				std::cout << "Snapshot completed, This can be found at " << snapshot_path << std::endl;
+				boost::filesystem::path source_path;
+				boost::filesystem::path snapshot_path;
+				if (using_rocksdb)
+				{
+					source_path = data_path / "rocksdb";
+					snapshot_path = source_path / "backup";
+				}
+				else
+				{
+					source_path = data_path / "data.ldb";
+					snapshot_path = data_path / "snapshot.ldb";
+				}
+
+				std::cout << "Database snapshot of " << source_path << " to " << snapshot_path << " in progress" << std::endl;
+				std::cout << "This may take a while..." << std::endl;
+
+				bool success = copy_database (data_path, vm, snapshot_path, ec);
+				if (success)
+				{
+					std::cout << "Snapshot completed, This can be found at " << snapshot_path << std::endl;
+				}
+				else
+				{
+					std::cerr << "Snapshot failed (copying returned false)" << std::endl;
+				}
 			}
 			else
 			{
-				std::cerr << "Snapshot Failed (copying returned false)" << std::endl;
+				std::cerr << "Snapshot failed. RocksDB is enabled but the node has not been built with RocksDB support" << std::endl;
 			}
 		}
 		catch (const boost::filesystem::filesystem_error & ex)
@@ -287,7 +318,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		}
 		catch (...)
 		{
-			std::cerr << "Snapshot Failed (unknown reason)" << std::endl;
+			std::cerr << "Snapshot failed (unknown reason)" << std::endl;
 		}
 	}
 	else if (vm.count ("unchecked_clear"))
@@ -1054,5 +1085,28 @@ void reset_confirmation_heights (nano::block_store & store)
 	// Then make sure the confirmation height of the genesis account open block is 1
 	nano::network_params network_params;
 	store.confirmation_height_put (transaction, network_params.ledger.genesis_account, 1);
+}
+
+bool is_using_rocksdb (boost::filesystem::path const & data_path, std::error_code & ec)
+{
+	nano::daemon_config config (data_path);
+	auto error = nano::read_node_config_toml (data_path, config);
+	if (!error)
+	{
+		bool use_rocksdb = config.node.rocksdb_config.enable;
+		if (use_rocksdb)
+		{
+#if !NANO_ROCKSDB
+			ec = nano::error_cli::database_write_error;
+#endif
+			return (NANO_ROCKSDB == 1);
+		}
+	}
+	else
+	{
+		ec = nano::error_cli::reading_config;
+	}
+
+	return false;
 }
 }
