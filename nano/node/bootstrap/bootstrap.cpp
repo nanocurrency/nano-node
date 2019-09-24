@@ -537,8 +537,8 @@ void nano::bootstrap_attempt::requeue_pull (nano::pull_info const & pull_a)
 	}
 	else if (mode == nano::bootstrap_mode::lazy && (pull.confirmed_head || pull.attempts <= nano::bootstrap_limits::bootstrap_lazy_retry_limit))
 	{
-		assert (pull.root == pull.head);
-		if (!lazy_processed_or_exists (pull.root))
+		assert (pull.account_or_head == pull.head);
+		if (!lazy_processed_or_exists (pull.account_or_head))
 		{
 			// Retry for lazy pulls
 			nano::lock_guard<std::mutex> lock (mutex);
@@ -550,7 +550,7 @@ void nano::bootstrap_attempt::requeue_pull (nano::pull_info const & pull_a)
 	{
 		if (node->config.logging.bulk_pull_logging ())
 		{
-			node->logger.try_log (boost::str (boost::format ("Failed to pull account %1% down to %2% after %3% attempts and %4% blocks processed") % pull.root.to_account () % pull.end.to_string () % pull.attempts % pull.processed));
+			node->logger.try_log (boost::str (boost::format ("Failed to pull account %1% down to %2% after %3% attempts and %4% blocks processed") % pull.account_or_head.to_account () % pull.end.to_string () % pull.attempts % pull.processed));
 		}
 		node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_failed_account, nano::stat::dir::in);
 
@@ -576,13 +576,13 @@ void nano::bootstrap_attempt::lazy_start (nano::block_hash const & hash_a)
 	}
 }
 
-void nano::bootstrap_attempt::lazy_add (nano::block_hash const & hash_a, bool confirmed_head)
+void nano::bootstrap_attempt::lazy_add (nano::bootstrap_hash_or_account const & hash_or_account_a, bool confirmed_head)
 {
 	// Add only unknown blocks
 	assert (!lazy_mutex.try_lock ());
-	if (lazy_blocks.find (hash_a) == lazy_blocks.end ())
+	if (lazy_blocks.find (hash_or_account_a) == lazy_blocks.end ())
 	{
-		lazy_pulls.push_back (std::make_pair (hash_a, confirmed_head));
+		lazy_pulls.push_back (std::make_pair (hash_or_account_a, confirmed_head));
 	}
 }
 
@@ -1233,7 +1233,7 @@ void nano::pulls_cache::add (nano::pull_info const & pull_a)
 			cache.erase (cache.begin ());
 		}
 		assert (cache.size () <= cache_size_max);
-		nano::uint512_union head_512 (pull_a.root, pull_a.head_original);
+		nano::uint512_union head_512 (pull_a.account_or_head, pull_a.head_original);
 		auto existing (cache.get<account_head_tag> ().find (head_512));
 		if (existing == cache.get<account_head_tag> ().end ())
 		{
@@ -1256,7 +1256,7 @@ void nano::pulls_cache::add (nano::pull_info const & pull_a)
 void nano::pulls_cache::update_pull (nano::pull_info & pull_a)
 {
 	nano::lock_guard<std::mutex> guard (pulls_cache_mutex);
-	nano::uint512_union head_512 (pull_a.root, pull_a.head_original);
+	nano::uint512_union head_512 (pull_a.account_or_head, pull_a.head_original);
 	auto existing (cache.get<account_head_tag> ().find (head_512));
 	if (existing != cache.get<account_head_tag> ().end ())
 	{
@@ -1267,7 +1267,7 @@ void nano::pulls_cache::update_pull (nano::pull_info & pull_a)
 void nano::pulls_cache::remove (nano::pull_info const & pull_a)
 {
 	nano::lock_guard<std::mutex> guard (pulls_cache_mutex);
-	nano::uint512_union head_512 (pull_a.root, pull_a.head_original);
+	nano::uint512_union head_512 (pull_a.account_or_head, pull_a.head_original);
 	cache.get<account_head_tag> ().erase (head_512);
 }
 

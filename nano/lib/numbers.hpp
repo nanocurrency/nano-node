@@ -100,6 +100,7 @@ static_assert (std::is_nothrow_move_constructible<uint256_union>::value, "uint25
 
 class link;
 class root;
+class bootstrap_hash_or_account;
 
 // All keys and hashes are 256 bit.
 class block_hash final : public uint256_union
@@ -108,6 +109,7 @@ public:
 	using uint256_union::uint256_union;
 	operator nano::link const & () const;
 	operator nano::root const & () const;
+	operator nano::bootstrap_hash_or_account const & () const;
 };
 
 class public_key final : public uint256_union
@@ -122,6 +124,7 @@ public:
 
 	operator nano::link const & () const;
 	operator nano::root const & () const;
+	operator nano::bootstrap_hash_or_account const & () const;
 };
 
 class wallet_id : public uint256_union
@@ -169,6 +172,7 @@ public:
 
 	bool operator== (nano::link const &) const;
 	bool operator!= (nano::link const &) const;
+	operator nano::bootstrap_hash_or_account const & () const;
 };
 
 // A root can either be an open block hash or a previous hash
@@ -180,8 +184,20 @@ public:
 
 	bool operator== (nano::root const &) const;
 	bool operator!= (nano::root const &) const;
+	operator nano::bootstrap_hash_or_account const & () const;
 
 	nano::block_hash const & previous () const;
+};
+
+// Bootstrap hash or account
+class bootstrap_hash_or_account final : public hash_or_account
+{
+public:
+	bootstrap_hash_or_account () = default;
+	bootstrap_hash_or_account (uint64_t value_a);
+
+	bool operator== (nano::bootstrap_hash_or_account const &) const;
+	bool operator!= (nano::bootstrap_hash_or_account const &) const;
 };
 
 class private_key : public uint256_union
@@ -245,6 +261,26 @@ inline nano::root const & to_root (nano::block_hash const & hash_a)
 inline nano::root const & to_root (nano::account const & account_a)
 {
 	return reinterpret_cast<nano::root const &> (account_a);
+}
+
+inline nano::bootstrap_hash_or_account const & to_bootstrap (nano::block_hash const & hash_a)
+{
+	return reinterpret_cast<nano::bootstrap_hash_or_account const &> (hash_a);
+}
+
+inline nano::bootstrap_hash_or_account const & to_bootstrap (nano::account const & account_a)
+{
+	return reinterpret_cast<nano::bootstrap_hash_or_account const &> (account_a);
+}
+
+inline nano::bootstrap_hash_or_account const & to_bootstrap (nano::link const & link_a)
+{
+	return reinterpret_cast<nano::bootstrap_hash_or_account const &> (link_a);
+}
+
+inline nano::bootstrap_hash_or_account const & to_bootstrap (nano::root const & root_a)
+{
+	return reinterpret_cast<nano::bootstrap_hash_or_account const &> (root_a);
 }
 
 inline nano::account const & root_as_account (nano::root const & root_a)
