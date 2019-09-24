@@ -109,7 +109,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	unsigned unconfirmed_count (0);
 	unsigned unconfirmed_request_count (0);
 	unsigned could_fit_delay = node.network_params.network.is_test_network () ? high_confirmation_request_count - 1 : 1;
-	std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::block_hash>>> requests_bundle;
+	std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::root>>> requests_bundle;
 	std::deque<std::shared_ptr<nano::block>> rebroadcast_bundle;
 	std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>>> confirm_req_bundle;
 
@@ -251,7 +251,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 						{
 							if (requests_bundle.size () < max_broadcast_queue)
 							{
-								std::deque<std::pair<nano::block_hash, nano::block_hash>> insert_root_hash = { root_hash };
+								std::deque<std::pair<nano::block_hash, nano::root>> insert_root_hash = { root_hash };
 								requests_bundle.insert (std::make_pair (rep, insert_root_hash));
 							}
 						}
@@ -410,7 +410,7 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 				for (auto item_it = items.cbegin (); item_it != items.cend (); ++item_it)
 				{
 					// Skip this wallet if it has been traversed already while there are others still awaiting
-					if (wallet_accounts_already_iterated.find (item_it->first) != wallet_accounts_already_iterated.end ())
+					if (wallet_ids_already_iterated.find (item_it->first) != wallet_ids_already_iterated.end ())
 					{
 						continue;
 					}
@@ -419,14 +419,14 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 					auto & wallet (item_it->second);
 					nano::lock_guard<std::recursive_mutex> wallet_lock (wallet->store.mutex);
 
-					auto & next_wallet_frontier_account = next_wallet_frontier_accounts.emplace (item_it->first, wallet_store::special_count).first->second;
+					auto & next_wallet_frontier_account = next_wallet_id_accounts.emplace (item_it->first, wallet_store::special_count).first->second;
 
 					auto i (wallet->store.begin (wallet_transaction, next_wallet_frontier_account));
 					auto n (wallet->store.end ());
 					uint64_t confirmation_height = 0;
 					for (; i != n; ++i)
 					{
-						auto & account (i->first);
+						auto const & account (i->first);
 						if (!node.store.account_get (transaction_a, account, info) && !node.store.confirmation_height_get (transaction_a, account, confirmation_height))
 						{
 							// If it exists in normal priority collection delete from there.
@@ -450,13 +450,13 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 					// Go back to the beginning when we have reached the end of the wallet accounts for this wallet
 					if (i == n)
 					{
-						wallet_accounts_already_iterated.emplace (item_it->first);
-						next_wallet_frontier_accounts.at (item_it->first) = wallet_store::special_count;
+						wallet_ids_already_iterated.emplace (item_it->first);
+						next_wallet_id_accounts.at (item_it->first) = wallet_store::special_count;
 
 						// Skip wallet accounts when they have all been traversed
 						if (std::next (item_it) == items.cend ())
 						{
-							wallet_accounts_already_iterated.clear ();
+							wallet_ids_already_iterated.clear ();
 							skip_wallets = true;
 						}
 					}

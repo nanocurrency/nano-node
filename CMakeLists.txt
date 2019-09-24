@@ -42,9 +42,8 @@ if (${NANO_TIMED_LOCKS} GREATER 0)
 	add_definitions (-DNANO_TIMED_LOCKS=${NANO_TIMED_LOCKS})
 endif ()
 
-if (NANO_ROCKSDB)
-	add_definitions (-DNANO_ROCKSDB=1)
-endif ()
+add_definitions (-DNANO_ROCKSDB=$<STREQUAL:${NANO_ROCKSDB},ON>)
+
 option(NANO_ASAN_INT "Enable ASan+UBSan+Integer overflow" OFF)
 option(NANO_ASAN "Enable ASan+UBSan" OFF)
 option(NANO_TSAN "Enable TSan" OFF)

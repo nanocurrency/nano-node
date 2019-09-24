@@ -141,9 +141,9 @@ void nano::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<na
 	auto size (votes_a.size ());
 	std::vector<unsigned char const *> messages;
 	messages.reserve (size);
-	std::vector<nano::uint256_union> hashes;
+	std::vector<nano::block_hash> hashes;
 	hashes.reserve (size);
-	std::vector<size_t> lengths (size, sizeof (nano::uint256_union));
+	std::vector<size_t> lengths (size, sizeof (nano::block_hash));
 	std::vector<unsigned char const *> pub_keys;
 	pub_keys.reserve (size);
 	std::vector<unsigned char const *> signatures;

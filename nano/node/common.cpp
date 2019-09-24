@@ -557,7 +557,7 @@ block (block_a)
 	header.block_type_set (block->type ());
 }
 
-nano::confirm_req::confirm_req (std::vector<std::pair<nano::block_hash, nano::block_hash>> const & roots_hashes_a) :
+nano::confirm_req::confirm_req (std::vector<std::pair<nano::block_hash, nano::root>> const & roots_hashes_a) :
 message (nano::message_type::confirm_req),
 roots_hashes (roots_hashes_a)
 {
@@ -567,9 +567,9 @@ roots_hashes (roots_hashes_a)
 	header.count_set (static_cast<uint8_t> (roots_hashes.size ()));
 }
 
-nano::confirm_req::confirm_req (nano::block_hash const & hash_a, nano::block_hash const & root_a) :
+nano::confirm_req::confirm_req (nano::block_hash const & hash_a, nano::root const & root_a) :
 message (nano::message_type::confirm_req),
-roots_hashes (std::vector<std::pair<nano::block_hash, nano::block_hash>> (1, std::make_pair (hash_a, root_a)))
+roots_hashes (std::vector<std::pair<nano::block_hash, nano::root>> (1, std::make_pair (hash_a, root_a)))
 {
 	assert (!roots_hashes.empty ());
 	// not_a_block (1) block type for hashes + roots request

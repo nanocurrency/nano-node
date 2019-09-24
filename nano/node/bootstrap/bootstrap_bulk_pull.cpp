@@ -3,8 +3,8 @@
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
 
-nano::pull_info::pull_info (nano::account const & account_a, nano::block_hash const & head_a, nano::block_hash const & end_a, count_t count_a, bool confirmed_head_a) :
-account (account_a),
+nano::pull_info::pull_info (nano::root const & root_a, nano::block_hash const & head_a, nano::block_hash const & end_a, count_t count_a, bool confirmed_head_a) :
+root (root_a),
 head (head_a),
 head_original (head_a),
 end (end_a),
@@ -31,13 +31,13 @@ nano::bulk_pull_client::~bulk_pull_client ()
 		pull.head = expected;
 		if (connection->attempt->mode != nano::bootstrap_mode::legacy)
 		{
-			pull.account = expected;
+			pull.root = expected;
 		}
 		pull.processed += pull_blocks - unexpected_count;
 		connection->attempt->requeue_pull (pull);
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
-			connection->node->logger.try_log (boost::str (boost::format ("Bulk pull end block is not expected %1% for account %2%") % pull.end.to_string () % pull.account.to_account ()));
+			connection->node->logger.try_log (boost::str (boost::format ("Bulk pull end block is not expected %1% for account %2%") % pull.end.to_string () % pull.root.to_account ()));
 		}
 	}
 	else
@@ -56,7 +56,16 @@ void nano::bulk_pull_client::request ()
 	assert (!pull.head.is_zero () || !pull.confirmed_head);
 	expected = pull.head;
 	nano::bulk_pull req;
-	req.start = (pull.head == pull.head_original) ? pull.account : pull.head; // Account for new pulls, head for cached pulls
+	if (pull.head == pull.head_original)
+	{
+		// Account for new pulls
+		req.start = pull.root;
+	}
+	else
+	{
+		// Head for cached pulls
+		req.start = pull.head;
+	}
 	req.end = pull.end;
 	req.count = pull.count;
 	req.set_count_present (pull.count != 0);
@@ -64,7 +73,7 @@ void nano::bulk_pull_client::request ()
 	if (connection->node->config.logging.bulk_pull_logging ())
 	{
 		nano::unique_lock<std::mutex> lock (connection->attempt->mutex);
-		connection->node->logger.try_log (boost::str (boost::format ("Requesting account %1% from %2%. %3% accounts in queue") % pull.account.to_account () % connection->channel->to_string () % connection->attempt->pulls.size ()));
+		connection->node->logger.try_log (boost::str (boost::format ("Requesting account %1% from %2%. %3% accounts in queue") % pull.root.to_account () % connection->channel->to_string () % connection->attempt->pulls.size ()));
 	}
 	else if (connection->node->config.logging.network_logging () && connection->attempt->should_log ())
 	{
@@ -205,7 +214,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 			}
 			// Is block expected?
 			bool block_expected (false);
-			bool unconfirmed_account_head (pull_blocks == 0 && !pull.confirmed_head && expected == pull.account && block->account () == pull.account);
+			bool unconfirmed_account_head (pull_blocks == 0 && !pull.confirmed_head && expected == pull.root && block->account () == pull.root);
 			if (hash == expected || unconfirmed_account_head)
 			{
 				expected = block->previous ();

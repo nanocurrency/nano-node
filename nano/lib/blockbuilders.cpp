@@ -244,93 +244,93 @@ nano::state_block_builder & nano::state_block_builder::zero ()
 	return *this;
 }
 
-nano::state_block_builder & nano::state_block_builder::account (nano::account account)
+nano::state_block_builder & nano::state_block_builder::account (nano::account const & account)
 {
 	block->hashables.account = account;
 	build_state |= build_flags::account_present;
 	return *this;
 }
 
-nano::state_block_builder & nano::state_block_builder::account_hex (std::string account_hex)
+nano::state_block_builder & nano::state_block_builder::account_hex (std::string const & account_hex)
 {
 	account_hex_impl (account_hex, ec, block);
 	build_state |= build_flags::account_present;
 	return *this;
 }
 
-nano::state_block_builder & nano::state_block_builder::account_address (std::string address)
+nano::state_block_builder & nano::state_block_builder::account_address (std::string const & address)
 {
 	account_address_impl (address, ec, block);
 	build_state |= build_flags::account_present;
 	return *this;
 }
 
-nano::state_block_builder & nano::state_block_builder::representative (nano::account account)
+nano::state_block_builder & nano::state_block_builder::representative (nano::account const & account)
 {
 	block->hashables.representative = account;
 	build_state |= build_flags::representative_present;
 	return *this;
 }
 
-nano::state_block_builder & nano::state_block_builder::representative_hex (std::string account_hex)
+nano::state_block_builder & nano::state_block_builder::representative_hex (std::string const & account_hex)
 {
 	representative_hex_impl (account_hex, ec, block);
 	build_state |= build_flags::representative_present;
 	return *this;
 }
 
-nano::state_block_builder & nano::state_block_builder::representative_address (std::string address)
+nano::state_block_builder & nano::state_block_builder::representative_address (std::string const & address)
 {
 	representative_address_impl (address, ec, block);
 	build_state |= build_flags::representative_present;
 	return *this;
 }
 
-nano::state_block_builder & nano::state_block_builder::previous (nano::block_hash previous)
+nano::state_block_builder & nano::state_block_builder::previous (nano::block_hash const & previous)
 {
 	block->hashables.previous = previous;
 	build_state |= build_flags::previous_present;
 	return *this;
 }
 
-nano::state_block_builder & nano::state_block_builder::previous_hex (std::string previous_hex)
+nano::state_block_builder & nano::state_block_builder::previous_hex (std::string const & previous_hex)
 {
 	previous_hex_impl (previous_hex, ec, block);
 	build_state |= build_flags::previous_present;
 	return *this;
 }
 
-nano::state_block_builder & nano::state_block_builder::balance (nano::amount balance)
+nano::state_block_builder & nano::state_block_builder::balance (nano::amount const & balance)
 {
 	block->hashables.balance = balance;
 	build_state |= build_flags::balance_present;
 	return *this;
 }
 
-nano::state_block_builder & nano::state_block_builder::balance_dec (std::string balance_decimal)
+nano::state_block_builder & nano::state_block_builder::balance_dec (std::string const & balance_decimal)
 {
 	balance_dec_impl (balance_decimal, ec, block);
 	build_state |= build_flags::balance_present;
 	return *this;
 }
 
-nano::state_block_builder & nano::state_block_builder::balance_hex (std::string balance_hex)
+nano::state_block_builder & nano::state_block_builder::balance_hex (std::string const & balance_hex)
 {
 	balance_hex_impl (balance_hex, ec, block);
 	build_state |= build_flags::balance_present;
 	return *this;
 }
 
-nano::state_block_builder & nano::state_block_builder::link (nano::uint256_union link)
+nano::state_block_builder & nano::state_block_builder::link (nano::link const & link)
 {
 	block->hashables.link = link;
 	build_state |= build_flags::link_present;
 	return *this;
 }
 
-nano::state_block_builder & nano::state_block_builder::link_hex (std::string link_hex)
+nano::state_block_builder & nano::state_block_builder::link_hex (std::string const & link_hex)
 {
-	nano::uint256_union link;
+	nano::link link;
 	if (!link.decode_hex (link_hex))
 	{
 		block->hashables.link = link;
@@ -343,9 +343,9 @@ nano::state_block_builder & nano::state_block_builder::link_hex (std::string lin
 	return *this;
 }
 
-nano::state_block_builder & nano::state_block_builder::link_address (std::string link_address)
+nano::state_block_builder & nano::state_block_builder::link_address (std::string const & link_address)
 {
-	nano::account link;
+	nano::link link;
 	if (!link.decode_account (link_address))
 	{
 		block->hashables.link = link;
