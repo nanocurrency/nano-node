@@ -335,7 +335,7 @@ TEST (bootstrap_processor, push_one)
 	nano::system system (24000, 1);
 	nano::keypair key1;
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
-	auto wallet (node1->wallets.create (nano::uint256_union ()));
+	auto wallet (node1->wallets.create (nano::random_wallet_id ()));
 	ASSERT_NE (nullptr, wallet);
 	wallet->insert_adhoc (nano::test_genesis_key.prv);
 	nano::uint128_t balance1 (node1->balance (nano::test_genesis_key.pub));
@@ -485,7 +485,7 @@ TEST (bootstrap_processor, wallet_lazy_frontier)
 	// Start wallet lazy bootstrap
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 	node1->network.udp_channels.insert (system.nodes[0]->network.endpoint (), node1->network_params.protocol.protocol_version);
-	auto wallet (node1->wallets.create (nano::uint256_union ()));
+	auto wallet (node1->wallets.create (nano::random_wallet_id ()));
 	ASSERT_NE (nullptr, wallet);
 	wallet->insert_adhoc (key2.prv);
 	node1->bootstrap_wallet ();
@@ -516,7 +516,7 @@ TEST (bootstrap_processor, wallet_lazy_pending)
 	// Start wallet lazy bootstrap
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
 	node1->network.udp_channels.insert (system.nodes[0]->network.endpoint (), node1->network_params.protocol.protocol_version);
-	auto wallet (node1->wallets.create (nano::uint256_union ()));
+	auto wallet (node1->wallets.create (nano::random_wallet_id ()));
 	ASSERT_NE (nullptr, wallet);
 	wallet->insert_adhoc (key2.prv);
 	node1->bootstrap_wallet ();
@@ -679,7 +679,7 @@ TEST (bulk, offline_send)
 	node1->start ();
 	system.nodes.push_back (node1);
 	nano::keypair key2;
-	auto wallet (node1->wallets.create (nano::uint256_union ()));
+	auto wallet (node1->wallets.create (nano::random_wallet_id ()));
 	wallet->insert_adhoc (key2.prv);
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::test_genesis_key.pub, key2.pub, system.nodes[0]->config.receive_minimum.number ()));
 	ASSERT_NE (std::numeric_limits<nano::uint256_t>::max (), system.nodes[0]->balance (nano::test_genesis_key.pub));
@@ -713,7 +713,7 @@ TEST (bulk, offline_send)
 TEST (bulk_pull_account, basics)
 {
 	nano::system system (24000, 1);
-	system.nodes[0]->config.receive_minimum = nano::uint128_union (20);
+	system.nodes[0]->config.receive_minimum = 20;
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key1.prv);
