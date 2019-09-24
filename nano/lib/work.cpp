@@ -5,7 +5,7 @@
 
 #include <future>
 
-bool nano::work_validate (nano::block_hash const & root_a, uint64_t work_a, uint64_t * difficulty_a)
+bool nano::work_validate (nano::root const & root_a, uint64_t work_a, uint64_t * difficulty_a)
 {
 	static nano::network_constants network_constants;
 	auto value (nano::work_value (root_a, work_a));
@@ -21,7 +21,7 @@ bool nano::work_validate (nano::block const & block_a, uint64_t * difficulty_a)
 	return work_validate (block_a.root (), block_a.block_work (), difficulty_a);
 }
 
-uint64_t nano::work_value (nano::block_hash const & root_a, uint64_t work_a)
+uint64_t nano::work_value (nano::root const & root_a, uint64_t work_a)
 {
 	uint64_t result;
 	blake2b_state hash;
@@ -32,7 +32,7 @@ uint64_t nano::work_value (nano::block_hash const & root_a, uint64_t work_a)
 	return result;
 }
 
-nano::work_pool::work_pool (unsigned max_threads_a, std::chrono::nanoseconds pow_rate_limiter_a, std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t, std::atomic<int> &)> opencl_a) :
+nano::work_pool::work_pool (unsigned max_threads_a, std::chrono::nanoseconds pow_rate_limiter_a, std::function<boost::optional<uint64_t> (nano::root const &, uint64_t, std::atomic<int> &)> opencl_a) :
 ticket (0),
 done (false),
 pow_rate_limiter (pow_rate_limiter_a),
@@ -154,7 +154,7 @@ void nano::work_pool::loop (uint64_t thread)
 	}
 }
 
-void nano::work_pool::cancel (nano::uint256_union const & root_a)
+void nano::work_pool::cancel (nano::root const & root_a)
 {
 	nano::lock_guard<std::mutex> lock (mutex);
 	if (!done)
@@ -195,19 +195,19 @@ void nano::work_pool::stop ()
 	producer_condition.notify_all ();
 }
 
-void nano::work_pool::generate (nano::uint256_union const & hash_a, std::function<void(boost::optional<uint64_t> const &)> callback_a)
+void nano::work_pool::generate (nano::root const & root_a, std::function<void(boost::optional<uint64_t> const &)> callback_a)
 {
-	generate (hash_a, callback_a, network_constants.publish_threshold);
+	generate (root_a, callback_a, network_constants.publish_threshold);
 }
 
-void nano::work_pool::generate (nano::uint256_union const & hash_a, std::function<void(boost::optional<uint64_t> const &)> callback_a, uint64_t difficulty_a)
+void nano::work_pool::generate (nano::root const & root_a, std::function<void(boost::optional<uint64_t> const &)> callback_a, uint64_t difficulty_a)
 {
-	assert (!hash_a.is_zero ());
+	assert (!root_a.is_zero ());
 	if (!threads.empty ())
 	{
 		{
 			nano::lock_guard<std::mutex> lock (mutex);
-			pending.push_back ({ hash_a, callback_a, difficulty_a });
+			pending.push_back ({ root_a, callback_a, difficulty_a });
 		}
 		producer_condition.notify_all ();
 	}
@@ -217,12 +217,12 @@ void nano::work_pool::generate (nano::uint256_union const & hash_a, std::functio
 	}
 }
 
-boost::optional<uint64_t> nano::work_pool::generate (nano::uint256_union const & hash_a)
+boost::optional<uint64_t> nano::work_pool::generate (nano::root const & root_a)
 {
-	return generate (hash_a, network_constants.publish_threshold);
+	return generate (root_a, network_constants.publish_threshold);
 }
 
-boost::optional<uint64_t> nano::work_pool::generate (nano::uint256_union const & hash_a, uint64_t difficulty_a)
+boost::optional<uint64_t> nano::work_pool::generate (nano::root const & root_a, uint64_t difficulty_a)
 {
 	boost::optional<uint64_t> result;
 	if (!threads.empty ())
@@ -230,7 +230,7 @@ boost::optional<uint64_t> nano::work_pool::generate (nano::uint256_union const &
 		std::promise<boost::optional<uint64_t>> work;
 		std::future<boost::optional<uint64_t>> future = work.get_future ();
 		// clang-format off
-		generate (hash_a, [&work](boost::optional<uint64_t> work_a) {
+		generate (root_a, [&work](boost::optional<uint64_t> work_a) {
 			work.set_value (work_a);
 		},
 		difficulty_a);

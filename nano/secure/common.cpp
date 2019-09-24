@@ -93,7 +93,7 @@ genesis_block (network_a == nano::nano_networks::nano_test_network ? nano_test_g
 genesis_amount (std::numeric_limits<nano::uint128_t>::max ()),
 burn_account (0)
 {
-	nano::uint256_union epoch_link;
+	nano::link epoch_link;
 	const char * epoch_message ("epoch v1 block");
 	strncpy ((char *)epoch_link.bytes.data (), epoch_message, epoch_link.bytes.size ());
 	epochs.add (nano::epoch::epoch_1, genesis_account, epoch_link);
@@ -299,7 +299,7 @@ bool nano::pending_key::operator== (nano::pending_key const & other_a) const
 	return account == other_a.account && hash == other_a.hash;
 }
 
-nano::block_hash nano::pending_key::key () const
+nano::account const & nano::pending_key::key () const
 {
 	return account;
 }
@@ -517,9 +517,9 @@ std::string nano::vote::hashes_string () const
 
 const std::string nano::vote::hash_prefix = "vote ";
 
-nano::uint256_union nano::vote::hash () const
+nano::block_hash nano::vote::hash () const
 {
-	nano::uint256_union result;
+	nano::block_hash result;
 	blake2b_state hash;
 	blake2b_init (&hash, sizeof (result.bytes));
 	if (blocks.size () > 1 || (!blocks.empty () && blocks.front ().which ()))
@@ -541,9 +541,9 @@ nano::uint256_union nano::vote::hash () const
 	return result;
 }
 
-nano::uint256_union nano::vote::full_hash () const
+nano::block_hash nano::vote::full_hash () const
 {
-	nano::uint256_union result;
+	nano::block_hash result;
 	blake2b_state state;
 	blake2b_init (&state, sizeof (result.bytes));
 	blake2b_update (&state, hash ().bytes.data (), sizeof (hash ().bytes));
@@ -691,7 +691,7 @@ std::shared_ptr<nano::vote> nano::vote_uniquer::unique (std::shared_ptr<nano::vo
 		{
 			result->blocks.front () = uniquer.unique (boost::get<std::shared_ptr<nano::block>> (result->blocks.front ()));
 		}
-		nano::uint256_union key (vote_a->full_hash ());
+		nano::block_hash key (vote_a->full_hash ());
 		nano::lock_guard<std::mutex> lock (mutex);
 		auto & existing (votes[key]);
 		if (auto block_l = existing.lock ())
@@ -760,4 +760,45 @@ nano::genesis::genesis ()
 nano::block_hash nano::genesis::hash () const
 {
 	return open->hash ();
+}
+
+nano::wallet_id nano::random_wallet_id ()
+{
+	nano::wallet_id wallet_id;
+	nano::uint256_union dummy_secret;
+	random_pool::generate_block (dummy_secret.bytes.data (), dummy_secret.bytes.size ());
+	ed25519_publickey (dummy_secret.bytes.data (), wallet_id.bytes.data ());
+	return wallet_id;
+}
+
+nano::unchecked_key::unchecked_key (nano::block_hash const & previous_a, nano::block_hash const & hash_a) :
+previous (previous_a),
+hash (hash_a)
+{
+}
+
+bool nano::unchecked_key::deserialize (nano::stream & stream_a)
+{
+	auto error (false);
+	try
+	{
+		nano::read (stream_a, previous.bytes);
+		nano::read (stream_a, hash.bytes);
+	}
+	catch (std::runtime_error const &)
+	{
+		error = true;
+	}
+
+	return error;
+}
+
+bool nano::unchecked_key::operator== (nano::unchecked_key const & other_a) const
+{
+	return previous == other_a.previous && hash == other_a.hash;
+}
+
+nano::block_hash const & nano::unchecked_key::key () const
+{
+	return previous;
 }

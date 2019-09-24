@@ -168,10 +168,10 @@ TEST (store, load)
 				auto transaction (system.nodes[0]->store.tx_begin_write ());
 				for (auto j (0); j != 10; ++j)
 				{
-					nano::block_hash hash;
-					nano::random_pool::generate_block (hash.bytes.data (), hash.bytes.size ());
-					system.nodes[0]->store.confirmation_height_put (transaction, hash, 0);
-					system.nodes[0]->store.account_put (transaction, hash, nano::account_info ());
+					nano::account account;
+					nano::random_pool::generate_block (account.bytes.data (), account.bytes.size ());
+					system.nodes[0]->store.confirmation_height_put (transaction, account, 0);
+					system.nodes[0]->store.account_put (transaction, account, nano::account_info ());
 				}
 			}
 		}));

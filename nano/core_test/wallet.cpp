@@ -26,7 +26,7 @@ TEST (wallet, no_special_keys_accounts)
 
 	for (uint64_t account = 0; account < nano::wallet_store::special_count; account++)
 	{
-		nano::uint256_union account_l (account);
+		nano::account account_l (account);
 		ASSERT_FALSE (wallet.exists (transaction, account_l));
 	}
 }
@@ -145,20 +145,20 @@ TEST (wallet, two_item_iteration)
 		wallet.insert_adhoc (transaction, key2.prv);
 		for (auto i (wallet.begin (transaction)), j (wallet.end ()); i != j; ++i)
 		{
-			pubs.insert (nano::uint256_union (i->first));
+			pubs.insert (i->first);
 			nano::raw_key password;
 			wallet.wallet_key (password, transaction);
 			nano::raw_key key;
-			key.decrypt (nano::wallet_value (i->second).key, password, (nano::uint256_union (i->first)).owords[0].number ());
-			prvs.insert (key.data);
+			key.decrypt (nano::wallet_value (i->second).key, password, (i->first).owords[0].number ());
+			prvs.insert (key.as_private_key ());
 		}
 	}
 	ASSERT_EQ (2, pubs.size ());
 	ASSERT_EQ (2, prvs.size ());
 	ASSERT_NE (pubs.end (), pubs.find (key1.pub));
-	ASSERT_NE (prvs.end (), prvs.find (key1.prv.data));
+	ASSERT_NE (prvs.end (), prvs.find (key1.prv.as_private_key ()));
 	ASSERT_NE (pubs.end (), pubs.find (key2.pub));
-	ASSERT_NE (prvs.end (), prvs.find (key2.prv.data));
+	ASSERT_NE (prvs.end (), prvs.find (key2.prv.as_private_key ()));
 }
 
 TEST (wallet, insufficient_spend_one)
@@ -281,7 +281,7 @@ TEST (wallet, find_none)
 	nano::kdf kdf;
 	nano::wallet_store wallet (init, kdf, transaction, nano::genesis_account, 1, "0");
 	ASSERT_FALSE (init);
-	nano::uint256_union account (1000);
+	nano::account account (1000);
 	ASSERT_EQ (wallet.end (), wallet.find (transaction, account));
 }
 
@@ -336,7 +336,7 @@ TEST (wallet, rekey)
 
 TEST (account, encode_zero)
 {
-	nano::uint256_union number0 (0);
+	nano::account number0 (0);
 	std::string str0;
 	number0.encode_account (str0);
 
@@ -345,14 +345,14 @@ TEST (account, encode_zero)
 	 */
 	ASSERT_EQ ((str0.front () == 'x') ? 64 : 65, str0.size ());
 	ASSERT_EQ (65, str0.size ());
-	nano::uint256_union number1;
+	nano::account number1;
 	ASSERT_FALSE (number1.decode_account (str0));
 	ASSERT_EQ (number0, number1);
 }
 
 TEST (account, encode_all)
 {
-	nano::uint256_union number0;
+	nano::account number0;
 	number0.decode_hex ("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 	std::string str0;
 	number0.encode_account (str0);
@@ -361,18 +361,18 @@ TEST (account, encode_all)
 	 * Handle different lengths for "xrb_" prefixed and "nano_" prefixed accounts
 	 */
 	ASSERT_EQ ((str0.front () == 'x') ? 64 : 65, str0.size ());
-	nano::uint256_union number1;
+	nano::account number1;
 	ASSERT_FALSE (number1.decode_account (str0));
 	ASSERT_EQ (number0, number1);
 }
 
 TEST (account, encode_fail)
 {
-	nano::uint256_union number0 (0);
+	nano::account number0 (0);
 	std::string str0;
 	number0.encode_account (str0);
 	str0[16] ^= 1;
-	nano::uint256_union number1;
+	nano::account number1;
 	ASSERT_TRUE (number1.decode_account (str0));
 }
 
@@ -639,7 +639,7 @@ TEST (wallet, work)
 	wallet->insert_adhoc (nano::test_genesis_key.prv);
 	nano::genesis genesis;
 	auto done (false);
-	system.deadline_set (10s);
+	system.deadline_set (20s);
 	while (!done)
 	{
 		auto transaction (system.wallet (0)->wallets.tx_begin_read ());
@@ -746,13 +746,10 @@ TEST (wallet, deterministic_keys)
 	auto transaction (env.tx_begin_write ());
 	nano::kdf kdf;
 	nano::wallet_store wallet (init, kdf, transaction, nano::genesis_account, 1, "0");
-	nano::raw_key key1;
-	wallet.deterministic_key (key1, transaction, 0);
-	nano::raw_key key2;
-	wallet.deterministic_key (key2, transaction, 0);
+	auto key1 = wallet.deterministic_key (transaction, 0);
+	auto key2 = wallet.deterministic_key (transaction, 0);
 	ASSERT_EQ (key1, key2);
-	nano::raw_key key3;
-	wallet.deterministic_key (key3, transaction, 1);
+	auto key3 = wallet.deterministic_key (transaction, 1);
 	ASSERT_NE (key1, key3);
 	ASSERT_EQ (0, wallet.deterministic_index_get (transaction));
 	wallet.deterministic_index_set (transaction, 1);
@@ -760,7 +757,7 @@ TEST (wallet, deterministic_keys)
 	auto key4 (wallet.deterministic_insert (transaction));
 	nano::raw_key key5;
 	ASSERT_FALSE (wallet.fetch (transaction, key4, key5));
-	ASSERT_EQ (key3, key5);
+	ASSERT_EQ (key3, key5.as_private_key ());
 	ASSERT_EQ (2, wallet.deterministic_index_get (transaction));
 	wallet.deterministic_index_set (transaction, 1);
 	ASSERT_EQ (1, wallet.deterministic_index_get (transaction));
@@ -905,11 +902,11 @@ TEST (wallet, upgrade_backup)
 	};
 	// clang-format on
 
-	nano::keypair id;
+	auto wallet_id = nano::random_wallet_id ();
 	{
 		auto node1 (std::make_shared<nano::node> (system.io_ctx, 24001, dir, system.alarm, system.logging, system.work));
 		ASSERT_FALSE (node1->init_error ());
-		auto wallet (node1->wallets.create (id.pub));
+		auto wallet (node1->wallets.create (wallet_id));
 		ASSERT_NE (nullptr, wallet);
 		auto transaction (node1->wallets.tx_begin_write ());
 		wallet->store.version_put (transaction, 3);
@@ -920,7 +917,7 @@ TEST (wallet, upgrade_backup)
 	{
 		auto node1 (std::make_shared<nano::node> (system.io_ctx, 24001, dir, system.alarm, system.logging, system.work));
 		ASSERT_FALSE (node1->init_error ());
-		auto wallet (node1->wallets.open (id.pub));
+		auto wallet (node1->wallets.open (wallet_id));
 		ASSERT_NE (nullptr, wallet);
 		auto transaction (node1->wallets.tx_begin_write ());
 		ASSERT_LT (3u, wallet->store.version (transaction));
@@ -934,7 +931,7 @@ TEST (wallet, upgrade_backup)
 		node_config.backup_before_upgrade = true;
 		auto node1 (std::make_shared<nano::node> (system.io_ctx, dir, system.alarm, node_config, system.work));
 		ASSERT_FALSE (node1->init_error ());
-		auto wallet (node1->wallets.open (id.pub));
+		auto wallet (node1->wallets.open (wallet_id));
 		ASSERT_NE (nullptr, wallet);
 		auto transaction (node1->wallets.tx_begin_read ());
 		ASSERT_LT (3u, wallet->store.version (transaction));
@@ -1076,9 +1073,8 @@ TEST (wallet, change_seed)
 	seed1.data = 1;
 	nano::public_key pub;
 	uint32_t index (4);
-	nano::raw_key prv;
-	nano::deterministic_key (seed1.data, index, prv.data);
-	pub = nano::pub_key (prv.data);
+	auto prv = nano::deterministic_key (seed1, index);
+	pub = nano::pub_key (prv);
 	wallet->insert_adhoc (nano::test_genesis_key.prv, false);
 	auto block (wallet->send_action (nano::test_genesis_key.pub, pub, 100));
 	ASSERT_NE (nullptr, block);
@@ -1110,9 +1106,8 @@ TEST (wallet, deterministic_restore)
 		wallet->store.seed (seed2, transaction);
 		ASSERT_EQ (seed1, seed2);
 		ASSERT_EQ (1, wallet->store.deterministic_index_get (transaction));
-		nano::raw_key prv;
-		nano::deterministic_key (seed1.data, index, prv.data);
-		pub = nano::pub_key (prv.data);
+		auto prv = nano::deterministic_key (seed1, index);
+		pub = nano::pub_key (prv);
 	}
 	wallet->insert_adhoc (nano::test_genesis_key.prv, false);
 	auto block (wallet->send_action (nano::test_genesis_key.pub, pub, 100));

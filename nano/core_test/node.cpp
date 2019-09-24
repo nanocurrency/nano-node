@@ -2292,7 +2292,7 @@ TEST (node, confirm_quorum)
 	nano::genesis genesis;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	// Put greater than online_weight_minimum in pending so quorum can't be reached
-	nano::uint128_union new_balance (system.nodes[0]->config.online_weight_minimum.number () - nano::Gxrb_ratio);
+	nano::amount new_balance (system.nodes[0]->config.online_weight_minimum.number () - nano::Gxrb_ratio);
 	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, new_balance, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.nodes[0]->work_generate_blocking (genesis.hash ())));
 	{
 		auto transaction (system.nodes[0]->store.tx_begin_write ());
@@ -2407,7 +2407,7 @@ TEST (node, local_votes_cache_generate_new_vote)
 		ASSERT_EQ (nano::process_result::progress, node.ledger.process (transaction, *send2).code);
 	}
 	// Generate new vote for request with 2 hashes (one of hashes is cached)
-	std::vector<std::pair<nano::block_hash, nano::block_hash>> roots_hashes{ std::make_pair (send1->hash (), send1->root ()), std::make_pair (send2->hash (), send2->root ()) };
+	std::vector<std::pair<nano::block_hash, nano::root>> roots_hashes{ std::make_pair (send1->hash (), send1->root ()), std::make_pair (send2->hash (), send2->root ()) };
 	nano::confirm_req message2 (roots_hashes);
 	for (auto i (0); i < 100; ++i)
 	{

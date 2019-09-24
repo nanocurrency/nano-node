@@ -310,14 +310,14 @@ class confirm_req final : public message
 public:
 	confirm_req (bool &, nano::stream &, nano::message_header const &, nano::block_uniquer * = nullptr);
 	explicit confirm_req (std::shared_ptr<nano::block>);
-	confirm_req (std::vector<std::pair<nano::block_hash, nano::block_hash>> const &);
-	confirm_req (nano::block_hash const &, nano::block_hash const &);
+	confirm_req (std::vector<std::pair<nano::block_hash, nano::root>> const &);
+	confirm_req (nano::block_hash const &, nano::root const &);
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &, nano::block_uniquer * = nullptr);
 	void visit (nano::message_visitor &) const override;
 	bool operator== (nano::confirm_req const &) const;
 	std::shared_ptr<nano::block> block;
-	std::vector<std::pair<nano::block_hash, nano::block_hash>> roots_hashes;
+	std::vector<std::pair<nano::block_hash, nano::root>> roots_hashes;
 	std::string roots_string () const;
 	static size_t size (nano::block_type, size_t = 0);
 };
@@ -355,7 +355,7 @@ public:
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
 	void visit (nano::message_visitor &) const override;
-	nano::uint256_union start;
+	nano::root start;
 	nano::block_hash end;
 	count_t count;
 	bool is_count_present () const;
@@ -372,8 +372,8 @@ public:
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
 	void visit (nano::message_visitor &) const override;
-	nano::uint256_union account;
-	nano::uint128_union minimum_amount;
+	nano::account account;
+	nano::amount minimum_amount;
 	bulk_pull_account_flags flags;
 	static size_t constexpr size = sizeof (account) + sizeof (minimum_amount) + sizeof (bulk_pull_account_flags);
 };
@@ -390,7 +390,7 @@ class node_id_handshake final : public message
 {
 public:
 	node_id_handshake (bool &, nano::stream &, nano::message_header const &);
-	node_id_handshake (boost::optional<nano::block_hash>, boost::optional<std::pair<nano::account, nano::signature>>);
+	node_id_handshake (boost::optional<nano::uint256_union>, boost::optional<std::pair<nano::account, nano::signature>>);
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
 	void visit (nano::message_visitor &) const override;

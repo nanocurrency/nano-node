@@ -466,7 +466,7 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			auto reps_l (json.get_required_child ("preconfigured_representatives"));
 			nano::jsonconfig reps;
 			reps_l.array_entries<std::string> ([&reps](std::string entry) {
-				nano::uint256_union account;
+				nano::account account;
 				account.decode_account (entry);
 				reps.push (account.to_account ());
 			});

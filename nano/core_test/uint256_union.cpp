@@ -174,7 +174,7 @@ TEST (uint256_union, key_encryption)
 	nano::raw_key key4;
 	key4.decrypt (encrypted, secret_key, key1.pub.owords[0]);
 	ASSERT_EQ (key1.prv, key4);
-	nano::public_key pub (nano::pub_key (key4.data));
+	auto pub (nano::pub_key (key4.as_private_key ()));
 	ASSERT_EQ (key1.pub, pub);
 }
 
@@ -367,14 +367,14 @@ TEST (uint256_union, big_endian_union_function)
 
 TEST (uint256_union, decode_nano_variant)
 {
-	nano::uint256_union key;
+	nano::account key;
 	ASSERT_FALSE (key.decode_account ("xrb_1111111111111111111111111111111111111111111111111111hifc8npp"));
 	ASSERT_FALSE (key.decode_account ("nano_1111111111111111111111111111111111111111111111111111hifc8npp"));
 }
 
 TEST (uint256_union, account_transcode)
 {
-	nano::uint256_union value;
+	nano::account value;
 	auto text (nano::test_genesis_key.pub.to_account ());
 	ASSERT_FALSE (value.decode_account (text));
 	ASSERT_EQ (nano::test_genesis_key.pub, value);
@@ -386,15 +386,15 @@ TEST (uint256_union, account_transcode)
 	unsigned offset = (text.front () == 'x') ? 3 : 4;
 	ASSERT_EQ ('_', text[offset]);
 	text[offset] = '-';
-	nano::uint256_union value2;
+	nano::account value2;
 	ASSERT_FALSE (value2.decode_account (text));
 	ASSERT_EQ (value, value2);
 }
 
 TEST (uint256_union, account_encode_lex)
 {
-	nano::uint256_union min ("0000000000000000000000000000000000000000000000000000000000000000");
-	nano::uint256_union max ("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+	nano::account min ("0000000000000000000000000000000000000000000000000000000000000000");
+	nano::account max ("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 	auto min_text (min.to_account ());
 	auto max_text (max.to_account ());
 
@@ -408,9 +408,9 @@ TEST (uint256_union, account_encode_lex)
 	auto previous (min_text);
 	for (auto i (1); i != 1000; ++i)
 	{
-		nano::uint256_union number (min.number () + i);
+		nano::account number (min.number () + i);
 		auto text (number.to_account ());
-		nano::uint256_union output;
+		nano::account output;
 		output.decode_account (text);
 		ASSERT_EQ (number, output);
 		ASSERT_GT (text, previous);
@@ -420,7 +420,7 @@ TEST (uint256_union, account_encode_lex)
 	{
 		nano::keypair key;
 		auto text (key.pub.to_account ());
-		nano::uint256_union output;
+		nano::account output;
 		output.decode_account (text);
 		ASSERT_EQ (key.pub, output);
 	}
@@ -428,7 +428,7 @@ TEST (uint256_union, account_encode_lex)
 
 TEST (uint256_union, bounds)
 {
-	nano::uint256_union key;
+	nano::account key;
 	std::string bad1 (64, '\x000');
 	bad1[0] = 'x';
 	bad1[1] = 'r';
