@@ -979,7 +979,6 @@ nano::link::operator nano::bootstrap_hash_or_account const & () const
 	return nano::to_bootstrap (*this);
 }
 
-
 nano::root::operator nano::bootstrap_hash_or_account const & () const
 {
 	return nano::to_bootstrap (*this);
