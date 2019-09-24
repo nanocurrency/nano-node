@@ -78,7 +78,7 @@ public:
 	std::vector<nano::unchecked_info> unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override
 	{
 		std::vector<nano::unchecked_info> result;
-		for (auto i (unchecked_begin (transaction_a, nano::unchecked_key (hash_a, 0))), n (unchecked_end ()); i != n && nano::block_hash (i->first.key ()) == hash_a; ++i)
+		for (auto i (unchecked_begin (transaction_a, nano::unchecked_key (hash_a, 0))), n (unchecked_end ()); i != n && i->first.key () == hash_a; ++i)
 		{
 			nano::unchecked_info const & unchecked_info (i->second);
 			result.push_back (unchecked_info);
@@ -163,7 +163,7 @@ public:
 		// clang-format on
 	}
 
-	bool root_exists (nano::transaction const & transaction_a, nano::uint256_union const & root_a) override
+	bool root_exists (nano::transaction const & transaction_a, nano::root const & root_a) override
 	{
 		return block_exists (transaction_a, root_a) || account_exists (transaction_a, root_a);
 	}
@@ -242,7 +242,7 @@ public:
 		auto version (block_version (transaction_a, hash_a));
 		assert (value.size () != 0);
 		std::vector<uint8_t> data (static_cast<uint8_t *> (value.data ()), static_cast<uint8_t *> (value.data ()) + value.size ());
-		std::fill_n (data.begin () + block_successor_offset (transaction_a, value.size (), type), sizeof (nano::uint256_union), uint8_t{ 0 });
+		std::fill_n (data.begin () + block_successor_offset (transaction_a, value.size (), type), sizeof (nano::block_hash), uint8_t{ 0 });
 		block_raw_put (transaction_a, data, type, version, hash_a);
 	}
 
@@ -500,7 +500,7 @@ public:
 		nano::account result (0);
 		if (success (status))
 		{
-			result = nano::uint256_union (value);
+			result = static_cast<nano::account> (value);
 		}
 		return result;
 	}
@@ -1027,8 +1027,8 @@ protected:
 		else
 		{
 			// Read old successor-only sideband
-			assert (entry_size_a == nano::block::size (type_a) + sizeof (nano::uint256_union));
-			result = entry_size_a - sizeof (nano::uint256_union);
+			assert (entry_size_a == nano::block::size (type_a) + sizeof (nano::block_hash));
+			result = entry_size_a - sizeof (nano::block_hash);
 		}
 		return result;
 	}

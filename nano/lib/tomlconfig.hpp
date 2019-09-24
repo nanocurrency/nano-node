@@ -336,6 +336,23 @@ public:
 		return ss.str ();
 	}
 
+	std::string to_string_commented_entries ()
+	{
+		std::stringstream ss, ss_processed;
+		cpptoml::toml_writer writer{ ss, "" };
+		tree->accept (writer);
+		std::string line;
+		while (std::getline (ss, line, '\n'))
+		{
+			if (!line.empty () && line[0] != '#')
+			{
+				line = "#" + line;
+			}
+			ss_processed << line << std::endl;
+		}
+		return ss_processed.str ();
+	}
+
 protected:
 	template <typename T, typename = std::enable_if_t<nano::is_lexical_castable<T>::value>>
 	tomlconfig & get_config (bool optional, std::string const & key, T & target, T default_value = T ())

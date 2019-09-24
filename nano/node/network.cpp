@@ -319,7 +319,7 @@ void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> blo
 	}
 }
 
-void nano::network::broadcast_confirm_req_batch (std::unordered_map<std::shared_ptr<nano::transport::channel>, std::vector<std::pair<nano::block_hash, nano::block_hash>>> request_bundle_a, unsigned delay_a, bool resumption)
+void nano::network::broadcast_confirm_req_batch (std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::root>>> request_bundle_a, unsigned delay_a, bool resumption)
 {
 	const size_t max_reps = 50;
 	if (!resumption && node.config.logging.network_logging ())
@@ -333,12 +333,13 @@ void nano::network::broadcast_confirm_req_batch (std::unordered_map<std::shared_
 		while (j != request_bundle_a.end ())
 		{
 			count++;
-			std::vector<std::pair<nano::block_hash, nano::block_hash>> roots_hashes;
+			std::vector<std::pair<nano::block_hash, nano::root>> roots_hashes;
 			// Limit max request size hash + root to 7 pairs
 			while (roots_hashes.size () < confirm_req_hashes_max && !j->second.empty ())
 			{
-				roots_hashes.push_back (j->second.back ());
-				j->second.pop_back ();
+				// expects ordering by priority, descending
+				roots_hashes.push_back (j->second.front ());
+				j->second.pop_front ();
 			}
 			nano::confirm_req req (roots_hashes);
 			j->first->send (req);
@@ -480,13 +481,14 @@ public:
 						// Search for block root
 						successor = node.store.block_successor (transaction, root_hash.second);
 						// Search for account root
-						if (successor.is_zero () && node.store.account_exists (transaction, root_hash.second))
+						if (successor.is_zero ())
 						{
 							nano::account_info info;
 							auto error (node.store.account_get (transaction, root_hash.second, info));
-							(void)error;
-							assert (!error);
-							successor = info.open_block;
+							if (!error)
+							{
+								successor = info.open_block;
+							}
 						}
 						if (!successor.is_zero ())
 						{

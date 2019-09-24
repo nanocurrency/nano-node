@@ -33,13 +33,17 @@ set (NANO_ROCKSDB OFF CACHE BOOL "")
 set (NANO_WARN_TO_ERR OFF CACHE BOOL "")
 set (NANO_TIMED_LOCKS 0 CACHE INTEGER "")
 
+option (NANO_STACKTRACE_BACKTRACE "Use BOOST_STACKTRACE_USE_BACKTRACE in stacktraces, for POSIX" OFF)
+if (NANO_STACKTRACE_BACKTRACE)
+	add_definitions(-DNANO_STACKTRACE_BACKTRACE=1)
+endif ()
+
 if (${NANO_TIMED_LOCKS} GREATER 0)
 	add_definitions (-DNANO_TIMED_LOCKS=${NANO_TIMED_LOCKS})
 endif ()
 
-if (NANO_ROCKSDB)
-	add_definitions (-DNANO_ROCKSDB=1)
-endif ()
+add_definitions (-DNANO_ROCKSDB=$<STREQUAL:${NANO_ROCKSDB},ON>)
+
 option(NANO_ASAN_INT "Enable ASan+UBSan+Integer overflow" OFF)
 option(NANO_ASAN "Enable ASan+UBSan" OFF)
 option(NANO_TSAN "Enable TSan" OFF)

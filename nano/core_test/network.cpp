@@ -220,7 +220,7 @@ TEST (network, multi_keepalive)
 TEST (network, send_discarded_publish)
 {
 	nano::system system (24000, 2);
-	auto block (std::make_shared<nano::send_block> (1, 1, 2, nano::keypair ().prv, 4, system.work.generate (1)));
+	auto block (std::make_shared<nano::send_block> (1, 1, 2, nano::keypair ().prv, 4, system.work.generate (nano::root (1))));
 	nano::genesis genesis;
 	{
 		auto transaction (system.nodes[0]->store.tx_begin_read ());
@@ -242,7 +242,7 @@ TEST (network, send_invalid_publish)
 {
 	nano::system system (24000, 2);
 	nano::genesis genesis;
-	auto block (std::make_shared<nano::send_block> (1, 1, 20, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (1)));
+	auto block (std::make_shared<nano::send_block> (1, 1, 20, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (nano::root (1))));
 	{
 		auto transaction (system.nodes[0]->store.tx_begin_read ());
 		system.nodes[0]->network.flood_block (block);

@@ -31,7 +31,7 @@ uint8_t account_decode (char value)
 }
 }
 
-void nano::uint256_union::encode_account (std::string & destination_a) const
+void nano::public_key::encode_account (std::string & destination_a) const
 {
 	assert (destination_a.empty ());
 	destination_a.reserve (65);
@@ -53,19 +53,19 @@ void nano::uint256_union::encode_account (std::string & destination_a) const
 	std::reverse (destination_a.begin (), destination_a.end ());
 }
 
-std::string nano::uint256_union::to_account () const
+std::string nano::public_key::to_account () const
 {
 	std::string result;
 	encode_account (result);
 	return result;
 }
 
-std::string nano::uint256_union::to_node_id () const
+std::string nano::public_key::to_node_id () const
 {
 	return to_account ().replace (0, 4, "node");
 }
 
-bool nano::uint256_union::decode_account (std::string const & source_a)
+bool nano::public_key::decode_account (std::string const & source_a)
 {
 	auto error (source_a.size () < 5);
 	if (!error)
@@ -391,31 +391,38 @@ void nano::raw_key::decrypt (nano::uint256_union const & ciphertext, nano::raw_k
 	dec.ProcessData (data.bytes.data (), ciphertext.bytes.data (), sizeof (ciphertext.bytes));
 }
 
-nano::uint512_union nano::sign_message (nano::raw_key const & private_key, nano::public_key const & public_key, nano::uint256_union const & message)
+nano::private_key const & nano::raw_key::as_private_key () const
 {
-	nano::uint512_union result;
+	return reinterpret_cast<nano::private_key const &> (data);
+}
+
+nano::signature nano::sign_message (nano::raw_key const & private_key, nano::public_key const & public_key, nano::uint256_union const & message)
+{
+	nano::signature result;
 	ed25519_sign (message.bytes.data (), sizeof (message.bytes), private_key.data.bytes.data (), public_key.bytes.data (), result.bytes.data ());
 	return result;
 }
 
-void nano::deterministic_key (nano::uint256_union const & seed_a, uint32_t index_a, nano::uint256_union & prv_a)
+nano::private_key nano::deterministic_key (nano::raw_key const & seed_a, uint32_t index_a)
 {
+	nano::private_key prv_key;
 	blake2b_state hash;
-	blake2b_init (&hash, prv_a.bytes.size ());
-	blake2b_update (&hash, seed_a.bytes.data (), seed_a.bytes.size ());
+	blake2b_init (&hash, prv_key.bytes.size ());
+	blake2b_update (&hash, seed_a.data.bytes.data (), seed_a.data.bytes.size ());
 	nano::uint256_union index (index_a);
 	blake2b_update (&hash, reinterpret_cast<uint8_t *> (&index.dwords[7]), sizeof (uint32_t));
-	blake2b_final (&hash, prv_a.bytes.data (), prv_a.bytes.size ());
+	blake2b_final (&hash, prv_key.bytes.data (), prv_key.bytes.size ());
+	return prv_key;
 }
 
 nano::public_key nano::pub_key (nano::private_key const & privatekey_a)
 {
-	nano::uint256_union result;
+	nano::public_key result;
 	ed25519_publickey (privatekey_a.bytes.data (), result.bytes.data ());
 	return result;
 }
 
-bool nano::validate_message (nano::public_key const & public_key, nano::uint256_union const & message, nano::uint512_union const & signature)
+bool nano::validate_message (nano::public_key const & public_key, nano::uint256_union const & message, nano::signature const & signature)
 {
 	auto result (0 != ed25519_sign_open (message.bytes.data (), sizeof (message.bytes), public_key.bytes.data (), signature.bytes.data ()));
 	return result;
@@ -770,6 +777,91 @@ std::string nano::uint128_union::to_string_dec () const
 	return result;
 }
 
+nano::hash_or_account::hash_or_account (uint64_t value_a) :
+raw (value_a)
+{
+}
+
+bool nano::hash_or_account::is_zero () const
+{
+	return raw.is_zero ();
+}
+
+void nano::hash_or_account::clear ()
+{
+	raw.clear ();
+}
+
+bool nano::hash_or_account::decode_hex (std::string const & text_a)
+{
+	return raw.decode_hex (text_a);
+}
+
+bool nano::hash_or_account::decode_account (std::string const & source_a)
+{
+	return account.decode_account (source_a);
+}
+
+std::string nano::hash_or_account::to_string () const
+{
+	return raw.to_string ();
+}
+
+std::string nano::hash_or_account::to_account () const
+{
+	return account.to_account ();
+}
+
+nano::hash_or_account::operator nano::block_hash const & () const
+{
+	return hash;
+}
+
+nano::hash_or_account::operator nano::account const & () const
+{
+	return account;
+}
+
+nano::hash_or_account::operator nano::uint256_union const & () const
+{
+	return raw;
+}
+
+nano::link::link (uint64_t value_a) :
+hash_or_account (value_a)
+{
+}
+
+nano::root::root (uint64_t value_a) :
+hash_or_account (value_a)
+{
+}
+
+nano::block_hash const & nano::root::previous () const
+{
+	return hash;
+}
+
+bool nano::root::operator== (nano::root const & root_a) const
+{
+	return bytes == root_a.bytes;
+}
+
+bool nano::root::operator!= (nano::root const & root_a) const
+{
+	return !(*this == root_a);
+}
+
+bool nano::link::operator== (nano::link const & link_a) const
+{
+	return bytes == link_a.bytes;
+}
+
+bool nano::link::operator!= (nano::link const & link_a) const
+{
+	return !(*this == link_a);
+}
+
 std::string nano::to_string_hex (uint64_t const value_a)
 {
 	std::stringstream stream;
@@ -836,3 +928,23 @@ double nano::difficulty::to_multiplier (uint64_t const difficulty_a, uint64_t co
 #ifdef _WIN32
 #pragma warning(pop)
 #endif
+
+nano::public_key::operator nano::link const & () const
+{
+	return nano::to_link (*this);
+}
+
+nano::public_key::operator nano::root const & () const
+{
+	return nano::to_root (*this);
+}
+
+nano::block_hash::operator nano::link const & () const
+{
+	return nano::to_link (*this);
+}
+
+nano::block_hash::operator nano::root const & () const
+{
+	return nano::to_root (*this);
+}

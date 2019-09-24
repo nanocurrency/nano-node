@@ -8,6 +8,7 @@
 namespace
 {
 void reset_confirmation_heights (nano::block_store & store);
+bool is_using_rocksdb (boost::filesystem::path const & data_path, std::error_code & ec);
 }
 
 std::string nano::error_cli_messages::message (int ev) const
@@ -24,6 +25,8 @@ std::string nano::error_cli_messages::message (int ev) const
 			return "Unknown command";
 		case nano::error_cli::database_write_error:
 			return "Database write error";
+		case nano::error_cli::reading_config:
+			return "Config file read error";
 	}
 
 	return "Invalid error code";
@@ -46,7 +49,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("unchecked_clear", "Clear unchecked blocks")
 	("confirmation_height_clear", "Clear confirmation height")
 	("diagnostics", "Run internal diagnostics")
-	("generate_config", boost::program_options::value<std::string> (), "Write configuration to stdout, populated with defaults suitable for this system. Pass the configuration type node or rpc.")
+	("generate_config", boost::program_options::value<std::string> (), "Write configuration to stdout, populated with defaults suitable for this system. Pass the configuration type node or rpc. See also use_defaults.")
 	("key_create", "Generates a adhoc random keypair and prints it to stdout")
 	("key_expand", "Derive public key and account number from <key>")
 	("wallet_add_adhoc", "Insert <key> in to <wallet>")
@@ -67,7 +70,8 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("seed", boost::program_options::value<std::string> (), "Defines the <seed> for other commands, hex")
 	("password", boost::program_options::value<std::string> (), "Defines <password> for other commands")
 	("wallet", boost::program_options::value<std::string> (), "Defines <wallet> for other commands")
-	("force", boost::program_options::value<bool>(), "Bool to force command if allowed");
+	("force", boost::program_options::value<bool>(), "Bool to force command if allowed")
+	("use_defaults", "If present, the generate_config command will generate uncommented entries");
 	// clang-format on
 }
 
@@ -133,7 +137,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		if (vm.count ("wallet") == 1)
 		{
-			nano::uint256_union wallet_id;
+			nano::wallet_id wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
 				std::string password;
@@ -179,7 +183,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		if (vm.count ("key") == 1)
 		{
-			nano::uint256_union pub;
+			nano::account pub;
 			pub.decode_hex (vm["key"].as<std::string> ());
 			std::cout << "Account: " << pub.to_account () << std::endl;
 		}
@@ -193,7 +197,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		if (vm.count ("account") == 1)
 		{
-			nano::uint256_union account;
+			nano::account account;
 			account.decode_account (vm["account"].as<std::string> ());
 			std::cout << "Hex: " << account.to_string () << std::endl;
 		}
@@ -207,45 +211,62 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		try
 		{
-			std::cout << "Vacuuming database copy in ";
-#if NANO_ROCKSDB
-			auto source_path = data_path / "rocksdb";
-			auto backup_path = source_path / "backup";
-			auto vacuum_path = backup_path / "vacuumed";
-			if (!boost::filesystem::exists (vacuum_path))
+			auto using_rocksdb = is_using_rocksdb (data_path, ec);
+			if (!ec)
 			{
-				boost::filesystem::create_directories (vacuum_path);
-			}
+				std::cout << "Vacuuming database copy in ";
+				boost::filesystem::path source_path;
+				boost::filesystem::path backup_path;
+				boost::filesystem::path vacuum_path;
+				if (using_rocksdb)
+				{
+					source_path = data_path / "rocksdb";
+					backup_path = source_path / "backup";
+					vacuum_path = backup_path / "vacuumed";
+					if (!boost::filesystem::exists (vacuum_path))
+					{
+						boost::filesystem::create_directories (vacuum_path);
+					}
 
-			std::cout << source_path << "\n";
-#else
-			auto source_path = data_path / "data.ldb";
-			auto backup_path = data_path / "backup.vacuum.ldb";
-			auto vacuum_path = data_path / "vacuumed.ldb";
-			std::cout << data_path << "\n";
-#endif
-			std::cout << "This may take a while..." << std::endl;
+					std::cout << source_path << "\n";
+				}
+				else
+				{
+					source_path = data_path / "data.ldb";
+					backup_path = data_path / "backup.vacuum.ldb";
+					vacuum_path = data_path / "vacuumed.ldb";
+					std::cout << data_path << "\n";
+				}
+				std::cout << "This may take a while..." << std::endl;
 
-			bool success = copy_database (data_path, vm, vacuum_path, ec);
-			if (success)
-			{
-				// Note that these throw on failure
-				std::cout << "Finalizing" << std::endl;
-#ifdef NANO_ROCKSDB
-				nano::remove_all_files_in_dir (backup_path);
-				nano::move_all_files_to_dir (source_path, backup_path);
-				nano::move_all_files_to_dir (vacuum_path, source_path);
-				boost::filesystem::remove_all (vacuum_path);
-#else
-				boost::filesystem::remove (backup_path);
-				boost::filesystem::rename (source_path, backup_path);
-				boost::filesystem::rename (vacuum_path, source_path);
-#endif
-				std::cout << "Vacuum completed" << std::endl;
+				bool success = copy_database (data_path, vm, vacuum_path, ec);
+				if (success)
+				{
+					// Note that these throw on failure
+					std::cout << "Finalizing" << std::endl;
+					if (using_rocksdb)
+					{
+						nano::remove_all_files_in_dir (backup_path);
+						nano::move_all_files_to_dir (source_path, backup_path);
+						nano::move_all_files_to_dir (vacuum_path, source_path);
+						boost::filesystem::remove_all (vacuum_path);
+					}
+					else
+					{
+						boost::filesystem::remove (backup_path);
+						boost::filesystem::rename (source_path, backup_path);
+						boost::filesystem::rename (vacuum_path, source_path);
+					}
+					std::cout << "Vacuum completed" << std::endl;
+				}
+				else
+				{
+					std::cerr << "Vacuum failed (copying returned false)" << std::endl;
+				}
 			}
 			else
 			{
-				std::cerr << "Vacuum failed (copying returned false)" << std::endl;
+				std::cerr << "Vacuum failed. RocksDB is enabled but the node has not been built with RocksDB support" << std::endl;
 			}
 		}
 		catch (const boost::filesystem::filesystem_error & ex)
@@ -261,24 +282,38 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		try
 		{
-#if NANO_ROCKSDB
-			auto source_path = data_path / "rocksdb";
-			auto snapshot_path = source_path / "backup";
-#else
-			auto source_path = data_path / "data.ldb";
-			auto snapshot_path = data_path / "snapshot.ldb";
-#endif
-			std::cout << "Database snapshot of " << source_path << " to " << snapshot_path << " in progress" << std::endl;
-			std::cout << "This may take a while..." << std::endl;
-
-			bool success = copy_database (data_path, vm, snapshot_path, ec);
-			if (success)
+			auto using_rocksdb = is_using_rocksdb (data_path, ec);
+			if (!ec)
 			{
-				std::cout << "Snapshot completed, This can be found at " << snapshot_path << std::endl;
+				boost::filesystem::path source_path;
+				boost::filesystem::path snapshot_path;
+				if (using_rocksdb)
+				{
+					source_path = data_path / "rocksdb";
+					snapshot_path = source_path / "backup";
+				}
+				else
+				{
+					source_path = data_path / "data.ldb";
+					snapshot_path = data_path / "snapshot.ldb";
+				}
+
+				std::cout << "Database snapshot of " << source_path << " to " << snapshot_path << " in progress" << std::endl;
+				std::cout << "This may take a while..." << std::endl;
+
+				bool success = copy_database (data_path, vm, snapshot_path, ec);
+				if (success)
+				{
+					std::cout << "Snapshot completed, This can be found at " << snapshot_path << std::endl;
+				}
+				else
+				{
+					std::cerr << "Snapshot failed (copying returned false)" << std::endl;
+				}
 			}
 			else
 			{
-				std::cerr << "Snapshot Failed (copying returned false)" << std::endl;
+				std::cerr << "Snapshot failed. RocksDB is enabled but the node has not been built with RocksDB support" << std::endl;
 			}
 		}
 		catch (const boost::filesystem::filesystem_error & ex)
@@ -287,7 +322,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		}
 		catch (...)
 		{
-			std::cerr << "Snapshot Failed (unknown reason)" << std::endl;
+			std::cerr << "Snapshot failed (unknown reason)" << std::endl;
 		}
 	}
 	else if (vm.count ("unchecked_clear"))
@@ -417,24 +452,35 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	else if (vm.count ("generate_config"))
 	{
 		auto type = vm["generate_config"].as<std::string> ();
-
+		nano::tomlconfig toml;
+		bool valid_type = false;
 		if (type == "node")
 		{
+			valid_type = true;
 			nano::daemon_config config (data_path);
-			nano::tomlconfig toml;
 			config.serialize_toml (toml);
-			std::cout << toml.to_string () << std::endl;
 		}
 		else if (type == "rpc")
 		{
+			valid_type = true;
 			nano::rpc_config config (false);
-			nano::tomlconfig toml;
 			config.serialize_toml (toml);
-			std::cout << toml.to_string () << std::endl;
 		}
 		else
 		{
 			std::cerr << "Invalid configuration type " << type << ". Must be node or rpc." << std::endl;
+		}
+
+		if (valid_type)
+		{
+			if (vm.count ("use_defaults"))
+			{
+				std::cout << toml.to_string () << std::endl;
+			}
+			else
+			{
+				std::cout << toml.to_string_commented_entries () << std::endl;
+			}
 		}
 	}
 	else if (vm.count ("diagnostics"))
@@ -477,9 +523,9 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		if (vm.count ("key") == 1)
 		{
-			nano::uint256_union prv;
+			nano::private_key prv;
 			prv.decode_hex (vm["key"].as<std::string> ());
-			nano::uint256_union pub (nano::pub_key (prv));
+			nano::public_key pub (nano::pub_key (prv));
 			std::cout << "Private: " << prv.to_string () << std::endl
 			          << "Public: " << pub.to_string () << std::endl
 			          << "Account: " << pub.to_account () << std::endl;
@@ -494,7 +540,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		if (vm.count ("wallet") == 1 && vm.count ("key") == 1)
 		{
-			nano::uint256_union wallet_id;
+			nano::wallet_id wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
 				std::string password;
@@ -548,7 +594,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		if (vm.count ("wallet") == 1 && (vm.count ("seed") == 1 || vm.count ("key") == 1))
 		{
-			nano::uint256_union wallet_id;
+			nano::wallet_id wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
 				std::string password;
@@ -639,8 +685,8 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		if (!ec)
 		{
 			inactive_node node (data_path);
-			nano::keypair wallet_key;
-			auto wallet (node.node->wallets.create (wallet_key.pub));
+			auto wallet_key = nano::random_wallet_id ();
+			auto wallet (node.node->wallets.create (wallet_key));
 			if (wallet != nullptr)
 			{
 				if (vm.count ("password") > 0)
@@ -659,7 +705,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 					auto transaction (wallet->wallets.tx_begin_write ());
 					wallet->change_seed (transaction, seed_key);
 				}
-				std::cout << wallet_key.pub.to_string () << std::endl;
+				std::cout << wallet_key.to_string () << std::endl;
 			}
 			else
 			{
@@ -677,7 +723,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			{
 				password = vm["password"].as<std::string> ();
 			}
-			nano::uint256_union wallet_id;
+			nano::wallet_id wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
 				inactive_node node (data_path);
@@ -698,7 +744,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 							(void)error;
 							assert (!error);
 							std::cout << boost::str (boost::format ("Pub: %1% Prv: %2%\n") % account.to_account () % key.data.to_string ());
-							if (nano::pub_key (key.data) != account)
+							if (nano::pub_key (key.as_private_key ()) != account)
 							{
 								std::cerr << boost::str (boost::format ("Invalid private key %1%\n") % key.data.to_string ());
 							}
@@ -732,7 +778,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		if (vm.count ("wallet") == 1)
 		{
-			nano::uint256_union wallet_id;
+			nano::wallet_id wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
 				inactive_node node (data_path);
@@ -781,7 +827,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				}
 				if (vm.count ("wallet") == 1)
 				{
-					nano::uint256_union wallet_id;
+					nano::wallet_id wallet_id;
 					if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 					{
 						inactive_node node (data_path);
@@ -878,7 +924,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 			auto transaction (i->second->wallets.tx_begin_read ());
 			for (auto j (i->second->store.begin (transaction)), m (i->second->store.end ()); j != m; ++j)
 			{
-				std::cout << nano::uint256_union (j->first).to_account () << '\n';
+				std::cout << nano::account (j->first).to_account () << '\n';
 			}
 		}
 	}
@@ -887,7 +933,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		if (vm.count ("wallet") == 1 && vm.count ("account") == 1)
 		{
 			inactive_node node (data_path);
-			nano::uint256_union wallet_id;
+			nano::wallet_id wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
 				auto wallet (node.node->wallets.items.find (wallet_id));
@@ -936,7 +982,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 	{
 		if (vm.count ("wallet") == 1)
 		{
-			nano::uint256_union wallet_id;
+			nano::wallet_id wallet_id;
 			if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 			{
 				inactive_node node (data_path);
@@ -971,7 +1017,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		{
 			if (vm.count ("account") == 1)
 			{
-				nano::uint256_union wallet_id;
+				nano::wallet_id wallet_id;
 				if (!wallet_id.decode_hex (vm["wallet"].as<std::string> ()))
 				{
 					nano::account account;
@@ -1092,5 +1138,28 @@ void reset_confirmation_heights (nano::block_store & store)
 	// Then make sure the confirmation height of the genesis account open block is 1
 	nano::network_params network_params;
 	store.confirmation_height_put (transaction, network_params.ledger.genesis_account, 1);
+}
+
+bool is_using_rocksdb (boost::filesystem::path const & data_path, std::error_code & ec)
+{
+	nano::daemon_config config (data_path);
+	auto error = nano::read_node_config_toml (data_path, config);
+	if (!error)
+	{
+		bool use_rocksdb = config.node.rocksdb_config.enable;
+		if (use_rocksdb)
+		{
+#if !NANO_ROCKSDB
+			ec = nano::error_cli::database_write_error;
+#endif
+			return (NANO_ROCKSDB == 1);
+		}
+	}
+	else
+	{
+		ec = nano::error_cli::reading_config;
+	}
+
+	return false;
 }
 }

@@ -188,11 +188,11 @@ void nano::mdb_store::upgrade_v1_to_v2 (nano::write_transaction const & transact
 	nano::account account (1);
 	while (!account.is_zero ())
 	{
-		nano::mdb_iterator<nano::uint256_union, nano::account_info_v1> i (transaction_a, accounts_v0, nano::mdb_val (account));
+		nano::mdb_iterator<nano::account, nano::account_info_v1> i (transaction_a, accounts_v0, nano::mdb_val (account));
 		std::cerr << std::hex;
-		if (i != nano::mdb_iterator<nano::uint256_union, nano::account_info_v1> (nullptr))
+		if (i != nano::mdb_iterator<nano::account, nano::account_info_v1> (nullptr))
 		{
-			account = nano::uint256_union (i->first);
+			account = nano::account (i->first);
 			nano::account_info_v1 v1 (i->second);
 			nano::account_info_v5 v2;
 			v2.balance = v1.balance;
