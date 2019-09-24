@@ -682,18 +682,6 @@ verification (verification_a)
 }
 } // namespace
 
-size_t nano::shared_ptr_block_hash::operator() (std::shared_ptr<nano::block> const & block_a) const
-{
-	auto hash (block_a->hash ());
-	auto result (static_cast<size_t> (hash.qwords[0]));
-	return result;
-}
-
-bool nano::shared_ptr_block_hash::operator() (std::shared_ptr<nano::block> const & lhs, std::shared_ptr<nano::block> const & rhs) const
-{
-	return lhs->hash () == rhs->hash ();
-}
-
 nano::ledger::ledger (nano::block_store & store_a, nano::stat & stat_a, bool cache_reps_a, bool cache_cemented_count_a) :
 store (store_a),
 stats (stat_a),
@@ -826,19 +814,19 @@ bool nano::ledger::is_send (nano::transaction const & transaction_a, nano::state
 	return result;
 }
 
-nano::block_hash nano::ledger::block_destination (nano::transaction const & transaction_a, nano::block const & block_a)
+nano::account const & nano::ledger::block_destination (nano::transaction const & transaction_a, nano::block const & block_a)
 {
-	nano::block_hash result (0);
 	nano::send_block const * send_block (dynamic_cast<nano::send_block const *> (&block_a));
 	nano::state_block const * state_block (dynamic_cast<nano::state_block const *> (&block_a));
 	if (send_block != nullptr)
 	{
-		result = send_block->hashables.destination;
+		return send_block->hashables.destination;
 	}
 	else if (state_block != nullptr && is_send (transaction_a, *state_block))
 	{
-		result = state_block->hashables.link;
+		return state_block->hashables.link;
 	}
+	static nano::account result (0);
 	return result;
 }
 
@@ -932,21 +920,18 @@ nano::account nano::ledger::account (nano::transaction const & transaction_a, na
 }
 
 // Return amount decrease or increase for block
+nano::uint128_t nano::ledger::amount (nano::transaction const & transaction_a, nano::account const & account_a)
+{
+	release_assert (account_a == network_params.ledger.genesis_account);
+	return network_params.ledger.genesis_amount;
+}
+
 nano::uint128_t nano::ledger::amount (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
-	nano::uint128_t result;
-	if (hash_a != network_params.ledger.genesis_account)
-	{
-		auto block (store.block_get (transaction_a, hash_a));
-		auto block_balance (balance (transaction_a, hash_a));
-		auto previous_balance (balance (transaction_a, block->previous ()));
-		result = block_balance > previous_balance ? block_balance - previous_balance : previous_balance - block_balance;
-	}
-	else
-	{
-		result = network_params.ledger.genesis_amount;
-	}
-	return result;
+	auto block (store.block_get (transaction_a, hash_a));
+	auto block_balance (balance (transaction_a, hash_a));
+	auto previous_balance (balance (transaction_a, block->previous ()));
+	return block_balance > previous_balance ? block_balance - previous_balance : previous_balance - block_balance;
 }
 
 // Return latest block for account
@@ -957,21 +942,18 @@ nano::block_hash nano::ledger::latest (nano::transaction const & transaction_a, 
 	return latest_error ? 0 : info.head;
 }
 
-// Return latest root for account, account number of there are no blocks for this account.
-nano::block_hash nano::ledger::latest_root (nano::transaction const & transaction_a, nano::account const & account_a)
+// Return latest root for account, account number if there are no blocks for this account.
+nano::root nano::ledger::latest_root (nano::transaction const & transaction_a, nano::account const & account_a)
 {
 	nano::account_info info;
-	auto latest_error (store.account_get (transaction_a, account_a, info));
-	nano::block_hash result;
-	if (latest_error)
+	if (store.account_get (transaction_a, account_a, info))
 	{
-		result = account_a;
+		return account_a;
 	}
 	else
 	{
-		result = info.head;
+		return info.head;
 	}
-	return result;
 }
 
 void nano::ledger::dump_account_chain (nano::account const & account_a)
@@ -1033,17 +1015,17 @@ bool nano::ledger::could_fit (nano::transaction const & transaction_a, nano::blo
 	return visitor.result;
 }
 
-bool nano::ledger::is_epoch_link (nano::uint256_union const & link_a)
+bool nano::ledger::is_epoch_link (nano::link const & link_a)
 {
 	return network_params.ledger.epochs.is_epoch_link (link_a);
 }
 
-nano::account const & nano::ledger::signer (nano::uint256_union const & link_a) const
+nano::account const & nano::ledger::signer (nano::link const & link_a) const
 {
 	return network_params.ledger.epochs.signer (network_params.ledger.epochs.epoch (link_a));
 }
 
-nano::uint256_union const & nano::ledger::link (nano::epoch epoch_a) const
+nano::link const & nano::ledger::link (nano::epoch epoch_a) const
 {
 	return network_params.ledger.epochs.link (epoch_a);
 }
@@ -1074,17 +1056,27 @@ void nano::ledger::change_latest (nano::write_transaction const & transaction_a,
 std::shared_ptr<nano::block> nano::ledger::successor (nano::transaction const & transaction_a, nano::qualified_root const & root_a)
 {
 	nano::block_hash successor (0);
-	if (root_a.uint256s[0].is_zero () && store.account_exists (transaction_a, root_a.uint256s[1]))
+	auto get_from_previous = false;
+	if (root_a.previous ().is_zero ())
 	{
 		nano::account_info info;
-		auto error (store.account_get (transaction_a, root_a.uint256s[1], info));
-		(void)error;
-		assert (!error);
-		successor = info.open_block;
+		if (!store.account_get (transaction_a, root_a.root (), info))
+		{
+			successor = info.open_block;
+		}
+		else
+		{
+			get_from_previous = true;
+		}
 	}
 	else
 	{
-		successor = store.block_successor (transaction_a, root_a.uint256s[0]);
+		get_from_previous = true;
+	}
+
+	if (get_from_previous)
+	{
+		successor = store.block_successor (transaction_a, root_a.previous ());
 	}
 	std::shared_ptr<nano::block> result;
 	if (!successor.is_zero ())

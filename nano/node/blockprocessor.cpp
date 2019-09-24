@@ -159,7 +159,7 @@ void nano::block_processor::verify_state_blocks (nano::unique_lock<std::mutex> &
 	if (!items.empty ())
 	{
 		auto size (items.size ());
-		std::vector<nano::uint256_union> hashes;
+		std::vector<nano::block_hash> hashes;
 		hashes.reserve (size);
 		std::vector<unsigned char const *> messages;
 		messages.reserve (size);
@@ -169,7 +169,7 @@ void nano::block_processor::verify_state_blocks (nano::unique_lock<std::mutex> &
 		accounts.reserve (size);
 		std::vector<unsigned char const *> pub_keys;
 		pub_keys.reserve (size);
-		std::vector<nano::uint512_union> blocks_signatures;
+		std::vector<nano::signature> blocks_signatures;
 		blocks_signatures.reserve (size);
 		std::vector<unsigned char const *> signatures;
 		signatures.reserve (size);

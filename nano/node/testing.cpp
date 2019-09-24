@@ -28,9 +28,7 @@ std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & no
 	auto node (std::make_shared<nano::node> (io_ctx, nano::unique_path (), alarm, node_config_a, work, node_flags_a));
 	assert (!node->init_error ());
 	node->start ();
-	nano::uint256_union wallet;
-	nano::random_pool::generate_block (wallet.bytes.data (), wallet.bytes.size ());
-	node->wallets.create (wallet);
+	node->wallets.create (nano::random_wallet_id ());
 	nodes.reserve (nodes.size () + 1);
 	nodes.push_back (node);
 	if (nodes.size () > 1)
@@ -257,9 +255,9 @@ void nano::system::generate_receive (nano::node & node_a)
 	std::shared_ptr<nano::block> send_block;
 	{
 		auto transaction (node_a.store.tx_begin_read ());
-		nano::uint256_union random_block;
-		random_pool::generate_block (random_block.bytes.data (), sizeof (random_block.bytes));
-		auto i (node_a.store.pending_begin (transaction, nano::pending_key (random_block, 0)));
+		nano::account random_account;
+		random_pool::generate_block (random_account.bytes.data (), sizeof (random_account.bytes));
+		auto i (node_a.store.pending_begin (transaction, nano::pending_key (random_account, 0)));
 		if (i != node_a.store.pending_end ())
 		{
 			nano::pending_key const & send_hash (i->first);

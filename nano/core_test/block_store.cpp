@@ -62,7 +62,7 @@ TEST (block_store, add_item)
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
 	nano::open_block block (0, 1, 0, nano::keypair ().prv, 0, 0);
-	nano::uint256_union hash1 (block.hash ());
+	auto hash1 (block.hash ());
 	auto transaction (store->tx_begin_write ());
 	auto latest1 (store->block_get (transaction, hash1));
 	ASSERT_EQ (nullptr, latest1);
@@ -108,7 +108,7 @@ TEST (block_store, add_nonempty_block)
 	ASSERT_TRUE (!store->init_error ());
 	nano::keypair key1;
 	nano::open_block block (0, 1, 0, nano::keypair ().prv, 0, 0);
-	nano::uint256_union hash1 (block.hash ());
+	auto hash1 (block.hash ());
 	block.signature = nano::sign_message (key1.prv, key1.pub, hash1);
 	auto transaction (store->tx_begin_write ());
 	auto latest1 (store->block_get (transaction, hash1));
@@ -127,14 +127,14 @@ TEST (block_store, add_two_items)
 	ASSERT_TRUE (!store->init_error ());
 	nano::keypair key1;
 	nano::open_block block (0, 1, 1, nano::keypair ().prv, 0, 0);
-	nano::uint256_union hash1 (block.hash ());
+	auto hash1 (block.hash ());
 	block.signature = nano::sign_message (key1.prv, key1.pub, hash1);
 	auto transaction (store->tx_begin_write ());
 	auto latest1 (store->block_get (transaction, hash1));
 	ASSERT_EQ (nullptr, latest1);
 	nano::open_block block2 (0, 1, 3, nano::keypair ().prv, 0, 0);
 	block2.hashables.account = 3;
-	nano::uint256_union hash2 (block2.hash ());
+	auto hash2 (block2.hash ());
 	block2.signature = nano::sign_message (key1.prv, key1.pub, hash2);
 	auto latest2 (store->block_get (transaction, hash2));
 	ASSERT_EQ (nullptr, latest2);
@@ -437,7 +437,7 @@ TEST (block_store, one_bootstrap)
 	auto begin (store->unchecked_begin (transaction));
 	auto end (store->unchecked_end ());
 	ASSERT_NE (end, begin);
-	nano::uint256_union hash1 (begin->first.key ());
+	auto hash1 (begin->first.key ());
 	ASSERT_EQ (block1->hash (), hash1);
 	auto blocks (store->unchecked_get (transaction, hash1));
 	ASSERT_EQ (1, blocks.size ());
@@ -639,12 +639,12 @@ TEST (block_store, latest_exists)
 	nano::logger_mt logger;
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
-	nano::block_hash two (2);
+	nano::account two (2);
 	nano::account_info info;
 	auto transaction (store->tx_begin_write ());
 	store->confirmation_height_put (transaction, two, 0);
 	store->account_put (transaction, two, info);
-	nano::block_hash one (1);
+	nano::account one (1);
 	ASSERT_FALSE (store->account_exists (transaction, one));
 }
 
@@ -717,7 +717,7 @@ TEST (block_store, block_count)
 		auto transaction (store->tx_begin_write ());
 		ASSERT_EQ (0, store->block_count (transaction).sum ());
 		nano::open_block block (0, 1, 0, nano::keypair ().prv, 0, 0);
-		nano::uint256_union hash1 (block.hash ());
+		auto hash1 (block.hash ());
 		nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0, 0, nano::epoch::epoch_0);
 		store->block_put (transaction, hash1, block, sideband);
 	}
@@ -857,7 +857,7 @@ TEST (mdb_block_store, upgrade_v3_v4)
 	auto transaction (store.tx_begin_write ());
 	ASSERT_FALSE (store.init_error ());
 	ASSERT_LT (3, store.version_get (transaction));
-	nano::pending_key key (key2.pub, key3.pub);
+	nano::pending_key key (key2.pub, reinterpret_cast<nano::block_hash const &> (key3.pub));
 	nano::pending_info info;
 	auto error (store.pending_get (transaction, key, info));
 	ASSERT_FALSE (error);
@@ -1879,7 +1879,7 @@ TEST (block_store, reset_renew_existing_transaction)
 
 	nano::keypair key1;
 	nano::open_block block (0, 1, 1, nano::keypair ().prv, 0, 0);
-	nano::uint256_union hash1 (block.hash ());
+	auto hash1 (block.hash ());
 	auto read_transaction = store->tx_begin_read ();
 
 	// Block shouldn't exist yet

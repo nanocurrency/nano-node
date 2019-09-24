@@ -18,7 +18,7 @@ public:
 	nano::error parse (std::string const & wallet_a, std::string const & account_a);
 	nano::error serialize_toml (nano::tomlconfig & toml_a) const;
 	nano::error deserialize_toml (nano::tomlconfig & toml_a);
-	nano::uint256_union wallet;
+	nano::wallet_id wallet;
 	nano::account account{ 0 };
 };
 }

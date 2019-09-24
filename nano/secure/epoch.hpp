@@ -38,16 +38,16 @@ class epoch_info
 {
 public:
 	nano::public_key signer;
-	nano::uint256_union link;
+	nano::link link;
 };
 class epochs
 {
 public:
-	bool is_epoch_link (nano::uint256_union const & link_a) const;
-	nano::uint256_union const & link (nano::epoch epoch_a) const;
+	bool is_epoch_link (nano::link const & link_a) const;
+	nano::link const & link (nano::epoch epoch_a) const;
 	nano::public_key const & signer (nano::epoch epoch_a) const;
-	nano::epoch epoch (nano::uint256_union const & link_a) const;
-	void add (nano::epoch epoch_a, nano::public_key const & signer_a, nano::uint256_union const & link_a);
+	nano::epoch epoch (nano::link const & link_a) const;
+	void add (nano::epoch epoch_a, nano::public_key const & signer_a, nano::link const & link_a);
 
 private:
 	std::unordered_map<nano::epoch, nano::epoch_info> epochs_m;

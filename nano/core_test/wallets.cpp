@@ -16,8 +16,7 @@ TEST (wallets, open_create)
 	nano::wallets wallets (error, *system.nodes[0]);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (1, wallets.items.size ()); // it starts out with a default wallet
-	nano::keypair random_key;
-	nano::uint256_union id (random_key.pub);
+	auto id = nano::random_wallet_id ();
 	ASSERT_EQ (nullptr, wallets.open (id));
 	auto wallet (wallets.create (id));
 	ASSERT_NE (nullptr, wallet);
@@ -27,8 +26,7 @@ TEST (wallets, open_create)
 TEST (wallets, open_existing)
 {
 	nano::system system (24000, 1);
-	nano::keypair random_key;
-	nano::uint256_union id (random_key.pub);
+	auto id (nano::random_wallet_id ());
 	{
 		bool error (false);
 		nano::wallets wallets (error, *system.nodes[0]);
@@ -58,7 +56,7 @@ TEST (wallets, open_existing)
 TEST (wallets, remove)
 {
 	nano::system system (24000, 1);
-	nano::uint256_union one (1);
+	nano::wallet_id one (1);
 	{
 		bool error (false);
 		nano::wallets wallets (error, *system.nodes[0]);
@@ -93,7 +91,7 @@ TEST (wallets, upgrade)
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	system.add_node (node_config);
 	auto path (nano::unique_path ());
-	nano::keypair id;
+	auto id = nano::random_wallet_id ();
 	nano::node_config node_config1 (24001, system.logging);
 	node_config1.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	{
@@ -101,13 +99,13 @@ TEST (wallets, upgrade)
 		ASSERT_FALSE (node1->init_error ());
 		bool error (false);
 		nano::wallets wallets (error, *node1);
-		wallets.create (id.pub);
+		wallets.create (id);
 		auto transaction_source (node1->wallets.env.tx_begin_write ());
 		auto tx_source = static_cast<MDB_txn *> (transaction_source.get_handle ());
 		auto & mdb_store (dynamic_cast<nano::mdb_store &> (node1->store));
 		auto transaction_destination (mdb_store.tx_begin_write ());
 		auto tx_destination = static_cast<MDB_txn *> (transaction_destination.get_handle ());
-		wallets.move_table (id.pub.to_string (), tx_source, tx_destination);
+		wallets.move_table (id.to_string (), tx_source, tx_destination);
 		node1->store.version_put (transaction_destination, 11);
 
 		nano::account_info info;
@@ -120,15 +118,15 @@ TEST (wallets, upgrade)
 	}
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, path, system.alarm, node_config1, system.work));
 	ASSERT_EQ (1, node1->wallets.items.size ());
-	ASSERT_EQ (id.pub, node1->wallets.items.begin ()->first);
+	ASSERT_EQ (id, node1->wallets.items.begin ()->first);
 	auto transaction_new (node1->wallets.env.tx_begin_write ());
 	auto tx_new = static_cast<MDB_txn *> (transaction_new.get_handle ());
 	auto transaction_old (node1->store.tx_begin_write ());
 	auto tx_old = static_cast<MDB_txn *> (transaction_old.get_handle ());
 	MDB_dbi old_handle;
-	ASSERT_EQ (MDB_NOTFOUND, mdb_dbi_open (tx_old, id.pub.to_string ().c_str (), 0, &old_handle));
+	ASSERT_EQ (MDB_NOTFOUND, mdb_dbi_open (tx_old, id.to_string ().c_str (), 0, &old_handle));
 	MDB_dbi new_handle;
-	ASSERT_EQ (0, mdb_dbi_open (tx_new, id.pub.to_string ().c_str (), 0, &new_handle));
+	ASSERT_EQ (0, mdb_dbi_open (tx_new, id.to_string ().c_str (), 0, &new_handle));
 }
 
 // Keeps breaking whenever we add new DBs
@@ -140,25 +138,25 @@ TEST (wallets, DISABLED_wallet_create_max)
 	const int nonWalletDbs = 19;
 	for (int i = 0; i < system.nodes[0]->config.lmdb_max_dbs - nonWalletDbs; i++)
 	{
-		nano::keypair key;
-		auto wallet = wallets.create (key.pub);
-		auto existing = wallets.items.find (key.pub);
+		auto wallet_id = nano::random_wallet_id ();
+		auto wallet = wallets.create (wallet_id);
+		auto existing = wallets.items.find (wallet_id);
 		ASSERT_TRUE (existing != wallets.items.end ());
 		nano::raw_key seed;
 		seed.data = 0;
 		auto transaction (system.nodes[0]->store.tx_begin_write ());
 		existing->second->store.seed_set (transaction, seed);
 	}
-	nano::keypair key;
-	wallets.create (key.pub);
-	auto existing = wallets.items.find (key.pub);
+	auto wallet_id = nano::random_wallet_id ();
+	wallets.create (wallet_id);
+	auto existing = wallets.items.find (wallet_id);
 	ASSERT_TRUE (existing == wallets.items.end ());
 }
 
 TEST (wallets, reload)
 {
 	nano::system system (24000, 1);
-	nano::uint256_union one (1);
+	nano::wallet_id one (1);
 	bool error (false);
 	ASSERT_FALSE (error);
 	ASSERT_EQ (1, system.nodes[0]->wallets.items.size ());

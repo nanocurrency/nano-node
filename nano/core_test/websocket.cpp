@@ -234,9 +234,7 @@ TEST (websocket, confirmation)
 	config.websocket_config.port = 24078;
 
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
-	nano::uint256_union wallet;
-	nano::random_pool::generate_block (wallet.bytes.data (), wallet.bytes.size ());
-	node1->wallets.create (wallet);
+	node1->wallets.create (nano::random_wallet_id ());
 	node1->start ();
 	system.nodes.push_back (node1);
 
@@ -344,9 +342,7 @@ TEST (websocket, stopped_election)
 	config.websocket_config.port = 24078;
 
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
-	nano::uint256_union wallet;
-	nano::random_pool::generate_block (wallet.bytes.data (), wallet.bytes.size ());
-	node1->wallets.create (wallet);
+	node1->wallets.create (nano::random_wallet_id ());
 	node1->start ();
 	system.nodes.push_back (node1);
 
@@ -406,9 +402,7 @@ TEST (websocket, confirmation_options)
 	config.websocket_config.port = 24078;
 
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
-	nano::uint256_union wallet;
-	nano::random_pool::generate_block (wallet.bytes.data (), wallet.bytes.size ());
-	node1->wallets.create (wallet);
+	node1->wallets.create (nano::random_wallet_id ());
 	node1->start ();
 	system.nodes.push_back (node1);
 
@@ -555,9 +549,7 @@ TEST (websocket, vote)
 	config.websocket_config.port = 24078;
 
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
-	nano::uint256_union wallet;
-	nano::random_pool::generate_block (wallet.bytes.data (), wallet.bytes.size ());
-	node1->wallets.create (wallet);
+	node1->wallets.create (nano::random_wallet_id ());
 	node1->start ();
 	system.nodes.push_back (node1);
 
@@ -618,9 +610,7 @@ TEST (websocket, vote_options)
 	config.websocket_config.port = 24078;
 
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
-	nano::uint256_union wallet;
-	nano::random_pool::generate_block (wallet.bytes.data (), wallet.bytes.size ());
-	node1->wallets.create (wallet);
+	node1->wallets.create (nano::random_wallet_id ());
 	node1->start ();
 	system.nodes.push_back (node1);
 

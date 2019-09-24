@@ -22,8 +22,25 @@ struct hash<::nano::uint256_union>
 {
 	size_t operator() (::nano::uint256_union const & value_a) const
 	{
-		std::hash<::nano::uint256_union> hash;
-		return hash (value_a);
+		return std::hash<::nano::uint256_union> () (value_a);
+	}
+};
+
+template <>
+struct hash<::nano::block_hash>
+{
+	size_t operator() (::nano::block_hash const & value_a) const
+	{
+		return std::hash<::nano::block_hash> () (value_a);
+	}
+};
+
+template <>
+struct hash<::nano::public_key>
+{
+	size_t operator() (::nano::public_key const & value_a) const
+	{
+		return std::hash<::nano::public_key> () (value_a);
 	}
 };
 template <>
@@ -31,8 +48,15 @@ struct hash<::nano::uint512_union>
 {
 	size_t operator() (::nano::uint512_union const & value_a) const
 	{
-		std::hash<::nano::uint512_union> hash;
-		return hash (value_a);
+		return std::hash<::nano::uint512_union> () (value_a);
+	}
+};
+template <>
+struct hash<::nano::qualified_root>
+{
+	size_t operator() (::nano::qualified_root const & value_a) const
+	{
+		return std::hash<::nano::qualified_root> () (value_a);
 	}
 };
 }
@@ -97,7 +121,7 @@ public:
 	pending_key (nano::account const &, nano::block_hash const &);
 	bool deserialize (nano::stream &);
 	bool operator== (nano::pending_key const &) const;
-	nano::block_hash key () const;
+	nano::account const & key () const;
 	nano::account account{ 0 };
 	nano::block_hash hash{ 0 };
 };
@@ -134,8 +158,17 @@ enum class no_value
 	dummy
 };
 
-// Internally unchecked_key is equal to pending_key (2x uint256_union)
-using unchecked_key = pending_key;
+class unchecked_key final
+{
+public:
+	unchecked_key () = default;
+	unchecked_key (nano::block_hash const &, nano::block_hash const &);
+	bool deserialize (nano::stream &);
+	bool operator== (nano::unchecked_key const &) const;
+	nano::block_hash const & key () const;
+	nano::block_hash previous{ 0 };
+	nano::block_hash hash{ 0 };
+};
 
 /**
  * Tag for block signature verification result
@@ -200,8 +233,8 @@ public:
 	vote (nano::account const &, nano::raw_key const &, uint64_t, std::shared_ptr<nano::block>);
 	vote (nano::account const &, nano::raw_key const &, uint64_t, std::vector<nano::block_hash> const &);
 	std::string hashes_string () const;
-	nano::uint256_union hash () const;
-	nano::uint256_union full_hash () const;
+	nano::block_hash hash () const;
+	nano::block_hash full_hash () const;
 	bool operator== (nano::vote const &) const;
 	bool operator!= (nano::vote const &) const;
 	void serialize (nano::stream &, nano::block_type) const;
@@ -228,7 +261,7 @@ public:
 class vote_uniquer final
 {
 public:
-	using value_type = std::pair<const nano::uint256_union, std::weak_ptr<nano::vote>>;
+	using value_type = std::pair<const nano::block_hash, std::weak_ptr<nano::vote>>;
 
 	vote_uniquer (nano::block_uniquer &);
 	std::shared_ptr<nano::vote> unique (std::shared_ptr<nano::vote>);
@@ -413,4 +446,6 @@ public:
 	portmapping_constants portmapping;
 	bootstrap_constants bootstrap;
 };
+
+nano::wallet_id random_wallet_id ();
 }
