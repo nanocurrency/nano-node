@@ -238,7 +238,6 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 			}
 			else if (stop_pull && block_expected)
 			{
-				expected = pull.end;
 				connection->attempt->pool_connection (connection);
 			}
 		}
