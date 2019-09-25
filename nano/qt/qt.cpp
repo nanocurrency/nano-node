@@ -829,7 +829,7 @@ void nano_qt::stats_viewer::refresh_stats ()
 				detail = "total";
 			}
 
-			if (type == "traffic" || type == "traffic_bootstrap")
+			if (type == "traffic_udp" || type == "traffic_tcp")
 			{
 				const std::vector<std::string> units = { " bytes", " KB", " MB", " GB", " TB", " PB" };
 				double bytes = std::stod (value);

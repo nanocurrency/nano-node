@@ -415,11 +415,11 @@ std::string nano::stat::type_to_string (uint32_t key)
 		case nano::stat::type::rollback:
 			res = "rollback";
 			break;
-		case nano::stat::type::traffic:
-			res = "traffic";
+		case nano::stat::type::traffic_udp:
+			res = "traffic_udp";
 			break;
 		case nano::stat::type::traffic_tcp:
-			res = "traffic_bootstrap";
+			res = "traffic_tcp";
 			break;
 		case nano::stat::type::vote:
 			res = "vote";
