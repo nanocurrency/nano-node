@@ -12,8 +12,8 @@ class pull_info
 public:
 	using count_t = nano::bulk_pull::count_t;
 	pull_info () = default;
-	pull_info (nano::root const &, nano::block_hash const &, nano::block_hash const &, count_t = 0);
-	nano::root root{ 0 };
+	pull_info (nano::hash_or_account const &, nano::block_hash const &, nano::block_hash const &, count_t = 0);
+	nano::hash_or_account account_or_head{ 0 };
 	nano::block_hash head{ 0 };
 	nano::block_hash head_original{ 0 };
 	nano::block_hash end{ 0 };
@@ -34,7 +34,7 @@ public:
 	void received_block (boost::system::error_code const &, size_t, nano::block_type);
 	nano::block_hash first ();
 	std::shared_ptr<nano::bootstrap_client> connection;
-	nano::root expected;
+	nano::block_hash expected;
 	nano::account known_account;
 	nano::pull_info pull;
 	uint64_t pull_blocks;
@@ -65,7 +65,7 @@ public:
 	void no_block_sent (boost::system::error_code const &, size_t);
 	std::shared_ptr<nano::bootstrap_server> connection;
 	std::unique_ptr<nano::bulk_pull> request;
-	nano::root current;
+	nano::block_hash current;
 	bool include_start;
 	nano::bulk_pull::count_t max_count;
 	nano::bulk_pull::count_t sent_count;
