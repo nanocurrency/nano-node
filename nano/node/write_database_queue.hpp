@@ -19,11 +19,11 @@ enum class writer
 class write_guard final
 {
 public:
-	write_guard (std::condition_variable & cv_a, std::function<void()> guard_finish_callback_a);
+	write_guard (nano::condition_variable & cv_a, std::function<void()> guard_finish_callback_a);
 	~write_guard ();
 
 private:
-	std::condition_variable & cv;
+	nano::condition_variable & cv;
 	std::function<void()> guard_finish_callback;
 };
 
@@ -49,7 +49,7 @@ public:
 private:
 	std::deque<nano::writer> queue;
 	std::mutex mutex;
-	std::condition_variable cv;
+	nano::condition_variable cv;
 	std::function<void()> guard_finish_callback;
 	std::atomic<bool> stopped{ false };
 };

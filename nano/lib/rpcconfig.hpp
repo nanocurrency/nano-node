@@ -8,6 +8,7 @@
 #include <boost/thread.hpp>
 
 #include <string>
+#include <vector>
 
 namespace nano
 {
@@ -75,7 +76,7 @@ public:
 	}
 };
 
-nano::error read_rpc_config_toml (boost::filesystem::path const & data_path_a, nano::rpc_config & config_a);
+nano::error read_rpc_config_toml (boost::filesystem::path const & data_path_a, nano::rpc_config & config_a, std::vector<std::string> const & config_overrides = std::vector<std::string> ());
 nano::error read_and_update_rpc_config (boost::filesystem::path const & data_path, nano::rpc_config & config_a);
 
 std::string get_default_rpc_filepath ();

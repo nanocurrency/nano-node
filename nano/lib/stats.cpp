@@ -204,7 +204,7 @@ std::shared_ptr<nano::stat_entry> nano::stat::get_entry (uint32_t key)
 
 std::shared_ptr<nano::stat_entry> nano::stat::get_entry (uint32_t key, size_t interval, size_t capacity)
 {
-	std::unique_lock<std::mutex> lock (stat_mutex);
+	nano::unique_lock<std::mutex> lock (stat_mutex);
 	return get_entry_impl (key, interval, capacity);
 }
 
@@ -231,7 +231,7 @@ std::unique_ptr<nano::stat_log_sink> nano::stat::log_sink_json () const
 
 void nano::stat::log_counters (stat_log_sink & sink)
 {
-	std::unique_lock<std::mutex> lock (stat_mutex);
+	nano::unique_lock<std::mutex> lock (stat_mutex);
 	log_counters_impl (sink);
 }
 
@@ -266,7 +266,7 @@ void nano::stat::log_counters_impl (stat_log_sink & sink)
 
 void nano::stat::log_samples (stat_log_sink & sink)
 {
-	std::unique_lock<std::mutex> lock (stat_mutex);
+	nano::unique_lock<std::mutex> lock (stat_mutex);
 	log_samples_impl (sink);
 }
 
@@ -309,7 +309,7 @@ void nano::stat::update (uint32_t key_a, uint64_t value)
 
 	auto now (std::chrono::steady_clock::now ());
 
-	std::unique_lock<std::mutex> lock (stat_mutex);
+	nano::unique_lock<std::mutex> lock (stat_mutex);
 	if (!stopped)
 	{
 		auto entry (get_entry_impl (key_a, config.interval, config.capacity));
@@ -361,20 +361,20 @@ void nano::stat::update (uint32_t key_a, uint64_t value)
 
 std::chrono::seconds nano::stat::last_reset ()
 {
-	std::unique_lock<std::mutex> lock (stat_mutex);
+	nano::unique_lock<std::mutex> lock (stat_mutex);
 	auto now (std::chrono::steady_clock::now ());
 	return std::chrono::duration_cast<std::chrono::seconds> (now - timestamp);
 }
 
 void nano::stat::stop ()
 {
-	std::lock_guard<std::mutex> guard (stat_mutex);
+	nano::lock_guard<std::mutex> guard (stat_mutex);
 	stopped = true;
 }
 
 void nano::stat::clear ()
 {
-	std::unique_lock<std::mutex> lock (stat_mutex);
+	nano::unique_lock<std::mutex> lock (stat_mutex);
 	entries.clear ();
 	timestamp = std::chrono::steady_clock::now ();
 }
@@ -423,6 +423,9 @@ std::string nano::stat::type_to_string (uint32_t key)
 			break;
 		case nano::stat::type::vote:
 			res = "vote";
+			break;
+		case nano::stat::type::election:
+			res = "election";
 			break;
 		case nano::stat::type::message:
 			res = "message";
@@ -561,6 +564,18 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 		case nano::stat::detail::vote_overflow:
 			res = "vote_overflow";
+			break;
+		case nano::stat::detail::vote_new:
+			res = "vote_new";
+			break;
+		case nano::stat::detail::vote_cached:
+			res = "vote_cached";
+			break;
+		case nano::stat::detail::late_block:
+			res = "late_block";
+			break;
+		case nano::stat::detail::late_block_seconds:
+			res = "late_block_seconds";
 			break;
 		case nano::stat::detail::blocking:
 			res = "blocking";

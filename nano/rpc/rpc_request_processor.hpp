@@ -48,7 +48,7 @@ public:
 private:
 	void run ();
 	void read_payload (std::shared_ptr<nano::ipc_connection> connection, std::shared_ptr<std::vector<uint8_t>> res, std::shared_ptr<nano::rpc_request> rpc_request);
-	void try_reconnect_and_execute_request (std::shared_ptr<nano::ipc_connection> connection, std::shared_ptr<std::vector<uint8_t>> req, std::shared_ptr<std::vector<uint8_t>> res, std::shared_ptr<nano::rpc_request> rpc_request);
+	void try_reconnect_and_execute_request (std::shared_ptr<nano::ipc_connection> connection, nano::shared_const_buffer const & req, std::shared_ptr<std::vector<uint8_t>> res, std::shared_ptr<nano::rpc_request> rpc_request);
 	void make_available (nano::ipc_connection & connection);
 
 	std::vector<std::shared_ptr<nano::ipc_connection>> connections;
@@ -56,7 +56,7 @@ private:
 	std::mutex connections_mutex;
 	bool stopped{ false };
 	std::deque<std::shared_ptr<nano::rpc_request>> requests;
-	std::condition_variable condition;
+	nano::condition_variable condition;
 	const std::string ipc_address;
 	const uint16_t ipc_port;
 	std::thread thread;

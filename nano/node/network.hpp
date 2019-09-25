@@ -58,28 +58,12 @@ public:
 private:
 	nano::stat & stats;
 	std::mutex mutex;
-	std::condition_variable condition;
+	nano::condition_variable condition;
 	boost::circular_buffer<nano::message_buffer *> free;
 	boost::circular_buffer<nano::message_buffer *> full;
 	std::vector<uint8_t> slab;
 	std::vector<nano::message_buffer> entries;
 	bool stopped;
-};
-/**
-  * Response channels for TCP realtime network
-*/
-class response_channels final
-{
-public:
-	void add (nano::tcp_endpoint const &, std::vector<nano::tcp_endpoint>);
-	std::vector<nano::tcp_endpoint> search (nano::tcp_endpoint const &);
-	void remove (nano::tcp_endpoint const &);
-	size_t size ();
-	std::unique_ptr<seq_con_info_component> collect_seq_con_info (std::string const &);
-
-private:
-	std::mutex response_channels_mutex;
-	std::unordered_map<nano::tcp_endpoint, std::vector<nano::tcp_endpoint>> channels;
 };
 /**
   * Node ID cookies for node ID handshakes
@@ -158,9 +142,6 @@ public:
 	std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (size_t) const;
 	// Get the next peer for attempting a tcp bootstrap connection
 	nano::tcp_endpoint bootstrap_peer ();
-	// Response channels
-	nano::response_channels response_channels;
-	std::shared_ptr<nano::transport::channel> find_response_channel (nano::tcp_endpoint const &, nano::account const &);
 	nano::endpoint endpoint ();
 	void cleanup (std::chrono::steady_clock::time_point const &);
 	void ongoing_cleanup ();

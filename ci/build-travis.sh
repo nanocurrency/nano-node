@@ -8,6 +8,18 @@ set -o nounset
 set -o xtrace
 OS=`uname`
 
+# This is to prevent out of scope access in async_write from asio which is not picked up by static analysers
+if [[ $(grep -rl --exclude="*asio.hpp" "asio::async_write" ./nano) ]]; then
+    echo "using boost::asio::async_write directly is not permitted (except in nano/lib/asio.hpp). Use nano::async_write instead"
+    exit 1
+fi
+
+# prevent unsolicited use of std::lock_guard & std::unique_lock outside of allowed areas
+if [[ $(grep -rl --exclude={"*random_pool.cpp","*random_pool.hpp","*locks.hpp","*locks.cpp"} "std::unique_lock\|std::lock_guard\|std::condition_variable" ./nano) ]]; then
+    echo "using std::unique_lock, std::lock_guard or std::condition_variable is not permitted (except in nano/lib/locks.hpp and non-nano dependent libraries). Use the nano::* versions instead"
+    exit 1
+fi
+
 mkdir build
 pushd build
 
@@ -43,7 +55,6 @@ cmake \
     -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
     ${SANITIZERS} \
     ..
-
 
 if [[ "$OS" == 'Linux' ]]; then
     cmake --build ${PWD} -- -j2

@@ -39,7 +39,7 @@ void mdb_val::convert_buffer_to_value ()
 }
 }
 
-nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, bool drop_unchecked, size_t const batch_size, bool backup_before_upgrade) :
+nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, size_t const batch_size, bool backup_before_upgrade) :
 logger (logger_a),
 env (error, path_a, lmdb_max_dbs, true),
 mdb_txn_tracker (logger_a, txn_tracking_config_a, block_processor_batch_max_time_a),
@@ -78,12 +78,6 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 		{
 			auto transaction (tx_begin_read ());
 			open_databases (error, transaction, 0);
-		}
-
-		if (!error && drop_unchecked)
-		{
-			auto transaction (tx_begin_write ({ nano::tables::cached_counts, tables::unchecked }));
-			unchecked_clear (transaction);
 		}
 	}
 }
@@ -487,7 +481,11 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction const & transa
 	for (; i != n; ++i)
 	{
 		auto const & account_info_v14 (i->second);
-		account_infos.emplace_back (i->first, nano::account_info{ account_info_v14.head, account_info_v14.rep_block, account_info_v14.open_block, account_info_v14.balance, account_info_v14.modified, account_info_v14.block_count, account_info_v14.epoch });
+
+		// Upgrade rep block to representative account
+		auto rep_block = block_get (transaction_a, account_info_v14.rep_block);
+		release_assert (rep_block != nullptr);
+		account_infos.emplace_back (i->first, nano::account_info{ account_info_v14.head, rep_block->representative (), account_info_v14.open_block, account_info_v14.balance, account_info_v14.modified, account_info_v14.block_count, account_info_v14.epoch });
 		confirmation_height_put (transaction_a, i->first, i->second.confirmation_height);
 	}
 

@@ -215,10 +215,10 @@ TEST (wallet, change)
 	nano::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key2;
-	auto block1 (system.nodes[0]->representative (nano::test_genesis_key.pub));
+	auto block1 (system.nodes[0]->rep_block (nano::test_genesis_key.pub));
 	ASSERT_FALSE (block1.is_zero ());
 	ASSERT_NE (nullptr, system.wallet (0)->change_action (nano::test_genesis_key.pub, key2.pub));
-	auto block2 (system.nodes[0]->representative (nano::test_genesis_key.pub));
+	auto block2 (system.nodes[0]->rep_block (nano::test_genesis_key.pub));
 	ASSERT_FALSE (block2.is_zero ());
 	ASSERT_NE (block1, block2);
 }
@@ -1124,28 +1124,33 @@ TEST (wallet, work_watcher_update)
 	auto multiplier = nano::difficulty::to_multiplier (std::max (difficulty1, difficulty2), node.network_params.network.publish_threshold);
 	uint64_t updated_difficulty1{ difficulty1 }, updated_difficulty2{ difficulty2 };
 	{
-		std::unique_lock<std::mutex> lock (node.active.mutex);
+		nano::unique_lock<std::mutex> lock (node.active.mutex);
+		// Prevent active difficulty repopulating multipliers
+		node.network_params.network.request_interval_ms = 10000;
 		//fill multipliers_cb and update active difficulty;
 		for (auto i (0); i < node.active.multipliers_cb.size (); i++)
 		{
-			node.active.multipliers_cb.push_back (multiplier * (1 + i / 100.));
+			node.active.multipliers_cb.push_back (multiplier * (1.5 + i / 100.));
 		}
 		node.active.update_active_difficulty (lock);
 	}
-	system.deadline_set (10s);
+	system.deadline_set (20s);
 	while (updated_difficulty1 == difficulty1 || updated_difficulty2 == difficulty2)
 	{
 		{
-			auto const existing (node.active.roots.find (block1->qualified_root ()));
-			//if existing is junk the block has been confirmed already
-			ASSERT_NE (existing, node.active.roots.end ());
-			updated_difficulty1 = existing->difficulty;
-		}
-		{
-			auto const existing (node.active.roots.find (block2->qualified_root ()));
-			//if existing is junk the block has been confirmed already
-			ASSERT_NE (existing, node.active.roots.end ());
-			updated_difficulty2 = existing->difficulty;
+			nano::lock_guard<std::mutex> guard (node.active.mutex);
+			{
+				auto const existing (node.active.roots.find (block1->qualified_root ()));
+				//if existing is junk the block has been confirmed already
+				ASSERT_NE (existing, node.active.roots.end ());
+				updated_difficulty1 = existing->difficulty;
+			}
+			{
+				auto const existing (node.active.roots.find (block2->qualified_root ()));
+				//if existing is junk the block has been confirmed already
+				ASSERT_NE (existing, node.active.roots.end ());
+				updated_difficulty2 = existing->difficulty;
+			}
 		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -1159,15 +1164,16 @@ TEST (wallet, work_watcher_removed)
 	nano::node_config node_config (24000, system.logging);
 	node_config.work_watcher_period = 1s;
 	auto & node = *system.add_node (node_config);
+	(void)node;
 	auto & wallet (*system.wallet (0));
 	wallet.insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key;
-	ASSERT_EQ (0, wallet.wallets.watcher->watched.size ());
+	ASSERT_EQ (0, wallet.wallets.watcher->size ());
 	auto const block (wallet.send_action (nano::test_genesis_key.pub, key.pub, 100));
-	ASSERT_EQ (1, wallet.wallets.watcher->watched.size ());
+	ASSERT_EQ (1, wallet.wallets.watcher->size ());
 	auto transaction (wallet.wallets.tx_begin_write ());
 	system.deadline_set (3s);
-	while (!wallet.wallets.watcher->watched.empty ())
+	while (0 == wallet.wallets.watcher->size ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -1179,32 +1185,39 @@ TEST (wallet, work_watcher_cancel)
 	nano::node_config node_config (24000, system.logging);
 	node_config.work_watcher_period = 1s;
 	node_config.max_work_generate_multiplier = 1e6;
+	node_config.max_work_generate_difficulty = nano::difficulty::from_multiplier (node_config.max_work_generate_multiplier, nano::network_constants::publish_test_threshold);
+	node_config.enable_voting = false;
 	auto & node = *system.add_node (node_config);
 	auto & wallet (*system.wallet (0));
-	wallet.insert_adhoc (nano::test_genesis_key.prv);
+	wallet.insert_adhoc (nano::test_genesis_key.prv, false);
 	nano::keypair key;
-	auto const block1 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 100));
+	auto work1 (node.work_generate_blocking (nano::test_genesis_key.pub));
+	auto const block1 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 100, *work1, false));
 	uint64_t difficulty1 (0);
 	nano::work_validate (*block1, &difficulty1);
 	{
-		std::unique_lock<std::mutex> lock (node.active.mutex);
-		//fill multipliers_cb and update active difficulty;
+		nano::unique_lock<std::mutex> lock (node.active.mutex);
+		// Prevent active difficulty repopulating multipliers
+		node.network_params.network.request_interval_ms = 10000;
+		// Fill multipliers_cb and update active difficulty;
 		for (auto i (0); i < node.active.multipliers_cb.size (); i++)
 		{
-			node.active.multipliers_cb.push_back (node_config.max_work_generate_multiplier);
+			node.active.multipliers_cb.push_back (node.config.max_work_generate_multiplier);
 		}
 		node.active.update_active_difficulty (lock);
 	}
 	// Wait for work generation to start
-	system.deadline_set (3s);
-	while (node.work.pending.empty ())
+	system.deadline_set (5s);
+	while (0 == node.work.size ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	// Cancel the ongoing work
+	ASSERT_EQ (1, node.work.size ());
 	node.work.cancel (block1->root ());
+	ASSERT_EQ (0, node.work.size ());
 	{
-		std::unique_lock<std::mutex> lock (wallet.wallets.watcher->mutex);
+		nano::unique_lock<std::mutex> lock (wallet.wallets.watcher->mutex);
 		auto existing (wallet.wallets.watcher->watched.find (block1->qualified_root ()));
 		ASSERT_NE (wallet.wallets.watcher->watched.end (), existing);
 		auto block2 (existing->second);

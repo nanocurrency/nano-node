@@ -7,10 +7,13 @@ add_executable (core_test
 	confirmation_height.cpp
 	conflicts.cpp
 	difficulty.cpp
+	distributed_work.cpp
 	entry.cpp
+	epochs.cpp
 	gap_cache.cpp
 	ipc.cpp
 	ledger.cpp
+	locks.cpp
 	logger.cpp
 	network.cpp
 	node.cpp

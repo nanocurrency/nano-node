@@ -512,12 +512,9 @@ TEST (confirmation_height, all_block_types)
 
 	nano::state_block state_change (key2.pub, state_send.hash (), nano::test_genesis_key.pub, nano::Gxrb_ratio, 0, key2.prv, key2.pub, system.work.generate (state_send.hash ()));
 
-	nano::keypair epoch_key;
-	node->ledger.epoch_signer = epoch_key.pub;
+	nano::state_block epoch (key2.pub, state_change.hash (), nano::test_genesis_key.pub, nano::Gxrb_ratio, node->ledger.link (nano::epoch::epoch_1), nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (state_change.hash ()));
 
-	nano::state_block epoch (key2.pub, state_change.hash (), nano::test_genesis_key.pub, nano::Gxrb_ratio, node->ledger.epoch_link, epoch_key.prv, epoch_key.pub, system.work.generate (state_change.hash ()));
-
-	nano::state_block epoch1 (key1.pub, change.hash (), key2.pub, nano::Gxrb_ratio, node->ledger.epoch_link, epoch_key.prv, epoch_key.pub, system.work.generate (change.hash ()));
+	nano::state_block epoch1 (key1.pub, change.hash (), key2.pub, nano::Gxrb_ratio, node->ledger.link (nano::epoch::epoch_1), nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (change.hash ()));
 	nano::state_block state_send1 (key1.pub, epoch1.hash (), 0, nano::Gxrb_ratio - 1, key2.pub, key1.prv, key1.pub, system.work.generate (epoch1.hash ()));
 	nano::state_block state_receive2 (key2.pub, epoch.hash (), 0, nano::Gxrb_ratio + 1, state_send1.hash (), key2.prv, key2.pub, system.work.generate (epoch.hash ()));
 
@@ -623,7 +620,7 @@ TEST (confirmation_height, conflict_rollback_cemented)
 	node1.block_processor.flush ();
 	node2.network.process_message (publish1, channel2);
 	node2.block_processor.flush ();
-	std::unique_lock<std::mutex> lock (node2.active.mutex);
+	nano::unique_lock<std::mutex> lock (node2.active.mutex);
 	auto conflict (node2.active.roots.find (nano::qualified_root (genesis.hash (), genesis.hash ())));
 	ASSERT_NE (node2.active.roots.end (), conflict);
 	auto votes1 (conflict->election);
@@ -653,7 +650,7 @@ TEST (confirmation_height, conflict_rollback_cemented)
 	auto transaction1 (system.nodes[0]->store.tx_begin_read ());
 	auto transaction2 (system.nodes[1]->store.tx_begin_read ());
 	lock.lock ();
-	auto winner (*votes1->tally (transaction2).begin ());
+	auto winner (*votes1->tally ().begin ());
 	ASSERT_EQ (*publish1.block, *winner.second);
 	ASSERT_EQ (nano::genesis_amount - 100, winner.first);
 	ASSERT_TRUE (node1.store.block_exists (transaction1, publish1.block->hash ()));
@@ -760,7 +757,7 @@ TEST (confirmation_height, pending_observer_callbacks)
 	// Can have timing issues.
 	node->confirmation_height_processor.add (send.hash ());
 	{
-		std::unique_lock<std::mutex> lk (node->pending_confirmation_height.mutex);
+		nano::unique_lock<std::mutex> lk (node->pending_confirmation_height.mutex);
 		while (!node->pending_confirmation_height.current_hash.is_zero ())
 		{
 			lk.unlock ();
@@ -925,7 +922,7 @@ TEST (confirmation_height, frontiers_confirmation_mode)
 		nano::node_config node_config (24000, system.logging);
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::always;
 		auto node = system.add_node (node_config);
-		nano::state_block send (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node->work_generate_blocking (genesis.hash ()));
+		nano::state_block send (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node->work_generate_blocking (genesis.hash ()));
 		{
 			auto transaction = node->store.tx_begin_write ();
 			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
@@ -942,7 +939,7 @@ TEST (confirmation_height, frontiers_confirmation_mode)
 		nano::node_config node_config (24000, system.logging);
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::automatic;
 		auto node = system.add_node (node_config);
-		nano::state_block send (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node->work_generate_blocking (genesis.hash ()));
+		nano::state_block send (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node->work_generate_blocking (genesis.hash ()));
 		{
 			auto transaction = node->store.tx_begin_write ();
 			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
@@ -959,7 +956,7 @@ TEST (confirmation_height, frontiers_confirmation_mode)
 		nano::node_config node_config (24000, system.logging);
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node = system.add_node (node_config);
-		nano::state_block send (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, node->work_generate_blocking (genesis.hash ()));
+		nano::state_block send (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node->work_generate_blocking (genesis.hash ()));
 		{
 			auto transaction = node->store.tx_begin_write ();
 			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, send).code);
@@ -1009,7 +1006,7 @@ TEST (confirmation_height, callback_confirmed_history)
 
 		ASSERT_EQ (0, node->active.list_confirmed ().size ());
 		{
-			std::lock_guard<std::mutex> guard (node->active.mutex);
+			nano::lock_guard<std::mutex> guard (node->active.mutex);
 			ASSERT_EQ (1, node->active.blocks.size ());
 		}
 
@@ -1044,7 +1041,7 @@ TEST (confirmation_height, callback_confirmed_history)
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::observer, nano::stat::detail::observer_confirmation_active_quorum, nano::stat::dir::out));
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::observer, nano::stat::detail::observer_confirmation_inactive, nano::stat::dir::out));
 
-	std::lock_guard<std::mutex> guard (node->active.mutex);
+	nano::lock_guard<std::mutex> guard (node->active.mutex);
 	ASSERT_EQ (0, node->active.blocks.size ());
 }
 
@@ -1092,7 +1089,7 @@ TEST (confirmation_height, dependent_election)
 	}
 
 	{
-		std::lock_guard<std::mutex> guard (node->pending_confirmation_height.mutex);
+		nano::lock_guard<std::mutex> guard (node->pending_confirmation_height.mutex);
 		ASSERT_EQ (*node->pending_confirmation_height.pending.begin (), send2->hash ());
 	}
 
@@ -1110,7 +1107,7 @@ TEST (confirmation_height, dependent_election)
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::observer, nano::stat::detail::observer_confirmation_inactive, nano::stat::dir::out));
 	ASSERT_EQ (3, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
 
-	std::lock_guard<std::mutex> guard (node->active.mutex);
+	nano::lock_guard<std::mutex> guard (node->active.mutex);
 	ASSERT_EQ (0, node->active.blocks.size ());
 }
 
@@ -1148,7 +1145,7 @@ TEST (confirmation_height, dependent_election_after_already_cemented)
 
 		ASSERT_EQ (0, node->active.list_confirmed ().size ());
 		{
-			std::lock_guard<std::mutex> guard (node->active.mutex);
+			nano::lock_guard<std::mutex> guard (node->active.mutex);
 			ASSERT_EQ (1, node->active.blocks.size ());
 		}
 
@@ -1176,7 +1173,7 @@ TEST (confirmation_height, dependent_election_after_already_cemented)
 	}
 
 	system.deadline_set (10s);
-	std::unique_lock<std::mutex> lk (node->active.mutex);
+	nano::unique_lock<std::mutex> lk (node->active.mutex);
 	while (node->active.blocks.size () > 0)
 	{
 		lk.unlock ();

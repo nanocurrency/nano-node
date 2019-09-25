@@ -95,7 +95,7 @@ TEST (ledger, deep_account_compute)
 	nano::ledger ledger (*store, stats);
 	nano::genesis genesis;
 	auto transaction (store->tx_begin_write ());
-	store->initialize (transaction, genesis, ledger.rep_weights, ledger.cemented_count);
+	store->initialize (transaction, genesis, ledger.rep_weights, ledger.cemented_count, ledger.block_count_cache);
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::keypair key;
 	auto balance (nano::genesis_amount - 1);
@@ -224,7 +224,7 @@ TEST (node, fork_storm)
 			}
 			else
 			{
-				std::lock_guard<std::mutex> lock (node_a->active.mutex);
+				nano::lock_guard<std::mutex> lock (node_a->active.mutex);
 				if (node_a->active.roots.begin ()->election->last_votes_size () == 1)
 				{
 					++single;
@@ -426,9 +426,8 @@ TEST (wallets, rep_scan)
 			wallet->deterministic_insert (transaction);
 		}
 	}
-	auto transaction (node.store.tx_begin_read ());
 	auto begin (std::chrono::steady_clock::now ());
-	node.wallets.foreach_representative (transaction, [](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
+	node.wallets.foreach_representative ([](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
 	});
 	ASSERT_LT (std::chrono::steady_clock::now () - begin, std::chrono::milliseconds (5));
 }
@@ -466,7 +465,7 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 
 	// As this test can take a while extend the next frontier check
 	{
-		std::lock_guard<std::mutex> guard (node->active.mutex);
+		nano::lock_guard<std::mutex> guard (node->active.mutex);
 		node->active.next_frontier_check = std::chrono::steady_clock::now () + 7200s;
 	}
 
@@ -537,7 +536,7 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 
 	// As this test can take a while extend the next frontier check
 	{
-		std::lock_guard<std::mutex> guard (node->active.mutex);
+		nano::lock_guard<std::mutex> guard (node->active.mutex);
 		node->active.next_frontier_check = std::chrono::steady_clock::now () + 7200s;
 	}
 
@@ -586,7 +585,7 @@ TEST (confirmation_height, long_chains)
 
 	// As this test can take a while extend the next frontier check
 	{
-		std::lock_guard<std::mutex> guard (node->active.mutex);
+		nano::lock_guard<std::mutex> guard (node->active.mutex);
 		node->active.next_frontier_check = std::chrono::steady_clock::now () + 7200s;
 	}
 
@@ -675,7 +674,7 @@ TEST (confirmation_height, prioritize_frontiers_overwrite)
 
 	// As this test can take a while extend the next frontier check
 	{
-		std::lock_guard<std::mutex> guard (node->active.mutex);
+		nano::lock_guard<std::mutex> guard (node->active.mutex);
 		node->active.next_frontier_check = std::chrono::steady_clock::now () + 7200s;
 	}
 

@@ -23,7 +23,7 @@ void nano::port_mapping::refresh_devices ()
 {
 	if (!network_params.network.is_test_network ())
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<std::mutex> lock (mutex);
 		int discover_error = 0;
 		freeUPNPDevlist (devices);
 		devices = upnpDiscover (2000, nullptr, nullptr, UPNP_LOCAL_PORT_ANY, false, 2, &discover_error);
@@ -52,7 +52,7 @@ void nano::port_mapping::refresh_devices ()
 nano::endpoint nano::port_mapping::external_address ()
 {
 	nano::endpoint result (boost::asio::ip::address_v6{}, 0);
-	std::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<std::mutex> lock (mutex);
 	for (auto & protocol : protocols)
 	{
 		if (protocol.external_port != 0)
@@ -67,7 +67,7 @@ void nano::port_mapping::refresh_mapping ()
 {
 	if (!network_params.network.is_test_network ())
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<std::mutex> lock (mutex);
 		auto node_port (std::to_string (node.network.endpoint ().port ()));
 
 		// We don't map the RPC port because, unless RPC authentication was added, this would almost always be a security risk
@@ -98,7 +98,7 @@ int nano::port_mapping::check_mapping ()
 	if (!network_params.network.is_test_network ())
 	{
 		// Long discovery time and fast setup/teardown make this impractical for testing
-		std::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<std::mutex> lock (mutex);
 		auto node_port (std::to_string (node.network.endpoint ().port ()));
 		for (auto & protocol : protocols)
 		{
@@ -171,7 +171,7 @@ void nano::port_mapping::check_mapping_loop ()
 void nano::port_mapping::stop ()
 {
 	on = false;
-	std::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<std::mutex> lock (mutex);
 	for (auto & protocol : protocols)
 	{
 		if (protocol.external_port != 0)

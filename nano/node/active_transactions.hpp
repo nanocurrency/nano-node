@@ -2,6 +2,7 @@
 
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/node/gap_cache.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/circular_buffer.hpp>
@@ -94,7 +95,7 @@ public:
 	bool active (nano::qualified_root const &);
 	void update_difficulty (nano::block const &);
 	void adjust_difficulty (nano::block_hash const &);
-	void update_active_difficulty (std::unique_lock<std::mutex> &);
+	void update_active_difficulty (nano::unique_lock<std::mutex> &);
 	uint64_t active_difficulty ();
 	uint64_t limited_active_difficulty ();
 	std::deque<std::shared_ptr<nano::block>> list_blocks (bool = false);
@@ -120,6 +121,8 @@ public:
 	std::deque<nano::election_status> list_confirmed ();
 	std::deque<nano::election_status> confirmed;
 	void add_confirmed (nano::election_status const &, nano::qualified_root const &);
+	void add_inactive_votes_cache (nano::block_hash const &, nano::account const &);
+	nano::gap_information find_inactive_votes_cache (nano::block_hash const &);
 	nano::node & node;
 	std::mutex mutex;
 	// Minimum number of confirmation requests
@@ -133,6 +136,7 @@ public:
 	size_t priority_cementable_frontiers_size ();
 	size_t priority_wallet_cementable_frontiers_size ();
 	boost::circular_buffer<double> difficulty_trend ();
+	size_t inactive_votes_cache_size ();
 	void clear_block (nano::block_hash const & hash_a);
 
 private:
@@ -141,11 +145,11 @@ private:
 	bool add (std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
 	// clang-format on
 	void request_loop ();
-	void request_confirm (std::unique_lock<std::mutex> &);
+	void request_confirm (nano::unique_lock<std::mutex> &);
 	void confirm_frontiers (nano::transaction const &);
 	nano::account next_frontier_account{ 0 };
 	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
-	std::condition_variable condition;
+	nano::condition_variable condition;
 	bool started{ false };
 	std::atomic<bool> stopped{ false };
 	boost::multi_index_container<
@@ -172,6 +176,13 @@ private:
 	void prioritize_account_for_confirmation (prioritize_num_uncemented &, size_t &, nano::account const &, nano::account_info const &, uint64_t);
 	static size_t constexpr max_priority_cementable_frontiers{ 100000 };
 	static size_t constexpr confirmed_frontiers_max_pending_cut_off{ 1000 };
+	boost::multi_index_container<
+	nano::gap_information,
+	boost::multi_index::indexed_by<
+	boost::multi_index::ordered_non_unique<boost::multi_index::member<gap_information, std::chrono::steady_clock::time_point, &gap_information::arrival>>,
+	boost::multi_index::hashed_unique<boost::multi_index::member<gap_information, nano::block_hash, &gap_information::hash>>>>
+	inactive_votes_cache;
+	static size_t constexpr inactive_votes_cache_max{ 16 * 1024 };
 	boost::thread thread;
 
 	friend class confirmation_height_prioritize_frontiers_Test;
