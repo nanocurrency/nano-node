@@ -372,7 +372,7 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 		{
 			if (!pending_confirmations.is_processing_block (hash))
 			{
-				auto election_status_type = active.confirm_block (transaction_a, block, sideband);
+				auto election_status_type = active.confirm_block (transaction_a, block);
 				if (election_status_type.is_initialized ())
 				{
 					block_callbacks_required.emplace_back (block, sideband, *election_status_type);

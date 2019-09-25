@@ -115,9 +115,9 @@ void nano::active_transactions::post_confirmation_height_set (nano::transaction 
 	else
 	{
 		auto hash (block_a->hash ());
-		nano::unique_lock<std::mutex> lock (mutex);
-		auto existing (blocks.find (hash));
-		if (existing != blocks.end ())
+		nano::lock_guard<std::mutex> lock (mutex);
+		auto existing (pending_conf_height.find (hash));
+		if (existing != pending_conf_height.end ())
 		{
 			auto election = existing->second;
 			if (election->confirmed && !election->stopped && election->status.winner->hash () == hash)
@@ -140,10 +140,9 @@ void nano::active_transactions::post_confirmation_height_set (nano::transaction 
 						node.observers.account_balance.notify (pending_account, true);
 					}
 				}
-
-				election->clear_blocks ();
-				election->clear_dependent ();
 			}
+
+			pending_conf_height.erase (hash);
 		}
 	}
 }
@@ -925,17 +924,11 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 void nano::active_transactions::clear_block (nano::block_hash const & hash_a)
 {
 	nano::lock_guard<std::mutex> guard (mutex);
-	auto existing (blocks.find (hash_a));
-	if (existing != blocks.end ())
-	{
-		auto election = existing->second;
-		election->clear_blocks ();
-		election->clear_dependent ();
-	}
+	pending_conf_height.erase (hash_a);
 }
 
 // Returns the type of election status requiring callbacks calling later
-boost::optional<nano::election_status_type> nano::active_transactions::confirm_block (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_sideband const & sideband_a)
+boost::optional<nano::election_status_type> nano::active_transactions::confirm_block (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a)
 {
 	auto hash (block_a->hash ());
 	nano::unique_lock<std::mutex> lock (mutex);
@@ -1042,17 +1035,20 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transaction
 	size_t roots_count = 0;
 	size_t blocks_count = 0;
 	size_t confirmed_count = 0;
+	size_t pending_conf_height_count = 0;
 
 	{
 		nano::lock_guard<std::mutex> guard (active_transactions.mutex);
 		roots_count = active_transactions.roots.size ();
 		blocks_count = active_transactions.blocks.size ();
 		confirmed_count = active_transactions.confirmed.size ();
+		pending_conf_height_count = active_transactions.pending_conf_height.size ();
 	}
 
 	auto composite = std::make_unique<seq_con_info_composite> (name);
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "roots", roots_count, sizeof (decltype (active_transactions.roots)::value_type) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "blocks", blocks_count, sizeof (decltype (active_transactions.blocks)::value_type) }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "pending_conf_height", pending_conf_height_count, sizeof (decltype (active_transactions.pending_conf_height)::value_type) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "confirmed", confirmed_count, sizeof (decltype (active_transactions.confirmed)::value_type) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "priority_wallet_cementable_frontiers_count", active_transactions.priority_wallet_cementable_frontiers_size (), sizeof (nano::cementable_account) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "priority_cementable_frontiers_count", active_transactions.priority_cementable_frontiers_size (), sizeof (nano::cementable_account) }));

@@ -50,7 +50,11 @@ void nano::election::confirm_once (nano::election_status_type type_a)
 		{
 			--node.active.long_unconfirmed_size;
 		}
-		node.active.roots.erase (status.winner->qualified_root ());
+		auto root (status.winner->qualified_root ());
+		node.active.pending_conf_height.emplace (status.winner->hash (), shared_from_this ());
+		clear_blocks ();
+		clear_dependent ();	
+		node.active.roots.erase (root);
 	}
 }
 

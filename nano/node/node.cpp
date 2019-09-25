@@ -1181,28 +1181,27 @@ void nano::node::process_confirmed_data (nano::transaction const & transaction_a
 
 void nano::node::process_confirmed (nano::election_status const & status_a, uint8_t iteration)
 {
-	auto block_a (status_a.winner);
-	auto hash (block_a->hash ());
-	nano::block_sideband sideband;
-	auto transaction (store.tx_begin_read ());
-	if (store.block_get (transaction, hash, &sideband) != nullptr)
+	if (status_a.type == nano::election_status_type::active_confirmed_quorum)
 	{
-		if (status_a.type == nano::election_status_type::active_confirmed_quorum)
+		auto block_a (status_a.winner);
+		auto hash (block_a->hash ());
+		auto transaction (store.tx_begin_read ());
+		if (store.block_get (transaction, hash) != nullptr)
 		{
 			confirmation_height_processor.add (hash);
 		}
-	}
-	// Limit to 0.5 * 20 = 10 seconds (more than max block_processor::process_batch finish time)
-	else if (iteration < 20)
-	{
-		iteration++;
-		std::weak_ptr<nano::node> node_w (shared ());
-		alarm.add (std::chrono::steady_clock::now () + network_params.node.process_confirmed_interval, [node_w, status_a, iteration]() {
-			if (auto node_l = node_w.lock ())
-			{
-				node_l->process_confirmed (status_a, iteration);
-			}
-		});
+		// Limit to 0.5 * 20 = 10 seconds (more than max block_processor::process_batch finish time)
+		else if (iteration < 20)
+		{
+			iteration++;
+			std::weak_ptr<nano::node> node_w (shared ());
+			alarm.add (std::chrono::steady_clock::now () + network_params.node.process_confirmed_interval, [node_w, status_a, iteration]() {
+				if (auto node_l = node_w.lock ())
+				{
+					node_l->process_confirmed (status_a, iteration);
+				}
+			});
+		}
 	}
 }
 
@@ -1366,12 +1365,10 @@ std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, b
 #if NANO_ROCKSDB
 		/** To use RocksDB in tests make sure the node is built with the cmake variable -DNANO_ROCKSDB=ON and the environment variable TEST_USE_ROCKSDB=1 is set */
 		static nano::network_constants network_constants;
-		if (auto use_rocksdb_str = std::getenv ("TEST_USE_ROCKSDB") && network_constants.is_test_network ())
+		auto use_rocksdb_str = std::getenv ("TEST_USE_ROCKSDB");
+		if (use_rocksdb_str && (boost::lexical_cast<int> (use_rocksdb_str) == 1) && network_constants.is_test_network ())
 		{
-			if (boost::lexical_cast<int> (use_rocksdb_str) == 1)
-			{
-				return make_rocksdb ();
-			}
+			return make_rocksdb ();
 		}
 #endif
 	}

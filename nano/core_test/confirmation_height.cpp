@@ -1007,7 +1007,7 @@ TEST (confirmation_height, callback_confirmed_history)
 		ASSERT_EQ (0, node->active.list_confirmed ().size ());
 		{
 			nano::lock_guard<std::mutex> guard (node->active.mutex);
-			ASSERT_EQ (1, node->active.blocks.size ());
+			ASSERT_EQ (0, node->active.blocks.size ());
 		}
 
 		auto transaction = node->store.tx_begin_read ();
@@ -1042,7 +1042,7 @@ TEST (confirmation_height, callback_confirmed_history)
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::observer, nano::stat::detail::observer_confirmation_inactive, nano::stat::dir::out));
 
 	nano::lock_guard<std::mutex> guard (node->active.mutex);
-	ASSERT_EQ (0, node->active.blocks.size ());
+	ASSERT_EQ (0, node->active.pending_conf_height.size ());
 }
 
 namespace nano
@@ -1108,7 +1108,7 @@ TEST (confirmation_height, dependent_election)
 	ASSERT_EQ (3, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
 
 	nano::lock_guard<std::mutex> guard (node->active.mutex);
-	ASSERT_EQ (0, node->active.blocks.size ());
+	ASSERT_EQ (0, node->active.pending_conf_height.size ());
 }
 
 TEST (confirmation_height, dependent_election_after_already_cemented)
@@ -1146,7 +1146,7 @@ TEST (confirmation_height, dependent_election_after_already_cemented)
 		ASSERT_EQ (0, node->active.list_confirmed ().size ());
 		{
 			nano::lock_guard<std::mutex> guard (node->active.mutex);
-			ASSERT_EQ (1, node->active.blocks.size ());
+			ASSERT_EQ (0, node->active.blocks.size ());
 		}
 
 		auto transaction = node->store.tx_begin_read ();
@@ -1174,7 +1174,7 @@ TEST (confirmation_height, dependent_election_after_already_cemented)
 
 	system.deadline_set (10s);
 	nano::unique_lock<std::mutex> lk (node->active.mutex);
-	while (node->active.blocks.size () > 0)
+	while (node->active.pending_conf_height.size () > 0)
 	{
 		lk.unlock ();
 		ASSERT_NO_ERROR (system.poll ());
