@@ -535,7 +535,7 @@ void nano::bootstrap_attempt::requeue_pull (nano::pull_info const & pull_a)
 		pulls.push_front (pull);
 		condition.notify_all ();
 	}
-	else if (mode == nano::bootstrap_mode::lazy && (pull.confirmed_head || pull.attempts <= nano::bootstrap_limits::bootstrap_lazy_retry_limit))
+	else if (mode == nano::bootstrap_mode::lazy && (pull.confirmed_head || pull.attempts <= nano::bootstrap_limits::bootstrap_lazy_retry_limit + (pull.processed / node->network_params.bootstrap.lazy_max_pull_blocks)))
 	{
 		assert (pull.account_or_head == pull.head);
 		if (!lazy_processed_or_exists (pull.account_or_head))
