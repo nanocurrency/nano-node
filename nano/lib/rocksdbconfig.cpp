@@ -12,7 +12,7 @@ nano::error nano::rocksdb_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("block_size", block_size, "Uncompressed data (KBs) per block. Increasing block size decreases memory usage and space amplification, but increases read amplification. 16 is recommended.\ntype:uint32");
 	toml.put ("num_memtables", num_memtables, "Number of memtables to keep in memory per column family. 2 is the minimum, 3 is recommended.\ntype:uint32");
 	toml.put ("memtable_size", memtable_size, "Amount of memory (MB) to build up before flushing to disk for an individual column family. Large values increase performance. 64 or 128 is recommended\ntype:uint32");
-	toml.put ("total_memtable_size", total_memtable_size, "Total memory (MB) which can be used across all memtables, set to 0 for unconstrained. \ntype:uint32");
+	toml.put ("total_memtable_size", total_memtable_size, "Total memory (MB) which can be used across all memtables, set to 0 for unconstrained.\ntype:uint32");
 	return toml.get_error ();
 }
 
@@ -36,7 +36,7 @@ nano::error nano::rocksdb_config::deserialize_toml (nano::tomlconfig & toml)
 	}
 	if (num_memtables < 2)
 	{
-		toml.get_error ().set ("num_memtables must be at least 2, 3 is recommended");
+		toml.get_error ().set ("num_memtables must be at least 2");
 	}
 	if (memtable_size == 0)
 	{
