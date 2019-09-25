@@ -180,17 +180,6 @@ public:
 	nano::block_hash const & previous () const;
 };
 
-// Bootstrap hash or account
-class bootstrap_hash_or_account final : public hash_or_account
-{
-public:
-	bootstrap_hash_or_account () = default;
-	bootstrap_hash_or_account (uint64_t value_a);
-
-	bool operator== (nano::bootstrap_hash_or_account const &) const;
-	bool operator!= (nano::bootstrap_hash_or_account const &) const;
-};
-
 class private_key : public uint256_union
 {
 public:

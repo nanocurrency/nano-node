@@ -576,7 +576,7 @@ void nano::bootstrap_attempt::lazy_start (nano::block_hash const & hash_a)
 	}
 }
 
-void nano::bootstrap_attempt::lazy_add (nano::bootstrap_hash_or_account const & hash_or_account_a, bool confirmed_head)
+void nano::bootstrap_attempt::lazy_add (nano::hash_or_account const & hash_or_account_a, bool confirmed_head)
 {
 	// Add only unknown blocks
 	assert (!lazy_mutex.try_lock ());

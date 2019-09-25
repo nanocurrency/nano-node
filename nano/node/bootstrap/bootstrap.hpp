@@ -84,7 +84,7 @@ public:
 	/** Lazy bootstrap */
 	void lazy_run ();
 	void lazy_start (nano::block_hash const &);
-	void lazy_add (nano::bootstrap_hash_or_account const &, bool = true);
+	void lazy_add (nano::hash_or_account const &, bool = true);
 	void lazy_requeue (nano::block_hash const &);
 	bool lazy_finished ();
 	void lazy_pull_flush ();
@@ -128,7 +128,7 @@ public:
 	std::unordered_map<nano::block_hash, nano::lazy_state_backlog_item> lazy_state_backlog;
 	std::unordered_map<nano::block_hash, nano::uint128_t> lazy_balances;
 	std::unordered_set<nano::block_hash> lazy_keys;
-	std::deque<std::pair<nano::bootstrap_hash_or_account, bool>> lazy_pulls;
+	std::deque<std::pair<nano::hash_or_account, bool>> lazy_pulls;
 	std::chrono::steady_clock::time_point last_lazy_flush{ std::chrono::steady_clock::now () };
 	class account_tag
 	{

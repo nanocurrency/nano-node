@@ -842,16 +842,6 @@ bool nano::hash_or_account::operator!= (nano::hash_or_account const & hash_or_ac
 	return !(*this == hash_or_account_a);
 }
 
-bool nano::bootstrap_hash_or_account::operator== (nano::bootstrap_hash_or_account const & bootstrap_hash_or_account_a) const
-{
-	return bytes == bootstrap_hash_or_account_a.bytes;
-}
-
-bool nano::bootstrap_hash_or_account::operator!= (nano::bootstrap_hash_or_account const & bootstrap_hash_or_account_a) const
-{
-	return !(*this == bootstrap_hash_or_account_a);
-}
-
 std::string nano::to_string_hex (uint64_t const value_a)
 {
 	std::stringstream stream;
@@ -934,11 +924,6 @@ nano::public_key::operator nano::hash_or_account const & () const
 	return reinterpret_cast<nano::hash_or_account const &> (*this);
 }
 
-nano::public_key::operator nano::bootstrap_hash_or_account const & () const
-{
-	return nano::to_bootstrap (*this);
-}
-
 nano::block_hash::operator nano::link const & () const
 {
 	return reinterpret_cast<nano::link const &> (*this);
@@ -952,19 +937,4 @@ nano::block_hash::operator nano::root const & () const
 nano::block_hash::operator nano::hash_or_account const & () const
 {
 	return reinterpret_cast<nano::hash_or_account const &> (*this);
-}
-
-nano::block_hash::operator nano::bootstrap_hash_or_account const & () const
-{
-	return nano::to_bootstrap (*this);
-}
-
-nano::link::operator nano::bootstrap_hash_or_account const & () const
-{
-	return nano::to_bootstrap (*this);
-}
-
-nano::root::operator nano::bootstrap_hash_or_account const & () const
-{
-	return nano::to_bootstrap (*this);
 }
