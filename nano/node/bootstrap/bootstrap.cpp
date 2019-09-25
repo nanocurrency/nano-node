@@ -145,7 +145,7 @@ void nano::bootstrap_attempt::request_pull (nano::unique_lock<std::mutex> & lock
 		if (mode != nano::bootstrap_mode::legacy)
 		{
 			// Check if pull is obsolete (head was processed)
-			nano::unique_lock<std::mutex> lock (lazy_mutex);
+			nano::lock_guard<std::mutex> lazy_lock (lazy_mutex);
 			auto transaction (node->store.tx_begin_read ());
 			while (!pulls.empty () && !pull.head.is_zero () && (lazy_blocks.find (pull.head) != lazy_blocks.end () || node->store.block_exists (transaction, pull.head)))
 			{
@@ -566,7 +566,7 @@ void nano::bootstrap_attempt::add_bulk_push_target (nano::block_hash const & hea
 
 void nano::bootstrap_attempt::lazy_start (nano::block_hash const & hash_a)
 {
-	nano::unique_lock<std::mutex> lock (lazy_mutex);
+	nano::lock_guard<std::mutex> lazy_lock (lazy_mutex);
 	// Add start blocks, limit 1024 (32k with disabled legacy bootstrap)
 	size_t max_keys (node->flags.disable_legacy_bootstrap ? 32 * 1024 : 1024);
 	if (lazy_keys.size () < max_keys && lazy_keys.find (hash_a) == lazy_keys.end () && lazy_blocks.find (hash_a) == lazy_blocks.end ())
@@ -588,7 +588,7 @@ void nano::bootstrap_attempt::lazy_add (nano::hash_or_account const & hash_or_ac
 
 void nano::bootstrap_attempt::lazy_requeue (nano::block_hash const & hash_a, nano::block_hash const & previous_a, bool confirmed_a)
 {
-	nano::unique_lock<std::mutex> lock (lazy_mutex);
+	nano::lock_guard<std::mutex> lazy_lock (lazy_mutex);
 	// Add only known blocks
 	auto existing (lazy_blocks.find (hash_a));
 	if (existing != lazy_blocks.end ())
@@ -603,7 +603,7 @@ void nano::bootstrap_attempt::lazy_pull_flush ()
 {
 	assert (!mutex.try_lock ());
 	last_lazy_flush = std::chrono::steady_clock::now ();
-	nano::unique_lock<std::mutex> lazy_lock (lazy_mutex);
+	nano::lock_guard<std::mutex> lazy_lock (lazy_mutex);
 	auto transaction (node->store.tx_begin_read ());
 	for (auto & pull_start : lazy_pulls)
 	{
@@ -621,7 +621,7 @@ bool nano::bootstrap_attempt::lazy_finished ()
 {
 	bool result (true);
 	auto transaction (node->store.tx_begin_read ());
-	nano::unique_lock<std::mutex> lock (lazy_mutex);
+	nano::lock_guard<std::mutex> lazy_lock (lazy_mutex);
 	for (auto it (lazy_keys.begin ()), end (lazy_keys.end ()); it != end && !stopped;)
 	{
 		if (node->store.block_exists (transaction, *it))
@@ -757,7 +757,7 @@ bool nano::bootstrap_attempt::process_block_lazy (std::shared_ptr<nano::block> b
 {
 	bool stop_pull (false);
 	auto hash (block_a->hash ());
-	nano::unique_lock<std::mutex> lock (lazy_mutex);
+	nano::lock_guard<std::mutex> lazy_lock (lazy_mutex);
 	// Processing new blocks
 	if (lazy_blocks.find (hash) == lazy_blocks.end ())
 	{
@@ -887,7 +887,7 @@ void nano::bootstrap_attempt::lazy_block_state_backlog_check (std::shared_ptr<na
 void nano::bootstrap_attempt::lazy_backlog_cleanup ()
 {
 	auto transaction (node->store.tx_begin_read ());
-	nano::lock_guard<std::mutex> lock (lazy_mutex);
+	nano::lock_guard<std::mutex> lazy_lock (lazy_mutex);
 	for (auto it (lazy_state_backlog.begin ()), end (lazy_state_backlog.end ()); it != end && !stopped;)
 	{
 		if (node->store.block_exists (transaction, it->first))
@@ -929,7 +929,7 @@ void nano::bootstrap_attempt::lazy_destinations_increment (nano::account const &
 void nano::bootstrap_attempt::lazy_destinations_flush ()
 {
 	size_t count (0);
-	nano::unique_lock<std::mutex> lazy_lock (lazy_mutex);
+	nano::lock_guard<std::mutex> lazy_lock (lazy_mutex);
 	if (last_lazy_destinations_flush + nano::bootstrap_limits::lazy_destinations_flush_delay_min < std::chrono::steady_clock::now ())
 	{
 		for (auto it (lazy_destinations.get<count_tag> ().begin ()), end (lazy_destinations.get<count_tag> ().end ()); it != end && count < nano::bootstrap_limits::bootstrap_lazy_destinations_request_limit && !stopped;)
