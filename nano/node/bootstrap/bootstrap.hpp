@@ -85,7 +85,7 @@ public:
 	void lazy_run ();
 	void lazy_start (nano::block_hash const &);
 	void lazy_add (nano::hash_or_account const &, bool = true);
-	void lazy_requeue (nano::block_hash const &);
+	void lazy_requeue (nano::block_hash const &, nano::block_hash const &, bool);
 	bool lazy_finished ();
 	void lazy_pull_flush ();
 	void lazy_clear ();

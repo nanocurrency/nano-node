@@ -586,7 +586,7 @@ void nano::bootstrap_attempt::lazy_add (nano::hash_or_account const & hash_or_ac
 	}
 }
 
-void nano::bootstrap_attempt::lazy_requeue (nano::block_hash const & hash_a)
+void nano::bootstrap_attempt::lazy_requeue (nano::block_hash const & hash_a, nano::block_hash const & previous_a, bool confirmed_a)
 {
 	nano::unique_lock<std::mutex> lock (lazy_mutex);
 	// Add only known blocks
@@ -595,7 +595,7 @@ void nano::bootstrap_attempt::lazy_requeue (nano::block_hash const & hash_a)
 	{
 		lazy_blocks.erase (existing);
 		lazy_mutex.unlock ();
-		requeue_pull (nano::pull_info (hash_a, hash_a, nano::block_hash (0), static_cast<nano::pull_info::count_t> (1)));
+		requeue_pull (nano::pull_info (hash_a, hash_a, previous_a, static_cast<nano::pull_info::count_t> (1), confirmed_a));
 	}
 }
 
@@ -761,7 +761,7 @@ bool nano::bootstrap_attempt::process_block_lazy (std::shared_ptr<nano::block> b
 	// Processing new blocks
 	if (lazy_blocks.find (hash) == lazy_blocks.end ())
 	{
-		nano::unchecked_info info (block_a, known_account_a, 0, nano::signature_verification::unknown);
+		nano::unchecked_info info (block_a, known_account_a, 0, nano::signature_verification::unknown, confirmed_head);
 		node->block_processor.add (info);
 		// Search for new dependencies
 		if (!block_a->source ().is_zero () && !node->ledger.block_exists (block_a->source ()) && block_a->source () != node->network_params.ledger.genesis_account)
