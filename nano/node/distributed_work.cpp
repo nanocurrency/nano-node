@@ -19,9 +19,9 @@ callback (callback_a),
 backoff (backoff_a),
 node (node_a),
 root (root_a),
+account (account_a),
 need_resolve (node.config.work_peers),
 difficulty (difficulty_a),
-account (account_a),
 elapsed (nano::timer_state::started, "distributed work generation timer")
 {
 	assert (!completed);
