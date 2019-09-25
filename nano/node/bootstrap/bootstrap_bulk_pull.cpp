@@ -3,7 +3,7 @@
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
 
-nano::pull_info::pull_info (nano::bootstrap_hash_or_account const & account_or_head_a, nano::block_hash const & head_a, nano::block_hash const & end_a, count_t count_a, bool confirmed_head_a) :
+nano::pull_info::pull_info (nano::hash_or_account const & account_or_head_a, nano::block_hash const & head_a, nano::block_hash const & end_a, count_t count_a, bool confirmed_head_a) :
 account_or_head (account_or_head_a),
 head (head_a),
 head_original (head_a),

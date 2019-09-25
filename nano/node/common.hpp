@@ -355,7 +355,7 @@ public:
 	void serialize (nano::stream &) const override;
 	bool deserialize (nano::stream &);
 	void visit (nano::message_visitor &) const override;
-	nano::bootstrap_hash_or_account start;
+	nano::hash_or_account start;
 	nano::block_hash end;
 	count_t count;
 	bool is_count_present () const;

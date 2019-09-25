@@ -827,44 +827,19 @@ nano::hash_or_account::operator nano::uint256_union const & () const
 	return raw;
 }
 
-nano::link::link (uint64_t value_a) :
-hash_or_account (value_a)
-{
-}
-
-nano::root::root (uint64_t value_a) :
-hash_or_account (value_a)
-{
-}
-
-nano::bootstrap_hash_or_account::bootstrap_hash_or_account (uint64_t value_a) :
-hash_or_account (value_a)
-{
-}
-
 nano::block_hash const & nano::root::previous () const
 {
 	return hash;
 }
 
-bool nano::root::operator== (nano::root const & root_a) const
+bool nano::hash_or_account::operator== (nano::hash_or_account const & hash_or_account_a) const
 {
-	return bytes == root_a.bytes;
+	return bytes == hash_or_account_a.bytes;
 }
 
-bool nano::root::operator!= (nano::root const & root_a) const
+bool nano::hash_or_account::operator!= (nano::hash_or_account const & hash_or_account_a) const
 {
-	return !(*this == root_a);
-}
-
-bool nano::link::operator== (nano::link const & link_a) const
-{
-	return bytes == link_a.bytes;
-}
-
-bool nano::link::operator!= (nano::link const & link_a) const
-{
-	return !(*this == link_a);
+	return !(*this == hash_or_account_a);
 }
 
 bool nano::bootstrap_hash_or_account::operator== (nano::bootstrap_hash_or_account const & bootstrap_hash_or_account_a) const
@@ -946,12 +921,17 @@ double nano::difficulty::to_multiplier (uint64_t const difficulty_a, uint64_t co
 
 nano::public_key::operator nano::link const & () const
 {
-	return nano::to_link (*this);
+	return reinterpret_cast<nano::link const &> (*this);
 }
 
 nano::public_key::operator nano::root const & () const
 {
-	return nano::to_root (*this);
+	return reinterpret_cast<nano::root const &> (*this);
+}
+
+nano::public_key::operator nano::hash_or_account const & () const
+{
+	return reinterpret_cast<nano::hash_or_account const &> (*this);
 }
 
 nano::public_key::operator nano::bootstrap_hash_or_account const & () const
@@ -961,12 +941,17 @@ nano::public_key::operator nano::bootstrap_hash_or_account const & () const
 
 nano::block_hash::operator nano::link const & () const
 {
-	return nano::to_link (*this);
+	return reinterpret_cast<nano::link const &> (*this);
 }
 
 nano::block_hash::operator nano::root const & () const
 {
-	return nano::to_root (*this);
+	return reinterpret_cast<nano::root const &> (*this);
+}
+
+nano::block_hash::operator nano::hash_or_account const & () const
+{
+	return reinterpret_cast<nano::hash_or_account const &> (*this);
 }
 
 nano::block_hash::operator nano::bootstrap_hash_or_account const & () const

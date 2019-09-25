@@ -100,7 +100,7 @@ static_assert (std::is_nothrow_move_constructible<uint256_union>::value, "uint25
 
 class link;
 class root;
-class bootstrap_hash_or_account;
+class hash_or_account;
 
 // All keys and hashes are 256 bit.
 class block_hash final : public uint256_union
@@ -109,7 +109,7 @@ public:
 	using uint256_union::uint256_union;
 	operator nano::link const & () const;
 	operator nano::root const & () const;
-	operator nano::bootstrap_hash_or_account const & () const;
+	operator nano::hash_or_account const & () const;
 };
 
 class public_key final : public uint256_union
@@ -124,7 +124,7 @@ public:
 
 	operator nano::link const & () const;
 	operator nano::root const & () const;
-	operator nano::bootstrap_hash_or_account const & () const;
+	operator nano::hash_or_account const & () const;
 };
 
 class wallet_id : public uint256_union
@@ -138,6 +138,9 @@ using account = public_key;
 class hash_or_account
 {
 public:
+	hash_or_account () = default;
+	hash_or_account (uint64_t value_a);
+
 	bool is_zero () const;
 	void clear ();
 	std::string to_string () const;
@@ -149,6 +152,9 @@ public:
 	operator nano::account const & () const;
 	operator nano::uint256_union const & () const;
 
+	bool operator== (nano::hash_or_account const &) const;
+	bool operator!= (nano::hash_or_account const &) const;
+
 	union
 	{
 		std::array<uint8_t, 32> bytes;
@@ -156,35 +162,20 @@ public:
 		nano::account account;
 		nano::block_hash hash;
 	};
-
-protected:
-	// Cannot instantiate a concrete version of this class
-	hash_or_account () = default;
-	hash_or_account (uint64_t value_a);
 };
 
 // A link can either be a destination account or source hash
 class link final : public hash_or_account
 {
 public:
-	link () = default;
-	link (uint64_t value_a);
-
-	bool operator== (nano::link const &) const;
-	bool operator!= (nano::link const &) const;
-	operator nano::bootstrap_hash_or_account const & () const;
+	using hash_or_account::hash_or_account;
 };
 
 // A root can either be an open block hash or a previous hash
 class root final : public hash_or_account
 {
 public:
-	root () = default;
-	root (uint64_t value_a);
-
-	bool operator== (nano::root const &) const;
-	bool operator!= (nano::root const &) const;
-	operator nano::bootstrap_hash_or_account const & () const;
+	using hash_or_account::hash_or_account;
 
 	nano::block_hash const & previous () const;
 };
@@ -242,53 +233,6 @@ public:
 	};
 };
 static_assert (std::is_nothrow_move_constructible<uint512_union>::value, "uint512_union should be noexcept MoveConstructible");
-
-inline nano::link const & to_link (nano::block_hash const & hash_a)
-{
-	return reinterpret_cast<nano::link const &> (hash_a);
-}
-
-inline nano::link const & to_link (nano::account const & account_a)
-{
-	return reinterpret_cast<nano::link const &> (account_a);
-}
-
-inline nano::root const & to_root (nano::block_hash const & hash_a)
-{
-	return reinterpret_cast<nano::root const &> (hash_a);
-}
-
-inline nano::root const & to_root (nano::account const & account_a)
-{
-	return reinterpret_cast<nano::root const &> (account_a);
-}
-
-inline nano::bootstrap_hash_or_account const & to_bootstrap (nano::block_hash const & hash_a)
-{
-	return reinterpret_cast<nano::bootstrap_hash_or_account const &> (hash_a);
-}
-
-inline nano::bootstrap_hash_or_account const & to_bootstrap (nano::account const & account_a)
-{
-	return reinterpret_cast<nano::bootstrap_hash_or_account const &> (account_a);
-}
-
-inline nano::bootstrap_hash_or_account const & to_bootstrap (nano::link const & link_a)
-{
-	return reinterpret_cast<nano::bootstrap_hash_or_account const &> (link_a);
-}
-
-inline nano::bootstrap_hash_or_account const & to_bootstrap (nano::root const & root_a)
-{
-	return reinterpret_cast<nano::bootstrap_hash_or_account const &> (root_a);
-}
-
-inline nano::account const & root_as_account (nano::root const & root_a)
-{
-	static_assert (sizeof (nano::root) == sizeof (nano::account), "Sizes do not match");
-	static_assert (std::is_standard_layout<nano::root>::value && std::is_standard_layout<nano::account>::value, "Both types must have standard layout");
-	return reinterpret_cast<nano::account const &> (root_a);
-}
 
 class signature : public uint512_union
 {

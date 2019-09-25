@@ -12,8 +12,8 @@ class pull_info
 public:
 	using count_t = nano::bulk_pull::count_t;
 	pull_info () = default;
-	pull_info (nano::bootstrap_hash_or_account const &, nano::block_hash const &, nano::block_hash const &, count_t = 0, bool = false);
-	nano::bootstrap_hash_or_account account_or_head{ 0 };
+	pull_info (nano::hash_or_account const &, nano::block_hash const &, nano::block_hash const &, count_t = 0, bool = false);
+	nano::hash_or_account account_or_head{ 0 };
 	nano::block_hash head{ 0 };
 	nano::block_hash head_original{ 0 };
 	nano::block_hash end{ 0 };
