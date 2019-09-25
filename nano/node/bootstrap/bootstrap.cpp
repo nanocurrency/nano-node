@@ -561,7 +561,7 @@ void nano::bootstrap_attempt::requeue_pull (nano::pull_info const & pull_a)
 void nano::bootstrap_attempt::add_bulk_push_target (nano::block_hash const & head, nano::block_hash const & end)
 {
 	nano::lock_guard<std::mutex> lock (mutex);
-	bulk_push_targets.push_back (std::make_pair (head, end));
+	bulk_push_targets.emplace_back (head, end);
 }
 
 void nano::bootstrap_attempt::lazy_start (nano::block_hash const & hash_a)
@@ -572,7 +572,7 @@ void nano::bootstrap_attempt::lazy_start (nano::block_hash const & hash_a)
 	if (lazy_keys.size () < max_keys && lazy_keys.find (hash_a) == lazy_keys.end () && lazy_blocks.find (hash_a) == lazy_blocks.end ())
 	{
 		lazy_keys.insert (hash_a);
-		lazy_pulls.push_back (std::make_pair (hash_a, true));
+		lazy_pulls.emplace_back (hash_a, true);
 	}
 }
 
@@ -582,7 +582,7 @@ void nano::bootstrap_attempt::lazy_add (nano::hash_or_account const & hash_or_ac
 	assert (!lazy_mutex.try_lock ());
 	if (lazy_blocks.find (hash_or_account_a) == lazy_blocks.end ())
 	{
-		lazy_pulls.push_back (std::make_pair (hash_or_account_a, confirmed_head));
+		lazy_pulls.emplace_back (hash_or_account_a, confirmed_head);
 	}
 }
 
@@ -611,7 +611,7 @@ void nano::bootstrap_attempt::lazy_pull_flush ()
 		if (lazy_blocks.find (pull_start.first) == lazy_blocks.end () && !node->store.block_exists (transaction, pull_start.first))
 		{
 			assert (node->network_params.bootstrap.lazy_max_pull_blocks <= std::numeric_limits<nano::pull_info::count_t>::max ());
-			pulls.push_back (nano::pull_info (pull_start.first, pull_start.first, nano::block_hash (0), static_cast<nano::pull_info::count_t> (node->network_params.bootstrap.lazy_max_pull_blocks), pull_start.second));
+			pulls.emplace_back (pull_start.first, pull_start.first, nano::block_hash (0), static_cast<nano::pull_info::count_t> (node->network_params.bootstrap.lazy_max_pull_blocks), pull_start.second);
 		}
 	}
 	lazy_pulls.clear ();
@@ -784,7 +784,7 @@ bool nano::bootstrap_attempt::process_block_lazy (std::shared_ptr<nano::block> b
 		// Adding lazy balances for first processed block in pull
 		if (pull_blocks == 0 && (block_a->type () == nano::block_type::state || block_a->type () == nano::block_type::send))
 		{
-			lazy_balances.insert (std::make_pair (hash, block_a->balance ().number ()));
+			lazy_balances.emplace (hash, block_a->balance ().number ());
 		}
 		// Clearing lazy balances for previous block
 		if (!block_a->previous ().is_zero () && lazy_balances.find (block_a->previous ()) != lazy_balances.end ())
