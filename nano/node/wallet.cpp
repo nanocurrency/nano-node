@@ -411,9 +411,14 @@ nano::public_key nano::wallet_store::insert_adhoc (nano::transaction const & tra
 	return pub;
 }
 
-void nano::wallet_store::insert_watch (nano::transaction const & transaction_a, nano::public_key const & pub)
+bool nano::wallet_store::insert_watch (nano::transaction const & transaction_a, nano::public_key const & pub_a)
 {
-	entry_put_raw (transaction_a, pub, nano::wallet_value (nano::uint256_union (0), 0));
+	bool error (!valid_public_key (pub_a));
+	if (!error)
+	{
+		entry_put_raw (transaction_a, pub_a, nano::wallet_value (nano::uint256_union (0), 0));
+	}
+	return error;
 }
 
 void nano::wallet_store::erase (nano::transaction const & transaction_a, nano::public_key const & pub)
@@ -523,9 +528,14 @@ bool nano::wallet_store::fetch (nano::transaction const & transaction_a, nano::p
 	return result;
 }
 
+bool nano::wallet_store::valid_public_key (nano::public_key const & pub)
+{
+	return pub.number () >= special_count;
+}
+
 bool nano::wallet_store::exists (nano::transaction const & transaction_a, nano::public_key const & pub)
 {
-	return !pub.is_zero () && find (transaction_a, pub) != end ();
+	return valid_public_key (pub) && find (transaction_a, pub) != end ();
 }
 
 void nano::wallet_store::serialize_json (nano::transaction const & transaction_a, std::string & string_a)
@@ -868,9 +878,9 @@ nano::public_key nano::wallet::insert_adhoc (nano::raw_key const & account_a, bo
 	return result;
 }
 
-void nano::wallet::insert_watch (nano::transaction const & transaction_a, nano::public_key const & pub_a)
+bool nano::wallet::insert_watch (nano::transaction const & transaction_a, nano::public_key const & pub_a)
 {
-	store.insert_watch (transaction_a, pub_a);
+	return store.insert_watch (transaction_a, pub_a);
 }
 
 bool nano::wallet::exists (nano::public_key const & account_a)
@@ -1358,7 +1368,7 @@ bool nano::wallet::live ()
 
 void nano::wallet::work_cache_blocking (nano::account const & account_a, nano::block_hash const & root_a)
 {
-	auto opt_work_l (wallets.node.work_generate_blocking (root_a));
+	auto opt_work_l (wallets.node.work_generate_blocking (root_a, account_a));
 	if (opt_work_l.is_initialized ())
 	{
 		auto transaction_l (wallets.tx_begin_write ());
@@ -1430,7 +1440,8 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 				auto active_difficulty (watcher_l->node.active.limited_active_difficulty ());
 				if (active_difficulty > difficulty)
 				{
-					watcher_l->node.work_generate (root_l, [watcher_l, block_a, root_a](boost::optional<uint64_t> work_a) {
+					watcher_l->node.work_generate (
+					root_l, [watcher_l, block_a, root_a](boost::optional<uint64_t> work_a) {
 						if (block_a != nullptr && watcher_l != nullptr && !watcher_l->stopped)
 						{
 							bool updated_l{ false };
@@ -1471,7 +1482,7 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 							}
 						}
 					},
-					active_difficulty);
+					active_difficulty, block_a->account ());
 				}
 				else
 				{

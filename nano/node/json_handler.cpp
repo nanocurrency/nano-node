@@ -1372,7 +1372,7 @@ void nano::json_handler::block_create ()
 					{
 						if (work == 0)
 						{
-							auto opt_work_l (node.work_generate_blocking (previous.is_zero () ? pub : previous));
+							auto opt_work_l (node.work_generate_blocking (previous.is_zero () ? pub : previous, nano::account (pub)));
 							if (opt_work_l.is_initialized ())
 							{
 								work = *opt_work_l;
@@ -1412,7 +1412,7 @@ void nano::json_handler::block_create ()
 					{
 						if (work == 0)
 						{
-							auto opt_work_l (node.work_generate_blocking (pub));
+							auto opt_work_l (node.work_generate_blocking (pub, nano::account (pub)));
 							if (opt_work_l.is_initialized ())
 							{
 								work = *opt_work_l;
@@ -1442,7 +1442,7 @@ void nano::json_handler::block_create ()
 					{
 						if (work == 0)
 						{
-							auto opt_work_l (node.work_generate_blocking (previous));
+							auto opt_work_l (node.work_generate_blocking (previous, nano::account (pub)));
 							if (opt_work_l.is_initialized ())
 							{
 								work = *opt_work_l;
@@ -1472,7 +1472,7 @@ void nano::json_handler::block_create ()
 					{
 						if (work == 0)
 						{
-							auto opt_work_l (node.work_generate_blocking (previous));
+							auto opt_work_l (node.work_generate_blocking (previous, nano::account (pub)));
 							if (opt_work_l.is_initialized ())
 							{
 								work = *opt_work_l;
@@ -1504,7 +1504,7 @@ void nano::json_handler::block_create ()
 						{
 							if (work == 0)
 							{
-								auto opt_work_l (node.work_generate_blocking (previous));
+								auto opt_work_l (node.work_generate_blocking (previous, nano::account (pub)));
 								if (opt_work_l.is_initialized ())
 								{
 									work = *opt_work_l;
@@ -1664,10 +1664,9 @@ void nano::json_handler::bootstrap_status ()
 		}
 		response_l.put ("mode", mode_text);
 		response_l.put ("lazy_blocks", std::to_string (attempt->lazy_blocks.size ()));
-		response_l.put ("lazy_state_unknown", std::to_string (attempt->lazy_state_unknown.size ()));
+		response_l.put ("lazy_state_backlog", std::to_string (attempt->lazy_state_backlog.size ()));
 		response_l.put ("lazy_balances", std::to_string (attempt->lazy_balances.size ()));
 		response_l.put ("lazy_pulls", std::to_string (attempt->lazy_pulls.size ()));
-		response_l.put ("lazy_stopped", std::to_string (attempt->lazy_stopped));
 		response_l.put ("lazy_keys", std::to_string (attempt->lazy_keys.size ()));
 		if (!attempt->lazy_keys.empty ())
 		{
@@ -3891,10 +3890,16 @@ void nano::json_handler::wallet_add_watch ()
 					auto account (rpc_l->account_impl (accounts.second.data ()));
 					if (!rpc_l->ec)
 					{
-						wallet->insert_watch (transaction, account);
+						if (wallet->insert_watch (transaction, account))
+						{
+							rpc_l->ec = nano::error_common::bad_public_key;
+						}
 					}
 				}
-				rpc_l->response_l.put ("success", "");
+				if (!rpc_l->ec)
+				{
+					rpc_l->response_l.put ("success", "");
+				}
 			}
 			else
 			{
@@ -4476,44 +4481,54 @@ void nano::json_handler::wallet_work_get ()
 
 void nano::json_handler::work_generate ()
 {
-	auto hash (hash_impl ());
-	auto difficulty (difficulty_optional_impl ());
-	multiplier_optional_impl (difficulty);
-	if (!ec && (difficulty > node.config.max_work_generate_difficulty || difficulty < node.network_params.network.publish_threshold))
+	boost::optional<nano::account> account;
+	auto account_opt (request.get_optional<std::string> ("account"));
+	if (account_opt.is_initialized ())
 	{
-		ec = nano::error_rpc::difficulty_limit;
+		account = account_impl (account_opt.get ());
 	}
 	if (!ec)
 	{
-		bool use_peers (request.get_optional<bool> ("use_peers") == true);
-		auto rpc_l (shared_from_this ());
-		auto callback = [rpc_l, hash, this](boost::optional<uint64_t> const & work_a) {
-			if (work_a)
+		auto hash (hash_impl ());
+		auto difficulty (difficulty_optional_impl ());
+		multiplier_optional_impl (difficulty);
+		if (!ec && (difficulty > node.config.max_work_generate_difficulty || difficulty < node.network_params.network.publish_threshold))
+		{
+			ec = nano::error_rpc::difficulty_limit;
+		}
+		if (!ec)
+		{
+			bool use_peers (request.get_optional<bool> ("use_peers") == true);
+			auto rpc_l (shared_from_this ());
+			auto callback = [rpc_l, hash, this](boost::optional<uint64_t> const & work_a) {
+				if (work_a)
+				{
+					boost::property_tree::ptree response_l;
+					response_l.put ("hash", hash.to_string ());
+					uint64_t work (work_a.value ());
+					response_l.put ("work", nano::to_string_hex (work));
+					std::stringstream ostream;
+					uint64_t result_difficulty;
+					nano::work_validate (hash, work, &result_difficulty);
+					response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
+					auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, this->node.network_params.network.publish_threshold);
+					response_l.put ("multiplier", nano::to_string (result_multiplier));
+					boost::property_tree::write_json (ostream, response_l);
+					rpc_l->response (ostream.str ());
+				}
+				else
+				{
+					json_error_response (rpc_l->response, "Cancelled");
+				}
+			};
+			if (!use_peers)
 			{
-				uint64_t work (work_a.value ());
-				boost::property_tree::ptree response_l;
-				response_l.put ("work", nano::to_string_hex (work));
-				std::stringstream ostream;
-				uint64_t result_difficulty;
-				nano::work_validate (hash, work, &result_difficulty);
-				response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
-				auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, this->node.network_params.network.publish_threshold);
-				response_l.put ("multiplier", nano::to_string (result_multiplier));
-				boost::property_tree::write_json (ostream, response_l);
-				rpc_l->response (ostream.str ());
+				node.work.generate (hash, callback, difficulty);
 			}
 			else
 			{
-				json_error_response (rpc_l->response, "Cancelled");
+				node.work_generate (hash, callback, difficulty, account);
 			}
-		};
-		if (!use_peers)
-		{
-			node.work.generate (hash, callback, difficulty);
-		}
-		else
-		{
-			node.work_generate (hash, callback, difficulty);
 		}
 	}
 	// Because of callback

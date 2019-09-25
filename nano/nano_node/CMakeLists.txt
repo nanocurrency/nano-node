@@ -12,6 +12,10 @@ target_link_libraries (nano_node
 	${PLATFORM_LIBS}
 )
 
+if (NANO_STACKTRACE_BACKTRACE)
+	target_link_libraries(nano_node backtrace)
+endif ()
+
 target_compile_definitions(nano_node
 	PRIVATE
 		-DTAG_VERSION_STRING=${TAG_VERSION_STRING}

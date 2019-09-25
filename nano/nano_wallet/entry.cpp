@@ -43,7 +43,7 @@ nano::error read_and_update_wallet_config (nano::wallet_config & config_a, boost
 }
 }
 
-int run_wallet (QApplication & application, int argc, char * const * argv, boost::filesystem::path const & data_path)
+int run_wallet (QApplication & application, int argc, char * const * argv, boost::filesystem::path const & data_path, std::vector<std::string> const & config_overrides)
 {
 	int result (0);
 	nano_qt::eventloop_processor processor;
@@ -60,7 +60,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	nano::daemon_config config (data_path);
 	nano::wallet_config wallet_config;
 
-	auto error = nano::read_node_config_toml (data_path, config);
+	auto error = nano::read_node_config_toml (data_path, config, config_overrides);
 	if (!error)
 	{
 		error = read_and_update_wallet_config (wallet_config, data_path);
@@ -208,6 +208,7 @@ int main (int argc, char * const * argv)
 		QApplication application (argc, const_cast<char **> (argv));
 		boost::program_options::options_description description ("Command line options");
 		description.add_options () ("help", "Print out options");
+		description.add_options () ("config", boost::program_options::value<std::vector<std::string>> ()->multitoken (), "Pass configuration values. This takes precedence over any values in the node configuration file. This option can be repeated multiple times.");
 		nano::add_node_options (description);
 		boost::program_options::variables_map vm;
 		boost::program_options::store (boost::program_options::command_line_parser (argc, argv).options (description).allow_unregistered ().run (), vm);
@@ -234,6 +235,12 @@ int main (int argc, char * const * argv)
 			}
 		}
 
+		std::vector<std::string> config_overrides;
+		if (vm.count ("config"))
+		{
+			config_overrides = vm["config"].as<std::vector<std::string>> ();
+		}
+
 		auto ec = nano::handle_node_options (vm);
 		if (ec == nano::error_cli::unknown_command)
 		{
@@ -255,7 +262,7 @@ int main (int argc, char * const * argv)
 					{
 						data_path = nano::working_path ();
 					}
-					result = run_wallet (application, argc, argv, data_path);
+					result = run_wallet (application, argc, argv, data_path, config_overrides);
 				}
 				catch (std::exception const & e)
 				{

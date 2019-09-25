@@ -58,7 +58,7 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 		}
 
 		// Spend time prioritizing accounts to reduce voting traffic
-		auto time_spent_prioritizing_ledger_accounts = (frontiers_fully_confirmed ? std::chrono::milliseconds (200) : std::chrono::seconds (2));
+		auto time_spent_prioritizing_ledger_accounts = (std::chrono::seconds (2));
 		auto time_spent_prioritizing_wallet_accounts = std::chrono::milliseconds (50);
 		prioritize_frontiers_for_confirmation (transaction_a, is_test_network ? std::chrono::milliseconds (50) : time_spent_prioritizing_ledger_accounts, time_spent_prioritizing_wallet_accounts);
 
@@ -98,11 +98,7 @@ void nano::active_transactions::confirm_frontiers (nano::transaction const & tra
 		};
 		start_elections_for_prioritized_frontiers (priority_cementable_frontiers);
 		start_elections_for_prioritized_frontiers (priority_wallet_cementable_frontiers);
-		frontiers_fully_confirmed = (elections_count < max_elections);
-		// 4 times slower check if all frontiers were confirmed
-		auto fully_confirmed_factor = frontiers_fully_confirmed ? 4 : 1;
-		// Calculate next check time
-		next_frontier_check = steady_clock::now () + (agressive_factor * fully_confirmed_factor / test_network_factor);
+		next_frontier_check = steady_clock::now () + (agressive_factor / test_network_factor);
 	}
 }
 void nano::active_transactions::post_confirmation_height_set (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_sideband const & sideband_a, nano::election_status_type election_status_type_a)
@@ -159,14 +155,14 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	unsigned unconfirmed_count (0);
 	unsigned unconfirmed_request_count (0);
 	unsigned could_fit_delay = node.network_params.network.is_test_network () ? high_confirmation_request_count - 1 : 1;
-	std::unordered_map<std::shared_ptr<nano::transport::channel>, std::vector<std::pair<nano::block_hash, nano::block_hash>>> requests_bundle;
+	std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::block_hash>>> requests_bundle;
 	std::deque<std::shared_ptr<nano::block>> rebroadcast_bundle;
 	std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>>> confirm_req_bundle;
 
 	/* Confirm frontiers when there aren't many confirmations already pending and node finished initial bootstrap
 	In auto mode start confirm only if node contains almost principal representative (half of required for principal weight) */
 	lock_a.unlock ();
-	if (node.config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled && node.pending_confirmation_height.size () < confirmed_frontiers_max_pending_cut_off && node.ledger.block_count_cache >= node.ledger.bootstrap_weight_max_blocks)
+	if (node.config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled && node.ledger.block_count_cache > node.ledger.cemented_count + roots.size () && node.pending_confirmation_height.size () < confirmed_frontiers_max_pending_cut_off && node.ledger.block_count_cache >= node.ledger.bootstrap_weight_max_blocks)
 	{
 		confirm_frontiers (transaction);
 	}
@@ -300,8 +296,8 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 						{
 							if (requests_bundle.size () < max_broadcast_queue)
 							{
-								std::vector<std::pair<nano::block_hash, nano::block_hash>> insert_vector = { root_hash };
-								requests_bundle.insert (std::make_pair (rep, insert_vector));
+								std::deque<std::pair<nano::block_hash, nano::block_hash>> insert_root_hash = { root_hash };
+								requests_bundle.insert (std::make_pair (rep, insert_root_hash));
 							}
 						}
 						else if (rep_request->second.size () < max_broadcast_queue * nano::network::confirm_req_hashes_max)

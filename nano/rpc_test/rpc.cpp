@@ -2621,23 +2621,29 @@ TEST (rpc, work_generate)
 	boost::property_tree::ptree request;
 	request.put ("action", "work_generate");
 	request.put ("hash", hash.to_string ());
-	test_response response (request, rpc.config.port, system.io_ctx);
-	system.deadline_set (5s);
-	while (response.status == 0)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	ASSERT_EQ (200, response.status);
-	auto work_text (response.json.get<std::string> ("work"));
-	uint64_t work, result_difficulty;
-	ASSERT_FALSE (nano::from_string_hex (work_text, work));
-	ASSERT_FALSE (nano::work_validate (hash, work, &result_difficulty));
-	auto response_difficulty_text (response.json.get<std::string> ("difficulty"));
-	uint64_t response_difficulty;
-	ASSERT_FALSE (nano::from_string_hex (response_difficulty_text, response_difficulty));
-	ASSERT_EQ (result_difficulty, response_difficulty);
-	auto multiplier = response.json.get<double> ("multiplier");
-	ASSERT_NEAR (nano::difficulty::to_multiplier (result_difficulty, node->network_params.network.publish_threshold), multiplier, 1e-6);
+	auto verify_response = [node, &rpc, &system](auto & request, auto & hash) {
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ (hash.to_string (), response.json.get<std::string> ("hash"));
+		auto work_text (response.json.get<std::string> ("work"));
+		uint64_t work, result_difficulty;
+		ASSERT_FALSE (nano::from_string_hex (work_text, work));
+		ASSERT_FALSE (nano::work_validate (hash, work, &result_difficulty));
+		auto response_difficulty_text (response.json.get<std::string> ("difficulty"));
+		uint64_t response_difficulty;
+		ASSERT_FALSE (nano::from_string_hex (response_difficulty_text, response_difficulty));
+		ASSERT_EQ (result_difficulty, response_difficulty);
+		auto multiplier = response.json.get<double> ("multiplier");
+		ASSERT_NEAR (nano::difficulty::to_multiplier (result_difficulty, node->network_params.network.publish_threshold), multiplier, 1e-6);
+	};
+	verify_response (request, hash);
+	request.put ("use_peers", "true");
+	verify_response (request, hash);
 }
 
 TEST (rpc, work_generate_difficulty)
@@ -5736,6 +5742,23 @@ TEST (rpc, wallet_add_watch)
 	std::string success (response.json.get<std::string> ("success"));
 	ASSERT_TRUE (success.empty ());
 	ASSERT_TRUE (system.wallet (0)->exists (nano::test_genesis_key.pub));
+
+	// Make sure using special wallet key as pubkey fails
+	nano::public_key bad_key (1);
+	entry.put ("", bad_key.to_account ());
+	peers_l.push_back (std::make_pair ("", entry));
+	request.erase ("accounts");
+	request.add_child ("accounts", peers_l);
+
+	test_response response_error (request, rpc.config.port, system.io_ctx);
+	system.deadline_set (5s);
+	while (response_error.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response_error.status);
+	std::error_code ec (nano::error_common::bad_public_key);
+	ASSERT_EQ (response_error.json.get<std::string> ("error"), ec.message ());
 }
 
 TEST (rpc, online_reps)

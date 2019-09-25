@@ -71,6 +71,10 @@ target_link_libraries (nano_lib
 	${timed_locks_boost_libs}
 	Boost::boost)
 
+if (NANO_STACKTRACE_BACKTRACE)
+	target_link_libraries(nano_lib backtrace)
+endif ()
+
 target_compile_definitions(nano_lib
 	PUBLIC
 		-DACTIVE_NETWORK=${ACTIVE_NETWORK}

@@ -14,13 +14,14 @@ std::shared_ptr<request_type> nano::work_peer_request::get_prepared_json_request
 	return request;
 }
 
-nano::distributed_work::distributed_work (unsigned int backoff_a, nano::node & node_a, nano::block_hash const & root_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a) :
+nano::distributed_work::distributed_work (unsigned int backoff_a, nano::node & node_a, nano::block_hash const & root_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a) :
 callback (callback_a),
 backoff (backoff_a),
 node (node_a),
 root (root_a),
 need_resolve (node.config.work_peers),
 difficulty (difficulty_a),
+account (account_a),
 elapsed (nano::timer_state::started, "distributed work generation timer")
 {
 	assert (!completed);
@@ -127,6 +128,10 @@ void nano::distributed_work::start_work ()
 						request.put ("action", "work_generate");
 						request.put ("hash", this_l->root.to_string ());
 						request.put ("difficulty", nano::to_string_hex (this_l->difficulty));
+						if (this_l->account.is_initialized ())
+						{
+							request.put ("account", this_l->account.get ().to_account ());
+						}
 						std::stringstream ostream;
 						boost::property_tree::write_json (ostream, request);
 						request_string = ostream.str ();
@@ -333,15 +338,13 @@ void nano::distributed_work::handle_failure (bool const last_a)
 				node.logger.always_log ("Work peer(s) failed to generate work for root ", root.to_string (), ", retrying...");
 			}
 			auto now (std::chrono::steady_clock::now ());
-			auto root_l (root);
-			auto callback_l (callback);
 			std::weak_ptr<nano::node> node_w (node.shared ());
 			auto next_backoff (std::min (backoff * 2, (unsigned int)60 * 5));
 			// clang-format off
-			node.alarm.add (now + std::chrono::seconds (backoff), [ node_w, root_l, callback_l, next_backoff, difficulty = difficulty ] {
+			node.alarm.add (now + std::chrono::seconds (backoff), [ node_w, root_l = root, callback_l = callback, next_backoff, difficulty = difficulty, account_l = account ] {
 				if (auto node_l = node_w.lock ())
 				{
-					node_l->distributed_work.make (next_backoff, root_l, callback_l, difficulty);
+					node_l->distributed_work.make (next_backoff, root_l, callback_l, difficulty, account_l);
 				}
 			});
 			// clang-format on
@@ -371,15 +374,15 @@ node (node_a)
 {
 }
 
-void nano::distributed_work_factory::make (nano::block_hash const & root_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a)
+void nano::distributed_work_factory::make (nano::block_hash const & root_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
 {
-	make (1, root_a, callback_a, difficulty_a);
+	make (1, root_a, callback_a, difficulty_a, account_a);
 }
 
-void nano::distributed_work_factory::make (unsigned int backoff_a, nano::block_hash const & root_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a)
+void nano::distributed_work_factory::make (unsigned int backoff_a, nano::block_hash const & root_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
 {
 	cleanup_finished ();
-	auto distributed (std::make_shared<nano::distributed_work> (backoff_a, node, root_a, callback_a, difficulty_a));
+	auto distributed (std::make_shared<nano::distributed_work> (backoff_a, node, root_a, callback_a, difficulty_a, account_a));
 	{
 		nano::lock_guard<std::mutex> guard (mutex);
 		work[root_a].emplace_back (distributed);

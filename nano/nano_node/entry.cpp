@@ -17,6 +17,9 @@
 
 // Some builds (mac) fail due to "Boost.Stacktrace requires `_Unwind_Backtrace` function".
 #ifndef _WIN32
+#ifdef NANO_STACKTRACE_BACKTRACE
+#define BOOST_STACKTRACE_USE_BACKTRACE
+#endif
 #ifndef _GNU_SOURCE
 #define BEFORE_GNU_SOURCE 0
 #define _GNU_SOURCE
@@ -130,6 +133,7 @@ int main (int argc, char * const * argv)
 		("debug_validate_blocks", "Check all blocks for correct hash, signature, work value")
 		("debug_peers", "Display peer IPv6:port connections")
 		("debug_cemented_block_count", "Displays the number of cemented (confirmed) blocks")
+		("debug_stacktrace", "Display an example stacktrace")
 		("platform", boost::program_options::value<std::string> (), "Defines the <platform> for OpenCL commands")
 		("device", boost::program_options::value<std::string> (), "Defines <device> for OpenCL command")
 		("threads", boost::program_options::value<std::string> (), "Defines <threads> count for OpenCL command")
@@ -1077,6 +1081,10 @@ int main (int argc, char * const * argv)
 			node_flags.cache_cemented_count_from_frontiers = true;
 			nano::inactive_node node (data_path, 24000, node_flags);
 			std::cout << "Total cemented block count: " << node.node->ledger.cemented_count << std::endl;
+		}
+		else if (vm.count ("debug_stacktrace"))
+		{
+			std::cout << boost::stacktrace::stacktrace ();
 		}
 		else if (vm.count ("debug_sys_logging"))
 		{

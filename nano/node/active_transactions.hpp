@@ -171,7 +171,6 @@ private:
 	prioritize_num_uncemented priority_cementable_frontiers;
 	std::unordered_set<nano::account> wallet_accounts_already_iterated;
 	std::unordered_map<nano::uint256_union, nano::account> next_wallet_frontier_accounts;
-	bool frontiers_fully_confirmed{ false };
 	bool skip_wallets{ false };
 	void prioritize_account_for_confirmation (prioritize_num_uncemented &, size_t &, nano::account const &, nano::account_info const &, uint64_t);
 	static size_t constexpr max_priority_cementable_frontiers{ 100000 };
