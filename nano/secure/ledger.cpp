@@ -409,8 +409,7 @@ void ledger_processor::epoch_block_impl (nano::state_block const & block_a)
 				if (result.code == nano::process_result::progress)
 				{
 					auto epoch = ledger.network_params.ledger.epochs.epoch (block_a.hashables.link);
-					// We either upgrade from 0 to 1, or from 1 to 2
-					result.code = (info.epoch () == nano::epoch::epoch_0 && epoch == nano::epoch::epoch_1) || (info.epoch () == nano::epoch::epoch_1 && epoch == nano::epoch::epoch_2) ? nano::process_result::progress : nano::process_result::block_position;
+					result.code = nano::epochs::is_sequential (info.epoch (), epoch) ? nano::process_result::progress : nano::process_result::block_position;
 					if (result.code == nano::process_result::progress)
 					{
 						result.code = block_a.hashables.balance == info.balance ? nano::process_result::progress : nano::process_result::balance_mismatch;
