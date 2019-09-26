@@ -208,12 +208,12 @@ public:
 	size_t count (nano::transaction const &, MDB_dbi) const;
 
 	// These are only use in the upgrade process.
+	std::shared_ptr<nano::block> block_get_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_sideband_v14 * sideband_a = nullptr, bool * is_state_v1 = nullptr) const override;
 	bool entry_has_sideband_v14 (size_t entry_size_a, nano::block_type type_a) const;
 	size_t block_successor_offset_v14 (nano::transaction const & transaction_a, size_t entry_size_a, nano::block_type type_a) const;
 	nano::block_hash block_successor_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
 	nano::mdb_val block_raw_get_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_type & type_a, bool * is_state_v1 = nullptr) const;
 	boost::optional<nano::mdb_val> block_raw_get_by_type_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_type & type_a, bool * is_state_v1) const;
-	std::shared_ptr<nano::block> block_get_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_sideband_v14 * sideband_a = nullptr, bool * is_state_v1 = nullptr) const;
 	nano::account block_account_computed_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
 	nano::account block_account_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
 	nano::uint128_t block_balance_computed_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
@@ -259,76 +259,4 @@ template <>
 mdb_val::db_val (size_t size_a, void * data_a);
 template <>
 void mdb_val::convert_buffer_to_value ();
-
-/**
- * Summation visitor for blocks, supporting amount and balance computations. These
- * computations are mutually dependant. The natural solution is to use mutual recursion
- * between balance and amount visitors, but this leads to very deep stacks. Hence, the
- * summation visitor uses an iterative approach.
- */
-class summation_visitor_v14 final : public nano::block_visitor
-{
-	enum summation_type
-	{
-		invalid = 0,
-		balance = 1,
-		amount = 2
-	};
-
-	/** Represents an invocation frame */
-	class frame final
-	{
-	public:
-		frame (summation_type type_a, nano::block_hash balance_hash_a, nano::block_hash amount_hash_a) :
-		type (type_a), balance_hash (balance_hash_a), amount_hash (amount_hash_a)
-		{
-		}
-
-		/** The summation type guides the block visitor handlers */
-		summation_type type{ invalid };
-		/** Accumulated balance or amount */
-		nano::uint128_t sum{ 0 };
-		/** The current balance hash */
-		nano::block_hash balance_hash{ 0 };
-		/** The current amount hash */
-		nano::block_hash amount_hash{ 0 };
-		/** If true, this frame is awaiting an invocation result */
-		bool awaiting_result{ false };
-		/** Set by the invoked frame, representing the return value */
-		nano::uint128_t incoming_result{ 0 };
-	};
-
-public:
-	summation_visitor_v14 (nano::transaction const &, nano::mdb_store const &);
-	virtual ~summation_visitor_v14 () = default;
-	/** Computes the balance as of \p block_hash */
-	nano::uint128_t compute_balance (nano::block_hash const & block_hash);
-	/** Computes the amount delta between \p block_hash and its predecessor */
-	nano::uint128_t compute_amount (nano::block_hash const & block_hash);
-
-protected:
-	nano::transaction const & transaction;
-	nano::mdb_store const & store;
-	nano::network_params network_params;
-
-	/** The final result */
-	nano::uint128_t result{ 0 };
-	/** The current invocation frame */
-	frame * current{ nullptr };
-	/** Invocation frames */
-	std::stack<frame> frames;
-	/** Push a copy of \p hash of the given summation \p type */
-	nano::summation_visitor_v14::frame push (nano::summation_visitor_v14::summation_type type, nano::block_hash const & hash);
-	void sum_add (nano::uint128_t addend_a);
-	void sum_set (nano::uint128_t value_a);
-	/** The epilogue yields the result to previous frame, if any */
-	void epilogue ();
-
-	nano::uint128_t compute_internal (nano::summation_visitor_v14::summation_type type, nano::block_hash const &);
-	void send_block (nano::send_block const &) override;
-	void receive_block (nano::receive_block const &) override;
-	void open_block (nano::open_block const &) override;
-	void change_block (nano::change_block const &) override;
-	void state_block (nano::state_block const &) override;
-};
 }

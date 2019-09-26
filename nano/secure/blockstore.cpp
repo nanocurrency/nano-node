@@ -98,9 +98,10 @@ bool nano::block_sideband::deserialize (nano::stream & stream_a)
 	return result;
 }
 
-nano::summation_visitor::summation_visitor (nano::transaction const & transaction_a, nano::block_store const & store_a) :
+nano::summation_visitor::summation_visitor (nano::transaction const & transaction_a, nano::block_store const & store_a, bool is_v14_upgrade_a) :
 transaction (transaction_a),
-store (store_a)
+store (store_a),
+is_v14_upgrade (is_v14_upgrade_a)
 {
 }
 
@@ -257,7 +258,7 @@ nano::uint128_t nano::summation_visitor::compute_internal (nano::summation_visit
 				}
 				else
 				{
-					auto block (store.block_get (transaction, current->balance_hash));
+					auto block (block_get (transaction, current->balance_hash));
 					assert (block != nullptr);
 					block->visit (*this);
 				}
@@ -277,7 +278,7 @@ nano::uint128_t nano::summation_visitor::compute_internal (nano::summation_visit
 			{
 				if (!current->amount_hash.is_zero ())
 				{
-					auto block (store.block_get (transaction, current->amount_hash));
+					auto block = block_get (transaction, current->amount_hash);
 					if (block != nullptr)
 					{
 						block->visit (*this);
@@ -333,6 +334,11 @@ nano::uint128_t nano::summation_visitor::compute_amount (nano::block_hash const 
 nano::uint128_t nano::summation_visitor::compute_balance (nano::block_hash const & block_hash)
 {
 	return compute_internal (summation_type::balance, block_hash);
+}
+
+std::shared_ptr<nano::block> nano::summation_visitor::block_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
+{
+	return is_v14_upgrade ? store.block_get_v14 (transaction, hash_a) : store.block_get (transaction, hash_a);
 }
 
 nano::representative_visitor::representative_visitor (nano::transaction const & transaction_a, nano::block_store & store_a) :

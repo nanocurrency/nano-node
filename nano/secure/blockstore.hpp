@@ -414,7 +414,7 @@ class summation_visitor final : public nano::block_visitor
 	};
 
 public:
-	summation_visitor (nano::transaction const &, nano::block_store const &);
+	summation_visitor (nano::transaction const &, nano::block_store const &, bool is_v14_upgrade = false);
 	virtual ~summation_visitor () = default;
 	/** Computes the balance as of \p block_hash */
 	nano::uint128_t compute_balance (nano::block_hash const & block_hash);
@@ -445,6 +445,10 @@ protected:
 	void open_block (nano::open_block const &) override;
 	void change_block (nano::change_block const &) override;
 	void state_block (nano::state_block const &) override;
+
+private:
+	bool is_v14_upgrade;
+	std::shared_ptr<nano::block> block_get (nano::transaction const &, nano::block_hash const &) const;
 };
 
 /**
@@ -635,6 +639,7 @@ public:
 	virtual nano::block_hash block_successor (nano::transaction const &, nano::block_hash const &) const = 0;
 	virtual void block_successor_clear (nano::write_transaction const &, nano::block_hash const &) = 0;
 	virtual std::shared_ptr<nano::block> block_get (nano::transaction const &, nano::block_hash const &, nano::block_sideband * = nullptr) const = 0;
+	virtual std::shared_ptr<nano::block> block_get_v14 (nano::transaction const &, nano::block_hash const &, nano::block_sideband_v14 * = nullptr, bool * = nullptr) const = 0;
 	virtual std::shared_ptr<nano::block> block_random (nano::transaction const &) = 0;
 	virtual void block_del (nano::write_transaction const &, nano::block_hash const &) = 0;
 	virtual bool block_exists (nano::transaction const &, nano::block_hash const &) = 0;

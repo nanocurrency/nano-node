@@ -378,11 +378,11 @@ void ledger_processor::epoch_block_impl (nano::state_block const & block_a)
 		// Validate block if not verified outside of ledger
 		if (result.verified != nano::signature_verification::valid_epoch)
 		{
-			result.code = validate_message (ledger.signer (block_a.link ()), hash, block_a.signature) ? nano::process_result::bad_signature : nano::process_result::progress; // Is this block signed correctly (Unambiguous)
+			result.code = validate_message (ledger.signer (block_a.hashables.link), hash, block_a.signature) ? nano::process_result::bad_signature : nano::process_result::progress; // Is this block signed correctly (Unambiguous)
 		}
 		if (result.code == nano::process_result::progress)
 		{
-			assert (!validate_message (ledger.signer (block_a.link ()), hash, block_a.signature));
+			assert (!validate_message (ledger.signer (block_a.hashables.link), hash, block_a.signature));
 			result.verified = nano::signature_verification::valid_epoch;
 			result.code = block_a.hashables.account.is_zero () ? nano::process_result::opened_burn_account : nano::process_result::progress; // Is this for the burn account? (Unambiguous)
 			if (result.code == nano::process_result::progress)
@@ -408,9 +408,9 @@ void ledger_processor::epoch_block_impl (nano::state_block const & block_a)
 				}
 				if (result.code == nano::process_result::progress)
 				{
-					auto epoch_link = ledger.network_params.ledger.epochs.epoch (block_a.hashables.link);
+					auto epoch = ledger.network_params.ledger.epochs.epoch (block_a.hashables.link);
 					// We either upgrade from 0 to 1, or from 1 to 2
-					result.code = (info.epoch () == nano::epoch::epoch_0 && epoch_link == nano::epoch::epoch_1) || (info.epoch () == nano::epoch::epoch_1 && epoch_link == nano::epoch::epoch_2) ? nano::process_result::progress : nano::process_result::block_position;
+					result.code = (info.epoch () == nano::epoch::epoch_0 && epoch == nano::epoch::epoch_1) || (info.epoch () == nano::epoch::epoch_1 && epoch == nano::epoch::epoch_2) ? nano::process_result::progress : nano::process_result::block_position;
 					if (result.code == nano::process_result::progress)
 					{
 						result.code = block_a.hashables.balance == info.balance ? nano::process_result::progress : nano::process_result::balance_mismatch;
@@ -419,9 +419,9 @@ void ledger_processor::epoch_block_impl (nano::state_block const & block_a)
 							ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::epoch_block);
 							result.account = block_a.hashables.account;
 							result.amount = 0;
-							nano::block_sideband sideband (nano::block_type::state, block_a.hashables.account /* unused */, 0, 0 /* unused */, info.block_count + 1, nano::seconds_since_epoch (), epoch_link);
+							nano::block_sideband sideband (nano::block_type::state, block_a.hashables.account /* unused */, 0, 0 /* unused */, info.block_count + 1, nano::seconds_since_epoch (), epoch);
 							ledger.store.block_put (transaction, hash, block_a, sideband);
-							nano::account_info new_info (hash, block_a.representative (), info.open_block.is_zero () ? hash : info.open_block, info.balance, nano::seconds_since_epoch (), info.block_count + 1, epoch_link);
+							nano::account_info new_info (hash, block_a.representative (), info.open_block.is_zero () ? hash : info.open_block, info.balance, nano::seconds_since_epoch (), info.block_count + 1, epoch);
 							ledger.change_latest (transaction, block_a.hashables.account, info, new_info);
 							if (!ledger.store.frontier_get (transaction, info.head).is_zero ())
 							{
