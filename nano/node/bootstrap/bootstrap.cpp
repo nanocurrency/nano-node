@@ -19,7 +19,7 @@ constexpr double nano::bootstrap_limits::bootstrap_minimum_termination_time_sec;
 constexpr unsigned nano::bootstrap_limits::bootstrap_max_new_connections;
 constexpr std::chrono::seconds nano::bootstrap_limits::lazy_flush_delay_sec;
 constexpr unsigned nano::bootstrap_limits::bootstrap_lazy_destinations_request_limit;
-constexpr std::chrono::seconds nano::bootstrap_limits::lazy_destinations_flush_delay_minutes;
+constexpr std::chrono::seconds nano::bootstrap_limits::lazy_destinations_flush_delay_sec;
 
 nano::bootstrap_client::bootstrap_client (std::shared_ptr<nano::node> node_a, std::shared_ptr<nano::bootstrap_attempt> attempt_a, std::shared_ptr<nano::transport::channel_tcp> channel_a) :
 node (node_a),
@@ -930,7 +930,7 @@ void nano::bootstrap_attempt::lazy_destinations_flush ()
 {
 	size_t count (0);
 	nano::lock_guard<std::mutex> lazy_lock (lazy_mutex);
-	if (last_lazy_destinations_flush + nano::bootstrap_limits::lazy_destinations_flush_delay_minutes < std::chrono::steady_clock::now ())
+	if (last_lazy_destinations_flush + nano::bootstrap_limits::lazy_destinations_flush_delay_sec < std::chrono::steady_clock::now ())
 	{
 		for (auto it (lazy_destinations.get<count_tag> ().begin ()), end (lazy_destinations.get<count_tag> ().end ()); it != end && count < nano::bootstrap_limits::bootstrap_lazy_destinations_request_limit && !stopped;)
 		{
