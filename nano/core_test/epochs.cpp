@@ -27,3 +27,16 @@ TEST (epochs, is_epoch_link)
 	ASSERT_EQ (nano::uint256_union (link2), epochs.link (nano::epoch::epoch_2));
 	ASSERT_EQ (epochs.epoch (link2), nano::epoch::epoch_2);
 }
+
+TEST (epochs, is_sequential)
+{
+	ASSERT_TRUE (nano::epochs::is_sequential (nano::epoch::epoch_0, nano::epoch::epoch_1));
+	ASSERT_TRUE (nano::epochs::is_sequential (nano::epoch::epoch_1, nano::epoch::epoch_2));
+
+	ASSERT_FALSE (nano::epochs::is_sequential (nano::epoch::epoch_0, nano::epoch::epoch_2));
+	ASSERT_FALSE (nano::epochs::is_sequential (nano::epoch::epoch_0, nano::epoch::invalid));
+	ASSERT_FALSE (nano::epochs::is_sequential (nano::epoch::unspecified, nano::epoch::epoch_1));
+	ASSERT_FALSE (nano::epochs::is_sequential (nano::epoch::epoch_1, nano::epoch::epoch_0));
+	ASSERT_FALSE (nano::epochs::is_sequential (nano::epoch::epoch_2, nano::epoch::epoch_0));
+	ASSERT_FALSE (nano::epochs::is_sequential (nano::epoch::epoch_2, nano::epoch::epoch_2));
+}
