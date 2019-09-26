@@ -17,6 +17,9 @@
 
 // Some builds (mac) fail due to "Boost.Stacktrace requires `_Unwind_Backtrace` function".
 #ifndef _WIN32
+#ifdef NANO_STACKTRACE_BACKTRACE
+#define BOOST_STACKTRACE_USE_BACKTRACE
+#endif
 #ifndef _GNU_SOURCE
 #define BEFORE_GNU_SOURCE 0
 #define _GNU_SOURCE
@@ -130,6 +133,7 @@ int main (int argc, char * const * argv)
 		("debug_validate_blocks", "Check all blocks for correct hash, signature, work value")
 		("debug_peers", "Display peer IPv6:port connections")
 		("debug_cemented_block_count", "Displays the number of cemented (confirmed) blocks")
+		("debug_stacktrace", "Display an example stacktrace")
 		("platform", boost::program_options::value<std::string> (), "Defines the <platform> for OpenCL commands")
 		("device", boost::program_options::value<std::string> (), "Defines <device> for OpenCL command")
 		("threads", boost::program_options::value<std::string> (), "Defines <threads> count for OpenCL command")
@@ -221,7 +225,7 @@ int main (int argc, char * const * argv)
 						          << "Account: " << rep.pub.to_account () << "\n";
 					}
 					nano::uint128_t balance (std::numeric_limits<nano::uint128_t>::max ());
-					nano::open_block genesis_block (genesis.pub, genesis.pub, genesis.pub, genesis.prv, genesis.pub, work.generate (genesis.pub));
+					nano::open_block genesis_block (reinterpret_cast<const nano::block_hash &> (genesis.pub), genesis.pub, genesis.pub, genesis.prv, genesis.pub, work.generate (genesis.pub));
 					std::cout << genesis_block.to_json ();
 					std::cout.flush ();
 					nano::block_hash previous (genesis_block.hash ());
@@ -428,10 +432,10 @@ int main (int argc, char * const * argv)
 						{
 							nano::logger_mt logger;
 							auto opencl (nano::opencl_work::create (true, { platform, device, threads }, logger));
-							nano::work_pool work_pool (std::numeric_limits<unsigned>::max (), std::chrono::nanoseconds (0), opencl ? [&opencl](nano::uint256_union const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
+							nano::work_pool work_pool (std::numeric_limits<unsigned>::max (), std::chrono::nanoseconds (0), opencl ? [&opencl](nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
 								return opencl->generate_work (root_a, difficulty_a);
 							}
-							                                                                                                       : std::function<boost::optional<uint64_t> (nano::uint256_union const &, uint64_t, std::atomic<int> &)> (nullptr));
+							                                                                                                       : std::function<boost::optional<uint64_t> (nano::root const &, uint64_t, std::atomic<int> &)> (nullptr));
 							nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
 							std::cerr << boost::str (boost::format ("Starting OpenCL generation profiling. Platform: %1%. Device: %2%. Threads: %3%. Difficulty: %4$#x\n") % platform % device % threads % difficulty);
 							for (uint64_t i (0); true; ++i)
@@ -499,8 +503,7 @@ int main (int argc, char * const * argv)
 		{
 			nano::keypair key;
 			nano::uint256_union message;
-			nano::uint512_union signature;
-			signature = nano::sign_message (key.prv, key.pub, message);
+			auto signature = nano::sign_message (key.prv, key.pub, message);
 			auto begin (std::chrono::high_resolution_clock::now ());
 			for (auto i (0u); i < 1000; ++i)
 			{
@@ -562,7 +565,7 @@ int main (int argc, char * const * argv)
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 			// Generating keys
 			std::vector<nano::keypair> keys (num_accounts);
-			std::vector<nano::block_hash> frontiers (num_accounts);
+			std::vector<nano::root> frontiers (num_accounts);
 			std::vector<nano::uint128_t> balances (num_accounts, 1000000000);
 			// Generating blocks
 			std::deque<std::shared_ptr<nano::block>> blocks;
@@ -624,7 +627,7 @@ int main (int argc, char * const * argv)
 					               .previous (frontiers[other])
 					               .representative (keys[other].pub)
 					               .balance (balances[other])
-					               .link (frontiers[j])
+					               .link (static_cast<nano::block_hash const &> (frontiers[j]))
 					               .sign (keys[other].prv, keys[other].pub)
 					               .work (work.generate (frontiers[other]))
 					               .build ();
@@ -1077,6 +1080,10 @@ int main (int argc, char * const * argv)
 			node_flags.cache_cemented_count_from_frontiers = true;
 			nano::inactive_node node (data_path, 24000, node_flags);
 			std::cout << "Total cemented block count: " << node.node->ledger.cemented_count << std::endl;
+		}
+		else if (vm.count ("debug_stacktrace"))
+		{
+			std::cout << boost::stacktrace::stacktrace ();
 		}
 		else if (vm.count ("debug_sys_logging"))
 		{

@@ -72,7 +72,7 @@ class confirmed_set_info final
 {
 public:
 	std::chrono::steady_clock::time_point time;
-	nano::uint512_union root;
+	nano::qualified_root root;
 };
 
 // Core class for determining consensus
@@ -167,9 +167,8 @@ private:
 	std::greater<uint64_t>>>>;
 	prioritize_num_uncemented priority_wallet_cementable_frontiers;
 	prioritize_num_uncemented priority_cementable_frontiers;
-	std::unordered_set<nano::account> wallet_accounts_already_iterated;
-	std::unordered_map<nano::uint256_union, nano::account> next_wallet_frontier_accounts;
-	bool frontiers_fully_confirmed{ false };
+	std::unordered_set<nano::wallet_id> wallet_ids_already_iterated;
+	std::unordered_map<nano::wallet_id, nano::account> next_wallet_id_accounts;
 	bool skip_wallets{ false };
 	void prioritize_account_for_confirmation (prioritize_num_uncemented &, size_t &, nano::account const &, nano::account_info const &, uint64_t);
 	static size_t constexpr max_priority_cementable_frontiers{ 100000 };

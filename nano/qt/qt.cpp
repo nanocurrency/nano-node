@@ -685,7 +685,7 @@ wallet (wallet_a)
 	rebroadcast->setToolTip ("Rebroadcast block into the network");
 }
 
-void nano_qt::block_viewer::rebroadcast_action (nano::uint256_union const & hash_a)
+void nano_qt::block_viewer::rebroadcast_action (nano::block_hash const & hash_a)
 {
 	auto done (true);
 	auto transaction (wallet.node.ledger.store.tx_begin_read ());
@@ -829,7 +829,7 @@ void nano_qt::stats_viewer::refresh_stats ()
 				detail = "total";
 			}
 
-			if (type == "traffic" || type == "traffic_bootstrap")
+			if (type == "traffic_udp" || type == "traffic_tcp")
 			{
 				const std::vector<std::string> units = { " bytes", " KB", " MB", " GB", " TB", " PB" };
 				double bytes = std::stod (value);
@@ -1958,7 +1958,7 @@ void nano_qt::advanced_actions::refresh_ledger ()
 	for (auto i (wallet.node.ledger.store.latest_begin (transaction)), j (wallet.node.ledger.store.latest_end ()); i != j; ++i)
 	{
 		QList<QStandardItem *> items;
-		items.push_back (new QStandardItem (QString (nano::block_hash (i->first).to_account ().c_str ())));
+		items.push_back (new QStandardItem (QString (i->first.to_account ().c_str ())));
 		nano::account_info const & info (i->second);
 		std::string balance;
 		nano::amount (info.balance.number () / wallet.rendering_ratio).encode_dec (balance);

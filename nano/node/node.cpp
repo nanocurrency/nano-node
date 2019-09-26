@@ -123,7 +123,7 @@ alarm (alarm_a),
 work (work_a),
 distributed_work (*this),
 logger (config_a.logging.min_time_between_log_output),
-store_impl (nano::make_store (logger, application_path_a, flags.read_only, true, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_max_dbs, flags.sideband_batch_size, config_a.backup_before_upgrade, config_a.rocksdb_config.enable)),
+store_impl (nano::make_store (logger, application_path_a, flags.read_only, true, config_a.rocksdb_config, config_a.diagnostics_config.txn_tracking, config_a.block_processor_batch_max_time, config_a.lmdb_max_dbs, flags.sideband_batch_size, config_a.backup_before_upgrade, config_a.rocksdb_config.enable)),
 store (*store_impl),
 wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_max_dbs)),
 wallets_store (*wallets_store_impl),
@@ -359,7 +359,7 @@ startup_time (std::chrono::steady_clock::now ())
 			});
 		}
 		// Cancelling local work generation
-		observers.work_cancel.add ([this](nano::block_hash const & root_a) {
+		observers.work_cancel.add ([this](nano::root const & root_a) {
 			this->work.cancel (root_a);
 			this->distributed_work.cancel (root_a);
 		});
@@ -756,7 +756,7 @@ nano::block_hash nano::node::rep_block (nano::account const & account_a)
 {
 	auto transaction (store.tx_begin_read ());
 	nano::account_info info;
-	nano::account result (0);
+	nano::block_hash result (0);
 	if (!store.account_get (transaction, account_a, info))
 	{
 		result = ledger.representative (transaction, info.head);
@@ -967,7 +967,7 @@ boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & bloc
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a, uint64_t difficulty_a)
 {
-	auto opt_work_l (work_generate_blocking (block_a.root (), difficulty_a));
+	auto opt_work_l (work_generate_blocking (block_a.root (), difficulty_a, block_a.account ()));
 	if (opt_work_l.is_initialized ())
 	{
 		block_a.block_work_set (*opt_work_l);
@@ -975,30 +975,30 @@ boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & bloc
 	return opt_work_l;
 }
 
-void nano::node::work_generate (nano::uint256_union const & hash_a, std::function<void(boost::optional<uint64_t>)> callback_a)
+void nano::node::work_generate (nano::root const & root_a, std::function<void(boost::optional<uint64_t>)> callback_a, boost::optional<nano::account> const & account_a)
 {
-	work_generate (hash_a, callback_a, network_params.network.publish_threshold);
+	work_generate (root_a, callback_a, network_params.network.publish_threshold, account_a);
 }
 
-void nano::node::work_generate (nano::uint256_union const & hash_a, std::function<void(boost::optional<uint64_t>)> callback_a, uint64_t difficulty_a)
+void nano::node::work_generate (nano::root const & root_a, std::function<void(boost::optional<uint64_t>)> callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
 {
-	distributed_work.make (hash_a, callback_a, difficulty_a);
+	distributed_work.make (root_a, callback_a, difficulty_a, account_a);
 }
 
-boost::optional<uint64_t> nano::node::work_generate_blocking (nano::uint256_union const & block_a)
+boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a, boost::optional<nano::account> const & account_a)
 {
-	return work_generate_blocking (block_a, network_params.network.publish_threshold);
+	return work_generate_blocking (root_a, network_params.network.publish_threshold, account_a);
 }
 
-boost::optional<uint64_t> nano::node::work_generate_blocking (nano::uint256_union const & hash_a, uint64_t difficulty_a)
+boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
 {
 	std::promise<uint64_t> promise;
 	std::future<uint64_t> future = promise.get_future ();
 	// clang-format off
-	work_generate (hash_a, [&promise](boost::optional<uint64_t> work_a) {
+	work_generate (root_a, [&promise](boost::optional<uint64_t> work_a) {
 		promise.set_value (work_a.value_or (0));
 	},
-	difficulty_a);
+	difficulty_a, account_a);
 	// clang-format on
 	return future.get ();
 }
@@ -1264,7 +1264,7 @@ std::shared_ptr<nano::node> nano::node::shared ()
 bool nano::node::validate_block_by_previous (nano::transaction const & transaction, std::shared_ptr<nano::block> block_a)
 {
 	bool result (false);
-	nano::account account;
+	nano::root account;
 	if (!block_a->previous ().is_zero ())
 	{
 		if (store.block_exists (transaction, block_a->previous ()))
@@ -1356,11 +1356,11 @@ nano::node_flags const & nano::inactive_node_flag_defaults ()
 	return node_flags;
 }
 
-std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, size_t batch_size, bool backup_before_upgrade, bool use_rocksdb_backend)
+std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool read_only, bool add_db_postfix, nano::rocksdb_config const & rocksdb_config, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, size_t batch_size, bool backup_before_upgrade, bool use_rocksdb_backend)
 {
 #if NANO_ROCKSDB
-	auto make_rocksdb = [&logger, add_db_postfix, &path, read_only]() {
-		return std::make_unique<nano::rocksdb_store> (logger, add_db_postfix ? path / "rocksdb" : path, read_only);
+	auto make_rocksdb = [&logger, add_db_postfix, &path, &rocksdb_config, read_only]() {
+		return std::make_unique<nano::rocksdb_store> (logger, add_db_postfix ? path / "rocksdb" : path, rocksdb_config, read_only);
 	};
 #endif
 
