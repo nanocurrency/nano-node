@@ -27,9 +27,8 @@ public:
 	void initialize (nano::write_transaction const & transaction_a, nano::genesis const & genesis_a, nano::rep_weights & rep_weights, std::atomic<uint64_t> & cemented_count, std::atomic<uint64_t> & block_count_cache) override
 	{
 		auto hash_l (genesis_a.hash ());
-		assert (latest_v0_begin (transaction_a) == latest_v0_end ());
-		assert (latest_v1_begin (transaction_a) == latest_v1_end ());
-		nano::block_sideband sideband (nano::block_type::open, network_params.ledger.genesis_account, 0, network_params.ledger.genesis_amount, 1, nano::seconds_since_epoch ());
+		assert (latest_begin (transaction_a) == latest_end ());
+		nano::block_sideband sideband (nano::block_type::open, network_params.ledger.genesis_account, 0, network_params.ledger.genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0);
 		block_put (transaction_a, hash_l, *genesis_a.open, sideband);
 		++block_count_cache;
 		confirmation_height_put (transaction_a, network_params.ledger.genesis_account, 1);
@@ -86,7 +85,7 @@ public:
 		return result;
 	}
 
-	void block_put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a, nano::block const & block_a, nano::block_sideband const & sideband_a, nano::epoch epoch_a = nano::epoch::epoch_0) override
+	void block_put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a, nano::block const & block_a, nano::block_sideband const & sideband_a) override
 	{
 		assert (block_a.type () == sideband_a.type);
 		assert (sideband_a.successor.is_zero () || block_exists (transaction_a, sideband_a.successor));
@@ -96,7 +95,7 @@ public:
 			block_a.serialize (stream);
 			sideband_a.serialize (stream);
 		}
-		block_raw_put (transaction_a, vector, block_a.type (), epoch_a, hash_a);
+		block_raw_put (transaction_a, vector, block_a.type (), hash_a);
 		nano::block_predecessor_set<Val, Derived_Store> predecessor (transaction_a, *this);
 		block_a.visit (predecessor);
 		assert (block_a.previous ().is_zero () || block_successor (transaction_a, block_a.previous ()) == hash_a);
@@ -239,11 +238,10 @@ public:
 	{
 		nano::block_type type;
 		auto value (block_raw_get (transaction_a, hash_a, type));
-		auto version (block_version (transaction_a, hash_a));
 		assert (value.size () != 0);
 		std::vector<uint8_t> data (static_cast<uint8_t *> (value.data ()), static_cast<uint8_t *> (value.data ()) + value.size ());
 		std::fill_n (data.begin () + block_successor_offset (transaction_a, value.size (), type), sizeof (nano::block_hash), uint8_t{ 0 });
-		block_raw_put (transaction_a, data, type, version, hash_a);
+		block_raw_put (transaction_a, data, type, hash_a);
 	}
 
 	void unchecked_put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a, std::shared_ptr<nano::block> const & block_a) override
@@ -331,32 +329,12 @@ public:
 		return nano::store_iterator<nano::pending_key, nano::pending_info> (nullptr);
 	}
 
-	nano::store_iterator<nano::pending_key, nano::pending_info> pending_v0_end () override
-	{
-		return nano::store_iterator<nano::pending_key, nano::pending_info> (nullptr);
-	}
-
-	nano::store_iterator<nano::pending_key, nano::pending_info> pending_v1_end () override
-	{
-		return nano::store_iterator<nano::pending_key, nano::pending_info> (nullptr);
-	}
-
 	nano::store_iterator<uint64_t, nano::amount> online_weight_end () const override
 	{
 		return nano::store_iterator<uint64_t, nano::amount> (nullptr);
 	}
 
 	nano::store_iterator<nano::account, nano::account_info> latest_end () override
-	{
-		return nano::store_iterator<nano::account, nano::account_info> (nullptr);
-	}
-
-	nano::store_iterator<nano::account, nano::account_info> latest_v0_end () override
-	{
-		return nano::store_iterator<nano::account, nano::account_info> (nullptr);
-	}
-
-	nano::store_iterator<nano::account, nano::account_info> latest_v1_end () override
 	{
 		return nano::store_iterator<nano::account, nano::account_info> (nullptr);
 	}
@@ -373,29 +351,24 @@ public:
 
 	void block_del (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) override
 	{
-		auto status = del (transaction_a, tables::state_blocks_v1, hash_a);
+		auto status = del (transaction_a, tables::state_blocks, hash_a);
 		release_assert (success (status) || not_found (status));
 		if (!success (status))
 		{
-			auto status = del (transaction_a, tables::state_blocks_v0, hash_a);
+			auto status = del (transaction_a, tables::send_blocks, hash_a);
 			release_assert (success (status) || not_found (status));
 			if (!success (status))
 			{
-				auto status = del (transaction_a, tables::send_blocks, hash_a);
+				auto status = del (transaction_a, tables::receive_blocks, hash_a);
 				release_assert (success (status) || not_found (status));
 				if (!success (status))
 				{
-					auto status = del (transaction_a, tables::receive_blocks, hash_a);
+					auto status = del (transaction_a, tables::open_blocks, hash_a);
 					release_assert (success (status) || not_found (status));
 					if (!success (status))
 					{
-						auto status = del (transaction_a, tables::open_blocks, hash_a);
-						release_assert (success (status) || not_found (status));
-						if (!success (status))
-						{
-							auto status = del (transaction_a, tables::change_blocks, hash_a);
-							release_assert (success (status));
-						}
+						auto status = del (transaction_a, tables::change_blocks, hash_a);
+						release_assert (success (status));
 					}
 				}
 			}
@@ -420,66 +393,47 @@ public:
 	nano::epoch block_version (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override
 	{
 		nano::db_val<Val> value;
-		auto status = get (transaction_a, tables::state_blocks_v1, nano::db_val<Val> (hash_a), value);
-		release_assert (success (status) || not_found (status));
-		return status == 0 ? nano::epoch::epoch_1 : nano::epoch::epoch_0;
+		nano::block_sideband sideband;
+		auto block = block_get (transaction_a, hash_a, &sideband);
+		if (sideband.type == nano::block_type::state)
+		{
+			return sideband.epoch;
+		}
+
+		return nano::epoch::epoch_0;
 	}
 
-	void block_raw_put (nano::write_transaction const & transaction_a, std::vector<uint8_t> const & data, nano::block_type block_type_a, nano::epoch epoch_a, nano::block_hash const & hash_a)
+	void block_raw_put (nano::write_transaction const & transaction_a, std::vector<uint8_t> const & data, nano::block_type block_type_a, nano::block_hash const & hash_a)
 	{
-		auto database_a = block_database (block_type_a, epoch_a);
+		auto database_a = block_database (block_type_a);
 		nano::db_val<Val> value{ data.size (), (void *)data.data () };
 		auto status = put (transaction_a, database_a, hash_a, value);
 		release_assert (success (status));
 	}
 
-	void pending_put (nano::write_transaction const & transaction_a, nano::pending_key const & key_a, nano::pending_info const & pending_a) override
+	void pending_put (nano::write_transaction const & transaction_a, nano::pending_key const & key_a, nano::pending_info const & pending_info_a) override
 	{
-		nano::db_val<Val> pending (pending_a);
-		auto status = put (transaction_a, get_pending_db (pending_a.epoch), key_a, pending);
+		nano::db_val<Val> pending (pending_info_a);
+		auto status = put (transaction_a, tables::pending, key_a, pending);
 		release_assert (success (status));
 	}
 
 	void pending_del (nano::write_transaction const & transaction_a, nano::pending_key const & key_a) override
 	{
-		auto status1 = del (transaction_a, tables::pending_v1, key_a);
-		if (!success (status1))
-		{
-			release_assert (not_found (status1));
-			auto status2 = del (transaction_a, tables::pending_v0, key_a);
-			release_assert (success (status2));
-		}
+		auto status1 = del (transaction_a, tables::pending, key_a);
+		release_assert (success (status1));
 	}
 
 	bool pending_get (nano::transaction const & transaction_a, nano::pending_key const & key_a, nano::pending_info & pending_a) override
 	{
 		nano::db_val<Val> value;
 		nano::db_val<Val> key (key_a);
-		auto status1 = get (transaction_a, tables::pending_v1, key, value);
+		auto status1 = get (transaction_a, tables::pending, key, value);
 		release_assert (success (status1) || not_found (status1));
-		bool result (false);
-		nano::epoch epoch;
+		bool result (true);
 		if (success (status1))
 		{
-			epoch = nano::epoch::epoch_1;
-		}
-		else
-		{
-			auto status2 = get (transaction_a, tables::pending_v0, key, value);
-			release_assert (success (status2) || not_found (status2));
-			if (success (status2))
-			{
-				epoch = nano::epoch::epoch_0;
-			}
-			else
-			{
-				result = true;
-			}
-		}
-		if (!result)
-		{
 			nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
-			pending_a.epoch = epoch;
 			result = pending_a.deserialize (stream);
 		}
 		return result;
@@ -571,73 +525,31 @@ public:
 		release_assert (success (status));
 	}
 
-	tables get_account_db (nano::epoch epoch_a) const
-	{
-		tables db;
-		switch (epoch_a)
-		{
-			case nano::epoch::invalid:
-			case nano::epoch::unspecified:
-				assert (false);
-			case nano::epoch::epoch_0:
-				db = tables::accounts_v0;
-				break;
-			case nano::epoch::epoch_1:
-				db = tables::accounts_v1;
-				break;
-		}
-		return db;
-	}
-
 	void account_put (nano::write_transaction const & transaction_a, nano::account const & account_a, nano::account_info const & info_a) override
 	{
 		// Check we are still in sync with other tables
 		assert (confirmation_height_exists (transaction_a, account_a));
 		nano::db_val<Val> info (info_a);
-		auto status = put (transaction_a, get_account_db (info_a.epoch ()), account_a, info);
+		auto status = put (transaction_a, tables::accounts, account_a, info);
 		release_assert (success (status));
 	}
 
 	void account_del (nano::write_transaction const & transaction_a, nano::account const & account_a) override
 	{
-		auto status1 = del (transaction_a, tables::accounts_v1, account_a);
-		if (!success (status1))
-		{
-			release_assert (not_found (status1));
-			auto status2 (del (transaction_a, tables::accounts_v0, account_a));
-			release_assert (success (status2));
-		}
+		auto status1 = del (transaction_a, tables::accounts, account_a);
+		release_assert (success (status1));
 	}
 
 	bool account_get (nano::transaction const & transaction_a, nano::account const & account_a, nano::account_info & info_a) override
 	{
 		nano::db_val<Val> value;
 		nano::db_val<Val> account (account_a);
-		auto status1 (get (transaction_a, tables::accounts_v1, account, value));
+		auto status1 (get (transaction_a, tables::accounts, account, value));
 		release_assert (success (status1) || not_found (status1));
-		bool result (false);
-		nano::epoch epoch;
+		bool result (true);
 		if (success (status1))
 		{
-			epoch = nano::epoch::epoch_1;
-		}
-		else
-		{
-			auto status2 (get (transaction_a, tables::accounts_v0, account, value));
-			release_assert (success (status2) || not_found (status2));
-			if (success (status2))
-			{
-				epoch = nano::epoch::epoch_0;
-			}
-			else
-			{
-				result = true;
-			}
-		}
-		if (!result)
-		{
 			nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
-			info_a.epoch_m = epoch;
 			result = info_a.deserialize (stream);
 		}
 		return result;
@@ -701,14 +613,13 @@ public:
 		result.receive = count (transaction_a, tables::receive_blocks);
 		result.open = count (transaction_a, tables::open_blocks);
 		result.change = count (transaction_a, tables::change_blocks);
-		result.state_v0 = count (transaction_a, tables::state_blocks_v0);
-		result.state_v1 = count (transaction_a, tables::state_blocks_v1);
+		result.state = count (transaction_a, tables::state_blocks);
 		return result;
 	}
 
 	size_t account_count (nano::transaction const & transaction_a) override
 	{
-		return count (transaction_a, { tables::accounts_v0, tables::accounts_v1 });
+		return count (transaction_a, tables::accounts);
 	}
 
 	std::shared_ptr<nano::block> block_random (nano::transaction const & transaction_a) override
@@ -745,15 +656,7 @@ public:
 					}
 					else
 					{
-						region -= count.change;
-						if (region < count.state_v0)
-						{
-							result = derived_store.template block_random<nano::state_block> (transaction_a, tables::state_blocks_v0);
-						}
-						else
-						{
-							result = derived_store.template block_random<nano::state_block> (transaction_a, tables::state_blocks_v1);
-						}
+						result = derived_store.template block_random<nano::state_block> (transaction_a, tables::state_blocks);
 					}
 				}
 			}
@@ -800,62 +703,22 @@ public:
 
 	nano::store_iterator<nano::account, nano::account_info> latest_begin (nano::transaction const & transaction_a, nano::account const & account_a) override
 	{
-		return make_merge_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts_v0, tables::accounts_v1, nano::db_val<Val> (account_a));
+		return make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts, nano::db_val<Val> (account_a));
 	}
 
 	nano::store_iterator<nano::account, nano::account_info> latest_begin (nano::transaction const & transaction_a) override
 	{
-		return make_merge_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts_v0, tables::accounts_v1);
-	}
-
-	nano::store_iterator<nano::account, nano::account_info> latest_v0_begin (nano::transaction const & transaction_a, nano::account const & account_a) override
-	{
-		return make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts_v0, nano::db_val<Val> (account_a));
-	}
-
-	nano::store_iterator<nano::account, nano::account_info> latest_v0_begin (nano::transaction const & transaction_a) override
-	{
-		return make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts_v0);
-	}
-
-	nano::store_iterator<nano::account, nano::account_info> latest_v1_begin (nano::transaction const & transaction_a, nano::account const & account_a) override
-	{
-		return make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts_v1, nano::db_val<Val> (account_a));
-	}
-
-	nano::store_iterator<nano::account, nano::account_info> latest_v1_begin (nano::transaction const & transaction_a) override
-	{
-		return make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts_v1);
-	}
-
-	nano::store_iterator<nano::pending_key, nano::pending_info> pending_v0_begin (nano::transaction const & transaction_a, nano::pending_key const & key_a) override
-	{
-		return make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending_v0, nano::db_val<Val> (key_a));
-	}
-
-	nano::store_iterator<nano::pending_key, nano::pending_info> pending_v0_begin (nano::transaction const & transaction_a) override
-	{
-		return make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending_v0);
-	}
-
-	nano::store_iterator<nano::pending_key, nano::pending_info> pending_v1_begin (nano::transaction const & transaction_a, nano::pending_key const & key_a) override
-	{
-		return make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending_v1, nano::db_val<Val> (key_a));
-	}
-
-	nano::store_iterator<nano::pending_key, nano::pending_info> pending_v1_begin (nano::transaction const & transaction_a) override
-	{
-		return make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending_v1);
+		return make_iterator<nano::account, nano::account_info> (transaction_a, tables::accounts);
 	}
 
 	nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const & transaction_a, nano::pending_key const & key_a) override
 	{
-		return make_merge_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending_v0, tables::pending_v1, nano::db_val<Val> (key_a));
+		return make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending, nano::db_val<Val> (key_a));
 	}
 
 	nano::store_iterator<nano::pending_key, nano::pending_info> pending_begin (nano::transaction const & transaction_a) override
 	{
-		return make_merge_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending_v0, tables::pending_v1);
+		return make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending);
 	}
 
 	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const & transaction_a) override
@@ -929,18 +792,6 @@ protected:
 	nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a, nano::db_val<Val> const & key) const
 	{
 		return static_cast<Derived_Store const &> (*this).template make_iterator<Key, Value> (transaction_a, table_a, key);
-	}
-
-	template <typename Key, typename Value>
-	nano::store_iterator<Key, Value> make_merge_iterator (nano::transaction const & transaction_a, tables table1_a, tables table2_a) const
-	{
-		return static_cast<Derived_Store const &> (*this).template make_merge_iterator<Key, Value> (transaction_a, table1_a, table2_a);
-	}
-
-	template <typename Key, typename Value>
-	nano::store_iterator<Key, Value> make_merge_iterator (nano::transaction const & transaction_a, tables table1_a, tables table2_a, nano::db_val<Val> const & key) const
-	{
-		return static_cast<Derived_Store const &> (*this).template make_merge_iterator<Key, Value> (transaction_a, table1_a, table2_a, key);
 	}
 
 	bool entry_has_sideband (size_t entry_size_a, nano::block_type type_a) const
@@ -1062,11 +913,7 @@ protected:
 			}
 			case nano::block_type::state:
 			{
-				status = get (transaction_a, tables::state_blocks_v1, hash, value);
-				if (!success (status))
-				{
-					status = get (transaction_a, tables::state_blocks_v0, hash, value);
-				}
+				status = get (transaction_a, tables::state_blocks, hash, value);
 				break;
 			}
 			case nano::block_type::invalid:
@@ -1085,16 +932,8 @@ protected:
 		return result;
 	}
 
-	tables block_database (nano::block_type type_a, nano::epoch epoch_a)
+	tables block_database (nano::block_type type_a)
 	{
-		if (type_a == nano::block_type::state)
-		{
-			assert (epoch_a == nano::epoch::epoch_0 || epoch_a == nano::epoch::epoch_1);
-		}
-		else
-		{
-			assert (epoch_a == nano::epoch::epoch_0);
-		}
 		tables result = tables::frontiers;
 		switch (type_a)
 		{
@@ -1111,41 +950,13 @@ protected:
 				result = tables::change_blocks;
 				break;
 			case nano::block_type::state:
-				switch (epoch_a)
-				{
-					case nano::epoch::epoch_0:
-						result = tables::state_blocks_v0;
-						break;
-					case nano::epoch::epoch_1:
-						result = tables::state_blocks_v1;
-						break;
-					default:
-						assert (false);
-				}
+				result = tables::state_blocks;
 				break;
 			default:
 				assert (false);
 				break;
 		}
 		return result;
-	}
-
-	tables get_pending_db (nano::epoch epoch_a) const
-	{
-		tables db;
-		switch (epoch_a)
-		{
-			case nano::epoch::invalid:
-			case nano::epoch::unspecified:
-				assert (false);
-			case nano::epoch::epoch_0:
-				db = tables::pending_v0;
-				break;
-			case nano::epoch::epoch_1:
-				db = tables::pending_v1;
-				break;
-		}
-		return db;
 	}
 
 	size_t count (nano::transaction const & transaction_a, std::initializer_list<tables> dbs_a) const
@@ -1198,11 +1009,10 @@ public:
 		auto hash (block_a.hash ());
 		nano::block_type type;
 		auto value (store.block_raw_get (transaction, block_a.previous (), type));
-		auto version (store.block_version (transaction, block_a.previous ()));
 		assert (value.size () != 0);
 		std::vector<uint8_t> data (static_cast<uint8_t *> (value.data ()), static_cast<uint8_t *> (value.data ()) + value.size ());
 		std::copy (hash.bytes.begin (), hash.bytes.end (), data.begin () + store.block_successor_offset (transaction, value.size (), type));
-		store.block_raw_put (transaction, data, type, version, block_a.previous ());
+		store.block_raw_put (transaction, data, type, block_a.previous ());
 	}
 	void send_block (nano::send_block const & block_a) override
 	{

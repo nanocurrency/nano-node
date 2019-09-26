@@ -106,7 +106,8 @@ class pending_info final
 {
 public:
 	pending_info () = default;
-	pending_info (nano::account const &, nano::amount const &, epoch);
+	pending_info (nano::account const &, nano::amount const &, nano::epoch);
+	size_t db_size () const;
 	bool deserialize (nano::stream &);
 	bool operator== (nano::pending_info const &) const;
 	nano::account source{ 0 };
@@ -213,8 +214,7 @@ public:
 	size_t receive{ 0 };
 	size_t open{ 0 };
 	size_t change{ 0 };
-	size_t state_v0{ 0 };
-	size_t state_v1{ 0 };
+	size_t state{ 0 };
 };
 using vote_blocks_vec_iter = std::vector<boost::variant<std::shared_ptr<nano::block>, nano::block_hash>>::const_iterator;
 class iterate_vote_blocks_as_hash final
