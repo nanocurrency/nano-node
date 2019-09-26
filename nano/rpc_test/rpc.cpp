@@ -7092,16 +7092,20 @@ TEST (rpc, epoch_upgrade)
 	ASSERT_EQ (nano::process_result::progress, node->process (*send2).code);
 	auto send3 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send2->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 3, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send2->hash ()))); // to burn (0)
 	ASSERT_EQ (nano::process_result::progress, node->process (*send3).code);
-	auto send4 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send3->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 4, std::numeric_limits<nano::uint256_t>::max (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send3->hash ()))); // to max account
+	nano::account max_account (std::numeric_limits<nano::uint256_t>::max ());
+	auto send4 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send3->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 4, max_account, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send3->hash ()))); // to max account
 	ASSERT_EQ (nano::process_result::progress, node->process (*send4).code);
 	auto open (std::make_shared<nano::state_block> (key1.pub, 0, key1.pub, 1, send1->hash (), key1.prv, key1.pub, system.work.generate (key1.pub)));
 	ASSERT_EQ (nano::process_result::progress, node->process (*open).code);
-	// Check account count
+	// Check accounts epochs
 	{
 		auto transaction (node->store.tx_begin_read ());
 		ASSERT_EQ (2, node->store.account_count (transaction));
-		ASSERT_NE (node->store.latest_v0_begin (transaction), node->store.latest_v0_end ());
-		ASSERT_EQ (node->store.latest_v1_begin (transaction), node->store.latest_v1_end ());
+		for (auto i (node->store.latest_begin (transaction)); i != node->store.latest_end (); ++i)
+		{
+			nano::account_info info (i->second);
+			ASSERT_EQ (info.epoch (), nano::epoch::epoch_0);
+		}
 	}
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
 	nano::node_rpc_config node_rpc_config;
@@ -7134,8 +7138,11 @@ TEST (rpc, epoch_upgrade)
 	{
 		auto transaction (node->store.tx_begin_read ());
 		ASSERT_EQ (4, node->store.account_count (transaction));
-		ASSERT_EQ (node->store.latest_v0_begin (transaction), node->store.latest_v0_end ());
-		ASSERT_NE (node->store.latest_v1_begin (transaction), node->store.latest_v1_end ());
+		for (auto i (node->store.latest_begin (transaction)); i != node->store.latest_end (); ++i)
+		{
+			nano::account_info info (i->second);
+			ASSERT_EQ (info.epoch (), nano::epoch::epoch_1);
+		}
 		ASSERT_TRUE (node->store.account_exists (transaction, key1.pub));
 		ASSERT_TRUE (node->store.account_exists (transaction, key2.pub));
 		ASSERT_TRUE (node->store.account_exists (transaction, std::numeric_limits<nano::uint256_t>::max ()));

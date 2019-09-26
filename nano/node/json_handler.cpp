@@ -2026,8 +2026,9 @@ void nano::json_handler::deterministic_key ()
 	response_errors ();
 }
 
-void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::uint256_union const & prv_a, nano::epoch epoch_a)
+void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const & prv_a, nano::epoch epoch_a)
 {
+	uint64_t const upgrade_batch_size = 1000;
 	nano::block_builder builder;
 	auto link (node_a->ledger.link (epoch_a));
 	nano::raw_key raw_key;
@@ -2035,131 +2036,160 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::uint256_union con
 	auto signer (nano::pub_key (prv_a));
 	assert (signer == node_a->ledger.signer (link));
 
-	auto previous_begin = [node_a, epoch_a](nano::account const & account_a) {
-		auto transaction (node_a->store.tx_begin_read ());
-		if (epoch_a == nano::epoch::epoch_1)
-		{
-			return node_a->store.latest_v0_begin (transaction, account_a);
-		}
-		else
-		{
-			assert (false);
-			return node_a->store.latest_v0_begin (transaction, account_a);
-		}
-	};
-	auto previous_end  = [node_a, epoch_a]() {
-		if (epoch_a == nano::epoch::epoch_1)
-		{
-			return node_a->store.latest_v0_end ();
-		}
-		else
-		{
-			assert (false);
-			return node_a->store.latest_v0_end ();
-		}
-	};
-	auto previous_pending_begin = [node_a, epoch_a](nano::account const & account_a) {
-		nano::pending_key pending_key (account_a, 0);
-		auto transaction (node_a->store.tx_begin_read ());
-		if (epoch_a == nano::epoch::epoch_1)
-		{
-			return node_a->store.pending_v0_begin (transaction, pending_key);
-		}
-		else
-		{
-			assert (false);
-			return node_a->store.pending_v0_begin (transaction, pending_key);
-		}
-	};
-	auto previous_pending_end  = [node_a, epoch_a]() {
-		if (epoch_a == nano::epoch::epoch_1)
-		{
-			return node_a->store.pending_v0_end ();
-		}
-		else
-		{
-			assert (false);
-			return node_a->store.pending_v0_end ();
-		}
-	};
-
-	// Old existing accounts upgrade
-	// Repeat until latest table for previous accounts is empty
-	nano::account account (0);
-	uint64_t count (0);
-	while (previous_begin (account) != previous_end () && !node_a->stopped)
+	class account_upgrade_item final
 	{
-		nano::account account (0);
-		auto iterator (previous_begin (account));
-		while (iterator != previous_end () && !node_a->stopped)
-		{
-			account = iterator->first;
-			nano::account_info const & info (iterator->second);
-			auto epoch = builder.state ()
-			             .account (account)
-			             .previous (info.head)
-			             .representative (info.representative)
-			             .balance (info.balance)
-			             .link (link)
-			             .sign (raw_key, signer)
-			             .work (node_a->work_generate_blocking (info.head).value_or (0))
-			             .build ();
-			if (!nano::validate_message (signer, epoch->hash (), epoch->block_signature ()) && !nano::work_validate (*epoch.get ()))
-			{
-				++count;
-				node_a->process_active (std::move (epoch));
-			}
-			if (count % 1000 == 0)
-			{
-				node_a->logger.always_log (boost::str (boost::format ("%1% accounts were upgraded to new epoch...") % count));
-			}
-			iterator = previous_begin (account.number () + 1);
-		}
-		account = 0;
-		node_a->block_processor.flush ();
-	}
-	node_a->logger.always_log (boost::str (boost::format ("%1% accounts were upgraded to new epoch") % count));
-
-	// Pending blocks upgrade
-	account = 1; // Ignore 0 account (burn)
-	count = 0;
-	auto iterator (previous_pending_begin (account));
-	while (iterator != previous_pending_end () && !node_a->stopped)
+	public:
+		nano::account account{ 0 };
+		uint64_t modified{ 0 };
+	};
+	class account_tag
 	{
-		account = iterator->first.account;
-		auto transaction (node_a->store.tx_begin_read ());
-		if (!node_a->store.account_exists (transaction, account))
+	};
+	class modified_tag
+	{
+	};
+	boost::multi_index_container<
+	account_upgrade_item,
+	boost::multi_index::indexed_by<
+	boost::multi_index::ordered_non_unique<boost::multi_index::tag<modified_tag>, boost::multi_index::member<account_upgrade_item, uint64_t, &account_upgrade_item::modified>, std::greater<uint64_t>>,
+	boost::multi_index::hashed_unique<boost::multi_index::tag<account_tag>, boost::multi_index::member<account_upgrade_item, nano::account, &account_upgrade_item::account>>>>
+	accounts_list;
+
+	bool finished_upgrade (false);
+
+	while (!finished_upgrade && !node_a->stopped)
+	{
+		bool finished_accounts (false);
+		uint64_t total_upgraded_accounts (0);
+		while (!finished_accounts && !node_a->stopped)
 		{
-			auto epoch = builder.state ()
-			             .account (account)
-			             .previous (0)
-			             .representative (0)
-			             .balance (0)
-			             .link (link)
-			             .sign (raw_key, signer)
-			             .work (node_a->work_generate_blocking (account).value_or (0))
-			             .build ();
-			if (!nano::validate_message (signer, epoch->hash (), epoch->block_signature ()) && !nano::work_validate (*epoch.get ()))
 			{
-				++count;
-				node_a->process_active (std::move (epoch));
+				auto transaction (node_a->store.tx_begin_read ());
+				// Collect accounts to upgrade
+				for (auto i (node_a->store.latest_begin (transaction)), n (node_a->store.latest_end ()); i != n; ++i)
+				{
+					nano::account const & account (i->first);
+					nano::account_info const & info (i->second);
+					if (info.epoch () < epoch_a)
+					{
+						release_assert (nano::epochs::is_sequential (info.epoch (), epoch_a));
+						accounts_list.insert (account_upgrade_item{ account, info.modified });
+					}
+				}
 			}
-			if (count % 1000 == 0)
+
+			/* Upgrade accounts
+			Repeat until accounts with previous epoch exist in latest table */
+			uint64_t upgraded_accounts (0);
+			for (auto i (accounts_list.get<modified_tag> ().begin ()), n (accounts_list.get<modified_tag> ().end ()); i != n && upgraded_accounts < upgrade_batch_size && !node_a->stopped; ++i)
 			{
-				node_a->logger.always_log (boost::str (boost::format ("%1% unopened accounts with pending blocks were upgraded to new epoch...") % count));
+				auto transaction (node_a->store.tx_begin_read ());
+				nano::account_info info;
+				if (!node_a->store.account_get (transaction, i->account, info) && info.epoch () < epoch_a)
+				{
+					auto epoch = builder.state ()
+					             .account (i->account)
+					             .previous (info.head)
+					             .representative (info.representative)
+					             .balance (info.balance)
+					             .link (link)
+						             .sign (raw_key, signer)
+					             .work (node_a->work_generate_blocking (info.head).value_or (0))
+					             .build ();
+					if (!nano::validate_message (signer, epoch->hash (), epoch->block_signature ()) && !nano::work_validate (*epoch.get ()))
+					{
+						++upgraded_accounts;
+						node_a->process_active (std::move (epoch));
+					}
+				}
+			}
+			total_upgraded_accounts += upgraded_accounts;
+
+			if (!accounts_list.empty ())
+			{
+				node_a->logger.always_log (boost::str (boost::format ("%1% accounts were upgraded to new epoch, %2% remain...") % total_upgraded_accounts % (accounts_list.size () - upgraded_accounts)));
+				accounts_list.clear ();
+			}
+			else
+			{
+				node_a->logger.always_log (boost::str (boost::format ("%1% total accounts were upgraded to new epoch") % total_upgraded_accounts));
+				finished_accounts = true;
 			}
 		}
-		iterator = account.number () != std::numeric_limits<nano::uint256_t>::max () ? previous_pending_begin (account.number () + 1) : previous_pending_end ();
-		// Repeat if some pending accounts were upgraded
-		if (iterator == previous_pending_end () && count != 0)
+
+		// Pending blocks upgrade
+		bool finished_pending (false);
+		uint64_t total_upgraded_pending (0);
+		while (!finished_pending && !node_a->stopped)
 		{
-			node_a->block_processor.flush ();
-			account = 1;
-			iterator = previous_pending_begin (account);
-			node_a->logger.always_log (boost::str (boost::format ("%1% unopened accounts with pending blocks were upgraded to new epoch") % count));
-			count = 0;
+			uint64_t upgraded_pending (0);
+			auto transaction (node_a->store.tx_begin_read ());
+			for (auto i (node_a->store.pending_begin (transaction, nano::pending_key (1, 0))), n (node_a->store.pending_end ()); i != n && upgraded_pending < upgrade_batch_size && !node_a->stopped;)
+			{
+				bool to_next_account (false);
+				nano::pending_key const & key (i->first);
+				if (!node_a->store.account_exists (transaction, key.account))
+				{
+					nano::pending_info const & info (i->second);
+					if (info.epoch < epoch_a)
+					{
+						release_assert (nano::epochs::is_sequential (info.epoch, epoch_a));
+						auto epoch = builder.state ()
+						             .account (key.account)
+						             .previous (0)
+						             .representative (0)
+						             .balance (0)
+						             .link (link)
+						             .sign (raw_key, signer)
+						             .work (node_a->work_generate_blocking (key.account).value_or (0))
+						             .build ();
+						if (!nano::validate_message (signer, epoch->hash (), epoch->block_signature ()) && !nano::work_validate (*epoch.get ()))
+						{
+							++upgraded_pending;
+							node_a->process_active (std::move (epoch));
+							to_next_account = true;
+						}
+					}
+				}
+				else
+				{
+					to_next_account = true;
+				}
+				if (to_next_account)
+				{
+					// Move to next account if pending account exists or was upgraded
+					if (key.account.number () == std::numeric_limits<nano::uint256_t>::max ())
+					{
+						break;
+					}
+					else
+					{
+						i = node_a->store.pending_begin (transaction, nano::pending_key (key.account.number () + 1, 0));
+					}
+				}
+				else
+				{
+					// Move to next pending item
+					++i;
+				}
+			}
+			total_upgraded_pending += upgraded_pending;
+
+			// Repeat if some pending accounts were upgraded
+			if (upgraded_pending != 0)
+			{
+				node_a->logger.always_log (boost::str (boost::format ("%1% unopened accounts with pending blocks were upgraded to new epoch...") % total_upgraded_pending));
+			}
+			else
+			{
+				node_a->logger.always_log (boost::str (boost::format ("%1% total unopened accounts with pending blocks were upgraded to new epoch") % total_upgraded_pending));
+				finished_pending = true;
+			}
 		}
+
+		finished_upgrade = (total_upgraded_accounts = 0) && (total_upgraded_pending == 0);
 	}
+
 	node_a->logger.always_log ("Epoch upgrade is completed");
 }
 
@@ -2170,14 +2200,21 @@ void nano::json_handler::epoch_upgrade ()
 {
 	nano::epoch epoch (nano::epoch::invalid);
 	uint8_t epoch_int (request.get<uint8_t> ("epoch"));
-	if (epoch_int == 1)
+	switch (epoch_int)
 	{
-		epoch = nano::epoch::epoch_1;
+		case 1:
+			epoch = nano::epoch::epoch_1;
+			break;
+		case 2:
+			epoch = nano::epoch::epoch_2;
+			break;
+		default:
+			break;
 	}
 	if (epoch != nano::epoch::invalid)
 	{
 		std::string key_text (request.get<std::string> ("key"));
-		nano::uint256_union prv;
+		nano::private_key prv;
 		if (!prv.decode_hex (key_text))
 		{
 			if (nano::pub_key (prv) == node.ledger.signer (node.ledger.link (epoch)))
