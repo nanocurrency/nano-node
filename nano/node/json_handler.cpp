@@ -2093,7 +2093,7 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 					             .representative (info.representative)
 					             .balance (info.balance)
 					             .link (link)
-						             .sign (raw_key, signer)
+					             .sign (raw_key, signer)
 					             .work (node_a->work_generate_blocking (info.head).value_or (0))
 					             .build ();
 					if (!nano::validate_message (signer, epoch->hash (), epoch->block_signature ()) && !nano::work_validate (*epoch.get ()))
