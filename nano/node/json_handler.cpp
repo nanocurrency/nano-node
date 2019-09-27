@@ -2187,7 +2187,7 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 			}
 		}
 
-		finished_upgrade = (total_upgraded_accounts = 0) && (total_upgraded_pending == 0);
+		finished_upgrade = (total_upgraded_accounts == 0) && (total_upgraded_pending == 0);
 	}
 
 	node_a->logger.always_log ("Epoch upgrade is completed");

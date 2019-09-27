@@ -7083,7 +7083,7 @@ TEST (rpc, epoch_upgrade)
 {
 	nano::system system (24000, 1);
 	auto node = system.nodes.front ();
-	nano::keypair key1, key2;
+	nano::keypair key1, key2, key3;
 	nano::genesis genesis;
 	nano::keypair epoch_signer (nano::test_genesis_key);
 	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 1, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (genesis.hash ()))); // to opened account
@@ -7145,6 +7145,56 @@ TEST (rpc, epoch_upgrade)
 		}
 		ASSERT_TRUE (node->store.account_exists (transaction, key1.pub));
 		ASSERT_TRUE (node->store.account_exists (transaction, key2.pub));
+		ASSERT_TRUE (node->store.account_exists (transaction, std::numeric_limits<nano::uint256_t>::max ()));
+		ASSERT_FALSE (node->store.account_exists (transaction, 0));
+	}
+
+	// Epoch 2 upgrade
+	auto genesis_latest (node->latest (nano::test_genesis_key.pub));
+	auto send5 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis_latest, nano::test_genesis_key.pub, nano::genesis_amount - 5, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (genesis_latest))); // to burn (0)
+	ASSERT_EQ (nano::process_result::progress, node->process (*send5).code);
+	auto send6 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send5->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 6, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, system.work.generate (send5->hash ()))); // to key1 (again)
+	ASSERT_EQ (nano::process_result::progress, node->process (*send6).code);
+	auto key1_latest (node->latest (key1.pub));
+	auto send7 (std::make_shared<nano::state_block> (key1.pub, key1_latest, key1.pub, 0, key3.pub, key1.prv, key1.pub, system.work.generate (key1_latest))); // to key3
+	ASSERT_EQ (nano::process_result::progress, node->process (*send7).code);
+	{
+		// Check pending entry
+		auto transaction (node->store.tx_begin_read ());
+		nano::pending_info info;
+		ASSERT_FALSE (node->store.pending_get (transaction, nano::pending_key (key3.pub, send7->hash ()), info));
+		ASSERT_EQ (nano::epoch::epoch_1, info.epoch);
+	}
+
+	request.put ("epoch", 2);
+	test_response response2 (request, rpc.config.port, system.io_ctx);
+	system.deadline_set (5s);
+	while (response2.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response2.status);
+	ASSERT_EQ ("1", response2.json.get<std::string> ("started"));
+	system.deadline_set (5s);
+	bool done2 (false);
+	while (!done2)
+	{
+		auto transaction (node->store.tx_begin_read ());
+		done2 = (5 == node->store.account_count (transaction));
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	// Check upgrade
+	{
+		auto transaction (node->store.tx_begin_read ());
+		ASSERT_EQ (5, node->store.account_count (transaction));
+		for (auto i (node->store.latest_begin (transaction)); i != node->store.latest_end (); ++i)
+		{
+			nano::account_info info (i->second);
+			ASSERT_EQ (info.epoch (), nano::epoch::epoch_2);
+		}
+		ASSERT_TRUE (node->store.account_exists (transaction, key1.pub));
+		ASSERT_TRUE (node->store.account_exists (transaction, key2.pub));
+		ASSERT_TRUE (node->store.account_exists (transaction, key3.pub));
 		ASSERT_TRUE (node->store.account_exists (transaction, std::numeric_limits<nano::uint256_t>::max ()));
 		ASSERT_FALSE (node->store.account_exists (transaction, 0));
 	}
