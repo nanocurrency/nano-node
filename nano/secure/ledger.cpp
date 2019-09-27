@@ -409,7 +409,9 @@ void ledger_processor::epoch_block_impl (nano::state_block const & block_a)
 				if (result.code == nano::process_result::progress)
 				{
 					auto epoch = ledger.network_params.ledger.epochs.epoch (block_a.hashables.link);
-					result.code = nano::epochs::is_sequential (info.epoch (), epoch) ? nano::process_result::progress : nano::process_result::block_position;
+					// Must be an epoch for an unopened account or the epoch upgrade must be sequential
+					auto is_valid_epoch_upgrade = account_error ? static_cast<std::underlying_type_t<nano::epoch>> (epoch) > 0 : nano::epochs::is_sequential (info.epoch (), epoch);
+					result.code = is_valid_epoch_upgrade ? nano::process_result::progress : nano::process_result::block_position;
 					if (result.code == nano::process_result::progress)
 					{
 						result.code = block_a.hashables.balance == info.balance ? nano::process_result::progress : nano::process_result::balance_mismatch;
