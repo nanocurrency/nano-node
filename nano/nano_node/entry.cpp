@@ -886,7 +886,7 @@ int main (int argc, char * const * argv)
 							}
 							if (node.node->ledger.is_epoch_link (state_block.hashables.link) && state_block.hashables.balance == prev_balance)
 							{
-								invalid = validate_message (node.node->ledger.signer (block->link ()), hash, block->block_signature ());
+								invalid = validate_message (node.node->ledger.epoch_signer (block->link ()), hash, block->block_signature ());
 							}
 						}
 						if (invalid)

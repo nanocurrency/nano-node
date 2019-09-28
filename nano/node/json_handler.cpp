@@ -2030,11 +2030,11 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 {
 	uint64_t const upgrade_batch_size = 1000;
 	nano::block_builder builder;
-	auto link (node_a->ledger.link (epoch_a));
+	auto link (node_a->ledger.epoch_link (epoch_a));
 	nano::raw_key raw_key;
 	raw_key.data = prv_a;
 	auto signer (nano::pub_key (prv_a));
-	assert (signer == node_a->ledger.signer (link));
+	assert (signer == node_a->ledger.epoch_signer (link));
 
 	class account_upgrade_item final
 	{
@@ -2217,7 +2217,7 @@ void nano::json_handler::epoch_upgrade ()
 		nano::private_key prv;
 		if (!prv.decode_hex (key_text))
 		{
-			if (nano::pub_key (prv) == node.ledger.signer (node.ledger.link (epoch)))
+			if (nano::pub_key (prv) == node.ledger.epoch_signer (node.ledger.epoch_link (epoch)))
 			{
 				auto node_l (node.shared ());
 				node.worker.push_task ([node_l, prv, epoch]() {
@@ -2391,7 +2391,7 @@ public:
 				if (raw && accounts_filter.empty ())
 				{
 					tree.put ("subtype", "epoch");
-					tree.put ("account", handler.node.ledger.signer (block_a.link ()).to_account ());
+					tree.put ("account", handler.node.ledger.epoch_signer (block_a.link ()).to_account ());
 				}
 			}
 			else
