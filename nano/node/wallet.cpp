@@ -1265,7 +1265,7 @@ bool nano::wallet::search_pending ()
 					{
 						wallets.node.logger.try_log (boost::str (boost::format ("Found a pending block %1% for account %2%") % hash.to_string () % pending.source.to_account ()));
 						auto block (wallets.node.store.block_get (block_transaction, hash));
-						if (wallets.node.block_confirmed_or_being_confirmed (block_transaction, hash))
+						if (wallets.node.ledger.block_confirmed (block_transaction, hash))
 						{
 							// Receive confirmed block
 							auto node_l (wallets.node.shared ());
