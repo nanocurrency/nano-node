@@ -6002,8 +6002,9 @@ TEST (rpc, confirmation_history)
 	ASSERT_NE (representatives.end (), item);
 	auto hash (item->second.get<std::string> ("hash"));
 	auto tally (item->second.get<std::string> ("tally"));
-	ASSERT_FALSE (item->second.get<std::string> ("duration", "").empty ());
-	ASSERT_FALSE (item->second.get<std::string> ("time", "").empty ());
+	ASSERT_EQ (1, item->second.count ("duration"));
+	ASSERT_EQ (1, item->second.count ("time"));
+	ASSERT_EQ (1, item->second.count ("request_count"));
 	ASSERT_EQ (block->hash ().to_string (), hash);
 	nano::amount tally_num;
 	tally_num.decode_dec (tally);

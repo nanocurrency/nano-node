@@ -1795,6 +1795,7 @@ void nano::json_handler::confirmation_history ()
 				election.put ("duration", i->election_duration.count ());
 				election.put ("time", i->election_end.count ());
 				election.put ("tally", i->tally.to_string_dec ());
+				election.put ("request_count", i->confirmation_request_count);
 				elections.push_back (std::make_pair ("", election));
 			}
 			running_total += i->election_duration;
