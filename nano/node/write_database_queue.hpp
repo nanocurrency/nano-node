@@ -12,7 +12,8 @@ namespace nano
 enum class writer
 {
 	confirmation_height,
-	process_batch
+	process_batch,
+	testing // Used in tests to emulate a write lock
 };
 
 class write_guard final
