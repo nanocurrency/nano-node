@@ -44,6 +44,13 @@ public:
 		// Do nothing
 	}
 
+	std::shared_ptr<nano::block> block_get_v14 (nano::transaction const &, nano::block_hash const &, nano::block_sideband_v14 * = nullptr, bool * = nullptr) const override
+	{
+		// Should not be called as RocksDB has no such upgrade path
+		release_assert (false);
+		return nullptr;
+	}
+
 	bool copy_db (boost::filesystem::path const & destination) override;
 
 	template <typename Key, typename Value>
@@ -56,18 +63,6 @@ public:
 	nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key) const
 	{
 		return nano::store_iterator<Key, Value> (std::make_unique<nano::rocksdb_iterator<Key, Value>> (db, transaction_a, table_to_column_family (table_a), key));
-	}
-
-	template <typename Key, typename Value>
-	nano::store_iterator<Key, Value> make_merge_iterator (nano::transaction const & transaction_a, tables table1_a, tables table2_a, rocksdb_val const & key) const
-	{
-		return nano::store_iterator<Key, Value> (std::make_unique<nano::rocksdb_merge_iterator<Key, Value>> (db, transaction_a, table_to_column_family (table1_a), table_to_column_family (table2_a), key));
-	}
-
-	template <typename Key, typename Value>
-	nano::store_iterator<Key, Value> make_merge_iterator (nano::transaction const & transaction_a, tables table1_a, tables table2_a) const
-	{
-		return nano::store_iterator<Key, Value> (std::make_unique<nano::rocksdb_merge_iterator<Key, Value>> (db, transaction_a, table_to_column_family (table1_a), table_to_column_family (table2_a)));
 	}
 
 	bool init_error () const override;
