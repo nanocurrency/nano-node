@@ -312,10 +312,7 @@ startup_time (std::chrono::steady_clock::now ())
 		observers.vote.add ([this](std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a) {
 			this->gap_cache.vote (vote_a);
 			this->online_reps.observe (vote_a->account);
-			nano::uint128_t rep_weight;
-			{
-				rep_weight = ledger.weight (vote_a->account);
-			}
+			auto rep_weight (ledger.weight (vote_a->account));
 			if (rep_weight > minimum_principal_weight ())
 			{
 				bool rep_crawler_exists (false);

@@ -133,6 +133,9 @@ private:
 	/** Clean representatives with inactive channels */
 	void cleanup_reps ();
 
+	/** Update representatives weights from ledger */
+	void update_weights ();
+
 	/** Protects the probable_reps container */
 	mutable std::mutex probable_reps_mutex;
 
