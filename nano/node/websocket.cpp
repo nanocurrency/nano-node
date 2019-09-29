@@ -79,7 +79,7 @@ node (node_a)
 		}
 	}
 	// Warn the user if the options resulted in an empty filter
-	if (!all_local_accounts && accounts.empty ())
+	if (has_account_filtering_options && !all_local_accounts && accounts.empty ())
 	{
 		node.logger.always_log ("Websocket: provided options resulted in an empty block confirmation filter");
 	}
