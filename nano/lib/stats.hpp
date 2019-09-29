@@ -220,7 +220,7 @@ public:
 	/** Primary statistics type */
 	enum class type : uint8_t
 	{
-		traffic,
+		traffic_udp,
 		traffic_tcp,
 		error,
 		message,

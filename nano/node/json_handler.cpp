@@ -31,6 +31,7 @@ using ipc_json_handler_no_arg_func_map = std::unordered_map<std::string, std::fu
 ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ();
 auto ipc_json_handler_no_arg_funcs = create_ipc_json_handler_no_arg_func_map ();
 bool block_confirmed (nano::node & node, nano::transaction & transaction, nano::block_hash const & hash, bool include_active, bool include_only_confirmed);
+const char * epoch_as_string (nano::epoch);
 }
 
 nano::json_handler::json_handler (nano::node & node_a, nano::node_rpc_config const & node_rpc_config_a, std::string const & body_a, std::function<void(std::string const &)> const & response_a, std::function<void()> stop_callback_a) :
@@ -534,7 +535,7 @@ void nano::json_handler::account_info ()
 			response_l.put ("balance", balance);
 			response_l.put ("modified_timestamp", std::to_string (info.modified));
 			response_l.put ("block_count", std::to_string (info.block_count));
-			response_l.put ("account_version", info.epoch () == nano::epoch::epoch_1 ? "1" : "0");
+			response_l.put ("account_version", epoch_as_string (info.epoch ()));
 			response_l.put ("confirmation_height", std::to_string (confirmation_height));
 			if (representative)
 			{
@@ -954,7 +955,7 @@ void nano::json_handler::block_info ()
 			response_l.put ("balance", balance.convert_to<std::string> ());
 			response_l.put ("height", std::to_string (sideband.height));
 			response_l.put ("local_timestamp", std::to_string (sideband.timestamp));
-			auto confirmed (node.block_confirmed_or_being_confirmed (transaction, hash));
+			auto confirmed (node.ledger.block_confirmed (transaction, hash));
 			response_l.put ("confirmed", confirmed);
 
 			bool json_block_l = request.get<bool> ("json_block", false);
@@ -992,7 +993,7 @@ void nano::json_handler::block_confirm ()
 		auto block_l (node.store.block_get (transaction, hash));
 		if (block_l != nullptr)
 		{
-			if (!node.block_confirmed_or_being_confirmed (transaction, hash))
+			if (!node.ledger.block_confirmed (transaction, hash))
 			{
 				// Start new confirmation for unconfirmed block
 				node.block_confirm (std::move (block_l));
@@ -1105,7 +1106,7 @@ void nano::json_handler::blocks_info ()
 					entry.put ("balance", balance.convert_to<std::string> ());
 					entry.put ("height", std::to_string (sideband.height));
 					entry.put ("local_timestamp", std::to_string (sideband.timestamp));
-					auto confirmed (node.block_confirmed_or_being_confirmed (transaction, hash));
+					auto confirmed (node.ledger.block_confirmed (transaction, hash));
 					entry.put ("confirmed", confirmed);
 
 					if (json_block_l)
@@ -1214,9 +1215,7 @@ void nano::json_handler::block_count_type ()
 	response_l.put ("receive", std::to_string (count.receive));
 	response_l.put ("open", std::to_string (count.open));
 	response_l.put ("change", std::to_string (count.change));
-	response_l.put ("state_v0", std::to_string (count.state_v0));
-	response_l.put ("state_v1", std::to_string (count.state_v1));
-	response_l.put ("state", std::to_string (count.state_v0 + count.state_v1));
+	response_l.put ("state", std::to_string (count.state));
 	response_errors ();
 }
 
@@ -2695,7 +2694,7 @@ void nano::json_handler::pending ()
 							}
 							if (min_version)
 							{
-								pending_tree.put ("min_version", info.epoch == nano::epoch::epoch_1 ? "1" : "0");
+								pending_tree.put ("min_version", epoch_as_string (info.epoch));
 							}
 							peers_l.add_child (key.hash.to_string (), pending_tree);
 						}
@@ -4323,7 +4322,7 @@ void nano::json_handler::wallet_pending ()
 								}
 								if (min_version)
 								{
-									pending_tree.put ("min_version", info.epoch == nano::epoch::epoch_1 ? "1" : "0");
+									pending_tree.put ("min_version", epoch_as_string (info.epoch));
 								}
 								peers_l.add_child (key.hash.to_string (), pending_tree);
 							}
@@ -4806,7 +4805,7 @@ bool block_confirmed (nano::node & node, nano::transaction & transaction, nano::
 		is_confirmed = true;
 	}
 	// Check whether the confirmation height is set
-	else if (node.block_confirmed_or_being_confirmed (transaction, hash))
+	else if (node.ledger.block_confirmed (transaction, hash))
 	{
 		is_confirmed = true;
 	}
@@ -4818,5 +4817,18 @@ bool block_confirmed (nano::node & node, nano::transaction & transaction, nano::
 	}
 
 	return is_confirmed;
+}
+
+const char * epoch_as_string (nano::epoch epoch)
+{
+	switch (epoch)
+	{
+		case nano::epoch::epoch_2:
+			return "2";
+		case nano::epoch::epoch_1:
+			return "1";
+		default:
+			return "0";
+	}
 }
 }

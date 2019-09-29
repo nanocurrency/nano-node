@@ -58,16 +58,22 @@ public:
 	MDB_dbi frontiers{ 0 };
 
 	/**
-	 * Maps account v1 to account information, head, rep, open, balance, timestamp and block count.
+	 * Maps account v1 to account information, head, rep, open, balance, timestamp and block count. (Removed)
 	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t
 	 */
 	MDB_dbi accounts_v0{ 0 };
 
 	/**
-	 * Maps account v0 to account information, head, rep, open, balance, timestamp and block count.
+	 * Maps account v0 to account information, head, rep, open, balance, timestamp and block count. (Removed)
 	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t
 	 */
 	MDB_dbi accounts_v1{ 0 };
+
+	/**
+	 * Maps account v0 to account information, head, rep, open, balance, timestamp, block count and epoch. (Removed)
+	 * nano::account -> nano::block_hash, nano::block_hash, nano::block_hash, nano::amount, uint64_t, uint64_t, nano::epoch
+	 */
+	MDB_dbi accounts{ 0 };
 
 	/**
 	 * Maps block hash to send block.
@@ -94,28 +100,40 @@ public:
 	MDB_dbi change_blocks{ 0 };
 
 	/**
-	 * Maps block hash to v0 state block.
+	 * Maps block hash to v0 state block. (Removed)
 	 * nano::block_hash -> nano::state_block
 	 */
 	MDB_dbi state_blocks_v0{ 0 };
 
 	/**
-	 * Maps block hash to v1 state block.
+	 * Maps block hash to v1 state block. (Removed)
 	 * nano::block_hash -> nano::state_block
 	 */
 	MDB_dbi state_blocks_v1{ 0 };
 
 	/**
-	 * Maps min_version 0 (destination account, pending block) to (source account, amount).
+	 * Maps block hash to state block.
+	 * nano::block_hash -> nano::state_block
+	 */
+	MDB_dbi state_blocks{ 0 };
+
+	/**
+	 * Maps min_version 0 (destination account, pending block) to (source account, amount). (Removed)
 	 * nano::account, nano::block_hash -> nano::account, nano::amount
 	 */
 	MDB_dbi pending_v0{ 0 };
 
 	/**
-	 * Maps min_version 1 (destination account, pending block) to (source account, amount).
+	 * Maps min_version 1 (destination account, pending block) to (source account, amount). (Removed)
 	 * nano::account, nano::block_hash -> nano::account, nano::amount
 	 */
 	MDB_dbi pending_v1{ 0 };
+
+	/**
+	 * Maps (destination account, pending block) to (source account, amount, version). (Removed)
+	 * nano::account, nano::block_hash -> nano::account, nano::amount, nano::epoch
+	 */
+	MDB_dbi pending{ 0 };
 
 	/**
 	 * Maps block hash to account and balance. (Removed)
@@ -185,19 +203,20 @@ public:
 		return nano::store_iterator<Key, Value> (std::make_unique<nano::mdb_iterator<Key, Value>> (transaction_a, table_to_dbi (table_a), key));
 	}
 
-	template <typename Key, typename Value>
-	nano::store_iterator<Key, Value> make_merge_iterator (nano::transaction const & transaction_a, tables table1_a, tables table2_a, nano::mdb_val const & key) const
-	{
-		return nano::store_iterator<Key, Value> (std::make_unique<nano::mdb_merge_iterator<Key, Value>> (transaction_a, table_to_dbi (table1_a), table_to_dbi (table2_a), key));
-	}
-
-	template <typename Key, typename Value>
-	nano::store_iterator<Key, Value> make_merge_iterator (nano::transaction const & transaction_a, tables table1_a, tables table2_a) const
-	{
-		return nano::store_iterator<Key, Value> (std::make_unique<nano::mdb_merge_iterator<Key, Value>> (transaction_a, table_to_dbi (table1_a), table_to_dbi (table2_a)));
-	}
-
 	bool init_error () const override;
+
+	size_t count (nano::transaction const &, MDB_dbi) const;
+
+	// These are only use in the upgrade process.
+	std::shared_ptr<nano::block> block_get_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_sideband_v14 * sideband_a = nullptr, bool * is_state_v1 = nullptr) const override;
+	bool entry_has_sideband_v14 (size_t entry_size_a, nano::block_type type_a) const;
+	size_t block_successor_offset_v14 (nano::transaction const & transaction_a, size_t entry_size_a, nano::block_type type_a) const;
+	nano::block_hash block_successor_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
+	nano::mdb_val block_raw_get_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_type & type_a, bool * is_state_v1 = nullptr) const;
+	boost::optional<nano::mdb_val> block_raw_get_by_type_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_type & type_a, bool * is_state_v1) const;
+	nano::account block_account_computed_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
+	nano::account block_account_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
+	nano::uint128_t block_balance_computed_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
 
 private:
 	bool do_upgrades (nano::write_transaction &, size_t);
@@ -230,7 +249,6 @@ private:
 	bool txn_tracking_enabled;
 
 	size_t count (nano::transaction const & transaction_a, tables table_a) const override;
-	size_t count (nano::transaction const &, MDB_dbi) const;
 };
 
 template <>
@@ -238,7 +256,7 @@ void * mdb_val::data () const;
 template <>
 size_t mdb_val::size () const;
 template <>
-mdb_val::db_val (size_t size_a, void * data_a, nano::epoch epoch_a);
+mdb_val::db_val (size_t size_a, void * data_a);
 template <>
 void mdb_val::convert_buffer_to_value ();
 }
