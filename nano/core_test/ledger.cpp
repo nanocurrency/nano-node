@@ -2343,7 +2343,7 @@ TEST (ledger, epoch_blocks_v2_general)
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::keypair destination;
 	nano::state_block epoch1 (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount, ledger.epoch_link (nano::epoch::epoch_2), nano::test_genesis_key.prv, nano::test_genesis_key.pub, pool.generate (genesis.hash ()));
-	// Trying to upgrade from epoch 0 to epoch 2. It is a requirement (at least for epoch 2) that it can only upgrade an epoch 1 account
+	// Trying to upgrade from epoch 0 to epoch 2. It is a requirement epoch upgrades are sequential unless the account is unopened
 	ASSERT_EQ (nano::process_result::block_position, ledger.process (transaction, epoch1).code);
 	// Set it to the first epoch and it should now succeed
 	epoch1 = nano::state_block (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount, ledger.epoch_link (nano::epoch::epoch_1), nano::test_genesis_key.prv, nano::test_genesis_key.pub, epoch1.work);
@@ -2439,6 +2439,12 @@ TEST (ledger, epoch_blocks_receive_upgrade)
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive3).code);
 	ASSERT_FALSE (ledger.store.account_get (transaction, destination.pub, destination_info));
 	ASSERT_EQ (destination_info.epoch (), nano::epoch::epoch_2);
+	// Upgrade an unopened account straight to epoch 2
+	nano::keypair destination4;
+	nano::state_block send6 (nano::genesis_account, send5.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio * 5, destination4.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, pool.generate (send5.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send6).code);
+	nano::state_block epoch4 (destination4.pub, 0, 0, 0, ledger.epoch_link (nano::epoch::epoch_2), nano::test_genesis_key.prv, nano::test_genesis_key.pub, pool.generate (destination4.pub));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, epoch4).code);
 }
 
 TEST (ledger, epoch_blocks_fork)
