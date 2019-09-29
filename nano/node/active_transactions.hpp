@@ -57,6 +57,7 @@ public:
 	nano::amount tally;
 	std::chrono::milliseconds election_end;
 	std::chrono::milliseconds election_duration;
+	unsigned confirmation_request_count;
 	election_status_type type;
 };
 
