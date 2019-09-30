@@ -1,4 +1,5 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/rocksdbconfig.hpp>
 #include <nano/node/rocksdb/rocksdb.hpp>
 #include <nano/node/rocksdb/rocksdb_iterator.hpp>
 #include <nano/node/rocksdb/rocksdb_txn.hpp>
@@ -27,9 +28,8 @@ size_t rocksdb_val::size () const
 }
 
 template <>
-rocksdb_val::db_val (size_t size_a, void * data_a, nano::epoch epoch_a) :
-value (static_cast<const char *> (data_a), size_a),
-epoch (epoch_a)
+rocksdb_val::db_val (size_t size_a, void * data_a) :
+value (static_cast<const char *> (data_a), size_a)
 {
 }
 
@@ -40,8 +40,9 @@ void rocksdb_val::convert_buffer_to_value ()
 }
 }
 
-nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, bool open_read_only_a) :
-logger (logger_a)
+nano::rocksdb_store::rocksdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::rocksdb_config const & rocksdb_config_a, bool open_read_only_a) :
+logger (logger_a),
+rocksdb_config (rocksdb_config_a)
 {
 	boost::system::error_code error_mkdir, error_chmod;
 	boost::filesystem::create_directories (path_a, error_mkdir);
@@ -72,7 +73,7 @@ nano::rocksdb_store::~rocksdb_store ()
 
 void nano::rocksdb_store::open (bool & error_a, boost::filesystem::path const & path_a, bool open_read_only_a)
 {
-	std::initializer_list<const char *> names{ rocksdb::kDefaultColumnFamilyName.c_str (), "frontiers", "accounts", "accounts_v1", "send", "receive", "open", "change", "state", "state_v1", "pending", "pending_v1", "representation", "unchecked", "vote", "online_weight", "meta", "peers", "cached_counts", "confirmation_height" };
+	std::initializer_list<const char *> names{ rocksdb::kDefaultColumnFamilyName.c_str (), "frontiers", "accounts", "send", "receive", "open", "change", "state_blocks", "pending", "representation", "unchecked", "vote", "online_weight", "meta", "peers", "cached_counts", "confirmation_height" };
 	std::vector<rocksdb::ColumnFamilyDescriptor> column_families;
 	for (const auto & cf_name : names)
 	{
@@ -150,10 +151,8 @@ rocksdb::ColumnFamilyHandle * nano::rocksdb_store::table_to_column_family (table
 	{
 		case tables::frontiers:
 			return get_handle ("frontiers");
-		case tables::accounts_v0:
+		case tables::accounts:
 			return get_handle ("accounts");
-		case tables::accounts_v1:
-			return get_handle ("accounts_v1");
 		case tables::send_blocks:
 			return get_handle ("send");
 		case tables::receive_blocks:
@@ -162,14 +161,10 @@ rocksdb::ColumnFamilyHandle * nano::rocksdb_store::table_to_column_family (table
 			return get_handle ("open");
 		case tables::change_blocks:
 			return get_handle ("change");
-		case tables::state_blocks_v0:
-			return get_handle ("state");
-		case tables::state_blocks_v1:
-			return get_handle ("state_v1");
-		case tables::pending_v0:
+		case tables::state_blocks:
+			return get_handle ("state_blocks");
+		case tables::pending:
 			return get_handle ("pending");
-		case tables::pending_v1:
-			return get_handle ("pending_v1");
 		case tables::blocks_info:
 			assert (false);
 		case tables::representation:
@@ -281,15 +276,13 @@ bool nano::rocksdb_store::is_caching_counts (nano::tables table_a) const
 {
 	switch (table_a)
 	{
-		case tables::accounts_v0:
-		case tables::accounts_v1:
+		case tables::accounts:
 		case tables::unchecked:
 		case tables::send_blocks:
 		case tables::receive_blocks:
 		case tables::open_blocks:
 		case tables::change_blocks:
-		case tables::state_blocks_v0:
-		case tables::state_blocks_v1:
+		case tables::state_blocks:
 			return true;
 		default:
 			return false;
@@ -466,38 +459,40 @@ rocksdb::Options nano::rocksdb_store::get_db_options () const
 	// Start agressively flushing WAL files when they reach over 1GB
 	db_options.max_total_wal_size = 1 * 1024 * 1024 * 1024LL;
 
-	if (!low_end_system ())
-	{
-		// Adds a separate write queue for memtable/WAL
-		db_options.enable_pipelined_write = true;
+	// Optimize RocksDB. This is the easiest way to get RocksDB to perform well
+	db_options.IncreaseParallelism (rocksdb_config.io_threads);
+	db_options.OptimizeLevelStyleCompaction ();
 
-		// Optimize RocksDB. This is the easiest way to get RocksDB to perform well
-		db_options.IncreaseParallelism (std::thread::hardware_concurrency ());
-		db_options.OptimizeLevelStyleCompaction ();
-	}
+	// Adds a separate write queue for memtable/WAL
+	db_options.enable_pipelined_write = rocksdb_config.enable_pipelined_write;
+
+	// Total size of memtables across column families. This can be used to manage the total memory used by memtables.
+	db_options.db_write_buffer_size = rocksdb_config.total_memtable_size;
+
 	return db_options;
-}
-
-/** As options are currently hardcoded, a heuristic is taken based off the number of cores to modify config options */
-bool nano::rocksdb_store::low_end_system () const
-{
-	return (std::thread::hardware_concurrency () < 2);
 }
 
 rocksdb::BlockBasedTableOptions nano::rocksdb_store::get_table_options () const
 {
 	rocksdb::BlockBasedTableOptions table_options;
-	if (!low_end_system ())
-	{
-		// 512MB block cache
-		table_options.block_cache = rocksdb::NewLRUCache (512 * 1024 * 1024LL);
 
-		// Bloom filter to help with point reads
-		table_options.filter_policy.reset (rocksdb::NewBloomFilterPolicy (10, false));
-		table_options.block_size = 16 * 1024;
-		table_options.cache_index_and_filter_blocks = true;
-		table_options.pin_l0_filter_and_index_blocks_in_cache = true;
+	// Block cache for reads
+	table_options.block_cache = rocksdb::NewLRUCache (rocksdb_config.block_cache * 1024 * 1024ULL);
+
+	// Bloom filter to help with point reads
+	auto bloom_filter_bits = rocksdb_config.bloom_filter_bits;
+	if (bloom_filter_bits > 0)
+	{
+		table_options.filter_policy.reset (rocksdb::NewBloomFilterPolicy (bloom_filter_bits, false));
 	}
+
+	// Increasing block_size decreases memory usage and space amplification, but increases read amplification.
+	table_options.block_size = rocksdb_config.block_size * 1024ULL;
+
+	// Whether index and filter blocks are stored in block_cache. These settings should be synced
+	table_options.cache_index_and_filter_blocks = rocksdb_config.cache_index_and_filter_blocks;
+	table_options.pin_l0_filter_and_index_blocks_in_cache = rocksdb_config.cache_index_and_filter_blocks;
+
 	return table_options;
 }
 
@@ -506,38 +501,36 @@ rocksdb::ColumnFamilyOptions nano::rocksdb_store::get_cf_options () const
 	rocksdb::ColumnFamilyOptions cf_options;
 	cf_options.table_factory = table_factory;
 
-	if (!low_end_system ())
-	{
-		cf_options.level_compaction_dynamic_level_bytes = true;
+	// Number of files in level which triggers compaction. Size of L0 and L1 should be kept similar as this is the only compaction which is single threaded
+	cf_options.level0_file_num_compaction_trigger = 4;
 
-		// Number of files in level which triggers compaction. Size of L0 and L1 should be kept similar as this is the only compaction which is single threaded
-		cf_options.level0_file_num_compaction_trigger = 4;
+	// L1 size, compaction is triggered for L0 at this size (4 SST files in L1)
+	cf_options.max_bytes_for_level_base = 1024ULL * 1024 * 4 * rocksdb_config.memtable_size;
 
-		// L1 size, compaction is triggered for L0 at this size (512MB)
-		cf_options.max_bytes_for_level_base = 512 * 1024 * 1024LL;
+	// Each level is a multiple of the above. If L1 is 512MB. L2 will be 512 * 8 = 2GB. L3 will be 2GB * 8 = 16GB, and so on...
+	cf_options.max_bytes_for_level_multiplier = 8;
 
-		// Each level is a multiple of the above. L1 will be 512MB. Le will be 512 * 8 = 2GB. L3 will be 2GB * 8 = 16GB, and so on...
-		cf_options.max_bytes_for_level_multiplier = 8;
+	// Files older than this (1 day) will be scheduled for compaction when there is no other background work. This can lead to more writes however.
+	cf_options.ttl = 1 * 24 * 60 * 60;
 
-		// Size of level 1 sst files (128MB)
-		cf_options.target_file_size_base = 128 * 1024 * 1024LL;
+	// Size of level 1 sst files
+	cf_options.target_file_size_base = 1024ULL * 1024 * rocksdb_config.memtable_size;
 
-		// Size of each memtable (128MB)
-		cf_options.write_buffer_size = 128 * 1024 * 1024LL;
+	// Size of each memtable
+	cf_options.write_buffer_size = 1024ULL * 1024 * rocksdb_config.memtable_size;
 
-		// Number of memtables to keep in memory (1 active, rest inactive/immutable)
-		cf_options.max_write_buffer_number = 3;
+	// Size target of levels are changed dynamically based on size of the last level
+	cf_options.level_compaction_dynamic_level_bytes = true;
 
-		// Files older than this (1 day) will be scheduled for compaction when there is no other background work. This can lead to more writes however.
-		cf_options.ttl = 1 * 24 * 60 * 60;
-	}
+	// Number of memtables to keep in memory (1 active, rest inactive/immutable)
+	cf_options.max_write_buffer_number = rocksdb_config.num_memtables;
 
 	return cf_options;
 }
 
 std::vector<nano::tables> nano::rocksdb_store::all_tables () const
 {
-	return std::vector<nano::tables>{ tables::accounts_v0, tables::accounts_v1, tables::cached_counts, tables::change_blocks, tables::confirmation_height, tables::frontiers, tables::meta, tables::online_weight, tables::open_blocks, tables::peers, tables::pending_v0, tables::pending_v1, tables::receive_blocks, tables::representation, tables::send_blocks, tables::state_blocks_v0, tables::state_blocks_v1, tables::unchecked, tables::vote };
+	return std::vector<nano::tables>{ tables::accounts, tables::cached_counts, tables::change_blocks, tables::confirmation_height, tables::frontiers, tables::meta, tables::online_weight, tables::open_blocks, tables::peers, tables::pending, tables::receive_blocks, tables::representation, tables::send_blocks, tables::state_blocks, tables::unchecked, tables::vote };
 }
 
 bool nano::rocksdb_store::copy_db (boost::filesystem::path const & destination_path)
@@ -602,7 +595,7 @@ bool nano::rocksdb_store::copy_db (boost::filesystem::path const & destination_p
 	// Open it so that it flushes all WAL files
 	if (status.ok ())
 	{
-		nano::rocksdb_store rocksdb_store (logger, destination_path.string (), false);
+		nano::rocksdb_store rocksdb_store (logger, destination_path.string (), rocksdb_config, false);
 		return !rocksdb_store.init_error ();
 	}
 	return false;

@@ -11,7 +11,7 @@ nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> bloc
 confirmation_action (confirmation_action_a),
 node (node_a),
 election_start (std::chrono::steady_clock::now ()),
-status ({ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), nano::election_status_type::ongoing }),
+status ({ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, nano::election_status_type::ongoing }),
 confirmed (false),
 stopped (false),
 confirmation_request_count (0)
@@ -38,6 +38,7 @@ void nano::election::confirm_once (nano::election_status_type type_a)
 	{
 		status.election_end = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
 		status.election_duration = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now () - election_start);
+		status.confirmation_request_count = confirmation_request_count;
 		status.type = type_a;
 		auto status_l (status);
 		auto node_l (node.shared ());
@@ -51,7 +52,7 @@ void nano::election::confirm_once (nano::election_status_type type_a)
 			--node.active.long_unconfirmed_size;
 		}
 		auto root (status.winner->qualified_root ());
-		node.active.add_confirmed (status, root);
+		node.active.pending_conf_height.emplace (status.winner->hash (), shared_from_this ());
 		clear_blocks ();
 		clear_dependent ();
 		node.active.roots.erase (root);
@@ -65,6 +66,7 @@ void nano::election::stop ()
 		stopped = true;
 		status.election_end = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
 		status.election_duration = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now () - election_start);
+		status.confirmation_request_count = confirmation_request_count;
 		status.type = nano::election_status_type::stopped;
 	}
 }

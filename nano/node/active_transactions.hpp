@@ -57,6 +57,7 @@ public:
 	nano::amount tally;
 	std::chrono::milliseconds election_end;
 	std::chrono::milliseconds election_duration;
+	unsigned confirmation_request_count;
 	election_status_type type;
 };
 
@@ -106,7 +107,8 @@ public:
 	size_t size ();
 	void stop ();
 	bool publish (std::shared_ptr<nano::block> block_a);
-	void confirm_block (nano::transaction const &, std::shared_ptr<nano::block>, nano::block_sideband const &);
+	boost::optional<nano::election_status_type> confirm_block (nano::transaction const &, std::shared_ptr<nano::block>);
+	void post_confirmation_height_set (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_sideband const & sideband_a, nano::election_status_type election_status_type_a);
 	boost::multi_index_container<
 	nano::conflict_info,
 	boost::multi_index::indexed_by<
@@ -136,6 +138,8 @@ public:
 	size_t priority_wallet_cementable_frontiers_size ();
 	boost::circular_buffer<double> difficulty_trend ();
 	size_t inactive_votes_cache_size ();
+	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> pending_conf_height;
+	void clear_block (nano::block_hash const & hash_a);
 
 private:
 	// Call action with confirmed block, may be different than what we started with

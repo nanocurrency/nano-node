@@ -4,6 +4,7 @@ add_executable (core_test
 	active_transactions.cpp
 	block.cpp
 	block_store.cpp
+	confirmation_height.cpp
 	conflicts.cpp
 	difficulty.cpp
 	distributed_work.cpp

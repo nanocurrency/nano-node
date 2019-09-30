@@ -189,31 +189,33 @@ wallet (wallet_a)
 		this->wallet.pop_main_stack ();
 	});
 	QObject::connect (create_account, &QPushButton::released, [this]() {
-		auto transaction (this->wallet.wallet_m->wallets.tx_begin_write ());
-		if (this->wallet.wallet_m->store.valid_password (transaction))
 		{
-			this->wallet.wallet_m->deterministic_insert (transaction);
-			show_button_success (*create_account);
-			create_account->setText ("New account was created");
-			refresh ();
-			this->wallet.node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() {
-				this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this]() {
-					show_button_ok (*create_account);
-					create_account->setText ("Create account");
-				}));
-			});
+			auto transaction (this->wallet.wallet_m->wallets.tx_begin_write ());
+			if (this->wallet.wallet_m->store.valid_password (transaction))
+			{
+				this->wallet.wallet_m->deterministic_insert (transaction);
+				show_button_success (*create_account);
+				create_account->setText ("New account was created");
+				this->wallet.node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() {
+					this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this]() {
+						show_button_ok (*create_account);
+						create_account->setText ("Create account");
+					}));
+				});
+			}
+			else
+			{
+				show_button_error (*create_account);
+				create_account->setText ("Wallet is locked, unlock it to create account");
+				this->wallet.node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() {
+					this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this]() {
+						show_button_ok (*create_account);
+						create_account->setText ("Create account");
+					}));
+				});
+			}
 		}
-		else
-		{
-			show_button_error (*create_account);
-			create_account->setText ("Wallet is locked, unlock it to create account");
-			this->wallet.node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() {
-				this->wallet.application.postEvent (&this->wallet.processor, new eventloop_event ([this]() {
-					show_button_ok (*create_account);
-					create_account->setText ("Create account");
-				}));
-			});
-		}
+		refresh ();
 	});
 	QObject::connect (import_wallet, &QPushButton::released, [this]() {
 		this->wallet.push_main_stack (this->wallet.import.window);
@@ -829,7 +831,7 @@ void nano_qt::stats_viewer::refresh_stats ()
 				detail = "total";
 			}
 
-			if (type == "traffic" || type == "traffic_bootstrap")
+			if (type == "traffic_udp" || type == "traffic_tcp")
 			{
 				const std::vector<std::string> units = { " bytes", " KB", " MB", " GB", " TB", " PB" };
 				double bytes = std::stod (value);

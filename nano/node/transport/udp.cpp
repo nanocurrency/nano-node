@@ -48,7 +48,7 @@ std::function<void(boost::system::error_code const &, size_t)> nano::transport::
 			}
 			if (size_a > 0)
 			{
-				node_l->stats.add (nano::stat::type::traffic, nano::stat::dir::out, size_a);
+				node_l->stats.add (nano::stat::type::traffic_udp, nano::stat::dir::out, size_a);
 			}
 
 			if (callback_a)
@@ -544,7 +544,7 @@ void nano::transport::udp_channels::receive_action (nano::message_buffer * data_
 		}
 		else
 		{
-			node.stats.add (nano::stat::type::traffic, nano::stat::dir::in, data_a->size);
+			node.stats.add (nano::stat::type::traffic_udp, nano::stat::dir::in, data_a->size);
 		}
 	}
 	else

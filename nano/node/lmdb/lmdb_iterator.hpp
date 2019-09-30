@@ -10,11 +10,8 @@ template <typename T, typename U>
 class mdb_iterator : public store_iterator_impl<T, U>
 {
 public:
-	mdb_iterator (nano::transaction const & transaction_a, MDB_dbi db_a, nano::epoch epoch_a = nano::epoch::unspecified) :
-	cursor (nullptr)
+	mdb_iterator (nano::transaction const & transaction_a, MDB_dbi db_a)
 	{
-		current.first.epoch = epoch_a;
-		current.second.epoch = epoch_a;
 		auto status (mdb_cursor_open (tx (transaction_a), db_a, &cursor));
 		release_assert (status == 0);
 		auto status2 (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_FIRST));
@@ -34,18 +31,10 @@ public:
 		}
 	}
 
-	mdb_iterator (std::nullptr_t, nano::epoch epoch_a = nano::epoch::unspecified) :
-	cursor (nullptr)
-	{
-		current.first.epoch = epoch_a;
-		current.second.epoch = epoch_a;
-	}
+	mdb_iterator () = default;
 
-	mdb_iterator (nano::transaction const & transaction_a, MDB_dbi db_a, MDB_val const & val_a, nano::epoch epoch_a = nano::epoch::unspecified) :
-	cursor (nullptr)
+	mdb_iterator (nano::transaction const & transaction_a, MDB_dbi db_a, MDB_val const & val_a)
 	{
-		current.first.epoch = epoch_a;
-		current.second.epoch = epoch_a;
 		auto status (mdb_cursor_open (tx (transaction_a), db_a, &cursor));
 		release_assert (status == 0);
 		current.first = val_a;
@@ -139,8 +128,8 @@ public:
 	}
 	void clear ()
 	{
-		current.first = nano::db_val<MDB_val> (current.first.epoch);
-		current.second = nano::db_val<MDB_val> (current.second.epoch);
+		current.first = nano::db_val<MDB_val> ();
+		current.second = nano::db_val<MDB_val> ();
 		assert (is_end_sentinal ());
 	}
 
@@ -158,7 +147,7 @@ public:
 	}
 
 	nano::store_iterator_impl<T, U> & operator= (nano::store_iterator_impl<T, U> const &) = delete;
-	MDB_cursor * cursor;
+	MDB_cursor * cursor{ nullptr };
 	std::pair<nano::db_val<MDB_val>, nano::db_val<MDB_val>> current;
 
 private:
@@ -176,20 +165,20 @@ class mdb_merge_iterator : public store_iterator_impl<T, U>
 {
 public:
 	mdb_merge_iterator (nano::transaction const & transaction_a, MDB_dbi db1_a, MDB_dbi db2_a) :
-	impl1 (std::make_unique<nano::mdb_iterator<T, U>> (transaction_a, db1_a, nano::epoch::epoch_0)),
-	impl2 (std::make_unique<nano::mdb_iterator<T, U>> (transaction_a, db2_a, nano::epoch::epoch_1))
+	impl1 (std::make_unique<nano::mdb_iterator<T, U>> (transaction_a, db1_a)),
+	impl2 (std::make_unique<nano::mdb_iterator<T, U>> (transaction_a, db2_a))
 	{
 	}
 
-	mdb_merge_iterator (std::nullptr_t) :
-	impl1 (std::make_unique<nano::mdb_iterator<T, U>> (nullptr, nano::epoch::epoch_0)),
-	impl2 (std::make_unique<nano::mdb_iterator<T, U>> (nullptr, nano::epoch::epoch_1))
+	mdb_merge_iterator () :
+	impl1 (std::make_unique<nano::mdb_iterator<T, U>> ()),
+	impl2 (std::make_unique<nano::mdb_iterator<T, U>> ())
 	{
 	}
 
 	mdb_merge_iterator (nano::transaction const & transaction_a, MDB_dbi db1_a, MDB_dbi db2_a, MDB_val const & val_a) :
-	impl1 (std::make_unique<nano::mdb_iterator<T, U>> (transaction_a, db1_a, val_a, nano::epoch::epoch_0)),
-	impl2 (std::make_unique<nano::mdb_iterator<T, U>> (transaction_a, db2_a, val_a, nano::epoch::epoch_1))
+	impl1 (std::make_unique<nano::mdb_iterator<T, U>> (transaction_a, db1_a, val_a)),
+	impl2 (std::make_unique<nano::mdb_iterator<T, U>> (transaction_a, db2_a, val_a))
 	{
 	}
 
@@ -247,6 +236,8 @@ public:
 	nano::mdb_merge_iterator<T, U> & operator= (nano::mdb_merge_iterator<T, U> &&) = default;
 	nano::mdb_merge_iterator<T, U> & operator= (nano::mdb_merge_iterator<T, U> const &) = delete;
 
+	mutable bool from_first_database{ false };
+
 private:
 	nano::mdb_iterator<T, U> & least_iterator () const
 	{
@@ -254,10 +245,12 @@ private:
 		if (impl1->is_end_sentinal ())
 		{
 			result = impl2.get ();
+			from_first_database = false;
 		}
 		else if (impl2->is_end_sentinal ())
 		{
 			result = impl1.get ();
+			from_first_database = true;
 		}
 		else
 		{
@@ -266,6 +259,7 @@ private:
 			if (key_cmp < 0)
 			{
 				result = impl1.get ();
+				from_first_database = true;
 			}
 			else if (key_cmp > 0)
 			{
@@ -275,6 +269,7 @@ private:
 			{
 				auto val_cmp (mdb_cmp (mdb_cursor_txn (impl1->cursor), mdb_cursor_dbi (impl1->cursor), impl1->current.second, impl2->current.second));
 				result = val_cmp < 0 ? impl1.get () : impl2.get ();
+				from_first_database = (result == impl1.get ());
 			}
 		}
 		return *result;

@@ -344,7 +344,7 @@ public:
 		std::string line;
 		while (std::getline (ss, line, '\n'))
 		{
-			if (!line.empty () && line[0] != '#')
+			if (!line.empty () && line[0] != '#' && line[0] != '[')
 			{
 				line = "#" + line;
 			}

@@ -243,16 +243,19 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				{
 					// Note that these throw on failure
 					std::cout << "Finalizing" << std::endl;
-#ifdef NANO_ROCKSDB
-					nano::remove_all_files_in_dir (backup_path);
-					nano::move_all_files_to_dir (source_path, backup_path);
-					nano::move_all_files_to_dir (vacuum_path, source_path);
-					boost::filesystem::remove_all (vacuum_path);
-#else
-					boost::filesystem::remove (backup_path);
-					boost::filesystem::rename (source_path, backup_path);
-					boost::filesystem::rename (vacuum_path, source_path);
-#endif
+					if (using_rocksdb)
+					{
+						nano::remove_all_files_in_dir (backup_path);
+						nano::move_all_files_to_dir (source_path, backup_path);
+						nano::move_all_files_to_dir (vacuum_path, source_path);
+						boost::filesystem::remove_all (vacuum_path);
+					}
+					else
+					{
+						boost::filesystem::remove (backup_path);
+						boost::filesystem::rename (source_path, backup_path);
+						boost::filesystem::rename (vacuum_path, source_path);
+					}
 					std::cout << "Vacuum completed" << std::endl;
 				}
 				else
