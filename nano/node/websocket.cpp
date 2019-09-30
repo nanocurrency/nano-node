@@ -79,7 +79,7 @@ node (node_a)
 		}
 	}
 	// Warn the user if the options resulted in an empty filter
-	if (!all_local_accounts && accounts.empty ())
+	if (has_account_filtering_options && !all_local_accounts && accounts.empty ())
 	{
 		node.logger.always_log ("Websocket: provided options resulted in an empty block confirmation filter");
 	}
@@ -629,6 +629,7 @@ nano::websocket::message nano::websocket::message_builder::block_confirmed (std:
 		election_node_l.add ("duration", election_status_a.election_duration.count ());
 		election_node_l.add ("time", election_status_a.election_end.count ());
 		election_node_l.add ("tally", election_status_a.tally.to_string_dec ());
+		election_node_l.add ("request_count", election_status_a.confirmation_request_count);
 		message_node_l.add_child ("election_info", election_node_l);
 	}
 

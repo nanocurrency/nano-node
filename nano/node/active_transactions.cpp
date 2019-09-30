@@ -110,7 +110,7 @@ void nano::active_transactions::post_confirmation_height_set (nano::transaction 
 		bool is_state_send (false);
 		nano::account pending_account (0);
 		node.process_confirmed_data (transaction_a, block_a, block_a->hash (), sideband_a, account, amount, is_state_send, pending_account);
-		node.observers.blocks.notify (nano::election_status{ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), nano::election_status_type::inactive_confirmation_height }, account, amount, is_state_send);
+		node.observers.blocks.notify (nano::election_status{ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, nano::election_status_type::inactive_confirmation_height }, account, amount, is_state_send);
 	}
 	else
 	{
@@ -131,6 +131,7 @@ void nano::active_transactions::post_confirmation_height_set (nano::transaction 
 				nano::account pending_account (0);
 				node.process_confirmed_data (transaction_a, block_a, hash, sideband_a, account, amount, is_state_send, pending_account);
 				election->status.type = election_status_type_a;
+				election->status.confirmation_request_count = election->confirmation_request_count;
 				node.observers.blocks.notify (election->status, account, amount, is_state_send);
 				if (amount > 0)
 				{

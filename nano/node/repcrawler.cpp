@@ -37,6 +37,7 @@ void nano::rep_crawler::ongoing_crawl ()
 	auto now (std::chrono::steady_clock::now ());
 	auto total_weight_l (total_weight ());
 	cleanup_reps ();
+	update_weights ();
 	query (get_crawl_targets (total_weight_l));
 	auto sufficient_weight (total_weight_l > node.config.online_weight_minimum.number ());
 	// If online weight drops below minimum, reach out to preconfigured peers
@@ -117,28 +118,30 @@ void nano::rep_crawler::query (std::shared_ptr<nano::transport::channel> channel
 
 bool nano::rep_crawler::response (std::shared_ptr<nano::transport::channel> channel_a, nano::account const & rep_account_a, nano::amount const & weight_a)
 {
-	auto updated (false);
+	auto updated_or_inserted (false);
 	nano::lock_guard<std::mutex> lock (probable_reps_mutex);
 	auto existing (probable_reps.find (rep_account_a));
 	if (existing != probable_reps.end ())
 	{
-		probable_reps.modify (existing, [weight_a, &updated, rep_account_a, channel_a](nano::representative & info) {
+		probable_reps.modify (existing, [weight_a, &updated_or_inserted, rep_account_a, channel_a](nano::representative & info) {
 			info.last_response = std::chrono::steady_clock::now ();
 
-			if (info.weight < weight_a)
+			// Update if representative channel was changed
+			if (info.channel->get_endpoint () != channel_a->get_endpoint ())
 			{
-				updated = true;
+				assert (info.account == rep_account_a);
+				updated_or_inserted = true;
 				info.weight = weight_a;
 				info.channel = channel_a;
-				info.account = rep_account_a;
 			}
 		});
 	}
 	else
 	{
 		probable_reps.insert (nano::representative (rep_account_a, weight_a, channel_a));
+		updated_or_inserted = true;
 	}
-	return updated;
+	return updated_or_inserted;
 }
 
 nano::uint128_t nano::rep_crawler::total_weight () const
@@ -166,15 +169,8 @@ std::vector<nano::representative> nano::rep_crawler::representatives_by_weight (
 	nano::lock_guard<std::mutex> lock (probable_reps_mutex);
 	for (auto i (probable_reps.get<tag_weight> ().begin ()), n (probable_reps.get<tag_weight> ().end ()); i != n; ++i)
 	{
-		auto weight (i->weight.number ());
-		if (weight > 0)
-		{
-			result.push_back (*i);
-		}
-		else
-		{
-			break;
-		}
+		assert (i->weight.number () > 0);
+		result.push_back (*i);
 	}
 	return result;
 }
@@ -230,6 +226,30 @@ void nano::rep_crawler::cleanup_reps ()
 		{
 			nano::lock_guard<std::mutex> lock (probable_reps_mutex);
 			probable_reps.get<tag_channel_ref> ().erase (*i);
+		}
+	}
+}
+
+void nano::rep_crawler::update_weights ()
+{
+	nano::lock_guard<std::mutex> lock (probable_reps_mutex);
+	for (auto i (probable_reps.get<tag_last_request> ().begin ()), n (probable_reps.get<tag_last_request> ().end ()); i != n;)
+	{
+		auto weight (node.ledger.weight (i->account));
+		if (weight > 0)
+		{
+			if (i->weight.number () != weight)
+			{
+				probable_reps.get<tag_last_request> ().modify (i, [weight](nano::representative & info) {
+					info.weight = weight;
+				});
+			}
+			++i;
+		}
+		else
+		{
+			// Erase non representatives
+			i = probable_reps.get<tag_last_request> ().erase (i);
 		}
 	}
 }

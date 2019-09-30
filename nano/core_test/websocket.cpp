@@ -465,8 +465,10 @@ TEST (websocket, confirmation_options)
 			boost::property_tree::ptree election_info = event.get_child ("message.election_info");
 			auto tally (election_info.get<std::string> ("tally"));
 			auto time (election_info.get<std::string> ("time"));
-			election_info.get<std::string> ("duration");
-			// Make sure tally and time are non-zero. Duration may be zero on testnet, so we only check that it's present (exception thrown otherwise)
+			// Duration and request count may be zero on testnet, so we only check that they're present
+			ASSERT_EQ (1, election_info.count ("duration"));
+			ASSERT_EQ (1, election_info.count ("request_count"));
+			// Make sure tally and time are non-zero.
 			ASSERT_NE ("0", tally);
 			ASSERT_NE ("0", time);
 		}
