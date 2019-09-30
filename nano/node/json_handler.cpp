@@ -2097,10 +2097,21 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 					             .sign (raw_key, signer)
 					             .work (node_a->work_generate_blocking (info.head).value_or (0))
 					             .build ();
-					if (!nano::validate_message (signer, epoch->hash (), epoch->block_signature ()) && !nano::work_validate (*epoch.get ()))
+					bool valid_signature (!nano::validate_message (signer, epoch->hash (), epoch->block_signature ()));
+					bool valid_work (!nano::work_validate (*epoch.get ()));
+					nano::process_result result (nano::process_result::old);
+					if (valid_signature && valid_work)
+					{
+						result = node_a->process_local (std::move (epoch)).code;
+					}
+					if (result == nano::process_result::progress)
 					{
 						++upgraded_accounts;
-						node_a->process_active (std::move (epoch));
+					}
+					else
+					{
+						bool fork (result == nano::process_result::fork);
+						node_a->logger.always_log (boost::str (boost::format ("Failed to upgrade account %1%. Valid signature: %2%. Valid work: %3%. Block processor fork: %4%") % i->account.to_account () % valid_signature % valid_work % fork));
 					}
 				}
 			}
@@ -2144,11 +2155,22 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 						             .sign (raw_key, signer)
 						             .work (node_a->work_generate_blocking (key.account).value_or (0))
 						             .build ();
-						if (!nano::validate_message (signer, epoch->hash (), epoch->block_signature ()) && !nano::work_validate (*epoch.get ()))
+						bool valid_signature (!nano::validate_message (signer, epoch->hash (), epoch->block_signature ()));
+						bool valid_work (!nano::work_validate (*epoch.get ()));
+						nano::process_result result (nano::process_result::old);
+						if (valid_signature && valid_work)
 						{
-							++upgraded_pending;
-							node_a->process_active (std::move (epoch));
+							result = node_a->process_local (std::move (epoch)).code;
+						}
+						if (result == nano::process_result::progress)
+						{
+							++upgraded_accounts;
 							to_next_account = true;
+						}
+						else
+						{
+							bool fork (result == nano::process_result::fork);
+							node_a->logger.always_log (boost::str (boost::format ("Failed to upgrade account with pending blocks %1%. Valid signature: %2%. Valid work: %3%. Block processor fork: %4%") % i->account.to_account () % valid_signature % valid_work % fork));
 						}
 					}
 				}
