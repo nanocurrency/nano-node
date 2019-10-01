@@ -41,7 +41,7 @@ opencl (opencl_a)
 	static_assert (ATOMIC_INT_LOCK_FREE == 2, "Atomic int needed");
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
-	auto count (network_constants.is_test_network () ? 1 : std::min (max_threads_a, std::max (1u, boost::thread::hardware_concurrency ())));
+	auto count (network_constants.is_test_network () ? std::min (max_threads_a, 1u) : std::min (max_threads_a, std::max (1u, boost::thread::hardware_concurrency ())));
 	if (opencl)
 	{
 		// One thread to handle OpenCL
@@ -203,31 +203,41 @@ void nano::work_pool::generate (nano::root const & root_a, std::function<void(bo
 void nano::work_pool::generate (nano::root const & root_a, std::function<void(boost::optional<uint64_t> const &)> callback_a, uint64_t difficulty_a)
 {
 	assert (!root_a.is_zero ());
-	boost::optional<uint64_t> result;
+	if (!threads.empty ())
 	{
-		nano::lock_guard<std::mutex> lock (mutex);
-		pending.emplace_back (root_a, callback_a, difficulty_a);
+		{
+			nano::lock_guard<std::mutex> lock (mutex);
+			pending.push_back ({ root_a, callback_a, difficulty_a });
+		}
+		producer_condition.notify_all ();
 	}
-	producer_condition.notify_all ();
+	else if (callback_a)
+	{
+		callback_a (boost::none);
+	}
 }
 
-uint64_t nano::work_pool::generate (nano::root const & root_a)
+boost::optional<uint64_t> nano::work_pool::generate (nano::root const & root_a)
 {
 	return generate (root_a, network_constants.publish_threshold);
 }
 
-uint64_t nano::work_pool::generate (nano::root const & root_a, uint64_t difficulty_a)
+boost::optional<uint64_t> nano::work_pool::generate (nano::root const & root_a, uint64_t difficulty_a)
 {
-	std::promise<boost::optional<uint64_t>> work;
-	std::future<boost::optional<uint64_t>> future = work.get_future ();
-	// clang-format off
-	generate (root_a, [&work](boost::optional<uint64_t> work_a) {
-		work.set_value (work_a);
-	},
-	difficulty_a);
-	// clang-format on
-	auto result (future.get ());
-	return result.value ();
+	boost::optional<uint64_t> result;
+	if (!threads.empty ())
+	{
+		std::promise<boost::optional<uint64_t>> work;
+		std::future<boost::optional<uint64_t>> future = work.get_future ();
+		// clang-format off
+		generate (root_a, [&work](boost::optional<uint64_t> work_a) {
+			work.set_value (work_a);
+		},
+		difficulty_a);
+		// clang-format on
+		result = future.get ().value ();
+	}
+	return result;
 }
 
 size_t nano::work_pool::size ()

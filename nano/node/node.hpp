@@ -123,6 +123,8 @@ public:
 	void bootstrap_wallet ();
 	void unchecked_cleanup ();
 	int price (nano::uint128_t const &, int);
+	bool local_work_generation_enabled () const;
+	bool work_generation_enabled () const;
 	boost::optional<uint64_t> work_generate_blocking (nano::block &, uint64_t);
 	boost::optional<uint64_t> work_generate_blocking (nano::block &);
 	boost::optional<uint64_t> work_generate_blocking (nano::root const &, uint64_t, boost::optional<nano::account> const & = boost::none);

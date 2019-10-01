@@ -816,7 +816,7 @@ nano::frontiers_confirmation_mode nano::node_config::deserialize_frontiers_confi
 	}
 }
 
-nano::account nano::node_config::random_representative ()
+nano::account nano::node_config::random_representative () const
 {
 	assert (!preconfigured_representatives.empty ());
 	size_t index (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (preconfigured_representatives.size () - 1)));

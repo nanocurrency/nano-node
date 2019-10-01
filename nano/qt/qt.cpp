@@ -2241,7 +2241,14 @@ void nano_qt::block_creation::create_send ()
 						else
 						{
 							show_label_error (*status);
-							status->setText ("Work generation failure");
+							if (wallet.node.work_generation_enabled ())
+							{
+								status->setText ("Work generation failure");
+							}
+							else
+							{
+								status->setText ("Work generation is disabled");
+							}
 						}
 					}
 					else
@@ -2313,7 +2320,14 @@ void nano_qt::block_creation::create_receive ()
 							else
 							{
 								show_label_error (*status);
-								status->setText ("Work generation failure");
+								if (wallet.node.work_generation_enabled ())
+								{
+									status->setText ("Work generation failure");
+								}
+								else
+								{
+									status->setText ("Work generation is disabled");
+								}
 							}
 						}
 						else
@@ -2385,7 +2399,14 @@ void nano_qt::block_creation::create_change ()
 					else
 					{
 						show_label_error (*status);
-						status->setText ("Work generation failure");
+						if (wallet.node.work_generation_enabled ())
+						{
+							status->setText ("Work generation failure");
+						}
+						else
+						{
+							status->setText ("Work generation is disabled");
+						}
 					}
 				}
 				else
@@ -2455,7 +2476,14 @@ void nano_qt::block_creation::create_open ()
 								else
 								{
 									show_label_error (*status);
-									status->setText ("Work generation failure");
+									if (wallet.node.work_generation_enabled ())
+									{
+										status->setText ("Work generation failure");
+									}
+									else
+									{
+										status->setText ("Work generation is disabled");
+									}
 								}
 							}
 							else

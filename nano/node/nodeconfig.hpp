@@ -40,7 +40,7 @@ public:
 	nano::error serialize_toml (nano::tomlconfig &) const;
 	nano::error deserialize_toml (nano::tomlconfig &);
 	bool upgrade_json (unsigned, nano::jsonconfig &);
-	nano::account random_representative ();
+	nano::account random_representative () const;
 	nano::network_params network_params;
 	uint16_t peering_port{ 0 };
 	nano::logging logging;

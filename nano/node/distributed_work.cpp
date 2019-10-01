@@ -92,7 +92,7 @@ void nano::distributed_work::start_work ()
 	auto this_l (shared_from_this ());
 
 	// Start work generation if peers are not acting correctly, or if there are no peers configured
-	if ((outstanding.empty () || node.unresponsive_work_peers) && (node.config.work_threads != 0 || node.work.opencl))
+	if ((outstanding.empty () || node.unresponsive_work_peers) && node.local_work_generation_enabled ())
 	{
 		local_generation_started = true;
 		node.work.generate (
@@ -260,7 +260,7 @@ void nano::distributed_work::stop_once (bool const local_stop_a)
 	if (!stopped.exchange (true))
 	{
 		nano::lock_guard<std::mutex> guard (mutex);
-		if (local_stop_a && (node.config.work_threads != 0 || node.work.opencl))
+		if (local_stop_a && node.local_work_generation_enabled ())
 		{
 			node.work.cancel (root);
 		}
@@ -382,12 +382,19 @@ void nano::distributed_work_factory::make (nano::root const & root_a, std::funct
 void nano::distributed_work_factory::make (unsigned int backoff_a, nano::root const & root_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
 {
 	cleanup_finished ();
-	auto distributed (std::make_shared<nano::distributed_work> (backoff_a, node, root_a, callback_a, difficulty_a, account_a));
+	if (node.work_generation_enabled ())
 	{
-		nano::lock_guard<std::mutex> guard (mutex);
-		work[root_a].emplace_back (distributed);
+		auto distributed (std::make_shared<nano::distributed_work> (backoff_a, node, root_a, callback_a, difficulty_a, account_a));
+		{
+			nano::lock_guard<std::mutex> guard (mutex);
+			work[root_a].emplace_back (distributed);
+		}
+		distributed->start ();
 	}
-	distributed->start ();
+	else if (callback_a)
+	{
+		callback_a (boost::none);
+	}
 }
 
 void nano::distributed_work_factory::cancel (nano::root const & root_a, bool const local_stop)
