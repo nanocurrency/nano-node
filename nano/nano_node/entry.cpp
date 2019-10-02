@@ -113,9 +113,8 @@ int main (int argc, char * const * argv)
 		("debug_account_count", "Display the number of accounts")
 		("debug_mass_activity", "Generates fake debug activity")
 		("debug_profile_generate", "Profile work generation")
-		("debug_profile_validation", "Profile work validation")
+		("debug_profile_validate", "Profile work validation")
 		("debug_opencl", "OpenCL work generation")
-		("debug_profile_verify", "Profile work verification")
 		("debug_profile_kdf", "Profile kdf function")
 		("debug_output_last_backtrace_dump", "Displays the contents of the latest backtrace in the event of a nano_node crash")
 		("debug_sys_logging", "Test the system logger")
@@ -360,7 +359,7 @@ int main (int argc, char * const * argv)
 				std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
 			}
 		}
-		else if (vm.count ("debug_profile_validation"))
+		else if (vm.count ("debug_profile_validate"))
 		{
 			uint64_t difficulty{ nano::network_constants::publish_full_threshold };
 			std::cerr << "Starting validation profile" << std::endl;
@@ -486,25 +485,6 @@ int main (int argc, char * const * argv)
 			{
 				std::cout << "Error initializing OpenCL" << std::endl;
 				result = -1;
-			}
-		}
-		else if (vm.count ("debug_profile_verify"))
-		{
-			nano::work_pool work (std::numeric_limits<unsigned>::max ());
-			nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
-			std::cerr << "Starting verification profiling\n";
-			while (true)
-			{
-				block.hashables.previous.qwords[0] += 1;
-				auto begin1 (std::chrono::high_resolution_clock::now ());
-				for (uint64_t t (0); t < 1000000; ++t)
-				{
-					block.hashables.previous.qwords[0] += 1;
-					block.block_work_set (t);
-					nano::work_validate (block);
-				}
-				auto end1 (std::chrono::high_resolution_clock::now ());
-				std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
 			}
 		}
 		else if (vm.count ("debug_output_last_backtrace_dump"))
