@@ -16,6 +16,24 @@
 
 namespace nano
 {
+class block_sideband final
+{
+public:
+	block_sideband () = default;
+	block_sideband (nano::block_type, nano::account const &, nano::block_hash const &, nano::amount const &, uint64_t, uint64_t, nano::epoch);
+	void serialize (nano::stream &) const;
+	bool deserialize (nano::stream &);
+	static size_t size (nano::block_type);
+	bool operator== (nano::block_sideband const &) const;
+	nano::block_type type{ nano::block_type::invalid };
+	nano::block_hash successor{ 0 };
+	nano::account account{ 0 };
+	nano::amount balance{ 0 };
+	uint64_t height{ 0 };
+	uint64_t timestamp{ 0 };
+	nano::epoch epoch{ nano::epoch::epoch_0 };
+};
+	
 /**
  * Encapsulates database specific container
  */
@@ -249,7 +267,7 @@ public:
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (data ()), size ());
 		auto error (false);
 		nano::state_block_w_sideband_v14 state_block_w_sideband_v14;
-		state_block_w_sideband_v14.state_block = std::make_shared<nano::state_block> (error, stream);
+		state_block_w_sideband_v14.state_block = std::make_shared<nano::state_block> (error, stream, true);
 		assert (!error);
 
 		state_block_w_sideband_v14.sideband.type = nano::block_type::state;
@@ -271,12 +289,12 @@ public:
 		return result;
 	}
 
-	template <typename Block>
-	std::shared_ptr<Block> convert_to_block () const
+	template <typename Block, typename... Args>
+	std::shared_ptr<Block> convert_to_block (Args &&... args) const
 	{
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (data ()), size ());
 		auto error (false);
-		auto result (std::make_shared<Block> (error, stream));
+		auto result (std::make_shared<Block> (error, stream, args...));
 		assert (!error);
 		return result;
 	}
@@ -303,7 +321,7 @@ public:
 
 	explicit operator std::shared_ptr<nano::state_block> () const
 	{
-		return convert_to_block<nano::state_block> ();
+		return convert_to_block<nano::state_block> (size () != (nano::state_block::size2 + nano::block_sideband::size (nano::block_type::state2)));
 	}
 
 	explicit operator std::shared_ptr<nano::vote> () const
@@ -355,23 +373,6 @@ private:
 		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + sizeof (result), result.bytes.data ());
 		return result;
 	}
-};
-
-class block_sideband final
-{
-public:
-	block_sideband () = default;
-	block_sideband (nano::block_type, nano::account const &, nano::block_hash const &, nano::amount const &, uint64_t, uint64_t, nano::epoch);
-	void serialize (nano::stream &) const;
-	bool deserialize (nano::stream &);
-	static size_t size (nano::block_type);
-	nano::block_type type{ nano::block_type::invalid };
-	nano::block_hash successor{ 0 };
-	nano::account account{ 0 };
-	nano::amount balance{ 0 };
-	uint64_t height{ 0 };
-	uint64_t timestamp{ 0 };
-	nano::epoch epoch{ nano::epoch::epoch_0 };
 };
 class transaction;
 class block_store;

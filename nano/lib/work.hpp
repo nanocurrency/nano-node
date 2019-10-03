@@ -1,7 +1,9 @@
 #pragma once
 
 #include <nano/lib/config.hpp>
+#include <nano/lib/nano_pow.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/streams.hpp>
 #include <nano/lib/utility.hpp>
 
 #include <boost/optional.hpp>
@@ -57,4 +59,23 @@ public:
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (work_pool & work_pool, const std::string & name);
+
+// Can hold both legacy & nano pow and is aware of what type it is holding through the variant
+class proof_of_work final
+{
+public:
+	proof_of_work () = default;
+	proof_of_work (nano::legacy_pow legacy_a);
+	proof_of_work (nano::nano_pow nano_pow_a);
+	operator nano::legacy_pow () const;
+	operator nano::nano_pow const & () const;
+	bool is_legacy () const;
+	void deserialize (nano::stream & stream_a, bool is_legacy_a);
+	void serialize (nano::stream & stream_a) const;
+	bool operator== (nano::proof_of_work const & other_a) const;
+	boost::variant<nano::legacy_pow, nano::nano_pow> pow;
+};
+
+std::string to_string_hex (nano::proof_of_work const & value_a);
+bool from_string_hex (std::string const & value_a, nano::proof_of_work & target_a);
 }

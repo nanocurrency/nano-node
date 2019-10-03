@@ -75,7 +75,7 @@ void nano::block_processor::add (nano::unchecked_info const & info_a)
 			nano::lock_guard<std::mutex> lock (mutex);
 			if (blocks_filter.find (filter_hash) == blocks_filter.end () && rolled_back.get<1> ().find (hash) == rolled_back.get<1> ().end ())
 			{
-				if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
+				if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::state2 || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
 				{
 					state_blocks.push_back (info_a);
 				}

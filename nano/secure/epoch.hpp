@@ -18,12 +18,16 @@ enum class epoch : uint8_t
 	epoch_0 = 2,
 	epoch_1 = 3,
 	epoch_2 = 4,
-	max = epoch_2
+	max = epoch_2 /* Update this as new epochs are added */
 };
 
 /* This turns epoch_0 into 0 for instance */
 std::underlying_type_t<nano::epoch> normalized_epoch (nano::epoch epoch_a);
+const char * epoch_as_string (nano::epoch epoch);
+bool is_epoch_greater (nano::epoch lhs_a, nano::epoch rhs_a);
 }
+std::ostream& operator<<(std::ostream& os, nano::epoch const& epoch);
+std::istream & operator>> (std::istream & istream, nano::epoch & epoch_a);
 namespace std
 {
 template <>

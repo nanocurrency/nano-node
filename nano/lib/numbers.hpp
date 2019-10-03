@@ -3,9 +3,11 @@
 #include <crypto/cryptopp/osrng.h>
 
 #include <boost/multiprecision/cpp_int.hpp>
+#include <boost/variant.hpp>
 
 namespace nano
 {
+using uint96_t = boost::multiprecision::number<boost::multiprecision::cpp_int_backend<96, 96, boost::multiprecision::unsigned_magnitude, boost::multiprecision::unchecked, void>>;
 using uint128_t = boost::multiprecision::uint128_t;
 using uint256_t = boost::multiprecision::uint256_t;
 using uint512_t = boost::multiprecision::uint512_t;
@@ -15,6 +17,8 @@ nano::uint128_t const Mxrb_ratio = nano::uint128_t ("100000000000000000000000000
 nano::uint128_t const kxrb_ratio = nano::uint128_t ("1000000000000000000000000000"); // 10^27
 nano::uint128_t const xrb_ratio = nano::uint128_t ("1000000000000000000000000"); // 10^24
 nano::uint128_t const raw_ratio = nano::uint128_t ("1"); // 10^0
+
+using legacy_pow = uint64_t;
 
 class uint128_union
 {
@@ -283,7 +287,36 @@ nano::public_key pub_key (nano::private_key const &);
 
 /* Conversion methods */
 std::string to_string_hex (uint64_t const);
-bool from_string_hex (std::string const &, uint64_t &);
+template <typename T>
+bool from_string_hex (std::string const & value_a, T & target_a)
+{
+	auto error (value_a.empty ());
+	if (!error)
+	{
+		// Temp hack (second boolean operand) to get around a nano::nano_pow string being passed in which has only 64bit work.
+		error = (value_a.size () > sizeof (T) * 2) && (value_a.size () != 12 * 2);
+		if (!error)
+		{
+			std::stringstream stream (value_a);
+			stream << std::hex << std::noshowbase;
+			try
+			{
+				T number_l;
+				stream >> number_l;
+				target_a = number_l;
+				if (!stream.eof ())
+				{
+					error = true;
+				}
+			}
+			catch (std::runtime_error &)
+			{
+				error = true;
+			}
+		}
+	}
+	return error;
+}
 
 /**
  * Convert a double to string in fixed format

@@ -262,6 +262,7 @@ public:
 		open,
 		change,
 		state_block,
+		state_block2,
 		epoch_block,
 		fork,
 

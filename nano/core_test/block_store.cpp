@@ -1118,7 +1118,7 @@ TEST (block_store, state_block)
 	ASSERT_FALSE (store->init_error ());
 	nano::genesis genesis;
 	nano::keypair key1;
-	nano::state_block block1 (1, genesis.hash (), 3, 4, 6, key1.prv, key1.pub, 7);
+	nano::state_block block1 (1, genesis.hash (), 3, 4, 6, key1.prv, key1.pub, nano::legacy_pow (7));
 	{
 		auto transaction (store->tx_begin_write ());
 		nano::rep_weights rep_weights;
@@ -1141,6 +1141,35 @@ TEST (block_store, state_block)
 		ASSERT_FALSE (store->block_exists (transaction, block1.hash ()));
 	}
 	auto transaction (store->tx_begin_read ());
+	auto count2 (store->block_count (transaction));
+	ASSERT_EQ (0, count2.state);
+}
+
+TEST (block_store, state_block_nano_pow)
+{
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_FALSE (store->init_error ());
+	nano::genesis genesis;
+	nano::keypair key1;
+	nano::state_block block1 (1, genesis.hash (), 3, 4, 6, key1.prv, key1.pub, nano::nano_pow (7));
+	auto transaction (store->tx_begin_write ());
+	nano::rep_weights rep_weights;
+	std::atomic<uint64_t> cemented_count{ 0 };
+	std::atomic<uint64_t> block_count_cache{ 0 };
+	store->initialize (transaction, genesis, rep_weights, cemented_count, block_count_cache);
+	ASSERT_EQ (nano::block_type::state2, block1.type ());
+	nano::block_sideband sideband1 (nano::block_type::state2, 0, 0, 0, 0, 0, nano::epoch::epoch_2);
+	store->block_put (transaction, block1.hash (), block1, sideband1);
+	ASSERT_TRUE (store->block_exists (transaction, block1.hash ()));
+	nano::block_sideband sideband2;
+	auto block2 (store->block_get (transaction, block1.hash (), &sideband2));
+	ASSERT_NE (nullptr, block2);
+	ASSERT_EQ (block1, *block2);
+	auto count (store->block_count (transaction));
+	ASSERT_EQ (1, count.state);
+	store->block_del (transaction, block1.hash ());
+	ASSERT_FALSE (store->block_exists (transaction, block1.hash ()));
 	auto count2 (store->block_count (transaction));
 	ASSERT_EQ (0, count2.state);
 }

@@ -330,9 +330,15 @@ void ledger_processor::state_block_impl (nano::state_block const & block_a)
 				}
 				if (result.code == nano::process_result::progress)
 				{
-					ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::state_block);
+					if (!block_a.work.is_legacy ())
+					{
+						epoch = std::max (epoch, nano::epoch::epoch_2);
+					}
+
+					auto block_type = nano::is_epoch_greater (epoch, nano::epoch::epoch_1) ? nano::block_type::state2 : nano::block_type::state;
+					ledger.stats.inc (nano::stat::type::ledger, block_type == nano::block_type::state ? nano::stat::detail::state_block : nano::stat::detail::state_block2);
 					result.state_is_send = is_send;
-					nano::block_sideband sideband (nano::block_type::state, block_a.hashables.account /* unused */, 0, 0 /* unused */, info.block_count + 1, nano::seconds_since_epoch (), epoch);
+					nano::block_sideband sideband (block_type, block_a.hashables.account /* unused */, 0, 0 /* unused */, info.block_count + 1, nano::seconds_since_epoch (), epoch);
 					ledger.store.block_put (transaction, hash, block_a, sideband);
 
 					if (!info.head.is_zero ())
@@ -420,7 +426,8 @@ void ledger_processor::epoch_block_impl (nano::state_block const & block_a)
 							ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::epoch_block);
 							result.account = block_a.hashables.account;
 							result.amount = 0;
-							nano::block_sideband sideband (nano::block_type::state, block_a.hashables.account /* unused */, 0, 0 /* unused */, info.block_count + 1, nano::seconds_since_epoch (), epoch);
+							auto block_type = nano::is_epoch_greater (epoch, nano::epoch::epoch_1) ? nano::block_type::state2 : nano::block_type::state;
+							nano::block_sideband sideband (block_type, block_a.hashables.account /* unused */, 0, 0 /* unused */, info.block_count + 1, nano::seconds_since_epoch (), epoch);
 							ledger.store.block_put (transaction, hash, block_a, sideband);
 							nano::account_info new_info (hash, block_a.representative (), info.open_block.is_zero () ? hash : info.open_block, info.balance, nano::seconds_since_epoch (), info.block_count + 1, epoch);
 							ledger.change_latest (transaction, block_a.hashables.account, info, new_info);
@@ -818,7 +825,7 @@ bool nano::ledger::is_send (nano::transaction const & transaction_a, nano::state
 nano::account const & nano::ledger::block_destination (nano::transaction const & transaction_a, nano::block const & block_a)
 {
 	nano::send_block const * send_block (dynamic_cast<nano::send_block const *> (&block_a));
-	nano::state_block const * state_block (dynamic_cast<nano::state_block const *> (&block_a));
+	auto const * state_block (dynamic_cast<nano::state_block const *> (&block_a));
 	if (send_block != nullptr)
 	{
 		return send_block->hashables.destination;
@@ -843,7 +850,7 @@ nano::block_hash nano::ledger::block_source (nano::transaction const & transacti
 	// If block_a.source () is nonzero, then we have our source.
 	// However, universal blocks will always return zero.
 	nano::block_hash result (block_a.source ());
-	nano::state_block const * state_block (dynamic_cast<nano::state_block const *> (&block_a));
+	auto const * state_block (dynamic_cast<nano::state_block const *> (&block_a));
 	if (state_block != nullptr && !is_send (transaction_a, *state_block))
 	{
 		result = state_block->hashables.link;

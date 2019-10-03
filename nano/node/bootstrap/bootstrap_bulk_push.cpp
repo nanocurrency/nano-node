@@ -218,6 +218,14 @@ void nano::bulk_push_server::received_type ()
 			});
 			break;
 		}
+		case nano::block_type::state2:
+		{
+			connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::state_block2, nano::stat::dir::in);
+			connection->socket->async_read (receive_buffer, nano::state_block::size2, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+				this_l->received_block (ec, size_a, type);
+			});
+			break;
+		}
 		case nano::block_type::not_a_block:
 		{
 			connection->finish_request ();

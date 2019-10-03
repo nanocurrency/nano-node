@@ -175,6 +175,13 @@ void nano::bulk_pull_client::received_type ()
 			});
 			break;
 		}
+		case nano::block_type::state2:
+		{
+			connection->channel->socket->async_read (connection->receive_buffer, nano::state_block::size2, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
+				this_l->received_block (ec, size_a, type);
+			});
+			break;
+		}
 		case nano::block_type::not_a_block:
 		{
 			// Avoid re-using slow peers, or peers that sent the wrong blocks.

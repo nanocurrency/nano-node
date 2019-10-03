@@ -906,6 +906,7 @@ boost::optional<nano::mdb_val> nano::mdb_store::block_raw_get_by_type_v14 (nano:
 		}
 		case nano::block_type::invalid:
 		case nano::block_type::not_a_block:
+		case nano::block_type::state2:
 		{
 			break;
 		}

@@ -3,6 +3,8 @@
 #include <nano/lib/work.hpp>
 #include <nano/node/xorshift.hpp>
 
+#include <boost/endian/conversion.hpp>
+
 #include <future>
 
 bool nano::work_validate (nano::root const & root_a, uint64_t work_a, uint64_t * difficulty_a)
@@ -246,9 +248,7 @@ size_t nano::work_pool::size ()
 	return pending.size ();
 }
 
-namespace nano
-{
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (work_pool & work_pool, const std::string & name)
+std::unique_ptr<nano::seq_con_info_component> nano::collect_seq_con_info (work_pool & work_pool, const std::string & name)
 {
 	auto composite = std::make_unique<seq_con_info_composite> (name);
 
@@ -262,4 +262,107 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (work_pool & work_p
 	composite->add_component (collect_seq_con_info (work_pool.work_observers, "work_observers"));
 	return composite;
 }
+
+nano::proof_of_work::proof_of_work (nano::legacy_pow pow_a) :
+pow (pow_a)
+{
+}
+
+nano::proof_of_work::proof_of_work (nano::nano_pow pow_a) :
+pow (pow_a)
+{
+}
+
+nano::proof_of_work::operator nano::legacy_pow () const
+{
+	// Currently a hack if trying to use this in a context where the legacy_pow is used
+	if (is_legacy ())
+	{
+		return boost::get<legacy_pow> (pow);
+	}
+	else
+	{
+		return boost::get<nano_pow> (pow).as_legacy ();
+	}
+}
+
+nano::proof_of_work::operator nano::nano_pow const & () const
+{
+	return boost::get<nano_pow> (pow);
+}
+
+void nano::proof_of_work::deserialize (nano::stream & stream_a, bool is_legacy_a)
+{
+	if (is_legacy_a)
+	{
+		nano::legacy_pow work;
+		nano::read (stream_a, work);
+		boost::endian::big_to_native_inplace (work);
+		pow = work;
+	}
+	else
+	{
+		nano::nano_pow work;
+		nano::read (stream_a, work);
+		pow = work;
+	}
+}
+
+void nano::proof_of_work::serialize (nano::stream & stream_a) const
+{
+	if (is_legacy ())
+	{
+		write (stream_a, boost::endian::native_to_big (boost::get<legacy_pow> (pow)));
+	}
+	else
+	{
+		write (stream_a, boost::get<nano_pow> (pow));
+	}
+}
+
+bool nano::proof_of_work::operator== (nano::proof_of_work const & other_a) const
+{
+	return pow == other_a.pow;
+}
+
+bool nano::proof_of_work::is_legacy () const
+{
+	return pow.type () == typeid (nano::legacy_pow);
+}
+
+namespace
+{
+struct to_hex_visitor : public boost::static_visitor<std::string>
+{
+	template <typename POW>
+	std::string operator() (POW pow) const
+	{
+		return nano::to_string_hex (pow);
+	}
+};
+
+struct from_hex_visitor : public boost::static_visitor<bool>
+{
+	from_hex_visitor (std::string const & value_a) :
+	value (value_a)
+	{
+	}
+
+	template <typename POW>
+	bool operator() (POW & pow) const
+	{
+		return nano::from_string_hex (value, pow);
+	}
+	std::string const & value;
+};
+}
+
+std::string nano::to_string_hex (nano::proof_of_work const & value_a)
+{
+	return boost::apply_visitor (to_hex_visitor{}, value_a.pow);
+}
+
+bool nano::from_string_hex (std::string const & value_a, nano::proof_of_work & target_a)
+{
+	return boost::apply_visitor (from_hex_visitor{ value_a }, target_a.pow);
 }

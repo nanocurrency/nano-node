@@ -714,7 +714,7 @@ vote (vote_a)
 
 void nano::confirm_ack::serialize (nano::stream & stream_a) const
 {
-	assert (header.block_type () == nano::block_type::not_a_block || header.block_type () == nano::block_type::send || header.block_type () == nano::block_type::receive || header.block_type () == nano::block_type::open || header.block_type () == nano::block_type::change || header.block_type () == nano::block_type::state);
+	assert (header.block_type () == nano::block_type::not_a_block || header.block_type () == nano::block_type::send || header.block_type () == nano::block_type::receive || header.block_type () == nano::block_type::open || header.block_type () == nano::block_type::change || header.block_type () == nano::block_type::state || header.block_type () == nano::block_type::state2);
 	header.serialize (stream_a);
 	vote->serialize (stream_a, header.block_type ());
 }

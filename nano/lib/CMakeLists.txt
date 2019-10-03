@@ -42,6 +42,8 @@ add_library (nano_lib
 	logger_mt.hpp
 	memory.hpp
 	memory.cpp
+	nano_pow.hpp
+	nano_pow.cpp
 	numbers.hpp
 	numbers.cpp
 	rep_weights.hpp
@@ -53,6 +55,7 @@ add_library (nano_lib
 	rpcconfig.cpp
 	stats.hpp
 	stats.cpp
+	streams.hpp
 	timer.hpp
 	tomlconfig.hpp
 	utility.hpp

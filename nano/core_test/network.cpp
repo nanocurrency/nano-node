@@ -708,6 +708,34 @@ TEST (bootstrap_processor, process_state)
 	node1->stop ();
 }
 
+TEST (bootstrap_processor, process_state2)
+{
+	nano::system system (24000, 1);
+	nano::genesis genesis;
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	auto node0 (system.nodes[0]);
+	nano::state_block epoch1 (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount, node0->ledger.link (nano::epoch::epoch_1), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ()));
+	nano::state_block epoch2 (nano::test_genesis_key.pub, epoch1.hash (), nano::test_genesis_key.pub, nano::genesis_amount, node0->ledger.link (nano::epoch::epoch_2), nano::test_genesis_key.prv, nano::test_genesis_key.pub, nano::nano_pow (*system.work.generate (epoch1.hash ())));
+	nano::state_block block1 (nano::test_genesis_key.pub, epoch2.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 100, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, nano::nano_pow (*system.work.generate (epoch2.hash ())));
+	nano::state_block block2 (nano::test_genesis_key.pub, block1.hash (), nano::test_genesis_key.pub, nano::genesis_amount, block1.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, nano::nano_pow (*system.work.generate (block1.hash ())));
+	node0->process (epoch1);
+	node0->process (epoch2);
+	node0->process (block1);
+	node0->process (block2);
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
+	ASSERT_EQ (node0->latest (nano::test_genesis_key.pub), block2.hash ());
+	ASSERT_NE (node1->latest (nano::test_genesis_key.pub), block2.hash ());
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
+	ASSERT_NE (node1->latest (nano::test_genesis_key.pub), node0->latest (nano::test_genesis_key.pub));
+	system.deadline_set (10s);
+	while (node1->latest (nano::test_genesis_key.pub) != node0->latest (nano::test_genesis_key.pub))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (0, node1->active.size ());
+	node1->stop ();
+}
+
 TEST (bootstrap_processor, process_new)
 {
 	nano::system system (24000, 2);

@@ -5462,25 +5462,44 @@ TEST (rpc, block_create_state)
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
 	rpc.start ();
-	test_response response (request, rpc.config.port, system.io_ctx);
-	system.deadline_set (5s);
-	while (response.status == 0)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	ASSERT_EQ (200, response.status);
-	std::string state_hash (response.json.get<std::string> ("hash"));
-	auto state_text (response.json.get<std::string> ("block"));
-	std::stringstream block_stream (state_text);
-	boost::property_tree::ptree block_l;
-	boost::property_tree::read_json (block_stream, block_l);
-	auto state_block (nano::deserialize_block_json (block_l));
-	ASSERT_NE (nullptr, state_block);
-	ASSERT_EQ (nano::block_type::state, state_block->type ());
-	ASSERT_EQ (state_hash, state_block->hash ().to_string ());
-	scoped_thread_name_io.reset ();
-	auto process_result (system.nodes[0]->process (*state_block));
+	auto response_and_check = [port = rpc.config.port, &system, &scoped_thread_name_io](auto & request, auto block_type, auto & out_block) {
+		test_response response (request, port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		std::string state_hash (response.json.get<std::string> ("hash"));
+		auto state_text (response.json.get<std::string> ("block"));
+		std::stringstream block_stream (state_text);
+		boost::property_tree::ptree block_l;
+		boost::property_tree::read_json (block_stream, block_l);
+		auto state_block (nano::deserialize_block_json (block_l));
+		ASSERT_NE (nullptr, state_block);
+		ASSERT_EQ (block_type, state_block->type ());
+		ASSERT_EQ (state_hash, state_block->hash ().to_string ());
+		scoped_thread_name_io.reset ();
+		auto process_result (system.nodes[0]->process (*state_block));
+		ASSERT_EQ (nano::process_result::progress, process_result.code);
+		out_block = *static_cast<nano::state_block *> (state_block.get ());
+	};
+
+	nano::state_block created_block;
+	response_and_check (request, nano::block_type::state, created_block);
+
+	// Add epoch 1 block otherwise we cannot add an epoch 2
+	nano::state_block epoch (nano::test_genesis_key.pub, created_block.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, system.nodes[0]->network_params.ledger.epochs.link (nano::epoch::epoch_1), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (created_block.hash ()));
+	auto process_result (system.nodes[0]->process (epoch));
 	ASSERT_EQ (nano::process_result::progress, process_result.code);
+
+	// Try with nano_pow work
+	request.put ("type", "state2");
+	request.put ("previous", epoch.hash ().to_string ());
+	request.put ("balance", (nano::genesis_amount - nano::Gxrb_ratio * 2).convert_to<std::string> ());
+	request.put ("work", nano::to_string_hex (nano::nano_pow (*system.nodes[0]->work_generate_blocking (epoch.hash ()))));
+	scoped_thread_name_io.renew ();
+	response_and_check (request, nano::block_type::state2, created_block);
 }
 
 TEST (rpc, block_create_state_open)
@@ -5565,19 +5584,26 @@ TEST (rpc, block_create_state_request_work)
 		nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 		nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
 		rpc.start ();
-		test_response response (request, rpc.config.port, system.io_ctx);
-		system.deadline_set (5s);
-		while (response.status == 0)
-		{
-			ASSERT_NO_ERROR (system.poll ());
-		}
-		ASSERT_EQ (200, response.status);
-		boost::property_tree::ptree block_l;
-		std::stringstream block_stream (response.json.get<std::string> ("block"));
-		boost::property_tree::read_json (block_stream, block_l);
-		auto block (nano::deserialize_block_json (block_l));
-		ASSERT_NE (nullptr, block);
-		ASSERT_FALSE (nano::work_validate (*block));
+		auto response_and_check = [&request, port = rpc.config.port, &system](auto & type_id) {
+			test_response response (request, port, system.io_ctx);
+			system.deadline_set (5s);
+			while (response.status == 0)
+			{
+				ASSERT_NO_ERROR (system.poll ());
+			}
+			ASSERT_EQ (200, response.status);
+			boost::property_tree::ptree block_l;
+			std::stringstream block_stream (response.json.get<std::string> ("block"));
+			boost::property_tree::read_json (block_stream, block_l);
+			auto block (nano::deserialize_block_json (block_l));
+			ASSERT_NE (nullptr, block);
+			ASSERT_FALSE (nano::work_validate (*block));
+			ASSERT_EQ (block->block_work ().pow.type (), type_id);
+		};
+
+		response_and_check (typeid (nano::legacy_pow));
+		request.put ("type", "state2");
+		response_and_check (typeid (nano::nano_pow));
 	}
 }
 

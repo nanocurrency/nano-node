@@ -19,6 +19,7 @@ size_t constexpr nano::receive_block::size;
 size_t constexpr nano::open_block::size;
 size_t constexpr nano::change_block::size;
 size_t constexpr nano::state_block::size;
+size_t constexpr nano::state_block::size2;
 
 nano::nano_networks nano::network_constants::active_network = nano::nano_networks::ACTIVE_NETWORK;
 

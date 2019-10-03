@@ -199,6 +199,7 @@ public:
 				result = boost::polymorphic_downcast<nano::send_block *> (block_a.get ())->hashables.balance.number ();
 				break;
 			case nano::block_type::state:
+			case nano::block_type::state2:
 				result = boost::polymorphic_downcast<nano::state_block *> (block_a.get ())->hashables.balance.number ();
 				break;
 			case nano::block_type::invalid:
@@ -395,7 +396,7 @@ public:
 		nano::db_val<Val> value;
 		nano::block_sideband sideband;
 		auto block = block_get (transaction_a, hash_a, &sideband);
-		if (sideband.type == nano::block_type::state)
+		if (sideband.type == nano::block_type::state || sideband.type == nano::block_type::state2)
 		{
 			return sideband.epoch;
 		}
@@ -810,6 +811,17 @@ protected:
 			if (db_val.is_initialized ())
 			{
 				type_a = current_type;
+
+				if (current_type == nano::block_type::state)
+				{
+					// The type should be state2 if it has that size
+					auto state2 = nano::block_type::state2;
+					if (db_val->size () == nano::block::size (state2) + nano::block_sideband::size (state2))
+					{
+						type_a = state2;
+					}
+				}
+
 				result = db_val.get ();
 				break;
 			}
@@ -912,6 +924,7 @@ protected:
 				break;
 			}
 			case nano::block_type::state:
+			case nano::block_type::state2:
 			{
 				status = get (transaction_a, tables::state_blocks, hash, value);
 				break;
@@ -950,6 +963,7 @@ protected:
 				result = tables::change_blocks;
 				break;
 			case nano::block_type::state:
+			case nano::block_type::state2:
 				result = tables::state_blocks;
 				break;
 			default:

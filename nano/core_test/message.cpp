@@ -71,19 +71,25 @@ TEST (message, confirm_ack_serialization)
 {
 	nano::keypair key1;
 	auto vote (std::make_shared<nano::vote> (key1.pub, key1.prv, 0, std::make_shared<nano::send_block> (0, 1, 2, key1.prv, 4, 5)));
-	nano::confirm_ack con1 (vote);
-	std::vector<uint8_t> bytes;
-	{
-		nano::vectorstream stream1 (bytes);
-		con1.serialize (stream1);
-	}
-	nano::bufferstream stream2 (bytes.data (), bytes.size ());
-	bool error (false);
-	nano::message_header header (error, stream2);
-	nano::confirm_ack con2 (error, stream2, header);
-	ASSERT_FALSE (error);
-	ASSERT_EQ (con1, con2);
-	ASSERT_EQ (header.block_type (), nano::block_type::send);
+	auto confirm_ack_vote = [](auto vote, auto block_type) {
+		nano::confirm_ack con1 (vote);
+		std::vector<uint8_t> bytes;
+		{
+			nano::vectorstream stream1 (bytes);
+			con1.serialize (stream1);
+		}
+		nano::bufferstream stream2 (bytes.data (), bytes.size ());
+		bool error (false);
+		nano::message_header header (error, stream2);
+		nano::confirm_ack con2 (error, stream2, header);
+		ASSERT_FALSE (error);
+		ASSERT_EQ (con1, con2);
+		ASSERT_EQ (header.block_type (), block_type);
+	};
+	confirm_ack_vote (vote, nano::block_type::send);
+
+	auto vote1 = std::make_shared<nano::vote> (key1.pub, key1.prv, 0, std::make_shared<nano::state_block> (key1.pub, 0, key1.pub, 2, 4, key1.prv, key1.pub, nano::nano_pow (5)));
+	confirm_ack_vote (vote1, nano::block_type::state2);
 }
 
 TEST (message, confirm_ack_hash_serialization)
@@ -126,20 +132,27 @@ TEST (message, confirm_req_serialization)
 {
 	nano::keypair key1;
 	nano::keypair key2;
+	auto confirm_request = [] (auto block) {
+		nano::confirm_req req (block);
+		std::vector<uint8_t> bytes;
+		{
+			nano::vectorstream stream (bytes);
+			req.serialize (stream);
+		}
+		auto error (false);
+		nano::bufferstream stream2 (bytes.data (), bytes.size ());
+		nano::message_header header (error, stream2);
+		nano::confirm_req req2 (error, stream2, header);
+		ASSERT_FALSE (error);
+		ASSERT_EQ (req, req2);
+		ASSERT_EQ (*req.block, *req2.block);
+	};
+
 	auto block (std::make_shared<nano::send_block> (0, key2.pub, 200, nano::keypair ().prv, 2, 3));
-	nano::confirm_req req (block);
-	std::vector<uint8_t> bytes;
-	{
-		nano::vectorstream stream (bytes);
-		req.serialize (stream);
-	}
-	auto error (false);
-	nano::bufferstream stream2 (bytes.data (), bytes.size ());
-	nano::message_header header (error, stream2);
-	nano::confirm_req req2 (error, stream2, header);
-	ASSERT_FALSE (error);
-	ASSERT_EQ (req, req2);
-	ASSERT_EQ (*req.block, *req2.block);
+	confirm_request (block);
+
+	auto state_block_nano_pow (std::make_shared<nano::state_block> (0, 0, 0, 0, key1.pub, key1.prv, key1.pub, nano::nano_pow (3)));
+	confirm_request (state_block_nano_pow);
 }
 
 TEST (message, confirm_req_hash_serialization)

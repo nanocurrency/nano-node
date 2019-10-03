@@ -869,36 +869,6 @@ std::string nano::to_string_hex (uint64_t const value_a)
 	stream << value_a;
 	return stream.str ();
 }
-
-bool nano::from_string_hex (std::string const & value_a, uint64_t & target_a)
-{
-	auto error (value_a.empty ());
-	if (!error)
-	{
-		error = value_a.size () > 16;
-		if (!error)
-		{
-			std::stringstream stream (value_a);
-			stream << std::hex << std::noshowbase;
-			try
-			{
-				uint64_t number_l;
-				stream >> number_l;
-				target_a = number_l;
-				if (!stream.eof ())
-				{
-					error = true;
-				}
-			}
-			catch (std::runtime_error &)
-			{
-				error = true;
-			}
-		}
-	}
-	return error;
-}
-
 std::string nano::to_string (double const value_a, int const precision_a)
 {
 	std::stringstream stream;

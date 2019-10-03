@@ -12,13 +12,15 @@ height (height_a),
 timestamp (timestamp_a),
 epoch (epoch_a)
 {
+	// Confirm that state2 block types are epoch 2 or greater
+	assert (type != nano::block_type::state2 || nano::is_epoch_greater (epoch, nano::epoch::epoch_1));
 }
 
 size_t nano::block_sideband::size (nano::block_type type_a)
 {
 	size_t result (0);
 	result += sizeof (successor);
-	if (type_a != nano::block_type::state && type_a != nano::block_type::open)
+	if (type_a != nano::block_type::state && type_a != nano::block_type::state2 && type_a != nano::block_type::open)
 	{
 		result += sizeof (account);
 	}
@@ -31,7 +33,7 @@ size_t nano::block_sideband::size (nano::block_type type_a)
 		result += sizeof (balance);
 	}
 	result += sizeof (timestamp);
-	if (type_a == nano::block_type::state)
+	if (type_a == nano::block_type::state || type_a == nano::block_type::state2)
 	{
 		result += sizeof (epoch);
 	}
@@ -41,7 +43,7 @@ size_t nano::block_sideband::size (nano::block_type type_a)
 void nano::block_sideband::serialize (nano::stream & stream_a) const
 {
 	nano::write (stream_a, successor.bytes);
-	if (type != nano::block_type::state && type != nano::block_type::open)
+	if (type != nano::block_type::state && type != nano::block_type::state2 && type != nano::block_type::open)
 	{
 		nano::write (stream_a, account.bytes);
 	}
@@ -54,7 +56,7 @@ void nano::block_sideband::serialize (nano::stream & stream_a) const
 		nano::write (stream_a, balance.bytes);
 	}
 	nano::write (stream_a, boost::endian::native_to_big (timestamp));
-	if (type == nano::block_type::state)
+	if (type == nano::block_type::state || type == nano::block_type::state2)
 	{
 		nano::write (stream_a, epoch);
 	}
@@ -66,7 +68,7 @@ bool nano::block_sideband::deserialize (nano::stream & stream_a)
 	try
 	{
 		nano::read (stream_a, successor.bytes);
-		if (type != nano::block_type::state && type != nano::block_type::open)
+		if (type != nano::block_type::state && type != nano::block_type::state2 && type != nano::block_type::open)
 		{
 			nano::read (stream_a, account.bytes);
 		}
@@ -85,7 +87,7 @@ bool nano::block_sideband::deserialize (nano::stream & stream_a)
 		}
 		nano::read (stream_a, timestamp);
 		boost::endian::big_to_native_inplace (timestamp);
-		if (type == nano::block_type::state)
+		if (type == nano::block_type::state || type == nano::block_type::state2)
 		{
 			nano::read (stream_a, epoch);
 		}
@@ -96,6 +98,11 @@ bool nano::block_sideband::deserialize (nano::stream & stream_a)
 	}
 
 	return result;
+}
+
+bool nano::block_sideband::operator== (nano::block_sideband const & block_sideband_a) const
+{
+	return type == block_sideband_a.type && successor == block_sideband_a.successor && account == block_sideband_a.account && balance == block_sideband_a.balance && height == block_sideband_a.height && timestamp == block_sideband_a.timestamp && epoch == block_sideband_a.epoch;
 }
 
 nano::summation_visitor::summation_visitor (nano::transaction const & transaction_a, nano::block_store const & store_a, bool is_v14_upgrade_a) :

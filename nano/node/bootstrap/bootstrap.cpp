@@ -757,13 +757,13 @@ bool nano::bootstrap_attempt::process_block_lazy (std::shared_ptr<nano::block> b
 		{
 			lazy_add (block_a->source ());
 		}
-		else if (block_a->type () == nano::block_type::state)
+		else if (block_a->type () == nano::block_type::state || block_a->type () == nano::block_type::state2)
 		{
 			lazy_block_state (block_a);
 		}
 		lazy_blocks.insert (hash);
 		// Adding lazy balances for first processed block in pull
-		if (pull_blocks == 0 && (block_a->type () == nano::block_type::state || block_a->type () == nano::block_type::send))
+		if (pull_blocks == 0 && (block_a->type () == nano::block_type::state || block_a->type () == nano::block_type::state2 || block_a->type () == nano::block_type::send))
 		{
 			lazy_balances.insert (std::make_pair (hash, block_a->balance ().number ()));
 		}
@@ -837,7 +837,7 @@ void nano::bootstrap_attempt::lazy_block_state_backlog_check (std::shared_ptr<na
 	{
 		auto next_block (find_state->second);
 		// Retrieve balance for previous state & send blocks
-		if (block_a->type () == nano::block_type::state || block_a->type () == nano::block_type::send)
+		if (block_a->type () == nano::block_type::state || block_a->type () == nano::block_type::state2 || block_a->type () == nano::block_type::send)
 		{
 			if (block_a->balance ().number () <= next_block.second) // balance
 			{

@@ -330,7 +330,7 @@ TEST (state_block, serialization)
 	ASSERT_EQ (nano::state_block::size, bytes.size ());
 	bool error1 (false);
 	nano::bufferstream stream (bytes.data (), bytes.size ());
-	nano::state_block block2 (error1, stream);
+	nano::state_block block2 (error1, stream, true);
 	ASSERT_FALSE (error1);
 	ASSERT_EQ (block1, block2);
 	block2.hashables.account.clear ();
@@ -341,7 +341,7 @@ TEST (state_block, serialization)
 	block2.signature.clear ();
 	block2.work = 0;
 	nano::bufferstream stream2 (bytes.data (), bytes.size ());
-	ASSERT_FALSE (block2.deserialize (stream2));
+	ASSERT_FALSE (block2.deserialize (stream2, true));
 	ASSERT_EQ (block1, block2);
 	std::string json;
 	block1.serialize_json (json);
@@ -361,6 +361,25 @@ TEST (state_block, serialization)
 	block3.work = 0;
 	ASSERT_FALSE (block3.deserialize_json (tree));
 	ASSERT_EQ (block1, block3);
+}
+
+TEST (state_block_nano_pow, serialization)
+{
+	nano::keypair key1;
+	nano::keypair key2;
+	nano::state_block block1 (key1.pub, 1, key2.pub, 2, 4, key1.prv, key1.pub, nano::nano_pow (5));
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		block1.serialize (stream);
+	}
+	ASSERT_EQ (0x5, bytes[219]); // Ensure work is serialized big-endian
+	ASSERT_EQ (nano::state_block::size2, bytes.size ());
+	auto error (false);
+	nano::bufferstream stream (bytes.data (), bytes.size ());
+	nano::state_block block2 (error, stream, false);
+	ASSERT_FALSE (error);
+	ASSERT_EQ (block1, block2);
 }
 
 TEST (state_block, hashing)

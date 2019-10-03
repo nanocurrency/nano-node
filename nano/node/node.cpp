@@ -190,7 +190,7 @@ startup_time (std::chrono::steady_clock::now ())
 							event.add ("subtype", "send");
 						}
 						// Subtype field
-						else if (block_a->type () == nano::block_type::state)
+						else if (block_a->type () == nano::block_type::state || block_a->type () == nano::block_type::state2)
 						{
 							if (block_a->link ().is_zero ())
 							{
@@ -244,7 +244,7 @@ startup_time (std::chrono::steady_clock::now ())
 					{
 						subtype = "send";
 					}
-					else if (block_a->type () == nano::block_type::state)
+					else if (block_a->type () == nano::block_type::state || block_a->type () == nano::block_type::state2)
 					{
 						if (block_a->link ().is_zero ())
 						{
@@ -980,7 +980,7 @@ boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & bloc
 	auto opt_work_l (work_generate_blocking (block_a.root (), difficulty_a, block_a.account ()));
 	if (opt_work_l.is_initialized ())
 	{
-		block_a.block_work_set (*opt_work_l);
+	 	block_a.block_work_set (*opt_work_l);
 	}
 	return opt_work_l;
 }
@@ -1276,9 +1276,9 @@ bool nano::node::validate_block_by_previous (nano::transaction const & transacti
 	{
 		account = block_a->root ();
 	}
-	if (!result && block_a->type () == nano::block_type::state)
+	if (!result && (block_a->type () == nano::block_type::state || block_a->type () == nano::block_type::state2))
 	{
-		std::shared_ptr<nano::state_block> block_l (std::static_pointer_cast<nano::state_block> (block_a));
+		auto block_l (std::static_pointer_cast<nano::state_block> (block_a));
 		nano::amount prev_balance (0);
 		if (!block_l->hashables.previous.is_zero ())
 		{

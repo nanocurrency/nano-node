@@ -31,7 +31,6 @@ using ipc_json_handler_no_arg_func_map = std::unordered_map<std::string, std::fu
 ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ();
 auto ipc_json_handler_no_arg_funcs = create_ipc_json_handler_no_arg_func_map ();
 bool block_confirmed (nano::node & node, nano::transaction & transaction, nano::block_hash const & hash, bool include_active, bool include_only_confirmed);
-const char * epoch_as_string (nano::epoch);
 }
 
 nano::json_handler::json_handler (nano::node & node_a, nano::node_rpc_config const & node_rpc_config_a, std::string const & body_a, std::function<void(std::string const &)> const & response_a, std::function<void()> stop_callback_a) :
@@ -980,7 +979,7 @@ void nano::json_handler::block_info ()
 				block->serialize_json (contents);
 				response_l.put ("contents", contents);
 			}
-			if (block->type () == nano::block_type::state)
+			if (block->type () == nano::block_type::state || block->type () == nano::block_type::state2)
 			{
 				state_subtype (transaction, node, block, balance, response_l);
 			}
@@ -1130,7 +1129,7 @@ void nano::json_handler::blocks_info ()
 						block->serialize_json (contents);
 						entry.put ("contents", contents);
 					}
-					if (block->type () == nano::block_type::state)
+					if (block->type () == nano::block_type::state || block->type () == nano::block_type::state2)
 					{
 						state_subtype (transaction, node, block, balance, entry);
 					}
@@ -1278,12 +1277,13 @@ void nano::json_handler::block_create ()
 				ec = nano::error_common::invalid_amount;
 			}
 		}
-		auto work (work_optional_impl ());
+		nano::proof_of_work work (work_optional_impl ());
 		nano::raw_key prv;
 		prv.data.clear ();
 		nano::block_hash previous (0);
 		nano::amount balance (0);
-		if (work == 0 && !node.work_generation_enabled ())
+		// Temp, always legacy pow returned
+		if (nano::legacy_pow (work) == 0 && !node.work_generation_enabled ())
 		{
 			ec = nano::error_common::disabled_work_generation;
 		}
@@ -1385,11 +1385,12 @@ void nano::json_handler::block_create ()
 						ec = nano::error_rpc::block_create_public_key_mismatch;
 					}
 				}
-				if (type == "state")
+				if (type == "state" || type == "state2")
 				{
 					if (previous_text.is_initialized () && !representative.is_zero () && (!link.is_zero () || link_text.is_initialized ()))
 					{
-						if (work == 0)
+						// Intermediately it will always be legacy_pow until nano_pow is integrated
+						if (nano::legacy_pow (work) == 0)
 						{
 							nano::root root;
 							if (previous.is_zero ())
@@ -1404,7 +1405,14 @@ void nano::json_handler::block_create ()
 							auto opt_work_l (node.work_generate_blocking (root, nano::account (pub)));
 							if (opt_work_l.is_initialized ())
 							{
-								work = *opt_work_l;
+								if (type == "state2")
+								{
+									work = nano::nano_pow (*opt_work_l);
+								}
+								else
+								{
+									work = *opt_work_l;
+								}
 							}
 							else
 							{
@@ -1413,6 +1421,11 @@ void nano::json_handler::block_create ()
 						}
 						if (!ec)
 						{
+							if (type == "state2" && work.is_legacy ())
+							{
+								work = nano::nano_pow {nano::legacy_pow (work)};
+							}
+
 							nano::state_block state (pub, previous, representative, balance, link, prv, pub, work);
 							response_l.put ("hash", state.hash ().to_string ());
 							bool json_block_l = request.get<bool> ("json_block", false);
@@ -1439,7 +1452,7 @@ void nano::json_handler::block_create ()
 				{
 					if (representative != 0 && source != 0)
 					{
-						if (work == 0)
+						if (nano::legacy_pow (work) == 0)
 						{
 							auto opt_work_l (node.work_generate_blocking (pub, nano::account (pub)));
 							if (opt_work_l.is_initialized ())
@@ -1469,7 +1482,7 @@ void nano::json_handler::block_create ()
 				{
 					if (source != 0 && previous != 0)
 					{
-						if (work == 0)
+						if (nano::legacy_pow (work) == 0)
 						{
 							auto opt_work_l (node.work_generate_blocking (previous, nano::account (pub)));
 							if (opt_work_l.is_initialized ())
@@ -1499,7 +1512,7 @@ void nano::json_handler::block_create ()
 				{
 					if (representative != 0 && previous != 0)
 					{
-						if (work == 0)
+						if (nano::legacy_pow (work) == 0)
 						{
 							auto opt_work_l (node.work_generate_blocking (previous, nano::account (pub)));
 							if (opt_work_l.is_initialized ())
@@ -1531,7 +1544,7 @@ void nano::json_handler::block_create ()
 					{
 						if (balance.number () >= amount.number ())
 						{
-							if (work == 0)
+							if (nano::legacy_pow (work) == 0)
 							{
 								auto opt_work_l (node.work_generate_blocking (previous, nano::account (pub)));
 								if (opt_work_l.is_initialized ())
@@ -2933,12 +2946,12 @@ void nano::json_handler::process ()
 		}
 
 		// State blocks subtype check
-		if (!rpc_l->ec && block->type () == nano::block_type::state)
+		if (!rpc_l->ec && (block->type () == nano::block_type::state || block->type () == nano::block_type::state2))
 		{
 			std::string subtype_text (rpc_l->request.get<std::string> ("subtype", ""));
 			if (!subtype_text.empty ())
 			{
-				std::shared_ptr<nano::state_block> block_state (std::static_pointer_cast<nano::state_block> (block));
+				auto block_state (std::static_pointer_cast<nano::state_block> (block));
 				auto transaction (rpc_l->node.store.tx_begin_read ());
 				if (!block_state->hashables.previous.is_zero () && !rpc_l->node.store.block_exists (transaction, block_state->hashables.previous))
 				{
@@ -4855,18 +4868,5 @@ bool block_confirmed (nano::node & node, nano::transaction & transaction, nano::
 	}
 
 	return is_confirmed;
-}
-
-const char * epoch_as_string (nano::epoch epoch)
-{
-	switch (epoch)
-	{
-		case nano::epoch::epoch_2:
-			return "2";
-		case nano::epoch::epoch_1:
-			return "1";
-		default:
-			return "0";
-	}
 }
 }

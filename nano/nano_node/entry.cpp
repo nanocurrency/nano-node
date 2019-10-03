@@ -839,7 +839,7 @@ int main (int argc, char * const * argv)
 				{
 					++block_count;
 					// Check for state & open blocks if account field is correct
-					if (block->type () == nano::block_type::open || block->type () == nano::block_type::state)
+					if (block->type () == nano::block_type::open || block->type () == nano::block_type::state || block->type () == nano::block_type::state2)
 					{
 						if (block->account () != account)
 						{
@@ -861,7 +861,7 @@ int main (int argc, char * const * argv)
 					{
 						std::cerr << boost::str (boost::format ("Incorrect previous for open block %1%\n") % hash.to_string ());
 					}
-					if (height == 0 && block->type () != nano::block_type::open && block->type () != nano::block_type::state)
+					if (height == 0 && block->type () != nano::block_type::open && block->type () != nano::block_type::state && block->type () != nano::block_type::state2)
 					{
 						std::cerr << boost::str (boost::format ("Incorrect type for open block %1%\n") % hash.to_string ());
 					}
@@ -876,7 +876,7 @@ int main (int argc, char * const * argv)
 					{
 						bool invalid (true);
 						// Epoch blocks
-						if (block->type () == nano::block_type::state)
+						if (block->type () == nano::block_type::state || block->type () == nano::block_type::state2)
 						{
 							auto & state_block (static_cast<nano::state_block &> (*block.get ()));
 							nano::amount prev_balance (0);
@@ -912,7 +912,7 @@ int main (int argc, char * const * argv)
 					}
 					previous_timestamp = sideband.timestamp;
 					// Calculate representative block
-					if (block->type () == nano::block_type::open || block->type () == nano::block_type::change || block->type () == nano::block_type::state)
+					if (block->type () == nano::block_type::open || block->type () == nano::block_type::change || block->type () == nano::block_type::state || block->type () == nano::block_type::state2)
 					{
 						calculated_representative = block->representative ();
 					}
