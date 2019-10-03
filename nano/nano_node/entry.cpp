@@ -1122,7 +1122,8 @@ int main (int argc, char * const * argv)
 				nano::pending_key const & key (i->first);
 				nano::pending_info const & info (i->second);
 				// clang-format off
-				auto exists = std::any_of (opened_account_versions.begin (), opened_account_versions.end (), [&account = key.account](auto const & account_version) {
+				auto & account = key.account;
+				auto exists = std::any_of (opened_account_versions.begin (), opened_account_versions.end (), [&account](auto const & account_version) {
 					return account_version.find (account) != account_version.end ();
 				});
 				// clang-format on
