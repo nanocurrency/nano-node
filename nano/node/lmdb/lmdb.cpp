@@ -587,15 +587,15 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction const & transa
 
 	upgrade_counters pending_counters (count (transaction_a, pending_v0), count (transaction_a, pending_v1));
 	std::vector<std::pair<nano::pending_key, nano::pending_info>> pending_infos;
-	pending_infos.reserve (pending_counters.before_v0 + pending_counters.after_v0);
+	pending_infos.reserve (pending_counters.before_v0 + pending_counters.before_v1);
 
 	nano::mdb_merge_iterator<nano::pending_key, nano::pending_info_v14> i_pending (transaction_a, pending_v0, pending_v1);
 	nano::mdb_merge_iterator<nano::pending_key, nano::pending_info_v14> n_pending{};
 	for (; i_pending != n_pending; ++i_pending)
 	{
-		i_pending.from_first_database ? ++pending_counters.after_v0 : ++pending_counters.after_v1;
 		nano::pending_info_v14 info (i_pending->second);
 		pending_infos.emplace_back (nano::pending_key (i_pending->first), nano::pending_info{ info.source, info.amount, i_pending.from_first_database ? nano::epoch::epoch_0 : nano::epoch::epoch_1 });
+		i_pending.from_first_database ? ++pending_counters.after_v0 : ++pending_counters.after_v1;
 	}
 
 	assert (pending_counters.are_equal ());
