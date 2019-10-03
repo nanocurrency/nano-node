@@ -264,6 +264,7 @@ private:
 			else if (key_cmp > 0)
 			{
 				result = impl2.get ();
+				from_first_database = false;
 			}
 			else
 			{
