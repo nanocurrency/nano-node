@@ -249,6 +249,18 @@ private:
 	bool txn_tracking_enabled;
 
 	size_t count (nano::transaction const & transaction_a, tables table_a) const override;
+
+	class upgrade_counters
+	{
+	public:
+		upgrade_counters (uint64_t count_before_v0, uint64_t count_before_v1);
+		bool are_equal () const;
+
+		uint64_t before_v0;
+		uint64_t before_v1;
+		uint64_t after_v0{ 0 };
+		uint64_t after_v1{ 0 };
+	};
 };
 
 template <>
