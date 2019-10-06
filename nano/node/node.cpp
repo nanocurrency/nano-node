@@ -372,7 +372,7 @@ startup_time (std::chrono::steady_clock::now ())
 
 		logger.always_log (boost::str (boost::format ("Work pool running %1% threads %2%") % work.threads.size () % (work.opencl ? "(1 for OpenCL)" : "")));
 		logger.always_log (boost::str (boost::format ("%1% work peers configured") % config.work_peers.size ()));
-		if (config.work_peers.empty () && config.work_threads == 0 && !work.opencl)
+		if (!work_generation_enabled ())
 		{
 			logger.always_log ("Work generation is disabled");
 		}
@@ -958,6 +958,16 @@ int nano::node::price (nano::uint128_t const & balance_a, int amount_a)
 		result += std::min (std::max (0.0, unit_price), price_max);
 	}
 	return static_cast<int> (result * 100.0);
+}
+
+bool nano::node::local_work_generation_enabled () const
+{
+	return config.work_threads > 0 || work.opencl;
+}
+
+bool nano::node::work_generation_enabled () const
+{
+	return !config.work_peers.empty () || local_work_generation_enabled ();
 }
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a)

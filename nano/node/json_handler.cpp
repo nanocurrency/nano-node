@@ -671,7 +671,9 @@ void nano::json_handler::account_representative ()
 void nano::json_handler::account_representative_set ()
 {
 	auto rpc_l (shared_from_this ());
-	node.worker.push_task ([rpc_l]() {
+	// clang-format off
+	node.worker.push_task ([ rpc_l, work_generation_enabled = node.work_generation_enabled () ]() {
+		// clang-format on
 		auto wallet (rpc_l->wallet_impl ());
 		auto account (rpc_l->account_impl ());
 		std::string representative_text (rpc_l->request.get<std::string> ("representative"));
@@ -699,6 +701,13 @@ void nano::json_handler::account_representative_set ()
 					{
 						rpc_l->ec = nano::error_common::account_not_found;
 					}
+				}
+			}
+			else if (!rpc_l->ec) // work == 0
+			{
+				if (!work_generation_enabled)
+				{
+					rpc_l->ec = nano::error_common::disabled_work_generation;
 				}
 			}
 			if (!rpc_l->ec)
@@ -1001,7 +1010,7 @@ void nano::json_handler::block_confirm ()
 			else
 			{
 				// Add record in confirmation history for confirmed block
-				nano::election_status status{ block_l, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), nano::election_status_type::active_confirmation_height };
+				nano::election_status status{ block_l, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, nano::election_status_type::active_confirmation_height };
 				{
 					nano::lock_guard<std::mutex> lock (node.active.mutex);
 					node.active.confirmed.push_back (status);
@@ -1274,6 +1283,10 @@ void nano::json_handler::block_create ()
 		prv.data.clear ();
 		nano::block_hash previous (0);
 		nano::amount balance (0);
+		if (work == 0 && !node.work_generation_enabled ())
+		{
+			ec = nano::error_common::disabled_work_generation;
+		}
 		if (!ec && wallet != 0 && account != 0)
 		{
 			auto existing (node.wallets.items.find (wallet));
@@ -1796,6 +1809,7 @@ void nano::json_handler::confirmation_history ()
 				election.put ("duration", i->election_duration.count ());
 				election.put ("time", i->election_end.count ());
 				election.put ("tally", i->tally.to_string_dec ());
+				election.put ("request_count", i->confirmation_request_count);
 				elections.push_back (std::make_pair ("", election));
 			}
 			running_total += i->election_duration;
@@ -3106,6 +3120,13 @@ void nano::json_handler::receive ()
 							ec = nano::error_common::invalid_work;
 						}
 					}
+					else if (!ec) // && work == 0
+					{
+						if (!node.work_generation_enabled ())
+						{
+							ec = nano::error_common::disabled_work_generation;
+						}
+					}
 					if (!ec)
 					{
 						bool generate_work (work == 0); // Disable work generation if "work" option is provided
@@ -3418,6 +3439,10 @@ void nano::json_handler::send ()
 	{
 		auto work (work_optional_impl ());
 		nano::uint128_t balance (0);
+		if (!ec && work == 0 && !node.work_generation_enabled ())
+		{
+			ec = nano::error_common::disabled_work_generation;
+		}
 		if (!ec)
 		{
 			auto transaction (node.wallets.tx_begin_read ());
@@ -4531,11 +4556,25 @@ void nano::json_handler::work_generate ()
 			};
 			if (!use_peers)
 			{
-				node.work.generate (hash, callback, difficulty);
+				if (node.local_work_generation_enabled ())
+				{
+					node.work.generate (hash, callback, difficulty);
+				}
+				else
+				{
+					ec = nano::error_common::disabled_local_work_generation;
+				}
 			}
 			else
 			{
-				node.work_generate (hash, callback, difficulty, account);
+				if (node.work_generation_enabled ())
+				{
+					node.work_generate (hash, callback, difficulty, account);
+				}
+				else
+				{
+					ec = nano::error_common::disabled_work_generation;
+				}
 			}
 		}
 	}

@@ -27,6 +27,11 @@ set_target_properties (nano_node
 		COMPILE_FLAGS
 			"-DQT_NO_KEYWORDS -DBOOST_ASIO_HAS_STD_ARRAY=1")
 
+add_custom_command(TARGET nano_node
+				   POST_BUILD
+				   COMMAND nano_node --generate_config node > ${PROJECT_BINARY_DIR}/config-node.toml.sample
+				   COMMAND nano_node --generate_config rpc > ${PROJECT_BINARY_DIR}/config-rpc.toml.sample)
+
 if ((NANO_GUI OR RAIBLOCKS_GUI) AND NOT APPLE)
 	install(TARGETS nano_node
 			RUNTIME DESTINATION .

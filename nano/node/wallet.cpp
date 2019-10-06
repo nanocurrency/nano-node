@@ -1365,18 +1365,21 @@ bool nano::wallet::live ()
 
 void nano::wallet::work_cache_blocking (nano::account const & account_a, nano::root const & root_a)
 {
-	auto opt_work_l (wallets.node.work_generate_blocking (root_a, account_a));
-	if (opt_work_l.is_initialized ())
+	if (wallets.node.work_generation_enabled ())
 	{
-		auto transaction_l (wallets.tx_begin_write ());
-		if (live () && store.exists (transaction_l, account_a))
+		auto opt_work_l (wallets.node.work_generate_blocking (root_a, account_a));
+		if (opt_work_l.is_initialized ())
 		{
-			work_update (transaction_l, account_a, root_a, *opt_work_l);
+			auto transaction_l (wallets.tx_begin_write ());
+			if (live () && store.exists (transaction_l, account_a))
+			{
+				work_update (transaction_l, account_a, root_a, *opt_work_l);
+			}
 		}
-	}
-	else
-	{
-		wallets.node.logger.try_log (boost::str (boost::format ("Could not precache work for root %1 due to work generation failure") % root_a.to_string ()));
+		else
+		{
+			wallets.node.logger.try_log (boost::str (boost::format ("Could not precache work for root %1 due to work generation failure") % root_a.to_string ()));
+		}
 	}
 }
 
@@ -1435,7 +1438,11 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 				auto root_l (block_a->root ());
 				nano::work_validate (root_l, block_a->block_work (), &difficulty);
 				auto active_difficulty (watcher_l->node.active.limited_active_difficulty ());
-				if (active_difficulty > difficulty)
+				/*
+				 * Work watcher should still watch blocks even without work generation, although no rework is done
+				 * Functionality may be added in the future that does not require updating work
+				 */
+				if (active_difficulty > difficulty && watcher_l->node.work_generation_enabled ())
 				{
 					watcher_l->node.work_generate (
 					root_l, [watcher_l, block_a, root_a](boost::optional<uint64_t> work_a) {
