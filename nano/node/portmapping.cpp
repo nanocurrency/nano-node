@@ -2,6 +2,7 @@
 #include <nano/node/portmapping.hpp>
 
 #include <upnpcommands.h>
+#include <upnperrors.h>
 
 nano::port_mapping::port_mapping (nano::node & node_a) :
 node (node_a),
@@ -69,24 +70,25 @@ void nano::port_mapping::refresh_mapping ()
 	{
 		nano::lock_guard<std::mutex> lock (mutex);
 		auto node_port (std::to_string (node.network.endpoint ().port ()));
+		auto config_port(node.config.external_port != 0 ? std::to_string(node.config.external_port) : node_port);
 
 		// We don't map the RPC port because, unless RPC authentication was added, this would almost always be a security risk
 		for (auto & protocol : protocols)
 		{
-			std::array<char, 6> actual_external_port;
-			actual_external_port.fill (0);
-			auto add_port_mapping_error (UPNP_AddAnyPortMapping (urls.controlURL, data.first.servicetype, node_port.c_str (), node_port.c_str (), address.to_string ().c_str (), nullptr, protocol.name, nullptr, std::to_string (network_params.portmapping.mapping_timeout).c_str (), actual_external_port.data ()));
+			auto add_port_mapping_error (UPNP_AddPortMapping (urls.controlURL, data.first.servicetype, config_port.c_str (), node_port.c_str (), address.to_string ().c_str (), nullptr, protocol.name, nullptr, nullptr));
 			if (check_count % 15 == 0)
 			{
-				node.logger.always_log (boost::str (boost::format ("UPnP %1% port mapping response: %2%, actual external port %3%") % protocol.name % add_port_mapping_error % actual_external_port.data ()));
+				node.logger.always_log (boost::str (boost::format ("UPnP %1% port mapping response: %2%")% protocol.name % add_port_mapping_error));
 			}
 			if (add_port_mapping_error == UPNPCOMMAND_SUCCESS)
 			{
-				protocol.external_port = static_cast<uint16_t> (std::atoi (actual_external_port.data ()));
+				node.logger.always_log (boost::str (boost::format ("%1% mapped to %2%") % config_port % node_port));
+				protocol.external_port = static_cast<uint16_t> (std::atoi(config_port.data()));
 			}
 			else
 			{
 				protocol.external_port = 0;
+				node.logger.always_log (boost::str (boost::format ("UPnP failed %1%: %2%") % add_port_mapping_error % strupnperror (add_port_mapping_error)));
 			}
 		}
 	}
@@ -100,20 +102,22 @@ int nano::port_mapping::check_mapping ()
 		// Long discovery time and fast setup/teardown make this impractical for testing
 		nano::lock_guard<std::mutex> lock (mutex);
 		auto node_port (std::to_string (node.network.endpoint ().port ()));
+		auto config_port(node.config.external_port != 0 ? std::to_string(node.config.external_port) : node_port);
 		for (auto & protocol : protocols)
 		{
 			std::array<char, 64> int_client;
 			std::array<char, 6> int_port;
 			std::array<char, 16> remaining_mapping_duration;
 			remaining_mapping_duration.fill (0);
-			auto verify_port_mapping_error (UPNP_GetSpecificPortMappingEntry (urls.controlURL, data.first.servicetype, node_port.c_str (), protocol.name, nullptr, int_client.data (), int_port.data (), nullptr, nullptr, remaining_mapping_duration.data ()));
+			auto verify_port_mapping_error (UPNP_GetSpecificPortMappingEntry (urls.controlURL, data.first.servicetype, config_port.c_str (), protocol.name, nullptr, int_client.data (), int_port.data (), nullptr, nullptr, remaining_mapping_duration.data ()));
 			if (verify_port_mapping_error == UPNPCOMMAND_SUCCESS)
 			{
-				protocol.remaining = result;
+				protocol.remaining = std::atoi(remaining_mapping_duration.data());
 			}
 			else
 			{
 				protocol.remaining = 0;
+				node.logger.always_log (boost::str (boost::format ("UPNP_GetSpecificPortMappingEntry failed %1%: %2%") % verify_port_mapping_error % strupnperror (verify_port_mapping_error)));
 			}
 			result = std::min (result, protocol.remaining);
 			std::array<char, 64> external_address;
@@ -127,6 +131,7 @@ int nano::port_mapping::check_mapping ()
 			else
 			{
 				protocol.external_address = boost::asio::ip::address_v4::any ();
+				node.logger.always_log (boost::str (boost::format ("UPNP_GetExternalIPAddress failed %1%: %2%") % verify_port_mapping_error % strupnperror (verify_port_mapping_error)));
 			}
 			if (check_count % 15 == 0)
 			{
