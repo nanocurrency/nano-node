@@ -54,6 +54,10 @@ std::string nano::error_common_messages::message (int ev) const
 			return "Bad wallet number";
 		case nano::error_common::bad_work_format:
 			return "Bad work";
+		case nano::error_common::disabled_local_work_generation:
+			return "Local work generation is disabled";
+		case nano::error_common::disabled_work_generation:
+			return "Work generation is disabled";
 		case nano::error_common::failure_work_generation:
 			return "Work generation cancellation or failure";
 		case nano::error_common::insufficient_balance:

@@ -503,22 +503,25 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction const & transa
 {
 	// Move confirmation height from account_info database to its own table
 	std::vector<std::pair<nano::account, nano::account_info>> account_infos;
-	account_infos.reserve (count (transaction_a, accounts_v0) + count (transaction_a, accounts_v1));
+	upgrade_counters account_counters (count (transaction_a, accounts_v0), count (transaction_a, accounts_v1));
+	account_infos.reserve (account_counters.before_v0 + account_counters.before_v1);
 
-	nano::mdb_merge_iterator<nano::account, nano::account_info_v14> i (transaction_a, accounts_v0, accounts_v1);
-	nano::mdb_merge_iterator<nano::account, nano::account_info_v14> n{};
-	for (; i != n; ++i)
+	nano::mdb_merge_iterator<nano::account, nano::account_info_v14> i_account (transaction_a, accounts_v0, accounts_v1);
+	nano::mdb_merge_iterator<nano::account, nano::account_info_v14> n_account{};
+	for (; i_account != n_account; ++i_account)
 	{
-		nano::account account (i->first);
-		nano::account_info_v14 account_info_v14 (i->second);
+		nano::account account (i_account->first);
+		nano::account_info_v14 account_info_v14 (i_account->second);
 
 		// Upgrade rep block to representative account
 		auto rep_block = block_get_v14 (transaction_a, account_info_v14.rep_block);
 		release_assert (rep_block != nullptr);
-		account_infos.emplace_back (account, nano::account_info{ account_info_v14.head, rep_block->representative (), account_info_v14.open_block, account_info_v14.balance, account_info_v14.modified, account_info_v14.block_count, i.from_first_database ? nano::epoch::epoch_0 : nano::epoch::epoch_1 });
+		account_infos.emplace_back (account, nano::account_info{ account_info_v14.head, rep_block->representative (), account_info_v14.open_block, account_info_v14.balance, account_info_v14.modified, account_info_v14.block_count, i_account.from_first_database ? nano::epoch::epoch_0 : nano::epoch::epoch_1 });
 		confirmation_height_put (transaction_a, account, account_info_v14.confirmation_height);
+		i_account.from_first_database ? ++account_counters.after_v0 : ++account_counters.after_v1;
 	}
 
+	assert (account_counters.are_equal ());
 	// No longer need accounts_v1, keep v0 but clear it
 	mdb_drop (env.tx (transaction_a), accounts_v1, 1);
 	mdb_drop (env.tx (transaction_a), accounts_v0, 0);
@@ -536,6 +539,8 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction const & transa
 	// Have to create a new database as we are iterating over the existing ones and want to use MDB_APPEND for quick insertion
 	MDB_dbi state_blocks_new;
 	mdb_dbi_open (env.tx (transaction_a), "state_blocks", MDB_CREATE, &state_blocks_new);
+
+	upgrade_counters state_counters (count (transaction_a, state_blocks_v0), count (transaction_a, state_blocks_v1));
 
 	nano::mdb_merge_iterator<nano::block_hash, nano::state_block_w_sideband_v14> i_state (transaction_a, state_blocks_v0, state_blocks_v1);
 	nano::mdb_merge_iterator<nano::block_hash, nano::state_block_w_sideband_v14> n_state{};
@@ -566,8 +571,10 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction const & transa
 		{
 			logger.always_log (boost::str (boost::format ("Database epoch merge upgrade %1% million state blocks upgraded") % (num / output_cutoff)));
 		}
+		i_state.from_first_database ? ++state_counters.after_v0 : ++state_counters.after_v1;
 	}
 
+	assert (state_counters.are_equal ());
 	logger.always_log ("Epoch merge upgrade. Finished state blocks, now doing pending blocks");
 
 	state_blocks = state_blocks_new;
@@ -578,8 +585,9 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction const & transa
 
 	state_blocks_v0 = state_blocks;
 
+	upgrade_counters pending_counters (count (transaction_a, pending_v0), count (transaction_a, pending_v1));
 	std::vector<std::pair<nano::pending_key, nano::pending_info>> pending_infos;
-	pending_infos.reserve (count (transaction_a, pending_v0) + count (transaction_a, pending_v1));
+	pending_infos.reserve (pending_counters.before_v0 + pending_counters.before_v1);
 
 	nano::mdb_merge_iterator<nano::pending_key, nano::pending_info_v14> i_pending (transaction_a, pending_v0, pending_v1);
 	nano::mdb_merge_iterator<nano::pending_key, nano::pending_info_v14> n_pending{};
@@ -587,7 +595,10 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction const & transa
 	{
 		nano::pending_info_v14 info (i_pending->second);
 		pending_infos.emplace_back (nano::pending_key (i_pending->first), nano::pending_info{ info.source, info.amount, i_pending.from_first_database ? nano::epoch::epoch_0 : nano::epoch::epoch_1 });
+		i_pending.from_first_database ? ++pending_counters.after_v0 : ++pending_counters.after_v1;
 	}
+
+	assert (pending_counters.are_equal ());
 
 	// No longer need the pending v1 table
 	mdb_drop (env.tx (transaction_a), pending_v1, 1);
@@ -1003,4 +1014,15 @@ std::shared_ptr<nano::block> nano::mdb_store::block_get_v14 (nano::transaction c
 		}
 	}
 	return result;
+}
+
+nano::mdb_store::upgrade_counters::upgrade_counters (uint64_t count_before_v0, uint64_t count_before_v1) :
+before_v0 (count_before_v0),
+before_v1 (count_before_v1)
+{
+}
+
+bool nano::mdb_store::upgrade_counters::are_equal () const
+{
+	return (before_v0 == after_v0) && (before_v1 == after_v1);
 }

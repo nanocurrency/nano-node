@@ -117,8 +117,8 @@ int main (int argc, char * const * argv)
 		("debug_account_count", "Display the number of accounts")
 		("debug_mass_activity", "Generates fake debug activity")
 		("debug_profile_generate", "Profile work generation")
+		("debug_profile_validate", "Profile work validation")
 		("debug_opencl", "OpenCL work generation")
-		("debug_profile_verify", "Profile work verification")
 		("debug_profile_kdf", "Profile kdf function")
 		("debug_output_last_backtrace_dump", "Displays the contents of the latest backtrace in the event of a nano_node crash")
 		("debug_sys_logging", "Test the system logger")
@@ -134,6 +134,7 @@ int main (int argc, char * const * argv)
 		("debug_peers", "Display peer IPv6:port connections")
 		("debug_cemented_block_count", "Displays the number of cemented (confirmed) blocks")
 		("debug_stacktrace", "Display an example stacktrace")
+		("debug_account_versions", "Display the total counts of each version for all accounts (including unpocketed)")
 		("platform", boost::program_options::value<std::string> (), "Defines the <platform> for OpenCL commands")
 		("device", boost::program_options::value<std::string> (), "Defines <device> for OpenCL command")
 		("threads", boost::program_options::value<std::string> (), "Defines <threads> count for OpenCL command")
@@ -225,7 +226,7 @@ int main (int argc, char * const * argv)
 						          << "Account: " << rep.pub.to_account () << "\n";
 					}
 					nano::uint128_t balance (std::numeric_limits<nano::uint128_t>::max ());
-					nano::open_block genesis_block (reinterpret_cast<const nano::block_hash &> (genesis.pub), genesis.pub, genesis.pub, genesis.prv, genesis.pub, work.generate (genesis.pub));
+					nano::open_block genesis_block (reinterpret_cast<const nano::block_hash &> (genesis.pub), genesis.pub, genesis.pub, genesis.prv, genesis.pub, *work.generate (genesis.pub));
 					std::cout << genesis_block.to_json ();
 					std::cout.flush ();
 					nano::block_hash previous (genesis_block.hash ());
@@ -237,7 +238,7 @@ int main (int argc, char * const * argv)
 						{
 							assert (balance > weekly_distribution);
 							balance = balance < (weekly_distribution * 2) ? 0 : balance - weekly_distribution;
-							nano::send_block send (previous, landing.pub, balance, genesis.prv, genesis.pub, work.generate (previous));
+							nano::send_block send (previous, landing.pub, balance, genesis.prv, genesis.pub, *work.generate (previous));
 							previous = send.hash ();
 							std::cout << send.to_json ();
 							std::cout.flush ();
@@ -353,10 +354,28 @@ int main (int argc, char * const * argv)
 			{
 				block.hashables.previous.qwords[0] += 1;
 				auto begin1 (std::chrono::high_resolution_clock::now ());
-				block.block_work_set (work.generate (block.root ()));
+				block.block_work_set (*work.generate (block.root ()));
 				auto end1 (std::chrono::high_resolution_clock::now ());
 				std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
 			}
+		}
+		else if (vm.count ("debug_profile_validate"))
+		{
+			uint64_t difficulty{ nano::network_constants::publish_full_threshold };
+			std::cerr << "Starting validation profile" << std::endl;
+			auto start (std::chrono::steady_clock::now ());
+			bool valid{ false };
+			nano::block_hash hash{ 0 };
+			uint64_t count{ 10000000U }; // 10M
+			for (uint64_t i (0); i < count; ++i)
+			{
+				valid = nano::work_value (hash, i) > difficulty;
+			}
+			std::ostringstream oss (valid ? "true" : "false"); // IO forces compiler to not dismiss the variable
+			auto total_time (std::chrono::duration_cast<std::chrono::nanoseconds> (std::chrono::steady_clock::now () - start).count ());
+			uint64_t average (total_time / count);
+			std::cout << "Average validation time: " << std::to_string (average) << " ns (" << std::to_string (static_cast<unsigned> (count * 1e9 / total_time)) << " validations/s)" << std::endl;
+			return average;
 		}
 		else if (vm.count ("debug_opencl"))
 		{
@@ -442,7 +461,7 @@ int main (int argc, char * const * argv)
 							{
 								block.hashables.previous.qwords[0] += 1;
 								auto begin1 (std::chrono::high_resolution_clock::now ());
-								block.block_work_set (work_pool.generate (block.root (), difficulty));
+								block.block_work_set (*work_pool.generate (block.root (), difficulty));
 								auto end1 (std::chrono::high_resolution_clock::now ());
 								std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
 							}
@@ -466,25 +485,6 @@ int main (int argc, char * const * argv)
 			{
 				std::cout << "Error initializing OpenCL" << std::endl;
 				result = -1;
-			}
-		}
-		else if (vm.count ("debug_profile_verify"))
-		{
-			nano::work_pool work (std::numeric_limits<unsigned>::max ());
-			nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
-			std::cerr << "Starting verification profiling\n";
-			while (true)
-			{
-				block.hashables.previous.qwords[0] += 1;
-				auto begin1 (std::chrono::high_resolution_clock::now ());
-				for (uint64_t t (0); t < 1000000; ++t)
-				{
-					block.hashables.previous.qwords[0] += 1;
-					block.block_work_set (t);
-					nano::work_validate (block);
-				}
-				auto end1 (std::chrono::high_resolution_clock::now ());
-				std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
 			}
 		}
 		else if (vm.count ("debug_output_last_backtrace_dump"))
@@ -580,7 +580,7 @@ int main (int argc, char * const * argv)
 				            .balance (genesis_balance)
 				            .link (keys[i].pub)
 				            .sign (keys[i].prv, keys[i].pub)
-				            .work (work.generate (genesis_latest))
+				            .work (*work.generate (genesis_latest))
 				            .build ();
 
 				genesis_latest = send->hash ();
@@ -593,7 +593,7 @@ int main (int argc, char * const * argv)
 				            .balance (balances[i])
 				            .link (genesis_latest)
 				            .sign (test_params.ledger.test_genesis_key.prv, test_params.ledger.test_genesis_key.pub)
-				            .work (work.generate (keys[i].pub))
+				            .work (*work.generate (keys[i].pub))
 				            .build ();
 
 				frontiers[i] = open->hash ();
@@ -614,7 +614,7 @@ int main (int argc, char * const * argv)
 					            .balance (balances[j])
 					            .link (keys[other].pub)
 					            .sign (keys[j].prv, keys[j].pub)
-					            .work (work.generate (frontiers[j]))
+					            .work (*work.generate (frontiers[j]))
 					            .build ();
 
 					frontiers[j] = send->hash ();
@@ -629,7 +629,7 @@ int main (int argc, char * const * argv)
 					               .balance (balances[other])
 					               .link (static_cast<nano::block_hash const &> (frontiers[j]))
 					               .sign (keys[other].prv, keys[other].pub)
-					               .work (work.generate (frontiers[other]))
+					               .work (*work.generate (frontiers[other]))
 					               .build ();
 
 					frontiers[other] = receive->hash ();
@@ -689,7 +689,7 @@ int main (int argc, char * const * argv)
 				            .balance (genesis_balance)
 				            .link (keys[i].pub)
 				            .sign (test_params.ledger.test_genesis_key.prv, test_params.ledger.test_genesis_key.pub)
-				            .work (work.generate (genesis_latest))
+				            .work (*work.generate (genesis_latest))
 				            .build ();
 
 				genesis_latest = send->hash ();
@@ -702,7 +702,7 @@ int main (int argc, char * const * argv)
 				            .balance (balance)
 				            .link (genesis_latest)
 				            .sign (keys[i].prv, keys[i].pub)
-				            .work (work.generate (keys[i].pub))
+				            .work (*work.generate (keys[i].pub))
 				            .build ();
 
 				node->ledger.process (transaction, *open);
@@ -721,7 +721,7 @@ int main (int argc, char * const * argv)
 				            .balance (genesis_balance)
 				            .link (destination.pub)
 				            .sign (test_params.ledger.test_genesis_key.prv, test_params.ledger.test_genesis_key.pub)
-				            .work (work.generate (genesis_latest))
+				            .work (*work.generate (genesis_latest))
 				            .build ();
 
 				genesis_latest = send->hash ();
@@ -1096,6 +1096,82 @@ int main (int argc, char * const * argv)
 #endif
 			nano::inactive_node node (data_path);
 			node.node->logger.always_log (nano::severity_level::error, "Testing system logger");
+		}
+		else if (vm.count ("debug_account_versions"))
+		{
+			nano::inactive_node node (data_path);
+
+			auto transaction (node.node->store.tx_begin_read ());
+			std::vector<std::unordered_set<nano::account>> opened_account_versions (nano::normalized_epoch (nano::epoch::max));
+
+			// Cache the accounts in a collection to make searching quicker against unchecked keys. Group by epoch
+			for (auto i (node.node->store.latest_begin (transaction)), n (node.node->store.latest_end ()); i != n; ++i)
+			{
+				auto const & account (i->first);
+				auto const & account_info (i->second);
+
+				// Epoch 0 will be index 0 for instance
+				auto epoch_idx = nano::normalized_epoch (account_info.epoch ());
+				opened_account_versions[epoch_idx].emplace (account);
+			}
+
+			// Iterate all pending blocks and collect the highest version for each unopened account
+			std::unordered_map<nano::account, std::underlying_type_t<nano::epoch>> unopened_highest_pending;
+			for (auto i (node.node->store.pending_begin (transaction)), n (node.node->store.pending_end ()); i != n; ++i)
+			{
+				nano::pending_key const & key (i->first);
+				nano::pending_info const & info (i->second);
+				// clang-format off
+				auto & account = key.account;
+				auto exists = std::any_of (opened_account_versions.begin (), opened_account_versions.end (), [&account](auto const & account_version) {
+					return account_version.find (account) != account_version.end ();
+				});
+				// clang-format on
+				if (!exists)
+				{
+					// This is an unopened account, store the highest pending version
+					auto it = unopened_highest_pending.find (key.account);
+					auto epoch = nano::normalized_epoch (info.epoch);
+					if (it != unopened_highest_pending.cend ())
+					{
+						// Found it, compare against existing value
+						if (epoch > it->second)
+						{
+							it->second = epoch;
+						}
+					}
+					else
+					{
+						// New unopened account
+						unopened_highest_pending.emplace (key.account, epoch);
+					}
+				}
+			}
+
+			auto output_account_version_number = [](auto version, auto num_accounts) {
+				std::cout << "Account version " << version << " num accounts: " << num_accounts << "\n";
+			};
+
+			// Output total version counts for the opened accounts
+			std::cout << "Opened accounts:\n";
+			for (auto i = 0u; i < opened_account_versions.size (); ++i)
+			{
+				output_account_version_number (i, opened_account_versions[i].size ());
+			}
+
+			// Accumulate the version numbers for the highest pending epoch for each unopened account.
+			std::vector<size_t> unopened_account_version_totals (nano::normalized_epoch (nano::epoch::max));
+			for (auto & pair : unopened_highest_pending)
+			{
+				++unopened_account_version_totals[pair.second];
+			}
+
+			// Output total version counts for the unopened accounts
+			std::cout << "\nUnopened accounts:\n";
+			for (auto i = 0u; i < unopened_account_version_totals.size (); ++i)
+			{
+				output_account_version_number (i, unopened_account_version_totals[i]);
+			}
 		}
 		else if (vm.count ("version"))
 		{
