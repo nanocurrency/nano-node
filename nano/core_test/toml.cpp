@@ -160,6 +160,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.lmdb_max_dbs, defaults.node.lmdb_max_dbs);
 	ASSERT_EQ (conf.node.max_work_generate_multiplier, defaults.node.max_work_generate_multiplier);
 	ASSERT_EQ (conf.node.network_threads, defaults.node.network_threads);
+	ASSERT_EQ (conf.node.new_work_peers, defaults.node.new_work_peers);
 	ASSERT_EQ (conf.node.work_watcher_period, defaults.node.work_watcher_period);
 	ASSERT_EQ (conf.node.online_weight_minimum, defaults.node.online_weight_minimum);
 	ASSERT_EQ (conf.node.online_weight_quorum, defaults.node.online_weight_quorum);
@@ -391,6 +392,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	io_threads = 999
 	lmdb_max_dbs = 999
 	network_threads = 999
+	new_work_peers = ["test.org:998"]
 	online_weight_minimum = "999"
 	online_weight_quorum = 99
 	password_fanout = 999
@@ -542,6 +544,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.max_work_generate_multiplier, defaults.node.max_work_generate_multiplier);
 	ASSERT_NE (conf.node.frontiers_confirmation, defaults.node.frontiers_confirmation);
 	ASSERT_NE (conf.node.network_threads, defaults.node.network_threads);
+	ASSERT_NE (conf.node.new_work_peers, defaults.node.new_work_peers);
 	ASSERT_NE (conf.node.work_watcher_period, defaults.node.work_watcher_period);
 	ASSERT_NE (conf.node.online_weight_minimum, defaults.node.online_weight_minimum);
 	ASSERT_NE (conf.node.online_weight_quorum, defaults.node.online_weight_quorum);

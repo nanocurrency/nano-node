@@ -612,6 +612,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (node & node, const
 	composite->add_component (collect_seq_con_info (node.confirmation_height_processor, "confirmation_height_processor"));
 	composite->add_component (collect_seq_con_info (node.pending_confirmation_height, "pending_confirmation_height"));
 	composite->add_component (collect_seq_con_info (node.worker, "worker"));
+	composite->add_component (collect_seq_con_info (node.distributed_work, "distributed_work"));
 	return composite;
 }
 }
@@ -990,9 +991,10 @@ void nano::node::work_generate (nano::root const & root_a, std::function<void(bo
 	work_generate (root_a, callback_a, network_params.network.publish_threshold, account_a);
 }
 
-void nano::node::work_generate (nano::root const & root_a, std::function<void(boost::optional<uint64_t>)> callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
+void nano::node::work_generate (nano::root const & root_a, std::function<void(boost::optional<uint64_t>)> callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a, bool new_work_peers_a)
 {
-	distributed_work.make (root_a, callback_a, difficulty_a, account_a);
+	auto const & peers_l (new_work_peers_a ? config.new_work_peers : config.work_peers);
+	distributed_work.make (root_a, peers_l, callback_a, difficulty_a, account_a);
 }
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a, boost::optional<nano::account> const & account_a)

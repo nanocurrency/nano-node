@@ -105,6 +105,12 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 		work_peers_l->push_back (boost::str (boost::format ("%1%:%2%") % i->first % i->second));
 	}
 
+	auto new_work_peers_l (toml.create_array ("new_work_peers", "Debugging purposes - A list of \"address:port\" entries to identify work peers to debug secondary work generation"));
+	for (auto i (new_work_peers.begin ()), n (new_work_peers.end ()); i != n; ++i)
+	{
+		new_work_peers_l->push_back (boost::str (boost::format ("%1%:%2%") % i->first % i->second));
+	}
+
 	auto preconfigured_peers_l (toml.create_array ("preconfigured_peers", "A list of \"address:port\" entries to identify preconfigured peers"));
 	for (auto i (preconfigured_peers.begin ()), n (preconfigured_peers.end ()); i != n; ++i)
 	{
@@ -212,6 +218,26 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 					{
 						auto address (entry.substr (0, port_position));
 						this->work_peers.emplace_back (address, port);
+					}
+				}
+			});
+		}
+
+		if (toml.has_key ("new_work_peers"))
+		{
+			new_work_peers.clear ();
+			toml.array_entries_required<std::string> ("new_work_peers", [this](std::string const & entry) {
+				auto port_position (entry.rfind (':'));
+				bool result = port_position == -1;
+				if (!result)
+				{
+					auto port_str (entry.substr (port_position + 1));
+					uint16_t port;
+					result |= parse_port (port_str, port);
+					if (!result)
+					{
+						auto address (entry.substr (0, port_position));
+						this->new_work_peers.emplace_back (address, port);
 					}
 				}
 			});

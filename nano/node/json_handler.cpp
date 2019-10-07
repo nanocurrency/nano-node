@@ -4530,7 +4530,7 @@ void nano::json_handler::work_generate ()
 		}
 		if (!ec)
 		{
-			bool use_peers (request.get_optional<bool> ("use_peers") == true);
+			auto use_peers (request.get<bool> ("use_peers", false));
 			auto rpc_l (shared_from_this ());
 			auto callback = [rpc_l, hash, this](boost::optional<uint64_t> const & work_a) {
 				if (work_a)
@@ -4568,7 +4568,9 @@ void nano::json_handler::work_generate ()
 			{
 				if (node.work_generation_enabled ())
 				{
-					node.work_generate (hash, callback, difficulty, account);
+					// New work peers used for debugging purposes if requested
+					auto use_new_work_peers_l (request.get<bool> ("new_work_peers", false));
+					node.work_generate (hash, callback, difficulty, account, use_new_work_peers_l);
 				}
 				else
 				{
