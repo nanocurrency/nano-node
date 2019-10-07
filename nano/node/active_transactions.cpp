@@ -317,11 +317,11 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 		}
 		++election_l->confirmation_request_count;
 	}
+	ongoing_broadcasts = !blocks_bundle_l.empty () + !batched_confirm_req_bundle_l.empty () + !single_confirm_req_bundle_l.empty ();
 	lock_a.unlock ();
 	// Rebroadcast unconfirmed blocks
 	if (!blocks_bundle_l.empty ())
 	{
-		++ongoing_broadcasts;
 		node.network.flood_block_many (std::move (blocks_bundle_l), [this]() {
 			{
 				nano::lock_guard<std::mutex> guard_l (this->mutex);
@@ -333,7 +333,6 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	// Batched confirmation requests
 	if (!batched_confirm_req_bundle_l.empty ())
 	{
-		++ongoing_broadcasts;
 		node.network.broadcast_confirm_req_batched_many (batched_confirm_req_bundle_l, [this]() {
 			{
 				nano::lock_guard<std::mutex> guard_l (this->mutex);
@@ -346,7 +345,6 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	// Single confirmation requests
 	if (!single_confirm_req_bundle_l.empty ())
 	{
-		++ongoing_broadcasts;
 		node.network.broadcast_confirm_req_many (single_confirm_req_bundle_l, [this]() {
 			{
 				nano::lock_guard<std::mutex> guard_l (this->mutex);
