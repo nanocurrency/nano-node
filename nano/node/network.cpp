@@ -102,8 +102,8 @@ void nano::network::send_keepalive_self (std::shared_ptr<nano::transport::channe
 		{
 			message.peers[0] = nano::endpoint (boost::asio::ip::address_v6{}, endpoint ().port ());
 			boost::system::error_code ec;
-			auto external_v6 = boost::asio::ip::address_v6::from_string(external_address.address().to_string(), ec);
-			message.peers[1] = nano::endpoint (external_v6, external_address.port());
+			auto external_v6 = boost::asio::ip::address_v6::from_string (external_address.address ().to_string (), ec);
+			message.peers[1] = nano::endpoint (external_v6, external_address.port ());
 		}
 		else
 		{

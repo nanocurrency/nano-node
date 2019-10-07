@@ -70,7 +70,7 @@ void nano::port_mapping::refresh_mapping ()
 	{
 		nano::lock_guard<std::mutex> lock (mutex);
 		auto node_port (std::to_string (node.network.endpoint ().port ()));
-		auto config_port(node.config.external_port != 0 ? std::to_string(node.config.external_port) : node_port);
+		auto config_port (node.config.external_port != 0 ? std::to_string (node.config.external_port) : node_port);
 
 		// We don't map the RPC port because, unless RPC authentication was added, this would almost always be a security risk
 		for (auto & protocol : protocols)
@@ -78,12 +78,12 @@ void nano::port_mapping::refresh_mapping ()
 			auto add_port_mapping_error (UPNP_AddPortMapping (urls.controlURL, data.first.servicetype, config_port.c_str (), node_port.c_str (), address.to_string ().c_str (), nullptr, protocol.name, nullptr, nullptr));
 			if (check_count % 15 == 0)
 			{
-				node.logger.always_log (boost::str (boost::format ("UPnP %1% port mapping response: %2%")% protocol.name % add_port_mapping_error));
+				node.logger.always_log (boost::str (boost::format ("UPnP %1% port mapping response: %2%") % protocol.name % add_port_mapping_error));
 			}
 			if (add_port_mapping_error == UPNPCOMMAND_SUCCESS)
 			{
 				node.logger.always_log (boost::str (boost::format ("%1% mapped to %2%") % config_port % node_port));
-				protocol.external_port = static_cast<uint16_t> (std::atoi(config_port.data()));
+				protocol.external_port = static_cast<uint16_t> (std::atoi (config_port.data ()));
 			}
 			else
 			{
@@ -102,7 +102,7 @@ int nano::port_mapping::check_mapping ()
 		// Long discovery time and fast setup/teardown make this impractical for testing
 		nano::lock_guard<std::mutex> lock (mutex);
 		auto node_port (std::to_string (node.network.endpoint ().port ()));
-		auto config_port(node.config.external_port != 0 ? std::to_string(node.config.external_port) : node_port);
+		auto config_port (node.config.external_port != 0 ? std::to_string (node.config.external_port) : node_port);
 		for (auto & protocol : protocols)
 		{
 			std::array<char, 64> int_client;
@@ -112,7 +112,7 @@ int nano::port_mapping::check_mapping ()
 			auto verify_port_mapping_error (UPNP_GetSpecificPortMappingEntry (urls.controlURL, data.first.servicetype, config_port.c_str (), protocol.name, nullptr, int_client.data (), int_port.data (), nullptr, nullptr, remaining_mapping_duration.data ()));
 			if (verify_port_mapping_error == UPNPCOMMAND_SUCCESS)
 			{
-				protocol.remaining = std::atoi(remaining_mapping_duration.data());
+				protocol.remaining = std::atoi (remaining_mapping_duration.data ());
 			}
 			else
 			{

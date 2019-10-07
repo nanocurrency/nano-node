@@ -676,7 +676,7 @@ void nano::node::start ()
 			this_l->bootstrap_wallet ();
 		});
 	}
-	if (config.external_address == boost::asio::ip::address_v6{}.any())
+	if (config.external_address == boost::asio::ip::address_v6{}.any ())
 	{
 		port_mapping.start ();
 	}
