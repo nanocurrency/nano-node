@@ -818,7 +818,7 @@ nano::frontiers_confirmation_mode nano::node_config::deserialize_frontiers_confi
 	}
 }
 
-void nano::node_config::deserialize_address (std::string const & entry_a, std::vector<std::string, uint16_t> & container_a) const
+void nano::node_config::deserialize_address (std::string const & entry_a, std::vector<std::pair<std::string, uint16_t>> & container_a) const
 {
 	auto port_position (entry_a.rfind (':'));
 	bool result = (port_position == -1);
