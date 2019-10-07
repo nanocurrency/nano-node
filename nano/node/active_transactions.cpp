@@ -30,7 +30,6 @@ nano::active_transactions::~active_transactions ()
 
 void nano::active_transactions::confirm_frontiers (nano::transaction const & transaction_a)
 {
-	assert (node.config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled);
 	// Limit maximum count of elections to start
 	bool representative (node.config.enable_voting && node.wallets.reps_count > 0);
 	bool half_princpal_representative (representative && node.wallets.half_principal_reps_count > 0);
