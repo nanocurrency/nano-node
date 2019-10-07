@@ -224,22 +224,26 @@ void nano::network::flood_message (nano::message const & message_a, bool const i
 	}
 }
 
-void nano::network::flood_block_batch (std::deque<std::shared_ptr<nano::block>> blocks_a, unsigned delay_a)
+void nano::network::flood_block_many (std::deque<std::shared_ptr<nano::block>> blocks_a, std::function<void()> callback_a, unsigned delay_a)
 {
-	auto block (blocks_a.front ());
+	auto block_l (blocks_a.front ());
 	blocks_a.pop_front ();
-	flood_block (block);
+	flood_block (block_l);
 	if (!blocks_a.empty ())
 	{
 		std::weak_ptr<nano::node> node_w (node.shared ());
 		// clang-format off
-		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a + std::rand () % delay_a), [node_w, blocks (std::move (blocks_a)), delay_a]() {
+		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a + std::rand () % delay_a), [node_w, blocks (std::move (blocks_a)), callback_a, delay_a]() {
 			if (auto node_l = node_w.lock ())
 			{
-				node_l->network.flood_block_batch (std::move (blocks), delay_a);
+				node_l->network.flood_block_many (std::move (blocks), callback_a, delay_a);
 			}
 		});
 		// clang-format on
+	}
+	else if (callback_a)
+	{
+		callback_a ();
 	}
 }
 
@@ -319,29 +323,29 @@ void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> blo
 	}
 }
 
-void nano::network::broadcast_confirm_req_batch (std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::root>>> request_bundle_a, unsigned delay_a, bool resumption)
+void nano::network::broadcast_confirm_req_batched_many (std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::root>>> request_bundle_a, std::function<void()> callback_a, unsigned delay_a, bool resumption)
 {
 	const size_t max_reps = 50;
 	if (!resumption && node.config.logging.network_logging ())
 	{
 		node.logger.try_log (boost::str (boost::format ("Broadcasting batch confirm req to %1% representatives") % request_bundle_a.size ()));
 	}
-	auto count (0);
-	while (!request_bundle_a.empty () && count < max_reps)
+	auto count_l (0);
+	while (!request_bundle_a.empty () && count_l < max_reps)
 	{
 		auto j (request_bundle_a.begin ());
 		while (j != request_bundle_a.end ())
 		{
-			count++;
-			std::vector<std::pair<nano::block_hash, nano::root>> roots_hashes;
+			count_l++;
+			std::vector<std::pair<nano::block_hash, nano::root>> roots_hashes_l;
 			// Limit max request size hash + root to 7 pairs
-			while (roots_hashes.size () < confirm_req_hashes_max && !j->second.empty ())
+			while (roots_hashes_l.size () < confirm_req_hashes_max && !j->second.empty ())
 			{
 				// expects ordering by priority, descending
-				roots_hashes.push_back (j->second.front ());
+				roots_hashes_l.push_back (j->second.front ());
 				j->second.pop_front ();
 			}
-			nano::confirm_req req (roots_hashes);
+			nano::confirm_req req (roots_hashes_l);
 			j->first->send (req);
 			if (j->second.empty ())
 			{
@@ -356,37 +360,45 @@ void nano::network::broadcast_confirm_req_batch (std::unordered_map<std::shared_
 	if (!request_bundle_a.empty ())
 	{
 		std::weak_ptr<nano::node> node_w (node.shared ());
-		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a), [node_w, request_bundle_a, delay_a]() {
+		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a), [node_w, request_bundle_a, callback_a, delay_a]() {
 			if (auto node_l = node_w.lock ())
 			{
-				node_l->network.broadcast_confirm_req_batch (request_bundle_a, delay_a, true);
+				node_l->network.broadcast_confirm_req_batched_many (request_bundle_a, callback_a, delay_a, true);
 			}
 		});
+	}
+	else if (callback_a)
+	{
+		callback_a ();
 	}
 }
 
-void nano::network::broadcast_confirm_req_batch (std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>>> deque_a, unsigned delay_a)
+void nano::network::broadcast_confirm_req_many (std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>>> requests_a, std::function<void()> callback_a, unsigned delay_a)
 {
-	auto pair (deque_a.front ());
-	deque_a.pop_front ();
-	auto block (pair.first);
+	auto pair_l (requests_a.front ());
+	requests_a.pop_front ();
+	auto block_l (pair_l.first);
 	// confirm_req to representatives
-	auto endpoints (pair.second);
+	auto endpoints (pair_l.second);
 	if (!endpoints->empty ())
 	{
-		broadcast_confirm_req_base (block, endpoints, delay_a);
+		broadcast_confirm_req_base (block_l, endpoints, delay_a);
 	}
 	/* Continue while blocks remain
 	Broadcast with random delay between delay_a & 2*delay_a */
-	if (!deque_a.empty ())
+	if (!requests_a.empty ())
 	{
 		std::weak_ptr<nano::node> node_w (node.shared ());
-		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a + std::rand () % delay_a), [node_w, deque_a, delay_a]() {
+		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a + std::rand () % delay_a), [node_w, requests_a, callback_a, delay_a]() {
 			if (auto node_l = node_w.lock ())
 			{
-				node_l->network.broadcast_confirm_req_batch (deque_a, delay_a);
+				node_l->network.broadcast_confirm_req_many (requests_a, callback_a, delay_a);
 			}
 		});
+	}
+	else if (callback_a)
+	{
+		callback_a ();
 	}
 }
 

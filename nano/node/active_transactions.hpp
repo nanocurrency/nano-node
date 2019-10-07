@@ -154,6 +154,7 @@ private:
 	nano::condition_variable condition;
 	bool started{ false };
 	std::atomic<bool> stopped{ false };
+	unsigned ongoing_broadcasts{ 0 };
 	boost::multi_index_container<
 	nano::confirmed_set_info,
 	boost::multi_index::indexed_by<
