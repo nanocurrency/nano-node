@@ -206,40 +206,16 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		if (toml.has_key ("work_peers"))
 		{
 			work_peers.clear ();
-			toml.array_entries_required<std::string> ("work_peers", [this](std::string const & entry) {
-				auto port_position (entry.rfind (':'));
-				bool result = port_position == -1;
-				if (!result)
-				{
-					auto port_str (entry.substr (port_position + 1));
-					uint16_t port;
-					result |= parse_port (port_str, port);
-					if (!result)
-					{
-						auto address (entry.substr (0, port_position));
-						this->work_peers.emplace_back (address, port);
-					}
-				}
+			toml.array_entries_required<std::string> ("work_peers", [this](std::string const & entry_a) {
+				this->deserialize_address (entry_a, this->work_peers);
 			});
 		}
 
 		if (toml.has_key ("new_work_peers"))
 		{
 			new_work_peers.clear ();
-			toml.array_entries_required<std::string> ("new_work_peers", [this](std::string const & entry) {
-				auto port_position (entry.rfind (':'));
-				bool result = port_position == -1;
-				if (!result)
-				{
-					auto port_str (entry.substr (port_position + 1));
-					uint16_t port;
-					result |= parse_port (port_str, port);
-					if (!result)
-					{
-						auto address (entry.substr (0, port_position));
-						this->new_work_peers.emplace_back (address, port);
-					}
-				}
+			toml.array_entries_required<std::string> ("new_work_peers", [this](std::string const & entry_a) {
+				this->deserialize_address (entry_a, this->new_work_peers);
 			});
 		}
 
@@ -839,6 +815,23 @@ nano::frontiers_confirmation_mode nano::node_config::deserialize_frontiers_confi
 	else
 	{
 		return nano::frontiers_confirmation_mode::invalid;
+	}
+}
+
+void nano::node_config::deserialize_address (std::string const & entry_a, std::vector<std::string, uint16_t> & container_a) const
+{
+	auto port_position (entry_a.rfind (':'));
+	bool result = (port_position == -1);
+	if (!result)
+	{
+		auto port_str (entry_a.substr (port_position + 1));
+		uint16_t port;
+		result |= parse_port (port_str, port);
+		if (!result)
+		{
+			auto address (entry_a.substr (0, port_position));
+			container_a.emplace_back (address, port);
+		}
 	}
 }
 
