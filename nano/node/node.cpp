@@ -968,7 +968,12 @@ bool nano::node::local_work_generation_enabled () const
 
 bool nano::node::work_generation_enabled () const
 {
-	return !config.work_peers.empty () || local_work_generation_enabled ();
+	return work_generation_enabled (config.work_peers);
+}
+
+bool nano::node::work_generation_enabled (std::vector<std::pair<std::string, uint16_t>> const & peers_a) const
+{
+	return !peers_a.empty () || local_work_generation_enabled ();
 }
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a)
@@ -991,9 +996,9 @@ void nano::node::work_generate (nano::root const & root_a, std::function<void(bo
 	work_generate (root_a, callback_a, network_params.network.publish_threshold, account_a);
 }
 
-void nano::node::work_generate (nano::root const & root_a, std::function<void(boost::optional<uint64_t>)> callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a, bool new_work_peers_a)
+void nano::node::work_generate (nano::root const & root_a, std::function<void(boost::optional<uint64_t>)> callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a, bool secondary_work_peers_a)
 {
-	auto const & peers_l (new_work_peers_a ? config.new_work_peers : config.work_peers);
+	auto const & peers_l (secondary_work_peers_a ? config.secondary_work_peers : config.work_peers);
 	distributed_work.make (root_a, peers_l, callback_a, difficulty_a, account_a);
 }
 

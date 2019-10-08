@@ -105,12 +105,6 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 		work_peers_l->push_back (boost::str (boost::format ("%1%:%2%") % i->first % i->second));
 	}
 
-	auto new_work_peers_l (toml.create_array ("new_work_peers", "Debugging purposes - A list of \"address:port\" entries to identify work peers to debug secondary work generation"));
-	for (auto i (new_work_peers.begin ()), n (new_work_peers.end ()); i != n; ++i)
-	{
-		new_work_peers_l->push_back (boost::str (boost::format ("%1%:%2%") % i->first % i->second));
-	}
-
 	auto preconfigured_peers_l (toml.create_array ("preconfigured_peers", "A list of \"address:port\" entries to identify preconfigured peers"));
 	for (auto i (preconfigured_peers.begin ()), n (preconfigured_peers.end ()); i != n; ++i)
 	{
@@ -122,6 +116,16 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	{
 		preconfigured_representatives_l->push_back (i->to_account ());
 	}
+
+	/** Experimental node entries */
+	nano::tomlconfig experimental_l;
+	auto secondary_work_peers_l (experimental_l.create_array ("secondary_work_peers", "A list of \"address:port\" entries to identify work peers for secondary work generation"));
+	for (auto i (secondary_work_peers.begin ()), n (secondary_work_peers.end ()); i != n; ++i)
+	{
+		secondary_work_peers_l->push_back (boost::str (boost::format ("%1%:%2%") % i->first % i->second));
+	}
+	toml.put_child ("experimental", experimental_l);
+
 	nano::tomlconfig callback_l;
 	callback_l.put ("address", callback_address, "Callback address\ntype:string,ip");
 	callback_l.put ("port", callback_port, "Callback port number\ntype:uint16");
@@ -208,14 +212,6 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 			work_peers.clear ();
 			toml.array_entries_required<std::string> ("work_peers", [this](std::string const & entry_a) {
 				this->deserialize_address (entry_a, this->work_peers);
-			});
-		}
-
-		if (toml.has_key ("new_work_peers"))
-		{
-			new_work_peers.clear ();
-			toml.array_entries_required<std::string> ("new_work_peers", [this](std::string const & entry_a) {
-				this->deserialize_address (entry_a, this->new_work_peers);
 			});
 		}
 
@@ -335,6 +331,18 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			auto frontiers_confirmation_l (toml.get<std::string> ("frontiers_confirmation"));
 			frontiers_confirmation = deserialize_frontiers_confirmation (frontiers_confirmation_l);
+		}
+
+		if (toml.has_key ("experimental"))
+		{
+			auto experimental_config_l (toml.get_required_child ("experimental"));
+			if (experimental_config_l.has_key ("secondary_work_peers"))
+			{
+				secondary_work_peers.clear ();
+				experimental_config_l.array_entries_required<std::string> ("secondary_work_peers", [this](std::string const & entry_a) {
+					this->deserialize_address (entry_a, this->secondary_work_peers);
+				});
+			}
 		}
 
 		// Validate ranges

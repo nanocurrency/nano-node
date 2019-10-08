@@ -4566,11 +4566,11 @@ void nano::json_handler::work_generate ()
 			}
 			else
 			{
-				if (node.work_generation_enabled ())
+				auto secondary_work_peers_l (request.get<bool> ("secondary_work_peers", false));
+				auto const & peers_l (secondary_work_peers_l ? node.config.secondary_work_peers : node.config.work_peers);
+				if (node.work_generation_enabled (peers_l))
 				{
-					// New work peers used for debugging purposes if requested
-					auto use_new_work_peers_l (request.get<bool> ("new_work_peers", false));
-					node.work_generate (hash, callback, difficulty, account, use_new_work_peers_l);
+					node.work_generate (hash, callback, difficulty, account, secondary_work_peers_l);
 				}
 				else
 				{
