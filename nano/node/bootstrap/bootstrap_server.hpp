@@ -60,9 +60,10 @@ public:
 	void add_request (std::unique_ptr<nano::message>);
 	void finish_request ();
 	void finish_request_async ();
-	void run_next ();
 	void timeout ();
+	void run_next ();
 	bool is_bootstrap_connection ();
+	bool is_realtime_connection ();
 	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
 	std::shared_ptr<nano::socket> socket;
 	std::shared_ptr<nano::node> node;

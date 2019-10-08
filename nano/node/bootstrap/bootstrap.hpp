@@ -83,7 +83,7 @@ public:
 	bool process_block (std::shared_ptr<nano::block>, nano::account const &, uint64_t, bool, bool);
 	/** Lazy bootstrap */
 	void lazy_run ();
-	void lazy_start (nano::block_hash const &);
+	void lazy_start (nano::hash_or_account const &, bool confirmed = true);
 	void lazy_add (nano::hash_or_account const &, bool = true);
 	void lazy_requeue (nano::block_hash const &, nano::block_hash const &, bool);
 	bool lazy_finished ();
@@ -199,7 +199,7 @@ public:
 	~bootstrap_initiator ();
 	void bootstrap (nano::endpoint const &, bool add_to_peers = true);
 	void bootstrap ();
-	void bootstrap_lazy (nano::block_hash const &, bool = false);
+	void bootstrap_lazy (nano::hash_or_account const &, bool force = false, bool confirmed = true);
 	void bootstrap_wallet (std::deque<nano::account> &);
 	void run_bootstrap ();
 	void notify_listeners (bool);

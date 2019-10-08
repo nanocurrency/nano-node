@@ -529,13 +529,13 @@ void nano::bootstrap_attempt::requeue_pull (nano::pull_info const & pull_a)
 {
 	auto pull (pull_a);
 	++pull.attempts;
-	if (pull.attempts < (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::bootstrap_frontier_retry_limit : nano::bootstrap_limits::bootstrap_frontier_retry_limit / 8 + (pull.processed / 10000)))
+	if (pull.attempts < (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::bootstrap_frontier_retry_limit : (nano::bootstrap_limits::bootstrap_frontier_retry_limit / 8) + (pull.processed / 10000)))
 	{
 		nano::lock_guard<std::mutex> lock (mutex);
 		pulls.push_front (pull);
 		condition.notify_all ();
 	}
-	else if (mode == nano::bootstrap_mode::lazy && (pull.confirmed_head || pull.attempts <= (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::bootstrap_lazy_retry_limit : nano::bootstrap_limits::bootstrap_frontier_retry_limit / 8 + (pull.processed / node->network_params.bootstrap.lazy_max_pull_blocks))))
+	else if (mode == nano::bootstrap_mode::lazy && (pull.confirmed_head || pull.attempts <= (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::bootstrap_lazy_retry_limit : (nano::bootstrap_limits::bootstrap_frontier_retry_limit / 8) + (pull.processed / node->network_params.bootstrap.lazy_max_pull_blocks))))
 	{
 		assert (pull.account_or_head == pull.head);
 		if (!lazy_processed_or_exists (pull.account_or_head))
@@ -564,15 +564,15 @@ void nano::bootstrap_attempt::add_bulk_push_target (nano::block_hash const & hea
 	bulk_push_targets.emplace_back (head, end);
 }
 
-void nano::bootstrap_attempt::lazy_start (nano::block_hash const & hash_a)
+void nano::bootstrap_attempt::lazy_start (nano::hash_or_account const & hash_or_account_a, bool confirmed)
 {
 	nano::lock_guard<std::mutex> lazy_lock (lazy_mutex);
 	// Add start blocks, limit 1024 (32k with disabled legacy bootstrap)
 	size_t max_keys (node->flags.disable_legacy_bootstrap ? 32 * 1024 : 1024);
-	if (lazy_keys.size () < max_keys && lazy_keys.find (hash_a) == lazy_keys.end () && lazy_blocks.find (hash_a) == lazy_blocks.end ())
+	if (lazy_keys.size () < max_keys && lazy_keys.find (hash_or_account_a) == lazy_keys.end () && lazy_blocks.find (hash_or_account_a) == lazy_blocks.end ())
 	{
-		lazy_keys.insert (hash_a);
-		lazy_pulls.emplace_back (hash_a, true);
+		lazy_keys.insert (hash_or_account_a);
+		lazy_pulls.emplace_back (hash_or_account_a, confirmed);
 	}
 }
 
@@ -1091,7 +1091,7 @@ void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bo
 	}
 }
 
-void nano::bootstrap_initiator::bootstrap_lazy (nano::block_hash const & hash_a, bool force)
+void nano::bootstrap_initiator::bootstrap_lazy (nano::hash_or_account const & hash_or_account_a, bool force, bool confirmed)
 {
 	{
 		nano::unique_lock<std::mutex> lock (mutex);
@@ -1110,7 +1110,7 @@ void nano::bootstrap_initiator::bootstrap_lazy (nano::block_hash const & hash_a,
 		{
 			attempt = std::make_shared<nano::bootstrap_attempt> (node.shared (), nano::bootstrap_mode::lazy);
 		}
-		attempt->lazy_start (hash_a);
+		attempt->lazy_start (hash_or_account_a, confirmed);
 	}
 	condition.notify_all ();
 }
