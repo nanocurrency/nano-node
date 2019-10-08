@@ -336,7 +336,7 @@ void nano::network::broadcast_confirm_req_batched_many (std::unordered_map<std::
 		auto j (request_bundle_a.begin ());
 		while (j != request_bundle_a.end ())
 		{
-			count_l++;
+			++count_l;
 			std::vector<std::pair<nano::block_hash, nano::root>> roots_hashes_l;
 			// Limit max request size hash + root to 7 pairs
 			while (roots_hashes_l.size () < confirm_req_hashes_max && !j->second.empty ())
