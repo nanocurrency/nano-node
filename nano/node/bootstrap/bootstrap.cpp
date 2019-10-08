@@ -529,13 +529,13 @@ void nano::bootstrap_attempt::requeue_pull (nano::pull_info const & pull_a)
 {
 	auto pull (pull_a);
 	++pull.attempts;
-	if (pull.attempts < (nano::bootstrap_limits::bootstrap_frontier_retry_limit + (pull.processed / 10000)))
+	if (pull.attempts < (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::bootstrap_frontier_retry_limit : nano::bootstrap_limits::bootstrap_frontier_retry_limit / 8 + (pull.processed / 10000)))
 	{
 		nano::lock_guard<std::mutex> lock (mutex);
 		pulls.push_front (pull);
 		condition.notify_all ();
 	}
-	else if (mode == nano::bootstrap_mode::lazy && (pull.confirmed_head || pull.attempts <= nano::bootstrap_limits::bootstrap_lazy_retry_limit + (pull.processed / node->network_params.bootstrap.lazy_max_pull_blocks)))
+	else if (mode == nano::bootstrap_mode::lazy && (pull.confirmed_head || pull.attempts <= (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::bootstrap_lazy_retry_limit : nano::bootstrap_limits::bootstrap_frontier_retry_limit / 8 + (pull.processed / node->network_params.bootstrap.lazy_max_pull_blocks))))
 	{
 		assert (pull.account_or_head == pull.head);
 		if (!lazy_processed_or_exists (pull.account_or_head))
