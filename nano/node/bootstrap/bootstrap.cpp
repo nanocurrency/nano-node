@@ -876,9 +876,10 @@ void nano::bootstrap_attempt::lazy_block_state_backlog_check (std::shared_ptr<na
 			}
 		}
 		// Assumption for other legacy block types
-		else
+		else if (lazy_undefined_links.find (next_block.link) == lazy_undefined_links.end ())
 		{
 			lazy_add (next_block.link, false); // Head is not confirmed. It can be account or hash or non-existing
+			lazy_undefined_links.insert (next_block.link);
 		}
 		lazy_state_backlog.erase (find_state);
 	}

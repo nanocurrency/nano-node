@@ -126,6 +126,7 @@ public:
 	// Lazy bootstrap
 	std::unordered_set<nano::block_hash> lazy_blocks;
 	std::unordered_map<nano::block_hash, nano::lazy_state_backlog_item> lazy_state_backlog;
+	std::unordered_set<nano::block_hash> lazy_undefined_links;
 	std::unordered_map<nano::block_hash, nano::uint128_t> lazy_balances;
 	std::unordered_set<nano::block_hash> lazy_keys;
 	std::deque<std::pair<nano::hash_or_account, bool>> lazy_pulls;

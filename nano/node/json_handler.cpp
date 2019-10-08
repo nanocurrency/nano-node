@@ -1696,6 +1696,7 @@ void nano::json_handler::bootstrap_status ()
 		response_l.put ("lazy_state_backlog", std::to_string (attempt->lazy_state_backlog.size ()));
 		response_l.put ("lazy_balances", std::to_string (attempt->lazy_balances.size ()));
 		response_l.put ("lazy_destinations", std::to_string (attempt->lazy_destinations.size ()));
+		response_l.put ("lazy_undefined_links", std::to_string (attempt->lazy_undefined_links.size ()));
 		response_l.put ("lazy_pulls", std::to_string (attempt->lazy_pulls.size ()));
 		response_l.put ("lazy_keys", std::to_string (attempt->lazy_keys.size ()));
 		if (!attempt->lazy_keys.empty ())
