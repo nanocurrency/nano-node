@@ -284,77 +284,80 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 					}
 				}
 			}
-			//TODO add else here? shouldnt broadcast and request the same election
-			std::unordered_set<std::shared_ptr<nano::transport::channel>> rep_channels_missing_vote_l;
-			// Add all rep endpoints that haven't already voted
-			for (auto & rep : representatives_l)
+			// Confirmation requesting
+			else
 			{
-				if (election_l->last_votes.find (rep.account) == election_l->last_votes.end ())
+				std::unordered_set<std::shared_ptr<nano::transport::channel>> rep_channels_missing_vote_l;
+				// Add all rep endpoints that haven't already voted
+				for (auto & rep : representatives_l)
 				{
-					rep_channels_missing_vote_l.insert (rep.channel);
-
-					if (node.config.logging.vote_logging () && election_l->confirmation_request_count > 0)
+					if (election_l->last_votes.find (rep.account) == election_l->last_votes.end ())
 					{
-						node.logger.try_log ("Representative did not respond to confirm_req, retrying: ", rep.account.to_account ());
+						rep_channels_missing_vote_l.insert (rep.channel);
+
+						if (node.config.logging.vote_logging () && election_l->confirmation_request_count > 0)
+						{
+							node.logger.try_log ("Representative did not respond to confirm_req, retrying: ", rep.account.to_account ());
+						}
 					}
 				}
-			}
-			bool low_reps_weight (rep_channels_missing_vote_l.empty () || node.rep_crawler.total_weight () < node.config.online_weight_minimum.number ());
-			if (low_reps_weight && roots_size_l <= 5 && !node.network_params.network.is_test_network ())
-			{
-				// Spam mode
-				auto deque_l (node.network.udp_channels.random_set (100));
-				auto vec (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> ());
-				for (auto i : deque_l)
+				bool low_reps_weight (rep_channels_missing_vote_l.empty () || node.rep_crawler.total_weight () < node.config.online_weight_minimum.number ());
+				if (low_reps_weight && roots_size_l <= 5 && !node.network_params.network.is_test_network ())
 				{
-					vec->push_back (i);
-				}
-				single_confirm_req_bundle_l.push_back (std::make_pair (election_l->status.winner, vec));
-			}
-			// Alternate elections getting confirmation requests every loop
-			else if (election_l->confirmation_request_count % 4 == 0)
-			{
-				auto single_confirm_req_channels_l (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> ());
-				for (auto & rep : rep_channels_missing_vote_l)
-				{
-					if (rep->get_network_version () >= node.network_params.protocol.tcp_realtime_protocol_version_min)
+					// Spam mode
+					auto deque_l (node.network.udp_channels.random_set (100));
+					auto vec (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> ());
+					for (auto i : deque_l)
 					{
-						// Send batch request to peers supporting confirm_req by hash + root
-						auto rep_request_l (batched_confirm_req_bundle_l.find (rep));
-						auto block_l (election_l->status.winner);
-						auto root_hash_l (std::make_pair (block_l->hash (), block_l->root ()));
-						if (rep_request_l == batched_confirm_req_bundle_l.end ())
+						vec->push_back (i);
+					}
+					single_confirm_req_bundle_l.push_back (std::make_pair (election_l->status.winner, vec));
+				}
+				// Alternate elections getting confirmation requests every loop
+				else if (election_l->confirmation_request_count % 4 == 0)
+				{
+					auto single_confirm_req_channels_l (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> ());
+					for (auto & rep : rep_channels_missing_vote_l)
+					{
+						if (rep->get_network_version () >= node.network_params.protocol.tcp_realtime_protocol_version_min)
 						{
-							// Maximum number of representatives
-							if (batched_confirm_req_bundle_l.size () < max_confirm_representatives)
+							// Send batch request to peers supporting confirm_req by hash + root
+							auto rep_request_l (batched_confirm_req_bundle_l.find (rep));
+							auto block_l (election_l->status.winner);
+							auto root_hash_l (std::make_pair (block_l->hash (), block_l->root ()));
+							if (rep_request_l == batched_confirm_req_bundle_l.end ())
 							{
-								std::deque<std::pair<nano::block_hash, nano::root>> insert_root_hash = { root_hash_l };
-								batched_confirm_req_bundle_l.insert (std::make_pair (rep, insert_root_hash));
+								// Maximum number of representatives
+								if (batched_confirm_req_bundle_l.size () < max_confirm_representatives)
+								{
+									std::deque<std::pair<nano::block_hash, nano::root>> insert_root_hash = { root_hash_l };
+									batched_confirm_req_bundle_l.insert (std::make_pair (rep, insert_root_hash));
+								}
+								else
+								{
+									increment_counter_l = false;
+								}
+							}
+							// Maximum number of hashes
+							else if (rep_request_l->second.size () < max_confirm_req_batches * nano::network::confirm_req_hashes_max)
+							{
+								rep_request_l->second.push_back (root_hash_l);
 							}
 							else
 							{
 								increment_counter_l = false;
 							}
 						}
-						// Maximum number of hashes
-						else if (rep_request_l->second.size () < max_confirm_req_batches * nano::network::confirm_req_hashes_max)
-						{
-							rep_request_l->second.push_back (root_hash_l);
-						}
 						else
 						{
-							increment_counter_l = false;
+							single_confirm_req_channels_l->push_back (rep);
 						}
 					}
-					else
+					// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
+					if (single_confirm_req_bundle_l.size () < max_confirm_req && !single_confirm_req_channels_l->empty ())
 					{
-						single_confirm_req_channels_l->push_back (rep);
+						single_confirm_req_bundle_l.push_back (std::make_pair (election_l->status.winner, single_confirm_req_channels_l));
 					}
-				}
-				// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
-				if (single_confirm_req_bundle_l.size () < max_confirm_req && !single_confirm_req_channels_l->empty ())
-				{
-					single_confirm_req_bundle_l.push_back (std::make_pair (election_l->status.winner, single_confirm_req_channels_l));
 				}
 			}
 			if (increment_counter_l)
