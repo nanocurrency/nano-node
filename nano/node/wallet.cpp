@@ -2027,8 +2027,10 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (wallets & wallets,
 	auto composite = std::make_unique<seq_con_info_composite> (name);
 	auto sizeof_item_element = sizeof (decltype (wallets.items)::value_type);
 	auto sizeof_actions_element = sizeof (decltype (wallets.actions)::value_type);
+	auto sizeof_watcher_element = sizeof (decltype (wallets.watcher->watched)::value_type);
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "items", items_count, sizeof_item_element }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "actions", actions_count, sizeof_actions_element }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "work_watcher", wallets.watcher->size (), sizeof_watcher_element }));
 	return composite;
 }
 }
