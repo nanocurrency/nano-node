@@ -357,7 +357,7 @@ if (NANO_TEST OR RAIBLOCKS_TEST)
 		set (gtest_force_shared_crt ON)
 	else ()
 		set (gtest_force_shared_crt OFF)
-endif()
+	endif()
 
 	add_subdirectory(nano/load_test)
 
@@ -374,6 +374,8 @@ endif()
 endif ()
 
 if (NANO_GUI OR RAIBLOCKS_GUI)
+	install (FILES ${PROJECT_BINARY_DIR}/config-node.toml.sample DESTINATION .)
+	install (FILES ${PROJECT_BINARY_DIR}/config-rpc.toml.sample DESTINATION .)
 	if (WIN32)
 		set (PLATFORM_QT_PACKAGES WinExtras)
 	else ()
