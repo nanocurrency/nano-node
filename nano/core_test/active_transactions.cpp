@@ -12,25 +12,25 @@ TEST (active_transactions, bounded_active_elections)
 	nano::node_config node_config (24000, system.logging);
 	node_config.enable_voting = false;
 	node_config.active_elections_size = 5;
-	auto & node1 = *system.add_node (node_config);
+	auto & node = *system.add_node (node_config);
 	nano::genesis genesis;
-	size_t count (1);
+	size_t count (0);
 	auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - count * nano::xrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
-	auto previous_size = node1.active.size ();
 	bool done (false);
 	system.deadline_set (5s);
 	while (!done)
 	{
+		node.process_active (send);
+		node.active.start (send);
+		ASSERT_FALSE (node.active.empty ());
+		ASSERT_LE (node.active.size (), node.config.active_elections_size);
+		done = count > node.active.size ();
 		count++;
-		node1.process_active (send);
-		done = previous_size > node1.active.size ();
-		ASSERT_LT (node1.active.size (), node1.config.active_elections_size); //triggers after reverting #2116
 		ASSERT_NO_ERROR (system.poll ());
 		auto previous_hash = send->hash ();
 		send = std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous_hash, nano::test_genesis_key.pub, nano::genesis_amount - count * nano::xrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (previous_hash));
-		previous_size = node1.active.size ();
 		//sleep this thread for the max delay between request loop rounds possible for such a small active_elections_size
-		std::this_thread::sleep_for (std::chrono::milliseconds (node1.network_params.network.request_interval_ms + (node_config.active_elections_size * 20)));
+		std::this_thread::sleep_for (std::chrono::milliseconds (node.network_params.network.request_interval_ms + (node_config.active_elections_size * 20)));
 	}
 }
 
