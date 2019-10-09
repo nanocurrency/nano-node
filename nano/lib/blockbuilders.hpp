@@ -46,7 +46,7 @@ class abstract_builder
 {
 public:
 	/** Returns the built block as a unique_ptr */
-	inline std::unique_ptr<BLOCKTYPE> build ()
+	std::unique_ptr<BLOCKTYPE> build ()
 	{
 		if (!ec)
 		{
@@ -57,7 +57,7 @@ public:
 	}
 
 	/** Returns the built block as a unique_ptr. Any errors are placed in \p ec */
-	inline std::unique_ptr<BLOCKTYPE> build (std::error_code & ec)
+	std::unique_ptr<BLOCKTYPE> build (std::error_code & ec)
 	{
 		if (!this->ec)
 		{
@@ -68,7 +68,7 @@ public:
 	}
 
 	/** Set work value */
-	inline abstract_builder & work (uint64_t work)
+	abstract_builder & work (nano::proof_of_work const & work)
 	{
 		block->work = work;
 		build_state |= build_flags::work_present;
@@ -76,7 +76,7 @@ public:
 	}
 
 	/** Sign the block using the \p private_key and \p public_key */
-	inline abstract_builder & sign (nano::raw_key const & private_key, nano::public_key const & public_key)
+	abstract_builder & sign (nano::raw_key const & private_key, nano::public_key const & public_key)
 	{
 		block->signature = nano::sign_message (private_key, public_key, block->hash ());
 		build_state |= build_flags::signature_present;
@@ -84,7 +84,7 @@ public:
 	}
 
 	/** Set signature to zero to pass build() validation, allowing block to be signed at a later point. This is mostly useful for tests. */
-	inline abstract_builder & sign_zero ()
+	abstract_builder & sign_zero ()
 	{
 		block->signature.clear ();
 		build_state |= build_flags::signature_present;
@@ -92,12 +92,10 @@ public:
 	}
 
 protected:
-	abstract_builder ()
-	{
-	}
+	abstract_builder () = default;
 
 	/** Create a new block and resets the internal builder state */
-	inline void construct_block ()
+	void construct_block ()
 	{
 		block = std::make_unique<BLOCKTYPE> ();
 		ec.clear ();

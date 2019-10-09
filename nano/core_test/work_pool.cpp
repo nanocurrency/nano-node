@@ -46,7 +46,7 @@ TEST (work, cancel)
 	while (!done)
 	{
 		nano::root key (1);
-		pool.generate (key, [&done](boost::optional<uint64_t> work_a) {
+		pool.generate (key, [&done](boost::optional<nano::proof_of_work> work_a) {
 			done = !work_a;
 		});
 		pool.cancel (key);
@@ -64,12 +64,12 @@ TEST (work, cancel_many)
 	nano::root key4 (1);
 	nano::root key5 (3);
 	nano::root key6 (1);
-	pool.generate (key1, [](boost::optional<uint64_t>) {});
-	pool.generate (key2, [](boost::optional<uint64_t>) {});
-	pool.generate (key3, [](boost::optional<uint64_t>) {});
-	pool.generate (key4, [](boost::optional<uint64_t>) {});
-	pool.generate (key5, [](boost::optional<uint64_t>) {});
-	pool.generate (key6, [](boost::optional<uint64_t>) {});
+	pool.generate (key1, [](boost::optional<nano::proof_of_work>) {});
+	pool.generate (key2, [](boost::optional<nano::proof_of_work>) {});
+	pool.generate (key3, [](boost::optional<nano::proof_of_work>) {});
+	pool.generate (key4, [](boost::optional<nano::proof_of_work>) {});
+	pool.generate (key5, [](boost::optional<nano::proof_of_work>) {});
+	pool.generate (key6, [](boost::optional<nano::proof_of_work>) {});
 	pool.cancel (key1);
 }
 
@@ -90,7 +90,7 @@ TEST (work, opencl)
 			nano::work_pool pool (0, std::chrono::nanoseconds (0), opencl ? [&opencl](nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> & ticket_a) {
 				return opencl->generate_work (root_a, difficulty_a);
 			}
-			                                                              : std::function<boost::optional<uint64_t> (nano::root const &, uint64_t, std::atomic<int> & ticket_a)> (nullptr));
+			                                                              : std::function<boost::optional<nano::proof_of_work> (nano::root const &, uint64_t, std::atomic<int> & ticket_a)> (nullptr));
 			ASSERT_NE (nullptr, pool.opencl);
 			nano::root root;
 			uint64_t difficulty (0xff00000000000000);

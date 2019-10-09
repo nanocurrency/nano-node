@@ -12,9 +12,14 @@ class wallet_value
 public:
 	wallet_value () = default;
 	wallet_value (nano::db_val<MDB_val> const &);
-	wallet_value (nano::uint256_union const &, uint64_t);
+	wallet_value (nano::uint256_union const &, nano::proof_of_work const &);
 	nano::db_val<MDB_val> val () const;
+	void serialize (nano::stream & stream_a) const;
 	nano::uint256_union key;
-	uint64_t work;
+	nano::proof_of_work work;
+
+private:
+	template <typename T>
+	void deserialize_work (nano::db_val<MDB_val> const &);
 };
 }

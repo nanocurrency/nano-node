@@ -970,45 +970,45 @@ bool nano::node::work_generation_enabled () const
 	return !config.work_peers.empty () || local_work_generation_enabled ();
 }
 
-boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a)
+boost::optional<nano::proof_of_work> nano::node::work_generate_blocking (nano::block & block_a, nano::epoch epoch_a)
 {
-	return work_generate_blocking (block_a, network_params.network.publish_threshold);
+	return work_generate_blocking (block_a, network_params.network.publish_threshold, epoch_a);
 }
 
-boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a, uint64_t difficulty_a)
+boost::optional<nano::proof_of_work> nano::node::work_generate_blocking (nano::block & block_a, uint64_t difficulty_a, nano::epoch epoch_a)
 {
-	auto opt_work_l (work_generate_blocking (block_a.root (), difficulty_a, block_a.account ()));
+	auto opt_work_l (work_generate_blocking (block_a.root (), difficulty_a, epoch_a, block_a.account ()));
 	if (opt_work_l.is_initialized ())
 	{
-	 	block_a.block_work_set (*opt_work_l);
+		block_a.block_work_set (*opt_work_l);
 	}
 	return opt_work_l;
 }
 
-void nano::node::work_generate (nano::root const & root_a, std::function<void(boost::optional<uint64_t>)> callback_a, boost::optional<nano::account> const & account_a)
+void nano::node::work_generate (nano::root const & root_a, std::function<void(boost::optional<nano::proof_of_work>)> callback_a, nano::epoch epoch_a, boost::optional<nano::account> const & account_a)
 {
-	work_generate (root_a, callback_a, network_params.network.publish_threshold, account_a);
+	work_generate (root_a, callback_a, network_params.network.publish_threshold, epoch_a, account_a);
 }
 
-void nano::node::work_generate (nano::root const & root_a, std::function<void(boost::optional<uint64_t>)> callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
+void nano::node::work_generate (nano::root const & root_a, std::function<void(boost::optional<nano::proof_of_work>)> callback_a, uint64_t difficulty_a, nano::epoch epoch_a, boost::optional<nano::account> const & account_a)
 {
-	distributed_work.make (root_a, callback_a, difficulty_a, account_a);
+	distributed_work.make (root_a, callback_a, difficulty_a, epoch_a, account_a);
 }
 
-boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a, boost::optional<nano::account> const & account_a)
+boost::optional<nano::proof_of_work> nano::node::work_generate_blocking (nano::root const & root_a, nano::epoch epoch_a, boost::optional<nano::account> const & account_a)
 {
-	return work_generate_blocking (root_a, network_params.network.publish_threshold, account_a);
+	return work_generate_blocking (root_a, network_params.network.publish_threshold, epoch_a, account_a);
 }
 
-boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
+boost::optional<nano::proof_of_work> nano::node::work_generate_blocking (nano::root const & root_a, uint64_t difficulty_a, nano::epoch epoch_a, boost::optional<nano::account> const & account_a)
 {
-	std::promise<uint64_t> promise;
-	std::future<uint64_t> future = promise.get_future ();
+	std::promise<nano::proof_of_work> promise;
+	std::future<nano::proof_of_work> future = promise.get_future ();
 	// clang-format off
-	work_generate (root_a, [&promise](boost::optional<uint64_t> work_a) {
+	work_generate (root_a, [&promise](boost::optional<nano::proof_of_work> work_a) {
 		promise.set_value (work_a.value_or (0));
 	},
-	difficulty_a, account_a);
+	difficulty_a, epoch_a, account_a);
 	// clang-format on
 	return future.get ();
 }

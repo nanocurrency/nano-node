@@ -3,6 +3,7 @@
 #include <nano/lib/memory.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/lib/work.hpp>
 
 #include <boost/endian/conversion.hpp>
 #include <boost/pool/pool_alloc.hpp>
@@ -153,7 +154,7 @@ nano::proof_of_work nano::send_block::block_work () const
 	return work;
 }
 
-void nano::send_block::block_work_set (nano::proof_of_work work_a)
+void nano::send_block::block_work_set (nano::proof_of_work const & work_a)
 {
 	work = work_a;
 }
@@ -301,7 +302,7 @@ bool nano::send_block::deserialize_json (boost::property_tree::ptree const & tre
 	return error;
 }
 
-nano::send_block::send_block (nano::block_hash const & previous_a, nano::account const & destination_a, nano::amount const & balance_a, nano::raw_key const & prv_a, nano::public_key const & pub_a, uint64_t work_a) :
+nano::send_block::send_block (nano::block_hash const & previous_a, nano::account const & destination_a, nano::amount const & balance_a, nano::raw_key const & prv_a, nano::public_key const & pub_a, nano::legacy_pow work_a) :
 hashables (previous_a, destination_a, balance_a),
 signature (nano::sign_message (prv_a, pub_a, hash ())),
 work (work_a)
@@ -457,7 +458,7 @@ void nano::open_hashables::hash (blake2b_state & hash_a) const
 	blake2b_update (&hash_a, account.bytes.data (), sizeof (account.bytes));
 }
 
-nano::open_block::open_block (nano::block_hash const & source_a, nano::account const & representative_a, nano::account const & account_a, nano::raw_key const & prv_a, nano::public_key const & pub_a, uint64_t work_a) :
+nano::open_block::open_block (nano::block_hash const & source_a, nano::account const & representative_a, nano::account const & account_a, nano::raw_key const & prv_a, nano::public_key const & pub_a, nano::legacy_pow work_a) :
 hashables (source_a, representative_a, account_a),
 signature (nano::sign_message (prv_a, pub_a, hash ())),
 work (work_a)
@@ -521,7 +522,7 @@ nano::proof_of_work nano::open_block::block_work () const
 	return work;
 }
 
-void nano::open_block::block_work_set (nano::proof_of_work work_a)
+void nano::open_block::block_work_set (nano::proof_of_work const & work_a)
 {
 	work = work_a;
 }
@@ -715,7 +716,7 @@ void nano::change_hashables::hash (blake2b_state & hash_a) const
 	blake2b_update (&hash_a, representative.bytes.data (), sizeof (representative.bytes));
 }
 
-nano::change_block::change_block (nano::block_hash const & previous_a, nano::account const & representative_a, nano::raw_key const & prv_a, nano::public_key const & pub_a, uint64_t work_a) :
+nano::change_block::change_block (nano::block_hash const & previous_a, nano::account const & representative_a, nano::raw_key const & prv_a, nano::public_key const & pub_a, nano::legacy_pow work_a) :
 hashables (previous_a, representative_a),
 signature (nano::sign_message (prv_a, pub_a, hash ())),
 work (work_a)
@@ -771,7 +772,7 @@ nano::proof_of_work nano::change_block::block_work () const
 	return work;
 }
 
-void nano::change_block::block_work_set (nano::proof_of_work work_a)
+void nano::change_block::block_work_set (nano::proof_of_work const & work_a)
 {
 	work = work_a;
 }
@@ -1030,17 +1031,7 @@ hashables (error_a, tree_a)
 			error_a = type_l != "state" && type_l != "state2";
 			if (!error_a)
 			{
-				if (type_l == "state2")
-				{
-					nano::nano_pow pow;
-					error_a = nano::from_string_hex (work_l, pow);
-					work = pow;
-				}
-				else
-				{
-					// The variant is given legacy_pow by default
-					error_a = nano::from_string_hex (work_l, work);
-				}
+				error_a = nano::from_string_hex (work_l, work, type_l == "state");
 
 				if (!error_a)
 				{
@@ -1067,7 +1058,7 @@ nano::proof_of_work nano::state_block::block_work () const
 	return work;
 }
 
-void nano::state_block::block_work_set (nano::proof_of_work work_a)
+void nano::state_block::block_work_set (nano::proof_of_work const & work_a)
 {
 	work = work_a;
 }
@@ -1167,7 +1158,7 @@ bool nano::state_block::deserialize_json (boost::property_tree::ptree const & tr
 						error = hashables.link.decode_account (link_l) && hashables.link.decode_hex (link_l);
 						if (!error)
 						{
-							error = nano::from_string_hex (work_l, work);
+							error = nano::from_string_hex (work_l, work, type_l == "state");
 							if (!error)
 							{
 								error = signature.decode_hex (signature_l);
@@ -1447,7 +1438,7 @@ bool nano::receive_block::deserialize_json (boost::property_tree::ptree const & 
 	return error;
 }
 
-nano::receive_block::receive_block (nano::block_hash const & previous_a, nano::block_hash const & source_a, nano::raw_key const & prv_a, nano::public_key const & pub_a, uint64_t work_a) :
+nano::receive_block::receive_block (nano::block_hash const & previous_a, nano::block_hash const & source_a, nano::raw_key const & prv_a, nano::public_key const & pub_a, nano::legacy_pow work_a) :
 hashables (previous_a, source_a),
 signature (nano::sign_message (prv_a, pub_a, hash ())),
 work (work_a)
@@ -1503,7 +1494,7 @@ nano::proof_of_work nano::receive_block::block_work () const
 	return work;
 }
 
-void nano::receive_block::block_work_set (nano::proof_of_work work_a)
+void nano::receive_block::block_work_set (nano::proof_of_work const & work_a)
 {
 	work = work_a;
 }

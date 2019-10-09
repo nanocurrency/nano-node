@@ -29,6 +29,8 @@ add_library (nano_lib
 	configbase.hpp
 	diagnosticsconfig.hpp
 	diagnosticsconfig.cpp
+	epoch.hpp
+	epoch.cpp
 	errors.hpp
 	errors.cpp
 	ipc.hpp
@@ -37,6 +39,7 @@ add_library (nano_lib
 	ipc_client.cpp
 	json_error_response.hpp
 	jsonconfig.hpp
+	lambda_visitor.hpp
 	locks.hpp
 	locks.cpp
 	logger_mt.hpp

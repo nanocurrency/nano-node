@@ -677,7 +677,7 @@ nano::websocket::message nano::websocket::message_builder::difficulty_changed (u
 	return message_l;
 }
 
-nano::websocket::message nano::websocket::message_builder::work_generation (nano::block_hash const & root_a, uint64_t work_a, uint64_t difficulty_a, uint64_t publish_threshold_a, std::chrono::milliseconds const & duration_a, std::string const & peer_a, std::vector<std::string> const & bad_peers_a, bool completed_a, bool cancelled_a)
+nano::websocket::message nano::websocket::message_builder::work_generation (nano::block_hash const & root_a, nano::proof_of_work const work_a, uint64_t difficulty_a, uint64_t publish_threshold_a, std::chrono::milliseconds const & duration_a, std::string const & peer_a, std::vector<std::string> const & bad_peers_a, bool completed_a, bool cancelled_a)
 {
 	nano::websocket::message message_l (nano::websocket::topic::work);
 	set_common_fields (message_l);

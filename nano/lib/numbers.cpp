@@ -869,6 +869,7 @@ std::string nano::to_string_hex (uint64_t const value_a)
 	stream << value_a;
 	return stream.str ();
 }
+
 std::string nano::to_string (double const value_a, int const precision_a)
 {
 	std::stringstream stream;

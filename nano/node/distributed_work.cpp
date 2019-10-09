@@ -14,7 +14,7 @@ std::shared_ptr<request_type> nano::work_peer_request::get_prepared_json_request
 	return request;
 }
 
-nano::distributed_work::distributed_work (unsigned int backoff_a, nano::node & node_a, nano::root const & root_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a) :
+nano::distributed_work::distributed_work (unsigned int backoff_a, nano::node & node_a, nano::root const & root_a, std::function<void(boost::optional<nano::proof_of_work>)> const & callback_a, uint64_t difficulty_a, nano::epoch epoch_a, boost::optional<nano::account> const & account_a) :
 callback (callback_a),
 backoff (backoff_a),
 node (node_a),
@@ -22,6 +22,7 @@ root (root_a),
 account (account_a),
 need_resolve (node.config.work_peers),
 difficulty (difficulty_a),
+epoch (epoch_a),
 elapsed (nano::timer_state::started, "distributed work generation timer")
 {
 	assert (!completed);
@@ -96,7 +97,7 @@ void nano::distributed_work::start_work ()
 	{
 		local_generation_started = true;
 		node.work.generate (
-		root, [this_l](boost::optional<uint64_t> const & work_a) {
+		root, [this_l](boost::optional<nano::proof_of_work> const & work_a) {
 			if (work_a.is_initialized ())
 			{
 				this_l->set_once (*work_a);
@@ -107,7 +108,7 @@ void nano::distributed_work::start_work ()
 			}
 			this_l->stop_once (false);
 		},
-		difficulty);
+		difficulty, epoch);
 	}
 
 	if (!outstanding.empty ())
@@ -223,8 +224,9 @@ void nano::distributed_work::success (std::string const & body_a, boost::asio::i
 		boost::property_tree::ptree result;
 		boost::property_tree::read_json (istream, result);
 		auto work_text (result.get<std::string> ("work"));
-		uint64_t work;
-		if (!nano::from_string_hex (work_text, work))
+		auto version_text (result.get<std::string> ("version"));
+		nano::proof_of_work work;
+		if (!nano::from_string_hex (work_text, work, nano::epoch_from_string (version_text)))
 		{
 			uint64_t result_difficulty (0);
 			if (!nano::work_validate (root, work, &result_difficulty) && result_difficulty >= difficulty)
@@ -289,7 +291,7 @@ void nano::distributed_work::stop_once (bool const local_stop_a)
 	}
 }
 
-void nano::distributed_work::set_once (uint64_t work_a, std::string const & source_a)
+void nano::distributed_work::set_once (nano::proof_of_work const & work_a, std::string const & source_a)
 {
 	if (!cancelled && !completed.exchange (true))
 	{
@@ -341,17 +343,13 @@ void nano::distributed_work::handle_failure (bool const last_a)
 			std::weak_ptr<nano::node> node_w (node.shared ());
 			auto next_backoff (std::min (backoff * 2, (unsigned int)60 * 5));
 			// clang-format off
-			node.alarm.add (now + std::chrono::seconds (backoff), [ node_w, root_l = root, callback_l = callback, next_backoff, difficulty = difficulty, account_l = account ] {
+			node.alarm.add (now + std::chrono::seconds (backoff), [ node_w, root_l = root, callback_l = callback, next_backoff, difficulty = difficulty, account_l = account, epoch_l = epoch] {
 				if (auto node_l = node_w.lock ())
 				{
-					node_l->distributed_work.make (next_backoff, root_l, callback_l, difficulty, account_l);
+					node_l->distributed_work.make (next_backoff, root_l, callback_l, difficulty, epoch_l, account_l);
 				}
 			});
 			// clang-format on
-		}
-		else
-		{
-			// wait for local work generation to complete
 		}
 	}
 }
@@ -374,17 +372,17 @@ node (node_a)
 {
 }
 
-void nano::distributed_work_factory::make (nano::root const & root_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
+void nano::distributed_work_factory::make (nano::root const & root_a, std::function<void(boost::optional<nano::proof_of_work>)> const & callback_a, uint64_t difficulty_a, nano::epoch epoch_a, boost::optional<nano::account> const & account_a)
 {
-	make (1, root_a, callback_a, difficulty_a, account_a);
+	make (1, root_a, callback_a, difficulty_a, epoch_a, account_a);
 }
 
-void nano::distributed_work_factory::make (unsigned int backoff_a, nano::root const & root_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
+void nano::distributed_work_factory::make (unsigned int backoff_a, nano::root const & root_a, std::function<void(boost::optional<nano::proof_of_work>)> const & callback_a, uint64_t difficulty_a, nano::epoch epoch_a, boost::optional<nano::account> const & account_a)
 {
 	cleanup_finished ();
 	if (node.work_generation_enabled ())
 	{
-		auto distributed (std::make_shared<nano::distributed_work> (backoff_a, node, root_a, callback_a, difficulty_a, account_a));
+		auto distributed (std::make_shared<nano::distributed_work> (backoff_a, node, root_a, callback_a, difficulty_a, epoch_a, account_a));
 		{
 			nano::lock_guard<std::mutex> guard (mutex);
 			work[root_a].emplace_back (distributed);
@@ -399,21 +397,19 @@ void nano::distributed_work_factory::make (unsigned int backoff_a, nano::root co
 
 void nano::distributed_work_factory::cancel (nano::root const & root_a, bool const local_stop)
 {
+	nano::lock_guard<std::mutex> guard (mutex);
+	auto existing_l (work.find (root_a));
+	if (existing_l != work.end ())
 	{
-		nano::lock_guard<std::mutex> guard (mutex);
-		auto existing_l (work.find (root_a));
-		if (existing_l != work.end ())
+		for (auto & distributed_w : existing_l->second)
 		{
-			for (auto & distributed_w : existing_l->second)
+			if (auto distributed_l = distributed_w.lock ())
 			{
-				if (auto distributed_l = distributed_w.lock ())
-				{
-					// Send work_cancel to work peers and stop local work generation
-					distributed_l->cancel_once ();
-				}
+				// Send work_cancel to work peers and stop local work generation
+				distributed_l->cancel_once ();
 			}
-			work.erase (existing_l);
 		}
+		work.erase (existing_l);
 	}
 }
 

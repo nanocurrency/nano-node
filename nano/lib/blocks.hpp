@@ -36,7 +36,7 @@ public:
 	std::string to_json () const;
 	virtual void hash (blake2b_state &) const = 0;
 	virtual nano::proof_of_work block_work () const = 0;
-	virtual void block_work_set (nano::proof_of_work) = 0;
+	virtual void block_work_set (nano::proof_of_work const &) = 0;
 	virtual nano::account const & account () const;
 	// Previous block in account's chain, zero for open block
 	virtual nano::block_hash const & previous () const = 0;
@@ -79,14 +79,14 @@ class send_block : public nano::block
 {
 public:
 	send_block () = default;
-	send_block (nano::block_hash const &, nano::account const &, nano::amount const &, nano::raw_key const &, nano::public_key const &, uint64_t);
+	send_block (nano::block_hash const &, nano::account const &, nano::amount const &, nano::raw_key const &, nano::public_key const &, nano::legacy_pow);
 	send_block (bool &, nano::stream &);
 	send_block (bool &, boost::property_tree::ptree const &);
 	virtual ~send_block () = default;
 	using nano::block::hash;
 	void hash (blake2b_state &) const override;
 	nano::proof_of_work block_work () const override;
-	void block_work_set (nano::proof_of_work) override;
+	void block_work_set (nano::proof_of_work const &) override;
 	nano::block_hash const & previous () const override;
 	nano::root const & root () const override;
 	nano::amount const & balance () const override;
@@ -104,7 +104,7 @@ public:
 	bool valid_predecessor (nano::block const &) const override;
 	send_hashables hashables;
 	nano::signature signature;
-	uint64_t work;
+	nano::legacy_pow work;
 	static size_t constexpr size = nano::send_hashables::size + sizeof (signature) + sizeof (work);
 };
 class receive_hashables
@@ -123,14 +123,14 @@ class receive_block : public nano::block
 {
 public:
 	receive_block () = default;
-	receive_block (nano::block_hash const &, nano::block_hash const &, nano::raw_key const &, nano::public_key const &, uint64_t);
+	receive_block (nano::block_hash const &, nano::block_hash const &, nano::raw_key const &, nano::public_key const &, nano::legacy_pow);
 	receive_block (bool &, nano::stream &);
 	receive_block (bool &, boost::property_tree::ptree const &);
 	virtual ~receive_block () = default;
 	using nano::block::hash;
 	void hash (blake2b_state &) const override;
 	nano::proof_of_work block_work () const override;
-	void block_work_set (nano::proof_of_work) override;
+	void block_work_set (nano::proof_of_work const &) override;
 	nano::block_hash const & previous () const override;
 	nano::block_hash const & source () const override;
 	nano::root const & root () const override;
@@ -148,7 +148,7 @@ public:
 	bool valid_predecessor (nano::block const &) const override;
 	receive_hashables hashables;
 	nano::signature signature;
-	uint64_t work;
+	nano::legacy_pow work;
 	static size_t constexpr size = nano::receive_hashables::size + sizeof (signature) + sizeof (work);
 };
 class open_hashables
@@ -168,7 +168,7 @@ class open_block : public nano::block
 {
 public:
 	open_block () = default;
-	open_block (nano::block_hash const &, nano::account const &, nano::account const &, nano::raw_key const &, nano::public_key const &, uint64_t);
+	open_block (nano::block_hash const &, nano::account const &, nano::account const &, nano::raw_key const &, nano::public_key const &, nano::legacy_pow);
 	open_block (nano::block_hash const &, nano::account const &, nano::account const &, std::nullptr_t);
 	open_block (bool &, nano::stream &);
 	open_block (bool &, boost::property_tree::ptree const &);
@@ -176,7 +176,7 @@ public:
 	using nano::block::hash;
 	void hash (blake2b_state &) const override;
 	nano::proof_of_work block_work () const override;
-	void block_work_set (nano::proof_of_work) override;
+	void block_work_set (nano::proof_of_work const &) override;
 	nano::block_hash const & previous () const override;
 	nano::account const & account () const override;
 	nano::block_hash const & source () const override;
@@ -196,7 +196,7 @@ public:
 	bool valid_predecessor (nano::block const &) const override;
 	nano::open_hashables hashables;
 	nano::signature signature;
-	uint64_t work;
+	nano::legacy_pow work;
 	static size_t constexpr size = nano::open_hashables::size + sizeof (signature) + sizeof (work);
 };
 class change_hashables
@@ -215,14 +215,14 @@ class change_block : public nano::block
 {
 public:
 	change_block () = default;
-	change_block (nano::block_hash const &, nano::account const &, nano::raw_key const &, nano::public_key const &, uint64_t);
+	change_block (nano::block_hash const &, nano::account const &, nano::raw_key const &, nano::public_key const &, nano::legacy_pow);
 	change_block (bool &, nano::stream &);
 	change_block (bool &, boost::property_tree::ptree const &);
 	virtual ~change_block () = default;
 	using nano::block::hash;
 	void hash (blake2b_state &) const override;
 	nano::proof_of_work block_work () const override;
-	void block_work_set (nano::proof_of_work) override;
+	void block_work_set (nano::proof_of_work const &) override;
 	nano::block_hash const & previous () const override;
 	nano::root const & root () const override;
 	nano::account const & representative () const override;
@@ -240,7 +240,7 @@ public:
 	bool valid_predecessor (nano::block const &) const override;
 	nano::change_hashables hashables;
 	nano::signature signature;
-	uint64_t work;
+	nano::legacy_pow work;
 	static size_t constexpr size = nano::change_hashables::size + sizeof (signature) + sizeof (work);
 };
 class state_hashables
@@ -280,7 +280,7 @@ public:
 	using nano::block::hash;
 	void hash (blake2b_state &) const override;
 	nano::proof_of_work block_work () const override;
-	void block_work_set (nano::proof_of_work) override;
+	void block_work_set (nano::proof_of_work const &) override;
 	nano::block_hash const & previous () const override;
 	nano::account const & account () const override;
 	nano::root const & root () const override;
@@ -303,7 +303,7 @@ public:
 	nano::signature signature;
 	nano::proof_of_work work;
 	static size_t constexpr size = nano::state_hashables::size + sizeof (signature) + sizeof (legacy_pow);
-	static size_t constexpr size2 = nano::state_hashables::size + sizeof (signature) + sizeof (nano_pow::real_byte_type);
+	static size_t constexpr size2 = nano::state_hashables::size + sizeof (signature) + sizeof (nano_pow);
 };
 class block_visitor
 {

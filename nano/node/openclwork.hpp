@@ -2,6 +2,7 @@
 
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/work.hpp>
 #include <nano/node/openclconfig.hpp>
 #include <nano/node/xorshift.hpp>
 
@@ -43,8 +44,8 @@ class opencl_work
 public:
 	opencl_work (bool &, nano::opencl_config const &, nano::opencl_environment &, nano::logger_mt &);
 	~opencl_work ();
-	boost::optional<uint64_t> generate_work (nano::root const &, uint64_t const);
-	boost::optional<uint64_t> generate_work (nano::root const &, uint64_t const, std::atomic<int> &);
+	boost::optional<nano::proof_of_work> generate_work (nano::root const &, uint64_t const, nano::epoch epoch_a = nano::epoch::epoch_0);
+	boost::optional<nano::proof_of_work> generate_work (nano::root const &, uint64_t const, std::atomic<int> &, nano::epoch epoch_a = nano::epoch::epoch_0);
 	static std::unique_ptr<opencl_work> create (bool, nano::opencl_config const &, nano::logger_mt &);
 	nano::opencl_config const & config;
 	std::mutex mutex;

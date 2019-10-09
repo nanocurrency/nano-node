@@ -13,7 +13,7 @@ timestamp (timestamp_a),
 epoch (epoch_a)
 {
 	// Confirm that state2 block types are epoch 2 or greater
-	assert (type != nano::block_type::state2 || nano::is_epoch_greater (epoch, nano::epoch::epoch_1));
+	assert (type != nano::block_type::state2 || nano::is_epoch_nano_pow (epoch));
 }
 
 size_t nano::block_sideband::size (nano::block_type type_a)

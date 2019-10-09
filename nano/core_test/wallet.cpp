@@ -643,7 +643,7 @@ TEST (wallet, work)
 	while (!done)
 	{
 		auto transaction (system.wallet (0)->wallets.tx_begin_read ());
-		uint64_t work (0);
+		nano::proof_of_work work;
 		if (!wallet->store.work_get (transaction, nano::test_genesis_key.pub, work))
 		{
 			done = !nano::work_validate (genesis.hash (), work);
@@ -657,7 +657,7 @@ TEST (wallet, work_generate)
 	nano::system system (24000, 1);
 	auto wallet (system.wallet (0));
 	nano::uint128_t amount1 (system.nodes[0]->balance (nano::test_genesis_key.pub));
-	uint64_t work1;
+	nano::proof_of_work work1;
 	wallet->insert_adhoc (nano::test_genesis_key.prv);
 	nano::account account1;
 	{
@@ -949,9 +949,9 @@ TEST (wallet, no_work)
 	ASSERT_NE (0, block->block_work ());
 	ASSERT_FALSE (nano::work_validate (block->root (), block->block_work ()));
 	auto transaction (system.wallet (0)->wallets.tx_begin_read ());
-	uint64_t cached_work (0);
+	nano::proof_of_work cached_work;
 	system.wallet (0)->store.work_get (transaction, nano::test_genesis_key.pub, cached_work);
-	ASSERT_EQ (0, cached_work);
+	ASSERT_TRUE (cached_work.is_empty ());
 }
 
 TEST (wallet, send_race)

@@ -335,7 +335,7 @@ void ledger_processor::state_block_impl (nano::state_block const & block_a)
 						epoch = std::max (epoch, nano::epoch::epoch_2);
 					}
 
-					auto block_type = nano::is_epoch_greater (epoch, nano::epoch::epoch_1) ? nano::block_type::state2 : nano::block_type::state;
+					auto block_type = nano::is_epoch_nano_pow (epoch) ? nano::block_type::state2 : nano::block_type::state;
 					ledger.stats.inc (nano::stat::type::ledger, block_type == nano::block_type::state ? nano::stat::detail::state_block : nano::stat::detail::state_block2);
 					result.state_is_send = is_send;
 					nano::block_sideband sideband (block_type, block_a.hashables.account /* unused */, 0, 0 /* unused */, info.block_count + 1, nano::seconds_since_epoch (), epoch);
@@ -426,7 +426,7 @@ void ledger_processor::epoch_block_impl (nano::state_block const & block_a)
 							ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::epoch_block);
 							result.account = block_a.hashables.account;
 							result.amount = 0;
-							auto block_type = nano::is_epoch_greater (epoch, nano::epoch::epoch_1) ? nano::block_type::state2 : nano::block_type::state;
+							auto block_type = nano::is_epoch_nano_pow (epoch) ? nano::block_type::state2 : nano::block_type::state;
 							nano::block_sideband sideband (block_type, block_a.hashables.account /* unused */, 0, 0 /* unused */, info.block_count + 1, nano::seconds_since_epoch (), epoch);
 							ledger.store.block_put (transaction, hash, block_a, sideband);
 							nano::account_info new_info (hash, block_a.representative (), info.open_block.is_zero () ? hash : info.open_block, info.balance, nano::seconds_since_epoch (), info.block_count + 1, epoch);

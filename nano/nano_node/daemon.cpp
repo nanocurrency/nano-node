@@ -52,7 +52,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 		nano::work_pool opencl_work (config.node.work_threads, config.node.pow_sleep_interval, opencl ? [&opencl](nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> & ticket_a) {
 			return opencl->generate_work (root_a, difficulty_a, ticket_a);
 		}
-		                                                                                              : std::function<boost::optional<uint64_t> (nano::root const &, uint64_t, std::atomic<int> &)> (nullptr));
+		                                                                                              : std::function<boost::optional<nano::proof_of_work> (nano::root const &, uint64_t, std::atomic<int> &)> (nullptr));
 		nano::alarm alarm (io_ctx);
 		try
 		{

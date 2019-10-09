@@ -312,13 +312,29 @@ nano::amount nano::json_handler::threshold_optional_impl ()
 	return result;
 }
 
-uint64_t nano::json_handler::work_optional_impl ()
+nano::proof_of_work nano::json_handler::work_optional_impl ()
 {
-	uint64_t result (0);
+	nano::proof_of_work result (0);
 	boost::optional<std::string> work_text (request.get_optional<std::string> ("work"));
+	boost::optional<std::string> version_text (request.get_optional<std::string> ("version"));
+	boost::optional<std::string> type_text (request.get_optional<std::string> ("type"));
 	if (!ec && work_text.is_initialized ())
 	{
-		if (nano::from_string_hex (work_text.get (), result))
+		nano::epoch epoch;
+		if (version_text.is_initialized ())
+		{
+			epoch = nano::epoch_from_string (version_text.get ());
+		}
+		else if (type_text.is_initialized ())
+		{
+			epoch = (type_text.get () == "state2") ? nano::epoch::epoch_2 : nano::epoch::epoch_0;
+		}
+		else
+		{
+			epoch = nano::epoch::epoch_0;
+		}
+
+		if (nano::from_string_hex (work_text.get (), result, epoch))
 		{
 			ec = nano::error_common::bad_work_format;
 		}
@@ -711,7 +727,7 @@ void nano::json_handler::account_representative_set ()
 			}
 			if (!rpc_l->ec)
 			{
-				bool generate_work (work == 0); // Disable work generation if "work" option is provided
+				bool generate_work (work.is_empty ()); // Disable work generation if "work" option is provided
 				auto response_a (rpc_l->response);
 				auto response_data (std::make_shared<boost::property_tree::ptree> (rpc_l->response_l));
 				// clang-format off
@@ -1282,8 +1298,7 @@ void nano::json_handler::block_create ()
 		prv.data.clear ();
 		nano::block_hash previous (0);
 		nano::amount balance (0);
-		// Temp, always legacy pow returned
-		if (nano::legacy_pow (work) == 0 && !node.work_generation_enabled ())
+		if (work.is_empty () && !node.work_generation_enabled ())
 		{
 			ec = nano::error_common::disabled_work_generation;
 		}
@@ -1389,8 +1404,7 @@ void nano::json_handler::block_create ()
 				{
 					if (previous_text.is_initialized () && !representative.is_zero () && (!link.is_zero () || link_text.is_initialized ()))
 					{
-						// Intermediately it will always be legacy_pow until nano_pow is integrated
-						if (nano::legacy_pow (work) == 0)
+						if (work.is_empty ())
 						{
 							nano::root root;
 							if (previous.is_zero ())
@@ -1402,17 +1416,10 @@ void nano::json_handler::block_create ()
 								root = previous;
 							}
 
-							auto opt_work_l (node.work_generate_blocking (root, nano::account (pub)));
+							auto opt_work_l (node.work_generate_blocking (root, type == "state2" ? nano::epoch::epoch_2 : nano::epoch::epoch_0, nano::account (pub)));
 							if (opt_work_l.is_initialized ())
 							{
-								if (type == "state2")
-								{
-									work = nano::nano_pow (*opt_work_l);
-								}
-								else
-								{
-									work = *opt_work_l;
-								}
+								work = *opt_work_l;
 							}
 							else
 							{
@@ -1421,11 +1428,6 @@ void nano::json_handler::block_create ()
 						}
 						if (!ec)
 						{
-							if (type == "state2" && work.is_legacy ())
-							{
-								work = nano::nano_pow {nano::legacy_pow (work)};
-							}
-
 							nano::state_block state (pub, previous, representative, balance, link, prv, pub, work);
 							response_l.put ("hash", state.hash ().to_string ());
 							bool json_block_l = request.get<bool> ("json_block", false);
@@ -1452,9 +1454,9 @@ void nano::json_handler::block_create ()
 				{
 					if (representative != 0 && source != 0)
 					{
-						if (nano::legacy_pow (work) == 0)
+						if (work.is_empty ())
 						{
-							auto opt_work_l (node.work_generate_blocking (pub, nano::account (pub)));
+							auto opt_work_l (node.work_generate_blocking (pub, nano::epoch::epoch_0, nano::account (pub)));
 							if (opt_work_l.is_initialized ())
 							{
 								work = *opt_work_l;
@@ -1482,9 +1484,9 @@ void nano::json_handler::block_create ()
 				{
 					if (source != 0 && previous != 0)
 					{
-						if (nano::legacy_pow (work) == 0)
+						if (work.is_empty ())
 						{
-							auto opt_work_l (node.work_generate_blocking (previous, nano::account (pub)));
+							auto opt_work_l (node.work_generate_blocking (previous, nano::epoch::epoch_0, nano::account (pub)));
 							if (opt_work_l.is_initialized ())
 							{
 								work = *opt_work_l;
@@ -1512,9 +1514,9 @@ void nano::json_handler::block_create ()
 				{
 					if (representative != 0 && previous != 0)
 					{
-						if (nano::legacy_pow (work) == 0)
+						if (work.is_empty ())
 						{
-							auto opt_work_l (node.work_generate_blocking (previous, nano::account (pub)));
+							auto opt_work_l (node.work_generate_blocking (previous, nano::epoch::epoch_0, nano::account (pub)));
 							if (opt_work_l.is_initialized ())
 							{
 								work = *opt_work_l;
@@ -1544,9 +1546,9 @@ void nano::json_handler::block_create ()
 					{
 						if (balance.number () >= amount.number ())
 						{
-							if (nano::legacy_pow (work) == 0)
+							if (work.is_empty ())
 							{
-								auto opt_work_l (node.work_generate_blocking (previous, nano::account (pub)));
+								auto opt_work_l (node.work_generate_blocking (previous, nano::epoch::epoch_0, nano::account (pub)));
 								if (opt_work_l.is_initialized ())
 								{
 									work = *opt_work_l;
@@ -3141,7 +3143,7 @@ void nano::json_handler::receive ()
 					}
 					if (!ec)
 					{
-						bool generate_work (work == 0); // Disable work generation if "work" option is provided
+						bool generate_work (work.is_empty ()); // Disable work generation if "work" option is provided
 						auto response_a (response);
 						// clang-format off
 						wallet->receive_async(std::move(block), account, node.network_params.ledger.genesis_amount, [response_a](std::shared_ptr<nano::block> block_a) {
@@ -3451,7 +3453,7 @@ void nano::json_handler::send ()
 	{
 		auto work (work_optional_impl ());
 		nano::uint128_t balance (0);
-		if (!ec && work == 0 && !node.work_generation_enabled ())
+		if (!ec && work.is_empty () && !node.work_generation_enabled ())
 		{
 			ec = nano::error_common::disabled_work_generation;
 		}
@@ -3492,7 +3494,7 @@ void nano::json_handler::send ()
 		}
 		if (!ec)
 		{
-			bool generate_work (work == 0); // Disable work generation if "work" option is provided
+			bool generate_work (work.is_empty ()); // Disable work generation if "work" option is provided
 			boost::optional<std::string> send_id (request.get_optional<std::string> ("id"));
 			auto response_a (response);
 			auto response_data (std::make_shared<boost::property_tree::ptree> (response_l));
@@ -4514,7 +4516,7 @@ void nano::json_handler::wallet_work_get ()
 		for (auto i (wallet->store.begin (transaction)), n (wallet->store.end ()); i != n; ++i)
 		{
 			nano::account const & account (i->first);
-			uint64_t work (0);
+			nano::proof_of_work work;
 			auto error_work (wallet->store.work_get (transaction, account, work));
 			(void)error_work;
 			works.put (account.to_account (), nano::to_string_hex (work));
@@ -4544,14 +4546,23 @@ void nano::json_handler::work_generate ()
 		if (!ec)
 		{
 			bool use_peers (request.get_optional<bool> ("use_peers") == true);
+			auto version (request.get_optional<std::string> ("version"));
 			auto rpc_l (shared_from_this ());
-			auto callback = [rpc_l, hash, this](boost::optional<uint64_t> const & work_a) {
+			auto callback = [rpc_l, hash, this](boost::optional<nano::proof_of_work> const & work_a) {
 				if (work_a)
 				{
 					boost::property_tree::ptree response_l;
 					response_l.put ("hash", hash.to_string ());
-					uint64_t work (work_a.value ());
+					auto work (work_a.value ());
 					response_l.put ("work", nano::to_string_hex (work));
+					/*					if (version.is_initialized ())
+					{
+						response_l.put ("version", version.get ());
+					}
+					else
+					{
+						response_l.put ("version", work_a.get ().is_legacy () ? "0" : "2");	
+					}*/
 					std::stringstream ostream;
 					uint64_t result_difficulty;
 					nano::work_validate (hash, work, &result_difficulty);
@@ -4566,11 +4577,18 @@ void nano::json_handler::work_generate ()
 					json_error_response (rpc_l->response, "Cancelled");
 				}
 			};
+
+			auto epoch = nano::epoch::epoch_0;
+			if (version.is_initialized ())
+			{
+				epoch = nano::epoch_from_string (version.get ());
+			}
+
 			if (!use_peers)
 			{
 				if (node.local_work_generation_enabled ())
 				{
-					node.work.generate (hash, callback, difficulty);
+					node.work.generate (hash, callback, difficulty, epoch);
 				}
 				else
 				{
@@ -4581,7 +4599,7 @@ void nano::json_handler::work_generate ()
 			{
 				if (node.work_generation_enabled ())
 				{
-					node.work_generate (hash, callback, difficulty, account);
+					node.work_generate (hash, callback, difficulty, epoch, account);
 				}
 				else
 				{
@@ -4617,9 +4635,8 @@ void nano::json_handler::work_get ()
 		wallet_account_impl (transaction, wallet, account);
 		if (!ec)
 		{
-			uint64_t work (0);
-			auto error_work (wallet->store.work_get (transaction, account, work));
-			(void)error_work;
+			nano::proof_of_work work;
+			wallet->store.work_get (transaction, account, work);
 			response_l.put ("work", nano::to_string_hex (work));
 		}
 	}

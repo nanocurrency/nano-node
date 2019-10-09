@@ -86,8 +86,8 @@ public:
 	void write_backup (nano::transaction const &, boost::filesystem::path const &);
 	bool move (nano::transaction const &, nano::wallet_store &, std::vector<nano::public_key> const &);
 	bool import (nano::transaction const &, nano::wallet_store &);
-	bool work_get (nano::transaction const &, nano::public_key const &, uint64_t &);
-	void work_put (nano::transaction const &, nano::public_key const &, uint64_t);
+	bool work_get (nano::transaction const &, nano::public_key const &, nano::proof_of_work &);
+	void work_put (nano::transaction const &, nano::public_key const &, nano::proof_of_work const &);
 	unsigned version (nano::transaction const &);
 	void version_put (nano::transaction const &, unsigned);
 	void upgrade_v1_v2 (nano::transaction const &);
@@ -121,9 +121,9 @@ private:
 class wallet final : public std::enable_shared_from_this<nano::wallet>
 {
 public:
-	std::shared_ptr<nano::block> change_action (nano::account const &, nano::account const &, uint64_t = 0, bool = true);
-	std::shared_ptr<nano::block> receive_action (nano::block const &, nano::account const &, nano::uint128_union const &, uint64_t = 0, bool = true);
-	std::shared_ptr<nano::block> send_action (nano::account const &, nano::account const &, nano::uint128_t const &, uint64_t = 0, bool = true, boost::optional<std::string> = {});
+	std::shared_ptr<nano::block> change_action (nano::account const &, nano::account const &, nano::proof_of_work = 0, bool = true);
+	std::shared_ptr<nano::block> receive_action (nano::block const &, nano::account const &, nano::uint128_union const &, nano::proof_of_work = 0, bool = true);
+	std::shared_ptr<nano::block> send_action (nano::account const &, nano::account const &, nano::uint128_t const &, nano::proof_of_work = 0, bool = true, boost::optional<std::string> = {});
 	bool action_complete (std::shared_ptr<nano::block> const &, nano::account const &, bool const);
 	wallet (bool &, nano::transaction &, nano::wallets &, std::string const &);
 	wallet (bool &, nano::transaction &, nano::wallets &, std::string const &, std::string const &);
@@ -139,13 +139,13 @@ public:
 	bool import (std::string const &, std::string const &);
 	void serialize (std::string &);
 	bool change_sync (nano::account const &, nano::account const &);
-	void change_async (nano::account const &, nano::account const &, std::function<void(std::shared_ptr<nano::block>)> const &, uint64_t = 0, bool = true);
+	void change_async (nano::account const &, nano::account const &, std::function<void(std::shared_ptr<nano::block>)> const &, nano::proof_of_work = 0, bool = true);
 	bool receive_sync (std::shared_ptr<nano::block>, nano::account const &, nano::uint128_t const &);
-	void receive_async (std::shared_ptr<nano::block>, nano::account const &, nano::uint128_t const &, std::function<void(std::shared_ptr<nano::block>)> const &, uint64_t = 0, bool = true);
+	void receive_async (std::shared_ptr<nano::block>, nano::account const &, nano::uint128_t const &, std::function<void(std::shared_ptr<nano::block>)> const &, nano::proof_of_work = 0, bool = true);
 	nano::block_hash send_sync (nano::account const &, nano::account const &, nano::uint128_t const &);
-	void send_async (nano::account const &, nano::account const &, nano::uint128_t const &, std::function<void(std::shared_ptr<nano::block>)> const &, uint64_t = 0, bool = true, boost::optional<std::string> = {});
+	void send_async (nano::account const &, nano::account const &, nano::uint128_t const &, std::function<void(std::shared_ptr<nano::block>)> const &, nano::proof_of_work = 0, bool = true, boost::optional<std::string> = {});
 	void work_cache_blocking (nano::account const &, nano::root const &);
-	void work_update (nano::transaction const &, nano::account const &, nano::root const &, uint64_t);
+	void work_update (nano::transaction const &, nano::account const &, nano::root const &, nano::proof_of_work);
 	void work_ensure (nano::account const &, nano::root const &);
 	bool search_pending ();
 	void init_free_accounts (nano::transaction const &);

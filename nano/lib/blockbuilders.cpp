@@ -233,7 +233,7 @@ void nano::state_block_builder::validate ()
 
 nano::state_block_builder & nano::state_block_builder::zero ()
 {
-	block->work = uint64_t (0);
+	block->work = nano::legacy_pow (0);
 	block->signature.clear ();
 	block->hashables.account.clear ();
 	block->hashables.balance.clear ();

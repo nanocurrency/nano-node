@@ -125,12 +125,12 @@ public:
 	int price (nano::uint128_t const &, int);
 	bool local_work_generation_enabled () const;
 	bool work_generation_enabled () const;
-	boost::optional<uint64_t> work_generate_blocking (nano::block &, uint64_t);
-	boost::optional<uint64_t> work_generate_blocking (nano::block &);
-	boost::optional<uint64_t> work_generate_blocking (nano::root const &, uint64_t, boost::optional<nano::account> const & = boost::none);
-	boost::optional<uint64_t> work_generate_blocking (nano::root const &, boost::optional<nano::account> const & = boost::none);
-	void work_generate (nano::root const &, std::function<void(boost::optional<uint64_t>)>, uint64_t, boost::optional<nano::account> const & = boost::none);
-	void work_generate (nano::root const &, std::function<void(boost::optional<uint64_t>)>, boost::optional<nano::account> const & = boost::none);
+	boost::optional<nano::proof_of_work> work_generate_blocking (nano::block &, uint64_t, nano::epoch epoch_a = nano::epoch::epoch_0);
+	boost::optional<nano::proof_of_work> work_generate_blocking (nano::block &, nano::epoch epoch_a = nano::epoch::epoch_0);
+	boost::optional<nano::proof_of_work> work_generate_blocking (nano::root const &, uint64_t, nano::epoch epoch_a = nano::epoch::epoch_0, boost::optional<nano::account> const & = boost::none);
+	boost::optional<nano::proof_of_work> work_generate_blocking (nano::root const &, nano::epoch epoch_a = nano::epoch::epoch_0, boost::optional<nano::account> const & = boost::none);
+	void work_generate (nano::root const &, std::function<void(boost::optional<nano::proof_of_work>)>, uint64_t, nano::epoch epoch_a = nano::epoch::epoch_0, boost::optional<nano::account> const & = boost::none);
+	void work_generate (nano::root const &, std::function<void(boost::optional<nano::proof_of_work>)>, nano::epoch epoch_a = nano::epoch::epoch_0, boost::optional<nano::account> const & = boost::none);
 	void add_initial_peers ();
 	void block_confirm (std::shared_ptr<nano::block>);
 	bool block_confirmed_or_being_confirmed (nano::transaction const &, nano::block_hash const &);

@@ -4,6 +4,7 @@
 #include <nano/boost/beast.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/lib/work.hpp>
 
 #include <boost/optional.hpp>
 
@@ -38,21 +39,21 @@ public:
 class distributed_work final : public std::enable_shared_from_this<nano::distributed_work>
 {
 public:
-	distributed_work (unsigned int, nano::node &, nano::root const &, std::function<void(boost::optional<uint64_t>)> const &, uint64_t, boost::optional<nano::account> const & = boost::none);
+	distributed_work (unsigned int, nano::node &, nano::root const &, std::function<void(boost::optional<nano::proof_of_work>)> const &, uint64_t, nano::epoch epoch_a, boost::optional<nano::account> const & = boost::none);
 	~distributed_work ();
 	void start ();
 	void start_work ();
 	void cancel_connection (std::shared_ptr<nano::work_peer_request>);
 	void success (std::string const &, boost::asio::ip::address const &, uint16_t const);
 	void stop_once (bool const);
-	void set_once (uint64_t, std::string const & source_a = "local");
+	void set_once (nano::proof_of_work const &, std::string const & source_a = "local");
 	void cancel_once ();
 	void failure (boost::asio::ip::address const &);
 	void handle_failure (bool const);
 	bool remove (boost::asio::ip::address const &);
 	void add_bad_peer (boost::asio::ip::address const &, uint16_t const);
 
-	std::function<void(boost::optional<uint64_t>)> callback;
+	std::function<void(boost::optional<nano::proof_of_work>)> callback;
 	unsigned int backoff; // in seconds
 	nano::node & node;
 	nano::root root;
@@ -62,7 +63,8 @@ public:
 	std::vector<std::weak_ptr<nano::work_peer_request>> connections;
 	std::vector<std::pair<std::string, uint16_t>> need_resolve;
 	uint64_t difficulty;
-	uint64_t work_result{ 0 };
+	nano::epoch epoch;
+	nano::proof_of_work work_result{ nano::legacy_pow (0) };
 	std::atomic<bool> completed{ false };
 	std::atomic<bool> cancelled{ false };
 	std::atomic<bool> stopped{ false };
@@ -76,8 +78,8 @@ class distributed_work_factory final
 {
 public:
 	distributed_work_factory (nano::node &);
-	void make (nano::root const &, std::function<void(boost::optional<uint64_t>)> const &, uint64_t, boost::optional<nano::account> const & = boost::none);
-	void make (unsigned int, nano::root const &, std::function<void(boost::optional<uint64_t>)> const &, uint64_t, boost::optional<nano::account> const & = boost::none);
+	void make (nano::root const &, std::function<void(boost::optional<nano::proof_of_work>)> const &, uint64_t, nano::epoch epoch_a = nano::epoch::epoch_0, boost::optional<nano::account> const & = boost::none);
+	void make (unsigned int, nano::root const &, std::function<void(boost::optional<nano::proof_of_work>)> const &, uint64_t, nano::epoch epoch_a = nano::epoch::epoch_0, boost::optional<nano::account> const & = boost::none);
 	void cancel (nano::root const &, bool const local_stop = false);
 	void cleanup_finished ();
 

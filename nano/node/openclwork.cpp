@@ -687,18 +687,18 @@ nano::opencl_work::~opencl_work ()
 	}
 }
 
-boost::optional<uint64_t> nano::opencl_work::generate_work (nano::root const & root_a, uint64_t const difficulty_a)
+boost::optional<nano::proof_of_work> nano::opencl_work::generate_work (nano::root const & root_a, uint64_t const difficulty_a, nano::epoch epoch_a)
 {
 	std::atomic<int> ticket_l{ 0 };
-	return generate_work (root_a, difficulty_a, ticket_l);
+	return generate_work (root_a, difficulty_a, ticket_l, epoch_a);
 }
 
-boost::optional<uint64_t> nano::opencl_work::generate_work (nano::root const & root_a, uint64_t const difficulty_a, std::atomic<int> & ticket_a)
+boost::optional<nano::proof_of_work> nano::opencl_work::generate_work (nano::root const & root_a, uint64_t const difficulty_a, std::atomic<int> & ticket_a, nano::epoch epoch_a)
 {
 	nano::lock_guard<std::mutex> lock (mutex);
 	bool error (false);
 	int ticket_l (ticket_a);
-	uint64_t result (0);
+	nano::proof_of_work result (0);
 	uint64_t computed_difficulty (0);
 	unsigned thread_count (config.threads);
 	size_t work_size[] = { thread_count, 0, 0 };
@@ -717,14 +717,22 @@ boost::optional<uint64_t> nano::opencl_work::generate_work (nano::root const & r
 					cl_int enqueue_error = clEnqueueNDRangeKernel (queue, kernel, 1, nullptr, work_size, nullptr, 0, nullptr, nullptr);
 					if (enqueue_error == CL_SUCCESS)
 					{
-						cl_int read_error1 = clEnqueueReadBuffer (queue, result_buffer, false, 0, sizeof (uint64_t), &result, 0, nullptr, nullptr);
+						nano::legacy_pow pow;
+						cl_int read_error1 = clEnqueueReadBuffer (queue, result_buffer, false, 0, sizeof (nano::legacy_pow), &pow, 0, nullptr, nullptr);
 						if (read_error1 == CL_SUCCESS)
 						{
-							cl_int finishError = clFinish (queue);
-							if (finishError == CL_SUCCESS)
+							// Temp hack to wrap a legacy pow into a nano_pow
+							if (nano::is_epoch_nano_pow (epoch_a))
 							{
+								result = nano::nano_pow{ pow };
 							}
 							else
+							{
+								result = pow;
+							}
+
+							cl_int finishError = clFinish (queue);
+							if (finishError != CL_SUCCESS)
 							{
 								error = true;
 								logger.always_log (boost::str (boost::format ("Error finishing queue %1%") % finishError));
@@ -760,7 +768,7 @@ boost::optional<uint64_t> nano::opencl_work::generate_work (nano::root const & r
 			logger.always_log (boost::str (boost::format ("Error writing attempt %1%") % write_error1));
 		}
 	}
-	boost::optional<uint64_t> value;
+	boost::optional<nano::proof_of_work> value;
 	if (!error)
 	{
 		value = result;

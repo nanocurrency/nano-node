@@ -1,5 +1,6 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/lambda_visitor.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/xorshift.hpp>
 
@@ -7,7 +8,7 @@
 
 #include <future>
 
-bool nano::work_validate (nano::root const & root_a, uint64_t work_a, uint64_t * difficulty_a)
+bool nano::work_validate (nano::root const & root_a, nano::proof_of_work work_a, uint64_t * difficulty_a)
 {
 	static nano::network_constants network_constants;
 	auto value (nano::work_value (root_a, work_a));
@@ -23,18 +24,30 @@ bool nano::work_validate (nano::block const & block_a, uint64_t * difficulty_a)
 	return work_validate (block_a.root (), block_a.block_work (), difficulty_a);
 }
 
-uint64_t nano::work_value (nano::root const & root_a, uint64_t work_a)
+uint64_t nano::work_value (nano::root const & root_a, nano::proof_of_work work_a)
 {
 	uint64_t result;
 	blake2b_state hash;
 	blake2b_init (&hash, sizeof (result));
-	blake2b_update (&hash, reinterpret_cast<uint8_t *> (&work_a), sizeof (work_a));
+	boost::apply_visitor (nano::make_lambda_visitor<void> (
+	                      [&hash](nano::legacy_pow const & legacy_pow) {
+		                      blake2b_update (&hash, reinterpret_cast<const uint8_t *> (&legacy_pow), sizeof (legacy_pow));
+	                      },
+	                      [&hash](nano::nano_pow const & nano_pow) {
+		                      auto little_endian = nano_pow.bytes;
+		                      std::reverse (little_endian.begin (), little_endian.end ());
+		                      // Temp: Only take the first few bytes for now to match the legacy pow
+		                      std::array<uint8_t, sizeof (nano::legacy_pow)> legacy_pow_subset;
+		                      std::copy (little_endian.begin (), little_endian.begin () + sizeof (nano::legacy_pow), legacy_pow_subset.begin ());
+		                      blake2b_update (&hash, reinterpret_cast<const uint8_t *> (&legacy_pow_subset), sizeof (legacy_pow_subset));
+	                      }),
+	work_a.pow);
 	blake2b_update (&hash, root_a.bytes.data (), root_a.bytes.size ());
 	blake2b_final (&hash, reinterpret_cast<uint8_t *> (&result), sizeof (result));
 	return result;
 }
 
-nano::work_pool::work_pool (unsigned max_threads_a, std::chrono::nanoseconds pow_rate_limiter_a, std::function<boost::optional<uint64_t> (nano::root const &, uint64_t, std::atomic<int> &)> opencl_a) :
+nano::work_pool::work_pool (unsigned max_threads_a, std::chrono::nanoseconds pow_rate_limiter_a, std::function<boost::optional<nano::proof_of_work> (nano::root const &, uint64_t, std::atomic<int> &)> opencl_a) :
 ticket (0),
 done (false),
 pow_rate_limiter (pow_rate_limiter_a),
@@ -74,8 +87,8 @@ void nano::work_pool::loop (uint64_t thread)
 	// Quick RNG for work attempts.
 	xorshift1024star rng;
 	nano::random_pool::generate_block (reinterpret_cast<uint8_t *> (rng.s.data ()), rng.s.size () * sizeof (decltype (rng.s)::value_type));
-	uint64_t work;
-	uint64_t output;
+	nano::legacy_pow work;
+	nano::legacy_pow output;
 	blake2b_state hash;
 	blake2b_init (&hash, sizeof (output));
 	nano::unique_lock<std::mutex> lock (mutex);
@@ -94,7 +107,7 @@ void nano::work_pool::loop (uint64_t thread)
 			int ticket_l (ticket);
 			lock.unlock ();
 			output = 0;
-			boost::optional<uint64_t> opt_work;
+			boost::optional<nano::proof_of_work> opt_work;
 			if (thread == 0 && opencl)
 			{
 				opt_work = opencl (current_l.item, current_l.difficulty, ticket);
@@ -136,11 +149,23 @@ void nano::work_pool::loop (uint64_t thread)
 				// If the ticket matches what we started with, we're the ones that found the solution
 				assert (output >= current_l.difficulty);
 				assert (current_l.difficulty == 0 || work_value (current_l.item, work) == output);
+
+				nano::proof_of_work pow;
+				if (nano::is_epoch_nano_pow (current_l.epoch))
+				{
+					// Temp: wrap in a nano_pow if the version of work requires it
+					pow = nano::nano_pow (work);
+				}
+				else
+				{
+					pow = work;
+				}
+
 				// Signal other threads to stop their work next time they check ticket
 				++ticket;
 				pending.pop_front ();
 				lock.unlock ();
-				current_l.callback (work);
+				current_l.callback (pow);
 				lock.lock ();
 			}
 			else
@@ -197,19 +222,19 @@ void nano::work_pool::stop ()
 	producer_condition.notify_all ();
 }
 
-void nano::work_pool::generate (nano::root const & root_a, std::function<void(boost::optional<uint64_t> const &)> callback_a)
+void nano::work_pool::generate (nano::root const & root_a, std::function<void(boost::optional<nano::proof_of_work> const &)> callback_a, nano::epoch epoch_a)
 {
-	generate (root_a, callback_a, network_constants.publish_threshold);
+	generate (root_a, callback_a, network_constants.publish_threshold, epoch_a);
 }
 
-void nano::work_pool::generate (nano::root const & root_a, std::function<void(boost::optional<uint64_t> const &)> callback_a, uint64_t difficulty_a)
+void nano::work_pool::generate (nano::root const & root_a, std::function<void(boost::optional<nano::proof_of_work> const &)> callback_a, uint64_t difficulty_a, nano::epoch epoch_a)
 {
 	assert (!root_a.is_zero ());
 	if (!threads.empty ())
 	{
 		{
 			nano::lock_guard<std::mutex> lock (mutex);
-			pending.push_back ({ root_a, callback_a, difficulty_a });
+			pending.emplace_back (root_a, callback_a, difficulty_a, epoch_a);
 		}
 		producer_condition.notify_all ();
 	}
@@ -219,23 +244,23 @@ void nano::work_pool::generate (nano::root const & root_a, std::function<void(bo
 	}
 }
 
-boost::optional<uint64_t> nano::work_pool::generate (nano::root const & root_a)
+boost::optional<nano::proof_of_work> nano::work_pool::generate (nano::root const & root_a, nano::epoch epoch_a)
 {
-	return generate (root_a, network_constants.publish_threshold);
+	return generate (root_a, network_constants.publish_threshold, epoch_a);
 }
 
-boost::optional<uint64_t> nano::work_pool::generate (nano::root const & root_a, uint64_t difficulty_a)
+boost::optional<nano::proof_of_work> nano::work_pool::generate (nano::root const & root_a, uint64_t difficulty_a, nano::epoch epoch_a)
 {
-	boost::optional<uint64_t> result;
+	boost::optional<nano::proof_of_work> result;
 	if (!threads.empty ())
 	{
-		std::promise<boost::optional<uint64_t>> work;
-		std::future<boost::optional<uint64_t>> future = work.get_future ();
+		std::promise<boost::optional<nano::proof_of_work>> work;
+		std::future<boost::optional<nano::proof_of_work>> future = work.get_future ();
 		// clang-format off
-		generate (root_a, [&work](boost::optional<uint64_t> work_a) {
+		generate (root_a, [&work](boost::optional<nano::proof_of_work> work_a) {
 			work.set_value (work_a);
 		},
-		difficulty_a);
+		difficulty_a, epoch_a);
 		// clang-format on
 		result = future.get ().value ();
 	}
@@ -276,18 +301,13 @@ pow (pow_a)
 nano::proof_of_work::operator nano::legacy_pow () const
 {
 	// Currently a hack if trying to use this in a context where the legacy_pow is used
-	if (is_legacy ())
-	{
-		return boost::get<legacy_pow> (pow);
-	}
-	else
-	{
-		return boost::get<nano_pow> (pow).as_legacy ();
-	}
+	assert (is_legacy ());
+	return boost::get<legacy_pow> (pow);
 }
 
 nano::proof_of_work::operator nano::nano_pow const & () const
 {
+	assert (!is_legacy ());
 	return boost::get<nano_pow> (pow);
 }
 
@@ -310,14 +330,26 @@ void nano::proof_of_work::deserialize (nano::stream & stream_a, bool is_legacy_a
 
 void nano::proof_of_work::serialize (nano::stream & stream_a) const
 {
-	if (is_legacy ())
-	{
-		write (stream_a, boost::endian::native_to_big (boost::get<legacy_pow> (pow)));
-	}
-	else
-	{
-		write (stream_a, boost::get<nano_pow> (pow));
-	}
+	return boost::apply_visitor (make_lambda_visitor<void> (
+	                             [&stream_a](nano::legacy_pow const & pow) {
+		                             write (stream_a, boost::endian::native_to_big (pow));
+	                             },
+	                             [&stream_a](nano::nano_pow const & pow) {
+		                             write (stream_a, pow);
+	                             }),
+	pow);
+}
+
+bool nano::proof_of_work::is_empty () const
+{
+	return boost::apply_visitor (make_lambda_visitor<bool> (
+	                             [](nano::legacy_pow const & pow) {
+		                             return pow == 0;
+	                             },
+	                             [](nano::nano_pow const & pow) {
+		                             return std::all_of (pow.bytes.begin (), pow.bytes.end (), [](auto i) { return i == 0; });
+	                             }),
+	pow);
 }
 
 bool nano::proof_of_work::operator== (nano::proof_of_work const & other_a) const
@@ -330,39 +362,50 @@ bool nano::proof_of_work::is_legacy () const
 	return pow.type () == typeid (nano::legacy_pow);
 }
 
-namespace
+size_t nano::proof_of_work::get_sizeof () const
 {
-struct to_hex_visitor : public boost::static_visitor<std::string>
-{
-	template <typename POW>
-	std::string operator() (POW pow) const
-	{
-		return nano::to_string_hex (pow);
-	}
-};
+	return boost::apply_visitor (make_lambda_visitor<size_t> ([](auto const & pow) {
+		return sizeof (pow);
+	}),
+	pow);
+}
 
-struct from_hex_visitor : public boost::static_visitor<bool>
+nano::proof_of_work & nano::proof_of_work::operator++ ()
 {
-	from_hex_visitor (std::string const & value_a) :
-	value (value_a)
-	{
-	}
-
-	template <typename POW>
-	bool operator() (POW & pow) const
-	{
-		return nano::from_string_hex (value, pow);
-	}
-	std::string const & value;
-};
+	boost::apply_visitor (make_lambda_visitor<void> ([](auto & pow) {
+		++pow;
+	}),
+	pow);
+	return *this;
 }
 
 std::string nano::to_string_hex (nano::proof_of_work const & value_a)
 {
-	return boost::apply_visitor (to_hex_visitor{}, value_a.pow);
+	return boost::apply_visitor (make_lambda_visitor<std::string> ([](auto & pow) {
+		return to_string_hex (pow);
+	}),
+	value_a.pow);
 }
 
-bool nano::from_string_hex (std::string const & value_a, nano::proof_of_work & target_a)
+bool nano::from_string_hex (std::string const & value_a, nano::proof_of_work & target_a, nano::epoch epoch_a)
 {
-	return boost::apply_visitor (from_hex_visitor{ value_a }, target_a.pow);
+	return from_string_hex (value_a, target_a, !nano::is_epoch_nano_pow (epoch_a));
+}
+
+bool nano::from_string_hex (std::string const & value_a, nano::proof_of_work & target_a, bool is_legacy_work_a)
+{
+	bool error;
+	if (is_legacy_work_a)
+	{
+		nano::legacy_pow pow;
+		error = nano::from_string_hex (value_a, pow);
+		target_a = pow;
+	}
+	else
+	{
+		nano::nano_pow pow;
+		error = nano::from_string_hex (value_a, pow);
+		target_a = pow;
+	}
+	return error;
 }

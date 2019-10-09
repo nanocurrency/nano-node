@@ -10,27 +10,36 @@ TEST (distributed_work, no_peers)
 	nano::system system (24000, 1);
 	auto node (system.nodes[0]);
 	nano::block_hash hash;
-	boost::optional<uint64_t> work;
+	boost::optional<nano::proof_of_work> work;
 	std::atomic<bool> done{ false };
-	auto callback = [&work, &done](boost::optional<uint64_t> work_a) {
+	auto callback = [&work, &done](boost::optional<nano::proof_of_work> work_a) {
 		ASSERT_TRUE (work_a.is_initialized ());
 		work = work_a;
 		done = true;
 	};
-	node->distributed_work.make (hash, callback, node->network_params.network.publish_threshold, nano::account ());
-	system.deadline_set (5s);
-	while (!done)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	ASSERT_FALSE (nano::work_validate (hash, *work));
-	// should only be removed after cleanup
-	ASSERT_EQ (1, node->distributed_work.work.size ());
-	while (!node->distributed_work.work.empty ())
-	{
-		node->distributed_work.cleanup_finished ();
-		ASSERT_NO_ERROR (system.poll ());
-	}
+
+	auto verify_work_generation = [hash, callback, node, &system, &done, &work](nano::epoch epoch) {
+		node->distributed_work.make (hash, callback, node->network_params.network.publish_threshold, epoch, nano::account ());
+		system.deadline_set (5s);
+		while (!done)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_FALSE (nano::work_validate (hash, *work));
+		// should only be removed after cleanup
+		ASSERT_EQ (1, node->distributed_work.work.size ());
+		while (!node->distributed_work.work.empty ())
+		{
+			node->distributed_work.cleanup_finished ();
+			ASSERT_NO_ERROR (system.poll ());
+		}
+	};
+
+	verify_work_generation (nano::epoch::epoch_1);
+
+	done = false;
+	work = nano::legacy_pow{ 0 };
+	verify_work_generation (nano::epoch::epoch_2);
 }
 
 TEST (distributed_work, no_peers_disabled)
@@ -40,11 +49,17 @@ TEST (distributed_work, no_peers_disabled)
 	node_config.work_threads = 0;
 	auto & node = *system.add_node (node_config);
 	bool done{ false };
-	auto callback_failure = [&done](boost::optional<uint64_t> work_a) {
+	auto callback_failure = [&done](boost::optional<nano::proof_of_work> work_a) {
 		ASSERT_FALSE (work_a.is_initialized ());
 		done = true;
 	};
 	node.distributed_work.make (nano::block_hash (), callback_failure, nano::network_constants::publish_test_threshold);
+	while (!done)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	done = false;
+	node.distributed_work.make (nano::block_hash (), callback_failure, nano::network_constants::publish_test_threshold, nano::epoch::epoch_2);
 	while (!done)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -60,7 +75,7 @@ TEST (distributed_work, no_peers_cancel)
 	auto & node = *system.add_node (node_config);
 	nano::block_hash hash;
 	bool done{ false };
-	auto callback_to_cancel = [&done](boost::optional<uint64_t> work_a) {
+	auto callback_to_cancel = [&done](boost::optional<nano::proof_of_work> work_a) {
 		ASSERT_FALSE (work_a.is_initialized ());
 		done = true;
 	};
@@ -97,7 +112,7 @@ TEST (distributed_work, no_peers_multi)
 	nano::block_hash hash;
 	unsigned total{ 10 };
 	std::atomic<unsigned> count{ 0 };
-	auto callback = [&count](boost::optional<uint64_t> work_a) {
+	auto callback = [&count](boost::optional<nano::proof_of_work> work_a) {
 		ASSERT_TRUE (work_a.is_initialized ());
 		++count;
 	};
