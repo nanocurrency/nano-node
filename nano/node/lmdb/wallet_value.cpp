@@ -4,7 +4,7 @@
 template <typename POW>
 void nano::wallet_value::deserialize_work (nano::db_val<MDB_val> const & val_a)
 {
-	static_assert (std::is_same_v<POW, legacy_pow> || std::is_same_v<POW, nano_pow>, "T must be a pow type");
+	static_assert (std::is_same<POW, legacy_pow>::value || std::is_same<POW, nano_pow>::value, "T must be a pow type");
 	POW pow;
 	std::copy (reinterpret_cast<uint8_t const *> (val_a.data ()) + sizeof (key), reinterpret_cast<uint8_t const *> (val_a.data ()) + sizeof (key) + sizeof (pow), reinterpret_cast<uint8_t *> (&pow));
 	work = pow;
