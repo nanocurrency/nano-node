@@ -577,7 +577,8 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 		}
 		case 17:
 		{
-			json.put ("vote_generator_delay", vote_generator_delay.count ()); // Update value
+			json.put ("active_elections_size", 10000); // Update value
+			json.put ("vote_generator_delay", 100); // Update value
 			json.put ("backup_before_upgrade", backup_before_upgrade);
 			json.put ("work_watcher_period", work_watcher_period.count ());
 		}
