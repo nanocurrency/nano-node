@@ -54,7 +54,7 @@ nano::nano_pow & nano::nano_pow::operator++ ()
 	return *this;
 }
 
-std::istream & operator>> (std::istream & input, nano::nano_pow & pow)
+std::istream & nano::operator>> (std::istream & input, nano::nano_pow & pow)
 {
 	nano::uint96_t num;
 	input >> num;
@@ -62,7 +62,7 @@ std::istream & operator>> (std::istream & input, nano::nano_pow & pow)
 	return input;
 }
 
-std::ostream & operator<< (std::ostream & output, nano::nano_pow const & num)
+std::ostream & nano::operator<< (std::ostream & output, nano::nano_pow const & num)
 {
 	output << num.number ();
 	return output;

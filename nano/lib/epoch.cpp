@@ -50,12 +50,12 @@ bool nano::is_epoch_nano_pow (nano::epoch epoch_a)
 	return is_epoch_greater (epoch_a, nano::epoch::epoch_1);
 }
 
-std::ostream & operator<< (std::ostream & os, nano::epoch const & epoch)
+std::ostream & nano::operator<< (std::ostream & os, nano::epoch const & epoch)
 {
 	return os << epoch_as_string (epoch);
 }
 
-std::istream & operator>> (std::istream & istream, nano::epoch & epoch_a)
+std::istream & nano::operator>> (std::istream & istream, nano::epoch & epoch_a)
 {
 	std::underlying_type_t<nano::epoch> epoch;
 	istream >> epoch;

@@ -1378,7 +1378,6 @@ void nano::wallet::work_cache_blocking (nano::account const & account_a, nano::r
 		auto block_transaction = wallets.node.store.tx_begin_read ();
 		nano::account_info account_info;
 		auto epoch = nano::epoch::epoch_0;
-		// No guarantee that the account is in the ledger, if for instance an open block.
 		if (!root_a.previous ().is_zero () && !wallets.node.store.account_get (block_transaction, account_a, account_info))
 		{
 			epoch = account_info.epoch ();
@@ -1510,7 +1509,7 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 							}
 						}
 					},
-					active_difficulty, sideband.epoch, block_a->account ()); // TODO: Currently determining the epoch from the block passed in.
+					active_difficulty, sideband.epoch, block_a->account ());
 				}
 				else
 				{

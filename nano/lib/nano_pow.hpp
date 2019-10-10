@@ -26,6 +26,6 @@ public:
 };
 
 std::string to_string_hex (nano::nano_pow const & value_a);
-}
 std::istream & operator>> (std::istream & input, nano::nano_pow & pow);
 std::ostream & operator<< (std::ostream & output, nano::nano_pow const & num);
+}

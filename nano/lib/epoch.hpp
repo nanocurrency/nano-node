@@ -24,7 +24,6 @@ std::underlying_type_t<nano::epoch> normalized_epoch (nano::epoch epoch_a);
 std::string epoch_as_string (nano::epoch epoch);
 nano::epoch epoch_from_string (std::string const & str);
 bool is_epoch_nano_pow (nano::epoch);
-}
-
 std::ostream & operator<< (std::ostream & os, nano::epoch const & epoch);
 std::istream & operator>> (std::istream & istream, nano::epoch & epoch_a);
+}
