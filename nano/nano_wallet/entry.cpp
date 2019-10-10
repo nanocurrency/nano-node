@@ -29,6 +29,59 @@ void show_error (std::string const & message_a)
 	message.show ();
 	message.exec ();
 }
+void show_help (std::string const & message_a)
+{
+	QMessageBox message (QMessageBox::NoIcon, "Help", "see <a href=\"https://docs.nano.org/commands/command-line-interface/#launch-options\">launch options</a> ");
+	message.setStyleSheet ("QLabel {min-width: 450px}");
+	message.setDetailedText (message_a.c_str ());
+	message.show ();
+	message.exec ();
+}
+
+void update_flags (nano::node_flags & flags_a, boost::program_options::variables_map const & vm)
+{
+	auto batch_size_it = vm.find ("batch_size");
+	if (batch_size_it != vm.end ())
+	{
+		flags_a.sideband_batch_size = batch_size_it->second.as<size_t> ();
+	}
+	flags_a.disable_backup = (vm.count ("disable_backup") > 0);
+	flags_a.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
+	flags_a.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
+	flags_a.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
+	flags_a.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
+	flags_a.disable_tcp_realtime = (vm.count ("disable_tcp_realtime") > 0);
+	flags_a.disable_udp = (vm.count ("disable_udp") > 0);
+	if (flags_a.disable_tcp_realtime && flags_a.disable_udp)
+	{
+		show_error ("Flags --disable_tcp_realtime and --disable_udp cannot be used together");
+		std::exit (1);
+	}
+	flags_a.disable_unchecked_cleanup = (vm.count ("disable_unchecked_cleanup") > 0);
+	flags_a.disable_unchecked_drop = (vm.count ("disable_unchecked_drop") > 0);
+	flags_a.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
+	if (flags_a.fast_bootstrap)
+	{
+		flags_a.block_processor_batch_size = 256 * 1024;
+		flags_a.block_processor_full_size = 1024 * 1024;
+		flags_a.block_processor_verification_size = std::numeric_limits<size_t>::max ();
+	}
+	auto block_processor_batch_size_it = vm.find ("block_processor_batch_size");
+	if (block_processor_batch_size_it != vm.end ())
+	{
+		flags_a.block_processor_batch_size = block_processor_batch_size_it->second.as<size_t> ();
+	}
+	auto block_processor_full_size_it = vm.find ("block_processor_full_size");
+	if (block_processor_full_size_it != vm.end ())
+	{
+		flags_a.block_processor_full_size = block_processor_full_size_it->second.as<size_t> ();
+	}
+	auto block_processor_verification_size_it = vm.find ("block_processor_verification_size");
+	if (block_processor_verification_size_it != vm.end ())
+	{
+		flags_a.block_processor_verification_size = block_processor_verification_size_it->second.as<size_t> ();
+	}
+}
 
 nano::error read_and_update_wallet_config (nano::wallet_config & config_a, boost::filesystem::path const & data_path_a)
 {
@@ -43,7 +96,7 @@ nano::error read_and_update_wallet_config (nano::wallet_config & config_a, boost
 }
 }
 
-int run_wallet (QApplication & application, int argc, char * const * argv, boost::filesystem::path const & data_path, std::vector<std::string> const & config_overrides)
+int run_wallet (QApplication & application, int argc, char * const * argv, boost::filesystem::path const & data_path, std::vector<std::string> const & config_overrides, nano::node_flags const & flags)
 {
 	int result (0);
 	nano_qt::eventloop_processor processor;
@@ -92,8 +145,6 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 		}
 		                                                                                       : std::function<boost::optional<uint64_t> (nano::root const &, uint64_t, std::atomic<int> &)> (nullptr));
 		nano::alarm alarm (io_ctx);
-		nano::node_flags flags;
-
 		node = std::make_shared<nano::node> (io_ctx, data_path, alarm, config.node, work, flags);
 		if (!node->init_error ())
 		{
@@ -164,8 +215,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 					auto error = nano::read_rpc_config_toml (data_path, rpc_config);
 					if (error)
 					{
-						std::cout << error.get_message () << std::endl;
-						std::exit (1);
+						show_error (error.get_message ());
 					}
 					rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, config.rpc);
 					rpc = nano::get_rpc (io_ctx, rpc_config, *rpc_handler);
@@ -239,21 +289,45 @@ int main (int argc, char * const * argv)
 	{
 		QApplication application (argc, const_cast<char **> (argv));
 		boost::program_options::options_description description ("Command line options");
-		description.add_options () ("help", "Print out options");
-		description.add_options () ("config", boost::program_options::value<std::vector<std::string>> ()->multitoken (), "Pass configuration values. This takes precedence over any values in the node configuration file. This option can be repeated multiple times.");
+		// clang-format off
+		description.add_options () 
+			("help", "Print out options")
+			("config", boost::program_options::value<std::vector<std::string>> ()->multitoken (), "Pass configuration values. This takes precedence over any values in the node configuration file. This option can be repeated multiple times.")
+			("disable_backup", "Disable wallet automatic backups")
+			("disable_lazy_bootstrap", "Disables lazy bootstrap")
+			("disable_legacy_bootstrap", "Disables legacy bootstrap")
+			("disable_wallet_bootstrap", "Disables wallet lazy bootstrap")
+			("disable_bootstrap_listener", "Disables bootstrap processing for TCP listener (not including realtime network TCP connections)")
+			("disable_tcp_realtime", "Disables TCP realtime network")
+			("disable_udp", "Disables UDP realtime network")
+			("disable_unchecked_cleanup", "Disables periodic cleanup of old records from unchecked table")
+			("disable_unchecked_drop", "Disables drop of unchecked table at startup")
+			("fast_bootstrap", "Increase bootstrap speed for high end nodes with higher limits")
+			("batch_size",boost::program_options::value<std::size_t> (), "Increase sideband batch size, default 512")
+			("block_processor_batch_size",boost::program_options::value<std::size_t> (), "Increase block processor transaction batch write size, default 0 (limited by config block_processor_batch_max_time), 256k for fast_bootstrap")
+			("block_processor_full_size",boost::program_options::value<std::size_t> (), "Increase block processor allowed blocks queue size before dropping live network packets and holding bootstrap download, default 65536, 1 million for fast_bootstrap")
+			("block_processor_verification_size",boost::program_options::value<std::size_t> (), "Increase batch signature verification size in block processor, default 0 (limited by config signature_checker_threads), unlimited for fast_bootstrap");
 		nano::add_node_options (description);
+		// clang-format on
 		boost::program_options::variables_map vm;
-		boost::program_options::store (boost::program_options::command_line_parser (argc, argv).options (description).allow_unregistered ().run (), vm);
+		try
+		{
+			boost::program_options::store (boost::program_options::parse_command_line (argc, argv, description), vm);
+		}
+		catch (boost::program_options::error const & err)
+		{
+			show_error (err.what ());
+			return 1;
+		}
 		boost::program_options::notify (vm);
 		int result (0);
-
 		auto network (vm.find ("network"));
 		if (network != vm.end ())
 		{
 			auto err (nano::network_constants::set_active_network (network->second.as<std::string> ()));
 			if (err)
 			{
-				std::cerr << err.get_message () << std::endl;
+				show_error (err.get_message ());
 				std::exit (1);
 			}
 		}
@@ -278,7 +352,11 @@ int main (int argc, char * const * argv)
 		{
 			if (vm.count ("help") != 0)
 			{
-				std::cout << description << std::endl;
+				std::ostringstream outstream;
+				description.print (outstream);
+				std::string helpstring = outstream.str ();
+				show_help (helpstring);
+				return 1;
 			}
 			else
 			{
@@ -294,7 +372,14 @@ int main (int argc, char * const * argv)
 					{
 						data_path = nano::working_path ();
 					}
-					result = run_wallet (application, argc, argv, data_path, config_overrides);
+					nano::node_flags flags;
+					update_flags (flags, vm);
+					auto config (vm.find ("config"));
+					if (config != vm.end ())
+					{
+						flags.config_overrides = config->second.as<std::vector<std::string>> ();
+					}
+					result = run_wallet (application, argc, argv, data_path, config_overrides, flags);
 				}
 				catch (std::exception const & e)
 				{
@@ -310,11 +395,11 @@ int main (int argc, char * const * argv)
 	}
 	catch (std::exception const & e)
 	{
-		std::cerr << boost::str (boost::format ("Exception while initializing %1%") % e.what ());
+		show_error (boost::str (boost::format ("Exception while initializing %1%") % e.what ()));
 	}
 	catch (...)
 	{
-		std::cerr << boost::str (boost::format ("Unknown exception while initializing"));
+		show_error (boost::str (boost::format ("Unknown exception while initializing")));
 	}
 	return 1;
 }
