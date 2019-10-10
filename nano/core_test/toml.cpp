@@ -160,6 +160,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.lmdb_max_dbs, defaults.node.lmdb_max_dbs);
 	ASSERT_EQ (conf.node.max_work_generate_multiplier, defaults.node.max_work_generate_multiplier);
 	ASSERT_EQ (conf.node.network_threads, defaults.node.network_threads);
+	ASSERT_EQ (conf.node.secondary_work_peers, defaults.node.secondary_work_peers);
 	ASSERT_EQ (conf.node.work_watcher_period, defaults.node.work_watcher_period);
 	ASSERT_EQ (conf.node.online_weight_minimum, defaults.node.online_weight_minimum);
 	ASSERT_EQ (conf.node.online_weight_quorum, defaults.node.online_weight_quorum);
@@ -492,6 +493,9 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	num_memtables = 3
 	total_memtable_size = 0
 
+	[node.experimental]
+	secondary_work_peers = ["test.org:998"]
+
 	[opencl]
 	device = 999
 	enable = true
@@ -542,6 +546,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.max_work_generate_multiplier, defaults.node.max_work_generate_multiplier);
 	ASSERT_NE (conf.node.frontiers_confirmation, defaults.node.frontiers_confirmation);
 	ASSERT_NE (conf.node.network_threads, defaults.node.network_threads);
+	ASSERT_NE (conf.node.secondary_work_peers, defaults.node.secondary_work_peers);
 	ASSERT_NE (conf.node.work_watcher_period, defaults.node.work_watcher_period);
 	ASSERT_NE (conf.node.online_weight_minimum, defaults.node.online_weight_minimum);
 	ASSERT_NE (conf.node.online_weight_quorum, defaults.node.online_weight_quorum);
