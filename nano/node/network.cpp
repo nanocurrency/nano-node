@@ -331,7 +331,7 @@ void nano::network::broadcast_confirm_req_batched_many (std::unordered_map<std::
 		node.logger.try_log (boost::str (boost::format ("Broadcasting batch confirm req to %1% representatives") % request_bundle_a.size ()));
 	}
 
-	for (size_t count_l{ 0 }; !request_bundle_a.empty () && count_l < burst_size_l; ++count_l)
+	for (size_t count_l (0); !request_bundle_a.empty () && count_l < burst_size_l; ++count_l)
 	{
 		auto j (request_bundle_a.begin ());
 		while (j != request_bundle_a.end ())
