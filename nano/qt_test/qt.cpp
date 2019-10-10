@@ -510,7 +510,7 @@ TEST (wallet, startup_work)
 	auto wallet (std::make_shared<nano_qt::wallet> (*test_application, processor, *system.nodes[0], system.wallet (0), account));
 	wallet->start ();
 	QTest::mouseClick (wallet->show_advanced, Qt::LeftButton);
-	uint64_t work1;
+	nano::proof_of_work work1;
 	{
 		auto transaction (system.nodes[0]->wallets.tx_begin_read ());
 		ASSERT_TRUE (wallet->wallet_m->store.work_get (transaction, nano::test_genesis_key.pub, work1));
@@ -716,10 +716,10 @@ TEST (wallet, seed_work_generation)
 	auto pub (nano::pub_key (prv));
 	QTest::keyClicks (wallet->import.seed, seed.data.to_string ().c_str ());
 	QTest::keyClicks (wallet->import.clear_line, "clear keys");
-	uint64_t work (0);
+	nano::proof_of_work work (0);
 	QTest::mouseClick (wallet->import.import_seed, Qt::LeftButton);
 	system.deadline_set (10s);
-	while (work == 0)
+	while (work.is_empty ())
 	{
 		auto ec = system.poll ();
 		auto transaction (system.wallet (0)->wallets.tx_begin_read ());
