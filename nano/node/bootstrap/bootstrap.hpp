@@ -120,6 +120,7 @@ public:
 	std::atomic<unsigned> runs_count;
 	std::vector<std::pair<nano::block_hash, nano::block_hash>> bulk_push_targets;
 	std::atomic<bool> stopped;
+	std::chrono::steady_clock::time_point attempt_start{ std::chrono::steady_clock::now () };
 	nano::bootstrap_mode mode;
 	std::mutex mutex;
 	nano::condition_variable condition;

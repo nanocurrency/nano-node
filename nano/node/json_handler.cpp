@@ -1704,6 +1704,7 @@ void nano::json_handler::bootstrap_status ()
 		{
 			response_l.put ("lazy_key_1", (*(attempt->lazy_keys.begin ())).to_string ());
 		}
+		response_l.put ("duration", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt->attempt_start).count ());
 	}
 	else
 	{
