@@ -3,6 +3,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/gap_cache.hpp>
+#include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/circular_buffer.hpp>
@@ -94,7 +95,7 @@ public:
 	// Is the root of this block in the roots container
 	bool active (nano::block const &);
 	bool active (nano::qualified_root const &);
-	void update_difficulty (nano::block const &);
+	void update_difficulty (std::shared_ptr<nano::block>, boost::optional<nano::write_transaction const &> = boost::none);
 	void adjust_difficulty (nano::block_hash const &);
 	void update_active_difficulty (nano::unique_lock<std::mutex> &);
 	uint64_t active_difficulty ();
