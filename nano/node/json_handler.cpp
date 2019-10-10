@@ -2044,6 +2044,247 @@ void nano::json_handler::deterministic_key ()
 	response_errors ();
 }
 
+void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const & prv_a, nano::epoch epoch_a, uint64_t count_limit)
+{
+	uint64_t const upgrade_batch_size = 1000;
+	nano::block_builder builder;
+	auto link (node_a->ledger.epoch_link (epoch_a));
+	nano::raw_key raw_key;
+	raw_key.data = prv_a;
+	auto signer (nano::pub_key (prv_a));
+	assert (signer == node_a->ledger.epoch_signer (link));
+
+	class account_upgrade_item final
+	{
+	public:
+		nano::account account{ 0 };
+		uint64_t modified{ 0 };
+	};
+	class account_tag
+	{
+	};
+	class modified_tag
+	{
+	};
+	boost::multi_index_container<
+	account_upgrade_item,
+	boost::multi_index::indexed_by<
+	boost::multi_index::ordered_non_unique<boost::multi_index::tag<modified_tag>, boost::multi_index::member<account_upgrade_item, uint64_t, &account_upgrade_item::modified>, std::greater<uint64_t>>,
+	boost::multi_index::hashed_unique<boost::multi_index::tag<account_tag>, boost::multi_index::member<account_upgrade_item, nano::account, &account_upgrade_item::account>>>>
+	accounts_list;
+
+	bool finished_upgrade (false);
+
+	while (!finished_upgrade && !node_a->stopped)
+	{
+		bool finished_accounts (false);
+		uint64_t total_upgraded_accounts (0);
+		while (!finished_accounts && count_limit != 0 && !node_a->stopped)
+		{
+			{
+				auto transaction (node_a->store.tx_begin_read ());
+				// Collect accounts to upgrade
+				for (auto i (node_a->store.latest_begin (transaction)), n (node_a->store.latest_end ()); i != n; ++i)
+				{
+					nano::account const & account (i->first);
+					nano::account_info const & info (i->second);
+					if (info.epoch () < epoch_a)
+					{
+						release_assert (nano::epochs::is_sequential (info.epoch (), epoch_a));
+						accounts_list.insert (account_upgrade_item{ account, info.modified });
+					}
+				}
+			}
+
+			/* Upgrade accounts
+			Repeat until accounts with previous epoch exist in latest table */
+			uint64_t upgraded_accounts (0);
+			for (auto i (accounts_list.get<modified_tag> ().begin ()), n (accounts_list.get<modified_tag> ().end ()); i != n && upgraded_accounts < upgrade_batch_size && upgraded_accounts < count_limit && !node_a->stopped; ++i)
+			{
+				auto transaction (node_a->store.tx_begin_read ());
+				nano::account_info info;
+				if (!node_a->store.account_get (transaction, i->account, info) && info.epoch () < epoch_a)
+				{
+					auto epoch = builder.state ()
+					             .account (i->account)
+					             .previous (info.head)
+					             .representative (info.representative)
+					             .balance (info.balance)
+					             .link (link)
+					             .sign (raw_key, signer)
+					             .work (node_a->work_generate_blocking (info.head).value_or (0))
+					             .build ();
+					bool valid_signature (!nano::validate_message (signer, epoch->hash (), epoch->block_signature ()));
+					bool valid_work (!nano::work_validate (*epoch.get ()));
+					nano::process_result result (nano::process_result::old);
+					if (valid_signature && valid_work)
+					{
+						result = node_a->process_local (std::move (epoch)).code;
+					}
+					if (result == nano::process_result::progress)
+					{
+						++upgraded_accounts;
+					}
+					else
+					{
+						bool fork (result == nano::process_result::fork);
+						node_a->logger.always_log (boost::str (boost::format ("Failed to upgrade account %1%. Valid signature: %2%. Valid work: %3%. Block processor fork: %4%") % i->account.to_account () % valid_signature % valid_work % fork));
+					}
+				}
+			}
+			total_upgraded_accounts += upgraded_accounts;
+			count_limit -= upgraded_accounts;
+
+			if (!accounts_list.empty ())
+			{
+				node_a->logger.always_log (boost::str (boost::format ("%1% accounts were upgraded to new epoch, %2% remain...") % total_upgraded_accounts % (accounts_list.size () - upgraded_accounts)));
+				accounts_list.clear ();
+			}
+			else
+			{
+				node_a->logger.always_log (boost::str (boost::format ("%1% total accounts were upgraded to new epoch") % total_upgraded_accounts));
+				finished_accounts = true;
+			}
+		}
+
+		// Pending blocks upgrade
+		bool finished_pending (false);
+		uint64_t total_upgraded_pending (0);
+		while (!finished_pending && count_limit != 0 && !node_a->stopped)
+		{
+			uint64_t upgraded_pending (0);
+			auto transaction (node_a->store.tx_begin_read ());
+			for (auto i (node_a->store.pending_begin (transaction, nano::pending_key (1, 0))), n (node_a->store.pending_end ()); i != n && upgraded_pending < upgrade_batch_size && upgraded_pending < count_limit && !node_a->stopped;)
+			{
+				bool to_next_account (false);
+				nano::pending_key const & key (i->first);
+				if (!node_a->store.account_exists (transaction, key.account))
+				{
+					nano::pending_info const & info (i->second);
+					if (info.epoch < epoch_a)
+					{
+						release_assert (nano::epochs::is_sequential (info.epoch, epoch_a));
+						auto epoch = builder.state ()
+						             .account (key.account)
+						             .previous (0)
+						             .representative (0)
+						             .balance (0)
+						             .link (link)
+						             .sign (raw_key, signer)
+						             .work (node_a->work_generate_blocking (key.account).value_or (0))
+						             .build ();
+						bool valid_signature (!nano::validate_message (signer, epoch->hash (), epoch->block_signature ()));
+						bool valid_work (!nano::work_validate (*epoch.get ()));
+						nano::process_result result (nano::process_result::old);
+						if (valid_signature && valid_work)
+						{
+							result = node_a->process_local (std::move (epoch)).code;
+						}
+						if (result == nano::process_result::progress)
+						{
+							++upgraded_pending;
+							to_next_account = true;
+						}
+						else
+						{
+							bool fork (result == nano::process_result::fork);
+							node_a->logger.always_log (boost::str (boost::format ("Failed to upgrade account with pending blocks %1%. Valid signature: %2%. Valid work: %3%. Block processor fork: %4%") % key.account.to_account () % valid_signature % valid_work % fork));
+						}
+					}
+				}
+				else
+				{
+					to_next_account = true;
+				}
+				if (to_next_account)
+				{
+					// Move to next account if pending account exists or was upgraded
+					if (key.account.number () == std::numeric_limits<nano::uint256_t>::max ())
+					{
+						break;
+					}
+					else
+					{
+						i = node_a->store.pending_begin (transaction, nano::pending_key (key.account.number () + 1, 0));
+					}
+				}
+				else
+				{
+					// Move to next pending item
+					++i;
+				}
+			}
+			total_upgraded_pending += upgraded_pending;
+			count_limit -= upgraded_pending;
+
+			// Repeat if some pending accounts were upgraded
+			if (upgraded_pending != 0)
+			{
+				node_a->logger.always_log (boost::str (boost::format ("%1% unopened accounts with pending blocks were upgraded to new epoch...") % total_upgraded_pending));
+			}
+			else
+			{
+				node_a->logger.always_log (boost::str (boost::format ("%1% total unopened accounts with pending blocks were upgraded to new epoch") % total_upgraded_pending));
+				finished_pending = true;
+			}
+		}
+
+		finished_upgrade = (total_upgraded_accounts == 0) && (total_upgraded_pending == 0);
+	}
+
+	node_a->logger.always_log ("Epoch upgrade is completed");
+}
+
+/*
+ * @warning This is an internal/diagnostic RPC, do not rely on its interface being stable
+ */
+void nano::json_handler::epoch_upgrade ()
+{
+	nano::epoch epoch (nano::epoch::invalid);
+	uint8_t epoch_int (request.get<uint8_t> ("epoch"));
+	switch (epoch_int)
+	{
+		case 1:
+			epoch = nano::epoch::epoch_1;
+			break;
+		case 2:
+			epoch = nano::epoch::epoch_2;
+			break;
+		default:
+			break;
+	}
+	if (epoch != nano::epoch::invalid)
+	{
+		uint64_t count_limit (count_optional_impl ());
+		std::string key_text (request.get<std::string> ("key"));
+		nano::private_key prv;
+		if (!prv.decode_hex (key_text))
+		{
+			if (nano::pub_key (prv) == node.ledger.epoch_signer (node.ledger.epoch_link (epoch)))
+			{
+				auto node_l (node.shared ());
+				node.worker.push_task ([node_l, prv, epoch, count_limit]() {
+					epoch_upgrader (node_l, prv, epoch, count_limit);
+				});
+				response_l.put ("started", "1");
+			}
+			else
+			{
+				ec = nano::error_rpc::invalid_epoch_signer;
+			}
+		}
+		else
+		{
+			ec = nano::error_common::bad_private_key;
+		}
+	}
+	else
+	{
+		ec = nano::error_rpc::invalid_epoch;
+	}
+	response_errors ();
+}
+
 void nano::json_handler::frontiers ()
 {
 	auto start (account_impl ());
@@ -2193,7 +2434,7 @@ public:
 				if (raw && accounts_filter.empty ())
 				{
 					tree.put ("subtype", "epoch");
-					tree.put ("account", handler.node.ledger.signer (block_a.link ()).to_account ());
+					tree.put ("account", handler.node.ledger.epoch_signer (block_a.link ()).to_account ());
 				}
 			}
 			else
@@ -4514,7 +4755,7 @@ void nano::json_handler::work_generate ()
 		}
 		if (!ec)
 		{
-			bool use_peers (request.get_optional<bool> ("use_peers") == true);
+			auto use_peers (request.get<bool> ("use_peers", false));
 			auto rpc_l (shared_from_this ());
 			auto callback = [rpc_l, hash, this](boost::optional<uint64_t> const & work_a) {
 				if (work_a)
@@ -4550,9 +4791,11 @@ void nano::json_handler::work_generate ()
 			}
 			else
 			{
-				if (node.work_generation_enabled ())
+				auto secondary_work_peers_l (request.get<bool> ("secondary_work_peers", false));
+				auto const & peers_l (secondary_work_peers_l ? node.config.secondary_work_peers : node.config.work_peers);
+				if (node.work_generation_enabled (peers_l))
 				{
-					node.work_generate (hash, callback, difficulty, account);
+					node.work_generate (hash, callback, difficulty, account, secondary_work_peers_l);
 				}
 				else
 				{
@@ -4747,6 +4990,7 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("delegators", &nano::json_handler::delegators);
 	no_arg_funcs.emplace ("delegators_count", &nano::json_handler::delegators_count);
 	no_arg_funcs.emplace ("deterministic_key", &nano::json_handler::deterministic_key);
+	no_arg_funcs.emplace ("epoch_upgrade", &nano::json_handler::epoch_upgrade);
 	no_arg_funcs.emplace ("frontiers", &nano::json_handler::frontiers);
 	no_arg_funcs.emplace ("frontier_count", &nano::json_handler::account_count);
 	no_arg_funcs.emplace ("keepalive", &nano::json_handler::keepalive);

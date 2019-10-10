@@ -571,7 +571,7 @@ public:
 			else if (balance == previous_balance && ledger.is_epoch_link (block_a.hashables.link))
 			{
 				type = "Epoch";
-				account = ledger.signer (block_a.hashables.link);
+				account = ledger.epoch_signer (block_a.hashables.link);
 			}
 			else
 			{

@@ -450,7 +450,8 @@ int main (int argc, char * const * argv)
 						if (!error)
 						{
 							nano::logger_mt logger;
-							auto opencl (nano::opencl_work::create (true, { platform, device, threads }, logger));
+							nano::opencl_config config (platform, device, threads);
+							auto opencl (nano::opencl_work::create (true, config, logger));
 							nano::work_pool work_pool (std::numeric_limits<unsigned>::max (), std::chrono::nanoseconds (0), opencl ? [&opencl](nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
 								return opencl->generate_work (root_a, difficulty_a);
 							}
@@ -886,7 +887,7 @@ int main (int argc, char * const * argv)
 							}
 							if (node.node->ledger.is_epoch_link (state_block.hashables.link) && state_block.hashables.balance == prev_balance)
 							{
-								invalid = validate_message (node.node->ledger.signer (block->link ()), hash, block->block_signature ());
+								invalid = validate_message (node.node->ledger.epoch_signer (block->link ()), hash, block->block_signature ());
 							}
 						}
 						if (invalid)

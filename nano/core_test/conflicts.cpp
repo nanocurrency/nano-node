@@ -241,8 +241,8 @@ TEST (conflicts, adjusted_difficulty)
 	node1.process_active (send3);
 	auto send4 (std::make_shared<nano::state_block> (key1.pub, send3->hash (), key1.pub, 0, key3.pub, key1.prv, key1.pub, *system.work.generate (send3->hash ())));
 	node1.process_active (send4);
-	ASSERT_EQ (node1.ledger.signer (node1.ledger.link (nano::epoch::epoch_1)), nano::test_genesis_key.pub);
-	auto open_epoch1 (std::make_shared<nano::state_block> (key2.pub, 0, 0, 0, node1.ledger.link (nano::epoch::epoch_1), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (key2.pub)));
+	ASSERT_EQ (node1.ledger.epoch_signer (node1.ledger.epoch_link (nano::epoch::epoch_1)), nano::test_genesis_key.pub);
+	auto open_epoch1 (std::make_shared<nano::state_block> (key2.pub, 0, 0, 0, node1.ledger.epoch_link (nano::epoch::epoch_1), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (key2.pub)));
 	node1.process_active (open_epoch1);
 	auto receive2 (std::make_shared<nano::state_block> (key2.pub, open_epoch1->hash (), 0, nano::xrb_ratio, send3->hash (), key2.prv, key2.pub, *system.work.generate (open_epoch1->hash ())));
 	node1.process_active (receive2);
@@ -280,7 +280,7 @@ TEST (conflicts, adjusted_difficulty)
 	ASSERT_GT (adjusted_difficulties.find (open2->hash ())->second, adjusted_difficulties.find (change1->hash ())->second);
 	// Independent elections can have higher difficulty than adjusted tree
 	nano::keypair key4;
-	auto open_epoch2 (std::make_shared<nano::state_block> (key4.pub, 0, 0, 0, node1.ledger.link (nano::epoch::epoch_1), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (key4.pub, adjusted_difficulties.find (send1->hash ())->second)));
+	auto open_epoch2 (std::make_shared<nano::state_block> (key4.pub, 0, 0, 0, node1.ledger.epoch_link (nano::epoch::epoch_1), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (key4.pub, adjusted_difficulties.find (send1->hash ())->second)));
 	uint64_t difficulty;
 	ASSERT_FALSE (nano::work_validate (*open_epoch2, &difficulty));
 	ASSERT_GT (difficulty, adjusted_difficulties.find (send1->hash ())->second);

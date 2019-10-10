@@ -125,11 +125,12 @@ public:
 	int price (nano::uint128_t const &, int);
 	bool local_work_generation_enabled () const;
 	bool work_generation_enabled () const;
+	bool work_generation_enabled (std::vector<std::pair<std::string, uint16_t>> const &) const;
 	boost::optional<uint64_t> work_generate_blocking (nano::block &, uint64_t);
 	boost::optional<uint64_t> work_generate_blocking (nano::block &);
 	boost::optional<uint64_t> work_generate_blocking (nano::root const &, uint64_t, boost::optional<nano::account> const & = boost::none);
 	boost::optional<uint64_t> work_generate_blocking (nano::root const &, boost::optional<nano::account> const & = boost::none);
-	void work_generate (nano::root const &, std::function<void(boost::optional<uint64_t>)>, uint64_t, boost::optional<nano::account> const & = boost::none);
+	void work_generate (nano::root const &, std::function<void(boost::optional<uint64_t>)>, uint64_t, boost::optional<nano::account> const & = boost::none, bool const = false);
 	void work_generate (nano::root const &, std::function<void(boost::optional<uint64_t>)>, boost::optional<nano::account> const & = boost::none);
 	void add_initial_peers ();
 	void block_confirm (std::shared_ptr<nano::block>);

@@ -83,14 +83,14 @@ TEST (work, opencl)
 	ASSERT_FALSE (error);
 	if (!environment.platforms.empty () && !environment.platforms.begin ()->devices.empty ())
 	{
-		auto opencl (nano::opencl_work::create (true, { 0, 0, 16 * 1024 }, logger));
+		nano::opencl_config config (0, 0, 16 * 1024);
+		auto opencl (nano::opencl_work::create (true, config, logger));
 		if (opencl != nullptr)
 		{
 			// 0 threads, should add 1 for managing OpenCL
-			nano::work_pool pool (0, std::chrono::nanoseconds (0), opencl ? [&opencl](nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> & ticket_a) {
+			nano::work_pool pool (0, std::chrono::nanoseconds (0), [&opencl](nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> & ticket_a) {
 				return opencl->generate_work (root_a, difficulty_a);
-			}
-			                                                              : std::function<boost::optional<uint64_t> (nano::root const &, uint64_t, std::atomic<int> & ticket_a)> (nullptr));
+			});
 			ASSERT_NE (nullptr, pool.opencl);
 			nano::root root;
 			uint64_t difficulty (0xff00000000000000);

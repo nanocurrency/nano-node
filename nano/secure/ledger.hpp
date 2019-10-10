@@ -43,8 +43,8 @@ public:
 	void dump_account_chain (nano::account const &);
 	bool could_fit (nano::transaction const &, nano::block const &);
 	bool is_epoch_link (nano::link const &);
-	nano::account const & signer (nano::link const &) const;
-	nano::link const & link (nano::epoch) const;
+	nano::account const & epoch_signer (nano::link const &) const;
+	nano::link const & epoch_link (nano::epoch) const;
 	static nano::uint128_t const unit;
 	nano::network_params network_params;
 	nano::block_store & store;

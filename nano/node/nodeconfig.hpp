@@ -45,6 +45,7 @@ public:
 	uint16_t peering_port{ 0 };
 	nano::logging logging;
 	std::vector<std::pair<std::string, uint16_t>> work_peers;
+	std::vector<std::pair<std::string, uint16_t>> secondary_work_peers{ { "127.0.0.1", 8076 } }; /* Default of nano-pow-server */
 	std::vector<std::string> preconfigured_peers;
 	std::vector<nano::account> preconfigured_representatives;
 	unsigned bootstrap_fraction_numerator{ 1 };
@@ -93,10 +94,12 @@ public:
 	double max_work_generate_multiplier{ 64. };
 	uint64_t max_work_generate_difficulty{ nano::network_constants::publish_full_threshold };
 	nano::rocksdb_config rocksdb_config;
-
 	nano::frontiers_confirmation_mode frontiers_confirmation{ nano::frontiers_confirmation_mode::automatic };
 	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;
 	nano::frontiers_confirmation_mode deserialize_frontiers_confirmation (std::string const &);
+	/** Entry is ignored if it cannot be parsed as a valid address:port */
+	void deserialize_address (std::string const &, std::vector<std::pair<std::string, uint16_t>> &) const;
+
 	static unsigned json_version ()
 	{
 		return 18;
