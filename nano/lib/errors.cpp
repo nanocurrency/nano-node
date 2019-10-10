@@ -170,6 +170,10 @@ std::string nano::error_rpc_messages::message (int ev) const
 			return "Invalid balance number";
 		case nano::error_rpc::invalid_destinations:
 			return "Invalid destinations number";
+		case nano::error_rpc::invalid_epoch:
+			return "Invalid epoch number";
+		case nano::error_rpc::invalid_epoch_signer:
+			return "Incorrect epoch signer";
 		case nano::error_rpc::invalid_offset:
 			return "Invalid offset";
 		case nano::error_rpc::invalid_missing_type:

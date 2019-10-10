@@ -1302,7 +1302,7 @@ bool nano::node::validate_block_by_previous (nano::transaction const & transacti
 		{
 			if (block_l->hashables.balance == prev_balance && ledger.is_epoch_link (block_l->hashables.link))
 			{
-				account = ledger.signer (block_l->link ());
+				account = ledger.epoch_signer (block_l->link ());
 			}
 		}
 	}
