@@ -333,7 +333,8 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	// Batched confirmation requests
 	if (!batched_confirm_req_bundle_l.empty ())
 	{
-		node.network.broadcast_confirm_req_batched_many (batched_confirm_req_bundle_l, [this]() {
+		node.network.broadcast_confirm_req_batched_many (
+		batched_confirm_req_bundle_l, [this]() {
 			{
 				nano::lock_guard<std::mutex> guard_l (this->mutex);
 				--this->ongoing_broadcasts;

@@ -499,8 +499,15 @@ TEST (active_transactions, inactive_votes_cache_multiple_votes)
 	auto vote2 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, std::vector<nano::block_hash> (1, send1->hash ())));
 	system.nodes[0]->vote_processor.vote (vote2, std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, system.nodes[0]->network.endpoint (), system.nodes[0]->network_params.protocol.protocol_version));
 	system.deadline_set (5s);
-	while (system.nodes[0]->active.find_inactive_votes_cache (send1->hash ()).voters.size () != 2)
+	while (true)
 	{
+		{
+			nano::lock_guard<std::mutex> active_guard (system.nodes[0]->active.mutex);
+			if (system.nodes[0]->active.find_inactive_votes_cache (send1->hash ()).voters.size () == 2)
+			{
+				break;
+			}
+		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (1, system.nodes[0]->active.inactive_votes_cache_size ());
