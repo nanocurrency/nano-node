@@ -653,7 +653,10 @@ void nano::node::start ()
 	}
 	else if (!flags.disable_unchecked_cleanup)
 	{
-		ongoing_unchecked_cleanup ();
+		auto this_l (shared ());
+		worker.push_task ([this_l]() {
+			this_l->ongoing_unchecked_cleanup ();
+		});
 	}
 	ongoing_store_flush ();
 	rep_crawler.start ();
@@ -903,7 +906,7 @@ void nano::node::unchecked_cleanup ()
 		auto now (nano::seconds_since_epoch ());
 		auto transaction (store.tx_begin_read ());
 		// Max 128k records to clean, max 2 minutes reading to prevent slow i/o systems start issues
-		for (auto i (store.unchecked_begin (transaction)), n (store.unchecked_end ()); i != n && cleaning_list.size () < 128 * 1024 && nano::seconds_since_epoch () - now < 120; ++i)
+		for (auto i (store.unchecked_begin (transaction)), n (store.unchecked_end ()); i != n && cleaning_list.size () < 512 * 1024 && nano::seconds_since_epoch () - now < 120; ++i)
 		{
 			nano::unchecked_key const & key (i->first);
 			nano::unchecked_info const & info (i->second);
@@ -933,10 +936,7 @@ void nano::node::unchecked_cleanup ()
 
 void nano::node::ongoing_unchecked_cleanup ()
 {
-	if (!bootstrap_initiator.in_progress ())
-	{
-		unchecked_cleanup ();
-	}
+	unchecked_cleanup ();
 	auto this_l (shared ());
 	alarm.add (std::chrono::steady_clock::now () + network_params.node.unchecked_cleaning_interval, [this_l]() {
 		this_l->worker.push_task ([this_l]() {

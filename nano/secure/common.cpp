@@ -122,7 +122,7 @@ nano::node_constants::node_constants (nano::network_constants & network_constant
 	backup_interval = std::chrono::minutes (5);
 	search_pending_interval = network_constants.is_test_network () ? std::chrono::seconds (1) : std::chrono::seconds (5 * 60);
 	peer_interval = search_pending_interval;
-	unchecked_cleaning_interval = std::chrono::hours (2);
+	unchecked_cleaning_interval = std::chrono::minutes (30);
 	process_confirmed_interval = network_constants.is_test_network () ? std::chrono::milliseconds (50) : std::chrono::milliseconds (500);
 	max_weight_samples = network_constants.is_live_network () ? 4032 : 864;
 	weight_period = 5 * 60; // 5 minutes
