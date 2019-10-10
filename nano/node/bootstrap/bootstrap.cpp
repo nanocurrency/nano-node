@@ -555,6 +555,12 @@ void nano::bootstrap_attempt::requeue_pull (nano::pull_info const & pull_a)
 		node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_failed_account, nano::stat::dir::in);
 
 		node->bootstrap_initiator.cache.add (pull);
+		if (mode == nano::bootstrap_mode::lazy && pull.processed > 0)
+		{
+			assert (pull.account_or_head == pull.head);
+			nano::lock_guard<std::mutex> lazy_lock (lazy_mutex);
+			lazy_add (pull.account_or_head, pull.confirmed_head);
+		}
 	}
 }
 
@@ -906,6 +912,7 @@ void nano::bootstrap_attempt::lazy_backlog_cleanup ()
 		}
 		else
 		{
+			lazy_add (it->first, it->second.confirmed);
 			++it;
 		}
 	}
