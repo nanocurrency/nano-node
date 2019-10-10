@@ -160,7 +160,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 
 	lock_a.unlock ();
 
-	/**
+	/*
 	 * Confirm frontiers when there aren't many confirmations already pending and node finished initial bootstrap
 	 * In auto mode start confirm only if node contains almost principal representative (half of required for principal weight)
 	 */
@@ -189,7 +189,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	auto & sorted_roots_l = roots.get<1> ();
 	size_t count_l{ 0 };
 
-	/**
+	/*
 	 * Loop through active elections in descending order of proof-of-work difficulty, requesting confirmation
 	 *
 	 * Only up to a certain amount of elections are queued for confirmation request and block rebroadcasting. The remaining elections can still be confirmed if votes arrive
