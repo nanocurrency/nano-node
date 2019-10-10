@@ -905,7 +905,7 @@ void nano::node::unchecked_cleanup ()
 	{
 		auto now (nano::seconds_since_epoch ());
 		auto transaction (store.tx_begin_read ());
-		// Max 128k records to clean, max 2 minutes reading to prevent slow i/o systems start issues
+		// Max 1M records to clean, max 2 minutes reading to prevent slow i/o systems issues
 		for (auto i (store.unchecked_begin (transaction)), n (store.unchecked_end ()); i != n && cleaning_list.size () < 1024 * 1024 && nano::seconds_since_epoch () - now < 120; ++i)
 		{
 			nano::unchecked_key const & key (i->first);
