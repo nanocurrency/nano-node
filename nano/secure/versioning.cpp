@@ -1,8 +1,8 @@
 #include <nano/secure/versioning.hpp>
 
-#include <lmdb/libraries/liblmdb/lmdb.h>
-
 #include <boost/endian/conversion.hpp>
+
+#include <lmdb/libraries/liblmdb/lmdb.h>
 
 nano::account_info_v1::account_info_v1 (MDB_val const & val_a)
 {
