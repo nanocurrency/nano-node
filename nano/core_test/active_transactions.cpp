@@ -575,7 +575,9 @@ TEST (active_transactions, restart_dropped)
 	auto & node = *system.add_node (node_config);
 	nano::genesis genesis;
 	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::xrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	// Process only in ledger and emulate dropping the election
 	ASSERT_EQ (nano::process_result::progress, node.process (*send1).code);
+	node.active.add_dropped_elections_cache (send1->qualified_root ());
 	uint64_t difficulty1 (0);
 	nano::work_validate (*send1, &difficulty1);
 	// Generate higher difficulty work

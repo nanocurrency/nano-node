@@ -77,6 +77,13 @@ public:
 	nano::qualified_root root;
 };
 
+class dropped_election final
+{
+public:
+	std::chrono::steady_clock::time_point time;
+	nano::qualified_root root;
+};
+
 // Core class for determining consensus
 // Holds all active blocks i.e. recently added blocks that need confirmation
 class active_transactions final
@@ -141,6 +148,9 @@ public:
 	size_t inactive_votes_cache_size ();
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> pending_conf_height;
 	void clear_block (nano::block_hash const & hash_a);
+	void add_dropped_elections_cache (nano::qualified_root const &);
+	std::chrono::steady_clock::time_point find_dropped_elections_cache (nano::qualified_root const &);
+	size_t dropped_elections_cache_size ();
 
 private:
 	// Call action with confirmed block, may be different than what we started with
@@ -186,6 +196,13 @@ private:
 	boost::multi_index::hashed_unique<boost::multi_index::member<gap_information, nano::block_hash, &gap_information::hash>>>>
 	inactive_votes_cache;
 	static size_t constexpr inactive_votes_cache_max{ 16 * 1024 };
+	boost::multi_index_container<
+	nano::dropped_election,
+	boost::multi_index::indexed_by<
+	boost::multi_index::ordered_non_unique<boost::multi_index::member<dropped_election, std::chrono::steady_clock::time_point, &dropped_election::time>>,
+	boost::multi_index::hashed_unique<boost::multi_index::member<dropped_election, nano::qualified_root, &dropped_election::root>>>>
+	dropped_elections_cache;
+	static size_t constexpr dropped_elections_cache_max{ 32 * 1024 };
 	boost::thread thread;
 
 	friend class confirmation_height_prioritize_frontiers_Test;
