@@ -285,7 +285,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 				}
 			}
 			// Confirmation requesting
-			else
+			else if (election_l->confirmation_request_count % 4 == 0)
 			{
 				std::unordered_set<std::shared_ptr<nano::transport::channel>> rep_channels_missing_vote_l;
 				// Add all rep endpoints that haven't already voted
@@ -314,7 +314,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 					single_confirm_req_bundle_l.push_back (std::make_pair (election_l->status.winner, vec));
 				}
 				// Alternate elections getting confirmation requests every loop
-				else if (election_l->confirmation_request_count % 4 == 0)
+				else
 				{
 					auto single_confirm_req_channels_l (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> ());
 					for (auto & rep : rep_channels_missing_vote_l)
