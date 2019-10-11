@@ -730,7 +730,7 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 						add (block_a);
 					}
 				}
-			}		
+			}
 		}
 	}
 }
