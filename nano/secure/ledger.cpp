@@ -211,7 +211,7 @@ bool ledger_processor::validate_epoch_block (nano::state_block const & block_a)
 			if (validate_message (block_a.hashables.account, block_a.hash (), block_a.signature))
 			{
 				// Is epoch block signed correctly
-				if (validate_message (ledger.signer (block_a.link ()), block_a.hash (), block_a.signature))
+				if (validate_message (ledger.epoch_signer (block_a.link ()), block_a.hash (), block_a.signature))
 				{
 					result.verified = nano::signature_verification::invalid;
 					result.code = nano::process_result::bad_signature;
@@ -378,11 +378,11 @@ void ledger_processor::epoch_block_impl (nano::state_block const & block_a)
 		// Validate block if not verified outside of ledger
 		if (result.verified != nano::signature_verification::valid_epoch)
 		{
-			result.code = validate_message (ledger.signer (block_a.hashables.link), hash, block_a.signature) ? nano::process_result::bad_signature : nano::process_result::progress; // Is this block signed correctly (Unambiguous)
+			result.code = validate_message (ledger.epoch_signer (block_a.hashables.link), hash, block_a.signature) ? nano::process_result::bad_signature : nano::process_result::progress; // Is this block signed correctly (Unambiguous)
 		}
 		if (result.code == nano::process_result::progress)
 		{
-			assert (!validate_message (ledger.signer (block_a.hashables.link), hash, block_a.signature));
+			assert (!validate_message (ledger.epoch_signer (block_a.hashables.link), hash, block_a.signature));
 			result.verified = nano::signature_verification::valid_epoch;
 			result.code = block_a.hashables.account.is_zero () ? nano::process_result::opened_burn_account : nano::process_result::progress; // Is this for the burn account? (Unambiguous)
 			if (result.code == nano::process_result::progress)
@@ -1021,12 +1021,12 @@ bool nano::ledger::is_epoch_link (nano::link const & link_a)
 	return network_params.ledger.epochs.is_epoch_link (link_a);
 }
 
-nano::account const & nano::ledger::signer (nano::link const & link_a) const
+nano::account const & nano::ledger::epoch_signer (nano::link const & link_a) const
 {
 	return network_params.ledger.epochs.signer (network_params.ledger.epochs.epoch (link_a));
 }
 
-nano::link const & nano::ledger::link (nano::epoch epoch_a) const
+nano::link const & nano::ledger::epoch_link (nano::epoch epoch_a) const
 {
 	return network_params.ledger.epochs.link (epoch_a);
 }

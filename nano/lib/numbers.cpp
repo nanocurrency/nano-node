@@ -915,8 +915,19 @@ std::string nano::to_string (double const value_a, int const precision_a)
 uint64_t nano::difficulty::from_multiplier (double const multiplier_a, uint64_t const base_difficulty_a)
 {
 	assert (multiplier_a > 0.);
-	uint64_t reverse_difficulty (static_cast<uint64_t> ((-base_difficulty_a) / multiplier_a));
-	return (reverse_difficulty != 0 || base_difficulty_a == 0 || multiplier_a < 1. ? -reverse_difficulty : std::numeric_limits<std::uint64_t>::max ());
+	nano::uint128_t reverse_difficulty ((-base_difficulty_a) / multiplier_a);
+	if (reverse_difficulty > std::numeric_limits<std::uint64_t>::max ())
+	{
+		return 0;
+	}
+	else if (reverse_difficulty != 0 || base_difficulty_a == 0 || multiplier_a < 1.)
+	{
+		return -(static_cast<uint64_t> (reverse_difficulty));
+	}
+	else
+	{
+		return std::numeric_limits<std::uint64_t>::max ();
+	}
 }
 
 double nano::difficulty::to_multiplier (uint64_t const difficulty_a, uint64_t const base_difficulty_a)

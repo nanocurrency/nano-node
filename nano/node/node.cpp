@@ -557,7 +557,7 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 		if (ledger_block && !block_confirmed_or_being_confirmed (transaction_a, ledger_block->hash ()))
 		{
 			std::weak_ptr<nano::node> this_w (shared_from_this ());
-			if (!active.start (ledger_block, [this_w, root](std::shared_ptr<nano::block>) {
+			if (!active.start (ledger_block, false, [this_w, root](std::shared_ptr<nano::block>) {
 				    if (auto this_l = this_w.lock ())
 				    {
 					    auto attempt (this_l->bootstrap_initiator.current_attempt ());
@@ -612,6 +612,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (node & node, const
 	composite->add_component (collect_seq_con_info (node.confirmation_height_processor, "confirmation_height_processor"));
 	composite->add_component (collect_seq_con_info (node.pending_confirmation_height, "pending_confirmation_height"));
 	composite->add_component (collect_seq_con_info (node.worker, "worker"));
+	composite->add_component (collect_seq_con_info (node.distributed_work, "distributed_work"));
 	return composite;
 }
 }
@@ -676,7 +677,7 @@ void nano::node::start ()
 			this_l->bootstrap_wallet ();
 		});
 	}
-	if (config.external_address != boost::asio::ip::address_v6{} && config.external_port != 0)
+	if (config.external_address == boost::asio::ip::address_v6{}.any ())
 	{
 		port_mapping.start ();
 	}
@@ -967,7 +968,12 @@ bool nano::node::local_work_generation_enabled () const
 
 bool nano::node::work_generation_enabled () const
 {
-	return !config.work_peers.empty () || local_work_generation_enabled ();
+	return work_generation_enabled (config.work_peers);
+}
+
+bool nano::node::work_generation_enabled (std::vector<std::pair<std::string, uint16_t>> const & peers_a) const
+{
+	return !peers_a.empty () || local_work_generation_enabled ();
 }
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a)
@@ -990,9 +996,10 @@ void nano::node::work_generate (nano::root const & root_a, std::function<void(bo
 	work_generate (root_a, callback_a, network_params.network.publish_threshold, account_a);
 }
 
-void nano::node::work_generate (nano::root const & root_a, std::function<void(boost::optional<uint64_t>)> callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
+void nano::node::work_generate (nano::root const & root_a, std::function<void(boost::optional<uint64_t>)> callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a, bool secondary_work_peers_a)
 {
-	distributed_work.make (root_a, callback_a, difficulty_a, account_a);
+	auto const & peers_l (secondary_work_peers_a ? config.secondary_work_peers : config.work_peers);
+	distributed_work.make (root_a, peers_l, callback_a, difficulty_a, account_a);
 }
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a, boost::optional<nano::account> const & account_a)
@@ -1035,7 +1042,7 @@ void nano::node::add_initial_peers ()
 
 void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 {
-	active.start (block_a);
+	active.start (block_a, false);
 	network.broadcast_confirm_req (block_a);
 	// Calculate votes for local representatives
 	if (config.enable_voting && active.active (*block_a))
@@ -1295,7 +1302,7 @@ bool nano::node::validate_block_by_previous (nano::transaction const & transacti
 		{
 			if (block_l->hashables.balance == prev_balance && ledger.is_epoch_link (block_l->hashables.link))
 			{
-				account = ledger.signer (block_l->link ());
+				account = ledger.epoch_signer (block_l->link ());
 			}
 		}
 	}

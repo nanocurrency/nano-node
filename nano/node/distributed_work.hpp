@@ -38,7 +38,7 @@ public:
 class distributed_work final : public std::enable_shared_from_this<nano::distributed_work>
 {
 public:
-	distributed_work (unsigned int, nano::node &, nano::root const &, std::function<void(boost::optional<uint64_t>)> const &, uint64_t, boost::optional<nano::account> const & = boost::none);
+	distributed_work (nano::node &, nano::root const &, std::vector<std::pair<std::string, uint16_t>> const & peers_a, unsigned int, std::function<void(boost::optional<uint64_t>)> const &, uint64_t, boost::optional<nano::account> const & = boost::none);
 	~distributed_work ();
 	void start ();
 	void start_work ();
@@ -60,6 +60,7 @@ public:
 	std::mutex mutex;
 	std::map<boost::asio::ip::address, uint16_t> outstanding;
 	std::vector<std::weak_ptr<nano::work_peer_request>> connections;
+	std::vector<std::pair<std::string, uint16_t>> const peers;
 	std::vector<std::pair<std::string, uint16_t>> need_resolve;
 	uint64_t difficulty;
 	uint64_t work_result{ 0 };
@@ -76,13 +77,16 @@ class distributed_work_factory final
 {
 public:
 	distributed_work_factory (nano::node &);
-	void make (nano::root const &, std::function<void(boost::optional<uint64_t>)> const &, uint64_t, boost::optional<nano::account> const & = boost::none);
-	void make (unsigned int, nano::root const &, std::function<void(boost::optional<uint64_t>)> const &, uint64_t, boost::optional<nano::account> const & = boost::none);
+	void make (nano::root const &, std::vector<std::pair<std::string, uint16_t>> const &, std::function<void(boost::optional<uint64_t>)> const &, uint64_t, boost::optional<nano::account> const & = boost::none);
+	void make (unsigned int, nano::root const &, std::vector<std::pair<std::string, uint16_t>> const &, std::function<void(boost::optional<uint64_t>)> const &, uint64_t, boost::optional<nano::account> const & = boost::none);
 	void cancel (nano::root const &, bool const local_stop = false);
 	void cleanup_finished ();
 
-	std::unordered_map<nano::root, std::vector<std::weak_ptr<nano::distributed_work>>> work;
-	std::mutex mutex;
 	nano::node & node;
+	std::unordered_map<nano::root, std::vector<std::weak_ptr<nano::distributed_work>>> items;
+	std::mutex mutex;
 };
+
+class seq_con_info_component;
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (distributed_work_factory & distributed_work, const std::string & name);
 }

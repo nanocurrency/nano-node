@@ -116,6 +116,16 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	{
 		preconfigured_representatives_l->push_back (i->to_account ());
 	}
+
+	/** Experimental node entries */
+	nano::tomlconfig experimental_l;
+	auto secondary_work_peers_l (experimental_l.create_array ("secondary_work_peers", "A list of \"address:port\" entries to identify work peers for secondary work generation"));
+	for (auto i (secondary_work_peers.begin ()), n (secondary_work_peers.end ()); i != n; ++i)
+	{
+		secondary_work_peers_l->push_back (boost::str (boost::format ("%1%:%2%") % i->first % i->second));
+	}
+	toml.put_child ("experimental", experimental_l);
+
 	nano::tomlconfig callback_l;
 	callback_l.put ("address", callback_address, "Callback address\ntype:string,ip");
 	callback_l.put ("port", callback_port, "Callback port number\ntype:uint16");
@@ -200,20 +210,8 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		if (toml.has_key ("work_peers"))
 		{
 			work_peers.clear ();
-			toml.array_entries_required<std::string> ("work_peers", [this](std::string const & entry) {
-				auto port_position (entry.rfind (':'));
-				bool result = port_position == -1;
-				if (!result)
-				{
-					auto port_str (entry.substr (port_position + 1));
-					uint16_t port;
-					result |= parse_port (port_str, port);
-					if (!result)
-					{
-						auto address (entry.substr (0, port_position));
-						this->work_peers.emplace_back (address, port);
-					}
-				}
+			toml.array_entries_required<std::string> ("work_peers", [this](std::string const & entry_a) {
+				this->deserialize_address (entry_a, this->work_peers);
 			});
 		}
 
@@ -333,6 +331,18 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		{
 			auto frontiers_confirmation_l (toml.get<std::string> ("frontiers_confirmation"));
 			frontiers_confirmation = deserialize_frontiers_confirmation (frontiers_confirmation_l);
+		}
+
+		if (toml.has_key ("experimental"))
+		{
+			auto experimental_config_l (toml.get_required_child ("experimental"));
+			if (experimental_config_l.has_key ("secondary_work_peers"))
+			{
+				secondary_work_peers.clear ();
+				experimental_config_l.array_entries_required<std::string> ("secondary_work_peers", [this](std::string const & entry_a) {
+					this->deserialize_address (entry_a, this->secondary_work_peers);
+				});
+			}
 		}
 
 		// Validate ranges
@@ -577,7 +587,8 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 		}
 		case 17:
 		{
-			json.put ("vote_generator_delay", vote_generator_delay.count ()); // Update value
+			json.put ("active_elections_size", 10000); // Update value
+			json.put ("vote_generator_delay", 100); // Update value
 			json.put ("backup_before_upgrade", backup_before_upgrade);
 			json.put ("work_watcher_period", work_watcher_period.count ());
 		}
@@ -813,6 +824,23 @@ nano::frontiers_confirmation_mode nano::node_config::deserialize_frontiers_confi
 	else
 	{
 		return nano::frontiers_confirmation_mode::invalid;
+	}
+}
+
+void nano::node_config::deserialize_address (std::string const & entry_a, std::vector<std::pair<std::string, uint16_t>> & container_a) const
+{
+	auto port_position (entry_a.rfind (':'));
+	bool result = (port_position == -1);
+	if (!result)
+	{
+		auto port_str (entry_a.substr (port_position + 1));
+		uint16_t port;
+		result |= parse_port (port_str, port);
+		if (!result)
+		{
+			auto address (entry_a.substr (0, port_position));
+			container_a.emplace_back (address, port);
+		}
 	}
 }
 

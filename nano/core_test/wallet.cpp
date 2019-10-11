@@ -1214,7 +1214,7 @@ TEST (wallet, work_watcher_generation_disabled)
 		updated_difficulty = existing->difficulty;
 	}
 	ASSERT_EQ (updated_difficulty, difficulty);
-	ASSERT_TRUE (node.distributed_work.work.empty ());
+	ASSERT_TRUE (node.distributed_work.items.empty ());
 }
 
 TEST (wallet, work_watcher_removed)

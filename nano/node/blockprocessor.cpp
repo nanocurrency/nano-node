@@ -184,7 +184,7 @@ void nano::block_processor::verify_state_blocks (nano::unique_lock<std::mutex> &
 			nano::account account (item.block->account ());
 			if (!item.block->link ().is_zero () && node.ledger.is_epoch_link (item.block->link ()))
 			{
-				account = node.ledger.signer (item.block->link ());
+				account = node.ledger.epoch_signer (item.block->link ());
 			}
 			else if (!item.account.is_zero ())
 			{
@@ -369,7 +369,7 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a, const bool watch_work_a)
 {
 	// Start collecting quorum on block
-	node.active.start (block_a);
+	node.active.start (block_a, false);
 	//add block to watcher if desired after block has been added to active
 	if (watch_work_a)
 	{
@@ -382,28 +382,6 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 		// Announce our weighted vote to the network
 		generator.add (hash_a);
 	}
-	// Request confirmation for new block with delay
-	std::weak_ptr<nano::node> node_w (node.shared ());
-	node.alarm.add (std::chrono::steady_clock::now () + confirmation_request_delay, [node_w, block_a]() {
-		if (auto node_l = node_w.lock ())
-		{
-			// Check if votes were already requested
-			bool send_request (false);
-			{
-				nano::lock_guard<std::mutex> lock (node_l->active.mutex);
-				auto existing (node_l->active.blocks.find (block_a->hash ()));
-				if (existing != node_l->active.blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->confirmation_request_count == 0)
-				{
-					send_request = true;
-				}
-			}
-			// Request votes
-			if (send_request)
-			{
-				node_l->network.broadcast_confirm_req (block_a);
-			}
-		}
-	});
 }
 
 nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, nano::unchecked_info info_a, const bool watch_work_a)
