@@ -72,19 +72,19 @@ public:
 	uint64_t blocks_uncemented{ 0 };
 };
 
-class confirmed_set_info final
+class election_timepoint final
 {
 public:
 	std::chrono::steady_clock::time_point time;
 	nano::qualified_root root;
 };
 
-class dropped_election final
-{
-public:
-	std::chrono::steady_clock::time_point time;
-	nano::qualified_root root;
-};
+typedef boost::multi_index_container<
+nano::election_timepoint,
+boost::multi_index::indexed_by<
+boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::election_timepoint, std::chrono::steady_clock::time_point, &nano::election_timepoint::time>>,
+boost::multi_index::hashed_unique<boost::multi_index::member<nano::election_timepoint, nano::qualified_root, &nano::election_timepoint::root>>>>
+ordered_elections_timepoint;
 
 // Core class for determining consensus
 // Holds all active blocks i.e. recently added blocks that need confirmation
@@ -174,12 +174,7 @@ private:
 	bool started{ false };
 	std::atomic<bool> stopped{ false };
 	unsigned ongoing_broadcasts{ 0 };
-	boost::multi_index_container<
-	nano::confirmed_set_info,
-	boost::multi_index::indexed_by<
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::confirmed_set_info, std::chrono::steady_clock::time_point, &nano::confirmed_set_info::time>>,
-	boost::multi_index::hashed_unique<boost::multi_index::member<nano::confirmed_set_info, nano::qualified_root, &nano::confirmed_set_info::root>>>>
-	confirmed_set;
+	ordered_elections_timepoint confirmed_set;
 	void prioritize_frontiers_for_confirmation (nano::transaction const &, std::chrono::milliseconds, std::chrono::milliseconds);
 	using prioritize_num_uncemented = boost::multi_index_container<
 	nano::cementable_account,
@@ -204,12 +199,7 @@ private:
 	boost::multi_index::hashed_unique<boost::multi_index::member<gap_information, nano::block_hash, &gap_information::hash>>>>
 	inactive_votes_cache;
 	static size_t constexpr inactive_votes_cache_max{ 16 * 1024 };
-	boost::multi_index_container<
-	nano::dropped_election,
-	boost::multi_index::indexed_by<
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<dropped_election, std::chrono::steady_clock::time_point, &dropped_election::time>>,
-	boost::multi_index::hashed_unique<boost::multi_index::member<dropped_election, nano::qualified_root, &dropped_election::root>>>>
-	dropped_elections_cache;
+	ordered_elections_timepoint dropped_elections_cache;
 	static size_t constexpr dropped_elections_cache_max{ 32 * 1024 };
 	boost::thread thread;
 

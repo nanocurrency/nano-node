@@ -956,7 +956,7 @@ std::deque<nano::election_status> nano::active_transactions::list_confirmed ()
 void nano::active_transactions::add_confirmed (nano::election_status const & status_a, nano::qualified_root const & root_a)
 {
 	confirmed.push_back (status_a);
-	auto inserted (confirmed_set.insert (nano::confirmed_set_info{ std::chrono::steady_clock::now (), root_a }));
+	auto inserted (confirmed_set.insert (nano::election_timepoint{ std::chrono::steady_clock::now (), root_a }));
 	if (confirmed.size () > node.config.confirmation_history_size)
 	{
 		confirmed.pop_front ();
@@ -1121,7 +1121,7 @@ size_t nano::active_transactions::dropped_elections_cache_size ()
 void nano::active_transactions::add_dropped_elections_cache (nano::qualified_root const & root_a)
 {
 	assert (!mutex.try_lock ());
-	dropped_elections_cache.insert ({ std::chrono::steady_clock::now (), root_a });
+	dropped_elections_cache.insert (nano::election_timepoint{ std::chrono::steady_clock::now (), root_a });
 	if (dropped_elections_cache.size () > dropped_elections_cache_max)
 	{
 		dropped_elections_cache.get<0> ().erase (dropped_elections_cache.get<0> ().begin ());
@@ -1172,7 +1172,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transaction
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "priority_wallet_cementable_frontiers_count", active_transactions.priority_wallet_cementable_frontiers_size (), sizeof (nano::cementable_account) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "priority_cementable_frontiers_count", active_transactions.priority_cementable_frontiers_size (), sizeof (nano::cementable_account) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "inactive_votes_cache_count", active_transactions.inactive_votes_cache_size (), sizeof (nano::gap_information) }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "dropped_elections_count", active_transactions.dropped_elections_cache_size (), sizeof (nano::dropped_election) }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "dropped_elections_count", active_transactions.dropped_elections_cache_size (), sizeof (nano::election_timepoint) }));
 	return composite;
 }
 }
