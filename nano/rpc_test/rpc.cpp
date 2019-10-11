@@ -7268,3 +7268,51 @@ TEST (rpc, epoch_upgrade)
 		ASSERT_FALSE (node->store.account_exists (transaction, 0));
 	}
 }
+
+TEST (rpc, account_lazy_start)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_legacy_bootstrap = true;
+	auto node1 = system.add_node (nano::node_config (24000, system.logging), node_flags);
+	nano::genesis genesis;
+	nano::keypair key;
+	// Generating test chain
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	ASSERT_EQ (nano::process_result::progress, node1->process (*send1).code);
+	auto open (std::make_shared<nano::open_block> (send1->hash (), key.pub, key.pub, key.prv, key.pub, *system.work.generate (key.pub)));
+	ASSERT_EQ (nano::process_result::progress, node1->process (*open).code);
+
+	// Start lazy bootstrap with account
+	auto node2 = system.add_node (nano::node_config (24001, system.logging), node_flags);
+	node2->network.udp_channels.insert (node1->network.endpoint (), node1->network_params.protocol.protocol_version);
+	enable_ipc_transport_tcp (node2->config.ipc_config.transport_tcp);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node2, node_rpc_config);
+	nano::rpc_config rpc_config (true);
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "account_info");
+	request.put ("account", key.pub.to_account ());
+	test_response response (request, rpc.config.port, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+	boost::optional<std::string> account_error (response.json.get_optional<std::string> ("error"));
+	ASSERT_TRUE (account_error.is_initialized ());
+
+	// Check processed blocks
+	system.deadline_set (10s);
+	while (node2->bootstrap_initiator.in_progress ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	node2->block_processor.flush ();
+	ASSERT_TRUE (node2->ledger.block_exists (send1->hash ()));
+	ASSERT_TRUE (node2->ledger.block_exists (open->hash ()));
+}

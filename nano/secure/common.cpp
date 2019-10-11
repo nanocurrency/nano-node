@@ -319,11 +319,12 @@ nano::account const & nano::pending_key::key () const
 	return account;
 }
 
-nano::unchecked_info::unchecked_info (std::shared_ptr<nano::block> block_a, nano::account const & account_a, uint64_t modified_a, nano::signature_verification verified_a) :
+nano::unchecked_info::unchecked_info (std::shared_ptr<nano::block> block_a, nano::account const & account_a, uint64_t modified_a, nano::signature_verification verified_a, bool confirmed_a) :
 block (block_a),
 account (account_a),
 modified (modified_a),
-verified (verified_a)
+verified (verified_a),
+confirmed (confirmed_a)
 {
 }
 

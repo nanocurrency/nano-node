@@ -228,6 +228,20 @@ nano::account nano::json_handler::account_impl (std::string account_text, std::e
 	return result;
 }
 
+nano::account_info nano::json_handler::account_info_impl (nano::transaction const & transaction_a, nano::account const & account_a)
+{
+	nano::account_info result;
+	if (!ec)
+	{
+		if (node.store.account_get (transaction_a, account_a, result))
+		{
+			ec = nano::error_common::account_not_found;
+			node.bootstrap_initiator.bootstrap_lazy (account_a, false, false);
+		}
+	}
+	return result;
+}
+
 nano::amount nano::json_handler::amount_impl ()
 {
 	nano::amount result (0);
@@ -442,14 +456,10 @@ void nano::json_handler::account_block_count ()
 	if (!ec)
 	{
 		auto transaction (node.store.tx_begin_read ());
-		nano::account_info info;
-		if (!node.store.account_get (transaction, account, info))
+		auto info (account_info_impl (transaction, account));
+		if (!ec)
 		{
 			response_l.put ("block_count", std::to_string (info.block_count));
-		}
-		else
-		{
-			ec = nano::error_common::account_not_found;
 		}
 	}
 	response_errors ();
@@ -522,10 +532,13 @@ void nano::json_handler::account_info ()
 		const bool weight = request.get<bool> ("weight", false);
 		const bool pending = request.get<bool> ("pending", false);
 		auto transaction (node.store.tx_begin_read ());
-		nano::account_info info;
+		auto info (account_info_impl (transaction, account));
 		uint64_t confirmation_height;
-		auto error = node.store.account_get (transaction, account, info) | node.store.confirmation_height_get (transaction, account, confirmation_height);
-		if (!error)
+		if (node.store.confirmation_height_get (transaction, account, confirmation_height))
+		{
+			ec = nano::error_common::account_not_found;
+		}
+		if (!ec)
 		{
 			response_l.put ("frontier", info.head.to_string ());
 			response_l.put ("open_block", info.open_block.to_string ());
@@ -551,10 +564,6 @@ void nano::json_handler::account_info ()
 				auto account_pending (node.ledger.account_pending (transaction, account));
 				response_l.put ("pending", account_pending.convert_to<std::string> ());
 			}
-		}
-		else
-		{
-			ec = nano::error_common::account_not_found;
 		}
 	}
 	response_errors ();
@@ -655,14 +664,10 @@ void nano::json_handler::account_representative ()
 	if (!ec)
 	{
 		auto transaction (node.store.tx_begin_read ());
-		nano::account_info info;
-		if (!node.store.account_get (transaction, account, info))
+		auto info (account_info_impl (transaction, account));
+		if (!ec)
 		{
 			response_l.put ("representative", info.representative.to_account ());
-		}
-		else
-		{
-			ec = nano::error_common::account_not_found;
 		}
 	}
 	response_errors ();
@@ -688,18 +693,14 @@ void nano::json_handler::account_representative_set ()
 				rpc_l->wallet_account_impl (transaction, wallet, account);
 				if (!rpc_l->ec)
 				{
-					nano::account_info info;
 					auto block_transaction (rpc_l->node.store.tx_begin_read ());
-					if (!rpc_l->node.store.account_get (block_transaction, account, info))
+					auto info (rpc_l->account_info_impl (block_transaction, account));
+					if (!rpc_l->ec)
 					{
 						if (nano::work_validate (info.head, work))
 						{
 							rpc_l->ec = nano::error_common::invalid_work;
 						}
-					}
-					else
-					{
-						rpc_l->ec = nano::error_common::account_not_found;
 					}
 				}
 			}
@@ -1695,12 +1696,15 @@ void nano::json_handler::bootstrap_status ()
 		response_l.put ("lazy_blocks", std::to_string (attempt->lazy_blocks.size ()));
 		response_l.put ("lazy_state_backlog", std::to_string (attempt->lazy_state_backlog.size ()));
 		response_l.put ("lazy_balances", std::to_string (attempt->lazy_balances.size ()));
+		response_l.put ("lazy_destinations", std::to_string (attempt->lazy_destinations.size ()));
+		response_l.put ("lazy_undefined_links", std::to_string (attempt->lazy_undefined_links.size ()));
 		response_l.put ("lazy_pulls", std::to_string (attempt->lazy_pulls.size ()));
 		response_l.put ("lazy_keys", std::to_string (attempt->lazy_keys.size ()));
 		if (!attempt->lazy_keys.empty ())
 		{
 			response_l.put ("lazy_key_1", (*(attempt->lazy_keys.begin ())).to_string ());
 		}
+		response_l.put ("duration", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt->attempt_start).count ());
 	}
 	else
 	{
@@ -2527,14 +2531,10 @@ void nano::json_handler::account_history ()
 		{
 			if (reverse)
 			{
-				nano::account_info info;
-				if (!node.store.account_get (transaction, account, info))
+				auto info (account_info_impl (transaction, account));
+				if (!ec)
 				{
 					hash = info.open_block;
-				}
-				else
-				{
-					ec = nano::error_common::account_not_found;
 				}
 			}
 			else
@@ -3687,35 +3687,19 @@ void nano::json_handler::send ()
 		{
 			auto transaction (node.wallets.tx_begin_read ());
 			auto block_transaction (node.store.tx_begin_read ());
-			if (wallet->store.valid_password (transaction))
+			wallet_locked_impl (transaction, wallet);
+			wallet_account_impl (transaction, wallet, source);
+			auto info (account_info_impl (block_transaction, source));
+			if (!ec)
 			{
-				if (wallet->store.find (transaction, source) != wallet->store.end ())
-				{
-					nano::account_info info;
-					if (!node.store.account_get (block_transaction, source, info))
-					{
-						balance = (info.balance).number ();
-					}
-					else
-					{
-						ec = nano::error_common::account_not_found;
-					}
-					if (!ec && work)
-					{
-						if (nano::work_validate (info.head, work))
-						{
-							ec = nano::error_common::invalid_work;
-						}
-					}
-				}
-				else
-				{
-					ec = nano::error_common::account_not_found_wallet;
-				}
+				balance = (info.balance).number ();
 			}
-			else
+			if (!ec && work)
 			{
-				ec = nano::error_common::wallet_locked;
+				if (nano::work_validate (info.head, work))
+				{
+					ec = nano::error_common::invalid_work;
+				}
 			}
 		}
 		if (!ec)

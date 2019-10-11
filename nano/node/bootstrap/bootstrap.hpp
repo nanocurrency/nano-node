@@ -43,6 +43,19 @@ enum class bootstrap_mode
 	lazy,
 	wallet_lazy
 };
+class lazy_state_backlog_item final
+{
+public:
+	nano::link link{ 0 };
+	nano::uint128_t balance{ 0 };
+	bool confirmed{ false };
+};
+class lazy_destinations_item final
+{
+public:
+	nano::account account{ 0 };
+	uint64_t count{ 0 };
+};
 class frontier_req_client;
 class bulk_push_client;
 class bootstrap_attempt final : public std::enable_shared_from_this<bootstrap_attempt>
@@ -67,19 +80,21 @@ public:
 	unsigned target_connections (size_t pulls_remaining);
 	bool should_log ();
 	void add_bulk_push_target (nano::block_hash const &, nano::block_hash const &);
-	bool process_block (std::shared_ptr<nano::block>, nano::account const &, uint64_t, bool);
+	bool process_block (std::shared_ptr<nano::block>, nano::account const &, uint64_t, bool, bool);
 	/** Lazy bootstrap */
 	void lazy_run ();
-	void lazy_start (nano::block_hash const &);
-	void lazy_add (nano::block_hash const &);
-	void lazy_requeue (nano::block_hash const &);
+	void lazy_start (nano::hash_or_account const &, bool confirmed = true);
+	void lazy_add (nano::hash_or_account const &, bool = true);
+	void lazy_requeue (nano::block_hash const &, nano::block_hash const &, bool);
 	bool lazy_finished ();
 	void lazy_pull_flush ();
 	void lazy_clear ();
-	bool process_block_lazy (std::shared_ptr<nano::block>, nano::account const &, uint64_t);
-	void lazy_block_state (std::shared_ptr<nano::block>);
+	bool process_block_lazy (std::shared_ptr<nano::block>, nano::account const &, uint64_t, bool);
+	void lazy_block_state (std::shared_ptr<nano::block>, bool);
 	void lazy_block_state_backlog_check (std::shared_ptr<nano::block>, nano::block_hash const &);
 	void lazy_backlog_cleanup ();
+	void lazy_destinations_increment (nano::account const &);
+	void lazy_destinations_flush ();
 	bool lazy_processed_or_exists (nano::block_hash const &);
 	/** Lazy bootstrap */
 	/** Wallet bootstrap */
@@ -105,16 +120,31 @@ public:
 	std::atomic<unsigned> runs_count;
 	std::vector<std::pair<nano::block_hash, nano::block_hash>> bulk_push_targets;
 	std::atomic<bool> stopped;
+	std::chrono::steady_clock::time_point attempt_start{ std::chrono::steady_clock::now () };
 	nano::bootstrap_mode mode;
 	std::mutex mutex;
 	nano::condition_variable condition;
 	// Lazy bootstrap
 	std::unordered_set<nano::block_hash> lazy_blocks;
-	std::unordered_map<nano::block_hash, std::pair<nano::block_hash, nano::uint128_t>> lazy_state_backlog;
+	std::unordered_map<nano::block_hash, nano::lazy_state_backlog_item> lazy_state_backlog;
+	std::unordered_set<nano::block_hash> lazy_undefined_links;
 	std::unordered_map<nano::block_hash, nano::uint128_t> lazy_balances;
 	std::unordered_set<nano::block_hash> lazy_keys;
-	std::deque<nano::block_hash> lazy_pulls;
+	std::deque<std::pair<nano::hash_or_account, bool>> lazy_pulls;
 	std::chrono::steady_clock::time_point last_lazy_flush{ std::chrono::steady_clock::now () };
+	class account_tag
+	{
+	};
+	class count_tag
+	{
+	};
+	boost::multi_index_container<
+	lazy_destinations_item,
+	boost::multi_index::indexed_by<
+	boost::multi_index::ordered_non_unique<boost::multi_index::tag<count_tag>, boost::multi_index::member<lazy_destinations_item, uint64_t, &lazy_destinations_item::count>, std::greater<uint64_t>>,
+	boost::multi_index::hashed_unique<boost::multi_index::tag<account_tag>, boost::multi_index::member<lazy_destinations_item, nano::account, &lazy_destinations_item::account>>>>
+	lazy_destinations;
+	std::chrono::steady_clock::time_point last_lazy_destinations_flush{ std::chrono::steady_clock::time_point{} };
 	std::mutex lazy_mutex;
 	// Wallet lazy bootstrap
 	std::deque<nano::account> wallet_accounts;
@@ -170,7 +200,7 @@ public:
 	~bootstrap_initiator ();
 	void bootstrap (nano::endpoint const &, bool add_to_peers = true);
 	void bootstrap ();
-	void bootstrap_lazy (nano::block_hash const &, bool = false);
+	void bootstrap_lazy (nano::hash_or_account const &, bool force = false, bool confirmed = true);
 	void bootstrap_wallet (std::deque<nano::account> &);
 	void run_bootstrap ();
 	void notify_listeners (bool);
@@ -203,9 +233,12 @@ public:
 	static constexpr double bootstrap_minimum_elapsed_seconds_blockrate = 0.02;
 	static constexpr double bootstrap_minimum_frontier_blocks_per_sec = 1000.0;
 	static constexpr unsigned bootstrap_frontier_retry_limit = 16;
+	static constexpr unsigned bootstrap_lazy_retry_limit = bootstrap_frontier_retry_limit * 10;
 	static constexpr double bootstrap_minimum_termination_time_sec = 30.0;
 	static constexpr unsigned bootstrap_max_new_connections = 10;
 	static constexpr unsigned bulk_push_cost_limit = 200;
 	static constexpr std::chrono::seconds lazy_flush_delay_sec = std::chrono::seconds (5);
+	static constexpr unsigned bootstrap_lazy_destinations_request_limit = 200;
+	static constexpr std::chrono::seconds lazy_destinations_flush_delay_sec = std::chrono::minutes (2);
 };
 }
