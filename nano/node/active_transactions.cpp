@@ -247,6 +247,7 @@ std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pa
 			vec->push_back (i);
 		}
 		single_confirm_req_bundle_l.push_back (std::make_pair (election_l->status.winner, vec));
+		inserted_into_any_bundle = true;
 	}
 	else
 	{
@@ -279,13 +280,13 @@ std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pa
 			else
 			{
 				single_confirm_req_channels_l->push_back (rep);
-				inserted_into_any_bundle = true;
 			}
 		}
 		// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
 		if (single_confirm_req_bundle_l.size () < max_confirm_req && !single_confirm_req_channels_l->empty ())
 		{
 			single_confirm_req_bundle_l.push_back (std::make_pair (election_l->status.winner, single_confirm_req_channels_l));
+			inserted_into_any_bundle = true;
 		}
 	}
 	return inserted_into_any_bundle;
@@ -364,7 +365,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 				election_escalate (election_l, transaction_l, roots_size_l);
 			}
 			// Block broadcasting
-			if (election_l->confirmation_request_count % 8 == 1)
+			if (election_l->confirmation_request_count % 8 == 1 || (election_l->confirmation_request_count % 8 == 0 && node.network_params.network.is_test_network ()))
 			{
 				election_broadcast (election_l, transaction_l, blocks_bundle_l, inactive_l, root_l);
 			}
