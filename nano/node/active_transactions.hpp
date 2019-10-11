@@ -3,6 +3,8 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/gap_cache.hpp>
+#include <nano/node/repcrawler.hpp>
+#include <nano/node/transport/transport.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/circular_buffer.hpp>
@@ -86,7 +88,7 @@ public:
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
 	// clang-format off
-	bool start (std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
+	bool start (std::shared_ptr<nano::block>, bool const = false, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
 	// clang-format on
 	// If this returns true, the vote is a replay
 	// If this returns false, the vote may or may not be a replay
@@ -101,8 +103,6 @@ public:
 	uint64_t limited_active_difficulty ();
 	std::deque<std::shared_ptr<nano::block>> list_blocks (bool = false);
 	void erase (nano::block const &);
-	//drop 2 from roots based on adjusted_difficulty
-	void flush_lowest ();
 	bool empty ();
 	size_t size ();
 	void stop ();
@@ -126,12 +126,15 @@ public:
 	nano::gap_information find_inactive_votes_cache (nano::block_hash const &);
 	nano::node & node;
 	std::mutex mutex;
-	// Minimum number of confirmation requests
-	static unsigned constexpr minimum_confirmation_request_count = 2;
-	// Threshold for considering confirmation request count high
-	static unsigned constexpr high_confirmation_request_count = 2;
-	size_t long_unconfirmed_size = 0;
-	static size_t constexpr max_broadcast_queue = 1000;
+	std::chrono::seconds const long_election_threshold;
+	// Delay until requesting confirmation for an election
+	std::chrono::milliseconds const election_request_delay;
+	// Maximum time an election can be kept active if it is extending the container
+	std::chrono::seconds const election_time_to_live;
+	static size_t constexpr max_block_broadcasts = 30;
+	static size_t constexpr max_confirm_representatives = 30;
+	static size_t constexpr max_confirm_req_batches = 20;
+	static size_t constexpr max_confirm_req = 15;
 	boost::circular_buffer<double> multipliers_cb;
 	uint64_t trended_active_difficulty;
 	size_t priority_cementable_frontiers_size ();
@@ -144,11 +147,16 @@ public:
 private:
 	// Call action with confirmed block, may be different than what we started with
 	// clang-format off
-	bool add (std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
+	bool add (std::shared_ptr<nano::block>, bool const = false, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
 	// clang-format on
 	void request_loop ();
+	void search_frontiers (nano::transaction const &);
+	void election_escalate (std::shared_ptr<nano::election> &, nano::transaction const &, size_t const &);
+	void election_broadcast (std::shared_ptr<nano::election> &, nano::transaction const &, std::deque<std::shared_ptr<nano::block>> &, std::unordered_set<nano::qualified_root> &, nano::qualified_root &);
+	bool election_request_confirm (std::shared_ptr<nano::election> &, std::vector<nano::representative> const &, size_t const &,
+	std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>>> & single_confirm_req_bundle_l,
+	std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::root>>> & batched_confirm_req_bundle_l);
 	void request_confirm (nano::unique_lock<std::mutex> &);
-	void confirm_frontiers (nano::transaction const &);
 	nano::account next_frontier_account{ 0 };
 	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
 	nano::condition_variable condition;

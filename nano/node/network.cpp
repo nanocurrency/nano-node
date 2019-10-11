@@ -325,20 +325,19 @@ void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> blo
 	}
 }
 
-void nano::network::broadcast_confirm_req_batched_many (std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::root>>> request_bundle_a, std::function<void()> callback_a, unsigned delay_a, bool resumption)
+void nano::network::broadcast_confirm_req_batched_many (std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::root>>> request_bundle_a, std::function<void()> callback_a, unsigned delay_a, bool resumption_a)
 {
-	const size_t max_reps = 50;
-	if (!resumption && node.config.logging.network_logging ())
+	const size_t burst_size_l{ 5 };
+	if (!resumption_a && node.config.logging.network_logging ())
 	{
 		node.logger.try_log (boost::str (boost::format ("Broadcasting batch confirm req to %1% representatives") % request_bundle_a.size ()));
 	}
-	auto count_l (0);
-	while (!request_bundle_a.empty () && count_l < max_reps)
+
+	for (size_t count_l (0); !request_bundle_a.empty () && count_l < burst_size_l; ++count_l)
 	{
 		auto j (request_bundle_a.begin ());
 		while (j != request_bundle_a.end ())
 		{
-			++count_l;
 			std::vector<std::pair<nano::block_hash, nano::root>> roots_hashes_l;
 			// Limit max request size hash + root to 7 pairs
 			while (roots_hashes_l.size () < confirm_req_hashes_max && !j->second.empty ())

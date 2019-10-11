@@ -1911,7 +1911,7 @@ void nano::json_handler::confirmation_quorum ()
 	if (request.get<bool> ("peer_details", false))
 	{
 		boost::property_tree::ptree peers;
-		for (auto & peer : node.rep_crawler.representatives_by_weight ())
+		for (auto & peer : node.rep_crawler.representatives ())
 		{
 			boost::property_tree::ptree peer_node;
 			peer_node.put ("account", peer.account.to_account ());

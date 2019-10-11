@@ -34,7 +34,7 @@ class election final : public std::enable_shared_from_this<nano::election>
 	std::function<void(std::shared_ptr<nano::block>)> confirmation_action;
 
 public:
-	election (nano::node &, std::shared_ptr<nano::block>, std::function<void(std::shared_ptr<nano::block>)> const &);
+	election (nano::node &, std::shared_ptr<nano::block>, bool const, std::function<void(std::shared_ptr<nano::block>)> const &);
 	nano::election_vote_result vote (nano::account, uint64_t, nano::block_hash);
 	nano::tally_t tally ();
 	// Check if we have vote quorum
@@ -57,10 +57,11 @@ public:
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks;
 	std::chrono::steady_clock::time_point election_start;
 	nano::election_status status;
+	bool skip_delay;
 	std::atomic<bool> confirmed;
 	bool stopped;
 	std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
-	unsigned confirmation_request_count;
+	unsigned confirmation_request_count{ 0 };
 	std::unordered_set<nano::block_hash> dependent_blocks;
 	std::chrono::seconds late_blocks_delay{ 5 };
 };

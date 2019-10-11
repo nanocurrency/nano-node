@@ -7,14 +7,14 @@ nano::election_vote_result::election_vote_result (bool replay_a, bool processed_
 	processed = processed_a;
 }
 
-nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> block_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a) :
+nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> block_a, bool const skip_delay_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a) :
 confirmation_action (confirmation_action_a),
 node (node_a),
 election_start (std::chrono::steady_clock::now ()),
 status ({ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, nano::election_status_type::ongoing }),
+skip_delay (skip_delay_a),
 confirmed (false),
-stopped (false),
-confirmation_request_count (0)
+stopped (false)
 {
 	last_votes.insert (std::make_pair (node.network_params.random.not_an_account, nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () }));
 	blocks.insert (std::make_pair (block_a->hash (), block_a));
@@ -47,10 +47,6 @@ void nano::election::confirm_once (nano::election_status_type type_a)
 			node_l->process_confirmed (status_l);
 			confirmation_action_l (status_l.winner);
 		});
-		if (confirmation_request_count > node.active.high_confirmation_request_count)
-		{
-			--node.active.long_unconfirmed_size;
-		}
 		auto root (status.winner->qualified_root ());
 		node.active.pending_conf_height.emplace (status.winner->hash (), shared_from_this ());
 		clear_blocks ();

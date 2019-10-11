@@ -205,7 +205,7 @@ TEST (node, node_receive_quorum)
 			nano::lock_guard<std::mutex> guard (system.nodes[0]->active.mutex);
 			auto info (system.nodes[0]->active.roots.find (nano::qualified_root (previous, previous)));
 			ASSERT_NE (system.nodes[0]->active.roots.end (), info);
-			done = info->election->confirmation_request_count > nano::active_transactions::minimum_confirmation_request_count;
+			done = info->election->confirmation_request_count > 2;
 		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -850,11 +850,21 @@ TEST (node_config, v17_v18_upgrade)
 	auto upgraded (false);
 	nano::node_config config;
 	config.logging.init (path);
+
+	// Initial values for configs that should be upgraded
+	config.active_elections_size = 50000;
+	config.vote_generator_delay = 500ms;
+
 	// These config options should not be present
 	ASSERT_FALSE (tree.get_optional_child ("backup_before_upgrade"));
 	ASSERT_FALSE (tree.get_optional_child ("work_watcher_period"));
 
 	config.deserialize_json (upgraded, tree);
+
+	// These configs should have been upgraded
+	ASSERT_EQ (100, tree.get<unsigned> ("vote_generator_delay"));
+	ASSERT_EQ (10000, tree.get<unsigned long long> ("active_elections_size"));
+
 	// The config options should be added after the upgrade
 	ASSERT_TRUE (!!tree.get_optional_child ("backup_before_upgrade"));
 	ASSERT_TRUE (!!tree.get_optional_child ("work_watcher_period"));
@@ -878,6 +888,7 @@ TEST (node_config, v18_values)
 
 	// Check config is correct
 	{
+		tree.put ("active_elections_size", 10000);
 		tree.put ("vote_generator_delay", 100);
 		tree.put ("backup_before_upgrade", true);
 		tree.put ("work_watcher_period", 5);
@@ -885,11 +896,13 @@ TEST (node_config, v18_values)
 
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
+	ASSERT_EQ (config.active_elections_size, 10000);
 	ASSERT_EQ (config.vote_generator_delay.count (), 100);
 	ASSERT_EQ (config.backup_before_upgrade, true);
 	ASSERT_EQ (config.work_watcher_period.count (), 5);
 
 	// Check config is correct with other values
+	tree.put ("active_elections_size", 5);
 	tree.put ("vote_generator_delay", std::numeric_limits<unsigned long>::max () - 100);
 	tree.put ("backup_before_upgrade", false);
 	tree.put ("work_watcher_period", 999);
@@ -897,6 +910,7 @@ TEST (node_config, v18_values)
 	upgraded = false;
 	config.deserialize_json (upgraded, tree);
 	ASSERT_FALSE (upgraded);
+	ASSERT_EQ (config.active_elections_size, 5);
 	ASSERT_EQ (config.vote_generator_delay.count (), std::numeric_limits<unsigned long>::max () - 100);
 	ASSERT_EQ (config.backup_before_upgrade, false);
 	ASSERT_EQ (config.work_watcher_period.count (), 999);
@@ -2315,7 +2329,7 @@ TEST (node, confirm_quorum)
 			nano::lock_guard<std::mutex> guard (system.nodes[0]->active.mutex);
 			auto info (system.nodes[0]->active.roots.find (nano::qualified_root (send1->hash (), send1->hash ())));
 			ASSERT_NE (system.nodes[0]->active.roots.end (), info);
-			done = info->election->confirmation_request_count > nano::active_transactions::minimum_confirmation_request_count;
+			done = info->election->confirmation_request_count > 2;
 		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
