@@ -703,11 +703,11 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 	}
 	else if (opt_transaction_a.is_initialized ())
 	{
-		lock.unlock ();
 		// Only guaranteed to immediately restart the election if the new block is received within 60s of dropping it
 		static constexpr std::chrono::seconds recently_dropped_cutoff{ 60s };
 		if (find_dropped_elections_cache (block_a->qualified_root ()) > std::chrono::steady_clock::now () - recently_dropped_cutoff)
 		{
+			lock.unlock ();
 			nano::block_sideband existing_sideband;
 			auto hash (block_a->hash ());
 			auto existing_block (node.store.block_get (*opt_transaction_a, hash, &existing_sideband));
@@ -920,6 +920,7 @@ void nano::active_transactions::erase (nano::block const & block_a)
 
 void nano::active_transactions::flush_lowest ()
 {
+	assert (!mutex.try_lock ());
 	size_t count (0);
 	assert (!roots.empty ());
 	auto & sorted_roots = roots.get<1> ();
@@ -1088,6 +1089,7 @@ size_t nano::active_transactions::dropped_elections_cache_size ()
 
 void nano::active_transactions::add_dropped_elections_cache (nano::qualified_root const & root_a)
 {
+	assert (!mutex.try_lock ());
 	dropped_elections_cache.insert ({ std::chrono::steady_clock::now (), root_a });
 	if (dropped_elections_cache.size () > dropped_elections_cache_max)
 	{
@@ -1097,6 +1099,7 @@ void nano::active_transactions::add_dropped_elections_cache (nano::qualified_roo
 
 std::chrono::steady_clock::time_point nano::active_transactions::find_dropped_elections_cache (nano::qualified_root const & root_a)
 {
+	assert (!mutex.try_lock ());
 	auto existing (dropped_elections_cache.get<1> ().find (root_a));
 	if (existing != dropped_elections_cache.get<1> ().end ())
 	{
