@@ -6,34 +6,6 @@
 
 using namespace std::chrono_literals;
 
-TEST (active_transactions, bounded_active_elections)
-{
-	nano::system system;
-	nano::node_config node_config (24000, system.logging);
-	node_config.enable_voting = false;
-	node_config.active_elections_size = 5;
-	auto & node = *system.add_node (node_config);
-	nano::genesis genesis;
-	size_t count (0);
-	auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - count * nano::xrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
-	bool done (false);
-	system.deadline_set (5s);
-	while (!done)
-	{
-		node.process_active (send);
-		node.active.start (send);
-		ASSERT_NO_ERROR (system.poll ());
-		ASSERT_FALSE (node.active.empty ());
-		ASSERT_LE (node.active.size (), node.config.active_elections_size);
-		++count;
-		done = count > node.active.size ();
-		auto previous_hash = send->hash ();
-		send = std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous_hash, nano::test_genesis_key.pub, nano::genesis_amount - count * nano::xrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (previous_hash));
-		//sleep this thread between request loop rounds
-		std::this_thread::sleep_for (std::chrono::milliseconds (2 * node.network_params.network.request_interval_ms));
-	}
-}
-
 TEST (active_transactions, adjusted_difficulty_priority)
 {
 	nano::system system;
