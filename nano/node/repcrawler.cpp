@@ -163,18 +163,6 @@ nano::uint128_t nano::rep_crawler::total_weight () const
 	return result;
 }
 
-std::vector<nano::representative> nano::rep_crawler::representatives_by_weight ()
-{
-	std::vector<nano::representative> result;
-	nano::lock_guard<std::mutex> lock (probable_reps_mutex);
-	for (auto i (probable_reps.get<tag_weight> ().begin ()), n (probable_reps.get<tag_weight> ().end ()); i != n; ++i)
-	{
-		assert (i->weight.number () > 0);
-		result.push_back (*i);
-	}
-	return result;
-}
-
 void nano::rep_crawler::on_rep_request (std::shared_ptr<nano::transport::channel> channel_a)
 {
 	nano::lock_guard<std::mutex> lock (probable_reps_mutex);
@@ -257,7 +245,6 @@ void nano::rep_crawler::update_weights ()
 std::vector<nano::representative> nano::rep_crawler::representatives (size_t count_a)
 {
 	std::vector<representative> result;
-	result.reserve (count_a);
 	nano::lock_guard<std::mutex> lock (probable_reps_mutex);
 	for (auto i (probable_reps.get<tag_weight> ().begin ()), n (probable_reps.get<tag_weight> ().end ()); i != n && result.size () < count_a; ++i)
 	{
