@@ -100,10 +100,10 @@ public:
 	/** Get total available weight from representatives */
 	nano::uint128_t total_weight () const;
 
-	/** Request a list of the top \p count_a known representatives. The maximum number of reps returned is 16. */
+	/** Request a list of the top \p count_a known representatives. */
 	std::vector<representative> representatives (size_t count_a);
 
-	/** Request a list of the top \p count_a known representative endpoints. The maximum number of reps returned is 16. */
+	/** Request a list of the top \p count_a known representative endpoints. */
 	std::vector<std::shared_ptr<nano::transport::channel>> representative_endpoints (size_t count_a);
 
 	/** Returns all representatives registered with weight in descending order */

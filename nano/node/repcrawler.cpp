@@ -257,7 +257,7 @@ void nano::rep_crawler::update_weights ()
 std::vector<nano::representative> nano::rep_crawler::representatives (size_t count_a)
 {
 	std::vector<representative> result;
-	result.reserve (std::min (count_a, size_t (16)));
+	result.reserve (count_a);
 	nano::lock_guard<std::mutex> lock (probable_reps_mutex);
 	for (auto i (probable_reps.get<tag_weight> ().begin ()), n (probable_reps.get<tag_weight> ().end ()); i != n && result.size () < count_a; ++i)
 	{
