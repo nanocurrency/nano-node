@@ -391,7 +391,7 @@ public:
 	std::chrono::minutes backup_interval;
 	std::chrono::seconds search_pending_interval;
 	std::chrono::seconds peer_interval;
-	std::chrono::hours unchecked_cleaning_interval;
+	std::chrono::minutes unchecked_cleaning_interval;
 	std::chrono::milliseconds process_confirmed_interval;
 
 	/** The maximum amount of samples for a 2 week period on live or 3 days on beta */
