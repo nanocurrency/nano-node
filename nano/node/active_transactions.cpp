@@ -29,7 +29,7 @@ nano::active_transactions::~active_transactions ()
 	stop ();
 }
 
-void nano::active_transactions::confirm_frontiers (nano::transaction const & transaction_a)
+void nano::active_transactions::search_frontiers (nano::transaction const & transaction_a)
 {
 	// Limit maximum count of elections to start
 	bool representative (node.config.enable_voting && node.wallets.reps_count > 0);
@@ -149,15 +149,156 @@ void nano::active_transactions::post_confirmation_height_set (nano::transaction 
 	}
 }
 
+void nano::active_transactions::election_escalate (std::shared_ptr<nano::election> & election_l, nano::transaction const & transaction_l, size_t const & roots_size_l)
+{
+	static unsigned constexpr high_confirmation_request_count{ 16 };
+	// Log votes for very long unconfirmed elections
+	if (election_l->confirmation_request_count % (4 * high_confirmation_request_count) == 1)
+	{
+		auto tally_l (election_l->tally ());
+		election_l->log_votes (tally_l);
+	}
+	/*
+	 * Escalation for long unconfirmed elections
+	 * Start new elections for previous block & source if there are less than 100 active elections
+	 */
+	if (election_l->confirmation_request_count % high_confirmation_request_count == 1 && roots_size_l < 100 && !node.network_params.network.is_test_network ())
+	{
+		bool escalated_l (false);
+		std::shared_ptr<nano::block> previous_l;
+		auto previous_hash_l (election_l->status.winner->previous ());
+		if (!previous_hash_l.is_zero ())
+		{
+			previous_l = node.store.block_get (transaction_l, previous_hash_l);
+			if (previous_l != nullptr && blocks.find (previous_hash_l) == blocks.end () && !node.block_confirmed_or_being_confirmed (transaction_l, previous_hash_l))
+			{
+				add (std::move (previous_l), true);
+				escalated_l = true;
+			}
+		}
+		/* If previous block not existing/not commited yet, block_source can cause segfault for state blocks
+					So source check can be done only if previous != nullptr or previous is 0 (open account) */
+		if (previous_hash_l.is_zero () || previous_l != nullptr)
+		{
+			auto source_hash_l (node.ledger.block_source (transaction_l, *election_l->status.winner));
+			if (!source_hash_l.is_zero () && source_hash_l != previous_hash_l && blocks.find (source_hash_l) == blocks.end ())
+			{
+				auto source_l (node.store.block_get (transaction_l, source_hash_l));
+				if (source_l != nullptr && !node.block_confirmed_or_being_confirmed (transaction_l, source_hash_l))
+				{
+					add (std::move (source_l), true);
+					escalated_l = true;
+				}
+			}
+		}
+		if (escalated_l)
+		{
+			election_l->update_dependent ();
+		}
+	}
+}
+
+void nano::active_transactions::election_broadcast (std::shared_ptr<nano::election> & election_l, nano::transaction const & transaction_l, std::deque<std::shared_ptr<nano::block>> & blocks_bundle_l, std::unordered_set<nano::qualified_root> & inactive_l, nano::qualified_root & root_l)
+{
+	if (node.ledger.could_fit (transaction_l, *election_l->status.winner))
+	{
+		// Broadcast current winner
+		if (blocks_bundle_l.size () < max_block_broadcasts)
+		{
+			blocks_bundle_l.push_back (election_l->status.winner);
+		}
+	}
+	else if (election_l->confirmation_request_count != 0)
+	{
+		election_l->stop ();
+		inactive_l.insert (root_l);
+	}
+}
+
+bool nano::active_transactions::election_request_confirm (std::shared_ptr<nano::election> & election_l, std::vector<nano::representative> const & representatives_l, size_t const & roots_size_l,
+std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>>> & single_confirm_req_bundle_l,
+std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::root>>> & batched_confirm_req_bundle_l)
+{
+	bool inserted_into_any_bundle{ false };
+	std::vector<std::shared_ptr<nano::transport::channel>> rep_channels_missing_vote_l;
+	// Add all rep endpoints that haven't already voted
+	for (const auto & rep : representatives_l)
+	{
+		if (election_l->last_votes.find (rep.account) == election_l->last_votes.end ())
+		{
+			rep_channels_missing_vote_l.push_back (rep.channel);
+
+			if (node.config.logging.vote_logging () && election_l->confirmation_request_count > 0)
+			{
+				node.logger.try_log ("Representative did not respond to confirm_req, retrying: ", rep.account.to_account ());
+			}
+		}
+	}
+	// Unique channels as there can be multiple reps per channel
+	rep_channels_missing_vote_l.erase (std::unique (rep_channels_missing_vote_l.begin (), rep_channels_missing_vote_l.end ()), rep_channels_missing_vote_l.end ());
+	bool low_reps_weight (rep_channels_missing_vote_l.empty () || node.rep_crawler.total_weight () < node.config.online_weight_minimum.number ());
+	if (low_reps_weight && roots_size_l <= 5 && !node.network_params.network.is_test_network ())
+	{
+		// Spam mode
+		auto deque_l (node.network.udp_channels.random_set (100));
+		auto vec (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> ());
+		for (auto i : deque_l)
+		{
+			vec->push_back (i);
+		}
+		single_confirm_req_bundle_l.push_back (std::make_pair (election_l->status.winner, vec));
+	}
+	else
+	{
+		auto single_confirm_req_channels_l (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> ());
+		for (auto & rep : rep_channels_missing_vote_l)
+		{
+			if (rep->get_network_version () >= node.network_params.protocol.tcp_realtime_protocol_version_min)
+			{
+				// Send batch request to peers supporting confirm_req by hash + root
+				auto rep_request_l (batched_confirm_req_bundle_l.find (rep));
+				auto block_l (election_l->status.winner);
+				auto root_hash_l (std::make_pair (block_l->hash (), block_l->root ()));
+				if (rep_request_l == batched_confirm_req_bundle_l.end ())
+				{
+					// Maximum number of representatives
+					if (batched_confirm_req_bundle_l.size () < max_confirm_representatives)
+					{
+						std::deque<std::pair<nano::block_hash, nano::root>> insert_root_hash = { root_hash_l };
+						batched_confirm_req_bundle_l.insert (std::make_pair (rep, insert_root_hash));
+						inserted_into_any_bundle = true;
+					}
+				}
+				// Maximum number of hashes
+				else if (rep_request_l->second.size () < max_confirm_req_batches * nano::network::confirm_req_hashes_max)
+				{
+					rep_request_l->second.push_back (root_hash_l);
+					inserted_into_any_bundle = true;
+				}
+			}
+			else
+			{
+				single_confirm_req_channels_l->push_back (rep);
+				inserted_into_any_bundle = true;
+			}
+		}
+		// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
+		if (single_confirm_req_bundle_l.size () < max_confirm_req && !single_confirm_req_channels_l->empty ())
+		{
+			single_confirm_req_bundle_l.push_back (std::make_pair (election_l->status.winner, single_confirm_req_channels_l));
+		}
+	}
+	return inserted_into_any_bundle;
+}
+
 void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> & lock_a)
 {
-	std::unordered_set<nano::qualified_root> inactive_l;
+	assert (!mutex.try_lock ());
 	auto transaction_l (node.store.tx_begin_read ());
-	unsigned const high_confirmation_request_count{ 16 };
+	std::unordered_set<nano::qualified_root> inactive_l;
 	std::deque<std::shared_ptr<nano::block>> blocks_bundle_l;
 	std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::root>>> batched_confirm_req_bundle_l;
 	std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>>> single_confirm_req_bundle_l;
-
 	lock_a.unlock ();
 
 	/*
@@ -172,7 +313,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 		bool bootstrap_weight_reached (node.ledger.block_count_cache >= node.ledger.bootstrap_weight_max_blocks);
 		if (node.config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled && bootstrap_weight_reached && probably_unconfirmed_frontiers && pending_confirmation_height_size < confirmed_frontiers_max_pending_cut_off)
 		{
-			confirm_frontiers (transaction_l);
+			search_frontiers (transaction_l);
 		}
 	}
 	lock_a.lock ();
@@ -213,152 +354,27 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 			election_l->stop ();
 			inactive_l.insert (root_l);
 		}
-		// Broadcast and confirm elections
+		// Broadcast and request confirmation
 		else if (election_l->skip_delay || election_l->election_start < cutoff_l)
 		{
 			bool increment_counter_l{ true };
-			// Long election after a certain time and number of requests performed
+			// Escalate long election after a certain time and number of requests performed
 			if (election_l->confirmation_request_count > 4 && election_l->election_start < long_election_cutoff_l)
 			{
-				// Log votes for very long unconfirmed elections
-				if (election_l->confirmation_request_count % (4 * high_confirmation_request_count) == 1)
-				{
-					auto tally_l (election_l->tally ());
-					election_l->log_votes (tally_l);
-				}
-				/* Escalation for long unconfirmed elections
-				Start new elections for previous block & source
-				if there are less than 100 active elections */
-				if (election_l->confirmation_request_count % high_confirmation_request_count == 1 && roots_size_l < 100 && !node.network_params.network.is_test_network ())
-				{
-					bool escalated_l (false);
-					std::shared_ptr<nano::block> previous_l;
-					auto previous_hash_l (election_l->status.winner->previous ());
-					if (!previous_hash_l.is_zero ())
-					{
-						previous_l = node.store.block_get (transaction_l, previous_hash_l);
-						if (previous_l != nullptr && blocks.find (previous_hash_l) == blocks.end () && !node.block_confirmed_or_being_confirmed (transaction_l, previous_hash_l))
-						{
-							add (std::move (previous_l), true);
-							escalated_l = true;
-						}
-					}
-					/* If previous block not existing/not commited yet, block_source can cause segfault for state blocks
-					So source check can be done only if previous != nullptr or previous is 0 (open account) */
-					if (previous_hash_l.is_zero () || previous_l != nullptr)
-					{
-						auto source_hash_l (node.ledger.block_source (transaction_l, *election_l->status.winner));
-						if (!source_hash_l.is_zero () && source_hash_l != previous_hash_l && blocks.find (source_hash_l) == blocks.end ())
-						{
-							auto source_l (node.store.block_get (transaction_l, source_hash_l));
-							if (source_l != nullptr && !node.block_confirmed_or_being_confirmed (transaction_l, source_hash_l))
-							{
-								add (std::move (source_l), true);
-								escalated_l = true;
-							}
-						}
-					}
-					if (escalated_l)
-					{
-						election_l->update_dependent ();
-					}
-				}
+				election_escalate (election_l, transaction_l, roots_size_l);
 			}
 			// Block broadcasting
 			if (election_l->confirmation_request_count % 8 == 1)
 			{
-				if (node.ledger.could_fit (transaction_l, *election_l->status.winner))
-				{
-					// Broadcast current winner
-					if (blocks_bundle_l.size () < max_block_broadcasts)
-					{
-						blocks_bundle_l.push_back (election_l->status.winner);
-					}
-				}
-				else
-				{
-					if (election_l->confirmation_request_count != 0)
-					{
-						election_l->stop ();
-						inactive_l.insert (root_l);
-					}
-				}
+				election_broadcast (election_l, transaction_l, blocks_bundle_l, inactive_l, root_l);
 			}
 			// Confirmation requesting
 			else if (election_l->confirmation_request_count % 4 == 0)
 			{
-				std::vector<std::shared_ptr<nano::transport::channel>> rep_channels_missing_vote_l;
-				// Add all rep endpoints that haven't already voted
-				for (const auto & rep : representatives_l)
+				// If failed to insert into any of the bundles (capped), don't increment the counter so that the same root is sent for confirmation in the next loop
+				if (!election_request_confirm (election_l, representatives_l, roots_size_l, single_confirm_req_bundle_l, batched_confirm_req_bundle_l))
 				{
-					if (election_l->last_votes.find (rep.account) == election_l->last_votes.end ())
-					{
-						rep_channels_missing_vote_l.push_back (rep.channel);
-
-						if (node.config.logging.vote_logging () && election_l->confirmation_request_count > 0)
-						{
-							node.logger.try_log ("Representative did not respond to confirm_req, retrying: ", rep.account.to_account ());
-						}
-					}
-				}
-				// Unique channels as there can be multiple reps per channel
-				rep_channels_missing_vote_l.erase (std::unique (rep_channels_missing_vote_l.begin (), rep_channels_missing_vote_l.end ()), rep_channels_missing_vote_l.end ());
-				bool low_reps_weight (rep_channels_missing_vote_l.empty () || node.rep_crawler.total_weight () < node.config.online_weight_minimum.number ());
-				if (low_reps_weight && roots_size_l <= 5 && !node.network_params.network.is_test_network ())
-				{
-					// Spam mode
-					auto deque_l (node.network.udp_channels.random_set (100));
-					auto vec (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> ());
-					for (auto i : deque_l)
-					{
-						vec->push_back (i);
-					}
-					single_confirm_req_bundle_l.push_back (std::make_pair (election_l->status.winner, vec));
-				}
-				else
-				{
-					auto single_confirm_req_channels_l (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> ());
-					for (auto & rep : rep_channels_missing_vote_l)
-					{
-						if (rep->get_network_version () >= node.network_params.protocol.tcp_realtime_protocol_version_min)
-						{
-							// Send batch request to peers supporting confirm_req by hash + root
-							auto rep_request_l (batched_confirm_req_bundle_l.find (rep));
-							auto block_l (election_l->status.winner);
-							auto root_hash_l (std::make_pair (block_l->hash (), block_l->root ()));
-							if (rep_request_l == batched_confirm_req_bundle_l.end ())
-							{
-								// Maximum number of representatives
-								if (batched_confirm_req_bundle_l.size () < max_confirm_representatives)
-								{
-									std::deque<std::pair<nano::block_hash, nano::root>> insert_root_hash = { root_hash_l };
-									batched_confirm_req_bundle_l.insert (std::make_pair (rep, insert_root_hash));
-								}
-								else
-								{
-									increment_counter_l = false;
-								}
-							}
-							// Maximum number of hashes
-							else if (rep_request_l->second.size () < max_confirm_req_batches * nano::network::confirm_req_hashes_max)
-							{
-								rep_request_l->second.push_back (root_hash_l);
-							}
-							else
-							{
-								increment_counter_l = false;
-							}
-						}
-						else
-						{
-							single_confirm_req_channels_l->push_back (rep);
-						}
-					}
-					// broadcast_confirm_req_base modifies reps, so we clone it once to avoid aliasing
-					if (single_confirm_req_bundle_l.size () < max_confirm_req && !single_confirm_req_channels_l->empty ())
-					{
-						single_confirm_req_bundle_l.push_back (std::make_pair (election_l->status.winner, single_confirm_req_channels_l));
-					}
+					increment_counter_l = false;
 				}
 			}
 			if (increment_counter_l)
@@ -373,7 +389,8 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	// Rebroadcast unconfirmed blocks
 	if (!blocks_bundle_l.empty ())
 	{
-		node.network.flood_block_many (std::move (blocks_bundle_l), [this]() {
+		node.network.flood_block_many (
+		std::move (blocks_bundle_l), [this]() {
 			{
 				nano::lock_guard<std::mutex> guard_l (this->mutex);
 				--this->ongoing_broadcasts;
@@ -385,7 +402,8 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	// Batch confirmation request
 	if (!batched_confirm_req_bundle_l.empty ())
 	{
-		node.network.broadcast_confirm_req_batched_many (batched_confirm_req_bundle_l, [this]() {
+		node.network.broadcast_confirm_req_batched_many (
+		batched_confirm_req_bundle_l, [this]() {
 			{
 				nano::lock_guard<std::mutex> guard_l (this->mutex);
 				--this->ongoing_broadcasts;
@@ -397,7 +415,8 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	// Single confirmation requests
 	if (!single_confirm_req_bundle_l.empty ())
 	{
-		node.network.broadcast_confirm_req_many (single_confirm_req_bundle_l, [this]() {
+		node.network.broadcast_confirm_req_many (
+		single_confirm_req_bundle_l, [this]() {
 			{
 				nano::lock_guard<std::mutex> guard_l (this->mutex);
 				--this->ongoing_broadcasts;

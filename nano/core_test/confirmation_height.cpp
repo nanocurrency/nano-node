@@ -895,7 +895,7 @@ TEST (confirmation_height, prioritize_frontiers)
 	transaction.refresh ();
 	node->active.prioritize_frontiers_for_confirmation (transaction, std::chrono::seconds (1), std::chrono::seconds (1));
 	ASSERT_TRUE (priority_orders_match (node->active.priority_wallet_cementable_frontiers, std::array<nano::account, num_accounts>{ key3.pub, nano::genesis_account, key4.pub, key1.pub, key2.pub }));
-	node->active.confirm_frontiers (transaction);
+	node->active.search_frontiers (transaction);
 
 	// Check that the active transactions roots contains the frontiers
 	system.deadline_set (std::chrono::seconds (10));

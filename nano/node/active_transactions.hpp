@@ -4,6 +4,8 @@
 #include <nano/lib/timer.hpp>
 #include <nano/node/gap_cache.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/node/transport/transport.hpp>
+#include <nano/node/repcrawler.hpp>
 
 #include <boost/circular_buffer.hpp>
 #include <boost/multi_index/hashed_index.hpp>
@@ -148,8 +150,13 @@ private:
 	bool add (std::shared_ptr<nano::block>, bool const = false, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
 	// clang-format on
 	void request_loop ();
+	void search_frontiers (nano::transaction const &);
+	void election_escalate (std::shared_ptr<nano::election> &, nano::transaction const &, size_t const &);
+	void election_broadcast (std::shared_ptr<nano::election> &, nano::transaction const &, std::deque<std::shared_ptr<nano::block>> &, std::unordered_set<nano::qualified_root> &, nano::qualified_root &);
+	bool election_request_confirm (std::shared_ptr<nano::election> &, std::vector<nano::representative> const &, size_t const &,
+		std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>>> & single_confirm_req_bundle_l,
+		std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::root>>> & batched_confirm_req_bundle_l);
 	void request_confirm (nano::unique_lock<std::mutex> &);
-	void confirm_frontiers (nano::transaction const &);
 	nano::account next_frontier_account{ 0 };
 	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
 	nano::condition_variable condition;
