@@ -287,13 +287,13 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 			// Confirmation requesting
 			else if (election_l->confirmation_request_count % 4 == 0)
 			{
-				std::unordered_set<std::shared_ptr<nano::transport::channel>> rep_channels_missing_vote_l;
+				std::vector<std::shared_ptr<nano::transport::channel>> rep_channels_missing_vote_l;
 				// Add all rep endpoints that haven't already voted
-				for (auto & rep : representatives_l)
+				for (const auto & rep : representatives_l)
 				{
 					if (election_l->last_votes.find (rep.account) == election_l->last_votes.end ())
 					{
-						rep_channels_missing_vote_l.insert (rep.channel);
+						rep_channels_missing_vote_l.push_back (rep.channel);
 
 						if (node.config.logging.vote_logging () && election_l->confirmation_request_count > 0)
 						{
@@ -301,6 +301,8 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 						}
 					}
 				}
+				// Unique channels as there can be multiple reps per channel
+				rep_channels_missing_vote_l.erase (std::unique (rep_channels_missing_vote_l.begin (), rep_channels_missing_vote_l.end ()), rep_channels_missing_vote_l.end ());
 				bool low_reps_weight (rep_channels_missing_vote_l.empty () || node.rep_crawler.total_weight () < node.config.online_weight_minimum.number ());
 				if (low_reps_weight && roots_size_l <= 5 && !node.network_params.network.is_test_network ())
 				{
@@ -313,7 +315,6 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 					}
 					single_confirm_req_bundle_l.push_back (std::make_pair (election_l->status.winner, vec));
 				}
-				// Alternate elections getting confirmation requests every loop
 				else
 				{
 					auto single_confirm_req_channels_l (std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> ());
