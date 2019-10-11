@@ -365,7 +365,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 				election_escalate (election_l, transaction_l, roots_size_l);
 			}
 			// Block broadcasting
-			if (election_l->confirmation_request_count % 8 == 1 || (election_l->confirmation_request_count % 8 == 0 && node.network_params.network.is_test_network ()))
+			if (election_l->confirmation_request_count % 8 == 1 || node.network_params.network.is_test_network ())
 			{
 				election_broadcast (election_l, transaction_l, blocks_bundle_l, inactive_l, root_l);
 			}
