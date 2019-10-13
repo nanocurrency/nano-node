@@ -151,7 +151,7 @@ void nano::active_transactions::post_confirmation_height_set (nano::transaction 
 
 void nano::active_transactions::election_escalate (std::shared_ptr<nano::election> & election_l, nano::transaction const & transaction_l, size_t const & roots_size_l)
 {
-	static unsigned constexpr high_confirmation_request_count{ 16 };
+	static unsigned constexpr high_confirmation_request_count{ 128 };
 	// Log votes for very long unconfirmed elections
 	if (election_l->confirmation_request_count % (4 * high_confirmation_request_count) == 1)
 	{
@@ -294,13 +294,12 @@ std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pa
 
 void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> & lock_a)
 {
-	assert (!mutex.try_lock ());
+	assert (lock_a.mutex () == &mutex && lock_a.owns_lock ());
 	auto transaction_l (node.store.tx_begin_read ());
 	std::unordered_set<nano::qualified_root> inactive_l;
 	std::deque<std::shared_ptr<nano::block>> blocks_bundle_l;
 	std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::root>>> batched_confirm_req_bundle_l;
 	std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>>> single_confirm_req_bundle_l;
-	lock_a.unlock ();
 
 	/*
 	 * Confirm frontiers when there aren't many confirmations already pending and node finished initial bootstrap
@@ -314,10 +313,11 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 		bool bootstrap_weight_reached (node.ledger.block_count_cache >= node.ledger.bootstrap_weight_max_blocks);
 		if (node.config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled && bootstrap_weight_reached && probably_unconfirmed_frontiers && pending_confirmation_height_size < confirmed_frontiers_max_pending_cut_off)
 		{
+			lock_a.unlock ();
 			search_frontiers (transaction_l);
+			lock_a.lock ();
 		}
 	}
-	lock_a.lock ();
 
 	// Any new election started from process_live only gets requests after at least 1 second
 	auto cutoff_l (std::chrono::steady_clock::now () - election_request_delay);
@@ -458,8 +458,8 @@ void nano::active_transactions::request_loop ()
 		// Account for the time spent in request_confirm by defining the wakeup point beforehand
 		const auto wakeup_l (std::chrono::steady_clock::now () + std::chrono::milliseconds (node.network_params.network.request_interval_ms));
 
-		request_confirm (lock);
 		update_active_difficulty (lock);
+		request_confirm (lock);
 
 		// Sleep until all broadcasts are done, plus the remaining loop time
 		while (!stopped && ongoing_broadcasts)
@@ -858,21 +858,23 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 
 void nano::active_transactions::update_active_difficulty (nano::unique_lock<std::mutex> & lock_a)
 {
-	assert (lock_a.mutex () == &mutex && lock_a.owns_lock ());
+	assert (!mutex.try_lock ());
 	double multiplier (1.);
 	if (!roots.empty ())
 	{
+		auto & sorted_roots = roots.get<1> ();
 		std::vector<uint64_t> active_root_difficulties;
-		active_root_difficulties.reserve (roots.size ());
+		active_root_difficulties.reserve (std::min (roots.size (), node.config.active_elections_size));
+		size_t count (0);
 		auto cutoff (std::chrono::steady_clock::now () - election_request_delay - 1s);
-		for (auto & root : roots)
+		for (auto it (sorted_roots.begin ()), end (sorted_roots.end ()); it != end && count++ < node.config.active_elections_size; ++it)
 		{
-			if (!root.election->confirmed && !root.election->stopped && root.election->election_start < cutoff)
+			if (!it->election->confirmed && !it->election->stopped && it->election->election_start < cutoff)
 			{
-				active_root_difficulties.push_back (root.adjusted_difficulty);
+				active_root_difficulties.push_back (it->adjusted_difficulty);
 			}
 		}
-		if (!active_root_difficulties.empty ())
+		if (active_root_difficulties.size () > 10 || node.network_params.network.is_test_network ())
 		{
 			multiplier = nano::difficulty::to_multiplier (active_root_difficulties[active_root_difficulties.size () / 2], node.network_params.network.publish_threshold);
 		}
