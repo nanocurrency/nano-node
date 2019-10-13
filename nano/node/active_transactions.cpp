@@ -294,7 +294,7 @@ std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pa
 
 void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> & lock_a)
 {
-	assert (lock_a.mutex () == &mutex && lock_a.owns_lock ());
+	assert (!mutex.try_lock ());
 	auto transaction_l (node.store.tx_begin_read ());
 	std::unordered_set<nano::qualified_root> inactive_l;
 	std::deque<std::shared_ptr<nano::block>> blocks_bundle_l;
@@ -874,7 +874,7 @@ void nano::active_transactions::update_active_difficulty (nano::unique_lock<std:
 				active_root_difficulties.push_back (it->adjusted_difficulty);
 			}
 		}
-		if (active_root_difficulties.size () > 10 || node.network_params.network.is_test_network ())
+		if (active_root_difficulties.size () > 10 || (!active_root_difficulties.empty () && node.network_params.network.is_test_network ()))
 		{
 			multiplier = nano::difficulty::to_multiplier (active_root_difficulties[active_root_difficulties.size () / 2], node.network_params.network.publish_threshold);
 		}
