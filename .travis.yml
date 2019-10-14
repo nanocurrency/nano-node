@@ -128,16 +128,14 @@ jobs:
         - brew cask install xquartz;
         - brew upgrade cmake;
         - brew install rocksdb;
-        - git clone https://github.com/benlau/qtci.git; 
-        - source qtci/path.env; 
-        - install-qt-online qt.qt5.5130.clang_64 ~/
       install:
         - pip install --user awscli
         - brew install ccache;
         - export PATH="$HOME/Library/Python/2.7/bin:/usr/local/opt/ccache/libexec:$PATH";
         - aws --version
+        - util/build_prep/macosx/build_qt.sh
       script:
-        - ci/build-deploy.sh "~/qt/5.13.0/clang_64/lib/cmake/Qt5"; 
+        - ci/build-deploy.sh "/tmp/qt/lib/cmake/Qt5"; 
         - if [[ -n "$TRAVIS_TAG" ]]; then if [[ ! "${TRAVIS_TAG-0}" =~ ("RC"|"DB") ]]; then ci/deploy-travis.sh; fi; fi;
     - stage: artifacts_beta
       name: "beta docker"
@@ -171,16 +169,14 @@ jobs:
         - brew cask install xquartz;
         - brew upgrade cmake;
         - brew install rocksdb;
-        - git clone https://github.com/benlau/qtci.git; 
-        - source qtci/path.env; 
-        - install-qt-online qt.qt5.5130.clang_64 ~/
       install:
         - pip install --user awscli
         - brew install ccache;
         - export PATH="$HOME/Library/Python/2.7/bin:/usr/local/opt/ccache/libexec:$PATH";
         - aws --version
+        - util/build_prep/build_qt.sh
       script:
-        - ci/build-deploy.sh "~/qt/5.13.0/clang_64/lib/cmake/Qt5"; 
+        - ci/build-deploy.sh "/tmp/qt/lib/cmake/Qt5"; 
         - ci/deploy-travis.sh;
 cache:
   - ccache: true
@@ -188,6 +184,7 @@ cache:
     - $HOME/.local
     - $HOME/Library/Caches/Homebrew
     - $TRAVIS_BUILD_DIR/load-tester/target
+    - /tmp/qt/
 script:
   - if [ -n "$ONE_TIME_TESTS" ]; then ci/check-commit-format.sh; fi
   - if [ -n "$ONE_TIME_TESTS" ]; then doxygen doxygen.config; fi # TODO also deploy the built HTML
