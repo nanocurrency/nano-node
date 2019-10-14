@@ -4791,6 +4791,15 @@ void nano::json_handler::work_generate ()
 			}
 			else
 			{
+				if (!account_opt.is_initialized ())
+				{
+					// Fetch account from block if not given
+					auto transaction_l (node.store.tx_begin_read ());
+					if (node.store.block_exists (transaction_l, hash))
+					{
+						account = node.store.block_account (transaction_l, hash);
+					}
+				}
 				auto secondary_work_peers_l (request.get<bool> ("secondary_work_peers", false));
 				auto const & peers_l (secondary_work_peers_l ? node.config.secondary_work_peers : node.config.work_peers);
 				if (node.work_generation_enabled (peers_l))
