@@ -259,7 +259,10 @@ void nano::bootstrap_attempt::run ()
 			lazy_run ();
 			lock.lock ();
 		}
-		node->unchecked_cleanup ();
+		if (!stopped)
+		{
+			node->unchecked_cleanup ();
+		}
 	}
 	stopped = true;
 	condition.notify_all ();
