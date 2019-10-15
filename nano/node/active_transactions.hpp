@@ -78,6 +78,16 @@ public:
 	nano::qualified_root root;
 };
 
+class inactive_cache_info final
+{
+public:
+	std::chrono::steady_clock::time_point arrival;
+	nano::block_hash hash;
+	std::vector<nano::account> voters;
+	bool confirmed{ false };
+	bool bootstrap_frontier_confirmed{ false };
+};
+
 // Core class for determining consensus
 // Holds all active blocks i.e. recently added blocks that need confirmation
 class active_transactions final
@@ -123,7 +133,7 @@ public:
 	std::deque<nano::election_status> confirmed;
 	void add_confirmed (nano::election_status const &, nano::qualified_root const &);
 	void add_inactive_votes_cache (nano::block_hash const &, nano::account const &);
-	nano::gap_information find_inactive_votes_cache (nano::block_hash const &);
+	nano::inactive_cache_info find_inactive_votes_cache (nano::block_hash const &);
 	nano::node & node;
 	std::mutex mutex;
 	std::chrono::seconds const long_election_threshold;
@@ -187,10 +197,10 @@ private:
 	static size_t constexpr max_priority_cementable_frontiers{ 100000 };
 	static size_t constexpr confirmed_frontiers_max_pending_cut_off{ 1000 };
 	boost::multi_index_container<
-	nano::gap_information,
+	nano::inactive_cache_info,
 	boost::multi_index::indexed_by<
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<gap_information, std::chrono::steady_clock::time_point, &gap_information::arrival>>,
-	boost::multi_index::hashed_unique<boost::multi_index::member<gap_information, nano::block_hash, &gap_information::hash>>>>
+	boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::inactive_cache_info, std::chrono::steady_clock::time_point, &nano::inactive_cache_info::arrival>>,
+	boost::multi_index::hashed_unique<boost::multi_index::member<nano::inactive_cache_info, nano::block_hash, &nano::inactive_cache_info::hash>>>>
 	inactive_votes_cache;
 	static size_t constexpr inactive_votes_cache_max{ 16 * 1024 };
 	boost::thread thread;

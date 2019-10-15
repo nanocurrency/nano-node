@@ -1039,10 +1039,10 @@ void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const
 	if (node.ledger.weight (representative_a) > node.minimum_principal_weight ())
 	{
 		auto existing (inactive_votes_cache.get<1> ().find (hash_a));
-		if (existing != inactive_votes_cache.get<1> ().end ())
+		if (existing != inactive_votes_cache.get<1> ().end () && !existing->confirmed)
 		{
 			auto is_new (false);
-			inactive_votes_cache.get<1> ().modify (existing, [representative_a, &is_new](nano::gap_information & info) {
+			inactive_votes_cache.get<1> ().modify (existing, [representative_a, &is_new](nano::inactive_cache_info & info) {
 				auto it = std::find (info.voters.begin (), info.voters.end (), representative_a);
 				is_new = (it == info.voters.end ());
 				if (is_new)
@@ -1054,7 +1054,12 @@ void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const
 
 			if (is_new)
 			{
-				node.gap_cache.bootstrap_check (existing->voters, hash_a);
+				if (node.gap_cache.bootstrap_check (existing->voters, hash_a))
+				{
+					inactive_votes_cache.get<1> ().modify (existing, [](nano::inactive_cache_info & info) {
+						info.confirmed = true;
+					});
+				}
 			}
 		}
 		else
@@ -1068,7 +1073,7 @@ void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const
 	}
 }
 
-nano::gap_information nano::active_transactions::find_inactive_votes_cache (nano::block_hash const & hash_a)
+nano::inactive_cache_info nano::active_transactions::find_inactive_votes_cache (nano::block_hash const & hash_a)
 {
 	auto existing (inactive_votes_cache.get<1> ().find (hash_a));
 	if (existing != inactive_votes_cache.get<1> ().end ())
@@ -1077,7 +1082,7 @@ nano::gap_information nano::active_transactions::find_inactive_votes_cache (nano
 	}
 	else
 	{
-		return nano::gap_information{ std::chrono::steady_clock::time_point{}, 0, std::vector<nano::account>{} };
+		return nano::inactive_cache_info{ std::chrono::steady_clock::time_point{}, 0, std::vector<nano::account>{} };
 	}
 }
 
@@ -1110,7 +1115,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transaction
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "confirmed", confirmed_count, sizeof (decltype (active_transactions.confirmed)::value_type) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "priority_wallet_cementable_frontiers_count", active_transactions.priority_wallet_cementable_frontiers_size (), sizeof (nano::cementable_account) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "priority_cementable_frontiers_count", active_transactions.priority_cementable_frontiers_size (), sizeof (nano::cementable_account) }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "inactive_votes_cache_count", active_transactions.inactive_votes_cache_size (), sizeof (nano::gap_information) }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "inactive_votes_cache_count", active_transactions.inactive_votes_cache_size (), sizeof (nano::inactive_cache_info) }));
 	return composite;
 }
 }

@@ -27,6 +27,7 @@ public:
 	std::chrono::steady_clock::time_point arrival;
 	nano::block_hash hash;
 	std::vector<nano::account> voters;
+	bool confirmed{ false };
 };
 
 /** Maintains voting and arrival information for gaps (missing source or previous blocks in account chains) */
@@ -37,7 +38,7 @@ public:
 	void add (nano::block_hash const &, std::chrono::steady_clock::time_point = std::chrono::steady_clock::now ());
 	void erase (nano::block_hash const & hash_a);
 	void vote (std::shared_ptr<nano::vote>);
-	void bootstrap_check (std::vector<nano::account> const &, nano::block_hash const &);
+	bool bootstrap_check (std::vector<nano::account> const &, nano::block_hash const &);
 	nano::uint128_t bootstrap_threshold ();
 	size_t size ();
 	boost::multi_index_container<
