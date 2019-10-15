@@ -651,7 +651,7 @@ void nano::node::start ()
 	{
 		ongoing_bootstrap ();
 	}
-	else if (!flags.disable_unchecked_cleanup)
+	if (!flags.disable_unchecked_cleanup)
 	{
 		auto this_l (shared ());
 		worker.push_task ([this_l]() {
