@@ -3905,6 +3905,7 @@ void nano::json_handler::stop ()
 
 void nano::json_handler::unchecked ()
 {
+	const bool json_block_l = request.get<bool> ("json_block", false);
 	auto count (count_optional_impl ());
 	if (!ec)
 	{
@@ -3913,9 +3914,18 @@ void nano::json_handler::unchecked ()
 		for (auto i (node.store.unchecked_begin (transaction)), n (node.store.unchecked_end ()); i != n && unchecked.size () < count; ++i)
 		{
 			nano::unchecked_info const & info (i->second);
-			std::string contents;
-			info.block->serialize_json (contents);
-			unchecked.put (info.block->hash ().to_string (), contents);
+			if (json_block_l)
+			{
+				boost::property_tree::ptree block_node_l;
+				info.block->serialize_json (block_node_l);
+				unchecked.add_child (info.block->hash ().to_string (), block_node_l);
+			}
+			else
+			{
+				std::string contents;
+				info.block->serialize_json (contents);
+				unchecked.put (info.block->hash ().to_string (), contents);
+			}
 		}
 		response_l.add_child ("blocks", unchecked);
 	}
