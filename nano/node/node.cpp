@@ -1372,7 +1372,7 @@ std::unique_ptr<nano::block_store> nano::make_store (nano::logger_mt & logger, b
 #if NANO_ROCKSDB
 		return make_rocksdb ();
 #else
-		// Can only use the rocksdb_store if the node has been build with rocksdb support
+		logger.always_log (std::error_code (nano::error_config::rocksdb_enabled_but_not_supported).message ());
 		release_assert (false);
 		return nullptr;
 #endif

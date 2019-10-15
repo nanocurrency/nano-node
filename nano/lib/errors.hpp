@@ -139,6 +139,7 @@ enum class error_config
 	generic = 1,
 	invalid_value,
 	missing_value,
+	rocksdb_enabled_but_not_supported
 };
 } // nano namespace
 
