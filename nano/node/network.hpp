@@ -127,6 +127,7 @@ public:
 	void broadcast_confirm_req_base (std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>, unsigned, bool = false);
 	void broadcast_confirm_req_batched_many (std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::root>>>, std::function<void()> = nullptr, unsigned = broadcast_interval_ms, bool = false);
 	void broadcast_confirm_req_many (std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>>>, std::function<void()> = nullptr, unsigned = broadcast_interval_ms);
+	void broadcast_confirm_req_hashes (std::deque<std::pair<nano::block_hash, nano::root>>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>> = nullptr, std::function<void()> = nullptr, unsigned = broadcast_interval_ms, bool = false);
 	void confirm_hashes (nano::transaction const &, std::shared_ptr<nano::transport::channel>, std::vector<nano::block_hash>);
 	bool send_votes_cache (std::shared_ptr<nano::transport::channel>, nano::block_hash const &);
 	std::shared_ptr<nano::transport::channel> find_node_id (nano::account const &);
