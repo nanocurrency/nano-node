@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
 if [[ ! -d "/tmp/qt/lib/cmake" ]]; then
-	aws s3 cp s3://$AWS_BUCKET/artifacts/qtbase-latest.tgz /tmp/qtbase-latest.tgz
 	popd /tmp
+	wget -O qtbase-latest.tgz https://s3.us-east-2.amazonaws.com/repo.nano.org/artifacts/qtbase-latest.tgz
 	tar -zxvf qtbase-latest.tgz
 	mv tmp/* .
 	rm -fr tmp
