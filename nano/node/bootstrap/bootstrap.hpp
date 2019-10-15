@@ -243,6 +243,7 @@ public:
 	static constexpr unsigned bootstrap_max_new_connections = 10;
 	static constexpr size_t bootstrap_max_confirm_frontiers = 70;
 	static constexpr unsigned failed_pulls_limit = 500;
+	static constexpr unsigned failed_pulls_limit_test = 2;
 	static constexpr unsigned bulk_push_cost_limit = 200;
 	static constexpr std::chrono::seconds lazy_flush_delay_sec = std::chrono::seconds (5);
 	static constexpr unsigned bootstrap_lazy_destinations_request_limit = 200;

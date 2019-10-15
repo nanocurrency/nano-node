@@ -19,6 +19,7 @@ constexpr double nano::bootstrap_limits::bootstrap_minimum_termination_time_sec;
 constexpr unsigned nano::bootstrap_limits::bootstrap_max_new_connections;
 constexpr size_t nano::bootstrap_limits::bootstrap_max_confirm_frontiers;
 constexpr unsigned nano::bootstrap_limits::failed_pulls_limit;
+constexpr unsigned nano::bootstrap_limits::failed_pulls_limit_test;
 constexpr std::chrono::seconds nano::bootstrap_limits::lazy_flush_delay_sec;
 constexpr unsigned nano::bootstrap_limits::bootstrap_lazy_destinations_request_limit;
 constexpr std::chrono::seconds nano::bootstrap_limits::lazy_destinations_flush_delay_sec;
@@ -203,6 +204,8 @@ bool nano::bootstrap_attempt::still_pulling ()
 void nano::bootstrap_attempt::run_start (nano::unique_lock<std::mutex> & lock_a)
 {
 	confirmed_frontiers = false;
+	total_blocks = 0;
+	failed_pulls = 0;
 	pulls.clear ();
 	auto frontier_failure (true);
 	while (!stopped && frontier_failure)
@@ -251,7 +254,10 @@ void nano::bootstrap_attempt::run ()
 	if (!stopped)
 	{
 		node->logger.try_log ("Completed pulls");
-		request_push (lock);
+		if (!node->flags.disable_bootstrap_bulk_push_client)
+		{
+			request_push (lock);
+		}
 		++runs_count;
 		// Start wallet lazy bootstrap if required
 		if (!wallet_accounts.empty () && !node->flags.disable_wallet_bootstrap)
@@ -542,7 +548,7 @@ void nano::bootstrap_attempt::requeue_pull (nano::pull_info const & pull_a)
 {
 	auto pull (pull_a);
 	++pull.attempts;
-	if (pull.attempts < (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::bootstrap_frontier_retry_limit : (nano::bootstrap_limits::bootstrap_frontier_retry_limit / 8) + (pull.processed / 10000)))
+	if (pull.attempts < (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::bootstrap_frontier_retry_limit : 1 + (pull.processed / 10000)))
 	{
 		nano::lock_guard<std::mutex> lock (mutex);
 		pulls.push_front (pull);
@@ -586,11 +592,12 @@ void nano::bootstrap_attempt::add_bulk_push_target (nano::block_hash const & hea
 
 void nano::bootstrap_attempt::attempt_restart_check (nano::unique_lock<std::mutex> & lock_a)
 {
-	if (!confirmed_frontiers && failed_pulls > nano::bootstrap_limits::failed_pulls_limit && failed_pulls > total_blocks / 10)
+	if (!confirmed_frontiers && failed_pulls > (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::failed_pulls_limit : nano::bootstrap_limits::failed_pulls_limit_test) && failed_pulls > total_blocks / 10)
 	{
 		confirm_frontiers (lock_a);
 		if (!confirmed_frontiers)
 		{
+			node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_failed, nano::stat::dir::in);
 			run_start (lock_a);
 		}
 	}
@@ -612,26 +619,27 @@ void nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 	auto representatives (node->rep_crawler.representatives ());
 	auto reps_weight (node->rep_crawler.total_weight ());
 	auto representatives_copy (representatives);
-	std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>> channels;
 	uint128_t total_weight (0);
 	// Select random peers from bottom 50% of principal representatives
 	if (!representatives.empty ())
 	{
-		std::reverse (representatives.begin (), representatives.end ());
-		representatives.resize (representatives.size () / 2, nano::representative{ 0, 0, nullptr });
-		for (auto i = static_cast<CryptoPP::word32> (representatives.size () - 1); i > 0; --i)
+		if (representatives.size () > 1)
 		{
-			auto k = nano::random_pool::generate_word32 (0, i);
-			std::swap (representatives[i], representatives[k]);
-		}
-		if (representatives.size () > reps_limit)
-		{
-			representatives.resize (reps_limit, nano::representative{ 0, 0, nullptr });
+			std::reverse (representatives.begin (), representatives.end ());
+			representatives.resize (representatives.size () / 2, nano::representative{ 0, 0, nullptr });
+			for (auto i = static_cast<CryptoPP::word32> (representatives.size () - 1); i > 0; --i)
+			{
+				auto k = nano::random_pool::generate_word32 (0, i);
+				std::swap (representatives[i], representatives[k]);
+			}
+			if (representatives.size () > reps_limit)
+			{
+				representatives.resize (reps_limit, nano::representative{ 0, 0, nullptr });
+			}
 		}
 		for (auto const & rep : representatives)
 		{
 			total_weight += rep.weight.number ();
-			channels->push_back (rep.channel);
 		}
 	}
 	// Select peers with total 25% of reps stake from top 50% of principal representatives
@@ -643,7 +651,6 @@ void nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 		if (std::find (representatives.begin (), representatives.end (), rep) == representatives.end ())
 		{
 			representatives.push_back (rep);
-			channels->push_back (rep.channel);
 			total_weight += rep.weight.number ();
 		}
 	}
@@ -668,7 +675,7 @@ void nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 				{
 					tally += node->ledger.weight (voter);
 				}
-				if (tally > reps_weight / 5 && existing.voters.size () >= representatives.size () * 0.75) // 20% of weight, 75% of reps
+				if (existing.confirmed || (tally > reps_weight / 5 && existing.voters.size () >= representatives.size () * 0.75)) // 20% of weight, 75% of reps
 				{
 					ii = frontiers.erase (ii);
 				}
@@ -701,7 +708,7 @@ void nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 		else
 		{
 			node->network.broadcast_confirm_req_batched_many (batched_confirm_req_bundle);
-			std::this_thread::sleep_for (std::chrono::milliseconds (500));
+			std::this_thread::sleep_for (std::chrono::milliseconds (!node->network_params.network.is_test_network () ? 500 : 5));
 		}
 	}
 	if (!confirmed_frontiers)
