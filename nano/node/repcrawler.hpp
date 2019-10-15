@@ -36,6 +36,10 @@ public:
 	{
 		return *channel;
 	};
+	bool operator== (nano::representative const & other_a) const
+	{
+		return account == other_a.account;
+	}
 	nano::account account{ 0 };
 	nano::amount weight{ 0 };
 	std::shared_ptr<nano::transport::channel> channel;

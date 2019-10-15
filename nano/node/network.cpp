@@ -403,50 +403,6 @@ void nano::network::broadcast_confirm_req_many (std::deque<std::pair<std::shared
 	}
 }
 
-void nano::network::broadcast_confirm_req_hashes (std::deque<std::pair<nano::block_hash, nano::root>> requests_a, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>> endpoints_a, std::function<void()> callback_a, unsigned delay_a, bool resumption)
-{
-	const size_t max_requests = 5;
-	if (endpoints_a == nullptr)
-	{
-		endpoints_a = std::make_shared<std::vector<std::shared_ptr<nano::transport::channel>>> (node.rep_crawler.representative_endpoints (std::numeric_limits<size_t>::max ()));
-	}
-	if (!resumption && node.config.logging.network_logging ())
-	{
-		node.logger.try_log (boost::str (boost::format ("Broadcasting batch confirm req for %1% hashes/roots to %2% representatives") % requests_a.size () % endpoints_a->size ()));
-	}
-	auto count (0);
-	while (!requests_a.empty () && count < max_requests)
-	{
-		++count;
-		std::vector<std::pair<nano::block_hash, nano::root>> roots_hashes;
-		// Limit max request size hash + root to 7 pairs
-		while (roots_hashes.size () < confirm_req_hashes_max && !requests_a.empty ())
-		{
-			roots_hashes.push_back (requests_a.front ());
-			requests_a.pop_front ();
-		}
-		nano::confirm_req req (roots_hashes);
-		for (auto & channel : *endpoints_a)
-		{
-			channel->send (req);
-		}
-	}
-	if (!requests_a.empty ())
-	{
-		std::weak_ptr<nano::node> node_w (node.shared ());
-		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a), [node_w, requests_a, endpoints_a, callback_a, delay_a]() {
-			if (auto node_l = node_w.lock ())
-			{
-				node_l->network.broadcast_confirm_req_hashes (requests_a, endpoints_a, callback_a, delay_a, true);
-			}
-		});
-	}
-	else if (callback_a)
-	{
-		callback_a ();
-	}
-}
-
 namespace
 {
 class network_message_visitor : public nano::message_visitor

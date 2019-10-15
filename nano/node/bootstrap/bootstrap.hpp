@@ -77,9 +77,12 @@ public:
 	void requeue_pull (nano::pull_info const &);
 	void add_pull (nano::pull_info const &);
 	bool still_pulling ();
+	void run_start (nano::unique_lock<std::mutex> &);
 	unsigned target_connections (size_t pulls_remaining);
 	bool should_log ();
 	void add_bulk_push_target (nano::block_hash const &, nano::block_hash const &);
+	void attempt_restart_check (nano::unique_lock<std::mutex> &);
+	void confirm_frontiers (nano::unique_lock<std::mutex> &);
 	bool process_block (std::shared_ptr<nano::block>, nano::account const &, uint64_t, bool, bool);
 	/** Lazy bootstrap */
 	void lazy_run ();
@@ -118,7 +121,9 @@ public:
 	std::atomic<unsigned> account_count;
 	std::atomic<uint64_t> total_blocks;
 	std::atomic<unsigned> runs_count;
+	std::atomic<unsigned> failed_pulls;
 	std::vector<std::pair<nano::block_hash, nano::block_hash>> bulk_push_targets;
+	std::atomic<bool> confirmed_frontiers{ false };
 	std::atomic<bool> stopped;
 	std::chrono::steady_clock::time_point attempt_start{ std::chrono::steady_clock::now () };
 	nano::bootstrap_mode mode;
@@ -236,6 +241,8 @@ public:
 	static constexpr unsigned bootstrap_lazy_retry_limit = bootstrap_frontier_retry_limit * 10;
 	static constexpr double bootstrap_minimum_termination_time_sec = 30.0;
 	static constexpr unsigned bootstrap_max_new_connections = 10;
+	static constexpr size_t bootstrap_max_confirm_frontiers = 70;
+	static constexpr unsigned failed_pulls_limit = 500;
 	static constexpr unsigned bulk_push_cost_limit = 200;
 	static constexpr std::chrono::seconds lazy_flush_delay_sec = std::chrono::seconds (5);
 	static constexpr unsigned bootstrap_lazy_destinations_request_limit = 200;
