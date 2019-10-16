@@ -114,6 +114,7 @@ public:
 	std::weak_ptr<nano::frontier_req_client> frontiers;
 	std::weak_ptr<nano::bulk_push_client> push;
 	std::deque<nano::pull_info> pulls;
+	std::deque<nano::block_hash> recent_pulls_head;
 	std::deque<std::shared_ptr<nano::bootstrap_client>> idle;
 	std::atomic<unsigned> connections{ 0 };
 	std::atomic<unsigned> pulling{ 0 };

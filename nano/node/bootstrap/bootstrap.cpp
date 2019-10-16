@@ -150,6 +150,11 @@ void nano::bootstrap_attempt::request_pull (nano::unique_lock<std::mutex> & lock
 				pulls.pop_front ();
 			}
 		}
+		recent_pulls_head.push_back (pull.head);
+		if (recent_pulls_head.size () > nano::bootstrap_limits::bootstrap_max_confirm_frontiers)
+		{
+			recent_pulls_head.pop_front ();
+		}
 		++pulling;
 		// The bulk_pull_client destructor attempt to requeue_pull which can cause a deadlock if this is the last reference
 		// Dispatch request in an external thread in case it needs to be destroyed
@@ -602,6 +607,10 @@ void nano::bootstrap_attempt::attempt_restart_check (nano::unique_lock<std::mute
 			idle.clear ();
 			run_start (lock_a);
 		}
+		else
+		{
+			node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_successful, nano::stat::dir::in);
+		}
 	}
 }
 
@@ -615,13 +624,17 @@ void nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 	{
 		frontiers.push_back (i->head);
 	}
+	for (auto i (recent_pulls_head.begin ()), end (recent_pulls_head.end ()); i != end && frontiers.size () != nano::bootstrap_limits::bootstrap_max_confirm_frontiers; ++i)
+	{
+		frontiers.push_back (*i);
+	}
 	lock_a.unlock ();
 	auto frontiers_count (frontiers.size ());
 	const size_t reps_limit = 20;
 	auto representatives (node->rep_crawler.representatives ());
 	auto reps_weight (node->rep_crawler.total_weight ());
 	auto representatives_copy (representatives);
-	uint128_t total_weight (0);
+	nano::uint128_t total_weight (0);
 	// Select random peers from bottom 50% of principal representatives
 	if (!representatives.empty ())
 	{
@@ -662,7 +675,7 @@ void nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 		std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::root>>> batched_confirm_req_bundle;
 		std::deque<std::pair<nano::block_hash, nano::root>> request;
 		// Find confirmed frontiers (tally > 20% of reps stake, 75% of requestsed reps responded
-		for (auto ii (frontiers.begin ()), end (frontiers.end ()); ii != end;)
+		for (auto ii (frontiers.begin ()); ii != frontiers.end ();)
 		{
 			if (node->ledger.block_exists (*ii))
 			{
@@ -672,7 +685,7 @@ void nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 			{
 				nano::lock_guard<std::mutex> active_lock (node->active.mutex);
 				auto existing (node->active.find_inactive_votes_cache (*ii));
-				uint128_t tally;
+				nano::uint128_t tally;
 				for (auto & voter : existing.voters)
 				{
 					tally += node->ledger.weight (voter);
@@ -683,11 +696,11 @@ void nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 				}
 				else
 				{
-					++ii;
 					for (auto const & rep : representatives)
 					{
 						if (std::find (existing.voters.begin (), existing.voters.end (), rep.account) == existing.voters.end ())
 						{
+							release_assert (!(*ii).is_zero ());
 							auto rep_request (batched_confirm_req_bundle.find (rep.channel));
 							if (rep_request == batched_confirm_req_bundle.end ())
 							{
@@ -700,6 +713,7 @@ void nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 							}
 						}
 					}
+					++ii;
 				}
 			}
 		}
