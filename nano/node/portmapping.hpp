@@ -22,6 +22,22 @@ public:
 	uint16_t external_port;
 };
 
+/** Collection of discovered UPnP devices and state*/
+class upnp_state
+{
+public:
+	upnp_state () = default;
+	~upnp_state ();
+	upnp_state & operator= (upnp_state &&);
+
+	/** List of discovered UPnP devices */
+	UPNPDev * devices{ nullptr };
+	/** UPnP collected url information */
+	UPNPUrls urls{ 0 };
+	/** UPnP state */
+	IGDdatas data{ { 0 } };
+};
+
 /** UPnP port mapping */
 class port_mapping
 {
@@ -38,18 +54,14 @@ private:
 	/** Refresh occasionally in case router loses mapping */
 	void check_mapping_loop ();
 	int check_mapping ();
-	std::mutex mutex;
+	std::string get_config_port (std::string const &);
+	upnp_state upnp;
 	nano::node & node;
-	/** List of all UPnP devices */
-	UPNPDev * devices;
-	/** UPnP collected url information */
-	UPNPUrls urls;
-	/** UPnP state */
-	IGDdatas data;
 	nano::network_params network_params;
 	boost::asio::ip::address_v4 address;
 	std::array<mapping_protocol, 2> protocols;
-	uint64_t check_count;
-	bool on;
+	uint64_t check_count{ 0 };
+	bool on{ false };
+	std::mutex mutex;
 };
 }
