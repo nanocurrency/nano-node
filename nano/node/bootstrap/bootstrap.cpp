@@ -70,13 +70,7 @@ std::shared_ptr<nano::bootstrap_client> nano::bootstrap_client::shared ()
 
 nano::bootstrap_attempt::bootstrap_attempt (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a) :
 next_log (std::chrono::steady_clock::now ()),
-connections (0),
-pulling (0),
 node (node_a),
-account_count (0),
-total_blocks (0),
-runs_count (0),
-stopped (false),
 mode (mode_a)
 {
 	node->logger.always_log ("Starting bootstrap attempt");
