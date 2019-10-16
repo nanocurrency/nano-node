@@ -592,6 +592,13 @@ void nano::bootstrap_attempt::attempt_restart_check (nano::unique_lock<std::mute
 		if (!confirmed_frontiers)
 		{
 			node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_failed, nano::stat::dir::in);
+			for (auto i : clients)
+			{
+				if (auto client = i.lock ())
+				{
+					client->channel->socket->close ();
+				}
+			}
 			run_start (lock_a);
 		}
 	}
