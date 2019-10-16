@@ -674,7 +674,7 @@ void nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 	{
 		std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::root>>> batched_confirm_req_bundle;
 		std::deque<std::pair<nano::block_hash, nano::root>> request;
-		// Find confirmed frontiers (tally > 20% of reps stake, 75% of requestsed reps responded
+		// Find confirmed frontiers (tally > 12.5% of reps stake, 60% of requestsed reps responded
 		for (auto ii (frontiers.begin ()); ii != frontiers.end ();)
 		{
 			if (node->ledger.block_exists (*ii))
@@ -690,7 +690,7 @@ void nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 				{
 					tally += node->ledger.weight (voter);
 				}
-				if (existing.confirmed || (tally > reps_weight / 5 && existing.voters.size () >= representatives.size () * 0.75)) // 20% of weight, 75% of reps
+				if (existing.confirmed || (tally > reps_weight / 8 && existing.voters.size () >= representatives.size () * 0.6)) // 12.5% of weight, 60% of reps
 				{
 					ii = frontiers.erase (ii);
 				}
@@ -704,12 +704,12 @@ void nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 							auto rep_request (batched_confirm_req_bundle.find (rep.channel));
 							if (rep_request == batched_confirm_req_bundle.end ())
 							{
-								std::deque<std::pair<nano::block_hash, nano::root>> insert_root_hash = { std::make_pair (*ii, 0) };
+								std::deque<std::pair<nano::block_hash, nano::root>> insert_root_hash = { std::make_pair (*ii, *ii) };
 								batched_confirm_req_bundle.emplace (rep.channel, insert_root_hash);
 							}
 							else
 							{
-								rep_request->second.emplace_back (*ii, 0);
+								rep_request->second.emplace_back (*ii, *ii);
 							}
 						}
 					}
