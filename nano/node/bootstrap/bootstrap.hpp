@@ -35,8 +35,6 @@ enum class sync_result
 	error,
 	fork
 };
-
-class bootstrap_client;
 enum class bootstrap_mode
 {
 	legacy,
@@ -111,6 +109,7 @@ public:
 	std::chrono::steady_clock::time_point next_log;
 	std::deque<std::weak_ptr<nano::bootstrap_client>> clients;
 	std::weak_ptr<nano::bootstrap_client> connection_frontier_request;
+	nano::tcp_endpoint endpoint_frontier_request;
 	std::weak_ptr<nano::frontier_req_client> frontiers;
 	std::weak_ptr<nano::bulk_push_client> push;
 	std::deque<nano::pull_info> pulls;
@@ -122,7 +121,7 @@ public:
 	std::atomic<unsigned> account_count{ 0 };
 	std::atomic<uint64_t> total_blocks{ 0 };
 	std::atomic<unsigned> runs_count{ 0 };
-	std::atomic<unsigned> restarted_pulls{ 0 };
+	std::atomic<unsigned> requeued_pulls{ 0 };
 	std::vector<std::pair<nano::block_hash, nano::block_hash>> bulk_push_targets;
 	std::atomic<bool> confirmed_frontiers{ false };
 	std::atomic<bool> stopped{ false };
@@ -243,8 +242,8 @@ public:
 	static constexpr double bootstrap_minimum_termination_time_sec = 30.0;
 	static constexpr unsigned bootstrap_max_new_connections = 10;
 	static constexpr size_t bootstrap_max_confirm_frontiers = 70;
-	static constexpr unsigned restarted_pulls_limit = 250;
-	static constexpr unsigned restarted_pulls_limit_test = 2;
+	static constexpr unsigned requeued_pulls_limit = 250;
+	static constexpr unsigned requeued_pulls_limit_test = 2;
 	static constexpr unsigned bulk_push_cost_limit = 200;
 	static constexpr std::chrono::seconds lazy_flush_delay_sec = std::chrono::seconds (5);
 	static constexpr unsigned bootstrap_lazy_destinations_request_limit = 200;

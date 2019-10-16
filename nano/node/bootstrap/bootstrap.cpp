@@ -18,8 +18,8 @@ constexpr unsigned nano::bootstrap_limits::bootstrap_lazy_retry_limit;
 constexpr double nano::bootstrap_limits::bootstrap_minimum_termination_time_sec;
 constexpr unsigned nano::bootstrap_limits::bootstrap_max_new_connections;
 constexpr size_t nano::bootstrap_limits::bootstrap_max_confirm_frontiers;
-constexpr unsigned nano::bootstrap_limits::restarted_pulls_limit;
-constexpr unsigned nano::bootstrap_limits::restarted_pulls_limit_test;
+constexpr unsigned nano::bootstrap_limits::requeued_pulls_limit;
+constexpr unsigned nano::bootstrap_limits::requeued_pulls_limit_test;
 constexpr std::chrono::seconds nano::bootstrap_limits::lazy_flush_delay_sec;
 constexpr unsigned nano::bootstrap_limits::bootstrap_lazy_destinations_request_limit;
 constexpr std::chrono::seconds nano::bootstrap_limits::lazy_destinations_flush_delay_sec;
@@ -103,6 +103,7 @@ bool nano::bootstrap_attempt::request_frontier (nano::unique_lock<std::mutex> & 
 	connection_frontier_request = connection_l;
 	if (connection_l)
 	{
+		endpoint_frontier_request = connection_l->channel->get_tcp_endpoint ();
 		std::future<bool> future;
 		{
 			auto client (std::make_shared<nano::frontier_req_client> (connection_l));
@@ -204,7 +205,7 @@ void nano::bootstrap_attempt::run_start (nano::unique_lock<std::mutex> & lock_a)
 {
 	confirmed_frontiers = false;
 	total_blocks = 0;
-	restarted_pulls = 0;
+	requeued_pulls = 0;
 	pulls.clear ();
 	auto frontier_failure (true);
 	while (!stopped && frontier_failure)
@@ -367,6 +368,7 @@ void nano::bootstrap_attempt::populate_connections ()
 					}
 
 					client->stop (true);
+					new_clients.pop_back ();
 				}
 			}
 		}
@@ -487,6 +489,7 @@ void nano::bootstrap_attempt::connect_client (nano::tcp_endpoint const & endpoin
 
 void nano::bootstrap_attempt::pool_connection (std::shared_ptr<nano::bootstrap_client> client_a)
 {
+	auto endpoint (client_a->channel->get_tcp_endpoint ());
 	nano::lock_guard<std::mutex> lock (mutex);
 	if (!stopped && !client_a->pending_stop)
 	{
@@ -547,7 +550,7 @@ void nano::bootstrap_attempt::requeue_pull (nano::pull_info const & pull_a)
 {
 	auto pull (pull_a);
 	++pull.attempts;
-	++restarted_pulls;
+	++requeued_pulls;
 	if (pull.attempts < (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::bootstrap_frontier_retry_limit : 1 + (pull.processed / 10000)))
 	{
 		nano::lock_guard<std::mutex> lock (mutex);
@@ -591,7 +594,7 @@ void nano::bootstrap_attempt::add_bulk_push_target (nano::block_hash const & hea
 
 void nano::bootstrap_attempt::attempt_restart_check (nano::unique_lock<std::mutex> & lock_a)
 {
-	if (!confirmed_frontiers && restarted_pulls > (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::restarted_pulls_limit : nano::bootstrap_limits::restarted_pulls_limit_test))
+	if (!confirmed_frontiers && requeued_pulls > (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::requeued_pulls_limit : nano::bootstrap_limits::requeued_pulls_limit_test))
 	{
 		confirm_frontiers (lock_a);
 		if (!confirmed_frontiers)
@@ -1449,21 +1452,4 @@ void nano::pulls_cache::remove (nano::pull_info const & pull_a)
 	nano::lock_guard<std::mutex> guard (pulls_cache_mutex);
 	nano::uint512_union head_512 (pull_a.account_or_head, pull_a.head_original);
 	cache.get<account_head_tag> ().erase (head_512);
-}
-
-namespace nano
-{
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (pulls_cache & pulls_cache, const std::string & name)
-{
-	size_t cache_count = 0;
-
-	{
-		nano::lock_guard<std::mutex> guard (pulls_cache.pulls_cache_mutex);
-		cache_count = pulls_cache.cache.size ();
-	}
-	auto sizeof_element = sizeof (decltype (pulls_cache.cache)::value_type);
-	auto composite = std::make_unique<seq_con_info_composite> (name);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "pulls_cache", cache_count, sizeof_element }));
-	return composite;
-}
 }

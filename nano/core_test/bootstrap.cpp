@@ -308,6 +308,7 @@ TEST (bootstrap_processor, frontiers_unconfirmed)
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.tcp_io_timeout = std::chrono::seconds (2);
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_pull_server = true;
 	node_flags.disable_bootstrap_bulk_push_client = true;
@@ -369,6 +370,7 @@ TEST (bootstrap_processor, frontiers_confirmed)
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.tcp_io_timeout = std::chrono::seconds (2);
 	nano::node_flags node_flags;
 	node_flags.disable_bootstrap_bulk_pull_server = true;
 	node_flags.disable_bootstrap_bulk_push_client = true;
@@ -399,7 +401,7 @@ TEST (bootstrap_processor, frontiers_confirmed)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	node2->bootstrap_initiator.bootstrap (node1->network.endpoint ());
-	system.deadline_set (15s);
+	system.deadline_set (10s);
 	while (node2->bootstrap_initiator.current_attempt () != nullptr && !node2->bootstrap_initiator.current_attempt ()->confirmed_frontiers)
 	{
 		ASSERT_NO_ERROR (system.poll ());
