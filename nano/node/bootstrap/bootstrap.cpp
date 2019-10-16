@@ -721,7 +721,7 @@ void nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 		{
 			confirmed_frontiers = true;
 		}
-		else
+		else if (i < max_requests)
 		{
 			node->network.broadcast_confirm_req_batched_many (batched_confirm_req_bundle);
 			std::this_thread::sleep_for (std::chrono::milliseconds (!node->network_params.network.is_test_network () ? 500 : 5));
