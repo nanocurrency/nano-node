@@ -56,7 +56,7 @@ public:
 	unsigned int backoff; // in seconds
 	nano::node & node;
 	nano::root root;
-	boost::optional<nano::account> const & account;
+	boost::optional<nano::account> const account;
 	std::mutex mutex;
 	std::map<boost::asio::ip::address, uint16_t> outstanding;
 	std::vector<std::weak_ptr<nano::work_peer_request>> connections;

@@ -6294,6 +6294,101 @@ TEST (rpc, stats_clear)
 	ASSERT_LE (system.nodes[0]->stats.last_reset ().count (), 5);
 }
 
+TEST (rpc, unchecked)
+{
+	nano::system system (24000, 1);
+	nano::keypair key;
+	auto & node (*system.nodes[0]);
+	enable_ipc_transport_tcp (node.config.ipc_config.transport_tcp);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node, node_rpc_config);
+	nano::rpc_config rpc_config (true);
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	auto open (std::make_shared<nano::state_block> (key.pub, 0, key.pub, 1, key.pub, key.prv, key.pub, *system.work.generate (key.pub)));
+	auto open2 (std::make_shared<nano::state_block> (key.pub, 0, key.pub, 2, key.pub, key.prv, key.pub, *system.work.generate (key.pub)));
+	node.process_active (open);
+	node.process_active (open2);
+	node.block_processor.flush ();
+	boost::property_tree::ptree request;
+	request.put ("action", "unchecked");
+	request.put ("count", 2);
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		auto & blocks (response.json.get_child ("blocks"));
+		ASSERT_EQ (2, blocks.size ());
+		ASSERT_EQ (1, blocks.count (open->hash ().to_string ()));
+		ASSERT_EQ (1, blocks.count (open2->hash ().to_string ()));
+	}
+	request.put ("json_block", true);
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		auto & blocks (response.json.get_child ("blocks"));
+		ASSERT_EQ (2, blocks.size ());
+		auto & open_block (blocks.get_child (open->hash ().to_string ()));
+		ASSERT_EQ ("state", open_block.get<std::string> ("type"));
+	}
+}
+
+TEST (rpc, unchecked_get)
+{
+	nano::system system (24000, 1);
+	nano::keypair key;
+	auto & node (*system.nodes[0]);
+	enable_ipc_transport_tcp (node.config.ipc_config.transport_tcp);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node, node_rpc_config);
+	nano::rpc_config rpc_config (true);
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	auto open (std::make_shared<nano::state_block> (key.pub, 0, key.pub, 1, key.pub, key.prv, key.pub, *system.work.generate (key.pub)));
+	node.process_active (open);
+	node.block_processor.flush ();
+	boost::property_tree::ptree request;
+	request.put ("action", "unchecked_get");
+	request.put ("hash", open->hash ().to_string ());
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ (1, response.json.count ("contents"));
+		auto timestamp (response.json.get<uint64_t> ("modified_timestamp"));
+		ASSERT_LE (timestamp, nano::seconds_since_epoch ());
+	}
+	request.put ("json_block", true);
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		auto & contents (response.json.get_child ("contents"));
+		ASSERT_EQ ("state", contents.get<std::string> ("type"));
+		auto timestamp (response.json.get<uint64_t> ("modified_timestamp"));
+		ASSERT_LE (timestamp, nano::seconds_since_epoch ());
+	}
+}
+
 TEST (rpc, unopened)
 {
 	nano::system system (24000, 1);
@@ -7267,4 +7362,52 @@ TEST (rpc, epoch_upgrade)
 		ASSERT_TRUE (node->store.account_exists (transaction, std::numeric_limits<nano::uint256_t>::max ()));
 		ASSERT_FALSE (node->store.account_exists (transaction, 0));
 	}
+}
+
+TEST (rpc, account_lazy_start)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_legacy_bootstrap = true;
+	auto node1 = system.add_node (nano::node_config (24000, system.logging), node_flags);
+	nano::genesis genesis;
+	nano::keypair key;
+	// Generating test chain
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	ASSERT_EQ (nano::process_result::progress, node1->process (*send1).code);
+	auto open (std::make_shared<nano::open_block> (send1->hash (), key.pub, key.pub, key.prv, key.pub, *system.work.generate (key.pub)));
+	ASSERT_EQ (nano::process_result::progress, node1->process (*open).code);
+
+	// Start lazy bootstrap with account
+	auto node2 = system.add_node (nano::node_config (24001, system.logging), node_flags);
+	node2->network.udp_channels.insert (node1->network.endpoint (), node1->network_params.protocol.protocol_version);
+	enable_ipc_transport_tcp (node2->config.ipc_config.transport_tcp);
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node2, node_rpc_config);
+	nano::rpc_config rpc_config (true);
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "account_info");
+	request.put ("account", key.pub.to_account ());
+	test_response response (request, rpc.config.port, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+	boost::optional<std::string> account_error (response.json.get_optional<std::string> ("error"));
+	ASSERT_TRUE (account_error.is_initialized ());
+
+	// Check processed blocks
+	system.deadline_set (10s);
+	while (node2->bootstrap_initiator.in_progress ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	node2->block_processor.flush ();
+	ASSERT_TRUE (node2->ledger.block_exists (send1->hash ()));
+	ASSERT_TRUE (node2->ledger.block_exists (open->hash ()));
 }

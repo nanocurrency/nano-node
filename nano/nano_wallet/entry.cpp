@@ -66,6 +66,13 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 		error = read_and_update_wallet_config (wallet_config, data_path);
 	}
 
+#if !NANO_ROCKSDB
+	if (!error && config.node.rocksdb_config.enable)
+	{
+		error = nano::error_config::rocksdb_enabled_but_not_supported;
+	}
+#endif
+
 	if (!error)
 	{
 		nano::set_use_memory_pools (config.node.use_memory_pools);
@@ -124,7 +131,28 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 
 #if BOOST_PROCESS_SUPPORTED
 			std::unique_ptr<boost::process::child> rpc_process;
+			std::unique_ptr<boost::process::child> nano_pow_server_process;
 #endif
+
+			if (config.pow_server.enable)
+			{
+				if (!boost::filesystem::exists (config.pow_server.pow_server_path))
+				{
+					splash->hide ();
+					show_error (std::string ("nano_pow_server is configured to start as a child process, however the file cannot be found at: ") + config.pow_server.pow_server_path);
+					std::exit (1);
+				}
+
+#if BOOST_PROCESS_SUPPORTED
+				auto network = node->network_params.network.get_current_network_as_string ();
+				nano_pow_server_process = std::make_unique<boost::process::child> (config.pow_server.pow_server_path, "--config_path", data_path / "config-nano-pow-server.toml");
+#else
+				splash->hide ();
+				show_error ("nano_pow_server is configured to start as a child process, but this is not supported on this system. Disable startup and start the server manually.");
+				std::exit (1);
+#endif
+			}
+
 			std::unique_ptr<nano::rpc> rpc;
 			std::unique_ptr<nano::rpc_handler_interface> rpc_handler;
 			if (config.rpc_enable)
@@ -170,6 +198,11 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 				if (rpc_process)
 				{
 					rpc_process->terminate ();
+				}
+
+				if (nano_pow_server_process)
+				{
+					nano_pow_server_process->terminate ();
 				}
 #endif
 				runner.stop_event_processing ();

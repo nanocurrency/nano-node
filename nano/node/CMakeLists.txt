@@ -90,6 +90,8 @@ add_library (node
 	payment_observer_processor.cpp
 	portmapping.hpp
 	portmapping.cpp
+	node_pow_server_config.hpp
+	node_pow_server_config.cpp
 	repcrawler.hpp
 	repcrawler.cpp
 	testing.hpp

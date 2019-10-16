@@ -70,7 +70,26 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 				nano::ipc::ipc_server ipc_server (*node, config.rpc);
 #if BOOST_PROCESS_SUPPORTED
 				std::unique_ptr<boost::process::child> rpc_process;
+				std::unique_ptr<boost::process::child> nano_pow_server_process;
 #endif
+
+				if (config.pow_server.enable)
+				{
+					if (!boost::filesystem::exists (config.pow_server.pow_server_path))
+					{
+						std::cerr << std::string ("nano_pow_server is configured to start as a child process, however the file cannot be found at: ") + config.pow_server.pow_server_path << std::endl;
+						std::exit (1);
+					}
+
+#if BOOST_PROCESS_SUPPORTED
+					auto network = node->network_params.network.get_current_network_as_string ();
+					nano_pow_server_process = std::make_unique<boost::process::child> (config.pow_server.pow_server_path, "--config_path", data_path / "config-nano-pow-server.toml");
+#else
+					std::cerr << "nano_pow_server is configured to start as a child process, but this is not supported on this system. Disable startup and start the server manually." << std::endl;
+					std::exit (1);
+#endif
+				}
+
 				std::unique_ptr<std::thread> rpc_process_thread;
 				std::unique_ptr<nano::rpc> rpc;
 				std::unique_ptr<nano::rpc_handler_interface> rpc_handler;
