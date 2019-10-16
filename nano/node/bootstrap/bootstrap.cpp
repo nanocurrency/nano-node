@@ -1252,7 +1252,7 @@ void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bo
 		{
 			attempt->stop ();
 			// clang-format off
-			condition.wait (lock, [attempt = attempt, &stopped = stopped] { return stopped || attempt == nullptr; });
+			condition.wait (lock, [&attempt = attempt, &stopped = stopped] { return stopped || attempt == nullptr; });
 			// clang-format on
 		}
 		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out);
@@ -1272,7 +1272,7 @@ void nano::bootstrap_initiator::bootstrap_lazy (nano::hash_or_account const & ha
 			{
 				attempt->stop ();
 				// clang-format off
-				condition.wait (lock, [attempt = attempt, &stopped = stopped] { return stopped || attempt == nullptr; });
+				condition.wait (lock, [&attempt = attempt, &stopped = stopped] { return stopped || attempt == nullptr; });
 				// clang-format on
 			}
 		}
