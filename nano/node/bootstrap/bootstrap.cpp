@@ -419,7 +419,7 @@ void nano::bootstrap_attempt::populate_connections ()
 		for (auto i = 0u; i < delta; i++)
 		{
 			auto endpoint (node->network.bootstrap_peer (mode == nano::bootstrap_mode::lazy));
-			if (endpoint != nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0) && endpoints.find (endpoint) == endpoints.end ())
+			if (endpoint != nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0) && endpoints.find (endpoint) == endpoints.end () && !node->bootstrap_initiator.blacklist.check (endpoint))
 			{
 				connect_client (endpoint);
 				nano::lock_guard<std::mutex> lock (mutex);
@@ -490,9 +490,8 @@ void nano::bootstrap_attempt::connect_client (nano::tcp_endpoint const & endpoin
 
 void nano::bootstrap_attempt::pool_connection (std::shared_ptr<nano::bootstrap_client> client_a)
 {
-	auto endpoint (client_a->channel->get_tcp_endpoint ());
 	nano::lock_guard<std::mutex> lock (mutex);
-	if (!stopped && !client_a->pending_stop)
+	if (!stopped && !client_a->pending_stop && !node->bootstrap_initiator.blacklist.check (client_a->channel->get_tcp_endpoint ()))
 	{
 		// Idle bootstrap client socket
 		client_a->channel->socket->start_timer (node->network_params.node.idle_timeout);
@@ -1262,7 +1261,10 @@ void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bo
 		}
 		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out);
 		attempt = std::make_shared<nano::bootstrap_attempt> (node.shared ());
-		attempt->add_connection (endpoint_a);
+		if (!blacklist.check (nano::transport::map_endpoint_to_tcp (endpoint_a)))
+		{
+			attempt->add_connection (endpoint_a);
+		}
 		attempt->confirmed_frontiers = confirmed_frontiers;
 		condition.notify_all ();
 	}
