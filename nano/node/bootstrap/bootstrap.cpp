@@ -599,6 +599,7 @@ void nano::bootstrap_attempt::attempt_restart_check (nano::unique_lock<std::mute
 					client->channel->socket->close ();
 				}
 			}
+			idle.clear ();
 			run_start (lock_a);
 		}
 	}
