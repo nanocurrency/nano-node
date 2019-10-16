@@ -18,8 +18,8 @@ constexpr unsigned nano::bootstrap_limits::bootstrap_lazy_retry_limit;
 constexpr double nano::bootstrap_limits::bootstrap_minimum_termination_time_sec;
 constexpr unsigned nano::bootstrap_limits::bootstrap_max_new_connections;
 constexpr size_t nano::bootstrap_limits::bootstrap_max_confirm_frontiers;
-constexpr unsigned nano::bootstrap_limits::failed_pulls_limit;
-constexpr unsigned nano::bootstrap_limits::failed_pulls_limit_test;
+constexpr unsigned nano::bootstrap_limits::restarted_pulls_limit;
+constexpr unsigned nano::bootstrap_limits::restarted_pulls_limit_test;
 constexpr std::chrono::seconds nano::bootstrap_limits::lazy_flush_delay_sec;
 constexpr unsigned nano::bootstrap_limits::bootstrap_lazy_destinations_request_limit;
 constexpr std::chrono::seconds nano::bootstrap_limits::lazy_destinations_flush_delay_sec;
@@ -199,7 +199,7 @@ void nano::bootstrap_attempt::run_start (nano::unique_lock<std::mutex> & lock_a)
 {
 	confirmed_frontiers = false;
 	total_blocks = 0;
-	failed_pulls = 0;
+	restarted_pulls = 0;
 	pulls.clear ();
 	auto frontier_failure (true);
 	while (!stopped && frontier_failure)
@@ -542,6 +542,7 @@ void nano::bootstrap_attempt::requeue_pull (nano::pull_info const & pull_a)
 {
 	auto pull (pull_a);
 	++pull.attempts;
+	++restarted_pulls;
 	if (pull.attempts < (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::bootstrap_frontier_retry_limit : 1 + (pull.processed / 10000)))
 	{
 		nano::lock_guard<std::mutex> lock (mutex);
@@ -566,7 +567,6 @@ void nano::bootstrap_attempt::requeue_pull (nano::pull_info const & pull_a)
 			node->logger.try_log (boost::str (boost::format ("Failed to pull account %1% down to %2% after %3% attempts and %4% blocks processed") % pull.account_or_head.to_account () % pull.end.to_string () % pull.attempts % pull.processed));
 		}
 		node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_failed_account, nano::stat::dir::in);
-		++failed_pulls;
 
 		node->bootstrap_initiator.cache.add (pull);
 		if (mode == nano::bootstrap_mode::lazy && pull.processed > 0)
@@ -586,7 +586,7 @@ void nano::bootstrap_attempt::add_bulk_push_target (nano::block_hash const & hea
 
 void nano::bootstrap_attempt::attempt_restart_check (nano::unique_lock<std::mutex> & lock_a)
 {
-	if (!confirmed_frontiers && failed_pulls > (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::failed_pulls_limit : nano::bootstrap_limits::failed_pulls_limit_test))
+	if (!confirmed_frontiers && restarted_pulls > (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::restarted_pulls_limit : nano::bootstrap_limits::restarted_pulls_limit_test))
 	{
 		confirm_frontiers (lock_a);
 		if (!confirmed_frontiers)
