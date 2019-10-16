@@ -670,7 +670,7 @@ void nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 		}
 	}
 	// Start requests
-	for (auto i (0), max_requests (20); i != max_requests && !confirmed_frontiers && !stopped; ++i)
+	for (auto i (0), max_requests (20); i <= max_requests && !confirmed_frontiers && !stopped; ++i)
 	{
 		std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::root>>> batched_confirm_req_bundle;
 		std::deque<std::pair<nano::block_hash, nano::root>> request;
