@@ -23,6 +23,7 @@ constexpr unsigned nano::bootstrap_limits::requeued_pulls_limit_test;
 constexpr std::chrono::seconds nano::bootstrap_limits::lazy_flush_delay_sec;
 constexpr unsigned nano::bootstrap_limits::bootstrap_lazy_destinations_request_limit;
 constexpr std::chrono::seconds nano::bootstrap_limits::lazy_destinations_flush_delay_sec;
+constexpr std::chrono::hours nano::bootstrap_blacklist::blacklist_time_hours;
 
 nano::bootstrap_client::bootstrap_client (std::shared_ptr<nano::node> node_a, std::shared_ptr<nano::bootstrap_attempt> attempt_a, std::shared_ptr<nano::transport::channel_tcp> channel_a) :
 node (node_a),
@@ -600,6 +601,7 @@ void nano::bootstrap_attempt::attempt_restart_check (nano::unique_lock<std::mute
 		if (!confirmed_frontiers)
 		{
 			node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_failed, nano::stat::dir::in);
+			node->bootstrap_initiator.blacklist.add (endpoint_frontier_request);
 			for (auto i : clients)
 			{
 				if (auto client = i.lock ())
@@ -1387,6 +1389,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_initiato
 {
 	size_t count = 0;
 	size_t cache_count = 0;
+	size_t blacklist_count = 0;
 	{
 		nano::lock_guard<std::mutex> guard (bootstrap_initiator.observers_mutex);
 		count = bootstrap_initiator.observers.size ();
@@ -1395,12 +1398,18 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_initiato
 		nano::lock_guard<std::mutex> guard (bootstrap_initiator.cache.pulls_cache_mutex);
 		cache_count = bootstrap_initiator.cache.cache.size ();
 	}
+	{
+		nano::lock_guard<std::mutex> guard (bootstrap_initiator.blacklist.blacklist_mutex);
+		blacklist_count = bootstrap_initiator.blacklist.blacklist.size ();
+	}
 
 	auto sizeof_element = sizeof (decltype (bootstrap_initiator.observers)::value_type);
 	auto sizeof_cache_element = sizeof (decltype (bootstrap_initiator.cache.cache)::value_type);
+	auto sizeof_blacklist_element = sizeof (decltype (bootstrap_initiator.blacklist.blacklist)::value_type);
 	auto composite = std::make_unique<seq_con_info_composite> (name);
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "observers", count, sizeof_element }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "pulls_cache", cache_count, sizeof_cache_element }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "blacklist", blacklist_count, sizeof_blacklist_element }));
 	return composite;
 }
 }
@@ -1452,4 +1461,56 @@ void nano::pulls_cache::remove (nano::pull_info const & pull_a)
 	nano::lock_guard<std::mutex> guard (pulls_cache_mutex);
 	nano::uint512_union head_512 (pull_a.account_or_head, pull_a.head_original);
 	cache.get<account_head_tag> ().erase (head_512);
+}
+
+void nano::bootstrap_blacklist::add (nano::tcp_endpoint const & endpoint_a)
+{
+	nano::lock_guard<std::mutex> guard (blacklist_mutex);
+	// Clean old pull
+	if (blacklist.size () > blacklist_size_max)
+	{
+		blacklist.erase (blacklist.begin ());
+	}
+	assert (blacklist.size () <= blacklist_size_max);
+	auto existing (blacklist.get<endpoint_tag> ().find (endpoint_a));
+	if (existing == blacklist.get<endpoint_tag> ().end ())
+	{
+		// Insert new endpoint
+		auto inserted (blacklist.insert (nano::blacklist_item{ std::chrono::steady_clock::steady_clock::now () + blacklist_time_hours, endpoint_a, 1 }));
+		(void)inserted;
+		assert (inserted.second);
+	}
+	else
+	{
+		// Update existing endpoint
+		blacklist.get<endpoint_tag> ().modify (existing, [](nano::blacklist_item & item_a) {
+			if (item_a.blacklist_until > std::chrono::steady_clock::now ())
+			{
+				++item_a.score;
+			}
+			if (item_a.score >= nano::bootstrap_blacklist::score_limit)
+			{
+				item_a.blacklist_until = std::chrono::steady_clock::now () + nano::bootstrap_blacklist::blacklist_time_hours;
+			}
+		});
+	}
+}
+
+bool nano::bootstrap_blacklist::check (nano::tcp_endpoint const & endpoint_a)
+{
+	bool blacklisted (false);
+	nano::lock_guard<std::mutex> guard (blacklist_mutex);
+	auto existing (blacklist.get<endpoint_tag> ().find (endpoint_a));
+	if (existing != blacklist.get<endpoint_tag> ().end ())
+	{
+		if (existing->blacklist_until > std::chrono::steady_clock::now ())
+		{
+			blacklisted = true;
+		}
+		else
+		{
+			blacklist.get<endpoint_tag> ().erase (existing);
+		}
+	}
+	return blacklisted;
 }

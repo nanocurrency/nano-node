@@ -197,6 +197,32 @@ public:
 	cache;
 	constexpr static size_t cache_size_max = 10000;
 };
+class blacklist_item final
+{
+public:
+	std::chrono::steady_clock::time_point blacklist_until;
+	nano::tcp_endpoint endpoint;
+	uint64_t score;
+};
+class bootstrap_blacklist final
+{
+public:
+	void add (nano::tcp_endpoint const &);
+	bool check (nano::tcp_endpoint const &);
+	std::mutex blacklist_mutex;
+	class endpoint_tag
+	{
+	};
+	boost::multi_index_container<
+	nano::blacklist_item,
+	boost::multi_index::indexed_by<
+	boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::blacklist_item, std::chrono::steady_clock::time_point, &nano::blacklist_item::blacklist_until>>,
+	boost::multi_index::hashed_unique<boost::multi_index::tag<endpoint_tag>, boost::multi_index::member<nano::blacklist_item, nano::tcp_endpoint, &nano::blacklist_item::endpoint>>>>
+	blacklist;
+	constexpr static size_t blacklist_size_max = 5000;
+	constexpr static uint64_t score_limit = 2;
+	constexpr static std::chrono::hours blacklist_time_hours = std::chrono::hours (1);
+};
 
 class bootstrap_initiator final
 {
@@ -213,6 +239,7 @@ public:
 	bool in_progress ();
 	std::shared_ptr<nano::bootstrap_attempt> current_attempt ();
 	nano::pulls_cache cache;
+	nano::bootstrap_blacklist blacklist;
 	void stop ();
 
 private:
