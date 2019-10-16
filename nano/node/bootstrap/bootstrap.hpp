@@ -204,7 +204,7 @@ class bootstrap_initiator final
 public:
 	explicit bootstrap_initiator (nano::node &);
 	~bootstrap_initiator ();
-	void bootstrap (nano::endpoint const &, bool add_to_peers = true);
+	void bootstrap (nano::endpoint const &, bool add_to_peers = true, bool confirmed_frontiers = false);
 	void bootstrap ();
 	void bootstrap_lazy (nano::hash_or_account const &, bool force = false, bool confirmed = true);
 	void bootstrap_wallet (std::deque<nano::account> &);

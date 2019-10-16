@@ -1239,7 +1239,7 @@ void nano::bootstrap_initiator::bootstrap ()
 	}
 }
 
-void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bool add_to_peers)
+void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bool add_to_peers, bool confirmed_frontiers)
 {
 	if (add_to_peers)
 	{
@@ -1258,6 +1258,7 @@ void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bo
 		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out);
 		attempt = std::make_shared<nano::bootstrap_attempt> (node.shared ());
 		attempt->add_connection (endpoint_a);
+		attempt->confirmed_frontiers = confirmed_frontiers;
 		condition.notify_all ();
 	}
 }
