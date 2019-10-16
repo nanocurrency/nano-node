@@ -592,7 +592,7 @@ void nano::bootstrap_attempt::add_bulk_push_target (nano::block_hash const & hea
 
 void nano::bootstrap_attempt::attempt_restart_check (nano::unique_lock<std::mutex> & lock_a)
 {
-	if (!confirmed_frontiers && failed_pulls > (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::failed_pulls_limit : nano::bootstrap_limits::failed_pulls_limit_test) && failed_pulls > total_blocks / 10)
+	if (!confirmed_frontiers && failed_pulls > (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::failed_pulls_limit : nano::bootstrap_limits::failed_pulls_limit_test) && failed_pulls > total_blocks / 1000)
 	{
 		confirm_frontiers (lock_a);
 		if (!confirmed_frontiers)
