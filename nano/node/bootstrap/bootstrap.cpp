@@ -648,29 +648,26 @@ void nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 	auto representatives_copy (representatives);
 	nano::uint128_t total_weight (0);
 	// Select random peers from bottom 50% of principal representatives
-	if (!representatives.empty ())
+	if (representatives.size () > 1)
 	{
-		if (representatives.size () > 1)
+		std::reverse (representatives.begin (), representatives.end ());
+		representatives.resize (representatives.size () / 2);
+		for (auto i = static_cast<CryptoPP::word32> (representatives.size () - 1); i > 0; --i)
 		{
-			std::reverse (representatives.begin (), representatives.end ());
-			representatives.resize (representatives.size () / 2, nano::representative{ 0, 0, nullptr });
-			for (auto i = static_cast<CryptoPP::word32> (representatives.size () - 1); i > 0; --i)
-			{
-				auto k = nano::random_pool::generate_word32 (0, i);
-				std::swap (representatives[i], representatives[k]);
-			}
-			if (representatives.size () > reps_limit)
-			{
-				representatives.resize (reps_limit, nano::representative{ 0, 0, nullptr });
-			}
+			auto k = nano::random_pool::generate_word32 (0, i);
+			std::swap (representatives[i], representatives[k]);
 		}
-		for (auto const & rep : representatives)
+		if (representatives.size () > reps_limit)
 		{
-			total_weight += rep.weight.number ();
+			representatives.resize (reps_limit);
 		}
 	}
+	for (auto const & rep : representatives)
+	{
+		total_weight += rep.weight.number ();
+	}
 	// Select peers with total 25% of reps stake from top 50% of principal representatives
-	representatives_copy.resize (representatives_copy.size () / 2, nano::representative{ 0, 0, nullptr });
+	representatives_copy.resize (representatives_copy.size () / 2);
 	while (total_weight < reps_weight / 4) // 25%
 	{
 		auto k = nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (representatives_copy.size () - 1));
