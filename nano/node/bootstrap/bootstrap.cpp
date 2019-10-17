@@ -601,6 +601,7 @@ void nano::bootstrap_attempt::attempt_restart_check (nano::unique_lock<std::mute
 		{
 			node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_failed, nano::stat::dir::in);
 			node->bootstrap_initiator.blacklist.add (endpoint_frontier_request);
+			node->logger.always_log (boost::str (boost::format ("Adding peer to blacklist: %1%") % endpoint_frontier_request));
 			for (auto i : clients)
 			{
 				if (auto client = i.lock ())
@@ -739,7 +740,7 @@ void nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 	}
 	if (!confirmed_frontiers)
 	{
-		node->logger.try_log (boost::str (boost::format ("Failed to confirm frontiers for bootstrap attempt. %1% of %2% frontiers were not confirmed") % frontiers.size () % frontiers_count));
+		node->logger.always_log (boost::str (boost::format ("Failed to confirm frontiers for bootstrap attempt. %1% of %2% frontiers were not confirmed") % frontiers.size () % frontiers_count));
 	}
 	lock_a.lock ();
 }
