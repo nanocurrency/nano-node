@@ -626,11 +626,17 @@ void nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 	std::vector<nano::block_hash> frontiers;
 	for (auto i (pulls.begin ()), end (pulls.end ()); i != end && frontiers.size () != nano::bootstrap_limits::bootstrap_max_confirm_frontiers; ++i)
 	{
-		frontiers.push_back (i->head);
+		if (!i->head.is_zero ())
+		{
+			frontiers.push_back (i->head);
+		}
 	}
 	for (auto i (recent_pulls_head.begin ()), end (recent_pulls_head.end ()); i != end && frontiers.size () != nano::bootstrap_limits::bootstrap_max_confirm_frontiers; ++i)
 	{
-		frontiers.push_back (*i);
+		if (!(*i).is_zero ())
+		{
+			frontiers.push_back (*i);
+		}
 	}
 	lock_a.unlock ();
 	auto frontiers_count (frontiers.size ());
