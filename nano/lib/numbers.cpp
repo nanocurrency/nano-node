@@ -850,18 +850,6 @@ std::string nano::to_string_hex (uint64_t const value_a)
 	return stream.str ();
 }
 
-bool nano::from_string_hex (std::string const & value_a, std::atomic<uint64_t> & target_a)
-{
-	uint64_t target_l;
-	auto error = nano::from_string_hex (value_a, target_l);
-	if (!error)
-	{
-		target_a = target_l;
-	}
-
-	return error;
-}
-
 bool nano::from_string_hex (std::string const & value_a, uint64_t & target_a)
 {
 	auto error (value_a.empty ());

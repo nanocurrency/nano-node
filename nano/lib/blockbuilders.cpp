@@ -206,7 +206,7 @@ nano::state_block_builder & nano::state_block_builder::make_block ()
 
 nano::state_block_builder & nano::state_block_builder::from (nano::state_block const & other_block)
 {
-	block->work = other_block.work.load ();
+	block->work = other_block.work;
 	build_state |= build_flags::work_present;
 	block->signature = other_block.signature;
 	build_state |= build_flags::signature_present;
