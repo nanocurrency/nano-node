@@ -5,8 +5,8 @@ target_link_libraries (nano_rpc
 	rpc
 	secure
 	Boost::filesystem
-	Boost::log
 	Boost::log_setup
+	Boost::log
 	Boost::program_options
 	Boost::system
 	Boost::thread
