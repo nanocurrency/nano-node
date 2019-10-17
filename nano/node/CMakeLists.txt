@@ -128,8 +128,8 @@ target_link_libraries (node
 	argon2
 	lmdb
 	Boost::filesystem
-	Boost::log
 	Boost::log_setup
+	Boost::log
 	Boost::program_options
 	Boost::system
 	Boost::thread
