@@ -410,7 +410,7 @@ TEST (bootstrap_processor, frontiers_confirmed)
 	}
 	node2->bootstrap_initiator.bootstrap (node1->network.endpoint ());
 	system.deadline_set (10s);
-	while (node2->bootstrap_initiator.current_attempt () != nullptr && !node2->bootstrap_initiator.current_attempt ()->confirmed_frontiers)
+	while (node2->bootstrap_initiator.current_attempt () != nullptr && !node2->bootstrap_initiator.current_attempt ()->frontiers_confirmed)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}

@@ -123,7 +123,7 @@ public:
 	std::atomic<unsigned> runs_count{ 0 };
 	std::atomic<unsigned> requeued_pulls{ 0 };
 	std::vector<std::pair<nano::block_hash, nano::block_hash>> bulk_push_targets;
-	std::atomic<bool> confirmed_frontiers{ false };
+	std::atomic<bool> frontiers_confirmed{ false };
 	std::atomic<bool> stopped{ false };
 	std::chrono::steady_clock::time_point attempt_start{ std::chrono::steady_clock::now () };
 	nano::bootstrap_mode mode;
@@ -230,7 +230,7 @@ class bootstrap_initiator final
 public:
 	explicit bootstrap_initiator (nano::node &);
 	~bootstrap_initiator ();
-	void bootstrap (nano::endpoint const &, bool add_to_peers = true, bool confirmed_frontiers = false);
+	void bootstrap (nano::endpoint const &, bool add_to_peers = true, bool frontiers_confirmed = false);
 	void bootstrap ();
 	void bootstrap_lazy (nano::hash_or_account const &, bool force = false, bool confirmed = true);
 	void bootstrap_wallet (std::deque<nano::account> &);
@@ -270,6 +270,7 @@ public:
 	static constexpr double bootstrap_minimum_termination_time_sec = 30.0;
 	static constexpr unsigned bootstrap_max_new_connections = 10;
 	static constexpr size_t bootstrap_max_confirm_frontiers = 70;
+	static constexpr double required_frontier_confirmation_ratio = 0.9;
 	static constexpr unsigned requeued_pulls_limit = 250;
 	static constexpr unsigned requeued_pulls_limit_test = 2;
 	static constexpr unsigned bulk_push_cost_limit = 200;
