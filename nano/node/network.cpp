@@ -52,10 +52,7 @@ disconnect_observer ([]() {})
 
 nano::network::~network ()
 {
-	for (auto & thread : packet_processing_threads)
-	{
-		thread.join ();
-	}
+	stop ();
 }
 
 void nano::network::start ()
@@ -75,10 +72,17 @@ void nano::network::start ()
 
 void nano::network::stop ()
 {
-	udp_channels.stop ();
-	tcp_channels.stop ();
-	resolver.cancel ();
-	buffer_container.stop ();
+	if (!stopped.exchange (true))
+	{
+		udp_channels.stop ();
+		tcp_channels.stop ();
+		resolver.cancel ();
+		buffer_container.stop ();
+		for (auto & thread : packet_processing_threads)
+		{
+			thread.join ();
+		}
+	}
 }
 
 void nano::network::send_keepalive (std::shared_ptr<nano::transport::channel> channel_a)
