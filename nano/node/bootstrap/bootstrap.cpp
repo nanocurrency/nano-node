@@ -23,7 +23,7 @@ constexpr unsigned nano::bootstrap_limits::requeued_pulls_limit_test;
 constexpr std::chrono::seconds nano::bootstrap_limits::lazy_flush_delay_sec;
 constexpr unsigned nano::bootstrap_limits::bootstrap_lazy_destinations_request_limit;
 constexpr std::chrono::seconds nano::bootstrap_limits::lazy_destinations_flush_delay_sec;
-constexpr std::chrono::hours nano::bootstrap_blacklist::blacklist_time_hours;
+constexpr std::chrono::hours nano::bootstrap_excluded_peers::exclude_time_hours;
 
 nano::bootstrap_client::bootstrap_client (std::shared_ptr<nano::node> node_a, std::shared_ptr<nano::bootstrap_attempt> attempt_a, std::shared_ptr<nano::transport::channel_tcp> channel_a) :
 node (node_a),
@@ -419,7 +419,7 @@ void nano::bootstrap_attempt::populate_connections ()
 		for (auto i = 0u; i < delta; i++)
 		{
 			auto endpoint (node->network.bootstrap_peer (mode == nano::bootstrap_mode::lazy));
-			if (endpoint != nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0) && endpoints.find (endpoint) == endpoints.end () && !node->bootstrap_initiator.blacklist.check (endpoint))
+			if (endpoint != nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0) && endpoints.find (endpoint) == endpoints.end () && !node->bootstrap_initiator.excluded_peers.check (endpoint))
 			{
 				connect_client (endpoint);
 				nano::lock_guard<std::mutex> lock (mutex);
@@ -491,7 +491,7 @@ void nano::bootstrap_attempt::connect_client (nano::tcp_endpoint const & endpoin
 void nano::bootstrap_attempt::pool_connection (std::shared_ptr<nano::bootstrap_client> client_a)
 {
 	nano::lock_guard<std::mutex> lock (mutex);
-	if (!stopped && !client_a->pending_stop && !node->bootstrap_initiator.blacklist.check (client_a->channel->get_tcp_endpoint ()))
+	if (!stopped && !client_a->pending_stop && !node->bootstrap_initiator.excluded_peers.check (client_a->channel->get_tcp_endpoint ()))
 	{
 		// Idle bootstrap client socket
 		client_a->channel->socket->start_timer (node->network_params.node.idle_timeout);
@@ -600,8 +600,8 @@ void nano::bootstrap_attempt::attempt_restart_check (nano::unique_lock<std::mute
 		if (!confirmed_frontiers)
 		{
 			node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_failed, nano::stat::dir::in);
-			node->bootstrap_initiator.blacklist.add (endpoint_frontier_request);
-			node->logger.always_log (boost::str (boost::format ("Adding peer to blacklist: %1%") % endpoint_frontier_request));
+			node->bootstrap_initiator.excluded_peers.add (endpoint_frontier_request);
+			node->logger.always_log (boost::str (boost::format ("Adding peer to excluded peers list: %1%") % endpoint_frontier_request));
 			for (auto i : clients)
 			{
 				if (auto client = i.lock ())
@@ -1270,9 +1270,9 @@ void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bo
 		attempt = std::make_shared<nano::bootstrap_attempt> (node.shared ());
 		if (confirmed_frontiers)
 		{
-			blacklist.remove (nano::transport::map_endpoint_to_tcp (endpoint_a));
+			excluded_peers.remove (nano::transport::map_endpoint_to_tcp (endpoint_a));
 		}
-		if (!blacklist.check (nano::transport::map_endpoint_to_tcp (endpoint_a)))
+		if (!excluded_peers.check (nano::transport::map_endpoint_to_tcp (endpoint_a)))
 		{
 			attempt->add_connection (endpoint_a);
 		}
@@ -1402,7 +1402,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_initiato
 {
 	size_t count = 0;
 	size_t cache_count = 0;
-	size_t blacklist_count = 0;
+	size_t excluded_peers_count = 0;
 	{
 		nano::lock_guard<std::mutex> guard (bootstrap_initiator.observers_mutex);
 		count = bootstrap_initiator.observers.size ();
@@ -1412,17 +1412,17 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_initiato
 		cache_count = bootstrap_initiator.cache.cache.size ();
 	}
 	{
-		nano::lock_guard<std::mutex> guard (bootstrap_initiator.blacklist.blacklist_mutex);
-		blacklist_count = bootstrap_initiator.blacklist.blacklist.size ();
+		nano::lock_guard<std::mutex> guard (bootstrap_initiator.excluded_peers.excluded_peers_mutex);
+		excluded_peers_count = bootstrap_initiator.excluded_peers.peers.size ();
 	}
 
 	auto sizeof_element = sizeof (decltype (bootstrap_initiator.observers)::value_type);
 	auto sizeof_cache_element = sizeof (decltype (bootstrap_initiator.cache.cache)::value_type);
-	auto sizeof_blacklist_element = sizeof (decltype (bootstrap_initiator.blacklist.blacklist)::value_type);
+	auto sizeof_excluded_peers_element = sizeof (decltype (bootstrap_initiator.excluded_peers.peers)::value_type);
 	auto composite = std::make_unique<seq_con_info_composite> (name);
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "observers", count, sizeof_element }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "pulls_cache", cache_count, sizeof_cache_element }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "blacklist", blacklist_count, sizeof_blacklist_element }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "excluded_peers", excluded_peers_count, sizeof_excluded_peers_element }));
 	return composite;
 }
 }
@@ -1476,60 +1476,60 @@ void nano::pulls_cache::remove (nano::pull_info const & pull_a)
 	cache.get<account_head_tag> ().erase (head_512);
 }
 
-void nano::bootstrap_blacklist::add (nano::tcp_endpoint const & endpoint_a)
+void nano::bootstrap_excluded_peers::add (nano::tcp_endpoint const & endpoint_a)
 {
-	nano::lock_guard<std::mutex> guard (blacklist_mutex);
+	nano::lock_guard<std::mutex> guard (excluded_peers_mutex);
 	// Clean old pull
-	if (blacklist.size () > blacklist_size_max)
+	if (peers.size () > excluded_peers_size_max)
 	{
-		blacklist.erase (blacklist.begin ());
+		peers.erase (peers.begin ());
 	}
-	assert (blacklist.size () <= blacklist_size_max);
-	auto existing (blacklist.get<endpoint_tag> ().find (endpoint_a));
-	if (existing == blacklist.get<endpoint_tag> ().end ())
+	assert (peers.size () <= excluded_peers_size_max);
+	auto existing (peers.get<endpoint_tag> ().find (endpoint_a));
+	if (existing == peers.get<endpoint_tag> ().end ())
 	{
 		// Insert new endpoint
-		auto inserted (blacklist.insert (nano::blacklist_item{ std::chrono::steady_clock::steady_clock::now () + blacklist_time_hours, endpoint_a, 1 }));
+		auto inserted (peers.insert (nano::excluded_peers_item{ std::chrono::steady_clock::steady_clock::now () + exclude_time_hours, endpoint_a, 1 }));
 		(void)inserted;
 		assert (inserted.second);
 	}
 	else
 	{
 		// Update existing endpoint
-		blacklist.get<endpoint_tag> ().modify (existing, [](nano::blacklist_item & item_a) {
-			if (item_a.blacklist_until > std::chrono::steady_clock::now ())
+		peers.get<endpoint_tag> ().modify (existing, [](nano::excluded_peers_item & item_a) {
+			if (item_a.exclude_until > std::chrono::steady_clock::now ())
 			{
 				++item_a.score;
 			}
-			if (item_a.score >= nano::bootstrap_blacklist::score_limit)
+			if (item_a.score >= nano::bootstrap_excluded_peers::score_limit)
 			{
-				item_a.blacklist_until = std::chrono::steady_clock::now () + nano::bootstrap_blacklist::blacklist_time_hours;
+				item_a.exclude_until = std::chrono::steady_clock::now () + nano::bootstrap_excluded_peers::exclude_time_hours;
 			}
 		});
 	}
 }
 
-bool nano::bootstrap_blacklist::check (nano::tcp_endpoint const & endpoint_a)
+bool nano::bootstrap_excluded_peers::check (nano::tcp_endpoint const & endpoint_a)
 {
-	bool blacklisted (false);
-	nano::lock_guard<std::mutex> guard (blacklist_mutex);
-	auto existing (blacklist.get<endpoint_tag> ().find (endpoint_a));
-	if (existing != blacklist.get<endpoint_tag> ().end () && existing->score >= score_limit)
+	bool excluded (false);
+	nano::lock_guard<std::mutex> guard (excluded_peers_mutex);
+	auto existing (peers.get<endpoint_tag> ().find (endpoint_a));
+	if (existing != peers.get<endpoint_tag> ().end () && existing->score >= score_limit)
 	{
-		if (existing->blacklist_until > std::chrono::steady_clock::now ())
+		if (existing->exclude_until > std::chrono::steady_clock::now ())
 		{
-			blacklisted = true;
+			excluded = true;
 		}
 		else
 		{
-			blacklist.get<endpoint_tag> ().erase (existing);
+			peers.get<endpoint_tag> ().erase (existing);
 		}
 	}
-	return blacklisted;
+	return excluded;
 }
 
-void nano::bootstrap_blacklist::remove (nano::tcp_endpoint const & endpoint_a)
+void nano::bootstrap_excluded_peers::remove (nano::tcp_endpoint const & endpoint_a)
 {
-	nano::lock_guard<std::mutex> guard (blacklist_mutex);
-	blacklist.get<endpoint_tag> ().erase (endpoint_a);
+	nano::lock_guard<std::mutex> guard (excluded_peers_mutex);
+	peers.get<endpoint_tag> ().erase (endpoint_a);
 }

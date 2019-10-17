@@ -355,9 +355,9 @@ TEST (bootstrap_processor, frontiers_unconfirmed)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	//Add single blacklist record (2 records are required to drop peer)
-	node5->bootstrap_initiator.blacklist.add (nano::transport::map_endpoint_to_tcp (node1->network.endpoint ()));
-	ASSERT_FALSE (node5->bootstrap_initiator.blacklist.check (nano::transport::map_endpoint_to_tcp (node1->network.endpoint ())));
+	//Add single excluded peers record (2 records are required to drop peer)
+	node5->bootstrap_initiator.excluded_peers.add (nano::transport::map_endpoint_to_tcp (node1->network.endpoint ()));
+	ASSERT_FALSE (node5->bootstrap_initiator.excluded_peers.check (nano::transport::map_endpoint_to_tcp (node1->network.endpoint ())));
 	node5->bootstrap_initiator.bootstrap (node1->network.endpoint ());
 	system.deadline_set (15s);
 	while (node5->bootstrap_initiator.in_progress ())
@@ -370,7 +370,7 @@ TEST (bootstrap_processor, frontiers_unconfirmed)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (1, node5->stats.count (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_failed, nano::stat::dir::in)); // failed request from node1
-	ASSERT_TRUE (node5->bootstrap_initiator.blacklist.check (nano::transport::map_endpoint_to_tcp (node1->network.endpoint ())));
+	ASSERT_TRUE (node5->bootstrap_initiator.excluded_peers.check (nano::transport::map_endpoint_to_tcp (node1->network.endpoint ())));
 }
 
 TEST (bootstrap_processor, frontiers_confirmed)
