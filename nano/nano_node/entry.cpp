@@ -34,81 +34,17 @@
 #endif
 #endif
 
-namespace
-{
-void update_flags (nano::node_flags & flags_a, boost::program_options::variables_map const & vm)
-{
-	auto batch_size_it = vm.find ("batch_size");
-	if (batch_size_it != vm.end ())
-	{
-		flags_a.sideband_batch_size = batch_size_it->second.as<size_t> ();
-	}
-	flags_a.disable_backup = (vm.count ("disable_backup") > 0);
-	flags_a.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
-	flags_a.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
-	flags_a.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
-	flags_a.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
-	flags_a.disable_tcp_realtime = (vm.count ("disable_tcp_realtime") > 0);
-	flags_a.disable_udp = (vm.count ("disable_udp") > 0);
-	if (flags_a.disable_tcp_realtime && flags_a.disable_udp)
-	{
-		std::cerr << "Flags --disable_tcp_realtime and --disable_udp cannot be used together" << std::endl;
-		std::exit (1);
-	}
-	flags_a.disable_unchecked_cleanup = (vm.count ("disable_unchecked_cleanup") > 0);
-	flags_a.disable_unchecked_drop = (vm.count ("disable_unchecked_drop") > 0);
-	flags_a.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
-	if (flags_a.fast_bootstrap)
-	{
-		flags_a.block_processor_batch_size = 256 * 1024;
-		flags_a.block_processor_full_size = 1024 * 1024;
-		flags_a.block_processor_verification_size = std::numeric_limits<size_t>::max ();
-	}
-	auto block_processor_batch_size_it = vm.find ("block_processor_batch_size");
-	if (block_processor_batch_size_it != vm.end ())
-	{
-		flags_a.block_processor_batch_size = block_processor_batch_size_it->second.as<size_t> ();
-	}
-	auto block_processor_full_size_it = vm.find ("block_processor_full_size");
-	if (block_processor_full_size_it != vm.end ())
-	{
-		flags_a.block_processor_full_size = block_processor_full_size_it->second.as<size_t> ();
-	}
-	auto block_processor_verification_size_it = vm.find ("block_processor_verification_size");
-	if (block_processor_verification_size_it != vm.end ())
-	{
-		flags_a.block_processor_verification_size = block_processor_verification_size_it->second.as<size_t> ();
-	}
-}
-}
-
 int main (int argc, char * const * argv)
 {
 	nano::set_umask ();
 	nano::node_singleton_memory_pool_purge_guard memory_pool_cleanup_guard;
 	boost::program_options::options_description description ("Command line options");
-	nano::add_node_options (description);
-
 	// clang-format off
 	description.add_options ()
 		("help", "Print out options")
 		("version", "Prints out version")
 		("config", boost::program_options::value<std::vector<std::string>>()->multitoken(), "Pass node configuration values. This takes precedence over any values in the configuration file. This option can be repeated multiple times.")
 		("daemon", "Start node daemon")
-		("disable_backup", "Disable wallet automatic backups")
-		("disable_lazy_bootstrap", "Disables lazy bootstrap")
-		("disable_legacy_bootstrap", "Disables legacy bootstrap")
-		("disable_wallet_bootstrap", "Disables wallet lazy bootstrap")
-		("disable_bootstrap_listener", "Disables bootstrap processing for TCP listener (not including realtime network TCP connections)")
-		("disable_tcp_realtime", "Disables TCP realtime network")
-		("disable_udp", "Disables UDP realtime network")
-		("disable_unchecked_cleanup", "Disables periodic cleanup of old records from unchecked table")
-		("disable_unchecked_drop", "Disables drop of unchecked table at startup")
-		("fast_bootstrap", "Increase bootstrap speed for high end nodes with higher limits")
-		("batch_size",boost::program_options::value<std::size_t> (), "Increase sideband batch size, default 512")
-		("block_processor_batch_size",boost::program_options::value<std::size_t> (), "Increase block processor transaction batch write size, default 0 (limited by config block_processor_batch_max_time), 256k for fast_bootstrap")
-		("block_processor_full_size",boost::program_options::value<std::size_t> (), "Increase block processor allowed blocks queue size before dropping live network packets and holding bootstrap download, default 65536, 1 million for fast_bootstrap")
-		("block_processor_verification_size",boost::program_options::value<std::size_t> (), "Increase batch signature verification size in block processor, default 0 (limited by config signature_checker_threads), unlimited for fast_bootstrap")
 		("debug_block_count", "Display the number of block")
 		("debug_bootstrap_generate", "Generate bootstrap sequence of blocks")
 		("debug_dump_frontier_unchecked_dependents", "Dump frontiers which have matching unchecked keys")
@@ -141,7 +77,8 @@ int main (int argc, char * const * argv)
 		("difficulty", boost::program_options::value<std::string> (), "Defines <difficulty> for OpenCL command, HEX")
 		("pow_sleep_interval", boost::program_options::value<std::string> (), "Defines the amount to sleep inbetween each pow calculation attempt");
 	// clang-format on
-
+	nano::add_node_options (description);
+	nano::add_node_flag_options (description);
 	boost::program_options::variables_map vm;
 	try
 	{
@@ -186,7 +123,7 @@ int main (int argc, char * const * argv)
 		{
 			nano_daemon::daemon daemon;
 			nano::node_flags flags;
-			update_flags (flags, vm);
+			nano::update_flags (flags, vm);
 
 			auto config (vm.find ("config"));
 			if (config != vm.end ())
@@ -1012,7 +949,7 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_profile_bootstrap"))
 		{
 			nano::inactive_node node2 (nano::unique_path (), 24001);
-			update_flags (node2.node->flags, vm);
+			nano::update_flags (node2.node->flags, vm);
 			nano::genesis genesis;
 			auto begin (std::chrono::high_resolution_clock::now ());
 			uint64_t block_count (0);

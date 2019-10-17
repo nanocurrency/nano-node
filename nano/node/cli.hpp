@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/errors.hpp>
+#include <nano/node/nodeconfig.hpp>
 
 #include <boost/program_options.hpp>
 
@@ -18,6 +19,8 @@ enum class error_cli
 };
 
 void add_node_options (boost::program_options::options_description &);
+void add_node_flag_options (boost::program_options::options_description &);
+void update_flags(nano::node_flags &, boost::program_options::variables_map const &);
 std::error_code handle_node_options (boost::program_options::variables_map &);
 }
 
