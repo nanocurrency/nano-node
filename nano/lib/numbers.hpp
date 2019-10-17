@@ -253,6 +253,7 @@ nano::public_key pub_key (nano::private_key const &);
 /* Conversion methods */
 std::string to_string_hex (uint64_t const);
 bool from_string_hex (std::string const &, uint64_t &);
+bool from_string_hex (std::string const &, std::atomic<uint64_t> &);
 
 /**
  * Convert a double to string in fixed format

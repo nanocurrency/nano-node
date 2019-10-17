@@ -215,7 +215,7 @@ void nano::send_block::serialize (nano::stream & stream_a) const
 	write (stream_a, hashables.destination.bytes);
 	write (stream_a, hashables.balance.bytes);
 	write (stream_a, signature.bytes);
-	write (stream_a, work);
+	write (stream_a, work.load ());
 }
 
 bool nano::send_block::deserialize (nano::stream & stream_a)
@@ -227,7 +227,9 @@ bool nano::send_block::deserialize (nano::stream & stream_a)
 		read (stream_a, hashables.destination.bytes);
 		read (stream_a, hashables.balance.bytes);
 		read (stream_a, signature.bytes);
-		read (stream_a, work);
+		uint64_t work_l;
+		read (stream_a, work_l);
+		work = work_l;
 	}
 	catch (std::exception const &)
 	{
@@ -342,6 +344,13 @@ hashables (error_a, tree_a)
 			error_a = true;
 		}
 	}
+}
+
+nano::send_block::send_block (nano::send_block const & send_block_a) :
+hashables (send_block_a.hashables),
+signature (send_block_a.signature),
+work (send_block_a.work.load ())
+{
 }
 
 bool nano::send_block::operator== (nano::block const & other_a) const
@@ -508,6 +517,13 @@ hashables (error_a, tree_a)
 	}
 }
 
+nano::open_block::open_block (nano::open_block const & open_block_a) :
+hashables (open_block_a.hashables),
+signature (open_block_a.signature),
+work (open_block_a.work.load ())
+{
+}
+
 void nano::open_block::hash (blake2b_state & hash_a) const
 {
 	hashables.hash (hash_a);
@@ -540,7 +556,7 @@ void nano::open_block::serialize (nano::stream & stream_a) const
 	write (stream_a, hashables.representative);
 	write (stream_a, hashables.account);
 	write (stream_a, signature);
-	write (stream_a, work);
+	write (stream_a, work.load ());
 }
 
 bool nano::open_block::deserialize (nano::stream & stream_a)
@@ -552,7 +568,9 @@ bool nano::open_block::deserialize (nano::stream & stream_a)
 		read (stream_a, hashables.representative);
 		read (stream_a, hashables.account);
 		read (stream_a, signature);
-		read (stream_a, work);
+		uint64_t work_l;
+		read (stream_a, work_l);
+		work = work_l;
 	}
 	catch (std::runtime_error const &)
 	{
@@ -783,7 +801,7 @@ void nano::change_block::serialize (nano::stream & stream_a) const
 	write (stream_a, hashables.previous);
 	write (stream_a, hashables.representative);
 	write (stream_a, signature);
-	write (stream_a, work);
+	write (stream_a, work.load ());
 }
 
 bool nano::change_block::deserialize (nano::stream & stream_a)
@@ -794,7 +812,9 @@ bool nano::change_block::deserialize (nano::stream & stream_a)
 		read (stream_a, hashables.previous);
 		read (stream_a, hashables.representative);
 		read (stream_a, signature);
-		read (stream_a, work);
+		uint64_t work_l;
+		read (stream_a, work_l);
+		work = work_l;
 	}
 	catch (std::runtime_error const &)
 	{
@@ -1032,6 +1052,21 @@ hashables (error_a, tree_a)
 	}
 }
 
+nano::state_block::state_block (nano::state_block const & state_block_a) :
+hashables (state_block_a.hashables),
+signature (state_block_a.signature),
+work (state_block_a.work.load ())
+{
+}
+
+nano::state_block & nano::state_block::operator= (nano::state_block const & state_block_a)
+{
+	hashables = state_block_a.hashables;
+	signature = state_block_a.signature;
+	work = state_block_a.work.load ();
+	return *this;
+}
+
 void nano::state_block::hash (blake2b_state & hash_a) const
 {
 	nano::uint256_union preamble (static_cast<uint64_t> (nano::block_type::state));
@@ -1067,7 +1102,7 @@ void nano::state_block::serialize (nano::stream & stream_a) const
 	write (stream_a, hashables.balance);
 	write (stream_a, hashables.link);
 	write (stream_a, signature);
-	write (stream_a, boost::endian::native_to_big (work));
+	write (stream_a, boost::endian::native_to_big (work.load ()));
 }
 
 bool nano::state_block::deserialize (nano::stream & stream_a)
@@ -1081,7 +1116,9 @@ bool nano::state_block::deserialize (nano::stream & stream_a)
 		read (stream_a, hashables.balance);
 		read (stream_a, hashables.link);
 		read (stream_a, signature);
-		read (stream_a, work);
+		uint64_t work_l;
+		read (stream_a, work_l);
+		work = work_l;
 		boost::endian::big_to_native_inplace (work);
 	}
 	catch (std::runtime_error const &)
@@ -1355,7 +1392,7 @@ void nano::receive_block::serialize (nano::stream & stream_a) const
 	write (stream_a, hashables.previous.bytes);
 	write (stream_a, hashables.source.bytes);
 	write (stream_a, signature.bytes);
-	write (stream_a, work);
+	write (stream_a, work.load ());
 }
 
 bool nano::receive_block::deserialize (nano::stream & stream_a)
@@ -1366,7 +1403,9 @@ bool nano::receive_block::deserialize (nano::stream & stream_a)
 		read (stream_a, hashables.previous.bytes);
 		read (stream_a, hashables.source.bytes);
 		read (stream_a, signature.bytes);
-		read (stream_a, work);
+		uint64_t work_l;
+		read (stream_a, work_l);
+		work = work_l;
 	}
 	catch (std::runtime_error const &)
 	{
