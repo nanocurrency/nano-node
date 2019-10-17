@@ -1503,7 +1503,7 @@ bool nano::bootstrap_blacklist::check (nano::tcp_endpoint const & endpoint_a)
 	bool blacklisted (false);
 	nano::lock_guard<std::mutex> guard (blacklist_mutex);
 	auto existing (blacklist.get<endpoint_tag> ().find (endpoint_a));
-	if (existing != blacklist.get<endpoint_tag> ().end ())
+	if (existing != blacklist.get<endpoint_tag> ().end () && existing->score >= score_limit)
 	{
 		if (existing->blacklist_until > std::chrono::steady_clock::now ())
 		{
