@@ -601,7 +601,7 @@ void nano::bootstrap_attempt::attempt_restart_check (nano::unique_lock<std::mute
 		{
 			node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_failed, nano::stat::dir::in);
 			node->bootstrap_initiator.excluded_peers.add (endpoint_frontier_request);
-			node->logger.always_log (boost::str (boost::format ("Adding peer to excluded peers list: %1%") % endpoint_frontier_request));
+			node->logger.always_log (boost::str (boost::format ("Adding peer %1% to excluded peers list after %2% seconds bootstrap attempt") % endpoint_frontier_request % std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt_start).count ()));
 			for (auto i : clients)
 			{
 				if (auto client = i.lock ())
