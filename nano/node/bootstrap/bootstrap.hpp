@@ -209,6 +209,7 @@ class bootstrap_blacklist final
 public:
 	void add (nano::tcp_endpoint const &);
 	bool check (nano::tcp_endpoint const &);
+	void remove (nano::tcp_endpoint const &);
 	std::mutex blacklist_mutex;
 	class endpoint_tag
 	{

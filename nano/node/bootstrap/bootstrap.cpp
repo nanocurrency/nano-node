@@ -1268,6 +1268,10 @@ void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bo
 		}
 		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out);
 		attempt = std::make_shared<nano::bootstrap_attempt> (node.shared ());
+		if (confirmed_frontiers)
+		{
+			blacklist.remove (nano::transport::map_endpoint_to_tcp (endpoint_a));
+		}
 		if (!blacklist.check (nano::transport::map_endpoint_to_tcp (endpoint_a)))
 		{
 			attempt->add_connection (endpoint_a);
@@ -1522,4 +1526,10 @@ bool nano::bootstrap_blacklist::check (nano::tcp_endpoint const & endpoint_a)
 		}
 	}
 	return blacklisted;
+}
+
+void nano::bootstrap_blacklist::remove (nano::tcp_endpoint const & endpoint_a)
+{
+	nano::lock_guard<std::mutex> guard (blacklist_mutex);
+	blacklist.get<endpoint_tag> ().erase (endpoint_a);
 }
