@@ -20,7 +20,7 @@ enum class error_cli
 
 void add_node_options (boost::program_options::options_description &);
 void add_node_flag_options (boost::program_options::options_description &);
-void update_flags(nano::node_flags &, boost::program_options::variables_map const &);
+void update_flags (nano::node_flags &, boost::program_options::variables_map const &);
 std::error_code handle_node_options (boost::program_options::variables_map &);
 }
 

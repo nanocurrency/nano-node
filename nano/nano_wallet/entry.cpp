@@ -315,7 +315,7 @@ int main (int argc, char * const * argv)
 						data_path = nano::working_path ();
 					}
 					nano::node_flags flags;
-					nano::update_flags(flags, vm);
+					nano::update_flags (flags, vm);
 					auto config (vm.find ("config"));
 					if (config != vm.end ())
 					{

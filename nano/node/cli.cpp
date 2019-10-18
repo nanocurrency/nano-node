@@ -74,7 +74,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	// clang-format on
 }
 
-void nano::add_node_flag_options(boost::program_options::options_description& description_a)
+void nano::add_node_flag_options (boost::program_options::options_description & description_a)
 {
 	// clang-format off
 	description_a.add_options()
