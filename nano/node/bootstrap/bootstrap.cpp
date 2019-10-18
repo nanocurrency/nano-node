@@ -1496,13 +1496,14 @@ void nano::bootstrap_excluded_peers::add (nano::tcp_endpoint const & endpoint_a)
 	{
 		// Update existing endpoint
 		peers.get<endpoint_tag> ().modify (existing, [](nano::excluded_peers_item & item_a) {
-			if (item_a.exclude_until > std::chrono::steady_clock::now ())
-			{
-				++item_a.score;
-			}
-			if (item_a.score >= nano::bootstrap_excluded_peers::score_limit)
+			++item_a.score;
+			if (item_a.score == nano::bootstrap_excluded_peers::score_limit)
 			{
 				item_a.exclude_until = std::chrono::steady_clock::now () + nano::bootstrap_excluded_peers::exclude_time_hours;
+			}
+			else if (item_a.score > nano::bootstrap_excluded_peers::score_limit)
+			{
+				item_a.exclude_until = std::chrono::steady_clock::now () + nano::bootstrap_excluded_peers::exclude_time_hours * item_a.score * 2;
 			}
 		});
 	}
@@ -1519,7 +1520,7 @@ bool nano::bootstrap_excluded_peers::check (nano::tcp_endpoint const & endpoint_
 		{
 			excluded = true;
 		}
-		else
+		else if (existing->exclude_until + exclude_remove_hours * existing->score < std::chrono::steady_clock::now ())
 		{
 			peers.get<endpoint_tag> ().erase (existing);
 		}

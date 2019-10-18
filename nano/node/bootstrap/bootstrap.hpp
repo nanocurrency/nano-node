@@ -223,6 +223,7 @@ public:
 	constexpr static size_t excluded_peers_size_max = 5000;
 	constexpr static uint64_t score_limit = 2;
 	constexpr static std::chrono::hours exclude_time_hours = std::chrono::hours (1);
+	constexpr static std::chrono::hours exclude_remove_hours = std::chrono::hours (24);
 };
 
 class bootstrap_initiator final
