@@ -288,6 +288,8 @@ public:
 		bulk_pull_request_failure,
 		bulk_push,
 		frontier_req,
+		frontier_confirmation_failed,
+		frontier_confirmation_successful,
 		error_socket_close,
 
 		// vote specific

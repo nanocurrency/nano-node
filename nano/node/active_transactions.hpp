@@ -189,8 +189,8 @@ private:
 	boost::multi_index_container<
 	nano::gap_information,
 	boost::multi_index::indexed_by<
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<gap_information, std::chrono::steady_clock::time_point, &gap_information::arrival>>,
-	boost::multi_index::hashed_unique<boost::multi_index::member<gap_information, nano::block_hash, &gap_information::hash>>>>
+	boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::gap_information, std::chrono::steady_clock::time_point, &nano::gap_information::arrival>>,
+	boost::multi_index::hashed_unique<boost::multi_index::member<nano::gap_information, nano::block_hash, &nano::gap_information::hash>>>>
 	inactive_votes_cache;
 	static size_t constexpr inactive_votes_cache_max{ 16 * 1024 };
 	boost::thread thread;

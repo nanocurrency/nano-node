@@ -505,6 +505,12 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::fork:
 			res = "fork";
 			break;
+		case nano::stat::detail::frontier_confirmation_failed:
+			res = "frontier_confirmation_failed";
+			break;
+		case nano::stat::detail::frontier_confirmation_successful:
+			res = "frontier_confirmation_successful";
+			break;
 		case nano::stat::detail::frontier_req:
 			res = "frontier_req";
 			break;
