@@ -772,12 +772,10 @@ bool nano::bootstrap_attempt::process_block_lazy (std::shared_ptr<nano::block> b
 {
 	bool stop_pull (false);
 	auto hash (block_a->hash ());
-	nano::lock_guard<std::mutex> lazy_lock (lazy_mutex);
+	nano::unique_lock<std::mutex> lazy_lock (lazy_mutex);
 	// Processing new blocks
 	if (lazy_blocks.find (hash) == lazy_blocks.end ())
 	{
-		nano::unchecked_info info (block_a, known_account_a, 0, nano::signature_verification::unknown, retry_limit == std::numeric_limits<unsigned>::max ());
-		node->block_processor.add (info);
 		// Search for new dependencies
 		if (!block_a->source ().is_zero () && !node->ledger.block_exists (block_a->source ()) && block_a->source () != node->network_params.ledger.genesis_account)
 		{
@@ -807,6 +805,9 @@ bool nano::bootstrap_attempt::process_block_lazy (std::shared_ptr<nano::block> b
 			lazy_balances.erase (block_a->previous ());
 		}
 		lazy_block_state_backlog_check (block_a, hash);
+		lazy_lock.unlock ();
+		nano::unchecked_info info (block_a, known_account_a, 0, nano::signature_verification::unknown, retry_limit == std::numeric_limits<unsigned>::max ());
+		node->block_processor.add (info);
 	}
 	// Force drop lazy bootstrap connection for long bulk_pull
 	if (pull_blocks > node->network_params.bootstrap.lazy_max_pull_blocks)
