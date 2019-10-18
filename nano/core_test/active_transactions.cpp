@@ -508,7 +508,7 @@ TEST (active_transactions, update_difficulty)
 	nano::genesis genesis;
 	nano::keypair key1;
 	// Generate blocks & start elections
-	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 100, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
 	uint64_t difficulty1 (0);
 	nano::work_validate (*send1, &difficulty1);
 	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 200, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send1->hash ())));
@@ -523,8 +523,32 @@ TEST (active_transactions, update_difficulty)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	// Update work with higher difficulty
-	node1.work_generate_blocking (*send1, difficulty1 + 1);
-	node1.work_generate_blocking (*send2, difficulty2 + 1);
+	auto work1 = node1.work_generate_blocking (send1->root (), difficulty1 + 1, boost::none);
+	auto work2 = node1.work_generate_blocking (send2->root (), difficulty2 + 1, boost::none);
+
+	std::error_code ec;
+	nano::state_block_builder builder;
+	send1 = std::shared_ptr<nano::state_block> (builder.from (*send1).work (*work1).build (ec));
+	nano::state_block_builder builder1;
+	send2 = std::shared_ptr<nano::state_block> (builder1.from (*send2).work (*work2).build (ec));
+	ASSERT_FALSE (ec);
+
+	auto modify_election = [&node1](auto block) {
+		auto root_l (block->root ());
+		auto hash (block->hash ());
+		nano::lock_guard<std::mutex> active_guard (node1.active.mutex);
+		auto existing (node1.active.roots.find (block->qualified_root ()));
+		ASSERT_NE (existing, node1.active.roots.end ());
+		auto election (existing->election);
+		ASSERT_EQ (election->status.winner->hash (), hash);
+		election->status.winner = block;
+		auto current (election->blocks.find (hash));
+		assert (current != election->blocks.end ());
+		current->second = block;
+	};
+
+	modify_election (send1);
+	modify_election (send2);
 	node1.process_active (send1);
 	node1.process_active (send2);
 	node1.block_processor.flush ();
