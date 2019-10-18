@@ -161,6 +161,7 @@ public:
 	std::function<void()> disconnect_observer;
 	// Called when a new channel is observed
 	std::function<void(std::shared_ptr<nano::transport::channel>)> channel_observer;
+	std::atomic<bool> stopped{ false };
 	static unsigned const broadcast_interval_ms = 10;
 	static size_t const buffer_size = 512;
 	static size_t const confirm_req_hashes_max = 7;

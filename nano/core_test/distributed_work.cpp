@@ -58,7 +58,7 @@ TEST (distributed_work, no_peers_cancel)
 	node_config.max_work_generate_multiplier = 1e6;
 	node_config.max_work_generate_difficulty = nano::difficulty::from_multiplier (node_config.max_work_generate_multiplier, nano::network_constants::publish_test_threshold);
 	auto & node = *system.add_node (node_config);
-	nano::block_hash hash;
+	nano::block_hash hash{ 1 };
 	bool done{ false };
 	auto callback_to_cancel = [&done](boost::optional<uint64_t> work_a) {
 		ASSERT_FALSE (work_a.is_initialized ());
@@ -94,7 +94,7 @@ TEST (distributed_work, no_peers_multi)
 {
 	nano::system system (24000, 1);
 	auto node (system.nodes[0]);
-	nano::block_hash hash;
+	nano::block_hash hash{ 1 };
 	unsigned total{ 10 };
 	std::atomic<unsigned> count{ 0 };
 	auto callback = [&count](boost::optional<uint64_t> work_a) {
