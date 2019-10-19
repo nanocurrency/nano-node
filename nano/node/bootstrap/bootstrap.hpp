@@ -272,7 +272,7 @@ public:
 	static constexpr double bootstrap_minimum_termination_time_sec = 30.0;
 	static constexpr unsigned bootstrap_max_new_connections = 10;
 	static constexpr size_t bootstrap_max_confirm_frontiers = 70;
-	static constexpr double required_frontier_confirmation_ratio = 0.9;
+	static constexpr double required_frontier_confirmation_ratio = 0.8;
 	static constexpr unsigned requeued_pulls_limit = 250;
 	static constexpr unsigned requeued_pulls_limit_test = 2;
 	static constexpr unsigned bulk_push_cost_limit = 200;

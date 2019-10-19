@@ -728,7 +728,7 @@ void nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 			}
 		}
 		auto confirmed_count (frontiers_count - frontiers.size ());
-		if (confirmed_count >= frontiers_count * nano::bootstrap_limits::required_frontier_confirmation_ratio) // 90% of frontiers confirmed
+		if (confirmed_count >= frontiers_count * nano::bootstrap_limits::required_frontier_confirmation_ratio) // 80% of frontiers confirmed
 		{
 			frontiers_confirmed = true;
 		}
