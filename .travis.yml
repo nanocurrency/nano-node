@@ -170,7 +170,7 @@ jobs:
         - brew cask install xquartz;
         - brew upgrade cmake;
         - brew install rocksdb;
-        - util/build_prep/build_qt.sh
+        - util/build_prep/macosx/build_qt.sh
       install:
         - pip install --user awscli
         - brew install ccache;
