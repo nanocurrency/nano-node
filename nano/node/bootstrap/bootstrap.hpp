@@ -207,7 +207,7 @@ public:
 class bootstrap_excluded_peers final
 {
 public:
-	void add (nano::tcp_endpoint const &);
+	void add (nano::tcp_endpoint const &, size_t);
 	bool check (nano::tcp_endpoint const &);
 	void remove (nano::tcp_endpoint const &);
 	std::mutex excluded_peers_mutex;
@@ -221,6 +221,7 @@ public:
 	boost::multi_index::hashed_unique<boost::multi_index::tag<endpoint_tag>, boost::multi_index::member<nano::excluded_peers_item, nano::tcp_endpoint, &nano::excluded_peers_item::endpoint>>>>
 	peers;
 	constexpr static size_t excluded_peers_size_max = 5000;
+	constexpr static double excluded_peers_percentage_limit = 0.5;
 	constexpr static uint64_t score_limit = 2;
 	constexpr static std::chrono::hours exclude_time_hours = std::chrono::hours (1);
 	constexpr static std::chrono::hours exclude_remove_hours = std::chrono::hours (24);

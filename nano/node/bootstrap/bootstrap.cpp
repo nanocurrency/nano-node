@@ -602,7 +602,7 @@ void nano::bootstrap_attempt::attempt_restart_check (nano::unique_lock<std::mute
 		if (!frontiers_confirmed)
 		{
 			node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_failed, nano::stat::dir::in);
-			node->bootstrap_initiator.excluded_peers.add (endpoint_frontier_request);
+			node->bootstrap_initiator.excluded_peers.add (endpoint_frontier_request, node->network.size ());
 			node->logger.always_log (boost::str (boost::format ("Adding peer %1% to excluded peers list after %2% seconds bootstrap attempt") % endpoint_frontier_request % std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt_start).count ()));
 			for (auto i : clients)
 			{
@@ -1476,11 +1476,11 @@ void nano::pulls_cache::remove (nano::pull_info const & pull_a)
 	cache.get<account_head_tag> ().erase (head_512);
 }
 
-void nano::bootstrap_excluded_peers::add (nano::tcp_endpoint const & endpoint_a)
+void nano::bootstrap_excluded_peers::add (nano::tcp_endpoint const & endpoint_a, size_t network_peers_count)
 {
 	nano::lock_guard<std::mutex> guard (excluded_peers_mutex);
-	// Clean old pull
-	if (peers.size () > excluded_peers_size_max)
+	// Clean old excluded peers
+	while (peers.size () > 1 && peers.size () > std::min (static_cast<double> (excluded_peers_size_max), network_peers_count * excluded_peers_percentage_limit))
 	{
 		peers.erase (peers.begin ());
 	}

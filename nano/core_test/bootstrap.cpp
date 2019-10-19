@@ -356,7 +356,7 @@ TEST (bootstrap_processor, frontiers_unconfirmed)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	//Add single excluded peers record (2 records are required to drop peer)
-	node5->bootstrap_initiator.excluded_peers.add (nano::transport::map_endpoint_to_tcp (node1->network.endpoint ()));
+	node5->bootstrap_initiator.excluded_peers.add (nano::transport::map_endpoint_to_tcp (node1->network.endpoint ()), 0);
 	ASSERT_FALSE (node5->bootstrap_initiator.excluded_peers.check (nano::transport::map_endpoint_to_tcp (node1->network.endpoint ())));
 	node5->bootstrap_initiator.bootstrap (node1->network.endpoint ());
 	system.deadline_set (15s);
