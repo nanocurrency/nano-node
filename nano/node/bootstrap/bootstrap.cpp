@@ -699,17 +699,15 @@ void nano::bootstrap_attempt::lazy_run ()
 			{
 				lazy_pull_flush ();
 			}
-			// Start destinations check & backlog cleanup
-			if (iterations % (nano::bootstrap_limits::bootstrap_lazy_destinations_request_limit / 2) == 0 && pulls.size () < nano::bootstrap_limits::bootstrap_lazy_destinations_request_limit * 20)
+			// Start backlog cleanup
+			if (iterations % 200 == 0)
 			{
 				lazy_backlog_cleanup ();
-				lazy_destinations_flush ();
-				lazy_pull_flush ();
 			}
 		}
 		// Flushing lazy pulls
 		lazy_pull_flush ();
-		// Check if some blocks required for backlog were processed
+		// Check if some blocks required for backlog were processed. Start destinations check
 		if (pulls.empty ())
 		{
 			lazy_backlog_cleanup ();
