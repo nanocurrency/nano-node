@@ -74,18 +74,18 @@ nano::error nano::stat_config::deserialize_toml (nano::tomlconfig & toml)
 nano::error nano::stat_config::serialize_toml (nano::tomlconfig & toml) const
 {
 	nano::tomlconfig sampling_l;
-	sampling_l.put ("enable", sampling_enabled, "Enable or disable samling.\ntype:bool");
-	sampling_l.put ("capacity", capacity, "How many sample intervals to keep in the ring buffer.\ntype:uint64");
-	sampling_l.put ("interval", interval, "Sample interval.\ntype:milliseconds");
+	sampling_l.put ("enable", sampling_enabled, "Enable or disable sampling\ntype:bool");
+	sampling_l.put ("capacity", capacity, "How many sample intervals to keep in the ring buffer\ntype:uint64");
+	sampling_l.put ("interval", interval, "Sample interval\ntype:milliseconds");
 	toml.put_child ("sampling", sampling_l);
 
 	nano::tomlconfig log_l;
-	log_l.put ("headers", log_headers, "If true, write headers on each counter or samples writeout.\nThe header contains log type and the current wall time.\ntype:bool");
-	log_l.put ("interval_counters", log_interval_counters, "How often to log counters. 0 disables logging.\ntype:milliseconds");
-	log_l.put ("interval_samples", log_interval_samples, "How often to log samples. 0 disables logging.\ntype:milliseconds");
-	log_l.put ("rotation_count", log_rotation_count, "Maximum number of log outputs before rotating the file.\ntype:uint64");
-	log_l.put ("filename_counters", log_counters_filename, "Log file name for counters.\ntype:string");
-	log_l.put ("filename_samples", log_samples_filename, "Log file name for samples.\ntype:string");
+	log_l.put ("headers", log_headers, "If true, write headers on each counter or samples writeout.\nThe header contains log type and the current wall time\ntype:bool");
+	log_l.put ("interval_counters", log_interval_counters, "How often to log counters. 0 disables logging\ntype:milliseconds");
+	log_l.put ("interval_samples", log_interval_samples, "How often to log samples. 0 disables logging\ntype:milliseconds");
+	log_l.put ("rotation_count", log_rotation_count, "Maximum number of log outputs before rotating the file\ntype:uint64");
+	log_l.put ("filename_counters", log_counters_filename, "Log file name for counters\ntype:string");
+	log_l.put ("filename_samples", log_samples_filename, "Log file name for samples\ntype:string");
 	toml.put_child ("log", log_l);
 	return toml.get_error ();
 }

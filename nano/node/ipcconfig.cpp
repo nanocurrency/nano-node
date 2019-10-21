@@ -5,14 +5,14 @@
 nano::error nano::ipc::ipc_config::serialize_toml (nano::tomlconfig & toml) const
 {
 	nano::tomlconfig tcp_l;
+	tcp_l.put ("enable", transport_tcp.enabled, "Enable or disable IPC via TCP server\ntype:bool");
+	tcp_l.put ("port", transport_tcp.port, "Server listening port\ntype:uint16");
+	tcp_l.put ("io_timeout", transport_tcp.io_timeout, "Timeout for requests\ntype:seconds");
 	// Only write out experimental config values if they're previously set explicitly in the config file
 	if (transport_tcp.io_threads >= 0)
 	{
-		tcp_l.put ("io_threads", transport_tcp.io_threads);
+		tcp_l.put ("io_threads", transport_tcp.io_threads, "Number of threads dedicated to TCP I/O. Experimental\ntype:uint64_t");
 	}
-	tcp_l.put ("enable", transport_tcp.enabled);
-	tcp_l.put ("port", transport_tcp.port);
-	tcp_l.put ("io_timeout", transport_tcp.io_timeout);
 	toml.put_child ("tcp", tcp_l);
 
 	nano::tomlconfig domain_l;
@@ -20,10 +20,10 @@ nano::error nano::ipc::ipc_config::serialize_toml (nano::tomlconfig & toml) cons
 	{
 		domain_l.put ("io_threads", transport_domain.io_threads);
 	}
-	domain_l.put ("enable", transport_domain.enabled);
-	domain_l.put ("allow_unsafe", transport_domain.allow_unsafe);
-	domain_l.put ("path", transport_domain.path);
-	domain_l.put ("io_timeout", transport_domain.io_timeout);
+	domain_l.put ("enable", transport_domain.enabled, "Enable or disable IPC via local domain socket\ntype:bool");
+	domain_l.put ("allow_unsafe", transport_domain.allow_unsafe, "If enabled, certain unsafe RPCs can be used. Not recommended for production systems\ntype:bool");
+	domain_l.put ("path", transport_domain.path, "Path to the local domain socket\ntype:string");
+	domain_l.put ("io_timeout", transport_domain.io_timeout, "Timeout for requests\ntype:seconds");
 	toml.put_child ("local", domain_l);
 	return toml.get_error ();
 }
