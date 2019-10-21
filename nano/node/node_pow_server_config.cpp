@@ -5,8 +5,8 @@
 
 nano::error nano::node_pow_server_config::serialize_toml (nano::tomlconfig & toml) const
 {
-	toml.put ("enable", enable, "Enable or disable starting Nano PoW Server as a child process\ntype:bool");
-	toml.put ("nano_pow_server_path", pow_server_path, "Path to the nano_pow_server executable\ntype:string,path");
+	toml.put ("enable", enable, "Enable or disable starting Nano PoW Server as a child process.\ntype:bool");
+	toml.put ("nano_pow_server_path", pow_server_path, "Path to the nano_pow_server executable.\ntype:string,path");
 	return toml.get_error ();
 }
 
