@@ -674,7 +674,7 @@ void nano::bootstrap_attempt::lazy_run ()
 	assert (!node->flags.disable_lazy_bootstrap);
 	populate_connections ();
 	auto start_time (std::chrono::steady_clock::now ());
-	auto max_time (std::chrono::minutes (node->flags.disable_legacy_bootstrap ? 48 * 60 : 30));
+	auto max_time (std::chrono::minutes (node->flags.disable_legacy_bootstrap ? 7 * 24 * 60 : 30));
 	nano::unique_lock<std::mutex> lock (mutex);
 	while ((still_pulling () || !lazy_finished ()) && std::chrono::steady_clock::now () - start_time < max_time)
 	{
