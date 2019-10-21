@@ -31,13 +31,13 @@ nano::error nano::rpc_secure_config::deserialize_json (nano::jsonconfig & json)
 
 nano::error nano::rpc_secure_config::serialize_toml (nano::tomlconfig & toml) const
 {
-	toml.put ("enable", enable, "Enable or disable TLS support\ntype:bool");
-	toml.put ("verbose_logging", verbose_logging, "Enable or disable verbose logging\ntype:bool");
-	toml.put ("server_key_passphrase", server_key_passphrase, "Server key passphrase\ntype:string");
-	toml.put ("server_cert_path", server_cert_path, "Directory containing certificates\ntype:string,path");
-	toml.put ("server_key_path", server_key_path, "Path to server key PEM file\ntype:string,path");
-	toml.put ("server_dh_path", server_dh_path, "Path to Diffie-Hellman params file\ntype:string,path");
-	toml.put ("client_certs_path", client_certs_path, "Directory containing client certificates\ntype:string");
+	toml.put ("enable", enable, "Enable or disable TLS support.\ntype:bool");
+	toml.put ("verbose_logging", verbose_logging, "Enable or disable verbose logging.\ntype:bool");
+	toml.put ("server_key_passphrase", server_key_passphrase, "Server key passphrase.\ntype:string");
+	toml.put ("server_cert_path", server_cert_path, "Directory containing certificates.\ntype:string,path");
+	toml.put ("server_key_path", server_key_path, "Path to server key PEM file.\ntype:string,path");
+	toml.put ("server_dh_path", server_dh_path, "Path to Diffie-Hellman params file.\ntype:string,path");
+	toml.put ("client_certs_path", client_certs_path, "Directory containing client certificates.\ntype:string");
 	return toml.get_error ();
 }
 
@@ -141,17 +141,17 @@ nano::error nano::rpc_config::deserialize_json (bool & upgraded_a, nano::jsoncon
 
 nano::error nano::rpc_config::serialize_toml (nano::tomlconfig & toml) const
 {
-	toml.put ("address", address.to_string (), "Bind address for the RPC server\ntype:string,ip");
-	toml.put ("port", port, "Listening port for the RPC server\ntype:uint16");
-	toml.put ("enable_control", enable_control, "Enable or disable control-level requests\ntype:bool");
-	toml.put ("max_json_depth", max_json_depth, "Maximum number of levels in JSON requests\ntype:uint8");
-	toml.put ("max_request_size", max_request_size, "Maximum number of bytes allowed in request bodies\ntype:uint64");
+	toml.put ("address", address.to_string (), "Bind address for the RPC server.\ntype:string,ip");
+	toml.put ("port", port, "Listening port for the RPC server.\ntype:uint16");
+	toml.put ("enable_control", enable_control, "Enable or disable control-level requests.\ntype:bool");
+	toml.put ("max_json_depth", max_json_depth, "Maximum number of levels in JSON requests.\ntype:uint8");
+	toml.put ("max_request_size", max_request_size, "Maximum number of bytes allowed in request bodies.\ntype:uint64");
 
 	nano::tomlconfig rpc_process_l;
-	rpc_process_l.put ("io_threads", rpc_process.io_threads, "Number of threads used to serve IO\ntype:uint32");
-	rpc_process_l.put ("ipc_address", rpc_process.ipc_address.to_string (), "Address of IPC server\ntype:string,ip");
-	rpc_process_l.put ("ipc_port", rpc_process.ipc_port, "Listening port of IPC server\ntype:uint16");
-	rpc_process_l.put ("num_ipc_connections", rpc_process.num_ipc_connections, "Number of IPC connections to establish\ntype:uint32");
+	rpc_process_l.put ("io_threads", rpc_process.io_threads, "Number of threads used to serve IO.\ntype:uint32");
+	rpc_process_l.put ("ipc_address", rpc_process.ipc_address.to_string (), "Address of IPC server.\ntype:string,ip");
+	rpc_process_l.put ("ipc_port", rpc_process.ipc_port, "Listening port of IPC server.\ntype:uint16");
+	rpc_process_l.put ("num_ipc_connections", rpc_process.num_ipc_connections, "Number of IPC connections to establish.\ntype:uint32");
 	toml.put_child ("process", rpc_process_l);
 	return toml.get_error ();
 }
