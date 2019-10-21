@@ -19,6 +19,7 @@ constexpr double nano::bootstrap_limits::bootstrap_minimum_termination_time_sec;
 constexpr unsigned nano::bootstrap_limits::bootstrap_max_new_connections;
 constexpr size_t nano::bootstrap_limits::bootstrap_max_confirm_frontiers;
 constexpr double nano::bootstrap_limits::required_frontier_confirmation_ratio;
+constexpr unsigned nano::bootstrap_limits::frontier_confirmation_blocks_limit;
 constexpr unsigned nano::bootstrap_limits::requeued_pulls_limit;
 constexpr unsigned nano::bootstrap_limits::requeued_pulls_limit_test;
 constexpr std::chrono::seconds nano::bootstrap_limits::lazy_flush_delay_sec;
@@ -596,7 +597,7 @@ void nano::bootstrap_attempt::add_bulk_push_target (nano::block_hash const & hea
 
 void nano::bootstrap_attempt::attempt_restart_check (nano::unique_lock<std::mutex> & lock_a)
 {
-	if (!frontiers_confirmed && requeued_pulls > (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::requeued_pulls_limit : nano::bootstrap_limits::requeued_pulls_limit_test))
+	if (!frontiers_confirmed && (requeued_pulls > (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::requeued_pulls_limit : nano::bootstrap_limits::requeued_pulls_limit_test) || total_blocks >nano::bootstrap_limits::frontier_confirmation_blocks_limit)
 	{
 		confirm_frontiers (lock_a);
 		if (!frontiers_confirmed)
@@ -643,6 +644,10 @@ void nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 	}
 	lock_a.unlock ();
 	auto frontiers_count (frontiers.size ());
+	if (frontiers_count == 0)
+	{
+		return true;
+	}
 	const size_t reps_limit = 20;
 	auto representatives (node->rep_crawler.representatives ());
 	auto reps_weight (node->rep_crawler.total_weight ());
