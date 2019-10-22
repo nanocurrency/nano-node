@@ -597,6 +597,10 @@ void nano::bootstrap_attempt::add_bulk_push_target (nano::block_hash const & hea
 
 void nano::bootstrap_attempt::attempt_restart_check (nano::unique_lock<std::mutex> & lock_a)
 {
+	/* Conditions to start frontiers confirmation:
+	- not completed frontiers confirmation
+	- more than 256 pull retries usually indicating issues with requested pulls
+	- or 128k processed blocks indicating large bootstrap */
 	if (!frontiers_confirmed && (requeued_pulls > (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::requeued_pulls_limit : nano::bootstrap_limits::requeued_pulls_limit_test) || total_blocks > nano::bootstrap_limits::frontier_confirmation_blocks_limit)
 	{
 		confirm_frontiers (lock_a);
