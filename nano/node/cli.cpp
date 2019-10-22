@@ -27,6 +27,8 @@ std::string nano::error_cli_messages::message (int ev) const
 			return "Database write error";
 		case nano::error_cli::reading_config:
 			return "Config file read error";
+		case nano::error_cli::disable_all_network:
+			return "Flags --disable_tcp_realtime and --disable_udp cannot be used together";
 	}
 
 	return "Invalid error code";
@@ -95,8 +97,9 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 	// clang-format on
 }
 
-void nano::update_flags (nano::node_flags & flags_a, boost::program_options::variables_map const & vm)
+std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_options::variables_map const & vm)
 {
+	std::error_code ec;
 	auto batch_size_it = vm.find ("batch_size");
 	if (batch_size_it != vm.end ())
 	{
@@ -111,8 +114,7 @@ void nano::update_flags (nano::node_flags & flags_a, boost::program_options::var
 	flags_a.disable_udp = (vm.count ("disable_udp") > 0);
 	if (flags_a.disable_tcp_realtime && flags_a.disable_udp)
 	{
-		std::cerr << "Flags --disable_tcp_realtime and --disable_udp cannot be used together" << std::endl;
-		std::exit (1);
+		ec = nano::error_cli::disable_all_network;
 	}
 	flags_a.disable_unchecked_cleanup = (vm.count ("disable_unchecked_cleanup") > 0);
 	flags_a.disable_unchecked_drop = (vm.count ("disable_unchecked_drop") > 0);
@@ -138,6 +140,7 @@ void nano::update_flags (nano::node_flags & flags_a, boost::program_options::var
 	{
 		flags_a.block_processor_verification_size = block_processor_verification_size_it->second.as<size_t> ();
 	}
+	return ec;
 }
 
 namespace

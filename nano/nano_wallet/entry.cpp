@@ -315,7 +315,11 @@ int main (int argc, char * const * argv)
 						data_path = nano::working_path ();
 					}
 					nano::node_flags flags;
-					nano::update_flags (flags, vm);
+					auto flags_ec = nano::update_flags (flags, vm);
+					if (flags_ec == nano::error_cli::disable_all_network)
+					{
+						throw std::runtime_error(flags_ec.message());
+					}
 					auto config (vm.find ("config"));
 					if (config != vm.end ())
 					{
