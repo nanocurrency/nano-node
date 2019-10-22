@@ -232,8 +232,6 @@ public:
 	static constexpr double bootstrap_minimum_blocks_per_sec = 10.0;
 	static constexpr double bootstrap_minimum_elapsed_seconds_blockrate = 0.02;
 	static constexpr double bootstrap_minimum_frontier_blocks_per_sec = 1000.0;
-	static constexpr unsigned bootstrap_frontier_retry_limit = 16;
-	static constexpr unsigned bootstrap_lazy_retry_limit = bootstrap_frontier_retry_limit * 10;
 	static constexpr double bootstrap_minimum_termination_time_sec = 30.0;
 	static constexpr unsigned bootstrap_max_new_connections = 10;
 	static constexpr unsigned bulk_push_cost_limit = 200;
