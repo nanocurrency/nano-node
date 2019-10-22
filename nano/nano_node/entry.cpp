@@ -126,8 +126,8 @@ int main (int argc, char * const * argv)
 			auto flags_ec = nano::update_flags (flags, vm);
 			if (flags_ec == nano::error_cli::disable_all_network)
 			{
-				std::cerr << flags_ec.message();
-				std::exit(1);
+				std::cerr << flags_ec.message ();
+				std::exit (1);
 			}
 			auto config (vm.find ("config"));
 			if (config != vm.end ())
