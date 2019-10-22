@@ -601,7 +601,7 @@ void nano::bootstrap_attempt::attempt_restart_check (nano::unique_lock<std::mute
 	- not completed frontiers confirmation
 	- more than 256 pull retries usually indicating issues with requested pulls
 	- or 128k processed blocks indicating large bootstrap */
-	if (!frontiers_confirmed && (requeued_pulls > (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::requeued_pulls_limit : nano::bootstrap_limits::requeued_pulls_limit_test) || total_blocks > nano::bootstrap_limits::frontier_confirmation_blocks_limit)
+	if (!frontiers_confirmed && (requeued_pulls > (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::requeued_pulls_limit : nano::bootstrap_limits::requeued_pulls_limit_test) || total_blocks > nano::bootstrap_limits::frontier_confirmation_blocks_limit))
 	{
 		confirm_frontiers (lock_a);
 		if (!frontiers_confirmed)
@@ -650,7 +650,7 @@ void nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 	auto frontiers_count (frontiers.size ());
 	if (frontiers_count == 0)
 	{
-		return true;
+		return;
 	}
 	const size_t reps_limit = 20;
 	auto representatives (node->rep_crawler.representatives ());
