@@ -350,7 +350,6 @@ add_subdirectory(nano/nano_node)
 add_subdirectory(nano/rpc)
 add_subdirectory(nano/nano_rpc)
 
-
 if (NANO_TEST OR RAIBLOCKS_TEST)
 	if(WIN32)
 		if(MSVC_VERSION)
