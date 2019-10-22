@@ -2486,12 +2486,13 @@ TEST (node, vote_republish)
 
 TEST (node, vote_by_hash_bundle)
 {
+	// Keep max_hashes above system to ensure it is kept in scope as votes can be added during system destruction
+	std::atomic<size_t> max_hashes{ 0 };
 	nano::system system (24000, 1);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (key1.prv);
 
-	std::atomic<size_t> max_hashes{ 0 };
 	system.nodes[0]->observers.vote.add ([&max_hashes](std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a) {
 		if (vote_a->blocks.size () > max_hashes)
 		{
