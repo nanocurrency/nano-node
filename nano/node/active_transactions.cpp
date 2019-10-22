@@ -781,7 +781,8 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 			bool confirmed = (confirmation_height >= existing_sideband.height);
 			if (!confirmed && existing_block->block_work () != block_a->block_work ())
 			{
-				uint64_t existing_difficulty, new_difficulty;
+				uint64_t existing_difficulty;
+				uint64_t new_difficulty;
 				if (!nano::work_validate (*block_a, &new_difficulty) && !nano::work_validate (*existing_block, &existing_difficulty))
 				{
 					if (new_difficulty > existing_difficulty)

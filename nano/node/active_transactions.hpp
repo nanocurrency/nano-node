@@ -79,13 +79,6 @@ public:
 	nano::qualified_root root;
 };
 
-typedef boost::multi_index_container<
-nano::election_timepoint,
-boost::multi_index::indexed_by<
-boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::election_timepoint, std::chrono::steady_clock::time_point, &nano::election_timepoint::time>>,
-boost::multi_index::hashed_unique<boost::multi_index::member<nano::election_timepoint, nano::qualified_root, &nano::election_timepoint::root>>>>
-ordered_elections_timepoint;
-
 // Core class for determining consensus
 // Holds all active blocks i.e. recently added blocks that need confirmation
 class active_transactions final
@@ -174,6 +167,11 @@ private:
 	bool started{ false };
 	std::atomic<bool> stopped{ false };
 	unsigned ongoing_broadcasts{ 0 };
+	using ordered_elections_timepoint = boost::multi_index_container<
+	nano::election_timepoint,
+	boost::multi_index::indexed_by<
+	boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::election_timepoint, std::chrono::steady_clock::time_point, &nano::election_timepoint::time>>,
+	boost::multi_index::hashed_unique<boost::multi_index::member<nano::election_timepoint, nano::qualified_root, &nano::election_timepoint::root>>>>;
 	ordered_elections_timepoint confirmed_set;
 	void prioritize_frontiers_for_confirmation (nano::transaction const &, std::chrono::milliseconds, std::chrono::milliseconds);
 	using prioritize_num_uncemented = boost::multi_index_container<
