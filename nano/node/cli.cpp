@@ -472,6 +472,13 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 
 		if (valid_type)
 		{
+			std::cout << "# This is an example configuration file for nano_node. Visit https://docs.nano.org/running-a-node/configuration/ for more information.\n#\n"
+			          << "# Fields are defined in the context of the [category] above them.\n"
+			          << "# The desired configuration changes should be placed in a config-node.toml in the node data path.\n"
+			          << "# To change a value from its default, uncomment (erasing #) the corresponding field.\n"
+			          << "# It is not recommended to uncomment every field, as the default value for important fields may change in the future. Only change what you need.\n"
+			          << "# Additional information for notable configuration options is available in https://docs.nano.org/running-a-node/configuration/#notable-configuration-options\n";
+
 			if (vm.count ("use_defaults"))
 			{
 				std::cout << toml.to_string () << std::endl;

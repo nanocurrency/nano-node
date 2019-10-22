@@ -9,9 +9,9 @@ port (network_constants.default_websocket_port)
 
 nano::error nano::websocket::config::serialize_toml (nano::tomlconfig & toml) const
 {
-	toml.put ("enable", enabled, "Enable or disable WebSocket server\ntype:bool");
-	toml.put ("address", address.to_string (), "WebSocket server bind address\ntype:string,ip");
-	toml.put ("port", port, "WebSocket server listening port\ntype:uint16");
+	toml.put ("enable", enabled, "Enable or disable WebSocket server.\ntype:bool");
+	toml.put ("address", address.to_string (), "WebSocket server bind address.\ntype:string,ip");
+	toml.put ("port", port, "WebSocket server listening port.\ntype:uint16");
 	return toml.get_error ();
 }
 
