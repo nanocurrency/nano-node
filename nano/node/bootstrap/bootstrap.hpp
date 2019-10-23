@@ -236,7 +236,7 @@ public:
 	static constexpr unsigned bulk_push_cost_limit = 200;
 	static constexpr std::chrono::seconds lazy_flush_delay_sec = std::chrono::seconds (5);
 	static constexpr unsigned lazy_destinations_request_limit = 128 * 1024;
-	static constexpr uint64_t lazy_batch_pull_count_resize_blocks_limit = 1024 * 1024;
+	static constexpr uint64_t lazy_batch_pull_count_resize_blocks_limit = 4 * 1024 * 1024;
 	static constexpr double lazy_batch_pull_count_resize_ratio = 2.0;
 };
 }

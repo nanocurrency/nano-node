@@ -180,7 +180,7 @@ void nano::bulk_pull_client::received_type ()
 		case nano::block_type::not_a_block:
 		{
 			// Avoid re-using slow peers, or peers that sent the wrong blocks.
-			if (!connection->pending_stop && expected == pull.end)
+			if (!connection->pending_stop && (expected == pull.end || (pull.count != 0 && pull.count == pull_blocks)))
 			{
 				connection->attempt->pool_connection (connection);
 			}

@@ -479,7 +479,7 @@ void nano::bootstrap_attempt::pool_connection (std::shared_ptr<nano::bootstrap_c
 		// Idle bootstrap client socket
 		client_a->channel->socket->start_timer (node->network_params.node.idle_timeout);
 		// Push into idle deque
-		idle.push_front (client_a);
+		idle.push_back (client_a);
 	}
 	condition.notify_all ();
 }
@@ -614,23 +614,25 @@ void nano::bootstrap_attempt::lazy_pull_flush ()
 	assert (!mutex.try_lock ());
 	last_lazy_flush = std::chrono::steady_clock::now ();
 	nano::lock_guard<std::mutex> lazy_lock (lazy_mutex);
+	assert (node->network_params.bootstrap.lazy_max_pull_blocks <= std::numeric_limits<nano::pull_info::count_t>::max ());
+	nano::pull_info::count_t batch_count (node->network_params.bootstrap.lazy_max_pull_blocks);
+	if (total_blocks > nano::bootstrap_limits::lazy_batch_pull_count_resize_blocks_limit && !lazy_blocks.empty ())
+	{
+		double lazy_blocks_ratio (total_blocks / lazy_blocks.size ());
+		if (lazy_blocks_ratio > nano::bootstrap_limits::lazy_batch_pull_count_resize_ratio)
+		{
+			double lazy_blocks_factor (std::pow (lazy_blocks_ratio / nano::bootstrap_limits::lazy_batch_pull_count_resize_ratio, 3.0));
+			double total_blocks_factor (std::sqrt (total_blocks / nano::bootstrap_limits::lazy_batch_pull_count_resize_blocks_limit));
+			uint32_t batch_count_min (node->network_params.bootstrap.lazy_max_pull_blocks / (lazy_blocks_factor * total_blocks_factor));
+			batch_count = std::max (node->network_params.bootstrap.lazy_min_pull_blocks, batch_count_min);
+		}
+	}
 	auto transaction (node->store.tx_begin_read ());
 	for (auto & pull_start : lazy_pulls)
 	{
 		// Recheck if block was already processed
 		if (lazy_blocks.find (pull_start.first) == lazy_blocks.end () && !node->store.block_exists (transaction, pull_start.first))
 		{
-			assert (node->network_params.bootstrap.lazy_max_pull_blocks <= std::numeric_limits<nano::pull_info::count_t>::max ());
-			nano::pull_info::count_t batch_count (node->network_params.bootstrap.lazy_max_pull_blocks);
-			if (total_blocks > nano::bootstrap_limits::lazy_batch_pull_count_resize_blocks_limit && !lazy_blocks.empty ())
-			{
-				double lazy_blocks_ratio (total_blocks / lazy_blocks.size ());
-				if (lazy_blocks_ratio > nano::bootstrap_limits::lazy_batch_pull_count_resize_ratio)
-				{
-					double processed_blocks_ratio (total_blocks / nano::bootstrap_limits::lazy_batch_pull_count_resize_blocks_limit);
-					batch_count = std::max (node->network_params.bootstrap.lazy_min_pull_blocks, static_cast<uint32_t> (node->network_params.bootstrap.lazy_max_pull_blocks * nano::bootstrap_limits::lazy_batch_pull_count_resize_ratio / (lazy_blocks_ratio * processed_blocks_ratio)));
-				}
-			}
 			pulls.emplace_back (pull_start.first, pull_start.first, nano::block_hash (0), batch_count, pull_start.second);
 		}
 	}
@@ -704,7 +706,7 @@ void nano::bootstrap_attempt::lazy_run ()
 				lazy_pull_flush ();
 				if (pulls.empty ())
 				{
-					condition.wait_for (lock, std::chrono::seconds (2));
+					condition.wait_for (lock, std::chrono::seconds (1));
 				}
 			}
 			++iterations;
