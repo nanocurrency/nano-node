@@ -900,8 +900,10 @@ void nano::node::bootstrap_wallet ()
 void nano::node::unchecked_cleanup ()
 {
 	std::deque<nano::unchecked_key> cleaning_list;
+	auto attempt (bootstrap_initiator.current_attempt ());
+	bool long_attempt (attempt != nullptr && std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt->attempt_start).count () > config.unchecked_cutoff_time.count ());
 	// Collect old unchecked keys
-	if (!flags.disable_unchecked_cleanup && ledger.block_count_cache >= ledger.bootstrap_weight_max_blocks)
+	if (!flags.disable_unchecked_cleanup && ledger.block_count_cache >= ledger.bootstrap_weight_max_blocks && !long_attempt)
 	{
 		auto now (nano::seconds_since_epoch ());
 		auto transaction (store.tx_begin_read ());
