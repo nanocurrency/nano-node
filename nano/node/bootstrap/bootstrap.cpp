@@ -578,7 +578,7 @@ void nano::bootstrap_attempt::lazy_start (nano::hash_or_account const & hash_or_
 {
 	nano::lock_guard<std::mutex> lazy_lock (lazy_mutex);
 	// Add start blocks, limit 1024 (32k with disabled legacy bootstrap)
-	size_t max_keys (node->flags.disable_legacy_bootstrap ? 32 * 1024 : 1024);
+	size_t max_keys (node->flags.disable_legacy_bootstrap ? 16 * 1024 : 1024);
 	if (lazy_keys.size () < max_keys && lazy_keys.find (hash_or_account_a) == lazy_keys.end () && lazy_blocks.find (hash_or_account_a) == lazy_blocks.end ())
 	{
 		lazy_keys.insert (hash_or_account_a);
@@ -719,6 +719,11 @@ void nano::bootstrap_attempt::lazy_run ()
 			if (iterations % 200 == 0)
 			{
 				lazy_backlog_cleanup ();
+			}
+			// Destinations check
+			if (pulls.empty () && lazy_destinations_flushed)
+			{
+				lazy_destinations_flush ();
 			}
 		}
 		// Flushing lazy pulls
@@ -961,6 +966,7 @@ void nano::bootstrap_attempt::lazy_destinations_increment (nano::account const &
 
 void nano::bootstrap_attempt::lazy_destinations_flush ()
 {
+	lazy_destinations_flushed = true;
 	size_t count (0);
 	nano::lock_guard<std::mutex> lazy_lock (lazy_mutex);
 	for (auto it (lazy_destinations.get<count_tag> ().begin ()), end (lazy_destinations.get<count_tag> ().end ()); it != end && count < nano::bootstrap_limits::lazy_destinations_request_limit && !stopped;)
