@@ -577,8 +577,8 @@ void nano::bootstrap_attempt::add_bulk_push_target (nano::block_hash const & hea
 void nano::bootstrap_attempt::lazy_start (nano::hash_or_account const & hash_or_account_a, bool confirmed)
 {
 	nano::lock_guard<std::mutex> lazy_lock (lazy_mutex);
-	// Add start blocks, limit 1024 (32k with disabled legacy bootstrap)
-	size_t max_keys (node->flags.disable_legacy_bootstrap ? 16 * 1024 : 1024);
+	// Add start blocks, limit 1024 (4k with disabled legacy bootstrap)
+	size_t max_keys (node->flags.disable_legacy_bootstrap ? 4 * 1024 : 1024);
 	if (lazy_keys.size () < max_keys && lazy_keys.find (hash_or_account_a) == lazy_keys.end () && lazy_blocks.find (hash_or_account_a) == lazy_blocks.end ())
 	{
 		lazy_keys.insert (hash_or_account_a);
