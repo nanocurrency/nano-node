@@ -281,7 +281,10 @@ void nano::worker::push_task (std::function<void()> func_a)
 {
 	{
 		nano::lock_guard<std::mutex> guard (mutex);
-		queue.emplace_back (func_a);
+		if (!stopped)
+		{
+			queue.emplace_back (func_a);
+		}
 	}
 
 	cv.notify_one ();
@@ -292,6 +295,7 @@ void nano::worker::stop ()
 	{
 		nano::unique_lock<std::mutex> lk (mutex);
 		stopped = true;
+		queue.clear ();
 	}
 	cv.notify_one ();
 	if (thread.joinable ())
