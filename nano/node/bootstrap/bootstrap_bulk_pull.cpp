@@ -233,7 +233,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 				connection->start_time = std::chrono::steady_clock::now ();
 			}
 			connection->attempt->total_blocks++;
-			bool stop_pull (connection->attempt->process_block (block, known_account, pull_blocks, block_expected, pull.confirmed_head));
+			bool stop_pull (connection->attempt->process_block (block, known_account, pull_blocks, pull.count, block_expected, pull.confirmed_head));
 			pull_blocks++;
 			if (!stop_pull && !connection->hard_stop.load ())
 			{

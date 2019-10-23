@@ -80,7 +80,7 @@ public:
 	unsigned target_connections (size_t pulls_remaining);
 	bool should_log ();
 	void add_bulk_push_target (nano::block_hash const &, nano::block_hash const &);
-	bool process_block (std::shared_ptr<nano::block>, nano::account const &, uint64_t, bool, bool);
+	bool process_block (std::shared_ptr<nano::block>, nano::account const &, uint64_t, nano::bulk_pull::count_t, bool, bool);
 	/** Lazy bootstrap */
 	void lazy_run ();
 	void lazy_start (nano::hash_or_account const &, bool confirmed = true);
@@ -89,7 +89,7 @@ public:
 	bool lazy_finished ();
 	void lazy_pull_flush ();
 	void lazy_clear ();
-	bool process_block_lazy (std::shared_ptr<nano::block>, nano::account const &, uint64_t, bool);
+	bool process_block_lazy (std::shared_ptr<nano::block>, nano::account const &, uint64_t, nano::bulk_pull::count_t, bool);
 	void lazy_block_state (std::shared_ptr<nano::block>, bool);
 	void lazy_block_state_backlog_check (std::shared_ptr<nano::block>, nano::block_hash const &);
 	void lazy_backlog_cleanup ();
@@ -236,7 +236,9 @@ public:
 	static constexpr unsigned bootstrap_max_new_connections = 10;
 	static constexpr unsigned bulk_push_cost_limit = 200;
 	static constexpr std::chrono::seconds lazy_flush_delay_sec = std::chrono::seconds (5);
-	static constexpr unsigned bootstrap_lazy_destinations_request_limit = 200;
+	static constexpr unsigned lazy_destinations_request_limit = 200;
 	static constexpr std::chrono::seconds lazy_destinations_flush_delay_sec = std::chrono::minutes (2);
+	static constexpr uint64_t lazy_batch_pull_count_resize_blocks_limit = 1024 * 1024;
+	static constexpr double lazy_batch_pull_count_resize_ratio = 2.0;
 };
 }
