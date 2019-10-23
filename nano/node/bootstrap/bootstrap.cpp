@@ -961,7 +961,7 @@ void nano::bootstrap_attempt::lazy_destinations_flush ()
 {
 	size_t count (0);
 	nano::lock_guard<std::mutex> lazy_lock (lazy_mutex);
-	for (auto it (lazy_destinations.get<count_tag> ().begin ()), end (lazy_destinations.get<count_tag> ().end ()); it != end && count < nano::bootstrap_limits::bootstrap_lazy_destinations_request_limit && !stopped;)
+	for (auto it (lazy_destinations.get<count_tag> ().begin ()), end (lazy_destinations.get<count_tag> ().end ()); it != end && count < nano::bootstrap_limits::lazy_destinations_request_limit && !stopped;)
 	{
 		lazy_add (it->account, node->network_params.bootstrap.lazy_destinations_retry_limit);
 		it = lazy_destinations.get<count_tag> ().erase (it);
