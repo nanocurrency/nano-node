@@ -207,7 +207,7 @@ public:
 class bootstrap_excluded_peers final
 {
 public:
-	void add (nano::tcp_endpoint const &, size_t);
+	uint64_t add (nano::tcp_endpoint const &, size_t);
 	bool check (nano::tcp_endpoint const &);
 	void remove (nano::tcp_endpoint const &);
 	std::mutex excluded_peers_mutex;
