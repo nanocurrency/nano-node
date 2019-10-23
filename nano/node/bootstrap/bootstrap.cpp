@@ -480,7 +480,7 @@ void nano::bootstrap_attempt::pool_connection (std::shared_ptr<nano::bootstrap_c
 		// Idle bootstrap client socket
 		client_a->channel->socket->start_timer (node->network_params.node.idle_timeout);
 		// Push into idle deque
-		idle.push_front (client_a);
+		idle.push_back (client_a);
 	}
 	condition.notify_all ();
 }
