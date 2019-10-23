@@ -84,30 +84,30 @@ void nano::logging::release_file_sink ()
 
 nano::error nano::logging::serialize_toml (nano::tomlconfig & toml) const
 {
-	toml.put ("ledger", ledger_logging_value, "Log ledger related messages\ntype:bool");
-	toml.put ("ledger_duplicate", ledger_duplicate_logging_value, "Log when a duplicate block is attempted inserted into the ledger\ntype:bool");
-	toml.put ("vote", vote_logging_value, "Vote logging. Enabling this option leads to a high volume\nof log messages which may affect node performance\ntype:bool");
-	toml.put ("network", network_logging_value, "Log network related messages\ntype:bool");
-	toml.put ("network_timeout", network_timeout_logging_value, "Log TCP timeouts\ntype:bool");
-	toml.put ("network_message", network_message_logging_value, "Log network errors and message details\ntype:bool");
-	toml.put ("network_publish", network_publish_logging_value, "Log publish related network messages\ntype:bool");
-	toml.put ("network_packet", network_packet_logging_value, "Log network packet activity\ntype:bool");
-	toml.put ("network_keepalive", network_keepalive_logging_value, "Log keepalive related messages\ntype:bool");
-	toml.put ("network_node_id_handshake", network_node_id_handshake_logging_value, "Log node-id handshake related messages\ntype:bool");
-	toml.put ("node_lifetime_tracing", node_lifetime_tracing_value, "Log node startup and shutdown messages\ntype:bool");
-	toml.put ("insufficient_work", insufficient_work_logging_value, "Log if insufficient work is detected\ntype:bool");
-	toml.put ("log_ipc", log_ipc_value, "Log IPC related activity\ntype:bool");
-	toml.put ("bulk_pull", bulk_pull_logging_value, "Log bulk pull errors and messages\ntype:bool");
-	toml.put ("work_generation_time", work_generation_time_value, "Log work generation timing information\ntype:bool");
-	toml.put ("upnp_details", upnp_details_logging_value, "Log UPNP discovery details. WARNING: this may include information\nabout discovered devices, such as product identification. Please review before sharing logs.\ntype:bool");
-	toml.put ("timing", timing_logging_value, "Log detailed timing information for various node operations\ntype:bool");
-	toml.put ("active_update", active_update_value, "Log when a block is updated while in active transactions\ntype:bool");
-	toml.put ("log_to_cerr", log_to_cerr_value, "Log to standard error in addition to the log file\ntype:bool");
-	toml.put ("max_size", max_size, "Maximum log file size in bytes\ntype:uint64");
-	toml.put ("rotation_size", rotation_size, "Log file rotation size in character count\ntype:uint64");
-	toml.put ("flush", flush, "If enabled, immediately flush new entries to log file. This may negatively affect logging performance.\ntype:bool");
-	toml.put ("min_time_between_output", min_time_between_log_output.count (), "Minimum time that must pass for low priority entries to be logged\ntype:milliseconds");
-	toml.put ("single_line_record", single_line_record_value, "Keep log entries on single lines\ntype:bool");
+	toml.put ("ledger", ledger_logging_value, "Log ledger related messages.\ntype:bool");
+	toml.put ("ledger_duplicate", ledger_duplicate_logging_value, "Log when a duplicate block is attempted inserted into the ledger.\ntype:bool");
+	toml.put ("vote", vote_logging_value, "Vote logging. Enabling this option leads to a high volume.\nof log messages which may affect node performance.\ntype:bool");
+	toml.put ("network", network_logging_value, "Log network related messages.\ntype:bool");
+	toml.put ("network_timeout", network_timeout_logging_value, "Log TCP timeouts.\ntype:bool");
+	toml.put ("network_message", network_message_logging_value, "Log network errors and message details.\ntype:bool");
+	toml.put ("network_publish", network_publish_logging_value, "Log publish related network messages.\ntype:bool");
+	toml.put ("network_packet", network_packet_logging_value, "Log network packet activity.\ntype:bool");
+	toml.put ("network_keepalive", network_keepalive_logging_value, "Log keepalive related messages.\ntype:bool");
+	toml.put ("network_node_id_handshake", network_node_id_handshake_logging_value, "Log node-id handshake related messages.\ntype:bool");
+	toml.put ("node_lifetime_tracing", node_lifetime_tracing_value, "Log node startup and shutdown messages.\ntype:bool");
+	toml.put ("insufficient_work", insufficient_work_logging_value, "Log if insufficient work is detected.\ntype:bool");
+	toml.put ("log_ipc", log_ipc_value, "Log IPC related activity.\ntype:bool");
+	toml.put ("bulk_pull", bulk_pull_logging_value, "Log bulk pull errors and messages.\ntype:bool");
+	toml.put ("work_generation_time", work_generation_time_value, "Log work generation timing information.\ntype:bool");
+	toml.put ("upnp_details", upnp_details_logging_value, "Log UPNP discovery details..\nWarning: this may include information.\nabout discovered devices, such as product identification. Please review before sharing logs.\ntype:bool");
+	toml.put ("timing", timing_logging_value, "Log detailed timing information for various node operations.\ntype:bool");
+	toml.put ("active_update", active_update_value, "Log when a block is updated while in active transactions.\ntype:bool");
+	toml.put ("log_to_cerr", log_to_cerr_value, "Log to standard error in addition to the log file. Not recommended for production systems.\ntype:bool");
+	toml.put ("max_size", max_size, "Maximum log file size in bytes.\ntype:uint64");
+	toml.put ("rotation_size", rotation_size, "Log file rotation size in character count.\ntype:uint64");
+	toml.put ("flush", flush, "If enabled, immediately flush new entries to log file.\nWarning: this may negatively affect logging performance.\ntype:bool");
+	toml.put ("min_time_between_output", min_time_between_log_output.count (), "Minimum time that must pass for low priority entries to be logged.\nWarning: decreasing this value may result in a very large amount of logs.\ntype:milliseconds");
+	toml.put ("single_line_record", single_line_record_value, "Keep log entries on single lines.\ntype:bool");
 
 	return toml.get_error ();
 }

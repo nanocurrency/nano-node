@@ -74,7 +74,7 @@ nano::error nano::stat_config::deserialize_toml (nano::tomlconfig & toml)
 nano::error nano::stat_config::serialize_toml (nano::tomlconfig & toml) const
 {
 	nano::tomlconfig sampling_l;
-	sampling_l.put ("enable", sampling_enabled, "Enable or disable samling.\ntype:bool");
+	sampling_l.put ("enable", sampling_enabled, "Enable or disable sampling.\ntype:bool");
 	sampling_l.put ("capacity", capacity, "How many sample intervals to keep in the ring buffer.\ntype:uint64");
 	sampling_l.put ("interval", interval, "Sample interval.\ntype:milliseconds");
 	toml.put_child ("sampling", sampling_l);

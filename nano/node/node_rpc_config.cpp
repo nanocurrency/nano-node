@@ -19,7 +19,7 @@ nano::error nano::node_rpc_config::serialize_json (nano::jsonconfig & json) cons
 
 nano::error nano::node_rpc_config::serialize_toml (nano::tomlconfig & toml) const
 {
-	toml.put ("enable_sign_hash", enable_sign_hash, "Allow or disallow signing of hashes\ntype:bool");
+	toml.put ("enable_sign_hash", enable_sign_hash, "Allow or disallow signing of hashes.\ntype:bool");
 
 	nano::tomlconfig child_process_l;
 	child_process_l.put ("enable", child_process.enable, "Enable or disable RPC child process. If false, an in-process RPC server is used.\ntype:bool");
