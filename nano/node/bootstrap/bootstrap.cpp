@@ -12,6 +12,7 @@
 #include <algorithm>
 
 constexpr double nano::bootstrap_limits::bootstrap_connection_scale_target_blocks;
+constexpr double nano::bootstrap_limits::bootstrap_connection_scale_target_blocks_lazy;
 constexpr double nano::bootstrap_limits::bootstrap_minimum_blocks_per_sec;
 constexpr double nano::bootstrap_limits::bootstrap_minimum_termination_time_sec;
 constexpr unsigned nano::bootstrap_limits::bootstrap_max_new_connections;
@@ -315,7 +316,8 @@ unsigned nano::bootstrap_attempt::target_connections (size_t pulls_remaining)
 	}
 
 	// Only scale up to bootstrap_connections_max for large pulls.
-	double step_scale = std::min (1.0, std::max (0.0, (double)pulls_remaining / nano::bootstrap_limits::bootstrap_connection_scale_target_blocks));
+	double target_blocks = (mode == nano::bootstrap_mode::lazy) ? nano::bootstrap_limits::bootstrap_connection_scale_target_blocks_lazy : nano::bootstrap_limits::bootstrap_connection_scale_target_blocks;
+	double step_scale = std::min (1.0, std::max (0.0, (double)pulls_remaining / target_blocks));
 	double lazy_term = (mode == nano::bootstrap_mode::lazy) ? (double)node->config.bootstrap_connections : 0.0;
 	double target = (double)node->config.bootstrap_connections + (double)(node->config.bootstrap_connections_max - node->config.bootstrap_connections) * step_scale + lazy_term;
 	return std::max (1U, (unsigned)(target + 0.5f));
