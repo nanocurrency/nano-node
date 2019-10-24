@@ -29,6 +29,14 @@ void show_error (std::string const & message_a)
 	message.show ();
 	message.exec ();
 }
+void show_help (std::string const & message_a)
+{
+	QMessageBox message (QMessageBox::NoIcon, "Help", "see <a href=\"https://docs.nano.org/commands/command-line-interface/#launch-options\">launch options</a> ");
+	message.setStyleSheet ("QLabel {min-width: 450px}");
+	message.setDetailedText (message_a.c_str ());
+	message.show ();
+	message.exec ();
+}
 
 nano::error read_and_update_wallet_config (nano::wallet_config & config_a, boost::filesystem::path const & data_path_a)
 {
@@ -43,7 +51,7 @@ nano::error read_and_update_wallet_config (nano::wallet_config & config_a, boost
 }
 }
 
-int run_wallet (QApplication & application, int argc, char * const * argv, boost::filesystem::path const & data_path, std::vector<std::string> const & config_overrides)
+int run_wallet (QApplication & application, int argc, char * const * argv, boost::filesystem::path const & data_path, std::vector<std::string> const & config_overrides, nano::node_flags const & flags)
 {
 	int result (0);
 	nano_qt::eventloop_processor processor;
@@ -92,8 +100,6 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 		}
 		                                                                                       : std::function<boost::optional<uint64_t> (nano::root const &, uint64_t, std::atomic<int> &)> (nullptr));
 		nano::alarm alarm (io_ctx);
-		nano::node_flags flags;
-
 		node = std::make_shared<nano::node> (io_ctx, data_path, alarm, config.node, work, flags);
 		if (!node->init_error ())
 		{
@@ -164,8 +170,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 					auto error = nano::read_rpc_config_toml (data_path, rpc_config);
 					if (error)
 					{
-						std::cout << error.get_message () << std::endl;
-						std::exit (1);
+						show_error (error.get_message ());
 					}
 					rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, config.rpc);
 					rpc = nano::get_rpc (io_ctx, rpc_config, *rpc_handler);
@@ -239,21 +244,32 @@ int main (int argc, char * const * argv)
 	{
 		QApplication application (argc, const_cast<char **> (argv));
 		boost::program_options::options_description description ("Command line options");
-		description.add_options () ("help", "Print out options");
-		description.add_options () ("config", boost::program_options::value<std::vector<std::string>> ()->multitoken (), "Pass configuration values. This takes precedence over any values in the node configuration file. This option can be repeated multiple times.");
+		// clang-format off
+		description.add_options()
+			("help", "Print out options")
+			("config", boost::program_options::value<std::vector<std::string>>()->multitoken(), "Pass configuration values. This takes precedence over any values in the node configuration file. This option can be repeated multiple times.");
+		nano::add_node_flag_options (description);
 		nano::add_node_options (description);
+		// clang-format on
 		boost::program_options::variables_map vm;
-		boost::program_options::store (boost::program_options::command_line_parser (argc, argv).options (description).allow_unregistered ().run (), vm);
+		try
+		{
+			boost::program_options::store (boost::program_options::parse_command_line (argc, argv, description), vm);
+		}
+		catch (boost::program_options::error const & err)
+		{
+			show_error (err.what ());
+			return 1;
+		}
 		boost::program_options::notify (vm);
 		int result (0);
-
 		auto network (vm.find ("network"));
 		if (network != vm.end ())
 		{
 			auto err (nano::network_constants::set_active_network (network->second.as<std::string> ()));
 			if (err)
 			{
-				std::cerr << err.get_message () << std::endl;
+				show_error (err.get_message ());
 				std::exit (1);
 			}
 		}
@@ -278,7 +294,11 @@ int main (int argc, char * const * argv)
 		{
 			if (vm.count ("help") != 0)
 			{
-				std::cout << description << std::endl;
+				std::ostringstream outstream;
+				description.print (outstream);
+				std::string helpstring = outstream.str ();
+				show_help (helpstring);
+				return 1;
 			}
 			else
 			{
@@ -294,7 +314,18 @@ int main (int argc, char * const * argv)
 					{
 						data_path = nano::working_path ();
 					}
-					result = run_wallet (application, argc, argv, data_path, config_overrides);
+					nano::node_flags flags;
+					auto flags_ec = nano::update_flags (flags, vm);
+					if (flags_ec)
+					{
+						throw std::runtime_error (flags_ec.message ());
+					}
+					auto config (vm.find ("config"));
+					if (config != vm.end ())
+					{
+						flags.config_overrides = config->second.as<std::vector<std::string>> ();
+					}
+					result = run_wallet (application, argc, argv, data_path, config_overrides, flags);
 				}
 				catch (std::exception const & e)
 				{
@@ -310,11 +341,11 @@ int main (int argc, char * const * argv)
 	}
 	catch (std::exception const & e)
 	{
-		std::cerr << boost::str (boost::format ("Exception while initializing %1%") % e.what ());
+		show_error (boost::str (boost::format ("Exception while initializing %1%") % e.what ()));
 	}
 	catch (...)
 	{
-		std::cerr << boost::str (boost::format ("Unknown exception while initializing"));
+		show_error (boost::str (boost::format ("Unknown exception while initializing")));
 	}
 	return 1;
 }
