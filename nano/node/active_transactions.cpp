@@ -788,11 +788,13 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 					if (new_difficulty > existing_difficulty)
 					{
 						// Re-writing the block is necessary to avoid the same work being received later to force restarting the election
-						node.store.block_put (*opt_transaction_a, hash, *block_a, existing_sideband);
+						// The existing block is re-written, not the arriving block, as that one might not have gone through a full signature check
+						existing_block->block_work_set (block_a->block_work ());
+						node.store.block_put (*opt_transaction_a, hash, *existing_block, existing_sideband);
 
-						// Start election for the upgraded block, previously dropped from elections
+						// Restart election for the upgraded block, previously dropped from elections
 						lock.lock ();
-						add (block_a);
+						add (existing_block);
 					}
 				}
 			}
