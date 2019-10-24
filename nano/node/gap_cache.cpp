@@ -39,7 +39,7 @@ void nano::gap_cache::vote (std::shared_ptr<nano::vote> vote_a)
 	for (auto hash : *vote_a)
 	{
 		auto existing (blocks.get<1> ().find (hash));
-		if (existing != blocks.get<1> ().end ())
+		if (existing != blocks.get<1> ().end () && !existing->confirmed)
 		{
 			auto is_new (false);
 			blocks.get<1> ().modify (existing, [&is_new, &vote_a](nano::gap_information & info) {
@@ -53,13 +53,18 @@ void nano::gap_cache::vote (std::shared_ptr<nano::vote> vote_a)
 
 			if (is_new)
 			{
-				bootstrap_check (existing->voters, hash);
+				if (bootstrap_check (existing->voters, hash))
+				{
+					blocks.get<1> ().modify (existing, [](nano::gap_information & info) {
+						info.confirmed = true;
+					});
+				}
 			}
 		}
 	}
 }
 
-void nano::gap_cache::bootstrap_check (std::vector<nano::account> const & voters_a, nano::block_hash const & hash_a)
+bool nano::gap_cache::bootstrap_check (std::vector<nano::account> const & voters_a, nano::block_hash const & hash_a)
 {
 	uint128_t tally;
 	for (auto & voter : voters_a)
@@ -101,6 +106,7 @@ void nano::gap_cache::bootstrap_check (std::vector<nano::account> const & voters
 			}
 		});
 	}
+	return start_bootstrap;
 }
 
 nano::uint128_t nano::gap_cache::bootstrap_threshold ()

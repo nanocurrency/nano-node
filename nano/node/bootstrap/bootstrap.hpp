@@ -35,8 +35,6 @@ enum class sync_result
 	error,
 	fork
 };
-
-class bootstrap_client;
 enum class bootstrap_mode
 {
 	legacy,
@@ -77,9 +75,12 @@ public:
 	void requeue_pull (nano::pull_info const &);
 	void add_pull (nano::pull_info const &);
 	bool still_pulling ();
+	void run_start (nano::unique_lock<std::mutex> &);
 	unsigned target_connections (size_t pulls_remaining);
 	bool should_log ();
 	void add_bulk_push_target (nano::block_hash const &, nano::block_hash const &);
+	void attempt_restart_check (nano::unique_lock<std::mutex> &);
+	void confirm_frontiers (nano::unique_lock<std::mutex> &);
 	bool process_block (std::shared_ptr<nano::block>, nano::account const &, uint64_t, nano::bulk_pull::count_t, bool, bool);
 	/** Lazy bootstrap */
 	void lazy_run ();
@@ -108,18 +109,22 @@ public:
 	std::chrono::steady_clock::time_point next_log;
 	std::deque<std::weak_ptr<nano::bootstrap_client>> clients;
 	std::weak_ptr<nano::bootstrap_client> connection_frontier_request;
+	nano::tcp_endpoint endpoint_frontier_request;
 	std::weak_ptr<nano::frontier_req_client> frontiers;
 	std::weak_ptr<nano::bulk_push_client> push;
 	std::deque<nano::pull_info> pulls;
+	std::deque<nano::block_hash> recent_pulls_head;
 	std::deque<std::shared_ptr<nano::bootstrap_client>> idle;
-	std::atomic<unsigned> connections;
-	std::atomic<unsigned> pulling;
+	std::atomic<unsigned> connections{ 0 };
+	std::atomic<unsigned> pulling{ 0 };
 	std::shared_ptr<nano::node> node;
-	std::atomic<unsigned> account_count;
-	std::atomic<uint64_t> total_blocks;
-	std::atomic<unsigned> runs_count;
+	std::atomic<unsigned> account_count{ 0 };
+	std::atomic<uint64_t> total_blocks{ 0 };
+	std::atomic<unsigned> runs_count{ 0 };
+	std::atomic<unsigned> requeued_pulls{ 0 };
 	std::vector<std::pair<nano::block_hash, nano::block_hash>> bulk_push_targets;
-	std::atomic<bool> stopped;
+	std::atomic<bool> frontiers_confirmed{ false };
+	std::atomic<bool> stopped{ false };
 	std::chrono::steady_clock::time_point attempt_start{ std::chrono::steady_clock::now () };
 	nano::bootstrap_mode mode;
 	std::mutex mutex;
@@ -192,13 +197,42 @@ public:
 	cache;
 	constexpr static size_t cache_size_max = 10000;
 };
+class excluded_peers_item final
+{
+public:
+	std::chrono::steady_clock::time_point exclude_until;
+	nano::tcp_endpoint endpoint;
+	uint64_t score;
+};
+class bootstrap_excluded_peers final
+{
+public:
+	uint64_t add (nano::tcp_endpoint const &, size_t);
+	bool check (nano::tcp_endpoint const &);
+	void remove (nano::tcp_endpoint const &);
+	std::mutex excluded_peers_mutex;
+	class endpoint_tag
+	{
+	};
+	boost::multi_index_container<
+	nano::excluded_peers_item,
+	boost::multi_index::indexed_by<
+	boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::excluded_peers_item, std::chrono::steady_clock::time_point, &nano::excluded_peers_item::exclude_until>>,
+	boost::multi_index::hashed_unique<boost::multi_index::tag<endpoint_tag>, boost::multi_index::member<nano::excluded_peers_item, nano::tcp_endpoint, &nano::excluded_peers_item::endpoint>>>>
+	peers;
+	constexpr static size_t excluded_peers_size_max = 5000;
+	constexpr static double excluded_peers_percentage_limit = 0.5;
+	constexpr static uint64_t score_limit = 2;
+	constexpr static std::chrono::hours exclude_time_hours = std::chrono::hours (1);
+	constexpr static std::chrono::hours exclude_remove_hours = std::chrono::hours (24);
+};
 
 class bootstrap_initiator final
 {
 public:
 	explicit bootstrap_initiator (nano::node &);
 	~bootstrap_initiator ();
-	void bootstrap (nano::endpoint const &, bool add_to_peers = true);
+	void bootstrap (nano::endpoint const &, bool add_to_peers = true, bool frontiers_confirmed = false);
 	void bootstrap ();
 	void bootstrap_lazy (nano::hash_or_account const &, bool force = false, bool confirmed = true);
 	void bootstrap_wallet (std::deque<nano::account> &);
@@ -208,6 +242,7 @@ public:
 	bool in_progress ();
 	std::shared_ptr<nano::bootstrap_attempt> current_attempt ();
 	nano::pulls_cache cache;
+	nano::bootstrap_excluded_peers excluded_peers;
 	void stop ();
 
 private:
@@ -235,6 +270,11 @@ public:
 	static constexpr double bootstrap_minimum_frontier_blocks_per_sec = 1000.0;
 	static constexpr double bootstrap_minimum_termination_time_sec = 30.0;
 	static constexpr unsigned bootstrap_max_new_connections = 32;
+	static constexpr size_t bootstrap_max_confirm_frontiers = 70;
+	static constexpr double required_frontier_confirmation_ratio = 0.8;
+	static constexpr unsigned frontier_confirmation_blocks_limit = 128 * 1024;
+	static constexpr unsigned requeued_pulls_limit = 256;
+	static constexpr unsigned requeued_pulls_limit_test = 2;
 	static constexpr unsigned bulk_push_cost_limit = 200;
 	static constexpr std::chrono::seconds lazy_flush_delay_sec = std::chrono::seconds (5);
 	static constexpr unsigned lazy_destinations_request_limit = 200;
