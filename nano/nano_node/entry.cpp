@@ -124,7 +124,7 @@ int main (int argc, char * const * argv)
 			nano_daemon::daemon daemon;
 			nano::node_flags flags;
 			auto flags_ec = nano::update_flags (flags, vm);
-			if (flags_ec == nano::error_cli::disable_all_network)
+			if (flags_ec)
 			{
 				std::cerr << flags_ec.message ();
 				std::exit (1);

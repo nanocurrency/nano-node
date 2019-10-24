@@ -316,7 +316,7 @@ int main (int argc, char * const * argv)
 					}
 					nano::node_flags flags;
 					auto flags_ec = nano::update_flags (flags, vm);
-					if (flags_ec == nano::error_cli::disable_all_network)
+					if (flags_ec)
 					{
 						throw std::runtime_error (flags_ec.message ());
 					}
