@@ -28,6 +28,7 @@ class node;
 class representative
 {
 public:
+	representative () = default;
 	representative (nano::account account_a, nano::amount weight_a, std::shared_ptr<nano::transport::channel> channel_a) :
 	account (account_a), weight (weight_a), channel (channel_a)
 	{
@@ -36,6 +37,10 @@ public:
 	{
 		return *channel;
 	};
+	bool operator== (nano::representative const & other_a) const
+	{
+		return account == other_a.account;
+	}
 	nano::account account{ 0 };
 	nano::amount weight{ 0 };
 	std::shared_ptr<nano::transport::channel> channel;

@@ -27,6 +27,8 @@ std::string nano::error_cli_messages::message (int ev) const
 			return "Database write error";
 		case nano::error_cli::reading_config:
 			return "Config file read error";
+		case nano::error_cli::disable_all_network:
+			return "Flags --disable_tcp_realtime and --disable_udp cannot be used together";
 	}
 
 	return "Invalid error code";
@@ -72,6 +74,73 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("force", boost::program_options::value<bool>(), "Bool to force command if allowed")
 	("use_defaults", "If present, the generate_config command will generate uncommented entries");
 	// clang-format on
+}
+
+void nano::add_node_flag_options (boost::program_options::options_description & description_a)
+{
+	// clang-format off
+	description_a.add_options()
+		("disable_backup", "Disable wallet automatic backups")
+		("disable_lazy_bootstrap", "Disables lazy bootstrap")
+		("disable_legacy_bootstrap", "Disables legacy bootstrap")
+		("disable_wallet_bootstrap", "Disables wallet lazy bootstrap")
+		("disable_bootstrap_listener", "Disables bootstrap processing for TCP listener (not including realtime network TCP connections)")
+		("disable_tcp_realtime", "Disables TCP realtime network")
+		("disable_udp", "Disables UDP realtime network")
+		("disable_unchecked_cleanup", "Disables periodic cleanup of old records from unchecked table")
+		("disable_unchecked_drop", "Disables drop of unchecked table at startup")
+		("fast_bootstrap", "Increase bootstrap speed for high end nodes with higher limits")
+		("batch_size", boost::program_options::value<std::size_t>(), "Increase sideband batch size, default 512")
+		("block_processor_batch_size", boost::program_options::value<std::size_t>(), "Increase block processor transaction batch write size, default 0 (limited by config block_processor_batch_max_time), 256k for fast_bootstrap")
+		("block_processor_full_size", boost::program_options::value<std::size_t>(), "Increase block processor allowed blocks queue size before dropping live network packets and holding bootstrap download, default 65536, 1 million for fast_bootstrap")
+		("block_processor_verification_size", boost::program_options::value<std::size_t>(), "Increase batch signature verification size in block processor, default 0 (limited by config signature_checker_threads), unlimited for fast_bootstrap");
+	// clang-format on
+}
+
+std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_options::variables_map const & vm)
+{
+	std::error_code ec;
+	auto batch_size_it = vm.find ("batch_size");
+	if (batch_size_it != vm.end ())
+	{
+		flags_a.sideband_batch_size = batch_size_it->second.as<size_t> ();
+	}
+	flags_a.disable_backup = (vm.count ("disable_backup") > 0);
+	flags_a.disable_lazy_bootstrap = (vm.count ("disable_lazy_bootstrap") > 0);
+	flags_a.disable_legacy_bootstrap = (vm.count ("disable_legacy_bootstrap") > 0);
+	flags_a.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
+	flags_a.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
+	flags_a.disable_tcp_realtime = (vm.count ("disable_tcp_realtime") > 0);
+	flags_a.disable_udp = (vm.count ("disable_udp") > 0);
+	if (flags_a.disable_tcp_realtime && flags_a.disable_udp)
+	{
+		ec = nano::error_cli::disable_all_network;
+	}
+	flags_a.disable_unchecked_cleanup = (vm.count ("disable_unchecked_cleanup") > 0);
+	flags_a.disable_unchecked_drop = (vm.count ("disable_unchecked_drop") > 0);
+	flags_a.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
+	if (flags_a.fast_bootstrap)
+	{
+		flags_a.block_processor_batch_size = 256 * 1024;
+		flags_a.block_processor_full_size = 1024 * 1024;
+		flags_a.block_processor_verification_size = std::numeric_limits<size_t>::max ();
+	}
+	auto block_processor_batch_size_it = vm.find ("block_processor_batch_size");
+	if (block_processor_batch_size_it != vm.end ())
+	{
+		flags_a.block_processor_batch_size = block_processor_batch_size_it->second.as<size_t> ();
+	}
+	auto block_processor_full_size_it = vm.find ("block_processor_full_size");
+	if (block_processor_full_size_it != vm.end ())
+	{
+		flags_a.block_processor_full_size = block_processor_full_size_it->second.as<size_t> ();
+	}
+	auto block_processor_verification_size_it = vm.find ("block_processor_verification_size");
+	if (block_processor_verification_size_it != vm.end ())
+	{
+		flags_a.block_processor_verification_size = block_processor_verification_size_it->second.as<size_t> ();
+	}
+	return ec;
 }
 
 namespace

@@ -1039,7 +1039,7 @@ void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const
 	if (node.ledger.weight (representative_a) > node.minimum_principal_weight ())
 	{
 		auto existing (inactive_votes_cache.get<1> ().find (hash_a));
-		if (existing != inactive_votes_cache.get<1> ().end ())
+		if (existing != inactive_votes_cache.get<1> ().end () && !existing->confirmed)
 		{
 			auto is_new (false);
 			inactive_votes_cache.get<1> ().modify (existing, [representative_a, &is_new](nano::gap_information & info) {
@@ -1054,7 +1054,12 @@ void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const
 
 			if (is_new)
 			{
-				node.gap_cache.bootstrap_check (existing->voters, hash_a);
+				if (node.gap_cache.bootstrap_check (existing->voters, hash_a))
+				{
+					inactive_votes_cache.get<1> ().modify (existing, [](nano::gap_information & info) {
+						info.confirmed = true;
+					});
+				}
 			}
 		}
 		else

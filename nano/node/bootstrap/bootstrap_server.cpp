@@ -257,7 +257,7 @@ void nano::bootstrap_server::receive_bulk_pull_action (boost::system::error_code
 			{
 				node->logger.try_log (boost::str (boost::format ("Received bulk pull for %1% down to %2%, maximum of %3%") % request->start.to_string () % request->end.to_string () % (request->count ? request->count : std::numeric_limits<double>::infinity ())));
 			}
-			if (is_bootstrap_connection ())
+			if (is_bootstrap_connection () && !node->flags.disable_bootstrap_bulk_pull_server)
 			{
 				add_request (std::unique_ptr<nano::message> (request.release ()));
 			}
@@ -280,7 +280,7 @@ void nano::bootstrap_server::receive_bulk_pull_account_action (boost::system::er
 			{
 				node->logger.try_log (boost::str (boost::format ("Received bulk pull account for %1% with a minimum amount of %2%") % request->account.to_account () % nano::amount (request->minimum_amount).format_balance (nano::Mxrb_ratio, 10, true)));
 			}
-			if (is_bootstrap_connection ())
+			if (is_bootstrap_connection () && !node->flags.disable_bootstrap_bulk_pull_server)
 			{
 				add_request (std::unique_ptr<nano::message> (request.release ()));
 			}

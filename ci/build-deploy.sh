@@ -22,6 +22,7 @@ fi
 cmake \
     -G'Unix Makefiles' \
     -DACTIVE_NETWORK=nano_${NETWORK_CFG}_network \
+    -DNANO_POW_SERVER=ON \
     -DNANO_GUI=ON \
     -DNANO_ROCKSDB=ON \
     -DCMAKE_BUILD_TYPE=${CONFIGURATION} \

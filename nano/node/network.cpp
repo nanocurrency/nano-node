@@ -488,7 +488,7 @@ public:
 						++cached_count;
 						cached_votes.insert (cached_votes.end (), find_votes.begin (), find_votes.end ());
 					}
-					if (!find_votes.empty () || node.store.block_exists (transaction, root_hash.first))
+					if (!find_votes.empty () || (!root_hash.first.is_zero () && node.store.block_exists (transaction, root_hash.first)))
 					{
 						blocks_bundle.push_back (root_hash.first);
 					}
