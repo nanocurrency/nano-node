@@ -228,12 +228,13 @@ class bootstrap_limits final
 {
 public:
 	static constexpr double bootstrap_connection_scale_target_blocks = 50000.0;
+	static constexpr double bootstrap_connection_scale_target_blocks_lazy = bootstrap_connection_scale_target_blocks / 5;
 	static constexpr double bootstrap_connection_warmup_time_sec = 5.0;
 	static constexpr double bootstrap_minimum_blocks_per_sec = 10.0;
 	static constexpr double bootstrap_minimum_elapsed_seconds_blockrate = 0.02;
 	static constexpr double bootstrap_minimum_frontier_blocks_per_sec = 1000.0;
 	static constexpr double bootstrap_minimum_termination_time_sec = 30.0;
-	static constexpr unsigned bootstrap_max_new_connections = 24;
+	static constexpr unsigned bootstrap_max_new_connections = 32;
 	static constexpr unsigned bulk_push_cost_limit = 200;
 	static constexpr std::chrono::seconds lazy_flush_delay_sec = std::chrono::seconds (5);
 	static constexpr unsigned lazy_destinations_request_limit = 256 * 1024;
