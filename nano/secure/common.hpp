@@ -336,10 +336,10 @@ public:
 	uint8_t protocol_version = 0x11;
 
 	/** Minimum accepted protocol version */
-	uint8_t protocol_version_min = 0x0d;
+	uint8_t protocol_version_min = 0x10;
 
 	/** Do not bootstrap from nodes older than this version. */
-	uint8_t protocol_version_bootstrap_min = 0x0d;
+	uint8_t protocol_version_bootstrap_min = 0x10;
 
 	/** Do not lazy bootstrap from nodes older than this version. */
 	uint8_t protocol_version_bootstrap_lazy_min = 0x10;
