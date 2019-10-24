@@ -1601,6 +1601,7 @@ void nano::json_handler::bootstrap ()
 {
 	std::string address_text = request.get<std::string> ("address");
 	std::string port_text = request.get<std::string> ("port");
+	const bool bypass_frontier_confirmation = request.get<bool> ("bypass_frontier_confirmation", false);
 	boost::system::error_code address_ec;
 	auto address (boost::asio::ip::address_v6::from_string (address_text, address_ec));
 	if (!address_ec)
@@ -1610,7 +1611,7 @@ void nano::json_handler::bootstrap ()
 		{
 			if (!node.flags.disable_legacy_bootstrap)
 			{
-				node.bootstrap_initiator.bootstrap (nano::endpoint (address, port));
+				node.bootstrap_initiator.bootstrap (nano::endpoint (address, port), true, bypass_frontier_confirmation);
 				response_l.put ("success", "");
 			}
 			else
@@ -1679,6 +1680,8 @@ void nano::json_handler::bootstrap_status ()
 		response_l.put ("target_connections", std::to_string (attempt->target_connections (attempt->pulls.size ())));
 		response_l.put ("total_blocks", std::to_string (attempt->total_blocks));
 		response_l.put ("runs_count", std::to_string (attempt->runs_count));
+		response_l.put ("requeued_pulls", std::to_string (attempt->requeued_pulls));
+		response_l.put ("frontiers_confirmed", static_cast<bool> (attempt->frontiers_confirmed));
 		std::string mode_text;
 		if (attempt->mode == nano::bootstrap_mode::legacy)
 		{

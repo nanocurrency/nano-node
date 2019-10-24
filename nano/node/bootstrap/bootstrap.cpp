@@ -17,9 +17,16 @@ constexpr unsigned nano::bootstrap_limits::bootstrap_frontier_retry_limit;
 constexpr unsigned nano::bootstrap_limits::bootstrap_lazy_retry_limit;
 constexpr double nano::bootstrap_limits::bootstrap_minimum_termination_time_sec;
 constexpr unsigned nano::bootstrap_limits::bootstrap_max_new_connections;
+constexpr size_t nano::bootstrap_limits::bootstrap_max_confirm_frontiers;
+constexpr double nano::bootstrap_limits::required_frontier_confirmation_ratio;
+constexpr unsigned nano::bootstrap_limits::frontier_confirmation_blocks_limit;
+constexpr unsigned nano::bootstrap_limits::requeued_pulls_limit;
+constexpr unsigned nano::bootstrap_limits::requeued_pulls_limit_test;
 constexpr std::chrono::seconds nano::bootstrap_limits::lazy_flush_delay_sec;
 constexpr unsigned nano::bootstrap_limits::bootstrap_lazy_destinations_request_limit;
 constexpr std::chrono::seconds nano::bootstrap_limits::lazy_destinations_flush_delay_sec;
+constexpr std::chrono::hours nano::bootstrap_excluded_peers::exclude_time_hours;
+constexpr std::chrono::hours nano::bootstrap_excluded_peers::exclude_remove_hours;
 
 nano::bootstrap_client::bootstrap_client (std::shared_ptr<nano::node> node_a, std::shared_ptr<nano::bootstrap_attempt> attempt_a, std::shared_ptr<nano::transport::channel_tcp> channel_a) :
 node (node_a),
@@ -67,13 +74,7 @@ std::shared_ptr<nano::bootstrap_client> nano::bootstrap_client::shared ()
 
 nano::bootstrap_attempt::bootstrap_attempt (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a) :
 next_log (std::chrono::steady_clock::now ()),
-connections (0),
-pulling (0),
 node (node_a),
-account_count (0),
-total_blocks (0),
-runs_count (0),
-stopped (false),
 mode (mode_a)
 {
 	node->logger.always_log ("Starting bootstrap attempt");
@@ -106,6 +107,7 @@ bool nano::bootstrap_attempt::request_frontier (nano::unique_lock<std::mutex> & 
 	connection_frontier_request = connection_l;
 	if (connection_l)
 	{
+		endpoint_frontier_request = connection_l->channel->get_tcp_endpoint ();
 		std::future<bool> future;
 		{
 			auto client (std::make_shared<nano::frontier_req_client> (connection_l));
@@ -153,6 +155,11 @@ void nano::bootstrap_attempt::request_pull (nano::unique_lock<std::mutex> & lock
 				pulls.pop_front ();
 			}
 		}
+		recent_pulls_head.push_back (pull.head);
+		if (recent_pulls_head.size () > nano::bootstrap_limits::bootstrap_max_confirm_frontiers)
+		{
+			recent_pulls_head.pop_front ();
+		}
 		++pulling;
 		// The bulk_pull_client destructor attempt to requeue_pull which can cause a deadlock if this is the last reference
 		// Dispatch request in an external thread in case it needs to be destroyed
@@ -198,15 +205,16 @@ bool nano::bootstrap_attempt::still_pulling ()
 	return running && (more_pulls || still_pulling);
 }
 
-void nano::bootstrap_attempt::run ()
+void nano::bootstrap_attempt::run_start (nano::unique_lock<std::mutex> & lock_a)
 {
-	assert (!node->flags.disable_legacy_bootstrap);
-	populate_connections ();
-	nano::unique_lock<std::mutex> lock (mutex);
+	frontiers_confirmed = false;
+	total_blocks = 0;
+	requeued_pulls = 0;
+	pulls.clear ();
 	auto frontier_failure (true);
 	while (!stopped && frontier_failure)
 	{
-		frontier_failure = request_frontier (lock);
+		frontier_failure = request_frontier (lock_a);
 	}
 	// Shuffle pulls.
 	release_assert (std::numeric_limits<CryptoPP::word32>::max () > pulls.size ());
@@ -218,6 +226,14 @@ void nano::bootstrap_attempt::run ()
 			std::swap (pulls[i], pulls[k]);
 		}
 	}
+}
+
+void nano::bootstrap_attempt::run ()
+{
+	assert (!node->flags.disable_legacy_bootstrap);
+	populate_connections ();
+	nano::unique_lock<std::mutex> lock (mutex);
+	run_start (lock);
 	while (still_pulling ())
 	{
 		while (still_pulling ())
@@ -230,6 +246,7 @@ void nano::bootstrap_attempt::run ()
 			{
 				condition.wait (lock);
 			}
+			attempt_restart_check (lock);
 		}
 		// Flushing may resolve forks which can add more pulls
 		node->logger.try_log ("Flushing unchecked blocks");
@@ -241,7 +258,10 @@ void nano::bootstrap_attempt::run ()
 	if (!stopped)
 	{
 		node->logger.try_log ("Completed pulls");
-		request_push (lock);
+		if (!node->flags.disable_bootstrap_bulk_push_client)
+		{
+			request_push (lock);
+		}
 		++runs_count;
 		// Start wallet lazy bootstrap if required
 		if (!wallet_accounts.empty () && !node->flags.disable_wallet_bootstrap)
@@ -352,6 +372,7 @@ void nano::bootstrap_attempt::populate_connections ()
 					}
 
 					client->stop (true);
+					new_clients.pop_back ();
 				}
 			}
 		}
@@ -401,7 +422,7 @@ void nano::bootstrap_attempt::populate_connections ()
 		for (auto i = 0u; i < delta; i++)
 		{
 			auto endpoint (node->network.bootstrap_peer (mode == nano::bootstrap_mode::lazy));
-			if (endpoint != nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0) && endpoints.find (endpoint) == endpoints.end ())
+			if (endpoint != nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0) && endpoints.find (endpoint) == endpoints.end () && !node->bootstrap_initiator.excluded_peers.check (endpoint))
 			{
 				connect_client (endpoint);
 				nano::lock_guard<std::mutex> lock (mutex);
@@ -473,7 +494,7 @@ void nano::bootstrap_attempt::connect_client (nano::tcp_endpoint const & endpoin
 void nano::bootstrap_attempt::pool_connection (std::shared_ptr<nano::bootstrap_client> client_a)
 {
 	nano::lock_guard<std::mutex> lock (mutex);
-	if (!stopped && !client_a->pending_stop)
+	if (!stopped && !client_a->pending_stop && !node->bootstrap_initiator.excluded_peers.check (client_a->channel->get_tcp_endpoint ()))
 	{
 		// Idle bootstrap client socket
 		client_a->channel->socket->start_timer (node->network_params.node.idle_timeout);
@@ -532,7 +553,8 @@ void nano::bootstrap_attempt::requeue_pull (nano::pull_info const & pull_a)
 {
 	auto pull (pull_a);
 	++pull.attempts;
-	if (pull.attempts < (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::bootstrap_frontier_retry_limit : (nano::bootstrap_limits::bootstrap_frontier_retry_limit / 8) + (pull.processed / 10000)))
+	++requeued_pulls;
+	if (pull.attempts < (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::bootstrap_frontier_retry_limit : 1 + (pull.processed / 10000)))
 	{
 		nano::lock_guard<std::mutex> lock (mutex);
 		pulls.push_front (pull);
@@ -571,6 +593,168 @@ void nano::bootstrap_attempt::add_bulk_push_target (nano::block_hash const & hea
 {
 	nano::lock_guard<std::mutex> lock (mutex);
 	bulk_push_targets.emplace_back (head, end);
+}
+
+void nano::bootstrap_attempt::attempt_restart_check (nano::unique_lock<std::mutex> & lock_a)
+{
+	/* Conditions to start frontiers confirmation:
+	- not completed frontiers confirmation
+	- more than 256 pull retries usually indicating issues with requested pulls
+	- or 128k processed blocks indicating large bootstrap */
+	if (!frontiers_confirmed && (requeued_pulls > (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::requeued_pulls_limit : nano::bootstrap_limits::requeued_pulls_limit_test) || total_blocks > nano::bootstrap_limits::frontier_confirmation_blocks_limit))
+	{
+		confirm_frontiers (lock_a);
+		if (!frontiers_confirmed)
+		{
+			node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_failed, nano::stat::dir::in);
+			auto score (node->bootstrap_initiator.excluded_peers.add (endpoint_frontier_request, node->network.size ()));
+			if (score >= nano::bootstrap_excluded_peers::score_limit)
+			{
+				node->logger.always_log (boost::str (boost::format ("Adding peer %1% to excluded peers list with score %2% after %3% seconds bootstrap attempt") % endpoint_frontier_request % score % std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt_start).count ()));
+			}
+			for (auto i : clients)
+			{
+				if (auto client = i.lock ())
+				{
+					client->channel->socket->close ();
+				}
+			}
+			idle.clear ();
+			run_start (lock_a);
+		}
+		else
+		{
+			node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_successful, nano::stat::dir::in);
+		}
+	}
+}
+
+void nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> & lock_a)
+{
+	// clang-format off
+	condition.wait (lock_a, [& stopped = stopped] { return !stopped; });
+	// clang-format on
+	std::vector<nano::block_hash> frontiers;
+	for (auto i (pulls.begin ()), end (pulls.end ()); i != end && frontiers.size () != nano::bootstrap_limits::bootstrap_max_confirm_frontiers; ++i)
+	{
+		if (!i->head.is_zero ())
+		{
+			frontiers.push_back (i->head);
+		}
+	}
+	for (auto i (recent_pulls_head.begin ()), end (recent_pulls_head.end ()); i != end && frontiers.size () != nano::bootstrap_limits::bootstrap_max_confirm_frontiers; ++i)
+	{
+		if (!i->is_zero ())
+		{
+			frontiers.push_back (*i);
+		}
+	}
+	lock_a.unlock ();
+	auto frontiers_count (frontiers.size ());
+	if (frontiers_count == 0)
+	{
+		return;
+	}
+	const size_t reps_limit = 20;
+	auto representatives (node->rep_crawler.representatives ());
+	auto reps_weight (node->rep_crawler.total_weight ());
+	auto representatives_copy (representatives);
+	nano::uint128_t total_weight (0);
+	// Select random peers from bottom 50% of principal representatives
+	if (representatives.size () > 1)
+	{
+		std::reverse (representatives.begin (), representatives.end ());
+		representatives.resize (representatives.size () / 2);
+		for (auto i = static_cast<CryptoPP::word32> (representatives.size () - 1); i > 0; --i)
+		{
+			auto k = nano::random_pool::generate_word32 (0, i);
+			std::swap (representatives[i], representatives[k]);
+		}
+		if (representatives.size () > reps_limit)
+		{
+			representatives.resize (reps_limit);
+		}
+	}
+	for (auto const & rep : representatives)
+	{
+		total_weight += rep.weight.number ();
+	}
+	// Select peers with total 25% of reps stake from top 50% of principal representatives
+	representatives_copy.resize (representatives_copy.size () / 2);
+	while (total_weight < reps_weight / 4) // 25%
+	{
+		auto k = nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (representatives_copy.size () - 1));
+		auto rep (representatives_copy[k]);
+		if (std::find (representatives.begin (), representatives.end (), rep) == representatives.end ())
+		{
+			representatives.push_back (rep);
+			total_weight += rep.weight.number ();
+		}
+	}
+	// Start requests
+	for (auto i (0), max_requests (20); i <= max_requests && !frontiers_confirmed && !stopped; ++i)
+	{
+		std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::root>>> batched_confirm_req_bundle;
+		std::deque<std::pair<nano::block_hash, nano::root>> request;
+		// Find confirmed frontiers (tally > 12.5% of reps stake, 60% of requestsed reps responded
+		for (auto ii (frontiers.begin ()); ii != frontiers.end ();)
+		{
+			if (node->ledger.block_exists (*ii))
+			{
+				ii = frontiers.erase (ii);
+			}
+			else
+			{
+				nano::lock_guard<std::mutex> active_lock (node->active.mutex);
+				auto existing (node->active.find_inactive_votes_cache (*ii));
+				nano::uint128_t tally;
+				for (auto & voter : existing.voters)
+				{
+					tally += node->ledger.weight (voter);
+				}
+				if (existing.confirmed || (tally > reps_weight / 8 && existing.voters.size () >= representatives.size () * 0.6)) // 12.5% of weight, 60% of reps
+				{
+					ii = frontiers.erase (ii);
+				}
+				else
+				{
+					for (auto const & rep : representatives)
+					{
+						if (std::find (existing.voters.begin (), existing.voters.end (), rep.account) == existing.voters.end ())
+						{
+							release_assert (!ii->is_zero ());
+							auto rep_request (batched_confirm_req_bundle.find (rep.channel));
+							if (rep_request == batched_confirm_req_bundle.end ())
+							{
+								std::deque<std::pair<nano::block_hash, nano::root>> insert_root_hash = { std::make_pair (*ii, *ii) };
+								batched_confirm_req_bundle.emplace (rep.channel, insert_root_hash);
+							}
+							else
+							{
+								rep_request->second.emplace_back (*ii, *ii);
+							}
+						}
+					}
+					++ii;
+				}
+			}
+		}
+		auto confirmed_count (frontiers_count - frontiers.size ());
+		if (confirmed_count >= frontiers_count * nano::bootstrap_limits::required_frontier_confirmation_ratio) // 80% of frontiers confirmed
+		{
+			frontiers_confirmed = true;
+		}
+		else if (i < max_requests)
+		{
+			node->network.broadcast_confirm_req_batched_many (batched_confirm_req_bundle);
+			std::this_thread::sleep_for (std::chrono::milliseconds (!node->network_params.network.is_test_network () ? 500 : 5));
+		}
+	}
+	if (!frontiers_confirmed)
+	{
+		node->logger.always_log (boost::str (boost::format ("Failed to confirm frontiers for bootstrap attempt. %1% of %2% frontiers were not confirmed") % frontiers.size () % frontiers_count));
+	}
+	lock_a.lock ();
 }
 
 void nano::bootstrap_attempt::lazy_start (nano::hash_or_account const & hash_or_account_a, bool confirmed)
@@ -1078,7 +1262,7 @@ void nano::bootstrap_initiator::bootstrap ()
 	}
 }
 
-void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bool add_to_peers)
+void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bool add_to_peers, bool frontiers_confirmed)
 {
 	if (add_to_peers)
 	{
@@ -1096,7 +1280,15 @@ void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bo
 		}
 		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out);
 		attempt = std::make_shared<nano::bootstrap_attempt> (node.shared ());
-		attempt->add_connection (endpoint_a);
+		if (frontiers_confirmed)
+		{
+			excluded_peers.remove (nano::transport::map_endpoint_to_tcp (endpoint_a));
+		}
+		if (!excluded_peers.check (nano::transport::map_endpoint_to_tcp (endpoint_a)))
+		{
+			attempt->add_connection (endpoint_a);
+		}
+		attempt->frontiers_confirmed = frontiers_confirmed;
 		condition.notify_all ();
 	}
 }
@@ -1222,6 +1414,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_initiato
 {
 	size_t count = 0;
 	size_t cache_count = 0;
+	size_t excluded_peers_count = 0;
 	{
 		nano::lock_guard<std::mutex> guard (bootstrap_initiator.observers_mutex);
 		count = bootstrap_initiator.observers.size ();
@@ -1230,12 +1423,18 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_initiato
 		nano::lock_guard<std::mutex> guard (bootstrap_initiator.cache.pulls_cache_mutex);
 		cache_count = bootstrap_initiator.cache.cache.size ();
 	}
+	{
+		nano::lock_guard<std::mutex> guard (bootstrap_initiator.excluded_peers.excluded_peers_mutex);
+		excluded_peers_count = bootstrap_initiator.excluded_peers.peers.size ();
+	}
 
 	auto sizeof_element = sizeof (decltype (bootstrap_initiator.observers)::value_type);
 	auto sizeof_cache_element = sizeof (decltype (bootstrap_initiator.cache.cache)::value_type);
+	auto sizeof_excluded_peers_element = sizeof (decltype (bootstrap_initiator.excluded_peers.peers)::value_type);
 	auto composite = std::make_unique<seq_con_info_composite> (name);
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "observers", count, sizeof_element }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "pulls_cache", cache_count, sizeof_cache_element }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "excluded_peers", excluded_peers_count, sizeof_excluded_peers_element }));
 	return composite;
 }
 }
@@ -1289,19 +1488,65 @@ void nano::pulls_cache::remove (nano::pull_info const & pull_a)
 	cache.get<account_head_tag> ().erase (head_512);
 }
 
-namespace nano
+uint64_t nano::bootstrap_excluded_peers::add (nano::tcp_endpoint const & endpoint_a, size_t network_peers_count)
 {
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (pulls_cache & pulls_cache, const std::string & name)
-{
-	size_t cache_count = 0;
-
+	uint64_t result (0);
+	nano::lock_guard<std::mutex> guard (excluded_peers_mutex);
+	// Clean old excluded peers
+	while (peers.size () > 1 && peers.size () > std::min (static_cast<double> (excluded_peers_size_max), network_peers_count * excluded_peers_percentage_limit))
 	{
-		nano::lock_guard<std::mutex> guard (pulls_cache.pulls_cache_mutex);
-		cache_count = pulls_cache.cache.size ();
+		peers.erase (peers.begin ());
 	}
-	auto sizeof_element = sizeof (decltype (pulls_cache.cache)::value_type);
-	auto composite = std::make_unique<seq_con_info_composite> (name);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "pulls_cache", cache_count, sizeof_element }));
-	return composite;
+	assert (peers.size () <= excluded_peers_size_max);
+	auto existing (peers.get<endpoint_tag> ().find (endpoint_a));
+	if (existing == peers.get<endpoint_tag> ().end ())
+	{
+		// Insert new endpoint
+		auto inserted (peers.insert (nano::excluded_peers_item{ std::chrono::steady_clock::steady_clock::now () + exclude_time_hours, endpoint_a, 1 }));
+		(void)inserted;
+		assert (inserted.second);
+		result = 1;
+	}
+	else
+	{
+		// Update existing endpoint
+		peers.get<endpoint_tag> ().modify (existing, [&result](nano::excluded_peers_item & item_a) {
+			++item_a.score;
+			result = item_a.score;
+			if (item_a.score == nano::bootstrap_excluded_peers::score_limit)
+			{
+				item_a.exclude_until = std::chrono::steady_clock::now () + nano::bootstrap_excluded_peers::exclude_time_hours;
+			}
+			else if (item_a.score > nano::bootstrap_excluded_peers::score_limit)
+			{
+				item_a.exclude_until = std::chrono::steady_clock::now () + nano::bootstrap_excluded_peers::exclude_time_hours * item_a.score * 2;
+			}
+		});
+	}
+	return result;
 }
+
+bool nano::bootstrap_excluded_peers::check (nano::tcp_endpoint const & endpoint_a)
+{
+	bool excluded (false);
+	nano::lock_guard<std::mutex> guard (excluded_peers_mutex);
+	auto existing (peers.get<endpoint_tag> ().find (endpoint_a));
+	if (existing != peers.get<endpoint_tag> ().end () && existing->score >= score_limit)
+	{
+		if (existing->exclude_until > std::chrono::steady_clock::now ())
+		{
+			excluded = true;
+		}
+		else if (existing->exclude_until + exclude_remove_hours * existing->score < std::chrono::steady_clock::now ())
+		{
+			peers.get<endpoint_tag> ().erase (existing);
+		}
+	}
+	return excluded;
+}
+
+void nano::bootstrap_excluded_peers::remove (nano::tcp_endpoint const & endpoint_a)
+{
+	nano::lock_guard<std::mutex> guard (excluded_peers_mutex);
+	peers.get<endpoint_tag> ().erase (endpoint_a);
 }

@@ -617,13 +617,10 @@ bool nano::confirm_req::deserialize (nano::stream & stream_a, nano::block_unique
 				nano::block_hash block_hash (0);
 				nano::block_hash root (0);
 				read (stream_a, block_hash);
-				if (!block_hash.is_zero ())
+				read (stream_a, root);
+				if (!block_hash.is_zero () || !root.is_zero ())
 				{
-					read (stream_a, root);
-					if (!root.is_zero ())
-					{
-						roots_hashes.push_back (std::make_pair (block_hash, root));
-					}
+					roots_hashes.emplace_back (block_hash, root);
 				}
 			}
 
