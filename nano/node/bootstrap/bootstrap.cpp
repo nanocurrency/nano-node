@@ -147,9 +147,7 @@ void nano::bootstrap_attempt::request_pull (nano::unique_lock<std::mutex> & lock
 		if (mode != nano::bootstrap_mode::legacy)
 		{
 			// Check if pull is obsolete (head was processed)
-			nano::lock_guard<std::mutex> lazy_lock (lazy_mutex);
-			auto transaction (node->store.tx_begin_read ());
-			while (!pulls.empty () && !pull.head.is_zero () && (lazy_blocks.find (pull.head) != lazy_blocks.end () || node->store.block_exists (transaction, pull.head)))
+			while (!pulls.empty () && !pull.head.is_zero () && lazy_processed_or_exists (pull.head))
 			{
 				pull = pulls.front ();
 				pulls.pop_front ();
