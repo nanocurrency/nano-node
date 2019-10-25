@@ -1,12 +1,7 @@
 #pragma once
 
 #include <nano/lib/timer.hpp>
-#if NANO_TIMED_LOCKS > 0
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <boost/fiber/condition_variable.hpp>
-#endif
+
 #include <condition_variable>
 #include <mutex>
 #include <unordered_map>
@@ -74,59 +69,14 @@ private:
 	void lock_impl ();
 };
 
-class condition_variable final
-{
-private:
-	boost::fibers::condition_variable_any cnd;
-
-public:
-	condition_variable () = default;
-	condition_variable (condition_variable const &) = delete;
-	condition_variable & operator= (condition_variable const &) = delete;
-
-	void notify_one () noexcept;
-	void notify_all () noexcept;
-	void wait (nano::unique_lock<std::mutex> & lt);
-
-	template <typename Pred>
-	void wait (nano::unique_lock<std::mutex> & lt, Pred pred)
-	{
-		cnd.wait (lt, pred);
-	}
-
-	template <typename Clock, typename Duration>
-	void wait_until (nano::unique_lock<std::mutex> & lk, std::chrono::time_point<Clock, Duration> const & timeout_time)
-	{
-		cnd.wait_until (lk, timeout_time);
-	}
-
-	template <typename Clock, typename Duration, typename Pred>
-	bool wait_until (nano::unique_lock<std::mutex> & lk, std::chrono::time_point<Clock, Duration> const & timeout_time, Pred pred)
-	{
-		return cnd.wait_until (lk, timeout_time, pred);
-	}
-
-	template <typename Rep, typename Period>
-	void wait_for (nano::unique_lock<std::mutex> & lk,
-	std::chrono::duration<Rep, Period> const & timeout_duration)
-	{
-		cnd.wait_for (lk, timeout_duration);
-	}
-
-	template <typename Rep, typename Period, typename Pred>
-	bool wait_for (nano::unique_lock<std::mutex> & lk, std::chrono::duration<Rep, Period> const & timeout_duration, Pred pred)
-	{
-		return cnd.wait_for (lk, timeout_duration, pred);
-	}
-};
-
 #else
 template <typename Mutex>
 using lock_guard = std::lock_guard<Mutex>;
 
 template <typename Mutex>
 using unique_lock = std::unique_lock<Mutex>;
-
-using condition_variable = std::condition_variable;
 #endif
+
+// For consistency wrapping the less well known _any variant which can be used with any lockable type
+using condition_variable = std::condition_variable_any;
 }
