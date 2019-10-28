@@ -303,6 +303,27 @@ TEST (bootstrap_processor, pull_diamond)
 	node1->stop ();
 }
 
+TEST (bootstrap_processor, pull_requeue_network_error)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.enable_bootstrap_bulk_pull_server_failure = true;
+	auto node1 = system.add_node (nano::node_config (24000, system.logging), node_flags);
+	auto node2 = system.add_node (nano::node_config (24001, system.logging), node_flags);
+	nano::genesis genesis;
+	nano::keypair key1;
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	ASSERT_EQ (nano::process_result::progress, node2->process (*send1).code);
+
+	node1->bootstrap_initiator.bootstrap (node2->network.endpoint ());
+	system.deadline_set (5s);
+	while (node1->bootstrap_initiator.current_attempt () != nullptr && node1->bootstrap_initiator.current_attempt ()->requeued_pulls < 2)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (0, node1->stats.count (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_failed_account, nano::stat::dir::in)); // Requeue is not increasing failed attempts
+}
+
 TEST (bootstrap_processor, frontiers_unconfirmed)
 {
 	nano::system system;

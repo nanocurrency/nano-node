@@ -117,6 +117,7 @@ public:
 	bool disable_bootstrap_listener{ false };
 	bool disable_bootstrap_bulk_pull_server{ false };
 	bool disable_bootstrap_bulk_push_client{ false };
+	bool enable_bootstrap_bulk_pull_server_failure{ false };
 	bool disable_tcp_realtime{ false };
 	bool disable_udp{ false };
 	bool disable_unchecked_cleanup{ false };
