@@ -549,10 +549,13 @@ void nano::bootstrap_attempt::add_pull (nano::pull_info const & pull_a)
 	condition.notify_all ();
 }
 
-void nano::bootstrap_attempt::requeue_pull (nano::pull_info const & pull_a)
+void nano::bootstrap_attempt::requeue_pull (nano::pull_info const & pull_a, bool network_error)
 {
 	auto pull (pull_a);
-	++pull.attempts;
+	if (!network_error)
+	{
+		++pull.attempts;
+	}
 	++requeued_pulls;
 	if (pull.attempts < (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::bootstrap_frontier_retry_limit : 1 + (pull.processed / 10000)))
 	{

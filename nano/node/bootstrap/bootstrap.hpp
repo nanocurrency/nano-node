@@ -72,7 +72,7 @@ public:
 	void connect_client (nano::tcp_endpoint const &);
 	void pool_connection (std::shared_ptr<nano::bootstrap_client>);
 	void stop ();
-	void requeue_pull (nano::pull_info const &);
+	void requeue_pull (nano::pull_info const &, bool = false);
 	void add_pull (nano::pull_info const &);
 	bool still_pulling ();
 	void run_start (nano::unique_lock<std::mutex> &);
