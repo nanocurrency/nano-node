@@ -32,7 +32,7 @@ set (NANO_SECURE_RPC OFF CACHE BOOL "")
 set (NANO_ROCKSDB OFF CACHE BOOL "")
 set (NANO_POW_SERVER OFF CACHE BOOL "")
 set (NANO_WARN_TO_ERR OFF CACHE BOOL "")
-set (NANO_TIMED_LOCKS 0 CACHE INTEGER "")
+set (NANO_TIMED_LOCKS 0 CACHE STRING "")
 
 option (NANO_STACKTRACE_BACKTRACE "Use BOOST_STACKTRACE_USE_BACKTRACE in stacktraces, for POSIX" OFF)
 if (NANO_STACKTRACE_BACKTRACE)
@@ -192,11 +192,7 @@ set(Boost_USE_MULTITHREADED      ON)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
-if (${NANO_TIMED_LOCKS} GREATER 0)
-	set (timed_locks_boost_libs context fiber)
-endif ()
-
-find_package (Boost 1.67.0 REQUIRED COMPONENTS filesystem log log_setup thread program_options system ${timed_locks_boost_libs})
+find_package (Boost 1.67.0 REQUIRED COMPONENTS filesystem log log_setup thread program_options system)
 
 if (NANO_ROCKSDB)
 	find_package (RocksDB REQUIRED)
