@@ -18,7 +18,7 @@ thread ([this]() {
 
 void nano::vote_processor::process_loop ()
 {
-	nano::timer<std::chrono::milliseconds> elapsed (nano::timer_state::stopped);
+	nano::timer<std::chrono::milliseconds> elapsed;
 	bool log_this_iteration;
 
 	nano::unique_lock<std::mutex> lock (mutex);
