@@ -10,10 +10,6 @@ else ()
 	error ("Unknown platform: ${CMAKE_SYSTEM_NAME}")
 endif ()
 
-if (${NANO_TIMED_LOCKS} GREATER 0)
-	set (timed_locks_boost_libs Boost::context Boost::fiber)
-endif ()
-
 add_library (nano_lib
 	${platform_sources}
 	alarm.hpp
@@ -68,7 +64,6 @@ target_link_libraries (nano_lib
 	blake2
 	${CRYPTOPP_LIBRARY}
 	${CMAKE_DL_LIBS}
-	${timed_locks_boost_libs}
 	Boost::boost)
 
 if (NANO_STACKTRACE_BACKTRACE)

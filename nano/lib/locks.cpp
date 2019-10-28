@@ -179,20 +179,5 @@ void unique_lock<Mutex, U>::validate () const
 
 // Explicit instantiations for allowed types
 template class unique_lock<std::mutex>;
-
-void condition_variable::notify_one () noexcept
-{
-	cnd.notify_one ();
-}
-
-void condition_variable::notify_all () noexcept
-{
-	cnd.notify_all ();
-}
-
-void condition_variable::wait (nano::unique_lock<std::mutex> & lk)
-{
-	cnd.wait (lk);
-}
 }
 #endif
