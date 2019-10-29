@@ -87,6 +87,7 @@ public:
 	nano::node & node;
 	std::unordered_map<nano::root, std::vector<std::weak_ptr<nano::distributed_work>>> items;
 	std::mutex mutex;
+	bool stopped{ false };
 };
 
 class seq_con_info_component;

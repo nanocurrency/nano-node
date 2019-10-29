@@ -396,19 +396,22 @@ void nano::distributed_work_factory::make (nano::root const & root_a, std::vecto
 
 void nano::distributed_work_factory::make (unsigned int backoff_a, nano::root const & root_a, std::vector<std::pair<std::string, uint16_t>> const & peers_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
 {
-	cleanup_finished ();
-	if (node.work_generation_enabled ())
+	if (!stopped)
 	{
-		auto distributed (std::make_shared<nano::distributed_work> (node, root_a, peers_a, backoff_a, callback_a, difficulty_a, account_a));
+		cleanup_finished ();
+		if (node.work_generation_enabled ())
 		{
-			nano::lock_guard<std::mutex> guard (mutex);
-			items[root_a].emplace_back (distributed);
+			auto distributed (std::make_shared<nano::distributed_work> (node, root_a, peers_a, backoff_a, callback_a, difficulty_a, account_a));
+			{
+				nano::lock_guard<std::mutex> guard (mutex);
+				items[root_a].emplace_back (distributed);
+			}
+			distributed->start ();
 		}
-		distributed->start ();
-	}
-	else if (callback_a)
-	{
-		callback_a (boost::none);
+		else if (callback_a)
+		{
+			callback_a (boost::none);
+		}
 	}
 }
 
@@ -453,18 +456,23 @@ void nano::distributed_work_factory::cleanup_finished ()
 
 void nano::distributed_work_factory::stop ()
 {
-	// Cancel any ongoing work
-	std::unordered_set<nano::root> roots_l;
+	if (!stopped)
 	{
-		nano::lock_guard<std::mutex> guard_l (mutex);
+		stopped = true;
+		// Cancel any ongoing work
+		std::unordered_set<nano::root> roots_l;
+		nano::unique_lock<std::mutex> lock_l (mutex);
 		for (auto const & item_l : items)
 		{
 			roots_l.insert (item_l.first);
 		}
-	}
-	for (auto const & root_l : roots_l)
-	{
-		cancel (root_l, true);
+		lock_l.unlock ();
+		for (auto const & root_l : roots_l)
+		{
+			cancel (root_l, true);
+		}
+		lock_l.lock ();
+		items.clear ();
 	}
 }
 
