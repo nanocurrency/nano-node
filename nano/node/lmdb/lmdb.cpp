@@ -66,11 +66,20 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 			{
 				create_backup_file (env, path_a, logger_a);
 			}
-			auto transaction (tx_begin_write ());
-			open_databases (error, transaction, MDB_CREATE);
-			if (!error)
+			auto needs_vacuuming = false;
 			{
-				error |= do_upgrades (transaction, batch_size);
+				auto transaction (tx_begin_write ());
+				open_databases (error, transaction, MDB_CREATE);
+				if (!error)
+				{
+					error |= do_upgrades (transaction, needs_vacuuming, batch_size);
+				}
+			}
+
+			if (needs_vacuuming)
+			{
+				auto vacuum_success = vacuum_after_upgrade (path_a, lmdb_max_dbs);
+				logger.always_log (vacuum_success ? "Vacuum succeeded." : "Failed to vacuum.");
 			}
 		}
 		else
@@ -79,6 +88,37 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 			open_databases (error, transaction, 0);
 		}
 	}
+}
+
+bool nano::mdb_store::vacuum_after_upgrade (boost::filesystem::path const & path_a, int lmdb_max_dbs)
+{
+	// Vacuum the database. This is not a required step and may actually fail if there isn't enough storage space.
+	auto vacuum_path = path_a.parent_path () / "vacuumed.ldb";
+
+	auto vacuum_success = copy_db (vacuum_path);
+	if (vacuum_success)
+	{
+		// Need to close the database to release the file handle
+		mdb_env_close (env.environment);
+		env.environment = nullptr;
+
+		// Replace the ledger file with the vacuumed one
+		boost::filesystem::rename (vacuum_path, path_a);
+
+		// Set up the environment again
+		env.init (error, path_a, lmdb_max_dbs, true);
+		if (!error)
+		{
+			auto transaction (tx_begin_read ());
+			open_databases (error, transaction, 0);
+		}
+	}
+	else
+	{
+		// The vacuum file can be in an inconsistent state if there wasn't enough space to create it
+		boost::filesystem::remove (vacuum_path);
+	}
+	return vacuum_success;
 }
 
 void nano::mdb_store::serialize_mdb_tracker (boost::property_tree::ptree & json, std::chrono::milliseconds min_read_time, std::chrono::milliseconds min_write_time)
@@ -150,7 +190,7 @@ void nano::mdb_store::open_databases (bool & error_a, nano::transaction const & 
 	}
 }
 
-bool nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, size_t batch_size)
+bool nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, bool & needs_vacuuming, size_t batch_size_a)
 {
 	auto error (false);
 	auto version_l = version_get (transaction_a);
@@ -178,11 +218,12 @@ bool nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, size
 		case 11:
 			upgrade_v11_to_v12 (transaction_a);
 		case 12:
-			upgrade_v12_to_v13 (transaction_a, batch_size);
+			upgrade_v12_to_v13 (transaction_a, batch_size_a);
 		case 13:
 			upgrade_v13_to_v14 (transaction_a);
 		case 14:
 			upgrade_v14_to_v15 (transaction_a);
+			needs_vacuuming = true;
 		case 15:
 			break;
 		default:
@@ -499,9 +540,10 @@ void nano::mdb_store::upgrade_v13_to_v14 (nano::write_transaction const & transa
 	release_assert (!error || error == MDB_NOTFOUND);
 }
 
-void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction const & transaction_a)
+void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction & transaction_a)
 {
-	// Move confirmation height from account_info database to its own table
+	logger.always_log ("Preparing v14 to v15 upgrade...");
+
 	std::vector<std::pair<nano::account, nano::account_info>> account_infos;
 	upgrade_counters account_counters (count (transaction_a, accounts_v0), count (transaction_a, accounts_v1));
 	account_infos.reserve (account_counters.before_v0 + account_counters.before_v1);
@@ -517,9 +559,12 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction const & transa
 		auto rep_block = block_get_v14 (transaction_a, account_info_v14.rep_block);
 		release_assert (rep_block != nullptr);
 		account_infos.emplace_back (account, nano::account_info{ account_info_v14.head, rep_block->representative (), account_info_v14.open_block, account_info_v14.balance, account_info_v14.modified, account_info_v14.block_count, i_account.from_first_database ? nano::epoch::epoch_0 : nano::epoch::epoch_1 });
+		// Move confirmation height from account_info database to its own table
 		confirmation_height_put (transaction_a, account, account_info_v14.confirmation_height);
 		i_account.from_first_database ? ++account_counters.after_v0 : ++account_counters.after_v1;
 	}
+
+	logger.always_log ("Finished extracting confirmation height to its own database");
 
 	assert (account_counters.are_equal ());
 	// No longer need accounts_v1, keep v0 but clear it
@@ -532,7 +577,7 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction const & transa
 		mdb_put (env.tx (transaction_a), accounts, nano::mdb_val (account_account_info_pair.first), nano::mdb_val (account_info), MDB_APPEND);
 	}
 
-	logger.always_log ("Epoch merge upgrade. Finished accounts, now doing state blocks");
+	logger.always_log ("Epoch merge upgrade: Finished accounts, now doing state blocks");
 
 	account_infos.clear ();
 
@@ -567,7 +612,7 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction const & transa
 
 		// Every so often output to the log to indicate progress
 		constexpr auto output_cutoff = 1000000;
-		if (num % output_cutoff == 0)
+		if (num % output_cutoff == 0 && num != 0)
 		{
 			logger.always_log (boost::str (boost::format ("Database epoch merge upgrade %1% million state blocks upgraded") % (num / output_cutoff)));
 		}
@@ -575,7 +620,7 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction const & transa
 	}
 
 	assert (state_counters.are_equal ());
-	logger.always_log ("Epoch merge upgrade. Finished state blocks, now doing pending blocks");
+	logger.always_log ("Epoch merge upgrade: Finished state blocks, now doing pending blocks");
 
 	state_blocks = state_blocks_new;
 
@@ -617,7 +662,7 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction const & transa
 		representation = 0;
 	}
 	version_put (transaction_a, 15);
-	logger.always_log ("Finished epoch merge upgrade");
+	logger.always_log ("Finished epoch merge upgrade. Preparing vacuum...");
 }
 
 /** Takes a filepath, appends '_backup_<timestamp>' to the end (but before any extension) and saves that file in the same directory */
