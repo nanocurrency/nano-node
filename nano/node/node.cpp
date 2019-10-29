@@ -1010,11 +1010,11 @@ boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const &
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
 {
-	std::promise<uint64_t> promise;
-	std::future<uint64_t> future = promise.get_future ();
+	std::promise<boost::optional<uint64_t>> promise;
+	auto future (promise.get_future ());
 	// clang-format off
-	work_generate (root_a, [&promise](boost::optional<uint64_t> work_a) {
-		promise.set_value (work_a.value_or (0));
+	work_generate (root_a, [&promise](boost::optional<uint64_t> opt_work_a) {
+		promise.set_value (opt_work_a);
 	},
 	difficulty_a, account_a);
 	// clang-format on

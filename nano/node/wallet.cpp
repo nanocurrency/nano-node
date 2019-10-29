@@ -1376,7 +1376,7 @@ void nano::wallet::work_cache_blocking (nano::account const & account_a, nano::r
 				work_update (transaction_l, account_a, root_a, *opt_work_l);
 			}
 		}
-		else
+		else if (!wallets.node.stopped)
 		{
 			wallets.node.logger.try_log (boost::str (boost::format ("Could not precache work for root %1 due to work generation failure") % root_a.to_string ()));
 		}
