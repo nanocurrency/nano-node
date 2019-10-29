@@ -457,7 +457,7 @@ void nano::distributed_work_factory::stop ()
 	std::unordered_set<nano::root> roots_l;
 	{
 		nano::lock_guard<std::mutex> guard_l (mutex);
-		for (auto & item_l : items)
+		for (auto const & item_l : items)
 		{
 			roots_l.insert (item_l.first);
 		}
