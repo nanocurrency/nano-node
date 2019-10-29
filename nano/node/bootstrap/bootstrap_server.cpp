@@ -546,14 +546,7 @@ public:
 	void bulk_pull (nano::bulk_pull const &) override
 	{
 		auto response (std::make_shared<nano::bulk_pull_server> (connection, std::unique_ptr<nano::bulk_pull> (static_cast<nano::bulk_pull *> (connection->requests.front ().release ()))));
-		if (!connection->node->flags.enable_bootstrap_bulk_pull_server_failure)
-		{
-			response->send_next ();
-		}
-		else
-		{
-			connection->stop ();
-		}
+		response->send_next ();
 	}
 	void bulk_pull_account (nano::bulk_pull_account const &) override
 	{

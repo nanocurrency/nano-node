@@ -123,6 +123,7 @@ public:
 	std::atomic<unsigned> runs_count{ 0 };
 	std::atomic<unsigned> requeued_pulls{ 0 };
 	std::vector<std::pair<nano::block_hash, nano::block_hash>> bulk_push_targets;
+	std::atomic<bool> frontiers_received{ false };
 	std::atomic<bool> frontiers_confirmed{ false };
 	std::atomic<bool> stopped{ false };
 	std::chrono::steady_clock::time_point attempt_start{ std::chrono::steady_clock::now () };

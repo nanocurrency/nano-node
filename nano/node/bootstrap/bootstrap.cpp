@@ -207,6 +207,7 @@ bool nano::bootstrap_attempt::still_pulling ()
 
 void nano::bootstrap_attempt::run_start (nano::unique_lock<std::mutex> & lock_a)
 {
+	frontiers_received = false;
 	frontiers_confirmed = false;
 	total_blocks = 0;
 	requeued_pulls = 0;
@@ -216,6 +217,7 @@ void nano::bootstrap_attempt::run_start (nano::unique_lock<std::mutex> & lock_a)
 	{
 		frontier_failure = request_frontier (lock_a);
 	}
+	frontiers_received = true;
 	// Shuffle pulls.
 	release_assert (std::numeric_limits<CryptoPP::word32>::max () > pulls.size ());
 	if (!pulls.empty ())

@@ -305,19 +305,31 @@ TEST (bootstrap_processor, pull_diamond)
 
 TEST (bootstrap_processor, pull_requeue_network_error)
 {
-	nano::system system;
-	nano::node_flags node_flags;
-	node_flags.enable_bootstrap_bulk_pull_server_failure = true;
-	auto node1 = system.add_node (nano::node_config (24000, system.logging), node_flags);
-	auto node2 = system.add_node (nano::node_config (24001, system.logging), node_flags);
+	nano::system system (24000, 2);
+	auto node1 = system.nodes[0];
+	auto node2 = system.nodes[1];
 	nano::genesis genesis;
 	nano::keypair key1;
 	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
-	ASSERT_EQ (nano::process_result::progress, node2->process (*send1).code);
 
 	node1->bootstrap_initiator.bootstrap (node2->network.endpoint ());
+	auto attempt (node1->bootstrap_initiator.current_attempt ());
+	ASSERT_NE (nullptr, attempt);
+	system.deadline_set (2s);
+	while (!attempt->frontiers_received)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	// Add non-existing pull & stop remote peer
+	{
+		nano::unique_lock<std::mutex> lock (attempt->mutex);
+		ASSERT_FALSE (attempt->stopped);
+		attempt->pulls.push_back (nano::pull_info (nano::test_genesis_key.pub, send1->hash (), genesis.hash ()));
+		attempt->request_pull (lock);
+		node2->stop ();
+	}
 	system.deadline_set (5s);
-	while (node1->bootstrap_initiator.current_attempt () != nullptr && node1->bootstrap_initiator.current_attempt ()->requeued_pulls < 2)
+	while (attempt != nullptr && attempt->requeued_pulls < 1)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
