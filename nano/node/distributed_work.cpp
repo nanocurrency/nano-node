@@ -30,7 +30,7 @@ elapsed (nano::timer_state::started, "distributed work generation timer")
 
 nano::distributed_work::~distributed_work ()
 {
-	if (node.websocket_server && node.websocket_server->any_subscriber (nano::websocket::topic::work))
+	if (!node.stopped && node.websocket_server && node.websocket_server->any_subscriber (nano::websocket::topic::work))
 	{
 		nano::websocket::message_builder builder;
 		if (completed)
@@ -384,6 +384,11 @@ node (node_a)
 {
 }
 
+nano::distributed_work_factory::~distributed_work_factory ()
+{
+	stop ();
+}
+
 void nano::distributed_work_factory::make (nano::root const & root_a, std::vector<std::pair<std::string, uint16_t>> const & peers_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
 {
 	make (1, root_a, peers_a, callback_a, difficulty_a, account_a);
@@ -409,21 +414,19 @@ void nano::distributed_work_factory::make (unsigned int backoff_a, nano::root co
 
 void nano::distributed_work_factory::cancel (nano::root const & root_a, bool const local_stop)
 {
+	nano::lock_guard<std::mutex> guard_l (mutex);
+	auto existing_l (items.find (root_a));
+	if (existing_l != items.end ())
 	{
-		nano::lock_guard<std::mutex> guard (mutex);
-		auto existing_l (items.find (root_a));
-		if (existing_l != items.end ())
+		for (auto & distributed_w : existing_l->second)
 		{
-			for (auto & distributed_w : existing_l->second)
+			if (auto distributed_l = distributed_w.lock ())
 			{
-				if (auto distributed_l = distributed_w.lock ())
-				{
-					// Send work_cancel to work peers and stop local work generation
-					distributed_l->cancel_once ();
-				}
+				// Send work_cancel to work peers and stop local work generation
+				distributed_l->cancel_once ();
 			}
-			items.erase (existing_l);
 		}
+		items.erase (existing_l);
 	}
 }
 
@@ -445,6 +448,23 @@ void nano::distributed_work_factory::cleanup_finished ()
 		{
 			++it;
 		}
+	}
+}
+
+void nano::distributed_work_factory::stop ()
+{
+	// Cancel any ongoing work
+	std::unordered_set<nano::root> roots_l;
+	{
+		nano::lock_guard<std::mutex> guard_l (mutex);
+		for (auto & item_l : items)
+		{
+			roots_l.insert (item_l.first);
+		}
+	}
+	for (auto const & root_l : roots_l)
+	{
+		cancel (root_l, true);
 	}
 }
 

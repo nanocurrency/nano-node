@@ -692,6 +692,7 @@ void nano::node::stop ()
 	{
 		logger.always_log ("Node stopping");
 		write_database_queue.stop ();
+		distributed_work.stop ();
 		block_processor.stop ();
 		if (block_processor_thread.joinable ())
 		{
