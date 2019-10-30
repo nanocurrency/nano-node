@@ -15,14 +15,22 @@ RUN mkdir /tmp/build && \
     echo ${NETWORK} > /etc/nano-network
 
 FROM ubuntu:16.04
+
+RUN groupadd --gid 1000 nanocurrency && \
+    useradd --uid 1000 --gid nanocurrency --shell /bin/bash --create-home nanocurrency
+
 COPY --from=0 /tmp/build/nano_node /usr/bin
 COPY --from=0 /tmp/build/nano_rpc /usr/bin
 COPY --from=0 /tmp/build/nano_pow_server /usr/bin
 COPY --from=0 /etc/nano-network /etc
-COPY docker/node/entry.sh /entry.sh
+COPY docker/node/entry.sh /usr/bin/entry.sh
 COPY docker/node/config /usr/share/nano/config
-RUN chmod +x /entry.sh
+RUN chmod +x /usr/bin/entry.sh
 RUN ln -s /usr/bin/nano_node /usr/bin/rai_node
+
+WORKDIR /root
+USER root
+
 ENV PATH="${PATH}:/usr/bin"
-ENTRYPOINT ["/bin/bash",  "/entry.sh"]
+ENTRYPOINT ["/bin/bash",  "/usr/bin/entry.sh"]
 CMD ["nano_node daemon -l"]

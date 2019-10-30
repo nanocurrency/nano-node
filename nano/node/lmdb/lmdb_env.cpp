@@ -2,6 +2,11 @@
 
 nano::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, int max_dbs_a, bool use_no_mem_init_a, size_t map_size_a)
 {
+	init (error_a, path_a, max_dbs_a, use_no_mem_init_a, map_size_a);
+}
+
+void nano::mdb_env::init (bool & error_a, boost::filesystem::path const & path_a, int max_dbs_a, bool use_no_mem_init_a, size_t map_size_a)
+{
 	boost::system::error_code error_mkdir, error_chmod;
 	if (path_a.has_parent_path ())
 	{

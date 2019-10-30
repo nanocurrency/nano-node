@@ -5,6 +5,7 @@
 #include <nano/node/gap_cache.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/transport/transport.hpp>
+#include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/circular_buffer.hpp>
@@ -71,7 +72,7 @@ public:
 	uint64_t blocks_uncemented{ 0 };
 };
 
-class confirmed_set_info final
+class election_timepoint final
 {
 public:
 	std::chrono::steady_clock::time_point time;
@@ -96,7 +97,7 @@ public:
 	// Is the root of this block in the roots container
 	bool active (nano::block const &);
 	bool active (nano::qualified_root const &);
-	void update_difficulty (nano::block const &);
+	void update_difficulty (std::shared_ptr<nano::block>, boost::optional<nano::write_transaction const &> = boost::none);
 	void adjust_difficulty (nano::block_hash const &);
 	void update_active_difficulty (nano::unique_lock<std::mutex> &);
 	uint64_t active_difficulty ();
@@ -143,6 +144,9 @@ public:
 	size_t inactive_votes_cache_size ();
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> pending_conf_height;
 	void clear_block (nano::block_hash const & hash_a);
+	void add_dropped_elections_cache (nano::qualified_root const &);
+	std::chrono::steady_clock::time_point find_dropped_elections_cache (nano::qualified_root const &);
+	size_t dropped_elections_cache_size ();
 
 private:
 	// Call action with confirmed block, may be different than what we started with
@@ -163,12 +167,12 @@ private:
 	bool started{ false };
 	std::atomic<bool> stopped{ false };
 	unsigned ongoing_broadcasts{ 0 };
-	boost::multi_index_container<
-	nano::confirmed_set_info,
+	using ordered_elections_timepoint = boost::multi_index_container<
+	nano::election_timepoint,
 	boost::multi_index::indexed_by<
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::confirmed_set_info, std::chrono::steady_clock::time_point, &nano::confirmed_set_info::time>>,
-	boost::multi_index::hashed_unique<boost::multi_index::member<nano::confirmed_set_info, nano::qualified_root, &nano::confirmed_set_info::root>>>>
-	confirmed_set;
+	boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::election_timepoint, std::chrono::steady_clock::time_point, &nano::election_timepoint::time>>,
+	boost::multi_index::hashed_unique<boost::multi_index::member<nano::election_timepoint, nano::qualified_root, &nano::election_timepoint::root>>>>;
+	ordered_elections_timepoint confirmed_set;
 	void prioritize_frontiers_for_confirmation (nano::transaction const &, std::chrono::milliseconds, std::chrono::milliseconds);
 	using prioritize_num_uncemented = boost::multi_index_container<
 	nano::cementable_account,
@@ -193,6 +197,8 @@ private:
 	boost::multi_index::hashed_unique<boost::multi_index::member<nano::gap_information, nano::block_hash, &nano::gap_information::hash>>>>
 	inactive_votes_cache;
 	static size_t constexpr inactive_votes_cache_max{ 16 * 1024 };
+	ordered_elections_timepoint dropped_elections_cache;
+	static size_t constexpr dropped_elections_cache_max{ 32 * 1024 };
 	boost::thread thread;
 
 	friend class confirmation_height_prioritize_frontiers_Test;
