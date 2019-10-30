@@ -40,6 +40,7 @@ public:
 	nano::pull_info pull;
 	uint64_t pull_blocks;
 	uint64_t unexpected_count;
+	bool network_error{ false };
 };
 class bulk_pull_account_client final : public std::enable_shared_from_this<nano::bulk_pull_account_client>
 {
