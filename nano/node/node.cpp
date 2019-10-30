@@ -692,7 +692,6 @@ void nano::node::stop ()
 	{
 		logger.always_log ("Node stopping");
 		write_database_queue.stop ();
-		distributed_work.stop ();
 		block_processor.stop ();
 		if (block_processor_thread.joinable ())
 		{
@@ -713,6 +712,7 @@ void nano::node::stop ()
 		wallets.stop ();
 		stats.stop ();
 		worker.stop ();
+		distributed_work.stop ();
 		// work pool is not stopped on purpose due to testing setup
 	}
 }
