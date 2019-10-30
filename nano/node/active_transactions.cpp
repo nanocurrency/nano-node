@@ -399,7 +399,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 			}
 			this->condition.notify_all ();
 		},
-		10); // 500ms / (10ms / 1 block) > 30 blocks
+		10); // 10ms/block * 30blocks = 300ms < 500ms
 	}
 	// Batch confirmation request
 	if (!batched_confirm_req_bundle_l.empty ())
@@ -412,7 +412,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 			}
 			this->condition.notify_all ();
 		},
-		20); // 500ms / (20ms / 5 batch size) > (20*7 = 140) batches
+		15); // 15ms/batch * 20batches = 300ms < 500ms
 	}
 	// Single confirmation requests
 	if (!single_confirm_req_bundle_l.empty ())
@@ -425,7 +425,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 			}
 			this->condition.notify_all ();
 		},
-		10); // 500ms / (10-20ms / 1 req) > 15 reqs
+		30); // 30~60ms/req * 5 reqs = 150~300ms < 500ms
 	}
 	lock_a.lock ();
 	// Erase inactive elections
