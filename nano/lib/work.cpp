@@ -167,7 +167,7 @@ void nano::work_pool::cancel (nano::root const & root_a)
 			}
 		}
 		pending.remove_if ([&root_a](decltype (pending)::value_type const & item_a) {
-			bool result;
+			bool result{ false };
 			if (item_a.item == root_a)
 			{
 				if (item_a.callback)
@@ -175,10 +175,6 @@ void nano::work_pool::cancel (nano::root const & root_a)
 					item_a.callback (boost::none);
 				}
 				result = true;
-			}
-			else
-			{
-				result = false;
 			}
 			return result;
 		});
