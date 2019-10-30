@@ -456,9 +456,8 @@ void nano::distributed_work_factory::cleanup_finished ()
 
 void nano::distributed_work_factory::stop ()
 {
-	if (!stopped)
+	if (!stopped.exchange (true))
 	{
-		stopped = true;
 		// Cancel any ongoing work
 		std::unordered_set<nano::root> roots_l;
 		nano::unique_lock<std::mutex> lock_l (mutex);
