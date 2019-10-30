@@ -1002,6 +1002,7 @@ void nano::node::work_generate (nano::root const & root_a, std::function<void(bo
 	auto const & peers_l (secondary_work_peers_a ? config.secondary_work_peers : config.work_peers);
 	if (distributed_work.make (root_a, peers_l, callback_a, difficulty_a, account_a))
 	{
+		// Error in creating the job (either stopped or work generation is not possible)
 		callback_a (boost::none);
 	}
 }
