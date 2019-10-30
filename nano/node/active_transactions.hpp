@@ -135,7 +135,7 @@ public:
 	static size_t constexpr max_block_broadcasts = 30;
 	static size_t constexpr max_confirm_representatives = 30;
 	static size_t constexpr max_confirm_req_batches = 20;
-	static size_t constexpr max_confirm_req = 15;
+	static size_t constexpr max_confirm_req = 5;
 	boost::circular_buffer<double> multipliers_cb;
 	uint64_t trended_active_difficulty;
 	size_t priority_cementable_frontiers_size ();

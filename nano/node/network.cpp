@@ -331,35 +331,30 @@ void nano::network::broadcast_confirm_req_base (std::shared_ptr<nano::block> blo
 
 void nano::network::broadcast_confirm_req_batched_many (std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::root>>> request_bundle_a, std::function<void()> callback_a, unsigned delay_a, bool resumption_a)
 {
-	const size_t burst_size_l{ 5 };
 	if (!resumption_a && node.config.logging.network_logging ())
 	{
 		node.logger.try_log (boost::str (boost::format ("Broadcasting batch confirm req to %1% representatives") % request_bundle_a.size ()));
 	}
 
-	for (size_t count_l (0); !request_bundle_a.empty () && count_l < burst_size_l; ++count_l)
+	for (auto i (request_bundle_a.begin ()), n (request_bundle_a.end ()); i != n;)
 	{
-		auto j (request_bundle_a.begin ());
-		while (j != request_bundle_a.end ())
+		std::vector<std::pair<nano::block_hash, nano::root>> roots_hashes_l;
+		// Limit max request size hash + root to 7 pairs
+		while (roots_hashes_l.size () < confirm_req_hashes_max && !i->second.empty ())
 		{
-			std::vector<std::pair<nano::block_hash, nano::root>> roots_hashes_l;
-			// Limit max request size hash + root to 7 pairs
-			while (roots_hashes_l.size () < confirm_req_hashes_max && !j->second.empty ())
-			{
-				// expects ordering by priority, descending
-				roots_hashes_l.push_back (j->second.front ());
-				j->second.pop_front ();
-			}
-			nano::confirm_req req (roots_hashes_l);
-			j->first->send (req);
-			if (j->second.empty ())
-			{
-				j = request_bundle_a.erase (j);
-			}
-			else
-			{
-				++j;
-			}
+			// expects ordering by priority, descending
+			roots_hashes_l.push_back (i->second.front ());
+			i->second.pop_front ();
+		}
+		nano::confirm_req req (roots_hashes_l);
+		i->first->send (req);
+		if (i->second.empty ())
+		{
+			i = request_bundle_a.erase (i);
+		}
+		else
+		{
+			++i;
 		}
 	}
 	if (!request_bundle_a.empty ())
