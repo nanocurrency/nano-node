@@ -79,7 +79,7 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 			if (needs_vacuuming)
 			{
 				auto vacuum_success = vacuum_after_upgrade (path_a, lmdb_max_dbs);
-				logger.always_log (vacuum_success ? "Vacuum succeeded." : "Failed to vacuum.");
+				logger.always_log (vacuum_success ? "Vacuum succeeded." : "Failed to vacuum. (Optional) Ensure enough disk space is available for a copy of the database and try to vacuum after shutting down the node");
 			}
 		}
 		else
