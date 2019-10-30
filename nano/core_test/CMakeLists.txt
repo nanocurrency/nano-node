@@ -40,4 +40,4 @@ target_compile_definitions(core_test
 			-DTAG_VERSION_STRING=${TAG_VERSION_STRING}
 			-DGIT_COMMIT_HASH=${GIT_COMMIT_HASH}
 			-DBOOST_PROCESS_SUPPORTED=${BOOST_PROCESS_SUPPORTED})
-target_link_libraries (core_test node secure gtest libminiupnpc-static Boost::boost)
+target_link_libraries (core_test node secure gtest libminiupnpc-static Boost::log_setup Boost::log Boost::boost)
