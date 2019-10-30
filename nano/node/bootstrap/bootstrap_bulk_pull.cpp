@@ -34,7 +34,7 @@ nano::bulk_pull_client::~bulk_pull_client ()
 			pull.account_or_head = expected;
 		}
 		pull.processed += pull_blocks - unexpected_count;
-		connection->attempt->requeue_pull (pull);
+		connection->attempt->requeue_pull (pull, network_error);
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
 			connection->node->logger.try_log (boost::str (boost::format ("Bulk pull end block is not expected %1% for account %2%") % pull.end.to_string () % pull.account_or_head.to_account ()));
@@ -101,6 +101,7 @@ void nano::bulk_pull_client::request ()
 
 void nano::bulk_pull_client::throttled_receive_block ()
 {
+	assert (!network_error);
 	if (!connection->node->block_processor.half_full ())
 	{
 		receive_block ();
@@ -132,6 +133,7 @@ void nano::bulk_pull_client::receive_block ()
 				this_l->connection->node->logger.try_log (boost::str (boost::format ("Error receiving block type: %1%") % ec.message ()));
 			}
 			this_l->connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_receive_block_failure, nano::stat::dir::in);
+			this_l->network_error = true;
 		}
 	});
 }
@@ -266,6 +268,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 			connection->node->logger.try_log (boost::str (boost::format ("Error bulk receiving block: %1%") % ec.message ()));
 		}
 		connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_receive_block_failure, nano::stat::dir::in);
+		network_error = true;
 	}
 }
 

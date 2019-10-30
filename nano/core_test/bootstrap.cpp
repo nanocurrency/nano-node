@@ -303,6 +303,39 @@ TEST (bootstrap_processor, pull_diamond)
 	node1->stop ();
 }
 
+TEST (bootstrap_processor, pull_requeue_network_error)
+{
+	nano::system system (24000, 2);
+	auto node1 = system.nodes[0];
+	auto node2 = system.nodes[1];
+	nano::genesis genesis;
+	nano::keypair key1;
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+
+	node1->bootstrap_initiator.bootstrap (node2->network.endpoint ());
+	auto attempt (node1->bootstrap_initiator.current_attempt ());
+	ASSERT_NE (nullptr, attempt);
+	system.deadline_set (2s);
+	while (!attempt->frontiers_received)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	// Add non-existing pull & stop remote peer
+	{
+		nano::unique_lock<std::mutex> lock (attempt->mutex);
+		ASSERT_FALSE (attempt->stopped);
+		attempt->pulls.push_back (nano::pull_info (nano::test_genesis_key.pub, send1->hash (), genesis.hash ()));
+		attempt->request_pull (lock);
+		node2->stop ();
+	}
+	system.deadline_set (5s);
+	while (attempt != nullptr && attempt->requeued_pulls < 1)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (0, node1->stats.count (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_failed_account, nano::stat::dir::in)); // Requeue is not increasing failed attempts
+}
+
 TEST (bootstrap_processor, frontiers_unconfirmed)
 {
 	nano::system system;
@@ -337,40 +370,29 @@ TEST (bootstrap_processor, frontiers_unconfirmed)
 	auto open3 (std::make_shared<nano::state_block> (key1.pub, 0, key1.pub, nano::xrb_ratio, send3->hash (), key1.prv, key1.pub, *system.work.generate (key1.pub)));
 	ASSERT_EQ (nano::process_result::progress, node2->process (*open3).code);
 	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
-	node_config.peering_port = 24002;
-	auto node3 = system.add_node (node_config, node_flags);
-	ASSERT_EQ (nano::process_result::progress, node3->process (*send3).code);
-	ASSERT_EQ (nano::process_result::progress, node3->process (*open3).code);
-	node_config.peering_port = 24003;
-	auto node4 = system.add_node (node_config, node_flags);
-	ASSERT_EQ (nano::process_result::progress, node4->process (*send3).code);
-	ASSERT_EQ (nano::process_result::progress, node4->process (*open3).code);
 
 	// Test node to restart bootstrap
-	node_config.peering_port = 24004;
+	node_config.peering_port = 24002;
 	node_flags.disable_legacy_bootstrap = false;
-	auto node5 = system.add_node (node_config, node_flags);
+	auto node3 = system.add_node (node_config, node_flags);
 	system.deadline_set (5s);
-	while (node5->rep_crawler.representative_count () == 0)
+	while (node3->rep_crawler.representative_count () == 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	//Add single excluded peers record (2 records are required to drop peer)
-	node5->bootstrap_initiator.excluded_peers.add (nano::transport::map_endpoint_to_tcp (node1->network.endpoint ()), 0);
-	ASSERT_FALSE (node5->bootstrap_initiator.excluded_peers.check (nano::transport::map_endpoint_to_tcp (node1->network.endpoint ())));
-	node5->bootstrap_initiator.bootstrap (node1->network.endpoint ());
+	node3->bootstrap_initiator.excluded_peers.add (nano::transport::map_endpoint_to_tcp (node1->network.endpoint ()), 0);
+	ASSERT_FALSE (node3->bootstrap_initiator.excluded_peers.check (nano::transport::map_endpoint_to_tcp (node1->network.endpoint ())));
+	node3->bootstrap_initiator.bootstrap (node1->network.endpoint ());
 	system.deadline_set (15s);
-	while (node5->bootstrap_initiator.in_progress ())
+	while (node3->bootstrap_initiator.in_progress ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	system.deadline_set (5s);
-	while (node5->balance (key1.pub) != nano::xrb_ratio)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	ASSERT_EQ (1, node5->stats.count (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_failed, nano::stat::dir::in)); // failed request from node1
-	ASSERT_TRUE (node5->bootstrap_initiator.excluded_peers.check (nano::transport::map_endpoint_to_tcp (node1->network.endpoint ())));
+	ASSERT_FALSE (node3->ledger.block_exists (send1->hash ()));
+	ASSERT_FALSE (node3->ledger.block_exists (open1->hash ()));
+	ASSERT_EQ (1, node3->stats.count (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_failed, nano::stat::dir::in)); // failed request from node1
+	ASSERT_TRUE (node3->bootstrap_initiator.excluded_peers.check (nano::transport::map_endpoint_to_tcp (node1->network.endpoint ())));
 }
 
 TEST (bootstrap_processor, frontiers_confirmed)
