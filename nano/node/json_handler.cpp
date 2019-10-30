@@ -1681,6 +1681,7 @@ void nano::json_handler::bootstrap_status ()
 		response_l.put ("total_blocks", std::to_string (attempt->total_blocks));
 		response_l.put ("runs_count", std::to_string (attempt->runs_count));
 		response_l.put ("requeued_pulls", std::to_string (attempt->requeued_pulls));
+		response_l.put ("frontiers_received", static_cast<bool> (attempt->frontiers_received));
 		response_l.put ("frontiers_confirmed", static_cast<bool> (attempt->frontiers_confirmed));
 		std::string mode_text;
 		if (attempt->mode == nano::bootstrap_mode::legacy)

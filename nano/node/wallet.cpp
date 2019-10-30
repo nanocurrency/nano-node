@@ -1376,7 +1376,7 @@ void nano::wallet::work_cache_blocking (nano::account const & account_a, nano::r
 				work_update (transaction_l, account_a, root_a, *opt_work_l);
 			}
 		}
-		else
+		else if (!wallets.node.stopped)
 		{
 			wallets.node.logger.try_log (boost::str (boost::format ("Could not precache work for root %1 due to work generation failure") % root_a.to_string ()));
 		}
@@ -1474,7 +1474,7 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 										}
 									}
 									watcher_l->node.network.flood_block (block, false);
-									watcher_l->node.active.update_difficulty (*block.get ());
+									watcher_l->node.active.update_difficulty (block);
 									watcher_l->update (root_a, block);
 									updated_l = true;
 									watcher_l->watching (root_a, block);

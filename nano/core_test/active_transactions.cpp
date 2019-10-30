@@ -6,34 +6,6 @@
 
 using namespace std::chrono_literals;
 
-TEST (active_transactions, bounded_active_elections)
-{
-	nano::system system;
-	nano::node_config node_config (24000, system.logging);
-	node_config.enable_voting = false;
-	node_config.active_elections_size = 5;
-	auto & node = *system.add_node (node_config);
-	nano::genesis genesis;
-	size_t count (0);
-	auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - count * nano::xrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
-	bool done (false);
-	system.deadline_set (5s);
-	while (!done)
-	{
-		node.process_active (send);
-		node.active.start (send);
-		ASSERT_NO_ERROR (system.poll ());
-		ASSERT_FALSE (node.active.empty ());
-		ASSERT_LE (node.active.size (), node.config.active_elections_size);
-		++count;
-		done = count > node.active.size ();
-		auto previous_hash = send->hash ();
-		send = std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous_hash, nano::test_genesis_key.pub, nano::genesis_amount - count * nano::xrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (previous_hash));
-		//sleep this thread between request loop rounds
-		std::this_thread::sleep_for (std::chrono::milliseconds (2 * node.network_params.network.request_interval_ms));
-	}
-}
-
 TEST (active_transactions, adjusted_difficulty_priority)
 {
 	nano::system system;
@@ -267,6 +239,7 @@ TEST (active_transactions, keep_local)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	ASSERT_EQ (0, node.active.dropped_elections_cache_size ());
 	while (!node.active.empty ())
 	{
 		nano::lock_guard<std::mutex> active_guard (node.active.mutex);
@@ -293,6 +266,7 @@ TEST (active_transactions, keep_local)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	ASSERT_EQ (1, node.active.dropped_elections_cache_size ());
 }
 
 TEST (active_transactions, prioritize_chains)
@@ -572,5 +546,69 @@ TEST (active_transactions, update_difficulty)
 			done = (existing1->difficulty > difficulty1) && (existing2->difficulty > difficulty2) && (existing3->difficulty > difficulty1) && (existing4->difficulty > difficulty2);
 		}
 		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
+TEST (active_transactions, restart_dropped)
+{
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.enable_voting = false;
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto & node = *system.add_node (node_config);
+	nano::genesis genesis;
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::xrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	// Process only in ledger and emulate dropping the election
+	ASSERT_EQ (nano::process_result::progress, node.process (*send1).code);
+	{
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		node.active.add_dropped_elections_cache (send1->qualified_root ());
+	}
+	uint64_t difficulty1 (0);
+	nano::work_validate (*send1, &difficulty1);
+	// Generate higher difficulty work
+	auto work2 (*system.work.generate (send1->root (), difficulty1));
+	uint64_t difficulty2 (0);
+	nano::work_validate (send1->root (), work2, &difficulty2);
+	ASSERT_GT (difficulty2, difficulty1);
+	// Process the same block with updated work
+	auto send2 (std::make_shared<nano::state_block> (*send1));
+	send2->block_work_set (work2);
+	node.process_active (send2);
+	// Wait until the block is in elections
+	system.deadline_set (5s);
+	bool done{ false };
+	while (!done)
+	{
+		{
+			nano::lock_guard<std::mutex> guard (node.active.mutex);
+			auto existing (node.active.roots.find (send2->qualified_root ()));
+			done = existing != node.active.roots.end ();
+			if (done)
+			{
+				ASSERT_EQ (difficulty2, existing->difficulty);
+			}
+		}
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	// Verify the block was updated in the ledger
+	{
+		auto block (node.store.block_get (node.store.tx_begin_read (), send1->hash ()));
+		ASSERT_EQ (work2, block->block_work ());
+	}
+	// Drop election
+	node.active.erase (*send2);
+	// Try to restart election with the lower difficulty block, should not work since the block as lower work
+	node.process_active (send1);
+	system.deadline_set (5s);
+	while (node.block_processor.size () > 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_TRUE (node.active.empty ());
+	// Verify the block was not updated in the ledger
+	{
+		auto block (node.store.block_get (node.store.tx_begin_read (), send1->hash ()));
+		ASSERT_EQ (work2, block->block_work ());
 	}
 }

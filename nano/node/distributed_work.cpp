@@ -30,7 +30,7 @@ elapsed (nano::timer_state::started, "distributed work generation timer")
 
 nano::distributed_work::~distributed_work ()
 {
-	if (node.websocket_server && node.websocket_server->any_subscriber (nano::websocket::topic::work))
+	if (!node.stopped && node.websocket_server && node.websocket_server->any_subscriber (nano::websocket::topic::work))
 	{
 		nano::websocket::message_builder builder;
 		if (completed)
@@ -348,11 +348,12 @@ void nano::distributed_work::handle_failure (bool const last_a)
 			auto next_backoff (std::min (backoff * 2, (unsigned int)60 * 5));
 			// clang-format off
 			node.alarm.add (now + std::chrono::seconds (backoff), [ node_w, root_l = root, peers_l = peers, callback_l = callback, next_backoff, difficulty = difficulty, account_l = account ] {
+				bool error_l {true};
 				if (auto node_l = node_w.lock ())
 				{
-					node_l->distributed_work.make (next_backoff, root_l, peers_l, callback_l, difficulty, account_l);
+					error_l = node_l->distributed_work.make (next_backoff, root_l, peers_l, callback_l, difficulty, account_l);
 				}
-				else if (callback_l)
+				if (error_l && callback_l)
 				{
 					callback_l (boost::none);
 				}
@@ -384,46 +385,51 @@ node (node_a)
 {
 }
 
-void nano::distributed_work_factory::make (nano::root const & root_a, std::vector<std::pair<std::string, uint16_t>> const & peers_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
+nano::distributed_work_factory::~distributed_work_factory ()
 {
-	make (1, root_a, peers_a, callback_a, difficulty_a, account_a);
+	stop ();
 }
 
-void nano::distributed_work_factory::make (unsigned int backoff_a, nano::root const & root_a, std::vector<std::pair<std::string, uint16_t>> const & peers_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
+bool nano::distributed_work_factory::make (nano::root const & root_a, std::vector<std::pair<std::string, uint16_t>> const & peers_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
 {
-	cleanup_finished ();
-	if (node.work_generation_enabled ())
+	return make (1, root_a, peers_a, callback_a, difficulty_a, account_a);
+}
+
+bool nano::distributed_work_factory::make (unsigned int backoff_a, nano::root const & root_a, std::vector<std::pair<std::string, uint16_t>> const & peers_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
+{
+	bool error_l{ true };
+	if (!stopped)
 	{
-		auto distributed (std::make_shared<nano::distributed_work> (node, root_a, peers_a, backoff_a, callback_a, difficulty_a, account_a));
+		cleanup_finished ();
+		if (node.work_generation_enabled ())
 		{
-			nano::lock_guard<std::mutex> guard (mutex);
-			items[root_a].emplace_back (distributed);
+			auto distributed (std::make_shared<nano::distributed_work> (node, root_a, peers_a, backoff_a, callback_a, difficulty_a, account_a));
+			{
+				nano::lock_guard<std::mutex> guard (mutex);
+				items[root_a].emplace_back (distributed);
+			}
+			distributed->start ();
+			error_l = false;
 		}
-		distributed->start ();
 	}
-	else if (callback_a)
-	{
-		callback_a (boost::none);
-	}
+	return error_l;
 }
 
 void nano::distributed_work_factory::cancel (nano::root const & root_a, bool const local_stop)
 {
+	nano::lock_guard<std::mutex> guard_l (mutex);
+	auto existing_l (items.find (root_a));
+	if (existing_l != items.end ())
 	{
-		nano::lock_guard<std::mutex> guard (mutex);
-		auto existing_l (items.find (root_a));
-		if (existing_l != items.end ())
+		for (auto & distributed_w : existing_l->second)
 		{
-			for (auto & distributed_w : existing_l->second)
+			if (auto distributed_l = distributed_w.lock ())
 			{
-				if (auto distributed_l = distributed_w.lock ())
-				{
-					// Send work_cancel to work peers and stop local work generation
-					distributed_l->cancel_once ();
-				}
+				// Send work_cancel to work peers and stop local work generation
+				distributed_l->cancel_once ();
 			}
-			items.erase (existing_l);
 		}
+		items.erase (existing_l);
 	}
 }
 
@@ -445,6 +451,27 @@ void nano::distributed_work_factory::cleanup_finished ()
 		{
 			++it;
 		}
+	}
+}
+
+void nano::distributed_work_factory::stop ()
+{
+	if (!stopped.exchange (true))
+	{
+		// Cancel any ongoing work
+		std::unordered_set<nano::root> roots_l;
+		nano::unique_lock<std::mutex> lock_l (mutex);
+		for (auto const & item_l : items)
+		{
+			roots_l.insert (item_l.first);
+		}
+		lock_l.unlock ();
+		for (auto const & root_l : roots_l)
+		{
+			cancel (root_l, true);
+		}
+		lock_l.lock ();
+		items.clear ();
 	}
 }
 

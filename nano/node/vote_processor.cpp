@@ -43,7 +43,7 @@ void nano::vote_processor::process_loop ()
 				 * there are a sufficient number of items for it to be relevant
 				 */
 				log_this_iteration = true;
-				elapsed.start ();
+				elapsed.restart ();
 			}
 			active = true;
 			lock.unlock ();

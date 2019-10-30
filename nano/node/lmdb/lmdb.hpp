@@ -219,7 +219,7 @@ public:
 	nano::uint128_t block_balance_computed_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
 
 private:
-	bool do_upgrades (nano::write_transaction &, size_t);
+	bool do_upgrades (nano::write_transaction &, bool &, size_t);
 	void upgrade_v1_to_v2 (nano::write_transaction const &);
 	void upgrade_v2_to_v3 (nano::write_transaction const &);
 	void upgrade_v3_to_v4 (nano::write_transaction const &);
@@ -232,7 +232,7 @@ private:
 	void upgrade_v11_to_v12 (nano::write_transaction const &);
 	void upgrade_v12_to_v13 (nano::write_transaction &, size_t);
 	void upgrade_v13_to_v14 (nano::write_transaction const &);
-	void upgrade_v14_to_v15 (nano::write_transaction const &);
+	void upgrade_v14_to_v15 (nano::write_transaction &);
 	void open_databases (bool &, nano::transaction const &, unsigned);
 
 	int drop (nano::write_transaction const & transaction_a, tables table_a) override;
@@ -249,6 +249,8 @@ private:
 	bool txn_tracking_enabled;
 
 	size_t count (nano::transaction const & transaction_a, tables table_a) const override;
+
+	bool vacuum_after_upgrade (boost::filesystem::path const & path_a, int lmdb_max_dbs);
 
 	class upgrade_counters
 	{
