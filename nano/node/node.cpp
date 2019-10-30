@@ -712,6 +712,7 @@ void nano::node::stop ()
 		wallets.stop ();
 		stats.stop ();
 		worker.stop ();
+		distributed_work.stop ();
 		// work pool is not stopped on purpose due to testing setup
 	}
 }
@@ -999,7 +1000,11 @@ void nano::node::work_generate (nano::root const & root_a, std::function<void(bo
 void nano::node::work_generate (nano::root const & root_a, std::function<void(boost::optional<uint64_t>)> callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a, bool secondary_work_peers_a)
 {
 	auto const & peers_l (secondary_work_peers_a ? config.secondary_work_peers : config.work_peers);
-	distributed_work.make (root_a, peers_l, callback_a, difficulty_a, account_a);
+	if (distributed_work.make (root_a, peers_l, callback_a, difficulty_a, account_a))
+	{
+		// Error in creating the job (either stopped or work generation is not possible)
+		callback_a (boost::none);
+	}
 }
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a, boost::optional<nano::account> const & account_a)
@@ -1009,15 +1014,14 @@ boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const &
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
 {
-	std::promise<uint64_t> promise;
-	std::future<uint64_t> future = promise.get_future ();
+	std::promise<boost::optional<uint64_t>> promise;
 	// clang-format off
-	work_generate (root_a, [&promise](boost::optional<uint64_t> work_a) {
-		promise.set_value (work_a.value_or (0));
+	work_generate (root_a, [&promise](boost::optional<uint64_t> opt_work_a) {
+		promise.set_value (opt_work_a);
 	},
 	difficulty_a, account_a);
 	// clang-format on
-	return future.get ();
+	return promise.get_future ().get ();
 }
 
 void nano::node::add_initial_peers ()
