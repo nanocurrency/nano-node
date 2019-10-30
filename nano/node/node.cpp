@@ -1000,7 +1000,10 @@ void nano::node::work_generate (nano::root const & root_a, std::function<void(bo
 void nano::node::work_generate (nano::root const & root_a, std::function<void(boost::optional<uint64_t>)> callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a, bool secondary_work_peers_a)
 {
 	auto const & peers_l (secondary_work_peers_a ? config.secondary_work_peers : config.work_peers);
-	distributed_work.make (root_a, peers_l, callback_a, difficulty_a, account_a);
+	if (distributed_work.make (root_a, peers_l, callback_a, difficulty_a, account_a))
+	{
+		callback_a (boost::none);
+	}
 }
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a, boost::optional<nano::account> const & account_a)

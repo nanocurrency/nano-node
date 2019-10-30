@@ -348,11 +348,12 @@ void nano::distributed_work::handle_failure (bool const last_a)
 			auto next_backoff (std::min (backoff * 2, (unsigned int)60 * 5));
 			// clang-format off
 			node.alarm.add (now + std::chrono::seconds (backoff), [ node_w, root_l = root, peers_l = peers, callback_l = callback, next_backoff, difficulty = difficulty, account_l = account ] {
+				bool error_l {true};
 				if (auto node_l = node_w.lock ())
 				{
-					node_l->distributed_work.make (next_backoff, root_l, peers_l, callback_l, difficulty, account_l);
+					error_l = node_l->distributed_work.make (next_backoff, root_l, peers_l, callback_l, difficulty, account_l);
 				}
-				else if (callback_l)
+				if (error_l && callback_l)
 				{
 					callback_l (boost::none);
 				}
@@ -389,13 +390,14 @@ nano::distributed_work_factory::~distributed_work_factory ()
 	stop ();
 }
 
-void nano::distributed_work_factory::make (nano::root const & root_a, std::vector<std::pair<std::string, uint16_t>> const & peers_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
+bool nano::distributed_work_factory::make (nano::root const & root_a, std::vector<std::pair<std::string, uint16_t>> const & peers_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
 {
-	make (1, root_a, peers_a, callback_a, difficulty_a, account_a);
+	return make (1, root_a, peers_a, callback_a, difficulty_a, account_a);
 }
 
-void nano::distributed_work_factory::make (unsigned int backoff_a, nano::root const & root_a, std::vector<std::pair<std::string, uint16_t>> const & peers_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
+bool nano::distributed_work_factory::make (unsigned int backoff_a, nano::root const & root_a, std::vector<std::pair<std::string, uint16_t>> const & peers_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
 {
+	bool error_l{ true };
 	if (!stopped)
 	{
 		cleanup_finished ();
@@ -407,12 +409,10 @@ void nano::distributed_work_factory::make (unsigned int backoff_a, nano::root co
 				items[root_a].emplace_back (distributed);
 			}
 			distributed->start ();
-		}
-		else if (callback_a)
-		{
-			callback_a (boost::none);
+			error_l = false;
 		}
 	}
+	return error_l;
 }
 
 void nano::distributed_work_factory::cancel (nano::root const & root_a, bool const local_stop)
