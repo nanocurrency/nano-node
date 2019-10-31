@@ -692,6 +692,9 @@ void nano::node::stop ()
 	{
 		logger.always_log ("Node stopping");
 		write_database_queue.stop ();
+		// Cancels ongoing work generation tasks, which may be blocking other threads
+		// No tasks may wait for work generation in I/O threads, or termination signal capturing will be unable to call node::stop()
+		distributed_work.stop ();
 		block_processor.stop ();
 		if (block_processor_thread.joinable ())
 		{
@@ -712,7 +715,6 @@ void nano::node::stop ()
 		wallets.stop ();
 		stats.stop ();
 		worker.stop ();
-		distributed_work.stop ();
 		// work pool is not stopped on purpose due to testing setup
 	}
 }
