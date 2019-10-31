@@ -423,7 +423,11 @@ class bootstrap_constants
 {
 public:
 	bootstrap_constants (nano::network_constants & network_constants);
-	uint64_t lazy_max_pull_blocks;
+	uint32_t lazy_max_pull_blocks;
+	uint32_t lazy_min_pull_blocks;
+	unsigned frontier_retry_limit;
+	unsigned lazy_retry_limit;
+	unsigned lazy_destinations_retry_limit;
 };
 
 /** Constants whose value depends on the active network */

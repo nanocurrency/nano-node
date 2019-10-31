@@ -3,13 +3,13 @@
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
 
-nano::pull_info::pull_info (nano::hash_or_account const & account_or_head_a, nano::block_hash const & head_a, nano::block_hash const & end_a, count_t count_a, bool confirmed_head_a) :
+nano::pull_info::pull_info (nano::hash_or_account const & account_or_head_a, nano::block_hash const & head_a, nano::block_hash const & end_a, count_t count_a, unsigned retry_limit_a) :
 account_or_head (account_or_head_a),
 head (head_a),
 head_original (head_a),
 end (end_a),
 count (count_a),
-confirmed_head (confirmed_head_a)
+retry_limit (retry_limit_a)
 {
 }
 
@@ -53,7 +53,7 @@ nano::bulk_pull_client::~bulk_pull_client ()
 
 void nano::bulk_pull_client::request ()
 {
-	assert (!pull.head.is_zero () || !pull.confirmed_head);
+	assert (!pull.head.is_zero () || pull.retry_limit != std::numeric_limits<unsigned>::max ());
 	expected = pull.head;
 	nano::bulk_pull req;
 	if (pull.head == pull.head_original)
@@ -182,7 +182,7 @@ void nano::bulk_pull_client::received_type ()
 		case nano::block_type::not_a_block:
 		{
 			// Avoid re-using slow peers, or peers that sent the wrong blocks.
-			if (!connection->pending_stop && expected == pull.end)
+			if (!connection->pending_stop && (expected == pull.end || (pull.count != 0 && pull.count == pull_blocks)))
 			{
 				connection->attempt->pool_connection (connection);
 			}
@@ -216,7 +216,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 			}
 			// Is block expected?
 			bool block_expected (false);
-			bool unconfirmed_account_head (pull_blocks == 0 && !pull.confirmed_head && expected == pull.account_or_head && block->account () == pull.account_or_head);
+			bool unconfirmed_account_head (pull_blocks == 0 && pull.retry_limit != std::numeric_limits<unsigned>::max () && expected == pull.account_or_head && block->account () == pull.account_or_head);
 			if (hash == expected || unconfirmed_account_head)
 			{
 				expected = block->previous ();
@@ -235,7 +235,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 				connection->start_time = std::chrono::steady_clock::now ();
 			}
 			connection->attempt->total_blocks++;
-			bool stop_pull (connection->attempt->process_block (block, known_account, pull_blocks, block_expected, pull.confirmed_head));
+			bool stop_pull (connection->attempt->process_block (block, known_account, pull_blocks, pull.count, block_expected, pull.retry_limit));
 			pull_blocks++;
 			if (!stop_pull && !connection->hard_stop.load ())
 			{

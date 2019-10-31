@@ -142,6 +142,10 @@ nano::portmapping_constants::portmapping_constants (nano::network_constants & ne
 nano::bootstrap_constants::bootstrap_constants (nano::network_constants & network_constants)
 {
 	lazy_max_pull_blocks = network_constants.is_test_network () ? 2 : 512;
+	lazy_min_pull_blocks = network_constants.is_test_network () ? 1 : 32;
+	frontier_retry_limit = network_constants.is_test_network () ? 2 : 16;
+	lazy_retry_limit = network_constants.is_test_network () ? 2 : frontier_retry_limit * 10;
+	lazy_destinations_retry_limit = network_constants.is_test_network () ? 1 : frontier_retry_limit / 4;
 }
 
 /* Convenience constants for core_test which is always on the test network */
