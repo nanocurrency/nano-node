@@ -51,7 +51,7 @@ if [[ "${TEMP_OPTS[0]}" = 'nano_node' ]]; then
 		esac
 	done
 	for i in "${passthrough[@]}"; do
-		if [[ "$i" =~ "-v" ]]; then
+		if [[ "$i" =~ ^"-v" ]]; then
 		        db_size=${i//-v/}
 			echo "Vacuum DB if over $db_size GB on startup"
 		elif [[ "$i" = '-l' ]]; then
