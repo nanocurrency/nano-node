@@ -258,22 +258,32 @@ nano::amount nano::json_handler::amount_impl ()
 
 std::shared_ptr<nano::block> nano::json_handler::block_impl (bool signature_work_required)
 {
-	std::shared_ptr<nano::block> result;
+	std::shared_ptr<nano::block> result{ nullptr };
 	if (!ec)
 	{
 		std::string block_text (request.get<std::string> ("block"));
 		boost::property_tree::ptree block_l;
 		std::stringstream block_stream (block_text);
-		boost::property_tree::read_json (block_stream, block_l);
-		if (!signature_work_required)
+		try
 		{
-			block_l.put ("signature", "0");
-			block_l.put ("work", "0");
+			boost::property_tree::read_json (block_stream, block_l);
 		}
-		result = nano::deserialize_block_json (block_l);
-		if (result == nullptr)
+		catch (...)
 		{
 			ec = nano::error_blocks::invalid_block;
+		}
+		if (!ec)
+		{
+			if (!signature_work_required)
+			{
+				block_l.put ("signature", "0");
+				block_l.put ("work", "0");
+			}
+			result = nano::deserialize_block_json (block_l);
+			if (result == nullptr)
+			{
+				ec = nano::error_blocks::invalid_block;
+			}
 		}
 	}
 	return result;
