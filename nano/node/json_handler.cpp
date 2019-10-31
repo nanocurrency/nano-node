@@ -1404,7 +1404,6 @@ void nano::json_handler::block_create ()
 		};
 		if (prv.data != 0)
 		{
-			std::shared_ptr<nano::block> block_l{ nullptr };
 			nano::account pub (nano::pub_key (prv.as_private_key ()));
 			// Fetching account balance & previous for send blocks (if aren't given directly)
 			if (!previous_text.is_initialized () && !balance_text.is_initialized ())
@@ -1431,6 +1430,7 @@ void nano::json_handler::block_create ()
 				}
 			}
 			nano::block_builder builder_l;
+			std::shared_ptr<nano::block> block_l{ nullptr };
 			nano::root root_l;
 			if (type == "state")
 			{
