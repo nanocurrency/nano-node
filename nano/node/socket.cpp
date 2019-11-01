@@ -223,9 +223,8 @@ void nano::socket::close ()
 // This must be called from a strand or the destructor
 void nano::socket::close_internal ()
 {
-	if (!closed)
+	if (!closed.exchange (true))
 	{
-		closed = true;
 		io_timeout = boost::none;
 		boost::system::error_code ec;
 

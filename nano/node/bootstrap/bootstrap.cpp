@@ -28,10 +28,11 @@ constexpr double nano::bootstrap_limits::lazy_batch_pull_count_resize_ratio;
 constexpr std::chrono::hours nano::bootstrap_excluded_peers::exclude_time_hours;
 constexpr std::chrono::hours nano::bootstrap_excluded_peers::exclude_remove_hours;
 
-nano::bootstrap_client::bootstrap_client (std::shared_ptr<nano::node> node_a, std::shared_ptr<nano::bootstrap_attempt> attempt_a, std::shared_ptr<nano::transport::channel_tcp> channel_a) :
+nano::bootstrap_client::bootstrap_client (std::shared_ptr<nano::node> node_a, std::shared_ptr<nano::bootstrap_attempt> attempt_a, std::shared_ptr<nano::transport::channel_tcp> channel_a, std::shared_ptr<nano::socket> socket_a) :
 node (node_a),
 attempt (attempt_a),
 channel (channel_a),
+socket (socket_a),
 receive_buffer (std::make_shared<std::vector<uint8_t>> ()),
 start_time (std::chrono::steady_clock::now ()),
 block_count (0),
@@ -356,26 +357,29 @@ void nano::bootstrap_attempt::populate_connections ()
 		{
 			if (auto client = c.lock ())
 			{
-				new_clients.push_back (client);
-				endpoints.insert (client->channel->socket->remote_endpoint ());
-				double elapsed_sec = client->elapsed_seconds ();
-				auto blocks_per_sec = client->block_rate ();
-				rate_sum += blocks_per_sec;
-				if (client->elapsed_seconds () > nano::bootstrap_limits::bootstrap_connection_warmup_time_sec && client->block_count > 0)
+				if (auto socket_l = client->channel->socket.lock ())
 				{
-					sorted_connections.push (client);
-				}
-				// Force-stop the slowest peers, since they can take the whole bootstrap hostage by dribbling out blocks on the last remaining pull.
-				// This is ~1.5kilobits/sec.
-				if (elapsed_sec > nano::bootstrap_limits::bootstrap_minimum_termination_time_sec && blocks_per_sec < nano::bootstrap_limits::bootstrap_minimum_blocks_per_sec)
-				{
-					if (node->config.logging.bulk_pull_logging ())
+					new_clients.push_back (client);
+					endpoints.insert (socket_l->remote_endpoint ());
+					double elapsed_sec = client->elapsed_seconds ();
+					auto blocks_per_sec = client->block_rate ();
+					rate_sum += blocks_per_sec;
+					if (client->elapsed_seconds () > nano::bootstrap_limits::bootstrap_connection_warmup_time_sec && client->block_count > 0)
 					{
-						node->logger.try_log (boost::str (boost::format ("Stopping slow peer %1% (elapsed sec %2%s > %3%s and %4% blocks per second < %5%)") % client->channel->to_string () % elapsed_sec % nano::bootstrap_limits::bootstrap_minimum_termination_time_sec % blocks_per_sec % nano::bootstrap_limits::bootstrap_minimum_blocks_per_sec));
+						sorted_connections.push (client);
 					}
+					// Force-stop the slowest peers, since they can take the whole bootstrap hostage by dribbling out blocks on the last remaining pull.
+					// This is ~1.5kilobits/sec.
+					if (elapsed_sec > nano::bootstrap_limits::bootstrap_minimum_termination_time_sec && blocks_per_sec < nano::bootstrap_limits::bootstrap_minimum_blocks_per_sec)
+					{
+						if (node->config.logging.bulk_pull_logging ())
+						{
+							node->logger.try_log (boost::str (boost::format ("Stopping slow peer %1% (elapsed sec %2%s > %3%s and %4% blocks per second < %5%)") % client->channel->to_string () % elapsed_sec % nano::bootstrap_limits::bootstrap_minimum_termination_time_sec % blocks_per_sec % nano::bootstrap_limits::bootstrap_minimum_blocks_per_sec));
+						}
 
-					client->stop (true);
-					new_clients.pop_back ();
+						client->stop (true);
+						new_clients.pop_back ();
+					}
 				}
 			}
 		}
@@ -469,7 +473,7 @@ void nano::bootstrap_attempt::connect_client (nano::tcp_endpoint const & endpoin
 			{
 				this_l->node->logger.try_log (boost::str (boost::format ("Connection established to %1%") % endpoint_a));
 			}
-			auto client (std::make_shared<nano::bootstrap_client> (this_l->node, this_l, std::make_shared<nano::transport::channel_tcp> (*this_l->node, socket)));
+			auto client (std::make_shared<nano::bootstrap_client> (this_l->node, this_l, std::make_shared<nano::transport::channel_tcp> (*this_l->node, socket), socket));
 			this_l->pool_connection (client);
 		}
 		else
@@ -500,9 +504,12 @@ void nano::bootstrap_attempt::pool_connection (std::shared_ptr<nano::bootstrap_c
 	if (!stopped && !client_a->pending_stop && !node->bootstrap_initiator.excluded_peers.check (client_a->channel->get_tcp_endpoint ()))
 	{
 		// Idle bootstrap client socket
-		client_a->channel->socket->start_timer (node->network_params.node.idle_timeout);
-		// Push into idle deque
-		idle.push_back (client_a);
+		if (auto socket_l = client_a->channel->socket.lock ())
+		{
+			socket_l->start_timer (node->network_params.node.idle_timeout);
+			// Push into idle deque
+			idle.push_back (client_a);
+		}
 	}
 	condition.notify_all ();
 }
@@ -516,7 +523,7 @@ void nano::bootstrap_attempt::stop ()
 	{
 		if (auto client = i.lock ())
 		{
-			client->channel->socket->close ();
+			client->socket->close ();
 		}
 	}
 	if (auto i = frontiers.lock ())
@@ -622,7 +629,10 @@ void nano::bootstrap_attempt::attempt_restart_check (nano::unique_lock<std::mute
 			{
 				if (auto client = i.lock ())
 				{
-					client->channel->socket->close ();
+					if (auto socket_l = client->channel->socket.lock ())
+					{
+						socket_l->close ();
+					}
 				}
 			}
 			idle.clear ();

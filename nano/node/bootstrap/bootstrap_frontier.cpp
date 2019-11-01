@@ -51,21 +51,24 @@ nano::frontier_req_client::~frontier_req_client ()
 void nano::frontier_req_client::receive_frontier ()
 {
 	auto this_l (shared_from_this ());
-	connection->channel->socket->async_read (connection->receive_buffer, nano::frontier_req_client::size_frontier, [this_l](boost::system::error_code const & ec, size_t size_a) {
-		// An issue with asio is that sometimes, instead of reporting a bad file descriptor during disconnect,
-		// we simply get a size of 0.
-		if (size_a == nano::frontier_req_client::size_frontier)
-		{
-			this_l->received_frontier (ec, size_a);
-		}
-		else
-		{
-			if (this_l->connection->node->config.logging.network_message_logging ())
+	if (auto socket_l = connection->channel->socket.lock ())
+	{
+		socket_l->async_read (connection->receive_buffer, nano::frontier_req_client::size_frontier, [this_l](boost::system::error_code const & ec, size_t size_a) {
+			// An issue with asio is that sometimes, instead of reporting a bad file descriptor during disconnect,
+			// we simply get a size of 0.
+			if (size_a == nano::frontier_req_client::size_frontier)
 			{
-				this_l->connection->node->logger.try_log (boost::str (boost::format ("Invalid size: expected %1%, got %2%") % nano::frontier_req_client::size_frontier % size_a));
+				this_l->received_frontier (ec, size_a);
 			}
-		}
-	});
+			else
+			{
+				if (this_l->connection->node->config.logging.network_message_logging ())
+				{
+					this_l->connection->node->logger.try_log (boost::str (boost::format ("Invalid size: expected %1%, got %2%") % nano::frontier_req_client::size_frontier % size_a));
+				}
+			}
+		});
+	}
 }
 
 void nano::frontier_req_client::unsynced (nano::block_hash const & head, nano::block_hash const & end)

@@ -577,20 +577,23 @@ public:
 			nano::node_id_handshake response_message (cookie, response);
 			auto shared_const_buffer = response_message.to_shared_const_buffer ();
 			// clang-format off
-			connection->socket->async_write (shared_const_buffer, [connection = connection ](boost::system::error_code const & ec, size_t size_a) {
-				if (ec)
+			connection->socket->async_write (shared_const_buffer, [connection = std::weak_ptr<nano::bootstrap_server> (connection) ](boost::system::error_code const & ec, size_t size_a) {
+				if (auto connection_l = connection.lock ())
 				{
-					if (connection->node->config.logging.network_node_id_handshake_logging ())
+					if (ec)
 					{
-						connection->node->logger.try_log (boost::str (boost::format ("Error sending node_id_handshake to %1%: %2%") % connection->remote_endpoint % ec.message ()));
+						if (connection_l->node->config.logging.network_node_id_handshake_logging ())
+						{
+							connection_l->node->logger.try_log (boost::str (boost::format ("Error sending node_id_handshake to %1%: %2%") % connection_l->remote_endpoint % ec.message ()));
+						}
+						// Stop invalid handshake
+						connection_l->stop ();
 					}
-					// Stop invalid handshake
-					connection->stop ();
-				}
-				else
-				{
-					connection->node->stats.inc (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out);
-					connection->finish_request ();
+					else
+					{
+						connection_l->node->stats.inc (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out);
+						connection_l->finish_request ();
+					}
 				}
 			});
 			// clang-format on
