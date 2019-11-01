@@ -1409,7 +1409,10 @@ void nano::json_handler::block_create ()
 				{
 					rpc_l->ec = nano::error_common::generic;
 				}
-				rpc_l->response_errors ();
+				if (rpc_l->ec)
+				{
+					rpc_l->response_errors ();
+				}
 			};
 		};
 		if (prv.data != 0)
@@ -1442,6 +1445,7 @@ void nano::json_handler::block_create ()
 			nano::block_builder builder_l;
 			std::shared_ptr<nano::block> block_l{ nullptr };
 			nano::root root_l;
+			std::error_code ec_build;
 			if (type == "state")
 			{
 				if (previous_text.is_initialized () && !representative.is_zero () && (!link.is_zero () || link_text.is_initialized ()))
@@ -1453,7 +1457,7 @@ void nano::json_handler::block_create ()
 					          .balance (balance)
 					          .link (link)
 					          .sign (prv, pub)
-					          .build ();
+					          .build (ec_build);
 					if (previous.is_zero ())
 					{
 						root_l = pub;
@@ -1477,7 +1481,7 @@ void nano::json_handler::block_create ()
 					          .source (source)
 					          .representative (representative)
 					          .sign (prv, pub)
-					          .build ();
+					          .build (ec_build);
 					root_l = pub;
 				}
 				else
@@ -1493,7 +1497,7 @@ void nano::json_handler::block_create ()
 					          .previous (previous)
 					          .source (source)
 					          .sign (prv, pub)
-					          .build ();
+					          .build (ec_build);
 					root_l = previous;
 				}
 				else
@@ -1509,7 +1513,7 @@ void nano::json_handler::block_create ()
 					          .previous (previous)
 					          .representative (representative)
 					          .sign (prv, pub)
-					          .build ();
+					          .build (ec_build);
 					root_l = previous;
 				}
 				else
@@ -1528,7 +1532,7 @@ void nano::json_handler::block_create ()
 						          .destination (destination)
 						          .balance (balance.number () - amount.number ())
 						          .sign (prv, pub)
-						          .build ();
+						          .build (ec_build);
 						root_l = previous;
 					}
 					else
@@ -1545,7 +1549,7 @@ void nano::json_handler::block_create ()
 			{
 				ec = nano::error_blocks::invalid_type;
 			}
-			if (!ec)
+			if (!ec && (!ec_build || ec_build == nano::error_common::missing_work))
 			{
 				if (work == 0)
 				{
