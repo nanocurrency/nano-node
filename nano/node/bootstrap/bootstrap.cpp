@@ -787,13 +787,13 @@ void nano::bootstrap_attempt::lazy_add (nano::hash_or_account const & hash_or_ac
 
 void nano::bootstrap_attempt::lazy_requeue (nano::block_hash const & hash_a, nano::block_hash const & previous_a, bool confirmed_a)
 {
-	nano::lock_guard<std::mutex> lazy_lock (lazy_mutex);
+	nano::unique_lock<std::mutex> lazy_lock (lazy_mutex);
 	// Add only known blocks
 	auto existing (lazy_blocks.find (hash_a));
 	if (existing != lazy_blocks.end ())
 	{
 		lazy_blocks.erase (existing);
-		lazy_mutex.unlock ();
+		lazy_lock.unlock ();
 		requeue_pull (nano::pull_info (hash_a, hash_a, previous_a, static_cast<nano::pull_info::count_t> (1), confirmed_a ? std::numeric_limits<unsigned>::max () : node->network_params.bootstrap.lazy_destinations_retry_limit));
 	}
 }
