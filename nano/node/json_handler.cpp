@@ -1669,6 +1669,8 @@ void nano::json_handler::bootstrap_status ()
 	auto attempt (node.bootstrap_initiator.current_attempt ());
 	if (attempt != nullptr)
 	{
+		nano::lock_guard<std::mutex> lock (attempt->mutex);
+		nano::lock_guard<std::mutex> lazy_lock (attempt->lazy_mutex);
 		response_l.put ("clients", std::to_string (attempt->clients.size ()));
 		response_l.put ("pulls", std::to_string (attempt->pulls.size ()));
 		response_l.put ("pulling", std::to_string (attempt->pulling));
