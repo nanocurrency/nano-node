@@ -1,4 +1,8 @@
 cmake_minimum_required (VERSION 3.4)
+# compatibility for osx sierra and on
+# needs to be set before project
+set (CMAKE_OSX_DEPLOYMENT_TARGET 10.12 CACHE STRING "")
+
 project (nano-node)
 
 # Get the latest abbreviated commit hash of the working branch
