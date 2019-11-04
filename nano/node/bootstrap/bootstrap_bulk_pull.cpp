@@ -145,75 +145,63 @@ void nano::bulk_pull_client::received_type ()
 {
 	auto this_l (shared_from_this ());
 	nano::block_type type (static_cast<nano::block_type> (connection->receive_buffer->data ()[0]));
-	auto socket_l = connection->channel->socket.lock ();
-	switch (type)
+
+	if (auto socket_l = connection->channel->socket.lock ())
 	{
-		case nano::block_type::send:
+		switch (type)
 		{
-			if (socket_l)
+			case nano::block_type::send:
 			{
 				socket_l->async_read (connection->receive_buffer, nano::send_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 					this_l->received_block (ec, size_a, type);
 				});
+				break;
 			}
-			break;
-		}
-		case nano::block_type::receive:
-		{
-			if (socket_l)
+			case nano::block_type::receive:
 			{
 				socket_l->async_read (connection->receive_buffer, nano::receive_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 					this_l->received_block (ec, size_a, type);
 				});
+				break;
 			}
-			break;
-		}
-		case nano::block_type::open:
-		{
-			if (socket_l)
+			case nano::block_type::open:
 			{
 				socket_l->async_read (connection->receive_buffer, nano::open_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 					this_l->received_block (ec, size_a, type);
 				});
+				break;
 			}
-			break;
-		}
-		case nano::block_type::change:
-		{
-			if (socket_l)
+			case nano::block_type::change:
 			{
 				socket_l->async_read (connection->receive_buffer, nano::change_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 					this_l->received_block (ec, size_a, type);
 				});
+				break;
 			}
-			break;
-		}
-		case nano::block_type::state:
-		{
-			if (socket_l)
+			case nano::block_type::state:
 			{
 				socket_l->async_read (connection->receive_buffer, nano::state_block::size, [this_l, type](boost::system::error_code const & ec, size_t size_a) {
 					this_l->received_block (ec, size_a, type);
 				});
+				break;
 			}
-			break;
-		}
-		case nano::block_type::not_a_block:
-		{
-			// Avoid re-using slow peers, or peers that sent the wrong blocks.
-			if (!connection->pending_stop && (expected == pull.end || (pull.count != 0 && pull.count == pull_blocks)))
+			case nano::block_type::not_a_block:
 			{
-				connection->attempt->pool_connection (connection);
+				// Avoid re-using slow peers, or peers that sent the wrong blocks.
+				if (!connection->pending_stop && (expected == pull.end || (pull.count != 0 && pull.count == pull_blocks)))
+				{
+					connection->attempt->pool_connection (connection);
+				}
+				break;
 			}
-			break;
-		}
-		default:
-		{
-			if (connection->node->config.logging.network_packet_logging ())
+			default:
 			{
-				connection->node->logger.try_log (boost::str (boost::format ("Unknown type received as block type: %1%") % static_cast<int> (type)));
+				if (connection->node->config.logging.network_packet_logging ())
+				{
+					connection->node->logger.try_log (boost::str (boost::format ("Unknown type received as block type: %1%") % static_cast<int> (type)));
+				}
+				break;
 			}
-			break;
 		}
 	}
 }
