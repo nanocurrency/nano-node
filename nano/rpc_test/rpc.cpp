@@ -3576,9 +3576,11 @@ TEST (rpc, wallet_change_seed)
 {
 	nano::system system0 (24000, 1);
 	nano::raw_key seed;
+	seed.data = 1;
 	{
 		auto transaction (system0.nodes[0]->wallets.tx_begin_read ());
 		nano::raw_key seed0;
+		seed0.data = 2;
 		system0.wallet (0)->store.seed (seed0, transaction);
 		ASSERT_NE (seed, seed0);
 	}
