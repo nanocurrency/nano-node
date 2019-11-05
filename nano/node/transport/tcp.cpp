@@ -381,7 +381,7 @@ std::unique_ptr<nano::seq_con_info_component> nano::transport::tcp_channels::col
 	auto composite = std::make_unique<seq_con_info_composite> (name);
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "channels", channels_count, sizeof (decltype (channels)::value_type) }));
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "attempts", attemps_count, sizeof (decltype (attempts)::value_type) }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "temp_node_id_handshake_socket_container", node_id_handshake_sockets_count, sizeof (decltype (node_id_handshake_sockets)::value_type) }));
+	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "node_id_handshake_sockets", node_id_handshake_sockets_count, sizeof (decltype (node_id_handshake_sockets)::value_type) }));
 
 	return composite;
 }
