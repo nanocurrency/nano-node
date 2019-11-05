@@ -41,16 +41,25 @@ fi
 
 ulimit -S -n 8192
 
+if [[ "$OS" == 'Linux' ]]; then
+    ROCKSDB="-DROCKSDB_LIBRARIES=/tmp/rocksdb/lib/librocksdb.a \
+    -DROCKSDB_INCLUDE_DIRS=/tmp/rocksdb/include"
+else
+    ROCKSDB=""
+fi
+
+
 cmake \
     -G'Unix Makefiles' \
     -DACTIVE_NETWORK=nano_test_network \
     -DNANO_TEST=ON \
     -DNANO_GUI=ON \
     -DNANO_ROCKSDB=ON \
+    ${ROCKSDB} \
     -DNANO_WARN_TO_ERR=ON \
     -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
     -DCMAKE_VERBOSE_MAKEFILE=ON \
-    -DBOOST_ROOT=/usr/local \
+    -DBOOST_ROOT=/tmp/boost/ \
     -DQt5_DIR=${qt_dir} \
     -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
     ${SANITIZERS} \
