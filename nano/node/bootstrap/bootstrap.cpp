@@ -617,6 +617,7 @@ void nano::bootstrap_attempt::attempt_restart_check (nano::unique_lock<std::mute
 	if (!frontiers_confirmed && (requeued_pulls > (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::requeued_pulls_limit : nano::bootstrap_limits::requeued_pulls_limit_test) || total_blocks > nano::bootstrap_limits::frontier_confirmation_blocks_limit))
 	{
 		confirm_frontiers (lock_a);
+		assert (!lock_a.try_lock ());
 		if (!frontiers_confirmed)
 		{
 			node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_failed, nano::stat::dir::in);
@@ -667,108 +668,107 @@ void nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 	}
 	lock_a.unlock ();
 	auto frontiers_count (frontiers.size ());
-	if (frontiers_count == 0)
+	if (frontiers_count > 0)
 	{
-		return;
-	}
-	const size_t reps_limit = 20;
-	auto representatives (node->rep_crawler.representatives ());
-	auto reps_weight (node->rep_crawler.total_weight ());
-	auto representatives_copy (representatives);
-	nano::uint128_t total_weight (0);
-	// Select random peers from bottom 50% of principal representatives
-	if (representatives.size () > 1)
-	{
-		std::reverse (representatives.begin (), representatives.end ());
-		representatives.resize (representatives.size () / 2);
-		for (auto i = static_cast<CryptoPP::word32> (representatives.size () - 1); i > 0; --i)
+		const size_t reps_limit = 20;
+		auto representatives (node->rep_crawler.representatives ());
+		auto reps_weight (node->rep_crawler.total_weight ());
+		auto representatives_copy (representatives);
+		nano::uint128_t total_weight (0);
+		// Select random peers from bottom 50% of principal representatives
+		if (representatives.size () > 1)
 		{
-			auto k = nano::random_pool::generate_word32 (0, i);
-			std::swap (representatives[i], representatives[k]);
+			std::reverse (representatives.begin (), representatives.end ());
+			representatives.resize (representatives.size () / 2);
+			for (auto i = static_cast<CryptoPP::word32> (representatives.size () - 1); i > 0; --i)
+			{
+				auto k = nano::random_pool::generate_word32 (0, i);
+				std::swap (representatives[i], representatives[k]);
+			}
+			if (representatives.size () > reps_limit)
+			{
+				representatives.resize (reps_limit);
+			}
 		}
-		if (representatives.size () > reps_limit)
+		for (auto const & rep : representatives)
 		{
-			representatives.resize (reps_limit);
-		}
-	}
-	for (auto const & rep : representatives)
-	{
-		total_weight += rep.weight.number ();
-	}
-	// Select peers with total 25% of reps stake from top 50% of principal representatives
-	representatives_copy.resize (representatives_copy.size () / 2);
-	while (total_weight < reps_weight / 4) // 25%
-	{
-		auto k = nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (representatives_copy.size () - 1));
-		auto rep (representatives_copy[k]);
-		if (std::find (representatives.begin (), representatives.end (), rep) == representatives.end ())
-		{
-			representatives.push_back (rep);
 			total_weight += rep.weight.number ();
 		}
-	}
-	// Start requests
-	for (auto i (0), max_requests (20); i <= max_requests && !frontiers_confirmed && !stopped; ++i)
-	{
-		std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::root>>> batched_confirm_req_bundle;
-		std::deque<std::pair<nano::block_hash, nano::root>> request;
-		// Find confirmed frontiers (tally > 12.5% of reps stake, 60% of requestsed reps responded
-		for (auto ii (frontiers.begin ()); ii != frontiers.end ();)
+		// Select peers with total 25% of reps stake from top 50% of principal representatives
+		representatives_copy.resize (representatives_copy.size () / 2);
+		while (total_weight < reps_weight / 4) // 25%
 		{
-			if (node->ledger.block_exists (*ii))
+			auto k = nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (representatives_copy.size () - 1));
+			auto rep (representatives_copy[k]);
+			if (std::find (representatives.begin (), representatives.end (), rep) == representatives.end ())
 			{
-				ii = frontiers.erase (ii);
+				representatives.push_back (rep);
+				total_weight += rep.weight.number ();
 			}
-			else
+		}
+		// Start requests
+		for (auto i (0), max_requests (20); i <= max_requests && !frontiers_confirmed && !stopped; ++i)
+		{
+			std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::root>>> batched_confirm_req_bundle;
+			std::deque<std::pair<nano::block_hash, nano::root>> request;
+			// Find confirmed frontiers (tally > 12.5% of reps stake, 60% of requestsed reps responded
+			for (auto ii (frontiers.begin ()); ii != frontiers.end ();)
 			{
-				nano::lock_guard<std::mutex> active_lock (node->active.mutex);
-				auto existing (node->active.find_inactive_votes_cache (*ii));
-				nano::uint128_t tally;
-				for (auto & voter : existing.voters)
-				{
-					tally += node->ledger.weight (voter);
-				}
-				if (existing.confirmed || (tally > reps_weight / 8 && existing.voters.size () >= representatives.size () * 0.6)) // 12.5% of weight, 60% of reps
+				if (node->ledger.block_exists (*ii))
 				{
 					ii = frontiers.erase (ii);
 				}
 				else
 				{
-					for (auto const & rep : representatives)
+					nano::lock_guard<std::mutex> active_lock (node->active.mutex);
+					auto existing (node->active.find_inactive_votes_cache (*ii));
+					nano::uint128_t tally;
+					for (auto & voter : existing.voters)
 					{
-						if (std::find (existing.voters.begin (), existing.voters.end (), rep.account) == existing.voters.end ())
+						tally += node->ledger.weight (voter);
+					}
+					if (existing.confirmed || (tally > reps_weight / 8 && existing.voters.size () >= representatives.size () * 0.6)) // 12.5% of weight, 60% of reps
+					{
+						ii = frontiers.erase (ii);
+					}
+					else
+					{
+						for (auto const & rep : representatives)
 						{
-							release_assert (!ii->is_zero ());
-							auto rep_request (batched_confirm_req_bundle.find (rep.channel));
-							if (rep_request == batched_confirm_req_bundle.end ())
+							if (std::find (existing.voters.begin (), existing.voters.end (), rep.account) == existing.voters.end ())
 							{
-								std::deque<std::pair<nano::block_hash, nano::root>> insert_root_hash = { std::make_pair (*ii, *ii) };
-								batched_confirm_req_bundle.emplace (rep.channel, insert_root_hash);
-							}
-							else
-							{
-								rep_request->second.emplace_back (*ii, *ii);
+								release_assert (!ii->is_zero ());
+								auto rep_request (batched_confirm_req_bundle.find (rep.channel));
+								if (rep_request == batched_confirm_req_bundle.end ())
+								{
+									std::deque<std::pair<nano::block_hash, nano::root>> insert_root_hash = { std::make_pair (*ii, *ii) };
+									batched_confirm_req_bundle.emplace (rep.channel, insert_root_hash);
+								}
+								else
+								{
+									rep_request->second.emplace_back (*ii, *ii);
+								}
 							}
 						}
+						++ii;
 					}
-					++ii;
 				}
 			}
+			auto confirmed_count (frontiers_count - frontiers.size ());
+			if (confirmed_count >= frontiers_count * nano::bootstrap_limits::required_frontier_confirmation_ratio) // 80% of frontiers confirmed
+			{
+				frontiers_confirmed = true;
+			}
+			else if (i < max_requests)
+			{
+				node->network.broadcast_confirm_req_batched_many (batched_confirm_req_bundle);
+				std::this_thread::sleep_for (std::chrono::milliseconds (!node->network_params.network.is_test_network () ? 500 : 5));
+			}
 		}
-		auto confirmed_count (frontiers_count - frontiers.size ());
-		if (confirmed_count >= frontiers_count * nano::bootstrap_limits::required_frontier_confirmation_ratio) // 80% of frontiers confirmed
+		if (!frontiers_confirmed)
 		{
-			frontiers_confirmed = true;
+			node->logger.always_log (boost::str (boost::format ("Failed to confirm frontiers for bootstrap attempt. %1% of %2% frontiers were not confirmed") % frontiers.size () % frontiers_count));
 		}
-		else if (i < max_requests)
-		{
-			node->network.broadcast_confirm_req_batched_many (batched_confirm_req_bundle);
-			std::this_thread::sleep_for (std::chrono::milliseconds (!node->network_params.network.is_test_network () ? 500 : 5));
-		}
-	}
-	if (!frontiers_confirmed)
-	{
-		node->logger.always_log (boost::str (boost::format ("Failed to confirm frontiers for bootstrap attempt. %1% of %2% frontiers were not confirmed") % frontiers.size () % frontiers_count));
 	}
 	lock_a.lock ();
 }
