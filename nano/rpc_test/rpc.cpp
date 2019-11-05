@@ -7453,7 +7453,7 @@ TEST (rpc, account_lazy_start)
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node2, node_rpc_config);
 	nano::rpc_config rpc_config (nano::get_available_port (), true);
-	rpc_config.rpc_process.ipc_port = node1->config.ipc_config.transport_tcp.port;
+	rpc_config.rpc_process.ipc_port = node_config.ipc_config.transport_tcp.port;
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
 	rpc.start ();
