@@ -456,7 +456,7 @@ rocksdb::Options nano::rocksdb_store::get_db_options () const
 	// Sets the compaction priority
 	db_options.compaction_pri = rocksdb::CompactionPri::kMinOverlappingRatio;
 
-	// Start agressively flushing WAL files when they reach over 1GB
+	// Start aggressively flushing WAL files when they reach over 1GB
 	db_options.max_total_wal_size = 1 * 1024 * 1024 * 1024LL;
 
 	// Optimize RocksDB. This is the easiest way to get RocksDB to perform well
@@ -467,7 +467,7 @@ rocksdb::Options nano::rocksdb_store::get_db_options () const
 	db_options.enable_pipelined_write = rocksdb_config.enable_pipelined_write;
 
 	// Total size of memtables across column families. This can be used to manage the total memory used by memtables.
-	db_options.db_write_buffer_size = rocksdb_config.total_memtable_size;
+	db_options.db_write_buffer_size = rocksdb_config.total_memtable_size * 1024 * 1024ULL;
 
 	return db_options;
 }
