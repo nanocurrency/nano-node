@@ -16,7 +16,7 @@ TEST (distributed_work, no_peers)
 {
 	nano::system system (24000, 1);
 	auto node (system.nodes[0]);
-	nano::block_hash hash;
+	nano::block_hash hash{ 1 };
 	boost::optional<uint64_t> work;
 	std::atomic<bool> done{ false };
 	auto callback = [&work, &done](boost::optional<uint64_t> work_a) {
