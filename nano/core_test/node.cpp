@@ -146,6 +146,12 @@ TEST (node, send_single_many_peers)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	system.stop ();
+	for (auto node : system.nodes)
+	{
+		ASSERT_TRUE (node->stopped);
+		ASSERT_TRUE (node->network.tcp_channels.node_id_handhake_sockets_empty ());
+	}
 }
 
 TEST (node, send_out_of_order)
