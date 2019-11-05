@@ -65,6 +65,7 @@ public:
 	std::shared_ptr<nano::bootstrap_client> connection (nano::unique_lock<std::mutex> &);
 	bool consume_future (std::future<bool> &);
 	void populate_connections ();
+	void start_populate_connections ();
 	bool request_frontier (nano::unique_lock<std::mutex> &);
 	void request_pull (nano::unique_lock<std::mutex> &);
 	void request_push (nano::unique_lock<std::mutex> &);
@@ -125,6 +126,7 @@ public:
 	std::vector<std::pair<nano::block_hash, nano::block_hash>> bulk_push_targets;
 	std::atomic<bool> frontiers_received{ false };
 	std::atomic<bool> frontiers_confirmed{ false };
+	std::atomic<bool> populate_connections_started{ false };
 	std::atomic<bool> stopped{ false };
 	std::chrono::steady_clock::time_point attempt_start{ std::chrono::steady_clock::now () };
 	nano::bootstrap_mode mode;
