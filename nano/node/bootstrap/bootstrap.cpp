@@ -617,7 +617,7 @@ void nano::bootstrap_attempt::attempt_restart_check (nano::unique_lock<std::mute
 	if (!frontiers_confirmed && (requeued_pulls > (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::requeued_pulls_limit : nano::bootstrap_limits::requeued_pulls_limit_test) || total_blocks > nano::bootstrap_limits::frontier_confirmation_blocks_limit))
 	{
 		confirm_frontiers (lock_a);
-		assert (!lock_a.try_lock ());
+		assert (lock_a.owns_lock ());
 		if (!frontiers_confirmed)
 		{
 			node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_failed, nano::stat::dir::in);
