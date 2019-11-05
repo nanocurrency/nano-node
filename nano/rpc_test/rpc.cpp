@@ -977,6 +977,7 @@ TEST (rpc, wallet_create_seed)
 	nano::system system (24000, 1);
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::raw_key seed;
+	seed.data = 1;
 	auto prv = nano::deterministic_key (seed, 0);
 	auto pub (nano::pub_key (prv));
 	auto node = system.nodes.front ();
