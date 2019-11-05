@@ -22,6 +22,11 @@ std::string nano::error_system_messages::message (int ev) const
 	return "Invalid error code";
 }
 
+std::shared_ptr<nano::node> nano::system::add_node (nano::node_flags node_flags_a, nano::transport::transport_type type_a)
+{
+	return add_node (nano::node_config (nano::get_available_port (), logging), node_flags_a, type_a);
+}
+
 /** Returns the node added. */
 std::shared_ptr<nano::node> nano::system::add_node (nano::node_config const & node_config_a, nano::node_flags node_flags_a, nano::transport::transport_type type_a)
 {
@@ -105,13 +110,13 @@ nano::system::system ()
 	logging.init (nano::unique_path ());
 }
 
-nano::system::system (uint16_t port_a, uint16_t count_a, nano::transport::transport_type type_a) :
+nano::system::system (uint16_t count_a, nano::transport::transport_type type_a) :
 system ()
 {
 	nodes.reserve (count_a);
 	for (uint16_t i (0); i < count_a; ++i)
 	{
-		nano::node_config config (port_a + i, logging);
+		nano::node_config config (nano::get_available_port (), logging);
 		add_node (config, nano::node_flags (), type_a);
 	}
 }

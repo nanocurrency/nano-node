@@ -53,7 +53,8 @@ nano::error nano::rpc_secure_config::deserialize_toml (nano::tomlconfig & toml)
 	return toml.get_error ();
 }
 
-nano::rpc_config::rpc_config (bool enable_control_a) :
+nano::rpc_config::rpc_config (uint16_t port_a, bool enable_control_a) :
+port (port_a),
 enable_control (enable_control_a)
 {
 }

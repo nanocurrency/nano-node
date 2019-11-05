@@ -531,7 +531,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		else if (type == "rpc")
 		{
 			valid_type = true;
-			nano::rpc_config config (false);
+			nano::rpc_config config;
 			config.serialize_toml (toml);
 		}
 		else

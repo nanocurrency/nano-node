@@ -7,14 +7,14 @@ using namespace std::chrono_literals;
 
 TEST (distributed_work, stopped)
 {
-	nano::system system (24000, 1);
+	nano::system system (1);
 	system.nodes[0]->distributed_work.stop ();
 	ASSERT_TRUE (system.nodes[0]->distributed_work.make (nano::block_hash (), {}, {}, nano::network_constants::publish_test_threshold));
 }
 
 TEST (distributed_work, no_peers)
 {
-	nano::system system (24000, 1);
+	nano::system system (1);
 	auto node (system.nodes[0]);
 	nano::block_hash hash{ 1 };
 	boost::optional<uint64_t> work;
@@ -42,8 +42,8 @@ TEST (distributed_work, no_peers)
 
 TEST (distributed_work, no_peers_disabled)
 {
-	nano::system system (24000, 0);
-	nano::node_config node_config (24000, system.logging);
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.work_threads = 0;
 	auto & node = *system.add_node (node_config);
 	ASSERT_TRUE (node.distributed_work.make (nano::block_hash (), node.config.work_peers, {}, nano::network_constants::publish_test_threshold));
@@ -51,8 +51,8 @@ TEST (distributed_work, no_peers_disabled)
 
 TEST (distributed_work, no_peers_cancel)
 {
-	nano::system system (24000, 0);
-	nano::node_config node_config (24000, system.logging);
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.max_work_generate_multiplier = 1e6;
 	node_config.max_work_generate_difficulty = nano::difficulty::from_multiplier (node_config.max_work_generate_multiplier, nano::network_constants::publish_test_threshold);
 	auto & node = *system.add_node (node_config);
@@ -90,7 +90,7 @@ TEST (distributed_work, no_peers_cancel)
 
 TEST (distributed_work, no_peers_multi)
 {
-	nano::system system (24000, 1);
+	nano::system system (1);
 	auto node (system.nodes[0]);
 	nano::block_hash hash{ 1 };
 	unsigned total{ 10 };

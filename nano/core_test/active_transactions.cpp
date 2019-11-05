@@ -9,7 +9,7 @@ using namespace std::chrono_literals;
 TEST (active_transactions, adjusted_difficulty_priority)
 {
 	nano::system system;
-	nano::node_config node_config (24000, system.logging);
+	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.enable_voting = false;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node1 = *system.add_node (node_config);
@@ -104,7 +104,7 @@ TEST (active_transactions, adjusted_difficulty_priority)
 TEST (active_transactions, adjusted_difficulty_overflow_max)
 {
 	nano::system system;
-	nano::node_config node_config (24000, system.logging);
+	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.enable_voting = false;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node1 = *system.add_node (node_config);
@@ -156,7 +156,7 @@ TEST (active_transactions, adjusted_difficulty_overflow_max)
 TEST (active_transactions, adjusted_difficulty_overflow_min)
 {
 	nano::system system;
-	nano::node_config node_config (24000, system.logging);
+	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.enable_voting = false;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node1 = *system.add_node (node_config);
@@ -216,7 +216,7 @@ TEST (active_transactions, adjusted_difficulty_overflow_min)
 TEST (active_transactions, keep_local)
 {
 	nano::system system;
-	nano::node_config node_config (24000, system.logging);
+	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.enable_voting = false;
 	node_config.active_elections_size = 2; //bound to 2, wont drop wallet created transactions, but good to test dropping remote
 	// Disable frontier confirmation to allow the test to finish before
@@ -272,7 +272,7 @@ TEST (active_transactions, keep_local)
 TEST (active_transactions, prioritize_chains)
 {
 	nano::system system;
-	nano::node_config node_config (24000, system.logging);
+	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.enable_voting = false;
 	node_config.active_elections_size = 4; //bound to 4, wont drop wallet created transactions, but good to test dropping remote
 	// Disable frontier confirmation to allow the test to finish before
@@ -350,7 +350,7 @@ TEST (active_transactions, prioritize_chains)
 
 TEST (active_transactions, inactive_votes_cache)
 {
-	nano::system system (24000, 1);
+	nano::system system (1);
 	nano::block_hash latest (system.nodes[0]->latest (nano::test_genesis_key.pub));
 	nano::keypair key;
 	auto send (std::make_shared<nano::send_block> (latest, key.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest)));
@@ -377,7 +377,7 @@ TEST (active_transactions, inactive_votes_cache)
 TEST (active_transactions, inactive_votes_cache_existing_vote)
 {
 	nano::system system;
-	nano::node_config node_config (24000, system.logging);
+	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node = system.add_node (node_config);
 	nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
@@ -433,7 +433,7 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 TEST (active_transactions, inactive_votes_cache_multiple_votes)
 {
 	nano::system system;
-	nano::node_config node_config (24000, system.logging);
+	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node = system.add_node (node_config);
 	nano::block_hash latest (system.nodes[0]->latest (nano::test_genesis_key.pub));
@@ -476,7 +476,7 @@ TEST (active_transactions, inactive_votes_cache_multiple_votes)
 
 TEST (active_transactions, update_difficulty)
 {
-	nano::system system (24000, 2);
+	nano::system system (2);
 	auto & node1 = *system.nodes[0];
 	auto & node2 = *system.nodes[1];
 	nano::genesis genesis;
@@ -552,7 +552,7 @@ TEST (active_transactions, update_difficulty)
 TEST (active_transactions, restart_dropped)
 {
 	nano::system system;
-	nano::node_config node_config (24000, system.logging);
+	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.enable_voting = false;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node = *system.add_node (node_config);
