@@ -733,7 +733,7 @@ TEST (websocket, work)
 	ASSERT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::work));
 
 	// Generate work
-	nano::block_hash hash;
+	nano::block_hash hash{ 1 };
 	auto work (node1->work_generate_blocking (hash));
 	ASSERT_TRUE (work.is_initialized ());
 
