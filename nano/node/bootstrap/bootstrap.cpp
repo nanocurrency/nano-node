@@ -25,6 +25,7 @@ constexpr std::chrono::seconds nano::bootstrap_limits::lazy_flush_delay_sec;
 constexpr unsigned nano::bootstrap_limits::lazy_destinations_request_limit;
 constexpr uint64_t nano::bootstrap_limits::lazy_batch_pull_count_resize_blocks_limit;
 constexpr double nano::bootstrap_limits::lazy_batch_pull_count_resize_ratio;
+constexpr size_t nano::bootstrap_limits::lazy_blocks_restart_limit;
 constexpr std::chrono::hours nano::bootstrap_excluded_peers::exclude_time_hours;
 constexpr std::chrono::hours nano::bootstrap_excluded_peers::exclude_remove_hours;
 
@@ -890,10 +891,27 @@ bool nano::bootstrap_attempt::lazy_finished ()
 	return result;
 }
 
+bool nano::bootstrap_attempt::lazy_has_expired () const
+{
+	bool result (false);
+	// Max 30 minutes run with enabled legacy bootstrap
+	static std::chrono::minutes const max_lazy_time (node->flags.disable_legacy_bootstrap ? 7 * 24 * 60 : 30);
+	if (std::chrono::steady_clock::now () - lazy_start_time >= max_lazy_time)
+	{
+		result = true;
+	}
+	else if (!node->flags.disable_legacy_bootstrap && lazy_blocks_count > nano::bootstrap_limits::lazy_blocks_restart_limit)
+	{
+		result = true;
+	}
+	return result;
+}
+
 void nano::bootstrap_attempt::lazy_clear ()
 {
 	assert (!lazy_mutex.try_lock ());
 	lazy_blocks.clear ();
+	lazy_blocks_count = 0;
 	lazy_keys.clear ();
 	lazy_pulls.clear ();
 	lazy_state_backlog.clear ();
@@ -905,13 +923,12 @@ void nano::bootstrap_attempt::lazy_run ()
 {
 	assert (!node->flags.disable_lazy_bootstrap);
 	start_populate_connections ();
-	auto start_time (std::chrono::steady_clock::now ());
-	auto max_time (std::chrono::minutes (node->flags.disable_legacy_bootstrap ? 7 * 24 * 60 : 30));
+	lazy_start_time = std::chrono::steady_clock::now ();
 	nano::unique_lock<std::mutex> lock (mutex);
-	while ((still_pulling () || !lazy_finished ()) && std::chrono::steady_clock::now () - start_time < max_time)
+	while ((still_pulling () || !lazy_finished ()) && !lazy_has_expired ())
 	{
 		unsigned iterations (0);
-		while (still_pulling () && std::chrono::steady_clock::now () - start_time < max_time)
+		while (still_pulling () && !lazy_has_expired ())
 		{
 			if (!pulls.empty ())
 			{
@@ -1030,6 +1047,7 @@ bool nano::bootstrap_attempt::process_block_lazy (std::shared_ptr<nano::block> b
 			}
 		}
 		lazy_blocks.insert (hash);
+		++lazy_blocks_count;
 		// Adding lazy balances for first processed block in pull
 		if (pull_blocks == 0 && (block_a->type () == nano::block_type::state || block_a->type () == nano::block_type::send))
 		{
