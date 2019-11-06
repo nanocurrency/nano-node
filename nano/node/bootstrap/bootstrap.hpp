@@ -89,6 +89,7 @@ public:
 	void lazy_add (nano::hash_or_account const &, unsigned = std::numeric_limits<unsigned>::max ());
 	void lazy_requeue (nano::block_hash const &, nano::block_hash const &, bool);
 	bool lazy_finished ();
+	bool lazy_has_expired () const;
 	void lazy_pull_flush ();
 	void lazy_clear ();
 	bool process_block_lazy (std::shared_ptr<nano::block>, nano::account const &, uint64_t, nano::bulk_pull::count_t, unsigned);
@@ -139,6 +140,7 @@ public:
 	std::unordered_map<nano::block_hash, nano::uint128_t> lazy_balances;
 	std::unordered_set<nano::block_hash> lazy_keys;
 	std::deque<std::pair<nano::hash_or_account, unsigned>> lazy_pulls;
+	std::chrono::steady_clock::time_point lazy_start_time;
 	std::chrono::steady_clock::time_point last_lazy_flush{ std::chrono::steady_clock::now () };
 	class account_tag
 	{
@@ -152,6 +154,7 @@ public:
 	boost::multi_index::ordered_non_unique<boost::multi_index::tag<count_tag>, boost::multi_index::member<lazy_destinations_item, uint64_t, &lazy_destinations_item::count>, std::greater<uint64_t>>,
 	boost::multi_index::hashed_unique<boost::multi_index::tag<account_tag>, boost::multi_index::member<lazy_destinations_item, nano::account, &lazy_destinations_item::account>>>>
 	lazy_destinations;
+	std::atomic<size_t> lazy_blocks_count{ 0 };
 	std::atomic<bool> lazy_destinations_flushed{ false };
 	std::mutex lazy_mutex;
 	// Wallet lazy bootstrap
@@ -284,5 +287,6 @@ public:
 	static constexpr unsigned lazy_destinations_request_limit = 256 * 1024;
 	static constexpr uint64_t lazy_batch_pull_count_resize_blocks_limit = 4 * 1024 * 1024;
 	static constexpr double lazy_batch_pull_count_resize_ratio = 2.0;
+	static constexpr size_t lazy_blocks_restart_limit = 1024 * 1024;
 };
 }
