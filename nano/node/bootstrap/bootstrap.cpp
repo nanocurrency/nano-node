@@ -1184,17 +1184,21 @@ void nano::bootstrap_attempt::lazy_backlog_cleanup ()
 
 void nano::bootstrap_attempt::lazy_destinations_increment (nano::account const & destination_a)
 {
-	// Update accounts counter for send blocks
-	auto existing (lazy_destinations.get<account_tag> ().find (destination_a));
-	if (existing != lazy_destinations.get<account_tag> ().end ())
+	// Enabled only if legacy bootstrap is not available. Legacy bootstrap is a more effective way to receive all existing destinations
+	if (node->flags.disable_legacy_bootstrap)
 	{
-		lazy_destinations.get<account_tag> ().modify (existing, [](nano::lazy_destinations_item & item_a) {
-			++item_a.count;
-		});
-	}
-	else
-	{
-		lazy_destinations.insert (nano::lazy_destinations_item{ destination_a, 1 });
+		// Update accounts counter for send blocks
+		auto existing (lazy_destinations.get<account_tag> ().find (destination_a));
+		if (existing != lazy_destinations.get<account_tag> ().end ())
+		{
+			lazy_destinations.get<account_tag> ().modify (existing, [](nano::lazy_destinations_item & item_a) {
+				++item_a.count;
+			});
+		}
+		else
+		{
+			lazy_destinations.insert (nano::lazy_destinations_item{ destination_a, 1 });
+		}
 	}
 }
 
