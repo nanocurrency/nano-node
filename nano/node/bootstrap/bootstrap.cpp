@@ -232,7 +232,7 @@ void nano::bootstrap_attempt::run_start (nano::unique_lock<std::mutex> & lock_a)
 void nano::bootstrap_attempt::run ()
 {
 	assert (!node->flags.disable_legacy_bootstrap);
-	populate_connections ();
+	start_populate_connections ();
 	nano::unique_lock<std::mutex> lock (mutex);
 	run_start (lock);
 	while (still_pulling ())
@@ -452,6 +452,14 @@ void nano::bootstrap_attempt::populate_connections ()
 				this_l->populate_connections ();
 			}
 		});
+	}
+}
+
+void nano::bootstrap_attempt::start_populate_connections ()
+{
+	if (!populate_connections_started.exchange (true))
+	{
+		populate_connections ();
 	}
 }
 
@@ -889,7 +897,7 @@ void nano::bootstrap_attempt::lazy_clear ()
 void nano::bootstrap_attempt::lazy_run ()
 {
 	assert (!node->flags.disable_lazy_bootstrap);
-	populate_connections ();
+	start_populate_connections ();
 	auto start_time (std::chrono::steady_clock::now ());
 	auto max_time (std::chrono::minutes (node->flags.disable_legacy_bootstrap ? 7 * 24 * 60 : 30));
 	nano::unique_lock<std::mutex> lock (mutex);
@@ -1242,7 +1250,7 @@ bool nano::bootstrap_attempt::wallet_finished ()
 void nano::bootstrap_attempt::wallet_run ()
 {
 	assert (!node->flags.disable_wallet_bootstrap);
-	populate_connections ();
+	start_populate_connections ();
 	auto start_time (std::chrono::steady_clock::now ());
 	auto max_time (std::chrono::minutes (10));
 	nano::unique_lock<std::mutex> lock (mutex);
