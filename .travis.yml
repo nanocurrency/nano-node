@@ -60,6 +60,7 @@ jobs:
         - brew cask install xquartz;
         - brew upgrade cmake;
         - brew install rocksdb;
+        - util/build_prep/fetch_boost.sh
         - util/build_prep/macosx/build_qt.sh
       install:
         - brew install ccache;
@@ -96,6 +97,7 @@ jobs:
         - brew cask install xquartz;
         - brew upgrade cmake;
         - brew install rocksdb;
+        - util/build_prep/fetch_boost.sh
         - util/build_prep/macosx/build_qt.sh
       install:
         - brew install ccache;
@@ -127,7 +129,8 @@ jobs:
         - brew update;
         - brew cask install xquartz;
         - brew upgrade cmake;
-        - brew install rocksdb;
+        - util/build_prep/fetch_rocksdb.sh
+        - util/build_prep/fetch_boost.sh
         - util/build_prep/macosx/build_qt.sh
       install:
         - pip install --user awscli
@@ -169,7 +172,8 @@ jobs:
         - brew update;
         - brew cask install xquartz;
         - brew upgrade cmake;
-        - brew install rocksdb;
+        - util/build_prep/fetch_rocksdb.sh
+        - util/build_prep/fetch_boost.sh
         - util/build_prep/macosx/build_qt.sh
       install:
         - pip install --user awscli
@@ -185,7 +189,6 @@ cache:
     - $HOME/.local
     - $HOME/Library/Caches/Homebrew
     - $TRAVIS_BUILD_DIR/load-tester/target
-    - /tmp/qt/
 script:
   - if [ -n "$ONE_TIME_TESTS" ]; then ci/check-commit-format.sh; fi
   - if [ -n "$ONE_TIME_TESTS" ]; then doxygen doxygen.config; fi # TODO also deploy the built HTML
