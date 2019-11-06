@@ -4,9 +4,12 @@
 nano::rep_crawler::rep_crawler (nano::node & node_a) :
 node (node_a)
 {
-	node.observers.endpoint.add ([this](std::shared_ptr<nano::transport::channel> channel_a) {
-		this->query (channel_a);
-	});
+	if (!node.flags.disable_rep_crawler)
+	{
+		node.observers.endpoint.add ([this](std::shared_ptr<nano::transport::channel> channel_a) {
+			this->query (channel_a);
+		});
+	}
 }
 
 void nano::rep_crawler::add (nano::block_hash const & hash_a)

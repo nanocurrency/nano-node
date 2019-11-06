@@ -101,10 +101,10 @@ bool nano::bootstrap_attempt::should_log ()
 	return result;
 }
 
-bool nano::bootstrap_attempt::request_frontier (nano::unique_lock<std::mutex> & lock_a)
+bool nano::bootstrap_attempt::request_frontier (nano::unique_lock<std::mutex> & lock_a, bool first_attempt)
 {
 	auto result (true);
-	auto connection_l (connection (lock_a));
+	auto connection_l (connection (lock_a, first_attempt));
 	connection_frontier_request = connection_l;
 	if (connection_l)
 	{
@@ -211,10 +211,13 @@ void nano::bootstrap_attempt::run_start (nano::unique_lock<std::mutex> & lock_a)
 	total_blocks = 0;
 	requeued_pulls = 0;
 	pulls.clear ();
+	recent_pulls_head.clear ();
 	auto frontier_failure (true);
+	uint64_t frontier_attempts (0);
 	while (!stopped && frontier_failure)
 	{
-		frontier_failure = request_frontier (lock_a);
+		++frontier_attempts;
+		frontier_failure = request_frontier (lock_a, frontier_attempts == 1);
 	}
 	frontiers_received = true;
 	// Shuffle pulls.
@@ -292,7 +295,7 @@ void nano::bootstrap_attempt::run ()
 	idle.clear ();
 }
 
-std::shared_ptr<nano::bootstrap_client> nano::bootstrap_attempt::connection (nano::unique_lock<std::mutex> & lock_a)
+std::shared_ptr<nano::bootstrap_client> nano::bootstrap_attempt::connection (nano::unique_lock<std::mutex> & lock_a, bool use_front_connection)
 {
 	// clang-format off
 	condition.wait (lock_a, [& stopped = stopped, &idle = idle] { return stopped || !idle.empty (); });
@@ -300,8 +303,16 @@ std::shared_ptr<nano::bootstrap_client> nano::bootstrap_attempt::connection (nan
 	std::shared_ptr<nano::bootstrap_client> result;
 	if (!idle.empty ())
 	{
-		result = idle.back ();
-		idle.pop_back ();
+		if (!use_front_connection)
+		{
+			result = idle.back ();
+			idle.pop_back ();
+		}
+		else
+		{
+			result = idle.front ();
+			idle.pop_front ();
+		}
 	}
 	return result;
 }
@@ -634,18 +645,14 @@ void nano::bootstrap_attempt::attempt_restart_check (nano::unique_lock<std::mute
 			{
 				node->logger.always_log (boost::str (boost::format ("Adding peer %1% to excluded peers list with score %2% after %3% seconds bootstrap attempt") % endpoint_frontier_request % score % std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt_start).count ()));
 			}
-			for (auto i : clients)
-			{
-				if (auto client = i.lock ())
-				{
-					if (auto socket_l = client->channel->socket.lock ())
-					{
-						socket_l->close ();
-					}
-				}
-			}
-			idle.clear ();
-			run_start (lock_a);
+			lock_a.unlock ();
+			stop ();
+			lock_a.lock ();
+			// Start new bootstrap connection
+			auto node_l (node->shared ());
+			node->background ([node_l]() {
+				node_l->bootstrap_initiator.bootstrap (true);
+			});
 		}
 		else
 		{
@@ -662,14 +669,14 @@ void nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 	std::vector<nano::block_hash> frontiers;
 	for (auto i (pulls.begin ()), end (pulls.end ()); i != end && frontiers.size () != nano::bootstrap_limits::bootstrap_max_confirm_frontiers; ++i)
 	{
-		if (!i->head.is_zero ())
+		if (!i->head.is_zero () && std::find (frontiers.begin (), frontiers.end (), i->head) == frontiers.end ())
 		{
 			frontiers.push_back (i->head);
 		}
 	}
 	for (auto i (recent_pulls_head.begin ()), end (recent_pulls_head.end ()); i != end && frontiers.size () != nano::bootstrap_limits::bootstrap_max_confirm_frontiers; ++i)
 	{
-		if (!i->is_zero ())
+		if (!i->is_zero () && std::find (frontiers.begin (), frontiers.end (), *i) == frontiers.end ())
 		{
 			frontiers.push_back (*i);
 		}
@@ -1298,9 +1305,19 @@ nano::bootstrap_initiator::~bootstrap_initiator ()
 	stop ();
 }
 
-void nano::bootstrap_initiator::bootstrap ()
+void nano::bootstrap_initiator::bootstrap (bool force)
 {
 	nano::unique_lock<std::mutex> lock (mutex);
+	if (force)
+	{
+		if (attempt != nullptr)
+		{
+			attempt->stop ();
+			// clang-format off
+			condition.wait (lock, [&attempt = attempt, &stopped = stopped] { return stopped || attempt == nullptr; });
+			// clang-format on
+		}
+	}
 	if (!stopped && attempt == nullptr)
 	{
 		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out);

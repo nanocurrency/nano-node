@@ -348,6 +348,7 @@ TEST (bootstrap_processor, frontiers_unconfirmed)
 	node_flags.disable_legacy_bootstrap = true;
 	node_flags.disable_lazy_bootstrap = true;
 	node_flags.disable_wallet_bootstrap = true;
+	node_flags.disable_rep_crawler = true;
 	auto node1 = system.add_node (node_config, node_flags);
 	nano::genesis genesis;
 	nano::keypair key1, key2;
@@ -363,6 +364,7 @@ TEST (bootstrap_processor, frontiers_unconfirmed)
 
 	node_config.peering_port = 24001;
 	node_flags.disable_bootstrap_bulk_pull_server = false;
+	node_flags.disable_rep_crawler = false;
 	auto node2 = system.add_node (node_config, node_flags);
 	// Generating valid chain
 	auto send3 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::xrb_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
@@ -407,6 +409,7 @@ TEST (bootstrap_processor, frontiers_confirmed)
 	node_flags.disable_legacy_bootstrap = true;
 	node_flags.disable_lazy_bootstrap = true;
 	node_flags.disable_wallet_bootstrap = true;
+	node_flags.disable_rep_crawler = true;
 	auto node1 = system.add_node (node_config, node_flags);
 	nano::genesis genesis;
 	nano::keypair key1, key2;
@@ -424,6 +427,7 @@ TEST (bootstrap_processor, frontiers_confirmed)
 	// Test node to bootstrap
 	node_config.peering_port = 24001;
 	node_flags.disable_legacy_bootstrap = false;
+	node_flags.disable_rep_crawler = false;
 	auto node2 = system.add_node (node_config, node_flags);
 	system.deadline_set (5s);
 	while (node2->rep_crawler.representative_count () == 0)
