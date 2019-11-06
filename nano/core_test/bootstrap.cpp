@@ -184,17 +184,26 @@ TEST (bootstrap_processor, DISABLED_process_none)
 // Bootstrap can pull one basic block
 TEST (bootstrap_processor, process_one)
 {
-	nano::system system (24000, 1);
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.enable_voting = false;
+	auto node0 = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::test_genesis_key.pub, 100));
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, 24001, nano::unique_path (), system.alarm, system.logging, system.work));
-	nano::block_hash hash1 (system.nodes[0]->latest (nano::test_genesis_key.pub));
+
+	node_config.peering_port = 24001;
+	nano::node_flags node_flags;
+	node_flags.disable_bootstrap_bulk_push_client = true;
+	node_flags.disable_rep_crawler = true;
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, node_config, system.work, node_flags));
+	nano::block_hash hash1 (node0->latest (nano::test_genesis_key.pub));
 	nano::block_hash hash2 (node1->latest (nano::test_genesis_key.pub));
 	ASSERT_NE (hash1, hash2);
-	node1->bootstrap_initiator.bootstrap (system.nodes[0]->network.endpoint ());
-	ASSERT_NE (node1->latest (nano::test_genesis_key.pub), system.nodes[0]->latest (nano::test_genesis_key.pub));
+	node1->bootstrap_initiator.bootstrap (node0->network.endpoint ());
+	ASSERT_NE (node1->latest (nano::test_genesis_key.pub), node0->latest (nano::test_genesis_key.pub));
 	system.deadline_set (10s);
-	while (node1->latest (nano::test_genesis_key.pub) != system.nodes[0]->latest (nano::test_genesis_key.pub))
+	while (node1->latest (nano::test_genesis_key.pub) != node0->latest (nano::test_genesis_key.pub))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
