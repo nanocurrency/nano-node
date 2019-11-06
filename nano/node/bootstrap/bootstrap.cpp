@@ -635,9 +635,9 @@ void nano::bootstrap_attempt::attempt_restart_check (nano::unique_lock<std::mute
 	- or 128k processed blocks indicating large bootstrap */
 	if (!frontiers_confirmed && (requeued_pulls > (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::requeued_pulls_limit : nano::bootstrap_limits::requeued_pulls_limit_test) || total_blocks > nano::bootstrap_limits::frontier_confirmation_blocks_limit))
 	{
-		confirm_frontiers (lock_a);
+		auto confirmed (confirm_frontiers (lock_a));
 		assert (lock_a.owns_lock ());
-		if (!frontiers_confirmed)
+		if (!confirmed)
 		{
 			node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_failed, nano::stat::dir::in);
 			auto score (node->bootstrap_initiator.excluded_peers.add (endpoint_frontier_request, node->network.size ()));
@@ -658,11 +658,14 @@ void nano::bootstrap_attempt::attempt_restart_check (nano::unique_lock<std::mute
 		{
 			node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_successful, nano::stat::dir::in);
 		}
+		frontiers_confirmed = confirmed;
 	}
 }
 
-void nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> & lock_a)
+bool nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> & lock_a)
 {
+	bool confirmed (false);
+	assert (!frontiers_confirmed);
 	// clang-format off
 	condition.wait (lock_a, [& stopped = stopped] { return !stopped; });
 	// clang-format on
@@ -722,7 +725,7 @@ void nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 			}
 		}
 		// Start requests
-		for (auto i (0), max_requests (20); i <= max_requests && !frontiers_confirmed && !stopped; ++i)
+		for (auto i (0), max_requests (20); i <= max_requests && !confirmed && !stopped; ++i)
 		{
 			std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::root>>> batched_confirm_req_bundle;
 			std::deque<std::pair<nano::block_hash, nano::root>> request;
@@ -772,7 +775,7 @@ void nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 			auto confirmed_count (frontiers_count - frontiers.size ());
 			if (confirmed_count >= frontiers_count * nano::bootstrap_limits::required_frontier_confirmation_ratio) // 80% of frontiers confirmed
 			{
-				frontiers_confirmed = true;
+				confirmed = true;
 			}
 			else if (i < max_requests)
 			{
@@ -780,12 +783,13 @@ void nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 				std::this_thread::sleep_for (std::chrono::milliseconds (!node->network_params.network.is_test_network () ? 500 : 5));
 			}
 		}
-		if (!frontiers_confirmed)
+		if (!confirmed)
 		{
 			node->logger.always_log (boost::str (boost::format ("Failed to confirm frontiers for bootstrap attempt. %1% of %2% frontiers were not confirmed") % frontiers.size () % frontiers_count));
 		}
 	}
 	lock_a.lock ();
+	return confirmed;
 }
 
 void nano::bootstrap_attempt::lazy_start (nano::hash_or_account const & hash_or_account_a, bool confirmed)

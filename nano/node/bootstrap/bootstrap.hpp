@@ -81,7 +81,7 @@ public:
 	bool should_log ();
 	void add_bulk_push_target (nano::block_hash const &, nano::block_hash const &);
 	void attempt_restart_check (nano::unique_lock<std::mutex> &);
-	void confirm_frontiers (nano::unique_lock<std::mutex> &);
+	bool confirm_frontiers (nano::unique_lock<std::mutex> &);
 	bool process_block (std::shared_ptr<nano::block>, nano::account const &, uint64_t, nano::bulk_pull::count_t, bool, unsigned);
 	/** Lazy bootstrap */
 	void lazy_run ();
