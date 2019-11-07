@@ -233,7 +233,8 @@ TEST (node, auto_bootstrap)
 	nano::keypair key2;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key2.prv);
-	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::test_genesis_key.pub, key2.pub, system.nodes[0]->config.receive_minimum.number ()));
+	auto send1 (system.wallet (0)->send_action (nano::test_genesis_key.pub, key2.pub, system.nodes[0]->config.receive_minimum.number ()));
+	ASSERT_NE (nullptr, send1);
 	system.deadline_set (10s);
 	while (system.nodes[0]->balance (key2.pub) != system.nodes[0]->config.receive_minimum.number ())
 	{
@@ -260,8 +261,16 @@ TEST (node, auto_bootstrap)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	ASSERT_TRUE (node1->ledger.block_exists (send1->hash ()));
+	// Wait block receive
 	system.deadline_set (5s);
-	while (node1->stats.count (nano::stat::type::observer, nano::stat::detail::observer_confirmation_active_quorum, nano::stat::dir::out) + node1->stats.count (nano::stat::type::observer, nano::stat::detail::observer_confirmation_active_conf_height, nano::stat::dir::out) < 2)
+	while (node1->ledger.block_count_cache < 3)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	// Confirmation for all blocks
+	system.deadline_set (5s);
+	while (node1->ledger.cemented_count < 3)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}

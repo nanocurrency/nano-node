@@ -659,7 +659,10 @@ void nano::node::start ()
 		});
 	}
 	ongoing_store_flush ();
-	rep_crawler.start ();
+	if (!flags.disable_rep_crawler)
+	{
+		rep_crawler.start ();
+	}
 	ongoing_rep_calculation ();
 	ongoing_peer_store ();
 	ongoing_online_weight_calculation_queue ();
@@ -1041,7 +1044,10 @@ void nano::node::add_initial_peers ()
 				if (auto node_l = node_w.lock ())
 				{
 					node_l->network.send_keepalive (channel_a);
-					node_l->rep_crawler.query (channel_a);
+					if (!node_l->flags.disable_rep_crawler)
+					{
+						node_l->rep_crawler.query (channel_a);
+					}
 				}
 			});
 		}

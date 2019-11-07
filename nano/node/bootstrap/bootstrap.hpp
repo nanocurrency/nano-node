@@ -62,11 +62,11 @@ public:
 	explicit bootstrap_attempt (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a = nano::bootstrap_mode::legacy);
 	~bootstrap_attempt ();
 	void run ();
-	std::shared_ptr<nano::bootstrap_client> connection (nano::unique_lock<std::mutex> &);
+	std::shared_ptr<nano::bootstrap_client> connection (nano::unique_lock<std::mutex> &, bool = false);
 	bool consume_future (std::future<bool> &);
 	void populate_connections ();
 	void start_populate_connections ();
-	bool request_frontier (nano::unique_lock<std::mutex> &);
+	bool request_frontier (nano::unique_lock<std::mutex> &, bool = false);
 	void request_pull (nano::unique_lock<std::mutex> &);
 	void request_push (nano::unique_lock<std::mutex> &);
 	void add_connection (nano::endpoint const &);
@@ -81,7 +81,7 @@ public:
 	bool should_log ();
 	void add_bulk_push_target (nano::block_hash const &, nano::block_hash const &);
 	void attempt_restart_check (nano::unique_lock<std::mutex> &);
-	void confirm_frontiers (nano::unique_lock<std::mutex> &);
+	bool confirm_frontiers (nano::unique_lock<std::mutex> &);
 	bool process_block (std::shared_ptr<nano::block>, nano::account const &, uint64_t, nano::bulk_pull::count_t, bool, unsigned);
 	/** Lazy bootstrap */
 	void lazy_run ();
@@ -240,7 +240,7 @@ public:
 	explicit bootstrap_initiator (nano::node &);
 	~bootstrap_initiator ();
 	void bootstrap (nano::endpoint const &, bool add_to_peers = true, bool frontiers_confirmed = false);
-	void bootstrap ();
+	void bootstrap (bool force = false);
 	void bootstrap_lazy (nano::hash_or_account const &, bool force = false, bool confirmed = true);
 	void bootstrap_wallet (std::deque<nano::account> &);
 	void run_bootstrap ();
