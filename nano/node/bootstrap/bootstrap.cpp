@@ -1312,15 +1312,12 @@ nano::bootstrap_initiator::~bootstrap_initiator ()
 void nano::bootstrap_initiator::bootstrap (bool force)
 {
 	nano::unique_lock<std::mutex> lock (mutex);
-	if (force)
+	if (force && attempt != nullptr)
 	{
-		if (attempt != nullptr)
-		{
-			attempt->stop ();
-			// clang-format off
-			condition.wait (lock, [&attempt = attempt, &stopped = stopped] { return stopped || attempt == nullptr; });
-			// clang-format on
-		}
+		attempt->stop ();
+		// clang-format off
+		condition.wait (lock, [&attempt = attempt, &stopped = stopped] { return stopped || attempt == nullptr; });
+		// clang-format on
 	}
 	if (!stopped && attempt == nullptr)
 	{
@@ -1365,15 +1362,12 @@ void nano::bootstrap_initiator::bootstrap_lazy (nano::hash_or_account const & ha
 {
 	{
 		nano::unique_lock<std::mutex> lock (mutex);
-		if (force)
+		if (force && attempt != nullptr)
 		{
-			if (attempt != nullptr)
-			{
-				attempt->stop ();
-				// clang-format off
-				condition.wait (lock, [&attempt = attempt, &stopped = stopped] { return stopped || attempt == nullptr; });
-				// clang-format on
-			}
+			attempt->stop ();
+			// clang-format off
+			condition.wait (lock, [&attempt = attempt, &stopped = stopped] { return stopped || attempt == nullptr; });
+			// clang-format on
 		}
 		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate_lazy, nano::stat::dir::out);
 		if (attempt == nullptr)
