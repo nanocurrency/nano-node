@@ -71,18 +71,18 @@ TEST (distributed_work, no_peers_cancel)
 	// manually cancel
 	node.distributed_work.cancel (hash, true); // forces local stop
 	system.deadline_set (20s);
-	while (!done && !node.distributed_work.items.empty ())
+	while (!done || !node.distributed_work.items.empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
 	// now using observer
 	done = false;
-	ASSERT_FALSE (node.distributed_work.make (hash, node.config.work_peers, callback_to_cancel, nano::difficulty::from_multiplier (1000000, node.network_params.network.publish_threshold)));
+	ASSERT_FALSE (node.distributed_work.make (hash, node.config.work_peers, callback_to_cancel, nano::difficulty::from_multiplier (1e6, node.network_params.network.publish_threshold)));
 	ASSERT_EQ (1, node.distributed_work.items.size ());
 	node.observers.work_cancel.notify (hash);
 	system.deadline_set (20s);
-	while (!done && !node.distributed_work.items.empty ())
+	while (!done || !node.distributed_work.items.empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -117,7 +117,7 @@ TEST (distributed_work, no_peers_multi)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	system.deadline_set (5s);
-	while (node->distributed_work.items.empty ())
+	while (!node->distributed_work.items.empty ())
 	{
 		node->distributed_work.cleanup_finished ();
 		ASSERT_NO_ERROR (system.poll ());
@@ -141,7 +141,7 @@ TEST (distributed_work, no_peers_multi)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	system.deadline_set (5s);
-	while (node->distributed_work.items.empty ())
+	while (!node->distributed_work.items.empty ())
 	{
 		node->distributed_work.cleanup_finished ();
 		ASSERT_NO_ERROR (system.poll ());
