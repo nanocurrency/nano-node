@@ -1630,9 +1630,10 @@ void nano::json_handler::bootstrap ()
 
 void nano::json_handler::bootstrap_any ()
 {
+	const bool force = request.get<bool> ("force", false);
 	if (!node.flags.disable_legacy_bootstrap)
 	{
-		node.bootstrap_initiator.bootstrap ();
+		node.bootstrap_initiator.bootstrap (force);
 		response_l.put ("success", "");
 	}
 	else
