@@ -977,6 +977,7 @@ TEST (rpc, wallet_create_seed)
 	nano::system system (24000, 1);
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::raw_key seed;
+	nano::random_pool::generate_block (seed.data.bytes.data (), seed.data.bytes.size ());
 	auto prv = nano::deterministic_key (seed, 0);
 	auto pub (nano::pub_key (prv));
 	auto node = system.nodes.front ();
@@ -3575,9 +3576,11 @@ TEST (rpc, wallet_change_seed)
 {
 	nano::system system0 (24000, 1);
 	nano::raw_key seed;
+	nano::random_pool::generate_block (seed.data.bytes.data (), seed.data.bytes.size ());
 	{
 		auto transaction (system0.nodes[0]->wallets.tx_begin_read ());
 		nano::raw_key seed0;
+		nano::random_pool::generate_block (seed0.data.bytes.data (), seed0.data.bytes.size ());
 		system0.wallet (0)->store.seed (seed0, transaction);
 		ASSERT_NE (seed, seed0);
 	}
