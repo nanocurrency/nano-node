@@ -143,7 +143,7 @@ nano::error nano::rpc_config::serialize_toml (nano::tomlconfig & toml) const
 {
 	toml.put ("address", address.to_string (), "Bind address for the RPC server.\ntype:string,ip");
 	toml.put ("port", port, "Listening port for the RPC server.\ntype:uint16");
-	toml.put ("enable_control", enable_control, "Enable or disable control-level requests.\ntype:bool");
+	toml.put ("enable_control", enable_control, "Enable or disable control-level requests.\nWARNING: Enabling this gives anyone with RPC access the ability to stop the node and access wallet funds.\ntype:bool");
 	toml.put ("max_json_depth", max_json_depth, "Maximum number of levels in JSON requests.\ntype:uint8");
 	toml.put ("max_request_size", max_request_size, "Maximum number of bytes allowed in request bodies.\ntype:uint64");
 
