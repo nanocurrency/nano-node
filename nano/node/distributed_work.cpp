@@ -7,7 +7,7 @@ std::shared_ptr<request_type> nano::work_peer_request::get_prepared_json_request
 	auto request (std::make_shared<boost::beast::http::request<boost::beast::http::string_body>> ());
 	request->method (boost::beast::http::verb::post);
 	request->set (boost::beast::http::field::content_type, "application/json");
-	auto address_string (address.to_string());
+	auto address_string (address.to_string ());
 	auto pos (address_string.find ("::ffff:"));
 	if (pos != std::string::npos)
 	{
