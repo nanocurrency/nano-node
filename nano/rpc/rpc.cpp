@@ -29,6 +29,12 @@ nano::rpc::~rpc ()
 void nano::rpc::start ()
 {
 	auto endpoint (boost::asio::ip::tcp::endpoint (config.address, config.port));
+	if (!endpoint.address ().is_loopback () && config.enable_control)
+	{
+		auto warning = boost::str (boost::format ("WARNING: control-level RPCs are enabled on non-local address %1%, potentially allowing wallet access outside local computer") % endpoint.address ().to_string ());
+		std::cout << warning << std::endl;
+		logger.always_log (warning);
+	}
 	acceptor.open (endpoint.protocol ());
 	acceptor.set_option (boost::asio::ip::tcp::acceptor::reuse_address (true));
 
