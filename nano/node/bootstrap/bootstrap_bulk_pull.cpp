@@ -56,14 +56,14 @@ void nano::bulk_pull_client::request ()
 	assert (!pull.head.is_zero () || pull.retry_limit != std::numeric_limits<unsigned>::max ());
 	expected = pull.head;
 	nano::bulk_pull req;
-	if (pull.head == pull.head_original)
+	if (pull.head == pull.head_original && pull.attempts % 4 < 3)
 	{
 		// Account for new pulls
 		req.start = pull.account_or_head;
 	}
 	else
 	{
-		// Head for cached pulls
+		// Head for cached pulls or accounts with public key equal to existing block hash (25% of attempts)
 		req.start = pull.head;
 	}
 	req.end = pull.end;
