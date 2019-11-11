@@ -486,7 +486,7 @@ bool nano::transport::tcp_channels::node_id_handhake_sockets_empty () const
 
 void nano::transport::tcp_channels::push_node_id_handshake_socket (std::shared_ptr<nano::socket> const & socket_a)
 {
-	std::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard<std::mutex> guard (mutex);
 	node_id_handshake_sockets.push_back (socket_a);
 }
 
