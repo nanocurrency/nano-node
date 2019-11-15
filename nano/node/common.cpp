@@ -18,6 +18,26 @@ nano::protocol_constants const & get_protocol_constants ()
 	return params.protocol;
 }
 }
+
+uint64_t nano::ip_address_hash_raw (boost::asio::ip::address const & ip_a, uint16_t port)
+{
+	static nano::random_constants constants;
+	assert (ip_a.is_v6 ());
+	uint64_t result;
+	nano::uint128_union address;
+	address.bytes = ip_a.to_v6 ().to_bytes ();
+	blake2b_state state;
+	blake2b_init (&state, sizeof (result));
+	blake2b_update (&state, constants.random_128.bytes.data (), constants.random_128.bytes.size ());
+	if (port != 0)
+	{
+		blake2b_update (&state, &port, sizeof (port));
+	}
+	blake2b_update (&state, address.bytes.data (), address.bytes.size ());
+	blake2b_final (&state, &result, sizeof (result));
+	return result;
+}
+
 nano::message_header::message_header (nano::message_type type_a) :
 version_max (get_protocol_constants ().protocol_version),
 version_using (get_protocol_constants ().protocol_version),
