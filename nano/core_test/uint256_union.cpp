@@ -1,8 +1,7 @@
-#include <gtest/gtest.h>
-
-#include <nano/lib/interface.h>
-#include <nano/lib/jsonconfig.hpp>
+#include <nano/core_test/testutil.hpp>
 #include <nano/secure/common.hpp>
+
+#include <gtest/gtest.h>
 
 namespace
 {
@@ -114,15 +113,48 @@ TEST (uint128_union, balance_format)
 	ASSERT_EQ ("1.23", nano::amount (nano::uint128_t ("1230000000000000000000000000000")).format_balance (nano::BAN_ratio, 2, true));
 	ASSERT_EQ ("1.2", nano::amount (nano::uint128_t ("1230000000000000000000000000000")).format_balance (nano::BAN_ratio, 1, true));
 	ASSERT_EQ ("1", nano::amount (nano::uint128_t ("1230000000000000000000000000000")).format_balance (nano::BAN_ratio, 0, true));
-	ASSERT_EQ ("< 0.01", nano::amount (nano::RAW_ratio * 10).format_balance (nano::BAN_ratio, 2, true));
-	ASSERT_EQ ("< 0.1", nano::amount (nano::RAW_ratio * 10).format_balance (nano::BAN_ratio, 1, true));
-	ASSERT_EQ ("< 1", nano::amount (nano::RAW_ratio * 10).format_balance (nano::BAN_ratio, 0, true));
-	ASSERT_EQ ("< 0.01", nano::amount (nano::RAW_ratio * 9999).format_balance (nano::BAN_ratio, 2, true));
-	ASSERT_EQ ("0.01", nano::amount (nano::RAW_ratio * 10000).format_balance (nano::BAN_ratio, 2, true));
+	ASSERT_EQ ("< 0.01", nano::amount (nano::raw_ratio * 10).format_balance (nano::BAN_ratio, 2, true));
+	ASSERT_EQ ("< 0.1", nano::amount (nano::raw_ratio * 10).format_balance (nano::BAN_ratio, 1, true));
+	ASSERT_EQ ("< 1", nano::amount (nano::raw_ratio * 10).format_balance (nano::BAN_ratio, 0, true));
+	ASSERT_EQ ("< 0.01", nano::amount (nano::raw_ratio * 9999).format_balance (nano::BAN_ratio, 2, true));
+	ASSERT_EQ ("0.01", nano::amount (nano::raw_ratio * 10000).format_balance (nano::BAN_ratio, 2, true));
 	ASSERT_EQ ("123456789", nano::amount (nano::BAN_ratio * 123456789).format_balance (nano::BAN_ratio, 2, false));
 	ASSERT_EQ ("123,456,789", nano::amount (nano::BAN_ratio * 123456789).format_balance (nano::BAN_ratio, 2, true));
 	ASSERT_EQ ("123,456,789.12", nano::amount (nano::BAN_ratio * 123456789 + nano::banoshi_ratio * 123).format_balance (nano::BAN_ratio, 2, true));
 	ASSERT_EQ ("12-3456-789+123", nano::amount (nano::BAN_ratio * 123456789 + nano::banoshi_ratio * 123).format_balance (nano::BAN_ratio, 4, true, std::locale (std::cout.getloc (), new test_punct)));
+}
+
+TEST (uint128_union, decode_decimal)
+{
+	nano::amount amount;
+	ASSERT_FALSE (amount.decode_dec ("340282366920938463463374607431768211455", nano::raw_ratio));
+	ASSERT_EQ (std::numeric_limits<nano::uint128_t>::max (), amount.number ());
+	ASSERT_TRUE (amount.decode_dec ("340282366920938463463374607431768211456", nano::raw_ratio));
+	ASSERT_TRUE (amount.decode_dec ("340282366920938463463374607431768211455.1", nano::raw_ratio));
+	ASSERT_TRUE (amount.decode_dec ("0.1", nano::raw_ratio));
+	ASSERT_FALSE (amount.decode_dec ("1", nano::raw_ratio));
+	ASSERT_EQ (1, amount.number ());
+	ASSERT_FALSE (amount.decode_dec ("340282366.920938463463374607431768211454", nano::BAN_ratio));
+	ASSERT_EQ (std::numeric_limits<nano::uint128_t>::max () - 1, amount.number ());
+	ASSERT_TRUE (amount.decode_dec ("340282366.920938463463374607431768211456", nano::BAN_ratio));
+	ASSERT_TRUE (amount.decode_dec ("340282367", nano::BAN_ratio));
+	ASSERT_FALSE (amount.decode_dec ("0.000000000000000000000001", nano::BAN_ratio));
+	ASSERT_EQ (1000000, amount.number ());
+	ASSERT_FALSE (amount.decode_dec ("0.000000000000000000000000000001", nano::BAN_ratio));
+	ASSERT_EQ (1, amount.number ());
+	ASSERT_TRUE (amount.decode_dec ("0.0000000000000000000000000000001", nano::BAN_ratio));
+	ASSERT_TRUE (amount.decode_dec (".1", nano::BAN_ratio));
+	ASSERT_TRUE (amount.decode_dec ("0.", nano::BAN_ratio));
+	ASSERT_FALSE (amount.decode_dec ("9.999999999999999999999999999999", nano::BAN_ratio));
+	ASSERT_EQ (nano::uint128_t ("9999999999999999999999999999999"), amount.number ());
+	ASSERT_FALSE (amount.decode_dec ("170141183460469.231731687303715884105727", nano::raw_ratio));
+	ASSERT_EQ (nano::uint128_t ("170141183460469231731687303715884105727"), amount.number ());
+	ASSERT_FALSE (amount.decode_dec ("2.000000000000000000000002", nano::raw_ratio));
+	ASSERT_EQ (2 * nano::raw_ratio + 2, amount.number ());
+	ASSERT_FALSE (amount.decode_dec ("2", nano::raw_ratio));
+	ASSERT_EQ (2 * nano::raw_ratio, amount.number ());
+	ASSERT_FALSE (amount.decode_dec ("1230", nano::kBAN_ratio));
+	ASSERT_EQ (1230 * nano::kBAN_ratio, amount.number ());
 }
 
 TEST (unions, identity)
@@ -142,7 +174,7 @@ TEST (uint256_union, key_encryption)
 	nano::raw_key key4;
 	key4.decrypt (encrypted, secret_key, key1.pub.owords[0]);
 	ASSERT_EQ (key1.prv, key4);
-	nano::public_key pub (nano::pub_key (key4.data));
+	auto pub (nano::pub_key (key4.as_private_key ()));
 	ASSERT_EQ (key1.pub, pub);
 }
 
@@ -335,62 +367,41 @@ TEST (uint256_union, big_endian_union_function)
 
 TEST (uint256_union, decode_nano_variant)
 {
-	nano::uint256_union key;
+	nano::account key;
 	ASSERT_FALSE (key.decode_account ("ban_1111111111111111111111111111111111111111111111111111hifc8npp"));
-	ASSERT_FALSE (key.decode_account ("nano_1111111111111111111111111111111111111111111111111111hifc8npp"));
-}
-
-TEST (uint256_union, decode_account_variations)
-{
-	for (int i = 0; i < 100; i++)
-	{
-		nano::raw_key key;
-		xrb_generate_random (key.data.bytes.data ());
-		nano::uint256_union pub;
-		xrb_key_account (key.data.bytes.data (), pub.bytes.data ());
-
-		char account[66] = { 0 };
-		xrb_uint256_to_address (pub.bytes.data (), account);
-
-		// Replace first digit after xrb_ with '0'..'9', make sure only one of them is valid
-		int errors = 0;
-		for (int variation = 0; variation < 10; variation++)
-		{
-			account[4] = static_cast<char> (variation + 48);
-			errors += xrb_valid_address (account);
-		}
-
-		ASSERT_EQ (errors, 9);
-	}
 }
 
 TEST (uint256_union, account_transcode)
 {
-	nano::uint256_union value;
+	nano::account value;
 	auto text (nano::test_genesis_key.pub.to_account ());
 	ASSERT_FALSE (value.decode_account (text));
 	ASSERT_EQ (nano::test_genesis_key.pub, value);
+
 	ASSERT_EQ ('_', text[3]);
 	text[3] = '-';
-	nano::uint256_union value2;
+	nano::account value2;
 	ASSERT_FALSE (value2.decode_account (text));
 	ASSERT_EQ (value, value2);
 }
 
 TEST (uint256_union, account_encode_lex)
 {
-	nano::uint256_union min ("0000000000000000000000000000000000000000000000000000000000000000");
-	nano::uint256_union max ("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+	nano::account min ("0000000000000000000000000000000000000000000000000000000000000000");
+	nano::account max ("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 	auto min_text (min.to_account ());
-	ASSERT_EQ (64, min_text.size ());
 	auto max_text (max.to_account ());
-	ASSERT_EQ (64, max_text.size ());
+
+	unsigned length = 64;
+	ASSERT_EQ (length, min_text.size ());
+	ASSERT_EQ (length, max_text.size ());
+
 	auto previous (min_text);
 	for (auto i (1); i != 1000; ++i)
 	{
-		nano::uint256_union number (min.number () + i);
+		nano::account number (min.number () + i);
 		auto text (number.to_account ());
-		nano::uint256_union output;
+		nano::account output;
 		output.decode_account (text);
 		ASSERT_EQ (number, output);
 		ASSERT_GT (text, previous);
@@ -400,7 +411,7 @@ TEST (uint256_union, account_encode_lex)
 	{
 		nano::keypair key;
 		auto text (key.pub.to_account ());
-		nano::uint256_union output;
+		nano::account output;
 		output.decode_account (text);
 		ASSERT_EQ (key.pub, output);
 	}
@@ -408,7 +419,7 @@ TEST (uint256_union, account_encode_lex)
 
 TEST (uint256_union, bounds)
 {
-	nano::uint256_union key;
+	nano::account key;
 	std::string bad1 (64, '\x000');
 	bad1[0] = 'x';
 	bad1[1] = 'r';

@@ -1,16 +1,13 @@
 #pragma once
 
-#include <algorithm>
 #include <boost/system/error_code.hpp>
+
+#include <algorithm>
 #include <cassert>
 #include <memory>
-#include <nano/lib/expected.hpp>
 #include <string>
 #include <system_error>
 #include <type_traits>
-
-using tl::expected;
-using tl::make_unexpected;
 
 namespace nano
 {
@@ -35,6 +32,9 @@ enum class error_common
 	bad_threshold,
 	bad_wallet_number,
 	bad_work_format,
+	disabled_local_work_generation,
+	disabled_work_generation,
+	failure_work_generation,
 	missing_account,
 	missing_balance,
 	missing_link,
@@ -52,6 +52,7 @@ enum class error_common
 	invalid_work,
 	insufficient_balance,
 	numeric_conversion,
+	tracking_not_enabled,
 	wallet_lmdb_max_dbs,
 	wallet_locked,
 	wallet_not_found
@@ -74,8 +75,10 @@ enum class error_rpc
 {
 	generic = 1,
 	bad_destination,
+	bad_difficulty_format,
 	bad_key,
 	bad_link,
+	bad_multiplier_format,
 	bad_previous,
 	bad_representative_number,
 	bad_source,
@@ -88,9 +91,15 @@ enum class error_rpc
 	block_create_requirements_receive,
 	block_create_requirements_change,
 	block_create_requirements_send,
+	confirmation_height_not_processing,
 	confirmation_not_found,
+	difficulty_limit,
+	disabled_bootstrap_lazy,
+	disabled_bootstrap_legacy,
 	invalid_balance,
 	invalid_destinations,
+	invalid_epoch,
+	invalid_epoch_signer,
 	invalid_offset,
 	invalid_missing_type,
 	invalid_root,
@@ -130,62 +139,44 @@ enum class error_config
 	generic = 1,
 	invalid_value,
 	missing_value,
+	rocksdb_enabled_but_not_supported
 };
-
-/** Returns the error code if non-zero, otherwise the value */
-template <class T>
-auto either (T && value, std::error_code ec) -> expected<typename std::remove_reference_t<T>, std::error_code>
-{
-	if (ec)
-	{
-		return make_unexpected (ec);
-	}
-	else
-	{
-		return std::move (value);
-	}
-}
 } // nano namespace
 
 // Convenience macro to implement the standard boilerplate for using std::error_code with enums
 // Use this at the end of any header defining one or more error code enums.
-#define REGISTER_ERROR_CODES(namespace_name, enum_type)                                                                      \
-	namespace namespace_name                                                                                                 \
-	{                                                                                                                        \
-		static_assert (static_cast<int> (enum_type::generic) > 0, "The first error enum must be generic = 1");               \
-		class enum_type##_messages : public std::error_category                                                              \
-		{                                                                                                                    \
-		public:                                                                                                              \
-			const char * name () const noexcept override                                                                     \
-			{                                                                                                                \
-				return #enum_type;                                                                                           \
-			}                                                                                                                \
-                                                                                                                             \
-			std::string message (int ev) const override;                                                                     \
-		};                                                                                                                   \
-                                                                                                                             \
-		inline const std::error_category & enum_type##_category ()                                                           \
-		{                                                                                                                    \
-			static enum_type##_messages instance;                                                                            \
-			return instance;                                                                                                 \
-		}                                                                                                                    \
-                                                                                                                             \
-		inline std::error_code make_error_code (::namespace_name::enum_type err)                                             \
-		{                                                                                                                    \
-			return { static_cast<int> (err), enum_type##_category () };                                                      \
-		}                                                                                                                    \
-                                                                                                                             \
-		inline auto unexpected_error (::namespace_name::enum_type err) -> decltype (make_unexpected (make_error_code (err))) \
-		{                                                                                                                    \
-			return make_unexpected (make_error_code (err));                                                                  \
-		}                                                                                                                    \
-	}                                                                                                                        \
-	namespace std                                                                                                            \
-	{                                                                                                                        \
-		template <>                                                                                                          \
-		struct is_error_code_enum<::namespace_name::enum_type> : std::true_type                                              \
-		{                                                                                                                    \
-		};                                                                                                                   \
+#define REGISTER_ERROR_CODES(namespace_name, enum_type)                                                        \
+	namespace namespace_name                                                                                   \
+	{                                                                                                          \
+		static_assert (static_cast<int> (enum_type::generic) > 0, "The first error enum must be generic = 1"); \
+		class enum_type##_messages : public std::error_category                                                \
+		{                                                                                                      \
+		public:                                                                                                \
+			const char * name () const noexcept override                                                       \
+			{                                                                                                  \
+				return #enum_type;                                                                             \
+			}                                                                                                  \
+                                                                                                               \
+			std::string message (int ev) const override;                                                       \
+		};                                                                                                     \
+                                                                                                               \
+		inline const std::error_category & enum_type##_category ()                                             \
+		{                                                                                                      \
+			static enum_type##_messages instance;                                                              \
+			return instance;                                                                                   \
+		}                                                                                                      \
+                                                                                                               \
+		inline std::error_code make_error_code (::namespace_name::enum_type err)                               \
+		{                                                                                                      \
+			return { static_cast<int> (err), enum_type##_category () };                                        \
+		}                                                                                                      \
+	}                                                                                                          \
+	namespace std                                                                                              \
+	{                                                                                                          \
+		template <>                                                                                            \
+		struct is_error_code_enum<::namespace_name::enum_type> : std::true_type                                \
+		{                                                                                                      \
+		};                                                                                                     \
 	}
 
 REGISTER_ERROR_CODES (nano, error_common);
@@ -271,6 +262,11 @@ public:
 		code = code_a;
 	}
 
+	error (boost::system::error_code code_a)
+	{
+		code = std::make_error_code (static_cast<std::errc> (code_a.value ()));
+	}
+
 	error (std::string message_a)
 	{
 		code = nano::error_common::generic;
@@ -326,17 +322,6 @@ public:
 	{
 		code = nano::error_common::generic;
 		message = std::move (message_a);
-		return *this;
-	}
-
-	/** Set the error to nano::error_common::generic. */
-	error & operator= (bool is_error)
-	{
-		if (is_error)
-		{
-			code = nano::error_common::generic;
-		}
-		message.clear ();
 		return *this;
 	}
 

@@ -4,10 +4,9 @@
 
 #include <boost/thread.hpp>
 
-#include <set>
-
 #include <QtGui>
 #include <QtWidgets>
+#include <set>
 
 namespace nano_qt
 {
@@ -70,6 +69,7 @@ public:
 	QRadioButton * mnano_unit;
 	QRadioButton * knano_unit;
 	QRadioButton * nano_unit;
+	QRadioButton * raw_unit;
 	QPushButton * back;
 
 	QWidget * ledger_window;
@@ -229,7 +229,7 @@ class block_viewer
 {
 public:
 	block_viewer (nano_qt::wallet &);
-	void rebroadcast_action (nano::uint256_union const &);
+	void rebroadcast_action (nano::block_hash const &);
 	QWidget * window;
 	QVBoxLayout * layout;
 	QLabel * hash_label;
@@ -267,6 +267,7 @@ public:
 	QWidget * window;
 	QVBoxLayout * layout;
 	QPushButton * refresh;
+	QPushButton * clear;
 	QStandardItemModel * model;
 	QTableView * view;
 	QPushButton * back;

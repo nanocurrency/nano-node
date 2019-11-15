@@ -28,8 +28,8 @@ yes | yum install -y llvm-toolset-7-cmake devtoolset-7-llvm|| exit 1
 		exit 1
 	fi
 
-	if ! version_min 'boost --version' 1.65.999; then
-		echo "boost version too low (1.66.0+ required)" >&2
+	if ! version_min 'boost --version' 1.66.999; then
+		echo "boost version too low (1.67.0+ required)" >&2
 	        exit 1
 	fi
 

@@ -1,22 +1,21 @@
+#include <nano/core_test/testutil.hpp>
+#include <nano/node/common.hpp>
+#include <nano/node/node.hpp>
+
+#include <gtest/gtest.h>
+
 #include <boost/property_tree/json_parser.hpp>
 
 #include <fstream>
-
-#include <gtest/gtest.h>
-#include <nano/core_test/testutil.hpp>
-
-#include <nano/lib/interface.h>
-#include <nano/node/common.hpp>
-#include <nano/node/node.hpp>
 
 #include <crypto/ed25519-donna/ed25519.h>
 
 TEST (ed25519, signing)
 {
-	nano::uint256_union prv (0);
-	nano::uint256_union pub (nano::pub_key (prv));
+	nano::private_key prv (0);
+	auto pub (nano::pub_key (prv));
 	nano::uint256_union message (0);
-	nano::uint512_union signature;
+	nano::signature signature;
 	ed25519_sign (message.bytes.data (), sizeof (message.bytes), prv.bytes.data (), pub.bytes.data (), signature.bytes.data ());
 	auto valid1 (ed25519_sign_open (message.bytes.data (), sizeof (message.bytes), pub.bytes.data (), signature.bytes.data ()));
 	ASSERT_EQ (0, valid1);
@@ -29,7 +28,7 @@ TEST (transaction_block, empty)
 {
 	nano::keypair key1;
 	nano::send_block block (0, 1, 13, key1.prv, key1.pub, 2);
-	nano::uint256_union hash (block.hash ());
+	auto hash (block.hash ());
 	ASSERT_FALSE (nano::validate_message (key1.pub, hash, block.signature));
 	block.signature.bytes[32] ^= 0x1;
 	ASSERT_TRUE (nano::validate_message (key1.pub, hash, block.signature));
@@ -312,78 +311,6 @@ TEST (block, publish_req_serialization)
 	ASSERT_EQ (*req.block, *req2.block);
 }
 
-TEST (block, confirm_req_serialization)
-{
-	nano::keypair key1;
-	nano::keypair key2;
-	auto block (std::make_shared<nano::send_block> (0, key2.pub, 200, nano::keypair ().prv, 2, 3));
-	nano::confirm_req req (block);
-	std::vector<uint8_t> bytes;
-	{
-		nano::vectorstream stream (bytes);
-		req.serialize (stream);
-	}
-	auto error (false);
-	nano::bufferstream stream2 (bytes.data (), bytes.size ());
-	nano::message_header header (error, stream2);
-	nano::confirm_req req2 (error, stream2, header);
-	ASSERT_FALSE (error);
-	ASSERT_EQ (req, req2);
-	ASSERT_EQ (*req.block, *req2.block);
-}
-
-TEST (block, confirm_req_hash_serialization)
-{
-	nano::keypair key1;
-	nano::keypair key2;
-	nano::send_block block (1, key2.pub, 200, nano::keypair ().prv, 2, 3);
-	nano::confirm_req req (block.hash (), block.root ());
-	std::vector<uint8_t> bytes;
-	{
-		nano::vectorstream stream (bytes);
-		req.serialize (stream);
-	}
-	auto error (false);
-	nano::bufferstream stream2 (bytes.data (), bytes.size ());
-	nano::message_header header (error, stream2);
-	nano::confirm_req req2 (error, stream2, header);
-	ASSERT_FALSE (error);
-	ASSERT_EQ (req, req2);
-	ASSERT_EQ (req.roots_hashes, req2.roots_hashes);
-}
-
-TEST (block, confirm_req_hash_batch_serialization)
-{
-	nano::keypair key;
-	nano::keypair representative;
-	std::vector<std::pair<nano::block_hash, nano::block_hash>> roots_hashes;
-	nano::state_block open (key.pub, 0, representative.pub, 2, 4, key.prv, key.pub, 5);
-	roots_hashes.push_back (std::make_pair (open.hash (), open.root ()));
-	for (auto i (roots_hashes.size ()); i < 7; i++)
-	{
-		nano::keypair key1;
-		nano::keypair previous;
-		nano::state_block block (key1.pub, previous.pub, representative.pub, 2, 4, key1.prv, key1.pub, 5);
-		roots_hashes.push_back (std::make_pair (block.hash (), block.root ()));
-	}
-	roots_hashes.push_back (std::make_pair (open.hash (), open.root ()));
-	nano::confirm_req req (roots_hashes);
-	std::vector<uint8_t> bytes;
-	{
-		nano::vectorstream stream (bytes);
-		req.serialize (stream);
-	}
-	auto error (false);
-	nano::bufferstream stream2 (bytes.data (), bytes.size ());
-	nano::message_header header (error, stream2);
-	nano::confirm_req req2 (error, stream2, header);
-	ASSERT_FALSE (error);
-	ASSERT_EQ (req, req2);
-	ASSERT_EQ (req.roots_hashes, req2.roots_hashes);
-	ASSERT_EQ (req.roots_hashes, roots_hashes);
-	ASSERT_EQ (req2.roots_hashes, roots_hashes);
-}
-
 TEST (state_block, serialization)
 {
 	nano::keypair key1;
@@ -506,9 +433,29 @@ TEST (block_uniquer, cleanup)
 	}
 }
 
-TEST (block_builder, zeroed_state_block)
+TEST (block_builder, from)
 {
 	std::error_code ec;
+	nano::block_builder builder;
+	auto block = builder
+	             .state ()
+	             .account_address ("ban_15nhh1kzw3x8ohez6s75wy3jr6dqgq65oaede1fzk5hqxk4j8ehz7iqtb3to")
+	             .previous_hex ("FEFBCE274E75148AB31FF63EFB3082EF1126BF72BF3FA9C76A97FD5A9F0EBEC5")
+	             .balance_dec ("2251569974100400000000000000000000")
+	             .representative_address ("ban_1stofnrxuz3cai7ze75o174bpm7scwj9jn3nxsn8ntzg784jf1gzn1jjdkou")
+	             .link_hex ("E16DD58C1EFA8B521545B0A74375AA994D9FC43828A4266D75ECF57F07A7EE86")
+	             .build (ec);
+	ASSERT_EQ (block->hash ().to_string (), "2D243F8F92CDD0AD94A1D456A6B15F3BE7A6FCBD98D4C5831D06D15C818CD81F");
+
+	auto block2 = builder.state ().from (*block).build (ec);
+	ASSERT_EQ (block2->hash ().to_string (), "2D243F8F92CDD0AD94A1D456A6B15F3BE7A6FCBD98D4C5831D06D15C818CD81F");
+
+	auto block3 = builder.state ().from (*block).sign_zero ().work (0).build (ec);
+	ASSERT_EQ (block3->hash ().to_string (), "2D243F8F92CDD0AD94A1D456A6B15F3BE7A6FCBD98D4C5831D06D15C818CD81F");
+}
+
+TEST (block_builder, zeroed_state_block)
+{
 	nano::block_builder builder;
 	nano::keypair key;
 	// Make sure manually- and builder constructed all-zero blocks have equal hashes, and check signature.
@@ -583,7 +530,7 @@ TEST (block_builder, state_errors)
 	nano::block_builder builder;
 
 	// Ensure the proper error is generated
-	builder.state ().account_hex ("xrb_bad").build (ec);
+	builder.state ().account_hex ("ban_bad").build (ec);
 	ASSERT_EQ (ec, nano::error_common::bad_account_number);
 
 	builder.state ().zero ().account_address ("ban_1111111111111111111111111111111111111111111111111111hifc8npp").build (ec);
@@ -597,9 +544,9 @@ TEST (block_builder, open)
 	nano::block_builder builder;
 	auto block = builder
 	             .open ()
-	             .account_address ("ban_1bananobh5rat99qfgt1ptpieie5swmoth87thi74qgbfrij7dcgjiij94xr")
-	             .representative_address ("ban_1bananobh5rat99qfgt1ptpieie5swmoth87thi74qgbfrij7dcgjiij94xr")
-	             .source_hex ("2514452A978F08D1CF76BB40B6AD064183CF275D3CC5D3E0515DC96E2112AD4E")
+	             .account_address ("ban_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3")
+	             .representative_address ("ban_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3")
+	             .source_hex ("E89208DD038FBB269987689621D52292AE9C35941A7484756ECCED92A65093BA")
 	             .build (ec);
 	ASSERT_EQ (block->hash ().to_string (), "991CF190094C00F0B68E2E5F75F6BEE95A2E0BD93CEAA4A6734DB9F19B728948");
 }

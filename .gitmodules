@@ -1,16 +1,23 @@
 [submodule "miniupnp"]
 	path = miniupnp
 	url = https://github.com/miniupnp/miniupnp.git
-[submodule "lmdb"]
-	path = lmdb
-	url = https://github.com/nanocurrency/lmdb.git
-	branch = lmdb_0_9_23
 [submodule "crypto/cryptopp"]
 	path = crypto/cryptopp
 	url = https://github.com/weidai11/cryptopp.git
 [submodule "crypto/phc-winner-argon2"]
 	path = crypto/phc-winner-argon2
 	url = https://github.com/nanocurrency/phc-winner-argon2.git
-[submodule "crypto/xxhash"]
-	path = crypto/xxhash
-	url = https://github.com/Cyan4973/xxHash.git
+[submodule "gtest"]
+	path = gtest
+	url = https://github.com/google/googletest.git
+	branch = v1.8.x
+[submodule "cpptoml"]
+	path = cpptoml
+	url = https://github.com/cryptocode/cpptoml.git
+[submodule "nano-pow-server"]
+	path = nano-pow-server
+	url = https://github.com/nanocurrency/nano-pow-server.git
+[submodule "lmdb"]
+	path = lmdb
+	url = https://github.com/nanocurrency/lmdb.git
+	branch = lmdb_0_9_23

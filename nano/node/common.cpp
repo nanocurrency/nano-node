@@ -1,18 +1,27 @@
-
-#include <nano/node/common.hpp>
-
+#include <nano/lib/blocks.hpp>
+#include <nano/lib/memory.hpp>
 #include <nano/lib/work.hpp>
+#include <nano/node/common.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/wallet.hpp>
 
 #include <boost/endian/conversion.hpp>
+#include <boost/pool/pool_alloc.hpp>
 
-std::array<uint8_t, 2> constexpr nano::message_header::magic_number;
 std::bitset<16> constexpr nano::message_header::block_type_mask;
-
+std::bitset<16> constexpr nano::message_header::count_mask;
+namespace
+{
+nano::protocol_constants const & get_protocol_constants ()
+{
+	static nano::network_params params;
+	return params.protocol;
+}
+}
 nano::message_header::message_header (nano::message_type type_a) :
-version_max (nano::protocol_version),
-version_using (nano::protocol_version),
-version_min (nano::protocol_version_min),
+version_max (get_protocol_constants ().protocol_version),
+version_using (get_protocol_constants ().protocol_version),
+version_min (get_protocol_constants ().protocol_version_min),
 type (type_a)
 {
 }
@@ -27,7 +36,8 @@ nano::message_header::message_header (bool & error_a, nano::stream & stream_a)
 
 void nano::message_header::serialize (nano::stream & stream_a) const
 {
-	nano::write (stream_a, nano::message_header::magic_number);
+	static nano::network_params network_params;
+	nano::write (stream_a, network_params.header_magic_number);
 	nano::write (stream_a, version_max);
 	nano::write (stream_a, version_using);
 	nano::write (stream_a, version_min);
@@ -37,13 +47,14 @@ void nano::message_header::serialize (nano::stream & stream_a) const
 
 bool nano::message_header::deserialize (nano::stream & stream_a)
 {
-	uint16_t extensions_l;
-	std::array<uint8_t, 2> magic_number_l;
 	auto error (false);
 	try
 	{
+		static nano::network_params network_params;
+		uint16_t extensions_l;
+		std::array<uint8_t, 2> magic_number_l;
 		read (stream_a, magic_number_l);
-		if (magic_number_l != magic_number)
+		if (magic_number_l != network_params.header_magic_number)
 		{
 			throw std::runtime_error ("Magic numbers do not match");
 		}
@@ -84,6 +95,25 @@ void nano::message_header::block_type_set (nano::block_type type_a)
 	extensions |= std::bitset<16> (static_cast<unsigned long long> (type_a) << 8);
 }
 
+uint8_t nano::message_header::count_get () const
+{
+	return static_cast<uint8_t> (((extensions & count_mask) >> 12).to_ullong ());
+}
+
+void nano::message_header::count_set (uint8_t count_a)
+{
+	assert (count_a < 16);
+	extensions &= ~count_mask;
+	extensions |= std::bitset<16> (static_cast<unsigned long long> (count_a) << 12);
+}
+
+void nano::message_header::flag_set (uint8_t flag_a)
+{
+	// Flags from 8 are block_type & count
+	assert (flag_a < 8);
+	extensions.set (flag_a, true);
+}
+
 bool nano::message_header::bulk_pull_is_count_present () const
 {
 	auto result (false);
@@ -94,7 +124,32 @@ bool nano::message_header::bulk_pull_is_count_present () const
 			result = true;
 		}
 	}
+	return result;
+}
 
+bool nano::message_header::node_id_handshake_is_query () const
+{
+	auto result (false);
+	if (type == nano::message_type::node_id_handshake)
+	{
+		if (extensions.test (node_id_handshake_query_flag))
+		{
+			result = true;
+		}
+	}
+	return result;
+}
+
+bool nano::message_header::node_id_handshake_is_response () const
+{
+	auto result (false);
+	if (type == nano::message_type::node_id_handshake)
+	{
+		if (extensions.test (node_id_handshake_response_flag))
+		{
+			result = true;
+		}
+	}
 	return result;
 }
 
@@ -123,8 +178,22 @@ size_t nano::message_header::payload_length_bytes () const
 		{
 			return nano::keepalive::size;
 		}
-		// Add realtime network messages once they get framing support; currently the
-		// realtime messages all fit in a datagram from which they're deserialized.
+		case nano::message_type::publish:
+		{
+			return nano::block::size (block_type ());
+		}
+		case nano::message_type::confirm_ack:
+		{
+			return nano::confirm_ack::size (block_type (), count_get ());
+		}
+		case nano::message_type::confirm_req:
+		{
+			return nano::confirm_req::size (block_type (), count_get ());
+		}
+		case nano::message_type::node_id_handshake:
+		{
+			return nano::node_id_handshake::size (*this);
+		}
 		default:
 		{
 			assert (false);
@@ -206,6 +275,7 @@ status (parse_status::success)
 
 void nano::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t size_a)
 {
+	static nano::network_constants network_constants;
 	status = parse_status::success;
 	auto error (false);
 	if (size_a <= max_safe_udp_message_size)
@@ -215,21 +285,9 @@ void nano::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t 
 		nano::message_header header (error, stream);
 		if (!error)
 		{
-			if (nano::is_beta_network && header.version_using < nano::protocol_version_reasonable_min)
+			if (header.version_using < get_protocol_constants ().protocol_version_min)
 			{
 				status = parse_status::outdated_version;
-			}
-			else if (header.version_using < nano::protocol_version_min)
-			{
-				status = parse_status::outdated_version;
-			}
-			else if (!header.valid_magic ())
-			{
-				status = parse_status::invalid_magic;
-			}
-			else if (!header.valid_network ())
-			{
-				status = parse_status::invalid_network;
 			}
 			else
 			{
@@ -498,21 +556,26 @@ block (block_a)
 {
 	header.block_type_set (block->type ());
 }
-nano::confirm_req::confirm_req (std::vector<std::pair<nano::block_hash, nano::block_hash>> const & roots_hashes_a) :
+
+nano::confirm_req::confirm_req (std::vector<std::pair<nano::block_hash, nano::root>> const & roots_hashes_a) :
 message (nano::message_type::confirm_req),
 roots_hashes (roots_hashes_a)
 {
 	// not_a_block (1) block type for hashes + roots request
 	header.block_type_set (nano::block_type::not_a_block);
+	assert (roots_hashes.size () < 16);
+	header.count_set (static_cast<uint8_t> (roots_hashes.size ()));
 }
 
-nano::confirm_req::confirm_req (nano::block_hash const & hash_a, nano::block_hash const & root_a) :
+nano::confirm_req::confirm_req (nano::block_hash const & hash_a, nano::root const & root_a) :
 message (nano::message_type::confirm_req),
-roots_hashes (std::vector<std::pair<nano::block_hash, nano::block_hash>> (1, std::make_pair (hash_a, root_a)))
+roots_hashes (std::vector<std::pair<nano::block_hash, nano::root>> (1, std::make_pair (hash_a, root_a)))
 {
 	assert (!roots_hashes.empty ());
 	// not_a_block (1) block type for hashes + roots request
 	header.block_type_set (nano::block_type::not_a_block);
+	assert (roots_hashes.size () < 16);
+	header.count_set (static_cast<uint8_t> (roots_hashes.size ()));
 }
 
 void nano::confirm_req::visit (nano::message_visitor & visitor_a) const
@@ -526,10 +589,6 @@ void nano::confirm_req::serialize (nano::stream & stream_a) const
 	if (header.block_type () == nano::block_type::not_a_block)
 	{
 		assert (!roots_hashes.empty ());
-		// Calculate size
-		assert (roots_hashes.size () <= 32);
-		auto count = static_cast<uint8_t> (roots_hashes.size ());
-		write (stream_a, count);
 		// Write hashes & roots
 		for (auto & root_hash : roots_hashes)
 		{
@@ -552,20 +611,16 @@ bool nano::confirm_req::deserialize (nano::stream & stream_a, nano::block_unique
 	{
 		if (header.block_type () == nano::block_type::not_a_block)
 		{
-			uint8_t count (0);
-			read (stream_a, count);
+			uint8_t count (header.count_get ());
 			for (auto i (0); i != count && !result; ++i)
 			{
 				nano::block_hash block_hash (0);
 				nano::block_hash root (0);
 				read (stream_a, block_hash);
-				if (!block_hash.is_zero ())
+				read (stream_a, root);
+				if (!block_hash.is_zero () || !root.is_zero ())
 				{
-					read (stream_a, root);
-					if (!root.is_zero ())
-					{
-						roots_hashes.push_back (std::make_pair (block_hash, root));
-					}
+					roots_hashes.emplace_back (block_hash, root);
 				}
 			}
 
@@ -577,7 +632,7 @@ bool nano::confirm_req::deserialize (nano::stream & stream_a, nano::block_unique
 			result = block == nullptr;
 		}
 	}
-	catch (const std::runtime_error & error)
+	catch (const std::runtime_error &)
 	{
 		result = true;
 	}
@@ -612,9 +667,23 @@ std::string nano::confirm_req::roots_string () const
 	return result;
 }
 
+size_t nano::confirm_req::size (nano::block_type type_a, size_t count)
+{
+	size_t result (0);
+	if (type_a != nano::block_type::invalid && type_a != nano::block_type::not_a_block)
+	{
+		result = nano::block::size (type_a);
+	}
+	else if (type_a == nano::block_type::not_a_block)
+	{
+		result = count * (sizeof (nano::uint256_union) + sizeof (nano::block_hash));
+	}
+	return result;
+}
+
 nano::confirm_ack::confirm_ack (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a, nano::vote_uniquer * uniquer_a) :
 message (header_a),
-vote (std::make_shared<nano::vote> (error_a, stream_a, header.block_type ()))
+vote (nano::make_shared<nano::vote> (error_a, stream_a, header.block_type ()))
 {
 	if (!error_a && uniquer_a)
 	{
@@ -631,6 +700,8 @@ vote (vote_a)
 	if (first_vote_block.which ())
 	{
 		header.block_type_set (nano::block_type::not_a_block);
+		assert (vote_a->blocks.size () < 16);
+		header.count_set (static_cast<uint8_t> (vote_a->blocks.size ()));
 	}
 	else
 	{
@@ -654,6 +725,20 @@ bool nano::confirm_ack::operator== (nano::confirm_ack const & other_a) const
 void nano::confirm_ack::visit (nano::message_visitor & visitor_a) const
 {
 	visitor_a.confirm_ack (*this);
+}
+
+size_t nano::confirm_ack::size (nano::block_type type_a, size_t count)
+{
+	size_t result (sizeof (nano::account) + sizeof (nano::signature) + sizeof (uint64_t));
+	if (type_a != nano::block_type::invalid && type_a != nano::block_type::not_a_block)
+	{
+		result += nano::block::size (type_a);
+	}
+	else if (type_a == nano::block_type::not_a_block)
+	{
+		result += count * sizeof (nano::block_hash);
+	}
+	return result;
 }
 
 nano::frontier_req::frontier_req () :
@@ -707,14 +792,12 @@ bool nano::frontier_req::operator== (nano::frontier_req const & other_a) const
 }
 
 nano::bulk_pull::bulk_pull () :
-message (nano::message_type::bulk_pull),
-count (0)
+message (nano::message_type::bulk_pull)
 {
 }
 
 nano::bulk_pull::bulk_pull (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a) :
-message (header_a),
-count (0)
+message (header_a)
 {
 	if (!error_a)
 	{
@@ -875,9 +958,6 @@ void nano::bulk_push::visit (nano::message_visitor & visitor_a) const
 	visitor_a.bulk_push (*this);
 }
 
-size_t constexpr nano::node_id_handshake::query_flag;
-size_t constexpr nano::node_id_handshake::response_flag;
-
 nano::node_id_handshake::node_id_handshake (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a) :
 message (header_a),
 query (boost::none),
@@ -893,11 +973,11 @@ response (response)
 {
 	if (query)
 	{
-		set_query_flag (true);
+		header.flag_set (nano::message_header::node_id_handshake_query_flag);
 	}
 	if (response)
 	{
-		set_response_flag (true);
+		header.flag_set (nano::message_header::node_id_handshake_response_flag);
 	}
 }
 
@@ -921,14 +1001,14 @@ bool nano::node_id_handshake::deserialize (nano::stream & stream_a)
 	auto error (false);
 	try
 	{
-		if (is_query_flag ())
+		if (header.node_id_handshake_is_query ())
 		{
 			nano::uint256_union query_hash;
 			read (stream_a, query_hash);
 			query = query_hash;
 		}
 
-		if (is_response_flag ())
+		if (header.node_id_handshake_is_response ())
 		{
 			nano::account response_account;
 			read (stream_a, response_account);
@@ -951,29 +1031,28 @@ bool nano::node_id_handshake::operator== (nano::node_id_handshake const & other_
 	return result;
 }
 
-bool nano::node_id_handshake::is_query_flag () const
-{
-	return header.extensions.test (query_flag);
-}
-
-void nano::node_id_handshake::set_query_flag (bool value_a)
-{
-	header.extensions.set (query_flag, value_a);
-}
-
-bool nano::node_id_handshake::is_response_flag () const
-{
-	return header.extensions.test (response_flag);
-}
-
-void nano::node_id_handshake::set_response_flag (bool value_a)
-{
-	header.extensions.set (response_flag, value_a);
-}
-
 void nano::node_id_handshake::visit (nano::message_visitor & visitor_a) const
 {
 	visitor_a.node_id_handshake (*this);
+}
+
+size_t nano::node_id_handshake::size () const
+{
+	return size (header);
+}
+
+size_t nano::node_id_handshake::size (nano::message_header const & header_a)
+{
+	size_t result (0);
+	if (header_a.node_id_handshake_is_query ())
+	{
+		result = sizeof (nano::uint256_union);
+	}
+	if (header_a.node_id_handshake_is_response ())
+	{
+		result += sizeof (nano::account) + sizeof (nano::signature);
+	}
+	return result;
 }
 
 nano::message_visitor::~message_visitor ()
@@ -1058,4 +1137,9 @@ bool nano::parse_tcp_endpoint (std::string const & string, nano::tcp_endpoint & 
 		endpoint_a = nano::tcp_endpoint (address, port);
 	}
 	return result;
+}
+
+nano::node_singleton_memory_pool_purge_guard::node_singleton_memory_pool_purge_guard () :
+cleanup_guard ({ nano::block_memory_pool_purge, nano::purge_singleton_pool_memory<nano::vote>, nano::purge_singleton_pool_memory<nano::election> })
+{
 }

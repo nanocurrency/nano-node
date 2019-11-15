@@ -40,6 +40,7 @@ if [ ! %{buildroot} = "/" ]; then %{__rm} -rf %{buildroot}; fi
 mkdir -p %{buildroot}/usr/bin
 mkdir -p %{buildroot}/etc/systemd/system/
 cp nano_node %{buildroot}/usr/bin/nano_node
+cp nano_rpc %{buildroot}/usr/bin/nano_rpc
 cp etc/systemd/nanocurrency.service %{buildroot}/etc/systemd/system/nanocurrency.service
 
 %clean

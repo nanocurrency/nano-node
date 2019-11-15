@@ -1,6 +1,6 @@
-#include <boost/filesystem.hpp>
-
 #include <nano/lib/utility.hpp>
+
+#include <boost/filesystem.hpp>
 
 #include <sys/stat.h>
 #include <sys/types.h>

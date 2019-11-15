@@ -1,18 +1,16 @@
-#include <nano/node/common.hpp>
-#include <nano/node/wallet.hpp>
 #include <nano/secure/blockstore.hpp>
 
+#include <boost/endian/conversion.hpp>
 #include <boost/polymorphic_cast.hpp>
 
-#include <boost/endian/conversion.hpp>
-
-nano::block_sideband::block_sideband (nano::block_type type_a, nano::account const & account_a, nano::block_hash const & successor_a, nano::amount const & balance_a, uint64_t height_a, uint64_t timestamp_a) :
+nano::block_sideband::block_sideband (nano::block_type type_a, nano::account const & account_a, nano::block_hash const & successor_a, nano::amount const & balance_a, uint64_t height_a, uint64_t timestamp_a, nano::epoch epoch_a) :
 type (type_a),
 successor (successor_a),
 account (account_a),
 balance (balance_a),
 height (height_a),
-timestamp (timestamp_a)
+timestamp (timestamp_a),
+epoch (epoch_a)
 {
 }
 
@@ -33,6 +31,10 @@ size_t nano::block_sideband::size (nano::block_type type_a)
 		result += sizeof (balance);
 	}
 	result += sizeof (timestamp);
+	if (type_a == nano::block_type::state)
+	{
+		result += sizeof (epoch);
+	}
 	return result;
 }
 
@@ -52,6 +54,10 @@ void nano::block_sideband::serialize (nano::stream & stream_a) const
 		nano::write (stream_a, balance.bytes);
 	}
 	nano::write (stream_a, boost::endian::native_to_big (timestamp));
+	if (type == nano::block_type::state)
+	{
+		nano::write (stream_a, epoch);
+	}
 }
 
 bool nano::block_sideband::deserialize (nano::stream & stream_a)
@@ -79,6 +85,10 @@ bool nano::block_sideband::deserialize (nano::stream & stream_a)
 		}
 		nano::read (stream_a, timestamp);
 		boost::endian::big_to_native_inplace (timestamp);
+		if (type == nano::block_type::state)
+		{
+			nano::read (stream_a, epoch);
+		}
 	}
 	catch (std::runtime_error &)
 	{
@@ -88,9 +98,10 @@ bool nano::block_sideband::deserialize (nano::stream & stream_a)
 	return result;
 }
 
-nano::summation_visitor::summation_visitor (nano::transaction const & transaction_a, nano::block_store & store_a) :
+nano::summation_visitor::summation_visitor (nano::transaction const & transaction_a, nano::block_store const & store_a, bool is_v14_upgrade_a) :
 transaction (transaction_a),
-store (store_a)
+store (store_a),
+is_v14_upgrade (is_v14_upgrade_a)
 {
 }
 
@@ -153,13 +164,13 @@ void nano::summation_visitor::open_block (nano::open_block const & block_a)
 	assert (current->type != summation_type::invalid && current != nullptr);
 	if (current->type == summation_type::amount)
 	{
-		if (block_a.hashables.source != nano::genesis_account)
+		if (block_a.hashables.source != network_params.ledger.genesis_account)
 		{
 			current->amount_hash = block_a.hashables.source;
 		}
 		else
 		{
-			sum_set (nano::genesis_amount);
+			sum_set (network_params.ledger.genesis_amount);
 			current->amount_hash = 0;
 		}
 	}
@@ -223,7 +234,7 @@ nano::uint128_t nano::summation_visitor::compute_internal (nano::summation_visit
 	 compiler optimizing that into a loop, though a future alternative is to do a
 	 CPS-style implementation to enforce tail calls.)
 	*/
-	while (frames.size () > 0)
+	while (!frames.empty ())
 	{
 		current = &frames.top ();
 		assert (current->type != summation_type::invalid && current != nullptr);
@@ -247,7 +258,7 @@ nano::uint128_t nano::summation_visitor::compute_internal (nano::summation_visit
 				}
 				else
 				{
-					auto block (store.block_get (transaction, current->balance_hash));
+					auto block (block_get (transaction, current->balance_hash));
 					assert (block != nullptr);
 					block->visit (*this);
 				}
@@ -267,16 +278,16 @@ nano::uint128_t nano::summation_visitor::compute_internal (nano::summation_visit
 			{
 				if (!current->amount_hash.is_zero ())
 				{
-					auto block (store.block_get (transaction, current->amount_hash));
+					auto block = block_get (transaction, current->amount_hash);
 					if (block != nullptr)
 					{
 						block->visit (*this);
 					}
 					else
 					{
-						if (current->amount_hash == nano::genesis_account)
+						if (current->amount_hash == network_params.ledger.genesis_account)
 						{
-							sum_set (std::numeric_limits<nano::uint128_t>::max ());
+							sum_set ((std::numeric_limits<nano::uint128_t>::max) ());
 							current->amount_hash = 0;
 						}
 						else
@@ -308,7 +319,7 @@ void nano::summation_visitor::epilogue ()
 	if (!current->awaiting_result)
 	{
 		frames.pop ();
-		if (frames.size () > 0)
+		if (!frames.empty ())
 		{
 			frames.top ().incoming_result = current->sum;
 		}
@@ -323,6 +334,11 @@ nano::uint128_t nano::summation_visitor::compute_amount (nano::block_hash const 
 nano::uint128_t nano::summation_visitor::compute_balance (nano::block_hash const & block_hash)
 {
 	return compute_internal (summation_type::balance, block_hash);
+}
+
+std::shared_ptr<nano::block> nano::summation_visitor::block_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
+{
+	return is_v14_upgrade ? store.block_get_v14 (transaction, hash_a) : store.block_get (transaction, hash_a);
 }
 
 nano::representative_visitor::representative_visitor (nano::transaction const & transaction_a, nano::block_store & store_a) :
@@ -366,4 +382,59 @@ void nano::representative_visitor::change_block (nano::change_block const & bloc
 void nano::representative_visitor::state_block (nano::state_block const & block_a)
 {
 	result = block_a.hash ();
+}
+
+nano::read_transaction::read_transaction (std::unique_ptr<nano::read_transaction_impl> read_transaction_impl) :
+impl (std::move (read_transaction_impl))
+{
+}
+
+void * nano::read_transaction::get_handle () const
+{
+	return impl->get_handle ();
+}
+
+void nano::read_transaction::reset () const
+{
+	impl->reset ();
+}
+
+void nano::read_transaction::renew () const
+{
+	impl->renew ();
+}
+
+void nano::read_transaction::refresh () const
+{
+	reset ();
+	renew ();
+}
+
+nano::write_transaction::write_transaction (std::unique_ptr<nano::write_transaction_impl> write_transaction_impl) :
+impl (std::move (write_transaction_impl))
+{
+	/*
+	 * For IO threads, we do not want them to block on creating write transactions.
+	 */
+	assert (nano::thread_role::get () != nano::thread_role::name::io);
+}
+
+void * nano::write_transaction::get_handle () const
+{
+	return impl->get_handle ();
+}
+
+void nano::write_transaction::commit () const
+{
+	impl->commit ();
+}
+
+void nano::write_transaction::renew ()
+{
+	impl->renew ();
+}
+
+bool nano::write_transaction::contains (nano::tables table_a) const
+{
+	return impl->contains (table_a);
 }

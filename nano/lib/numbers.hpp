@@ -1,35 +1,11 @@
 #pragma once
 
-#include <boost/multiprecision/cpp_int.hpp>
-
 #include <crypto/cryptopp/osrng.h>
+
+#include <boost/multiprecision/cpp_int.hpp>
 
 namespace nano
 {
-/** While this uses CryptoPP do not call any of these functions from global scope, as they depend on global variables inside the CryptoPP library which may not have been initialized yet due to an undefined order for globals in different translation units. To make sure this is not an issue, there should be no ASAN warnings at startup on Mac/Clang in the CryptoPP files. */
-class random_pool
-{
-public:
-	static void generate_block (unsigned char * output, size_t size);
-	static unsigned generate_word32 (unsigned min, unsigned max);
-	static unsigned char generate_byte ();
-
-	template <class Iter>
-	static void shuffle (Iter begin, Iter end)
-	{
-		std::lock_guard<std::mutex> lk (mutex);
-		pool.Shuffle (begin, end);
-	}
-
-	random_pool () = delete;
-	random_pool (random_pool const &) = delete;
-	random_pool & operator= (random_pool const &) = delete;
-
-private:
-	static std::mutex mutex;
-	static CryptoPP::AutoSeededRandomPool pool;
-};
-
 using uint128_t = boost::multiprecision::uint128_t;
 using uint256_t = boost::multiprecision::uint256_t;
 using uint512_t = boost::multiprecision::uint512_t;
@@ -37,11 +13,9 @@ using uint512_t = boost::multiprecision::uint512_t;
 nano::uint128_t const kBAN_ratio = nano::uint128_t ("100000000000000000000000000000000"); // 10^32
 nano::uint128_t const BAN_ratio = nano::uint128_t ("100000000000000000000000000000"); // 10^29
 nano::uint128_t const banoshi_ratio = nano::uint128_t ("1000000000000000000000000000"); // 10^27
-nano::uint128_t const RAW_ratio = nano::uint128_t ("1"); // 10^0
-nano::uint128_t const mBAN_ratio = nano::uint128_t ("100000000000000000000000000"); // 10^26
-nano::uint128_t const uBAN_ratio = nano::uint128_t ("100000000000000000000000"); // 10^23
+nano::uint128_t const raw_ratio = nano::uint128_t ("1"); // 10^0
 
-union uint128_union
+class uint128_union
 {
 public:
 	uint128_union () = default;
@@ -51,7 +25,6 @@ public:
 	 */
 	uint128_union (std::string const &);
 	uint128_union (uint64_t);
-	uint128_union (nano::uint128_union const &) = default;
 	uint128_union (nano::uint128_t const &);
 	bool operator== (nano::uint128_union const &) const;
 	bool operator!= (nano::uint128_union const &) const;
@@ -60,7 +33,8 @@ public:
 	void encode_hex (std::string &) const;
 	bool decode_hex (std::string const &);
 	void encode_dec (std::string &) const;
-	bool decode_dec (std::string const &);
+	bool decode_dec (std::string const &, bool = false);
+	bool decode_dec (std::string const &, nano::uint128_t);
 	std::string format_balance (nano::uint128_t scale, int precision, bool group_digits);
 	std::string format_balance (nano::uint128_t scale, int precision, bool group_digits, const std::locale & locale);
 	nano::uint128_t number () const;
@@ -68,16 +42,26 @@ public:
 	bool is_zero () const;
 	std::string to_string () const;
 	std::string to_string_dec () const;
-	std::array<uint8_t, 16> bytes;
-	std::array<char, 16> chars;
-	std::array<uint32_t, 4> dwords;
-	std::array<uint64_t, 2> qwords;
+	union
+	{
+		std::array<uint8_t, 16> bytes;
+		std::array<char, 16> chars;
+		std::array<uint32_t, 4> dwords;
+		std::array<uint64_t, 2> qwords;
+	};
 };
+static_assert (std::is_nothrow_move_constructible<uint128_union>::value, "uint128_union should be noexcept MoveConstructible");
+
 // Balances are 128 bit.
-using amount = uint128_union;
-class raw_key;
-union uint256_union
+class amount : public uint128_union
 {
+public:
+	using uint128_union::uint128_union;
+};
+class raw_key;
+class uint256_union
+{
+public:
 	uint256_union () = default;
 	/**
 	 * Decode from hex string
@@ -96,37 +80,125 @@ union uint256_union
 	bool decode_hex (std::string const &);
 	void encode_dec (std::string &) const;
 	bool decode_dec (std::string const &);
-	void encode_account (std::string &) const;
-	std::string to_account () const;
-	bool decode_account (std::string const &);
-	std::array<uint8_t, 32> bytes;
-	std::array<char, 32> chars;
-	std::array<uint32_t, 8> dwords;
-	std::array<uint64_t, 4> qwords;
-	std::array<uint128_union, 2> owords;
+
 	void clear ();
 	bool is_zero () const;
 	std::string to_string () const;
 	nano::uint256_t number () const;
+
+	union
+	{
+		std::array<uint8_t, 32> bytes;
+		std::array<char, 32> chars;
+		std::array<uint32_t, 8> dwords;
+		std::array<uint64_t, 4> qwords;
+		std::array<uint128_union, 2> owords;
+	};
 };
+static_assert (std::is_nothrow_move_constructible<uint256_union>::value, "uint256_union should be noexcept MoveConstructible");
+
+class link;
+class root;
+class hash_or_account;
+
 // All keys and hashes are 256 bit.
-using block_hash = uint256_union;
-using account = uint256_union;
-using public_key = uint256_union;
-using private_key = uint256_union;
-using secret_key = uint256_union;
-class raw_key
+class block_hash final : public uint256_union
 {
 public:
-	raw_key () = default;
+	using uint256_union::uint256_union;
+	operator nano::link const & () const;
+	operator nano::root const & () const;
+	operator nano::hash_or_account const & () const;
+};
+
+class public_key final : public uint256_union
+{
+public:
+	using uint256_union::uint256_union;
+
+	std::string to_node_id () const;
+	void encode_account (std::string &) const;
+	std::string to_account () const;
+	bool decode_account (std::string const &);
+
+	operator nano::link const & () const;
+	operator nano::root const & () const;
+	operator nano::hash_or_account const & () const;
+};
+
+class wallet_id : public uint256_union
+{
+	using uint256_union::uint256_union;
+};
+
+// These are synonymous
+using account = public_key;
+
+class hash_or_account
+{
+public:
+	hash_or_account () = default;
+	hash_or_account (uint64_t value_a);
+
+	bool is_zero () const;
+	void clear ();
+	std::string to_string () const;
+	bool decode_hex (std::string const &);
+	bool decode_account (std::string const &);
+	std::string to_account () const;
+
+	operator nano::block_hash const & () const;
+	operator nano::account const & () const;
+	operator nano::uint256_union const & () const;
+
+	bool operator== (nano::hash_or_account const &) const;
+	bool operator!= (nano::hash_or_account const &) const;
+
+	union
+	{
+		std::array<uint8_t, 32> bytes;
+		nano::uint256_union raw; // This can be used when you don't want to explicitly mention either of the types
+		nano::account account;
+		nano::block_hash hash;
+	};
+};
+
+// A link can either be a destination account or source hash
+class link final : public hash_or_account
+{
+public:
+	using hash_or_account::hash_or_account;
+};
+
+// A root can either be an open block hash or a previous hash
+class root final : public hash_or_account
+{
+public:
+	using hash_or_account::hash_or_account;
+
+	nano::block_hash const & previous () const;
+};
+
+class private_key : public uint256_union
+{
+public:
+	using uint256_union::uint256_union;
+};
+
+// The seed or private key
+class raw_key final
+{
+public:
 	~raw_key ();
 	void decrypt (nano::uint256_union const &, nano::raw_key const &, uint128_union const &);
 	bool operator== (nano::raw_key const &) const;
 	bool operator!= (nano::raw_key const &) const;
+	nano::private_key const & as_private_key () const;
 	nano::uint256_union data;
 };
-union uint512_union
+class uint512_union
 {
+public:
 	uint512_union () = default;
 	uint512_union (nano::uint256_union const &, nano::uint256_union const &);
 	uint512_union (nano::uint512_t const &);
@@ -135,23 +207,63 @@ union uint512_union
 	nano::uint512_union & operator^= (nano::uint512_union const &);
 	void encode_hex (std::string &) const;
 	bool decode_hex (std::string const &);
-	std::array<uint8_t, 64> bytes;
-	std::array<uint32_t, 16> dwords;
-	std::array<uint64_t, 8> qwords;
-	std::array<uint256_union, 2> uint256s;
 	void clear ();
 	bool is_zero () const;
 	nano::uint512_t number () const;
 	std::string to_string () const;
-};
-// Only signatures are 512 bit.
-using signature = uint512_union;
 
-nano::uint512_union sign_message (nano::raw_key const &, nano::public_key const &, nano::uint256_union const &);
-bool validate_message (nano::public_key const &, nano::uint256_union const &, nano::uint512_union const &);
+	union
+	{
+		std::array<uint8_t, 64> bytes;
+		std::array<uint32_t, 16> dwords;
+		std::array<uint64_t, 8> qwords;
+		std::array<uint256_union, 2> uint256s;
+	};
+};
+static_assert (std::is_nothrow_move_constructible<uint512_union>::value, "uint512_union should be noexcept MoveConstructible");
+
+class signature : public uint512_union
+{
+public:
+	using uint512_union::uint512_union;
+};
+
+class qualified_root : public uint512_union
+{
+public:
+	using uint512_union::uint512_union;
+
+	nano::block_hash const & previous () const
+	{
+		return reinterpret_cast<nano::block_hash const &> (uint256s[0]);
+	}
+	nano::root const & root () const
+	{
+		return reinterpret_cast<nano::root const &> (uint256s[1]);
+	}
+};
+
+nano::signature sign_message (nano::raw_key const &, nano::public_key const &, nano::uint256_union const &);
+bool validate_message (nano::public_key const &, nano::uint256_union const &, nano::signature const &);
 bool validate_message_batch (const unsigned char **, size_t *, const unsigned char **, const unsigned char **, size_t, int *);
-void deterministic_key (nano::uint256_union const &, uint32_t, nano::uint256_union &);
+nano::private_key deterministic_key (nano::raw_key const &, uint32_t);
 nano::public_key pub_key (nano::private_key const &);
+
+/* Conversion methods */
+std::string to_string_hex (uint64_t const);
+bool from_string_hex (std::string const &, uint64_t &);
+
+/**
+ * Convert a double to string in fixed format
+ * @param precision_a (optional) use a specific precision (default is the maximum)
+ */
+std::string to_string (double const, int const precision_a = std::numeric_limits<double>::digits10);
+
+namespace difficulty
+{
+	uint64_t from_multiplier (double const, uint64_t const);
+	double to_multiplier (uint64_t const, uint64_t const);
+}
 }
 
 namespace std
@@ -162,6 +274,46 @@ struct hash<::nano::uint256_union>
 	size_t operator() (::nano::uint256_union const & data_a) const
 	{
 		return *reinterpret_cast<size_t const *> (data_a.bytes.data ());
+	}
+};
+template <>
+struct hash<::nano::account>
+{
+	size_t operator() (::nano::account const & data_a) const
+	{
+		return hash<::nano::uint256_union> () (data_a);
+	}
+};
+template <>
+struct hash<::nano::block_hash>
+{
+	size_t operator() (::nano::block_hash const & data_a) const
+	{
+		return hash<::nano::uint256_union> () (data_a);
+	}
+};
+template <>
+struct hash<::nano::private_key>
+{
+	size_t operator() (::nano::private_key const & data_a) const
+	{
+		return hash<::nano::uint256_union> () (data_a);
+	}
+};
+template <>
+struct hash<::nano::root>
+{
+	size_t operator() (::nano::root const & data_a) const
+	{
+		return hash<::nano::uint256_union> () (data_a);
+	}
+};
+template <>
+struct hash<::nano::wallet_id>
+{
+	size_t operator() (::nano::wallet_id const & data_a) const
+	{
+		return hash<::nano::uint256_union> () (data_a);
 	}
 };
 template <>
@@ -176,6 +328,14 @@ template <>
 struct hash<::nano::uint512_union>
 {
 	size_t operator() (::nano::uint512_union const & data_a) const
+	{
+		return *reinterpret_cast<size_t const *> (data_a.bytes.data ());
+	}
+};
+template <>
+struct hash<::nano::qualified_root>
+{
+	size_t operator() (::nano::qualified_root const & data_a) const
 	{
 		return *reinterpret_cast<size_t const *> (data_a.bytes.data ());
 	}

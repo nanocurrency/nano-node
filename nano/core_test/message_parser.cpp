@@ -1,22 +1,12 @@
-#include <gtest/gtest.h>
 #include <nano/node/testing.hpp>
+
+#include <gtest/gtest.h>
 
 namespace
 {
 class test_visitor : public nano::message_visitor
 {
 public:
-	test_visitor () :
-	keepalive_count (0),
-	publish_count (0),
-	confirm_req_count (0),
-	confirm_ack_count (0),
-	bulk_pull_count (0),
-	bulk_pull_account_count (0),
-	bulk_push_count (0),
-	frontier_req_count (0)
-	{
-	}
 	void keepalive (nano::keepalive const &) override
 	{
 		++keepalive_count;
@@ -53,15 +43,15 @@ public:
 	{
 		++node_id_handshake_count;
 	}
-	uint64_t keepalive_count;
-	uint64_t publish_count;
-	uint64_t confirm_req_count;
-	uint64_t confirm_ack_count;
-	uint64_t bulk_pull_count;
-	uint64_t bulk_pull_account_count;
-	uint64_t bulk_push_count;
-	uint64_t frontier_req_count;
-	uint64_t node_id_handshake_count;
+	uint64_t keepalive_count{ 0 };
+	uint64_t publish_count{ 0 };
+	uint64_t confirm_req_count{ 0 };
+	uint64_t confirm_ack_count{ 0 };
+	uint64_t bulk_pull_count{ 0 };
+	uint64_t bulk_pull_account_count{ 0 };
+	uint64_t bulk_push_count{ 0 };
+	uint64_t frontier_req_count{ 0 };
+	uint64_t node_id_handshake_count{ 0 };
 };
 }
 
@@ -72,7 +62,7 @@ TEST (message_parser, exact_confirm_ack_size)
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer (block_uniquer);
 	nano::message_parser parser (block_uniquer, vote_uniquer, visitor, system.work);
-	auto block (std::make_shared<nano::send_block> (1, 1, 2, nano::keypair ().prv, 4, system.work.generate (1)));
+	auto block (std::make_shared<nano::send_block> (1, 1, 2, nano::keypair ().prv, 4, *system.work.generate (nano::root (1))));
 	auto vote (std::make_shared<nano::vote> (0, nano::keypair ().prv, 0, std::move (block)));
 	nano::confirm_ack message (vote);
 	std::vector<uint8_t> bytes;
@@ -105,7 +95,7 @@ TEST (message_parser, exact_confirm_req_size)
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer (block_uniquer);
 	nano::message_parser parser (block_uniquer, vote_uniquer, visitor, system.work);
-	auto block (std::make_shared<nano::send_block> (1, 1, 2, nano::keypair ().prv, 4, system.work.generate (1)));
+	auto block (std::make_shared<nano::send_block> (1, 1, 2, nano::keypair ().prv, 4, *system.work.generate (nano::root (1))));
 	nano::confirm_req message (std::move (block));
 	std::vector<uint8_t> bytes;
 	{
@@ -137,7 +127,7 @@ TEST (message_parser, exact_confirm_req_hash_size)
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer (block_uniquer);
 	nano::message_parser parser (block_uniquer, vote_uniquer, visitor, system.work);
-	nano::send_block block (1, 1, 2, nano::keypair ().prv, 4, system.work.generate (1));
+	nano::send_block block (1, 1, 2, nano::keypair ().prv, 4, *system.work.generate (nano::root (1)));
 	nano::confirm_req message (block.hash (), block.root ());
 	std::vector<uint8_t> bytes;
 	{
@@ -169,7 +159,7 @@ TEST (message_parser, exact_publish_size)
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer (block_uniquer);
 	nano::message_parser parser (block_uniquer, vote_uniquer, visitor, system.work);
-	auto block (std::make_shared<nano::send_block> (1, 1, 2, nano::keypair ().prv, 4, system.work.generate (1)));
+	auto block (std::make_shared<nano::send_block> (1, 1, 2, nano::keypair ().prv, 4, *system.work.generate (nano::root (1))));
 	nano::publish message (std::move (block));
 	std::vector<uint8_t> bytes;
 	{

@@ -1,0 +1,12 @@
+FROM nanocurrency/nano-env:base
+
+RUN apt-get install -yqq git
+
+ADD util/build_prep/fetch_rocksdb.sh fetch_rocksdb.sh
+RUN ./fetch_rocksdb.sh
+
+ENV BOOST_ROOT=/tmp/boost
+
+ADD util/build_prep/fetch_boost.sh fetch_boost.sh
+
+RUN TRAVIS_COMPILER=gcc ./fetch_boost.sh

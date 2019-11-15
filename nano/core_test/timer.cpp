@@ -1,7 +1,9 @@
-#include <chrono>
-#include <gtest/gtest.h>
 #include <nano/core_test/testutil.hpp>
 #include <nano/lib/timer.hpp>
+
+#include <gtest/gtest.h>
+
+#include <chrono>
 #include <thread>
 
 /* Tests for the timer utility. Note that we use sleep_for in the tests, which

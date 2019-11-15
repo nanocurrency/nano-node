@@ -3,15 +3,11 @@
 
 namespace nano
 {
-class xorshift1024star
+class xorshift1024star final
 {
 public:
-	xorshift1024star () :
-	p (0)
-	{
-	}
 	std::array<uint64_t, 16> s;
-	unsigned p;
+	unsigned p{ 0 };
 	uint64_t next ()
 	{
 		auto p_l (p);

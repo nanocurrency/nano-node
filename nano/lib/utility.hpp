@@ -1,5 +1,8 @@
 #pragma once
 
+#include <nano/boost/asio.hpp>
+#include <nano/lib/locks.hpp>
+
 #include <boost/filesystem.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/thread/thread.hpp>
@@ -67,6 +70,31 @@ void set_secure_perm_file (boost::filesystem::path const & path);
 void set_secure_perm_file (boost::filesystem::path const & path, boost::system::error_code & ec);
 
 /*
+ * Function to check if running Windows as an administrator
+ */
+bool is_windows_elevated ();
+
+/*
+ * Function to check if the Windows Event log registry key exists
+ */
+bool event_log_reg_entry_exists ();
+
+/*
+ * Create the load memory addresses for the executable and shared libraries.
+ */
+void create_load_memory_address_files ();
+
+/*
+ * Dumps a stacktrace file which can be read using the --debug_output_last_backtrace_dump CLI command
+ */
+void dump_crash_stacktrace ();
+
+/*
+ * Generates the current stacktrace
+ */
+std::string generate_stacktrace ();
+
+/*
  * Functions for understanding the role of the current thread
  */
 namespace thread_role
@@ -85,13 +113,22 @@ namespace thread_role
 		bootstrap_initiator,
 		voting,
 		signature_checking,
-		slow_db_upgrade,
+		rpc_request_processor,
+		rpc_process_container,
+		work_watcher,
+		confirmation_height_processing,
+		worker
 	};
 	/*
 	 * Get/Set the identifier for the current thread
 	 */
 	nano::thread_role::name get ();
 	void set (nano::thread_role::name);
+
+	/*
+	 * Get the thread name as a string from enum
+	 */
+	std::string get_string (nano::thread_role::name);
 
 	/*
 	 * Get the current thread's role as a string
@@ -101,7 +138,7 @@ namespace thread_role
 	/*
 	 * Internal only, should not be called directly
 	 */
-	void set_os_name (std::string);
+	void set_os_name (std::string const &);
 }
 
 namespace thread_attributes
@@ -109,18 +146,60 @@ namespace thread_attributes
 	void set (boost::thread::attributes &);
 }
 
+class thread_runner final
+{
+public:
+	thread_runner (boost::asio::io_context &, unsigned);
+	~thread_runner ();
+	/** Tells the IO context to stop processing events.*/
+	void stop_event_processing ();
+	/** Wait for IO threads to complete */
+	void join ();
+	std::vector<boost::thread> threads;
+	boost::asio::executor_work_guard<boost::asio::io_context::executor_type> io_guard;
+};
+
+class worker final
+{
+public:
+	worker ();
+	~worker ();
+	void run ();
+	void push_task (std::function<void()> func);
+	void stop ();
+
+private:
+	nano::condition_variable cv;
+	std::deque<std::function<void()>> queue;
+	std::mutex mutex;
+	bool stopped{ false };
+	std::thread thread;
+
+	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (worker &, const std::string &);
+};
+
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (worker & worker, const std::string & name);
+
+/**
+ * Returns seconds passed since unix epoch (posix time)
+ */
+inline uint64_t seconds_since_epoch ()
+{
+	return std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
+}
+
 template <typename... T>
-class observer_set
+class observer_set final
 {
 public:
 	void add (std::function<void(T...)> const & observer_a)
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<std::mutex> lock (mutex);
 		observers.push_back (observer_a);
 	}
 	void notify (T... args)
 	{
-		std::lock_guard<std::mutex> lock (mutex);
+		nano::lock_guard<std::mutex> lock (mutex);
 		for (auto & i : observers)
 		{
 			i (args...);
@@ -131,11 +210,11 @@ public:
 };
 
 template <typename... T>
-inline std::unique_ptr<seq_con_info_component> collect_seq_con_info (observer_set<T...> & observer_set, const std::string & name)
+std::unique_ptr<seq_con_info_component> collect_seq_con_info (observer_set<T...> & observer_set, const std::string & name)
 {
 	size_t count = 0;
 	{
-		std::lock_guard<std::mutex> lock (observer_set.mutex);
+		nano::lock_guard<std::mutex> lock (observer_set.mutex);
 		count = observer_set.observers.size ();
 	}
 
@@ -144,7 +223,11 @@ inline std::unique_ptr<seq_con_info_component> collect_seq_con_info (observer_se
 	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "observers", count, sizeof_element }));
 	return composite;
 }
+
+void remove_all_files_in_dir (boost::filesystem::path const & dir);
+void move_all_files_to_dir (boost::filesystem::path const & from, boost::filesystem::path const & to);
 }
+// Have our own async_write which we must use?
 
 void release_assert_internal (bool check, const char * check_expr, const char * file, unsigned int line);
 #define release_assert(check) release_assert_internal (check, #check, __FILE__, __LINE__)
