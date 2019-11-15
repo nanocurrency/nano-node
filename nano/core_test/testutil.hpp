@@ -38,7 +38,6 @@ namespace nano
 using uint128_t = boost::multiprecision::uint128_t;
 class keypair;
 class public_key;
-extern nano::keypair const & zero_key;
 extern nano::keypair const & test_genesis_key;
 extern std::string const & nano_test_genesis;
 extern std::string const & genesis_block;

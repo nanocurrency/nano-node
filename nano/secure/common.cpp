@@ -80,7 +80,6 @@ ledger_constants (network_constants.network ())
 }
 
 nano::ledger_constants::ledger_constants (nano::nano_networks network_a) :
-zero_key ("0"),
 test_genesis_key (test_private_key_data),
 nano_test_account (test_public_key_data),
 nano_beta_account (beta_public_key_data),
@@ -154,7 +153,6 @@ namespace
 nano::ledger_constants test_constants (nano::nano_networks::nano_test_network);
 }
 
-nano::keypair const & nano::zero_key (test_constants.zero_key);
 nano::keypair const & nano::test_genesis_key (test_constants.test_genesis_key);
 nano::account const & nano::nano_test_account (test_constants.nano_test_account);
 std::string const & nano::nano_test_genesis (test_constants.nano_test_genesis);

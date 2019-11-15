@@ -354,7 +354,6 @@ class ledger_constants
 public:
 	ledger_constants (nano::network_constants & network_constants);
 	ledger_constants (nano::nano_networks network_a);
-	nano::keypair zero_key;
 	nano::keypair test_genesis_key;
 	nano::account nano_test_account;
 	nano::account nano_beta_account;
