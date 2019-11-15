@@ -71,7 +71,7 @@ bool nano::public_key::decode_account (std::string const & source_a)
 	if (!error)
 	{
 		auto ban_prefix (source_a[0] == 'b' && source_a[1] == 'a' && source_a[2] == 'n' && (source_a[3] == '_' || source_a[3] == '-'));
-		error = (ban_prefix && source_a.size () != 64));
+		error = (ban_prefix && source_a.size () != 64);
 		if (!error)
 		{
 			if (ban_prefix)
