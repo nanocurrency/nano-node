@@ -38,5 +38,5 @@ esac
 REPO_ROOT=`git rev-parse --show-toplevel`
 COMMIT_SHA=`git rev-parse --short HEAD`
 pushd $REPO_ROOT
-docker build --build-arg NETWORK="${network}" -f docker/node/Dockerfile -t nano-node${network_tag}:latest .
+docker build --build-arg NETWORK="${network}" -f docker/node/Dockerfile -t banano${network_tag}:latest .
 popd

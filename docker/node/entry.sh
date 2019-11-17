@@ -86,8 +86,8 @@ case "${network}" in
 	;;
 esac
 
-raidir="${HOME}/RaiBlocks${dirSuffix}"
-nanodir="${HOME}/Nano${dirSuffix}"
+raidir="${HOME}/Banano${dirSuffix}"
+nanodir="${HOME}/BananoData${dirSuffix}"
 dbFile="${nanodir}/data.ldb"
 
 if [ -d "${raidir}" ]; then
