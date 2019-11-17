@@ -331,6 +331,10 @@ nano::websocket::topic to_topic (std::string const & topic_a)
 	{
 		topic = nano::websocket::topic::work;
 	}
+	else if (topic_a == "message_queue")
+	{
+		topic = nano::websocket::topic::message_queue;
+	}
 
 	return topic;
 }
@@ -361,6 +365,10 @@ std::string from_topic (nano::websocket::topic topic_a)
 	else if (topic_a == nano::websocket::topic::work)
 	{
 		topic = "work";
+	}
+	else if (topic_a == nano::websocket::topic::message_queue)
+	{
+		topic = "message_queue";
 	}
 	return topic;
 }
@@ -729,6 +737,19 @@ nano::websocket::message nano::websocket::message_builder::work_cancelled (nano:
 nano::websocket::message nano::websocket::message_builder::work_failed (nano::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a)
 {
 	return work_generation (root_a, 0, difficulty_a, publish_threshold_a, duration_a, "", bad_peers_a, false, false);
+}
+
+nano::websocket::message nano::websocket::message_builder::message_queue_size (boost::asio::ip::tcp::endpoint & remote, size_t const queue_size)
+{
+	nano::websocket::message message_l (nano::websocket::topic::message_queue);
+	set_common_fields (message_l);
+
+	// Vote information
+	boost::property_tree::ptree message_queue_l;
+	message_queue_l.put ("remote", remote);
+    message_queue_l.put ("queue_size", queue_size);
+	message_l.contents.add_child ("message", message_queue_l);
+	return message_l;
 }
 
 void nano::websocket::message_builder::set_common_fields (nano::websocket::message & message_a)

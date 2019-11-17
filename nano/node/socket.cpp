@@ -1,5 +1,6 @@
 #include <nano/node/node.hpp>
 #include <nano/node/socket.hpp>
+#include <nano/node/websocket.hpp>
 
 #include <limits>
 
@@ -76,6 +77,12 @@ void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, std:
 				else if (auto node_l = this_l->node.lock ())
 				{
 					node_l->stats.inc (nano::stat::type::tcp, nano::stat::detail::tcp_write_drop, nano::stat::dir::out);
+					if (node_l->websocket_server && node_l->websocket_server->any_subscriber (nano::websocket::topic::message_queue))
+					{
+						auto remote_ip = this_l->remote;
+						nano::websocket::message_builder builder;
+						node_l->websocket_server->broadcast (builder.message_queue_size (remote_ip, queue_size));
+					}
 				}
 				if (!write_in_progress)
 				{

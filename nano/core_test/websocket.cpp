@@ -778,6 +778,41 @@ TEST (websocket, work)
 	ASSERT_EQ (contents.get<std::string> ("reason"), "");
 }
 
+/** Subscribes to message_queue */
+TEST (websocket, message_queue)
+{
+	nano::system system (24000, 1);
+	nano::node_config config;
+	nano::node_flags node_flags;
+	config.websocket_config.enabled = true;
+	config.websocket_config.port = 24078;
+
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
+	node1->wallets.create (nano::random_wallet_id ());
+	node1->start ();
+	system.nodes.push_back (node1);
+
+	ASSERT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::message_queue));
+
+	// Subscribe to message_queue and wait for response asynchronously
+	ack_ready = false;
+	auto client_task = ([]() -> boost::optional<std::string> {
+		auto response = websocket_test_call ("::1", "24078", R"json({"action": "subscribe", "topic": "message_queue", "ack": true})json", true, true);
+		return response;
+	});
+	auto client_future = std::async (std::launch::async, client_task);
+
+	// Wait for acknowledge
+	system.deadline_set (5s);
+	while (!ack_ready)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::message_queue));
+
+	node1->stop ();
+}
+
 /** Tests clients subscribing multiple times or unsubscribing without a subscription */
 TEST (websocket, ws_keepalive)
 {
