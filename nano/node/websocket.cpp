@@ -747,7 +747,7 @@ nano::websocket::message nano::websocket::message_builder::message_queue_size (b
 	// Vote information
 	boost::property_tree::ptree message_queue_l;
 	message_queue_l.put ("remote", remote);
-    message_queue_l.put ("queue_size", queue_size);
+	message_queue_l.put ("queue_size", queue_size);
 	message_l.contents.add_child ("message", message_queue_l);
 	return message_l;
 }
