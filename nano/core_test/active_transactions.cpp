@@ -11,7 +11,6 @@ TEST (active_transactions, confirm_one)
 	nano::system system;
 	nano::node_config node_config (24000, system.logging);
 	auto & node1 = *system.add_node (node_config);
-	nano::genesis genesis;
 	// Send and vote for a block before peering with node2
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	auto send (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::public_key (), node_config.receive_minimum.number ()));
