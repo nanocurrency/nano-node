@@ -32,20 +32,20 @@ public:
 	boost::asio::ip::tcp::socket socket;
 };
 
-enum class work_generation_status
-{
-	ongoing,
-	success,
-	cancelled,
-	failure_local,
-	failure_peers
-};
-
 /**
  * distributed_work cancels local and peer work requests when going out of scope
  */
 class distributed_work final : public std::enable_shared_from_this<nano::distributed_work>
 {
+	enum class work_generation_status
+	{
+		ongoing,
+		success,
+		cancelled,
+		failure_local,
+		failure_peers
+	};
+
 public:
 	distributed_work (nano::node &, nano::root const &, std::vector<std::pair<std::string, uint16_t>> const & peers_a, unsigned int, std::function<void(boost::optional<uint64_t>)> const &, uint64_t, boost::optional<nano::account> const & = boost::none);
 	~distributed_work ();
@@ -76,7 +76,7 @@ public:
 	std::atomic<bool> finished{ false };
 	std::atomic<bool> stopped{ false };
 	std::atomic<bool> local_generation_started{ false };
-	nano::work_generation_status status{ nano::work_generation_status::ongoing };
+	work_generation_status status{ work_generation_status::ongoing };
 	nano::timer<std::chrono::milliseconds> elapsed; // logging only
 	std::vector<std::string> bad_peers; // websocket
 	std::string winner; // websocket
