@@ -43,7 +43,7 @@ nano::distributed_work::~distributed_work ()
 		{
 			node.websocket_server->broadcast (builder.work_cancelled (root, difficulty, node.network_params.network.publish_threshold, elapsed.value (), bad_peers));
 		}
-		else if (status == nano::work_generation_status::failure)
+		else if (status == nano::work_generation_status::failure_local || status == nano::work_generation_status::failure_peers)
 		{
 			node.websocket_server->broadcast (builder.work_failed (root, difficulty, node.network_params.network.publish_threshold, elapsed.value (), bad_peers));
 		}
@@ -106,7 +106,7 @@ void nano::distributed_work::start_work ()
 			}
 			else if (!this_l->finished.exchange (true))
 			{
-				this_l->status = nano::work_generation_status::failure;
+				this_l->status = nano::work_generation_status::failure_local;
 				if (this_l->callback)
 				{
 					this_l->callback (boost::none);
@@ -351,8 +351,9 @@ void nano::distributed_work::handle_failure (bool const last_a)
 	if (last_a && !finished)
 	{
 		node.unresponsive_work_peers = true;
-		if (!local_generation_started)
+		if (!local_generation_started && !finished.exchange (true))
 		{
+			status = nano::work_generation_status::failure_peers;
 			if (backoff == 1 && node.config.logging.work_generation_time ())
 			{
 				node.logger.always_log ("Work peer(s) failed to generate work for root ", root.to_string (), ", retrying...");

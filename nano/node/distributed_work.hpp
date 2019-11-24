@@ -37,7 +37,8 @@ enum class work_generation_status
 	ongoing,
 	success,
 	cancelled,
-	failure
+	failure_local,
+	failure_peers
 };
 
 /**
