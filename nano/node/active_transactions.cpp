@@ -692,7 +692,7 @@ bool nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a, bool s
 		{
 			lock = nano::unique_lock<std::mutex> (mutex);
 		}
-		for (auto vote_block : vote_a->blocks)
+		for (auto & vote_block : vote_a->blocks)
 		{
 			nano::election_vote_result result;
 			if (vote_block.which ())
@@ -725,7 +725,7 @@ bool nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a, bool s
 			processed = processed || result.processed;
 		}
 	}
-	if (processed)
+	if (processed && node.ledger.cemented_count >= node.ledger.bootstrap_weight_max_blocks)
 	{
 		node.network.flood_vote (vote_a);
 	}
