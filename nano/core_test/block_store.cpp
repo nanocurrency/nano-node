@@ -74,7 +74,7 @@ TEST (block_store, add_item)
 	ASSERT_EQ (block, *latest2);
 	ASSERT_TRUE (store->block_exists (transaction, hash1));
 	ASSERT_FALSE (store->block_exists (transaction, hash1.number () - 1));
-	store->block_del (transaction, hash1);
+	store->block_del (transaction, hash1, block.type ());
 	auto latest3 (store->block_get (transaction, hash1));
 	ASSERT_EQ (nullptr, latest3);
 }
@@ -1137,7 +1137,7 @@ TEST (block_store, state_block)
 		auto transaction (store->tx_begin_write ());
 		auto count (store->block_count (transaction));
 		ASSERT_EQ (1, count.state);
-		store->block_del (transaction, block1.hash ());
+		store->block_del (transaction, block1.hash (), block1.type ());
 		ASSERT_FALSE (store->block_exists (transaction, block1.hash ()));
 	}
 	auto transaction (store->tx_begin_read ());
@@ -1200,7 +1200,7 @@ TEST (mdb_block_store, upgrade_sideband_two_blocks)
 		nano::state_block block (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (genesis.hash ()));
 		hash2 = block.hash ();
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block).code);
-		store.block_del (transaction, hash2);
+		store.block_del (transaction, hash2, block.type ());
 		mdb_dbi_open (store.env.tx (transaction), "state_v1", MDB_CREATE, &store.state_blocks_v1);
 		mdb_dbi_open (store.env.tx (transaction), "state", MDB_CREATE, &store.state_blocks_v0);
 		write_sideband_v12 (store, transaction, *genesis.open, hash2, store.open_blocks);
@@ -1246,8 +1246,8 @@ TEST (mdb_block_store, upgrade_sideband_two_accounts)
 		nano::state_block block2 (key.pub, 0, nano::test_genesis_key.pub, nano::Gxrb_ratio, hash2, key.prv, key.pub, *pool.generate (key.pub));
 		hash3 = block2.hash ();
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block2).code);
-		store.block_del (transaction, hash2);
-		store.block_del (transaction, hash3);
+		store.block_del (transaction, hash2, block1.type ());
+		store.block_del (transaction, hash3, block2.type ());
 		mdb_dbi_open (store.env.tx (transaction), "state_v1", MDB_CREATE, &store.state_blocks_v1);
 		mdb_dbi_open (store.env.tx (transaction), "state", MDB_CREATE, &store.state_blocks_v0);
 		write_sideband_v12 (store, transaction, *genesis.open, hash2, store.open_blocks);
@@ -1331,8 +1331,8 @@ TEST (mdb_block_store, upgrade_sideband_epoch)
 		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "state_v1", MDB_CREATE, &store.state_blocks_v1));
 		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block1).code);
 		ASSERT_EQ (nano::epoch::epoch_1, store.block_version (transaction, hash2));
-		store.block_del (transaction, hash2);
-		store.block_del (transaction, genesis.open->hash ());
+		store.block_del (transaction, hash2, block1.type ());
+		store.block_del (transaction, genesis.open->hash (), genesis.open->type ());
 		write_sideband_v12 (store, transaction, *genesis.open, hash2, store.open_blocks);
 		write_sideband_v12 (store, transaction, block1, 0, store.state_blocks_v1);
 
@@ -1653,8 +1653,8 @@ TEST (mdb_block_store, upgrade_v14_v15)
 		write_sideband_v14 (store, transaction, epoch, store.state_blocks_v1);
 
 		// Remove from state table
-		store.block_del (transaction, state_send.hash ());
-		store.block_del (transaction, epoch.hash ());
+		store.block_del (transaction, state_send.hash (), state_send.type ());
+		store.block_del (transaction, epoch.hash (), epoch.type ());
 
 		// Turn pending into v14
 		ASSERT_FALSE (mdb_put (store.env.tx (transaction), store.pending_v0, nano::mdb_val (nano::pending_key (nano::test_genesis_key.pub, send.hash ())), nano::mdb_val (nano::pending_info_v14 (nano::genesis_account, nano::Gxrb_ratio, nano::epoch::epoch_0)), 0));

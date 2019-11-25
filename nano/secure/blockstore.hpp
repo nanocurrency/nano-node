@@ -642,7 +642,7 @@ public:
 	virtual std::shared_ptr<nano::block> block_get (nano::transaction const &, nano::block_hash const &, nano::block_sideband * = nullptr) const = 0;
 	virtual std::shared_ptr<nano::block> block_get_v14 (nano::transaction const &, nano::block_hash const &, nano::block_sideband_v14 * = nullptr, bool * = nullptr) const = 0;
 	virtual std::shared_ptr<nano::block> block_random (nano::transaction const &) = 0;
-	virtual void block_del (nano::write_transaction const &, nano::block_hash const &) = 0;
+	virtual void block_del (nano::write_transaction const &, nano::block_hash const &, nano::block_type) = 0;
 	virtual bool block_exists (nano::transaction const &, nano::block_hash const &) = 0;
 	virtual bool block_exists (nano::transaction const &, nano::block_type, nano::block_hash const &) = 0;
 	virtual nano::block_counts block_count (nano::transaction const &) = 0;
