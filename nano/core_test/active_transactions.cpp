@@ -6,6 +6,42 @@
 
 using namespace std::chrono_literals;
 
+TEST (active_transactions, confirm_one)
+{
+	nano::system system;
+	nano::node_config node_config (24000, system.logging);
+	auto & node1 = *system.add_node (node_config);
+	// Send and vote for a block before peering with node2
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	auto send (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::public_key (), node_config.receive_minimum.number ()));
+	system.deadline_set (5s);
+	while (!node1.active.empty () && !node1.block_confirmed_or_being_confirmed (node1.store.tx_begin_read (), send->hash ()))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	node_config.peering_port = 24001;
+	auto & node2 = *system.add_node (node_config);
+	system.deadline_set (5s);
+	// Let node2 know about the block
+	while (node2.active.empty ())
+	{
+		node1.network.flood_block (send, false);
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	while (!node2.active.empty ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (0, node2.active.dropped_elections_cache_size ());
+	nano::unique_lock<std::mutex> active_lock (node2.active.mutex);
+	while (node2.active.confirmed.empty ())
+	{
+		active_lock.unlock ();
+		ASSERT_NO_ERROR (system.poll ());
+		active_lock.lock ();
+	}
+}
+
 TEST (active_transactions, adjusted_difficulty_priority)
 {
 	nano::system system;
