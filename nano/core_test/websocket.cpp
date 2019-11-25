@@ -468,6 +468,8 @@ TEST (websocket, confirmation_options)
 			// Duration and request count may be zero on testnet, so we only check that they're present
 			ASSERT_EQ (1, election_info.count ("duration"));
 			ASSERT_EQ (1, election_info.count ("request_count"));
+			ASSERT_EQ (1, election_info.count ("voters"));
+			ASSERT_GE (1, election_info.get<unsigned> ("blocks"));
 			// Make sure tally and time are non-zero.
 			ASSERT_NE ("0", tally);
 			ASSERT_NE ("0", time);

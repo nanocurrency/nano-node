@@ -1021,7 +1021,7 @@ void nano::json_handler::block_confirm ()
 			else
 			{
 				// Add record in confirmation history for confirmed block
-				nano::election_status status{ block_l, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, nano::election_status_type::active_confirmation_height };
+				nano::election_status status{ block_l, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::active_confirmation_height };
 				{
 					nano::lock_guard<std::mutex> lock (node.active.mutex);
 					node.active.confirmed.push_back (status);
@@ -1816,7 +1816,9 @@ void nano::json_handler::confirmation_history ()
 				election.put ("duration", i->election_duration.count ());
 				election.put ("time", i->election_end.count ());
 				election.put ("tally", i->tally.to_string_dec ());
-				election.put ("request_count", i->confirmation_request_count);
+				election.put ("blocks", std::to_string (i->block_count));
+				election.put ("voters", std::to_string (i->voter_count));
+				election.put ("request_count", std::to_string (i->confirmation_request_count));
 				elections.push_back (std::make_pair ("", election));
 			}
 			running_total += i->election_duration;
@@ -1845,10 +1847,12 @@ void nano::json_handler::confirmation_info ()
 		auto conflict_info (node.active.roots.find (root));
 		if (conflict_info != node.active.roots.end ())
 		{
-			response_l.put ("announcements", std::to_string (conflict_info->election->confirmation_request_count));
 			auto election (conflict_info->election);
-			nano::uint128_t total (0);
+			response_l.put ("announcements", std::to_string (election->status.confirmation_request_count));
+			response_l.put ("blocks", std::to_string (election->status.block_count));
+			response_l.put ("voters", std::to_string (election->status.voter_count));
 			response_l.put ("last_winner", election->status.winner->hash ().to_string ());
+			nano::uint128_t total (0);
 			auto tally_l (election->tally ());
 			boost::property_tree::ptree blocks;
 			for (auto i (tally_l.begin ()), n (tally_l.end ()); i != n; ++i)

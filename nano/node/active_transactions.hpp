@@ -61,6 +61,8 @@ public:
 	std::chrono::milliseconds election_end;
 	std::chrono::milliseconds election_duration;
 	unsigned confirmation_request_count;
+	unsigned block_count;
+	unsigned voter_count;
 	election_status_type type;
 };
 
