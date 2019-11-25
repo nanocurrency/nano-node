@@ -25,23 +25,25 @@ need_resolve (peers_a),
 difficulty (difficulty_a),
 elapsed (nano::timer_state::started, "distributed work generation timer")
 {
-	assert (!completed);
+	assert (!finished);
+	assert (status == work_generation_status::ongoing);
 }
 
 nano::distributed_work::~distributed_work ()
 {
+	assert (status != work_generation_status::ongoing);
 	if (!node.stopped && node.websocket_server && node.websocket_server->any_subscriber (nano::websocket::topic::work))
 	{
 		nano::websocket::message_builder builder;
-		if (completed)
+		if (status == work_generation_status::success)
 		{
 			node.websocket_server->broadcast (builder.work_generation (root, work_result, difficulty, node.network_params.network.publish_threshold, elapsed.value (), winner, bad_peers));
 		}
-		else if (cancelled)
+		else if (status == work_generation_status::cancelled)
 		{
 			node.websocket_server->broadcast (builder.work_cancelled (root, difficulty, node.network_params.network.publish_threshold, elapsed.value (), bad_peers));
 		}
-		else
+		else if (status == work_generation_status::failure_local || status == work_generation_status::failure_peers)
 		{
 			node.websocket_server->broadcast (builder.work_failed (root, difficulty, node.network_params.network.publish_threshold, elapsed.value (), bad_peers));
 		}
@@ -102,9 +104,13 @@ void nano::distributed_work::start_work ()
 			{
 				this_l->set_once (*work_a);
 			}
-			else if (!this_l->cancelled && !this_l->completed)
+			else if (!this_l->finished.exchange (true))
 			{
-				this_l->callback (boost::none);
+				this_l->status = work_generation_status::failure_local;
+				if (this_l->callback)
+				{
+					this_l->callback (boost::none);
+				}
 			}
 			this_l->stop_once (false);
 		},
@@ -187,7 +193,7 @@ void nano::distributed_work::start_work ()
 		}
 	}
 
-	if (!local_generation_started && outstanding.empty ())
+	if (!local_generation_started && outstanding.empty () && callback)
 	{
 		callback (boost::none);
 	}
@@ -297,10 +303,14 @@ void nano::distributed_work::stop_once (bool const local_stop_a)
 
 void nano::distributed_work::set_once (uint64_t work_a, std::string const & source_a)
 {
-	if (!cancelled && !completed.exchange (true))
+	if (!finished.exchange (true))
 	{
 		elapsed.stop ();
-		callback (work_a);
+		status = work_generation_status::success;
+		if (callback)
+		{
+			callback (work_a);
+		}
 		winner = source_a;
 		work_result = work_a;
 		if (node.config.logging.work_generation_time ())
@@ -314,10 +324,14 @@ void nano::distributed_work::set_once (uint64_t work_a, std::string const & sour
 
 void nano::distributed_work::cancel_once ()
 {
-	if (!completed && !cancelled.exchange (true))
+	if (!finished.exchange (true))
 	{
 		elapsed.stop ();
-		callback (boost::none);
+		status = work_generation_status::cancelled;
+		if (callback)
+		{
+			callback (boost::none);
+		}
 		stop_once (true);
 		if (node.config.logging.work_generation_time ())
 		{
@@ -334,11 +348,12 @@ void nano::distributed_work::failure (boost::asio::ip::address const & address_a
 
 void nano::distributed_work::handle_failure (bool const last_a)
 {
-	if (last_a && !completed && !cancelled)
+	if (last_a && !finished)
 	{
 		node.unresponsive_work_peers = true;
-		if (!local_generation_started)
+		if (!local_generation_started && !finished.exchange (true))
 		{
+			status = work_generation_status::failure_peers;
 			if (backoff == 1 && node.config.logging.work_generation_time ())
 			{
 				node.logger.always_log ("Work peer(s) failed to generate work for root ", root.to_string (), ", retrying...");
