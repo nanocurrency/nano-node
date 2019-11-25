@@ -2926,7 +2926,7 @@ void nano::json_handler::pending ()
 	{
 		boost::property_tree::ptree peers_l;
 		auto transaction (node.store.tx_begin_read ());
-		for (auto i (node.store.pending_begin (transaction, nano::pending_key (account, 0))); nano::pending_key (i->first).account == account && peers_l.size () < count; ++i)
+		for (auto i (node.store.pending_begin (transaction, nano::pending_key (account, 0))), n (node.store.pending_begin (transaction, nano::pending_key (account.number () + 1, 0))); i != n && peers_l.size () < count; ++i)
 		{
 			nano::pending_key const & key (i->first);
 			if (block_confirmed (node, transaction, key.hash, include_active, include_only_confirmed))

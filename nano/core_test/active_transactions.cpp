@@ -40,16 +40,15 @@ TEST (active_transactions, adjusted_difficulty_priority)
 	}
 
 	// Confirm elections
+	system.deadline_set (10s);
 	while (node1.active.size () != 0)
 	{
-		nano::lock_guard<std::mutex> active_guard (node1.active.mutex);
-		auto it (node1.active.roots.begin ());
-		while (!node1.active.roots.empty () && it != node1.active.roots.end ())
 		{
-			auto election (it->election);
-			election->confirm_once ();
-			it = node1.active.roots.begin ();
+			nano::lock_guard<std::mutex> active_guard (node1.active.mutex);
+			auto root (node1.active.roots.begin ());
+			root->election->confirm_once ();
 		}
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	{
 		system.deadline_set (10s);
@@ -242,13 +241,12 @@ TEST (active_transactions, keep_local)
 	ASSERT_EQ (0, node.active.dropped_elections_cache_size ());
 	while (!node.active.empty ())
 	{
-		nano::lock_guard<std::mutex> active_guard (node.active.mutex);
-		auto it (node.active.roots.begin ());
-		while (!node.active.roots.empty () && it != node.active.roots.end ())
 		{
-			(it->election)->confirm_once ();
-			it = node.active.roots.begin ();
+			nano::lock_guard<std::mutex> active_guard (node.active.mutex);
+			auto root (node.active.roots.begin ());
+			root->election->confirm_once ();
 		}
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	auto open1 (std::make_shared<nano::state_block> (key1.pub, 0, key1.pub, node.config.receive_minimum.number (), send1->hash (), key1.prv, key1.pub, *system.work.generate (key1.pub)));
 	node.process_active (open1);
@@ -302,16 +300,14 @@ TEST (active_transactions, prioritize_chains)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	while (node1.active.size () != 0)
+	while (!node1.active.empty ())
 	{
-		nano::lock_guard<std::mutex> active_guard (node1.active.mutex);
-		auto it (node1.active.roots.get<1> ().begin ());
-		while (!node1.active.roots.empty () && it != node1.active.roots.get<1> ().end ())
 		{
-			auto election (it->election);
-			election->confirm_once ();
-			it = node1.active.roots.get<1> ().begin ();
+			nano::lock_guard<std::mutex> active_guard (node1.active.mutex);
+			auto root (node1.active.roots.begin ());
+			root->election->confirm_once ();
 		}
+		ASSERT_NO_ERROR (system.poll ());
 	}
 
 	node1.process_active (send2);

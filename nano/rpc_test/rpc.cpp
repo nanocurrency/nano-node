@@ -2479,16 +2479,16 @@ TEST (rpc, peers_node_id)
 TEST (rpc, pending)
 {
 	nano::system system (24000, 1);
+	auto & node = system.nodes.front ();
 	nano::keypair key1;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	auto block1 (system.wallet (0)->send_action (nano::test_genesis_key.pub, key1.pub, 100));
 	scoped_io_thread_name_change scoped_thread_name_io;
 	system.deadline_set (5s);
-	while (system.nodes[0]->active.active (*block1))
+	while (node->active.active (*block1))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	auto node = system.nodes.front ();
 	enable_ipc_transport_tcp (node->config.ipc_config.transport_tcp);
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
