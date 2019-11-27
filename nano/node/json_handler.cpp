@@ -3373,10 +3373,14 @@ void nano::json_handler::receive ()
 					}
 					if (!ec)
 					{
+						// Representative is only used by receive_action when opening accounts
+						// Set a wallet default representative for new accounts
+						nano::account representative (wallet->store.representative (node.wallets.tx_begin_read ()));
+
 						bool generate_work (work == 0); // Disable work generation if "work" option is provided
 						auto response_a (response);
 						// clang-format off
-						wallet->receive_async(std::move(block), account, node.network_params.ledger.genesis_amount, [response_a](std::shared_ptr<nano::block> block_a) {
+						wallet->receive_async(std::move(block), representative, node.network_params.ledger.genesis_amount, [response_a](std::shared_ptr<nano::block> block_a) {
 							if (block_a != nullptr)
 							{
 								boost::property_tree::ptree response_l;
