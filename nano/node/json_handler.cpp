@@ -3335,9 +3335,9 @@ void nano::json_handler::receive ()
 	auto hash (hash_impl ("block"));
 	if (!ec)
 	{
-		auto transaction (node.wallets.tx_begin_read ());
-		wallet_locked_impl (transaction, wallet);
-		wallet_account_impl (transaction, wallet, account);
+		auto wallet_transaction (node.wallets.tx_begin_read ());
+		wallet_locked_impl (wallet_transaction, wallet);
+		wallet_account_impl (wallet_transaction, wallet, account);
 		if (!ec)
 		{
 			auto block_transaction (node.store.tx_begin_read ());
@@ -3375,8 +3375,7 @@ void nano::json_handler::receive ()
 					{
 						// Representative is only used by receive_action when opening accounts
 						// Set a wallet default representative for new accounts
-						nano::account representative (wallet->store.representative (node.wallets.tx_begin_read ()));
-
+						nano::account representative (wallet->store.representative (wallet_transaction));
 						bool generate_work (work == 0); // Disable work generation if "work" option is provided
 						auto response_a (response);
 						// clang-format off
