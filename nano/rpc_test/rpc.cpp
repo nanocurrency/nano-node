@@ -2686,6 +2686,21 @@ TEST (rpc, version)
 	}
 	ASSERT_EQ (std::to_string (node1->network_params.protocol.protocol_version), response1.json.get<std::string> ("protocol_version"));
 	ASSERT_EQ (boost::str (boost::format ("Nano %1%") % NANO_VERSION_STRING), response1.json.get<std::string> ("node_vendor"));
+	auto store_vendor = response1.json.get<std::string> ("store_vendor");
+	auto use_rocksdb_str = std::getenv ("TEST_USE_ROCKSDB");
+	if (use_rocksdb_str && boost::lexical_cast<int> (use_rocksdb_str) == 1)
+	{
+		bool built_with_rocksdb{ false };
+#if NANO_ROCKSDB
+		build_with_rocksdb = true;
+		ASSERT_EQ (boost::str (boost::format ("RocksDB %1%.%2%.%3%") % ROCKSDB_MAJOR % ROCKSDB_MINOR % ROCKSDB_PATCH), store_vendor);
+#endif
+		ASSERT_TRUE (built_with_rocksdb);
+	}
+	else
+	{
+		ASSERT_EQ (boost::str (boost::format ("LMDB %1%.%2%.%3%") % MDB_VERSION_MAJOR % MDB_VERSION_MINOR % MDB_VERSION_PATCH), store_vendor);
+	}
 	auto network_label (node1->network_params.network.get_current_network_as_string ());
 	ASSERT_EQ (network_label, response1.json.get<std::string> ("network"));
 	auto genesis_open (node1->latest (nano::test_genesis_key.pub));
