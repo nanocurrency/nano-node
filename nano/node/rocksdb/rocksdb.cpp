@@ -136,6 +136,11 @@ nano::read_transaction nano::rocksdb_store::tx_begin_read ()
 	return nano::read_transaction{ std::make_unique<nano::read_rocksdb_txn> (db) };
 }
 
+std::string nano::rocksdb_store::vendor_get () const
+{
+	return boost::str (boost::format ("RocksDB %1%.%2%.%3%") % ROCKSDB_MAJOR % ROCKSDB_MINOR % ROCKSDB_PATCH);
+}
+
 rocksdb::ColumnFamilyHandle * nano::rocksdb_store::table_to_column_family (tables table_a) const
 {
 	auto & handles_l = handles;

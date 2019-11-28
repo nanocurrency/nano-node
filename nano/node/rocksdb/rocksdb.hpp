@@ -30,6 +30,8 @@ public:
 	nano::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
 	nano::read_transaction tx_begin_read () override;
 
+	std::string vendor_get () const override;
+
 	bool block_info_get (nano::transaction const &, nano::block_hash const &, nano::block_info &) const override;
 	size_t count (nano::transaction const & transaction_a, tables table_a) const override;
 	void version_put (nano::write_transaction const &, int) override;

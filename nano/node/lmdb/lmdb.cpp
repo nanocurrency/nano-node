@@ -136,6 +136,11 @@ nano::read_transaction nano::mdb_store::tx_begin_read ()
 	return env.tx_begin_read (create_txn_callbacks ());
 }
 
+std::string nano::mdb_store::vendor_get () const
+{
+	return boost::str (boost::format ("LMDB %1%.%2%.%3%") % MDB_VERSION_MAJOR % MDB_VERSION_MINOR % MDB_VERSION_PATCH);
+}
+
 nano::mdb_txn_callbacks nano::mdb_store::create_txn_callbacks ()
 {
 	nano::mdb_txn_callbacks mdb_txn_callbacks;
