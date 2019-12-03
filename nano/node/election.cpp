@@ -45,7 +45,11 @@ void nano::election::confirm_once (nano::election_status_type type_a)
 		auto confirmation_action_l (confirmation_action);
 		node.background ([node_l, status_l, confirmation_action_l]() {
 			node_l->process_confirmed (status_l);
-			confirmation_action_l (status_l.winner);
+			if (status_l.winner != nullptr)
+			{
+				node_l->active.erase (*status_l.winner);
+				confirmation_action_l (status_l.winner);
+			}
 		});
 		node.active.pending_conf_height.emplace (status.winner->hash (), shared_from_this ());
 		clear_blocks ();
