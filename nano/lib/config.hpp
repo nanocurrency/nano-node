@@ -1,5 +1,7 @@
 #pragma once
 
+#include <boost/config.hpp>
+
 #include <string>
 
 namespace boost
