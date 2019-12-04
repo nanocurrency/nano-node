@@ -57,7 +57,8 @@ public:
 class rpc_config final
 {
 public:
-	explicit rpc_config (bool = false);
+	rpc_config () = default;
+	explicit rpc_config (uint16_t, bool);
 	nano::error serialize_json (nano::jsonconfig &) const;
 	nano::error deserialize_json (bool & upgraded_a, nano::jsonconfig &);
 	nano::error serialize_toml (nano::tomlconfig &) const;
@@ -66,7 +67,7 @@ public:
 	nano::rpc_process_config rpc_process;
 	boost::asio::ip::address_v6 address{ boost::asio::ip::address_v6::loopback () };
 	uint16_t port{ rpc_process.network_constants.default_rpc_port };
-	bool enable_control;
+	bool enable_control{ false };
 	rpc_secure_config secure;
 	uint8_t max_json_depth{ 20 };
 	uint64_t max_request_size{ 32 * 1024 * 1024 };

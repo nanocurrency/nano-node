@@ -260,7 +260,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_mass_activity"))
 		{
-			nano::system system (24000, 1);
+			nano::system system (1);
 			uint32_t count (1000000);
 			system.generate_mass_activity (count, *system.nodes[0]);
 		}
@@ -497,7 +497,7 @@ int main (int argc, char * const * argv)
 			size_t num_interations (5); // 100,000 * 5 * 2 = 1,000,000 blocks
 			size_t max_blocks (2 * num_accounts * num_interations + num_accounts * 2); //  1,000,000 + 2* 100,000 = 1,200,000 blocks
 			std::cerr << boost::str (boost::format ("Starting pregenerating %1% blocks\n") % max_blocks);
-			nano::system system (24000, 1);
+			nano::system system (1);
 			nano::work_pool work (std::numeric_limits<unsigned>::max ());
 			nano::logging logging;
 			auto path (nano::unique_path ());
@@ -608,7 +608,7 @@ int main (int argc, char * const * argv)
 			size_t num_representatives (25);
 			size_t max_votes (num_elections * num_representatives); // 40,000 * 25 = 1,000,000 votes
 			std::cerr << boost::str (boost::format ("Starting pregenerating %1% votes\n") % max_votes);
-			nano::system system (24000, 1);
+			nano::system system (1);
 			nano::work_pool work (std::numeric_limits<unsigned>::max ());
 			nano::logging logging;
 			auto path (nano::unique_path ());
