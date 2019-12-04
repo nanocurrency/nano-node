@@ -54,8 +54,13 @@ nano::error nano::rpc_secure_config::deserialize_toml (nano::tomlconfig & toml)
 	return toml.get_error ();
 }
 
+nano::rpc_config::rpc_config () :
+address (boost::asio::ip::address_v6::loopback ().to_string ())
+{
+}
+
 nano::rpc_config::rpc_config (uint16_t port_a, bool enable_control_a) :
-address (boost::asio::ip::address_v6{}.to_string ()),
+address (boost::asio::ip::address_v6::loopback ().to_string ()),
 port (port_a),
 enable_control (enable_control_a)
 {
@@ -110,7 +115,7 @@ nano::error nano::rpc_config::deserialize_json (bool & upgraded_a, nano::jsoncon
 		}
 
 		boost::asio::ip::address_v6 address_l;
-		json.get_required<boost::asio::ip::address_v6> ("address", address_l, boost::asio::ip::address_v6{});
+		json.get_required<boost::asio::ip::address_v6> ("address", address_l, boost::asio::ip::address_v6::loopback ());
 		address = address_l.to_string ();
 		json.get_optional<uint16_t> ("port", port);
 		json.get_optional<bool> ("enable_control", enable_control);
@@ -132,8 +137,8 @@ nano::error nano::rpc_config::deserialize_json (bool & upgraded_a, nano::jsoncon
 			rpc_process_l->get_optional<unsigned> ("io_threads", rpc_process.io_threads);
 			rpc_process_l->get_optional<uint16_t> ("ipc_port", rpc_process.ipc_port);
 			boost::asio::ip::address_v6 ipc_address_l;
-			json.get_required<boost::asio::ip::address_v6> ("ipc_address", ipc_address_l, boost::asio::ip::address_v6{});
-			rpc_process.ipc_address = address_l.to_string ();
+			rpc_process_l->get_optional<boost::asio::ip::address_v6> ("ipc_address", ipc_address_l);
+			rpc_process.ipc_address = ipc_address_l.to_string ();
 			rpc_process_l->get_optional<unsigned> ("num_ipc_connections", rpc_process.num_ipc_connections);
 		}
 	}
@@ -197,7 +202,7 @@ nano::error nano::rpc_config::deserialize_toml (nano::tomlconfig & toml)
 }
 
 nano::rpc_process_config::rpc_process_config () :
-ipc_address (boost::asio::ip::address_v6{}.to_string ())
+ipc_address (boost::asio::ip::address_v6::loopback ().to_string ())
 {
 }
 

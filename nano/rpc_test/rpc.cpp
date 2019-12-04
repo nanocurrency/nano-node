@@ -2421,7 +2421,7 @@ TEST (rpc, peers)
 	auto port = nano::get_available_port ();
 	system.add_node (nano::node_config (port, system.logging));
 	scoped_io_thread_name_change scoped_thread_name_io;
-	nano::endpoint endpoint (boost::asio::ip::address_v6::from_string ("fc00::1"), 4000);
+	nano::endpoint endpoint (boost::asio::ip::make_address_v6 ("fc00::1"), 4000);
 	node->network.udp_channels.insert (endpoint, node->network_params.protocol.protocol_version);
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
@@ -2455,7 +2455,7 @@ TEST (rpc, peers_node_id)
 	auto port = nano::get_available_port ();
 	system.add_node (nano::node_config (port, system.logging));
 	scoped_io_thread_name_change scoped_thread_name_io;
-	nano::endpoint endpoint (boost::asio::ip::address_v6::from_string ("fc00::1"), 4000);
+	nano::endpoint endpoint (boost::asio::ip::make_address_v6 ("fc00::1"), 4000);
 	node->network.udp_channels.insert (endpoint, node->network_params.protocol.protocol_version);
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);

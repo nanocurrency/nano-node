@@ -102,7 +102,7 @@ void nano::network::send_keepalive_self (std::shared_ptr<nano::transport::channe
 	nano::keepalive message;
 	if (node.config.external_address != boost::asio::ip::address_v6{}.to_string () && node.config.external_port != 0)
 	{
-		message.peers[0] = nano::endpoint (boost::asio::ip::address_v6::from_string (node.config.external_address), node.config.external_port);
+		message.peers[0] = nano::endpoint (boost::asio::ip::make_address_v6 (node.config.external_address), node.config.external_port);
 	}
 	else
 	{
@@ -111,7 +111,7 @@ void nano::network::send_keepalive_self (std::shared_ptr<nano::transport::channe
 		{
 			message.peers[0] = nano::endpoint (boost::asio::ip::address_v6{}, endpoint ().port ());
 			boost::system::error_code ec;
-			auto external_v6 = boost::asio::ip::address_v6::from_string (external_address.address ().to_string (), ec);
+			auto external_v6 = boost::asio::ip::make_address_v6 (external_address.address ().to_string (), ec);
 			message.peers[1] = nano::endpoint (external_v6, external_address.port ());
 		}
 		else

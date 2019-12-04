@@ -133,14 +133,14 @@ bool nano::transport::reserved_address (nano::endpoint const & endpoint_a, bool 
 	static auto const ipv4_multicast_max (mapped_from_v4_bytes (0xeffffffful));
 	static auto const rfc6890_min (mapped_from_v4_bytes (0xf0000000ul));
 	static auto const rfc6890_max (mapped_from_v4_bytes (0xfffffffful));
-	static auto const rfc6666_min (boost::asio::ip::address_v6::from_string ("100::"));
-	static auto const rfc6666_max (boost::asio::ip::address_v6::from_string ("100::ffff:ffff:ffff:ffff"));
-	static auto const rfc3849_min (boost::asio::ip::address_v6::from_string ("2001:db8::"));
-	static auto const rfc3849_max (boost::asio::ip::address_v6::from_string ("2001:db8:ffff:ffff:ffff:ffff:ffff:ffff"));
-	static auto const rfc4193_min (boost::asio::ip::address_v6::from_string ("fc00::"));
-	static auto const rfc4193_max (boost::asio::ip::address_v6::from_string ("fd00:ffff:ffff:ffff:ffff:ffff:ffff:ffff"));
-	static auto const ipv6_multicast_min (boost::asio::ip::address_v6::from_string ("ff00::"));
-	static auto const ipv6_multicast_max (boost::asio::ip::address_v6::from_string ("ff00:ffff:ffff:ffff:ffff:ffff:ffff:ffff"));
+	static auto const rfc6666_min (boost::asio::ip::make_address_v6 ("100::"));
+	static auto const rfc6666_max (boost::asio::ip::make_address_v6 ("100::ffff:ffff:ffff:ffff"));
+	static auto const rfc3849_min (boost::asio::ip::make_address_v6 ("2001:db8::"));
+	static auto const rfc3849_max (boost::asio::ip::make_address_v6 ("2001:db8:ffff:ffff:ffff:ffff:ffff:ffff"));
+	static auto const rfc4193_min (boost::asio::ip::make_address_v6 ("fc00::"));
+	static auto const rfc4193_max (boost::asio::ip::make_address_v6 ("fd00:ffff:ffff:ffff:ffff:ffff:ffff:ffff"));
+	static auto const ipv6_multicast_min (boost::asio::ip::make_address_v6 ("ff00::"));
+	static auto const ipv6_multicast_max (boost::asio::ip::make_address_v6 ("ff00:ffff:ffff:ffff:ffff:ffff:ffff:ffff"));
 	if (endpoint_a.port () == 0)
 	{
 		result = true;

@@ -5,7 +5,7 @@
 
 nano::websocket::config::config () :
 port (network_constants.default_websocket_port),
-address (boost::asio::ip::address_v6{}.to_string ())
+address (boost::asio::ip::address_v6::loopback ().to_string ())
 {
 }
 
@@ -39,7 +39,7 @@ nano::error nano::websocket::config::deserialize_json (nano::jsonconfig & json)
 {
 	json.get<bool> ("enable", enabled);
 	boost::asio::ip::address_v6 address_l;
-	json.get_required<boost::asio::ip::address_v6> ("address", address_l, boost::asio::ip::address_v6{});
+	json.get_required<boost::asio::ip::address_v6> ("address", address_l, boost::asio::ip::address_v6::loopback ());
 	address = address_l.to_string ();
 	json.get<uint16_t> ("port", port);
 	return json.get_error ();

@@ -63,7 +63,7 @@ void nano::distributed_work::start ()
 		need_resolve.pop_back ();
 		auto this_l (shared_from_this ());
 		boost::system::error_code ec;
-		auto parsed_address (boost::asio::ip::address_v6::from_string (current.first, ec));
+		auto parsed_address (boost::asio::ip::make_address_v6 (current.first, ec));
 		if (!ec)
 		{
 			outstanding[parsed_address] = current.second;

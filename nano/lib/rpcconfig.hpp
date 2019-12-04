@@ -63,7 +63,7 @@ public:
 class rpc_config final
 {
 public:
-	rpc_config () = default;
+	rpc_config ();
 	explicit rpc_config (uint16_t, bool);
 	nano::error serialize_json (nano::jsonconfig &) const;
 	nano::error deserialize_json (bool & upgraded_a, nano::jsonconfig &);

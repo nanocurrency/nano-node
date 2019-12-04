@@ -1512,7 +1512,7 @@ TEST (block_store, peers)
 
 TEST (block_store, endpoint_key_byte_order)
 {
-	boost::asio::ip::address_v6 address (boost::asio::ip::address_v6::from_string ("::ffff:127.0.0.1"));
+	boost::asio::ip::address_v6 address (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.1"));
 	uint16_t port = 100;
 	nano::endpoint_key endpoint_key (address.to_bytes (), port);
 

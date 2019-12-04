@@ -234,7 +234,7 @@ nano::jsonconfig & nano::jsonconfig::get_config (bool optional, std::string key,
 	{
 		auto address_l (tree.get<std::string> (key));
 		boost::system::error_code bec;
-		target = boost::asio::ip::address_v6::from_string (address_l, bec);
+		target = boost::asio::ip::make_address_v6 (address_l, bec);
 		if (bec)
 		{
 			conditionally_set_error<boost::asio::ip::address_v6> (nano::error_config::invalid_value, optional, key);
