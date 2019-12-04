@@ -344,13 +344,8 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	{
 		auto election_l (i->election);
 		auto root_l (i->root);
-		// Erase finished elections
-		if ((election_l->confirmed || election_l->stopped))
-		{
-			inactive_l.insert (root_l);
-		}
 		// Drop elections
-		else if (count_l >= node.config.active_elections_size && election_l->election_start < election_ttl_cutoff_l && !node.wallets.watcher->is_watched (root_l))
+		if (!election_l->confirmed && count_l >= node.config.active_elections_size && election_l->election_start < election_ttl_cutoff_l && !node.wallets.watcher->is_watched (root_l))
 		{
 			election_l->stop ();
 			inactive_l.insert (root_l);
