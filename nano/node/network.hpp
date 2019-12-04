@@ -1,6 +1,5 @@
 #pragma once
 
-//#include <nano/boost/asio/thread_pool.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/transport/tcp.hpp>
 #include <nano/node/transport/udp.hpp>

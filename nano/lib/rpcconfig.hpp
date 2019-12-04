@@ -48,9 +48,10 @@ public:
 class rpc_process_config final
 {
 public:
+	rpc_process_config ();
 	nano::network_constants network_constants;
 	unsigned io_threads{ (4 < std::thread::hardware_concurrency ()) ? std::thread::hardware_concurrency () : 4 };
-	std::string ipc_address{ "::1" };
+	std::string ipc_address;
 	uint16_t ipc_port{ network_constants.default_ipc_port };
 	unsigned num_ipc_connections{ network_constants.is_live_network () ? 8u : network_constants.is_beta_network () ? 4u : 1u };
 	static unsigned json_version ()
@@ -69,7 +70,7 @@ public:
 	nano::error deserialize_toml (nano::tomlconfig &);
 
 	nano::rpc_process_config rpc_process;
-	std::string address{ "::1" };
+	std::string address;
 	uint16_t port{ rpc_process.network_constants.default_rpc_port };
 	bool enable_control;
 	rpc_secure_config secure;

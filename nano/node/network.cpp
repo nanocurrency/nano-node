@@ -100,7 +100,7 @@ void nano::network::send_keepalive (std::shared_ptr<nano::transport::channel> ch
 void nano::network::send_keepalive_self (std::shared_ptr<nano::transport::channel> channel_a)
 {
 	nano::keepalive message;
-	if (node.config.external_address != "::1" && node.config.external_port != 0)
+	if (node.config.external_address != boost::asio::ip::address_v6{}.to_string () && node.config.external_port != 0)
 	{
 		message.peers[0] = nano::endpoint (boost::asio::ip::address_v6::from_string (node.config.external_address), node.config.external_port);
 	}

@@ -53,7 +53,10 @@ enum class nano_networks
 class network_constants
 {
 public:
-	network_constants () = default;
+	network_constants () :
+	network_constants (network_constants::active_network)
+	{
+	}
 
 	network_constants (nano_networks network_a) :
 	current_network (network_a)

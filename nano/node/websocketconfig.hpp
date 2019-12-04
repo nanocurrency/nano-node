@@ -21,7 +21,7 @@ namespace websocket
 		nano::network_constants network_constants;
 		bool enabled{ false };
 		uint16_t port;
-		std::string address{ "::1" };
+		std::string address;
 	};
 }
 }
