@@ -25,9 +25,11 @@ cmake \
     -DNANO_POW_SERVER=ON \
     -DNANO_GUI=ON \
     -DNANO_ROCKSDB=ON \
+    -DROCKSDB_LIBRARIES=/tmp/rocksdb/lib/librocksdb.a \
+    -DROCKSDB_INCLUDE_DIRS=/tmp/rocksdb/include \
     -DCMAKE_BUILD_TYPE=${CONFIGURATION} \
     -DCMAKE_VERBOSE_MAKEFILE=ON \
-    -DBOOST_ROOT=/usr/local \
+    -DBOOST_ROOT=/tmp/boost/ \
     -DQt5_DIR=${qt_dir} \
     -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
     -DCI_BUILD=true \

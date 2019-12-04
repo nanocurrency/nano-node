@@ -136,6 +136,11 @@ nano::read_transaction nano::rocksdb_store::tx_begin_read ()
 	return nano::read_transaction{ std::make_unique<nano::read_rocksdb_txn> (db) };
 }
 
+std::string nano::rocksdb_store::vendor_get () const
+{
+	return boost::str (boost::format ("RocksDB %1%.%2%.%3%") % ROCKSDB_MAJOR % ROCKSDB_MINOR % ROCKSDB_PATCH);
+}
+
 rocksdb::ColumnFamilyHandle * nano::rocksdb_store::table_to_column_family (tables table_a) const
 {
 	auto & handles_l = handles;
@@ -209,17 +214,13 @@ bool nano::rocksdb_store::exists (nano::transaction const & transaction_a, table
 int nano::rocksdb_store::del (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a)
 {
 	assert (transaction_a.contains (table_a));
-	if (!exists (transaction_a, table_a, key_a))
+	// RocksDB errors when trying to delete an entry which doesn't exist. It is a pre-condition that the key exists
+	assert (exists (transaction_a, table_a, key_a));
+
+	// Removing an entry so counts may need adjusting
+	if (is_caching_counts (table_a))
 	{
-		return status_code_not_found ();
-	}
-	else
-	{
-		// Adding a new entry so counts need adjusting (use RMW otherwise known as merge)
-		if (is_caching_counts (table_a))
-		{
-			decrement (transaction_a, tables::cached_counts, rocksdb_val (rocksdb::Slice (table_to_column_family (table_a)->GetName ())), 1);
-		}
+		decrement (transaction_a, tables::cached_counts, rocksdb_val (rocksdb::Slice (table_to_column_family (table_a)->GetName ())), 1);
 	}
 
 	return tx (transaction_a)->Delete (table_to_column_family (table_a), key_a).code ();
@@ -227,7 +228,7 @@ int nano::rocksdb_store::del (nano::write_transaction const & transaction_a, tab
 
 bool nano::rocksdb_store::block_info_get (nano::transaction const &, nano::block_hash const &, nano::block_info &) const
 {
-	// Should not be called
+	// Should not be called as the RocksDB backend does not use this table
 	assert (false);
 	return true;
 }
@@ -456,7 +457,7 @@ rocksdb::Options nano::rocksdb_store::get_db_options () const
 	// Sets the compaction priority
 	db_options.compaction_pri = rocksdb::CompactionPri::kMinOverlappingRatio;
 
-	// Start agressively flushing WAL files when they reach over 1GB
+	// Start aggressively flushing WAL files when they reach over 1GB
 	db_options.max_total_wal_size = 1 * 1024 * 1024 * 1024LL;
 
 	// Optimize RocksDB. This is the easiest way to get RocksDB to perform well
@@ -467,7 +468,7 @@ rocksdb::Options nano::rocksdb_store::get_db_options () const
 	db_options.enable_pipelined_write = rocksdb_config.enable_pipelined_write;
 
 	// Total size of memtables across column families. This can be used to manage the total memory used by memtables.
-	db_options.db_write_buffer_size = rocksdb_config.total_memtable_size;
+	db_options.db_write_buffer_size = rocksdb_config.total_memtable_size * 1024 * 1024ULL;
 
 	return db_options;
 }

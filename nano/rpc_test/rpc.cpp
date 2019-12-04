@@ -979,6 +979,7 @@ TEST (rpc, wallet_create_seed)
 	auto node = add_ipc_enabled_node (system);
 	scoped_io_thread_name_change scoped_thread_name_io;
 	nano::raw_key seed;
+	nano::random_pool::generate_block (seed.data.bytes.data (), seed.data.bytes.size ());
 	auto prv = nano::deterministic_key (seed, 0);
 	auto pub (nano::pub_key (prv));
 	nano::node_rpc_config node_rpc_config;
@@ -2693,6 +2694,7 @@ TEST (rpc, version)
 	}
 	ASSERT_EQ (std::to_string (node1->network_params.protocol.protocol_version), response1.json.get<std::string> ("protocol_version"));
 	ASSERT_EQ (boost::str (boost::format ("Nano %1%") % NANO_VERSION_STRING), response1.json.get<std::string> ("node_vendor"));
+	ASSERT_EQ (node1->store.vendor_get (), response1.json.get<std::string> ("store_vendor"));
 	auto network_label (node1->network_params.network.get_current_network_as_string ());
 	ASSERT_EQ (network_label, response1.json.get<std::string> ("network"));
 	auto genesis_open (node1->latest (nano::test_genesis_key.pub));
@@ -3578,9 +3580,11 @@ TEST (rpc, wallet_change_seed)
 	nano::system system0;
 	auto node = add_ipc_enabled_node (system0);
 	nano::raw_key seed;
+	nano::random_pool::generate_block (seed.data.bytes.data (), seed.data.bytes.size ());
 	{
 		auto transaction (system0.nodes[0]->wallets.tx_begin_read ());
 		nano::raw_key seed0;
+		nano::random_pool::generate_block (seed0.data.bytes.data (), seed0.data.bytes.size ());
 		system0.wallet (0)->store.seed (seed0, transaction);
 		ASSERT_NE (seed, seed0);
 	}

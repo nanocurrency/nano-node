@@ -712,7 +712,7 @@ TEST (confirmation_height, modified_chain)
 		while (!node->write_database_queue.contains (nano::writer::confirmation_height))
 			;
 
-		store.block_del (store.tx_begin_write (), send->hash ());
+		store.block_del (store.tx_begin_write (), send->hash (), send->type ());
 	}
 
 	while (node->write_database_queue.contains (nano::writer::confirmation_height))

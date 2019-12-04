@@ -56,14 +56,14 @@ void nano::bulk_pull_client::request ()
 	assert (!pull.head.is_zero () || pull.retry_limit != std::numeric_limits<unsigned>::max ());
 	expected = pull.head;
 	nano::bulk_pull req;
-	if (pull.head == pull.head_original)
+	if (pull.head == pull.head_original && pull.attempts % 4 < 3)
 	{
 		// Account for new pulls
 		req.start = pull.account_or_head;
 	}
 	else
 	{
-		// Head for cached pulls
+		// Head for cached pulls or accounts with public key equal to existing block hash (25% of attempts)
 		req.start = pull.head;
 	}
 	req.end = pull.end;
@@ -223,7 +223,8 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 			}
 			// Is block expected?
 			bool block_expected (false);
-			bool unconfirmed_account_head (pull_blocks == 0 && pull.retry_limit != std::numeric_limits<unsigned>::max () && expected == pull.account_or_head && block->account () == pull.account_or_head);
+			// Unconfirmed head is used only for lazy destinations if legacy bootstrap is not available, see nano::bootstrap_attempt::lazy_destinations_increment (...)
+			bool unconfirmed_account_head (connection->node->flags.disable_legacy_bootstrap && pull_blocks == 0 && pull.retry_limit != std::numeric_limits<unsigned>::max () && expected == pull.account_or_head && block->account () == pull.account_or_head);
 			if (hash == expected || unconfirmed_account_head)
 			{
 				expected = block->previous ();

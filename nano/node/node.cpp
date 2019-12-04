@@ -366,6 +366,7 @@ startup_time (std::chrono::steady_clock::now ())
 
 		logger.always_log ("Node starting, version: ", NANO_VERSION_STRING);
 		logger.always_log ("Build information: ", BUILD_INFO);
+		logger.always_log ("Database backend: ", store.vendor_get ());
 
 		auto network_label = network_params.network.get_current_network_as_string ();
 		logger.always_log ("Active network: ", network_label);
@@ -659,7 +660,10 @@ void nano::node::start ()
 		});
 	}
 	ongoing_store_flush ();
-	rep_crawler.start ();
+	if (!flags.disable_rep_crawler)
+	{
+		rep_crawler.start ();
+	}
 	ongoing_rep_calculation ();
 	ongoing_peer_store ();
 	ongoing_online_weight_calculation_queue ();
@@ -1041,7 +1045,10 @@ void nano::node::add_initial_peers ()
 				if (auto node_l = node_w.lock ())
 				{
 					node_l->network.send_keepalive (channel_a);
-					node_l->rep_crawler.query (channel_a);
+					if (!node_l->flags.disable_rep_crawler)
+					{
+						node_l->rep_crawler.query (channel_a);
+					}
 				}
 			});
 		}

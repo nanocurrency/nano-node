@@ -1630,9 +1630,10 @@ void nano::json_handler::bootstrap ()
 
 void nano::json_handler::bootstrap_any ()
 {
+	const bool force = request.get<bool> ("force", false);
 	if (!node.flags.disable_legacy_bootstrap)
 	{
-		node.bootstrap_initiator.bootstrap ();
+		node.bootstrap_initiator.bootstrap (force);
 		response_l.put ("success", "");
 	}
 	else
@@ -4099,6 +4100,7 @@ void nano::json_handler::version ()
 	response_l.put ("store_version", std::to_string (node.store_version ()));
 	response_l.put ("protocol_version", std::to_string (node.network_params.protocol.protocol_version));
 	response_l.put ("node_vendor", boost::str (boost::format ("Nano %1%") % NANO_VERSION_STRING));
+	response_l.put ("store_vendor", node.store.vendor_get ());
 	response_l.put ("network", node.network_params.network.get_current_network_as_string ());
 	response_l.put ("network_identifier", nano::genesis ().hash ().to_string ());
 	response_l.put ("build_info", BUILD_INFO);
