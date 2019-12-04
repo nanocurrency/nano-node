@@ -1,9 +1,10 @@
 #pragma once
 
-#include <nano/rpc/rpc_handler.hpp>
+#include <nano/boost/asio/ip/tcp.hpp>
+#include <nano/boost/beast/core/flat_buffer.hpp>
+#include <nano/boost/beast/http.hpp>
 
 #include <boost/asio/strand.hpp>
-#include <boost/beast.hpp>
 
 #include <atomic>
 

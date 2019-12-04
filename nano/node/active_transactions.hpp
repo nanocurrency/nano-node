@@ -1,7 +1,6 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
-#include <nano/lib/timer.hpp>
 #include <nano/node/gap_cache.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/transport/transport.hpp>
@@ -12,17 +11,13 @@
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
-#include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index_container.hpp>
-#include <boost/pool/pool_alloc.hpp>
 #include <boost/thread/thread.hpp>
 
 #include <atomic>
 #include <condition_variable>
 #include <deque>
 #include <memory>
-#include <queue>
-#include <set>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -31,8 +26,8 @@ namespace nano
 class node;
 class block;
 class block_sideband;
-class vote;
 class election;
+class vote;
 class transaction;
 
 class conflict_info final

@@ -2,6 +2,8 @@
 #include <nano/node/node.hpp>
 #include <nano/node/transport/transport.hpp>
 
+#include <boost/format.hpp>
+
 #include <numeric>
 
 namespace

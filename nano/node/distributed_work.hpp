@@ -1,15 +1,25 @@
 #pragma once
 
-#include <nano/boost/asio.hpp>
-#include <nano/boost/beast.hpp>
+#include <nano/boost/asio/ip/tcp.hpp>
+#include <nano/boost/beast/core/flat_buffer.hpp>
+#include <nano/boost/beast/http/string_body.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/timer.hpp>
 
 #include <boost/optional.hpp>
 
+#include <mutex>
 #include <unordered_map>
 
 using request_type = boost::beast::http::request<boost::beast::http::string_body>;
+
+namespace boost
+{
+namespace asio
+{
+	class io_context;
+}
+}
 
 namespace nano
 {
@@ -81,24 +91,4 @@ public:
 	std::vector<std::string> bad_peers; // websocket
 	std::string winner; // websocket
 };
-
-class distributed_work_factory final
-{
-public:
-	distributed_work_factory (nano::node &);
-	~distributed_work_factory ();
-	bool make (nano::root const &, std::vector<std::pair<std::string, uint16_t>> const &, std::function<void(boost::optional<uint64_t>)> const &, uint64_t, boost::optional<nano::account> const & = boost::none);
-	bool make (unsigned int, nano::root const &, std::vector<std::pair<std::string, uint16_t>> const &, std::function<void(boost::optional<uint64_t>)> const &, uint64_t, boost::optional<nano::account> const & = boost::none);
-	void cancel (nano::root const &, bool const local_stop = false);
-	void cleanup_finished ();
-	void stop ();
-
-	nano::node & node;
-	std::unordered_map<nano::root, std::vector<std::weak_ptr<nano::distributed_work>>> items;
-	std::mutex mutex;
-	std::atomic<bool> stopped{ false };
-};
-
-class seq_con_info_component;
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (distributed_work_factory & distributed_work, const std::string & name);
 }

@@ -1,5 +1,4 @@
 #include <nano/lib/locks.hpp>
-#include <nano/lib/utility.hpp>
 
 #if NANO_TIMED_LOCKS > 0
 namespace

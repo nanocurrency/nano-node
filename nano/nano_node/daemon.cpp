@@ -1,4 +1,5 @@
-#include <nano/boost/process.hpp>
+#include <nano/boost/process/child.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/daemonconfig.hpp>
@@ -9,10 +10,7 @@
 #include <nano/rpc/rpc.hpp>
 #include <nano/secure/working.hpp>
 
-#include <boost/property_tree/json_parser.hpp>
-
 #include <csignal>
-#include <fstream>
 #include <iostream>
 
 namespace
@@ -82,7 +80,6 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 					}
 
 #if BOOST_PROCESS_SUPPORTED
-					auto network = node->network_params.network.get_current_network_as_string ();
 					nano_pow_server_process = std::make_unique<boost::process::child> (config.pow_server.pow_server_path, "--config_path", data_path / "config-nano-pow-server.toml");
 #else
 					std::cerr << "nano_pow_server is configured to start as a child process, but this is not supported on this system. Disable startup and start the server manually." << std::endl;

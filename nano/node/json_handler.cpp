@@ -2,27 +2,17 @@
 #include <nano/lib/json_error_response.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/common.hpp>
-#include <nano/node/ipc.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/json_payment_observer.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/node_rpc_config.hpp>
 
-#include <boost/array.hpp>
-#include <boost/bind.hpp>
-#include <boost/endian/conversion.hpp>
-#include <boost/polymorphic_cast.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
-#include <boost/thread/thread_time.hpp>
 
 #include <algorithm>
 #include <chrono>
-#include <cstdio>
-#include <fstream>
-#include <future>
-#include <iostream>
-#include <thread>
 
 namespace
 {
@@ -1390,9 +1380,9 @@ void nano::json_handler::block_create ()
 			rpc_l->response (ostream.str ());
 		};
 		// Wrapper from argument to lambda capture, to extend the block's scope
-		auto get_callback_l = [rpc_l, this, block_response_put_l](std::shared_ptr<nano::block> block_a) {
+		auto get_callback_l = [rpc_l, block_response_put_l](std::shared_ptr<nano::block> block_a) {
 			// Callback upon work generation success or failure
-			return [block_a, rpc_l, this, block_response_put_l](boost::optional<uint64_t> const & work_a) {
+			return [block_a, rpc_l, block_response_put_l](boost::optional<uint64_t> const & work_a) {
 				if (block_a != nullptr)
 				{
 					if (work_a.is_initialized ())

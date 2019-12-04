@@ -1,12 +1,15 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/lmdb/lmdb_iterator.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/wallet.hpp>
-#include <nano/node/xorshift.hpp>
 
 #include <boost/filesystem.hpp>
+#include <boost/format.hpp>
 #include <boost/polymorphic_cast.hpp>
+#include <boost/property_tree/json_parser.hpp>
 
 #include <future>
 

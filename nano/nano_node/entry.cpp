@@ -5,9 +5,10 @@
 #include <nano/node/ipc.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node.hpp>
-#include <nano/node/payment_observer_processor.hpp>
 #include <nano/node/testing.hpp>
 
+#include <boost/filesystem/operations.hpp>
+#include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
 
@@ -98,7 +99,7 @@ int main (int argc, char * const * argv)
 		auto err (nano::network_constants::set_active_network (network->second.as<std::string> ()));
 		if (err)
 		{
-			std::cerr << err.get_message () << std::endl;
+			std::cerr << nano::network_constants::active_network_err_msg << std::endl;
 			std::exit (1);
 		}
 	}

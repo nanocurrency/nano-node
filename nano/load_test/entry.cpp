@@ -1,7 +1,10 @@
-#include <nano/boost/asio.hpp>
-#include <nano/boost/beast.hpp>
-#include <nano/boost/process.hpp>
+#include <nano/boost/asio/bind_executor.hpp>
+#include <nano/boost/asio/connect.hpp>
+#include <nano/boost/beast/core/flat_buffer.hpp>
+#include <nano/boost/beast/http.hpp>
+#include <nano/boost/process/child.hpp>
 #include <nano/core_test/testutil.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/testing.hpp>
@@ -9,6 +12,7 @@
 
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/program_options.hpp>
+#include <boost/property_tree/json_parser.hpp>
 
 #include <csignal>
 #include <iomanip>

@@ -7,11 +7,11 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/secure/epoch.hpp>
-#include <nano/secure/utility.hpp>
 
 #include <boost/iterator/transform_iterator.hpp>
-#include <boost/property_tree/ptree.hpp>
-#include <boost/variant.hpp>
+#include <boost/optional/optional.hpp>
+#include <boost/property_tree/ptree_fwd.hpp>
+#include <boost/variant/variant.hpp>
 
 #include <unordered_map>
 

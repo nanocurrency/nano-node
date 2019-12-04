@@ -1,7 +1,8 @@
-#include <nano/boost/process.hpp>
+#include <nano/boost/process/child.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/rpcconfig.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/lib/walletconfig.hpp>
@@ -150,7 +151,6 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 				}
 
 #if BOOST_PROCESS_SUPPORTED
-				auto network = node->network_params.network.get_current_network_as_string ();
 				nano_pow_server_process = std::make_unique<boost::process::child> (config.pow_server.pow_server_path, "--config_path", data_path / "config-nano-pow-server.toml");
 #else
 				splash->hide ();
@@ -269,7 +269,7 @@ int main (int argc, char * const * argv)
 			auto err (nano::network_constants::set_active_network (network->second.as<std::string> ()));
 			if (err)
 			{
-				show_error (err.get_message ());
+				show_error (nano::network_constants::active_network_err_msg);
 				std::exit (1);
 			}
 		}

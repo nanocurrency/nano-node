@@ -1,15 +1,14 @@
 #pragma once
 
-#include <nano/lib/config.hpp>
 #include <nano/node/lmdb/lmdb.hpp>
 #include <nano/node/lmdb/wallet_value.hpp>
 #include <nano/node/openclwork.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
 
-#include <boost/thread/thread.hpp>
-
+#include <atomic>
 #include <mutex>
+#include <thread>
 #include <unordered_set>
 
 namespace nano
@@ -220,7 +219,7 @@ public:
 	nano::mdb_env & env;
 	std::atomic<bool> stopped;
 	std::shared_ptr<nano::work_watcher> watcher;
-	boost::thread thread;
+	std::thread thread;
 	static nano::uint128_t const generate_priority;
 	static nano::uint128_t const high_priority;
 	std::atomic<uint64_t> reps_count{ 0 };

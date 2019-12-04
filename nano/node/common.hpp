@@ -1,9 +1,9 @@
 #pragma once
 
-#include <nano/boost/asio.hpp>
+#include <nano/boost/asio/ip/tcp.hpp>
+#include <nano/boost/asio/ip/udp.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/asio.hpp>
-#include <nano/lib/config.hpp>
 #include <nano/lib/memory.hpp>
 #include <nano/secure/common.hpp>
 
@@ -217,17 +217,9 @@ public:
 	virtual ~message () = default;
 	virtual void serialize (nano::stream &) const = 0;
 	virtual void visit (nano::message_visitor &) const = 0;
-	std::shared_ptr<std::vector<uint8_t>> to_bytes () const
-	{
-		auto bytes = std::make_shared<std::vector<uint8_t>> ();
-		nano::vectorstream stream (*bytes);
-		serialize (stream);
-		return bytes;
-	}
-	nano::shared_const_buffer to_shared_const_buffer () const
-	{
-		return shared_const_buffer (to_bytes ());
-	}
+	std::shared_ptr<std::vector<uint8_t>> to_bytes () const;
+	nano::shared_const_buffer to_shared_const_buffer () const;
+
 	nano::message_header header;
 };
 class work_pool;

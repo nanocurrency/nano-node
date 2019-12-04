@@ -1,7 +1,8 @@
 #pragma once
 
 #include <nano/node/common.hpp>
-#include <nano/node/socket.hpp>
+
+#include <future>
 
 namespace nano
 {

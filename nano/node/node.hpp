@@ -1,20 +1,15 @@
 #pragma once
 
-#include <nano/boost/asio.hpp>
 #include <nano/lib/alarm.hpp>
-#include <nano/lib/rep_weights.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/work.hpp>
+#include <nano/lib/worker.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
-#include <nano/node/bootstrap/bootstrap_bulk_pull.hpp>
-#include <nano/node/bootstrap/bootstrap_bulk_push.hpp>
-#include <nano/node/bootstrap/bootstrap_frontier.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/confirmation_height_processor.hpp>
-#include <nano/node/distributed_work.hpp>
-#include <nano/node/election.hpp>
+#include <nano/node/distributed_work_factory.hpp>
 #include <nano/node/gap_cache.hpp>
 #include <nano/node/logging.hpp>
 #include <nano/node/network.hpp>
@@ -27,27 +22,28 @@
 #include <nano/node/signatures.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/wallet.hpp>
-#include <nano/node/websocket.hpp>
 #include <nano/node/write_database_queue.hpp>
 #include <nano/secure/ledger.hpp>
+#include <nano/secure/utility.hpp>
 
-#include <boost/iostreams/device/array.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
-#include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index_container.hpp>
 #include <boost/thread/latch.hpp>
-#include <boost/thread/thread.hpp>
 
 #include <atomic>
-#include <condition_variable>
 #include <memory>
-#include <queue>
+#include <thread>
 #include <vector>
 
 namespace nano
 {
+namespace websocket
+{
+	class listener;
+}
+
 class node;
 
 class work_pool;
@@ -173,7 +169,7 @@ public:
 	nano::rep_crawler rep_crawler;
 	unsigned warmed_up;
 	nano::block_processor block_processor;
-	boost::thread block_processor_thread;
+	std::thread block_processor_thread;
 	nano::block_arrival block_arrival;
 	nano::online_reps online_reps;
 	nano::votes_cache votes_cache;

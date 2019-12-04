@@ -1,10 +1,10 @@
 #pragma once
 
+#include <nano/lib/locks.hpp>
 #include <nano/lib/timer.hpp>
-#include <nano/lib/utility.hpp>
 
 #include <boost/iostreams/concepts.hpp>
-#include <boost/log/sources/logger.hpp>
+#include <boost/log/sinks/text_ostream_backend.hpp>
 #include <boost/log/utility/setup/console.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 
@@ -51,7 +51,7 @@ class stringstream_mt_sink : public boost::iostreams::sink
 {
 public:
 	stringstream_mt_sink () = default;
-	stringstream_mt_sink (const stringstream_mt_sink & sink)
+	stringstream_mt_sink (stringstream_mt_sink const & sink)
 	{
 		nano::lock_guard<std::mutex> guard (mutex);
 		ss << sink.ss.str ();

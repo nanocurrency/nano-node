@@ -1,10 +1,9 @@
 #include <nano/core_test/testutil.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/node/socket.hpp>
 #include <nano/node/testing.hpp>
 
 #include <gtest/gtest.h>
-
-#include <boost/thread.hpp>
 
 using namespace std::chrono_literals;
 

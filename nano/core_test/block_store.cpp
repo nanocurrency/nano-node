@@ -1,17 +1,26 @@
 #include <nano/core_test/testutil.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/stats.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/lib/work.hpp>
 #include <nano/node/common.hpp>
-#include <nano/node/node.hpp>
+#include <nano/secure/ledger.hpp>
+#include <nano/secure/utility.hpp>
 #include <nano/secure/versioning.hpp>
+
+#include <boost/filesystem.hpp>
 
 #if NANO_ROCKSDB
 #include <nano/node/rocksdb/rocksdb.hpp>
 #endif
 
+#include <nano/lib/logger_mt.hpp>
+#include <nano/node/lmdb/lmdb.hpp>
+
 #include <gtest/gtest.h>
 
 #include <fstream>
+#include <unordered_set>
 
 #include <stdlib.h>
 

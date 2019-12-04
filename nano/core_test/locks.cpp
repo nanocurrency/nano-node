@@ -1,9 +1,4 @@
-#include <nano/core_test/testutil.hpp>
 #include <nano/lib/locks.hpp>
-
-#include <gtest/gtest.h>
-
-#include <regex>
 
 #if NANO_TIMED_LOCKS > 0
 namespace

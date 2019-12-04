@@ -1,7 +1,8 @@
+#include <nano/boost/beast/core/flat_buffer.hpp>
+#include <nano/boost/beast/http.hpp>
 #include <nano/core_test/testutil.hpp>
-#include <nano/lib/ipc.hpp>
 #include <nano/lib/rpcconfig.hpp>
-#include <nano/lib/timer.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/node/ipc.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node_rpc_config.hpp>
@@ -11,7 +12,8 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/beast.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/property_tree/json_parser.hpp>
 
 #include <algorithm>
 
@@ -7215,12 +7217,12 @@ TEST (rpc, in_process)
 TEST (rpc_config, serialization)
 {
 	nano::rpc_config config1;
-	config1.address = boost::asio::ip::address_v6::any ();
+	config1.address = boost::asio::ip::address_v6::any ().to_string ();
 	config1.port = 10;
 	config1.enable_control = true;
 	config1.max_json_depth = 10;
 	config1.rpc_process.io_threads = 2;
-	config1.rpc_process.ipc_address = boost::asio::ip::address_v6::any ();
+	config1.rpc_process.ipc_address = boost::asio::ip::address_v6::any ().to_string ();
 	config1.rpc_process.ipc_port = 2000;
 	config1.rpc_process.num_ipc_connections = 99;
 	nano::jsonconfig tree;

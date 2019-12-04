@@ -1,7 +1,8 @@
-#include <nano/boost/asio.hpp>
-#include <nano/boost/beast.hpp>
+#include <nano/boost/asio/connect.hpp>
+#include <nano/boost/asio/ip/tcp.hpp>
+#include <nano/boost/beast/core.hpp>
+#include <nano/boost/beast/websocket.hpp>
 #include <nano/core_test/testutil.hpp>
-#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/node/websocket.hpp>
 
@@ -10,9 +11,7 @@
 #include <boost/property_tree/json_parser.hpp>
 
 #include <chrono>
-#include <condition_variable>
 #include <cstdlib>
-#include <iostream>
 #include <memory>
 #include <sstream>
 #include <string>

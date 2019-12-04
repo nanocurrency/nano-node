@@ -1,4 +1,10 @@
-#include <boost/filesystem.hpp>
+namespace boost
+{
+namespace filesystem
+{
+	class path;
+}
+}
 
 namespace nano
 {

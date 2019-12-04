@@ -1,7 +1,6 @@
 #pragma once
 
 #include <nano/lib/ipc.hpp>
-#include <nano/lib/numbers.hpp>
 #include <nano/node/node_rpc_config.hpp>
 
 #include <atomic>

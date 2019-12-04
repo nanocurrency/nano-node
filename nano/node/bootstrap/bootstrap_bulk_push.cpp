@@ -3,6 +3,8 @@
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
 
+#include <boost/format.hpp>
+
 nano::bulk_push_client::bulk_push_client (std::shared_ptr<nano::bootstrap_client> const & connection_a) :
 connection (connection_a)
 {

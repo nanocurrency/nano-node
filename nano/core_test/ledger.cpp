@@ -1,9 +1,9 @@
 #include <nano/core_test/testutil.hpp>
 #include <nano/lib/stats.hpp>
+#include <nano/lib/threading.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/testing.hpp>
 
-#include <crypto/cryptopp/filters.h>
-#include <crypto/cryptopp/randpool.h>
 #include <gtest/gtest.h>
 
 using namespace std::chrono_literals;

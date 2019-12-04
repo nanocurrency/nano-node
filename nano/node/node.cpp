@@ -1,21 +1,21 @@
-#include <nano/crypto_lib/random_pool.hpp>
-#include <nano/lib/timer.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/websocket.hpp>
 #include <nano/rpc/rpc.hpp>
+#include <nano/secure/buffer.hpp>
 
 #if NANO_ROCKSDB
 #include <nano/node/rocksdb/rocksdb.hpp>
 #endif
 
-#include <boost/polymorphic_cast.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 #include <algorithm>
 #include <cstdlib>
 #include <future>
-#include <numeric>
 #include <sstream>
 
 double constexpr nano::node::price_max;
@@ -135,7 +135,7 @@ bootstrap_initiator (*this),
 bootstrap (config.peering_port, *this),
 application_path (application_path_a),
 port_mapping (*this),
-vote_processor (*this),
+vote_processor (checker, active, store, observers, stats, config, logger, online_reps, ledger, network_params),
 rep_crawler (*this),
 warmed_up (0),
 block_processor (*this, write_database_queue),
@@ -143,7 +143,7 @@ block_processor_thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::block_processing);
 	this->block_processor.process_blocks ();
 }),
-online_reps (*this, config.online_weight_minimum.number ()),
+online_reps (ledger, network_params, config.online_weight_minimum.number ()),
 vote_uniquer (block_uniquer),
 active (*this),
 confirmation_height_processor (pending_confirmation_height, ledger, active, write_database_queue, config.conf_height_processor_batch_min_time, logger),
@@ -155,8 +155,8 @@ startup_time (std::chrono::steady_clock::now ())
 	{
 		if (config.websocket_config.enabled)
 		{
-			auto endpoint_l (nano::tcp_endpoint (config.websocket_config.address, config.websocket_config.port));
-			websocket_server = std::make_shared<nano::websocket::listener> (*this, endpoint_l);
+			auto endpoint_l (nano::tcp_endpoint (boost::asio::ip::address_v6::from_string (config.websocket_config.address), config.websocket_config.port));
+			websocket_server = std::make_shared<nano::websocket::listener> (logger, wallets, io_ctx, endpoint_l);
 			this->websocket_server->run ();
 		}
 
@@ -683,7 +683,7 @@ void nano::node::start ()
 			this_l->bootstrap_wallet ();
 		});
 	}
-	if (config.external_address == boost::asio::ip::address_v6{}.any ())
+	if (config.external_address == boost::asio::ip::address_v6{}.any ().to_string ())
 	{
 		port_mapping.start ();
 	}

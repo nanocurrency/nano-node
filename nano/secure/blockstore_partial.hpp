@@ -2,6 +2,9 @@
 
 #include <nano/lib/rep_weights.hpp>
 #include <nano/secure/blockstore.hpp>
+#include <nano/secure/buffer.hpp>
+
+#include <crypto/cryptopp/words.h>
 
 namespace nano
 {

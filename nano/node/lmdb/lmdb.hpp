@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nano/lib/config.hpp>
 #include <nano/lib/diagnosticsconfig.hpp>
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
@@ -11,12 +10,17 @@
 #include <nano/secure/common.hpp>
 #include <nano/secure/versioning.hpp>
 
-#include <boost/filesystem.hpp>
 #include <boost/optional.hpp>
 
-#include <thread>
-
 #include <lmdb/libraries/liblmdb/lmdb.h>
+
+namespace boost
+{
+namespace filesystem
+{
+	class path;
+}
+}
 
 namespace nano
 {
@@ -273,4 +277,6 @@ template <>
 mdb_val::db_val (size_t size_a, void * data_a);
 template <>
 void mdb_val::convert_buffer_to_value ();
+
+extern template class block_store_partial<MDB_val, mdb_store>;
 }

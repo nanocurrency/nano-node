@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nano/boost/asio.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/transport/transport.hpp>
 
@@ -12,6 +11,7 @@
 #include <boost/multi_index_container.hpp>
 
 #include <mutex>
+#include <unordered_set>
 
 namespace nano
 {

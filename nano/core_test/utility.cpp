@@ -1,8 +1,11 @@
 #include <nano/lib/timer.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/lib/worker.hpp>
 #include <nano/secure/utility.hpp>
 
 #include <gtest/gtest.h>
+
+#include <boost/filesystem.hpp>
 
 namespace
 {

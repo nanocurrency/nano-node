@@ -1,9 +1,10 @@
-#include <nano/lib/config.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/node.hpp>
+
+#include <boost/format.hpp>
 
 namespace
 {

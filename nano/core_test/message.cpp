@@ -1,6 +1,9 @@
 #include <nano/node/common.hpp>
+#include <nano/secure/buffer.hpp>
 
 #include <gtest/gtest.h>
+
+#include <boost/variant/get.hpp>
 
 TEST (message, keepalive_serialization)
 {

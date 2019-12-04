@@ -1,4 +1,4 @@
-#include <nano/lib/config.hpp>
+#include <nano/boost/asio/bind_executor.hpp>
 #include <nano/lib/json_error_response.hpp>
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/rpc_handler_interface.hpp>
@@ -7,7 +7,6 @@
 #include <nano/rpc/rpc_handler.hpp>
 
 #include <boost/algorithm/string/predicate.hpp>
-#include <boost/format.hpp>
 
 nano::rpc_connection::rpc_connection (nano::rpc_config const & rpc_config, boost::asio::io_context & io_ctx, nano::logger_mt & logger, nano::rpc_handler_interface & rpc_handler_interface) :
 socket (io_ctx),
