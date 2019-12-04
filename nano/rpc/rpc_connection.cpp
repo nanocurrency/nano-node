@@ -3,7 +3,9 @@
 #include <nano/rpc/rpc_connection.hpp>
 #include <nano/rpc/rpc_handler.hpp>
 
+#ifdef NANO_SECURE_RPC
 #include <boost/asio/ssl/stream.hpp>
+#endif
 #include <boost/format.hpp>
 
 nano::rpc_connection::rpc_connection (nano::rpc_config const & rpc_config, boost::asio::io_context & io_ctx, nano::logger_mt & logger, nano::rpc_handler_interface & rpc_handler_interface) :
@@ -149,7 +151,9 @@ void nano::rpc_connection::parse_request (STREAM_TYPE & stream, std::shared_ptr<
 	}));
 }
 
-template void nano::rpc_connection::read (boost::asio::ssl::stream<socket_type &> &);
 template void nano::rpc_connection::read (socket_type &);
-template void nano::rpc_connection::parse_request (boost::asio::ssl::stream<socket_type &> &, std::shared_ptr<boost::beast::http::request_parser<boost::beast::http::empty_body>>);
 template void nano::rpc_connection::parse_request (socket_type &, std::shared_ptr<boost::beast::http::request_parser<boost::beast::http::empty_body>>);
+#ifdef NANO_SECURE_RPC
+template void nano::rpc_connection::read (boost::asio::ssl::stream<socket_type &> &);
+template void nano::rpc_connection::parse_request (boost::asio::ssl::stream<socket_type &> &, std::shared_ptr<boost::beast::http::request_parser<boost::beast::http::empty_body>>);
+#endif
