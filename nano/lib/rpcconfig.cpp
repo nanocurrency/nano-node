@@ -179,7 +179,7 @@ nano::error nano::rpc_config::deserialize_toml (nano::tomlconfig & toml)
 		}
 
 		boost::asio::ip::address_v6 address_l;
-		toml.get_optional<boost::asio::ip::address_v6> ("address", address_l);
+		toml.get_optional<boost::asio::ip::address_v6> ("address", address_l, boost::asio::ip::address_v6::loopback ());
 		address = address_l.to_string ();
 		toml.get_optional<uint16_t> ("port", port);
 		toml.get_optional<bool> ("enable_control", enable_control);
@@ -192,7 +192,7 @@ nano::error nano::rpc_config::deserialize_toml (nano::tomlconfig & toml)
 			rpc_process_l->get_optional<unsigned> ("io_threads", rpc_process.io_threads);
 			rpc_process_l->get_optional<uint16_t> ("ipc_port", rpc_process.ipc_port);
 			boost::asio::ip::address_v6 ipc_address_l;
-			toml.get_optional<boost::asio::ip::address_v6> ("ipc_address", ipc_address_l);
+			rpc_process_l->get_optional<boost::asio::ip::address_v6> ("ipc_address", ipc_address_l, boost::asio::ip::address_v6::loopback ());
 			rpc_process.ipc_address = address_l.to_string ();
 			rpc_process_l->get_optional<unsigned> ("num_ipc_connections", rpc_process.num_ipc_connections);
 		}

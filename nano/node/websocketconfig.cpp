@@ -21,7 +21,7 @@ nano::error nano::websocket::config::deserialize_toml (nano::tomlconfig & toml)
 {
 	toml.get<bool> ("enable", enabled);
 	boost::asio::ip::address_v6 address_l;
-	toml.get<boost::asio::ip::address_v6> ("address", address_l);
+	toml.get_optional<boost::asio::ip::address_v6> ("address", address_l, boost::asio::ip::address_v6::loopback ());
 	address = address_l.to_string ();
 	toml.get<uint16_t> ("port", port);
 	return toml.get_error ();
