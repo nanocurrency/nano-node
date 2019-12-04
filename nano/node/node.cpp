@@ -366,6 +366,7 @@ startup_time (std::chrono::steady_clock::now ())
 
 		logger.always_log ("Node starting, version: ", NANO_VERSION_STRING);
 		logger.always_log ("Build information: ", BUILD_INFO);
+		logger.always_log ("Database backend: ", store.vendor_get ());
 
 		auto network_label = network_params.network.get_current_network_as_string ();
 		logger.always_log ("Active network: ", network_label);
