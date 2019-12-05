@@ -38,15 +38,27 @@ void show_help (std::string const & message_a)
 	message.exec ();
 }
 
-nano::error read_and_update_wallet_config (nano::wallet_config & config_a, boost::filesystem::path const & data_path_a)
+nano::error write_wallet_config (nano::wallet_config & config_a, boost::filesystem::path const & data_path_a)
 {
 	nano::tomlconfig wallet_config_toml;
 	auto wallet_path (nano::get_qtwallet_toml_config_path (data_path_a));
-	wallet_config_toml.read (nano::get_qtwallet_toml_config_path (data_path_a));
 	config_a.serialize_toml (wallet_config_toml);
 
 	// Write wallet config. If missing, the file is created and permissions are set.
 	wallet_config_toml.write (wallet_path);
+	return wallet_config_toml.get_error ();
+}
+
+nano::error read_wallet_config (nano::wallet_config & config_a, boost::filesystem::path const & data_path_a)
+{
+	nano::tomlconfig wallet_config_toml;
+	auto wallet_path (nano::get_qtwallet_toml_config_path (data_path_a));
+	if (!boost::filesystem::exists (wallet_path))
+	{
+		write_wallet_config (config_a, data_path_a);
+	}
+	wallet_config_toml.read (wallet_path);
+	config_a.deserialize_toml (wallet_config_toml);
 	return wallet_config_toml.get_error ();
 }
 }
@@ -71,7 +83,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	auto error = nano::read_node_config_toml (data_path, config, config_overrides);
 	if (!error)
 	{
-		error = read_and_update_wallet_config (wallet_config, data_path);
+		error = read_wallet_config (wallet_config, data_path);
 	}
 
 #if !NANO_ROCKSDB
@@ -131,7 +143,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 				}
 			}
 			assert (wallet->exists (wallet_config.account));
-			read_and_update_wallet_config (wallet_config, data_path);
+			write_wallet_config (wallet_config, data_path);
 			node->start ();
 			nano::ipc::ipc_server ipc (*node, config.rpc);
 
@@ -226,7 +238,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 			splash->hide ();
 			show_error ("Error initializing node");
 		}
-		read_and_update_wallet_config (wallet_config, data_path);
+		write_wallet_config (wallet_config, data_path);
 	}
 	else
 	{
