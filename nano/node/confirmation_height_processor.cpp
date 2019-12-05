@@ -62,6 +62,11 @@ void nano::confirmation_height_processor::run ()
 			}
 			add_confirmation_height (pending_confirmations.current_hash);
 			lk.lock ();
+			// If the block wasn't fully processed yet
+			if (!pending_writes.empty ())
+			{
+				pending_confirmations.writing.insert (pending_confirmations.current_hash);
+			}
 			pending_confirmations.current_hash = 0;
 		}
 		else
@@ -290,12 +295,6 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
  */
 bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_details> & all_pending_a)
 {
-	nano::unique_lock<std::mutex> lock (pending_confirmations.mutex);
-	pending_confirmations.writing.reserve (all_pending_a.size ());
-	std::transform (all_pending_a.begin (), all_pending_a.end (), std::inserter (pending_confirmations.writing, pending_confirmations.writing.begin ()), [](conf_height_details const & details) {
-		return details.hash;
-	});
-	lock.unlock ();
 	auto total_pending_write_block_count = std::accumulate (all_pending_a.cbegin (), all_pending_a.cend (), uint64_t (0), [](uint64_t total, conf_height_details const & conf_height_details_a) {
 		return total += conf_height_details_a.num_blocks_confirmed;
 	});
@@ -358,7 +357,7 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 		}
 	}
 	assert (all_pending_a.empty ());
-	lock.lock ();
+	nano::lock_guard<std::mutex> guard (pending_confirmations.mutex);
 	pending_confirmations.writing.clear ();
 	return error;
 }
