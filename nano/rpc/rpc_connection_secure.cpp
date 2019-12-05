@@ -14,9 +14,9 @@ void nano::rpc_connection_secure::parse_connection ()
 	// Perform the SSL handshake
 	auto this_l = std::static_pointer_cast<nano::rpc_connection_secure> (shared_from_this ());
 	stream.async_handshake (boost::asio::ssl::stream_base::server,
-	[this_l](auto & ec) {
+	boost::asio::bind_executor (this_l->strand, [this_l](auto & ec) {
 		this_l->handle_handshake (ec);
-	});
+	}));
 }
 
 void nano::rpc_connection_secure::on_shutdown (const boost::system::error_code & error)
@@ -29,7 +29,7 @@ void nano::rpc_connection_secure::handle_handshake (const boost::system::error_c
 {
 	if (!error)
 	{
-		read ();
+		read (stream);
 	}
 	else
 	{

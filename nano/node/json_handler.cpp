@@ -3335,9 +3335,9 @@ void nano::json_handler::receive ()
 	auto hash (hash_impl ("block"));
 	if (!ec)
 	{
-		auto transaction (node.wallets.tx_begin_read ());
-		wallet_locked_impl (transaction, wallet);
-		wallet_account_impl (transaction, wallet, account);
+		auto wallet_transaction (node.wallets.tx_begin_read ());
+		wallet_locked_impl (wallet_transaction, wallet);
+		wallet_account_impl (wallet_transaction, wallet, account);
 		if (!ec)
 		{
 			auto block_transaction (node.store.tx_begin_read ());
@@ -3373,10 +3373,13 @@ void nano::json_handler::receive ()
 					}
 					if (!ec)
 					{
+						// Representative is only used by receive_action when opening accounts
+						// Set a wallet default representative for new accounts
+						nano::account representative (wallet->store.representative (wallet_transaction));
 						bool generate_work (work == 0); // Disable work generation if "work" option is provided
 						auto response_a (response);
 						// clang-format off
-						wallet->receive_async(std::move(block), account, node.network_params.ledger.genesis_amount, [response_a](std::shared_ptr<nano::block> block_a) {
+						wallet->receive_async(std::move(block), representative, node.network_params.ledger.genesis_amount, [response_a](std::shared_ptr<nano::block> block_a) {
 							if (block_a != nullptr)
 							{
 								boost::property_tree::ptree response_l;
@@ -4100,6 +4103,7 @@ void nano::json_handler::version ()
 	response_l.put ("store_version", std::to_string (node.store_version ()));
 	response_l.put ("protocol_version", std::to_string (node.network_params.protocol.protocol_version));
 	response_l.put ("node_vendor", boost::str (boost::format ("Nano %1%") % NANO_VERSION_STRING));
+	response_l.put ("store_vendor", node.store.vendor_get ());
 	response_l.put ("network", node.network_params.network.get_current_network_as_string ());
 	response_l.put ("network_identifier", nano::genesis ().hash ().to_string ());
 	response_l.put ("build_info", BUILD_INFO);

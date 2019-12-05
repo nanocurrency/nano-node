@@ -12,7 +12,7 @@ TEST (socket, concurrent_writes)
 {
 	auto node_flags = nano::inactive_node_flag_defaults ();
 	node_flags.read_only = false;
-	nano::inactive_node inactivenode (nano::unique_path (), 24000, node_flags);
+	nano::inactive_node inactivenode (nano::unique_path (), nano::get_available_port (), node_flags);
 	auto node = inactivenode.node;
 
 	// This gives more realistic execution than using system#poll, allowing writes to

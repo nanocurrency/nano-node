@@ -361,12 +361,12 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 				election_escalate (election_l, transaction_l, roots_size_l);
 			}
 			// Block broadcasting
-			if (election_l->confirmation_request_count % 8 == 1 || node.network_params.network.is_test_network ())
+			if (election_l->confirmation_request_count % 8 == 1)
 			{
 				election_broadcast (election_l, transaction_l, blocks_bundle_l, inactive_l, root_l);
 			}
 			// Confirmation requesting
-			else if (election_l->confirmation_request_count % 4 == 0)
+			if (election_l->confirmation_request_count % 4 == 0)
 			{
 				// If failed to insert into any of the bundles (capped), don't increment the counter so that the same root is sent for confirmation in the next loop
 				if (!election_request_confirm (election_l, representatives_l, roots_size_l, single_confirm_req_bundle_l, batched_confirm_req_bundle_l))
@@ -374,7 +374,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 					increment_counter_l = false;
 				}
 			}
-			if (increment_counter_l)
+			if (increment_counter_l || node.network_params.network.is_test_network ())
 			{
 				++election_l->confirmation_request_count;
 			}

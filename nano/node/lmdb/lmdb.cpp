@@ -76,7 +76,8 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 				}
 			}
 
-			if (needs_vacuuming)
+			nano::network_constants network_constants;
+			if (needs_vacuuming && !network_constants.is_test_network ())
 			{
 				auto vacuum_success = vacuum_after_upgrade (path_a, lmdb_max_dbs);
 				logger.always_log (vacuum_success ? "Vacuum succeeded." : "Failed to vacuum. (Optional) Ensure enough disk space is available for a copy of the database and try to vacuum after shutting down the node");
@@ -134,6 +135,11 @@ nano::write_transaction nano::mdb_store::tx_begin_write (std::vector<nano::table
 nano::read_transaction nano::mdb_store::tx_begin_read ()
 {
 	return env.tx_begin_read (create_txn_callbacks ());
+}
+
+std::string nano::mdb_store::vendor_get () const
+{
+	return boost::str (boost::format ("LMDB %1%.%2%.%3%") % MDB_VERSION_MAJOR % MDB_VERSION_MINOR % MDB_VERSION_PATCH);
 }
 
 nano::mdb_txn_callbacks nano::mdb_store::create_txn_callbacks ()

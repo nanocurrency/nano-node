@@ -7,7 +7,7 @@ using namespace std::chrono_literals;
 
 TEST (conflicts, start_stop)
 {
-	nano::system system (24000, 1);
+	nano::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::genesis genesis;
 	nano::keypair key1;
@@ -29,7 +29,7 @@ TEST (conflicts, start_stop)
 
 TEST (conflicts, add_existing)
 {
-	nano::system system (24000, 1);
+	nano::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::genesis genesis;
 	nano::keypair key1;
@@ -55,7 +55,7 @@ TEST (conflicts, add_existing)
 
 TEST (conflicts, add_two)
 {
-	nano::system system (24000, 1);
+	nano::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::genesis genesis;
 	nano::keypair key1;
@@ -160,7 +160,7 @@ TEST (vote_uniquer, cleanup)
 
 TEST (conflicts, reprioritize)
 {
-	nano::system system (24000, 1);
+	nano::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::genesis genesis;
 	nano::keypair key1;
@@ -193,7 +193,7 @@ TEST (conflicts, reprioritize)
 TEST (conflicts, dependency)
 {
 	nano::system system;
-	nano::node_config node_config (24000, system.logging);
+	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node1 = system.add_node (node_config);
 	nano::genesis genesis;
@@ -222,7 +222,7 @@ TEST (conflicts, dependency)
 
 TEST (conflicts, adjusted_difficulty)
 {
-	nano::system system (24000, 1);
+	nano::system system (1);
 	auto & node1 (*system.nodes[0]);
 	nano::genesis genesis;
 	nano::keypair key1;
