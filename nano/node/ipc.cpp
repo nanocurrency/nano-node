@@ -1,5 +1,5 @@
-#include <nano/boost/asio/read.hpp>
 #include <nano/boost/asio/local/stream_protocol.hpp>
+#include <nano/boost/asio/read.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/ipc.hpp>
 #include <nano/lib/threading.hpp>
