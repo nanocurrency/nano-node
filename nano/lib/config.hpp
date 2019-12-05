@@ -1,6 +1,7 @@
 #pragma once
 
 #include <boost/config.hpp>
+#include <boost/version.hpp>
 
 #include <string>
 
