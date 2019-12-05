@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/config.hpp>
+#include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
 
@@ -8,13 +9,12 @@
 #include <boost/thread/thread.hpp>
 
 #include <atomic>
-#include <condition_variable>
 #include <memory>
-#include <thread>
 
 namespace nano
 {
 class block;
+
 bool work_validate (nano::root const &, uint64_t, uint64_t * = nullptr);
 bool work_validate (nano::block const &, uint64_t * = nullptr);
 uint64_t work_value (nano::root const &, uint64_t);

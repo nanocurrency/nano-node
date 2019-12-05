@@ -1,13 +1,11 @@
 #pragma once
 
-#include <nano/lib/json_error_response.hpp>
-#include <nano/lib/logger_mt.hpp>
-#include <nano/lib/rpcconfig.hpp>
-#include <nano/rpc/rpc_handler.hpp>
+#include <nano/boost/asio/ip/tcp.hpp>
+#include <nano/boost/asio/strand.hpp>
+#include <nano/boost/beast/core/flat_buffer.hpp>
+#include <nano/boost/beast/http.hpp>
 
 #include <boost/algorithm/string/predicate.hpp>
-#include <boost/asio/strand.hpp>
-#include <boost/beast.hpp>
 
 #include <atomic>
 

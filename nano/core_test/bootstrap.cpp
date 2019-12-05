@@ -1,4 +1,5 @@
 #include <nano/core_test/testutil.hpp>
+#include <nano/node/bootstrap/bootstrap_frontier.hpp>
 #include <nano/node/testing.hpp>
 
 #include <gtest/gtest.h>

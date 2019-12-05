@@ -1,7 +1,10 @@
+#include <nano/lib/threading.hpp>
 #include <nano/node/active_transactions.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
 
-#include <boost/pool/pool_alloc.hpp>
+#include <boost/format.hpp>
+#include <boost/variant/get.hpp>
 
 #include <numeric>
 

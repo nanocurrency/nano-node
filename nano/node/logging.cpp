@@ -1,5 +1,6 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/logger_mt.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/logging.hpp>
 
@@ -8,7 +9,6 @@
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/log/utility/setup/console.hpp>
 #include <boost/log/utility/setup/file.hpp>
-#include <boost/property_tree/ptree.hpp>
 
 #ifdef BOOST_WINDOWS
 #include <boost/log/sinks/event_log_backend.hpp>

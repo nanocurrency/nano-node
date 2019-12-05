@@ -1,6 +1,8 @@
 #include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
 
+#include <boost/format.hpp>
+
 nano::election_vote_result::election_vote_result (bool replay_a, bool processed_a)
 {
 	replay = replay_a;

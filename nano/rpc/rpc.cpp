@@ -1,8 +1,11 @@
+#include <nano/boost/asio/bind_executor.hpp>
 #include <nano/lib/rpc_handler_interface.hpp>
 #include <nano/rpc/rpc.hpp>
 #include <nano/rpc/rpc_connection.hpp>
 
 #include <boost/format.hpp>
+
+#include <iostream>
 
 #ifdef NANO_SECURE_RPC
 #include <nano/rpc/rpc_secure.hpp>
@@ -28,7 +31,7 @@ nano::rpc::~rpc ()
 
 void nano::rpc::start ()
 {
-	auto endpoint (boost::asio::ip::tcp::endpoint (config.address, config.port));
+	auto endpoint (boost::asio::ip::tcp::endpoint (boost::asio::ip::make_address_v6 (config.address), config.port));
 	if (!endpoint.address ().is_loopback () && config.enable_control)
 	{
 		auto warning = boost::str (boost::format ("WARNING: control-level RPCs are enabled on non-local address %1%, potentially allowing wallet access outside local computer") % endpoint.address ().to_string ());

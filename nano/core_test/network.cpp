@@ -465,7 +465,7 @@ TEST (parse_endpoint, no_colon)
 
 TEST (network, ipv6)
 {
-	boost::asio::ip::address_v6 address (boost::asio::ip::address_v6::from_string ("::ffff:127.0.0.1"));
+	boost::asio::ip::address_v6 address (boost::asio::ip::make_address_v6 ("::ffff:127.0.0.1"));
 	ASSERT_TRUE (address.is_v4_mapped ());
 	nano::endpoint endpoint1 (address, 16384);
 	std::vector<uint8_t> bytes1;
@@ -557,12 +557,12 @@ TEST (network, reserved_address)
 {
 	nano::system system (1);
 	// 0 port test
-	ASSERT_TRUE (nano::transport::reserved_address (nano::endpoint (boost::asio::ip::address_v6::from_string ("2001::"), 0)));
+	ASSERT_TRUE (nano::transport::reserved_address (nano::endpoint (boost::asio::ip::make_address_v6 ("2001::"), 0)));
 	// Valid address test
-	ASSERT_FALSE (nano::transport::reserved_address (nano::endpoint (boost::asio::ip::address_v6::from_string ("2001::"), 1)));
-	nano::endpoint loopback (boost::asio::ip::address_v6::from_string ("::1"), 1);
+	ASSERT_FALSE (nano::transport::reserved_address (nano::endpoint (boost::asio::ip::make_address_v6 ("2001::"), 1)));
+	nano::endpoint loopback (boost::asio::ip::make_address_v6 ("::1"), 1);
 	ASSERT_FALSE (nano::transport::reserved_address (loopback));
-	nano::endpoint private_network_peer (boost::asio::ip::address_v6::from_string ("::ffff:10.0.0.0"), 1);
+	nano::endpoint private_network_peer (boost::asio::ip::make_address_v6 ("::ffff:10.0.0.0"), 1);
 	ASSERT_TRUE (nano::transport::reserved_address (private_network_peer, false));
 	ASSERT_FALSE (nano::transport::reserved_address (private_network_peer, true));
 }

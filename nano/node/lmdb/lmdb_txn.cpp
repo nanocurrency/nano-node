@@ -1,11 +1,12 @@
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/logger_mt.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/lmdb/lmdb_env.hpp>
 #include <nano/node/lmdb/lmdb_txn.hpp>
 #include <nano/secure/blockstore.hpp>
 
-#include <boost/polymorphic_cast.hpp>
+#include <boost/format.hpp>
 
 // Some builds (mac) fail due to "Boost.Stacktrace requires `_Unwind_Backtrace` function".
 #ifndef _WIN32

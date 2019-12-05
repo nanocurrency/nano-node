@@ -1,8 +1,5 @@
 #pragma once
 
-#include <nano/boost/asio.hpp>
-#include <nano/lib/config.hpp>
-
 #include <miniupnp/miniupnpc/miniupnpc.h>
 
 #include <mutex>

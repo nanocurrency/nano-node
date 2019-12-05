@@ -2,10 +2,12 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/memory.hpp>
 #include <nano/lib/numbers.hpp>
-#include <nano/lib/utility.hpp>
+#include <nano/lib/threading.hpp>
+
+#include <crypto/cryptopp/words.h>
 
 #include <boost/endian/conversion.hpp>
-#include <boost/pool/pool_alloc.hpp>
+#include <boost/property_tree/json_parser.hpp>
 
 /** Compare blocks, first by type, then content. This is an optimization over dynamic_cast, which is very slow on some platforms. */
 namespace

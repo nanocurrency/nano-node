@@ -5,6 +5,7 @@
 #include <nano/node/rocksdb/rocksdb_txn.hpp>
 
 #include <boost/endian/conversion.hpp>
+#include <boost/format.hpp>
 #include <boost/polymorphic_cast.hpp>
 
 #include <rocksdb/merge_operator.h>
@@ -606,3 +607,5 @@ bool nano::rocksdb_store::init_error () const
 {
 	return error;
 }
+// Explicitly instantiate
+template class nano::block_store_partial<rocksdb::Slice, nano::rocksdb_store>;

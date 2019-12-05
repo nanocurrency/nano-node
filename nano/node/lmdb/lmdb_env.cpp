@@ -1,5 +1,7 @@
 #include <nano/node/lmdb/lmdb_env.hpp>
 
+#include <boost/filesystem/operations.hpp>
+
 nano::mdb_env::mdb_env (bool & error_a, boost::filesystem::path const & path_a, int max_dbs_a, bool use_no_mem_init_a, size_t map_size_a)
 {
 	init (error_a, path_a, max_dbs_a, use_no_mem_init_a, map_size_a);

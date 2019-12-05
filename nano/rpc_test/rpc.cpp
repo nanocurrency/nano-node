@@ -1,7 +1,8 @@
+#include <nano/boost/beast/core/flat_buffer.hpp>
+#include <nano/boost/beast/http.hpp>
 #include <nano/core_test/testutil.hpp>
-#include <nano/lib/ipc.hpp>
 #include <nano/lib/rpcconfig.hpp>
-#include <nano/lib/timer.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/node/ipc.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node_rpc_config.hpp>
@@ -11,7 +12,8 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/beast.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/property_tree/json_parser.hpp>
 
 #include <algorithm>
 
@@ -2419,7 +2421,7 @@ TEST (rpc, peers)
 	auto port = nano::get_available_port ();
 	system.add_node (nano::node_config (port, system.logging));
 	scoped_io_thread_name_change scoped_thread_name_io;
-	nano::endpoint endpoint (boost::asio::ip::address_v6::from_string ("fc00::1"), 4000);
+	nano::endpoint endpoint (boost::asio::ip::make_address_v6 ("fc00::1"), 4000);
 	node->network.udp_channels.insert (endpoint, node->network_params.protocol.protocol_version);
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
@@ -2453,7 +2455,7 @@ TEST (rpc, peers_node_id)
 	auto port = nano::get_available_port ();
 	system.add_node (nano::node_config (port, system.logging));
 	scoped_io_thread_name_change scoped_thread_name_io;
-	nano::endpoint endpoint (boost::asio::ip::address_v6::from_string ("fc00::1"), 4000);
+	nano::endpoint endpoint (boost::asio::ip::make_address_v6 ("fc00::1"), 4000);
 	node->network.udp_channels.insert (endpoint, node->network_params.protocol.protocol_version);
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
@@ -7218,12 +7220,12 @@ TEST (rpc, in_process)
 TEST (rpc_config, serialization)
 {
 	nano::rpc_config config1;
-	config1.address = boost::asio::ip::address_v6::any ();
+	config1.address = boost::asio::ip::address_v6::any ().to_string ();
 	config1.port = 10;
 	config1.enable_control = true;
 	config1.max_json_depth = 10;
 	config1.rpc_process.io_threads = 2;
-	config1.rpc_process.ipc_address = boost::asio::ip::address_v6::any ();
+	config1.rpc_process.ipc_address = boost::asio::ip::address_v6::any ().to_string ();
 	config1.rpc_process.ipc_port = 2000;
 	config1.rpc_process.num_ipc_connections = 99;
 	nano::jsonconfig tree;
