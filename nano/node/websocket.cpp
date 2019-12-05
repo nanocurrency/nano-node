@@ -1,5 +1,5 @@
-#include <nano/boost/asio/dispatch.hpp>
 #include <nano/boost/asio/bind_executor.hpp>
+#include <nano/boost/asio/dispatch.hpp>
 #include <nano/boost/asio/strand.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/active_transactions.hpp>

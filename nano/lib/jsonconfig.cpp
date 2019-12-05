@@ -1,9 +1,10 @@
-#include <cstddef>
 #include <nano/boost/asio/ip/address_v6.hpp>
 #include <nano/lib/jsonconfig.hpp>
 
 #include <boost/filesystem/convenience.hpp>
 #include <boost/property_tree/json_parser.hpp>
+
+#include <cstddef>
 
 nano::jsonconfig::jsonconfig () :
 tree (tree_default)
