@@ -1848,8 +1848,8 @@ void nano::json_handler::confirmation_info ()
 		if (conflict_info != node.active.roots.end ())
 		{
 			auto election (conflict_info->election);
-			response_l.put ("announcements", std::to_string (election->status.confirmation_request_count));
-			response_l.put ("voters", std::to_string (election->status.voter_count));
+			response_l.put ("announcements", std::to_string (election->confirmation_request_count));
+			response_l.put ("voters", std::to_string (election->last_votes.size ()));
 			response_l.put ("last_winner", election->status.winner->hash ().to_string ());
 			nano::uint128_t total (0);
 			auto tally_l (election->tally ());
