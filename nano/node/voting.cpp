@@ -92,23 +92,23 @@ void nano::votes_cache::add (std::shared_ptr<nano::vote> const & vote_a)
 	for (auto & block : vote_a->blocks)
 	{
 		auto hash (boost::get<nano::block_hash> (block));
-		auto existing (cache.get<1> ().find (hash));
-		if (existing == cache.get<1> ().end ())
+		auto existing (cache.get<tag_hash> ().find (hash));
+		if (existing == cache.get<tag_hash> ().end ())
 		{
 			// Clean old votes
 			if (cache.size () >= network_params.voting.max_cache)
 			{
-				cache.erase (cache.begin ());
+				cache.get<tag_sequence> ().pop_front ();
 			}
 			// Insert new votes (new hash)
-			auto inserted (cache.insert (nano::cached_votes{ std::chrono::steady_clock::now (), hash, std::vector<std::shared_ptr<nano::vote>> (1, vote_a) }));
+			auto inserted (cache.get<tag_sequence> ().emplace_back (nano::cached_votes{ hash, std::vector<std::shared_ptr<nano::vote>> (1, vote_a) }));
 			(void)inserted;
 			assert (inserted.second);
 		}
 		else
 		{
 			// Insert new votes (old hash)
-			cache.get<1> ().modify (existing, [vote_a](nano::cached_votes & cache_a) {
+			cache.get<tag_hash> ().modify (existing, [vote_a](nano::cached_votes & cache_a) {
 				// Replace old vote for same representative & hash
 				bool replaced (false);
 				for (auto i (cache_a.votes.begin ()), n (cache_a.votes.end ()); i != n && !replaced; ++i)
@@ -133,8 +133,8 @@ std::vector<std::shared_ptr<nano::vote>> nano::votes_cache::find (nano::block_ha
 {
 	std::vector<std::shared_ptr<nano::vote>> result;
 	nano::lock_guard<std::mutex> lock (cache_mutex);
-	auto existing (cache.get<1> ().find (hash_a));
-	if (existing != cache.get<1> ().end ())
+	auto existing (cache.get<tag_hash> ().find (hash_a));
+	if (existing != cache.get<tag_hash> ().end ())
 	{
 		result = existing->votes;
 	}
@@ -144,7 +144,7 @@ std::vector<std::shared_ptr<nano::vote>> nano::votes_cache::find (nano::block_ha
 void nano::votes_cache::remove (nano::block_hash const & hash_a)
 {
 	nano::lock_guard<std::mutex> lock (cache_mutex);
-	cache.get<1> ().erase (hash_a);
+	cache.get<tag_hash> ().erase (hash_a);
 }
 
 namespace nano

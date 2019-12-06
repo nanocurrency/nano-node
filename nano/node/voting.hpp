@@ -8,7 +8,7 @@
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
-#include <boost/multi_index/random_access_index.hpp>
+#include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
 #include <boost/thread.hpp>
 
@@ -45,7 +45,6 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_generator & v
 class cached_votes final
 {
 public:
-	std::chrono::steady_clock::time_point time;
 	nano::block_hash hash;
 	std::vector<std::shared_ptr<nano::vote>> votes;
 };
@@ -58,12 +57,16 @@ public:
 
 private:
 	std::mutex cache_mutex;
-	boost::multi_index_container<
-	nano::cached_votes,
+	// clang-format off
+	class tag_sequence {};
+	class tag_hash {};
+	boost::multi_index_container<nano::cached_votes,
 	boost::multi_index::indexed_by<
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::cached_votes, std::chrono::steady_clock::time_point, &nano::cached_votes::time>>,
-	boost::multi_index::hashed_unique<boost::multi_index::member<nano::cached_votes, nano::block_hash, &nano::cached_votes::hash>>>>
+		boost::multi_index::sequenced<boost::multi_index::tag<tag_sequence>>,
+		boost::multi_index::hashed_unique<boost::multi_index::tag<tag_hash>,
+			boost::multi_index::member<nano::cached_votes, nano::block_hash, &nano::cached_votes::hash>>>>
 	cache;
+	// clang-format on
 	nano::network_params network_params;
 	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (votes_cache & votes_cache, const std::string & name);
 };
