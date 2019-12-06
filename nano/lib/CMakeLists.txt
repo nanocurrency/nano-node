@@ -33,6 +33,7 @@ add_library (nano_lib
 	ipc_client.cpp
 	json_error_response.hpp
 	jsonconfig.hpp
+	jsonconfig.cpp
 	locks.hpp
 	locks.cpp
 	logger_mt.hpp
@@ -49,14 +50,20 @@ add_library (nano_lib
 	rpcconfig.cpp
 	stats.hpp
 	stats.cpp
+	threading.hpp
+	threading.cpp
 	timer.hpp
+	timer.cpp
 	tomlconfig.hpp
+	tomlconfig.cpp
 	utility.hpp
 	utility.cpp
 	walletconfig.hpp
 	walletconfig.cpp
 	work.hpp
-	work.cpp)
+	work.cpp
+	worker.hpp
+	worker.cpp)
 
 target_link_libraries (nano_lib
 	ed25519

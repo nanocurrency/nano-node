@@ -77,7 +77,8 @@ if (WIN32)
 					-DWINVER=0x0600
 					-DWIN32_LEAN_AND_MEAN
 					-DMINIUPNP_STATICLIB
-					-D_CRT_SECURE_NO_WARNINGS)
+					-D_CRT_SECURE_NO_WARNINGS
+					/EHsc)
 
 	if (${USING_TSAN} OR ${USING_ASAN} OR ${USING_ASAN_INT})
 		message (WARNING "Cannot use TSAN or ASAN on Windows, sanitizers ignored")

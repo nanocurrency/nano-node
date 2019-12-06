@@ -4,6 +4,8 @@
 #include <boost/format.hpp>
 #include <boost/polymorphic_pointer_cast.hpp>
 
+#include <iostream>
+
 bool nano::rpc_secure::on_verify_certificate (bool preverified, boost::asio::ssl::verify_context & ctx)
 {
 	X509_STORE_CTX * cts = ctx.native_handle ();
@@ -100,8 +102,8 @@ void nano::rpc_secure::load_certs (boost::asio::ssl::context & context_a)
 	}
 }
 
-nano::rpc_secure::rpc_secure (boost::asio::io_service & service_a, nano::rpc_config const & config_a, nano::rpc_handler_interface & rpc_handler_interface_a) :
-rpc (service_a, config_a, rpc_handler_interface_a),
+nano::rpc_secure::rpc_secure (boost::asio::io_context & context_a, nano::rpc_config const & config_a, nano::rpc_handler_interface & rpc_handler_interface_a) :
+rpc (context_a, config_a, rpc_handler_interface_a),
 ssl_context (boost::asio::ssl::context::tlsv12_server)
 {
 	load_certs (ssl_context);

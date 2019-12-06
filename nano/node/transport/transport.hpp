@@ -1,10 +1,9 @@
 #pragma once
 
+#include <nano/lib/locks.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/socket.hpp>
-
-#include <unordered_set>
 
 namespace nano
 {

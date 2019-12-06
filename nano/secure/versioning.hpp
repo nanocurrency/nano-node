@@ -2,7 +2,6 @@
 
 #include <nano/lib/blocks.hpp>
 #include <nano/secure/common.hpp>
-#include <nano/secure/utility.hpp>
 
 struct MDB_val;
 

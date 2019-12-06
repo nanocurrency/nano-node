@@ -1,13 +1,13 @@
 #include <nano/crypto_lib/random_pool.hpp>
-#include <nano/lib/utility.hpp>
-#include <nano/node/node.hpp>
+#include <nano/lib/work.hpp>
 #include <nano/node/openclconfig.hpp>
 #include <nano/node/openclwork.hpp>
 #include <nano/node/wallet.hpp>
 
+#include <boost/format.hpp>
+
 #include <array>
 #include <iostream>
-#include <map>
 #include <string>
 #include <vector>
 

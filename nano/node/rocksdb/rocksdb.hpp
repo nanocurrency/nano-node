@@ -19,6 +19,7 @@ namespace nano
 {
 class logging_mt;
 class rocksdb_config;
+
 /**
  * rocksdb implementation of the block store
  */
@@ -102,4 +103,6 @@ private:
 	rocksdb::BlockBasedTableOptions get_table_options () const;
 	nano::rocksdb_config rocksdb_config;
 };
+
+extern template class block_store_partial<rocksdb::Slice, rocksdb_store>;
 }

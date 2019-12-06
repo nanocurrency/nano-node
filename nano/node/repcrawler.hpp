@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nano/boost/asio.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/transport/transport.hpp>
 
@@ -13,7 +12,6 @@
 
 #include <chrono>
 #include <memory>
-#include <unordered_map>
 #include <unordered_set>
 
 namespace mi = boost::multi_index;

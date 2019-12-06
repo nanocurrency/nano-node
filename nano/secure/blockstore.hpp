@@ -1,11 +1,11 @@
 #pragma once
 
 #include <nano/crypto_lib/random_pool.hpp>
-#include <nano/lib/config.hpp>
 #include <nano/lib/diagnosticsconfig.hpp>
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/memory.hpp>
 #include <nano/lib/rocksdbconfig.hpp>
+#include <nano/secure/buffer.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/versioning.hpp>
 
@@ -516,7 +516,7 @@ public:
 		impl->fill (current);
 		return *this;
 	}
-	nano::store_iterator<T, U> & operator= (nano::store_iterator<T, U> && other_a)
+	nano::store_iterator<T, U> & operator= (nano::store_iterator<T, U> && other_a) noexcept
 	{
 		impl = std::move (other_a.impl);
 		current = std::move (other_a.current);

@@ -1,13 +1,15 @@
 #pragma once
 
-#include <nano/lib/config.hpp>
 #include <nano/lib/rep_weights.hpp>
 #include <nano/secure/common.hpp>
+
+#include <map>
 
 namespace nano
 {
 class block_store;
 class stat;
+class write_transaction;
 
 using tally_t = std::map<nano::uint128_t, std::shared_ptr<nano::block>, std::greater<nano::uint128_t>>;
 class ledger final

@@ -1,6 +1,10 @@
+#include <nano/node/bootstrap/bootstrap_bulk_push.hpp>
+#include <nano/node/bootstrap/bootstrap_frontier.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
+
+#include <boost/format.hpp>
 
 nano::bootstrap_listener::bootstrap_listener (uint16_t port_a, nano::node & node_a) :
 node (node_a),

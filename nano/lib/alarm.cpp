@@ -1,5 +1,5 @@
 #include <nano/lib/alarm.hpp>
-#include <nano/lib/utility.hpp>
+#include <nano/lib/threading.hpp>
 
 bool nano::operation::operator> (nano::operation const & other_a) const
 {

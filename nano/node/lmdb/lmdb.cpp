@@ -4,9 +4,11 @@
 #include <nano/node/lmdb/lmdb.hpp>
 #include <nano/node/lmdb/lmdb_iterator.hpp>
 #include <nano/node/lmdb/wallet_value.hpp>
+#include <nano/secure/buffer.hpp>
 #include <nano/secure/versioning.hpp>
 
-#include <boost/endian/conversion.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/format.hpp>
 #include <boost/polymorphic_cast.hpp>
 
 #include <queue>
@@ -1077,3 +1079,6 @@ bool nano::mdb_store::upgrade_counters::are_equal () const
 {
 	return (before_v0 == after_v0) && (before_v1 == after_v1);
 }
+
+// Explicitly instantiate
+template class nano::block_store_partial<MDB_val, nano::mdb_store>;

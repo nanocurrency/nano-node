@@ -35,11 +35,12 @@ add_library (secure
 	${PLATFORM_SECURE_SOURCE}
 	${CMAKE_BINARY_DIR}/bootstrap_weights_live.cpp
 	${CMAKE_BINARY_DIR}/bootstrap_weights_beta.cpp
+	blockstore.hpp
+	blockstore.cpp
+	blockstore_partial.hpp
+	buffer.hpp
 	common.hpp
 	common.cpp
-	blockstore.hpp
-	blockstore_partial.hpp
-	blockstore.cpp
 	epoch.hpp
 	epoch.cpp
 	ledger.hpp

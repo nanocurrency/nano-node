@@ -2,9 +2,15 @@
 
 #include <nano/lib/rpcconfig.hpp>
 
-#include <boost/filesystem.hpp>
-
 #include <string>
+
+namespace boost
+{
+namespace filesystem
+{
+	class path;
+}
+}
 
 namespace nano
 {

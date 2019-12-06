@@ -1,9 +1,16 @@
+#include <nano/boost/asio/bind_executor.hpp>
+#include <nano/boost/asio/ip/tcp.hpp>
+#include <nano/boost/asio/local/stream_protocol.hpp>
+#include <nano/boost/asio/read.hpp>
+#include <nano/boost/asio/strand.hpp>
 #include <nano/lib/asio.hpp>
 #include <nano/lib/ipc.hpp>
 #include <nano/lib/ipc_client.hpp>
 
 #include <boost/endian/conversion.hpp>
 #include <boost/polymorphic_cast.hpp>
+
+#include <future>
 
 namespace
 {

@@ -4,9 +4,11 @@
 #include <nano/node/common.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/wallet.hpp>
+#include <nano/secure/buffer.hpp>
 
 #include <boost/endian/conversion.hpp>
 #include <boost/pool/pool_alloc.hpp>
+#include <boost/variant/get.hpp>
 
 std::bitset<16> constexpr nano::message_header::block_type_mask;
 std::bitset<16> constexpr nano::message_header::count_mask;
@@ -102,6 +104,19 @@ header (type_a)
 nano::message::message (nano::message_header const & header_a) :
 header (header_a)
 {
+}
+
+std::shared_ptr<std::vector<uint8_t>> nano::message::to_bytes () const
+{
+	auto bytes = std::make_shared<std::vector<uint8_t>> ();
+	nano::vectorstream stream (*bytes);
+	serialize (stream);
+	return bytes;
+}
+
+nano::shared_const_buffer nano::message::to_shared_const_buffer () const
+{
+	return shared_const_buffer (to_bytes ());
 }
 
 nano::block_type nano::message_header::block_type () const
@@ -1107,7 +1122,7 @@ bool nano::parse_address_port (std::string const & string, boost::asio::ip::addr
 			if (!result)
 			{
 				boost::system::error_code ec;
-				auto address (boost::asio::ip::address_v6::from_string (string.substr (0, port_position), ec));
+				auto address (boost::asio::ip::make_address_v6 (string.substr (0, port_position), ec));
 				if (!ec)
 				{
 					address_a = address;

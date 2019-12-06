@@ -1,6 +1,8 @@
 #include <nano/node/node.hpp>
 #include <nano/node/portmapping.hpp>
 
+#include <boost/format.hpp>
+
 #include <upnpcommands.h>
 #include <upnperrors.h>
 

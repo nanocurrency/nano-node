@@ -1,10 +1,24 @@
-#include <nano/node/node.hpp>
+#include "transport/udp.hpp"
+
+#include <nano/lib/threading.hpp>
+#include <nano/node/network.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/vote_processor.hpp>
 #include <nano/node/voting.hpp>
+#include <nano/node/wallet.hpp>
+#include <nano/secure/blockstore.hpp>
+
+#include <boost/variant/get.hpp>
 
 #include <chrono>
 
-nano::vote_generator::vote_generator (nano::node & node_a) :
-node (node_a),
+nano::vote_generator::vote_generator (nano::node_config & config_a, nano::block_store & store_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::votes_cache & votes_cache_a, nano::network & network_a) :
+config (config_a),
+store (store_a),
+wallets (wallets_a),
+vote_processor (vote_processor_a),
+votes_cache (votes_cache_a),
+network (network_a),
 thread ([this]() { run (); })
 {
 	nano::unique_lock<std::mutex> lock (mutex);
@@ -47,11 +61,11 @@ void nano::vote_generator::send (nano::unique_lock<std::mutex> & lock_a)
 	}
 	lock_a.unlock ();
 	{
-		auto transaction (node.store.tx_begin_read ());
-		node.wallets.foreach_representative ([this, &hashes_l, &transaction](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
-			auto vote (this->node.store.vote_generate (transaction, pub_a, prv_a, hashes_l));
-			this->node.vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (this->node.network.udp_channels, this->node.network.endpoint (), this->node.network_params.protocol.protocol_version));
-			this->node.votes_cache.add (vote);
+		auto transaction (store.tx_begin_read ());
+		wallets.foreach_representative ([this, &hashes_l, &transaction](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
+			auto vote (this->store.vote_generate (transaction, pub_a, prv_a, hashes_l));
+			this->vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (this->network.udp_channels, this->network.endpoint (), this->network_params.protocol.protocol_version));
+			this->votes_cache.add (vote);
 		});
 	}
 	lock_a.lock ();
@@ -73,10 +87,10 @@ void nano::vote_generator::run ()
 		}
 		else
 		{
-			condition.wait_for (lock, node.config.vote_generator_delay, [this]() { return this->hashes.size () >= 12; });
-			if (hashes.size () >= node.config.vote_generator_threshold && hashes.size () < 12)
+			condition.wait_for (lock, config.vote_generator_delay, [this]() { return this->hashes.size () >= 12; });
+			if (hashes.size () >= config.vote_generator_threshold && hashes.size () < 12)
 			{
-				condition.wait_for (lock, node.config.vote_generator_delay, [this]() { return this->hashes.size () >= 12; });
+				condition.wait_for (lock, config.vote_generator_delay, [this]() { return this->hashes.size () >= 12; });
 			}
 			if (!hashes.empty ())
 			{
