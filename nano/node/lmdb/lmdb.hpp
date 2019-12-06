@@ -239,6 +239,7 @@ private:
 	void upgrade_v12_to_v13 (nano::write_transaction &, size_t);
 	void upgrade_v13_to_v14 (nano::write_transaction const &);
 	void upgrade_v14_to_v15 (nano::write_transaction &);
+	void upgrade_v15_to_v16 (nano::write_transaction &);
 	void open_databases (bool &, nano::transaction const &, unsigned);
 
 	int drop (nano::write_transaction const & transaction_a, tables table_a) override;
