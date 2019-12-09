@@ -732,6 +732,7 @@ public:
 	virtual std::mutex & get_cache_mutex () = 0;
 
 	virtual bool copy_db (boost::filesystem::path const & destination) = 0;
+	virtual void rebuild_db (nano::write_transaction const & transaction_a) = 0;
 
 	/** Not applicable to all sub-classes */
 	virtual void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::milliseconds, std::chrono::milliseconds) = 0;
