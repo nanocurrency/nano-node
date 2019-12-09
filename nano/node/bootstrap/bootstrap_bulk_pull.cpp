@@ -852,8 +852,8 @@ std::pair<std::unique_ptr<nano::pending_key>, std::unique_ptr<nano::pending_info
 			}
 		}
 
-		result.first = std::unique_ptr<nano::pending_key> (new nano::pending_key (key));
-		result.second = std::unique_ptr<nano::pending_info> (new nano::pending_info (info));
+		result.first = std::make_unique<nano::pending_key> (key);
+		result.second = std::make_unique<nano::pending_info> (info);
 
 		break;
 	}

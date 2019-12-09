@@ -1232,50 +1232,32 @@ std::shared_ptr<nano::block> nano::deserialize_block_json (boost::property_tree:
 	try
 	{
 		auto type (tree_a.get<std::string> ("type"));
+		bool error (false);
+		std::unique_ptr<nano::block> obj;
 		if (type == "receive")
 		{
-			bool error (false);
-			std::unique_ptr<nano::receive_block> obj (new nano::receive_block (error, tree_a));
-			if (!error)
-			{
-				result = std::move (obj);
-			}
+			obj = std::make_unique<nano::receive_block> (error, tree_a);
 		}
 		else if (type == "send")
 		{
-			bool error (false);
-			std::unique_ptr<nano::send_block> obj (new nano::send_block (error, tree_a));
-			if (!error)
-			{
-				result = std::move (obj);
-			}
+			obj = std::make_unique<nano::send_block> (error, tree_a);
 		}
 		else if (type == "open")
 		{
-			bool error (false);
-			std::unique_ptr<nano::open_block> obj (new nano::open_block (error, tree_a));
-			if (!error)
-			{
-				result = std::move (obj);
-			}
+			obj = std::make_unique<nano::open_block> (error, tree_a);
 		}
 		else if (type == "change")
 		{
-			bool error (false);
-			std::unique_ptr<nano::change_block> obj (new nano::change_block (error, tree_a));
-			if (!error)
-			{
-				result = std::move (obj);
-			}
+			obj = std::make_unique<nano::change_block> (error, tree_a);
 		}
 		else if (type == "state")
 		{
-			bool error (false);
-			std::unique_ptr<nano::state_block> obj (new nano::state_block (error, tree_a));
-			if (!error)
-			{
-				result = std::move (obj);
-			}
+			obj = std::make_unique<nano::state_block> (error, tree_a);
+		}
+
+		if (!error)
+		{
+			result = std::move (obj);
 		}
 	}
 	catch (std::runtime_error const &)

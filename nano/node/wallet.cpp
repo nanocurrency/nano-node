@@ -207,10 +207,10 @@ void nano::wallet_store::derive_key (nano::raw_key & prv_a, nano::transaction co
 
 nano::fan::fan (nano::uint256_union const & key, size_t count_a)
 {
-	std::unique_ptr<nano::uint256_union> first (new nano::uint256_union (key));
+	auto first (std::make_unique<nano::uint256_union> (key));
 	for (auto i (1); i < count_a; ++i)
 	{
-		std::unique_ptr<nano::uint256_union> entry (new nano::uint256_union);
+		auto entry (std::make_unique<nano::uint256_union> ());
 		nano::random_pool::generate_block (entry->bytes.data (), entry->bytes.size ());
 		*first ^= *entry;
 		values.push_back (std::move (entry));
@@ -898,7 +898,7 @@ bool nano::wallet::import (std::string const & json_a, std::string const & passw
 		auto transaction (wallets.tx_begin_write ());
 		nano::uint256_union id;
 		random_pool::generate_block (id.bytes.data (), id.bytes.size ());
-		temp.reset (new nano::wallet_store (error, wallets.node.wallets.kdf, transaction, 0, 1, id.to_string (), json_a));
+		temp = std::make_unique<nano::wallet_store> (error, wallets.node.wallets.kdf, transaction, 0, 1, id.to_string (), json_a);
 	}
 	if (!error)
 	{
@@ -954,11 +954,11 @@ std::shared_ptr<nano::block> nano::wallet::receive_action (nano::block const & s
 					auto new_account (wallets.node.ledger.store.account_get (block_transaction, account, info));
 					if (!new_account)
 					{
-						block.reset (new nano::state_block (account, info.head, info.representative, info.balance.number () + pending_info.amount.number (), hash, prv, account, work_a));
+						block = std::make_shared<nano::state_block> (account, info.head, info.representative, info.balance.number () + pending_info.amount.number (), hash, prv, account, work_a);
 					}
 					else
 					{
-						block.reset (new nano::state_block (account, 0, representative_a, pending_info.amount, reinterpret_cast<nano::link const &> (hash), prv, account, work_a));
+						block = std::make_shared<nano::state_block> (account, 0, representative_a, pending_info.amount, reinterpret_cast<nano::link const &> (hash), prv, account, work_a);
 					}
 				}
 				else
@@ -1015,7 +1015,7 @@ std::shared_ptr<nano::block> nano::wallet::change_action (nano::account const & 
 				{
 					store.work_get (transaction, source_a, work_a);
 				}
-				block.reset (new nano::state_block (source_a, info.head, representative_a, info.balance, 0, prv, source_a, work_a));
+				block = std::make_shared<nano::state_block> (source_a, info.head, representative_a, info.balance, 0, prv, source_a, work_a);
 			}
 		}
 	}
@@ -1085,7 +1085,7 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 						{
 							store.work_get (transaction, source_a, work_a);
 						}
-						block.reset (new nano::state_block (source_a, info.head, info.representative, balance - amount_a, account_a, prv, source_a, work_a));
+						block = std::make_shared <nano::state_block> (source_a, info.head, info.representative, balance - amount_a, account_a, prv, source_a, work_a);
 						if (id_mdb_val && block != nullptr)
 						{
 							auto status (mdb_put (wallets.env.tx (transaction), wallets.node.wallets.send_action_ids, *id_mdb_val, nano::mdb_val (block->hash ()), 0));
