@@ -2,8 +2,10 @@
 #include <nano/lib/utility.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/rpc/rpc.hpp>
+#include <nano/secure/utility.hpp>
 #include <nano/secure/working.hpp>
 
+#include <boost/format.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/program_options.hpp>
 
