@@ -1698,11 +1698,6 @@ TEST (mdb_block_store, upgrade_v14_v15)
 	ASSERT_FALSE (store.confirmation_height_get (transaction, nano::genesis_account, confirmation_height));
 	ASSERT_EQ (confirmation_height, 1);
 
-	// The representation table should be deleted
-	auto error_get_representation (mdb_get (store.env.tx (transaction), store.representation, nano::mdb_val (nano::genesis_account), value));
-	ASSERT_NE (error_get_representation, MDB_SUCCESS);
-	ASSERT_EQ (store.representation, 0);
-
 	// accounts_v1, state_blocks_v1 & pending_v1 tables should be deleted
 	auto error_get_accounts_v1 (mdb_get (store.env.tx (transaction), store.accounts_v1, nano::mdb_val (nano::genesis_account), value));
 	ASSERT_NE (error_get_accounts_v1, MDB_SUCCESS);
@@ -1729,6 +1724,42 @@ TEST (mdb_block_store, upgrade_v14_v15)
 
 	// Version should be correct
 	ASSERT_LT (14, store.version_get (transaction));
+}
+
+TEST (mdb_block_store, upgrade_v15_v16)
+{
+	auto path (nano::unique_path ());
+	nano::mdb_val value;
+	{
+		nano::genesis genesis;
+		nano::logger_mt logger;
+		nano::mdb_store store (logger, path);
+		nano::stat stats;
+		nano::ledger ledger (store, stats);
+		auto transaction (store.tx_begin_write ());
+		store.initialize (transaction, genesis, ledger.rep_weights, ledger.cemented_count, ledger.block_count_cache);
+		// The representation table should get removed after, so readd it so that we can later confirm this actually happens
+		auto txn = store.env.tx (transaction);
+		ASSERT_FALSE (mdb_dbi_open (txn, "representation", MDB_CREATE, &store.representation));
+		auto weight = ledger.rep_weights.representation_get (nano::genesis_account);
+		ASSERT_EQ (MDB_SUCCESS, mdb_put (txn, store.representation, nano::mdb_val (nano::genesis_account), nano::mdb_val (nano::uint128_union (weight)), 0));
+		// Lower the database to the previous version
+		store.version_put (transaction, 15);
+		// Confirm the rep weight exists in the database
+		ASSERT_EQ (MDB_SUCCESS, mdb_get (store.env.tx (transaction), store.representation, nano::mdb_val (nano::genesis_account), value));
+	}
+
+	// Now do the upgrade
+	nano::logger_mt logger;
+	auto error (false);
+	nano::mdb_store store (logger, path);
+	ASSERT_FALSE (error);
+	auto transaction (store.tx_begin_read ());
+
+	// The representation table should now be deleted
+	auto error_get_representation (mdb_get (store.env.tx (transaction), store.representation, nano::mdb_val (nano::genesis_account), value));
+	ASSERT_NE (MDB_SUCCESS, error_get_representation);
+	ASSERT_EQ (store.representation, 0);
 }
 
 TEST (mdb_block_store, upgrade_backup)
