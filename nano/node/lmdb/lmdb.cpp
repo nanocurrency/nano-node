@@ -870,30 +870,52 @@ bool nano::mdb_store::copy_db (boost::filesystem::path const & destination_file)
 
 void nano::mdb_store::rebuild_db (nano::write_transaction const & transaction_a)
 {
-	std::vector<MDB_dbi> tables = {accounts, send_blocks, receive_blocks, open_blocks, change_blocks, state_blocks, pending, unchecked, vote, online_weight, peers, confirmation_height};
-	MDB_dbi temp;
-	mdb_dbi_open (env.tx (transaction_a), "temp_table", MDB_CREATE, &temp);
+	// Tables with uint256_union key
+	std::vector<MDB_dbi> tables = {accounts, send_blocks, receive_blocks, open_blocks, change_blocks, state_blocks, vote, confirmation_height};
 	for (auto const & table : tables)
 	{
+		MDB_dbi temp;
+		mdb_dbi_open (env.tx (transaction_a), "temp_table", MDB_CREATE, &temp);
 		// Copy all values to temporary table
-		for (auto i (nano::store_iterator<mdb_val, mdb_val> (std::make_unique<nano::mdb_iterator<mdb_val, mdb_val>> (transaction_a, table))), n (nano::store_iterator<mdb_val, mdb_val> (nullptr)); i != n; ++i)
+		for (auto i (nano::store_iterator<nano::uint256_union, nano::mdb_val> (std::make_unique<nano::mdb_iterator<nano::uint256_union, nano::mdb_val>> (transaction_a, table))), n (nano::store_iterator<nano::uint256_union, nano::mdb_val> (nullptr)); i != n; ++i)
 		{
-			auto s = mdb_put (env.tx (transaction_a), temp, i->first, i->second, MDB_APPEND);
+			auto s = mdb_put (env.tx (transaction_a), temp, nano::mdb_val (i->first), i->second, MDB_APPEND);
 			release_assert (success (s));
 		}
+		release_assert (count (transaction_a, table) == count (transaction_a, temp));
 		// Clear existing table
 		mdb_drop (env.tx (transaction_a), table, 0);
 		// Put values from copy
-		for (auto i (nano::store_iterator<mdb_val, mdb_val> (std::make_unique<nano::mdb_iterator<mdb_val, mdb_val>> (transaction_a, temp))), n (nano::store_iterator<mdb_val, mdb_val> (nullptr)); i != n; ++i)
+		for (auto i (nano::store_iterator<nano::uint256_union, nano::mdb_val> (std::make_unique<nano::mdb_iterator<nano::uint256_union, nano::mdb_val>> (transaction_a, temp))), n (nano::store_iterator<nano::uint256_union, nano::mdb_val> (nullptr)); i != n; ++i)
 		{
-			auto s = mdb_put (env.tx (transaction_a), table, i->first, i->second, MDB_APPEND);
+			auto s = mdb_put (env.tx (transaction_a), table, nano::mdb_val (i->first), i->second, MDB_APPEND);
 			release_assert (success (s));
 		}
-		// Clear temporary table
-		mdb_drop (env.tx (transaction_a), temp, 0);
+		release_assert (count (transaction_a, table) == count (transaction_a, temp));
+		// Remove temporary table
+		mdb_drop (env.tx (transaction_a), temp, 1);
 	}
-	// Remove temporary table
-	mdb_drop (env.tx (transaction_a), temp, 1);
+	// Pending table
+	{
+		MDB_dbi temp;
+		mdb_dbi_open (env.tx (transaction_a), "temp_table", MDB_CREATE, &temp);
+		// Copy all values to temporary table
+		for (auto i (nano::store_iterator<nano::pending_key, nano::pending_info> (std::make_unique<nano::mdb_iterator<nano::pending_key, nano::pending_info>> (transaction_a, pending))), n (nano::store_iterator<nano::pending_key, nano::pending_info> (nullptr)); i != n; ++i)
+		{
+			auto s = mdb_put (env.tx (transaction_a), temp, nano::mdb_val (i->first), nano::mdb_val (i->second), MDB_APPEND);
+			release_assert (success (s));
+		}
+		release_assert (count (transaction_a, pending) == count (transaction_a, temp));
+		mdb_drop (env.tx (transaction_a), pending, 0);
+		// Put values from copy
+		for (auto i (nano::store_iterator<nano::pending_key, nano::pending_info> (std::make_unique<nano::mdb_iterator<nano::pending_key, nano::pending_info>> (transaction_a, temp))), n (nano::store_iterator<nano::pending_key, nano::pending_info> (nullptr)); i != n; ++i)
+		{
+			auto s = mdb_put (env.tx (transaction_a), pending, nano::mdb_val (i->first), nano::mdb_val (i->second), MDB_APPEND);
+			release_assert (success (s));
+		}
+		release_assert (count (transaction_a, pending) == count (transaction_a, temp));
+		mdb_drop (env.tx (transaction_a), temp, 1);
+	}
 }
 
 bool nano::mdb_store::init_error () const
