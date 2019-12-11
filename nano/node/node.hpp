@@ -29,6 +29,7 @@
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
+#include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
 #include <boost/thread/latch.hpp>
 
@@ -61,12 +62,16 @@ public:
 	// Return `true' to indicated an error if the block has already been inserted
 	bool add (nano::block_hash const &);
 	bool recent (nano::block_hash const &);
-	boost::multi_index_container<
-	nano::block_arrival_info,
-	boost::multi_index::indexed_by<
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::block_arrival_info, std::chrono::steady_clock::time_point, &nano::block_arrival_info::arrival>>,
-	boost::multi_index::hashed_unique<boost::multi_index::member<nano::block_arrival_info, nano::block_hash, &nano::block_arrival_info::hash>>>>
+	// clang-format off
+	class tag_sequence {};
+	class tag_hash {};
+	boost::multi_index_container<nano::block_arrival_info,
+		boost::multi_index::indexed_by<
+			boost::multi_index::sequenced<boost::multi_index::tag<tag_sequence>>,
+			boost::multi_index::hashed_unique<boost::multi_index::tag<tag_hash>,
+				boost::multi_index::member<nano::block_arrival_info, nano::block_hash, &nano::block_arrival_info::hash>>>>
 	arrival;
+	// clang-format on
 	std::mutex mutex;
 	static size_t constexpr arrival_size_min = 8 * 1024;
 	static std::chrono::seconds constexpr arrival_time_min = std::chrono::seconds (300);

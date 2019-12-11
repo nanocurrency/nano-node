@@ -7,6 +7,7 @@
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
+#include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
 
 #include <chrono>
@@ -20,12 +21,6 @@ class transaction;
 class write_transaction;
 class write_database_queue;
 
-class rolled_hash
-{
-public:
-	std::chrono::steady_clock::time_point time;
-	nano::block_hash hash;
-};
 /**
  * Processing blocks is a potentially long IO operation.
  * This class isolates block insertion from other operations like servicing network operations
@@ -68,12 +63,16 @@ private:
 	std::deque<std::shared_ptr<nano::block>> forced;
 	nano::block_hash filter_item (nano::block_hash const &, nano::signature const &);
 	std::unordered_set<nano::block_hash> blocks_filter;
-	boost::multi_index_container<
-	nano::rolled_hash,
+	// clang-format off
+	class tag_sequence {};
+	class tag_hash {};
+	boost::multi_index_container<nano::block_hash,
 	boost::multi_index::indexed_by<
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::rolled_hash, std::chrono::steady_clock::time_point, &nano::rolled_hash::time>>,
-	boost::multi_index::hashed_unique<boost::multi_index::member<nano::rolled_hash, nano::block_hash, &nano::rolled_hash::hash>>>>
+		boost::multi_index::sequenced<boost::multi_index::tag<tag_sequence>>,
+		boost::multi_index::hashed_unique<boost::multi_index::tag<tag_hash>,
+			boost::multi_index::identity<nano::block_hash>>>>
 	rolled_back;
+	// clang-format on
 	static size_t const rolled_back_max = 1024;
 	nano::condition_variable condition;
 	nano::node & node;

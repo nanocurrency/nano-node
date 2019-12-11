@@ -2063,12 +2063,16 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 	class modified_tag
 	{
 	};
-	boost::multi_index_container<
-	account_upgrade_item,
+	// clang-format off
+	boost::multi_index_container<account_upgrade_item,
 	boost::multi_index::indexed_by<
-	boost::multi_index::ordered_non_unique<boost::multi_index::tag<modified_tag>, boost::multi_index::member<account_upgrade_item, uint64_t, &account_upgrade_item::modified>, std::greater<uint64_t>>,
-	boost::multi_index::hashed_unique<boost::multi_index::tag<account_tag>, boost::multi_index::member<account_upgrade_item, nano::account, &account_upgrade_item::account>>>>
+		boost::multi_index::ordered_non_unique<boost::multi_index::tag<modified_tag>,
+			boost::multi_index::member<account_upgrade_item, uint64_t, &account_upgrade_item::modified>,
+			std::greater<uint64_t>>,
+		boost::multi_index::hashed_unique<boost::multi_index::tag<account_tag>,
+			boost::multi_index::member<account_upgrade_item, nano::account, &account_upgrade_item::account>>>>
 	accounts_list;
+	// clang-format on
 
 	bool finished_upgrade (false);
 
@@ -2088,7 +2092,7 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 					if (info.epoch () < epoch_a)
 					{
 						release_assert (nano::epochs::is_sequential (info.epoch (), epoch_a));
-						accounts_list.insert (account_upgrade_item{ account, info.modified });
+						accounts_list.emplace (account_upgrade_item{ account, info.modified });
 					}
 				}
 			}

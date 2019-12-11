@@ -2295,7 +2295,7 @@ TEST (node, block_arrival_size)
 	nano::block_hash hash (0);
 	for (auto i (0); i < nano::block_arrival::arrival_size_min * 2; ++i)
 	{
-		node.block_arrival.arrival.insert (nano::block_arrival_info{ time, hash });
+		node.block_arrival.arrival.push_back (nano::block_arrival_info{ time, hash });
 		++hash.qwords[0];
 	}
 	ASSERT_EQ (nano::block_arrival::arrival_size_min * 2, node.block_arrival.arrival.size ());
@@ -2311,7 +2311,7 @@ TEST (node, block_arrival_time)
 	nano::block_hash hash (0);
 	for (auto i (0); i < nano::block_arrival::arrival_size_min * 2; ++i)
 	{
-		node.block_arrival.arrival.insert (nano::block_arrival_info{ time, hash });
+		node.block_arrival.arrival.push_back (nano::block_arrival_info{ time, hash });
 		++hash.qwords[0];
 	}
 	ASSERT_EQ (nano::block_arrival::arrival_size_min * 2, node.block_arrival.arrival.size ());
