@@ -603,7 +603,7 @@ bool nano::rocksdb_store::copy_db (boost::filesystem::path const & destination_p
 	return false;
 }
 
-void nano::mdb_store::rebuild_db (nano::write_transaction const & transaction_a)
+void nano::rocksdb_store::rebuild_db (nano::write_transaction const & transaction_a)
 {
 	release_assert (false && "Not available for RocksDB");
 }
