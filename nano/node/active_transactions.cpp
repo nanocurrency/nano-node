@@ -35,8 +35,9 @@ nano::active_transactions::~active_transactions ()
 void nano::active_transactions::search_frontiers (nano::transaction const & transaction_a)
 {
 	// Limit maximum count of elections to start
-	bool representative (node.config.enable_voting && node.wallets.reps_count > 0);
-	bool half_princpal_representative (representative && node.wallets.half_principal_reps_count > 0);
+	auto rep_counts (node.wallets.rep_counts ());
+	bool representative (node.config.enable_voting && rep_counts.voting > 0);
+	bool half_princpal_representative (representative && rep_counts.half_principal > 0);
 	/* Check less frequently for regular nodes in auto mode */
 	bool agressive_mode (half_princpal_representative || node.config.frontiers_confirmation == nano::frontiers_confirmation_mode::always);
 	auto request_interval (std::chrono::milliseconds (node.network_params.network.request_interval_ms));
