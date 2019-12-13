@@ -180,6 +180,13 @@ public:
 	std::atomic<bool> stopped;
 };
 
+class wallet_representative_counts
+{
+public:
+	uint64_t voting{ 0 }; // Representatives with at least the configured minimum voting weight
+	uint64_t half_principal{ 0 }; // Representatives with at least 50% of principal representative requirements
+};
+
 /**
  * The wallets set is all the wallets a node controls.
  * A node may contain multiple wallets independently encrypted and operated.
@@ -201,8 +208,7 @@ public:
 	bool exists (nano::transaction const &, nano::public_key const &);
 	void stop ();
 	void clear_send_ids (nano::transaction const &);
-	// Returns the pair {reps_count, half_principal_reps_count}
-	std::pair<uint64_t, uint64_t> rep_counts ();
+	nano::wallet_representative_counts rep_counts ();
 	bool check_rep (nano::account const &, nano::uint128_t const &, const bool = true);
 	void compute_reps ();
 	void ongoing_compute_reps ();
@@ -233,8 +239,7 @@ public:
 
 private:
 	std::mutex counts_mutex;
-	uint64_t reps_count{ 0 };
-	uint64_t half_principal_reps_count{ 0 }; // Representatives with at least 50% of principal representative requirements
+	nano::wallet_representative_counts counts;
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (wallets & wallets, const std::string & name);

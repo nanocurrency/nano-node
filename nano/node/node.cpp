@@ -1060,7 +1060,7 @@ void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 	active.start (block_a, false);
 	network.broadcast_confirm_req (block_a);
 	// Calculate votes for local representatives
-	if (config.enable_voting && wallets.rep_counts ().first > 0 && active.active (*block_a))
+	if (config.enable_voting && wallets.rep_counts ().voting > 0 && active.active (*block_a))
 	{
 		block_processor.generator.add (block_a->hash ());
 	}
