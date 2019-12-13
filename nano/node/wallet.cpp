@@ -1833,12 +1833,23 @@ void nano::wallets::clear_send_ids (nano::transaction const & transaction_a)
 	assert (status == 0);
 }
 
-bool nano::wallets::check_rep (nano::account const & account_a, nano::uint128_t const & half_principal_weight_a)
+std::pair<uint64_t, uint64_t> nano::wallets::rep_counts ()
+{
+	nano::lock_guard<std::mutex> counts_guard (counts_mutex);
+	return { reps_count, half_principal_reps_count };
+}
+
+bool nano::wallets::check_rep (nano::account const & account_a, nano::uint128_t const & half_principal_weight_a, const bool acquire_lock_a)
 {
 	bool result (false);
 	auto weight (node.ledger.weight (account_a));
 	if (weight >= node.config.vote_minimum.number ())
 	{
+		nano::unique_lock<std::mutex> lock;
+		if (acquire_lock_a)
+		{
+			lock = nano::unique_lock<std::mutex> (counts_mutex);
+		}
 		result = true;
 		++reps_count;
 		if (weight >= half_principal_weight_a)
@@ -1851,7 +1862,8 @@ bool nano::wallets::check_rep (nano::account const & account_a, nano::uint128_t 
 
 void nano::wallets::compute_reps ()
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard<std::mutex> counts_guard (counts_mutex);
 	reps_count = 0;
 	half_principal_reps_count = 0;
 	auto half_principal_weight (node.minimum_principal_weight () / 2);
@@ -1863,12 +1875,12 @@ void nano::wallets::compute_reps ()
 		for (auto ii (wallet.store.begin (transaction)), nn (wallet.store.end ()); ii != nn; ++ii)
 		{
 			auto account (ii->first);
-			if (check_rep (account, half_principal_weight))
+			if (check_rep (account, half_principal_weight, false))
 			{
 				representatives_l.insert (account);
 			}
 		}
-		nano::lock_guard<std::mutex> representatives_lock (wallet.representatives_mutex);
+		nano::lock_guard<std::mutex> representatives_guard (wallet.representatives_mutex);
 		wallet.representatives.swap (representatives_l);
 	}
 }

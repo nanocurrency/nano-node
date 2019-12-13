@@ -179,6 +179,7 @@ public:
 	std::unordered_map<nano::qualified_root, std::shared_ptr<nano::state_block>> watched;
 	std::atomic<bool> stopped;
 };
+
 /**
  * The wallets set is all the wallets a node controls.
  * A node may contain multiple wallets independently encrypted and operated.
@@ -200,7 +201,9 @@ public:
 	bool exists (nano::transaction const &, nano::public_key const &);
 	void stop ();
 	void clear_send_ids (nano::transaction const &);
-	bool check_rep (nano::account const &, nano::uint128_t const &);
+	// Returns the pair {reps_count, half_principal_reps_count}
+	std::pair<uint64_t, uint64_t> rep_counts ();
+	bool check_rep (nano::account const &, nano::uint128_t const &, const bool = true);
 	void compute_reps ();
 	void ongoing_compute_reps ();
 	void split_if_needed (nano::transaction &, nano::block_store &);
@@ -222,14 +225,16 @@ public:
 	std::thread thread;
 	static nano::uint128_t const generate_priority;
 	static nano::uint128_t const high_priority;
-	std::atomic<uint64_t> reps_count{ 0 };
-	std::atomic<uint64_t> half_principal_reps_count{ 0 }; // Representatives with at least 50% of principal representative requirements
-
+	std::mutex counts_mutex;
 	/** Start read-write transaction */
 	nano::write_transaction tx_begin_write ();
 
 	/** Start read-only transaction */
 	nano::read_transaction tx_begin_read ();
+
+private:
+	uint64_t reps_count{ 0 };
+	uint64_t half_principal_reps_count{ 0 }; // Representatives with at least 50% of principal representative requirements
 };
 
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (wallets & wallets, const std::string & name);

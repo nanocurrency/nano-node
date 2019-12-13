@@ -142,7 +142,7 @@ template <typename T>
 bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a, T & list_a, std::shared_ptr<nano::block> block_a, bool also_publish)
 {
 	bool result (false);
-	if (node_a.config.enable_voting)
+	if (node_a.config.enable_voting && node_a.wallets.rep_counts ().first > 0)
 	{
 		auto hash (block_a->hash ());
 		// Search in cache
@@ -458,7 +458,7 @@ public:
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::in);
 		// Don't load nodes with disabled voting
-		if (node.config.enable_voting && node.wallets.reps_count)
+		if (node.config.enable_voting && node.wallets.rep_counts ().first > 0)
 		{
 			if (message_a.block != nullptr)
 			{
