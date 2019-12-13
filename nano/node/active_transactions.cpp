@@ -102,6 +102,13 @@ void nano::active_transactions::search_frontiers (nano::transaction const & tran
 		next_frontier_check = steady_clock::now () + (agressive_factor / test_network_factor);
 	}
 }
+
+bool nano::active_transactions::is_confirming_block (nano::block_hash const & hash_a)
+{
+	nano::lock_guard<std::mutex> guard (mutex);
+	return pending_conf_height.find (hash_a) != pending_conf_height.end ();
+}
+
 void nano::active_transactions::post_confirmation_height_set (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_sideband const & sideband_a, nano::election_status_type election_status_type_a)
 {
 	if (election_status_type_a == nano::election_status_type::inactive_confirmation_height)
