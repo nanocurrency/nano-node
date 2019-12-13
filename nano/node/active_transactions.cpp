@@ -664,11 +664,11 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, bool 
 	auto error (true);
 	if (!stopped)
 	{
+		auto hash (block_a->hash ());
 		auto root (block_a->qualified_root ());
 		auto existing (roots.find (root));
-		if (existing == roots.end () && confirmed_set.get<1> ().find (root) == confirmed_set.get<1> ().end ())
+		if (existing == roots.end () && confirmed_set.get<1> ().find (root) == confirmed_set.get<1> ().end () && pending_conf_height.find (hash) == pending_conf_height.end ())
 		{
-			auto hash (block_a->hash ());
 			auto election (nano::make_shared<nano::election> (node, block_a, skip_delay_a, confirmation_action_a));
 			uint64_t difficulty (0);
 			error = nano::work_validate (*block_a, &difficulty);
