@@ -225,7 +225,6 @@ public:
 	std::thread thread;
 	static nano::uint128_t const generate_priority;
 	static nano::uint128_t const high_priority;
-	std::mutex counts_mutex;
 	/** Start read-write transaction */
 	nano::write_transaction tx_begin_write ();
 
@@ -233,6 +232,7 @@ public:
 	nano::read_transaction tx_begin_read ();
 
 private:
+	std::mutex counts_mutex;	
 	uint64_t reps_count{ 0 };
 	uint64_t half_principal_reps_count{ 0 }; // Representatives with at least 50% of principal representative requirements
 };
