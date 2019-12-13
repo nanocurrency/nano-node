@@ -4,9 +4,11 @@
 #include <nano/node/lmdb/lmdb.hpp>
 #include <nano/node/lmdb/lmdb_iterator.hpp>
 #include <nano/node/lmdb/wallet_value.hpp>
+#include <nano/secure/buffer.hpp>
 #include <nano/secure/versioning.hpp>
 
-#include <boost/endian/conversion.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/format.hpp>
 #include <boost/polymorphic_cast.hpp>
 
 #include <queue>
@@ -174,6 +176,7 @@ void nano::mdb_store::open_databases (bool & error_a, nano::transaction const & 
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "confirmation_height", flags, &confirmation_height) != 0;
 	if (!full_sideband (transaction_a))
 	{
+		// The blocks_info database is no longer used, but need opening so that it can be deleted during an upgrade
 		error_a |= mdb_dbi_open (env.tx (transaction_a), "blocks_info", flags, &blocks_info) != 0;
 	}
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "accounts", flags, &accounts_v0) != 0;
@@ -181,8 +184,15 @@ void nano::mdb_store::open_databases (bool & error_a, nano::transaction const & 
 	error_a |= mdb_dbi_open (env.tx (transaction_a), "pending", flags, &pending_v0) != 0;
 	pending = pending_v0;
 
+	if (version_get (transaction_a) < 16)
+	{
+		// The representation database is no longer used, but need opening so that it can be deleted during an upgrade
+		error_a |= mdb_dbi_open (env.tx (transaction_a), "representation", flags, &representation) != 0;
+	}
+
 	if (version_get (transaction_a) < 15)
 	{
+		// These databases are no longer used, but need opening so they can be deleted during an upgrade
 		error_a |= mdb_dbi_open (env.tx (transaction_a), "state", flags, &state_blocks_v0) != 0;
 		state_blocks = state_blocks_v0;
 		error_a |= mdb_dbi_open (env.tx (transaction_a), "accounts_v1", flags, &accounts_v1) != 0;
@@ -231,6 +241,8 @@ bool nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, bool
 			upgrade_v14_to_v15 (transaction_a);
 			needs_vacuuming = true;
 		case 15:
+			upgrade_v15_to_v16 (transaction_a);
+		case 16:
 			break;
 		default:
 			logger.always_log (boost::str (boost::format ("The version of the ledger (%1%) is too high for this node") % version_l));
@@ -660,15 +672,22 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction & transaction_
 		mdb_put (env.tx (transaction_a), pending, nano::mdb_val (pending_key_pending_info_pair.first), nano::mdb_val (pending_key_pending_info_pair.second), MDB_APPEND);
 	}
 
+	version_put (transaction_a, 15);
+	logger.always_log ("Finished epoch merge upgrade. Preparing vacuum...");
+}
+
+void nano::mdb_store::upgrade_v15_to_v16 (nano::write_transaction & transaction_a)
+{
 	// Representation table is no longer used
+	assert (representation != 0);
 	if (representation != 0)
 	{
 		auto status (mdb_drop (env.tx (transaction_a), representation, 1));
 		release_assert (status == MDB_SUCCESS);
 		representation = 0;
 	}
-	version_put (transaction_a, 15);
-	logger.always_log ("Finished epoch merge upgrade. Preparing vacuum...");
+
+	version_put (transaction_a, 16);
 }
 
 /** Takes a filepath, appends '_backup_<timestamp>' to the end (but before any extension) and saves that file in the same directory */
@@ -1077,3 +1096,6 @@ bool nano::mdb_store::upgrade_counters::are_equal () const
 {
 	return (before_v0 == after_v0) && (before_v1 == after_v1);
 }
+
+// Explicitly instantiate
+template class nano::block_store_partial<MDB_val, nano::mdb_store>;

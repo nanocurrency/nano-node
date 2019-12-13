@@ -1,12 +1,17 @@
+#include <nano/boost/asio/io_context.hpp>
 #include <nano/core_test/testutil.hpp>
-#include <nano/node/node.hpp>
+#include <nano/lib/alarm.hpp>
+#include <nano/lib/stats.hpp>
+#include <nano/lib/work.hpp>
+#include <nano/secure/blockstore.hpp>
+#include <nano/secure/ledger.hpp>
+#include <nano/secure/utility.hpp>
 
 #include <gtest/gtest.h>
 
 #include <atomic>
 #include <condition_variable>
 #include <future>
-#include <thread>
 
 TEST (processor_service, bad_send_signature)
 {

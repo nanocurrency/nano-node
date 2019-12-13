@@ -1,14 +1,21 @@
 #pragma once
 
+#include <nano/lib/locks.hpp>
 #include <nano/lib/utility.hpp>
-
-#include <boost/asio.hpp>
-#include <boost/thread.hpp>
 
 #include <chrono>
 #include <functional>
 #include <mutex>
 #include <queue>
+#include <thread>
+
+namespace boost
+{
+namespace asio
+{
+	class io_context;
+}
+}
 
 namespace nano
 {
@@ -33,7 +40,7 @@ public:
 	std::mutex mutex;
 	nano::condition_variable condition;
 	std::priority_queue<operation, std::vector<operation>, std::greater<operation>> operations;
-	boost::thread thread;
+	std::thread thread;
 };
 class seq_con_info_component;
 std::unique_ptr<seq_con_info_component> collect_seq_con_info (alarm & alarm, const std::string & name);

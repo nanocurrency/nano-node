@@ -4,10 +4,13 @@
 
 #include <cassert>
 
+// clang-format off
+// Keep windows.h header at the top
+#include <windows.h>
 #include <io.h>
 #include <processthreadsapi.h>
 #include <sys/stat.h>
-#include <sys/types.h>
+// clang-format on
 
 void nano::set_umask ()
 {

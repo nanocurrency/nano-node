@@ -1,6 +1,7 @@
 #include <nano/lib/logger_mt.hpp>
 #include <nano/node/lmdb/lmdb.hpp>
 #include <nano/secure/blockstore.hpp>
+#include <nano/secure/utility.hpp>
 #include <nano/secure/versioning.hpp>
 
 #include <gtest/gtest.h>

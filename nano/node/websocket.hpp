@@ -1,21 +1,16 @@
 #pragma once
 
-#include <nano/boost/asio.hpp>
-#include <nano/boost/beast.hpp>
+#include <nano/boost/beast/core.hpp>
+#include <nano/boost/beast/websocket.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/numbers.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 
-#include <algorithm>
-#include <cstdlib>
 #include <deque>
-#include <functional>
-#include <iostream>
 #include <memory>
 #include <mutex>
 #include <string>
-#include <thread>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -31,7 +26,10 @@ using socket_type = boost::asio::basic_stream_socket<boost::asio::ip::tcp, boost
 
 namespace nano
 {
-class node;
+class wallets;
+class logger_mt;
+class vote;
+class election_status;
 enum class election_status_type : uint8_t;
 namespace websocket
 {
@@ -123,8 +121,8 @@ namespace websocket
 	class confirmation_options final : public options
 	{
 	public:
-		confirmation_options (nano::node & node_a);
-		confirmation_options (boost::property_tree::ptree const & options_a, nano::node & node_a);
+		confirmation_options (nano::wallets & wallets_a);
+		confirmation_options (boost::property_tree::ptree const & options_a, nano::wallets & wallets_a, nano::logger_mt & logger_a);
 
 		/**
 		 * Checks if a message should be filtered for given block confirmation options.
@@ -152,7 +150,7 @@ namespace websocket
 		static constexpr const uint8_t type_all = type_all_active | type_inactive;
 
 	private:
-		nano::node & node;
+		nano::wallets & wallets;
 		bool include_election_info{ false };
 		bool include_block{ true };
 		bool has_account_filtering_options{ false };
@@ -170,7 +168,7 @@ namespace websocket
 	{
 	public:
 		vote_options ();
-		vote_options (boost::property_tree::ptree const & options_a, nano::node & node_a);
+		vote_options (boost::property_tree::ptree const & options_a, nano::logger_mt & logger_a);
 
 		/**
 		 * Checks if a message should be filtered for given vote received options.
@@ -180,7 +178,6 @@ namespace websocket
 		bool should_filter (message const & message_a) const override;
 
 	private:
-		nano::node & node;
 		std::unordered_set<std::string> representatives;
 	};
 
@@ -243,7 +240,7 @@ namespace websocket
 	class listener final : public std::enable_shared_from_this<listener>
 	{
 	public:
-		listener (nano::node & node_a, boost::asio::ip::tcp::endpoint endpoint_a);
+		listener (nano::logger_mt & logger_a, nano::wallets & wallets_a, boost::asio::io_context & io_ctx_a, boost::asio::ip::tcp::endpoint endpoint_a);
 
 		/** Start accepting connections */
 		void run ();
@@ -259,9 +256,14 @@ namespace websocket
 		/** Broadcast \p message to all session subscribing to the message topic. */
 		void broadcast (nano::websocket::message message_a);
 
-		nano::node & get_node () const
+		nano::logger_mt & get_logger () const
 		{
-			return node;
+			return logger;
+		}
+
+		nano::wallets & get_wallets () const
+		{
+			return wallets;
 		}
 
 		/**
@@ -287,7 +289,8 @@ namespace websocket
 		/** Removes from subscription count of a specific topic*/
 		void decrease_subscriber_count (nano::websocket::topic const & topic_a);
 
-		nano::node & node;
+		nano::logger_mt & logger;
+		nano::wallets & wallets;
 		boost::asio::ip::tcp::acceptor acceptor;
 		socket_type socket;
 		std::mutex sessions_mutex;

@@ -3,7 +3,6 @@
 #include <nano/lib/errors.hpp>
 
 #include <boost/lexical_cast.hpp>
-#include <boost/optional.hpp>
 #include <boost/type_traits.hpp>
 
 #include <istream>
@@ -35,7 +34,6 @@ template <> inline std::string type_desc<double> (void) { return "a double preci
 template <> inline std::string type_desc<char> (void) { return "a character"; }
 template <> inline std::string type_desc<std::string> (void) { return "a string"; }
 template <> inline std::string type_desc<bool> (void) { return "a boolean"; }
-template <> inline std::string type_desc<boost::asio::ip::address_v6> (void) { return "an IP address"; }
 // clang-format on
 
 /** Base type for configuration wrappers */

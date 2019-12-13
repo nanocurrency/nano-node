@@ -1,7 +1,6 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
-#include <nano/lib/timer.hpp>
 #include <nano/node/gap_cache.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/transport/transport.hpp>
@@ -12,27 +11,26 @@
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
-#include <boost/multi_index/random_access_index.hpp>
+#include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
-#include <boost/pool/pool_alloc.hpp>
 #include <boost/thread/thread.hpp>
 
 #include <atomic>
 #include <condition_variable>
 #include <deque>
 #include <memory>
-#include <queue>
-#include <set>
 #include <unordered_map>
 #include <unordered_set>
+
+namespace mi = boost::multi_index;
 
 namespace nano
 {
 class node;
 class block;
 class block_sideband;
-class vote;
 class election;
+class vote;
 class transaction;
 
 class conflict_info final
@@ -61,6 +59,8 @@ public:
 	std::chrono::milliseconds election_end;
 	std::chrono::milliseconds election_duration;
 	unsigned confirmation_request_count;
+	unsigned block_count;
+	unsigned voter_count;
 	election_status_type type;
 };
 
@@ -83,6 +83,14 @@ public:
 // Holds all active blocks i.e. recently added blocks that need confirmation
 class active_transactions final
 {
+	// clang-format off
+	class tag_account {};
+	class tag_difficulty {};
+	class tag_root {};
+	class tag_sequence {};
+	class tag_uncemented {};
+	// clang-format on
+
 public:
 	explicit active_transactions (nano::node &);
 	~active_transactions ();
@@ -111,15 +119,16 @@ public:
 	boost::optional<nano::election_status_type> confirm_block (nano::transaction const &, std::shared_ptr<nano::block>);
 	bool is_confirming_block (nano::block_hash const &);
 	void post_confirmation_height_set (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_sideband const & sideband_a, nano::election_status_type election_status_type_a);
-	boost::multi_index_container<
-	nano::conflict_info,
-	boost::multi_index::indexed_by<
-	boost::multi_index::hashed_unique<
-	boost::multi_index::member<nano::conflict_info, nano::qualified_root, &nano::conflict_info::root>>,
-	boost::multi_index::ordered_non_unique<
-	boost::multi_index::member<nano::conflict_info, uint64_t, &nano::conflict_info::adjusted_difficulty>,
-	std::greater<uint64_t>>>>
+	// clang-format off
+	boost::multi_index_container<nano::conflict_info,
+	mi::indexed_by<
+		mi::hashed_unique<mi::tag<tag_root>,
+			mi::member<nano::conflict_info, nano::qualified_root, &nano::conflict_info::root>>,
+		mi::ordered_non_unique<mi::tag<tag_difficulty>,
+			mi::member<nano::conflict_info, uint64_t, &nano::conflict_info::adjusted_difficulty>,
+			std::greater<uint64_t>>>>
 	roots;
+	// clang-format on
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
 	std::deque<nano::election_status> list_confirmed ();
 	std::deque<nano::election_status> confirmed;
@@ -168,37 +177,40 @@ private:
 	bool started{ false };
 	std::atomic<bool> stopped{ false };
 	unsigned ongoing_broadcasts{ 0 };
-	using ordered_elections_timepoint = boost::multi_index_container<
-	nano::election_timepoint,
-	boost::multi_index::indexed_by<
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::election_timepoint, std::chrono::steady_clock::time_point, &nano::election_timepoint::time>>,
-	boost::multi_index::hashed_unique<boost::multi_index::member<nano::election_timepoint, nano::qualified_root, &nano::election_timepoint::root>>>>;
-	ordered_elections_timepoint confirmed_set;
-	void prioritize_frontiers_for_confirmation (nano::transaction const &, std::chrono::milliseconds, std::chrono::milliseconds);
-	using prioritize_num_uncemented = boost::multi_index_container<
-	nano::cementable_account,
-	boost::multi_index::indexed_by<
-	boost::multi_index::hashed_unique<
-	boost::multi_index::member<nano::cementable_account, nano::account, &nano::cementable_account::account>>,
-	boost::multi_index::ordered_non_unique<
-	boost::multi_index::member<nano::cementable_account, uint64_t, &nano::cementable_account::blocks_uncemented>,
-	std::greater<uint64_t>>>>;
+	// clang-format off
+	boost::multi_index_container<nano::qualified_root,
+	mi::indexed_by<
+		mi::sequenced<mi::tag<tag_sequence>>,
+		mi::hashed_unique<mi::tag<tag_root>,
+			mi::identity<nano::qualified_root>>>>
+	confirmed_set;
+	using prioritize_num_uncemented = boost::multi_index_container<nano::cementable_account,
+	mi::indexed_by<
+		mi::hashed_unique<mi::tag<tag_account>,
+			mi::member<nano::cementable_account, nano::account, &nano::cementable_account::account>>,
+		mi::ordered_non_unique<mi::tag<tag_uncemented>,
+			mi::member<nano::cementable_account, uint64_t, &nano::cementable_account::blocks_uncemented>,
+			std::greater<uint64_t>>>>;
+	// clang-format on
 	prioritize_num_uncemented priority_wallet_cementable_frontiers;
 	prioritize_num_uncemented priority_cementable_frontiers;
+	void prioritize_frontiers_for_confirmation (nano::transaction const &, std::chrono::milliseconds, std::chrono::milliseconds);
 	std::unordered_set<nano::wallet_id> wallet_ids_already_iterated;
 	std::unordered_map<nano::wallet_id, nano::account> next_wallet_id_accounts;
 	bool skip_wallets{ false };
 	void prioritize_account_for_confirmation (prioritize_num_uncemented &, size_t &, nano::account const &, nano::account_info const &, uint64_t);
 	static size_t constexpr max_priority_cementable_frontiers{ 100000 };
 	static size_t constexpr confirmed_frontiers_max_pending_cut_off{ 1000 };
-	boost::multi_index_container<
-	nano::gap_information,
-	boost::multi_index::indexed_by<
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::gap_information, std::chrono::steady_clock::time_point, &nano::gap_information::arrival>>,
-	boost::multi_index::hashed_unique<boost::multi_index::member<nano::gap_information, nano::block_hash, &nano::gap_information::hash>>>>
-	inactive_votes_cache;
+	nano::gap_cache::ordered_gaps inactive_votes_cache;
 	static size_t constexpr inactive_votes_cache_max{ 16 * 1024 };
-	ordered_elections_timepoint dropped_elections_cache;
+	// clang-format off
+	boost::multi_index_container<nano::election_timepoint,
+	mi::indexed_by<
+		mi::sequenced<mi::tag<tag_sequence>>,
+		mi::hashed_unique<mi::tag<tag_root>,
+			mi::member<nano::election_timepoint, nano::qualified_root, &nano::election_timepoint::root>>>>
+	dropped_elections_cache;
+	// clang-format on
 	static size_t constexpr dropped_elections_cache_max{ 32 * 1024 };
 	boost::thread thread;
 

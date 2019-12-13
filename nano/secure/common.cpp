@@ -5,10 +5,12 @@
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
 
+#include <crypto/cryptopp/words.h>
+
 #include <boost/endian/conversion.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#include <boost/variant/get.hpp>
 
-#include <iostream>
 #include <limits>
 #include <queue>
 

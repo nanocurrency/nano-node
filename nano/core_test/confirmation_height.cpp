@@ -1,7 +1,10 @@
 #include <nano/core_test/testutil.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/testing.hpp>
 
 #include <gtest/gtest.h>
+
+#include <boost/format.hpp>
 
 using namespace std::chrono_literals;
 
@@ -979,7 +982,6 @@ TEST (confirmation_height, callback_confirmed_history)
 	nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
 
 	nano::keypair key1;
-	auto & store = node->store;
 	auto send = std::make_shared<nano::send_block> (latest, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest));
 	{
 		auto transaction = node->store.tx_begin_write ();
@@ -1058,7 +1060,6 @@ TEST (confirmation_height, dependent_election)
 	nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
 
 	nano::keypair key1;
-	auto & store = node->store;
 	auto send = std::make_shared<nano::send_block> (latest, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest));
 	auto send1 = std::make_shared<nano::send_block> (send->hash (), key1.pub, nano::genesis_amount - nano::Gxrb_ratio * 2, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send->hash ()));
 	auto send2 = std::make_shared<nano::send_block> (send1->hash (), key1.pub, nano::genesis_amount - nano::Gxrb_ratio * 3, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send1->hash ()));
@@ -1122,7 +1123,6 @@ TEST (confirmation_height, dependent_election_after_already_cemented)
 	nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
 
 	nano::keypair key1;
-	auto & store = node->store;
 	auto send = std::make_shared<nano::send_block> (latest, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest));
 	auto send1 = std::make_shared<nano::send_block> (send->hash (), key1.pub, nano::genesis_amount - nano::Gxrb_ratio * 2, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send->hash ()));
 

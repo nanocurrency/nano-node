@@ -1,5 +1,6 @@
 #include <nano/core_test/testutil.hpp>
 #include <nano/lib/jsonconfig.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/testing.hpp>
 
 #include <gtest/gtest.h>
@@ -540,7 +541,6 @@ TEST (active_transactions, update_difficulty)
 	ASSERT_FALSE (ec);
 
 	auto modify_election = [&node1](auto block) {
-		auto root_l (block->root ());
 		auto hash (block->hash ());
 		nano::lock_guard<std::mutex> active_guard (node1.active.mutex);
 		auto existing (node1.active.roots.find (block->qualified_root ()));

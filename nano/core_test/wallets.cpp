@@ -5,8 +5,6 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/polymorphic_cast.hpp>
-
 using namespace std::chrono_literals;
 
 TEST (wallets, open_create)

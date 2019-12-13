@@ -1,13 +1,14 @@
 #include <nano/core_test/testutil.hpp>
 #include <nano/lib/jsonconfig.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/node/transport/udp.hpp>
-#include <nano/secure/working.hpp>
 
 #include <gtest/gtest.h>
 
+#include <boost/filesystem.hpp>
 #include <boost/make_shared.hpp>
-#include <boost/polymorphic_cast.hpp>
+#include <boost/variant.hpp>
 
 #include <numeric>
 
@@ -798,7 +799,7 @@ TEST (node_config, v17_values)
 	ASSERT_FALSE (upgraded);
 	ASSERT_EQ (config.tcp_io_timeout.count (), 1);
 	ASSERT_EQ (config.pow_sleep_interval.count (), 0);
-	ASSERT_EQ (config.external_address, boost::asio::ip::address_v6::from_string ("::1"));
+	ASSERT_EQ (config.external_address, "::1");
 	ASSERT_EQ (config.external_port, 0);
 	ASSERT_EQ (config.tcp_incoming_connections_max, 1);
 	ASSERT_FALSE (config.diagnostics_config.txn_tracking.enable);
@@ -838,7 +839,7 @@ TEST (node_config, v17_values)
 	ASSERT_FALSE (upgraded);
 	ASSERT_EQ (config.tcp_io_timeout.count (), std::numeric_limits<unsigned long>::max () - 100);
 	ASSERT_EQ (config.pow_sleep_interval.count (), std::numeric_limits<unsigned long>::max () - 100);
-	ASSERT_EQ (config.external_address, boost::asio::ip::address_v6::from_string ("::ffff:192.168.1.1"));
+	ASSERT_EQ (config.external_address, "::ffff:192.168.1.1");
 	ASSERT_EQ (config.external_port, std::numeric_limits<uint16_t>::max () - 1);
 	ASSERT_EQ (config.tcp_incoming_connections_max, std::numeric_limits<unsigned>::max ());
 	ASSERT_EQ (config.vote_generator_delay.count (), std::numeric_limits<unsigned long>::max () - 100);
@@ -2294,7 +2295,7 @@ TEST (node, block_arrival_size)
 	nano::block_hash hash (0);
 	for (auto i (0); i < nano::block_arrival::arrival_size_min * 2; ++i)
 	{
-		node.block_arrival.arrival.insert (nano::block_arrival_info{ time, hash });
+		node.block_arrival.arrival.push_back (nano::block_arrival_info{ time, hash });
 		++hash.qwords[0];
 	}
 	ASSERT_EQ (nano::block_arrival::arrival_size_min * 2, node.block_arrival.arrival.size ());
@@ -2310,7 +2311,7 @@ TEST (node, block_arrival_time)
 	nano::block_hash hash (0);
 	for (auto i (0); i < nano::block_arrival::arrival_size_min * 2; ++i)
 	{
-		node.block_arrival.arrival.insert (nano::block_arrival_info{ time, hash });
+		node.block_arrival.arrival.push_back (nano::block_arrival_info{ time, hash });
 		++hash.qwords[0];
 	}
 	ASSERT_EQ (nano::block_arrival::arrival_size_min * 2, node.block_arrival.arrival.size ());

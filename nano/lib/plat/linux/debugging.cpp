@@ -5,6 +5,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <cassert>
+#include <cstring>
+
 namespace
 {
 // This creates a file for the load address of an executable or shared library.

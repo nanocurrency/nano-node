@@ -650,3 +650,64 @@ nano::receive_block_builder & nano::receive_block_builder::source_hex (std::stri
 	build_state |= build_flags::link_present;
 	return *this;
 }
+
+template <typename BLOCKTYPE, typename BUILDER>
+std::unique_ptr<BLOCKTYPE> nano::abstract_builder<BLOCKTYPE, BUILDER>::build ()
+{
+	if (!ec)
+	{
+		static_cast<BUILDER *> (this)->validate ();
+	}
+	assert (!ec);
+	return std::move (block);
+}
+
+template <typename BLOCKTYPE, typename BUILDER>
+std::unique_ptr<BLOCKTYPE> nano::abstract_builder<BLOCKTYPE, BUILDER>::build (std::error_code & ec)
+{
+	if (!this->ec)
+	{
+		static_cast<BUILDER *> (this)->validate ();
+	}
+	ec = this->ec;
+	return std::move (block);
+}
+
+template <typename BLOCKTYPE, typename BUILDER>
+nano::abstract_builder<BLOCKTYPE, BUILDER> & nano::abstract_builder<BLOCKTYPE, BUILDER>::work (uint64_t work)
+{
+	block->work = work;
+	build_state |= build_flags::work_present;
+	return *this;
+}
+
+template <typename BLOCKTYPE, typename BUILDER>
+nano::abstract_builder<BLOCKTYPE, BUILDER> & nano::abstract_builder<BLOCKTYPE, BUILDER>::sign (nano::raw_key const & private_key, nano::public_key const & public_key)
+{
+	block->signature = nano::sign_message (private_key, public_key, block->hash ());
+	build_state |= build_flags::signature_present;
+	return *this;
+}
+
+template <typename BLOCKTYPE, typename BUILDER>
+nano::abstract_builder<BLOCKTYPE, BUILDER> & nano::abstract_builder<BLOCKTYPE, BUILDER>::sign_zero ()
+{
+	block->signature.clear ();
+	build_state |= build_flags::signature_present;
+	return *this;
+}
+
+template <typename BLOCKTYPE, typename BUILDER>
+void nano::abstract_builder<BLOCKTYPE, BUILDER>::construct_block ()
+{
+	block = std::make_unique<BLOCKTYPE> ();
+	ec.clear ();
+	build_state = 0;
+}
+
+// Explicit instantiations
+template class nano::abstract_builder<nano::open_block, nano::open_block_builder>;
+template class nano::abstract_builder<nano::send_block, nano::send_block_builder>;
+template class nano::abstract_builder<nano::receive_block, nano::receive_block_builder>;
+template class nano::abstract_builder<nano::change_block, nano::change_block_builder>;
+template class nano::abstract_builder<nano::state_block, nano::state_block_builder>;

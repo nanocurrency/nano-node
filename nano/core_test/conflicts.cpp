@@ -1,7 +1,10 @@
 #include <nano/core_test/testutil.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/testing.hpp>
 
 #include <gtest/gtest.h>
+
+#include <boost/variant/get.hpp>
 
 using namespace std::chrono_literals;
 

@@ -1,12 +1,34 @@
+#include <nano/lib/logger_mt.hpp>
+#include <nano/lib/stats.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/node/active_transactions.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/node_observers.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/online_reps.hpp>
+#include <nano/node/signatures.hpp>
 #include <nano/node/vote_processor.hpp>
+#include <nano/secure/blockstore.hpp>
+#include <nano/secure/common.hpp>
+#include <nano/secure/ledger.hpp>
 
-nano::vote_processor::vote_processor (nano::node & node_a) :
-node (node_a),
+#include <boost/format.hpp>
+
+nano::vote_processor::vote_processor (nano::signature_checker & checker_a, nano::active_transactions & active_a, nano::block_store & store_a, nano::node_observers & observers_a, nano::stat & stats_a, nano::node_config & config_a, nano::logger_mt & logger_a, nano::online_reps & online_reps_a, nano::ledger & ledger_a, nano::network_params & network_params_a) :
+checker (checker_a),
+active (active_a),
+store (store_a),
+observers (observers_a),
+stats (stats_a),
+config (config_a),
+logger (logger_a),
+online_reps (online_reps_a),
+ledger (ledger_a),
+network_params (network_params_a),
 started (false),
 stopped (false),
-active (false),
+is_active (false),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::vote_processing);
 	process_loop ();
@@ -36,7 +58,7 @@ void nano::vote_processor::process_loop ()
 			votes_l.swap (votes);
 
 			log_this_iteration = false;
-			if (node.config.logging.network_logging () && votes_l.size () > 50)
+			if (config.logging.network_logging () && votes_l.size () > 50)
 			{
 				/*
 				 * Only log the timing information for this iteration if
@@ -45,12 +67,12 @@ void nano::vote_processor::process_loop ()
 				log_this_iteration = true;
 				elapsed.restart ();
 			}
-			active = true;
+			is_active = true;
 			lock.unlock ();
 			verify_votes (votes_l);
 			{
-				nano::unique_lock<std::mutex> active_single_lock (node.active.mutex);
-				auto transaction (node.store.tx_begin_read ());
+				nano::unique_lock<std::mutex> active_single_lock (active.mutex);
+				auto transaction (store.tx_begin_read ());
 				uint64_t count (1);
 				for (auto & i : votes_l)
 				{
@@ -66,7 +88,7 @@ void nano::vote_processor::process_loop ()
 				}
 			}
 			lock.lock ();
-			active = false;
+			is_active = false;
 
 			lock.unlock ();
 			condition.notify_all ();
@@ -74,7 +96,7 @@ void nano::vote_processor::process_loop ()
 
 			if (log_this_iteration && elapsed.stop () > std::chrono::milliseconds (100))
 			{
-				node.logger.try_log (boost::str (boost::format ("Processed %1% votes in %2% milliseconds (rate of %3% votes per second)") % votes_l.size () % elapsed.value ().count () % ((votes_l.size () * 1000ULL) / elapsed.value ().count ())));
+				logger.try_log (boost::str (boost::format ("Processed %1% votes in %2% milliseconds (rate of %3% votes per second)") % votes_l.size () % elapsed.value ().count () % ((votes_l.size () * 1000ULL) / elapsed.value ().count ())));
 			}
 		}
 		else
@@ -93,7 +115,7 @@ void nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, std::shared
 		/* Random early delection levels
 		 Always process votes for test network (process = true)
 		 Stop processing with max 144 * 1024 votes */
-		if (!node.network_params.network.is_test_network ())
+		if (!network_params.network.is_test_network ())
 		{
 			// Level 0 (< 0.1%)
 			if (votes.size () < 96 * 1024)
@@ -131,7 +153,7 @@ void nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, std::shared
 		}
 		else
 		{
-			node.stats.inc (nano::stat::type::vote, nano::stat::detail::vote_overflow);
+			stats.inc (nano::stat::type::vote, nano::stat::detail::vote_overflow);
 		}
 	}
 }
@@ -158,7 +180,7 @@ void nano::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<na
 		signatures.push_back (vote.first->signature.bytes.data ());
 	}
 	nano::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data () };
-	node.checker.verify (check);
+	checker.verify (check);
 	std::remove_reference_t<decltype (votes_a)> result;
 	auto i (0);
 	for (auto & vote : votes_a)
@@ -176,20 +198,20 @@ void nano::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<na
 // node.active.mutex lock required
 nano::vote_code nano::vote_processor::vote_blocking (nano::transaction const & transaction_a, std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a, bool validated)
 {
-	assert (!node.active.mutex.try_lock ());
+	assert (!active.mutex.try_lock ());
 	auto result (nano::vote_code::invalid);
 	if (validated || !vote_a->validate ())
 	{
-		auto max_vote (node.store.vote_max (transaction_a, vote_a));
+		auto max_vote (store.vote_max (transaction_a, vote_a));
 		result = nano::vote_code::replay;
-		if (!node.active.vote (vote_a, true))
+		if (!active.vote (vote_a, true))
 		{
 			result = nano::vote_code::vote;
 		}
 		switch (result)
 		{
 			case nano::vote_code::vote:
-				node.observers.vote.notify (vote_a, channel_a);
+				observers.vote.notify (vote_a, channel_a);
 			case nano::vote_code::replay:
 				// This tries to assist rep nodes that have lost track of their highest sequence number by replaying our highest known vote back to them
 				// Only do this if the sequence number is significantly different to account for network reordering
@@ -210,20 +232,20 @@ nano::vote_code nano::vote_processor::vote_blocking (nano::transaction const & t
 	{
 		case nano::vote_code::invalid:
 			status = "Invalid";
-			node.stats.inc (nano::stat::type::vote, nano::stat::detail::vote_invalid);
+			stats.inc (nano::stat::type::vote, nano::stat::detail::vote_invalid);
 			break;
 		case nano::vote_code::replay:
 			status = "Replay";
-			node.stats.inc (nano::stat::type::vote, nano::stat::detail::vote_replay);
+			stats.inc (nano::stat::type::vote, nano::stat::detail::vote_replay);
 			break;
 		case nano::vote_code::vote:
 			status = "Vote";
-			node.stats.inc (nano::stat::type::vote, nano::stat::detail::vote_valid);
+			stats.inc (nano::stat::type::vote, nano::stat::detail::vote_valid);
 			break;
 	}
-	if (node.config.logging.vote_logging ())
+	if (config.logging.vote_logging ())
 	{
-		node.logger.try_log (boost::str (boost::format ("Vote from: %1% sequence: %2% block(s): %3%status: %4%") % vote_a->account.to_account () % std::to_string (vote_a->sequence) % vote_a->hashes_string () % status));
+		logger.try_log (boost::str (boost::format ("Vote from: %1% sequence: %2% block(s): %3%status: %4%") % vote_a->account.to_account () % std::to_string (vote_a->sequence) % vote_a->hashes_string () % status));
 	}
 	return result;
 }
@@ -244,7 +266,7 @@ void nano::vote_processor::stop ()
 void nano::vote_processor::flush ()
 {
 	nano::unique_lock<std::mutex> lock (mutex);
-	while (active || !votes.empty ())
+	while (is_active || !votes.empty ())
 	{
 		condition.wait (lock);
 	}
@@ -258,12 +280,12 @@ void nano::vote_processor::calculate_weights ()
 		representatives_1.clear ();
 		representatives_2.clear ();
 		representatives_3.clear ();
-		auto supply (node.online_reps.online_stake ());
-		auto rep_amounts = node.ledger.rep_weights.get_rep_amounts ();
+		auto supply (online_reps.online_stake ());
+		auto rep_amounts = ledger.rep_weights.get_rep_amounts ();
 		for (auto const & rep_amount : rep_amounts)
 		{
 			nano::account const & representative (rep_amount.first);
-			auto weight (node.ledger.weight (representative));
+			auto weight (ledger.weight (representative));
 			if (weight > supply / 1000) // 0.1% or above (level 1)
 			{
 				representatives_1.insert (representative);
