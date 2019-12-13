@@ -232,7 +232,7 @@ public:
 	nano::read_transaction tx_begin_read ();
 
 private:
-	std::mutex counts_mutex;	
+	std::mutex counts_mutex;
 	uint64_t reps_count{ 0 };
 	uint64_t half_principal_reps_count{ 0 }; // Representatives with at least 50% of principal representative requirements
 };
