@@ -40,21 +40,17 @@ void nano::election::confirm_once (nano::election_status_type type_a)
 		status.election_duration = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now () - election_start);
 		status.confirmation_request_count = confirmation_request_count;
 		status.type = type_a;
+		node.active.pending_conf_height.emplace (status.winner->hash (), shared_from_this ());
+		clear_blocks ();
+		clear_dependent ();
+		node.active.roots.erase (status.winner->qualified_root ());
 		auto status_l (status);
 		auto node_l (node.shared ());
 		auto confirmation_action_l (confirmation_action);
 		node.background ([node_l, status_l, confirmation_action_l]() {
 			node_l->process_confirmed (status_l);
-			assert (status_l.winner != nullptr);
-			if (status_l.winner != nullptr)
-			{
-				node_l->active.erase (*status_l.winner);
-				confirmation_action_l (status_l.winner);
-			}
+			confirmation_action_l (status_l.winner);
 		});
-		node.active.pending_conf_height.emplace (status.winner->hash (), shared_from_this ());
-		clear_blocks ();
-		clear_dependent ();
 	}
 }
 
