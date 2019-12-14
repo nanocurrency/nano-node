@@ -3,23 +3,21 @@
 
 #include <boost/format.hpp>
 
-nano::election_vote_result::election_vote_result (bool replay_a, bool processed_a)
+nano::election_vote_result::election_vote_result (bool const replay_a, bool const processed_a, bool const active_a) :
+replay (replay_a), processed (processed_a), active (active_a)
 {
-	replay = replay_a;
-	processed = processed_a;
 }
 
-nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> block_a, bool const skip_delay_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a) :
+nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> block_a, bool const skip_delay_a, bool const start_active_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a) :
 confirmation_action (confirmation_action_a),
 node (node_a),
 election_start (std::chrono::steady_clock::now ()),
 status ({ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::ongoing }),
 skip_delay (skip_delay_a),
-confirmed (false),
-stopped (false)
+active (start_active_a)
 {
-	last_votes.insert (std::make_pair (node.network_params.random.not_an_account, nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () }));
-	blocks.insert (std::make_pair (block_a->hash (), block_a));
+	last_votes.emplace (node.network_params.random.not_an_account, nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () });
+	blocks.emplace (block_a->hash (), block_a);
 	update_dependent ();
 }
 
@@ -56,8 +54,13 @@ void nano::election::confirm_once (nano::election_status_type type_a)
 		node.active.pending_conf_height.emplace (status.winner->hash (), shared_from_this ());
 		clear_blocks ();
 		clear_dependent ();
-		node.active.roots.erase (root);
+		node.active.roots.get<nano::active_transactions::tag_root> ().erase (root);
 	}
+}
+
+bool nano::election::activate ()
+{
+	return !active.exchange (true);
 }
 
 void nano::election::stop ()
@@ -103,7 +106,7 @@ nano::tally_t nano::election::tally ()
 		auto block (blocks.find (item.first));
 		if (block != blocks.end ())
 		{
-			result.insert (std::make_pair (item.second, block->second));
+			result.emplace (item.second, block->second);
 		}
 	}
 	return result;
@@ -121,13 +124,19 @@ void nano::election::confirm_if_quorum ()
 	{
 		sum += i.first;
 	}
-	if (sum >= node.config.online_weight_minimum.number () && block_l->hash () != status.winner->hash ())
+	auto current_winner_hash_l (status.winner->hash ());
+	if (sum >= node.config.online_weight_minimum.number () && block_l->hash () != current_winner_hash_l)
 	{
-		auto node_l (node.shared ());
-		node_l->block_processor.force (block_l);
+		auto new_winner_hash_l (block_l->hash ());
+		node.votes_cache.remove (current_winner_hash_l);
+		if (active)
+		{
+			node.block_processor.generator.add (new_winner_hash_l);
+		}
+		node.block_processor.force (block_l);
 		status.winner = block_l;
 		update_dependent ();
-		node_l->active.adjust_difficulty (block_l->hash ());
+		node.active.adjust_difficulty (new_winner_hash_l);
 	}
 	if (have_quorum (tally_l, sum))
 	{
@@ -162,6 +171,7 @@ nano::election_vote_result nano::election::vote (nano::account rep, uint64_t seq
 	auto online_stake (node.online_reps.online_stake ());
 	auto weight (node.ledger.weight (rep));
 	auto should_process (false);
+	bool active_l = active.load ();
 	if (node.network_params.network.is_test_network () || weight > node.minimum_principal_weight (online_stake))
 	{
 		unsigned int cooldown;
@@ -207,7 +217,7 @@ nano::election_vote_result nano::election::vote (nano::account rep, uint64_t seq
 			}
 		}
 	}
-	return nano::election_vote_result (replay, should_process);
+	return nano::election_vote_result (replay, should_process, active_l);
 }
 
 bool nano::election::publish (std::shared_ptr<nano::block> block_a)
@@ -228,7 +238,7 @@ bool nano::election::publish (std::shared_ptr<nano::block> block_a)
 		{
 			if (blocks.find (block_a->hash ()) == blocks.end ())
 			{
-				blocks.insert (std::make_pair (block_a->hash (), block_a));
+				blocks.emplace (block_a->hash (), block_a);
 				confirm_if_quorum ();
 				node.network.flood_block (block_a, false);
 			}

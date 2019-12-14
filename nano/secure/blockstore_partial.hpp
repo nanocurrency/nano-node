@@ -105,12 +105,11 @@ public:
 	}
 
 	// Converts a block hash to a block height
-	uint64_t block_account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override
+	boost::optional<uint64_t> block_account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override
 	{
 		nano::block_sideband sideband;
 		auto block = block_get (transaction_a, hash_a, &sideband);
-		assert (block != nullptr);
-		return sideband.height;
+		return block != nullptr ? boost::optional<uint64_t> (sideband.height) : boost::optional<uint64_t> (boost::none);
 	}
 
 	std::shared_ptr<nano::block> block_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_sideband * sideband_a = nullptr) const override

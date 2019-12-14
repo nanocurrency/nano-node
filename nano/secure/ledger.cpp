@@ -878,6 +878,7 @@ bool nano::ledger::rollback (nano::write_transaction const & transaction_a, nano
 	assert (store.block_exists (transaction_a, block_a));
 	auto account_l (account (transaction_a, block_a));
 	auto block_account_height (store.block_account_height (transaction_a, block_a));
+	assert (block_account_height.is_initialized ());
 	rollback_visitor rollback (transaction_a, *this, list_a);
 	nano::account_info account_info;
 	auto error (false);
@@ -887,7 +888,7 @@ bool nano::ledger::rollback (nano::write_transaction const & transaction_a, nano
 		auto latest_error = store.confirmation_height_get (transaction_a, account_l, confirmation_height);
 		assert (!latest_error);
 		(void)latest_error;
-		if (block_account_height > confirmation_height)
+		if (*block_account_height > confirmation_height)
 		{
 			latest_error = store.account_get (transaction_a, account_l, account_info);
 			assert (!latest_error);
@@ -1110,7 +1111,7 @@ bool nano::ledger::block_confirmed (nano::transaction const & transaction_a, nan
 {
 	auto confirmed (false);
 	auto block_height (store.block_account_height (transaction_a, hash_a));
-	if (block_height > 0) // 0 indicates that the block doesn't exist
+	if (block_height.is_initialized ())
 	{
 		uint64_t confirmation_height;
 		release_assert (!store.confirmation_height_get (transaction_a, account (transaction_a, hash_a), confirmation_height));

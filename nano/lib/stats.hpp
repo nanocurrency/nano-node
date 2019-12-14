@@ -197,7 +197,8 @@ public:
 		udp,
 		observer,
 		confirmation_height,
-		drop
+		drop,
+		active_transactions
 	};
 
 	/** Optional detail type */
@@ -291,7 +292,12 @@ public:
 
 		// confirmation height
 		blocks_confirmed,
-		invalid_block
+		invalid_block,
+
+		// active transactions
+		active,
+		passive,
+		drop
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */

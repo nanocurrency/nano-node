@@ -140,7 +140,9 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 			}
 		}
 
-		auto block_height (ledger.store.block_account_height (read_transaction, current));
+		auto block_height_opt (ledger.store.block_account_height (read_transaction, current));
+		release_assert (block_height_opt.is_initialized ());
+		auto block_height (block_height_opt.get ());
 		nano::account account (ledger.store.block_account (read_transaction, current));
 		uint64_t confirmation_height;
 		release_assert (!ledger.store.confirmation_height_get (read_transaction, account, confirmation_height));

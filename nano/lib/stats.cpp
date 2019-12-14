@@ -437,6 +437,9 @@ std::string nano::stat::type_to_string (uint32_t key)
 			break;
 		case nano::stat::type::drop:
 			res = "drop";
+			break;
+		case nano::stat::type::active_transactions:
+			res = "active_transactions";
 	}
 	return res;
 }
@@ -635,6 +638,15 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 		case nano::stat::detail::blocks_confirmed:
 			res = "blocks_confirmed";
+			break;
+		case nano::stat::detail::active:
+			res = "active";
+			break;
+		case nano::stat::detail::passive:
+			res = "passive";
+			break;
+		case nano::stat::detail::drop:
+			res = "drop";
 	}
 	return res;
 }

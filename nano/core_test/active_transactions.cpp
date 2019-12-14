@@ -7,21 +7,26 @@
 
 using namespace std::chrono_literals;
 
-TEST (active_transactions, confirm_one)
+TEST (active_transactions, confirm_active)
 {
 	nano::system system;
-	nano::node_config node_config (24000, system.logging);
+	nano::node_config node_config (nano::get_available_port (), system.logging);
 	auto & node1 = *system.add_node (node_config);
 	// Send and vote for a block before peering with node2
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	auto send (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::public_key (), node_config.receive_minimum.number ()));
 	system.deadline_set (5s);
-	while (!node1.active.empty () && !node1.block_confirmed_or_being_confirmed (node1.store.tx_begin_read (), send->hash ()))
+	while (node1.ledger.cemented_count != 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	node_config.peering_port = 24001;
+	node_config.peering_port = nano::get_available_port ();
 	auto & node2 = *system.add_node (node_config);
+	std::atomic<bool> confirmed{ false };
+	// Attach to node2 confirmation observer
+	node2.observers.blocks.add ([&confirmed](const nano::election_status & status_a, const nano::account &, const nano::uint128_t &, bool) {
+		confirmed = true;
+	});
 	system.deadline_set (5s);
 	// Let node2 know about the block
 	while (node2.active.empty ())
@@ -29,17 +34,69 @@ TEST (active_transactions, confirm_one)
 		node1.network.flood_block (send, false);
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	while (!node2.active.empty ())
+	while (!confirmed)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (0, node2.active.dropped_elections_cache_size ());
-	nano::unique_lock<std::mutex> active_lock (node2.active.mutex);
-	while (node2.active.confirmed.empty ())
+}
+
+TEST (active_transactions, confirm_passive)
+{
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	auto & node1 = *system.add_node (node_config);
+	nano::keypair key1, key2, key3, key4;
+	auto wallet = system.wallet (0);
+	wallet->insert_adhoc (nano::test_genesis_key.prv);
+	wallet->insert_adhoc (key1.prv);
+	wallet->insert_adhoc (key2.prv);
+	wallet->insert_adhoc (key3.prv);
+	wallet->insert_adhoc (key4.prv);
+	auto amount (node_config.receive_minimum.number ());
+	auto gen1 (wallet->send_action (nano::test_genesis_key.pub, key1.pub, amount));
+	auto gen2 (wallet->send_action (nano::test_genesis_key.pub, key2.pub, amount));
+	auto gen3 (wallet->send_action (nano::test_genesis_key.pub, key3.pub, amount));
+	auto gen4 (wallet->send_action (nano::test_genesis_key.pub, key4.pub, amount));
+	auto open1 (wallet->receive_action (*gen1, key1.pub, amount));
+	auto open2 (wallet->receive_action (*gen2, key2.pub, amount));
+	auto open3 (wallet->receive_action (*gen3, key3.pub, amount));
+	auto open4 (wallet->receive_action (*gen4, key4.pub, amount));
+	system.deadline_set (5s);
+	while (node1.ledger.cemented_count != 9)
 	{
-		active_lock.unlock ();
 		ASSERT_NO_ERROR (system.poll ());
-		active_lock.lock ();
+	}
+	node_config.peering_port = nano::get_available_port ();
+	// Max 1 active, other elections will activate as the previous one confirms
+	node_config.active_elections_size = 1;
+	ASSERT_GT (node_config.passive_elections_size, 10);
+	auto & node2 = *system.add_node (node_config);
+	// Let node2 know about the blocks
+	auto process_and_wait = [&system, &node1, &node2](std::shared_ptr<nano::block> block, uint64_t expected_cemented) {
+		node1.network.flood_block (block, false);
+		while (node2.ledger.cemented_count < expected_cemented)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+	};
+	// Must be in order due to having max 1 active
+	uint64_t cemented = 1;
+	process_and_wait (gen1, ++cemented);
+	process_and_wait (gen2, ++cemented);
+	process_and_wait (gen3, ++cemented);
+	process_and_wait (gen4, ++cemented);
+	// These can be in any order, and after each one is confirmed, the next election should activate
+	while (node2.ledger.block_count_cache != node1.ledger.block_count_cache)
+	{
+		node1.network.flood_block (open1, false);
+		node1.network.flood_block (open2, false);
+		node1.network.flood_block (open3, false);
+		node1.network.flood_block (open4, false);
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	while (node2.ledger.cemented_count != node1.ledger.cemented_count)
+	{
+		ASSERT_NO_ERROR (system.poll ());
 	}
 }
 
@@ -255,7 +312,10 @@ TEST (active_transactions, keep_local)
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.enable_voting = false;
-	node_config.active_elections_size = 2; //bound to 2, wont drop wallet created transactions, but good to test dropping remote
+	// Max. 2 active elections and 1 passive election
+	// Sends from wallet cannot be dropped, but they can start as passive elections
+	node_config.active_elections_size = 2;
+	node_config.passive_elections_size = 1;
 	// Disable frontier confirmation to allow the test to finish before
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node = *system.add_node (node_config);
@@ -276,7 +336,8 @@ TEST (active_transactions, keep_local)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (0, node.active.dropped_elections_cache_size ());
+	ASSERT_EQ (2, node.active.active_size ());
+	ASSERT_EQ (4, node.active.passive_size ());
 	while (!node.active.empty ())
 	{
 		nano::lock_guard<std::mutex> active_guard (node.active.mutex);
@@ -289,21 +350,36 @@ TEST (active_transactions, keep_local)
 	}
 	auto open1 (std::make_shared<nano::state_block> (key1.pub, 0, key1.pub, node.config.receive_minimum.number (), send1->hash (), key1.prv, key1.pub, *system.work.generate (key1.pub)));
 	node.process_active (open1);
-	node.active.start (open1);
 	auto open2 (std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, node.config.receive_minimum.number (), send2->hash (), key2.prv, key2.pub, *system.work.generate (key2.pub)));
 	node.process_active (open2);
-	node.active.start (open2);
 	auto open3 (std::make_shared<nano::state_block> (key3.pub, 0, key3.pub, node.config.receive_minimum.number (), send3->hash (), key3.prv, key3.pub, *system.work.generate (key3.pub)));
 	node.process_active (open3);
-	node.active.start (open3);
+	node.block_processor.flush ();
+	// With 3 elections, one must be in passive
 	ASSERT_EQ (3, node.active.size ());
-	system.deadline_set (10s);
-	// bound elections, should drop after one loop
-	while (node.active.size () != node_config.active_elections_size)
+	ASSERT_EQ (2, node.active.active_size ());
+	ASSERT_EQ (1, node.active.passive_size ());
+	auto open4 (std::make_shared<nano::state_block> (key4.pub, 0, key4.pub, node.config.receive_minimum.number (), send4->hash (), key4.prv, key4.pub, *system.work.generate (key4.pub)));
+	node.process_active (open4);
+	while (!node.store.block_exists (node.store.tx_begin_read (), open4->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (1, node.active.dropped_elections_cache_size ());
+	// With 4 elections, one must have been dropped
+	ASSERT_EQ (2, node.active.active_size ());
+	ASSERT_EQ (1, node.active.passive_size ());
+	ASSERT_EQ (3, node.active.size ());
+	while (!node.active.empty ())
+	{
+		nano::lock_guard<std::mutex> active_guard (node.active.mutex);
+		node.active.roots.begin ()->election->confirm_once ();
+	}
+	// 1 genesis, 6 from wallet, then 3 open blocks and 1 dropped (frontier confirmation disabled)
+	while (node.ledger.cemented_count != (1 + 6 + 3))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (1 + 6 + 3 + 1, node.ledger.block_count_cache);
 }
 
 TEST (active_transactions, prioritize_chains)
@@ -582,69 +658,5 @@ TEST (active_transactions, update_difficulty)
 			done = (existing1->difficulty > difficulty1) && (existing2->difficulty > difficulty2) && (existing3->difficulty > difficulty1) && (existing4->difficulty > difficulty2);
 		}
 		ASSERT_NO_ERROR (system.poll ());
-	}
-}
-
-TEST (active_transactions, restart_dropped)
-{
-	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
-	node_config.enable_voting = false;
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	auto & node = *system.add_node (node_config);
-	nano::genesis genesis;
-	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::xrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
-	// Process only in ledger and emulate dropping the election
-	ASSERT_EQ (nano::process_result::progress, node.process (*send1).code);
-	{
-		nano::lock_guard<std::mutex> guard (node.active.mutex);
-		node.active.add_dropped_elections_cache (send1->qualified_root ());
-	}
-	uint64_t difficulty1 (0);
-	nano::work_validate (*send1, &difficulty1);
-	// Generate higher difficulty work
-	auto work2 (*system.work.generate (send1->root (), difficulty1));
-	uint64_t difficulty2 (0);
-	nano::work_validate (send1->root (), work2, &difficulty2);
-	ASSERT_GT (difficulty2, difficulty1);
-	// Process the same block with updated work
-	auto send2 (std::make_shared<nano::state_block> (*send1));
-	send2->block_work_set (work2);
-	node.process_active (send2);
-	// Wait until the block is in elections
-	system.deadline_set (5s);
-	bool done{ false };
-	while (!done)
-	{
-		{
-			nano::lock_guard<std::mutex> guard (node.active.mutex);
-			auto existing (node.active.roots.find (send2->qualified_root ()));
-			done = existing != node.active.roots.end ();
-			if (done)
-			{
-				ASSERT_EQ (difficulty2, existing->difficulty);
-			}
-		}
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	// Verify the block was updated in the ledger
-	{
-		auto block (node.store.block_get (node.store.tx_begin_read (), send1->hash ()));
-		ASSERT_EQ (work2, block->block_work ());
-	}
-	// Drop election
-	node.active.erase (*send2);
-	// Try to restart election with the lower difficulty block, should not work since the block as lower work
-	node.process_active (send1);
-	system.deadline_set (5s);
-	while (node.block_processor.size () > 0)
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	ASSERT_TRUE (node.active.empty ());
-	// Verify the block was not updated in the ledger
-	{
-		auto block (node.store.block_get (node.store.tx_begin_read (), send1->hash ()));
-		ASSERT_EQ (work2, block->block_work ());
 	}
 }

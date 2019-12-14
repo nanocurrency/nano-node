@@ -2495,7 +2495,7 @@ TEST (rpc, pending)
 	auto block1 (system.wallet (0)->send_action (nano::test_genesis_key.pub, key1.pub, 100));
 	scoped_io_thread_name_change scoped_thread_name_io;
 	system.deadline_set (5s);
-	while (system.nodes[0]->active.active (*block1))
+	while (node->active.state (*block1).exists ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -4049,7 +4049,7 @@ TEST (rpc, accounts_pending)
 	auto block1 (system.wallet (0)->send_action (nano::test_genesis_key.pub, key1.pub, 100));
 	scoped_io_thread_name_change scoped_thread_name_io;
 	system.deadline_set (5s);
-	while (system.nodes[0]->active.active (*block1))
+	while (node->active.state (*block1).exists ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -4310,7 +4310,7 @@ TEST (rpc, pending_exists)
 	auto block1 (system.wallet (0)->send_action (nano::test_genesis_key.pub, key1.pub, 100));
 	scoped_io_thread_name_change scoped_thread_name_io;
 	system.deadline_set (5s);
-	while (system.nodes[0]->active.active (*block1))
+	while (node->active.state (*block1).exists ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -4360,7 +4360,7 @@ TEST (rpc, wallet_pending)
 	auto block1 (system0.wallet (0)->send_action (nano::test_genesis_key.pub, key1.pub, 100));
 	auto iterations (0);
 	scoped_io_thread_name_change scoped_thread_name_io;
-	while (system0.nodes[0]->active.active (*block1))
+	while (node->active.state (*block1).exists ())
 	{
 		system0.poll ();
 		++iterations;

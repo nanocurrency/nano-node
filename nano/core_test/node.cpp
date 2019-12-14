@@ -2476,8 +2476,8 @@ TEST (node, vote_republish)
 	}
 	system.nodes[0]->active.publish (send2);
 	auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, send2));
-	ASSERT_TRUE (system.nodes[0]->active.active (*send1));
-	ASSERT_TRUE (system.nodes[1]->active.active (*send1));
+	ASSERT_TRUE (system.nodes[0]->active.state (*send1).active ());
+	ASSERT_TRUE (system.nodes[1]->active.state (*send1).active ());
 	system.nodes[0]->vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, system.nodes[0]->network.endpoint (), system.nodes[0]->network_params.protocol.protocol_version));
 	while (!system.nodes[0]->block (send2->hash ()))
 	{
@@ -2553,8 +2553,8 @@ TEST (node, vote_by_hash_republish)
 		std::vector<nano::block_hash> vote_blocks;
 		vote_blocks.push_back (send2->hash ());
 		auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, vote_blocks));
-		ASSERT_TRUE (system.nodes[0]->active.active (*send1));
-		ASSERT_TRUE (system.nodes[1]->active.active (*send1));
+		ASSERT_TRUE (system.nodes[0]->active.state (*send1).active ());
+		ASSERT_TRUE (system.nodes[1]->active.state (*send1).active ());
 		system.nodes[0]->vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, system.nodes[0]->network.endpoint (), system.nodes[0]->network_params.protocol.protocol_version));
 		while (!system.nodes[0]->block (send2->hash ()))
 		{
@@ -2596,8 +2596,8 @@ TEST (node, vote_by_hash_epoch_block_republish)
 	std::vector<nano::block_hash> vote_blocks;
 	vote_blocks.push_back (epoch1->hash ());
 	auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, vote_blocks));
-	ASSERT_TRUE (system.nodes[0]->active.active (*send1));
-	ASSERT_TRUE (system.nodes[1]->active.active (*send1));
+	ASSERT_TRUE (system.nodes[0]->active.state (*send1).active ());
+	ASSERT_TRUE (system.nodes[1]->active.state (*send1).active ());
 	system.nodes[0]->vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, system.nodes[0]->network.endpoint (), system.nodes[0]->network_params.protocol.protocol_version));
 	while (!system.nodes[0]->block (epoch1->hash ()))
 	{
@@ -3177,6 +3177,43 @@ TEST (node, bidirectional_tcp)
 		confirmed = node1->ledger.block_confirmed (transaction1, send2->hash ()) && node2->ledger.block_confirmed (transaction2, send2->hash ());
 		ASSERT_NO_ERROR (system.poll ());
 	}
+}
+
+TEST (node, passive_election_ignore_req)
+{
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.active_elections_size = 0;
+	node_config.passive_elections_size = 1;
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto & node = *system.add_node (node_config);
+	nano::genesis genesis;
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node.work_generate_blocking (genesis.hash ())));
+	ASSERT_EQ (nano::process_result::progress, node.ledger.process (node.store.tx_begin_write (), *send1).code);
+	{
+		uint64_t difficulty;
+		nano::work_validate (*send1, &difficulty);
+		nano::lock_guard<std::mutex> (node.active.mutex);
+		node.active.last_active_root_difficulty = difficulty + 1;
+	}
+	ASSERT_TRUE (node.active.start (send1).passive ());
+	ASSERT_EQ (1, node.active.passive_size ());
+	// confirm_req are ignored for passive elections unless there is already a vote cached
+	nano::confirm_req legacy_req (send1);
+	nano::confirm_req vbh_req (send1->hash (), send1->root ());
+	auto channel (node.network.udp_channels.create (node.network.endpoint ()));
+	for (auto i (0); i < 100; ++i)
+	{
+		node.network.process_message (legacy_req, channel);
+		node.network.process_message (vbh_req, channel);
+	}
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
+	node.block_processor.generator.add (send1->hash ());
+	std::this_thread::sleep_for (2*node.config.vote_generator_delay);
+	node.network.process_message (legacy_req, channel);
+	node.network.process_message (vbh_req, channel);
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 }
 
 TEST (active_difficulty, recalculate_work)

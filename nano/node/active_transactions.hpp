@@ -79,6 +79,46 @@ public:
 	nano::qualified_root root;
 };
 
+class active_state
+{
+protected:
+	enum class state_impl : uint8_t
+	{
+		existing_active = 0,
+		existing_passive = 1,
+		inserted_active = 3,
+		inserted_passive = 4,
+		not_found = 5,
+		unknown = 6
+	};
+	state_impl state{ state_impl::unknown };
+	friend class active_transactions;
+
+public:
+	bool exists () const
+	{
+		return state != state_impl::not_found && state != state_impl::unknown;
+	}
+	bool active () const
+	{
+		return state == state_impl::existing_active || state == state_impl::inserted_active;
+	}
+	bool passive () const
+	{
+		return state == state_impl::existing_passive || state == state_impl::inserted_passive;
+	}
+	std::shared_ptr<nano::block> current_election_winner{ nullptr };
+};
+
+class active_insertion_state final : public active_state
+{
+public:
+	bool inserted () const
+	{
+		return state == state_impl::inserted_active || state == state_impl::inserted_passive;
+	}
+};
+
 // Core class for determining consensus
 // Holds all active blocks i.e. recently added blocks that need confirmation
 class active_transactions final
@@ -86,7 +126,6 @@ class active_transactions final
 	// clang-format off
 	class tag_account {};
 	class tag_difficulty {};
-	class tag_root {};
 	class tag_sequence {};
 	class tag_uncemented {};
 	// clang-format on
@@ -97,28 +136,42 @@ public:
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
 	// clang-format off
-	bool start (std::shared_ptr<nano::block>, bool const = false, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
+	nano::active_insertion_state start (std::shared_ptr<nano::block>, bool const = false, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
 	// clang-format on
-	// If this returns true, the vote is a replay
-	// If this returns false, the vote may or may not be a replay
+	// If this returns true, the vote is a replay. If this returns false, the vote may or may not be a replay
 	bool vote (std::shared_ptr<nano::vote>, bool = false);
-	// Is the root of this block in the roots container
-	bool active (nano::block const &);
-	bool active (nano::qualified_root const &);
+	// Find the state of an election by root
+	nano::active_state state (nano::qualified_root const &);
+	nano::active_state state (nano::block const &);
+	// Find the state of an election by hash. A hash may not yet have been associated with an election, prefer searching by root
+	nano::active_state state (nano::block_hash const &);
+	// Update the difficulty of an election with a new block
 	void update_difficulty (std::shared_ptr<nano::block>, boost::optional<nano::write_transaction const &> = boost::none);
+	// Adjust the difficulty of a block and its dependants. This helps prioritize head blocks, since the others can be confirmed with confirmation_height
 	void adjust_difficulty (nano::block_hash const &);
+	// Sample active difficulty from all non-recent active elections
 	void update_active_difficulty (nano::unique_lock<std::mutex> &);
 	uint64_t active_difficulty ();
+	// Limited active difficulty, by the configured max work generation difficulty
 	uint64_t limited_active_difficulty ();
 	std::deque<std::shared_ptr<nano::block>> list_blocks (bool = false);
-	void erase (nano::block const &);
+	// Stops and clears the artifacts of the election for the root of a block
+	bool erase (nano::block const &);
 	bool empty ();
+	// The number of ongoing elections
 	size_t size ();
+	// The number of ongoing active elections, for which the node is requesting and republishing votes
+	size_t active_size ();
+	// The number of ongoing passive elections, for which the node has not voted yet, is ignoring requests and not republishing arriving votes
+	size_t passive_size ();
 	void stop ();
+	// Called when a block is seen via publish or confirm_ack
 	bool publish (std::shared_ptr<nano::block> block_a);
 	boost::optional<nano::election_status_type> confirm_block (nano::transaction const &, std::shared_ptr<nano::block>);
 	void post_confirmation_height_set (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_sideband const & sideband_a, nano::election_status_type election_status_type_a);
+	// Conainer of elections, indexed by root and ordered in descending order of [adjusted] difficulty. After index node.active_elections_size are the passive elections
 	// clang-format off
+	class tag_root {};
 	boost::multi_index_container<nano::conflict_info,
 	mi::indexed_by<
 		mi::hashed_unique<mi::tag<tag_root>,
@@ -128,6 +181,7 @@ public:
 			std::greater<uint64_t>>>>
 	roots;
 	// clang-format on
+	boost::optional<uint64_t> last_active_root_difficulty{ boost::none };
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
 	std::deque<nano::election_status> list_confirmed ();
 	std::deque<nano::election_status> confirmed;
@@ -153,28 +207,35 @@ public:
 	size_t inactive_votes_cache_size ();
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> pending_conf_height;
 	void clear_block (nano::block_hash const & hash_a);
-	void add_dropped_elections_cache (nano::qualified_root const &);
-	std::chrono::steady_clock::time_point find_dropped_elections_cache (nano::qualified_root const &);
-	size_t dropped_elections_cache_size ();
+	// Generate votes for the winner of each election if not found in the votes cache
+	void generate_votes (std::vector<std::weak_ptr<nano::election>> const &);
 
 private:
 	// Call action with confirmed block, may be different than what we started with
 	// clang-format off
-	bool add (std::shared_ptr<nano::block>, bool const = false, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
+	nano::active_insertion_state add (std::shared_ptr<nano::block>, bool const = false, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
 	// clang-format on
+	// Stops and clears the artifacts of the election for root
+	bool erase (nano::qualified_root const &);
 	void request_loop ();
+	// Searches the ledger for unconfirmed frontiers and starts elections. Only used when not saturated
 	void search_frontiers (nano::transaction const &);
+	// Elections taking too long get escalated after some confirmation requests and time
 	void election_escalate (std::shared_ptr<nano::election> &, nano::transaction const &, size_t const &);
+	// Queues broadcasting of the current winner of an election with the goal of receiving votes for it or a conflicting block
 	void election_broadcast (std::shared_ptr<nano::election> &, nano::transaction const &, std::deque<std::shared_ptr<nano::block>> &, std::unordered_set<nano::qualified_root> &, nano::qualified_root &);
+	// Request confirmation from principal representatives whose vote has not yet been seen
 	bool election_request_confirm (std::shared_ptr<nano::election> &, std::vector<nano::representative> const &, size_t const &,
 	std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>>> & single_confirm_req_bundle_l,
 	std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::root>>> & batched_confirm_req_bundle_l);
+	// Main internal loop, goes through roots requesting confirmations periodically
 	void request_confirm (nano::unique_lock<std::mutex> &);
 	nano::account next_frontier_account{ 0 };
 	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
 	nano::condition_variable condition;
 	bool started{ false };
 	std::atomic<bool> stopped{ false };
+	size_t max_roots;
 	unsigned ongoing_broadcasts{ 0 };
 	// clang-format off
 	boost::multi_index_container<nano::qualified_root,

@@ -1838,6 +1838,7 @@ void nano::json_handler::confirmation_info ()
 		if (conflict_info != node.active.roots.end ())
 		{
 			auto election (conflict_info->election);
+			response_l.put ("active", election->active);
 			response_l.put ("announcements", std::to_string (election->confirmation_request_count));
 			response_l.put ("voters", std::to_string (election->last_votes.size ()));
 			response_l.put ("last_winner", election->status.winner->hash ().to_string ());
@@ -5103,7 +5104,7 @@ bool block_confirmed (nano::node & node, nano::transaction & transaction, nano::
 	else if (!include_only_confirmed)
 	{
 		auto block (node.store.block_get (transaction, hash));
-		is_confirmed = (block != nullptr && !node.active.active (*block));
+		is_confirmed = (block != nullptr && !node.active.state (*block).exists ());
 	}
 
 	return is_confirmed;

@@ -10,6 +10,7 @@
 #include <nano/secure/versioning.hpp>
 
 #include <boost/endian/conversion.hpp>
+#include <boost/optional.hpp>
 #include <boost/polymorphic_cast.hpp>
 
 #include <stack>
@@ -728,7 +729,7 @@ public:
 	virtual nano::store_iterator<nano::account, uint64_t> confirmation_height_begin (nano::transaction const & transaction_a) = 0;
 	virtual nano::store_iterator<nano::account, uint64_t> confirmation_height_end () = 0;
 
-	virtual uint64_t block_account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
+	virtual boost::optional<uint64_t> block_account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
 	virtual std::mutex & get_cache_mutex () = 0;
 
 	virtual bool copy_db (boost::filesystem::path const & destination) = 0;

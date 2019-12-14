@@ -1,5 +1,6 @@
 #include <nano/crypto_lib/random_pool_shuffle.hpp>
 #include <nano/lib/threading.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
 #include <nano/secure/buffer.hpp>
@@ -460,84 +461,124 @@ public:
 		// Don't load nodes with disabled voting
 		if (node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
 		{
-			if (message_a.block != nullptr)
+			if (!message_a.roots_hashes.empty ())
 			{
-				auto hash (message_a.block->hash ());
-				if (!node.network.send_votes_cache (channel, hash))
+				confirm_req_by_hash_root (message_a);
+			}
+			else if (message_a.block != nullptr)
+			{
+				confirm_req_legacy (message_a);
+			}
+		}
+	}
+	void confirm_req_by_hash_root (nano::confirm_req const & message_a)
+	{
+		assert (!message_a.roots_hashes.empty ());
+		std::vector<nano::block_hash> blocks_bundle;
+		std::vector<std::shared_ptr<nano::vote>> cached_votes;
+		size_t cached_count (0);
+		auto transaction (node.store.tx_begin_read ());
+		for (auto & root_hash : message_a.roots_hashes)
+		{
+			/**
+			 * 1. Check votes_cache
+			 * 2. Check if it's an ongoing election, by hash
+			 * * a) Vote for the winner of an active election
+			 * * b) Ignore request for a passive election
+			 * 3. Check if block exists
+			 * 4. Check if successor exists via two possible qualified roots
+			 */
+			auto find_votes (node.votes_cache.find (root_hash.first));
+			if (!find_votes.empty ())
+			{
+				++cached_count;
+				cached_votes.insert (cached_votes.end (), find_votes.begin (), find_votes.end ());
+			}
+			else
+			{
+				auto active_transaction (node.active.state (root_hash.first));
+				if (active_transaction.active () && active_transaction.current_election_winner)
 				{
-					auto transaction (node.store.tx_begin_read ());
-					auto successor (node.ledger.successor (transaction, message_a.block->qualified_root ()));
-					if (successor != nullptr)
-					{
-						auto same_block (successor->hash () == hash);
-						confirm_block (transaction, node, channel, std::move (successor), !same_block);
-					}
+					blocks_bundle.push_back (active_transaction.current_election_winner->hash ());
+				}
+				else if (active_transaction.passive ())
+				{
+					continue;
 				}
 			}
-			else if (!message_a.roots_hashes.empty ())
+			if (!find_votes.empty () || (!root_hash.first.is_zero () && node.store.block_exists (transaction, root_hash.first)))
 			{
-				auto transaction (node.store.tx_begin_read ());
-				std::vector<nano::block_hash> blocks_bundle;
-				std::vector<std::shared_ptr<nano::vote>> cached_votes;
-				size_t cached_count (0);
-				for (auto & root_hash : message_a.roots_hashes)
+				blocks_bundle.push_back (root_hash.first);
+			}
+			else if (!root_hash.second.is_zero ())
+			{
+				nano::block_hash successor (0);
+				// Search for block root
+				successor = node.store.block_successor (transaction, root_hash.second);
+				// Search for account root
+				if (successor.is_zero ())
 				{
-					auto find_votes (node.votes_cache.find (root_hash.first));
-					if (!find_votes.empty ())
+					nano::account_info info;
+					auto error (node.store.account_get (transaction, root_hash.second, info));
+					if (!error)
+					{
+						successor = info.open_block;
+					}
+				}
+				if (!successor.is_zero ())
+				{
+					auto find_successor_votes (node.votes_cache.find (successor));
+					if (!find_successor_votes.empty ())
 					{
 						++cached_count;
-						cached_votes.insert (cached_votes.end (), find_votes.begin (), find_votes.end ());
+						cached_votes.insert (cached_votes.end (), find_successor_votes.begin (), find_successor_votes.end ());
 					}
-					if (!find_votes.empty () || (!root_hash.first.is_zero () && node.store.block_exists (transaction, root_hash.first)))
-					{
-						blocks_bundle.push_back (root_hash.first);
-					}
-					else if (!root_hash.second.is_zero ())
-					{
-						nano::block_hash successor (0);
-						// Search for block root
-						successor = node.store.block_successor (transaction, root_hash.second);
-						// Search for account root
-						if (successor.is_zero ())
-						{
-							nano::account_info info;
-							auto error (node.store.account_get (transaction, root_hash.second, info));
-							if (!error)
-							{
-								successor = info.open_block;
-							}
-						}
-						if (!successor.is_zero ())
-						{
-							auto find_successor_votes (node.votes_cache.find (successor));
-							if (!find_successor_votes.empty ())
-							{
-								++cached_count;
-								cached_votes.insert (cached_votes.end (), find_successor_votes.begin (), find_successor_votes.end ());
-							}
-							blocks_bundle.push_back (successor);
-							auto successor_block (node.store.block_get (transaction, successor));
-							assert (successor_block != nullptr);
-							nano::publish publish (successor_block);
-							channel->send (publish);
-						}
-					}
+					blocks_bundle.push_back (successor);
+					auto successor_block (node.store.block_get (transaction, successor));
+					assert (successor_block != nullptr);
+					nano::publish publish (successor_block);
+					channel->send (publish);
 				}
-				/* Decide to send cached votes or to create new vote
-				If there is at least one new hash to confirm, then create new batch vote
-				Otherwise use more bandwidth & save local resources required to sign vote */
-				if (!blocks_bundle.empty () && cached_count < blocks_bundle.size ())
+			}
+		}
+		/**
+		 * Decide to send cached votes or to create new vote
+		 * If there is at least one new hash to confirm, then create new batch vote
+		 * Otherwise use more bandwidth & save local resources required to sign vote
+		 */
+		if (!blocks_bundle.empty () && cached_count < blocks_bundle.size ())
+		{
+			node.network.confirm_hashes (transaction, channel, blocks_bundle);
+		}
+		else
+		{
+			// Send from cache
+			for (auto & vote : cached_votes)
+			{
+				nano::confirm_ack confirm (vote);
+				channel->send (confirm);
+			}
+		}
+	}
+	void confirm_req_legacy (nano::confirm_req const & message_a)
+	{
+		assert (message_a.block != nullptr);
+		auto hash (message_a.block->hash ());
+		if (!node.network.send_votes_cache (channel, hash))
+		{
+			auto transaction (node.store.tx_begin_read ());
+			auto active_transaction (node.active.state (*message_a.block));
+			if (active_transaction.active () && active_transaction.current_election_winner)
+			{
+				confirm_block (transaction, node, channel, active_transaction.current_election_winner, true);
+			}
+			else if (!active_transaction.passive ())
+			{
+				auto successor (node.ledger.successor (transaction, message_a.block->qualified_root ()));
+				if (successor != nullptr)
 				{
-					node.network.confirm_hashes (transaction, channel, blocks_bundle);
-				}
-				else
-				{
-					// Send from cache
-					for (auto & vote : cached_votes)
-					{
-						nano::confirm_ack confirm (vote);
-						channel->send (confirm);
-					}
+					auto same_block (successor->hash () == hash);
+					confirm_block (transaction, node, channel, std::move (successor), !same_block);
 				}
 			}
 		}

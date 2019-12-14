@@ -423,7 +423,7 @@ TEST (bootstrap_processor, frontiers_confirmed)
 	auto node1 = system.add_node (node_config, node_flags);
 	nano::genesis genesis;
 	nano::keypair key1, key2;
-	// Generating invalid chain
+	// Generating test chain
 	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send1).code);
 	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, key2.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send1->hash ())));

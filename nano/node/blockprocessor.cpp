@@ -371,17 +371,20 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a, const bool watch_work_a)
 {
 	// Start collecting quorum on block
-	node.active.start (block_a, false);
-	//add block to watcher if desired after block has been added to active
-	if (watch_work_a)
+	auto active_transaction_l (node.active.start (block_a, false));
+	if (active_transaction_l.exists ())
 	{
-		node.wallets.watcher->add (block_a);
+		// Announce block contents to the network
+		node.network.flood_block (block_a, false);
+		if (watch_work_a)
+		{
+			// Add block to watcher if desired
+			node.wallets.watcher->add (block_a);
+		}
 	}
-	// Announce block contents to the network
-	node.network.flood_block (block_a, false);
-	if (node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
+	// Announce our weighted vote to the network if the election is active
+	if (active_transaction_l.active () && node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
 	{
-		// Announce our weighted vote to the network
 		generator.add (hash_a);
 	}
 }
