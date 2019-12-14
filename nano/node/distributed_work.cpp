@@ -94,6 +94,81 @@ void nano::distributed_work::start_work ()
 {
 	auto this_l (shared_from_this ());
 
+	if (!outstanding.empty ())
+	{
+		nano::lock_guard<std::mutex> guard (mutex);
+		for (auto const & i : outstanding)
+		{
+			auto host (i.first);
+			auto service (i.second);
+			auto connection (std::make_shared<nano::work_peer_request> (this_l->node.io_ctx, host, service));
+			connections.emplace_back (connection);
+			connection->socket.async_connect (nano::tcp_endpoint (host, service), [this_l, connection](boost::system::error_code const & ec) {
+				if (!ec && !this_l->stopped)
+				{
+					std::string request_string;
+					{
+						boost::property_tree::ptree request;
+						request.put ("action", "work_generate");
+						request.put ("hash", this_l->root.to_string ());
+						request.put ("difficulty", nano::to_string_hex (this_l->difficulty));
+						if (this_l->account.is_initialized ())
+						{
+							request.put ("account", this_l->account.get ().to_account ());
+						}
+						std::stringstream ostream;
+						boost::property_tree::write_json (ostream, request);
+						request_string = ostream.str ();
+					}
+					auto request (connection->get_prepared_json_request (request_string));
+					boost::beast::http::async_write (connection->socket, *request, [this_l, connection, request](boost::system::error_code const & ec, size_t bytes_transferred) {
+						if (!ec && !this_l->stopped)
+						{
+							boost::beast::http::async_read (connection->socket, connection->buffer, connection->response, [this_l, connection](boost::system::error_code const & ec, size_t bytes_transferred) {
+								if (!ec && !this_l->stopped)
+								{
+									if (connection->response.result () == boost::beast::http::status::ok)
+									{
+										this_l->success (connection->response.body (), connection->address, connection->port);
+									}
+									else
+									{
+										this_l->node.logger.try_log (boost::str (boost::format ("Work peer responded with an error %1% %2%: %3%") % connection->address % connection->port % connection->response.result ()));
+										this_l->add_bad_peer (connection->address, connection->port);
+										this_l->failure (connection->address);
+									}
+								}
+								else if (ec == boost::system::errc::operation_canceled)
+								{
+									// The only case where we send a cancel is if we preempt stopped waiting for the response
+									this_l->cancel_connection (connection);
+									this_l->failure (connection->address);
+								}
+								else if (ec)
+								{
+									this_l->node.logger.try_log (boost::str (boost::format ("Unable to read from work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
+									this_l->add_bad_peer (connection->address, connection->port);
+									this_l->failure (connection->address);
+								}
+							});
+						}
+						else if (ec)
+						{
+							this_l->node.logger.try_log (boost::str (boost::format ("Unable to write to work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
+							this_l->add_bad_peer (connection->address, connection->port);
+							this_l->failure (connection->address);
+						}
+					});
+				}
+				else if (ec)
+				{
+					this_l->node.logger.try_log (boost::str (boost::format ("Unable to connect to work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
+					this_l->add_bad_peer (connection->address, connection->port);
+					this_l->failure (connection->address);
+				}
+			});
+		}
+	}
 	// Start work generation if peers are not acting correctly, or if there are no peers configured
 	if ((outstanding.empty () || node.unresponsive_work_peers) && node.local_work_generation_enabled ())
 	{
@@ -116,84 +191,7 @@ void nano::distributed_work::start_work ()
 		},
 		difficulty);
 	}
-
-	if (!outstanding.empty ())
-	{
-		nano::lock_guard<std::mutex> guard (mutex);
-		for (auto const & i : outstanding)
-		{
-			auto host (i.first);
-			auto service (i.second);
-			auto connection (std::make_shared<nano::work_peer_request> (this_l->node.io_ctx, host, service));
-			connections.emplace_back (connection);
-			connection->socket.async_connect (nano::tcp_endpoint (host, service), [this_l, connection](boost::system::error_code const & ec) {
-				if (!ec)
-				{
-					std::string request_string;
-					{
-						boost::property_tree::ptree request;
-						request.put ("action", "work_generate");
-						request.put ("hash", this_l->root.to_string ());
-						request.put ("difficulty", nano::to_string_hex (this_l->difficulty));
-						if (this_l->account.is_initialized ())
-						{
-							request.put ("account", this_l->account.get ().to_account ());
-						}
-						std::stringstream ostream;
-						boost::property_tree::write_json (ostream, request);
-						request_string = ostream.str ();
-					}
-					auto request (connection->get_prepared_json_request (request_string));
-					boost::beast::http::async_write (connection->socket, *request, [this_l, connection, request](boost::system::error_code const & ec, size_t bytes_transferred) {
-						if (!ec)
-						{
-							boost::beast::http::async_read (connection->socket, connection->buffer, connection->response, [this_l, connection](boost::system::error_code const & ec, size_t bytes_transferred) {
-								if (!ec)
-								{
-									if (connection->response.result () == boost::beast::http::status::ok)
-									{
-										this_l->success (connection->response.body (), connection->address, connection->port);
-									}
-									else
-									{
-										this_l->node.logger.try_log (boost::str (boost::format ("Work peer responded with an error %1% %2%: %3%") % connection->address % connection->port % connection->response.result ()));
-										this_l->add_bad_peer (connection->address, connection->port);
-										this_l->failure (connection->address);
-									}
-								}
-								else if (ec == boost::system::errc::operation_canceled)
-								{
-									// The only case where we send a cancel is if we preempt stopped waiting for the response
-									this_l->cancel_connection (connection);
-									this_l->failure (connection->address);
-								}
-								else
-								{
-									this_l->node.logger.try_log (boost::str (boost::format ("Unable to read from work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
-									this_l->add_bad_peer (connection->address, connection->port);
-									this_l->failure (connection->address);
-								}
-							});
-						}
-						else
-						{
-							this_l->node.logger.try_log (boost::str (boost::format ("Unable to write to work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
-							this_l->add_bad_peer (connection->address, connection->port);
-							this_l->failure (connection->address);
-						}
-					});
-				}
-				else
-				{
-					this_l->node.logger.try_log (boost::str (boost::format ("Unable to connect to work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
-					this_l->add_bad_peer (connection->address, connection->port);
-					this_l->failure (connection->address);
-				}
-			});
-		}
-	}
-
-	if (!local_generation_started && outstanding.empty () && callback)
+	else if (outstanding.empty () && callback)
 	{
 		callback (boost::none);
 	}
@@ -280,19 +278,22 @@ void nano::distributed_work::stop_once (bool const local_stop_a)
 		{
 			if (auto connection_l = connection_w.lock ())
 			{
-				boost::system::error_code ec;
-				connection_l->socket.cancel (ec);
-				if (ec)
+				if (connection_l->socket.is_open ())
 				{
-					node.logger.try_log (boost::str (boost::format ("Error cancelling operation with work_peer %1% %2%: %3%") % connection_l->address % connection_l->port % ec.message () % ec.value ()));
-				}
-				try
-				{
-					connection_l->socket.close ();
-				}
-				catch (const boost::system::system_error & ec)
-				{
-					node.logger.try_log (boost::str (boost::format ("Error closing socket with work_peer %1% %2%: %3%") % connection_l->address % connection_l->port % ec.what () % ec.code ()));
+					boost::system::error_code ec;
+					connection_l->socket.cancel (ec);
+					if (!ec && connection_l->socket.is_open ())
+					{
+						connection_l->socket.close (ec);
+						if (ec)
+						{
+							node.logger.try_log (boost::str (boost::format ("Error closing socket with work_peer %1% %2%: %3%") % connection_l->address % connection_l->port % ec.message () % ec.value ()));
+						}
+					}
+					else
+					{
+						std::cerr << (boost::str (boost::format ("Error cancelling operation with work_peer %1% %2%: %3%") % connection_l->address % connection_l->port % ec.message () % ec.value ())) << std::endl;
+					}
 				}
 			}
 		}
