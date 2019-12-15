@@ -207,8 +207,6 @@ public:
 	size_t inactive_votes_cache_size ();
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> pending_conf_height;
 	void clear_block (nano::block_hash const & hash_a);
-	// Generate votes for the winner of each election if not found in the votes cache
-	void generate_votes (std::vector<std::weak_ptr<nano::election>> const &);
 
 private:
 	// Call action with confirmed block, may be different than what we started with

@@ -25,10 +25,9 @@ class election_vote_result final
 {
 public:
 	election_vote_result () = default;
-	election_vote_result (bool const, bool const, bool const);
+	election_vote_result (bool const, bool const);
 	bool replay{ false };
 	bool processed{ false };
-	bool active{ false };
 };
 class election final : public std::enable_shared_from_this<nano::election>
 {
@@ -53,8 +52,8 @@ public:
 	void clear_blocks ();
 	void insert_inactive_votes_cache ();
 	/**
-	 * Activate the election to store votes and send local votes
-	 * @return whether the state of the election was changed
+	 * Activate the election
+	 * @return true if the election was previously passive
 	 */
 	bool activate ();
 	void stop ();

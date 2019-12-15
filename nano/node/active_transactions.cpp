@@ -309,7 +309,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>>> single_confirm_req_bundle_l;
 
 	bool voting_l (node.config.enable_voting && node.wallets.rep_counts ().voting > 0);
-	std::vector<std::weak_ptr<nano::election>> delayed_votes_l;
+	std::vector<nano::block_hash> vote_hashes_l;
 
 	/*
 	 * Confirm frontiers when there aren't many confirmations already pending and node finished initial bootstrap
@@ -351,8 +351,8 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 		{
 			if (election_l->activate () && voting_l)
 			{
-				// Queue vote for the newly activated election
-				delayed_votes_l.push_back (election_l);
+				// Queue hash to vote for the current winner of newly activated election
+				node.block_processor.generator.add (election_l->status.winner->hash ());
 			}
 			bool increment_counter_l{ true };
 			// Escalate long election after a certain time and number of requests performed
@@ -380,21 +380,6 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 				++election_l->confirmation_request_count;
 			}
 		}
-	}
-
-	// Send new votes after some time, considering timing in activating elections
-	if (!delayed_votes_l.empty ())
-	{
-		assert (voting_l);
-		std::weak_ptr<nano::node> node_w (node.shared ());
-		// clang-format off
-		node.alarm.add (steady_clock::now () + 1s, [node_w, elections = std::move (delayed_votes_l)] {
-			if (auto node_l = node_w.lock ())
-			{
-				node_l->active.generate_votes (elections);
-			}
-		});
-		// clang-format on
 	}
 
 	ongoing_broadcasts = !blocks_bundle_l.empty () + !batched_confirm_req_bundle_l.empty () + !single_confirm_req_bundle_l.empty ();
@@ -439,6 +424,15 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 		},
 		30); // 30~60ms/req * 5 reqs = 150~300ms < 500ms
 	}
+	// Generate votes for newly activated elections
+	if (!vote_hashes_l.empty ())
+	{
+		assert (voting_l);
+		for (auto & hash : vote_hashes_l)
+		{
+			node.block_processor.generator.add (hash);
+		}
+	}
 	lock_a.lock ();
 	// Erase inactive elections
 	for (auto i (inactive_l.begin ()), n (inactive_l.end ()); i != n; ++i)
@@ -449,22 +443,6 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 			root_it->election->clear_blocks ();
 			root_it->election->clear_dependent ();
 			roots.get<tag_root> ().erase (root_it);
-		}
-	}
-}
-
-void nano::active_transactions::generate_votes (std::vector<std::weak_ptr<nano::election>> const & elections_a)
-{
-	nano::lock_guard<std::mutex> guard (mutex);
-	for (auto election_w : elections_a)
-	{
-		if (auto election_l = election_w.lock ())
-		{
-			auto hash_l (election_l->status.winner->hash ());
-			if (node.votes_cache.find (hash_l).empty ())
-			{
-				node.block_processor.generator.add (election_l->status.winner->hash ());
-			}
 		}
 	}
 }
@@ -756,7 +734,6 @@ bool nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a, bool s
 	std::shared_ptr<nano::election> election;
 	bool replay (false);
 	bool processed (false);
-	bool active (false);
 	{
 		nano::unique_lock<std::mutex> lock;
 		if (!single_lock)
@@ -794,10 +771,9 @@ bool nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a, bool s
 			}
 			replay = replay || result.replay;
 			processed = processed || result.processed;
-			active = active || result.active;
 		}
 	}
-	if (processed && active)
+	if (processed)
 	{
 		node.network.flood_vote (vote_a);
 	}
@@ -860,32 +836,17 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 				node.logger.try_log (boost::str (boost::format ("Block %1% was updated from difficulty %2% to %3%") % block_a->hash ().to_string () % nano::to_string_hex (existing_election->difficulty) % nano::to_string_hex (difficulty)));
 			}
 			bool voting (node.config.enable_voting && node.wallets.rep_counts ().voting > 0);
-			std::vector<std::weak_ptr<nano::election>> delayed_votes;
 			// clang-format off
-			roots.get<tag_root> ().modify (existing_election, [difficulty, &node = node, activate = difficulty > last_active_root_difficulty, &delayed_votes, voting](nano::conflict_info & info_a) {
+			roots.get<tag_root> ().modify (existing_election, [difficulty, &node = node, activate = difficulty > last_active_root_difficulty, voting](nano::conflict_info & info_a) {
 				info_a.difficulty = difficulty;
 				if (activate && info_a.election->activate () && voting)
 				{
-					// Queue vote for the current winner of newly activated election
-					delayed_votes.push_back (info_a.election);
+					// Generate vote for the current winner of newly activated election
+					node.block_processor.generator.add (info_a.election->status.winner->hash ());
 				}
 			});
 			// clang-format on
 			adjust_difficulty (block_a->hash ());
-			if (!delayed_votes.empty ())
-			{
-				assert (voting);
-				// Only send after some time, allowing time for other nodes to activate the election
-				std::weak_ptr<nano::node> node_w (node.shared ());
-				// clang-format off
-				node.alarm.add (steady_clock::now () + 500ms, [node_w, elections = std::move (delayed_votes)]() {
-					if (auto node_l = node_w.lock ())
-					{
-						node_l->active.generate_votes (elections);
-					}
-				});
-				// clang-format on
-			}
 		}
 	}
 }

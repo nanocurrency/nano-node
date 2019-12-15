@@ -3,8 +3,8 @@
 
 #include <boost/format.hpp>
 
-nano::election_vote_result::election_vote_result (bool const replay_a, bool const processed_a, bool const active_a) :
-replay (replay_a), processed (processed_a), active (active_a)
+nano::election_vote_result::election_vote_result (bool const replay_a, bool const processed_a) :
+replay (replay_a), processed (processed_a)
 {
 }
 
@@ -171,7 +171,6 @@ nano::election_vote_result nano::election::vote (nano::account rep, uint64_t seq
 	auto online_stake (node.online_reps.online_stake ());
 	auto weight (node.ledger.weight (rep));
 	auto should_process (false);
-	bool active_l = active.load ();
 	if (node.network_params.network.is_test_network () || weight > node.minimum_principal_weight (online_stake))
 	{
 		unsigned int cooldown;
@@ -217,7 +216,7 @@ nano::election_vote_result nano::election::vote (nano::account rep, uint64_t seq
 			}
 		}
 	}
-	return nano::election_vote_result (replay, should_process, active_l);
+	return nano::election_vote_result (replay, should_process);
 }
 
 bool nano::election::publish (std::shared_ptr<nano::block> block_a)
