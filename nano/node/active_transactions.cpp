@@ -944,6 +944,7 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 void nano::active_transactions::update_active_difficulty (nano::unique_lock<std::mutex> & lock_a)
 {
 	assert (!mutex.try_lock ());
+	constexpr float difficulty_percentile = 0.1;
 	last_active_root_difficulty = boost::none;
 	double multiplier (1.);
 	if (!roots.empty ())
@@ -952,7 +953,7 @@ void nano::active_transactions::update_active_difficulty (nano::unique_lock<std:
 		std::vector<uint64_t> active_root_difficulties;
 		active_root_difficulties.reserve (std::min (sorted_roots.size (), node.config.active_elections_size));
 		size_t count (0);
-		auto cutoff (std::chrono::steady_clock::now () - election_request_delay - 1s);
+		auto cutoff (std::chrono::steady_clock::now () - election_request_delay - 100ms);
 		for (auto it (sorted_roots.begin ()), end (sorted_roots.end ()); it != end && count++ < node.config.active_elections_size; ++it)
 		{
 			if (!it->election->confirmed && !it->election->stopped && it->election->election_start < cutoff)
@@ -962,7 +963,9 @@ void nano::active_transactions::update_active_difficulty (nano::unique_lock<std:
 		}
 		if (active_root_difficulties.size () > 10 || (!active_root_difficulties.empty () && node.network_params.network.is_test_network ()))
 		{
-			multiplier = nano::difficulty::to_multiplier (active_root_difficulties[active_root_difficulties.size () / 2], node.network_params.network.publish_threshold);
+			static_assert (difficulty_percentile > 0.f && difficulty_percentile < 1.f, "difficulty_percentil must be in ]0..1[");
+			size_t percentile_index = active_root_difficulties.size () * (1 - difficulty_percentile);
+			multiplier = nano::difficulty::to_multiplier (active_root_difficulties[percentile_index], node.network_params.network.publish_threshold);
 		}
 		// Store the difficulty of the last active root if there is any passive root
 		if (sorted_roots.size () >= node.config.active_elections_size && !active_root_difficulties.empty ())
