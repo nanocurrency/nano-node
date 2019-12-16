@@ -9,18 +9,18 @@ using namespace std::chrono_literals;
 
 TEST (active_transactions, confirm_one)
 {
-	nano::system system;
-	nano::node_config node_config (24000, system.logging);
-	auto & node1 = *system.add_node (node_config);
+	nano::system system (1);
+	auto & node1 = *system.nodes[0];
 	// Send and vote for a block before peering with node2
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	nano::node_config node_config;
 	auto send (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::public_key (), node_config.receive_minimum.number ()));
 	system.deadline_set (5s);
 	while (!node1.active.empty () && !node1.block_confirmed_or_being_confirmed (node1.store.tx_begin_read (), send->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	node_config.peering_port = 24001;
+	node_config.peering_port = nano::get_available_port ();
 	auto & node2 = *system.add_node (node_config);
 	system.deadline_set (5s);
 	// Let node2 know about the block
@@ -29,17 +29,9 @@ TEST (active_transactions, confirm_one)
 		node1.network.flood_block (send, false);
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	while (!node2.active.empty ())
+	while (node2.ledger.cemented_count < 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
-	}
-	ASSERT_EQ (0, node2.active.dropped_elections_cache_size ());
-	nano::unique_lock<std::mutex> active_lock (node2.active.mutex);
-	while (node2.active.confirmed.empty ())
-	{
-		active_lock.unlock ();
-		ASSERT_NO_ERROR (system.poll ());
-		active_lock.lock ();
 	}
 }
 
@@ -78,24 +70,18 @@ TEST (active_transactions, adjusted_difficulty_priority)
 
 	// Confirm elections
 	system.deadline_set (10s);
-	while (node1.active.size () != 0)
+	while (!node1.active.empty ())
 	{
+		nano::lock_guard<std::mutex> active_guard (node1.active.mutex);
+		if (!node1.active.roots.empty ())
 		{
-			nano::lock_guard<std::mutex> active_guard (node1.active.mutex);
-			auto root (node1.active.roots.begin ());
-			root->election->confirm_once ();
+			node1.active.roots.begin ()->election->confirm_once ();
 		}
-		ASSERT_NO_ERROR (system.poll ());
 	}
+	system.deadline_set (10s);
+	while (node1.ledger.cemented_count < 5)
 	{
-		system.deadline_set (10s);
-		nano::unique_lock<std::mutex> active_lock (node1.active.mutex);
-		while (node1.active.confirmed.size () != 4)
-		{
-			active_lock.unlock ();
-			ASSERT_NO_ERROR (system.poll ());
-			active_lock.lock ();
-		}
+		ASSERT_NO_ERROR (system.poll ());
 	}
 
 	//genesis and key1,key2 are opened
@@ -278,12 +264,11 @@ TEST (active_transactions, keep_local)
 	ASSERT_EQ (0, node.active.dropped_elections_cache_size ());
 	while (!node.active.empty ())
 	{
+		nano::lock_guard<std::mutex> active_guard (node.active.mutex);
+		if (!node.active.roots.empty ())
 		{
-			nano::lock_guard<std::mutex> active_guard (node.active.mutex);
-			auto root (node.active.roots.begin ());
-			root->election->confirm_once ();
+			node.active.roots.begin ()->election->confirm_once ();
 		}
-		ASSERT_NO_ERROR (system.poll ());
 	}
 	auto open1 (std::make_shared<nano::state_block> (key1.pub, 0, key1.pub, node.config.receive_minimum.number (), send1->hash (), key1.prv, key1.pub, *system.work.generate (key1.pub)));
 	node.process_active (open1);
@@ -339,14 +324,12 @@ TEST (active_transactions, prioritize_chains)
 	}
 	while (!node1.active.empty ())
 	{
+		nano::lock_guard<std::mutex> active_guard (node1.active.mutex);
+		if (!node1.active.roots.empty ())
 		{
-			nano::lock_guard<std::mutex> active_guard (node1.active.mutex);
-			auto root (node1.active.roots.begin ());
-			root->election->confirm_once ();
+			node1.active.roots.begin ()->election->confirm_once ();
 		}
-		ASSERT_NO_ERROR (system.poll ());
 	}
-
 	node1.process_active (send2);
 	node1.process_active (send3);
 	node1.process_active (send4);
