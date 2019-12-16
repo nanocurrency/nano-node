@@ -83,7 +83,7 @@ void nano::active_transactions::search_frontiers (nano::transaction const & tran
 					error = node.store.confirmation_height_get (transaction_a, cementable_account.account, confirmation_height);
 					release_assert (!error);
 
-					if (info.block_count > confirmation_height && !this->node.pending_confirmation_height.is_processing_block (info.head))
+					if (info.block_count > confirmation_height && !is_confirming_block (info.head))
 					{
 						auto block (this->node.store.block_get (transaction_a, info.head));
 						if (!this->start (block, true))
@@ -483,7 +483,7 @@ void nano::active_transactions::request_loop ()
 
 void nano::active_transactions::prioritize_account_for_confirmation (nano::active_transactions::prioritize_num_uncemented & cementable_frontiers_a, size_t & cementable_frontiers_size_a, nano::account const & account_a, nano::account_info const & info_a, uint64_t confirmation_height)
 {
-	if (info_a.block_count > confirmation_height && !node.pending_confirmation_height.is_processing_block (info_a.head))
+	if (info_a.block_count > confirmation_height && !is_confirming_block (info_a.head))
 	{
 		auto num_uncemented = info_a.block_count - confirmation_height;
 		nano::lock_guard<std::mutex> guard (mutex);

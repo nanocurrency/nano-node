@@ -22,7 +22,6 @@ class pending_confirmation_height
 {
 public:
 	size_t size ();
-	bool is_processing_block (nano::block_hash const &);
 	nano::block_hash current ();
 
 private:

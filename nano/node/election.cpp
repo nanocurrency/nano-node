@@ -45,6 +45,7 @@ void nano::election::confirm_once (nano::election_status_type type_a)
 		status.block_count = blocks.size ();
 		status.voter_count = last_votes.size ();
 		status.type = type_a;
+		// This ensures the block is seen as confirming until it is cemented in the ledger
 		node.active.pending_conf_height.emplace (status.winner->hash (), shared_from_this ());
 		clear_blocks ();
 		clear_dependent ();

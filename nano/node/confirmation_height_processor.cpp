@@ -376,7 +376,7 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 		auto block (ledger.store.block_get (transaction_a, hash, &sideband));
 		if (block)
 		{
-			if (!pending_confirmations.is_processing_block (hash))
+			if (!active.is_confirming_block (hash))
 			{
 				auto election_status_type = active.confirm_block (transaction_a, block);
 				if (election_status_type.is_initialized ())
@@ -479,19 +479,6 @@ size_t nano::pending_confirmation_height::size ()
 {
 	nano::lock_guard<std::mutex> lk (mutex);
 	return pending.size ();
-}
-
-bool nano::pending_confirmation_height::is_processing_block (nano::block_hash const & hash_a)
-{
-	nano::lock_guard<std::mutex> lk (mutex);
-	// First check the hash currently being processed
-	if (!current_hash.is_zero () && current_hash == hash_a)
-	{
-		return true;
-	}
-
-	// Check remaining pending and writing confirmations
-	return pending.find (hash_a) != pending.cend () || writing.find (hash_a) != writing.end ();
 }
 
 nano::block_hash nano::pending_confirmation_height::current ()
