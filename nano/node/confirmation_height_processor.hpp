@@ -28,6 +28,7 @@ public:
 private:
 	std::mutex mutex;
 	std::unordered_set<nano::block_hash> pending;
+	std::unordered_set<nano::block_hash> writing;
 	/** This is the last block popped off the confirmation height pending collection */
 	nano::block_hash current_hash{ 0 };
 	friend class confirmation_height_processor;

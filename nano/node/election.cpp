@@ -45,6 +45,10 @@ void nano::election::confirm_once (nano::election_status_type type_a)
 		status.block_count = blocks.size ();
 		status.voter_count = last_votes.size ();
 		status.type = type_a;
+		node.active.pending_conf_height.emplace (status.winner->hash (), shared_from_this ());
+		clear_blocks ();
+		clear_dependent ();
+		node.active.roots.erase (status.winner->qualified_root ());
 		auto status_l (status);
 		auto node_l (node.shared ());
 		auto confirmation_action_l (confirmation_action);
@@ -52,11 +56,6 @@ void nano::election::confirm_once (nano::election_status_type type_a)
 			node_l->process_confirmed (status_l);
 			confirmation_action_l (status_l.winner);
 		});
-		auto root (status.winner->qualified_root ());
-		node.active.pending_conf_height.emplace (status.winner->hash (), shared_from_this ());
-		clear_blocks ();
-		clear_dependent ();
-		node.active.roots.erase (root);
 	}
 }
 

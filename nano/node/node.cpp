@@ -1068,7 +1068,23 @@ void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 
 bool nano::node::block_confirmed_or_being_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
-	return ledger.block_confirmed (transaction_a, hash_a) || pending_confirmation_height.is_processing_block (hash_a);
+	return ledger.block_confirmed (transaction_a, hash_a) || block_being_confirmed (hash_a);
+}
+
+bool nano::node::block_being_confirmed (nano::block_hash const & hash_a)
+{
+	/**
+	 * When an election is confirmed, the following happens to the winner block, in this order:
+	 * 1. The hash is added to active.pending_conf_height
+	 * 		-> active.is_pending_confirmation(hash) returns true
+	 * 2. In the background, the block is queued to the confirmation height processor
+	 * 		-> pending_confirmation_height.is_processing_block (hash) returns true
+	 * 3. The block is later removed from active.pending_conf_height but the confirmation height not yet been committed to the ledger
+	 * 		-> active.is_pending_confirmation(hash) returns false
+	 * 4. The updated confirmation height is commited to the ledger
+	 * 		-> pending_confirmation_height.is_processing_block (hash) returns false
+	 */
+	return active.is_pending_confirmation (hash_a) || pending_confirmation_height.is_processing_block (hash_a);
 }
 
 nano::uint128_t nano::node::delta () const

@@ -53,8 +53,6 @@ void nano::confirmation_height_processor::run ()
 		{
 			pending_confirmations.current_hash = *pending_confirmations.pending.begin ();
 			pending_confirmations.pending.erase (pending_confirmations.current_hash);
-			// Copy the hash so can be used outside owning the lock
-			auto current_pending_block = pending_confirmations.current_hash;
 			lk.unlock ();
 			if (pending_writes.empty ())
 			{
@@ -62,8 +60,13 @@ void nano::confirmation_height_processor::run ()
 				confirmed_iterated_pairs.clear ();
 				timer.restart ();
 			}
-			add_confirmation_height (current_pending_block);
+			add_confirmation_height (pending_confirmations.current_hash);
 			lk.lock ();
+			// If the block wasn't fully processed yet
+			if (!pending_writes.empty ())
+			{
+				pending_confirmations.writing.insert (pending_confirmations.current_hash);
+			}
 			pending_confirmations.current_hash = 0;
 		}
 		else
@@ -297,7 +300,8 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 	});
 
 	// Write in batches
-	while (total_pending_write_block_count > 0)
+	bool error = false;
+	while (total_pending_write_block_count > 0 && !error)
 	{
 		uint64_t num_accounts_processed = 0;
 		auto transaction (ledger.store.tx_begin_write ({}, { nano::tables::confirmation_height }));
@@ -305,8 +309,7 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 		{
 			const auto & pending = all_pending_a.front ();
 			uint64_t confirmation_height;
-			auto error = ledger.store.confirmation_height_get (transaction, pending.account, confirmation_height);
-			release_assert (!error);
+			release_assert (!ledger.store.confirmation_height_get (transaction, pending.account, confirmation_height));
 			if (pending.height > confirmation_height)
 			{
 #ifndef NDEBUG
@@ -327,7 +330,8 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 					receive_source_pairs.clear ();
 					receive_source_pairs_size = 0;
 					all_pending_a.clear ();
-					return true;
+					error = true;
+					break;
 				}
 
 				for (auto & callback_data : pending.block_callbacks_required)
@@ -353,7 +357,9 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 		}
 	}
 	assert (all_pending_a.empty ());
-	return false;
+	nano::lock_guard<std::mutex> guard (pending_confirmations.mutex);
+	pending_confirmations.writing.clear ();
+	return error;
 }
 
 void nano::confirmation_height_processor::collect_unconfirmed_receive_and_sources_for_account (uint64_t block_height_a, uint64_t confirmation_height_a, nano::block_hash const & hash_a, nano::account const & account_a, nano::read_transaction const & transaction_a, std::vector<callback_data> & block_callbacks_required)
@@ -477,15 +483,15 @@ size_t nano::pending_confirmation_height::size ()
 
 bool nano::pending_confirmation_height::is_processing_block (nano::block_hash const & hash_a)
 {
-	// First check the hash currently being processed
 	nano::lock_guard<std::mutex> lk (mutex);
+	// First check the hash currently being processed
 	if (!current_hash.is_zero () && current_hash == hash_a)
 	{
 		return true;
 	}
 
-	// Check remaining pending confirmations
-	return pending.find (hash_a) != pending.cend ();
+	// Check remaining pending and writing confirmations
+	return pending.find (hash_a) != pending.cend () || writing.find (hash_a) != writing.end ();
 }
 
 nano::block_hash nano::pending_confirmation_height::current ()

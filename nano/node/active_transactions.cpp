@@ -84,7 +84,7 @@ void nano::active_transactions::search_frontiers (nano::transaction const & tran
 					error = node.store.confirmation_height_get (transaction_a, cementable_account.account, confirmation_height);
 					release_assert (!error);
 
-					if (info.block_count > confirmation_height && !this->node.pending_confirmation_height.is_processing_block (info.head))
+					if (info.block_count > confirmation_height && !this->node.block_being_confirmed (info.head))
 					{
 						auto block (this->node.store.block_get (transaction_a, info.head));
 						if (!this->start (block, true))
@@ -106,6 +106,13 @@ void nano::active_transactions::search_frontiers (nano::transaction const & tran
 		next_frontier_check = steady_clock::now () + (agressive_factor / test_network_factor);
 	}
 }
+
+bool nano::active_transactions::is_pending_confirmation (nano::block_hash const & hash_a)
+{
+	nano::lock_guard<std::mutex> guard (mutex);
+	return pending_conf_height.find (hash_a) != pending_conf_height.end ();
+}
+
 void nano::active_transactions::post_confirmation_height_set (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_sideband const & sideband_a, nano::election_status_type election_status_type_a)
 {
 	if (election_status_type_a == nano::election_status_type::inactive_confirmation_height)
@@ -482,7 +489,7 @@ void nano::active_transactions::request_loop ()
 
 void nano::active_transactions::prioritize_account_for_confirmation (nano::active_transactions::prioritize_num_uncemented & cementable_frontiers_a, size_t & cementable_frontiers_size_a, nano::account const & account_a, nano::account_info const & info_a, uint64_t confirmation_height)
 {
-	if (info_a.block_count > confirmation_height && !node.pending_confirmation_height.is_processing_block (info_a.head))
+	if (info_a.block_count > confirmation_height && !node.block_being_confirmed (info_a.head))
 	{
 		auto num_uncemented = info_a.block_count - confirmation_height;
 		nano::lock_guard<std::mutex> guard (mutex);
@@ -666,11 +673,11 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, bool 
 	auto error (true);
 	if (!stopped)
 	{
+		auto hash (block_a->hash ());
 		auto root (block_a->qualified_root ());
 		auto existing (roots.get<tag_root> ().find (root));
-		if (existing == roots.get<tag_root> ().end () && confirmed_set.get<tag_root> ().find (root) == confirmed_set.get<tag_root> ().end ())
+		if (existing == roots.get<tag_root> ().end () && confirmed_set.get<tag_root> ().find (root) == confirmed_set.get<tag_root> ().end () && pending_conf_height.find (hash) == pending_conf_height.end ())
 		{
-			auto hash (block_a->hash ());
 			auto election (nano::make_shared<nano::election> (node, block_a, skip_delay_a, confirmation_action_a));
 			uint64_t difficulty (0);
 			error = nano::work_validate (*block_a, &difficulty);

@@ -117,6 +117,7 @@ public:
 	void stop ();
 	bool publish (std::shared_ptr<nano::block> block_a);
 	boost::optional<nano::election_status_type> confirm_block (nano::transaction const &, std::shared_ptr<nano::block>);
+	bool is_pending_confirmation (nano::block_hash const &);
 	void post_confirmation_height_set (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_sideband const & sideband_a, nano::election_status_type election_status_type_a);
 	// clang-format off
 	boost::multi_index_container<nano::conflict_info,
