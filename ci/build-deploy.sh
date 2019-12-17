@@ -31,7 +31,6 @@ cmake \
     -DCMAKE_VERBOSE_MAKEFILE=ON \
     -DBOOST_ROOT=/tmp/boost/ \
     -DQt5_DIR=${qt_dir} \
-    -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
     -DCI_BUILD=true \
     ..
 
