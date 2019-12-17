@@ -648,3 +648,49 @@ TEST (active_transactions, restart_dropped)
 		ASSERT_EQ (work2, block->block_work ());
 	}
 }
+
+TEST (active_transactions, vote_replays)
+{
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.enable_voting = false;
+	auto & node = *system.add_node (node_config);
+	nano::genesis genesis;
+	nano::keypair key;
+	std::error_code ec;
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	ASSERT_NE (nullptr, send1);
+	auto open1 (std::make_shared<nano::state_block> (key.pub, 0, key.pub, nano::Gxrb_ratio, send1->hash (), key.prv, key.pub, *system.work.generate (key.pub)));
+	ASSERT_NE (nullptr, open1);
+	node.process_active (send1);
+	node.process_active (open1);
+	node.block_processor.flush ();
+	ASSERT_EQ (2, node.active.size ());
+	// First vote is not a replay and confirms the election, second vote should be indeterminate since the election no longer exists
+	auto vote_send1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, send1));
+	ASSERT_FALSE (node.active.vote (vote_send1));
+	ASSERT_EQ (1, node.active.size ());
+	ASSERT_TRUE (boost::logic::indeterminate (node.active.vote (vote_send1)));
+	// Open new account
+	auto vote_open1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, open1));
+	ASSERT_FALSE (node.active.vote (vote_open1));
+	ASSERT_TRUE (node.active.empty ());
+	ASSERT_TRUE (boost::logic::indeterminate (node.active.vote (vote_open1)));
+	ASSERT_EQ (nano::Gxrb_ratio, node.ledger.weight (key.pub));
+
+	auto send2 (std::make_shared<nano::state_block> (key.pub, open1->hash (), key.pub, nano::Gxrb_ratio - 1, key.pub, key.prv, key.pub, *system.work.generate (open1->hash ())));
+	ASSERT_NE (nullptr, send2);
+	node.process_active (send2);
+	node.block_processor.flush ();
+	ASSERT_EQ (1, node.active.size ());
+	auto vote1_send2 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, send2));
+	auto vote2_send2 (std::make_shared<nano::vote> (key.pub, key.prv, 0, send2));
+	ASSERT_FALSE (node.active.vote (vote2_send2));
+	ASSERT_EQ (1, node.active.size ());
+	ASSERT_TRUE (node.active.vote (vote2_send2));
+	ASSERT_EQ (1, node.active.size ());
+	ASSERT_FALSE (node.active.vote (vote1_send2));
+	ASSERT_EQ (0, node.active.size ());
+	ASSERT_TRUE (boost::logic::indeterminate (node.active.vote (vote1_send2)));
+	ASSERT_TRUE (boost::logic::indeterminate (node.active.vote (vote2_send2)));
+}

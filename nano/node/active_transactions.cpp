@@ -685,10 +685,11 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, bool 
 }
 
 // Validate a vote and apply it to the current election if one exists
-bool nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a, bool single_lock)
+boost::tribool nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a, bool single_lock)
 {
-	std::shared_ptr<nano::election> election;
-	bool replay (false);
+	// If none of the hashes are active, it is unknown whether it's a replay
+	// In this case, votes are also not republished
+	boost::tribool replay (boost::logic::indeterminate);
 	bool processed (false);
 	{
 		nano::unique_lock<std::mutex> lock;
@@ -706,8 +707,9 @@ bool nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a, bool s
 				if (existing != blocks.end ())
 				{
 					result = existing->second->vote (vote_a->account, vote_a->sequence, block_hash);
+					replay = (boost::logic::indeterminate (replay)) ? result.replay : replay || result.replay;
 				}
-				else
+				else // possibly a vote for a recently confirmed election
 				{
 					add_inactive_votes_cache (block_hash, vote_a->account);
 				}
@@ -719,13 +721,13 @@ bool nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a, bool s
 				if (existing != roots.get<tag_root> ().end ())
 				{
 					result = existing->election->vote (vote_a->account, vote_a->sequence, block->hash ());
+					replay = (boost::logic::indeterminate (replay)) ? result.replay : replay || result.replay;
 				}
 				else
 				{
 					add_inactive_votes_cache (block->hash (), vote_a->account);
 				}
 			}
-			replay = replay || result.replay;
 			processed = processed || result.processed;
 		}
 	}

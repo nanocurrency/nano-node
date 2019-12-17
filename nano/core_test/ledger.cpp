@@ -762,7 +762,7 @@ TEST (votes, add_one)
 	auto vote1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 1, send1));
 	ASSERT_FALSE (node1.active.vote (vote1));
 	auto vote2 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 2, send1));
-	ASSERT_FALSE (node1.active.vote (vote2));
+	ASSERT_TRUE (boost::logic::indeterminate (node1.active.vote (vote2)));
 	lock.lock ();
 	ASSERT_EQ (2, votes1->last_votes.size ());
 	auto existing1 (votes1->last_votes.find (nano::test_genesis_key.pub));
