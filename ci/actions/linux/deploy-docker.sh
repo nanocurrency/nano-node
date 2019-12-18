@@ -16,7 +16,10 @@ if [ -n "$DOCKER_PASSWORD" ]; then
     else
         tags=()
         if [ -n "$TRAVIS_TAG" ]; then
-            tags+=("$TRAVIS_TAG" latest latest-including-rc)
+            tags+=("$TRAVIS_TAG" latest)
+            if [[ "$GITHUB_WORKFLOW" = "Beta" ]]; then
+                tags+=(latest-including-rc)
+            fi
         elif [ -n "$TRAVIS_BRANCH" ]; then
             TRAVIS_TAG=$TRAVIS_BRANCH
             tags+=("$TRAVIS_BRANCH")
