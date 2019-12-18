@@ -55,6 +55,7 @@ public:
 	}
 
 	bool copy_db (boost::filesystem::path const & destination) override;
+	void rebuild_db (nano::write_transaction const & transaction_a) override;
 
 	template <typename Key, typename Value>
 	nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a) const

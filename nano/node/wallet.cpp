@@ -1833,17 +1833,28 @@ void nano::wallets::clear_send_ids (nano::transaction const & transaction_a)
 	assert (status == 0);
 }
 
-bool nano::wallets::check_rep (nano::account const & account_a, nano::uint128_t const & half_principal_weight_a)
+nano::wallet_representative_counts nano::wallets::rep_counts ()
+{
+	nano::lock_guard<std::mutex> counts_guard (counts_mutex);
+	return counts;
+}
+
+bool nano::wallets::check_rep (nano::account const & account_a, nano::uint128_t const & half_principal_weight_a, const bool acquire_lock_a)
 {
 	bool result (false);
 	auto weight (node.ledger.weight (account_a));
 	if (weight >= node.config.vote_minimum.number ())
 	{
+		nano::unique_lock<std::mutex> lock;
+		if (acquire_lock_a)
+		{
+			lock = nano::unique_lock<std::mutex> (counts_mutex);
+		}
 		result = true;
-		++reps_count;
+		++counts.voting;
 		if (weight >= half_principal_weight_a)
 		{
-			++half_principal_reps_count;
+			++counts.half_principal;
 		}
 	}
 	return result;
@@ -1851,9 +1862,9 @@ bool nano::wallets::check_rep (nano::account const & account_a, nano::uint128_t 
 
 void nano::wallets::compute_reps ()
 {
-	nano::lock_guard<std::mutex> lock (mutex);
-	reps_count = 0;
-	half_principal_reps_count = 0;
+	nano::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard<std::mutex> counts_guard (counts_mutex);
+	counts = { 0, 0 };
 	auto half_principal_weight (node.minimum_principal_weight () / 2);
 	auto transaction (tx_begin_read ());
 	for (auto i (items.begin ()), n (items.end ()); i != n; ++i)
@@ -1863,12 +1874,12 @@ void nano::wallets::compute_reps ()
 		for (auto ii (wallet.store.begin (transaction)), nn (wallet.store.end ()); ii != nn; ++ii)
 		{
 			auto account (ii->first);
-			if (check_rep (account, half_principal_weight))
+			if (check_rep (account, half_principal_weight, false))
 			{
 				representatives_l.insert (account);
 			}
 		}
-		nano::lock_guard<std::mutex> representatives_lock (wallet.representatives_mutex);
+		nano::lock_guard<std::mutex> representatives_guard (wallet.representatives_mutex);
 		wallet.representatives.swap (representatives_l);
 	}
 }
