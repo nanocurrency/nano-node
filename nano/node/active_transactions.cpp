@@ -699,6 +699,7 @@ boost::tribool nano::active_transactions::vote (std::shared_ptr<nano::vote> vote
 		}
 		for (auto vote_block : vote_a->blocks)
 		{
+			bool voted_one (false);
 			nano::election_vote_result result;
 			if (vote_block.which ())
 			{
@@ -706,8 +707,8 @@ boost::tribool nano::active_transactions::vote (std::shared_ptr<nano::vote> vote
 				auto existing (blocks.find (block_hash));
 				if (existing != blocks.end ())
 				{
+					voted_one = true;
 					result = existing->second->vote (vote_a->account, vote_a->sequence, block_hash);
-					replay = (boost::logic::indeterminate (replay)) ? result.replay : replay || result.replay;
 				}
 				else // possibly a vote for a recently confirmed election
 				{
@@ -720,15 +721,19 @@ boost::tribool nano::active_transactions::vote (std::shared_ptr<nano::vote> vote
 				auto existing (roots.get<tag_root> ().find (block->qualified_root ()));
 				if (existing != roots.get<tag_root> ().end ())
 				{
+					voted_one = true;
 					result = existing->election->vote (vote_a->account, vote_a->sequence, block->hash ());
-					replay = (boost::logic::indeterminate (replay)) ? result.replay : replay || result.replay;
 				}
 				else
 				{
 					add_inactive_votes_cache (block->hash (), vote_a->account);
 				}
 			}
-			processed = processed || result.processed;
+			if (voted_one)
+			{
+				processed = processed || result.processed;
+				replay = static_cast<bool> (replay) || result.replay;
+			}
 		}
 	}
 	if (processed)
