@@ -685,11 +685,12 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, bool 
 }
 
 // Validate a vote and apply it to the current election if one exists
-boost::tribool nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a, bool single_lock)
+nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a, bool single_lock)
 {
 	// If none of the hashes are active, it is unknown whether it's a replay
 	// In this case, votes are also not republished
-	boost::tribool replay (boost::logic::indeterminate);
+	bool at_least_one (false);
+	bool replay (false);
 	bool processed (false);
 	{
 		nano::unique_lock<std::mutex> lock;
@@ -699,7 +700,6 @@ boost::tribool nano::active_transactions::vote (std::shared_ptr<nano::vote> vote
 		}
 		for (auto vote_block : vote_a->blocks)
 		{
-			bool voted_one (false);
 			nano::election_vote_result result;
 			if (vote_block.which ())
 			{
@@ -707,7 +707,7 @@ boost::tribool nano::active_transactions::vote (std::shared_ptr<nano::vote> vote
 				auto existing (blocks.find (block_hash));
 				if (existing != blocks.end ())
 				{
-					voted_one = true;
+					at_least_one = true;
 					result = existing->second->vote (vote_a->account, vote_a->sequence, block_hash);
 				}
 				else // possibly a vote for a recently confirmed election
@@ -721,7 +721,7 @@ boost::tribool nano::active_transactions::vote (std::shared_ptr<nano::vote> vote
 				auto existing (roots.get<tag_root> ().find (block->qualified_root ()));
 				if (existing != roots.get<tag_root> ().end ())
 				{
-					voted_one = true;
+					at_least_one = true;
 					result = existing->election->vote (vote_a->account, vote_a->sequence, block->hash ());
 				}
 				else
@@ -729,18 +729,22 @@ boost::tribool nano::active_transactions::vote (std::shared_ptr<nano::vote> vote
 					add_inactive_votes_cache (block->hash (), vote_a->account);
 				}
 			}
-			if (voted_one)
-			{
-				processed = processed || result.processed;
-				replay = static_cast<bool> (replay) || result.replay;
-			}
+			processed = processed || result.processed;
+			replay = replay || result.replay;
 		}
 	}
-	if (processed)
+	if (at_least_one)
 	{
-		node.network.flood_vote (vote_a);
+		if (processed)
+		{
+			node.network.flood_vote (vote_a);
+		}
+		return replay ? nano::vote_code::replay : nano::vote_code::vote;
 	}
-	return replay;
+	else
+	{
+		return nano::vote_code::indeterminate;
+	}
 }
 
 bool nano::active_transactions::active (nano::qualified_root const & root_a)

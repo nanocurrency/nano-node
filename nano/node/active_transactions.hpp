@@ -8,7 +8,6 @@
 #include <nano/secure/common.hpp>
 
 #include <boost/circular_buffer.hpp>
-#include <boost/logic/tribool.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
@@ -100,8 +99,8 @@ public:
 	// clang-format off
 	bool start (std::shared_ptr<nano::block>, bool const = false, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
 	// clang-format on
-	// Returns true if the vote is a replay, cannot be determined for inactive blocks
-	boost::logic::tribool vote (std::shared_ptr<nano::vote>, bool = false);
+	// Distinguishes replay votes, cannot be determined if the block is not in any election
+	nano::vote_code vote (std::shared_ptr<nano::vote>, bool = false);
 	// Is the root of this block in the roots container
 	bool active (nano::block const &);
 	bool active (nano::qualified_root const &);

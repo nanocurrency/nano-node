@@ -760,9 +760,9 @@ TEST (votes, add_one)
 	ASSERT_EQ (1, votes1->last_votes.size ());
 	lock.unlock ();
 	auto vote1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 1, send1));
-	ASSERT_FALSE (node1.active.vote (vote1));
+	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1));
 	auto vote2 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 2, send1));
-	ASSERT_TRUE (boost::logic::indeterminate (node1.active.vote (vote2)));
+	ASSERT_EQ (nano::vote_code::indeterminate, node1.active.vote (vote2));
 	lock.lock ();
 	ASSERT_EQ (2, votes1->last_votes.size ());
 	auto existing1 (votes1->last_votes.find (nano::test_genesis_key.pub));
@@ -790,9 +790,9 @@ TEST (votes, add_two)
 	nano::keypair key2;
 	auto send2 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	auto vote2 (std::make_shared<nano::vote> (key2.pub, key2.prv, 1, send2));
-	ASSERT_FALSE (node1.active.vote (vote2));
+	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote2));
 	auto vote1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 1, send1));
-	ASSERT_FALSE (node1.active.vote (vote1));
+	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1));
 	lock.lock ();
 	ASSERT_EQ (3, votes1->last_votes.size ());
 	ASSERT_NE (votes1->last_votes.end (), votes1->last_votes.find (nano::test_genesis_key.pub));
@@ -821,7 +821,7 @@ TEST (votes, add_existing)
 	}
 	node1.active.start (send1);
 	auto vote1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 1, send1));
-	ASSERT_FALSE (node1.active.vote (vote1));
+	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1));
 	// Block is already processed from vote
 	ASSERT_TRUE (node1.active.publish (send1));
 	nano::unique_lock<std::mutex> lock (node1.active.mutex);
@@ -834,14 +834,14 @@ TEST (votes, add_existing)
 	// Pretend we've waited the timeout
 	votes1->last_votes[nano::test_genesis_key.pub].time = std::chrono::steady_clock::now () - std::chrono::seconds (20);
 	lock.unlock ();
-	ASSERT_FALSE (node1.active.vote (vote2));
+	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote2));
 	ASSERT_FALSE (node1.active.publish (send2));
 	lock.lock ();
 	ASSERT_EQ (2, votes1->last_votes[nano::test_genesis_key.pub].sequence);
 	// Also resend the old vote, and see if we respect the sequence number
 	votes1->last_votes[nano::test_genesis_key.pub].time = std::chrono::steady_clock::now () - std::chrono::seconds (20);
 	lock.unlock ();
-	ASSERT_TRUE (node1.active.vote (vote1));
+	ASSERT_EQ (nano::vote_code::replay, node1.active.vote (vote1));
 	lock.lock ();
 	ASSERT_EQ (2, votes1->last_votes[nano::test_genesis_key.pub].sequence);
 	ASSERT_EQ (2, votes1->last_votes.size ());

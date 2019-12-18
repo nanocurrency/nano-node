@@ -202,8 +202,7 @@ nano::vote_code nano::vote_processor::vote_blocking (nano::transaction const & t
 	auto result (nano::vote_code::invalid);
 	if (validated || !vote_a->validate ())
 	{
-		auto is_replay (active.vote (vote_a, true));
-		result = boost::logic::indeterminate (is_replay) ? nano::vote_code::indeterminate : is_replay ? nano::vote_code::replay : nano::vote_code::vote;
+		result = active.vote (vote_a, true);
 		observers.vote.notify (vote_a, channel_a, result);
 		// This tries to assist rep nodes that have lost track of their highest sequence number by replaying our highest known vote back to them
 		// Only do this if the sequence number is significantly different to account for network reordering

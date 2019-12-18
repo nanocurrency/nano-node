@@ -668,14 +668,14 @@ TEST (active_transactions, vote_replays)
 	ASSERT_EQ (2, node.active.size ());
 	// First vote is not a replay and confirms the election, second vote should be indeterminate since the election no longer exists
 	auto vote_send1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, send1));
-	ASSERT_FALSE (node.active.vote (vote_send1));
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote_send1));
 	ASSERT_EQ (1, node.active.size ());
-	ASSERT_TRUE (boost::logic::indeterminate (node.active.vote (vote_send1)));
+	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote_send1));
 	// Open new account
 	auto vote_open1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, open1));
-	ASSERT_FALSE (node.active.vote (vote_open1));
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote_open1));
 	ASSERT_TRUE (node.active.empty ());
-	ASSERT_TRUE (boost::logic::indeterminate (node.active.vote (vote_open1)));
+	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote_open1));
 	ASSERT_EQ (nano::Gxrb_ratio, node.ledger.weight (key.pub));
 
 	auto send2 (std::make_shared<nano::state_block> (key.pub, open1->hash (), key.pub, nano::Gxrb_ratio - 1, key.pub, key.prv, key.pub, *system.work.generate (open1->hash ())));
@@ -685,12 +685,12 @@ TEST (active_transactions, vote_replays)
 	ASSERT_EQ (1, node.active.size ());
 	auto vote1_send2 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, send2));
 	auto vote2_send2 (std::make_shared<nano::vote> (key.pub, key.prv, 0, send2));
-	ASSERT_FALSE (node.active.vote (vote2_send2));
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote2_send2));
 	ASSERT_EQ (1, node.active.size ());
-	ASSERT_TRUE (node.active.vote (vote2_send2));
+	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote2_send2));
 	ASSERT_EQ (1, node.active.size ());
-	ASSERT_FALSE (node.active.vote (vote1_send2));
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote1_send2));
 	ASSERT_EQ (0, node.active.size ());
-	ASSERT_TRUE (boost::logic::indeterminate (node.active.vote (vote1_send2)));
-	ASSERT_TRUE (boost::logic::indeterminate (node.active.vote (vote2_send2)));
+	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote1_send2));
+	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote2_send2));
 }
