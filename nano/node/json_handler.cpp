@@ -7,6 +7,7 @@
 #include <nano/node/json_payment_observer.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/node_rpc_config.hpp>
+#include <nano/node/telemetry.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -3907,6 +3908,63 @@ void nano::json_handler::stop ()
 	}
 }
 
+void nano::json_handler::telemetry ()
+{
+	if (!node.telemetry_processor)
+	{
+		ec = nano::error_rpc::generic;
+		response_errors ();
+	}
+
+	// By default, consolidated (averages) telemetry metrics are returned,
+	// setting "raw" to true returns metrics from all nodes requested.
+	auto raw = request.get_optional<bool> ("raw");
+	auto output_raw = raw.is_initialized () ? *raw : false;
+
+	auto rpc_l (shared_from_this ());
+
+	node.telemetry_processor->get_metrics_async ([rpc_l, output_raw](auto const & all_telemetry_metrics_a, bool cached_a) {
+		if (output_raw)
+		{
+			boost::property_tree::ptree metrics;
+			for (auto & telemetry_metrics : all_telemetry_metrics_a)
+			{
+				nano::jsonconfig config_l;
+				auto err = telemetry_metrics.serialize_json (config_l);
+				if (!err)
+				{
+					metrics.push_back (std::make_pair ("", config_l.get_tree ()));
+				}
+				else
+				{
+					rpc_l->ec = nano::error_rpc::generic;
+				}
+			}
+
+			rpc_l->response_l.put_child ("metrics", metrics);
+		}
+		else
+		{
+			nano::jsonconfig config_l;
+			auto average_telemetry_metrics = nano::telemetry_data::consolidate (all_telemetry_metrics_a);
+			auto err = average_telemetry_metrics.serialize_json (config_l);
+			auto const & ptree = config_l.get_tree ();
+
+			if (!err)
+			{
+				rpc_l->response_l.insert (rpc_l->response_l.begin (), ptree.begin (), ptree.end ());
+			}
+			else
+			{
+				rpc_l->ec = nano::error_rpc::generic;
+			}
+		}
+
+		rpc_l->response_l.put ("cached", cached_a);
+		rpc_l->response_errors ();
+	});
+}
+
 void nano::json_handler::unchecked ()
 {
 	const bool json_block_l = request.get<bool> ("json_block", false);
@@ -5047,6 +5105,7 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("stats", &nano::json_handler::stats);
 	no_arg_funcs.emplace ("stats_clear", &nano::json_handler::stats_clear);
 	no_arg_funcs.emplace ("stop", &nano::json_handler::stop);
+	no_arg_funcs.emplace ("node_telemetry", &nano::json_handler::telemetry);
 	no_arg_funcs.emplace ("unchecked", &nano::json_handler::unchecked);
 	no_arg_funcs.emplace ("unchecked_clear", &nano::json_handler::unchecked_clear);
 	no_arg_funcs.emplace ("unchecked_get", &nano::json_handler::unchecked_get);

@@ -46,7 +46,7 @@ namespace websocket
 }
 
 class node;
-
+class telemetry;
 class work_pool;
 class block_arrival_info final
 {
@@ -165,6 +165,7 @@ public:
 	nano::ledger ledger;
 	nano::signature_checker checker;
 	nano::network network;
+	std::shared_ptr<nano::telemetry> telemetry_processor;
 	nano::bootstrap_initiator bootstrap_initiator;
 	nano::bootstrap_listener bootstrap;
 	boost::filesystem::path application_path;

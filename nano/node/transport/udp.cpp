@@ -140,7 +140,7 @@ std::shared_ptr<nano::transport::channel_udp> nano::transport::udp_channels::cha
 	return result;
 }
 
-std::unordered_set<std::shared_ptr<nano::transport::channel>> nano::transport::udp_channels::random_set (size_t count_a) const
+std::unordered_set<std::shared_ptr<nano::transport::channel>> nano::transport::udp_channels::random_set (size_t count_a, uint8_t min_version) const
 {
 	std::unordered_set<std::shared_ptr<nano::transport::channel>> result;
 	result.reserve (count_a);
@@ -155,7 +155,11 @@ std::unordered_set<std::shared_ptr<nano::transport::channel>> nano::transport::u
 		for (auto i (0); i < random_cutoff && result.size () < count_a; ++i)
 		{
 			auto index (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (peers_size - 1)));
-			result.insert (channels.get<random_access_tag> ()[index].channel);
+			auto channel = channels.get<random_access_tag> ()[index].channel;
+			if (channel->get_network_version () >= min_version)
+			{
+				result.insert (channel);
+			}
 		}
 	}
 	return result;
@@ -414,6 +418,14 @@ public:
 	{
 		assert (false);
 	}
+	void telemetry_req (nano::telemetry_req const & message_a) override
+	{
+		message (message_a);
+	}
+	void telemetry_ack (nano::telemetry_ack const & message_a) override
+	{
+		message (message_a);
+	}
 	void node_id_handshake (nano::node_id_handshake const & message_a) override
 	{
 		if (node.config.logging.network_node_id_handshake_logging ())
@@ -537,6 +549,12 @@ void nano::transport::udp_channels::receive_action (nano::message_buffer * data_
 					break;
 				case nano::message_parser::parse_status::invalid_node_id_handshake_message:
 					node.stats.inc (nano::stat::type::udp, nano::stat::detail::invalid_node_id_handshake_message);
+					break;
+				case nano::message_parser::parse_status::invalid_telemetry_req_message:
+					node.stats.inc (nano::stat::type::udp, nano::stat::detail::invalid_telemetry_req_message);
+					break;
+				case nano::message_parser::parse_status::invalid_telemetry_ack_message:
+					node.stats.inc (nano::stat::type::udp, nano::stat::detail::invalid_telemetry_ack_message);
 					break;
 				case nano::message_parser::parse_status::outdated_version:
 					node.stats.inc (nano::stat::type::udp, nano::stat::detail::outdated_version);

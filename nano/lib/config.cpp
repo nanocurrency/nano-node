@@ -1,12 +1,18 @@
 #include <nano/lib/config.hpp>
 
 #include <boost/filesystem/path.hpp>
+#include <boost/lexical_cast.hpp>
 
 #include <valgrind/valgrind.h>
 
 namespace nano
 {
 const char * network_constants::active_network_err_msg = "Invalid network. Valid values are live, beta and test.";
+
+uint8_t get_major_node_version ()
+{
+	return boost::numeric_cast<uint8_t> (boost::lexical_cast<int> (NANO_MAJOR_VERSION_STRING));
+}
 
 void force_nano_test_network ()
 {

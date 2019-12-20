@@ -69,7 +69,7 @@ namespace transport
 		size_t size () const;
 		std::shared_ptr<nano::transport::channel_udp> channel (nano::endpoint const &) const;
 		void random_fill (std::array<nano::endpoint, 8> &) const;
-		std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (size_t) const;
+		std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (size_t, uint8_t = 0) const;
 		bool store_all (bool = true);
 		std::shared_ptr<nano::transport::channel_udp> find_node_id (nano::account const &);
 		void clean_node_id (nano::account const &);

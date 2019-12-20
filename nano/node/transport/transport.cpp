@@ -47,6 +47,14 @@ public:
 	{
 		result = nano::stat::detail::node_id_handshake;
 	}
+	void telemetry_req (nano::telemetry_req const & message_a) override
+	{
+		result = nano::stat::detail::telemetry_req;
+	}
+	void telemetry_ack (nano::telemetry_ack const & message_a) override
+	{
+		result = nano::stat::detail::telemetry_ack;
+	}
 	nano::stat::detail result;
 };
 }

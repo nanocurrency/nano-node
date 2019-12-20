@@ -333,7 +333,7 @@ public:
 	protocol_constants (nano::nano_networks network_a);
 
 	/** Current protocol version */
-	uint8_t protocol_version = 0x11;
+	uint8_t protocol_version = 0x12;
 
 	/** Minimum accepted protocol version */
 	uint8_t protocol_version_min = 0x10;
@@ -346,6 +346,9 @@ public:
 
 	/** Do not start TCP realtime network connections to nodes older than this version */
 	uint8_t tcp_realtime_protocol_version_min = 0x11;
+
+	/** Do not start request telemetry metrics to nodes older than this version */
+	uint8_t telemetry_protocol_version_min = 0x12;
 };
 
 /** Genesis keys and ledger constants for network variants */

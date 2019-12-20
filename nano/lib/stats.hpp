@@ -232,6 +232,8 @@ public:
 		confirm_req,
 		confirm_ack,
 		node_id_handshake,
+		telemetry_req,
+		telemetry_ack,
 
 		// bootstrap, callback
 		initiate,
@@ -276,6 +278,8 @@ public:
 		invalid_confirm_req_message,
 		invalid_confirm_ack_message,
 		invalid_node_id_handshake_message,
+		invalid_telemetry_req_message,
+		invalid_telemetry_ack_message,
 		outdated_version,
 
 		// tcp

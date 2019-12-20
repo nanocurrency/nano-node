@@ -74,6 +74,8 @@ add_library (node
 	logging.cpp
 	network.hpp
 	network.cpp
+	telemetry.hpp
+	telemetry.cpp
 	nodeconfig.hpp
 	nodeconfig.cpp
 	node_observers.hpp

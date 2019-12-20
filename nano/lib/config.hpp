@@ -20,6 +20,7 @@ namespace filesystem
 * Returns build version information
 */
 static const char * NANO_VERSION_STRING = xstr (TAG_VERSION_STRING);
+const char * const NANO_MAJOR_VERSION_STRING = xstr (MAJOR_VERSION_STRING);
 
 static const char * BUILD_INFO = xstr (GIT_COMMIT_HASH BOOST_COMPILER) " \"BOOST " xstr (BOOST_VERSION) "\" BUILT " xstr (__DATE__);
 
@@ -36,6 +37,8 @@ static const bool is_sanitizer_build = false;
 
 namespace nano
 {
+uint8_t get_major_node_version ();
+
 /**
  * Network variants with different genesis blocks and network parameters
  * @warning Enum values are used in integral comparisons; do not change.

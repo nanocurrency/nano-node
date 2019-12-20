@@ -2,6 +2,7 @@
 #include <nano/lib/utility.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/telemetry.hpp>
 #include <nano/node/websocket.hpp>
 #include <nano/rpc/rpc.hpp>
 #include <nano/secure/buffer.hpp>
@@ -131,6 +132,7 @@ gap_cache (*this),
 ledger (store, stats, flags_a.cache_representative_weights_from_frontiers),
 checker (config.signature_checker_threads),
 network (*this, config.peering_port),
+telemetry_processor (std::make_shared<nano::telemetry> (network, alarm, worker)),
 bootstrap_initiator (*this),
 bootstrap (config.peering_port, *this),
 application_path (application_path_a),
@@ -600,6 +602,7 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (node & node, const
 	composite->add_component (node.network.tcp_channels.collect_seq_con_info ("tcp_channels"));
 	composite->add_component (node.network.udp_channels.collect_seq_con_info ("udp_channels"));
 	composite->add_component (node.network.syn_cookies.collect_seq_con_info ("syn_cookies"));
+	composite->add_component (collect_seq_con_info (*node.telemetry_processor, "telemetry_processor"));
 	composite->add_component (collect_seq_con_info (node.observers, "observers"));
 	composite->add_component (collect_seq_con_info (node.wallets, "wallets"));
 	composite->add_component (collect_seq_con_info (node.vote_processor, "vote_processor"));
@@ -708,6 +711,7 @@ void nano::node::stop ()
 		confirmation_height_processor.stop ();
 		active.stop ();
 		network.stop ();
+		telemetry_processor = nullptr;
 		if (websocket_server)
 		{
 			websocket_server->stop ();

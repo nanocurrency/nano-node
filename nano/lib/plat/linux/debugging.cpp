@@ -1,12 +1,12 @@
 #include <nano/lib/utility.hpp>
 
+#include <cassert>
+#include <cstring>
+
 #include <fcntl.h>
 #include <link.h>
 #include <sys/stat.h>
 #include <unistd.h>
-
-#include <cassert>
-#include <cstring>
 
 namespace
 {
