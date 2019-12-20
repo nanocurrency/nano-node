@@ -67,8 +67,8 @@ private:
 	bool is_active;
 	std::thread thread;
 
-	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_processor & vote_processor, const std::string & name);
+	friend std::unique_ptr<container_info_component> collect_container_info (vote_processor & vote_processor, const std::string & name);
 };
 
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_processor & vote_processor, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (vote_processor & vote_processor, const std::string & name);
 }

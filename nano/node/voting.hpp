@@ -49,10 +49,10 @@ private:
 	bool started{ false };
 	std::thread thread;
 
-	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_generator & vote_generator, const std::string & name);
+	friend std::unique_ptr<container_info_component> collect_container_info (vote_generator & vote_generator, const std::string & name);
 };
 
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_generator & vote_generator, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (vote_generator & vote_generator, const std::string & name);
 class cached_votes final
 {
 public:
@@ -79,8 +79,8 @@ private:
 	cache;
 	// clang-format on
 	nano::network_params network_params;
-	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (votes_cache & votes_cache, const std::string & name);
+	friend std::unique_ptr<container_info_component> collect_container_info (votes_cache & votes_cache, const std::string & name);
 };
 
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (votes_cache & votes_cache, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (votes_cache & votes_cache, const std::string & name);
 }

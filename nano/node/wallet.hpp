@@ -242,7 +242,7 @@ private:
 	nano::wallet_representative_counts counts;
 };
 
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (wallets & wallets, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (wallets & wallets, const std::string & name);
 
 class wallets_store
 {

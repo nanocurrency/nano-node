@@ -967,17 +967,26 @@ void nano::syn_cookies::purge (std::chrono::steady_clock::time_point const & cut
 	}
 }
 
-std::unique_ptr<nano::seq_con_info_component> nano::syn_cookies::collect_seq_con_info (std::string const & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (network & network, const std::string & name)
 {
-	size_t syn_cookies_count = 0;
-	size_t syn_cookies_per_ip_count = 0;
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (network.tcp_channels.collect_container_info ("tcp_channels"));
+	composite->add_component (network.udp_channels.collect_container_info ("udp_channels"));
+	composite->add_component (network.syn_cookies.collect_container_info ("syn_cookies"));
+	return composite;
+}
+
+std::unique_ptr<nano::container_info_component> nano::syn_cookies::collect_container_info (std::string const & name)
+{
+	size_t syn_cookies_count;
+	size_t syn_cookies_per_ip_count;
 	{
 		nano::lock_guard<std::mutex> syn_cookie_guard (syn_cookie_mutex);
 		syn_cookies_count = cookies.size ();
 		syn_cookies_per_ip_count = cookies_per_ip.size ();
 	}
-	auto composite = std::make_unique<seq_con_info_composite> (name);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "syn_cookies", syn_cookies_count, sizeof (decltype (cookies)::value_type) }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "syn_cookies_per_ip", syn_cookies_per_ip_count, sizeof (decltype (cookies_per_ip)::value_type) }));
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "syn_cookies", syn_cookies_count, sizeof (decltype (cookies)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "syn_cookies_per_ip", syn_cookies_per_ip_count, sizeof (decltype (cookies_per_ip)::value_type) }));
 	return composite;
 }

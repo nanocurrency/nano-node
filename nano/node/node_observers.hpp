@@ -22,5 +22,5 @@ public:
 	nano::observer_set<nano::root const &> work_cancel;
 };
 
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (node_observers & node_observers, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (node_observers & node_observers, const std::string & name);
 }

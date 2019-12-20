@@ -1131,15 +1131,12 @@ bool nano::ledger::block_not_confirmed_or_not_exists (nano::block const & block_
 	return result;
 }
 
-namespace nano
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (ledger & ledger, const std::string & name)
 {
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (ledger & ledger, const std::string & name)
-{
-	auto composite = std::make_unique<seq_con_info_composite> (name);
 	auto count = ledger.bootstrap_weights_size.load ();
 	auto sizeof_element = sizeof (decltype (ledger.bootstrap_weights)::value_type);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "bootstrap_weights", count, sizeof_element }));
-	composite->add_component (collect_seq_con_info (ledger.rep_weights, "rep_weights"));
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "bootstrap_weights", count, sizeof_element }));
+	composite->add_component (collect_container_info (ledger.rep_weights, "rep_weights"));
 	return composite;
-}
 }

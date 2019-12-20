@@ -96,7 +96,7 @@ namespace transport
 		bool max_ip_connections (nano::tcp_endpoint const &);
 		// Should we reach out to this endpoint with a keepalive message
 		bool reachout (nano::endpoint const &);
-		std::unique_ptr<seq_con_info_component> collect_seq_con_info (std::string const &);
+		std::unique_ptr<container_info_component> collect_container_info (std::string const &);
 		void purge (std::chrono::steady_clock::time_point const &);
 		void ongoing_keepalive ();
 		void list (std::deque<std::shared_ptr<nano::transport::channel>> &);

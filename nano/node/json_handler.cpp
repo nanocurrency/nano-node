@@ -16,7 +16,7 @@
 
 namespace
 {
-void construct_json (nano::seq_con_info_component * component, boost::property_tree::ptree & parent);
+void construct_json (nano::container_info_component * component, boost::property_tree::ptree & parent);
 using ipc_json_handler_no_arg_func_map = std::unordered_map<std::string, std::function<void(nano::json_handler *)>>;
 ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ();
 auto ipc_json_handler_no_arg_funcs = create_ipc_json_handler_no_arg_func_map ();
@@ -3862,7 +3862,7 @@ void nano::json_handler::stats ()
 	}
 	else if (type == "objects")
 	{
-		construct_json (collect_seq_con_info (node, "node").get (), response_l);
+		construct_json (collect_container_info (node, "node").get (), response_l);
 	}
 	else if (type == "samples")
 	{
@@ -4942,12 +4942,12 @@ void nano::json_handler::work_peers_clear ()
 
 namespace
 {
-void construct_json (nano::seq_con_info_component * component, boost::property_tree::ptree & parent)
+void construct_json (nano::container_info_component * component, boost::property_tree::ptree & parent)
 {
 	// We are a leaf node, print name and exit
 	if (!component->is_composite ())
 	{
-		auto & leaf_info = static_cast<nano::seq_con_info_leaf *> (component)->get_info ();
+		auto & leaf_info = static_cast<nano::container_info_leaf *> (component)->get_info ();
 		boost::property_tree::ptree child;
 		child.put ("count", leaf_info.count);
 		child.put ("size", leaf_info.count * leaf_info.sizeof_element);
@@ -4955,7 +4955,7 @@ void construct_json (nano::seq_con_info_component * component, boost::property_t
 		return;
 	}
 
-	auto composite = static_cast<nano::seq_con_info_composite *> (component);
+	auto composite = static_cast<nano::container_info_composite *> (component);
 
 	boost::property_tree::ptree current;
 	for (auto & child : composite->get_children ())

@@ -64,16 +64,15 @@ void nano::worker::stop ()
 	}
 }
 
-std::unique_ptr<nano::seq_con_info_component> nano::collect_seq_con_info (nano::worker & worker, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::worker & worker, const std::string & name)
 {
-	auto composite = std::make_unique<seq_con_info_composite> (name);
-
-	size_t count = 0;
+	size_t count;
 	{
 		nano::lock_guard<std::mutex> guard (worker.mutex);
 		count = worker.queue.size ();
 	}
 	auto sizeof_element = sizeof (decltype (worker.queue)::value_type);
-	composite->add_component (std::make_unique<nano::seq_con_info_leaf> (nano::seq_con_info{ "queue", count, sizeof_element }));
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<nano::container_info_leaf> (nano::container_info{ "queue", count, sizeof_element }));
 	return composite;
 }

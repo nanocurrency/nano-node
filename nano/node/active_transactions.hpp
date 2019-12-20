@@ -220,5 +220,5 @@ private:
 	friend class confirmation_height_long_chains_Test;
 };
 
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (active_transactions & active_transactions, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (active_transactions & active_transactions, const std::string & name);
 }

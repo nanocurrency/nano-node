@@ -97,19 +97,16 @@ void nano::distributed_work_factory::stop ()
 	}
 }
 
-namespace nano
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (distributed_work_factory & distributed_work, const std::string & name)
 {
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (distributed_work_factory & distributed_work, const std::string & name)
-{
-	size_t item_count = 0;
+	size_t item_count;
 	{
 		nano::lock_guard<std::mutex> guard (distributed_work.mutex);
 		item_count = distributed_work.items.size ();
 	}
 
-	auto composite = std::make_unique<seq_con_info_composite> (name);
 	auto sizeof_item_element = sizeof (decltype (distributed_work.items)::value_type);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "items", item_count, sizeof_item_element }));
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "items", item_count, sizeof_item_element }));
 	return composite;
-}
 }

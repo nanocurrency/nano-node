@@ -25,43 +25,43 @@ namespace nano
  * It makes use of the composite design pattern to collect information
  * from sequence containers and sequence containers inside member variables.
  */
-struct seq_con_info
+struct container_info
 {
 	std::string name;
 	size_t count;
 	size_t sizeof_element;
 };
 
-class seq_con_info_component
+class container_info_component
 {
 public:
-	virtual ~seq_con_info_component () = default;
+	virtual ~container_info_component () = default;
 	virtual bool is_composite () const = 0;
 };
 
-class seq_con_info_composite : public seq_con_info_component
+class container_info_composite : public container_info_component
 {
 public:
-	seq_con_info_composite (const std::string & name);
+	container_info_composite (const std::string & name);
 	bool is_composite () const override;
-	void add_component (std::unique_ptr<seq_con_info_component> child);
-	const std::vector<std::unique_ptr<seq_con_info_component>> & get_children () const;
+	void add_component (std::unique_ptr<container_info_component> child);
+	const std::vector<std::unique_ptr<container_info_component>> & get_children () const;
 	const std::string & get_name () const;
 
 private:
 	std::string name;
-	std::vector<std::unique_ptr<seq_con_info_component>> children;
+	std::vector<std::unique_ptr<container_info_component>> children;
 };
 
-class seq_con_info_leaf : public seq_con_info_component
+class container_info_leaf : public container_info_component
 {
 public:
-	seq_con_info_leaf (const seq_con_info & info);
+	container_info_leaf (container_info const & info);
 	bool is_composite () const override;
-	const seq_con_info & get_info () const;
+	const container_info & get_info () const;
 
 private:
-	seq_con_info info;
+	container_info info;
 };
 
 // Lower priority of calling work generating thread
@@ -131,7 +131,7 @@ public:
 };
 
 template <typename... T>
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (observer_set<T...> & observer_set, const std::string & name)
+std::unique_ptr<container_info_component> collect_container_info (observer_set<T...> & observer_set, const std::string & name)
 {
 	size_t count = 0;
 	{
@@ -140,8 +140,8 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (observer_set<T...>
 	}
 
 	auto sizeof_element = sizeof (typename decltype (observer_set.observers)::value_type);
-	auto composite = std::make_unique<seq_con_info_composite> (name);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "observers", count, sizeof_element }));
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "observers", count, sizeof_element }));
 	return composite;
 }
 
