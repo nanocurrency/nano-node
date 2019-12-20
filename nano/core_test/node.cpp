@@ -2813,33 +2813,6 @@ TEST (node, block_processor_reject_state)
 	ASSERT_TRUE (node.ledger.block_exists (send2->hash ()));
 }
 
-TEST (node, block_processor_reject_rolled_back)
-{
-	nano::system system;
-	nano::node_config node_config (nano::get_available_port (), system.logging);
-	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	auto & node = *system.add_node (node_config);
-	nano::genesis genesis;
-	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
-	node.work_generate_blocking (*send1);
-	node.block_processor.add (send1);
-	node.block_processor.flush ();
-	ASSERT_TRUE (node.ledger.block_exists (send1->hash ()));
-	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
-	node.work_generate_blocking (*send2);
-	// Force block send2 & rolling back block send1
-	node.block_processor.force (send2);
-	node.block_processor.flush ();
-	ASSERT_FALSE (node.ledger.block_exists (send1->hash ()));
-	ASSERT_TRUE (node.ledger.block_exists (send2->hash ()));
-	ASSERT_TRUE (node.active.empty ());
-	// Block send1 cannot be processed & start fork resolution election
-	node.block_processor.add (send1);
-	node.block_processor.flush ();
-	ASSERT_FALSE (node.ledger.block_exists (send1->hash ()));
-	ASSERT_TRUE (node.active.empty ());
-}
-
 TEST (node, block_processor_full)
 {
 	nano::system system;
