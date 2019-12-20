@@ -134,6 +134,7 @@ public:
 	void add_confirmed (nano::election_status const &, nano::qualified_root const &);
 	void add_inactive_votes_cache (nano::block_hash const &, nano::account const &);
 	nano::gap_information find_inactive_votes_cache (nano::block_hash const &);
+	void erase_inactive_votes_cache (nano::block_hash const &);
 	nano::node & node;
 	std::mutex mutex;
 	std::chrono::seconds const long_election_threshold;
