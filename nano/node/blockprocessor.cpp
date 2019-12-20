@@ -331,7 +331,11 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 				{
 					node.votes_cache.remove (i->hash ());
 					node.wallets.watcher->remove (i);
-					node.active.erase (*i);
+					// Stop all rolled back active transactions except initial
+					if (i->hash () != successor->hash ())
+					{
+						node.active.erase (*i);
+					}
 				}
 			}
 		}
