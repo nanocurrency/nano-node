@@ -500,6 +500,7 @@ public:
 				if (active_transaction.active () && active_transaction.current_election_winner)
 				{
 					blocks_bundle.push_back (active_transaction.current_election_winner->hash ());
+					continue;
 				}
 				else if (active_transaction.passive ())
 				{
