@@ -493,21 +493,16 @@ public:
 			{
 				++cached_count;
 				cached_votes.insert (cached_votes.end (), find_votes.begin (), find_votes.end ());
+				blocks_bundle.push_back (root_hash.first);
 			}
-			else
+			else if (auto active_transaction = node.active.state (root_hash.first))
 			{
-				auto active_transaction (node.active.state (root_hash.first));
 				if (active_transaction.active () && active_transaction.current_election_winner)
 				{
 					blocks_bundle.push_back (active_transaction.current_election_winner->hash ());
-					continue;
-				}
-				else if (active_transaction.passive ())
-				{
-					continue;
 				}
 			}
-			if (!find_votes.empty () || (!root_hash.first.is_zero () && node.store.block_exists (transaction, root_hash.first)))
+			else if (!root_hash.first.is_zero () && node.store.block_exists (transaction, root_hash.first))
 			{
 				blocks_bundle.push_back (root_hash.first);
 			}

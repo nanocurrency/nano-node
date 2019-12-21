@@ -107,6 +107,10 @@ public:
 	{
 		return state == state_impl::existing_passive || state == state_impl::inserted_passive;
 	}
+	operator bool () const
+	{
+		return exists ();
+	}
 	std::shared_ptr<nano::block> current_election_winner{ nullptr };
 };
 
