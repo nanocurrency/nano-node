@@ -2556,8 +2556,8 @@ TEST (node, vote_by_hash_bundle)
 	nano::genesis genesis;
 	for (int i = 1; i <= 200; i++)
 	{
-		auto send (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, std::numeric_limits<nano::uint128_t>::max () - (system.nodes[0]->config.receive_minimum.number () * i), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
-		system.nodes[0]->block_confirm (send);
+		nano::block_hash hash (i);
+		system.nodes [0]->block_processor.generator.add (hash);
 	}
 
 	// Verify that bundling occurs. While reaching 12 should be common on most hardware in release mode,
