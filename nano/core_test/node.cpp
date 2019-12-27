@@ -205,16 +205,12 @@ TEST (node, node_receive_quorum)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	auto done (false);
-	while (!done)
 	{
-		{
-			nano::lock_guard<std::mutex> guard (system.nodes[0]->active.mutex);
-			auto info (system.nodes[0]->active.roots.find (nano::qualified_root (previous, previous)));
-			ASSERT_NE (system.nodes[0]->active.roots.end (), info);
-			done = info->election->confirmation_request_count > 2;
-		}
-		ASSERT_NO_ERROR (system.poll ());
+		nano::lock_guard<std::mutex> guard (system.nodes[0]->active.mutex);
+		auto info (system.nodes[0]->active.roots.find (nano::qualified_root (previous, previous)));
+		ASSERT_NE (system.nodes[0]->active.roots.end (), info);
+		ASSERT_FALSE (info->election->confirmed);
+		ASSERT_EQ (1, info->election->last_votes.size ());
 	}
 	nano::system system2 (1);
 	system2.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
@@ -2334,18 +2330,11 @@ TEST (node, confirm_quorum)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	auto done (false);
-	while (!done)
-	{
-		ASSERT_FALSE (system.nodes[0]->active.empty ());
-		{
-			nano::lock_guard<std::mutex> guard (system.nodes[0]->active.mutex);
-			auto info (system.nodes[0]->active.roots.find (nano::qualified_root (send1->hash (), send1->hash ())));
-			ASSERT_NE (system.nodes[0]->active.roots.end (), info);
-			done = info->election->confirmation_request_count > 2;
-		}
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	nano::lock_guard<std::mutex> guard (system.nodes[0]->active.mutex);
+	auto info (system.nodes[0]->active.roots.find (nano::qualified_root (send1->hash (), send1->hash ())));
+	ASSERT_NE (system.nodes[0]->active.roots.end (), info);
+	ASSERT_FALSE (info->election->confirmed);
+	ASSERT_EQ (1, info->election->last_votes.size ());
 	ASSERT_EQ (0, system.nodes[0]->balance (nano::test_genesis_key.pub));
 }
 
