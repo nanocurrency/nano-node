@@ -479,7 +479,7 @@ public:
 			{
 				auto transaction (node.store.tx_begin_read ());
 				std::vector<nano::block_hash> blocks_bundle;
-				std::vector<std::shared_ptr<nano::vote>> cached_votes;
+				std::unordered_set<std::shared_ptr<nano::vote>> cached_votes;
 				size_t cached_count (0);
 				for (auto & root_hash : message_a.roots_hashes)
 				{
@@ -487,7 +487,7 @@ public:
 					if (!find_votes.empty ())
 					{
 						++cached_count;
-						cached_votes.insert (cached_votes.end (), find_votes.begin (), find_votes.end ());
+						cached_votes.insert (find_votes.begin (), find_votes.end ());
 					}
 					if (!find_votes.empty () || (!root_hash.first.is_zero () && node.store.block_exists (transaction, root_hash.first)))
 					{
@@ -514,7 +514,7 @@ public:
 							if (!find_successor_votes.empty ())
 							{
 								++cached_count;
-								cached_votes.insert (cached_votes.end (), find_successor_votes.begin (), find_successor_votes.end ());
+								cached_votes.insert (find_successor_votes.begin (), find_successor_votes.end ());
 							}
 							blocks_bundle.push_back (successor);
 							auto successor_block (node.store.block_get (transaction, successor));
