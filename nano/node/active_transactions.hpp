@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
+#include <nano/node/confirmation_solicitor.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/gap_cache.hpp>
 #include <nano/node/repcrawler.hpp>
@@ -121,10 +122,7 @@ public:
 	std::chrono::milliseconds const election_request_delay;
 	// Maximum time an election can be kept active if it is extending the container
 	std::chrono::seconds const election_time_to_live;
-	static size_t constexpr max_block_broadcasts = 30;
 	static size_t constexpr max_confirm_representatives = 30;
-	static size_t constexpr max_confirm_req_batches = 20;
-	static size_t constexpr max_confirm_req = 5;
 	boost::circular_buffer<double> multipliers_cb;
 	uint64_t trended_active_difficulty;
 	size_t priority_cementable_frontiers_size ();
@@ -145,17 +143,12 @@ private:
 	void request_loop ();
 	void search_frontiers (nano::transaction const &);
 	void election_escalate (std::shared_ptr<nano::election> &, nano::transaction const &, size_t const &);
-	void election_broadcast (std::shared_ptr<nano::election> &, nano::transaction const &, std::deque<std::shared_ptr<nano::block>> &, std::unordered_set<nano::qualified_root> &, nano::qualified_root &);
-	bool election_request_confirm (std::shared_ptr<nano::election> &, std::vector<nano::representative> const &, size_t const &,
-	std::deque<std::pair<std::shared_ptr<nano::block>, std::shared_ptr<std::vector<std::shared_ptr<nano::transport::channel>>>>> & single_confirm_req_bundle_l,
-	std::unordered_map<std::shared_ptr<nano::transport::channel>, std::deque<std::pair<nano::block_hash, nano::root>>> & batched_confirm_req_bundle_l);
 	void request_confirm (nano::unique_lock<std::mutex> &);
 	nano::account next_frontier_account{ 0 };
 	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };
 	nano::condition_variable condition;
 	bool started{ false };
 	std::atomic<bool> stopped{ false };
-	unsigned ongoing_broadcasts{ 0 };
 	// clang-format off
 	boost::multi_index_container<nano::qualified_root,
 	mi::indexed_by<
@@ -189,6 +182,7 @@ private:
 		mi::hashed_unique<mi::tag<tag_root>,
 			mi::member<nano::election_timepoint, nano::qualified_root, &nano::election_timepoint::root>>>>
 	dropped_elections_cache;
+	nano::confirmation_solicitor solicitor;
 	// clang-format on
 	static size_t constexpr dropped_elections_cache_max{ 32 * 1024 };
 	boost::thread thread;
