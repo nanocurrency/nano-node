@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/gap_cache.hpp>
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/transport/transport.hpp>
@@ -40,28 +41,6 @@ public:
 	uint64_t difficulty;
 	uint64_t adjusted_difficulty;
 	std::shared_ptr<nano::election> election;
-};
-
-enum class election_status_type : uint8_t
-{
-	ongoing = 0,
-	active_confirmed_quorum = 1,
-	active_confirmation_height = 2,
-	inactive_confirmation_height = 3,
-	stopped = 5
-};
-
-class election_status final
-{
-public:
-	std::shared_ptr<nano::block> winner;
-	nano::amount tally;
-	std::chrono::milliseconds election_end;
-	std::chrono::milliseconds election_duration;
-	unsigned confirmation_request_count;
-	unsigned block_count;
-	unsigned voter_count;
-	election_status_type type;
 };
 
 class cementable_account final

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nano/node/active_transactions.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
@@ -14,6 +13,26 @@ namespace nano
 {
 class channel;
 class node;
+enum class election_status_type : uint8_t
+{
+	ongoing = 0,
+	active_confirmed_quorum = 1,
+	active_confirmation_height = 2,
+	inactive_confirmation_height = 3,
+	stopped = 5
+};
+class election_status final
+{
+public:
+	std::shared_ptr<nano::block> winner;
+	nano::amount tally;
+	std::chrono::milliseconds election_end;
+	std::chrono::milliseconds election_duration;
+	unsigned confirmation_request_count;
+	unsigned block_count;
+	unsigned voter_count;
+	election_status_type type;
+};
 class vote_info final
 {
 public:
