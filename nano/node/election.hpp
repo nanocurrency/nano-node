@@ -61,7 +61,6 @@ public:
 	std::unordered_map<nano::account, nano::vote_info> last_votes;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks;
 	std::chrono::steady_clock::time_point election_start;
-	// status.winner protected by winner_mutex
 	nano::election_status status;
 	bool skip_delay;
 	std::atomic<bool> active;
@@ -71,6 +70,5 @@ public:
 	unsigned confirmation_request_count{ 0 };
 	std::unordered_set<nano::block_hash> dependent_blocks;
 	std::chrono::seconds late_blocks_delay{ 5 };
-	std::mutex winner_mutex;
 };
 }
