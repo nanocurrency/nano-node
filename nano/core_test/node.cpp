@@ -3176,6 +3176,32 @@ TEST (node, bidirectional_tcp)
 	}
 }
 
+TEST (node, bandwidth_limiter)
+{
+	nano::system system;
+	nano::genesis genesis;
+	nano::publish message (genesis.open);
+	auto message_size = message.to_bytes ()->size();
+	nano::node_config node_config (24000, system.logging);
+	node_config.bandwidth_limit = nano::bandwidth_limiter::buffer_size * message_size;
+	auto runtime_rate = nano::bandwidth_limiter::buffer_size * 1.5;
+	auto & node = *system.add_node (node_config);
+	auto channel1 (node.network.udp_channels.create (node.network.endpoint ()));
+	auto channel2 (node.network.udp_channels.create (node.network.endpoint ()));
+	auto channel3 (node.network.udp_channels.create (node.network.endpoint ()));
+	system.deadline_set (5s);
+	bool done (false);
+	while (0 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out))
+	{
+		auto sleep_time = 1000ms / (runtime_rate / 3);
+		channel1->send (message);
+		channel2->send (message);
+		channel3->send (message);
+		ASSERT_NO_ERROR (system.poll ());
+		std::this_thread::sleep_for (sleep_time);
+	}
+}
+
 TEST (active_difficulty, recalculate_work)
 {
 	nano::system system;

@@ -72,7 +72,6 @@ nano::tcp_endpoint nano::transport::map_endpoint_to_tcp (nano::endpoint const & 
 }
 
 nano::transport::channel::channel (nano::node & node_a) :
-limiter (node_a.config.bandwidth_limit),
 node (node_a)
 {
 	set_network_version (node_a.network_params.protocol.protocol_version);
@@ -84,7 +83,7 @@ void nano::transport::channel::send (nano::message const & message_a, std::funct
 	message_a.visit (visitor);
 	auto buffer (message_a.to_shared_const_buffer ());
 	auto detail (visitor.result);
-	if (!is_droppable_a || !limiter.should_drop (buffer.size ()))
+	if (!is_droppable_a || !node.network.limiter.should_drop (buffer.size ()))
 	{
 		send_buffer (buffer, detail, callback_a);
 		node.stats.inc (nano::stat::type::message, detail, nano::stat::dir::out);
@@ -211,9 +210,7 @@ using namespace std::chrono_literals;
 
 nano::bandwidth_limiter::bandwidth_limiter (const size_t limit_a) :
 next_trend (std::chrono::steady_clock::now () + 50ms),
-limit (limit_a),
-rate (0),
-trended_rate (0)
+limit (limit_a)
 {
 }
 
@@ -226,7 +223,7 @@ bool nano::bandwidth_limiter::should_drop (const size_t & message_size)
 	}
 	nano::lock_guard<std::mutex> lock (mutex);
 
-	if (message_size > limit / rate_buffer.size () || rate + message_size > limit)
+	if (message_size > limit / rate_buffer.size () || trended_rate + message_size > limit)
 	{
 		result = true;
 	}
@@ -234,12 +231,14 @@ bool nano::bandwidth_limiter::should_drop (const size_t & message_size)
 	{
 		rate = rate + message_size;
 	}
-	if (next_trend < std::chrono::steady_clock::now ())
+	auto now = std::chrono::steady_clock::now ();
+	if (next_trend < now)
 	{
-		next_trend = std::chrono::steady_clock::now () + 50ms;
-		rate_buffer.push_back (rate);
-		trended_rate = std::accumulate (rate_buffer.begin (), rate_buffer.end (), size_t{ 0 }) / rate_buffer.size ();
+		// Normalize in case more time has passed
+		rate_buffer.push_back (rate * period / (now - next_trend + period));
+		trended_rate = std::accumulate (rate_buffer.begin (), rate_buffer.end (), size_t{ 0 });
 		rate = 0;
+		next_trend = now + period;
 	}
 	return result;
 }
