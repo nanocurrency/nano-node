@@ -12,6 +12,8 @@ class bandwidth_limiter final
 public:
 	// initialize with limit 0 = unbounded
 	bandwidth_limiter (const size_t);
+	// force_a should be set for non-droppable packets
+	void add (const size_t &, bool const force_a = false);
 	bool should_drop (const size_t &);
 	size_t get_rate ();
 	size_t get_limit () const;
@@ -29,7 +31,7 @@ private:
 	//rate, increment if message_size + rate < rate
 	size_t rate{ 0 };
 	//trended rate to even out spikes in traffic
-	size_t trended_rate{ 0 };
+	std::atomic<size_t> trended_rate{ 0 };
 	std::mutex mutex;
 };
 

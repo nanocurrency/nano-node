@@ -881,16 +881,21 @@ TEST (bandwidth_limiter, validate)
 		nano::bandwidth_limiter limiter_40 (message_size * 2 * nano::bandwidth_limiter::buffer_size);
 
 		auto start (std::chrono::steady_clock::now ());
-		auto before_sleep = start - 28ms;
+		auto above_period = limiter_20.period / 2 + 3ms;
+		auto before_sleep = start - above_period;
 		bool dropped (false);
 		while (start + 5s > std::chrono::steady_clock::now ())
 		{
+			limiter_0.add (message_size);
+			limiter_1.add (message_size);
+			limiter_20.add (message_size);
+			limiter_40.add (message_size);
 			ASSERT_FALSE (limiter_0.should_drop (message_size)); // will never drop
 			ASSERT_TRUE (limiter_1.should_drop (message_size)); // always drop as message > limit / rate_buffer.size ()
-			dropped = limiter_20.should_drop (message_size) || dropped; // should drop eventually
+			dropped = dropped || limiter_20.should_drop (message_size); // should drop eventually
 			ASSERT_FALSE (limiter_40.should_drop (message_size)); // should never drop
 			// With a polling period of 50ms, this gets close to the limit of limiter_40
-			auto sleep_time (28ms - (std::chrono::steady_clock::now () - before_sleep - 28ms));
+			auto sleep_time (above_period - (std::chrono::steady_clock::now () - before_sleep - above_period));
 			before_sleep = std::chrono::steady_clock::now ();
 			std::this_thread::sleep_for (sleep_time);
 		}

@@ -83,6 +83,7 @@ void nano::transport::channel::send (nano::message const & message_a, std::funct
 	message_a.visit (visitor);
 	auto buffer (message_a.to_shared_const_buffer ());
 	auto detail (visitor.result);
+	node.network.limiter.add (buffer.size (), !is_droppable_a);
 	if (!is_droppable_a || !node.network.limiter.should_drop (buffer.size ()))
 	{
 		send_buffer (buffer, detail, callback_a);
@@ -214,20 +215,18 @@ limit (limit_a)
 {
 }
 
-bool nano::bandwidth_limiter::should_drop (const size_t & message_size)
+void nano::bandwidth_limiter::add (const size_t & message_size_a, bool force_a)
 {
-	bool result (false);
-	// Never drop if limit is 0
 	if (limit == 0)
 	{
-		return result;
+		return;
 	}
 	nano::lock_guard<std::mutex> lock (mutex);
 	auto now = std::chrono::steady_clock::now ();
 	if (next_trend < now)
 	{
 		// Reset if too much time has passed
-		if (now - next_trend > 2 * period)
+		if (now - next_trend > period)
 		{
 			next_trend = now;
 			rate_buffer.clear ();
@@ -238,15 +237,24 @@ bool nano::bandwidth_limiter::should_drop (const size_t & message_size)
 		// Increment rather than setting to now + period, to account for fluctuations in sampling
 		next_trend += period;
 	}
-	if (message_size > limit / buffer_size || trended_rate + message_size > limit)
+	// Unless forced, only add to the current rate if it will not go beyond the trended limit
+	if (force_a || !should_drop (message_size_a))
 	{
-		result = true;
+		rate += message_size_a;
+	}
+}
+
+bool nano::bandwidth_limiter::should_drop (const size_t & message_size_a)
+{
+	// Never drop if limit is 0
+	if (limit == 0)
+	{
+		return false;
 	}
 	else
 	{
-		rate += message_size;
+		return (message_size_a > limit / buffer_size || trended_rate + message_size_a > limit);
 	}
-	return result;
 }
 
 size_t nano::bandwidth_limiter::get_rate ()

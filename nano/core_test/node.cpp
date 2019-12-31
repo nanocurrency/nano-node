@@ -3184,25 +3184,57 @@ TEST (node, bandwidth_limiter)
 	auto message_size = message.to_bytes ()->size();
 	nano::node_config node_config (24000, system.logging);
 	node_config.bandwidth_limit = nano::bandwidth_limiter::buffer_size * message_size;
-	auto runtime_rate = nano::bandwidth_limiter::buffer_size * 2.0;
+	auto runtime_rate = 2.0;
 	auto & node = *system.add_node (node_config);
 	auto channel1 (node.network.udp_channels.create (node.network.endpoint ()));
 	auto channel2 (node.network.udp_channels.create (node.network.endpoint ()));
 	auto channel3 (node.network.udp_channels.create (node.network.endpoint ()));
-	system.deadline_set (10s);
+	auto channel4 (node.network.udp_channels.create (node.network.endpoint ()));
+	auto channel5 (node.network.udp_channels.create (node.network.endpoint ()));
+	system.deadline_set (5s);
 	bool done (false);
-	auto before_sleep = std::chrono::steady_clock::now () - 1000ms / (runtime_rate / 3);
+	auto expected_sleep_time = 5 * node.network.limiter.period / runtime_rate;
+	auto next_sleep_time = expected_sleep_time;
 	while (0 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out))
 	{
+		auto stamp (std::chrono::steady_clock::now ());
+		auto each_sleep_time = next_sleep_time / 5;
 		channel1->send (message);
+		std::this_thread::sleep_for (each_sleep_time);
 		channel2->send (message);
+		std::this_thread::sleep_for (each_sleep_time);
 		channel3->send (message);
+		std::this_thread::sleep_for (each_sleep_time);
+		channel4->send (message);
+		std::this_thread::sleep_for (each_sleep_time);
+		channel5->send (message);
+		std::this_thread::sleep_for (each_sleep_time);
 		ASSERT_NO_ERROR (system.poll ());
-		auto expected_sleep_time = 1000ms / (runtime_rate / 3);
-		auto sleep_time = expected_sleep_time - (std::chrono::steady_clock::now () - before_sleep - expected_sleep_time);
-		before_sleep = std::chrono::steady_clock::now ();
-		std::this_thread::sleep_for (sleep_time);
+		next_sleep_time = expected_sleep_time - (std::chrono::steady_clock::now () - stamp - expected_sleep_time);
 	}
+}
+
+TEST (node, bandwidth_limiter_not_droppable)
+{
+	nano::system system;
+	nano::genesis genesis;
+	nano::publish message (genesis.open);
+	auto message_size = message.to_bytes ()->size();
+	nano::node_config node_config (24000, system.logging);
+	node_config.bandwidth_limit = nano::bandwidth_limiter::buffer_size * message_size;
+	auto runtime_rate = 4.0;
+	auto & node = *system.add_node (node_config);
+	auto channel (node.network.udp_channels.create (node.network.endpoint ()));
+	auto start (std::chrono::steady_clock::now ());
+	while (start + 3s > std::chrono::steady_clock::now ())
+	{
+		// Mark as non-droppable
+		channel->send (message, nullptr, false);
+		std::this_thread::sleep_for (node.network.limiter.period / runtime_rate);
+	}
+	// Ensure the rate went above the limit but there were no drops
+	ASSERT_GT (node.network.limiter.get_rate (), node.network.limiter.get_limit ());
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
 }
 
 TEST (active_difficulty, recalculate_work)
