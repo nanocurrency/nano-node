@@ -14,6 +14,7 @@ public:
 	bandwidth_limiter (const size_t);
 	bool should_drop (const size_t &);
 	size_t get_rate ();
+	size_t get_limit () const;
 
 	std::chrono::milliseconds const period{ 50 };
 	static constexpr unsigned buffer_size{ 20 };
