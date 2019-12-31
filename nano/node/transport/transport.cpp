@@ -230,7 +230,7 @@ bool nano::bandwidth_limiter::should_drop (const size_t & message_size)
 		if (now - next_trend > 2 * period)
 		{
 			next_trend = now;
-			rate_buffer.assign (buffer_size, 0);
+			rate_buffer.clear ();
 		}
 		rate_buffer.push_back (rate);
 		rate = 0;
@@ -238,7 +238,7 @@ bool nano::bandwidth_limiter::should_drop (const size_t & message_size)
 		// Increment rather than setting to now + period, to account for fluctuations in sampling
 		next_trend += period;
 	}
-	if (message_size > limit / rate_buffer.size () || trended_rate + message_size > limit)
+	if (message_size > limit / buffer_size || trended_rate + message_size > limit)
 	{
 		result = true;
 	}

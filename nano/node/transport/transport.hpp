@@ -23,7 +23,7 @@ private:
 	//last time rate was adjusted
 	std::chrono::steady_clock::time_point next_trend;
 	//trend rate over 20 poll periods
-	boost::circular_buffer<size_t> rate_buffer{ buffer_size, 0 };
+	boost::circular_buffer<size_t> rate_buffer{ buffer_size };
 	//limit bandwidth to
 	const size_t limit;
 	//rate, increment if message_size + rate < rate
