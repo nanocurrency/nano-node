@@ -3184,12 +3184,12 @@ TEST (node, bandwidth_limiter)
 	auto message_size = message.to_bytes ()->size();
 	nano::node_config node_config (24000, system.logging);
 	node_config.bandwidth_limit = nano::bandwidth_limiter::buffer_size * message_size;
-	auto runtime_rate = nano::bandwidth_limiter::buffer_size * 1.5;
+	auto runtime_rate = nano::bandwidth_limiter::buffer_size * 2.0;
 	auto & node = *system.add_node (node_config);
 	auto channel1 (node.network.udp_channels.create (node.network.endpoint ()));
 	auto channel2 (node.network.udp_channels.create (node.network.endpoint ()));
 	auto channel3 (node.network.udp_channels.create (node.network.endpoint ()));
-	system.deadline_set (5s);
+	system.deadline_set (10s);
 	bool done (false);
 	auto before_sleep = std::chrono::steady_clock::now () - 1000ms / (runtime_rate / 3);
 	while (0 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out))
