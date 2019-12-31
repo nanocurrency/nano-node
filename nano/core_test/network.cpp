@@ -881,20 +881,24 @@ TEST (bandwidth_limiter, validate)
 		nano::bandwidth_limiter limiter_40 (message_size * 2 * nano::bandwidth_limiter::buffer_size);
 
 		auto start (std::chrono::steady_clock::now ());
+		auto before_sleep = start;
 		bool dropped (false);
-		while (start + 3s > std::chrono::steady_clock::now ())
+		while (start + 5s > std::chrono::steady_clock::now ())
 		{
 			ASSERT_FALSE (limiter_0.should_drop (message_size)); // will never drop
 			ASSERT_TRUE (limiter_1.should_drop (message_size)); // always drop as message > limit / rate_buffer.size ()
-			dropped = dropped || limiter_20.should_drop (message_size); // should drop eventually
+			dropped = limiter_20.should_drop (message_size) || dropped; // should drop eventually
 			ASSERT_FALSE (limiter_40.should_drop (message_size)); // should never drop
-			std::this_thread::sleep_for (30ms); // with a polling period of 50ms, this gets close to the limit of limiter_40
+			// With a polling period of 50ms, this gets close to the limit of limiter_40
+			auto sleep_time (28ms - (std::chrono::steady_clock::now () - before_sleep - 28ms));
+			before_sleep = std::chrono::steady_clock::now ();
+			std::this_thread::sleep_for (sleep_time);
 		}
 		ASSERT_TRUE (dropped);
 		ASSERT_EQ (limiter_0.get_rate (), 0); //should be 0 as rate is not gathered if not needed
 		ASSERT_EQ (limiter_1.get_rate (), 0); //should be 0 since nothing is small enough to pass through
-		ASSERT_LE (limiter_20.get_rate (), message_size * nano::bandwidth_limiter::buffer_size); // due to the drop
-		ASSERT_LT (limiter_40.get_rate (), message_size * 2 * nano::bandwidth_limiter::buffer_size); // never dropped
-		ASSERT_GT (limiter_40.get_rate (), message_size * 1.5 * nano::bandwidth_limiter::buffer_size); // but got close
+		ASSERT_NEAR (limiter_20.get_rate (), limiter_20.get_limit (), 2 * message_size);
+		ASSERT_LT (limiter_40.get_rate (), limiter_40.get_limit ()); // never dropped
+		ASSERT_GT (limiter_40.get_rate (), limiter_20.get_limit ()); // not a very strict test, but CI is too slow
 	}
 }
