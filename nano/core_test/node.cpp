@@ -3191,13 +3191,16 @@ TEST (node, bandwidth_limiter)
 	auto channel3 (node.network.udp_channels.create (node.network.endpoint ()));
 	system.deadline_set (5s);
 	bool done (false);
+	auto before_sleep = std::chrono::steady_clock::now ();
 	while (0 == node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out))
 	{
-		auto sleep_time = 1000ms / (runtime_rate / 3);
+		auto expected_sleep_time = 1000ms / (runtime_rate / 3);
+		auto sleep_time = expected_sleep_time - (std::chrono::steady_clock::now () - before_sleep - expected_sleep_time);
 		channel1->send (message);
 		channel2->send (message);
 		channel3->send (message);
 		ASSERT_NO_ERROR (system.poll ());
+		before_sleep = std::chrono::steady_clock::now ();
 		std::this_thread::sleep_for (sleep_time);
 	}
 }
