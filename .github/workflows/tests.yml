@@ -4,7 +4,7 @@ on: [push, pull_request]
 
 env:
   RELEASE: 0
-  artifact: 1
+  artifact: 0
   
 jobs:
   osx_test:
@@ -12,7 +12,7 @@ jobs:
     env:
       BOOST_ROOT: /tmp/boost
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@722adc6
       - name: Checkout Submodules
         run: git submodule update --init --recursive
       - name: Fetch Deps
@@ -23,7 +23,7 @@ jobs:
   gcc_test:
     runs-on: ubuntu-18.04
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@722adc6
       - name: Checkout Submodules
         run: git submodule update --init --recursive
       - name: Fetch Deps
@@ -34,7 +34,7 @@ jobs:
   clang_test:
     runs-on: ubuntu-18.04
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@722adc6
       - name: Checkout Submodules
         run: git submodule update --init --recursive
       - name: Fetch Deps
@@ -45,7 +45,7 @@ jobs:
   windows_test:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@722adc6
       - name: Windows Defender
         run: ci/actions/windows/disable_windows_defender.ps1
       - name: Checkout Submodules
@@ -53,6 +53,4 @@ jobs:
       - name: Fetch Deps
         run: ci/actions/windows/install_deps.ps1
       - name: Run Tests
-        env:
-          artifact: 0
         run: ci/actions/windows/build.ps1
