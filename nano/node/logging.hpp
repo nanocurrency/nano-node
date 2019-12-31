@@ -1,21 +1,39 @@
 #pragma once
 
 #include <nano/lib/errors.hpp>
-#include <nano/lib/jsonconfig.hpp>
-#include <nano/lib/logger_mt.hpp>
 
-#include <boost/filesystem.hpp>
-#include <boost/log/sources/logger.hpp>
-#include <boost/log/trivial.hpp>
-#include <boost/log/utility/setup/file.hpp>
+#include <boost/log/detail/config.hpp>
+#include <boost/shared_ptr.hpp>
 
+#include <atomic>
+#include <chrono>
 #include <cstdint>
 
 #define FATAL_LOG_PREFIX "FATAL ERROR: "
 
+namespace boost
+{
+BOOST_LOG_OPEN_NAMESPACE
+namespace sinks
+{
+	class text_file_backend;
+
+	template <class SinkBackendT>
+	class synchronous_sink;
+}
+
+BOOST_LOG_CLOSE_NAMESPACE
+
+namespace filesystem
+{
+	class path;
+}
+}
+
 namespace nano
 {
 class tomlconfig;
+class jsonconfig;
 class logging final
 {
 public:

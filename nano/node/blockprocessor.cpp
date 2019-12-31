@@ -3,12 +3,14 @@
 #include <nano/node/node.hpp>
 #include <nano/secure/blockstore.hpp>
 
+#include <boost/format.hpp>
+
 #include <cassert>
 
 std::chrono::milliseconds constexpr nano::block_processor::confirmation_request_delay;
 
 nano::block_processor::block_processor (nano::node & node_a, nano::write_database_queue & write_database_queue_a) :
-generator (node_a),
+generator (node_a.config, node_a.store, node_a.wallets, node_a.vote_processor, node_a.votes_cache, node_a.network),
 stopped (false),
 active (false),
 next_log (std::chrono::steady_clock::now ()),
@@ -73,7 +75,7 @@ void nano::block_processor::add (nano::unchecked_info const & info_a)
 			auto hash (info_a.block->hash ());
 			auto filter_hash (filter_item (hash, info_a.block->block_signature ()));
 			nano::lock_guard<std::mutex> lock (mutex);
-			if (blocks_filter.find (filter_hash) == blocks_filter.end () && rolled_back.get<1> ().find (hash) == rolled_back.get<1> ().end ())
+			if (blocks_filter.find (filter_hash) == blocks_filter.end () && rolled_back.get<tag_hash> ().find (hash) == rolled_back.get<tag_hash> ().end ())
 			{
 				if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
 				{
@@ -326,15 +328,15 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 				}
 				lock_a.lock ();
 				// Prevent rolled back blocks second insertion
-				auto inserted (rolled_back.insert (nano::rolled_hash{ std::chrono::steady_clock::now (), successor->hash () }));
+				auto inserted (rolled_back.get<tag_sequence> ().push_back (successor->hash ()));
 				if (inserted.second)
 				{
 					// Possible election winner change
-					rolled_back.get<1> ().erase (hash);
+					rolled_back.get<tag_hash> ().erase (hash);
 					// Prevent overflow
 					if (rolled_back.size () > rolled_back_max)
 					{
-						rolled_back.erase (rolled_back.begin ());
+						rolled_back.get<tag_sequence> ().pop_front ();
 					}
 				}
 				lock_a.unlock ();
@@ -377,7 +379,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	}
 	// Announce block contents to the network
 	node.network.flood_block (block_a, false);
-	if (node.config.enable_voting)
+	if (node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
 	{
 		// Announce our weighted vote to the network
 		generator.add (hash_a);

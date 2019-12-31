@@ -1,16 +1,23 @@
 #pragma once
 
-#include <nano/boost/asio.hpp>
 #include <nano/lib/locks.hpp>
-
-#include <boost/filesystem.hpp>
-#include <boost/system/error_code.hpp>
-#include <boost/thread/thread.hpp>
 
 #include <functional>
 #include <mutex>
-#include <thread>
 #include <vector>
+
+namespace boost
+{
+namespace filesystem
+{
+	class path;
+}
+
+namespace system
+{
+	class error_code;
+}
+}
 
 namespace nano
 {
@@ -93,92 +100,6 @@ void dump_crash_stacktrace ();
  * Generates the current stacktrace
  */
 std::string generate_stacktrace ();
-
-/*
- * Functions for understanding the role of the current thread
- */
-namespace thread_role
-{
-	enum class name
-	{
-		unknown,
-		io,
-		work,
-		packet_processing,
-		alarm,
-		vote_processing,
-		block_processing,
-		request_loop,
-		wallet_actions,
-		bootstrap_initiator,
-		voting,
-		signature_checking,
-		rpc_request_processor,
-		rpc_process_container,
-		work_watcher,
-		confirmation_height_processing,
-		worker
-	};
-	/*
-	 * Get/Set the identifier for the current thread
-	 */
-	nano::thread_role::name get ();
-	void set (nano::thread_role::name);
-
-	/*
-	 * Get the thread name as a string from enum
-	 */
-	std::string get_string (nano::thread_role::name);
-
-	/*
-	 * Get the current thread's role as a string
-	 */
-	std::string get_string ();
-
-	/*
-	 * Internal only, should not be called directly
-	 */
-	void set_os_name (std::string const &);
-}
-
-namespace thread_attributes
-{
-	void set (boost::thread::attributes &);
-}
-
-class thread_runner final
-{
-public:
-	thread_runner (boost::asio::io_context &, unsigned);
-	~thread_runner ();
-	/** Tells the IO context to stop processing events.*/
-	void stop_event_processing ();
-	/** Wait for IO threads to complete */
-	void join ();
-	std::vector<boost::thread> threads;
-	boost::asio::executor_work_guard<boost::asio::io_context::executor_type> io_guard;
-};
-
-class worker final
-{
-public:
-	worker ();
-	~worker ();
-	void run ();
-	void push_task (std::function<void()> func);
-	void stop ();
-
-private:
-	nano::condition_variable cv;
-	std::deque<std::function<void()>> queue;
-	std::mutex mutex;
-	bool stopped{ false };
-	std::thread thread;
-
-	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (worker &, const std::string &);
-};
-
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (worker & worker, const std::string & name);
 
 /**
  * Returns seconds passed since unix epoch (posix time)

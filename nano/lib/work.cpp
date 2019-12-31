@@ -1,5 +1,6 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/xorshift.hpp>
 

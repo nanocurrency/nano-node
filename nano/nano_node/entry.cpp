@@ -5,9 +5,10 @@
 #include <nano/node/ipc.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node.hpp>
-#include <nano/node/payment_observer_processor.hpp>
 #include <nano/node/testing.hpp>
 
+#include <boost/filesystem/operations.hpp>
+#include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
 
@@ -98,7 +99,7 @@ int main (int argc, char * const * argv)
 		auto err (nano::network_constants::set_active_network (network->second.as<std::string> ()));
 		if (err)
 		{
-			std::cerr << err.get_message () << std::endl;
+			std::cerr << nano::network_constants::active_network_err_msg << std::endl;
 			std::exit (1);
 		}
 	}
@@ -260,7 +261,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_mass_activity"))
 		{
-			nano::system system (24000, 1);
+			nano::system system (1);
 			uint32_t count (1000000);
 			system.generate_mass_activity (count, *system.nodes[0]);
 		}
@@ -497,7 +498,7 @@ int main (int argc, char * const * argv)
 			size_t num_interations (5); // 100,000 * 5 * 2 = 1,000,000 blocks
 			size_t max_blocks (2 * num_accounts * num_interations + num_accounts * 2); //  1,000,000 + 2* 100,000 = 1,200,000 blocks
 			std::cerr << boost::str (boost::format ("Starting pregenerating %1% blocks\n") % max_blocks);
-			nano::system system (24000, 1);
+			nano::system system (1);
 			nano::work_pool work (std::numeric_limits<unsigned>::max ());
 			nano::logging logging;
 			auto path (nano::unique_path ());
@@ -608,7 +609,7 @@ int main (int argc, char * const * argv)
 			size_t num_representatives (25);
 			size_t max_votes (num_elections * num_representatives); // 40,000 * 25 = 1,000,000 votes
 			std::cerr << boost::str (boost::format ("Starting pregenerating %1% votes\n") % max_votes);
-			nano::system system (24000, 1);
+			nano::system system (1);
 			nano::work_pool work (std::numeric_limits<unsigned>::max ());
 			nano::logging logging;
 			auto path (nano::unique_path ());

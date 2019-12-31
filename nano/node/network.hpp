@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nano/boost/asio.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/transport/tcp.hpp>
 #include <nano/node/transport/udp.hpp>
@@ -9,6 +8,7 @@
 
 #include <memory>
 #include <queue>
+#include <unordered_set>
 
 namespace nano
 {

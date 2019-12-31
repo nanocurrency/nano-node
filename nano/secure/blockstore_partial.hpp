@@ -2,6 +2,9 @@
 
 #include <nano/lib/rep_weights.hpp>
 #include <nano/secure/blockstore.hpp>
+#include <nano/secure/buffer.hpp>
+
+#include <crypto/cryptopp/words.h>
 
 namespace nano
 {
@@ -349,30 +352,32 @@ public:
 		return cache_mutex;
 	}
 
-	void block_del (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a) override
+	void block_del (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_type block_type_a) override
 	{
-		auto status = del (transaction_a, tables::state_blocks, hash_a);
-		release_assert (success (status) || not_found (status));
-		if (!success (status))
+		auto table = tables::state_blocks;
+		switch (block_type_a)
 		{
-			auto status = del (transaction_a, tables::send_blocks, hash_a);
-			release_assert (success (status) || not_found (status));
-			if (!success (status))
-			{
-				auto status = del (transaction_a, tables::receive_blocks, hash_a);
-				release_assert (success (status) || not_found (status));
-				if (!success (status))
-				{
-					auto status = del (transaction_a, tables::open_blocks, hash_a);
-					release_assert (success (status) || not_found (status));
-					if (!success (status))
-					{
-						auto status = del (transaction_a, tables::change_blocks, hash_a);
-						release_assert (success (status));
-					}
-				}
-			}
+			case nano::block_type::open:
+				table = tables::open_blocks;
+				break;
+			case nano::block_type::receive:
+				table = tables::receive_blocks;
+				break;
+			case nano::block_type::send:
+				table = tables::send_blocks;
+				break;
+			case nano::block_type::change:
+				table = tables::change_blocks;
+				break;
+			case nano::block_type::state:
+				table = tables::state_blocks;
+				break;
+			default:
+				assert (false);
 		}
+
+		auto status = del (transaction_a, table, hash_a);
+		release_assert (success (status));
 	}
 
 	int version_get (nano::transaction const & transaction_a) const override
@@ -765,7 +770,7 @@ protected:
 	nano::network_params network_params;
 	std::unordered_map<nano::account, std::shared_ptr<nano::vote>> vote_cache_l1;
 	std::unordered_map<nano::account, std::shared_ptr<nano::vote>> vote_cache_l2;
-	static int constexpr version{ 15 };
+	static int constexpr version{ 16 };
 
 	template <typename T>
 	std::shared_ptr<nano::block> block_random (nano::transaction const & transaction_a, tables table_a)

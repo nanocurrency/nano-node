@@ -2,6 +2,8 @@
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
 
+#include <boost/format.hpp>
+
 nano::transport::channel_tcp::channel_tcp (nano::node & node_a, std::weak_ptr<nano::socket> socket_a) :
 channel (node_a),
 socket (socket_a)
@@ -484,7 +486,13 @@ bool nano::transport::tcp_channels::node_id_handhake_sockets_empty () const
 	return node_id_handshake_sockets.empty ();
 }
 
-void nano::transport::tcp_channels::remove_node_id_handshake_socket (std::shared_ptr<nano::socket> socket_a)
+void nano::transport::tcp_channels::push_node_id_handshake_socket (std::shared_ptr<nano::socket> const & socket_a)
+{
+	nano::lock_guard<std::mutex> guard (mutex);
+	node_id_handshake_sockets.push_back (socket_a);
+}
+
+void nano::transport::tcp_channels::remove_node_id_handshake_socket (std::shared_ptr<nano::socket> const & socket_a)
 {
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	if (auto node_l = node_w.lock ())
@@ -521,7 +529,7 @@ void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a
 				}
 				std::shared_ptr<std::vector<uint8_t>> receive_buffer (std::make_shared<std::vector<uint8_t>> ());
 				receive_buffer->resize (256);
-				node_l->network.tcp_channels.node_id_handshake_sockets.push_back (socket);
+				node_l->network.tcp_channels.push_node_id_handshake_socket (socket);
 				channel->send_buffer (bytes, nano::stat::detail::node_id_handshake, [node_w, channel, endpoint_a, receive_buffer, callback_a](boost::system::error_code const & ec, size_t size_a) {
 					if (auto node_l = node_w.lock ())
 					{

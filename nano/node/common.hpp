@@ -1,9 +1,9 @@
 #pragma once
 
-#include <nano/boost/asio.hpp>
+#include <nano/boost/asio/ip/tcp.hpp>
+#include <nano/boost/asio/ip/udp.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/asio.hpp>
-#include <nano/lib/config.hpp>
 #include <nano/lib/memory.hpp>
 #include <nano/secure/common.hpp>
 
@@ -17,36 +17,19 @@ bool parse_address_port (std::string const &, boost::asio::ip::address &, uint16
 using tcp_endpoint = boost::asio::ip::tcp::endpoint;
 bool parse_endpoint (std::string const &, nano::endpoint &);
 bool parse_tcp_endpoint (std::string const &, nano::tcp_endpoint &);
+uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a, uint16_t port = 0);
 }
 
 namespace
 {
-uint64_t ip_address_hash_raw (boost::asio::ip::address const & ip_a, uint16_t port = 0)
-{
-	static nano::random_constants constants;
-	assert (ip_a.is_v6 ());
-	uint64_t result;
-	nano::uint128_union address;
-	address.bytes = ip_a.to_v6 ().to_bytes ();
-	blake2b_state state;
-	blake2b_init (&state, sizeof (result));
-	blake2b_update (&state, constants.random_128.bytes.data (), constants.random_128.bytes.size ());
-	if (port != 0)
-	{
-		blake2b_update (&state, &port, sizeof (port));
-	}
-	blake2b_update (&state, address.bytes.data (), address.bytes.size ());
-	blake2b_final (&state, &result, sizeof (result));
-	return result;
-}
 uint64_t endpoint_hash_raw (nano::endpoint const & endpoint_a)
 {
-	uint64_t result (ip_address_hash_raw (endpoint_a.address (), endpoint_a.port ()));
+	uint64_t result (nano::ip_address_hash_raw (endpoint_a.address (), endpoint_a.port ()));
 	return result;
 }
 uint64_t endpoint_hash_raw (nano::tcp_endpoint const & endpoint_a)
 {
-	uint64_t result (ip_address_hash_raw (endpoint_a.address (), endpoint_a.port ()));
+	uint64_t result (nano::ip_address_hash_raw (endpoint_a.address (), endpoint_a.port ()));
 	return result;
 }
 
@@ -91,7 +74,7 @@ struct ip_address_hash<8>
 {
 	size_t operator() (boost::asio::ip::address const & ip_address_a) const
 	{
-		return ip_address_hash_raw (ip_address_a);
+		return nano::ip_address_hash_raw (ip_address_a);
 	}
 };
 template <>
@@ -99,7 +82,7 @@ struct ip_address_hash<4>
 {
 	size_t operator() (boost::asio::ip::address const & ip_address_a) const
 	{
-		uint64_t big (ip_address_hash_raw (ip_address_a));
+		uint64_t big (nano::ip_address_hash_raw (ip_address_a));
 		uint32_t result (static_cast<uint32_t> (big) ^ static_cast<uint32_t> (big >> 32));
 		return result;
 	}
@@ -234,17 +217,9 @@ public:
 	virtual ~message () = default;
 	virtual void serialize (nano::stream &) const = 0;
 	virtual void visit (nano::message_visitor &) const = 0;
-	std::shared_ptr<std::vector<uint8_t>> to_bytes () const
-	{
-		auto bytes = std::make_shared<std::vector<uint8_t>> ();
-		nano::vectorstream stream (*bytes);
-		serialize (stream);
-		return bytes;
-	}
-	nano::shared_const_buffer to_shared_const_buffer () const
-	{
-		return shared_const_buffer (to_bytes ());
-	}
+	std::shared_ptr<std::vector<uint8_t>> to_bytes () const;
+	nano::shared_const_buffer to_shared_const_buffer () const;
+
 	nano::message_header header;
 };
 class work_pool;

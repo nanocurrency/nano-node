@@ -3,6 +3,8 @@
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
 
+#include <boost/format.hpp>
+
 nano::pull_info::pull_info (nano::hash_or_account const & account_or_head_a, nano::block_hash const & head_a, nano::block_hash const & end_a, count_t count_a, unsigned retry_limit_a) :
 account_or_head (account_or_head_a),
 head (head_a),
@@ -56,14 +58,14 @@ void nano::bulk_pull_client::request ()
 	assert (!pull.head.is_zero () || pull.retry_limit != std::numeric_limits<unsigned>::max ());
 	expected = pull.head;
 	nano::bulk_pull req;
-	if (pull.head == pull.head_original)
+	if (pull.head == pull.head_original && pull.attempts % 4 < 3)
 	{
 		// Account for new pulls
 		req.start = pull.account_or_head;
 	}
 	else
 	{
-		// Head for cached pulls
+		// Head for cached pulls or accounts with public key equal to existing block hash (25% of attempts)
 		req.start = pull.head;
 	}
 	req.end = pull.end;
@@ -850,8 +852,8 @@ std::pair<std::unique_ptr<nano::pending_key>, std::unique_ptr<nano::pending_info
 			}
 		}
 
-		result.first = std::unique_ptr<nano::pending_key> (new nano::pending_key (key));
-		result.second = std::unique_ptr<nano::pending_info> (new nano::pending_info (info));
+		result.first = std::make_unique<nano::pending_key> (key);
+		result.second = std::make_unique<nano::pending_info> (info);
 
 		break;
 	}

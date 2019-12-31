@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nano/lib/config.hpp>
 #include <nano/lib/diagnosticsconfig.hpp>
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/numbers.hpp>
@@ -11,12 +10,17 @@
 #include <nano/secure/common.hpp>
 #include <nano/secure/versioning.hpp>
 
-#include <boost/filesystem.hpp>
 #include <boost/optional.hpp>
 
-#include <thread>
-
 #include <lmdb/libraries/liblmdb/lmdb.h>
+
+namespace boost
+{
+namespace filesystem
+{
+	class path;
+}
+}
 
 namespace nano
 {
@@ -35,6 +39,8 @@ public:
 	mdb_store (nano::logger_mt &, boost::filesystem::path const &, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), int lmdb_max_dbs = 128, size_t batch_size = 512, bool backup_before_upgrade = false);
 	nano::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
 	nano::read_transaction tx_begin_read () override;
+
+	std::string vendor_get () const override;
 
 	bool block_info_get (nano::transaction const &, nano::block_hash const &, nano::block_info &) const override;
 
@@ -190,6 +196,7 @@ public:
 	int del (nano::write_transaction const & transaction_a, tables table_a, nano::mdb_val const & key_a) const;
 
 	bool copy_db (boost::filesystem::path const & destination_file) override;
+	void rebuild_db (nano::write_transaction const & transaction_a) override;
 
 	template <typename Key, typename Value>
 	nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a) const
@@ -233,6 +240,7 @@ private:
 	void upgrade_v12_to_v13 (nano::write_transaction &, size_t);
 	void upgrade_v13_to_v14 (nano::write_transaction const &);
 	void upgrade_v14_to_v15 (nano::write_transaction &);
+	void upgrade_v15_to_v16 (nano::write_transaction &);
 	void open_databases (bool &, nano::transaction const &, unsigned);
 
 	int drop (nano::write_transaction const & transaction_a, tables table_a) override;
@@ -273,4 +281,6 @@ template <>
 mdb_val::db_val (size_t size_a, void * data_a);
 template <>
 void mdb_val::convert_buffer_to_value ();
+
+extern template class block_store_partial<MDB_val, mdb_store>;
 }

@@ -1,6 +1,10 @@
+#include <nano/node/bootstrap/bootstrap_bulk_push.hpp>
+#include <nano/node/bootstrap/bootstrap_frontier.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
+
+#include <boost/format.hpp>
 
 nano::bootstrap_listener::bootstrap_listener (uint16_t port_a, nano::node & node_a) :
 node (node_a),
@@ -185,7 +189,7 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 					node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_push, nano::stat::dir::in);
 					if (is_bootstrap_connection ())
 					{
-						add_request (std::unique_ptr<nano::message> (new nano::bulk_push (header)));
+						add_request (std::make_unique<nano::bulk_push> (header));
 					}
 					break;
 				}
@@ -250,7 +254,7 @@ void nano::bootstrap_server::receive_bulk_pull_action (boost::system::error_code
 	{
 		auto error (false);
 		nano::bufferstream stream (receive_buffer->data (), size_a);
-		std::unique_ptr<nano::bulk_pull> request (new nano::bulk_pull (error, stream, header_a));
+		auto request (std::make_unique<nano::bulk_pull> (error, stream, header_a));
 		if (!error)
 		{
 			if (node->config.logging.bulk_pull_logging ())
@@ -273,7 +277,7 @@ void nano::bootstrap_server::receive_bulk_pull_account_action (boost::system::er
 		auto error (false);
 		assert (size_a == header_a.payload_length_bytes ());
 		nano::bufferstream stream (receive_buffer->data (), size_a);
-		std::unique_ptr<nano::bulk_pull_account> request (new nano::bulk_pull_account (error, stream, header_a));
+		auto request (std::make_unique<nano::bulk_pull_account> (error, stream, header_a));
 		if (!error)
 		{
 			if (node->config.logging.bulk_pull_logging ())
@@ -295,7 +299,7 @@ void nano::bootstrap_server::receive_frontier_req_action (boost::system::error_c
 	{
 		auto error (false);
 		nano::bufferstream stream (receive_buffer->data (), size_a);
-		std::unique_ptr<nano::frontier_req> request (new nano::frontier_req (error, stream, header_a));
+		auto request (std::make_unique<nano::frontier_req> (error, stream, header_a));
 		if (!error)
 		{
 			if (node->config.logging.bulk_pull_logging ())
@@ -324,7 +328,7 @@ void nano::bootstrap_server::receive_keepalive_action (boost::system::error_code
 	{
 		auto error (false);
 		nano::bufferstream stream (receive_buffer->data (), size_a);
-		std::unique_ptr<nano::keepalive> request (new nano::keepalive (error, stream, header_a));
+		auto request (std::make_unique<nano::keepalive> (error, stream, header_a));
 		if (!error)
 		{
 			if (is_realtime_connection ())
@@ -349,7 +353,7 @@ void nano::bootstrap_server::receive_publish_action (boost::system::error_code c
 	{
 		auto error (false);
 		nano::bufferstream stream (receive_buffer->data (), size_a);
-		std::unique_ptr<nano::publish> request (new nano::publish (error, stream, header_a));
+		auto request (std::make_unique<nano::publish> (error, stream, header_a));
 		if (!error)
 		{
 			if (is_realtime_connection ())
@@ -374,7 +378,7 @@ void nano::bootstrap_server::receive_confirm_req_action (boost::system::error_co
 	{
 		auto error (false);
 		nano::bufferstream stream (receive_buffer->data (), size_a);
-		std::unique_ptr<nano::confirm_req> request (new nano::confirm_req (error, stream, header_a));
+		auto request (std::make_unique<nano::confirm_req> (error, stream, header_a));
 		if (!error)
 		{
 			if (is_realtime_connection ())
@@ -396,7 +400,7 @@ void nano::bootstrap_server::receive_confirm_ack_action (boost::system::error_co
 	{
 		auto error (false);
 		nano::bufferstream stream (receive_buffer->data (), size_a);
-		std::unique_ptr<nano::confirm_ack> request (new nano::confirm_ack (error, stream, header_a));
+		auto request (std::make_unique<nano::confirm_ack> (error, stream, header_a));
 		if (!error)
 		{
 			if (is_realtime_connection ())
@@ -418,7 +422,7 @@ void nano::bootstrap_server::receive_node_id_handshake_action (boost::system::er
 	{
 		auto error (false);
 		nano::bufferstream stream (receive_buffer->data (), size_a);
-		std::unique_ptr<nano::node_id_handshake> request (new nano::node_id_handshake (error, stream, header_a));
+		auto request (std::make_unique<nano::node_id_handshake> (error, stream, header_a));
 		if (!error)
 		{
 			if (type == nano::bootstrap_server_type::undefined && !node->flags.disable_tcp_realtime)

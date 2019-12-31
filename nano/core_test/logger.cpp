@@ -1,13 +1,14 @@
 #include <nano/core_test/testutil.hpp>
+#include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/logger_mt.hpp>
 #include <nano/node/logging.hpp>
 #include <nano/secure/utility.hpp>
 
 #include <gtest/gtest.h>
 
-#include <boost/log/utility/setup/console.hpp>
-
 #include <chrono>
 #include <regex>
+#include <thread>
 
 using namespace std::chrono_literals;
 

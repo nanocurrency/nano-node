@@ -1,10 +1,9 @@
 #include <nano/core_test/testutil.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/node/socket.hpp>
 #include <nano/node/testing.hpp>
 
 #include <gtest/gtest.h>
-
-#include <boost/thread.hpp>
 
 using namespace std::chrono_literals;
 
@@ -12,7 +11,7 @@ TEST (socket, concurrent_writes)
 {
 	auto node_flags = nano::inactive_node_flag_defaults ();
 	node_flags.read_only = false;
-	nano::inactive_node inactivenode (nano::unique_path (), 24000, node_flags);
+	nano::inactive_node inactivenode (nano::unique_path (), nano::get_available_port (), node_flags);
 	auto node = inactivenode.node;
 
 	// This gives more realistic execution than using system#poll, allowing writes to

@@ -1,26 +1,18 @@
+#include <nano/boost/asio/local/stream_protocol.hpp>
+#include <nano/boost/asio/read.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/ipc.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/ipc.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node.hpp>
 
-#include <boost/array.hpp>
-#include <boost/bind.hpp>
 #include <boost/endian/conversion.hpp>
-#include <boost/polymorphic_cast.hpp>
 #include <boost/property_tree/json_parser.hpp>
-#include <boost/property_tree/ptree.hpp>
-#include <boost/thread/thread_time.hpp>
 
-#include <algorithm>
 #include <chrono>
-#include <cstdio>
-#include <fstream>
-#include <future>
-#include <iostream>
-#include <thread>
 
 using namespace boost::log;
 

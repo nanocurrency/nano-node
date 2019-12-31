@@ -2,7 +2,14 @@
 #include <nano/rpc/rpc.hpp>
 
 #include <boost/asio/ssl/context.hpp>
-#include <boost/asio/ssl/stream.hpp>
+
+namespace boost
+{
+namespace asio
+{
+	class io_context;
+}
+}
 
 namespace nano
 {
@@ -12,7 +19,7 @@ namespace nano
 class rpc_secure : public rpc
 {
 public:
-	rpc_secure (boost::asio::io_service & service_a, nano::rpc_config const & config_a, nano::rpc_handler_interface & rpc_handler_interface_a);
+	rpc_secure (boost::asio::io_context & context_a, nano::rpc_config const & config_a, nano::rpc_handler_interface & rpc_handler_interface_a);
 
 	/** Starts accepting connections */
 	void accept () override;

@@ -1,4 +1,5 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
 #include <nano/node/bootstrap/bootstrap_bulk_push.hpp>
 #include <nano/node/bootstrap/bootstrap_frontier.hpp>
@@ -7,7 +8,7 @@
 #include <nano/node/transport/tcp.hpp>
 #include <nano/node/transport/udp.hpp>
 
-#include <boost/log/trivial.hpp>
+#include <boost/format.hpp>
 
 #include <algorithm>
 
@@ -1208,7 +1209,7 @@ void nano::bootstrap_attempt::lazy_destinations_increment (nano::account const &
 		}
 		else
 		{
-			lazy_destinations.insert (nano::lazy_destinations_item{ destination_a, 1 });
+			lazy_destinations.emplace (nano::lazy_destinations_item{ destination_a, 1 });
 		}
 	}
 }
@@ -1546,7 +1547,7 @@ void nano::pulls_cache::add (nano::pull_info const & pull_a)
 		if (existing == cache.get<account_head_tag> ().end ())
 		{
 			// Insert new pull
-			auto inserted (cache.insert (nano::cached_pulls{ std::chrono::steady_clock::now (), head_512, pull_a.head }));
+			auto inserted (cache.emplace (nano::cached_pulls{ std::chrono::steady_clock::now (), head_512, pull_a.head }));
 			(void)inserted;
 			assert (inserted.second);
 		}
@@ -1593,7 +1594,7 @@ uint64_t nano::bootstrap_excluded_peers::add (nano::tcp_endpoint const & endpoin
 	if (existing == peers.get<endpoint_tag> ().end ())
 	{
 		// Insert new endpoint
-		auto inserted (peers.insert (nano::excluded_peers_item{ std::chrono::steady_clock::steady_clock::now () + exclude_time_hours, endpoint_a, 1 }));
+		auto inserted (peers.emplace (nano::excluded_peers_item{ std::chrono::steady_clock::steady_clock::now () + exclude_time_hours, endpoint_a, 1 }));
 		(void)inserted;
 		assert (inserted.second);
 		result = 1;

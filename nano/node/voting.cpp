@@ -1,10 +1,24 @@
-#include <nano/node/node.hpp>
+#include "transport/udp.hpp"
+
+#include <nano/lib/threading.hpp>
+#include <nano/node/network.hpp>
+#include <nano/node/nodeconfig.hpp>
+#include <nano/node/vote_processor.hpp>
 #include <nano/node/voting.hpp>
+#include <nano/node/wallet.hpp>
+#include <nano/secure/blockstore.hpp>
+
+#include <boost/variant/get.hpp>
 
 #include <chrono>
 
-nano::vote_generator::vote_generator (nano::node & node_a) :
-node (node_a),
+nano::vote_generator::vote_generator (nano::node_config & config_a, nano::block_store & store_a, nano::wallets & wallets_a, nano::vote_processor & vote_processor_a, nano::votes_cache & votes_cache_a, nano::network & network_a) :
+config (config_a),
+store (store_a),
+wallets (wallets_a),
+vote_processor (vote_processor_a),
+votes_cache (votes_cache_a),
+network (network_a),
 thread ([this]() { run (); })
 {
 	nano::unique_lock<std::mutex> lock (mutex);
@@ -47,11 +61,11 @@ void nano::vote_generator::send (nano::unique_lock<std::mutex> & lock_a)
 	}
 	lock_a.unlock ();
 	{
-		auto transaction (node.store.tx_begin_read ());
-		node.wallets.foreach_representative ([this, &hashes_l, &transaction](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
-			auto vote (this->node.store.vote_generate (transaction, pub_a, prv_a, hashes_l));
-			this->node.vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (this->node.network.udp_channels, this->node.network.endpoint (), this->node.network_params.protocol.protocol_version));
-			this->node.votes_cache.add (vote);
+		auto transaction (store.tx_begin_read ());
+		wallets.foreach_representative ([this, &hashes_l, &transaction](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
+			auto vote (this->store.vote_generate (transaction, pub_a, prv_a, hashes_l));
+			this->vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (this->network.udp_channels, this->network.endpoint (), this->network_params.protocol.protocol_version));
+			this->votes_cache.add (vote);
 		});
 	}
 	lock_a.lock ();
@@ -73,10 +87,10 @@ void nano::vote_generator::run ()
 		}
 		else
 		{
-			condition.wait_for (lock, node.config.vote_generator_delay, [this]() { return this->hashes.size () >= 12; });
-			if (hashes.size () >= node.config.vote_generator_threshold && hashes.size () < 12)
+			condition.wait_for (lock, config.vote_generator_delay, [this]() { return this->hashes.size () >= 12; });
+			if (hashes.size () >= config.vote_generator_threshold && hashes.size () < 12)
 			{
-				condition.wait_for (lock, node.config.vote_generator_delay, [this]() { return this->hashes.size () >= 12; });
+				condition.wait_for (lock, config.vote_generator_delay, [this]() { return this->hashes.size () >= 12; });
 			}
 			if (!hashes.empty ())
 			{
@@ -92,23 +106,23 @@ void nano::votes_cache::add (std::shared_ptr<nano::vote> const & vote_a)
 	for (auto & block : vote_a->blocks)
 	{
 		auto hash (boost::get<nano::block_hash> (block));
-		auto existing (cache.get<1> ().find (hash));
-		if (existing == cache.get<1> ().end ())
+		auto existing (cache.get<tag_hash> ().find (hash));
+		if (existing == cache.get<tag_hash> ().end ())
 		{
 			// Clean old votes
 			if (cache.size () >= network_params.voting.max_cache)
 			{
-				cache.erase (cache.begin ());
+				cache.get<tag_sequence> ().pop_front ();
 			}
 			// Insert new votes (new hash)
-			auto inserted (cache.insert (nano::cached_votes{ std::chrono::steady_clock::now (), hash, std::vector<std::shared_ptr<nano::vote>> (1, vote_a) }));
+			auto inserted (cache.get<tag_sequence> ().emplace_back (nano::cached_votes{ hash, std::vector<std::shared_ptr<nano::vote>> (1, vote_a) }));
 			(void)inserted;
 			assert (inserted.second);
 		}
 		else
 		{
 			// Insert new votes (old hash)
-			cache.get<1> ().modify (existing, [vote_a](nano::cached_votes & cache_a) {
+			cache.get<tag_hash> ().modify (existing, [vote_a](nano::cached_votes & cache_a) {
 				// Replace old vote for same representative & hash
 				bool replaced (false);
 				for (auto i (cache_a.votes.begin ()), n (cache_a.votes.end ()); i != n && !replaced; ++i)
@@ -133,8 +147,8 @@ std::vector<std::shared_ptr<nano::vote>> nano::votes_cache::find (nano::block_ha
 {
 	std::vector<std::shared_ptr<nano::vote>> result;
 	nano::lock_guard<std::mutex> lock (cache_mutex);
-	auto existing (cache.get<1> ().find (hash_a));
-	if (existing != cache.get<1> ().end ())
+	auto existing (cache.get<tag_hash> ().find (hash_a));
+	if (existing != cache.get<tag_hash> ().end ())
 	{
 		result = existing->votes;
 	}
@@ -144,7 +158,7 @@ std::vector<std::shared_ptr<nano::vote>> nano::votes_cache::find (nano::block_ha
 void nano::votes_cache::remove (nano::block_hash const & hash_a)
 {
 	nano::lock_guard<std::mutex> lock (cache_mutex);
-	cache.get<1> ().erase (hash_a);
+	cache.get<tag_hash> ().erase (hash_a);
 }
 
 namespace nano

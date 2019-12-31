@@ -39,8 +39,6 @@ public:
 	nano::tally_t tally ();
 	// Check if we have vote quorum
 	bool have_quorum (nano::tally_t const &, nano::uint128_t) const;
-	// Change our winner to agree with the network
-	void compute_rep_votes (nano::transaction const &);
 	void confirm_once (nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
 	// Confirm this block if quorum is met
 	void confirm_if_quorum ();

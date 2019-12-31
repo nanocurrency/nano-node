@@ -15,7 +15,7 @@ if [[ $(grep -rl --exclude="*asio.hpp" "asio::async_write" ./nano) ]]; then
 fi
 
 # prevent unsolicited use of std::lock_guard & std::unique_lock outside of allowed areas
-if [[ $(grep -rl --exclude={"*random_pool.cpp","*random_pool.hpp","*locks.hpp","*locks.cpp"} "std::unique_lock\|std::lock_guard\|std::condition_variable" ./nano) ]]; then
+if [[ $(grep -rl --exclude={"*random_pool.cpp","*random_pool.hpp","*random_pool_shuffle.hpp","*locks.hpp","*locks.cpp"} "std::unique_lock\|std::lock_guard\|std::condition_variable" ./nano) ]]; then
     echo "using std::unique_lock, std::lock_guard or std::condition_variable is not permitted (except in nano/lib/locks.hpp and non-nano dependent libraries). Use the nano::* versions instead"
     exit 1
 fi
@@ -61,7 +61,6 @@ cmake \
     -DCMAKE_VERBOSE_MAKEFILE=ON \
     -DBOOST_ROOT=/tmp/boost/ \
     -DQt5_DIR=${qt_dir} \
-    -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
     ${SANITIZERS} \
     ..
 

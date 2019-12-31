@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nano/boost/asio.hpp>
+#include <nano/boost/asio/write.hpp>
 
 namespace nano
 {

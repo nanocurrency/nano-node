@@ -1,7 +1,11 @@
+#include <nano/boost/asio/bind_executor.hpp>
+#include <nano/boost/asio/dispatch.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/udp.hpp>
+
+#include <boost/format.hpp>
 
 nano::transport::channel_udp::channel_udp (nano::transport::udp_channels & channels_a, nano::endpoint const & endpoint_a, uint8_t protocol_version_a) :
 channel (channels_a.node),

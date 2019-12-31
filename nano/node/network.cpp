@@ -1,8 +1,13 @@
+#include <nano/crypto_lib/random_pool_shuffle.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
+#include <nano/secure/buffer.hpp>
+
+#include <boost/format.hpp>
+#include <boost/variant/get.hpp>
 
 #include <numeric>
-#include <sstream>
 
 nano::network::network (nano::node & node_a, uint16_t port_a) :
 buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
@@ -95,9 +100,9 @@ void nano::network::send_keepalive (std::shared_ptr<nano::transport::channel> ch
 void nano::network::send_keepalive_self (std::shared_ptr<nano::transport::channel> channel_a)
 {
 	nano::keepalive message;
-	if (node.config.external_address != boost::asio::ip::address_v6{} && node.config.external_port != 0)
+	if (node.config.external_address != boost::asio::ip::address_v6{}.to_string () && node.config.external_port != 0)
 	{
-		message.peers[0] = nano::endpoint (node.config.external_address, node.config.external_port);
+		message.peers[0] = nano::endpoint (boost::asio::ip::make_address_v6 (node.config.external_address), node.config.external_port);
 	}
 	else
 	{
@@ -106,7 +111,7 @@ void nano::network::send_keepalive_self (std::shared_ptr<nano::transport::channe
 		{
 			message.peers[0] = nano::endpoint (boost::asio::ip::address_v6{}, endpoint ().port ());
 			boost::system::error_code ec;
-			auto external_v6 = boost::asio::ip::address_v6::from_string (external_address.address ().to_string (), ec);
+			auto external_v6 = boost::asio::ip::make_address_v6 (external_address.address ().to_string (), ec);
 			message.peers[1] = nano::endpoint (external_v6, external_address.port ());
 		}
 		else
@@ -137,7 +142,7 @@ template <typename T>
 bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a, T & list_a, std::shared_ptr<nano::block> block_a, bool also_publish)
 {
 	bool result (false);
-	if (node_a.config.enable_voting)
+	if (node_a.config.enable_voting && node_a.wallets.rep_counts ().voting > 0)
 	{
 		auto hash (block_a->hash ());
 		// Search in cache
@@ -291,7 +296,7 @@ void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> block_a)
 	 * if the votes for a block have not arrived in time.
 	 */
 	const size_t max_endpoints = 32;
-	random_pool::shuffle (list->begin (), list->end ());
+	nano::random_pool_shuffle (list->begin (), list->end ());
 	if (list->size () > max_endpoints)
 	{
 		list->erase (list->begin () + max_endpoints, list->end ());
@@ -453,7 +458,7 @@ public:
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::in);
 		// Don't load nodes with disabled voting
-		if (node.config.enable_voting && node.wallets.reps_count)
+		if (node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
 		{
 			if (message_a.block != nullptr)
 			{
@@ -651,7 +656,7 @@ std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list (size_
 	std::deque<std::shared_ptr<nano::transport::channel>> result;
 	tcp_channels.list (result);
 	udp_channels.list (result);
-	random_pool::shuffle (result.begin (), result.end ());
+	nano::random_pool_shuffle (result.begin (), result.end ());
 	if (result.size () > count_a)
 	{
 		result.resize (count_a, nullptr);

@@ -1,5 +1,10 @@
+#include <nano/boost/asio/bind_executor.hpp>
+#include <nano/boost/asio/dispatch.hpp>
+#include <nano/boost/asio/read.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/socket.hpp>
+
+#include <boost/format.hpp>
 
 #include <limits>
 
@@ -39,23 +44,31 @@ void nano::socket::async_connect (nano::tcp_endpoint const & endpoint_a, std::fu
 
 void nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, size_t size_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
 {
-	assert (size_a <= buffer_a->size ());
-	auto this_l (shared_from_this ());
-	if (!closed)
+	if (size_a <= buffer_a->size ())
 	{
-		start_timer ();
-		boost::asio::post (strand, boost::asio::bind_executor (strand, [buffer_a, callback_a, size_a, this_l]() {
-			boost::asio::async_read (this_l->tcp_socket, boost::asio::buffer (buffer_a->data (), size_a),
-			boost::asio::bind_executor (this_l->strand,
-			[this_l, buffer_a, callback_a](boost::system::error_code const & ec, size_t size_a) {
-				if (auto node = this_l->node.lock ())
-				{
-					node->stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::in, size_a);
-					this_l->stop_timer ();
-					callback_a (ec, size_a);
-				}
+		auto this_l (shared_from_this ());
+		if (!closed)
+		{
+			start_timer ();
+			boost::asio::post (strand, boost::asio::bind_executor (strand, [buffer_a, callback_a, size_a, this_l]() {
+				boost::asio::async_read (this_l->tcp_socket, boost::asio::buffer (buffer_a->data (), size_a),
+				boost::asio::bind_executor (this_l->strand,
+				[this_l, buffer_a, callback_a](boost::system::error_code const & ec, size_t size_a) {
+					if (auto node = this_l->node.lock ())
+					{
+						node->stats.add (nano::stat::type::traffic_tcp, nano::stat::dir::in, size_a);
+						this_l->stop_timer ();
+						callback_a (ec, size_a);
+					}
+				}));
 			}));
-		}));
+		}
+	}
+	else
+	{
+		assert (false && "nano::socket::async_read called with incorrect buffer size");
+		boost::system::error_code ec_buffer = boost::system::errc::make_error_code (boost::system::errc::no_buffer_space);
+		callback_a (ec_buffer, 0);
 	}
 }
 

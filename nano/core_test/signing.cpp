@@ -1,4 +1,5 @@
-#include <nano/node/node.hpp>
+#include <nano/node/signatures.hpp>
+#include <nano/secure/common.hpp>
 
 #include <gtest/gtest.h>
 

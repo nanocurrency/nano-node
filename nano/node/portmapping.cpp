@@ -1,6 +1,8 @@
 #include <nano/node/node.hpp>
 #include <nano/node/portmapping.hpp>
 
+#include <boost/format.hpp>
+
 #include <upnpcommands.h>
 #include <upnperrors.h>
 
@@ -205,8 +207,8 @@ nano::upnp_state::~upnp_state ()
 	if (devices)
 	{
 		freeUPNPDevlist (devices);
-		devices = nullptr;
 	}
+	FreeUPNPUrls (&urls);
 }
 
 nano::upnp_state & nano::upnp_state::operator= (nano::upnp_state && other_a)
@@ -221,6 +223,7 @@ nano::upnp_state & nano::upnp_state::operator= (nano::upnp_state && other_a)
 	}
 	devices = other_a.devices;
 	other_a.devices = nullptr;
+	FreeUPNPUrls (&urls);
 	urls = other_a.urls;
 	other_a.urls = { 0 };
 	data = other_a.data;
