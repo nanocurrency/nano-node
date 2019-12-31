@@ -1757,23 +1757,20 @@ TEST (node, rep_self_vote)
 	ASSERT_EQ (nano::process_result::progress, node0->process (*block0).code);
 	auto & active (node0->active);
 	active.start (block0);
-	nano::unique_lock<std::mutex> lock (active.mutex);
-	auto existing (active.roots.find (block0->qualified_root ()));
-	ASSERT_NE (active.roots.end (), existing);
-	auto election (existing->election);
-	lock.unlock ();
+	std::shared_ptr<nano::election> election;
+	{
+		nano::unique_lock<std::mutex> lock (active.mutex);
+		auto existing (active.roots.find (block0->qualified_root ()));
+		ASSERT_NE (active.roots.end (), existing);
+		election = existing->election;
+	}
+	node0->block_processor.generator.add (block0->hash ());
 	system.deadline_set (1s);
 	// Wait until representatives are activated & make vote
 	while (election->last_votes_size () != 3)
 	{
-		lock.lock ();
-		auto transaction (node0->store.tx_begin_read ());
-		election->compute_rep_votes (transaction);
-		lock.unlock ();
-		node0->vote_processor.flush ();
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	lock.lock ();
 	auto & rep_votes (election->last_votes);
 	ASSERT_NE (rep_votes.end (), rep_votes.find (nano::test_genesis_key.pub));
 	ASSERT_NE (rep_votes.end (), rep_votes.find (rep_big.pub));
