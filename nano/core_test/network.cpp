@@ -881,7 +881,7 @@ TEST (bandwidth_limiter, validate)
 		nano::bandwidth_limiter limiter_40 (message_size * 2 * nano::bandwidth_limiter::buffer_size);
 
 		auto start (std::chrono::steady_clock::now ());
-		auto before_sleep = start;
+		auto before_sleep = start - 28ms;
 		bool dropped (false);
 		while (start + 5s > std::chrono::steady_clock::now ())
 		{
