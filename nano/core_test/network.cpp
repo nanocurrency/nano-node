@@ -871,56 +871,47 @@ TEST (network, replace_port)
 	node1->stop ();
 }
 
+// The test must be completed in less than 1 second
 TEST (bandwidth_limiter, validate)
 {
-	size_t const full_confirm_ack (488 + 8);
+	nano::system system;
+	size_t const message_size (1024);
+	nano::bandwidth_limiter limiter_0 (0);
+	auto message_limit = 3;
+	nano::bandwidth_limiter limiter_3 (message_size * message_limit);
+	ASSERT_FALSE (limiter_0.should_drop (message_size)); // never drops
+	auto start (std::chrono::steady_clock::now ());
+	for (unsigned i = 0; i < message_limit; ++i)
 	{
-		nano::bandwidth_limiter limiter_0 (0);
-		nano::bandwidth_limiter limiter_1 (1024);
-		nano::bandwidth_limiter limiter_256 (1024 * 256);
-		nano::bandwidth_limiter limiter_1024 (1024 * 1024);
-		nano::bandwidth_limiter limiter_1536 (1024 * 1536);
-
-		auto now (std::chrono::steady_clock::now ());
-
-		while (now + 1s >= std::chrono::steady_clock::now ())
-		{
-			ASSERT_FALSE (limiter_0.should_drop (full_confirm_ack)); // will never drop
-			ASSERT_TRUE (limiter_1.should_drop (full_confirm_ack)); // always drop as message > limit / rate_buffer.size ()
-			limiter_256.should_drop (full_confirm_ack);
-			limiter_1024.should_drop (full_confirm_ack);
-			limiter_1536.should_drop (full_confirm_ack);
-			std::this_thread::sleep_for (10ms);
-		}
-		ASSERT_FALSE (limiter_0.should_drop (full_confirm_ack)); // will never drop
-		ASSERT_TRUE (limiter_1.should_drop (full_confirm_ack)); // always drop as message > limit / rate_buffer.size ()
-		ASSERT_FALSE (limiter_256.should_drop (full_confirm_ack)); // as a second has passed counter is started and nothing is dropped
-		ASSERT_FALSE (limiter_1024.should_drop (full_confirm_ack)); // as a second has passed counter is started and nothing is dropped
-		ASSERT_FALSE (limiter_1536.should_drop (full_confirm_ack)); // as a second has passed counter is started and nothing is dropped
+		limiter_3.add (message_size);
+		ASSERT_FALSE (limiter_3.should_drop (message_size));
 	}
-
+	system.deadline_set (300ms);
+	// Wait for the trended rate to catch up
+	while (limiter_3.get_rate () < limiter_3.get_limit ())
 	{
-		nano::bandwidth_limiter limiter_0 (0);
-		nano::bandwidth_limiter limiter_1 (1024);
-		nano::bandwidth_limiter limiter_256 (1024 * 256);
-		nano::bandwidth_limiter limiter_1024 (1024 * 1024);
-		nano::bandwidth_limiter limiter_1536 (1024 * 1536);
-
-		auto now (std::chrono::steady_clock::now ());
-		//trend rate for 5 sec
-		while (now + 5s >= std::chrono::steady_clock::now ())
-		{
-			ASSERT_FALSE (limiter_0.should_drop (full_confirm_ack)); // will never drop
-			ASSERT_TRUE (limiter_1.should_drop (full_confirm_ack)); // always drop as message > limit / rate_buffer.size ()
-			limiter_256.should_drop (full_confirm_ack);
-			limiter_1024.should_drop (full_confirm_ack);
-			limiter_1536.should_drop (full_confirm_ack);
-			std::this_thread::sleep_for (50ms);
-		}
-		ASSERT_EQ (limiter_0.get_rate (), 0); //should be 0 as rate is not gathered if not needed
-		ASSERT_EQ (limiter_1.get_rate (), 0); //should be 0 since nothing is small enough to pass through is tracked
-		ASSERT_EQ (limiter_256.get_rate (), full_confirm_ack); //should be 0 since nothing is small enough to pass through is tracked
-		ASSERT_EQ (limiter_1024.get_rate (), full_confirm_ack); //should be 0 since nothing is small enough to pass through is tracked
-		ASSERT_EQ (limiter_1536.get_rate (), full_confirm_ack); //should be 0 since nothing is small enough to pass through is tracked
+		// Force an update
+		limiter_3.add (0);
+		ASSERT_NO_ERROR (system.poll (10ms));
 	}
+	ASSERT_EQ (limiter_3.get_rate (), limiter_3.get_limit ());
+	ASSERT_LT (std::chrono::steady_clock::now () - 1s, start);
+	// A new message would drop
+	ASSERT_TRUE (limiter_3.should_drop (message_size));
+	// So adding it will not increase the rate
+	limiter_3.add (message_size);
+	ASSERT_EQ (limiter_3.get_rate (), limiter_3.get_limit ());
+	// Unless the message is forced (e.g. non-droppable packets)
+	limiter_3.add (message_size, true);
+	// Limiter says it should drop, but the rate will have increased
+	// Wait for the trended rate to catch up
+	while (limiter_3.get_rate () < limiter_3.get_limit () + message_size)
+	{
+		// Force an update
+		limiter_3.add (0);
+		ASSERT_NO_ERROR (system.poll (10ms));
+	}
+	ASSERT_TRUE (limiter_3.should_drop (message_size));
+	ASSERT_EQ (limiter_3.get_rate (), limiter_3.get_limit () + message_size);
+	ASSERT_LT (std::chrono::steady_clock::now () - 1s, start);
 }
