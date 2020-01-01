@@ -253,7 +253,7 @@ bool nano::bandwidth_limiter::should_drop (const size_t & message_size_a)
 	}
 	else
 	{
-		return (message_size_a > limit / buffer_size || trended_rate + message_size_a > limit);
+		return (trended_rate + message_size_a > limit);
 	}
 }
 

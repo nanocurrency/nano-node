@@ -877,43 +877,41 @@ TEST (bandwidth_limiter, validate)
 	nano::system system;
 	size_t const message_size (1024);
 	nano::bandwidth_limiter limiter_0 (0);
-	nano::bandwidth_limiter limiter_1 (message_size);
-	auto message_limit = nano::bandwidth_limiter::buffer_size;
-	nano::bandwidth_limiter limiter_20 (message_size * message_limit);
+	auto message_limit = 3;
+	nano::bandwidth_limiter limiter_3 (message_size * message_limit);
 	ASSERT_FALSE (limiter_0.should_drop (message_size)); // never drops
-	ASSERT_TRUE (limiter_1.should_drop (message_size)); // always drop as size > limit / buffer_size
 	auto start (std::chrono::steady_clock::now ());
 	for (unsigned i = 0; i < message_limit; ++i)
 	{
-		limiter_20.add (message_size);
-		ASSERT_FALSE (limiter_20.should_drop (message_size));
+		limiter_3.add (message_size);
+		ASSERT_FALSE (limiter_3.should_drop (message_size));
 	}
 	system.deadline_set (300ms);
 	// Wait for the trended rate to catch up
-	while (limiter_20.get_rate () < limiter_20.get_limit ())
+	while (limiter_3.get_rate () < limiter_3.get_limit ())
 	{
 		// Force an update
-		limiter_20.add (0);
+		limiter_3.add (0);
 		ASSERT_NO_ERROR (system.poll (10ms));
 	}
-	ASSERT_EQ (limiter_20.get_rate (), limiter_20.get_limit ());
+	ASSERT_EQ (limiter_3.get_rate (), limiter_3.get_limit ());
 	ASSERT_LT (std::chrono::steady_clock::now () - 1s, start);
 	// A new message would drop
-	ASSERT_TRUE (limiter_20.should_drop (message_size));
+	ASSERT_TRUE (limiter_3.should_drop (message_size));
 	// So adding it will not increase the rate
-	limiter_20.add (message_size);
-	ASSERT_EQ (limiter_20.get_rate (), limiter_20.get_limit ());
+	limiter_3.add (message_size);
+	ASSERT_EQ (limiter_3.get_rate (), limiter_3.get_limit ());
 	// Unless the message is forced (e.g. non-droppable packets)
-	limiter_20.add (message_size, true);
+	limiter_3.add (message_size, true);
 	// Limiter says it should drop, but the rate will have increased
 	// Wait for the trended rate to catch up
-	while (limiter_20.get_rate () < limiter_20.get_limit () + message_size)
+	while (limiter_3.get_rate () < limiter_3.get_limit () + message_size)
 	{
 		// Force an update
-		limiter_20.add (0);
+		limiter_3.add (0);
 		ASSERT_NO_ERROR (system.poll (10ms));
 	}
-	ASSERT_TRUE (limiter_20.should_drop (message_size));
-	ASSERT_EQ (limiter_20.get_rate (), limiter_20.get_limit () + message_size);
+	ASSERT_TRUE (limiter_3.should_drop (message_size));
+	ASSERT_EQ (limiter_3.get_rate (), limiter_3.get_limit () + message_size);
 	ASSERT_LT (std::chrono::steady_clock::now () - 1s, start);
 }
