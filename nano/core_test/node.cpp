@@ -3176,70 +3176,53 @@ TEST (node, bidirectional_tcp)
 	}
 }
 
+// The test must be completed in less than 1 second
 TEST (node, bandwidth_limiter)
 {
 	nano::system system;
 	nano::genesis genesis;
 	nano::publish message (genesis.open);
 	auto message_size = message.to_bytes ()->size();
+	auto message_limit = nano::bandwidth_limiter::buffer_size;
 	nano::node_config node_config (24000, system.logging);
-	node_config.bandwidth_limit = nano::bandwidth_limiter::buffer_size * message_size;
-	auto runtime_rate = 2.0;
+	node_config.bandwidth_limit = message_limit * message_size;
 	auto & node = *system.add_node (node_config);
 	auto channel1 (node.network.udp_channels.create (node.network.endpoint ()));
 	auto channel2 (node.network.udp_channels.create (node.network.endpoint ()));
-	auto channel3 (node.network.udp_channels.create (node.network.endpoint ()));
-	auto channel4 (node.network.udp_channels.create (node.network.endpoint ()));
-	auto channel5 (node.network.udp_channels.create (node.network.endpoint ()));
-	bool drop (false);
-	auto expected_sleep_time = 5 * node.network.limiter.period / runtime_rate;
-	auto next_sleep_time = expected_sleep_time;
 	auto start (std::chrono::steady_clock::now ());
-	while (!drop && start + 5s > std::chrono::steady_clock::now ())
+	for (unsigned i=0; i < message_limit; i+=2)
 	{
-		auto stamp (std::chrono::steady_clock::now ());
-		auto each_sleep_time = next_sleep_time / 5;
 		channel1->send (message);
-		std::this_thread::sleep_for (each_sleep_time);
 		channel2->send (message);
-		std::this_thread::sleep_for (each_sleep_time);
-		channel3->send (message);
-		std::this_thread::sleep_for (each_sleep_time);
-		channel4->send (message);
-		std::this_thread::sleep_for (each_sleep_time);
-		channel5->send (message);
-		std::this_thread::sleep_for (each_sleep_time);
-		next_sleep_time = expected_sleep_time - (std::chrono::steady_clock::now () - stamp - expected_sleep_time);
-		drop = node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out) > 0;
 	}
-#ifndef __APPLE__
-	ASSERT_TRUE (drop);
-#endif
-}
-
-TEST (node, bandwidth_limiter_not_droppable)
-{
-	nano::system system;
-	nano::genesis genesis;
-	nano::publish message (genesis.open);
-	auto message_size = message.to_bytes ()->size();
-	nano::node_config node_config (24000, system.logging);
-	node_config.bandwidth_limit = nano::bandwidth_limiter::buffer_size * message_size;
-	auto runtime_rate = 4.0;
-	auto & node = *system.add_node (node_config);
-	auto channel (node.network.udp_channels.create (node.network.endpoint ()));
-	auto start (std::chrono::steady_clock::now ());
-	while (start + 3s > std::chrono::steady_clock::now ())
+	ASSERT_LT (std::chrono::steady_clock::now () - 1s, start);
+	system.deadline_set (300ms);
+	// Wait for the trended rate to catch up
+	while (node.network.limiter.get_rate () < node.network.limiter.get_limit ())
 	{
-		// Mark as non-droppable
-		channel->send (message, nullptr, false);
-		std::this_thread::sleep_for (node.network.limiter.period / runtime_rate);
+		// Force an update
+		node.network.limiter.add (0);
+		ASSERT_NO_ERROR (system.poll (10ms));
 	}
-	// Ensure the rate went above the limit but there were no drops
-#ifndef __APPLE__
-	ASSERT_GT (node.network.limiter.get_rate (), node.network.limiter.get_limit ());
-#endif
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
+	ASSERT_LT (std::chrono::steady_clock::now () - 1s, start);
+	// Should be dropped and not increase the rate
+	channel1->send (message);
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
+	ASSERT_EQ (node.network.limiter.get_rate (), node.network.limiter.get_limit ());
+	// Non-droppable, increases the rate
+	channel2->send (message, nullptr, false);
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
+	system.deadline_set (300ms);
+	// Wait for the trended rate to catch up
+	while (node.network.limiter.get_rate () < node.network.limiter.get_limit () + message_size)
+	{
+		// Force an update
+		node.network.limiter.add (0);
+		ASSERT_NO_ERROR (system.poll (10ms));
+	}
+	ASSERT_EQ (node.network.limiter.get_rate (), node.network.limiter.get_limit () + message_size);
+	ASSERT_LT (std::chrono::steady_clock::now () - 1s, start);
 }
 
 TEST (active_difficulty, recalculate_work)

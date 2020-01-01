@@ -871,41 +871,49 @@ TEST (network, replace_port)
 	node1->stop ();
 }
 
+// The test must be completed in less than 1 second
 TEST (bandwidth_limiter, validate)
 {
+	nano::system system;
 	size_t const message_size (1024);
+	nano::bandwidth_limiter limiter_0 (0);
+	nano::bandwidth_limiter limiter_1 (message_size);
+	auto message_limit = nano::bandwidth_limiter::buffer_size;
+	nano::bandwidth_limiter limiter_20 (message_size * message_limit);
+	ASSERT_FALSE (limiter_0.should_drop (message_size)); // never drops
+	ASSERT_TRUE (limiter_1.should_drop (message_size)); // always drop as size > limit / buffer_size
+	auto start (std::chrono::steady_clock::now ());
+	for (unsigned i = 0; i < message_limit; ++i)
 	{
-		nano::bandwidth_limiter limiter_0 (0);
-		nano::bandwidth_limiter limiter_1 (message_size);
-		nano::bandwidth_limiter limiter_20 (message_size * nano::bandwidth_limiter::buffer_size);
-		nano::bandwidth_limiter limiter_40 (message_size * 2 * nano::bandwidth_limiter::buffer_size);
-
-		auto start (std::chrono::steady_clock::now ());
-		auto above_period = limiter_20.period / 2 + 3ms;
-		auto before_sleep = start - above_period;
-		bool dropped (false);
-		while (start + 5s > std::chrono::steady_clock::now ())
-		{
-			limiter_0.add (message_size);
-			limiter_1.add (message_size);
-			limiter_20.add (message_size);
-			limiter_40.add (message_size);
-			ASSERT_FALSE (limiter_0.should_drop (message_size)); // will never drop
-			ASSERT_TRUE (limiter_1.should_drop (message_size)); // always drop as message > limit / rate_buffer.size ()
-			dropped = dropped || limiter_20.should_drop (message_size); // should drop eventually
-			ASSERT_FALSE (limiter_40.should_drop (message_size)); // should never drop
-			// With a polling period of 50ms, this gets close to the limit of limiter_40
-			auto sleep_time (above_period - (std::chrono::steady_clock::now () - before_sleep - above_period));
-			before_sleep = std::chrono::steady_clock::now ();
-			std::this_thread::sleep_for (sleep_time);
-		}
-		ASSERT_EQ (limiter_0.get_rate (), 0); //should be 0 as rate is not gathered if not needed
-		ASSERT_EQ (limiter_1.get_rate (), 0); //should be 0 since nothing is small enough to pass through
-		ASSERT_LT (limiter_40.get_rate (), limiter_40.get_limit ()); // never dropped
-#ifndef __APPLE__
-		ASSERT_TRUE (dropped);
-		ASSERT_NEAR (limiter_20.get_rate (), limiter_20.get_limit (), 2 * message_size);
-		ASSERT_GT (limiter_40.get_rate (), limiter_20.get_limit ()); // not a very strict test, but CI is too slow
-#endif
+		limiter_20.add (message_size);
+		ASSERT_FALSE (limiter_20.should_drop (message_size));
 	}
+	system.deadline_set (300ms);
+	// Wait for the trended rate to catch up
+	while (limiter_20.get_rate () < limiter_20.get_limit ())
+	{
+		// Force an update
+		limiter_20.add (0);
+		ASSERT_NO_ERROR (system.poll (10ms));
+	}
+	ASSERT_EQ (limiter_20.get_rate (), limiter_20.get_limit ());
+	ASSERT_LT (std::chrono::steady_clock::now () - 1s, start);
+	// A new message would drop
+	ASSERT_TRUE (limiter_20.should_drop (message_size));
+	// So adding it will not increase the rate
+	limiter_20.add (message_size);
+	ASSERT_EQ (limiter_20.get_rate (), limiter_20.get_limit ());
+	// Unless the message is forced (e.g. non-droppable packets)
+	limiter_20.add (message_size, true);
+	// Limiter says it should drop, but the rate will have increased
+	// Wait for the trended rate to catch up
+	while (limiter_20.get_rate () < limiter_20.get_limit () + message_size)
+	{
+		// Force an update
+		limiter_20.add (0);
+		ASSERT_NO_ERROR (system.poll (10ms));
+	}
+	ASSERT_TRUE (limiter_20.should_drop (message_size));
+	ASSERT_EQ (limiter_20.get_rate (), limiter_20.get_limit () + message_size);
+	ASSERT_LT (std::chrono::steady_clock::now () - 1s, start);
 }
