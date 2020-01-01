@@ -44,7 +44,7 @@ run_tests() {
         TIMEOUT_TIME_ARG=""
     fi
 
-    if [ "$(date +%s)" -lt 1577836799 ]; then
+    if [ "$(date +%s)" -lt 1593561600 ]; then
         tries=(_initial_ 1 2 3 4 5 6 7 8 9)
     else
         tries=(_initial_)
