@@ -163,7 +163,7 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 		{
 			auto it = std::find_if (pending_writes.begin (), pending_writes.end (), [&hash_a](auto & conf_height_details) {
 				auto it = std::find_if (conf_height_details.block_callbacks_required.begin (), conf_height_details.block_callbacks_required.end (), [&hash_a](auto & callback_data) {
-					return callback_data.block->hash () == hash_a;
+					return callback_data.hash == hash_a;
 				});
 				return (it != conf_height_details.block_callbacks_required.end ());
 			});
@@ -332,7 +332,13 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 
 				for (auto & callback_data : pending.block_callbacks_required)
 				{
-					active.post_confirmation_height_set (transaction, callback_data.block, callback_data.sideband, callback_data.election_status_type);
+					nano::block_sideband sideband;
+					auto block = ledger.store.block_get (transaction, callback_data.hash, &sideband);
+					assert (block);
+					if (block)
+					{
+						active.post_confirmation_height_set (transaction, block, sideband, callback_data.election_status_type);
+					}
 				}
 
 				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - confirmation_height);
@@ -366,8 +372,7 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 	auto next_height = height_not_set;
 	while ((num_to_confirm > 0) && !hash.is_zero () && !stopped)
 	{
-		nano::block_sideband sideband;
-		auto block (ledger.store.block_get (transaction_a, hash, &sideband));
+		auto block (ledger.store.block_get (transaction_a, hash));
 		if (block)
 		{
 			if (!pending_confirmations.is_processing_block (hash))
@@ -375,13 +380,13 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 				auto election_status_type = active.confirm_block (transaction_a, block);
 				if (election_status_type.is_initialized ())
 				{
-					block_callbacks_required.emplace_back (block, sideband, *election_status_type);
+					block_callbacks_required.emplace_back (hash, *election_status_type);
 				}
 			}
 			else
 			{
 				// This block is the original which is having its confirmation height set on
-				block_callbacks_required.emplace_back (block, sideband, nano::election_status_type::active_confirmed_quorum);
+				block_callbacks_required.emplace_back (hash, nano::election_status_type::active_confirmed_quorum);
 			}
 
 			auto source (block->source ());
@@ -453,9 +458,8 @@ confirmed_height (confirmed_height_a), iterated_height (iterated_height_a)
 {
 }
 
-confirmation_height_processor::callback_data::callback_data (std::shared_ptr<nano::block> const & block_a, nano::block_sideband const & sideband_a, nano::election_status_type election_status_type_a) :
-block (block_a),
-sideband (sideband_a),
+confirmation_height_processor::callback_data::callback_data (nano::block_hash const & hash_a, nano::election_status_type election_status_type_a) :
+hash (hash_a),
 election_status_type (election_status_type_a)
 {
 }

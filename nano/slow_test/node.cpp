@@ -589,7 +589,7 @@ TEST (confirmation_height, long_chains)
 		node->active.next_frontier_check = std::chrono::steady_clock::now () + 7200s;
 	}
 
-	constexpr auto num_blocks = 10000;
+	constexpr auto num_blocks = 50000;
 
 	// First open the other account
 	nano::send_block send (latest, key1.pub, nano::genesis_amount - nano::Gxrb_ratio + num_blocks + 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest));
@@ -635,7 +635,7 @@ TEST (confirmation_height, long_chains)
 	// Call block confirm on the existing receive block on the genesis account which will confirm everything underneath on both accounts
 	node->block_confirm (receive1);
 
-	system.deadline_set (10s);
+	system.deadline_set (60s);
 	while (true)
 	{
 		auto transaction = node->store.tx_begin_read ();

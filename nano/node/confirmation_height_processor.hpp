@@ -58,9 +58,8 @@ private:
 	class callback_data final
 	{
 	public:
-		callback_data (std::shared_ptr<nano::block> const &, nano::block_sideband const &, nano::election_status_type);
-		std::shared_ptr<nano::block> block;
-		nano::block_sideband sideband;
+		callback_data (nano::block_hash const &, nano::election_status_type);
+		nano::block_hash hash;
 		nano::election_status_type election_status_type;
 	};
 
