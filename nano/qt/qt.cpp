@@ -894,10 +894,9 @@ std::string nano_qt::status::text ()
 	size_t unchecked (0);
 	std::string count_string;
 	{
-		auto transaction (wallet.wallet_m->wallets.node.store.tx_begin_read ());
-		auto size (wallet.wallet_m->wallets.node.store.block_count (transaction));
-		unchecked = wallet.wallet_m->wallets.node.store.unchecked_count (transaction);
-		count_string = std::to_string (size.sum ());
+		auto size (wallet.wallet_m->wallets.node.ledger.cache.block_count.load ());
+		unchecked = wallet.wallet_m->wallets.node.ledger.cache.unchecked_count;
+		count_string = std::to_string (size);
 	}
 
 	switch (*active.begin ())

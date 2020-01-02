@@ -281,7 +281,7 @@ void nano::vote_processor::calculate_weights ()
 		representatives_2.clear ();
 		representatives_3.clear ();
 		auto supply (online_reps.online_stake ());
-		auto rep_amounts = ledger.rep_weights.get_rep_amounts ();
+		auto rep_amounts = ledger.cache.rep_weights.get_rep_amounts ();
 		for (auto const & rep_amount : rep_amounts)
 		{
 			nano::account const & representative (rep_amount.first);

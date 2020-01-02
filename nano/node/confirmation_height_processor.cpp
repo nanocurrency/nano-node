@@ -338,7 +338,7 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - confirmation_height);
 				assert (pending.num_blocks_confirmed == pending.height - confirmation_height);
 				confirmation_height = pending.height;
-				ledger.cemented_count += pending.num_blocks_confirmed;
+				ledger.cache.cemented_count += pending.num_blocks_confirmed;
 				ledger.store.confirmation_height_put (transaction, pending.account, confirmation_height);
 			}
 			total_pending_write_block_count -= pending.num_blocks_confirmed;

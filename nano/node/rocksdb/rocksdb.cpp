@@ -279,7 +279,6 @@ bool nano::rocksdb_store::is_caching_counts (nano::tables table_a) const
 	switch (table_a)
 	{
 		case tables::accounts:
-		case tables::unchecked:
 		case tables::send_blocks:
 		case tables::receive_blocks:
 		case tables::open_blocks:
@@ -379,6 +378,13 @@ size_t nano::rocksdb_store::count (nano::transaction const & transaction_a, tabl
 	else if (table_a == tables::online_weight)
 	{
 		for (auto i (online_weight_begin (transaction_a)), n (online_weight_end ()); i != n; ++i)
+		{
+			++sum;
+		}
+	}
+	else if (table_a == tables::unchecked)
+	{
+		for (auto i (unchecked_begin (transaction_a)), n (unchecked_end ()); i != n; ++i)
 		{
 			++sum;
 		}

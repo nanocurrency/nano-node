@@ -265,13 +265,13 @@ TEST (node, auto_bootstrap)
 	ASSERT_TRUE (node1->ledger.block_exists (send1->hash ()));
 	// Wait block receive
 	system.deadline_set (5s);
-	while (node1->ledger.block_count_cache < 3)
+	while (node1->ledger.cache.block_count < 3)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	// Confirmation for all blocks
 	system.deadline_set (5s);
-	while (node1->ledger.cemented_count < 3)
+	while (node1->ledger.cache.cemented_count < 3)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -3054,6 +3054,7 @@ TEST (node, unchecked_cleanup)
 		auto transaction (node.store.tx_begin_read ());
 		auto unchecked_count (node.store.unchecked_count (transaction));
 		ASSERT_EQ (unchecked_count, 1);
+		ASSERT_EQ (unchecked_count, node.ledger.cache.unchecked_count);
 	}
 	std::this_thread::sleep_for (std::chrono::seconds (1));
 	node.unchecked_cleanup ();
@@ -3061,6 +3062,7 @@ TEST (node, unchecked_cleanup)
 		auto transaction (node.store.tx_begin_read ());
 		auto unchecked_count (node.store.unchecked_count (transaction));
 		ASSERT_EQ (unchecked_count, 1);
+		ASSERT_EQ (unchecked_count, node.ledger.cache.unchecked_count);
 	}
 	std::this_thread::sleep_for (std::chrono::seconds (2));
 	node.unchecked_cleanup ();
@@ -3068,6 +3070,7 @@ TEST (node, unchecked_cleanup)
 		auto transaction (node.store.tx_begin_read ());
 		auto unchecked_count (node.store.unchecked_count (transaction));
 		ASSERT_EQ (unchecked_count, 0);
+		ASSERT_EQ (unchecked_count, node.ledger.cache.unchecked_count);
 	}
 }
 
@@ -3084,11 +3087,9 @@ TEST (node, dont_write_lock_node)
 		auto store = nano::make_store (logger, path, false, true);
 		{
 			nano::genesis genesis;
-			nano::rep_weights rep_weights;
-			std::atomic<uint64_t> cemented_count{ 0 };
-			std::atomic<uint64_t> block_count_cache{ 0 };
+			nano::ledger_cache ledger_cache;
 			auto transaction (store->tx_begin_write ());
-			store->initialize (transaction, genesis, rep_weights, cemented_count, block_count_cache);
+			store->initialize (transaction, genesis, ledger_cache);
 		}
 
 		// Hold write lock open until main thread is done needing it

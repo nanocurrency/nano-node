@@ -5,6 +5,7 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/rep_weights.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/secure/epoch.hpp>
 
@@ -450,6 +451,26 @@ public:
 	node_constants node;
 	portmapping_constants portmapping;
 	bootstrap_constants bootstrap;
+};
+
+/* Holds flags for various cacheable data. For most CLI operations caching is unnecessary
+ * (e.g getting the checked block count) so it can be disabled for performance reasons. */
+class generate_cache
+{
+public:
+	bool reps = true;
+	bool cemented_count = true;
+	bool unchecked_count = true;
+};
+
+/* Holds an in-memory cache of various counts */
+class ledger_cache
+{
+public:
+	nano::rep_weights rep_weights;
+	std::atomic<uint64_t> cemented_count{ 0 };
+	std::atomic<uint64_t> block_count{ 0 };
+	std::atomic<uint64_t> unchecked_count{ 0 };
 };
 
 nano::wallet_id random_wallet_id ();

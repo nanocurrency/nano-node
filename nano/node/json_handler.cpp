@@ -1212,8 +1212,8 @@ void nano::json_handler::block_count ()
 {
 	auto transaction (node.store.tx_begin_read ());
 	response_l.put ("count", std::to_string (node.store.block_count (transaction).sum ()));
-	response_l.put ("unchecked", std::to_string (node.store.unchecked_count (transaction)));
-	response_l.put ("cemented", std::to_string (node.ledger.cemented_count));
+	response_l.put ("unchecked", std::to_string (node.ledger.cache.unchecked_count));
+	response_l.put ("cemented", std::to_string (node.ledger.cache.cemented_count));
 	response_errors ();
 }
 
@@ -1873,7 +1873,7 @@ void nano::json_handler::confirmation_info ()
 						if (i->second->hash () == ii->second.hash)
 						{
 							nano::account const & representative (ii->first);
-							auto amount (node.ledger.rep_weights.representation_get (representative));
+							auto amount (node.ledger.cache.rep_weights.representation_get (representative));
 							representatives.emplace (std::move (amount), representative);
 						}
 					}
@@ -3439,7 +3439,7 @@ void nano::json_handler::representatives ()
 	{
 		const bool sorting = request.get<bool> ("sorting", false);
 		boost::property_tree::ptree representatives;
-		auto rep_amounts = node.ledger.rep_weights.get_rep_amounts ();
+		auto rep_amounts = node.ledger.cache.rep_weights.get_rep_amounts ();
 		if (!sorting) // Simple
 		{
 			std::map<nano::account, nano::uint128_t> ordered (rep_amounts.begin (), rep_amounts.end ());
