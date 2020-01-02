@@ -1993,22 +1993,24 @@ TEST (node, rep_weight)
 	auto channel0 (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, endpoint0, node.network_params.protocol.protocol_version));
 	auto channel1 (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, endpoint1, node.network_params.protocol.protocol_version));
 	auto channel2 (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, endpoint2, node.network_params.protocol.protocol_version));
-	nano::amount amount100 (100);
-	nano::amount amount50 (50);
+	nano::amount amount_pr (150000 * nano::Mxrb_ratio);
+	nano::amount amount_non_pr (50);
 	node.network.udp_channels.insert (endpoint2, node.network_params.protocol.protocol_version);
 	node.network.udp_channels.insert (endpoint0, node.network_params.protocol.protocol_version);
 	node.network.udp_channels.insert (endpoint1, node.network_params.protocol.protocol_version);
 	nano::keypair keypair1;
 	nano::keypair keypair2;
-	node.rep_crawler.response (channel0, keypair1.pub, amount100);
-	node.rep_crawler.response (channel1, keypair2.pub, amount50);
+	node.rep_crawler.response (channel0, keypair1.pub, amount_pr);
+	node.rep_crawler.response (channel1, keypair2.pub, amount_non_pr);
 	ASSERT_EQ (2, node.rep_crawler.representative_count ());
 	// Make sure we get the rep with the most weight first
 	auto reps (node.rep_crawler.representatives (1));
 	ASSERT_EQ (1, reps.size ());
-	ASSERT_EQ (100, reps[0].weight.number ());
+	ASSERT_EQ (amount_pr, reps[0].weight.number ());
 	ASSERT_EQ (keypair1.pub, reps[0].account);
 	ASSERT_EQ (*channel0, reps[0].channel_ref ());
+	ASSERT_TRUE (node.rep_crawler.is_pr (*channel0));
+	ASSERT_FALSE (node.rep_crawler.is_pr (*channel1));
 }
 
 TEST (node, rep_remove)

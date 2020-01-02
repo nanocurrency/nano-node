@@ -119,6 +119,18 @@ void nano::rep_crawler::query (std::shared_ptr<nano::transport::channel> channel
 	query (peers);
 }
 
+bool nano::rep_crawler::is_pr (nano::transport::channel const & channel_a) const
+{
+	nano::lock_guard<std::mutex> lock (probable_reps_mutex);
+	auto existing = probable_reps.get<tag_channel_ref> ().find (channel_a);
+	bool result = false;
+	if (existing != probable_reps.get<tag_channel_ref> ().end ())
+	{
+		result = existing->weight > node.minimum_principal_weight ();
+	}
+	return result;
+}
+
 bool nano::rep_crawler::response (std::shared_ptr<nano::transport::channel> channel_a, nano::account const & rep_account_a, nano::amount const & weight_a)
 {
 	auto updated_or_inserted (false);

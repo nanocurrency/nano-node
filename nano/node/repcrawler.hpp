@@ -93,6 +93,9 @@ public:
 	/** Attempt to determine if the peer manages one or more representative accounts */
 	void query (std::shared_ptr<nano::transport::channel> channel_a);
 
+	/** Query if a peer manages a principle representative */
+	bool is_pr (nano::transport::channel const &) const;
+
 	/**
 	 * Called when a non-replay vote on a block previously sent by query() is received. This indiciates
 	 * with high probability that the endpoint is a representative node.
