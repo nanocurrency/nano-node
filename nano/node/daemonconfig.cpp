@@ -135,9 +135,7 @@ nano::error nano::daemon_config::deserialize_json (bool & upgraded_a, nano::json
 	return json.get_error ();
 }
 
-namespace nano
-{
-nano::error read_node_config_toml (boost::filesystem::path const & data_path_a, nano::daemon_config & config_a, std::vector<std::string> const & config_overrides)
+nano::error nano::read_node_config_toml (boost::filesystem::path const & data_path_a, nano::daemon_config & config_a, std::vector<std::string> const & config_overrides)
 {
 	nano::error error;
 	auto json_config_path = nano::get_config_path (data_path_a);
@@ -237,12 +235,11 @@ nano::error read_node_config_toml (boost::filesystem::path const & data_path_a, 
 	return error;
 }
 
-nano::error read_and_update_daemon_config (boost::filesystem::path const & data_path, nano::daemon_config & config_a, nano::jsonconfig & json_a)
+nano::error nano::read_and_update_daemon_config (boost::filesystem::path const & data_path, nano::daemon_config & config_a, nano::jsonconfig & json_a)
 {
 	boost::system::error_code error_chmod;
 	auto config_path = nano::get_config_path (data_path);
 	auto error (json_a.read_and_update (config_a, config_path));
 	nano::set_secure_perm_file (config_path, error_chmod);
 	return error;
-}
 }

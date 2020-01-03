@@ -64,28 +64,26 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 	});
 }
 
-namespace nano
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (rep_crawler & rep_crawler, const std::string & name)
 {
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (rep_crawler & rep_crawler, const std::string & name)
-{
-	size_t count = 0;
+	size_t count;
 	{
 		nano::lock_guard<std::mutex> guard (rep_crawler.active_mutex);
 		count = rep_crawler.active.size ();
 	}
 
 	auto sizeof_element = sizeof (decltype (rep_crawler.active)::value_type);
-	auto composite = std::make_unique<seq_con_info_composite> (name);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "active", count, sizeof_element }));
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "active", count, sizeof_element }));
 	return composite;
 }
 
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_processor & block_processor, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (block_processor & block_processor, const std::string & name)
 {
-	size_t state_blocks_count = 0;
-	size_t blocks_count = 0;
-	size_t blocks_filter_count = 0;
-	size_t forced_count = 0;
+	size_t state_blocks_count;
+	size_t blocks_count;
+	size_t blocks_filter_count;
+	size_t forced_count;
 
 	{
 		nano::lock_guard<std::mutex> guard (block_processor.mutex);
@@ -95,14 +93,13 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_processor & 
 		forced_count = block_processor.forced.size ();
 	}
 
-	auto composite = std::make_unique<seq_con_info_composite> (name);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "state_blocks", state_blocks_count, sizeof (decltype (block_processor.state_blocks)::value_type) }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "blocks", blocks_count, sizeof (decltype (block_processor.blocks)::value_type) }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "blocks_filter", blocks_filter_count, sizeof (decltype (block_processor.blocks_filter)::value_type) }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "forced", forced_count, sizeof (decltype (block_processor.forced)::value_type) }));
-	composite->add_component (collect_seq_con_info (block_processor.generator, "generator"));
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "state_blocks", state_blocks_count, sizeof (decltype (block_processor.state_blocks)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks", blocks_count, sizeof (decltype (block_processor.blocks)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks_filter", blocks_filter_count, sizeof (decltype (block_processor.blocks_filter)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "forced", forced_count, sizeof (decltype (block_processor.forced)::value_type) }));
+	composite->add_component (collect_container_info (block_processor.generator, "generator"));
 	return composite;
-}
 }
 
 nano::node::node (boost::asio::io_context & io_ctx_a, uint16_t peering_port_a, boost::filesystem::path const & application_path_a, nano::alarm & alarm_a, nano::logging const & logging_a, nano::work_pool & work_a, nano::node_flags flags_a) :
@@ -588,37 +585,32 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 	}
 }
 
-namespace nano
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (node & node, const std::string & name)
 {
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (node & node, const std::string & name)
-{
-	auto composite = std::make_unique<seq_con_info_composite> (name);
-	composite->add_component (collect_seq_con_info (node.alarm, "alarm"));
-	composite->add_component (collect_seq_con_info (node.work, "work"));
-	composite->add_component (collect_seq_con_info (node.gap_cache, "gap_cache"));
-	composite->add_component (collect_seq_con_info (node.ledger, "ledger"));
-	composite->add_component (collect_seq_con_info (node.active, "active"));
-	composite->add_component (collect_seq_con_info (node.bootstrap_initiator, "bootstrap_initiator"));
-	composite->add_component (collect_seq_con_info (node.bootstrap, "bootstrap"));
-	composite->add_component (node.network.tcp_channels.collect_seq_con_info ("tcp_channels"));
-	composite->add_component (node.network.udp_channels.collect_seq_con_info ("udp_channels"));
-	composite->add_component (node.network.syn_cookies.collect_seq_con_info ("syn_cookies"));
-	composite->add_component (collect_seq_con_info (node.observers, "observers"));
-	composite->add_component (collect_seq_con_info (node.wallets, "wallets"));
-	composite->add_component (collect_seq_con_info (node.vote_processor, "vote_processor"));
-	composite->add_component (collect_seq_con_info (node.rep_crawler, "rep_crawler"));
-	composite->add_component (collect_seq_con_info (node.block_processor, "block_processor"));
-	composite->add_component (collect_seq_con_info (node.block_arrival, "block_arrival"));
-	composite->add_component (collect_seq_con_info (node.online_reps, "online_reps"));
-	composite->add_component (collect_seq_con_info (node.votes_cache, "votes_cache"));
-	composite->add_component (collect_seq_con_info (node.block_uniquer, "block_uniquer"));
-	composite->add_component (collect_seq_con_info (node.vote_uniquer, "vote_uniquer"));
-	composite->add_component (collect_seq_con_info (node.confirmation_height_processor, "confirmation_height_processor"));
-	composite->add_component (collect_seq_con_info (node.pending_confirmation_height, "pending_confirmation_height"));
-	composite->add_component (collect_seq_con_info (node.worker, "worker"));
-	composite->add_component (collect_seq_con_info (node.distributed_work, "distributed_work"));
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (collect_container_info (node.alarm, "alarm"));
+	composite->add_component (collect_container_info (node.work, "work"));
+	composite->add_component (collect_container_info (node.gap_cache, "gap_cache"));
+	composite->add_component (collect_container_info (node.ledger, "ledger"));
+	composite->add_component (collect_container_info (node.active, "active"));
+	composite->add_component (collect_container_info (node.bootstrap_initiator, "bootstrap_initiator"));
+	composite->add_component (collect_container_info (node.bootstrap, "bootstrap"));
+	composite->add_component (collect_container_info (node.network, "network"));  
+	composite->add_component (collect_container_info (node.observers, "observers"));
+	composite->add_component (collect_container_info (node.wallets, "wallets"));
+	composite->add_component (collect_container_info (node.vote_processor, "vote_processor"));
+	composite->add_component (collect_container_info (node.rep_crawler, "rep_crawler"));
+	composite->add_component (collect_container_info (node.block_processor, "block_processor"));
+	composite->add_component (collect_container_info (node.block_arrival, "block_arrival"));
+	composite->add_component (collect_container_info (node.online_reps, "online_reps"));
+	composite->add_component (collect_container_info (node.votes_cache, "votes_cache"));
+	composite->add_component (collect_container_info (node.block_uniquer, "block_uniquer"));
+	composite->add_component (collect_container_info (node.vote_uniquer, "vote_uniquer"));
+	composite->add_component (collect_container_info (node.confirmation_height_processor, "confirmation_height_processor"));
+	composite->add_component (collect_container_info (node.pending_confirmation_height, "pending_confirmation_height"));
+	composite->add_component (collect_container_info (node.worker, "worker"));
+	composite->add_component (collect_container_info (node.distributed_work, "distributed_work"));
 	return composite;
-}
 }
 
 void nano::node::process_active (std::shared_ptr<nano::block> incoming)
@@ -1261,9 +1253,7 @@ bool nano::block_arrival::recent (nano::block_hash const & hash_a)
 	return arrival.get<tag_hash> ().find (hash_a) != arrival.get<tag_hash> ().end ();
 }
 
-namespace nano
-{
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_arrival & block_arrival, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (block_arrival & block_arrival, const std::string & name)
 {
 	size_t count = 0;
 	{
@@ -1272,10 +1262,9 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_arrival & bl
 	}
 
 	auto sizeof_element = sizeof (decltype (block_arrival.arrival)::value_type);
-	auto composite = std::make_unique<seq_con_info_composite> (name);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "arrival", count, sizeof_element }));
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "arrival", count, sizeof_element }));
 	return composite;
-}
 }
 
 std::shared_ptr<nano::node> nano::node::shared ()

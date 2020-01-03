@@ -77,10 +77,10 @@ public:
 	static std::chrono::seconds constexpr arrival_time_min = std::chrono::seconds (300);
 };
 
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_arrival & block_arrival, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (block_arrival & block_arrival, const std::string & name);
 
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (rep_crawler & rep_crawler, const std::string & name);
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_processor & block_processor, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (block_processor & block_processor, const std::string & name);
 
 class node final : public std::enable_shared_from_this<nano::node>
 {
@@ -194,7 +194,7 @@ public:
 	static double constexpr free_cutoff = 1024.0;
 };
 
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (node & node, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (node & node, const std::string & name);
 
 nano::node_flags const & inactive_node_flag_defaults ();
 

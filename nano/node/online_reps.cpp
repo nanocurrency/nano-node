@@ -86,19 +86,16 @@ std::vector<nano::account> nano::online_reps::list ()
 	return result;
 }
 
-namespace nano
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (online_reps & online_reps, const std::string & name)
 {
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (online_reps & online_reps, const std::string & name)
-{
-	size_t count = 0;
+	size_t count;
 	{
 		nano::lock_guard<std::mutex> guard (online_reps.mutex);
 		count = online_reps.reps.size ();
 	}
 
 	auto sizeof_element = sizeof (decltype (online_reps.reps)::value_type);
-	auto composite = std::make_unique<seq_con_info_composite> (name);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "arrival", count, sizeof_element }));
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "arrival", count, sizeof_element }));
 	return composite;
-}
 }

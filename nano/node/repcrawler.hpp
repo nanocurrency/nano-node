@@ -52,7 +52,7 @@ public:
  */
 class rep_crawler
 {
-	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (rep_crawler & rep_crawler, const std::string & name);
+	friend std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, const std::string & name);
 
 	// clang-format off
 	class tag_account {};
