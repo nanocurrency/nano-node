@@ -487,7 +487,13 @@ public:
 					if (!find_votes.empty ())
 					{
 						++cached_count;
-						cached_votes.insert (cached_votes.end (), find_votes.begin (), find_votes.end ());
+						for (auto const & vote : find_votes)
+						{
+							if (std::find (cached_votes.begin (), cached_votes.end (), vote) == cached_votes.end ())
+							{
+								cached_votes.push_back (vote);
+							}
+						}
 					}
 					if (!find_votes.empty () || (!root_hash.first.is_zero () && node.store.block_exists (transaction, root_hash.first)))
 					{
@@ -514,7 +520,13 @@ public:
 							if (!find_successor_votes.empty ())
 							{
 								++cached_count;
-								cached_votes.insert (cached_votes.end (), find_successor_votes.begin (), find_successor_votes.end ());
+								for (auto const & vote : find_successor_votes)
+								{
+									if (std::find (cached_votes.begin (), cached_votes.end (), vote) == cached_votes.end ())
+									{
+										cached_votes.push_back (vote);
+									}
+								}
 							}
 							blocks_bundle.push_back (successor);
 							auto successor_block (node.store.block_get (transaction, successor));

@@ -2400,6 +2400,46 @@ TEST (node, local_votes_cache)
 	ASSERT_FALSE (node.votes_cache.find (send3->hash ()).empty ());
 }
 
+TEST (node, local_votes_cache_batch)
+{
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto & node (*system.add_node (node_config));
+	ASSERT_GE (node.network_params.voting.max_cache, 2);
+	nano::genesis genesis;
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node.work_generate_blocking (genesis.hash ())));
+	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node.work_generate_blocking (send1->hash ())));
+	std::vector<std::shared_ptr<nano::state_block>> blocks{ send1, send2 };
+	std::vector<std::pair<nano::block_hash, nano::root>> batch{ { send1->hash (), send1->root () }, { send2->hash (), send2->root () } };
+	{
+		auto transaction (node.store.tx_begin_write ());
+		ASSERT_EQ (nano::process_result::progress, node.ledger.process (transaction, *send1).code);
+		ASSERT_EQ (nano::process_result::progress, node.ledger.process (transaction, *send2).code);
+	}
+	nano::confirm_req message (batch);
+	auto channel (node.network.udp_channels.create (node.network.endpoint ()));
+	// Generates and sends one vote for both hashes which is then cached
+	node.network.process_message (message, channel);
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
+	ASSERT_FALSE (node.votes_cache.find (send1->hash ()).empty ());
+	ASSERT_FALSE (node.votes_cache.find (send2->hash ()).empty ());
+	// Only one confirm_ack should be sent if all hashes are part of the same vote
+	node.network.process_message (message, channel);
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
+	// Test when votes are different
+	node.votes_cache.remove (send1->hash ());
+	node.votes_cache.remove (send2->hash ());
+	node.network.process_message (nano::confirm_req (send1->hash (), send1->root ()), channel);
+	ASSERT_EQ (3, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
+	node.network.process_message (nano::confirm_req (send2->hash (), send2->root ()), channel);
+	ASSERT_EQ (4, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
+	// There are two different votes, so both should be sent in response
+	node.network.process_message (message, channel);
+	ASSERT_EQ (6, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
+}
+
 TEST (node, local_votes_cache_generate_new_vote)
 {
 	nano::system system;
