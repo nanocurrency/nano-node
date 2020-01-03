@@ -1,5 +1,6 @@
 #include <nano/node/bootstrap/bootstrap.hpp>
 #include <nano/node/bootstrap/bootstrap_bulk_pull.hpp>
+#include <nano/node/bootstrap/bootstrap_lazy.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
 
@@ -307,13 +308,11 @@ void nano::bulk_pull_account_client::request ()
 	req.flags = nano::bulk_pull_account_flags::pending_hash_and_amount;
 	if (connection->node->config.logging.bulk_pull_logging ())
 	{
-		nano::unique_lock<std::mutex> lock (connection->attempt->mutex);
-		connection->node->logger.try_log (boost::str (boost::format ("Requesting pending for account %1% from %2%. %3% accounts in queue") % req.account.to_account () % connection->channel->to_string () % connection->attempt->wallet_accounts.size ()));
+		connection->node->logger.try_log (boost::str (boost::format ("Requesting pending for account %1% from %2%. %3% accounts in queue") % req.account.to_account () % connection->channel->to_string () % connection->attempt->wallet_size ()));
 	}
 	else if (connection->node->config.logging.network_logging () && connection->attempt->should_log ())
 	{
-		nano::unique_lock<std::mutex> lock (connection->attempt->mutex);
-		connection->node->logger.always_log (boost::str (boost::format ("%1% accounts in pull queue") % connection->attempt->wallet_accounts.size ()));
+		connection->node->logger.always_log (boost::str (boost::format ("%1% accounts in pull queue") % connection->attempt->wallet_size ()));
 	}
 	auto this_l (shared_from_this ());
 	connection->channel->send (
@@ -369,7 +368,7 @@ void nano::bulk_pull_account_client::receive_pending ()
 									auto transaction (this_l->connection->node->store.tx_begin_read ());
 									if (!this_l->connection->node->store.block_exists (transaction, pending))
 									{
-										this_l->connection->attempt->lazy_start (pending);
+										this_l->connection->node->bootstrap_initiator.bootstrap_lazy (pending, false, false);
 									}
 								}
 							}

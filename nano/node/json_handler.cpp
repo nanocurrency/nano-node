@@ -1,6 +1,7 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/json_error_response.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/node/bootstrap/bootstrap_lazy.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/json_handler.hpp>
@@ -1657,53 +1658,69 @@ void nano::json_handler::bootstrap_lazy ()
  */
 void nano::json_handler::bootstrap_status ()
 {
+	boost::property_tree::ptree legacy;
 	auto attempt (node.bootstrap_initiator.current_attempt ());
 	if (attempt != nullptr)
 	{
 		nano::lock_guard<std::mutex> lock (attempt->mutex);
-		nano::lock_guard<std::mutex> lazy_lock (attempt->lazy_mutex);
-		response_l.put ("clients", std::to_string (attempt->clients.size ()));
-		response_l.put ("pulls", std::to_string (attempt->pulls.size ()));
-		response_l.put ("pulling", std::to_string (attempt->pulling));
-		response_l.put ("connections", std::to_string (attempt->connections));
-		response_l.put ("idle", std::to_string (attempt->idle.size ()));
-		response_l.put ("target_connections", std::to_string (attempt->target_connections (attempt->pulls.size ())));
-		response_l.put ("total_blocks", std::to_string (attempt->total_blocks));
-		response_l.put ("runs_count", std::to_string (attempt->runs_count));
-		response_l.put ("requeued_pulls", std::to_string (attempt->requeued_pulls));
-		response_l.put ("frontiers_received", static_cast<bool> (attempt->frontiers_received));
-		response_l.put ("frontiers_confirmed", static_cast<bool> (attempt->frontiers_confirmed));
-		std::string mode_text;
-		if (attempt->mode == nano::bootstrap_mode::legacy)
-		{
-			mode_text = "legacy";
-		}
-		else if (attempt->mode == nano::bootstrap_mode::lazy)
-		{
-			mode_text = "lazy";
-		}
-		else if (attempt->mode == nano::bootstrap_mode::wallet_lazy)
-		{
-			mode_text = "wallet_lazy";
-		}
-		response_l.put ("mode", mode_text);
-		response_l.put ("lazy_blocks", std::to_string (attempt->lazy_blocks.size ()));
-		response_l.put ("lazy_state_backlog", std::to_string (attempt->lazy_state_backlog.size ()));
-		response_l.put ("lazy_balances", std::to_string (attempt->lazy_balances.size ()));
-		response_l.put ("lazy_destinations", std::to_string (attempt->lazy_destinations.size ()));
-		response_l.put ("lazy_undefined_links", std::to_string (attempt->lazy_undefined_links.size ()));
-		response_l.put ("lazy_pulls", std::to_string (attempt->lazy_pulls.size ()));
-		response_l.put ("lazy_keys", std::to_string (attempt->lazy_keys.size ()));
-		if (!attempt->lazy_keys.empty ())
-		{
-			response_l.put ("lazy_key_1", (*(attempt->lazy_keys.begin ())).to_string ());
-		}
-		response_l.put ("duration", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt->attempt_start).count ());
+		assert (attempt->mode == nano::bootstrap_mode::legacy);
+		legacy.put ("clients", std::to_string (attempt->clients.size ()));
+		legacy.put ("pulls", std::to_string (attempt->pulls.size ()));
+		legacy.put ("pulling", std::to_string (attempt->pulling));
+		legacy.put ("connections", std::to_string (attempt->connections));
+		legacy.put ("idle", std::to_string (attempt->idle.size ()));
+		legacy.put ("target_connections", std::to_string (attempt->target_connections (attempt->pulls.size ())));
+		legacy.put ("total_blocks", std::to_string (attempt->total_blocks));
+		legacy.put ("requeued_pulls", std::to_string (attempt->requeued_pulls));
+		legacy.put ("frontiers_received", static_cast<bool> (attempt->frontiers_received));
+		legacy.put ("frontiers_confirmed", static_cast<bool> (attempt->frontiers_confirmed));
+		legacy.put ("duration", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt->attempt_start).count ());
 	}
-	else
+	response_l.add_child ("legacy", legacy);
+	boost::property_tree::ptree lazy;
+	auto lazy_attempt (node.bootstrap_initiator.current_lazy_attempt ());
+	if (lazy_attempt != nullptr)
 	{
-		response_l.put ("active", "0");
+		nano::lock_guard<std::mutex> lock (lazy_attempt->mutex);
+		nano::lock_guard<std::mutex> lazy_lock (lazy_attempt->lazy_mutex);
+		assert (lazy_attempt->mode == nano::bootstrap_mode::lazy);
+		lazy.put ("clients", std::to_string (lazy_attempt->clients.size ()));
+		lazy.put ("pulls", std::to_string (lazy_attempt->pulls.size ()));
+		lazy.put ("pulling", std::to_string (lazy_attempt->pulling));
+		lazy.put ("connections", std::to_string (lazy_attempt->connections));
+		lazy.put ("idle", std::to_string (lazy_attempt->idle.size ()));
+		lazy.put ("target_connections", std::to_string (lazy_attempt->target_connections (lazy_attempt->pulls.size ())));
+		lazy.put ("total_blocks", std::to_string (lazy_attempt->total_blocks));
+		lazy.put ("requeued_pulls", std::to_string (lazy_attempt->requeued_pulls));
+		lazy.put ("lazy_blocks", std::to_string (lazy_attempt->lazy_blocks.size ()));
+		lazy.put ("lazy_state_backlog", std::to_string (lazy_attempt->lazy_state_backlog.size ()));
+		lazy.put ("lazy_balances", std::to_string (lazy_attempt->lazy_balances.size ()));
+		lazy.put ("lazy_destinations", std::to_string (lazy_attempt->lazy_destinations.size ()));
+		lazy.put ("lazy_undefined_links", std::to_string (lazy_attempt->lazy_undefined_links.size ()));
+		lazy.put ("lazy_pulls", std::to_string (lazy_attempt->lazy_pulls.size ()));
+		lazy.put ("lazy_keys", std::to_string (lazy_attempt->lazy_keys.size ()));
+		if (!lazy_attempt->lazy_keys.empty ())
+		{
+			lazy.put ("lazy_key_1", (*(lazy_attempt->lazy_keys.begin ())).to_string ());
+		}
+		lazy.put ("duration", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - lazy_attempt->attempt_start).count ());
 	}
+	response_l.add_child ("lazy", lazy);
+	boost::property_tree::ptree wallet;
+	auto wallet_attempt (node.bootstrap_initiator.current_wallet_attempt ());
+	if (wallet_attempt != nullptr)
+	{
+		nano::lock_guard<std::mutex> lock (wallet_attempt->mutex);
+		assert (wallet_attempt->mode == nano::bootstrap_mode::wallet_lazy);
+		wallet.put ("clients", std::to_string (wallet_attempt->clients.size ()));
+		wallet.put ("pulling", std::to_string (wallet_attempt->pulling));
+		wallet.put ("connections", std::to_string (wallet_attempt->connections));
+		wallet.put ("idle", std::to_string (wallet_attempt->idle.size ()));
+		wallet.put ("target_connections", std::to_string (wallet_attempt->target_connections (wallet_attempt->pulls.size ())));
+		wallet.put ("wallet_accounts", std::to_string (wallet_attempt->wallet_accounts.size ()));
+		wallet.put ("duration", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - wallet_attempt->attempt_start).count ());
+	}
+	response_l.add_child ("wallet", wallet);
 	response_errors ();
 }
 
