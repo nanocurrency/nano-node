@@ -75,7 +75,7 @@ void nano::block_processor::add (nano::unchecked_info const & info_a)
 			auto hash (info_a.block->hash ());
 			auto filter_hash (filter_item (hash, info_a.block->block_signature ()));
 			nano::lock_guard<std::mutex> lock (mutex);
-			if (blocks_filter.find (filter_hash) == blocks_filter.end () && rolled_back.get<tag_hash> ().find (hash) == rolled_back.get<tag_hash> ().end ())
+			if (blocks_filter.find (filter_hash) == blocks_filter.end ())
 			{
 				if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
 				{
@@ -326,26 +326,16 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 				{
 					node.logger.always_log (boost::str (boost::format ("%1% blocks rolled back") % rollback_list.size ()));
 				}
-				lock_a.lock ();
-				// Prevent rolled back blocks second insertion
-				auto inserted (rolled_back.get<tag_sequence> ().push_back (successor->hash ()));
-				if (inserted.second)
-				{
-					// Possible election winner change
-					rolled_back.get<tag_hash> ().erase (hash);
-					// Prevent overflow
-					if (rolled_back.size () > rolled_back_max)
-					{
-						rolled_back.get<tag_sequence> ().pop_front ();
-					}
-				}
-				lock_a.unlock ();
 				// Deleting from votes cache & wallet work watcher, stop active transaction
 				for (auto & i : rollback_list)
 				{
 					node.votes_cache.remove (i->hash ());
 					node.wallets.watcher->remove (i);
-					node.active.erase (*i);
+					// Stop all rolled back active transactions except initial
+					if (i->hash () != successor->hash ())
+					{
+						node.active.erase (*i);
+					}
 				}
 			}
 		}
