@@ -626,7 +626,7 @@ private:
 	std::unique_ptr<nano::write_transaction_impl> impl;
 };
 
-class rep_weights;
+class ledger_cache;
 
 /**
  * Manages block storage and iteration
@@ -635,7 +635,7 @@ class block_store
 {
 public:
 	virtual ~block_store () = default;
-	virtual void initialize (nano::write_transaction const &, nano::genesis const &, nano::rep_weights &, std::atomic<uint64_t> &, std::atomic<uint64_t> &) = 0;
+	virtual void initialize (nano::write_transaction const &, nano::genesis const &, nano::ledger_cache &) = 0;
 	virtual void block_put (nano::write_transaction const &, nano::block_hash const &, nano::block const &, nano::block_sideband const &) = 0;
 	virtual nano::block_hash block_successor (nano::transaction const &, nano::block_hash const &) const = 0;
 	virtual void block_successor_clear (nano::write_transaction const &, nano::block_hash const &) = 0;
@@ -683,9 +683,9 @@ public:
 	virtual void unchecked_put (nano::write_transaction const &, nano::block_hash const &, std::shared_ptr<nano::block> const &) = 0;
 	virtual std::vector<nano::unchecked_info> unchecked_get (nano::transaction const &, nano::block_hash const &) = 0;
 	virtual void unchecked_del (nano::write_transaction const &, nano::unchecked_key const &) = 0;
-	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const &) = 0;
-	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const &, nano::unchecked_key const &) = 0;
-	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_end () = 0;
+	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const &) const = 0;
+	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const &, nano::unchecked_key const &) const = 0;
+	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_end () const = 0;
 	virtual size_t unchecked_count (nano::transaction const &) = 0;
 
 	// Return latest vote for an account from store
