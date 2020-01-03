@@ -554,6 +554,12 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 		std::shared_ptr<nano::block> ledger_block (ledger.forked_block (transaction_a, *block_a));
 		if (ledger_block && !block_confirmed_or_being_confirmed (transaction_a, ledger_block->hash ()))
 		{
+			// Clear inactive votes cache for forks
+			{
+				nano::lock_guard<std::mutex> lock (active.mutex);
+				active.erase_inactive_votes_cache (ledger_block->hash ());
+				active.erase_inactive_votes_cache (block_a->hash ());
+			}
 			std::weak_ptr<nano::node> this_w (shared_from_this ());
 			if (!active.start (ledger_block, false, [this_w, root](std::shared_ptr<nano::block>) {
 				    if (auto this_l = this_w.lock ())
