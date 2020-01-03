@@ -581,6 +581,10 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 				logger.always_log (boost::str (boost::format ("Resolving fork between our block: %1% and block %2% both with root %3%") % ledger_block->hash ().to_string () % block_a->hash ().to_string () % block_a->root ().to_string ()));
 				network.broadcast_confirm_req (ledger_block);
 			}
+			else
+			{
+				active.update_difficulty (block_a);
+			}
 		}
 	}
 }

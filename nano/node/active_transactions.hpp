@@ -105,7 +105,10 @@ public:
 	// Is the root of this block in the roots container
 	bool active (nano::block const &);
 	bool active (nano::qualified_root const &);
-	void update_difficulty (std::shared_ptr<nano::block>, boost::optional<nano::write_transaction const &> = boost::none);
+	// Attempts a restart of an election if it was recently dropped
+	// Returns false if the election was restarted
+	bool restart (std::shared_ptr<nano::block>, nano::write_transaction const &);
+	void update_difficulty (std::shared_ptr<nano::block>);
 	void adjust_difficulty (nano::block_hash const &);
 	void update_active_difficulty (nano::unique_lock<std::mutex> &);
 	uint64_t active_difficulty ();
@@ -154,6 +157,7 @@ public:
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> pending_conf_height;
 	void clear_block (nano::block_hash const & hash_a);
 	void add_dropped_elections_cache (nano::qualified_root const &);
+	void erase_dropped_elections_cache (nano::qualified_root const &);
 	std::chrono::steady_clock::time_point find_dropped_elections_cache (nano::qualified_root const &);
 	size_t dropped_elections_cache_size ();
 

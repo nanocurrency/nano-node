@@ -632,6 +632,11 @@ TEST (active_transactions, restart_dropped)
 		auto block (node.store.block_get (node.store.tx_begin_read (), send1->hash ()));
 		ASSERT_EQ (work2, block->block_work ());
 	}
+	// Removed from the dropped elections cache
+	{
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		ASSERT_EQ (std::chrono::steady_clock::time_point{}, node.active.find_dropped_elections_cache (send1->qualified_root ()));
+	}
 	// Drop election
 	node.active.erase (*send2);
 	// Try to restart election with the lower difficulty block, should not work since the block as lower work

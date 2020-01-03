@@ -3225,6 +3225,52 @@ TEST (node, bandwidth_limiter)
 	ASSERT_LT (std::chrono::steady_clock::now () - 1s, start);
 }
 
+TEST (node, election_difficulty_update)
+{
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.enable_voting = false;
+	auto & node = *system.add_node (node_config);
+	nano::genesis genesis;
+	nano::keypair key;
+	uint64_t difficulty_send1, difficulty_fork1;
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 10 * nano::xrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	nano::work_validate (*send1, &difficulty_send1);
+	auto fork1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 20 * nano::xrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash (), difficulty_send1 + 1)));
+	nano::work_validate (*fork1, &difficulty_fork1);
+	ASSERT_GT (difficulty_fork1, difficulty_send1);
+	node.process_active (send1);
+	node.block_processor.flush ();
+	auto root (send1->qualified_root ());
+	ASSERT_EQ (1, node.active.size ());
+	{
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		auto existing (node.active.roots.find (root));
+		ASSERT_EQ (difficulty_send1, existing->difficulty);
+	}
+	// Fork difficulty update
+	node.process_active (fork1);
+	node.block_processor.flush ();
+	ASSERT_EQ (1, node.active.size ());
+	{
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		auto existing (node.active.roots.find (root));
+		ASSERT_EQ (difficulty_fork1, existing->difficulty);
+	}
+	// Old block difficulty update
+	node.work_generate_blocking (*fork1, difficulty_fork1 + 1);
+	uint64_t difficulty_fork1_updated;
+	nano::work_validate (*fork1, &difficulty_fork1_updated);
+	node.process_active (fork1);
+	node.block_processor.flush ();
+	ASSERT_EQ (1, node.active.size ());
+	{
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		auto existing (node.active.roots.find (root));
+		ASSERT_EQ (difficulty_fork1_updated, existing->difficulty);
+	}
+}
+
 TEST (active_difficulty, recalculate_work)
 {
 	nano::system system;

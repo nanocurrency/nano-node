@@ -449,7 +449,10 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			{
 				queue_unchecked (transaction_a, hash);
 			}
-			node.active.update_difficulty (info_a.block, transaction_a);
+			if (node.active.restart (info_a.block, transaction_a))
+			{
+				node.active.update_difficulty (info_a.block);
+			}
 			break;
 		}
 		case nano::process_result::bad_signature:
