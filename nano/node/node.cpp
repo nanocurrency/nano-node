@@ -122,7 +122,7 @@ store (*store_impl),
 wallets_store_impl (std::make_unique<nano::mdb_wallets_store> (application_path_a / "wallets.ldb", config_a.lmdb_max_dbs)),
 wallets_store (*wallets_store_impl),
 gap_cache (*this),
-ledger (store, stats, flags_a.cache_representative_weights_from_frontiers),
+ledger (store, stats, flags_a.generate_cache),
 checker (config.signature_checker_threads),
 network (*this, config.peering_port),
 bootstrap_initiator (*this),
@@ -392,7 +392,7 @@ startup_time (std::chrono::steady_clock::now ())
 			release_assert (!flags.read_only);
 			auto transaction (store.tx_begin_write ());
 			// Store was empty meaning we just created it, add the genesis block
-			store.initialize (transaction, genesis, ledger.rep_weights, ledger.cemented_count, ledger.block_count_cache);
+			store.initialize (transaction, genesis, ledger.cache);
 		}
 
 		if (!ledger.block_exists (genesis.hash ()))
@@ -424,7 +424,7 @@ startup_time (std::chrono::steady_clock::now ())
 			if (!nano::try_read (weight_stream, block_height))
 			{
 				auto max_blocks = (uint64_t)block_height.number ();
-				use_bootstrap_weight = ledger.block_count_cache < max_blocks;
+				use_bootstrap_weight = ledger.cache.block_count < max_blocks;
 				if (use_bootstrap_weight)
 				{
 					ledger.bootstrap_weight_max_blocks = max_blocks;
@@ -905,7 +905,7 @@ void nano::node::unchecked_cleanup ()
 	auto attempt (bootstrap_initiator.current_attempt ());
 	bool long_attempt (attempt != nullptr && std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt->attempt_start).count () > config.unchecked_cutoff_time.count ());
 	// Collect old unchecked keys
-	if (!flags.disable_unchecked_cleanup && ledger.block_count_cache >= ledger.bootstrap_weight_max_blocks && !long_attempt)
+	if (!flags.disable_unchecked_cleanup && ledger.cache.block_count >= ledger.bootstrap_weight_max_blocks && !long_attempt)
 	{
 		auto now (nano::seconds_since_epoch ());
 		auto transaction (store.tx_begin_read ());
@@ -934,6 +934,7 @@ void nano::node::unchecked_cleanup ()
 			auto key (cleaning_list.front ());
 			cleaning_list.pop_front ();
 			store.unchecked_del (transaction, key);
+			--ledger.cache.unchecked_count;
 		}
 	}
 }
@@ -1361,8 +1362,9 @@ nano::node_flags const & nano::inactive_node_flag_defaults ()
 	static nano::node_flags node_flags;
 	node_flags.inactive_node = true;
 	node_flags.read_only = true;
-	node_flags.cache_representative_weights_from_frontiers = false;
-	node_flags.cache_cemented_count_from_frontiers = false;
+	node_flags.generate_cache.reps = false;
+	node_flags.generate_cache.cemented_count = false;
+	node_flags.generate_cache.unchecked_count = false;
 	return node_flags;
 }
 

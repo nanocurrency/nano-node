@@ -27,17 +27,17 @@ public:
 	 * If using a different store version than the latest then you may need
 	 * to modify some of the objects in the store to be appropriate for the version before an upgrade.
 	 */
-	void initialize (nano::write_transaction const & transaction_a, nano::genesis const & genesis_a, nano::rep_weights & rep_weights, std::atomic<uint64_t> & cemented_count, std::atomic<uint64_t> & block_count_cache) override
+	void initialize (nano::write_transaction const & transaction_a, nano::genesis const & genesis_a, nano::ledger_cache & ledge_cache_a) override
 	{
 		auto hash_l (genesis_a.hash ());
 		assert (latest_begin (transaction_a) == latest_end ());
 		nano::block_sideband sideband (nano::block_type::open, network_params.ledger.genesis_account, 0, network_params.ledger.genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0);
 		block_put (transaction_a, hash_l, *genesis_a.open, sideband);
-		++block_count_cache;
+		++ledge_cache_a.block_count;
 		confirmation_height_put (transaction_a, network_params.ledger.genesis_account, 1);
-		++cemented_count;
+		++ledge_cache_a.cemented_count;
 		account_put (transaction_a, network_params.ledger.genesis_account, { hash_l, network_params.ledger.genesis_account, genesis_a.open->hash (), std::numeric_limits<nano::uint128_t>::max (), nano::seconds_since_epoch (), 1, nano::epoch::epoch_0 });
-		rep_weights.representation_put (network_params.ledger.genesis_account, std::numeric_limits<nano::uint128_t>::max ());
+		ledge_cache_a.rep_weights.representation_put (network_params.ledger.genesis_account, std::numeric_limits<nano::uint128_t>::max ());
 		frontier_put (transaction_a, hash_l, network_params.ledger.genesis_account);
 	}
 
@@ -312,7 +312,7 @@ public:
 		return result;
 	}
 
-	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_end () override
+	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_end () const override
 	{
 		return nano::store_iterator<nano::unchecked_key, nano::unchecked_info> (nullptr);
 	}
@@ -726,12 +726,12 @@ public:
 		return make_iterator<nano::pending_key, nano::pending_info> (transaction_a, tables::pending);
 	}
 
-	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const & transaction_a) override
+	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const & transaction_a) const override
 	{
 		return make_iterator<nano::unchecked_key, nano::unchecked_info> (transaction_a, tables::unchecked);
 	}
 
-	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const & transaction_a, nano::unchecked_key const & key_a) override
+	nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const & transaction_a, nano::unchecked_key const & key_a) const override
 	{
 		return make_iterator<nano::unchecked_key, nano::unchecked_info> (transaction_a, tables::unchecked, nano::db_val<Val> (key_a));
 	}
