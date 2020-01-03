@@ -12,6 +12,7 @@
 nano::network::network (nano::node & node_a, uint16_t port_a) :
 buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
 resolver (node_a.io_ctx),
+limiter (node_a.config.bandwidth_limit),
 node (node_a),
 udp_channels (node_a, port_a),
 tcp_channels (node_a),

@@ -121,7 +121,7 @@ void release_assert_internal (bool check, const char * check_expr, const char * 
 	std::cerr << backtrace_str << std::endl;
 
 	// "abort" at the end of this function will go into any signal handlers (the daemon ones will generate a stack trace and load memory address files on non-Windows systems).
-	// As there is no async-signal-safe way to generate stacktraces on Windows so must be done before aborting
+	// As there is no async-signal-safe way to generate stacktraces on Windows it must be done before aborting
 #ifdef _WIN32
 	{
 		// Try construct the stacktrace dump in the same folder as the the running executable, otherwise use the current directory.

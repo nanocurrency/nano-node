@@ -23,17 +23,6 @@ stopped (false)
 	update_dependent ();
 }
 
-void nano::election::compute_rep_votes (nano::transaction const & transaction_a)
-{
-	if (node.config.enable_voting)
-	{
-		node.wallets.foreach_representative ([this, &transaction_a](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
-			auto vote (this->node.store.vote_generate (transaction_a, pub_a, prv_a, status.winner));
-			this->node.vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (this->node.network.udp_channels, this->node.network.endpoint (), this->node.network_params.protocol.protocol_version));
-		});
-	}
-}
-
 void nano::election::confirm_once (nano::election_status_type type_a)
 {
 	assert (!node.active.mutex.try_lock ());
@@ -298,6 +287,7 @@ void nano::election::clear_blocks ()
 		(void)erased;
 		// clear_blocks () can be called in active_transactions::publish () before blocks insertion if election was confirmed
 		assert (erased == 1 || confirmed);
+		node.active.erase_inactive_votes_cache (hash);
 		// Notify observers about dropped elections & blocks lost confirmed elections
 		if (stopped || hash != winner_hash)
 		{

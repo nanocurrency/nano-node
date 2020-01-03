@@ -84,7 +84,6 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (bl
 	size_t blocks_count;
 	size_t blocks_filter_count;
 	size_t forced_count;
-	size_t rolled_back_count;
 
 	{
 		nano::lock_guard<std::mutex> guard (block_processor.mutex);
@@ -92,7 +91,6 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (bl
 		blocks_count = block_processor.blocks.size ();
 		blocks_filter_count = block_processor.blocks_filter.size ();
 		forced_count = block_processor.forced.size ();
-		rolled_back_count = block_processor.rolled_back.size ();
 	}
 
 	auto composite = std::make_unique<container_info_composite> (name);
@@ -100,7 +98,6 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (bl
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks", blocks_count, sizeof (decltype (block_processor.blocks)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks_filter", blocks_filter_count, sizeof (decltype (block_processor.blocks_filter)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "forced", forced_count, sizeof (decltype (block_processor.forced)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "rolled_back", rolled_back_count, sizeof (decltype (block_processor.rolled_back)::value_type) }));
 	composite->add_component (collect_container_info (block_processor.generator, "generator"));
 	return composite;
 }
@@ -554,6 +551,12 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 		std::shared_ptr<nano::block> ledger_block (ledger.forked_block (transaction_a, *block_a));
 		if (ledger_block && !block_confirmed_or_being_confirmed (transaction_a, ledger_block->hash ()))
 		{
+			// Clear inactive votes cache for forks
+			{
+				nano::lock_guard<std::mutex> lock (active.mutex);
+				active.erase_inactive_votes_cache (ledger_block->hash ());
+				active.erase_inactive_votes_cache (block_a->hash ());
+			}
 			std::weak_ptr<nano::node> this_w (shared_from_this ());
 			if (!active.start (ledger_block, false, [this_w, root](std::shared_ptr<nano::block>) {
 				    if (auto this_l = this_w.lock ())

@@ -1126,6 +1126,15 @@ nano::gap_information nano::active_transactions::find_inactive_votes_cache (nano
 	}
 }
 
+void nano::active_transactions::erase_inactive_votes_cache (nano::block_hash const & hash_a)
+{
+	auto existing (inactive_votes_cache.get<nano::gap_cache::tag_hash> ().find (hash_a));
+	if (existing != inactive_votes_cache.get<nano::gap_cache::tag_hash> ().end ())
+	{
+		inactive_votes_cache.get<nano::gap_cache::tag_hash> ().erase (existing);
+	}
+}
+
 size_t nano::active_transactions::dropped_elections_cache_size ()
 {
 	nano::lock_guard<std::mutex> guard (mutex);
