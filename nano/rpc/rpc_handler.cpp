@@ -87,8 +87,11 @@ void nano::rpc_handler::process_request ()
 				else if (action == "process")
 				{
 					auto force = request.get_optional<bool> ("force");
+					auto is_forced = force.is_initialized () && *force;
+					// watch_work if uninitialized is defaulted to true.
 					auto watch_work = request.get_optional<bool> ("watch_work");
-					if (((force.is_initialized () && *force) || (watch_work.is_initialized () && !*watch_work)) && !rpc_config.enable_control)
+					auto is_watching_work = (watch_work.is_initialized () && *watch_work) || !watch_work.is_initialized ();
+					if ((is_forced || is_watching_work) && !rpc_config.enable_control)
 					{
 						json_error_response (response, rpc_control_disabled_ec.message ());
 						error = true;

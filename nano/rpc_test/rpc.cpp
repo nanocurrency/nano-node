@@ -1797,7 +1797,7 @@ TEST (rpc, process_block_with_work_watcher)
 	rpc.start ();
 	boost::property_tree::ptree request;
 	request.put ("action", "process");
-	request.put ("work_watcher", true);
+	request.put ("watch_work", true);
 	std::string json;
 	send->serialize_json (json);
 	request.put ("block", json);
@@ -1834,6 +1834,46 @@ TEST (rpc, process_block_with_work_watcher)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_GT (updated_difficulty, difficulty1);
+
+	// Try without enable_control which watch_work requires if set to true
+	{
+		nano::rpc_config rpc_config (nano::get_available_port (), false);
+		rpc_config.rpc_process.ipc_port = node1.config.ipc_config.transport_tcp.port;
+		nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+		nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+		rpc.start ();
+		boost::property_tree::ptree request;
+		request.put ("action", "process");
+		request.put ("watch_work", true);
+		std::string json;
+		send->serialize_json (json);
+		request.put ("block", json);
+		{
+			test_response response (request, rpc.config.port, system.io_ctx);
+			system.deadline_set (5s);
+			while (response.status == 0)
+			{
+				ASSERT_NO_ERROR (system.poll ());
+			}
+			ASSERT_EQ (200, response.status);
+			std::error_code ec (nano::error_rpc::rpc_control_disabled);
+			ASSERT_EQ (ec.message (), response.json.get<std::string> ("error"));
+		}
+
+		// Check no enable_control error message is present when not watching work
+		request.put ("watch_work", false);
+		{
+			test_response response (request, rpc.config.port, system.io_ctx);
+			system.deadline_set (5s);
+			while (response.status == 0)
+			{
+				ASSERT_NO_ERROR (system.poll ());
+			}
+			ASSERT_EQ (200, response.status);
+			std::error_code ec (nano::error_rpc::rpc_control_disabled);
+			ASSERT_NE (ec.message (), response.json.get<std::string> ("error"));
+		}
+	}
 }
 
 TEST (rpc, process_block_no_work)
