@@ -205,16 +205,12 @@ TEST (node, node_receive_quorum)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	auto done (false);
-	while (!done)
 	{
-		{
-			nano::lock_guard<std::mutex> guard (system.nodes[0]->active.mutex);
-			auto info (system.nodes[0]->active.roots.find (nano::qualified_root (previous, previous)));
-			ASSERT_NE (system.nodes[0]->active.roots.end (), info);
-			done = info->election->confirmation_request_count > 2;
-		}
-		ASSERT_NO_ERROR (system.poll ());
+		nano::lock_guard<std::mutex> guard (system.nodes[0]->active.mutex);
+		auto info (system.nodes[0]->active.roots.find (nano::qualified_root (previous, previous)));
+		ASSERT_NE (system.nodes[0]->active.roots.end (), info);
+		ASSERT_FALSE (info->election->confirmed);
+		ASSERT_EQ (1, info->election->last_votes.size ());
 	}
 	nano::system system2 (1);
 	system2.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
@@ -2334,18 +2330,11 @@ TEST (node, confirm_quorum)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	auto done (false);
-	while (!done)
-	{
-		ASSERT_FALSE (system.nodes[0]->active.empty ());
-		{
-			nano::lock_guard<std::mutex> guard (system.nodes[0]->active.mutex);
-			auto info (system.nodes[0]->active.roots.find (nano::qualified_root (send1->hash (), send1->hash ())));
-			ASSERT_NE (system.nodes[0]->active.roots.end (), info);
-			done = info->election->confirmation_request_count > 2;
-		}
-		ASSERT_NO_ERROR (system.poll ());
-	}
+	nano::lock_guard<std::mutex> guard (system.nodes[0]->active.mutex);
+	auto info (system.nodes[0]->active.roots.find (nano::qualified_root (send1->hash (), send1->hash ())));
+	ASSERT_NE (system.nodes[0]->active.roots.end (), info);
+	ASSERT_FALSE (info->election->confirmed);
+	ASSERT_EQ (1, info->election->last_votes.size ());
 	ASSERT_EQ (0, system.nodes[0]->balance (nano::test_genesis_key.pub));
 }
 
@@ -2556,8 +2545,8 @@ TEST (node, vote_by_hash_bundle)
 	nano::genesis genesis;
 	for (int i = 1; i <= 200; i++)
 	{
-		auto send (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, std::numeric_limits<nano::uint128_t>::max () - (system.nodes[0]->config.receive_minimum.number () * i), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
-		system.nodes[0]->block_confirm (send);
+		nano::block_hash hash (i);
+		system.nodes [0]->block_processor.generator.add (hash);
 	}
 
 	// Verify that bundling occurs. While reaching 12 should be common on most hardware in release mode,
