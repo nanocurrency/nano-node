@@ -100,7 +100,7 @@ void nano::bootstrap_attempt_lazy::lazy_start (nano::hash_or_account const & has
 	nano::lock_guard<std::mutex> lazy_lock (lazy_mutex);
 	// Add start blocks, limit 1024 (4k with disabled legacy bootstrap)
 	size_t max_keys (node->flags.disable_legacy_bootstrap ? 4 * 1024 : 1024);
-	if (lazy_keys.size () < max_keys && lazy_keys.find (hash_or_account_a) == lazy_keys.end () && lazy_blocks.find (hash_or_account_a) == lazy_blocks.end ())
+	if (lazy_keys.size () < max_keys && lazy_keys.find (hash_or_account_a) == lazy_keys.end () && !lazy_blocks_processed (hash_or_account_a))
 	{
 		lazy_keys.insert (hash_or_account_a);
 		lazy_pulls.emplace_back (hash_or_account_a, confirmed ? std::numeric_limits<unsigned>::max () : node->network_params.bootstrap.lazy_retry_limit);
@@ -111,7 +111,7 @@ void nano::bootstrap_attempt_lazy::lazy_add (nano::hash_or_account const & hash_
 {
 	// Add only unknown blocks
 	assert (!lazy_mutex.try_lock ());
-	if (lazy_blocks.find (hash_or_account_a) == lazy_blocks.end ())
+	if (!lazy_blocks_processed (hash_or_account_a))
 	{
 		lazy_pulls.emplace_back (hash_or_account_a, retry_limit);
 	}
@@ -121,10 +121,9 @@ void nano::bootstrap_attempt_lazy::lazy_requeue (nano::block_hash const & hash_a
 {
 	nano::unique_lock<std::mutex> lazy_lock (lazy_mutex);
 	// Add only known blocks
-	auto existing (lazy_blocks.find (hash_a));
-	if (existing != lazy_blocks.end ())
+	if (lazy_blocks_processed (hash_a))
 	{
-		lazy_blocks.erase (existing);
+		lazy_blocks_erase (hash_a);
 		lazy_lock.unlock ();
 		requeue_pull_lazy (nano::pull_info (hash_a, hash_a, previous_a, static_cast<nano::pull_info::count_t> (1), confirmed_a ? std::numeric_limits<unsigned>::max () : node->network_params.bootstrap.lazy_destinations_retry_limit));
 	}
@@ -159,7 +158,7 @@ void nano::bootstrap_attempt_lazy::lazy_pull_flush ()
 		{
 			auto const & pull_start (lazy_pulls.front ());
 			// Recheck if block was already processed
-			if (lazy_blocks.find (pull_start.first) == lazy_blocks.end () && !node->store.block_exists (transaction, pull_start.first))
+			if (!lazy_blocks_processed (pull_start.first) && !node->store.block_exists (transaction, pull_start.first))
 			{
 				pulls.emplace_back (pull_start.first, pull_start.first, nano::block_hash (0), batch_count, pull_start.second);
 				++count;
@@ -301,7 +300,7 @@ bool nano::bootstrap_attempt_lazy::process_block_lazy (std::shared_ptr<nano::blo
 	auto hash (block_a->hash ());
 	nano::unique_lock<std::mutex> lazy_lock (lazy_mutex);
 	// Processing new blocks
-	if (lazy_blocks.find (hash) == lazy_blocks.end ())
+	if (!lazy_blocks_processed (hash))
 	{
 		// Search for new dependencies
 		if (!block_a->source ().is_zero () && !node->ledger.block_exists (block_a->source ()) && block_a->source () != node->network_params.ledger.genesis_account)
@@ -320,8 +319,7 @@ bool nano::bootstrap_attempt_lazy::process_block_lazy (std::shared_ptr<nano::blo
 				lazy_destinations_increment (block_l->hashables.destination);
 			}
 		}
-		lazy_blocks.insert (hash);
-		++lazy_blocks_count;
+		lazy_blocks_insert (hash);
 		// Adding lazy balances for first processed block in pull
 		if (pull_blocks == 0 && (block_a->type () == nano::block_type::state || block_a->type () == nano::block_type::send))
 		{
@@ -354,7 +352,7 @@ void nano::bootstrap_attempt_lazy::lazy_block_state (std::shared_ptr<nano::block
 		nano::uint128_t balance (block_l->hashables.balance.number ());
 		auto const & link (block_l->hashables.link);
 		// If link is not epoch link or 0. And if block from link is unknown
-		if (!link.is_zero () && !node->ledger.is_epoch_link (link) && lazy_blocks.find (link) == lazy_blocks.end () && !node->store.block_exists (transaction, link))
+		if (!link.is_zero () && !node->ledger.is_epoch_link (link) && !lazy_blocks_processed (link) && !node->store.block_exists (transaction, link))
 		{
 			auto const & previous (block_l->hashables.previous);
 			// If state block previous is 0 then source block required
@@ -375,7 +373,7 @@ void nano::bootstrap_attempt_lazy::lazy_block_state (std::shared_ptr<nano::block
 				}
 			}
 			// Search balance of already processed previous blocks
-			else if (lazy_blocks.find (previous) != lazy_blocks.end ())
+			else if (lazy_blocks_processed (previous))
 			{
 				auto previous_balance (lazy_balances.find (previous));
 				if (previous_balance != lazy_balances.end ())
@@ -489,11 +487,36 @@ void nano::bootstrap_attempt_lazy::lazy_destinations_flush ()
 	}
 }
 
+void nano::bootstrap_attempt_lazy::lazy_blocks_insert (nano::block_hash const & hash_a)
+{
+	assert (!lazy_mutex.try_lock ());
+	auto inserted (lazy_blocks.insert (std::hash<::nano::block_hash> () (hash_a)));
+	if (inserted.second)
+	{
+		++lazy_blocks_count;
+	}
+}
+
+void nano::bootstrap_attempt_lazy::lazy_blocks_erase (nano::block_hash const & hash_a)
+{
+	assert (!lazy_mutex.try_lock ());
+	auto erased (lazy_blocks.erase (std::hash<::nano::block_hash> () (hash_a)));
+	if (erased)
+	{
+		--lazy_blocks_count;
+	}
+}
+
+bool nano::bootstrap_attempt_lazy::lazy_blocks_processed (nano::block_hash const & hash_a)
+{
+	return lazy_blocks.find (std::hash<::nano::block_hash> () (hash_a)) != lazy_blocks.end ();
+}
+
 bool nano::bootstrap_attempt_lazy::lazy_processed_or_exists (nano::block_hash const & hash_a)
 {
 	bool result (false);
 	nano::unique_lock<std::mutex> lazy_lock (lazy_mutex);
-	if (lazy_blocks.find (hash_a) != lazy_blocks.end ())
+	if (lazy_blocks_processed (hash_a))
 	{
 		result = true;
 	}

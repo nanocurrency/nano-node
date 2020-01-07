@@ -63,10 +63,13 @@ public:
 	void lazy_backlog_cleanup ();
 	void lazy_destinations_increment (nano::account const &);
 	void lazy_destinations_flush ();
+	void lazy_blocks_insert (nano::block_hash const &);
+	void lazy_blocks_erase (nano::block_hash const &);
+	bool lazy_blocks_processed (nano::block_hash const &);
 	bool lazy_processed_or_exists (nano::block_hash const &);
 	void requeue_pending (nano::account const &) override;
 	size_t wallet_size () override;
-	std::unordered_set<nano::block_hash> lazy_blocks;
+	std::unordered_set<size_t> lazy_blocks;
 	std::unordered_map<nano::block_hash, nano::lazy_state_backlog_item> lazy_state_backlog;
 	std::unordered_set<nano::block_hash> lazy_undefined_links;
 	std::unordered_map<nano::block_hash, nano::uint128_t> lazy_balances;
