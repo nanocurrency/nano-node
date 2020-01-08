@@ -218,6 +218,7 @@ bool nano::election::publish (std::shared_ptr<nano::block> block_a)
 			if (blocks.find (block_a->hash ()) == blocks.end ())
 			{
 				blocks.insert (std::make_pair (block_a->hash (), block_a));
+				insert_inactive_votes_cache (block_a->hash ());
 				confirm_if_quorum ();
 				node.network.flood_block (block_a, false);
 			}
@@ -296,13 +297,12 @@ void nano::election::clear_blocks ()
 	}
 }
 
-void nano::election::insert_inactive_votes_cache ()
+void nano::election::insert_inactive_votes_cache (nano::block_hash const & hash_a)
 {
-	auto winner_hash (status.winner->hash ());
-	auto cache (node.active.find_inactive_votes_cache (winner_hash));
+	auto cache (node.active.find_inactive_votes_cache (hash_a));
 	for (auto & rep : cache.voters)
 	{
-		auto inserted (last_votes.emplace (rep, nano::vote_info{ std::chrono::steady_clock::time_point::min (), 0, winner_hash }));
+		auto inserted (last_votes.emplace (rep, nano::vote_info{ std::chrono::steady_clock::time_point::min (), 0, hash_a }));
 		if (inserted.second)
 		{
 			node.stats.inc (nano::stat::type::election, nano::stat::detail::vote_cached);

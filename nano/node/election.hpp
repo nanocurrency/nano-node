@@ -67,7 +67,7 @@ public:
 	void update_dependent ();
 	void clear_dependent ();
 	void clear_blocks ();
-	void insert_inactive_votes_cache ();
+	void insert_inactive_votes_cache (nano::block_hash const &);
 	void stop ();
 	nano::node & node;
 	std::unordered_map<nano::account, nano::vote_info> last_votes;
