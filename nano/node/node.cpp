@@ -551,32 +551,26 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 		std::shared_ptr<nano::block> ledger_block (ledger.forked_block (transaction_a, *block_a));
 		if (ledger_block && !block_confirmed_or_being_confirmed (transaction_a, ledger_block->hash ()))
 		{
-			// Clear inactive votes cache for forks
-			{
-				nano::lock_guard<std::mutex> lock (active.mutex);
-				active.erase_inactive_votes_cache (ledger_block->hash ());
-				active.erase_inactive_votes_cache (block_a->hash ());
-			}
 			std::weak_ptr<nano::node> this_w (shared_from_this ());
 			if (!active.start (ledger_block, false, [this_w, root](std::shared_ptr<nano::block>) {
-				    if (auto this_l = this_w.lock ())
-				    {
-					    auto attempt (this_l->bootstrap_initiator.current_attempt ());
-					    if (attempt && attempt->mode == nano::bootstrap_mode::legacy)
-					    {
-						    auto transaction (this_l->store.tx_begin_read ());
-						    auto account (this_l->ledger.store.frontier_get (transaction, root));
-						    if (!account.is_zero ())
-						    {
-							    attempt->requeue_pull (nano::pull_info (account, root, root));
-						    }
-						    else if (this_l->ledger.store.account_exists (transaction, root))
-						    {
-							    attempt->requeue_pull (nano::pull_info (root, nano::block_hash (0), nano::block_hash (0)));
-						    }
-					    }
-				    }
-			    }))
+					if (auto this_l = this_w.lock ())
+					{
+						auto attempt (this_l->bootstrap_initiator.current_attempt ());
+						if (attempt && attempt->mode == nano::bootstrap_mode::legacy)
+						{
+							auto transaction (this_l->store.tx_begin_read ());
+							auto account (this_l->ledger.store.frontier_get (transaction, root));
+							if (!account.is_zero ())
+							{
+								attempt->requeue_pull (nano::pull_info (account, root, root));
+							}
+							else if (this_l->ledger.store.account_exists (transaction, root))
+							{
+								attempt->requeue_pull (nano::pull_info (root, nano::block_hash (0), nano::block_hash (0)));
+							}
+						}
+					}
+				}))
 			{
 				logger.always_log (boost::str (boost::format ("Resolving fork between our block: %1% and block %2% both with root %3%") % ledger_block->hash ().to_string () % block_a->hash ().to_string () % block_a->root ().to_string ()));
 				network.broadcast_confirm_req (ledger_block);

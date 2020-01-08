@@ -411,6 +411,37 @@ TEST (active_transactions, inactive_votes_cache)
 	ASSERT_EQ (1, system.nodes[0]->stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
 }
 
+TEST (active_transactions, inactive_votes_cache_fork)
+{
+	nano::system system (1);
+	nano::block_hash latest (system.nodes[0]->latest (nano::test_genesis_key.pub));
+	nano::keypair key;
+	auto send1 (std::make_shared<nano::send_block> (latest, key.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest)));
+	auto send2 (std::make_shared<nano::send_block> (latest, key.pub, nano::genesis_amount - 200, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest)));
+	auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, std::vector<nano::block_hash> (1, send1->hash ())));
+	system.nodes[0]->vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, system.nodes[0]->network.endpoint (), system.nodes[0]->network_params.protocol.protocol_version));
+	auto channel1 (system.nodes [0]->network.udp_channels.create (system.nodes [0]->network.endpoint ()));
+	system.deadline_set (5s);
+	while (system.nodes[0]->active.inactive_votes_cache_size () != 1)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	system.nodes[0]->network.process_message (nano::publish (send2), channel1);
+	system.nodes[0]->block_processor.flush ();
+	ASSERT_NE (nullptr, system.nodes[0]->block (send2->hash ()));
+	system.nodes[0]->network.process_message (nano::publish (send1), channel1);
+	system.nodes[0]->block_processor.flush ();
+	bool confirmed (false);
+	system.deadline_set (5s);
+	while (!confirmed)
+	{
+		auto transaction (system.nodes[0]->store.tx_begin_read ());
+		confirmed = system.nodes[0]->block (send1->hash ()) != nullptr && system.nodes[0]->ledger.block_confirmed (transaction, send1->hash ());
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (1, system.nodes[0]->stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
+}
+
 TEST (active_transactions, inactive_votes_cache_existing_vote)
 {
 	nano::system system;
@@ -457,7 +488,7 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 	// Attempt to change vote with inactive_votes_cache
 	node->active.add_inactive_votes_cache (send->hash (), key.pub);
 	ASSERT_EQ (1, node->active.find_inactive_votes_cache (send->hash ()).voters.size ());
-	election->insert_inactive_votes_cache ();
+	election->insert_inactive_votes_cache (send->hash ());
 	// Check that election data is not changed
 	ASSERT_EQ (2, election->last_votes.size ());
 	auto last_vote2 (election->last_votes[key.pub]);
