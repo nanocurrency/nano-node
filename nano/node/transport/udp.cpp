@@ -484,7 +484,7 @@ public:
 void nano::transport::udp_channels::receive_action (nano::message_buffer * data_a)
 {
 	auto allowed_sender (true);
-	if (data_a->endpoint == local_endpoint)
+	if (data_a->endpoint == get_local_endpoint ())
 	{
 		allowed_sender = false;
 	}
