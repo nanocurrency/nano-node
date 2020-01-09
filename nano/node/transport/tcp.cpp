@@ -313,6 +313,7 @@ void nano::transport::tcp_channels::process_keepalive (nano::keepalive const & m
 			nano::endpoint new_endpoint (endpoint_a.address (), peer0.port ());
 			node.network.merge_peer (new_endpoint);
 		}
+		// Used to store sender endpoint information only
 		auto udp_channel (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, nano::transport::map_tcp_to_endpoint (endpoint_a), node.network_params.protocol.protocol_version));
 		node.network.process_message (message_a, udp_channel);
 	}
@@ -356,7 +357,7 @@ bool nano::transport::tcp_channels::reachout (nano::endpoint const & endpoint_a)
 	auto tcp_endpoint (nano::transport::map_endpoint_to_tcp (endpoint_a));
 	// Don't overload single IP
 	bool error = max_ip_connections (tcp_endpoint);
-	if (!error)
+	if (!error && !node.flags.disable_tcp_realtime)
 	{
 		// Don't keepalive to nodes that already sent us something
 		error |= find_channel (tcp_endpoint) != nullptr;

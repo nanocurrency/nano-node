@@ -14,6 +14,8 @@ port (port_a)
 
 void nano::bootstrap_listener::start ()
 {
+	nano::lock_guard<std::mutex> lock (mutex);
+	on = true;
 	listening_socket = std::make_shared<nano::server_socket> (node.shared (), boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::any (), port), node.config.tcp_incoming_connections_max);
 	boost::system::error_code ec;
 	listening_socket->start (ec);
@@ -47,6 +49,7 @@ void nano::bootstrap_listener::stop ()
 	}
 	if (listening_socket)
 	{
+		nano::lock_guard<std::mutex> lock (mutex);
 		listening_socket->close ();
 		listening_socket = nullptr;
 	}
@@ -70,7 +73,15 @@ void nano::bootstrap_listener::accept_action (boost::system::error_code const & 
 
 boost::asio::ip::tcp::endpoint nano::bootstrap_listener::endpoint ()
 {
-	return boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), listening_socket->listening_port ());
+	nano::lock_guard<std::mutex> lock (mutex);
+	if (on && listening_socket)
+	{
+		return boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), listening_socket->listening_port ());
+	}
+	else
+	{
+		return boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), 0);
+	}
 }
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (bootstrap_listener & bootstrap_listener, const std::string & name)

@@ -71,26 +71,39 @@ std::string nano::transport::channel_udp::to_string () const
 
 nano::transport::udp_channels::udp_channels (nano::node & node_a, uint16_t port_a) :
 node (node_a),
-strand (node_a.io_ctx.get_executor ()),
-socket (node_a.io_ctx, nano::endpoint (boost::asio::ip::address_v6::any (), port_a))
+strand (node_a.io_ctx.get_executor ())
 {
-	boost::system::error_code ec;
-	auto port (socket.local_endpoint (ec).port ());
-	if (ec)
+	if (!node.flags.disable_udp)
 	{
-		node.logger.try_log ("Unable to retrieve port: ", ec.message ());
+		socket = std::make_shared<boost::asio::ip::udp::socket> (node_a.io_ctx, nano::endpoint (boost::asio::ip::address_v6::any (), port_a));
+		boost::system::error_code ec;
+		auto port (socket->local_endpoint (ec).port ());
+		if (ec)
+		{
+			node.logger.try_log ("Unable to retrieve port: ", ec.message ());
+		}
+		local_endpoint = nano::endpoint (boost::asio::ip::address_v6::loopback (), port);
 	}
-
-	local_endpoint = nano::endpoint (boost::asio::ip::address_v6::loopback (), port);
+	else
+	{
+		local_endpoint = nano::endpoint (boost::asio::ip::address_v6::loopback (), 0);
+	}
 }
 
 void nano::transport::udp_channels::send (nano::shared_const_buffer const & buffer_a, nano::endpoint endpoint_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a)
 {
-	boost::asio::post (strand,
-	[this, buffer_a, endpoint_a, callback_a]() {
-		this->socket.async_send_to (buffer_a, endpoint_a,
-		boost::asio::bind_executor (strand, callback_a));
-	});
+	if (!this->stopped)
+	{
+		assert (this->socket != nullptr);
+		boost::asio::post (strand,
+		[this, buffer_a, endpoint_a, callback_a]() {
+			if (this->socket != nullptr)
+			{
+				this->socket->async_send_to (buffer_a, endpoint_a,
+				boost::asio::bind_executor (strand, callback_a));
+			}
+		});
+	}
 }
 
 std::shared_ptr<nano::transport::channel_udp> nano::transport::udp_channels::insert (nano::endpoint const & endpoint_a, unsigned network_version_a)
@@ -264,43 +277,48 @@ nano::tcp_endpoint nano::transport::udp_channels::bootstrap_peer (uint8_t connec
 
 void nano::transport::udp_channels::receive ()
 {
-	if (node.config.logging.network_packet_logging ())
+	if (!stopped)
 	{
-		node.logger.try_log ("Receiving packet");
-	}
-
-	auto data (node.network.buffer_container.allocate ());
-
-	socket.async_receive_from (boost::asio::buffer (data->buffer, nano::network::buffer_size), data->endpoint,
-	boost::asio::bind_executor (strand,
-	[this, data](boost::system::error_code const & error, std::size_t size_a) {
-		if (!error && !stopped)
+		release_assert (socket != nullptr);
+		if (node.config.logging.network_packet_logging ())
 		{
-			data->size = size_a;
-			this->node.network.buffer_container.enqueue (data);
-			this->receive ();
+			node.logger.try_log ("Receiving packet");
 		}
-		else
-		{
-			this->node.network.buffer_container.release (data);
-			if (error)
+
+		auto data (node.network.buffer_container.allocate ());
+
+		socket->async_receive_from (boost::asio::buffer (data->buffer, nano::network::buffer_size), data->endpoint,
+		boost::asio::bind_executor (strand,
+		[this, data](boost::system::error_code const & error, std::size_t size_a) {
+			if (!error && !stopped)
 			{
-				if (this->node.config.logging.network_logging ())
+				data->size = size_a;
+				this->node.network.buffer_container.enqueue (data);
+				this->receive ();
+			}
+			else
+			{
+				this->node.network.buffer_container.release (data);
+				if (error)
 				{
-					this->node.logger.try_log (boost::str (boost::format ("UDP Receive error: %1%") % error.message ()));
+					if (this->node.config.logging.network_logging ())
+					{
+						this->node.logger.try_log (boost::str (boost::format ("UDP Receive error: %1%") % error.message ()));
+					}
+				}
+				if (!stopped)
+				{
+					this->node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() { this->receive (); });
 				}
 			}
-			if (!stopped)
-			{
-				this->node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() { this->receive (); });
-			}
-		}
-	}));
+		}));
+	}
 }
 
 void nano::transport::udp_channels::start ()
 {
-	for (size_t i = 0; i < node.config.io_threads; ++i)
+	assert (!node.flags.disable_udp);
+	for (size_t i = 0; i < node.config.io_threads && !stopped; ++i)
 	{
 		boost::asio::post (strand, [this]() {
 			receive ();
@@ -312,31 +330,37 @@ void nano::transport::udp_channels::start ()
 void nano::transport::udp_channels::stop ()
 {
 	// Stop and invalidate local endpoint
-	stopped = true;
-	nano::lock_guard<std::mutex> lock (mutex);
-	local_endpoint = nano::endpoint (boost::asio::ip::address_v6::loopback (), 0);
+	if (!stopped.exchange (true))
+	{
+		nano::lock_guard<std::mutex> lock (mutex);
+		local_endpoint = nano::endpoint (boost::asio::ip::address_v6::loopback (), 0);
 
-	// On test-net, close directly to avoid address-reuse issues. On livenet, close
-	// through the strand as multiple IO threads may access the socket.
-	// clang-format off
-	if (node.network_params.network.is_test_network ())
-	{
-		this->close_socket ();
-	}
-	else
-	{
-		boost::asio::dispatch (strand, [this] {
+		// On test-net, close directly to avoid address-reuse issues. On livenet, close
+		// through the strand as multiple IO threads may access the socket.
+		// clang-format off
+		if (node.network_params.network.is_test_network ())
+		{
 			this->close_socket ();
-		});
+		}
+		else
+		{
+			boost::asio::dispatch (strand, [this] {
+				this->close_socket ();
+			});
+		}
+		// clang-format on
 	}
-	// clang-format on
 }
 
 void nano::transport::udp_channels::close_socket ()
 {
-	boost::system::error_code ignored;
-	this->socket.close (ignored);
-	this->local_endpoint = nano::endpoint (boost::asio::ip::address_v6::loopback (), 0);
+	if (this->socket != nullptr)
+	{
+		boost::system::error_code ignored;
+		this->socket->close (ignored);
+		this->local_endpoint = nano::endpoint (boost::asio::ip::address_v6::loopback (), 0);
+		this->socket = nullptr;
+	}
 }
 
 nano::endpoint nano::transport::udp_channels::get_local_endpoint () const
@@ -592,7 +616,7 @@ bool nano::transport::udp_channels::reachout (nano::endpoint const & endpoint_a)
 {
 	// Don't overload single IP
 	bool error = max_ip_connections (endpoint_a);
-	if (!error)
+	if (!error && !node.flags.disable_udp)
 	{
 		auto endpoint_l (nano::transport::map_endpoint_to_v6 (endpoint_a));
 		// Don't keepalive to nodes that already sent us something

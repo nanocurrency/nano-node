@@ -16,11 +16,12 @@ limiter (node_a.config.bandwidth_limit),
 node (node_a),
 udp_channels (node_a, port_a),
 tcp_channels (node_a),
+port (port_a),
 disconnect_observer ([]() {})
 {
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
-	for (size_t i = 0; i < node.config.network_threads; ++i)
+	for (size_t i = 0; i < node.config.network_threads && !node.flags.disable_udp; ++i)
 	{
 		packet_processing_threads.push_back (boost::thread (attrs, [this]() {
 			nano::thread_role::set (nano::thread_role::name::packet_processing);
@@ -68,10 +69,12 @@ void nano::network::start ()
 	if (!node.flags.disable_udp)
 	{
 		udp_channels.start ();
+		assert (udp_channels.get_local_endpoint ().port == port);
 	}
 	if (!node.flags.disable_tcp_realtime)
 	{
 		tcp_channels.start ();
+		assert (node.bootstrap.endpoint ().port == port);
 	}
 	ongoing_keepalive ();
 }
@@ -84,6 +87,7 @@ void nano::network::stop ()
 		tcp_channels.stop ();
 		resolver.cancel ();
 		buffer_container.stop ();
+		port = 0;
 		for (auto & thread : packet_processing_threads)
 		{
 			thread.join ();
@@ -753,7 +757,7 @@ std::shared_ptr<nano::transport::channel> nano::network::find_node_id (nano::acc
 
 nano::endpoint nano::network::endpoint ()
 {
-	return udp_channels.get_local_endpoint ();
+	return nano::endpoint (boost::asio::ip::address_v6::loopback (), port);
 }
 
 void nano::network::cleanup (std::chrono::steady_clock::time_point const & cutoff_a)
