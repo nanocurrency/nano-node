@@ -303,38 +303,41 @@ startup_time (std::chrono::steady_clock::now ())
 				this->network.send_keepalive_self (channel_a);
 			}
 		});
-		observers.vote.add ([this](std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a) {
-			this->gap_cache.vote (vote_a);
-			this->online_reps.observe (vote_a->account);
-			nano::uint128_t rep_weight;
+		observers.vote.add ([this](std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a, nano::vote_code code_a) {
+			if (code_a == nano::vote_code::vote || code_a == nano::vote_code::indeterminate)
 			{
-				rep_weight = ledger.weight (vote_a->account);
-			}
-			if (rep_weight > minimum_principal_weight ())
-			{
-				bool rep_crawler_exists (false);
-				for (auto hash : *vote_a)
+				this->gap_cache.vote (vote_a);
+				this->online_reps.observe (vote_a->account);
+				nano::uint128_t rep_weight;
 				{
-					if (this->rep_crawler.exists (hash))
-					{
-						rep_crawler_exists = true;
-						break;
-					}
+					rep_weight = ledger.weight (vote_a->account);
 				}
-				if (rep_crawler_exists)
+				if (rep_weight > minimum_principal_weight ())
 				{
-					// We see a valid non-replay vote for a block we requested, this node is probably a representative
-					if (this->rep_crawler.response (channel_a, vote_a->account, rep_weight))
+					bool rep_crawler_exists (false);
+					for (auto hash : *vote_a)
 					{
-						logger.try_log (boost::str (boost::format ("Found a representative at %1%") % channel_a->to_string ()));
-						// Rebroadcasting all active votes to new representative
-						auto blocks (this->active.list_blocks (true));
-						for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
+						if (this->rep_crawler.exists (hash))
 						{
-							if (*i != nullptr)
+							rep_crawler_exists = true;
+							break;
+						}
+					}
+					if (rep_crawler_exists)
+					{
+						// We see a valid non-replay vote for a block we requested, this node is probably a representative
+						if (this->rep_crawler.response (channel_a, vote_a->account, rep_weight))
+						{
+							logger.try_log (boost::str (boost::format ("Found a representative at %1%") % channel_a->to_string ()));
+							// Rebroadcasting all active votes to new representative
+							auto blocks (this->active.list_blocks (true));
+							for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
 							{
-								nano::confirm_req req (*i);
-								channel_a->send (req);
+								if (*i != nullptr)
+								{
+									nano::confirm_req req (*i);
+									channel_a->send (req);
+								}
 							}
 						}
 					}
@@ -343,11 +346,11 @@ startup_time (std::chrono::steady_clock::now ())
 		});
 		if (websocket_server)
 		{
-			observers.vote.add ([this](std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a) {
+			observers.vote.add ([this](std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a, nano::vote_code code_a) {
 				if (this->websocket_server->any_subscriber (nano::websocket::topic::vote))
 				{
 					nano::websocket::message_builder builder;
-					auto msg (builder.vote_received (vote_a));
+					auto msg (builder.vote_received (vote_a, code_a));
 					this->websocket_server->broadcast (msg);
 				}
 			});
