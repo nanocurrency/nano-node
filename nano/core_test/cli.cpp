@@ -1,5 +1,6 @@
 #include <nano/core_test/testutil.hpp>
 #include <nano/node/cli.hpp>
+#include <nano/secure/utility.hpp>
 
 #include <gtest/gtest.h>
 
