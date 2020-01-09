@@ -3,12 +3,14 @@
 #include <nano/node/node.hpp>
 #include <nano/secure/blockstore.hpp>
 
+#include <boost/format.hpp>
+
 #include <cassert>
 
 std::chrono::milliseconds constexpr nano::block_processor::confirmation_request_delay;
 
 nano::block_processor::block_processor (nano::node & node_a, nano::write_database_queue & write_database_queue_a) :
-generator (node_a),
+generator (node_a.config, node_a.store, node_a.wallets, node_a.vote_processor, node_a.votes_cache, node_a.network),
 stopped (false),
 active (false),
 next_log (std::chrono::steady_clock::now ()),
@@ -73,7 +75,7 @@ void nano::block_processor::add (nano::unchecked_info const & info_a)
 			auto hash (info_a.block->hash ());
 			auto filter_hash (filter_item (hash, info_a.block->block_signature ()));
 			nano::lock_guard<std::mutex> lock (mutex);
-			if (blocks_filter.find (filter_hash) == blocks_filter.end () && rolled_back.get<1> ().find (hash) == rolled_back.get<1> ().end ())
+			if (blocks_filter.find (filter_hash) == blocks_filter.end ())
 			{
 				if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
 				{
@@ -324,26 +326,16 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 				{
 					node.logger.always_log (boost::str (boost::format ("%1% blocks rolled back") % rollback_list.size ()));
 				}
-				lock_a.lock ();
-				// Prevent rolled back blocks second insertion
-				auto inserted (rolled_back.insert (nano::rolled_hash{ std::chrono::steady_clock::now (), successor->hash () }));
-				if (inserted.second)
-				{
-					// Possible election winner change
-					rolled_back.get<1> ().erase (hash);
-					// Prevent overflow
-					if (rolled_back.size () > rolled_back_max)
-					{
-						rolled_back.erase (rolled_back.begin ());
-					}
-				}
-				lock_a.unlock ();
 				// Deleting from votes cache & wallet work watcher, stop active transaction
 				for (auto & i : rollback_list)
 				{
 					node.votes_cache.remove (i->hash ());
 					node.wallets.watcher->remove (i);
-					node.active.erase (*i);
+					// Stop all rolled back active transactions except initial
+					if (i->hash () != successor->hash ())
+					{
+						node.active.erase (*i);
+					}
 				}
 			}
 		}
@@ -377,7 +369,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	}
 	// Announce block contents to the network
 	node.network.flood_block (block_a, false);
-	if (node.config.enable_voting)
+	if (node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
 	{
 		// Announce our weighted vote to the network
 		generator.add (hash_a);
@@ -419,6 +411,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				info_a.modified = nano::seconds_since_epoch ();
 			}
 			node.store.unchecked_put (transaction_a, nano::unchecked_key (info_a.block->previous (), hash), info_a);
+			++node.ledger.cache.unchecked_count;
 			node.gap_cache.add (hash);
 			break;
 		}
@@ -434,6 +427,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				info_a.modified = nano::seconds_since_epoch ();
 			}
 			node.store.unchecked_put (transaction_a, nano::unchecked_key (node.ledger.block_source (transaction_a, *(info_a.block)), hash), info_a);
+			++node.ledger.cache.unchecked_count;	
 			node.gap_cache.add (hash);
 			break;
 		}
@@ -533,6 +527,7 @@ void nano::block_processor::queue_unchecked (nano::write_transaction const & tra
 		if (!node.flags.fast_bootstrap)
 		{
 			node.store.unchecked_del (transaction_a, nano::unchecked_key (hash_a, info.block->hash ()));
+			--node.ledger.cache.unchecked_count;
 		}
 		add (info);
 	}

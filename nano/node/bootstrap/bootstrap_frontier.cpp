@@ -3,6 +3,8 @@
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
 
+#include <boost/format.hpp>
+
 constexpr double nano::bootstrap_limits::bootstrap_connection_warmup_time_sec;
 constexpr double nano::bootstrap_limits::bootstrap_minimum_elapsed_seconds_blockrate;
 constexpr double nano::bootstrap_limits::bootstrap_minimum_frontier_blocks_per_sec;

@@ -1,11 +1,11 @@
 #pragma once
 
 #include <nano/crypto_lib/random_pool.hpp>
-#include <nano/lib/config.hpp>
 #include <nano/lib/diagnosticsconfig.hpp>
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/memory.hpp>
 #include <nano/lib/rocksdbconfig.hpp>
+#include <nano/secure/buffer.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/versioning.hpp>
 
@@ -516,7 +516,7 @@ public:
 		impl->fill (current);
 		return *this;
 	}
-	nano::store_iterator<T, U> & operator= (nano::store_iterator<T, U> && other_a)
+	nano::store_iterator<T, U> & operator= (nano::store_iterator<T, U> && other_a) noexcept
 	{
 		impl = std::move (other_a.impl);
 		current = std::move (other_a.current);
@@ -626,7 +626,7 @@ private:
 	std::unique_ptr<nano::write_transaction_impl> impl;
 };
 
-class rep_weights;
+class ledger_cache;
 
 /**
  * Manages block storage and iteration
@@ -635,14 +635,14 @@ class block_store
 {
 public:
 	virtual ~block_store () = default;
-	virtual void initialize (nano::write_transaction const &, nano::genesis const &, nano::rep_weights &, std::atomic<uint64_t> &, std::atomic<uint64_t> &) = 0;
+	virtual void initialize (nano::write_transaction const &, nano::genesis const &, nano::ledger_cache &) = 0;
 	virtual void block_put (nano::write_transaction const &, nano::block_hash const &, nano::block const &, nano::block_sideband const &) = 0;
 	virtual nano::block_hash block_successor (nano::transaction const &, nano::block_hash const &) const = 0;
 	virtual void block_successor_clear (nano::write_transaction const &, nano::block_hash const &) = 0;
 	virtual std::shared_ptr<nano::block> block_get (nano::transaction const &, nano::block_hash const &, nano::block_sideband * = nullptr) const = 0;
 	virtual std::shared_ptr<nano::block> block_get_v14 (nano::transaction const &, nano::block_hash const &, nano::block_sideband_v14 * = nullptr, bool * = nullptr) const = 0;
 	virtual std::shared_ptr<nano::block> block_random (nano::transaction const &) = 0;
-	virtual void block_del (nano::write_transaction const &, nano::block_hash const &) = 0;
+	virtual void block_del (nano::write_transaction const &, nano::block_hash const &, nano::block_type) = 0;
 	virtual bool block_exists (nano::transaction const &, nano::block_hash const &) = 0;
 	virtual bool block_exists (nano::transaction const &, nano::block_type, nano::block_hash const &) = 0;
 	virtual nano::block_counts block_count (nano::transaction const &) = 0;
@@ -683,9 +683,9 @@ public:
 	virtual void unchecked_put (nano::write_transaction const &, nano::block_hash const &, std::shared_ptr<nano::block> const &) = 0;
 	virtual std::vector<nano::unchecked_info> unchecked_get (nano::transaction const &, nano::block_hash const &) = 0;
 	virtual void unchecked_del (nano::write_transaction const &, nano::unchecked_key const &) = 0;
-	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const &) = 0;
-	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const &, nano::unchecked_key const &) = 0;
-	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_end () = 0;
+	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const &) const = 0;
+	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const &, nano::unchecked_key const &) const = 0;
+	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_end () const = 0;
 	virtual size_t unchecked_count (nano::transaction const &) = 0;
 
 	// Return latest vote for an account from store
@@ -732,6 +732,7 @@ public:
 	virtual std::mutex & get_cache_mutex () = 0;
 
 	virtual bool copy_db (boost::filesystem::path const & destination) = 0;
+	virtual void rebuild_db (nano::write_transaction const & transaction_a) = 0;
 
 	/** Not applicable to all sub-classes */
 	virtual void serialize_mdb_tracker (boost::property_tree::ptree &, std::chrono::milliseconds, std::chrono::milliseconds) = 0;
@@ -743,6 +744,8 @@ public:
 
 	/** Start read-only transaction */
 	virtual nano::read_transaction tx_begin_read () = 0;
+
+	virtual std::string vendor_get () const = 0;
 };
 
 std::unique_ptr<nano::block_store> make_store (nano::logger_mt & logger, boost::filesystem::path const & path, bool open_read_only = false, bool add_db_postfix = false, nano::rocksdb_config const & rocksdb_config = nano::rocksdb_config{}, nano::txn_tracking_config const & txn_tracking_config_a = nano::txn_tracking_config{}, std::chrono::milliseconds block_processor_batch_max_time_a = std::chrono::milliseconds (5000), int lmdb_max_dbs = 128, size_t batch_size = 512, bool backup_before_upgrade = false, bool rocksdb_backend = false);

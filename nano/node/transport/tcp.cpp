@@ -2,6 +2,8 @@
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
 
+#include <boost/format.hpp>
+
 nano::transport::channel_tcp::channel_tcp (nano::node & node_a, std::weak_ptr<nano::socket> socket_a) :
 channel (node_a),
 socket (socket_a)
@@ -366,11 +368,11 @@ bool nano::transport::tcp_channels::reachout (nano::endpoint const & endpoint_a)
 	return error;
 }
 
-std::unique_ptr<nano::seq_con_info_component> nano::transport::tcp_channels::collect_seq_con_info (std::string const & name)
+std::unique_ptr<nano::container_info_component> nano::transport::tcp_channels::collect_container_info (std::string const & name)
 {
-	size_t channels_count = 0;
-	size_t attemps_count = 0;
-	size_t node_id_handshake_sockets_count = 0;
+	size_t channels_count;
+	size_t attemps_count;
+	size_t node_id_handshake_sockets_count;
 	{
 		nano::lock_guard<std::mutex> guard (mutex);
 		channels_count = channels.size ();
@@ -378,10 +380,10 @@ std::unique_ptr<nano::seq_con_info_component> nano::transport::tcp_channels::col
 		node_id_handshake_sockets_count = node_id_handshake_sockets.size ();
 	}
 
-	auto composite = std::make_unique<seq_con_info_composite> (name);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "channels", channels_count, sizeof (decltype (channels)::value_type) }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "attempts", attemps_count, sizeof (decltype (attempts)::value_type) }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "node_id_handshake_sockets", node_id_handshake_sockets_count, sizeof (decltype (node_id_handshake_sockets)::value_type) }));
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "channels", channels_count, sizeof (decltype (channels)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "attempts", attemps_count, sizeof (decltype (attempts)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "node_id_handshake_sockets", node_id_handshake_sockets_count, sizeof (decltype (node_id_handshake_sockets)::value_type) }));
 
 	return composite;
 }

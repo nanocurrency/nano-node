@@ -5,7 +5,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
 
-#include <boost/property_tree/json_parser.hpp>
+#include <boost/property_tree/ptree_fwd.hpp>
 
 #include <cassert>
 #include <streambuf>
@@ -357,7 +357,7 @@ private:
 	static unsigned constexpr cleanup_count = 2;
 };
 
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_uniquer & block_uniquer, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (block_uniquer & block_uniquer, const std::string & name);
 
 std::shared_ptr<nano::block> deserialize_block (nano::stream &);
 std::shared_ptr<nano::block> deserialize_block (nano::stream &, nano::block_type, nano::block_uniquer * = nullptr);

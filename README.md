@@ -4,10 +4,12 @@
 </div>
 <hr />
 
-[![Build Status](https://travis-ci.org/nanocurrency/nano-node.svg?branch=master)](https://travis-ci.org/nanocurrency/nano-node)
-[![Build status](https://ci.appveyor.com/api/projects/status/q66rbt2ux6apjj03/branch/master?svg=true)](https://ci.appveyor.com/project/argakiig/raiblocks/branch/master)
+[![Live Artifacts](https://github.com/nanocurrency/nano-node/workflows/Live/badge.svg)](https://github.com/nanocurrency/nano-node/actions?query=workflow%3ALive)
+[![Beta Artifacts](https://github.com/nanocurrency/nano-node/workflows/Beta/badge.svg)](https://github.com/nanocurrency/nano-node/actions?query=workflow%3ABeta)
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/nanocurrency/nano-node)](https://github.com/nanocurrency/nano-node/releases/latest)
 [![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/nanocurrency/nano-node?color=darkblue&label=beta)](https://github.com/nanocurrency/nano-node/tags)
+[![Tests](https://github.com/nanocurrency/nano-node/workflows/Tests/badge.svg)](https://github.com/nanocurrency/nano-node/actions?query=workflow%3ATests)
+[![RelWithDebug Tests](https://github.com/nanocurrency/nano-node/workflows/Release%20Tests/badge.svg)](https://github.com/nanocurrency/nano-node/actions?query=workflow%3A%22Release+Tests%22)
 [![Discord](https://img.shields.io/badge/discord-join%20chat-orange.svg)](https://chat.nano.org)
 
 ---

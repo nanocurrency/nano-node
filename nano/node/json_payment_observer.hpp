@@ -1,10 +1,8 @@
 #pragma once
 
 #include <nano/node/node_observers.hpp>
-#include <nano/node/wallet.hpp>
 
 #include <string>
-#include <vector>
 
 namespace nano
 {

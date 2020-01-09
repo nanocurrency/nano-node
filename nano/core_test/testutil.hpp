@@ -1,10 +1,10 @@
 #pragma once
 
+#include <nano/lib/locks.hpp>
 #include <nano/lib/timer.hpp>
-#include <nano/lib/utility.hpp>
 
 #include <boost/iostreams/concepts.hpp>
-#include <boost/log/sources/logger.hpp>
+#include <boost/log/sinks/text_ostream_backend.hpp>
 #include <boost/log/utility/setup/console.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 
@@ -51,7 +51,7 @@ class stringstream_mt_sink : public boost::iostreams::sink
 {
 public:
 	stringstream_mt_sink () = default;
-	stringstream_mt_sink (const stringstream_mt_sink & sink)
+	stringstream_mt_sink (stringstream_mt_sink const & sink)
 	{
 		nano::lock_guard<std::mutex> guard (mutex);
 		ss << sink.ss.str ();
@@ -189,5 +189,29 @@ namespace util
 		std::atomic<unsigned> count{ 0 };
 		unsigned required_count;
 	};
+}
+
+inline uint16_t get_available_port ()
+{
+	// Maximum possible sockets which may feasibly be used in 1 test
+	constexpr auto max = 200;
+	static uint16_t current = 0;
+	// Read the TEST_BASE_PORT environment and override the default base port if it exists
+	auto base_str = std::getenv ("TEST_BASE_PORT");
+	auto base_port = 24000;
+	if (base_str)
+	{
+		base_port = boost::lexical_cast<int> (base_str);
+	}
+
+	auto available_port = base_port + current;
+	++current;
+	// Reset port number once we have reached the maximum
+	if (current == max)
+	{
+		current = 0;
+	}
+
+	return available_port;
 }
 }

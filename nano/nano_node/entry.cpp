@@ -5,11 +5,14 @@
 #include <nano/node/ipc.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node.hpp>
-#include <nano/node/payment_observer_processor.hpp>
 #include <nano/node/testing.hpp>
 
+#include <boost/dll/runtime_symbol_info.hpp>
+#include <boost/filesystem/operations.hpp>
+#include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
+#include <boost/range/adaptor/reversed.hpp>
 
 #include <sstream>
 
@@ -34,6 +37,27 @@
 #endif
 #endif
 
+namespace
+{
+class uint64_from_hex // For use with boost::lexical_cast to read hexadecimal strings
+{
+public:
+	uint64_t value;
+};
+std::istream & operator>> (std::istream & in, uint64_from_hex & out_val);
+
+class address_library_pair
+{
+public:
+	uint64_t address;
+	std::string library;
+
+	address_library_pair (uint64_t address, std::string library);
+	bool operator< (const address_library_pair & other) const;
+	bool operator== (const address_library_pair & other) const;
+};
+}
+
 int main (int argc, char * const * argv)
 {
 	nano::set_umask ();
@@ -57,6 +81,7 @@ int main (int argc, char * const * argv)
 		("debug_opencl", "OpenCL work generation")
 		("debug_profile_kdf", "Profile kdf function")
 		("debug_output_last_backtrace_dump", "Displays the contents of the latest backtrace in the event of a nano_node crash")
+		("debug_generate_crash_report", "Consolidates the nano_node_backtrace.dump file. Requires addr2line installed on Linux")
 		("debug_sys_logging", "Test the system logger")
 		("debug_verify_profile", "Profile signature verification")
 		("debug_verify_profile_batch", "Profile batch signature verification")
@@ -75,7 +100,8 @@ int main (int argc, char * const * argv)
 		("device", boost::program_options::value<std::string> (), "Defines <device> for OpenCL command")
 		("threads", boost::program_options::value<std::string> (), "Defines <threads> count for OpenCL command")
 		("difficulty", boost::program_options::value<std::string> (), "Defines <difficulty> for OpenCL command, HEX")
-		("pow_sleep_interval", boost::program_options::value<std::string> (), "Defines the amount to sleep inbetween each pow calculation attempt");
+		("pow_sleep_interval", boost::program_options::value<std::string> (), "Defines the amount to sleep inbetween each pow calculation attempt")
+		("address_column", boost::program_options::value<std::string> (), "Defines which column the addresses are located, 0 indexed (check --debug_output_last_backtrace_dump output)");
 	// clang-format on
 	nano::add_node_options (description);
 	nano::add_node_flag_options (description);
@@ -98,7 +124,7 @@ int main (int argc, char * const * argv)
 		auto err (nano::network_constants::set_active_network (network->second.as<std::string> ()));
 		if (err)
 		{
-			std::cerr << err.get_message () << std::endl;
+			std::cerr << nano::network_constants::active_network_err_msg << std::endl;
 			std::exit (1);
 		}
 	}
@@ -217,11 +243,11 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_dump_representatives"))
 		{
 			auto node_flags = nano::inactive_node_flag_defaults ();
-			node_flags.cache_representative_weights_from_frontiers = true;
+			node_flags.generate_cache.reps = true;
 			nano::inactive_node node (data_path, 24000, node_flags);
 			auto transaction (node.node->store.tx_begin_read ());
 			nano::uint128_t total;
-			auto rep_amounts = node.node->ledger.rep_weights.get_rep_amounts ();
+			auto rep_amounts = node.node->ledger.cache.rep_weights.get_rep_amounts ();
 			std::map<nano::account, nano::uint128_t> ordered_reps (rep_amounts.begin (), rep_amounts.end ());
 			for (auto const & rep : ordered_reps)
 			{
@@ -260,7 +286,7 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_mass_activity"))
 		{
-			nano::system system (24000, 1);
+			nano::system system (1);
 			uint32_t count (1000000);
 			system.generate_mass_activity (count, *system.nodes[0]);
 		}
@@ -441,6 +467,193 @@ int main (int argc, char * const * argv)
 				          << st << std::endl;
 			}
 		}
+		else if (vm.count ("debug_generate_crash_report"))
+		{
+			if (boost::filesystem::exists ("nano_node_backtrace.dump"))
+			{
+				// There is a backtrace, so output the contents
+				std::ifstream ifs ("nano_node_backtrace.dump");
+				boost::stacktrace::stacktrace st = boost::stacktrace::stacktrace::from_dump (ifs);
+
+				std::string crash_report_filename = "nano_node_crash_report.txt";
+
+#if defined(_WIN32) || defined(__APPLE__)
+				// Only linux has load addresses, so just write the dump to a readable file.
+				// It's the best we can do to keep consistency.
+				std::ofstream ofs (crash_report_filename);
+				ofs << st;
+#else
+				// Read all the nano node files
+				boost::system::error_code err;
+				auto running_executable_filepath = boost::dll::program_location (err);
+				if (!err)
+				{
+					auto num = 0;
+					auto format = boost::format ("nano_node_crash_load_address_dump_%1%.txt");
+					std::vector<address_library_pair> base_addresses;
+
+					// The first one only has the load address
+					uint64_from_hex base_address;
+					std::string line;
+					if (boost::filesystem::exists (boost::str (format % num)))
+					{
+						std::getline (std::ifstream (boost::str (format % num)), line);
+						if (boost::conversion::try_lexical_convert (line, base_address))
+						{
+							base_addresses.emplace_back (base_address.value, running_executable_filepath.string ());
+						}
+					}
+					++num;
+
+					// Now do the rest of the files
+					while (boost::filesystem::exists (boost::str (format % num)))
+					{
+						std::ifstream ifs_dump_filename (boost::str (format % num));
+
+						// 2 lines, the path to the dynamic library followed by the load address
+						std::string dynamic_lib_path;
+						std::getline (ifs_dump_filename, dynamic_lib_path);
+						std::getline (ifs_dump_filename, line);
+
+						if (boost::conversion::try_lexical_convert (line, base_address))
+						{
+							base_addresses.emplace_back (base_address.value, dynamic_lib_path);
+						}
+
+						++num;
+					}
+
+					std::sort (base_addresses.begin (), base_addresses.end ());
+
+					auto address_column_it = vm.find ("address_column");
+					auto column = -1;
+					if (address_column_it != vm.end ())
+					{
+						if (!boost::conversion::try_lexical_convert (address_column_it->second.as<std::string> (), column))
+						{
+							std::cerr << "Error: Invalid address column\n";
+							result = -1;
+						}
+					}
+
+					// Extract the addresses from the dump file.
+					std::stringstream stacktrace_ss;
+					stacktrace_ss << st;
+					std::vector<uint64_t> backtrace_addresses;
+					while (std::getline (stacktrace_ss, line))
+					{
+						std::istringstream iss (line);
+						std::vector<std::string> results (std::istream_iterator<std::string>{ iss }, std::istream_iterator<std::string> ());
+
+						if (column != -1)
+						{
+							if (column < results.size ())
+							{
+								uint64_from_hex address_hex;
+								if (boost::conversion::try_lexical_convert (results[column], address_hex))
+								{
+									backtrace_addresses.push_back (address_hex.value);
+								}
+								else
+								{
+									std::cerr << "Error: Address column does not point to valid addresses\n";
+									result = -1;
+								}
+							}
+							else
+							{
+								std::cerr << "Error: Address column too high\n";
+								result = -1;
+							}
+						}
+						else
+						{
+							for (const auto & text : results)
+							{
+								uint64_from_hex address_hex;
+								if (boost::conversion::try_lexical_convert (text, address_hex))
+								{
+									backtrace_addresses.push_back (address_hex.value);
+									break;
+								}
+							}
+						}
+					}
+
+					// Recreate the crash report with an empty file
+					boost::filesystem::remove (crash_report_filename);
+					{
+						std::ofstream ofs (crash_report_filename);
+						nano::set_secure_perm_file (crash_report_filename);
+					}
+
+					// Hold the results from all addr2line calls, if all fail we can assume that addr2line is not installed,
+					// and inform the user that it needs installing
+					std::vector<int> system_codes;
+
+					auto run_addr2line = [&backtrace_addresses, &base_addresses, &system_codes, &crash_report_filename](bool use_relative_addresses) {
+						for (auto backtrace_address : backtrace_addresses)
+						{
+							// Find the closest address to it
+							for (auto base_address : boost::adaptors::reverse (base_addresses))
+							{
+								if (backtrace_address > base_address.address)
+								{
+									// Addresses need to be in hex for addr2line to work
+									auto address = use_relative_addresses ? backtrace_address - base_address.address : backtrace_address;
+									std::stringstream ss;
+									ss << std::uppercase << std::hex << address;
+
+									// Call addr2line to convert the address into something readable.
+									auto res = std::system (boost::str (boost::format ("addr2line -fCi %1% -e %2% >> %3%") % ss.str () % base_address.library % crash_report_filename).c_str ());
+									system_codes.push_back (res);
+									break;
+								}
+							}
+						}
+					};
+
+					// First run addr2line using absolute addresses
+					run_addr2line (false);
+					{
+						std::ofstream ofs (crash_report_filename, std::ios_base::out | std::ios_base::app);
+						ofs << std::endl << "Using relative addresses:" << std::endl; // Add an empty line to separate the absolute & relative output
+					}
+
+					// Now run using relative addresses. This will give actual results for other dlls, the results from the nano_node executable.
+					run_addr2line (true);
+
+					if (std::find (system_codes.begin (), system_codes.end (), 0) == system_codes.end ())
+					{
+						std::cerr << "Error: Check that addr2line is installed and that nano_node_crash_load_address_dump_*.txt files exist." << std::endl;
+						result = -1;
+					}
+					else
+					{
+						// Delete the crash dump files. The user won't care about them after this.
+						num = 0;
+						while (boost::filesystem::exists (boost::str (format % num)))
+						{
+							boost::filesystem::remove (boost::str (format % num));
+							++num;
+						}
+
+						boost::filesystem::remove ("nano_node_backtrace.dump");
+					}
+				}
+				else
+				{
+					std::cerr << "Error: Could not determine running executable path" << std::endl;
+					result = -1;
+				}
+#endif
+			}
+			else
+			{
+				std::cerr << "Error: nano_node_backtrace.dump could not be found";
+				result = -1;
+			}
+		}
 		else if (vm.count ("debug_verify_profile"))
 		{
 			nano::keypair key;
@@ -497,7 +710,7 @@ int main (int argc, char * const * argv)
 			size_t num_interations (5); // 100,000 * 5 * 2 = 1,000,000 blocks
 			size_t max_blocks (2 * num_accounts * num_interations + num_accounts * 2); //  1,000,000 + 2* 100,000 = 1,200,000 blocks
 			std::cerr << boost::str (boost::format ("Starting pregenerating %1% blocks\n") % max_blocks);
-			nano::system system (24000, 1);
+			nano::system system (1);
 			nano::work_pool work (std::numeric_limits<unsigned>::max ());
 			nano::logging logging;
 			auto path (nano::unique_path ());
@@ -608,7 +821,7 @@ int main (int argc, char * const * argv)
 			size_t num_representatives (25);
 			size_t max_votes (num_elections * num_representatives); // 40,000 * 25 = 1,000,000 votes
 			std::cerr << boost::str (boost::format ("Starting pregenerating %1% votes\n") % max_votes);
-			nano::system system (24000, 1);
+			nano::system system (1);
 			nano::work_pool work (std::numeric_limits<unsigned>::max ());
 			nano::logging logging;
 			auto path (nano::unique_path ());
@@ -1019,9 +1232,9 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_cemented_block_count"))
 		{
 			auto node_flags = nano::inactive_node_flag_defaults ();
-			node_flags.cache_cemented_count_from_frontiers = true;
+			node_flags.generate_cache.cemented_count = true;
 			nano::inactive_node node (data_path, 24000, node_flags);
-			std::cout << "Total cemented block count: " << node.node->ledger.cemented_count << std::endl;
+			std::cout << "Total cemented block count: " << node.node->ledger.cache.cemented_count << std::endl;
 		}
 		else if (vm.count ("debug_stacktrace"))
 		{
@@ -1127,4 +1340,28 @@ int main (int argc, char * const * argv)
 		}
 	}
 	return result;
+}
+
+namespace
+{
+std::istream & operator>> (std::istream & in, uint64_from_hex & out_val)
+{
+	in >> std::hex >> out_val.value;
+	return in;
+}
+
+address_library_pair::address_library_pair (uint64_t address, std::string library) :
+address (address), library (library)
+{
+}
+
+bool address_library_pair::operator< (const address_library_pair & other) const
+{
+	return address < other.address;
+}
+
+bool address_library_pair::operator== (const address_library_pair & other) const
+{
+	return address == other.address;
+}
 }

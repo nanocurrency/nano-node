@@ -3,6 +3,8 @@
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
 
+#include <boost/format.hpp>
+
 nano::pull_info::pull_info (nano::hash_or_account const & account_or_head_a, nano::block_hash const & head_a, nano::block_hash const & end_a, count_t count_a, unsigned retry_limit_a) :
 account_or_head (account_or_head_a),
 head (head_a),
@@ -850,8 +852,8 @@ std::pair<std::unique_ptr<nano::pending_key>, std::unique_ptr<nano::pending_info
 			}
 		}
 
-		result.first = std::unique_ptr<nano::pending_key> (new nano::pending_key (key));
-		result.second = std::unique_ptr<nano::pending_info> (new nano::pending_info (info));
+		result.first = std::make_unique<nano::pending_key> (key);
+		result.second = std::make_unique<nano::pending_info> (info);
 
 		break;
 	}

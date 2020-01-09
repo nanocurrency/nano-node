@@ -7,7 +7,7 @@ using namespace std::chrono_literals;
 
 TEST (gap_cache, add_new)
 {
-	nano::system system (24000, 1);
+	nano::system system (1);
 	nano::gap_cache cache (*system.nodes[0]);
 	auto block1 (std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5));
 	cache.add (block1->hash ());
@@ -15,7 +15,7 @@ TEST (gap_cache, add_new)
 
 TEST (gap_cache, add_existing)
 {
-	nano::system system (24000, 1);
+	nano::system system (1);
 	nano::gap_cache cache (*system.nodes[0]);
 	auto block1 (std::make_shared<nano::send_block> (0, 1, 2, nano::keypair ().prv, 4, 5));
 	cache.add (block1->hash ());
@@ -39,7 +39,7 @@ TEST (gap_cache, add_existing)
 
 TEST (gap_cache, comparison)
 {
-	nano::system system (24000, 1);
+	nano::system system (1);
 	nano::gap_cache cache (*system.nodes[0]);
 	auto block1 (std::make_shared<nano::send_block> (1, 0, 2, nano::keypair ().prv, 4, 5));
 	cache.add (block1->hash ());
@@ -65,7 +65,7 @@ TEST (gap_cache, comparison)
 
 TEST (gap_cache, gap_bootstrap)
 {
-	nano::system system (24000, 2);
+	nano::system system (2);
 	nano::block_hash latest (system.nodes[0]->latest (nano::test_genesis_key.pub));
 	nano::keypair key;
 	auto send (std::make_shared<nano::send_block> (latest, key.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest)));
@@ -96,7 +96,7 @@ TEST (gap_cache, gap_bootstrap)
 
 TEST (gap_cache, two_dependencies)
 {
-	nano::system system (24000, 1);
+	nano::system system (1);
 	nano::keypair key;
 	nano::genesis genesis;
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key.pub, 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));

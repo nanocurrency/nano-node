@@ -56,10 +56,10 @@ public:
 	nano::amount online_weight_minimum{ 60000 * nano::Gxrb_ratio };
 	unsigned online_weight_quorum{ 50 };
 	unsigned password_fanout{ 1024 };
-	unsigned io_threads{ std::max<unsigned> (4, boost::thread::hardware_concurrency ()) };
-	unsigned network_threads{ std::max<unsigned> (4, boost::thread::hardware_concurrency ()) };
-	unsigned work_threads{ std::max<unsigned> (4, boost::thread::hardware_concurrency ()) };
-	unsigned signature_checker_threads{ (boost::thread::hardware_concurrency () != 0) ? boost::thread::hardware_concurrency () - 1 : 0 }; /* The calling thread does checks as well so remove it from the number of threads used */
+	unsigned io_threads{ std::max<unsigned> (4, std::thread::hardware_concurrency ()) };
+	unsigned network_threads{ std::max<unsigned> (4, std::thread::hardware_concurrency ()) };
+	unsigned work_threads{ std::max<unsigned> (4, std::thread::hardware_concurrency ()) };
+	unsigned signature_checker_threads{ (std::thread::hardware_concurrency () != 0) ? std::thread::hardware_concurrency () - 1 : 0 }; /* The calling thread does checks as well so remove it from the number of threads used */
 	bool enable_voting{ false };
 	unsigned bootstrap_connections{ 4 };
 	unsigned bootstrap_connections_max{ 64 };
@@ -73,7 +73,7 @@ public:
 	bool allow_local_peers{ !network_params.network.is_live_network () }; // disable by default for live network
 	nano::stat_config stat_config;
 	nano::ipc::ipc_config ipc_config;
-	boost::asio::ip::address_v6 external_address{ boost::asio::ip::address_v6{} };
+	std::string external_address;
 	uint16_t external_port{ 0 };
 	std::chrono::milliseconds block_processor_batch_max_time{ std::chrono::milliseconds (5000) };
 	std::chrono::seconds unchecked_cutoff_time{ std::chrono::seconds (4 * 60 * 60) }; // 4 hours
@@ -124,10 +124,7 @@ public:
 	bool disable_unchecked_drop{ true };
 	bool fast_bootstrap{ false };
 	bool read_only{ false };
-	/** Whether to read all frontiers and construct the representative weights */
-	bool cache_representative_weights_from_frontiers{ true };
-	/** Whether to read all frontiers and construct the total cemented count */
-	bool cache_cemented_count_from_frontiers{ true };
+	nano::generate_cache generate_cache;
 	bool inactive_node{ false };
 	size_t sideband_batch_size{ 512 };
 	size_t block_processor_batch_size{ 0 };

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/config.hpp>
+#include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
 
@@ -8,13 +9,12 @@
 #include <boost/thread/thread.hpp>
 
 #include <atomic>
-#include <condition_variable>
 #include <memory>
-#include <thread>
 
 namespace nano
 {
 class block;
+
 bool work_validate (nano::root const &, uint64_t, uint64_t * = nullptr);
 bool work_validate (nano::block const &, uint64_t * = nullptr);
 uint64_t work_value (nano::root const &, uint64_t);
@@ -56,5 +56,5 @@ public:
 	nano::observer_set<bool> work_observers;
 };
 
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (work_pool & work_pool, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (work_pool & work_pool, const std::string & name);
 }

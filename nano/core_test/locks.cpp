@@ -3,6 +3,7 @@
 
 #include <gtest/gtest.h>
 
+#include <future>
 #include <regex>
 
 #if NANO_TIMED_LOCKS > 0
@@ -41,6 +42,9 @@ TEST (locks, no_conflicts)
 
 TEST (locks, lock_guard)
 {
+	// This test can end up taking a long time, as it sleeps for the NANO_TIMED_LOCKS amount
+	ASSERT_LE (NANO_TIMED_LOCKS, 10000);
+
 	std::stringstream ss;
 	nano::cout_redirect redirect (ss.rdbuf ());
 
@@ -71,6 +75,9 @@ TEST (locks, lock_guard)
 
 TEST (locks, unique_lock)
 {
+	// This test can end up taking a long time, as it sleeps for the NANO_TIMED_LOCKS amount
+	ASSERT_LE (NANO_TIMED_LOCKS, 10000);
+
 	std::stringstream ss;
 	nano::cout_redirect redirect (ss.rdbuf ());
 

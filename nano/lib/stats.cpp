@@ -1,4 +1,5 @@
-#include <nano/boost/asio.hpp>
+#include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/locks.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/lib/tomlconfig.hpp>
 
@@ -7,9 +8,7 @@
 
 #include <ctime>
 #include <fstream>
-#include <iostream>
 #include <sstream>
-#include <tuple>
 
 nano::error nano::stat_config::deserialize_json (nano::jsonconfig & json)
 {
@@ -565,6 +564,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::vote_replay:
 			res = "vote_replay";
 			break;
+		case nano::stat::detail::vote_indeterminate:
+			res = "vote_indeterminate";
+			break;
 		case nano::stat::detail::vote_invalid:
 			res = "vote_invalid";
 			break;
@@ -654,4 +656,54 @@ std::string nano::stat::dir_to_string (uint32_t key)
 			break;
 	}
 	return res;
+}
+
+nano::stat_datapoint::stat_datapoint (stat_datapoint const & other_a)
+{
+	nano::lock_guard<std::mutex> lock (other_a.datapoint_mutex);
+	value = other_a.value;
+	timestamp = other_a.timestamp;
+}
+
+nano::stat_datapoint & nano::stat_datapoint::operator= (stat_datapoint const & other_a)
+{
+	nano::lock_guard<std::mutex> lock (other_a.datapoint_mutex);
+	value = other_a.value;
+	timestamp = other_a.timestamp;
+	return *this;
+}
+
+uint64_t nano::stat_datapoint::get_value () const
+{
+	nano::lock_guard<std::mutex> lock (datapoint_mutex);
+	return value;
+}
+
+void nano::stat_datapoint::set_value (uint64_t value_a)
+{
+	nano::lock_guard<std::mutex> lock (datapoint_mutex);
+	value = value_a;
+}
+
+std::chrono::system_clock::time_point nano::stat_datapoint::get_timestamp () const
+{
+	nano::lock_guard<std::mutex> lock (datapoint_mutex);
+	return timestamp;
+}
+
+void nano::stat_datapoint::set_timestamp (std::chrono::system_clock::time_point timestamp_a)
+{
+	nano::lock_guard<std::mutex> lock (datapoint_mutex);
+	timestamp = timestamp_a;
+}
+
+/** Add \addend to the current value and optionally update the timestamp */
+void nano::stat_datapoint::add (uint64_t addend, bool update_timestamp)
+{
+	nano::lock_guard<std::mutex> lock (datapoint_mutex);
+	value += addend;
+	if (update_timestamp)
+	{
+		timestamp = std::chrono::system_clock::now ();
+	}
 }

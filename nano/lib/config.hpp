@@ -1,13 +1,17 @@
 #pragma once
 
-#include <nano/lib/errors.hpp>
-#include <nano/lib/numbers.hpp>
+#include <boost/config.hpp>
+#include <boost/version.hpp>
 
-#include <boost/filesystem.hpp>
-
-#include <array>
-#include <chrono>
 #include <string>
+
+namespace boost
+{
+namespace filesystem
+{
+	class path;
+}
+}
 
 #define xstr(a) ver_str (a)
 #define ver_str(a) #a
@@ -15,19 +19,19 @@
 /**
 * Returns build version information
 */
-static const char * NANO_VERSION_STRING = xstr (TAG_VERSION_STRING);
+const char * const NANO_VERSION_STRING = xstr (TAG_VERSION_STRING);
 
-static const char * BUILD_INFO = xstr (GIT_COMMIT_HASH BOOST_COMPILER) " \"BOOST " xstr (BOOST_VERSION) "\" BUILT " xstr (__DATE__);
+const char * const BUILD_INFO = xstr (GIT_COMMIT_HASH BOOST_COMPILER) " \"BOOST " xstr (BOOST_VERSION) "\" BUILT " xstr (__DATE__);
 
 /** Is TSAN/ASAN test build */
 #if defined(__has_feature)
 #if __has_feature(thread_sanitizer) || __has_feature(address_sanitizer)
-static const bool is_sanitizer_build = true;
+const bool is_sanitizer_build = true;
 #else
-static const bool is_sanitizer_build = false;
+const bool is_sanitizer_build = false;
 #endif
 #else
-static const bool is_sanitizer_build = false;
+const bool is_sanitizer_build = false;
 #endif
 
 namespace nano
@@ -77,8 +81,11 @@ public:
 	static uint64_t const publish_beta_threshold{ 0xfffffc0000000000 }; // 16x lower than full
 	static uint64_t const publish_test_threshold{ 0xff00000000000000 }; // very low for tests
 
+	/** Error message when an invalid network is specified */
+	static const char * active_network_err_msg;
+
 	/** The network this param object represents. This may differ from the global active network; this is needed for certain --debug... commands */
-	nano_networks current_network;
+	nano_networks current_network{ nano::network_constants::active_network };
 	uint64_t publish_threshold;
 	unsigned principal_weight_factor;
 	uint16_t default_node_port;
@@ -108,9 +115,9 @@ public:
 	 * If not called, the compile-time option will be used.
 	 * @param network_a The new active network. Valid values are "live", "beta" and "test"
 	 */
-	static nano::error set_active_network (std::string network_a)
+	static bool set_active_network (std::string network_a)
 	{
-		nano::error err;
+		auto error{ false };
 		if (network_a == "live")
 		{
 			active_network = nano::nano_networks::nano_live_network;
@@ -125,9 +132,9 @@ public:
 		}
 		else
 		{
-			err = "Invalid network. Valid values are live, beta and test.";
+			error = true;
 		}
-		return err;
+		return error;
 	}
 
 	const char * get_current_network_as_string () const
@@ -152,30 +159,11 @@ public:
 	static nano::nano_networks active_network;
 };
 
-inline boost::filesystem::path get_config_path (boost::filesystem::path const & data_path)
-{
-	return data_path / "config.json";
-}
-
-inline boost::filesystem::path get_rpc_config_path (boost::filesystem::path const & data_path)
-{
-	return data_path / "rpc_config.json";
-}
-
-inline boost::filesystem::path get_node_toml_config_path (boost::filesystem::path const & data_path)
-{
-	return data_path / "config-node.toml";
-}
-
-inline boost::filesystem::path get_rpc_toml_config_path (boost::filesystem::path const & data_path)
-{
-	return data_path / "config-rpc.toml";
-}
-
-inline boost::filesystem::path get_qtwallet_toml_config_path (boost::filesystem::path const & data_path)
-{
-	return data_path / "config-qtwallet.toml";
-}
+std::string get_config_path (boost::filesystem::path const & data_path);
+std::string get_rpc_config_path (boost::filesystem::path const & data_path);
+std::string get_node_toml_config_path (boost::filesystem::path const & data_path);
+std::string get_rpc_toml_config_path (boost::filesystem::path const & data_path);
+std::string get_qtwallet_toml_config_path (boost::filesystem::path const & data_path);
 
 /** Called by gtest_main to enforce test network */
 void force_nano_test_network ();

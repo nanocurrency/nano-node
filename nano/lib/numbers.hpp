@@ -1,7 +1,5 @@
 #pragma once
 
-#include <crypto/cryptopp/osrng.h>
-
 #include <boost/multiprecision/cpp_int.hpp>
 
 namespace nano

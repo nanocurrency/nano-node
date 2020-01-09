@@ -17,7 +17,7 @@ using namespace std::chrono_literals;
 
 TEST (ipc, asynchronous)
 {
-	nano::system system (24000, 1);
+	nano::system system (1);
 	system.nodes[0]->config.ipc_config.transport_tcp.enabled = true;
 	system.nodes[0]->config.ipc_config.transport_tcp.port = 24077;
 	nano::node_rpc_config node_rpc_config;
@@ -60,7 +60,7 @@ TEST (ipc, asynchronous)
 
 TEST (ipc, synchronous)
 {
-	nano::system system (24000, 1);
+	nano::system system (1);
 	system.nodes[0]->config.ipc_config.transport_tcp.enabled = true;
 	system.nodes[0]->config.ipc_config.transport_tcp.port = 24077;
 	nano::node_rpc_config node_rpc_config;

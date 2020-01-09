@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nano/boost/asio.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/transport/transport.hpp>
 
@@ -10,6 +9,10 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index_container.hpp>
+
+#include <unordered_set>
+
+namespace mi = boost::multi_index;
 
 namespace nano
 {
@@ -94,7 +97,7 @@ namespace transport
 		bool max_ip_connections (nano::tcp_endpoint const &);
 		// Should we reach out to this endpoint with a keepalive message
 		bool reachout (nano::endpoint const &);
-		std::unique_ptr<seq_con_info_component> collect_seq_con_info (std::string const &);
+		std::unique_ptr<container_info_component> collect_container_info (std::string const &);
 		void purge (std::chrono::steady_clock::time_point const &);
 		void ongoing_keepalive ();
 		void list (std::deque<std::shared_ptr<nano::transport::channel>> &);
@@ -164,22 +167,29 @@ namespace transport
 			std::chrono::steady_clock::time_point last_attempt;
 		};
 		mutable std::mutex mutex;
-		boost::multi_index_container<
-		channel_tcp_wrapper,
-		boost::multi_index::indexed_by<
-		boost::multi_index::random_access<boost::multi_index::tag<random_access_tag>>,
-		boost::multi_index::ordered_non_unique<boost::multi_index::tag<last_bootstrap_attempt_tag>, boost::multi_index::const_mem_fun<channel_tcp_wrapper, std::chrono::steady_clock::time_point, &channel_tcp_wrapper::last_bootstrap_attempt>>,
-		boost::multi_index::hashed_unique<boost::multi_index::tag<endpoint_tag>, boost::multi_index::const_mem_fun<channel_tcp_wrapper, nano::tcp_endpoint, &channel_tcp_wrapper::endpoint>>,
-		boost::multi_index::hashed_non_unique<boost::multi_index::tag<node_id_tag>, boost::multi_index::const_mem_fun<channel_tcp_wrapper, nano::account, &channel_tcp_wrapper::node_id>>,
-		boost::multi_index::ordered_non_unique<boost::multi_index::tag<last_packet_sent_tag>, boost::multi_index::const_mem_fun<channel_tcp_wrapper, std::chrono::steady_clock::time_point, &channel_tcp_wrapper::last_packet_sent>>,
-		boost::multi_index::ordered_non_unique<boost::multi_index::tag<ip_address_tag>, boost::multi_index::const_mem_fun<channel_tcp_wrapper, boost::asio::ip::address, &channel_tcp_wrapper::ip_address>>>>
+		// clang-format off
+		boost::multi_index_container<channel_tcp_wrapper,
+		mi::indexed_by<
+			mi::random_access<mi::tag<random_access_tag>>,
+			mi::ordered_non_unique<mi::tag<last_bootstrap_attempt_tag>,
+				mi::const_mem_fun<channel_tcp_wrapper, std::chrono::steady_clock::time_point, &channel_tcp_wrapper::last_bootstrap_attempt>>,
+			mi::hashed_unique<mi::tag<endpoint_tag>,
+				mi::const_mem_fun<channel_tcp_wrapper, nano::tcp_endpoint, &channel_tcp_wrapper::endpoint>>,
+			mi::hashed_non_unique<mi::tag<node_id_tag>,
+				mi::const_mem_fun<channel_tcp_wrapper, nano::account, &channel_tcp_wrapper::node_id>>,
+			mi::ordered_non_unique<mi::tag<last_packet_sent_tag>,
+				mi::const_mem_fun<channel_tcp_wrapper, std::chrono::steady_clock::time_point, &channel_tcp_wrapper::last_packet_sent>>,
+			mi::hashed_non_unique<mi::tag<ip_address_tag>,
+				mi::const_mem_fun<channel_tcp_wrapper, boost::asio::ip::address, &channel_tcp_wrapper::ip_address>>>>
 		channels;
-		boost::multi_index_container<
-		tcp_endpoint_attempt,
-		boost::multi_index::indexed_by<
-		boost::multi_index::hashed_unique<boost::multi_index::member<tcp_endpoint_attempt, nano::tcp_endpoint, &tcp_endpoint_attempt::endpoint>>,
-		boost::multi_index::ordered_non_unique<boost::multi_index::member<tcp_endpoint_attempt, std::chrono::steady_clock::time_point, &tcp_endpoint_attempt::last_attempt>>>>
+		boost::multi_index_container<tcp_endpoint_attempt,
+		mi::indexed_by<
+			mi::hashed_unique<
+				mi::member<tcp_endpoint_attempt, nano::tcp_endpoint, &tcp_endpoint_attempt::endpoint>>,
+			mi::ordered_non_unique<
+				mi::member<tcp_endpoint_attempt, std::chrono::steady_clock::time_point, &tcp_endpoint_attempt::last_attempt>>>>
 		attempts;
+		// clang-format on
 		// This owns the sockets until the node_id_handshake has been completed. Needed to prevent self referencing callbacks, they are periodically removed if any are dangling.
 		std::vector<std::shared_ptr<nano::socket>> node_id_handshake_sockets;
 		std::atomic<bool> stopped{ false };

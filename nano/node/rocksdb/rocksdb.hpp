@@ -19,6 +19,7 @@ namespace nano
 {
 class logging_mt;
 class rocksdb_config;
+
 /**
  * rocksdb implementation of the block store
  */
@@ -29,6 +30,8 @@ public:
 	~rocksdb_store ();
 	nano::write_transaction tx_begin_write (std::vector<nano::tables> const & tables_requiring_lock = {}, std::vector<nano::tables> const & tables_no_lock = {}) override;
 	nano::read_transaction tx_begin_read () override;
+
+	std::string vendor_get () const override;
 
 	bool block_info_get (nano::transaction const &, nano::block_hash const &, nano::block_info &) const override;
 	size_t count (nano::transaction const & transaction_a, tables table_a) const override;
@@ -52,6 +55,7 @@ public:
 	}
 
 	bool copy_db (boost::filesystem::path const & destination) override;
+	void rebuild_db (nano::write_transaction const & transaction_a) override;
 
 	template <typename Key, typename Value>
 	nano::store_iterator<Key, Value> make_iterator (nano::transaction const & transaction_a, tables table_a) const
@@ -100,4 +104,6 @@ private:
 	rocksdb::BlockBasedTableOptions get_table_options () const;
 	nano::rocksdb_config rocksdb_config;
 };
+
+extern template class block_store_partial<rocksdb::Slice, rocksdb_store>;
 }

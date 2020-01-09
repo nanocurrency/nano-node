@@ -1,7 +1,8 @@
-#include <nano/boost/asio.hpp>
-#include <nano/boost/beast.hpp>
+#include <nano/boost/asio/connect.hpp>
+#include <nano/boost/asio/ip/tcp.hpp>
+#include <nano/boost/beast/core.hpp>
+#include <nano/boost/beast/websocket.hpp>
 #include <nano/core_test/testutil.hpp>
-#include <nano/crypto_lib/random_pool.hpp>
 #include <nano/node/testing.hpp>
 #include <nano/node/websocket.hpp>
 
@@ -10,9 +11,7 @@
 #include <boost/property_tree/json_parser.hpp>
 
 #include <chrono>
-#include <condition_variable>
 #include <cstdlib>
-#include <iostream>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -81,23 +80,19 @@ boost::optional<std::string> websocket_test_call (std::string host, std::string 
 /** Tests clients subscribing multiple times or unsubscribing without a subscription */
 TEST (websocket, subscription_edge)
 {
-	nano::system system (24000, 1);
-	nano::node_config config;
-	nano::node_flags node_flags;
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
 	config.websocket_config.enabled = true;
-	config.websocket_config.port = 24078;
-
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
-	node1->start ();
-	system.nodes.push_back (node1);
+	config.websocket_config.port = nano::get_available_port ();
+	auto node1 (system.add_node (config));
 
 	ASSERT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::confirmation));
 
 	// First subscription
 	{
 		ack_ready = false;
-		std::thread subscription_thread ([]() {
-			websocket_test_call ("::1", "24078", R"json({"action": "subscribe", "topic": "confirmation", "ack": true})json", true, false);
+		std::thread subscription_thread ([config]() {
+			websocket_test_call ("::1", std::to_string (config.websocket_config.port), R"json({"action": "subscribe", "topic": "confirmation", "ack": true})json", true, false);
 		});
 		system.deadline_set (5s);
 		while (!ack_ready)
@@ -111,8 +106,8 @@ TEST (websocket, subscription_edge)
 	// Second subscription, should not increase subscriber count, only update the subscription
 	{
 		ack_ready = false;
-		std::thread subscription_thread ([]() {
-			websocket_test_call ("::1", "24078", R"json({"action": "subscribe", "topic": "confirmation", "ack": true})json", true, false);
+		std::thread subscription_thread ([config]() {
+			websocket_test_call ("::1", std::to_string (config.websocket_config.port), R"json({"action": "subscribe", "topic": "confirmation", "ack": true})json", true, false);
 		});
 		system.deadline_set (5s);
 		while (!ack_ready)
@@ -126,8 +121,8 @@ TEST (websocket, subscription_edge)
 	// First unsub
 	{
 		ack_ready = false;
-		std::thread unsub_thread ([]() {
-			websocket_test_call ("::1", "24078", R"json({"action": "unsubscribe", "topic": "confirmation", "ack": true})json", true, false);
+		std::thread unsub_thread ([config]() {
+			websocket_test_call ("::1", std::to_string (config.websocket_config.port), R"json({"action": "unsubscribe", "topic": "confirmation", "ack": true})json", true, false);
 		});
 		system.deadline_set (5s);
 		while (!ack_ready)
@@ -141,8 +136,8 @@ TEST (websocket, subscription_edge)
 	// Second unsub, should acknowledge but not decrease subscriber count
 	{
 		ack_ready = false;
-		std::thread unsub_thread ([]() {
-			websocket_test_call ("::1", "24078", R"json({"action": "unsubscribe", "topic": "confirmation", "ack": true})json", true, false);
+		std::thread unsub_thread ([config]() {
+			websocket_test_call ("::1", std::to_string (config.websocket_config.port), R"json({"action": "unsubscribe", "topic": "confirmation", "ack": true})json", true, false);
 		});
 		system.deadline_set (5s);
 		while (!ack_ready)
@@ -159,22 +154,18 @@ TEST (websocket, subscription_edge)
 // Test client subscribing to changes in active_difficulty
 TEST (websocket, active_difficulty)
 {
-	nano::system system (24000, 1);
-	nano::node_config config;
-	nano::node_flags node_flags;
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
 	config.websocket_config.enabled = true;
-	config.websocket_config.port = 24078;
-
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
-	node1->start ();
-	system.nodes.push_back (node1);
+	config.websocket_config.port = nano::get_available_port ();
+	auto node1 (system.add_node (config));
 
 	ASSERT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::active_difficulty));
 
 	// Subscribe to active_difficulty and wait for response asynchronously
 	ack_ready = false;
-	auto client_task = ([]() -> boost::optional<std::string> {
-		auto response = websocket_test_call ("::1", "24078", R"json({"action": "subscribe", "topic": "active_difficulty", "ack": true})json", true, true);
+	auto client_task = ([config]() -> boost::optional<std::string> {
+		auto response = websocket_test_call ("::1", std::to_string (config.websocket_config.port), R"json({"action": "subscribe", "topic": "active_difficulty", "ack": true})json", true, true);
 		return response;
 	});
 	auto client_future = std::async (std::launch::async, client_task);
@@ -227,25 +218,20 @@ TEST (websocket, active_difficulty)
 /** Subscribes to block confirmations, confirms a block and then awaits websocket notification */
 TEST (websocket, confirmation)
 {
-	nano::system system (24000, 1);
-	nano::node_config config;
-	nano::node_flags node_flags;
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
 	config.websocket_config.enabled = true;
-	config.websocket_config.port = 24078;
-
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
-	node1->wallets.create (nano::random_wallet_id ());
-	node1->start ();
-	system.nodes.push_back (node1);
+	config.websocket_config.port = nano::get_available_port ();
+	auto node1 (system.add_node (config));
 
 	// Start websocket test-client in a separate thread
 	ack_ready = false;
 	std::atomic<bool> confirmation_event_received{ false };
 	ASSERT_FALSE (node1->websocket_server->any_subscriber (nano::websocket::topic::confirmation));
-	std::thread client_thread ([&confirmation_event_received]() {
+	std::thread client_thread ([&confirmation_event_received, config]() {
 		// This will expect two results: the acknowledgement of the subscription
 		// and then the block confirmation message
-		auto response = websocket_test_call ("::1", "24078",
+		auto response = websocket_test_call ("::1", std::to_string (config.websocket_config.port),
 		R"json({"action": "subscribe", "topic": "confirmation", "ack": true})json", true, true);
 		ASSERT_TRUE (response);
 		boost::property_tree::ptree event;
@@ -267,7 +253,7 @@ TEST (websocket, confirmation)
 	ASSERT_TRUE (node1->websocket_server->any_subscriber (nano::websocket::topic::confirmation));
 
 	nano::keypair key;
-	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	auto balance = nano::genesis_amount;
 	auto send_amount = node1->config.online_weight_minimum.number () + 1;
 	// Quick-confirm a block, legacy blocks should work without filtering
@@ -288,8 +274,8 @@ TEST (websocket, confirmation)
 	client_thread.join ();
 
 	std::atomic<bool> unsubscribe_ack_received{ false };
-	std::thread client_thread_2 ([&unsubscribe_ack_received]() {
-		auto response = websocket_test_call ("::1", "24078",
+	std::thread client_thread_2 ([&unsubscribe_ack_received, config]() {
+		auto response = websocket_test_call ("::1", std::to_string (config.websocket_config.port),
 		R"json({"action": "subscribe", "topic": "confirmation", "ack": true})json", true, true);
 		ASSERT_TRUE (response);
 		boost::property_tree::ptree event;
@@ -299,7 +285,7 @@ TEST (websocket, confirmation)
 		ASSERT_EQ (event.get<std::string> ("topic"), "confirmation");
 
 		// Unsubscribe action, expects an acknowledge but no response follows
-		websocket_test_call ("::1", "24078",
+		websocket_test_call ("::1", std::to_string (config.websocket_config.port),
 		R"json({"action": "unsubscribe", "topic": "confirmation", "ack": true})json", true, true, 1s);
 		unsubscribe_ack_received = true;
 	});
@@ -335,23 +321,18 @@ TEST (websocket, confirmation)
 /** Tests getting notification of an erased election */
 TEST (websocket, stopped_election)
 {
-	nano::system system (24000, 1);
-	nano::node_config config;
-	nano::node_flags node_flags;
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
 	config.websocket_config.enabled = true;
-	config.websocket_config.port = 24078;
-
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
-	node1->wallets.create (nano::random_wallet_id ());
-	node1->start ();
-	system.nodes.push_back (node1);
+	config.websocket_config.port = nano::get_available_port ();
+	auto node1 (system.add_node (config));
 
 	// Start websocket test-client in a separate thread
 	ack_ready = false;
 	std::atomic<bool> client_thread_finished{ false };
 	ASSERT_FALSE (node1->websocket_server->any_subscriber (nano::websocket::topic::confirmation));
-	std::thread client_thread ([&client_thread_finished]() {
-		auto response = websocket_test_call ("::1", "24078",
+	std::thread client_thread ([&client_thread_finished, config]() {
+		auto response = websocket_test_call ("::1", std::to_string (config.websocket_config.port),
 		R"json({"action": "subscribe", "topic": "stopped_election", "ack": "true"})json", true, true, 5s);
 
 		ASSERT_TRUE (response);
@@ -395,24 +376,19 @@ TEST (websocket, stopped_election)
 /** Tests the filtering options of block confirmations */
 TEST (websocket, confirmation_options)
 {
-	nano::system system (24000, 1);
-	nano::node_config config;
-	nano::node_flags node_flags;
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
 	config.websocket_config.enabled = true;
-	config.websocket_config.port = 24078;
-
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
-	node1->wallets.create (nano::random_wallet_id ());
-	node1->start ();
-	system.nodes.push_back (node1);
+	config.websocket_config.port = nano::get_available_port ();
+	auto node1 (system.add_node (config));
 
 	// Start websocket test-client in a separate thread
 	ack_ready = false;
 	std::atomic<bool> client_thread_finished{ false };
 	ASSERT_FALSE (node1->websocket_server->any_subscriber (nano::websocket::topic::confirmation));
-	std::thread client_thread ([&client_thread_finished]() {
+	std::thread client_thread ([&client_thread_finished, config]() {
 		// Subscribe initially with a specific invalid account
-		auto response = websocket_test_call ("::1", "24078",
+		auto response = websocket_test_call ("::1", std::to_string (config.websocket_config.port),
 		R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"confirmation_type": "active_quorum", "accounts": ["xrb_invalid"]}})json", true, true, 1s);
 
 		ASSERT_FALSE (response);
@@ -428,7 +404,7 @@ TEST (websocket, confirmation_options)
 	ack_ready = false;
 
 	// Confirm a state block for an in-wallet account
-	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key;
 	auto balance = nano::genesis_amount;
 	auto send_amount = node1->config.online_weight_minimum.number () + 1;
@@ -449,9 +425,9 @@ TEST (websocket, confirmation_options)
 	ack_ready = false;
 
 	std::atomic<bool> client_thread_2_finished{ false };
-	std::thread client_thread_2 ([&client_thread_2_finished]() {
+	std::thread client_thread_2 ([&client_thread_2_finished, config]() {
 		// Re-subscribe with options for all local wallet accounts
-		auto response = websocket_test_call ("::1", "24078",
+		auto response = websocket_test_call ("::1", std::to_string (config.websocket_config.port),
 		R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"confirmation_type": "active_quorum", "all_local_accounts": "true", "include_election_info": "true"}})json", true, true);
 
 		ASSERT_TRUE (response);
@@ -468,6 +444,8 @@ TEST (websocket, confirmation_options)
 			// Duration and request count may be zero on testnet, so we only check that they're present
 			ASSERT_EQ (1, election_info.count ("duration"));
 			ASSERT_EQ (1, election_info.count ("request_count"));
+			ASSERT_EQ (1, election_info.count ("voters"));
+			ASSERT_GE (1, election_info.get<unsigned> ("blocks"));
 			// Make sure tally and time are non-zero.
 			ASSERT_NE ("0", tally);
 			ASSERT_NE ("0", time);
@@ -509,8 +487,8 @@ TEST (websocket, confirmation_options)
 	ack_ready = false;
 
 	std::atomic<bool> client_thread_3_finished{ false };
-	std::thread client_thread_3 ([&client_thread_3_finished]() {
-		auto response = websocket_test_call ("::1", "24078",
+	std::thread client_thread_3 ([&client_thread_3_finished, config]() {
+		auto response = websocket_test_call ("::1", std::to_string (config.websocket_config.port),
 		R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {"confirmation_type": "active_quorum", "all_local_accounts": "true"}})json", true, true, 1s);
 
 		ASSERT_FALSE (response);
@@ -544,25 +522,20 @@ TEST (websocket, confirmation_options)
 /** Subscribes to votes, sends a block and awaits websocket notification of a vote arrival */
 TEST (websocket, vote)
 {
-	nano::system system (24000, 1);
-	nano::node_config config;
-	nano::node_flags node_flags;
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
 	config.websocket_config.enabled = true;
-	config.websocket_config.port = 24078;
-
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
-	node1->wallets.create (nano::random_wallet_id ());
-	node1->start ();
-	system.nodes.push_back (node1);
+	config.websocket_config.port = nano::get_available_port ();
+	auto node1 (system.add_node (config));
 
 	// Start websocket test-client in a separate thread
 	ack_ready = false;
 	std::atomic<bool> client_thread_finished{ false };
 	ASSERT_FALSE (node1->websocket_server->any_subscriber (nano::websocket::topic::vote));
-	std::thread client_thread ([&client_thread_finished]() {
+	std::thread client_thread ([&client_thread_finished, config]() {
 		// This will expect two results: the acknowledgement of the subscription
 		// and then the vote message
-		auto response = websocket_test_call ("::1", "24078",
+		auto response = websocket_test_call ("::1", std::to_string (config.websocket_config.port),
 		R"json({"action": "subscribe", "topic": "vote", "ack": true})json", true, true);
 
 		ASSERT_TRUE (response);
@@ -586,7 +559,7 @@ TEST (websocket, vote)
 
 	// Quick-confirm a block
 	nano::keypair key;
-	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::block_hash previous (node1->latest (nano::test_genesis_key.pub));
 	auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous, nano::test_genesis_key.pub, nano::genesis_amount - (node1->config.online_weight_minimum.number () + 1), key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (previous)));
 	node1->process_active (send);
@@ -602,30 +575,89 @@ TEST (websocket, vote)
 	node1->stop ();
 }
 
-/** Tests vote subscription options */
-TEST (websocket, vote_options)
+/** Tests vote subscription options - vote type */
+TEST (websocket, vote_options_type)
 {
-	nano::system system (24000, 1);
-	nano::node_config config;
-	nano::node_flags node_flags;
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
 	config.websocket_config.enabled = true;
-	config.websocket_config.port = 24078;
+	config.websocket_config.port = nano::get_available_port ();
+	auto node1 (system.add_node (config));
 
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
-	node1->wallets.create (nano::random_wallet_id ());
-	node1->start ();
-	system.nodes.push_back (node1);
+	ASSERT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::vote));
+
+	// Subscribe to votes and wait for response asynchronously
+	ack_ready = false;
+	std::atomic<bool> replay_received{ false };
+	std::thread client_thread ([&replay_received, config]() {
+		auto response = websocket_test_call ("::1", std::to_string (config.websocket_config.port),
+		R"json({"action": "subscribe", "topic": "vote", "ack": true, "options": {"include_replays": "true", "include_indeterminate": "false"}})json", true, true);
+		ASSERT_TRUE (response);
+		boost::property_tree::ptree event;
+		std::stringstream stream;
+		stream << response;
+		boost::property_tree::read_json (stream, event);
+		auto message_contents = event.get_child ("message");
+		ASSERT_EQ (1, message_contents.count ("type"));
+		ASSERT_EQ ("replay", message_contents.get<std::string> ("type"));
+		replay_received = true;
+	});
+
+	// Wait for acknowledge
+	system.deadline_set (5s);
+	while (!ack_ready)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::vote));
+
+	// Custom made votes for simplicity
+	nano::genesis genesis;
+	auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, genesis.open));
+
+	// Indeterminates are not included
+	{
+		nano::websocket::message_builder builder;
+		auto msg (builder.vote_received (vote, nano::vote_code::indeterminate));
+		node1->websocket_server->broadcast (msg);
+	}
+
+	// Replays are included
+	{
+		nano::websocket::message_builder builder;
+		auto msg (builder.vote_received (vote, nano::vote_code::replay));
+		node1->websocket_server->broadcast (msg);
+	}
+
+	// Wait for the websocket client
+	system.deadline_set (5s);
+	while (!replay_received)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	client_thread.join ();
+	node1->stop ();
+}
+
+/** Tests vote subscription options - list of representatives */
+TEST (websocket, vote_options_representatives)
+{
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.websocket_config.enabled = true;
+	config.websocket_config.port = nano::get_available_port ();
+	auto node1 (system.add_node (config));
 
 	// Start websocket test-client in a separate thread
 	ack_ready = false;
 	std::atomic<bool> client_thread_finished{ false };
 	ASSERT_FALSE (node1->websocket_server->any_subscriber (nano::websocket::topic::vote));
-	std::thread client_thread ([&client_thread_finished]() {
+	std::thread client_thread ([&client_thread_finished, config]() {
 		std::ostringstream data;
 		data << R"json({"action": "subscribe", "topic": "vote", "ack": true, "options": {"representatives": [")json"
 		     << nano::test_genesis_key.pub.to_account ()
 		     << R"json("]}})json";
-		auto response = websocket_test_call ("::1", "24078", data.str (), true, true);
+		auto response = websocket_test_call ("::1", std::to_string (config.websocket_config.port), data.str (), true, true);
 
 		ASSERT_TRUE (response);
 		boost::property_tree::ptree event;
@@ -649,7 +681,7 @@ TEST (websocket, vote_options)
 	// Quick-confirm a block
 	nano::keypair key;
 	auto balance = nano::genesis_amount;
-	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	auto send_amount = node1->config.online_weight_minimum.number () + 1;
 	auto confirm_block = [&]() {
 		nano::block_hash previous (node1->latest (nano::test_genesis_key.pub));
@@ -667,12 +699,12 @@ TEST (websocket, vote_options)
 	}
 
 	std::atomic<bool> client_thread_2_finished{ false };
-	std::thread client_thread_2 ([&client_thread_2_finished]() {
-		auto response = websocket_test_call ("::1", "24078",
-		R"json({"action": "subscribe", "topic": "vote", "ack": true, "options": {"representatives": ["xrb_invalid"]}})json", true, true, 1s);
+	std::thread client_thread_2 ([&client_thread_2_finished, config]() {
+		auto response = websocket_test_call ("::1", std::to_string (config.websocket_config.port),
+		R"json({"action": "subscribe", "topic": "vote", "ack": true, "options": {"representatives": ["xrb_invalid"]}})json", true, true);
 
-		// No response expected given the filter
-		ASSERT_FALSE (response);
+		// A list of invalid representatives is the same as no filter
+		ASSERT_TRUE (response);
 		client_thread_2_finished = true;
 	});
 
@@ -689,7 +721,6 @@ TEST (websocket, vote_options)
 	// Confirm another block
 	confirm_block ();
 
-	// No response expected
 	system.deadline_set (5s);
 	while (!client_thread_2_finished)
 	{
@@ -704,22 +735,18 @@ TEST (websocket, vote_options)
 // Test client subscribing to notifications for work generation
 TEST (websocket, work)
 {
-	nano::system system (24000, 1);
-	nano::node_config config;
-	nano::node_flags node_flags;
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
 	config.websocket_config.enabled = true;
-	config.websocket_config.port = 24078;
-
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
-	node1->start ();
-	system.nodes.push_back (node1);
+	config.websocket_config.port = nano::get_available_port ();
+	auto node1 (system.add_node (config));
 
 	ASSERT_EQ (0, node1->websocket_server->subscriber_count (nano::websocket::topic::work));
 
 	// Subscribe to work and wait for response asynchronously
 	ack_ready = false;
-	auto client_task = ([]() -> boost::optional<std::string> {
-		auto response = websocket_test_call ("::1", "24078", R"json({"action": "subscribe", "topic": "work", "ack": true})json", true, true);
+	auto client_task = ([config]() -> boost::optional<std::string> {
+		auto response = websocket_test_call ("::1", std::to_string (config.websocket_config.port), R"json({"action": "subscribe", "topic": "work", "ack": true})json", true, true);
 		return response;
 	});
 	auto client_future = std::async (std::launch::async, client_task);
@@ -781,18 +808,15 @@ TEST (websocket, work)
 /** Tests clients subscribing multiple times or unsubscribing without a subscription */
 TEST (websocket, ws_keepalive)
 {
-	nano::system system (24000, 1);
-	nano::node_config config;
-	nano::node_flags node_flags;
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
 	config.websocket_config.enabled = true;
-	config.websocket_config.port = 24078;
+	config.websocket_config.port = nano::get_available_port ();
+	auto node1 (system.add_node (config));
 
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, config, system.work, node_flags));
-	node1->start ();
-	system.nodes.push_back (node1);
 	ack_ready = false;
-	std::thread subscription_thread ([]() {
-		websocket_test_call ("::1", "24078", R"json({"action": "ping"})json", true, false);
+	std::thread subscription_thread ([config]() {
+		websocket_test_call ("::1", std::to_string (config.websocket_config.port), R"json({"action": "ping"})json", true, false);
 	});
 	system.deadline_set (5s);
 	while (!ack_ready)

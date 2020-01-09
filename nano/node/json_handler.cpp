@@ -2,31 +2,21 @@
 #include <nano/lib/json_error_response.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/node/common.hpp>
-#include <nano/node/ipc.hpp>
+#include <nano/node/election.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/json_payment_observer.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/node_rpc_config.hpp>
 
-#include <boost/array.hpp>
-#include <boost/bind.hpp>
-#include <boost/endian/conversion.hpp>
-#include <boost/polymorphic_cast.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
-#include <boost/thread/thread_time.hpp>
 
 #include <algorithm>
 #include <chrono>
-#include <cstdio>
-#include <fstream>
-#include <future>
-#include <iostream>
-#include <thread>
 
 namespace
 {
-void construct_json (nano::seq_con_info_component * component, boost::property_tree::ptree & parent);
+void construct_json (nano::container_info_component * component, boost::property_tree::ptree & parent);
 using ipc_json_handler_no_arg_func_map = std::unordered_map<std::string, std::function<void(nano::json_handler *)>>;
 ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ();
 auto ipc_json_handler_no_arg_funcs = create_ipc_json_handler_no_arg_func_map ();
@@ -1021,7 +1011,7 @@ void nano::json_handler::block_confirm ()
 			else
 			{
 				// Add record in confirmation history for confirmed block
-				nano::election_status status{ block_l, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, nano::election_status_type::active_confirmation_height };
+				nano::election_status status{ block_l, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::active_confirmation_height };
 				{
 					nano::lock_guard<std::mutex> lock (node.active.mutex);
 					node.active.confirmed.push_back (status);
@@ -1222,8 +1212,8 @@ void nano::json_handler::block_count ()
 {
 	auto transaction (node.store.tx_begin_read ());
 	response_l.put ("count", std::to_string (node.store.block_count (transaction).sum ()));
-	response_l.put ("unchecked", std::to_string (node.store.unchecked_count (transaction)));
-	response_l.put ("cemented", std::to_string (node.ledger.cemented_count));
+	response_l.put ("unchecked", std::to_string (node.ledger.cache.unchecked_count));
+	response_l.put ("cemented", std::to_string (node.ledger.cache.cemented_count));
 	response_errors ();
 }
 
@@ -1390,9 +1380,9 @@ void nano::json_handler::block_create ()
 			rpc_l->response (ostream.str ());
 		};
 		// Wrapper from argument to lambda capture, to extend the block's scope
-		auto get_callback_l = [rpc_l, this, block_response_put_l](std::shared_ptr<nano::block> block_a) {
+		auto get_callback_l = [rpc_l, block_response_put_l](std::shared_ptr<nano::block> block_a) {
 			// Callback upon work generation success or failure
-			return [block_a, rpc_l, this, block_response_put_l](boost::optional<uint64_t> const & work_a) {
+			return [block_a, rpc_l, block_response_put_l](boost::optional<uint64_t> const & work_a) {
 				if (block_a != nullptr)
 				{
 					if (work_a.is_initialized ())
@@ -1600,7 +1590,7 @@ void nano::json_handler::bootstrap ()
 	std::string port_text = request.get<std::string> ("port");
 	const bool bypass_frontier_confirmation = request.get<bool> ("bypass_frontier_confirmation", false);
 	boost::system::error_code address_ec;
-	auto address (boost::asio::ip::address_v6::from_string (address_text, address_ec));
+	auto address (boost::asio::ip::make_address_v6 (address_text, address_ec));
 	if (!address_ec)
 	{
 		uint16_t port;
@@ -1816,7 +1806,9 @@ void nano::json_handler::confirmation_history ()
 				election.put ("duration", i->election_duration.count ());
 				election.put ("time", i->election_end.count ());
 				election.put ("tally", i->tally.to_string_dec ());
-				election.put ("request_count", i->confirmation_request_count);
+				election.put ("blocks", std::to_string (i->block_count));
+				election.put ("voters", std::to_string (i->voter_count));
+				election.put ("request_count", std::to_string (i->confirmation_request_count));
 				elections.push_back (std::make_pair ("", election));
 			}
 			running_total += i->election_duration;
@@ -1845,10 +1837,11 @@ void nano::json_handler::confirmation_info ()
 		auto conflict_info (node.active.roots.find (root));
 		if (conflict_info != node.active.roots.end ())
 		{
-			response_l.put ("announcements", std::to_string (conflict_info->election->confirmation_request_count));
 			auto election (conflict_info->election);
-			nano::uint128_t total (0);
+			response_l.put ("announcements", std::to_string (election->confirmation_request_count));
+			response_l.put ("voters", std::to_string (election->last_votes.size ()));
 			response_l.put ("last_winner", election->status.winner->hash ().to_string ());
+			nano::uint128_t total (0);
 			auto tally_l (election->tally ());
 			boost::property_tree::ptree blocks;
 			for (auto i (tally_l.begin ()), n (tally_l.end ()); i != n; ++i)
@@ -1880,7 +1873,7 @@ void nano::json_handler::confirmation_info ()
 						if (i->second->hash () == ii->second.hash)
 						{
 							nano::account const & representative (ii->first);
-							auto amount (node.ledger.rep_weights.representation_get (representative));
+							auto amount (node.ledger.cache.rep_weights.representation_get (representative));
 							representatives.emplace (std::move (amount), representative);
 						}
 					}
@@ -2070,12 +2063,16 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 	class modified_tag
 	{
 	};
-	boost::multi_index_container<
-	account_upgrade_item,
+	// clang-format off
+	boost::multi_index_container<account_upgrade_item,
 	boost::multi_index::indexed_by<
-	boost::multi_index::ordered_non_unique<boost::multi_index::tag<modified_tag>, boost::multi_index::member<account_upgrade_item, uint64_t, &account_upgrade_item::modified>, std::greater<uint64_t>>,
-	boost::multi_index::hashed_unique<boost::multi_index::tag<account_tag>, boost::multi_index::member<account_upgrade_item, nano::account, &account_upgrade_item::account>>>>
+		boost::multi_index::ordered_non_unique<boost::multi_index::tag<modified_tag>,
+			boost::multi_index::member<account_upgrade_item, uint64_t, &account_upgrade_item::modified>,
+			std::greater<uint64_t>>,
+		boost::multi_index::hashed_unique<boost::multi_index::tag<account_tag>,
+			boost::multi_index::member<account_upgrade_item, nano::account, &account_upgrade_item::account>>>>
 	accounts_list;
+	// clang-format on
 
 	bool finished_upgrade (false);
 
@@ -2095,7 +2092,7 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 					if (info.epoch () < epoch_a)
 					{
 						release_assert (nano::epochs::is_sequential (info.epoch (), epoch_a));
-						accounts_list.insert (account_upgrade_item{ account, info.modified });
+						accounts_list.emplace (account_upgrade_item{ account, info.modified });
 					}
 				}
 			}
@@ -3335,9 +3332,9 @@ void nano::json_handler::receive ()
 	auto hash (hash_impl ("block"));
 	if (!ec)
 	{
-		auto transaction (node.wallets.tx_begin_read ());
-		wallet_locked_impl (transaction, wallet);
-		wallet_account_impl (transaction, wallet, account);
+		auto wallet_transaction (node.wallets.tx_begin_read ());
+		wallet_locked_impl (wallet_transaction, wallet);
+		wallet_account_impl (wallet_transaction, wallet, account);
 		if (!ec)
 		{
 			auto block_transaction (node.store.tx_begin_read ());
@@ -3373,10 +3370,13 @@ void nano::json_handler::receive ()
 					}
 					if (!ec)
 					{
+						// Representative is only used by receive_action when opening accounts
+						// Set a wallet default representative for new accounts
+						nano::account representative (wallet->store.representative (wallet_transaction));
 						bool generate_work (work == 0); // Disable work generation if "work" option is provided
 						auto response_a (response);
 						// clang-format off
-						wallet->receive_async(std::move(block), account, node.network_params.ledger.genesis_amount, [response_a](std::shared_ptr<nano::block> block_a) {
+						wallet->receive_async(std::move(block), representative, node.network_params.ledger.genesis_amount, [response_a](std::shared_ptr<nano::block> block_a) {
 							if (block_a != nullptr)
 							{
 								boost::property_tree::ptree response_l;
@@ -3439,7 +3439,7 @@ void nano::json_handler::representatives ()
 	{
 		const bool sorting = request.get<bool> ("sorting", false);
 		boost::property_tree::ptree representatives;
-		auto rep_amounts = node.ledger.rep_weights.get_rep_amounts ();
+		auto rep_amounts = node.ledger.cache.rep_weights.get_rep_amounts ();
 		if (!sorting) // Simple
 		{
 			std::map<nano::account, nano::uint128_t> ordered (rep_amounts.begin (), rep_amounts.end ());
@@ -3862,7 +3862,7 @@ void nano::json_handler::stats ()
 	}
 	else if (type == "objects")
 	{
-		construct_json (collect_seq_con_info (node, "node").get (), response_l);
+		construct_json (collect_container_info (node, "node").get (), response_l);
 	}
 	else if (type == "samples")
 	{
@@ -4100,6 +4100,7 @@ void nano::json_handler::version ()
 	response_l.put ("store_version", std::to_string (node.store_version ()));
 	response_l.put ("protocol_version", std::to_string (node.network_params.protocol.protocol_version));
 	response_l.put ("node_vendor", boost::str (boost::format ("Nano %1%") % NANO_VERSION_STRING));
+	response_l.put ("store_vendor", node.store.vendor_get ());
 	response_l.put ("network", node.network_params.network.get_current_network_as_string ());
 	response_l.put ("network_identifier", nano::genesis ().hash ().to_string ());
 	response_l.put ("build_info", BUILD_INFO);
@@ -4941,12 +4942,12 @@ void nano::json_handler::work_peers_clear ()
 
 namespace
 {
-void construct_json (nano::seq_con_info_component * component, boost::property_tree::ptree & parent)
+void construct_json (nano::container_info_component * component, boost::property_tree::ptree & parent)
 {
 	// We are a leaf node, print name and exit
 	if (!component->is_composite ())
 	{
-		auto & leaf_info = static_cast<nano::seq_con_info_leaf *> (component)->get_info ();
+		auto & leaf_info = static_cast<nano::container_info_leaf *> (component)->get_info ();
 		boost::property_tree::ptree child;
 		child.put ("count", leaf_info.count);
 		child.put ("size", leaf_info.count * leaf_info.sizeof_element);
@@ -4954,7 +4955,7 @@ void construct_json (nano::seq_con_info_component * component, boost::property_t
 		return;
 	}
 
-	auto composite = static_cast<nano::seq_con_info_composite *> (component);
+	auto composite = static_cast<nano::container_info_composite *> (component);
 
 	boost::property_tree::ptree current;
 	for (auto & child : composite->get_children ())

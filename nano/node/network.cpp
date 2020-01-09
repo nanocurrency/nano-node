@@ -1,12 +1,18 @@
+#include <nano/crypto_lib/random_pool_shuffle.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
+#include <nano/secure/buffer.hpp>
+
+#include <boost/format.hpp>
+#include <boost/variant/get.hpp>
 
 #include <numeric>
-#include <sstream>
 
 nano::network::network (nano::node & node_a, uint16_t port_a) :
 buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
 resolver (node_a.io_ctx),
+limiter (node_a.config.bandwidth_limit),
 node (node_a),
 udp_channels (node_a, port_a),
 tcp_channels (node_a),
@@ -95,9 +101,9 @@ void nano::network::send_keepalive (std::shared_ptr<nano::transport::channel> ch
 void nano::network::send_keepalive_self (std::shared_ptr<nano::transport::channel> channel_a)
 {
 	nano::keepalive message;
-	if (node.config.external_address != boost::asio::ip::address_v6{} && node.config.external_port != 0)
+	if (node.config.external_address != boost::asio::ip::address_v6{}.to_string () && node.config.external_port != 0)
 	{
-		message.peers[0] = nano::endpoint (node.config.external_address, node.config.external_port);
+		message.peers[0] = nano::endpoint (boost::asio::ip::make_address_v6 (node.config.external_address), node.config.external_port);
 	}
 	else
 	{
@@ -106,7 +112,7 @@ void nano::network::send_keepalive_self (std::shared_ptr<nano::transport::channe
 		{
 			message.peers[0] = nano::endpoint (boost::asio::ip::address_v6{}, endpoint ().port ());
 			boost::system::error_code ec;
-			auto external_v6 = boost::asio::ip::address_v6::from_string (external_address.address ().to_string (), ec);
+			auto external_v6 = boost::asio::ip::make_address_v6 (external_address.address ().to_string (), ec);
 			message.peers[1] = nano::endpoint (external_v6, external_address.port ());
 		}
 		else
@@ -137,7 +143,7 @@ template <typename T>
 bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a, T & list_a, std::shared_ptr<nano::block> block_a, bool also_publish)
 {
 	bool result (false);
-	if (node_a.config.enable_voting)
+	if (node_a.config.enable_voting && node_a.wallets.rep_counts ().voting > 0)
 	{
 		auto hash (block_a->hash ());
 		// Search in cache
@@ -291,7 +297,7 @@ void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> block_a)
 	 * if the votes for a block have not arrived in time.
 	 */
 	const size_t max_endpoints = 32;
-	random_pool::shuffle (list->begin (), list->end ());
+	nano::random_pool_shuffle (list->begin (), list->end ());
 	if (list->size () > max_endpoints)
 	{
 		list->erase (list->begin () + max_endpoints, list->end ());
@@ -453,7 +459,7 @@ public:
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::in);
 		// Don't load nodes with disabled voting
-		if (node.config.enable_voting && node.wallets.reps_count)
+		if (node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
 		{
 			if (message_a.block != nullptr)
 			{
@@ -481,7 +487,13 @@ public:
 					if (!find_votes.empty ())
 					{
 						++cached_count;
-						cached_votes.insert (cached_votes.end (), find_votes.begin (), find_votes.end ());
+						for (auto const & vote : find_votes)
+						{
+							if (std::find (cached_votes.begin (), cached_votes.end (), vote) == cached_votes.end ())
+							{
+								cached_votes.push_back (vote);
+							}
+						}
 					}
 					if (!find_votes.empty () || (!root_hash.first.is_zero () && node.store.block_exists (transaction, root_hash.first)))
 					{
@@ -508,7 +520,13 @@ public:
 							if (!find_successor_votes.empty ())
 							{
 								++cached_count;
-								cached_votes.insert (cached_votes.end (), find_successor_votes.begin (), find_successor_votes.end ());
+								for (auto const & vote : find_successor_votes)
+								{
+									if (std::find (cached_votes.begin (), cached_votes.end (), vote) == cached_votes.end ())
+									{
+										cached_votes.push_back (vote);
+									}
+								}
 							}
 							blocks_bundle.push_back (successor);
 							auto successor_block (node.store.block_get (transaction, successor));
@@ -651,7 +669,7 @@ std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list (size_
 	std::deque<std::shared_ptr<nano::transport::channel>> result;
 	tcp_channels.list (result);
 	udp_channels.list (result);
-	random_pool::shuffle (result.begin (), result.end ());
+	nano::random_pool_shuffle (result.begin (), result.end ());
 	if (result.size () > count_a)
 	{
 		result.resize (count_a, nullptr);
@@ -962,17 +980,26 @@ void nano::syn_cookies::purge (std::chrono::steady_clock::time_point const & cut
 	}
 }
 
-std::unique_ptr<nano::seq_con_info_component> nano::syn_cookies::collect_seq_con_info (std::string const & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (network & network, const std::string & name)
 {
-	size_t syn_cookies_count = 0;
-	size_t syn_cookies_per_ip_count = 0;
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (network.tcp_channels.collect_container_info ("tcp_channels"));
+	composite->add_component (network.udp_channels.collect_container_info ("udp_channels"));
+	composite->add_component (network.syn_cookies.collect_container_info ("syn_cookies"));
+	return composite;
+}
+
+std::unique_ptr<nano::container_info_component> nano::syn_cookies::collect_container_info (std::string const & name)
+{
+	size_t syn_cookies_count;
+	size_t syn_cookies_per_ip_count;
 	{
 		nano::lock_guard<std::mutex> syn_cookie_guard (syn_cookie_mutex);
 		syn_cookies_count = cookies.size ();
 		syn_cookies_per_ip_count = cookies_per_ip.size ();
 	}
-	auto composite = std::make_unique<seq_con_info_composite> (name);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "syn_cookies", syn_cookies_count, sizeof (decltype (cookies)::value_type) }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "syn_cookies_per_ip", syn_cookies_per_ip_count, sizeof (decltype (cookies_per_ip)::value_type) }));
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "syn_cookies", syn_cookies_count, sizeof (decltype (cookies)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "syn_cookies_per_ip", syn_cookies_per_ip_count, sizeof (decltype (cookies_per_ip)::value_type) }));
 	return composite;
 }
