@@ -69,12 +69,12 @@ void nano::network::start ()
 	if (!node.flags.disable_udp)
 	{
 		udp_channels.start ();
-		assert (udp_channels.get_local_endpoint ().port == port);
+		assert (udp_channels.get_local_endpoint ().port () == port);
 	}
 	if (!node.flags.disable_tcp_realtime)
 	{
 		tcp_channels.start ();
-		assert (node.bootstrap.endpoint ().port == port);
+		assert (node.bootstrap.endpoint ().port () == port);
 	}
 	ongoing_keepalive ();
 }
