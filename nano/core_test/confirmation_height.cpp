@@ -602,7 +602,7 @@ TEST (confirmation_height, conflict_rollback_cemented)
 	nano::system system (2);
 	auto node1 (system.nodes[0]);
 	auto node2 (system.nodes[1]);
-	ASSERT_EQ (1, node1.network.size ());
+	ASSERT_EQ (1, node1->network.size ());
 	nano::keypair key1;
 	nano::genesis genesis;
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
