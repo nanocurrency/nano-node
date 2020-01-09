@@ -105,11 +105,8 @@ public:
 		random_fill (message.peers);
 		flood_message (message);
 	}
-	void flood_vote (std::shared_ptr<nano::vote> vote_a)
-	{
-		nano::confirm_ack message (vote_a);
-		flood_message (message);
-	}
+	void flood_vote (std::shared_ptr<nano::vote>, float scale);
+	void flood_vote_pr (std::shared_ptr<nano::vote>);
 	void flood_block (std::shared_ptr<nano::block> block_a, bool const is_droppable_a = true)
 	{
 		nano::publish publish (block_a);
@@ -137,7 +134,7 @@ public:
 	bool reachout (nano::endpoint const &, bool = false);
 	std::deque<std::shared_ptr<nano::transport::channel>> list (size_t);
 	// A list of random peers sized for the configured rebroadcast fanout
-	std::deque<std::shared_ptr<nano::transport::channel>> list_fanout ();
+	std::deque<std::shared_ptr<nano::transport::channel>> list_fanout (float scale = 1.0f);
 	void random_fill (std::array<nano::endpoint, 8> &) const;
 	std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (size_t) const;
 	// Get the next peer for attempting a tcp bootstrap connection

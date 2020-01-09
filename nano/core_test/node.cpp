@@ -2712,9 +2712,9 @@ TEST (node, fork_invalid_block_signature)
 	}
 	auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, send2));
 	auto vote_corrupt (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, send2_corrupt));
-	system.nodes[1]->network.flood_vote (vote_corrupt);
+	system.nodes[1]->network.flood_vote (vote_corrupt, 1.0f);
 	ASSERT_NO_ERROR (system.poll ());
-	system.nodes[1]->network.flood_vote (vote);
+	system.nodes[1]->network.flood_vote (vote, 1.0f);
 	while (system.nodes[0]->block (send1->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -3155,11 +3155,6 @@ TEST (node, bidirectional_tcp)
 		confirmed = node1->ledger.block_confirmed (transaction1, send1->hash ()) && node2->ledger.block_confirmed (transaction2, send1->hash ());
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	// Test block propagation from node 2
-	{
-		auto transaction (system.wallet (0)->wallets.tx_begin_write ());
-		system.wallet (0)->store.erase (transaction, nano::test_genesis_key.pub);
-	}
 	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node1->work_generate_blocking (send1->hash ())));
 	node2->process_active (send2);
 	node2->block_processor.flush ();
@@ -3169,7 +3164,6 @@ TEST (node, bidirectional_tcp)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	// Test block confirmation from node 2
-	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
 	confirmed = false;
 	system.deadline_set (10s);
 	while (!confirmed)

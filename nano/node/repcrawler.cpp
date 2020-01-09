@@ -271,6 +271,21 @@ std::vector<nano::representative> nano::rep_crawler::representatives (size_t cou
 	return result;
 }
 
+std::vector<nano::representative> nano::rep_crawler::principal_representatives (size_t count_a)
+{
+	std::vector<representative> result;
+	auto minimum = node.minimum_principal_weight ();
+	nano::lock_guard<std::mutex> lock (probable_reps_mutex);
+	for (auto i (probable_reps.get<tag_weight> ().begin ()), n (probable_reps.get<tag_weight> ().end ()); i != n && result.size () < count_a; ++i)
+	{
+		if (i->weight > minimum)
+		{
+			result.push_back (*i);
+		}
+	}
+	return result;
+}
+
 std::vector<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::representative_endpoints (size_t count_a)
 {
 	std::vector<std::shared_ptr<nano::transport::channel>> result;

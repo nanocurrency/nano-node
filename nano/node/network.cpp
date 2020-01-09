@@ -236,6 +236,28 @@ void nano::network::flood_message (nano::message const & message_a, bool const i
 	}
 }
 
+void nano::network::flood_vote (std::shared_ptr<nano::vote> vote_a, float scale)
+{
+	auto list (list_fanout (scale));
+	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
+	{
+		if (!node.rep_crawler.is_pr (**i))
+		{
+			(*i)->send (nano::confirm_ack (vote_a));
+		}
+	}
+}
+
+void nano::network::flood_vote_pr (std::shared_ptr<nano::vote> vote_a)
+{
+	nano::confirm_ack message (vote_a);
+	auto list = node.rep_crawler.principal_representatives ();
+	for (auto const & i: list)
+	{
+		i.channel->send (message, nullptr, false);
+	}
+}
+
 void nano::network::flood_block_many (std::deque<std::shared_ptr<nano::block>> blocks_a, std::function<void()> callback_a, unsigned delay_a)
 {
 	auto block_l (blocks_a.front ());
@@ -678,9 +700,9 @@ std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list (size_
 }
 
 // Simulating with sqrt_broadcast_simulate shows we only need to broadcast to sqrt(total_peers) random peers in order to successfully publish to everyone with high probability
-std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list_fanout ()
+std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list_fanout (float scale)
 {
-	auto result (list (size_sqrt ()));
+	auto result (list (static_cast<size_t> (std::ceil (scale * size_sqrt ()))));
 	return result;
 }
 

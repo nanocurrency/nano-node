@@ -574,9 +574,9 @@ bool nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a, bool s
 			processed = processed || result.processed;
 		}
 	}
-	if (processed)
+	if (processed && !node.wallets.rep_counts ().have_half_rep ())
 	{
-		node.network.flood_vote (vote_a);
+		node.network.flood_vote (vote_a, 0.5f);
 	}
 	return replay;
 }

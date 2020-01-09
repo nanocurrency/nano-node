@@ -109,6 +109,9 @@ public:
 	/** Request a list of the top \p count_a known representatives in descending order of weight. */
 	std::vector<representative> representatives (size_t count_a = std::numeric_limits<size_t>::max ());
 
+	/** Request a list of the top \p count_a known principal representatives in descending order of weight. */
+	std::vector<representative> principal_representatives (size_t count_a = std::numeric_limits<size_t>::max ());
+
 	/** Request a list of the top \p count_a known representative endpoints. */
 	std::vector<std::shared_ptr<nano::transport::channel>> representative_endpoints (size_t count_a);
 
