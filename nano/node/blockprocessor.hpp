@@ -7,7 +7,7 @@
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
-#include <boost/multi_index/random_access_index.hpp>
+#include <boost/multi_index/sequenced_index.hpp>
 #include <boost/multi_index_container.hpp>
 
 #include <chrono>
@@ -21,12 +21,6 @@ class transaction;
 class write_transaction;
 class write_database_queue;
 
-class rolled_hash
-{
-public:
-	std::chrono::steady_clock::time_point time;
-	nano::block_hash hash;
-};
 /**
  * Processing blocks is a potentially long IO operation.
  * This class isolates block insertion from other operations like servicing network operations
@@ -69,18 +63,11 @@ private:
 	std::deque<std::shared_ptr<nano::block>> forced;
 	nano::block_hash filter_item (nano::block_hash const &, nano::signature const &);
 	std::unordered_set<nano::block_hash> blocks_filter;
-	boost::multi_index_container<
-	nano::rolled_hash,
-	boost::multi_index::indexed_by<
-	boost::multi_index::ordered_non_unique<boost::multi_index::member<nano::rolled_hash, std::chrono::steady_clock::time_point, &nano::rolled_hash::time>>,
-	boost::multi_index::hashed_unique<boost::multi_index::member<nano::rolled_hash, nano::block_hash, &nano::rolled_hash::hash>>>>
-	rolled_back;
-	static size_t const rolled_back_max = 1024;
 	nano::condition_variable condition;
 	nano::node & node;
 	nano::write_database_queue & write_database_queue;
 	std::mutex mutex;
 
-	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_processor & block_processor, const std::string & name);
+	friend std::unique_ptr<container_info_component> collect_container_info (block_processor & block_processor, const std::string & name);
 };
 }

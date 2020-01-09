@@ -1,9 +1,10 @@
-#include <nano/lib/config.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/daemonconfig.hpp>
 #include <nano/node/node.hpp>
+
+#include <boost/format.hpp>
 
 namespace
 {
@@ -50,6 +51,7 @@ void nano::add_node_options (boost::program_options::options_description & descr
 	("peer_clear", "Clear online peers database dump")
 	("unchecked_clear", "Clear unchecked blocks")
 	("confirmation_height_clear", "Clear confirmation height")
+	("rebuild_database", "Rebuild LMDB database with vacuum for best compaction")
 	("diagnostics", "Run internal diagnostics")
 	("generate_config", boost::program_options::value<std::string> (), "Write configuration to stdout, populated with defaults suitable for this system. Pass the configuration type node or rpc. See also use_defaults.")
 	("key_create", "Generates a adhoc random keypair and prints it to stdout")
@@ -154,7 +156,7 @@ void database_write_lock_error (std::error_code & ec)
 bool copy_database (boost::filesystem::path const & data_path, boost::program_options::variables_map & vm, boost::filesystem::path const & output_path, std::error_code & ec)
 {
 	bool success = false;
-	bool needs_to_write = vm.count ("unchecked_clear") || vm.count ("clear_send_ids") || vm.count ("online_weight_clear") || vm.count ("peer_clear") || vm.count ("confirmation_height_clear");
+	bool needs_to_write = vm.count ("unchecked_clear") || vm.count ("clear_send_ids") || vm.count ("online_weight_clear") || vm.count ("peer_clear") || vm.count ("confirmation_height_clear") || vm.count ("rebuild_database");
 
 	auto node_flags = nano::inactive_node_flag_defaults ();
 	node_flags.read_only = !needs_to_write;
@@ -184,6 +186,11 @@ bool copy_database (boost::filesystem::path const & data_path, boost::program_op
 		if (vm.count ("confirmation_height_clear"))
 		{
 			reset_confirmation_heights (node.node->store);
+		}
+		if (vm.count ("rebuild_database"))
+		{
+			auto transaction (node.node->store.tx_begin_write ());
+			node.node->store.rebuild_db (transaction);
 		}
 
 		success = node.node->copy_with_compaction (output_path);
@@ -531,7 +538,7 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 		else if (type == "rpc")
 		{
 			valid_type = true;
-			nano::rpc_config config (false);
+			nano::rpc_config config;
 			config.serialize_toml (toml);
 		}
 		else
@@ -541,9 +548,9 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 
 		if (valid_type)
 		{
-			std::cout << "# This is an example configuration file for nano_node. Visit https://docs.nano.org/running-a-node/configuration/ for more information.\n#\n"
-			          << "# Fields are defined in the context of the [category] above them.\n"
-			          << "# The desired configuration changes should be placed in a config-node.toml in the node data path.\n"
+			std::cout << "# This is an example configuration file for Nano. Visit https://docs.nano.org/running-a-node/configuration/ for more information.\n#\n"
+			          << "# Fields may need to be defined in the context of a [category] above them.\n"
+			          << "# The desired configuration changes should be placed in config-" << type << ".toml in the node data path.\n"
 			          << "# To change a value from its default, uncomment (erasing #) the corresponding field.\n"
 			          << "# It is not recommended to uncomment every field, as the default value for important fields may change in the future. Only change what you need.\n"
 			          << "# Additional information for notable configuration options is available in https://docs.nano.org/running-a-node/configuration/#notable-configuration-options\n";

@@ -4,9 +4,11 @@
 #include <nano/node/common.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/wallet.hpp>
+#include <nano/secure/buffer.hpp>
 
 #include <boost/endian/conversion.hpp>
 #include <boost/pool/pool_alloc.hpp>
+#include <boost/variant/get.hpp>
 
 std::bitset<16> constexpr nano::message_header::block_type_mask;
 std::bitset<16> constexpr nano::message_header::count_mask;
@@ -18,6 +20,26 @@ nano::protocol_constants const & get_protocol_constants ()
 	return params.protocol;
 }
 }
+
+uint64_t nano::ip_address_hash_raw (boost::asio::ip::address const & ip_a, uint16_t port)
+{
+	static nano::random_constants constants;
+	assert (ip_a.is_v6 ());
+	uint64_t result;
+	nano::uint128_union address;
+	address.bytes = ip_a.to_v6 ().to_bytes ();
+	blake2b_state state;
+	blake2b_init (&state, sizeof (result));
+	blake2b_update (&state, constants.random_128.bytes.data (), constants.random_128.bytes.size ());
+	if (port != 0)
+	{
+		blake2b_update (&state, &port, sizeof (port));
+	}
+	blake2b_update (&state, address.bytes.data (), address.bytes.size ());
+	blake2b_final (&state, &result, sizeof (result));
+	return result;
+}
+
 nano::message_header::message_header (nano::message_type type_a) :
 version_max (get_protocol_constants ().protocol_version),
 version_using (get_protocol_constants ().protocol_version),
@@ -82,6 +104,19 @@ header (type_a)
 nano::message::message (nano::message_header const & header_a) :
 header (header_a)
 {
+}
+
+std::shared_ptr<std::vector<uint8_t>> nano::message::to_bytes () const
+{
+	auto bytes = std::make_shared<std::vector<uint8_t>> ();
+	nano::vectorstream stream (*bytes);
+	serialize (stream);
+	return bytes;
+}
+
+nano::shared_const_buffer nano::message::to_shared_const_buffer () const
+{
+	return shared_const_buffer (to_bytes ());
 }
 
 nano::block_type nano::message_header::block_type () const
@@ -1087,7 +1122,7 @@ bool nano::parse_address_port (std::string const & string, boost::asio::ip::addr
 			if (!result)
 			{
 				boost::system::error_code ec;
-				auto address (boost::asio::ip::address_v6::from_string (string.substr (0, port_position), ec));
+				auto address (boost::asio::ip::make_address_v6 (string.substr (0, port_position), ec));
 				if (!ec)
 				{
 					address_a = address;

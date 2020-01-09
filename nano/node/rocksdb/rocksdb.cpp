@@ -5,6 +5,7 @@
 #include <nano/node/rocksdb/rocksdb_txn.hpp>
 
 #include <boost/endian/conversion.hpp>
+#include <boost/format.hpp>
 #include <boost/polymorphic_cast.hpp>
 
 #include <rocksdb/merge_operator.h>
@@ -136,6 +137,11 @@ nano::read_transaction nano::rocksdb_store::tx_begin_read ()
 	return nano::read_transaction{ std::make_unique<nano::read_rocksdb_txn> (db) };
 }
 
+std::string nano::rocksdb_store::vendor_get () const
+{
+	return boost::str (boost::format ("RocksDB %1%.%2%.%3%") % ROCKSDB_MAJOR % ROCKSDB_MINOR % ROCKSDB_PATCH);
+}
+
 rocksdb::ColumnFamilyHandle * nano::rocksdb_store::table_to_column_family (tables table_a) const
 {
 	auto & handles_l = handles;
@@ -209,17 +215,13 @@ bool nano::rocksdb_store::exists (nano::transaction const & transaction_a, table
 int nano::rocksdb_store::del (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a)
 {
 	assert (transaction_a.contains (table_a));
-	if (!exists (transaction_a, table_a, key_a))
+	// RocksDB errors when trying to delete an entry which doesn't exist. It is a pre-condition that the key exists
+	assert (exists (transaction_a, table_a, key_a));
+
+	// Removing an entry so counts may need adjusting
+	if (is_caching_counts (table_a))
 	{
-		return status_code_not_found ();
-	}
-	else
-	{
-		// Adding a new entry so counts need adjusting (use RMW otherwise known as merge)
-		if (is_caching_counts (table_a))
-		{
-			decrement (transaction_a, tables::cached_counts, rocksdb_val (rocksdb::Slice (table_to_column_family (table_a)->GetName ())), 1);
-		}
+		decrement (transaction_a, tables::cached_counts, rocksdb_val (rocksdb::Slice (table_to_column_family (table_a)->GetName ())), 1);
 	}
 
 	return tx (transaction_a)->Delete (table_to_column_family (table_a), key_a).code ();
@@ -227,7 +229,7 @@ int nano::rocksdb_store::del (nano::write_transaction const & transaction_a, tab
 
 bool nano::rocksdb_store::block_info_get (nano::transaction const &, nano::block_hash const &, nano::block_info &) const
 {
-	// Should not be called
+	// Should not be called as the RocksDB backend does not use this table
 	assert (false);
 	return true;
 }
@@ -277,7 +279,6 @@ bool nano::rocksdb_store::is_caching_counts (nano::tables table_a) const
 	switch (table_a)
 	{
 		case tables::accounts:
-		case tables::unchecked:
 		case tables::send_blocks:
 		case tables::receive_blocks:
 		case tables::open_blocks:
@@ -377,6 +378,13 @@ size_t nano::rocksdb_store::count (nano::transaction const & transaction_a, tabl
 	else if (table_a == tables::online_weight)
 	{
 		for (auto i (online_weight_begin (transaction_a)), n (online_weight_end ()); i != n; ++i)
+		{
+			++sum;
+		}
+	}
+	else if (table_a == tables::unchecked)
+	{
+		for (auto i (unchecked_begin (transaction_a)), n (unchecked_end ()); i != n; ++i)
 		{
 			++sum;
 		}
@@ -601,7 +609,14 @@ bool nano::rocksdb_store::copy_db (boost::filesystem::path const & destination_p
 	return false;
 }
 
+void nano::rocksdb_store::rebuild_db (nano::write_transaction const & transaction_a)
+{
+	release_assert (false && "Not available for RocksDB");
+}
+
 bool nano::rocksdb_store::init_error () const
 {
 	return error;
 }
+// Explicitly instantiate
+template class nano::block_store_partial<rocksdb::Slice, nano::rocksdb_store>;

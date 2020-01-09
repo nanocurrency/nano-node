@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nano/boost/asio.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/transport/transport.hpp>
 
@@ -13,7 +12,6 @@
 
 #include <chrono>
 #include <memory>
-#include <unordered_map>
 #include <unordered_set>
 
 namespace mi = boost::multi_index;
@@ -54,7 +52,7 @@ public:
  */
 class rep_crawler
 {
-	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (rep_crawler & rep_crawler, const std::string & name);
+	friend std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, const std::string & name);
 
 	// clang-format off
 	class tag_account {};

@@ -141,7 +141,7 @@ bool nano::rep_crawler::response (std::shared_ptr<nano::transport::channel> chan
 	}
 	else
 	{
-		probable_reps.insert (nano::representative (rep_account_a, weight_a, channel_a));
+		probable_reps.emplace (nano::representative (rep_account_a, weight_a, channel_a));
 		updated_or_inserted = true;
 	}
 	return updated_or_inserted;

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nano/node/active_transactions.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
@@ -14,6 +13,26 @@ namespace nano
 {
 class channel;
 class node;
+enum class election_status_type : uint8_t
+{
+	ongoing = 0,
+	active_confirmed_quorum = 1,
+	active_confirmation_height = 2,
+	inactive_confirmation_height = 3,
+	stopped = 5
+};
+class election_status final
+{
+public:
+	std::shared_ptr<nano::block> winner;
+	nano::amount tally;
+	std::chrono::milliseconds election_end;
+	std::chrono::milliseconds election_duration;
+	unsigned confirmation_request_count;
+	unsigned block_count;
+	unsigned voter_count;
+	election_status_type type;
+};
 class vote_info final
 {
 public:
@@ -39,8 +58,6 @@ public:
 	nano::tally_t tally ();
 	// Check if we have vote quorum
 	bool have_quorum (nano::tally_t const &, nano::uint128_t) const;
-	// Change our winner to agree with the network
-	void compute_rep_votes (nano::transaction const &);
 	void confirm_once (nano::election_status_type = nano::election_status_type::active_confirmed_quorum);
 	// Confirm this block if quorum is met
 	void confirm_if_quorum ();
@@ -50,7 +67,7 @@ public:
 	void update_dependent ();
 	void clear_dependent ();
 	void clear_blocks ();
-	void insert_inactive_votes_cache ();
+	void insert_inactive_votes_cache (nano::block_hash const &);
 	void stop ();
 	nano::node & node;
 	std::unordered_map<nano::account, nano::vote_info> last_votes;

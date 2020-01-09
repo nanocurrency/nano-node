@@ -5,9 +5,11 @@
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/nodeconfig.hpp>
-// NOTE: to reduce compile times, this include can be replaced by more narrow includes
-// once nano::network is factored out of node.{c|h}pp
-#include <nano/node/node.hpp>
+#include <nano/node/transport/transport.hpp>
+
+#include <crypto/cryptopp/words.h>
+
+#include <boost/format.hpp>
 
 namespace
 {
@@ -25,7 +27,8 @@ node_config (0, nano::logging ())
 
 nano::node_config::node_config (uint16_t peering_port_a, nano::logging const & logging_a) :
 peering_port (peering_port_a),
-logging (logging_a)
+logging (logging_a),
+external_address (boost::asio::ip::address_v6{}.to_string ())
 {
 	// The default constructor passes 0 to indicate we should use the default port,
 	// which is determined at node startup based on active network.
@@ -86,7 +89,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("unchecked_cutoff_time", unchecked_cutoff_time.count (), "Number of seconds before deleting an unchecked entry.\nWarning: lower values (e.g., 3600 seconds, or 1 hour) may result in unsuccessful bootstraps, especially a bootstrap from scratch.\ntype:seconds");
 	toml.put ("tcp_io_timeout", tcp_io_timeout.count (), "Timeout for TCP connect-, read- and write operations.\nWarning: a low value (e.g., below 5 seconds) may result in TCP connections failing.\ntype:seconds");
 	toml.put ("pow_sleep_interval", pow_sleep_interval.count (), "Time to sleep between batch work generation attempts. Reduces max CPU usage at the expense of a longer generation time.\ntype:nanoseconds");
-	toml.put ("external_address", external_address.to_string (), "The external address of this node (NAT). If not set, the node will request this information via UPnP.\ntype:string,ip");
+	toml.put ("external_address", external_address, "The external address of this node (NAT). If not set, the node will request this information via UPnP.\ntype:string,ip");
 	toml.put ("external_port", external_port, "The external port number of this node (NAT). Only used if external_address is set.\ntype:uint16");
 	toml.put ("tcp_incoming_connections_max", tcp_incoming_connections_max, "Maximum number of incoming TCP connections.\ntype:uint64");
 	toml.put ("use_memory_pools", use_memory_pools, "If true, allocate memory from memory pools. Enabling this may improve performance. Memory is never released to the OS.\ntype:bool");
@@ -302,7 +305,10 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get<bool> ("enable_voting", enable_voting);
 		toml.get<bool> ("allow_local_peers", allow_local_peers);
 		toml.get<unsigned> (signature_checker_threads_key, signature_checker_threads);
-		toml.get<boost::asio::ip::address_v6> ("external_address", external_address);
+
+		boost::asio::ip::address_v6 external_address_l;
+		toml.get<boost::asio::ip::address_v6> ("external_address", external_address_l);
+		external_address = external_address_l.to_string ();
 		toml.get<uint16_t> ("external_port", external_port);
 		toml.get<unsigned> ("tcp_incoming_connections_max", tcp_incoming_connections_max);
 
@@ -444,7 +450,7 @@ nano::error nano::node_config::serialize_json (nano::jsonconfig & json) const
 	json.put ("unchecked_cutoff_time", unchecked_cutoff_time.count ());
 	json.put ("tcp_io_timeout", tcp_io_timeout.count ());
 	json.put ("pow_sleep_interval", pow_sleep_interval.count ());
-	json.put ("external_address", external_address.to_string ());
+	json.put ("external_address", external_address);
 	json.put ("external_port", external_port);
 	json.put ("tcp_incoming_connections_max", tcp_incoming_connections_max);
 	json.put ("use_memory_pools", use_memory_pools);
@@ -574,7 +580,7 @@ bool nano::node_config::upgrade_json (unsigned version_a, nano::jsonconfig & jso
 			json.put_child ("diagnostics", diagnostics_l);
 			json.put ("tcp_io_timeout", tcp_io_timeout.count ());
 			json.put (pow_sleep_interval_key, pow_sleep_interval.count ());
-			json.put ("external_address", external_address.to_string ());
+			json.put ("external_address", external_address);
 			json.put ("external_port", external_port);
 			json.put ("tcp_incoming_connections_max", tcp_incoming_connections_max);
 			json.put ("vote_generator_delay", vote_generator_delay.count ());
@@ -733,7 +739,9 @@ nano::error nano::node_config::deserialize_json (bool & upgraded_a, nano::jsonco
 		json.get<bool> ("enable_voting", enable_voting);
 		json.get<bool> ("allow_local_peers", allow_local_peers);
 		json.get<unsigned> (signature_checker_threads_key, signature_checker_threads);
-		json.get<boost::asio::ip::address_v6> ("external_address", external_address);
+		boost::asio::ip::address_v6 external_address_l;
+		json.get<boost::asio::ip::address_v6> ("external_address", external_address_l);
+		external_address = external_address_l.to_string ();
 		json.get<uint16_t> ("external_port", external_port);
 		json.get<unsigned> ("tcp_incoming_connections_max", tcp_incoming_connections_max);
 

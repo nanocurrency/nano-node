@@ -5,13 +5,14 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/rep_weights.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/secure/epoch.hpp>
-#include <nano/secure/utility.hpp>
 
 #include <boost/iterator/transform_iterator.hpp>
-#include <boost/property_tree/ptree.hpp>
-#include <boost/variant.hpp>
+#include <boost/optional/optional.hpp>
+#include <boost/property_tree/ptree_fwd.hpp>
+#include <boost/variant/variant.hpp>
 
 #include <unordered_map>
 
@@ -275,7 +276,7 @@ private:
 	static unsigned constexpr cleanup_count = 2;
 };
 
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_uniquer & vote_uniquer, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (vote_uniquer & vote_uniquer, const std::string & name);
 
 enum class vote_code
 {
@@ -450,6 +451,26 @@ public:
 	node_constants node;
 	portmapping_constants portmapping;
 	bootstrap_constants bootstrap;
+};
+
+/* Holds flags for various cacheable data. For most CLI operations caching is unnecessary
+ * (e.g getting the checked block count) so it can be disabled for performance reasons. */
+class generate_cache
+{
+public:
+	bool reps = true;
+	bool cemented_count = true;
+	bool unchecked_count = true;
+};
+
+/* Holds an in-memory cache of various counts */
+class ledger_cache
+{
+public:
+	nano::rep_weights rep_weights;
+	std::atomic<uint64_t> cemented_count{ 0 };
+	std::atomic<uint64_t> block_count{ 0 };
+	std::atomic<uint64_t> unchecked_count{ 0 };
 };
 
 nano::wallet_id random_wallet_id ();

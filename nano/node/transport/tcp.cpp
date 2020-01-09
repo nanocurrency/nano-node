@@ -2,6 +2,8 @@
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
 
+#include <boost/format.hpp>
+
 nano::transport::channel_tcp::channel_tcp (nano::node & node_a, std::weak_ptr<nano::socket> socket_a) :
 channel (node_a),
 socket (socket_a)
@@ -366,11 +368,11 @@ bool nano::transport::tcp_channels::reachout (nano::endpoint const & endpoint_a)
 	return error;
 }
 
-std::unique_ptr<nano::seq_con_info_component> nano::transport::tcp_channels::collect_seq_con_info (std::string const & name)
+std::unique_ptr<nano::container_info_component> nano::transport::tcp_channels::collect_container_info (std::string const & name)
 {
-	size_t channels_count = 0;
-	size_t attemps_count = 0;
-	size_t node_id_handshake_sockets_count = 0;
+	size_t channels_count;
+	size_t attemps_count;
+	size_t node_id_handshake_sockets_count;
 	{
 		nano::lock_guard<std::mutex> guard (mutex);
 		channels_count = channels.size ();
@@ -378,10 +380,10 @@ std::unique_ptr<nano::seq_con_info_component> nano::transport::tcp_channels::col
 		node_id_handshake_sockets_count = node_id_handshake_sockets.size ();
 	}
 
-	auto composite = std::make_unique<seq_con_info_composite> (name);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "channels", channels_count, sizeof (decltype (channels)::value_type) }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "attempts", attemps_count, sizeof (decltype (attempts)::value_type) }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "node_id_handshake_sockets", node_id_handshake_sockets_count, sizeof (decltype (node_id_handshake_sockets)::value_type) }));
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "channels", channels_count, sizeof (decltype (channels)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "attempts", attemps_count, sizeof (decltype (attempts)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "node_id_handshake_sockets", node_id_handshake_sockets_count, sizeof (decltype (node_id_handshake_sockets)::value_type) }));
 
 	return composite;
 }
@@ -484,7 +486,13 @@ bool nano::transport::tcp_channels::node_id_handhake_sockets_empty () const
 	return node_id_handshake_sockets.empty ();
 }
 
-void nano::transport::tcp_channels::remove_node_id_handshake_socket (std::shared_ptr<nano::socket> socket_a)
+void nano::transport::tcp_channels::push_node_id_handshake_socket (std::shared_ptr<nano::socket> const & socket_a)
+{
+	nano::lock_guard<std::mutex> guard (mutex);
+	node_id_handshake_sockets.push_back (socket_a);
+}
+
+void nano::transport::tcp_channels::remove_node_id_handshake_socket (std::shared_ptr<nano::socket> const & socket_a)
 {
 	std::weak_ptr<nano::node> node_w (node.shared ());
 	if (auto node_l = node_w.lock ())
@@ -521,7 +529,7 @@ void nano::transport::tcp_channels::start_tcp (nano::endpoint const & endpoint_a
 				}
 				std::shared_ptr<std::vector<uint8_t>> receive_buffer (std::make_shared<std::vector<uint8_t>> ());
 				receive_buffer->resize (256);
-				node_l->network.tcp_channels.node_id_handshake_sockets.push_back (socket);
+				node_l->network.tcp_channels.push_node_id_handshake_socket (socket);
 				channel->send_buffer (bytes, nano::stat::detail::node_id_handshake, [node_w, channel, endpoint_a, receive_buffer, callback_a](boost::system::error_code const & ec, size_t size_a) {
 					if (auto node_l = node_w.lock ())
 					{

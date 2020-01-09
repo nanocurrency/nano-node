@@ -1,7 +1,8 @@
-#include <nano/boost/process.hpp>
+#include <nano/boost/process/child.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/rpcconfig.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/lib/walletconfig.hpp>
@@ -38,15 +39,27 @@ void show_help (std::string const & message_a)
 	message.exec ();
 }
 
-nano::error read_and_update_wallet_config (nano::wallet_config & config_a, boost::filesystem::path const & data_path_a)
+nano::error write_wallet_config (nano::wallet_config & config_a, boost::filesystem::path const & data_path_a)
 {
 	nano::tomlconfig wallet_config_toml;
 	auto wallet_path (nano::get_qtwallet_toml_config_path (data_path_a));
-	wallet_config_toml.read (nano::get_qtwallet_toml_config_path (data_path_a));
 	config_a.serialize_toml (wallet_config_toml);
 
 	// Write wallet config. If missing, the file is created and permissions are set.
 	wallet_config_toml.write (wallet_path);
+	return wallet_config_toml.get_error ();
+}
+
+nano::error read_wallet_config (nano::wallet_config & config_a, boost::filesystem::path const & data_path_a)
+{
+	nano::tomlconfig wallet_config_toml;
+	auto wallet_path (nano::get_qtwallet_toml_config_path (data_path_a));
+	if (!boost::filesystem::exists (wallet_path))
+	{
+		write_wallet_config (config_a, data_path_a);
+	}
+	wallet_config_toml.read (wallet_path);
+	config_a.deserialize_toml (wallet_config_toml);
 	return wallet_config_toml.get_error ();
 }
 }
@@ -71,7 +84,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 	auto error = nano::read_node_config_toml (data_path, config, config_overrides);
 	if (!error)
 	{
-		error = read_and_update_wallet_config (wallet_config, data_path);
+		error = read_wallet_config (wallet_config, data_path);
 	}
 
 #if !NANO_ROCKSDB
@@ -131,7 +144,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 				}
 			}
 			assert (wallet->exists (wallet_config.account));
-			read_and_update_wallet_config (wallet_config, data_path);
+			write_wallet_config (wallet_config, data_path);
 			node->start ();
 			nano::ipc::ipc_server ipc (*node, config.rpc);
 
@@ -150,7 +163,6 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 				}
 
 #if BOOST_PROCESS_SUPPORTED
-				auto network = node->network_params.network.get_current_network_as_string ();
 				nano_pow_server_process = std::make_unique<boost::process::child> (config.pow_server.pow_server_path, "--config_path", data_path / "config-nano-pow-server.toml");
 #else
 				splash->hide ();
@@ -226,7 +238,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 			splash->hide ();
 			show_error ("Error initializing node");
 		}
-		read_and_update_wallet_config (wallet_config, data_path);
+		write_wallet_config (wallet_config, data_path);
 	}
 	else
 	{
@@ -269,7 +281,7 @@ int main (int argc, char * const * argv)
 			auto err (nano::network_constants::set_active_network (network->second.as<std::string> ()));
 			if (err)
 			{
-				show_error (err.get_message ());
+				show_error (nano::network_constants::active_network_err_msg);
 				std::exit (1);
 			}
 		}

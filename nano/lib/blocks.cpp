@@ -2,10 +2,12 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/memory.hpp>
 #include <nano/lib/numbers.hpp>
-#include <nano/lib/utility.hpp>
+#include <nano/lib/threading.hpp>
+
+#include <crypto/cryptopp/words.h>
 
 #include <boost/endian/conversion.hpp>
-#include <boost/pool/pool_alloc.hpp>
+#include <boost/property_tree/json_parser.hpp>
 
 /** Compare blocks, first by type, then content. This is an optimization over dynamic_cast, which is very slow on some platforms. */
 namespace
@@ -1230,50 +1232,32 @@ std::shared_ptr<nano::block> nano::deserialize_block_json (boost::property_tree:
 	try
 	{
 		auto type (tree_a.get<std::string> ("type"));
+		bool error (false);
+		std::unique_ptr<nano::block> obj;
 		if (type == "receive")
 		{
-			bool error (false);
-			std::unique_ptr<nano::receive_block> obj (new nano::receive_block (error, tree_a));
-			if (!error)
-			{
-				result = std::move (obj);
-			}
+			obj = std::make_unique<nano::receive_block> (error, tree_a);
 		}
 		else if (type == "send")
 		{
-			bool error (false);
-			std::unique_ptr<nano::send_block> obj (new nano::send_block (error, tree_a));
-			if (!error)
-			{
-				result = std::move (obj);
-			}
+			obj = std::make_unique<nano::send_block> (error, tree_a);
 		}
 		else if (type == "open")
 		{
-			bool error (false);
-			std::unique_ptr<nano::open_block> obj (new nano::open_block (error, tree_a));
-			if (!error)
-			{
-				result = std::move (obj);
-			}
+			obj = std::make_unique<nano::open_block> (error, tree_a);
 		}
 		else if (type == "change")
 		{
-			bool error (false);
-			std::unique_ptr<nano::change_block> obj (new nano::change_block (error, tree_a));
-			if (!error)
-			{
-				result = std::move (obj);
-			}
+			obj = std::make_unique<nano::change_block> (error, tree_a);
 		}
 		else if (type == "state")
 		{
-			bool error (false);
-			std::unique_ptr<nano::state_block> obj (new nano::state_block (error, tree_a));
-			if (!error)
-			{
-				result = std::move (obj);
-			}
+			obj = std::make_unique<nano::state_block> (error, tree_a);
+		}
+
+		if (!error)
+		{
+			result = std::move (obj);
 		}
 	}
 	catch (std::runtime_error const &)
@@ -1635,14 +1619,11 @@ size_t nano::block_uniquer::size ()
 	return blocks.size ();
 }
 
-namespace nano
-{
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_uniquer & block_uniquer, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (block_uniquer & block_uniquer, const std::string & name)
 {
 	auto count = block_uniquer.size ();
 	auto sizeof_element = sizeof (block_uniquer::value_type);
-	auto composite = std::make_unique<seq_con_info_composite> (name);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "blocks", count, sizeof_element }));
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks", count, sizeof_element }));
 	return composite;
-}
 }

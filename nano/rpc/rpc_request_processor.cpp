@@ -1,9 +1,12 @@
 #include <nano/lib/asio.hpp>
 #include <nano/lib/json_error_response.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/rpc/rpc_request_processor.hpp>
 
+#include <boost/endian/conversion.hpp>
+
 nano::rpc_request_processor::rpc_request_processor (boost::asio::io_context & io_ctx, nano::rpc_config & rpc_config) :
-ipc_address (rpc_config.rpc_process.ipc_address.to_string ()),
+ipc_address (rpc_config.rpc_process.ipc_address),
 ipc_port (rpc_config.rpc_process.ipc_port),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::rpc_request_processor);

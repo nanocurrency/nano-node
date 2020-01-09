@@ -1,5 +1,3 @@
-#include <nano/lib/config.hpp>
-#include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>
 #include <nano/node/node_pow_server_config.hpp>
 

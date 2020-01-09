@@ -1,4 +1,5 @@
 #include <nano/crypto_lib/random_pool.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
 #include <nano/node/bootstrap/bootstrap_bulk_push.hpp>
 #include <nano/node/bootstrap/bootstrap_frontier.hpp>
@@ -7,7 +8,7 @@
 #include <nano/node/transport/tcp.hpp>
 #include <nano/node/transport/udp.hpp>
 
-#include <boost/log/trivial.hpp>
+#include <boost/format.hpp>
 
 #include <algorithm>
 
@@ -1208,7 +1209,7 @@ void nano::bootstrap_attempt::lazy_destinations_increment (nano::account const &
 		}
 		else
 		{
-			lazy_destinations.insert (nano::lazy_destinations_item{ destination_a, 1 });
+			lazy_destinations.emplace (nano::lazy_destinations_item{ destination_a, 1 });
 		}
 	}
 }
@@ -1499,13 +1500,11 @@ void nano::bootstrap_initiator::notify_listeners (bool in_progress_a)
 	}
 }
 
-namespace nano
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (bootstrap_initiator & bootstrap_initiator, const std::string & name)
 {
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_initiator & bootstrap_initiator, const std::string & name)
-{
-	size_t count = 0;
-	size_t cache_count = 0;
-	size_t excluded_peers_count = 0;
+	size_t count;
+	size_t cache_count;
+	size_t excluded_peers_count;
 	{
 		nano::lock_guard<std::mutex> guard (bootstrap_initiator.observers_mutex);
 		count = bootstrap_initiator.observers.size ();
@@ -1522,12 +1521,11 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_initiato
 	auto sizeof_element = sizeof (decltype (bootstrap_initiator.observers)::value_type);
 	auto sizeof_cache_element = sizeof (decltype (bootstrap_initiator.cache.cache)::value_type);
 	auto sizeof_excluded_peers_element = sizeof (decltype (bootstrap_initiator.excluded_peers.peers)::value_type);
-	auto composite = std::make_unique<seq_con_info_composite> (name);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "observers", count, sizeof_element }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "pulls_cache", cache_count, sizeof_cache_element }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "excluded_peers", excluded_peers_count, sizeof_excluded_peers_element }));
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "observers", count, sizeof_element }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "pulls_cache", cache_count, sizeof_cache_element }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "excluded_peers", excluded_peers_count, sizeof_excluded_peers_element }));
 	return composite;
-}
 }
 
 void nano::pulls_cache::add (nano::pull_info const & pull_a)
@@ -1546,7 +1544,7 @@ void nano::pulls_cache::add (nano::pull_info const & pull_a)
 		if (existing == cache.get<account_head_tag> ().end ())
 		{
 			// Insert new pull
-			auto inserted (cache.insert (nano::cached_pulls{ std::chrono::steady_clock::now (), head_512, pull_a.head }));
+			auto inserted (cache.emplace (nano::cached_pulls{ std::chrono::steady_clock::now (), head_512, pull_a.head }));
 			(void)inserted;
 			assert (inserted.second);
 		}
@@ -1593,7 +1591,7 @@ uint64_t nano::bootstrap_excluded_peers::add (nano::tcp_endpoint const & endpoin
 	if (existing == peers.get<endpoint_tag> ().end ())
 	{
 		// Insert new endpoint
-		auto inserted (peers.insert (nano::excluded_peers_item{ std::chrono::steady_clock::steady_clock::now () + exclude_time_hours, endpoint_a, 1 }));
+		auto inserted (peers.emplace (nano::excluded_peers_item{ std::chrono::steady_clock::steady_clock::now () + exclude_time_hours, endpoint_a, 1 }));
 		(void)inserted;
 		assert (inserted.second);
 		result = 1;

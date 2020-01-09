@@ -1,11 +1,9 @@
 #pragma once
 
-#include <nano/lib/blocks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/transport/transport.hpp>
-#include <nano/secure/blockstore.hpp>
 
 namespace nano
 {
@@ -24,5 +22,5 @@ public:
 	nano::observer_set<nano::root const &> work_cancel;
 };
 
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (node_observers & node_observers, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (node_observers & node_observers, const std::string & name);
 }

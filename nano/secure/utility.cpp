@@ -2,6 +2,8 @@
 #include <nano/secure/utility.hpp>
 #include <nano/secure/working.hpp>
 
+#include <boost/filesystem.hpp>
+
 static std::vector<boost::filesystem::path> all_unique_paths;
 
 boost::filesystem::path nano::working_path (bool legacy)

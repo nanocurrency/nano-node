@@ -1,16 +1,23 @@
 #pragma once
 
-#include <nano/boost/asio.hpp>
 #include <nano/lib/locks.hpp>
-
-#include <boost/filesystem.hpp>
-#include <boost/system/error_code.hpp>
-#include <boost/thread/thread.hpp>
 
 #include <functional>
 #include <mutex>
-#include <thread>
 #include <vector>
+
+namespace boost
+{
+namespace filesystem
+{
+	class path;
+}
+
+namespace system
+{
+	class error_code;
+}
+}
 
 namespace nano
 {
@@ -18,43 +25,43 @@ namespace nano
  * It makes use of the composite design pattern to collect information
  * from sequence containers and sequence containers inside member variables.
  */
-struct seq_con_info
+struct container_info
 {
 	std::string name;
 	size_t count;
 	size_t sizeof_element;
 };
 
-class seq_con_info_component
+class container_info_component
 {
 public:
-	virtual ~seq_con_info_component () = default;
+	virtual ~container_info_component () = default;
 	virtual bool is_composite () const = 0;
 };
 
-class seq_con_info_composite : public seq_con_info_component
+class container_info_composite : public container_info_component
 {
 public:
-	seq_con_info_composite (const std::string & name);
+	container_info_composite (const std::string & name);
 	bool is_composite () const override;
-	void add_component (std::unique_ptr<seq_con_info_component> child);
-	const std::vector<std::unique_ptr<seq_con_info_component>> & get_children () const;
+	void add_component (std::unique_ptr<container_info_component> child);
+	const std::vector<std::unique_ptr<container_info_component>> & get_children () const;
 	const std::string & get_name () const;
 
 private:
 	std::string name;
-	std::vector<std::unique_ptr<seq_con_info_component>> children;
+	std::vector<std::unique_ptr<container_info_component>> children;
 };
 
-class seq_con_info_leaf : public seq_con_info_component
+class container_info_leaf : public container_info_component
 {
 public:
-	seq_con_info_leaf (const seq_con_info & info);
+	container_info_leaf (container_info const & info);
 	bool is_composite () const override;
-	const seq_con_info & get_info () const;
+	const container_info & get_info () const;
 
 private:
-	seq_con_info info;
+	container_info info;
 };
 
 // Lower priority of calling work generating thread
@@ -94,92 +101,6 @@ void dump_crash_stacktrace ();
  */
 std::string generate_stacktrace ();
 
-/*
- * Functions for understanding the role of the current thread
- */
-namespace thread_role
-{
-	enum class name
-	{
-		unknown,
-		io,
-		work,
-		packet_processing,
-		alarm,
-		vote_processing,
-		block_processing,
-		request_loop,
-		wallet_actions,
-		bootstrap_initiator,
-		voting,
-		signature_checking,
-		rpc_request_processor,
-		rpc_process_container,
-		work_watcher,
-		confirmation_height_processing,
-		worker
-	};
-	/*
-	 * Get/Set the identifier for the current thread
-	 */
-	nano::thread_role::name get ();
-	void set (nano::thread_role::name);
-
-	/*
-	 * Get the thread name as a string from enum
-	 */
-	std::string get_string (nano::thread_role::name);
-
-	/*
-	 * Get the current thread's role as a string
-	 */
-	std::string get_string ();
-
-	/*
-	 * Internal only, should not be called directly
-	 */
-	void set_os_name (std::string const &);
-}
-
-namespace thread_attributes
-{
-	void set (boost::thread::attributes &);
-}
-
-class thread_runner final
-{
-public:
-	thread_runner (boost::asio::io_context &, unsigned);
-	~thread_runner ();
-	/** Tells the IO context to stop processing events.*/
-	void stop_event_processing ();
-	/** Wait for IO threads to complete */
-	void join ();
-	std::vector<boost::thread> threads;
-	boost::asio::executor_work_guard<boost::asio::io_context::executor_type> io_guard;
-};
-
-class worker final
-{
-public:
-	worker ();
-	~worker ();
-	void run ();
-	void push_task (std::function<void()> func);
-	void stop ();
-
-private:
-	nano::condition_variable cv;
-	std::deque<std::function<void()>> queue;
-	std::mutex mutex;
-	bool stopped{ false };
-	std::thread thread;
-
-	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (worker &, const std::string &);
-};
-
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (worker & worker, const std::string & name);
-
 /**
  * Returns seconds passed since unix epoch (posix time)
  */
@@ -210,7 +131,7 @@ public:
 };
 
 template <typename... T>
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (observer_set<T...> & observer_set, const std::string & name)
+std::unique_ptr<container_info_component> collect_container_info (observer_set<T...> & observer_set, const std::string & name)
 {
 	size_t count = 0;
 	{
@@ -219,8 +140,8 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (observer_set<T...>
 	}
 
 	auto sizeof_element = sizeof (typename decltype (observer_set.observers)::value_type);
-	auto composite = std::make_unique<seq_con_info_composite> (name);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "observers", count, sizeof_element }));
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "observers", count, sizeof_element }));
 	return composite;
 }
 

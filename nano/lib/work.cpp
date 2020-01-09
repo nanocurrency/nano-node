@@ -1,5 +1,6 @@
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/threading.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/xorshift.hpp>
 
@@ -242,20 +243,16 @@ size_t nano::work_pool::size ()
 	return pending.size ();
 }
 
-namespace nano
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (work_pool & work_pool, const std::string & name)
 {
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (work_pool & work_pool, const std::string & name)
-{
-	auto composite = std::make_unique<seq_con_info_composite> (name);
-
-	size_t count = 0;
+	size_t count;
 	{
 		nano::lock_guard<std::mutex> guard (work_pool.mutex);
 		count = work_pool.pending.size ();
 	}
 	auto sizeof_element = sizeof (decltype (work_pool.pending)::value_type);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "pending", count, sizeof_element }));
-	composite->add_component (collect_seq_con_info (work_pool.work_observers, "work_observers"));
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "pending", count, sizeof_element }));
+	composite->add_component (collect_container_info (work_pool.work_observers, "work_observers"));
 	return composite;
-}
 }

@@ -1,34 +1,40 @@
 #pragma once
 
+#include <nano/lib/locks.hpp>
 #include <nano/lib/stats.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/socket.hpp>
-
-#include <unordered_set>
 
 namespace nano
 {
 class bandwidth_limiter final
 {
 public:
-	// initialize with rate 0 = unbounded
+	// initialize with limit 0 = unbounded
 	bandwidth_limiter (const size_t);
+	// force_a should be set for non-droppable packets
+	void add (const size_t &, bool const force_a = false);
 	bool should_drop (const size_t &);
 	size_t get_rate ();
+	size_t get_limit () const;
+
+	std::chrono::milliseconds const period{ 50 };
+	static constexpr unsigned buffer_size{ 20 };
 
 private:
 	//last time rate was adjusted
 	std::chrono::steady_clock::time_point next_trend;
 	//trend rate over 20 poll periods
-	boost::circular_buffer<size_t> rate_buffer{ 20, 0 };
+	boost::circular_buffer<size_t> rate_buffer{ buffer_size };
 	//limit bandwidth to
 	const size_t limit;
 	//rate, increment if message_size + rate < rate
-	size_t rate;
+	size_t rate{ 0 };
 	//trended rate to even out spikes in traffic
-	size_t trended_rate;
+	std::atomic<size_t> trended_rate{ 0 };
 	std::mutex mutex;
 };
+
 namespace transport
 {
 	class message;
@@ -133,7 +139,6 @@ namespace transport
 		}
 
 		mutable std::mutex channel_mutex;
-		nano::bandwidth_limiter limiter;
 
 	private:
 		std::chrono::steady_clock::time_point last_bootstrap_attempt{ std::chrono::steady_clock::time_point () };

@@ -1,5 +1,8 @@
 #include <nano/lib/utility.hpp>
 
+#include <cassert>
+#include <cstring>
+
 #include <fcntl.h>
 #include <link.h>
 #include <sys/stat.h>

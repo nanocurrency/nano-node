@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nano/boost/asio.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/transport/tcp.hpp>
 #include <nano/node/transport/udp.hpp>
@@ -9,6 +8,7 @@
 
 #include <memory>
 #include <queue>
+#include <unordered_set>
 
 namespace nano
 {
@@ -78,7 +78,7 @@ public:
 	// Returns false if valid, true if invalid (true on error convention)
 	// Also removes the syn cookie from the store if valid
 	bool validate (nano::endpoint const &, nano::account const &, nano::signature const &);
-	std::unique_ptr<seq_con_info_component> collect_seq_con_info (std::string const &);
+	std::unique_ptr<container_info_component> collect_container_info (std::string const &);
 
 private:
 	class syn_cookie_info final
@@ -155,6 +155,7 @@ public:
 	nano::message_buffer_manager buffer_container;
 	boost::asio::ip::udp::resolver resolver;
 	std::vector<boost::thread> packet_processing_threads;
+	nano::bandwidth_limiter limiter;
 	nano::node & node;
 	nano::transport::udp_channels udp_channels;
 	nano::transport::tcp_channels tcp_channels;
@@ -166,4 +167,5 @@ public:
 	static size_t const buffer_size = 512;
 	static size_t const confirm_req_hashes_max = 7;
 };
+std::unique_ptr<container_info_component> collect_container_info (network & network, const std::string & name);
 }

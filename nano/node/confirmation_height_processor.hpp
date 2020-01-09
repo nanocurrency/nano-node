@@ -36,7 +36,7 @@ private:
 	friend class confirmation_height_dependent_election_after_already_cemented_Test;
 };
 
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (pending_confirmation_height &, const std::string &);
+std::unique_ptr<container_info_component> collect_container_info (pending_confirmation_height &, const std::string &);
 
 class confirmation_height_processor final
 {
@@ -117,9 +117,9 @@ private:
 	void collect_unconfirmed_receive_and_sources_for_account (uint64_t, uint64_t, nano::block_hash const &, nano::account const &, nano::read_transaction const &, std::vector<callback_data> &);
 	bool write_pending (std::deque<conf_height_details> &);
 
-	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (confirmation_height_processor &, const std::string &);
+	friend std::unique_ptr<container_info_component> collect_container_info (confirmation_height_processor &, const std::string &);
 	friend class confirmation_height_pending_observer_callbacks_Test;
 };
 
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (confirmation_height_processor &, const std::string &);
+std::unique_ptr<container_info_component> collect_container_info (confirmation_height_processor &, const std::string &);
 }

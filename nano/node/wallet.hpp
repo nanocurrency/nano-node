@@ -1,15 +1,14 @@
 #pragma once
 
-#include <nano/lib/config.hpp>
 #include <nano/node/lmdb/lmdb.hpp>
 #include <nano/node/lmdb/wallet_value.hpp>
 #include <nano/node/openclwork.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
 
-#include <boost/thread/thread.hpp>
-
+#include <atomic>
 #include <mutex>
+#include <thread>
 #include <unordered_set>
 
 namespace nano
@@ -180,6 +179,14 @@ public:
 	std::unordered_map<nano::qualified_root, std::shared_ptr<nano::state_block>> watched;
 	std::atomic<bool> stopped;
 };
+
+class wallet_representative_counts
+{
+public:
+	uint64_t voting{ 0 }; // Representatives with at least the configured minimum voting weight
+	uint64_t half_principal{ 0 }; // Representatives with at least 50% of principal representative requirements
+};
+
 /**
  * The wallets set is all the wallets a node controls.
  * A node may contain multiple wallets independently encrypted and operated.
@@ -201,7 +208,8 @@ public:
 	bool exists (nano::transaction const &, nano::public_key const &);
 	void stop ();
 	void clear_send_ids (nano::transaction const &);
-	bool check_rep (nano::account const &, nano::uint128_t const &);
+	nano::wallet_representative_counts rep_counts ();
+	bool check_rep (nano::account const &, nano::uint128_t const &, const bool = true);
 	void compute_reps ();
 	void ongoing_compute_reps ();
 	void split_if_needed (nano::transaction &, nano::block_store &);
@@ -220,20 +228,21 @@ public:
 	nano::mdb_env & env;
 	std::atomic<bool> stopped;
 	std::shared_ptr<nano::work_watcher> watcher;
-	boost::thread thread;
+	std::thread thread;
 	static nano::uint128_t const generate_priority;
 	static nano::uint128_t const high_priority;
-	std::atomic<uint64_t> reps_count{ 0 };
-	std::atomic<uint64_t> half_principal_reps_count{ 0 }; // Representatives with at least 50% of principal representative requirements
-
 	/** Start read-write transaction */
 	nano::write_transaction tx_begin_write ();
 
 	/** Start read-only transaction */
 	nano::read_transaction tx_begin_read ();
+
+private:
+	std::mutex counts_mutex;
+	nano::wallet_representative_counts counts;
 };
 
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (wallets & wallets, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (wallets & wallets, const std::string & name);
 
 class wallets_store
 {
