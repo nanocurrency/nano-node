@@ -267,7 +267,17 @@ TEST (network, send_valid_confirm_ack)
 	std::vector<nano::transport::transport_type> types{ nano::transport::transport_type::tcp, nano::transport::transport_type::udp };
 	for (auto & type : types)
 	{
-		nano::system system (2, type);
+		nano::node_flags node_flags;
+		if (type == nano::transport::transport_type::tcp)
+		{
+			node_flags.disable_udp = true;
+		}
+		else
+		{
+			node_flags.disable_tcp_realtime = true;
+			node_flags.disable_bootstrap_listener = true;
+		}
+		nano::system system (2, type, node_flags);
 		nano::keypair key2;
 		system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 		system.wallet (1)->insert_adhoc (key2.prv);
@@ -291,7 +301,17 @@ TEST (network, send_valid_publish)
 	std::vector<nano::transport::transport_type> types{ nano::transport::transport_type::tcp, nano::transport::transport_type::udp };
 	for (auto & type : types)
 	{
-		nano::system system (2, type);
+		nano::node_flags node_flags;
+		if (type == nano::transport::transport_type::tcp)
+		{
+			node_flags.disable_udp = true;
+		}
+		else
+		{
+			node_flags.disable_tcp_realtime = true;
+			node_flags.disable_bootstrap_listener = true;
+		}
+		nano::system system (2, type, node_flags);
 		system.nodes[0]->bootstrap_initiator.stop ();
 		system.nodes[1]->bootstrap_initiator.stop ();
 		system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
@@ -370,7 +390,17 @@ TEST (receivable_processor, send_with_receive)
 	std::vector<nano::transport::transport_type> types{ nano::transport::transport_type::tcp, nano::transport::transport_type::udp };
 	for (auto & type : types)
 	{
-		nano::system system (2, type);
+		nano::node_flags node_flags;
+		if (type == nano::transport::transport_type::tcp)
+		{
+			node_flags.disable_udp = true;
+		}
+		else
+		{
+			node_flags.disable_tcp_realtime = true;
+			node_flags.disable_bootstrap_listener = true;
+		}
+		nano::system system (2, type, node_flags);
 		auto amount (std::numeric_limits<nano::uint128_t>::max ());
 		nano::keypair key2;
 		system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
