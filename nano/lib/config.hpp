@@ -19,20 +19,20 @@ namespace filesystem
 /**
 * Returns build version information
 */
-static const char * NANO_VERSION_STRING = xstr (TAG_VERSION_STRING);
+const char * const NANO_VERSION_STRING = xstr (TAG_VERSION_STRING);
 const char * const NANO_MAJOR_VERSION_STRING = xstr (MAJOR_VERSION_STRING);
 
-static const char * BUILD_INFO = xstr (GIT_COMMIT_HASH BOOST_COMPILER) " \"BOOST " xstr (BOOST_VERSION) "\" BUILT " xstr (__DATE__);
+const char * const BUILD_INFO = xstr (GIT_COMMIT_HASH BOOST_COMPILER) " \"BOOST " xstr (BOOST_VERSION) "\" BUILT " xstr (__DATE__);
 
 /** Is TSAN/ASAN test build */
 #if defined(__has_feature)
 #if __has_feature(thread_sanitizer) || __has_feature(address_sanitizer)
-static const bool is_sanitizer_build = true;
+const bool is_sanitizer_build = true;
 #else
-static const bool is_sanitizer_build = false;
+const bool is_sanitizer_build = false;
 #endif
 #else
-static const bool is_sanitizer_build = false;
+const bool is_sanitizer_build = false;
 #endif
 
 namespace nano

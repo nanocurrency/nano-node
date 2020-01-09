@@ -995,9 +995,10 @@ TEST (rpc, wallet_create_seed)
 	request.put ("action", "wallet_create");
 	request.put ("seed", seed.data.to_string ());
 	test_response response (request, rpc.config.port, system.io_ctx);
+	system.deadline_set (10s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::string wallet_text (response.json.get<std::string> ("wallet"));
@@ -4913,9 +4914,10 @@ TEST (rpc, json_block_input)
 	send.serialize_json (json);
 	request.add_child ("block", json);
 	test_response response (request, rpc.config.port, system.io_ctx);
+	system.deadline_set (10s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 
@@ -6733,18 +6735,20 @@ TEST (rpc, sign_hash)
 	request.put ("hash", send.hash ().to_string ());
 	request.put ("key", key.prv.data.to_string ());
 	test_response response (request, rpc.config.port, system.io_ctx);
+	system.deadline_set (10s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	std::error_code ec (nano::error_rpc::sign_hash_disabled);
 	ASSERT_EQ (response.json.get<std::string> ("error"), ec.message ());
 	node_rpc_config.enable_sign_hash = true;
 	test_response response2 (request, rpc.config.port, system.io_ctx);
+	system.deadline_set (10s);
 	while (response2.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response2.status);
 	nano::signature signature;
@@ -6778,9 +6782,10 @@ TEST (rpc, sign_block)
 	send.serialize_json (json);
 	request.put ("block", json);
 	test_response response (request, rpc.config.port, system.io_ctx);
+	system.deadline_set (10s);
 	while (response.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response.status);
 	auto contents (response.json.get<std::string> ("block"));
@@ -6856,7 +6861,7 @@ TEST (rpc, block_confirmed)
 	system.deadline_set (5s);
 	while (response1.status == 0)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (200, response1.status);
 	ASSERT_EQ (std::error_code (nano::error_blocks::not_found).message (), response1.json.get<std::string> ("error"));
@@ -6925,9 +6930,15 @@ TEST (rpc, block_confirmed)
 	ASSERT_TRUE (response3.json.get<bool> ("confirmed"));
 }
 
-#if !NANO_ROCKSDB
 TEST (rpc, database_txn_tracker)
 {
+	// Don't test this in rocksdb mode
+	auto use_rocksdb_str = std::getenv ("TEST_USE_ROCKSDB");
+	if (use_rocksdb_str && boost::lexical_cast<int> (use_rocksdb_str) == 1)
+	{
+		return;
+	}
+
 	// First try when database tracking is disabled
 	{
 		nano::system system;
@@ -7053,7 +7064,6 @@ TEST (rpc, database_txn_tracker)
 	ASSERT_TRUE (!std::get<3> (json_l.front ()).empty ());
 	thread.join ();
 }
-#endif
 
 TEST (rpc, active_difficulty)
 {

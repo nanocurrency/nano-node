@@ -2,11 +2,15 @@
 #include <nano/node/node.hpp>
 #include <nano/node/websocket.hpp>
 
+#include <boost/algorithm/string/erase.hpp>
+
 std::shared_ptr<request_type> nano::work_peer_request::get_prepared_json_request (std::string const & request_string_a) const
 {
 	auto request (std::make_shared<boost::beast::http::request<boost::beast::http::string_body>> ());
 	request->method (boost::beast::http::verb::post);
 	request->set (boost::beast::http::field::content_type, "application/json");
+	auto address_string = boost::algorithm::erase_first_copy (address.to_string (), "::ffff:");
+	request->set (boost::beast::http::field::host, address_string);
 	request->target ("/");
 	request->version (11);
 	request->body () = request_string_a;

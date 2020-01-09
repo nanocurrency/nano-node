@@ -66,8 +66,8 @@ private:
 	void fire_callbacks (nano::unique_lock<std::mutex> & lk);
 	void fire_messages (std::unordered_set<std::shared_ptr<nano::transport::channel>> const & channels);
 
-	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (telemetry &, const std::string &);
+	friend std::unique_ptr<container_info_component> collect_container_info (telemetry &, const std::string &);
 };
 
-std::unique_ptr<nano::seq_con_info_component> collect_seq_con_info (telemetry & telemetry, const std::string & name);
+std::unique_ptr<nano::container_info_component> collect_container_info (telemetry & telemetry, const std::string & name);
 }

@@ -17,7 +17,7 @@
 
 namespace
 {
-void construct_json (nano::seq_con_info_component * component, boost::property_tree::ptree & parent);
+void construct_json (nano::container_info_component * component, boost::property_tree::ptree & parent);
 using ipc_json_handler_no_arg_func_map = std::unordered_map<std::string, std::function<void(nano::json_handler *)>>;
 ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ();
 auto ipc_json_handler_no_arg_funcs = create_ipc_json_handler_no_arg_func_map ();
@@ -1213,8 +1213,8 @@ void nano::json_handler::block_count ()
 {
 	auto transaction (node.store.tx_begin_read ());
 	response_l.put ("count", std::to_string (node.store.block_count (transaction).sum ()));
-	response_l.put ("unchecked", std::to_string (node.store.unchecked_count (transaction)));
-	response_l.put ("cemented", std::to_string (node.ledger.cemented_count));
+	response_l.put ("unchecked", std::to_string (node.ledger.cache.unchecked_count));
+	response_l.put ("cemented", std::to_string (node.ledger.cache.cemented_count));
 	response_errors ();
 }
 
@@ -1874,7 +1874,7 @@ void nano::json_handler::confirmation_info ()
 						if (i->second->hash () == ii->second.hash)
 						{
 							nano::account const & representative (ii->first);
-							auto amount (node.ledger.rep_weights.representation_get (representative));
+							auto amount (node.ledger.cache.rep_weights.representation_get (representative));
 							representatives.emplace (std::move (amount), representative);
 						}
 					}
@@ -3440,7 +3440,7 @@ void nano::json_handler::representatives ()
 	{
 		const bool sorting = request.get<bool> ("sorting", false);
 		boost::property_tree::ptree representatives;
-		auto rep_amounts = node.ledger.rep_weights.get_rep_amounts ();
+		auto rep_amounts = node.ledger.cache.rep_weights.get_rep_amounts ();
 		if (!sorting) // Simple
 		{
 			std::map<nano::account, nano::uint128_t> ordered (rep_amounts.begin (), rep_amounts.end ());
@@ -3863,7 +3863,7 @@ void nano::json_handler::stats ()
 	}
 	else if (type == "objects")
 	{
-		construct_json (collect_seq_con_info (node, "node").get (), response_l);
+		construct_json (collect_container_info (node, "node").get (), response_l);
 	}
 	else if (type == "samples")
 	{
@@ -5000,12 +5000,12 @@ void nano::json_handler::work_peers_clear ()
 
 namespace
 {
-void construct_json (nano::seq_con_info_component * component, boost::property_tree::ptree & parent)
+void construct_json (nano::container_info_component * component, boost::property_tree::ptree & parent)
 {
 	// We are a leaf node, print name and exit
 	if (!component->is_composite ())
 	{
-		auto & leaf_info = static_cast<nano::seq_con_info_leaf *> (component)->get_info ();
+		auto & leaf_info = static_cast<nano::container_info_leaf *> (component)->get_info ();
 		boost::property_tree::ptree child;
 		child.put ("count", leaf_info.count);
 		child.put ("size", leaf_info.count * leaf_info.sizeof_element);
@@ -5013,7 +5013,7 @@ void construct_json (nano::seq_con_info_component * component, boost::property_t
 		return;
 	}
 
-	auto composite = static_cast<nano::seq_con_info_composite *> (component);
+	auto composite = static_cast<nano::container_info_composite *> (component);
 
 	boost::property_tree::ptree current;
 	for (auto & child : composite->get_children ())

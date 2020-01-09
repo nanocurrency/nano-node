@@ -168,21 +168,24 @@ size_t nano::telemetry::telemetry_data_size ()
 	return all_telemetry_data.size ();
 }
 
-std::unique_ptr<nano::seq_con_info_component> nano::collect_seq_con_info (telemetry & telemetry, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (telemetry & telemetry, const std::string & name)
 {
 	size_t callback_count;
 	size_t all_telemetry_data_count;
 	size_t cached_telemetry_data_count;
+	size_t required_responses_count;
 	{
 		nano::lock_guard<std::mutex> guard (telemetry.mutex);
 		callback_count = telemetry.callbacks.size ();
 		all_telemetry_data_count = telemetry.all_telemetry_data.size ();
 		cached_telemetry_data_count = telemetry.cached_telemetry_data.size ();
+		required_responses_count = telemetry.required_responses.size ();
 	}
 
-	auto composite = std::make_unique<seq_con_info_composite> (name);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "callbacks", callback_count, sizeof (decltype (telemetry.callbacks)::value_type) }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "all_telemetry_data", all_telemetry_data_count, sizeof (decltype (telemetry.all_telemetry_data)::value_type) }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "cached_telemetry_data", cached_telemetry_data_count, sizeof (decltype (telemetry.cached_telemetry_data)::value_type) }));
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "callbacks", callback_count, sizeof (decltype (telemetry.callbacks)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "all_telemetry_data", all_telemetry_data_count, sizeof (decltype (telemetry.all_telemetry_data)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "cached_telemetry_data", cached_telemetry_data_count, sizeof (decltype (telemetry.cached_telemetry_data)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "required_responses", required_responses_count, sizeof (decltype (telemetry.required_responses)::value_type) }));
 	return composite;
 }

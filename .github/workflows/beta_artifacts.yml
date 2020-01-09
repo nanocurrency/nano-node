@@ -15,8 +15,8 @@ jobs:
     env:
       BOOST_ROOT: /tmp/boost
     steps:
-      - uses: actions/checkout@v1
-      - uses: chrislennon/action-aws-cli@v1.1
+      - uses: actions/checkout@722adc6
+      - uses: chrislennon/action-aws-cli@1347f1d
       - name: tag
         run: echo "::set-env name=TAG::`git describe --tags $GITHUB_SHA`"
       - name: Checkout Submodules
@@ -35,8 +35,8 @@ jobs:
   linux_job:
     runs-on: ubuntu-18.04
     steps:
-      - uses: actions/checkout@v1
-      - uses: chrislennon/action-aws-cli@v1.1
+      - uses: actions/checkout@722adc6
+      - uses: chrislennon/action-aws-cli@1347f1d
       - name: tag
         run: echo "::set-env name=TAG::`git describe --tags $GITHUB_SHA`"
       - name: Checkout Submodules
@@ -44,7 +44,7 @@ jobs:
       - name: Fetch Deps
         run: ci/actions/linux/install_deps.sh
       - name: Build Artifact
-        run: docker run -v ${GITHUB_WORKSPACE}:/workspace nanocurrency/nano-env:gcc /bin/bash -c "cd /workspace && TRAVIS_TAG=${TAG} ci/build-deploy.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"
+        run: docker run -v ${GITHUB_WORKSPACE}:/workspace nanocurrency/nano-env:gcc /bin/bash -c "cd /workspace && BETA=1 TRAVIS_TAG=${TAG} ci/build-deploy.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"
       - name: Deploy Artifact
         run: ci/actions/deploy.sh
         env:
@@ -52,15 +52,15 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-2   
       - name: Deploy Docker (nanocurrency/nano-beta)
-        run: ci/actions/linux/deploy-docker.sh
+        run: TRAVIS_TAG=${TAG} ci/actions/linux/deploy-docker.sh
         env:
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}     
   
   windows_job:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v1
-      - uses: chrislennon/action-aws-cli@v1.1
+      - uses: actions/checkout@722adc6
+      - uses: chrislennon/action-aws-cli@1347f1d
       - name: tag
         run: |
           $TRAVIS_TAG=git describe --tags $GITHUB_SHA

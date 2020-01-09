@@ -27,60 +27,57 @@
 #endif
 #endif
 
-namespace nano
-{
-seq_con_info_composite::seq_con_info_composite (const std::string & name) :
+nano::container_info_composite::container_info_composite (const std::string & name) :
 name (name)
 {
 }
 
-bool seq_con_info_composite::is_composite () const
+bool nano::container_info_composite::is_composite () const
 {
 	return true;
 }
 
-void seq_con_info_composite::add_component (std::unique_ptr<seq_con_info_component> child)
+void nano::container_info_composite::add_component (std::unique_ptr<container_info_component> child)
 {
 	children.push_back (std::move (child));
 }
 
-const std::vector<std::unique_ptr<seq_con_info_component>> & seq_con_info_composite::get_children () const
+const std::vector<std::unique_ptr<nano::container_info_component>> & nano::container_info_composite::get_children () const
 {
 	return children;
 }
 
-const std::string & seq_con_info_composite::get_name () const
+const std::string & nano::container_info_composite::get_name () const
 {
 	return name;
 }
 
-seq_con_info_leaf::seq_con_info_leaf (const seq_con_info & info) :
+nano::container_info_leaf::container_info_leaf (const container_info & info) :
 info (info)
 {
 }
 
-bool seq_con_info_leaf::is_composite () const
+bool nano::container_info_leaf::is_composite () const
 {
 	return false;
 }
 
-const seq_con_info & seq_con_info_leaf::get_info () const
+const nano::container_info & nano::container_info_leaf::get_info () const
 {
 	return info;
 }
 
-void dump_crash_stacktrace ()
+void nano::dump_crash_stacktrace ()
 {
 	boost::stacktrace::safe_dump_to ("nano_node_backtrace.dump");
 }
 
-std::string generate_stacktrace ()
+std::string nano::generate_stacktrace ()
 {
 	auto stacktrace = boost::stacktrace::stacktrace ();
 	std::stringstream ss;
 	ss << stacktrace;
 	return ss.str ();
-}
 }
 
 void nano::remove_all_files_in_dir (boost::filesystem::path const & dir)
@@ -124,7 +121,7 @@ void release_assert_internal (bool check, const char * check_expr, const char * 
 	std::cerr << backtrace_str << std::endl;
 
 	// "abort" at the end of this function will go into any signal handlers (the daemon ones will generate a stack trace and load memory address files on non-Windows systems).
-	// As there is no async-signal-safe way to generate stacktraces on Windows so must be done before aborting
+	// As there is no async-signal-safe way to generate stacktraces on Windows it must be done before aborting
 #ifdef _WIN32
 	{
 		// Try construct the stacktrace dump in the same folder as the the running executable, otherwise use the current directory.

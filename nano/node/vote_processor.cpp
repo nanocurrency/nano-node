@@ -281,7 +281,7 @@ void nano::vote_processor::calculate_weights ()
 		representatives_2.clear ();
 		representatives_3.clear ();
 		auto supply (online_reps.online_stake ());
-		auto rep_amounts = ledger.rep_weights.get_rep_amounts ();
+		auto rep_amounts = ledger.cache.rep_weights.get_rep_amounts ();
 		for (auto const & rep_amount : rep_amounts)
 		{
 			nano::account const & representative (rep_amount.first);
@@ -302,14 +302,12 @@ void nano::vote_processor::calculate_weights ()
 	}
 }
 
-namespace nano
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (vote_processor & vote_processor, const std::string & name)
 {
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_processor & vote_processor, const std::string & name)
-{
-	size_t votes_count = 0;
-	size_t representatives_1_count = 0;
-	size_t representatives_2_count = 0;
-	size_t representatives_3_count = 0;
+	size_t votes_count;
+	size_t representatives_1_count;
+	size_t representatives_2_count;
+	size_t representatives_3_count;
 
 	{
 		nano::lock_guard<std::mutex> guard (vote_processor.mutex);
@@ -319,11 +317,10 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_processor & v
 		representatives_3_count = vote_processor.representatives_3.size ();
 	}
 
-	auto composite = std::make_unique<seq_con_info_composite> (name);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "votes", votes_count, sizeof (decltype (vote_processor.votes)::value_type) }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "representatives_1", representatives_1_count, sizeof (decltype (vote_processor.representatives_1)::value_type) }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "representatives_2", representatives_2_count, sizeof (decltype (vote_processor.representatives_2)::value_type) }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "representatives_3", representatives_3_count, sizeof (decltype (vote_processor.representatives_3)::value_type) }));
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "votes", votes_count, sizeof (decltype (vote_processor.votes)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "representatives_1", representatives_1_count, sizeof (decltype (vote_processor.representatives_1)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "representatives_2", representatives_2_count, sizeof (decltype (vote_processor.representatives_2)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "representatives_3", representatives_3_count, sizeof (decltype (vote_processor.representatives_3)::value_type) }));
 	return composite;
-}
 }

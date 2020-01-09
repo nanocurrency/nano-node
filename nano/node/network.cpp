@@ -13,6 +13,7 @@
 nano::network::network (nano::node & node_a, uint16_t port_a) :
 buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
 resolver (node_a.io_ctx),
+limiter (node_a.config.bandwidth_limit),
 node (node_a),
 udp_channels (node_a, port_a),
 tcp_channels (node_a),
@@ -487,7 +488,13 @@ public:
 					if (!find_votes.empty ())
 					{
 						++cached_count;
-						cached_votes.insert (cached_votes.end (), find_votes.begin (), find_votes.end ());
+						for (auto const & vote : find_votes)
+						{
+							if (std::find (cached_votes.begin (), cached_votes.end (), vote) == cached_votes.end ())
+							{
+								cached_votes.push_back (vote);
+							}
+						}
 					}
 					if (!find_votes.empty () || (!root_hash.first.is_zero () && node.store.block_exists (transaction, root_hash.first)))
 					{
@@ -514,7 +521,13 @@ public:
 							if (!find_successor_votes.empty ())
 							{
 								++cached_count;
-								cached_votes.insert (cached_votes.end (), find_successor_votes.begin (), find_successor_votes.end ());
+								for (auto const & vote : find_successor_votes)
+								{
+									if (std::find (cached_votes.begin (), cached_votes.end (), vote) == cached_votes.end ())
+									{
+										cached_votes.push_back (vote);
+									}
+								}
 							}
 							blocks_bundle.push_back (successor);
 							auto successor_block (node.store.block_get (transaction, successor));
@@ -597,17 +610,17 @@ public:
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in);
 
 		nano::telemetry_data telemetry_data;
-		telemetry_data.block_count = node.ledger.block_count_cache;
-		telemetry_data.cemented_count = node.ledger.cemented_count;
+		telemetry_data.block_count = node.ledger.cache.block_count;
+		telemetry_data.cemented_count = node.ledger.cache.cemented_count;
 		telemetry_data.bandwidth_cap = node.config.bandwidth_limit;
 		telemetry_data.protocol_version_number = node.network_params.protocol.protocol_version;
 		telemetry_data.vendor_version = nano::get_major_node_version ();
 		telemetry_data.uptime = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - node.startup_time).count ();
+		telemetry_data.unchecked_count = node.ledger.cache.unchecked_count;
 
 		{
 			auto transaction = node.store.tx_begin_read ();
 			telemetry_data.account_count = node.store.account_count (transaction);
-			telemetry_data.unchecked_count = node.store.unchecked_count (transaction);
 			telemetry_data.peer_count = node.store.peer_count (transaction);
 		}
 
@@ -1006,17 +1019,26 @@ void nano::syn_cookies::purge (std::chrono::steady_clock::time_point const & cut
 	}
 }
 
-std::unique_ptr<nano::seq_con_info_component> nano::syn_cookies::collect_seq_con_info (std::string const & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (network & network, const std::string & name)
 {
-	size_t syn_cookies_count = 0;
-	size_t syn_cookies_per_ip_count = 0;
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (network.tcp_channels.collect_container_info ("tcp_channels"));
+	composite->add_component (network.udp_channels.collect_container_info ("udp_channels"));
+	composite->add_component (network.syn_cookies.collect_container_info ("syn_cookies"));
+	return composite;
+}
+
+std::unique_ptr<nano::container_info_component> nano::syn_cookies::collect_container_info (std::string const & name)
+{
+	size_t syn_cookies_count;
+	size_t syn_cookies_per_ip_count;
 	{
 		nano::lock_guard<std::mutex> syn_cookie_guard (syn_cookie_mutex);
 		syn_cookies_count = cookies.size ();
 		syn_cookies_per_ip_count = cookies_per_ip.size ();
 	}
-	auto composite = std::make_unique<seq_con_info_composite> (name);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "syn_cookies", syn_cookies_count, sizeof (decltype (cookies)::value_type) }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "syn_cookies_per_ip", syn_cookies_per_ip_count, sizeof (decltype (cookies_per_ip)::value_type) }));
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "syn_cookies", syn_cookies_count, sizeof (decltype (cookies)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "syn_cookies_per_ip", syn_cookies_per_ip_count, sizeof (decltype (cookies_per_ip)::value_type) }));
 	return composite;
 }
