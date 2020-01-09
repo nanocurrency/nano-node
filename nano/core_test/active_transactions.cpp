@@ -411,6 +411,37 @@ TEST (active_transactions, inactive_votes_cache)
 	ASSERT_EQ (1, system.nodes[0]->stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
 }
 
+TEST (active_transactions, inactive_votes_cache_fork)
+{
+	nano::system system (1);
+	nano::block_hash latest (system.nodes[0]->latest (nano::test_genesis_key.pub));
+	nano::keypair key;
+	auto send1 (std::make_shared<nano::send_block> (latest, key.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest)));
+	auto send2 (std::make_shared<nano::send_block> (latest, key.pub, nano::genesis_amount - 200, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest)));
+	auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, std::vector<nano::block_hash> (1, send1->hash ())));
+	system.nodes[0]->vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, system.nodes[0]->network.endpoint (), system.nodes[0]->network_params.protocol.protocol_version));
+	auto channel1 (system.nodes [0]->network.udp_channels.create (system.nodes [0]->network.endpoint ()));
+	system.deadline_set (5s);
+	while (system.nodes[0]->active.inactive_votes_cache_size () != 1)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	system.nodes[0]->network.process_message (nano::publish (send2), channel1);
+	system.nodes[0]->block_processor.flush ();
+	ASSERT_NE (nullptr, system.nodes[0]->block (send2->hash ()));
+	system.nodes[0]->network.process_message (nano::publish (send1), channel1);
+	system.nodes[0]->block_processor.flush ();
+	bool confirmed (false);
+	system.deadline_set (5s);
+	while (!confirmed)
+	{
+		auto transaction (system.nodes[0]->store.tx_begin_read ());
+		confirmed = system.nodes[0]->block (send1->hash ()) != nullptr && system.nodes[0]->ledger.block_confirmed (transaction, send1->hash ());
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (1, system.nodes[0]->stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
+}
+
 TEST (active_transactions, inactive_votes_cache_existing_vote)
 {
 	nano::system system;
@@ -457,7 +488,7 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 	// Attempt to change vote with inactive_votes_cache
 	node->active.add_inactive_votes_cache (send->hash (), key.pub);
 	ASSERT_EQ (1, node->active.find_inactive_votes_cache (send->hash ()).voters.size ());
-	election->insert_inactive_votes_cache ();
+	election->insert_inactive_votes_cache (send->hash ());
 	// Check that election data is not changed
 	ASSERT_EQ (2, election->last_votes.size ());
 	auto last_vote2 (election->last_votes[key.pub]);
@@ -579,7 +610,9 @@ TEST (active_transactions, update_difficulty)
 			ASSERT_NE (existing3, node2.active.roots.end ());
 			auto const existing4 (node2.active.roots.find (send2->qualified_root ()));
 			ASSERT_NE (existing4, node2.active.roots.end ());
-			done = (existing1->difficulty > difficulty1) && (existing2->difficulty > difficulty2) && (existing3->difficulty > difficulty1) && (existing4->difficulty > difficulty2);
+			auto updated = (existing1->difficulty > difficulty1) && (existing2->difficulty > difficulty2);
+			auto propogated = (existing3->difficulty > difficulty1) && (existing4->difficulty > difficulty2);
+			done = updated && propogated;
 		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -647,4 +680,50 @@ TEST (active_transactions, restart_dropped)
 		auto block (node.store.block_get (node.store.tx_begin_read (), send1->hash ()));
 		ASSERT_EQ (work2, block->block_work ());
 	}
+}
+
+TEST (active_transactions, vote_replays)
+{
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.enable_voting = false;
+	auto & node = *system.add_node (node_config);
+	nano::genesis genesis;
+	nano::keypair key;
+	std::error_code ec;
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	ASSERT_NE (nullptr, send1);
+	auto open1 (std::make_shared<nano::state_block> (key.pub, 0, key.pub, nano::Gxrb_ratio, send1->hash (), key.prv, key.pub, *system.work.generate (key.pub)));
+	ASSERT_NE (nullptr, open1);
+	node.process_active (send1);
+	node.process_active (open1);
+	node.block_processor.flush ();
+	ASSERT_EQ (2, node.active.size ());
+	// First vote is not a replay and confirms the election, second vote should be indeterminate since the election no longer exists
+	auto vote_send1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, send1));
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote_send1));
+	ASSERT_EQ (1, node.active.size ());
+	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote_send1));
+	// Open new account
+	auto vote_open1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, open1));
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote_open1));
+	ASSERT_TRUE (node.active.empty ());
+	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote_open1));
+	ASSERT_EQ (nano::Gxrb_ratio, node.ledger.weight (key.pub));
+
+	auto send2 (std::make_shared<nano::state_block> (key.pub, open1->hash (), key.pub, nano::Gxrb_ratio - 1, key.pub, key.prv, key.pub, *system.work.generate (open1->hash ())));
+	ASSERT_NE (nullptr, send2);
+	node.process_active (send2);
+	node.block_processor.flush ();
+	ASSERT_EQ (1, node.active.size ());
+	auto vote1_send2 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, send2));
+	auto vote2_send2 (std::make_shared<nano::vote> (key.pub, key.prv, 0, send2));
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote2_send2));
+	ASSERT_EQ (1, node.active.size ());
+	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote2_send2));
+	ASSERT_EQ (1, node.active.size ());
+	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote1_send2));
+	ASSERT_EQ (0, node.active.size ());
+	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote1_send2));
+	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote2_send2));
 }

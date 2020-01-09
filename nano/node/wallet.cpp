@@ -2026,25 +2026,22 @@ MDB_txn * nano::wallet_store::tx (nano::transaction const & transaction_a) const
 	return static_cast<MDB_txn *> (transaction_a.get_handle ());
 }
 
-namespace nano
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (wallets & wallets, const std::string & name)
 {
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (wallets & wallets, const std::string & name)
-{
-	size_t items_count = 0;
-	size_t actions_count = 0;
+	size_t items_count;
+	size_t actions_count;
 	{
 		nano::lock_guard<std::mutex> guard (wallets.mutex);
 		items_count = wallets.items.size ();
 		actions_count = wallets.actions.size ();
 	}
 
-	auto composite = std::make_unique<seq_con_info_composite> (name);
 	auto sizeof_item_element = sizeof (decltype (wallets.items)::value_type);
 	auto sizeof_actions_element = sizeof (decltype (wallets.actions)::value_type);
 	auto sizeof_watcher_element = sizeof (decltype (wallets.watcher->watched)::value_type);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "items", items_count, sizeof_item_element }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "actions", actions_count, sizeof_actions_element }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "work_watcher", wallets.watcher->size (), sizeof_watcher_element }));
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "items", items_count, sizeof_item_element }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "actions", actions_count, sizeof_actions_element }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "work_watcher", wallets.watcher->size (), sizeof_watcher_element }));
 	return composite;
-}
 }

@@ -267,13 +267,11 @@ void nano::bootstrap_initiator::notify_listeners (bool in_progress_a)
 	}
 }
 
-namespace nano
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (bootstrap_initiator & bootstrap_initiator, const std::string & name)
 {
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_initiator & bootstrap_initiator, const std::string & name)
-{
-	size_t count = 0;
-	size_t cache_count = 0;
-	size_t excluded_peers_count = 0;
+	size_t count;
+	size_t cache_count;
+	size_t excluded_peers_count;
 	{
 		nano::lock_guard<std::mutex> guard (bootstrap_initiator.observers_mutex);
 		count = bootstrap_initiator.observers.size ();
@@ -290,12 +288,11 @@ std::unique_ptr<seq_con_info_component> collect_seq_con_info (bootstrap_initiato
 	auto sizeof_element = sizeof (decltype (bootstrap_initiator.observers)::value_type);
 	auto sizeof_cache_element = sizeof (decltype (bootstrap_initiator.cache.cache)::value_type);
 	auto sizeof_excluded_peers_element = sizeof (decltype (bootstrap_initiator.excluded_peers.peers)::value_type);
-	auto composite = std::make_unique<seq_con_info_composite> (name);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "observers", count, sizeof_element }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "pulls_cache", cache_count, sizeof_cache_element }));
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "excluded_peers", excluded_peers_count, sizeof_excluded_peers_element }));
+	auto composite = std::make_unique<container_info_composite> (name);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "observers", count, sizeof_element }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "pulls_cache", cache_count, sizeof_cache_element }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "excluded_peers", excluded_peers_count, sizeof_excluded_peers_element }));
 	return composite;
-}
 }
 
 void nano::pulls_cache::add (nano::pull_info const & pull_a)

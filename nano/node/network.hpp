@@ -78,7 +78,7 @@ public:
 	// Returns false if valid, true if invalid (true on error convention)
 	// Also removes the syn cookie from the store if valid
 	bool validate (nano::endpoint const &, nano::account const &, nano::signature const &);
-	std::unique_ptr<seq_con_info_component> collect_seq_con_info (std::string const &);
+	std::unique_ptr<container_info_component> collect_container_info (std::string const &);
 
 private:
 	class syn_cookie_info final
@@ -167,4 +167,5 @@ public:
 	static size_t const buffer_size = 512;
 	static size_t const confirm_req_hashes_max = 7;
 };
+std::unique_ptr<container_info_component> collect_container_info (network & network, const std::string & name);
 }

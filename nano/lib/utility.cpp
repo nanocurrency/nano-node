@@ -27,60 +27,57 @@
 #endif
 #endif
 
-namespace nano
-{
-seq_con_info_composite::seq_con_info_composite (const std::string & name) :
+nano::container_info_composite::container_info_composite (const std::string & name) :
 name (name)
 {
 }
 
-bool seq_con_info_composite::is_composite () const
+bool nano::container_info_composite::is_composite () const
 {
 	return true;
 }
 
-void seq_con_info_composite::add_component (std::unique_ptr<seq_con_info_component> child)
+void nano::container_info_composite::add_component (std::unique_ptr<container_info_component> child)
 {
 	children.push_back (std::move (child));
 }
 
-const std::vector<std::unique_ptr<seq_con_info_component>> & seq_con_info_composite::get_children () const
+const std::vector<std::unique_ptr<nano::container_info_component>> & nano::container_info_composite::get_children () const
 {
 	return children;
 }
 
-const std::string & seq_con_info_composite::get_name () const
+const std::string & nano::container_info_composite::get_name () const
 {
 	return name;
 }
 
-seq_con_info_leaf::seq_con_info_leaf (const seq_con_info & info) :
+nano::container_info_leaf::container_info_leaf (const container_info & info) :
 info (info)
 {
 }
 
-bool seq_con_info_leaf::is_composite () const
+bool nano::container_info_leaf::is_composite () const
 {
 	return false;
 }
 
-const seq_con_info & seq_con_info_leaf::get_info () const
+const nano::container_info & nano::container_info_leaf::get_info () const
 {
 	return info;
 }
 
-void dump_crash_stacktrace ()
+void nano::dump_crash_stacktrace ()
 {
 	boost::stacktrace::safe_dump_to ("nano_node_backtrace.dump");
 }
 
-std::string generate_stacktrace ()
+std::string nano::generate_stacktrace ()
 {
 	auto stacktrace = boost::stacktrace::stacktrace ();
 	std::stringstream ss;
 	ss << stacktrace;
 	return ss.str ();
-}
 }
 
 void nano::remove_all_files_in_dir (boost::filesystem::path const & dir)

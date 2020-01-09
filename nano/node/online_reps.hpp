@@ -36,8 +36,8 @@ private:
 	nano::uint128_t online;
 	nano::uint128_t minimum;
 
-	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (online_reps & online_reps, const std::string & name);
+	friend std::unique_ptr<container_info_component> collect_container_info (online_reps & online_reps, const std::string & name);
 };
 
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (online_reps & online_reps, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (online_reps & online_reps, const std::string & name);
 }

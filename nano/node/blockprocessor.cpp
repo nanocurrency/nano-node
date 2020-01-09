@@ -411,6 +411,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				info_a.modified = nano::seconds_since_epoch ();
 			}
 			node.store.unchecked_put (transaction_a, nano::unchecked_key (info_a.block->previous (), hash), info_a);
+			++node.ledger.cache.unchecked_count;
 			node.gap_cache.add (hash);
 			break;
 		}
@@ -426,6 +427,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				info_a.modified = nano::seconds_since_epoch ();
 			}
 			node.store.unchecked_put (transaction_a, nano::unchecked_key (node.ledger.block_source (transaction_a, *(info_a.block)), hash), info_a);
+			++node.ledger.cache.unchecked_count;	
 			node.gap_cache.add (hash);
 			break;
 		}
@@ -525,6 +527,7 @@ void nano::block_processor::queue_unchecked (nano::write_transaction const & tra
 		if (!node.flags.fast_bootstrap)
 		{
 			node.store.unchecked_del (transaction_a, nano::unchecked_key (hash_a, info.block->hash ()));
+			--node.ledger.cache.unchecked_count;
 		}
 		add (info);
 	}
