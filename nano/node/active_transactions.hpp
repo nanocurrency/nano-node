@@ -121,7 +121,6 @@ public:
 	std::chrono::milliseconds const election_request_delay;
 	// Maximum time an election can be kept active if it is extending the container
 	std::chrono::seconds const election_time_to_live;
-	static size_t constexpr max_confirm_representatives = 30;
 	boost::circular_buffer<double> multipliers_cb;
 	uint64_t trended_active_difficulty;
 	size_t priority_cementable_frontiers_size ();
@@ -133,6 +132,7 @@ public:
 	void add_dropped_elections_cache (nano::qualified_root const &);
 	std::chrono::steady_clock::time_point find_dropped_elections_cache (nano::qualified_root const &);
 	size_t dropped_elections_cache_size ();
+	nano::confirmation_solicitor solicitor;
 
 private:
 	// Call action with confirmed block, may be different than what we started with
@@ -181,7 +181,6 @@ private:
 		mi::hashed_unique<mi::tag<tag_root>,
 			mi::member<nano::election_timepoint, nano::qualified_root, &nano::election_timepoint::root>>>>
 	dropped_elections_cache;
-	nano::confirmation_solicitor solicitor;
 	// clang-format on
 	static size_t constexpr dropped_elections_cache_max{ 32 * 1024 };
 	boost::thread thread;

@@ -1,62 +1,90 @@
 #include <nano/node/confirmation_solicitor.hpp>
-
 #include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
 
 nano::confirmation_solicitor::confirmation_solicitor (nano::node & node_a) :
-node (node_a)
+node (node_a),
+max_confirm_req_batches (node_a.network_params.network.is_test_network () ? 1 : 20),
+max_block_broadcasts (node_a.network_params.network.is_test_network () ? 4 : 30),
+soliciting_alternating_factor (node_a.network_params.network.is_test_network () ? 2 : 4),
+block_flooding_alternating_factor (8)
 {
 }
 
-void nano::confirmation_solicitor::prepare ()
+void nano::confirmation_solicitor::prepare (std::vector<nano::representative> const & representatives_a)
 {
 	assert (!prepared);
 	requests.clear ();
 	rebroadcasted = 0;
-	representatives = node.rep_crawler.representatives ();
+	// Only representatives ready to receive batched confirm_req
+	representatives = representatives_a;
 	prepared = true;
 }
 
-void nano::confirmation_solicitor::add (std::shared_ptr<nano::election> election_a)
+bool nano::confirmation_solicitor::add (std::shared_ptr<nano::election> election_a)
 {
 	assert (prepared);
-	if (election_a->confirmation_request_count % 8 == 1 && rebroadcasted++ < max_block_broadcasts)
+	if (((election_a->confirmation_request_count > block_flooding_alternating_factor && election_a->confirmation_request_count % block_flooding_alternating_factor == 1) || node.network_params.network.is_test_network ()) && rebroadcasted++ < max_block_broadcasts)
 	{
 		node.network.flood_block (election_a->status.winner);
 	}
-	for (auto const & rep : representatives)
+	static auto max_channel_requests (max_confirm_req_batches * nano::network::confirm_req_hashes_max);
+	bool any_bundle{ false };
+	if (election_a->confirmation_request_count % soliciting_alternating_factor == 0)
 	{
-		if (election_a->last_votes.find (rep.account) == election_a->last_votes.end ())
+		for (auto const & rep : representatives)
 		{
-			requests.insert ({ rep.channel, election_a });
+			if (election_a->last_votes.find (rep.account) == election_a->last_votes.end ())
+			{
+				auto existing (requests.find (rep.channel));
+				if (existing != requests.end ())
+				{
+					if (existing->second.size () < max_channel_requests)
+					{
+						existing->second.push_back ({ election_a->status.winner->hash (), election_a->status.winner->root () });
+						any_bundle = true;
+					}
+				}
+				else
+				{
+					requests.emplace (rep.channel, vector_root_hashes{ { election_a->status.winner->hash (), election_a->status.winner->root () } });
+					any_bundle = true;
+				}
+			}
+		}
+		if (any_bundle)
+		{
+			++election_a->confirmation_request_count;
 		}
 	}
-	++election_a->confirmation_request_count;
+	else if (election_a->confirmation_request_count > 0)
+	{
+		++election_a->confirmation_request_count;
+	}
+	return !any_bundle;
 }
 
 void nano::confirmation_solicitor::flush ()
 {
 	assert (prepared);
-	size_t batch_count = 0;
-	size_t single_count = 0;
-	for (auto i = requests.begin (), n (requests.end ()); i != n;)
+	for (auto const & request_queue : requests)
 	{
-		if (batch_count++ < max_confirm_req_batches && i->channel->get_network_version () >= node.network_params.protocol.tcp_realtime_protocol_version_min)
+		auto channel (request_queue.first);
+		std::vector<std::pair<nano::block_hash, nano::root>> roots_hashes_l;
+		for (auto const & root_hash : request_queue.second)
 		{
-			auto channel = i->channel;
-			std::vector<std::pair<nano::block_hash, nano::root>> roots_hashes_l;
-			while (i != n && i->channel == channel && roots_hashes_l.size () < nano::network::confirm_req_hashes_max)
+			roots_hashes_l.push_back (root_hash);
+			if (roots_hashes_l.size () == nano::network::confirm_req_hashes_max)
 			{
-				roots_hashes_l.push_back (std::make_pair (i->election->status.winner->hash (), i->election->status.winner->root ()));
-				++i;
+				nano::confirm_req req (roots_hashes_l);
+				channel->send (req);
+				roots_hashes_l.clear ();
 			}
+		}
+		if (!roots_hashes_l.empty ())
+		{
 			nano::confirm_req req (roots_hashes_l);
 			channel->send (req);
-		}
-		else if (single_count++ < max_confirm_req)
-		{
-			node.network.broadcast_confirm_req (i->election->status.winner);
-			++i;
 		}
 	}
 	prepared = false;

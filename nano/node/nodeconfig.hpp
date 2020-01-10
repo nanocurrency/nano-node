@@ -110,6 +110,7 @@ class node_flags final
 {
 public:
 	std::vector<std::string> config_overrides;
+	bool disable_active_transactions{ false };
 	bool disable_backup{ false };
 	bool disable_lazy_bootstrap{ false };
 	bool disable_legacy_bootstrap{ false };

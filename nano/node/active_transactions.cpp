@@ -241,12 +241,11 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	 * Loop through active elections in descending order of proof-of-work difficulty, requesting confirmation
 	 *
 	 * Only up to a certain amount of elections are queued for confirmation request and block rebroadcasting. The remaining elections can still be confirmed if votes arrive
-	 * We avoid selecting the same elections repeatedly in the next loops, through a modulo on confirmation_request_count
-	 * An election only gets confirmation_request_count increased after the first confirm_req; after that it is increased every loop unless they don't fit in the queues
+	 * Avoids selecting the same elections repeatedly in the next loops, through a modulo on confirmation_request_count
 	 * Elections extending the soft config.active_elections_size limit are flushed after a certain time-to-live cutoff
 	 * Flushed elections are later re-activated via frontier confirmation
 	 */
-	solicitor.prepare ();
+	solicitor.prepare (node.rep_crawler.representatives (node.network_params.protocol.tcp_realtime_protocol_version_min));
 	for (auto i = sorted_roots_l.begin (), n = sorted_roots_l.end (); i != n; ++i, ++count_l)
 	{
 		auto election_l (i->election);
@@ -307,7 +306,7 @@ void nano::active_transactions::request_loop ()
 
 	lock.lock ();
 
-	while (!stopped)
+	while (!stopped && !node.flags.disable_active_transactions)
 	{
 		// Account for the time spent in request_confirm by defining the wakeup point beforehand
 		const auto wakeup_l (std::chrono::steady_clock::now () + std::chrono::milliseconds (node.network_params.network.request_interval_ms));
