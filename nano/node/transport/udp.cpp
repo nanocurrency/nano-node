@@ -87,23 +87,21 @@ strand (node_a.io_ctx.get_executor ())
 	else
 	{
 		local_endpoint = nano::endpoint (boost::asio::ip::address_v6::loopback (), 0);
+		stopped = true;
 	}
 }
 
 void nano::transport::udp_channels::send (nano::shared_const_buffer const & buffer_a, nano::endpoint endpoint_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a)
 {
-	if (!this->stopped)
-	{
-		assert (this->socket != nullptr);
-		boost::asio::post (strand,
-		[this, buffer_a, endpoint_a, callback_a]() {
-			if (this->socket != nullptr)
-			{
-				this->socket->async_send_to (buffer_a, endpoint_a,
-				boost::asio::bind_executor (strand, callback_a));
-			}
-		});
-	}
+	assert (this->socket != nullptr);
+	boost::asio::post (strand,
+	[this, buffer_a, endpoint_a, callback_a]() {
+		if (!this->stopped)
+		{
+			this->socket->async_send_to (buffer_a, endpoint_a,
+			boost::asio::bind_executor (strand, callback_a));
+		}
+	});
 }
 
 std::shared_ptr<nano::transport::channel_udp> nano::transport::udp_channels::insert (nano::endpoint const & endpoint_a, unsigned network_version_a)
@@ -290,7 +288,7 @@ void nano::transport::udp_channels::receive ()
 		socket->async_receive_from (boost::asio::buffer (data->buffer, nano::network::buffer_size), data->endpoint,
 		boost::asio::bind_executor (strand,
 		[this, data](boost::system::error_code const & error, std::size_t size_a) {
-			if (!error && !stopped)
+			if (!error && !this->stopped)
 			{
 				data->size = size_a;
 				this->node.network.buffer_container.enqueue (data);
@@ -306,7 +304,7 @@ void nano::transport::udp_channels::receive ()
 						this->node.logger.try_log (boost::str (boost::format ("UDP Receive error: %1%") % error.message ()));
 					}
 				}
-				if (!stopped)
+				if (!this->stopped)
 				{
 					this->node.alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (5), [this]() { this->receive (); });
 				}
@@ -358,8 +356,6 @@ void nano::transport::udp_channels::close_socket ()
 	{
 		boost::system::error_code ignored;
 		this->socket->close (ignored);
-		this->local_endpoint = nano::endpoint (boost::asio::ip::address_v6::loopback (), 0);
-		this->socket = nullptr;
 	}
 }
 
