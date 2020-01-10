@@ -79,9 +79,8 @@ public:
 	// clang-format off
 	bool start (std::shared_ptr<nano::block>, bool const = false, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
 	// clang-format on
-	// If this returns true, the vote is a replay
-	// If this returns false, the vote may or may not be a replay
-	bool vote (std::shared_ptr<nano::vote>, bool = false);
+	// Distinguishes replay votes, cannot be determined if the block is not in any election
+	nano::vote_code vote (std::shared_ptr<nano::vote>, bool = false);
 	// Is the root of this block in the roots container
 	bool active (nano::block const &);
 	bool active (nano::qualified_root const &);
