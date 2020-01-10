@@ -93,7 +93,6 @@ strand (node_a.io_ctx.get_executor ())
 
 void nano::transport::udp_channels::send (nano::shared_const_buffer const & buffer_a, nano::endpoint endpoint_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a)
 {
-	assert (this->socket != nullptr);
 	boost::asio::post (strand,
 	[this, buffer_a, endpoint_a, callback_a]() {
 		if (!this->stopped)
