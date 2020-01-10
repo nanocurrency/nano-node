@@ -2,11 +2,11 @@
 #include <nano/node/bootstrap/bootstrap.hpp>
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
 #include <nano/node/bootstrap/bootstrap_bulk_push.hpp>
+#include <nano/node/bootstrap/bootstrap_connections.hpp>
 #include <nano/node/bootstrap/bootstrap_frontier.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
-#include <nano/node/transport/udp.hpp>
 
 #include <boost/format.hpp>
 
@@ -21,51 +21,6 @@ constexpr double nano::bootstrap_limits::required_frontier_confirmation_ratio;
 constexpr unsigned nano::bootstrap_limits::frontier_confirmation_blocks_limit;
 constexpr unsigned nano::bootstrap_limits::requeued_pulls_limit;
 constexpr unsigned nano::bootstrap_limits::requeued_pulls_limit_test;
-
-nano::bootstrap_client::bootstrap_client (std::shared_ptr<nano::node> node_a, std::shared_ptr<nano::bootstrap_attempt> attempt_a, std::shared_ptr<nano::transport::channel_tcp> channel_a, std::shared_ptr<nano::socket> socket_a) :
-node (node_a),
-attempt (attempt_a),
-channel (channel_a),
-socket (socket_a),
-receive_buffer (std::make_shared<std::vector<uint8_t>> ()),
-start_time (std::chrono::steady_clock::now ()),
-block_count (0),
-pending_stop (false),
-hard_stop (false)
-{
-	++attempt->connections;
-	receive_buffer->resize (256);
-}
-
-nano::bootstrap_client::~bootstrap_client ()
-{
-	--attempt->connections;
-}
-
-double nano::bootstrap_client::block_rate () const
-{
-	auto elapsed = std::max (elapsed_seconds (), nano::bootstrap_limits::bootstrap_minimum_elapsed_seconds_blockrate);
-	return static_cast<double> (block_count.load () / elapsed);
-}
-
-double nano::bootstrap_client::elapsed_seconds () const
-{
-	return std::chrono::duration_cast<std::chrono::duration<double>> (std::chrono::steady_clock::now () - start_time).count ();
-}
-
-void nano::bootstrap_client::stop (bool force)
-{
-	pending_stop = true;
-	if (force)
-	{
-		hard_stop = true;
-	}
-}
-
-std::shared_ptr<nano::bootstrap_client> nano::bootstrap_client::shared ()
-{
-	return shared_from_this ();
-}
 
 nano::bootstrap_attempt::bootstrap_attempt (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a) :
 node (node_a),
@@ -112,15 +67,36 @@ bool nano::bootstrap_attempt::request_frontier (nano::unique_lock<std::mutex> & 
 		lock_a.unlock ();
 		result = consume_future (future); // This is out of scope of `client' so when the last reference via boost::asio::io_context is lost and the client is destroyed, the future throws an exception.
 		lock_a.lock ();
+		auto frontiers_size (frontier_pulls.size ());
 		if (result)
 		{
-			pulls.clear ();
+			frontier_pulls.clear ();
+		}
+		else
+		{
+			// Shuffle pulls.
+			release_assert (std::numeric_limits<CryptoPP::word32>::max () > frontier_pulls.size ());
+			if (!frontier_pulls.empty ())
+			{
+				for (auto i = static_cast<CryptoPP::word32> (frontier_pulls.size () - 1); i > 0; --i)
+				{
+					auto k = nano::random_pool::generate_word32 (0, i);
+					std::swap (frontier_pulls[i], frontier_pulls[k]);
+				}
+			}
+			// Add to regular pulls
+			while (!frontier_pulls.empty ())
+			{
+				auto pull (frontier_pulls.front ());
+				pulls.push_back (pull);
+				frontier_pulls.pop_front ();
+			}
 		}
 		if (node->config.logging.network_logging ())
 		{
 			if (!result)
 			{
-				node->logger.try_log (boost::str (boost::format ("Completed frontier request, %1% out of sync accounts according to %2%") % pulls.size () % connection_l->channel->to_string ()));
+				node->logger.try_log (boost::str (boost::format ("Completed frontier request, %1% out of sync accounts according to %2%") % frontiers_size % connection_l->channel->to_string ()));
 			}
 			else
 			{
@@ -204,16 +180,6 @@ void nano::bootstrap_attempt::run_start (nano::unique_lock<std::mutex> & lock_a)
 		frontier_failure = request_frontier (lock_a, frontier_attempts == 1);
 	}
 	frontiers_received = true;
-	// Shuffle pulls.
-	release_assert (std::numeric_limits<CryptoPP::word32>::max () > pulls.size ());
-	if (!pulls.empty ())
-	{
-		for (auto i = static_cast<CryptoPP::word32> (pulls.size () - 1); i > 0; --i)
-		{
-			auto k = nano::random_pool::generate_word32 (0, i);
-			std::swap (pulls[i], pulls[k]);
-		}
-	}
 }
 
 void nano::bootstrap_attempt::run ()
@@ -541,6 +507,12 @@ void nano::bootstrap_attempt::add_pull (nano::pull_info const & pull_a)
 		pulls.push_back (pull);
 	}
 	condition.notify_all ();
+}
+void nano::bootstrap_attempt::add_frontier (nano::pull_info const & pull_a)
+{
+	nano::pull_info pull (pull_a);
+	nano::lock_guard<std::mutex> lock (mutex);
+	frontier_pulls.push_back (pull);
 }
 
 void nano::bootstrap_attempt::requeue_pull (nano::pull_info const & pull_a, bool network_error)

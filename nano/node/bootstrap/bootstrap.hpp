@@ -124,7 +124,7 @@ private:
 	std::shared_ptr<nano::bootstrap_attempt_legacy> attempt;
 	std::shared_ptr<nano::bootstrap_attempt_lazy> lazy_attempt;
 	std::shared_ptr<nano::bootstrap_attempt_wallet> wallet_attempt;
-	std::atomic<bool> stopped;
+	std::atomic<bool> stopped{ false };
 	std::mutex mutex;
 	nano::condition_variable condition;
 	std::mutex observers_mutex;

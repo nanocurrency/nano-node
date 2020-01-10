@@ -33,6 +33,8 @@ add_library (node
 	bootstrap/bootstrap_bulk_pull.cpp
 	bootstrap/bootstrap_bulk_push.hpp
 	bootstrap/bootstrap_bulk_push.cpp
+	bootstrap/bootstrap_connections.hpp
+	bootstrap/bootstrap_connections.cpp
 	bootstrap/bootstrap_frontier.hpp
 	bootstrap/bootstrap_frontier.cpp
 	bootstrap/bootstrap_lazy.hpp

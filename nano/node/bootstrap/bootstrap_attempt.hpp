@@ -48,6 +48,7 @@ public:
 	void stop ();
 	void requeue_pull (nano::pull_info const &, bool = false);
 	void add_pull (nano::pull_info const &);
+	void add_frontier (nano::pull_info const &);
 	bool still_pulling ();
 	void run_start (nano::unique_lock<std::mutex> &);
 	unsigned target_connections (size_t pulls_remaining);
@@ -67,6 +68,7 @@ public:
 	std::weak_ptr<nano::bulk_push_client> push;
 	std::deque<nano::pull_info> pulls;
 	std::deque<nano::block_hash> recent_pulls_head;
+	std::deque<nano::pull_info> frontier_pulls;
 	std::deque<std::shared_ptr<nano::bootstrap_client>> idle;
 	std::atomic<unsigned> connections{ 0 };
 	std::atomic<unsigned> pulling{ 0 };
@@ -91,24 +93,5 @@ public:
 	bool process_block (std::shared_ptr<nano::block>, nano::account const &, uint64_t, nano::bulk_pull::count_t, bool, unsigned) override;
 	void requeue_pending (nano::account const &) override;
 	size_t wallet_size () override;
-};
-class bootstrap_client final : public std::enable_shared_from_this<bootstrap_client>
-{
-public:
-	bootstrap_client (std::shared_ptr<nano::node>, std::shared_ptr<nano::bootstrap_attempt>, std::shared_ptr<nano::transport::channel_tcp>, std::shared_ptr<nano::socket>);
-	~bootstrap_client ();
-	std::shared_ptr<nano::bootstrap_client> shared ();
-	void stop (bool force);
-	double block_rate () const;
-	double elapsed_seconds () const;
-	std::shared_ptr<nano::node> node;
-	std::shared_ptr<nano::bootstrap_attempt> attempt;
-	std::shared_ptr<nano::transport::channel_tcp> channel;
-	std::shared_ptr<nano::socket> socket;
-	std::shared_ptr<std::vector<uint8_t>> receive_buffer;
-	std::chrono::steady_clock::time_point start_time;
-	std::atomic<uint64_t> block_count;
-	std::atomic<bool> pending_stop;
-	std::atomic<bool> hard_stop;
 };
 }

@@ -13,8 +13,7 @@ constexpr std::chrono::hours nano::bootstrap_excluded_peers::exclude_time_hours;
 constexpr std::chrono::hours nano::bootstrap_excluded_peers::exclude_remove_hours;
 
 nano::bootstrap_initiator::bootstrap_initiator (nano::node & node_a) :
-node (node_a),
-stopped (false)
+node (node_a)
 {
 	bootstrap_initiator_threads.push_back (boost::thread ([this]() {
 		nano::thread_role::set (nano::thread_role::name::bootstrap_initiator);
