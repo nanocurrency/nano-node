@@ -82,6 +82,7 @@ public:
 	void attempt_restart_check (nano::unique_lock<std::mutex> &);
 	bool confirm_frontiers (nano::unique_lock<std::mutex> &);
 	bool process_block (std::shared_ptr<nano::block>, nano::account const &, uint64_t, nano::bulk_pull::count_t, bool, unsigned);
+	std::string mode_text ();
 	/** Lazy bootstrap */
 	void lazy_run ();
 	void lazy_start (nano::hash_or_account const &, bool confirmed = true);

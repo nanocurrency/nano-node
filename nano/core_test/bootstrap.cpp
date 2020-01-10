@@ -521,7 +521,7 @@ TEST (bootstrap_processor, lazy_hash)
 	// Start lazy bootstrap with last block in chain known
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
 	node1->network.udp_channels.insert (system.nodes[0]->network.endpoint (), node1->network_params.protocol.protocol_version);
-	node1->bootstrap_initiator.bootstrap_lazy (receive2->hash ());
+	node1->bootstrap_initiator.bootstrap_lazy (receive2->hash (), true);
 	{
 		auto attempt (node1->bootstrap_initiator.current_attempt ());
 		ASSERT_NE (nullptr, attempt);
@@ -557,7 +557,7 @@ TEST (bootstrap_processor, lazy_hash_bootstrap_id)
 	// Start lazy bootstrap with last block in chain known
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
 	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.protocol.protocol_version);
-	node1->bootstrap_initiator.bootstrap_lazy (receive2->hash (), false, true, "123456");
+	node1->bootstrap_initiator.bootstrap_lazy (receive2->hash (), true, true, "123456");
 	{
 		auto attempt (node1->bootstrap_initiator.current_attempt ());
 		ASSERT_NE (nullptr, attempt);
