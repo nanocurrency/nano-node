@@ -8,7 +8,6 @@
 
 #include <algorithm>
 
-constexpr double nano::bootstrap_limits::bootstrap_connection_scale_target_blocks_lazy;
 constexpr std::chrono::seconds nano::bootstrap_limits::lazy_flush_delay_sec;
 constexpr unsigned nano::bootstrap_limits::lazy_destinations_request_limit;
 constexpr uint64_t nano::bootstrap_limits::lazy_batch_pull_count_resize_blocks_limit;
@@ -31,7 +30,7 @@ nano::bootstrap_attempt_lazy::~bootstrap_attempt_lazy ()
 
 void nano::bootstrap_attempt_lazy::request_pull_lazy (nano::unique_lock<std::mutex> & lock_a)
 {
-	auto connection_l (connection (lock_a));
+	auto connection_l (connections.connection (lock_a));
 	if (connection_l)
 	{
 		auto pull (pulls.front ());
@@ -132,7 +131,7 @@ void nano::bootstrap_attempt_lazy::lazy_requeue (nano::block_hash const & hash_a
 void nano::bootstrap_attempt_lazy::lazy_pull_flush ()
 {
 	assert (!mutex.try_lock ());
-	static size_t const max_pulls (nano::bootstrap_limits::bootstrap_connection_scale_target_blocks_lazy * 3);
+	static size_t const max_pulls (nano::bootstrap_limits::bootstrap_connection_scale_target_blocks * 3);
 	if (pulls.size () < max_pulls)
 	{
 		last_lazy_flush = std::chrono::steady_clock::now ();
@@ -222,7 +221,7 @@ bool nano::bootstrap_attempt_lazy::lazy_has_expired () const
 void nano::bootstrap_attempt_lazy::lazy_run ()
 {
 	assert (!node->flags.disable_lazy_bootstrap);
-	start_populate_connections ();
+	connections.start_populate_connections ();
 	lazy_start_time = std::chrono::steady_clock::now ();
 	nano::unique_lock<std::mutex> lock (mutex);
 	while ((still_pulling () || !lazy_finished ()) && !lazy_has_expired ())
@@ -275,8 +274,9 @@ void nano::bootstrap_attempt_lazy::lazy_run ()
 		node->logger.try_log ("Completed lazy pulls");
 	}
 	stopped = true;
+	connections.stopped = true;
 	condition.notify_all ();
-	idle.clear ();
+	connections.idle.clear ();
 }
 
 bool nano::bootstrap_attempt_lazy::process_block (std::shared_ptr<nano::block> block_a, nano::account const & known_account_a, uint64_t pull_blocks, nano::bulk_pull::count_t max_blocks, bool block_expected, unsigned retry_limit)
@@ -558,7 +558,7 @@ nano::bootstrap_attempt_wallet::~bootstrap_attempt_wallet ()
 
 void nano::bootstrap_attempt_wallet::request_pending (nano::unique_lock<std::mutex> & lock_a)
 {
-	auto connection_l (connection (lock_a));
+	auto connection_l (connections.connection (lock_a));
 	if (connection_l)
 	{
 		auto account (wallet_accounts.front ());
@@ -602,7 +602,7 @@ bool nano::bootstrap_attempt_wallet::wallet_finished ()
 void nano::bootstrap_attempt_wallet::wallet_run ()
 {
 	assert (!node->flags.disable_wallet_bootstrap);
-	start_populate_connections ();
+	connections.start_populate_connections ();
 	auto start_time (std::chrono::steady_clock::now ());
 	auto max_time (std::chrono::minutes (10));
 	nano::unique_lock<std::mutex> lock (mutex);
@@ -622,6 +622,7 @@ void nano::bootstrap_attempt_wallet::wallet_run ()
 		node->logger.try_log ("Completed wallet lazy pulls");
 	}
 	stopped = true;
+	connections.stopped = true;
 	condition.notify_all ();
 }
 

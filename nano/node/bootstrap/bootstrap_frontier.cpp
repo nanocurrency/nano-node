@@ -1,5 +1,4 @@
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
-#include <nano/node/bootstrap/bootstrap_connections.hpp>
 #include <nano/node/bootstrap/bootstrap_frontier.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
@@ -190,7 +189,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 				catch (std::future_error &)
 				{
 				}
-				connection->attempt->pool_connection (connection);
+				connection->attempt->connections.pool_connection (connection);
 			}
 		}
 	}

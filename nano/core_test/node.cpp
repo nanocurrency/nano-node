@@ -2181,19 +2181,19 @@ TEST (node, DISABLED_bootstrap_connection_scaling)
 	node1.bootstrap_initiator.bootstrap ();
 	auto attempt (node1.bootstrap_initiator.current_attempt ());
 	ASSERT_NE (nullptr, attempt);
-	ASSERT_EQ (34, attempt->target_connections (25000));
-	ASSERT_EQ (4, attempt->target_connections (0));
-	ASSERT_EQ (64, attempt->target_connections (50000));
-	ASSERT_EQ (64, attempt->target_connections (10000000000));
+	ASSERT_EQ (34, attempt->connections.target_connections (25000));
+	ASSERT_EQ (4, attempt->connections.target_connections (0));
+	ASSERT_EQ (64, attempt->connections.target_connections (50000));
+	ASSERT_EQ (64, attempt->connections.target_connections (10000000000));
 	node1.config.bootstrap_connections = 128;
-	ASSERT_EQ (64, attempt->target_connections (0));
-	ASSERT_EQ (64, attempt->target_connections (50000));
+	ASSERT_EQ (64, attempt->connections.target_connections (0));
+	ASSERT_EQ (64, attempt->connections.target_connections (50000));
 	node1.config.bootstrap_connections_max = 256;
-	ASSERT_EQ (128, attempt->target_connections (0));
-	ASSERT_EQ (256, attempt->target_connections (50000));
+	ASSERT_EQ (128, attempt->connections.target_connections (0));
+	ASSERT_EQ (256, attempt->connections.target_connections (50000));
 	node1.config.bootstrap_connections_max = 0;
-	ASSERT_EQ (1, attempt->target_connections (0));
-	ASSERT_EQ (1, attempt->target_connections (50000));
+	ASSERT_EQ (1, attempt->connections.target_connections (0));
+	ASSERT_EQ (1, attempt->connections.target_connections (50000));
 }
 
 // Test stat counting at both type and detail levels

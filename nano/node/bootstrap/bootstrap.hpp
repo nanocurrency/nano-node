@@ -138,8 +138,7 @@ std::unique_ptr<container_info_component> collect_container_info (bootstrap_init
 class bootstrap_limits final
 {
 public:
-	static constexpr double bootstrap_connection_scale_target_blocks = 50000.0;
-	static constexpr double bootstrap_connection_scale_target_blocks_lazy = bootstrap_connection_scale_target_blocks / 5;
+	static constexpr double bootstrap_connection_scale_target_blocks = 10000.0;
 	static constexpr double bootstrap_connection_warmup_time_sec = 5.0;
 	static constexpr double bootstrap_minimum_blocks_per_sec = 10.0;
 	static constexpr double bootstrap_minimum_elapsed_seconds_blockrate = 0.02;

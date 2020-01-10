@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/node/bootstrap/bootstrap_bulk_pull.hpp>
+#include <nano/node/bootstrap/bootstrap_connections.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/socket.hpp>
 #include <nano/secure/blockstore.hpp>
@@ -34,19 +35,12 @@ class bootstrap_attempt : public std::enable_shared_from_this<bootstrap_attempt>
 public:
 	explicit bootstrap_attempt (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a = nano::bootstrap_mode::legacy);
 	~bootstrap_attempt ();
-	std::shared_ptr<nano::bootstrap_client> connection (nano::unique_lock<std::mutex> &, bool = false);
 	bool consume_future (std::future<bool> &);
-	void populate_connections ();
-	void start_populate_connections ();
-	void add_connection (nano::endpoint const &);
-	void connect_client (nano::tcp_endpoint const &);
-	void pool_connection (std::shared_ptr<nano::bootstrap_client>);
 	void stop ();
 	void requeue_pull (nano::pull_info const &, bool = false);
 	void add_pull (nano::pull_info const &);
 	void add_frontier (nano::pull_info const &);
 	bool still_pulling ();
-	unsigned target_connections (size_t pulls_remaining);
 	bool should_log ();
 	void add_bulk_push_target (nano::block_hash const &, nano::block_hash const &);
 	virtual bool process_block (std::shared_ptr<nano::block>, nano::account const &, uint64_t, nano::bulk_pull::count_t, bool, unsigned) = 0;
@@ -54,20 +48,17 @@ public:
 	virtual size_t wallet_size () = 0;
 	std::mutex next_log_mutex;
 	std::chrono::steady_clock::time_point next_log{ std::chrono::steady_clock::now () };
-	std::deque<std::weak_ptr<nano::bootstrap_client>> clients;
+	nano::bootstrap_connections connections;
 	nano::tcp_endpoint endpoint_frontier_request;
 	std::weak_ptr<nano::frontier_req_client> frontiers;
 	std::weak_ptr<nano::bulk_push_client> push;
 	std::deque<nano::pull_info> pulls;
 	std::deque<nano::pull_info> frontier_pulls;
-	std::deque<std::shared_ptr<nano::bootstrap_client>> idle;
-	std::atomic<unsigned> connections{ 0 };
 	std::atomic<unsigned> pulling{ 0 };
 	std::shared_ptr<nano::node> node;
 	std::atomic<uint64_t> total_blocks{ 0 };
 	std::atomic<unsigned> requeued_pulls{ 0 };
 	std::vector<std::pair<nano::block_hash, nano::block_hash>> bulk_push_targets;
-	std::atomic<bool> populate_connections_started{ false };
 	std::atomic<bool> stopped{ false };
 	std::chrono::steady_clock::time_point attempt_start{ std::chrono::steady_clock::now () };
 	nano::bootstrap_mode mode;
