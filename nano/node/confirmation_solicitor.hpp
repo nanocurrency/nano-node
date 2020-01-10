@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/node/network.hpp>
 #include <nano/node/repcrawler.hpp>
 
 #include <unordered_map>
@@ -12,7 +13,7 @@ class node;
 class confirmation_solicitor final
 {
 public:
-	confirmation_solicitor (nano::node &);
+	confirmation_solicitor (nano::network &, nano::network_constants const &);
 	/** Prepare object for batching election confirmation requests*/
 	void prepare (std::vector<nano::representative> const &);
 	/** Add an election that needs to be confirmed. Returns false if a request will be performed on flush() */
@@ -24,11 +25,12 @@ public:
 	size_t const max_block_broadcasts;
 
 private:
+	nano::network & network;
+
 	std::chrono::milliseconds const min_time_between_requests;
 	std::chrono::milliseconds const min_time_between_floods;
 	size_t const min_request_count_flood;
 	int rebroadcasted{ 0 };
-	nano::node & node;
 	std::vector<nano::representative> representatives;
 	using vector_root_hashes = std::vector<std::pair<nano::block_hash, nano::root>>;
 	std::unordered_map<std::shared_ptr<nano::transport::channel>, vector_root_hashes> requests;

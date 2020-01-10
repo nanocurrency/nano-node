@@ -12,13 +12,13 @@ using namespace std::chrono;
 
 nano::active_transactions::active_transactions (nano::node & node_a) :
 node (node_a),
-long_election_threshold (node.network_params.network.is_test_network () ? 2s : 24s),
-election_request_delay (node.network_params.network.is_test_network () ? 0s : 1s),
-election_time_to_live (node.network_params.network.is_test_network () ? 0s : 10s),
+long_election_threshold (node_a.network_params.network.is_test_network () ? 2s : 24s),
+election_request_delay (node_a.network_params.network.is_test_network () ? 0s : 1s),
+election_time_to_live (node_a.network_params.network.is_test_network () ? 0s : 10s),
 multipliers_cb (20, 1.),
-trended_active_difficulty (node.network_params.network.publish_threshold),
+trended_active_difficulty (node_a.network_params.network.publish_threshold),
 next_frontier_check (steady_clock::now ()),
-solicitor (node_a),
+solicitor (node_a.network, node_a.network_params.network),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::request_loop);
 	request_loop ();
@@ -156,7 +156,7 @@ void nano::active_transactions::post_confirmation_height_set (nano::transaction 
 
 void nano::active_transactions::election_escalate (std::shared_ptr<nano::election> & election_l, nano::transaction const & transaction_l, size_t const & roots_size_l)
 {
-	static unsigned constexpr high_confirmation_request_count{ 128 };
+	constexpr unsigned high_confirmation_request_count{ 128 };
 	// Log votes for very long unconfirmed elections
 	if (election_l->confirmation_request_count % (4 * high_confirmation_request_count) == 1)
 	{
@@ -627,7 +627,7 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 	else if (opt_transaction_a.is_initialized ())
 	{
 		// Only guaranteed to immediately restart the election if the new block is received within 60s of dropping it
-		static constexpr std::chrono::seconds recently_dropped_cutoff{ 60s };
+		constexpr std::chrono::seconds recently_dropped_cutoff{ 60s };
 		if (find_dropped_elections_cache (block_a->qualified_root ()) > std::chrono::steady_clock::now () - recently_dropped_cutoff)
 		{
 			lock.unlock ();
