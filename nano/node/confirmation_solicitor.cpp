@@ -2,12 +2,15 @@
 #include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
 
+using namespace std::chrono_literals;
+
 nano::confirmation_solicitor::confirmation_solicitor (nano::node & node_a) :
 node (node_a),
 max_confirm_req_batches (node_a.network_params.network.is_test_network () ? 1 : 20),
 max_block_broadcasts (node_a.network_params.network.is_test_network () ? 4 : 30),
-soliciting_alternating_factor (node_a.network_params.network.is_test_network () ? 2 : 4),
-block_flooding_alternating_factor (8)
+min_time_between_requests (node_a.network_params.network.is_test_network () ? 10ms : 3s),
+min_time_between_floods (node_a.network_params.network.is_test_network () ? 20ms : 6s),
+min_request_count_flood (node_a.network_params.network.is_test_network () ? 0 : 4)
 {
 }
 
@@ -24,13 +27,17 @@ void nano::confirmation_solicitor::prepare (std::vector<nano::representative> co
 bool nano::confirmation_solicitor::add (std::shared_ptr<nano::election> election_a)
 {
 	assert (prepared);
-	if (((election_a->confirmation_request_count > block_flooding_alternating_factor && election_a->confirmation_request_count % block_flooding_alternating_factor == 1) || node.network_params.network.is_test_network ()) && rebroadcasted++ < max_block_broadcasts)
+	auto now (std::chrono::steady_clock::now ());
+	auto flood_cutoff (now - min_time_between_floods);
+	if (election_a->confirmation_request_count >= min_request_count_flood && election_a->last_broadcast < flood_cutoff && rebroadcasted++ < max_block_broadcasts)
 	{
+		election_a->last_broadcast = now;
 		node.network.flood_block (election_a->status.winner);
 	}
 	static auto max_channel_requests (max_confirm_req_batches * nano::network::confirm_req_hashes_max);
+	auto request_cutoff (now - min_time_between_requests);
 	bool any_bundle{ false };
-	if (election_a->confirmation_request_count % soliciting_alternating_factor == 0)
+	if (election_a->last_request < request_cutoff)
 	{
 		for (auto const & rep : representatives)
 		{
@@ -52,13 +59,10 @@ bool nano::confirmation_solicitor::add (std::shared_ptr<nano::election> election
 				}
 			}
 		}
-		if (any_bundle)
-		{
-			++election_a->confirmation_request_count;
-		}
 	}
-	else if (election_a->confirmation_request_count > 0)
+	if (any_bundle)
 	{
+		election_a->last_request = now;
 		++election_a->confirmation_request_count;
 	}
 	return !any_bundle;

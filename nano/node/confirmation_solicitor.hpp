@@ -24,9 +24,9 @@ public:
 	size_t const max_block_broadcasts;
 
 private:
-	/** Modulo factor to alternate between top elections when soliciting confirmations */
-	size_t const soliciting_alternating_factor;
-	size_t const block_flooding_alternating_factor;
+	std::chrono::milliseconds const min_time_between_requests;
+	std::chrono::milliseconds const min_time_between_floods;
+	size_t const min_request_count_flood;
 	int rebroadcasted{ 0 };
 	nano::node & node;
 	std::vector<nano::representative> representatives;
