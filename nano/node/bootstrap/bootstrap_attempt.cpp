@@ -49,112 +49,6 @@ bool nano::bootstrap_attempt::should_log ()
 	return result;
 }
 
-bool nano::bootstrap_attempt::request_frontier (nano::unique_lock<std::mutex> & lock_a, bool first_attempt)
-{
-	auto result (true);
-	auto connection_l (connection (lock_a, first_attempt));
-	connection_frontier_request = connection_l;
-	if (connection_l)
-	{
-		endpoint_frontier_request = connection_l->channel->get_tcp_endpoint ();
-		std::future<bool> future;
-		{
-			auto client (std::make_shared<nano::frontier_req_client> (connection_l));
-			client->run ();
-			frontiers = client;
-			future = client->promise.get_future ();
-		}
-		lock_a.unlock ();
-		result = consume_future (future); // This is out of scope of `client' so when the last reference via boost::asio::io_context is lost and the client is destroyed, the future throws an exception.
-		lock_a.lock ();
-		auto frontiers_size (frontier_pulls.size ());
-		if (result)
-		{
-			frontier_pulls.clear ();
-		}
-		else
-		{
-			// Shuffle pulls.
-			release_assert (std::numeric_limits<CryptoPP::word32>::max () > frontier_pulls.size ());
-			if (!frontier_pulls.empty ())
-			{
-				for (auto i = static_cast<CryptoPP::word32> (frontier_pulls.size () - 1); i > 0; --i)
-				{
-					auto k = nano::random_pool::generate_word32 (0, i);
-					std::swap (frontier_pulls[i], frontier_pulls[k]);
-				}
-			}
-			// Add to regular pulls
-			while (!frontier_pulls.empty ())
-			{
-				auto pull (frontier_pulls.front ());
-				pulls.push_back (pull);
-				frontier_pulls.pop_front ();
-			}
-		}
-		if (node->config.logging.network_logging ())
-		{
-			if (!result)
-			{
-				node->logger.try_log (boost::str (boost::format ("Completed frontier request, %1% out of sync accounts according to %2%") % frontiers_size % connection_l->channel->to_string ()));
-			}
-			else
-			{
-				node->stats.inc (nano::stat::type::error, nano::stat::detail::frontier_req, nano::stat::dir::out);
-			}
-		}
-	}
-	return result;
-}
-
-void nano::bootstrap_attempt::request_pull (nano::unique_lock<std::mutex> & lock_a)
-{
-	auto connection_l (connection (lock_a));
-	if (connection_l)
-	{
-		auto pull (pulls.front ());
-		pulls.pop_front ();
-		recent_pulls_head.push_back (pull.head);
-		if (recent_pulls_head.size () > nano::bootstrap_limits::bootstrap_max_confirm_frontiers)
-		{
-			recent_pulls_head.pop_front ();
-		}
-		++pulling;
-		// The bulk_pull_client destructor attempt to requeue_pull which can cause a deadlock if this is the last reference
-		// Dispatch request in an external thread in case it needs to be destroyed
-		node->background ([connection_l, pull]() {
-			auto client (std::make_shared<nano::bulk_pull_client> (connection_l, pull));
-			client->request ();
-		});
-	}
-}
-
-void nano::bootstrap_attempt::request_push (nano::unique_lock<std::mutex> & lock_a)
-{
-	bool error (false);
-	if (auto connection_shared = connection_frontier_request.lock ())
-	{
-		std::future<bool> future;
-		{
-			auto client (std::make_shared<nano::bulk_push_client> (connection_shared));
-			client->start ();
-			push = client;
-			future = client->promise.get_future ();
-		}
-		lock_a.unlock ();
-		error = consume_future (future); // This is out of scope of `client' so when the last reference via boost::asio::io_context is lost and the client is destroyed, the future throws an exception.
-		lock_a.lock ();
-	}
-	if (node->config.logging.network_logging ())
-	{
-		node->logger.try_log ("Exiting bulk push client");
-		if (error)
-		{
-			node->logger.try_log ("Bulk push client failed");
-		}
-	}
-}
-
 bool nano::bootstrap_attempt::still_pulling ()
 {
 	assert (!mutex.try_lock ());
@@ -162,68 +56,6 @@ bool nano::bootstrap_attempt::still_pulling ()
 	auto more_pulls (!pulls.empty ());
 	auto still_pulling (pulling > 0);
 	return running && (more_pulls || still_pulling);
-}
-
-void nano::bootstrap_attempt::run_start (nano::unique_lock<std::mutex> & lock_a)
-{
-	frontiers_received = false;
-	frontiers_confirmed = false;
-	total_blocks = 0;
-	requeued_pulls = 0;
-	pulls.clear ();
-	recent_pulls_head.clear ();
-	auto frontier_failure (true);
-	uint64_t frontier_attempts (0);
-	while (!stopped && frontier_failure)
-	{
-		++frontier_attempts;
-		frontier_failure = request_frontier (lock_a, frontier_attempts == 1);
-	}
-	frontiers_received = true;
-}
-
-void nano::bootstrap_attempt::run ()
-{
-	assert (!node->flags.disable_legacy_bootstrap);
-	start_populate_connections ();
-	nano::unique_lock<std::mutex> lock (mutex);
-	run_start (lock);
-	while (still_pulling ())
-	{
-		while (still_pulling ())
-		{
-			if (!pulls.empty ())
-			{
-				request_pull (lock);
-			}
-			else
-			{
-				condition.wait (lock);
-			}
-			attempt_restart_check (lock);
-		}
-		// Flushing may resolve forks which can add more pulls
-		node->logger.try_log ("Flushing unchecked blocks");
-		lock.unlock ();
-		node->block_processor.flush ();
-		lock.lock ();
-		node->logger.try_log ("Finished flushing unchecked blocks");
-	}
-	if (!stopped)
-	{
-		node->logger.try_log ("Completed pulls");
-		if (!node->flags.disable_bootstrap_bulk_push_client)
-		{
-			request_push (lock);
-		}
-		if (!stopped)
-		{
-			node->unchecked_cleanup ();
-		}
-	}
-	stopped = true;
-	condition.notify_all ();
-	idle.clear ();
 }
 
 std::shared_ptr<nano::bootstrap_client> nano::bootstrap_attempt::connection (nano::unique_lock<std::mutex> & lock_a, bool use_front_connection)
@@ -508,6 +340,7 @@ void nano::bootstrap_attempt::add_pull (nano::pull_info const & pull_a)
 	}
 	condition.notify_all ();
 }
+
 void nano::bootstrap_attempt::add_frontier (nano::pull_info const & pull_a)
 {
 	nano::pull_info pull (pull_a);
@@ -547,7 +380,55 @@ void nano::bootstrap_attempt::add_bulk_push_target (nano::block_hash const & hea
 	bulk_push_targets.emplace_back (head, end);
 }
 
-void nano::bootstrap_attempt::attempt_restart_check (nano::unique_lock<std::mutex> & lock_a)
+void nano::bootstrap_attempt_legacy::request_pull (nano::unique_lock<std::mutex> & lock_a)
+{
+	auto connection_l (connection (lock_a));
+	if (connection_l)
+	{
+		auto pull (pulls.front ());
+		pulls.pop_front ();
+		recent_pulls_head.push_back (pull.head);
+		if (recent_pulls_head.size () > nano::bootstrap_limits::bootstrap_max_confirm_frontiers)
+		{
+			recent_pulls_head.pop_front ();
+		}
+		++pulling;
+		// The bulk_pull_client destructor attempt to requeue_pull which can cause a deadlock if this is the last reference
+		// Dispatch request in an external thread in case it needs to be destroyed
+		node->background ([connection_l, pull]() {
+			auto client (std::make_shared<nano::bulk_pull_client> (connection_l, pull));
+			client->request ();
+		});
+	}
+}
+
+void nano::bootstrap_attempt_legacy::request_push (nano::unique_lock<std::mutex> & lock_a)
+{
+	bool error (false);
+	if (auto connection_shared = connection_frontier_request.lock ())
+	{
+		std::future<bool> future;
+		{
+			auto client (std::make_shared<nano::bulk_push_client> (connection_shared));
+			client->start ();
+			push = client;
+			future = client->promise.get_future ();
+		}
+		lock_a.unlock ();
+		error = consume_future (future); // This is out of scope of `client' so when the last reference via boost::asio::io_context is lost and the client is destroyed, the future throws an exception.
+		lock_a.lock ();
+	}
+	if (node->config.logging.network_logging ())
+	{
+		node->logger.try_log ("Exiting bulk push client");
+		if (error)
+		{
+			node->logger.try_log ("Bulk push client failed");
+		}
+	}
+}
+
+void nano::bootstrap_attempt_legacy::attempt_restart_check (nano::unique_lock<std::mutex> & lock_a)
 {
 	/* Conditions to start frontiers confirmation:
 	- not completed frontiers confirmation
@@ -582,7 +463,7 @@ void nano::bootstrap_attempt::attempt_restart_check (nano::unique_lock<std::mute
 	}
 }
 
-bool nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> & lock_a)
+bool nano::bootstrap_attempt_legacy::confirm_frontiers (nano::unique_lock<std::mutex> & lock_a)
 {
 	bool confirmed (false);
 	assert (!frontiers_confirmed);
@@ -710,6 +591,125 @@ bool nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 	}
 	lock_a.lock ();
 	return confirmed;
+}
+bool nano::bootstrap_attempt_legacy::request_frontier (nano::unique_lock<std::mutex> & lock_a, bool first_attempt)
+{
+	auto result (true);
+	auto connection_l (connection (lock_a, first_attempt));
+	connection_frontier_request = connection_l;
+	if (connection_l)
+	{
+		endpoint_frontier_request = connection_l->channel->get_tcp_endpoint ();
+		std::future<bool> future;
+		{
+			auto client (std::make_shared<nano::frontier_req_client> (connection_l));
+			client->run ();
+			frontiers = client;
+			future = client->promise.get_future ();
+		}
+		lock_a.unlock ();
+		result = consume_future (future); // This is out of scope of `client' so when the last reference via boost::asio::io_context is lost and the client is destroyed, the future throws an exception.
+		lock_a.lock ();
+		if (result)
+		{
+			frontier_pulls.clear ();
+		}
+		else
+		{
+			account_count = frontier_pulls.size ();
+			// Shuffle pulls.
+			release_assert (std::numeric_limits<CryptoPP::word32>::max () > frontier_pulls.size ());
+			if (!frontier_pulls.empty ())
+			{
+				for (auto i = static_cast<CryptoPP::word32> (frontier_pulls.size () - 1); i > 0; --i)
+				{
+					auto k = nano::random_pool::generate_word32 (0, i);
+					std::swap (frontier_pulls[i], frontier_pulls[k]);
+				}
+			}
+			// Add to regular pulls
+			while (!frontier_pulls.empty ())
+			{
+				auto pull (frontier_pulls.front ());
+				pulls.push_back (pull);
+				frontier_pulls.pop_front ();
+			}
+		}
+		if (node->config.logging.network_logging ())
+		{
+			if (!result)
+			{
+				node->logger.try_log (boost::str (boost::format ("Completed frontier request, %1% out of sync accounts according to %2%") % account_count % connection_l->channel->to_string ()));
+			}
+			else
+			{
+				node->stats.inc (nano::stat::type::error, nano::stat::detail::frontier_req, nano::stat::dir::out);
+			}
+		}
+	}
+	return result;
+}
+
+void nano::bootstrap_attempt_legacy::run_start (nano::unique_lock<std::mutex> & lock_a)
+{
+	frontiers_received = false;
+	frontiers_confirmed = false;
+	total_blocks = 0;
+	requeued_pulls = 0;
+	pulls.clear ();
+	recent_pulls_head.clear ();
+	auto frontier_failure (true);
+	uint64_t frontier_attempts (0);
+	while (!stopped && frontier_failure)
+	{
+		++frontier_attempts;
+		frontier_failure = request_frontier (lock_a, frontier_attempts == 1);
+	}
+	frontiers_received = true;
+}
+
+void nano::bootstrap_attempt_legacy::run ()
+{
+	assert (!node->flags.disable_legacy_bootstrap);
+	start_populate_connections ();
+	nano::unique_lock<std::mutex> lock (mutex);
+	run_start (lock);
+	while (still_pulling ())
+	{
+		while (still_pulling ())
+		{
+			if (!pulls.empty ())
+			{
+				request_pull (lock);
+			}
+			else
+			{
+				condition.wait (lock);
+			}
+			attempt_restart_check (lock);
+		}
+		// Flushing may resolve forks which can add more pulls
+		node->logger.try_log ("Flushing unchecked blocks");
+		lock.unlock ();
+		node->block_processor.flush ();
+		lock.lock ();
+		node->logger.try_log ("Finished flushing unchecked blocks");
+	}
+	if (!stopped)
+	{
+		node->logger.try_log ("Completed pulls");
+		if (!node->flags.disable_bootstrap_bulk_push_client)
+		{
+			request_push (lock);
+		}
+		if (!stopped)
+		{
+			node->unchecked_cleanup ();
+		}
+	}
+	stopped = true;
+	condition.notify_all ();
+	idle.clear ();
 }
 
 bool nano::bootstrap_attempt_legacy::process_block (std::shared_ptr<nano::block> block_a, nano::account const & known_account_a, uint64_t pull_blocks, nano::bulk_pull::count_t max_blocks, bool block_expected, unsigned retry_limit)
