@@ -1,6 +1,5 @@
 #include <nano/node/confirmation_solicitor.hpp>
 #include <nano/node/election.hpp>
-#include <nano/node/node.hpp>
 
 using namespace std::chrono_literals;
 
