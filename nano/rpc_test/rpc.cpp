@@ -3038,7 +3038,7 @@ TEST (rpc, work_peer_many)
 	for (auto i (0); i < 10; ++i)
 	{
 		nano::keypair key1;
-		uint64_t work (0);
+		std::atomic<uint64_t> work (0);
 		node1.work_generate (key1.pub, [&work](boost::optional<uint64_t> work_a) {
 			ASSERT_TRUE (work_a.is_initialized ());
 			work = *work_a;
@@ -3051,6 +3051,7 @@ TEST (rpc, work_peer_many)
 			system4.poll ();
 		}
 	}
+	node1.stop ();
 }
 
 TEST (rpc, block_count)
