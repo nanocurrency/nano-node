@@ -662,7 +662,7 @@ TEST (active_transactions, restart_dropped)
 	}
 	// Verify the block was updated in the ledger
 	{
-		auto block (node.store.block_get (node.store.tx_begin_read (), send1->hash ()));
+		auto block (node.store.block_get (node.store.tx_begin_write (), send1->hash ()));
 		ASSERT_EQ (work2, block->block_work ());
 	}
 	// Drop election
