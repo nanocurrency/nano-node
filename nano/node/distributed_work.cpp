@@ -291,11 +291,11 @@ void nano::distributed_work::stop_once (bool const local_stop_a)
 		{
 			if (auto connection_l = connection_w.lock ())
 			{
-				if (connection_l->socket.is_open ())
-				{
-					auto this_l (shared_from_this ());
-					boost::asio::post (strand, boost::asio::bind_executor (strand, [this_l, connection_l] {
-						boost::system::error_code ec;
+				auto this_l (shared_from_this ());
+				boost::asio::post (strand, boost::asio::bind_executor (strand, [this_l, connection_l] {
+					boost::system::error_code ec;
+					if (connection_l->socket.is_open ())
+					{
 						connection_l->socket.cancel (ec);
 						if (!ec)
 						{
@@ -309,8 +309,8 @@ void nano::distributed_work::stop_once (bool const local_stop_a)
 						{
 							this_l->node.logger.try_log (boost::str (boost::format ("Error cancelling operation with work_peer %1% %2%: %3%") % connection_l->address % connection_l->port % ec.message () % ec.value ()));
 						}
-					}));
-				}
+					}
+				}));
 			}
 		}
 	}
