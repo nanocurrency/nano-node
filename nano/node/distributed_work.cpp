@@ -258,7 +258,7 @@ void nano::distributed_work::success (std::string const & body_a, boost::asio::i
 			}
 			else
 			{
-				node.logger.try_log (boost::str (boost::format ("Incorrect work response from %1%:%2% for request.root %3% with diffuculty %4%: %5%") % address_a % port_a % request.root.to_string () % nano::to_string_hex (request.difficulty) % work_text));
+				node.logger.try_log (boost::str (boost::format ("Incorrect work response from %1%:%2% for root %3% with diffuculty %4%: %5%") % address_a % port_a % request.root.to_string () % nano::to_string_hex (request.difficulty) % work_text));
 				add_bad_peer (address_a, port_a);
 				handle_failure (last);
 			}
@@ -293,30 +293,29 @@ void nano::distributed_work::stop_once (bool const local_stop_a)
 			{
 				if (connection_l->socket.is_open ())
 				{
-					boost::system::error_code ec;
-					connection_l->socket.cancel (ec);
-					if (!ec && connection_l->socket.is_open ())
-					{
-						auto this_l (shared_from_this ());
-						boost::asio::post (strand, boost::asio::bind_executor (strand, [this_l, connection_l] {
-							boost::system::error_code ec;
+					auto this_l (shared_from_this ());
+					boost::asio::post (strand, boost::asio::bind_executor (strand, [this_l, connection_l] {
+						boost::system::error_code ec;
+						connection_l->socket.cancel (ec);
+						if (!ec)
+						{
 							connection_l->socket.close (ec);
 							if (ec)
 							{
 								this_l->node.logger.try_log (boost::str (boost::format ("Error closing socket with work_peer %1% %2%: %3%") % connection_l->address % connection_l->port % ec.message () % ec.value ()));
 							}
-						}));
-					}
-					else
-					{
-						std::cerr << (boost::str (boost::format ("Error cancelling operation with work_peer %1% %2%: %3%") % connection_l->address % connection_l->port % ec.message () % ec.value ())) << std::endl;
-					}
+						}
+						else
+						{
+							this_l->node.logger.try_log (boost::str (boost::format ("Error cancelling operation with work_peer %1% %2%: %3%") % connection_l->address % connection_l->port % ec.message () % ec.value ()));
+						}
+					}));
 				}
 			}
 		}
-		connections.clear ();
-		outstanding.clear ();
 	}
+	connections.clear ();
+	outstanding.clear ();
 }
 
 void nano::distributed_work::set_once (uint64_t const work_a, std::string const & source_a)
@@ -374,7 +373,7 @@ void nano::distributed_work::handle_failure (bool const last_a)
 			status = work_generation_status::failure_peers;
 			if (backoff == std::chrono::seconds (1) && node.config.logging.work_generation_time ())
 			{
-				node.logger.always_log ("Work peer(s) failed to generate work for request.root ", request.root.to_string (), ", retrying...");
+				node.logger.always_log ("Work peer(s) failed to generate work for root ", request.root.to_string (), ", retrying...");
 			}
 			auto now (std::chrono::steady_clock::now ());
 			std::weak_ptr<nano::node> node_w (node.shared ());
