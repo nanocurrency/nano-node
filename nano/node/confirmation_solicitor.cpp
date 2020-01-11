@@ -35,36 +35,25 @@ bool nano::confirmation_solicitor::add (std::shared_ptr<nano::election> election
 	}
 	auto const max_channel_requests (max_confirm_req_batches * nano::network::confirm_req_hashes_max);
 	auto const request_cutoff (now - min_time_between_requests);
-	bool any_bundle{ false };
+	auto failure (true);
 	if (election_a->last_request < request_cutoff)
 	{
 		for (auto const & rep : representatives)
 		{
 			if (election_a->last_votes.find (rep.account) == election_a->last_votes.end ())
 			{
-				auto existing (requests.find (rep.channel));
-				if (existing != requests.end ())
+				auto & request_queue (requests[rep.channel]);
+				if (request_queue.size () < max_channel_requests)
 				{
-					if (existing->second.size () < max_channel_requests)
-					{
-						existing->second.emplace_back (election_a->status.winner->hash (), election_a->status.winner->root ());
-						any_bundle = true;
-					}
-				}
-				else
-				{
-					requests.emplace (rep.channel, vector_root_hashes{ { election_a->status.winner->hash (), election_a->status.winner->root () } });
-					any_bundle = true;
+					request_queue.emplace_back (election_a->status.winner->hash (), election_a->status.winner->root ());
+					++election_a->confirmation_request_count;
+					election_a->last_request = now;
+					failure = false;
 				}
 			}
 		}
 	}
-	if (any_bundle)
-	{
-		election_a->last_request = now;
-		++election_a->confirmation_request_count;
-	}
-	return !any_bundle;
+	return failure;
 }
 
 void nano::confirmation_solicitor::flush ()
