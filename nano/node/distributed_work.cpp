@@ -149,7 +149,7 @@ void nano::distributed_work::start_work ()
 								else if (ec == boost::system::errc::operation_canceled)
 								{
 									// The only case where we send a cancel is if we preempt stopped waiting for the response
-									this_l->cancel_connection (connection);
+									this_l->cancel (*connection);
 									this_l->failure (connection->address);
 								}
 								else if (ec)
@@ -206,10 +206,10 @@ void nano::distributed_work::start_work ()
 	}
 }
 
-void nano::distributed_work::cancel_connection (std::shared_ptr<peer_request> connection_a)
+void nano::distributed_work::cancel (peer_request const & connection_a)
 {
 	auto this_l (shared_from_this ());
-	auto cancelling_l (std::make_shared<peer_request> (node.io_ctx, connection_a->address, connection_a->port));
+	auto cancelling_l (std::make_shared<peer_request> (node.io_ctx, connection_a.address, connection_a.port));
 	cancelling_l->socket.async_connect (nano::tcp_endpoint (cancelling_l->address, cancelling_l->port),
 	boost::asio::bind_executor (strand,
 	[this_l, cancelling_l](boost::system::error_code const & ec) {

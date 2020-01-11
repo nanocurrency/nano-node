@@ -74,8 +74,11 @@ public:
 
 private:
 	void start_work ();
-	void cancel_connection (std::shared_ptr<peer_request>);
+	/** Cancellation is done with an entirely new connection, \p request_a is only used to copy its address and port */
+	void cancel (peer_request const & request_a);
+	/** Called on a successful peer response, validates the reply */
 	void success (std::string const &, boost::asio::ip::address const &, uint16_t const);
+	/** Send a work_cancel message to all remaining connections */
 	void stop_once (bool const);
 	void set_once (uint64_t const, std::string const & source_a = "local");
 	void failure (boost::asio::ip::address const &);
