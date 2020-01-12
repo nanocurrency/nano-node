@@ -784,17 +784,17 @@ TEST (frontier_req, end)
 TEST (frontier_req, count)
 {
 	nano::system system (1);
-	auto & node1 (*system.nodes[0]);
+	auto node1 = system.nodes[0];
 	nano::genesis genesis;
 	// Public key FB93... after genesis in accounts table
 	nano::keypair key1 ("ED5AE0A6505B14B67435C29FD9FEEBC26F597D147BC92F6D795FFAD7AFD3D967");
 	nano::state_block send1 (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
-	node1.work_generate_blocking (send1);
-	ASSERT_EQ (nano::process_result::progress, node1.process (send1).code);
+	node1->work_generate_blocking (send1);
+	ASSERT_EQ (nano::process_result::progress, node1->process (send1).code);
 	nano::state_block receive1 (key1.pub, 0, nano::test_genesis_key.pub, nano::Gxrb_ratio, send1.hash (), key1.prv, key1.pub, 0);
-	node1.work_generate_blocking (receive1);
-	ASSERT_EQ (nano::process_result::progress, node1.process (receive1).code);
-	auto connection (std::make_shared<nano::bootstrap_server> (nullptr, system.nodes[0]));
+	node1->work_generate_blocking (receive1);
+	ASSERT_EQ (nano::process_result::progress, node1->process (receive1).code);
+	auto connection (std::make_shared<nano::bootstrap_server> (nullptr, node1));
 	auto req = std::make_unique<nano::frontier_req> ();
 	req->start.clear ();
 	req->age = std::numeric_limits<decltype (req->age)>::max ();
@@ -857,63 +857,65 @@ TEST (bulk, genesis)
 {
 	nano::system system (1);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
-	ASSERT_FALSE (node1->init_error ());
-	nano::block_hash latest1 (system.nodes[0]->latest (nano::test_genesis_key.pub));
-	nano::block_hash latest2 (node1->latest (nano::test_genesis_key.pub));
+	auto node1 = system.nodes[0];
+	auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
+	ASSERT_FALSE (node2->init_error ());
+	nano::block_hash latest1 (node1->latest (nano::test_genesis_key.pub));
+	nano::block_hash latest2 (node2->latest (nano::test_genesis_key.pub));
 	ASSERT_EQ (latest1, latest2);
 	nano::keypair key2;
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::test_genesis_key.pub, key2.pub, 100));
-	nano::block_hash latest3 (system.nodes[0]->latest (nano::test_genesis_key.pub));
+	nano::block_hash latest3 (node1->latest (nano::test_genesis_key.pub));
 	ASSERT_NE (latest1, latest3);
-	node1->bootstrap_initiator.bootstrap (system.nodes[0]->network.endpoint ());
+	node2->bootstrap_initiator.bootstrap (node1->network.endpoint ());
 	system.deadline_set (10s);
-	while (node1->latest (nano::test_genesis_key.pub) != system.nodes[0]->latest (nano::test_genesis_key.pub))
+	while (node2->latest (nano::test_genesis_key.pub) != node1->latest (nano::test_genesis_key.pub))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (node1->latest (nano::test_genesis_key.pub), system.nodes[0]->latest (nano::test_genesis_key.pub));
-	node1->stop ();
+	ASSERT_EQ (node2->latest (nano::test_genesis_key.pub), node1->latest (nano::test_genesis_key.pub));
+	node2->stop ();
 }
 
 TEST (bulk, offline_send)
 {
 	nano::system system (1);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
-	ASSERT_FALSE (node1->init_error ());
-	node1->start ();
-	system.nodes.push_back (node1);
+	auto node1 = system.nodes[0];
+	auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
+	ASSERT_FALSE (node2->init_error ());
+	node2->start ();
+	system.nodes.push_back (node2);
 	nano::keypair key2;
-	auto wallet (node1->wallets.create (nano::random_wallet_id ()));
+	auto wallet (node2->wallets.create (nano::random_wallet_id ()));
 	wallet->insert_adhoc (key2.prv);
-	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::test_genesis_key.pub, key2.pub, system.nodes[0]->config.receive_minimum.number ()));
-	ASSERT_NE (std::numeric_limits<nano::uint256_t>::max (), system.nodes[0]->balance (nano::test_genesis_key.pub));
+	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::test_genesis_key.pub, key2.pub, node1->config.receive_minimum.number ()));
+	ASSERT_NE (std::numeric_limits<nano::uint256_t>::max (), node1->balance (nano::test_genesis_key.pub));
 	// Wait to finish election background tasks
 	system.deadline_set (10s);
-	while (!system.nodes[0]->active.empty ())
+	while (!node1->active.empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	// Initiate bootstrap
-	node1->bootstrap_initiator.bootstrap (system.nodes[0]->network.endpoint ());
+	node2->bootstrap_initiator.bootstrap (node1->network.endpoint ());
 	// Nodes should find each other
 	do
 	{
 		ASSERT_NO_ERROR (system.poll ());
-	} while (system.nodes[0]->network.empty () || node1->network.empty ());
+	} while (node1->network.empty () || node2->network.empty ());
 	// Send block arrival via bootstrap
-	while (node1->balance (nano::test_genesis_key.pub) == std::numeric_limits<nano::uint256_t>::max ())
+	while (node2->balance (nano::test_genesis_key.pub) == std::numeric_limits<nano::uint256_t>::max ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	// Receiving send block
 	system.deadline_set (20s);
-	while (node1->balance (key2.pub) != system.nodes[0]->config.receive_minimum.number ())
+	while (node2->balance (key2.pub) != node1->config.receive_minimum.number ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	node1->stop ();
+	node2->stop ();
 }
 
 TEST (bulk_pull_account, basics)
