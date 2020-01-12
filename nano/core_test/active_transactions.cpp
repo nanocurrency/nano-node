@@ -13,15 +13,13 @@ TEST (active_transactions, confirm_one)
 	auto & node1 = *system.nodes[0];
 	// Send and vote for a block before peering with node2
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	nano::node_config node_config;
-	auto send (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::public_key (), node_config.receive_minimum.number ()));
+	auto send (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::public_key (), node1.config.receive_minimum.number ()));
 	system.deadline_set (5s);
 	while (!node1.active.empty () && !node1.block_confirmed_or_being_confirmed (node1.store.tx_begin_read (), send->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	node_config.peering_port = nano::get_available_port ();
-	auto & node2 = *system.add_node (node_config);
+	auto & node2 = *system.add_node (nano::node_config (nano::get_available_port (), system.logging));
 	system.deadline_set (5s);
 	// Let node2 know about the block
 	while (node2.active.empty ())
@@ -449,7 +447,7 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 	ASSERT_GT (node.weight (key.pub), node.minimum_principal_weight ());
 	// Insert vote
 	auto vote1 (std::make_shared<nano::vote> (key.pub, key.prv, 1, std::vector<nano::block_hash> (1, send->hash ())));
-	node.vote_processor.vote (vote1, std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, system.nodes[0]->network.endpoint (), system.nodes[0]->network_params.protocol.protocol_version));
+	node.vote_processor.vote (vote1, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
 	system.deadline_set (5s);
 	bool done (false);
 	while (!done)
@@ -459,7 +457,7 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 		active_lock.unlock ();
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (1, system.nodes[0]->stats.count (nano::stat::type::election, nano::stat::detail::vote_new));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_new));
 	nano::lock_guard<std::mutex> active_guard (node.active.mutex);
 	auto last_vote1 (election->last_votes[key.pub]);
 	ASSERT_EQ (send->hash (), last_vote1.hash);
@@ -474,7 +472,7 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 	ASSERT_EQ (last_vote1.hash, last_vote2.hash);
 	ASSERT_EQ (last_vote1.sequence, last_vote2.sequence);
 	ASSERT_EQ (last_vote1.time, last_vote2.time);
-	ASSERT_EQ (0, system.nodes[0]->stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
 }
 
 TEST (active_transactions, inactive_votes_cache_multiple_votes)
