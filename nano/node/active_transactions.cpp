@@ -12,18 +12,23 @@ using namespace std::chrono;
 
 nano::active_transactions::active_transactions (nano::node & node_a) :
 node (node_a),
-long_election_threshold (node_a.network_params.network.is_test_network () ? 2s : 24s),
-election_request_delay (node_a.network_params.network.is_test_network () ? 0s : 1s),
-election_time_to_live (node_a.network_params.network.is_test_network () ? 0s : 10s),
 multipliers_cb (20, 1.),
 trended_active_difficulty (node_a.network_params.network.publish_threshold),
 next_frontier_check (steady_clock::now ()),
 solicitor (node_a.network, node_a.network_params.network),
+long_election_threshold (node_a.network_params.network.is_test_network () ? 2s : 24s),
+election_request_delay (node_a.network_params.network.is_test_network () ? 0s : 1s),
+election_time_to_live (node_a.network_params.network.is_test_network () ? 0s : 10s),
+min_time_between_requests (node_a.network_params.network.is_test_network () ? 25ms : 3s),
+min_time_between_floods (node_a.network_params.network.is_test_network () ? 50ms : 6s),
+min_request_count_flood (node_a.network_params.network.is_test_network () ? 0 : 2),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::request_loop);
 	request_loop ();
 })
 {
+	assert (min_time_between_requests > std::chrono::milliseconds (node.network_params.network.request_interval_ms));
+	assert (min_time_between_floods > std::chrono::milliseconds (node.network_params.network.request_interval_ms));
 	nano::unique_lock<std::mutex> lock (mutex);
 	condition.wait (lock, [& started = started] { return started; });
 }
@@ -225,27 +230,32 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 			lock_a.lock ();
 		}
 	}
-
+	auto const now (std::chrono::steady_clock::now ());
 	// Any new election started from process_live only gets requests after at least 1 second
-	auto cutoff_l (std::chrono::steady_clock::now () - election_request_delay);
+	auto cutoff_l (now - election_request_delay);
 	// Elections taking too long get escalated
-	auto long_election_cutoff_l (std::chrono::steady_clock::now () - long_election_threshold);
+	auto long_election_cutoff_l (now - long_election_threshold);
 	// The lowest PoW difficulty elections have a maximum time to live if they are beyond the soft threshold size for the container
-	auto election_ttl_cutoff_l (std::chrono::steady_clock::now () - election_time_to_live);
+	auto election_ttl_cutoff_l (now - election_time_to_live);
+	// Rate-limitting floods
+	auto const flood_cutoff (now - min_time_between_floods);
+	// Rate-limitting confirmation requests
+	auto const request_cutoff (now - min_time_between_requests);
 
 	auto roots_size_l (roots.size ());
 	auto & sorted_roots_l = roots.get<tag_difficulty> ();
 	size_t count_l{ 0 };
 
+	// Only representatives ready to receive batched confirm_req
+	solicitor.prepare (node.rep_crawler.representatives (node.network_params.protocol.tcp_realtime_protocol_version_min));
+
 	/*
 	 * Loop through active elections in descending order of proof-of-work difficulty, requesting confirmation
 	 *
 	 * Only up to a certain amount of elections are queued for confirmation request and block rebroadcasting. The remaining elections can still be confirmed if votes arrive
-	 * Avoids selecting the same elections repeatedly in the next loops, through a modulo on confirmation_request_count
 	 * Elections extending the soft config.active_elections_size limit are flushed after a certain time-to-live cutoff
 	 * Flushed elections are later re-activated via frontier confirmation
 	 */
-	solicitor.prepare (node.rep_crawler.representatives (node.network_params.protocol.tcp_realtime_protocol_version_min));
 	for (auto i = sorted_roots_l.begin (), n = sorted_roots_l.end (); i != n; ++i, ++count_l)
 	{
 		auto election_l (i->election);
@@ -266,10 +276,20 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 			inactive_l.insert (root_l);
 			add_dropped_elections_cache (root_l);
 		}
-		// Broadcast and request confirmation
+		// Attempt obtaining votes
 		else if (election_l->skip_delay || election_l->election_start < cutoff_l)
 		{
-			solicitor.add (election_l);
+			// Broadcast the winner when elections are taking longer to confirm
+			if (election_l->confirmation_request_count >= min_request_count_flood && election_l->last_broadcast < flood_cutoff && !solicitor.broadcast (*election_l))
+			{
+				election_l->last_broadcast = now;
+			}
+			// Rate-limited requests for confirmation
+			if (election_l->last_request < request_cutoff && !solicitor.add (*election_l))
+			{
+				++election_l->confirmation_request_count;
+				election_l->last_request = now;
+			}
 			// Escalate long election after a certain time and number of requests performed
 			if (election_l->confirmation_request_count > 4 && election_l->election_start < long_election_cutoff_l)
 			{

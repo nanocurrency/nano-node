@@ -35,12 +35,19 @@ TEST (confirmation_solicitor, batches)
 		for (size_t i (0); i < nano::network::confirm_req_hashes_max; ++i)
 		{
 			auto election (std::make_shared<nano::election> (node2, send, false, nullptr));
-			ASSERT_FALSE (node2.active.solicitor.add (election));
+			ASSERT_FALSE (node2.active.solicitor.add (*election));
 		}
 		ASSERT_EQ (1, node2.active.solicitor.max_confirm_req_batches);
 		// Reached the maximum amount of requests for the channel
 		auto election (std::make_shared<nano::election> (node2, send, false, nullptr));
-		ASSERT_TRUE (node2.active.solicitor.add (election));
+		ASSERT_TRUE (node2.active.solicitor.add (*election));
+		// Broadcasting should be immediate
+		ASSERT_EQ (0, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
+		ASSERT_FALSE (node2.active.solicitor.broadcast (*election));
+		while (node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out) < 1)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
 	}
 	// From rep crawler
 	ASSERT_EQ (1, node2.stats.count (nano::stat::type::message, nano::stat::detail::confirm_req, nano::stat::dir::out));

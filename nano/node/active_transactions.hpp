@@ -116,11 +116,6 @@ public:
 	void erase_inactive_votes_cache (nano::block_hash const &);
 	nano::node & node;
 	std::mutex mutex;
-	std::chrono::seconds const long_election_threshold;
-	// Delay until requesting confirmation for an election
-	std::chrono::milliseconds const election_request_delay;
-	// Maximum time an election can be kept active if it is extending the container
-	std::chrono::seconds const election_time_to_live;
 	boost::circular_buffer<double> multipliers_cb;
 	uint64_t trended_active_difficulty;
 	size_t priority_cementable_frontiers_size ();
@@ -148,6 +143,20 @@ private:
 	nano::condition_variable condition;
 	bool started{ false };
 	std::atomic<bool> stopped{ false };
+
+	// Minimum time an election must be active before escalation
+	std::chrono::seconds const long_election_threshold;
+	// Delay until requesting confirmation for an election
+	std::chrono::milliseconds const election_request_delay;
+	// Maximum time an election can be kept active if it is extending the container
+	std::chrono::seconds const election_time_to_live;
+	// Minimum time between confirmation requests for an election
+	std::chrono::milliseconds const min_time_between_requests;
+	// Minimum time between broadcasts of the current winner of an election, as a backup to requesting confirmations
+	std::chrono::milliseconds const min_time_between_floods;
+	// Minimum election request count to start broadcasting blocks, as a backup to requesting confirmations
+	size_t const min_request_count_flood;
+
 	// clang-format off
 	boost::multi_index_container<nano::qualified_root,
 	mi::indexed_by<

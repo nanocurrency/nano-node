@@ -6,10 +6,7 @@ using namespace std::chrono_literals;
 nano::confirmation_solicitor::confirmation_solicitor (nano::network & network_a, nano::network_constants const & params_a) :
 max_confirm_req_batches (params_a.is_test_network () ? 1 : 20),
 max_block_broadcasts (params_a.is_test_network () ? 4 : 30),
-network (network_a),
-min_time_between_requests (params_a.is_test_network () ? 10ms : 3s),
-min_time_between_floods (params_a.is_test_network () ? 20ms : 6s),
-min_request_count_flood (params_a.is_test_network () ? 0 : 4)
+network (network_a)
 {
 }
 
@@ -18,42 +15,40 @@ void nano::confirmation_solicitor::prepare (std::vector<nano::representative> co
 	assert (!prepared);
 	requests.clear ();
 	rebroadcasted = 0;
-	// Only representatives ready to receive batched confirm_req
 	representatives = representatives_a;
 	prepared = true;
 }
 
-bool nano::confirmation_solicitor::add (std::shared_ptr<nano::election> election_a)
+bool nano::confirmation_solicitor::broadcast (nano::election const & election_a)
 {
 	assert (prepared);
-	auto const now (std::chrono::steady_clock::now ());
-	auto const flood_cutoff (now - min_time_between_floods);
-	if (election_a->confirmation_request_count >= min_request_count_flood && election_a->last_broadcast < flood_cutoff && rebroadcasted++ < max_block_broadcasts)
+	bool result (true);
+	if (rebroadcasted++ < max_block_broadcasts)
 	{
-		election_a->last_broadcast = now;
-		network.flood_block (election_a->status.winner);
+		network.flood_block (election_a.status.winner);
+		result = false;
 	}
+	return result;
+}
+
+bool nano::confirmation_solicitor::add (nano::election const & election_a)
+{
+	assert (prepared);
 	auto const max_channel_requests (max_confirm_req_batches * nano::network::confirm_req_hashes_max);
-	auto const request_cutoff (now - min_time_between_requests);
-	auto failure (true);
-	if (election_a->last_request < request_cutoff)
+	bool result = true;
+	for (auto const & rep : representatives)
 	{
-		for (auto const & rep : representatives)
+		if (election_a.last_votes.find (rep.account) == election_a.last_votes.end ())
 		{
-			if (election_a->last_votes.find (rep.account) == election_a->last_votes.end ())
+			auto & request_queue (requests[rep.channel]);
+			if (request_queue.size () < max_channel_requests)
 			{
-				auto & request_queue (requests[rep.channel]);
-				if (request_queue.size () < max_channel_requests)
-				{
-					request_queue.emplace_back (election_a->status.winner->hash (), election_a->status.winner->root ());
-					++election_a->confirmation_request_count;
-					election_a->last_request = now;
-					failure = false;
-				}
+				request_queue.emplace_back (election_a.status.winner->hash (), election_a.status.winner->root ());
+				result = false;
 			}
 		}
 	}
-	return failure;
+	return result;
 }
 
 void nano::confirmation_solicitor::flush ()
