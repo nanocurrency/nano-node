@@ -326,7 +326,7 @@ void nano::active_transactions::request_loop ()
 
 	lock.lock ();
 
-	while (!stopped && !node.flags.disable_active_transactions)
+	while (!stopped && !node.flags.disable_request_loop)
 	{
 		// Account for the time spent in request_confirm by defining the wakeup point beforehand
 		const auto wakeup_l (std::chrono::steady_clock::now () + std::chrono::milliseconds (node.network_params.network.request_interval_ms));

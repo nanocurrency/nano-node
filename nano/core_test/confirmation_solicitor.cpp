@@ -19,7 +19,7 @@ TEST (confirmation_solicitor, batches)
 	node_config.peering_port = nano::get_available_port ();
 	nano::node_flags node_flags;
 	// To prevent races on the solicitor
-	node_flags.disable_active_transactions = true;
+	node_flags.disable_request_loop = true;
 	auto & node2 = *system.add_node (node_config, node_flags);
 	// Lock active_transactions which uses the solicitor
 	{
