@@ -285,7 +285,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 				election_l->last_broadcast = now;
 			}
 			// Rate-limited requests for confirmation
-			if (election_l->last_request < request_cutoff && !solicitor.add (*election_l))
+			else if (election_l->last_request < request_cutoff && !solicitor.add (*election_l))
 			{
 				++election_l->confirmation_request_count;
 				election_l->last_request = now;
