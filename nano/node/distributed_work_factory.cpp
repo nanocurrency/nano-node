@@ -1,4 +1,3 @@
-#include <nano/node/distributed_work.hpp>
 #include <nano/node/distributed_work_factory.hpp>
 #include <nano/node/node.hpp>
 
@@ -14,10 +13,10 @@ nano::distributed_work_factory::~distributed_work_factory ()
 
 bool nano::distributed_work_factory::make (nano::root const & root_a, std::vector<std::pair<std::string, uint16_t>> const & peers_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
 {
-	return make (1, root_a, peers_a, callback_a, difficulty_a, account_a);
+	return make (std::chrono::seconds (1), nano::work_request{ root_a, difficulty_a, account_a, callback_a, peers_a });
 }
 
-bool nano::distributed_work_factory::make (unsigned int backoff_a, nano::root const & root_a, std::vector<std::pair<std::string, uint16_t>> const & peers_a, std::function<void(boost::optional<uint64_t>)> const & callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
+bool nano::distributed_work_factory::make (std::chrono::seconds const & backoff_a, nano::work_request const & request_a)
 {
 	bool error_l{ true };
 	if (!stopped)
@@ -25,10 +24,10 @@ bool nano::distributed_work_factory::make (unsigned int backoff_a, nano::root co
 		cleanup_finished ();
 		if (node.work_generation_enabled ())
 		{
-			auto distributed (std::make_shared<nano::distributed_work> (node, root_a, peers_a, backoff_a, callback_a, difficulty_a, account_a));
+			auto distributed (std::make_shared<nano::distributed_work> (node, request_a, backoff_a));
 			{
 				nano::lock_guard<std::mutex> guard (mutex);
-				items[root_a].emplace_back (distributed);
+				items[request_a.root].emplace_back (distributed);
 			}
 			distributed->start ();
 			error_l = false;
@@ -48,7 +47,7 @@ void nano::distributed_work_factory::cancel (nano::root const & root_a, bool con
 			if (auto distributed_l = distributed_w.lock ())
 			{
 				// Send work_cancel to work peers and stop local work generation
-				distributed_l->cancel_once ();
+				distributed_l->cancel ();
 			}
 		}
 		items.erase (existing_l);
