@@ -48,7 +48,7 @@ public:
 	explicit bootstrap_attempt_lazy (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a = nano::bootstrap_mode::lazy);
 	~bootstrap_attempt_lazy ();
 	void request_pull_lazy (nano::unique_lock<std::mutex> &);
-	void requeue_pull_lazy (nano::pull_info const &, bool = false);
+	void requeue_pull (nano::pull_info const &, bool = false) override;
 	bool process_block (std::shared_ptr<nano::block>, nano::account const &, uint64_t, nano::bulk_pull::count_t, bool, unsigned) override;
 	void lazy_run ();
 	void lazy_start (nano::hash_or_account const &, bool confirmed = true);
@@ -67,8 +67,6 @@ public:
 	void lazy_blocks_erase (nano::block_hash const &);
 	bool lazy_blocks_processed (nano::block_hash const &);
 	bool lazy_processed_or_exists (nano::block_hash const &);
-	void requeue_pending (nano::account const &) override;
-	size_t wallet_size () override;
 	std::unordered_set<size_t> lazy_blocks;
 	std::unordered_map<nano::block_hash, nano::lazy_state_backlog_item> lazy_state_backlog;
 	std::unordered_set<nano::block_hash> lazy_undefined_links;
@@ -102,7 +100,6 @@ class bootstrap_attempt_wallet final : public bootstrap_attempt
 public:
 	explicit bootstrap_attempt_wallet (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a = nano::bootstrap_mode::wallet_lazy);
 	~bootstrap_attempt_wallet ();
-	bool process_block (std::shared_ptr<nano::block>, nano::account const &, uint64_t, nano::bulk_pull::count_t, bool, unsigned) override;
 	void request_pending (nano::unique_lock<std::mutex> &);
 	void requeue_pending (nano::account const &) override;
 	void wallet_run ();

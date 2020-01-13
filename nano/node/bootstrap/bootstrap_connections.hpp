@@ -50,12 +50,12 @@ public:
 	std::shared_ptr<nano::bootstrap_client> connection (nano::unique_lock<std::mutex> & lock_a, bool use_front_connection = false);
 	void pool_connection (std::shared_ptr<nano::bootstrap_client> client_a);
 	void add_connection (nano::endpoint const &);
+	std::shared_ptr<nano::bootstrap_client> find_connection (nano::tcp_endpoint const & endpoint_a);
 	void connect_client (nano::tcp_endpoint const &);
 	unsigned target_connections (size_t pulls_remaining);
 	void populate_connections ();
 	void start_populate_connections ();
 	void stop ();
-	
 	std::deque<std::weak_ptr<nano::bootstrap_client>> clients;
 	std::atomic<unsigned> connections_count{ 0 };
 	std::shared_ptr<nano::node> node;

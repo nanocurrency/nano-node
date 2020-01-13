@@ -99,6 +99,21 @@ void nano::bootstrap_connections::add_connection (nano::endpoint const & endpoin
 	connect_client (nano::tcp_endpoint (endpoint_a.address (), endpoint_a.port ()));
 }
 
+std::shared_ptr<nano::bootstrap_client> nano::bootstrap_connections::find_connection (nano::tcp_endpoint const & endpoint_a)
+{
+	std::shared_ptr<nano::bootstrap_client> result;
+	for (auto i (idle.begin ()), end (idle.end ()); i != end; ++i)
+	{
+		if ((*i)->channel->get_tcp_endpoint () == endpoint_a)
+		{
+			result = *i;
+			idle.erase (i);
+			break;
+		}
+	}
+	return result;
+}
+
 void nano::bootstrap_connections::connect_client (nano::tcp_endpoint const & endpoint_a)
 {
 	++connections_count;

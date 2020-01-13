@@ -45,16 +45,7 @@ void nano::bulk_push_client::push (nano::transaction const & transaction_a)
 	{
 		if (current_target.first.is_zero () || current_target.first == current_target.second)
 		{
-			nano::lock_guard<std::mutex> guard (attempt->mutex);
-			if (!attempt->bulk_push_targets.empty ())
-			{
-				current_target = attempt->bulk_push_targets.back ();
-				attempt->bulk_push_targets.pop_back ();
-			}
-			else
-			{
-				finished = true;
-			}
+			finished = attempt->request_bulk_push_target (current_target);
 		}
 		if (!finished)
 		{

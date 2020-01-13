@@ -54,46 +54,12 @@ bool nano::bootstrap_attempt::still_pulling ()
 	return running && (more_pulls || still_pulling);
 }
 
-bool nano::bootstrap_attempt::consume_future (std::future<bool> & future_a)
-{
-	bool result;
-	try
-	{
-		result = future_a.get ();
-	}
-	catch (std::future_error &)
-	{
-		result = true;
-	}
-	return result;
-}
-
 void nano::bootstrap_attempt::stop ()
 {
 	nano::lock_guard<std::mutex> lock (mutex);
 	stopped = true;
 	condition.notify_all ();
 	connections->stop ();
-	if (auto i = frontiers.lock ())
-	{
-		try
-		{
-			i->promise.set_value (true);
-		}
-		catch (std::future_error &)
-		{
-		}
-	}
-	if (auto i = push.lock ())
-	{
-		try
-		{
-			i->promise.set_value (true);
-		}
-		catch (std::future_error &)
-		{
-		}
-	}
 }
 
 void nano::bootstrap_attempt::add_pull (nano::pull_info const & pull_a)
@@ -105,13 +71,6 @@ void nano::bootstrap_attempt::add_pull (nano::pull_info const & pull_a)
 		pulls.push_back (pull);
 	}
 	condition.notify_all ();
-}
-
-void nano::bootstrap_attempt::add_frontier (nano::pull_info const & pull_a)
-{
-	nano::pull_info pull (pull_a);
-	nano::lock_guard<std::mutex> lock (mutex);
-	frontier_pulls.push_back (pull);
 }
 
 void nano::bootstrap_attempt::requeue_pull (nano::pull_info const & pull_a, bool network_error)
@@ -140,10 +99,80 @@ void nano::bootstrap_attempt::requeue_pull (nano::pull_info const & pull_a, bool
 	}
 }
 
-void nano::bootstrap_attempt::add_bulk_push_target (nano::block_hash const & head, nano::block_hash const & end)
+void nano::bootstrap_attempt::add_frontier (nano::pull_info const & pull_a)
+{
+	assert (false);
+}
+
+void nano::bootstrap_attempt::add_bulk_push_target (nano::block_hash const &, nano::block_hash const &)
+{
+	assert (false);
+}
+
+bool nano::bootstrap_attempt::request_bulk_push_target (std::pair<nano::block_hash, nano::block_hash> &)
+{
+	assert (false);
+	return true;
+}
+
+bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_a, nano::account const & known_account_a, uint64_t pull_blocks, nano::bulk_pull::count_t max_blocks, bool block_expected, unsigned retry_limit)
+{
+	nano::unchecked_info info (block_a, known_account_a, 0, nano::signature_verification::unknown);
+	node->block_processor.add (info);
+	return false;
+}
+
+void nano::bootstrap_attempt::requeue_pending (nano::account const &)
+{
+	assert (false);
+}
+
+size_t nano::bootstrap_attempt::wallet_size ()
+{
+	assert (false);
+	return 0;
+}
+
+bool nano::bootstrap_attempt_legacy::consume_future (std::future<bool> & future_a)
+{
+	bool result;
+	try
+	{
+		result = future_a.get ();
+	}
+	catch (std::future_error &)
+	{
+		result = true;
+	}
+	return result;
+}
+
+void nano::bootstrap_attempt_legacy::stop ()
 {
 	nano::lock_guard<std::mutex> lock (mutex);
-	bulk_push_targets.emplace_back (head, end);
+	stopped = true;
+	condition.notify_all ();
+	connections->stop ();
+	if (auto i = frontiers.lock ())
+	{
+		try
+		{
+			i->promise.set_value (true);
+		}
+		catch (std::future_error &)
+		{
+		}
+	}
+	if (auto i = push.lock ())
+	{
+		try
+		{
+			i->promise.set_value (true);
+		}
+		catch (std::future_error &)
+		{
+		}
+	}
 }
 
 void nano::bootstrap_attempt_legacy::request_pull (nano::unique_lock<std::mutex> & lock_a)
@@ -172,12 +201,13 @@ void nano::bootstrap_attempt_legacy::request_pull (nano::unique_lock<std::mutex>
 void nano::bootstrap_attempt_legacy::request_push (nano::unique_lock<std::mutex> & lock_a)
 {
 	bool error (false);
-	if (auto connection_shared = connection_frontier_request.lock ())
+	auto connection_l (connections->find_connection (endpoint_frontier_request));
+	if (connection_l)
 	{
 		std::future<bool> future;
 		{
 			auto this_l (shared_from_this ());
-			auto client (std::make_shared<nano::bulk_push_client> (connection_shared, this_l));
+			auto client (std::make_shared<nano::bulk_push_client> (connection_l, this_l));
 			client->start ();
 			push = client;
 			future = client->promise.get_future ();
@@ -194,6 +224,31 @@ void nano::bootstrap_attempt_legacy::request_push (nano::unique_lock<std::mutex>
 			node->logger.try_log ("Bulk push client failed");
 		}
 	}
+}
+
+void nano::bootstrap_attempt_legacy::add_frontier (nano::pull_info const & pull_a)
+{
+	nano::pull_info pull (pull_a);
+	nano::lock_guard<std::mutex> lock (mutex);
+	frontier_pulls.push_back (pull);
+}
+
+void nano::bootstrap_attempt_legacy::add_bulk_push_target (nano::block_hash const & head, nano::block_hash const & end)
+{
+	nano::lock_guard<std::mutex> lock (mutex);
+	bulk_push_targets.emplace_back (head, end);
+}
+
+bool nano::bootstrap_attempt_legacy::request_bulk_push_target (std::pair<nano::block_hash, nano::block_hash> & current_target_a)
+{
+	nano::lock_guard<std::mutex> lock (mutex);
+	auto empty (bulk_push_targets.empty ());
+	if (!empty)
+	{
+		current_target_a = bulk_push_targets.back ();
+		bulk_push_targets.pop_back ();
+	}
+	return empty;
 }
 
 void nano::bootstrap_attempt_legacy::attempt_restart_check (nano::unique_lock<std::mutex> & lock_a)
@@ -360,11 +415,11 @@ bool nano::bootstrap_attempt_legacy::confirm_frontiers (nano::unique_lock<std::m
 	lock_a.lock ();
 	return confirmed;
 }
+
 bool nano::bootstrap_attempt_legacy::request_frontier (nano::unique_lock<std::mutex> & lock_a, bool first_attempt)
 {
 	auto result (true);
 	auto connection_l (connections->connection (lock_a, first_attempt));
-	connection_frontier_request = connection_l;
 	if (connection_l)
 	{
 		endpoint_frontier_request = connection_l->channel->get_tcp_endpoint ();
@@ -480,22 +535,4 @@ void nano::bootstrap_attempt_legacy::run ()
 	connections->stopped = true;
 	condition.notify_all ();
 	connections->idle.clear ();
-}
-
-bool nano::bootstrap_attempt_legacy::process_block (std::shared_ptr<nano::block> block_a, nano::account const & known_account_a, uint64_t pull_blocks, nano::bulk_pull::count_t max_blocks, bool block_expected, unsigned retry_limit)
-{
-	nano::unchecked_info info (block_a, known_account_a, 0, nano::signature_verification::unknown);
-	node->block_processor.add (info);
-	return false;
-}
-
-void nano::bootstrap_attempt_legacy::requeue_pending (nano::account const &)
-{
-	assert (false);
-}
-
-size_t nano::bootstrap_attempt_legacy::wallet_size ()
-{
-	assert (false);
-	return 0;
 }
