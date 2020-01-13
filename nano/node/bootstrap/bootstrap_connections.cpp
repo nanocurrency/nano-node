@@ -49,9 +49,8 @@ void nano::bootstrap_client::stop (bool force)
 	}
 }
 
-nano::bootstrap_connections::bootstrap_connections (std::shared_ptr<nano::node> node_a, nano::condition_variable & condition_a) :
-node (node_a),
-condition (condition_a)
+nano::bootstrap_connections::bootstrap_connections (std::shared_ptr<nano::node> node_a) :
+node (node_a)
 {
 }
 

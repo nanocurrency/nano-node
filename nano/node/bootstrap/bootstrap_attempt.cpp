@@ -21,7 +21,7 @@ nano::bootstrap_attempt::bootstrap_attempt (std::shared_ptr<nano::node> node_a, 
 node (node_a),
 mode (mode_a)
 {
-	connections = std::make_shared<nano::bootstrap_connections> (node, condition);
+	connections = std::make_shared<nano::bootstrap_connections> (node);
 	node->logger.always_log ("Starting bootstrap attempt");
 	node->bootstrap_initiator.notify_listeners (true);
 }

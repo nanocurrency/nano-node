@@ -45,7 +45,7 @@ public:
 class bootstrap_connections final : public std::enable_shared_from_this<bootstrap_connections>
 {
 public:
-	bootstrap_connections (std::shared_ptr<nano::node> node_a, nano::condition_variable & condition_a);
+	bootstrap_connections (std::shared_ptr<nano::node> node_a);
 	std::shared_ptr<nano::bootstrap_connections> shared ();
 	std::shared_ptr<nano::bootstrap_client> connection (nano::unique_lock<std::mutex> & lock_a, bool use_front_connection = false);
 	void pool_connection (std::shared_ptr<nano::bootstrap_client> client_a);
@@ -63,6 +63,6 @@ public:
 	std::atomic<bool> populate_connections_started{ false };
 	std::atomic<bool> stopped{ false };
 	std::mutex mutex;
-	nano::condition_variable & condition;
+	nano::condition_variable condition;
 };
 }
