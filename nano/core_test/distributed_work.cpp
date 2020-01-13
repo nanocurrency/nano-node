@@ -1,3 +1,4 @@
+#include <nano/core_test/fakes/work_peer.hpp>
 #include <nano/core_test/testutil.hpp>
 #include <nano/node/testing.hpp>
 
@@ -147,4 +148,123 @@ TEST (distributed_work, no_peers_multi)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	count = 0;
+}
+
+TEST (distributed_work, peer)
+{
+	nano::system system;
+	nano::node_config node_config;
+	node_config.peering_port = nano::get_available_port ();
+	// Disable local work generation
+	node_config.work_threads = 0;
+	auto node (system.add_node (node_config));
+	ASSERT_FALSE (node->local_work_generation_enabled ());
+	nano::block_hash hash{ 1 };
+	boost::optional<uint64_t> work;
+	std::atomic<bool> done{ false };
+	auto callback = [&work, &done](boost::optional<uint64_t> work_a) {
+		ASSERT_TRUE (work_a.is_initialized ());
+		work = work_a;
+		done = true;
+	};
+	auto work_peer (std::make_shared<fake_work_peer> (node->work, node->io_ctx, nano::get_available_port (), work_peer_type::good));
+	work_peer->start ();
+	decltype (node->config.work_peers) peers;
+	peers.emplace_back ("localhost", work_peer->port ());
+	ASSERT_FALSE (node->distributed_work.make (hash, peers, callback, node->network_params.network.publish_threshold, nano::account ()));
+	system.deadline_set (5s);
+	while (!done)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_FALSE (nano::work_validate (hash, *work));
+	ASSERT_EQ (1, work_peer->generations_good);
+	ASSERT_EQ (0, work_peer->generations_bad);
+	ASSERT_NO_ERROR (system.poll ());
+	ASSERT_EQ (0, work_peer->cancels);
+}
+
+TEST (distributed_work, peer_malicious)
+{
+	nano::system system (1);
+	auto node (system.nodes[0]);
+	ASSERT_TRUE (node->local_work_generation_enabled ());
+	nano::block_hash hash{ 1 };
+	boost::optional<uint64_t> work;
+	std::atomic<bool> done{ false };
+	auto callback = [&work, &done](boost::optional<uint64_t> work_a) {
+		ASSERT_TRUE (work_a.is_initialized ());
+		work = work_a;
+		done = true;
+	};
+	auto malicious_peer (std::make_shared<fake_work_peer> (node->work, node->io_ctx, nano::get_available_port (), work_peer_type::malicious));
+	malicious_peer->start ();
+	decltype (node->config.work_peers) peers;
+	peers.emplace_back ("localhost", malicious_peer->port ());
+	ASSERT_FALSE (node->distributed_work.make (hash, peers, callback, node->network_params.network.publish_threshold, nano::account ()));
+	system.deadline_set (5s);
+	while (!done)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_FALSE (nano::work_validate (hash, *work));
+	system.deadline_set (3s);
+	while (malicious_peer->generations_bad < 2)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	// make sure it was *not* the malicious peer that replied
+	ASSERT_EQ (0, malicious_peer->generations_good);
+	// initial generation + the second time when it also starts doing local generation
+	ASSERT_EQ (2, malicious_peer->generations_bad);
+	// this peer should not receive a cancel
+	ASSERT_EQ (0, malicious_peer->cancels);
+}
+
+TEST (distributed_work, peer_multi)
+{
+	nano::system system (1);
+	auto node (system.nodes[0]);
+	ASSERT_TRUE (node->local_work_generation_enabled ());
+	nano::block_hash hash{ 1 };
+	boost::optional<uint64_t> work;
+	std::atomic<bool> done{ false };
+	auto callback = [&work, &done](boost::optional<uint64_t> work_a) {
+		ASSERT_TRUE (work_a.is_initialized ());
+		work = work_a;
+		done = true;
+	};
+	auto good_peer (std::make_shared<fake_work_peer> (node->work, node->io_ctx, nano::get_available_port (), work_peer_type::good));
+	auto malicious_peer (std::make_shared<fake_work_peer> (node->work, node->io_ctx, nano::get_available_port (), work_peer_type::malicious));
+	auto slow_peer (std::make_shared<fake_work_peer> (node->work, node->io_ctx, nano::get_available_port (), work_peer_type::slow));
+	good_peer->start ();
+	malicious_peer->start ();
+	slow_peer->start ();
+	decltype (node->config.work_peers) peers;
+	peers.emplace_back ("localhost", malicious_peer->port ());
+	peers.emplace_back ("localhost", slow_peer->port ());
+	peers.emplace_back ("localhost", good_peer->port ());
+	ASSERT_FALSE (node->distributed_work.make (hash, peers, callback, node->network_params.network.publish_threshold, nano::account ()));
+	system.deadline_set (5s);
+	while (!done)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_FALSE (nano::work_validate (hash, *work));
+	system.deadline_set (3s);
+	while (slow_peer->cancels < 1)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (0, malicious_peer->generations_good);
+	ASSERT_EQ (1, malicious_peer->generations_bad);
+	ASSERT_EQ (0, malicious_peer->cancels);
+
+	ASSERT_EQ (0, slow_peer->generations_good);
+	ASSERT_EQ (0, slow_peer->generations_bad);
+	ASSERT_EQ (1, slow_peer->cancels);
+
+	ASSERT_EQ (1, good_peer->generations_good);
+	ASSERT_EQ (0, good_peer->generations_bad);
+	ASSERT_EQ (0, good_peer->cancels);
 }
