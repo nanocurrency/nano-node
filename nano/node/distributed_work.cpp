@@ -144,16 +144,9 @@ void nano::distributed_work::start_work ()
 										this_l->failure (connection->endpoint);
 									}
 								}
-								else if (ec == boost::system::errc::operation_canceled)
-								{
-									// The only case where we send a cancel is if we preempt stopped waiting for the response
-									this_l->cancel (*connection);
-									this_l->failure (connection->endpoint);
-								}
 								else if (ec)
 								{
-									this_l->node.logger.try_log (boost::str (boost::format ("Unable to read from work_peer %1% %2%: %3% (%4%)") % connection->endpoint.address () % connection->endpoint.port () % ec.message () % ec.value ()));
-									this_l->add_bad_peer (connection->endpoint);
+									this_l->cancel (*connection);
 									this_l->failure (connection->endpoint);
 								}
 							}));
