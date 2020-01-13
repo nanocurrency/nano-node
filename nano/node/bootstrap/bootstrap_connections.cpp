@@ -12,21 +12,21 @@ constexpr double nano::bootstrap_limits::bootstrap_minimum_blocks_per_sec;
 constexpr double nano::bootstrap_limits::bootstrap_minimum_termination_time_sec;
 constexpr unsigned nano::bootstrap_limits::bootstrap_max_new_connections;
 
-nano::bootstrap_client::bootstrap_client (std::shared_ptr<nano::node> node_a, std::shared_ptr<nano::bootstrap_attempt> attempt_a, std::shared_ptr<nano::transport::channel_tcp> channel_a, std::shared_ptr<nano::socket> socket_a) :
+nano::bootstrap_client::bootstrap_client (std::shared_ptr<nano::node> node_a, std::shared_ptr<nano::bootstrap_connections> connections_a, std::shared_ptr<nano::transport::channel_tcp> channel_a, std::shared_ptr<nano::socket> socket_a) :
 node (node_a),
-attempt (attempt_a),
+connections (connections_a),
 channel (channel_a),
 socket (socket_a),
 receive_buffer (std::make_shared<std::vector<uint8_t>> ()),
 start_time (std::chrono::steady_clock::now ())
 {
-	++attempt->connections.connections_count;
+	++connections->connections_count;
 	receive_buffer->resize (256);
 }
 
 nano::bootstrap_client::~bootstrap_client ()
 {
-	--attempt->connections.connections_count;
+	--connections->connections_count;
 }
 
 double nano::bootstrap_client::block_rate () const
@@ -49,15 +49,16 @@ void nano::bootstrap_client::stop (bool force)
 	}
 }
 
-nano::bootstrap_connections::bootstrap_connections (std::shared_ptr<nano::node> node_a) :
-node (node_a)
+nano::bootstrap_connections::bootstrap_connections (std::shared_ptr<nano::node> node_a, nano::condition_variable & condition_a) :
+node (node_a),
+condition (condition_a)
 {
 }
 
 std::shared_ptr<nano::bootstrap_client> nano::bootstrap_connections::connection (nano::unique_lock<std::mutex> & lock_a, bool use_front_connection)
 {
 	// clang-format off
-	attempt->condition.wait (lock_a, [& stopped = stopped, &idle = idle] { return stopped || !idle.empty (); });
+	condition.wait (lock_a, [& stopped = stopped, &idle = idle] { return stopped || !idle.empty (); });
 	// clang-format on
 	nano::lock_guard<std::mutex> lock (mutex);
 	std::shared_ptr<nano::bootstrap_client> result;
@@ -100,7 +101,6 @@ void nano::bootstrap_connections::add_connection (nano::endpoint const & endpoin
 
 void nano::bootstrap_connections::connect_client (nano::tcp_endpoint const & endpoint_a)
 {
-	assert (attempt);
 	++connections_count;
 	auto socket (std::make_shared<nano::socket> (node));
 	auto this_l (shared_from_this ());
@@ -112,7 +112,7 @@ void nano::bootstrap_connections::connect_client (nano::tcp_endpoint const & end
 			{
 				this_l->node->logger.try_log (boost::str (boost::format ("Connection established to %1%") % endpoint_a));
 			}
-			auto client (std::make_shared<nano::bootstrap_client> (this_l->node, this_l->attempt, std::make_shared<nano::transport::channel_tcp> (*this_l->node, socket), socket));
+			auto client (std::make_shared<nano::bootstrap_client> (this_l->node, this_l, std::make_shared<nano::transport::channel_tcp> (*this_l->node, socket), socket));
 			this_l->pool_connection (client);
 		}
 		else
@@ -160,16 +160,16 @@ struct block_rate_cmp
 
 void nano::bootstrap_connections::populate_connections ()
 {
-	assert (attempt);
 	double rate_sum = 0.0;
 	size_t num_pulls = 0;
 	std::priority_queue<std::shared_ptr<nano::bootstrap_client>, std::vector<std::shared_ptr<nano::bootstrap_client>>, block_rate_cmp> sorted_connections;
 	std::unordered_set<nano::tcp_endpoint> endpoints;
 	{
-		{
+		// Temporary disable scaling
+		/*{
 			nano::lock_guard<std::mutex> lock (attempt->mutex);
 			num_pulls = attempt->pulls.size ();
-		}
+		}*/
 		nano::unique_lock<std::mutex> lock (mutex);
 		std::deque<std::weak_ptr<nano::bootstrap_client>> new_clients;
 		for (auto & c : clients)
@@ -237,7 +237,7 @@ void nano::bootstrap_connections::populate_connections ()
 	if (node->config.logging.bulk_pull_logging ())
 	{
 		nano::unique_lock<std::mutex> lock (mutex);
-		node->logger.try_log (boost::str (boost::format ("Bulk pull connections: %1%, rate: %2% blocks/sec, remaining account pulls: %3%, total blocks: %4%") % connections_count.load () % (int)rate_sum % num_pulls % (int)attempt->total_blocks.load ()));
+		node->logger.try_log (boost::str (boost::format ("Bulk pull connections: %1%, rate: %2% blocks/sec, remaining pulls: %3%") % connections_count.load () % (int)rate_sum % num_pulls));
 	}
 
 	if (connections_count < target)
@@ -258,7 +258,6 @@ void nano::bootstrap_connections::populate_connections ()
 			{
 				node->logger.try_log (boost::str (boost::format ("Bootstrap stopped because there are no peers")));
 				stopped = true;
-				attempt->stopped = true;
 				condition.notify_all ();
 			}
 		}

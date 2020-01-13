@@ -48,7 +48,7 @@ public:
 	virtual size_t wallet_size () = 0;
 	std::mutex next_log_mutex;
 	std::chrono::steady_clock::time_point next_log{ std::chrono::steady_clock::now () };
-	nano::bootstrap_connections connections;
+	std::shared_ptr<nano::bootstrap_connections> connections;
 	nano::tcp_endpoint endpoint_frontier_request;
 	std::weak_ptr<nano::frontier_req_client> frontiers;
 	std::weak_ptr<nano::bulk_push_client> push;

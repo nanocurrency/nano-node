@@ -19,9 +19,9 @@ constexpr unsigned nano::bootstrap_limits::requeued_pulls_limit_test;
 
 nano::bootstrap_attempt::bootstrap_attempt (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a) :
 node (node_a),
-mode (mode_a),
-connections (node_a)
+mode (mode_a)
 {
+	connections = std::make_shared<nano::bootstrap_connections> (node, condition);
 	node->logger.always_log ("Starting bootstrap attempt");
 	node->bootstrap_initiator.notify_listeners (true);
 }
@@ -48,7 +48,7 @@ bool nano::bootstrap_attempt::should_log ()
 bool nano::bootstrap_attempt::still_pulling ()
 {
 	assert (!mutex.try_lock ());
-	auto running (!stopped);
+	auto running (!stopped && !connections->stopped);
 	auto more_pulls (!pulls.empty ());
 	auto still_pulling (pulling > 0);
 	return running && (more_pulls || still_pulling);
@@ -73,7 +73,7 @@ void nano::bootstrap_attempt::stop ()
 	nano::lock_guard<std::mutex> lock (mutex);
 	stopped = true;
 	condition.notify_all ();
-	connections.stop ();
+	connections->stop ();
 	if (auto i = frontiers.lock ())
 	{
 		try
@@ -148,7 +148,7 @@ void nano::bootstrap_attempt::add_bulk_push_target (nano::block_hash const & hea
 
 void nano::bootstrap_attempt_legacy::request_pull (nano::unique_lock<std::mutex> & lock_a)
 {
-	auto connection_l (connections.connection (lock_a));
+	auto connection_l (connections->connection (lock_a));
 	if (connection_l)
 	{
 		auto pull (pulls.front ());
@@ -159,10 +159,11 @@ void nano::bootstrap_attempt_legacy::request_pull (nano::unique_lock<std::mutex>
 			recent_pulls_head.pop_front ();
 		}
 		++pulling;
+		auto this_l (shared_from_this ());
 		// The bulk_pull_client destructor attempt to requeue_pull which can cause a deadlock if this is the last reference
 		// Dispatch request in an external thread in case it needs to be destroyed
-		node->background ([connection_l, pull]() {
-			auto client (std::make_shared<nano::bulk_pull_client> (connection_l, pull));
+		node->background ([connection_l, this_l, pull]() {
+			auto client (std::make_shared<nano::bulk_pull_client> (connection_l, this_l, pull));
 			client->request ();
 		});
 	}
@@ -175,7 +176,8 @@ void nano::bootstrap_attempt_legacy::request_push (nano::unique_lock<std::mutex>
 	{
 		std::future<bool> future;
 		{
-			auto client (std::make_shared<nano::bulk_push_client> (connection_shared));
+			auto this_l (shared_from_this ());
+			auto client (std::make_shared<nano::bulk_push_client> (connection_shared, this_l));
 			client->start ();
 			push = client;
 			future = client->promise.get_future ();
@@ -361,14 +363,15 @@ bool nano::bootstrap_attempt_legacy::confirm_frontiers (nano::unique_lock<std::m
 bool nano::bootstrap_attempt_legacy::request_frontier (nano::unique_lock<std::mutex> & lock_a, bool first_attempt)
 {
 	auto result (true);
-	auto connection_l (connections.connection (lock_a, first_attempt));
+	auto connection_l (connections->connection (lock_a, first_attempt));
 	connection_frontier_request = connection_l;
 	if (connection_l)
 	{
 		endpoint_frontier_request = connection_l->channel->get_tcp_endpoint ();
 		std::future<bool> future;
 		{
-			auto client (std::make_shared<nano::frontier_req_client> (connection_l));
+			auto this_l (shared_from_this ());
+			auto client (std::make_shared<nano::frontier_req_client> (connection_l, this_l));
 			client->run ();
 			frontiers = client;
 			future = client->promise.get_future ();
@@ -426,7 +429,7 @@ void nano::bootstrap_attempt_legacy::run_start (nano::unique_lock<std::mutex> & 
 	recent_pulls_head.clear ();
 	auto frontier_failure (true);
 	uint64_t frontier_attempts (0);
-	while (!stopped && frontier_failure)
+	while (!stopped && !connections->stopped && frontier_failure)
 	{
 		++frontier_attempts;
 		frontier_failure = request_frontier (lock_a, frontier_attempts == 1);
@@ -437,7 +440,7 @@ void nano::bootstrap_attempt_legacy::run_start (nano::unique_lock<std::mutex> & 
 void nano::bootstrap_attempt_legacy::run ()
 {
 	assert (!node->flags.disable_legacy_bootstrap);
-	connections.start_populate_connections ();
+	connections->start_populate_connections ();
 	nano::unique_lock<std::mutex> lock (mutex);
 	run_start (lock);
 	while (still_pulling ())
@@ -474,9 +477,9 @@ void nano::bootstrap_attempt_legacy::run ()
 		}
 	}
 	stopped = true;
-	connections.stopped = true;
+	connections->stopped = true;
 	condition.notify_all ();
-	connections.idle.clear ();
+	connections->idle.clear ();
 }
 
 bool nano::bootstrap_attempt_legacy::process_block (std::shared_ptr<nano::block> block_a, nano::account const & known_account_a, uint64_t pull_blocks, nano::bulk_pull::count_t max_blocks, bool block_expected, unsigned retry_limit)

@@ -36,8 +36,9 @@ void nano::frontier_req_client::run ()
 	false); // is bootstrap traffic is_droppable false
 }
 
-nano::frontier_req_client::frontier_req_client (std::shared_ptr<nano::bootstrap_client> connection_a) :
+nano::frontier_req_client::frontier_req_client (std::shared_ptr<nano::bootstrap_client> connection_a, std::shared_ptr<nano::bootstrap_attempt> attempt_a) :
 connection (connection_a),
+attempt (attempt_a),
 current (0),
 count (0),
 bulk_push_cost (0)
@@ -77,7 +78,7 @@ void nano::frontier_req_client::unsynced (nano::block_hash const & head, nano::b
 {
 	if (bulk_push_cost < nano::bootstrap_limits::bulk_push_cost_limit)
 	{
-		connection->attempt->add_bulk_push_target (head, end);
+		attempt->add_bulk_push_target (head, end);
 		if (end.is_zero ())
 		{
 			bulk_push_cost += 2;
@@ -119,7 +120,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 			promise.set_value (true);
 			return;
 		}
-		if (connection->attempt->should_log ())
+		if (attempt->should_log ())
 		{
 			connection->node->logger.always_log (boost::str (boost::format ("Received %1% frontiers from %2%") % std::to_string (count) % connection->channel->to_string ()));
 		}
@@ -149,7 +150,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 						}
 						else
 						{
-							connection->attempt->add_frontier (nano::pull_info (account, latest, frontier, 0, connection->node->network_params.bootstrap.frontier_retry_limit));
+							attempt->add_frontier (nano::pull_info (account, latest, frontier, 0, connection->node->network_params.bootstrap.frontier_retry_limit));
 							// Either we're behind or there's a fork we differ on
 							// Either way, bulk pushing will probably not be effective
 							bulk_push_cost += 5;
@@ -160,12 +161,12 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 				else
 				{
 					assert (account < current);
-					connection->attempt->add_frontier (nano::pull_info (account, latest, nano::block_hash (0), 0, connection->node->network_params.bootstrap.frontier_retry_limit));
+					attempt->add_frontier (nano::pull_info (account, latest, nano::block_hash (0), 0, connection->node->network_params.bootstrap.frontier_retry_limit));
 				}
 			}
 			else
 			{
-				connection->attempt->add_frontier (nano::pull_info (account, latest, nano::block_hash (0), 0, connection->node->network_params.bootstrap.frontier_retry_limit));
+				attempt->add_frontier (nano::pull_info (account, latest, nano::block_hash (0), 0, connection->node->network_params.bootstrap.frontier_retry_limit));
 			}
 			receive_frontier ();
 		}
@@ -189,7 +190,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 				catch (std::future_error &)
 				{
 				}
-				connection->attempt->connections.pool_connection (connection);
+				connection->connections->pool_connection (connection);
 			}
 		}
 	}

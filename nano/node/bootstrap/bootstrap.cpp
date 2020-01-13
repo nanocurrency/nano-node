@@ -48,7 +48,6 @@ void nano::bootstrap_initiator::bootstrap (bool force)
 	{
 		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out);
 		attempt = std::make_shared<nano::bootstrap_attempt_legacy> (node.shared ());
-		attempt->connections.attempt = std::dynamic_pointer_cast<nano::bootstrap_attempt> (attempt);
 		condition.notify_all ();
 	}
 }
@@ -71,14 +70,13 @@ void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bo
 		}
 		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out);
 		attempt = std::make_shared<nano::bootstrap_attempt_legacy> (node.shared ());
-		attempt->connections.attempt = std::dynamic_pointer_cast<nano::bootstrap_attempt> (attempt);
 		if (frontiers_confirmed)
 		{
 			excluded_peers.remove (nano::transport::map_endpoint_to_tcp (endpoint_a));
 		}
 		if (!excluded_peers.check (nano::transport::map_endpoint_to_tcp (endpoint_a)))
 		{
-			attempt->connections.add_connection (endpoint_a);
+			attempt->connections->add_connection (endpoint_a);
 		}
 		attempt->frontiers_confirmed = frontiers_confirmed;
 		condition.notify_all ();
@@ -100,7 +98,6 @@ void nano::bootstrap_initiator::bootstrap_lazy (nano::hash_or_account const & ha
 		if (lazy_attempt == nullptr)
 		{
 			lazy_attempt = std::make_shared<nano::bootstrap_attempt_lazy> (node.shared (), nano::bootstrap_mode::lazy);
-			lazy_attempt->connections.attempt = std::dynamic_pointer_cast<nano::bootstrap_attempt> (lazy_attempt);
 		}
 		lazy_attempt->lazy_start (hash_or_account_a, confirmed);
 	}
@@ -115,7 +112,6 @@ void nano::bootstrap_initiator::bootstrap_wallet (std::deque<nano::account> & ac
 		if (wallet_attempt == nullptr)
 		{
 			wallet_attempt = std::make_shared<nano::bootstrap_attempt_wallet> (node.shared (), nano::bootstrap_mode::wallet_lazy);
-			wallet_attempt->connections.attempt = std::dynamic_pointer_cast<nano::bootstrap_attempt> (wallet_attempt);
 		}
 		wallet_attempt->wallet_start (accounts_a);
 	}

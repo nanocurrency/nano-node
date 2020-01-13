@@ -23,10 +23,11 @@ public:
 	unsigned retry_limit{ 0 };
 };
 class bootstrap_client;
+class bootstrap_attempt;
 class bulk_pull_client final : public std::enable_shared_from_this<nano::bulk_pull_client>
 {
 public:
-	bulk_pull_client (std::shared_ptr<nano::bootstrap_client>, nano::pull_info const &);
+	bulk_pull_client (std::shared_ptr<nano::bootstrap_client>, std::shared_ptr<nano::bootstrap_attempt>, nano::pull_info const &);
 	~bulk_pull_client ();
 	void request ();
 	void receive_block ();
@@ -35,6 +36,7 @@ public:
 	void received_block (boost::system::error_code const &, size_t, nano::block_type);
 	nano::block_hash first ();
 	std::shared_ptr<nano::bootstrap_client> connection;
+	std::shared_ptr<nano::bootstrap_attempt> attempt;
 	nano::block_hash expected;
 	nano::account known_account;
 	nano::pull_info pull;
@@ -45,11 +47,12 @@ public:
 class bulk_pull_account_client final : public std::enable_shared_from_this<nano::bulk_pull_account_client>
 {
 public:
-	bulk_pull_account_client (std::shared_ptr<nano::bootstrap_client>, nano::account const &);
+	bulk_pull_account_client (std::shared_ptr<nano::bootstrap_client>, std::shared_ptr<nano::bootstrap_attempt>, nano::account const &);
 	~bulk_pull_account_client ();
 	void request ();
 	void receive_pending ();
 	std::shared_ptr<nano::bootstrap_client> connection;
+	std::shared_ptr<nano::bootstrap_attempt> attempt;
 	nano::account account;
 	uint64_t pull_blocks;
 };
