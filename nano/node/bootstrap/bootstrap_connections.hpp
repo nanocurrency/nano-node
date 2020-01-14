@@ -44,19 +44,25 @@ class bootstrap_connections final : public std::enable_shared_from_this<bootstra
 public:
 	bootstrap_connections (nano::node & node_a);
 	std::shared_ptr<nano::bootstrap_connections> shared ();
-	std::shared_ptr<nano::bootstrap_client> connection (nano::unique_lock<std::mutex> & lock_a, std::shared_ptr<nano::bootstrap_attempt> attempt_a, bool use_front_connection = false);
+	std::shared_ptr<nano::bootstrap_client> connection (std::shared_ptr<nano::bootstrap_attempt> attempt_a = nullptr, bool use_front_connection = false);
 	void pool_connection (std::shared_ptr<nano::bootstrap_client> client_a);
-	void add_connection (nano::endpoint const &);
+	void add_connection (nano::endpoint const & endpoint_a);
 	std::shared_ptr<nano::bootstrap_client> find_connection (nano::tcp_endpoint const & endpoint_a);
-	void connect_client (nano::tcp_endpoint const &);
+	void connect_client (nano::tcp_endpoint const & endpoint_a);
 	unsigned target_connections (size_t pulls_remaining);
 	void populate_connections (bool repeat = true);
 	void start_populate_connections ();
+	void add_pull (nano::pull_info const & pull_a);
+	void request_pull (nano::unique_lock<std::mutex> & lock_a);
+	void requeue_pull (nano::pull_info const & pull_a, bool network_error = false);
+	void clear_pulls (std::shared_ptr<nano::bootstrap_attempt> attempt_a);
+	void run ();
 	void stop ();
 	std::deque<std::weak_ptr<nano::bootstrap_client>> clients;
 	std::atomic<unsigned> connections_count{ 0 };
 	nano::node & node;
 	std::deque<std::shared_ptr<nano::bootstrap_client>> idle;
+	std::deque<nano::pull_info> pulls;
 	std::atomic<bool> populate_connections_started{ false };
 	std::atomic<bool> new_connections_empty{ false };
 	std::atomic<bool> stopped{ false };

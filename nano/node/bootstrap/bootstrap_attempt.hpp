@@ -32,22 +32,23 @@ class bulk_push_client;
 class bootstrap_attempt : public std::enable_shared_from_this<bootstrap_attempt>
 {
 public:
-	explicit bootstrap_attempt (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a = nano::bootstrap_mode::legacy);
+	explicit bootstrap_attempt (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a);
 	~bootstrap_attempt ();
 	virtual void stop ();
-	virtual void requeue_pull (nano::pull_info const &, bool = false);
-	void add_pull (nano::pull_info const &);
 	bool still_pulling ();
 	bool should_log ();
+	virtual void restart_condition ();
 	virtual void add_frontier (nano::pull_info const &);
 	virtual void add_bulk_push_target (nano::block_hash const &, nano::block_hash const &);
 	virtual bool request_bulk_push_target (std::pair<nano::block_hash, nano::block_hash> &);
+	virtual void add_recent_pull (nano::block_hash const &);
+	virtual void lazy_add (nano::pull_info const &);
+	virtual bool lazy_processed_or_exists (nano::block_hash const &);
 	virtual bool process_block (std::shared_ptr<nano::block>, nano::account const &, uint64_t, nano::bulk_pull::count_t, bool, unsigned);
 	virtual void requeue_pending (nano::account const &);
 	virtual size_t wallet_size ();
 	std::mutex next_log_mutex;
 	std::chrono::steady_clock::time_point next_log{ std::chrono::steady_clock::now () };
-	std::deque<nano::pull_info> pulls;
 	std::atomic<unsigned> pulling{ 0 };
 	std::shared_ptr<nano::node> node;
 	std::atomic<uint64_t> total_blocks{ 0 };
@@ -61,7 +62,7 @@ public:
 class bootstrap_attempt_legacy : public bootstrap_attempt
 {
 public:
-	using bootstrap_attempt::bootstrap_attempt;
+	explicit bootstrap_attempt_legacy (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a = nano::bootstrap_mode::legacy);
 	void run ();
 	bool consume_future (std::future<bool> &);
 	void stop () override;
@@ -71,7 +72,9 @@ public:
 	void add_frontier (nano::pull_info const &) override;
 	void add_bulk_push_target (nano::block_hash const &, nano::block_hash const &) override;
 	bool request_bulk_push_target (std::pair<nano::block_hash, nano::block_hash> &) override;
+	void add_recent_pull (nano::block_hash const &) override;
 	void run_start (nano::unique_lock<std::mutex> &);
+	void restart_condition () override;
 	void attempt_restart_check (nano::unique_lock<std::mutex> &);
 	bool confirm_frontiers (nano::unique_lock<std::mutex> &);
 	nano::tcp_endpoint endpoint_frontier_request;
@@ -83,5 +86,6 @@ public:
 	std::atomic<unsigned> account_count{ 0 };
 	std::atomic<bool> frontiers_received{ false };
 	std::atomic<bool> frontiers_confirmed{ false };
+	std::atomic<bool> frontiers_confirmation_pending{ false };
 };
 }

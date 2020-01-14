@@ -48,69 +48,44 @@ bool nano::bootstrap_attempt::still_pulling ()
 {
 	assert (!mutex.try_lock ());
 	auto running (!stopped);
-	auto more_pulls (!pulls.empty ());
 	auto still_pulling (pulling > 0);
-	return running && (more_pulls || still_pulling);
+	return running && still_pulling;
 }
 
 void nano::bootstrap_attempt::stop ()
 {
-	nano::lock_guard<std::mutex> lock (mutex);
-	stopped = true;
-	condition.notify_all ();
-}
-
-void nano::bootstrap_attempt::add_pull (nano::pull_info const & pull_a)
-{
-	nano::pull_info pull (pull_a);
-	node->bootstrap_initiator.cache.update_pull (pull);
 	{
 		nano::lock_guard<std::mutex> lock (mutex);
-		pulls.push_back (pull);
-	}
-	condition.notify_all ();
-}
-
-void nano::bootstrap_attempt::requeue_pull (nano::pull_info const & pull_a, bool network_error)
-{
-	auto pull (pull_a);
-	if (!network_error)
-	{
-		++pull.attempts;
-	}
-	++requeued_pulls;
-	if (pull.attempts < pull.retry_limit + (pull.processed / 10000))
-	{
-		nano::lock_guard<std::mutex> lock (mutex);
-		pulls.push_front (pull);
+		stopped = true;
 		condition.notify_all ();
 	}
-	else
-	{
-		if (node->config.logging.bulk_pull_logging ())
-		{
-			node->logger.try_log (boost::str (boost::format ("Failed to pull account %1% down to %2% after %3% attempts and %4% blocks processed") % pull.account_or_head.to_account () % pull.end.to_string () % pull.attempts % pull.processed));
-		}
-		node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_failed_account, nano::stat::dir::in);
-
-		node->bootstrap_initiator.cache.add (pull);
-	}
+	node->bootstrap_initiator.connections->clear_pulls (shared_from_this ());
 }
 
-void nano::bootstrap_attempt::add_frontier (nano::pull_info const & pull_a)
+void nano::bootstrap_attempt::restart_condition ()
 {
-	assert (false);
+	assert (mode == nano::bootstrap_mode::legacy);
+}
+
+void nano::bootstrap_attempt::add_frontier (nano::pull_info const &)
+{
+	assert (mode == nano::bootstrap_mode::legacy);
 }
 
 void nano::bootstrap_attempt::add_bulk_push_target (nano::block_hash const &, nano::block_hash const &)
 {
-	assert (false);
+	assert (mode == nano::bootstrap_mode::legacy);
 }
 
 bool nano::bootstrap_attempt::request_bulk_push_target (std::pair<nano::block_hash, nano::block_hash> &)
 {
-	assert (false);
+	assert (mode == nano::bootstrap_mode::legacy);
 	return true;
+}
+
+void nano::bootstrap_attempt::add_recent_pull (nano::block_hash const &)
+{
+	assert (mode == nano::bootstrap_mode::legacy);
 }
 
 bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_a, nano::account const & known_account_a, uint64_t pull_blocks, nano::bulk_pull::count_t max_blocks, bool block_expected, unsigned retry_limit)
@@ -120,15 +95,33 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_
 	return false;
 }
 
+void nano::bootstrap_attempt::lazy_add (nano::pull_info const &)
+{
+	assert (mode == nano::bootstrap_mode::lazy);
+}
+
+bool nano::bootstrap_attempt::lazy_processed_or_exists (nano::block_hash const &)
+{
+	assert (mode == nano::bootstrap_mode::lazy);
+	return false;
+}
+
 void nano::bootstrap_attempt::requeue_pending (nano::account const &)
 {
-	assert (false);
+	assert (mode == nano::bootstrap_mode::wallet_lazy);
 }
 
 size_t nano::bootstrap_attempt::wallet_size ()
 {
-	assert (false);
+	assert (mode == nano::bootstrap_mode::wallet_lazy);
 	return 0;
+}
+
+nano::bootstrap_attempt_legacy::bootstrap_attempt_legacy (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a) :
+nano::bootstrap_attempt (node_a, mode_a)
+{
+	assert (mode == nano::bootstrap_mode::legacy);
+	node->bootstrap_initiator.notify_listeners (true);
 }
 
 bool nano::bootstrap_attempt_legacy::consume_future (std::future<bool> & future_a)
@@ -147,7 +140,7 @@ bool nano::bootstrap_attempt_legacy::consume_future (std::future<bool> & future_
 
 void nano::bootstrap_attempt_legacy::stop ()
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::unique_lock<std::mutex> lock (mutex);
 	stopped = true;
 	condition.notify_all ();
 	if (auto i = frontiers.lock ())
@@ -170,29 +163,8 @@ void nano::bootstrap_attempt_legacy::stop ()
 		{
 		}
 	}
-}
-
-void nano::bootstrap_attempt_legacy::request_pull (nano::unique_lock<std::mutex> & lock_a)
-{
-	auto connection_l (node->bootstrap_initiator.connections->connection (lock_a, shared_from_this ()));
-	if (connection_l)
-	{
-		auto pull (pulls.front ());
-		pulls.pop_front ();
-		recent_pulls_head.push_back (pull.head);
-		if (recent_pulls_head.size () > nano::bootstrap_limits::bootstrap_max_confirm_frontiers)
-		{
-			recent_pulls_head.pop_front ();
-		}
-		++pulling;
-		auto this_l (shared_from_this ());
-		// The bulk_pull_client destructor attempt to requeue_pull which can cause a deadlock if this is the last reference
-		// Dispatch request in an external thread in case it needs to be destroyed
-		node->background ([connection_l, this_l, pull]() {
-			auto client (std::make_shared<nano::bulk_pull_client> (connection_l, this_l, pull));
-			client->request ();
-		});
-	}
+	lock.unlock ();
+	node->bootstrap_initiator.connections->clear_pulls (shared_from_this ());
 }
 
 void nano::bootstrap_attempt_legacy::request_push (nano::unique_lock<std::mutex> & lock_a)
@@ -248,13 +220,31 @@ bool nano::bootstrap_attempt_legacy::request_bulk_push_target (std::pair<nano::b
 	return empty;
 }
 
-void nano::bootstrap_attempt_legacy::attempt_restart_check (nano::unique_lock<std::mutex> & lock_a)
+void nano::bootstrap_attempt_legacy::add_recent_pull (nano::block_hash const & head_a)
+{
+	nano::lock_guard<std::mutex> lock (mutex);
+	recent_pulls_head.push_back (head_a);
+	if (recent_pulls_head.size () > nano::bootstrap_limits::bootstrap_max_confirm_frontiers)
+	{
+		recent_pulls_head.pop_front ();
+	}
+}
+
+void nano::bootstrap_attempt_legacy::restart_condition ()
 {
 	/* Conditions to start frontiers confirmation:
 	- not completed frontiers confirmation
 	- more than 256 pull retries usually indicating issues with requested pulls
 	- or 128k processed blocks indicating large bootstrap */
-	if (!frontiers_confirmed && (requeued_pulls > (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::requeued_pulls_limit : nano::bootstrap_limits::requeued_pulls_limit_test) || total_blocks > nano::bootstrap_limits::frontier_confirmation_blocks_limit))
+	if (!frontiers_confirmation_pending && !frontiers_confirmed && (requeued_pulls > (!node->network_params.network.is_test_network () ? nano::bootstrap_limits::requeued_pulls_limit : nano::bootstrap_limits::requeued_pulls_limit_test) || total_blocks > nano::bootstrap_limits::frontier_confirmation_blocks_limit))
+	{
+		frontiers_confirmation_pending = true;
+	}
+}
+
+void nano::bootstrap_attempt_legacy::attempt_restart_check (nano::unique_lock<std::mutex> & lock_a)
+{
+	if (frontiers_confirmation_pending)
 	{
 		auto confirmed (confirm_frontiers (lock_a));
 		assert (lock_a.owns_lock ());
@@ -280,6 +270,7 @@ void nano::bootstrap_attempt_legacy::attempt_restart_check (nano::unique_lock<st
 			node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_successful, nano::stat::dir::in);
 		}
 		frontiers_confirmed = confirmed;
+		frontiers_confirmation_pending = false;
 	}
 }
 
@@ -290,14 +281,19 @@ bool nano::bootstrap_attempt_legacy::confirm_frontiers (nano::unique_lock<std::m
 	// clang-format off
 	condition.wait (lock_a, [& stopped = stopped] { return !stopped; });
 	// clang-format on
+	auto this_l (shared_from_this ());
 	std::vector<nano::block_hash> frontiers;
-	for (auto i (pulls.begin ()), end (pulls.end ()); i != end && frontiers.size () != nano::bootstrap_limits::bootstrap_max_confirm_frontiers; ++i)
+	lock_a.unlock ();
+	nano::unique_lock<std::mutex> pulls_lock (node->bootstrap_initiator.connections->mutex);
+	for (auto i (node->bootstrap_initiator.connections->pulls.begin ()), end (node->bootstrap_initiator.connections->pulls.end ()); i != end && frontiers.size () != nano::bootstrap_limits::bootstrap_max_confirm_frontiers; ++i)
 	{
-		if (!i->head.is_zero () && std::find (frontiers.begin (), frontiers.end (), i->head) == frontiers.end ())
+		if (!i->head.is_zero () && i->attempt == this_l && std::find (frontiers.begin (), frontiers.end (), i->head) == frontiers.end ())
 		{
 			frontiers.push_back (i->head);
 		}
 	}
+	pulls_lock.unlock ();
+	lock_a.lock ();
 	for (auto i (recent_pulls_head.begin ()), end (recent_pulls_head.end ()); i != end && frontiers.size () != nano::bootstrap_limits::bootstrap_max_confirm_frontiers; ++i)
 	{
 		if (!i->is_zero () && std::find (frontiers.begin (), frontiers.end (), *i) == frontiers.end ())
@@ -416,7 +412,9 @@ bool nano::bootstrap_attempt_legacy::confirm_frontiers (nano::unique_lock<std::m
 bool nano::bootstrap_attempt_legacy::request_frontier (nano::unique_lock<std::mutex> & lock_a, bool first_attempt)
 {
 	auto result (true);
-	auto connection_l (node->bootstrap_initiator.connections->connection (lock_a, shared_from_this (), first_attempt));
+	lock_a.unlock ();
+	auto connection_l (node->bootstrap_initiator.connections->connection (shared_from_this (), first_attempt));
+	lock_a.lock ();
 	if (connection_l)
 	{
 		endpoint_frontier_request = connection_l->channel->get_tcp_endpoint ();
@@ -438,7 +436,7 @@ bool nano::bootstrap_attempt_legacy::request_frontier (nano::unique_lock<std::mu
 		else
 		{
 			account_count = frontier_pulls.size ();
-			// Shuffle pulls.
+			// Shuffle pulls
 			release_assert (std::numeric_limits<CryptoPP::word32>::max () > frontier_pulls.size ());
 			if (!frontier_pulls.empty ())
 			{
@@ -452,7 +450,7 @@ bool nano::bootstrap_attempt_legacy::request_frontier (nano::unique_lock<std::mu
 			while (!frontier_pulls.empty ())
 			{
 				auto pull (frontier_pulls.front ());
-				pulls.push_back (pull);
+				node->bootstrap_initiator.connections->add_pull (pull);
 				frontier_pulls.pop_front ();
 			}
 		}
@@ -477,7 +475,6 @@ void nano::bootstrap_attempt_legacy::run_start (nano::unique_lock<std::mutex> & 
 	frontiers_confirmed = false;
 	total_blocks = 0;
 	requeued_pulls = 0;
-	pulls.clear ();
 	recent_pulls_head.clear ();
 	auto frontier_failure (true);
 	uint64_t frontier_attempts (0);
@@ -499,14 +496,9 @@ void nano::bootstrap_attempt_legacy::run ()
 	{
 		while (still_pulling ())
 		{
-			if (!pulls.empty ())
-			{
-				request_pull (lock);
-			}
-			else
-			{
-				condition.wait (lock);
-			}
+			// clang-format off
+			condition.wait (lock, [&stopped = stopped, &pulling = pulling, &frontiers_confirmation_pending = frontiers_confirmation_pending] { return stopped || pulling == 0 || frontiers_confirmation_pending; });
+			// clang-format on
 			attempt_restart_check (lock);
 		}
 		// Flushing may resolve forks which can add more pulls
@@ -518,7 +510,7 @@ void nano::bootstrap_attempt_legacy::run ()
 	}
 	if (!stopped)
 	{
-		node->logger.try_log ("Completed pulls");
+		node->logger.try_log ("Completed legacy pulls");
 		if (!node->flags.disable_bootstrap_bulk_push_client)
 		{
 			request_push (lock);
@@ -528,6 +520,7 @@ void nano::bootstrap_attempt_legacy::run ()
 			node->unchecked_cleanup ();
 		}
 	}
-	stopped = true;
+	lock.unlock ();
+	stop ();
 	condition.notify_all ();
 }

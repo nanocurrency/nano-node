@@ -7,25 +7,25 @@
 
 #include <boost/format.hpp>
 
-nano::pull_info::pull_info (nano::hash_or_account const & account_or_head_a, nano::block_hash const & head_a, nano::block_hash const & end_a, count_t count_a, unsigned retry_limit_a) :
+nano::pull_info::pull_info (nano::hash_or_account const & account_or_head_a, nano::block_hash const & head_a, nano::block_hash const & end_a, std::shared_ptr<nano::bootstrap_attempt> attempt_a, count_t count_a, unsigned retry_limit_a) :
 account_or_head (account_or_head_a),
 head (head_a),
 head_original (head_a),
 end (end_a),
 count (count_a),
-retry_limit (retry_limit_a)
+retry_limit (retry_limit_a),
+attempt (attempt_a)
 {
 }
 
-nano::bulk_pull_client::bulk_pull_client (std::shared_ptr<nano::bootstrap_client> connection_a, std::shared_ptr<nano::bootstrap_attempt> attempt_a, nano::pull_info const & pull_a) :
+nano::bulk_pull_client::bulk_pull_client (std::shared_ptr<nano::bootstrap_client> connection_a, nano::pull_info const & pull_a) :
 connection (connection_a),
-attempt (attempt_a),
 known_account (0),
 pull (pull_a),
 pull_blocks (0),
 unexpected_count (0)
 {
-	attempt->condition.notify_all ();
+	pull.attempt->condition.notify_all ();
 }
 
 nano::bulk_pull_client::~bulk_pull_client ()
@@ -34,12 +34,12 @@ nano::bulk_pull_client::~bulk_pull_client ()
 	if (expected != pull.end)
 	{
 		pull.head = expected;
-		if (attempt->mode != nano::bootstrap_mode::legacy)
+		if (pull.attempt->mode != nano::bootstrap_mode::legacy)
 		{
 			pull.account_or_head = expected;
 		}
 		pull.processed += pull_blocks - unexpected_count;
-		attempt->requeue_pull (pull, network_error);
+		connection->node->bootstrap_initiator.connections->requeue_pull (pull, network_error);
 		if (connection->node->config.logging.bulk_pull_logging ())
 		{
 			connection->node->logger.try_log (boost::str (boost::format ("Bulk pull end block is not expected %1% for account %2%") % pull.end.to_string () % pull.account_or_head.to_account ()));
@@ -49,11 +49,8 @@ nano::bulk_pull_client::~bulk_pull_client ()
 	{
 		connection->node->bootstrap_initiator.cache.remove (pull);
 	}
-	{
-		nano::lock_guard<std::mutex> mutex (attempt->mutex);
-		--attempt->pulling;
-	}
-	attempt->condition.notify_all ();
+	--pull.attempt->pulling;
+	pull.attempt->condition.notify_all ();
 }
 
 void nano::bulk_pull_client::request ()
@@ -77,13 +74,11 @@ void nano::bulk_pull_client::request ()
 
 	if (connection->node->config.logging.bulk_pull_logging ())
 	{
-		nano::unique_lock<std::mutex> lock (attempt->mutex);
-		connection->node->logger.try_log (boost::str (boost::format ("Requesting account %1% from %2%. %3% accounts in queue") % pull.account_or_head.to_account () % connection->channel->to_string () % attempt->pulls.size ()));
+		connection->node->logger.try_log (boost::str (boost::format ("Requesting account %1% from %2%. %3% accounts in queue") % pull.account_or_head.to_account () % connection->channel->to_string () % pull.attempt->pulling));
 	}
-	else if (connection->node->config.logging.network_logging () && attempt->should_log ())
+	else if (connection->node->config.logging.network_logging () && pull.attempt->should_log ())
 	{
-		nano::unique_lock<std::mutex> lock (attempt->mutex);
-		connection->node->logger.always_log (boost::str (boost::format ("%1% accounts in pull queue") % attempt->pulls.size ()));
+		connection->node->logger.always_log (boost::str (boost::format ("%1% accounts in pull queue") % pull.attempt->pulling));
 	}
 	auto this_l (shared_from_this ());
 	connection->channel->send (
@@ -115,7 +110,7 @@ void nano::bulk_pull_client::throttled_receive_block ()
 	{
 		auto this_l (shared_from_this ());
 		connection->node->alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (1), [this_l]() {
-			if (!this_l->connection->pending_stop && !this_l->attempt->stopped)
+			if (!this_l->connection->pending_stop && !this_l->pull.attempt->stopped)
 			{
 				this_l->throttled_receive_block ();
 			}
@@ -247,15 +242,15 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 			{
 				connection->start_time = std::chrono::steady_clock::now ();
 			}
-			attempt->total_blocks++;
-			bool stop_pull (attempt->process_block (block, known_account, pull_blocks, pull.count, block_expected, pull.retry_limit));
+			pull.attempt->total_blocks++;
+			bool stop_pull (pull.attempt->process_block (block, known_account, pull_blocks, pull.count, block_expected, pull.retry_limit));
 			pull_blocks++;
 			if (!stop_pull && !connection->hard_stop.load ())
 			{
 				/* Process block in lazy pull if not stopped
 				Stop usual pull request with unexpected block & more than 16k blocks processed
 				to prevent spam */
-				if (attempt->mode != nano::bootstrap_mode::legacy || unexpected_count < 16384)
+				if (pull.attempt->mode != nano::bootstrap_mode::legacy || unexpected_count < 16384)
 				{
 					throttled_receive_block ();
 				}
@@ -296,10 +291,7 @@ pull_blocks (0)
 
 nano::bulk_pull_account_client::~bulk_pull_account_client ()
 {
-	{
-		nano::lock_guard<std::mutex> mutex (attempt->mutex);
-		--attempt->pulling;
-	}
+	--attempt->pulling;
 	attempt->condition.notify_all ();
 }
 

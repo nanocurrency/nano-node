@@ -28,65 +28,6 @@ nano::bootstrap_attempt_lazy::~bootstrap_attempt_lazy ()
 	node->bootstrap_initiator.notify_listeners (false);
 }
 
-void nano::bootstrap_attempt_lazy::request_pull_lazy (nano::unique_lock<std::mutex> & lock_a)
-{
-	auto connection_l (node->bootstrap_initiator.connections->connection (lock_a, shared_from_this ()));
-	if (connection_l)
-	{
-		auto pull (pulls.front ());
-		pulls.pop_front ();
-		// Check if pull is obsolete (head was processed)
-		while (!pulls.empty () && !pull.head.is_zero () && lazy_processed_or_exists (pull.head))
-		{
-			pull = pulls.front ();
-			pulls.pop_front ();
-		}
-		++pulling;
-		auto this_l (shared_from_this ());
-		// The bulk_pull_client destructor attempt to requeue_pull which can cause a deadlock if this is the last reference
-		// Dispatch request in an external thread in case it needs to be destroyed
-		node->background ([connection_l, this_l, pull]() {
-			auto client (std::make_shared<nano::bulk_pull_client> (connection_l, this_l, pull));
-			client->request ();
-		});
-	}
-}
-
-void nano::bootstrap_attempt_lazy::requeue_pull (nano::pull_info const & pull_a, bool network_error)
-{
-	auto pull (pull_a);
-	if (!network_error)
-	{
-		++pull.attempts;
-	}
-	++requeued_pulls;
-	if (pull.retry_limit == std::numeric_limits<unsigned>::max () || pull.attempts <= pull.retry_limit + (pull.processed / node->network_params.bootstrap.lazy_max_pull_blocks))
-	{
-		assert (pull.account_or_head == pull.head);
-		if (!lazy_processed_or_exists (pull.account_or_head))
-		{
-			nano::lock_guard<std::mutex> lock (mutex);
-			pulls.push_back (pull);
-			condition.notify_all ();
-		}
-	}
-	else
-	{
-		if (node->config.logging.bulk_pull_logging ())
-		{
-			node->logger.try_log (boost::str (boost::format ("Failed to pull lazy hash %1% after %2% attempts and %3% blocks processed") % pull.account_or_head.to_string () % pull.attempts % pull.processed));
-		}
-		node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_failed_account, nano::stat::dir::in);
-
-		if (mode == nano::bootstrap_mode::lazy && pull.processed > 0)
-		{
-			assert (pull.account_or_head == pull.head);
-			nano::lock_guard<std::mutex> lazy_lock (lazy_mutex);
-			lazy_add (pull.account_or_head, pull.retry_limit);
-		}
-	}
-}
-
 void nano::bootstrap_attempt_lazy::lazy_start (nano::hash_or_account const & hash_or_account_a, bool confirmed)
 {
 	nano::lock_guard<std::mutex> lazy_lock (lazy_mutex);
@@ -109,6 +50,13 @@ void nano::bootstrap_attempt_lazy::lazy_add (nano::hash_or_account const & hash_
 	}
 }
 
+void nano::bootstrap_attempt_lazy::lazy_add (nano::pull_info const & pull_a)
+{
+	assert (pull_a.account_or_head == pull_a.head);
+	nano::lock_guard<std::mutex> lazy_lock (lazy_mutex);
+	lazy_add (pull_a.account_or_head, pull_a.retry_limit);
+}
+
 void nano::bootstrap_attempt_lazy::lazy_requeue (nano::block_hash const & hash_a, nano::block_hash const & previous_a, bool confirmed_a)
 {
 	nano::unique_lock<std::mutex> lazy_lock (lazy_mutex);
@@ -117,7 +65,7 @@ void nano::bootstrap_attempt_lazy::lazy_requeue (nano::block_hash const & hash_a
 	{
 		lazy_blocks_erase (hash_a);
 		lazy_lock.unlock ();
-		requeue_pull (nano::pull_info (hash_a, hash_a, previous_a, static_cast<nano::pull_info::count_t> (1), confirmed_a ? std::numeric_limits<unsigned>::max () : node->network_params.bootstrap.lazy_destinations_retry_limit));
+		node->bootstrap_initiator.connections->requeue_pull (nano::pull_info (hash_a, hash_a, previous_a, shared_from_this (), static_cast<nano::pull_info::count_t> (1), confirmed_a ? std::numeric_limits<unsigned>::max () : node->network_params.bootstrap.lazy_destinations_retry_limit));
 	}
 }
 
@@ -125,7 +73,7 @@ void nano::bootstrap_attempt_lazy::lazy_pull_flush ()
 {
 	assert (!mutex.try_lock ());
 	static size_t const max_pulls (nano::bootstrap_limits::bootstrap_connection_scale_target_blocks * 3);
-	if (pulls.size () < max_pulls)
+	if (pulling < max_pulls)
 	{
 		last_lazy_flush = std::chrono::steady_clock::now ();
 		nano::lock_guard<std::mutex> lazy_lock (lazy_mutex);
@@ -152,7 +100,7 @@ void nano::bootstrap_attempt_lazy::lazy_pull_flush ()
 			// Recheck if block was already processed
 			if (!lazy_blocks_processed (pull_start.first) && !node->store.block_exists (transaction, pull_start.first))
 			{
-				pulls.emplace_back (pull_start.first, pull_start.first, nano::block_hash (0), batch_count, pull_start.second);
+				node->bootstrap_initiator.connections->add_pull (nano::pull_info (pull_start.first, pull_start.first, nano::block_hash (0), shared_from_this (), batch_count, pull_start.second));
 				++count;
 			}
 			lazy_pulls.pop_front ();
@@ -222,17 +170,13 @@ void nano::bootstrap_attempt_lazy::lazy_run ()
 		unsigned iterations (0);
 		while (still_pulling () && !lazy_has_expired ())
 		{
-			if (!pulls.empty ())
+			// clang-format off
+			condition.wait (lock, [&stopped = stopped, &pulling = pulling] { return stopped || pulling == 0; });
+			// clang-format on
+			lazy_pull_flush ();
+			if (pulling == 0)
 			{
-				request_pull_lazy (lock);
-			}
-			else
-			{
-				lazy_pull_flush ();
-				if (pulls.empty ())
-				{
-					condition.wait_for (lock, std::chrono::seconds (1));
-				}
+				condition.wait_for (lock, std::chrono::seconds (1));
 			}
 			++iterations;
 			// Flushing lazy pulls
@@ -246,7 +190,7 @@ void nano::bootstrap_attempt_lazy::lazy_run ()
 				lazy_backlog_cleanup ();
 			}
 			// Destinations check
-			if (pulls.empty () && lazy_destinations_flushed)
+			if (pulling == 0 && lazy_destinations_flushed)
 			{
 				lazy_destinations_flush ();
 				lazy_pull_flush ();
@@ -255,7 +199,7 @@ void nano::bootstrap_attempt_lazy::lazy_run ()
 		// Flushing lazy pulls
 		lazy_pull_flush ();
 		// Check if some blocks required for backlog were processed. Start destinations check
-		if (pulls.empty ())
+		if (pulling == 0)
 		{
 			lazy_backlog_cleanup ();
 			lazy_destinations_flush ();
@@ -266,7 +210,8 @@ void nano::bootstrap_attempt_lazy::lazy_run ()
 	{
 		node->logger.try_log ("Completed lazy pulls");
 	}
-	stopped = true;
+	lock.unlock ();
+	stop ();
 	condition.notify_all ();
 }
 
@@ -538,7 +483,9 @@ nano::bootstrap_attempt_wallet::~bootstrap_attempt_wallet ()
 
 void nano::bootstrap_attempt_wallet::request_pending (nano::unique_lock<std::mutex> & lock_a)
 {
-	auto connection_l (node->bootstrap_initiator.connections->connection (lock_a, shared_from_this ()));
+	lock_a.unlock ();
+	auto connection_l (node->bootstrap_initiator.connections->connection (shared_from_this ()));
+	lock_a.lock ();
 	if (connection_l)
 	{
 		auto account (wallet_accounts.front ());
@@ -602,7 +549,8 @@ void nano::bootstrap_attempt_wallet::wallet_run ()
 	{
 		node->logger.try_log ("Completed wallet lazy pulls");
 	}
-	stopped = true;
+	lock.unlock ();
+	stop ();
 	condition.notify_all ();
 }
 

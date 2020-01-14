@@ -17,7 +17,7 @@ node (node_a)
 {
 	connections = std::make_shared<nano::bootstrap_connections> (node);
 	bootstrap_initiator_threads.push_back (boost::thread ([this]() {
-		connections->start_populate_connections ();
+		connections->run ();
 	}));
 	bootstrap_initiator_threads.push_back (boost::thread ([this]() {
 		nano::thread_role::set (nano::thread_role::name::bootstrap_initiator);
@@ -43,15 +43,20 @@ void nano::bootstrap_initiator::bootstrap (bool force)
 	nano::unique_lock<std::mutex> lock (mutex);
 	if (force && attempt != nullptr)
 	{
+		std::cout << "before stop" << std::endl;
 		attempt->stop ();
+		std::cout << "after stop" << std::endl;
 		// clang-format off
 		condition.wait (lock, [&attempt = attempt, &stopped = stopped] { return stopped || attempt == nullptr; });
 		// clang-format on
+		std::cout << "after condition.wait" << std::endl;
 	}
 	if (!stopped && attempt == nullptr)
 	{
 		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out);
+		std::cout << "before new attempt" << std::endl;
 		attempt = std::make_shared<nano::bootstrap_attempt_legacy> (node.shared ());
+		std::cout << "after new attempt" << std::endl;
 		condition.notify_all ();
 	}
 }

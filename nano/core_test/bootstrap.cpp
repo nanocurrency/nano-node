@@ -332,10 +332,11 @@ TEST (bootstrap_processor, pull_requeue_network_error)
 	}
 	// Add non-existing pull & stop remote peer
 	{
-		nano::unique_lock<std::mutex> lock (attempt->mutex);
+		nano::unique_lock<std::mutex> lock (node1->bootstrap_initiator.connections->mutex);
 		ASSERT_FALSE (attempt->stopped);
-		attempt->pulls.push_back (nano::pull_info (nano::test_genesis_key.pub, send1->hash (), genesis.hash ()));
-		attempt->request_pull (lock);
+		++attempt->pulling;
+		node1->bootstrap_initiator.connections->pulls.push_back (nano::pull_info (nano::test_genesis_key.pub, send1->hash (), genesis.hash (), attempt));
+		node1->bootstrap_initiator.connections->request_pull (lock);
 		node2->stop ();
 	}
 	system.deadline_set (5s);

@@ -1665,6 +1665,7 @@ void nano::json_handler::bootstrap_status ()
 		connections.put ("connections", std::to_string (node.bootstrap_initiator.connections->connections_count));
 		connections.put ("idle", std::to_string (node.bootstrap_initiator.connections->idle.size ()));
 		connections.put ("target_connections", std::to_string (node.bootstrap_initiator.connections->target_connections (0)));
+		connections.put ("pulls", std::to_string (node.bootstrap_initiator.connections->pulls.size ()));
 	}
 	response_l.add_child ("connections", connections);
 	boost::property_tree::ptree legacy;
@@ -1673,12 +1674,12 @@ void nano::json_handler::bootstrap_status ()
 	{
 		nano::lock_guard<std::mutex> lock (attempt->mutex);
 		assert (attempt->mode == nano::bootstrap_mode::legacy);
-		legacy.put ("pulls", std::to_string (attempt->pulls.size ()));
 		legacy.put ("pulling", std::to_string (attempt->pulling));
 		legacy.put ("total_blocks", std::to_string (attempt->total_blocks));
 		legacy.put ("requeued_pulls", std::to_string (attempt->requeued_pulls));
 		legacy.put ("frontiers_received", static_cast<bool> (attempt->frontiers_received));
 		legacy.put ("frontiers_confirmed", static_cast<bool> (attempt->frontiers_confirmed));
+		legacy.put ("frontiers_confirmation_pending", static_cast<bool> (attempt->frontiers_confirmation_pending));
 		legacy.put ("duration", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt->attempt_start).count ());
 	}
 	response_l.add_child ("legacy", legacy);
@@ -1689,7 +1690,6 @@ void nano::json_handler::bootstrap_status ()
 		nano::lock_guard<std::mutex> lock (lazy_attempt->mutex);
 		nano::lock_guard<std::mutex> lazy_lock (lazy_attempt->lazy_mutex);
 		assert (lazy_attempt->mode == nano::bootstrap_mode::lazy);
-		lazy.put ("pulls", std::to_string (lazy_attempt->pulls.size ()));
 		lazy.put ("pulling", std::to_string (lazy_attempt->pulling));
 		lazy.put ("total_blocks", std::to_string (lazy_attempt->total_blocks));
 		lazy.put ("requeued_pulls", std::to_string (lazy_attempt->requeued_pulls));
