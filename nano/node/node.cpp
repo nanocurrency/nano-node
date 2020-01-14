@@ -134,6 +134,7 @@ port_mapping (*this),
 vote_processor (checker, active, store, observers, stats, config, logger, online_reps, ledger, network_params),
 rep_crawler (*this),
 warmed_up (0),
+votes_cache (wallets),
 block_processor (*this, write_database_queue),
 block_processor_thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::block_processing);
@@ -305,38 +306,41 @@ startup_time (std::chrono::steady_clock::now ())
 				this->network.send_keepalive_self (channel_a);
 			}
 		});
-		observers.vote.add ([this](std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a) {
-			this->gap_cache.vote (vote_a);
-			this->online_reps.observe (vote_a->account);
-			nano::uint128_t rep_weight;
+		observers.vote.add ([this](std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a, nano::vote_code code_a) {
+			if (code_a == nano::vote_code::vote || code_a == nano::vote_code::indeterminate)
 			{
-				rep_weight = ledger.weight (vote_a->account);
-			}
-			if (rep_weight > minimum_principal_weight ())
-			{
-				bool rep_crawler_exists (false);
-				for (auto hash : *vote_a)
+				this->gap_cache.vote (vote_a);
+				this->online_reps.observe (vote_a->account);
+				nano::uint128_t rep_weight;
 				{
-					if (this->rep_crawler.exists (hash))
-					{
-						rep_crawler_exists = true;
-						break;
-					}
+					rep_weight = ledger.weight (vote_a->account);
 				}
-				if (rep_crawler_exists)
+				if (rep_weight > minimum_principal_weight ())
 				{
-					// We see a valid non-replay vote for a block we requested, this node is probably a representative
-					if (this->rep_crawler.response (channel_a, vote_a->account, rep_weight))
+					bool rep_crawler_exists (false);
+					for (auto hash : *vote_a)
 					{
-						logger.try_log (boost::str (boost::format ("Found a representative at %1%") % channel_a->to_string ()));
-						// Rebroadcasting all active votes to new representative
-						auto blocks (this->active.list_blocks (true));
-						for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
+						if (this->rep_crawler.exists (hash))
 						{
-							if (*i != nullptr)
+							rep_crawler_exists = true;
+							break;
+						}
+					}
+					if (rep_crawler_exists)
+					{
+						// We see a valid non-replay vote for a block we requested, this node is probably a representative
+						if (this->rep_crawler.response (channel_a, vote_a->account, rep_weight))
+						{
+							logger.try_log (boost::str (boost::format ("Found a representative at %1%") % channel_a->to_string ()));
+							// Rebroadcasting all active votes to new representative
+							auto blocks (this->active.list_blocks (true));
+							for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
 							{
-								nano::confirm_req req (*i);
-								channel_a->send (req);
+								if (*i != nullptr)
+								{
+									nano::confirm_req req (*i);
+									channel_a->send (req);
+								}
 							}
 						}
 					}
@@ -345,11 +349,11 @@ startup_time (std::chrono::steady_clock::now ())
 		});
 		if (websocket_server)
 		{
-			observers.vote.add ([this](std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a) {
+			observers.vote.add ([this](std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a, nano::vote_code code_a) {
 				if (this->websocket_server->any_subscriber (nano::websocket::topic::vote))
 				{
 					nano::websocket::message_builder builder;
-					auto msg (builder.vote_received (vote_a));
+					auto msg (builder.vote_received (vote_a, code_a));
 					this->websocket_server->broadcast (msg);
 				}
 			});
@@ -555,24 +559,24 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 		{
 			std::weak_ptr<nano::node> this_w (shared_from_this ());
 			if (!active.start (ledger_block, false, [this_w, root](std::shared_ptr<nano::block>) {
-					if (auto this_l = this_w.lock ())
-					{
-						auto attempt (this_l->bootstrap_initiator.current_attempt ());
-						if (attempt && attempt->mode == nano::bootstrap_mode::legacy)
-						{
-							auto transaction (this_l->store.tx_begin_read ());
-							auto account (this_l->ledger.store.frontier_get (transaction, root));
-							if (!account.is_zero ())
-							{
-								attempt->requeue_pull (nano::pull_info (account, root, root));
-							}
-							else if (this_l->ledger.store.account_exists (transaction, root))
-							{
-								attempt->requeue_pull (nano::pull_info (root, nano::block_hash (0), nano::block_hash (0)));
-							}
-						}
-					}
-				}))
+				    if (auto this_l = this_w.lock ())
+				    {
+					    auto attempt (this_l->bootstrap_initiator.current_attempt ());
+					    if (attempt && attempt->mode == nano::bootstrap_mode::legacy)
+					    {
+						    auto transaction (this_l->store.tx_begin_read ());
+						    auto account (this_l->ledger.store.frontier_get (transaction, root));
+						    if (!account.is_zero ())
+						    {
+							    attempt->requeue_pull (nano::pull_info (account, root, root));
+						    }
+						    else if (this_l->ledger.store.account_exists (transaction, root))
+						    {
+							    attempt->requeue_pull (nano::pull_info (root, nano::block_hash (0), nano::block_hash (0)));
+						    }
+					    }
+				    }
+			    }))
 			{
 				logger.always_log (boost::str (boost::format ("Resolving fork between our block: %1% and block %2% both with root %3%") % ledger_block->hash ().to_string () % block_a->hash ().to_string () % block_a->root ().to_string ()));
 				network.broadcast_confirm_req (ledger_block);
@@ -591,7 +595,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (collect_container_info (node.active, "active"));
 	composite->add_component (collect_container_info (node.bootstrap_initiator, "bootstrap_initiator"));
 	composite->add_component (collect_container_info (node.bootstrap, "bootstrap"));
-	composite->add_component (collect_container_info (node.network, "network"));  
+	composite->add_component (collect_container_info (node.network, "network"));
 	if (node.telemetry_processor)
 	{
 		composite->add_component (collect_container_info (*node.telemetry_processor, "telemetry_processor"));

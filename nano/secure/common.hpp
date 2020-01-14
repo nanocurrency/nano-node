@@ -282,7 +282,8 @@ enum class vote_code
 {
 	invalid, // Vote is not signed correctly
 	replay, // Vote does not have the highest sequence number, it's a replay
-	vote // Vote has the highest sequence number
+	vote, // Vote has the highest sequence number
+	indeterminate // Unknown if replay or vote
 };
 
 enum class process_result

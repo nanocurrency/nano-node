@@ -257,6 +257,7 @@ public:
 		// vote specific
 		vote_valid,
 		vote_replay,
+		vote_indeterminate,
 		vote_invalid,
 		vote_overflow,
 

@@ -570,6 +570,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::vote_replay:
 			res = "vote_replay";
 			break;
+		case nano::stat::detail::vote_indeterminate:
+			res = "vote_indeterminate";
+			break;
 		case nano::stat::detail::vote_invalid:
 			res = "vote_invalid";
 			break;
