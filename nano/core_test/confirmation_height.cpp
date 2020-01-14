@@ -757,22 +757,16 @@ TEST (confirmation_height, pending_observer_callbacks)
 			break;
 		}
 	}
-	// Can have timing issues.
 	node->confirmation_height_processor.add (send.hash ());
+	system.deadline_set (5s);
+	while (node->ledger.cache.cemented_count < 3)
 	{
-		nano::unique_lock<std::mutex> lk (node->pending_confirmation_height.mutex);
-		while (!node->pending_confirmation_height.current_hash.is_zero ())
-		{
-			lk.unlock ();
-			std::this_thread::yield ();
-			lk.lock ();
-		}
+		ASSERT_NO_ERROR (system.poll ());
 	}
 
 	// Confirm the callback is not called under this circumstance
 	ASSERT_EQ (2, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
 	ASSERT_EQ (0, node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out));
-	ASSERT_EQ (3, node->ledger.cache.cemented_count);
 }
 
 TEST (confirmation_height, prioritize_frontiers)

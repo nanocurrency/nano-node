@@ -2561,7 +2561,7 @@ TEST (node, vote_by_hash_bundle)
 	for (int i = 1; i <= 200; i++)
 	{
 		nano::block_hash hash (i);
-		system.nodes [0]->block_processor.generator.add (hash);
+		system.nodes[0]->block_processor.generator.add (hash);
 	}
 
 	// Verify that bundling occurs. While reaching 12 should be common on most hardware in release mode,
@@ -3250,6 +3250,7 @@ TEST (node, bandwidth_limiter)
 	}
 	ASSERT_EQ (node.network.limiter.get_rate (), node.network.limiter.get_limit () + message_size);
 	ASSERT_LT (std::chrono::steady_clock::now () - 1s, start);
+	node.stop ();
 }
 
 TEST (active_difficulty, recalculate_work)
