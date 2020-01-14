@@ -617,7 +617,8 @@ int main (int argc, char * const * argv)
 					run_addr2line (false);
 					{
 						std::ofstream ofs (crash_report_filename, std::ios_base::out | std::ios_base::app);
-						ofs << std::endl << "Using relative addresses:" << std::endl; // Add an empty line to separate the absolute & relative output
+						ofs << std::endl
+						    << "Using relative addresses:" << std::endl; // Add an empty line to separate the absolute & relative output
 					}
 
 					// Now run using relative addresses. This will give actual results for other dlls, the results from the nano_node executable.
