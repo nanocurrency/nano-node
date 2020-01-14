@@ -22,10 +22,12 @@ election_time_to_live (node_a.network_params.network.is_test_network () ? 0s : 1
 min_time_between_requests (node_a.network_params.network.is_test_network () ? 25ms : 3s),
 min_time_between_floods (node_a.network_params.network.is_test_network () ? 50ms : 6s),
 min_request_count_flood (node_a.network_params.network.is_test_network () ? 0 : 2),
+// clang-format off
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::request_loop);
 	request_loop ();
 })
+// clang-format on
 {
 	assert (min_time_between_requests > std::chrono::milliseconds (node.network_params.network.request_interval_ms));
 	assert (min_time_between_floods > std::chrono::milliseconds (node.network_params.network.request_interval_ms));
