@@ -15,6 +15,10 @@ constexpr std::chrono::hours nano::bootstrap_excluded_peers::exclude_remove_hour
 nano::bootstrap_initiator::bootstrap_initiator (nano::node & node_a) :
 node (node_a)
 {
+	connections = std::make_shared<nano::bootstrap_connections> (node);
+	bootstrap_initiator_threads.push_back (boost::thread ([this]() {
+		connections->start_populate_connections ();
+	}));
 	bootstrap_initiator_threads.push_back (boost::thread ([this]() {
 		nano::thread_role::set (nano::thread_role::name::bootstrap_initiator);
 		run_bootstrap ();
@@ -76,7 +80,7 @@ void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bo
 		}
 		if (!excluded_peers.check (nano::transport::map_endpoint_to_tcp (endpoint_a)))
 		{
-			attempt->connections->add_connection (endpoint_a);
+			connections->add_connection (endpoint_a);
 		}
 		attempt->frontiers_confirmed = frontiers_confirmed;
 		condition.notify_all ();
@@ -245,6 +249,7 @@ void nano::bootstrap_initiator::stop ()
 				wallet_attempt->stop ();
 			}
 		}
+		connections->stop ();
 		condition.notify_all ();
 
 		for (auto & thread : bootstrap_initiator_threads)

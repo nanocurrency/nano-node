@@ -2,12 +2,9 @@
 
 #include <nano/node/common.hpp>
 #include <nano/node/socket.hpp>
-#include <nano/secure/blockstore.hpp>
-#include <nano/secure/ledger.hpp>
 
 
 #include <atomic>
-#include <future>
 
 namespace nano
 {
@@ -45,22 +42,23 @@ public:
 class bootstrap_connections final : public std::enable_shared_from_this<bootstrap_connections>
 {
 public:
-	bootstrap_connections (std::shared_ptr<nano::node> node_a);
+	bootstrap_connections (nano::node & node_a);
 	std::shared_ptr<nano::bootstrap_connections> shared ();
-	std::shared_ptr<nano::bootstrap_client> connection (nano::unique_lock<std::mutex> & lock_a, bool use_front_connection = false);
+	std::shared_ptr<nano::bootstrap_client> connection (nano::unique_lock<std::mutex> & lock_a, std::shared_ptr<nano::bootstrap_attempt> attempt_a, bool use_front_connection = false);
 	void pool_connection (std::shared_ptr<nano::bootstrap_client> client_a);
 	void add_connection (nano::endpoint const &);
 	std::shared_ptr<nano::bootstrap_client> find_connection (nano::tcp_endpoint const & endpoint_a);
 	void connect_client (nano::tcp_endpoint const &);
 	unsigned target_connections (size_t pulls_remaining);
-	void populate_connections ();
+	void populate_connections (bool repeat = true);
 	void start_populate_connections ();
 	void stop ();
 	std::deque<std::weak_ptr<nano::bootstrap_client>> clients;
 	std::atomic<unsigned> connections_count{ 0 };
-	std::shared_ptr<nano::node> node;
+	nano::node & node;
 	std::deque<std::shared_ptr<nano::bootstrap_client>> idle;
 	std::atomic<bool> populate_connections_started{ false };
+	std::atomic<bool> new_connections_empty{ false };
 	std::atomic<bool> stopped{ false };
 	std::mutex mutex;
 	nano::condition_variable condition;

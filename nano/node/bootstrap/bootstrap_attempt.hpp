@@ -1,7 +1,6 @@
 #pragma once
 
 #include <nano/node/bootstrap/bootstrap_bulk_pull.hpp>
-#include <nano/node/bootstrap/bootstrap_connections.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/socket.hpp>
 #include <nano/secure/blockstore.hpp>
@@ -48,7 +47,6 @@ public:
 	virtual size_t wallet_size ();
 	std::mutex next_log_mutex;
 	std::chrono::steady_clock::time_point next_log{ std::chrono::steady_clock::now () };
-	std::shared_ptr<nano::bootstrap_connections> connections;
 	std::deque<nano::pull_info> pulls;
 	std::atomic<unsigned> pulling{ 0 };
 	std::shared_ptr<nano::node> node;

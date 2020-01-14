@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/node/bootstrap/bootstrap_bulk_pull.hpp>
+#include <nano/node/bootstrap/bootstrap_connections.hpp>
 #include <nano/node/common.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/ledger.hpp>
@@ -25,6 +26,7 @@ class node;
 class bootstrap_attempt_legacy;
 class bootstrap_attempt_lazy;
 class bootstrap_attempt_wallet;
+class bootstrap_connections;
 namespace transport
 {
 	class channel_tcp;
@@ -112,6 +114,7 @@ public:
 	void notify_listeners (bool);
 	void add_observer (std::function<void(bool)> const &);
 	bool in_progress ();
+	std::shared_ptr<nano::bootstrap_connections> connections;
 	std::shared_ptr<nano::bootstrap_attempt_legacy> current_attempt ();
 	std::shared_ptr<nano::bootstrap_attempt_lazy> current_lazy_attempt ();
 	std::shared_ptr<nano::bootstrap_attempt_wallet> current_wallet_attempt ();

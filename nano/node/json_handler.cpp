@@ -1658,19 +1658,23 @@ void nano::json_handler::bootstrap_lazy ()
  */
 void nano::json_handler::bootstrap_status ()
 {
+	boost::property_tree::ptree connections;
+	{
+		nano::lock_guard<std::mutex> connections_lock (node.bootstrap_initiator.connections->mutex);
+		connections.put ("clients", std::to_string (node.bootstrap_initiator.connections->clients.size ()));
+		connections.put ("connections", std::to_string (node.bootstrap_initiator.connections->connections_count));
+		connections.put ("idle", std::to_string (node.bootstrap_initiator.connections->idle.size ()));
+		connections.put ("target_connections", std::to_string (node.bootstrap_initiator.connections->target_connections (0)));
+	}
+	response_l.add_child ("connections", connections);
 	boost::property_tree::ptree legacy;
 	auto attempt (node.bootstrap_initiator.current_attempt ());
 	if (attempt != nullptr)
 	{
 		nano::lock_guard<std::mutex> lock (attempt->mutex);
-		nano::lock_guard<std::mutex> connections_lock (attempt->connections->mutex);
 		assert (attempt->mode == nano::bootstrap_mode::legacy);
-		legacy.put ("clients", std::to_string (attempt->connections->clients.size ()));
 		legacy.put ("pulls", std::to_string (attempt->pulls.size ()));
 		legacy.put ("pulling", std::to_string (attempt->pulling));
-		legacy.put ("connections", std::to_string (attempt->connections->connections_count));
-		legacy.put ("idle", std::to_string (attempt->connections->idle.size ()));
-		legacy.put ("target_connections", std::to_string (attempt->connections->target_connections (attempt->pulls.size ())));
 		legacy.put ("total_blocks", std::to_string (attempt->total_blocks));
 		legacy.put ("requeued_pulls", std::to_string (attempt->requeued_pulls));
 		legacy.put ("frontiers_received", static_cast<bool> (attempt->frontiers_received));
@@ -1683,15 +1687,10 @@ void nano::json_handler::bootstrap_status ()
 	if (lazy_attempt != nullptr)
 	{
 		nano::lock_guard<std::mutex> lock (lazy_attempt->mutex);
-		nano::lock_guard<std::mutex> connections_lock (lazy_attempt->connections->mutex);
 		nano::lock_guard<std::mutex> lazy_lock (lazy_attempt->lazy_mutex);
 		assert (lazy_attempt->mode == nano::bootstrap_mode::lazy);
-		lazy.put ("clients", std::to_string (lazy_attempt->connections->clients.size ()));
 		lazy.put ("pulls", std::to_string (lazy_attempt->pulls.size ()));
 		lazy.put ("pulling", std::to_string (lazy_attempt->pulling));
-		lazy.put ("connections", std::to_string (lazy_attempt->connections->connections_count));
-		lazy.put ("idle", std::to_string (lazy_attempt->connections->idle.size ()));
-		lazy.put ("target_connections", std::to_string (lazy_attempt->connections->target_connections (lazy_attempt->pulls.size ())));
 		lazy.put ("total_blocks", std::to_string (lazy_attempt->total_blocks));
 		lazy.put ("requeued_pulls", std::to_string (lazy_attempt->requeued_pulls));
 		lazy.put ("lazy_blocks", std::to_string (lazy_attempt->lazy_blocks.size ()));
@@ -1713,13 +1712,8 @@ void nano::json_handler::bootstrap_status ()
 	if (wallet_attempt != nullptr)
 	{
 		nano::lock_guard<std::mutex> lock (wallet_attempt->mutex);
-		nano::lock_guard<std::mutex> connections_lock (wallet_attempt->connections->mutex);
 		assert (wallet_attempt->mode == nano::bootstrap_mode::wallet_lazy);
-		wallet.put ("clients", std::to_string (wallet_attempt->connections->clients.size ()));
 		wallet.put ("pulling", std::to_string (wallet_attempt->pulling));
-		wallet.put ("connections", std::to_string (wallet_attempt->connections->connections_count));
-		wallet.put ("idle", std::to_string (wallet_attempt->connections->idle.size ()));
-		wallet.put ("target_connections", std::to_string (wallet_attempt->connections->target_connections (wallet_attempt->pulls.size ())));
 		wallet.put ("wallet_accounts", std::to_string (wallet_attempt->wallet_accounts.size ()));
 		wallet.put ("duration", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - wallet_attempt->attempt_start).count ());
 	}

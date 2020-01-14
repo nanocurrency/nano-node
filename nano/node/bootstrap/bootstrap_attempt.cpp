@@ -21,7 +21,6 @@ nano::bootstrap_attempt::bootstrap_attempt (std::shared_ptr<nano::node> node_a, 
 node (node_a),
 mode (mode_a)
 {
-	connections = std::make_shared<nano::bootstrap_connections> (node);
 	node->logger.always_log ("Starting bootstrap attempt");
 	node->bootstrap_initiator.notify_listeners (true);
 }
@@ -48,7 +47,7 @@ bool nano::bootstrap_attempt::should_log ()
 bool nano::bootstrap_attempt::still_pulling ()
 {
 	assert (!mutex.try_lock ());
-	auto running (!stopped && !connections->stopped);
+	auto running (!stopped);
 	auto more_pulls (!pulls.empty ());
 	auto still_pulling (pulling > 0);
 	return running && (more_pulls || still_pulling);
@@ -59,7 +58,6 @@ void nano::bootstrap_attempt::stop ()
 	nano::lock_guard<std::mutex> lock (mutex);
 	stopped = true;
 	condition.notify_all ();
-	connections->stop ();
 }
 
 void nano::bootstrap_attempt::add_pull (nano::pull_info const & pull_a)
@@ -152,7 +150,6 @@ void nano::bootstrap_attempt_legacy::stop ()
 	nano::lock_guard<std::mutex> lock (mutex);
 	stopped = true;
 	condition.notify_all ();
-	connections->stop ();
 	if (auto i = frontiers.lock ())
 	{
 		try
@@ -177,7 +174,7 @@ void nano::bootstrap_attempt_legacy::stop ()
 
 void nano::bootstrap_attempt_legacy::request_pull (nano::unique_lock<std::mutex> & lock_a)
 {
-	auto connection_l (connections->connection (lock_a));
+	auto connection_l (node->bootstrap_initiator.connections->connection (lock_a, shared_from_this ()));
 	if (connection_l)
 	{
 		auto pull (pulls.front ());
@@ -201,7 +198,7 @@ void nano::bootstrap_attempt_legacy::request_pull (nano::unique_lock<std::mutex>
 void nano::bootstrap_attempt_legacy::request_push (nano::unique_lock<std::mutex> & lock_a)
 {
 	bool error (false);
-	auto connection_l (connections->find_connection (endpoint_frontier_request));
+	auto connection_l (node->bootstrap_initiator.connections->find_connection (endpoint_frontier_request));
 	if (connection_l)
 	{
 		std::future<bool> future;
@@ -419,7 +416,7 @@ bool nano::bootstrap_attempt_legacy::confirm_frontiers (nano::unique_lock<std::m
 bool nano::bootstrap_attempt_legacy::request_frontier (nano::unique_lock<std::mutex> & lock_a, bool first_attempt)
 {
 	auto result (true);
-	auto connection_l (connections->connection (lock_a, first_attempt));
+	auto connection_l (node->bootstrap_initiator.connections->connection (lock_a, shared_from_this (), first_attempt));
 	if (connection_l)
 	{
 		endpoint_frontier_request = connection_l->channel->get_tcp_endpoint ();
@@ -484,7 +481,7 @@ void nano::bootstrap_attempt_legacy::run_start (nano::unique_lock<std::mutex> & 
 	recent_pulls_head.clear ();
 	auto frontier_failure (true);
 	uint64_t frontier_attempts (0);
-	while (!stopped && !connections->stopped && frontier_failure)
+	while (!stopped && frontier_failure)
 	{
 		++frontier_attempts;
 		frontier_failure = request_frontier (lock_a, frontier_attempts == 1);
@@ -495,7 +492,7 @@ void nano::bootstrap_attempt_legacy::run_start (nano::unique_lock<std::mutex> & 
 void nano::bootstrap_attempt_legacy::run ()
 {
 	assert (!node->flags.disable_legacy_bootstrap);
-	connections->start_populate_connections ();
+	node->bootstrap_initiator.connections->populate_connections (false);
 	nano::unique_lock<std::mutex> lock (mutex);
 	run_start (lock);
 	while (still_pulling ())
@@ -532,7 +529,5 @@ void nano::bootstrap_attempt_legacy::run ()
 		}
 	}
 	stopped = true;
-	connections->stopped = true;
 	condition.notify_all ();
-	connections->idle.clear ();
 }

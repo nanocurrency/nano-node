@@ -30,7 +30,7 @@ nano::bootstrap_attempt_lazy::~bootstrap_attempt_lazy ()
 
 void nano::bootstrap_attempt_lazy::request_pull_lazy (nano::unique_lock<std::mutex> & lock_a)
 {
-	auto connection_l (connections->connection (lock_a));
+	auto connection_l (node->bootstrap_initiator.connections->connection (lock_a, shared_from_this ()));
 	if (connection_l)
 	{
 		auto pull (pulls.front ());
@@ -162,7 +162,7 @@ void nano::bootstrap_attempt_lazy::lazy_pull_flush ()
 
 bool nano::bootstrap_attempt_lazy::lazy_finished ()
 {
-	if (stopped || connections->stopped)
+	if (stopped)
 	{
 		return true;
 	}
@@ -214,7 +214,7 @@ bool nano::bootstrap_attempt_lazy::lazy_has_expired () const
 void nano::bootstrap_attempt_lazy::lazy_run ()
 {
 	assert (!node->flags.disable_lazy_bootstrap);
-	connections->start_populate_connections ();
+	node->bootstrap_initiator.connections->populate_connections (false);
 	lazy_start_time = std::chrono::steady_clock::now ();
 	nano::unique_lock<std::mutex> lock (mutex);
 	while ((still_pulling () || !lazy_finished ()) && !lazy_has_expired ())
@@ -267,9 +267,7 @@ void nano::bootstrap_attempt_lazy::lazy_run ()
 		node->logger.try_log ("Completed lazy pulls");
 	}
 	stopped = true;
-	connections->stopped = true;
 	condition.notify_all ();
-	connections->idle.clear ();
 }
 
 bool nano::bootstrap_attempt_lazy::process_block (std::shared_ptr<nano::block> block_a, nano::account const & known_account_a, uint64_t pull_blocks, nano::bulk_pull::count_t max_blocks, bool block_expected, unsigned retry_limit)
@@ -540,7 +538,7 @@ nano::bootstrap_attempt_wallet::~bootstrap_attempt_wallet ()
 
 void nano::bootstrap_attempt_wallet::request_pending (nano::unique_lock<std::mutex> & lock_a)
 {
-	auto connection_l (connections->connection (lock_a));
+	auto connection_l (node->bootstrap_initiator.connections->connection (lock_a, shared_from_this ()));
 	if (connection_l)
 	{
 		auto account (wallet_accounts.front ());
@@ -576,7 +574,7 @@ void nano::bootstrap_attempt_wallet::wallet_start (std::deque<nano::account> & a
 bool nano::bootstrap_attempt_wallet::wallet_finished ()
 {
 	assert (!mutex.try_lock ());
-	auto running (!stopped && !connections->stopped);
+	auto running (!stopped);
 	auto more_accounts (!wallet_accounts.empty ());
 	auto still_pulling (pulling > 0);
 	return running && (more_accounts || still_pulling);
@@ -585,7 +583,7 @@ bool nano::bootstrap_attempt_wallet::wallet_finished ()
 void nano::bootstrap_attempt_wallet::wallet_run ()
 {
 	assert (!node->flags.disable_wallet_bootstrap);
-	connections->start_populate_connections ();
+	node->bootstrap_initiator.connections->populate_connections (false);
 	auto start_time (std::chrono::steady_clock::now ());
 	auto max_time (std::chrono::minutes (10));
 	nano::unique_lock<std::mutex> lock (mutex);
@@ -605,7 +603,6 @@ void nano::bootstrap_attempt_wallet::wallet_run ()
 		node->logger.try_log ("Completed wallet lazy pulls");
 	}
 	stopped = true;
-	connections->stopped = true;
 	condition.notify_all ();
 }
 
