@@ -7795,6 +7795,7 @@ TEST (rpc, node_telemetry)
 		ASSERT_EQ (node->network_params.protocol.protocol_version, response.json.get<uint8_t> ("protocol_version_number"));
 		ASSERT_EQ (nano::get_major_node_version (), response.json.get<uint8_t> ("vendor_version"));
 		ASSERT_GE (100, response.json.get<uint64_t> ("uptime"));
+		ASSERT_EQ (nano::genesis ().hash ().to_string (), response.json.get<std::string> ("genesis_block"));
 	}
 
 	request.put ("raw", "true");
@@ -7810,11 +7811,11 @@ TEST (rpc, node_telemetry)
 	ASSERT_TRUE (response.json.get<bool> ("cached"));
 
 	auto & all_metrics = response.json.get_child ("metrics");
-	std::vector<std::tuple<uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint32_t, uint8_t, uint8_t, uint64_t>> raw_metrics_json_l;
+	std::vector<std::tuple<uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint32_t, uint8_t, uint8_t, uint64_t, std::string>> raw_metrics_json_l;
 	for (auto & metrics_pair : all_metrics)
 	{
 		auto & metrics = metrics_pair.second;
-		raw_metrics_json_l.emplace_back (metrics.get<uint64_t> ("block_count"), metrics.get<uint64_t> ("cemented_count"), metrics.get<uint64_t> ("unchecked_count"), metrics.get<uint64_t> ("account_count"), metrics.get<uint64_t> ("bandwidth_cap"), metrics.get<uint64_t> ("peer_count"), metrics.get<uint8_t> ("protocol_version_number"), metrics.get<uint8_t> ("vendor_version"), metrics.get<uint64_t> ("uptime"));
+		raw_metrics_json_l.emplace_back (metrics.get<uint64_t> ("block_count"), metrics.get<uint64_t> ("cemented_count"), metrics.get<uint64_t> ("unchecked_count"), metrics.get<uint64_t> ("account_count"), metrics.get<uint64_t> ("bandwidth_cap"), metrics.get<uint64_t> ("peer_count"), metrics.get<uint8_t> ("protocol_version_number"), metrics.get<uint8_t> ("vendor_version"), metrics.get<uint64_t> ("uptime"), metrics.get<std::string> ("genesis_block"));
 	}
 
 	ASSERT_EQ (1, raw_metrics_json_l.size ());
@@ -7828,4 +7829,5 @@ TEST (rpc, node_telemetry)
 	ASSERT_EQ (node->network_params.protocol.protocol_version, std::get<6> (metrics));
 	ASSERT_EQ (nano::get_major_node_version (), std::get<7> (metrics));
 	ASSERT_GE (100, std::get<8> (metrics));
+	ASSERT_EQ (nano::genesis ().hash ().to_string (), std::get<9> (metrics));
 }

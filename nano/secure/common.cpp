@@ -161,7 +161,6 @@ nano::keypair const & nano::test_genesis_key (test_constants.test_genesis_key);
 nano::account const & nano::nano_test_account (test_constants.nano_test_account);
 std::string const & nano::nano_test_genesis (test_constants.nano_test_genesis);
 nano::account const & nano::genesis_account (test_constants.genesis_account);
-std::string const & nano::genesis_block (test_constants.genesis_block);
 nano::uint128_t const & nano::genesis_amount (test_constants.genesis_amount);
 nano::account const & nano::burn_account (test_constants.burn_account);
 

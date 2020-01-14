@@ -3916,7 +3916,7 @@ void nano::json_handler::telemetry ()
 		response_errors ();
 	}
 
-	// By default, consolidated (averages) telemetry metrics are returned,
+	// By default, consolidated (average or mode) telemetry metrics are returned,
 	// setting "raw" to true returns metrics from all nodes requested.
 	auto raw = request.get_optional<bool> ("raw");
 	auto output_raw = raw.is_initialized () ? *raw : false;

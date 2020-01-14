@@ -349,7 +349,7 @@ public:
 	/** Do not start TCP realtime network connections to nodes older than this version */
 	uint8_t tcp_realtime_protocol_version_min = 0x11;
 
-	/** Do not start request telemetry metrics to nodes older than this version */
+	/** Do not request telemetry metrics to nodes older than this version */
 	uint8_t telemetry_protocol_version_min = 0x12;
 };
 

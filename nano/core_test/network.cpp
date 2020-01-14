@@ -943,6 +943,7 @@ TEST (node_telemetry, consolidate_data)
 	data.bandwidth_cap = 100;
 	data.unchecked_count = 3;
 	data.uptime = 6;
+	data.genesis_block = nano::block_hash (3);
 
 	nano::telemetry_data data1;
 	data1.account_count = 5;
@@ -954,6 +955,7 @@ TEST (node_telemetry, consolidate_data)
 	data1.bandwidth_cap = 0;
 	data1.unchecked_count = 1;
 	data1.uptime = 10;
+	data1.genesis_block = nano::block_hash (4);
 
 	nano::telemetry_data data2;
 	data2.account_count = 3;
@@ -965,6 +967,7 @@ TEST (node_telemetry, consolidate_data)
 	data2.bandwidth_cap = 0;
 	data2.unchecked_count = 2;
 	data2.uptime = 3;
+	data2.genesis_block = nano::block_hash (4);
 
 	std::vector<nano::telemetry_data> all_data{ data, data1, data2 };
 
@@ -978,16 +981,19 @@ TEST (node_telemetry, consolidate_data)
 	ASSERT_EQ (consolidated_telemetry_data.bandwidth_cap, 0);
 	ASSERT_EQ (consolidated_telemetry_data.unchecked_count, 2);
 	ASSERT_EQ (consolidated_telemetry_data.uptime, 6);
+	ASSERT_EQ (consolidated_telemetry_data.genesis_block, nano::block_hash (4));
 
 	// Modify the metrics which may be either the mode or averages to ensure all are tested.
 	all_data[2].bandwidth_cap = 53;
-	all_data[2].protocol_version_number = 2;
-	all_data[2].vendor_version = 3;
+	all_data[2].protocol_version_number = 13;
+	all_data[2].vendor_version = 13;
+	all_data[2].genesis_block = nano::block_hash (3);
 
 	auto consolidated_telemetry_data1 = nano::telemetry_data::consolidate (all_data);
-	ASSERT_EQ (consolidated_telemetry_data1.vendor_version, 11);
-	ASSERT_EQ (consolidated_telemetry_data1.protocol_version_number, 8);
+	ASSERT_TRUE (consolidated_telemetry_data1.vendor_version == 10 || consolidated_telemetry_data1.vendor_version == 13 ||consolidated_telemetry_data1.vendor_version == 20);
+	ASSERT_TRUE (consolidated_telemetry_data1.protocol_version_number == 11 || consolidated_telemetry_data1.protocol_version_number == 12 || consolidated_telemetry_data1.protocol_version_number == 13);
 	ASSERT_EQ (consolidated_telemetry_data1.bandwidth_cap, 51);
+	ASSERT_EQ (consolidated_telemetry_data1.genesis_block, nano::block_hash (3));
 
 	// Test equality operator
 	ASSERT_FALSE (consolidated_telemetry_data == consolidated_telemetry_data1);
@@ -1059,6 +1065,7 @@ TEST (node_telemetry, basic)
 	ASSERT_EQ (telemetry_data.account_count, 1);
 	ASSERT_EQ (telemetry_data.vendor_version, nano::get_major_node_version ());
 	ASSERT_LT (telemetry_data.uptime, 100);
+	ASSERT_EQ (telemetry_data.genesis_block, nano::genesis ().hash ());
 
 	// Call again straight away. It should use the cache
 	{
@@ -1145,6 +1152,7 @@ TEST (node_telemetry, many_nodes)
 		ASSERT_LT (data.bandwidth_cap, 100000 + system.nodes.size ());
 		ASSERT_EQ (data.vendor_version, nano::get_major_node_version ());
 		ASSERT_LT (data.uptime, 100);
+		ASSERT_EQ (data.genesis_block, genesis.hash ());
 	}
 
 	// We gave some nodes different bandwidth caps, confirm they are not all the time
@@ -1198,6 +1206,7 @@ TEST (node_telemetry, over_udp)
 	ASSERT_EQ (telemetry_data.account_count, 1);
 	ASSERT_EQ (telemetry_data.vendor_version, nano::get_major_node_version ());
 	ASSERT_LT (telemetry_data.uptime, 100);
+	ASSERT_EQ (telemetry_data.genesis_block, nano::genesis ().hash ());
 
 	// Check channels are indeed udp
 	ASSERT_EQ (1, node_client->network.size ());

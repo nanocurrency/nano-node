@@ -617,6 +617,7 @@ public:
 		telemetry_data.vendor_version = nano::get_major_node_version ();
 		telemetry_data.uptime = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - node.startup_time).count ();
 		telemetry_data.unchecked_count = node.ledger.cache.unchecked_count;
+		telemetry_data.genesis_block = nano::genesis ().hash ();
 
 		{
 			auto transaction = node.store.tx_begin_read ();
