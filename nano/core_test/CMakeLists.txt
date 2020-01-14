@@ -24,6 +24,7 @@ add_executable (core_test
 	memory_pool.cpp
 	processor_service.cpp
 	peer_container.cpp
+	request_aggregator.cpp
 	signing.cpp
 	socket.cpp
 	toml.cpp
