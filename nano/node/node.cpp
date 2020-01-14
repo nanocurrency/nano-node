@@ -132,6 +132,7 @@ port_mapping (*this),
 vote_processor (checker, active, store, observers, stats, config, logger, online_reps, ledger, network_params),
 rep_crawler (*this),
 warmed_up (0),
+votes_cache (wallets),
 block_processor (*this, write_database_queue),
 block_processor_thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::block_processing);
