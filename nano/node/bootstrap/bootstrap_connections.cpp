@@ -185,12 +185,8 @@ void nano::bootstrap_connections::populate_connections (bool repeat)
 	std::priority_queue<std::shared_ptr<nano::bootstrap_client>, std::vector<std::shared_ptr<nano::bootstrap_client>>, block_rate_cmp> sorted_connections;
 	std::unordered_set<nano::tcp_endpoint> endpoints;
 	{
-		// Temporary disable scaling
-		/*{
-			nano::lock_guard<std::mutex> lock (attempt->mutex);
-			num_pulls = attempt->pulls.size ();
-		}*/
 		nano::unique_lock<std::mutex> lock (mutex);
+		num_pulls = pulls.size ();
 		std::deque<std::weak_ptr<nano::bootstrap_client>> new_clients;
 		for (auto & c : clients)
 		{
