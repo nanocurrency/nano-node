@@ -507,7 +507,8 @@ void nano::message_parser::deserialize_telemetry_ack (nano::stream & stream_a, n
 {
 	bool error_l (false);
 	nano::telemetry_ack incoming (error_l, stream_a, header_a);
-	if (!error_l && at_end (stream_a))
+	// Intentionally not checking if at the end of stream, because these messages support backwards/forwards compatibility
+	if (!error_l)
 	{
 		visitor.telemetry_ack (incoming);
 	}
