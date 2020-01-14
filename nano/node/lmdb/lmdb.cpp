@@ -578,7 +578,7 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction & transaction_
 		release_assert (rep_block != nullptr);
 		account_infos.emplace_back (account, nano::account_info{ account_info_v14.head, rep_block->representative (), account_info_v14.open_block, account_info_v14.balance, account_info_v14.modified, account_info_v14.block_count, i_account.from_first_database ? nano::epoch::epoch_0 : nano::epoch::epoch_1 });
 		// Move confirmation height from account_info database to its own table
-		confirmation_height_put (transaction_a, account, account_info_v14.confirmation_height);
+		mdb_put (env.tx (transaction_a), confirmation_height, nano::mdb_val (account), nano::mdb_val (account_info_v14.confirmation_height), MDB_APPEND);
 		i_account.from_first_database ? ++account_counters.after_v0 : ++account_counters.after_v1;
 	}
 
@@ -685,6 +685,71 @@ void nano::mdb_store::upgrade_v15_to_v16 (nano::write_transaction & transaction_
 		auto status (mdb_drop (env.tx (transaction_a), representation, 1));
 		release_assert (status == MDB_SUCCESS);
 		representation = 0;
+	}
+
+	auto account_info_i = latest_begin (transaction_a);
+	auto account_info_n = latest_end ();
+
+	// Set the confirmed frontier for each account in the confirmation height table
+	std::vector<std::pair<nano::account, nano::confirmation_height_info>> confirmation_height_infos;
+	for (nano::mdb_iterator<nano::account, uint64_t> i (transaction_a, confirmation_height), n (nano::mdb_iterator<nano::account, uint64_t>{}); i != n; ++i, ++account_info_i)
+	{
+		nano::account account (i->first);
+		uint64_t confirmation_height (i->second);
+
+		// Check account hashes matches both the accounts table and confirmation height table
+		assert (account == account_info_i->first);
+
+		auto const & account_info = account_info_i->second;
+
+		if (confirmation_height == 0)
+		{
+			confirmation_height_infos.emplace_back (account, confirmation_height_info{ 0, nano::block_hash (0) });
+		}
+		else
+		{
+			if (account_info_i->second.block_count / 2 > confirmation_height)
+			{
+				// The confirmation height of the account to closer to the bottom of the chain, so start there and work up
+				nano::block_sideband sideband;
+				auto block = block_get (transaction_a, account_info.open_block, &sideband);
+				assert (block);
+				auto height = 1;
+
+				while (height != confirmation_height)
+				{
+					block = block_get (transaction_a, sideband.successor, &sideband);
+					assert (block);
+					++height;
+				}
+
+				assert (sideband.height == confirmation_height);
+				confirmation_height_infos.emplace_back (account, confirmation_height_info{ confirmation_height, block->hash () });
+			}
+			else
+			{
+				// The confirmation height of the account to closer to the top of the chain so start there and work down
+				nano::block_sideband sideband;
+				auto block = block_get (transaction_a, account_info.head, &sideband);
+				auto height = sideband.height;
+				while (height != confirmation_height)
+				{
+					block = block_get (transaction_a, block->previous ());
+					assert (block);
+					--height;
+				}
+				confirmation_height_infos.emplace_back (account, confirmation_height_info{ confirmation_height, block->hash () });
+			}
+		}
+	}
+
+	// Clear it then append
+	auto status (mdb_drop (env.tx (transaction_a), confirmation_height, 0));
+	release_assert (status == MDB_SUCCESS);
+
+	for (auto const & confirmation_height_info_pair : confirmation_height_infos)
+	{
+		mdb_put (env.tx (transaction_a), confirmation_height, nano::mdb_val (confirmation_height_info_pair.first), nano::mdb_val (confirmation_height_info_pair.second), MDB_APPEND);
 	}
 
 	version_put (transaction_a, 16);

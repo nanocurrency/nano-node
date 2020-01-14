@@ -170,7 +170,7 @@ TEST (store, load)
 				{
 					nano::account account;
 					nano::random_pool::generate_block (account.bytes.data (), account.bytes.size ());
-					system.nodes[0]->store.confirmation_height_put (transaction, account, 0);
+					system.nodes[0]->store.confirmation_height_put (transaction, account, { 0, nano::block_hash (0) });
 					system.nodes[0]->store.account_put (transaction, account, nano::account_info ());
 				}
 			}
@@ -515,9 +515,9 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 		auto & account = i->first;
 		auto & account_info = i->second;
 		auto count = (account != last_keypair.pub) ? 2 : 1;
-		uint64_t confirmation_height;
-		ASSERT_FALSE (node->store.confirmation_height_get (transaction, account, confirmation_height));
-		ASSERT_EQ (count, confirmation_height);
+		nano::confirmation_height_info confirmation_height_info;
+		ASSERT_FALSE (node->store.confirmation_height_get (transaction, account, confirmation_height_info));
+		ASSERT_EQ (count, confirmation_height_info.height);
 		ASSERT_EQ (count, account_info.block_count);
 	}
 
@@ -651,13 +651,14 @@ TEST (confirmation_height, long_chains)
 	nano::account_info account_info;
 	ASSERT_FALSE (node->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
 	uint64_t confirmation_height;
-	ASSERT_FALSE (node->store.confirmation_height_get (transaction, nano::test_genesis_key.pub, confirmation_height));
-	ASSERT_EQ (num_blocks + 2, confirmation_height);
+	nano::confirmation_height_info confirmation_height_info;
+	ASSERT_FALSE (node->store.confirmation_height_get (transaction, nano::test_genesis_key.pub, confirmation_height_info));
+	ASSERT_EQ (num_blocks + 2, confirmation_height_info.height);
 	ASSERT_EQ (num_blocks + 3, account_info.block_count); // Includes the unpocketed send
 
 	ASSERT_FALSE (node->store.account_get (transaction, key1.pub, account_info));
-	ASSERT_FALSE (node->store.confirmation_height_get (transaction, key1.pub, confirmation_height));
-	ASSERT_EQ (num_blocks + 1, confirmation_height);
+	ASSERT_FALSE (node->store.confirmation_height_get (transaction, key1.pub, confirmation_height_info));
+	ASSERT_EQ (num_blocks + 1, confirmation_height_info.height);
 	ASSERT_EQ (num_blocks + 1, account_info.block_count);
 
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), num_blocks * 2 + 2);

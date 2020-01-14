@@ -617,7 +617,8 @@ int main (int argc, char * const * argv)
 					run_addr2line (false);
 					{
 						std::ofstream ofs (crash_report_filename, std::ios_base::out | std::ios_base::app);
-						ofs << std::endl << "Using relative addresses:" << std::endl; // Add an empty line to separate the absolute & relative output
+						ofs << std::endl
+						    << "Using relative addresses:" << std::endl; // Add an empty line to separate the absolute & relative output
 					}
 
 					// Now run using relative addresses. This will give actual results for other dlls, the results from the nano_node executable.
@@ -975,12 +976,12 @@ int main (int argc, char * const * argv)
 				}
 				nano::account_info const & info (i->second);
 				nano::account const & account (i->first);
-				uint64_t confirmation_height;
-				node.node->store.confirmation_height_get (transaction, account, confirmation_height);
+				nano::confirmation_height_info confirmation_height_info;
+				node.node->store.confirmation_height_get (transaction, account, confirmation_height_info);
 
-				if (confirmation_height > info.block_count)
+				if (confirmation_height_info.height > info.block_count)
 				{
-					std::cerr << "Confirmation height " << confirmation_height << " greater than block count " << info.block_count << " for account: " << account.to_account () << std::endl;
+					std::cerr << "Confirmation height " << confirmation_height_info.height << " greater than block count " << info.block_count << " for account: " << account.to_account () << std::endl;
 				}
 
 				auto hash (info.open_block);

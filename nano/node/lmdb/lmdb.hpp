@@ -184,8 +184,8 @@ public:
 	MDB_dbi peers{ 0 };
 
 	/*
-	 * Confirmation height of an account
-	 * nano::account -> uint64_t
+	 * Confirmation height of an account, and the hash for the block at that height
+	 * nano::account -> uint64_t, nano::block_hash
 	 */
 	MDB_dbi confirmation_height{ 0 };
 
