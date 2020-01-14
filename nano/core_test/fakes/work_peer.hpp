@@ -143,7 +143,7 @@ private:
 				std::stringstream ostream;
 				ptree::write_json (ostream, message_l);
 				beast::ostream (this_l->response.body ()) << ostream.str ();
-				// Delay response by 1 second as a slow peer, immediate async call for a good peer
+				// Delay response by 500ms as a slow peer, immediate async call for a good peer
 				this_l->timer.expires_from_now (boost::posix_time::milliseconds (this_l->type == work_peer_type::slow ? 500 : 0));
 				this_l->timer.async_wait ([this_l, result](const boost::system::error_code & ec) {
 					if (this_l->on_generation)
