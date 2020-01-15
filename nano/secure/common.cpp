@@ -28,7 +28,7 @@ namespace
 {
 char const * test_private_key_data = "34F0A37AAD20F4A260F0A5B3CB3D7FB50673212263E58A380BC10474BB039CE4";
 char const * test_public_key_data = "B0311EA55708D6A53C75CDBF88300259C6D018522FE3D4D0A242E431F9E8B6D0"; // xrb_3e3j5tkog48pnny9dmfzj1r16pg8t1e76dz5tmac6iq689wyjfpiij4txtdo
-char const * beta_public_key_data = "A59A439B34662385D48F7FF9CA50030F889BAA9AC320EA5A85AAD777CF82B088"; // nano_3betagfmasj5iqcayzzssba185wamgobois1xbfadcpqgz9r7e6a1zwztn5o
+char const * beta_public_key_data = "259A4394DB16B1FFE5568476655E844BA59E8EB5D222F20D42E50684D0C16B54"; // nano_1betagcfp7ojzzkof35peohaakx7mt9ddnj4ya8n7sa8imae4ttnm16dm753
 char const * live_public_key_data = "E89208DD038FBB269987689621D52292AE9C35941A7484756ECCED92A65093BA"; // xrb_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3
 char const * test_genesis_data = R"%%%({
 	"type": "open",
@@ -41,11 +41,11 @@ char const * test_genesis_data = R"%%%({
 
 char const * beta_genesis_data = R"%%%({
 	"type": "open",
-	"source": "A59A439B34662385D48F7FF9CA50030F889BAA9AC320EA5A85AAD777CF82B088",
-	"representative": "nano_3betagfmasj5iqcayzzssba185wamgobois1xbfadcpqgz9r7e6a1zwztn5o",
-	"account": "nano_3betagfmasj5iqcayzzssba185wamgobois1xbfadcpqgz9r7e6a1zwztn5o",
-	"work": "cb4efb49972c7106",
-	"signature": "C14ACC986C0561871B3382A93F5E64AFE55A3FA2EEE6892A7358DC817E2034AA56160CAA807A21EDFCFA528D034CD266F9ABFA4E2FF221D856255265BFDC0608"
+	"source": "259A4394DB16B1FFE5568476655E844BA59E8EB5D222F20D42E50684D0C16B54",
+	"representative": "nano_1betagcfp7ojzzkof35peohaakx7mt9ddnj4ya8n7sa8imae4ttnm16dm753",
+	"account": "nano_1betagcfp7ojzzkof35peohaakx7mt9ddnj4ya8n7sa8imae4ttnm16dm753",
+	"work": "7f5c2eb5e2658e81",
+	"signature": "DB9EFAC98A28EEA048E722F91C2A2720E1D8EF2A81453C80FC53B453180C0A264CE021D38D5B4540B1BBB0C378B80F2DF7389027593C08DDEF9F47934B9CF805"
 	})%%%";
 
 char const * live_genesis_data = R"%%%({
@@ -69,7 +69,7 @@ network (network_a), protocol (network_a), ledger (network), voting (network), n
 	unsigned constexpr kdf_full_work = 64 * 1024;
 	unsigned constexpr kdf_test_work = 8;
 	kdf_work = network.is_test_network () ? kdf_test_work : kdf_full_work;
-	header_magic_number = network.is_test_network () ? std::array<uint8_t, 2>{ { 'R', 'A' } } : network.is_beta_network () ? std::array<uint8_t, 2>{ { 'N', 'B' } } : std::array<uint8_t, 2>{ { 'R', 'C' } };
+	header_magic_number = network.is_test_network () ? std::array<uint8_t, 2>{ { 'R', 'A' } } : network.is_beta_network () ? std::array<uint8_t, 2>{ { 'N', 'D' } } : std::array<uint8_t, 2>{ { 'R', 'C' } };
 }
 
 nano::protocol_constants::protocol_constants (nano::nano_networks network_a)
