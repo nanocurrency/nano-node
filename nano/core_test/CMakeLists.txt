@@ -5,6 +5,7 @@ add_executable (core_test
 	block.cpp
 	block_store.cpp
 	bootstrap.cpp
+	cli.cpp
 	confirmation_height.cpp
 	confirmation_solicitor.cpp
 	conflicts.cpp
