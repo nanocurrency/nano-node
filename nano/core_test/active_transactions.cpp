@@ -637,11 +637,13 @@ TEST (active_transactions, restart_dropped)
 		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	// Verify the block was updated in the ledger
+	std::shared_ptr<nano::block> block;
+	while (block == nullptr)
 	{
-		auto block (node.store.block_get (node.store.tx_begin_read (), send1->hash ()));
-		ASSERT_EQ (work2, block->block_work ());
+		ASSERT_NO_ERROR (system.poll ());
+		block = node.store.block_get (node.store.tx_begin_read (), send1->hash ());
 	}
+	ASSERT_EQ (work2, block->block_work ());
 	// Drop election
 	node.active.erase (*send2);
 	// Try to restart election with the lower difficulty block, should not work since the block as lower work

@@ -333,7 +333,7 @@ startup_time (std::chrono::steady_clock::now ())
 						{
 							logger.try_log (boost::str (boost::format ("Found a representative at %1%") % channel_a->to_string ()));
 							// Rebroadcasting all active votes to new representative
-							auto blocks (this->active.list_blocks (true));
+							auto blocks (this->active.list_blocks ());
 							for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
 							{
 								if (*i != nullptr)
