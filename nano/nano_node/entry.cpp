@@ -2,7 +2,7 @@
 #include <nano/lib/utility.hpp>
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/cli.hpp>
-#include <nano/node/ipc.hpp>
+#include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/testing.hpp>

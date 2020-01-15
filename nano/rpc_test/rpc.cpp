@@ -3,7 +3,7 @@
 #include <nano/core_test/testutil.hpp>
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/threading.hpp>
-#include <nano/node/ipc.hpp>
+#include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node_rpc_config.hpp>
 #include <nano/node/testing.hpp>
@@ -7335,7 +7335,8 @@ TEST (rpc, in_process)
 	nano::rpc_config rpc_config (nano::get_available_port (), true);
 	rpc_config.rpc_process.ipc_port = node->config.ipc_config.transport_tcp.port;
 	nano::node_rpc_config node_rpc_config;
-	nano::inprocess_rpc_handler inprocess_rpc_handler (*node, node_rpc_config);
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
+	nano::inprocess_rpc_handler inprocess_rpc_handler (*node, ipc_server, node_rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, inprocess_rpc_handler);
 	rpc.start ();
 	boost::property_tree::ptree request;

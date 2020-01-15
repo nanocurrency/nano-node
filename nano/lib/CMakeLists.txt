@@ -69,6 +69,7 @@ target_link_libraries (nano_lib
 	ed25519
 	crypto_lib
 	blake2
+	ipc_flatbuffers_lib
 	${CRYPTOPP_LIBRARY}
 	${CMAKE_DL_LIBS}
 	Boost::boost)
