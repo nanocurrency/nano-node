@@ -201,11 +201,6 @@ void nano::network::confirm_hashes (nano::transaction const & transaction_a, std
 		node.wallets.foreach_representative ([this, &blocks_bundle_a, &channel_a, &transaction_a](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
 			auto vote (this->node.store.vote_generate (transaction_a, pub_a, prv_a, blocks_bundle_a));
 			nano::confirm_ack confirm (vote);
-			std::shared_ptr<std::vector<uint8_t>> bytes (new std::vector<uint8_t>);
-			{
-				nano::vectorstream stream (*bytes);
-				confirm.serialize (stream);
-			}
 			channel_a->send (confirm);
 			this->node.votes_cache.add (vote);
 		});
