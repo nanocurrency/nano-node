@@ -76,7 +76,7 @@ public:
 		default_rpc_port = is_live_network () ? 7076 : is_beta_network () ? 55000 : 45000;
 		default_ipc_port = is_live_network () ? 7077 : is_beta_network () ? 56000 : 46000;
 		default_websocket_port = is_live_network () ? 7078 : is_beta_network () ? 57000 : 47000;
-		request_interval_ms = is_test_network () ? (is_sanitizer_build ? 100 : 20) : 500;
+		request_interval_ms = is_test_network () ? 20 : 500;
 	}
 
 	/** Network work thresholds. ~5 seconds of work for the live network */
