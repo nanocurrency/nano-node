@@ -714,7 +714,7 @@ void nano::mdb_store::upgrade_v15_to_v16 (nano::write_transaction & transaction_
 		{
 			if (account_info_i->second.block_count / 2 >= confirmation_height)
 			{
-				// The confirmation height of the account to closer to the bottom of the chain, so start there and work up
+				// The confirmation height of the account is closer to the bottom of the chain, so start there and work up
 				nano::block_sideband sideband;
 				auto block = block_get (transaction_a, account_info.open_block, &sideband);
 				assert (block);
@@ -732,7 +732,7 @@ void nano::mdb_store::upgrade_v15_to_v16 (nano::write_transaction & transaction_
 			}
 			else
 			{
-				// The confirmation height of the account to closer to the top of the chain so start there and work down
+				// The confirmation height of the account is closer to the top of the chain so start there and work down
 				nano::block_sideband sideband;
 				auto block = block_get (transaction_a, account_info.head, &sideband);
 				auto height = sideband.height;
