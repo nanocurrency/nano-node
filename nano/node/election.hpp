@@ -79,6 +79,8 @@ public:
 	bool stopped;
 	std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
 	unsigned confirmation_request_count{ 0 };
+	std::chrono::steady_clock::time_point last_broadcast;
+	std::chrono::steady_clock::time_point last_request;
 	std::unordered_set<nano::block_hash> dependent_blocks;
 	std::chrono::seconds late_blocks_delay{ 5 };
 };

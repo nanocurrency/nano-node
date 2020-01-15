@@ -132,6 +132,7 @@ port_mapping (*this),
 vote_processor (checker, active, store, observers, stats, config, logger, online_reps, ledger, network_params),
 rep_crawler (*this),
 warmed_up (0),
+votes_cache (wallets),
 block_processor (*this, write_database_queue),
 block_processor_thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::block_processing);
@@ -330,7 +331,7 @@ startup_time (std::chrono::steady_clock::now ())
 						{
 							logger.try_log (boost::str (boost::format ("Found a representative at %1%") % channel_a->to_string ()));
 							// Rebroadcasting all active votes to new representative
-							auto blocks (this->active.list_blocks (true));
+							auto blocks (this->active.list_blocks ());
 							for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
 							{
 								if (*i != nullptr)

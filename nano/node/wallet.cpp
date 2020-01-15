@@ -1758,10 +1758,13 @@ void nano::wallets::foreach_representative (std::function<void(nano::public_key 
 		{
 			auto & wallet (*i->second);
 			nano::lock_guard<std::recursive_mutex> store_lock (wallet.store.mutex);
-			nano::lock_guard<std::mutex> representatives_lock (wallet.representatives_mutex);
-			for (auto ii (wallet.representatives.begin ()), nn (wallet.representatives.end ()); ii != nn; ++ii)
+			decltype (wallet.representatives) representatives_l;
 			{
-				nano::account account (*ii);
+				nano::lock_guard<std::mutex> representatives_lock (wallet.representatives_mutex);
+				representatives_l = wallet.representatives;
+			}
+			for (auto const & account : representatives_l)
+			{
 				if (wallet.store.exists (transaction_l, account))
 				{
 					if (!node.ledger.weight (account).is_zero ())

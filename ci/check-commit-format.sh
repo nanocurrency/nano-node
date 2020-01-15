@@ -10,4 +10,7 @@ if [ "$RESULT" != "no modified files to format" ] && [ "$RESULT" != "clang-forma
     echo
     echo "Code formatting differs from expected - please run ci/clang-format-all.sh"
     exit 1
+else
+    echo "clang-format passed"
+    exit 0
 fi
