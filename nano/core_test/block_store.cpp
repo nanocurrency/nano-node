@@ -1731,8 +1731,9 @@ TEST (mdb_block_store, upgrade_v15_v16)
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::state_block block1 (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (genesis.hash ()));
 	nano::state_block block2 (nano::test_genesis_key.pub, block1.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio - 1, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (block1.hash ()));
+	nano::state_block block3 (nano::test_genesis_key.pub, block2.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio - 2, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (block2.hash ()));
 
-	auto code = [block1, block2](auto confirmation_height, nano::block_hash const & expected_cemented_frontier) {
+	auto code = [block1, block2, block3](auto confirmation_height, nano::block_hash const & expected_cemented_frontier) {
 		auto path (nano::unique_path ());
 		nano::mdb_val value;
 		{
@@ -1745,6 +1746,7 @@ TEST (mdb_block_store, upgrade_v15_v16)
 			store.initialize (transaction, genesis, ledger.cache);
 			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block1).code);
 			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block2).code);
+			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block3).code);
 			// The representation table should get removed after, so readd it so that we can later confirm this actually happens
 			auto txn = store.env.tx (transaction);
 			ASSERT_FALSE (mdb_dbi_open (txn, "representation", MDB_CREATE, &store.representation));
@@ -1778,9 +1780,11 @@ TEST (mdb_block_store, upgrade_v15_v16)
 		ASSERT_EQ (store.representation, 0);
 	};
 
+	code (0, nano::block_hash (0));
 	code (1, genesis.hash ());
 	code (2, block1.hash ());
 	code (3, block2.hash ());
+	code (4, block3.hash ());
 }
 
 TEST (mdb_block_store, upgrade_backup)

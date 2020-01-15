@@ -81,6 +81,7 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 			nano::network_constants network_constants;
 			if (needs_vacuuming && !network_constants.is_test_network ())
 			{
+				logger.always_log ("Preparing vacuum...");
 				auto vacuum_success = vacuum_after_upgrade (path_a, lmdb_max_dbs);
 				logger.always_log (vacuum_success ? "Vacuum succeeded." : "Failed to vacuum. (Optional) Ensure enough disk space is available for a copy of the database and try to vacuum after shutting down the node");
 			}
@@ -673,11 +674,13 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction & transaction_
 	}
 
 	version_put (transaction_a, 15);
-	logger.always_log ("Finished epoch merge upgrade. Preparing vacuum...");
+	logger.always_log ("Finished epoch merge upgrade");
 }
 
 void nano::mdb_store::upgrade_v15_to_v16 (nano::write_transaction & transaction_a)
 {
+	logger.always_log ("Preparing v15 to v16 upgrade...");
+
 	// Representation table is no longer used
 	assert (representation != 0);
 	if (representation != 0)
@@ -692,7 +695,8 @@ void nano::mdb_store::upgrade_v15_to_v16 (nano::write_transaction & transaction_
 
 	// Set the confirmed frontier for each account in the confirmation height table
 	std::vector<std::pair<nano::account, nano::confirmation_height_info>> confirmation_height_infos;
-	for (nano::mdb_iterator<nano::account, uint64_t> i (transaction_a, confirmation_height), n (nano::mdb_iterator<nano::account, uint64_t>{}); i != n; ++i, ++account_info_i)
+	auto num = 0u;
+	for (nano::mdb_iterator<nano::account, uint64_t> i (transaction_a, confirmation_height), n (nano::mdb_iterator<nano::account, uint64_t>{}); i != n; ++i, ++account_info_i, ++num)
 	{
 		nano::account account (i->first);
 		uint64_t confirmation_height (i->second);
@@ -708,7 +712,7 @@ void nano::mdb_store::upgrade_v15_to_v16 (nano::write_transaction & transaction_
 		}
 		else
 		{
-			if (account_info_i->second.block_count / 2 > confirmation_height)
+			if (account_info_i->second.block_count / 2 >= confirmation_height)
 			{
 				// The confirmation height of the account to closer to the bottom of the chain, so start there and work up
 				nano::block_sideband sideband;
@@ -741,6 +745,13 @@ void nano::mdb_store::upgrade_v15_to_v16 (nano::write_transaction & transaction_
 				confirmation_height_infos.emplace_back (account, confirmation_height_info{ confirmation_height, block->hash () });
 			}
 		}
+
+		// Every so often output to the log to indicate progress (every 200k accounts)
+		constexpr auto output_cutoff = 200000;
+		if (num % output_cutoff == 0 && num != 0)
+		{
+			logger.always_log (boost::str (boost::format ("Confirmation height frontier set for %1%00k accounts") % ((num / output_cutoff) * 2)));
+		}
 	}
 
 	// Clear it then append
@@ -753,6 +764,7 @@ void nano::mdb_store::upgrade_v15_to_v16 (nano::write_transaction & transaction_
 	}
 
 	version_put (transaction_a, 16);
+	logger.always_log ("Finished upgrading confirmation height frontiers");
 }
 
 /** Takes a filepath, appends '_backup_<timestamp>' to the end (but before any extension) and saves that file in the same directory */
