@@ -530,7 +530,7 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, bool 
 }
 
 // Validate a vote and apply it to the current election if one exists
-nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a, bool single_lock)
+nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a)
 {
 	// If none of the hashes are active, it is unknown whether it's a replay
 	// In this case, votes are also not republished
@@ -538,11 +538,7 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> vot
 	bool replay (false);
 	bool processed (false);
 	{
-		nano::unique_lock<std::mutex> lock;
-		if (!single_lock)
-		{
-			lock = nano::unique_lock<std::mutex> (mutex);
-		}
+		nano::lock_guard<std::mutex> lock (mutex);
 		for (auto vote_block : vote_a->blocks)
 		{
 			nano::election_vote_result result;
@@ -797,14 +793,10 @@ uint64_t nano::active_transactions::limited_active_difficulty ()
 }
 
 // List of active blocks in elections
-std::deque<std::shared_ptr<nano::block>> nano::active_transactions::list_blocks (bool single_lock)
+std::deque<std::shared_ptr<nano::block>> nano::active_transactions::list_blocks ()
 {
 	std::deque<std::shared_ptr<nano::block>> result;
-	nano::unique_lock<std::mutex> lock;
-	if (!single_lock)
-	{
-		lock = nano::unique_lock<std::mutex> (mutex);
-	}
+	nano::lock_guard<std::mutex> lock (mutex);
 	for (auto & root : roots)
 	{
 		result.push_back (root.election->status.winner);

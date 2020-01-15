@@ -80,7 +80,7 @@ public:
 	bool start (std::shared_ptr<nano::block>, bool const = false, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
 	// clang-format on
 	// Distinguishes replay votes, cannot be determined if the block is not in any election
-	nano::vote_code vote (std::shared_ptr<nano::vote>, bool = false);
+	nano::vote_code vote (std::shared_ptr<nano::vote>);
 	// Is the root of this block in the roots container
 	bool active (nano::block const &);
 	bool active (nano::qualified_root const &);
@@ -89,7 +89,7 @@ public:
 	void update_active_difficulty (nano::unique_lock<std::mutex> &);
 	uint64_t active_difficulty ();
 	uint64_t limited_active_difficulty ();
-	std::deque<std::shared_ptr<nano::block>> list_blocks (bool = false);
+	std::deque<std::shared_ptr<nano::block>> list_blocks ();
 	void erase (nano::block const &);
 	bool empty ();
 	size_t size ();

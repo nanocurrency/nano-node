@@ -2796,7 +2796,6 @@ TEST (node, fork_invalid_block_signature_vote_by_hash)
 	auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, vote_blocks));
 	{
 		auto transaction (node1.store.tx_begin_read ());
-		nano::unique_lock<std::mutex> lock (node1.active.mutex);
 		node1.vote_processor.vote_blocking (transaction, vote, std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, node1.network.endpoint (), node1.network_params.protocol.protocol_version));
 	}
 	while (node1.block (send1->hash ()))
@@ -2965,7 +2964,6 @@ TEST (node, confirm_back)
 	auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, vote_blocks));
 	{
 		auto transaction (node.store.tx_begin_read ());
-		nano::unique_lock<std::mutex> lock (node.active.mutex);
 		node.vote_processor.vote_blocking (transaction, vote, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
 	}
 	system.deadline_set (10s);
