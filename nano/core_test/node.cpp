@@ -1994,26 +1994,26 @@ TEST (node, rep_weight)
 	nano::genesis genesis;
 	nano::keypair keypair1;
 	nano::block_builder builder;
-	std::shared_ptr <nano::block> block1 = builder
-		.state ()
-		.account (nano::test_genesis_key.pub)
-		.previous (genesis.hash ())
-		.representative (nano::test_genesis_key.pub)
-		.balance (nano::genesis_amount - node.minimum_principal_weight() * 4)
-		.link (keypair1.pub)
-		.sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
-		.work (*system.work.generate (genesis.hash ()))
-		.build ();
-	std::shared_ptr <nano::block> block2 = builder
-		.state ()
-		.account (keypair1.pub)
-		.previous (0)
-		.representative (keypair1.pub)
-		.balance (node.minimum_principal_weight() * 4)
-		.link (block1->hash ())
-		.sign (keypair1.prv, keypair1.pub)
-		.work (*system.work.generate (keypair1.pub))
-		.build ();
+	std::shared_ptr<nano::block> block1 = builder
+	                                      .state ()
+	                                      .account (nano::test_genesis_key.pub)
+	                                      .previous (genesis.hash ())
+	                                      .representative (nano::test_genesis_key.pub)
+	                                      .balance (nano::genesis_amount - node.minimum_principal_weight () * 4)
+	                                      .link (keypair1.pub)
+	                                      .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	                                      .work (*system.work.generate (genesis.hash ()))
+	                                      .build ();
+	std::shared_ptr<nano::block> block2 = builder
+	                                      .state ()
+	                                      .account (keypair1.pub)
+	                                      .previous (0)
+	                                      .representative (keypair1.pub)
+	                                      .balance (node.minimum_principal_weight () * 4)
+	                                      .link (block1->hash ())
+	                                      .sign (keypair1.prv, keypair1.pub)
+	                                      .work (*system.work.generate (keypair1.pub))
+	                                      .build ();
 	{
 		auto transaction = node.store.tx_begin_write ();
 		ASSERT_EQ (nano::process_result::progress, node.ledger.process (transaction, *block1).code);
@@ -2042,7 +2042,7 @@ TEST (node, rep_weight)
 	// Make sure we get the rep with the most weight first
 	auto reps (node.rep_crawler.representatives (1));
 	ASSERT_EQ (1, reps.size ());
-	ASSERT_EQ (nano::genesis_amount - node.minimum_principal_weight() * 4, reps[0].weight.number ());
+	ASSERT_EQ (nano::genesis_amount - node.minimum_principal_weight () * 4, reps[0].weight.number ());
 	ASSERT_EQ (nano::test_genesis_key.pub, reps[0].account);
 	ASSERT_EQ (*channel0, reps[0].channel_ref ());
 }
@@ -2055,46 +2055,46 @@ TEST (node, rep_remove)
 	nano::keypair keypair1;
 	nano::keypair keypair2;
 	nano::block_builder builder;
-	std::shared_ptr <nano::block> block1 = builder
-		.state ()
-		.account (nano::test_genesis_key.pub)
-		.previous (genesis.hash ())
-		.representative (nano::test_genesis_key.pub)
-		.balance (nano::genesis_amount - node.minimum_principal_weight() * 2)
-		.link (keypair1.pub)
-		.sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
-		.work (*system.work.generate (genesis.hash ()))
-		.build ();
-	std::shared_ptr <nano::block> block2 = builder
-		.state ()
-		.account (keypair1.pub)
-		.previous (0)
-		.representative (keypair1.pub)
-		.balance (node.minimum_principal_weight() * 2)
-		.link (block1->hash ())
-		.sign (keypair1.prv, keypair1.pub)
-		.work (*system.work.generate (keypair1.pub))
-		.build ();
-	std::shared_ptr <nano::block> block3 = builder
-		.state ()
-		.account (nano::test_genesis_key.pub)
-		.previous (block1->hash ())
-		.representative (nano::test_genesis_key.pub)
-		.balance (nano::genesis_amount - node.minimum_principal_weight() * 4)
-		.link (keypair2.pub)
-		.sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
-		.work (*system.work.generate (block1->hash ()))
-		.build ();
-	std::shared_ptr <nano::block> block4 = builder
-		.state ()
-		.account (keypair2.pub)
-		.previous (0)
-		.representative (keypair2.pub)
-		.balance (node.minimum_principal_weight() * 2)
-		.link (block3->hash ())
-		.sign (keypair2.prv, keypair2.pub)
-		.work (*system.work.generate (keypair2.pub))
-		.build ();
+	std::shared_ptr<nano::block> block1 = builder
+	                                      .state ()
+	                                      .account (nano::test_genesis_key.pub)
+	                                      .previous (genesis.hash ())
+	                                      .representative (nano::test_genesis_key.pub)
+	                                      .balance (nano::genesis_amount - node.minimum_principal_weight () * 2)
+	                                      .link (keypair1.pub)
+	                                      .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	                                      .work (*system.work.generate (genesis.hash ()))
+	                                      .build ();
+	std::shared_ptr<nano::block> block2 = builder
+	                                      .state ()
+	                                      .account (keypair1.pub)
+	                                      .previous (0)
+	                                      .representative (keypair1.pub)
+	                                      .balance (node.minimum_principal_weight () * 2)
+	                                      .link (block1->hash ())
+	                                      .sign (keypair1.prv, keypair1.pub)
+	                                      .work (*system.work.generate (keypair1.pub))
+	                                      .build ();
+	std::shared_ptr<nano::block> block3 = builder
+	                                      .state ()
+	                                      .account (nano::test_genesis_key.pub)
+	                                      .previous (block1->hash ())
+	                                      .representative (nano::test_genesis_key.pub)
+	                                      .balance (nano::genesis_amount - node.minimum_principal_weight () * 4)
+	                                      .link (keypair2.pub)
+	                                      .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	                                      .work (*system.work.generate (block1->hash ()))
+	                                      .build ();
+	std::shared_ptr<nano::block> block4 = builder
+	                                      .state ()
+	                                      .account (keypair2.pub)
+	                                      .previous (0)
+	                                      .representative (keypair2.pub)
+	                                      .balance (node.minimum_principal_weight () * 2)
+	                                      .link (block3->hash ())
+	                                      .sign (keypair2.prv, keypair2.pub)
+	                                      .work (*system.work.generate (keypair2.pub))
+	                                      .build ();
 	{
 		auto transaction = node.store.tx_begin_write ();
 		ASSERT_EQ (nano::process_result::progress, node.ledger.process (transaction, *block1).code);

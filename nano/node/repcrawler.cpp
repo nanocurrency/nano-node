@@ -39,7 +39,7 @@ void nano::rep_crawler::validate ()
 		responses_l.swap (responses);
 	}
 	auto minimum = node.minimum_principal_weight ();
-	for (auto const & i: responses_l)
+	for (auto const & i : responses_l)
 	{
 		auto & vote = i.second;
 		auto & channel = i.first;

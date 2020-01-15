@@ -143,6 +143,6 @@ private:
 	/** Probable representatives */
 	probably_rep_t probable_reps;
 
-	std::deque <std::pair<std::shared_ptr<nano::transport::channel>, std::shared_ptr<nano::vote>>> responses;
+	std::deque<std::pair<std::shared_ptr<nano::transport::channel>, std::shared_ptr<nano::vote>>> responses;
 };
 }
