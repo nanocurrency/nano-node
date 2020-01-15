@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/node/network.hpp>
 #include <nano/node/repcrawler.hpp>
 
 #include <unordered_map>
@@ -11,43 +12,28 @@ class node;
 /** This class accepts elections that need further votes before they can be confirmed and bundles them in to single confirm_req packets */
 class confirmation_solicitor final
 {
-	class request
-	{
-	public:
-		std::shared_ptr<nano::transport::channel> channel;
-		std::shared_ptr<nano::election> election;
-		bool operator== (nano::confirmation_solicitor::request const & other_a) const
-		{
-			return *channel == *other_a.channel && election == other_a.election;
-		}
-	};
-	class request_hash
-	{
-	public:
-		size_t operator() (nano::confirmation_solicitor::request const & item_a) const
-		{
-			return std::hash<std::shared_ptr<nano::election>> () (item_a.election) ^ std::hash<nano::transport::channel> () (*item_a.channel);
-		}
-	};
-
 public:
-	confirmation_solicitor (nano::node &);
+	confirmation_solicitor (nano::network &, nano::network_constants const &);
 	/** Prepare object for batching election confirmation requests*/
-	void prepare ();
-	/** Add an election that needs to be confirmed */
-	void add (std::shared_ptr<nano::election>);
-	/** Bundle hashes together for identical channels in to a single confirm_req by hash packet */
+	void prepare (std::vector<nano::representative> const &);
+	/** Broadcast the winner of an election if the broadcast limit has not been reached. Returns false if the broadcast was performed */
+	bool broadcast (nano::election const &);
+	/** Add an election that needs to be confirmed. Returns false if successfully added */
+	bool add (nano::election const &);
+	/** Dispatch bundled requests to each channel*/
 	void flush ();
+	/** The maximum amount of confirmation requests (batches) to be sent to each channel */
+	size_t const max_confirm_req_batches;
+	/** The global maximum amount of block broadcasts */
+	size_t const max_block_broadcasts;
 
 private:
-	static size_t constexpr max_confirm_req_batches = 20;
-	static size_t constexpr max_confirm_req = 5;
-	static size_t constexpr max_block_broadcasts = 30;
+	nano::network & network;
+
 	int rebroadcasted{ 0 };
-	nano::node & node;
 	std::vector<nano::representative> representatives;
-	/** Unique channel/hash to be requested */
-	std::unordered_set<request, nano::confirmation_solicitor::request_hash> requests;
+	using vector_root_hashes = std::vector<std::pair<nano::block_hash, nano::root>>;
+	std::unordered_map<std::shared_ptr<nano::transport::channel>, vector_root_hashes> requests;
 	bool prepared{ false };
 };
 }

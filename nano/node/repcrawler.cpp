@@ -245,13 +245,14 @@ void nano::rep_crawler::update_weights ()
 	}
 }
 
-std::vector<nano::representative> nano::rep_crawler::representatives (size_t count_a)
+std::vector<nano::representative> nano::rep_crawler::representatives (size_t count_a, boost::optional<decltype (nano::protocol_constants::protocol_version_min)> const & opt_version_min_a)
 {
+	auto version_min (opt_version_min_a.value_or (node.network_params.protocol.protocol_version_min));
 	std::vector<representative> result;
 	nano::lock_guard<std::mutex> lock (probable_reps_mutex);
 	for (auto i (probable_reps.get<tag_weight> ().begin ()), n (probable_reps.get<tag_weight> ().end ()); i != n && result.size () < count_a; ++i)
 	{
-		if (!i->weight.is_zero ())
+		if (!i->weight.is_zero () && i->channel->get_network_version () >= version_min)
 		{
 			result.push_back (*i);
 		}
