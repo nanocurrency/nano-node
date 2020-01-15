@@ -1733,6 +1733,7 @@ TEST (mdb_block_store, upgrade_v15_v16)
 	nano::state_block block2 (nano::test_genesis_key.pub, block1.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio - 1, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (block1.hash ()));
 	nano::state_block block3 (nano::test_genesis_key.pub, block2.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio - 2, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (block2.hash ()));
 
+	// clang-format off
 	auto code = [block1, block2, block3](auto confirmation_height, nano::block_hash const & expected_cemented_frontier) {
 		auto path (nano::unique_path ());
 		nano::mdb_val value;
@@ -1779,6 +1780,7 @@ TEST (mdb_block_store, upgrade_v15_v16)
 		ASSERT_NE (MDB_SUCCESS, error_get_representation);
 		ASSERT_EQ (store.representation, 0);
 	};
+	// clang-format on
 
 	code (0, nano::block_hash (0));
 	code (1, genesis.hash ());
