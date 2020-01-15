@@ -132,6 +132,7 @@ port_mapping (*this),
 vote_processor (checker, active, store, observers, stats, config, logger, online_reps, ledger, network_params),
 rep_crawler (*this),
 warmed_up (0),
+votes_cache (wallets),
 block_processor (*this, write_database_queue),
 block_processor_thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::block_processing);
@@ -556,24 +557,24 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 		{
 			std::weak_ptr<nano::node> this_w (shared_from_this ());
 			if (!active.start (ledger_block, false, [this_w, root](std::shared_ptr<nano::block>) {
-					if (auto this_l = this_w.lock ())
-					{
-						auto attempt (this_l->bootstrap_initiator.current_attempt ());
-						if (attempt && attempt->mode == nano::bootstrap_mode::legacy)
-						{
-							auto transaction (this_l->store.tx_begin_read ());
-							auto account (this_l->ledger.store.frontier_get (transaction, root));
-							if (!account.is_zero ())
-							{
-								attempt->requeue_pull (nano::pull_info (account, root, root));
-							}
-							else if (this_l->ledger.store.account_exists (transaction, root))
-							{
-								attempt->requeue_pull (nano::pull_info (root, nano::block_hash (0), nano::block_hash (0)));
-							}
-						}
-					}
-				}))
+				    if (auto this_l = this_w.lock ())
+				    {
+					    auto attempt (this_l->bootstrap_initiator.current_attempt ());
+					    if (attempt && attempt->mode == nano::bootstrap_mode::legacy)
+					    {
+						    auto transaction (this_l->store.tx_begin_read ());
+						    auto account (this_l->ledger.store.frontier_get (transaction, root));
+						    if (!account.is_zero ())
+						    {
+							    attempt->requeue_pull (nano::pull_info (account, root, root));
+						    }
+						    else if (this_l->ledger.store.account_exists (transaction, root))
+						    {
+							    attempt->requeue_pull (nano::pull_info (root, nano::block_hash (0), nano::block_hash (0)));
+						    }
+					    }
+				    }
+			    }))
 			{
 				logger.always_log (boost::str (boost::format ("Resolving fork between our block: %1% and block %2% both with root %3%") % ledger_block->hash ().to_string () % block_a->hash ().to_string () % block_a->root ().to_string ()));
 				network.broadcast_confirm_req (ledger_block);
@@ -592,7 +593,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (collect_container_info (node.active, "active"));
 	composite->add_component (collect_container_info (node.bootstrap_initiator, "bootstrap_initiator"));
 	composite->add_component (collect_container_info (node.bootstrap, "bootstrap"));
-	composite->add_component (collect_container_info (node.network, "network"));  
+	composite->add_component (collect_container_info (node.network, "network"));
 	composite->add_component (collect_container_info (node.observers, "observers"));
 	composite->add_component (collect_container_info (node.wallets, "wallets"));
 	composite->add_component (collect_container_info (node.vote_processor, "vote_processor"));

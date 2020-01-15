@@ -1,5 +1,4 @@
 #include <nano/node/confirmation_solicitor.hpp>
-
 #include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
 
