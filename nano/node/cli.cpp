@@ -153,7 +153,7 @@ void database_write_lock_error (std::error_code & ec)
 	ec = nano::error_cli::database_write_error;
 }
 
-bool copy_database (boost::filesystem::path const & data_path, boost::program_options::variables_map & vm, boost::filesystem::path const & output_path, std::error_code & ec)
+bool copy_database (boost::filesystem::path const & data_path, boost::program_options::variables_map const & vm, boost::filesystem::path const & output_path, std::error_code & ec)
 {
 	bool success = false;
 	bool needs_to_write = vm.count ("unchecked_clear") || vm.count ("clear_send_ids") || vm.count ("online_weight_clear") || vm.count ("peer_clear") || vm.count ("confirmation_height_clear") || vm.count ("rebuild_database");
@@ -203,7 +203,7 @@ bool copy_database (boost::filesystem::path const & data_path, boost::program_op
 }
 }
 
-std::error_code nano::handle_node_options (boost::program_options::variables_map & vm)
+std::error_code nano::handle_node_options (boost::program_options::variables_map const & vm)
 {
 	std::error_code ec;
 	boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
