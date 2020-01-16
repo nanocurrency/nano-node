@@ -2424,7 +2424,7 @@ TEST (node, local_votes_cache_batch)
 	auto channel (node.network.udp_channels.create (node.network.endpoint ()));
 	// Generates and sends one vote for both hashes which is then cached
 	node.network.process_message (message, channel);
-	system.deadline_set (5s);
+	system.deadline_set (3s);
 	while (node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out) < 1)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -2434,6 +2434,7 @@ TEST (node, local_votes_cache_batch)
 	ASSERT_FALSE (node.votes_cache.find (send2->hash ()).empty ());
 	// Only one confirm_ack should be sent if all hashes are part of the same vote
 	node.network.process_message (message, channel);
+	system.deadline_set (3s);
 	while (node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out) < 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -2443,12 +2444,14 @@ TEST (node, local_votes_cache_batch)
 	node.votes_cache.remove (send1->hash ());
 	node.votes_cache.remove (send2->hash ());
 	node.network.process_message (nano::confirm_req (send1->hash (), send1->root ()), channel);
+	system.deadline_set (3s);
 	while (node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out) < 3)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (3, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 	node.network.process_message (nano::confirm_req (send2->hash (), send2->root ()), channel);
+	system.deadline_set (3s);
 	while (node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out) < 4)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -2456,6 +2459,7 @@ TEST (node, local_votes_cache_batch)
 	ASSERT_EQ (4, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 	// There are two different votes, so both should be sent in response
 	node.network.process_message (message, channel);
+	system.deadline_set (3s);
 	while (node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out) < 6)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -2481,6 +2485,7 @@ TEST (node, local_votes_cache_generate_new_vote)
 	nano::confirm_req message1 (send1);
 	auto channel (node.network.udp_channels.create (node.network.endpoint ()));
 	node.network.process_message (message1, channel);
+	system.deadline_set (3s);
 	while (node.votes_cache.find (send1->hash ()).empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());

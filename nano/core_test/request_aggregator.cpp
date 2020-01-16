@@ -21,7 +21,7 @@ TEST (request_aggregator, one)
 	auto channel (node.network.udp_channels.create (node.network.endpoint ()));
 	node.aggregator.add (channel, request);
 	ASSERT_EQ (1, node.aggregator.size ());
-	system.deadline_set (5s);
+	system.deadline_set (3s);
 	while (!node.aggregator.empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -33,6 +33,7 @@ TEST (request_aggregator, one)
 	ASSERT_EQ (1, node.aggregator.size ());
 	// In the ledger but no vote generated yet
 	// Generated votes are created after the pool is removed from the aggregator, so a simple check on empty () is not enough
+	system.deadline_set (3s);
 	while (node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated) == 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -41,6 +42,7 @@ TEST (request_aggregator, one)
 	node.aggregator.add (channel, request);
 	ASSERT_EQ (1, node.aggregator.size ());
 	// Already cached
+	system.deadline_set (3s);
 	while (!node.aggregator.empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -75,6 +77,7 @@ TEST (request_aggregator, one_update)
 	ASSERT_EQ (1, node.aggregator.size ());
 	// In the ledger but no vote generated yet
 	// Generated votes are created after the pool is removed from the aggregator, so a simple check on empty () is not enough
+	system.deadline_set (3s);
 	while (node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated) == 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -106,9 +109,9 @@ TEST (request_aggregator, two)
 	ASSERT_EQ (nano::process_result::progress, node.ledger.process (node.store.tx_begin_write (), *send2).code);
 	node.aggregator.add (channel, request);
 	ASSERT_EQ (1, node.aggregator.size ());
-	system.deadline_set (5s);
 	// One vote should be generated for both blocks
 	// Generated votes are created after the pool is removed from the aggregator, so a simple check on empty () is not enough
+	system.deadline_set (3s);
 	while (node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated) == 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -118,6 +121,7 @@ TEST (request_aggregator, two)
 	// The same request should now send the cached vote
 	node.aggregator.add (channel, request);
 	ASSERT_EQ (1, node.aggregator.size ());
+	system.deadline_set (3s);
 	while (!node.aggregator.empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -156,7 +160,7 @@ TEST (request_aggregator, two_endpoints)
 	node1.aggregator.add (channel1, request);
 	node1.aggregator.add (channel2, request);
 	ASSERT_EQ (2, node1.aggregator.size ());
-	system.deadline_set (5s);
+	system.deadline_set (3s);
 	// For the first request it generates the vote, for the second it uses the generated vote
 	while (!node1.aggregator.empty ())
 	{
@@ -200,10 +204,10 @@ TEST (request_aggregator, split)
 	ASSERT_EQ (max_vbh + 1, request.size ());
 	auto channel (node.network.udp_channels.create (node.network.endpoint ()));
 	node.aggregator.add (channel, request);
-	system.deadline_set (5s);
 	ASSERT_EQ (1, node.aggregator.size ());
 	// In the ledger but no vote generated yet
 	// Generated votes are created after the pool is removed from the aggregator, so a simple check on empty () is not enough
+	system.deadline_set (3s);
 	while (node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated) < 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -243,7 +247,7 @@ TEST (request_aggregator, channel_lifetime)
 		node.aggregator.add (channel, request);
 	}
 	ASSERT_EQ (1, node.aggregator.size ());
-	system.deadline_set (5s);
+	system.deadline_set (3s);
 	while (node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated) == 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -275,7 +279,7 @@ TEST (request_aggregator, channel_update)
 	ASSERT_EQ (1, node.aggregator.size ());
 	// channel1 is not being held anymore
 	ASSERT_EQ (nullptr, channel1_w.lock ());
-	system.deadline_set (5s);
+	system.deadline_set (3s);
 	while (node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated) == 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
