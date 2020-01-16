@@ -1,6 +1,7 @@
 #include <nano/lib/stats.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/node/common.hpp>
+#include <nano/node/network.hpp>
 #include <nano/node/request_aggregator.hpp>
 #include <nano/node/transport/udp.hpp>
 #include <nano/node/voting.hpp>
@@ -198,7 +199,7 @@ void nano::request_aggregator::generate (nano::transaction & transaction_a, std:
 	while (i != n)
 	{
 		std::vector<nano::block_hash> hashes_l;
-		for (; i != n && hashes_l.size () < 12; ++i)
+		for (; i != n && hashes_l.size () < nano::network::confirm_ack_hashes_max; ++i)
 		{
 			hashes_l.push_back (*i);
 		}

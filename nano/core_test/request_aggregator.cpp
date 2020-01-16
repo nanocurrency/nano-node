@@ -170,7 +170,7 @@ TEST (request_aggregator, two_endpoints)
 
 TEST (request_aggregator, split)
 {
-	constexpr size_t max_vbh = 12;
+	constexpr size_t max_vbh = nano::network::confirm_ack_hashes_max;
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
