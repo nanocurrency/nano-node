@@ -104,12 +104,11 @@ void nano::request_aggregator::run ()
 
 void nano::request_aggregator::stop ()
 {
-	nano::unique_lock<std::mutex> lock (mutex);
-	stopped = true;
-
-	lock.unlock ();
+	{
+		nano::lock_guard<std::mutex> guard (mutex);
+		stopped = true;
+	}
 	condition.notify_all ();
-
 	if (thread.joinable ())
 	{
 		thread.join ();

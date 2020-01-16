@@ -40,16 +40,15 @@ class request_aggregator final
 	{
 		channel_pool () = delete;
 		explicit channel_pool (std::shared_ptr<nano::transport::channel> & channel_a) :
-		start (std::chrono::steady_clock::now ()),
 		channel (channel_a),
 		endpoint (nano::transport::map_endpoint_to_v6 (channel_a->get_endpoint ()))
 		{
 		}
 		std::vector<std::pair<nano::block_hash, nano::root>> hashes_roots;
-		std::chrono::steady_clock::time_point start;
-		std::chrono::steady_clock::time_point deadline;
-		nano::endpoint endpoint;
 		std::shared_ptr<nano::transport::channel> channel;
+		nano::endpoint endpoint;
+		std::chrono::steady_clock::time_point start{ std::chrono::steady_clock::now () };
+		std::chrono::steady_clock::time_point deadline;
 	};
 
 	// clang-format off
