@@ -21,7 +21,7 @@ batch_telemetry (std::make_shared<nano::telemetry_impl> (network, alarm, worker)
 
 void nano::telemetry::stop ()
 {
-	std::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard<std::mutex> guard (mutex);
 	batch_telemetry = nullptr;
 	single_requests.clear ();
 	stopped = true;
@@ -45,7 +45,7 @@ void nano::telemetry::get_random_metrics_async (std::function<void(batched_metri
 {
 	// These peers will only be used if there isn't an already ongoing batch telemetry request round
 	auto random_peers = network.random_set (network.size_sqrt (), network_params.protocol.telemetry_protocol_version_min);
-	std::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard<std::mutex> guard (mutex);
 	if (!stopped)
 	{
 		batch_telemetry->get_metrics_async (random_peers, [callback_a](nano::batched_metric_data const & batched_metric_data) {

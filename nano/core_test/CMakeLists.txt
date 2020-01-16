@@ -16,12 +16,11 @@ add_executable (core_test
 	ledger.cpp
 	locks.cpp
 	logger.cpp
-	network.cpp
-	node.cpp
 	message.cpp
 	message_parser.cpp
 	memory_pool.cpp
 	network.cpp
+	node.cpp
 	node_telemetry.cpp
 	processor_service.cpp
 	peer_container.cpp
