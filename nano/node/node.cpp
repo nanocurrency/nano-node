@@ -136,13 +136,16 @@ rep_crawler (*this),
 warmed_up (0),
 votes_cache (wallets),
 block_processor (*this, write_database_queue),
+// clang-format off
 block_processor_thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::block_processing);
 	this->block_processor.process_blocks ();
 }),
+// clang-format on
 online_reps (ledger, network_params, config.online_weight_minimum.number ()),
 vote_uniquer (block_uniquer),
 active (*this),
+aggregator (stats, network_params.network, votes_cache, store, wallets),
 confirmation_height_processor (pending_confirmation_height, ledger, active, write_database_queue, config.conf_height_processor_batch_min_time, logger),
 payment_observer_processor (observers.blocks),
 wallets (wallets_store.init_error (), *this),
@@ -611,6 +614,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (collect_container_info (node.pending_confirmation_height, "pending_confirmation_height"));
 	composite->add_component (collect_container_info (node.worker, "worker"));
 	composite->add_component (collect_container_info (node.distributed_work, "distributed_work"));
+	composite->add_component (collect_container_info (node.aggregator, "request_aggregator"));
 	return composite;
 }
 
@@ -700,6 +704,7 @@ void nano::node::stop ()
 		{
 			block_processor_thread.join ();
 		}
+		aggregator.stop ();
 		vote_processor.stop ();
 		confirmation_height_processor.stop ();
 		active.stop ();

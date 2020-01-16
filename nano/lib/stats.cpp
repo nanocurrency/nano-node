@@ -437,6 +437,10 @@ std::string nano::stat::type_to_string (uint32_t key)
 			break;
 		case nano::stat::type::drop:
 			res = "drop";
+			break;
+		case nano::stat::type::requests:
+			res = "requests";
+			break;
 	}
 	return res;
 }
@@ -650,6 +654,16 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 		case nano::stat::detail::blocks_confirmed:
 			res = "blocks_confirmed";
+			break;
+		case nano::stat::detail::requests_cached:
+			res = "requests_votes_cached";
+			break;
+		case nano::stat::detail::requests_generated:
+			res = "requests_votes_generated";
+			break;
+		case nano::stat::detail::requests_ignored:
+			res = "requests_votes_ignored";
+			break;
 	}
 	return res;
 }

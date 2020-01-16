@@ -100,6 +100,8 @@ add_library (node
 	node_pow_server_config.cpp
 	repcrawler.hpp
 	repcrawler.cpp
+	request_aggregator.hpp
+	request_aggregator.cpp
 	testing.hpp
 	testing.cpp
 	transport/tcp.hpp

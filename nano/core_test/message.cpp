@@ -1,4 +1,5 @@
 #include <nano/node/common.hpp>
+#include <nano/node/network.hpp>
 #include <nano/secure/buffer.hpp>
 
 #include <gtest/gtest.h>
@@ -92,7 +93,7 @@ TEST (message, confirm_ack_serialization)
 TEST (message, confirm_ack_hash_serialization)
 {
 	std::vector<nano::block_hash> hashes;
-	for (auto i (hashes.size ()); i < 12; i++)
+	for (auto i (hashes.size ()); i < nano::network::confirm_ack_hashes_max; i++)
 	{
 		nano::keypair key1;
 		nano::block_hash previous;
@@ -120,7 +121,7 @@ TEST (message, confirm_ack_hash_serialization)
 		vote_blocks.push_back (boost::get<nano::block_hash> (block));
 	}
 	ASSERT_EQ (hashes, vote_blocks);
-	// Check overflow with 12 hashes
+	// Check overflow with max hashes
 	ASSERT_EQ (header.count_get (), hashes.size ());
 	ASSERT_EQ (header.block_type (), nano::block_type::not_a_block);
 }
