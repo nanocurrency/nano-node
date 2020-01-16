@@ -11,6 +11,7 @@ constexpr double nano::bootstrap_limits::bootstrap_connection_scale_target_block
 constexpr double nano::bootstrap_limits::bootstrap_minimum_blocks_per_sec;
 constexpr double nano::bootstrap_limits::bootstrap_minimum_termination_time_sec;
 constexpr unsigned nano::bootstrap_limits::bootstrap_max_new_connections;
+constexpr unsigned nano::bootstrap_limits::requeued_pulls_processed_blocks_factor;
 
 nano::bootstrap_client::bootstrap_client (std::shared_ptr<nano::node> node_a, std::shared_ptr<nano::bootstrap_connections> connections_a, std::shared_ptr<nano::transport::channel_tcp> channel_a, std::shared_ptr<nano::socket> socket_a) :
 node (node_a),
@@ -356,7 +357,7 @@ void nano::bootstrap_connections::requeue_pull (nano::pull_info const & pull_a, 
 		{
 			pull.attempt->restart_condition ();
 		}
-		if (pull.attempts < pull.retry_limit + (pull.processed / 10000))
+		if (pull.attempts < pull.retry_limit + (pull.processed / nano::bootstrap_limits::requeued_pulls_processed_blocks_factor))
 		{
 			nano::lock_guard<std::mutex> lock (mutex);
 			pulls.push_front (pull);

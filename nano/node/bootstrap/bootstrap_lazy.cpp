@@ -14,17 +14,15 @@ constexpr uint64_t nano::bootstrap_limits::lazy_batch_pull_count_resize_blocks_l
 constexpr double nano::bootstrap_limits::lazy_batch_pull_count_resize_ratio;
 constexpr size_t nano::bootstrap_limits::lazy_blocks_restart_limit;
 
-nano::bootstrap_attempt_lazy::bootstrap_attempt_lazy (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a) :
-nano::bootstrap_attempt (node_a, mode_a)
+nano::bootstrap_attempt_lazy::bootstrap_attempt_lazy (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a, std::string id_a) :
+nano::bootstrap_attempt (node_a, mode_a, id_a)
 {
 	assert (mode == nano::bootstrap_mode::lazy);
-	node->logger.always_log ("Starting lazy bootstrap attempt");
 	node->bootstrap_initiator.notify_listeners (true);
 }
 
 nano::bootstrap_attempt_lazy::~bootstrap_attempt_lazy ()
 {
-	node->logger.always_log ("Exiting lazy bootstrap attempt");
 	node->bootstrap_initiator.notify_listeners (false);
 }
 
@@ -467,17 +465,15 @@ bool nano::bootstrap_attempt_lazy::lazy_processed_or_exists (nano::block_hash co
 	return result;
 }
 
-nano::bootstrap_attempt_wallet::bootstrap_attempt_wallet (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a) :
-nano::bootstrap_attempt (node_a, mode_a)
+nano::bootstrap_attempt_wallet::bootstrap_attempt_wallet (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a, std::string id_a) :
+nano::bootstrap_attempt (node_a, mode_a, id_a)
 {
 	assert (mode == nano::bootstrap_mode::wallet_lazy);
-	node->logger.always_log ("Starting wallet bootstrap attempt");
 	node->bootstrap_initiator.notify_listeners (true);
 }
 
 nano::bootstrap_attempt_wallet::~bootstrap_attempt_wallet ()
 {
-	node->logger.always_log ("Exiting wallet bootstrap attempt");
 	node->bootstrap_initiator.notify_listeners (false);
 }
 

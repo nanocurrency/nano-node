@@ -17,18 +17,34 @@ constexpr unsigned nano::bootstrap_limits::frontier_confirmation_blocks_limit;
 constexpr unsigned nano::bootstrap_limits::requeued_pulls_limit;
 constexpr unsigned nano::bootstrap_limits::requeued_pulls_limit_test;
 
-nano::bootstrap_attempt::bootstrap_attempt (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a) :
+nano::bootstrap_attempt::bootstrap_attempt (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a, std::string id_a) :
 node (node_a),
-mode (mode_a)
+mode (mode_a),
+id (id_a)
 {
-	node->logger.always_log ("Starting bootstrap attempt");
+	if (id.empty ())
+	{
+		nano::random_constants constants;
+		id = constants.random_128.to_string ();
+	}
+	node->logger.always_log (boost::str (boost::format ("Starting %1% bootstrap attempt with ID %2%") % mode_text () % id));
 	node->bootstrap_initiator.notify_listeners (true);
+	if (node->websocket_server)
+	{
+		nano::websocket::message_builder builder;
+		node->websocket_server->broadcast (builder.bootstrap_started (id, mode_text ()));
+	}
 }
 
 nano::bootstrap_attempt::~bootstrap_attempt ()
 {
-	node->logger.always_log ("Exiting bootstrap attempt");
+	node->logger.always_log (boost::str (boost::format ("Exiting %1% bootstrap attempt with ID %2%") % mode_text () % id));
 	node->bootstrap_initiator.notify_listeners (false);
+	if (node->websocket_server)
+	{
+		nano::websocket::message_builder builder;
+		node->websocket_server->broadcast (builder.bootstrap_exited (id, mode_text (), attempt_start, total_blocks));
+	}
 }
 
 bool nano::bootstrap_attempt::should_log ()
@@ -60,6 +76,24 @@ void nano::bootstrap_attempt::stop ()
 		condition.notify_all ();
 	}
 	node->bootstrap_initiator.connections->clear_pulls (shared_from_this ());
+}
+
+std::string nano::bootstrap_attempt::mode_text ()
+{
+	std::string mode_text;
+	if (mode == nano::bootstrap_mode::legacy)
+	{
+		mode_text = "legacy";
+	}
+	else if (mode == nano::bootstrap_mode::lazy)
+	{
+		mode_text = "lazy";
+	}
+	else if (mode == nano::bootstrap_mode::wallet_lazy)
+	{
+		mode_text = "wallet_lazy";
+	}
+	return mode_text;
 }
 
 void nano::bootstrap_attempt::restart_condition ()
@@ -117,8 +151,8 @@ size_t nano::bootstrap_attempt::wallet_size ()
 	return 0;
 }
 
-nano::bootstrap_attempt_legacy::bootstrap_attempt_legacy (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a) :
-nano::bootstrap_attempt (node_a, mode_a)
+nano::bootstrap_attempt_legacy::bootstrap_attempt_legacy (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a, std::string id_a) :
+nano::bootstrap_attempt (node_a, mode_a, id_a)
 {
 	assert (mode == nano::bootstrap_mode::legacy);
 	node->bootstrap_initiator.notify_listeners (true);

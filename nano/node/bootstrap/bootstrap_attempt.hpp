@@ -32,11 +32,12 @@ class bulk_push_client;
 class bootstrap_attempt : public std::enable_shared_from_this<bootstrap_attempt>
 {
 public:
-	explicit bootstrap_attempt (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a);
+	explicit bootstrap_attempt (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a, std::string id_a);
 	~bootstrap_attempt ();
 	virtual void stop ();
 	bool still_pulling ();
 	bool should_log ();
+	std::string mode_text ();
 	virtual void restart_condition ();
 	virtual void add_frontier (nano::pull_info const &);
 	virtual void add_bulk_push_target (nano::block_hash const &, nano::block_hash const &);
@@ -54,6 +55,7 @@ public:
 	std::atomic<uint64_t> total_blocks{ 0 };
 	std::atomic<unsigned> requeued_pulls{ 0 };
 	std::atomic<bool> stopped{ false };
+	std::string id;
 	std::chrono::steady_clock::time_point attempt_start{ std::chrono::steady_clock::now () };
 	nano::bootstrap_mode mode;
 	std::mutex mutex;
@@ -62,7 +64,7 @@ public:
 class bootstrap_attempt_legacy : public bootstrap_attempt
 {
 public:
-	explicit bootstrap_attempt_legacy (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a = nano::bootstrap_mode::legacy);
+	explicit bootstrap_attempt_legacy (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a = nano::bootstrap_mode::legacy, std::string id_a = "");
 	void run ();
 	bool consume_future (std::future<bool> &);
 	void stop () override;
