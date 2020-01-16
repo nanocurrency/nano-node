@@ -62,7 +62,11 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 				          << "Path: " << node->application_path.string () << "\n"
 				          << "Build Info: " << BUILD_INFO << "\n"
 				          << "Database backend: " << node->store.vendor_get () << std::endl;
-
+				auto voting (node->wallets.rep_counts ().voting);
+				if (voting > 1)
+				{
+					std::cout << "Voting with more than one representative (" << voting << "). This can limit performance" << std::endl;
+				}
 				node->start ();
 				nano::ipc::ipc_server ipc_server (*node, config.rpc);
 #if BOOST_PROCESS_SUPPORTED
