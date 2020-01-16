@@ -7753,21 +7753,21 @@ TEST (rpc, receive_work_disabled)
 
 namespace
 {
-	void compare_default_test_result_data (test_response & response, nano::node const & node_server_a)
-	{
-		ASSERT_EQ (200, response.status);
-		ASSERT_FALSE (response.json.get<bool> ("cached"));
-		ASSERT_EQ (1, response.json.get<uint64_t> ("block_count"));
-		ASSERT_EQ (1, response.json.get<uint64_t> ("cemented_count"));
-		ASSERT_EQ (0, response.json.get<uint64_t> ("unchecked_count"));
-		ASSERT_EQ (1, response.json.get<uint64_t> ("account_count"));
-		ASSERT_EQ (node_server_a.config.bandwidth_limit, response.json.get<uint64_t> ("bandwidth_cap"));
-		ASSERT_EQ (1, response.json.get<uint32_t> ("peer_count"));
-		ASSERT_EQ (node_server_a.network_params.protocol.protocol_version, response.json.get<uint8_t> ("protocol_version_number"));
-		ASSERT_EQ (nano::get_major_node_version (), response.json.get<uint8_t> ("vendor_version"));
-		ASSERT_GE (100, response.json.get<uint64_t> ("uptime"));
-		ASSERT_EQ (nano::genesis ().hash ().to_string (), response.json.get<std::string> ("genesis_block"));
-	}
+void compare_default_test_result_data (test_response & response, nano::node const & node_server_a)
+{
+	ASSERT_EQ (200, response.status);
+	ASSERT_FALSE (response.json.get<bool> ("cached"));
+	ASSERT_EQ (1, response.json.get<uint64_t> ("block_count"));
+	ASSERT_EQ (1, response.json.get<uint64_t> ("cemented_count"));
+	ASSERT_EQ (0, response.json.get<uint64_t> ("unchecked_count"));
+	ASSERT_EQ (1, response.json.get<uint64_t> ("account_count"));
+	ASSERT_EQ (node_server_a.config.bandwidth_limit, response.json.get<uint64_t> ("bandwidth_cap"));
+	ASSERT_EQ (1, response.json.get<uint32_t> ("peer_count"));
+	ASSERT_EQ (node_server_a.network_params.protocol.protocol_version, response.json.get<uint8_t> ("protocol_version_number"));
+	ASSERT_EQ (nano::get_major_node_version (), response.json.get<uint8_t> ("vendor_version"));
+	ASSERT_GE (100, response.json.get<uint64_t> ("uptime"));
+	ASSERT_EQ (nano::genesis ().hash ().to_string (), response.json.get<std::string> ("genesis_block"));
+}
 }
 
 TEST (rpc, node_telemetry_single)
@@ -7812,7 +7812,7 @@ TEST (rpc, node_telemetry_single)
 	}
 
 	// Then invalid port
-	request.put ("address", (boost::format ("%1%") % node->network.endpoint ().address ()).str ()); 
+	request.put ("address", (boost::format ("%1%") % node->network.endpoint ().address ()).str ());
 	request.put ("port", "invalid port");
 	{
 		test_response response (request, rpc.config.port, system.io_ctx);

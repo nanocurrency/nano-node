@@ -3929,7 +3929,6 @@ void nano::json_handler::telemetry ()
 				if (channel)
 				{
 					node.telemetry.get_single_metric_async (channel, [rpc_l](auto const & single_telemetry_metric_a) {
-					
 						if (!single_telemetry_metric_a.error)
 						{
 							nano::jsonconfig config_l;
@@ -3944,15 +3943,14 @@ void nano::json_handler::telemetry ()
 							else
 							{
 								rpc_l->ec = nano::error_rpc::generic;
-							}				
+							}
 						}
 						else
 						{
 							rpc_l->ec = nano::error_rpc::generic;
 						}
 
-
-						rpc_l->response_errors ();	
+						rpc_l->response_errors ();
 					});
 				}
 				else
@@ -3964,7 +3962,6 @@ void nano::json_handler::telemetry ()
 			{
 				ec = nano::error_common::invalid_ip_address;
 			}
-
 		}
 		else
 		{
@@ -4021,7 +4018,7 @@ void nano::json_handler::telemetry ()
 
 	if (ec)
 	{
-		response_errors ();	
+		response_errors ();
 	}
 }
 

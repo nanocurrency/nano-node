@@ -72,7 +72,7 @@ TEST (node_telemetry, consolidate_data)
 	all_data[2].genesis_block = nano::block_hash (3);
 
 	auto consolidated_telemetry_data1 = nano::telemetry_data::consolidate (all_data);
-	ASSERT_TRUE (consolidated_telemetry_data1.vendor_version == 10 || consolidated_telemetry_data1.vendor_version == 13 ||consolidated_telemetry_data1.vendor_version == 20);
+	ASSERT_TRUE (consolidated_telemetry_data1.vendor_version == 10 || consolidated_telemetry_data1.vendor_version == 13 || consolidated_telemetry_data1.vendor_version == 20);
 	ASSERT_TRUE (consolidated_telemetry_data1.protocol_version_number == 11 || consolidated_telemetry_data1.protocol_version_number == 12 || consolidated_telemetry_data1.protocol_version_number == 13);
 	ASSERT_EQ (consolidated_telemetry_data1.bandwidth_cap, 51);
 	ASSERT_EQ (consolidated_telemetry_data1.genesis_block, nano::block_hash (3));
@@ -248,6 +248,8 @@ TEST (node_telemetry, over_udp)
 	node_flags.disable_tcp_realtime = true;
 	auto node_client = system.add_node (node_flags);
 	auto node_server = system.add_node (node_flags);
+
+	wait_all_peers (system);
 
 	std::atomic<bool> done{ false };
 	std::vector<nano::telemetry_data> all_telemetry_data;
@@ -485,7 +487,7 @@ TEST (node_telemetry, simultaneous_single_and_random_requests)
 		std::promise<void> promise;
 		std::shared_future<void> shared_future{ promise.get_future () };
 	};
-	
+
 	shared_data shared_data_single;
 	shared_data shared_data_random;
 
@@ -494,7 +496,6 @@ TEST (node_telemetry, simultaneous_single_and_random_requests)
 	for (int i = 0; i < num_threads; ++i)
 	{
 		threads.emplace_back ([&node_data_single, &node_data_random, &shared_data_single, &shared_data_random]() {
-
 			auto func = [](auto & all_node_data_a, shared_data & shared_data_a) {
 				while (std::any_of (all_node_data_a.cbegin (), all_node_data_a.cend (), [](auto const & data) { return data.keep_requesting_metrics.load (); }))
 				{
@@ -505,7 +506,7 @@ TEST (node_telemetry, simultaneous_single_and_random_requests)
 						{
 							++shared_data_a.count;
 
-							data.node->telemetry.get_random_metrics_async ([&shared_data = shared_data_a, &data, &all_node_data = all_node_data_a](nano::batched_metric_data const & metric_data_a) {
+							data.node->telemetry.get_random_metrics_async ([& shared_data = shared_data_a, &data, &all_node_data = all_node_data_a](nano::batched_metric_data const & metric_data_a) {
 								if (data.awaiting_cache && !metric_data_a.is_cached)
 								{
 									data.keep_requesting_metrics = false;
@@ -571,7 +572,7 @@ TEST (node_telemetry, blocking_single_and_random)
 			promise.set_value ();
 		}
 	};
-	
+
 	system.deadline_set (10s);
 	node_client->worker.push_task (call_system_poll);
 
@@ -580,7 +581,7 @@ TEST (node_telemetry, blocking_single_and_random)
 	ASSERT_FALSE (batched_metric_data.is_cached);
 	ASSERT_FALSE (batched_metric_data.error);
 	compare_default_test_result_data (batched_metric_data.data.front (), *node_server);
-	
+
 	// Now try single request metric
 	auto single_metric_data = node_client->telemetry.get_single_metric (node_client->network.find_channel (node_server->network.endpoint ()));
 	ASSERT_FALSE (batched_metric_data.is_cached);

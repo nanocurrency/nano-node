@@ -56,7 +56,7 @@ void nano::telemetry::get_random_metrics_async (std::function<void(batched_metri
 
 nano::batched_metric_data nano::telemetry::get_random_metrics ()
 {
-	std::promise <batched_metric_data> promise;
+	std::promise<batched_metric_data> promise;
 	get_random_metrics_async ([&promise](batched_metric_data const & batched_metric_data_a) {
 		promise.set_value (batched_metric_data_a);
 	});
@@ -72,14 +72,14 @@ void nano::telemetry::get_single_metric_async (std::shared_ptr<nano::transport::
 		if (!channel_a)
 		{
 			const auto error = true;
-			callback_a (nano::single_metric_data {nano::telemetry_data (), false, error});
+			callback_a (nano::single_metric_data{ nano::telemetry_data (), false, error });
 		}
 		else
 		{
 			auto it = single_requests.emplace (channel_a->get_endpoint (), std::make_shared<nano::telemetry_impl> (network, alarm, worker));
 			it.first->second->get_metrics_async ({ channel_a }, [callback_a](batched_metric_data const & batched_metric_data_a) {
 				assert (batched_metric_data_a.data.size () == 1);
-				callback_a ({batched_metric_data_a.data.front (), batched_metric_data_a.is_cached, batched_metric_data_a.error});
+				callback_a ({ batched_metric_data_a.data.front (), batched_metric_data_a.is_cached, batched_metric_data_a.error });
 			});
 		}
 	}
@@ -188,7 +188,7 @@ void nano::telemetry_impl::invoke_callbacks (bool cached_a, bool error_a)
 	}
 	for (auto & callback : callbacks_l)
 	{
-		callback ({cached_telemetry_data, cached_a, error_a});
+		callback ({ cached_telemetry_data, cached_a, error_a });
 	}
 }
 
@@ -282,7 +282,6 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (te
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (telemetry_impl & telemetry_impl, const std::string & name)
 {
-
 	size_t callback_count;
 	size_t all_telemetry_data_count;
 	size_t cached_telemetry_data_count;
