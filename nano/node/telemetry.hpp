@@ -48,8 +48,8 @@ public:
 	size_t telemetry_data_size ();
 
 private:
-	// Anything older than this requires requesting metrics from other nodes
 	nano::network_params network_params;
+	// Anything older than this requires requesting metrics from other nodes
 	std::chrono::milliseconds const cache_cutoff{ network_params.network.is_test_network () ? 1000 : 5000 };
 
 	// All data in this chunk is protected by this mutex
@@ -87,23 +87,22 @@ public:
 	void add (nano::telemetry_data const & telemetry_data_a, nano::endpoint const & endpoint_a);
 
 	/*
-	 * Collects metrics from square root peers and invokes the callback when complete.
+	 * Collects metrics from square root number of peers and invokes the callback when complete.
 	 */
 	void get_random_metrics_async (std::function<void(batched_metric_data const &)> const & callback_a);
 
 	/*
-	 * A blocking version of get_metrics_async ().
+	 * A blocking version of get_random_metrics_async ().
 	 */
 	batched_metric_data get_random_metrics ();
 
 	/*
 	 * This makes a telemetry request to the specific channel
-	 * Multiple concurrent requests to the same endpoint are not currently supported (callback will have error flag as true)
 	 */
 	void get_single_metric_async (std::shared_ptr<nano::transport::channel> const &, std::function<void(single_metric_data const &)> const & callback_a);
 
 	/*
-	 * A blocking version of single_request_async
+	 * A blocking version of get_single_metric_async
 	 */
 	single_metric_data get_single_metric (std::shared_ptr<nano::transport::channel> const &);
 
