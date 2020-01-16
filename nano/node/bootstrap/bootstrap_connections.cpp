@@ -346,51 +346,48 @@ void nano::bootstrap_connections::requeue_pull (nano::pull_info const & pull_a, 
 {
 	auto pull (pull_a);
 	assert (pull.attempt != nullptr);
-	if (!pull.attempt->stopped)
+	if (!network_error)
 	{
-		if (!network_error)
-		{
-			++pull.attempts;
-		}
-		++pull.attempt->requeued_pulls;
-		if (pull.attempt->mode == nano::bootstrap_mode::legacy)
-		{
-			pull.attempt->restart_condition ();
-		}
-		if (pull.attempts < pull.retry_limit + (pull.processed / nano::bootstrap_limits::requeued_pulls_processed_blocks_factor))
+		++pull.attempts;
+	}
+	++pull.attempt->requeued_pulls;
+	if (pull.attempt->mode == nano::bootstrap_mode::legacy)
+	{
+		pull.attempt->restart_condition ();
+	}
+	if (pull.attempts < pull.retry_limit + (pull.processed / nano::bootstrap_limits::requeued_pulls_processed_blocks_factor))
+	{
+		nano::lock_guard<std::mutex> lock (mutex);
+		pulls.push_front (pull);
+		++pull.attempt->pulling;
+		condition.notify_all ();
+	}
+	else if (pull.attempt->mode == nano::bootstrap_mode::lazy && (pull.retry_limit == std::numeric_limits<unsigned>::max () || pull.attempts <= pull.retry_limit + (pull.processed / node.network_params.bootstrap.lazy_max_pull_blocks)))
+	{
+		assert (pull.account_or_head == pull.head);
+		if (!pull.attempt->lazy_processed_or_exists (pull.account_or_head))
 		{
 			nano::lock_guard<std::mutex> lock (mutex);
-			pulls.push_front (pull);
+			pulls.push_back (pull);
 			++pull.attempt->pulling;
 			condition.notify_all ();
 		}
-		else if (pull.attempt->mode == nano::bootstrap_mode::lazy && (pull.retry_limit == std::numeric_limits<unsigned>::max () || pull.attempts <= pull.retry_limit + (pull.processed / node.network_params.bootstrap.lazy_max_pull_blocks)))
+	}
+	else
+	{
+		if (node.config.logging.bulk_pull_logging ())
 		{
-			assert (pull.account_or_head == pull.head);
-			if (!pull.attempt->lazy_processed_or_exists (pull.account_or_head))
-			{
-				nano::lock_guard<std::mutex> lock (mutex);
-				pulls.push_back (pull);
-				++pull.attempt->pulling;
-				condition.notify_all ();
-			}
+			node.logger.try_log (boost::str (boost::format ("Failed to pull account %1% down to %2% after %3% attempts and %4% blocks processed") % pull.account_or_head.to_account () % pull.end.to_string () % pull.attempts % pull.processed));
 		}
-		else
-		{
-			if (node.config.logging.bulk_pull_logging ())
-			{
-				node.logger.try_log (boost::str (boost::format ("Failed to pull account %1% down to %2% after %3% attempts and %4% blocks processed") % pull.account_or_head.to_account () % pull.end.to_string () % pull.attempts % pull.processed));
-			}
-			node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_failed_account, nano::stat::dir::in);
+		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_failed_account, nano::stat::dir::in);
 
-			if (pull.attempt->mode == nano::bootstrap_mode::lazy && pull.processed > 0)
-			{
-				pull.attempt->lazy_add (pull);
-			}
-			if (pull.attempt->mode == nano::bootstrap_mode::legacy)
-			{
-				node.bootstrap_initiator.cache.add (pull);
-			}
+		if (pull.attempt->mode == nano::bootstrap_mode::lazy && pull.processed > 0)
+		{
+			pull.attempt->lazy_add (pull);
+		}
+		if (pull.attempt->mode == nano::bootstrap_mode::legacy)
+		{
+			node.bootstrap_initiator.cache.add (pull);
 		}
 	}
 }
