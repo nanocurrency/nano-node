@@ -144,9 +144,8 @@ std::vector<nano::block_hash> nano::request_aggregator::aggregate (nano::transac
 		}
 		else if (!hash_root.second.is_zero ())
 		{
-			nano::block_hash successor (0);
 			// Search for block root
-			successor = store.block_successor (transaction_a, hash_root.second);
+			auto successor (store.block_successor (transaction_a, hash_root.second));
 			// Search for account root
 			if (successor.is_zero ())
 			{
