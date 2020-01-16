@@ -1760,6 +1760,9 @@ TEST (mdb_block_store, upgrade_v15_v16)
 	auto error_get_representation (mdb_get (store.env.tx (transaction), store.representation, nano::mdb_val (nano::genesis_account), value));
 	ASSERT_NE (MDB_SUCCESS, error_get_representation);
 	ASSERT_EQ (store.representation, 0);
+
+	// Version should be correct
+	ASSERT_LT (15, store.version_get (transaction));
 }
 
 TEST (mdb_block_store, upgrade_v16_v17)
@@ -1804,6 +1807,9 @@ TEST (mdb_block_store, upgrade_v16_v17)
 
 		// Check confirmation height frontier is correct
 		ASSERT_EQ (confirmation_height_info.frontier, expected_cemented_frontier);
+
+		// Version should be correct
+		ASSERT_LT (16, store.version_get (transaction));
 	};
 	// clang-format on
 

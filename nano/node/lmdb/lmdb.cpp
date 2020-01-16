@@ -251,6 +251,7 @@ bool nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, bool
 			upgrade_v14_to_v15 (transaction_a);
 			needs_vacuuming = true;
 		case 15:
+			// Upgrades to v16 & v17 are both part of the v21 node release
 			upgrade_v15_to_v16 (transaction_a);
 		case 16:
 			upgrade_v16_to_v17 (transaction_a);
@@ -572,7 +573,7 @@ void nano::mdb_store::upgrade_v13_to_v14 (nano::write_transaction const & transa
 
 void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction & transaction_a)
 {
-	logger.always_log ("Preparing v14 to v15 upgrade...");
+	logger.always_log ("Preparing v14 to v15 database upgrade...");
 
 	std::vector<std::pair<nano::account, nano::account_info>> account_infos;
 	upgrade_counters account_counters (count (transaction_a, accounts_v0), count (transaction_a, accounts_v1));
@@ -703,7 +704,7 @@ void nano::mdb_store::upgrade_v15_to_v16 (nano::write_transaction const & transa
 
 void nano::mdb_store::upgrade_v16_to_v17 (nano::write_transaction const & transaction_a)
 {
-	logger.always_log ("Preparing v16 to v17 upgrade...");
+	logger.always_log ("Preparing v16 to v17 database upgrade...");
 
 	auto account_info_i = latest_begin (transaction_a);
 	auto account_info_n = latest_end ();
