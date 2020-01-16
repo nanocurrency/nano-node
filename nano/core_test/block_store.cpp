@@ -1727,6 +1727,43 @@ TEST (mdb_block_store, upgrade_v14_v15)
 
 TEST (mdb_block_store, upgrade_v15_v16)
 {
+	auto path (nano::unique_path ());
+	nano::mdb_val value;
+	{
+		nano::genesis genesis;
+		nano::logger_mt logger;
+		nano::mdb_store store (logger, path);
+		nano::stat stats;
+		nano::ledger ledger (store, stats);
+		auto transaction (store.tx_begin_write ());
+		store.initialize (transaction, genesis, ledger.cache);
+		// The representation table should get removed after, so readd it so that we can later confirm this actually happens
+		auto txn = store.env.tx (transaction);
+		ASSERT_FALSE (mdb_dbi_open (txn, "representation", MDB_CREATE, &store.representation));
+		auto weight = ledger.cache.rep_weights.representation_get (nano::genesis_account);
+		ASSERT_EQ (MDB_SUCCESS, mdb_put (txn, store.representation, nano::mdb_val (nano::genesis_account), nano::mdb_val (nano::uint128_union (weight)), 0));
+		// Lower the database to the previous version
+		store.version_put (transaction, 15);
+		// Confirm the rep weight exists in the database
+		ASSERT_EQ (MDB_SUCCESS, mdb_get (store.env.tx (transaction), store.representation, nano::mdb_val (nano::genesis_account), value));
+		store.confirmation_height_del (transaction, nano::genesis_account);
+	}
+
+	// Now do the upgrade
+	nano::logger_mt logger;
+	auto error (false);
+	nano::mdb_store store (logger, path);
+	ASSERT_FALSE (error);
+	auto transaction (store.tx_begin_read ());
+
+	// The representation table should now be deleted
+	auto error_get_representation (mdb_get (store.env.tx (transaction), store.representation, nano::mdb_val (nano::genesis_account), value));
+	ASSERT_NE (MDB_SUCCESS, error_get_representation);
+	ASSERT_EQ (store.representation, 0);
+}
+
+TEST (mdb_block_store, upgrade_v16_v17)
+{
 	nano::genesis genesis;
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::state_block block1 (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (genesis.hash ()));
@@ -1748,17 +1785,10 @@ TEST (mdb_block_store, upgrade_v15_v16)
 			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block1).code);
 			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block2).code);
 			ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, block3).code);
-			// The representation table should get removed after, so readd it so that we can later confirm this actually happens
-			auto txn = store.env.tx (transaction);
-			ASSERT_FALSE (mdb_dbi_open (txn, "representation", MDB_CREATE, &store.representation));
-			auto weight = ledger.cache.rep_weights.representation_get (nano::genesis_account);
-			ASSERT_EQ (MDB_SUCCESS, mdb_put (txn, store.representation, nano::mdb_val (nano::genesis_account), nano::mdb_val (nano::uint128_union (weight)), 0));
 			modify_confirmation_height_to_v15 (store, transaction, nano::genesis_account, confirmation_height);
 
 			// Lower the database to the previous version
-			store.version_put (transaction, 15);
-			// Confirm the rep weight exists in the database
-			ASSERT_EQ (MDB_SUCCESS, mdb_get (store.env.tx (transaction), store.representation, nano::mdb_val (nano::genesis_account), value));
+			store.version_put (transaction, 16);
 		}
 
 		// Now do the upgrade
@@ -1774,11 +1804,6 @@ TEST (mdb_block_store, upgrade_v15_v16)
 
 		// Check confirmation height frontier is correct
 		ASSERT_EQ (confirmation_height_info.frontier, expected_cemented_frontier);
-
-		// The representation table should now be deleted
-		auto error_get_representation (mdb_get (store.env.tx (transaction), store.representation, nano::mdb_val (nano::genesis_account), value));
-		ASSERT_NE (MDB_SUCCESS, error_get_representation);
-		ASSERT_EQ (store.representation, 0);
 	};
 	// clang-format on
 

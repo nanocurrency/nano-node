@@ -49,9 +49,11 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 	if (!error)
 	{
 		auto is_fully_upgraded (false);
+		auto is_fresh_db (false);
 		{
 			auto transaction (tx_begin_read ());
 			auto err = mdb_dbi_open (env.tx (transaction), "meta", 0, &meta);
+			is_fresh_db = err != MDB_SUCCESS;
 			if (err == MDB_SUCCESS)
 			{
 				is_fully_upgraded = (version_get (transaction) == version);
@@ -64,9 +66,17 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 		// (can be a few minutes with the --fast_bootstrap flag for instance)
 		if (!is_fully_upgraded)
 		{
-			if (backup_before_upgrade)
+			nano::network_constants network_constants;
+			if (!is_fresh_db)
 			{
-				create_backup_file (env, path_a, logger_a);
+				if (!network_constants.is_test_network ())
+				{
+					std::cout << "Upgrade in progress..." << std::endl;
+				}
+				if (backup_before_upgrade)
+				{
+					create_backup_file (env, path_a, logger_a);
+				}
 			}
 			auto needs_vacuuming = false;
 			{
@@ -78,7 +88,6 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 				}
 			}
 
-			nano::network_constants network_constants;
 			if (needs_vacuuming && !network_constants.is_test_network ())
 			{
 				logger.always_log ("Preparing vacuum...");
@@ -187,7 +196,7 @@ void nano::mdb_store::open_databases (bool & error_a, nano::transaction const & 
 
 	if (version_get (transaction_a) < 16)
 	{
-		// The representation database is no longer used, but need opening so that it can be deleted during an upgrade
+		// The representation database is no longer used, but needs opening so that it can be deleted during an upgrade
 		error_a |= mdb_dbi_open (env.tx (transaction_a), "representation", flags, &representation) != 0;
 	}
 
@@ -244,6 +253,8 @@ bool nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, bool
 		case 15:
 			upgrade_v15_to_v16 (transaction_a);
 		case 16:
+			upgrade_v16_to_v17 (transaction_a);
+		case 17:
 			break;
 		default:
 			logger.always_log (boost::str (boost::format ("The version of the ledger (%1%) is too high for this node") % version_l));
@@ -677,10 +688,8 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction & transaction_
 	logger.always_log ("Finished epoch merge upgrade");
 }
 
-void nano::mdb_store::upgrade_v15_to_v16 (nano::write_transaction & transaction_a)
+void nano::mdb_store::upgrade_v15_to_v16 (nano::write_transaction const & transaction_a)
 {
-	logger.always_log ("Preparing v15 to v16 upgrade...");
-
 	// Representation table is no longer used
 	assert (representation != 0);
 	if (representation != 0)
@@ -689,6 +698,12 @@ void nano::mdb_store::upgrade_v15_to_v16 (nano::write_transaction & transaction_
 		release_assert (status == MDB_SUCCESS);
 		representation = 0;
 	}
+	version_put (transaction_a, 16);
+}
+
+void nano::mdb_store::upgrade_v16_to_v17 (nano::write_transaction const & transaction_a)
+{
+	logger.always_log ("Preparing v16 to v17 upgrade...");
 
 	auto account_info_i = latest_begin (transaction_a);
 	auto account_info_n = latest_end ();
@@ -763,7 +778,7 @@ void nano::mdb_store::upgrade_v15_to_v16 (nano::write_transaction & transaction_
 		mdb_put (env.tx (transaction_a), confirmation_height, nano::mdb_val (confirmation_height_info_pair.first), nano::mdb_val (confirmation_height_info_pair.second), MDB_APPEND);
 	}
 
-	version_put (transaction_a, 16);
+	version_put (transaction_a, 17);
 	logger.always_log ("Finished upgrading confirmation height frontiers");
 }
 
