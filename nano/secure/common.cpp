@@ -377,6 +377,33 @@ uint16_t nano::endpoint_key::port () const
 	return boost::endian::big_to_native (network_port);
 }
 
+nano::confirmation_height_info::confirmation_height_info (uint64_t confirmation_height_a, nano::block_hash const & confirmed_frontier_a) :
+height (confirmation_height_a),
+frontier (confirmed_frontier_a)
+{
+}
+
+void nano::confirmation_height_info::serialize (nano::stream & stream_a) const
+{
+	nano::write (stream_a, height);
+	nano::write (stream_a, frontier);
+}
+
+bool nano::confirmation_height_info::deserialize (nano::stream & stream_a)
+{
+	auto error (false);
+	try
+	{
+		nano::read (stream_a, height);
+		nano::read (stream_a, frontier);
+	}
+	catch (std::runtime_error const &)
+	{
+		error = true;
+	}
+	return error;
+}
+
 nano::block_info::block_info (nano::account const & account_a, nano::amount const & balance_a) :
 account (account_a),
 balance (balance_a)

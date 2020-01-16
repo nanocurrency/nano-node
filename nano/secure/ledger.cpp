@@ -704,7 +704,7 @@ check_bootstrap_weights (true)
 		{
 			for (auto i (store.confirmation_height_begin (transaction)), n (store.confirmation_height_end ()); i != n; ++i)
 			{
-				cache.cemented_count += i->second;
+				cache.cemented_count += i->second.height;
 			}
 		}
 
@@ -887,11 +887,11 @@ bool nano::ledger::rollback (nano::write_transaction const & transaction_a, nano
 	auto error (false);
 	while (!error && store.block_exists (transaction_a, block_a))
 	{
-		uint64_t confirmation_height;
-		auto latest_error = store.confirmation_height_get (transaction_a, account_l, confirmation_height);
+		nano::confirmation_height_info confirmation_height_info;
+		auto latest_error = store.confirmation_height_get (transaction_a, account_l, confirmation_height_info);
 		assert (!latest_error);
 		(void)latest_error;
-		if (block_account_height > confirmation_height)
+		if (block_account_height > confirmation_height_info.height)
 		{
 			latest_error = store.account_get (transaction_a, account_l, account_info);
 			assert (!latest_error);
@@ -1042,7 +1042,7 @@ void nano::ledger::change_latest (nano::write_transaction const & transaction_a,
 		if (old_a.head.is_zero () && new_a.open_block == new_a.head)
 		{
 			assert (!store.confirmation_height_exists (transaction_a, account_a));
-			store.confirmation_height_put (transaction_a, account_a, 0);
+			store.confirmation_height_put (transaction_a, account_a, { 0, nano::block_hash (0) });
 		}
 		if (!old_a.head.is_zero () && old_a.epoch () != new_a.epoch ())
 		{
@@ -1116,9 +1116,9 @@ bool nano::ledger::block_confirmed (nano::transaction const & transaction_a, nan
 	auto block_height (store.block_account_height (transaction_a, hash_a));
 	if (block_height > 0) // 0 indicates that the block doesn't exist
 	{
-		uint64_t confirmation_height;
-		release_assert (!store.confirmation_height_get (transaction_a, account (transaction_a, hash_a), confirmation_height));
-		confirmed = (confirmation_height >= block_height);
+		nano::confirmation_height_info confirmation_height_info;
+		release_assert (!store.confirmation_height_get (transaction_a, account (transaction_a, hash_a), confirmation_height_info));
+		confirmed = (confirmation_height_info.height >= block_height);
 	}
 	return confirmed;
 }

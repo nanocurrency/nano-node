@@ -88,11 +88,11 @@ void nano::active_transactions::search_frontiers (nano::transaction const & tran
 				auto error = node.store.account_get (transaction_a, cementable_account.account, info);
 				if (!error)
 				{
-					uint64_t confirmation_height;
-					error = node.store.confirmation_height_get (transaction_a, cementable_account.account, confirmation_height);
+					nano::confirmation_height_info confirmation_height_info;
+					error = node.store.confirmation_height_get (transaction_a, cementable_account.account, confirmation_height_info);
 					release_assert (!error);
 
-					if (info.block_count > confirmation_height && !this->node.pending_confirmation_height.is_processing_block (info.head))
+					if (info.block_count > confirmation_height_info.height && !this->node.pending_confirmation_height.is_processing_block (info.head))
 					{
 						auto block (this->node.store.block_get (transaction_a, info.head));
 						if (!this->start (block, true))
@@ -429,11 +429,11 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 
 					auto i (wallet->store.begin (wallet_transaction, next_wallet_frontier_account));
 					auto n (wallet->store.end ());
-					uint64_t confirmation_height = 0;
+					nano::confirmation_height_info confirmation_height_info;
 					for (; i != n; ++i)
 					{
 						auto const & account (i->first);
-						if (!node.store.account_get (transaction_a, account, info) && !node.store.confirmation_height_get (transaction_a, account, confirmation_height))
+						if (!node.store.account_get (transaction_a, account, info) && !node.store.confirmation_height_get (transaction_a, account, confirmation_height_info))
 						{
 							// If it exists in normal priority collection delete from there.
 							auto it = priority_cementable_frontiers.find (account);
@@ -444,7 +444,7 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 								priority_cementable_frontiers_size = priority_cementable_frontiers.size ();
 							}
 
-							prioritize_account_for_confirmation (priority_wallet_cementable_frontiers, priority_wallet_cementable_frontiers_size, account, info, confirmation_height);
+							prioritize_account_for_confirmation (priority_wallet_cementable_frontiers, priority_wallet_cementable_frontiers_size, account, info, confirmation_height_info.height);
 
 							if (wallet_account_timer.since_start () >= wallet_account_time_a)
 							{
@@ -475,16 +475,16 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 
 		auto i (node.store.latest_begin (transaction_a, next_frontier_account));
 		auto n (node.store.latest_end ());
-		uint64_t confirmation_height = 0;
+		nano::confirmation_height_info confirmation_height_info;
 		for (; i != n && !stopped; ++i)
 		{
 			auto const & account (i->first);
 			auto const & info (i->second);
 			if (priority_wallet_cementable_frontiers.find (account) == priority_wallet_cementable_frontiers.end ())
 			{
-				if (!node.store.confirmation_height_get (transaction_a, account, confirmation_height))
+				if (!node.store.confirmation_height_get (transaction_a, account, confirmation_height_info))
 				{
-					prioritize_account_for_confirmation (priority_cementable_frontiers, priority_cementable_frontiers_size, account, info, confirmation_height);
+					prioritize_account_for_confirmation (priority_cementable_frontiers, priority_cementable_frontiers_size, account, info, confirmation_height_info.height);
 				}
 			}
 			next_frontier_account = account.number () + 1;
@@ -653,9 +653,9 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 			auto hash (block_a->hash ());
 			auto existing_block (node.store.block_get (*opt_transaction_a, hash, &existing_sideband));
 			release_assert (existing_block != nullptr);
-			uint64_t confirmation_height;
-			release_assert (!node.store.confirmation_height_get (*opt_transaction_a, node.store.block_account (*opt_transaction_a, hash), confirmation_height));
-			bool confirmed = (confirmation_height >= existing_sideband.height);
+			nano::confirmation_height_info confirmation_height_info;
+			release_assert (!node.store.confirmation_height_get (*opt_transaction_a, node.store.block_account (*opt_transaction_a, hash), confirmation_height_info));
+			bool confirmed = (confirmation_height_info.height >= existing_sideband.height);
 			if (!confirmed && existing_block->block_work () != block_a->block_work ())
 			{
 				uint64_t existing_difficulty;

@@ -534,8 +534,8 @@ void nano::json_handler::account_info ()
 		const bool pending = request.get<bool> ("pending", false);
 		auto transaction (node.store.tx_begin_read ());
 		auto info (account_info_impl (transaction, account));
-		uint64_t confirmation_height;
-		if (node.store.confirmation_height_get (transaction, account, confirmation_height))
+		nano::confirmation_height_info confirmation_height_info;
+		if (node.store.confirmation_height_get (transaction, account, confirmation_height_info))
 		{
 			ec = nano::error_common::account_not_found;
 		}
@@ -550,7 +550,8 @@ void nano::json_handler::account_info ()
 			response_l.put ("modified_timestamp", std::to_string (info.modified));
 			response_l.put ("block_count", std::to_string (info.block_count));
 			response_l.put ("account_version", epoch_as_string (info.epoch ()));
-			response_l.put ("confirmation_height", std::to_string (confirmation_height));
+			response_l.put ("confirmation_height", std::to_string (confirmation_height_info.height));
+			response_l.put ("confirmation_height_frontier", confirmation_height_info.frontier.to_string ());
 			if (representative)
 			{
 				response_l.put ("representative", info.representative.to_account ());
@@ -1766,7 +1767,7 @@ void nano::json_handler::confirmation_height_currently_processing ()
 	auto hash = node.pending_confirmation_height.current ();
 	if (!hash.is_zero ())
 	{
-		response_l.put ("hash", node.pending_confirmation_height.current ().to_string ());
+		response_l.put ("hash", hash.to_string ());
 	}
 	else
 	{
