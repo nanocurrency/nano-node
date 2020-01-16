@@ -1,5 +1,6 @@
 #include <nano/core_test/testutil.hpp>
 #include <nano/node/bootstrap/bootstrap_frontier.hpp>
+#include <nano/node/bootstrap/bootstrap_lazy.hpp>
 #include <nano/node/testing.hpp>
 
 #include <gtest/gtest.h>
@@ -524,9 +525,9 @@ TEST (bootstrap_processor, lazy_hash)
 	node1->network.udp_channels.insert (system.nodes[0]->network.endpoint (), node1->network_params.protocol.protocol_version);
 	node1->bootstrap_initiator.bootstrap_lazy (receive2->hash (), true);
 	{
-		auto attempt (node1->bootstrap_initiator.current_attempt ());
-		ASSERT_NE (nullptr, attempt);
-		ASSERT_EQ (receive2->hash ().to_string (), attempt->id);
+		auto lazy_attempt (node1->bootstrap_initiator.current_lazy_attempt ());
+		ASSERT_NE (nullptr, lazy_attempt);
+		ASSERT_EQ (receive2->hash ().to_string (), lazy_attempt->id);
 	}
 	// Check processed blocks
 	system.deadline_set (10s);
@@ -560,9 +561,9 @@ TEST (bootstrap_processor, lazy_hash_bootstrap_id)
 	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.protocol.protocol_version);
 	node1->bootstrap_initiator.bootstrap_lazy (receive2->hash (), true, true, "123456");
 	{
-		auto attempt (node1->bootstrap_initiator.current_attempt ());
-		ASSERT_NE (nullptr, attempt);
-		ASSERT_EQ ("123456", attempt->id);
+		auto lazy_attempt (node1->bootstrap_initiator.current_lazy_attempt ());
+		ASSERT_NE (nullptr, lazy_attempt);
+		ASSERT_EQ ("123456", lazy_attempt->id);
 	}
 	// Check processed blocks
 	system.deadline_set (10s);
@@ -738,9 +739,9 @@ TEST (bootstrap_processor, wallet_lazy_frontier)
 	wallet->insert_adhoc (key2.prv);
 	node1->bootstrap_wallet ();
 	{
-		auto attempt (node1->bootstrap_initiator.current_attempt ());
-		ASSERT_NE (nullptr, attempt);
-		ASSERT_EQ (key2.pub.to_account (), attempt->id);
+		auto wallet_attempt (node1->bootstrap_initiator.current_wallet_attempt ());
+		ASSERT_NE (nullptr, wallet_attempt);
+		ASSERT_EQ (key2.pub.to_account (), wallet_attempt->id);
 	}
 	// Check processed blocks
 	system.deadline_set (10s);
