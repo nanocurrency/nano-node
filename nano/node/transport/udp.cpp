@@ -75,7 +75,7 @@ strand (node_a.io_ctx.get_executor ())
 {
 	if (!node.flags.disable_udp)
 	{
-		socket = std::make_shared<boost::asio::ip::udp::socket> (node_a.io_ctx, nano::endpoint (boost::asio::ip::address_v6::any (), port_a));
+		socket = std::make_unique<boost::asio::ip::udp::socket> (node_a.io_ctx, nano::endpoint (boost::asio::ip::address_v6::any (), port_a));
 		boost::system::error_code ec;
 		auto port (socket->local_endpoint (ec).port ());
 		if (ec)
