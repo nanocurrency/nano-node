@@ -98,12 +98,15 @@ nano::single_metric_data nano::telemetry::get_single_metric (std::shared_ptr<nan
 size_t nano::telemetry::telemetry_data_size ()
 {
 	nano::lock_guard<std::mutex> guard (mutex);
+	auto total = std::accumulate (single_requests.begin (), single_requests.end (), 0, [](size_t total, auto & single_request) {
+		return total += single_request.second->telemetry_data_size ();
+	});
+
 	if (batch_telemetry)
 	{
-		return std::accumulate (single_requests.begin (), single_requests.end (), batch_telemetry->telemetry_data_size (), [](size_t total, auto & single_request) {
-			return total += single_request.second->telemetry_data_size ();
-		});
+		total += batch_telemetry->telemetry_data_size ();
 	}
+	return total;
 }
 
 nano::telemetry_impl::telemetry_impl (nano::network & network_a, nano::alarm & alarm_a, nano::worker & worker_a) :
