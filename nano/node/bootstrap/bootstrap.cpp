@@ -23,6 +23,7 @@ constexpr double nano::bootstrap_limits::required_frontier_confirmation_ratio;
 constexpr unsigned nano::bootstrap_limits::frontier_confirmation_blocks_limit;
 constexpr unsigned nano::bootstrap_limits::requeued_pulls_limit;
 constexpr unsigned nano::bootstrap_limits::requeued_pulls_limit_test;
+constexpr unsigned nano::bootstrap_limits::requeued_pulls_processed_blocks_factor;
 constexpr std::chrono::seconds nano::bootstrap_limits::lazy_flush_delay_sec;
 constexpr unsigned nano::bootstrap_limits::lazy_destinations_request_limit;
 constexpr uint64_t nano::bootstrap_limits::lazy_batch_pull_count_resize_blocks_limit;
@@ -605,7 +606,7 @@ void nano::bootstrap_attempt::requeue_pull (nano::pull_info const & pull_a, bool
 		++pull.attempts;
 	}
 	++requeued_pulls;
-	if (mode != nano::bootstrap_mode::lazy && pull.attempts < pull.retry_limit + (pull.processed / 10000))
+	if (mode != nano::bootstrap_mode::lazy && pull.attempts < pull.retry_limit + (pull.processed / nano::bootstrap_limits::requeued_pulls_processed_blocks_factor))
 	{
 		nano::lock_guard<std::mutex> lock (mutex);
 		pulls.push_front (pull);
