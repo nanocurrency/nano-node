@@ -52,6 +52,8 @@ namespace websocket
 		active_difficulty,
 		/** Work generation message */
 		work,
+		/** A bootstrap message */
+		bootstrap,
 		/** Auxiliary length, not a valid topic, must be the last enum */
 		_length
 	};
@@ -86,6 +88,8 @@ namespace websocket
 		message work_generation (nano::block_hash const & root_a, uint64_t const work_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::string const & peer_a, std::vector<std::string> const & bad_peers_a, bool const completed_a = true, bool const cancelled_a = false);
 		message work_cancelled (nano::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a);
 		message work_failed (nano::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a);
+		message bootstrap_started (std::string const & id_a, std::string const & mode_a);
+		message bootstrap_exited (std::string const & id_a, std::string const & mode_a, std::chrono::steady_clock::time_point const start_time_a, uint64_t const total_blocks_a);
 
 	private:
 		/** Set the common fields for messages: timestamp and topic. */

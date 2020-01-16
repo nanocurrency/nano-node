@@ -15,7 +15,7 @@ jobs:
       BOOST_ROOT: /tmp/boost
     steps:
       - uses: actions/checkout@722adc6
-      - uses: chrislennon/action-aws-cli@1347f1d
+      - uses: chrislennon/action-aws-cli@f0f8671
       - name: tag
         run: echo "::set-env name=TAG::`git describe --tags $GITHUB_SHA`"
       - name: Checkout Submodules
@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@722adc6
-      - uses: chrislennon/action-aws-cli@1347f1d
+      - uses: chrislennon/action-aws-cli@f0f8671
       - name: tag
         run: echo "::set-env name=TAG::`git describe --tags $GITHUB_SHA`"
       - name: Checkout Submodules
@@ -59,7 +59,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@722adc6
-      - uses: chrislennon/action-aws-cli@1347f1d
+      - uses: chrislennon/action-aws-cli@f0f8671
       - name: tag
         run: |
           $TRAVIS_TAG=git describe --tags $GITHUB_SHA

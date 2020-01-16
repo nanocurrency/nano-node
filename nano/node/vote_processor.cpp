@@ -71,7 +71,6 @@ void nano::vote_processor::process_loop ()
 			lock.unlock ();
 			verify_votes (votes_l);
 			{
-				nano::unique_lock<std::mutex> active_single_lock (active.mutex);
 				auto transaction (store.tx_begin_read ());
 				uint64_t count (1);
 				for (auto & i : votes_l)
@@ -80,9 +79,7 @@ void nano::vote_processor::process_loop ()
 					// Free active_transactions mutex each 100 processed votes
 					if (count % 100 == 0)
 					{
-						active_single_lock.unlock ();
 						transaction.refresh ();
-						active_single_lock.lock ();
 					}
 					count++;
 				}
@@ -198,11 +195,10 @@ void nano::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<na
 // node.active.mutex lock required
 nano::vote_code nano::vote_processor::vote_blocking (nano::transaction const & transaction_a, std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a, bool validated)
 {
-	assert (!active.mutex.try_lock ());
 	auto result (nano::vote_code::invalid);
 	if (validated || !vote_a->validate ())
 	{
-		result = active.vote (vote_a, true);
+		result = active.vote (vote_a);
 		observers.vote.notify (vote_a, channel_a, result);
 		// This tries to assist rep nodes that have lost track of their highest sequence number by replaying our highest known vote back to them
 		// Only do this if the sequence number is significantly different to account for network reordering
