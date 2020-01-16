@@ -97,9 +97,8 @@ namespace ipc
 		void broadcast (std::shared_ptr<nanoapi::EventConfirmationT> const & confirmation_a);
 
 		nano::node & node;
-		mutable std::mutex confirmation_subscribers_mutex;
-		std::vector<subscription<nanoapi::TopicConfirmationT>> confirmation_subscribers;
-		nano::locked<std::vector<subscription<nanoapi::TopicServiceStopT>>> service_stop_subscribers;
+		mutable nano::locked<std::vector<subscription<nanoapi::TopicConfirmationT>>> confirmation_subscribers;
+		mutable nano::locked<std::vector<subscription<nanoapi::TopicServiceStopT>>> service_stop_subscribers;
 	};
 }
 }

@@ -104,18 +104,17 @@ void subscribe_or_unsubscribe (nano::logger_mt & logger, COLL & subscriber_colle
 
 void nano::ipc::broker::subscribe (std::weak_ptr<nano::ipc::subscriber> subscriber_a, std::shared_ptr<nanoapi::TopicConfirmationT> const & confirmation_a)
 {
-	nano::unique_lock<std::mutex> lock (confirmation_subscribers_mutex);
-	subscribe_or_unsubscribe (node.logger, confirmation_subscribers, subscriber_a, confirmation_a);
+	auto subscribers = confirmation_subscribers.lock ();
+	subscribe_or_unsubscribe (node.logger, subscribers.get (), subscriber_a, confirmation_a);
 }
 
 void nano::ipc::broker::broadcast (std::shared_ptr<nanoapi::EventConfirmationT> const & confirmation_a)
 {
 	using Filter = nanoapi::TopicConfirmationTypeFilter;
-	nano::unique_lock<std::mutex> lock (confirmation_subscribers_mutex);
 	decltype (confirmation_a->election_info) election_info;
 	nanoapi::BlockUnion block;
-	auto itr (confirmation_subscribers.begin ());
-	while (itr != confirmation_subscribers.end ())
+	auto itr (confirmation_subscribers->begin ());
+	while (itr != confirmation_subscribers->end ())
 	{
 		if (auto subscriber_l = itr->subscriber.lock ())
 		{
@@ -216,15 +215,14 @@ void nano::ipc::broker::broadcast (std::shared_ptr<nanoapi::EventConfirmationT> 
 		}
 		else
 		{
-			itr = confirmation_subscribers.erase (itr);
+			itr = confirmation_subscribers->erase (itr);
 		}
 	}
 }
 
 size_t nano::ipc::broker::confirmation_subscriber_count () const
 {
-	nano::unique_lock<std::mutex> lock (confirmation_subscribers_mutex);
-	return confirmation_subscribers.size ();
+	return confirmation_subscribers->size ();
 }
 
 void nano::ipc::broker::service_register (std::string service_name_a, std::weak_ptr<nano::ipc::subscriber> subscriber_a)
