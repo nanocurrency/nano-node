@@ -26,7 +26,7 @@ thread ([this]() { run (); })
 void nano::request_aggregator::add (std::shared_ptr<nano::transport::channel> & channel_a, std::vector<std::pair<nano::block_hash, nano::root>> const & hashes_roots_a)
 {
 	assert (wallets.rep_counts ().voting > 0);
-	auto endpoint (nano::transport::map_endpoint_to_v6 (channel_a->get_endpoint ()));
+	auto const endpoint (nano::transport::map_endpoint_to_v6 (channel_a->get_endpoint ()));
 	nano::unique_lock<std::mutex> lock (mutex);
 	auto & requests_by_endpoint (requests.get<tag_endpoint> ());
 	auto existing (requests_by_endpoint.find (endpoint));
@@ -40,10 +40,7 @@ void nano::request_aggregator::add (std::shared_ptr<nano::transport::channel> & 
 		pool_a.channel = channel_a;
 		auto new_deadline (std::min (pool_a.start + this->max_delay, std::chrono::steady_clock::now () + this->small_delay));
 		pool_a.deadline = new_deadline;
-		for (auto const & hash_root : hashes_roots_a)
-		{
-			pool_a.hashes_roots.emplace_back (hash_root.first, hash_root.second);
-		}
+		pool_a.hashes_roots.insert (pool_a.hashes_roots.begin (), hashes_roots_a.begin (), hashes_roots_a.end ());
 	});
 	// clang-format on
 	if (requests.size () == 1)
@@ -189,7 +186,7 @@ std::vector<nano::block_hash> nano::request_aggregator::aggregate (nano::transac
 	return to_generate;
 }
 
-void nano::request_aggregator::generate (nano::transaction const & transaction_a, std::vector<nano::block_hash> hashes_a, std::shared_ptr<nano::transport::channel> & channel_a) const
+void nano::request_aggregator::generate (nano::transaction const & transaction_a, std::vector<nano::block_hash> const hashes_a, std::shared_ptr<nano::transport::channel> & channel_a) const
 {
 	size_t generated_l = 0;
 	auto i (hashes_a.begin ());

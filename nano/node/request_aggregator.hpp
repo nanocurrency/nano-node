@@ -20,7 +20,6 @@ namespace nano
 class votes_cache;
 class block_store;
 class wallets;
-class networ_params;
 class stat;
 /**
  * Pools together confirmation requests, separately for each endpoint.
@@ -34,7 +33,7 @@ class request_aggregator final
 {
 	/**
 	 * Holds a buffer of incoming requests from an endpoint.
-	 * Extends the lifetime of the corresponding channel. The channel is updated on a new request arriving from the same endpoint, such that only the newest channel is extended
+	 * Extends the lifetime of the corresponding channel. The channel is updated on a new request arriving from the same endpoint, such that only the newest channel is held
 	 */
 	struct channel_pool final
 	{
@@ -47,7 +46,7 @@ class request_aggregator final
 		std::vector<std::pair<nano::block_hash, nano::root>> hashes_roots;
 		std::shared_ptr<nano::transport::channel> channel;
 		nano::endpoint endpoint;
-		std::chrono::steady_clock::time_point start{ std::chrono::steady_clock::now () };
+		std::chrono::steady_clock::time_point const start{ std::chrono::steady_clock::now () };
 		std::chrono::steady_clock::time_point deadline;
 	};
 
@@ -72,10 +71,10 @@ public:
 
 private:
 	void run ();
-	/** Aggregate and send cached votes for a pool, returning the leftovers that were not found in cached votes **/
-	std::vector<nano::block_hash> aggregate (nano::transaction const &, channel_pool &) const;
-	/** Generate and send votes, does not need a lock on the mutex **/
-	void generate (nano::transaction const &, std::vector<nano::block_hash>, std::shared_ptr<nano::transport::channel> &) const;
+	/** Aggregate and send cached votes for \p pool_a, returning the leftovers that were not found in cached votes **/
+	std::vector<nano::block_hash> aggregate (nano::transaction const &, channel_pool & pool_a) const;
+	/** Generate and send votes from \p hashes_a to \p channel_a, does not need a lock on the mutex **/
+	void generate (nano::transaction const &, std::vector<nano::block_hash> const hashes_a, std::shared_ptr<nano::transport::channel> & channel_a) const;
 
 	nano::stat & stats;
 	nano::votes_cache & votes_cache;
