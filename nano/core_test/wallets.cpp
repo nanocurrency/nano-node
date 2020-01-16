@@ -112,6 +112,7 @@ TEST (wallets, upgrade)
 		auto status (mdb_put (mdb_store.env.tx (transaction_destination), info.epoch () == nano::epoch::epoch_0 ? mdb_store.accounts_v0 : mdb_store.accounts_v1, nano::mdb_val (nano::test_genesis_key.pub), nano::mdb_val (account_info_v13), 0));
 		(void)status;
 		assert (status == 0);
+		mdb_store.confirmation_height_del (transaction_destination, nano::genesis_account);
 	}
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, path, system.alarm, node_config1, system.work));
 	ASSERT_EQ (1, node1->wallets.items.size ());

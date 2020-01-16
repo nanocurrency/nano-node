@@ -142,8 +142,9 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 
 		auto block_height (ledger.store.block_account_height (read_transaction, current));
 		nano::account account (ledger.store.block_account (read_transaction, current));
-		uint64_t confirmation_height;
-		release_assert (!ledger.store.confirmation_height_get (read_transaction, account, confirmation_height));
+		nano::confirmation_height_info confirmation_height_info;
+		release_assert (!ledger.store.confirmation_height_get (read_transaction, account, confirmation_height_info));
+		auto confirmation_height = confirmation_height_info.height;
 		auto iterated_height = confirmation_height;
 		auto account_it = confirmed_iterated_pairs.find (account);
 		if (account_it != confirmed_iterated_pairs.cend ())
@@ -304,9 +305,10 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 		while (!all_pending_a.empty ())
 		{
 			const auto & pending = all_pending_a.front ();
-			uint64_t confirmation_height;
-			auto error = ledger.store.confirmation_height_get (transaction, pending.account, confirmation_height);
+			nano::confirmation_height_info confirmation_height_info;
+			auto error = ledger.store.confirmation_height_get (transaction, pending.account, confirmation_height_info);
 			release_assert (!error);
+			auto confirmation_height = confirmation_height_info.height;
 			if (pending.height > confirmation_height)
 			{
 #ifndef NDEBUG
@@ -339,7 +341,7 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 				assert (pending.num_blocks_confirmed == pending.height - confirmation_height);
 				confirmation_height = pending.height;
 				ledger.cache.cemented_count += pending.num_blocks_confirmed;
-				ledger.store.confirmation_height_put (transaction, pending.account, confirmation_height);
+				ledger.store.confirmation_height_put (transaction, pending.account, { confirmation_height, pending.hash });
 			}
 			total_pending_write_block_count -= pending.num_blocks_confirmed;
 			++num_accounts_processed;
