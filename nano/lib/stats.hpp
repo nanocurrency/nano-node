@@ -197,7 +197,8 @@ public:
 		udp,
 		observer,
 		confirmation_height,
-		drop
+		drop,
+		requests
 	};
 
 	/** Optional detail type */
@@ -292,7 +293,12 @@ public:
 
 		// confirmation height
 		blocks_confirmed,
-		invalid_block
+		invalid_block,
+
+		// requests
+		requests_cached,
+		requests_generated,
+		requests_ignored
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */
