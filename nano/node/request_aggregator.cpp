@@ -127,7 +127,7 @@ bool nano::request_aggregator::empty ()
 	return size () == 0;
 }
 
-std::vector<nano::block_hash> nano::request_aggregator::aggregate (nano::transaction & transaction_a, channel_pool & pool_a) const
+std::vector<nano::block_hash> nano::request_aggregator::aggregate (nano::transaction const & transaction_a, channel_pool & pool_a) const
 {
 	std::vector<nano::block_hash> to_generate;
 	std::vector<std::shared_ptr<nano::vote>> cached_votes;
@@ -190,7 +190,7 @@ std::vector<nano::block_hash> nano::request_aggregator::aggregate (nano::transac
 	return to_generate;
 }
 
-void nano::request_aggregator::generate (nano::transaction & transaction_a, std::vector<nano::block_hash> hashes_a, std::shared_ptr<nano::transport::channel> & channel_a) const
+void nano::request_aggregator::generate (nano::transaction const & transaction_a, std::vector<nano::block_hash> hashes_a, std::shared_ptr<nano::transport::channel> & channel_a) const
 {
 	size_t generated_l = 0;
 	auto i (hashes_a.begin ());
