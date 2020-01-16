@@ -227,7 +227,7 @@ nano::account_info nano::json_handler::account_info_impl (nano::transaction cons
 		if (node.store.account_get (transaction_a, account_a, result))
 		{
 			ec = nano::error_common::account_not_found;
-			node.bootstrap_initiator.bootstrap_lazy (account_a, false, false);
+			node.bootstrap_initiator.bootstrap_lazy (account_a, false, false, account_a.to_account ());
 		}
 	}
 	return result;
@@ -1599,7 +1599,8 @@ void nano::json_handler::bootstrap ()
 		{
 			if (!node.flags.disable_legacy_bootstrap)
 			{
-				node.bootstrap_initiator.bootstrap (nano::endpoint (address, port), true, bypass_frontier_confirmation);
+				std::string bootstrap_id (request.get<std::string> ("id", ""));
+				node.bootstrap_initiator.bootstrap (nano::endpoint (address, port), true, bypass_frontier_confirmation, bootstrap_id);
 				response_l.put ("success", "");
 			}
 			else
@@ -1624,7 +1625,8 @@ void nano::json_handler::bootstrap_any ()
 	const bool force = request.get<bool> ("force", false);
 	if (!node.flags.disable_legacy_bootstrap)
 	{
-		node.bootstrap_initiator.bootstrap (force);
+		std::string bootstrap_id (request.get<std::string> ("id", ""));
+		node.bootstrap_initiator.bootstrap (force, bootstrap_id);
 		response_l.put ("success", "");
 	}
 	else
@@ -1642,7 +1644,8 @@ void nano::json_handler::bootstrap_lazy ()
 	{
 		if (!node.flags.disable_lazy_bootstrap)
 		{
-			node.bootstrap_initiator.bootstrap_lazy (hash, force);
+			std::string bootstrap_id (request.get<std::string> ("id", ""));
+			node.bootstrap_initiator.bootstrap_lazy (hash, force, true, bootstrap_id);
 			response_l.put ("started", "1");
 		}
 		else
@@ -1663,6 +1666,7 @@ void nano::json_handler::bootstrap_status ()
 	{
 		nano::lock_guard<std::mutex> lock (attempt->mutex);
 		nano::lock_guard<std::mutex> lazy_lock (attempt->lazy_mutex);
+		response_l.put ("id", attempt->id);
 		response_l.put ("clients", std::to_string (attempt->clients.size ()));
 		response_l.put ("pulls", std::to_string (attempt->pulls.size ()));
 		response_l.put ("pulling", std::to_string (attempt->pulling));
@@ -1674,20 +1678,7 @@ void nano::json_handler::bootstrap_status ()
 		response_l.put ("requeued_pulls", std::to_string (attempt->requeued_pulls));
 		response_l.put ("frontiers_received", static_cast<bool> (attempt->frontiers_received));
 		response_l.put ("frontiers_confirmed", static_cast<bool> (attempt->frontiers_confirmed));
-		std::string mode_text;
-		if (attempt->mode == nano::bootstrap_mode::legacy)
-		{
-			mode_text = "legacy";
-		}
-		else if (attempt->mode == nano::bootstrap_mode::lazy)
-		{
-			mode_text = "lazy";
-		}
-		else if (attempt->mode == nano::bootstrap_mode::wallet_lazy)
-		{
-			mode_text = "wallet_lazy";
-		}
-		response_l.put ("mode", mode_text);
+		response_l.put ("mode", attempt->mode_text ());
 		response_l.put ("lazy_blocks", std::to_string (attempt->lazy_blocks.size ()));
 		response_l.put ("lazy_state_backlog", std::to_string (attempt->lazy_state_backlog.size ()));
 		response_l.put ("lazy_balances", std::to_string (attempt->lazy_balances.size ()));

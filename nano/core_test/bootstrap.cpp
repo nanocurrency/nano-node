@@ -521,7 +521,48 @@ TEST (bootstrap_processor, lazy_hash)
 	// Start lazy bootstrap with last block in chain known
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
 	node1->network.udp_channels.insert (system.nodes[0]->network.endpoint (), node1->network_params.protocol.protocol_version);
-	node1->bootstrap_initiator.bootstrap_lazy (receive2->hash ());
+	node1->bootstrap_initiator.bootstrap_lazy (receive2->hash (), true);
+	{
+		auto attempt (node1->bootstrap_initiator.current_attempt ());
+		ASSERT_NE (nullptr, attempt);
+		ASSERT_EQ (receive2->hash ().to_string (), attempt->id);
+	}
+	// Check processed blocks
+	system.deadline_set (10s);
+	while (node1->balance (key2.pub) == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	node1->stop ();
+}
+
+TEST (bootstrap_processor, lazy_hash_bootstrap_id)
+{
+	nano::system system (1);
+	auto node0 (system.nodes[0]);
+	nano::genesis genesis;
+	nano::keypair key1;
+	nano::keypair key2;
+	// Generating test chain
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node0->work_generate_blocking (genesis.hash ())));
+	auto receive1 (std::make_shared<nano::state_block> (key1.pub, 0, key1.pub, nano::Gxrb_ratio, send1->hash (), key1.prv, key1.pub, *node0->work_generate_blocking (key1.pub)));
+	auto send2 (std::make_shared<nano::state_block> (key1.pub, receive1->hash (), key1.pub, 0, key2.pub, key1.prv, key1.pub, *node0->work_generate_blocking (receive1->hash ())));
+	auto receive2 (std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, nano::Gxrb_ratio, send2->hash (), key2.prv, key2.pub, *node0->work_generate_blocking (key2.pub)));
+	// Processing test chain
+	node0->block_processor.add (send1);
+	node0->block_processor.add (receive1);
+	node0->block_processor.add (send2);
+	node0->block_processor.add (receive2);
+	node0->block_processor.flush ();
+	// Start lazy bootstrap with last block in chain known
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
+	node1->network.udp_channels.insert (node0->network.endpoint (), node1->network_params.protocol.protocol_version);
+	node1->bootstrap_initiator.bootstrap_lazy (receive2->hash (), true, true, "123456");
+	{
+		auto attempt (node1->bootstrap_initiator.current_attempt ());
+		ASSERT_NE (nullptr, attempt);
+		ASSERT_EQ ("123456", attempt->id);
+	}
 	// Check processed blocks
 	system.deadline_set (10s);
 	while (node1->balance (key2.pub) == 0)
@@ -695,6 +736,11 @@ TEST (bootstrap_processor, wallet_lazy_frontier)
 	ASSERT_NE (nullptr, wallet);
 	wallet->insert_adhoc (key2.prv);
 	node1->bootstrap_wallet ();
+	{
+		auto attempt (node1->bootstrap_initiator.current_attempt ());
+		ASSERT_NE (nullptr, attempt);
+		ASSERT_EQ (key2.pub.to_account (), attempt->id);
+	}
 	// Check processed blocks
 	system.deadline_set (10s);
 	while (!node1->ledger.block_exists (receive2->hash ()))

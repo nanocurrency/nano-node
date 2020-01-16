@@ -58,7 +58,7 @@ class bulk_push_client;
 class bootstrap_attempt final : public std::enable_shared_from_this<bootstrap_attempt>
 {
 public:
-	explicit bootstrap_attempt (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a = nano::bootstrap_mode::legacy);
+	explicit bootstrap_attempt (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a = nano::bootstrap_mode::legacy, std::string id_a = "");
 	~bootstrap_attempt ();
 	void run ();
 	std::shared_ptr<nano::bootstrap_client> connection (nano::unique_lock<std::mutex> &, bool = false);
@@ -82,6 +82,7 @@ public:
 	void attempt_restart_check (nano::unique_lock<std::mutex> &);
 	bool confirm_frontiers (nano::unique_lock<std::mutex> &);
 	bool process_block (std::shared_ptr<nano::block>, nano::account const &, uint64_t, nano::bulk_pull::count_t, bool, unsigned);
+	std::string mode_text ();
 	/** Lazy bootstrap */
 	void lazy_run ();
 	void lazy_start (nano::hash_or_account const &, bool confirmed = true);
@@ -130,6 +131,7 @@ public:
 	std::atomic<bool> stopped{ false };
 	std::chrono::steady_clock::time_point attempt_start{ std::chrono::steady_clock::now () };
 	nano::bootstrap_mode mode;
+	std::string id;
 	std::mutex mutex;
 	nano::condition_variable condition;
 	// Lazy bootstrap
@@ -248,9 +250,9 @@ class bootstrap_initiator final
 public:
 	explicit bootstrap_initiator (nano::node &);
 	~bootstrap_initiator ();
-	void bootstrap (nano::endpoint const &, bool add_to_peers = true, bool frontiers_confirmed = false);
-	void bootstrap (bool force = false);
-	void bootstrap_lazy (nano::hash_or_account const &, bool force = false, bool confirmed = true);
+	void bootstrap (nano::endpoint const &, bool add_to_peers = true, bool frontiers_confirmed = false, std::string id_a = "");
+	void bootstrap (bool force = false, std::string id_a = "");
+	void bootstrap_lazy (nano::hash_or_account const &, bool force = false, bool confirmed = true, std::string id_a = "");
 	void bootstrap_wallet (std::deque<nano::account> &);
 	void run_bootstrap ();
 	void notify_listeners (bool);
