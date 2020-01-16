@@ -7751,7 +7751,95 @@ TEST (rpc, receive_work_disabled)
 	}
 }
 
-TEST (rpc, node_telemetry)
+namespace
+{
+	void compare_default_test_result_data (test_response & response, nano::node const & node_server_a)
+	{
+		ASSERT_EQ (200, response.status);
+		ASSERT_FALSE (response.json.get<bool> ("cached"));
+		ASSERT_EQ (1, response.json.get<uint64_t> ("block_count"));
+		ASSERT_EQ (1, response.json.get<uint64_t> ("cemented_count"));
+		ASSERT_EQ (0, response.json.get<uint64_t> ("unchecked_count"));
+		ASSERT_EQ (1, response.json.get<uint64_t> ("account_count"));
+		ASSERT_EQ (node_server_a.config.bandwidth_limit, response.json.get<uint64_t> ("bandwidth_cap"));
+		ASSERT_EQ (1, response.json.get<uint32_t> ("peer_count"));
+		ASSERT_EQ (node_server_a.network_params.protocol.protocol_version, response.json.get<uint8_t> ("protocol_version_number"));
+		ASSERT_EQ (nano::get_major_node_version (), response.json.get<uint8_t> ("vendor_version"));
+		ASSERT_GE (100, response.json.get<uint64_t> ("uptime"));
+		ASSERT_EQ (nano::genesis ().hash ().to_string (), response.json.get<std::string> ("genesis_block"));
+	}
+}
+
+TEST (rpc, node_telemetry_single)
+{
+	nano::system system (1);
+	auto & node1 = *add_ipc_enabled_node (system);
+	scoped_io_thread_name_change scoped_thread_name_io;
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node1.config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+
+	// Wait until peers are stored as they are done in the background
+	auto peers_stored = false;
+	while (!peers_stored)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+
+		auto transaction = system.nodes.back ()->store.tx_begin_read ();
+		peers_stored = system.nodes.back ()->store.peer_count (transaction) != 0;
+	}
+
+	// First try with invalid address
+	boost::property_tree::ptree request;
+	auto node = system.nodes.front ();
+	request.put ("action", "node_telemetry");
+	request.put ("address", "not_a_valid_address");
+	request.put ("port", 65);
+
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (10s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ (std::error_code (nano::error_common::invalid_ip_address).message (), response.json.get<std::string> ("error"));
+	}
+
+	// Then invalid port
+	request.put ("address", (boost::format ("%1%") % node->network.endpoint ().address ()).str ()); 
+	request.put ("port", "invalid port");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (10s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ (std::error_code (nano::error_common::invalid_port).message (), response.json.get<std::string> ("error"));
+	}
+
+	// Use correctly formed address and port
+	request.put ("port", node->network.endpoint ().port ());
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (10s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		compare_default_test_result_data (response, *node);
+	}
+}
+
+TEST (rpc, node_telemetry_random)
 {
 	nano::system system (1);
 	auto & node1 = *add_ipc_enabled_node (system);

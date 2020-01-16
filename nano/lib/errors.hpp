@@ -112,6 +112,7 @@ enum class error_rpc
 	invalid_timestamp,
 	payment_account_balance,
 	payment_unable_create_account,
+	peer_not_found,
 	rpc_control_disabled,
 	sign_hash_disabled,
 	source_not_found

@@ -126,7 +126,7 @@ gap_cache (*this),
 ledger (store, stats, flags_a.generate_cache),
 checker (config.signature_checker_threads),
 network (*this, config.peering_port),
-telemetry_processor (std::make_shared<nano::telemetry> (network, alarm, worker)),
+telemetry (network, alarm, worker),
 bootstrap_initiator (*this),
 bootstrap (config.peering_port, *this),
 application_path (application_path_a),
@@ -596,10 +596,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (collect_container_info (node.bootstrap_initiator, "bootstrap_initiator"));
 	composite->add_component (collect_container_info (node.bootstrap, "bootstrap"));
 	composite->add_component (collect_container_info (node.network, "network"));
-	if (node.telemetry_processor)
-	{
-		composite->add_component (collect_container_info (*node.telemetry_processor, "telemetry_processor"));
-	}
+	composite->add_component (collect_container_info (node.telemetry, "telemetry"));
 	composite->add_component (collect_container_info (node.observers, "observers"));
 	composite->add_component (collect_container_info (node.wallets, "wallets"));
 	composite->add_component (collect_container_info (node.vote_processor, "vote_processor"));
@@ -707,7 +704,7 @@ void nano::node::stop ()
 		confirmation_height_processor.stop ();
 		active.stop ();
 		network.stop ();
-		telemetry_processor = nullptr;
+		telemetry.stop ();
 		if (websocket_server)
 		{
 			websocket_server->stop ();

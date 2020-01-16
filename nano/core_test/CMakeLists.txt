@@ -21,6 +21,8 @@ add_executable (core_test
 	message.cpp
 	message_parser.cpp
 	memory_pool.cpp
+	network.cpp
+	node_telemetry.cpp
 	processor_service.cpp
 	peer_container.cpp
 	signing.cpp
