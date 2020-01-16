@@ -7,6 +7,7 @@
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
 #include <nano/node/transport/udp.hpp>
+#include <nano/node/websocket.hpp>
 
 #include <boost/format.hpp>
 
@@ -75,19 +76,35 @@ std::shared_ptr<nano::bootstrap_client> nano::bootstrap_client::shared ()
 	return shared_from_this ();
 }
 
-nano::bootstrap_attempt::bootstrap_attempt (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a) :
+nano::bootstrap_attempt::bootstrap_attempt (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a, std::string id_a) :
 next_log (std::chrono::steady_clock::now ()),
 node (node_a),
-mode (mode_a)
+mode (mode_a),
+id (id_a)
 {
-	node->logger.always_log ("Starting bootstrap attempt");
+	if (id.empty ())
+	{
+		nano::random_constants constants;
+		id = constants.random_128.to_string ();
+	}
+	node->logger.always_log (boost::str (boost::format ("Starting bootstrap attempt id %1%") % id));
 	node->bootstrap_initiator.notify_listeners (true);
+	if (node->websocket_server)
+	{
+		nano::websocket::message_builder builder;
+		node->websocket_server->broadcast (builder.bootstrap_started (id, mode_text ()));
+	}
 }
 
 nano::bootstrap_attempt::~bootstrap_attempt ()
 {
-	node->logger.always_log ("Exiting bootstrap attempt");
+	node->logger.always_log (boost::str (boost::format ("Exiting bootstrap attempt id %1%") % id));
 	node->bootstrap_initiator.notify_listeners (false);
+	if (node->websocket_server)
+	{
+		nano::websocket::message_builder builder;
+		node->websocket_server->broadcast (builder.bootstrap_exited (id, mode_text (), attempt_start, total_blocks));
+	}
 }
 
 bool nano::bootstrap_attempt::should_log ()
@@ -794,6 +811,24 @@ bool nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 	return confirmed;
 }
 
+std::string nano::bootstrap_attempt::mode_text ()
+{
+	std::string mode_text;
+	if (mode == nano::bootstrap_mode::legacy)
+	{
+		mode_text = "legacy";
+	}
+	else if (mode == nano::bootstrap_mode::lazy)
+	{
+		mode_text = "lazy";
+	}
+	else if (mode == nano::bootstrap_mode::wallet_lazy)
+	{
+		mode_text = "wallet_lazy";
+	}
+	return mode_text;
+}
+
 void nano::bootstrap_attempt::lazy_start (nano::hash_or_account const & hash_or_account_a, bool confirmed)
 {
 	nano::lock_guard<std::mutex> lazy_lock (lazy_mutex);
@@ -1339,7 +1374,7 @@ nano::bootstrap_initiator::~bootstrap_initiator ()
 	stop ();
 }
 
-void nano::bootstrap_initiator::bootstrap (bool force)
+void nano::bootstrap_initiator::bootstrap (bool force, std::string id_a)
 {
 	nano::unique_lock<std::mutex> lock (mutex);
 	if (force && attempt != nullptr)
@@ -1352,12 +1387,12 @@ void nano::bootstrap_initiator::bootstrap (bool force)
 	if (!stopped && attempt == nullptr)
 	{
 		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out);
-		attempt = std::make_shared<nano::bootstrap_attempt> (node.shared ());
+		attempt = std::make_shared<nano::bootstrap_attempt> (node.shared (), nano::bootstrap_mode::legacy, id_a);
 		condition.notify_all ();
 	}
 }
 
-void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bool add_to_peers, bool frontiers_confirmed)
+void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bool add_to_peers, bool frontiers_confirmed, std::string id_a)
 {
 	if (add_to_peers)
 	{
@@ -1374,7 +1409,7 @@ void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bo
 			// clang-format on
 		}
 		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out);
-		attempt = std::make_shared<nano::bootstrap_attempt> (node.shared ());
+		attempt = std::make_shared<nano::bootstrap_attempt> (node.shared (), nano::bootstrap_mode::legacy, id_a);
 		if (frontiers_confirmed)
 		{
 			excluded_peers.remove (nano::transport::map_endpoint_to_tcp (endpoint_a));
@@ -1388,7 +1423,7 @@ void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bo
 	}
 }
 
-void nano::bootstrap_initiator::bootstrap_lazy (nano::hash_or_account const & hash_or_account_a, bool force, bool confirmed)
+void nano::bootstrap_initiator::bootstrap_lazy (nano::hash_or_account const & hash_or_account_a, bool force, bool confirmed, std::string id_a)
 {
 	{
 		nano::unique_lock<std::mutex> lock (mutex);
@@ -1402,7 +1437,7 @@ void nano::bootstrap_initiator::bootstrap_lazy (nano::hash_or_account const & ha
 		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate_lazy, nano::stat::dir::out);
 		if (attempt == nullptr)
 		{
-			attempt = std::make_shared<nano::bootstrap_attempt> (node.shared (), nano::bootstrap_mode::lazy);
+			attempt = std::make_shared<nano::bootstrap_attempt> (node.shared (), nano::bootstrap_mode::lazy, id_a.empty () ? hash_or_account_a.to_string () : id_a);
 		}
 		attempt->lazy_start (hash_or_account_a, confirmed);
 	}
@@ -1416,7 +1451,8 @@ void nano::bootstrap_initiator::bootstrap_wallet (std::deque<nano::account> & ac
 		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate_wallet_lazy, nano::stat::dir::out);
 		if (attempt == nullptr)
 		{
-			attempt = std::make_shared<nano::bootstrap_attempt> (node.shared (), nano::bootstrap_mode::wallet_lazy);
+			std::string id (!accounts_a.empty () ? accounts_a[0].to_account () : "");
+			attempt = std::make_shared<nano::bootstrap_attempt> (node.shared (), nano::bootstrap_mode::wallet_lazy, id);
 		}
 		attempt->wallet_start (accounts_a);
 	}
