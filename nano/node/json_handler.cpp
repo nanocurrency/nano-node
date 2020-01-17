@@ -1682,9 +1682,7 @@ void nano::json_handler::bootstrap_status ()
 		legacy.put ("pulling", std::to_string (attempt->pulling));
 		legacy.put ("total_blocks", std::to_string (attempt->total_blocks));
 		legacy.put ("requeued_pulls", std::to_string (attempt->requeued_pulls));
-		legacy.put ("frontiers_received", static_cast<bool> (attempt->frontiers_received));
-		legacy.put ("frontiers_confirmed", static_cast<bool> (attempt->frontiers_confirmed));
-		legacy.put ("frontiers_confirmation_pending", static_cast<bool> (attempt->frontiers_confirmation_pending));
+		attempt->get_information (legacy);
 		legacy.put ("duration", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt->attempt_start).count ());
 	}
 	response_l.add_child ("legacy", legacy);
@@ -1693,23 +1691,12 @@ void nano::json_handler::bootstrap_status ()
 	if (lazy_attempt != nullptr)
 	{
 		nano::lock_guard<std::mutex> lock (lazy_attempt->mutex);
-		nano::lock_guard<std::mutex> lazy_lock (lazy_attempt->lazy_mutex);
 		assert (lazy_attempt->mode == nano::bootstrap_mode::lazy);
 		lazy.put ("id", lazy_attempt->id);
 		lazy.put ("pulling", std::to_string (lazy_attempt->pulling));
 		lazy.put ("total_blocks", std::to_string (lazy_attempt->total_blocks));
 		lazy.put ("requeued_pulls", std::to_string (lazy_attempt->requeued_pulls));
-		lazy.put ("lazy_blocks", std::to_string (lazy_attempt->lazy_blocks.size ()));
-		lazy.put ("lazy_state_backlog", std::to_string (lazy_attempt->lazy_state_backlog.size ()));
-		lazy.put ("lazy_balances", std::to_string (lazy_attempt->lazy_balances.size ()));
-		lazy.put ("lazy_destinations", std::to_string (lazy_attempt->lazy_destinations.size ()));
-		lazy.put ("lazy_undefined_links", std::to_string (lazy_attempt->lazy_undefined_links.size ()));
-		lazy.put ("lazy_pulls", std::to_string (lazy_attempt->lazy_pulls.size ()));
-		lazy.put ("lazy_keys", std::to_string (lazy_attempt->lazy_keys.size ()));
-		if (!lazy_attempt->lazy_keys.empty ())
-		{
-			lazy.put ("lazy_key_1", (*(lazy_attempt->lazy_keys.begin ())).to_string ());
-		}
+		lazy_attempt->get_information (lazy);
 		lazy.put ("duration", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - lazy_attempt->attempt_start).count ());
 	}
 	response_l.add_child ("lazy", lazy);
@@ -1721,7 +1708,7 @@ void nano::json_handler::bootstrap_status ()
 		assert (wallet_attempt->mode == nano::bootstrap_mode::wallet_lazy);
 		lazy.put ("id", wallet_attempt->id);
 		wallet.put ("pulling", std::to_string (wallet_attempt->pulling));
-		wallet.put ("wallet_accounts", std::to_string (wallet_attempt->wallet_accounts.size ()));
+		wallet_attempt->get_information (wallet);
 		wallet.put ("duration", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - wallet_attempt->attempt_start).count ());
 	}
 	response_l.add_child ("wallet", wallet);

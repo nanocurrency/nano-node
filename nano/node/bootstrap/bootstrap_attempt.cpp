@@ -18,9 +18,10 @@ constexpr unsigned nano::bootstrap_limits::frontier_confirmation_blocks_limit;
 constexpr unsigned nano::bootstrap_limits::requeued_pulls_limit;
 constexpr unsigned nano::bootstrap_limits::requeued_pulls_limit_test;
 
-nano::bootstrap_attempt::bootstrap_attempt (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a, std::string id_a) :
+nano::bootstrap_attempt::bootstrap_attempt (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a, uint64_t incremental_id_a, std::string id_a) :
 node (node_a),
 mode (mode_a),
+incremental_id (incremental_id_a),
 id (id_a)
 {
 	if (id.empty ())
@@ -130,7 +131,17 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_
 	return false;
 }
 
+void nano::bootstrap_attempt::lazy_start (nano::hash_or_account const &, bool)
+{
+	assert (mode == nano::bootstrap_mode::lazy);
+}
+
 void nano::bootstrap_attempt::lazy_add (nano::pull_info const &)
+{
+	assert (mode == nano::bootstrap_mode::lazy);
+}
+
+void nano::bootstrap_attempt::lazy_requeue (nano::block_hash const &, nano::block_hash const &, bool)
 {
 	assert (mode == nano::bootstrap_mode::lazy);
 }
@@ -146,16 +157,20 @@ void nano::bootstrap_attempt::requeue_pending (nano::account const &)
 	assert (mode == nano::bootstrap_mode::wallet_lazy);
 }
 
+void nano::bootstrap_attempt::wallet_start (std::deque<nano::account> &)
+{
+	assert (mode == nano::bootstrap_mode::wallet_lazy);
+}
+
 size_t nano::bootstrap_attempt::wallet_size ()
 {
 	assert (mode == nano::bootstrap_mode::wallet_lazy);
 	return 0;
 }
 
-nano::bootstrap_attempt_legacy::bootstrap_attempt_legacy (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a, std::string id_a) :
-nano::bootstrap_attempt (node_a, mode_a, id_a)
+nano::bootstrap_attempt_legacy::bootstrap_attempt_legacy (std::shared_ptr<nano::node> node_a, uint64_t incremental_id_a, std::string id_a) :
+nano::bootstrap_attempt (node_a, nano::bootstrap_mode::legacy, incremental_id_a, id_a)
 {
-	assert (mode == nano::bootstrap_mode::legacy);
 	node->bootstrap_initiator.notify_listeners (true);
 }
 
@@ -560,4 +575,12 @@ void nano::bootstrap_attempt_legacy::run ()
 	lock.unlock ();
 	stop ();
 	condition.notify_all ();
+}
+
+void nano::bootstrap_attempt_legacy::get_information (boost::property_tree::ptree & tree_a)
+{
+	assert (!mutex.try_lock ());
+	tree_a.put ("frontiers_received", static_cast<bool> (frontiers_received));
+	tree_a.put ("frontiers_confirmed", static_cast<bool> (frontiers_confirmed));
+	tree_a.put ("frontiers_confirmation_pending", static_cast<bool> (frontiers_confirmation_pending));
 }

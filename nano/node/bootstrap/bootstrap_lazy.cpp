@@ -14,10 +14,9 @@ constexpr uint64_t nano::bootstrap_limits::lazy_batch_pull_count_resize_blocks_l
 constexpr double nano::bootstrap_limits::lazy_batch_pull_count_resize_ratio;
 constexpr size_t nano::bootstrap_limits::lazy_blocks_restart_limit;
 
-nano::bootstrap_attempt_lazy::bootstrap_attempt_lazy (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a, std::string id_a) :
-nano::bootstrap_attempt (node_a, mode_a, id_a)
+nano::bootstrap_attempt_lazy::bootstrap_attempt_lazy (std::shared_ptr<nano::node> node_a, uint64_t incremental_id_a, std::string id_a) :
+nano::bootstrap_attempt (node_a, nano::bootstrap_mode::lazy, incremental_id_a, id_a)
 {
-	assert (mode == nano::bootstrap_mode::lazy);
 	node->bootstrap_initiator.notify_listeners (true);
 }
 
@@ -157,7 +156,7 @@ bool nano::bootstrap_attempt_lazy::lazy_has_expired () const
 	return result;
 }
 
-void nano::bootstrap_attempt_lazy::lazy_run ()
+void nano::bootstrap_attempt_lazy::run ()
 {
 	assert (!node->flags.disable_lazy_bootstrap);
 	node->bootstrap_initiator.connections->populate_connections (false);
@@ -465,10 +464,25 @@ bool nano::bootstrap_attempt_lazy::lazy_processed_or_exists (nano::block_hash co
 	return result;
 }
 
-nano::bootstrap_attempt_wallet::bootstrap_attempt_wallet (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a, std::string id_a) :
-nano::bootstrap_attempt (node_a, mode_a, id_a)
+void nano::bootstrap_attempt_lazy::get_information (boost::property_tree::ptree & tree_a)
 {
-	assert (mode == nano::bootstrap_mode::wallet_lazy);
+	nano::lock_guard<std::mutex> lazy_lock (lazy_mutex);
+	tree_a.put ("lazy_blocks", std::to_string (lazy_blocks.size ()));
+	tree_a.put ("lazy_state_backlog", std::to_string (lazy_state_backlog.size ()));
+	tree_a.put ("lazy_balances", std::to_string (lazy_balances.size ()));
+	tree_a.put ("lazy_destinations", std::to_string (lazy_destinations.size ()));
+	tree_a.put ("lazy_undefined_links", std::to_string (lazy_undefined_links.size ()));
+	tree_a.put ("lazy_pulls", std::to_string (lazy_pulls.size ()));
+	tree_a.put ("lazy_keys", std::to_string (lazy_keys.size ()));
+	if (!lazy_keys.empty ())
+	{
+		tree_a.put ("lazy_key_1", (*(lazy_keys.begin ())).to_string ());
+	}
+}
+
+nano::bootstrap_attempt_wallet::bootstrap_attempt_wallet (std::shared_ptr<nano::node> node_a, uint64_t incremental_id_a, std::string id_a) :
+nano::bootstrap_attempt (node_a, nano::bootstrap_mode::wallet_lazy, incremental_id_a, id_a)
+{
 	node->bootstrap_initiator.notify_listeners (true);
 }
 
@@ -523,7 +537,7 @@ bool nano::bootstrap_attempt_wallet::wallet_finished ()
 	return running && (more_accounts || still_pulling);
 }
 
-void nano::bootstrap_attempt_wallet::wallet_run ()
+void nano::bootstrap_attempt_wallet::run ()
 {
 	assert (!node->flags.disable_wallet_bootstrap);
 	node->bootstrap_initiator.connections->populate_connections (false);
@@ -554,4 +568,10 @@ size_t nano::bootstrap_attempt_wallet::wallet_size ()
 {
 	nano::lock_guard<std::mutex> lock (mutex);
 	return wallet_accounts.size ();
+}
+
+void nano::bootstrap_attempt_wallet::get_information (boost::property_tree::ptree & tree_a)
+{
+	assert (!mutex.try_lock ());
+	tree_a.put ("wallet_accounts", std::to_string (wallet_accounts.size ()));
 }

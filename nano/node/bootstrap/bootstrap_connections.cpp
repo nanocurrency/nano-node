@@ -321,6 +321,7 @@ void nano::bootstrap_connections::request_pull (nano::unique_lock<std::mutex> & 
 	{
 		auto pull (pulls.front ());
 		pulls.pop_front ();
+		assert (pull.attempt != nullptr);
 		if (pull.attempt->mode == nano::bootstrap_mode::lazy)
 		{
 			// Check if pull is obsolete (head was processed)

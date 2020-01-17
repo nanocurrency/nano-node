@@ -45,14 +45,14 @@ public:
 class bootstrap_attempt_lazy final : public bootstrap_attempt
 {
 public:
-	explicit bootstrap_attempt_lazy (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a = nano::bootstrap_mode::lazy, std::string id_a = "");
+	explicit bootstrap_attempt_lazy (std::shared_ptr<nano::node> node_a, uint64_t incremental_id_a, std::string id_a = "");
 	~bootstrap_attempt_lazy ();
 	bool process_block (std::shared_ptr<nano::block>, nano::account const &, uint64_t, nano::bulk_pull::count_t, bool, unsigned) override;
-	void lazy_run ();
-	void lazy_start (nano::hash_or_account const &, bool confirmed = true);
+	void run () override;
+	void lazy_start (nano::hash_or_account const &, bool confirmed = true) override;
 	void lazy_add (nano::hash_or_account const &, unsigned = std::numeric_limits<unsigned>::max ());
-	void lazy_add (nano::pull_info const &);
-	void lazy_requeue (nano::block_hash const &, nano::block_hash const &, bool);
+	void lazy_add (nano::pull_info const &) override;
+	void lazy_requeue (nano::block_hash const &, nano::block_hash const &, bool) override;
 	bool lazy_finished ();
 	bool lazy_has_expired () const;
 	void lazy_pull_flush ();
@@ -66,6 +66,7 @@ public:
 	void lazy_blocks_erase (nano::block_hash const &);
 	bool lazy_blocks_processed (nano::block_hash const &);
 	bool lazy_processed_or_exists (nano::block_hash const &) override;
+	void get_information (boost::property_tree::ptree &) override;
 	std::unordered_set<size_t> lazy_blocks;
 	std::unordered_map<nano::block_hash, nano::lazy_state_backlog_item> lazy_state_backlog;
 	std::unordered_set<nano::block_hash> lazy_undefined_links;
@@ -97,14 +98,15 @@ public:
 class bootstrap_attempt_wallet final : public bootstrap_attempt
 {
 public:
-	explicit bootstrap_attempt_wallet (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a = nano::bootstrap_mode::wallet_lazy, std::string id_a = "");
+	explicit bootstrap_attempt_wallet (std::shared_ptr<nano::node> node_a, uint64_t incremental_id_a, std::string id_a = "");
 	~bootstrap_attempt_wallet ();
 	void request_pending (nano::unique_lock<std::mutex> &);
 	void requeue_pending (nano::account const &) override;
-	void wallet_run ();
-	void wallet_start (std::deque<nano::account> &);
+	void run () override;
+	void wallet_start (std::deque<nano::account> &) override;
 	bool wallet_finished ();
 	size_t wallet_size () override;
+	void get_information (boost::property_tree::ptree &) override;
 	std::deque<nano::account> wallet_accounts;
 };
 }

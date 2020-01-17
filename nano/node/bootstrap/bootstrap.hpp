@@ -31,6 +31,12 @@ namespace transport
 {
 	class channel_tcp;
 }
+enum class bootstrap_mode
+{
+	legacy,
+	lazy,
+	wallet_lazy
+};
 enum class sync_result
 {
 	success,
@@ -115,18 +121,19 @@ public:
 	void add_observer (std::function<void(bool)> const &);
 	bool in_progress ();
 	std::shared_ptr<nano::bootstrap_connections> connections;
-	std::shared_ptr<nano::bootstrap_attempt_legacy> current_attempt ();
-	std::shared_ptr<nano::bootstrap_attempt_lazy> current_lazy_attempt ();
-	std::shared_ptr<nano::bootstrap_attempt_wallet> current_wallet_attempt ();
+	std::shared_ptr<nano::bootstrap_attempt> current_attempt ();
+	std::shared_ptr<nano::bootstrap_attempt> current_lazy_attempt ();
+	std::shared_ptr<nano::bootstrap_attempt> current_wallet_attempt ();
 	nano::pulls_cache cache;
 	nano::bootstrap_excluded_peers excluded_peers;
 	void stop ();
 
 private:
 	nano::node & node;
-	std::vector<std::shared_ptr<nano::bootstrap_attempt_legacy>> legacy_attempts;
-	std::vector<std::shared_ptr<nano::bootstrap_attempt_lazy>> lazy_attempts;
-	std::vector<std::shared_ptr<nano::bootstrap_attempt_wallet>> wallet_attempts;
+	std::shared_ptr<nano::bootstrap_attempt> find_attempt (nano::bootstrap_mode);
+	void stop_attempts ();
+	std::map<uint64_t, std::shared_ptr<nano::bootstrap_attempt>> attempts;
+	uint64_t attempts_incremental{ 0 };
 	std::atomic<bool> stopped{ false };
 	std::mutex mutex;
 	nano::condition_variable condition;
