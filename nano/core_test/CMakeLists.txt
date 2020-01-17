@@ -1,6 +1,7 @@
 add_executable (core_test
 	core_test_main.cc
 	testutil.hpp
+	fakes/work_peer.hpp
 	active_transactions.cpp
 	block.cpp
 	block_store.cpp
