@@ -1258,7 +1258,7 @@ bool nano::wallet::search_pending ()
 			// Don't search pending for watch-only accounts
 			if (!nano::wallet_value (i->second).key.is_zero ())
 			{
-				for (auto j (wallets.node.store.pending_begin (block_transaction, nano::pending_key (account, 0))); nano::pending_key (j->first).account == account; ++j)
+				for (auto j (wallets.node.store.pending_begin (block_transaction, nano::pending_key (account, 0))), k (wallets.node.store.pending_end ()); j != k && nano::pending_key (j->first).account == account; ++j)
 				{
 					nano::pending_key key (j->first);
 					auto hash (key.hash);
@@ -1323,7 +1323,7 @@ uint32_t nano::wallet::deterministic_check (nano::transaction const & transactio
 		else
 		{
 			// Check if there are pending blocks for account
-			for (auto ii (wallets.node.store.pending_begin (block_transaction, nano::pending_key (pair.pub, 0))); nano::pending_key (ii->first).account == pair.pub; ++ii)
+			for (auto ii (wallets.node.store.pending_begin (block_transaction, nano::pending_key (pair.pub, 0))), nn (wallets.node.store.pending_end ()); ii != nn && nano::pending_key (ii->first).account == pair.pub; ++ii)
 			{
 				index = i;
 				n = i + 64 + (i / 64);
