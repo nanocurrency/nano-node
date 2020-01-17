@@ -3928,7 +3928,7 @@ void nano::json_handler::telemetry ()
 				auto channel = node.network.find_channel (endpoint);
 				if (channel)
 				{
-					node.telemetry.get_single_metric_async (channel, [rpc_l](auto const & single_telemetry_metric_a) {
+					node.telemetry.get_metrics_single_peer_async (channel, [rpc_l](auto const & single_telemetry_metric_a) {
 						if (!single_telemetry_metric_a.error)
 						{
 							nano::jsonconfig config_l;
@@ -3974,7 +3974,7 @@ void nano::json_handler::telemetry ()
 		// setting "raw" to true returns metrics from all nodes requested.
 		auto raw = request.get_optional<bool> ("raw");
 		auto output_raw = raw.is_initialized () ? *raw : false;
-		node.telemetry.get_random_metrics_async ([rpc_l, output_raw](auto const & batched_telemetry_metrics_a) {
+		node.telemetry.get_metrics_random_peers_async ([rpc_l, output_raw](auto const & batched_telemetry_metrics_a) {
 			if (output_raw)
 			{
 				boost::property_tree::ptree metrics;

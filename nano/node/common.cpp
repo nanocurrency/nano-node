@@ -1129,16 +1129,16 @@ void nano::telemetry_ack::visit (nano::message_visitor & visitor_a) const
 	visitor_a.telemetry_ack (*this);
 }
 
-nano::telemetry_data nano::telemetry_data::consolidate (std::vector<nano::telemetry_data> const & all_telemetry_data)
+nano::telemetry_data nano::telemetry_data::consolidate (std::vector<nano::telemetry_data> const & current_telemetry_data_responses)
 {
-	if (all_telemetry_data.empty ())
+	if (current_telemetry_data_responses.empty ())
 	{
 		return {};
 	}
-	else if (all_telemetry_data.size () == 1)
+	else if (current_telemetry_data_responses.size () == 1)
 	{
 		// Only 1 element in the collection, so just return it.
-		return all_telemetry_data.front ();
+		return current_telemetry_data_responses.front ();
 	}
 
 	nano::uint128_t account_sum{ 0 };
@@ -1156,7 +1156,7 @@ nano::telemetry_data nano::telemetry_data::consolidate (std::vector<nano::teleme
 
 	nano::uint128_t account_average{ 0 };
 
-	for (auto const & telemetry_data : all_telemetry_data)
+	for (auto const & telemetry_data : current_telemetry_data_responses)
 	{
 		account_sum += telemetry_data.account_count;
 		block_sum += telemetry_data.block_count;
@@ -1177,7 +1177,7 @@ nano::telemetry_data nano::telemetry_data::consolidate (std::vector<nano::teleme
 	}
 
 	nano::telemetry_data consolidated_data;
-	auto size = all_telemetry_data.size ();
+	auto size = current_telemetry_data_responses.size ();
 	consolidated_data.account_count = boost::numeric_cast<decltype (account_count)> (account_sum / size);
 	consolidated_data.block_count = boost::numeric_cast<decltype (block_count)> (block_sum / size);
 	consolidated_data.cemented_count = boost::numeric_cast<decltype (cemented_count)> (cemented_sum / size);

@@ -15,14 +15,14 @@ nano::telemetry::telemetry (nano::network & network_a, nano::alarm & alarm_a, na
 network (network_a),
 alarm (alarm_a),
 worker (worker_a),
-batch_telemetry (std::make_shared<nano::telemetry_impl> (network, alarm, worker))
+batch_request (std::make_shared<nano::telemetry_impl> (network, alarm, worker))
 {
 }
 
 void nano::telemetry::stop ()
 {
 	nano::lock_guard<std::mutex> guard (mutex);
-	batch_telemetry = nullptr;
+	batch_request = nullptr;
 	single_requests.clear ();
 	stopped = true;
 }
@@ -32,7 +32,7 @@ void nano::telemetry::add (nano::telemetry_data const & telemetry_data_a, nano::
 	nano::lock_guard<std::mutex> guard (mutex);
 	if (!stopped)
 	{
-		batch_telemetry->add (telemetry_data_a, endpoint_a);
+		batch_request->add (telemetry_data_a, endpoint_a);
 
 		for (auto & request : single_requests)
 		{
@@ -41,30 +41,30 @@ void nano::telemetry::add (nano::telemetry_data const & telemetry_data_a, nano::
 	}
 }
 
-void nano::telemetry::get_random_metrics_async (std::function<void(batched_metric_data const &)> const & callback_a)
+void nano::telemetry::get_metrics_random_peers_async (std::function<void(telemetry_data_responses const &)> const & callback_a)
 {
 	// These peers will only be used if there isn't an already ongoing batch telemetry request round
 	auto random_peers = network.random_set (network.size_sqrt (), network_params.protocol.telemetry_protocol_version_min);
 	nano::lock_guard<std::mutex> guard (mutex);
 	if (!stopped)
 	{
-		batch_telemetry->get_metrics_async (random_peers, [callback_a](nano::batched_metric_data const & batched_metric_data) {
-			callback_a (batched_metric_data);
+		batch_request->get_metrics_async (random_peers, [callback_a](nano::telemetry_data_responses const & telemetry_data_responses) {
+			callback_a (telemetry_data_responses);
 		});
 	}
 }
 
-nano::batched_metric_data nano::telemetry::get_random_metrics ()
+nano::telemetry_data_responses nano::telemetry::get_metrics_random_peers ()
 {
-	std::promise<batched_metric_data> promise;
-	get_random_metrics_async ([&promise](batched_metric_data const & batched_metric_data_a) {
+	std::promise<telemetry_data_responses> promise;
+	get_metrics_random_peers_async ([&promise](telemetry_data_responses const & batched_metric_data_a) {
 		promise.set_value (batched_metric_data_a);
 	});
 
 	return promise.get_future ().get ();
 }
 
-void nano::telemetry::get_single_metric_async (std::shared_ptr<nano::transport::channel> const & channel_a, std::function<void(single_metric_data const &)> const & callback_a)
+void nano::telemetry::get_metrics_single_peer_async (std::shared_ptr<nano::transport::channel> const & channel_a, std::function<void(telemetry_data_response const &)> const & callback_a)
 {
 	nano::lock_guard<std::mutex> guard (mutex);
 	if (!stopped)
@@ -72,12 +72,12 @@ void nano::telemetry::get_single_metric_async (std::shared_ptr<nano::transport::
 		if (!channel_a)
 		{
 			const auto error = true;
-			callback_a (nano::single_metric_data{ nano::telemetry_data (), false, error });
+			callback_a (nano::telemetry_data_response{ nano::telemetry_data (), false, error });
 		}
 		else
 		{
 			auto it = single_requests.emplace (channel_a->get_endpoint (), std::make_shared<nano::telemetry_impl> (network, alarm, worker));
-			it.first->second->get_metrics_async ({ channel_a }, [callback_a](batched_metric_data const & batched_metric_data_a) {
+			it.first->second->get_metrics_async ({ channel_a }, [callback_a](telemetry_data_responses const & batched_metric_data_a) {
 				assert (batched_metric_data_a.data.size () == 1);
 				callback_a ({ batched_metric_data_a.data.front (), batched_metric_data_a.is_cached, batched_metric_data_a.error });
 			});
@@ -85,10 +85,10 @@ void nano::telemetry::get_single_metric_async (std::shared_ptr<nano::transport::
 	}
 }
 
-nano::single_metric_data nano::telemetry::get_single_metric (std::shared_ptr<nano::transport::channel> const & channel_a)
+nano::telemetry_data_response nano::telemetry::get_metrics_single_peer (std::shared_ptr<nano::transport::channel> const & channel_a)
 {
-	std::promise<single_metric_data> promise;
-	get_single_metric_async (channel_a, [&promise](single_metric_data const & single_metric_data_a) {
+	std::promise<telemetry_data_response> promise;
+	get_metrics_single_peer_async (channel_a, [&promise](telemetry_data_response const & single_metric_data_a) {
 		promise.set_value (single_metric_data_a);
 	});
 
@@ -98,13 +98,13 @@ nano::single_metric_data nano::telemetry::get_single_metric (std::shared_ptr<nan
 size_t nano::telemetry::telemetry_data_size ()
 {
 	nano::lock_guard<std::mutex> guard (mutex);
-	auto total = std::accumulate (single_requests.begin (), single_requests.end (), 0, [](size_t total, auto & single_request) {
+	auto total = std::accumulate (single_requests.begin (), single_requests.end (), static_cast<size_t> (0), [](size_t total, auto & single_request) {
 		return total += single_request.second->telemetry_data_size ();
 	});
 
-	if (batch_telemetry)
+	if (batch_request)
 	{
-		total += batch_telemetry->telemetry_data_size ();
+		total += batch_request->telemetry_data_size ();
 	}
 	return total;
 }
@@ -116,7 +116,7 @@ worker (worker_a)
 {
 }
 
-void nano::telemetry_impl::get_metrics_async (std::unordered_set<std::shared_ptr<nano::transport::channel>> const & channels_a, std::function<void(batched_metric_data const &)> const & callback_a)
+void nano::telemetry_impl::get_metrics_async (std::unordered_set<std::shared_ptr<nano::transport::channel>> const & channels_a, std::function<void(telemetry_data_responses const &)> const & callback_a)
 {
 	std::deque<std::shared_ptr<nano::transport::channel>> d;
 	{
@@ -174,7 +174,7 @@ void nano::telemetry_impl::add (nano::telemetry_data const & telemetry_data_a, n
 		return;
 	}
 
-	all_telemetry_data.push_back (telemetry_data_a);
+	current_telemetry_data_responses.push_back (telemetry_data_a);
 	channel_processed (lk, endpoint_a, false);
 }
 
@@ -186,7 +186,7 @@ void nano::telemetry_impl::invoke_callbacks (bool cached_a, bool error_a)
 		// Copy callbacks so that they can be called outside of holding the lock
 		nano::lock_guard<std::mutex> guard (mutex);
 		callbacks_l = callbacks;
-		all_telemetry_data.clear ();
+		current_telemetry_data_responses.clear ();
 		callbacks.clear ();
 	}
 	for (auto & callback : callbacks_l)
@@ -208,7 +208,7 @@ void nano::telemetry_impl::channel_processed (nano::unique_lock<std::mutex> & lk
 void nano::telemetry_impl::fire_callbacks (nano::unique_lock<std::mutex> & lk, bool error_a)
 {
 	assert (lk.owns_lock ());
-	cached_telemetry_data = all_telemetry_data;
+	cached_telemetry_data = current_telemetry_data_responses;
 
 	last_time = std::chrono::steady_clock::now ();
 	lk.unlock ();
@@ -263,7 +263,7 @@ void nano::telemetry_impl::fire_request_messages (std::unordered_set<std::shared
 size_t nano::telemetry_impl::telemetry_data_size ()
 {
 	nano::lock_guard<std::mutex> guard (mutex);
-	return all_telemetry_data.size ();
+	return current_telemetry_data_responses.size ();
 }
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (telemetry & telemetry, const std::string & name)
@@ -275,9 +275,9 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (te
 	}
 
 	auto composite = std::make_unique<container_info_composite> (name);
-	if (telemetry.batch_telemetry)
+	if (telemetry.batch_request)
 	{
-		composite->add_component (collect_container_info (*telemetry.batch_telemetry, "batch_telemetry"));
+		composite->add_component (collect_container_info (*telemetry.batch_request, "batch_request"));
 	}
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "single_requests", single_requests_count, sizeof (decltype (telemetry.single_requests)::value_type) }));
 	return composite;
@@ -292,14 +292,14 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (te
 	{
 		nano::lock_guard<std::mutex> guard (telemetry_impl.mutex);
 		callback_count = telemetry_impl.callbacks.size ();
-		all_telemetry_data_count = telemetry_impl.all_telemetry_data.size ();
+		all_telemetry_data_count = telemetry_impl.current_telemetry_data_responses.size ();
 		cached_telemetry_data_count = telemetry_impl.cached_telemetry_data.size ();
 		required_responses_count = telemetry_impl.required_responses.size ();
 	}
 
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "callbacks", callback_count, sizeof (decltype (telemetry_impl.callbacks)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "all_telemetry_data", all_telemetry_data_count, sizeof (decltype (telemetry_impl.all_telemetry_data)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "current_telemetry_data_responses", all_telemetry_data_count, sizeof (decltype (telemetry_impl.current_telemetry_data_responses)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "cached_telemetry_data", cached_telemetry_data_count, sizeof (decltype (telemetry_impl.cached_telemetry_data)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "required_responses", required_responses_count, sizeof (decltype (telemetry_impl.required_responses)::value_type) }));
 	return composite;

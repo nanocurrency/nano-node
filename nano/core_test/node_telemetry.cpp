@@ -87,10 +87,10 @@ TEST (node_telemetry, no_peers)
 	nano::system system (1);
 
 	std::atomic<bool> done{ false };
-	system.nodes[0]->telemetry.get_random_metrics_async ([&done](nano::batched_metric_data const & metric_data_a) {
-		ASSERT_TRUE (metric_data_a.data.empty ());
-		ASSERT_TRUE (metric_data_a.error);
-		ASSERT_FALSE (metric_data_a.is_cached);
+	system.nodes[0]->telemetry.get_metrics_random_peers_async ([&done](nano::telemetry_data_responses const & responses_a) {
+		ASSERT_TRUE (responses_a.data.empty ());
+		ASSERT_TRUE (responses_a.error);
+		ASSERT_FALSE (responses_a.is_cached);
 		done = true;
 	});
 
@@ -115,10 +115,10 @@ TEST (node_telemetry, basic)
 	std::vector<nano::telemetry_data> all_telemetry_data;
 	{
 		std::atomic<bool> done{ false };
-		node_client->telemetry.get_random_metrics_async ([&done, &all_telemetry_data](nano::batched_metric_data const & metric_data_a) {
-			ASSERT_FALSE (metric_data_a.is_cached);
-			ASSERT_FALSE (metric_data_a.error);
-			all_telemetry_data = metric_data_a.data;
+		node_client->telemetry.get_metrics_random_peers_async ([&done, &all_telemetry_data](nano::telemetry_data_responses const & responses_a) {
+			ASSERT_FALSE (responses_a.is_cached);
+			ASSERT_FALSE (responses_a.error);
+			all_telemetry_data = responses_a.data;
 			done = true;
 		});
 
@@ -137,10 +137,10 @@ TEST (node_telemetry, basic)
 	// Call again straight away. It should use the cache
 	{
 		std::atomic<bool> done{ false };
-		node_client->telemetry.get_random_metrics_async ([&done, &telemetry_data](nano::batched_metric_data const & metric_data_a) {
-			ASSERT_EQ (telemetry_data, metric_data_a.data.front ());
-			ASSERT_TRUE (metric_data_a.is_cached);
-			ASSERT_FALSE (metric_data_a.error);
+		node_client->telemetry.get_metrics_random_peers_async ([&done, &telemetry_data](nano::telemetry_data_responses const & responses_a) {
+			ASSERT_EQ (telemetry_data, responses_a.data.front ());
+			ASSERT_TRUE (responses_a.is_cached);
+			ASSERT_FALSE (responses_a.error);
 			done = true;
 		});
 
@@ -155,9 +155,9 @@ TEST (node_telemetry, basic)
 	std::this_thread::sleep_for (1s);
 
 	std::atomic<bool> done{ false };
-	node_client->telemetry.get_random_metrics_async ([&done, &telemetry_data](nano::batched_metric_data const & metric_data_a) {
-		ASSERT_FALSE (metric_data_a.is_cached);
-		ASSERT_FALSE (metric_data_a.error);
+	node_client->telemetry.get_metrics_random_peers_async ([&done, &telemetry_data](nano::telemetry_data_responses const & responses_a) {
+		ASSERT_FALSE (responses_a.is_cached);
+		ASSERT_FALSE (responses_a.error);
 		done = true;
 	});
 
@@ -195,9 +195,9 @@ TEST (node_telemetry, many_nodes)
 
 	std::atomic<bool> done{ false };
 	std::vector<nano::telemetry_data> all_telemetry_data;
-	node_client->telemetry.get_random_metrics_async ([&done, &all_telemetry_data](nano::batched_metric_data const & metric_data_a) {
-		ASSERT_FALSE (metric_data_a.is_cached);
-		all_telemetry_data = metric_data_a.data;
+	node_client->telemetry.get_metrics_random_peers_async ([&done, &all_telemetry_data](nano::telemetry_data_responses const & responses_a) {
+		ASSERT_FALSE (responses_a.is_cached);
+		all_telemetry_data = responses_a.data;
 		done = true;
 	});
 
@@ -253,9 +253,9 @@ TEST (node_telemetry, over_udp)
 
 	std::atomic<bool> done{ false };
 	std::vector<nano::telemetry_data> all_telemetry_data;
-	node_client->telemetry.get_random_metrics_async ([&done, &all_telemetry_data](nano::batched_metric_data const & metric_data_a) {
-		ASSERT_FALSE (metric_data_a.is_cached);
-		all_telemetry_data = metric_data_a.data;
+	node_client->telemetry.get_metrics_random_peers_async ([&done, &all_telemetry_data](nano::telemetry_data_responses const & responses_a) {
+		ASSERT_FALSE (responses_a.is_cached);
+		all_telemetry_data = responses_a.data;
 		done = true;
 	});
 
@@ -327,12 +327,12 @@ TEST (node_telemetry, simultaneous_random_requests)
 					{
 						++count;
 
-						data.node->telemetry.get_random_metrics_async ([&promise, &done, &data, &all_data, &count](nano::batched_metric_data const & metric_data_a) {
-							if (data.awaiting_cache && !metric_data_a.is_cached)
+						data.node->telemetry.get_metrics_random_peers_async ([&promise, &done, &data, &all_data, &count](nano::telemetry_data_responses const & responses_a) {
+							if (data.awaiting_cache && !responses_a.is_cached)
 							{
 								data.keep_requesting_metrics = false;
 							}
-							if (metric_data_a.is_cached)
+							if (responses_a.is_cached)
 							{
 								data.awaiting_cache = true;
 							}
@@ -380,9 +380,9 @@ TEST (node_telemetry, single_request)
 	{
 		std::atomic<bool> done{ false };
 
-		node_client->telemetry.get_single_metric_async (channel, [&done, &telemetry_data](nano::single_metric_data const & single_metric_data_a) {
-			ASSERT_FALSE (single_metric_data_a.is_cached);
-			telemetry_data = single_metric_data_a.data;
+		node_client->telemetry.get_metrics_single_peer_async (channel, [&done, &telemetry_data](nano::telemetry_data_response const & response_a) {
+			ASSERT_FALSE (response_a.is_cached);
+			telemetry_data = response_a.data;
 			done = true;
 		});
 
@@ -399,9 +399,9 @@ TEST (node_telemetry, single_request)
 	// Call again straight away. It should use the cache
 	{
 		std::atomic<bool> done{ false };
-		node_client->telemetry.get_single_metric_async (channel, [&done, &telemetry_data](nano::single_metric_data const & single_metric_data_a) {
-			ASSERT_EQ (telemetry_data, single_metric_data_a.data);
-			ASSERT_TRUE (single_metric_data_a.is_cached);
+		node_client->telemetry.get_metrics_single_peer_async (channel, [&done, &telemetry_data](nano::telemetry_data_response const & response_a) {
+			ASSERT_EQ (telemetry_data, response_a.data);
+			ASSERT_TRUE (response_a.is_cached);
 			done = true;
 		});
 
@@ -416,8 +416,8 @@ TEST (node_telemetry, single_request)
 	std::this_thread::sleep_for (1s);
 
 	std::atomic<bool> done{ false };
-	node_client->telemetry.get_single_metric_async (channel, [&done, &telemetry_data](nano::single_metric_data const & single_metric_data_a) {
-		ASSERT_FALSE (single_metric_data_a.is_cached);
+	node_client->telemetry.get_metrics_single_peer_async (channel, [&done, &telemetry_data](nano::telemetry_data_response const & response_a) {
+		ASSERT_FALSE (response_a.is_cached);
 		done = true;
 	});
 
@@ -436,8 +436,8 @@ TEST (node_telemetry, single_request_invalid_channel)
 	auto node_server = system.nodes.back ();
 
 	std::atomic<bool> done{ false };
-	node_client->telemetry.get_single_metric_async (nullptr, [&done](nano::single_metric_data const & single_metric_data_a) {
-		ASSERT_TRUE (single_metric_data_a.error);
+	node_client->telemetry.get_metrics_single_peer_async (nullptr, [&done](nano::telemetry_data_response const & response_a) {
+		ASSERT_TRUE (response_a.error);
 		done = true;
 	});
 
@@ -506,12 +506,12 @@ TEST (node_telemetry, simultaneous_single_and_random_requests)
 						{
 							++shared_data_a.count;
 
-							data.node->telemetry.get_random_metrics_async ([& shared_data = shared_data_a, &data, &all_node_data = all_node_data_a](nano::batched_metric_data const & metric_data_a) {
-								if (data.awaiting_cache && !metric_data_a.is_cached)
+							data.node->telemetry.get_metrics_random_peers_async ([& shared_data = shared_data_a, &data, &all_node_data = all_node_data_a](nano::telemetry_data_responses const & responses_a) {
+								if (data.awaiting_cache && !responses_a.is_cached)
 								{
 									data.keep_requesting_metrics = false;
 								}
-								if (metric_data_a.is_cached)
+								if (responses_a.is_cached)
 								{
 									data.awaiting_cache = true;
 								}
@@ -577,16 +577,16 @@ TEST (node_telemetry, blocking_single_and_random)
 	node_client->worker.push_task (call_system_poll);
 
 	// Blocking version of get_random_metrics_async
-	auto batched_metric_data = node_client->telemetry.get_random_metrics ();
-	ASSERT_FALSE (batched_metric_data.is_cached);
-	ASSERT_FALSE (batched_metric_data.error);
-	compare_default_test_result_data (batched_metric_data.data.front (), *node_server);
+	auto telemetry_data_responses = node_client->telemetry.get_metrics_random_peers ();
+	ASSERT_FALSE (telemetry_data_responses.is_cached);
+	ASSERT_FALSE (telemetry_data_responses.error);
+	compare_default_test_result_data (telemetry_data_responses.data.front (), *node_server);
 
 	// Now try single request metric
-	auto single_metric_data = node_client->telemetry.get_single_metric (node_client->network.find_channel (node_server->network.endpoint ()));
-	ASSERT_FALSE (batched_metric_data.is_cached);
-	ASSERT_FALSE (batched_metric_data.error);
-	compare_default_test_result_data (single_metric_data.data, *node_server);
+	auto telemetry_data_response = node_client->telemetry.get_metrics_single_peer (node_client->network.find_channel (node_server->network.endpoint ()));
+	ASSERT_FALSE (telemetry_data_response.is_cached);
+	ASSERT_FALSE (telemetry_data_response.error);
+	compare_default_test_result_data (telemetry_data_response.data, *node_server);
 
 	done = true;
 	promise.get_future ().wait ();
