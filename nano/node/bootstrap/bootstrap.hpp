@@ -124,9 +124,9 @@ public:
 
 private:
 	nano::node & node;
-	std::shared_ptr<nano::bootstrap_attempt_legacy> attempt;
-	std::shared_ptr<nano::bootstrap_attempt_lazy> lazy_attempt;
-	std::shared_ptr<nano::bootstrap_attempt_wallet> wallet_attempt;
+	std::vector<std::shared_ptr<nano::bootstrap_attempt_legacy>> legacy_attempts;
+	std::vector<std::shared_ptr<nano::bootstrap_attempt_lazy>> lazy_attempts;
+	std::vector<std::shared_ptr<nano::bootstrap_attempt_wallet>> wallet_attempts;
 	std::atomic<bool> stopped{ false };
 	std::mutex mutex;
 	nano::condition_variable condition;
