@@ -419,11 +419,12 @@ startup_time (std::chrono::steady_clock::now ())
 
 		if (config.enable_voting)
 		{
-			std::ostringstream stream ("Voting is enabled, more system resources will be used");
+			std::ostringstream stream;
+			stream << "Voting is enabled, more system resources will be used";
 			auto voting (wallets.rep_counts ().voting);
 			if (voting > 0)
 			{
-				stream << ". " << voting << " representatives are configured";
+				stream << ". " << voting << " representative(s) are configured";
 				if (voting > 1)
 				{
 					stream << ". Voting with more than one representative can limit performance";
