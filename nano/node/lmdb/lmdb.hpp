@@ -184,8 +184,8 @@ public:
 	MDB_dbi peers{ 0 };
 
 	/*
-	 * Confirmation height of an account
-	 * nano::account -> uint64_t
+	 * Confirmation height of an account, and the hash for the block at that height
+	 * nano::account -> uint64_t, nano::block_hash
 	 */
 	MDB_dbi confirmation_height{ 0 };
 
@@ -240,7 +240,9 @@ private:
 	void upgrade_v12_to_v13 (nano::write_transaction &, size_t);
 	void upgrade_v13_to_v14 (nano::write_transaction const &);
 	void upgrade_v14_to_v15 (nano::write_transaction &);
-	void upgrade_v15_to_v16 (nano::write_transaction &);
+	void upgrade_v15_to_v16 (nano::write_transaction const &);
+	void upgrade_v16_to_v17 (nano::write_transaction const &);
+
 	void open_databases (bool &, nano::transaction const &, unsigned);
 
 	int drop (nano::write_transaction const & transaction_a, tables table_a) override;

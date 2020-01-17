@@ -34,7 +34,7 @@ public:
 		nano::block_sideband sideband (nano::block_type::open, network_params.ledger.genesis_account, 0, network_params.ledger.genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0);
 		block_put (transaction_a, hash_l, *genesis_a.open, sideband);
 		++ledge_cache_a.block_count;
-		confirmation_height_put (transaction_a, network_params.ledger.genesis_account, 1);
+		confirmation_height_put (transaction_a, network_params.ledger.genesis_account, nano::confirmation_height_info{ 1, genesis_a.hash () });
 		++ledge_cache_a.cemented_count;
 		account_put (transaction_a, network_params.ledger.genesis_account, { hash_l, network_params.ledger.genesis_account, genesis_a.open->hash (), std::numeric_limits<nano::uint128_t>::max (), nano::seconds_since_epoch (), 1, nano::epoch::epoch_0 });
 		ledge_cache_a.rep_weights.representation_put (network_params.ledger.genesis_account, std::numeric_limits<nano::uint128_t>::max ());
@@ -55,11 +55,11 @@ public:
 		return iterator != latest_end () && nano::account (iterator->first) == account_a;
 	}
 
-	void confirmation_height_clear (nano::write_transaction const & transaction_a, nano::account const & account, uint64_t existing_confirmation_height) override
+	void confirmation_height_clear (nano::write_transaction const & transaction_a, nano::account const & account_a, uint64_t existing_confirmation_height_a) override
 	{
-		if (existing_confirmation_height > 0)
+		if (existing_confirmation_height_a > 0)
 		{
-			confirmation_height_put (transaction_a, account, 0);
+			confirmation_height_put (transaction_a, account_a, { 0, nano::block_hash{ 0 } });
 		}
 	}
 
@@ -67,7 +67,7 @@ public:
 	{
 		for (auto i (confirmation_height_begin (transaction_a)), n (confirmation_height_end ()); i != n; ++i)
 		{
-			confirmation_height_clear (transaction_a, i->first, i->second);
+			confirmation_height_clear (transaction_a, i->first, i->second.height);
 		}
 	}
 
@@ -342,9 +342,9 @@ public:
 		return nano::store_iterator<nano::account, nano::account_info> (nullptr);
 	}
 
-	nano::store_iterator<nano::account, uint64_t> confirmation_height_end () override
+	nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_end () override
 	{
-		return nano::store_iterator<nano::account, uint64_t> (nullptr);
+		return nano::store_iterator<nano::account, nano::confirmation_height_info> (nullptr);
 	}
 
 	std::mutex & get_cache_mutex () override
@@ -675,24 +675,25 @@ public:
 		return count (transaction_a, tables::confirmation_height);
 	}
 
-	void confirmation_height_put (nano::write_transaction const & transaction_a, nano::account const & account_a, uint64_t confirmation_height_a) override
+	void confirmation_height_put (nano::write_transaction const & transaction_a, nano::account const & account_a, nano::confirmation_height_info const & confirmation_height_info_a) override
 	{
-		nano::db_val<Val> confirmation_height (confirmation_height_a);
-		auto status = put (transaction_a, tables::confirmation_height, account_a, confirmation_height);
+		nano::db_val<Val> confirmation_height_info (confirmation_height_info_a);
+		auto status = put (transaction_a, tables::confirmation_height, account_a, confirmation_height_info);
 		release_assert (success (status));
 	}
 
-	bool confirmation_height_get (nano::transaction const & transaction_a, nano::account const & account_a, uint64_t & confirmation_height_a) override
+	bool confirmation_height_get (nano::transaction const & transaction_a, nano::account const & account_a, nano::confirmation_height_info & confirmation_height_info_a) override
 	{
 		nano::db_val<Val> value;
 		auto status = get (transaction_a, tables::confirmation_height, nano::db_val<Val> (account_a), value);
 		release_assert (success (status) || not_found (status));
-		confirmation_height_a = 0;
+		bool result (true);
 		if (success (status))
 		{
-			confirmation_height_a = static_cast<uint64_t> (value);
+			nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
+			result = confirmation_height_info_a.deserialize (stream);
 		}
-		return (!success (status));
+		return result;
 	}
 
 	void confirmation_height_del (nano::write_transaction const & transaction_a, nano::account const & account_a) override
@@ -751,14 +752,14 @@ public:
 		return make_iterator<nano::endpoint_key, nano::no_value> (transaction_a, tables::peers);
 	}
 
-	nano::store_iterator<nano::account, uint64_t> confirmation_height_begin (nano::transaction const & transaction_a, nano::account const & account_a) override
+	nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_begin (nano::transaction const & transaction_a, nano::account const & account_a) override
 	{
-		return make_iterator<nano::account, uint64_t> (transaction_a, tables::confirmation_height, nano::db_val<Val> (account_a));
+		return make_iterator<nano::account, nano::confirmation_height_info> (transaction_a, tables::confirmation_height, nano::db_val<Val> (account_a));
 	}
 
-	nano::store_iterator<nano::account, uint64_t> confirmation_height_begin (nano::transaction const & transaction_a) override
+	nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_begin (nano::transaction const & transaction_a) override
 	{
-		return make_iterator<nano::account, uint64_t> (transaction_a, tables::confirmation_height);
+		return make_iterator<nano::account, nano::confirmation_height_info> (transaction_a, tables::confirmation_height);
 	}
 
 	size_t unchecked_count (nano::transaction const & transaction_a) override
@@ -770,7 +771,7 @@ protected:
 	nano::network_params network_params;
 	std::unordered_map<nano::account, std::shared_ptr<nano::vote>> vote_cache_l1;
 	std::unordered_map<nano::account, std::shared_ptr<nano::vote>> vote_cache_l2;
-	static int constexpr version{ 16 };
+	static int constexpr version{ 17 };
 
 	template <typename T>
 	std::shared_ptr<nano::block> block_random (nano::transaction const & transaction_a, tables table_a)
