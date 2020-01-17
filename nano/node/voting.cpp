@@ -29,7 +29,7 @@ void nano::vote_generator::add (nano::block_hash const & hash_a)
 {
 	nano::unique_lock<std::mutex> lock (mutex);
 	hashes.push_back (hash_a);
-	if (hashes.size () >= 12)
+	if (hashes.size () >= nano::network::confirm_ack_hashes_max)
 	{
 		lock.unlock ();
 		condition.notify_all ();
@@ -53,8 +53,8 @@ void nano::vote_generator::stop ()
 void nano::vote_generator::send (nano::unique_lock<std::mutex> & lock_a)
 {
 	std::vector<nano::block_hash> hashes_l;
-	hashes_l.reserve (12);
-	while (!hashes.empty () && hashes_l.size () < 12)
+	hashes_l.reserve (nano::network::confirm_ack_hashes_max);
+	while (!hashes.empty () && hashes_l.size () < nano::network::confirm_ack_hashes_max)
 	{
 		hashes_l.push_back (hashes.front ());
 		hashes.pop_front ();
@@ -81,16 +81,20 @@ void nano::vote_generator::run ()
 	lock.lock ();
 	while (!stopped)
 	{
-		if (hashes.size () >= 12)
+		if (hashes.size () >= nano::network::confirm_ack_hashes_max)
 		{
 			send (lock);
 		}
 		else
 		{
-			condition.wait_for (lock, config.vote_generator_delay, [this]() { return this->hashes.size () >= 12; });
-			if (hashes.size () >= config.vote_generator_threshold && hashes.size () < 12)
+			// clang-format off
+			condition.wait_for (lock, config.vote_generator_delay, [this]() { return this->hashes.size () >= nano::network::confirm_ack_hashes_max; });
+			// clang-format on
+			if (hashes.size () >= config.vote_generator_threshold && hashes.size () < nano::network::confirm_ack_hashes_max)
 			{
-				condition.wait_for (lock, config.vote_generator_delay, [this]() { return this->hashes.size () >= 12; });
+				// clang-format off
+				condition.wait_for (lock, config.vote_generator_delay, [this]() { return this->hashes.size () >= nano::network::confirm_ack_hashes_max; });
+				// clang-format on
 			}
 			if (!hashes.empty ())
 			{

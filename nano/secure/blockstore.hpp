@@ -92,6 +92,16 @@ public:
 		static_assert (std::is_standard_layout<nano::unchecked_key>::value, "Standard layout is required");
 	}
 
+	db_val (nano::confirmation_height_info const & val_a) :
+	buffer (std::make_shared<std::vector<uint8_t>> ())
+	{
+		{
+			nano::vectorstream stream (*buffer);
+			val_a.serialize (stream);
+		}
+		convert_buffer_to_value ();
+	}
+
 	db_val (nano::block_info const & val_a) :
 	db_val (sizeof (val_a), const_cast<nano::block_info *> (&val_a))
 	{
@@ -180,6 +190,16 @@ public:
 		assert (size () == sizeof (result));
 		static_assert (sizeof (nano::pending_key::account) + sizeof (nano::pending_key::hash) == sizeof (result), "Packed class");
 		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + sizeof (result), reinterpret_cast<uint8_t *> (&result));
+		return result;
+	}
+
+	explicit operator nano::confirmation_height_info () const
+	{
+		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (data ()), size ());
+		nano::confirmation_height_info result;
+		bool error (result.deserialize (stream));
+		(void)error;
+		assert (!error);
 		return result;
 	}
 
@@ -659,7 +679,7 @@ public:
 	virtual void account_del (nano::write_transaction const &, nano::account const &) = 0;
 	virtual bool account_exists (nano::transaction const &, nano::account const &) = 0;
 	virtual size_t account_count (nano::transaction const &) = 0;
-	virtual void confirmation_height_clear (nano::write_transaction const &, nano::account const & account, uint64_t existing_confirmation_height) = 0;
+	virtual void confirmation_height_clear (nano::write_transaction const &, nano::account const &, uint64_t) = 0;
 	virtual void confirmation_height_clear (nano::write_transaction const &) = 0;
 	virtual nano::store_iterator<nano::account, nano::account_info> latest_begin (nano::transaction const &, nano::account const &) = 0;
 	virtual nano::store_iterator<nano::account, nano::account_info> latest_begin (nano::transaction const &) = 0;
@@ -719,14 +739,14 @@ public:
 	virtual nano::store_iterator<nano::endpoint_key, nano::no_value> peers_begin (nano::transaction const & transaction_a) const = 0;
 	virtual nano::store_iterator<nano::endpoint_key, nano::no_value> peers_end () const = 0;
 
-	virtual void confirmation_height_put (nano::write_transaction const & transaction_a, nano::account const & account_a, uint64_t confirmation_height_a) = 0;
-	virtual bool confirmation_height_get (nano::transaction const & transaction_a, nano::account const & account_a, uint64_t & confirmation_height_a) = 0;
+	virtual void confirmation_height_put (nano::write_transaction const & transaction_a, nano::account const & account_a, nano::confirmation_height_info const & confirmation_height_info_a) = 0;
+	virtual bool confirmation_height_get (nano::transaction const & transaction_a, nano::account const & account_a, nano::confirmation_height_info & confirmation_height_info_a) = 0;
 	virtual bool confirmation_height_exists (nano::transaction const & transaction_a, nano::account const & account_a) const = 0;
 	virtual void confirmation_height_del (nano::write_transaction const & transaction_a, nano::account const & account_a) = 0;
 	virtual uint64_t confirmation_height_count (nano::transaction const & transaction_a) = 0;
-	virtual nano::store_iterator<nano::account, uint64_t> confirmation_height_begin (nano::transaction const & transaction_a, nano::account const & account_a) = 0;
-	virtual nano::store_iterator<nano::account, uint64_t> confirmation_height_begin (nano::transaction const & transaction_a) = 0;
-	virtual nano::store_iterator<nano::account, uint64_t> confirmation_height_end () = 0;
+	virtual nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_begin (nano::transaction const & transaction_a, nano::account const & account_a) = 0;
+	virtual nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_begin (nano::transaction const & transaction_a) = 0;
+	virtual nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_end () = 0;
 
 	virtual uint64_t block_account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
 	virtual std::mutex & get_cache_mutex () = 0;

@@ -2424,21 +2424,46 @@ TEST (node, local_votes_cache_batch)
 	auto channel (node.network.udp_channels.create (node.network.endpoint ()));
 	// Generates and sends one vote for both hashes which is then cached
 	node.network.process_message (message, channel);
+	system.deadline_set (3s);
+	while (node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out) < 1)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 	ASSERT_FALSE (node.votes_cache.find (send1->hash ()).empty ());
 	ASSERT_FALSE (node.votes_cache.find (send2->hash ()).empty ());
 	// Only one confirm_ack should be sent if all hashes are part of the same vote
 	node.network.process_message (message, channel);
+	system.deadline_set (3s);
+	while (node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out) < 2)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	ASSERT_EQ (2, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 	// Test when votes are different
 	node.votes_cache.remove (send1->hash ());
 	node.votes_cache.remove (send2->hash ());
 	node.network.process_message (nano::confirm_req (send1->hash (), send1->root ()), channel);
+	system.deadline_set (3s);
+	while (node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out) < 3)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	ASSERT_EQ (3, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 	node.network.process_message (nano::confirm_req (send2->hash (), send2->root ()), channel);
+	system.deadline_set (3s);
+	while (node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out) < 4)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	ASSERT_EQ (4, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 	// There are two different votes, so both should be sent in response
 	node.network.process_message (message, channel);
+	system.deadline_set (3s);
+	while (node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out) < 6)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	ASSERT_EQ (6, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 }
 
@@ -2459,9 +2484,11 @@ TEST (node, local_votes_cache_generate_new_vote)
 	// Repsond with cached vote
 	nano::confirm_req message1 (send1);
 	auto channel (node.network.udp_channels.create (node.network.endpoint ()));
-	for (auto i (0); i < 100; ++i)
+	node.network.process_message (message1, channel);
+	system.deadline_set (3s);
+	while (node.votes_cache.find (send1->hash ()).empty ())
 	{
-		node.network.process_message (message1, channel);
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	auto votes1 (node.votes_cache.find (send1->hash ()));
 	ASSERT_EQ (1, votes1.size ());
@@ -2478,16 +2505,18 @@ TEST (node, local_votes_cache_generate_new_vote)
 		auto transaction (node.store.tx_begin_write ());
 		ASSERT_EQ (nano::process_result::progress, node.ledger.process (transaction, *send2).code);
 	}
-	// Generate new vote for request with 2 hashes (one of hashes is cached)
+	// One of the hashes is cached
 	std::vector<std::pair<nano::block_hash, nano::root>> roots_hashes{ std::make_pair (send1->hash (), send1->root ()), std::make_pair (send2->hash (), send2->root ()) };
 	nano::confirm_req message2 (roots_hashes);
-	for (auto i (0); i < 100; ++i)
+	node.network.process_message (message2, channel);
+	system.deadline_set (3s);
+	while (node.votes_cache.find (send2->hash ()).empty ())
 	{
-		node.network.process_message (message2, channel);
+		ASSERT_NO_ERROR (system.poll ());
 	}
-	auto votes2 (node.votes_cache.find (send1->hash ()));
+	auto votes2 (node.votes_cache.find (send2->hash ()));
 	ASSERT_EQ (1, votes2.size ());
-	ASSERT_EQ (2, votes2[0]->blocks.size ());
+	ASSERT_EQ (1, votes2[0]->blocks.size ());
 	{
 		nano::lock_guard<std::mutex> lock (node.store.get_cache_mutex ());
 		auto transaction (node.store.tx_begin_read ());
@@ -2497,6 +2526,8 @@ TEST (node, local_votes_cache_generate_new_vote)
 	}
 	ASSERT_FALSE (node.votes_cache.find (send1->hash ()).empty ());
 	ASSERT_FALSE (node.votes_cache.find (send2->hash ()).empty ());
+	// First generated + again cached + new generated
+	ASSERT_EQ (3, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 }
 
 // Tests that the max cache size is inversely proportional to the number of voting accounts
