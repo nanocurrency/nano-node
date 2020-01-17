@@ -304,11 +304,11 @@ void nano::bootstrap_connections::add_pull (nano::pull_info const & pull_a)
 	nano::pull_info pull (pull_a);
 	assert (pull.attempt != nullptr);
 	node.bootstrap_initiator.cache.update_pull (pull);
+	++pull.attempt->pulling;
 	{
 		nano::lock_guard<std::mutex> lock (mutex);
 		pulls.push_back (pull);
 	}
-	++pull.attempt->pulling;
 	condition.notify_all ();
 }
 
@@ -332,7 +332,9 @@ void nano::bootstrap_connections::request_pull (nano::unique_lock<std::mutex> & 
 		}
 		if (pull.attempt->mode == nano::bootstrap_mode::legacy)
 		{
+			lock_a.unlock ();
 			pull.attempt->add_recent_pull (pull.head);
+			lock_a.lock ();
 		}
 		// The bulk_pull_client destructor attempt to requeue_pull which can cause a deadlock if this is the last reference
 		// Dispatch request in an external thread in case it needs to be destroyed

@@ -485,7 +485,9 @@ bool nano::bootstrap_attempt_legacy::request_frontier (nano::unique_lock<std::mu
 			while (!frontier_pulls.empty ())
 			{
 				auto pull (frontier_pulls.front ());
+				lock_a.unlock ();
 				node->bootstrap_initiator.connections->add_pull (pull);
+				lock_a.lock ();
 				frontier_pulls.pop_front ();
 			}
 		}
