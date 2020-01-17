@@ -302,6 +302,7 @@ void nano::bootstrap_connections::start_populate_connections ()
 void nano::bootstrap_connections::add_pull (nano::pull_info const & pull_a)
 {
 	nano::pull_info pull (pull_a);
+	assert (pull.attempt != nullptr);
 	node.bootstrap_initiator.cache.update_pull (pull);
 	{
 		nano::lock_guard<std::mutex> lock (mutex);
@@ -395,11 +396,17 @@ void nano::bootstrap_connections::requeue_pull (nano::pull_info const & pull_a, 
 void nano::bootstrap_connections::clear_pulls (std::shared_ptr<nano::bootstrap_attempt> attempt_a)
 {
 	nano::lock_guard<std::mutex> lock (mutex);
-	for (auto i (pulls.begin ()), end (pulls.end ()); i != end; ++i)
+	auto i (pulls.begin ());
+	while (i != pulls.end ())
 	{
+		assert (i->attempt != nullptr);
 		if (i->attempt == attempt_a)
 		{
-			pulls.erase (i);
+			i = pulls.erase (i);
+		}
+		else
+		{
+			++i;
 		}
 	}
 }
