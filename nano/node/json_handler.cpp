@@ -3934,6 +3934,7 @@ void nano::json_handler::unchecked_clear ()
 	node.worker.push_task ([rpc_l]() {
 		auto transaction (rpc_l->node.store.tx_begin_write ());
 		rpc_l->node.store.unchecked_clear (transaction);
+		rpc_l->node.ledger.cache.unchecked_count = 0;
 		rpc_l->response_l.put ("success", "");
 		rpc_l->response_errors ();
 	});

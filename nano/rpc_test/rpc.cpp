@@ -6514,6 +6514,50 @@ TEST (rpc, unchecked_get)
 	}
 }
 
+TEST (rpc, unchecked_clear)
+{
+	nano::system system;
+	auto & node = *add_ipc_enabled_node (system);
+	nano::keypair key;
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node.config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	auto open (std::make_shared<nano::state_block> (key.pub, 0, key.pub, 1, key.pub, key.prv, key.pub, *system.work.generate (key.pub)));
+	node.process_active (open);
+	node.block_processor.flush ();
+	boost::property_tree::ptree request;
+	ASSERT_EQ (node.ledger.cache.unchecked_count, 1);
+	{
+		auto transaction = node.store.tx_begin_read ();
+		ASSERT_EQ (node.store.unchecked_count (transaction), 1);
+	}
+	request.put ("action", "unchecked_clear");
+	test_response response (request, rpc.config.port, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+
+	system.deadline_set (5s);
+	while (true)
+	{
+		auto transaction = node.store.tx_begin_read ();
+		if (node.store.unchecked_count (transaction) == 0)
+		{
+			break;
+		}
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	ASSERT_EQ (node.ledger.cache.unchecked_count, 0);
+}
+
 TEST (rpc, unopened)
 {
 	nano::system system;
