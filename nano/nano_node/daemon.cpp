@@ -65,7 +65,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 				auto voting (node->wallets.rep_counts ().voting);
 				if (voting > 1)
 				{
-					std::cout << "Voting with more than one representative (" << voting << "). This can limit performance" << std::endl;
+					std::cout << "Voting with more than one representative can limit performance: " << voting << " representatives are configured" << std::endl;
 				}
 				node->start ();
 				nano::ipc::ipc_server ipc_server (*node, config.rpc);
