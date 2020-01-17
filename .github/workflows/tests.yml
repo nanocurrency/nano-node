@@ -24,15 +24,15 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@50fbc62
-      - name: Get Clang 9
+      - name: Get clang-format 8
         env: 
           DEBIAN_FRONTEND: noninteractive
         run: |
           APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=1 wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key|sudo apt-key add - 
-          sudo add-apt-repository 'deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-9 main' -y
-          sudo apt-get update -y
-          sudo apt-get install clang-tools-9 clang-format-9
-          sudo ln -s /usr/bin/clang-format-9 /usr/bin/clang-format
+          sudo add-apt-repository 'deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-8 main' -y
+          sudo apt update -y
+          sudo apt install -y clang-format-8
+          sudo ln -s /usr/bin/clang-format-8 /usr/bin/clang-format
       - name: Clang Format
         run: ci/check-commit-format.sh 
 
