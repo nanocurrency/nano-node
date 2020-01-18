@@ -37,7 +37,7 @@ class telemetry_data_responses
 public:
 	std::vector<nano::telemetry_data> data;
 	bool is_cached;
-	bool error;
+	bool all_received;
 };
 
 /*
@@ -69,14 +69,15 @@ private:
 	std::vector<nano::telemetry_data> cached_telemetry_data;
 	std::unordered_set<nano::endpoint> required_responses;
 	uint64_t round{ 0 };
+	std::atomic<bool> all_received{ true };
 
 	nano::network & network;
 	nano::alarm & alarm;
 	nano::worker & worker;
 
-	void invoke_callbacks (bool cached_a, bool error_a);
-	void channel_processed (nano::unique_lock<std::mutex> & lk_a, nano::endpoint const & endpoint_a, bool error_a);
-	void fire_callbacks (nano::unique_lock<std::mutex> & lk, bool error_a);
+	void invoke_callbacks (bool cached_a);
+	void channel_processed (nano::unique_lock<std::mutex> & lk_a, nano::endpoint const & endpoint_a);
+	void fire_callbacks (nano::unique_lock<std::mutex> & lk);
 	void fire_request_messages (std::unordered_set<std::shared_ptr<nano::transport::channel>> const & channels);
 
 	friend std::unique_ptr<container_info_component> collect_container_info (telemetry_impl &, const std::string &);

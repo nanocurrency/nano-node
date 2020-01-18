@@ -52,13 +52,18 @@ void nano::telemetry::get_metrics_random_peers_async (std::function<void(telemet
 			callback_a (telemetry_data_responses);
 		});
 	}
+	else
+	{
+		const auto all_received = false;
+		callback_a (nano::telemetry_data_responses{ {}, false, all_received });
+	}
 }
 
 nano::telemetry_data_responses nano::telemetry::get_metrics_random_peers ()
 {
 	std::promise<telemetry_data_responses> promise;
-	get_metrics_random_peers_async ([&promise](telemetry_data_responses const & batched_metric_data_a) {
-		promise.set_value (batched_metric_data_a);
+	get_metrics_random_peers_async ([&promise](telemetry_data_responses const & telemetry_data_responses_a) {
+		promise.set_value (telemetry_data_responses_a);
 	});
 
 	return promise.get_future ().get ();
@@ -71,17 +76,32 @@ void nano::telemetry::get_metrics_single_peer_async (std::shared_ptr<nano::trans
 	{
 		if (!channel_a)
 		{
-			const auto error = true;
-			callback_a (nano::telemetry_data_response{ nano::telemetry_data (), false, error });
+			auto const is_cached = false;
+			auto const error = true;
+			callback_a (nano::telemetry_data_response{ nano::telemetry_data (), is_cached, error });
 		}
 		else
 		{
 			auto it = single_requests.emplace (channel_a->get_endpoint (), std::make_shared<nano::telemetry_impl> (network, alarm, worker));
-			it.first->second->get_metrics_async ({ channel_a }, [callback_a](telemetry_data_responses const & batched_metric_data_a) {
-				assert (batched_metric_data_a.data.size () == 1);
-				callback_a ({ batched_metric_data_a.data.front (), batched_metric_data_a.is_cached, batched_metric_data_a.error });
+			it.first->second->get_metrics_async ({ channel_a }, [callback_a](telemetry_data_responses const & telemetry_data_responses_a) {
+				// There should only be 1 response, so if this hasn't been received then conclude it is an error.
+				auto const error = !telemetry_data_responses_a.all_received;
+				if (!error)
+				{
+					assert (telemetry_data_responses_a.data.size () == 1);
+					callback_a ({ telemetry_data_responses_a.data.front (), telemetry_data_responses_a.is_cached, error });
+				}
+				else
+				{
+					callback_a ({ nano::telemetry_data (), telemetry_data_responses_a.is_cached, error });
+				}
 			});
 		}
+	}
+	else
+	{
+		const auto error = true;
+		callback_a (nano::telemetry_data_response{ nano::telemetry_data (), false, error });	
 	}
 }
 
@@ -129,8 +149,8 @@ void nano::telemetry_impl::get_metrics_async (std::unordered_set<std::shared_ptr
 		}
 		else if (channels_a.empty ())
 		{
-			const auto error = true;
-			fire_callbacks (lk, error);
+			all_received = false;
+			fire_callbacks (lk);
 			return;
 		}
 
@@ -146,9 +166,8 @@ void nano::telemetry_impl::get_metrics_async (std::unordered_set<std::shared_ptr
 					while (!this_l->callbacks.empty ())
 					{
 						lk.unlock ();
-						const auto error = false;
 						const auto is_cached = true;
-						this_l->invoke_callbacks (is_cached, error);
+						this_l->invoke_callbacks (is_cached);
 						lk.lock ();
 					}
 				}
@@ -156,6 +175,7 @@ void nano::telemetry_impl::get_metrics_async (std::unordered_set<std::shared_ptr
 			return;
 		}
 
+		all_received = true;
 		assert (required_responses.empty ());
 		std::transform (channels_a.begin (), channels_a.end (), std::inserter (required_responses, required_responses.end ()), [](auto const & channel) {
 			return channel->get_endpoint ();
@@ -175,10 +195,10 @@ void nano::telemetry_impl::add (nano::telemetry_data const & telemetry_data_a, n
 	}
 
 	current_telemetry_data_responses.push_back (telemetry_data_a);
-	channel_processed (lk, endpoint_a, false);
+	channel_processed (lk, endpoint_a);
 }
 
-void nano::telemetry_impl::invoke_callbacks (bool cached_a, bool error_a)
+void nano::telemetry_impl::invoke_callbacks (bool cached_a)
 {
 	decltype (callbacks) callbacks_l;
 
@@ -191,38 +211,43 @@ void nano::telemetry_impl::invoke_callbacks (bool cached_a, bool error_a)
 	}
 	for (auto & callback : callbacks_l)
 	{
-		callback ({ cached_telemetry_data, cached_a, error_a });
+		callback ({ cached_telemetry_data, cached_a, all_received });
 	}
 }
 
-void nano::telemetry_impl::channel_processed (nano::unique_lock<std::mutex> & lk_a, nano::endpoint const & endpoint_a, bool error_a)
+void nano::telemetry_impl::channel_processed (nano::unique_lock<std::mutex> & lk_a, nano::endpoint const & endpoint_a)
 {
 	assert (lk_a.owns_lock ());
 	auto num_removed = required_responses.erase (endpoint_a);
 	if (num_removed > 0 && required_responses.empty ())
 	{
-		fire_callbacks (lk_a, error_a);
+		fire_callbacks (lk_a);
 	}
 }
 
-void nano::telemetry_impl::fire_callbacks (nano::unique_lock<std::mutex> & lk, bool error_a)
+void nano::telemetry_impl::fire_callbacks (nano::unique_lock<std::mutex> & lk)
 {
 	assert (lk.owns_lock ());
 	cached_telemetry_data = current_telemetry_data_responses;
 
 	last_time = std::chrono::steady_clock::now ();
-	lk.unlock ();
-	invoke_callbacks (false, error_a);
-	lk.lock ();
+	// It's possible that during the mutex unlock other callbacks were added, so check again
+	while (!callbacks.empty ())
+	{
+		lk.unlock ();
+		const auto is_cached = false;
+		invoke_callbacks (is_cached);
+		lk.lock ();
+	}
 }
 
 void nano::telemetry_impl::fire_request_messages (std::unordered_set<std::shared_ptr<nano::transport::channel>> const & channels)
 {
-	uint64_t round_l = 0;
+	uint64_t round_l;
 	{
 		nano::lock_guard<std::mutex> guard (mutex);
-		round_l = round;
 		++round;
+		round_l = round;
 	}
 
 	// Fire off a telemetry request to all passed in channels
@@ -232,28 +257,28 @@ void nano::telemetry_impl::fire_request_messages (std::unordered_set<std::shared
 		assert (channel->get_network_version () >= network_params.protocol.telemetry_protocol_version_min);
 
 		std::weak_ptr<nano::telemetry_impl> this_w (shared_from_this ());
-		channel->send (message, [this_w, endpoint = channel->get_endpoint (), round_l](boost::system::error_code const & ec, size_t size_a) {
+		channel->send (message, [this_w, endpoint = channel->get_endpoint ()](boost::system::error_code const & ec, size_t size_a) {
 			if (auto this_l = this_w.lock ())
 			{
 				if (ec)
 				{
 					// Error sending the telemetry_req message
 					nano::unique_lock<std::mutex> lk (this_l->mutex);
-					this_l->channel_processed (lk, endpoint, true);
+					this_l->all_received = false;
+					this_l->channel_processed (lk, endpoint);
 				}
-				else
+			}
+		});
+
+		// If no response is seen after a certain period of time, remove it from the list of expected responses. However, only if it is part of the same round.
+		alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (2000), [this_w, endpoint = channel->get_endpoint (), round_l]() {
+			if (auto this_l = this_w.lock ())
+			{
+				nano::unique_lock<std::mutex> lk (this_l->mutex);
+				if (this_l->round == round_l && this_l->required_responses.find (endpoint) != this_l->required_responses.cend ())
 				{
-					// If no response is seen after a certain period of time, remove it from the list of expected responses. However, only if it is part of the same round.
-					this_l->alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (2000), [this_w, endpoint, round_l]() {
-						if (auto this_l = this_w.lock ())
-						{
-							nano::unique_lock<std::mutex> lk (this_l->mutex);
-							if (this_l->round == round_l)
-							{
-								this_l->channel_processed (lk, endpoint, false);
-							}
-						}
-					});
+					this_l->all_received = false;
+					this_l->channel_processed (lk, endpoint);
 				}
 			}
 		});

@@ -89,7 +89,7 @@ TEST (node_telemetry, no_peers)
 	std::atomic<bool> done{ false };
 	system.nodes[0]->telemetry.get_metrics_random_peers_async ([&done](nano::telemetry_data_responses const & responses_a) {
 		ASSERT_TRUE (responses_a.data.empty ());
-		ASSERT_TRUE (responses_a.error);
+		ASSERT_FALSE (responses_a.all_received);
 		ASSERT_FALSE (responses_a.is_cached);
 		done = true;
 	});
@@ -117,7 +117,7 @@ TEST (node_telemetry, basic)
 		std::atomic<bool> done{ false };
 		node_client->telemetry.get_metrics_random_peers_async ([&done, &all_telemetry_data](nano::telemetry_data_responses const & responses_a) {
 			ASSERT_FALSE (responses_a.is_cached);
-			ASSERT_FALSE (responses_a.error);
+			ASSERT_TRUE (responses_a.all_received);
 			all_telemetry_data = responses_a.data;
 			done = true;
 		});
@@ -140,7 +140,7 @@ TEST (node_telemetry, basic)
 		node_client->telemetry.get_metrics_random_peers_async ([&done, &telemetry_data](nano::telemetry_data_responses const & responses_a) {
 			ASSERT_EQ (telemetry_data, responses_a.data.front ());
 			ASSERT_TRUE (responses_a.is_cached);
-			ASSERT_FALSE (responses_a.error);
+			ASSERT_TRUE (responses_a.all_received);
 			done = true;
 		});
 
@@ -157,7 +157,7 @@ TEST (node_telemetry, basic)
 	std::atomic<bool> done{ false };
 	node_client->telemetry.get_metrics_random_peers_async ([&done, &telemetry_data](nano::telemetry_data_responses const & responses_a) {
 		ASSERT_FALSE (responses_a.is_cached);
-		ASSERT_FALSE (responses_a.error);
+		ASSERT_TRUE (responses_a.all_received);
 		done = true;
 	});
 
@@ -197,6 +197,7 @@ TEST (node_telemetry, many_nodes)
 	std::vector<nano::telemetry_data> all_telemetry_data;
 	node_client->telemetry.get_metrics_random_peers_async ([&done, &all_telemetry_data](nano::telemetry_data_responses const & responses_a) {
 		ASSERT_FALSE (responses_a.is_cached);
+		ASSERT_TRUE (responses_a.all_received);
 		all_telemetry_data = responses_a.data;
 		done = true;
 	});
@@ -255,6 +256,7 @@ TEST (node_telemetry, over_udp)
 	std::vector<nano::telemetry_data> all_telemetry_data;
 	node_client->telemetry.get_metrics_random_peers_async ([&done, &all_telemetry_data](nano::telemetry_data_responses const & responses_a) {
 		ASSERT_FALSE (responses_a.is_cached);
+		ASSERT_TRUE (responses_a.all_received);
 		all_telemetry_data = responses_a.data;
 		done = true;
 	});
@@ -382,6 +384,7 @@ TEST (node_telemetry, single_request)
 
 		node_client->telemetry.get_metrics_single_peer_async (channel, [&done, &telemetry_data](nano::telemetry_data_response const & response_a) {
 			ASSERT_FALSE (response_a.is_cached);
+			ASSERT_FALSE (response_a.error);
 			telemetry_data = response_a.data;
 			done = true;
 		});
@@ -402,6 +405,7 @@ TEST (node_telemetry, single_request)
 		node_client->telemetry.get_metrics_single_peer_async (channel, [&done, &telemetry_data](nano::telemetry_data_response const & response_a) {
 			ASSERT_EQ (telemetry_data, response_a.data);
 			ASSERT_TRUE (response_a.is_cached);
+			ASSERT_FALSE (response_a.error);
 			done = true;
 		});
 
@@ -418,6 +422,7 @@ TEST (node_telemetry, single_request)
 	std::atomic<bool> done{ false };
 	node_client->telemetry.get_metrics_single_peer_async (channel, [&done, &telemetry_data](nano::telemetry_data_response const & response_a) {
 		ASSERT_FALSE (response_a.is_cached);
+		ASSERT_FALSE (response_a.error);
 		done = true;
 	});
 
@@ -573,13 +578,14 @@ TEST (node_telemetry, blocking_single_and_random)
 		}
 	};
 
+	// Keep pushing system.polls in another thread (worker), because we will be blocking this thread and unable to do so.
 	system.deadline_set (10s);
 	node_client->worker.push_task (call_system_poll);
 
 	// Blocking version of get_random_metrics_async
 	auto telemetry_data_responses = node_client->telemetry.get_metrics_random_peers ();
 	ASSERT_FALSE (telemetry_data_responses.is_cached);
-	ASSERT_FALSE (telemetry_data_responses.error);
+	ASSERT_TRUE (telemetry_data_responses.all_received);
 	compare_default_test_result_data (telemetry_data_responses.data.front (), *node_server);
 
 	// Now try single request metric
@@ -590,6 +596,46 @@ TEST (node_telemetry, blocking_single_and_random)
 
 	done = true;
 	promise.get_future ().wait ();
+}
+
+TEST (node_telemetry, disconnects)
+{
+	nano::system system (2);
+
+	auto node_client = system.nodes.front ();
+	auto node_server = system.nodes.back ();
+
+	// Wait until peers are stored as they are done in the background
+	wait_any_peers (system, *node_server);
+
+	// Try and request metrics from a node which is turned off but a channel is not closed yet
+	auto channel = node_client->network.find_channel (node_server->network.endpoint ());
+	node_server->stop ();
+	ASSERT_TRUE (channel);
+
+	std::atomic<bool> done{ false };
+	node_client->telemetry.get_metrics_random_peers_async ([&done](nano::telemetry_data_responses const & responses_a) {
+		ASSERT_FALSE (responses_a.all_received);
+		done = true;
+	});
+
+	system.deadline_set (10s);
+	while (!done)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	done = false;
+	node_client->telemetry.get_metrics_single_peer_async (channel, [&done](nano::telemetry_data_response const & response_a) {
+		ASSERT_TRUE (response_a.error);
+		done = true;
+	});
+
+	system.deadline_set (10s);
+	while (!done)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 }
 
 namespace
