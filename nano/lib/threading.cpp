@@ -69,6 +69,9 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::worker:
 			thread_role_name_string = "Worker";
 			break;
+		case nano::thread_role::name::request_aggregator:
+			thread_role_name_string = "Req aggregator";
+			break;
 	}
 
 	/*

@@ -153,7 +153,7 @@ void database_write_lock_error (std::error_code & ec)
 	ec = nano::error_cli::database_write_error;
 }
 
-bool copy_database (boost::filesystem::path const & data_path, boost::program_options::variables_map & vm, boost::filesystem::path const & output_path, std::error_code & ec)
+bool copy_database (boost::filesystem::path const & data_path, boost::program_options::variables_map const & vm, boost::filesystem::path const & output_path, std::error_code & ec)
 {
 	bool success = false;
 	bool needs_to_write = vm.count ("unchecked_clear") || vm.count ("clear_send_ids") || vm.count ("online_weight_clear") || vm.count ("peer_clear") || vm.count ("confirmation_height_clear") || vm.count ("rebuild_database");
@@ -203,7 +203,7 @@ bool copy_database (boost::filesystem::path const & data_path, boost::program_op
 }
 }
 
-std::error_code nano::handle_node_options (boost::program_options::variables_map & vm)
+std::error_code nano::handle_node_options (boost::program_options::variables_map const & vm)
 {
 	std::error_code ec;
 	boost::filesystem::path data_path = vm.count ("data_path") ? boost::filesystem::path (vm["data_path"].as<std::string> ()) : nano::working_path ();
@@ -483,20 +483,20 @@ std::error_code nano::handle_node_options (boost::program_options::variables_map
 				nano::account account;
 				if (!account.decode_account (account_str))
 				{
-					uint64_t confirmation_height;
+					nano::confirmation_height_info confirmation_height_info;
 					auto transaction (node.node->store.tx_begin_read ());
-					if (!node.node->store.confirmation_height_get (transaction, account, confirmation_height))
+					if (!node.node->store.confirmation_height_get (transaction, account, confirmation_height_info))
 					{
 						auto transaction (node.node->store.tx_begin_write ());
 						auto conf_height_reset_num = 0;
 						if (account == node.node->network_params.ledger.genesis_account)
 						{
 							conf_height_reset_num = 1;
-							node.node->store.confirmation_height_put (transaction, account, confirmation_height);
+							node.node->store.confirmation_height_put (transaction, account, { confirmation_height_info.height, node.node->network_params.ledger.genesis_block });
 						}
 						else
 						{
-							node.node->store.confirmation_height_clear (transaction, account, confirmation_height);
+							node.node->store.confirmation_height_clear (transaction, account, confirmation_height_info.height);
 						}
 
 						std::cout << "Confirmation height of account " << account_str << " is set to " << conf_height_reset_num << std::endl;
@@ -1170,7 +1170,7 @@ void reset_confirmation_heights (nano::block_store & store)
 
 	// Then make sure the confirmation height of the genesis account open block is 1
 	nano::network_params network_params;
-	store.confirmation_height_put (transaction, network_params.ledger.genesis_account, 1);
+	store.confirmation_height_put (transaction, network_params.ledger.genesis_account, { 1, network_params.ledger.genesis_block });
 }
 
 bool is_using_rocksdb (boost::filesystem::path const & data_path, std::error_code & ec)

@@ -226,7 +226,7 @@ nano::account_info nano::json_handler::account_info_impl (nano::transaction cons
 		if (node.store.account_get (transaction_a, account_a, result))
 		{
 			ec = nano::error_common::account_not_found;
-			node.bootstrap_initiator.bootstrap_lazy (account_a, false, false);
+			node.bootstrap_initiator.bootstrap_lazy (account_a, false, false, account_a.to_account ());
 		}
 	}
 	return result;
@@ -533,8 +533,8 @@ void nano::json_handler::account_info ()
 		const bool pending = request.get<bool> ("pending", false);
 		auto transaction (node.store.tx_begin_read ());
 		auto info (account_info_impl (transaction, account));
-		uint64_t confirmation_height;
-		if (node.store.confirmation_height_get (transaction, account, confirmation_height))
+		nano::confirmation_height_info confirmation_height_info;
+		if (node.store.confirmation_height_get (transaction, account, confirmation_height_info))
 		{
 			ec = nano::error_common::account_not_found;
 		}
@@ -549,7 +549,8 @@ void nano::json_handler::account_info ()
 			response_l.put ("modified_timestamp", std::to_string (info.modified));
 			response_l.put ("block_count", std::to_string (info.block_count));
 			response_l.put ("account_version", epoch_as_string (info.epoch ()));
-			response_l.put ("confirmation_height", std::to_string (confirmation_height));
+			response_l.put ("confirmation_height", std::to_string (confirmation_height_info.height));
+			response_l.put ("confirmation_height_frontier", confirmation_height_info.frontier.to_string ());
 			if (representative)
 			{
 				response_l.put ("representative", info.representative.to_account ());
@@ -1598,7 +1599,8 @@ void nano::json_handler::bootstrap ()
 		{
 			if (!node.flags.disable_legacy_bootstrap)
 			{
-				node.bootstrap_initiator.bootstrap (nano::endpoint (address, port), true, bypass_frontier_confirmation);
+				std::string bootstrap_id (request.get<std::string> ("id", ""));
+				node.bootstrap_initiator.bootstrap (nano::endpoint (address, port), true, bypass_frontier_confirmation, bootstrap_id);
 				response_l.put ("success", "");
 			}
 			else
@@ -1623,7 +1625,8 @@ void nano::json_handler::bootstrap_any ()
 	const bool force = request.get<bool> ("force", false);
 	if (!node.flags.disable_legacy_bootstrap)
 	{
-		node.bootstrap_initiator.bootstrap (force);
+		std::string bootstrap_id (request.get<std::string> ("id", ""));
+		node.bootstrap_initiator.bootstrap (force, bootstrap_id);
 		response_l.put ("success", "");
 	}
 	else
@@ -1641,7 +1644,8 @@ void nano::json_handler::bootstrap_lazy ()
 	{
 		if (!node.flags.disable_lazy_bootstrap)
 		{
-			node.bootstrap_initiator.bootstrap_lazy (hash, force);
+			std::string bootstrap_id (request.get<std::string> ("id", ""));
+			node.bootstrap_initiator.bootstrap_lazy (hash, force, true, bootstrap_id);
 			response_l.put ("started", "1");
 		}
 		else
@@ -1662,6 +1666,7 @@ void nano::json_handler::bootstrap_status ()
 	{
 		nano::lock_guard<std::mutex> lock (attempt->mutex);
 		nano::lock_guard<std::mutex> lazy_lock (attempt->lazy_mutex);
+		response_l.put ("id", attempt->id);
 		response_l.put ("clients", std::to_string (attempt->clients.size ()));
 		response_l.put ("pulls", std::to_string (attempt->pulls.size ()));
 		response_l.put ("pulling", std::to_string (attempt->pulling));
@@ -1673,20 +1678,7 @@ void nano::json_handler::bootstrap_status ()
 		response_l.put ("requeued_pulls", std::to_string (attempt->requeued_pulls));
 		response_l.put ("frontiers_received", static_cast<bool> (attempt->frontiers_received));
 		response_l.put ("frontiers_confirmed", static_cast<bool> (attempt->frontiers_confirmed));
-		std::string mode_text;
-		if (attempt->mode == nano::bootstrap_mode::legacy)
-		{
-			mode_text = "legacy";
-		}
-		else if (attempt->mode == nano::bootstrap_mode::lazy)
-		{
-			mode_text = "lazy";
-		}
-		else if (attempt->mode == nano::bootstrap_mode::wallet_lazy)
-		{
-			mode_text = "wallet_lazy";
-		}
-		response_l.put ("mode", mode_text);
+		response_l.put ("mode", attempt->mode_text ());
 		response_l.put ("lazy_blocks", std::to_string (attempt->lazy_blocks.size ()));
 		response_l.put ("lazy_state_backlog", std::to_string (attempt->lazy_state_backlog.size ()));
 		response_l.put ("lazy_balances", std::to_string (attempt->lazy_balances.size ()));
@@ -1774,7 +1766,7 @@ void nano::json_handler::confirmation_height_currently_processing ()
 	auto hash = node.pending_confirmation_height.current ();
 	if (!hash.is_zero ())
 	{
-		response_l.put ("hash", node.pending_confirmation_height.current ().to_string ());
+		response_l.put ("hash", hash.to_string ());
 	}
 	else
 	{
