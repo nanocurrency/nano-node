@@ -49,6 +49,7 @@ class telemetry_impl : public std::enable_shared_from_this<telemetry_impl>
 {
 public:
 	telemetry_impl (nano::network & network_a, nano::alarm & alarm_a, nano::worker & worker_a);
+
 private:
 	// Class only available to the telemetry class
 	void get_metrics_async (std::unordered_set<std::shared_ptr<nano::transport::channel>> const & channels_a, std::function<void(telemetry_data_responses const &)> const & callback_a);

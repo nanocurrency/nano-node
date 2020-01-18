@@ -101,7 +101,7 @@ void nano::telemetry::get_metrics_single_peer_async (std::shared_ptr<nano::trans
 	else
 	{
 		const auto error = true;
-		callback_a (nano::telemetry_data_response{ nano::telemetry_data (), false, error });	
+		callback_a (nano::telemetry_data_response{ nano::telemetry_data (), false, error });
 	}
 }
 
