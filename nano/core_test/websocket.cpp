@@ -878,7 +878,7 @@ TEST (websocket, bootstrap_excited)
 	// Start bootstrap, exit after subscription
 	std::atomic<bool> bootstrap_started{ false };
 	std::atomic<bool> subscribed{ false };
-	std::thread bootstrap_thread ([&system, node1, &bootstrap_started, &subscribed](){
+	std::thread bootstrap_thread ([&system, node1, &bootstrap_started, &subscribed]() {
 		node1->bootstrap_initiator.bootstrap (true, "123abc");
 		auto attempt (node1->bootstrap_initiator.current_attempt ());
 		ASSERT_NE (nullptr, attempt);
@@ -912,7 +912,6 @@ TEST (websocket, bootstrap_excited)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::bootstrap));
-
 
 	// Wait for the bootstrap notification
 	subscribed = true;
