@@ -276,6 +276,9 @@ TEST (node, auto_bootstrap)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
+	auto transaction = node1->store.tx_begin_read ();
+	ASSERT_EQ (node1->ledger.cache.unchecked_count, node1->store.unchecked_count (transaction));
+
 	node1->stop ();
 }
 
@@ -2867,6 +2870,7 @@ TEST (node, block_processor_signatures)
 	{
 		auto transaction (node1.store.tx_begin_write ());
 		node1.store.unchecked_put (transaction, send5->previous (), send5);
+		++node1.ledger.cache.unchecked_count;
 	}
 	auto receive1 (std::make_shared<nano::state_block> (key1.pub, 0, nano::test_genesis_key.pub, nano::Gxrb_ratio, send1->hash (), key1.prv, key1.pub, 0));
 	node1.work_generate_blocking (*receive1);

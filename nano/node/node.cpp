@@ -457,6 +457,7 @@ startup_time (std::chrono::steady_clock::now ())
 			{
 				auto transaction (store.tx_begin_write ());
 				store.unchecked_clear (transaction);
+				ledger.cache.unchecked_count = 0;
 				logger.always_log ("Dropping unchecked blocks");
 			}
 		}
@@ -936,8 +937,11 @@ void nano::node::unchecked_cleanup ()
 		{
 			auto key (cleaning_list.front ());
 			cleaning_list.pop_front ();
-			store.unchecked_del (transaction, key);
-			--ledger.cache.unchecked_count;
+			if (!store.unchecked_del (transaction, key))
+			{
+				assert (ledger.cache.unchecked_count > 0);
+				--ledger.cache.unchecked_count;
+			}
 		}
 	}
 }
