@@ -77,6 +77,14 @@ public:
 		return iterator != pending_end () && nano::pending_key (iterator->first) == key_a;
 	}
 
+	bool unchecked_exists (nano::transaction const & transaction_a, nano::unchecked_key const & unchecked_key_a) override
+	{
+		nano::db_val<Val> value;
+		auto status (get (transaction_a, tables::unchecked, nano::db_val<Val> (unchecked_key_a), value));
+		release_assert (success (status) || not_found (status));
+		return (success (status));
+	}
+
 	std::vector<nano::unchecked_info> unchecked_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) override
 	{
 		std::vector<nano::unchecked_info> result;
@@ -477,10 +485,11 @@ public:
 		release_assert (success (status));
 	}
 
-	void unchecked_del (nano::write_transaction const & transaction_a, nano::unchecked_key const & key_a) override
+	bool unchecked_del (nano::write_transaction const & transaction_a, nano::unchecked_key const & key_a) override
 	{
 		auto status (del (transaction_a, tables::unchecked, key_a));
 		release_assert (success (status) || not_found (status));
+		return not_found (status);
 	}
 
 	std::shared_ptr<nano::vote> vote_get (nano::transaction const & transaction_a, nano::account const & account_a) override
