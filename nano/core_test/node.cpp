@@ -1055,7 +1055,6 @@ TEST (json, backup)
 	ASSERT_EQ ("created", object1.text);
 
 	/** Returns 'dir' if backup file cannot be found */
-	// clang-format off
 	auto get_backup_path = [&dir]() {
 		for (fs::directory_iterator itr (dir); itr != fs::directory_iterator (); ++itr)
 		{
@@ -1070,7 +1069,6 @@ TEST (json, backup)
 	auto get_file_count = [&dir]() {
 		return std::count_if (boost::filesystem::directory_iterator (dir), boost::filesystem::directory_iterator (), static_cast<bool (*) (const boost::filesystem::path &)> (boost::filesystem::is_regular_file));
 	};
-	// clang-format on
 
 	// There should only be the original file in this directory
 	ASSERT_EQ (get_file_count (), 1);
@@ -3163,7 +3161,6 @@ TEST (node, dont_write_lock_node)
 
 	std::promise<void> write_lock_held_promise;
 	std::promise<void> finished_promise;
-	// clang-format off
 	std::thread ([&path, &write_lock_held_promise, &finished_promise]() {
 		nano::logger_mt logger;
 		auto store = nano::make_store (logger, path, false, true);
@@ -3180,7 +3177,6 @@ TEST (node, dont_write_lock_node)
 		finished_promise.get_future ().wait ();
 	})
 	.detach ();
-	// clang-format off
 
 	write_lock_held_promise.get_future ().wait ();
 
@@ -3265,7 +3261,7 @@ TEST (node, bandwidth_limiter)
 	nano::system system;
 	nano::genesis genesis;
 	nano::publish message (genesis.open);
-	auto message_size = message.to_bytes ()->size();
+	auto message_size = message.to_bytes ()->size ();
 	auto message_limit = 4; // must be multiple of the number of channels
 	nano::node_config node_config (24000, system.logging);
 	node_config.bandwidth_limit = message_limit * message_size;
@@ -3273,7 +3269,7 @@ TEST (node, bandwidth_limiter)
 	auto channel1 (node.network.udp_channels.create (node.network.endpoint ()));
 	auto channel2 (node.network.udp_channels.create (node.network.endpoint ()));
 	auto start (std::chrono::steady_clock::now ());
-	for (unsigned i=0; i < message_limit; i+=2) // number of channels
+	for (unsigned i = 0; i < message_limit; i += 2) // number of channels
 	{
 		channel1->send (message);
 		channel2->send (message);

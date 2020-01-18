@@ -378,9 +378,8 @@ void nano::distributed_work::handle_failure (bool const last_a)
 			auto now (std::chrono::steady_clock::now ());
 			std::weak_ptr<nano::node> node_w (node.shared ());
 			auto next_backoff (std::min (backoff * 2, std::chrono::seconds (5 * 60)));
-			// clang-format off
-			node.alarm.add (now + std::chrono::seconds (backoff), [ node_w, request_l = request, next_backoff] {
-				bool error_l {true};
+			node.alarm.add (now + std::chrono::seconds (backoff), [node_w, request_l = request, next_backoff] {
+				bool error_l{ true };
 				if (auto node_l = node_w.lock ())
 				{
 					error_l = node_l->distributed_work.make (next_backoff, request_l);
@@ -390,7 +389,6 @@ void nano::distributed_work::handle_failure (bool const last_a)
 					request_l.callback (boost::none);
 				}
 			});
-			// clang-format on
 		}
 		else
 		{

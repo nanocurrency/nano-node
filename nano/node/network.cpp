@@ -226,14 +226,12 @@ void nano::network::flood_block_many (std::deque<std::shared_ptr<nano::block>> b
 	if (!blocks_a.empty ())
 	{
 		std::weak_ptr<nano::node> node_w (node.shared ());
-		// clang-format off
 		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a + std::rand () % delay_a), [node_w, blocks (std::move (blocks_a)), callback_a, delay_a]() {
 			if (auto node_l = node_w.lock ())
 			{
 				node_l->network.flood_block_many (std::move (blocks), callback_a, delay_a);
 			}
 		});
-		// clang-format on
 	}
 	else if (callback_a)
 	{
@@ -750,9 +748,7 @@ nano::message_buffer * nano::message_buffer_manager::allocate ()
 	if (!stopped && free.empty () && full.empty ())
 	{
 		stats.inc (nano::stat::type::udp, nano::stat::detail::blocking, nano::stat::dir::in);
-		// clang-format off
 		condition.wait (lock, [& stopped = stopped, &free = free, &full = full] { return stopped || !free.empty () || !full.empty (); });
-		// clang-format on
 	}
 	nano::message_buffer * result (nullptr);
 	if (!free.empty ())

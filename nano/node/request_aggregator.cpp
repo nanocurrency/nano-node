@@ -15,13 +15,11 @@ stats (stats_a),
 votes_cache (cache_a),
 store (store_a),
 wallets (wallets_a),
-// clang-format off
 thread ([this]() { run (); })
 {
 	nano::unique_lock<std::mutex> lock (mutex);
 	condition.wait (lock, [& started = started] { return started; });
 }
-// clang-format on
 
 void nano::request_aggregator::add (std::shared_ptr<nano::transport::channel> & channel_a, std::vector<std::pair<nano::block_hash, nano::root>> const & hashes_roots_a)
 {
@@ -34,7 +32,6 @@ void nano::request_aggregator::add (std::shared_ptr<nano::transport::channel> & 
 	{
 		existing = requests_by_endpoint.emplace (channel_a).first;
 	}
-	// clang-format off
 	requests_by_endpoint.modify (existing, [&hashes_roots_a, &channel_a, this](channel_pool & pool_a) {
 		// This extends the lifetime of the channel, which is acceptable up to max_delay
 		pool_a.channel = channel_a;
@@ -42,7 +39,6 @@ void nano::request_aggregator::add (std::shared_ptr<nano::transport::channel> & 
 		pool_a.deadline = new_deadline;
 		pool_a.hashes_roots.insert (pool_a.hashes_roots.begin (), hashes_roots_a.begin (), hashes_roots_a.end ());
 	});
-	// clang-format on
 	if (requests.size () == 1)
 	{
 		lock.unlock ();
@@ -85,16 +81,12 @@ void nano::request_aggregator::run ()
 			else
 			{
 				auto deadline = front->deadline;
-				// clang-format off
 				condition.wait_until (lock, deadline, [this, &deadline]() { return this->stopped || deadline < std::chrono::steady_clock::now (); });
-				// clang-format on
 			}
 		}
 		else
 		{
-			// clang-format off
 			condition.wait_for (lock, small_delay, [this]() { return this->stopped || !this->requests.empty (); });
-			// clang-format on
 		}
 	}
 }
@@ -198,7 +190,6 @@ void nano::request_aggregator::generate (nano::transaction const & transaction_a
 		{
 			hashes_l.push_back (*i);
 		}
-		// clang-format off
 		wallets.foreach_representative ([this, &generated_l, &hashes_l, &channel_a, &transaction_a](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
 			auto vote (this->store.vote_generate (transaction_a, pub_a, prv_a, hashes_l));
 			++generated_l;
@@ -206,7 +197,6 @@ void nano::request_aggregator::generate (nano::transaction const & transaction_a
 			channel_a->send (confirm);
 			this->votes_cache.add (vote);
 		});
-		// clang-format on
 	}
 	stats.add (nano::stat::type::requests, nano::stat::detail::requests_generated, stat::dir::in, generated_l);
 }

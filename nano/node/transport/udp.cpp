@@ -41,9 +41,7 @@ void nano::transport::channel_udp::send_buffer (nano::shared_const_buffer const 
 
 std::function<void(boost::system::error_code const &, size_t)> nano::transport::channel_udp::callback (nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a) const
 {
-	// clang-format off
-	return [node = std::weak_ptr<nano::node> (channels.node.shared ()), callback_a ](boost::system::error_code const & ec, size_t size_a)
-	{
+	return [node = std::weak_ptr<nano::node> (channels.node.shared ()), callback_a](boost::system::error_code const & ec, size_t size_a) {
 		if (auto node_l = node.lock ())
 		{
 			if (ec == boost::system::errc::host_unreachable)
@@ -61,7 +59,6 @@ std::function<void(boost::system::error_code const &, size_t)> nano::transport::
 			}
 		}
 	};
-	// clang-format on
 }
 
 std::string nano::transport::channel_udp::to_string () const
@@ -318,7 +315,6 @@ void nano::transport::udp_channels::stop ()
 
 	// On test-net, close directly to avoid address-reuse issues. On livenet, close
 	// through the strand as multiple IO threads may access the socket.
-	// clang-format off
 	if (node.network_params.network.is_test_network ())
 	{
 		this->close_socket ();
@@ -329,7 +325,6 @@ void nano::transport::udp_channels::stop ()
 			this->close_socket ();
 		});
 	}
-	// clang-format on
 }
 
 void nano::transport::udp_channels::close_socket ()

@@ -134,12 +134,10 @@ rep_crawler (*this),
 warmed_up (0),
 votes_cache (wallets),
 block_processor (*this, write_database_queue),
-// clang-format off
 block_processor_thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::block_processing);
 	this->block_processor.process_blocks ();
 }),
-// clang-format on
 online_reps (ledger, network_params, config.online_weight_minimum.number ()),
 vote_uniquer (block_uniquer),
 active (*this),
@@ -1022,12 +1020,11 @@ boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const &
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
 {
 	std::promise<boost::optional<uint64_t>> promise;
-	// clang-format off
-	work_generate (root_a, [&promise](boost::optional<uint64_t> opt_work_a) {
+	work_generate (
+	root_a, [&promise](boost::optional<uint64_t> opt_work_a) {
 		promise.set_value (opt_work_a);
 	},
 	difficulty_a, account_a);
-	// clang-format on
 	return promise.get_future ().get ();
 }
 
