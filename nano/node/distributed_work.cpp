@@ -11,7 +11,7 @@ std::shared_ptr<request_type> nano::distributed_work::peer_request::get_prepared
 	auto request (std::make_shared<request_type> ());
 	request->method (boost::beast::http::verb::post);
 	request->set (boost::beast::http::field::content_type, "application/json");
-	auto address_string = boost::algorithm::erase_first_copy (address.to_string (), "::ffff:");
+	auto address_string = boost::algorithm::erase_first_copy (endpoint.address ().to_string (), "::ffff:");
 	request->set (boost::beast::http::field::host, address_string);
 	request->target ("/");
 	request->version (11);
@@ -69,7 +69,7 @@ void nano::distributed_work::start ()
 		auto parsed_address (boost::asio::ip::make_address_v6 (current.first, ec));
 		if (!ec)
 		{
-			outstanding[parsed_address] = current.second;
+			outstanding.emplace_back (parsed_address, current.second);
 			start ();
 		}
 		else
@@ -80,7 +80,7 @@ void nano::distributed_work::start ()
 					for (auto i (i_a), n (boost::asio::ip::udp::resolver::iterator{}); i != n; ++i)
 					{
 						auto endpoint (i->endpoint ());
-						this_l->outstanding[endpoint.address ()] = endpoint.port ();
+						this_l->outstanding.emplace_back (endpoint.address (), endpoint.port ());
 					}
 				}
 				else
@@ -100,13 +100,11 @@ void nano::distributed_work::start_work ()
 	if (!outstanding.empty ())
 	{
 		nano::lock_guard<std::mutex> guard (mutex);
-		for (auto const & i : outstanding)
+		for (auto const & endpoint : outstanding)
 		{
-			auto host (i.first);
-			auto service (i.second);
-			auto connection (std::make_shared<peer_request> (this_l->node.io_ctx, host, service));
+			auto connection (std::make_shared<peer_request> (this_l->node.io_ctx, endpoint));
 			connections.emplace_back (connection);
-			connection->socket.async_connect (nano::tcp_endpoint (host, service),
+			connection->socket.async_connect (connection->endpoint,
 			boost::asio::bind_executor (strand,
 			[this_l, connection](boost::system::error_code const & ec) {
 				if (!ec && !this_l->stopped)
@@ -137,42 +135,35 @@ void nano::distributed_work::start_work ()
 								{
 									if (connection->response.result () == boost::beast::http::status::ok)
 									{
-										this_l->success (connection->response.body (), connection->address, connection->port);
+										this_l->success (connection->response.body (), connection->endpoint);
 									}
 									else if (ec)
 									{
-										this_l->node.logger.try_log (boost::str (boost::format ("Work peer responded with an error %1% %2%: %3%") % connection->address % connection->port % connection->response.result ()));
-										this_l->add_bad_peer (connection->address, connection->port);
-										this_l->failure (connection->address);
+										this_l->node.logger.try_log (boost::str (boost::format ("Work peer responded with an error %1% %2%: %3%") % connection->endpoint.address () % connection->endpoint.port () % connection->response.result ()));
+										this_l->add_bad_peer (connection->endpoint);
+										this_l->failure (connection->endpoint);
 									}
-								}
-								else if (ec == boost::system::errc::operation_canceled)
-								{
-									// The only case where we send a cancel is if we preempt stopped waiting for the response
-									this_l->cancel (*connection);
-									this_l->failure (connection->address);
 								}
 								else if (ec)
 								{
-									this_l->node.logger.try_log (boost::str (boost::format ("Unable to read from work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
-									this_l->add_bad_peer (connection->address, connection->port);
-									this_l->failure (connection->address);
+									this_l->cancel (*connection);
+									this_l->failure (connection->endpoint);
 								}
 							}));
 						}
 						else if (ec && ec != boost::system::errc::operation_canceled)
 						{
-							this_l->node.logger.try_log (boost::str (boost::format ("Unable to write to work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
-							this_l->add_bad_peer (connection->address, connection->port);
-							this_l->failure (connection->address);
+							this_l->node.logger.try_log (boost::str (boost::format ("Unable to write to work_peer %1% %2%: %3% (%4%)") % connection->endpoint.address () % connection->endpoint.port () % ec.message () % ec.value ()));
+							this_l->add_bad_peer (connection->endpoint);
+							this_l->failure (connection->endpoint);
 						}
 					}));
 				}
 				else if (ec && ec != boost::system::errc::operation_canceled)
 				{
-					this_l->node.logger.try_log (boost::str (boost::format ("Unable to connect to work_peer %1% %2%: %3% (%4%)") % connection->address % connection->port % ec.message () % ec.value ()));
-					this_l->add_bad_peer (connection->address, connection->port);
-					this_l->failure (connection->address);
+					this_l->node.logger.try_log (boost::str (boost::format ("Unable to connect to work_peer %1% %2%: %3% (%4%)") % connection->endpoint.address () % connection->endpoint.port () % ec.message () % ec.value ()));
+					this_l->add_bad_peer (connection->endpoint);
+					this_l->failure (connection->endpoint);
 				}
 			}));
 		}
@@ -209,8 +200,8 @@ void nano::distributed_work::start_work ()
 void nano::distributed_work::cancel (peer_request const & connection_a)
 {
 	auto this_l (shared_from_this ());
-	auto cancelling_l (std::make_shared<peer_request> (node.io_ctx, connection_a.address, connection_a.port));
-	cancelling_l->socket.async_connect (nano::tcp_endpoint (cancelling_l->address, cancelling_l->port),
+	auto cancelling_l (std::make_shared<peer_request> (node.io_ctx, connection_a.endpoint));
+	cancelling_l->socket.async_connect (cancelling_l->endpoint,
 	boost::asio::bind_executor (strand,
 	[this_l, cancelling_l](boost::system::error_code const & ec) {
 		if (!ec)
@@ -230,16 +221,16 @@ void nano::distributed_work::cancel (peer_request const & connection_a)
 			[this_l, peer_cancel, cancelling_l](boost::system::error_code const & ec, size_t bytes_transferred) {
 				if (ec && ec != boost::system::errc::operation_canceled)
 				{
-					this_l->node.logger.try_log (boost::str (boost::format ("Unable to send work_cancel to work_peer %1% %2%: %3% (%4%)") % cancelling_l->address % cancelling_l->port % ec.message () % ec.value ()));
+					this_l->node.logger.try_log (boost::str (boost::format ("Unable to send work_cancel to work_peer %1% %2%: %3% (%4%)") % cancelling_l->endpoint.address () % cancelling_l->endpoint.port () % ec.message () % ec.value ()));
 				}
 			}));
 		}
 	}));
 }
 
-void nano::distributed_work::success (std::string const & body_a, boost::asio::ip::address const & address_a, uint16_t port_a)
+void nano::distributed_work::success (std::string const & body_a, nano::tcp_endpoint const & endpoint_a)
 {
-	auto last (remove (address_a));
+	auto last (remove (endpoint_a));
 	std::stringstream istream (body_a);
 	try
 	{
@@ -253,27 +244,27 @@ void nano::distributed_work::success (std::string const & body_a, boost::asio::i
 			if (!nano::work_validate (request.root, work, &result_difficulty) && result_difficulty >= request.difficulty)
 			{
 				node.unresponsive_work_peers = false;
-				set_once (work, boost::str (boost::format ("%1%:%2%") % address_a % port_a));
+				set_once (work, boost::str (boost::format ("%1%:%2%") % endpoint_a.address () % endpoint_a.port ()));
 				stop_once (true);
 			}
 			else
 			{
-				node.logger.try_log (boost::str (boost::format ("Incorrect work response from %1%:%2% for root %3% with diffuculty %4%: %5%") % address_a % port_a % request.root.to_string () % nano::to_string_hex (request.difficulty) % work_text));
-				add_bad_peer (address_a, port_a);
+				node.logger.try_log (boost::str (boost::format ("Incorrect work response from %1%:%2% for root %3% with diffuculty %4%: %5%") % endpoint_a.address () % endpoint_a.port () % request.root.to_string () % nano::to_string_hex (request.difficulty) % work_text));
+				add_bad_peer (endpoint_a);
 				handle_failure (last);
 			}
 		}
 		else
 		{
-			node.logger.try_log (boost::str (boost::format ("Work response from %1%:%2% wasn't a number: %3%") % address_a % port_a % work_text));
-			add_bad_peer (address_a, port_a);
+			node.logger.try_log (boost::str (boost::format ("Work response from %1%:%2% wasn't a number: %3%") % endpoint_a.address () % endpoint_a.port () % work_text));
+			add_bad_peer (endpoint_a);
 			handle_failure (last);
 		}
 	}
 	catch (...)
 	{
-		node.logger.try_log (boost::str (boost::format ("Work response from %1%:%2% wasn't parsable: %3%") % address_a % port_a % body_a));
-		add_bad_peer (address_a, port_a);
+		node.logger.try_log (boost::str (boost::format ("Work response from %1%:%2% wasn't parsable: %3%") % endpoint_a.address () % endpoint_a.port () % body_a));
+		add_bad_peer (endpoint_a);
 		handle_failure (last);
 	}
 }
@@ -302,12 +293,12 @@ void nano::distributed_work::stop_once (bool const local_stop_a)
 							connection_l->socket.close (ec);
 							if (ec)
 							{
-								this_l->node.logger.try_log (boost::str (boost::format ("Error closing socket with work_peer %1% %2%: %3%") % connection_l->address % connection_l->port % ec.message () % ec.value ()));
+								this_l->node.logger.try_log (boost::str (boost::format ("Error closing socket with work_peer %1% %2%: %3%") % connection_l->endpoint.address () % connection_l->endpoint.port () % ec.message () % ec.value ()));
 							}
 						}
 						else
 						{
-							this_l->node.logger.try_log (boost::str (boost::format ("Error cancelling operation with work_peer %1% %2%: %3%") % connection_l->address % connection_l->port % ec.message () % ec.value ()));
+							this_l->node.logger.try_log (boost::str (boost::format ("Error cancelling operation with work_peer %1% %2%: %3%") % connection_l->endpoint.address () % connection_l->endpoint.port () % ec.message () % ec.value ()));
 						}
 					}
 				}));
@@ -357,9 +348,9 @@ void nano::distributed_work::cancel ()
 	}
 }
 
-void nano::distributed_work::failure (boost::asio::ip::address const & address_a)
+void nano::distributed_work::failure (nano::tcp_endpoint const & endpoint_a)
 {
-	auto last (remove (address_a));
+	auto last (remove (endpoint_a));
 	handle_failure (last);
 }
 
@@ -399,15 +390,19 @@ void nano::distributed_work::handle_failure (bool const last_a)
 	}
 }
 
-bool nano::distributed_work::remove (boost::asio::ip::address const & address_a)
+bool nano::distributed_work::remove (nano::tcp_endpoint const & endpoint_a)
 {
 	nano::lock_guard<std::mutex> guard (mutex);
-	outstanding.erase (address_a);
+	auto existing (std::find (outstanding.begin (), outstanding.end (), endpoint_a));
+	if (existing != outstanding.end ())
+	{
+		outstanding.erase (existing);
+	}
 	return outstanding.empty ();
 }
 
-void nano::distributed_work::add_bad_peer (boost::asio::ip::address const & address_a, uint16_t port_a)
+void nano::distributed_work::add_bad_peer (nano::tcp_endpoint const & endpoint_a)
 {
 	nano::lock_guard<std::mutex> guard (mutex);
-	bad_peers.emplace_back (boost::str (boost::format ("%1%:%2%") % address_a % port_a));
+	bad_peers.emplace_back (boost::str (boost::format ("%1%:%2%") % endpoint_a.address () % endpoint_a.port ()));
 }
