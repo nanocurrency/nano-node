@@ -197,7 +197,8 @@ public:
 		udp,
 		observer,
 		confirmation_height,
-		drop
+		drop,
+		requests
 	};
 
 	/** Optional detail type */
@@ -255,6 +256,7 @@ public:
 		// vote specific
 		vote_valid,
 		vote_replay,
+		vote_indeterminate,
 		vote_invalid,
 		vote_overflow,
 
@@ -291,7 +293,12 @@ public:
 
 		// confirmation height
 		blocks_confirmed,
-		invalid_block
+		invalid_block,
+
+		// requests
+		requests_cached,
+		requests_generated,
+		requests_ignored
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */

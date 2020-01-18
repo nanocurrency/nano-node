@@ -243,11 +243,11 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_dump_representatives"))
 		{
 			auto node_flags = nano::inactive_node_flag_defaults ();
-			node_flags.cache_representative_weights_from_frontiers = true;
+			node_flags.generate_cache.reps = true;
 			nano::inactive_node node (data_path, 24000, node_flags);
 			auto transaction (node.node->store.tx_begin_read ());
 			nano::uint128_t total;
-			auto rep_amounts = node.node->ledger.rep_weights.get_rep_amounts ();
+			auto rep_amounts = node.node->ledger.cache.rep_weights.get_rep_amounts ();
 			std::map<nano::account, nano::uint128_t> ordered_reps (rep_amounts.begin (), rep_amounts.end ());
 			for (auto const & rep : ordered_reps)
 			{
@@ -617,7 +617,8 @@ int main (int argc, char * const * argv)
 					run_addr2line (false);
 					{
 						std::ofstream ofs (crash_report_filename, std::ios_base::out | std::ios_base::app);
-						ofs << std::endl << "Using relative addresses:" << std::endl; // Add an empty line to separate the absolute & relative output
+						ofs << std::endl
+						    << "Using relative addresses:" << std::endl; // Add an empty line to separate the absolute & relative output
 					}
 
 					// Now run using relative addresses. This will give actual results for other dlls, the results from the nano_node executable.
@@ -975,12 +976,12 @@ int main (int argc, char * const * argv)
 				}
 				nano::account_info const & info (i->second);
 				nano::account const & account (i->first);
-				uint64_t confirmation_height;
-				node.node->store.confirmation_height_get (transaction, account, confirmation_height);
+				nano::confirmation_height_info confirmation_height_info;
+				node.node->store.confirmation_height_get (transaction, account, confirmation_height_info);
 
-				if (confirmation_height > info.block_count)
+				if (confirmation_height_info.height > info.block_count)
 				{
-					std::cerr << "Confirmation height " << confirmation_height << " greater than block count " << info.block_count << " for account: " << account.to_account () << std::endl;
+					std::cerr << "Confirmation height " << confirmation_height_info.height << " greater than block count " << info.block_count << " for account: " << account.to_account () << std::endl;
 				}
 
 				auto hash (info.open_block);
@@ -1232,9 +1233,9 @@ int main (int argc, char * const * argv)
 		else if (vm.count ("debug_cemented_block_count"))
 		{
 			auto node_flags = nano::inactive_node_flag_defaults ();
-			node_flags.cache_cemented_count_from_frontiers = true;
+			node_flags.generate_cache.cemented_count = true;
 			nano::inactive_node node (data_path, 24000, node_flags);
-			std::cout << "Total cemented block count: " << node.node->ledger.cemented_count << std::endl;
+			std::cout << "Total cemented block count: " << node.node->ledger.cache.cemented_count << std::endl;
 		}
 		else if (vm.count ("debug_stacktrace"))
 		{

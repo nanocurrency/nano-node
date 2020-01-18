@@ -175,21 +175,22 @@ TEST (wallet, insufficient_spend_one)
 TEST (wallet, spend_all_one)
 {
 	nano::system system (1);
-	nano::block_hash latest1 (system.nodes[0]->latest (nano::test_genesis_key.pub));
+	auto & node1 (*system.nodes[0]);
+	nano::block_hash latest1 (node1.latest (nano::test_genesis_key.pub));
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key2;
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::test_genesis_key.pub, key2.pub, std::numeric_limits<nano::uint128_t>::max ()));
 	nano::account_info info2;
 	{
-		auto transaction (system.nodes[0]->store.tx_begin_read ());
-		system.nodes[0]->store.account_get (transaction, nano::test_genesis_key.pub, info2);
+		auto transaction (node1.store.tx_begin_read ());
+		node1.store.account_get (transaction, nano::test_genesis_key.pub, info2);
 		ASSERT_NE (latest1, info2.head);
-		auto block (system.nodes[0]->store.block_get (transaction, info2.head));
+		auto block (node1.store.block_get (transaction, info2.head));
 		ASSERT_NE (nullptr, block);
 		ASSERT_EQ (latest1, block->previous ());
 	}
 	ASSERT_TRUE (info2.balance.is_zero ());
-	ASSERT_EQ (0, system.nodes[0]->balance (nano::test_genesis_key.pub));
+	ASSERT_EQ (0, node1.balance (nano::test_genesis_key.pub));
 }
 
 TEST (wallet, send_async)
@@ -213,7 +214,8 @@ TEST (wallet, send_async)
 TEST (wallet, spend)
 {
 	nano::system system (1);
-	nano::block_hash latest1 (system.nodes[0]->latest (nano::test_genesis_key.pub));
+	auto & node1 (*system.nodes[0]);
+	nano::block_hash latest1 (node1.latest (nano::test_genesis_key.pub));
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key2;
 	// Sending from empty accounts should always be an error.  Accounts need to be opened with an open block, not a send block.
@@ -221,15 +223,15 @@ TEST (wallet, spend)
 	ASSERT_NE (nullptr, system.wallet (0)->send_action (nano::test_genesis_key.pub, key2.pub, std::numeric_limits<nano::uint128_t>::max ()));
 	nano::account_info info2;
 	{
-		auto transaction (system.nodes[0]->store.tx_begin_read ());
-		system.nodes[0]->store.account_get (transaction, nano::test_genesis_key.pub, info2);
+		auto transaction (node1.store.tx_begin_read ());
+		node1.store.account_get (transaction, nano::test_genesis_key.pub, info2);
 		ASSERT_NE (latest1, info2.head);
-		auto block (system.nodes[0]->store.block_get (transaction, info2.head));
+		auto block (node1.store.block_get (transaction, info2.head));
 		ASSERT_NE (nullptr, block);
 		ASSERT_EQ (latest1, block->previous ());
 	}
 	ASSERT_TRUE (info2.balance.is_zero ());
-	ASSERT_EQ (0, system.nodes[0]->balance (nano::test_genesis_key.pub));
+	ASSERT_EQ (0, node1.balance (nano::test_genesis_key.pub));
 }
 
 TEST (wallet, change)
@@ -656,20 +658,21 @@ TEST (wallet, work)
 TEST (wallet, work_generate)
 {
 	nano::system system (1);
+	auto & node1 (*system.nodes[0]);
 	auto wallet (system.wallet (0));
-	nano::uint128_t amount1 (system.nodes[0]->balance (nano::test_genesis_key.pub));
+	nano::uint128_t amount1 (node1.balance (nano::test_genesis_key.pub));
 	uint64_t work1;
 	wallet->insert_adhoc (nano::test_genesis_key.prv);
 	nano::account account1;
 	{
-		auto transaction (system.nodes[0]->wallets.tx_begin_read ());
+		auto transaction (node1.wallets.tx_begin_read ());
 		account1 = system.account (transaction, 0);
 	}
 	nano::keypair key;
 	wallet->send_action (nano::test_genesis_key.pub, key.pub, 100);
 	system.deadline_set (10s);
-	auto transaction (system.nodes[0]->store.tx_begin_read ());
-	while (system.nodes[0]->ledger.account_balance (transaction, nano::test_genesis_key.pub) == amount1)
+	auto transaction (node1.store.tx_begin_read ());
+	while (node1.ledger.account_balance (transaction, nano::test_genesis_key.pub) == amount1)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -678,9 +681,9 @@ TEST (wallet, work_generate)
 	while (again)
 	{
 		ASSERT_NO_ERROR (system.poll ());
-		auto block_transaction (system.nodes[0]->store.tx_begin_read ());
+		auto block_transaction (node1.store.tx_begin_read ());
 		auto transaction (system.wallet (0)->wallets.tx_begin_read ());
-		again = wallet->store.work_get (transaction, account1, work1) || nano::work_validate (system.nodes[0]->ledger.latest_root (block_transaction, account1), work1);
+		again = wallet->store.work_get (transaction, account1, work1) || nano::work_validate (node1.ledger.latest_root (block_transaction, account1), work1);
 	}
 }
 

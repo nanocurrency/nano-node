@@ -54,16 +54,16 @@ nano::uint128_t nano::rep_weights::get (nano::account const & account_a)
 	}
 }
 
-std::unique_ptr<nano::seq_con_info_component> nano::collect_seq_con_info (nano::rep_weights & rep_weights, const std::string & name)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::rep_weights & rep_weights, const std::string & name)
 {
-	size_t rep_amounts_count = 0;
+	size_t rep_amounts_count;
 
 	{
 		nano::lock_guard<std::mutex> guard (rep_weights.mutex);
 		rep_amounts_count = rep_weights.rep_amounts.size ();
 	}
 	auto sizeof_element = sizeof (decltype (rep_weights.rep_amounts)::value_type);
-	auto composite = std::make_unique<nano::seq_con_info_composite> (name);
-	composite->add_component (std::make_unique<nano::seq_con_info_leaf> (seq_con_info{ "rep_amounts", rep_amounts_count, sizeof_element }));
+	auto composite = std::make_unique<nano::container_info_composite> (name);
+	composite->add_component (std::make_unique<nano::container_info_leaf> (container_info{ "rep_amounts", rep_amounts_count, sizeof_element }));
 	return composite;
 }

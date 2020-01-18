@@ -1,6 +1,5 @@
 #pragma once
 
-#include <nano/node/active_transactions.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
@@ -14,6 +13,26 @@ namespace nano
 {
 class channel;
 class node;
+enum class election_status_type : uint8_t
+{
+	ongoing = 0,
+	active_confirmed_quorum = 1,
+	active_confirmation_height = 2,
+	inactive_confirmation_height = 3,
+	stopped = 5
+};
+class election_status final
+{
+public:
+	std::shared_ptr<nano::block> winner;
+	nano::amount tally;
+	std::chrono::milliseconds election_end;
+	std::chrono::milliseconds election_duration;
+	unsigned confirmation_request_count;
+	unsigned block_count;
+	unsigned voter_count;
+	election_status_type type;
+};
 class vote_info final
 {
 public:
@@ -48,7 +67,7 @@ public:
 	void update_dependent ();
 	void clear_dependent ();
 	void clear_blocks ();
-	void insert_inactive_votes_cache ();
+	void insert_inactive_votes_cache (nano::block_hash const &);
 	void stop ();
 	nano::node & node;
 	std::unordered_map<nano::account, nano::vote_info> last_votes;
@@ -60,6 +79,8 @@ public:
 	bool stopped;
 	std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
 	unsigned confirmation_request_count{ 0 };
+	std::chrono::steady_clock::time_point last_broadcast;
+	std::chrono::steady_clock::time_point last_request;
 	std::unordered_set<nano::block_hash> dependent_blocks;
 	std::chrono::seconds late_blocks_delay{ 5 };
 };

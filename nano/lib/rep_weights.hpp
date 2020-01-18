@@ -26,8 +26,8 @@ private:
 	void put (nano::account const & account_a, nano::uint128_union const & representation_a);
 	nano::uint128_t get (nano::account const & account_a);
 
-	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (rep_weights &, const std::string &);
+	friend std::unique_ptr<container_info_component> collect_container_info (rep_weights &, const std::string &);
 };
 
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (rep_weights &, const std::string &);
+std::unique_ptr<container_info_component> collect_container_info (rep_weights &, const std::string &);
 }

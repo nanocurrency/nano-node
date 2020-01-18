@@ -7,19 +7,15 @@
 
 #include <boost/filesystem.hpp>
 
-namespace
-{
-std::atomic<bool> passed_sleep{ false };
-
-void func ()
-{
-	std::this_thread::sleep_for (std::chrono::seconds (1));
-	passed_sleep = true;
-}
-}
-
 TEST (thread, worker)
 {
+	std::atomic<bool> passed_sleep{ false };
+
+	auto func = [&passed_sleep]() {
+		std::this_thread::sleep_for (std::chrono::seconds (1));
+		passed_sleep = true;
+	};
+
 	nano::worker worker;
 	worker.push_task (func);
 	ASSERT_FALSE (passed_sleep);

@@ -5,6 +5,7 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/config.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/rep_weights.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/secure/epoch.hpp>
 
@@ -217,6 +218,18 @@ public:
 	size_t change{ 0 };
 	size_t state{ 0 };
 };
+
+class confirmation_height_info final
+{
+public:
+	confirmation_height_info () = default;
+	confirmation_height_info (uint64_t, nano::block_hash const &);
+	void serialize (nano::stream &) const;
+	bool deserialize (nano::stream &);
+	uint64_t height;
+	nano::block_hash frontier;
+};
+
 using vote_blocks_vec_iter = std::vector<boost::variant<std::shared_ptr<nano::block>, nano::block_hash>>::const_iterator;
 class iterate_vote_blocks_as_hash final
 {
@@ -275,13 +288,14 @@ private:
 	static unsigned constexpr cleanup_count = 2;
 };
 
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (vote_uniquer & vote_uniquer, const std::string & name);
+std::unique_ptr<container_info_component> collect_container_info (vote_uniquer & vote_uniquer, const std::string & name);
 
 enum class vote_code
 {
 	invalid, // Vote is not signed correctly
 	replay, // Vote does not have the highest sequence number, it's a replay
-	vote // Vote has the highest sequence number
+	vote, // Vote has the highest sequence number
+	indeterminate // Unknown if replay or vote
 };
 
 enum class process_result
@@ -450,6 +464,26 @@ public:
 	node_constants node;
 	portmapping_constants portmapping;
 	bootstrap_constants bootstrap;
+};
+
+/* Holds flags for various cacheable data. For most CLI operations caching is unnecessary
+ * (e.g getting the checked block count) so it can be disabled for performance reasons. */
+class generate_cache
+{
+public:
+	bool reps = true;
+	bool cemented_count = true;
+	bool unchecked_count = true;
+};
+
+/* Holds an in-memory cache of various counts */
+class ledger_cache
+{
+public:
+	nano::rep_weights rep_weights;
+	std::atomic<uint64_t> cemented_count{ 0 };
+	std::atomic<uint64_t> block_count{ 0 };
+	std::atomic<uint64_t> unchecked_count{ 0 };
 };
 
 nano::wallet_id random_wallet_id ();

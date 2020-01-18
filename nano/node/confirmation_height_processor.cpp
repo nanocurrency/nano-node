@@ -142,8 +142,9 @@ void nano::confirmation_height_processor::add_confirmation_height (nano::block_h
 
 		auto block_height (ledger.store.block_account_height (read_transaction, current));
 		nano::account account (ledger.store.block_account (read_transaction, current));
-		uint64_t confirmation_height;
-		release_assert (!ledger.store.confirmation_height_get (read_transaction, account, confirmation_height));
+		nano::confirmation_height_info confirmation_height_info;
+		release_assert (!ledger.store.confirmation_height_get (read_transaction, account, confirmation_height_info));
+		auto confirmation_height = confirmation_height_info.height;
 		auto iterated_height = confirmation_height;
 		auto account_it = confirmed_iterated_pairs.find (account);
 		if (account_it != confirmed_iterated_pairs.cend ())
@@ -304,9 +305,10 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 		while (!all_pending_a.empty ())
 		{
 			const auto & pending = all_pending_a.front ();
-			uint64_t confirmation_height;
-			auto error = ledger.store.confirmation_height_get (transaction, pending.account, confirmation_height);
+			nano::confirmation_height_info confirmation_height_info;
+			auto error = ledger.store.confirmation_height_get (transaction, pending.account, confirmation_height_info);
 			release_assert (!error);
+			auto confirmation_height = confirmation_height_info.height;
 			if (pending.height > confirmation_height)
 			{
 #ifndef NDEBUG
@@ -338,8 +340,8 @@ bool nano::confirmation_height_processor::write_pending (std::deque<conf_height_
 				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - confirmation_height);
 				assert (pending.num_blocks_confirmed == pending.height - confirmation_height);
 				confirmation_height = pending.height;
-				ledger.cemented_count += pending.num_blocks_confirmed;
-				ledger.store.confirmation_height_put (transaction, pending.account, confirmation_height);
+				ledger.cache.cemented_count += pending.num_blocks_confirmed;
+				ledger.store.confirmation_height_put (transaction, pending.account, { confirmation_height, pending.hash });
 			}
 			total_pending_write_block_count -= pending.num_blocks_confirmed;
 			++num_accounts_processed;
@@ -431,9 +433,7 @@ void nano::confirmation_height_processor::collect_unconfirmed_receive_and_source
 	}
 }
 
-namespace nano
-{
-confirmation_height_processor::conf_height_details::conf_height_details (nano::account const & account_a, nano::block_hash const & hash_a, uint64_t height_a, uint64_t num_blocks_confirmed_a, std::vector<callback_data> const & block_callbacks_required_a) :
+nano::confirmation_height_processor::conf_height_details::conf_height_details (nano::account const & account_a, nano::block_hash const & hash_a, uint64_t height_a, uint64_t num_blocks_confirmed_a, std::vector<callback_data> const & block_callbacks_required_a) :
 account (account_a),
 hash (hash_a),
 height (height_a),
@@ -442,31 +442,30 @@ block_callbacks_required (block_callbacks_required_a)
 {
 }
 
-confirmation_height_processor::receive_source_pair::receive_source_pair (confirmation_height_processor::conf_height_details const & receive_details_a, const block_hash & source_a) :
+nano::confirmation_height_processor::receive_source_pair::receive_source_pair (confirmation_height_processor::conf_height_details const & receive_details_a, const block_hash & source_a) :
 receive_details (receive_details_a),
 source_hash (source_a)
 {
 }
 
-confirmation_height_processor::confirmed_iterated_pair::confirmed_iterated_pair (uint64_t confirmed_height_a, uint64_t iterated_height_a) :
+nano::confirmation_height_processor::confirmed_iterated_pair::confirmed_iterated_pair (uint64_t confirmed_height_a, uint64_t iterated_height_a) :
 confirmed_height (confirmed_height_a), iterated_height (iterated_height_a)
 {
 }
 
-confirmation_height_processor::callback_data::callback_data (std::shared_ptr<nano::block> const & block_a, nano::block_sideband const & sideband_a, nano::election_status_type election_status_type_a) :
+nano::confirmation_height_processor::callback_data::callback_data (std::shared_ptr<nano::block> const & block_a, nano::block_sideband const & sideband_a, nano::election_status_type election_status_type_a) :
 block (block_a),
 sideband (sideband_a),
 election_status_type (election_status_type_a)
 {
 }
 
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (confirmation_height_processor & confirmation_height_processor_a, const std::string & name_a)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (confirmation_height_processor & confirmation_height_processor_a, const std::string & name_a)
 {
 	size_t receive_source_pairs_count = confirmation_height_processor_a.receive_source_pairs_size;
-	auto composite = std::make_unique<seq_con_info_composite> (name_a);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "receive_source_pairs", receive_source_pairs_count, sizeof (decltype (confirmation_height_processor_a.receive_source_pairs)::value_type) }));
+	auto composite = std::make_unique<container_info_composite> (name_a);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "receive_source_pairs", receive_source_pairs_count, sizeof (decltype (confirmation_height_processor_a.receive_source_pairs)::value_type) }));
 	return composite;
-}
 }
 
 size_t nano::pending_confirmation_height::size ()
@@ -494,13 +493,10 @@ nano::block_hash nano::pending_confirmation_height::current ()
 	return current_hash;
 }
 
-namespace nano
-{
-std::unique_ptr<seq_con_info_component> collect_seq_con_info (pending_confirmation_height & pending_confirmation_height_a, const std::string & name_a)
+std::unique_ptr<nano::container_info_component> nano::collect_container_info (pending_confirmation_height & pending_confirmation_height_a, const std::string & name_a)
 {
 	size_t pending_count = pending_confirmation_height_a.size ();
-	auto composite = std::make_unique<seq_con_info_composite> (name_a);
-	composite->add_component (std::make_unique<seq_con_info_leaf> (seq_con_info{ "pending", pending_count, sizeof (nano::block_hash) }));
+	auto composite = std::make_unique<container_info_composite> (name_a);
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "pending", pending_count, sizeof (nano::block_hash) }));
 	return composite;
-}
 }

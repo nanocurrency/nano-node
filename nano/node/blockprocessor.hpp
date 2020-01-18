@@ -63,22 +63,11 @@ private:
 	std::deque<std::shared_ptr<nano::block>> forced;
 	nano::block_hash filter_item (nano::block_hash const &, nano::signature const &);
 	std::unordered_set<nano::block_hash> blocks_filter;
-	// clang-format off
-	class tag_sequence {};
-	class tag_hash {};
-	boost::multi_index_container<nano::block_hash,
-	boost::multi_index::indexed_by<
-		boost::multi_index::sequenced<boost::multi_index::tag<tag_sequence>>,
-		boost::multi_index::hashed_unique<boost::multi_index::tag<tag_hash>,
-			boost::multi_index::identity<nano::block_hash>>>>
-	rolled_back;
-	// clang-format on
-	static size_t const rolled_back_max = 1024;
 	nano::condition_variable condition;
 	nano::node & node;
 	nano::write_database_queue & write_database_queue;
 	std::mutex mutex;
 
-	friend std::unique_ptr<seq_con_info_component> collect_seq_con_info (block_processor & block_processor, const std::string & name);
+	friend std::unique_ptr<container_info_component> collect_container_info (block_processor & block_processor, const std::string & name);
 };
 }

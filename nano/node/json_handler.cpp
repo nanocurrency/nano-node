@@ -16,7 +16,7 @@
 
 namespace
 {
-void construct_json (nano::seq_con_info_component * component, boost::property_tree::ptree & parent);
+void construct_json (nano::container_info_component * component, boost::property_tree::ptree & parent);
 using ipc_json_handler_no_arg_func_map = std::unordered_map<std::string, std::function<void(nano::json_handler *)>>;
 ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ();
 auto ipc_json_handler_no_arg_funcs = create_ipc_json_handler_no_arg_func_map ();
@@ -226,7 +226,7 @@ nano::account_info nano::json_handler::account_info_impl (nano::transaction cons
 		if (node.store.account_get (transaction_a, account_a, result))
 		{
 			ec = nano::error_common::account_not_found;
-			node.bootstrap_initiator.bootstrap_lazy (account_a, false, false);
+			node.bootstrap_initiator.bootstrap_lazy (account_a, false, false, account_a.to_account ());
 		}
 	}
 	return result;
@@ -533,8 +533,8 @@ void nano::json_handler::account_info ()
 		const bool pending = request.get<bool> ("pending", false);
 		auto transaction (node.store.tx_begin_read ());
 		auto info (account_info_impl (transaction, account));
-		uint64_t confirmation_height;
-		if (node.store.confirmation_height_get (transaction, account, confirmation_height))
+		nano::confirmation_height_info confirmation_height_info;
+		if (node.store.confirmation_height_get (transaction, account, confirmation_height_info))
 		{
 			ec = nano::error_common::account_not_found;
 		}
@@ -549,7 +549,8 @@ void nano::json_handler::account_info ()
 			response_l.put ("modified_timestamp", std::to_string (info.modified));
 			response_l.put ("block_count", std::to_string (info.block_count));
 			response_l.put ("account_version", epoch_as_string (info.epoch ()));
-			response_l.put ("confirmation_height", std::to_string (confirmation_height));
+			response_l.put ("confirmation_height", std::to_string (confirmation_height_info.height));
+			response_l.put ("confirmation_height_frontier", confirmation_height_info.frontier.to_string ());
 			if (representative)
 			{
 				response_l.put ("representative", info.representative.to_account ());
@@ -1212,8 +1213,8 @@ void nano::json_handler::block_count ()
 {
 	auto transaction (node.store.tx_begin_read ());
 	response_l.put ("count", std::to_string (node.store.block_count (transaction).sum ()));
-	response_l.put ("unchecked", std::to_string (node.store.unchecked_count (transaction)));
-	response_l.put ("cemented", std::to_string (node.ledger.cemented_count));
+	response_l.put ("unchecked", std::to_string (node.ledger.cache.unchecked_count));
+	response_l.put ("cemented", std::to_string (node.ledger.cache.cemented_count));
 	response_errors ();
 }
 
@@ -1598,7 +1599,8 @@ void nano::json_handler::bootstrap ()
 		{
 			if (!node.flags.disable_legacy_bootstrap)
 			{
-				node.bootstrap_initiator.bootstrap (nano::endpoint (address, port), true, bypass_frontier_confirmation);
+				std::string bootstrap_id (request.get<std::string> ("id", ""));
+				node.bootstrap_initiator.bootstrap (nano::endpoint (address, port), true, bypass_frontier_confirmation, bootstrap_id);
 				response_l.put ("success", "");
 			}
 			else
@@ -1623,7 +1625,8 @@ void nano::json_handler::bootstrap_any ()
 	const bool force = request.get<bool> ("force", false);
 	if (!node.flags.disable_legacy_bootstrap)
 	{
-		node.bootstrap_initiator.bootstrap (force);
+		std::string bootstrap_id (request.get<std::string> ("id", ""));
+		node.bootstrap_initiator.bootstrap (force, bootstrap_id);
 		response_l.put ("success", "");
 	}
 	else
@@ -1641,7 +1644,8 @@ void nano::json_handler::bootstrap_lazy ()
 	{
 		if (!node.flags.disable_lazy_bootstrap)
 		{
-			node.bootstrap_initiator.bootstrap_lazy (hash, force);
+			std::string bootstrap_id (request.get<std::string> ("id", ""));
+			node.bootstrap_initiator.bootstrap_lazy (hash, force, true, bootstrap_id);
 			response_l.put ("started", "1");
 		}
 		else
@@ -1662,6 +1666,7 @@ void nano::json_handler::bootstrap_status ()
 	{
 		nano::lock_guard<std::mutex> lock (attempt->mutex);
 		nano::lock_guard<std::mutex> lazy_lock (attempt->lazy_mutex);
+		response_l.put ("id", attempt->id);
 		response_l.put ("clients", std::to_string (attempt->clients.size ()));
 		response_l.put ("pulls", std::to_string (attempt->pulls.size ()));
 		response_l.put ("pulling", std::to_string (attempt->pulling));
@@ -1673,20 +1678,7 @@ void nano::json_handler::bootstrap_status ()
 		response_l.put ("requeued_pulls", std::to_string (attempt->requeued_pulls));
 		response_l.put ("frontiers_received", static_cast<bool> (attempt->frontiers_received));
 		response_l.put ("frontiers_confirmed", static_cast<bool> (attempt->frontiers_confirmed));
-		std::string mode_text;
-		if (attempt->mode == nano::bootstrap_mode::legacy)
-		{
-			mode_text = "legacy";
-		}
-		else if (attempt->mode == nano::bootstrap_mode::lazy)
-		{
-			mode_text = "lazy";
-		}
-		else if (attempt->mode == nano::bootstrap_mode::wallet_lazy)
-		{
-			mode_text = "wallet_lazy";
-		}
-		response_l.put ("mode", mode_text);
+		response_l.put ("mode", attempt->mode_text ());
 		response_l.put ("lazy_blocks", std::to_string (attempt->lazy_blocks.size ()));
 		response_l.put ("lazy_state_backlog", std::to_string (attempt->lazy_state_backlog.size ()));
 		response_l.put ("lazy_balances", std::to_string (attempt->lazy_balances.size ()));
@@ -1774,7 +1766,7 @@ void nano::json_handler::confirmation_height_currently_processing ()
 	auto hash = node.pending_confirmation_height.current ();
 	if (!hash.is_zero ())
 	{
-		response_l.put ("hash", node.pending_confirmation_height.current ().to_string ());
+		response_l.put ("hash", hash.to_string ());
 	}
 	else
 	{
@@ -1873,7 +1865,7 @@ void nano::json_handler::confirmation_info ()
 						if (i->second->hash () == ii->second.hash)
 						{
 							nano::account const & representative (ii->first);
-							auto amount (node.ledger.rep_weights.representation_get (representative));
+							auto amount (node.ledger.cache.rep_weights.representation_get (representative));
 							representatives.emplace (std::move (amount), representative);
 						}
 					}
@@ -3439,7 +3431,7 @@ void nano::json_handler::representatives ()
 	{
 		const bool sorting = request.get<bool> ("sorting", false);
 		boost::property_tree::ptree representatives;
-		auto rep_amounts = node.ledger.rep_weights.get_rep_amounts ();
+		auto rep_amounts = node.ledger.cache.rep_weights.get_rep_amounts ();
 		if (!sorting) // Simple
 		{
 			std::map<nano::account, nano::uint128_t> ordered (rep_amounts.begin (), rep_amounts.end ());
@@ -3862,7 +3854,7 @@ void nano::json_handler::stats ()
 	}
 	else if (type == "objects")
 	{
-		construct_json (collect_seq_con_info (node, "node").get (), response_l);
+		construct_json (collect_container_info (node, "node").get (), response_l);
 	}
 	else if (type == "samples")
 	{
@@ -4942,12 +4934,12 @@ void nano::json_handler::work_peers_clear ()
 
 namespace
 {
-void construct_json (nano::seq_con_info_component * component, boost::property_tree::ptree & parent)
+void construct_json (nano::container_info_component * component, boost::property_tree::ptree & parent)
 {
 	// We are a leaf node, print name and exit
 	if (!component->is_composite ())
 	{
-		auto & leaf_info = static_cast<nano::seq_con_info_leaf *> (component)->get_info ();
+		auto & leaf_info = static_cast<nano::container_info_leaf *> (component)->get_info ();
 		boost::property_tree::ptree child;
 		child.put ("count", leaf_info.count);
 		child.put ("size", leaf_info.count * leaf_info.sizeof_element);
@@ -4955,7 +4947,7 @@ void construct_json (nano::seq_con_info_component * component, boost::property_t
 		return;
 	}
 
-	auto composite = static_cast<nano::seq_con_info_composite *> (component);
+	auto composite = static_cast<nano::container_info_composite *> (component);
 
 	boost::property_tree::ptree current;
 	for (auto & child : composite->get_children ())

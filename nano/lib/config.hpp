@@ -19,19 +19,19 @@ namespace filesystem
 /**
 * Returns build version information
 */
-static const char * NANO_VERSION_STRING = xstr (TAG_VERSION_STRING);
+const char * const NANO_VERSION_STRING = xstr (TAG_VERSION_STRING);
 
-static const char * BUILD_INFO = xstr (GIT_COMMIT_HASH BOOST_COMPILER) " \"BOOST " xstr (BOOST_VERSION) "\" BUILT " xstr (__DATE__);
+const char * const BUILD_INFO = xstr (GIT_COMMIT_HASH BOOST_COMPILER) " \"BOOST " xstr (BOOST_VERSION) "\" BUILT " xstr (__DATE__);
 
 /** Is TSAN/ASAN test build */
 #if defined(__has_feature)
 #if __has_feature(thread_sanitizer) || __has_feature(address_sanitizer)
-static const bool is_sanitizer_build = true;
+const bool is_sanitizer_build = true;
 #else
-static const bool is_sanitizer_build = false;
+const bool is_sanitizer_build = false;
 #endif
 #else
-static const bool is_sanitizer_build = false;
+const bool is_sanitizer_build = false;
 #endif
 
 namespace nano
@@ -73,7 +73,7 @@ public:
 		default_rpc_port = is_live_network () ? 7076 : is_beta_network () ? 55000 : 45000;
 		default_ipc_port = is_live_network () ? 7077 : is_beta_network () ? 56000 : 46000;
 		default_websocket_port = is_live_network () ? 7078 : is_beta_network () ? 57000 : 47000;
-		request_interval_ms = is_test_network () ? (is_sanitizer_build ? 100 : 20) : 500;
+		request_interval_ms = is_test_network () ? 20 : 500;
 	}
 
 	/** Network work thresholds. ~5 seconds of work for the live network */

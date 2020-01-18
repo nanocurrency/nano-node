@@ -118,16 +118,14 @@ public:
 	bool disable_bootstrap_bulk_pull_server{ false };
 	bool disable_bootstrap_bulk_push_client{ false };
 	bool disable_rep_crawler{ false };
+	bool disable_request_loop{ false };
 	bool disable_tcp_realtime{ false };
 	bool disable_udp{ false };
 	bool disable_unchecked_cleanup{ false };
 	bool disable_unchecked_drop{ true };
 	bool fast_bootstrap{ false };
 	bool read_only{ false };
-	/** Whether to read all frontiers and construct the representative weights */
-	bool cache_representative_weights_from_frontiers{ true };
-	/** Whether to read all frontiers and construct the total cemented count */
-	bool cache_cemented_count_from_frontiers{ true };
+	nano::generate_cache generate_cache;
 	bool inactive_node{ false };
 	size_t sideband_batch_size{ 512 };
 	size_t block_processor_batch_size{ 0 };
