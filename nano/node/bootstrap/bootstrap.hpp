@@ -103,6 +103,19 @@ public:
 	constexpr static std::chrono::hours exclude_time_hours = std::chrono::hours (1);
 	constexpr static std::chrono::hours exclude_remove_hours = std::chrono::hours (24);
 };
+class bootstrap_attempts final
+{
+public:
+	void add (std::shared_ptr<nano::bootstrap_attempt>);
+	void remove (uint64_t);
+	void clear ();
+	std::shared_ptr<nano::bootstrap_attempt> find (uint64_t);
+	std::atomic<uint64_t> incremental{ 0 };
+
+private:
+	std::mutex bootstrap_attempts_mutex;
+	std::map<uint64_t, std::shared_ptr<nano::bootstrap_attempt>> attempts;
+};
 
 class bootstrap_initiator final
 {
@@ -126,14 +139,15 @@ public:
 	std::shared_ptr<nano::bootstrap_attempt> current_wallet_attempt ();
 	nano::pulls_cache cache;
 	nano::bootstrap_excluded_peers excluded_peers;
+	nano::bootstrap_attempts attempts;
 	void stop ();
 
 private:
 	nano::node & node;
 	std::shared_ptr<nano::bootstrap_attempt> find_attempt (nano::bootstrap_mode);
+	void remove_attempt (std::shared_ptr<nano::bootstrap_attempt>);
 	void stop_attempts ();
-	std::map<uint64_t, std::shared_ptr<nano::bootstrap_attempt>> attempts;
-	uint64_t attempts_incremental{ 0 };
+	std::vector<std::shared_ptr<nano::bootstrap_attempt>> attempts_list;
 	std::atomic<bool> stopped{ false };
 	std::mutex mutex;
 	nano::condition_variable condition;

@@ -62,7 +62,7 @@ void nano::bootstrap_attempt_lazy::lazy_requeue (nano::block_hash const & hash_a
 	{
 		lazy_blocks_erase (hash_a);
 		lazy_lock.unlock ();
-		node->bootstrap_initiator.connections->requeue_pull (nano::pull_info (hash_a, hash_a, previous_a, shared_from_this (), static_cast<nano::pull_info::count_t> (1), confirmed_a ? std::numeric_limits<unsigned>::max () : node->network_params.bootstrap.lazy_destinations_retry_limit));
+		node->bootstrap_initiator.connections->requeue_pull (nano::pull_info (hash_a, hash_a, previous_a, incremental_id, static_cast<nano::pull_info::count_t> (1), confirmed_a ? std::numeric_limits<unsigned>::max () : node->network_params.bootstrap.lazy_destinations_retry_limit));
 	}
 }
 
@@ -97,7 +97,8 @@ void nano::bootstrap_attempt_lazy::lazy_pull_flush ()
 			// Recheck if block was already processed
 			if (!lazy_blocks_processed (pull_start.first) && !node->store.block_exists (transaction, pull_start.first))
 			{
-				node->bootstrap_initiator.connections->add_pull (nano::pull_info (pull_start.first, pull_start.first, nano::block_hash (0), shared_from_this (), batch_count, pull_start.second));
+				node->bootstrap_initiator.connections->add_pull (nano::pull_info (pull_start.first, pull_start.first, nano::block_hash (0), incremental_id, batch_count, pull_start.second));
+				++pulling;
 				++count;
 			}
 			lazy_pulls.pop_front ();

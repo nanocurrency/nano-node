@@ -77,7 +77,7 @@ void nano::bootstrap_attempt::stop ()
 		stopped = true;
 		condition.notify_all ();
 	}
-	node->bootstrap_initiator.connections->clear_pulls (shared_from_this ());
+	node->bootstrap_initiator.connections->clear_pulls (incremental_id);
 }
 
 std::string nano::bootstrap_attempt::mode_text ()
@@ -214,13 +214,15 @@ void nano::bootstrap_attempt_legacy::stop ()
 		}
 	}
 	lock.unlock ();
-	node->bootstrap_initiator.connections->clear_pulls (shared_from_this ());
+	node->bootstrap_initiator.connections->clear_pulls (incremental_id);
 }
 
 void nano::bootstrap_attempt_legacy::request_push (nano::unique_lock<std::mutex> & lock_a)
 {
 	bool error (false);
+	lock_a.unlock ();
 	auto connection_l (node->bootstrap_initiator.connections->find_connection (endpoint_frontier_request));
+	lock_a.lock ();
 	if (connection_l)
 	{
 		std::future<bool> future;
@@ -337,7 +339,7 @@ bool nano::bootstrap_attempt_legacy::confirm_frontiers (nano::unique_lock<std::m
 	nano::unique_lock<std::mutex> pulls_lock (node->bootstrap_initiator.connections->mutex);
 	for (auto i (node->bootstrap_initiator.connections->pulls.begin ()), end (node->bootstrap_initiator.connections->pulls.end ()); i != end && frontiers.size () != nano::bootstrap_limits::bootstrap_max_confirm_frontiers; ++i)
 	{
-		if (!i->head.is_zero () && i->attempt == this_l && std::find (frontiers.begin (), frontiers.end (), i->head) == frontiers.end ())
+		if (!i->head.is_zero () && i->bootstrap_id == incremental_id && std::find (frontiers.begin (), frontiers.end (), i->head) == frontiers.end ())
 		{
 			frontiers.push_back (i->head);
 		}
@@ -502,6 +504,7 @@ bool nano::bootstrap_attempt_legacy::request_frontier (nano::unique_lock<std::mu
 				auto pull (frontier_pulls.front ());
 				lock_a.unlock ();
 				node->bootstrap_initiator.connections->add_pull (pull);
+				++pulling;
 				lock_a.lock ();
 				frontier_pulls.pop_front ();
 			}

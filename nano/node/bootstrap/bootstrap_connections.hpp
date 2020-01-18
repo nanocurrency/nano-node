@@ -55,7 +55,7 @@ public:
 	void add_pull (nano::pull_info const & pull_a);
 	void request_pull (nano::unique_lock<std::mutex> & lock_a);
 	void requeue_pull (nano::pull_info const & pull_a, bool network_error = false);
-	void clear_pulls (std::shared_ptr<nano::bootstrap_attempt> attempt_a);
+	void clear_pulls (uint64_t);
 	void run ();
 	void stop ();
 	std::deque<std::weak_ptr<nano::bootstrap_client>> clients;

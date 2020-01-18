@@ -569,11 +569,11 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 						    auto account (this_l->ledger.store.frontier_get (transaction, root));
 						    if (!account.is_zero ())
 						    {
-							    this_l->bootstrap_initiator.connections->requeue_pull (nano::pull_info (account, root, root, attempt));
+							    this_l->bootstrap_initiator.connections->requeue_pull (nano::pull_info (account, root, root, attempt->incremental_id));
 						    }
 						    else if (this_l->ledger.store.account_exists (transaction, root))
 						    {
-							    this_l->bootstrap_initiator.connections->requeue_pull (nano::pull_info (root, nano::block_hash (0), nano::block_hash (0), attempt));
+							    this_l->bootstrap_initiator.connections->requeue_pull (nano::pull_info (root, nano::block_hash (0), nano::block_hash (0), attempt->incremental_id));
 						    }
 					    }
 				    }

@@ -150,7 +150,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 						}
 						else
 						{
-							attempt->add_frontier (nano::pull_info (account, latest, frontier, attempt->shared_from_this (), 0, connection->node->network_params.bootstrap.frontier_retry_limit));
+							attempt->add_frontier (nano::pull_info (account, latest, frontier, attempt->incremental_id, 0, connection->node->network_params.bootstrap.frontier_retry_limit));
 							// Either we're behind or there's a fork we differ on
 							// Either way, bulk pushing will probably not be effective
 							bulk_push_cost += 5;
@@ -161,12 +161,12 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 				else
 				{
 					assert (account < current);
-					attempt->add_frontier (nano::pull_info (account, latest, nano::block_hash (0), attempt->shared_from_this (), 0, connection->node->network_params.bootstrap.frontier_retry_limit));
+					attempt->add_frontier (nano::pull_info (account, latest, nano::block_hash (0), attempt->incremental_id, 0, connection->node->network_params.bootstrap.frontier_retry_limit));
 				}
 			}
 			else
 			{
-				attempt->add_frontier (nano::pull_info (account, latest, nano::block_hash (0), attempt->shared_from_this (), 0, connection->node->network_params.bootstrap.frontier_retry_limit));
+				attempt->add_frontier (nano::pull_info (account, latest, nano::block_hash (0), attempt->incremental_id, 0, connection->node->network_params.bootstrap.frontier_retry_limit));
 			}
 			receive_frontier ();
 		}
