@@ -2037,7 +2037,7 @@ TEST (node, rep_weight)
 	node.rep_crawler.response (channel1, vote2);
 	while (node.rep_crawler.representative_count () != 2)
 	{
-		system.poll ();
+		ASSERT_NO_ERROR (system.poll ());
 	}
 	// Make sure we get the rep with the most weight first
 	auto reps (node.rep_crawler.representatives (1));
