@@ -246,6 +246,7 @@ void nano::bootstrap_initiator::remove_attempt (std::shared_ptr<nano::bootstrap_
 	{
 		attempts.remove ((*attempt)->incremental_id);
 		attempts_list.erase (attempt);
+		assert (attempts.size () == attempts_list.size ());
 	}
 	condition.notify_all ();
 }
@@ -478,4 +479,10 @@ std::shared_ptr<nano::bootstrap_attempt> nano::bootstrap_attempts::find (uint64_
 	{
 		return nullptr;
 	}
+}
+
+size_t nano::bootstrap_attempts::size ()
+{
+	nano::lock_guard<std::mutex> lock (bootstrap_attempts_mutex);
+	return attempts.size ();
 }

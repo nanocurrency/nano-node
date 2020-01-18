@@ -321,17 +321,15 @@ void nano::bootstrap_connections::request_pull (nano::unique_lock<std::mutex> & 
 		pulls.pop_front ();
 		auto attempt_l (node.bootstrap_initiator.attempts.find (pull.bootstrap_id));
 		// Search pulls with existing attempts
-		bool skip_pull (false);
-		while ((attempt_l == nullptr || skip_pull) && !pulls.empty ())
+		while (attempt_l == nullptr && !pulls.empty ())
 		{
-			skip_pull = false;
 			pull = pulls.front ();
 			pulls.pop_front ();
 			attempt_l = node.bootstrap_initiator.attempts.find (pull.bootstrap_id);
-			// Check if lazy pull is obsolete (head was processed)
-			if (attempt_l != nullptr && attempt_l->mode == nano::bootstrap_mode::lazy)
+			// Check if lazy pull is obsolete (head was processed or head is 0 for destinations requests)
+			if (attempt_l != nullptr && attempt_l->mode == nano::bootstrap_mode::lazy && !pull.head.is_zero () && attempt_l->lazy_processed_or_exists (pull.head))
 			{
-				skip_pull = !pull.head.is_zero () && attempt_l->lazy_processed_or_exists (pull.head);
+				attempt_l = nullptr;
 			}
 		}
 		if (attempt_l != nullptr)
