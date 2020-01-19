@@ -103,7 +103,6 @@ void nano::rpc_connection::parse_request (STREAM_TYPE & stream, std::shared_ptr<
 	auto this_l (shared_from_this ());
 	auto header_field_credentials_l (header_parser->get ()["nano-api-key"]);
 	auto header_corr_id_l (header_parser->get ()["nano-correlation-id"]);
-	auto connection_l (header_parser->get ()["connection"]);
 	auto body_parser (std::make_shared<boost::beast::http::request_parser<boost::beast::http::string_body>> (std::move (*header_parser)));
 	auto path_l (body_parser->get ().target ().to_string ());
 	boost::beast::http::async_read (stream, buffer, *body_parser, boost::asio::bind_executor (strand, [this_l, body_parser, header_field_credentials_l, header_corr_id_l, path_l, &stream](boost::system::error_code const & ec, size_t bytes_transferred) {
