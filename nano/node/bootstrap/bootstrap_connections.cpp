@@ -62,7 +62,7 @@ std::shared_ptr<nano::bootstrap_client> nano::bootstrap_connections::connection 
 	condition.wait (lock, [& stopped = stopped, &idle = idle, &new_connections_empty = new_connections_empty] { return stopped || !idle.empty () || new_connections_empty; });
 	// clang-format on
 	std::shared_ptr<nano::bootstrap_client> result;
-	if (!idle.empty ())
+	if (!stopped && !idle.empty ())
 	{
 		if (!use_front_connection)
 		{
@@ -94,6 +94,7 @@ void nano::bootstrap_connections::pool_connection (std::shared_ptr<nano::bootstr
 			socket_l->start_timer (node.network_params.node.idle_timeout);
 			// Push into idle deque
 			idle.push_back (client_a);
+			clients.push_back (client_a);
 		}
 	}
 	condition.notify_all ();
@@ -108,7 +109,7 @@ std::shared_ptr<nano::bootstrap_client> nano::bootstrap_connections::find_connec
 {
 	nano::lock_guard<std::mutex> lock (mutex);
 	std::shared_ptr<nano::bootstrap_client> result;
-	for (auto i (idle.begin ()), end (idle.end ()); i != end; ++i)
+	for (auto i (idle.begin ()), end (idle.end ()); i != end && !stopped; ++i)
 	{
 		if ((*i)->channel->get_tcp_endpoint () == endpoint_a)
 		{
