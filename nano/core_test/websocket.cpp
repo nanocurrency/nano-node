@@ -878,15 +878,16 @@ TEST (websocket, bootstrap_excited)
 	// Start bootstrap, exit after subscription
 	std::atomic<bool> bootstrap_started{ false };
 	std::atomic<bool> subscribed{ false };
-	std::thread bootstrap_thread ([&system, node1, &bootstrap_started, &subscribed]() {
+	std::thread bootstrap_thread ([node1, &bootstrap_started, &subscribed]() {
 		node1->bootstrap_initiator.bootstrap (true, "123abc");
 		auto attempt (node1->bootstrap_initiator.current_attempt ());
 		ASSERT_NE (nullptr, attempt);
 		bootstrap_started = true;
-		system.deadline_set (5s);
+		nano::system system2;
+		system2.deadline_set (5s);
 		while (!subscribed)
 		{
-			ASSERT_NO_ERROR (system.poll ());
+			ASSERT_NO_ERROR (system2.poll ());
 		}
 	});
 
