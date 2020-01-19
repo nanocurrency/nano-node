@@ -132,7 +132,6 @@ port_mapping (*this),
 vote_processor (checker, active, store, observers, stats, config, logger, online_reps, ledger, network_params),
 rep_crawler (*this),
 warmed_up (0),
-votes_cache (wallets),
 block_processor (*this, write_database_queue),
 // clang-format off
 block_processor_thread ([this]() {
@@ -141,6 +140,7 @@ block_processor_thread ([this]() {
 }),
 // clang-format on
 online_reps (ledger, network_params, config.online_weight_minimum.number ()),
+votes_cache (wallets),
 vote_uniquer (block_uniquer),
 active (*this),
 aggregator (stats, network_params.network, votes_cache, store, wallets),
