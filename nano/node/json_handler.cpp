@@ -1664,6 +1664,7 @@ void nano::json_handler::bootstrap_status ()
 {
 	auto attempts_count (node.bootstrap_initiator.attempts.size ());
 	response_l.put ("attempts_count", std::to_string (attempts_count));
+	response_l.put ("finished_attempts", std::to_string (node.bootstrap_initiator.attempts.incremental - attempts_count));
 	boost::property_tree::ptree connections;
 	{
 		nano::lock_guard<std::mutex> connections_lock (node.bootstrap_initiator.connections->mutex);
@@ -1674,46 +1675,24 @@ void nano::json_handler::bootstrap_status ()
 		connections.put ("pulls", std::to_string (node.bootstrap_initiator.connections->pulls.size ()));
 	}
 	response_l.add_child ("connections", connections);
-	boost::property_tree::ptree legacy;
-	auto attempt (node.bootstrap_initiator.current_attempt ());
-	if (attempt != nullptr)
+	boost::property_tree::ptree attempts;
 	{
-		nano::lock_guard<std::mutex> lock (attempt->mutex);
-		assert (attempt->mode == nano::bootstrap_mode::legacy);
-		legacy.put ("id", attempt->id);
-		legacy.put ("pulling", std::to_string (attempt->pulling));
-		legacy.put ("total_blocks", std::to_string (attempt->total_blocks));
-		legacy.put ("requeued_pulls", std::to_string (attempt->requeued_pulls));
-		attempt->get_information (legacy);
-		legacy.put ("duration", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt->attempt_start).count ());
+		nano::lock_guard<std::mutex> attempts_lock (node.bootstrap_initiator.attempts.bootstrap_attempts_mutex);
+		for (auto i : node.bootstrap_initiator.attempts.attempts)
+		{
+			boost::property_tree::ptree entry;
+			auto & attempt (i.second);
+			entry.put ("id", attempt->id);
+			entry.put ("mode", attempt->mode_text ());
+			entry.put ("pulling", std::to_string (attempt->pulling));
+			entry.put ("total_blocks", std::to_string (attempt->total_blocks));
+			entry.put ("requeued_pulls", std::to_string (attempt->requeued_pulls));
+			attempt->get_information (entry);
+			entry.put ("duration", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt->attempt_start).count ());
+			attempts.push_back (std::make_pair ("", entry));
+		}
 	}
-	response_l.add_child ("legacy", legacy);
-	boost::property_tree::ptree lazy;
-	auto lazy_attempt (node.bootstrap_initiator.current_lazy_attempt ());
-	if (lazy_attempt != nullptr)
-	{
-		nano::lock_guard<std::mutex> lock (lazy_attempt->mutex);
-		assert (lazy_attempt->mode == nano::bootstrap_mode::lazy);
-		lazy.put ("id", lazy_attempt->id);
-		lazy.put ("pulling", std::to_string (lazy_attempt->pulling));
-		lazy.put ("total_blocks", std::to_string (lazy_attempt->total_blocks));
-		lazy.put ("requeued_pulls", std::to_string (lazy_attempt->requeued_pulls));
-		lazy_attempt->get_information (lazy);
-		lazy.put ("duration", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - lazy_attempt->attempt_start).count ());
-	}
-	response_l.add_child ("lazy", lazy);
-	boost::property_tree::ptree wallet;
-	auto wallet_attempt (node.bootstrap_initiator.current_wallet_attempt ());
-	if (wallet_attempt != nullptr)
-	{
-		nano::lock_guard<std::mutex> lock (wallet_attempt->mutex);
-		assert (wallet_attempt->mode == nano::bootstrap_mode::wallet_lazy);
-		lazy.put ("id", wallet_attempt->id);
-		wallet.put ("pulling", std::to_string (wallet_attempt->pulling));
-		wallet_attempt->get_information (wallet);
-		wallet.put ("duration", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - wallet_attempt->attempt_start).count ());
-	}
-	response_l.add_child ("wallet", wallet);
+	response_l.add_child ("attempts", attempts);
 	response_errors ();
 }
 
