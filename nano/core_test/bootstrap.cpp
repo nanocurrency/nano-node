@@ -787,6 +787,57 @@ TEST (bootstrap_processor, wallet_lazy_pending)
 	node1->stop ();
 }
 
+TEST (bootstrap_processor, multiple_attempts)
+{
+	nano::system system (1);
+	auto node1 (system.nodes[0]);
+	nano::genesis genesis;
+	nano::keypair key1;
+	nano::keypair key2;
+	// Generating test chain
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node1->work_generate_blocking (genesis.hash ())));
+	auto receive1 (std::make_shared<nano::state_block> (key1.pub, 0, key1.pub, nano::Gxrb_ratio, send1->hash (), key1.prv, key1.pub, *node1->work_generate_blocking (key1.pub)));
+	auto send2 (std::make_shared<nano::state_block> (key1.pub, receive1->hash (), key1.pub, 0, key2.pub, key1.prv, key1.pub, *node1->work_generate_blocking (receive1->hash ())));
+	auto receive2 (std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, nano::Gxrb_ratio, send2->hash (), key2.prv, key2.pub, *node1->work_generate_blocking (key2.pub)));
+	// Processing test chain
+	node1->block_processor.add (send1);
+	node1->block_processor.add (receive1);
+	node1->block_processor.add (send2);
+	node1->block_processor.add (receive2);
+	node1->block_processor.flush ();
+	// Start 2 concurrent bootstrap attempts
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.bootstrap_attempts_max = 3;
+	auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, node_config, system.work));
+	node2->network.udp_channels.insert (node1->network.endpoint (), node2->network_params.protocol.protocol_version);
+	node2->bootstrap_initiator.bootstrap_lazy (receive2->hash (), true);
+	node2->bootstrap_initiator.bootstrap ();
+	auto lazy_attempt (node2->bootstrap_initiator.current_lazy_attempt ());
+	auto legacy_attempt (node2->bootstrap_initiator.current_attempt ());
+	system.deadline_set (5s);
+	while (!lazy_attempt->started || !legacy_attempt->started)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	// Check that both bootstrap attempts are running & not finished
+	ASSERT_FALSE (lazy_attempt->stopped);
+	ASSERT_FALSE (legacy_attempt->stopped);
+	ASSERT_GE (node2->bootstrap_initiator.attempts.size (), 2);
+	// Check processed blocks
+	system.deadline_set (10s);
+	while (node2->balance (key2.pub) == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	// Check attempts finish
+	system.deadline_set (5s);
+	while (node2->bootstrap_initiator.attempts.size () != 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	node2->stop ();
+}
+
 TEST (frontier_req_response, DISABLED_destruction)
 {
 	{
