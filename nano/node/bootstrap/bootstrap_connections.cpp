@@ -97,6 +97,13 @@ void nano::bootstrap_connections::pool_connection (std::shared_ptr<nano::bootstr
 			clients.push_back (client_a);
 		}
 	}
+	else
+	{
+		if (auto socket_l = client_a->channel->socket.lock ())
+		{
+			socket_l->close ();
+		}
+	}
 	condition.notify_all ();
 }
 
@@ -258,7 +265,7 @@ void nano::bootstrap_connections::populate_connections (bool repeat)
 		node.logger.try_log (boost::str (boost::format ("Bulk pull connections: %1%, rate: %2% blocks/sec, remaining pulls: %3%") % connections_count.load () % (int)rate_sum % num_pulls));
 	}
 
-	if (connections_count < target)
+	if (connections_count < target && !stopped)
 	{
 		auto delta = std::min ((target - connections_count) * 2, nano::bootstrap_limits::bootstrap_max_new_connections);
 		// TODO - tune this better
@@ -447,8 +454,8 @@ void nano::bootstrap_connections::run ()
 
 void nano::bootstrap_connections::stop ()
 {
-	nano::lock_guard<std::mutex> lock (mutex);
 	stopped = true;
+	nano::lock_guard<std::mutex> lock (mutex);
 	condition.notify_all ();
 	for (auto i : clients)
 	{
@@ -457,4 +464,6 @@ void nano::bootstrap_connections::stop ()
 			client->socket->close ();
 		}
 	}
+	clients.clear ();
+	idle.clear ();
 }
