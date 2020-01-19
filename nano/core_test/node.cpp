@@ -2185,15 +2185,11 @@ TEST (node, balance_observer)
 	}
 }
 
-// ASSERT_NE (nullptr, attempt) sometimes fails
-TEST (node, DISABLED_bootstrap_connection_scaling)
+TEST (node, bootstrap_connection_scaling)
 {
 	nano::system system (1);
 	auto & node1 (*system.nodes[0]);
-	node1.bootstrap_initiator.bootstrap ();
-	auto attempt (node1.bootstrap_initiator.current_attempt ());
-	ASSERT_NE (nullptr, attempt);
-	ASSERT_EQ (34, node1.bootstrap_initiator.connections->target_connections (25000));
+	ASSERT_EQ (34, node1.bootstrap_initiator.connections->target_connections (5000));
 	ASSERT_EQ (4, node1.bootstrap_initiator.connections->target_connections (0));
 	ASSERT_EQ (64, node1.bootstrap_initiator.connections->target_connections (50000));
 	ASSERT_EQ (64, node1.bootstrap_initiator.connections->target_connections (10000000000));
