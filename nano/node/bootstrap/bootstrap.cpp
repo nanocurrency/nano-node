@@ -17,6 +17,7 @@ node (node_a)
 {
 	connections = std::make_shared<nano::bootstrap_connections> (node);
 	bootstrap_initiator_threads.push_back (boost::thread ([this]() {
+		nano::thread_role::set (nano::thread_role::name::bootstrap_connections);
 		connections->run ();
 	}));
 	bootstrap_initiator_threads.push_back (boost::thread ([this]() {
