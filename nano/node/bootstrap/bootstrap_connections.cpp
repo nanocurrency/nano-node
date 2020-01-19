@@ -166,16 +166,17 @@ void nano::bootstrap_connections::connect_client (nano::tcp_endpoint const & end
 	});
 }
 
-unsigned nano::bootstrap_connections::target_connections (size_t pulls_remaining)
+unsigned nano::bootstrap_connections::target_connections (size_t pulls_remaining, size_t attempts_count)
 {
-	if (node.config.bootstrap_connections >= node.config.bootstrap_connections_max)
+	unsigned attempts_factor = node.config.bootstrap_connections * attempts_count;
+	if (attempts_factor >= node.config.bootstrap_connections_max)
 	{
 		return std::max (1U, node.config.bootstrap_connections_max);
 	}
 
 	// Only scale up to bootstrap_connections_max for large pulls.
 	double step_scale = std::min (1.0, std::max (0.0, (double)pulls_remaining / nano::bootstrap_limits::bootstrap_connection_scale_target_blocks));
-	double target = (double)node.config.bootstrap_connections + (double)(node.config.bootstrap_connections_max - node.config.bootstrap_connections) * step_scale;
+	double target = (double)attempts_factor + (double)(node.config.bootstrap_connections_max - attempts_factor) * step_scale;
 	return std::max (1U, (unsigned)(target + 0.5f));
 }
 
@@ -191,6 +192,7 @@ void nano::bootstrap_connections::populate_connections (bool repeat)
 {
 	double rate_sum = 0.0;
 	size_t num_pulls = 0;
+	size_t attempts_count = node.bootstrap_initiator.attempts.size ();
 	std::priority_queue<std::shared_ptr<nano::bootstrap_client>, std::vector<std::shared_ptr<nano::bootstrap_client>>, block_rate_cmp> sorted_connections;
 	std::unordered_set<nano::tcp_endpoint> endpoints;
 	{
@@ -231,7 +233,7 @@ void nano::bootstrap_connections::populate_connections (bool repeat)
 		clients.swap (new_clients);
 	}
 
-	auto target = target_connections (num_pulls);
+	auto target = target_connections (num_pulls, attempts_count);
 
 	// We only want to drop slow peers when more than 2/3 are active. 2/3 because 1/2 is too aggressive, and 100% rarely happens.
 	// Probably needs more tuning.
@@ -262,10 +264,10 @@ void nano::bootstrap_connections::populate_connections (bool repeat)
 	if (node.config.logging.bulk_pull_logging ())
 	{
 		nano::unique_lock<std::mutex> lock (mutex);
-		node.logger.try_log (boost::str (boost::format ("Bulk pull connections: %1%, rate: %2% blocks/sec, remaining pulls: %3%") % connections_count.load () % (int)rate_sum % num_pulls));
+		node.logger.try_log (boost::str (boost::format ("Bulk pull connections: %1%, rate: %2% blocks/sec, bootstrap attempts %3%, remaining pulls: %4%") % connections_count.load () % (int)rate_sum % attempts_count % num_pulls));
 	}
 
-	if (connections_count < target && !stopped)
+	if (connections_count < target && (attempts_count != 0 || new_connections_empty) && !stopped)
 	{
 		auto delta = std::min ((target - connections_count) * 2, nano::bootstrap_limits::bootstrap_max_new_connections);
 		// TODO - tune this better

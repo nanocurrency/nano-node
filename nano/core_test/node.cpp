@@ -2189,19 +2189,31 @@ TEST (node, bootstrap_connection_scaling)
 {
 	nano::system system (1);
 	auto & node1 (*system.nodes[0]);
-	ASSERT_EQ (34, node1.bootstrap_initiator.connections->target_connections (5000));
-	ASSERT_EQ (4, node1.bootstrap_initiator.connections->target_connections (0));
-	ASSERT_EQ (64, node1.bootstrap_initiator.connections->target_connections (50000));
-	ASSERT_EQ (64, node1.bootstrap_initiator.connections->target_connections (10000000000));
+	ASSERT_EQ (34, node1.bootstrap_initiator.connections->target_connections (5000, 1));
+	ASSERT_EQ (4, node1.bootstrap_initiator.connections->target_connections (0, 1));
+	ASSERT_EQ (64, node1.bootstrap_initiator.connections->target_connections (50000, 1));
+	ASSERT_EQ (64, node1.bootstrap_initiator.connections->target_connections (10000000000, 1));
+	ASSERT_EQ (32, node1.bootstrap_initiator.connections->target_connections (5000, 0));
+	ASSERT_EQ (1, node1.bootstrap_initiator.connections->target_connections (0, 0));
+	ASSERT_EQ (64, node1.bootstrap_initiator.connections->target_connections (50000, 0));
+	ASSERT_EQ (64, node1.bootstrap_initiator.connections->target_connections (10000000000, 0));
+	ASSERT_EQ (36, node1.bootstrap_initiator.connections->target_connections (5000, 2));
+	ASSERT_EQ (8, node1.bootstrap_initiator.connections->target_connections (0, 2));
+	ASSERT_EQ (64, node1.bootstrap_initiator.connections->target_connections (50000, 2));
+	ASSERT_EQ (64, node1.bootstrap_initiator.connections->target_connections (10000000000, 2));
 	node1.config.bootstrap_connections = 128;
-	ASSERT_EQ (64, node1.bootstrap_initiator.connections->target_connections (0));
-	ASSERT_EQ (64, node1.bootstrap_initiator.connections->target_connections (50000));
+	ASSERT_EQ (64, node1.bootstrap_initiator.connections->target_connections (0, 1));
+	ASSERT_EQ (64, node1.bootstrap_initiator.connections->target_connections (50000, 1));
+	ASSERT_EQ (64, node1.bootstrap_initiator.connections->target_connections (0, 2));
+	ASSERT_EQ (64, node1.bootstrap_initiator.connections->target_connections (50000, 2));
 	node1.config.bootstrap_connections_max = 256;
-	ASSERT_EQ (128, node1.bootstrap_initiator.connections->target_connections (0));
-	ASSERT_EQ (256, node1.bootstrap_initiator.connections->target_connections (50000));
+	ASSERT_EQ (128, node1.bootstrap_initiator.connections->target_connections (0, 1));
+	ASSERT_EQ (256, node1.bootstrap_initiator.connections->target_connections (50000, 1));
+	ASSERT_EQ (256, node1.bootstrap_initiator.connections->target_connections (0, 2));
+	ASSERT_EQ (256, node1.bootstrap_initiator.connections->target_connections (50000, 2));
 	node1.config.bootstrap_connections_max = 0;
-	ASSERT_EQ (1, node1.bootstrap_initiator.connections->target_connections (0));
-	ASSERT_EQ (1, node1.bootstrap_initiator.connections->target_connections (50000));
+	ASSERT_EQ (1, node1.bootstrap_initiator.connections->target_connections (0, 1));
+	ASSERT_EQ (1, node1.bootstrap_initiator.connections->target_connections (50000, 1));
 }
 
 // Test stat counting at both type and detail levels

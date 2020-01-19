@@ -1662,13 +1662,15 @@ void nano::json_handler::bootstrap_lazy ()
  */
 void nano::json_handler::bootstrap_status ()
 {
+	auto attempts_count (node.bootstrap_initiator.attempts.size ());
+	response_l.put ("attempts_count", std::to_string (attempts_count));
 	boost::property_tree::ptree connections;
 	{
 		nano::lock_guard<std::mutex> connections_lock (node.bootstrap_initiator.connections->mutex);
 		connections.put ("clients", std::to_string (node.bootstrap_initiator.connections->clients.size ()));
 		connections.put ("connections", std::to_string (node.bootstrap_initiator.connections->connections_count));
 		connections.put ("idle", std::to_string (node.bootstrap_initiator.connections->idle.size ()));
-		connections.put ("target_connections", std::to_string (node.bootstrap_initiator.connections->target_connections (0)));
+		connections.put ("target_connections", std::to_string (node.bootstrap_initiator.connections->target_connections (node.bootstrap_initiator.connections->pulls.size (), attempts_count)));
 		connections.put ("pulls", std::to_string (node.bootstrap_initiator.connections->pulls.size ()));
 	}
 	response_l.add_child ("connections", connections);
