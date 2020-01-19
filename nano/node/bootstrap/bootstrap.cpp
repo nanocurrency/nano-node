@@ -20,18 +20,13 @@ node (node_a)
 		nano::thread_role::set (nano::thread_role::name::bootstrap_connections);
 		connections->run ();
 	}));
-	bootstrap_initiator_threads.push_back (boost::thread ([this]() {
-		nano::thread_role::set (nano::thread_role::name::bootstrap_initiator);
-		run_bootstrap ();
-	}));
-	bootstrap_initiator_threads.push_back (boost::thread ([this]() {
-		nano::thread_role::set (nano::thread_role::name::bootstrap_initiator);
-		run_lazy_bootstrap ();
-	}));
-	bootstrap_initiator_threads.push_back (boost::thread ([this]() {
-		nano::thread_role::set (nano::thread_role::name::bootstrap_initiator);
-		run_wallet_bootstrap ();
-	}));
+	for (size_t i = 0; i < node.config.bootstrap_attempts_max; ++i)
+	{
+		bootstrap_initiator_threads.push_back (boost::thread ([this]() {
+			nano::thread_role::set (nano::thread_role::name::bootstrap_initiator);
+			run_bootstrap ();
+		}));
+	}
 }
 
 nano::bootstrap_initiator::~bootstrap_initiator ()
@@ -134,18 +129,18 @@ void nano::bootstrap_initiator::run_bootstrap ()
 	nano::unique_lock<std::mutex> lock (mutex);
 	while (!stopped)
 	{
-		if (!attempts_list.empty ())
+		if (has_new_attempts ())
 		{
-			auto legacy_attempt (find_attempt (nano::bootstrap_mode::legacy));
+			auto attempt (new_attempt ());
 			lock.unlock ();
-			if (legacy_attempt != nullptr)
+			if (attempt != nullptr)
 			{
-				legacy_attempt->run ();
+				attempt->run ();
 			}
 			lock.lock ();
-			if (legacy_attempt != nullptr)
+			if (attempt != nullptr)
 			{
-				remove_attempt (legacy_attempt);
+				remove_attempt (attempt);
 			}
 		}
 		else
@@ -250,6 +245,30 @@ void nano::bootstrap_initiator::remove_attempt (std::shared_ptr<nano::bootstrap_
 		assert (attempts.size () == attempts_list.size ());
 	}
 	condition.notify_all ();
+}
+
+std::shared_ptr<nano::bootstrap_attempt> nano::bootstrap_initiator::new_attempt ()
+{
+	for (auto & i : attempts_list)
+	{
+		if (!i->started.exchange (true))
+		{
+			return i;
+		}
+	}
+	return nullptr;
+}
+
+bool nano::bootstrap_initiator::has_new_attempts ()
+{
+	for (auto & i : attempts_list)
+	{
+		if (!i->started)
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 std::shared_ptr<nano::bootstrap_attempt> nano::bootstrap_initiator::current_attempt ()

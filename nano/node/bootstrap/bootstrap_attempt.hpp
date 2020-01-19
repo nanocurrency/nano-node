@@ -54,6 +54,7 @@ public:
 	std::shared_ptr<nano::node> node;
 	std::atomic<uint64_t> total_blocks{ 0 };
 	std::atomic<unsigned> requeued_pulls{ 0 };
+	std::atomic<bool> started{ false };
 	std::atomic<bool> stopped{ false };
 	uint64_t incremental_id{ 0 };
 	std::string id;

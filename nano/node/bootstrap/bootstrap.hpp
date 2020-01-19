@@ -133,6 +133,8 @@ public:
 	void add_observer (std::function<void(bool)> const &);
 	bool in_progress ();
 	std::shared_ptr<nano::bootstrap_connections> connections;
+	std::shared_ptr<nano::bootstrap_attempt> new_attempt ();
+	bool has_new_attempts ();
 	std::shared_ptr<nano::bootstrap_attempt> current_attempt ();
 	std::shared_ptr<nano::bootstrap_attempt> current_lazy_attempt ();
 	std::shared_ptr<nano::bootstrap_attempt> current_wallet_attempt ();

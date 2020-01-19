@@ -159,6 +159,7 @@ bool nano::bootstrap_attempt_lazy::lazy_has_expired () const
 
 void nano::bootstrap_attempt_lazy::run ()
 {
+	assert (started);
 	assert (!node->flags.disable_lazy_bootstrap);
 	node->bootstrap_initiator.connections->populate_connections (false);
 	lazy_start_time = std::chrono::steady_clock::now ();
@@ -540,6 +541,7 @@ bool nano::bootstrap_attempt_wallet::wallet_finished ()
 
 void nano::bootstrap_attempt_wallet::run ()
 {
+	assert (started);
 	assert (!node->flags.disable_wallet_bootstrap);
 	node->bootstrap_initiator.connections->populate_connections (false);
 	auto start_time (std::chrono::steady_clock::now ());
