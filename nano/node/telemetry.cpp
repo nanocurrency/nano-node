@@ -71,16 +71,16 @@ nano::telemetry_data_responses nano::telemetry::get_metrics_random_peers ()
 
 void nano::telemetry::get_metrics_single_peer_async (std::shared_ptr<nano::transport::channel> const & channel_a, std::function<void(telemetry_data_response const &)> const & callback_a)
 {
+	auto invoke_callback_with_error = [&callback_a]() {
+		auto const is_cached = false;
+		auto const error = true;
+		callback_a ({ nano::telemetry_data (), is_cached, error });
+	};
+
 	nano::lock_guard<std::mutex> guard (mutex);
 	if (!stopped)
 	{
-		if (!channel_a)
-		{
-			auto const is_cached = false;
-			auto const error = true;
-			callback_a (nano::telemetry_data_response{ nano::telemetry_data (), is_cached, error });
-		}
-		else
+		if (channel_a && (channel_a->get_network_version () >= network_params.protocol.telemetry_protocol_version_min))
 		{
 			auto it = single_requests.emplace (channel_a->get_endpoint (), std::make_shared<nano::telemetry_impl> (network, alarm, worker));
 			it.first->second->get_metrics_async ({ channel_a }, [callback_a](telemetry_data_responses const & telemetry_data_responses_a) {
@@ -97,11 +97,14 @@ void nano::telemetry::get_metrics_single_peer_async (std::shared_ptr<nano::trans
 				}
 			});
 		}
+		else
+		{
+			invoke_callback_with_error ();
+		}
 	}
 	else
 	{
-		const auto error = true;
-		callback_a (nano::telemetry_data_response{ nano::telemetry_data (), false, error });
+		invoke_callback_with_error ();
 	}
 }
 

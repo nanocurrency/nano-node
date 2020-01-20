@@ -3948,16 +3948,19 @@ void nano::json_handler::telemetry ()
 				else
 				{
 					ec = nano::error_rpc::peer_not_found;
+					response_errors ();
 				}
 			}
 			else
 			{
 				ec = nano::error_common::invalid_ip_address;
+			response_errors ();
 			}
 		}
 		else
 		{
 			ec = nano::error_common::invalid_port;
+			response_errors ();
 		}
 	}
 	else
@@ -4006,11 +4009,6 @@ void nano::json_handler::telemetry ()
 			rpc_l->response_l.put ("cached", batched_telemetry_metrics_a.is_cached);
 			rpc_l->response_errors ();
 		});
-	}
-
-	if (ec)
-	{
-		response_errors ();
 	}
 }
 
