@@ -16,13 +16,14 @@ limiter (node_a.config.bandwidth_limit),
 node (node_a),
 udp_channels (node_a, port_a),
 tcp_channels (node_a),
+port (port_a),
 disconnect_observer ([]() {})
 {
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
-	for (size_t i = 0; i < node.config.network_threads; ++i)
+	for (size_t i = 0; i < node.config.network_threads && !node.flags.disable_udp; ++i)
 	{
-		packet_processing_threads.push_back (boost::thread (attrs, [this]() {
+		packet_processing_threads.emplace_back (attrs, [this]() {
 			nano::thread_role::set (nano::thread_role::name::packet_processing);
 			try
 			{
@@ -52,7 +53,7 @@ disconnect_observer ([]() {})
 			{
 				this->node.logger.try_log ("Exiting packet processing thread");
 			}
-		}));
+		});
 	}
 }
 
@@ -68,6 +69,7 @@ void nano::network::start ()
 	if (!node.flags.disable_udp)
 	{
 		udp_channels.start ();
+		assert (udp_channels.get_local_endpoint ().port () == port);
 	}
 	if (!node.flags.disable_tcp_realtime)
 	{
@@ -84,6 +86,7 @@ void nano::network::stop ()
 		tcp_channels.stop ();
 		resolver.cancel ();
 		buffer_container.stop ();
+		port = 0;
 		for (auto & thread : packet_processing_threads)
 		{
 			thread.join ();
@@ -226,14 +229,12 @@ void nano::network::flood_block_many (std::deque<std::shared_ptr<nano::block>> b
 	if (!blocks_a.empty ())
 	{
 		std::weak_ptr<nano::node> node_w (node.shared ());
-		// clang-format off
 		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a + std::rand () % delay_a), [node_w, blocks (std::move (blocks_a)), callback_a, delay_a]() {
 			if (auto node_l = node_w.lock ())
 			{
 				node_l->network.flood_block_many (std::move (blocks), callback_a, delay_a);
 			}
 		});
-		// clang-format on
 	}
 	else if (callback_a)
 	{
@@ -265,10 +266,7 @@ void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> block_a)
 		// broadcast request to all peers (with max limit 2 * sqrt (peers count))
 		auto peers (node.network.list (std::min (static_cast<size_t> (100), 2 * node.network.size_sqrt ())));
 		list->clear ();
-		for (auto & peer : peers)
-		{
-			list->push_back (peer);
-		}
+		list->insert (list->end (), peers.begin (), peers.end ());
 	}
 
 	/*
@@ -661,7 +659,7 @@ std::shared_ptr<nano::transport::channel> nano::network::find_node_id (nano::acc
 
 nano::endpoint nano::network::endpoint ()
 {
-	return udp_channels.get_local_endpoint ();
+	return nano::endpoint (boost::asio::ip::address_v6::loopback (), port);
 }
 
 void nano::network::cleanup (std::chrono::steady_clock::time_point const & cutoff_a)
@@ -750,9 +748,7 @@ nano::message_buffer * nano::message_buffer_manager::allocate ()
 	if (!stopped && free.empty () && full.empty ())
 	{
 		stats.inc (nano::stat::type::udp, nano::stat::detail::blocking, nano::stat::dir::in);
-		// clang-format off
 		condition.wait (lock, [& stopped = stopped, &free = free, &full = full] { return stopped || !free.empty () || !full.empty (); });
-		// clang-format on
 	}
 	nano::message_buffer * result (nullptr);
 	if (!free.empty ())

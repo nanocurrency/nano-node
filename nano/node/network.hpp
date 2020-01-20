@@ -159,6 +159,7 @@ public:
 	nano::node & node;
 	nano::transport::udp_channels udp_channels;
 	nano::transport::tcp_channels tcp_channels;
+	std::atomic<uint16_t> port{ 0 };
 	std::function<void()> disconnect_observer;
 	// Called when a new channel is observed
 	std::function<void(std::shared_ptr<nano::transport::channel>)> channel_observer;

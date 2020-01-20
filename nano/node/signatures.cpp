@@ -142,7 +142,6 @@ void nano::signature_checker::set_thread_names (unsigned num_threads)
 
 	for (auto i = 0u; i < num_threads; ++i)
 	{
-		// clang-format off
 		boost::asio::post (thread_pool, [&cv, &ready, &pending, &mutex = mutex, &promise = promises[i]]() {
 			nano::unique_lock<std::mutex> lk (mutex);
 			nano::thread_role::set (nano::thread_role::name::signature_checking);
@@ -160,7 +159,6 @@ void nano::signature_checker::set_thread_names (unsigned num_threads)
 			}
 			promise.set_value ();
 		});
-		// clang-format on
 	}
 
 	// Wait until all threads have finished

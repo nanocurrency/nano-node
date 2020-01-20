@@ -893,7 +893,6 @@ TEST (wallet, upgrade_backup)
 	namespace fs = boost::filesystem;
 	fs::create_directory (dir);
 	/** Returns 'dir' if backup file cannot be found */
-	// clang-format off
 	auto get_backup_path = [&dir]() {
 		for (fs::directory_iterator itr (dir); itr != fs::directory_iterator (); ++itr)
 		{
@@ -904,7 +903,6 @@ TEST (wallet, upgrade_backup)
 		}
 		return dir;
 	};
-	// clang-format on
 
 	auto wallet_id = nano::random_wallet_id ();
 	{

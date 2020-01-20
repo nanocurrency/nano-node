@@ -62,7 +62,11 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 				          << "Path: " << node->application_path.string () << "\n"
 				          << "Build Info: " << BUILD_INFO << "\n"
 				          << "Database backend: " << node->store.vendor_get () << std::endl;
-
+				auto voting (node->wallets.rep_counts ().voting);
+				if (voting > 1)
+				{
+					std::cout << "Voting with more than one representative can limit performance: " << voting << " representatives are configured" << std::endl;
+				}
 				node->start ();
 				nano::ipc::ipc_server ipc_server (*node, config.rpc);
 #if BOOST_PROCESS_SUPPORTED
@@ -123,13 +127,11 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 						rpc_process = std::make_unique<boost::process::child> (config.rpc.child_process.rpc_path, "--daemon", "--data_path", data_path, "--network", network);
 #else
 						auto rpc_exe_command = boost::str (boost::format ("%1% --daemon --data_path=%2% --network=%3%") % config.rpc.child_process.rpc_path % data_path % network);
-						// clang-format off
 						rpc_process_thread = std::make_unique<std::thread> ([rpc_exe_command, &logger = node->logger]() {
 							nano::thread_role::set (nano::thread_role::name::rpc_process_container);
 							std::system (rpc_exe_command.c_str ());
 							logger.always_log ("RPC server has stopped");
 						});
-						// clang-format on
 #endif
 					}
 				}
