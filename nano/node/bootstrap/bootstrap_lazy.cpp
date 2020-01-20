@@ -176,7 +176,7 @@ void nano::bootstrap_attempt_lazy::run ()
 		unsigned iterations (0);
 		while (still_pulling () && !lazy_has_expired ())
 		{
-			condition.wait (lock, [&stopped = stopped, &pulling = pulling] { return stopped || pulling == 0; });
+			condition.wait (lock, [& stopped = stopped, &pulling = pulling] { return stopped || pulling == 0; });
 			lazy_pull_flush (lock);
 			if (pulling == 0)
 			{
