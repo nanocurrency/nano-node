@@ -118,7 +118,7 @@ namespace transport
 		{
 		public:
 			std::shared_ptr<nano::transport::channel_udp> channel;
-			channel_udp_wrapper (std::shared_ptr<nano::transport::channel_udp> & channel_a) :
+			channel_udp_wrapper (std::shared_ptr<nano::transport::channel_udp> const & channel_a) :
 			channel (channel_a)
 			{
 			}
@@ -149,7 +149,7 @@ namespace transport
 			nano::endpoint endpoint;
 			std::chrono::steady_clock::time_point last_attempt{ std::chrono::steady_clock::now () };
 
-			explicit endpoint_attempt (nano::endpoint & endpoint_a) :
+			explicit endpoint_attempt (nano::endpoint const & endpoint_a) :
 			endpoint (endpoint_a)
 			{
 			}

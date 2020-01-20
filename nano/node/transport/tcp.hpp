@@ -137,7 +137,7 @@ namespace transport
 			std::shared_ptr<nano::transport::channel_tcp> channel;
 			std::shared_ptr<nano::socket> socket;
 			std::shared_ptr<nano::bootstrap_server> response_server;
-			channel_tcp_wrapper (std::shared_ptr<nano::transport::channel_tcp> & channel_a, std::shared_ptr<nano::socket> & socket_a, std::shared_ptr<nano::bootstrap_server> & server_a) :
+			channel_tcp_wrapper (std::shared_ptr<nano::transport::channel_tcp> const & channel_a, std::shared_ptr<nano::socket> const & socket_a, std::shared_ptr<nano::bootstrap_server> const & server_a) :
 			channel (channel_a), socket (socket_a), response_server (server_a)
 			{
 			}
@@ -170,7 +170,7 @@ namespace transport
 			nano::tcp_endpoint endpoint;
 			std::chrono::steady_clock::time_point last_attempt{ std::chrono::steady_clock::now () };
 
-			explicit tcp_endpoint_attempt (nano::tcp_endpoint & endpoint_a) :
+			explicit tcp_endpoint_attempt (nano::tcp_endpoint const & endpoint_a) :
 			endpoint (endpoint_a)
 			{
 			}
