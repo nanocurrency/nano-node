@@ -7797,10 +7797,40 @@ TEST (rpc, node_telemetry_single)
 		peers_stored = system.nodes.back ()->store.peer_count (transaction) != 0;
 	}
 
-	// First try with invalid address
+	// Missing port 
 	boost::property_tree::ptree request;
 	auto node = system.nodes.front ();
 	request.put ("action", "node_telemetry");
+	request.put ("address", "not_a_valid_address");
+
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (10s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ (std::error_code (nano::error_rpc::requires_port_and_address).message (), response.json.get<std::string> ("error"));
+	}
+
+	// Missing address
+	request.erase ("address");
+	request.put ("port", 65);
+
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (10s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ (std::error_code (nano::error_rpc::requires_port_and_address).message (), response.json.get<std::string> ("error"));
+	}
+
+
+	// Try with invalid address
 	request.put ("address", "not_a_valid_address");
 	request.put ("port", 65);
 
