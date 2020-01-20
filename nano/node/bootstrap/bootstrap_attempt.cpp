@@ -158,7 +158,6 @@ bool nano::bootstrap_attempt::lazy_processed_or_exists (nano::block_hash const &
 	return false;
 }
 
-
 bool nano::bootstrap_attempt::lazy_has_expired () const
 {
 	assert (mode == nano::bootstrap_mode::lazy);
