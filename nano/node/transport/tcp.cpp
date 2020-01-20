@@ -118,7 +118,7 @@ bool nano::transport::tcp_channels::insert (std::shared_ptr<nano::transport::cha
 			{
 				channels.get<node_id_tag> ().erase (node_id);
 			}
-			channels.get<endpoint_tag> ().insert ({ channel_a, socket_a, bootstrap_server_a });
+			channels.get<endpoint_tag> ().emplace (channel_a, socket_a, bootstrap_server_a);
 			error = false;
 			lock.unlock ();
 			node.network.channel_observer (channel_a);
@@ -361,9 +361,8 @@ bool nano::transport::tcp_channels::reachout (nano::endpoint const & endpoint_a)
 		// Don't keepalive to nodes that already sent us something
 		error |= find_channel (tcp_endpoint) != nullptr;
 		nano::lock_guard<std::mutex> lock (mutex);
-		auto existing (attempts.find (tcp_endpoint));
-		error |= existing != attempts.end ();
-		attempts.insert ({ tcp_endpoint, std::chrono::steady_clock::now () });
+		auto inserted (attempts.emplace (tcp_endpoint));
+		error |= !inserted.second;
 	}
 	return error;
 }
@@ -450,9 +449,9 @@ void nano::transport::tcp_channels::ongoing_keepalive ()
 void nano::transport::tcp_channels::list (std::deque<std::shared_ptr<nano::transport::channel>> & deque_a)
 {
 	nano::lock_guard<std::mutex> lock (mutex);
-	for (auto i (channels.begin ()), j (channels.end ()); i != j; ++i)
+	for (auto const & channel : channels.get<random_access_tag> ())
 	{
-		deque_a.push_back (i->channel);
+		deque_a.push_back (channel.channel);
 	}
 }
 

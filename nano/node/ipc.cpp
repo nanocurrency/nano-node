@@ -292,7 +292,7 @@ node_rpc_config (node_rpc_config_a)
 			auto threads = node_a.config.ipc_config.transport_domain.io_threads;
 			file_remover = std::make_unique<dsock_file_remover> (node_a.config.ipc_config.transport_domain.path);
 			boost::asio::local::stream_protocol::endpoint ep{ node_a.config.ipc_config.transport_domain.path };
-			transports.push_back (std::make_shared<socket_transport<boost::asio::local::stream_protocol::acceptor, boost::asio::local::stream_protocol::socket, boost::asio::local::stream_protocol::endpoint>> (*this, ep, node_a.config.ipc_config.transport_domain, threads));
+			transports.emplace_back (std::make_shared<socket_transport<boost::asio::local::stream_protocol::acceptor, boost::asio::local::stream_protocol::socket, boost::asio::local::stream_protocol::endpoint>> (*this, ep, node_a.config.ipc_config.transport_domain, threads));
 #else
 			node.logger.always_log ("IPC: Domain sockets are not supported on this platform");
 #endif
@@ -301,7 +301,7 @@ node_rpc_config (node_rpc_config_a)
 		if (node_a.config.ipc_config.transport_tcp.enabled)
 		{
 			auto threads = node_a.config.ipc_config.transport_tcp.io_threads;
-			transports.push_back (std::make_shared<socket_transport<boost::asio::ip::tcp::acceptor, boost::asio::ip::tcp::socket, boost::asio::ip::tcp::endpoint>> (*this, boost::asio::ip::tcp::endpoint (boost::asio::ip::tcp::v6 (), node_a.config.ipc_config.transport_tcp.port), node_a.config.ipc_config.transport_tcp, threads));
+			transports.emplace_back (std::make_shared<socket_transport<boost::asio::ip::tcp::acceptor, boost::asio::ip::tcp::socket, boost::asio::ip::tcp::endpoint>> (*this, boost::asio::ip::tcp::endpoint (boost::asio::ip::tcp::v6 (), node_a.config.ipc_config.transport_tcp.port), node_a.config.ipc_config.transport_tcp, threads));
 		}
 
 		node.logger.always_log ("IPC: server started");

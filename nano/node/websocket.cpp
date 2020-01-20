@@ -430,7 +430,7 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 		}
 		else
 		{
-			subscriptions.insert (std::make_pair (topic_l, std::move (options_l)));
+			subscriptions.emplace (topic_l, std::move (options_l));
 			ws_listener.get_logger ().always_log ("Websocket: new subscription to topic: ", from_topic (topic_l));
 			ws_listener.increase_subscriber_count (topic_l);
 		}

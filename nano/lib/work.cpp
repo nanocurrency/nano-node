@@ -50,12 +50,11 @@ opencl (opencl_a)
 	}
 	for (auto i (0u); i < count; ++i)
 	{
-		auto thread (boost::thread (attrs, [this, i]() {
+		threads.emplace_back (attrs, [this, i]() {
 			nano::thread_role::set (nano::thread_role::name::work);
 			nano::work_thread_reprioritize ();
 			loop (i);
-		}));
-		threads.push_back (std::move (thread));
+		});
 	}
 }
 
@@ -204,7 +203,7 @@ void nano::work_pool::generate (nano::root const & root_a, std::function<void(bo
 	{
 		{
 			nano::lock_guard<std::mutex> lock (mutex);
-			pending.push_back ({ root_a, callback_a, difficulty_a });
+			pending.emplace_back (root_a, callback_a, difficulty_a);
 		}
 		producer_condition.notify_all ();
 	}

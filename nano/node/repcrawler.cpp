@@ -183,7 +183,7 @@ void nano::rep_crawler::response (std::shared_ptr<nano::transport::channel> & ch
 	{
 		if (active.count (*i) != 0)
 		{
-			responses.push_back (std::make_pair (channel_a, vote_a));
+			responses.emplace_back (channel_a, vote_a);
 			break;
 		}
 	}
@@ -230,13 +230,13 @@ void nano::rep_crawler::cleanup_reps ()
 	{
 		// Check known rep channels
 		nano::lock_guard<std::mutex> lock (probable_reps_mutex);
-		for (auto i (probable_reps.get<tag_last_request> ().begin ()), n (probable_reps.get<tag_last_request> ().end ()); i != n; ++i)
+		for (auto const & rep : probable_reps.get<tag_last_request> ())
 		{
-			channels.push_back (i->channel);
+			channels.push_back (rep.channel);
 		}
 	}
 	// Remove reps with inactive channels
-	for (auto i : channels)
+	for (auto const & i : channels)
 	{
 		bool equal (false);
 		if (i->get_type () == nano::transport::transport_type::tcp)
@@ -306,7 +306,7 @@ std::vector<std::shared_ptr<nano::transport::channel>> nano::rep_crawler::repres
 {
 	std::vector<std::shared_ptr<nano::transport::channel>> result;
 	auto reps (representatives (count_a));
-	for (auto rep : reps)
+	for (auto const & rep : reps)
 	{
 		result.push_back (rep.channel);
 	}

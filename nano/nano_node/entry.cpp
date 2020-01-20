@@ -890,8 +890,7 @@ int main (int argc, char * const * argv)
 				uint64_t sequence (1);
 				for (auto & i : blocks)
 				{
-					auto vote (std::make_shared<nano::vote> (keys[j].pub, keys[j].prv, sequence, std::vector<nano::block_hash> (1, i->hash ())));
-					votes.push_back (vote);
+					votes.emplace_back (std::make_shared<nano::vote> (keys[j].pub, keys[j].prv, sequence, std::vector<nano::block_hash> (1, i->hash ())));
 					sequence++;
 				}
 			}

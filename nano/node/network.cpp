@@ -22,7 +22,7 @@ disconnect_observer ([]() {})
 	nano::thread_attributes::set (attrs);
 	for (size_t i = 0; i < node.config.network_threads; ++i)
 	{
-		packet_processing_threads.push_back (boost::thread (attrs, [this]() {
+		packet_processing_threads.emplace_back (attrs, [this]() {
 			nano::thread_role::set (nano::thread_role::name::packet_processing);
 			try
 			{
@@ -52,7 +52,7 @@ disconnect_observer ([]() {})
 			{
 				this->node.logger.try_log ("Exiting packet processing thread");
 			}
-		}));
+		});
 	}
 }
 
@@ -265,10 +265,7 @@ void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> block_a)
 		// broadcast request to all peers (with max limit 2 * sqrt (peers count))
 		auto peers (node.network.list (std::min (static_cast<size_t> (100), 2 * node.network.size_sqrt ())));
 		list->clear ();
-		for (auto & peer : peers)
-		{
-			list->push_back (peer);
-		}
+		list->insert (list->end (), peers.begin (), peers.end ());
 	}
 
 	/*

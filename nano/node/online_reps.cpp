@@ -79,10 +79,7 @@ std::vector<nano::account> nano::online_reps::list ()
 {
 	std::vector<nano::account> result;
 	nano::lock_guard<std::mutex> lock (mutex);
-	for (auto & i : reps)
-	{
-		result.push_back (i);
-	}
+	result.insert (result.end (), reps.begin (), reps.end ());
 	return result;
 }
 
