@@ -176,9 +176,7 @@ void nano::bootstrap_attempt_lazy::run ()
 		unsigned iterations (0);
 		while (still_pulling () && !lazy_has_expired ())
 		{
-			// clang-format off
 			condition.wait (lock, [&stopped = stopped, &pulling = pulling] { return stopped || pulling == 0; });
-			// clang-format on
 			lazy_pull_flush (lock);
 			if (pulling == 0)
 			{

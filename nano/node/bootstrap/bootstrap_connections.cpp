@@ -58,9 +58,7 @@ node (node_a)
 std::shared_ptr<nano::bootstrap_client> nano::bootstrap_connections::connection (std::shared_ptr<nano::bootstrap_attempt> attempt_a, bool use_front_connection)
 {
 	nano::unique_lock<std::mutex> lock (mutex);
-	// clang-format off
 	condition.wait (lock, [& stopped = stopped, &idle = idle, &new_connections_empty = new_connections_empty] { return stopped || !idle.empty () || new_connections_empty; });
-	// clang-format on
 	std::shared_ptr<nano::bootstrap_client> result;
 	if (!stopped && !idle.empty ())
 	{

@@ -336,9 +336,7 @@ bool nano::bootstrap_attempt_legacy::confirm_frontiers (nano::unique_lock<std::m
 {
 	bool confirmed (false);
 	assert (!frontiers_confirmed);
-	// clang-format off
 	condition.wait (lock_a, [& stopped = stopped] { return !stopped; });
-	// clang-format on
 	auto this_l (shared_from_this ());
 	std::vector<nano::block_hash> frontiers;
 	lock_a.unlock ();
