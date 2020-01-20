@@ -16,12 +16,10 @@ nano::write_guard::~write_guard ()
 }
 
 nano::write_database_queue::write_database_queue () :
-// clang-format off
-guard_finish_callback ([&queue = queue, &mutex = mutex]() {
+guard_finish_callback ([& queue = queue, &mutex = mutex]() {
 	nano::lock_guard<std::mutex> guard (mutex);
 	queue.pop_front ();
 })
-// clang-format on
 {
 }
 

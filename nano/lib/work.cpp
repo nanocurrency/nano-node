@@ -225,12 +225,11 @@ boost::optional<uint64_t> nano::work_pool::generate (nano::root const & root_a, 
 	{
 		std::promise<boost::optional<uint64_t>> work;
 		std::future<boost::optional<uint64_t>> future = work.get_future ();
-		// clang-format off
-		generate (root_a, [&work](boost::optional<uint64_t> work_a) {
+		generate (
+		root_a, [&work](boost::optional<uint64_t> work_a) {
 			work.set_value (work_a);
 		},
 		difficulty_a);
-		// clang-format on
 		result = future.get ().value ();
 	}
 	return result;
