@@ -146,6 +146,12 @@ void nano::bootstrap_attempt::lazy_requeue (nano::block_hash const &, nano::bloc
 	assert (mode == nano::bootstrap_mode::lazy);
 }
 
+uint32_t nano::bootstrap_attempt::lazy_batch_size ()
+{
+	assert (mode == nano::bootstrap_mode::lazy);
+	return node->network_params.bootstrap.lazy_min_pull_blocks;
+}
+
 bool nano::bootstrap_attempt::lazy_processed_or_exists (nano::block_hash const &)
 {
 	assert (mode == nano::bootstrap_mode::lazy);
