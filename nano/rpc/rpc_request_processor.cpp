@@ -17,7 +17,7 @@ thread ([this]() {
 	this->connections.reserve (rpc_config.rpc_process.num_ipc_connections);
 	for (auto i = 0u; i < rpc_config.rpc_process.num_ipc_connections; ++i)
 	{
-		connections.emplace_back (std::make_shared<nano::ipc_connection> (nano::ipc::ipc_client (io_ctx), false));
+		connections.push_back (std::make_shared<nano::ipc_connection> (nano::ipc::ipc_client (io_ctx), false));
 		auto connection = this->connections.back ();
 		// clang-format off
 		connection->client.async_connect (ipc_address, ipc_port, [ connection, &connections_mutex = this->connections_mutex ](nano::error err) {
