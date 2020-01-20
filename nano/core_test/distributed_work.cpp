@@ -209,16 +209,31 @@ TEST (distributed_work, peer_malicious)
 	}
 	ASSERT_FALSE (nano::work_validate (hash, *work));
 	system.deadline_set (3s);
-	while (malicious_peer->generations_bad < 2)
+	while (malicious_peer->generations_bad < 1)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	// make sure it was *not* the malicious peer that replied
 	ASSERT_EQ (0, malicious_peer->generations_good);
 	// initial generation + the second time when it also starts doing local generation
-	ASSERT_EQ (2, malicious_peer->generations_bad);
+	// it is possible local work generation finishes before the second request is sent, only 1 failure can be required to pass
+	ASSERT_GE (malicious_peer->generations_bad, 1);
 	// this peer should not receive a cancel
 	ASSERT_EQ (0, malicious_peer->cancels);
+	// Test again with no local work generation enabled to make sure the malicious peer is sent more than one request
+	node->config.work_threads = 0;
+	ASSERT_FALSE (node->local_work_generation_enabled ());
+	auto malicious_peer2 (std::make_shared<fake_work_peer> (node->work, node->io_ctx, nano::get_available_port (), work_peer_type::malicious));
+	malicious_peer2->start ();
+	peers[0].second = malicious_peer2->port ();
+	ASSERT_FALSE (node->distributed_work.make (hash, peers, nullptr, node->network_params.network.publish_threshold, nano::account ()));
+	system.deadline_set (5s);
+	while (malicious_peer2->generations_bad < 2)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	node->distributed_work.cancel (hash);
+	ASSERT_EQ (0, malicious_peer2->cancels);
 }
 
 TEST (distributed_work, peer_multi)
