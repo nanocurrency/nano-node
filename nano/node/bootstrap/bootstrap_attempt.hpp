@@ -42,6 +42,7 @@ public:
 	virtual void lazy_add (nano::pull_info const &);
 	virtual void lazy_requeue (nano::block_hash const &, nano::block_hash const &, bool);
 	virtual uint32_t lazy_batch_size ();
+	virtual bool lazy_has_expired () const;
 	virtual bool lazy_processed_or_exists (nano::block_hash const &);
 	virtual bool process_block (std::shared_ptr<nano::block>, nano::account const &, uint64_t, nano::bulk_pull::count_t, bool, unsigned);
 	virtual void requeue_pending (nano::account const &);

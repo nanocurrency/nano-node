@@ -91,7 +91,6 @@ void nano::bootstrap_attempt_lazy::lazy_pull_flush (nano::unique_lock<std::mutex
 	static size_t const max_pulls (nano::bootstrap_limits::bootstrap_connection_scale_target_blocks * 3);
 	if (pulling < max_pulls)
 	{
-		last_lazy_flush = std::chrono::steady_clock::now ();
 		assert (node->network_params.bootstrap.lazy_max_pull_blocks <= std::numeric_limits<nano::pull_info::count_t>::max ());
 		nano::pull_info::count_t batch_count (lazy_batch_size ());
 		size_t count (0);
@@ -174,22 +173,15 @@ void nano::bootstrap_attempt_lazy::run ()
 	while ((still_pulling () || !lazy_finished ()) && !lazy_has_expired ())
 	{
 		unsigned iterations (0);
+		auto this_l (shared_from_this ());
 		while (still_pulling () && !lazy_has_expired ())
 		{
-			condition.wait (lock, [& stopped = stopped, &pulling = pulling] { return stopped || pulling == 0; });
-			lazy_pull_flush (lock);
-			if (pulling == 0)
-			{
-				condition.wait_for (lock, std::chrono::seconds (1));
-			}
+			condition.wait (lock, [& stopped = stopped, &pulling = pulling, &lazy_pulls = lazy_pulls, this_l] { return stopped || pulling == 0 || (pulling < nano::bootstrap_limits::bootstrap_connection_scale_target_blocks && !lazy_pulls.empty ()) || this_l->lazy_has_expired (); });
 			++iterations;
 			// Flushing lazy pulls
-			if (iterations % 100 == 0 || last_lazy_flush + nano::bootstrap_limits::lazy_flush_delay_sec < std::chrono::steady_clock::now ())
-			{
-				lazy_pull_flush (lock);
-			}
+			lazy_pull_flush (lock);
 			// Start backlog cleanup
-			if (iterations % 200 == 0)
+			if (iterations % 100 == 0)
 			{
 				lazy_backlog_cleanup ();
 			}

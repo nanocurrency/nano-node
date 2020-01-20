@@ -54,7 +54,7 @@ public:
 	void lazy_add (nano::pull_info const &) override;
 	void lazy_requeue (nano::block_hash const &, nano::block_hash const &, bool) override;
 	bool lazy_finished ();
-	bool lazy_has_expired () const;
+	bool lazy_has_expired () const override;
 	uint32_t lazy_batch_size () override;
 	void lazy_pull_flush (nano::unique_lock<std::mutex> & lock_a);
 	bool process_block_lazy (std::shared_ptr<nano::block>, nano::account const &, uint64_t, nano::bulk_pull::count_t, unsigned);
@@ -75,7 +75,6 @@ public:
 	std::unordered_set<nano::block_hash> lazy_keys;
 	std::deque<std::pair<nano::hash_or_account, unsigned>> lazy_pulls;
 	std::chrono::steady_clock::time_point lazy_start_time;
-	std::chrono::steady_clock::time_point last_lazy_flush{ std::chrono::steady_clock::now () };
 	class account_tag
 	{
 	};

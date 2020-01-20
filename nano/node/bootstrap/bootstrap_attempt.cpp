@@ -158,6 +158,13 @@ bool nano::bootstrap_attempt::lazy_processed_or_exists (nano::block_hash const &
 	return false;
 }
 
+
+bool nano::bootstrap_attempt::lazy_has_expired () const
+{
+	assert (mode == nano::bootstrap_mode::lazy);
+	return true;
+}
+
 void nano::bootstrap_attempt::requeue_pending (nano::account const &)
 {
 	assert (mode == nano::bootstrap_mode::wallet_lazy);
