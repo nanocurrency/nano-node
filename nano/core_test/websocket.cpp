@@ -832,7 +832,7 @@ TEST (websocket, bootstrap)
 	}
 	ASSERT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::bootstrap));
 
-	// Start bootsrap attempt
+	// Start bootstrap attempt
 	node1->bootstrap_initiator.bootstrap (true, "123abc");
 	ASSERT_NE (nullptr, node1->bootstrap_initiator.current_attempt ());
 
@@ -865,7 +865,7 @@ TEST (websocket, bootstrap)
 	}
 }
 
-TEST (websocket, bootstrap_excited)
+TEST (websocket, bootstrap_exited)
 {
 	nano::system system;
 	nano::node_config config (nano::get_available_port (), system.logging);
