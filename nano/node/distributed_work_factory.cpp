@@ -22,7 +22,7 @@ bool nano::distributed_work_factory::make (std::chrono::seconds const & backoff_
 	if (!stopped)
 	{
 		cleanup_finished ();
-		if (node.work_generation_enabled ())
+		if (node.work_generation_enabled (request_a.peers))
 		{
 			auto distributed (std::make_shared<nano::distributed_work> (node, request_a, backoff_a));
 			{

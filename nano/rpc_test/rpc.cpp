@@ -110,9 +110,11 @@ std::shared_ptr<nano::node> add_ipc_enabled_node (nano::system & system)
 void reset_confirmation_height (nano::block_store & store, nano::account const & account)
 {
 	auto transaction = store.tx_begin_write ();
-	uint64_t confirmation_height;
-	store.confirmation_height_get (transaction, account, confirmation_height);
-	store.confirmation_height_clear (transaction, account, confirmation_height);
+	nano::confirmation_height_info confirmation_height_info;
+	if (!store.confirmation_height_get (transaction, account, confirmation_height_info))
+	{
+		store.confirmation_height_clear (transaction, account, confirmation_height_info.height);
+	}
 }
 
 void check_block_response_count (nano::system & system, nano::rpc & rpc, boost::property_tree::ptree & request, uint64_t size_count)
@@ -1309,7 +1311,7 @@ TEST (rpc, frontier)
 			nano::block_hash hash;
 			nano::random_pool::generate_block (hash.bytes.data (), hash.bytes.size ());
 			source[key.pub] = hash;
-			node->store.confirmation_height_put (transaction, key.pub, 0);
+			node->store.confirmation_height_put (transaction, key.pub, { 0, nano::block_hash (0) });
 			node->store.account_put (transaction, key.pub, nano::account_info (hash, 0, 0, 0, 0, 0, nano::epoch::epoch_0));
 		}
 	}
@@ -1360,7 +1362,7 @@ TEST (rpc, frontier_limited)
 			nano::block_hash hash;
 			nano::random_pool::generate_block (hash.bytes.data (), hash.bytes.size ());
 			source[key.pub] = hash;
-			node->store.confirmation_height_put (transaction, key.pub, 0);
+			node->store.confirmation_height_put (transaction, key.pub, { 0, nano::block_hash (0) });
 			node->store.account_put (transaction, key.pub, nano::account_info (hash, 0, 0, 0, 0, 0, nano::epoch::epoch_0));
 		}
 	}
@@ -1402,7 +1404,7 @@ TEST (rpc, frontier_startpoint)
 			nano::block_hash hash;
 			nano::random_pool::generate_block (hash.bytes.data (), hash.bytes.size ());
 			source[key.pub] = hash;
-			node->store.confirmation_height_put (transaction, key.pub, 0);
+			node->store.confirmation_height_put (transaction, key.pub, { 0, nano::block_hash (0) });
 			node->store.account_put (transaction, key.pub, nano::account_info (hash, 0, 0, 0, 0, 0, nano::epoch::epoch_0));
 		}
 	}
@@ -1798,7 +1800,7 @@ TEST (rpc, process_block_with_work_watcher)
 	rpc.start ();
 	boost::property_tree::ptree request;
 	request.put ("action", "process");
-	request.put ("work_watcher", true);
+	request.put ("watch_work", true);
 	std::string json;
 	send->serialize_json (json);
 	request.put ("block", json);
@@ -1835,6 +1837,46 @@ TEST (rpc, process_block_with_work_watcher)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_GT (updated_difficulty, difficulty1);
+
+	// Try without enable_control which watch_work requires if set to true
+	{
+		nano::rpc_config rpc_config (nano::get_available_port (), false);
+		rpc_config.rpc_process.ipc_port = node1.config.ipc_config.transport_tcp.port;
+		nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+		nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+		rpc.start ();
+		boost::property_tree::ptree request;
+		request.put ("action", "process");
+		request.put ("watch_work", true);
+		std::string json;
+		send->serialize_json (json);
+		request.put ("block", json);
+		{
+			test_response response (request, rpc.config.port, system.io_ctx);
+			system.deadline_set (5s);
+			while (response.status == 0)
+			{
+				ASSERT_NO_ERROR (system.poll ());
+			}
+			ASSERT_EQ (200, response.status);
+			std::error_code ec (nano::error_rpc::rpc_control_disabled);
+			ASSERT_EQ (ec.message (), response.json.get<std::string> ("error"));
+		}
+
+		// Check no enable_control error message is present when not watching work
+		request.put ("watch_work", false);
+		{
+			test_response response (request, rpc.config.port, system.io_ctx);
+			system.deadline_set (5s);
+			while (response.status == 0)
+			{
+				ASSERT_NO_ERROR (system.poll ());
+			}
+			ASSERT_EQ (200, response.status);
+			std::error_code ec (nano::error_rpc::rpc_control_disabled);
+			ASSERT_NE (ec.message (), response.json.get<std::string> ("error"));
+		}
+	}
 }
 
 TEST (rpc, process_block_no_work)
@@ -4833,7 +4875,7 @@ TEST (rpc, account_info)
 	auto time (nano::seconds_since_epoch ());
 	{
 		auto transaction = node1.store.tx_begin_write ();
-		node1.store.confirmation_height_put (transaction, nano::test_genesis_key.pub, 1);
+		node1.store.confirmation_height_put (transaction, nano::test_genesis_key.pub, { 1, genesis.hash () });
 	}
 	scoped_thread_name_io.renew ();
 
@@ -4861,6 +4903,8 @@ TEST (rpc, account_info)
 		ASSERT_EQ ("2", block_count);
 		std::string confirmation_height (response.json.get<std::string> ("confirmation_height"));
 		ASSERT_EQ ("1", confirmation_height);
+		std::string confirmation_height_frontier (response.json.get<std::string> ("confirmation_height_frontier"));
+		ASSERT_EQ (genesis.hash ().to_string (), confirmation_height_frontier);
 		ASSERT_EQ (0, response.json.get<uint8_t> ("account_version"));
 		boost::optional<std::string> weight (response.json.get_optional<std::string> ("weight"));
 		ASSERT_FALSE (weight.is_initialized ());
@@ -6470,6 +6514,50 @@ TEST (rpc, unchecked_get)
 	}
 }
 
+TEST (rpc, unchecked_clear)
+{
+	nano::system system;
+	auto & node = *add_ipc_enabled_node (system);
+	nano::keypair key;
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node.config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	auto open (std::make_shared<nano::state_block> (key.pub, 0, key.pub, 1, key.pub, key.prv, key.pub, *system.work.generate (key.pub)));
+	node.process_active (open);
+	node.block_processor.flush ();
+	boost::property_tree::ptree request;
+	ASSERT_EQ (node.ledger.cache.unchecked_count, 1);
+	{
+		auto transaction = node.store.tx_begin_read ();
+		ASSERT_EQ (node.store.unchecked_count (transaction), 1);
+	}
+	request.put ("action", "unchecked_clear");
+	test_response response (request, rpc.config.port, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+
+	system.deadline_set (5s);
+	while (true)
+	{
+		auto transaction = node.store.tx_begin_read ();
+		if (node.store.unchecked_count (transaction) == 0)
+		{
+			break;
+		}
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	ASSERT_EQ (node.ledger.cache.unchecked_count, 0);
+}
+
 TEST (rpc, unopened)
 {
 	nano::system system;
@@ -6986,7 +7074,6 @@ TEST (rpc, database_txn_tracker)
 	rpc.start ();
 
 	boost::property_tree::ptree request;
-	// clang-format off
 	auto check_not_correct_amount = [&system, &request, &rpc_port = rpc.config.port]() {
 		test_response response (request, rpc_port, system.io_ctx);
 		system.deadline_set (5s);
@@ -6998,7 +7085,6 @@ TEST (rpc, database_txn_tracker)
 		std::error_code ec (nano::error_common::invalid_amount);
 		ASSERT_EQ (response.json.get<std::string> ("error"), ec.message ());
 	};
-	// clang-format on
 
 	request.put ("action", "database_txn_tracker");
 	request.put ("min_read_time", "not a time");
@@ -7015,8 +7101,7 @@ TEST (rpc, database_txn_tracker)
 
 	std::promise<void> keep_txn_alive_promise;
 	std::promise<void> txn_created_promise;
-	// clang-format off
-	std::thread thread ([&store = node->store, &keep_txn_alive_promise, &txn_created_promise]() {
+	std::thread thread ([& store = node->store, &keep_txn_alive_promise, &txn_created_promise]() {
 		// Use rpc_process_container as a placeholder as this thread is only instantiated by the daemon so won't be used
 		nano::thread_role::set (nano::thread_role::name::rpc_process_container);
 
@@ -7028,7 +7113,6 @@ TEST (rpc, database_txn_tracker)
 		txn_created_promise.set_value ();
 		keep_txn_alive_promise.get_future ().wait ();
 	});
-	// clang-format on
 
 	txn_created_promise.get_future ().wait ();
 
@@ -7036,7 +7120,7 @@ TEST (rpc, database_txn_tracker)
 	request.put ("min_read_time", "1000");
 	test_response response (request, rpc.config.port, system.io_ctx);
 	// It can take a long time to generate stack traces
-	system.deadline_set (30s);
+	system.deadline_set (60s);
 	while (response.status == 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -7172,8 +7256,7 @@ TEST (rpc, simultaneous_calls)
 	std::atomic<int> count{ num };
 	for (int i = 0; i < num; ++i)
 	{
-		// clang-format off
-		std::thread ([&test_responses, &promise, &count, i, port = rpc.config.port ]() {
+		std::thread ([&test_responses, &promise, &count, i, port = rpc.config.port]() {
 			test_responses[i]->run (port);
 			if (--count == 0)
 			{
@@ -7181,7 +7264,6 @@ TEST (rpc, simultaneous_calls)
 			}
 		})
 		.detach ();
-		// clang-format on
 	}
 
 	promise.get_future ().wait ();

@@ -29,7 +29,7 @@ void nano::vote_generator::add (nano::block_hash const & hash_a)
 {
 	nano::unique_lock<std::mutex> lock (mutex);
 	hashes.push_back (hash_a);
-	if (hashes.size () >= 12)
+	if (hashes.size () >= nano::network::confirm_ack_hashes_max)
 	{
 		lock.unlock ();
 		condition.notify_all ();
@@ -53,8 +53,8 @@ void nano::vote_generator::stop ()
 void nano::vote_generator::send (nano::unique_lock<std::mutex> & lock_a)
 {
 	std::vector<nano::block_hash> hashes_l;
-	hashes_l.reserve (12);
-	while (!hashes.empty () && hashes_l.size () < 12)
+	hashes_l.reserve (nano::network::confirm_ack_hashes_max);
+	while (!hashes.empty () && hashes_l.size () < nano::network::confirm_ack_hashes_max)
 	{
 		hashes_l.push_back (hashes.front ());
 		hashes.pop_front ();
@@ -81,16 +81,16 @@ void nano::vote_generator::run ()
 	lock.lock ();
 	while (!stopped)
 	{
-		if (hashes.size () >= 12)
+		if (hashes.size () >= nano::network::confirm_ack_hashes_max)
 		{
 			send (lock);
 		}
 		else
 		{
-			condition.wait_for (lock, config.vote_generator_delay, [this]() { return this->hashes.size () >= 12; });
-			if (hashes.size () >= config.vote_generator_threshold && hashes.size () < 12)
+			condition.wait_for (lock, config.vote_generator_delay, [this]() { return this->hashes.size () >= nano::network::confirm_ack_hashes_max; });
+			if (hashes.size () >= config.vote_generator_threshold && hashes.size () < nano::network::confirm_ack_hashes_max)
 			{
-				condition.wait_for (lock, config.vote_generator_delay, [this]() { return this->hashes.size () >= 12; });
+				condition.wait_for (lock, config.vote_generator_delay, [this]() { return this->hashes.size () >= nano::network::confirm_ack_hashes_max; });
 			}
 			if (!hashes.empty ())
 			{
@@ -100,9 +100,17 @@ void nano::vote_generator::run ()
 	}
 }
 
+nano::votes_cache::votes_cache (nano::wallets & wallets_a) :
+wallets (wallets_a)
+{
+}
+
 void nano::votes_cache::add (std::shared_ptr<nano::vote> const & vote_a)
 {
 	nano::lock_guard<std::mutex> lock (cache_mutex);
+	auto voting (wallets.rep_counts ().voting);
+	assert (voting > 0);
+	auto const max_cache_size (network_params.voting.max_cache / std::max (voting, static_cast<decltype (voting)> (1)));
 	for (auto & block : vote_a->blocks)
 	{
 		auto hash (boost::get<nano::block_hash> (block));
@@ -110,7 +118,7 @@ void nano::votes_cache::add (std::shared_ptr<nano::vote> const & vote_a)
 		if (existing == cache.get<tag_hash> ().end ())
 		{
 			// Clean old votes
-			if (cache.size () >= network_params.voting.max_cache)
+			if (cache.size () >= max_cache_size)
 			{
 				cache.get<tag_sequence> ().pop_front ();
 			}

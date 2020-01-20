@@ -12,18 +12,23 @@ using namespace std::chrono;
 
 nano::active_transactions::active_transactions (nano::node & node_a) :
 node (node_a),
-long_election_threshold (node.network_params.network.is_test_network () ? 2s : 24s),
-election_request_delay (node.network_params.network.is_test_network () ? 0s : 1s),
-election_time_to_live (node.network_params.network.is_test_network () ? 0s : 10s),
 multipliers_cb (20, 1.),
-trended_active_difficulty (node.network_params.network.publish_threshold),
+trended_active_difficulty (node_a.network_params.network.publish_threshold),
+solicitor (node_a.network, node_a.network_params.network),
 next_frontier_check (steady_clock::now ()),
-solicitor (node_a),
+long_election_threshold (node_a.network_params.network.is_test_network () ? 2s : 24s),
+election_request_delay (node_a.network_params.network.is_test_network () ? 0s : 1s),
+election_time_to_live (node_a.network_params.network.is_test_network () ? 0s : 10s),
+min_time_between_requests (node_a.network_params.network.is_test_network () ? 25ms : 3s),
+min_time_between_floods (node_a.network_params.network.is_test_network () ? 50ms : 6s),
+min_request_count_flood (node_a.network_params.network.is_test_network () ? 0 : 2),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::request_loop);
 	request_loop ();
 })
 {
+	assert (min_time_between_requests > std::chrono::milliseconds (node.network_params.network.request_interval_ms));
+	assert (min_time_between_floods > std::chrono::milliseconds (node.network_params.network.request_interval_ms));
 	nano::unique_lock<std::mutex> lock (mutex);
 	condition.wait (lock, [& started = started] { return started; });
 }
@@ -81,11 +86,11 @@ void nano::active_transactions::search_frontiers (nano::transaction const & tran
 				auto error = node.store.account_get (transaction_a, cementable_account.account, info);
 				if (!error)
 				{
-					uint64_t confirmation_height;
-					error = node.store.confirmation_height_get (transaction_a, cementable_account.account, confirmation_height);
+					nano::confirmation_height_info confirmation_height_info;
+					error = node.store.confirmation_height_get (transaction_a, cementable_account.account, confirmation_height_info);
 					release_assert (!error);
 
-					if (info.block_count > confirmation_height && !this->node.pending_confirmation_height.is_processing_block (info.head))
+					if (info.block_count > confirmation_height_info.height && !this->node.pending_confirmation_height.is_processing_block (info.head))
 					{
 						auto block (this->node.store.block_get (transaction_a, info.head));
 						if (!this->start (block, true))
@@ -156,7 +161,7 @@ void nano::active_transactions::post_confirmation_height_set (nano::transaction 
 
 void nano::active_transactions::election_escalate (std::shared_ptr<nano::election> & election_l, nano::transaction const & transaction_l, size_t const & roots_size_l)
 {
-	static unsigned constexpr high_confirmation_request_count{ 128 };
+	constexpr unsigned high_confirmation_request_count{ 128 };
 	// Log votes for very long unconfirmed elections
 	if (election_l->confirmation_request_count % (4 * high_confirmation_request_count) == 1)
 	{
@@ -225,28 +230,32 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 			lock_a.lock ();
 		}
 	}
-
+	auto const now (std::chrono::steady_clock::now ());
 	// Any new election started from process_live only gets requests after at least 1 second
-	auto cutoff_l (std::chrono::steady_clock::now () - election_request_delay);
+	auto cutoff_l (now - election_request_delay);
 	// Elections taking too long get escalated
-	auto long_election_cutoff_l (std::chrono::steady_clock::now () - long_election_threshold);
+	auto long_election_cutoff_l (now - long_election_threshold);
 	// The lowest PoW difficulty elections have a maximum time to live if they are beyond the soft threshold size for the container
-	auto election_ttl_cutoff_l (std::chrono::steady_clock::now () - election_time_to_live);
+	auto election_ttl_cutoff_l (now - election_time_to_live);
+	// Rate-limitting floods
+	auto const flood_cutoff (now - min_time_between_floods);
+	// Rate-limitting confirmation requests
+	auto const request_cutoff (now - min_time_between_requests);
 
 	auto roots_size_l (roots.size ());
 	auto & sorted_roots_l = roots.get<tag_difficulty> ();
 	size_t count_l{ 0 };
 
+	// Only representatives ready to receive batched confirm_req
+	solicitor.prepare (node.rep_crawler.representatives (node.network_params.protocol.tcp_realtime_protocol_version_min));
+
 	/*
 	 * Loop through active elections in descending order of proof-of-work difficulty, requesting confirmation
 	 *
 	 * Only up to a certain amount of elections are queued for confirmation request and block rebroadcasting. The remaining elections can still be confirmed if votes arrive
-	 * We avoid selecting the same elections repeatedly in the next loops, through a modulo on confirmation_request_count
-	 * An election only gets confirmation_request_count increased after the first confirm_req; after that it is increased every loop unless they don't fit in the queues
 	 * Elections extending the soft config.active_elections_size limit are flushed after a certain time-to-live cutoff
 	 * Flushed elections are later re-activated via frontier confirmation
 	 */
-	solicitor.prepare ();
 	for (auto i = sorted_roots_l.begin (), n = sorted_roots_l.end (); i != n; ++i, ++count_l)
 	{
 		auto election_l (i->election);
@@ -267,10 +276,20 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 			inactive_l.insert (root_l);
 			add_dropped_elections_cache (root_l);
 		}
-		// Broadcast and request confirmation
+		// Attempt obtaining votes
 		else if (election_l->skip_delay || election_l->election_start < cutoff_l)
 		{
-			solicitor.add (election_l);
+			// Broadcast the winner when elections are taking longer to confirm
+			if (election_l->confirmation_request_count >= min_request_count_flood && election_l->last_broadcast < flood_cutoff && !solicitor.broadcast (*election_l))
+			{
+				election_l->last_broadcast = now;
+			}
+			// Rate-limited requests for confirmation
+			else if (election_l->last_request < request_cutoff && !solicitor.add (*election_l))
+			{
+				++election_l->confirmation_request_count;
+				election_l->last_request = now;
+			}
 			// Escalate long election after a certain time and number of requests performed
 			if (election_l->confirmation_request_count > 4 && election_l->election_start < long_election_cutoff_l)
 			{
@@ -307,7 +326,7 @@ void nano::active_transactions::request_loop ()
 
 	lock.lock ();
 
-	while (!stopped)
+	while (!stopped && !node.flags.disable_request_loop)
 	{
 		// Account for the time spent in request_confirm by defining the wakeup point beforehand
 		const auto wakeup_l (std::chrono::steady_clock::now () + std::chrono::milliseconds (node.network_params.network.request_interval_ms));
@@ -318,9 +337,7 @@ void nano::active_transactions::request_loop ()
 		// Sleep until all broadcasts are done, plus the remaining loop time
 		if (!stopped)
 		{
-			// clang-format off
 			condition.wait_until (lock, wakeup_l, [&wakeup_l, &stopped = stopped] { return stopped || std::chrono::steady_clock::now () >= wakeup_l; });
-			// clang-format on
 		}
 	}
 }
@@ -408,11 +425,11 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 
 					auto i (wallet->store.begin (wallet_transaction, next_wallet_frontier_account));
 					auto n (wallet->store.end ());
-					uint64_t confirmation_height = 0;
+					nano::confirmation_height_info confirmation_height_info;
 					for (; i != n; ++i)
 					{
 						auto const & account (i->first);
-						if (!node.store.account_get (transaction_a, account, info) && !node.store.confirmation_height_get (transaction_a, account, confirmation_height))
+						if (!node.store.account_get (transaction_a, account, info) && !node.store.confirmation_height_get (transaction_a, account, confirmation_height_info))
 						{
 							// If it exists in normal priority collection delete from there.
 							auto it = priority_cementable_frontiers.find (account);
@@ -423,7 +440,7 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 								priority_cementable_frontiers_size = priority_cementable_frontiers.size ();
 							}
 
-							prioritize_account_for_confirmation (priority_wallet_cementable_frontiers, priority_wallet_cementable_frontiers_size, account, info, confirmation_height);
+							prioritize_account_for_confirmation (priority_wallet_cementable_frontiers, priority_wallet_cementable_frontiers_size, account, info, confirmation_height_info.height);
 
 							if (wallet_account_timer.since_start () >= wallet_account_time_a)
 							{
@@ -454,16 +471,16 @@ void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::tra
 
 		auto i (node.store.latest_begin (transaction_a, next_frontier_account));
 		auto n (node.store.latest_end ());
-		uint64_t confirmation_height = 0;
+		nano::confirmation_height_info confirmation_height_info;
 		for (; i != n && !stopped; ++i)
 		{
 			auto const & account (i->first);
 			auto const & info (i->second);
 			if (priority_wallet_cementable_frontiers.find (account) == priority_wallet_cementable_frontiers.end ())
 			{
-				if (!node.store.confirmation_height_get (transaction_a, account, confirmation_height))
+				if (!node.store.confirmation_height_get (transaction_a, account, confirmation_height_info))
 				{
-					prioritize_account_for_confirmation (priority_cementable_frontiers, priority_cementable_frontiers_size, account, info, confirmation_height);
+					prioritize_account_for_confirmation (priority_cementable_frontiers, priority_cementable_frontiers_size, account, info, confirmation_height_info.height);
 				}
 			}
 			next_frontier_account = account.number () + 1;
@@ -521,7 +538,7 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, bool 
 			error = nano::work_validate (*block_a, &difficulty);
 			release_assert (!error);
 			roots.get<tag_root> ().emplace (nano::conflict_info{ root, difficulty, difficulty, election });
-			blocks.insert (std::make_pair (hash, election));
+			blocks.emplace (hash, election);
 			adjust_difficulty (hash);
 			election->insert_inactive_votes_cache (hash);
 		}
@@ -530,7 +547,7 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, bool 
 }
 
 // Validate a vote and apply it to the current election if one exists
-nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a, bool single_lock)
+nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> vote_a)
 {
 	// If none of the hashes are active, it is unknown whether it's a replay
 	// In this case, votes are also not republished
@@ -538,11 +555,7 @@ nano::vote_code nano::active_transactions::vote (std::shared_ptr<nano::vote> vot
 	bool replay (false);
 	bool processed (false);
 	{
-		nano::unique_lock<std::mutex> lock;
-		if (!single_lock)
-		{
-			lock = nano::unique_lock<std::mutex> (mutex);
-		}
+		nano::lock_guard<std::mutex> lock (mutex);
 		for (auto vote_block : vote_a->blocks)
 		{
 			nano::election_vote_result result;
@@ -628,7 +641,7 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 	else if (opt_transaction_a.is_initialized ())
 	{
 		// Only guaranteed to immediately restart the election if the new block is received within 60s of dropping it
-		static constexpr std::chrono::seconds recently_dropped_cutoff{ 60s };
+		constexpr std::chrono::seconds recently_dropped_cutoff{ 60s };
 		if (find_dropped_elections_cache (block_a->qualified_root ()) > std::chrono::steady_clock::now () - recently_dropped_cutoff)
 		{
 			lock.unlock ();
@@ -636,9 +649,9 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 			auto hash (block_a->hash ());
 			auto existing_block (node.store.block_get (*opt_transaction_a, hash, &existing_sideband));
 			release_assert (existing_block != nullptr);
-			uint64_t confirmation_height;
-			release_assert (!node.store.confirmation_height_get (*opt_transaction_a, node.store.block_account (*opt_transaction_a, hash), confirmation_height));
-			bool confirmed = (confirmation_height >= existing_sideband.height);
+			nano::confirmation_height_info confirmation_height_info;
+			release_assert (!node.store.confirmation_height_get (*opt_transaction_a, node.store.block_account (*opt_transaction_a, hash), confirmation_height_info));
+			bool confirmed = (confirmation_height_info.height >= existing_sideband.height);
 			if (!confirmed && existing_block->block_work () != block_a->block_work ())
 			{
 				uint64_t existing_difficulty;
@@ -797,14 +810,10 @@ uint64_t nano::active_transactions::limited_active_difficulty ()
 }
 
 // List of active blocks in elections
-std::deque<std::shared_ptr<nano::block>> nano::active_transactions::list_blocks (bool single_lock)
+std::deque<std::shared_ptr<nano::block>> nano::active_transactions::list_blocks ()
 {
 	std::deque<std::shared_ptr<nano::block>> result;
-	nano::unique_lock<std::mutex> lock;
-	if (!single_lock)
-	{
-		lock = nano::unique_lock<std::mutex> (mutex);
-	}
+	nano::lock_guard<std::mutex> lock (mutex);
 	for (auto & root : roots)
 	{
 		result.push_back (root.election->status.winner);
@@ -869,7 +878,7 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 		result = election->publish (block_a);
 		if (!result && !election->confirmed)
 		{
-			blocks.insert (std::make_pair (block_a->hash (), election));
+			blocks.emplace (block_a->hash (), election);
 		}
 	}
 	return result;

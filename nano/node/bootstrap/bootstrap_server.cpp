@@ -589,8 +589,7 @@ public:
 			auto cookie (connection->node->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (connection->remote_endpoint)));
 			nano::node_id_handshake response_message (cookie, response);
 			auto shared_const_buffer = response_message.to_shared_const_buffer ();
-			// clang-format off
-			connection->socket->async_write (shared_const_buffer, [connection = std::weak_ptr<nano::bootstrap_server> (connection) ](boost::system::error_code const & ec, size_t size_a) {
+			connection->socket->async_write (shared_const_buffer, [connection = std::weak_ptr<nano::bootstrap_server> (connection)](boost::system::error_code const & ec, size_t size_a) {
 				if (auto connection_l = connection.lock ())
 				{
 					if (ec)
@@ -609,7 +608,6 @@ public:
 					}
 				}
 			});
-			// clang-format on
 		}
 		else if (message_a.response)
 		{

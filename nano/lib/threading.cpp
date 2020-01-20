@@ -69,6 +69,9 @@ std::string nano::thread_role::get_string (nano::thread_role::name role)
 		case nano::thread_role::name::worker:
 			thread_role_name_string = "Worker";
 			break;
+		case nano::thread_role::name::request_aggregator:
+			thread_role_name_string = "Req aggregator";
+			break;
 	}
 
 	/*
@@ -108,7 +111,7 @@ io_guard (boost::asio::make_work_guard (io_ctx_a))
 	nano::thread_attributes::set (attrs);
 	for (auto i (0u); i < service_threads_a; ++i)
 	{
-		threads.push_back (boost::thread (attrs, [&io_ctx_a]() {
+		threads.emplace_back (attrs, [&io_ctx_a]() {
 			nano::thread_role::set (nano::thread_role::name::io);
 			try
 			{
@@ -132,7 +135,7 @@ io_guard (boost::asio::make_work_guard (io_ctx_a))
 				throw;
 #endif
 			}
-		}));
+		});
 	}
 }
 

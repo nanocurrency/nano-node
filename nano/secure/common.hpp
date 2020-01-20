@@ -218,6 +218,18 @@ public:
 	size_t change{ 0 };
 	size_t state{ 0 };
 };
+
+class confirmation_height_info final
+{
+public:
+	confirmation_height_info () = default;
+	confirmation_height_info (uint64_t, nano::block_hash const &);
+	void serialize (nano::stream &) const;
+	bool deserialize (nano::stream &);
+	uint64_t height;
+	nano::block_hash frontier;
+};
+
 using vote_blocks_vec_iter = std::vector<boost::variant<std::shared_ptr<nano::block>, nano::block_hash>>::const_iterator;
 class iterate_vote_blocks_as_hash final
 {

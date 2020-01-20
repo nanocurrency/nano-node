@@ -27,17 +27,9 @@ TEST (active_transactions, confirm_one)
 		node1.network.flood_block (send, false);
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	while (!node2.active.empty ())
+	while (node2.ledger.cache.cemented_count < 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
-	}
-	ASSERT_EQ (0, node2.active.dropped_elections_cache_size ());
-	nano::unique_lock<std::mutex> active_lock (node2.active.mutex);
-	while (node2.active.confirmed.empty ())
-	{
-		active_lock.unlock ();
-		ASSERT_NO_ERROR (system.poll ());
-		active_lock.lock ();
 	}
 }
 
@@ -75,26 +67,19 @@ TEST (active_transactions, adjusted_difficulty_priority)
 	}
 
 	// Confirm elections
-	while (node1.active.size () != 0)
+	system.deadline_set (10s);
+	while (!node1.active.empty ())
 	{
 		nano::lock_guard<std::mutex> active_guard (node1.active.mutex);
-		auto it (node1.active.roots.begin ());
-		while (!node1.active.roots.empty () && it != node1.active.roots.end ())
+		if (!node1.active.roots.empty ())
 		{
-			auto election (it->election);
-			election->confirm_once ();
-			it = node1.active.roots.begin ();
+			node1.active.roots.begin ()->election->confirm_once ();
 		}
 	}
+	system.deadline_set (10s);
+	while (node1.ledger.cache.cemented_count < 5)
 	{
-		system.deadline_set (10s);
-		nano::unique_lock<std::mutex> active_lock (node1.active.mutex);
-		while (node1.active.confirmed.size () != 4)
-		{
-			active_lock.unlock ();
-			ASSERT_NO_ERROR (system.poll ());
-			active_lock.lock ();
-		}
+		ASSERT_NO_ERROR (system.poll ());
 	}
 
 	//genesis and key1,key2 are opened
@@ -167,13 +152,11 @@ TEST (active_transactions, adjusted_difficulty_overflow_max)
 		auto send2_root (node1.active.roots.find (send2->qualified_root ()));
 		auto open1_root (node1.active.roots.find (open1->qualified_root ()));
 		auto open2_root (node1.active.roots.find (open2->qualified_root ()));
-		// clang-format off
 		auto modify_difficulty = [& roots = node1.active.roots](auto & existing_root) {
 			roots.modify (existing_root, [](nano::conflict_info & info_a) {
 				info_a.difficulty = std::numeric_limits<std::uint64_t>::max ();
 			});
 		};
-		// clang-format on
 		modify_difficulty (send1_root);
 		modify_difficulty (send2_root);
 		modify_difficulty (open1_root);
@@ -222,13 +205,11 @@ TEST (active_transactions, adjusted_difficulty_overflow_min)
 		auto open1_root (node1.active.roots.find (open1->qualified_root ()));
 		auto open2_root (node1.active.roots.find (open2->qualified_root ()));
 		auto send3_root (node1.active.roots.find (send3->qualified_root ()));
-		// clang-format off
 		auto modify_difficulty = [& roots = node1.active.roots](auto & existing_root) {
 			roots.modify (existing_root, [](nano::conflict_info & info_a) {
 				info_a.difficulty = std::numeric_limits<std::uint64_t>::min () + 1;
 			});
 		};
-		// clang-format on
 		modify_difficulty (send1_root);
 		modify_difficulty (send2_root);
 		modify_difficulty (open1_root);
@@ -278,11 +259,9 @@ TEST (active_transactions, keep_local)
 	while (!node.active.empty ())
 	{
 		nano::lock_guard<std::mutex> active_guard (node.active.mutex);
-		auto it (node.active.roots.begin ());
-		while (!node.active.roots.empty () && it != node.active.roots.end ())
+		if (!node.active.roots.empty ())
 		{
-			(it->election)->confirm_once ();
-			it = node.active.roots.begin ();
+			node.active.roots.begin ()->election->confirm_once ();
 		}
 	}
 	auto open1 (std::make_shared<nano::state_block> (key1.pub, 0, key1.pub, node.config.receive_minimum.number (), send1->hash (), key1.prv, key1.pub, *system.work.generate (key1.pub)));
@@ -337,18 +316,14 @@ TEST (active_transactions, prioritize_chains)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	while (node1.active.size () != 0)
+	while (!node1.active.empty ())
 	{
 		nano::lock_guard<std::mutex> active_guard (node1.active.mutex);
-		auto it (node1.active.roots.get<1> ().begin ());
-		while (!node1.active.roots.empty () && it != node1.active.roots.get<1> ().end ())
+		if (!node1.active.roots.empty ())
 		{
-			auto election (it->election);
-			election->confirm_once ();
-			it = node1.active.roots.get<1> ().begin ();
+			node1.active.roots.begin ()->election->confirm_once ();
 		}
 	}
-
 	node1.process_active (send2);
 	node1.process_active (send3);
 	node1.process_active (send4);
@@ -386,58 +361,58 @@ TEST (active_transactions, prioritize_chains)
 TEST (active_transactions, inactive_votes_cache)
 {
 	nano::system system (1);
-	nano::block_hash latest (system.nodes[0]->latest (nano::test_genesis_key.pub));
+	auto & node = *system.nodes[0];
+	nano::block_hash latest (node.latest (nano::test_genesis_key.pub));
 	nano::keypair key;
 	auto send (std::make_shared<nano::send_block> (latest, key.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest)));
 	auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, std::vector<nano::block_hash> (1, send->hash ())));
-	system.nodes[0]->vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, system.nodes[0]->network.endpoint (), system.nodes[0]->network_params.protocol.protocol_version));
+	node.vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
 	system.deadline_set (5s);
-	while (system.nodes[0]->active.inactive_votes_cache_size () != 1)
+	while (node.active.inactive_votes_cache_size () != 1)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	system.nodes[0]->process_active (send);
-	system.nodes[0]->block_processor.flush ();
+	node.process_active (send);
+	node.block_processor.flush ();
 	bool confirmed (false);
 	system.deadline_set (5s);
-	while (!confirmed)
+	while (!node.ledger.block_confirmed (node.store.tx_begin_read (), send->hash ()))
 	{
-		auto transaction (system.nodes[0]->store.tx_begin_read ());
-		confirmed = system.nodes[0]->ledger.block_confirmed (transaction, send->hash ());
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (1, system.nodes[0]->stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
 }
 
 TEST (active_transactions, inactive_votes_cache_fork)
 {
 	nano::system system (1);
-	nano::block_hash latest (system.nodes[0]->latest (nano::test_genesis_key.pub));
+	auto & node = *system.nodes[0];
+	nano::block_hash latest (node.latest (nano::test_genesis_key.pub));
 	nano::keypair key;
 	auto send1 (std::make_shared<nano::send_block> (latest, key.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest)));
 	auto send2 (std::make_shared<nano::send_block> (latest, key.pub, nano::genesis_amount - 200, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest)));
 	auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, std::vector<nano::block_hash> (1, send1->hash ())));
-	system.nodes[0]->vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (system.nodes[0]->network.udp_channels, system.nodes[0]->network.endpoint (), system.nodes[0]->network_params.protocol.protocol_version));
-	auto channel1 (system.nodes [0]->network.udp_channels.create (system.nodes [0]->network.endpoint ()));
+	node.vote_processor.vote (vote, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
+	auto channel1 (node.network.udp_channels.create (node.network.endpoint ()));
 	system.deadline_set (5s);
-	while (system.nodes[0]->active.inactive_votes_cache_size () != 1)
+	while (node.active.inactive_votes_cache_size () != 1)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	system.nodes[0]->network.process_message (nano::publish (send2), channel1);
-	system.nodes[0]->block_processor.flush ();
-	ASSERT_NE (nullptr, system.nodes[0]->block (send2->hash ()));
-	system.nodes[0]->network.process_message (nano::publish (send1), channel1);
-	system.nodes[0]->block_processor.flush ();
+	node.network.process_message (nano::publish (send2), channel1);
+	node.block_processor.flush ();
+	ASSERT_NE (nullptr, node.block (send2->hash ()));
+	node.network.process_message (nano::publish (send1), channel1);
+	node.block_processor.flush ();
 	bool confirmed (false);
 	system.deadline_set (5s);
 	while (!confirmed)
 	{
-		auto transaction (system.nodes[0]->store.tx_begin_read ());
-		confirmed = system.nodes[0]->block (send1->hash ()) != nullptr && system.nodes[0]->ledger.block_confirmed (transaction, send1->hash ());
+		auto transaction (node.store.tx_begin_read ());
+		confirmed = node.block (send1->hash ()) != nullptr && node.ledger.block_confirmed (transaction, send1->hash ());
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (1, system.nodes[0]->stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
 }
 
 TEST (active_transactions, inactive_votes_cache_existing_vote)
@@ -445,47 +420,47 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	auto node = system.add_node (node_config);
-	nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
+	auto & node = *system.add_node (node_config);
+	nano::block_hash latest (node.latest (nano::test_genesis_key.pub));
 	nano::keypair key;
 	auto send (std::make_shared<nano::send_block> (latest, key.pub, nano::genesis_amount - 100 * nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest)));
 	auto open (std::make_shared<nano::state_block> (key.pub, 0, key.pub, 100 * nano::Gxrb_ratio, send->hash (), key.prv, key.pub, *system.work.generate (key.pub))); // Increase key weight
-	node->process_active (send);
-	node->block_processor.add (open);
-	node->block_processor.flush ();
+	node.process_active (send);
+	node.block_processor.add (open);
+	node.block_processor.flush ();
 	system.deadline_set (5s);
-	while (node->active.size () != 1)
+	while (node.active.size () != 1)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	std::shared_ptr<nano::election> election;
 	{
-		nano::lock_guard<std::mutex> active_guard (node->active.mutex);
-		auto it (node->active.roots.begin ());
-		ASSERT_NE (node->active.roots.end (), it);
+		nano::lock_guard<std::mutex> active_guard (node.active.mutex);
+		auto it (node.active.roots.begin ());
+		ASSERT_NE (node.active.roots.end (), it);
 		election = it->election;
 	}
-	ASSERT_GT (node->weight (key.pub), node->minimum_principal_weight ());
+	ASSERT_GT (node.weight (key.pub), node.minimum_principal_weight ());
 	// Insert vote
 	auto vote1 (std::make_shared<nano::vote> (key.pub, key.prv, 1, std::vector<nano::block_hash> (1, send->hash ())));
-	node->vote_processor.vote (vote1, std::make_shared<nano::transport::channel_udp> (node->network.udp_channels, node->network.endpoint (), node->network_params.protocol.protocol_version));
+	node.vote_processor.vote (vote1, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
 	system.deadline_set (5s);
 	bool done (false);
 	while (!done)
 	{
-		nano::unique_lock<std::mutex> active_lock (node->active.mutex);
+		nano::unique_lock<std::mutex> active_lock (node.active.mutex);
 		done = (election->last_votes.size () == 2);
 		active_lock.unlock ();
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (1, node->stats.count (nano::stat::type::election, nano::stat::detail::vote_new));
-	nano::lock_guard<std::mutex> active_guard (node->active.mutex);
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_new));
+	nano::lock_guard<std::mutex> active_guard (node.active.mutex);
 	auto last_vote1 (election->last_votes[key.pub]);
 	ASSERT_EQ (send->hash (), last_vote1.hash);
 	ASSERT_EQ (1, last_vote1.sequence);
 	// Attempt to change vote with inactive_votes_cache
-	node->active.add_inactive_votes_cache (send->hash (), key.pub);
-	ASSERT_EQ (1, node->active.find_inactive_votes_cache (send->hash ()).voters.size ());
+	node.active.add_inactive_votes_cache (send->hash (), key.pub);
+	ASSERT_EQ (1, node.active.find_inactive_votes_cache (send->hash ()).voters.size ());
 	election->insert_inactive_votes_cache (send->hash ());
 	// Check that election data is not changed
 	ASSERT_EQ (2, election->last_votes.size ());
@@ -493,7 +468,7 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 	ASSERT_EQ (last_vote1.hash, last_vote2.hash);
 	ASSERT_EQ (last_vote1.sequence, last_vote2.sequence);
 	ASSERT_EQ (last_vote1.time, last_vote2.time);
-	ASSERT_EQ (0, node->stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
 }
 
 TEST (active_transactions, inactive_votes_cache_multiple_votes)
@@ -501,43 +476,43 @@ TEST (active_transactions, inactive_votes_cache_multiple_votes)
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	auto node = system.add_node (node_config);
-	nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
+	auto & node = *system.add_node (node_config);
+	nano::block_hash latest (node.latest (nano::test_genesis_key.pub));
 	nano::keypair key1;
 	auto send1 (std::make_shared<nano::send_block> (latest, key1.pub, nano::genesis_amount - 100 * nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest)));
 	auto send2 (std::make_shared<nano::send_block> (send1->hash (), key1.pub, 100 * nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send1->hash ()))); // Decrease genesis weight to prevent election confirmation
 	auto open (std::make_shared<nano::state_block> (key1.pub, 0, key1.pub, 100 * nano::Gxrb_ratio, send1->hash (), key1.prv, key1.pub, *system.work.generate (key1.pub))); // Increase key1 weight
-	node->block_processor.add (send1);
-	node->block_processor.add (send2);
-	node->block_processor.add (open);
-	node->block_processor.flush ();
+	node.block_processor.add (send1);
+	node.block_processor.add (send2);
+	node.block_processor.add (open);
+	node.block_processor.flush ();
 	// Process votes
 	auto vote1 (std::make_shared<nano::vote> (key1.pub, key1.prv, 0, std::vector<nano::block_hash> (1, send1->hash ())));
-	node->vote_processor.vote (vote1, std::make_shared<nano::transport::channel_udp> (node->network.udp_channels, node->network.endpoint (), node->network_params.protocol.protocol_version));
+	node.vote_processor.vote (vote1, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
 	auto vote2 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, std::vector<nano::block_hash> (1, send1->hash ())));
-	node->vote_processor.vote (vote2, std::make_shared<nano::transport::channel_udp> (node->network.udp_channels, node->network.endpoint (), node->network_params.protocol.protocol_version));
+	node.vote_processor.vote (vote2, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
 	system.deadline_set (5s);
 	while (true)
 	{
 		{
-			nano::lock_guard<std::mutex> active_guard (node->active.mutex);
-			if (node->active.find_inactive_votes_cache (send1->hash ()).voters.size () == 2)
+			nano::lock_guard<std::mutex> active_guard (node.active.mutex);
+			if (node.active.find_inactive_votes_cache (send1->hash ()).voters.size () == 2)
 			{
 				break;
 			}
 		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (1, node->active.inactive_votes_cache_size ());
+	ASSERT_EQ (1, node.active.inactive_votes_cache_size ());
 	// Start election
-	node->active.start (send1);
+	node.active.start (send1);
 	{
-		nano::lock_guard<std::mutex> active_guard (node->active.mutex);
-		auto it (node->active.roots.begin ());
-		ASSERT_NE (node->active.roots.end (), it);
+		nano::lock_guard<std::mutex> active_guard (node.active.mutex);
+		auto it (node.active.roots.begin ());
+		ASSERT_NE (node.active.roots.end (), it);
 		ASSERT_EQ (3, it->election->last_votes.size ()); // 2 votes and 1 default not_an_acount
 	}
-	ASSERT_EQ (2, node->stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
 }
 
 TEST (active_transactions, update_difficulty)
@@ -658,11 +633,13 @@ TEST (active_transactions, restart_dropped)
 		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	// Verify the block was updated in the ledger
+	std::shared_ptr<nano::block> block;
+	while (block == nullptr)
 	{
-		auto block (node.store.block_get (node.store.tx_begin_read (), send1->hash ()));
-		ASSERT_EQ (work2, block->block_work ());
+		ASSERT_NO_ERROR (system.poll ());
+		block = node.store.block_get (node.store.tx_begin_read (), send1->hash ());
 	}
+	ASSERT_EQ (work2, block->block_work ());
 	// Drop election
 	node.active.erase (*send2);
 	// Try to restart election with the lower difficulty block, should not work since the block as lower work
@@ -685,6 +662,7 @@ TEST (active_transactions, vote_replays)
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.enable_voting = false;
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto & node = *system.add_node (node_config);
 	nano::genesis genesis;
 	nano::keypair key;

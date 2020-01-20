@@ -31,7 +31,8 @@ namespace thread_role
 		rpc_process_container,
 		work_watcher,
 		confirmation_height_processing,
-		worker
+		worker,
+		request_aggregator
 	};
 	/*
 	 * Get/Set the identifier for the current thread

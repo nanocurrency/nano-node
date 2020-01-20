@@ -3,6 +3,7 @@
 #include <nano/lib/locks.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/node/wallet.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
@@ -62,6 +63,7 @@ public:
 class votes_cache final
 {
 public:
+	votes_cache (nano::wallets & wallets_a);
 	void add (std::shared_ptr<nano::vote> const &);
 	std::vector<std::shared_ptr<nano::vote>> find (nano::block_hash const &);
 	void remove (nano::block_hash const &);
@@ -79,6 +81,7 @@ private:
 	cache;
 	// clang-format on
 	nano::network_params network_params;
+	nano::wallets & wallets;
 	friend std::unique_ptr<container_info_component> collect_container_info (votes_cache & votes_cache, const std::string & name);
 };
 

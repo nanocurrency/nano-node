@@ -53,9 +53,10 @@ TEST (ledger, genesis_balance)
 	ASSERT_GE (nano::seconds_since_epoch (), info.modified);
 	ASSERT_LT (nano::seconds_since_epoch () - info.modified, 10);
 	// Genesis block should be confirmed by default
-	uint64_t confirmation_height;
-	ASSERT_FALSE (store->confirmation_height_get (transaction, nano::genesis_account, confirmation_height));
-	ASSERT_EQ (confirmation_height, 1);
+	nano::confirmation_height_info confirmation_height_info;
+	ASSERT_FALSE (store->confirmation_height_get (transaction, nano::genesis_account, confirmation_height_info));
+	ASSERT_EQ (confirmation_height_info.height, 1);
+	ASSERT_EQ (confirmation_height_info.frontier, genesis.hash ());
 }
 
 // All nodes in the system should agree on the genesis balance
@@ -734,9 +735,11 @@ TEST (votes, check_signature)
 		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	}
 	node1.active.start (send1);
-	nano::lock_guard<std::mutex> lock (node1.active.mutex);
-	auto votes1 (node1.active.roots.find (send1->qualified_root ())->election);
-	ASSERT_EQ (1, votes1->last_votes.size ());
+	{
+		nano::lock_guard<std::mutex> lock (node1.active.mutex);
+		auto votes1 (node1.active.roots.find (send1->qualified_root ())->election);
+		ASSERT_EQ (1, votes1->last_votes.size ());
+	}
 	auto vote1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 1, send1));
 	vote1->signature.bytes[0] ^= 1;
 	auto transaction (node1.store.tx_begin_read ());
@@ -869,8 +872,11 @@ TEST (votes, add_old)
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	node1.active.start (send1);
 	auto vote1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 2, send1));
-	nano::lock_guard<std::mutex> lock (node1.active.mutex);
-	auto votes1 (node1.active.roots.find (send1->qualified_root ())->election);
+	std::shared_ptr<nano::election> votes1;
+	{
+		nano::lock_guard<std::mutex> lock (node1.active.mutex);
+		votes1 = node1.active.roots.find (send1->qualified_root ())->election;
+	}
 	auto channel (std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, node1.network.endpoint (), node1.network_params.protocol.protocol_version));
 	node1.vote_processor.vote_blocking (transaction, vote1, channel);
 	nano::keypair key2;
@@ -879,7 +885,7 @@ TEST (votes, add_old)
 	auto vote2 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 1, send2));
 	votes1->last_votes[nano::test_genesis_key.pub].time = std::chrono::steady_clock::now () - std::chrono::seconds (20);
 	node1.vote_processor.vote_blocking (transaction, vote2, channel);
-	ASSERT_EQ (2, votes1->last_votes.size ());
+	ASSERT_EQ (2, votes1->last_votes_size ());
 	ASSERT_NE (votes1->last_votes.end (), votes1->last_votes.find (nano::test_genesis_key.pub));
 	ASSERT_EQ (send1->hash (), votes1->last_votes[nano::test_genesis_key.pub].hash);
 	auto winner (*votes1->tally ().begin ());
@@ -902,11 +908,15 @@ TEST (votes, add_old_different_account)
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send2).code);
 	node1.active.start (send1);
 	node1.active.start (send2);
-	nano::unique_lock<std::mutex> lock (node1.active.mutex);
-	auto votes1 (node1.active.roots.find (send1->qualified_root ())->election);
-	auto votes2 (node1.active.roots.find (send2->qualified_root ())->election);
-	ASSERT_EQ (1, votes1->last_votes.size ());
-	ASSERT_EQ (1, votes2->last_votes.size ());
+	std::shared_ptr<nano::election> votes1;
+	std::shared_ptr<nano::election> votes2;
+	{
+		nano::unique_lock<std::mutex> lock (node1.active.mutex);
+		votes1 = node1.active.roots.find (send1->qualified_root ())->election;
+		votes2 = node1.active.roots.find (send2->qualified_root ())->election;
+	}
+	ASSERT_EQ (1, votes1->last_votes_size ());
+	ASSERT_EQ (1, votes2->last_votes_size ());
 	auto vote1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 2, send1));
 	auto channel (std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, node1.network.endpoint (), node1.network_params.protocol.protocol_version));
 	auto vote_result1 (node1.vote_processor.vote_blocking (transaction, vote1, channel));
@@ -940,8 +950,11 @@ TEST (votes, add_cooldown)
 	auto transaction (node1.store.tx_begin_write ());
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	node1.active.start (send1);
-	nano::unique_lock<std::mutex> lock (node1.active.mutex);
-	auto votes1 (node1.active.roots.find (send1->qualified_root ())->election);
+	std::shared_ptr<nano::election> votes1;
+	{
+		nano::unique_lock<std::mutex> lock (node1.active.mutex);
+		votes1 = node1.active.roots.find (send1->qualified_root ())->election;
+	}
 	auto vote1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 1, send1));
 	auto channel (std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, node1.network.endpoint (), node1.network_params.protocol.protocol_version));
 	node1.vote_processor.vote_blocking (transaction, vote1, channel);
@@ -2836,16 +2849,19 @@ TEST (ledger, confirmation_height_not_updated)
 	ASSERT_FALSE (store->account_get (transaction, nano::test_genesis_key.pub, account_info));
 	nano::keypair key;
 	nano::send_block send1 (account_info.head, key.pub, 50, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (account_info.head));
-	uint64_t confirmation_height;
-	ASSERT_FALSE (store->confirmation_height_get (transaction, nano::genesis_account, confirmation_height));
-	ASSERT_EQ (1, confirmation_height);
+	nano::confirmation_height_info confirmation_height_info;
+	ASSERT_FALSE (store->confirmation_height_get (transaction, nano::genesis_account, confirmation_height_info));
+	ASSERT_EQ (1, confirmation_height_info.height);
+	ASSERT_EQ (genesis.hash (), confirmation_height_info.frontier);
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send1).code);
-	ASSERT_FALSE (store->confirmation_height_get (transaction, nano::genesis_account, confirmation_height));
-	ASSERT_EQ (1, confirmation_height);
+	ASSERT_FALSE (store->confirmation_height_get (transaction, nano::genesis_account, confirmation_height_info));
+	ASSERT_EQ (1, confirmation_height_info.height);
+	ASSERT_EQ (genesis.hash (), confirmation_height_info.frontier);
 	nano::open_block open1 (send1.hash (), nano::genesis_account, key.pub, key.prv, key.pub, *pool.generate (key.pub));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, open1).code);
-	ASSERT_FALSE (store->confirmation_height_get (transaction, key.pub, confirmation_height));
-	ASSERT_EQ (0, confirmation_height);
+	ASSERT_FALSE (store->confirmation_height_get (transaction, key.pub, confirmation_height_info));
+	ASSERT_EQ (0, confirmation_height_info.height);
+	ASSERT_EQ (nano::block_hash (0), confirmation_height_info.frontier);
 }
 
 TEST (ledger, zero_rep)
