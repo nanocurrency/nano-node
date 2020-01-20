@@ -382,6 +382,22 @@ startup_time (std::chrono::steady_clock::now ())
 			std::exit (1);
 		}
 
+		if (config.enable_voting)
+		{
+			std::ostringstream stream;
+			stream << "Voting is enabled, more system resources will be used";
+			auto voting (wallets.rep_counts ().voting);
+			if (voting > 0)
+			{
+				stream << ". " << voting << " representative(s) are configured";
+				if (voting > 1)
+				{
+					stream << ". Voting with more than one representative can limit performance";
+				}
+			}
+			logger.always_log (stream.str ());
+		}
+
 		node_id = nano::keypair ();
 		logger.always_log ("Node ID: ", node_id.pub.to_node_id ());
 
