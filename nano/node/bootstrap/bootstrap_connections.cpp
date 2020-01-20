@@ -342,6 +342,7 @@ void nano::bootstrap_connections::request_pull (nano::unique_lock<std::mutex> & 
 			// Check if lazy pull is obsolete (head was processed or head is 0 for destinations requests)
 			if (attempt_l != nullptr && attempt_l->mode == nano::bootstrap_mode::lazy && !pull.head.is_zero () && attempt_l->lazy_processed_or_exists (pull.head))
 			{
+				--attempt_l->pulling;
 				attempt_l = nullptr;
 			}
 		}
