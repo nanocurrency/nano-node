@@ -44,7 +44,7 @@ namespace ipc
 		void async_write (nano::shared_const_buffer const & buffer_a, std::function<void(nano::error, size_t)> callback_a);
 
 		/** Read \p size_a bytes asynchronously */
-		void async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, size_t size_a, std::function<void(nano::error, size_t)> callback_a);
+		void async_read (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, size_t size_a, std::function<void(nano::error, size_t)> callback_a);
 
 		/**
 		 * Read a length-prefixed message asynchronously using the given timeout. This is suitable for full duplex scenarios where it may
@@ -54,7 +54,7 @@ namespace ipc
 		 * @param timeout_a How long to await message data. In some scenarios, such as waiting for data on subscriptions, specifying std::chrono::seconds::max() makes sense.
 		 * @param callback_a If called without errors, the payload buffer is successfully populated
 		 */
-		void async_read_message (std::shared_ptr<std::vector<uint8_t>> buffer_a, std::chrono::seconds timeout_a, std::function<void(nano::error, size_t)> callback_a);
+		void async_read_message (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, std::chrono::seconds timeout_a, std::function<void(nano::error, size_t)> callback_a);
 
 	private:
 		boost::asio::io_context & io_ctx;
@@ -74,10 +74,10 @@ namespace ipc
 	/**
 	 * Returns a buffer with an IPC preamble, followed by 32-bit BE lenght, followed by payload
 	 */
-	nano::shared_const_buffer prepare_flatbuffers_request (std::shared_ptr<flatbuffers::FlatBufferBuilder> flatbuffer_a);
+	nano::shared_const_buffer prepare_flatbuffers_request (std::shared_ptr<flatbuffers::FlatBufferBuilder> const & flatbuffer_a);
 
 	template <typename T>
-	nano::shared_const_buffer shared_buffer_from (T & object_a, std::string correlation_id_a = "", std::string credentials_a = "")
+	nano::shared_const_buffer shared_buffer_from (T & object_a, std::string const & correlation_id_a = {}, std::string const & credentials_a = {})
 	{
 		auto fbb (nano::ipc::flatbuffer_producer::make_buffer (object_a, correlation_id_a, credentials_a));
 		return nano::ipc::prepare_flatbuffers_request (fbb);

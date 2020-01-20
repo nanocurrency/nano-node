@@ -62,7 +62,7 @@ public:
 		class subscriber_impl final : public nano::ipc::subscriber, public std::enable_shared_from_this<subscriber_impl>
 		{
 		public:
-			subscriber_impl (std::shared_ptr<session> session_a) :
+			subscriber_impl (std::shared_ptr<session> const & session_a) :
 			session_m (session_a)
 			{
 			}

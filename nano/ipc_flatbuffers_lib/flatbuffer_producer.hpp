@@ -19,7 +19,7 @@ namespace ipc
 		~flatbuffer_producer () = default;
 
 		template <typename T>
-		static std::shared_ptr<flatbuffers::FlatBufferBuilder> make_buffer (T & object_a, std::string correlation_id_a = "", std::string credentials_a = "")
+		static std::shared_ptr<flatbuffers::FlatBufferBuilder> make_buffer (T & object_a, std::string const & correlation_id_a = {}, std::string const & credentials_a = {})
 		{
 			nano::ipc::flatbuffer_producer producer;
 			producer.set_correlation_id (correlation_id_a);
@@ -28,7 +28,7 @@ namespace ipc
 			return producer.fbb;
 		}
 
-		void make_error (int code, std::string message);
+		void make_error (int code, std::string const & message);
 
 		/** Every message is put in an envelope, which contains the message type and other sideband information */
 		template <typename T>
@@ -60,7 +60,7 @@ namespace ipc
 		}
 
 		template <typename T, typename = std::enable_if_t<std::is_base_of<flatbuffers::NativeTable, T>::value>>
-		void create_response (T & obj)
+		void create_response (T const & obj)
 		{
 			create_response (T::TableType::Pack (*fbb, &obj));
 		}
@@ -84,9 +84,9 @@ namespace ipc
 		/** The builder managed by this instance */
 		std::shared_ptr<flatbuffers::FlatBufferBuilder> fbb;
 		/** Correlation id, if available */
-		std::string correlation_id{};
+		std::string correlation_id;
 		/** Credentials, if available */
-		std::string credentials{};
+		std::string credentials;
 	};
 }
 }

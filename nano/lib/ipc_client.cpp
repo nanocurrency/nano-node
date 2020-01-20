@@ -18,7 +18,7 @@ namespace
 class channel
 {
 public:
-	virtual void async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, size_t size_a, std::function<void(boost::system::error_code const &, size_t)> callback_a) = 0;
+	virtual void async_read (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, size_t size_a, std::function<void(boost::system::error_code const &, size_t)> callback_a) = 0;
 	virtual void async_write (nano::shared_const_buffer const & buffer_a, std::function<void(boost::system::error_code const &, size_t)> callback_a) = 0;
 
 	/**
@@ -29,7 +29,7 @@ public:
 	 * @param timeout_a How long to await message data. In some scenarios, such as waiting for data on subscriptions, specifying std::chrono::seconds::max() makes sense.
 	 * @param callback_a If called without errors, the payload buffer is successfully populated
 	 */
-	virtual void async_read_message (std::shared_ptr<std::vector<uint8_t>> buffer_a, std::chrono::seconds timeout_a, std::function<void(boost::system::error_code const &, size_t)> callback_a) = 0;
+	virtual void async_read_message (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, std::chrono::seconds timeout_a, std::function<void(boost::system::error_code const &, size_t)> callback_a) = 0;
 };
 
 /* Boost v1.70 introduced breaking changes; the conditional compilation allows 1.6x to be supported as well. */
@@ -78,12 +78,12 @@ public:
 		}));
 	}
 
-	void async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, size_t size_a, std::function<void(boost::system::error_code const &, size_t)> callback_a) override
+	void async_read (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, size_t size_a, std::function<void(boost::system::error_code const &, size_t)> callback_a) override
 	{
 		auto this_l (this->shared_from_this ());
 		this_l->timer_start (io_timeout);
 		buffer_a->resize (size_a);
-		boost::asio::async_read (socket, boost::asio::buffer (buffer_a->data (), size_a), boost::asio::bind_executor (this_l->strand, [this_l, callback_a](boost::system::error_code const & ec, size_t size_a) {
+		boost::asio::async_read (socket, boost::asio::buffer (buffer_a->data (), size_a), boost::asio::bind_executor (this_l->strand, [this_l, buffer_a, callback_a](boost::system::error_code const & ec, size_t size_a) {
 			this_l->timer_cancel ();
 			callback_a (ec, size_a);
 		}));
@@ -129,7 +129,7 @@ public:
 		}));
 	}
 
-	void async_read_message (std::shared_ptr<std::vector<uint8_t>> buffer_a, std::chrono::seconds timeout_a, std::function<void(boost::system::error_code const &, size_t)> callback_a) override
+	void async_read_message (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, std::chrono::seconds timeout_a, std::function<void(boost::system::error_code const &, size_t)> callback_a) override
 	{
 		auto this_l (this->shared_from_this ());
 		this_l->timer_start (timeout_a);
@@ -278,19 +278,19 @@ void nano::ipc::ipc_client::async_write (nano::shared_const_buffer const & buffe
 	});
 }
 
-void nano::ipc::ipc_client::async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, size_t size_a, std::function<void(nano::error, size_t)> callback_a)
+void nano::ipc::ipc_client::async_read (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, size_t size_a, std::function<void(nano::error, size_t)> callback_a)
 {
 	auto client (boost::polymorphic_downcast<client_impl *> (impl.get ()));
-	client->get_channel ().async_read (buffer_a, size_a, [callback_a](const boost::system::error_code & ec_a, size_t bytes_read_a) {
+	client->get_channel ().async_read (buffer_a, size_a, [callback_a, buffer_a](const boost::system::error_code & ec_a, size_t bytes_read_a) {
 		callback_a (nano::error (ec_a), bytes_read_a);
 	});
 }
 
 /** Read a length-prefixed message asynchronously. Received length must be a big endian 32-bit unsigned integer. */
-void nano::ipc::ipc_client::async_read_message (std::shared_ptr<std::vector<uint8_t>> buffer_a, std::chrono::seconds timeout_a, std::function<void(nano::error, size_t)> callback_a)
+void nano::ipc::ipc_client::async_read_message (std::shared_ptr<std::vector<uint8_t>> const & buffer_a, std::chrono::seconds timeout_a, std::function<void(nano::error, size_t)> callback_a)
 {
 	auto client (boost::polymorphic_downcast<client_impl *> (impl.get ()));
-	client->get_channel ().async_read_message (buffer_a, timeout_a, [callback_a](const boost::system::error_code & ec_a, size_t bytes_read_a) {
+	client->get_channel ().async_read_message (buffer_a, timeout_a, [callback_a, buffer_a](const boost::system::error_code & ec_a, size_t bytes_read_a) {
 		callback_a (nano::error (ec_a), bytes_read_a);
 	});
 }
@@ -305,7 +305,7 @@ std::vector<uint8_t> nano::ipc::get_preamble (nano::ipc::payload_encoding encodi
 	return buffer_l;
 }
 
-nano::shared_const_buffer nano::ipc::prepare_flatbuffers_request (std::shared_ptr<flatbuffers::FlatBufferBuilder> flatbuffer_a)
+nano::shared_const_buffer nano::ipc::prepare_flatbuffers_request (std::shared_ptr<flatbuffers::FlatBufferBuilder> const & flatbuffer_a)
 {
 	auto buffer_l (get_preamble (nano::ipc::payload_encoding::flatbuffers));
 	auto payload_length = static_cast<uint32_t> (flatbuffer_a->GetSize ());

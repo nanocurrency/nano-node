@@ -99,14 +99,14 @@ namespace ipc
 	class access final
 	{
 	public:
-		bool has_access (std::string credentials_a, nano::ipc::access_permission permission_a) const;
-		bool has_access_to_all (std::string credentials_a, std::initializer_list<nano::ipc::access_permission> permissions_a) const;
-		bool has_access_to_oneof (std::string credentials_a, std::initializer_list<nano::ipc::access_permission> permissions_a) const;
+		bool has_access (std::string const & credentials_a, nano::ipc::access_permission permission_a) const;
+		bool has_access_to_all (std::string const & credentials_a, std::initializer_list<nano::ipc::access_permission> permissions_a) const;
+		bool has_access_to_oneof (std::string const & credentials_a, std::initializer_list<nano::ipc::access_permission> permissions_a) const;
 		nano::error deserialize_toml (nano::tomlconfig &);
 
 	private:
 		/** Process allow and deny entries for the given subject */
-		void set_effective_permissions (nano::ipc::access_subject & subject_a, const std::shared_ptr<cpptoml::table> & config_subject_a);
+		void set_effective_permissions (nano::ipc::access_subject & subject_a, std::shared_ptr<cpptoml::table> const & config_subject_a);
 
 		/** Clear current users, roles and default permissions */
 		void clear ();

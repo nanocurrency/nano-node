@@ -10,7 +10,7 @@ fbb (builder_a)
 {
 }
 
-void nano::ipc::flatbuffer_producer::make_error (int code, std::string message)
+void nano::ipc::flatbuffer_producer::make_error (int code, std::string const & message)
 {
 	auto msg = fbb->CreateString (message);
 	nanoapi::ErrorBuilder builder (*fbb);

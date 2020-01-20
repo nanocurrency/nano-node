@@ -70,7 +70,7 @@ void nano::ipc::broker::start ()
 }
 
 template <typename COLL, typename TOPIC_TYPE>
-void subscribe_or_unsubscribe (nano::logger_mt & logger, COLL & subscriber_collection, std::weak_ptr<nano::ipc::subscriber> subscriber_a, TOPIC_TYPE topic_a)
+void subscribe_or_unsubscribe (nano::logger_mt & logger, COLL & subscriber_collection, std::weak_ptr<nano::ipc::subscriber> const & subscriber_a, TOPIC_TYPE topic_a)
 {
 	// Evict subscribers from dead sessions. Also remove current subscriber if unsubscribing.
 	subscriber_collection.erase (std::remove_if (subscriber_collection.begin (), subscriber_collection.end (),
@@ -102,7 +102,7 @@ void subscribe_or_unsubscribe (nano::logger_mt & logger, COLL & subscriber_colle
 	}
 }
 
-void nano::ipc::broker::subscribe (std::weak_ptr<nano::ipc::subscriber> subscriber_a, std::shared_ptr<nanoapi::TopicConfirmationT> const & confirmation_a)
+void nano::ipc::broker::subscribe (std::weak_ptr<nano::ipc::subscriber> const & subscriber_a, std::shared_ptr<nanoapi::TopicConfirmationT> const & confirmation_a)
 {
 	auto subscribers = confirmation_subscribers.lock ();
 	subscribe_or_unsubscribe (node.logger, subscribers.get (), subscriber_a, confirmation_a);
@@ -225,7 +225,7 @@ size_t nano::ipc::broker::confirmation_subscriber_count () const
 	return confirmation_subscribers->size ();
 }
 
-void nano::ipc::broker::service_register (std::string service_name_a, std::weak_ptr<nano::ipc::subscriber> subscriber_a)
+void nano::ipc::broker::service_register (std::string const & service_name_a, std::weak_ptr<nano::ipc::subscriber> const & subscriber_a)
 {
 	if (auto subscriber_l = subscriber_a.lock ())
 	{
@@ -233,7 +233,7 @@ void nano::ipc::broker::service_register (std::string service_name_a, std::weak_
 	}
 }
 
-void nano::ipc::broker::service_stop (std::string service_name_a)
+void nano::ipc::broker::service_stop (std::string const & service_name_a)
 {
 	auto subscribers = service_stop_subscribers.lock ();
 	for (auto & subcription : subscribers.get ())
@@ -252,7 +252,7 @@ void nano::ipc::broker::service_stop (std::string service_name_a)
 	}
 }
 
-void nano::ipc::broker::subscribe (std::weak_ptr<nano::ipc::subscriber> subscriber_a, std::shared_ptr<nanoapi::TopicServiceStopT> const & service_stop_a)
+void nano::ipc::broker::subscribe (std::weak_ptr<nano::ipc::subscriber> const & subscriber_a, std::shared_ptr<nanoapi::TopicServiceStopT> const & service_stop_a)
 {
 	auto subscribers = service_stop_subscribers.lock ();
 	subscribe_or_unsubscribe (node.logger, subscribers.get (), subscriber_a, service_stop_a);

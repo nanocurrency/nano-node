@@ -61,7 +61,7 @@ nano::ipc::access_permission from_string (std::string permission)
 }
 }
 
-void nano::ipc::access::set_effective_permissions (nano::ipc::access_subject & subject_a, const std::shared_ptr<cpptoml::table> & config_subject_a)
+void nano::ipc::access::set_effective_permissions (nano::ipc::access_subject & subject_a, std::shared_ptr<cpptoml::table> const & config_subject_a)
 {
 	std::string allow_l (config_subject_a->get_as<std::string> ("allow").value_or (""));
 	std::vector<std::string> allow_strings_l;
@@ -120,7 +120,7 @@ nano::error nano::ipc::access::deserialize_toml (nano::tomlconfig & toml)
 	nano::error error;
 	if (toml.has_key ("role"))
 	{
-		auto get_role = [this](std::shared_ptr<cpptoml::table> role_a) {
+		auto get_role = [this](std::shared_ptr<cpptoml::table> const & role_a) {
 			nano::ipc::access_role role;
 			std::string id_l (role_a->get_as<std::string> ("id").value_or (""));
 			role.id = id_l;
@@ -146,7 +146,7 @@ nano::error nano::ipc::access::deserialize_toml (nano::tomlconfig & toml)
 
 	if (toml.has_key ("user"))
 	{
-		auto get_user = [this, &error](std::shared_ptr<cpptoml::table> user_a) {
+		auto get_user = [this, &error](std::shared_ptr<cpptoml::table> const & user_a) {
 			nano::ipc::access_user user;
 			user.id = user_a->get_as<std::string> ("id").value_or ("");
 			// Check bare flag. The tomlconfig parser stringifies values, so we must retrieve as string.
@@ -216,7 +216,7 @@ nano::error nano::ipc::access::deserialize_toml (nano::tomlconfig & toml)
 	return error;
 }
 
-bool nano::ipc::access::has_access (std::string credentials_a, nano::ipc::access_permission permssion_a) const
+bool nano::ipc::access::has_access (std::string const & credentials_a, nano::ipc::access_permission permssion_a) const
 {
 	nano::unique_lock<std::mutex> lock (mutex);
 	bool permitted = false;
@@ -228,7 +228,7 @@ bool nano::ipc::access::has_access (std::string credentials_a, nano::ipc::access
 	return permitted;
 }
 
-bool nano::ipc::access::has_access_to_all (std::string credentials_a, std::initializer_list<nano::ipc::access_permission> permissions_a) const
+bool nano::ipc::access::has_access_to_all (std::string const & credentials_a, std::initializer_list<nano::ipc::access_permission> permissions_a) const
 {
 	nano::unique_lock<std::mutex> lock (mutex);
 	bool permitted = false;
@@ -247,7 +247,7 @@ bool nano::ipc::access::has_access_to_all (std::string credentials_a, std::initi
 	return permitted;
 }
 
-bool nano::ipc::access::has_access_to_oneof (std::string credentials_a, std::initializer_list<nano::ipc::access_permission> permissions_a) const
+bool nano::ipc::access::has_access_to_oneof (std::string const & credentials_a, std::initializer_list<nano::ipc::access_permission> permissions_a) const
 {
 	nano::unique_lock<std::mutex> lock (mutex);
 	bool permitted = false;

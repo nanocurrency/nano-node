@@ -9,7 +9,7 @@
 
 namespace
 {
-nano::account parse_account (std::string account, bool & out_is_deprecated_format)
+nano::account parse_account (std::string const & account, bool & out_is_deprecated_format)
 {
 	nano::account result (0);
 	if (account.empty ())
