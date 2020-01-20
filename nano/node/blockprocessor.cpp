@@ -37,12 +37,14 @@ void nano::block_processor::stop ()
 void nano::block_processor::flush ()
 {
 	node.checker.flush ();
+	flushing = true;
 	nano::unique_lock<std::mutex> lock (mutex);
 	while (!stopped && (have_blocks () || active))
 	{
 		condition.wait (lock);
 	}
 	blocks_filter.clear ();
+	flushing = false;
 }
 
 size_t nano::block_processor::size ()

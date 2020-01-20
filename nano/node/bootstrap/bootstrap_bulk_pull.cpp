@@ -103,7 +103,7 @@ void nano::bulk_pull_client::request ()
 void nano::bulk_pull_client::throttled_receive_block ()
 {
 	assert (!network_error);
-	if (!connection->node->block_processor.half_full ())
+	if (!connection->node->block_processor.half_full () && !connection->node->block_processor.flushing)
 	{
 		receive_block ();
 	}
