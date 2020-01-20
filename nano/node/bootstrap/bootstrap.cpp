@@ -20,7 +20,7 @@ node (node_a)
 		nano::thread_role::set (nano::thread_role::name::bootstrap_connections);
 		connections->run ();
 	}));
-	for (size_t i = 0; i < node.config.bootstrap_attempts_max; ++i)
+	for (size_t i = 0; i < node.config.bootstrap_initiator_threads; ++i)
 	{
 		bootstrap_initiator_threads.push_back (boost::thread ([this]() {
 			nano::thread_role::set (nano::thread_role::name::bootstrap_initiator);

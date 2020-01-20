@@ -63,7 +63,7 @@ public:
 	bool enable_voting{ false };
 	unsigned bootstrap_connections{ 4 };
 	unsigned bootstrap_connections_max{ 64 };
-	unsigned bootstrap_attempts_max{ network_params.network.is_test_network () ? 1u : 2u };
+	unsigned bootstrap_initiator_threads{ network_params.network.is_test_network () ? 1u : std::min<unsigned> (2, std::max<unsigned> (1, std::thread::hardware_concurrency ())) };
 	nano::websocket::config websocket_config;
 	nano::diagnostics_config diagnostics_config;
 	size_t confirmation_history_size{ 2048 };

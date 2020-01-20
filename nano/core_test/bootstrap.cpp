@@ -807,7 +807,7 @@ TEST (bootstrap_processor, multiple_attempts)
 	node1->block_processor.flush ();
 	// Start 2 concurrent bootstrap attempts
 	nano::node_config node_config (nano::get_available_port (), system.logging);
-	node_config.bootstrap_attempts_max = 3;
+	node_config.bootstrap_initiator_threads = 3;
 	auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::unique_path (), system.alarm, node_config, system.work));
 	node2->network.udp_channels.insert (node1->network.endpoint (), node2->network_params.protocol.protocol_version);
 	node2->bootstrap_initiator.bootstrap_lazy (receive2->hash (), true);
