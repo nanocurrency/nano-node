@@ -3,7 +3,6 @@
 #include <nano/node/common.hpp>
 #include <nano/node/socket.hpp>
 
-
 #include <atomic>
 
 namespace nano

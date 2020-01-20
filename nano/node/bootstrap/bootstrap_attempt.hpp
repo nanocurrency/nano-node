@@ -7,7 +7,6 @@
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/ledger.hpp>
 
-
 #include <atomic>
 #include <future>
 
