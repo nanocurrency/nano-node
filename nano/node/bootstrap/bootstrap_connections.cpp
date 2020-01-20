@@ -83,7 +83,7 @@ std::shared_ptr<nano::bootstrap_client> nano::bootstrap_connections::connection 
 	return result;
 }
 
-void nano::bootstrap_connections::pool_connection (std::shared_ptr<nano::bootstrap_client> client_a)
+void nano::bootstrap_connections::pool_connection (std::shared_ptr<nano::bootstrap_client> client_a, bool new_client)
 {
 	nano::lock_guard<std::mutex> lock (mutex);
 	if (!stopped && !client_a->pending_stop && !node.bootstrap_initiator.excluded_peers.check (client_a->channel->get_tcp_endpoint ()))
@@ -94,7 +94,10 @@ void nano::bootstrap_connections::pool_connection (std::shared_ptr<nano::bootstr
 			socket_l->start_timer (node.network_params.node.idle_timeout);
 			// Push into idle deque
 			idle.push_back (client_a);
-			clients.push_back (client_a);
+			if (new_client)
+			{
+				clients.push_back (client_a);
+			}
 		}
 	}
 	else
@@ -142,7 +145,7 @@ void nano::bootstrap_connections::connect_client (nano::tcp_endpoint const & end
 				this_l->node.logger.try_log (boost::str (boost::format ("Connection established to %1%") % endpoint_a));
 			}
 			auto client (std::make_shared<nano::bootstrap_client> (this_l->node.shared (), this_l, std::make_shared<nano::transport::channel_tcp> (*this_l->node.shared (), socket), socket));
-			this_l->pool_connection (client);
+			this_l->pool_connection (client, true);
 		}
 		else
 		{
