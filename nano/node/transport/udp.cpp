@@ -108,7 +108,7 @@ std::shared_ptr<nano::transport::channel_udp> nano::transport::udp_channels::ins
 		else
 		{
 			result = std::make_shared<nano::transport::channel_udp> (*this, endpoint_a, network_version_a);
-			channels.get<endpoint_tag> ().emplace (result);
+			channels.get<endpoint_tag> ().insert (result);
 			lock.unlock ();
 			node.network.channel_observer (result);
 		}
