@@ -132,7 +132,6 @@ port_mapping (*this),
 vote_processor (checker, active, store, observers, stats, config, logger, online_reps, ledger, network_params),
 rep_crawler (*this),
 warmed_up (0),
-votes_cache (wallets),
 block_processor (*this, write_database_queue),
 // clang-format off
 block_processor_thread ([this]() {
@@ -141,6 +140,7 @@ block_processor_thread ([this]() {
 }),
 // clang-format on
 online_reps (ledger, network_params, config.online_weight_minimum.number ()),
+votes_cache (wallets),
 vote_uniquer (block_uniquer),
 active (*this),
 aggregator (stats, network_params.network, votes_cache, store, wallets),
@@ -312,40 +312,7 @@ startup_time (std::chrono::steady_clock::now ())
 			{
 				this->gap_cache.vote (vote_a);
 				this->online_reps.observe (vote_a->account);
-				nano::uint128_t rep_weight;
-				{
-					rep_weight = ledger.weight (vote_a->account);
-				}
-				if (rep_weight > minimum_principal_weight ())
-				{
-					bool rep_crawler_exists (false);
-					for (auto hash : *vote_a)
-					{
-						if (this->rep_crawler.exists (hash))
-						{
-							rep_crawler_exists = true;
-							break;
-						}
-					}
-					if (rep_crawler_exists)
-					{
-						// We see a valid non-replay vote for a block we requested, this node is probably a representative
-						if (this->rep_crawler.response (channel_a, vote_a->account, rep_weight))
-						{
-							logger.try_log (boost::str (boost::format ("Found a representative at %1%") % channel_a->to_string ()));
-							// Rebroadcasting all active votes to new representative
-							auto blocks (this->active.list_blocks ());
-							for (auto i (blocks.begin ()), n (blocks.end ()); i != n; ++i)
-							{
-								if (*i != nullptr)
-								{
-									nano::confirm_req req (*i);
-									channel_a->send (req);
-								}
-							}
-						}
-					}
-				}
+				this->rep_crawler.response (channel_a, vote_a);
 			}
 		});
 		if (websocket_server)
