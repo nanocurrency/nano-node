@@ -150,58 +150,6 @@ void nano::bootstrap_initiator::run_bootstrap ()
 	}
 }
 
-void nano::bootstrap_initiator::run_lazy_bootstrap ()
-{
-	nano::unique_lock<std::mutex> lock (mutex);
-	while (!stopped)
-	{
-		if (!attempts_list.empty ())
-		{
-			auto lazy_attempt (find_attempt (nano::bootstrap_mode::lazy));
-			lock.unlock ();
-			if (lazy_attempt != nullptr)
-			{
-				lazy_attempt->run ();
-			}
-			lock.lock ();
-			if (lazy_attempt != nullptr)
-			{
-				remove_attempt (lazy_attempt);
-			}
-		}
-		else
-		{
-			condition.wait (lock);
-		}
-	}
-}
-
-void nano::bootstrap_initiator::run_wallet_bootstrap ()
-{
-	nano::unique_lock<std::mutex> lock (mutex);
-	while (!stopped)
-	{
-		if (!attempts_list.empty ())
-		{
-			auto wallet_attempt (find_attempt (nano::bootstrap_mode::wallet_lazy));
-			lock.unlock ();
-			if (wallet_attempt != nullptr)
-			{
-				wallet_attempt->run ();
-			}
-			lock.lock ();
-			if (wallet_attempt != nullptr)
-			{
-				remove_attempt (wallet_attempt);
-			}
-		}
-		else
-		{
-			condition.wait (lock);
-		}
-	}
-}
-
 void nano::bootstrap_initiator::lazy_requeue (nano::block_hash const & hash_a, nano::block_hash const & previous_a, bool confirmed_a)
 {
 	auto lazy_attempt (current_lazy_attempt ());
