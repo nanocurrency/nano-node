@@ -44,10 +44,10 @@ public:
 	bootstrap_connections (nano::node & node_a);
 	std::shared_ptr<nano::bootstrap_connections> shared ();
 	std::shared_ptr<nano::bootstrap_client> connection (std::shared_ptr<nano::bootstrap_attempt> attempt_a = nullptr, bool use_front_connection = false);
-	void pool_connection (std::shared_ptr<nano::bootstrap_client> client_a, bool new_client = false);
+	void pool_connection (std::shared_ptr<nano::bootstrap_client> client_a, bool new_client = false, bool push_front = false);
 	void add_connection (nano::endpoint const & endpoint_a);
 	std::shared_ptr<nano::bootstrap_client> find_connection (nano::tcp_endpoint const & endpoint_a);
-	void connect_client (nano::tcp_endpoint const & endpoint_a);
+	void connect_client (nano::tcp_endpoint const & endpoint_a, bool push_front = false);
 	unsigned target_connections (size_t pulls_remaining, size_t attempts_count);
 	void populate_connections (bool repeat = true);
 	void start_populate_connections ();

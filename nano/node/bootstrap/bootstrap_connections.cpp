@@ -83,7 +83,7 @@ std::shared_ptr<nano::bootstrap_client> nano::bootstrap_connections::connection 
 	return result;
 }
 
-void nano::bootstrap_connections::pool_connection (std::shared_ptr<nano::bootstrap_client> client_a, bool new_client)
+void nano::bootstrap_connections::pool_connection (std::shared_ptr<nano::bootstrap_client> client_a, bool new_client, bool push_front)
 {
 	nano::lock_guard<std::mutex> lock (mutex);
 	if (!stopped && !client_a->pending_stop && !node.bootstrap_initiator.excluded_peers.check (client_a->channel->get_tcp_endpoint ()))
@@ -93,7 +93,14 @@ void nano::bootstrap_connections::pool_connection (std::shared_ptr<nano::bootstr
 		{
 			socket_l->start_timer (node.network_params.node.idle_timeout);
 			// Push into idle deque
-			idle.push_back (client_a);
+			if (!push_front)
+			{
+				idle.push_back (client_a);
+			}
+			else
+			{
+				idle.push_front (client_a);
+			}
 			if (new_client)
 			{
 				clients.push_back (client_a);
@@ -112,7 +119,7 @@ void nano::bootstrap_connections::pool_connection (std::shared_ptr<nano::bootstr
 
 void nano::bootstrap_connections::add_connection (nano::endpoint const & endpoint_a)
 {
-	connect_client (nano::tcp_endpoint (endpoint_a.address (), endpoint_a.port ()));
+	connect_client (nano::tcp_endpoint (endpoint_a.address (), endpoint_a.port ()), true);
 }
 
 std::shared_ptr<nano::bootstrap_client> nano::bootstrap_connections::find_connection (nano::tcp_endpoint const & endpoint_a)
@@ -131,13 +138,13 @@ std::shared_ptr<nano::bootstrap_client> nano::bootstrap_connections::find_connec
 	return result;
 }
 
-void nano::bootstrap_connections::connect_client (nano::tcp_endpoint const & endpoint_a)
+void nano::bootstrap_connections::connect_client (nano::tcp_endpoint const & endpoint_a, bool push_front)
 {
 	++connections_count;
 	auto socket (std::make_shared<nano::socket> (node.shared ()));
 	auto this_l (shared_from_this ());
 	socket->async_connect (endpoint_a,
-	[this_l, socket, endpoint_a](boost::system::error_code const & ec) {
+	[this_l, socket, endpoint_a, push_front](boost::system::error_code const & ec) {
 		if (!ec)
 		{
 			if (this_l->node.config.logging.bulk_pull_logging ())
@@ -145,7 +152,7 @@ void nano::bootstrap_connections::connect_client (nano::tcp_endpoint const & end
 				this_l->node.logger.try_log (boost::str (boost::format ("Connection established to %1%") % endpoint_a));
 			}
 			auto client (std::make_shared<nano::bootstrap_client> (this_l->node.shared (), this_l, std::make_shared<nano::transport::channel_tcp> (*this_l->node.shared (), socket), socket));
-			this_l->pool_connection (client, true);
+			this_l->pool_connection (client, true, push_front);
 		}
 		else
 		{
