@@ -3954,7 +3954,7 @@ void nano::json_handler::telemetry ()
 			else
 			{
 				ec = nano::error_common::invalid_ip_address;
-			response_errors ();
+				response_errors ();
 			}
 		}
 		else
