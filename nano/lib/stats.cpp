@@ -213,7 +213,7 @@ std::shared_ptr<nano::stat_entry> nano::stat::get_entry_impl (uint32_t key, size
 	auto entry = entries.find (key);
 	if (entry == entries.end ())
 	{
-		res = entries.insert (std::make_pair (key, std::make_shared<nano::stat_entry> (capacity, interval))).first->second;
+		res = entries.emplace (key, std::make_shared<nano::stat_entry> (capacity, interval)).first->second;
 	}
 	else
 	{

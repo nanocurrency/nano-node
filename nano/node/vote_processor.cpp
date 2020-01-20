@@ -142,7 +142,7 @@ void nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, std::shared
 		}
 		if (process)
 		{
-			votes.push_back (std::make_pair (vote_a, channel_a));
+			votes.emplace_back (vote_a, channel_a);
 
 			lock.unlock ();
 			condition.notify_all ();
@@ -169,7 +169,7 @@ void nano::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<na
 	signatures.reserve (size);
 	std::vector<int> verifications;
 	verifications.resize (size);
-	for (auto & vote : votes_a)
+	for (auto const & vote : votes_a)
 	{
 		hashes.push_back (vote.first->hash ());
 		messages.push_back (hashes.back ().bytes.data ());
@@ -180,7 +180,7 @@ void nano::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<na
 	checker.verify (check);
 	std::remove_reference_t<decltype (votes_a)> result;
 	auto i (0);
-	for (auto & vote : votes_a)
+	for (auto const & vote : votes_a)
 	{
 		assert (verifications[i] == 1 || verifications[i] == 0);
 		if (verifications[i] == 1)

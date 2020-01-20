@@ -218,7 +218,6 @@ void nano::websocket::session::close ()
 	ws_listener.get_logger ().try_log ("Websocket: session closing");
 
 	auto this_l (shared_from_this ());
-	// clang-format off
 	boost::asio::dispatch (strand,
 	[this_l]() {
 		boost::beast::websocket::close_reason reason;
@@ -227,12 +226,10 @@ void nano::websocket::session::close ()
 		boost::system::error_code ec_ignore;
 		this_l->ws.close (reason, ec_ignore);
 	});
-	// clang-format on
 }
 
 void nano::websocket::session::write (nano::websocket::message message_a)
 {
-	// clang-format off
 	nano::unique_lock<std::mutex> lk (subscriptions_mutex);
 	auto subscription (subscriptions.find (message_a.topic));
 	if (message_a.topic == nano::websocket::topic::ack || (subscription != subscriptions.end () && !subscription->second->should_filter (message_a)))
@@ -249,7 +246,6 @@ void nano::websocket::session::write (nano::websocket::message message_a)
 			}
 		});
 	}
-	// clang-format on
 }
 
 void nano::websocket::session::write_queued_messages ()
@@ -257,7 +253,6 @@ void nano::websocket::session::write_queued_messages ()
 	auto msg (send_queue.front ().to_string ());
 	auto this_l (shared_from_this ());
 
-	// clang-format off
 	ws.async_write (nano::shared_const_buffer (msg),
 	boost::asio::bind_executor (strand,
 	[this_l](boost::system::error_code ec, std::size_t bytes_transferred) {
@@ -270,14 +265,12 @@ void nano::websocket::session::write_queued_messages ()
 			}
 		}
 	}));
-	// clang-format on
 }
 
 void nano::websocket::session::read ()
 {
 	auto this_l (shared_from_this ());
 
-	// clang-format off
 	boost::asio::post (strand, [this_l]() {
 		this_l->ws.async_read (this_l->read_buffer,
 		boost::asio::bind_executor (this_l->strand,
@@ -309,7 +302,6 @@ void nano::websocket::session::read ()
 			}
 		}));
 	});
-	// clang-format on
 }
 
 namespace
@@ -430,7 +422,7 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 		}
 		else
 		{
-			subscriptions.insert (std::make_pair (topic_l, std::move (options_l)));
+			subscriptions.emplace (topic_l, std::move (options_l));
 			ws_listener.get_logger ().always_log ("Websocket: new subscription to topic: ", from_topic (topic_l));
 			ws_listener.increase_subscriber_count (topic_l);
 		}
