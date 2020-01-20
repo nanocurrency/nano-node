@@ -867,7 +867,10 @@ void nano::node::bootstrap_wallet ()
 			}
 		}
 	}
-	bootstrap_initiator.bootstrap_wallet (accounts);
+	if (!accounts.empty ())
+	{
+		bootstrap_initiator.bootstrap_wallet (accounts);
+	}
 }
 
 void nano::node::unchecked_cleanup ()

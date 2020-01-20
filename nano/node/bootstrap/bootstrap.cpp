@@ -106,6 +106,7 @@ void nano::bootstrap_initiator::bootstrap_lazy (nano::hash_or_account const & ha
 
 void nano::bootstrap_initiator::bootstrap_wallet (std::deque<nano::account> & accounts_a)
 {
+	assert (!accounts_a.empty ());
 	auto wallet_attempt (current_wallet_attempt ());
 	node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate_wallet_lazy, nano::stat::dir::out);
 	if (wallet_attempt == nullptr)
