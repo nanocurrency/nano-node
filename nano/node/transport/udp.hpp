@@ -181,7 +181,7 @@ namespace transport
 		attempts;
 		// clang-format on
 		boost::asio::strand<boost::asio::io_context::executor_type> strand;
-		boost::asio::ip::udp::socket socket;
+		std::unique_ptr<boost::asio::ip::udp::socket> socket;
 		nano::endpoint local_endpoint;
 		std::atomic<bool> stopped{ false };
 	};

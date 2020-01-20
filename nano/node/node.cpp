@@ -382,6 +382,22 @@ startup_time (std::chrono::steady_clock::now ())
 			std::exit (1);
 		}
 
+		if (config.enable_voting)
+		{
+			std::ostringstream stream;
+			stream << "Voting is enabled, more system resources will be used";
+			auto voting (wallets.rep_counts ().voting);
+			if (voting > 0)
+			{
+				stream << ". " << voting << " representative(s) are configured";
+				if (voting > 1)
+				{
+					stream << ". Voting with more than one representative can limit performance";
+				}
+			}
+			logger.always_log (stream.str ());
+		}
+
 		node_id = nano::keypair ();
 		logger.always_log ("Node ID: ", node_id.pub.to_node_id ());
 
@@ -630,9 +646,11 @@ void nano::node::start ()
 	ongoing_rep_calculation ();
 	ongoing_peer_store ();
 	ongoing_online_weight_calculation_queue ();
-	if (config.tcp_incoming_connections_max > 0)
+	bool tcp_enabled (false);
+	if (config.tcp_incoming_connections_max > 0 && !(flags.disable_bootstrap_listener && flags.disable_tcp_realtime))
 	{
 		bootstrap.start ();
+		tcp_enabled = true;
 	}
 	if (!flags.disable_backup)
 	{
@@ -647,7 +665,8 @@ void nano::node::start ()
 			this_l->bootstrap_wallet ();
 		});
 	}
-	if (config.external_address == boost::asio::ip::address_v6{}.any ().to_string ())
+	// Start port mapping if external address is not defined and TCP or UDP ports are enabled
+	if (config.external_address == boost::asio::ip::address_v6{}.any ().to_string () && (tcp_enabled || !flags.disable_udp))
 	{
 		port_mapping.start ();
 	}
@@ -1339,6 +1358,9 @@ nano::node_flags const & nano::inactive_node_flag_defaults ()
 	node_flags.generate_cache.reps = false;
 	node_flags.generate_cache.cemented_count = false;
 	node_flags.generate_cache.unchecked_count = false;
+	node_flags.disable_udp = true;
+	node_flags.disable_bootstrap_listener = true;
+	node_flags.disable_tcp_realtime = true;
 	return node_flags;
 }
 

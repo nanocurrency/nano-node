@@ -109,14 +109,14 @@ nano::system::system ()
 	logging.init (nano::unique_path ());
 }
 
-nano::system::system (uint16_t count_a, nano::transport::transport_type type_a) :
+nano::system::system (uint16_t count_a, nano::transport::transport_type type_a, nano::node_flags flags_a) :
 system ()
 {
 	nodes.reserve (count_a);
 	for (uint16_t i (0); i < count_a; ++i)
 	{
 		nano::node_config config (nano::get_available_port (), logging);
-		add_node (config, nano::node_flags (), type_a);
+		add_node (config, flags_a, type_a);
 	}
 }
 
