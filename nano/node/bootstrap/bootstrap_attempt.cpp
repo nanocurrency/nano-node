@@ -584,6 +584,7 @@ void nano::bootstrap_attempt_legacy::run ()
 void nano::bootstrap_attempt_legacy::get_information (boost::property_tree::ptree & tree_a)
 {
 	assert (!mutex.try_lock ());
+	tree_a.put ("frontier_pulls", std::to_string (frontier_pulls.size ()));
 	tree_a.put ("frontiers_received", static_cast<bool> (frontiers_received));
 	tree_a.put ("frontiers_confirmed", static_cast<bool> (frontiers_confirmed));
 	tree_a.put ("frontiers_confirmation_pending", static_cast<bool> (frontiers_confirmation_pending));
