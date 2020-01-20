@@ -542,7 +542,7 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, bool 
 			error = nano::work_validate (*block_a, &difficulty);
 			release_assert (!error);
 			roots.get<tag_root> ().emplace (nano::conflict_info{ root, difficulty, difficulty, election });
-			blocks.insert (std::make_pair (hash, election));
+			blocks.emplace (hash, election);
 			adjust_difficulty (hash);
 			election->insert_inactive_votes_cache (hash);
 		}
@@ -882,7 +882,7 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 		result = election->publish (block_a);
 		if (!result && !election->confirmed)
 		{
-			blocks.insert (std::make_pair (block_a->hash (), election));
+			blocks.emplace (block_a->hash (), election);
 		}
 	}
 	return result;

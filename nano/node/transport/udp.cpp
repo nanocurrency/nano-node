@@ -108,7 +108,7 @@ std::shared_ptr<nano::transport::channel_udp> nano::transport::udp_channels::ins
 		else
 		{
 			result = std::make_shared<nano::transport::channel_udp> (*this, endpoint_a, network_version_a);
-			channels.get<endpoint_tag> ().insert ({ result });
+			channels.get<endpoint_tag> ().insert (result);
 			lock.unlock ();
 			node.network.channel_observer (result);
 		}
@@ -598,9 +598,8 @@ bool nano::transport::udp_channels::reachout (nano::endpoint const & endpoint_a)
 		// Don't keepalive to nodes that already sent us something
 		error |= channel (endpoint_l) != nullptr;
 		nano::lock_guard<std::mutex> lock (mutex);
-		auto existing (attempts.find (endpoint_l));
-		error |= existing != attempts.end ();
-		attempts.insert ({ endpoint_l, std::chrono::steady_clock::now () });
+		auto inserted (attempts.emplace (endpoint_l));
+		error |= !inserted.second;
 	}
 	return error;
 }
@@ -660,9 +659,9 @@ void nano::transport::udp_channels::ongoing_keepalive ()
 void nano::transport::udp_channels::list (std::deque<std::shared_ptr<nano::transport::channel>> & deque_a)
 {
 	nano::lock_guard<std::mutex> lock (mutex);
-	for (auto i (channels.begin ()), j (channels.end ()); i != j; ++i)
+	for (auto const & channel : channels.get<random_access_tag> ())
 	{
-		deque_a.push_back (i->channel);
+		deque_a.push_back (channel.channel);
 	}
 }
 

@@ -1743,7 +1743,7 @@ void nano::wallets::queue_wallet_action (nano::uint128_t const & amount_a, std::
 {
 	{
 		nano::lock_guard<std::mutex> action_lock (action_mutex);
-		actions.insert (std::make_pair (amount_a, std::make_pair (wallet_a, std::move (action_a))));
+		actions.emplace (amount_a, std::make_pair (wallet_a, std::move (action_a)));
 	}
 	condition.notify_all ();
 }
