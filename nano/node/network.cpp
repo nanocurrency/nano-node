@@ -220,7 +220,7 @@ void nano::network::flood_message (nano::message const & message_a, bool const i
 	}
 }
 
-void nano::network::flood_vote (std::shared_ptr<nano::vote> vote_a, float scale)
+void nano::network::flood_vote (std::shared_ptr<nano::vote> const & vote_a, float scale)
 {
 	nano::confirm_ack message (vote_a);
 	for (auto & i : list_non_pr (fanout (scale)))
@@ -229,7 +229,7 @@ void nano::network::flood_vote (std::shared_ptr<nano::vote> vote_a, float scale)
 	}
 }
 
-void nano::network::flood_vote_pr (std::shared_ptr<nano::vote> vote_a)
+void nano::network::flood_vote_pr (std::shared_ptr<nano::vote> const & vote_a)
 {
 	nano::confirm_ack message (vote_a);
 	for (auto const & i : node.rep_crawler.principal_representatives ())
@@ -281,7 +281,7 @@ void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> block_a)
 	if (list->empty () || node.rep_crawler.total_weight () < node.config.online_weight_minimum.number ())
 	{
 		// broadcast request to all peers (with max limit 2 * sqrt (peers count))
-		auto peers (node.network.list (std::min<size_t> (100, node.network.fanout (2.F))));
+		auto peers (node.network.list (std::min<size_t> (100, node.network.fanout (2.0))));
 		list->clear ();
 		list->insert (list->end (), peers.begin (), peers.end ());
 	}

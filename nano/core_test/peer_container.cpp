@@ -131,13 +131,13 @@ TEST (peer_container, list_fanout)
 	};
 	add_peer (9998);
 	ASSERT_EQ (1, node.network.size ());
-	ASSERT_EQ (1.0, node.network.size_sqrt ());
+	ASSERT_EQ (1.f, node.network.size_sqrt ());
 	ASSERT_EQ (1, node.network.fanout ());
 	auto list2 (node.network.list (node.network.fanout ()));
 	ASSERT_EQ (1, list2.size ());
 	add_peer (9999);
 	ASSERT_EQ (2, node.network.size ());
-	ASSERT_EQ (std::sqrt (2.F), node.network.size_sqrt ());
+	ASSERT_EQ (std::sqrt (2.f), node.network.size_sqrt ());
 	ASSERT_EQ (2, node.network.fanout ());
 	auto list3 (node.network.list (node.network.fanout ()));
 	ASSERT_EQ (2, list3.size ());

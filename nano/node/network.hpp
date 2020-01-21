@@ -105,8 +105,8 @@ public:
 		random_fill (message.peers);
 		flood_message (message);
 	}
-	void flood_vote (std::shared_ptr<nano::vote>, float scale);
-	void flood_vote_pr (std::shared_ptr<nano::vote>);
+	void flood_vote (std::shared_ptr<nano::vote> const &, float scale);
+	void flood_vote_pr (std::shared_ptr<nano::vote> const &);
 	void flood_block (std::shared_ptr<nano::block> block_a, bool const is_droppable_a = true)
 	{
 		nano::publish publish (block_a);
