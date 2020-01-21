@@ -229,30 +229,25 @@ bool nano::network::send_votes_cache (std::shared_ptr<nano::transport::channel> 
 
 void nano::network::flood_message (nano::message const & message_a, bool const is_droppable_a)
 {
-	auto list (list_fanout ());
-	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
+	for (auto & i : list (fanout ()))
 	{
-		(*i)->send (message_a, nullptr, is_droppable_a);
+		i->send (message_a, nullptr, is_droppable_a);
 	}
 }
 
 void nano::network::flood_vote (std::shared_ptr<nano::vote> vote_a, float scale)
 {
-	auto list (list_fanout (scale));
-	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
+	nano::confirm_ack message (vote_a);
+	for (auto & i : list_non_pr (fanout (scale)))
 	{
-		if (!node.rep_crawler.is_pr (**i))
-		{
-			(*i)->send (nano::confirm_ack (vote_a));
-		}
+		i->send (message, nullptr);
 	}
 }
 
 void nano::network::flood_vote_pr (std::shared_ptr<nano::vote> vote_a)
 {
 	nano::confirm_ack message (vote_a);
-	auto list = node.rep_crawler.principal_representatives ();
-	for (auto const & i: list)
+	for (auto const & i : node.rep_crawler.principal_representatives ())
 	{
 		i.channel->send (message, nullptr, false);
 	}
@@ -699,11 +694,27 @@ std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list (size_
 	return result;
 }
 
-// Simulating with sqrt_broadcast_simulate shows we only need to broadcast to sqrt(total_peers) random peers in order to successfully publish to everyone with high probability
-std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list_fanout (float scale)
+std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list_non_pr (size_t count_a)
 {
-	auto result (list (static_cast<size_t> (std::ceil (scale * size_sqrt ()))));
+	std::deque<std::shared_ptr<nano::transport::channel>> result;
+	tcp_channels.list (result);
+	udp_channels.list (result);
+	nano::random_pool_shuffle (result.begin (), result.end ());
+	result.erase (std::remove_if (result.begin (), result.end (), [this](std::shared_ptr<nano::transport::channel> const & channel) {
+		return this->node.rep_crawler.is_pr (*channel);
+	}),
+	result.end ());
+	if (result.size () > count_a)
+	{
+		result.resize (count_a, nullptr);
+	}
 	return result;
+}
+
+// Simulating with sqrt_broadcast_simulate shows we only need to broadcast to sqrt(total_peers) random peers in order to successfully publish to everyone with high probability
+size_t nano::network::fanout (float scale) const
+{
+	return static_cast<size_t> (std::ceil (scale * size_sqrt ()));
 }
 
 std::unordered_set<std::shared_ptr<nano::transport::channel>> nano::network::random_set (size_t count_a) const

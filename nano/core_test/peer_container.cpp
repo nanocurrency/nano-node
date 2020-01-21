@@ -118,13 +118,13 @@ TEST (channels, fill_random_part)
 TEST (peer_container, list_fanout)
 {
 	nano::system system (1);
-	auto list1 (system.nodes[0]->network.list_fanout ());
+	auto list1 (system.nodes[0]->network.list (system.nodes[0]->network.fanout ()));
 	ASSERT_TRUE (list1.empty ());
 	for (auto i (0); i < 1000; ++i)
 	{
 		ASSERT_NE (nullptr, system.nodes[0]->network.udp_channels.insert (nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000 + i), system.nodes[0]->network_params.protocol.protocol_version));
 	}
-	auto list2 (system.nodes[0]->network.list_fanout ());
+	auto list2 (system.nodes[0]->network.list (system.nodes[0]->network.fanout ()));
 	ASSERT_EQ (32, list2.size ());
 }
 

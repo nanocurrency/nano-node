@@ -133,8 +133,9 @@ public:
 	// Should we reach out to this endpoint with a keepalive message
 	bool reachout (nano::endpoint const &, bool = false);
 	std::deque<std::shared_ptr<nano::transport::channel>> list (size_t);
-	// A list of random peers sized for the configured rebroadcast fanout
-	std::deque<std::shared_ptr<nano::transport::channel>> list_fanout (float scale = 1.0f);
+	std::deque<std::shared_ptr<nano::transport::channel>> list_non_pr (size_t);
+	// Desired fanout for a given scale
+	size_t fanout (float scale = 1.0f) const;
 	void random_fill (std::array<nano::endpoint, 8> &) const;
 	std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (size_t) const;
 	// Get the next peer for attempting a tcp bootstrap connection
