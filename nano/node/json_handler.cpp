@@ -226,7 +226,7 @@ nano::account_info nano::json_handler::account_info_impl (nano::transaction cons
 		if (node.store.account_get (transaction_a, account_a, result))
 		{
 			ec = nano::error_common::account_not_found;
-			node.bootstrap_initiator.bootstrap_lazy (account_a, false, false);
+			node.bootstrap_initiator.bootstrap_lazy (account_a, false, false, account_a.to_account ());
 		}
 	}
 	return result;
@@ -533,8 +533,8 @@ void nano::json_handler::account_info ()
 		const bool pending = request.get<bool> ("pending", false);
 		auto transaction (node.store.tx_begin_read ());
 		auto info (account_info_impl (transaction, account));
-		uint64_t confirmation_height;
-		if (node.store.confirmation_height_get (transaction, account, confirmation_height))
+		nano::confirmation_height_info confirmation_height_info;
+		if (node.store.confirmation_height_get (transaction, account, confirmation_height_info))
 		{
 			ec = nano::error_common::account_not_found;
 		}
@@ -549,7 +549,8 @@ void nano::json_handler::account_info ()
 			response_l.put ("modified_timestamp", std::to_string (info.modified));
 			response_l.put ("block_count", std::to_string (info.block_count));
 			response_l.put ("account_version", epoch_as_string (info.epoch ()));
-			response_l.put ("confirmation_height", std::to_string (confirmation_height));
+			response_l.put ("confirmation_height", std::to_string (confirmation_height_info.height));
+			response_l.put ("confirmation_height_frontier", confirmation_height_info.frontier.to_string ());
 			if (representative)
 			{
 				response_l.put ("representative", info.representative.to_account ());
@@ -676,9 +677,7 @@ void nano::json_handler::account_representative ()
 void nano::json_handler::account_representative_set ()
 {
 	auto rpc_l (shared_from_this ());
-	// clang-format off
-	node.worker.push_task ([ rpc_l, work_generation_enabled = node.work_generation_enabled () ]() {
-		// clang-format on
+	node.worker.push_task ([rpc_l, work_generation_enabled = node.work_generation_enabled ()]() {
 		auto wallet (rpc_l->wallet_impl ());
 		auto account (rpc_l->account_impl ());
 		std::string representative_text (rpc_l->request.get<std::string> ("representative"));
@@ -716,22 +715,21 @@ void nano::json_handler::account_representative_set ()
 				bool generate_work (work == 0); // Disable work generation if "work" option is provided
 				auto response_a (rpc_l->response);
 				auto response_data (std::make_shared<boost::property_tree::ptree> (rpc_l->response_l));
-				// clang-format off
-				wallet->change_async(account, representative, [response_a, response_data](std::shared_ptr<nano::block> block) {
+				wallet->change_async (
+				account, representative, [response_a, response_data](std::shared_ptr<nano::block> block) {
 					if (block != nullptr)
 					{
-						response_data->put("block", block->hash().to_string());
+						response_data->put ("block", block->hash ().to_string ());
 						std::stringstream ostream;
-						boost::property_tree::write_json(ostream, *response_data);
-						response_a(ostream.str());
+						boost::property_tree::write_json (ostream, *response_data);
+						response_a (ostream.str ());
 					}
 					else
 					{
-						json_error_response(response_a, "Error generating block");
+						json_error_response (response_a, "Error generating block");
 					}
 				},
-					work, generate_work);
-				// clang-format on
+				work, generate_work);
 			}
 		}
 		// Because of change_async
@@ -1598,7 +1596,8 @@ void nano::json_handler::bootstrap ()
 		{
 			if (!node.flags.disable_legacy_bootstrap)
 			{
-				node.bootstrap_initiator.bootstrap (nano::endpoint (address, port), true, bypass_frontier_confirmation);
+				std::string bootstrap_id (request.get<std::string> ("id", ""));
+				node.bootstrap_initiator.bootstrap (nano::endpoint (address, port), true, bypass_frontier_confirmation, bootstrap_id);
 				response_l.put ("success", "");
 			}
 			else
@@ -1623,7 +1622,8 @@ void nano::json_handler::bootstrap_any ()
 	const bool force = request.get<bool> ("force", false);
 	if (!node.flags.disable_legacy_bootstrap)
 	{
-		node.bootstrap_initiator.bootstrap (force);
+		std::string bootstrap_id (request.get<std::string> ("id", ""));
+		node.bootstrap_initiator.bootstrap (force, bootstrap_id);
 		response_l.put ("success", "");
 	}
 	else
@@ -1641,7 +1641,8 @@ void nano::json_handler::bootstrap_lazy ()
 	{
 		if (!node.flags.disable_lazy_bootstrap)
 		{
-			node.bootstrap_initiator.bootstrap_lazy (hash, force);
+			std::string bootstrap_id (request.get<std::string> ("id", ""));
+			node.bootstrap_initiator.bootstrap_lazy (hash, force, true, bootstrap_id);
 			response_l.put ("started", "1");
 		}
 		else
@@ -1662,6 +1663,7 @@ void nano::json_handler::bootstrap_status ()
 	{
 		nano::lock_guard<std::mutex> lock (attempt->mutex);
 		nano::lock_guard<std::mutex> lazy_lock (attempt->lazy_mutex);
+		response_l.put ("id", attempt->id);
 		response_l.put ("clients", std::to_string (attempt->clients.size ()));
 		response_l.put ("pulls", std::to_string (attempt->pulls.size ()));
 		response_l.put ("pulling", std::to_string (attempt->pulling));
@@ -1673,20 +1675,7 @@ void nano::json_handler::bootstrap_status ()
 		response_l.put ("requeued_pulls", std::to_string (attempt->requeued_pulls));
 		response_l.put ("frontiers_received", static_cast<bool> (attempt->frontiers_received));
 		response_l.put ("frontiers_confirmed", static_cast<bool> (attempt->frontiers_confirmed));
-		std::string mode_text;
-		if (attempt->mode == nano::bootstrap_mode::legacy)
-		{
-			mode_text = "legacy";
-		}
-		else if (attempt->mode == nano::bootstrap_mode::lazy)
-		{
-			mode_text = "lazy";
-		}
-		else if (attempt->mode == nano::bootstrap_mode::wallet_lazy)
-		{
-			mode_text = "wallet_lazy";
-		}
-		response_l.put ("mode", mode_text);
+		response_l.put ("mode", attempt->mode_text ());
 		response_l.put ("lazy_blocks", std::to_string (attempt->lazy_blocks.size ()));
 		response_l.put ("lazy_state_backlog", std::to_string (attempt->lazy_state_backlog.size ()));
 		response_l.put ("lazy_balances", std::to_string (attempt->lazy_balances.size ()));
@@ -1774,7 +1763,7 @@ void nano::json_handler::confirmation_height_currently_processing ()
 	auto hash = node.pending_confirmation_height.current ();
 	if (!hash.is_zero ())
 	{
-		response_l.put ("hash", node.pending_confirmation_height.current ().to_string ());
+		response_l.put ("hash", hash.to_string ());
 	}
 	else
 	{
@@ -3375,23 +3364,22 @@ void nano::json_handler::receive ()
 						nano::account representative (wallet->store.representative (wallet_transaction));
 						bool generate_work (work == 0); // Disable work generation if "work" option is provided
 						auto response_a (response);
-						// clang-format off
-						wallet->receive_async(std::move(block), representative, node.network_params.ledger.genesis_amount, [response_a](std::shared_ptr<nano::block> block_a) {
+						wallet->receive_async (
+						std::move (block), representative, node.network_params.ledger.genesis_amount, [response_a](std::shared_ptr<nano::block> block_a) {
 							if (block_a != nullptr)
 							{
 								boost::property_tree::ptree response_l;
-								response_l.put("block", block_a->hash().to_string());
+								response_l.put ("block", block_a->hash ().to_string ());
 								std::stringstream ostream;
-								boost::property_tree::write_json(ostream, response_l);
-								response_a(ostream.str());
+								boost::property_tree::write_json (ostream, response_l);
+								response_a (ostream.str ());
 							}
 							else
 							{
-								json_error_response(response_a, "Error generating block");
+								json_error_response (response_a, "Error generating block");
 							}
 						},
-							work, generate_work);
-						// clang-format on
+						work, generate_work);
 					}
 				}
 				else
@@ -3712,30 +3700,29 @@ void nano::json_handler::send ()
 			boost::optional<std::string> send_id (request.get_optional<std::string> ("id"));
 			auto response_a (response);
 			auto response_data (std::make_shared<boost::property_tree::ptree> (response_l));
-			// clang-format off
-			wallet->send_async(source, destination, amount.number(), [balance, amount, response_a, response_data](std::shared_ptr<nano::block> block_a) {
+			wallet->send_async (
+			source, destination, amount.number (), [balance, amount, response_a, response_data](std::shared_ptr<nano::block> block_a) {
 				if (block_a != nullptr)
 				{
-					response_data->put("block", block_a->hash().to_string());
+					response_data->put ("block", block_a->hash ().to_string ());
 					std::stringstream ostream;
-					boost::property_tree::write_json(ostream, *response_data);
-					response_a(ostream.str());
+					boost::property_tree::write_json (ostream, *response_data);
+					response_a (ostream.str ());
 				}
 				else
 				{
-					if (balance >= amount.number())
+					if (balance >= amount.number ())
 					{
-						json_error_response(response_a, "Error generating block");
+						json_error_response (response_a, "Error generating block");
 					}
 					else
 					{
-						std::error_code ec(nano::error_common::insufficient_balance);
-						json_error_response(response_a, ec.message());
+						std::error_code ec (nano::error_common::insufficient_balance);
+						json_error_response (response_a, ec.message ());
 					}
 				}
 			},
-				work, generate_work, send_id);
-			// clang-format on
+			work, generate_work, send_id);
 		}
 	}
 	// Because of send_async
@@ -3942,6 +3929,7 @@ void nano::json_handler::unchecked_clear ()
 	node.worker.push_task ([rpc_l]() {
 		auto transaction (rpc_l->node.store.tx_begin_write ());
 		rpc_l->node.store.unchecked_clear (transaction);
+		rpc_l->node.ledger.cache.unchecked_count = 0;
 		rpc_l->response_l.put ("success", "");
 		rpc_l->response_errors ();
 	});
@@ -4663,9 +4651,8 @@ void nano::json_handler::wallet_representative_set ()
 				}
 				for (auto & account : accounts)
 				{
-					// clang-format off
-					wallet->change_async(account, representative, [](std::shared_ptr<nano::block>) {}, 0, false);
-					// clang-format on
+					wallet->change_async (
+					account, representative, [](std::shared_ptr<nano::block>) {}, 0, false);
 				}
 			}
 		}

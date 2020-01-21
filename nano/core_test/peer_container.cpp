@@ -15,17 +15,18 @@ TEST (peer_container, empty_peers)
 TEST (peer_container, no_recontact)
 {
 	nano::system system (1);
-	nano::network & network (system.nodes[0]->network);
+	auto & node1 (*system.nodes[0]);
+	nano::network & network (node1.network);
 	auto observed_peer (0);
 	auto observed_disconnect (false);
 	nano::endpoint endpoint1 (boost::asio::ip::address_v6::loopback (), 10000);
 	ASSERT_EQ (0, network.size ());
 	network.channel_observer = [&observed_peer](std::shared_ptr<nano::transport::channel>) { ++observed_peer; };
-	system.nodes[0]->network.disconnect_observer = [&observed_disconnect]() { observed_disconnect = true; };
-	auto channel (network.udp_channels.insert (endpoint1, system.nodes[0]->network_params.protocol.protocol_version));
+	node1.network.disconnect_observer = [&observed_disconnect]() { observed_disconnect = true; };
+	auto channel (network.udp_channels.insert (endpoint1, node1.network_params.protocol.protocol_version));
 	ASSERT_EQ (1, network.size ());
-	ASSERT_EQ (channel, network.udp_channels.insert (endpoint1, system.nodes[0]->network_params.protocol.protocol_version));
-	system.nodes[0]->network.cleanup (std::chrono::steady_clock::now () + std::chrono::seconds (5));
+	ASSERT_EQ (channel, network.udp_channels.insert (endpoint1, node1.network_params.protocol.protocol_version));
+	node1.network.cleanup (std::chrono::steady_clock::now () + std::chrono::seconds (5));
 	ASSERT_TRUE (network.empty ());
 	ASSERT_EQ (1, observed_peer);
 	ASSERT_TRUE (observed_disconnect);
@@ -55,25 +56,26 @@ TEST (peer_container, reserved_peers_no_contact)
 TEST (peer_container, split)
 {
 	nano::system system (1);
+	auto & node1 (*system.nodes[0]);
 	auto now (std::chrono::steady_clock::now ());
 	nano::endpoint endpoint1 (boost::asio::ip::address_v6::loopback (), 100);
 	nano::endpoint endpoint2 (boost::asio::ip::address_v6::loopback (), 101);
-	auto channel1 (system.nodes[0]->network.udp_channels.insert (endpoint1, 0));
+	auto channel1 (node1.network.udp_channels.insert (endpoint1, 0));
 	ASSERT_NE (nullptr, channel1);
-	system.nodes[0]->network.udp_channels.modify (channel1, [&now](auto channel) {
+	node1.network.udp_channels.modify (channel1, [&now](auto channel) {
 		channel->set_last_packet_received (now - std::chrono::seconds (1));
 	});
-	auto channel2 (system.nodes[0]->network.udp_channels.insert (endpoint2, 0));
+	auto channel2 (node1.network.udp_channels.insert (endpoint2, 0));
 	ASSERT_NE (nullptr, channel2);
-	system.nodes[0]->network.udp_channels.modify (channel2, [&now](auto channel) {
+	node1.network.udp_channels.modify (channel2, [&now](auto channel) {
 		channel->set_last_packet_received (now + std::chrono::seconds (1));
 	});
-	ASSERT_EQ (2, system.nodes[0]->network.size ());
-	ASSERT_EQ (2, system.nodes[0]->network.udp_channels.size ());
-	system.nodes[0]->network.cleanup (now);
-	ASSERT_EQ (1, system.nodes[0]->network.size ());
-	ASSERT_EQ (1, system.nodes[0]->network.udp_channels.size ());
-	auto list (system.nodes[0]->network.list (1));
+	ASSERT_EQ (2, node1.network.size ());
+	ASSERT_EQ (2, node1.network.udp_channels.size ());
+	node1.network.cleanup (now);
+	ASSERT_EQ (1, node1.network.size ());
+	ASSERT_EQ (1, node1.network.udp_channels.size ());
+	auto list (node1.network.list (1));
 	ASSERT_EQ (endpoint2, list[0]->get_endpoint ());
 }
 
@@ -155,20 +157,21 @@ TEST (peer_container, list_fanout)
 TEST (peer_container, reachout)
 {
 	nano::system system (1);
+	auto & node1 (*system.nodes[0]);
 	nano::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), nano::get_available_port ());
 	// Make sure having been contacted by them already indicates we shouldn't reach out
-	system.nodes[0]->network.udp_channels.insert (endpoint0, system.nodes[0]->network_params.protocol.protocol_version);
-	ASSERT_TRUE (system.nodes[0]->network.reachout (endpoint0));
+	node1.network.udp_channels.insert (endpoint0, node1.network_params.protocol.protocol_version);
+	ASSERT_TRUE (node1.network.reachout (endpoint0));
 	nano::endpoint endpoint1 (boost::asio::ip::address_v6::loopback (), nano::get_available_port ());
-	ASSERT_FALSE (system.nodes[0]->network.reachout (endpoint1));
+	ASSERT_FALSE (node1.network.reachout (endpoint1));
 	// Reaching out to them once should signal we shouldn't reach out again.
-	ASSERT_TRUE (system.nodes[0]->network.reachout (endpoint1));
+	ASSERT_TRUE (node1.network.reachout (endpoint1));
 	// Make sure we don't purge new items
-	system.nodes[0]->network.cleanup (std::chrono::steady_clock::now () - std::chrono::seconds (10));
-	ASSERT_TRUE (system.nodes[0]->network.reachout (endpoint1));
+	node1.network.cleanup (std::chrono::steady_clock::now () - std::chrono::seconds (10));
+	ASSERT_TRUE (node1.network.reachout (endpoint1));
 	// Make sure we purge old items
-	system.nodes[0]->network.cleanup (std::chrono::steady_clock::now () + std::chrono::seconds (10));
-	ASSERT_FALSE (system.nodes[0]->network.reachout (endpoint1));
+	node1.network.cleanup (std::chrono::steady_clock::now () + std::chrono::seconds (10));
+	ASSERT_FALSE (node1.network.reachout (endpoint1));
 }
 
 TEST (peer_container, depeer)
