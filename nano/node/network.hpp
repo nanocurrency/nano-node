@@ -105,11 +105,8 @@ public:
 		random_fill (message.peers);
 		flood_message (message);
 	}
-	void flood_vote (std::shared_ptr<nano::vote> vote_a)
-	{
-		nano::confirm_ack message (vote_a);
-		flood_message (message);
-	}
+	void flood_vote (std::shared_ptr<nano::vote> const &, float scale);
+	void flood_vote_pr (std::shared_ptr<nano::vote> const &);
 	void flood_block (std::shared_ptr<nano::block> block_a, bool const is_droppable_a = true)
 	{
 		nano::publish publish (block_a);
@@ -136,8 +133,9 @@ public:
 	// Should we reach out to this endpoint with a keepalive message
 	bool reachout (nano::endpoint const &, bool = false);
 	std::deque<std::shared_ptr<nano::transport::channel>> list (size_t);
-	// A list of random peers sized for the configured rebroadcast fanout
-	std::deque<std::shared_ptr<nano::transport::channel>> list_fanout ();
+	std::deque<std::shared_ptr<nano::transport::channel>> list_non_pr (size_t);
+	// Desired fanout for a given scale
+	size_t fanout (float scale = 1.0f) const;
 	void random_fill (std::array<nano::endpoint, 8> &) const;
 	std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (size_t) const;
 	// Get the next peer for attempting a tcp bootstrap connection
@@ -150,7 +148,7 @@ public:
 	void ongoing_syn_cookie_cleanup ();
 	void ongoing_keepalive ();
 	size_t size () const;
-	size_t size_sqrt () const;
+	float size_sqrt () const;
 	bool empty () const;
 	nano::message_buffer_manager buffer_container;
 	boost::asio::ip::udp::resolver resolver;
