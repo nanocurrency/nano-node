@@ -51,6 +51,7 @@ TEST (request_aggregator, one)
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_ignored));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cached));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_dropped));
 	ASSERT_EQ (2, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 }
 
@@ -87,6 +88,7 @@ TEST (request_aggregator, one_update)
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_ignored));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cached));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_dropped));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 }
 
@@ -130,6 +132,7 @@ TEST (request_aggregator, two)
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_ignored));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cached));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_dropped));
 	ASSERT_EQ (2, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 	// Make sure the cached vote is for both hashes
 	auto vote1 (node.votes_cache.find (send1->hash ()));
@@ -170,6 +173,7 @@ TEST (request_aggregator, two_endpoints)
 	ASSERT_EQ (0, node1.stats.count (nano::stat::type::requests, nano::stat::detail::requests_ignored));
 	ASSERT_EQ (1, node1.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated));
 	ASSERT_EQ (1, node1.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cached));
+	ASSERT_EQ (0, node1.stats.count (nano::stat::type::requests, nano::stat::detail::requests_dropped));
 }
 
 TEST (request_aggregator, split)
@@ -218,6 +222,7 @@ TEST (request_aggregator, split)
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_ignored));
 	ASSERT_EQ (2, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated));
 	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cached));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_dropped));
 	ASSERT_EQ (2, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 	auto transaction (node.store.tx_begin_read ());
 	auto pre_last_hash (node.store.block_get (transaction, previous)->previous ());
@@ -281,6 +286,29 @@ TEST (request_aggregator, channel_update)
 	ASSERT_EQ (nullptr, channel1_w.lock ());
 	system.deadline_set (3s);
 	while (node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated) == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
+TEST (request_aggregator, channel_max_queue)
+{
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.max_queued_requests = 1;
+	auto & node (*system.add_node (node_config));
+	nano::genesis genesis;
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node.work_generate_blocking (genesis.hash ())));
+	ASSERT_EQ (nano::process_result::progress, node.ledger.process (node.store.tx_begin_write (), *send1).code);
+	std::vector<std::pair<nano::block_hash, nano::root>> request;
+	request.emplace_back (send1->hash (), send1->root ());
+	auto channel (node.network.udp_channels.create (node.network.endpoint ()));
+	node.aggregator.add (channel, request);
+	node.aggregator.add (channel, request);
+	system.deadline_set (3s);
+	while (node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_dropped) < 1)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}

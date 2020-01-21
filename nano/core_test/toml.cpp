@@ -180,6 +180,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.vote_minimum, defaults.node.vote_minimum);
 	ASSERT_EQ (conf.node.work_peers, defaults.node.work_peers);
 	ASSERT_EQ (conf.node.work_threads, defaults.node.work_threads);
+	ASSERT_EQ (conf.node.max_queued_requests, defaults.node.max_queued_requests);
 
 	ASSERT_EQ (conf.node.logging.bulk_pull_logging_value, defaults.node.logging.bulk_pull_logging_value);
 	ASSERT_EQ (conf.node.logging.flush, defaults.node.logging.flush);
@@ -412,6 +413,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	work_threads = 999
 	work_watcher_period = 999
 	max_work_generate_multiplier = 1.0
+	max_queued_requests = 999
 	frontiers_confirmation = "always"
 	[node.diagnostics.txn_tracking]
 	enable = true
@@ -566,6 +568,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.vote_minimum, defaults.node.vote_minimum);
 	ASSERT_NE (conf.node.work_peers, defaults.node.work_peers);
 	ASSERT_NE (conf.node.work_threads, defaults.node.work_threads);
+	ASSERT_NE (conf.node.max_queued_requests, defaults.node.max_queued_requests);
 
 	ASSERT_NE (conf.node.logging.bulk_pull_logging_value, defaults.node.logging.bulk_pull_logging_value);
 	ASSERT_NE (conf.node.logging.flush, defaults.node.logging.flush);
