@@ -47,13 +47,18 @@ namespace ipc
 	enum class access_permission
 	{
 		invalid,
+		/** Unrestricted access to the node, suitable for debugging and development */
+		unrestricted,
 		api_account_weight,
+		api_service_register,
 		api_service_stop,
+		api_topic_service_stop,
+		api_topic_confirmation,
 		/** Query account information */
 		account_query,
 		/** Epoch upgrade */
 		epoch_upgrade,
-		/** All service operations*/
+		/** All service operations */
 		service,
 		/** All wallet operations */
 		wallet,

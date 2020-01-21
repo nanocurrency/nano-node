@@ -73,6 +73,7 @@ void nano::ipc::action_handler::on_topic_confirmation (nanoapi::Envelope const &
 
 void nano::ipc::action_handler::on_service_register (nanoapi::Envelope const & envelope_a)
 {
+	require_oneof (envelope_a, { nano::ipc::access_permission::api_service_register, nano::ipc::access_permission::service });
 	auto query (get_message<nanoapi::ServiceRegister> (envelope_a));
 	ipc_server.get_broker ().service_register (query->service_name, this->subscriber);
 	nanoapi::SuccessT success;
@@ -81,6 +82,7 @@ void nano::ipc::action_handler::on_service_register (nanoapi::Envelope const & e
 
 void nano::ipc::action_handler::on_service_stop (nanoapi::Envelope const & envelope_a)
 {
+	require_oneof (envelope_a, { nano::ipc::access_permission::api_service_stop, nano::ipc::access_permission::service });
 	auto query (get_message<nanoapi::ServiceStop> (envelope_a));
 	if (query->service_name == "node")
 	{
@@ -153,7 +155,7 @@ bool nano::ipc::action_handler::has_access_to_oneof (nanoapi::Envelope const & e
 		credentials = envelope_a.credentials ()->str ();
 	}
 
-	return ipc_server.get_access ().has_access_to_all (credentials, permissions_a);
+	return ipc_server.get_access ().has_access_to_oneof (credentials, permissions_a);
 }
 
 void nano::ipc::action_handler::require (nanoapi::Envelope const & envelope_a, nano::ipc::access_permission permission_a) const

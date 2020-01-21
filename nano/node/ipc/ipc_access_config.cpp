@@ -10,12 +10,20 @@ std::string to_string (nano::ipc::access_permission permission)
 {
 	switch (permission)
 	{
+		case nano::ipc::access_permission::invalid:
+			return "invalid";
+		case nano::ipc::access_permission::unrestricted:
+			return "unrestricted";
+		case nano::ipc::access_permission::api_service_register:
+			return "api_service_register";
 		case nano::ipc::access_permission::api_service_stop:
 			return "api_service_stop";
 		case nano::ipc::access_permission::api_account_weight:
 			return "api_account_weight";
-		case nano::ipc::access_permission::invalid:
-			return "invalid";
+		case nano::ipc::access_permission::api_topic_confirmation:
+			return "api_topic_confirmation";
+		case nano::ipc::access_permission::api_topic_service_stop:
+			return "api_topic_service_stop";
 		case nano::ipc::access_permission::account_query:
 			return "account_query";
 		case nano::ipc::access_permission::epoch_upgrade:
@@ -38,10 +46,18 @@ std::string to_string (nano::ipc::access_permission permission)
 /** Convert string to permission */
 nano::ipc::access_permission from_string (std::string permission)
 {
+	if (permission == "unrestricted")
+		return nano::ipc::access_permission::unrestricted;
 	if (permission == "api_account_weight")
 		return nano::ipc::access_permission::api_account_weight;
+	if (permission == "api_service_register")
+		return nano::ipc::access_permission::api_service_register;
 	if (permission == "api_service_stop")
 		return nano::ipc::access_permission::api_service_stop;
+	if (permission == "api_topic_service_stop")
+		return nano::ipc::access_permission::api_topic_service_stop;
+	if (permission == "api_topic_confirmation")
+		return nano::ipc::access_permission::api_topic_confirmation;
 	if (permission == "account_query")
 		return nano::ipc::access_permission::account_query;
 	if (permission == "epoch_upgrade")
@@ -224,6 +240,10 @@ bool nano::ipc::access::has_access (std::string const & credentials_a, nano::ipc
 	if (user != users.end ())
 	{
 		permitted = user->second.permissions.find (permssion_a) != user->second.permissions.end ();
+		if (!permitted)
+		{
+			permitted = user->second.permissions.find (nano::ipc::access_permission::unrestricted) != user->second.permissions.end ();
+		}
 	}
 	return permitted;
 }
@@ -261,6 +281,10 @@ bool nano::ipc::access::has_access_to_oneof (std::string const & credentials_a, 
 			{
 				break;
 			}
+		}
+		if (!permitted)
+		{
+			permitted = user->second.permissions.find (nano::ipc::access_permission::unrestricted) != user->second.permissions.end ();
 		}
 	}
 	return permitted;
