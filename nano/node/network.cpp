@@ -298,7 +298,7 @@ void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> block_a)
 	if (list->empty () || node.rep_crawler.total_weight () < node.config.online_weight_minimum.number ())
 	{
 		// broadcast request to all peers (with max limit 2 * sqrt (peers count))
-		auto peers (node.network.list (std::min (static_cast<size_t> (100), 2 * node.network.size_sqrt ())));
+		auto peers (node.network.list (std::min<size_t> (100, node.network.fanout (2.F))));
 		list->clear ();
 		for (auto & peer : peers)
 		{
@@ -840,9 +840,9 @@ size_t nano::network::size () const
 	return tcp_channels.size () + udp_channels.size ();
 }
 
-size_t nano::network::size_sqrt () const
+float nano::network::size_sqrt () const
 {
-	return (static_cast<size_t> (std::ceil (std::sqrt (size ()))));
+	return static_cast<float> (std::sqrt (size ()));
 }
 
 bool nano::network::empty () const

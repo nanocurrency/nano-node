@@ -148,7 +148,7 @@ public:
 	void ongoing_syn_cookie_cleanup ();
 	void ongoing_keepalive ();
 	size_t size () const;
-	size_t size_sqrt () const;
+	float size_sqrt () const;
 	bool empty () const;
 	nano::message_buffer_manager buffer_container;
 	boost::asio::ip::udp::resolver resolver;

@@ -118,14 +118,37 @@ TEST (channels, fill_random_part)
 TEST (peer_container, list_fanout)
 {
 	nano::system system (1);
-	auto list1 (system.nodes[0]->network.list (system.nodes[0]->network.fanout ()));
+	auto & node (*system.nodes[0]);
+	ASSERT_EQ (0, node.network.size ());
+	ASSERT_EQ (0.0, node.network.size_sqrt ());
+	ASSERT_EQ (0, node.network.fanout ());
+	auto list1 (node.network.list (node.network.fanout ()));
 	ASSERT_TRUE (list1.empty ());
+	auto add_peer = [&node](const uint16_t port_a) {
+		ASSERT_NE (nullptr, node.network.udp_channels.insert (nano::endpoint (boost::asio::ip::address_v6::loopback (), port_a), node.network_params.protocol.protocol_version));
+	};
+	add_peer (9998);
+	ASSERT_EQ (1, node.network.size ());
+	ASSERT_EQ (1.0, node.network.size_sqrt ());
+	ASSERT_EQ (1, node.network.fanout ());
+	auto list2 (node.network.list (node.network.fanout ()));
+	ASSERT_EQ (1, list2.size ());
+	add_peer (9999);
+	ASSERT_EQ (2, node.network.size ());
+	ASSERT_EQ (std::sqrt (2.F), node.network.size_sqrt ());
+	ASSERT_EQ (2, node.network.fanout ());
+	auto list3 (node.network.list (node.network.fanout ()));
+	ASSERT_EQ (2, list3.size ());
 	for (auto i (0); i < 1000; ++i)
 	{
-		ASSERT_NE (nullptr, system.nodes[0]->network.udp_channels.insert (nano::endpoint (boost::asio::ip::address_v6::loopback (), 10000 + i), system.nodes[0]->network_params.protocol.protocol_version));
+		add_peer (10000 + i);
 	}
-	auto list2 (system.nodes[0]->network.list (system.nodes[0]->network.fanout ()));
-	ASSERT_EQ (32, list2.size ());
+	ASSERT_EQ (1002, node.network.size ());
+	ASSERT_EQ (std::sqrt (1002.f), node.network.size_sqrt ());
+	size_t expected_size (std::ceil (std::sqrt (1002.f)));
+	ASSERT_EQ (expected_size, node.network.fanout ());
+	auto list4 (node.network.list (node.network.fanout ()));
+	ASSERT_EQ (expected_size, list4.size ());
 }
 
 // Test to make sure we don't repeatedly send keepalive messages to nodes that aren't responding
