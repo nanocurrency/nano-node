@@ -229,8 +229,13 @@ TEST (node, node_receive_quorum)
 
 TEST (node, auto_bootstrap)
 {
-	nano::system system (1);
-	auto node0 (system.nodes[0]);
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	nano::node_flags node_flags;
+	node_flags.disable_bootstrap_bulk_push_client = true;
+	node_flags.disable_lazy_bootstrap = true;
+	auto node0 = system.add_node (config, node_flags);
 	nano::keypair key2;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key2.prv);
@@ -284,8 +289,13 @@ TEST (node, auto_bootstrap)
 
 TEST (node, auto_bootstrap_reverse)
 {
-	nano::system system (1);
-	auto node0 (system.nodes[0]);
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	nano::node_flags node_flags;
+	node_flags.disable_bootstrap_bulk_push_client = true;
+	node_flags.disable_lazy_bootstrap = true;
+	auto node0 = system.add_node (config, node_flags);
 	nano::keypair key2;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	system.wallet (0)->insert_adhoc (key2.prv);
@@ -1403,12 +1413,19 @@ TEST (node, fork_multi_flip)
 // This could happen if a fork wasn't resolved before the process previously shut down
 TEST (node, fork_bootstrap_flip)
 {
-	nano::system system0 (1);
-	nano::system system1 (1);
-	auto & node1 (*system0.nodes[0]);
-	auto & node2 (*system1.nodes[0]);
+	nano::system system0;
+	nano::system system1;
+	nano::node_config config0 (nano::get_available_port (), system0.logging);
+	config0.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	nano::node_flags node_flags;
+	node_flags.disable_bootstrap_bulk_push_client = true;
+	node_flags.disable_lazy_bootstrap = true;
+	auto & node1 (*system0.add_node (config0, node_flags));
+	nano::node_config config1 (nano::get_available_port (), system1.logging);
+	config1.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto & node2 (*system1.add_node (config1, node_flags));
 	system0.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	nano::block_hash latest (system0.nodes[0]->latest (nano::test_genesis_key.pub));
+	nano::block_hash latest (node1.latest (nano::test_genesis_key.pub));
 	nano::keypair key1;
 	auto send1 (std::make_shared<nano::send_block> (latest, key1.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system0.work.generate (latest)));
 	nano::keypair key2;
@@ -1858,10 +1875,14 @@ TEST (node, DISABLED_bootstrap_no_publish)
 // Check that an outgoing bootstrap request can push blocks
 TEST (node, bootstrap_bulk_push)
 {
-	nano::system system0 (1);
-	nano::system system1 (1);
-	auto node0 (system0.nodes[0]);
-	auto node1 (system1.nodes[0]);
+	nano::system system0;
+	nano::system system1;
+	nano::node_config config0 (nano::get_available_port (), system0.logging);
+	config0.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto node0 (system0.add_node (config0));
+	nano::node_config config1 (nano::get_available_port (), system1.logging);
+	config1.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto node1 (system1.add_node (config1));
 	nano::keypair key0;
 	// node0 knows about send0 but node1 doesn't.
 	nano::send_block send0 (node0->latest (nano::test_genesis_key.pub), key0.pub, 500, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0);
