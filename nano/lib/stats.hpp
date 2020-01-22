@@ -198,6 +198,7 @@ public:
 		observer,
 		confirmation_height,
 		drop,
+		aggregator,
 		requests
 	};
 
@@ -295,11 +296,14 @@ public:
 		blocks_confirmed,
 		invalid_block,
 
+		// [request] aggregator
+		aggregator_accepted,
+		aggregator_dropped,
+
 		// requests
 		requests_cached,
 		requests_generated,
-		requests_ignored,
-		requests_dropped
+		requests_unknown,
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */
