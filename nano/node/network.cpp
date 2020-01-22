@@ -526,11 +526,11 @@ public:
 		telemetry_data.uptime = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - node.startup_time).count ();
 		telemetry_data.unchecked_count = node.ledger.cache.unchecked_count;
 		telemetry_data.genesis_block = nano::genesis ().hash ();
+		telemetry_data.peer_count = node.network.size ();
 
 		{
 			auto transaction = node.store.tx_begin_read ();
 			telemetry_data.account_count = node.store.account_count (transaction);
-			telemetry_data.peer_count = node.store.peer_count (transaction);
 		}
 
 		nano::telemetry_ack telemetry_ack (telemetry_data);

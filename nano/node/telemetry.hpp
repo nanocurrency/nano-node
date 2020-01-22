@@ -58,7 +58,7 @@ private:
 
 	nano::network_params network_params;
 	// Anything older than this requires requesting metrics from other nodes
-	std::chrono::milliseconds const cache_cutoff{ network_params.network.is_test_network () ? 1000 : 5000 };
+	std::chrono::milliseconds const cache_cutoff{ network_params.network.is_test_network () ? 500 : 3000 };
 
 	// All data in this chunk is protected by this mutex
 	std::mutex mutex;
@@ -70,6 +70,7 @@ private:
 	std::vector<nano::telemetry_data> cached_telemetry_data;
 	std::unordered_set<nano::endpoint> required_responses;
 	uint64_t round{ 0 };
+
 	std::atomic<bool> all_received{ true };
 
 	nano::network & network;
@@ -135,13 +136,24 @@ private:
 
 	nano::network_params network_params;
 
+	class single_request_data
+	{
+	public:
+		std::shared_ptr<telemetry_impl> telemetry_impl;
+		std::chrono::steady_clock::time_point last_updated{ std::chrono::steady_clock::now () };
+	};
+
 	std::mutex mutex;
 	/* Requests telemetry data from a random selection of peers */
 	std::shared_ptr<telemetry_impl> batch_request;
 	/* Any requests to specific individual peers is maintained here */
-	std::unordered_map<nano::endpoint, std::shared_ptr<telemetry_impl>> single_requests;
+	std::unordered_map<nano::endpoint, single_request_data> single_requests;
 	bool stopped{ false };
 
+	void update_cleanup_data (nano::endpoint const & endpoint_a, nano::telemetry::single_request_data & single_request_data_a, bool is_new_a);
+	void ongoing_single_request_cleanup (nano::endpoint const & endpoint_a, nano::telemetry::single_request_data const & single_request_data_a);
+
+	friend class node_telemetry_multiple_single_request_clearing_Test;
 	friend std::unique_ptr<container_info_component> collect_container_info (telemetry &, const std::string &);
 };
 

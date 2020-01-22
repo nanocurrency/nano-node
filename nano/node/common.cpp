@@ -12,6 +12,8 @@
 
 std::bitset<16> constexpr nano::message_header::block_type_mask;
 std::bitset<16> constexpr nano::message_header::count_mask;
+std::bitset<16> constexpr nano::message_header::telemetry_size_mask;
+
 namespace
 {
 nano::protocol_constants const & get_protocol_constants ()
@@ -232,7 +234,7 @@ size_t nano::message_header::payload_length_bytes () const
 		}
 		case nano::message_type::telemetry_ack:
 		{
-			return nano::telemetry_ack::size;
+			return nano::telemetry_ack::size (*this);
 		}
 		default:
 		{
@@ -1083,6 +1085,7 @@ nano::telemetry_ack::telemetry_ack (nano::telemetry_data const & telemetry_data_
 message (nano::message_type::telemetry_ack),
 data (telemetry_data_a)
 {
+	header.extensions = telemetry_data::size;
 }
 
 void nano::telemetry_ack::serialize (nano::stream & stream_a) const
@@ -1127,6 +1130,11 @@ bool nano::telemetry_ack::deserialize (nano::stream & stream_a)
 void nano::telemetry_ack::visit (nano::message_visitor & visitor_a) const
 {
 	visitor_a.telemetry_ack (*this);
+}
+
+uint16_t nano::telemetry_ack::size (nano::message_header const & message_header_a)
+{
+	return static_cast<uint16_t> (message_header_a.extensions.to_ulong ());
 }
 
 nano::telemetry_data nano::telemetry_data::consolidate (std::vector<nano::telemetry_data> const & current_telemetry_data_responses)

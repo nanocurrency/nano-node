@@ -598,6 +598,92 @@ TEST (node_telemetry, blocking_single_and_random)
 	promise.get_future ().wait ();
 }
 
+namespace nano
+{
+TEST (node_telemetry, multiple_single_request_clearing)
+{
+	nano::system system (2);
+
+	auto node_client = system.nodes.front ();
+	auto node_server = system.nodes.back ();
+
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.bandwidth_limit = 100000;
+	auto node_server1 = system.add_node (node_config);
+
+	// Wait until peers are stored as they are done in the background
+	wait_any_peers (system, *node_client);
+
+	// Request telemetry metrics
+	auto channel = node_client->network.find_channel (node_server->network.endpoint ());
+
+	std::atomic<bool> done{ false };
+	node_client->telemetry.get_metrics_single_peer_async (channel, [&done](nano::telemetry_data_response const & response_a) {
+		ASSERT_FALSE (response_a.error);
+		ASSERT_FALSE (response_a.is_cached);
+		done = true;
+	});
+
+	ASSERT_EQ (1, node_client->telemetry.single_requests.size ());
+	auto last_updated = node_client->telemetry.single_requests.begin ()->second.last_updated;
+
+	system.deadline_set (10s);
+	while (!done)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	done = false;
+	// Make another request to keep
+	system.deadline_set (10s);
+	node_client->telemetry.get_metrics_single_peer_async (channel, [&done](nano::telemetry_data_response const & response_a) {
+		ASSERT_FALSE (response_a.error);
+		ASSERT_TRUE (response_a.is_cached);
+		done = true;
+	});
+
+	ASSERT_LT (last_updated, node_client->telemetry.single_requests.begin ()->second.last_updated);
+
+	system.deadline_set (10s);
+	while (!done)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	done = false;
+	auto channel1 = node_client->network.find_channel (node_server1->network.endpoint ());
+	node_client->telemetry.get_metrics_single_peer_async (channel1, [&done](nano::telemetry_data_response const & response_a) {
+		ASSERT_FALSE (response_a.error);
+		ASSERT_FALSE (response_a.is_cached);
+		done = true;
+	});
+
+	system.deadline_set (10s);
+
+	while (!done)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	done = false;
+	node_client->telemetry.get_metrics_single_peer_async (channel1, [&done](nano::telemetry_data_response const & response_a) {
+		ASSERT_FALSE (response_a.error);
+		ASSERT_TRUE (response_a.is_cached);
+		done = true;
+	});
+
+	// single_requests should be removed as no more calls are being back
+	system.deadline_set (10s);
+	nano::unique_lock<std::mutex> lk (node_client->telemetry.mutex);
+	while (!node_client->telemetry.single_requests.empty () || !done)
+	{
+		lk.unlock ();
+		ASSERT_NO_ERROR (system.poll ());
+		lk.lock ();
+	}
+}
+}
+
 TEST (node_telemetry, disconnects)
 {
 	nano::system system (2);

@@ -210,8 +210,9 @@ public:
 	/** Size of the payload in bytes. For some messages, the payload size is based on header flags. */
 	size_t payload_length_bytes () const;
 
-	static std::bitset<16> constexpr block_type_mask = std::bitset<16> (0x0f00);
-	static std::bitset<16> constexpr count_mask = std::bitset<16> (0xf000);
+	static std::bitset<16> constexpr block_type_mask{ 0x0f00 };
+	static std::bitset<16> constexpr count_mask{ 0xf000 };
+	static std::bitset<16> constexpr telemetry_size_mask{ 0x0fff };
 };
 class message
 {
@@ -368,7 +369,7 @@ public:
 	void serialize (nano::stream &) const override;
 	void visit (nano::message_visitor &) const override;
 	bool deserialize (nano::stream &);
-	static auto constexpr size = nano::telemetry_data::size;
+	static uint16_t size (nano::message_header const &);
 	nano::telemetry_data data;
 };
 
