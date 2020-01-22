@@ -115,6 +115,7 @@ public:
 	nano::block_hash rep_block (nano::account const &);
 	nano::uint128_t minimum_principal_weight ();
 	nano::uint128_t minimum_principal_weight (nano::uint128_t const &);
+	void long_inactivity_cleanup ();
 	void ongoing_rep_calculation ();
 	void ongoing_bootstrap ();
 	void ongoing_store_flush ();

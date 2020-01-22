@@ -625,6 +625,7 @@ nano::process_return nano::node::process_local (std::shared_ptr<nano::block> blo
 
 void nano::node::start ()
 {
+	long_inactivity_cleanup ();
 	network.start ();
 	add_initial_peers ();
 	if (!flags.disable_legacy_bootstrap)
@@ -766,6 +767,34 @@ nano::uint128_t nano::node::minimum_principal_weight ()
 nano::uint128_t nano::node::minimum_principal_weight (nano::uint128_t const & online_stake)
 {
 	return online_stake / network_params.network.principal_weight_factor;
+}
+
+void nano::node::long_inactivity_cleanup ()
+{
+	bool perform_cleanup = false;
+	auto transaction (store.tx_begin_write ());
+	if (store.online_weight_count (transaction) > 0)
+	{
+		auto i (store.online_weight_begin (transaction));
+		auto sample (store.online_weight_begin (transaction));
+		auto n (store.online_weight_end ());
+		while (++i != n)
+		{
+			++sample;
+		}
+		assert (sample != n);
+		auto one_week_ago = (std::chrono::system_clock::now () - std::chrono::hours (7 * 24)).time_since_epoch ().count ();
+		if (sample->first < one_week_ago)
+		{
+			perform_cleanup = true;
+		}
+	}
+	if (perform_cleanup)
+	{
+		store.online_weight_clear (transaction);
+		store.peer_clear (transaction);
+		logger.always_log ("Removed records of peers and online weight after a long period of inactivity");
+	}
 }
 
 void nano::node::ongoing_rep_calculation ()
