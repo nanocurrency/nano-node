@@ -275,7 +275,17 @@ TEST (network, send_valid_confirm_ack)
 	std::vector<nano::transport::transport_type> types{ nano::transport::transport_type::tcp, nano::transport::transport_type::udp };
 	for (auto & type : types)
 	{
-		nano::system system (2, type);
+		nano::node_flags node_flags;
+		if (type == nano::transport::transport_type::tcp)
+		{
+			node_flags.disable_udp = true;
+		}
+		else
+		{
+			node_flags.disable_tcp_realtime = true;
+			node_flags.disable_bootstrap_listener = true;
+		}
+		nano::system system (2, type, node_flags);
 		auto & node1 (*system.nodes[0]);
 		auto & node2 (*system.nodes[1]);
 		nano::keypair key2;
@@ -301,7 +311,17 @@ TEST (network, send_valid_publish)
 	std::vector<nano::transport::transport_type> types{ nano::transport::transport_type::tcp, nano::transport::transport_type::udp };
 	for (auto & type : types)
 	{
-		nano::system system (2, type);
+		nano::node_flags node_flags;
+		if (type == nano::transport::transport_type::tcp)
+		{
+			node_flags.disable_udp = true;
+		}
+		else
+		{
+			node_flags.disable_tcp_realtime = true;
+			node_flags.disable_bootstrap_listener = true;
+		}
+		nano::system system (2, type, node_flags);
 		auto & node1 (*system.nodes[0]);
 		auto & node2 (*system.nodes[1]);
 		node1.bootstrap_initiator.stop ();
@@ -381,7 +401,17 @@ TEST (receivable_processor, send_with_receive)
 	std::vector<nano::transport::transport_type> types{ nano::transport::transport_type::tcp, nano::transport::transport_type::udp };
 	for (auto & type : types)
 	{
-		nano::system system (2, type);
+		nano::node_flags node_flags;
+		if (type == nano::transport::transport_type::tcp)
+		{
+			node_flags.disable_udp = true;
+		}
+		else
+		{
+			node_flags.disable_tcp_realtime = true;
+			node_flags.disable_bootstrap_listener = true;
+		}
+		nano::system system (2, type, node_flags);
 		auto & node1 (*system.nodes[0]);
 		auto & node2 (*system.nodes[1]);
 		auto amount (std::numeric_limits<nano::uint128_t>::max ());

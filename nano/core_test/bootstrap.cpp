@@ -605,6 +605,9 @@ TEST (bootstrap_processor, lazy_max_pull_count)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+
+	auto transaction = node1->store.tx_begin_read ();
+	ASSERT_EQ (node1->ledger.cache.unchecked_count, node1->store.unchecked_count (transaction));
 	node1->stop ();
 }
 

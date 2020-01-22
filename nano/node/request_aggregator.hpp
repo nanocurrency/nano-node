@@ -21,6 +21,7 @@ class votes_cache;
 class block_store;
 class wallets;
 class stat;
+class node_config;
 /**
  * Pools together confirmation requests, separately for each endpoint.
  * Requests are added from network messages, and aggregated to minimize bandwidth and vote generation. Example:
@@ -57,7 +58,7 @@ class request_aggregator final
 
 public:
 	request_aggregator () = delete;
-	request_aggregator (nano::stat &, nano::network_constants const &, nano::votes_cache &, nano::block_store &, nano::wallets &);
+	request_aggregator (nano::network_constants const &, nano::node_config const & config, nano::stat & stats_a, nano::votes_cache &, nano::block_store &, nano::wallets &);
 
 	/** Add a new request by \p channel_a for hashes \p hashes_roots_a */
 	void add (std::shared_ptr<nano::transport::channel> & channel_a, std::vector<std::pair<nano::block_hash, nano::root>> const & hashes_roots_a);
@@ -68,6 +69,7 @@ public:
 
 	const std::chrono::milliseconds max_delay;
 	const std::chrono::milliseconds small_delay;
+	const size_t max_channel_requests;
 
 private:
 	void run ();

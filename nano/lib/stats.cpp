@@ -213,7 +213,7 @@ std::shared_ptr<nano::stat_entry> nano::stat::get_entry_impl (uint32_t key, size
 	auto entry = entries.find (key);
 	if (entry == entries.end ())
 	{
-		res = entries.insert (std::make_pair (key, std::make_shared<nano::stat_entry> (capacity, interval))).first->second;
+		res = entries.emplace (key, std::make_shared<nano::stat_entry> (capacity, interval)).first->second;
 	}
 	else
 	{
@@ -663,6 +663,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 		case nano::stat::detail::requests_ignored:
 			res = "requests_votes_ignored";
+			break;
+		case nano::stat::detail::requests_dropped:
+			res = "requests_dropped";
 			break;
 	}
 	return res;

@@ -843,13 +843,11 @@ TEST (confirmation_height, prioritize_frontiers)
 
 	auto transaction = node->store.tx_begin_read ();
 	constexpr auto num_accounts = 5;
-	// clang-format off
 	auto priority_orders_match = [](auto const & cementable_frontiers, auto const & desired_order) {
 		return std::equal (desired_order.begin (), desired_order.end (), cementable_frontiers.template get<1> ().begin (), cementable_frontiers.template get<1> ().end (), [](nano::account const & account, nano::cementable_account const & cementable_account) {
 			return (account == cementable_account.account);
 		});
 	};
-	// clang-format on
 	{
 		node->active.prioritize_frontiers_for_confirmation (transaction, std::chrono::seconds (1), std::chrono::seconds (1));
 		ASSERT_EQ (node->active.priority_cementable_frontiers_size (), num_accounts);

@@ -14,6 +14,8 @@ port (port_a)
 
 void nano::bootstrap_listener::start ()
 {
+	nano::lock_guard<std::mutex> lock (mutex);
+	on = true;
 	listening_socket = std::make_shared<nano::server_socket> (node.shared (), boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::any (), port), node.config.tcp_incoming_connections_max);
 	boost::system::error_code ec;
 	listening_socket->start (ec);
@@ -22,6 +24,7 @@ void nano::bootstrap_listener::start ()
 		node.logger.try_log (boost::str (boost::format ("Error while binding for incoming TCP/bootstrap on port %1%: %2%") % listening_socket->listening_port () % ec.message ()));
 		throw std::runtime_error (ec.message ());
 	}
+	assert (node.network.endpoint ().port () == listening_socket->listening_port ());
 	listening_socket->on_connection ([this](std::shared_ptr<nano::socket> new_connection, boost::system::error_code const & ec_a) {
 		bool keep_accepting = true;
 		if (ec_a)
@@ -47,6 +50,7 @@ void nano::bootstrap_listener::stop ()
 	}
 	if (listening_socket)
 	{
+		nano::lock_guard<std::mutex> lock (mutex);
 		listening_socket->close ();
 		listening_socket = nullptr;
 	}
@@ -70,7 +74,15 @@ void nano::bootstrap_listener::accept_action (boost::system::error_code const & 
 
 boost::asio::ip::tcp::endpoint nano::bootstrap_listener::endpoint ()
 {
-	return boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), listening_socket->listening_port ());
+	nano::lock_guard<std::mutex> lock (mutex);
+	if (on && listening_socket)
+	{
+		return boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), listening_socket->listening_port ());
+	}
+	else
+	{
+		return boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), 0);
+	}
 }
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (bootstrap_listener & bootstrap_listener, const std::string & name)
@@ -634,8 +646,7 @@ public:
 			auto cookie (connection->node->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (connection->remote_endpoint)));
 			nano::node_id_handshake response_message (cookie, response);
 			auto shared_const_buffer = response_message.to_shared_const_buffer ();
-			// clang-format off
-			connection->socket->async_write (shared_const_buffer, [connection = std::weak_ptr<nano::bootstrap_server> (connection) ](boost::system::error_code const & ec, size_t size_a) {
+			connection->socket->async_write (shared_const_buffer, [connection = std::weak_ptr<nano::bootstrap_server> (connection)](boost::system::error_code const & ec, size_t size_a) {
 				if (auto connection_l = connection.lock ())
 				{
 					if (ec)
@@ -654,7 +665,6 @@ public:
 					}
 				}
 			});
-			// clang-format on
 		}
 		else if (message_a.response)
 		{

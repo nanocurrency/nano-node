@@ -227,7 +227,6 @@ std::string nano::ipc::request (nano::ipc::ipc_client & ipc_client, std::string 
 	auto res (std::make_shared<std::vector<uint8_t>> ());
 
 	std::promise<std::string> result_l;
-	// clang-format off
 	ipc_client.async_write (req, [&ipc_client, &res, &result_l](nano::error err_a, size_t size_a) {
 		// Read length
 		ipc_client.async_read (res, sizeof (uint32_t), [&ipc_client, &res, &result_l](nano::error err_read_a, size_t size_read_a) {
@@ -238,7 +237,6 @@ std::string nano::ipc::request (nano::ipc::ipc_client & ipc_client, std::string 
 			});
 		});
 	});
-	// clang-format on
 
 	return result_l.get_future ().get ();
 }

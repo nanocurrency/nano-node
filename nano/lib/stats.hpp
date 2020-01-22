@@ -302,7 +302,8 @@ public:
 		// requests
 		requests_cached,
 		requests_generated,
-		requests_ignored
+		requests_ignored,
+		requests_dropped
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */

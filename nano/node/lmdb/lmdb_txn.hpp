@@ -20,10 +20,8 @@ class mdb_env;
 class mdb_txn_callbacks
 {
 public:
-	// clang-format off
-	std::function<void (const nano::transaction_impl *)> txn_start{ [] (const nano::transaction_impl *) {} };
-	std::function<void (const nano::transaction_impl *)> txn_end{ [] (const nano::transaction_impl *) {} };
-	// clang-format on
+	std::function<void(const nano::transaction_impl *)> txn_start{ [](const nano::transaction_impl *) {} };
+	std::function<void(const nano::transaction_impl *)> txn_end{ [](const nano::transaction_impl *) {} };
 };
 
 class read_mdb_txn final : public read_transaction_impl

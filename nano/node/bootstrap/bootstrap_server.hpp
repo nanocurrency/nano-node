@@ -23,7 +23,7 @@ public:
 	nano::tcp_endpoint endpoint ();
 	nano::node & node;
 	std::shared_ptr<nano::server_socket> listening_socket;
-	bool on;
+	bool on{ false };
 	std::atomic<size_t> bootstrap_count{ 0 };
 	std::atomic<size_t> realtime_count{ 0 };
 

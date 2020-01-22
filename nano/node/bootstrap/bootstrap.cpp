@@ -317,9 +317,7 @@ void nano::bootstrap_attempt::run ()
 
 std::shared_ptr<nano::bootstrap_client> nano::bootstrap_attempt::connection (nano::unique_lock<std::mutex> & lock_a, bool use_front_connection)
 {
-	// clang-format off
 	condition.wait (lock_a, [& stopped = stopped, &idle = idle] { return stopped || !idle.empty (); });
-	// clang-format on
 	std::shared_ptr<nano::bootstrap_client> result;
 	if (!idle.empty ())
 	{
@@ -686,9 +684,7 @@ bool nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 {
 	bool confirmed (false);
 	assert (!frontiers_confirmed);
-	// clang-format off
 	condition.wait (lock_a, [& stopped = stopped] { return !stopped; });
-	// clang-format on
 	std::vector<nano::block_hash> frontiers;
 	for (auto i (pulls.begin ()), end (pulls.end ()); i != end && frontiers.size () != nano::bootstrap_limits::bootstrap_max_confirm_frontiers; ++i)
 	{
@@ -1381,9 +1377,7 @@ void nano::bootstrap_initiator::bootstrap (bool force, std::string id_a)
 	if (force && attempt != nullptr)
 	{
 		attempt->stop ();
-		// clang-format off
-		condition.wait (lock, [&attempt = attempt, &stopped = stopped] { return stopped || attempt == nullptr; });
-		// clang-format on
+		condition.wait (lock, [& attempt = attempt, &stopped = stopped] { return stopped || attempt == nullptr; });
 	}
 	if (!stopped && attempt == nullptr)
 	{
@@ -1397,7 +1391,14 @@ void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bo
 {
 	if (add_to_peers)
 	{
-		node.network.udp_channels.insert (nano::transport::map_endpoint_to_v6 (endpoint_a), node.network_params.protocol.protocol_version);
+		if (!node.flags.disable_udp)
+		{
+			node.network.udp_channels.insert (nano::transport::map_endpoint_to_v6 (endpoint_a), node.network_params.protocol.protocol_version);
+		}
+		else if (!node.flags.disable_tcp_realtime)
+		{
+			node.network.merge_peer (nano::transport::map_endpoint_to_v6 (endpoint_a));
+		}
 	}
 	nano::unique_lock<std::mutex> lock (mutex);
 	if (!stopped)
@@ -1405,9 +1406,7 @@ void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bo
 		if (attempt != nullptr)
 		{
 			attempt->stop ();
-			// clang-format off
-			condition.wait (lock, [&attempt = attempt, &stopped = stopped] { return stopped || attempt == nullptr; });
-			// clang-format on
+			condition.wait (lock, [& attempt = attempt, &stopped = stopped] { return stopped || attempt == nullptr; });
 		}
 		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out);
 		attempt = std::make_shared<nano::bootstrap_attempt> (node.shared (), nano::bootstrap_mode::legacy, id_a);
@@ -1431,9 +1430,7 @@ void nano::bootstrap_initiator::bootstrap_lazy (nano::hash_or_account const & ha
 		if (force && attempt != nullptr)
 		{
 			attempt->stop ();
-			// clang-format off
-			condition.wait (lock, [&attempt = attempt, &stopped = stopped] { return stopped || attempt == nullptr; });
-			// clang-format on
+			condition.wait (lock, [& attempt = attempt, &stopped = stopped] { return stopped || attempt == nullptr; });
 		}
 		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate_lazy, nano::stat::dir::out);
 		if (attempt == nullptr)

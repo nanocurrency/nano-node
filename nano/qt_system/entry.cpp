@@ -28,7 +28,7 @@ int main (int argc, char ** argv)
 		auto wallet (system.nodes[i]->wallets.create (nano::random_wallet_id ()));
 		nano::keypair key;
 		wallet->insert_adhoc (key.prv);
-		guis.push_back (std::unique_ptr<nano_qt::wallet> (new nano_qt::wallet (application, processor, *system.nodes[i], wallet, key.pub)));
+		guis.push_back (std::make_unique<nano_qt::wallet> (application, processor, *system.nodes[i], wallet, key.pub));
 		client_tabs->addTab (guis.back ()->client_window, boost::str (boost::format ("Wallet %1%") % i).c_str ());
 	}
 	client_tabs->show ();

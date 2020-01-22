@@ -1773,7 +1773,6 @@ TEST (mdb_block_store, upgrade_v16_v17)
 	nano::state_block block2 (nano::test_genesis_key.pub, block1.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio - 1, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (block1.hash ()));
 	nano::state_block block3 (nano::test_genesis_key.pub, block2.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio - 2, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (block2.hash ()));
 
-	// clang-format off
 	auto code = [block1, block2, block3](auto confirmation_height, nano::block_hash const & expected_cemented_frontier) {
 		auto path (nano::unique_path ());
 		nano::mdb_val value;
@@ -1811,7 +1810,6 @@ TEST (mdb_block_store, upgrade_v16_v17)
 		// Version should be correct
 		ASSERT_LT (16, store.version_get (transaction));
 	};
-	// clang-format on
 
 	code (0, nano::block_hash (0));
 	code (1, genesis.hash ());
@@ -1827,7 +1825,6 @@ TEST (mdb_block_store, upgrade_backup)
 	fs::create_directory (dir);
 	auto path = dir / "data.ldb";
 	/** Returns 'dir' if backup file cannot be found */
-	// clang-format off
 	auto get_backup_path = [&dir]() {
 		for (fs::directory_iterator itr (dir); itr != fs::directory_iterator (); ++itr)
 		{
@@ -1838,7 +1835,6 @@ TEST (mdb_block_store, upgrade_backup)
 		}
 		return dir;
 	};
-	// clang-format on
 
 	{
 		nano::logger_mt logger;

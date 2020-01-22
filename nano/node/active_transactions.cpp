@@ -14,20 +14,18 @@ nano::active_transactions::active_transactions (nano::node & node_a) :
 node (node_a),
 multipliers_cb (20, 1.),
 trended_active_difficulty (node_a.network_params.network.publish_threshold),
-next_frontier_check (steady_clock::now ()),
 solicitor (node_a.network, node_a.network_params.network),
+next_frontier_check (steady_clock::now ()),
 long_election_threshold (node_a.network_params.network.is_test_network () ? 2s : 24s),
 election_request_delay (node_a.network_params.network.is_test_network () ? 0s : 1s),
 election_time_to_live (node_a.network_params.network.is_test_network () ? 0s : 10s),
 min_time_between_requests (node_a.network_params.network.is_test_network () ? 25ms : 3s),
 min_time_between_floods (node_a.network_params.network.is_test_network () ? 50ms : 6s),
 min_request_count_flood (node_a.network_params.network.is_test_network () ? 0 : 2),
-// clang-format off
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::request_loop);
 	request_loop ();
 })
-// clang-format on
 {
 	assert (min_time_between_requests > std::chrono::milliseconds (node.network_params.network.request_interval_ms));
 	assert (min_time_between_floods > std::chrono::milliseconds (node.network_params.network.request_interval_ms));
@@ -339,9 +337,7 @@ void nano::active_transactions::request_loop ()
 		// Sleep until all broadcasts are done, plus the remaining loop time
 		if (!stopped)
 		{
-			// clang-format off
 			condition.wait_until (lock, wakeup_l, [&wakeup_l, &stopped = stopped] { return stopped || std::chrono::steady_clock::now () >= wakeup_l; });
-			// clang-format on
 		}
 	}
 }
@@ -542,7 +538,7 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, bool 
 			error = nano::work_validate (*block_a, &difficulty);
 			release_assert (!error);
 			roots.get<tag_root> ().emplace (nano::conflict_info{ root, difficulty, difficulty, election });
-			blocks.insert (std::make_pair (hash, election));
+			blocks.emplace (hash, election);
 			adjust_difficulty (hash);
 			election->insert_inactive_votes_cache (hash);
 		}
@@ -882,7 +878,7 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 		result = election->publish (block_a);
 		if (!result && !election->confirmed)
 		{
-			blocks.insert (std::make_pair (block_a->hash (), election));
+			blocks.emplace (block_a->hash (), election);
 		}
 	}
 	return result;
