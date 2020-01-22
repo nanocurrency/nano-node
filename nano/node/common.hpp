@@ -345,7 +345,7 @@ public:
 	uint8_t vendor_version{ 0 };
 	nano::block_hash genesis_block{ 0 };
 
-	static nano::telemetry_data consolidate (std::vector<nano::telemetry_data> const & current_telemetry_data_responses);
+	static nano::telemetry_data consolidate (std::vector<nano::telemetry_data> const & telemetry_data_responses);
 	nano::error serialize_json (nano::jsonconfig & json) const;
 	nano::error deserialize_json (nano::jsonconfig & json);
 	bool operator== (nano::telemetry_data const &) const;

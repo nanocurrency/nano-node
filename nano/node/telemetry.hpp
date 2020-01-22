@@ -139,7 +139,7 @@ private:
 	class single_request_data
 	{
 	public:
-		std::shared_ptr<telemetry_impl> telemetry_impl;
+		std::shared_ptr<telemetry_impl> impl;
 		std::chrono::steady_clock::time_point last_updated{ std::chrono::steady_clock::now () };
 	};
 

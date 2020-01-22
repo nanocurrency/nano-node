@@ -36,7 +36,7 @@ void nano::telemetry::add (nano::telemetry_data const & telemetry_data_a, nano::
 
 		for (auto & request : single_requests)
 		{
-			request.second.telemetry_impl->add (telemetry_data_a, endpoint_a);
+			request.second.impl->add (telemetry_data_a, endpoint_a);
 		}
 	}
 }
@@ -72,17 +72,16 @@ nano::telemetry_data_responses nano::telemetry::get_metrics_random_peers ()
 // After a request is made to a single peer we want to remove it from the container after the peer has not been requested for a while (cache_cutoff).
 void nano::telemetry::ongoing_single_request_cleanup (nano::endpoint const & endpoint_a, nano::telemetry::single_request_data const & single_request_data_a)
 {
-	// This class is just 
+	// This class is just
 	class ongoing_func_wrapper
 	{
 	public:
 		std::function<void()> ongoing_func;
 	};
-	
+
 	auto wrapper = std::make_shared<ongoing_func_wrapper> ();
 	// Keep calling ongoing_func while the peer is still being called
-	wrapper->ongoing_func = [&mutex = this->mutex, &alarm = this->alarm, &single_requests = this->single_requests, telemetry_impl_w = std::weak_ptr<nano::telemetry_impl> (single_request_data_a.telemetry_impl), &last_updated = single_request_data_a.last_updated, &endpoint_a, wrapper]() {
-
+	wrapper->ongoing_func = [& mutex = this->mutex, &alarm = this->alarm, &single_requests = this->single_requests, telemetry_impl_w = std::weak_ptr<nano::telemetry_impl> (single_request_data_a.impl), &last_updated = single_request_data_a.last_updated, &endpoint_a, wrapper]() {
 		if (auto telemetry_impl = telemetry_impl_w.lock ())
 		{
 			nano::lock_guard<std::mutex> guard (mutex);
@@ -98,12 +97,12 @@ void nano::telemetry::ongoing_single_request_cleanup (nano::endpoint const & end
 		}
 	};
 
-	alarm.add (std::chrono::steady_clock::now () + single_request_data_a.telemetry_impl->cache_cutoff, wrapper->ongoing_func);
+	alarm.add (std::chrono::steady_clock::now () + single_request_data_a.impl->cache_cutoff, wrapper->ongoing_func);
 }
 
 void nano::telemetry::update_cleanup_data (nano::endpoint const & endpoint_a, nano::telemetry::single_request_data & single_request_data_a, bool is_new_a)
 {
-	auto telemetry_impl = single_request_data_a.telemetry_impl;
+	auto telemetry_impl = single_request_data_a.impl;
 	if (is_new_a)
 	{
 		// Clean this request up when it isn't being used anymore
@@ -132,7 +131,7 @@ void nano::telemetry::get_metrics_single_peer_async (std::shared_ptr<nano::trans
 			auto pair = single_requests.emplace (channel_a->get_endpoint (), single_request_data{ std::make_shared<nano::telemetry_impl> (network, alarm, worker), std::chrono::steady_clock::now () });
 			update_cleanup_data (pair.first->first, pair.first->second, pair.second);
 
-			pair.first->second.telemetry_impl->get_metrics_async ({ channel_a }, [callback_a](telemetry_data_responses const & telemetry_data_responses_a) {
+			pair.first->second.impl->get_metrics_async ({ channel_a }, [callback_a](telemetry_data_responses const & telemetry_data_responses_a) {
 				// There should only be 1 response, so if this hasn't been received then conclude it is an error.
 				auto const error = !telemetry_data_responses_a.all_received;
 				if (!error)
@@ -171,7 +170,7 @@ size_t nano::telemetry::telemetry_data_size ()
 {
 	nano::lock_guard<std::mutex> guard (mutex);
 	auto total = std::accumulate (single_requests.begin (), single_requests.end (), static_cast<size_t> (0), [](size_t total, auto & single_request) {
-		return total += single_request.second.telemetry_impl->telemetry_data_size ();
+		return total += single_request.second.impl->telemetry_data_size ();
 	});
 
 	if (batch_request)
