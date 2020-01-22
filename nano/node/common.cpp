@@ -12,7 +12,6 @@
 
 std::bitset<16> constexpr nano::message_header::block_type_mask;
 std::bitset<16> constexpr nano::message_header::count_mask;
-std::bitset<16> constexpr nano::message_header::telemetry_size_mask;
 
 namespace
 {
