@@ -2,15 +2,17 @@
 #include <nano/lib/threading.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/network.hpp>
+#include <nano/node/nodeconfig.hpp>
 #include <nano/node/request_aggregator.hpp>
 #include <nano/node/transport/udp.hpp>
 #include <nano/node/voting.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/secure/blockstore.hpp>
 
-nano::request_aggregator::request_aggregator (nano::stat & stats_a, nano::network_constants const & network_constants_a, nano::votes_cache & cache_a, nano::block_store & store_a, nano::wallets & wallets_a) :
+nano::request_aggregator::request_aggregator (nano::network_constants const & network_constants_a, nano::node_config const & config_a, nano::stat & stats_a, nano::votes_cache & cache_a, nano::block_store & store_a, nano::wallets & wallets_a) :
 max_delay (network_constants_a.is_test_network () ? 50 : 300),
 small_delay (network_constants_a.is_test_network () ? 10 : 50),
+max_channel_requests (config_a.max_queued_requests),
 stats (stats_a),
 votes_cache (cache_a),
 store (store_a),
@@ -24,25 +26,39 @@ thread ([this]() { run (); })
 void nano::request_aggregator::add (std::shared_ptr<nano::transport::channel> & channel_a, std::vector<std::pair<nano::block_hash, nano::root>> const & hashes_roots_a)
 {
 	assert (wallets.rep_counts ().voting > 0);
+	bool error = true;
 	auto const endpoint (nano::transport::map_endpoint_to_v6 (channel_a->get_endpoint ()));
 	nano::unique_lock<std::mutex> lock (mutex);
-	auto & requests_by_endpoint (requests.get<tag_endpoint> ());
-	auto existing (requests_by_endpoint.find (endpoint));
-	if (existing == requests_by_endpoint.end ())
+	// Protecting from ever-increasing memory usage when request are consumed slower than generated
+	// Reject request if the oldest request has not yet been processed after its deadline + a modest margin
+	if (requests.empty () || (requests.get<tag_deadline> ().begin ()->deadline + 2 * this->max_delay > std::chrono::steady_clock::now ()))
 	{
-		existing = requests_by_endpoint.emplace (channel_a).first;
+		auto & requests_by_endpoint (requests.get<tag_endpoint> ());
+		auto existing (requests_by_endpoint.find (endpoint));
+		if (existing == requests_by_endpoint.end ())
+		{
+			existing = requests_by_endpoint.emplace (channel_a).first;
+		}
+		requests_by_endpoint.modify (existing, [&hashes_roots_a, &channel_a, &error, this](channel_pool & pool_a) {
+			// This extends the lifetime of the channel, which is acceptable up to max_delay
+			pool_a.channel = channel_a;
+			if (pool_a.hashes_roots.size () + hashes_roots_a.size () <= this->max_channel_requests)
+			{
+				error = false;
+				auto new_deadline (std::min (pool_a.start + this->max_delay, std::chrono::steady_clock::now () + this->small_delay));
+				pool_a.deadline = new_deadline;
+				pool_a.hashes_roots.insert (pool_a.hashes_roots.begin (), hashes_roots_a.begin (), hashes_roots_a.end ());
+			}
+		});
+		if (requests.size () == 1)
+		{
+			lock.unlock ();
+			condition.notify_all ();
+		}
 	}
-	requests_by_endpoint.modify (existing, [&hashes_roots_a, &channel_a, this](channel_pool & pool_a) {
-		// This extends the lifetime of the channel, which is acceptable up to max_delay
-		pool_a.channel = channel_a;
-		auto new_deadline (std::min (pool_a.start + this->max_delay, std::chrono::steady_clock::now () + this->small_delay));
-		pool_a.deadline = new_deadline;
-		pool_a.hashes_roots.insert (pool_a.hashes_roots.begin (), hashes_roots_a.begin (), hashes_roots_a.end ());
-	});
-	if (requests.size () == 1)
+	if (error)
 	{
-		lock.unlock ();
-		condition.notify_all ();
+		stats.inc (nano::stat::type::requests, nano::stat::detail::requests_dropped);
 	}
 }
 

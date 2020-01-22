@@ -652,6 +652,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::requests_ignored:
 			res = "requests_votes_ignored";
 			break;
+		case nano::stat::detail::requests_dropped:
+			res = "requests_dropped";
+			break;
 	}
 	return res;
 }
