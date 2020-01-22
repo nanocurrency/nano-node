@@ -11,6 +11,8 @@
 #include <future>
 #include <numeric>
 
+std::chrono::milliseconds constexpr nano::telemetry_impl::cache_cutoff;
+
 nano::telemetry::telemetry (nano::network & network_a, nano::alarm & alarm_a, nano::worker & worker_a) :
 network (network_a),
 alarm (alarm_a),
@@ -81,18 +83,19 @@ void nano::telemetry::ongoing_single_request_cleanup (nano::endpoint const & end
 
 	auto wrapper = std::make_shared<ongoing_func_wrapper> ();
 	// Keep calling ongoing_func while the peer is still being called
-	wrapper->ongoing_func = [& mutex = this->mutex, &alarm = this->alarm, &single_requests = this->single_requests, telemetry_impl_w = std::weak_ptr<nano::telemetry_impl> (single_request_data_a.impl), &last_updated = single_request_data_a.last_updated, &endpoint_a, wrapper]() {
+	const auto & last_updated = single_request_data_a.last_updated;
+	wrapper->ongoing_func = [this, telemetry_impl_w = std::weak_ptr<nano::telemetry_impl> (single_request_data_a.impl), &last_updated, &endpoint_a, wrapper]() {
 		if (auto telemetry_impl = telemetry_impl_w.lock ())
 		{
-			nano::lock_guard<std::mutex> guard (mutex);
+			nano::lock_guard<std::mutex> guard (this->mutex);
 			if (std::chrono::steady_clock::now () - telemetry_impl->cache_cutoff > last_updated && telemetry_impl->callbacks.empty ())
 			{
-				single_requests.erase (endpoint_a);
+				this->single_requests.erase (endpoint_a);
 			}
 			else
 			{
 				// Request is still active, so call again
-				alarm.add (std::chrono::steady_clock::now () + telemetry_impl->cache_cutoff, wrapper->ongoing_func);
+				this->alarm.add (std::chrono::steady_clock::now () + telemetry_impl->cache_cutoff, wrapper->ongoing_func);
 			}
 		}
 	};

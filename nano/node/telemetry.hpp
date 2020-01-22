@@ -58,7 +58,7 @@ private:
 
 	nano::network_params network_params;
 	// Anything older than this requires requesting metrics from other nodes
-	std::chrono::milliseconds const cache_cutoff{ network_params.network.is_test_network () ? 500 : 3000 };
+	static std::chrono::milliseconds constexpr cache_cutoff{ 3000 };
 
 	// All data in this chunk is protected by this mutex
 	std::mutex mutex;
@@ -84,6 +84,8 @@ private:
 
 	friend std::unique_ptr<container_info_component> collect_container_info (telemetry_impl &, const std::string &);
 	friend nano::telemetry;
+	friend class node_telemetry_single_request_Test;
+	friend class node_telemetry_basic_Test;
 };
 
 std::unique_ptr<nano::container_info_component> collect_container_info (telemetry_impl & telemetry_impl, const std::string & name);

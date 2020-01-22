@@ -101,6 +101,8 @@ TEST (node_telemetry, no_peers)
 	}
 }
 
+namespace nano
+{
 TEST (node_telemetry, basic)
 {
 	nano::system system (2);
@@ -151,8 +153,8 @@ TEST (node_telemetry, basic)
 		}
 	}
 
-	// Wait a second (should match telemetry_impl::cache_cutoff) and not use the cache
-	std::this_thread::sleep_for (1s);
+	// Wait the cache period and check cache is used
+	std::this_thread::sleep_for (nano::telemetry_impl::cache_cutoff);
 
 	std::atomic<bool> done{ false };
 	node_client->telemetry.get_metrics_random_peers_async ([&done, &telemetry_data](nano::telemetry_data_responses const & responses_a) {
@@ -167,6 +169,7 @@ TEST (node_telemetry, basic)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 }
+}
 
 TEST (node_telemetry, many_nodes)
 {
@@ -179,6 +182,8 @@ TEST (node_telemetry, many_nodes)
 		node_config.bandwidth_limit = 100000 + i;
 		system.add_node (node_config);
 	}
+
+	wait_all_peers (system);
 
 	// Give all nodes a non-default number of blocks
 	nano::keypair key;
@@ -202,7 +207,7 @@ TEST (node_telemetry, many_nodes)
 		done = true;
 	});
 
-	system.deadline_set (10s);
+	system.deadline_set (20s);
 	while (!done)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -366,6 +371,8 @@ TEST (node_telemetry, simultaneous_random_requests)
 	}
 }
 
+namespace nano
+{
 TEST (node_telemetry, single_request)
 {
 	nano::system system (2);
@@ -416,8 +423,8 @@ TEST (node_telemetry, single_request)
 		}
 	}
 
-	// Wait a second (should match telemetry_impl::cache_cutoff) and not use the cache
-	std::this_thread::sleep_for (1s);
+	// Wait the cache period and check cache is used
+	std::this_thread::sleep_for (nano::telemetry_impl::cache_cutoff);
 
 	std::atomic<bool> done{ false };
 	node_client->telemetry.get_metrics_single_peer_async (channel, [&done, &telemetry_data](nano::telemetry_data_response const & response_a) {
@@ -431,6 +438,7 @@ TEST (node_telemetry, single_request)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+}
 }
 
 TEST (node_telemetry, single_request_invalid_channel)
