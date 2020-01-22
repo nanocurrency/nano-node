@@ -789,8 +789,12 @@ TEST (bootstrap_processor, wallet_lazy_pending)
 
 TEST (bootstrap_processor, multiple_attempts)
 {
-	nano::system system (1);
-	auto node1 (system.nodes[0]);
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	nano::node_flags node_flags;
+	node_flags.disable_bootstrap_bulk_push_client = true;
+	auto node1 = system.add_node (config, node_flags);
 	nano::genesis genesis;
 	nano::keypair key1;
 	nano::keypair key2;
