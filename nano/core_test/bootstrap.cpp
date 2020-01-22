@@ -709,16 +709,14 @@ TEST (bootstrap_processor, lazy_unclear_state_link_not_existing)
 	// Generating test chain
 	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send1).code);
-	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send1->hash ())));
-	ASSERT_EQ (nano::process_result::progress, node1->process (*send2).code);
 	auto open (std::make_shared<nano::open_block> (send1->hash (), key.pub, key.pub, key.prv, key.pub, *system.work.generate (key.pub)));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*open).code);
-	auto send3 (std::make_shared<nano::state_block> (key.pub, open->hash (), key.pub, 0, key2.pub, key.prv, key.pub, *system.work.generate (open->hash ()))); // It is not possible to define this block send/receive status based on previous block (legacy open)
-	ASSERT_EQ (nano::process_result::progress, node1->process (*send3).code);
+	auto send2 (std::make_shared<nano::state_block> (key.pub, open->hash (), key.pub, 0, key2.pub, key.prv, key.pub, *system.work.generate (open->hash ()))); // It is not possible to define this block send/receive status based on previous block (legacy open)
+	ASSERT_EQ (nano::process_result::progress, node1->process (*send2).code);
 	// Start lazy bootstrap with last block in chain known
 	auto node2 = system.add_node (nano::node_config (nano::get_available_port (), system.logging), node_flags);
 	node2->network.udp_channels.insert (node1->network.endpoint (), node1->network_params.protocol.protocol_version);
-	node2->bootstrap_initiator.bootstrap_lazy (send3->hash ());
+	node2->bootstrap_initiator.bootstrap_lazy (send2->hash ());
 	// Check processed blocks
 	system.deadline_set (15s);
 	while (node2->bootstrap_initiator.in_progress ())
@@ -727,9 +725,8 @@ TEST (bootstrap_processor, lazy_unclear_state_link_not_existing)
 	}
 	node2->block_processor.flush ();
 	ASSERT_TRUE (node2->ledger.block_exists (send1->hash ()));
-	ASSERT_TRUE (node2->ledger.block_exists (send2->hash ()));
 	ASSERT_TRUE (node2->ledger.block_exists (open->hash ()));
-	ASSERT_TRUE (node2->ledger.block_exists (send3->hash ()));
+	ASSERT_TRUE (node2->ledger.block_exists (send2->hash ()));
 	ASSERT_EQ (1, node2->stats.count (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_failed_account, nano::stat::dir::in));
 }
 
