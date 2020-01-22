@@ -334,7 +334,7 @@ TEST (bootstrap_processor, pull_diamond)
 	node1->stop ();
 }
 
-TEST (bootstrap_processor, pull_requeue_network_error)
+TEST (bootstrap_processor, DISABLED_pull_requeue_network_error)
 {
 	nano::system system;
 	nano::node_config config (nano::get_available_port (), system.logging);
