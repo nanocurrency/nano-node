@@ -320,3 +320,28 @@ TEST (request_aggregator, channel_max_queue)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 }
+
+TEST (request_aggregator, unique)
+{
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto & node (*system.add_node (node_config));
+	nano::genesis genesis;
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node.work_generate_blocking (genesis.hash ())));
+	ASSERT_EQ (nano::process_result::progress, node.ledger.process (node.store.tx_begin_write (), *send1).code);
+	std::vector<std::pair<nano::block_hash, nano::root>> request;
+	request.emplace_back (send1->hash (), send1->root ());
+	auto channel (node.network.udp_channels.create (node.network.endpoint ()));
+	node.aggregator.add (channel, request);
+	node.aggregator.add (channel, request);
+	node.aggregator.add (channel, request);
+	node.aggregator.add (channel, request);
+	system.deadline_set (3s);
+	while (node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated, nano::stat::dir::out) < 1)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated, nano::stat::dir::in));
+}

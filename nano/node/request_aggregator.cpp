@@ -130,6 +130,16 @@ bool nano::request_aggregator::empty ()
 
 std::vector<nano::block_hash> nano::request_aggregator::aggregate (nano::transaction const & transaction_a, channel_pool & pool_a) const
 {
+	// Unique hashes
+	using pair = decltype (pool_a.hashes_roots)::value_type;
+	std::sort (pool_a.hashes_roots.begin (), pool_a.hashes_roots.end (), [](pair const & pair1, pair const & pair2) {
+		return pair1.first < pair2.first;
+	});
+	pool_a.hashes_roots.erase (std::unique (pool_a.hashes_roots.begin (), pool_a.hashes_roots.end (), [](pair const & pair1, pair const & pair2) {
+		return pair1.first == pair2.first;
+	}),
+	pool_a.hashes_roots.end ());
+
 	size_t cached_hashes = 0;
 	std::vector<nano::block_hash> to_generate;
 	std::vector<std::shared_ptr<nano::vote>> cached_votes;
@@ -197,10 +207,6 @@ std::vector<nano::block_hash> nano::request_aggregator::aggregate (nano::transac
 
 void nano::request_aggregator::generate (nano::transaction const & transaction_a, std::vector<nano::block_hash> hashes_a, std::shared_ptr<nano::transport::channel> & channel_a) const
 {
-	// Unique hashes
-	std::sort (hashes_a.begin (), hashes_a.end ());
-	hashes_a.erase (std::unique (hashes_a.begin (), hashes_a.end ()), hashes_a.end ());
-
 	size_t generated_l = 0;
 	auto i (hashes_a.begin ());
 	auto n (hashes_a.end ());
