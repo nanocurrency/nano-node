@@ -398,6 +398,7 @@ void nano::bootstrap_connections::requeue_pull (nano::pull_info const & pull_a, 
 			nano::lock_guard<std::mutex> lock (mutex);
 			pulls.push_front (pull);
 			++attempt_l->pulling;
+			attempt_l->condition.notify_all ();
 			condition.notify_all ();
 		}
 		else if (attempt_l->mode == nano::bootstrap_mode::lazy && (pull.retry_limit == std::numeric_limits<unsigned>::max () || pull.attempts <= pull.retry_limit + (pull.processed / node.network_params.bootstrap.lazy_max_pull_blocks)))
@@ -408,6 +409,7 @@ void nano::bootstrap_connections::requeue_pull (nano::pull_info const & pull_a, 
 				nano::lock_guard<std::mutex> lock (mutex);
 				pulls.push_back (pull);
 				++attempt_l->pulling;
+				attempt_l->condition.notify_all ();
 				condition.notify_all ();
 			}
 		}

@@ -35,6 +35,7 @@ void nano::bootstrap_attempt_lazy::lazy_start (nano::hash_or_account const & has
 	{
 		lazy_keys.insert (hash_or_account_a);
 		lazy_pulls.emplace_back (hash_or_account_a, confirmed ? std::numeric_limits<unsigned>::max () : node->network_params.bootstrap.lazy_retry_limit);
+		condition.notify_all ();
 	}
 }
 
