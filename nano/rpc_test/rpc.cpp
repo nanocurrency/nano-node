@@ -2672,6 +2672,45 @@ TEST (rpc, pending)
 	check_block_response_count (0);
 }
 
+TEST (rpc, pending_burn)
+{
+	nano::system system;
+	auto node = add_ipc_enabled_node (system);
+	nano::account burn (0);
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	auto block1 (system.wallet (0)->send_action (nano::test_genesis_key.pub, burn, 100));
+	scoped_io_thread_name_change scoped_thread_name_io;
+	system.deadline_set (5s);
+	while (node->active.active (*block1))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node->config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "pending");
+	request.put ("account", burn.to_account ());
+	request.put ("count", "100");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		auto & blocks_node (response.json.get_child ("blocks"));
+		ASSERT_EQ (1, blocks_node.size ());
+		nano::block_hash hash (blocks_node.begin ()->second.get<std::string> (""));
+		ASSERT_EQ (block1->hash (), hash);
+	}
+}
+
 TEST (rpc, search_pending)
 {
 	nano::system system;
