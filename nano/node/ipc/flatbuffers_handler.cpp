@@ -147,8 +147,8 @@ std::function<void(std::shared_ptr<std::string>)> response_handler)
 void nano::ipc::flatbuffers_handler::process (const uint8_t * message_buffer_a, size_t buffer_size_a,
 std::function<void(std::shared_ptr<flatbuffers::FlatBufferBuilder>)> response_handler)
 {
-	auto fbb (std::make_shared<flatbuffers::FlatBufferBuilder> ());
-	auto actionhandler (std::make_shared<action_handler> (node, ipc_server, subscriber, fbb));
+	auto buffer_l (std::make_shared<flatbuffers::FlatBufferBuilder> ());
+	auto actionhandler (std::make_shared<action_handler> (node, ipc_server, subscriber, buffer_l));
 	std::string correlationId = "";
 
 	// Find and call the action handler
@@ -170,7 +170,7 @@ std::function<void(std::shared_ptr<flatbuffers::FlatBufferBuilder>)> response_ha
 		{
 			nano::error err ("Invalid message");
 			actionhandler->make_error (err.error_code_as_int (), err.get_message ());
-			response_handler (fbb);
+			response_handler (buffer_l);
 			return;
 		}
 
@@ -194,5 +194,5 @@ std::function<void(std::shared_ptr<flatbuffers::FlatBufferBuilder>)> response_ha
 		actionhandler->make_error (err.error_code_as_int (), err.get_message ());
 	}
 
-	response_handler (fbb);
+	response_handler (buffer_l);
 }

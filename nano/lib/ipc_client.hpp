@@ -79,8 +79,8 @@ namespace ipc
 	template <typename T>
 	nano::shared_const_buffer shared_buffer_from (T & object_a, std::string const & correlation_id_a = {}, std::string const & credentials_a = {})
 	{
-		auto fbb (nano::ipc::flatbuffer_producer::make_buffer (object_a, correlation_id_a, credentials_a));
-		return nano::ipc::prepare_flatbuffers_request (fbb);
+		auto buffer_l (nano::ipc::flatbuffer_producer::make_buffer (object_a, correlation_id_a, credentials_a));
+		return nano::ipc::prepare_flatbuffers_request (buffer_l);
 	}
 
 	/**

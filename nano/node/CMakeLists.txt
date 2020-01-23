@@ -57,6 +57,10 @@ add_library (node
 	gap_cache.cpp
 	ipc/action_handler.hpp
 	ipc/action_handler.cpp
+	ipc/flatbuffers_handler.hpp
+	ipc/flatbuffers_handler.cpp
+	ipc/flatbuffers_util.hpp
+	ipc/flatbuffers_util.cpp
 	ipc/ipc_access_config.hpp
 	ipc/ipc_access_config.cpp
 	ipc/ipc_broker.hpp
@@ -65,10 +69,6 @@ add_library (node
 	ipc/ipc_config.cpp
 	ipc/ipc_server.hpp
 	ipc/ipc_server.cpp
-	ipc/flatbuffers_handler.hpp
-	ipc/flatbuffers_handler.cpp
-	ipc/flatbuffers_util.hpp
-	ipc/flatbuffers_util.cpp
 	json_handler.hpp
 	json_handler.cpp
 	json_payment_observer.hpp	
@@ -167,5 +167,5 @@ target_compile_definitions(node
 		-DGIT_COMMIT_HASH=${GIT_COMMIT_HASH})
 
 # This ensures that any changes to Flatbuffers source files will cause a
-# regeneration of any C++ header files mentioned in nano_flatbuffers
+# regeneration of any C++ header files.
 add_dependencies(node ipc_flatbuffers_lib)

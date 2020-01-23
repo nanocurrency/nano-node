@@ -124,7 +124,7 @@ namespace ipc
 		 * from the default user (unless "bare" is true in the access config file)
 		 */
 		access_user default_user;
-		/** The config can be externally reloaded and concurrently accessed*/
+		/** The config can be externally reloaded and concurrently accessed */
 		mutable std::mutex mutex;
 	};
 

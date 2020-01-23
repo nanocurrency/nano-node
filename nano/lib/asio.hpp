@@ -36,8 +36,9 @@ async_write (AsyncWriteStream & s, nano::shared_const_buffer const & buffer, Wri
 }
 
 /**
- * Alternative to nano::async_write where scatter/gather is desired for performance
- * @warning The buffer(s) must be captured in the handler to ensure their lifetimes are properly extended.
+ * Alternative to nano::async_write where scatter/gather is desired for best performance, and where
+ * the buffer originates from Flatbuffers.
+ * @warning The buffers must be captured in the handler to ensure their lifetimes are properly extended.
  */
 template <typename AsyncWriteStream, typename BufferType, typename WriteHandler>
 BOOST_ASIO_INITFN_RESULT_TYPE (WriteHandler, void(boost::system::error_code, std::size_t))

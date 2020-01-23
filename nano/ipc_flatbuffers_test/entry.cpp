@@ -13,7 +13,7 @@
 
 namespace
 {
-void read_message_loop (std::shared_ptr<nano::ipc::ipc_client> connection)
+void read_message_loop (std::shared_ptr<nano::ipc::ipc_client> const & connection)
 {
 	auto buffer (std::make_shared<std::vector<uint8_t>> ());
 	connection->async_read_message (buffer, std::chrono::seconds::max (), [buffer, connection](nano::error error_a, size_t size_a) {
@@ -53,6 +53,8 @@ int main (int argc, char * const * argv)
 {
 	boost::asio::io_context io_ctx;
 	auto connection (std::make_shared<nano::ipc::ipc_client> (io_ctx));
+	// The client only connects to a local live node for now; the test will
+	// be improved later to handle various options, including port and address.
 	std::string ipc_address = "::1";
 	uint16_t ipc_port = 7077;
 	connection->async_connect (ipc_address, ipc_port, [connection](nano::error err) {

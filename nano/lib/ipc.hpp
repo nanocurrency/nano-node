@@ -65,7 +65,6 @@ namespace ipc
 		/**
 		 * Request is preamble followed by 32-bit BE payload length and payload bytes.
 		 * Response is 32-bit BE payload length followed by payload bytes.
-		 *
 		 * Payloads must be flatbuffer encoded.
 		 */
 		flatbuffers = 0x3,

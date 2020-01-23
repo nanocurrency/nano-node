@@ -91,11 +91,17 @@ public:
 	{
 	}
 
-	struct scoped_lock
+	struct scoped_lock final
 	{
 		scoped_lock (locked * owner_a) :
-		owner (owner_a), mutex (owner_a->mutex)
+		owner (owner_a)
 		{
+			owner->mutex.lock ();
+		}
+
+		~scoped_lock ()
+		{
+			owner->mutex.unlock ();
 		}
 
 		T * operator-> ()
@@ -109,7 +115,6 @@ public:
 		}
 
 		locked * owner{ nullptr };
-		nano::unique_lock<std::mutex> mutex;
 	};
 
 	scoped_lock operator-> ()
@@ -129,7 +134,7 @@ public:
 		return obj;
 	}
 
-	/** Scoped lock, to allow multiple calls to the underlying object using the same lock */
+	/** Returns a scoped lock wrapper, allowing multiple calls to the underlying object under the same lock */
 	scoped_lock lock ()
 	{
 		return scoped_lock (this);

@@ -1,8 +1,12 @@
+/*
+  Flatbuffer schema for the Nano IPC API.
+  Please see https://google.github.io/flatbuffers/md__schemas.html for recommended schema evolution practices.
+ */
 namespace nanoapi;
 
 /** Returns the voting weight for the given account */
 table AccountWeight {
-	/** A nano_ account */
+	/** A nano_ address */
 	account: string (required);
 }
 
@@ -12,7 +16,10 @@ table AccountWeightResponse {
 	voting_weight: string (required);
 }
 
-/** Block subtype for state blocks. Note that the node makes no distinction between open and receive subtypes */
+/**
+ * Block subtype for state blocks.
+ * Note that the node makes no distinction between open and receive subtypes.
+ */
 enum BlockSubType: byte {
 	invalid = 0,
 	receive,
@@ -50,6 +57,7 @@ table BlockReceive {
 	hash: string;
 	/** Hash of previous block */
 	previous: string;
+	/** Source hash */
 	source: string;
 	/** Signature as a hex string */
 	signature: string;
@@ -75,7 +83,7 @@ table BlockSend {
 table BlockChange {
 	/** Hash of this block */
 	hash: string;
-	/** Hash of send block */
+	/** Hash of previous block */
 	previous: string;
 	/** Representative address */
 	representative: string;
@@ -90,13 +98,15 @@ table BlockState {
 	hash: string;
 	/** Account as nano_ string */
 	account: string;
-	/** Hash of previous block*/
+	/** Hash of previous block */
 	previous: string;
-	/** Representative as nano_ account string */
+	/** Representative as nano_ string */
 	representative: string;
 	/** Balance in raw */
 	balance: string;
+	/** Link as a hex string */
 	link: string;
+	/** Link interpreted as a nano_ address */
 	link_as_account: string;
 	/** Signature as a hex string */
 	signature: string;
@@ -118,15 +128,16 @@ table ServiceRegister {
 
 /** Request the node to send an EventServiceStop event to the given service */
 table ServiceStop {
-	/** 
-	 * Name of service to stop. The node automatically registers itself under the name "node". 
-	 * A blank string indicates a request to stop or restart all services.
-	 */
+	/** Name of service to stop. */
 	service_name: string (required);
+	/** If true, restart the service */
 	restart: bool = false;
 }
 
-/** Subscribe or unsubscribe to EventServiceStop events. The service must first have registered itself on the same session. */
+/**
+ * Subscribe or unsubscribe to EventServiceStop events.
+ * The service must first have registered itself on the same session.
+ */
 table TopicServiceStop {
 	/** Set to true to unsubscribe */
 	unsubscribe: bool;
@@ -138,7 +149,7 @@ table EventServiceStop {
 
 /**
  * All subscriptions are acknowledged. Use the envelope's correlation id
- * if you need to match the event with the subscription.
+ * if you need to match the ack with the subscription.
  */
 table EventAck {
 }
@@ -164,7 +175,7 @@ table TopicConfirmationOptions {
 	include_election_info: bool = true;
 }
 
-/** Notification of block confirmation. Sent to subscribers of Confirmation. */
+/** Notification of block confirmation. */
 table EventConfirmation {
 	confirmation_type: TopicConfirmationType;
 	account: string;
@@ -193,8 +204,8 @@ table Error {
 	message: string;
 }
 
-/** 
- * A general purpose success response for messages that don't return any message types.
+/**
+ * A general purpose success response for messages that don't return a message.
  * The response includes an optional message text.
  */
 table Success {

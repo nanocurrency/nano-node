@@ -169,7 +169,7 @@ nano::error nano::ipc::access::deserialize_toml (nano::tomlconfig & toml)
 			bool is_bare = user_a->get_as<std::string> ("bare").value_or ("false") == "true";
 
 			// Adopt all permissions from the roles. This must be done before setting user permissions, since
-			// the user config may add deny entries.
+			// the user config may add deny-entries.
 			std::string roles_l (user_a->get_as<std::string> ("roles").value_or (""));
 			std::vector<std::string> role_strings_l;
 			boost::split (role_strings_l, roles_l, boost::is_any_of (","));

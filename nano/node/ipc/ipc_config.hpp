@@ -23,8 +23,7 @@ namespace ipc
 	};
 
 	/**
-	 * Flatbuffers encoding config. See TOML serialization documentation() calls for
-	 * details about each field.
+	 * Flatbuffers encoding config. See TOML serialization calls for details about each field.
 	 */
 	class ipc_config_flatbuffers final
 	{
