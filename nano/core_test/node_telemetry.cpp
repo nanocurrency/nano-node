@@ -729,9 +729,9 @@ void wait_peer_connections (nano::system & system_a)
 	while (peer_count != num_nodes * (num_nodes - 1))
 	{
 		ASSERT_NO_ERROR (system_a.poll ());
-		peer_count = std::accumulate (system_a.nodes.cbegin (), system_a.nodes.cend (), 0, [](auto total, auto const & node){
+		peer_count = std::accumulate (system_a.nodes.cbegin (), system_a.nodes.cend (), 0, [](auto total, auto const & node) {
 			auto transaction = node->store.tx_begin_read ();
-			return total += node->store.peer_count (transaction);		
+			return total += node->store.peer_count (transaction);
 		});
 	}
 }
