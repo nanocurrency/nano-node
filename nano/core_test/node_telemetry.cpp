@@ -4,12 +4,13 @@
 
 #include <gtest/gtest.h>
 
+#include <numeric>
+
 using namespace std::chrono_literals;
 
 namespace
 {
-void wait_any_peers (nano::system & system_a, nano::node const & node_a);
-void wait_all_peers (nano::system & system_a);
+void wait_peer_connections (nano::system & system_a);
 void compare_default_test_result_data (nano::telemetry_data & telemetry_data_a, nano::node const & node_server_a);
 }
 
@@ -110,8 +111,7 @@ TEST (node_telemetry, basic)
 	auto node_client = system.nodes.front ();
 	auto node_server = system.nodes.back ();
 
-	// Wait until peers are stored as they are done in the background
-	wait_any_peers (system, *node_server);
+	wait_peer_connections (system);
 
 	// Request telemetry metrics
 	std::vector<nano::telemetry_data> all_telemetry_data;
@@ -183,7 +183,7 @@ TEST (node_telemetry, many_nodes)
 		system.add_node (node_config);
 	}
 
-	wait_all_peers (system);
+	wait_peer_connections (system);
 
 	// Give all nodes a non-default number of blocks
 	nano::keypair key;
@@ -255,7 +255,7 @@ TEST (node_telemetry, over_udp)
 	auto node_client = system.add_node (node_flags);
 	auto node_server = system.add_node (node_flags);
 
-	wait_all_peers (system);
+	wait_peer_connections (system);
 
 	std::atomic<bool> done{ false };
 	std::vector<nano::telemetry_data> all_telemetry_data;
@@ -288,15 +288,11 @@ TEST (node_telemetry, over_udp)
 
 TEST (node_telemetry, simultaneous_random_requests)
 {
-	nano::system system;
 	const auto num_nodes = 4;
-	for (int i = 0; i < num_nodes; ++i)
-	{
-		system.add_node ();
-	}
+	nano::system system (num_nodes);
 
 	// Wait until peers are stored as they are done in the background
-	wait_all_peers (system);
+	wait_peer_connections (system);
 
 	std::vector<std::thread> threads;
 	const auto num_threads = 4;
@@ -380,8 +376,7 @@ TEST (node_telemetry, single_request)
 	auto node_client = system.nodes.front ();
 	auto node_server = system.nodes.back ();
 
-	// Wait until peers are stored as they are done in the background
-	wait_any_peers (system, *node_server);
+	wait_peer_connections (system);
 
 	// Request telemetry metrics
 	auto channel = node_client->network.find_channel (node_server->network.endpoint ());
@@ -463,15 +458,10 @@ TEST (node_telemetry, single_request_invalid_channel)
 
 TEST (node_telemetry, simultaneous_single_and_random_requests)
 {
-	nano::system system;
 	const auto num_nodes = 4;
-	for (int i = 0; i < num_nodes; ++i)
-	{
-		system.add_node ();
-	}
+	nano::system system (4);
 
-	// Wait until peers are stored as they are done in the background
-	wait_all_peers (system);
+	wait_peer_connections (system);
 
 	std::vector<std::thread> threads;
 	const auto num_threads = 4;
@@ -567,8 +557,7 @@ TEST (node_telemetry, blocking_single_and_random)
 	auto node_client = system.nodes.front ();
 	auto node_server = system.nodes.back ();
 
-	// Wait until peers are stored as they are done in the background
-	wait_any_peers (system, *node_server);
+	wait_peer_connections (system);
 
 	// Request telemetry metrics
 	std::atomic<bool> done{ false };
@@ -619,8 +608,7 @@ TEST (node_telemetry, multiple_single_request_clearing)
 	node_config.bandwidth_limit = 100000;
 	auto node_server1 = system.add_node (node_config);
 
-	// Wait until peers are stored as they are done in the background
-	wait_any_peers (system, *node_client);
+	wait_peer_connections (system);
 
 	// Request telemetry metrics
 	auto channel = node_client->network.find_channel (node_server->network.endpoint ());
@@ -699,8 +687,7 @@ TEST (node_telemetry, disconnects)
 	auto node_client = system.nodes.front ();
 	auto node_server = system.nodes.back ();
 
-	// Wait until peers are stored as they are done in the background
-	wait_any_peers (system, *node_server);
+	wait_peer_connections (system);
 
 	// Try and request metrics from a node which is turned off but a channel is not closed yet
 	auto channel = node_client->network.find_channel (node_server->network.endpoint ());
@@ -734,20 +721,7 @@ TEST (node_telemetry, disconnects)
 
 namespace
 {
-void wait_any_peers (nano::system & system_a, nano::node const & node_a)
-{
-	auto peers_stored = false;
-	system_a.deadline_set (10s);
-	while (!peers_stored)
-	{
-		ASSERT_NO_ERROR (system_a.poll ());
-
-		auto transaction = node_a.store.tx_begin_read ();
-		peers_stored = node_a.store.peer_count (transaction) != 0;
-	}
-}
-
-void wait_all_peers (nano::system & system_a)
+void wait_peer_connections (nano::system & system_a)
 {
 	system_a.deadline_set (10s);
 	auto peer_count = 0;
@@ -755,13 +729,10 @@ void wait_all_peers (nano::system & system_a)
 	while (peer_count != num_nodes * (num_nodes - 1))
 	{
 		ASSERT_NO_ERROR (system_a.poll ());
-		peer_count = 0;
-
-		for (auto node : system_a.nodes)
-		{
+		peer_count = std::accumulate (system_a.nodes.cbegin (), system_a.nodes.cend (), 0, [](auto total, auto const & node){
 			auto transaction = node->store.tx_begin_read ();
-			peer_count += node->store.peer_count (transaction);
-		}
+			return total += node->store.peer_count (transaction);		
+		});
 	}
 }
 

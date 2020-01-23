@@ -3905,6 +3905,7 @@ void nano::json_handler::telemetry ()
 	if (address_text.is_initialized () || port_text.is_initialized ())
 	{
 		// Check both are specified
+		std::shared_ptr<nano::transport::channel> channel;
 		if (address_text.is_initialized () && port_text.is_initialized ())
 		{
 			uint16_t port;
@@ -3915,55 +3916,57 @@ void nano::json_handler::telemetry ()
 				if (!address_ec)
 				{
 					nano::endpoint endpoint (address, port);
-					auto channel = node.network.find_channel (endpoint);
-					if (channel)
-					{
-						node.telemetry.get_metrics_single_peer_async (channel, [rpc_l](auto const & single_telemetry_metric_a) {
-							if (!single_telemetry_metric_a.error)
-							{
-								nano::jsonconfig config_l;
-								auto err = single_telemetry_metric_a.data.serialize_json (config_l);
-								auto const & ptree = config_l.get_tree ();
-
-								if (!err)
-								{
-									rpc_l->response_l.insert (rpc_l->response_l.begin (), ptree.begin (), ptree.end ());
-									rpc_l->response_l.put ("cached", single_telemetry_metric_a.is_cached);
-								}
-								else
-								{
-									rpc_l->ec = nano::error_rpc::generic;
-								}
-							}
-							else
-							{
-								rpc_l->ec = nano::error_rpc::generic;
-							}
-
-							rpc_l->response_errors ();
-						});
-					}
-					else
+					channel = node.network.find_channel (endpoint);
+					if (!channel)
 					{
 						ec = nano::error_rpc::peer_not_found;
-						response_errors ();
 					}
 				}
 				else
 				{
 					ec = nano::error_common::invalid_ip_address;
-					response_errors ();
 				}
 			}
 			else
 			{
 				ec = nano::error_common::invalid_port;
-				response_errors ();
 			}
 		}
 		else
 		{
 			ec = nano::error_rpc::requires_port_and_address;
+		}
+
+		if (!ec)
+		{
+			assert (channel);
+			node.telemetry.get_metrics_single_peer_async (channel, [rpc_l](auto const & single_telemetry_metric_a) {
+				if (!single_telemetry_metric_a.error)
+				{
+					nano::jsonconfig config_l;
+					auto err = single_telemetry_metric_a.data.serialize_json (config_l);
+					auto const & ptree = config_l.get_tree ();
+
+					if (!err)
+					{
+						rpc_l->response_l.insert (rpc_l->response_l.begin (), ptree.begin (), ptree.end ());
+						rpc_l->response_l.put ("cached", single_telemetry_metric_a.is_cached);
+					}
+					else
+					{
+						rpc_l->ec = nano::error_rpc::generic;
+					}
+				}
+				else
+				{
+					rpc_l->ec = nano::error_rpc::generic;
+				}
+
+				rpc_l->response_errors ();
+			});
+		}
+		else
+		{
 			response_errors ();
 		}
 	}
@@ -3972,7 +3975,7 @@ void nano::json_handler::telemetry ()
 		// By default, consolidated (average or mode) telemetry metrics are returned,
 		// setting "raw" to true returns metrics from all nodes requested.
 		auto raw = request.get_optional<bool> ("raw");
-		auto output_raw = raw.is_initialized () ? *raw : false;
+		auto output_raw = raw.value_or (false);
 		node.telemetry.get_metrics_random_peers_async ([rpc_l, output_raw](auto const & batched_telemetry_metrics_a) {
 			if (output_raw)
 			{
