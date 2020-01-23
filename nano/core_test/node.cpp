@@ -3458,7 +3458,7 @@ TEST (node, bidirectional_tcp)
 	}
 	// Test block confirmation from node 2
 	confirmed = false;
-	system.deadline_set (10s);
+	system.deadline_set (20s);
 	while (!confirmed)
 	{
 		auto transaction1 (node1->store.tx_begin_read ());

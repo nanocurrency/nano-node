@@ -2,6 +2,7 @@
 #include <nano/lib/threading.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/telemetry.hpp>
 #include <nano/secure/buffer.hpp>
 
 #include <boost/format.hpp>
@@ -523,6 +524,42 @@ public:
 	{
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in);
 	}
+	void telemetry_req (nano::telemetry_req const & message_a) override
+	{
+		if (node.config.logging.network_telemetry_logging ())
+		{
+			node.logger.try_log (boost::str (boost::format ("Telemetry_req message from %1%") % channel->to_string ()));
+		}
+		node.stats.inc (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in);
+
+		nano::telemetry_data telemetry_data;
+		telemetry_data.block_count = node.ledger.cache.block_count;
+		telemetry_data.cemented_count = node.ledger.cache.cemented_count;
+		telemetry_data.bandwidth_cap = node.config.bandwidth_limit;
+		telemetry_data.protocol_version_number = node.network_params.protocol.protocol_version;
+		telemetry_data.vendor_version = nano::get_major_node_version ();
+		telemetry_data.uptime = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - node.startup_time).count ();
+		telemetry_data.unchecked_count = node.ledger.cache.unchecked_count;
+		telemetry_data.genesis_block = nano::genesis ().hash ();
+		telemetry_data.peer_count = node.network.size ();
+
+		{
+			auto transaction = node.store.tx_begin_read ();
+			telemetry_data.account_count = node.store.account_count (transaction);
+		}
+
+		nano::telemetry_ack telemetry_ack (telemetry_data);
+		channel->send (telemetry_ack);
+	}
+	void telemetry_ack (nano::telemetry_ack const & message_a) override
+	{
+		if (node.config.logging.network_telemetry_logging ())
+		{
+			node.logger.try_log (boost::str (boost::format ("Received telemetry_ack message from %1%") % channel->to_string ()));
+		}
+		node.stats.inc (nano::stat::type::message, nano::stat::detail::telemetry_ack, nano::stat::dir::in);
+		node.telemetry.add (message_a.data, channel->get_endpoint ());
+	}
 	nano::node & node;
 	std::shared_ptr<nano::transport::channel> channel;
 };
@@ -623,10 +660,10 @@ size_t nano::network::fanout (float scale) const
 	return static_cast<size_t> (std::ceil (scale * size_sqrt ()));
 }
 
-std::unordered_set<std::shared_ptr<nano::transport::channel>> nano::network::random_set (size_t count_a) const
+std::unordered_set<std::shared_ptr<nano::transport::channel>> nano::network::random_set (size_t count_a, uint8_t min_version_a) const
 {
-	std::unordered_set<std::shared_ptr<nano::transport::channel>> result (tcp_channels.random_set (count_a));
-	std::unordered_set<std::shared_ptr<nano::transport::channel>> udp_random (udp_channels.random_set (count_a));
+	std::unordered_set<std::shared_ptr<nano::transport::channel>> result (tcp_channels.random_set (count_a, min_version_a));
+	std::unordered_set<std::shared_ptr<nano::transport::channel>> udp_random (udp_channels.random_set (count_a, min_version_a));
 	for (auto i (udp_random.begin ()), n (udp_random.end ()); i != n && result.size () < count_a * 1.5; ++i)
 	{
 		result.insert (*i);

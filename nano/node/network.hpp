@@ -137,7 +137,7 @@ public:
 	// Desired fanout for a given scale
 	size_t fanout (float scale = 1.0f) const;
 	void random_fill (std::array<nano::endpoint, 8> &) const;
-	std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (size_t) const;
+	std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (size_t, uint8_t = 0) const;
 	// Get the next peer for attempting a tcp bootstrap connection
 	nano::tcp_endpoint bootstrap_peer (bool = false);
 	nano::endpoint endpoint ();
