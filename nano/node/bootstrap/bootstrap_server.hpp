@@ -57,6 +57,7 @@ public:
 	void receive_confirm_req_action (boost::system::error_code const &, size_t, nano::message_header const &);
 	void receive_confirm_ack_action (boost::system::error_code const &, size_t, nano::message_header const &);
 	void receive_node_id_handshake_action (boost::system::error_code const &, size_t, nano::message_header const &);
+	void receive_telemetry_ack_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a);
 	void add_request (std::unique_ptr<nano::message>);
 	void finish_request ();
 	void finish_request_async ();

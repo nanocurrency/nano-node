@@ -556,6 +556,12 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::send:
 			res = "send";
 			break;
+		case nano::stat::detail::telemetry_req:
+			res = "telemetry_req";
+			break;
+		case nano::stat::detail::telemetry_ack:
+			res = "telemetry_ack";
+			break;
 		case nano::stat::detail::state_block:
 			res = "state_block";
 			break;
@@ -633,6 +639,12 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 		case nano::stat::detail::invalid_node_id_handshake_message:
 			res = "invalid_node_id_handshake_message";
+			break;
+		case nano::stat::detail::invalid_telemetry_req_message:
+			res = "invalid_telemetry_req_message";
+			break;
+		case nano::stat::detail::invalid_telemetry_ack_message:
+			res = "invalid_telemetry_ack_message";
 			break;
 		case nano::stat::detail::outdated_version:
 			res = "outdated_version";
