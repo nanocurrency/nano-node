@@ -25,33 +25,37 @@ public:
 	}
 	void bulk_pull (nano::bulk_pull const &) override
 	{
-		++bulk_pull_count;
+		ASSERT_FALSE (true);
 	}
 	void bulk_pull_account (nano::bulk_pull_account const &) override
 	{
-		++bulk_pull_account_count;
+		ASSERT_FALSE (true);
 	}
 	void bulk_push (nano::bulk_push const &) override
 	{
-		++bulk_push_count;
+		ASSERT_FALSE (true);
 	}
 	void frontier_req (nano::frontier_req const &) override
 	{
-		++frontier_req_count;
+		ASSERT_FALSE (true);
 	}
 	void node_id_handshake (nano::node_id_handshake const &) override
 	{
-		++node_id_handshake_count;
+		ASSERT_FALSE (true);
 	}
+	void telemetry_req (nano::telemetry_req const &) override
+	{
+		ASSERT_FALSE (true);
+	}
+	void telemetry_ack (nano::telemetry_ack const &) override
+	{
+		ASSERT_FALSE (true);
+	}
+
 	uint64_t keepalive_count{ 0 };
 	uint64_t publish_count{ 0 };
 	uint64_t confirm_req_count{ 0 };
 	uint64_t confirm_ack_count{ 0 };
-	uint64_t bulk_pull_count{ 0 };
-	uint64_t bulk_pull_account_count{ 0 };
-	uint64_t bulk_push_count{ 0 };
-	uint64_t frontier_req_count{ 0 };
-	uint64_t node_id_handshake_count{ 0 };
 };
 }
 
