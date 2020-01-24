@@ -196,6 +196,9 @@ public:
 	std::atomic<bool> stopped{ false };
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
+
+private:
+	void long_inactivity_cleanup ();
 };
 
 std::unique_ptr<container_info_component> collect_container_info (node & node, const std::string & name);
