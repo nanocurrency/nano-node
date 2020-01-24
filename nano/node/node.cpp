@@ -783,11 +783,8 @@ void nano::node::long_inactivity_cleanup ()
 			++sample;
 		}
 		assert (sample != n);
-		auto one_week_ago = (std::chrono::system_clock::now () - std::chrono::hours (7 * 24)).time_since_epoch ().count ();
-		if (sample->first < one_week_ago)
-		{
-			perform_cleanup = true;
-		}
+		auto const one_week_ago = (std::chrono::system_clock::now () - std::chrono::hours (7 * 24)).time_since_epoch ().count ();
+		perform_cleanup = sample->first < one_week_ago;
 	}
 	if (perform_cleanup)
 	{
