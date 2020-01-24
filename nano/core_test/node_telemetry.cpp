@@ -174,7 +174,8 @@ TEST (node_telemetry, basic)
 TEST (node_telemetry, many_nodes)
 {
 	nano::system system;
-	const auto num_nodes = 10;
+	// The telemetry responses can timeout if using a large number of nodes under sanitizers, so lower the number.
+	const auto num_nodes = (is_sanitizer_build || nano::running_within_valgrind ()) ? 4 : 10;
 	for (auto i = 0; i < num_nodes; ++i)
 	{
 		nano::node_config node_config (nano::get_available_port (), system.logging);
