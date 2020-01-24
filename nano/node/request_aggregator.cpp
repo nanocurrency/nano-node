@@ -13,6 +13,7 @@ nano::request_aggregator::request_aggregator (nano::network_constants const & ne
 max_delay (network_constants_a.is_test_network () ? 50 : 300),
 small_delay (network_constants_a.is_test_network () ? 10 : 50),
 max_channel_requests (config_a.max_queued_requests),
+max_consecutive_requests (network_constants_a.is_test_network () ? 1 : 10),
 stats (stats_a),
 votes_cache (cache_a),
 store (store_a),
@@ -70,6 +71,7 @@ void nano::request_aggregator::run ()
 	lock.unlock ();
 	condition.notify_all ();
 	lock.lock ();
+	unsigned consecutive_requests = 0;
 	while (!stopped)
 	{
 		if (!requests.empty ())
@@ -91,17 +93,26 @@ void nano::request_aggregator::run ()
 					lock.unlock ();
 					// Generate votes for the remaining hashes
 					generate (transaction, std::move (remaining), channel);
+					consecutive_requests = 0;
+					lock.lock ();
+				}
+				else if (++consecutive_requests == max_consecutive_requests)
+				{
+					lock.unlock ();
+					consecutive_requests = 0;
 					lock.lock ();
 				}
 			}
 			else
 			{
+				consecutive_requests = 0;
 				auto deadline = front->deadline;
 				condition.wait_until (lock, deadline, [this, &deadline]() { return this->stopped || deadline < std::chrono::steady_clock::now (); });
 			}
 		}
 		else
 		{
+			consecutive_requests = 0;
 			condition.wait_for (lock, small_delay, [this]() { return this->stopped || !this->requests.empty (); });
 		}
 	}

@@ -78,6 +78,8 @@ private:
 	/** Generate and send votes from \p hashes_a to \p channel_a, does not need a lock on the mutex **/
 	void generate (nano::transaction const &, std::vector<nano::block_hash> const hashes_a, std::shared_ptr<nano::transport::channel> & channel_a) const;
 
+	unsigned const max_consecutive_requests;
+
 	nano::stat & stats;
 	nano::votes_cache & votes_cache;
 	nano::block_store & store;
