@@ -2239,7 +2239,7 @@ TEST (node, vote_replay)
 	}
 	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
 	auto done (false);
-	system.deadline_set (2s);
+	system.deadline_set (20s);
 	while (!done)
 	{
 		auto ec = system.poll ();
