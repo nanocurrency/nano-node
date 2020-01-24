@@ -70,6 +70,8 @@ private:
 	std::vector<nano::telemetry_data> cached_telemetry_data;
 	std::unordered_set<nano::endpoint> required_responses;
 	uint64_t round{ 0 };
+	/* Currently executing callbacks */
+	bool invoking{ false };
 
 	std::atomic<bool> all_received{ true };
 
@@ -79,7 +81,7 @@ private:
 
 	void invoke_callbacks (bool cached_a);
 	void channel_processed (nano::unique_lock<std::mutex> & lk_a, nano::endpoint const & endpoint_a);
-	void fire_callbacks (nano::unique_lock<std::mutex> & lk);
+	void flush_callbacks (nano::unique_lock<std::mutex> & lk_a, bool cached_a);
 	void fire_request_messages (std::unordered_set<std::shared_ptr<nano::transport::channel>> const & channels);
 
 	friend std::unique_ptr<container_info_component> collect_container_info (telemetry_impl &, const std::string &);

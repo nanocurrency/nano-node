@@ -153,7 +153,7 @@ TEST (node_telemetry, basic)
 		}
 	}
 
-	// Wait the cache period and check cache is used
+	// Wait the cache period and check cache is not used
 	std::this_thread::sleep_for (nano::telemetry_impl::cache_cutoff);
 
 	std::atomic<bool> done{ false };
@@ -418,7 +418,7 @@ TEST (node_telemetry, single_request)
 		}
 	}
 
-	// Wait the cache period and check cache is used
+	// Wait the cache period and check cache is not used
 	std::this_thread::sleep_for (nano::telemetry_impl::cache_cutoff);
 
 	std::atomic<bool> done{ false };
@@ -459,7 +459,7 @@ TEST (node_telemetry, single_request_invalid_channel)
 TEST (node_telemetry, simultaneous_single_and_random_requests)
 {
 	const auto num_nodes = 4;
-	nano::system system (4);
+	nano::system system (num_nodes);
 
 	wait_peer_connections (system);
 

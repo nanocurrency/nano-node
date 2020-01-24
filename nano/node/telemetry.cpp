@@ -48,7 +48,7 @@ void nano::telemetry::get_metrics_random_peers_async (std::function<void(telemet
 	// These peers will only be used if there isn't an already ongoing batch telemetry request round
 	auto random_peers = network.random_set (network.size_sqrt (), network_params.protocol.telemetry_protocol_version_min);
 	nano::lock_guard<std::mutex> guard (mutex);
-	if (!stopped)
+	if (!stopped && !random_peers.empty ())
 	{
 		batch_request->get_metrics_async (random_peers, [callback_a](nano::telemetry_data_responses const & telemetry_data_responses) {
 			callback_a (telemetry_data_responses);
@@ -190,21 +190,30 @@ worker (worker_a)
 {
 }
 
+void nano::telemetry_impl::flush_callbacks (nano::unique_lock<std::mutex> & lk_a, bool cached_a)
+{
+	// Invoke all callbacks, it's possible that during the mutex unlock other callbacks were added,
+	// so check again and invoke those too
+	assert (lk_a.owns_lock ());
+	invoking = true;
+	while (!callbacks.empty ())
+	{
+		lk_a.unlock ();
+		invoke_callbacks (cached_a);
+		lk_a.lock ();
+	}
+	invoking = false;
+}
+
 void nano::telemetry_impl::get_metrics_async (std::unordered_set<std::shared_ptr<nano::transport::channel>> const & channels_a, std::function<void(telemetry_data_responses const &)> const & callback_a)
 {
-	std::deque<std::shared_ptr<nano::transport::channel>> d;
 	{
+		assert (!channels_a.empty ());
 		nano::unique_lock<std::mutex> lk (mutex);
 		callbacks.push_back (callback_a);
-		if (callbacks.size () > 1)
+		if (callbacks.size () > 1 || invoking)
 		{
 			// This means we already have at least one pending result already, so it will handle calls this callback when it completes
-			return;
-		}
-		else if (channels_a.empty ())
-		{
-			all_received = false;
-			fire_callbacks (lk);
 			return;
 		}
 
@@ -215,15 +224,9 @@ void nano::telemetry_impl::get_metrics_async (std::unordered_set<std::shared_ptr
 			worker.push_task ([this_w = std::weak_ptr<nano::telemetry_impl> (shared_from_this ())]() {
 				if (auto this_l = this_w.lock ())
 				{
-					// Just invoke all callbacks, it's possible that during the mutex unlock other callbacks were added, so check again
 					nano::unique_lock<std::mutex> lk (this_l->mutex);
-					while (!this_l->callbacks.empty ())
-					{
-						lk.unlock ();
-						const auto is_cached = true;
-						this_l->invoke_callbacks (is_cached);
-						lk.lock ();
-					}
+					const auto is_cached = true;
+					this_l->flush_callbacks (lk, is_cached);
 				}
 			});
 			return;
@@ -275,23 +278,12 @@ void nano::telemetry_impl::channel_processed (nano::unique_lock<std::mutex> & lk
 	auto num_removed = required_responses.erase (endpoint_a);
 	if (num_removed > 0 && required_responses.empty ())
 	{
-		fire_callbacks (lk_a);
-	}
-}
+		assert (lk_a.owns_lock ());
+		cached_telemetry_data = current_telemetry_data_responses;
 
-void nano::telemetry_impl::fire_callbacks (nano::unique_lock<std::mutex> & lk)
-{
-	assert (lk.owns_lock ());
-	cached_telemetry_data = current_telemetry_data_responses;
-
-	last_time = std::chrono::steady_clock::now ();
-	// It's possible that during the mutex unlock other callbacks were added, so check again
-	while (!callbacks.empty ())
-	{
-		lk.unlock ();
-		const auto is_cached = false;
-		invoke_callbacks (is_cached);
-		lk.lock ();
+		last_time = std::chrono::steady_clock::now ();
+		auto const is_cached = false;
+		flush_callbacks (lk_a, is_cached);
 	}
 }
 
