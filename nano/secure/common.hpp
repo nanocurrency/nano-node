@@ -378,6 +378,7 @@ public:
 	std::string nano_live_genesis;
 	nano::account genesis_account;
 	std::string genesis_block;
+	nano::block_hash genesis_hash;
 	nano::uint128_t genesis_amount;
 	nano::account burn_account;
 	nano::epochs epochs;

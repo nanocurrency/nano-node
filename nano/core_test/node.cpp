@@ -2714,14 +2714,13 @@ TEST (node, local_votes_cache_size)
 	node_config.vote_minimum = 0; // wallet will pick up the second account as voting even if unopened
 	auto & node (*system.add_node (node_config));
 	ASSERT_EQ (node.network_params.voting.max_cache, 2); // effective cache size is 1 with 2 voting accounts
-	nano::genesis genesis;
 	nano::keypair key;
 	auto & wallet (*system.wallet (0));
 	wallet.insert_adhoc (nano::test_genesis_key.prv);
 	wallet.insert_adhoc (nano::keypair ().prv);
 	ASSERT_EQ (2, node.wallets.rep_counts ().voting);
 	auto transaction (node.store.tx_begin_read ());
-	auto vote1 (node.store.vote_generate (transaction, nano::test_genesis_key.pub, nano::test_genesis_key.prv, { genesis.open->hash () }));
+	auto vote1 (node.store.vote_generate (transaction, nano::test_genesis_key.pub, nano::test_genesis_key.prv, { nano::genesis_hash }));
 	nano::block_hash hash (1);
 	auto vote2 (node.store.vote_generate (transaction, nano::test_genesis_key.pub, nano::test_genesis_key.prv, { hash }));
 	node.votes_cache.add (vote1);
@@ -2729,7 +2728,7 @@ TEST (node, local_votes_cache_size)
 	auto existing2 (node.votes_cache.find (hash));
 	ASSERT_EQ (1, existing2.size ());
 	ASSERT_EQ (vote2, existing2.front ());
-	ASSERT_EQ (0, node.votes_cache.find (genesis.open->hash ()).size ());
+	ASSERT_EQ (0, node.votes_cache.find (nano::genesis_hash).size ());
 }
 
 TEST (node, vote_republish)
