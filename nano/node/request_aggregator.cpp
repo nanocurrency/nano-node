@@ -199,9 +199,8 @@ std::vector<nano::block_hash> nano::request_aggregator::aggregate (nano::transac
 		nano::confirm_ack confirm (vote);
 		pool_a.channel->send (confirm);
 	}
-	// #hashes in, #votes out
-	stats.add (nano::stat::type::requests, nano::stat::detail::requests_cached, stat::dir::in, cached_hashes);
-	stats.add (nano::stat::type::requests, nano::stat::detail::requests_cached, stat::dir::out, cached_votes.size ());
+	stats.add (nano::stat::type::requests, nano::stat::detail::requests_cached_hashes, stat::dir::in, cached_hashes);
+	stats.add (nano::stat::type::requests, nano::stat::detail::requests_cached_votes, stat::dir::in, cached_votes.size ());
 	return to_generate;
 }
 
@@ -225,9 +224,8 @@ void nano::request_aggregator::generate (nano::transaction const & transaction_a
 			this->votes_cache.add (vote);
 		});
 	}
-	// #hashes in, #votes out
-	stats.add (nano::stat::type::requests, nano::stat::detail::requests_generated, stat::dir::in, hashes_a.size ());
-	stats.add (nano::stat::type::requests, nano::stat::detail::requests_generated, stat::dir::out, generated_l);
+	stats.add (nano::stat::type::requests, nano::stat::detail::requests_generated_hashes, stat::dir::in, hashes_a.size ());
+	stats.add (nano::stat::type::requests, nano::stat::detail::requests_generated_votes, stat::dir::in, generated_l);
 }
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::request_aggregator & aggregator, const std::string & name)

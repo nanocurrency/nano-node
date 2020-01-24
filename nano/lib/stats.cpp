@@ -652,11 +652,17 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::aggregator_dropped:
 			res = "aggregator_dropped";
 			break;
-		case nano::stat::detail::requests_cached:
-			res = "requests_cached";
+		case nano::stat::detail::requests_cached_hashes:
+			res = "requests_cached_hashes";
 			break;
-		case nano::stat::detail::requests_generated:
-			res = "requests_generated";
+		case nano::stat::detail::requests_generated_hashes:
+			res = "requests_generated_hashes";
+			break;
+		case nano::stat::detail::requests_cached_votes:
+			res = "requests_cached_votes";
+			break;
+		case nano::stat::detail::requests_generated_votes:
+			res = "requests_generated_votes";
 			break;
 		case nano::stat::detail::requests_unknown:
 			res = "requests_unknown";

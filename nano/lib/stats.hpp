@@ -301,9 +301,11 @@ public:
 		aggregator_dropped,
 
 		// requests
-		requests_cached,
-		requests_generated,
-		requests_unknown,
+		requests_cached_hashes,
+		requests_generated_hashes,
+		requests_cached_votes,
+		requests_generated_votes,
+		requests_unknown
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */
