@@ -2991,33 +2991,33 @@ TEST (node, fork_election_invalid_block_signature)
 	auto & node1 (*system.nodes[0]);
 	nano::genesis genesis;
 	nano::block_builder builder;
-	std::shared_ptr<nano::block> send1 = builder.state()
-				.account (nano::test_genesis_key.pub)
-				.previous (genesis.hash ())
-				.representative (nano::test_genesis_key.pub)
-				.balance (nano::genesis_amount - nano::Gxrb_ratio)
-				.link (nano::test_genesis_key.pub)
-				.work (*system.work.generate (genesis.hash ()))
-				.sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
-				.build ();
-	std::shared_ptr<nano::block> send2 = builder.state()
-				.account (nano::test_genesis_key.pub)
-				.previous (genesis.hash ())
-				.representative (nano::test_genesis_key.pub)
-				.balance (nano::genesis_amount - 2 * nano::Gxrb_ratio)
-				.link (nano::test_genesis_key.pub)
-				.work (*system.work.generate (genesis.hash ()))
-				.sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
-				.build ();
-	std::shared_ptr<nano::block> send3 = builder.state()
-				.account (nano::test_genesis_key.pub)
-				.previous (genesis.hash ())
-				.representative (nano::test_genesis_key.pub)
-				.balance (nano::genesis_amount - 2 * nano::Gxrb_ratio)
-				.link (nano::test_genesis_key.pub)
-				.work (*system.work.generate (genesis.hash ()))
-				.sign (nano::test_genesis_key.prv, 0) // Invalid signature
-				.build ();
+	std::shared_ptr<nano::block> send1 = builder.state ()
+	                                     .account (nano::test_genesis_key.pub)
+	                                     .previous (genesis.hash ())
+	                                     .representative (nano::test_genesis_key.pub)
+	                                     .balance (nano::genesis_amount - nano::Gxrb_ratio)
+	                                     .link (nano::test_genesis_key.pub)
+	                                     .work (*system.work.generate (genesis.hash ()))
+	                                     .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	                                     .build ();
+	std::shared_ptr<nano::block> send2 = builder.state ()
+	                                     .account (nano::test_genesis_key.pub)
+	                                     .previous (genesis.hash ())
+	                                     .representative (nano::test_genesis_key.pub)
+	                                     .balance (nano::genesis_amount - 2 * nano::Gxrb_ratio)
+	                                     .link (nano::test_genesis_key.pub)
+	                                     .work (*system.work.generate (genesis.hash ()))
+	                                     .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	                                     .build ();
+	std::shared_ptr<nano::block> send3 = builder.state ()
+	                                     .account (nano::test_genesis_key.pub)
+	                                     .previous (genesis.hash ())
+	                                     .representative (nano::test_genesis_key.pub)
+	                                     .balance (nano::genesis_amount - 2 * nano::Gxrb_ratio)
+	                                     .link (nano::test_genesis_key.pub)
+	                                     .work (*system.work.generate (genesis.hash ()))
+	                                     .sign (nano::test_genesis_key.prv, 0) // Invalid signature
+	                                     .build ();
 	auto channel1 (node1.network.udp_channels.create (node1.network.endpoint ()));
 	node1.network.process_message (nano::publish (send1), channel1);
 	system.deadline_set (5s);
