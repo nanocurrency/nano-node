@@ -474,6 +474,7 @@ public:
 	bool reps = true;
 	bool cemented_count = true;
 	bool unchecked_count = true;
+	bool account_count = true;
 };
 
 /* Holds an in-memory cache of various counts */
@@ -484,6 +485,7 @@ public:
 	std::atomic<uint64_t> cemented_count{ 0 };
 	std::atomic<uint64_t> block_count{ 0 };
 	std::atomic<uint64_t> unchecked_count{ 0 };
+	std::atomic<uint64_t> account_count{ 0 };
 };
 
 nano::wallet_id random_wallet_id ();

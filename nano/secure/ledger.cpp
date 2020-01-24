@@ -691,12 +691,13 @@ check_bootstrap_weights (true)
 	if (!store.init_error ())
 	{
 		auto transaction = store.tx_begin_read ();
-		if (generate_cache_a.reps)
+		if (generate_cache_a.reps || generate_cache_a.account_count)
 		{
 			for (auto i (store.latest_begin (transaction)), n (store.latest_end ()); i != n; ++i)
 			{
 				nano::account_info const & info (i->second);
 				cache.rep_weights.representation_add (info.representative, info.balance.number ());
+				++cache.account_count;
 			}
 		}
 
@@ -1043,6 +1044,7 @@ void nano::ledger::change_latest (nano::write_transaction const & transaction_a,
 		{
 			assert (!store.confirmation_height_exists (transaction_a, account_a));
 			store.confirmation_height_put (transaction_a, account_a, { 0, nano::block_hash (0) });
+			++cache.account_count;
 		}
 		if (!old_a.head.is_zero () && old_a.epoch () != new_a.epoch ())
 		{
@@ -1055,6 +1057,8 @@ void nano::ledger::change_latest (nano::write_transaction const & transaction_a,
 	{
 		store.confirmation_height_del (transaction_a, account_a);
 		store.account_del (transaction_a, account_a);
+		assert (cache.account_count > 0);
+		--cache.account_count;
 	}
 }
 
