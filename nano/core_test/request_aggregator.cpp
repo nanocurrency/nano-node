@@ -150,9 +150,11 @@ TEST (request_aggregator, two_endpoints)
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	auto & node1 (*system.add_node (node_config));
+	nano::node_flags node_flags;
+	node_flags.disable_rep_crawler = true;
+	auto & node1 (*system.add_node (node_config, node_flags));
 	node_config.peering_port = nano::get_available_port ();
-	auto & node2 (*system.add_node (node_config));
+	auto & node2 (*system.add_node (node_config, node_flags));
 	nano::genesis genesis;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node1.work_generate_blocking (genesis.hash ())));
