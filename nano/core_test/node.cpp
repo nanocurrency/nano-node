@@ -3032,12 +3032,17 @@ TEST (node, fork_election_invalid_block_signature)
 			election = existing->second;
 		}
 	}
+	nano::unique_lock<std::mutex> lock (node1.active.mutex);
 	ASSERT_EQ (1, election->blocks.size ());
+	lock.unlock ();
 	node1.network.process_message (nano::publish (send3), channel1);
 	node1.network.process_message (nano::publish (send2), channel1);
+	lock.lock ();
 	while (election->blocks.size () == 1)
 	{
+		lock.unlock ();
 		ASSERT_NO_ERROR (system.poll ());
+		lock.lock ();
 	}
 	ASSERT_EQ (election->blocks[send2->hash ()]->block_signature (), send2->block_signature ());
 }
