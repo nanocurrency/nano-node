@@ -2286,34 +2286,31 @@ TEST (node, send_callback)
 // This helps representatives continue from their last sequence number if their node is reinitialized and the old sequence number is lost
 TEST (node, vote_replay)
 {
-	nano::system system (2);
+	nano::system system (1);
 	auto & node1 (*system.nodes[0]);
-	auto & node2 (*system.nodes[1]);
 	nano::keypair key;
-	auto open (std::make_shared<nano::open_block> (0, 1, key.pub, key.prv, key.pub, 0));
-	node1.work_generate_blocking (*open);
+	nano::genesis genesis;
 	for (auto i (0); i < 11000; ++i)
 	{
-		auto transaction (node2.store.tx_begin_read ());
-		auto vote (node2.store.vote_generate (transaction, nano::test_genesis_key.pub, nano::test_genesis_key.prv, open));
-	}
-	{
 		auto transaction (node1.store.tx_begin_read ());
-		nano::lock_guard<std::mutex> lock (node1.store.get_cache_mutex ());
-		auto vote (node1.store.vote_current (transaction, nano::test_genesis_key.pub));
+		auto vote (node1.store.vote_generate (transaction, nano::test_genesis_key.pub, nano::test_genesis_key.prv, genesis.open));
+	}
+	auto node2 = system.add_node ();
+	{
+		auto transaction (node2->store.tx_begin_read ());
+		nano::lock_guard<std::mutex> lock (node2->store.get_cache_mutex ());
+		auto vote (node2->store.vote_current (transaction, nano::test_genesis_key.pub));
 		ASSERT_EQ (nullptr, vote);
 	}
-	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	auto block (system.wallet (0)->send_action (nano::test_genesis_key.pub, key.pub, nano::Gxrb_ratio));
-	ASSERT_NE (nullptr, block);
+	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
 	auto done (false);
 	system.deadline_set (20s);
 	while (!done)
 	{
 		auto ec = system.poll ();
-		auto transaction (node1.store.tx_begin_read ());
-		nano::lock_guard<std::mutex> lock (node1.store.get_cache_mutex ());
-		auto vote (node1.store.vote_current (transaction, nano::test_genesis_key.pub));
+		auto transaction (node2->store.tx_begin_read ());
+		nano::lock_guard<std::mutex> lock (node2->store.get_cache_mutex ());
+		auto vote (node2->store.vote_current (transaction, nano::test_genesis_key.pub));
 		done = vote && (vote->sequence >= 10000);
 		ASSERT_NO_ERROR (ec);
 	}
@@ -3010,10 +3007,7 @@ TEST (node, fork_invalid_block_signature_vote_by_hash)
 	std::vector<nano::block_hash> vote_blocks;
 	vote_blocks.push_back (send2->hash ());
 	auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, vote_blocks));
-	{
-		auto transaction (node1.store.tx_begin_read ());
-		node1.vote_processor.vote_blocking (transaction, vote, std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, node1.network.endpoint (), node1.network_params.protocol.protocol_version));
-	}
+	node1.vote_processor.vote_blocking (vote, std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, node1.network.endpoint (), node1.network_params.protocol.protocol_version));
 	while (node1.block (send1->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -3179,10 +3173,7 @@ TEST (node, confirm_back)
 	std::vector<nano::block_hash> vote_blocks;
 	vote_blocks.push_back (send2->hash ());
 	auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, vote_blocks));
-	{
-		auto transaction (node.store.tx_begin_read ());
-		node.vote_processor.vote_blocking (transaction, vote, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
-	}
+	node.vote_processor.vote_blocking (vote, std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
 	system.deadline_set (10s);
 	while (!node.active.empty ())
 	{
