@@ -6,7 +6,6 @@
 
 namespace nano
 {
-class transaction;
 class bootstrap_attempt;
 class bootstrap_client;
 class bulk_push_client final : public std::enable_shared_from_this<nano::bulk_push_client>
@@ -15,7 +14,7 @@ public:
 	explicit bulk_push_client (std::shared_ptr<nano::bootstrap_client> const &, std::shared_ptr<nano::bootstrap_attempt> const &);
 	~bulk_push_client ();
 	void start ();
-	void push (nano::transaction const &);
+	void push ();
 	void push_block (nano::block const &);
 	void send_finished ();
 	std::shared_ptr<nano::bootstrap_client> connection;

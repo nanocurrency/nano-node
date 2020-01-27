@@ -198,6 +198,7 @@ public:
 		observer,
 		confirmation_height,
 		drop,
+		aggregator,
 		requests
 	};
 
@@ -233,6 +234,8 @@ public:
 		confirm_req,
 		confirm_ack,
 		node_id_handshake,
+		telemetry_req,
+		telemetry_ack,
 
 		// bootstrap, callback
 		initiate,
@@ -278,6 +281,8 @@ public:
 		invalid_confirm_req_message,
 		invalid_confirm_ack_message,
 		invalid_node_id_handshake_message,
+		invalid_telemetry_req_message,
+		invalid_telemetry_ack_message,
 		outdated_version,
 
 		// tcp
@@ -295,11 +300,16 @@ public:
 		blocks_confirmed,
 		invalid_block,
 
+		// [request] aggregator
+		aggregator_accepted,
+		aggregator_dropped,
+
 		// requests
-		requests_cached,
-		requests_generated,
-		requests_ignored,
-		requests_dropped
+		requests_cached_hashes,
+		requests_generated_hashes,
+		requests_cached_votes,
+		requests_generated_votes,
+		requests_unknown
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */

@@ -21,10 +21,9 @@ void nano::bulk_push_client::start ()
 	auto this_l (shared_from_this ());
 	connection->channel->send (
 	message, [this_l](boost::system::error_code const & ec, size_t size_a) {
-		auto transaction (this_l->connection->node->store.tx_begin_read ());
 		if (!ec)
 		{
-			this_l->push (transaction);
+			this_l->push ();
 		}
 		else
 		{
@@ -37,7 +36,7 @@ void nano::bulk_push_client::start ()
 	false); // is bootstrap traffic is_droppable false
 }
 
-void nano::bulk_push_client::push (nano::transaction const & transaction_a)
+void nano::bulk_push_client::push ()
 {
 	std::shared_ptr<nano::block> block;
 	bool finished (false);
@@ -49,7 +48,7 @@ void nano::bulk_push_client::push (nano::transaction const & transaction_a)
 		}
 		if (!finished)
 		{
-			block = connection->node->store.block_get (transaction_a, current_target.first);
+			block = connection->node->block (current_target.first);
 			if (block == nullptr)
 			{
 				current_target.first = nano::block_hash (0);
@@ -100,8 +99,7 @@ void nano::bulk_push_client::push_block (nano::block const & block_a)
 	connection->channel->send_buffer (nano::shared_const_buffer (std::move (buffer)), nano::stat::detail::all, [this_l](boost::system::error_code const & ec, size_t size_a) {
 		if (!ec)
 		{
-			auto transaction (this_l->connection->node->store.tx_begin_read ());
-			this_l->push (transaction);
+			this_l->push ();
 		}
 		else
 		{

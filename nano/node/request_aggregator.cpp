@@ -13,6 +13,7 @@ nano::request_aggregator::request_aggregator (nano::network_constants const & ne
 max_delay (network_constants_a.is_test_network () ? 50 : 300),
 small_delay (network_constants_a.is_test_network () ? 10 : 50),
 max_channel_requests (config_a.max_queued_requests),
+max_consecutive_requests (network_constants_a.is_test_network () ? 1 : 10),
 stats (stats_a),
 votes_cache (cache_a),
 store (store_a),
@@ -56,10 +57,7 @@ void nano::request_aggregator::add (std::shared_ptr<nano::transport::channel> & 
 			condition.notify_all ();
 		}
 	}
-	if (error)
-	{
-		stats.inc (nano::stat::type::requests, nano::stat::detail::requests_dropped);
-	}
+	stats.inc (nano::stat::type::aggregator, !error ? nano::stat::detail::aggregator_accepted : nano::stat::detail::aggregator_dropped);
 }
 
 void nano::request_aggregator::run ()
@@ -70,6 +68,7 @@ void nano::request_aggregator::run ()
 	lock.unlock ();
 	condition.notify_all ();
 	lock.lock ();
+	unsigned consecutive_requests = 0;
 	while (!stopped)
 	{
 		if (!requests.empty ())
@@ -91,17 +90,26 @@ void nano::request_aggregator::run ()
 					lock.unlock ();
 					// Generate votes for the remaining hashes
 					generate (transaction, std::move (remaining), channel);
+					consecutive_requests = 0;
+					lock.lock ();
+				}
+				else if (++consecutive_requests == max_consecutive_requests)
+				{
+					lock.unlock ();
+					consecutive_requests = 0;
 					lock.lock ();
 				}
 			}
 			else
 			{
+				consecutive_requests = 0;
 				auto deadline = front->deadline;
 				condition.wait_until (lock, deadline, [this, &deadline]() { return this->stopped || deadline < std::chrono::steady_clock::now (); });
 			}
 		}
 		else
 		{
+			consecutive_requests = 0;
 			condition.wait_for (lock, small_delay, [this]() { return this->stopped || !this->requests.empty (); });
 		}
 	}
@@ -133,6 +141,17 @@ bool nano::request_aggregator::empty ()
 
 std::vector<nano::block_hash> nano::request_aggregator::aggregate (nano::transaction const & transaction_a, channel_pool & pool_a) const
 {
+	// Unique hashes
+	using pair = decltype (pool_a.hashes_roots)::value_type;
+	std::sort (pool_a.hashes_roots.begin (), pool_a.hashes_roots.end (), [](pair const & pair1, pair const & pair2) {
+		return pair1.first < pair2.first;
+	});
+	pool_a.hashes_roots.erase (std::unique (pool_a.hashes_roots.begin (), pool_a.hashes_roots.end (), [](pair const & pair1, pair const & pair2) {
+		return pair1.first == pair2.first;
+	}),
+	pool_a.hashes_roots.end ());
+
+	size_t cached_hashes = 0;
 	std::vector<nano::block_hash> to_generate;
 	std::vector<std::shared_ptr<nano::vote>> cached_votes;
 	for (auto const & hash_root : pool_a.hashes_roots)
@@ -140,6 +159,7 @@ std::vector<nano::block_hash> nano::request_aggregator::aggregate (nano::transac
 		auto find_votes (votes_cache.find (hash_root.first));
 		if (!find_votes.empty ())
 		{
+			++cached_hashes;
 			cached_votes.insert (cached_votes.end (), find_votes.begin (), find_votes.end ());
 		}
 		else if (!hash_root.first.is_zero () && store.block_exists (transaction_a, hash_root.first))
@@ -178,7 +198,7 @@ std::vector<nano::block_hash> nano::request_aggregator::aggregate (nano::transac
 			}
 			else
 			{
-				stats.inc (nano::stat::type::requests, nano::stat::detail::requests_ignored);
+				stats.inc (nano::stat::type::requests, nano::stat::detail::requests_unknown, stat::dir::in);
 			}
 		}
 	}
@@ -190,11 +210,12 @@ std::vector<nano::block_hash> nano::request_aggregator::aggregate (nano::transac
 		nano::confirm_ack confirm (vote);
 		pool_a.channel->send (confirm);
 	}
-	stats.add (nano::stat::type::requests, nano::stat::detail::requests_cached, stat::dir::in, cached_votes.size ());
+	stats.add (nano::stat::type::requests, nano::stat::detail::requests_cached_hashes, stat::dir::in, cached_hashes);
+	stats.add (nano::stat::type::requests, nano::stat::detail::requests_cached_votes, stat::dir::in, cached_votes.size ());
 	return to_generate;
 }
 
-void nano::request_aggregator::generate (nano::transaction const & transaction_a, std::vector<nano::block_hash> const hashes_a, std::shared_ptr<nano::transport::channel> & channel_a) const
+void nano::request_aggregator::generate (nano::transaction const & transaction_a, std::vector<nano::block_hash> hashes_a, std::shared_ptr<nano::transport::channel> & channel_a) const
 {
 	size_t generated_l = 0;
 	auto i (hashes_a.begin ());
@@ -214,7 +235,8 @@ void nano::request_aggregator::generate (nano::transaction const & transaction_a
 			this->votes_cache.add (vote);
 		});
 	}
-	stats.add (nano::stat::type::requests, nano::stat::detail::requests_generated, stat::dir::in, generated_l);
+	stats.add (nano::stat::type::requests, nano::stat::detail::requests_generated_hashes, stat::dir::in, hashes_a.size ());
+	stats.add (nano::stat::type::requests, nano::stat::detail::requests_generated_votes, stat::dir::in, generated_l);
 }
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (nano::request_aggregator & aggregator, const std::string & name)

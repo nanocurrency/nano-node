@@ -8,6 +8,7 @@
 #include <nano/node/json_payment_observer.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/node_rpc_config.hpp>
+#include <nano/node/telemetry.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -3893,6 +3894,130 @@ void nano::json_handler::stop ()
 	}
 }
 
+void nano::json_handler::telemetry ()
+{
+	auto rpc_l (shared_from_this ());
+
+	auto address_text (request.get_optional<std::string> ("address"));
+	auto port_text (request.get_optional<std::string> ("port"));
+
+	if (address_text.is_initialized () || port_text.is_initialized ())
+	{
+		// Check both are specified
+		std::shared_ptr<nano::transport::channel> channel;
+		if (address_text.is_initialized () && port_text.is_initialized ())
+		{
+			uint16_t port;
+			if (!nano::parse_port (*port_text, port))
+			{
+				boost::system::error_code address_ec;
+				auto address (boost::asio::ip::make_address_v6 (*address_text, address_ec));
+				if (!address_ec)
+				{
+					nano::endpoint endpoint (address, port);
+					channel = node.network.find_channel (endpoint);
+					if (!channel)
+					{
+						ec = nano::error_rpc::peer_not_found;
+					}
+				}
+				else
+				{
+					ec = nano::error_common::invalid_ip_address;
+				}
+			}
+			else
+			{
+				ec = nano::error_common::invalid_port;
+			}
+		}
+		else
+		{
+			ec = nano::error_rpc::requires_port_and_address;
+		}
+
+		if (!ec)
+		{
+			assert (channel);
+			node.telemetry.get_metrics_single_peer_async (channel, [rpc_l](auto const & single_telemetry_metric_a) {
+				if (!single_telemetry_metric_a.error)
+				{
+					nano::jsonconfig config_l;
+					auto err = single_telemetry_metric_a.data.serialize_json (config_l);
+					auto const & ptree = config_l.get_tree ();
+
+					if (!err)
+					{
+						rpc_l->response_l.insert (rpc_l->response_l.begin (), ptree.begin (), ptree.end ());
+						rpc_l->response_l.put ("cached", single_telemetry_metric_a.is_cached);
+					}
+					else
+					{
+						rpc_l->ec = nano::error_rpc::generic;
+					}
+				}
+				else
+				{
+					rpc_l->ec = nano::error_rpc::generic;
+				}
+
+				rpc_l->response_errors ();
+			});
+		}
+		else
+		{
+			response_errors ();
+		}
+	}
+	else
+	{
+		// By default, consolidated (average or mode) telemetry metrics are returned,
+		// setting "raw" to true returns metrics from all nodes requested.
+		auto raw = request.get_optional<bool> ("raw");
+		auto output_raw = raw.value_or (false);
+		node.telemetry.get_metrics_random_peers_async ([rpc_l, output_raw](auto const & batched_telemetry_metrics_a) {
+			if (output_raw)
+			{
+				boost::property_tree::ptree metrics;
+				for (auto & telemetry_metrics : batched_telemetry_metrics_a.data)
+				{
+					nano::jsonconfig config_l;
+					auto err = telemetry_metrics.serialize_json (config_l);
+					if (!err)
+					{
+						metrics.push_back (std::make_pair ("", config_l.get_tree ()));
+					}
+					else
+					{
+						rpc_l->ec = nano::error_rpc::generic;
+					}
+				}
+
+				rpc_l->response_l.put_child ("metrics", metrics);
+			}
+			else
+			{
+				nano::jsonconfig config_l;
+				auto average_telemetry_metrics = nano::telemetry_data::consolidate (batched_telemetry_metrics_a.data);
+				auto err = average_telemetry_metrics.serialize_json (config_l);
+				auto const & ptree = config_l.get_tree ();
+
+				if (!err)
+				{
+					rpc_l->response_l.insert (rpc_l->response_l.begin (), ptree.begin (), ptree.end ());
+				}
+				else
+				{
+					rpc_l->ec = nano::error_rpc::generic;
+				}
+			}
+
+			rpc_l->response_l.put ("cached", batched_telemetry_metrics_a.is_cached);
+			rpc_l->response_errors ();
+		});
+	}
+}
+
 void nano::json_handler::unchecked ()
 {
 	const bool json_block_l = request.get<bool> ("json_block", false);
@@ -5033,6 +5158,7 @@ ipc_json_handler_no_arg_func_map create_ipc_json_handler_no_arg_func_map ()
 	no_arg_funcs.emplace ("stats", &nano::json_handler::stats);
 	no_arg_funcs.emplace ("stats_clear", &nano::json_handler::stats_clear);
 	no_arg_funcs.emplace ("stop", &nano::json_handler::stop);
+	no_arg_funcs.emplace ("node_telemetry", &nano::json_handler::telemetry);
 	no_arg_funcs.emplace ("unchecked", &nano::json_handler::unchecked);
 	no_arg_funcs.emplace ("unchecked_clear", &nano::json_handler::unchecked_clear);
 	no_arg_funcs.emplace ("unchecked_get", &nano::json_handler::unchecked_get);

@@ -7,7 +7,6 @@
 
 namespace nano
 {
-class transaction;
 class bootstrap_attempt;
 class bootstrap_client;
 class frontier_req_client final : public std::enable_shared_from_this<nano::frontier_req_client>
@@ -19,7 +18,7 @@ public:
 	void receive_frontier ();
 	void received_frontier (boost::system::error_code const &, size_t);
 	void unsynced (nano::block_hash const &, nano::block_hash const &);
-	void next (nano::transaction const &);
+	void next ();
 	std::shared_ptr<nano::bootstrap_client> connection;
 	std::shared_ptr<nano::bootstrap_attempt> attempt;
 	nano::account current;
