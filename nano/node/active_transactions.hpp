@@ -87,7 +87,8 @@ public:
 	// Attempts a restart of an election if it was recently dropped
 	// Returns false if the election was restarted
 	bool restart (std::shared_ptr<nano::block>, nano::write_transaction const &);
-	void update_difficulty (std::shared_ptr<nano::block>);
+	// Returns false if an election exists, whether or not the difficulty was updated
+	bool update_difficulty (std::shared_ptr<nano::block>);
 	void adjust_difficulty (nano::block_hash const &);
 	void update_active_difficulty (nano::unique_lock<std::mutex> &);
 	uint64_t active_difficulty ();

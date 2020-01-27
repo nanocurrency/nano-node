@@ -441,9 +441,9 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			{
 				queue_unchecked (transaction_a, hash);
 			}
-			if (node.active.restart (info_a.block, transaction_a))
+			if (node.active.update_difficulty (info_a.block))
 			{
-				node.active.update_difficulty (info_a.block);
+				node.active.restart (info_a.block, transaction_a);
 			}
 			break;
 		}

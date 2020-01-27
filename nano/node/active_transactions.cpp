@@ -620,16 +620,16 @@ bool nano::active_transactions::active (nano::block const & block_a)
 	return active (block_a.qualified_root ());
 }
 
-void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> block_a)
+bool nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> block_a)
 {
+	bool error = true;
 	nano::lock_guard<std::mutex> guard (mutex);
 	auto existing_election (roots.get<tag_root> ().find (block_a->qualified_root ()));
 	if (existing_election != roots.get<tag_root> ().end ())
 	{
+		error = false;
 		uint64_t difficulty;
-		auto error (nano::work_validate (*block_a, &difficulty));
-		(void)error;
-		assert (!error);
+		assert (!nano::work_validate (*block_a, &difficulty));
 		if (difficulty > existing_election->difficulty)
 		{
 			if (node.config.logging.active_update_logging ())
@@ -642,11 +642,12 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 			adjust_difficulty (block_a->hash ());
 		}
 	}
+	return error;
 }
 
 bool nano::active_transactions::restart (std::shared_ptr<nano::block> block_a, nano::write_transaction const & transaction_a)
 {
-	bool error (true);
+	bool error = true;
 	// Only guaranteed to immediately restart the election if the new block is received within 60s of dropping it
 	constexpr std::chrono::seconds recently_dropped_cutoff{ 60s };
 	nano::unique_lock<std::mutex> lock (mutex);
