@@ -25,7 +25,7 @@ if (${env:artifact} -eq 1) {
     }
     $env:NETWORK_CFG = "test"
     $env:NANO_TEST = "-DNANO_TEST=ON"
-    $env:CI = "-DCI_BUILD=OFF"
+    $env:CI = '-DCI_TEST="1"'
     $env:RUN = "test"
 }
 

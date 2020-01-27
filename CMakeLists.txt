@@ -14,6 +14,7 @@ execute_process(
 )
 
 option (CI_BUILD false)
+set (CI_TEST 0 CACHE STRING "")
 
 set (CPACK_PACKAGE_VERSION_MAJOR "21")
 set (CPACK_PACKAGE_VERSION_MINOR "0")

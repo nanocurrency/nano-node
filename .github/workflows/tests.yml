@@ -56,7 +56,7 @@ jobs:
       - name: Fetch Deps
         run: ci/actions/linux/install_deps.sh
       - name: Run Tests
-        run: docker run -v ${PWD}:/workspace nanocurrency/nano-env:clang /bin/bash -c "cd /workspace && RELEASE=0 ASAN=0 TSAN=0 ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"
+        run: docker run -v ${PWD}:/workspace nanocurrency/nano-env:clang /bin/bash -c "cd /workspace && ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"
 
   windows_test:
     runs-on: windows-latest
