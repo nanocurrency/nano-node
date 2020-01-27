@@ -93,6 +93,8 @@ public:
 	// clang-format on
 	std::atomic<size_t> lazy_blocks_count{ 0 };
 	std::atomic<bool> lazy_destinations_flushed{ false };
+	/** The maximum number of records to be read in while iterating over long lazy containers */
+	static uint64_t constexpr batch_read_size = 256;
 };
 class bootstrap_attempt_wallet final : public bootstrap_attempt
 {

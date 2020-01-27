@@ -94,6 +94,7 @@ void nano::bootstrap_attempt_lazy::lazy_pull_flush (nano::unique_lock<std::mutex
 	{
 		assert (node->network_params.bootstrap.lazy_max_pull_blocks <= std::numeric_limits<nano::pull_info::count_t>::max ());
 		nano::pull_info::count_t batch_count (lazy_batch_size ());
+		uint64_t read_count (0);
 		size_t count (0);
 		auto transaction (node->store.tx_begin_read ());
 		while (!lazy_pulls.empty () && count < max_pulls)
@@ -109,6 +110,12 @@ void nano::bootstrap_attempt_lazy::lazy_pull_flush (nano::unique_lock<std::mutex
 				lock_a.lock ();
 				++count;
 			}
+			// We don't want to open read transactions for too long
+			++read_count;
+			if (read_count % batch_read_size == 0)
+			{
+				transaction.refresh ();
+			}
 		}
 	}
 }
@@ -121,6 +128,7 @@ bool nano::bootstrap_attempt_lazy::lazy_finished ()
 		return true;
 	}
 	bool result (true);
+	uint64_t read_count (0);
 	auto transaction (node->store.tx_begin_read ());
 	for (auto it (lazy_keys.begin ()), end (lazy_keys.end ()); it != end && !stopped;)
 	{
@@ -133,6 +141,12 @@ bool nano::bootstrap_attempt_lazy::lazy_finished ()
 			result = false;
 			break;
 			// No need to increment `it` as we break above.
+		}
+		// We don't want to open read transactions for too long
+		++read_count;
+		if (read_count % batch_read_size == 0)
+		{
+			transaction.refresh ();
 		}
 	}
 	// Finish lazy bootstrap without lazy pulls (in combination with still_pulling ())
@@ -362,6 +376,7 @@ void nano::bootstrap_attempt_lazy::lazy_block_state_backlog_check (std::shared_p
 
 void nano::bootstrap_attempt_lazy::lazy_backlog_cleanup ()
 {
+	uint64_t read_count (0);
 	auto transaction (node->store.tx_begin_read ());
 	for (auto it (lazy_state_backlog.begin ()), end (lazy_state_backlog.end ()); it != end && !stopped;)
 	{
@@ -382,6 +397,12 @@ void nano::bootstrap_attempt_lazy::lazy_backlog_cleanup ()
 		{
 			lazy_add (it->first, it->second.retry_limit);
 			++it;
+		}
+		// We don't want to open read transactions for too long
+		++read_count;
+		if (read_count % batch_read_size == 0)
+		{
+			transaction.refresh ();
 		}
 	}
 }
