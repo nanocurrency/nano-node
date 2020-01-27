@@ -226,6 +226,9 @@ public:
 		state_block,
 		epoch_block,
 		fork,
+		old,
+		gap_previous,
+		gap_source,
 
 		// message specific
 		keepalive,
