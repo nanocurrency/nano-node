@@ -18,7 +18,7 @@ TEST (conflicts, start_stop)
 	node1.work_generate_blocking (*send1);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
 	ASSERT_EQ (0, node1.active.size ());
-	node1.active.start (send1);
+	node1.active.start (send1, nano::work_version::work_0);
 	ASSERT_EQ (1, node1.active.size ());
 	{
 		nano::lock_guard<std::mutex> guard (node1.active.mutex);
@@ -39,10 +39,10 @@ TEST (conflicts, add_existing)
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send1);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
-	node1.active.start (send1);
+	node1.active.start (send1, nano::work_version::work_0);
 	nano::keypair key2;
 	auto send2 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
-	node1.active.start (send2);
+	node1.active.start (send2, nano::work_version::work_0);
 	ASSERT_EQ (1, node1.active.size ());
 	auto vote1 (std::make_shared<nano::vote> (key2.pub, key2.prv, 0, send2));
 	node1.active.vote (vote1);
@@ -65,12 +65,12 @@ TEST (conflicts, add_two)
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send1);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
-	node1.active.start (send1);
+	node1.active.start (send1, nano::work_version::work_0);
 	nano::keypair key2;
 	auto send2 (std::make_shared<nano::send_block> (send1->hash (), key2.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send2);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send2).code);
-	node1.active.start (send2);
+	node1.active.start (send2, nano::work_version::work_0);
 	ASSERT_EQ (2, node1.active.size ());
 }
 
@@ -208,8 +208,8 @@ TEST (conflicts, dependency)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send1).code);
 	ASSERT_EQ (nano::process_result::progress, node1->process (*state_open1).code);
 	ASSERT_EQ (0, node1->active.size ());
-	node1->active.start (send1);
-	node1->active.start (state_open1);
+	node1->active.start (send1, nano::work_version::work_0);
+	node1->active.start (state_open1, nano::work_version::work_0);
 	ASSERT_EQ (2, node1->active.size ());
 	// Check dependency for send block
 	{

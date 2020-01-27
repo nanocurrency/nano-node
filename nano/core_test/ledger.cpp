@@ -734,7 +734,7 @@ TEST (votes, check_signature)
 		auto transaction (node1.store.tx_begin_write ());
 		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	}
-	node1.active.start (send1);
+	node1.active.start (send1, nano::work_version::work_0);
 	{
 		nano::lock_guard<std::mutex> lock (node1.active.mutex);
 		auto votes1 (node1.active.roots.find (send1->qualified_root ())->election);
@@ -759,7 +759,7 @@ TEST (votes, add_one)
 	node1.work_generate_blocking (*send1);
 	auto transaction (node1.store.tx_begin_write ());
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
-	node1.active.start (send1);
+	node1.active.start (send1, nano::work_version::work_0);
 	nano::unique_lock<std::mutex> lock (node1.active.mutex);
 	auto votes1 (node1.active.roots.find (send1->qualified_root ())->election);
 	ASSERT_EQ (1, votes1->last_votes.size ());
@@ -788,7 +788,7 @@ TEST (votes, add_two)
 	node1.work_generate_blocking (*send1);
 	auto transaction (node1.store.tx_begin_write ());
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
-	node1.active.start (send1);
+	node1.active.start (send1, nano::work_version::work_0);
 	nano::unique_lock<std::mutex> lock (node1.active.mutex);
 	auto votes1 (node1.active.roots.find (send1->qualified_root ())->election);
 	lock.unlock ();
@@ -824,7 +824,7 @@ TEST (votes, add_existing)
 		auto transaction (node1.store.tx_begin_write ());
 		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	}
-	node1.active.start (send1);
+	node1.active.start (send1, nano::work_version::work_0);
 	auto vote1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 1, send1));
 	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1));
 	// Block is already processed from vote
@@ -870,7 +870,7 @@ TEST (votes, add_old)
 	node1.work_generate_blocking (*send1);
 	auto transaction (node1.store.tx_begin_write ());
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
-	node1.active.start (send1);
+	node1.active.start (send1, nano::work_version::work_0);
 	auto vote1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 2, send1));
 	std::shared_ptr<nano::election> votes1;
 	{
@@ -906,8 +906,8 @@ TEST (votes, add_old_different_account)
 	auto transaction (node1.store.tx_begin_write ());
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send2).code);
-	node1.active.start (send1);
-	node1.active.start (send2);
+	node1.active.start (send1, nano::work_version::work_0);
+	node1.active.start (send2, nano::work_version::work_0);
 	std::shared_ptr<nano::election> votes1;
 	std::shared_ptr<nano::election> votes2;
 	{
@@ -949,7 +949,7 @@ TEST (votes, add_cooldown)
 	node1.work_generate_blocking (*send1);
 	auto transaction (node1.store.tx_begin_write ());
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
-	node1.active.start (send1);
+	node1.active.start (send1, nano::work_version::work_0);
 	std::shared_ptr<nano::election> votes1;
 	{
 		nano::unique_lock<std::mutex> lock (node1.active.mutex);
@@ -2581,10 +2581,10 @@ TEST (ledger, block_hash_account_conflict)
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *receive1).code);
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send2).code);
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *open_epoch1).code);
-	node1.active.start (send1);
-	node1.active.start (receive1);
-	node1.active.start (send2);
-	node1.active.start (open_epoch1);
+	node1.active.start (send1, nano::work_version::work_0);
+	node1.active.start (receive1, nano::work_version::work_0);
+	node1.active.start (send2, nano::work_version::work_0);
+	node1.active.start (open_epoch1, nano::work_version::work_0);
 	auto votes1 (node1.active.roots.find (send1->qualified_root ())->election);
 	auto votes2 (node1.active.roots.find (receive1->qualified_root ())->election);
 	auto votes3 (node1.active.roots.find (send2->qualified_root ())->election);

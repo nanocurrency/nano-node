@@ -375,7 +375,7 @@ TEST (receivable_processor, confirm_insufficient_pos)
 	auto block1 (std::make_shared<nano::send_block> (genesis.hash (), 0, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*block1);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*block1).code);
-	node1.active.start (block1);
+	node1.active.start (block1, nano::work_version::work_0);
 	nano::keypair key1;
 	auto vote (std::make_shared<nano::vote> (key1.pub, key1.prv, 0, block1));
 	nano::confirm_ack con1 (vote);
@@ -390,7 +390,7 @@ TEST (receivable_processor, confirm_sufficient_pos)
 	auto block1 (std::make_shared<nano::send_block> (genesis.hash (), 0, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*block1);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*block1).code);
-	node1.active.start (block1);
+	node1.active.start (block1, nano::work_version::work_0);
 	auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, block1));
 	nano::confirm_ack con1 (vote);
 	node1.network.process_message (con1, node1.network.udp_channels.create (node1.network.endpoint ()));

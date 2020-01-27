@@ -77,14 +77,14 @@ public:
 	// Start an election for a block
 	// Call action with confirmed block, may be different than what we started with
 	// clang-format off
-	bool start (std::shared_ptr<nano::block>, bool const = false, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
+	bool start (std::shared_ptr<nano::block>, nano::work_version const, bool const = false, uint64_t const = 0, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
 	// clang-format on
 	// Distinguishes replay votes, cannot be determined if the block is not in any election
 	nano::vote_code vote (std::shared_ptr<nano::vote>);
 	// Is the root of this block in the roots container
 	bool active (nano::block const &);
 	bool active (nano::qualified_root const &);
-	void update_difficulty (std::shared_ptr<nano::block>, boost::optional<nano::write_transaction const &> = boost::none);
+	void update_difficulty (nano::block const &, nano::work_version const, uint64_t const, boost::optional<nano::write_transaction const &> const & = boost::none);
 	void adjust_difficulty (nano::block_hash const &);
 	void update_active_difficulty (nano::unique_lock<std::mutex> &);
 	uint64_t active_difficulty ();
@@ -132,7 +132,7 @@ public:
 private:
 	// Call action with confirmed block, may be different than what we started with
 	// clang-format off
-	bool add (std::shared_ptr<nano::block>, bool const = false, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
+	bool add (std::shared_ptr<nano::block>, nano::work_version const, bool const, uint64_t const = 0, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
 	// clang-format on
 	void request_loop ();
 	void search_frontiers (nano::transaction const &);

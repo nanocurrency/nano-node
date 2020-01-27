@@ -536,8 +536,10 @@ bool nano::node::copy_with_compaction (boost::filesystem::path const & destinati
 	return store.copy_db (destination);
 }
 
-void nano::node::process_fork (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a)
+void nano::node::process_fork (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::work_version const work_version_a, uint64_t const difficulty_a)
 {
+	assert (work_version_a != nano::work_version::unspecified);
+	assert (difficulty_a != 0);
 	auto root (block_a->root ());
 	if (!store.block_exists (transaction_a, block_a->type (), block_a->hash ()) && store.root_exists (transaction_a, block_a->root ()))
 	{
@@ -545,7 +547,7 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 		if (ledger_block && !block_confirmed_or_being_confirmed (transaction_a, ledger_block->hash ()))
 		{
 			std::weak_ptr<nano::node> this_w (shared_from_this ());
-			if (!active.start (ledger_block, false, [this_w, root](std::shared_ptr<nano::block>) {
+			if (!active.start (ledger_block, ledger.work_version (), false, difficulty_a, [this_w, root](std::shared_ptr<nano::block>) {
 				    if (auto this_l = this_w.lock ())
 				    {
 					    auto attempt (this_l->bootstrap_initiator.current_attempt ());
@@ -1027,7 +1029,8 @@ void nano::node::work_generate (nano::root const & root_a, std::function<void(bo
 void nano::node::work_generate (nano::root const & root_a, std::function<void(boost::optional<uint64_t>)> callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a, bool secondary_work_peers_a)
 {
 	auto const & peers_l (secondary_work_peers_a ? config.secondary_work_peers : config.work_peers);
-	if (distributed_work.make (root_a, peers_l, callback_a, difficulty_a, account_a))
+	auto work_version (nano::work_version::work_0);
+	if (distributed_work.make (work_version, root_a, peers_l, callback_a, difficulty_a, account_a))
 	{
 		// Error in creating the job (either stopped or work generation is not possible)
 		callback_a (boost::none);
@@ -1075,7 +1078,7 @@ void nano::node::add_initial_peers ()
 
 void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 {
-	active.start (block_a, false);
+	active.start (block_a, ledger.work_version ());
 	network.broadcast_confirm_req (block_a);
 	// Calculate votes for local representatives
 	if (config.enable_voting && wallets.rep_counts ().voting > 0 && active.active (*block_a))

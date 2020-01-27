@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/blocks.hpp>
+#include <nano/lib/work.hpp>
 #include <nano/node/voting.hpp>
 #include <nano/secure/common.hpp>
 
@@ -52,7 +53,7 @@ private:
 	void queue_unchecked (nano::write_transaction const &, nano::block_hash const &);
 	void verify_state_blocks (nano::unique_lock<std::mutex> &, size_t = std::numeric_limits<size_t>::max ());
 	void process_batch (nano::unique_lock<std::mutex> &);
-	void process_live (nano::block_hash const &, std::shared_ptr<nano::block>, const bool = false);
+	void process_live (nano::block_hash const &, std::shared_ptr<nano::block>, nano::work_version const, uint64_t const, const bool = false);
 	void requeue_invalid (nano::block_hash const &, nano::unchecked_info const &);
 	bool stopped;
 	bool active;

@@ -69,32 +69,25 @@ void nano::block_processor::add (std::shared_ptr<nano::block> block_a, uint64_t 
 
 void nano::block_processor::add (nano::unchecked_info const & info_a)
 {
-	if (!nano::work_validate (info_a.block->root (), info_a.block->block_work ()))
+	assert (!nano::work_validate_entry (*info_a.block));
 	{
+		auto hash (info_a.block->hash ());
+		auto filter_hash (filter_item (hash, info_a.block->block_signature ()));
+		nano::lock_guard<std::mutex> lock (mutex);
+		if (blocks_filter.find (filter_hash) == blocks_filter.end ())
 		{
-			auto hash (info_a.block->hash ());
-			auto filter_hash (filter_item (hash, info_a.block->block_signature ()));
-			nano::lock_guard<std::mutex> lock (mutex);
-			if (blocks_filter.find (filter_hash) == blocks_filter.end ())
+			if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
 			{
-				if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
-				{
-					state_blocks.push_back (info_a);
-				}
-				else
-				{
-					blocks.push_back (info_a);
-				}
-				blocks_filter.insert (filter_hash);
+				state_blocks.push_back (info_a);
 			}
+			else
+			{
+				blocks.push_back (info_a);
+			}
+			blocks_filter.insert (filter_hash);
 		}
-		condition.notify_all ();
 	}
-	else
-	{
-		node.logger.try_log ("nano::block_processor::add called for hash ", info_a.block->hash ().to_string (), " with invalid work ", nano::to_string_hex (info_a.block->block_work ()));
-		assert (false && "nano::block_processor::add called with invalid work");
-	}
+	condition.notify_all ();
 }
 
 void nano::block_processor::force (std::shared_ptr<nano::block> block_a)
@@ -358,14 +351,16 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 	}
 }
 
-void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a, const bool watch_work_a)
+void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a, nano::work_version const work_version_a, uint64_t const difficulty_a, const bool watch_work_a)
 {
+	assert (work_version_a != nano::work_version::unspecified);
+	assert (difficulty_a != 0);
 	// Start collecting quorum on block
-	node.active.start (block_a, false);
+	node.active.start (block_a, work_version_a, difficulty_a, false);
 	//add block to watcher if desired after block has been added to active
 	if (watch_work_a)
 	{
-		node.wallets.watcher->add (block_a);
+		node.wallets.watcher->add (block_a, work_version_a);
 	}
 	// Announce block contents to the network
 	node.network.flood_block (block_a, false);
@@ -394,7 +389,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			}
 			if (info_a.modified > nano::seconds_since_epoch () - 300 && node.block_arrival.recent (hash))
 			{
-				process_live (hash, info_a.block, watch_work_a);
+				process_live (hash, info_a.block, result.work_version, result.difficulty, watch_work_a);
 			}
 			queue_unchecked (transaction_a, hash);
 			break;
@@ -455,7 +450,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			{
 				queue_unchecked (transaction_a, hash);
 			}
-			node.active.update_difficulty (info_a.block, transaction_a);
+			node.active.update_difficulty (*info_a.block, result.work_version, result.difficulty, transaction_a);
 			break;
 		}
 		case nano::process_result::bad_signature:
@@ -485,7 +480,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 		}
 		case nano::process_result::fork:
 		{
-			node.process_fork (transaction_a, info_a.block);
+			node.process_fork (transaction_a, info_a.block, result.work_version, result.difficulty);
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::fork, nano::stat::dir::in);
 			if (node.config.logging.ledger_logging ())
 			{
@@ -519,6 +514,14 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			if (node.config.logging.ledger_logging ())
 			{
 				node.logger.try_log (boost::str (boost::format ("Block %1% cannot follow predecessor %2%") % hash.to_string () % info_a.block->previous ().to_string ()));
+			}
+			break;
+		}
+		case nano::process_result::insufficient_work:
+		{
+			if (node.config.logging.insufficient_work_logging ())
+			{
+				node.logger.try_log (boost::str (boost::format ("Insufficient work for %1%") % hash.to_string ()));
 			}
 			break;
 		}

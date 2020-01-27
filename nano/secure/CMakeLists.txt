@@ -49,6 +49,8 @@ add_library (secure
 	utility.cpp
 	versioning.hpp
 	versioning.cpp
+	work.hpp
+	work.cpp
 	working.hpp)
 
 target_link_libraries(secure

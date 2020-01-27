@@ -1059,8 +1059,11 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_
 	}
 	else
 	{
-		nano::unchecked_info info (block_a, known_account_a, 0, nano::signature_verification::unknown);
-		node->block_processor.add (info);
+		if (!nano::work_validate_entry (*block_a))
+		{
+			nano::unchecked_info info (block_a, known_account_a, 0, nano::signature_verification::unknown);
+			node->block_processor.add (info);
+		}
 	}
 	return stop_pull;
 }
@@ -1104,8 +1107,11 @@ bool nano::bootstrap_attempt::process_block_lazy (std::shared_ptr<nano::block> b
 		}
 		lazy_block_state_backlog_check (block_a, hash);
 		lazy_lock.unlock ();
-		nano::unchecked_info info (block_a, known_account_a, 0, nano::signature_verification::unknown, retry_limit == std::numeric_limits<unsigned>::max ());
-		node->block_processor.add (info);
+		if (!nano::work_validate_entry (*block_a))
+		{
+			nano::unchecked_info info (block_a, known_account_a, 0, nano::signature_verification::unknown, retry_limit == std::numeric_limits<unsigned>::max ());
+			node->block_processor.add (info);
+		}
 	}
 	// Force drop lazy bootstrap connection for long bulk_pull
 	if (pull_blocks > max_blocks)

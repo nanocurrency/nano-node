@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/rep_weights.hpp>
+#include <nano/lib/work.hpp>
 #include <nano/secure/common.hpp>
 
 #include <map>
@@ -25,6 +26,7 @@ public:
 	nano::uint128_t weight (nano::account const &);
 	std::shared_ptr<nano::block> successor (nano::transaction const &, nano::qualified_root const &);
 	std::shared_ptr<nano::block> forked_block (nano::transaction const &, nano::block const &);
+	nano::work_version work_version ();
 	bool block_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
 	bool block_not_confirmed_or_not_exists (nano::block const & block_a) const;
 	nano::block_hash latest (nano::transaction const &, nano::account const &);

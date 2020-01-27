@@ -1823,7 +1823,7 @@ TEST (node, rep_self_vote)
 	node0->work_generate_blocking (*block0);
 	ASSERT_EQ (nano::process_result::progress, node0->process (*block0).code);
 	auto & active (node0->active);
-	active.start (block0);
+	active.start (block0, nano::work_version::work_0);
 	std::shared_ptr<nano::election> election;
 	{
 		nano::unique_lock<std::mutex> lock (active.mutex);

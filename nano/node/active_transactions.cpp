@@ -93,7 +93,7 @@ void nano::active_transactions::search_frontiers (nano::transaction const & tran
 					if (info.block_count > confirmation_height_info.height && !this->node.pending_confirmation_height.is_processing_block (info.head))
 					{
 						auto block (this->node.store.block_get (transaction_a, info.head));
-						if (!this->start (block, true))
+						if (!this->start (block, this->node.ledger.work_version (), true))
 						{
 							++elections_count;
 							// Calculate votes for local representatives
@@ -182,7 +182,7 @@ void nano::active_transactions::election_escalate (std::shared_ptr<nano::electio
 			previous_l = node.store.block_get (transaction_l, previous_hash_l);
 			if (previous_l != nullptr && blocks.find (previous_hash_l) == blocks.end () && !node.block_confirmed_or_being_confirmed (transaction_l, previous_hash_l))
 			{
-				add (std::move (previous_l), true);
+				add (std::move (previous_l), this->node.ledger.work_version (), true);
 				escalated_l = true;
 			}
 		}
@@ -196,7 +196,7 @@ void nano::active_transactions::election_escalate (std::shared_ptr<nano::electio
 				auto source_l (node.store.block_get (transaction_l, source_hash_l));
 				if (source_l != nullptr && !node.block_confirmed_or_being_confirmed (transaction_l, source_hash_l))
 				{
-					add (std::move (source_l), true);
+					add (std::move (source_l), this->node.ledger.work_version (), true);
 					escalated_l = true;
 				}
 			}
@@ -517,14 +517,15 @@ void nano::active_transactions::stop ()
 	roots.clear ();
 }
 
-bool nano::active_transactions::start (std::shared_ptr<nano::block> block_a, bool const skip_delay_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
+bool nano::active_transactions::start (std::shared_ptr<nano::block> block_a, nano::work_version const work_version_a, bool const skip_delay_a, uint64_t const difficulty_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
 {
 	nano::lock_guard<std::mutex> lock (mutex);
-	return add (block_a, skip_delay_a, confirmation_action_a);
+	return add (block_a, work_version_a, skip_delay_a, difficulty_a, confirmation_action_a);
 }
 
-bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, bool const skip_delay_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
+bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, nano::work_version const work_version_a, bool const skip_delay_a, uint64_t const difficulty_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
 {
+	assert (work_version_a != nano::work_version::unspecified);
 	auto error (true);
 	if (!stopped)
 	{
@@ -534,8 +535,8 @@ bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, bool 
 		{
 			auto hash (block_a->hash ());
 			auto election (nano::make_shared<nano::election> (node, block_a, skip_delay_a, confirmation_action_a));
-			uint64_t difficulty (0);
-			error = nano::work_validate (*block_a, &difficulty);
+			uint64_t difficulty = difficulty_a;
+			error = difficulty_a == 0 && nano::work_validate (work_version_a, *block_a, &difficulty);
 			release_assert (!error);
 			roots.get<tag_root> ().emplace (nano::conflict_info{ root, difficulty, difficulty, election });
 			blocks.emplace (hash, election);
@@ -616,58 +617,54 @@ bool nano::active_transactions::active (nano::block const & block_a)
 	return active (block_a.qualified_root ());
 }
 
-void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> block_a, boost::optional<nano::write_transaction const &> opt_transaction_a)
+void nano::active_transactions::update_difficulty (nano::block const & block_a, nano::work_version const work_version_a, uint64_t const difficulty_a, boost::optional<nano::write_transaction const &> const & opt_transaction_a)
 {
+	assert (work_version_a != nano::work_version::unspecified);
 	nano::unique_lock<std::mutex> lock (mutex);
-	auto existing_election (roots.get<tag_root> ().find (block_a->qualified_root ()));
+	auto existing_election (roots.get<tag_root> ().find (block_a.qualified_root ()));
 	if (existing_election != roots.get<tag_root> ().end ())
 	{
-		uint64_t difficulty;
-		auto error (nano::work_validate (*block_a, &difficulty));
-		(void)error;
-		assert (!error);
-		if (difficulty > existing_election->difficulty)
+		if (difficulty_a > existing_election->difficulty)
 		{
 			if (node.config.logging.active_update_logging ())
 			{
-				node.logger.try_log (boost::str (boost::format ("Block %1% was updated from difficulty %2% to %3%") % block_a->hash ().to_string () % nano::to_string_hex (existing_election->difficulty) % nano::to_string_hex (difficulty)));
+				node.logger.try_log (boost::str (boost::format ("Block %1% was updated from difficulty %2% to %3%") % block_a.hash ().to_string () % nano::to_string_hex (existing_election->difficulty) % nano::to_string_hex (difficulty_a)));
 			}
-			roots.get<tag_root> ().modify (existing_election, [difficulty](nano::conflict_info & info_a) {
-				info_a.difficulty = difficulty;
+			roots.get<tag_root> ().modify (existing_election, [difficulty_a](nano::conflict_info & info_a) {
+				info_a.difficulty = difficulty_a;
 			});
-			adjust_difficulty (block_a->hash ());
+			adjust_difficulty (block_a.hash ());
 		}
 	}
 	else if (opt_transaction_a.is_initialized ())
 	{
 		// Only guaranteed to immediately restart the election if the new block is received within 60s of dropping it
 		constexpr std::chrono::seconds recently_dropped_cutoff{ 60s };
-		if (find_dropped_elections_cache (block_a->qualified_root ()) > std::chrono::steady_clock::now () - recently_dropped_cutoff)
+		if (find_dropped_elections_cache (block_a.qualified_root ()) > std::chrono::steady_clock::now () - recently_dropped_cutoff)
 		{
 			lock.unlock ();
 			nano::block_sideband existing_sideband;
-			auto hash (block_a->hash ());
+			auto hash (block_a.hash ());
 			auto existing_block (node.store.block_get (*opt_transaction_a, hash, &existing_sideband));
 			release_assert (existing_block != nullptr);
 			nano::confirmation_height_info confirmation_height_info;
 			release_assert (!node.store.confirmation_height_get (*opt_transaction_a, node.store.block_account (*opt_transaction_a, hash), confirmation_height_info));
 			bool confirmed = (confirmation_height_info.height >= existing_sideband.height);
-			if (!confirmed && existing_block->block_work () != block_a->block_work ())
+			if (!confirmed && existing_block->block_work () != block_a.block_work ())
 			{
 				uint64_t existing_difficulty;
-				uint64_t new_difficulty;
-				if (!nano::work_validate (*block_a, &new_difficulty) && !nano::work_validate (*existing_block, &existing_difficulty))
+				if (!nano::work_validate (work_version_a, *existing_block, &existing_difficulty))
 				{
-					if (new_difficulty > existing_difficulty)
+					if (difficulty_a > existing_difficulty)
 					{
 						// Re-writing the block is necessary to avoid the same work being received later to force restarting the election
 						// The existing block is re-written, not the arriving block, as that one might not have gone through a full signature check
-						existing_block->block_work_set (block_a->block_work ());
+						existing_block->block_work_set (block_a.block_work ());
 						node.store.block_put (*opt_transaction_a, hash, *existing_block, existing_sideband);
 
 						// Restart election for the upgraded block, previously dropped from elections
 						lock.lock ();
-						add (existing_block);
+						add (existing_block, work_version_a, false, difficulty_a);
 					}
 				}
 			}

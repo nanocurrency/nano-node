@@ -336,7 +336,7 @@ int main (int argc, char * const * argv)
 			uint64_t count{ 10000000U }; // 10M
 			for (uint64_t i (0); i < count; ++i)
 			{
-				valid = nano::work_value (hash, i) > difficulty;
+				valid = nano::work_v0::value (hash, i) > difficulty;
 			}
 			std::ostringstream oss (valid ? "true" : "false"); // IO forces compiler to not dismiss the variable
 			auto total_time (std::chrono::duration_cast<std::chrono::nanoseconds> (std::chrono::steady_clock::now () - start).count ());
@@ -419,17 +419,17 @@ int main (int argc, char * const * argv)
 							nano::logger_mt logger;
 							nano::opencl_config config (platform, device, threads);
 							auto opencl (nano::opencl_work::create (true, config, logger));
-							nano::work_pool work_pool (std::numeric_limits<unsigned>::max (), std::chrono::nanoseconds (0), opencl ? [&opencl](nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
-								return opencl->generate_work (root_a, difficulty_a);
+							nano::work_pool work_pool (std::numeric_limits<unsigned>::max (), std::chrono::nanoseconds (0), opencl ? [&opencl](nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> &) {
+								return opencl->generate_work (version_a, root_a, difficulty_a);
 							}
-							                                                                                                       : std::function<boost::optional<uint64_t> (nano::root const &, uint64_t, std::atomic<int> &)> (nullptr));
+							                                                                                                       : std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> (nullptr));
 							nano::change_block block (0, 0, nano::keypair ().prv, 0, 0);
 							std::cerr << boost::str (boost::format ("Starting OpenCL generation profiling. Platform: %1%. Device: %2%. Threads: %3%. Difficulty: %4$#x\n") % platform % device % threads % difficulty);
 							for (uint64_t i (0); true; ++i)
 							{
 								block.hashables.previous.qwords[0] += 1;
 								auto begin1 (std::chrono::high_resolution_clock::now ());
-								block.block_work_set (*work_pool.generate (block.root (), difficulty));
+								block.block_work_set (*work_pool.generate (nano::work_version::work_0, block.root (), difficulty));
 								auto end1 (std::chrono::high_resolution_clock::now ());
 								std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
 							}
@@ -1051,7 +1051,8 @@ int main (int argc, char * const * argv)
 						}
 					}
 					// Check if block work value is correct
-					if (nano::work_validate (*block.get ()))
+					auto work_version (node.node->ledger.work_version ());
+					if (nano::work_validate (work_version, *block))
 					{
 						std::cerr << boost::str (boost::format ("Invalid work for block %1% value: %2%\n") % hash.to_string () % nano::to_string_hex (block->block_work ()));
 					}

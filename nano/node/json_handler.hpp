@@ -158,6 +158,7 @@ public:
 	uint64_t offset_optional_impl (uint64_t = 0);
 	uint64_t difficulty_optional_impl ();
 	double multiplier_optional_impl (uint64_t &);
+	nano::work_version work_version_optional_impl ();
 	bool enable_sign_hash{ false };
 	std::function<void()> stop_callback;
 	nano::node_rpc_config const & node_rpc_config;

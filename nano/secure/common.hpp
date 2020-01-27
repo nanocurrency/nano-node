@@ -7,6 +7,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/rep_weights.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/lib/work.hpp>
 #include <nano/secure/epoch.hpp>
 
 #include <boost/iterator/transform_iterator.hpp>
@@ -311,7 +312,8 @@ enum class process_result
 	opened_burn_account, // The impossible happened, someone found the private key associated with the public key '0'.
 	balance_mismatch, // Balance and amount delta don't match
 	representative_mismatch, // Representative is changed when it is not allowed
-	block_position // This block cannot follow the previous block
+	block_position, // This block cannot follow the previous block
+	insufficient_work // Insufficient work for this block, even though it passed the minimal validation
 };
 class process_return final
 {
@@ -320,6 +322,8 @@ public:
 	nano::account account;
 	nano::amount amount;
 	nano::account pending_account;
+	nano::work_version work_version;
+	uint64_t difficulty;
 	boost::optional<bool> state_is_send;
 	nano::signature_verification verified;
 };

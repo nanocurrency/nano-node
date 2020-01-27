@@ -19,7 +19,7 @@ TEST (work, one)
 	nano::network_constants network_constants;
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::change_block block (1, 1, nano::keypair ().prv, 3, 4);
-	block.block_work_set (*pool.generate (block.root ()));
+	block.block_work_set (*pool.generate (nano::work_version::work_0, block.root ()));
 	uint64_t difficulty;
 	ASSERT_FALSE (nano::work_validate (block, &difficulty));
 	ASSERT_LT (network_constants.publish_threshold, difficulty);
@@ -29,7 +29,7 @@ TEST (work, disabled)
 {
 	nano::network_constants network_constants;
 	nano::work_pool pool (0);
-	auto result (pool.generate (nano::block_hash ()));
+	auto result (pool.generate (nano::work_version::work_0, nano::block_hash ()));
 	ASSERT_FALSE (result.is_initialized ());
 }
 
@@ -96,8 +96,8 @@ TEST (work, opencl)
 		if (opencl != nullptr)
 		{
 			// 0 threads, should add 1 for managing OpenCL
-			nano::work_pool pool (0, std::chrono::nanoseconds (0), [&opencl](nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> & ticket_a) {
-				return opencl->generate_work (root_a, difficulty_a);
+			nano::work_pool pool (0, std::chrono::nanoseconds (0), [&opencl](nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> & ticket_a) {
+				return opencl->generate_work (version_a, root_a, difficulty_a);
 			});
 			ASSERT_NE (nullptr, pool.opencl);
 			nano::root root;
@@ -106,7 +106,7 @@ TEST (work, opencl)
 			for (auto i (0); i < 16; ++i)
 			{
 				nano::random_pool::generate_block (root.bytes.data (), root.bytes.size ());
-				auto result (*pool.generate (root, difficulty));
+				auto result (*pool.generate (nano::work_version::work_0, root, difficulty));
 				uint64_t result_difficulty (0);
 				ASSERT_FALSE (nano::work_validate (root, result, &result_difficulty));
 				ASSERT_GE (result_difficulty, difficulty);

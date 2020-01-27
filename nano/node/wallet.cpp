@@ -1134,15 +1134,19 @@ bool nano::wallet::action_complete (std::shared_ptr<nano::block> const & block_a
 	bool error{ false };
 	if (block_a != nullptr)
 	{
-		if (nano::work_validate (*block_a))
+		auto process (wallets.node.process_local (block_a));
+		if (process.code == nano::process_result::insufficient_work)
 		{
 			wallets.node.logger.try_log (boost::str (boost::format ("Cached or provided work for block %1% account %2% is invalid, regenerating") % block_a->hash ().to_string () % account_a.to_account ()));
-			error = !wallets.node.work_generate_blocking (*block_a, wallets.node.active.limited_active_difficulty ()).is_initialized ();
+			if (wallets.node.work_generate_blocking (*block_a, wallets.node.active.limited_active_difficulty ()).is_initialized ())
+			{
+				process = wallets.node.process_local (block_a);
+			}
 		}
+		error = process.code != nano::process_result::progress;
 		if (!error)
 		{
-			wallets.watcher->add (block_a);
-			error = wallets.node.process_local (block_a).code != nano::process_result::progress;
+			wallets.watcher->add (block_a, process.work_version);
 		}
 		if (!error && generate_work_a)
 		{
@@ -1218,7 +1222,6 @@ void nano::wallet::send_async (nano::account const & source_a, nano::account con
 // Update work for account if latest root is root_a
 void nano::wallet::work_update (nano::transaction const & transaction_a, nano::account const & account_a, nano::root const & root_a, uint64_t work_a)
 {
-	assert (!nano::work_validate (root_a, work_a));
 	assert (store.exists (transaction_a, account_a));
 	auto block_transaction (wallets.node.store.tx_begin_read ());
 	auto latest (wallets.node.ledger.latest_root (block_transaction, account_a));
@@ -1402,7 +1405,7 @@ void nano::work_watcher::stop ()
 	stopped = true;
 }
 
-void nano::work_watcher::add (std::shared_ptr<nano::block> block_a)
+void nano::work_watcher::add (std::shared_ptr<nano::block> block_a, nano::work_version const work_version_a)
 {
 	auto block_l (std::dynamic_pointer_cast<nano::state_block> (block_a));
 	if (!stopped && block_l != nullptr)
@@ -1411,7 +1414,7 @@ void nano::work_watcher::add (std::shared_ptr<nano::block> block_a)
 		nano::unique_lock<std::mutex> lock (mutex);
 		watched[root_l] = block_l;
 		lock.unlock ();
-		watching (root_l, block_l);
+		watching (work_version_a, root_l, block_l);
 	}
 }
 
@@ -1421,10 +1424,10 @@ void nano::work_watcher::update (nano::qualified_root const & root_a, std::share
 	watched[root_a] = block_a;
 }
 
-void nano::work_watcher::watching (nano::qualified_root const & root_a, std::shared_ptr<nano::state_block> block_a)
+void nano::work_watcher::watching (nano::work_version const version_a, nano::qualified_root const & root_a, std::shared_ptr<nano::state_block> block_a)
 {
 	std::weak_ptr<nano::work_watcher> watcher_w (shared_from_this ());
-	node.alarm.add (std::chrono::steady_clock::now () + node.config.work_watcher_period, [block_a, root_a, watcher_w]() {
+	node.alarm.add (std::chrono::steady_clock::now () + node.config.work_watcher_period, [block_a, version_a, root_a, watcher_w]() {
 		auto watcher_l = watcher_w.lock ();
 		if (watcher_l && !watcher_l->stopped && block_a != nullptr)
 		{
@@ -1434,7 +1437,7 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 				lock.unlock ();
 				uint64_t difficulty (0);
 				auto root_l (block_a->root ());
-				nano::work_validate (root_l, block_a->block_work (), &difficulty);
+				nano::work_validate (version_a, root_l, block_a->block_work (), &difficulty);
 				auto active_difficulty (watcher_l->node.active.limited_active_difficulty ());
 				/*
 				 * Work watcher should still watch blocks even without work generation, although no rework is done
@@ -1443,7 +1446,7 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 				if (active_difficulty > difficulty && watcher_l->node.work_generation_enabled ())
 				{
 					watcher_l->node.work_generate (
-					root_l, [watcher_l, block_a, root_a](boost::optional<uint64_t> work_a) {
+					root_l, [watcher_l, block_a, version_a, root_a, old_difficulty_l = difficulty](boost::optional<uint64_t> work_a) {
 						if (block_a != nullptr && watcher_l != nullptr && !watcher_l->stopped)
 						{
 							bool updated_l{ false };
@@ -1471,16 +1474,20 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 											current->second = block;
 										}
 									}
-									watcher_l->node.network.flood_block (block, false);
-									watcher_l->node.active.update_difficulty (block);
-									watcher_l->update (root_a, block);
-									updated_l = true;
-									watcher_l->watching (root_a, block);
+									uint64_t difficulty_l;
+									if (!nano::work_validate (version_a, *block, &difficulty_l) && difficulty_l > old_difficulty_l)
+									{
+										watcher_l->node.active.update_difficulty (*block, version_a, difficulty_l);
+										watcher_l->node.network.flood_block (block, false);
+										watcher_l->update (root_a, block);
+										updated_l = true;
+										watcher_l->watching (version_a, root_a, block);
+									}
 								}
 							}
 							if (!updated_l)
 							{
-								watcher_l->watching (root_a, block_a);
+								watcher_l->watching (version_a, root_a, block_a);
 							}
 						}
 					},
@@ -1488,7 +1495,7 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 				}
 				else
 				{
-					watcher_l->watching (root_a, block_a);
+					watcher_l->watching (version_a, root_a, block_a);
 				}
 			}
 		}

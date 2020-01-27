@@ -2013,7 +2013,7 @@ TEST (rpc, process_subtype_open)
 		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, send).code);
 	}
 	scoped_io_thread_name_change scoped_thread_name_io;
-	node1.active.start (std::make_shared<nano::state_block> (send));
+	node1.active.start (std::make_shared<nano::state_block> (send), nano::work_version::work_0);
 	nano::state_block open (key.pub, 0, key.pub, nano::Gxrb_ratio, send.hash (), key.prv, key.pub, *node1.work_generate_blocking (key.pub));
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
@@ -2072,7 +2072,7 @@ TEST (rpc, process_subtype_receive)
 		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, send).code);
 	}
 	scoped_io_thread_name_change scoped_thread_name_io;
-	node1.active.start (std::make_shared<nano::state_block> (send));
+	node1.active.start (std::make_shared<nano::state_block> (send), nano::work_version::work_0);
 	nano::state_block receive (nano::test_genesis_key.pub, send.hash (), nano::test_genesis_key.pub, nano::genesis_amount, send.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node1.work_generate_blocking (send.hash ()));
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
@@ -3135,6 +3135,49 @@ TEST (rpc, work_peer_many)
 		}
 	}
 	node1.stop ();
+}
+
+// work_generate and work_validate
+TEST (rpc, work_version_invalid)
+{
+	nano::system system;
+	auto node = add_ipc_enabled_node (system);
+	scoped_io_thread_name_change scoped_thread_name_io;
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node->config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	nano::block_hash hash (1);
+	boost::property_tree::ptree request;
+	request.put ("action", "work_generate");
+	request.put ("hash", hash.to_string ());
+	request.put ("version", "work_invalid");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ (1, response.json.count ("error"));
+		ASSERT_EQ (std::error_code (nano::error_rpc::bad_work_version).message (), response.json.get<std::string> ("error"));
+	}
+	request.put ("action", "work_validate");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ (1, response.json.count ("error"));
+		ASSERT_EQ (std::error_code (nano::error_rpc::bad_work_version).message (), response.json.get<std::string> ("error"));
+	}
 }
 
 TEST (rpc, block_count)

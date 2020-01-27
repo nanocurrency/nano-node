@@ -6,6 +6,7 @@
 #include <nano/boost/beast/http/string_body.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/lib/work.hpp>
 #include <nano/node/common.hpp>
 
 #include <boost/optional.hpp>
@@ -28,6 +29,7 @@ class node;
 
 struct work_request final
 {
+	nano::work_version version;
 	nano::root root;
 	uint64_t difficulty;
 	boost::optional<nano::account> const account;

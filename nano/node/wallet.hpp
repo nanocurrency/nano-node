@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/work.hpp>
 #include <nano/node/lmdb/lmdb.hpp>
 #include <nano/node/lmdb/wallet_value.hpp>
 #include <nano/node/openclwork.hpp>
@@ -168,9 +169,9 @@ public:
 	work_watcher (nano::node &);
 	~work_watcher ();
 	void stop ();
-	void add (std::shared_ptr<nano::block>);
+	void add (std::shared_ptr<nano::block>, nano::work_version const);
 	void update (nano::qualified_root const &, std::shared_ptr<nano::state_block>);
-	void watching (nano::qualified_root const &, std::shared_ptr<nano::state_block>);
+	void watching (work_version const, nano::qualified_root const &, std::shared_ptr<nano::state_block>);
 	void remove (std::shared_ptr<nano::block>);
 	bool is_watched (nano::qualified_root const &);
 	size_t size ();
