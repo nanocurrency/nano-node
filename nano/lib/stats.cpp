@@ -511,6 +511,15 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::fork:
 			res = "fork";
 			break;
+		case nano::stat::detail::old:
+			res = "old";
+			break;
+		case nano::stat::detail::gap_previous:
+			res = "gap_previous";
+			break;
+		case nano::stat::detail::gap_source:
+			res = "gap_source";
+			break;
 		case nano::stat::detail::frontier_confirmation_failed:
 			res = "frontier_confirmation_failed";
 			break;
