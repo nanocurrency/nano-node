@@ -48,6 +48,7 @@ else
     ROCKSDB=""
 fi
 
+CI="${CI_TEST-false}"
 
 cmake \
     -G'Unix Makefiles' \
@@ -61,6 +62,7 @@ cmake \
     -DCMAKE_VERBOSE_MAKEFILE=ON \
     -DBOOST_ROOT=/tmp/boost/ \
     -DQt5_DIR=${qt_dir} \
+    -DCI_TEST=${CI} \
     ${SANITIZERS} \
     ..
 

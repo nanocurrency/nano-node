@@ -7,6 +7,7 @@ on:
 env:
   RELEASE: 1
   artifact: 0
+  CI_TEST: 1
   
 jobs:
   osx_test:
@@ -31,7 +32,7 @@ jobs:
       - name: Fetch Deps
         run: ci/actions/linux/install_deps.sh
       - name: Run Tests
-        run: docker run -v ${PWD}:/workspace nanocurrency/nano-env:gcc /bin/bash -c "cd /workspace && RELEASE=1 ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"
+        run: docker run -v ${PWD}:/workspace nanocurrency/nano-env:gcc /bin/bash -c "cd /workspace && CI_TEST=${CI_TEST} RELEASE=1 ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"
   
   clang_test:
     runs-on: ubuntu-18.04
@@ -42,7 +43,7 @@ jobs:
       - name: Fetch Deps
         run: ci/actions/linux/install_deps.sh
       - name: Run Tests
-        run: docker run -v ${PWD}:/workspace nanocurrency/nano-env:clang /bin/bash -c "cd /workspace && RELEASE=1 ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"
+        run: docker run -v ${PWD}:/workspace nanocurrency/nano-env:clang /bin/bash -c "cd /workspace && CI_TEST=${CI_TEST} RELEASE=1 ./ci/build-travis.sh /usr/lib/x86_64-linux-gnu/cmake/Qt5 ${PWD}"
 
   windows_test:
     runs-on: windows-latest

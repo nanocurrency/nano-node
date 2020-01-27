@@ -2952,6 +2952,8 @@ TEST (node, epoch_conflict_confirm)
 	}
 }
 
+// Test is unstable on github actions for windows, disable if CI detected
+#if (defined(_WIN32) && CI)
 TEST (node, fork_invalid_block_signature)
 {
 	nano::system system (2);
@@ -2984,6 +2986,7 @@ TEST (node, fork_invalid_block_signature)
 	}
 	ASSERT_EQ (node1.block (send2->hash ())->block_signature (), send2->block_signature ());
 }
+#endif
 
 TEST (node, fork_election_invalid_block_signature)
 {
@@ -3392,6 +3395,8 @@ TEST (node, dont_write_lock_node)
 	finished_promise.set_value ();
 }
 
+// Test is unstable on github actions for windows, disable if CI detected
+#if (defined(_WIN32) && CI)
 TEST (node, bidirectional_tcp)
 {
 	nano::system system;
@@ -3461,6 +3466,7 @@ TEST (node, bidirectional_tcp)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 }
+#endif
 
 // The test must be completed in less than 1 second
 TEST (node, bandwidth_limiter)
