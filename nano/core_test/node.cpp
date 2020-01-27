@@ -2985,38 +2985,66 @@ TEST (node, fork_invalid_block_signature)
 	ASSERT_EQ (node1.block (send2->hash ())->block_signature (), send2->block_signature ());
 }
 
-TEST (node, fork_invalid_block_signature_vote_by_hash)
+TEST (node, fork_election_invalid_block_signature)
 {
 	nano::system system (1);
 	auto & node1 (*system.nodes[0]);
-	nano::keypair key2;
 	nano::genesis genesis;
-	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, std::numeric_limits<nano::uint128_t>::max () - node1.config.receive_minimum.number (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
-	auto send2 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, std::numeric_limits<nano::uint128_t>::max () - node1.config.receive_minimum.number () * 2, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
-	auto send2_corrupt (std::make_shared<nano::send_block> (*send2));
-	send2_corrupt->signature = nano::signature (123);
-	node1.process_active (send1);
+	nano::block_builder builder;
+	std::shared_ptr<nano::block> send1 = builder.state ()
+	                                     .account (nano::test_genesis_key.pub)
+	                                     .previous (genesis.hash ())
+	                                     .representative (nano::test_genesis_key.pub)
+	                                     .balance (nano::genesis_amount - nano::Gxrb_ratio)
+	                                     .link (nano::test_genesis_key.pub)
+	                                     .work (*system.work.generate (genesis.hash ()))
+	                                     .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	                                     .build ();
+	std::shared_ptr<nano::block> send2 = builder.state ()
+	                                     .account (nano::test_genesis_key.pub)
+	                                     .previous (genesis.hash ())
+	                                     .representative (nano::test_genesis_key.pub)
+	                                     .balance (nano::genesis_amount - 2 * nano::Gxrb_ratio)
+	                                     .link (nano::test_genesis_key.pub)
+	                                     .work (*system.work.generate (genesis.hash ()))
+	                                     .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+	                                     .build ();
+	std::shared_ptr<nano::block> send3 = builder.state ()
+	                                     .account (nano::test_genesis_key.pub)
+	                                     .previous (genesis.hash ())
+	                                     .representative (nano::test_genesis_key.pub)
+	                                     .balance (nano::genesis_amount - 2 * nano::Gxrb_ratio)
+	                                     .link (nano::test_genesis_key.pub)
+	                                     .work (*system.work.generate (genesis.hash ()))
+	                                     .sign (nano::test_genesis_key.prv, 0) // Invalid signature
+	                                     .build ();
+	auto channel1 (node1.network.udp_channels.create (node1.network.endpoint ()));
+	node1.network.process_message (nano::publish (send1), channel1);
 	system.deadline_set (5s);
-	while (!node1.block (send1->hash ()))
+	std::shared_ptr<nano::election> election;
+	while (election == nullptr)
 	{
 		ASSERT_NO_ERROR (system.poll ());
+		nano::lock_guard<std::mutex> lock (node1.active.mutex);
+		auto existing = node1.active.blocks.find (send1->hash ());
+		if (existing != node1.active.blocks.end ())
+		{
+			election = existing->second;
+		}
 	}
-	node1.active.publish (send2_corrupt);
-	ASSERT_NO_ERROR (system.poll ());
-	node1.active.publish (send2);
-	std::vector<nano::block_hash> vote_blocks;
-	vote_blocks.push_back (send2->hash ());
-	auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, vote_blocks));
-	node1.vote_processor.vote_blocking (vote, std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, node1.network.endpoint (), node1.network_params.protocol.protocol_version));
-	while (node1.block (send1->hash ()))
+	nano::unique_lock<std::mutex> lock (node1.active.mutex);
+	ASSERT_EQ (1, election->blocks.size ());
+	lock.unlock ();
+	node1.network.process_message (nano::publish (send3), channel1);
+	node1.network.process_message (nano::publish (send2), channel1);
+	lock.lock ();
+	while (election->blocks.size () == 1)
 	{
+		lock.unlock ();
 		ASSERT_NO_ERROR (system.poll ());
+		lock.lock ();
 	}
-	while (!node1.block (send2->hash ()))
-	{
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	ASSERT_EQ (node1.block (send2->hash ())->block_signature (), send2->block_signature ());
+	ASSERT_EQ (election->blocks[send2->hash ()]->block_signature (), send2->block_signature ());
 }
 
 TEST (node, block_processor_signatures)
