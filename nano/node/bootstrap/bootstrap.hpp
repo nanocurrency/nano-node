@@ -164,6 +164,8 @@ public:
 	std::mutex lazy_mutex;
 	// Wallet lazy bootstrap
 	std::deque<nano::account> wallet_accounts;
+	/** The maximum number of records to be read in while iterating over long lazy containers */
+	static uint64_t constexpr batch_read_size = 256;
 };
 class bootstrap_client final : public std::enable_shared_from_this<bootstrap_client>
 {
