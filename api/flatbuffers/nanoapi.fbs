@@ -186,12 +186,12 @@ table EventConfirmation {
 }
 
 table ElectionInfo {
-  duration: uint64;
-  time: uint64;
-  tally: string;
-  request_count: uint64;
-  block_count: uint64;
-  voter_count: uint64;
+	duration: uint64;
+	time: uint64;
+	tally: string;
+	request_count: uint64;
+	block_count: uint64;
+	voter_count: uint64;
 }
 
 /** Error response. All fields are optional */

@@ -148,19 +148,31 @@ nano::error nano::ipc::access::deserialize_toml (nano::tomlconfig & toml)
 		if (role_l->is_table ())
 		{
 			auto role = get_role (role_l->as_table ());
-			roles.emplace (role.id, role);
+			if (role_l->as_table ()->contains ("deny"))
+			{
+				error.set ("Only users can have deny entries");
+			}
+			else
+			{
+				roles.emplace (role.id, role);
+			}
 		}
 		else if (role_l->is_table_array ())
 		{
 			for (auto & table : *role_l->as_table_array ())
 			{
+				if (table->contains ("deny"))
+				{
+					error.set ("Only users can have deny entries");
+				}
+
 				auto role = get_role (table);
 				roles.emplace (role.id, role);
 			}
 		}
 	}
 
-	if (toml.has_key ("user"))
+	if (!error && toml.has_key ("user"))
 	{
 		auto get_user = [this, &error](std::shared_ptr<cpptoml::table> const & user_a) {
 			nano::ipc::access_user user;
