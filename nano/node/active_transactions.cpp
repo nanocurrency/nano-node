@@ -625,8 +625,7 @@ bool nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 	{
 		error = false;
 		uint64_t difficulty;
-		assert (!nano::work_validate (*block_a, &difficulty));
-		if (difficulty > existing_election->difficulty)
+		if (!nano::work_validate (*block_a, &difficulty) && difficulty > existing_election->difficulty)
 		{
 			if (node.config.logging.active_update_logging ())
 			{
@@ -653,8 +652,7 @@ bool nano::active_transactions::restart (std::shared_ptr<nano::block> block_a, n
 		nano::block_sideband existing_sideband;
 		auto hash (block_a->hash ());
 		auto existing_block (node.store.block_get (transaction_a, hash, &existing_sideband));
-		release_assert (existing_block != nullptr);
-		if (existing_block->block_work () != block_a->block_work () && !node.block_confirmed_or_being_confirmed (transaction_a, hash))
+		if (existing_block != nullptr && existing_block->block_work () != block_a->block_work () && !node.block_confirmed_or_being_confirmed (transaction_a, hash))
 		{
 			uint64_t existing_difficulty;
 			uint64_t new_difficulty;
