@@ -208,7 +208,7 @@ TEST (distributed_work, peer_malicious)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_FALSE (nano::work_validate (hash, *work));
-	system.deadline_set (3s);
+	system.deadline_set (5s);
 	while (malicious_peer->generations_bad < 1)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -266,7 +266,7 @@ TEST (distributed_work, peer_multi)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_FALSE (nano::work_validate (hash, *work));
-	system.deadline_set (3s);
+	system.deadline_set (5s);
 	while (slow_peer->cancels < 1)
 	{
 		ASSERT_NO_ERROR (system.poll ());

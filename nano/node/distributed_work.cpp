@@ -121,7 +121,10 @@ void nano::distributed_work::do_request (nano::tcp_endpoint const & endpoint_a)
 {
 	auto this_l (shared_from_this ());
 	auto connection (std::make_shared<peer_request> (node.io_ctx, endpoint_a));
-	connections.emplace_back (connection);
+	{
+		nano::lock_guard<std::mutex> lock (mutex);
+		connections.emplace_back (connection);
+	}
 	connection->socket.async_connect (connection->endpoint,
 	boost::asio::bind_executor (strand,
 	[this_l, connection](boost::system::error_code const & ec) {
@@ -293,8 +296,8 @@ void nano::distributed_work::stop_once (bool const local_stop_a)
 				}));
 			}
 		}
+		connections.clear ();
 	}
-	connections.clear ();
 }
 
 void nano::distributed_work::set_once (uint64_t const work_a, std::string const & source_a)

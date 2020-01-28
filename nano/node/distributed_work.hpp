@@ -91,7 +91,7 @@ private:
 	std::chrono::seconds backoff;
 	boost::asio::strand<boost::asio::io_context::executor_type> strand;
 	std::vector<std::pair<std::string, uint16_t>> const need_resolve;
-	std::vector<std::weak_ptr<peer_request>> connections;
+	std::vector<std::weak_ptr<peer_request>> connections; // protected by the mutex
 
 	work_generation_status status{ work_generation_status::ongoing };
 	uint64_t work_result{ 0 };
