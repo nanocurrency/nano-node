@@ -832,7 +832,7 @@ TEST (websocket, bootstrap)
 	}
 	ASSERT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::bootstrap));
 
-	// Start bootsrap attempt
+	// Start bootstrap attempt
 	node1->bootstrap_initiator.bootstrap (true, "123abc");
 	ASSERT_NE (nullptr, node1->bootstrap_initiator.current_attempt ());
 
@@ -865,7 +865,7 @@ TEST (websocket, bootstrap)
 	}
 }
 
-TEST (websocket, bootstrap_excited)
+TEST (websocket, bootstrap_exited)
 {
 	nano::system system;
 	nano::node_config config (nano::get_available_port (), system.logging);
@@ -877,17 +877,13 @@ TEST (websocket, bootstrap_excited)
 
 	// Start bootstrap, exit after subscription
 	std::atomic<bool> bootstrap_started{ false };
-	std::atomic<bool> subscribed{ false };
-	std::thread bootstrap_thread ([&system, node1, &bootstrap_started, &subscribed]() {
+	nano::util::counted_completion subscribed_completion (1);
+	std::thread bootstrap_thread ([node1, &bootstrap_started, &subscribed_completion]() {
 		node1->bootstrap_initiator.bootstrap (true, "123abc");
 		auto attempt (node1->bootstrap_initiator.current_attempt ());
 		ASSERT_NE (nullptr, attempt);
 		bootstrap_started = true;
-		system.deadline_set (5s);
-		while (!subscribed)
-		{
-			ASSERT_NO_ERROR (system.poll ());
-		}
+		ASSERT_FALSE (subscribed_completion.await_count_for (5s));
 	});
 
 	// Wait for bootstrap start
@@ -914,7 +910,7 @@ TEST (websocket, bootstrap_excited)
 	ASSERT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::bootstrap));
 
 	// Wait for the bootstrap notification
-	subscribed = true;
+	subscribed_completion.increment ();
 	bootstrap_thread.join ();
 	system.deadline_set (5s);
 	while (client_future.wait_for (std::chrono::seconds (0)) != std::future_status::ready)

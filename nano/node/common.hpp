@@ -4,6 +4,7 @@
 #include <nano/boost/asio/ip/udp.hpp>
 #include <nano/crypto_lib/random_pool.hpp>
 #include <nano/lib/asio.hpp>
+#include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/memory.hpp>
 #include <nano/secure/common.hpp>
 
@@ -169,8 +170,11 @@ enum class message_type : uint8_t
 	frontier_req = 0x8,
 	/* deleted 0x9 */
 	node_id_handshake = 0x0a,
-	bulk_pull_account = 0x0b
+	bulk_pull_account = 0x0b,
+	telemetry_req = 0x0c,
+	telemetry_ack = 0x0d
 };
+
 enum class bulk_pull_account_flags : uint8_t
 {
 	pending_hash_and_amount = 0x0,
@@ -206,8 +210,8 @@ public:
 	/** Size of the payload in bytes. For some messages, the payload size is based on header flags. */
 	size_t payload_length_bytes () const;
 
-	static std::bitset<16> constexpr block_type_mask = std::bitset<16> (0x0f00);
-	static std::bitset<16> constexpr count_mask = std::bitset<16> (0xf000);
+	static std::bitset<16> constexpr block_type_mask{ 0x0f00 };
+	static std::bitset<16> constexpr count_mask{ 0xf000 };
 };
 class message
 {
@@ -237,6 +241,8 @@ public:
 		invalid_confirm_req_message,
 		invalid_confirm_ack_message,
 		invalid_node_id_handshake_message,
+		invalid_telemetry_req_message,
+		invalid_telemetry_ack_message,
 		outdated_version,
 		invalid_magic,
 		invalid_network
@@ -248,6 +254,8 @@ public:
 	void deserialize_confirm_req (nano::stream &, nano::message_header const &);
 	void deserialize_confirm_ack (nano::stream &, nano::message_header const &);
 	void deserialize_node_id_handshake (nano::stream &, nano::message_header const &);
+	void deserialize_telemetry_req (nano::stream &, nano::message_header const &);
+	void deserialize_telemetry_ack (nano::stream &, nano::message_header const &);
 	bool at_end (nano::stream &);
 	nano::block_uniquer & block_uniquer;
 	nano::vote_uniquer & vote_uniquer;
@@ -321,6 +329,49 @@ public:
 	uint32_t count;
 	static size_t constexpr size = sizeof (start) + sizeof (age) + sizeof (count);
 };
+
+class telemetry_data
+{
+public:
+	uint64_t block_count{ 0 };
+	uint64_t cemented_count{ 0 };
+	uint64_t unchecked_count{ 0 };
+	uint64_t account_count{ 0 };
+	uint64_t bandwidth_cap{ 0 };
+	uint64_t uptime{ 0 };
+	uint32_t peer_count{ 0 };
+	uint8_t protocol_version_number{ 0 };
+	uint8_t vendor_version{ 0 };
+	nano::block_hash genesis_block{ 0 };
+
+	static nano::telemetry_data consolidate (std::vector<nano::telemetry_data> const & telemetry_data_responses);
+	nano::error serialize_json (nano::jsonconfig & json) const;
+	nano::error deserialize_json (nano::jsonconfig & json);
+	bool operator== (nano::telemetry_data const &) const;
+
+	static auto constexpr size = sizeof (block_count) + sizeof (cemented_count) + sizeof (unchecked_count) + sizeof (account_count) + sizeof (bandwidth_cap) + sizeof (peer_count) + sizeof (protocol_version_number) + sizeof (vendor_version) + sizeof (uptime) + sizeof (genesis_block);
+};
+class telemetry_req final : public message
+{
+public:
+	telemetry_req ();
+	explicit telemetry_req (nano::message_header const &);
+	void serialize (nano::stream &) const override;
+	bool deserialize (nano::stream &);
+	void visit (nano::message_visitor &) const override;
+};
+class telemetry_ack final : public message
+{
+public:
+	telemetry_ack (bool &, nano::stream &, nano::message_header const &);
+	explicit telemetry_ack (telemetry_data const &);
+	void serialize (nano::stream &) const override;
+	void visit (nano::message_visitor &) const override;
+	bool deserialize (nano::stream &);
+	static uint16_t size (nano::message_header const &);
+	nano::telemetry_data data;
+};
+
 class bulk_pull final : public message
 {
 public:
@@ -387,6 +438,8 @@ public:
 	virtual void bulk_push (nano::bulk_push const &) = 0;
 	virtual void frontier_req (nano::frontier_req const &) = 0;
 	virtual void node_id_handshake (nano::node_id_handshake const &) = 0;
+	virtual void telemetry_req (nano::telemetry_req const &) = 0;
+	virtual void telemetry_ack (nano::telemetry_ack const &) = 0;
 	virtual ~message_visitor ();
 };
 

@@ -94,6 +94,7 @@ nano::error nano::logging::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("network_packet", network_packet_logging_value, "Log network packet activity.\ntype:bool");
 	toml.put ("network_keepalive", network_keepalive_logging_value, "Log keepalive related messages.\ntype:bool");
 	toml.put ("network_node_id_handshake", network_node_id_handshake_logging_value, "Log node-id handshake related messages.\ntype:bool");
+	toml.put ("network_telemetry", network_telemetry_logging_value, "Log telemetry related messages.\ntype:bool");
 	toml.put ("node_lifetime_tracing", node_lifetime_tracing_value, "Log node startup and shutdown messages.\ntype:bool");
 	toml.put ("insufficient_work", insufficient_work_logging_value, "Log if insufficient work is detected.\ntype:bool");
 	toml.put ("log_ipc", log_ipc_value, "Log IPC related activity.\ntype:bool");
@@ -124,6 +125,7 @@ nano::error nano::logging::deserialize_toml (nano::tomlconfig & toml)
 	toml.get<bool> ("network_packet", network_packet_logging_value);
 	toml.get<bool> ("network_keepalive", network_keepalive_logging_value);
 	toml.get<bool> ("network_node_id_handshake", network_node_id_handshake_logging_value);
+	toml.get<bool> ("network_telemetry_logging", network_telemetry_logging_value);
 	toml.get<bool> ("node_lifetime_tracing", node_lifetime_tracing_value);
 	toml.get<bool> ("insufficient_work", insufficient_work_logging_value);
 	toml.get<bool> ("log_ipc", log_ipc_value);
@@ -157,6 +159,7 @@ nano::error nano::logging::serialize_json (nano::jsonconfig & json) const
 	json.put ("network_packet", network_packet_logging_value);
 	json.put ("network_keepalive", network_keepalive_logging_value);
 	json.put ("network_node_id_handshake", network_node_id_handshake_logging_value);
+	json.put ("network_telemetry_logging", network_telemetry_logging_value);
 	json.put ("node_lifetime_tracing", node_lifetime_tracing_value);
 	json.put ("insufficient_work", insufficient_work_logging_value);
 	json.put ("log_ipc", log_ipc_value);
@@ -307,6 +310,11 @@ bool nano::logging::network_keepalive_logging () const
 bool nano::logging::network_node_id_handshake_logging () const
 {
 	return network_logging () && network_node_id_handshake_logging_value;
+}
+
+bool nano::logging::network_telemetry_logging () const
+{
+	return network_logging () && network_telemetry_logging_value;
 }
 
 bool nano::logging::node_lifetime_tracing () const

@@ -26,15 +26,15 @@ TEST (request_aggregator, one)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	// Not yet in the ledger, should be ignored
-	ASSERT_EQ (1, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_ignored));
+	// Not yet in the ledger
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_unknown));
 	ASSERT_EQ (nano::process_result::progress, node.ledger.process (node.store.tx_begin_write (), *send1).code);
 	node.aggregator.add (channel, request);
 	ASSERT_EQ (1, node.aggregator.size ());
 	// In the ledger but no vote generated yet
 	// Generated votes are created after the pool is removed from the aggregator, so a simple check on empty () is not enough
 	system.deadline_set (3s);
-	while (node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated) == 0)
+	while (node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes) == 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -47,10 +47,11 @@ TEST (request_aggregator, one)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (3, node.stats.count (nano::stat::type::requests, nano::stat::detail::all));
-	ASSERT_EQ (1, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_ignored));
-	ASSERT_EQ (1, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated));
-	ASSERT_EQ (1, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cached));
+	ASSERT_EQ (3, node.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_accepted));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_dropped));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_unknown));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cached_votes));
 	ASSERT_EQ (2, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 }
 
@@ -78,15 +79,18 @@ TEST (request_aggregator, one_update)
 	// In the ledger but no vote generated yet
 	// Generated votes are created after the pool is removed from the aggregator, so a simple check on empty () is not enough
 	system.deadline_set (3s);
-	while (node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated) == 0)
+	while (node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes) == 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_TRUE (node.aggregator.empty ());
-	ASSERT_EQ (1, node.stats.count (nano::stat::type::requests, nano::stat::detail::all));
-	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_ignored));
-	ASSERT_EQ (1, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated));
-	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cached));
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_accepted));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_dropped));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_unknown));
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_hashes));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cached_hashes));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cached_votes));
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 }
 
@@ -112,12 +116,11 @@ TEST (request_aggregator, two)
 	// One vote should be generated for both blocks
 	// Generated votes are created after the pool is removed from the aggregator, so a simple check on empty () is not enough
 	system.deadline_set (3s);
-	while (node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated) == 0)
+	while (node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes) == 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_TRUE (node.aggregator.empty ());
-	ASSERT_EQ (1, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated));
 	// The same request should now send the cached vote
 	node.aggregator.add (channel, request);
 	ASSERT_EQ (1, node.aggregator.size ());
@@ -126,10 +129,13 @@ TEST (request_aggregator, two)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (2, node.stats.count (nano::stat::type::requests, nano::stat::detail::all));
-	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_ignored));
-	ASSERT_EQ (1, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated));
-	ASSERT_EQ (1, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cached));
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_accepted));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_dropped));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_unknown));
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_hashes));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes));
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cached_hashes));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cached_votes));
 	ASSERT_EQ (2, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
 	// Make sure the cached vote is for both hashes
 	auto vote1 (node.votes_cache.find (send1->hash ()));
@@ -144,9 +150,11 @@ TEST (request_aggregator, two_endpoints)
 	nano::system system;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	auto & node1 (*system.add_node (node_config));
+	nano::node_flags node_flags;
+	node_flags.disable_rep_crawler = true;
+	auto & node1 (*system.add_node (node_config, node_flags));
 	node_config.peering_port = nano::get_available_port ();
-	auto & node2 (*system.add_node (node_config));
+	auto & node2 (*system.add_node (node_config, node_flags));
 	nano::genesis genesis;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node1.work_generate_blocking (genesis.hash ())));
@@ -166,10 +174,13 @@ TEST (request_aggregator, two_endpoints)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_EQ (2, node1.stats.count (nano::stat::type::requests, nano::stat::detail::all));
-	ASSERT_EQ (0, node1.stats.count (nano::stat::type::requests, nano::stat::detail::requests_ignored));
-	ASSERT_EQ (1, node1.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated));
-	ASSERT_EQ (1, node1.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cached));
+	ASSERT_EQ (2, node1.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_accepted));
+	ASSERT_EQ (0, node1.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_dropped));
+	ASSERT_EQ (0, node1.stats.count (nano::stat::type::requests, nano::stat::detail::requests_unknown));
+	ASSERT_EQ (1, node1.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_hashes));
+	ASSERT_EQ (1, node1.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes));
+	ASSERT_EQ (1, node1.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cached_hashes));
+	ASSERT_EQ (1, node1.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cached_votes));
 }
 
 TEST (request_aggregator, split)
@@ -208,25 +219,19 @@ TEST (request_aggregator, split)
 	// In the ledger but no vote generated yet
 	// Generated votes are created after the pool is removed from the aggregator, so a simple check on empty () is not enough
 	system.deadline_set (3s);
-	while (node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated) < 2)
+	while (node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes) < 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_TRUE (node.aggregator.empty ());
 	// Two votes were sent, the first one for 12 hashes and the second one for 1 hash
-	ASSERT_EQ (2, node.stats.count (nano::stat::type::requests, nano::stat::detail::all));
-	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_ignored));
-	ASSERT_EQ (2, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated));
-	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cached));
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_accepted));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_dropped));
+	ASSERT_EQ (13, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_hashes));
+	ASSERT_EQ (2, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_unknown));
+	ASSERT_EQ (0, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_cached_hashes));
 	ASSERT_EQ (2, node.stats.count (nano::stat::type::message, nano::stat::detail::confirm_ack, nano::stat::dir::out));
-	auto transaction (node.store.tx_begin_read ());
-	auto pre_last_hash (node.store.block_get (transaction, previous)->previous ());
-	auto vote1 (node.votes_cache.find (pre_last_hash));
-	ASSERT_EQ (1, vote1.size ());
-	ASSERT_EQ (max_vbh, vote1[0]->blocks.size ());
-	auto vote2 (node.votes_cache.find (previous));
-	ASSERT_EQ (1, vote2.size ());
-	ASSERT_EQ (1, vote2[0]->blocks.size ());
 }
 
 TEST (request_aggregator, channel_lifetime)
@@ -248,7 +253,7 @@ TEST (request_aggregator, channel_lifetime)
 	}
 	ASSERT_EQ (1, node.aggregator.size ());
 	system.deadline_set (3s);
-	while (node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated) == 0)
+	while (node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes) == 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -280,8 +285,56 @@ TEST (request_aggregator, channel_update)
 	// channel1 is not being held anymore
 	ASSERT_EQ (nullptr, channel1_w.lock ());
 	system.deadline_set (3s);
-	while (node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated) == 0)
+	while (node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes) == 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+}
+
+TEST (request_aggregator, channel_max_queue)
+{
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	node_config.max_queued_requests = 1;
+	auto & node (*system.add_node (node_config));
+	nano::genesis genesis;
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node.work_generate_blocking (genesis.hash ())));
+	ASSERT_EQ (nano::process_result::progress, node.ledger.process (node.store.tx_begin_write (), *send1).code);
+	std::vector<std::pair<nano::block_hash, nano::root>> request;
+	request.emplace_back (send1->hash (), send1->root ());
+	auto channel (node.network.udp_channels.create (node.network.endpoint ()));
+	node.aggregator.add (channel, request);
+	node.aggregator.add (channel, request);
+	system.deadline_set (3s);
+	while (node.stats.count (nano::stat::type::aggregator, nano::stat::detail::aggregator_dropped) < 1)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
+TEST (request_aggregator, unique)
+{
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto & node (*system.add_node (node_config));
+	nano::genesis genesis;
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node.work_generate_blocking (genesis.hash ())));
+	ASSERT_EQ (nano::process_result::progress, node.ledger.process (node.store.tx_begin_write (), *send1).code);
+	std::vector<std::pair<nano::block_hash, nano::root>> request;
+	request.emplace_back (send1->hash (), send1->root ());
+	auto channel (node.network.udp_channels.create (node.network.endpoint ()));
+	node.aggregator.add (channel, request);
+	node.aggregator.add (channel, request);
+	node.aggregator.add (channel, request);
+	node.aggregator.add (channel, request);
+	system.deadline_set (3s);
+	while (node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_votes) < 1)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (1, node.stats.count (nano::stat::type::requests, nano::stat::detail::requests_generated_hashes));
 }

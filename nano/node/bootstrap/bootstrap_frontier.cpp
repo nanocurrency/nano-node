@@ -42,8 +42,7 @@ current (0),
 count (0),
 bulk_push_cost (0)
 {
-	auto transaction (connection->node->store.tx_begin_read ());
-	next (transaction);
+	next ();
 }
 
 nano::frontier_req_client::~frontier_req_client ()
@@ -123,14 +122,13 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 		{
 			connection->node->logger.always_log (boost::str (boost::format ("Received %1% frontiers from %2%") % std::to_string (count) % connection->channel->to_string ()));
 		}
-		auto transaction (connection->node->store.tx_begin_read ());
 		if (!account.is_zero ())
 		{
 			while (!current.is_zero () && current < account)
 			{
 				// We know about an account they don't.
 				unsynced (frontier, 0);
-				next (transaction);
+				next ();
 			}
 			if (!current.is_zero ())
 			{
@@ -142,7 +140,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 					}
 					else
 					{
-						if (connection->node->store.block_exists (transaction, latest))
+						if (connection->node->ledger.block_exists (latest))
 						{
 							// We know about a block they don't.
 							unsynced (frontier, latest);
@@ -155,7 +153,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 							bulk_push_cost += 5;
 						}
 					}
-					next (transaction);
+					next ();
 				}
 				else
 				{
@@ -175,7 +173,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 			{
 				// We know about an account they don't.
 				unsynced (frontier, 0);
-				next (transaction);
+				next ();
 			}
 			if (connection->node->config.logging.bulk_pull_logging ())
 			{
@@ -202,13 +200,14 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 	}
 }
 
-void nano::frontier_req_client::next (nano::transaction const & transaction_a)
+void nano::frontier_req_client::next ()
 {
 	// Filling accounts deque to prevent often read transactions
 	if (accounts.empty ())
 	{
 		size_t max_size (128);
-		for (auto i (connection->node->store.latest_begin (transaction_a, current.number () + 1)), n (connection->node->store.latest_end ()); i != n && accounts.size () != max_size; ++i)
+		auto transaction (connection->node->store.tx_begin_read ());
+		for (auto i (connection->node->store.latest_begin (transaction, current.number () + 1)), n (connection->node->store.latest_end ()); i != n && accounts.size () != max_size; ++i)
 		{
 			nano::account_info const & info (i->second);
 			nano::account const & account (i->first);

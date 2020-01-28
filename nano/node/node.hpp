@@ -21,6 +21,7 @@
 #include <nano/node/repcrawler.hpp>
 #include <nano/node/request_aggregator.hpp>
 #include <nano/node/signatures.hpp>
+#include <nano/node/telemetry.hpp>
 #include <nano/node/vote_processor.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/node/write_database_queue.hpp>
@@ -47,7 +48,7 @@ namespace websocket
 }
 
 class node;
-
+class telemetry;
 class work_pool;
 class block_arrival_info final
 {
@@ -138,7 +139,6 @@ public:
 	void block_confirm (std::shared_ptr<nano::block>);
 	bool block_confirmed_or_being_confirmed (nano::transaction const &, nano::block_hash const &);
 	void process_fork (nano::transaction const &, std::shared_ptr<nano::block>);
-	bool validate_block_by_previous (nano::transaction const &, std::shared_ptr<nano::block>);
 	void do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const &, uint16_t, std::shared_ptr<std::string>, std::shared_ptr<std::string>, std::shared_ptr<boost::asio::ip::tcp::resolver>);
 	nano::uint128_t delta () const;
 	void ongoing_online_weight_calculation ();
@@ -166,6 +166,7 @@ public:
 	nano::ledger ledger;
 	nano::signature_checker checker;
 	nano::network network;
+	nano::telemetry telemetry;
 	nano::bootstrap_initiator bootstrap_initiator;
 	nano::bootstrap_listener bootstrap;
 	boost::filesystem::path application_path;
@@ -194,6 +195,9 @@ public:
 	std::atomic<bool> stopped{ false };
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
+
+private:
+	void long_inactivity_cleanup ();
 };
 
 std::unique_ptr<container_info_component> collect_container_info (node & node, const std::string & name);

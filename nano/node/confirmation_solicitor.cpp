@@ -6,6 +6,7 @@ using namespace std::chrono_literals;
 nano::confirmation_solicitor::confirmation_solicitor (nano::network & network_a, nano::network_constants const & params_a) :
 max_confirm_req_batches (params_a.is_test_network () ? 1 : 20),
 max_block_broadcasts (params_a.is_test_network () ? 4 : 30),
+max_election_requests (30),
 network (network_a)
 {
 }
@@ -35,20 +36,21 @@ bool nano::confirmation_solicitor::add (nano::election const & election_a)
 {
 	assert (prepared);
 	auto const max_channel_requests (max_confirm_req_batches * nano::network::confirm_req_hashes_max);
-	bool result = true;
-	for (auto const & rep : representatives)
+	unsigned count = 0;
+	for (auto i (representatives.begin ()), n (representatives.end ()); i != n && count < max_election_requests; ++i)
 	{
+		auto rep (*i);
 		if (election_a.last_votes.find (rep.account) == election_a.last_votes.end ())
 		{
 			auto & request_queue (requests[rep.channel]);
 			if (request_queue.size () < max_channel_requests)
 			{
 				request_queue.emplace_back (election_a.status.winner->hash (), election_a.status.winner->root ());
-				result = false;
+				++count;
 			}
 		}
 	}
-	return result;
+	return count == 0;
 }
 
 void nano::confirmation_solicitor::flush ()
