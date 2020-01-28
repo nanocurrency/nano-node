@@ -2672,6 +2672,45 @@ TEST (rpc, pending)
 	check_block_response_count (0);
 }
 
+TEST (rpc, pending_burn)
+{
+	nano::system system;
+	auto node = add_ipc_enabled_node (system);
+	nano::account burn (0);
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	auto block1 (system.wallet (0)->send_action (nano::test_genesis_key.pub, burn, 100));
+	scoped_io_thread_name_change scoped_thread_name_io;
+	system.deadline_set (5s);
+	while (node->active.active (*block1))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node->config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	boost::property_tree::ptree request;
+	request.put ("action", "pending");
+	request.put ("account", burn.to_account ());
+	request.put ("count", "100");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		auto & blocks_node (response.json.get_child ("blocks"));
+		ASSERT_EQ (1, blocks_node.size ());
+		nano::block_hash hash (blocks_node.begin ()->second.get<std::string> (""));
+		ASSERT_EQ (block1->hash (), hash);
+	}
+}
+
 TEST (rpc, search_pending)
 {
 	nano::system system;
@@ -6514,6 +6553,50 @@ TEST (rpc, unchecked_get)
 	}
 }
 
+TEST (rpc, unchecked_clear)
+{
+	nano::system system;
+	auto & node = *add_ipc_enabled_node (system);
+	nano::keypair key;
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node.config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	auto open (std::make_shared<nano::state_block> (key.pub, 0, key.pub, 1, key.pub, key.prv, key.pub, *system.work.generate (key.pub)));
+	node.process_active (open);
+	node.block_processor.flush ();
+	boost::property_tree::ptree request;
+	ASSERT_EQ (node.ledger.cache.unchecked_count, 1);
+	{
+		auto transaction = node.store.tx_begin_read ();
+		ASSERT_EQ (node.store.unchecked_count (transaction), 1);
+	}
+	request.put ("action", "unchecked_clear");
+	test_response response (request, rpc.config.port, system.io_ctx);
+	system.deadline_set (5s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+
+	system.deadline_set (5s);
+	while (true)
+	{
+		auto transaction = node.store.tx_begin_read ();
+		if (node.store.unchecked_count (transaction) == 0)
+		{
+			break;
+		}
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	ASSERT_EQ (node.ledger.cache.unchecked_count, 0);
+}
+
 TEST (rpc, unopened)
 {
 	nano::system system;
@@ -7030,7 +7113,6 @@ TEST (rpc, database_txn_tracker)
 	rpc.start ();
 
 	boost::property_tree::ptree request;
-	// clang-format off
 	auto check_not_correct_amount = [&system, &request, &rpc_port = rpc.config.port]() {
 		test_response response (request, rpc_port, system.io_ctx);
 		system.deadline_set (5s);
@@ -7042,7 +7124,6 @@ TEST (rpc, database_txn_tracker)
 		std::error_code ec (nano::error_common::invalid_amount);
 		ASSERT_EQ (response.json.get<std::string> ("error"), ec.message ());
 	};
-	// clang-format on
 
 	request.put ("action", "database_txn_tracker");
 	request.put ("min_read_time", "not a time");
@@ -7059,8 +7140,7 @@ TEST (rpc, database_txn_tracker)
 
 	std::promise<void> keep_txn_alive_promise;
 	std::promise<void> txn_created_promise;
-	// clang-format off
-	std::thread thread ([&store = node->store, &keep_txn_alive_promise, &txn_created_promise]() {
+	std::thread thread ([& store = node->store, &keep_txn_alive_promise, &txn_created_promise]() {
 		// Use rpc_process_container as a placeholder as this thread is only instantiated by the daemon so won't be used
 		nano::thread_role::set (nano::thread_role::name::rpc_process_container);
 
@@ -7072,7 +7152,6 @@ TEST (rpc, database_txn_tracker)
 		txn_created_promise.set_value ();
 		keep_txn_alive_promise.get_future ().wait ();
 	});
-	// clang-format on
 
 	txn_created_promise.get_future ().wait ();
 
@@ -7216,8 +7295,7 @@ TEST (rpc, simultaneous_calls)
 	std::atomic<int> count{ num };
 	for (int i = 0; i < num; ++i)
 	{
-		// clang-format off
-		std::thread ([&test_responses, &promise, &count, i, port = rpc.config.port ]() {
+		std::thread ([&test_responses, &promise, &count, i, port = rpc.config.port]() {
 			test_responses[i]->run (port);
 			if (--count == 0)
 			{
@@ -7225,7 +7303,6 @@ TEST (rpc, simultaneous_calls)
 			}
 		})
 		.detach ();
-		// clang-format on
 	}
 
 	promise.get_future ().wait ();
@@ -7753,4 +7830,202 @@ TEST (rpc, receive_work_disabled)
 		ASSERT_EQ (200, response.status);
 		ASSERT_EQ (std::error_code (nano::error_common::disabled_work_generation).message (), response.json.get<std::string> ("error"));
 	}
+}
+
+namespace
+{
+void compare_default_test_result_data (test_response & response, nano::node const & node_server_a)
+{
+	ASSERT_EQ (200, response.status);
+	ASSERT_FALSE (response.json.get<bool> ("cached"));
+	ASSERT_EQ (1, response.json.get<uint64_t> ("block_count"));
+	ASSERT_EQ (1, response.json.get<uint64_t> ("cemented_count"));
+	ASSERT_EQ (0, response.json.get<uint64_t> ("unchecked_count"));
+	ASSERT_EQ (1, response.json.get<uint64_t> ("account_count"));
+	ASSERT_EQ (node_server_a.config.bandwidth_limit, response.json.get<uint64_t> ("bandwidth_cap"));
+	ASSERT_EQ (1, response.json.get<uint32_t> ("peer_count"));
+	ASSERT_EQ (node_server_a.network_params.protocol.protocol_version, response.json.get<uint8_t> ("protocol_version_number"));
+	ASSERT_EQ (nano::get_major_node_version (), response.json.get<uint8_t> ("vendor_version"));
+	ASSERT_GE (100, response.json.get<uint64_t> ("uptime"));
+	ASSERT_EQ (nano::genesis ().hash ().to_string (), response.json.get<std::string> ("genesis_block"));
+}
+}
+
+TEST (rpc, node_telemetry_single)
+{
+	nano::system system (1);
+	auto & node1 = *add_ipc_enabled_node (system);
+	scoped_io_thread_name_change scoped_thread_name_io;
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node1.config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+
+	// Wait until peers are stored as they are done in the background
+	auto peers_stored = false;
+	while (!peers_stored)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+
+		auto transaction = system.nodes.back ()->store.tx_begin_read ();
+		peers_stored = system.nodes.back ()->store.peer_count (transaction) != 0;
+	}
+
+	// Missing port
+	boost::property_tree::ptree request;
+	auto node = system.nodes.front ();
+	request.put ("action", "node_telemetry");
+	request.put ("address", "not_a_valid_address");
+
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (10s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ (std::error_code (nano::error_rpc::requires_port_and_address).message (), response.json.get<std::string> ("error"));
+	}
+
+	// Missing address
+	request.erase ("address");
+	request.put ("port", 65);
+
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (10s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ (std::error_code (nano::error_rpc::requires_port_and_address).message (), response.json.get<std::string> ("error"));
+	}
+
+	// Try with invalid address
+	request.put ("address", "not_a_valid_address");
+	request.put ("port", 65);
+
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (10s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ (std::error_code (nano::error_common::invalid_ip_address).message (), response.json.get<std::string> ("error"));
+	}
+
+	// Then invalid port
+	request.put ("address", (boost::format ("%1%") % node->network.endpoint ().address ()).str ());
+	request.put ("port", "invalid port");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (10s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ (std::error_code (nano::error_common::invalid_port).message (), response.json.get<std::string> ("error"));
+	}
+
+	// Use correctly formed address and port
+	request.put ("port", node->network.endpoint ().port ());
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (10s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		compare_default_test_result_data (response, *node);
+	}
+}
+
+TEST (rpc, node_telemetry_random)
+{
+	nano::system system (1);
+	auto & node1 = *add_ipc_enabled_node (system);
+	scoped_io_thread_name_change scoped_thread_name_io;
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node1.config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+
+	// Wait until peers are stored as they are done in the background
+	auto peers_stored = false;
+	while (!peers_stored)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+
+		auto transaction = system.nodes.back ()->store.tx_begin_read ();
+		peers_stored = system.nodes.back ()->store.peer_count (transaction) != 0;
+	}
+
+	boost::property_tree::ptree request;
+	auto node = system.nodes.front ();
+	request.put ("action", "node_telemetry");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (10s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		ASSERT_FALSE (response.json.get<bool> ("cached"));
+		ASSERT_EQ (1, response.json.get<uint64_t> ("block_count"));
+		ASSERT_EQ (1, response.json.get<uint64_t> ("cemented_count"));
+		ASSERT_EQ (0, response.json.get<uint64_t> ("unchecked_count"));
+		ASSERT_EQ (1, response.json.get<uint64_t> ("account_count"));
+		ASSERT_EQ (node->config.bandwidth_limit, response.json.get<uint64_t> ("bandwidth_cap"));
+		ASSERT_EQ (1, response.json.get<uint32_t> ("peer_count"));
+		ASSERT_EQ (node->network_params.protocol.protocol_version, response.json.get<uint8_t> ("protocol_version_number"));
+		ASSERT_EQ (nano::get_major_node_version (), response.json.get<uint8_t> ("vendor_version"));
+		ASSERT_GE (100, response.json.get<uint64_t> ("uptime"));
+		ASSERT_EQ (nano::genesis ().hash ().to_string (), response.json.get<std::string> ("genesis_block"));
+	}
+
+	request.put ("raw", "true");
+	test_response response (request, rpc.config.port, system.io_ctx);
+	system.deadline_set (10s);
+	while (response.status == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (200, response.status);
+
+	// This may fail if the response has taken longer than the cache cutoff time.
+	ASSERT_TRUE (response.json.get<bool> ("cached"));
+
+	auto & all_metrics = response.json.get_child ("metrics");
+	std::vector<std::tuple<uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint32_t, uint8_t, uint8_t, uint64_t, std::string>> raw_metrics_json_l;
+	for (auto & metrics_pair : all_metrics)
+	{
+		auto & metrics = metrics_pair.second;
+		raw_metrics_json_l.emplace_back (metrics.get<uint64_t> ("block_count"), metrics.get<uint64_t> ("cemented_count"), metrics.get<uint64_t> ("unchecked_count"), metrics.get<uint64_t> ("account_count"), metrics.get<uint64_t> ("bandwidth_cap"), metrics.get<uint64_t> ("peer_count"), metrics.get<uint8_t> ("protocol_version_number"), metrics.get<uint8_t> ("vendor_version"), metrics.get<uint64_t> ("uptime"), metrics.get<std::string> ("genesis_block"));
+	}
+
+	ASSERT_EQ (1, raw_metrics_json_l.size ());
+	auto const & metrics = raw_metrics_json_l.front ();
+	ASSERT_EQ (1, std::get<0> (metrics));
+	ASSERT_EQ (1, std::get<1> (metrics));
+	ASSERT_EQ (0, std::get<2> (metrics));
+	ASSERT_EQ (1, std::get<3> (metrics));
+	ASSERT_EQ (node->config.bandwidth_limit, std::get<4> (metrics));
+	ASSERT_EQ (1, std::get<5> (metrics));
+	ASSERT_EQ (node->network_params.protocol.protocol_version, std::get<6> (metrics));
+	ASSERT_EQ (nano::get_major_node_version (), std::get<7> (metrics));
+	ASSERT_GE (100, std::get<8> (metrics));
+	ASSERT_EQ (nano::genesis ().hash ().to_string (), std::get<9> (metrics));
 }

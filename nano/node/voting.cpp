@@ -87,14 +87,10 @@ void nano::vote_generator::run ()
 		}
 		else
 		{
-			// clang-format off
 			condition.wait_for (lock, config.vote_generator_delay, [this]() { return this->hashes.size () >= nano::network::confirm_ack_hashes_max; });
-			// clang-format on
 			if (hashes.size () >= config.vote_generator_threshold && hashes.size () < nano::network::confirm_ack_hashes_max)
 			{
-				// clang-format off
 				condition.wait_for (lock, config.vote_generator_delay, [this]() { return this->hashes.size () >= nano::network::confirm_ack_hashes_max; });
-				// clang-format on
 			}
 			if (!hashes.empty ())
 			{

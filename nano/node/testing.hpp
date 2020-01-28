@@ -17,7 +17,7 @@ class system final
 {
 public:
 	system ();
-	system (uint16_t, nano::transport::transport_type = nano::transport::transport_type::tcp);
+	system (uint16_t, nano::transport::transport_type = nano::transport::transport_type::tcp, nano::node_flags = nano::node_flags ());
 	~system ();
 	void generate_activity (nano::node &, std::vector<nano::account> &);
 	void generate_mass_activity (uint32_t, nano::node &);

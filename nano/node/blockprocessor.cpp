@@ -410,9 +410,17 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			{
 				info_a.modified = nano::seconds_since_epoch ();
 			}
-			node.store.unchecked_put (transaction_a, nano::unchecked_key (info_a.block->previous (), hash), info_a);
-			++node.ledger.cache.unchecked_count;
+
+			nano::unchecked_key unchecked_key (info_a.block->previous (), hash);
+			auto exists = node.store.unchecked_exists (transaction_a, unchecked_key);
+			node.store.unchecked_put (transaction_a, unchecked_key, info_a);
+			if (!exists)
+			{
+				++node.ledger.cache.unchecked_count;
+			}
+
 			node.gap_cache.add (hash);
+			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_previous);
 			break;
 		}
 		case nano::process_result::gap_source:
@@ -426,9 +434,17 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			{
 				info_a.modified = nano::seconds_since_epoch ();
 			}
-			node.store.unchecked_put (transaction_a, nano::unchecked_key (node.ledger.block_source (transaction_a, *(info_a.block)), hash), info_a);
-			++node.ledger.cache.unchecked_count;
+
+			nano::unchecked_key unchecked_key (node.ledger.block_source (transaction_a, *(info_a.block)), hash);
+			auto exists = node.store.unchecked_exists (transaction_a, unchecked_key);
+			node.store.unchecked_put (transaction_a, unchecked_key, info_a);
+			if (!exists)
+			{
+				++node.ledger.cache.unchecked_count;
+			}
+
 			node.gap_cache.add (hash);
+			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
 			break;
 		}
 		case nano::process_result::old:
@@ -475,7 +491,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 		case nano::process_result::fork:
 		{
 			node.process_fork (transaction_a, info_a.block);
-			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::fork, nano::stat::dir::in);
+			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::fork);
 			if (node.config.logging.ledger_logging ())
 			{
 				node.logger.try_log (boost::str (boost::format ("Fork for: %1% root: %2%") % hash.to_string () % info_a.block->root ().to_string ()));
@@ -529,8 +545,11 @@ void nano::block_processor::queue_unchecked (nano::write_transaction const & tra
 	{
 		if (!node.flags.fast_bootstrap)
 		{
-			node.store.unchecked_del (transaction_a, nano::unchecked_key (hash_a, info.block->hash ()));
-			--node.ledger.cache.unchecked_count;
+			if (!node.store.unchecked_del (transaction_a, nano::unchecked_key (hash_a, info.block->hash ())))
+			{
+				assert (node.ledger.cache.unchecked_count > 0);
+				--node.ledger.cache.unchecked_count;
+			}
 		}
 		add (info);
 	}

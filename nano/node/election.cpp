@@ -18,8 +18,8 @@ skip_delay (skip_delay_a),
 confirmed (false),
 stopped (false)
 {
-	last_votes.insert (std::make_pair (node.network_params.random.not_an_account, nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () }));
-	blocks.insert (std::make_pair (block_a->hash (), block_a));
+	last_votes.emplace (node.network_params.random.not_an_account, nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () });
+	blocks.emplace (block_a->hash (), block_a);
 	update_dependent ();
 }
 
@@ -92,7 +92,7 @@ nano::tally_t nano::election::tally ()
 		auto block (blocks.find (item.first));
 		if (block != blocks.end ())
 		{
-			result.insert (std::make_pair (item.second, block->second));
+			result.emplace (item.second, block->second);
 		}
 	}
 	return result;
@@ -211,21 +211,16 @@ bool nano::election::publish (std::shared_ptr<nano::block> block_a)
 	}
 	if (!result)
 	{
-		auto transaction (node.store.tx_begin_read ());
-		result = node.validate_block_by_previous (transaction, block_a);
-		if (!result)
+		if (blocks.find (block_a->hash ()) == blocks.end ())
 		{
-			if (blocks.find (block_a->hash ()) == blocks.end ())
-			{
-				blocks.insert (std::make_pair (block_a->hash (), block_a));
-				insert_inactive_votes_cache (block_a->hash ());
-				confirm_if_quorum ();
-				node.network.flood_block (block_a, false);
-			}
-			else
-			{
-				result = true;
-			}
+			blocks.emplace (std::make_pair (block_a->hash (), block_a));
+			insert_inactive_votes_cache (block_a->hash ());
+			confirm_if_quorum ();
+			node.network.flood_block (block_a, false);
+		}
+		else
+		{
+			result = true;
 		}
 	}
 	return result;

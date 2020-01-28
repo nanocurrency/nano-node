@@ -14,6 +14,8 @@ port (port_a)
 
 void nano::bootstrap_listener::start ()
 {
+	nano::lock_guard<std::mutex> lock (mutex);
+	on = true;
 	listening_socket = std::make_shared<nano::server_socket> (node.shared (), boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::any (), port), node.config.tcp_incoming_connections_max);
 	boost::system::error_code ec;
 	listening_socket->start (ec);
@@ -22,6 +24,7 @@ void nano::bootstrap_listener::start ()
 		node.logger.try_log (boost::str (boost::format ("Error while binding for incoming TCP/bootstrap on port %1%: %2%") % listening_socket->listening_port () % ec.message ()));
 		throw std::runtime_error (ec.message ());
 	}
+	assert (node.network.endpoint ().port () == listening_socket->listening_port ());
 	listening_socket->on_connection ([this](std::shared_ptr<nano::socket> new_connection, boost::system::error_code const & ec_a) {
 		bool keep_accepting = true;
 		if (ec_a)
@@ -47,6 +50,7 @@ void nano::bootstrap_listener::stop ()
 	}
 	if (listening_socket)
 	{
+		nano::lock_guard<std::mutex> lock (mutex);
 		listening_socket->close ();
 		listening_socket = nullptr;
 	}
@@ -70,7 +74,15 @@ void nano::bootstrap_listener::accept_action (boost::system::error_code const & 
 
 boost::asio::ip::tcp::endpoint nano::bootstrap_listener::endpoint ()
 {
-	return boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), listening_socket->listening_port ());
+	nano::lock_guard<std::mutex> lock (mutex);
+	if (on && listening_socket)
+	{
+		return boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), listening_socket->listening_port ());
+	}
+	else
+	{
+		return boost::asio::ip::tcp::endpoint (boost::asio::ip::address_v6::loopback (), 0);
+	}
 }
 
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (bootstrap_listener & bootstrap_listener, const std::string & name)
@@ -225,6 +237,23 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 					});
 					break;
 				}
+				case nano::message_type::telemetry_req:
+				{
+					node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::telemetry_req, nano::stat::dir::in);
+					if (is_realtime_connection ())
+					{
+						add_request (std::make_unique<nano::telemetry_req> (header));
+					}
+					receive ();
+					break;
+				}
+				case nano::message_type::telemetry_ack:
+				{
+					socket->async_read (receive_buffer, header.payload_length_bytes (), [this_l, header](boost::system::error_code const & ec, size_t size_a) {
+						this_l->receive_telemetry_ack_action (ec, size_a, header);
+					});
+					break;
+				}
 				default:
 				{
 					if (node->config.logging.network_logging ())
@@ -340,6 +369,31 @@ void nano::bootstrap_server::receive_keepalive_action (boost::system::error_code
 		if (node->config.logging.network_keepalive_logging ())
 		{
 			node->logger.try_log (boost::str (boost::format ("Error receiving keepalive: %1%") % ec.message ()));
+		}
+	}
+}
+
+void nano::bootstrap_server::receive_telemetry_ack_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a)
+{
+	if (!ec)
+	{
+		auto error (false);
+		nano::bufferstream stream (receive_buffer->data (), size_a);
+		auto request (std::make_unique<nano::telemetry_ack> (error, stream, header_a));
+		if (!error)
+		{
+			if (is_realtime_connection ())
+			{
+				add_request (std::unique_ptr<nano::message> (request.release ()));
+			}
+			receive ();
+		}
+	}
+	else
+	{
+		if (node->config.logging.network_telemetry_logging ())
+		{
+			node->logger.try_log (boost::str (boost::format ("Error receiving telemetry ack: %1%") % ec.message ()));
 		}
 	}
 }
@@ -511,7 +565,6 @@ public:
 	connection (connection_a)
 	{
 	}
-	virtual ~request_response_visitor () = default;
 	void keepalive (nano::keepalive const & message_a) override
 	{
 		connection->finish_request_async ();
@@ -564,6 +617,22 @@ public:
 		auto response (std::make_shared<nano::frontier_req_server> (connection, std::unique_ptr<nano::frontier_req> (static_cast<nano::frontier_req *> (connection->requests.front ().release ()))));
 		response->send_next ();
 	}
+	void telemetry_req (nano::telemetry_req const & message_a) override
+	{
+		connection->finish_request_async ();
+		auto connection_l (connection->shared_from_this ());
+		connection->node->background ([connection_l, message_a]() {
+			connection_l->node->network.tcp_channels.process_message (message_a, connection_l->remote_endpoint, connection_l->remote_node_id, connection_l->socket, connection_l->type);
+		});
+	}
+	void telemetry_ack (nano::telemetry_ack const & message_a) override
+	{
+		connection->finish_request_async ();
+		auto connection_l (connection->shared_from_this ());
+		connection->node->background ([connection_l, message_a]() {
+			connection_l->node->network.tcp_channels.process_message (message_a, connection_l->remote_endpoint, connection_l->remote_node_id, connection_l->socket, connection_l->type);
+		});
+	}
 	void node_id_handshake (nano::node_id_handshake const & message_a) override
 	{
 		if (connection->node->config.logging.network_node_id_handshake_logging ())
@@ -577,8 +646,7 @@ public:
 			auto cookie (connection->node->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (connection->remote_endpoint)));
 			nano::node_id_handshake response_message (cookie, response);
 			auto shared_const_buffer = response_message.to_shared_const_buffer ();
-			// clang-format off
-			connection->socket->async_write (shared_const_buffer, [connection = std::weak_ptr<nano::bootstrap_server> (connection) ](boost::system::error_code const & ec, size_t size_a) {
+			connection->socket->async_write (shared_const_buffer, [connection = std::weak_ptr<nano::bootstrap_server> (connection)](boost::system::error_code const & ec, size_t size_a) {
 				if (auto connection_l = connection.lock ())
 				{
 					if (ec)
@@ -597,7 +665,6 @@ public:
 					}
 				}
 			});
-			// clang-format on
 		}
 		else if (message_a.response)
 		{

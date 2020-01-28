@@ -39,7 +39,7 @@ if (${LastExitCode} -ne 0) {
 
 if (${env:RUN} -eq "artifact") {
     $p = Get-Location
-    Invoke-WebRequest -Uri https://aka.ms/vs/15/release/vc_redist.x64.exe -OutFile "$p\vc_redist.x64.exe"
+    Invoke-WebRequest -Uri https://aka.ms/vs/16/release/vc_redist.x64.exe -OutFile "$p\vc_redist.x64.exe"
 }
 
 & ..\ci\actions\windows\build.bat

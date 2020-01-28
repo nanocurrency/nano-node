@@ -51,7 +51,7 @@ public:
  * Crawls the network for representatives. Queries are performed by requesting confirmation of a
  * random block and observing the corresponding vote.
  */
-class rep_crawler
+class rep_crawler final
 {
 	friend std::unique_ptr<container_info_component> collect_container_info (rep_crawler & rep_crawler, const std::string & name);
 
@@ -85,21 +85,18 @@ public:
 	/** Remove block hash from list of active rep queries */
 	void remove (nano::block_hash const &);
 
-	/** Check if block hash is in the list of active rep queries */
-	bool exists (nano::block_hash const &);
-
 	/** Attempt to determine if the peer manages one or more representative accounts */
 	void query (std::vector<std::shared_ptr<nano::transport::channel>> const & channels_a);
 
 	/** Attempt to determine if the peer manages one or more representative accounts */
-	void query (std::shared_ptr<nano::transport::channel> channel_a);
+	void query (std::shared_ptr<nano::transport::channel> & channel_a);
 
 	/**
 	 * Called when a non-replay vote on a block previously sent by query() is received. This indiciates
 	 * with high probability that the endpoint is a representative node.
 	 * @return True if the rep entry was updated with new information due to increase in weight.
 	 */
-	bool response (std::shared_ptr<nano::transport::channel> channel_a, nano::account const & rep_account_a, nano::amount const & weight_a);
+	void response (std::shared_ptr<nano::transport::channel> &, std::shared_ptr<nano::vote> &);
 
 	/** Get total available weight from representatives */
 	nano::uint128_t total_weight () const;
@@ -122,6 +119,9 @@ private:
 	/** We have solicted votes for these random blocks */
 	std::unordered_set<nano::block_hash> active;
 
+	// Validate responses to see if they're reps
+	void validate ();
+
 	/** Called continuously to crawl for representatives */
 	void ongoing_crawl ();
 
@@ -142,5 +142,7 @@ private:
 
 	/** Probable representatives */
 	probably_rep_t probable_reps;
+
+	std::deque<std::pair<std::shared_ptr<nano::transport::channel>, std::shared_ptr<nano::vote>>> responses;
 };
 }

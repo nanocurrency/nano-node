@@ -22,15 +22,17 @@ public:
 	bool add (nano::election const &);
 	/** Dispatch bundled requests to each channel*/
 	void flush ();
-	/** The maximum amount of confirmation requests (batches) to be sent to each channel */
+	/** Maximum amount of confirmation requests (batches) to be sent to each channel */
 	size_t const max_confirm_req_batches;
-	/** The global maximum amount of block broadcasts */
+	/** Global maximum amount of block broadcasts */
 	size_t const max_block_broadcasts;
+	/** Maximum amount of requests to be sent per election */
+	size_t const max_election_requests;
 
 private:
 	nano::network & network;
 
-	int rebroadcasted{ 0 };
+	unsigned rebroadcasted{ 0 };
 	std::vector<nano::representative> representatives;
 	using vector_root_hashes = std::vector<std::pair<nano::block_hash, nano::root>>;
 	std::unordered_map<std::shared_ptr<nano::transport::channel>, vector_root_hashes> requests;

@@ -317,9 +317,7 @@ void nano::bootstrap_attempt::run ()
 
 std::shared_ptr<nano::bootstrap_client> nano::bootstrap_attempt::connection (nano::unique_lock<std::mutex> & lock_a, bool use_front_connection)
 {
-	// clang-format off
 	condition.wait (lock_a, [& stopped = stopped, &idle = idle] { return stopped || !idle.empty (); });
-	// clang-format on
 	std::shared_ptr<nano::bootstrap_client> result;
 	if (!idle.empty ())
 	{
@@ -686,9 +684,7 @@ bool nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 {
 	bool confirmed (false);
 	assert (!frontiers_confirmed);
-	// clang-format off
 	condition.wait (lock_a, [& stopped = stopped] { return !stopped; });
-	// clang-format on
 	std::vector<nano::block_hash> frontiers;
 	for (auto i (pulls.begin ()), end (pulls.end ()); i != end && frontiers.size () != nano::bootstrap_limits::bootstrap_max_confirm_frontiers; ++i)
 	{
@@ -888,6 +884,7 @@ void nano::bootstrap_attempt::lazy_pull_flush ()
 				batch_count = std::max (node->network_params.bootstrap.lazy_min_pull_blocks, batch_count_min);
 			}
 		}
+		uint64_t read_count (0);
 		size_t count (0);
 		auto transaction (node->store.tx_begin_read ());
 		while (!lazy_pulls.empty () && count < max_pulls)
@@ -900,6 +897,12 @@ void nano::bootstrap_attempt::lazy_pull_flush ()
 				++count;
 			}
 			lazy_pulls.pop_front ();
+			// We don't want to open read transactions for too long
+			++read_count;
+			if (read_count % batch_read_size == 0)
+			{
+				transaction.refresh ();
+			}
 		}
 	}
 }
@@ -911,6 +914,7 @@ bool nano::bootstrap_attempt::lazy_finished ()
 		return true;
 	}
 	bool result (true);
+	uint64_t read_count (0);
 	auto transaction (node->store.tx_begin_read ());
 	nano::lock_guard<std::mutex> lazy_lock (lazy_mutex);
 	for (auto it (lazy_keys.begin ()), end (lazy_keys.end ()); it != end && !stopped;)
@@ -924,6 +928,12 @@ bool nano::bootstrap_attempt::lazy_finished ()
 			result = false;
 			break;
 			// No need to increment `it` as we break above.
+		}
+		// We don't want to open read transactions for too long
+		++read_count;
+		if (read_count % batch_read_size == 0)
+		{
+			transaction.refresh ();
 		}
 	}
 	// Finish lazy bootstrap without lazy pulls (in combination with still_pulling ())
@@ -1205,6 +1215,7 @@ void nano::bootstrap_attempt::lazy_block_state_backlog_check (std::shared_ptr<na
 
 void nano::bootstrap_attempt::lazy_backlog_cleanup ()
 {
+	uint64_t read_count (0);
 	auto transaction (node->store.tx_begin_read ());
 	nano::lock_guard<std::mutex> lazy_lock (lazy_mutex);
 	for (auto it (lazy_state_backlog.begin ()), end (lazy_state_backlog.end ()); it != end && !stopped;)
@@ -1226,6 +1237,12 @@ void nano::bootstrap_attempt::lazy_backlog_cleanup ()
 		{
 			lazy_add (it->first, it->second.retry_limit);
 			++it;
+		}
+		// We don't want to open read transactions for too long
+		++read_count;
+		if (read_count % batch_read_size == 0)
+		{
+			transaction.refresh ();
 		}
 	}
 }
@@ -1381,9 +1398,7 @@ void nano::bootstrap_initiator::bootstrap (bool force, std::string id_a)
 	if (force && attempt != nullptr)
 	{
 		attempt->stop ();
-		// clang-format off
-		condition.wait (lock, [&attempt = attempt, &stopped = stopped] { return stopped || attempt == nullptr; });
-		// clang-format on
+		condition.wait (lock, [& attempt = attempt, &stopped = stopped] { return stopped || attempt == nullptr; });
 	}
 	if (!stopped && attempt == nullptr)
 	{
@@ -1397,7 +1412,14 @@ void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bo
 {
 	if (add_to_peers)
 	{
-		node.network.udp_channels.insert (nano::transport::map_endpoint_to_v6 (endpoint_a), node.network_params.protocol.protocol_version);
+		if (!node.flags.disable_udp)
+		{
+			node.network.udp_channels.insert (nano::transport::map_endpoint_to_v6 (endpoint_a), node.network_params.protocol.protocol_version);
+		}
+		else if (!node.flags.disable_tcp_realtime)
+		{
+			node.network.merge_peer (nano::transport::map_endpoint_to_v6 (endpoint_a));
+		}
 	}
 	nano::unique_lock<std::mutex> lock (mutex);
 	if (!stopped)
@@ -1405,9 +1427,7 @@ void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bo
 		if (attempt != nullptr)
 		{
 			attempt->stop ();
-			// clang-format off
-			condition.wait (lock, [&attempt = attempt, &stopped = stopped] { return stopped || attempt == nullptr; });
-			// clang-format on
+			condition.wait (lock, [& attempt = attempt, &stopped = stopped] { return stopped || attempt == nullptr; });
 		}
 		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out);
 		attempt = std::make_shared<nano::bootstrap_attempt> (node.shared (), nano::bootstrap_mode::legacy, id_a);
@@ -1431,9 +1451,7 @@ void nano::bootstrap_initiator::bootstrap_lazy (nano::hash_or_account const & ha
 		if (force && attempt != nullptr)
 		{
 			attempt->stop ();
-			// clang-format off
-			condition.wait (lock, [&attempt = attempt, &stopped = stopped] { return stopped || attempt == nullptr; });
-			// clang-format on
+			condition.wait (lock, [& attempt = attempt, &stopped = stopped] { return stopped || attempt == nullptr; });
 		}
 		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate_lazy, nano::stat::dir::out);
 		if (attempt == nullptr)

@@ -2,6 +2,7 @@
 #include <nano/lib/threading.hpp>
 #include <nano/node/network.hpp>
 #include <nano/node/node.hpp>
+#include <nano/node/telemetry.hpp>
 #include <nano/secure/buffer.hpp>
 
 #include <boost/format.hpp>
@@ -16,13 +17,14 @@ limiter (node_a.config.bandwidth_limit),
 node (node_a),
 udp_channels (node_a, port_a),
 tcp_channels (node_a),
+port (port_a),
 disconnect_observer ([]() {})
 {
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
-	for (size_t i = 0; i < node.config.network_threads; ++i)
+	for (size_t i = 0; i < node.config.network_threads && !node.flags.disable_udp; ++i)
 	{
-		packet_processing_threads.push_back (boost::thread (attrs, [this]() {
+		packet_processing_threads.emplace_back (attrs, [this]() {
 			nano::thread_role::set (nano::thread_role::name::packet_processing);
 			try
 			{
@@ -52,7 +54,7 @@ disconnect_observer ([]() {})
 			{
 				this->node.logger.try_log ("Exiting packet processing thread");
 			}
-		}));
+		});
 	}
 }
 
@@ -68,6 +70,7 @@ void nano::network::start ()
 	if (!node.flags.disable_udp)
 	{
 		udp_channels.start ();
+		assert (udp_channels.get_local_endpoint ().port () == port);
 	}
 	if (!node.flags.disable_tcp_realtime)
 	{
@@ -84,6 +87,7 @@ void nano::network::stop ()
 		tcp_channels.stop ();
 		resolver.cancel ();
 		buffer_container.stop ();
+		port = 0;
 		for (auto & thread : packet_processing_threads)
 		{
 			thread.join ();
@@ -226,14 +230,12 @@ void nano::network::flood_block_many (std::deque<std::shared_ptr<nano::block>> b
 	if (!blocks_a.empty ())
 	{
 		std::weak_ptr<nano::node> node_w (node.shared ());
-		// clang-format off
 		node.alarm.add (std::chrono::steady_clock::now () + std::chrono::milliseconds (delay_a + std::rand () % delay_a), [node_w, blocks (std::move (blocks_a)), callback_a, delay_a]() {
 			if (auto node_l = node_w.lock ())
 			{
 				node_l->network.flood_block_many (std::move (blocks), callback_a, delay_a);
 			}
 		});
-		// clang-format on
 	}
 	else if (callback_a)
 	{
@@ -265,10 +267,7 @@ void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> block_a)
 		// broadcast request to all peers (with max limit 2 * sqrt (peers count))
 		auto peers (node.network.list (std::min (static_cast<size_t> (100), 2 * node.network.size_sqrt ())));
 		list->clear ();
-		for (auto & peer : peers)
-		{
-			list->push_back (peer);
-		}
+		list->insert (list->end (), peers.begin (), peers.end ());
 	}
 
 	/*
@@ -424,7 +423,6 @@ public:
 		{
 			node.stats.inc (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::in);
 		}
-		node.active.publish (message_a.block);
 	}
 	void confirm_req (nano::confirm_req const & message_a) override
 	{
@@ -483,7 +481,6 @@ public:
 				{
 					node.stats.inc (nano::stat::type::drop, nano::stat::detail::confirm_ack, nano::stat::dir::in);
 				}
-				node.active.publish (block);
 			}
 		}
 		node.vote_processor.vote (message_a.vote, channel);
@@ -507,6 +504,42 @@ public:
 	void node_id_handshake (nano::node_id_handshake const & message_a) override
 	{
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in);
+	}
+	void telemetry_req (nano::telemetry_req const & message_a) override
+	{
+		if (node.config.logging.network_telemetry_logging ())
+		{
+			node.logger.try_log (boost::str (boost::format ("Telemetry_req message from %1%") % channel->to_string ()));
+		}
+		node.stats.inc (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in);
+
+		nano::telemetry_data telemetry_data;
+		telemetry_data.block_count = node.ledger.cache.block_count;
+		telemetry_data.cemented_count = node.ledger.cache.cemented_count;
+		telemetry_data.bandwidth_cap = node.config.bandwidth_limit;
+		telemetry_data.protocol_version_number = node.network_params.protocol.protocol_version;
+		telemetry_data.vendor_version = nano::get_major_node_version ();
+		telemetry_data.uptime = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - node.startup_time).count ();
+		telemetry_data.unchecked_count = node.ledger.cache.unchecked_count;
+		telemetry_data.genesis_block = nano::genesis ().hash ();
+		telemetry_data.peer_count = node.network.size ();
+
+		{
+			auto transaction = node.store.tx_begin_read ();
+			telemetry_data.account_count = node.store.account_count (transaction);
+		}
+
+		nano::telemetry_ack telemetry_ack (telemetry_data);
+		channel->send (telemetry_ack);
+	}
+	void telemetry_ack (nano::telemetry_ack const & message_a) override
+	{
+		if (node.config.logging.network_telemetry_logging ())
+		{
+			node.logger.try_log (boost::str (boost::format ("Received telemetry_ack message from %1%") % channel->to_string ()));
+		}
+		node.stats.inc (nano::stat::type::message, nano::stat::detail::telemetry_ack, nano::stat::dir::in);
+		node.telemetry.add (message_a.data, channel->get_endpoint ());
 	}
 	nano::node & node;
 	std::shared_ptr<nano::transport::channel> channel;
@@ -592,10 +625,10 @@ std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list_fanout
 	return result;
 }
 
-std::unordered_set<std::shared_ptr<nano::transport::channel>> nano::network::random_set (size_t count_a) const
+std::unordered_set<std::shared_ptr<nano::transport::channel>> nano::network::random_set (size_t count_a, uint8_t min_version_a) const
 {
-	std::unordered_set<std::shared_ptr<nano::transport::channel>> result (tcp_channels.random_set (count_a));
-	std::unordered_set<std::shared_ptr<nano::transport::channel>> udp_random (udp_channels.random_set (count_a));
+	std::unordered_set<std::shared_ptr<nano::transport::channel>> result (tcp_channels.random_set (count_a, min_version_a));
+	std::unordered_set<std::shared_ptr<nano::transport::channel>> udp_random (udp_channels.random_set (count_a, min_version_a));
 	for (auto i (udp_random.begin ()), n (udp_random.end ()); i != n && result.size () < count_a * 1.5; ++i)
 	{
 		result.insert (*i);
@@ -661,7 +694,7 @@ std::shared_ptr<nano::transport::channel> nano::network::find_node_id (nano::acc
 
 nano::endpoint nano::network::endpoint ()
 {
-	return udp_channels.get_local_endpoint ();
+	return nano::endpoint (boost::asio::ip::address_v6::loopback (), port);
 }
 
 void nano::network::cleanup (std::chrono::steady_clock::time_point const & cutoff_a)
@@ -750,9 +783,7 @@ nano::message_buffer * nano::message_buffer_manager::allocate ()
 	if (!stopped && free.empty () && full.empty ())
 	{
 		stats.inc (nano::stat::type::udp, nano::stat::detail::blocking, nano::stat::dir::in);
-		// clang-format off
 		condition.wait (lock, [& stopped = stopped, &free = free, &full = full] { return stopped || !free.empty () || !full.empty (); });
-		// clang-format on
 	}
 	nano::message_buffer * result (nullptr);
 	if (!free.empty ())

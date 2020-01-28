@@ -159,14 +159,12 @@ nano::mdb_txn_callbacks nano::mdb_store::create_txn_callbacks ()
 	nano::mdb_txn_callbacks mdb_txn_callbacks;
 	if (txn_tracking_enabled)
 	{
-		// clang-format off
-		mdb_txn_callbacks.txn_start = ([&mdb_txn_tracker = mdb_txn_tracker](const nano::transaction_impl * transaction_impl) {
+		mdb_txn_callbacks.txn_start = ([& mdb_txn_tracker = mdb_txn_tracker](const nano::transaction_impl * transaction_impl) {
 			mdb_txn_tracker.add (transaction_impl);
 		});
-		mdb_txn_callbacks.txn_end = ([&mdb_txn_tracker = mdb_txn_tracker](const nano::transaction_impl * transaction_impl) {
+		mdb_txn_callbacks.txn_end = ([& mdb_txn_tracker = mdb_txn_tracker](const nano::transaction_impl * transaction_impl) {
 			mdb_txn_tracker.erase (transaction_impl);
 		});
-		// clang-format on
 	}
 	return mdb_txn_callbacks;
 }
@@ -324,7 +322,7 @@ void nano::mdb_store::upgrade_v3_to_v4 (nano::write_transaction const & transact
 	{
 		nano::block_hash const & hash (i->first);
 		nano::pending_info_v3 const & info (i->second);
-		items.push (std::make_pair (nano::pending_key (info.destination, hash), nano::pending_info_v14 (info.source, info.amount, nano::epoch::epoch_0)));
+		items.emplace (nano::pending_key (info.destination, hash), nano::pending_info_v14 (info.source, info.amount, nano::epoch::epoch_0));
 	}
 	mdb_drop (env.tx (transaction_a), pending_v0, 0);
 	while (!items.empty ())
