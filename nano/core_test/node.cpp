@@ -2952,7 +2952,12 @@ TEST (node, epoch_conflict_confirm)
 	}
 }
 
+// Test is unstable on github actions for windows, disable if CI detected and windows
+#if (defined(_WIN32) && CI)
+TEST (node, DISABLED_fork_invalid_block_signature)
+#else
 TEST (node, fork_invalid_block_signature)
+#endif
 {
 	nano::system system (2);
 	auto & node1 (*system.nodes[0]);
@@ -3392,7 +3397,12 @@ TEST (node, dont_write_lock_node)
 	finished_promise.set_value ();
 }
 
+// Test is unstable on github actions for windows, disable if CI detected
+#if (defined(_WIN32) && CI)
+TEST (node, DISABLED_bidirectional_tcp)
+#else
 TEST (node, bidirectional_tcp)
+#endif
 {
 	nano::system system;
 	nano::node_flags node_flags;
