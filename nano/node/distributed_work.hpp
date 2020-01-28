@@ -101,6 +101,7 @@ private:
 	std::string winner; // websocket
 
 	std::mutex mutex;
+	std::atomic<unsigned> resolved_extra{ 0 };
 	std::atomic<unsigned> failures{ 0 };
 	std::atomic<bool> finished{ false };
 	std::atomic<bool> stopped{ false };
