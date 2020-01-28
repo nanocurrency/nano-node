@@ -1426,72 +1426,63 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 	std::weak_ptr<nano::work_watcher> watcher_w (shared_from_this ());
 	node.alarm.add (std::chrono::steady_clock::now () + node.config.work_watcher_period, [block_a, root_a, watcher_w]() {
 		auto watcher_l = watcher_w.lock ();
-		if (watcher_l && !watcher_l->stopped && block_a != nullptr)
+		if (watcher_l && !watcher_l->stopped && block_a != nullptr && watcher_l->is_watched (root_a))
 		{
-			nano::unique_lock<std::mutex> lock (watcher_l->mutex);
-			if (watcher_l->watched.find (root_a) != watcher_l->watched.end ()) // not yet confirmed or cancelled
+			uint64_t difficulty (0);
+			auto root_l (block_a->root ());
+			nano::work_validate (root_l, block_a->block_work (), &difficulty);
+			auto active_difficulty (watcher_l->node.active.limited_active_difficulty ());
+			/*
+			* Work watcher should still watch blocks even without work generation, although no rework is done
+			* Functionality may be added in the future that does not require updating work
+			*/
+			if (active_difficulty > difficulty && watcher_l->node.work_generation_enabled ())
 			{
-				lock.unlock ();
-				uint64_t difficulty (0);
-				auto root_l (block_a->root ());
-				nano::work_validate (root_l, block_a->block_work (), &difficulty);
-				auto active_difficulty (watcher_l->node.active.limited_active_difficulty ());
-				/*
-				 * Work watcher should still watch blocks even without work generation, although no rework is done
-				 * Functionality may be added in the future that does not require updating work
-				 */
-				if (active_difficulty > difficulty && watcher_l->node.work_generation_enabled ())
-				{
-					watcher_l->node.work_generate (
-					root_l, [watcher_l, block_a, root_a](boost::optional<uint64_t> work_a) {
-						if (block_a != nullptr && watcher_l != nullptr && !watcher_l->stopped)
+				watcher_l->node.work_generate (
+				root_l, [watcher_l, block_a, root_a](boost::optional<uint64_t> work_a) {
+					bool updated_l{ false };
+					if (!watcher_l->stopped && work_a.is_initialized ())
+					{
+						nano::state_block_builder builder;
+						std::error_code ec;
+						std::shared_ptr<nano::state_block> block (builder.from (*block_a).work (*work_a).build (ec));
+						if (!ec)
 						{
-							bool updated_l{ false };
-							if (work_a.is_initialized ())
 							{
-								nano::state_block_builder builder;
-								std::error_code ec;
-								std::shared_ptr<nano::state_block> block (builder.from (*block_a).work (*work_a).build (ec));
-
-								if (!ec)
+								auto hash (block_a->hash ());
+								nano::lock_guard<std::mutex> active_guard (watcher_l->node.active.mutex);
+								auto existing (watcher_l->node.active.roots.find (root_a));
+								if (existing != watcher_l->node.active.roots.end ())
 								{
+									auto election (existing->election);
+									if (election->status.winner->hash () == hash)
 									{
-										auto hash (block_a->hash ());
-										nano::lock_guard<std::mutex> active_guard (watcher_l->node.active.mutex);
-										auto existing (watcher_l->node.active.roots.find (root_a));
-										if (existing != watcher_l->node.active.roots.end ())
-										{
-											auto election (existing->election);
-											if (election->status.winner->hash () == hash)
-											{
-												election->status.winner = block;
-											}
-											auto current (election->blocks.find (hash));
-											assert (current != election->blocks.end ());
-											current->second = block;
-										}
+										election->status.winner = block;
 									}
-									if (!watcher_l->node.active.update_difficulty (block))
-									{
-										watcher_l->node.network.flood_block (block, false);
-										watcher_l->update (root_a, block);
-										watcher_l->watching (root_a, block);
-									}
-									updated_l = true;
+									auto current (election->blocks.find (hash));
+									assert (current != election->blocks.end ());
+									current->second = block;
 								}
 							}
-							if (!updated_l)
+							if (!watcher_l->node.active.update_difficulty (block))
 							{
-								watcher_l->watching (root_a, block_a);
+								watcher_l->node.network.flood_block (block, false);
+								watcher_l->update (root_a, block);
+								watcher_l->watching (root_a, block);
 							}
+							updated_l = true;
 						}
-					},
-					active_difficulty, block_a->account ());
-				}
-				else
-				{
-					watcher_l->watching (root_a, block_a);
-				}
+					}
+					if (!updated_l)
+					{
+						watcher_l->watching (root_a, block_a);
+					}
+				},
+				active_difficulty, block_a->account ());
+			}
+			else
+			{
+				watcher_l->watching (root_a, block_a);
 			}
 		}
 	});
@@ -1501,11 +1492,14 @@ void nano::work_watcher::remove (std::shared_ptr<nano::block> block_a)
 {
 	auto root_l (block_a->qualified_root ());
 	nano::lock_guard<std::mutex> lock (mutex);
-	auto existing (watched.find (root_l));
-	if (existing != watched.end () && existing->second->hash () == block_a->hash ())
+	if (!watched.empty ())
 	{
-		watched.erase (existing);
-		node.observers.work_cancel.notify (block_a->root ());
+		auto existing (watched.find (root_l));
+		if (existing != watched.end ())
+		{
+			watched.erase (existing);
+			node.observers.work_cancel.notify (block_a->root ());
+		}
 	}
 }
 

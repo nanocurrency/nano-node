@@ -1176,6 +1176,49 @@ TEST (wallet, work_watcher_update)
 	ASSERT_GT (updated_difficulty2, difficulty2);
 }
 
+TEST (wallet, work_watcher_removed_after_win)
+{
+	nano::system system (1);
+	auto & node (*system.nodes[0]);
+	auto & wallet (*system.wallet (0));
+	wallet.insert_adhoc (nano::test_genesis_key.prv);
+	nano::keypair key;
+	auto const block1 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 100));
+	system.deadline_set (5s);
+	while (node.wallets.watcher->is_watched (block1->qualified_root ()))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (0, node.wallets.watcher->size ());
+}
+
+TEST (wallet, work_watcher_removed_after_lose)
+{
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.enable_voting = false;
+	node_config.work_watcher_period = 1s;
+	auto & node = *system.add_node (node_config);
+	auto & wallet (*system.wallet (0));
+	wallet.insert_adhoc (nano::test_genesis_key.prv);
+	nano::keypair key;
+	auto const block1 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 100));
+	ASSERT_TRUE (node.wallets.watcher->is_watched (block1->qualified_root ()));
+	nano::genesis genesis;
+	auto fork1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::xrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	node.process_active (fork1);
+	node.block_processor.flush ();
+	auto vote (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, fork1));
+	nano::confirm_ack message (vote);
+	node.network.process_message (message, nullptr);
+	system.deadline_set (5s);
+	while (node.wallets.watcher->is_watched (block1->qualified_root ()))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (0, node.wallets.watcher->size ());
+}
+
 TEST (wallet, work_watcher_generation_disabled)
 {
 	nano::system system;
