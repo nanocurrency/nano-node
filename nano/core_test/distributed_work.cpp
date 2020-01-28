@@ -200,7 +200,7 @@ TEST (distributed_work, peer_malicious)
 	auto malicious_peer (std::make_shared<fake_work_peer> (node->work, node->io_ctx, nano::get_available_port (), work_peer_type::malicious));
 	malicious_peer->start ();
 	decltype (node->config.work_peers) peers;
-	peers.emplace_back ("localhost", malicious_peer->port ());
+	peers.emplace_back ("::ffff:127.0.0.1", malicious_peer->port ());
 	ASSERT_FALSE (node->distributed_work.make (hash, peers, callback, node->network_params.network.publish_threshold, nano::account ()));
 	system.deadline_set (5s);
 	while (!done)
@@ -256,9 +256,9 @@ TEST (distributed_work, peer_multi)
 	malicious_peer->start ();
 	slow_peer->start ();
 	decltype (node->config.work_peers) peers;
-	peers.emplace_back ("localhost", malicious_peer->port ());
-	peers.emplace_back ("localhost", slow_peer->port ());
-	peers.emplace_back ("localhost", good_peer->port ());
+	peers.emplace_back ("::ffff:127.0.0.1", malicious_peer->port ());
+	peers.emplace_back ("::ffff:127.0.0.1", slow_peer->port ());
+	peers.emplace_back ("::ffff:127.0.0.1", good_peer->port ());
 	ASSERT_FALSE (node->distributed_work.make (hash, peers, callback, node->network_params.network.publish_threshold, nano::account ()));
 	system.deadline_set (5s);
 	while (!done)
