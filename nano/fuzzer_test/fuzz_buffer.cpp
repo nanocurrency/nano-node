@@ -47,6 +47,12 @@ public:
 	virtual void node_id_handshake (nano::node_id_handshake const &) override
 	{
 	}
+	virtual void telemetry_req (nano::telemetry_req const &) override
+	{
+	}
+	virtual void telemetry_ack (nano::telemetry_ack const &) override
+	{
+	}
 };
 }
 
