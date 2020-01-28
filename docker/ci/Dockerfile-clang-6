@@ -1,0 +1,22 @@
+FROM nanocurrency/nano-env:base
+
+RUN apt-get update && apt-get install -yqq software-properties-common && \
+    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
+    apt-add-repository "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-6.0 main" && \
+    apt-get update -qq && apt-get install -yqq \
+    clang-6.0 lldb-6.0 libfuzzer-6.0-dev git
+
+ADD util/build_prep/fetch_rocksdb.sh fetch_rocksdb.sh
+RUN ./fetch_rocksdb.sh
+
+ENV CXX=/usr/bin/clang++
+ENV CC=/usr/bin/clang
+RUN ln -s /usr/bin/clang-6.0 /usr/bin/clang
+RUN ln -s /usr/bin/clang++-6.0 /usr/bin/clang++
+RUN update-alternatives --install /usr/bin/cc cc /usr/bin/clang 100
+RUN update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++ 100
+ENV BOOST_ROOT=/tmp/boost
+
+ADD util/build_prep/bootstrap_boost.sh bootstrap_boost.sh
+
+RUN ./bootstrap_boost.sh -m -c -B 1.70
