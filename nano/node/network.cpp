@@ -517,13 +517,16 @@ public:
 		telemetry_data.block_count = node.ledger.cache.block_count;
 		telemetry_data.cemented_count = node.ledger.cache.cemented_count;
 		telemetry_data.bandwidth_cap = node.config.bandwidth_limit;
-		telemetry_data.protocol_version_number = node.network_params.protocol.protocol_version;
-		telemetry_data.vendor_version = nano::get_major_node_version ();
+		telemetry_data.protocol_version = node.network_params.protocol.protocol_version;
 		telemetry_data.uptime = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - node.startup_time).count ();
 		telemetry_data.unchecked_count = node.ledger.cache.unchecked_count;
 		telemetry_data.genesis_block = nano::genesis ().hash ();
 		telemetry_data.peer_count = node.network.size ();
 		telemetry_data.account_count = node.ledger.cache.account_count;
+		telemetry_data.major_version = nano::get_major_node_version ();
+		telemetry_data.minor_version = nano::get_minor_node_version ();
+		telemetry_data.patch_version = nano::get_patch_node_version ();
+		telemetry_data.maker = 0; // 0 Indicates it originated from the NF
 
 		nano::telemetry_ack telemetry_ack (telemetry_data);
 		channel->send (telemetry_ack);

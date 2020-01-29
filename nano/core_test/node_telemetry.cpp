@@ -20,37 +20,44 @@ TEST (node_telemetry, consolidate_data)
 	data.account_count = 2;
 	data.block_count = 1;
 	data.cemented_count = 1;
-	data.vendor_version = 20;
-	data.protocol_version_number = 12;
+	data.protocol_version = 12;
 	data.peer_count = 2;
 	data.bandwidth_cap = 100;
 	data.unchecked_count = 3;
 	data.uptime = 6;
 	data.genesis_block = nano::block_hash (3);
+	data.major_version = 20;
+	data.minor_version = 1;
+	data.patch_version = 4;
 
 	nano::telemetry_data data1;
 	data1.account_count = 5;
 	data1.block_count = 7;
 	data1.cemented_count = 4;
-	data1.vendor_version = 10;
-	data1.protocol_version_number = 11;
+	data1.protocol_version = 11;
 	data1.peer_count = 5;
 	data1.bandwidth_cap = 0;
 	data1.unchecked_count = 1;
 	data1.uptime = 10;
 	data1.genesis_block = nano::block_hash (4);
+	data1.major_version = 10;
+	data1.minor_version = 2;
+	data1.patch_version = 3;
+	data1.maker = 2;
 
 	nano::telemetry_data data2;
 	data2.account_count = 3;
 	data2.block_count = 3;
 	data2.cemented_count = 2;
-	data2.vendor_version = 20;
-	data2.protocol_version_number = 11;
+	data2.protocol_version = 11;
 	data2.peer_count = 4;
 	data2.bandwidth_cap = 0;
 	data2.unchecked_count = 2;
 	data2.uptime = 3;
 	data2.genesis_block = nano::block_hash (4);
+	data2.major_version = 20;
+	data2.minor_version = 1;
+	data2.patch_version = 4;
 
 	std::vector<nano::telemetry_data> all_data{ data, data1, data2 };
 
@@ -58,29 +65,98 @@ TEST (node_telemetry, consolidate_data)
 	ASSERT_EQ (consolidated_telemetry_data.account_count, 3);
 	ASSERT_EQ (consolidated_telemetry_data.block_count, 3);
 	ASSERT_EQ (consolidated_telemetry_data.cemented_count, 2);
-	ASSERT_EQ (consolidated_telemetry_data.vendor_version, 20);
-	ASSERT_EQ (consolidated_telemetry_data.protocol_version_number, 11);
+	ASSERT_EQ (consolidated_telemetry_data.protocol_version, 11);
 	ASSERT_EQ (consolidated_telemetry_data.peer_count, 3);
 	ASSERT_EQ (consolidated_telemetry_data.bandwidth_cap, 0);
 	ASSERT_EQ (consolidated_telemetry_data.unchecked_count, 2);
 	ASSERT_EQ (consolidated_telemetry_data.uptime, 6);
 	ASSERT_EQ (consolidated_telemetry_data.genesis_block, nano::block_hash (4));
+	ASSERT_EQ (consolidated_telemetry_data.major_version, 20);
+	ASSERT_FALSE (consolidated_telemetry_data.minor_version.is_initialized ());
+	ASSERT_FALSE (consolidated_telemetry_data.patch_version.is_initialized ());
+	ASSERT_FALSE (consolidated_telemetry_data.maker.is_initialized ());
 
 	// Modify the metrics which may be either the mode or averages to ensure all are tested.
 	all_data[2].bandwidth_cap = 53;
-	all_data[2].protocol_version_number = 13;
-	all_data[2].vendor_version = 13;
+	all_data[2].protocol_version = 13;
 	all_data[2].genesis_block = nano::block_hash (3);
+	all_data[2].major_version = 10;
+	all_data[2].minor_version = 2;
+	all_data[2].patch_version = 3;
+	all_data[2].maker = 2;
 
 	auto consolidated_telemetry_data1 = nano::telemetry_data::consolidate (all_data);
-	ASSERT_TRUE (consolidated_telemetry_data1.vendor_version == 10 || consolidated_telemetry_data1.vendor_version == 13 || consolidated_telemetry_data1.vendor_version == 20);
-	ASSERT_TRUE (consolidated_telemetry_data1.protocol_version_number == 11 || consolidated_telemetry_data1.protocol_version_number == 12 || consolidated_telemetry_data1.protocol_version_number == 13);
+	ASSERT_EQ (consolidated_telemetry_data1.major_version, 10);
+	ASSERT_EQ (*consolidated_telemetry_data1.minor_version, 2);
+	ASSERT_EQ (*consolidated_telemetry_data1.patch_version, 3);
+	ASSERT_EQ (*consolidated_telemetry_data1.maker, 2);
+	ASSERT_TRUE (consolidated_telemetry_data1.protocol_version == 11 || consolidated_telemetry_data1.protocol_version == 12 || consolidated_telemetry_data1.protocol_version == 13);
 	ASSERT_EQ (consolidated_telemetry_data1.bandwidth_cap, 51);
 	ASSERT_EQ (consolidated_telemetry_data1.genesis_block, nano::block_hash (3));
 
 	// Test equality operator
 	ASSERT_FALSE (consolidated_telemetry_data == consolidated_telemetry_data1);
 	ASSERT_EQ (consolidated_telemetry_data, consolidated_telemetry_data);
+}
+
+TEST (node_telemetry, consolidate_data_optional_data)
+{
+	nano::telemetry_data data;
+	data.major_version = 20;
+	data.minor_version = 1;
+	data.patch_version = 4;
+	data.maker = 2;
+
+	nano::telemetry_data missing_minor;
+	missing_minor.major_version = 20;
+	missing_minor.patch_version = 4;
+
+	nano::telemetry_data missing_all_optional;
+
+	std::vector<nano::telemetry_data> all_data{ data, data, missing_minor, missing_all_optional };
+	auto consolidated_telemetry_data = nano::telemetry_data::consolidate (all_data);
+	ASSERT_EQ (consolidated_telemetry_data.major_version, 20);
+	ASSERT_EQ (*consolidated_telemetry_data.minor_version, 1);
+	ASSERT_EQ (*consolidated_telemetry_data.patch_version, 4);
+	ASSERT_EQ (*consolidated_telemetry_data.maker, 2);
+}
+
+TEST (node_telemetry, serialize_deserialize_json_optional)
+{
+	nano::telemetry_data data;
+	data.minor_version = 1;
+	data.patch_version = 4;
+	data.maker = 2;
+
+	nano::jsonconfig config;
+	data.serialize_json (config);
+
+	uint8_t val;
+	ASSERT_FALSE (config.get ("minor_version", val).get_error ());
+	ASSERT_EQ (val, 1);
+	ASSERT_FALSE (config.get ("patch_version", val).get_error ());
+	ASSERT_EQ (val, 4);
+	ASSERT_FALSE (config.get ("maker", val).get_error ());
+	ASSERT_EQ (val, 2);
+
+	nano::telemetry_data data1;
+	data1.deserialize_json (config);
+	ASSERT_EQ (*data1.minor_version, 1);
+	ASSERT_EQ (*data1.patch_version, 4);
+	ASSERT_EQ (*data1.maker, 2);
+
+	nano::telemetry_data no_optional_data;
+	nano::jsonconfig config1;
+	no_optional_data.serialize_json (config1);
+	ASSERT_FALSE (config1.get_optional<uint8_t> ("minor_version").is_initialized ());
+	ASSERT_FALSE (config1.get_optional<uint8_t> ("patch_version").is_initialized ());
+	ASSERT_FALSE (config1.get_optional<uint8_t> ("maker").is_initialized ());
+
+	nano::telemetry_data no_optional_data1;
+	no_optional_data1.deserialize_json (config1);
+	ASSERT_FALSE (no_optional_data1.minor_version.is_initialized ());
+	ASSERT_FALSE (no_optional_data1.patch_version.is_initialized ());
+	ASSERT_FALSE (no_optional_data1.maker.is_initialized ());
 }
 
 TEST (node_telemetry, no_peers)
@@ -223,10 +299,13 @@ TEST (node_telemetry, many_nodes)
 		ASSERT_LE (data.peer_count, 9);
 		ASSERT_EQ (data.account_count, 1);
 		ASSERT_TRUE (data.block_count == 2);
-		ASSERT_EQ (data.protocol_version_number, params.protocol.telemetry_protocol_version_min);
+		ASSERT_EQ (data.protocol_version, params.protocol.telemetry_protocol_version_min);
 		ASSERT_GE (data.bandwidth_cap, 100000);
 		ASSERT_LT (data.bandwidth_cap, 100000 + system.nodes.size ());
-		ASSERT_EQ (data.vendor_version, nano::get_major_node_version ());
+		ASSERT_EQ (data.major_version, nano::get_major_node_version ());
+		ASSERT_EQ (*data.minor_version, nano::get_minor_node_version ());
+		ASSERT_EQ (*data.patch_version, nano::get_patch_node_version ());
+		ASSERT_EQ (*data.maker, 0);
 		ASSERT_LT (data.uptime, 100);
 		ASSERT_EQ (data.genesis_block, genesis.hash ());
 	}
@@ -743,10 +822,13 @@ void compare_default_test_result_data (nano::telemetry_data & telemetry_data_a, 
 	ASSERT_EQ (telemetry_data_a.cemented_count, 1);
 	ASSERT_EQ (telemetry_data_a.bandwidth_cap, node_server_a.config.bandwidth_limit);
 	ASSERT_EQ (telemetry_data_a.peer_count, 1);
-	ASSERT_EQ (telemetry_data_a.protocol_version_number, node_server_a.network_params.protocol.telemetry_protocol_version_min);
+	ASSERT_EQ (telemetry_data_a.protocol_version, node_server_a.network_params.protocol.telemetry_protocol_version_min);
 	ASSERT_EQ (telemetry_data_a.unchecked_count, 0);
 	ASSERT_EQ (telemetry_data_a.account_count, 1);
-	ASSERT_EQ (telemetry_data_a.vendor_version, nano::get_major_node_version ());
+	ASSERT_EQ (telemetry_data_a.major_version, nano::get_major_node_version ());
+	ASSERT_EQ (*telemetry_data_a.minor_version, nano::get_minor_node_version ());
+	ASSERT_EQ (*telemetry_data_a.patch_version, nano::get_patch_node_version ());
+	ASSERT_EQ (*telemetry_data_a.maker, 0);
 	ASSERT_LT (telemetry_data_a.uptime, 100);
 	ASSERT_EQ (telemetry_data_a.genesis_block, nano::genesis ().hash ());
 }
