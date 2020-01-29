@@ -523,11 +523,7 @@ public:
 		telemetry_data.unchecked_count = node.ledger.cache.unchecked_count;
 		telemetry_data.genesis_block = nano::genesis ().hash ();
 		telemetry_data.peer_count = node.network.size ();
-
-		{
-			auto transaction = node.store.tx_begin_read ();
-			telemetry_data.account_count = node.store.account_count (transaction);
-		}
+		telemetry_data.account_count = node.ledger.cache.account_count;
 
 		nano::telemetry_ack telemetry_ack (telemetry_data);
 		channel->send (telemetry_ack);
