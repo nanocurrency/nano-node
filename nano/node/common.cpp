@@ -1160,7 +1160,7 @@ nano::telemetry_data nano::telemetry_data::consolidate (std::vector<nano::teleme
 	std::unordered_map<uint64_t, int> bandwidth_caps;
 	std::unordered_map<nano::block_hash, int> genesis_blocks;
 
-	// Use a trimmed average which excludes the upper and lower 5% of the results
+	// Use a trimmed average which excludes the upper and lower 10% of the results
 	std::multiset<uint64_t> account_counts;
 	std::multiset<uint64_t> block_counts;
 	std::multiset<uint64_t> cemented_counts;
