@@ -513,19 +513,25 @@ public:
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in);
 
-		nano::telemetry_data telemetry_data;
-		telemetry_data.block_count = node.ledger.cache.block_count;
-		telemetry_data.cemented_count = node.ledger.cache.cemented_count;
-		telemetry_data.bandwidth_cap = node.config.bandwidth_limit;
-		telemetry_data.protocol_version_number = node.network_params.protocol.protocol_version;
-		telemetry_data.vendor_version = nano::get_major_node_version ();
-		telemetry_data.uptime = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - node.startup_time).count ();
-		telemetry_data.unchecked_count = node.ledger.cache.unchecked_count;
-		telemetry_data.genesis_block = nano::genesis ().hash ();
-		telemetry_data.peer_count = node.network.size ();
-		telemetry_data.account_count = node.ledger.cache.account_count;
+		// Send an empty telemetry_ack if we do not want, just to acknowledge that we have received the message to
+		// remove any timeouts on the server side waiting for a message.
+		nano::telemetry_ack telemetry_ack;
+		if (!node.flags.disable_providing_telemetry_metrics)
+		{
+			nano::telemetry_data telemetry_data;
+			telemetry_data.block_count = node.ledger.cache.block_count;
+			telemetry_data.cemented_count = node.ledger.cache.cemented_count;
+			telemetry_data.bandwidth_cap = node.config.bandwidth_limit;
+			telemetry_data.protocol_version_number = node.network_params.protocol.protocol_version;
+			telemetry_data.vendor_version = nano::get_major_node_version ();
+			telemetry_data.uptime = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - node.startup_time).count ();
+			telemetry_data.unchecked_count = node.ledger.cache.unchecked_count;
+			telemetry_data.genesis_block = nano::genesis ().hash ();
+			telemetry_data.peer_count = node.network.size ();
+			telemetry_data.account_count = node.ledger.cache.account_count;
 
-		nano::telemetry_ack telemetry_ack (telemetry_data);
+			telemetry_ack = nano::telemetry_ack (telemetry_data);
+		}
 		channel->send (telemetry_ack);
 	}
 	void telemetry_ack (nano::telemetry_ack const & message_a) override
@@ -535,7 +541,7 @@ public:
 			node.logger.try_log (boost::str (boost::format ("Received telemetry_ack message from %1%") % channel->to_string ()));
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::telemetry_ack, nano::stat::dir::in);
-		node.telemetry.add (message_a.data, channel->get_endpoint ());
+		node.telemetry.add (message_a.data, channel->get_endpoint (), message_a.is_empty_payload ());
 	}
 	nano::node & node;
 	std::shared_ptr<nano::transport::channel> channel;

@@ -363,11 +363,14 @@ public:
 class telemetry_ack final : public message
 {
 public:
+	telemetry_ack ();
 	telemetry_ack (bool &, nano::stream &, nano::message_header const &);
 	explicit telemetry_ack (telemetry_data const &);
 	void serialize (nano::stream &) const override;
 	void visit (nano::message_visitor &) const override;
 	bool deserialize (nano::stream &);
+	uint16_t size () const;
+	bool is_empty_payload () const;
 	static uint16_t size (nano::message_header const &);
 	nano::telemetry_data data;
 };
