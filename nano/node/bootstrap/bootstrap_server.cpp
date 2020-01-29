@@ -239,10 +239,24 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 				}
 				case nano::message_type::telemetry_req:
 				{
-					node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::telemetry_req, nano::stat::dir::in);
 					if (is_realtime_connection ())
 					{
-						add_request (std::make_unique<nano::telemetry_req> (header));
+						auto find_channel (node->network.tcp_channels.find_channel (remote_endpoint));
+						if (!find_channel)
+						{
+							find_channel = node->network.tcp_channels.find_node_id (remote_node_id);
+						}
+
+						// Only handle telemetry requests if they are outside of the cutoff time
+						auto is_very_first_message = find_channel->get_last_telemetry_req () == std::chrono::steady_clock::time_point{};
+						auto cache_exceeded = std::chrono::steady_clock::now () >= find_channel->get_last_telemetry_req () + nano::telemetry_cache_cutoffs::network_to_time (node->network_params.network);
+						if (find_channel && (is_very_first_message || cache_exceeded))
+						{
+							node->network.tcp_channels.modify (find_channel, [](std::shared_ptr<nano::transport::channel_tcp> channel_a) {
+								channel_a->set_last_telemetry_req (std::chrono::steady_clock::now ());
+							});
+							add_request (std::make_unique<nano::telemetry_req> (header));
+						}
 					}
 					receive ();
 					break;

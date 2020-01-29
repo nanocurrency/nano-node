@@ -3944,13 +3944,13 @@ void nano::json_handler::telemetry ()
 				if (!single_telemetry_metric_a.error)
 				{
 					nano::jsonconfig config_l;
-					auto err = single_telemetry_metric_a.data.serialize_json (config_l);
+					auto err = single_telemetry_metric_a.telemetry_data_time_pair.data.serialize_json (config_l);
+					config_l.put ("timestamp", std::chrono::duration_cast<std::chrono::seconds> (single_telemetry_metric_a.telemetry_data_time_pair.system_last_updated.time_since_epoch ()).count ());
 					auto const & ptree = config_l.get_tree ();
 
 					if (!err)
 					{
 						rpc_l->response_l.insert (rpc_l->response_l.begin (), ptree.begin (), ptree.end ());
-						rpc_l->response_l.put ("cached", single_telemetry_metric_a.is_cached);
 					}
 					else
 					{
@@ -3976,14 +3976,18 @@ void nano::json_handler::telemetry ()
 		// setting "raw" to true returns metrics from all nodes requested.
 		auto raw = request.get_optional<bool> ("raw");
 		auto output_raw = raw.value_or (false);
-		node.telemetry.get_metrics_random_peers_async ([rpc_l, output_raw](auto const & batched_telemetry_metrics_a) {
+		node.telemetry.get_metrics_peers_async ([rpc_l, output_raw](auto const & batched_telemetry_metrics_a) {
 			if (output_raw)
 			{
+				std::unordered_map<nano::endpoint, telemetry_data_time_pair> telemetry_data_time_pairs;
 				boost::property_tree::ptree metrics;
-				for (auto & telemetry_metrics : batched_telemetry_metrics_a.data)
+				for (auto & telemetry_metrics : batched_telemetry_metrics_a.telemetry_data_time_pairs)
 				{
 					nano::jsonconfig config_l;
-					auto err = telemetry_metrics.serialize_json (config_l);
+					auto err = telemetry_metrics.second.data.serialize_json (config_l);
+					config_l.put ("timestamp", std::chrono::duration_cast<std::chrono::seconds> (telemetry_metrics.second.system_last_updated.time_since_epoch ()).count ());
+					config_l.put ("address", telemetry_metrics.first.address ());
+					config_l.put ("port", telemetry_metrics.first.port ());
 					if (!err)
 					{
 						metrics.push_back (std::make_pair ("", config_l.get_tree ()));
@@ -3999,7 +4003,12 @@ void nano::json_handler::telemetry ()
 			else
 			{
 				nano::jsonconfig config_l;
-				auto average_telemetry_metrics = nano::telemetry_data::consolidate (batched_telemetry_metrics_a.data);
+				std::vector<nano::telemetry_data> telemetry_data;
+				telemetry_data.reserve (batched_telemetry_metrics_a.telemetry_data_time_pairs.size ());
+				std::transform (batched_telemetry_metrics_a.telemetry_data_time_pairs.begin (), batched_telemetry_metrics_a.telemetry_data_time_pairs.end (), std::back_inserter (telemetry_data), [](auto const & telemetry_data_time_pair_a) {
+					return telemetry_data_time_pair_a.second.data;
+				});
+				auto average_telemetry_metrics = nano::telemetry_data::consolidate (telemetry_data);
 				auto err = average_telemetry_metrics.serialize_json (config_l);
 				auto const & ptree = config_l.get_tree ();
 
@@ -4013,7 +4022,6 @@ void nano::json_handler::telemetry ()
 				}
 			}
 
-			rpc_l->response_l.put ("cached", batched_telemetry_metrics_a.is_cached);
 			rpc_l->response_errors ();
 		});
 	}

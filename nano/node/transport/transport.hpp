@@ -103,6 +103,18 @@ namespace transport
 			last_packet_sent = time_a;
 		}
 
+		std::chrono::steady_clock::time_point get_last_telemetry_req ()
+		{
+			nano::lock_guard<std::mutex> lk (channel_mutex);
+			return last_telemetry_req;
+		}
+
+		void set_last_telemetry_req (std::chrono::steady_clock::time_point const time_a)
+		{
+			nano::lock_guard<std::mutex> lk (channel_mutex);
+			last_telemetry_req = time_a;
+		}
+
 		boost::optional<nano::account> get_node_id_optional () const
 		{
 			nano::lock_guard<std::mutex> lk (channel_mutex);
@@ -144,6 +156,7 @@ namespace transport
 		std::chrono::steady_clock::time_point last_bootstrap_attempt{ std::chrono::steady_clock::time_point () };
 		std::chrono::steady_clock::time_point last_packet_received{ std::chrono::steady_clock::time_point () };
 		std::chrono::steady_clock::time_point last_packet_sent{ std::chrono::steady_clock::time_point () };
+		std::chrono::steady_clock::time_point last_telemetry_req{ std::chrono::steady_clock::time_point () };
 		boost::optional<nano::account> node_id{ boost::none };
 		std::atomic<uint8_t> network_version{ 0 };
 

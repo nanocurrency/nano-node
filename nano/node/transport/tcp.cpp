@@ -169,7 +169,7 @@ std::unordered_set<std::shared_ptr<nano::transport::channel>> nano::transport::t
 			auto index (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (peers_size - 1)));
 
 			auto channel = channels.get<random_access_tag> ()[index].channel;
-			if (channel->get_network_version () >= min_version && !channel->server)
+			if (channel->get_network_version () >= min_version)
 			{
 				result.insert (channel);
 			}
@@ -449,13 +449,14 @@ void nano::transport::tcp_channels::ongoing_keepalive ()
 	});
 }
 
-void nano::transport::tcp_channels::list (std::deque<std::shared_ptr<nano::transport::channel>> & deque_a)
+void nano::transport::tcp_channels::list (std::deque<std::shared_ptr<nano::transport::channel>> & deque_a, bool include_server_channels_a, uint8_t minimum_version_a)
 {
 	nano::lock_guard<std::mutex> lock (mutex);
-	for (auto const & channel : channels.get<random_access_tag> ())
-	{
-		deque_a.push_back (channel.channel);
-	}
+	// clang-format off
+	nano::transform_if (channels.begin (), channels.end (), std::back_inserter (deque_a),
+		[include_server_channels_a, minimum_version_a](auto & channel_a) { return channel_a.channel->get_network_version () >= minimum_version_a && (include_server_channels_a || !channel_a.channel->server); },
+		[](const auto & channel) { return channel.channel; });
+	// clang-format on
 }
 
 void nano::transport::tcp_channels::modify (std::shared_ptr<nano::transport::channel_tcp> channel_a, std::function<void(std::shared_ptr<nano::transport::channel_tcp>)> modify_callback_a)

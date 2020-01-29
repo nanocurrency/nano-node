@@ -10,8 +10,15 @@
 #include <boost/pool/pool_alloc.hpp>
 #include <boost/variant/get.hpp>
 
+#include <numeric>
+#include <set>
+
 std::bitset<16> constexpr nano::message_header::block_type_mask;
 std::bitset<16> constexpr nano::message_header::count_mask;
+
+std::chrono::seconds constexpr nano::telemetry_cache_cutoffs::test;
+std::chrono::seconds constexpr nano::telemetry_cache_cutoffs::beta;
+std::chrono::seconds constexpr nano::telemetry_cache_cutoffs::live;
 
 namespace
 {
@@ -1148,43 +1155,61 @@ nano::telemetry_data nano::telemetry_data::consolidate (std::vector<nano::teleme
 		return telemetry_data_responses_a.front ();
 	}
 
-	nano::uint128_t account_sum{ 0 };
-	nano::uint128_t block_sum{ 0 };
-	nano::uint128_t cemented_sum{ 0 };
-	nano::uint128_t peer_sum{ 0 };
-	nano::uint128_t unchecked_sum{ 0 };
-	nano::uint128_t uptime_sum{ 0 };
-	nano::uint128_t bandwidth_sum{ 0 };
-
 	std::unordered_map<uint8_t, int> protocol_versions;
 	std::unordered_map<uint8_t, int> vendor_versions;
 	std::unordered_map<uint64_t, int> bandwidth_caps;
 	std::unordered_map<nano::block_hash, int> genesis_blocks;
 
-	nano::uint128_t account_average{ 0 };
+	// Use a trimmed average which excludes the upper and lower 5% of the results
+	std::multiset<uint64_t> account_counts;
+	std::multiset<uint64_t> block_counts;
+	std::multiset<uint64_t> cemented_counts;
+	std::multiset<uint32_t> peer_counts;
+	std::multiset<uint64_t> unchecked_counts;
+	std::multiset<uint64_t> uptime_counts;
+	std::multiset<uint64_t> bandwidth_counts;
 
 	for (auto const & telemetry_data : telemetry_data_responses_a)
 	{
-		account_sum += telemetry_data.account_count;
-		block_sum += telemetry_data.block_count;
-		cemented_sum += telemetry_data.cemented_count;
-		++vendor_versions[telemetry_data.vendor_version];
-		++protocol_versions[telemetry_data.protocol_version_number];
-		peer_sum += telemetry_data.peer_count;
-
+		account_counts.insert (telemetry_data.account_count);
+		block_counts.insert (telemetry_data.block_count);
+		cemented_counts.insert (telemetry_data.cemented_count);
+		peer_counts.insert (telemetry_data.peer_count);
+		unchecked_counts.insert (telemetry_data.unchecked_count);
+		uptime_counts.insert (telemetry_data.uptime);
 		// 0 has a special meaning (unlimited), don't include it in the average as it will be heavily skewed
 		if (telemetry_data.bandwidth_cap != 0)
 		{
-			bandwidth_sum += telemetry_data.bandwidth_cap;
+			bandwidth_counts.insert (telemetry_data.bandwidth_cap);
 		}
+
+		++vendor_versions[telemetry_data.vendor_version];
+		++protocol_versions[telemetry_data.protocol_version_number];
 		++bandwidth_caps[telemetry_data.bandwidth_cap];
-		unchecked_sum += telemetry_data.unchecked_count;
-		uptime_sum += telemetry_data.uptime;
 		++genesis_blocks[telemetry_data.genesis_block];
 	}
 
+	// Remove 10% of the results from the lower and upper bounds to catch any outliers. Need at least 10 responses before any are removed.
+	auto num_either_side_to_remove = telemetry_data_responses_a.size () / 10;
+
+	auto strip_outliers_and_sum = [num_either_side_to_remove](auto & counts) {
+		counts.erase (counts.begin (), std::next (counts.begin (), num_either_side_to_remove));
+		counts.erase (std::next (counts.rbegin (), num_either_side_to_remove).base (), counts.end ());
+		return std::accumulate (counts.begin (), counts.end (), nano::uint128_t (0), [](nano::uint128_t total, auto count) {
+			return total += count;
+		});
+	};
+
+	auto account_sum = strip_outliers_and_sum (account_counts);
+	auto block_sum = strip_outliers_and_sum (block_counts);
+	auto cemented_sum = strip_outliers_and_sum (cemented_counts);
+	auto peer_sum = strip_outliers_and_sum (peer_counts);
+	auto unchecked_sum = strip_outliers_and_sum (unchecked_counts);
+	auto uptime_sum = strip_outliers_and_sum (uptime_counts);
+	auto bandwidth_sum = strip_outliers_and_sum (bandwidth_counts);
+
 	nano::telemetry_data consolidated_data;
-	auto size = telemetry_data_responses_a.size ();
+	auto size = telemetry_data_responses_a.size () - num_either_side_to_remove * 2;
 	consolidated_data.account_count = boost::numeric_cast<decltype (account_count)> (account_sum / size);
 	consolidated_data.block_count = boost::numeric_cast<decltype (block_count)> (block_sum / size);
 	consolidated_data.cemented_count = boost::numeric_cast<decltype (cemented_count)> (cemented_sum / size);
@@ -1221,7 +1246,7 @@ nano::telemetry_data nano::telemetry_data::consolidate (std::vector<nano::teleme
 		}
 	};
 
-	// Use the mode of protocol version, vendor version and bandwidth cap if there is 2 or more using it
+	// Use the mode of protocol version and vendor version. Also use it for bandwidth cap if there is 2 or more of the same cap.
 	set_mode_or_average (bandwidth_caps, consolidated_data.bandwidth_cap, bandwidth_sum, size);
 	set_mode (protocol_versions, consolidated_data.protocol_version_number, size);
 	set_mode (vendor_versions, consolidated_data.vendor_version, size);
@@ -1271,6 +1296,11 @@ nano::error nano::telemetry_data::deserialize_json (nano::jsonconfig & json)
 bool nano::telemetry_data::operator== (nano::telemetry_data const & data_a) const
 {
 	return (block_count == data_a.block_count && cemented_count == data_a.cemented_count && unchecked_count == data_a.unchecked_count && account_count == data_a.account_count && bandwidth_cap == data_a.bandwidth_cap && uptime == data_a.uptime && peer_count == data_a.peer_count && protocol_version_number == data_a.protocol_version_number && vendor_version == data_a.vendor_version && genesis_block == data_a.genesis_block);
+}
+
+bool nano::telemetry_data::operator!= (nano::telemetry_data const & data_a) const
+{
+	return !(*this == data_a);
 }
 
 nano::node_id_handshake::node_id_handshake (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a) :
@@ -1452,6 +1482,12 @@ bool nano::parse_tcp_endpoint (std::string const & string, nano::tcp_endpoint & 
 		endpoint_a = nano::tcp_endpoint (address, port);
 	}
 	return result;
+}
+
+std::chrono::seconds nano::telemetry_cache_cutoffs::network_to_time (network_constants const & network_constants)
+{
+	// 15s for beta to allow for quicker diagnostics, 60s for live
+	return std::chrono::seconds{ network_constants.is_live_network () ? 60 : network_constants.is_beta_network () ? 15 : 2 };
 }
 
 nano::node_singleton_memory_pool_purge_guard::node_singleton_memory_pool_purge_guard () :

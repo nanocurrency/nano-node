@@ -7837,7 +7837,6 @@ namespace
 void compare_default_test_result_data (test_response & response, nano::node const & node_server_a)
 {
 	ASSERT_EQ (200, response.status);
-	ASSERT_FALSE (response.json.get<bool> ("cached"));
 	ASSERT_EQ (1, response.json.get<uint64_t> ("block_count"));
 	ASSERT_EQ (1, response.json.get<uint64_t> ("cemented_count"));
 	ASSERT_EQ (0, response.json.get<uint64_t> ("unchecked_count"));
@@ -7982,18 +7981,7 @@ TEST (rpc, node_telemetry_random)
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
-		ASSERT_EQ (200, response.status);
-		ASSERT_FALSE (response.json.get<bool> ("cached"));
-		ASSERT_EQ (1, response.json.get<uint64_t> ("block_count"));
-		ASSERT_EQ (1, response.json.get<uint64_t> ("cemented_count"));
-		ASSERT_EQ (0, response.json.get<uint64_t> ("unchecked_count"));
-		ASSERT_EQ (1, response.json.get<uint64_t> ("account_count"));
-		ASSERT_EQ (node->config.bandwidth_limit, response.json.get<uint64_t> ("bandwidth_cap"));
-		ASSERT_EQ (1, response.json.get<uint32_t> ("peer_count"));
-		ASSERT_EQ (node->network_params.protocol.protocol_version, response.json.get<uint8_t> ("protocol_version_number"));
-		ASSERT_EQ (nano::get_major_node_version (), response.json.get<uint8_t> ("vendor_version"));
-		ASSERT_GE (100, response.json.get<uint64_t> ("uptime"));
-		ASSERT_EQ (nano::genesis ().hash ().to_string (), response.json.get<std::string> ("genesis_block"));
+		compare_default_test_result_data (response, *node);
 	}
 
 	request.put ("raw", "true");
@@ -8006,14 +7994,12 @@ TEST (rpc, node_telemetry_random)
 	ASSERT_EQ (200, response.status);
 
 	// This may fail if the response has taken longer than the cache cutoff time.
-	ASSERT_TRUE (response.json.get<bool> ("cached"));
-
 	auto & all_metrics = response.json.get_child ("metrics");
-	std::vector<std::tuple<uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint32_t, uint8_t, uint8_t, uint64_t, std::string>> raw_metrics_json_l;
+	std::vector<std::tuple<uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint32_t, uint8_t, uint8_t, uint64_t, std::string, uint64_t, std::string, uint16_t>> raw_metrics_json_l;
 	for (auto & metrics_pair : all_metrics)
 	{
 		auto & metrics = metrics_pair.second;
-		raw_metrics_json_l.emplace_back (metrics.get<uint64_t> ("block_count"), metrics.get<uint64_t> ("cemented_count"), metrics.get<uint64_t> ("unchecked_count"), metrics.get<uint64_t> ("account_count"), metrics.get<uint64_t> ("bandwidth_cap"), metrics.get<uint64_t> ("peer_count"), metrics.get<uint8_t> ("protocol_version_number"), metrics.get<uint8_t> ("vendor_version"), metrics.get<uint64_t> ("uptime"), metrics.get<std::string> ("genesis_block"));
+		raw_metrics_json_l.emplace_back (metrics.get<uint64_t> ("block_count"), metrics.get<uint64_t> ("cemented_count"), metrics.get<uint64_t> ("unchecked_count"), metrics.get<uint64_t> ("account_count"), metrics.get<uint64_t> ("bandwidth_cap"), metrics.get<uint32_t> ("peer_count"), metrics.get<uint8_t> ("protocol_version_number"), metrics.get<uint8_t> ("vendor_version"), metrics.get<uint64_t> ("uptime"), metrics.get<std::string> ("genesis_block"), metrics.get<uint64_t> ("timestamp"), metrics.get<std::string> ("address"), metrics.get<uint16_t> ("port"));
 	}
 
 	ASSERT_EQ (1, raw_metrics_json_l.size ());
@@ -8028,4 +8014,10 @@ TEST (rpc, node_telemetry_random)
 	ASSERT_EQ (nano::get_major_node_version (), std::get<7> (metrics));
 	ASSERT_GE (100, std::get<8> (metrics));
 	ASSERT_EQ (nano::genesis ().hash ().to_string (), std::get<9> (metrics));
+	auto timestamp = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ();
+	ASSERT_GE (timestamp, std::get<10> (metrics));
+	ASSERT_LT (timestamp - 100, std::get<10> (metrics));
+	ASSERT_GE (std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count (), std::get<10> (metrics));
+	ASSERT_EQ (node->network.endpoint ().address ().to_string (), std::get<11> (metrics));
+	ASSERT_EQ (node->network.endpoint ().port (), std::get<12> (metrics));
 }

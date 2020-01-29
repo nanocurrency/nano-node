@@ -348,6 +348,7 @@ public:
 	nano::error serialize_json (nano::jsonconfig & json) const;
 	nano::error deserialize_json (nano::jsonconfig & json);
 	bool operator== (nano::telemetry_data const &) const;
+	bool operator!= (nano::telemetry_data const &) const;
 
 	static auto constexpr size = sizeof (block_count) + sizeof (cemented_count) + sizeof (unchecked_count) + sizeof (account_count) + sizeof (bandwidth_cap) + sizeof (peer_count) + sizeof (protocol_version_number) + sizeof (vendor_version) + sizeof (uptime) + sizeof (genesis_block);
 };
@@ -441,6 +442,16 @@ public:
 	virtual void telemetry_req (nano::telemetry_req const &) = 0;
 	virtual void telemetry_ack (nano::telemetry_ack const &) = 0;
 	virtual ~message_visitor ();
+};
+
+class telemetry_cache_cutoffs
+{
+public:
+	static std::chrono::seconds constexpr test{ 2 };
+	static std::chrono::seconds constexpr beta{ 15 };
+	static std::chrono::seconds constexpr live{ 60 };
+
+	static std::chrono::seconds network_to_time (network_constants const & network_constants);
 };
 
 /** Helper guard which contains all the necessary purge (remove all memory even if used) functions */
