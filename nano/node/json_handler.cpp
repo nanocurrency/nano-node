@@ -4215,7 +4215,7 @@ void nano::json_handler::version ()
 	response_l.put ("node_vendor", boost::str (boost::format ("Nano %1%") % NANO_VERSION_STRING));
 	response_l.put ("store_vendor", node.store.vendor_get ());
 	response_l.put ("network", node.network_params.network.get_current_network_as_string ());
-	response_l.put ("network_identifier", nano::genesis ().hash ().to_string ());
+	response_l.put ("network_identifier", node.network_params.ledger.genesis_hash.to_string ());
 	response_l.put ("build_info", BUILD_INFO);
 	response_errors ();
 }
