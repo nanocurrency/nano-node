@@ -3397,16 +3397,15 @@ TEST (node, dont_write_lock_node)
 	finished_promise.set_value ();
 }
 
-// Test is unstable on github actions for windows, disable if CI detected
-#if (defined(_WIN32) && CI)
-TEST (node, DISABLED_bidirectional_tcp)
-#else
 TEST (node, bidirectional_tcp)
-#endif
 {
 	nano::system system;
 	nano::node_flags node_flags;
 	node_flags.disable_udp = true; // Disable UDP connections
+	// Disable bootstrap to start elections for new blocks
+	node_flags.disable_legacy_bootstrap = true;
+	node_flags.disable_lazy_bootstrap = true;
+	node_flags.disable_wallet_bootstrap = true;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node1 = system.add_node (node_config, node_flags);
