@@ -3465,15 +3465,29 @@ TEST (node, bidirectional_tcp)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	// Test block confirmation from node 1
+	// Test block confirmation from node 1 (add representative to node 1)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	// Wait to find new reresentative
+	system.deadline_set (10s);
+	while (node2->rep_crawler.representative_count () == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	// Wait for confirmation (both nodes)
 	bool confirmed (false);
 	system.deadline_set (10s);
 	while (!confirmed)
 	{
-		auto transaction1 (node1->store.tx_begin_read ());
 		auto transaction2 (node2->store.tx_begin_read ());
-		confirmed = node1->ledger.block_confirmed (transaction1, send1->hash ()) && node2->ledger.block_confirmed (transaction2, send1->hash ());
+		confirmed = node2->ledger.block_confirmed (transaction2, send1->hash ());
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	confirmed = false;
+	system.deadline_set (10s);
+	while (!confirmed)
+	{
+		auto transaction1 (node1->store.tx_begin_read ());
+		confirmed = node1->ledger.block_confirmed (transaction1, send1->hash ());
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	// Test block propagation & confirmation from node 2 (remove representative from node 1)
@@ -3499,14 +3513,21 @@ TEST (node, bidirectional_tcp)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	// Waiot for confirmation (both nodes)
+	// Wait for confirmation (both nodes)
 	confirmed = false;
 	system.deadline_set (20s);
 	while (!confirmed)
 	{
 		auto transaction1 (node1->store.tx_begin_read ());
+		confirmed = node1->ledger.block_confirmed (transaction1, send2->hash ());
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	confirmed = false;
+	system.deadline_set (10s);
+	while (!confirmed)
+	{
 		auto transaction2 (node2->store.tx_begin_read ());
-		confirmed = node1->ledger.block_confirmed (transaction1, send2->hash ()) && node2->ledger.block_confirmed (transaction2, send2->hash ());
+		confirmed = node2->ledger.block_confirmed (transaction2, send2->hash ());
 		ASSERT_NO_ERROR (system.poll ());
 	}
 }
