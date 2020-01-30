@@ -632,12 +632,12 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 			{
 				node.logger.try_log (boost::str (boost::format ("Block %1% was updated from difficulty %2% to %3%") % block_a->hash ().to_string () % nano::to_string_hex (existing_election->difficulty) % nano::to_string_hex (difficulty)));
 			}
-			roots.get<tag_root> ().modify (existing_election, [election = existing_election->election, &block_a, difficulty](nano::conflict_info & info_a) {
+			roots.get<tag_root> ().modify (existing_election, [&block_a, difficulty](nano::conflict_info & info_a) {
 				info_a.difficulty = difficulty;
-				election->blocks[block_a->hash ()] = block_a;
-				if (election->status.winner->hash () == block_a->hash ())
+				info_a.election->blocks[block_a->hash ()] = block_a;
+				if (info_a.election->status.winner->hash () == block_a->hash ())
 				{
-					election->status.winner = block_a;
+					info_a.election->status.winner = block_a;
 				}
 			});
 			adjust_difficulty (block_a->hash ());
