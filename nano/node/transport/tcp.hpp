@@ -40,7 +40,9 @@ namespace transport
 		}
 		std::weak_ptr<nano::socket> socket;
 		std::weak_ptr<nano::bootstrap_server> response_server;
-		bool server{ false };
+		/* Mark for temporary channels. Usually remote ports of these channels are ephemeral and received from incoming connections to server.
+		If remote part has open listening port, temporary channel will be replaced with direct connection to listening port soon. But if other side is behing NAT or firewall this connection can be pemanent. */
+		std::atomic<bool> temporary{ false };
 
 		nano::endpoint get_endpoint () const override
 		{
