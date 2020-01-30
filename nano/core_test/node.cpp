@@ -3481,7 +3481,8 @@ TEST (node, bidirectional_tcp)
 		auto transaction (system.wallet (0)->wallets.tx_begin_write ());
 		system.wallet (0)->store.erase (transaction, nano::test_genesis_key.pub);
 	}
-	// Test block proopagation from node 2
+	/* Test block propagation from node 2
+	Node 2 has only ephemeral TCP port open. Node 1 cannot establish connection to node 2 listening port */
 	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node1->work_generate_blocking (send1->hash ())));
 	node2->process_active (send2);
 	node2->block_processor.flush ();
@@ -3490,8 +3491,7 @@ TEST (node, bidirectional_tcp)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	/* Test block confirmation from node 2 (add representative to node 2)
-	Node 2 has only ephemeral TCP port open. Node 1 cannot establish connection to node 2 listening port */
+	// Test block confirmation from node 2 (add representative to node 2)
 	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
 	// Wait to find changed reresentative
 	system.deadline_set (10s);
