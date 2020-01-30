@@ -211,7 +211,8 @@ bool nano::election::publish (std::shared_ptr<nano::block> block_a)
 	}
 	if (!result)
 	{
-		if (blocks.find (block_a->hash ()) == blocks.end ())
+		auto existing = blocks.find (block_a->hash ());
+		if (existing == blocks.end ())
 		{
 			blocks.emplace (std::make_pair (block_a->hash (), block_a));
 			insert_inactive_votes_cache (block_a->hash ());
@@ -221,6 +222,11 @@ bool nano::election::publish (std::shared_ptr<nano::block> block_a)
 		else
 		{
 			result = true;
+			existing->second = block_a;
+			if (status.winner->hash () == block_a->hash ())
+			{
+				status.winner = block_a;
+			}
 		}
 	}
 	return result;
