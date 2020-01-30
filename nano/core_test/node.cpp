@@ -3473,21 +3473,15 @@ TEST (node, bidirectional_tcp)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	// Wait for confirmation (both nodes)
+	/* Wait for confirmation
+	To check connection we need only node 2 confirmation status
+	Node 1 election can be unconfirmed because representative private key was inserted after election start (and node 2 isn't flooding new votes to principal representatives) */
 	bool confirmed (false);
 	system.deadline_set (10s);
 	while (!confirmed)
 	{
 		auto transaction2 (node2->store.tx_begin_read ());
 		confirmed = node2->ledger.block_confirmed (transaction2, send1->hash ());
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	confirmed = false;
-	system.deadline_set (10s);
-	while (!confirmed)
-	{
-		auto transaction1 (node1->store.tx_begin_read ());
-		confirmed = node1->ledger.block_confirmed (transaction1, send1->hash ());
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	// Test block propagation & confirmation from node 2 (remove representative from node 1)
@@ -3513,21 +3507,15 @@ TEST (node, bidirectional_tcp)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	// Wait for confirmation (both nodes)
+	/* Wait for confirmation
+	To check connection we need only node 1 confirmation status
+	Node 2 election can be unconfirmed because representative private key was inserted after election start (and node 1 isn't flooding new votes to principal representatives) */
 	confirmed = false;
 	system.deadline_set (20s);
 	while (!confirmed)
 	{
 		auto transaction1 (node1->store.tx_begin_read ());
 		confirmed = node1->ledger.block_confirmed (transaction1, send2->hash ());
-		ASSERT_NO_ERROR (system.poll ());
-	}
-	confirmed = false;
-	system.deadline_set (10s);
-	while (!confirmed)
-	{
-		auto transaction2 (node2->store.tx_begin_read ());
-		confirmed = node2->ledger.block_confirmed (transaction2, send2->hash ());
 		ASSERT_NO_ERROR (system.poll ());
 	}
 }
