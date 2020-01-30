@@ -139,7 +139,7 @@ public:
 	// A list of random peers sized for the configured rebroadcast fanout
 	std::deque<std::shared_ptr<nano::transport::channel>> list_fanout ();
 	void random_fill (std::array<nano::endpoint, 8> &) const;
-	std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (size_t, uint8_t = 0) const;
+	std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (size_t, uint8_t = 0, bool = false) const;
 	// Get the next peer for attempting a tcp bootstrap connection
 	nano::tcp_endpoint bootstrap_peer (bool = false);
 	nano::endpoint endpoint ();

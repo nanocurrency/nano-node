@@ -46,7 +46,7 @@ void nano::telemetry::add (nano::telemetry_data const & telemetry_data_a, nano::
 void nano::telemetry::get_metrics_random_peers_async (std::function<void(telemetry_data_responses const &)> const & callback_a)
 {
 	// These peers will only be used if there isn't an already ongoing batch telemetry request round
-	auto random_peers = network.random_set (network.size_sqrt (), network_params.protocol.telemetry_protocol_version_min);
+	auto random_peers = network.random_set (network.size_sqrt (), network_params.protocol.telemetry_protocol_version_min, true);
 	nano::lock_guard<std::mutex> guard (mutex);
 	if (!stopped && !random_peers.empty ())
 	{
