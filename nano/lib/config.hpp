@@ -33,6 +33,9 @@ const bool is_sanitizer_build = true;
 #else
 const bool is_sanitizer_build = false;
 #endif
+// GCC builds
+#elif defined(__SANITIZE_THREAD__) || defined(__SANITIZE_ADDRESS__)
+const bool is_sanitizer_build = true;
 #else
 const bool is_sanitizer_build = false;
 #endif

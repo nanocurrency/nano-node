@@ -29,16 +29,16 @@ void nano::telemetry::stop ()
 	stopped = true;
 }
 
-void nano::telemetry::add (nano::telemetry_data const & telemetry_data_a, nano::endpoint const & endpoint_a)
+void nano::telemetry::add (nano::telemetry_data const & telemetry_data_a, nano::endpoint const & endpoint_a, bool is_empty_a)
 {
 	nano::lock_guard<std::mutex> guard (mutex);
 	if (!stopped)
 	{
-		batch_request->add (telemetry_data_a, endpoint_a);
+		batch_request->add (telemetry_data_a, endpoint_a, is_empty_a);
 
 		for (auto & request : single_requests)
 		{
-			request.second.impl->add (telemetry_data_a, endpoint_a);
+			request.second.impl->add (telemetry_data_a, endpoint_a, is_empty_a);
 		}
 	}
 }
@@ -242,7 +242,7 @@ void nano::telemetry_impl::get_metrics_async (std::unordered_set<std::shared_ptr
 	fire_request_messages (channels_a);
 }
 
-void nano::telemetry_impl::add (nano::telemetry_data const & telemetry_data_a, nano::endpoint const & endpoint_a)
+void nano::telemetry_impl::add (nano::telemetry_data const & telemetry_data_a, nano::endpoint const & endpoint_a, bool is_empty_a)
 {
 	nano::unique_lock<std::mutex> lk (mutex);
 	if (required_responses.find (endpoint_a) == required_responses.cend ())
@@ -251,24 +251,30 @@ void nano::telemetry_impl::add (nano::telemetry_data const & telemetry_data_a, n
 		return;
 	}
 
-	current_telemetry_data_responses.push_back (telemetry_data_a);
+	if (!is_empty_a)
+	{
+		current_telemetry_data_responses.push_back (telemetry_data_a);
+	}
 	channel_processed (lk, endpoint_a);
 }
 
 void nano::telemetry_impl::invoke_callbacks (bool cached_a)
 {
 	decltype (callbacks) callbacks_l;
-
+	decltype (cached_telemetry_data) cached_telemetry_data_l;
 	{
 		// Copy callbacks so that they can be called outside of holding the lock
 		nano::lock_guard<std::mutex> guard (mutex);
 		callbacks_l = callbacks;
+		cached_telemetry_data_l = cached_telemetry_data;
 		current_telemetry_data_responses.clear ();
 		callbacks.clear ();
 	}
+	// Need to account for nodes which disable telemetry data in responses
+	bool all_received_l = !cached_telemetry_data_l.empty () && all_received;
 	for (auto & callback : callbacks_l)
 	{
-		callback ({ cached_telemetry_data, cached_a, all_received });
+		callback ({ cached_telemetry_data_l, cached_a, all_received_l });
 	}
 }
 

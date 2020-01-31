@@ -1072,6 +1072,11 @@ void nano::telemetry_req::visit (nano::message_visitor & visitor_a) const
 	visitor_a.telemetry_req (*this);
 }
 
+nano::telemetry_ack::telemetry_ack () :
+message (nano::message_type::telemetry_ack)
+{
+}
+
 nano::telemetry_ack::telemetry_ack (bool & error_a, nano::stream & stream_a, nano::message_header const & message_header) :
 message (message_header)
 {
@@ -1091,48 +1096,53 @@ data (telemetry_data_a)
 void nano::telemetry_ack::serialize (nano::stream & stream_a) const
 {
 	header.serialize (stream_a);
-
-	assert (header.extensions.to_ulong () == nano::telemetry_data::size);
-	write (stream_a, data.block_count);
-	write (stream_a, data.cemented_count);
-	write (stream_a, data.unchecked_count);
-	write (stream_a, data.account_count);
-	write (stream_a, data.bandwidth_cap);
-	write (stream_a, data.peer_count);
-	write (stream_a, data.protocol_version);
-	write (stream_a, data.major_version);
-	write (stream_a, data.uptime);
-	write (stream_a, data.genesis_block.bytes);
-	write (stream_a, *data.minor_version);
-	write (stream_a, *data.patch_version);
-	write (stream_a, *data.maker);
+	if (!is_empty_payload ())
+	{
+		write (stream_a, data.block_count);
+		write (stream_a, data.cemented_count);
+		write (stream_a, data.unchecked_count);
+		write (stream_a, data.account_count);
+		write (stream_a, data.bandwidth_cap);
+		write (stream_a, data.peer_count);
+		write (stream_a, data.protocol_version);
+		write (stream_a, data.major_version);
+		write (stream_a, data.uptime);
+		write (stream_a, data.genesis_block.bytes);
+		write (stream_a, *data.minor_version);
+		write (stream_a, *data.patch_version);
+		write (stream_a, *data.maker);
+	}
 }
 
 bool nano::telemetry_ack::deserialize (nano::stream & stream_a)
 {
 	auto error (false);
+	assert (header.type == nano::message_type::telemetry_ack);
 	try
 	{
-		read (stream_a, data.block_count);
-		read (stream_a, data.cemented_count);
-		read (stream_a, data.unchecked_count);
-		read (stream_a, data.account_count);
-		read (stream_a, data.bandwidth_cap);
-		read (stream_a, data.peer_count);
-		read (stream_a, data.protocol_version);
-		read (stream_a, data.major_version);
-		read (stream_a, data.uptime);
-		read (stream_a, data.genesis_block.bytes);
-
-		if (header.extensions.to_ulong () > size_v0)
+		if (!is_empty_payload ())
 		{
-			uint8_t out;
-			read (stream_a, out);
-			data.minor_version = out;
-			read (stream_a, out);
-			data.patch_version = out;
-			read (stream_a, out);
-			data.maker = out;
+			read (stream_a, data.block_count);
+			read (stream_a, data.cemented_count);
+			read (stream_a, data.unchecked_count);
+			read (stream_a, data.account_count);
+			read (stream_a, data.bandwidth_cap);
+			read (stream_a, data.peer_count);
+			read (stream_a, data.protocol_version);
+			read (stream_a, data.major_version);
+			read (stream_a, data.uptime);
+			read (stream_a, data.genesis_block.bytes);
+
+			if (header.extensions.to_ulong () > size_v0)
+			{
+				uint8_t out;
+				read (stream_a, out);
+				data.minor_version = out;
+				read (stream_a, out);
+				data.patch_version = out;
+				read (stream_a, out);
+				data.maker = out;
+			}
 		}
 	}
 	catch (std::runtime_error const &)
@@ -1148,9 +1158,19 @@ void nano::telemetry_ack::visit (nano::message_visitor & visitor_a) const
 	visitor_a.telemetry_ack (*this);
 }
 
+uint16_t nano::telemetry_ack::size () const
+{
+	return size (header);
+}
+
 uint16_t nano::telemetry_ack::size (nano::message_header const & message_header_a)
 {
 	return static_cast<uint16_t> (message_header_a.extensions.to_ulong ());
+}
+
+bool nano::telemetry_ack::is_empty_payload () const
+{
+	return size () == 0;
 }
 
 nano::telemetry_data nano::telemetry_data::consolidate (std::vector<nano::telemetry_data> const & telemetry_data_responses_a)

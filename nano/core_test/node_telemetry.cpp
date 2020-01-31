@@ -11,7 +11,7 @@ using namespace std::chrono_literals;
 namespace
 {
 void wait_peer_connections (nano::system & system_a);
-void compare_default_test_result_data (nano::telemetry_data & telemetry_data_a, nano::node const & node_server_a);
+void compare_default_test_result_data (nano::telemetry_data const & telemetry_data_a, nano::node const & node_server_a);
 }
 
 TEST (node_telemetry, consolidate_data)
@@ -799,6 +799,89 @@ TEST (node_telemetry, disconnects)
 	}
 }
 
+TEST (node_telemetry, disable_metrics_single)
+{
+	nano::system system (1);
+	auto node_client = system.nodes.front ();
+	nano::node_flags node_flags;
+	node_flags.disable_providing_telemetry_metrics = true;
+	auto node_server = system.add_node (node_flags);
+
+	wait_peer_connections (system);
+
+	// Try and request metrics from a node which is turned off but a channel is not closed yet
+	auto channel = node_client->network.find_channel (node_server->network.endpoint ());
+	ASSERT_TRUE (channel);
+
+	std::atomic<bool> done{ false };
+	node_client->telemetry.get_metrics_single_peer_async (channel, [&done](nano::telemetry_data_response const & response_a) {
+		ASSERT_TRUE (response_a.error);
+		done = true;
+	});
+
+	system.deadline_set (10s);
+	while (!done)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	// It should still be able to receive metrics though
+	done = false;
+	auto channel1 = node_server->network.find_channel (node_client->network.endpoint ());
+	node_server->telemetry.get_metrics_single_peer_async (channel1, [&done, node_server](nano::telemetry_data_response const & response_a) {
+		ASSERT_FALSE (response_a.error);
+		compare_default_test_result_data (response_a.data, *node_server);
+		done = true;
+	});
+
+	system.deadline_set (10s);
+	while (!done)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
+TEST (node_telemetry, disable_metrics_batch)
+{
+	nano::system system (1);
+	auto node_client = system.nodes.front ();
+	nano::node_flags node_flags;
+	node_flags.disable_providing_telemetry_metrics = true;
+	auto node_server = system.add_node (node_flags);
+
+	wait_peer_connections (system);
+
+	// Try and request metrics from a node which is turned off but a channel is not closed yet
+	auto channel = node_client->network.find_channel (node_server->network.endpoint ());
+	ASSERT_TRUE (channel);
+
+	std::atomic<bool> done{ false };
+	node_client->telemetry.get_metrics_random_peers_async ([&done](nano::telemetry_data_responses const & responses_a) {
+		ASSERT_FALSE (responses_a.all_received);
+		done = true;
+	});
+
+	system.deadline_set (10s);
+	while (!done)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	// It should still be able to receive metrics though
+	done = false;
+	node_server->telemetry.get_metrics_random_peers_async ([&done, node_server](nano::telemetry_data_responses const & responses_a) {
+		ASSERT_TRUE (responses_a.all_received);
+		compare_default_test_result_data (responses_a.data.front (), *node_server);
+		done = true;
+	});
+
+	system.deadline_set (10s);
+	while (!done)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
 namespace
 {
 void wait_peer_connections (nano::system & system_a)
@@ -816,7 +899,7 @@ void wait_peer_connections (nano::system & system_a)
 	}
 }
 
-void compare_default_test_result_data (nano::telemetry_data & telemetry_data_a, nano::node const & node_server_a)
+void compare_default_test_result_data (nano::telemetry_data const & telemetry_data_a, nano::node const & node_server_a)
 {
 	ASSERT_EQ (telemetry_data_a.block_count, 1);
 	ASSERT_EQ (telemetry_data_a.cemented_count, 1);
