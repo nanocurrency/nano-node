@@ -6,6 +6,7 @@
 #include <nano/node/wallet.hpp>
 #include <nano/secure/buffer.hpp>
 
+#include <boost/algorithm/string.hpp>
 #include <boost/endian/conversion.hpp>
 #include <boost/pool/pool_alloc.hpp>
 #include <boost/variant/get.hpp>
@@ -1103,10 +1104,14 @@ void nano::telemetry_ack::serialize (nano::stream & stream_a) const
 		write (stream_a, data.account_count);
 		write (stream_a, data.bandwidth_cap);
 		write (stream_a, data.peer_count);
-		write (stream_a, data.protocol_version_number);
-		write (stream_a, data.vendor_version);
+		write (stream_a, data.protocol_version);
+		write (stream_a, data.major_version);
 		write (stream_a, data.uptime);
 		write (stream_a, data.genesis_block.bytes);
+		write (stream_a, *data.minor_version);
+		write (stream_a, *data.patch_version);
+		write (stream_a, *data.pre_release_version);
+		write (stream_a, *data.maker);
 	}
 }
 
@@ -1124,10 +1129,23 @@ bool nano::telemetry_ack::deserialize (nano::stream & stream_a)
 			read (stream_a, data.account_count);
 			read (stream_a, data.bandwidth_cap);
 			read (stream_a, data.peer_count);
-			read (stream_a, data.protocol_version_number);
-			read (stream_a, data.vendor_version);
+			read (stream_a, data.protocol_version);
+			read (stream_a, data.major_version);
 			read (stream_a, data.uptime);
 			read (stream_a, data.genesis_block.bytes);
+
+			if (header.extensions.to_ulong () > telemetry_data::size_v0)
+			{
+				uint8_t out;
+				read (stream_a, out);
+				data.minor_version = out;
+				read (stream_a, out);
+				data.patch_version = out;
+				read (stream_a, out);
+				data.pre_release_version = out;
+				read (stream_a, out);
+				data.maker = out;
+			}
 		}
 	}
 	catch (std::runtime_error const &)
@@ -1179,7 +1197,7 @@ nano::telemetry_data nano::telemetry_data::consolidate (std::vector<nano::teleme
 	nano::uint128_t bandwidth_sum{ 0 };
 
 	std::unordered_map<uint8_t, int> protocol_versions;
-	std::unordered_map<uint8_t, int> vendor_versions;
+	std::unordered_map<std::string, int> vendor_versions;
 	std::unordered_map<uint64_t, int> bandwidth_caps;
 	std::unordered_map<nano::block_hash, int> genesis_blocks;
 
@@ -1190,8 +1208,28 @@ nano::telemetry_data nano::telemetry_data::consolidate (std::vector<nano::teleme
 		account_sum += telemetry_data.account_count;
 		block_sum += telemetry_data.block_count;
 		cemented_sum += telemetry_data.cemented_count;
-		++vendor_versions[telemetry_data.vendor_version];
-		++protocol_versions[telemetry_data.protocol_version_number];
+
+		std::ostringstream ss;
+		ss << telemetry_data.major_version;
+		if (telemetry_data.minor_version.is_initialized ())
+		{
+			ss << "." << *telemetry_data.minor_version;
+			if (telemetry_data.patch_version.is_initialized ())
+			{
+				ss << "." << *telemetry_data.patch_version;
+				if (telemetry_data.pre_release_version.is_initialized ())
+				{
+					ss << "." << *telemetry_data.pre_release_version;
+					if (telemetry_data.maker.is_initialized ())
+					{
+						ss << "." << *telemetry_data.maker;
+					}
+				}
+			}
+		}
+
+		++vendor_versions[ss.str ()];
+		++protocol_versions[telemetry_data.protocol_version];
 		peer_sum += telemetry_data.peer_count;
 
 		// 0 has a special meaning (unlimited), don't include it in the average as it will be heavily skewed
@@ -1245,10 +1283,25 @@ nano::telemetry_data nano::telemetry_data::consolidate (std::vector<nano::teleme
 
 	// Use the mode of protocol version, vendor version and bandwidth cap if there is 2 or more using it
 	set_mode_or_average (bandwidth_caps, consolidated_data.bandwidth_cap, bandwidth_sum, size);
-	set_mode (protocol_versions, consolidated_data.protocol_version_number, size);
-	set_mode (vendor_versions, consolidated_data.vendor_version, size);
+	set_mode (protocol_versions, consolidated_data.protocol_version, size);
 	set_mode (genesis_blocks, consolidated_data.genesis_block, size);
 
+	// Vendor version, needs to be parsed out of the string
+	std::string version;
+	set_mode (vendor_versions, version, size);
+
+	// May only have major version, but check for optional parameters as well, only output if all are used
+	std::vector<std::string> version_fragments;
+	boost::split (version_fragments, version, boost::is_any_of ("."));
+	assert (!version_fragments.empty () && version_fragments.size () <= 5);
+	consolidated_data.major_version = boost::lexical_cast<uint8_t> (version_fragments.front ());
+	if (version_fragments.size () == 5)
+	{
+		consolidated_data.minor_version = boost::lexical_cast<uint8_t> (version_fragments[1]);
+		consolidated_data.patch_version = boost::lexical_cast<uint8_t> (version_fragments[2]);
+		consolidated_data.pre_release_version = boost::lexical_cast<uint8_t> (version_fragments[3]);
+		consolidated_data.maker = boost::lexical_cast<uint8_t> (version_fragments[4]);
+	}
 	return consolidated_data;
 }
 
@@ -1260,10 +1313,26 @@ nano::error nano::telemetry_data::serialize_json (nano::jsonconfig & json) const
 	json.put ("account_count", account_count);
 	json.put ("bandwidth_cap", bandwidth_cap);
 	json.put ("peer_count", peer_count);
-	json.put ("protocol_version_number", protocol_version_number);
-	json.put ("vendor_version", vendor_version);
+	json.put ("protocol_version", protocol_version);
 	json.put ("uptime", uptime);
 	json.put ("genesis_block", genesis_block.to_string ());
+	json.put ("major_version", major_version);
+	if (minor_version.is_initialized ())
+	{
+		json.put ("minor_version", *minor_version);
+	}
+	if (patch_version.is_initialized ())
+	{
+		json.put ("patch_version", *patch_version);
+	}
+	if (pre_release_version.is_initialized ())
+	{
+		json.put ("pre_release_version", *pre_release_version);
+	}
+	if (maker.is_initialized ())
+	{
+		json.put ("maker", *maker);
+	}
 	return json.get_error ();
 }
 
@@ -1275,8 +1344,7 @@ nano::error nano::telemetry_data::deserialize_json (nano::jsonconfig & json)
 	json.get ("account_count", account_count);
 	json.get ("bandwidth_cap", bandwidth_cap);
 	json.get ("peer_count", peer_count);
-	json.get ("protocol_version_number", protocol_version_number);
-	json.get ("vendor_version", vendor_version);
+	json.get ("protocol_version", protocol_version);
 	json.get ("uptime", uptime);
 	std::string genesis_block_l;
 	json.get ("genesis_block", genesis_block_l);
@@ -1287,12 +1355,18 @@ nano::error nano::telemetry_data::deserialize_json (nano::jsonconfig & json)
 			json.get_error ().set ("Could not deserialize genesis block");
 		}
 	}
+	json.get ("major_version", major_version);
+	minor_version = json.get_optional<uint8_t> ("minor_version");
+	patch_version = json.get_optional<uint8_t> ("patch_version");
+	pre_release_version = json.get_optional<uint8_t> ("pre_release_version");
+	maker = json.get_optional<uint8_t> ("maker");
+
 	return json.get_error ();
 }
 
 bool nano::telemetry_data::operator== (nano::telemetry_data const & data_a) const
 {
-	return (block_count == data_a.block_count && cemented_count == data_a.cemented_count && unchecked_count == data_a.unchecked_count && account_count == data_a.account_count && bandwidth_cap == data_a.bandwidth_cap && uptime == data_a.uptime && peer_count == data_a.peer_count && protocol_version_number == data_a.protocol_version_number && vendor_version == data_a.vendor_version && genesis_block == data_a.genesis_block);
+	return (block_count == data_a.block_count && cemented_count == data_a.cemented_count && unchecked_count == data_a.unchecked_count && account_count == data_a.account_count && bandwidth_cap == data_a.bandwidth_cap && uptime == data_a.uptime && peer_count == data_a.peer_count && protocol_version == data_a.protocol_version && genesis_block == data_a.genesis_block && major_version == data_a.major_version && minor_version == data_a.minor_version && patch_version == data_a.patch_version && pre_release_version == data_a.pre_release_version && maker == data_a.maker);
 }
 
 nano::node_id_handshake::node_id_handshake (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a) :
