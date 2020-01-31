@@ -53,7 +53,7 @@ public:
 private:
 	// Class only available to the telemetry class
 	void get_metrics_async (std::unordered_set<std::shared_ptr<nano::transport::channel>> const & channels_a, std::function<void(telemetry_data_responses const &)> const & callback_a);
-	void add (nano::telemetry_data const & telemetry_data_a, nano::endpoint const & endpoint_a);
+	void add (nano::telemetry_data const & telemetry_data_a, nano::endpoint const & endpoint_a, bool is_empty_a);
 	size_t telemetry_data_size ();
 
 	nano::network_params network_params;
@@ -100,8 +100,9 @@ public:
 	/*
 	 * Add telemetry metrics received from this endpoint.
 	 * Should this be unsolicited, it will not be added.
+	 * Some peers may have disabled responding with telemetry data, need to account for this
 	 */
-	void add (nano::telemetry_data const & telemetry_data_a, nano::endpoint const & endpoint_a);
+	void add (nano::telemetry_data const & telemetry_data_a, nano::endpoint const & endpoint_a, bool is_empty_a);
 
 	/*
 	 * Collects metrics from square root number of peers and invokes the callback when complete.
