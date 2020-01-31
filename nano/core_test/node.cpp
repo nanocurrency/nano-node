@@ -2269,6 +2269,27 @@ TEST (node, rep_remove)
 	ASSERT_EQ (node1->network.endpoint (), list[0]->get_endpoint ());
 }
 
+TEST (node, rep_connection_close)
+{
+	nano::system system (2);
+	auto & node1 (*system.nodes[0]);
+	auto & node2 (*system.nodes[1]);
+	// Add working representative (node 2)
+	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
+	system.deadline_set (10s);
+	while (node1.rep_crawler.representative_count () != 1)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	node2.stop ();
+	// Remove representative with closed channel
+	system.deadline_set (10s);
+	while (node1.rep_crawler.representative_count () != 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
 // Test that nodes can disable representative voting
 TEST (node, no_voting)
 {
