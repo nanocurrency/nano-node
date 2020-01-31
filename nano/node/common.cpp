@@ -1110,6 +1110,7 @@ void nano::telemetry_ack::serialize (nano::stream & stream_a) const
 		write (stream_a, data.genesis_block.bytes);
 		write (stream_a, *data.minor_version);
 		write (stream_a, *data.patch_version);
+		write (stream_a, *data.pre_release_version);
 		write (stream_a, *data.maker);
 	}
 }
@@ -1133,13 +1134,15 @@ bool nano::telemetry_ack::deserialize (nano::stream & stream_a)
 			read (stream_a, data.uptime);
 			read (stream_a, data.genesis_block.bytes);
 
-			if (header.extensions.to_ulong () > size_v0)
+			if (header.extensions.to_ulong () > telemetry_data::size_v0)
 			{
 				uint8_t out;
 				read (stream_a, out);
 				data.minor_version = out;
 				read (stream_a, out);
 				data.patch_version = out;
+				read (stream_a, out);
+				data.pre_release_version = out;
 				read (stream_a, out);
 				data.maker = out;
 			}
@@ -1214,9 +1217,13 @@ nano::telemetry_data nano::telemetry_data::consolidate (std::vector<nano::teleme
 			if (telemetry_data.patch_version.is_initialized ())
 			{
 				ss << "." << *telemetry_data.patch_version;
-				if (telemetry_data.maker.is_initialized ())
+				if (telemetry_data.pre_release_version.is_initialized ())
 				{
-					ss << "." << *telemetry_data.maker;
+					ss << "." << *telemetry_data.pre_release_version;
+					if (telemetry_data.maker.is_initialized ())
+					{
+						ss << "." << *telemetry_data.maker;
+					}
 				}
 			}
 		}
@@ -1286,13 +1293,14 @@ nano::telemetry_data nano::telemetry_data::consolidate (std::vector<nano::teleme
 	// May only have major version, but check for optional parameters as well, only output if all are used
 	std::vector<std::string> version_fragments;
 	boost::split (version_fragments, version, boost::is_any_of ("."));
-	assert (!version_fragments.empty () && version_fragments.size () <= 4);
+	assert (!version_fragments.empty () && version_fragments.size () <= 5);
 	consolidated_data.major_version = boost::lexical_cast<uint8_t> (version_fragments.front ());
-	if (version_fragments.size () == 4)
+	if (version_fragments.size () == 5)
 	{
 		consolidated_data.minor_version = boost::lexical_cast<uint8_t> (version_fragments[1]);
 		consolidated_data.patch_version = boost::lexical_cast<uint8_t> (version_fragments[2]);
-		consolidated_data.maker = boost::lexical_cast<uint8_t> (version_fragments[3]);
+		consolidated_data.pre_release_version = boost::lexical_cast<uint8_t> (version_fragments[3]);
+		consolidated_data.maker = boost::lexical_cast<uint8_t> (version_fragments[4]);
 	}
 	return consolidated_data;
 }
@@ -1316,6 +1324,10 @@ nano::error nano::telemetry_data::serialize_json (nano::jsonconfig & json) const
 	if (patch_version.is_initialized ())
 	{
 		json.put ("patch_version", *patch_version);
+	}
+	if (pre_release_version.is_initialized ())
+	{
+		json.put ("pre_release_version", *pre_release_version);
 	}
 	if (maker.is_initialized ())
 	{
@@ -1344,16 +1356,17 @@ nano::error nano::telemetry_data::deserialize_json (nano::jsonconfig & json)
 		}
 	}
 	json.get ("major_version", major_version);
-	minor_version = json.get_optional<uint64_t> ("minor_version");
-	patch_version = json.get_optional<uint64_t> ("patch_version");
-	maker = json.get_optional<uint64_t> ("maker");
+	minor_version = json.get_optional<uint8_t> ("minor_version");
+	patch_version = json.get_optional<uint8_t> ("patch_version");
+	pre_release_version = json.get_optional<uint8_t> ("pre_release_version");
+	maker = json.get_optional<uint8_t> ("maker");
 
 	return json.get_error ();
 }
 
 bool nano::telemetry_data::operator== (nano::telemetry_data const & data_a) const
 {
-	return (block_count == data_a.block_count && cemented_count == data_a.cemented_count && unchecked_count == data_a.unchecked_count && account_count == data_a.account_count && bandwidth_cap == data_a.bandwidth_cap && uptime == data_a.uptime && peer_count == data_a.peer_count && protocol_version == data_a.protocol_version && genesis_block == data_a.genesis_block && major_version == data_a.major_version && minor_version == data_a.minor_version && patch_version == data_a.patch_version && maker == data_a.maker);
+	return (block_count == data_a.block_count && cemented_count == data_a.cemented_count && unchecked_count == data_a.unchecked_count && account_count == data_a.account_count && bandwidth_cap == data_a.bandwidth_cap && uptime == data_a.uptime && peer_count == data_a.peer_count && protocol_version == data_a.protocol_version && genesis_block == data_a.genesis_block && major_version == data_a.major_version && minor_version == data_a.minor_version && patch_version == data_a.patch_version && pre_release_version == data_a.pre_release_version && maker == data_a.maker);
 }
 
 nano::node_id_handshake::node_id_handshake (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a) :

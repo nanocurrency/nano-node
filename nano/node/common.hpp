@@ -345,6 +345,7 @@ public:
 	nano::block_hash genesis_block{ 0 };
 	boost::optional<uint8_t> minor_version;
 	boost::optional<uint8_t> patch_version;
+	boost::optional<uint8_t> pre_release_version;
 	boost::optional<uint8_t> maker; // 0 for NF node
 
 	static nano::telemetry_data consolidate (std::vector<nano::telemetry_data> const & telemetry_data_responses);
@@ -352,7 +353,8 @@ public:
 	nano::error deserialize_json (nano::jsonconfig & json);
 	bool operator== (nano::telemetry_data const &) const;
 
-	static auto constexpr size = sizeof (block_count) + sizeof (cemented_count) + sizeof (unchecked_count) + sizeof (account_count) + sizeof (bandwidth_cap) + sizeof (peer_count) + sizeof (protocol_version) + sizeof (uptime) + sizeof (genesis_block) + sizeof (major_version) + sizeof (decltype (minor_version)::value_type) + sizeof (decltype (patch_version)::value_type) + sizeof (decltype (maker)::value_type);
+	static auto constexpr size_v0 = sizeof (block_count) + sizeof (cemented_count) + sizeof (unchecked_count) + sizeof (account_count) + sizeof (bandwidth_cap) + sizeof (peer_count) + sizeof (protocol_version) + sizeof (uptime) + sizeof (genesis_block) + sizeof (major_version);
+	static auto constexpr size = size_v0 + sizeof (decltype (minor_version)::value_type) + sizeof (decltype (patch_version)::value_type) + sizeof (decltype (pre_release_version)::value_type) + sizeof (decltype (maker)::value_type);
 };
 class telemetry_req final : public message
 {
@@ -376,7 +378,6 @@ public:
 	bool is_empty_payload () const;
 	static uint16_t size (nano::message_header const &);
 	nano::telemetry_data data;
-	static uint16_t constexpr size_v0{ 86 };
 };
 
 class bulk_pull final : public message

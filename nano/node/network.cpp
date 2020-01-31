@@ -548,6 +548,7 @@ public:
 			telemetry_data.major_version = nano::get_major_node_version ();
 			telemetry_data.minor_version = nano::get_minor_node_version ();
 			telemetry_data.patch_version = nano::get_patch_node_version ();
+			telemetry_data.pre_release_version = nano::get_pre_release_node_version ();
 			telemetry_data.maker = 0; // 0 Indicates it originated from the NF
 
 			telemetry_ack = nano::telemetry_ack (telemetry_data);

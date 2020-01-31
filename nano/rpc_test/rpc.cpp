@@ -7850,6 +7850,7 @@ void compare_default_test_result_data (test_response & response, nano::node cons
 	ASSERT_EQ (nano::get_major_node_version (), response.json.get<uint8_t> ("major_version"));
 	ASSERT_EQ (nano::get_minor_node_version (), response.json.get<uint8_t> ("minor_version"));
 	ASSERT_EQ (nano::get_patch_node_version (), response.json.get<uint8_t> ("patch_version"));
+	ASSERT_EQ (nano::get_pre_release_node_version (), response.json.get<uint8_t> ("pre_release_version"));
 	ASSERT_EQ (0, response.json.get<uint8_t> ("maker"));
 }
 }
@@ -7999,6 +8000,7 @@ TEST (rpc, node_telemetry_random)
 		ASSERT_EQ (nano::get_major_node_version (), response.json.get<uint8_t> ("major_version"));
 		ASSERT_EQ (nano::get_minor_node_version (), response.json.get<uint8_t> ("minor_version"));
 		ASSERT_EQ (nano::get_patch_node_version (), response.json.get<uint8_t> ("patch_version"));
+		ASSERT_EQ (nano::get_pre_release_node_version (), response.json.get<uint8_t> ("pre_release_version"));
 		ASSERT_EQ (0, response.json.get<uint8_t> ("maker"));
 	}
 
@@ -8015,11 +8017,11 @@ TEST (rpc, node_telemetry_random)
 	ASSERT_TRUE (response.json.get<bool> ("cached"));
 
 	auto & all_metrics = response.json.get_child ("metrics");
-	std::vector<std::tuple<uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint32_t, uint8_t, uint64_t, std::string, uint8_t, uint8_t, uint8_t, uint8_t>> raw_metrics_json_l;
+	std::vector<std::tuple<uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint32_t, uint8_t, uint64_t, std::string, uint8_t, uint8_t, uint8_t, uint8_t, uint8_t>> raw_metrics_json_l;
 	for (auto & metrics_pair : all_metrics)
 	{
 		auto & metrics = metrics_pair.second;
-		raw_metrics_json_l.emplace_back (metrics.get<uint64_t> ("block_count"), metrics.get<uint64_t> ("cemented_count"), metrics.get<uint64_t> ("unchecked_count"), metrics.get<uint64_t> ("account_count"), metrics.get<uint64_t> ("bandwidth_cap"), metrics.get<uint64_t> ("peer_count"), metrics.get<uint8_t> ("protocol_version"), metrics.get<uint64_t> ("uptime"), metrics.get<std::string> ("genesis_block"), metrics.get<uint8_t> ("major_version"), metrics.get<uint8_t> ("minor_version"), metrics.get<uint8_t> ("patch_version"), metrics.get<uint8_t> ("maker"));
+		raw_metrics_json_l.emplace_back (metrics.get<uint64_t> ("block_count"), metrics.get<uint64_t> ("cemented_count"), metrics.get<uint64_t> ("unchecked_count"), metrics.get<uint64_t> ("account_count"), metrics.get<uint64_t> ("bandwidth_cap"), metrics.get<uint64_t> ("peer_count"), metrics.get<uint8_t> ("protocol_version"), metrics.get<uint64_t> ("uptime"), metrics.get<std::string> ("genesis_block"), metrics.get<uint8_t> ("major_version"), metrics.get<uint8_t> ("minor_version"), metrics.get<uint8_t> ("patch_version"), metrics.get<uint8_t> ("pre_release_version"), metrics.get<uint8_t> ("maker"));
 	}
 
 	ASSERT_EQ (1, raw_metrics_json_l.size ());
@@ -8036,5 +8038,6 @@ TEST (rpc, node_telemetry_random)
 	ASSERT_EQ (nano::get_major_node_version (), std::get<9> (metrics));
 	ASSERT_EQ (nano::get_minor_node_version (), std::get<10> (metrics));
 	ASSERT_EQ (nano::get_patch_node_version (), std::get<11> (metrics));
-	ASSERT_EQ (0, std::get<12> (metrics));
+	ASSERT_EQ (nano::get_pre_release_node_version (), std::get<12> (metrics));
+	ASSERT_EQ (0, std::get<13> (metrics));
 }

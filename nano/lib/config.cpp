@@ -21,6 +21,10 @@ uint8_t get_patch_node_version ()
 {
 	return boost::numeric_cast<uint8_t> (boost::lexical_cast<int> (NANO_PATCH_VERSION_STRING));
 }
+uint8_t get_pre_release_node_version ()
+{
+	return boost::numeric_cast<uint8_t> (boost::lexical_cast<int> (NANO_PRE_RELEASE_VERSION_STRING));
+}
 
 void force_nano_test_network ()
 {
