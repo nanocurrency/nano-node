@@ -1721,7 +1721,7 @@ TEST (node, broadcast_elected)
 			node_flags.disable_bootstrap_listener = true;
 		}
 		nano::system system;
-		nano::node_config node_config (nano::get_available_port (), system.logging);;
+		nano::node_config node_config (nano::get_available_port (), system.logging);
 		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 		auto node0 = system.add_node (node_config, node_flags, type);
 		node_config.peering_port = nano::get_available_port ();

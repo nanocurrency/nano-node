@@ -6172,16 +6172,10 @@ TEST (rpc, confirmation_height_currently_processing)
 		ASSERT_EQ (frontier->hash ().to_string (), hash);
 	}
 
-	// Wait until confirmation has been set
+	// Wait until confirmation has been set and not processing anything
 	system.deadline_set (10s);
-	while (true)
+	while (!node->confirmation_height_processor.current ().is_zero ())
 	{
-		auto transaction = node->store.tx_begin_read ();
-		if (node->ledger.block_confirmed (transaction, frontier->hash ()))
-		{
-			break;
-		}
-
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
