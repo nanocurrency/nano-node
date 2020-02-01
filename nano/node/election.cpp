@@ -37,15 +37,14 @@ void nano::election::confirm_once (nano::election_status_type type_a)
 		auto status_l (status);
 		auto node_l (node.shared ());
 		auto confirmation_action_l (confirmation_action);
+		node.active.election_winner_details.emplace (status.winner->hash (), shared_from_this ());
+		clear_blocks ();
+		clear_dependent ();
+		node.active.roots.erase (status.winner->qualified_root ());
 		node.background ([node_l, status_l, confirmation_action_l]() {
 			node_l->process_confirmed (status_l);
 			confirmation_action_l (status_l.winner);
 		});
-		auto root (status.winner->qualified_root ());
-		node.active.pending_conf_height.emplace (status.winner->hash (), shared_from_this ());
-		clear_blocks ();
-		clear_dependent ();
-		node.active.roots.erase (root);
 	}
 }
 

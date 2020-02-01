@@ -6154,7 +6154,7 @@ TEST (rpc, confirmation_height_currently_processing)
 	rpc.start ();
 
 	system.deadline_set (10s);
-	while (!node->pending_confirmation_height.is_processing_block (previous_genesis_chain_hash))
+	while (!node->confirmation_height_processor.is_processing_block (previous_genesis_chain_hash))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -7046,7 +7046,7 @@ TEST (rpc, block_confirmed)
 	}
 
 	// Should no longer be processing the block after confirmation is set
-	ASSERT_FALSE (node->pending_confirmation_height.is_processing_block (send->hash ()));
+	ASSERT_FALSE (node->confirmation_height_processor.is_processing_block (send->hash ()));
 
 	// Requesting confirmation for this should now succeed
 	request.put ("hash", send->hash ().to_string ());
