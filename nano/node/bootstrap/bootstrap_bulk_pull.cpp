@@ -366,8 +366,7 @@ void nano::bulk_pull_account_client::receive_pending ()
 							{
 								if (!pending.is_zero ())
 								{
-									auto transaction (this_l->connection->node->store.tx_begin_read ());
-									if (!this_l->connection->node->store.block_exists (transaction, pending))
+									if (!this_l->connection->node->ledger.block_exists (pending))
 									{
 										this_l->connection->attempt->lazy_start (pending);
 									}
@@ -552,8 +551,7 @@ std::shared_ptr<nano::block> nano::bulk_pull_server::get_next ()
 
 	if (send_current)
 	{
-		auto transaction (connection->node->store.tx_begin_read ());
-		result = connection->node->store.block_get (transaction, current);
+		result = connection->node->block (current);
 		if (result != nullptr && set_current_to_end == false)
 		{
 			auto previous (result->previous ());

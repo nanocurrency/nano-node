@@ -186,6 +186,10 @@ class wallet_representative_counts
 public:
 	uint64_t voting{ 0 }; // Representatives with at least the configured minimum voting weight
 	uint64_t half_principal{ 0 }; // Representatives with at least 50% of principal representative requirements
+	bool have_half_rep () const
+	{
+		return half_principal > 0;
+	}
 };
 
 /**

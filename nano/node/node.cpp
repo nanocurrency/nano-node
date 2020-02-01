@@ -131,7 +131,7 @@ bootstrap_initiator (*this),
 bootstrap (config.peering_port, *this),
 application_path (application_path_a),
 port_mapping (*this),
-vote_processor (checker, active, store, observers, stats, config, logger, online_reps, ledger, network_params),
+vote_processor (checker, active, observers, stats, config, logger, online_reps, ledger, network_params),
 rep_crawler (*this),
 warmed_up (0),
 block_processor (*this, write_database_queue),
@@ -543,6 +543,7 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 	auto root (block_a->root ());
 	if (!store.block_exists (transaction_a, block_a->type (), block_a->hash ()) && store.root_exists (transaction_a, block_a->root ()))
 	{
+		active.publish (block_a);
 		std::shared_ptr<nano::block> ledger_block (ledger.forked_block (transaction_a, *block_a));
 		if (ledger_block && !block_confirmed_or_being_confirmed (transaction_a, ledger_block->hash ()))
 		{
@@ -1295,55 +1296,6 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (bl
 std::shared_ptr<nano::node> nano::node::shared ()
 {
 	return shared_from_this ();
-}
-
-bool nano::node::validate_block_by_previous (nano::transaction const & transaction, std::shared_ptr<nano::block> block_a)
-{
-	bool result (false);
-	nano::root account;
-	if (!block_a->previous ().is_zero ())
-	{
-		if (store.block_exists (transaction, block_a->previous ()))
-		{
-			account = ledger.account (transaction, block_a->previous ());
-		}
-		else
-		{
-			result = true;
-		}
-	}
-	else
-	{
-		account = block_a->root ();
-	}
-	if (!result && block_a->type () == nano::block_type::state)
-	{
-		std::shared_ptr<nano::state_block> block_l (std::static_pointer_cast<nano::state_block> (block_a));
-		nano::amount prev_balance (0);
-		if (!block_l->hashables.previous.is_zero ())
-		{
-			if (store.block_exists (transaction, block_l->hashables.previous))
-			{
-				prev_balance = ledger.balance (transaction, block_l->hashables.previous);
-			}
-			else
-			{
-				result = true;
-			}
-		}
-		if (!result)
-		{
-			if (block_l->hashables.balance == prev_balance && ledger.is_epoch_link (block_l->hashables.link))
-			{
-				account = ledger.epoch_signer (block_l->link ());
-			}
-		}
-	}
-	if (!result && (account.is_zero () || nano::validate_message (account, block_a->hash (), block_a->block_signature ())))
-	{
-		result = true;
-	}
-	return result;
 }
 
 int nano::node::store_version ()

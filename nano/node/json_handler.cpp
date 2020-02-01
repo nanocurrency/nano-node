@@ -2314,8 +2314,7 @@ void nano::json_handler::frontiers ()
 
 void nano::json_handler::account_count ()
 {
-	auto transaction (node.store.tx_begin_read ());
-	auto size (node.store.account_count (transaction));
+	auto size (node.ledger.cache.account_count.load ());
 	response_l.put ("count", std::to_string (size));
 	response_errors ();
 }

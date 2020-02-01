@@ -211,21 +211,16 @@ bool nano::election::publish (std::shared_ptr<nano::block> block_a)
 	}
 	if (!result)
 	{
-		auto transaction (node.store.tx_begin_read ());
-		result = node.validate_block_by_previous (transaction, block_a);
-		if (!result)
+		if (blocks.find (block_a->hash ()) == blocks.end ())
 		{
-			if (blocks.find (block_a->hash ()) == blocks.end ())
-			{
-				blocks.emplace (block_a->hash (), block_a);
-				insert_inactive_votes_cache (block_a->hash ());
-				confirm_if_quorum ();
-				node.network.flood_block (block_a, false);
-			}
-			else
-			{
-				result = true;
-			}
+			blocks.emplace (std::make_pair (block_a->hash (), block_a));
+			insert_inactive_votes_cache (block_a->hash ());
+			confirm_if_quorum ();
+			node.network.flood_block (block_a, false);
+		}
+		else
+		{
+			result = true;
 		}
 	}
 	return result;

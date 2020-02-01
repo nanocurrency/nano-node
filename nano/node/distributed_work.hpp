@@ -73,17 +73,18 @@ public:
 	void cancel ();
 
 private:
-	void start_work ();
-	/** Cancellation is done with an entirely new connection, \p request_a is only used to copy its address and port */
-	void cancel (peer_request const & request_a);
+	void start_local ();
+	/** Send a work_generate message to \p endpoint_a and handle a response */
+	void do_request (nano::tcp_endpoint const & endpoint_a);
+	/** Send a work_cancel message using a new connection to \p endpoint_a */
+	void do_cancel (nano::tcp_endpoint const & endpoint_a);
 	/** Called on a successful peer response, validates the reply */
 	void success (std::string const &, nano::tcp_endpoint const &);
 	/** Send a work_cancel message to all remaining connections */
 	void stop_once (bool const);
 	void set_once (uint64_t const, std::string const & source_a = "local");
-	void failure (nano::tcp_endpoint const &);
-	void handle_failure (bool const);
-	bool remove (nano::tcp_endpoint const &);
+	void failure ();
+	void handle_failure ();
 	void add_bad_peer (nano::tcp_endpoint const &);
 
 	nano::node & node;
@@ -91,9 +92,8 @@ private:
 
 	std::chrono::seconds backoff;
 	boost::asio::strand<boost::asio::io_context::executor_type> strand;
-	std::vector<std::pair<std::string, uint16_t>> need_resolve;
-	std::vector<nano::tcp_endpoint> outstanding;
-	std::vector<std::weak_ptr<peer_request>> connections;
+	std::vector<std::pair<std::string, uint16_t>> const need_resolve;
+	std::vector<std::weak_ptr<peer_request>> connections; // protected by the mutex
 
 	work_generation_status status{ work_generation_status::ongoing };
 	uint64_t work_result{ 0 };
@@ -103,6 +103,8 @@ private:
 	std::string winner; // websocket
 
 	std::mutex mutex;
+	std::atomic<unsigned> resolved_extra{ 0 };
+	std::atomic<unsigned> failures{ 0 };
 	std::atomic<bool> finished{ false };
 	std::atomic<bool> stopped{ false };
 	std::atomic<bool> local_generation_started{ false };
