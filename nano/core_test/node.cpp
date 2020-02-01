@@ -1720,10 +1720,14 @@ TEST (node, broadcast_elected)
 			node_flags.disable_tcp_realtime = true;
 			node_flags.disable_bootstrap_listener = true;
 		}
-		nano::system system (3, type, node_flags);
-		auto node0 (system.nodes[0]);
-		auto node1 (system.nodes[1]);
-		auto node2 (system.nodes[2]);
+		nano::system system;
+		nano::node_config node_config (nano::get_available_port (), system.logging);;
+		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+		auto node0 = system.add_node (node_config, node_flags, type);
+		node_config.peering_port = nano::get_available_port ();
+		auto node1 = system.add_node (node_config, node_flags, type);
+		node_config.peering_port = nano::get_available_port ();
+		auto node2 = system.add_node (node_config, node_flags, type);
 		nano::keypair rep_big;
 		nano::keypair rep_small;
 		nano::keypair rep_other;
