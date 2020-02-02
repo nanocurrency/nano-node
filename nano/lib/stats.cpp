@@ -119,7 +119,7 @@ public:
 		tree.put ("created", tm_to_string (tm));
 	}
 
-	void write_entry (tm & tm, std::string const & type, std::string const & detail, std::string const & dir, uint64_t value) override
+	void write_entry (tm & tm, std::string const & type, std::string const & detail, std::string const & dir, uint64_t value, nano::stat_histogram * histogram) override
 	{
 		boost::property_tree::ptree entry;
 		entry.put ("time", boost::format ("%02d:%02d:%02d") % tm.tm_hour % tm.tm_min % tm.tm_sec);
@@ -127,6 +127,23 @@ public:
 		entry.put ("detail", detail);
 		entry.put ("dir", dir);
 		entry.put ("value", value);
+		if (histogram != nullptr)
+		{
+			boost::property_tree::ptree histogram_node;
+			for (auto const & bin : histogram->get_bins ())
+			{
+				boost::property_tree::ptree bin_node;
+				bin_node.put ("start_inclusive", bin.start_inclusive);
+				bin_node.put ("end_exclusive", bin.end_exclusive);
+				bin_node.put ("value", bin.value);
+
+				std::time_t time = std::chrono::system_clock::to_time_t (bin.timestamp);
+				struct tm local_tm = *localtime (&time);
+				bin_node.put ("time", boost::format ("%02d:%02d:%02d") % local_tm.tm_hour % local_tm.tm_min % local_tm.tm_sec);
+				histogram_node.push_back (std::make_pair ("", bin_node));
+			}
+			entry.put_child ("histogram", histogram_node);
+		}
 		entries.push_back (std::make_pair ("", entry));
 	}
 
@@ -150,7 +167,7 @@ private:
 	std::ostringstream sstr;
 };
 
-/** File sink with rotation support */
+/** File sink with rotation support. This writes one counter per line and does not include histogram values. */
 class file_writer : public nano::stat_log_sink
 {
 public:
@@ -178,7 +195,7 @@ public:
 		log << header << "," << boost::format ("%04d.%02d.%02d %02d:%02d:%02d") % (1900 + tm.tm_year) % (tm.tm_mon + 1) % tm.tm_mday % tm.tm_hour % tm.tm_min % tm.tm_sec << std::endl;
 	}
 
-	void write_entry (tm & tm, std::string const & type, std::string const & detail, std::string const & dir, uint64_t value) override
+	void write_entry (tm & tm, std::string const & type, std::string const & detail, std::string const & dir, uint64_t value, nano::stat_histogram *) override
 	{
 		log << boost::format ("%02d:%02d:%02d") % tm.tm_hour % tm.tm_min % tm.tm_sec << "," << type << "," << detail << "," << dir << "," << value << std::endl;
 	}
@@ -190,6 +207,80 @@ public:
 		log_entries = 0;
 	}
 };
+
+nano::stat_histogram::stat_histogram (std::initializer_list<uint64_t> intervals_a, size_t bin_count_a)
+{
+	if (bin_count_a == 0)
+	{
+		assert (intervals_a.size () > 1);
+		uint64_t start_inclusive_l = *intervals_a.begin ();
+		for (auto it = std::next (intervals_a.begin ()); it != intervals_a.end (); ++it)
+		{
+			uint64_t end_exclusive_l = *it;
+			bins.emplace_back (start_inclusive_l, end_exclusive_l);
+			start_inclusive_l = end_exclusive_l;
+		}
+	}
+	else
+	{
+		assert (intervals_a.size () == 2);
+		uint64_t min_inclusive_l = *intervals_a.begin ();
+		uint64_t max_exclusive_l = *std::next (intervals_a.begin ());
+
+		auto domain_l = (max_exclusive_l - min_inclusive_l);
+		auto bin_size_l = (domain_l + bin_count_a - 1) / bin_count_a;
+		auto last_bin_size_l = (domain_l % bin_size_l);
+		auto next_start_l = min_inclusive_l;
+
+		for (size_t i = 0; i < bin_count_a; i++, next_start_l += bin_size_l)
+		{
+			bins.emplace_back (next_start_l, next_start_l + bin_size_l);
+		}
+		if (last_bin_size_l > 0)
+		{
+			bins.emplace_back (next_start_l, next_start_l + last_bin_size_l);
+		}
+	}
+}
+
+void nano::stat_histogram::add (uint64_t index_a, uint64_t addend_a)
+{
+	nano::lock_guard<std::mutex> lk (histogram_mutex);
+	assert (!bins.empty ());
+
+	// The search for a bin is linear, but we're searching just a few
+	// contiguous items which are likely to be in cache.
+	bool found_l = false;
+	for (auto & bin : bins)
+	{
+		if (index_a >= bin.start_inclusive && index_a < bin.end_exclusive)
+		{
+			bin.value += addend_a;
+			bin.timestamp = std::chrono::system_clock::now ();
+			found_l = true;
+			break;
+		}
+	}
+
+	// Clamp into first or last bin if no suitable bin was found
+	if (!found_l)
+	{
+		if (index_a < bins.front ().start_inclusive)
+		{
+			bins.front ().value += addend_a;
+		}
+		else
+		{
+			bins.back ().value += addend_a;
+		}
+	}
+}
+
+std::vector<nano::stat_histogram::bin> nano::stat_histogram::get_bins () const
+{
+	nano::lock_guard<std::mutex> lk (histogram_mutex);
+	return bins;
+}
 
 nano::stat::stat (nano::stat_config config) :
 config (config)
@@ -257,7 +348,7 @@ void nano::stat::log_counters_impl (stat_log_sink & sink)
 		std::string type = type_to_string (key);
 		std::string detail = detail_to_string (key);
 		std::string dir = dir_to_string (key);
-		sink.write_entry (local_tm, type, detail, dir, it.second->counter.get_value ());
+		sink.write_entry (local_tm, type, detail, dir, it.second->counter.get_value (), it.second->histogram.get ());
 	}
 	sink.entries ()++;
 	sink.finalize ();
@@ -294,11 +385,31 @@ void nano::stat::log_samples_impl (stat_log_sink & sink)
 		{
 			std::time_t time = std::chrono::system_clock::to_time_t (datapoint.get_timestamp ());
 			tm local_tm = *localtime (&time);
-			sink.write_entry (local_tm, type, detail, dir, datapoint.get_value ());
+			sink.write_entry (local_tm, type, detail, dir, datapoint.get_value (), nullptr);
 		}
 	}
 	sink.entries ()++;
 	sink.finalize ();
+}
+
+void nano::stat::define_histogram (stat::type type, stat::detail detail, stat::dir dir, std::initializer_list<uint64_t> intervals_a, size_t bin_count_a /*=0*/)
+{
+	auto entry (get_entry (key_of (type, detail, dir)));
+	entry->histogram = std::make_unique<nano::stat_histogram> (intervals_a, bin_count_a);
+}
+
+void nano::stat::update_histogram (stat::type type, stat::detail detail, stat::dir dir, uint64_t index_a, uint64_t addend_a)
+{
+	auto entry (get_entry (key_of (type, detail, dir)));
+	assert (entry->histogram != nullptr);
+	entry->histogram->add (index_a, addend_a);
+}
+
+nano::stat_histogram * nano::stat::get_histogram (stat::type type, stat::detail detail, stat::dir dir)
+{
+	auto entry (get_entry (key_of (type, detail, dir)));
+	assert (entry->histogram != nullptr);
+	return entry->histogram.get ();
 }
 
 void nano::stat::update (uint32_t key_a, uint64_t value)
