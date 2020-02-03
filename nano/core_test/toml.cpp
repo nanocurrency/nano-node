@@ -202,6 +202,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.logging.network_telemetry_logging_value, defaults.node.logging.network_telemetry_logging_value);
 	ASSERT_EQ (conf.node.logging.rotation_size, defaults.node.logging.rotation_size);
 	ASSERT_EQ (conf.node.logging.single_line_record_value, defaults.node.logging.single_line_record_value);
+	ASSERT_EQ (conf.node.logging.stable_log_filename, defaults.node.logging.stable_log_filename);
 	ASSERT_EQ (conf.node.logging.timing_logging_value, defaults.node.logging.timing_logging_value);
 	ASSERT_EQ (conf.node.logging.active_update_value, defaults.node.logging.active_update_value);
 	ASSERT_EQ (conf.node.logging.upnp_details_logging_value, defaults.node.logging.upnp_details_logging_value);
@@ -461,6 +462,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	node_lifetime_tracing = true
 	rotation_size = 999
 	single_line_record = true
+	stable_log_filename = true
 	timing = true
 	active_update = true
 	upnp_details = true
@@ -592,6 +594,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.logging.node_lifetime_tracing_value, defaults.node.logging.node_lifetime_tracing_value);
 	ASSERT_NE (conf.node.logging.rotation_size, defaults.node.logging.rotation_size);
 	ASSERT_NE (conf.node.logging.single_line_record_value, defaults.node.logging.single_line_record_value);
+	ASSERT_NE (conf.node.logging.stable_log_filename, defaults.node.logging.stable_log_filename);
 	ASSERT_NE (conf.node.logging.timing_logging_value, defaults.node.logging.timing_logging_value);
 	ASSERT_NE (conf.node.logging.active_update_value, defaults.node.logging.active_update_value);
 	ASSERT_NE (conf.node.logging.upnp_details_logging_value, defaults.node.logging.upnp_details_logging_value);
