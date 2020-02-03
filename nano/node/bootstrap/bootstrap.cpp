@@ -884,6 +884,7 @@ void nano::bootstrap_attempt::lazy_pull_flush ()
 				batch_count = std::max (node->network_params.bootstrap.lazy_min_pull_blocks, batch_count_min);
 			}
 		}
+		uint64_t read_count (0);
 		size_t count (0);
 		auto transaction (node->store.tx_begin_read ());
 		while (!lazy_pulls.empty () && count < max_pulls)
@@ -896,6 +897,12 @@ void nano::bootstrap_attempt::lazy_pull_flush ()
 				++count;
 			}
 			lazy_pulls.pop_front ();
+			// We don't want to open read transactions for too long
+			++read_count;
+			if (read_count % batch_read_size == 0)
+			{
+				transaction.refresh ();
+			}
 		}
 	}
 }
@@ -907,6 +914,7 @@ bool nano::bootstrap_attempt::lazy_finished ()
 		return true;
 	}
 	bool result (true);
+	uint64_t read_count (0);
 	auto transaction (node->store.tx_begin_read ());
 	nano::lock_guard<std::mutex> lazy_lock (lazy_mutex);
 	for (auto it (lazy_keys.begin ()), end (lazy_keys.end ()); it != end && !stopped;)
@@ -920,6 +928,12 @@ bool nano::bootstrap_attempt::lazy_finished ()
 			result = false;
 			break;
 			// No need to increment `it` as we break above.
+		}
+		// We don't want to open read transactions for too long
+		++read_count;
+		if (read_count % batch_read_size == 0)
+		{
+			transaction.refresh ();
 		}
 	}
 	// Finish lazy bootstrap without lazy pulls (in combination with still_pulling ())
@@ -1201,6 +1215,7 @@ void nano::bootstrap_attempt::lazy_block_state_backlog_check (std::shared_ptr<na
 
 void nano::bootstrap_attempt::lazy_backlog_cleanup ()
 {
+	uint64_t read_count (0);
 	auto transaction (node->store.tx_begin_read ());
 	nano::lock_guard<std::mutex> lazy_lock (lazy_mutex);
 	for (auto it (lazy_state_backlog.begin ()), end (lazy_state_backlog.end ()); it != end && !stopped;)
@@ -1222,6 +1237,12 @@ void nano::bootstrap_attempt::lazy_backlog_cleanup ()
 		{
 			lazy_add (it->first, it->second.retry_limit);
 			++it;
+		}
+		// We don't want to open read transactions for too long
+		++read_count;
+		if (read_count % batch_read_size == 0)
+		{
+			transaction.refresh ();
 		}
 	}
 }

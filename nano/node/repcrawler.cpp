@@ -38,6 +38,7 @@ void nano::rep_crawler::validate ()
 		nano::lock_guard<std::mutex> lock (active_mutex);
 		responses_l.swap (responses);
 	}
+	auto transaction (node.store.tx_begin_read ());
 	auto minimum = node.minimum_principal_weight ();
 	for (auto const & i : responses_l)
 	{
@@ -84,6 +85,15 @@ void nano::rep_crawler::validate ()
 					}
 				}
 			}
+		}
+		// This tries to assist rep nodes that have lost track of their highest sequence number by replaying our highest known vote back to them
+		// Only do this if the sequence number is significantly different to account for network reordering
+		// Amplify attack considerations: We're sending out a confirm_ack in response to a confirm_ack for no net traffic increase
+		auto max_vote (node.store.vote_max (transaction, vote));
+		if (max_vote->sequence > vote->sequence + 10000)
+		{
+			nano::confirm_ack confirm (max_vote);
+			channel->send (confirm); // this is non essential traffic as it will be resolicited if not received
 		}
 	}
 }
@@ -174,6 +184,18 @@ void nano::rep_crawler::query (std::shared_ptr<nano::transport::channel> & chann
 	std::vector<std::shared_ptr<nano::transport::channel>> peers;
 	peers.emplace_back (channel_a);
 	query (peers);
+}
+
+bool nano::rep_crawler::is_pr (nano::transport::channel const & channel_a) const
+{
+	nano::lock_guard<std::mutex> lock (probable_reps_mutex);
+	auto existing = probable_reps.get<tag_channel_ref> ().find (channel_a);
+	bool result = false;
+	if (existing != probable_reps.get<tag_channel_ref> ().end ())
+	{
+		result = existing->weight > node.minimum_principal_weight ();
+	}
+	return result;
 }
 
 void nano::rep_crawler::response (std::shared_ptr<nano::transport::channel> & channel_a, std::shared_ptr<nano::vote> & vote_a)
@@ -295,6 +317,21 @@ std::vector<nano::representative> nano::rep_crawler::representatives (size_t cou
 	for (auto i (probable_reps.get<tag_weight> ().begin ()), n (probable_reps.get<tag_weight> ().end ()); i != n && result.size () < count_a; ++i)
 	{
 		if (!i->weight.is_zero () && i->channel->get_network_version () >= version_min)
+		{
+			result.push_back (*i);
+		}
+	}
+	return result;
+}
+
+std::vector<nano::representative> nano::rep_crawler::principal_representatives (size_t count_a)
+{
+	std::vector<representative> result;
+	auto minimum = node.minimum_principal_weight ();
+	nano::lock_guard<std::mutex> lock (probable_reps_mutex);
+	for (auto i (probable_reps.get<tag_weight> ().begin ()), n (probable_reps.get<tag_weight> ().end ()); i != n && result.size () < count_a; ++i)
+	{
+		if (i->weight > minimum)
 		{
 			result.push_back (*i);
 		}

@@ -198,6 +198,7 @@ public:
 		observer,
 		confirmation_height,
 		drop,
+		aggregator,
 		requests
 	};
 
@@ -225,6 +226,9 @@ public:
 		state_block,
 		epoch_block,
 		fork,
+		old,
+		gap_previous,
+		gap_source,
 
 		// message specific
 		keepalive,
@@ -299,11 +303,16 @@ public:
 		blocks_confirmed,
 		invalid_block,
 
+		// [request] aggregator
+		aggregator_accepted,
+		aggregator_dropped,
+
 		// requests
-		requests_cached,
-		requests_generated,
-		requests_ignored,
-		requests_dropped
+		requests_cached_hashes,
+		requests_generated_hashes,
+		requests_cached_votes,
+		requests_generated_votes,
+		requests_unknown
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */

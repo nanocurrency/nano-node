@@ -215,10 +215,27 @@ bool nano::network::send_votes_cache (std::shared_ptr<nano::transport::channel> 
 
 void nano::network::flood_message (nano::message const & message_a, bool const is_droppable_a)
 {
-	auto list (list_fanout ());
-	for (auto i (list.begin ()), n (list.end ()); i != n; ++i)
+	for (auto & i : list (fanout ()))
 	{
-		(*i)->send (message_a, nullptr, is_droppable_a);
+		i->send (message_a, nullptr, is_droppable_a);
+	}
+}
+
+void nano::network::flood_vote (std::shared_ptr<nano::vote> const & vote_a, float scale)
+{
+	nano::confirm_ack message (vote_a);
+	for (auto & i : list_non_pr (fanout (scale)))
+	{
+		i->send (message, nullptr);
+	}
+}
+
+void nano::network::flood_vote_pr (std::shared_ptr<nano::vote> const & vote_a)
+{
+	nano::confirm_ack message (vote_a);
+	for (auto const & i : node.rep_crawler.principal_representatives ())
+	{
+		i.channel->send (message, nullptr, false);
 	}
 }
 
@@ -265,7 +282,7 @@ void nano::network::broadcast_confirm_req (std::shared_ptr<nano::block> block_a)
 	if (list->empty () || node.rep_crawler.total_weight () < node.config.online_weight_minimum.number ())
 	{
 		// broadcast request to all peers (with max limit 2 * sqrt (peers count))
-		auto peers (node.network.list (std::min (static_cast<size_t> (100), 2 * node.network.size_sqrt ())));
+		auto peers (node.network.list (std::min<size_t> (100, node.network.fanout (2.0))));
 		list->clear ();
 		list->insert (list->end (), peers.begin (), peers.end ());
 	}
@@ -423,7 +440,6 @@ public:
 		{
 			node.stats.inc (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::in);
 		}
-		node.active.publish (message_a.block);
 	}
 	void confirm_req (nano::confirm_req const & message_a) override
 	{
@@ -482,7 +498,6 @@ public:
 				{
 					node.stats.inc (nano::stat::type::drop, nano::stat::detail::confirm_ack, nano::stat::dir::in);
 				}
-				node.active.publish (block);
 			}
 		}
 		node.vote_processor.vote (message_a.vote, channel);
@@ -515,23 +530,29 @@ public:
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::telemetry_req, nano::stat::dir::in);
 
-		nano::telemetry_data telemetry_data;
-		telemetry_data.block_count = node.ledger.cache.block_count;
-		telemetry_data.cemented_count = node.ledger.cache.cemented_count;
-		telemetry_data.bandwidth_cap = node.config.bandwidth_limit;
-		telemetry_data.protocol_version_number = node.network_params.protocol.protocol_version;
-		telemetry_data.vendor_version = nano::get_major_node_version ();
-		telemetry_data.uptime = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - node.startup_time).count ();
-		telemetry_data.unchecked_count = node.ledger.cache.unchecked_count;
-		telemetry_data.genesis_block = node.network_params.ledger.genesis_hash;
-		telemetry_data.peer_count = node.network.size ();
-
+		// Send an empty telemetry_ack if we do not want, just to acknowledge that we have received the message to
+		// remove any timeouts on the server side waiting for a message.
+		nano::telemetry_ack telemetry_ack;
+		if (!node.flags.disable_providing_telemetry_metrics)
 		{
-			auto transaction = node.store.tx_begin_read ();
-			telemetry_data.account_count = node.store.account_count (transaction);
-		}
+			nano::telemetry_data telemetry_data;
+			telemetry_data.block_count = node.ledger.cache.block_count;
+			telemetry_data.cemented_count = node.ledger.cache.cemented_count;
+			telemetry_data.bandwidth_cap = node.config.bandwidth_limit;
+			telemetry_data.protocol_version = node.network_params.protocol.protocol_version;
+			telemetry_data.uptime = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - node.startup_time).count ();
+			telemetry_data.unchecked_count = node.ledger.cache.unchecked_count;
+			telemetry_data.genesis_block = node.network_params.ledger.genesis_hash;
+			telemetry_data.peer_count = node.network.size ();
+			telemetry_data.account_count = node.ledger.cache.account_count;
+			telemetry_data.major_version = nano::get_major_node_version ();
+			telemetry_data.minor_version = nano::get_minor_node_version ();
+			telemetry_data.patch_version = nano::get_patch_node_version ();
+			telemetry_data.pre_release_version = nano::get_pre_release_node_version ();
+			telemetry_data.maker = 0; // 0 Indicates it originated from the NF
 
-		nano::telemetry_ack telemetry_ack (telemetry_data);
+			telemetry_ack = nano::telemetry_ack (telemetry_data);
+		}
 		channel->send (telemetry_ack);
 	}
 	void telemetry_ack (nano::telemetry_ack const & message_a) override
@@ -541,7 +562,7 @@ public:
 			node.logger.try_log (boost::str (boost::format ("Received telemetry_ack message from %1%") % channel->to_string ()));
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::telemetry_ack, nano::stat::dir::in);
-		node.telemetry.add (message_a.data, channel->get_endpoint ());
+		node.telemetry.add (message_a.data, channel->get_endpoint (), message_a.is_empty_payload ());
 	}
 	nano::node & node;
 	std::shared_ptr<nano::transport::channel> channel;
@@ -620,11 +641,27 @@ std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list (size_
 	return result;
 }
 
-// Simulating with sqrt_broadcast_simulate shows we only need to broadcast to sqrt(total_peers) random peers in order to successfully publish to everyone with high probability
-std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list_fanout ()
+std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list_non_pr (size_t count_a)
 {
-	auto result (list (size_sqrt ()));
+	std::deque<std::shared_ptr<nano::transport::channel>> result;
+	tcp_channels.list (result);
+	udp_channels.list (result);
+	nano::random_pool_shuffle (result.begin (), result.end ());
+	result.erase (std::remove_if (result.begin (), result.end (), [this](std::shared_ptr<nano::transport::channel> const & channel) {
+		return this->node.rep_crawler.is_pr (*channel);
+	}),
+	result.end ());
+	if (result.size () > count_a)
+	{
+		result.resize (count_a, nullptr);
+	}
 	return result;
+}
+
+// Simulating with sqrt_broadcast_simulate shows we only need to broadcast to sqrt(total_peers) random peers in order to successfully publish to everyone with high probability
+size_t nano::network::fanout (float scale) const
+{
+	return static_cast<size_t> (std::ceil (scale * size_sqrt ()));
 }
 
 std::unordered_set<std::shared_ptr<nano::transport::channel>> nano::network::random_set (size_t count_a, uint8_t min_version_a) const
@@ -750,9 +787,9 @@ size_t nano::network::size () const
 	return tcp_channels.size () + udp_channels.size ();
 }
 
-size_t nano::network::size_sqrt () const
+float nano::network::size_sqrt () const
 {
-	return (static_cast<size_t> (std::ceil (std::sqrt (size ()))));
+	return static_cast<float> (std::sqrt (size ()));
 }
 
 bool nano::network::empty () const
