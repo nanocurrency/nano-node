@@ -5,11 +5,14 @@
 #include <nano/node/transport/transport.hpp>
 #include <nano/secure/buffer.hpp>
 
+#include <boost/algorithm/string.hpp>
+
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <future>
 #include <numeric>
+#include <set>
 
 std::chrono::seconds constexpr nano::telemetry_impl::alarm_cutoff;
 
@@ -77,16 +80,16 @@ void nano::telemetry::stop ()
 	stopped = true;
 }
 
-void nano::telemetry::add (nano::telemetry_data const & telemetry_data_a, nano::endpoint const & endpoint_a)
+void nano::telemetry::add (nano::telemetry_data const & telemetry_data_a, nano::endpoint const & endpoint_a, bool is_empty_a)
 {
 	nano::lock_guard<std::mutex> guard (mutex);
 	if (!stopped)
 	{
-		batch_request->add (telemetry_data_a, endpoint_a);
+		batch_request->add (telemetry_data_a, endpoint_a, is_empty_a);
 
 		for (auto & request : single_requests)
 		{
-			request.second.impl->add (telemetry_data_a, endpoint_a);
+			request.second.impl->add (telemetry_data_a, endpoint_a, is_empty_a);
 		}
 	}
 }
@@ -355,7 +358,7 @@ void nano::telemetry_impl::get_metrics_async (std::deque<std::shared_ptr<nano::t
 	fire_request_messages (channels_a);
 }
 
-void nano::telemetry_impl::add (nano::telemetry_data const & telemetry_data_a, nano::endpoint const & endpoint_a)
+void nano::telemetry_impl::add (nano::telemetry_data const & telemetry_data_a, nano::endpoint const & endpoint_a, bool is_empty_a)
 {
 	nano::unique_lock<std::mutex> lk (mutex);
 	if (required_responses.find (endpoint_a) == required_responses.cend ())
@@ -364,7 +367,10 @@ void nano::telemetry_impl::add (nano::telemetry_data const & telemetry_data_a, n
 		return;
 	}
 
-	current_telemetry_data_responses[endpoint_a] = { telemetry_data_a, std::chrono::steady_clock::now (), std::chrono::system_clock::now () };
+	if (!is_empty_a)
+	{
+		current_telemetry_data_responses[endpoint_a] = { telemetry_data_a, std::chrono::steady_clock::now (), std::chrono::system_clock::now () };
+	}
 	channel_processed (lk, endpoint_a);
 }
 
@@ -372,11 +378,12 @@ void nano::telemetry_impl::invoke_callbacks ()
 {
 	decltype (callbacks) callbacks_l;
 	bool all_received;
-
+	decltype (cached_telemetry_data) cached_telemetry_data_l;
 	{
 		// Copy callbacks so that they can be called outside of holding the lock
 		nano::lock_guard<std::mutex> guard (mutex);
 		callbacks_l = callbacks;
+		cached_telemetry_data_l = cached_telemetry_data;
 		current_telemetry_data_responses.clear ();
 		callbacks.clear ();
 		all_received = failed.empty ();
@@ -384,12 +391,13 @@ void nano::telemetry_impl::invoke_callbacks ()
 
 	if (pre_callback_callback)
 	{
-		pre_callback_callback (cached_telemetry_data, mutex);
+		pre_callback_callback (cached_telemetry_data_l, mutex);
 	}
-
+	// Need to account for nodes which disable telemetry data in responses
+	bool all_received_l = !cached_telemetry_data_l.empty () && all_received;
 	for (auto & callback : callbacks_l)
 	{
-		callback ({ cached_telemetry_data, all_received });
+		callback ({ cached_telemetry_data_l, all_received_l });
 	}
 }
 
@@ -508,4 +516,173 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (te
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "cached_telemetry_data", cached_telemetry_data_count, sizeof (decltype (telemetry_impl.cached_telemetry_data)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "required_responses", required_responses_count, sizeof (decltype (telemetry_impl.required_responses)::value_type) }));
 	return composite;
+}
+
+nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemetry_data> const & telemetry_datas)
+{
+	std::vector<nano::telemetry_data_time_pair> telemetry_data_time_pairs;
+	telemetry_data_time_pairs.reserve (telemetry_datas.size ());
+
+	std::transform (telemetry_datas.begin (), telemetry_datas.end (), std::back_inserter (telemetry_data_time_pairs), [](nano::telemetry_data const & telemetry_data_a) {
+		// Don't care about the timestamps here
+		return nano::telemetry_data_time_pair{ telemetry_data_a, {}, {} };
+	});
+
+	return consolidate_telemetry_data_time_pairs (telemetry_data_time_pairs).data;
+}
+
+nano::telemetry_data_time_pair nano::consolidate_telemetry_data_time_pairs (std::vector<nano::telemetry_data_time_pair> const & telemetry_data_time_pairs_a)
+{
+	if (telemetry_data_time_pairs_a.empty ())
+	{
+		return {};
+	}
+	else if (telemetry_data_time_pairs_a.size () == 1)
+	{
+		// Only 1 element in the collection, so just return it.
+		return telemetry_data_time_pairs_a.front ();
+	}
+
+	std::unordered_map<uint8_t, int> protocol_versions;
+	std::unordered_map<std::string, int> vendor_versions;
+	std::unordered_map<uint64_t, int> bandwidth_caps;
+	std::unordered_map<nano::block_hash, int> genesis_blocks;
+
+	// Use a trimmed average which excludes the upper and lower 10% of the results
+	std::multiset<uint64_t> account_counts;
+	std::multiset<uint64_t> block_counts;
+	std::multiset<uint64_t> cemented_counts;
+	std::multiset<uint32_t> peer_counts;
+	std::multiset<uint64_t> unchecked_counts;
+	std::multiset<uint64_t> uptime_counts;
+	std::multiset<uint64_t> bandwidth_counts;
+	std::multiset<long long> timestamp_counts;
+
+	for (auto const & telemetry_data_time_pair : telemetry_data_time_pairs_a)
+	{
+		auto & telemetry_data = telemetry_data_time_pair.data;
+		account_counts.insert (telemetry_data.account_count);
+		block_counts.insert (telemetry_data.block_count);
+		cemented_counts.insert (telemetry_data.cemented_count);
+
+		std::ostringstream ss;
+		ss << telemetry_data.major_version;
+		if (telemetry_data.minor_version.is_initialized ())
+		{
+			ss << "." << *telemetry_data.minor_version;
+			if (telemetry_data.patch_version.is_initialized ())
+			{
+				ss << "." << *telemetry_data.patch_version;
+				if (telemetry_data.pre_release_version.is_initialized ())
+				{
+					ss << "." << *telemetry_data.pre_release_version;
+					if (telemetry_data.maker.is_initialized ())
+					{
+						ss << "." << *telemetry_data.maker;
+					}
+				}
+			}
+		}
+
+		++vendor_versions[ss.str ()];
+		++protocol_versions[telemetry_data.protocol_version];
+		peer_counts.insert (telemetry_data.peer_count);
+		unchecked_counts.insert (telemetry_data.unchecked_count);
+		uptime_counts.insert (telemetry_data.uptime);
+		// 0 has a special meaning (unlimited), don't include it in the average as it will be heavily skewed
+		if (telemetry_data.bandwidth_cap != 0)
+		{
+			bandwidth_counts.insert (telemetry_data.bandwidth_cap);
+		}
+
+		++bandwidth_caps[telemetry_data.bandwidth_cap];
+		++genesis_blocks[telemetry_data.genesis_block];
+
+		timestamp_counts.insert (std::chrono::time_point_cast<std::chrono::milliseconds> (telemetry_data_time_pair.system_last_updated).time_since_epoch ().count ());
+	}
+
+	// Remove 10% of the results from the lower and upper bounds to catch any outliers. Need at least 10 responses before any are removed.
+	auto num_either_side_to_remove = telemetry_data_time_pairs_a.size () / 10;
+
+	auto strip_outliers_and_sum = [num_either_side_to_remove](auto & counts) {
+		counts.erase (counts.begin (), std::next (counts.begin (), num_either_side_to_remove));
+		counts.erase (std::next (counts.rbegin (), num_either_side_to_remove).base (), counts.end ());
+		return std::accumulate (counts.begin (), counts.end (), nano::uint128_t (0), [](nano::uint128_t total, auto count) {
+			return total += count;
+		});
+	};
+
+	auto account_sum = strip_outliers_and_sum (account_counts);
+	auto block_sum = strip_outliers_and_sum (block_counts);
+	auto cemented_sum = strip_outliers_and_sum (cemented_counts);
+	auto peer_sum = strip_outliers_and_sum (peer_counts);
+	auto unchecked_sum = strip_outliers_and_sum (unchecked_counts);
+	auto uptime_sum = strip_outliers_and_sum (uptime_counts);
+	auto bandwidth_sum = strip_outliers_and_sum (bandwidth_counts);
+
+	nano::telemetry_data consolidated_data;
+	auto size = telemetry_data_time_pairs_a.size () - num_either_side_to_remove * 2;
+	consolidated_data.account_count = boost::numeric_cast<decltype (consolidated_data.account_count)> (account_sum / size);
+	consolidated_data.block_count = boost::numeric_cast<decltype (consolidated_data.block_count)> (block_sum / size);
+	consolidated_data.cemented_count = boost::numeric_cast<decltype (consolidated_data.cemented_count)> (cemented_sum / size);
+	consolidated_data.peer_count = boost::numeric_cast<decltype (consolidated_data.peer_count)> (peer_sum / size);
+	consolidated_data.uptime = boost::numeric_cast<decltype (consolidated_data.uptime)> (uptime_sum / size);
+	consolidated_data.unchecked_count = boost::numeric_cast<decltype (consolidated_data.unchecked_count)> (unchecked_sum / size);
+
+	auto set_mode_or_average = [](auto const & collection, auto & var, auto const & sum, size_t size) {
+		auto max = std::max_element (collection.begin (), collection.end (), [](auto const & lhs, auto const & rhs) {
+			return lhs.second < rhs.second;
+		});
+		if (max->second > 1)
+		{
+			var = max->first;
+		}
+		else
+		{
+			var = (sum / size).template convert_to<std::remove_reference_t<decltype (var)>> ();
+		}
+	};
+
+	auto set_mode = [](auto const & collection, auto & var, size_t size) {
+		auto max = std::max_element (collection.begin (), collection.end (), [](auto const & lhs, auto const & rhs) {
+			return lhs.second < rhs.second;
+		});
+		if (max->second > 1)
+		{
+			var = max->first;
+		}
+		else
+		{
+			// Just pick the first one
+			var = collection.begin ()->first;
+		}
+	};
+
+	// Use the mode of protocol version and vendor version. Also use it for bandwidth cap if there is 2 or more of the same cap.
+	set_mode_or_average (bandwidth_caps, consolidated_data.bandwidth_cap, bandwidth_sum, size);
+	set_mode (protocol_versions, consolidated_data.protocol_version, size);
+	set_mode (genesis_blocks, consolidated_data.genesis_block, size);
+
+	// Vendor version, needs to be parsed out of the string
+	std::string version;
+	set_mode (vendor_versions, version, size);
+
+	// May only have major version, but check for optional parameters as well, only output if all are used
+	std::vector<std::string> version_fragments;
+	boost::split (version_fragments, version, boost::is_any_of ("."));
+	assert (!version_fragments.empty () && version_fragments.size () <= 5);
+	consolidated_data.major_version = boost::lexical_cast<uint8_t> (version_fragments.front ());
+	if (version_fragments.size () == 5)
+	{
+		consolidated_data.minor_version = boost::lexical_cast<uint8_t> (version_fragments[1]);
+		consolidated_data.patch_version = boost::lexical_cast<uint8_t> (version_fragments[2]);
+		consolidated_data.pre_release_version = boost::lexical_cast<uint8_t> (version_fragments[3]);
+		consolidated_data.maker = boost::lexical_cast<uint8_t> (version_fragments[4]);
+	}
+
+	// Consolidate timestamps
+	auto timestamp_sum = strip_outliers_and_sum (timestamp_counts);
+	auto consolidated_timestamp = boost::numeric_cast<long long> (timestamp_sum / size);
+
+	return telemetry_data_time_pair{ consolidated_data, std::chrono::steady_clock::time_point{}, std::chrono::system_clock::time_point (std::chrono::milliseconds (consolidated_timestamp)) };
 }

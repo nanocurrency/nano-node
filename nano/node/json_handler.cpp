@@ -2295,8 +2295,7 @@ void nano::json_handler::frontiers ()
 
 void nano::json_handler::account_count ()
 {
-	auto transaction (node.store.tx_begin_read ());
-	auto size (node.store.account_count (transaction));
+	auto size (node.ledger.cache.account_count.load ());
 	response_l.put ("count", std::to_string (size));
 	response_errors ();
 }
@@ -4003,13 +4002,15 @@ void nano::json_handler::telemetry ()
 			else
 			{
 				nano::jsonconfig config_l;
-				std::vector<nano::telemetry_data> telemetry_data;
-				telemetry_data.reserve (batched_telemetry_metrics_a.telemetry_data_time_pairs.size ());
-				std::transform (batched_telemetry_metrics_a.telemetry_data_time_pairs.begin (), batched_telemetry_metrics_a.telemetry_data_time_pairs.end (), std::back_inserter (telemetry_data), [](auto const & telemetry_data_time_pair_a) {
-					return telemetry_data_time_pair_a.second.data;
+				std::vector<nano::telemetry_data_time_pair> telemetry_data_time_pairs;
+				telemetry_data_time_pairs.reserve (batched_telemetry_metrics_a.telemetry_data_time_pairs.size ());
+				std::transform (batched_telemetry_metrics_a.telemetry_data_time_pairs.begin (), batched_telemetry_metrics_a.telemetry_data_time_pairs.end (), std::back_inserter (telemetry_data_time_pairs), [](auto const & telemetry_data_time_pair_a) {
+					return telemetry_data_time_pair_a.second;
 				});
-				auto average_telemetry_metrics = nano::telemetry_data::consolidate (telemetry_data);
-				auto err = average_telemetry_metrics.serialize_json (config_l);
+
+				auto average_telemetry_metrics = nano::consolidate_telemetry_data_time_pairs (telemetry_data_time_pairs);
+				auto err = average_telemetry_metrics.data.serialize_json (config_l);
+				config_l.put ("timestamp", std::chrono::duration_cast<std::chrono::seconds> ( average_telemetry_metrics.system_last_updated.time_since_epoch ()).count ());
 				auto const & ptree = config_l.get_tree ();
 
 				if (!err)

@@ -62,7 +62,7 @@ public:
 private:
 	// Class only available to the telemetry class
 	void get_metrics_async (std::deque<std::shared_ptr<nano::transport::channel>> const & channels_a, std::function<void(telemetry_data_responses const &)> const & callback_a);
-	void add (nano::telemetry_data const & telemetry_data_a, nano::endpoint const & endpoint_a);
+	void add (nano::telemetry_data const & telemetry_data_a, nano::endpoint const & endpoint_a, bool is_empty_a);
 	size_t telemetry_data_size ();
 
 	nano::network_params network_params;
@@ -121,8 +121,9 @@ public:
 	/*
 	 * Add telemetry metrics received from this endpoint.
 	 * Should this be unsolicited, it will not be added.
+	 * Some peers may have disabled responding with telemetry data, need to account for this
 	 */
-	void add (nano::telemetry_data const & telemetry_data_a, nano::endpoint const & endpoint_a);
+	void add (nano::telemetry_data const & telemetry_data_a, nano::endpoint const & endpoint_a, bool is_empty_a);
 
 	/*
 	 * Collects metrics from all known peers and invokes the callback when complete.
@@ -191,4 +192,7 @@ private:
 };
 
 std::unique_ptr<nano::container_info_component> collect_container_info (telemetry & telemetry, const std::string & name);
+
+nano::telemetry_data consolidate_telemetry_data (std::vector<telemetry_data> const & telemetry_data);
+nano::telemetry_data_time_pair consolidate_telemetry_data_time_pairs (std::vector<telemetry_data_time_pair> const & telemetry_data_time_pairs);
 }
