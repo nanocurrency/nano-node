@@ -67,17 +67,17 @@ private:
 	std::unordered_map<account, confirmed_info> accounts_confirmed_info;
 	std::atomic<uint64_t> accounts_confirmed_info_size{ 0 };
 
-	class conf_height_details final
+	class receive_details final
 	{
 	public:
-		conf_height_details (nano::account const &, nano::block_hash const &, uint64_t, nano::block_hash const &, boost::optional<nano::block_hash>, nano::block_hash const & iterated_frontier, uint64_t iterated_frontier_height_a);
+		receive_details (nano::account const &, nano::block_hash const &, uint64_t, nano::block_hash const &, boost::optional<nano::block_hash>, nano::block_hash const &, uint64_t);
 		nano::account account;
 		nano::block_hash hash;
-		uint64_t num_blocks_confirmed;
+		uint64_t height;
 		nano::block_hash top_level;
 		boost::optional<nano::block_hash> next;
-		nano::block_hash iterated_frontier;
-		uint64_t iterated_frontier_height;
+		nano::block_hash bottom_most;
+		uint64_t num_blocks_confirmed;
 	};
 
 	class preparation_data final
@@ -92,7 +92,7 @@ private:
 		nano::account const & account;
 		uint64_t num_contiguous_non_receive_blocks;
 		nano::block_hash const & bottom_most;
-		boost::optional<conf_height_details> & receive_details;
+		boost::optional<receive_details> & receive_details;
 		boost::optional<top_hash> & next_in_receive_chain;
 	};
 
@@ -109,9 +109,9 @@ private:
 	class receive_source_pair final
 	{
 	public:
-		receive_source_pair (conf_height_details const &, const nano::block_hash &);
+		receive_source_pair (receive_details const &, const nano::block_hash &);
 
-		conf_height_details receive_details;
+		receive_details receive_details;
 		nano::block_hash source_hash;
 	};
 
@@ -153,7 +153,7 @@ private:
 	friend class confirmation_height_dependent_election_after_already_cemented_Test;
 
 private:
-	top_hash get_next_block (boost::optional<top_hash> const &, boost::circular_buffer_space_optimized<nano::block_hash> const &, boost::circular_buffer_space_optimized<receive_source_pair> const & receive_source_pairs, boost::optional<conf_height_details> &);
+	top_hash get_next_block (boost::optional<top_hash> const &, boost::circular_buffer_space_optimized<nano::block_hash> const &, boost::circular_buffer_space_optimized<receive_source_pair> const & receive_source_pairs, boost::optional<receive_details> &);
 	nano::block_hash get_least_unconfirmed_hash_from_top_level (nano::transaction const &, nano::block_hash const &, nano::account const &, nano::confirmation_height_info const &, uint64_t);
 	void notify_observers (std::vector<callback_data> const & cemented_blocks);
 	void prepare_iterated_blocks_for_cementing (preparation_data const &);
