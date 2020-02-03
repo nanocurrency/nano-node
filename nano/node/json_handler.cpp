@@ -3910,6 +3910,12 @@ void nano::json_handler::telemetry ()
 			uint16_t port;
 			if (!nano::parse_port (*port_text, port))
 			{
+				if (!address_text->empty () && address_text->front () == '[' && address_text->back () == ']')
+				{
+					// Chop the square brackets off as make_address_v6 doesn't always like them
+					address_text = address_text->substr (1, address_text->size () - 2);
+				}
+
 				boost::system::error_code address_ec;
 				auto address (boost::asio::ip::make_address_v6 (*address_text, address_ec));
 				if (!address_ec)
