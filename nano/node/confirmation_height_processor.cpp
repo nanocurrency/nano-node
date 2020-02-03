@@ -107,7 +107,7 @@ void nano::confirmation_height_processor::add (nano::block_hash const & hash_a)
 // 3 - The last checkpoint hit.
 // 4 - The hash that was passed in originally. Either all checkpoints were exhausted (this can happen when there are many accounts to genesis)
 //     or all other blocks have been processed.
-nano::confirmation_height_processor::top_hash nano::confirmation_height_processor::get_next_block (boost::optional<top_hash> const & next_in_receive_chain_a, boost::circular_buffer_space_optimized<nano::block_hash> const & checkpoints_a, boost::circular_buffer_space_optimized<receive_source_pair> const & receive_source_pairs, boost::optional<receive_details> & receive_details_a)
+nano::confirmation_height_processor::top_hash nano::confirmation_height_processor::get_next_block (boost::optional<top_hash> const & next_in_receive_chain_a, boost::circular_buffer_space_optimized<nano::block_hash> const & checkpoints_a, boost::circular_buffer_space_optimized<receive_source_pair> const & receive_source_pairs, boost::optional<receive_chain_details> & receive_details_a)
 {
 	top_hash next;
 	if (next_in_receive_chain_a.is_initialized ())
@@ -135,13 +135,12 @@ nano::confirmation_height_processor::top_hash nano::confirmation_height_processo
 nano::block_hash nano::confirmation_height_processor::get_least_unconfirmed_hash_from_top_level (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::account const & account_a, nano::confirmation_height_info const & confirmation_height_info_a, uint64_t block_height_a)
 {
 	nano::block_hash least_unconfirmed_hash = hash_a;
-	bool already_cemented = false;
 	nano::block_sideband sideband;
 	if (confirmation_height_info_a.height != 0)
 	{
 		if (block_height_a > confirmation_height_info_a.height)
 		{
-			auto block_l = ledger.store.block_get (transaction_a, confirmation_height_info_a.frontier, &sideband);
+			release_assert (ledger.store.block_get (transaction_a, confirmation_height_info_a.frontier, &sideband) != nullptr);
 			least_unconfirmed_hash = sideband.successor;
 		}
 	}
@@ -149,7 +148,7 @@ nano::block_hash nano::confirmation_height_processor::get_least_unconfirmed_hash
 	{
 		// No blocks have been confirmed, so the first block will be the open block
 		nano::account_info account_info;
-		ledger.store.account_get (transaction_a, account_a, account_info);
+		release_assert (!ledger.store.account_get (transaction_a, account_a, account_info));
 		least_unconfirmed_hash = account_info.open_block;
 	}
 	return least_unconfirmed_hash;
@@ -176,7 +175,7 @@ void nano::confirmation_height_processor::process ()
 	nano::block_hash current;
 	do
 	{
-		boost::optional<receive_details> receive_details;
+		boost::optional<receive_chain_details> receive_details;
 		auto hash_to_process = get_next_block (next_in_receive_chain, checkpoints, receive_source_pairs, receive_details);
 		current = hash_to_process.top;
 
@@ -306,7 +305,7 @@ bool nano::confirmation_height_processor::iterate (nano::read_transaction const 
 			hit_receive = true;
 			reached_target = true;
 			auto next = !sideband.successor.is_zero () && sideband.successor != top_level_hash_a ? boost::optional<nano::block_hash> (sideband.successor) : boost::none;
-			receive_source_pairs_a.push_back (receive_source_pair{ receive_details{ account_a, hash, sideband.height, top_level_hash_a, next, start_hash_a, num_contiguous_non_receive_blocks_a + 1 }, source });
+			receive_source_pairs_a.push_back (receive_source_pair{ receive_chain_details{ account_a, hash, sideband.height, top_level_hash_a, next, start_hash_a, num_contiguous_non_receive_blocks_a + 1 }, source });
 			// Store a checkpoint every max_items so that we can always traverse a long number of accounts to genesis
 			if (receive_source_pairs_a.size () % max_items == 0)
 			{
@@ -562,7 +561,7 @@ void nano::confirmation_height_processor::notify_observers (std::vector<callback
 	}
 }
 
-nano::confirmation_height_processor::receive_details::receive_details (nano::account const & account_a, nano::block_hash const & hash_a, uint64_t height_a, nano::block_hash const & top_level_a, boost::optional<nano::block_hash> next_a, nano::block_hash const & bottom_most_a, uint64_t num_blocks_confirmed_a) :
+nano::confirmation_height_processor::receive_chain_details::receive_chain_details (nano::account const & account_a, nano::block_hash const & hash_a, uint64_t height_a, nano::block_hash const & top_level_a, boost::optional<nano::block_hash> next_a, nano::block_hash const & bottom_most_a, uint64_t num_blocks_confirmed_a) :
 hash (hash_a),
 height (height_a),
 top_level (top_level_a),
@@ -618,7 +617,7 @@ nano::block_hash nano::confirmation_height_processor::current ()
 	return original_hash;
 }
 
-nano::confirmation_height_processor::receive_source_pair::receive_source_pair (confirmation_height_processor::receive_details const & receive_details_a, const block_hash & source_a) :
+nano::confirmation_height_processor::receive_source_pair::receive_source_pair (confirmation_height_processor::receive_chain_details const & receive_details_a, const block_hash & source_a) :
 receive_details (receive_details_a),
 source_hash (source_a)
 {
