@@ -4010,7 +4010,7 @@ void nano::json_handler::telemetry ()
 
 				auto average_telemetry_metrics = nano::consolidate_telemetry_data_time_pairs (telemetry_data_time_pairs);
 				auto err = average_telemetry_metrics.data.serialize_json (config_l);
-				config_l.put ("timestamp", std::chrono::duration_cast<std::chrono::seconds> ( average_telemetry_metrics.system_last_updated.time_since_epoch ()).count ());
+				config_l.put ("timestamp", std::chrono::duration_cast<std::chrono::seconds> (average_telemetry_metrics.system_last_updated.time_since_epoch ()).count ());
 				auto const & ptree = config_l.get_tree ();
 
 				if (!err)
