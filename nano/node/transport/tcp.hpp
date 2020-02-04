@@ -40,7 +40,9 @@ namespace transport
 		}
 		std::weak_ptr<nano::socket> socket;
 		std::weak_ptr<nano::bootstrap_server> response_server;
-		bool server{ false };
+		/* Mark for temporary channels. Usually remote ports of these channels are ephemeral and received from incoming connections to server.
+		If remote part has open listening port, temporary channel will be replaced with direct connection to listening port soon. But if other side is behing NAT or firewall this connection can be pemanent. */
+		std::atomic<bool> temporary{ false };
 
 		nano::endpoint get_endpoint () const override
 		{
@@ -85,7 +87,7 @@ namespace transport
 		size_t size () const;
 		std::shared_ptr<nano::transport::channel_tcp> find_channel (nano::tcp_endpoint const &) const;
 		void random_fill (std::array<nano::endpoint, 8> &) const;
-		std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (size_t, uint8_t = 0) const;
+		std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (size_t, uint8_t = 0, bool = false) const;
 		bool store_all (bool = true);
 		std::shared_ptr<nano::transport::channel_tcp> find_node_id (nano::account const &);
 		// Get the next peer for attempting a tcp connection
@@ -101,7 +103,7 @@ namespace transport
 		std::unique_ptr<container_info_component> collect_container_info (std::string const &);
 		void purge (std::chrono::steady_clock::time_point const &);
 		void ongoing_keepalive ();
-		void list (std::deque<std::shared_ptr<nano::transport::channel>> &, bool = true, uint8_t = 0);
+		void list (std::deque<std::shared_ptr<nano::transport::channel>> &, uint8_t = 0, bool = true);
 		void modify (std::shared_ptr<nano::transport::channel_tcp>, std::function<void(std::shared_ptr<nano::transport::channel_tcp>)>);
 		void update (nano::tcp_endpoint const &);
 		// Connection start

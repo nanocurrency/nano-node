@@ -438,8 +438,7 @@ TEST (node, mass_vote_by_hash)
 {
 	nano::system system (1);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-	nano::genesis genesis;
-	nano::block_hash previous (genesis.hash ());
+	nano::block_hash previous (nano::genesis_hash);
 	nano::keypair key;
 	std::vector<std::shared_ptr<nano::state_block>> blocks;
 	for (auto i (0); i < 10000; ++i)

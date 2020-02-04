@@ -127,7 +127,7 @@ void nano::telemetry::ongoing_req_all_peers ()
 
 void nano::telemetry::get_metrics_peers_async (std::function<void(telemetry_data_responses const &)> const & callback_a)
 {
-	auto peers = network.list (std::numeric_limits<size_t>::max (), false, network_params.protocol.telemetry_protocol_version_min);
+	auto peers = network.list (std::numeric_limits<size_t>::max (), network_params.protocol.telemetry_protocol_version_min, false);
 	nano::lock_guard<std::mutex> guard (mutex);
 	if (!stopped && !peers.empty ())
 	{
