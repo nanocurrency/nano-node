@@ -969,7 +969,7 @@ TEST (mdb_block_store, upgrade_v6_v7)
 		nano::ledger_cache ledger_cache;
 		store.initialize (transaction, genesis, ledger_cache);
 		store.version_put (transaction, 6);
-		modify_account_info_to_v13 (store, transaction, nano::genesis_account, genesis.open->hash ());
+		modify_account_info_to_v13 (store, transaction, nano::genesis_account, nano::genesis_hash);
 		auto send1 (std::make_shared<nano::send_block> (0, 0, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 		store.unchecked_put (transaction, send1->hash (), send1);
 		store.flush (transaction);
@@ -1083,7 +1083,7 @@ TEST (block_store, sequence_flush_by_hash)
 	auto transaction (store->tx_begin_write ());
 	nano::keypair key1;
 	std::vector<nano::block_hash> blocks1;
-	blocks1.push_back (nano::genesis ().hash ());
+	blocks1.push_back (nano::genesis_hash);
 	blocks1.push_back (1234);
 	blocks1.push_back (5678);
 	auto vote1 (store->vote_generate (transaction, key1.pub, key1.prv, blocks1));
@@ -1163,7 +1163,7 @@ TEST (mdb_block_store, upgrade_sideband_genesis)
 		store.version_put (transaction, 11);
 		nano::ledger_cache ledger_cache;
 		store.initialize (transaction, genesis, ledger_cache);
-		modify_account_info_to_v13 (store, transaction, nano::genesis_account, genesis.open->hash ());
+		modify_account_info_to_v13 (store, transaction, nano::genesis_account, nano::genesis_hash);
 		nano::block_sideband sideband;
 		auto genesis_block (store.block_get (transaction, genesis.hash (), &sideband));
 		ASSERT_NE (nullptr, genesis_block);
@@ -1346,7 +1346,7 @@ TEST (mdb_block_store, upgrade_sideband_epoch)
 
 		nano::mdb_val value;
 		ASSERT_FALSE (mdb_get (store.env.tx (transaction), store.state_blocks_v1, nano::mdb_val (hash2), value));
-		ASSERT_FALSE (mdb_get (store.env.tx (transaction), store.open_blocks, nano::mdb_val (genesis.open->hash ()), value));
+		ASSERT_FALSE (mdb_get (store.env.tx (transaction), store.open_blocks, nano::mdb_val (nano::genesis_hash), value));
 
 		ASSERT_FALSE (mdb_dbi_open (store.env.tx (transaction), "accounts_v1", MDB_CREATE, &store.accounts_v1));
 		modify_account_info_to_v13 (store, transaction, nano::genesis_account, hash2);
@@ -1582,7 +1582,7 @@ TEST (mdb_block_store, upgrade_v13_v14)
 		nano::account_info account_info;
 		ASSERT_FALSE (store.account_get (transaction, nano::genesis_account, account_info));
 		store.version_put (transaction, 13);
-		modify_account_info_to_v13 (store, transaction, nano::genesis_account, genesis.open->hash ());
+		modify_account_info_to_v13 (store, transaction, nano::genesis_account, nano::genesis_hash);
 
 		// This should fail as sizes are no longer correct for account_info_v14
 		nano::mdb_val value;
@@ -1917,7 +1917,7 @@ TEST (mdb_block_store, upgrade_confirmation_height_many)
 		store.version_put (transaction, 13);
 		nano::ledger_cache ledger_cache;
 		store.initialize (transaction, genesis, ledger_cache);
-		modify_account_info_to_v13 (store, transaction, nano::genesis_account, genesis.open->hash ());
+		modify_account_info_to_v13 (store, transaction, nano::genesis_account, nano::genesis_hash);
 
 		// Add many accounts
 		for (auto i = 0; i < total_num_accounts - 1; ++i)
