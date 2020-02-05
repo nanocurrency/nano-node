@@ -1023,8 +1023,7 @@ TEST (confirmation_height, callback_confirmed_history)
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::observer, nano::stat::detail::observer_confirmation_active_quorum, nano::stat::dir::out));
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::observer, nano::stat::detail::observer_confirmation_inactive, nano::stat::dir::out));
 
-	nano::lock_guard<std::mutex> guard (node->active.mutex);
-	ASSERT_EQ (0, node->active.election_winner_details.size ());
+	ASSERT_EQ (0, node->active.election_winner_details_size ());
 }
 
 namespace nano
@@ -1089,8 +1088,7 @@ TEST (confirmation_height, dependent_election)
 	ASSERT_EQ (1, node->stats.count (nano::stat::type::observer, nano::stat::detail::observer_confirmation_inactive, nano::stat::dir::out));
 	ASSERT_EQ (3, node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in));
 
-	nano::lock_guard<std::mutex> guard (node->active.mutex);
-	ASSERT_EQ (0, node->active.election_winner_details.size ());
+	ASSERT_EQ (0, node->active.election_winner_details_size ());
 }
 
 // This test checks that a receive block with uncemented blocks below cements them too.
