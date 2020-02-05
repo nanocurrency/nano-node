@@ -44,6 +44,7 @@ void nano::rep_crawler::validate ()
 	{
 		auto & vote = i.second;
 		auto & channel = i.first;
+		assert (channel != nullptr);
 		nano::uint128_t rep_weight = node.ledger.weight (vote->account);
 		if (rep_weight > minimum)
 		{
@@ -165,6 +166,7 @@ void nano::rep_crawler::query (std::vector<std::shared_ptr<nano::transport::chan
 	}
 	for (auto i (channels_a.begin ()), n (channels_a.end ()); i != n; ++i)
 	{
+		assert (*i != nullptr);
 		on_rep_request (*i);
 		node.network.send_confirm_req (*i, block);
 	}
@@ -233,16 +235,18 @@ nano::uint128_t nano::rep_crawler::total_weight () const
 void nano::rep_crawler::on_rep_request (std::shared_ptr<nano::transport::channel> channel_a)
 {
 	nano::lock_guard<std::mutex> lock (probable_reps_mutex);
-
-	probably_rep_t::index<tag_channel_ref>::type & channel_ref_index = probable_reps.get<tag_channel_ref> ();
-
-	// Find and update the timestamp on all reps available on the endpoint (a single host may have multiple reps)
-	auto itr_pair = probable_reps.get<tag_channel_ref> ().equal_range (*channel_a);
-	for (; itr_pair.first != itr_pair.second; itr_pair.first++)
+	if (channel_a->get_tcp_endpoint ().address () != boost::asio::ip::address_v6::any ())
 	{
-		channel_ref_index.modify (itr_pair.first, [](nano::representative & value_a) {
-			value_a.last_request = std::chrono::steady_clock::now ();
-		});
+		probably_rep_t::index<tag_channel_ref>::type & channel_ref_index = probable_reps.get<tag_channel_ref> ();
+
+		// Find and update the timestamp on all reps available on the endpoint (a single host may have multiple reps)
+		auto itr_pair = channel_ref_index.equal_range (*channel_a);
+		for (; itr_pair.first != itr_pair.second; itr_pair.first++)
+		{
+			channel_ref_index.modify (itr_pair.first, [](nano::representative & value_a) {
+				value_a.last_request = std::chrono::steady_clock::now ();
+			});
+		}
 	}
 }
 
@@ -252,9 +256,19 @@ void nano::rep_crawler::cleanup_reps ()
 	{
 		// Check known rep channels
 		nano::lock_guard<std::mutex> lock (probable_reps_mutex);
-		for (auto const & rep : probable_reps.get<tag_last_request> ())
+		auto iterator (probable_reps.get<tag_last_request> ().begin ());
+		while (iterator != probable_reps.get<tag_last_request> ().end ())
 		{
-			channels.push_back (rep.channel);
+			if (iterator->channel->get_tcp_endpoint ().address () != boost::asio::ip::address_v6::any ())
+			{
+				channels.push_back (iterator->channel);
+				++iterator;
+			}
+			else
+			{
+				// Remove reps with closed channels
+				iterator = probable_reps.get<tag_last_request> ().erase (iterator);
+			}
 		}
 	}
 	// Remove reps with inactive channels
