@@ -14,6 +14,7 @@ namespace nano
 {
 using endpoint = boost::asio::ip::udp::endpoint;
 bool parse_port (std::string const &, uint16_t &);
+bool parse_address_ipv6 (std::string const &, boost::asio::ip::address_v6 &);
 bool parse_address_port (std::string const &, boost::asio::ip::address &, uint16_t &);
 using tcp_endpoint = boost::asio::ip::tcp::endpoint;
 bool parse_endpoint (std::string const &, nano::endpoint &);

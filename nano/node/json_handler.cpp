@@ -3910,15 +3910,8 @@ void nano::json_handler::telemetry ()
 			uint16_t port;
 			if (!nano::parse_port (*port_text, port))
 			{
-				if (!address_text->empty () && address_text->front () == '[' && address_text->back () == ']')
-				{
-					// Chop the square brackets off as make_address_v6 doesn't always like them
-					address_text = address_text->substr (1, address_text->size () - 2);
-				}
-
-				boost::system::error_code address_ec;
-				auto address (boost::asio::ip::make_address_v6 (*address_text, address_ec));
-				if (!address_ec)
+				boost::asio::ip::address_v6 address;
+				if (!nano::parse_address_ipv6 (*address_text, address))
 				{
 					nano::endpoint endpoint (address, port);
 					channel = node.network.find_channel (endpoint);
@@ -3984,7 +3977,6 @@ void nano::json_handler::telemetry ()
 		node.telemetry.get_metrics_peers_async ([rpc_l, output_raw](auto const & batched_telemetry_metrics_a) {
 			if (output_raw)
 			{
-				std::unordered_map<nano::endpoint, telemetry_data_time_pair> telemetry_data_time_pairs;
 				boost::property_tree::ptree metrics;
 				for (auto & telemetry_metrics : batched_telemetry_metrics_a.telemetry_data_time_pairs)
 				{

@@ -1365,6 +1365,22 @@ bool nano::parse_port (std::string const & string_a, uint16_t & port_a)
 	return result;
 }
 
+// Can handle ipv6 address with and without square brackets
+bool nano::parse_address_ipv6 (std::string const & address_text_a, boost::asio::ip::address_v6 & address_a)
+{
+	auto result (false);
+	auto address_text = address_text_a;
+	if (!address_text.empty () && address_text.front () == '[' && address_text.back () == ']')
+	{
+		// Chop the square brackets off as make_address_v6 doesn't always like them
+		address_text = address_text.substr (1, address_text.size () - 2);
+	}
+
+	boost::system::error_code address_ec;
+	address_a = boost::asio::ip::make_address_v6 (address_text, address_ec);
+	return !!address_ec;
+}
+
 bool nano::parse_address_port (std::string const & string, boost::asio::ip::address & address_a, uint16_t & port_a)
 {
 	auto result (false);
@@ -1433,8 +1449,7 @@ bool nano::parse_tcp_endpoint (std::string const & string, nano::tcp_endpoint & 
 
 std::chrono::seconds nano::telemetry_cache_cutoffs::network_to_time (network_constants const & network_constants)
 {
-	// 15s for beta to allow for quicker diagnostics, 60s for live
-	return std::chrono::seconds{ network_constants.is_live_network () ? 60 : network_constants.is_beta_network () ? 15 : 2 };
+	return std::chrono::seconds{ network_constants.is_live_network () ? live : network_constants.is_beta_network () ? beta : test };
 }
 
 nano::node_singleton_memory_pool_purge_guard::node_singleton_memory_pool_purge_guard () :
