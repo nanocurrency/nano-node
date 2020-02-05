@@ -330,7 +330,7 @@ TEST (node_telemetry, many_nodes)
 	for (auto i = 0; i < num_nodes; ++i)
 	{
 		nano::node_config node_config (nano::get_available_port (), system.logging);
-		// Make a metric completely different for each node so we can get afterwards that there are no duplicates
+		// Make a metric completely different for each node so we can check afterwards that there are no duplicates
 		node_config.bandwidth_limit = 100000 + i;
 		system.add_node (node_config);
 	}
@@ -386,7 +386,7 @@ TEST (node_telemetry, many_nodes)
 		ASSERT_EQ (data.genesis_block, genesis.hash ());
 	}
 
-	// We gave some nodes different bandwidth caps, confirm they are not all the time
+	// We gave some nodes different bandwidth caps, confirm they are not all the same
 	auto bandwidth_cap = all_telemetry_data_time_pairs.begin ()->second.data.bandwidth_cap;
 	all_telemetry_data_time_pairs.erase (all_telemetry_data_time_pairs.begin ());
 	auto all_bandwidth_limits_same = std::all_of (all_telemetry_data_time_pairs.begin (), all_telemetry_data_time_pairs.end (), [bandwidth_cap](auto & telemetry_data_time_pair) {
