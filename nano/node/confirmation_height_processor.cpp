@@ -194,13 +194,23 @@ void nano::confirmation_height_processor::process ()
 			confirmation_height_info.frontier = account_it->second.iterated_frontier;
 		}
 
-		auto block_height (ledger.store.block_account_height (transaction, current));
+		nano::block_sideband sideband;
+		auto block = ledger.store.block_get (transaction, current, &sideband);
+		assert (block != nullptr);
+		auto block_height = sideband.height;
 		bool already_cemented = confirmation_height_info.height >= block_height;
 
 		// If we are not already at the bottom of the account chain (1 above cemented frontier) then find it
 		if (!already_cemented && block_height - confirmation_height_info.height > 1)
 		{
-			if (!next_in_receive_chain.is_initialized ())
+			if (block_height - confirmation_height_info.height == 2)
+			{
+				// If there is 1 uncemented block in-between this block and the cemented frontier,
+				// we can just use the previous block to get the least unconfirmed hash.
+				current = block->previous ();
+				--block_height;
+			}
+			else if (!next_in_receive_chain.is_initialized ())
 			{
 				current = get_least_unconfirmed_hash_from_top_level (transaction, current, account, confirmation_height_info, block_height);
 			}
