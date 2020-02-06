@@ -736,7 +736,7 @@ TEST (confirmation_height, pending_observer_callbacks)
 	node->confirmation_height_processor.add (send1->hash ());
 
 	system.deadline_set (10s);
-	while (1 != node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) || 1 != node->ledger.stats.count (nano::stat::type::observer, nano::stat::detail::all, nano::stat::dir::out))
+	while (node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) != 1 || node->ledger.stats.count (nano::stat::type::observer, nano::stat::detail::all, nano::stat::dir::out) != 1)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -1275,11 +1275,9 @@ TEST (confirmation_height, election_winner_details_clearing)
 	}
 
 	system.deadline_set (10s);
-	auto transaction = node->store.tx_begin_read ();
 	while (node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) != 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
-		transaction.refresh ();
 	}
 
 	ASSERT_EQ (0, node->active.election_winner_details_size ());
