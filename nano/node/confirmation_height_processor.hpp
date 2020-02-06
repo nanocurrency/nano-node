@@ -160,7 +160,7 @@ private:
 	top_and_next_hash get_next_block (boost::optional<top_and_next_hash> const &, boost::circular_buffer_space_optimized<nano::block_hash> const &, boost::circular_buffer_space_optimized<receive_source_pair> const & receive_source_pairs, boost::optional<receive_chain_details> &);
 	nano::block_hash get_least_unconfirmed_hash_from_top_level (nano::transaction const &, nano::block_hash const &, nano::account const &, nano::confirmation_height_info const &, uint64_t &);
 	void notify_observers (std::vector<callback_data> const & cemented_blocks);
-	void prepare_iterated_blocks_for_cementing (preparation_data const &);
+	void prepare_iterated_blocks_for_cementing (preparation_data &);
 	void set_next_hash ();
 	void process ();
 	bool iterate (nano::read_transaction const &, uint64_t, nano::block_hash const &, boost::circular_buffer_space_optimized<nano::block_hash> &, nano::block_hash &, nano::block_hash const &, boost::circular_buffer_space_optimized<receive_source_pair> &, nano::account const &);

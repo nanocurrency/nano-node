@@ -352,9 +352,9 @@ bool nano::confirmation_height_processor::iterate (nano::read_transaction const 
 	return hit_receive;
 }
 
-// Once the path to genesis have been iterated to, we can begin to cement the lowest blocks in the accounts. This sets up
+// Once the path to genesis has been iterated to, we can begin to cement the lowest blocks in the accounts. This sets up
 // the non-receive blocks which have been iterated for an account, and the associated receive block.
-void nano::confirmation_height_processor::prepare_iterated_blocks_for_cementing (preparation_data const & preparation_data_a)
+void nano::confirmation_height_processor::prepare_iterated_blocks_for_cementing (preparation_data & preparation_data_a)
 {
 	if (!preparation_data_a.already_cemented)
 	{
