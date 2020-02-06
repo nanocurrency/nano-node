@@ -34,7 +34,7 @@ TEST (confirmation_height, single)
 	auto transaction = node->store.tx_begin_read ();
 	ASSERT_FALSE (node->store.confirmation_height_get (transaction, nano::test_genesis_key.pub, confirmation_height_info));
 	ASSERT_EQ (1, confirmation_height_info.height);
-	ASSERT_EQ (nano::genesis ().hash (), confirmation_height_info.frontier);
+	ASSERT_EQ (nano::genesis_hash, confirmation_height_info.frontier);
 
 	node->process_active (send1);
 	node->block_processor.flush ();
@@ -117,7 +117,7 @@ TEST (confirmation_height, multiple_accounts)
 		nano::confirmation_height_info confirmation_height_info;
 		ASSERT_FALSE (node->store.confirmation_height_get (transaction, nano::test_genesis_key.pub, confirmation_height_info));
 		ASSERT_EQ (1, confirmation_height_info.height);
-		ASSERT_EQ (nano::genesis ().hash (), confirmation_height_info.frontier);
+		ASSERT_EQ (nano::genesis_hash, confirmation_height_info.frontier);
 		ASSERT_FALSE (node->store.confirmation_height_get (transaction, key1.pub, confirmation_height_info));
 		ASSERT_EQ (0, confirmation_height_info.height);
 		ASSERT_EQ (nano::block_hash (0), confirmation_height_info.frontier);
@@ -306,7 +306,7 @@ TEST (confirmation_height, gap_live)
 			nano::confirmation_height_info confirmation_height_info;
 			ASSERT_FALSE (node->store.confirmation_height_get (transaction, nano::test_genesis_key.pub, confirmation_height_info));
 			ASSERT_EQ (1, confirmation_height_info.height);
-			ASSERT_EQ (nano::genesis ().hash (), confirmation_height_info.frontier);
+			ASSERT_EQ (nano::genesis_hash, confirmation_height_info.frontier);
 		}
 
 		// Now complete the chain where the block comes in on the live network

@@ -111,7 +111,7 @@ void nano::active_transactions::search_frontiers (nano::transaction const & tran
 							// Calculate votes for local representatives
 							if (representative)
 							{
-								this->node.block_processor.generator.add (block->hash ());
+								this->node.block_processor.generator.add (info.head);
 							}
 						}
 					}

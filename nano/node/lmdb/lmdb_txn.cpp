@@ -131,9 +131,14 @@ void nano::mdb_txn_tracker::serialize_json (boost::property_tree::ptree & json, 
 {
 	// Copying is cheap compared to generating the stack trace strings, so reduce time holding the mutex
 	std::vector<mdb_txn_stats> copy_stats;
+	std::vector<bool> are_writes;
 	{
 		nano::lock_guard<std::mutex> guard (mutex);
 		copy_stats = stats;
+		are_writes.reserve (stats.size ());
+		std::transform (stats.cbegin (), stats.cend (), std::back_inserter (are_writes), [](auto & mdb_txn_stat) {
+			return mdb_txn_stat.is_write ();
+		});
 	}
 
 	// Get the time difference now as creating stacktraces (Debug/Windows for instance) can take a while so results won't be as accurate
@@ -149,13 +154,13 @@ void nano::mdb_txn_tracker::serialize_json (boost::property_tree::ptree & json, 
 		auto const & stat = copy_stats[i];
 		auto time_held_open = times_since_start[i];
 
-		if ((stat.is_write () && time_held_open >= min_write_time) || (!stat.is_write () && time_held_open >= min_read_time))
+		if ((are_writes[i] && time_held_open >= min_write_time) || (!are_writes[i] && time_held_open >= min_read_time))
 		{
 			nano::jsonconfig mdb_lock_config;
 
 			mdb_lock_config.put ("thread", stat.thread_name);
 			mdb_lock_config.put ("time_held_open", time_held_open.count ());
-			mdb_lock_config.put ("write", stat.is_write ());
+			mdb_lock_config.put ("write", !!are_writes[i]);
 
 			boost::property_tree::ptree stacktrace_config;
 			for (auto frame : *stat.stacktrace)

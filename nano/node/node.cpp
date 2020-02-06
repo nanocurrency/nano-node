@@ -164,6 +164,7 @@ startup_time (std::chrono::steady_clock::now ())
 			observers.wallet.notify (active);
 		};
 		network.channel_observer = [this](std::shared_ptr<nano::transport::channel> channel_a) {
+			assert (channel_a != nullptr);
 			observers.endpoint.notify (channel_a);
 		};
 		network.disconnect_observer = [this]() {

@@ -366,25 +366,36 @@ TEST (state_block, hashing)
 	nano::keypair key;
 	nano::state_block block (key.pub, 0, key.pub, 0, 0, key.prv, key.pub, 0);
 	auto hash (block.hash ());
+	ASSERT_EQ (hash, block.hash ()); // check cache works
 	block.hashables.account.bytes[0] ^= 0x1;
+	block.refresh ();
 	ASSERT_NE (hash, block.hash ());
 	block.hashables.account.bytes[0] ^= 0x1;
+	block.refresh ();
 	ASSERT_EQ (hash, block.hash ());
 	block.hashables.previous.bytes[0] ^= 0x1;
+	block.refresh ();
 	ASSERT_NE (hash, block.hash ());
 	block.hashables.previous.bytes[0] ^= 0x1;
+	block.refresh ();
 	ASSERT_EQ (hash, block.hash ());
 	block.hashables.representative.bytes[0] ^= 0x1;
+	block.refresh ();
 	ASSERT_NE (hash, block.hash ());
 	block.hashables.representative.bytes[0] ^= 0x1;
+	block.refresh ();
 	ASSERT_EQ (hash, block.hash ());
 	block.hashables.balance.bytes[0] ^= 0x1;
+	block.refresh ();
 	ASSERT_NE (hash, block.hash ());
 	block.hashables.balance.bytes[0] ^= 0x1;
+	block.refresh ();
 	ASSERT_EQ (hash, block.hash ());
 	block.hashables.link.bytes[0] ^= 0x1;
+	block.refresh ();
 	ASSERT_NE (hash, block.hash ());
 	block.hashables.link.bytes[0] ^= 0x1;
+	block.refresh ();
 	ASSERT_EQ (hash, block.hash ());
 }
 

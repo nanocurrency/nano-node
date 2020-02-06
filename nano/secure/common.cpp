@@ -56,6 +56,14 @@ char const * live_genesis_data = R"%%%({
 	"work": "62f05417dd3fb691",
 	"signature": "9F0C933C8ADE004D808EA1985FA746A7E95BA2A38F867640F53EC8F180BDFE9E2C1268DEAD7C2664F356E37ABA362BC58E46DBA03E523A7B5A19E4B6EB12BB02"
 	})%%%";
+
+std::shared_ptr<nano::block> parse_block_from_genesis_data (std::string const & genesis_data_a)
+{
+	boost::property_tree::ptree tree;
+	std::stringstream istream (genesis_data_a);
+	boost::property_tree::read_json (istream, tree);
+	return nano::deserialize_block_json (tree);
+}
 }
 
 nano::network_params::network_params () :
@@ -92,6 +100,7 @@ nano_beta_genesis (beta_genesis_data),
 nano_live_genesis (live_genesis_data),
 genesis_account (network_a == nano::nano_networks::nano_test_network ? nano_test_account : network_a == nano::nano_networks::nano_beta_network ? nano_beta_account : nano_live_account),
 genesis_block (network_a == nano::nano_networks::nano_test_network ? nano_test_genesis : network_a == nano::nano_networks::nano_beta_network ? nano_beta_genesis : nano_live_genesis),
+genesis_hash (parse_block_from_genesis_data (genesis_block)->hash ()),
 genesis_amount (std::numeric_limits<nano::uint128_t>::max ()),
 burn_account (0)
 {
@@ -161,6 +170,7 @@ nano::keypair const & nano::test_genesis_key (test_constants.test_genesis_key);
 nano::account const & nano::nano_test_account (test_constants.nano_test_account);
 std::string const & nano::nano_test_genesis (test_constants.nano_test_genesis);
 nano::account const & nano::genesis_account (test_constants.genesis_account);
+nano::block_hash const & nano::genesis_hash (test_constants.genesis_hash);
 nano::uint128_t const & nano::genesis_amount (test_constants.genesis_amount);
 nano::account const & nano::burn_account (test_constants.burn_account);
 
@@ -795,10 +805,7 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (vo
 nano::genesis::genesis ()
 {
 	static nano::network_params network_params;
-	boost::property_tree::ptree tree;
-	std::stringstream istream (network_params.ledger.genesis_block);
-	boost::property_tree::read_json (istream, tree);
-	open = nano::deserialize_block_json (tree);
+	open = parse_block_from_genesis_data (network_params.ledger.genesis_block);
 	assert (open != nullptr);
 }
 

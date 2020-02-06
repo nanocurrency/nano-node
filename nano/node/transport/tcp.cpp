@@ -16,7 +16,7 @@ nano::transport::channel_tcp::~channel_tcp ()
 	// Close socket. Exception: socket is used by bootstrap_server
 	if (auto socket_l = socket.lock ())
 	{
-		if (!server)
+		if (!temporary)
 		{
 			socket_l->close ();
 		}
@@ -111,7 +111,7 @@ bool nano::transport::tcp_channels::insert (std::shared_ptr<nano::transport::cha
 		if (existing == channels.get<endpoint_tag> ().end ())
 		{
 			auto node_id (channel_a->get_node_id ());
-			if (!channel_a->server)
+			if (!channel_a->temporary)
 			{
 				channels.get<node_id_tag> ().erase (node_id);
 			}
@@ -152,7 +152,7 @@ std::shared_ptr<nano::transport::channel_tcp> nano::transport::tcp_channels::fin
 	return result;
 }
 
-std::unordered_set<std::shared_ptr<nano::transport::channel>> nano::transport::tcp_channels::random_set (size_t count_a, uint8_t min_version) const
+std::unordered_set<std::shared_ptr<nano::transport::channel>> nano::transport::tcp_channels::random_set (size_t count_a, uint8_t min_version, bool include_temporary_channels_a) const
 {
 	std::unordered_set<std::shared_ptr<nano::transport::channel>> result;
 	result.reserve (count_a);
@@ -169,7 +169,7 @@ std::unordered_set<std::shared_ptr<nano::transport::channel>> nano::transport::t
 			auto index (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (peers_size - 1)));
 
 			auto channel = channels.get<random_access_tag> ()[index].channel;
-			if (channel->get_network_version () >= min_version && !channel->server)
+			if (channel->get_network_version () >= min_version && (include_temporary_channels_a || !channel->temporary))
 			{
 				result.insert (channel);
 			}
@@ -284,7 +284,7 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 				temporary_channel->set_network_version (message_a.header.version_using);
 				temporary_channel->set_last_packet_received (std::chrono::steady_clock::now ());
 				temporary_channel->set_last_packet_sent (std::chrono::steady_clock::now ());
-				temporary_channel->server = true;
+				temporary_channel->temporary = true;
 				assert (type_a == nano::bootstrap_server_type::realtime || type_a == nano::bootstrap_server_type::realtime_response_server);
 				// Don't insert temporary channels for response_server
 				if (type_a == nano::bootstrap_server_type::realtime)
@@ -603,7 +603,7 @@ void nano::transport::tcp_channels::start_tcp_receive_node_id (std::shared_ptr<n
 								auto existing_channel (node_l->network.tcp_channels.find_node_id (node_id));
 								if (existing_channel)
 								{
-									process = existing_channel->server;
+									process = existing_channel->temporary;
 								}
 							}
 							if (process)
