@@ -59,6 +59,15 @@ public:
 	nano::qualified_root root;
 };
 
+class votes_timepoint final
+{
+public:
+	std::chrono::steady_clock::time_point time;
+	nano::block_hash hash;
+	std::vector<std::shared_ptr<nano::vote>> votes;
+	bool bootstrap_started{ false };
+};
+
 // Core class for determining consensus
 // Holds all active blocks i.e. recently added blocks that need confirmation
 class active_transactions final
@@ -69,6 +78,8 @@ class active_transactions final
 	class tag_root {};
 	class tag_sequence {};
 	class tag_uncemented {};
+	class tag_hash {};
+	class tag_time {};
 	// clang-format on
 
 public:
@@ -111,8 +122,8 @@ public:
 	std::deque<nano::election_status> list_confirmed ();
 	std::deque<nano::election_status> confirmed;
 	void add_confirmed (nano::election_status const &, nano::qualified_root const &);
-	void add_inactive_votes_cache (nano::block_hash const &, nano::account const &);
-	nano::gap_information find_inactive_votes_cache (nano::block_hash const &);
+	void add_inactive_votes_cache (nano::block_hash const &, std::shared_ptr<nano::vote> const &);
+	nano::votes_timepoint find_inactive_votes_cache (nano::block_hash const &);
 	void erase_inactive_votes_cache (nano::block_hash const &);
 	nano::node & node;
 	std::mutex mutex;
@@ -164,6 +175,15 @@ private:
 		mi::hashed_unique<mi::tag<tag_root>,
 			mi::identity<nano::qualified_root>>>>
 	confirmed_set;
+
+	boost::multi_index_container<nano::votes_timepoint,
+	boost::multi_index::indexed_by<
+		boost::multi_index::ordered_non_unique<boost::multi_index::tag<tag_time>,
+			boost::multi_index::member<votes_timepoint, std::chrono::steady_clock::time_point, &votes_timepoint::time>>,
+		boost::multi_index::hashed_unique<boost::multi_index::tag<tag_hash>,
+			boost::multi_index::member<votes_timepoint, nano::block_hash, &votes_timepoint::hash>>>>
+	inactive_votes_cache;
+
 	using prioritize_num_uncemented = boost::multi_index_container<nano::cementable_account,
 	mi::indexed_by<
 		mi::hashed_unique<mi::tag<tag_account>,
@@ -181,8 +201,7 @@ private:
 	void prioritize_account_for_confirmation (prioritize_num_uncemented &, size_t &, nano::account const &, nano::account_info const &, uint64_t);
 	static size_t constexpr max_priority_cementable_frontiers{ 100000 };
 	static size_t constexpr confirmed_frontiers_max_pending_cut_off{ 1000 };
-	nano::gap_cache::ordered_gaps inactive_votes_cache;
-	static size_t constexpr inactive_votes_cache_max{ 16 * 1024 };
+	static size_t constexpr inactive_votes_cache_max{ 4 * 1024 };
 	// clang-format off
 	boost::multi_index_container<nano::election_timepoint,
 	mi::indexed_by<

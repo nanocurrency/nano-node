@@ -44,13 +44,13 @@ public:
 	// clang-format off
 	class tag_arrival {};
 	class tag_hash {};
-	using ordered_gaps = boost::multi_index_container<nano::gap_information,
+	boost::multi_index_container<nano::gap_information,
 	boost::multi_index::indexed_by<
 		boost::multi_index::ordered_non_unique<boost::multi_index::tag<tag_arrival>,
 			boost::multi_index::member<gap_information, std::chrono::steady_clock::time_point, &gap_information::arrival>>,
 		boost::multi_index::hashed_unique<boost::multi_index::tag<tag_hash>,
-			boost::multi_index::member<gap_information, nano::block_hash, &gap_information::hash>>>>;
-	ordered_gaps blocks;
+			boost::multi_index::member<gap_information, nano::block_hash, &gap_information::hash>>>>
+	blocks;
 	// clang-format on
 	size_t const max = 256;
 	std::mutex mutex;

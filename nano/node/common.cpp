@@ -1,5 +1,6 @@
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/memory.hpp>
+#include <nano/lib/stream.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/election.hpp>
@@ -307,6 +308,14 @@ std::string nano::message_parser::status_string ()
 		{
 			return "invalid_network";
 		}
+		case nano::message_parser::parse_status::duplicate_publish_message:
+		{
+			return "duplicate_publish_message";
+		}
+		case nano::message_parser::parse_status::duplicate_confirm_ack_message:
+		{
+			return "duplicate_confirm_ack_message";
+		}
 	}
 
 	assert (false);
@@ -314,7 +323,9 @@ std::string nano::message_parser::status_string ()
 	return "[unknown parse_status]";
 }
 
-nano::message_parser::message_parser (nano::block_uniquer & block_uniquer_a, nano::vote_uniquer & vote_uniquer_a, nano::message_visitor & visitor_a, nano::work_pool & pool_a) :
+nano::message_parser::message_parser (nano::network_filter & publish_filter_a, nano::network_filter & confirm_ack_filter_a, nano::block_uniquer & block_uniquer_a, nano::vote_uniquer & vote_uniquer_a, nano::message_visitor & visitor_a, nano::work_pool & pool_a) :
+publish_filter (publish_filter_a),
+confirm_ack_filter (confirm_ack_filter_a),
 block_uniquer (block_uniquer_a),
 vote_uniquer (vote_uniquer_a),
 visitor (visitor_a),
@@ -350,7 +361,14 @@ void nano::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t 
 					}
 					case nano::message_type::publish:
 					{
-						deserialize_publish (stream, header);
+						if (!publish_filter.apply (buffer_a + header.size, size_a - header.size))
+						{
+							deserialize_publish (stream, header);
+						}
+						else
+						{
+							status = parse_status::duplicate_publish_message;
+						}
 						break;
 					}
 					case nano::message_type::confirm_req:
@@ -360,7 +378,14 @@ void nano::message_parser::deserialize_buffer (uint8_t const * buffer_a, size_t 
 					}
 					case nano::message_type::confirm_ack:
 					{
-						deserialize_confirm_ack (stream, header);
+						if (!confirm_ack_filter.apply (buffer_a + header.size, size_a - header.size))
+						{
+							deserialize_confirm_ack (stream, header);
+						}
+						else
+						{
+							status = parse_status::duplicate_confirm_ack_message;
+						}
 						break;
 					}
 					case nano::message_type::node_id_handshake:

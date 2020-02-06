@@ -1,3 +1,4 @@
+#include <nano/lib/stream.hpp>
 #include <nano/secure/versioning.hpp>
 
 #include <boost/endian/conversion.hpp>

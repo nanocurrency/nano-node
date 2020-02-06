@@ -7,6 +7,7 @@
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/memory.hpp>
 #include <nano/secure/common.hpp>
+#include <nano/secure/network_filter.hpp>
 
 #include <bitset>
 
@@ -198,6 +199,7 @@ public:
 	uint8_t version_min;
 	nano::message_type type;
 	std::bitset<16> extensions;
+	static size_t constexpr size = sizeof (network_params::header_magic_number) + sizeof (version_max) + sizeof (version_using) + sizeof (version_min) + sizeof (type) + sizeof (/* extensions */ uint16_t);
 
 	void flag_set (uint8_t);
 	static uint8_t constexpr bulk_pull_count_present_flag = 0;
@@ -245,9 +247,11 @@ public:
 		invalid_telemetry_ack_message,
 		outdated_version,
 		invalid_magic,
-		invalid_network
+		invalid_network,
+		duplicate_confirm_ack_message,
+		duplicate_publish_message
 	};
-	message_parser (nano::block_uniquer &, nano::vote_uniquer &, nano::message_visitor &, nano::work_pool &);
+	message_parser (nano::network_filter &, nano::network_filter &, nano::block_uniquer &, nano::vote_uniquer &, nano::message_visitor &, nano::work_pool &);
 	void deserialize_buffer (uint8_t const *, size_t);
 	void deserialize_keepalive (nano::stream &, nano::message_header const &);
 	void deserialize_publish (nano::stream &, nano::message_header const &);
@@ -257,6 +261,8 @@ public:
 	void deserialize_telemetry_req (nano::stream &, nano::message_header const &);
 	void deserialize_telemetry_ack (nano::stream &, nano::message_header const &);
 	bool at_end (nano::stream &);
+	nano::network_filter & publish_filter;
+	nano::network_filter & confirm_ack_filter;
 	nano::block_uniquer & block_uniquer;
 	nano::vote_uniquer & vote_uniquer;
 	nano::message_visitor & visitor;

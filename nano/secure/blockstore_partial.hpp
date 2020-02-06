@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/rep_weights.hpp>
+#include <nano/lib/stream.hpp>
 #include <nano/secure/blockstore.hpp>
 #include <nano/secure/buffer.hpp>
 

@@ -42,7 +42,6 @@ void nano::block_processor::flush ()
 	{
 		condition.wait (lock);
 	}
-	blocks_filter.clear ();
 }
 
 size_t nano::block_processor::size ()
@@ -72,20 +71,14 @@ void nano::block_processor::add (nano::unchecked_info const & info_a)
 	if (!nano::work_validate (info_a.block->root (), info_a.block->block_work ()))
 	{
 		{
-			auto hash (info_a.block->hash ());
-			auto filter_hash (filter_item (hash, info_a.block->block_signature ()));
 			nano::lock_guard<std::mutex> lock (mutex);
-			if (blocks_filter.find (filter_hash) == blocks_filter.end ())
+			if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
 			{
-				if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
-				{
-					state_blocks.push_back (info_a);
-				}
-				else
-				{
-					blocks.push_back (info_a);
-				}
-				blocks_filter.insert (filter_hash);
+				state_blocks.push_back (info_a);
+			}
+			else
+			{
+				blocks.push_back (info_a);
 			}
 		}
 		condition.notify_all ();
@@ -227,7 +220,6 @@ void nano::block_processor::verify_state_blocks (nano::unique_lock<std::mutex> &
 			}
 			else
 			{
-				blocks_filter.erase (filter_item (hashes[i], blocks_signatures[i]));
 				requeue_invalid (hashes[i], item);
 			}
 			items.pop_front ();
@@ -299,7 +291,6 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 			info = blocks.front ();
 			blocks.pop_front ();
 			hash = info.block->hash ();
-			blocks_filter.erase (filter_item (hash, info.block->block_signature ()));
 		}
 		else
 		{
@@ -552,19 +543,6 @@ void nano::block_processor::queue_unchecked (nano::write_transaction const & tra
 		add (info);
 	}
 	node.gap_cache.erase (hash_a);
-}
-
-nano::block_hash nano::block_processor::filter_item (nano::block_hash const & hash_a, nano::signature const & signature_a)
-{
-	static nano::random_constants constants;
-	nano::block_hash result;
-	blake2b_state state;
-	blake2b_init (&state, sizeof (result.bytes));
-	blake2b_update (&state, constants.not_an_account.bytes.data (), constants.not_an_account.bytes.size ());
-	blake2b_update (&state, signature_a.bytes.data (), signature_a.bytes.size ());
-	blake2b_update (&state, hash_a.bytes.data (), hash_a.bytes.size ());
-	blake2b_final (&state, result.bytes.data (), sizeof (result.bytes));
-	return result;
 }
 
 void nano::block_processor::requeue_invalid (nano::block_hash const & hash_a, nano::unchecked_info const & info_a)

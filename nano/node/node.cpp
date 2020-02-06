@@ -1,3 +1,4 @@
+#include <nano/lib/stream.hpp>
 #include <nano/lib/threading.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/common.hpp>
@@ -83,21 +84,18 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (bl
 {
 	size_t state_blocks_count;
 	size_t blocks_count;
-	size_t blocks_filter_count;
 	size_t forced_count;
 
 	{
 		nano::lock_guard<std::mutex> guard (block_processor.mutex);
 		state_blocks_count = block_processor.state_blocks.size ();
 		blocks_count = block_processor.blocks.size ();
-		blocks_filter_count = block_processor.blocks_filter.size ();
 		forced_count = block_processor.forced.size ();
 	}
 
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "state_blocks", state_blocks_count, sizeof (decltype (block_processor.state_blocks)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks", blocks_count, sizeof (decltype (block_processor.blocks)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks_filter", blocks_filter_count, sizeof (decltype (block_processor.blocks_filter)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "forced", forced_count, sizeof (decltype (block_processor.forced)::value_type) }));
 	composite->add_component (collect_container_info (block_processor.generator, "generator"));
 	return composite;
@@ -923,6 +921,7 @@ void nano::node::bootstrap_wallet ()
 
 void nano::node::unchecked_cleanup ()
 {
+	std::vector<std::shared_ptr<nano::block>> blocks;
 	std::deque<nano::unchecked_key> cleaning_list;
 	auto attempt (bootstrap_initiator.current_attempt ());
 	bool long_attempt (attempt != nullptr && std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt->attempt_start).count () > config.unchecked_cutoff_time.count ());
@@ -938,6 +937,7 @@ void nano::node::unchecked_cleanup ()
 			nano::unchecked_info const & info (i->second);
 			if ((now - info.modified) > static_cast<uint64_t> (config.unchecked_cutoff_time.count ()))
 			{
+				blocks.push_back (info.block);
 				cleaning_list.push_back (key);
 			}
 		}
@@ -961,6 +961,11 @@ void nano::node::unchecked_cleanup ()
 				--ledger.cache.unchecked_count;
 			}
 		}
+	}
+	// Delete from the duplicate filter
+	for (auto const & block : blocks)
+	{
+		network.publish_filter.clear (*block);
 	}
 }
 

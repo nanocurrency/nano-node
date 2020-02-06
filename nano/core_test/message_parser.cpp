@@ -63,9 +63,10 @@ TEST (message_parser, exact_confirm_ack_size)
 {
 	nano::system system (1);
 	test_visitor visitor;
+	nano::network_filter packet_filter (1);
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer (block_uniquer);
-	nano::message_parser parser (block_uniquer, vote_uniquer, visitor, system.work);
+	nano::message_parser parser (packet_filter, packet_filter, block_uniquer, vote_uniquer, visitor, system.work);
 	auto block (std::make_shared<nano::send_block> (1, 1, 2, nano::keypair ().prv, 4, *system.work.generate (nano::root (1))));
 	auto vote (std::make_shared<nano::vote> (0, nano::keypair ().prv, 0, std::move (block)));
 	nano::confirm_ack message (vote);
@@ -96,9 +97,10 @@ TEST (message_parser, exact_confirm_req_size)
 {
 	nano::system system (1);
 	test_visitor visitor;
+	nano::network_filter packet_filter (1);
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer (block_uniquer);
-	nano::message_parser parser (block_uniquer, vote_uniquer, visitor, system.work);
+	nano::message_parser parser (packet_filter, packet_filter, block_uniquer, vote_uniquer, visitor, system.work);
 	auto block (std::make_shared<nano::send_block> (1, 1, 2, nano::keypair ().prv, 4, *system.work.generate (nano::root (1))));
 	nano::confirm_req message (std::move (block));
 	std::vector<uint8_t> bytes;
@@ -128,9 +130,10 @@ TEST (message_parser, exact_confirm_req_hash_size)
 {
 	nano::system system (1);
 	test_visitor visitor;
+	nano::network_filter packet_filter (1);
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer (block_uniquer);
-	nano::message_parser parser (block_uniquer, vote_uniquer, visitor, system.work);
+	nano::message_parser parser (packet_filter, packet_filter, block_uniquer, vote_uniquer, visitor, system.work);
 	nano::send_block block (1, 1, 2, nano::keypair ().prv, 4, *system.work.generate (nano::root (1)));
 	nano::confirm_req message (block.hash (), block.root ());
 	std::vector<uint8_t> bytes;
@@ -160,9 +163,10 @@ TEST (message_parser, exact_publish_size)
 {
 	nano::system system (1);
 	test_visitor visitor;
+	nano::network_filter packet_filter (1);
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer (block_uniquer);
-	nano::message_parser parser (block_uniquer, vote_uniquer, visitor, system.work);
+	nano::message_parser parser (packet_filter, packet_filter, block_uniquer, vote_uniquer, visitor, system.work);
 	auto block (std::make_shared<nano::send_block> (1, 1, 2, nano::keypair ().prv, 4, *system.work.generate (nano::root (1))));
 	nano::publish message (std::move (block));
 	std::vector<uint8_t> bytes;
@@ -192,9 +196,10 @@ TEST (message_parser, exact_keepalive_size)
 {
 	nano::system system (1);
 	test_visitor visitor;
+	nano::network_filter packet_filter (1);
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer (block_uniquer);
-	nano::message_parser parser (block_uniquer, vote_uniquer, visitor, system.work);
+	nano::message_parser parser (packet_filter, packet_filter, block_uniquer, vote_uniquer, visitor, system.work);
 	nano::keepalive message;
 	std::vector<uint8_t> bytes;
 	{

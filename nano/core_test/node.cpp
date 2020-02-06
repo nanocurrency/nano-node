@@ -3390,6 +3390,12 @@ TEST (node, unchecked_cleanup)
 	nano::keypair key;
 	auto & node (*system.nodes[0]);
 	auto open (std::make_shared<nano::state_block> (key.pub, 0, key.pub, 1, key.pub, key.prv, key.pub, *system.work.generate (key.pub)));
+	std::vector<uint8_t> bytes;
+	{
+		nano::vectorstream stream (bytes);
+		open->serialize (stream);
+	}
+	ASSERT_FALSE (node.network.publish_filter.apply (bytes.data (), bytes.size ()));
 	node.process_active (open);
 	node.block_processor.flush ();
 	node.config.unchecked_cutoff_time = std::chrono::seconds (2);
@@ -3401,6 +3407,7 @@ TEST (node, unchecked_cleanup)
 	}
 	std::this_thread::sleep_for (std::chrono::seconds (1));
 	node.unchecked_cleanup ();
+	ASSERT_TRUE (node.network.publish_filter.apply (bytes.data (), bytes.size ()));
 	{
 		auto transaction (node.store.tx_begin_read ());
 		auto unchecked_count (node.store.unchecked_count (transaction));
@@ -3409,6 +3416,7 @@ TEST (node, unchecked_cleanup)
 	}
 	std::this_thread::sleep_for (std::chrono::seconds (2));
 	node.unchecked_cleanup ();
+	ASSERT_FALSE (node.network.publish_filter.apply (bytes.data (), bytes.size ()));
 	{
 		auto transaction (node.store.tx_begin_read ());
 		auto unchecked_count (node.store.unchecked_count (transaction));

@@ -430,8 +430,11 @@ bool nano::validate_message (nano::public_key const & public_key, nano::uint256_
 
 bool nano::validate_message_batch (const unsigned char ** m, size_t * mlen, const unsigned char ** pk, const unsigned char ** RS, size_t num, int * valid)
 {
-	bool result (0 == ed25519_sign_open_batch (m, mlen, pk, RS, num, valid));
-	return result;
+	for (size_t i{ 0 }; i < num; ++i)
+	{
+		valid[i] = (0 == ed25519_sign_open (m[i], mlen[i], pk[i], RS[i]));
+	}
+	return true;
 }
 
 nano::uint128_union::uint128_union (std::string const & string_a)

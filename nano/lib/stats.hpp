@@ -199,7 +199,8 @@ public:
 		confirmation_height,
 		drop,
 		aggregator,
-		requests
+		requests,
+		duplicate
 	};
 
 	/** Optional detail type */
@@ -312,7 +313,11 @@ public:
 		requests_generated_hashes,
 		requests_cached_votes,
 		requests_generated_votes,
-		requests_unknown
+		requests_unknown,
+
+		// duplicate
+		duplicate_publish,
+		duplicate_confirm_ack
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */

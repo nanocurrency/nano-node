@@ -757,11 +757,11 @@ bool nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 					nano::lock_guard<std::mutex> active_lock (node->active.mutex);
 					auto existing (node->active.find_inactive_votes_cache (*ii));
 					nano::uint128_t tally;
-					for (auto & voter : existing.voters)
+					for (auto const & vote : existing.votes)
 					{
-						tally += node->ledger.weight (voter);
+						tally += node->ledger.weight (vote->account);
 					}
-					if (existing.confirmed || (tally > reps_weight / 8 && existing.voters.size () >= representatives.size () * 0.6)) // 12.5% of weight, 60% of reps
+					if (existing.bootstrap_started || (tally > reps_weight / 8 && existing.votes.size () >= representatives.size () * 0.6)) // 12.5% of weight, 60% of reps
 					{
 						ii = frontiers.erase (ii);
 					}
@@ -769,7 +769,10 @@ bool nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 					{
 						for (auto const & rep : representatives)
 						{
-							if (std::find (existing.voters.begin (), existing.voters.end (), rep.account) == existing.voters.end ())
+							auto found (std::find_if (existing.votes.begin (), existing.votes.end (), [&rep](std::shared_ptr<nano::vote> const & vote_a) {
+								return vote_a->account == rep.account;
+							}));
+							if (found == existing.votes.end ())
 							{
 								release_assert (!ii->is_zero ());
 								auto rep_request (batched_confirm_req_bundle.find (rep.channel));
@@ -802,6 +805,12 @@ bool nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 		if (!confirmed)
 		{
 			node->logger.always_log (boost::str (boost::format ("Failed to confirm frontiers for bootstrap attempt. %1% of %2% frontiers were not confirmed") % frontiers.size () % frontiers_count));
+		}
+		// Clear from inactive votes cache
+		nano::lock_guard<std::mutex> active_guard (node->active.mutex);
+		for (auto const & hash : frontiers)
+		{
+			node->active.erase_inactive_votes_cache (hash);
 		}
 	}
 	lock_a.lock ();

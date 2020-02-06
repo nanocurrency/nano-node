@@ -15,6 +15,8 @@ buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receiv
 resolver (node_a.io_ctx),
 limiter (node_a.config.bandwidth_limit),
 node (node_a),
+publish_filter (128 * 1024),
+confirm_ack_filter (256 * 1024),
 udp_channels (node_a, port_a),
 tcp_channels (node_a),
 port (port_a),

@@ -61,8 +61,6 @@ private:
 	std::deque<nano::unchecked_info> state_blocks;
 	std::deque<nano::unchecked_info> blocks;
 	std::deque<std::shared_ptr<nano::block>> forced;
-	nano::block_hash filter_item (nano::block_hash const &, nano::signature const &);
-	std::unordered_set<nano::block_hash> blocks_filter;
 	nano::condition_variable condition;
 	nano::node & node;
 	nano::write_database_queue & write_database_queue;

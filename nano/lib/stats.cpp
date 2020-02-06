@@ -444,6 +444,9 @@ std::string nano::stat::type_to_string (uint32_t key)
 		case nano::stat::type::requests:
 			res = "requests";
 			break;
+		case nano::stat::type::duplicate:
+			res = "duplicate";
+			break;
 	}
 	return res;
 }
@@ -687,6 +690,12 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 		case nano::stat::detail::requests_unknown:
 			res = "requests_unknown";
+			break;
+		case nano::stat::detail::duplicate_publish:
+			res = "duplicate_publish";
+			break;
+		case nano::stat::detail::duplicate_confirm_ack:
+			res = "duplicate_confirm_ack";
 			break;
 	}
 	return res;

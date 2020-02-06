@@ -295,22 +295,26 @@ void nano::election::clear_blocks ()
 void nano::election::insert_inactive_votes_cache (nano::block_hash const & hash_a)
 {
 	auto cache (node.active.find_inactive_votes_cache (hash_a));
-	for (auto & rep : cache.voters)
+	for (auto const & vote : cache.votes)
 	{
-		auto inserted (last_votes.emplace (rep, nano::vote_info{ std::chrono::steady_clock::time_point::min (), 0, hash_a }));
+		auto inserted (last_votes.emplace (vote->account, nano::vote_info{ std::chrono::steady_clock::time_point::min (), 0, hash_a }));
 		if (inserted.second)
 		{
 			node.stats.inc (nano::stat::type::election, nano::stat::detail::vote_cached);
 		}
 	}
-	if (!confirmed && !cache.voters.empty ())
+	if (!cache.votes.empty ())
 	{
-		auto delay (std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - cache.arrival));
-		if (delay > late_blocks_delay)
+		node.active.erase_inactive_votes_cache (hash_a);
+		if (!confirmed)
 		{
-			node.stats.inc (nano::stat::type::election, nano::stat::detail::late_block);
-			node.stats.add (nano::stat::type::election, nano::stat::detail::late_block_seconds, nano::stat::dir::in, delay.count (), true);
+			auto delay (std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - cache.time));
+			if (delay > late_blocks_delay)
+			{
+				node.stats.inc (nano::stat::type::election, nano::stat::detail::late_block);
+				node.stats.add (nano::stat::type::election, nano::stat::detail::late_block_seconds, nano::stat::dir::in, delay.count (), true);
+			}
+			confirm_if_quorum ();
 		}
-		confirm_if_quorum ();
 	}
 }

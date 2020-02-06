@@ -458,8 +458,8 @@ TEST (active_transactions, inactive_votes_cache_existing_vote)
 	ASSERT_EQ (send->hash (), last_vote1.hash);
 	ASSERT_EQ (1, last_vote1.sequence);
 	// Attempt to change vote with inactive_votes_cache
-	node.active.add_inactive_votes_cache (send->hash (), key.pub);
-	ASSERT_EQ (1, node.active.find_inactive_votes_cache (send->hash ()).voters.size ());
+	node.active.add_inactive_votes_cache (send->hash (), vote1);
+	ASSERT_EQ (1, node.active.find_inactive_votes_cache (send->hash ()).votes.size ());
 	election->insert_inactive_votes_cache (send->hash ());
 	// Check that election data is not changed
 	ASSERT_EQ (2, election->last_votes.size ());
@@ -495,7 +495,7 @@ TEST (active_transactions, inactive_votes_cache_multiple_votes)
 	{
 		{
 			nano::lock_guard<std::mutex> active_guard (node.active.mutex);
-			if (node.active.find_inactive_votes_cache (send1->hash ()).voters.size () == 2)
+			if (node.active.find_inactive_votes_cache (send1->hash ()).votes.size () == 2)
 			{
 				break;
 			}
