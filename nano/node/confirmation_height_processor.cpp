@@ -54,6 +54,7 @@ void nano::confirmation_height_processor::run ()
 				// Separate blocks which are pending confirmation height can be batched by a minimum processing time (to improve lmdb disk write performance),
 				// so make sure the slate is clean when a new batch is starting.
 				accounts_confirmed_info.clear ();
+				accounts_confirmed_info_size = 0;
 				timer.restart ();
 			}
 			set_next_hash ();
