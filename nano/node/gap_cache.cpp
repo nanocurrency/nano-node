@@ -41,7 +41,7 @@ void nano::gap_cache::vote (std::shared_ptr<nano::vote> vote_a)
 	for (auto hash : *vote_a)
 	{
 		auto existing (blocks.get<tag_hash> ().find (hash));
-		if (existing != blocks.get<tag_hash> ().end () && !existing->confirmed)
+		if (existing != blocks.get<tag_hash> ().end () && !existing->bootstrap_started)
 		{
 			auto is_new (false);
 			blocks.get<tag_hash> ().modify (existing, [&is_new, &vote_a](nano::gap_information & info) {
@@ -58,7 +58,7 @@ void nano::gap_cache::vote (std::shared_ptr<nano::vote> vote_a)
 				if (bootstrap_check (existing->voters, hash))
 				{
 					blocks.get<tag_hash> ().modify (existing, [](nano::gap_information & info) {
-						info.confirmed = true;
+						info.bootstrap_started = true;
 					});
 				}
 			}

@@ -943,11 +943,11 @@ void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const
 	// Check principal representative status
 	if (node.ledger.weight (representative_a) > node.minimum_principal_weight ())
 	{
-		auto existing (inactive_votes_cache.get<nano::gap_cache::tag_hash> ().find (hash_a));
-		if (existing != inactive_votes_cache.get<nano::gap_cache::tag_hash> ().end () && !existing->confirmed)
+		auto existing (inactive_votes_cache.get<tag_hash> ().find (hash_a));
+		if (existing != inactive_votes_cache.get<tag_hash> ().end () && (!existing->confirmed || !existing->bootstrap_started))
 		{
 			auto is_new (false);
-			inactive_votes_cache.get<nano::gap_cache::tag_hash> ().modify (existing, [representative_a, &is_new](nano::gap_information & info) {
+			inactive_votes_cache.get<tag_hash> ().modify (existing, [representative_a, &is_new](nano::inactive_cache_information & info) {
 				auto it = std::find (info.voters.begin (), info.voters.end (), representative_a);
 				is_new = (it == info.voters.end ());
 				if (is_new)
@@ -959,9 +959,16 @@ void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const
 
 			if (is_new)
 			{
-				if (node.gap_cache.bootstrap_check (existing->voters, hash_a))
+				bool confirmed (false);
+				if (inactive_votes_bootstrap_check (*existing, confirmed) && !existing->bootstrap_started)
 				{
-					inactive_votes_cache.get<nano::gap_cache::tag_hash> ().modify (existing, [](nano::gap_information & info) {
+					inactive_votes_cache.get<tag_hash> ().modify (existing, [](nano::inactive_cache_information & info) {
+						info.bootstrap_started = true;
+					});
+				}
+				if (confirmed && !existing->confirmed)
+				{
+					inactive_votes_cache.get<tag_hash> ().modify (existing, [](nano::inactive_cache_information & info) {
 						info.confirmed = true;
 					});
 				}
@@ -969,35 +976,79 @@ void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const
 		}
 		else
 		{
-			inactive_votes_cache.get<nano::gap_cache::tag_arrival> ().emplace (nano::gap_information{ std::chrono::steady_clock::now (), hash_a, std::vector<nano::account> (1, representative_a) });
+			inactive_votes_cache.get<tag_arrival> ().emplace (nano::inactive_cache_information{ std::chrono::steady_clock::now (), hash_a, std::vector<nano::account> (1, representative_a) });
 			if (inactive_votes_cache.size () > inactive_votes_cache_max)
 			{
-				inactive_votes_cache.get<nano::gap_cache::tag_arrival> ().erase (inactive_votes_cache.get<nano::gap_cache::tag_arrival> ().begin ());
+				inactive_votes_cache.get<tag_arrival> ().erase (inactive_votes_cache.get<tag_arrival> ().begin ());
 			}
 		}
 	}
 }
 
-nano::gap_information nano::active_transactions::find_inactive_votes_cache (nano::block_hash const & hash_a)
+nano::inactive_cache_information nano::active_transactions::find_inactive_votes_cache (nano::block_hash const & hash_a)
 {
-	auto existing (inactive_votes_cache.get<nano::gap_cache::tag_hash> ().find (hash_a));
-	if (existing != inactive_votes_cache.get<nano::gap_cache::tag_hash> ().end ())
+	auto existing (inactive_votes_cache.get<tag_hash> ().find (hash_a));
+	if (existing != inactive_votes_cache.get<tag_hash> ().end ())
 	{
 		return *existing;
 	}
 	else
 	{
-		return nano::gap_information{ std::chrono::steady_clock::time_point{}, 0, std::vector<nano::account>{} };
+		return nano::inactive_cache_information{ std::chrono::steady_clock::time_point{}, 0, std::vector<nano::account>{} };
 	}
 }
 
 void nano::active_transactions::erase_inactive_votes_cache (nano::block_hash const & hash_a)
 {
-	auto existing (inactive_votes_cache.get<nano::gap_cache::tag_hash> ().find (hash_a));
-	if (existing != inactive_votes_cache.get<nano::gap_cache::tag_hash> ().end ())
+	auto existing (inactive_votes_cache.get<tag_hash> ().find (hash_a));
+	if (existing != inactive_votes_cache.get<tag_hash> ().end ())
 	{
-		inactive_votes_cache.get<nano::gap_cache::tag_hash> ().erase (existing);
+		inactive_votes_cache.get<tag_hash> ().erase (existing);
 	}
+}
+
+bool nano::active_transactions::inactive_votes_bootstrap_check (nano::inactive_cache_information const & info_a, bool & confirmed_a)
+{
+	uint128_t tally;
+	for (auto & voter : info_a.voters)
+	{
+		tally += node.ledger.weight (voter);
+	}
+	bool start_bootstrap (false);
+	if (tally >= node.config.online_weight_minimum.number ())
+	{
+		start_bootstrap = true;
+		confirmed_a = true;
+	}
+	else if (!node.flags.disable_legacy_bootstrap && tally > node.gap_cache.bootstrap_threshold ())
+	{
+		start_bootstrap = true;
+	}
+	if (start_bootstrap)
+	{
+		auto hash (info_a.hash);
+		auto node_l (node.shared ());
+		auto now (std::chrono::steady_clock::now ());
+		node.alarm.add (node_l->network_params.network.is_test_network () ? now + std::chrono::milliseconds (5) : now + std::chrono::seconds (5), [node_l, hash]() {
+			auto transaction (node_l->store.tx_begin_read ());
+			if (!node_l->store.block_exists (transaction, hash))
+			{
+				if (!node_l->bootstrap_initiator.in_progress ())
+				{
+					node_l->logger.try_log (boost::str (boost::format ("Missing block %1% which has enough votes to warrant lazy bootstrapping it") % hash.to_string ()));
+				}
+				if (!node_l->flags.disable_lazy_bootstrap)
+				{
+					node_l->bootstrap_initiator.bootstrap_lazy (hash);
+				}
+				else if (!node_l->flags.disable_legacy_bootstrap)
+				{
+					node_l->bootstrap_initiator.bootstrap ();
+				}
+			}
+		});
+	}
+	return start_bootstrap;
 }
 
 size_t nano::active_transactions::dropped_elections_cache_size ()
