@@ -183,10 +183,9 @@ public:
 	nano::keypair node_id;
 	nano::block_uniquer block_uniquer;
 	nano::vote_uniquer vote_uniquer;
-	nano::pending_confirmation_height pending_confirmation_height; // Used by both active and confirmation height processor
+	nano::confirmation_height_processor confirmation_height_processor;
 	nano::active_transactions active;
 	nano::request_aggregator aggregator;
-	nano::confirmation_height_processor confirmation_height_processor;
 	nano::payment_observer_processor payment_observer_processor;
 	nano::wallets wallets;
 	const std::chrono::steady_clock::time_point startup_time;

@@ -92,7 +92,7 @@ public:
 	/** Network work thresholds. ~5 seconds of work for the live network */
 	static uint64_t const publish_full_threshold_v1{ 0xffffffc000000000 };
 	static uint64_t const publish_full_threshold{ publish_full_threshold_v1 };
-	static uint64_t const publish_beta_threshold{ 0xfffffc0000000000 }; // 16x lower than full
+	static uint64_t const publish_beta_threshold{ 0xfffff00000000000 }; // 64x lower than full
 	static uint64_t const publish_test_threshold{ 0xff00000000000000 }; // very low for tests
 
 	/** Error message when an invalid network is specified */

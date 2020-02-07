@@ -1720,10 +1720,14 @@ TEST (node, broadcast_elected)
 			node_flags.disable_tcp_realtime = true;
 			node_flags.disable_bootstrap_listener = true;
 		}
-		nano::system system (3, type, node_flags);
-		auto node0 (system.nodes[0]);
-		auto node1 (system.nodes[1]);
-		auto node2 (system.nodes[2]);
+		nano::system system;
+		nano::node_config node_config (nano::get_available_port (), system.logging);
+		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+		auto node0 = system.add_node (node_config, node_flags, type);
+		node_config.peering_port = nano::get_available_port ();
+		auto node1 = system.add_node (node_config, node_flags, type);
+		node_config.peering_port = nano::get_available_port ();
+		auto node2 = system.add_node (node_config, node_flags, type);
 		nano::keypair rep_big;
 		nano::keypair rep_small;
 		nano::keypair rep_other;
@@ -2269,6 +2273,27 @@ TEST (node, rep_remove)
 	ASSERT_EQ (node1->network.endpoint (), list[0]->get_endpoint ());
 }
 
+TEST (node, rep_connection_close)
+{
+	nano::system system (2);
+	auto & node1 (*system.nodes[0]);
+	auto & node2 (*system.nodes[1]);
+	// Add working representative (node 2)
+	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
+	system.deadline_set (10s);
+	while (node1.rep_crawler.representative_count () != 1)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	node2.stop ();
+	// Remove representative with closed channel
+	system.deadline_set (10s);
+	while (node1.rep_crawler.representative_count () != 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
 // Test that nodes can disable representative voting
 TEST (node, no_voting)
 {
@@ -2742,14 +2767,13 @@ TEST (node, local_votes_cache_size)
 	node_config.vote_minimum = 0; // wallet will pick up the second account as voting even if unopened
 	auto & node (*system.add_node (node_config));
 	ASSERT_EQ (node.network_params.voting.max_cache, 2); // effective cache size is 1 with 2 voting accounts
-	nano::genesis genesis;
 	nano::keypair key;
 	auto & wallet (*system.wallet (0));
 	wallet.insert_adhoc (nano::test_genesis_key.prv);
 	wallet.insert_adhoc (nano::keypair ().prv);
 	ASSERT_EQ (2, node.wallets.rep_counts ().voting);
 	auto transaction (node.store.tx_begin_read ());
-	auto vote1 (node.store.vote_generate (transaction, nano::test_genesis_key.pub, nano::test_genesis_key.prv, { genesis.open->hash () }));
+	auto vote1 (node.store.vote_generate (transaction, nano::test_genesis_key.pub, nano::test_genesis_key.prv, { nano::genesis_hash }));
 	nano::block_hash hash (1);
 	auto vote2 (node.store.vote_generate (transaction, nano::test_genesis_key.pub, nano::test_genesis_key.prv, { hash }));
 	node.votes_cache.add (vote1);
@@ -2757,7 +2781,7 @@ TEST (node, local_votes_cache_size)
 	auto existing2 (node.votes_cache.find (hash));
 	ASSERT_EQ (1, existing2.size ());
 	ASSERT_EQ (vote2, existing2.front ());
-	ASSERT_EQ (0, node.votes_cache.find (genesis.open->hash ()).size ());
+	ASSERT_EQ (0, node.votes_cache.find (nano::genesis_hash).size ());
 }
 
 TEST (node, vote_republish)
@@ -3428,16 +3452,15 @@ TEST (node, dont_write_lock_node)
 	finished_promise.set_value ();
 }
 
-// Test is unstable on github actions for windows, disable if CI detected
-#if (defined(_WIN32) && CI)
-TEST (node, DISABLED_bidirectional_tcp)
-#else
 TEST (node, bidirectional_tcp)
-#endif
 {
 	nano::system system;
 	nano::node_flags node_flags;
 	node_flags.disable_udp = true; // Disable UDP connections
+	// Disable bootstrap to start elections for new blocks
+	node_flags.disable_legacy_bootstrap = true;
+	node_flags.disable_lazy_bootstrap = true;
+	node_flags.disable_wallet_bootstrap = true;
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node1 = system.add_node (node_config, node_flags);
@@ -3466,17 +3489,32 @@ TEST (node, bidirectional_tcp)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	// Test block confirmation from node 1
+	// Test block confirmation from node 1 (add representative to node 1)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	// Wait to find new reresentative
+	system.deadline_set (10s);
+	while (node2->rep_crawler.representative_count () == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	/* Wait for confirmation
+	To check connection we need only node 2 confirmation status
+	Node 1 election can be unconfirmed because representative private key was inserted after election start (and node 2 isn't flooding new votes to principal representatives) */
 	bool confirmed (false);
 	system.deadline_set (10s);
 	while (!confirmed)
 	{
-		auto transaction1 (node1->store.tx_begin_read ());
 		auto transaction2 (node2->store.tx_begin_read ());
-		confirmed = node1->ledger.block_confirmed (transaction1, send1->hash ()) && node2->ledger.block_confirmed (transaction2, send1->hash ());
+		confirmed = node2->ledger.block_confirmed (transaction2, send1->hash ());
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	// Test block propagation & confirmation from node 2 (remove representative from node 1)
+	{
+		auto transaction (system.wallet (0)->wallets.tx_begin_write ());
+		system.wallet (0)->store.erase (transaction, nano::test_genesis_key.pub);
+	}
+	/* Test block propagation from node 2
+	Node 2 has only ephemeral TCP port open. Node 1 cannot establish connection to node 2 listening port */
 	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node1->work_generate_blocking (send1->hash ())));
 	node2->process_active (send2);
 	node2->block_processor.flush ();
@@ -3485,14 +3523,23 @@ TEST (node, bidirectional_tcp)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	// Test block confirmation from node 2
+	// Test block confirmation from node 2 (add representative to node 2)
+	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
+	// Wait to find changed reresentative
+	system.deadline_set (10s);
+	while (node1->rep_crawler.representative_count () == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	/* Wait for confirmation
+	To check connection we need only node 1 confirmation status
+	Node 2 election can be unconfirmed because representative private key was inserted after election start (and node 1 isn't flooding new votes to principal representatives) */
 	confirmed = false;
 	system.deadline_set (20s);
 	while (!confirmed)
 	{
 		auto transaction1 (node1->store.tx_begin_read ());
-		auto transaction2 (node2->store.tx_begin_read ());
-		confirmed = node1->ledger.block_confirmed (transaction1, send2->hash ()) && node2->ledger.block_confirmed (transaction2, send2->hash ());
+		confirmed = node1->ledger.block_confirmed (transaction1, send2->hash ());
 		ASSERT_NO_ERROR (system.poll ());
 	}
 }
