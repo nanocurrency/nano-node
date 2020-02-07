@@ -1365,19 +1365,19 @@ bool nano::parse_port (std::string const & string_a, uint16_t & port_a)
 	return result;
 }
 
-// Can handle ipv6 address with and without square brackets
-bool nano::parse_address_ipv6 (std::string const & address_text_a, boost::asio::ip::address_v6 & address_a)
+// Can handle both ipv4 & ipv6 addresses (with and without square brackets)
+bool nano::parse_address (std::string const & address_text_a, boost::asio::ip::address & address_a)
 {
 	auto result (false);
 	auto address_text = address_text_a;
 	if (!address_text.empty () && address_text.front () == '[' && address_text.back () == ']')
 	{
-		// Chop the square brackets off as make_address_v6 doesn't always like them
+		// Chop the square brackets off as make_address doesn't always like them
 		address_text = address_text.substr (1, address_text.size () - 2);
 	}
 
 	boost::system::error_code address_ec;
-	address_a = boost::asio::ip::make_address_v6 (address_text, address_ec);
+	address_a = boost::asio::ip::make_address (address_text, address_ec);
 	return !!address_ec;
 }
 

@@ -3910,11 +3910,11 @@ void nano::json_handler::telemetry ()
 			uint16_t port;
 			if (!nano::parse_port (*port_text, port))
 			{
-				boost::asio::ip::address_v6 address;
-				if (!nano::parse_address_ipv6 (*address_text, address))
+				boost::asio::ip::address address;
+				if (!nano::parse_address (*address_text, address))
 				{
 					nano::endpoint endpoint (address, port);
-					channel = node.network.find_channel (endpoint);
+					channel = node.network.find_channel (nano::transport::map_endpoint_to_v6 (endpoint));
 					if (!channel)
 					{
 						ec = nano::error_rpc::peer_not_found;
