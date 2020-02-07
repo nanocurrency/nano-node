@@ -451,8 +451,6 @@ TEST (node, mass_vote_by_hash)
 	}
 }
 
-namespace nano
-{
 TEST (confirmation_height, many_accounts_single_confirmation)
 {
 	nano::system system;
@@ -462,14 +460,8 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 
-	// As this test can take a while extend the next frontier check
-	{
-		nano::lock_guard<std::mutex> guard (node->active.mutex);
-		node->active.next_frontier_check = std::chrono::steady_clock::now () + 7200s;
-	}
-
 	// The number of frontiers should be more than the batch_write_size to test the amount of blocks confirmed is correct.
-	auto num_accounts = nano::confirmation_height_processor::batch_write_size * 2 + 50;
+	auto num_accounts = nano::confirmation_height::batch_write_size * 2 + 50;
 	nano::keypair last_keypair = nano::test_genesis_key;
 	auto last_open_hash = node->latest (nano::test_genesis_key.pub);
 	{
@@ -541,13 +533,7 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 
-	// As this test can take a while extend the next frontier check
-	{
-		nano::lock_guard<std::mutex> guard (node->active.mutex);
-		node->active.next_frontier_check = std::chrono::steady_clock::now () + 7200s;
-	}
-
-	auto num_accounts = nano::confirmation_height_processor::batch_write_size * 2 + 50;
+	auto num_accounts = nano::confirmation_height::batch_write_size * 2 + 50;
 	auto latest_genesis = node->latest (nano::test_genesis_key.pub);
 	std::vector<std::shared_ptr<nano::open_block>> open_blocks;
 	{
@@ -572,7 +558,7 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 		node->block_confirm (open_block);
 	}
 
-	system.deadline_set (60s);
+	system.deadline_set (600s);
 	while (node->stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in) != (num_accounts - 1) * 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -605,13 +591,7 @@ TEST (confirmation_height, long_chains)
 	nano::block_hash latest (node->latest (nano::test_genesis_key.pub));
 	system.wallet (0)->insert_adhoc (key1.prv);
 
-	// As this test can take a while extend the next frontier check
-	{
-		nano::lock_guard<std::mutex> guard (node->active.mutex);
-		node->active.next_frontier_check = std::chrono::steady_clock::now () + 7200s;
-	}
-
-	constexpr auto num_blocks = nano::confirmation_height_processor::batch_write_size * 2 + 50;
+	constexpr auto num_blocks = nano::confirmation_height::batch_write_size * 2 + 50;
 
 	// First open the other account
 	nano::send_block send (latest, key1.pub, nano::genesis_amount - nano::Gxrb_ratio + num_blocks + 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest));
@@ -699,6 +679,8 @@ TEST (confirmation_height, long_chains)
 	}
 }
 
+namespace nano
+{
 // Can take up to 1 hour
 TEST (confirmation_height, prioritize_frontiers_overwrite)
 {
@@ -707,12 +689,6 @@ TEST (confirmation_height, prioritize_frontiers_overwrite)
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
 	auto node = system.add_node (node_config);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
-
-	// As this test can take a while extend the next frontier check
-	{
-		nano::lock_guard<std::mutex> guard (node->active.mutex);
-		node->active.next_frontier_check = std::chrono::steady_clock::now () + 7200s;
-	}
 
 	auto num_accounts = node->active.max_priority_cementable_frontiers * 2 + 50;
 	nano::keypair last_keypair = nano::test_genesis_key;

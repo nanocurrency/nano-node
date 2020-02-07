@@ -396,6 +396,19 @@ public:
 class transaction;
 class block_store;
 
+class block_w_sideband final
+{
+public:
+	block_w_sideband (std::shared_ptr<nano::block> const & block_a, nano::block_sideband const & sideband_a) :
+	block (block_a),
+	sideband (sideband_a)
+	{
+	}
+
+	std::shared_ptr<nano::block> block;
+	nano::block_sideband sideband;
+};
+
 /**
  * Summation visitor for blocks, supporting amount and balance computations. These
  * computations are mutually dependant. The natural solution is to use mutual recursion

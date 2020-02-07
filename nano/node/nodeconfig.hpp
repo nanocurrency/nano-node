@@ -127,6 +127,7 @@ public:
 	bool disable_providing_telemetry_metrics{ false };
 	bool fast_bootstrap{ false };
 	bool read_only{ false };
+	nano::confirmation_height_mode confirmation_height_processor_mode{ nano::confirmation_height_mode::automatic };
 	nano::generate_cache generate_cache;
 	bool inactive_node{ false };
 	size_t sideband_batch_size{ 512 };

@@ -144,7 +144,7 @@ block_processor_thread ([this]() {
 online_reps (ledger, network_params, config.online_weight_minimum.number ()),
 votes_cache (wallets),
 vote_uniquer (block_uniquer),
-confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, logger),
+confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, logger, flags.confirmation_height_processor_mode),
 active (*this, confirmation_height_processor),
 aggregator (network_params.network, config, stats, votes_cache, store, wallets),
 payment_observer_processor (observers.blocks),
