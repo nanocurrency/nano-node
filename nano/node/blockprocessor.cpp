@@ -356,7 +356,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	assert (work_version_a != nano::work_version::unspecified);
 	assert (difficulty_a != 0);
 	// Start collecting quorum on block
-	node.active.start (block_a, work_version_a, difficulty_a, false);
+	node.active.start (block_a, work_version_a, false, difficulty_a);
 	//add block to watcher if desired after block has been added to active
 	if (watch_work_a)
 	{
