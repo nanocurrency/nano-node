@@ -1037,6 +1037,6 @@ void compare_default_test_result_data (nano::telemetry_data const & telemetry_da
 	ASSERT_EQ (*telemetry_data_a.pre_release_version, nano::get_pre_release_node_version ());
 	ASSERT_EQ (*telemetry_data_a.maker, 0);
 	ASSERT_LT (telemetry_data_a.uptime, 100);
-	ASSERT_EQ (telemetry_data_a.genesis_block, nano::genesis ().hash ());
+	ASSERT_EQ (telemetry_data_a.genesis_block, node_server_a.network_params.ledger.genesis_hash);
 }
 }

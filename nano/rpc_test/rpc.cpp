@@ -7833,7 +7833,7 @@ void compare_default_test_result_data (test_response & response, nano::node cons
 	ASSERT_EQ (1, response.json.get<uint32_t> ("peer_count"));
 	ASSERT_EQ (node_server_a.network_params.protocol.protocol_version, response.json.get<uint8_t> ("protocol_version"));
 	ASSERT_GE (100, response.json.get<uint64_t> ("uptime"));
-	ASSERT_EQ (nano::genesis ().hash ().to_string (), response.json.get<std::string> ("genesis_block"));
+	ASSERT_EQ (node_server_a.network_params.ledger.genesis_hash.to_string (), response.json.get<std::string> ("genesis_block"));
 	ASSERT_EQ (nano::get_major_node_version (), response.json.get<uint8_t> ("major_version"));
 	ASSERT_EQ (nano::get_minor_node_version (), response.json.get<uint8_t> ("minor_version"));
 	ASSERT_EQ (nano::get_patch_node_version (), response.json.get<uint8_t> ("patch_version"));
@@ -8028,7 +8028,7 @@ TEST (rpc, node_telemetry_all)
 	ASSERT_EQ (1, metrics.peer_count);
 	ASSERT_EQ (node->network_params.protocol.protocol_version, metrics.protocol_version);
 	ASSERT_GE (100, metrics.uptime);
-	ASSERT_EQ (nano::genesis ().hash ().to_string (), metrics.genesis_block);
+	ASSERT_EQ (node1.network_params.ledger.genesis_hash.to_string (), metrics.genesis_block);
 	ASSERT_EQ (nano::get_major_node_version (), metrics.major_version);
 	ASSERT_EQ (nano::get_minor_node_version (), metrics.minor_version);
 	ASSERT_EQ (nano::get_patch_node_version (), metrics.patch_version);
