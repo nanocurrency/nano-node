@@ -198,11 +198,11 @@ private:
 	static size_t constexpr confirmed_frontiers_max_pending_cut_off{ 1000 };
 	// clang-format off
 	using ordered_cache = boost::multi_index_container<nano::inactive_cache_information,
-	boost::multi_index::indexed_by<
-		boost::multi_index::ordered_non_unique<boost::multi_index::tag<tag_arrival>,
-			boost::multi_index::member<nano::inactive_cache_information, std::chrono::steady_clock::time_point, &nano::inactive_cache_information::arrival>>,
-		boost::multi_index::hashed_unique<boost::multi_index::tag<tag_hash>,
-			boost::multi_index::member<nano::inactive_cache_information, nano::block_hash, &nano::inactive_cache_information::hash>>>>;
+	mi::indexed_by<
+		mi::ordered_non_unique<mi::tag<tag_arrival>,
+			mi::member<nano::inactive_cache_information, std::chrono::steady_clock::time_point, &nano::inactive_cache_information::arrival>>,
+		mi::hashed_unique<mi::tag<tag_hash>,
+			mi::member<nano::inactive_cache_information, nano::block_hash, &nano::inactive_cache_information::hash>>>>;
 	ordered_cache inactive_votes_cache;
 	// clang-format on
 	static size_t constexpr inactive_votes_cache_max{ 16 * 1024 };
