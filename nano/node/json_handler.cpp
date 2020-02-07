@@ -1761,7 +1761,7 @@ void nano::json_handler::confirmation_active ()
 
 void nano::json_handler::confirmation_height_currently_processing ()
 {
-	auto hash = node.pending_confirmation_height.current ();
+	auto hash = node.confirmation_height_processor.current ();
 	if (!hash.is_zero ())
 	{
 		response_l.put ("hash", hash.to_string ());

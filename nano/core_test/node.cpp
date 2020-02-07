@@ -1720,10 +1720,14 @@ TEST (node, broadcast_elected)
 			node_flags.disable_tcp_realtime = true;
 			node_flags.disable_bootstrap_listener = true;
 		}
-		nano::system system (3, type, node_flags);
-		auto node0 (system.nodes[0]);
-		auto node1 (system.nodes[1]);
-		auto node2 (system.nodes[2]);
+		nano::system system;
+		nano::node_config node_config (nano::get_available_port (), system.logging);
+		node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+		auto node0 = system.add_node (node_config, node_flags, type);
+		node_config.peering_port = nano::get_available_port ();
+		auto node1 = system.add_node (node_config, node_flags, type);
+		node_config.peering_port = nano::get_available_port ();
+		auto node2 = system.add_node (node_config, node_flags, type);
 		nano::keypair rep_big;
 		nano::keypair rep_small;
 		nano::keypair rep_other;
@@ -2267,6 +2271,27 @@ TEST (node, rep_remove)
 	ASSERT_EQ (1, node.network.size ());
 	auto list (node.network.list (1));
 	ASSERT_EQ (node1->network.endpoint (), list[0]->get_endpoint ());
+}
+
+TEST (node, rep_connection_close)
+{
+	nano::system system (2);
+	auto & node1 (*system.nodes[0]);
+	auto & node2 (*system.nodes[1]);
+	// Add working representative (node 2)
+	system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
+	system.deadline_set (10s);
+	while (node1.rep_crawler.representative_count () != 1)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	node2.stop ();
+	// Remove representative with closed channel
+	system.deadline_set (10s);
+	while (node1.rep_crawler.representative_count () != 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 }
 
 // Test that nodes can disable representative voting

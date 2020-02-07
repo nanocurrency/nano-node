@@ -57,7 +57,7 @@ class block
 {
 public:
 	// Return a digest of the hashables in this block.
-	nano::block_hash hash () const;
+	nano::block_hash const & hash () const;
 	// Return a digest of hashables and non-hashables in this block.
 	nano::block_hash full_hash () const;
 	std::string to_json () const;
@@ -88,6 +88,14 @@ public:
 	virtual ~block () = default;
 	virtual bool valid_predecessor (nano::block const &) const = 0;
 	static size_t size (nano::block_type);
+	// If there are any changes to the hashables, call this to update the cached hash
+	void refresh ();
+
+protected:
+	mutable nano::block_hash cached_hash{ 0 };
+
+private:
+	nano::block_hash generate_hash () const;
 };
 class send_hashables
 {

@@ -1,5 +1,6 @@
 #include <nano/lib/threading.hpp>
 #include <nano/node/active_transactions.hpp>
+#include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
 
@@ -10,7 +11,8 @@
 
 using namespace std::chrono;
 
-nano::active_transactions::active_transactions (nano::node & node_a) :
+nano::active_transactions::active_transactions (nano::node & node_a, nano::confirmation_height_processor & confirmation_height_processor_a) :
+confirmation_height_processor (confirmation_height_processor_a),
 node (node_a),
 multipliers_cb (20, 1.),
 trended_active_difficulty (node_a.network_params.network.publish_threshold),
@@ -27,6 +29,16 @@ thread ([this]() {
 	request_loop ();
 })
 {
+	// Register a callback which will get called after a block is cemented
+	confirmation_height_processor.add_cemented_observer ([this](nano::confirmation_height_processor::callback_data const & callback_data) {
+		this->block_cemented_callback (callback_data.block, callback_data.sideband);
+	});
+
+	// Register a callback which will get called after a batch of blocks is written and observer calls finished
+	confirmation_height_processor.add_cemented_batch_finished_observer ([this]() {
+		this->cemented_batch_finished_callback ();
+	});
+
 	assert (min_time_between_requests > std::chrono::milliseconds (node.network_params.network.request_interval_ms));
 	assert (min_time_between_floods > std::chrono::milliseconds (node.network_params.network.request_interval_ms));
 	nano::unique_lock<std::mutex> lock (mutex);
@@ -90,7 +102,7 @@ void nano::active_transactions::search_frontiers (nano::transaction const & tran
 					error = node.store.confirmation_height_get (transaction_a, cementable_account.account, confirmation_height_info);
 					release_assert (!error);
 
-					if (info.block_count > confirmation_height_info.height && !this->node.pending_confirmation_height.is_processing_block (info.head))
+					if (info.block_count > confirmation_height_info.height && !this->confirmation_height_processor.is_processing_block (info.head))
 					{
 						auto block (this->node.store.block_get (transaction_a, info.head));
 						if (!this->start (block, true))
@@ -99,7 +111,7 @@ void nano::active_transactions::search_frontiers (nano::transaction const & tran
 							// Calculate votes for local representatives
 							if (representative)
 							{
-								this->node.block_processor.generator.add (block->hash ());
+								this->node.block_processor.generator.add (info.head);
 							}
 						}
 					}
@@ -112,49 +124,87 @@ void nano::active_transactions::search_frontiers (nano::transaction const & tran
 		next_frontier_check = steady_clock::now () + (agressive_factor / test_network_factor);
 	}
 }
-void nano::active_transactions::post_confirmation_height_set (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a, nano::block_sideband const & sideband_a, nano::election_status_type election_status_type_a)
+
+void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::block> const & block_a, nano::block_sideband const & sideband_a)
 {
-	if (election_status_type_a == nano::election_status_type::inactive_confirmation_height)
+	auto transaction = node.store.tx_begin_read ();
+
+	boost::optional<nano::election_status_type> election_status_type;
+	if (!confirmation_height_processor.is_processing_block (block_a->hash ()))
 	{
-		nano::account account (0);
-		nano::uint128_t amount (0);
-		bool is_state_send (false);
-		nano::account pending_account (0);
-		node.process_confirmed_data (transaction_a, block_a, block_a->hash (), sideband_a, account, amount, is_state_send, pending_account);
-		node.observers.blocks.notify (nano::election_status{ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::inactive_confirmation_height }, account, amount, is_state_send);
+		election_status_type = confirm_block (transaction, block_a);
 	}
 	else
 	{
-		auto hash (block_a->hash ());
-		nano::lock_guard<std::mutex> lock (mutex);
-		auto existing (pending_conf_height.find (hash));
-		if (existing != pending_conf_height.end ())
-		{
-			auto election = existing->second;
-			if (election->confirmed && !election->stopped && election->status.winner->hash () == hash)
-			{
-				add_confirmed (existing->second->status, block_a->qualified_root ());
+		// This block was explicitly added to the confirmation height_processor
+		election_status_type = nano::election_status_type::active_confirmed_quorum;
+	}
 
-				node.receive_confirmed (transaction_a, block_a, hash);
-				nano::account account (0);
-				nano::uint128_t amount (0);
-				bool is_state_send (false);
-				nano::account pending_account (0);
-				node.process_confirmed_data (transaction_a, block_a, hash, sideband_a, account, amount, is_state_send, pending_account);
-				election->status.type = election_status_type_a;
-				election->status.confirmation_request_count = election->confirmation_request_count;
-				node.observers.blocks.notify (election->status, account, amount, is_state_send);
-				if (amount > 0)
+	if (election_status_type.is_initialized ())
+	{
+		if (election_status_type == nano::election_status_type::inactive_confirmation_height)
+		{
+			nano::account account (0);
+			nano::uint128_t amount (0);
+			bool is_state_send (false);
+			nano::account pending_account (0);
+			node.process_confirmed_data (transaction, block_a, block_a->hash (), sideband_a, account, amount, is_state_send, pending_account);
+			node.observers.blocks.notify (nano::election_status{ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::inactive_confirmation_height }, account, amount, is_state_send);
+		}
+		else
+		{
+			auto hash (block_a->hash ());
+			nano::lock_guard<std::mutex> lock (mutex);
+			auto existing (election_winner_details.find (hash));
+			if (existing != election_winner_details.end ())
+			{
+				auto election = existing->second;
+				if (election->confirmed && !election->stopped && election->status.winner->hash () == hash)
 				{
-					node.observers.account_balance.notify (account, false);
-					if (!pending_account.is_zero ())
+					add_confirmed (existing->second->status, block_a->qualified_root ());
+
+					node.receive_confirmed (transaction, block_a, hash);
+					nano::account account (0);
+					nano::uint128_t amount (0);
+					bool is_state_send (false);
+					nano::account pending_account (0);
+					node.process_confirmed_data (transaction, block_a, hash, sideband_a, account, amount, is_state_send, pending_account);
+					election->status.type = *election_status_type;
+					election->status.confirmation_request_count = election->confirmation_request_count;
+					node.observers.blocks.notify (election->status, account, amount, is_state_send);
+					if (amount > 0)
 					{
-						node.observers.account_balance.notify (pending_account, true);
+						node.observers.account_balance.notify (account, false);
+						if (!pending_account.is_zero ())
+						{
+							node.observers.account_balance.notify (pending_account, true);
+						}
 					}
 				}
-			}
 
-			pending_conf_height.erase (hash);
+				election_winner_details.erase (hash);
+			}
+		}
+	}
+}
+
+void nano::active_transactions::cemented_batch_finished_callback ()
+{
+	// Depending on timing there is a situation where the election_winner_details is not reset.
+	// This can happen when a block wins an election, and the block is confirmed + observer
+	// called before the block hash gets added to election_winner_details. If the block is confirmed
+	// callbacks have already been done, so we can safely just remove it.
+	auto transaction = node.store.tx_begin_read ();
+	nano::lock_guard<std::mutex> guard (mutex);
+	for (auto it = election_winner_details.begin (); it != election_winner_details.end ();)
+	{
+		if (node.ledger.block_confirmed (transaction, it->first))
+		{
+			it = election_winner_details.erase (it);
+		}
+		else
+		{
+			++it;
 		}
 	}
 }
@@ -220,7 +270,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 
 	// Due to the confirmation height processor working asynchronously and compressing several roots into one frontier, probably_unconfirmed_frontiers can be wrong
 	{
-		auto pending_confirmation_height_size (node.pending_confirmation_height.size ());
+		auto pending_confirmation_height_size (confirmation_height_processor.awaiting_processing_size ());
 		bool probably_unconfirmed_frontiers (node.ledger.cache.block_count > node.ledger.cache.cemented_count + roots.size () + pending_confirmation_height_size);
 		bool bootstrap_weight_reached (node.ledger.cache.block_count >= node.ledger.bootstrap_weight_max_blocks);
 		if (node.config.frontiers_confirmation != nano::frontiers_confirmation_mode::disabled && bootstrap_weight_reached && probably_unconfirmed_frontiers && pending_confirmation_height_size < confirmed_frontiers_max_pending_cut_off)
@@ -344,7 +394,7 @@ void nano::active_transactions::request_loop ()
 
 void nano::active_transactions::prioritize_account_for_confirmation (nano::active_transactions::prioritize_num_uncemented & cementable_frontiers_a, size_t & cementable_frontiers_size_a, nano::account const & account_a, nano::account_info const & info_a, uint64_t confirmation_height)
 {
-	if (info_a.block_count > confirmation_height && !node.pending_confirmation_height.is_processing_block (info_a.head))
+	if (info_a.block_count > confirmation_height && !confirmation_height_processor.is_processing_block (info_a.head))
 	{
 		auto num_uncemented = info_a.block_count - confirmation_height;
 		nano::lock_guard<std::mutex> guard (mutex);
@@ -386,7 +436,7 @@ void nano::active_transactions::prioritize_account_for_confirmation (nano::activ
 void nano::active_transactions::prioritize_frontiers_for_confirmation (nano::transaction const & transaction_a, std::chrono::milliseconds ledger_accounts_time_a, std::chrono::milliseconds wallet_account_time_a)
 {
 	// Don't try to prioritize when there are a large number of pending confirmation heights as blocks can be cemented in the meantime, making the prioritization less reliable
-	if (node.pending_confirmation_height.size () < confirmed_frontiers_max_pending_cut_off)
+	if (confirmation_height_processor.awaiting_processing_size () < confirmed_frontiers_max_pending_cut_off)
 	{
 		size_t priority_cementable_frontiers_size;
 		size_t priority_wallet_cementable_frontiers_size;
@@ -884,12 +934,6 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 	return result;
 }
 
-void nano::active_transactions::clear_block (nano::block_hash const & hash_a)
-{
-	nano::lock_guard<std::mutex> guard (mutex);
-	pending_conf_height.erase (hash_a);
-}
-
 // Returns the type of election status requiring callbacks calling later
 boost::optional<nano::election_status_type> nano::active_transactions::confirm_block (nano::transaction const & transaction_a, std::shared_ptr<nano::block> block_a)
 {
@@ -1030,6 +1074,12 @@ std::chrono::steady_clock::time_point nano::active_transactions::find_dropped_el
 	}
 }
 
+size_t nano::active_transactions::election_winner_details_size ()
+{
+	nano::lock_guard<std::mutex> guard (mutex);
+	return election_winner_details.size ();
+}
+
 nano::cementable_account::cementable_account (nano::account const & account_a, size_t blocks_uncemented_a) :
 account (account_a), blocks_uncemented (blocks_uncemented_a)
 {
@@ -1040,20 +1090,18 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (ac
 	size_t roots_count;
 	size_t blocks_count;
 	size_t confirmed_count;
-	size_t pending_conf_height_count;
 
 	{
 		nano::lock_guard<std::mutex> guard (active_transactions.mutex);
 		roots_count = active_transactions.roots.size ();
 		blocks_count = active_transactions.blocks.size ();
 		confirmed_count = active_transactions.confirmed.size ();
-		pending_conf_height_count = active_transactions.pending_conf_height.size ();
 	}
 
 	auto composite = std::make_unique<container_info_composite> (name);
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "roots", roots_count, sizeof (decltype (active_transactions.roots)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "blocks", blocks_count, sizeof (decltype (active_transactions.blocks)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "pending_conf_height", pending_conf_height_count, sizeof (decltype (active_transactions.pending_conf_height)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "election_winner_details", active_transactions.election_winner_details_size (), sizeof (decltype (active_transactions.election_winner_details)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "confirmed", confirmed_count, sizeof (decltype (active_transactions.confirmed)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "priority_wallet_cementable_frontiers_count", active_transactions.priority_wallet_cementable_frontiers_size (), sizeof (nano::cementable_account) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "priority_cementable_frontiers_count", active_transactions.priority_cementable_frontiers_size (), sizeof (nano::cementable_account) }));
