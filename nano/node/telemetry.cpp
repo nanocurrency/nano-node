@@ -92,7 +92,7 @@ void nano::telemetry::ongoing_req_all_peers ()
 			nano::lock_guard<std::mutex> guard (this->mutex);
 			if (!this->stopped)
 			{
-				auto peers = this->network.list (std::numeric_limits<size_t>::max (), false, network_params.protocol.telemetry_protocol_version_min);
+				auto peers = this->network.list (std::numeric_limits<size_t>::max (), network_params.protocol.telemetry_protocol_version_min, false);
 				// If exists in single_requests don't request because they will just be rejected by other peers until the next round
 				auto const & single_requests = this->single_requests;
 				peers.erase (std::remove_if (peers.begin (), peers.end (), [&single_requests](auto const & channel_a) {
