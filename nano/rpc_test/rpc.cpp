@@ -6154,7 +6154,7 @@ TEST (rpc, confirmation_height_currently_processing)
 	rpc.start ();
 
 	system.deadline_set (10s);
-	while (!node->pending_confirmation_height.is_processing_block (previous_genesis_chain_hash))
+	while (!node->confirmation_height_processor.is_processing_block (previous_genesis_chain_hash))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -6172,16 +6172,10 @@ TEST (rpc, confirmation_height_currently_processing)
 		ASSERT_EQ (frontier->hash ().to_string (), hash);
 	}
 
-	// Wait until confirmation has been set
+	// Wait until confirmation has been set and not processing anything
 	system.deadline_set (10s);
-	while (true)
+	while (!node->confirmation_height_processor.current ().is_zero ())
 	{
-		auto transaction = node->store.tx_begin_read ();
-		if (node->ledger.block_confirmed (transaction, frontier->hash ()))
-		{
-			break;
-		}
-
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
@@ -7045,7 +7039,7 @@ TEST (rpc, block_confirmed)
 	}
 
 	// Should no longer be processing the block after confirmation is set
-	ASSERT_FALSE (node->pending_confirmation_height.is_processing_block (send->hash ()));
+	ASSERT_FALSE (node->confirmation_height_processor.is_processing_block (send->hash ()));
 
 	// Requesting confirmation for this should now succeed
 	request.put ("hash", send->hash ().to_string ());
