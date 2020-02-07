@@ -174,7 +174,7 @@ void nano::confirmation_height_unbounded::collect_unconfirmed_receive_and_source
 					// Add the callbacks to the associated receive to retrieve later
 					assert (!receive_source_pairs_a.empty ());
 					auto & last_receive_details = receive_source_pairs_a.back ().receive_details;
-					last_receive_details->send_callbacks_required.assign (block_callback_data_a.begin (), block_callback_data_a.end ());
+					last_receive_details->source_block_callback_data.assign (block_callback_data_a.begin (), block_callback_data_a.end ());
 					block_callback_data_a.clear ();
 				}
 
@@ -245,7 +245,7 @@ void nano::confirmation_height_unbounded::prepare_iterated_blocks_for_cementing 
 			{
 				assert (receive_details);
 
-				if (preparation_data_a.already_traversed && receive_details->send_callbacks_required.empty ())
+				if (preparation_data_a.already_traversed && receive_details->source_block_callback_data.empty ())
 				{
 					// We are confirming a block which has already been traversed and found no associated receive details for it.
 					auto & above_receive_details_w = implicit_receive_cemented_mapping[preparation_data_a.current];
@@ -261,12 +261,12 @@ void nano::confirmation_height_unbounded::prepare_iterated_blocks_for_cementing 
 				}
 				else
 				{
-					block_callback_data = receive_details->send_callbacks_required;
+					block_callback_data = receive_details->source_block_callback_data;
 				}
 
 				auto num_to_remove = block_callback_data.size () - num_blocks_confirmed;
 				block_callback_data.erase (std::next (block_callback_data.rbegin (), num_to_remove).base (), block_callback_data.end ());
-				receive_details->send_callbacks_required.clear ();
+				receive_details->source_block_callback_data.clear ();
 			}
 		}
 
