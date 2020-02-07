@@ -336,7 +336,7 @@ int main (int argc, char * const * argv)
 			uint64_t count{ 10000000U }; // 10M
 			for (uint64_t i (0); i < count; ++i)
 			{
-				valid = nano::work_v0::value (hash, i) > difficulty;
+				valid = nano::work_v1::value (hash, i) > difficulty;
 			}
 			std::ostringstream oss (valid ? "true" : "false"); // IO forces compiler to not dismiss the variable
 			auto total_time (std::chrono::duration_cast<std::chrono::nanoseconds> (std::chrono::steady_clock::now () - start).count ());
@@ -429,7 +429,7 @@ int main (int argc, char * const * argv)
 							{
 								block.hashables.previous.qwords[0] += 1;
 								auto begin1 (std::chrono::high_resolution_clock::now ());
-								block.block_work_set (*work_pool.generate (nano::work_version::work_0, block.root (), difficulty));
+								block.block_work_set (*work_pool.generate (nano::work_version::work_1, block.root (), difficulty));
 								auto end1 (std::chrono::high_resolution_clock::now ());
 								std::cerr << boost::str (boost::format ("%|1$ 12d|\n") % std::chrono::duration_cast<std::chrono::microseconds> (end1 - begin1).count ());
 							}

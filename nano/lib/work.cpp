@@ -11,8 +11,8 @@ std::string nano::to_string (nano::work_version const version_a)
 	std::string result ("invalid");
 	switch (version_a)
 	{
-		case nano::work_version::work_0:
-			result = "work_0";
+		case nano::work_version::work_1:
+			result = "work_1";
 			break;
 		case nano::work_version::unspecified:
 			result = "unspecified";
@@ -31,8 +31,8 @@ bool nano::work_validate (nano::work_version const version_a, nano::root const &
 	bool invalid (true);
 	switch (version_a)
 	{
-		case nano::work_version::work_0:
-			invalid = nano::work_v0::validate (root_a, work_a, difficulty_a);
+		case nano::work_version::work_1:
+			invalid = nano::work_v1::validate (root_a, work_a, difficulty_a);
 			break;
 		default:
 			assert (false && "Invalid version specified to work_validate");
@@ -47,7 +47,7 @@ bool nano::work_validate_entry (nano::block const & block_a)
 
 bool nano::work_validate_entry (nano::root const & root_a, uint64_t const work_a)
 {
-	return nano::work_validate (nano::work_version::work_0, root_a, work_a, nullptr);
+	return nano::work_validate (nano::work_version::work_1, root_a, work_a, nullptr);
 }
 
 bool nano::work_validate (nano::block const & block_a, uint64_t * difficulty_a)
@@ -59,10 +59,10 @@ bool nano::work_validate (nano::root const & root_a, uint64_t const work_a, uint
 {
 	static nano::network_constants network_constants;
 	assert (network_constants.is_test_network ());
-	return nano::work_validate (nano::work_version::work_0, root_a, work_a, difficulty_a);
+	return nano::work_validate (nano::work_version::work_1, root_a, work_a, difficulty_a);
 }
 
-bool nano::work_v0::validate (nano::root const & root_a, uint64_t work_a, uint64_t * difficulty_a)
+bool nano::work_v1::validate (nano::root const & root_a, uint64_t work_a, uint64_t * difficulty_a)
 {
 	static nano::network_constants network_constants;
 	auto work_value (value (root_a, work_a));
@@ -70,11 +70,11 @@ bool nano::work_v0::validate (nano::root const & root_a, uint64_t work_a, uint64
 	{
 		*difficulty_a = work_value;
 	}
-	return work_value < network_constants.publish_threshold_v0;
+	return work_value < network_constants.publish_threshold_v1;
 }
 
 #ifndef NANO_FUZZER_TEST
-uint64_t nano::work_v0::value (nano::root const & root_a, uint64_t work_a)
+uint64_t nano::work_v1::value (nano::root const & root_a, uint64_t work_a)
 {
 	uint64_t result;
 	blake2b_state hash;
@@ -85,7 +85,7 @@ uint64_t nano::work_v0::value (nano::root const & root_a, uint64_t work_a)
 	return result;
 }
 #else
-uint64_t nano::work_v0::value (nano::root const & root_a, uint64_t work_a)
+uint64_t nano::work_v1::value (nano::root const & root_a, uint64_t work_a)
 {
 	static nano::network_constants network_constants;
 	if (!network_constants.is_test_network ())
@@ -164,7 +164,7 @@ void nano::work_pool::loop (uint64_t thread)
 			if (opt_work.is_initialized ())
 			{
 				work = *opt_work;
-				output = nano::work_v0::value (current_l.item, work);
+				output = nano::work_v1::value (current_l.item, work);
 			}
 			else
 			{
@@ -197,7 +197,7 @@ void nano::work_pool::loop (uint64_t thread)
 			{
 				// If the ticket matches what we started with, we're the ones that found the solution
 				assert (output >= current_l.difficulty);
-				assert (current_l.difficulty == 0 || nano::work_v0::value (current_l.item, work) == output);
+				assert (current_l.difficulty == 0 || nano::work_v1::value (current_l.item, work) == output);
 				// Signal other threads to stop their work next time they check ticket
 				++ticket;
 				pending.pop_front ();
@@ -257,7 +257,7 @@ void nano::work_pool::stop ()
 
 void nano::work_pool::generate (nano::root const & root_a, std::function<void(boost::optional<uint64_t> const &)> callback_a)
 {
-	generate (nano::work_version::work_0, root_a, callback_a);
+	generate (nano::work_version::work_1, root_a, callback_a);
 }
 
 void nano::work_pool::generate (nano::work_version const version_a, nano::root const & root_a, std::function<void(boost::optional<uint64_t> const &)> callback_a)
@@ -267,7 +267,7 @@ void nano::work_pool::generate (nano::work_version const version_a, nano::root c
 
 void nano::work_pool::generate (nano::root const & root_a, std::function<void(boost::optional<uint64_t> const &)> callback_a, uint64_t difficulty_a)
 {
-	generate (nano::work_version::work_0, root_a, callback_a, difficulty_a);
+	generate (nano::work_version::work_1, root_a, callback_a, difficulty_a);
 }
 
 void nano::work_pool::generate (nano::work_version const version_a, nano::root const & root_a, std::function<void(boost::optional<uint64_t> const &)> callback_a, uint64_t difficulty_a)
@@ -289,7 +289,7 @@ void nano::work_pool::generate (nano::work_version const version_a, nano::root c
 
 boost::optional<uint64_t> nano::work_pool::generate (nano::root const & root_a)
 {
-	return generate (nano::work_version::work_0, root_a);
+	return generate (nano::work_version::work_1, root_a);
 }
 
 boost::optional<uint64_t> nano::work_pool::generate (nano::work_version const version_a, nano::root const & root_a)
@@ -299,7 +299,7 @@ boost::optional<uint64_t> nano::work_pool::generate (nano::work_version const ve
 
 boost::optional<uint64_t> nano::work_pool::generate (nano::root const & root_a, uint64_t difficulty_a)
 {
-	return generate (nano::work_version::work_0, root_a, difficulty_a);
+	return generate (nano::work_version::work_1, root_a, difficulty_a);
 }
 
 boost::optional<uint64_t> nano::work_pool::generate (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a)

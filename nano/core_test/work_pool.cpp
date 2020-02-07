@@ -19,7 +19,7 @@ TEST (work, one)
 	nano::network_constants network_constants;
 	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
 	nano::change_block block (1, 1, nano::keypair ().prv, 3, 4);
-	block.block_work_set (*pool.generate (nano::work_version::work_0, block.root ()));
+	block.block_work_set (*pool.generate (nano::work_version::work_1, block.root ()));
 	uint64_t difficulty;
 	ASSERT_FALSE (nano::work_validate (block, &difficulty));
 	ASSERT_LT (network_constants.publish_threshold, difficulty);
@@ -29,7 +29,7 @@ TEST (work, disabled)
 {
 	nano::network_constants network_constants;
 	nano::work_pool pool (0);
-	auto result (pool.generate (nano::work_version::work_0, nano::block_hash ()));
+	auto result (pool.generate (nano::work_version::work_1, nano::block_hash ()));
 	ASSERT_FALSE (result.is_initialized ());
 }
 
@@ -106,7 +106,7 @@ TEST (work, opencl)
 			for (auto i (0); i < 16; ++i)
 			{
 				nano::random_pool::generate_block (root.bytes.data (), root.bytes.size ());
-				auto result (*pool.generate (nano::work_version::work_0, root, difficulty));
+				auto result (*pool.generate (nano::work_version::work_1, root, difficulty));
 				uint64_t result_difficulty (0);
 				ASSERT_FALSE (nano::work_validate (root, result, &result_difficulty));
 				ASSERT_GE (result_difficulty, difficulty);

@@ -16,7 +16,7 @@ namespace nano
 enum class work_version
 {
 	unspecified,
-	work_0
+	work_1
 };
 std::string to_string (nano::work_version const version_a);
 
@@ -29,7 +29,7 @@ bool work_validate_entry (nano::root const &, uint64_t const);
 bool work_validate (nano::block const &, uint64_t * = nullptr);
 bool work_validate (nano::root const &, uint64_t const, uint64_t * = nullptr);
 
-namespace work_v0
+namespace work_v1
 {
 	bool validate (nano::root const &, uint64_t const, uint64_t * = nullptr);
 	uint64_t value (nano::root const &, uint64_t);

@@ -266,13 +266,13 @@ TEST (active_transactions, keep_local)
 	}
 	auto open1 (std::make_shared<nano::state_block> (key1.pub, 0, key1.pub, node.config.receive_minimum.number (), send1->hash (), key1.prv, key1.pub, *system.work.generate (key1.pub)));
 	node.process_active (open1);
-	node.active.start (open1, nano::work_version::work_0);
+	node.active.start (open1, nano::work_version::work_1);
 	auto open2 (std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, node.config.receive_minimum.number (), send2->hash (), key2.prv, key2.pub, *system.work.generate (key2.pub)));
 	node.process_active (open2);
-	node.active.start (open2, nano::work_version::work_0);
+	node.active.start (open2, nano::work_version::work_1);
 	auto open3 (std::make_shared<nano::state_block> (key3.pub, 0, key3.pub, node.config.receive_minimum.number (), send3->hash (), key3.prv, key3.pub, *system.work.generate (key3.pub)));
 	node.process_active (open3);
-	node.active.start (open3, nano::work_version::work_0);
+	node.active.start (open3, nano::work_version::work_1);
 	ASSERT_EQ (3, node.active.size ());
 	system.deadline_set (10s);
 	// bound elections, should drop after one loop
@@ -505,7 +505,7 @@ TEST (active_transactions, inactive_votes_cache_multiple_votes)
 	}
 	ASSERT_EQ (1, node.active.inactive_votes_cache_size ());
 	// Start election
-	node.active.start (send1, nano::work_version::work_0);
+	node.active.start (send1, nano::work_version::work_1);
 	{
 		nano::lock_guard<std::mutex> active_guard (node.active.mutex);
 		auto it (node.active.roots.begin ());

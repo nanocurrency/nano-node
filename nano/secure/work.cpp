@@ -2,5 +2,5 @@
 
 nano::work_version nano::work_version_get ()
 {
-	return nano::work_version::work_0;
+	return nano::work_version::work_1;
 }

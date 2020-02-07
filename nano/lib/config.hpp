@@ -76,8 +76,8 @@ public:
 	network_constants (nano_networks network_a) :
 	current_network (network_a)
 	{
-		publish_threshold_v0 = is_test_network () ? publish_test_threshold : is_beta_network () ? publish_beta_threshold : publish_full_threshold_v0;
-		publish_threshold = publish_threshold_v0;
+		publish_threshold_v1 = is_test_network () ? publish_test_threshold : is_beta_network () ? publish_beta_threshold : publish_full_threshold_v1;
+		publish_threshold = publish_threshold_v1;
 
 		// A representative is classified as principal based on its weight and this factor
 		principal_weight_factor = 1000; // 0.1%
@@ -90,8 +90,8 @@ public:
 	}
 
 	/** Network work thresholds. ~5 seconds of work for the live network */
-	static uint64_t const publish_full_threshold_v0{ 0xffffffc000000000 };
-	static uint64_t const publish_full_threshold{ publish_full_threshold_v0 };
+	static uint64_t const publish_full_threshold_v1{ 0xffffffc000000000 };
+	static uint64_t const publish_full_threshold{ publish_full_threshold_v1 };
 	static uint64_t const publish_beta_threshold{ 0xfffffc0000000000 }; // 16x lower than full
 	static uint64_t const publish_test_threshold{ 0xff00000000000000 }; // very low for tests
 
@@ -100,7 +100,7 @@ public:
 
 	/** The network this param object represents. This may differ from the global active network; this is needed for certain --debug... commands */
 	nano_networks current_network{ nano::network_constants::active_network };
-	uint64_t publish_threshold_v0;
+	uint64_t publish_threshold_v1;
 	uint64_t publish_threshold;
 	unsigned principal_weight_factor;
 	uint16_t default_node_port;

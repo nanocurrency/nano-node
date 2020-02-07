@@ -381,9 +381,9 @@ nano::work_version nano::json_handler::work_version_optional_impl ()
 	boost::optional<std::string> version_text (request.get_optional<std::string> ("version"));
 	if (!ec && version_text.is_initialized ())
 	{
-		if (*version_text == "work_0")
+		if (*version_text == "work_1")
 		{
-			result = nano::work_version::work_0;
+			result = nano::work_version::work_1;
 		}
 		else
 		{
@@ -4900,10 +4900,10 @@ void nano::json_handler::work_generate ()
 			account = account_impl (account_opt.get ());
 		}
 	}
-	// Default to work_0 if there was no way to retrieve the version
+	// Default to work_1 if there was no way to retrieve the version
 	if (work_version == nano::work_version::unspecified)
 	{
-		work_version = nano::work_version::work_0;
+		work_version = nano::work_version::work_1;
 	}
 	if (!ec)
 	{
@@ -5038,10 +5038,10 @@ void nano::json_handler::work_validate ()
 	auto difficulty (difficulty_optional_impl ());
 	multiplier_optional_impl (difficulty);
 	auto work_version (work_version_optional_impl ());
-	// Default to work_0 if unspecified
+	// Default to work_1 if unspecified
 	if (work_version == nano::work_version::unspecified)
 	{
-		work_version = nano::work_version::work_0;
+		work_version = nano::work_version::work_1;
 	}
 	if (!ec)
 	{
