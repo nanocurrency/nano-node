@@ -144,9 +144,9 @@ block_processor_thread ([this]() {
 online_reps (ledger, network_params, config.online_weight_minimum.number ()),
 votes_cache (wallets),
 vote_uniquer (block_uniquer),
-active (*this),
+confirmation_height_processor (ledger, write_database_queue, config.conf_height_processor_batch_min_time, logger),
+active (*this, confirmation_height_processor),
 aggregator (network_params.network, config, stats, votes_cache, store, wallets),
-confirmation_height_processor (pending_confirmation_height, ledger, active, write_database_queue, config.conf_height_processor_batch_min_time, logger),
 payment_observer_processor (observers.blocks),
 wallets (wallets_store.init_error (), *this),
 startup_time (std::chrono::steady_clock::now ())
@@ -597,7 +597,6 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (collect_container_info (node.block_uniquer, "block_uniquer"));
 	composite->add_component (collect_container_info (node.vote_uniquer, "vote_uniquer"));
 	composite->add_component (collect_container_info (node.confirmation_height_processor, "confirmation_height_processor"));
-	composite->add_component (collect_container_info (node.pending_confirmation_height, "pending_confirmation_height"));
 	composite->add_component (collect_container_info (node.worker, "worker"));
 	composite->add_component (collect_container_info (node.distributed_work, "distributed_work"));
 	composite->add_component (collect_container_info (node.aggregator, "request_aggregator"));
@@ -696,8 +695,8 @@ void nano::node::stop ()
 		}
 		aggregator.stop ();
 		vote_processor.stop ();
-		confirmation_height_processor.stop ();
 		active.stop ();
+		confirmation_height_processor.stop ();
 		network.stop ();
 		telemetry.stop ();
 		if (websocket_server)
@@ -1088,7 +1087,7 @@ void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 
 bool nano::node::block_confirmed_or_being_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
 {
-	return ledger.block_confirmed (transaction_a, hash_a) || pending_confirmation_height.is_processing_block (hash_a);
+	return ledger.block_confirmed (transaction_a, hash_a) || confirmation_height_processor.is_processing_block (hash_a);
 }
 
 nano::uint128_t nano::node::delta () const
