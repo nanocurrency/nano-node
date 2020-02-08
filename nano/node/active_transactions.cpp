@@ -1051,7 +1051,7 @@ void nano::active_transactions::erase_inactive_votes_cache (nano::block_hash con
 	auto existing (inactive_by_hash.find (hash_a));
 	if (existing != inactive_by_hash.end ())
 	{
-		inactive_by_hash.erase (hash_a);
+		inactive_by_hash.erase (existing);
 	}
 }
 
