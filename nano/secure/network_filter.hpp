@@ -23,10 +23,16 @@ public:
 	network_filter (size_t size_a);
 	/**
 	 * Reads \p count_a bytes starting from \p bytes_a and inserts the siphash digest in the filter.
+	 * @param \p digest_a if given, will be set to the resulting siphash digest
 	 * @warning will read out of bounds if [ \p bytes_a, \p bytes_a + \p count_a ] is not a valid range
 	 * @return a boolean representing the previous existence of the hash in the filter.
 	 **/
-	bool apply (uint8_t const * bytes_a, size_t count_a);
+	bool apply (uint8_t const * bytes_a, size_t count_a, nano::uint128_t * digest_a = nullptr);
+
+	/**
+	 * Sets the corresponding element in the filter to zero, if it matches \p digest_a exactly.
+	 **/
+	void clear (nano::uint128_t const & digest_a);
 
 	/**
 	 * Reads \p count_a bytes starting from \p bytes_a and digests the contents.
