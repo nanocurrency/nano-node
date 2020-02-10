@@ -1247,10 +1247,11 @@ int main (int argc, char * const * argv)
 			while (block_count_2 != block_count)
 			{
 				std::this_thread::sleep_for (std::chrono::seconds (1));
+				auto transaction_2 (node2.node->store.tx_begin_read ());
+				block_count_2 = node2.node->store.block_count (transaction_2).sum ();
 				if ((count % 60) == 0)
 				{
-					auto transaction_2 (node2.node->store.tx_begin_read ());
-					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed") % node2.node->store.block_count (transaction_2).sum () % node2.node->store.unchecked_count (transaction_2)) << std::endl;
+					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed") % block_count_2 % node2.node->store.unchecked_count (transaction_2)) << std::endl;
 				}
 				count++;
 			}
