@@ -249,11 +249,14 @@ bool nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, bool
 			upgrade_v14_to_v15 (transaction_a);
 			needs_vacuuming = true;
 		case 15:
-			// Upgrades to v16 & v17 are both part of the v21 node release
+			// Upgrades to v16, v17 & v18 are all part of the v21 node release
 			upgrade_v15_to_v16 (transaction_a);
 		case 16:
 			upgrade_v16_to_v17 (transaction_a);
 		case 17:
+			upgrade_v17_to_v18 (transaction_a);
+			needs_vacuuming = true;
+		case 18:
 			break;
 		default:
 			logger.always_log (boost::str (boost::format ("The version of the ledger (%1%) is too high for this node") % version_l));
@@ -625,7 +628,7 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction & transaction_
 		nano::state_block_w_sideband_v14 state_block_w_sideband_v14 (i_state->second);
 		auto & sideband_v14 = state_block_w_sideband_v14.sideband;
 
-		nano::block_sideband sideband{ sideband_v14.type, sideband_v14.account, sideband_v14.successor, sideband_v14.balance, sideband_v14.height, sideband_v14.timestamp, i_state.from_first_database ? nano::epoch::epoch_0 : nano::epoch::epoch_1 };
+		nano::block_sideband sideband (sideband_v14.type, sideband_v14.account, sideband_v14.successor, sideband_v14.balance, sideband_v14.height, sideband_v14.timestamp, i_state.from_first_database ? nano::epoch::epoch_0 : nano::epoch::epoch_1, false, false, false);
 
 		// Write these out
 		std::vector<uint8_t> data;
@@ -779,6 +782,69 @@ void nano::mdb_store::upgrade_v16_to_v17 (nano::write_transaction const & transa
 
 	version_put (transaction_a, 17);
 	logger.always_log ("Finished upgrading confirmation height frontiers");
+}
+
+void nano::mdb_store::upgrade_v17_to_v18 (nano::write_transaction const & transaction_a)
+{
+	logger.always_log ("Preparing v17 to v18 database upgrade...");
+
+	auto count_pre (count (transaction_a, state_blocks));
+
+	nano::network_params network_params;
+	auto num = 0u;
+	for (nano::mdb_iterator<nano::block_hash, nano::state_block_w_sideband> state_i (transaction_a, state_blocks), state_n{}; state_i != state_n; ++state_i, ++num)
+	{
+		nano::state_block_w_sideband block_sideband (state_i->second);
+		auto & block (block_sideband.state_block);
+		auto & sideband (block_sideband.sideband);
+
+		bool is_send{ false };
+		bool is_receive{ false };
+		bool is_epoch{ false };
+
+		nano::amount prev_balance (0);
+		if (!block->hashables.previous.is_zero ())
+		{
+			prev_balance = block_balance (transaction_a, block->hashables.previous);
+		}
+		if (block->hashables.balance == prev_balance && network_params.ledger.epochs.is_epoch_link (block->hashables.link))
+		{
+			is_epoch = true;
+		}
+		else if (block->hashables.balance < prev_balance)
+		{
+			is_send = true;
+		}
+		else if (!block->hashables.link.is_zero ())
+		{
+			is_receive = true;
+		}
+
+		nano::block_sideband new_sideband (sideband.type, sideband.account, sideband.successor, sideband.balance, sideband.height, sideband.timestamp, sideband.details.epoch, is_send, is_receive, is_epoch);
+		// Write these out
+		std::vector<uint8_t> data;
+		{
+			nano::vectorstream stream (data);
+			block->serialize (stream);
+			new_sideband.serialize (stream);
+		}
+		nano::mdb_val value{ data.size (), (void *)data.data () };
+		auto s = mdb_cursor_put (state_i.cursor, state_i->first, value, MDB_CURRENT);
+		release_assert (success (s));
+
+		// Every so often output to the log to indicate progress
+		constexpr auto output_cutoff = 1000000;
+		if (num > 0 && num % output_cutoff == 0)
+		{
+			logger.always_log (boost::str (boost::format ("Database sideband upgrade %1% million state blocks upgraded (out of %2%)") % (num / output_cutoff) % count_pre));
+		}
+	}
+
+	auto count_post (count (transaction_a, state_blocks));
+	release_assert (count_pre == count_post);
+
+	version_put (transaction_a, 18);
+	logger.always_log ("Finished upgrading the sideband");
 }
 
 /** Takes a filepath, appends '_backup_<timestamp>' to the end (but before any extension) and saves that file in the same directory */

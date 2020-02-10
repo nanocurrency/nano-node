@@ -242,6 +242,7 @@ private:
 	void upgrade_v14_to_v15 (nano::write_transaction &);
 	void upgrade_v15_to_v16 (nano::write_transaction const &);
 	void upgrade_v16_to_v17 (nano::write_transaction const &);
+	void upgrade_v17_to_v18 (nano::write_transaction const &);
 
 	void open_databases (bool &, nano::transaction const &, unsigned);
 

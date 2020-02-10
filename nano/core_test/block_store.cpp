@@ -32,6 +32,7 @@ void modify_genesis_account_info_to_v5 (nano::mdb_store & store, nano::transacti
 void modify_confirmation_height_to_v15 (nano::mdb_store & store, nano::transaction const & transaction, nano::account const & account, uint64_t confirmation_height);
 void write_sideband_v12 (nano::mdb_store & store_a, nano::transaction & transaction_a, nano::block & block_a, nano::block_hash const & successor_a, MDB_dbi db_a);
 void write_sideband_v14 (nano::mdb_store & store_a, nano::transaction & transaction_a, nano::block const & block_a, MDB_dbi db_a);
+void write_sideband_v15 (nano::mdb_store & store_a, nano::transaction & transaction_a, nano::block const & block_a);
 }
 
 TEST (block_store, construction)
@@ -39,6 +40,51 @@ TEST (block_store, construction)
 	nano::logger_mt logger;
 	auto store = nano::make_store (logger, nano::unique_path ());
 	ASSERT_TRUE (!store->init_error ());
+}
+
+TEST (block_store, block_details)
+{
+	nano::block_details details_send (nano::epoch::epoch_0, true, false, false);
+	ASSERT_TRUE (details_send.is_send);
+	ASSERT_FALSE (details_send.is_receive);
+	ASSERT_FALSE (details_send.is_epoch);
+	ASSERT_EQ (nano::epoch::epoch_0, details_send.epoch);
+
+	nano::block_details details_receive (nano::epoch::epoch_1, false, true, false);
+	ASSERT_FALSE (details_receive.is_send);
+	ASSERT_TRUE (details_receive.is_receive);
+	ASSERT_FALSE (details_receive.is_epoch);
+	ASSERT_EQ (nano::epoch::epoch_1, details_receive.epoch);
+
+	nano::block_details details_epoch (nano::epoch::epoch_2, false, false, true);
+	ASSERT_FALSE (details_epoch.is_send);
+	ASSERT_FALSE (details_epoch.is_receive);
+	ASSERT_TRUE (details_epoch.is_epoch);
+	ASSERT_EQ (nano::epoch::epoch_2, details_epoch.epoch);
+
+	nano::block_details details_none (nano::epoch::unspecified, false, false, false);
+	ASSERT_FALSE (details_none.is_send);
+	ASSERT_FALSE (details_none.is_receive);
+	ASSERT_FALSE (details_none.is_epoch);
+	ASSERT_EQ (nano::epoch::unspecified, details_none.epoch);
+}
+
+TEST (block_store, block_details_serialization)
+{
+	nano::block_details details1;
+	details1.epoch = nano::epoch::epoch_2;
+	details1.is_epoch = false;
+	details1.is_receive = true;
+	details1.is_send = false;
+	std::vector<uint8_t> vector;
+	{
+		nano::vectorstream stream1 (vector);
+		details1.serialize (stream1);
+	}
+	nano::bufferstream stream2 (vector.data (), vector.size ());
+	nano::block_details details2;
+	ASSERT_FALSE (details2.deserialize (stream2));
+	ASSERT_EQ (details1, details2);
 }
 
 TEST (block_store, sideband_serialization)
@@ -77,7 +123,7 @@ TEST (block_store, add_item)
 	auto latest1 (store->block_get (transaction, hash1));
 	ASSERT_EQ (nullptr, latest1);
 	ASSERT_FALSE (store->block_exists (transaction, hash1));
-	nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0, 0, nano::epoch::epoch_0);
+	nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0, 0, nano::epoch::epoch_0, false, false, false);
 	store->block_put (transaction, hash1, block, sideband);
 	auto latest2 (store->block_get (transaction, hash1));
 	ASSERT_NE (nullptr, latest2);
@@ -96,7 +142,7 @@ TEST (block_store, clear_successor)
 	ASSERT_TRUE (!store->init_error ());
 	nano::open_block block1 (0, 1, 0, nano::keypair ().prv, 0, 0);
 	auto transaction (store->tx_begin_write ());
-	nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0, 0, nano::epoch::epoch_0);
+	nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0, 0, nano::epoch::epoch_0, false, false, false);
 	store->block_put (transaction, block1.hash (), block1, sideband);
 	nano::open_block block2 (0, 2, 0, nano::keypair ().prv, 0, 0);
 	store->block_put (transaction, block2.hash (), block2, sideband);
@@ -123,7 +169,7 @@ TEST (block_store, add_nonempty_block)
 	auto transaction (store->tx_begin_write ());
 	auto latest1 (store->block_get (transaction, hash1));
 	ASSERT_EQ (nullptr, latest1);
-	nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0, 0, nano::epoch::epoch_0);
+	nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0, 0, nano::epoch::epoch_0, false, false, false);
 	store->block_put (transaction, hash1, block, sideband);
 	auto latest2 (store->block_get (transaction, hash1));
 	ASSERT_NE (nullptr, latest2);
@@ -148,9 +194,9 @@ TEST (block_store, add_two_items)
 	block2.signature = nano::sign_message (key1.prv, key1.pub, hash2);
 	auto latest2 (store->block_get (transaction, hash2));
 	ASSERT_EQ (nullptr, latest2);
-	nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0, 0, nano::epoch::epoch_0);
+	nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0, 0, nano::epoch::epoch_0, false, false, false);
 	store->block_put (transaction, hash1, block, sideband);
-	nano::block_sideband sideband2 (nano::block_type::open, 0, 0, 0, 0, 0, nano::epoch::epoch_0);
+	nano::block_sideband sideband2 (nano::block_type::open, 0, 0, 0, 0, 0, nano::epoch::epoch_0, false, false, false);
 	store->block_put (transaction, hash2, block2, sideband2);
 	auto latest3 (store->block_get (transaction, hash1));
 	ASSERT_NE (nullptr, latest3);
@@ -170,13 +216,13 @@ TEST (block_store, add_receive)
 	nano::keypair key2;
 	nano::open_block block1 (0, 1, 0, nano::keypair ().prv, 0, 0);
 	auto transaction (store->tx_begin_write ());
-	nano::block_sideband sideband1 (nano::block_type::open, 0, 0, 0, 0, 0, nano::epoch::epoch_0);
+	nano::block_sideband sideband1 (nano::block_type::open, 0, 0, 0, 0, 0, nano::epoch::epoch_0, false, false, false);
 	store->block_put (transaction, block1.hash (), block1, sideband1);
 	nano::receive_block block (block1.hash (), 1, nano::keypair ().prv, 2, 3);
 	nano::block_hash hash1 (block.hash ());
 	auto latest1 (store->block_get (transaction, hash1));
 	ASSERT_EQ (nullptr, latest1);
-	nano::block_sideband sideband (nano::block_type::receive, 0, 0, 0, 0, 0, nano::epoch::epoch_0);
+	nano::block_sideband sideband (nano::block_type::receive, 0, 0, 0, 0, 0, nano::epoch::epoch_0, false, false, false);
 	store->block_put (transaction, hash1, block, sideband);
 	auto latest2 (store->block_get (transaction, hash1));
 	ASSERT_NE (nullptr, latest2);
@@ -418,7 +464,7 @@ TEST (block_store, one_block)
 	ASSERT_TRUE (!store->init_error ());
 	nano::open_block block1 (0, 1, 0, nano::keypair ().prv, 0, 0);
 	auto transaction (store->tx_begin_write ());
-	nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0, 0, nano::epoch::epoch_0);
+	nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0, 0, nano::epoch::epoch_0, false, false, false);
 	store->block_put (transaction, block1.hash (), block1, sideband);
 	ASSERT_TRUE (store->block_exists (transaction, block1.hash ()));
 }
@@ -520,12 +566,12 @@ TEST (block_store, two_block)
 	hashes.push_back (block1.hash ());
 	blocks.push_back (block1);
 	auto transaction (store->tx_begin_write ());
-	nano::block_sideband sideband1 (nano::block_type::open, 0, 0, 0, 0, 0, nano::epoch::epoch_0);
+	nano::block_sideband sideband1 (nano::block_type::open, 0, 0, 0, 0, 0, nano::epoch::epoch_0, false, false, false);
 	store->block_put (transaction, hashes[0], block1, sideband1);
 	nano::open_block block2 (0, 1, 2, nano::keypair ().prv, 0, 0);
 	hashes.push_back (block2.hash ());
 	blocks.push_back (block2);
-	nano::block_sideband sideband2 (nano::block_type::open, 0, 0, 0, 0, 0, nano::epoch::epoch_0);
+	nano::block_sideband sideband2 (nano::block_type::open, 0, 0, 0, 0, 0, nano::epoch::epoch_0, false, false, false);
 	store->block_put (transaction, hashes[1], block2, sideband2);
 	ASSERT_TRUE (store->block_exists (transaction, block1.hash ()));
 	ASSERT_TRUE (store->block_exists (transaction, block2.hash ()));
@@ -711,9 +757,9 @@ TEST (block_store, block_replace)
 	nano::send_block send1 (0, 0, 0, nano::keypair ().prv, 0, 1);
 	nano::send_block send2 (0, 0, 0, nano::keypair ().prv, 0, 2);
 	auto transaction (store->tx_begin_write ());
-	nano::block_sideband sideband1 (nano::block_type::send, 0, 0, 0, 0, 0, nano::epoch::epoch_0);
+	nano::block_sideband sideband1 (nano::block_type::send, 0, 0, 0, 0, 0, nano::epoch::epoch_0, false, false, false);
 	store->block_put (transaction, 0, send1, sideband1);
-	nano::block_sideband sideband2 (nano::block_type::send, 0, 0, 0, 0, 0, nano::epoch::epoch_0);
+	nano::block_sideband sideband2 (nano::block_type::send, 0, 0, 0, 0, 0, nano::epoch::epoch_0, false, false, false);
 	store->block_put (transaction, 0, send2, sideband2);
 	auto block3 (store->block_get (transaction, 0));
 	ASSERT_NE (nullptr, block3);
@@ -730,7 +776,7 @@ TEST (block_store, block_count)
 		ASSERT_EQ (0, store->block_count (transaction).sum ());
 		nano::open_block block (0, 1, 0, nano::keypair ().prv, 0, 0);
 		auto hash1 (block.hash ());
-		nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0, 0, nano::epoch::epoch_0);
+		nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0, 0, nano::epoch::epoch_0, false, false, false);
 		store->block_put (transaction, hash1, block, sideband);
 	}
 	auto transaction (store->tx_begin_read ());
@@ -1132,7 +1178,7 @@ TEST (block_store, state_block)
 		auto transaction (store->tx_begin_write ());
 		store->initialize (transaction, genesis, ledger_cache);
 		ASSERT_EQ (nano::block_type::state, block1.type ());
-		nano::block_sideband sideband1 (nano::block_type::state, 0, 0, 0, 0, 0, nano::epoch::epoch_0);
+		nano::block_sideband sideband1 (nano::block_type::state, 0, 0, 0, 0, 0, nano::epoch::epoch_0, false, false, false);
 		store->block_put (transaction, block1.hash (), block1, sideband1);
 		ASSERT_TRUE (store->block_exists (transaction, block1.hash ()));
 		auto block2 (store->block_get (transaction, block1.hash ()));
@@ -1709,11 +1755,11 @@ TEST (mdb_block_store, upgrade_v14_v15)
 	nano::block_sideband sideband;
 	auto block = store.block_get (transaction, state_send.hash (), &sideband);
 	ASSERT_NE (block, nullptr);
-	ASSERT_EQ (sideband.epoch, nano::epoch::epoch_1);
+	ASSERT_EQ (sideband.details.epoch, nano::epoch::epoch_1);
 	block = store.block_get (transaction, send.hash (), &sideband);
 	ASSERT_NE (block, nullptr);
 	nano::block_sideband sideband1;
-	ASSERT_EQ (sideband1.epoch, nano::epoch::epoch_0);
+	ASSERT_EQ (sideband1.details.epoch, nano::epoch::epoch_0);
 	ASSERT_EQ (info.epoch (), nano::epoch::epoch_1);
 	nano::pending_info pending_info;
 	store.pending_get (transaction, nano::pending_key (nano::test_genesis_key.pub, send.hash ()), pending_info);
@@ -1816,6 +1862,203 @@ TEST (mdb_block_store, upgrade_v16_v17)
 	code (2, block1.hash ());
 	code (3, block2.hash ());
 	code (4, block3.hash ());
+}
+
+TEST (mdb_block_store, upgrade_v17_v18)
+{
+	auto path (nano::unique_path ());
+	nano::genesis genesis;
+	nano::keypair key1;
+	nano::keypair key2;
+	nano::keypair key3;
+	nano::network_params network_params;
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	nano::send_block send_zero (genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (genesis.hash ()));
+	nano::state_block state_receive_zero (nano::test_genesis_key.pub, send_zero.hash (), nano::test_genesis_key.pub, nano::genesis_amount, send_zero.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (send_zero.hash ()));
+	nano::state_block epoch (nano::test_genesis_key.pub, state_receive_zero.hash (), nano::test_genesis_key.pub, nano::genesis_amount, network_params.ledger.epochs.link (nano::epoch::epoch_1), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (state_receive_zero.hash ()));
+	nano::state_block state_send (nano::test_genesis_key.pub, epoch.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (epoch.hash ()));
+	nano::state_block state_receive (nano::test_genesis_key.pub, state_send.hash (), nano::test_genesis_key.pub, nano::genesis_amount, state_send.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (state_send.hash ()));
+	nano::state_block state_change (nano::test_genesis_key.pub, state_receive.hash (), nano::test_genesis_key.pub, nano::genesis_amount, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (state_receive.hash ()));
+	nano::state_block state_send_change (nano::test_genesis_key.pub, state_change.hash (), key1.pub, nano::genesis_amount - nano::Gxrb_ratio, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (state_change.hash ()));
+	nano::state_block epoch_first (key1.pub, 0, 0, 0, network_params.ledger.epochs.link (nano::epoch::epoch_2), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (key1.pub));
+	nano::state_block state_receive2 (key1.pub, epoch_first.hash (), key1.pub, nano::Gxrb_ratio, state_send_change.hash (), key1.prv, key1.pub, *pool.generate (epoch_first.hash ()));
+	nano::state_block state_send2 (nano::test_genesis_key.pub, state_send_change.hash (), key1.pub, nano::genesis_amount - nano::Gxrb_ratio * 2, key2.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (state_send_change.hash ()));
+	nano::state_block state_open (key2.pub, 0, key2.pub, nano::Gxrb_ratio, state_send2.hash (), key2.prv, key2.pub, *pool.generate (key2.pub));
+	nano::state_block state_send_epoch_link (key2.pub, state_open.hash (), key2.pub, 0, network_params.ledger.epochs.link (nano::epoch::epoch_2), key2.prv, key2.pub, *pool.generate (state_open.hash ()));
+	{
+		nano::logger_mt logger;
+		nano::mdb_store store (logger, path);
+		auto transaction (store.tx_begin_write ());
+		nano::stat stats;
+		nano::ledger ledger (store, stats);
+		store.initialize (transaction, genesis, ledger.cache);
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send_zero).code);
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_receive_zero).code);
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, epoch).code);
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_send).code);
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_receive).code);
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_change).code);
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_send_change).code);
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, epoch_first).code);
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_receive2).code);
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_send2).code);
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_open).code);
+		ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, state_send_epoch_link).code);
+
+		// Downgrade the store
+		store.version_put (transaction, 17);
+
+		// Replace with the previous sideband version for state blocks
+		// The upgrade can resume after upgrading some blocks, test this by only downgrading some of them
+		write_sideband_v15 (store, transaction, state_receive_zero);
+		write_sideband_v15 (store, transaction, epoch);
+		write_sideband_v15 (store, transaction, state_send);
+		// DISABLED write_sideband_v15 (store, transaction, state_receive);
+		write_sideband_v15 (store, transaction, state_change);
+		write_sideband_v15 (store, transaction, state_send_change);
+		// DISABLED write_sideband_v15 (store, transaction, epoch_first);
+		write_sideband_v15 (store, transaction, state_receive2);
+		// DISABLED write_sideband_v15 (store, transaction, state_send2);
+		write_sideband_v15 (store, transaction, state_open);
+		// DISABLED write_sideband_v15 (store, transaction, state_send_epoch_link);
+	}
+
+	// Now do the upgrade
+	nano::logger_mt logger;
+	auto error (false);
+	nano::mdb_store store (logger, path);
+	ASSERT_FALSE (error);
+	auto transaction (store.tx_begin_read ());
+
+	// Size of state block should equal that set in db (no change)
+	nano::mdb_val value;
+	ASSERT_FALSE (mdb_get (store.env.tx (transaction), store.state_blocks, nano::mdb_val (state_send.hash ()), value));
+	ASSERT_EQ (value.size (), nano::state_block::size + nano::block_sideband::size (nano::block_type::state));
+
+	// Check that sidebands are correctly populated
+	{
+		// Non-state unaffected
+		nano::block_sideband sideband;
+		auto block = store.block_get (transaction, send_zero.hash (), &sideband);
+		ASSERT_NE (block, nullptr);
+		// All defaults
+		ASSERT_EQ (sideband.details.epoch, nano::epoch::epoch_0);
+		ASSERT_FALSE (sideband.details.is_epoch);
+		ASSERT_FALSE (sideband.details.is_send);
+		ASSERT_FALSE (sideband.details.is_receive);
+	}
+	{
+		// State receive from old zero send
+		nano::block_sideband sideband;
+		auto block = store.block_get (transaction, state_receive_zero.hash (), &sideband);
+		ASSERT_NE (block, nullptr);
+		ASSERT_EQ (sideband.details.epoch, nano::epoch::epoch_0);
+		ASSERT_FALSE (sideband.details.is_epoch);
+		ASSERT_FALSE (sideband.details.is_send);
+		ASSERT_TRUE (sideband.details.is_receive);
+	}
+	{
+		// Epoch
+		nano::block_sideband sideband;
+		auto block = store.block_get (transaction, epoch.hash (), &sideband);
+		ASSERT_NE (block, nullptr);
+		ASSERT_EQ (sideband.details.epoch, nano::epoch::epoch_1);
+		ASSERT_TRUE (sideband.details.is_epoch);
+		ASSERT_FALSE (sideband.details.is_send);
+		ASSERT_FALSE (sideband.details.is_receive);
+	}
+	{
+		// State send
+		nano::block_sideband sideband;
+		auto block = store.block_get (transaction, state_send.hash (), &sideband);
+		ASSERT_NE (block, nullptr);
+		ASSERT_EQ (sideband.details.epoch, nano::epoch::epoch_1);
+		ASSERT_FALSE (sideband.details.is_epoch);
+		ASSERT_TRUE (sideband.details.is_send);
+		ASSERT_FALSE (sideband.details.is_receive);
+	}
+	{
+		// State receive
+		nano::block_sideband sideband;
+		auto block = store.block_get (transaction, state_receive.hash (), &sideband);
+		ASSERT_NE (block, nullptr);
+		ASSERT_EQ (sideband.details.epoch, nano::epoch::epoch_1);
+		ASSERT_FALSE (sideband.details.is_epoch);
+		ASSERT_FALSE (sideband.details.is_send);
+		ASSERT_TRUE (sideband.details.is_receive);
+	}
+	{
+		// State change
+		nano::block_sideband sideband;
+		auto block = store.block_get (transaction, state_change.hash (), &sideband);
+		ASSERT_NE (block, nullptr);
+		ASSERT_EQ (sideband.details.epoch, nano::epoch::epoch_1);
+		ASSERT_FALSE (sideband.details.is_epoch);
+		ASSERT_FALSE (sideband.details.is_send);
+		ASSERT_FALSE (sideband.details.is_receive);
+	}
+	{
+		// State send + change
+		nano::block_sideband sideband;
+		auto block = store.block_get (transaction, state_send_change.hash (), &sideband);
+		ASSERT_NE (block, nullptr);
+		ASSERT_EQ (sideband.details.epoch, nano::epoch::epoch_1);
+		ASSERT_FALSE (sideband.details.is_epoch);
+		ASSERT_TRUE (sideband.details.is_send);
+		ASSERT_FALSE (sideband.details.is_receive);
+	}
+	{
+		// Epoch on unopened account
+		nano::block_sideband sideband;
+		auto block = store.block_get (transaction, epoch_first.hash (), &sideband);
+		ASSERT_NE (block, nullptr);
+		ASSERT_EQ (sideband.details.epoch, nano::epoch::epoch_2);
+		ASSERT_TRUE (sideband.details.is_epoch);
+		ASSERT_FALSE (sideband.details.is_send);
+		ASSERT_FALSE (sideband.details.is_receive);
+	}
+	{
+		// State open following epoch
+		nano::block_sideband sideband;
+		auto block = store.block_get (transaction, state_receive2.hash (), &sideband);
+		ASSERT_NE (block, nullptr);
+		ASSERT_EQ (sideband.details.epoch, nano::epoch::epoch_2);
+		ASSERT_FALSE (sideband.details.is_epoch);
+		ASSERT_FALSE (sideband.details.is_send);
+		ASSERT_TRUE (sideband.details.is_receive);
+	}
+	{
+		// Another state send
+		nano::block_sideband sideband;
+		auto block = store.block_get (transaction, state_send2.hash (), &sideband);
+		ASSERT_NE (block, nullptr);
+		ASSERT_EQ (sideband.details.epoch, nano::epoch::epoch_1);
+		ASSERT_FALSE (sideband.details.is_epoch);
+		ASSERT_TRUE (sideband.details.is_send);
+		ASSERT_FALSE (sideband.details.is_receive);
+	}
+	{
+		// State open
+		nano::block_sideband sideband;
+		auto block = store.block_get (transaction, state_open.hash (), &sideband);
+		ASSERT_NE (block, nullptr);
+		ASSERT_EQ (sideband.details.epoch, nano::epoch::epoch_1);
+		ASSERT_FALSE (sideband.details.is_epoch);
+		ASSERT_FALSE (sideband.details.is_send);
+		ASSERT_TRUE (sideband.details.is_receive);
+	}
+	{
+		// State send to an epoch link
+		nano::block_sideband sideband;
+		auto block = store.block_get (transaction, state_send_epoch_link.hash (), &sideband);
+		ASSERT_NE (block, nullptr);
+		ASSERT_EQ (sideband.details.epoch, nano::epoch::epoch_1);
+		ASSERT_FALSE (sideband.details.is_epoch);
+		ASSERT_TRUE (sideband.details.is_send);
+		ASSERT_FALSE (sideband.details.is_receive);
+	}
+	// Version should be correct
+	ASSERT_LT (17, store.version_get (transaction));
 }
 
 TEST (mdb_block_store, upgrade_backup)
@@ -1924,7 +2167,7 @@ TEST (mdb_block_store, upgrade_confirmation_height_many)
 		{
 			nano::account account (i);
 			nano::open_block open (1, nano::genesis_account, 3, nullptr);
-			nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0, 0, nano::epoch::epoch_0);
+			nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0, 0, nano::epoch::epoch_0, false, false, false);
 			store.block_put (transaction, open.hash (), open, sideband);
 			nano::account_info_v13 account_info_v13 (open.hash (), open.hash (), open.hash (), 3, 4, 1, nano::epoch::epoch_0);
 			auto status (mdb_put (store.env.tx (transaction), store.accounts_v0, nano::mdb_val (account), nano::mdb_val (account_info_v13), 0));
@@ -1995,7 +2238,7 @@ TEST (block_store, reset_renew_existing_transaction)
 	// Write the block
 	{
 		auto write_transaction (store->tx_begin_write ());
-		nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0, 0, nano::epoch::epoch_0);
+		nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0, 0, nano::epoch::epoch_0, false, false, false);
 		store->block_put (write_transaction, hash1, block, sideband);
 	}
 
@@ -2068,7 +2311,27 @@ void write_sideband_v14 (nano::mdb_store & store_a, nano::transaction & transact
 	}
 
 	MDB_val val{ data.size (), data.data () };
-	ASSERT_FALSE (mdb_put (store_a.env.tx (transaction_a), sideband.epoch == nano::epoch::epoch_0 ? store_a.state_blocks_v0 : store_a.state_blocks_v1, nano::mdb_val (block_a.hash ()), &val, 0));
+	ASSERT_FALSE (mdb_put (store_a.env.tx (transaction_a), sideband.details.epoch == nano::epoch::epoch_0 ? store_a.state_blocks_v0 : store_a.state_blocks_v1, nano::mdb_val (block_a.hash ()), &val, 0));
+}
+
+void write_sideband_v15 (nano::mdb_store & store_a, nano::transaction & transaction_a, nano::block const & block_a)
+{
+	nano::block_sideband sideband;
+	auto block = store_a.block_get (transaction_a, block_a.hash (), &sideband);
+	ASSERT_NE (block, nullptr);
+
+	assert (sideband.details.epoch <= nano::epoch::max);
+	// Simulated by writing 0 on every of the most significant bits, leaving out epoch only, as if pre-upgrade
+	nano::block_sideband sideband_v15 (sideband.type, sideband.account, sideband.successor, sideband.balance, sideband.timestamp, sideband.height, sideband.details.epoch, false, false, false);
+	std::vector<uint8_t> data;
+	{
+		nano::vectorstream stream (data);
+		block_a.serialize (stream);
+		sideband_v15.serialize (stream);
+	}
+
+	MDB_val val{ data.size (), data.data () };
+	ASSERT_FALSE (mdb_put (store_a.env.tx (transaction_a), store_a.state_blocks, nano::mdb_val (block_a.hash ()), &val, 0));
 }
 
 // These functions take the latest account_info and create a legacy one so that upgrade tests can be emulated more easily.

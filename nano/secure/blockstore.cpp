@@ -3,14 +3,72 @@
 
 #include <boost/endian/conversion.hpp>
 
-nano::block_sideband::block_sideband (nano::block_type type_a, nano::account const & account_a, nano::block_hash const & successor_a, nano::amount const & balance_a, uint64_t height_a, uint64_t timestamp_a, nano::epoch epoch_a) :
+#include <bitset>
+
+nano::block_details::block_details (nano::epoch const epoch_a, bool const is_send_a, bool const is_receive_a, bool const is_epoch_a) :
+epoch (epoch_a), is_send (is_send_a), is_receive (is_receive_a), is_epoch (is_epoch_a)
+{
+}
+
+constexpr size_t nano::block_details::size ()
+{
+	return 1;
+}
+
+bool nano::block_details::operator== (nano::block_details const & other_a) const
+{
+	return epoch == other_a.epoch && is_send == other_a.is_send && is_receive == other_a.is_receive && is_epoch == other_a.is_epoch;
+}
+
+uint8_t nano::block_details::packed () const
+{
+	std::bitset<8> result (static_cast<uint8_t> (epoch));
+	result.set (7, is_send);
+	result.set (6, is_receive);
+	result.set (5, is_epoch);
+	return static_cast<uint8_t> (result.to_ulong ());
+}
+
+void nano::block_details::unpack (uint8_t details_a)
+{
+	constexpr std::bitset<8> epoch_mask{ 0b00011111 };
+	auto as_bitset = static_cast<std::bitset<8>> (details_a);
+	is_send = as_bitset.test (7);
+	is_receive = as_bitset.test (6);
+	is_epoch = as_bitset.test (5);
+	epoch = static_cast<nano::epoch> ((as_bitset & epoch_mask).to_ulong ());
+}
+
+void nano::block_details::serialize (nano::stream & stream_a) const
+{
+	nano::write (stream_a, packed ());
+}
+
+bool nano::block_details::deserialize (nano::stream & stream_a)
+{
+	bool result (false);
+	try
+	{
+		uint8_t packed{ 0 };
+		nano::read (stream_a, packed);
+		unpack (packed);
+	}
+	catch (std::runtime_error &)
+	{
+		result = true;
+	}
+
+	return result;
+}
+
+nano::block_sideband::block_sideband (nano::block_type type_a, nano::account const & account_a, nano::block_hash const & successor_a, nano::amount const & balance_a, uint64_t height_a, uint64_t timestamp_a, nano::epoch epoch_a, bool is_send, bool is_receive, bool is_epoch) :
 type (type_a),
 successor (successor_a),
 account (account_a),
 balance (balance_a),
 height (height_a),
 timestamp (timestamp_a),
-epoch (epoch_a)
+details (epoch_a, is_send, is_receive, is_epoch)
 {
 }
 
@@ -33,7 +91,8 @@ size_t nano::block_sideband::size (nano::block_type type_a)
 	result += sizeof (timestamp);
 	if (type_a == nano::block_type::state)
 	{
-		result += sizeof (epoch);
+		static_assert (sizeof (nano::epoch) == nano::block_details::size (), "block_details is larger than the epoch enum");
+		result += nano::block_details::size ();
 	}
 	return result;
 }
@@ -56,7 +115,7 @@ void nano::block_sideband::serialize (nano::stream & stream_a) const
 	nano::write (stream_a, boost::endian::native_to_big (timestamp));
 	if (type == nano::block_type::state)
 	{
-		nano::write (stream_a, epoch);
+		details.serialize (stream_a);
 	}
 }
 
@@ -87,7 +146,7 @@ bool nano::block_sideband::deserialize (nano::stream & stream_a)
 		boost::endian::big_to_native_inplace (timestamp);
 		if (type == nano::block_type::state)
 		{
-			nano::read (stream_a, epoch);
+			result = details.deserialize (stream_a);
 		}
 	}
 	catch (std::runtime_error &)
