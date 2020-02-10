@@ -7027,19 +7027,12 @@ TEST (rpc, block_confirmed)
 
 	// Wait until the confirmation height has been set
 	system.deadline_set (10s);
-	while (true)
+	auto transaction = node->store.tx_begin_read ();
+	while (!node->ledger.block_confirmed (transaction, send->hash ()) || node->confirmation_height_processor.is_processing_block (send->hash ()))
 	{
-		auto transaction = node->store.tx_begin_read ();
-		if (node->ledger.block_confirmed (transaction, send->hash ()))
-		{
-			break;
-		}
-
 		ASSERT_NO_ERROR (system.poll ());
+		transaction.refresh ();
 	}
-
-	// Should no longer be processing the block after confirmation is set
-	ASSERT_FALSE (node->confirmation_height_processor.is_processing_block (send->hash ()));
 
 	// Requesting confirmation for this should now succeed
 	request.put ("hash", send->hash ().to_string ());
