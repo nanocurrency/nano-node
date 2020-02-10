@@ -162,11 +162,12 @@ void nano::block_processor::verify_state_blocks (nano::unique_lock<std::mutex> &
 	}
 	else
 	{
-		for (auto i (0); i < max_count && !state_blocks.empty (); ++i)
+		for (auto i (0); i < max_count; ++i)
 		{
 			items.push_back (state_blocks.front ());
 			state_blocks.pop_front ();
 		}
+		assert (!state_blocks.empty ());
 	}
 	lock_a.unlock ();
 	if (!items.empty ())
