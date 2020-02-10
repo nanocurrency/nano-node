@@ -1205,8 +1205,10 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_bootstrap"))
 		{
-			nano::inactive_node node2 (nano::unique_path (), 24001);
-			nano::update_flags (node2.node->flags, vm);
+			auto node_flags = nano::inactive_node_flag_defaults ();
+			node_flags.read_only = false;
+			nano::update_flags (node_flags, vm);
+			nano::inactive_node node2 (nano::unique_path (), 24001, node_flags);
 			nano::genesis genesis;
 			auto begin (std::chrono::high_resolution_clock::now ());
 			uint64_t block_count (0);
@@ -1245,11 +1247,10 @@ int main (int argc, char * const * argv)
 			while (block_count_2 != block_count)
 			{
 				std::this_thread::sleep_for (std::chrono::seconds (1));
-				auto transaction_2 (node2.node->store.tx_begin_read ());
-				block_count_2 = node2.node->store.block_count (transaction_2).sum ();
 				if ((count % 60) == 0)
 				{
-					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed") % block_count_2 % node2.node->store.unchecked_count (transaction_2)) << std::endl;
+					auto transaction_2 (node2.node->store.tx_begin_read ());
+					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed") % node2.node->store.block_count (transaction_2).sum () % node2.node->store.unchecked_count (transaction_2)) << std::endl;
 				}
 				count++;
 			}
