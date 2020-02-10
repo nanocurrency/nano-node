@@ -476,7 +476,7 @@ public:
 
 			telemetry_ack = nano::telemetry_ack (telemetry_data);
 		}
-		channel->send (telemetry_ack);
+		channel->send (telemetry_ack, nullptr, false);
 	}
 	void telemetry_ack (nano::telemetry_ack const & message_a) override
 	{
@@ -551,11 +551,11 @@ bool nano::network::reachout (nano::endpoint const & endpoint_a, bool allow_loca
 	return error;
 }
 
-std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list (size_t count_a)
+std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list (size_t count_a, uint8_t minimum_version_a, bool include_tcp_temporary_channels_a)
 {
 	std::deque<std::shared_ptr<nano::transport::channel>> result;
-	tcp_channels.list (result);
-	udp_channels.list (result);
+	tcp_channels.list (result, minimum_version_a, include_tcp_temporary_channels_a);
+	udp_channels.list (result, minimum_version_a);
 	nano::random_pool_shuffle (result.begin (), result.end ());
 	if (result.size () > count_a)
 	{
