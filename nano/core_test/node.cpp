@@ -2621,7 +2621,10 @@ TEST (node, local_votes_cache)
 		node.network.process_message (message1, channel);
 		node.network.process_message (message2, channel);
 	}
-	std::this_thread::sleep_for (500ms);
+	for (int i = 0; i < 4; ++i)
+	{
+		system.poll (node.aggregator.max_delay);
+	}
 	// Make sure a new vote was not generated
 	{
 		nano::lock_guard<std::mutex> lock (node.store.get_cache_mutex ());
@@ -2637,7 +2640,10 @@ TEST (node, local_votes_cache)
 	{
 		node.network.process_message (message3, channel);
 	}
-	std::this_thread::sleep_for (500ms);
+	for (int i = 0; i < 4; ++i)
+	{
+		system.poll (node.aggregator.max_delay);
+	}
 	wait_vote_sequence (3);
 	ASSERT_TRUE (node.votes_cache.find (send1->hash ()).empty ());
 	ASSERT_FALSE (node.votes_cache.find (send2->hash ()).empty ());
