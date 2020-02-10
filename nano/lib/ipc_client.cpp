@@ -10,6 +10,7 @@
 #include <boost/endian/conversion.hpp>
 #include <boost/polymorphic_cast.hpp>
 
+#include <deque>
 #include <future>
 
 namespace
