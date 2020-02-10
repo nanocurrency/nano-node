@@ -75,14 +75,17 @@ void nano::confirmation_height_bounded::process ()
 			account = sideband.account;
 		}
 
-		release_assert (!ledger.store.confirmation_height_get (transaction, account, confirmation_height_info));
-
 		// Checks if we have encountered this account before but not commited changes yet, if so then update the cached confirmation height
+		nano::confirmation_height_info confirmation_height_info;
 		auto account_it = accounts_confirmed_info.find (account);
-		if (account_it != accounts_confirmed_info.cend () && account_it->second.confirmed_height > confirmation_height_info.height)
+		if (account_it != accounts_confirmed_info.cend ())
 		{
 			confirmation_height_info.height = account_it->second.confirmed_height;
 			confirmation_height_info.frontier = account_it->second.iterated_frontier;
+		}
+		else
+		{
+			release_assert (!ledger.store.confirmation_height_get (transaction, account, confirmation_height_info));
 		}
 
 		assert (block != nullptr);
