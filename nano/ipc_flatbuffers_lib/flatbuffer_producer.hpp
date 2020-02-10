@@ -16,7 +16,6 @@ namespace ipc
 	public:
 		flatbuffer_producer ();
 		flatbuffer_producer (std::shared_ptr<flatbuffers::FlatBufferBuilder> const & builder_a);
-		~flatbuffer_producer () = default;
 
 		template <typename T>
 		static std::shared_ptr<flatbuffers::FlatBufferBuilder> make_buffer (T & object_a, std::string const & correlation_id_a = {}, std::string const & credentials_a = {})

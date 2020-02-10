@@ -97,7 +97,7 @@ public:
 			auto queue_size = this_l->send_queue.size ();
 			if (queue_size < this_l->queue_size_max)
 			{
-				this_l->send_queue.emplace_back (queue_item{ buffer_a, callback_a });
+				this_l->send_queue.emplace_back (buffer_a, callback_a);
 			}
 			if (!write_in_progress)
 			{
@@ -170,6 +170,10 @@ private:
 	class queue_item
 	{
 	public:
+		queue_item (nano::shared_const_buffer const & buffer_a, std::function<void(boost::system::error_code const &, size_t)> callback_a) :
+		buffer (buffer_a), callback (callback_a)
+		{
+		}
 		nano::shared_const_buffer buffer;
 		std::function<void(boost::system::error_code const &, size_t)> callback;
 	};

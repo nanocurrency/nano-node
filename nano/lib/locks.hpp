@@ -122,7 +122,7 @@ public:
 		return scoped_lock (this);
 	}
 
-	T & operator= (const T & other)
+	T & operator= (T const & other)
 	{
 		nano::unique_lock<std::mutex> lk (mutex);
 		obj = other;
