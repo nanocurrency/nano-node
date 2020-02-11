@@ -2,19 +2,13 @@
 
 #include <nano/node/bootstrap/bootstrap_attempt.hpp>
 #include <nano/node/bootstrap/bootstrap_bulk_pull.hpp>
-#include <nano/node/common.hpp>
-#include <nano/node/socket.hpp>
-#include <nano/secure/blockstore.hpp>
-#include <nano/secure/ledger.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index_container.hpp>
-#include <boost/thread/thread.hpp>
 
 #include <atomic>
-#include <future>
 #include <queue>
 #include <unordered_set>
 
@@ -22,13 +16,7 @@ namespace mi = boost::multi_index;
 
 namespace nano
 {
-class bootstrap_attempt;
-class bootstrap_client;
 class node;
-namespace transport
-{
-	class channel_tcp;
-}
 class lazy_state_backlog_item final
 {
 public:

@@ -16,7 +16,6 @@ namespace transport
 class bootstrap_attempt;
 class bootstrap_connections;
 class frontier_req_client;
-class bulk_push_client;
 class pull_info;
 class bootstrap_client final : public std::enable_shared_from_this<bootstrap_client>
 {

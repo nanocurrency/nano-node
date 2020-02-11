@@ -2,24 +2,13 @@
 
 #include <nano/node/bootstrap/bootstrap.hpp>
 #include <nano/node/bootstrap/bootstrap_bulk_pull.hpp>
-#include <nano/node/common.hpp>
-#include <nano/node/socket.hpp>
-#include <nano/secure/blockstore.hpp>
-#include <nano/secure/ledger.hpp>
 
 #include <atomic>
 #include <future>
 
 namespace nano
 {
-class bootstrap_attempt_lazy;
-class bootstrap_attempt_wallet;
-class bootstrap_client;
 class node;
-namespace transport
-{
-	class channel_tcp;
-}
 
 class frontier_req_client;
 class bulk_push_client;

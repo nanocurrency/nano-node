@@ -3,8 +3,6 @@
 #include <nano/node/bootstrap/bootstrap_bulk_pull.hpp>
 #include <nano/node/bootstrap/bootstrap_connections.hpp>
 #include <nano/node/common.hpp>
-#include <nano/secure/blockstore.hpp>
-#include <nano/secure/ledger.hpp>
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
@@ -13,9 +11,7 @@
 #include <boost/thread/thread.hpp>
 
 #include <atomic>
-#include <future>
 #include <queue>
-#include <unordered_set>
 
 namespace mi = boost::multi_index;
 
@@ -23,9 +19,6 @@ namespace nano
 {
 class node;
 
-class bootstrap_attempt_legacy;
-class bootstrap_attempt_lazy;
-class bootstrap_attempt_wallet;
 class bootstrap_connections;
 namespace transport
 {
