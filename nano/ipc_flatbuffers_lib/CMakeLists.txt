@@ -23,6 +23,11 @@ add_subdirectory(../../flatbuffers ${CMAKE_CURRENT_BINARY_DIR}/flatbuffers-build
 # whenever any of the fbs files change. Note that while this supports multiple fbs files,
 # we currently only use one, to avoid include-file issues with certain language bindings.
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/generated/flatbuffers)
+if (APPLE)
+	install (DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../api/flatbuffers/ DESTINATION Nano.app/api/flatbuffers)
+else()
+	install (DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../api/flatbuffers/ DESTINATION ./api/flatbuffers)
+endif()
 
 file(GLOB files "${CMAKE_CURRENT_SOURCE_DIR}/../../api/flatbuffers/nanoapi*.fbs")
 foreach(file ${files})
