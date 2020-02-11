@@ -13,8 +13,8 @@ ledger (ledger_a),
 write_database_queue (write_database_queue_a),
 batch_separate_pending_min_time (batch_separate_pending_min_time_a),
 logger (logger_a),
-original_hash (original_hash_a),
 stopped (stopped_a),
+original_hash (original_hash_a),
 notify_observers_callback (notify_observers_callback_a),
 awaiting_processing_size_callback (awaiting_processing_size_callback_a)
 {
@@ -53,14 +53,11 @@ nano::confirmation_height_bounded::top_and_next_hash nano::confirmation_height_b
 
 void nano::confirmation_height_bounded::process ()
 {
-	nano::block_sideband sideband;
-	nano::confirmation_height_info confirmation_height_info;
-	auto transaction (ledger.store.tx_begin_read ());
-
 	boost::optional<top_and_next_hash> next_in_receive_chain;
 	boost::circular_buffer_space_optimized<nano::block_hash> checkpoints{ max_items };
 	boost::circular_buffer_space_optimized<receive_source_pair> receive_source_pairs{ max_items };
 	nano::block_hash current;
+	auto transaction (ledger.store.tx_begin_read ());
 	do
 	{
 		boost::optional<receive_chain_details> receive_details;
@@ -68,7 +65,9 @@ void nano::confirmation_height_bounded::process ()
 		current = hash_to_process.top;
 
 		auto top_level_hash = current;
+		nano::block_sideband sideband;
 		auto block = ledger.store.block_get (transaction, current, &sideband);
+		assert (block != nullptr);
 		nano::account account (block->account ());
 		if (account.is_zero ())
 		{
@@ -85,10 +84,10 @@ void nano::confirmation_height_bounded::process ()
 		}
 		else
 		{
-			release_assert (!ledger.store.confirmation_height_get (transaction, account, confirmation_height_info));
+			auto error = ledger.store.confirmation_height_get (transaction, account, confirmation_height_info);
+			assert (!error);
 		}
 
-		assert (block != nullptr);
 		auto block_height = sideband.height;
 		bool already_cemented = confirmation_height_info.height >= block_height;
 
@@ -236,7 +235,7 @@ bool nano::confirmation_height_bounded::iterate (nano::read_transaction const & 
 			hit_receive = true;
 			reached_target = true;
 			auto next = !sideband.successor.is_zero () && sideband.successor != top_level_hash_a ? boost::optional<nano::block_hash> (sideband.successor) : boost::none;
-			receive_source_pairs_a.push_back (receive_source_pair{ receive_chain_details{ account_a, sideband.height, hash, top_level_hash_a, next, bottom_height_a, bottom_hash_a }, source });
+			receive_source_pairs_a.push_back ({ receive_chain_details{ account_a, sideband.height, hash, top_level_hash_a, next, bottom_height_a, bottom_hash_a }, source });
 			// Store a checkpoint every max_items so that we can always traverse a long number of accounts to genesis
 			if (receive_source_pairs_a.size () % max_items == 0)
 			{
@@ -307,7 +306,7 @@ void nano::confirmation_height_bounded::prepare_iterated_blocks_for_cementing (p
 		}
 		else
 		{
-			accounts_confirmed_info.emplace (receive_details->account, confirmed_info{ receive_details->height, receive_details->hash });
+			accounts_confirmed_info.emplace (std::piecewise_construct, std::forward_as_tuple (receive_details->account), std::forward_as_tuple (receive_details->height, receive_details->hash));
 			accounts_confirmed_info_size = accounts_confirmed_info.size ();
 		}
 
@@ -474,11 +473,11 @@ bottom_most (bottom_most_a)
 }
 
 nano::confirmation_height_bounded::write_details::write_details (nano::account const & account_a, uint64_t bottom_height_a, nano::block_hash const & bottom_hash_a, uint64_t top_height_a, nano::block_hash const & top_hash_a) :
+account (account_a),
 bottom_height (bottom_height_a),
 bottom_hash (bottom_hash_a),
 top_height (top_height_a),
-top_hash (top_hash_a),
-account (account_a)
+top_hash (top_hash_a)
 {
 }
 

@@ -115,7 +115,7 @@ void nano::confirmation_height_unbounded::process ()
 			}
 			else
 			{
-				confirmed_iterated_pairs.emplace (account, confirmed_iterated_pair{ confirmation_height, block_height });
+				confirmed_iterated_pairs.emplace (std::piecewise_construct, std::forward_as_tuple (account), std::forward_as_tuple (confirmation_height, block_height));
 			}
 		}
 
@@ -230,7 +230,7 @@ void nano::confirmation_height_unbounded::prepare_iterated_blocks_for_cementing 
 		}
 		else
 		{
-			confirmed_iterated_pairs.emplace (preparation_data_a.account, confirmed_iterated_pair{ block_height, block_height });
+			confirmed_iterated_pairs.emplace (std::piecewise_construct, std::forward_as_tuple (preparation_data_a.account), std::forward_as_tuple (block_height, block_height));
 		}
 
 		auto num_blocks_confirmed = block_height - preparation_data_a.confirmation_height;
@@ -293,7 +293,7 @@ void nano::confirmation_height_unbounded::prepare_iterated_blocks_for_cementing 
 		}
 		else
 		{
-			confirmed_iterated_pairs.emplace (receive_account, confirmed_iterated_pair{ receive_details->height, receive_details->height });
+			confirmed_iterated_pairs.emplace (std::piecewise_construct, std::forward_as_tuple (receive_account), std::forward_as_tuple (receive_details->height, receive_details->height));
 		}
 
 		pending_writes.push_back (*receive_details);
@@ -374,7 +374,7 @@ void nano::confirmation_height_unbounded::get_block_and_sideband (nano::block_ha
 	else
 	{
 		block_a = ledger.store.block_get (transaction_a, hash_a, &sideband_a);
-		block_cache.emplace (hash_a, nano::block_w_sideband{ block_a, sideband_a });
+		block_cache.emplace (std::piecewise_construct, std::forward_as_tuple (hash_a), std::forward_as_tuple (block_a, sideband_a));
 		++block_cache_size;
 	}
 }
