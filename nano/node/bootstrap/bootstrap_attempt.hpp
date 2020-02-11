@@ -16,7 +16,7 @@ class bootstrap_attempt : public std::enable_shared_from_this<bootstrap_attempt>
 {
 public:
 	explicit bootstrap_attempt (std::shared_ptr<nano::node> node_a, nano::bootstrap_mode mode_a, uint64_t incremental_id_a, std::string id_a);
-	~bootstrap_attempt ();
+	virtual ~bootstrap_attempt ();
 	virtual void run () = 0;
 	virtual void stop ();
 	bool still_pulling ();
