@@ -107,12 +107,10 @@ public:
 	}
 	void flood_vote (std::shared_ptr<nano::vote> const &, float scale);
 	void flood_vote_pr (std::shared_ptr<nano::vote> const &);
-	void flood_block (std::shared_ptr<nano::block> block_a, bool const is_droppable_a = true)
-	{
-		nano::publish publish (block_a);
-		flood_message (publish, is_droppable_a);
-	}
-
+	// Publish block to a random selection of peers
+	void flood_block (std::shared_ptr<nano::block> const &, bool const is_droppable_a = true);
+	// Publish block to all PRs and a random selection of non-PRs
+	void flood_block_initial (std::shared_ptr<nano::block> const &);
 	void flood_block_many (std::deque<std::shared_ptr<nano::block>>, std::function<void()> = nullptr, unsigned = broadcast_interval_ms);
 	void merge_peers (std::array<nano::endpoint, 8> const &);
 	void merge_peer (nano::endpoint const &);

@@ -370,7 +370,7 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 	}
 }
 
-void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a, const bool watch_work_a)
+void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a, const bool watch_work_a, const bool initial_publish_a)
 {
 	// Add to work watcher to prevent dropping the election
 	if (watch_work_a)
@@ -382,7 +382,14 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	node.active.insert (block_a, false);
 
 	// Announce block contents to the network
-	node.network.flood_block (block_a, false);
+	if (initial_publish_a)
+	{
+		node.network.flood_block_initial (block_a);
+	}
+	else
+	{
+		node.network.flood_block (block_a, false);
+	}
 	if (node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
 	{
 		// Announce our weighted vote to the network
@@ -390,7 +397,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	}
 }
 
-nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, nano::unchecked_info info_a, const bool watch_work_a)
+nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, nano::unchecked_info info_a, const bool watch_work_a, const bool first_publish_a)
 {
 	nano::process_return result;
 	auto hash (info_a.block->hash ());
@@ -408,7 +415,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			}
 			if (info_a.modified > nano::seconds_since_epoch () - 300 && node.block_arrival.recent (hash))
 			{
-				process_live (hash, info_a.block, watch_work_a);
+				process_live (hash, info_a.block, watch_work_a, first_publish_a);
 			}
 			queue_unchecked (transaction_a, hash);
 			break;

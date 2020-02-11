@@ -154,6 +154,25 @@ void nano::network::flood_message (nano::message const & message_a, bool const i
 	}
 }
 
+void nano::network::flood_block (std::shared_ptr<nano::block> const & block_a, bool const is_droppable_a)
+{
+	nano::publish message (block_a);
+	flood_message (message, is_droppable_a);
+}
+
+void nano::network::flood_block_initial (std::shared_ptr<nano::block> const & block_a)
+{
+	nano::publish message (block_a);
+	for (auto const & i : node.rep_crawler.principal_representatives ())
+	{
+		i.channel->send (message, nullptr, false);
+	}
+	for (auto & i : list_non_pr (fanout (1.0)))
+	{
+		i->send (message, nullptr, false);
+	}
+}
+
 void nano::network::flood_vote (std::shared_ptr<nano::vote> const & vote_a, float scale)
 {
 	nano::confirm_ack message (vote_a);
