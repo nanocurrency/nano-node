@@ -270,7 +270,6 @@ TEST (active_transactions, keep_local)
 	node.process_active (open2);
 	node.process_active (open3);
 	node.block_processor.flush ();
-	ASSERT_EQ (3, node.active.size ());
 	system.deadline_set (5s);
 	// bound elections, should drop after one loop
 	while (node.active.size () != node_config.active_elections_size)
