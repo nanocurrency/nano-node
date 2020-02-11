@@ -24,7 +24,7 @@ add_subdirectory(../../flatbuffers ${CMAKE_CURRENT_BINARY_DIR}/flatbuffers-build
 # we currently only use one, to avoid include-file issues with certain language bindings.
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/generated/flatbuffers)
 if (APPLE)
-	install (DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../api/flatbuffers/ DESTINATION Nano.app/api/flatbuffers)
+	install (DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../api/flatbuffers/ DESTINATION Nano.app/Contents/MacOS/api/flatbuffers)
 else()
 	install (DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../api/flatbuffers/ DESTINATION ./api/flatbuffers)
 endif()
