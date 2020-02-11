@@ -31,6 +31,7 @@ if (${env:artifact} -eq 1) {
 
 mkdir build
 Push-Location build
+$env:BOOST_ROOT = ${env:BOOST_ROOT_1_69_0}
 
 & ..\ci\actions\windows\configure.bat
 if (${LastExitCode} -ne 0) {

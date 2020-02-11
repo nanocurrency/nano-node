@@ -1,4 +1,7 @@
 cmake_minimum_required (VERSION 3.4)
+
+cmake_policy(SET CMP0074 NEW)
+cmake_policy(SET CMP0077 NEW)
 # compatibility for osx sierra and on
 # needs to be set before project
 set (CMAKE_OSX_DEPLOYMENT_TARGET 10.12 CACHE STRING "")
