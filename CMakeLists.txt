@@ -1,10 +1,10 @@
 cmake_minimum_required (VERSION 3.4)
 
-if (${CMAKE_VERSION} VERSION_GREATER "3.12")
+if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.12")
 	#find_package uses <PACKAGENAME>_ROOT variables
 	cmake_policy(SET CMP0074 NEW)
 endif()
-if (${CMAKE_VERSION} VERSION_GREATER "3.13")
+if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13")
 	#option honors normal variables
 	cmake_policy(SET CMP0077 NEW)
 endif()
