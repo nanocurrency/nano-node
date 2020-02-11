@@ -248,7 +248,7 @@ TEST (active_transactions, keep_local)
 	auto send4 (wallet.send_action (nano::test_genesis_key.pub, key4.pub, node.config.receive_minimum.number ()));
 	auto send5 (wallet.send_action (nano::test_genesis_key.pub, key5.pub, node.config.receive_minimum.number ()));
 	auto send6 (wallet.send_action (nano::test_genesis_key.pub, key6.pub, node.config.receive_minimum.number ()));
-	system.deadline_set (10s);
+	system.deadline_set (5s);
 	// should not drop wallet created transactions
 	while (node.active.size () != 6)
 	{
@@ -264,16 +264,14 @@ TEST (active_transactions, keep_local)
 		}
 	}
 	auto open1 (std::make_shared<nano::state_block> (key1.pub, 0, key1.pub, node.config.receive_minimum.number (), send1->hash (), key1.prv, key1.pub, *system.work.generate (key1.pub)));
-	node.process_active (open1);
-	node.active.start (open1);
 	auto open2 (std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, node.config.receive_minimum.number (), send2->hash (), key2.prv, key2.pub, *system.work.generate (key2.pub)));
-	node.process_active (open2);
-	node.active.start (open2);
 	auto open3 (std::make_shared<nano::state_block> (key3.pub, 0, key3.pub, node.config.receive_minimum.number (), send3->hash (), key3.prv, key3.pub, *system.work.generate (key3.pub)));
+	node.process_active (open1);
+	node.process_active (open2);
 	node.process_active (open3);
-	node.active.start (open3);
+	node.block_processor.flush ();
 	ASSERT_EQ (3, node.active.size ());
-	system.deadline_set (10s);
+	system.deadline_set (5s);
 	// bound elections, should drop after one loop
 	while (node.active.size () != node_config.active_elections_size)
 	{

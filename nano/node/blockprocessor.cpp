@@ -360,13 +360,15 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 
 void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a, const bool watch_work_a)
 {
-	// Start collecting quorum on block
-	node.active.start (block_a, false);
-	//add block to watcher if desired after block has been added to active
+	// Add to work watcher to prevent dropping the election
 	if (watch_work_a)
 	{
 		node.wallets.watcher->add (block_a);
 	}
+
+	// Start collecting quorum on block
+	node.active.start (block_a, false);
+
 	// Announce block contents to the network
 	node.network.flood_block (block_a, false);
 	if (node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
