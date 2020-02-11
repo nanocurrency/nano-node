@@ -83,7 +83,7 @@ std::shared_ptr<nano::bootstrap_client> nano::bootstrap_connections::connection 
 
 void nano::bootstrap_connections::pool_connection (std::shared_ptr<nano::bootstrap_client> client_a, bool new_client, bool push_front)
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::unique_lock<std::mutex> lock (mutex);
 	if (!stopped && !client_a->pending_stop && !node.bootstrap_initiator.excluded_peers.check (client_a->channel->get_tcp_endpoint ()))
 	{
 		// Idle bootstrap client socket
@@ -112,6 +112,7 @@ void nano::bootstrap_connections::pool_connection (std::shared_ptr<nano::bootstr
 			socket_l->close ();
 		}
 	}
+	lock.unlock ();
 	condition.notify_all ();
 }
 
@@ -395,8 +396,10 @@ void nano::bootstrap_connections::requeue_pull (nano::pull_info const & pull_a, 
 		}
 		if (pull.attempts < pull.retry_limit + (pull.processed / nano::bootstrap_limits::requeued_pulls_processed_blocks_factor))
 		{
-			nano::lock_guard<std::mutex> lock (mutex);
-			pulls.push_front (pull);
+			{
+				nano::lock_guard<std::mutex> lock (mutex);
+				pulls.push_front (pull);
+			}
 			++attempt_l->pulling;
 			attempt_l->condition.notify_all ();
 			condition.notify_all ();
@@ -406,8 +409,10 @@ void nano::bootstrap_connections::requeue_pull (nano::pull_info const & pull_a, 
 			assert (pull.account_or_head == pull.head);
 			if (!attempt_l->lazy_processed_or_exists (pull.account_or_head))
 			{
-				nano::lock_guard<std::mutex> lock (mutex);
-				pulls.push_back (pull);
+				{
+					nano::lock_guard<std::mutex> lock (mutex);
+					pulls.push_back (pull);
+				}
 				++attempt_l->pulling;
 				attempt_l->condition.notify_all ();
 				condition.notify_all ();
@@ -466,14 +471,15 @@ void nano::bootstrap_connections::run ()
 		}
 	}
 	stopped = true;
+	lock.unlock ();
 	condition.notify_all ();
 }
 
 void nano::bootstrap_connections::stop ()
 {
 	stopped = true;
-	nano::lock_guard<std::mutex> lock (mutex);
 	condition.notify_all ();
+	nano::lock_guard<std::mutex> lock (mutex);
 	for (auto i : clients)
 	{
 		if (auto client = i.lock ())

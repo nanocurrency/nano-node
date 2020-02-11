@@ -47,6 +47,7 @@ void nano::bootstrap_initiator::bootstrap (bool force, std::string id_a)
 		auto legacy_attempt (std::make_shared<nano::bootstrap_attempt_legacy> (node.shared (), attempts.incremental++, id_a));
 		attempts_list.push_back (legacy_attempt);
 		attempts.add (legacy_attempt);
+		lock.unlock ();
 		condition.notify_all ();
 	}
 }
@@ -68,7 +69,7 @@ void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bo
 	{
 		stop_attempts ();
 		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate, nano::stat::dir::out);
-		nano::unique_lock<std::mutex> lock (mutex);
+		nano::lock_guard<std::mutex> lock (mutex);
 		auto legacy_attempt (std::make_shared<nano::bootstrap_attempt_legacy> (node.shared (), attempts.incremental++, id_a));
 		attempts_list.push_back (legacy_attempt);
 		attempts.add (legacy_attempt);
@@ -81,8 +82,8 @@ void nano::bootstrap_initiator::bootstrap (nano::endpoint const & endpoint_a, bo
 			connections->add_connection (endpoint_a);
 		}
 		legacy_attempt->frontiers_confirmed = frontiers_confirmed;
-		condition.notify_all ();
 	}
+	condition.notify_all ();
 }
 
 void nano::bootstrap_initiator::bootstrap_lazy (nano::hash_or_account const & hash_or_account_a, bool force, bool confirmed, std::string id_a)
@@ -95,7 +96,7 @@ void nano::bootstrap_initiator::bootstrap_lazy (nano::hash_or_account const & ha
 			stop_attempts ();
 		}
 		node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate_lazy, nano::stat::dir::out);
-		nano::unique_lock<std::mutex> lock (mutex);
+		nano::lock_guard<std::mutex> lock (mutex);
 		if (!stopped && find_attempt (nano::bootstrap_mode::lazy) == nullptr)
 		{
 			lazy_attempt = std::make_shared<nano::bootstrap_attempt_lazy> (node.shared (), attempts.incremental++, id_a.empty () ? hash_or_account_a.to_string () : id_a);
@@ -118,7 +119,7 @@ void nano::bootstrap_initiator::bootstrap_wallet (std::deque<nano::account> & ac
 	node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate_wallet_lazy, nano::stat::dir::out);
 	if (wallet_attempt == nullptr)
 	{
-		nano::unique_lock<std::mutex> lock (mutex);
+		nano::lock_guard<std::mutex> lock (mutex);
 		std::string id (!accounts_a.empty () ? accounts_a[0].to_account () : "");
 		wallet_attempt = std::make_shared<nano::bootstrap_attempt_wallet> (node.shared (), attempts.incremental++, id);
 		attempts_list.push_back (wallet_attempt);
@@ -144,12 +145,9 @@ void nano::bootstrap_initiator::run_bootstrap ()
 			if (attempt != nullptr)
 			{
 				attempt->run ();
-			}
-			lock.lock ();
-			if (attempt != nullptr)
-			{
 				remove_attempt (attempt);
 			}
+			lock.lock ();
 		}
 		else
 		{
@@ -193,6 +191,7 @@ std::shared_ptr<nano::bootstrap_attempt> nano::bootstrap_initiator::find_attempt
 
 void nano::bootstrap_initiator::remove_attempt (std::shared_ptr<nano::bootstrap_attempt> attempt_a)
 {
+	nano::unique_lock<std::mutex> lock (mutex);
 	auto attempt (std::find (attempts_list.begin (), attempts_list.end (), attempt_a));
 	if (attempt != attempts_list.end ())
 	{
@@ -200,6 +199,7 @@ void nano::bootstrap_initiator::remove_attempt (std::shared_ptr<nano::bootstrap_
 		attempts_list.erase (attempt);
 		assert (attempts.size () == attempts_list.size ());
 	}
+	lock.unlock ();
 	condition.notify_all ();
 }
 

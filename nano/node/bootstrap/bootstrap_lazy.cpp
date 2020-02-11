@@ -28,13 +28,14 @@ nano::bootstrap_attempt_lazy::~bootstrap_attempt_lazy ()
 
 void nano::bootstrap_attempt_lazy::lazy_start (nano::hash_or_account const & hash_or_account_a, bool confirmed)
 {
-	nano::lock_guard<std::mutex> lock (mutex);
+	nano::unique_lock<std::mutex> lock (mutex);
 	// Add start blocks, limit 1024 (4k with disabled legacy bootstrap)
 	size_t max_keys (node->flags.disable_legacy_bootstrap ? 4 * 1024 : 1024);
 	if (lazy_keys.size () < max_keys && lazy_keys.find (hash_or_account_a) == lazy_keys.end () && !lazy_blocks_processed (hash_or_account_a))
 	{
 		lazy_keys.insert (hash_or_account_a);
 		lazy_pulls.emplace_back (hash_or_account_a, confirmed ? std::numeric_limits<unsigned>::max () : node->network_params.bootstrap.lazy_retry_limit);
+		lock.unlock ();
 		condition.notify_all ();
 	}
 }
@@ -537,14 +538,16 @@ void nano::bootstrap_attempt_wallet::requeue_pending (nano::account const & acco
 	{
 		nano::lock_guard<std::mutex> lock (mutex);
 		wallet_accounts.push_front (account);
-		condition.notify_all ();
 	}
+	condition.notify_all ();
 }
 
 void nano::bootstrap_attempt_wallet::wallet_start (std::deque<nano::account> & accounts_a)
 {
-	nano::lock_guard<std::mutex> lock (mutex);
-	wallet_accounts.swap (accounts_a);
+	{
+		nano::lock_guard<std::mutex> lock (mutex);
+		wallet_accounts.swap (accounts_a);
+	}
 	condition.notify_all ();
 }
 

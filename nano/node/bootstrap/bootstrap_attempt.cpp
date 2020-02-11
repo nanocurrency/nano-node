@@ -75,8 +75,8 @@ void nano::bootstrap_attempt::stop ()
 	{
 		nano::lock_guard<std::mutex> lock (mutex);
 		stopped = true;
-		condition.notify_all ();
 	}
+	condition.notify_all ();
 	node->bootstrap_initiator.connections->clear_pulls (incremental_id);
 }
 
@@ -202,9 +202,9 @@ bool nano::bootstrap_attempt_legacy::consume_future (std::future<bool> & future_
 
 void nano::bootstrap_attempt_legacy::stop ()
 {
-	nano::unique_lock<std::mutex> lock (mutex);
 	stopped = true;
 	condition.notify_all ();
+	nano::unique_lock<std::mutex> lock (mutex);
 	if (auto i = frontiers.lock ())
 	{
 		try
