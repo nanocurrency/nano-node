@@ -108,8 +108,8 @@ void nano::bootstrap_attempt_lazy::lazy_pull_flush (nano::unique_lock<std::mutex
 				lock_a.unlock ();
 				node->bootstrap_initiator.connections->add_pull (nano::pull_info (pull_start.first, pull_start.first, nano::block_hash (0), incremental_id, batch_count, pull_start.second));
 				++pulling;
-				lock_a.lock ();
 				++count;
+				lock_a.lock ();
 			}
 			// We don't want to open read transactions for too long
 			++read_count;
@@ -448,6 +448,7 @@ void nano::bootstrap_attempt_lazy::lazy_blocks_insert (nano::block_hash const & 
 	if (inserted.second)
 	{
 		++lazy_blocks_count;
+		assert (lazy_blocks_count > 0);
 	}
 }
 
@@ -458,6 +459,7 @@ void nano::bootstrap_attempt_lazy::lazy_blocks_erase (nano::block_hash const & h
 	if (erased)
 	{
 		--lazy_blocks_count;
+		assert (lazy_blocks_count != std::numeric_limits<size_t>::max ());
 	}
 }
 
