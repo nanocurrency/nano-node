@@ -276,6 +276,7 @@ void ledger_processor::state_block_impl (nano::state_block const & block_a)
 				nano::account_info info;
 				result.amount = block_a.hashables.balance;
 				auto is_send (false);
+				auto is_receive (false);
 				auto account_error (ledger.store.account_get (transaction, block_a.hashables.account, info));
 				if (!account_error)
 				{
@@ -288,6 +289,7 @@ void ledger_processor::state_block_impl (nano::state_block const & block_a)
 						if (result.code == nano::process_result::progress)
 						{
 							is_send = block_a.hashables.balance < info.balance;
+							is_receive = !is_send && !block_a.hashables.link.is_zero ();
 							result.amount = is_send ? (info.balance.number () - result.amount.number ()) : (result.amount.number () - info.balance.number ());
 							result.code = block_a.hashables.previous == info.head ? nano::process_result::progress : nano::process_result::fork; // Is the previous block the account's head block? (Ambigious)
 						}
@@ -299,6 +301,7 @@ void ledger_processor::state_block_impl (nano::state_block const & block_a)
 					result.code = block_a.previous ().is_zero () ? nano::process_result::progress : nano::process_result::gap_previous; // Does the first block in an account yield 0 for previous() ? (Unambigious)
 					if (result.code == nano::process_result::progress)
 					{
+						is_receive = true;
 						result.code = !block_a.hashables.link.is_zero () ? nano::process_result::progress : nano::process_result::gap_source; // Is the first block receiving from a send ? (Unambigious)
 					}
 				}
@@ -332,7 +335,7 @@ void ledger_processor::state_block_impl (nano::state_block const & block_a)
 				{
 					ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::state_block);
 					result.state_is_send = is_send;
-					nano::block_sideband sideband (nano::block_type::state, block_a.hashables.account /* unused */, 0, 0 /* unused */, info.block_count + 1, nano::seconds_since_epoch (), epoch);
+					nano::block_sideband sideband (nano::block_type::state, block_a.hashables.account /* unused */, 0, 0 /* unused */, info.block_count + 1, nano::seconds_since_epoch (), epoch, is_send, is_receive, false);
 					ledger.store.block_put (transaction, hash, block_a, sideband);
 
 					if (!info.head.is_zero ())
@@ -420,7 +423,7 @@ void ledger_processor::epoch_block_impl (nano::state_block const & block_a)
 							ledger.stats.inc (nano::stat::type::ledger, nano::stat::detail::epoch_block);
 							result.account = block_a.hashables.account;
 							result.amount = 0;
-							nano::block_sideband sideband (nano::block_type::state, block_a.hashables.account /* unused */, 0, 0 /* unused */, info.block_count + 1, nano::seconds_since_epoch (), epoch);
+							nano::block_sideband sideband (nano::block_type::state, block_a.hashables.account /* unused */, 0, 0 /* unused */, info.block_count + 1, nano::seconds_since_epoch (), epoch, false, false, true);
 							ledger.store.block_put (transaction, hash, block_a, sideband);
 							nano::account_info new_info (hash, block_a.representative (), info.open_block.is_zero () ? hash : info.open_block, info.balance, nano::seconds_since_epoch (), info.block_count + 1, epoch);
 							ledger.change_latest (transaction, block_a.hashables.account, info, new_info);
@@ -468,7 +471,7 @@ void ledger_processor::change_block (nano::change_block const & block_a)
 					{
 						assert (!validate_message (account, hash, block_a.signature));
 						result.verified = nano::signature_verification::valid;
-						nano::block_sideband sideband (nano::block_type::change, account, 0, info.balance, info.block_count + 1, nano::seconds_since_epoch (), nano::epoch::epoch_0);
+						nano::block_sideband sideband (nano::block_type::change, account, 0, info.balance, info.block_count + 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false);
 						ledger.store.block_put (transaction, hash, block_a, sideband);
 						auto balance (ledger.balance (transaction, block_a.hashables.previous));
 						ledger.cache.rep_weights.representation_add (block_a.representative (), balance);
@@ -524,7 +527,7 @@ void ledger_processor::send_block (nano::send_block const & block_a)
 						{
 							auto amount (info.balance.number () - block_a.hashables.balance.number ());
 							ledger.cache.rep_weights.representation_add (info.representative, 0 - amount);
-							nano::block_sideband sideband (nano::block_type::send, account, 0, block_a.hashables.balance /* unused */, info.block_count + 1, nano::seconds_since_epoch (), nano::epoch::epoch_0);
+							nano::block_sideband sideband (nano::block_type::send, account, 0, block_a.hashables.balance /* unused */, info.block_count + 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
 							ledger.store.block_put (transaction, hash, block_a, sideband);
 							nano::account_info new_info (hash, info.representative, info.open_block, block_a.hashables.balance, nano::seconds_since_epoch (), info.block_count + 1, nano::epoch::epoch_0);
 							ledger.change_latest (transaction, account, info, new_info);
@@ -592,7 +595,7 @@ void ledger_processor::receive_block (nano::receive_block const & block_a)
 										(void)error;
 										assert (!error);
 										ledger.store.pending_del (transaction, key);
-										nano::block_sideband sideband (nano::block_type::receive, account, 0, new_balance, info.block_count + 1, nano::seconds_since_epoch (), nano::epoch::epoch_0);
+										nano::block_sideband sideband (nano::block_type::receive, account, 0, new_balance, info.block_count + 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
 										ledger.store.block_put (transaction, hash, block_a, sideband);
 										nano::account_info new_info (hash, info.representative, info.open_block, new_balance, nano::seconds_since_epoch (), info.block_count + 1, nano::epoch::epoch_0);
 										ledger.change_latest (transaction, account, info, new_info);
@@ -656,7 +659,7 @@ void ledger_processor::open_block (nano::open_block const & block_a)
 								(void)error;
 								assert (!error);
 								ledger.store.pending_del (transaction, key);
-								nano::block_sideband sideband (nano::block_type::open, block_a.hashables.account, 0, pending.amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0);
+								nano::block_sideband sideband (nano::block_type::open, block_a.hashables.account, 0, pending.amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false /* unused */, false /* unused */, false /* unused */);
 								ledger.store.block_put (transaction, hash, block_a, sideband);
 								nano::account_info new_info (hash, block_a.representative (), hash, pending.amount.number (), nano::seconds_since_epoch (), 1, nano::epoch::epoch_0);
 								ledger.change_latest (transaction, block_a.hashables.account, info, new_info);

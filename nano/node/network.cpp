@@ -146,76 +146,6 @@ void nano::network::send_node_id_handshake (std::shared_ptr<nano::transport::cha
 	channel_a->send (message);
 }
 
-template <typename T>
-bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a, T & list_a, std::shared_ptr<nano::block> block_a, bool also_publish)
-{
-	bool result (false);
-	if (node_a.config.enable_voting && node_a.wallets.rep_counts ().voting > 0)
-	{
-		auto hash (block_a->hash ());
-		// Search in cache
-		auto votes (node_a.votes_cache.find (hash));
-		if (votes.empty ())
-		{
-			// Generate new vote
-			node_a.wallets.foreach_representative ([&result, &list_a, &node_a, &transaction_a, &hash](nano::public_key const & pub_a, nano::raw_key const & prv_a) {
-				result = true;
-				auto vote (node_a.store.vote_generate (transaction_a, pub_a, prv_a, std::vector<nano::block_hash> (1, hash)));
-				nano::confirm_ack confirm (vote);
-				for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
-				{
-					j->get ()->send (confirm);
-				}
-				node_a.votes_cache.add (vote);
-			});
-		}
-		else
-		{
-			// Send from cache
-			for (auto & vote : votes)
-			{
-				nano::confirm_ack confirm (vote);
-				for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
-				{
-					j->get ()->send (confirm);
-				}
-			}
-		}
-		// Republish if required
-		if (also_publish)
-		{
-			nano::publish publish (block_a);
-			for (auto j (list_a.begin ()), m (list_a.end ()); j != m; ++j)
-			{
-				j->get ()->send (publish);
-			}
-		}
-	}
-	return result;
-}
-
-bool confirm_block (nano::transaction const & transaction_a, nano::node & node_a, std::shared_ptr<nano::transport::channel> channel_a, std::shared_ptr<nano::block> block_a, bool also_publish)
-{
-	std::array<std::shared_ptr<nano::transport::channel>, 1> endpoints = { channel_a };
-	auto result (confirm_block (transaction_a, node_a, endpoints, std::move (block_a), also_publish));
-	return result;
-}
-
-bool nano::network::send_votes_cache (std::shared_ptr<nano::transport::channel> channel_a, nano::block_hash const & hash_a)
-{
-	// Search in cache
-	auto votes (node.votes_cache.find (hash_a));
-	// Send from cache
-	for (auto & vote : votes)
-	{
-		nano::confirm_ack confirm (vote);
-		channel_a->send (confirm);
-	}
-	// Returns true if votes were sent
-	bool result (!votes.empty ());
-	return result;
-}
-
 void nano::network::flood_message (nano::message const & message_a, bool const is_droppable_a)
 {
 	for (auto & i : list (fanout ()))
@@ -463,17 +393,7 @@ public:
 		{
 			if (message_a.block != nullptr)
 			{
-				auto hash (message_a.block->hash ());
-				if (!node.network.send_votes_cache (channel, hash))
-				{
-					auto transaction (node.store.tx_begin_read ());
-					auto successor (node.ledger.successor (transaction, message_a.block->qualified_root ()));
-					if (successor != nullptr)
-					{
-						auto same_block (successor->hash () == hash);
-						confirm_block (transaction, node, channel, std::move (successor), !same_block);
-					}
-				}
+				node.aggregator.add (channel, { { message_a.block->hash (), message_a.block->root () } });
 			}
 			else if (!message_a.roots_hashes.empty ())
 			{
@@ -556,7 +476,7 @@ public:
 
 			telemetry_ack = nano::telemetry_ack (telemetry_data);
 		}
-		channel->send (telemetry_ack);
+		channel->send (telemetry_ack, nullptr, false);
 	}
 	void telemetry_ack (nano::telemetry_ack const & message_a) override
 	{
@@ -631,11 +551,11 @@ bool nano::network::reachout (nano::endpoint const & endpoint_a, bool allow_loca
 	return error;
 }
 
-std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list (size_t count_a)
+std::deque<std::shared_ptr<nano::transport::channel>> nano::network::list (size_t count_a, uint8_t minimum_version_a, bool include_tcp_temporary_channels_a)
 {
 	std::deque<std::shared_ptr<nano::transport::channel>> result;
-	tcp_channels.list (result);
-	udp_channels.list (result);
+	tcp_channels.list (result, minimum_version_a, include_tcp_temporary_channels_a);
+	udp_channels.list (result, minimum_version_a);
 	nano::random_pool_shuffle (result.begin (), result.end ());
 	if (result.size () > count_a)
 	{

@@ -6,13 +6,18 @@
 #include <nano/node/wallet.hpp>
 #include <nano/secure/buffer.hpp>
 
-#include <boost/algorithm/string.hpp>
 #include <boost/endian/conversion.hpp>
 #include <boost/pool/pool_alloc.hpp>
 #include <boost/variant/get.hpp>
 
+#include <numeric>
+
 std::bitset<16> constexpr nano::message_header::block_type_mask;
 std::bitset<16> constexpr nano::message_header::count_mask;
+
+std::chrono::seconds constexpr nano::telemetry_cache_cutoffs::test;
+std::chrono::seconds constexpr nano::telemetry_cache_cutoffs::beta;
+std::chrono::seconds constexpr nano::telemetry_cache_cutoffs::live;
 
 namespace
 {
@@ -1176,135 +1181,6 @@ bool nano::telemetry_ack::is_empty_payload () const
 	return size () == 0;
 }
 
-nano::telemetry_data nano::telemetry_data::consolidate (std::vector<nano::telemetry_data> const & telemetry_data_responses_a)
-{
-	if (telemetry_data_responses_a.empty ())
-	{
-		return {};
-	}
-	else if (telemetry_data_responses_a.size () == 1)
-	{
-		// Only 1 element in the collection, so just return it.
-		return telemetry_data_responses_a.front ();
-	}
-
-	nano::uint128_t account_sum{ 0 };
-	nano::uint128_t block_sum{ 0 };
-	nano::uint128_t cemented_sum{ 0 };
-	nano::uint128_t peer_sum{ 0 };
-	nano::uint128_t unchecked_sum{ 0 };
-	nano::uint128_t uptime_sum{ 0 };
-	nano::uint128_t bandwidth_sum{ 0 };
-
-	std::unordered_map<uint8_t, int> protocol_versions;
-	std::unordered_map<std::string, int> vendor_versions;
-	std::unordered_map<uint64_t, int> bandwidth_caps;
-	std::unordered_map<nano::block_hash, int> genesis_blocks;
-
-	nano::uint128_t account_average{ 0 };
-
-	for (auto const & telemetry_data : telemetry_data_responses_a)
-	{
-		account_sum += telemetry_data.account_count;
-		block_sum += telemetry_data.block_count;
-		cemented_sum += telemetry_data.cemented_count;
-
-		std::ostringstream ss;
-		ss << telemetry_data.major_version;
-		if (telemetry_data.minor_version.is_initialized ())
-		{
-			ss << "." << *telemetry_data.minor_version;
-			if (telemetry_data.patch_version.is_initialized ())
-			{
-				ss << "." << *telemetry_data.patch_version;
-				if (telemetry_data.pre_release_version.is_initialized ())
-				{
-					ss << "." << *telemetry_data.pre_release_version;
-					if (telemetry_data.maker.is_initialized ())
-					{
-						ss << "." << *telemetry_data.maker;
-					}
-				}
-			}
-		}
-
-		++vendor_versions[ss.str ()];
-		++protocol_versions[telemetry_data.protocol_version];
-		peer_sum += telemetry_data.peer_count;
-
-		// 0 has a special meaning (unlimited), don't include it in the average as it will be heavily skewed
-		if (telemetry_data.bandwidth_cap != 0)
-		{
-			bandwidth_sum += telemetry_data.bandwidth_cap;
-		}
-		++bandwidth_caps[telemetry_data.bandwidth_cap];
-		unchecked_sum += telemetry_data.unchecked_count;
-		uptime_sum += telemetry_data.uptime;
-		++genesis_blocks[telemetry_data.genesis_block];
-	}
-
-	nano::telemetry_data consolidated_data;
-	auto size = telemetry_data_responses_a.size ();
-	consolidated_data.account_count = boost::numeric_cast<decltype (account_count)> (account_sum / size);
-	consolidated_data.block_count = boost::numeric_cast<decltype (block_count)> (block_sum / size);
-	consolidated_data.cemented_count = boost::numeric_cast<decltype (cemented_count)> (cemented_sum / size);
-	consolidated_data.peer_count = boost::numeric_cast<decltype (peer_count)> (peer_sum / size);
-	consolidated_data.uptime = boost::numeric_cast<decltype (uptime)> (uptime_sum / size);
-	consolidated_data.unchecked_count = boost::numeric_cast<decltype (unchecked_count)> (unchecked_sum / size);
-
-	auto set_mode_or_average = [](auto const & collection, auto & var, auto const & sum, size_t size) {
-		auto max = std::max_element (collection.begin (), collection.end (), [](auto const & lhs, auto const & rhs) {
-			return lhs.second < rhs.second;
-		});
-		if (max->second > 1)
-		{
-			var = max->first;
-		}
-		else
-		{
-			var = (sum / size).template convert_to<std::remove_reference_t<decltype (var)>> ();
-		}
-	};
-
-	auto set_mode = [](auto const & collection, auto & var, size_t size) {
-		auto max = std::max_element (collection.begin (), collection.end (), [](auto const & lhs, auto const & rhs) {
-			return lhs.second < rhs.second;
-		});
-		if (max->second > 1)
-		{
-			var = max->first;
-		}
-		else
-		{
-			// Just pick the first one
-			var = collection.begin ()->first;
-		}
-	};
-
-	// Use the mode of protocol version, vendor version and bandwidth cap if there is 2 or more using it
-	set_mode_or_average (bandwidth_caps, consolidated_data.bandwidth_cap, bandwidth_sum, size);
-	set_mode (protocol_versions, consolidated_data.protocol_version, size);
-	set_mode (genesis_blocks, consolidated_data.genesis_block, size);
-
-	// Vendor version, needs to be parsed out of the string
-	std::string version;
-	set_mode (vendor_versions, version, size);
-
-	// May only have major version, but check for optional parameters as well, only output if all are used
-	std::vector<std::string> version_fragments;
-	boost::split (version_fragments, version, boost::is_any_of ("."));
-	assert (!version_fragments.empty () && version_fragments.size () <= 5);
-	consolidated_data.major_version = boost::lexical_cast<uint8_t> (version_fragments.front ());
-	if (version_fragments.size () == 5)
-	{
-		consolidated_data.minor_version = boost::lexical_cast<uint8_t> (version_fragments[1]);
-		consolidated_data.patch_version = boost::lexical_cast<uint8_t> (version_fragments[2]);
-		consolidated_data.pre_release_version = boost::lexical_cast<uint8_t> (version_fragments[3]);
-		consolidated_data.maker = boost::lexical_cast<uint8_t> (version_fragments[4]);
-	}
-	return consolidated_data;
-}
-
 nano::error nano::telemetry_data::serialize_json (nano::jsonconfig & json) const
 {
 	json.put ("block_count", block_count);
@@ -1367,6 +1243,11 @@ nano::error nano::telemetry_data::deserialize_json (nano::jsonconfig & json)
 bool nano::telemetry_data::operator== (nano::telemetry_data const & data_a) const
 {
 	return (block_count == data_a.block_count && cemented_count == data_a.cemented_count && unchecked_count == data_a.unchecked_count && account_count == data_a.account_count && bandwidth_cap == data_a.bandwidth_cap && uptime == data_a.uptime && peer_count == data_a.peer_count && protocol_version == data_a.protocol_version && genesis_block == data_a.genesis_block && major_version == data_a.major_version && minor_version == data_a.minor_version && patch_version == data_a.patch_version && pre_release_version == data_a.pre_release_version && maker == data_a.maker);
+}
+
+bool nano::telemetry_data::operator!= (nano::telemetry_data const & data_a) const
+{
+	return !(*this == data_a);
 }
 
 nano::node_id_handshake::node_id_handshake (bool & error_a, nano::stream & stream_a, nano::message_header const & header_a) :
@@ -1484,6 +1365,22 @@ bool nano::parse_port (std::string const & string_a, uint16_t & port_a)
 	return result;
 }
 
+// Can handle both ipv4 & ipv6 addresses (with and without square brackets)
+bool nano::parse_address (std::string const & address_text_a, boost::asio::ip::address & address_a)
+{
+	auto result (false);
+	auto address_text = address_text_a;
+	if (!address_text.empty () && address_text.front () == '[' && address_text.back () == ']')
+	{
+		// Chop the square brackets off as make_address doesn't always like them
+		address_text = address_text.substr (1, address_text.size () - 2);
+	}
+
+	boost::system::error_code address_ec;
+	address_a = boost::asio::ip::make_address (address_text, address_ec);
+	return !!address_ec;
+}
+
 bool nano::parse_address_port (std::string const & string, boost::asio::ip::address & address_a, uint16_t & port_a)
 {
 	auto result (false);
@@ -1548,6 +1445,11 @@ bool nano::parse_tcp_endpoint (std::string const & string, nano::tcp_endpoint & 
 		endpoint_a = nano::tcp_endpoint (address, port);
 	}
 	return result;
+}
+
+std::chrono::seconds nano::telemetry_cache_cutoffs::network_to_time (network_constants const & network_constants)
+{
+	return std::chrono::seconds{ network_constants.is_live_network () ? live : network_constants.is_beta_network () ? beta : test };
 }
 
 nano::node_singleton_memory_pool_purge_guard::node_singleton_memory_pool_purge_guard () :

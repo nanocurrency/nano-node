@@ -78,6 +78,7 @@ namespace transport
 	class tcp_channels final
 	{
 		friend class nano::transport::channel_tcp;
+		friend class node_telemetry_simultaneous_single_and_random_requests_Test;
 
 	public:
 		tcp_channels (nano::node &);
@@ -102,7 +103,7 @@ namespace transport
 		std::unique_ptr<container_info_component> collect_container_info (std::string const &);
 		void purge (std::chrono::steady_clock::time_point const &);
 		void ongoing_keepalive ();
-		void list (std::deque<std::shared_ptr<nano::transport::channel>> &);
+		void list (std::deque<std::shared_ptr<nano::transport::channel>> &, uint8_t = 0, bool = true);
 		void modify (std::shared_ptr<nano::transport::channel_tcp>, std::function<void(std::shared_ptr<nano::transport::channel_tcp>)>);
 		void update (nano::tcp_endpoint const &);
 		// Connection start
