@@ -50,6 +50,7 @@ add_library (nano_lib
 	rpcconfig.cpp
 	stats.hpp
 	stats.cpp
+	stream.hpp
 	threading.hpp
 	threading.cpp
 	timer.hpp
