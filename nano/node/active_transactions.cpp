@@ -989,7 +989,7 @@ void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const
 	{
 		auto & inactive_by_hash (inactive_votes_cache.get<tag_hash> ());
 		auto existing (inactive_by_hash.find (hash_a));
-		if (existing != inactive_by_hash.end () && !existing->bootstrap_started)
+		if (existing != inactive_by_hash.end () && (!existing->confirmed || !existing->bootstrap_started))
 		{
 			auto is_new (false);
 			inactive_by_hash.modify (existing, [representative_a, &is_new](nano::inactive_cache_information & info) {
@@ -1005,10 +1005,16 @@ void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const
 			if (is_new)
 			{
 				bool confirmed (false);
-				if (inactive_votes_bootstrap_check (existing->voters, hash_a))
+				if (inactive_votes_bootstrap_check (existing->voters, hash_a, confirmed) && !existing->bootstrap_started)
 				{
 					inactive_by_hash.modify (existing, [](nano::inactive_cache_information & info) {
 						info.bootstrap_started = true;
+					});
+				}
+				if (confirmed && !existing->confirmed)
+				{
+					inactive_by_hash.modify (existing, [](nano::inactive_cache_information & info) {
+						info.confirmed = true;
 					});
 				}
 			}
@@ -1049,7 +1055,7 @@ void nano::active_transactions::erase_inactive_votes_cache (nano::block_hash con
 	}
 }
 
-bool nano::active_transactions::inactive_votes_bootstrap_check (std::vector<nano::account> const & voters_a, nano::block_hash const & hash_a)
+bool nano::active_transactions::inactive_votes_bootstrap_check (std::vector<nano::account> const & voters_a, nano::block_hash const & hash_a, bool & confirmed_a)
 {
 	uint128_t tally;
 	for (auto const & voter : voters_a)
@@ -1057,12 +1063,10 @@ bool nano::active_transactions::inactive_votes_bootstrap_check (std::vector<nano
 		tally += node.ledger.weight (voter);
 	}
 	bool start_bootstrap (false);
-	if (!node.flags.disable_lazy_bootstrap)
+	if (tally >= node.config.online_weight_minimum.number ())
 	{
-		if (tally >= node.config.online_weight_minimum.number ())
-		{
-			start_bootstrap = true;
-		}
+		start_bootstrap = true;
+		confirmed_a = true;
 	}
 	else if (!node.flags.disable_legacy_bootstrap && tally > node.gap_cache.bootstrap_threshold ())
 	{
