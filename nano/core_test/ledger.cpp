@@ -738,7 +738,7 @@ TEST (votes, check_signature)
 		auto transaction (node1.store.tx_begin_write ());
 		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	}
-	auto election1 = node1.active.start (send1);
+	auto election1 = node1.active.insert (send1);
 	{
 		nano::lock_guard<std::mutex> lock (node1.active.mutex);
 		ASSERT_EQ (1, election1.first->last_votes.size ());
@@ -761,7 +761,7 @@ TEST (votes, add_one)
 	node1.work_generate_blocking (*send1);
 	auto transaction (node1.store.tx_begin_write ());
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
-	auto election1 = node1.active.start (send1);
+	auto election1 = node1.active.insert (send1);
 	nano::unique_lock<std::mutex> lock (node1.active.mutex);
 	ASSERT_EQ (1, election1.first->last_votes.size ());
 	lock.unlock ();
@@ -789,7 +789,7 @@ TEST (votes, add_two)
 	node1.work_generate_blocking (*send1);
 	auto transaction (node1.store.tx_begin_write ());
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
-	auto election1 = node1.active.start (send1);
+	auto election1 = node1.active.insert (send1);
 	nano::unique_lock<std::mutex> lock (node1.active.mutex);
 	lock.unlock ();
 	nano::keypair key2;
@@ -824,7 +824,7 @@ TEST (votes, add_existing)
 		auto transaction (node1.store.tx_begin_write ());
 		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	}
-	auto election1 = node1.active.start (send1);
+	auto election1 = node1.active.insert (send1);
 	auto vote1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 1, send1));
 	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1));
 	// Block is already processed from vote
@@ -869,7 +869,7 @@ TEST (votes, add_old)
 	node1.work_generate_blocking (*send1);
 	auto transaction (node1.store.tx_begin_write ());
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
-	auto election1 = node1.active.start (send1);
+	auto election1 = node1.active.insert (send1);
 	auto vote1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 2, send1));
 	auto channel (std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, node1.network.endpoint (), node1.network_params.protocol.protocol_version));
 	node1.vote_processor.vote_blocking (vote1, channel);
@@ -904,8 +904,8 @@ TEST (votes, add_old_different_account)
 	auto transaction (node1.store.tx_begin_write ());
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send2).code);
-	auto election1 = node1.active.start (send1);
-	auto election2 = node1.active.start (send2);
+	auto election1 = node1.active.insert (send1);
+	auto election2 = node1.active.insert (send2);
 	ASSERT_EQ (1, election1.first->last_votes_size ());
 	ASSERT_EQ (1, election2.first->last_votes_size ());
 	auto vote1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 2, send1));
@@ -941,7 +941,7 @@ TEST (votes, add_cooldown)
 	node1.work_generate_blocking (*send1);
 	auto transaction (node1.store.tx_begin_write ());
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
-	auto election1 = node1.active.start (send1);
+	auto election1 = node1.active.insert (send1);
 	auto vote1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 1, send1));
 	auto channel (std::make_shared<nano::transport::channel_udp> (node1.network.udp_channels, node1.network.endpoint (), node1.network_params.protocol.protocol_version));
 	node1.vote_processor.vote_blocking (vote1, channel);
@@ -2644,10 +2644,10 @@ TEST (ledger, block_hash_account_conflict)
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *receive1).code);
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send2).code);
 	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *open_epoch1).code);
-	auto election1 = node1.active.start (send1);
-	auto election2 = node1.active.start (receive1);
-	auto election3 = node1.active.start (send2);
-	auto election4 = node1.active.start (open_epoch1);
+	auto election1 = node1.active.insert (send1);
+	auto election2 = node1.active.insert (receive1);
+	auto election3 = node1.active.insert (send2);
+	auto election4 = node1.active.insert (open_epoch1);
 	nano::lock_guard<std::mutex> lock (node1.active.mutex);
 	auto winner1 (*election1.first->tally ().begin ());
 	auto winner2 (*election2.first->tally ().begin ());

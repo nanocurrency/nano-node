@@ -1827,7 +1827,7 @@ TEST (node, rep_self_vote)
 	node0->work_generate_blocking (*block0);
 	ASSERT_EQ (nano::process_result::progress, node0->process (*block0).code);
 	auto & active (node0->active);
-	auto election1 = active.start (block0);
+	auto election1 = active.insert (block0);
 	node0->block_processor.generator.add (block0->hash ());
 	system.deadline_set (1s);
 	// Wait until representatives are activated & make vote

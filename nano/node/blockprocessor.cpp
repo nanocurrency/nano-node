@@ -361,7 +361,7 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a, const bool watch_work_a)
 {
 	// Start collecting quorum on block
-	node.active.start (block_a, false);
+	node.active.insert (block_a, false);
 	//add block to watcher if desired after block has been added to active
 	if (watch_work_a)
 	{

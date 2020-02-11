@@ -105,7 +105,7 @@ void nano::active_transactions::search_frontiers (nano::transaction const & tran
 					if (info.block_count > confirmation_height_info.height && !this->confirmation_height_processor.is_processing_block (info.head))
 					{
 						auto block (this->node.store.block_get (transaction_a, info.head));
-						if (this->start (block, true).first)
+						if (this->insert (block, true).first)
 						{
 							++elections_count;
 							// Calculate votes for local representatives
@@ -232,7 +232,7 @@ void nano::active_transactions::election_escalate (std::shared_ptr<nano::electio
 			previous_l = node.store.block_get (transaction_l, previous_hash_l);
 			if (previous_l != nullptr && blocks.find (previous_hash_l) == blocks.end () && !node.block_confirmed_or_being_confirmed (transaction_l, previous_hash_l))
 			{
-				add (std::move (previous_l), true);
+				insert_impl (std::move (previous_l), true);
 				escalated_l = true;
 			}
 		}
@@ -246,7 +246,7 @@ void nano::active_transactions::election_escalate (std::shared_ptr<nano::electio
 				auto source_l (node.store.block_get (transaction_l, source_hash_l));
 				if (source_l != nullptr && !node.block_confirmed_or_being_confirmed (transaction_l, source_hash_l))
 				{
-					add (std::move (source_l), true);
+					insert_impl (std::move (source_l), true);
 					escalated_l = true;
 				}
 			}
@@ -567,13 +567,7 @@ void nano::active_transactions::stop ()
 	roots.clear ();
 }
 
-std::pair<std::shared_ptr<nano::election>, bool> nano::active_transactions::start (std::shared_ptr<nano::block> block_a, bool const skip_delay_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
-{
-	nano::lock_guard<std::mutex> lock (mutex);
-	return add (block_a, skip_delay_a, confirmation_action_a);
-}
-
-std::pair<std::shared_ptr<nano::election>, bool> nano::active_transactions::add (std::shared_ptr<nano::block> block_a, bool const skip_delay_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
+std::pair<std::shared_ptr<nano::election>, bool> nano::active_transactions::insert_impl (std::shared_ptr<nano::block> block_a, bool const skip_delay_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
 {
 	std::pair<std::shared_ptr<nano::election>, bool> result = { nullptr, false };
 	if (!stopped)
@@ -601,6 +595,12 @@ std::pair<std::shared_ptr<nano::election>, bool> nano::active_transactions::add 
 		}
 	}
 	return result;
+}
+
+std::pair<std::shared_ptr<nano::election>, bool> nano::active_transactions::insert (std::shared_ptr<nano::block> block_a, bool const skip_delay_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
+{
+	nano::lock_guard<std::mutex> lock (mutex);
+	return insert_impl (block_a, skip_delay_a, confirmation_action_a);
 }
 
 // Validate a vote and apply it to the current election if one exists
@@ -724,7 +724,7 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 
 						// Restart election for the upgraded block, previously dropped from elections
 						lock.lock ();
-						add (existing_block);
+						insert_impl (existing_block);
 					}
 				}
 			}
