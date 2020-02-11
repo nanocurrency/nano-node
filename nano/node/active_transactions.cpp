@@ -1009,7 +1009,6 @@ void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const
 				{
 					inactive_by_hash.modify (existing, [](nano::inactive_cache_information & info) {
 						info.bootstrap_started = true;
-						info.confirmed = true;
 					});
 				}
 				if (confirmed && !existing->confirmed)
