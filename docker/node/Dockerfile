@@ -24,6 +24,7 @@ RUN groupadd --gid 1000 nanocurrency && \
 COPY --from=0 /tmp/build/nano_node /usr/bin
 COPY --from=0 /tmp/build/nano_rpc /usr/bin
 COPY --from=0 /tmp/build/nano_pow_server /usr/bin
+COPY --from=0 /tmp/src/api/ /usr/bin/api/
 COPY --from=0 /etc/nano-network /etc
 COPY docker/node/entry.sh /usr/bin/entry.sh
 COPY docker/node/config /usr/share/nano/config
