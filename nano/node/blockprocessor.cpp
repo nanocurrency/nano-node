@@ -361,7 +361,7 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a, const bool watch_work_a)
 {
 	// Start collecting quorum on block
-	node.active.start (block_a, false);
+	node.active.insert (block_a, false);
 	//add block to watcher if desired after block has been added to active
 	if (watch_work_a)
 	{
@@ -457,8 +457,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			{
 				queue_unchecked (transaction_a, hash);
 			}
-			node.active.update_difficulty (info_a.block, transaction_a);
-			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::old);
+			node.active.update_difficulty (info_a.block);
 			break;
 		}
 		case nano::process_result::bad_signature:
