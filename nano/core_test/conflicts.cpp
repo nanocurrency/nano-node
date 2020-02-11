@@ -18,15 +18,12 @@ TEST (conflicts, start_stop)
 	node1.work_generate_blocking (*send1);
 	ASSERT_EQ (nano::process_result::progress, node1.process (*send1).code);
 	ASSERT_EQ (0, node1.active.size ());
-	node1.active.start (send1);
+	auto election1 = node1.active.start (send1);
 	ASSERT_EQ (1, node1.active.size ());
 	{
 		nano::lock_guard<std::mutex> guard (node1.active.mutex);
-		auto existing1 (node1.active.roots.find (send1->qualified_root ()));
-		ASSERT_NE (node1.active.roots.end (), existing1);
-		auto votes1 (existing1->election);
-		ASSERT_NE (nullptr, votes1);
-		ASSERT_EQ (1, votes1->last_votes.size ());
+		ASSERT_NE (nullptr, election1.first);
+		ASSERT_EQ (1, election1.first->last_votes.size ());
 	}
 }
 
@@ -42,17 +39,16 @@ TEST (conflicts, add_existing)
 	node1.active.start (send1);
 	nano::keypair key2;
 	auto send2 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
-	node1.active.start (send2);
+	auto election1 = node1.active.start (send2);
 	ASSERT_EQ (1, node1.active.size ());
 	auto vote1 (std::make_shared<nano::vote> (key2.pub, key2.prv, 0, send2));
 	node1.active.vote (vote1);
 	ASSERT_EQ (1, node1.active.size ());
 	{
 		nano::lock_guard<std::mutex> guard (node1.active.mutex);
-		auto votes1 (node1.active.roots.find (send2->qualified_root ())->election);
-		ASSERT_NE (nullptr, votes1);
-		ASSERT_EQ (2, votes1->last_votes.size ());
-		ASSERT_NE (votes1->last_votes.end (), votes1->last_votes.find (key2.pub));
+		ASSERT_NE (nullptr, election1.first);
+		ASSERT_EQ (2, election1.first->last_votes.size ());
+		ASSERT_NE (election1.first->last_votes.end (), election1.first->last_votes.find (key2.pub));
 	}
 }
 
@@ -208,18 +204,15 @@ TEST (conflicts, dependency)
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send1).code);
 	ASSERT_EQ (nano::process_result::progress, node1->process (*state_open1).code);
 	ASSERT_EQ (0, node1->active.size ());
-	node1->active.start (send1);
+	auto election1 = node1->active.start (send1);
 	node1->active.start (state_open1);
 	ASSERT_EQ (2, node1->active.size ());
 	// Check dependency for send block
 	{
 		nano::lock_guard<std::mutex> guard (node1->active.mutex);
-		auto existing1 (node1->active.roots.find (send1->qualified_root ()));
-		ASSERT_NE (node1->active.roots.end (), existing1);
-		auto election1 (existing1->election);
-		ASSERT_NE (nullptr, election1);
-		ASSERT_EQ (1, election1->dependent_blocks.size ());
-		ASSERT_NE (election1->dependent_blocks.end (), election1->dependent_blocks.find (state_open1->hash ()));
+		ASSERT_NE (nullptr, election1.first);
+		ASSERT_EQ (1, election1.first->dependent_blocks.size ());
+		ASSERT_NE (election1.first->dependent_blocks.end (), election1.first->dependent_blocks.find (state_open1->hash ()));
 	}
 }
 
