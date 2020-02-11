@@ -422,6 +422,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			}
 
 			node.gap_cache.add (hash);
+			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_previous);
 			break;
 		}
 		case nano::process_result::gap_source:
@@ -445,6 +446,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			}
 
 			node.gap_cache.add (hash);
+			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::gap_source);
 			break;
 		}
 		case nano::process_result::old:
@@ -458,6 +460,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				queue_unchecked (transaction_a, hash);
 			}
 			node.active.update_difficulty (info_a.block, transaction_a);
+			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::old);
 			break;
 		}
 		case nano::process_result::bad_signature:
@@ -488,7 +491,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 		case nano::process_result::fork:
 		{
 			node.process_fork (transaction_a, info_a.block);
-			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::fork, nano::stat::dir::in);
+			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::fork);
 			if (node.config.logging.ledger_logging ())
 			{
 				node.logger.try_log (boost::str (boost::format ("Fork for: %1% root: %2%") % hash.to_string () % info_a.block->root ().to_string ()));
