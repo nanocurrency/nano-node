@@ -2598,16 +2598,37 @@ TEST (node, local_votes_cache)
 	nano::confirm_req message1 (send1);
 	nano::confirm_req message2 (send2);
 	auto channel (node.network.udp_channels.create (node.network.endpoint ()));
+	node.network.process_message (message1, channel);
+	auto wait_vote_sequence = [&node, &system](unsigned sequence) {
+		std::shared_ptr<nano::vote> current_vote;
+		system.deadline_set (5s);
+		while (current_vote == nullptr || current_vote->sequence < sequence)
+		{
+			{
+				nano::lock_guard<std::mutex> lock (node.store.get_cache_mutex ());
+				auto transaction (node.store.tx_begin_read ());
+				current_vote = node.store.vote_current (transaction, nano::test_genesis_key.pub);
+			}
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (sequence, current_vote->sequence);
+	};
+	wait_vote_sequence (1);
+	node.network.process_message (message2, channel);
+	wait_vote_sequence (2);
 	for (auto i (0); i < 100; ++i)
 	{
 		node.network.process_message (message1, channel);
 		node.network.process_message (message2, channel);
 	}
+	for (int i = 0; i < 4; ++i)
+	{
+		system.poll (node.aggregator.max_delay);
+	}
+	// Make sure a new vote was not generated
 	{
 		nano::lock_guard<std::mutex> lock (node.store.get_cache_mutex ());
-		auto transaction (node.store.tx_begin_read ());
-		auto current_vote (node.store.vote_current (transaction, nano::test_genesis_key.pub));
-		ASSERT_EQ (current_vote->sequence, 2);
+		ASSERT_EQ (2, node.store.vote_current (node.store.tx_begin_read (), nano::test_genesis_key.pub)->sequence);
 	}
 	// Max cache
 	{
@@ -2619,12 +2640,11 @@ TEST (node, local_votes_cache)
 	{
 		node.network.process_message (message3, channel);
 	}
+	for (int i = 0; i < 4; ++i)
 	{
-		nano::lock_guard<std::mutex> lock (node.store.get_cache_mutex ());
-		auto transaction (node.store.tx_begin_read ());
-		auto current_vote (node.store.vote_current (transaction, nano::test_genesis_key.pub));
-		ASSERT_EQ (current_vote->sequence, 3);
+		system.poll (node.aggregator.max_delay);
 	}
+	wait_vote_sequence (3);
 	ASSERT_TRUE (node.votes_cache.find (send1->hash ()).empty ());
 	ASSERT_FALSE (node.votes_cache.find (send2->hash ()).empty ());
 	ASSERT_FALSE (node.votes_cache.find (send3->hash ()).empty ());
