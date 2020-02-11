@@ -51,7 +51,7 @@ public:
 class work_pool final
 {
 public:
-	explicit work_pool (unsigned, std::chrono::nanoseconds = std::chrono::nanoseconds (0), std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> = nullptr);
+	work_pool (unsigned, std::chrono::nanoseconds = std::chrono::nanoseconds (0), std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> = nullptr);
 	~work_pool ();
 	void loop (uint64_t);
 	void stop ();
@@ -70,7 +70,7 @@ public:
 	std::atomic<int> ticket;
 	bool done;
 	std::vector<boost::thread> threads;
-	std::list<work_item> pending;
+	std::list<nano::work_item> pending;
 	std::mutex mutex;
 	nano::condition_variable producer_condition;
 	std::chrono::nanoseconds pow_rate_limiter;
