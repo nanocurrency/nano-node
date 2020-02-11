@@ -1165,8 +1165,20 @@ nano::work_version nano::ledger::work_version (nano::block_details const details
 
 uint64_t nano::ledger::block_difficulty (nano::block const & block_a, nano::block_details const details_a) const
 {
-	uint64_t difficulty;
+	uint64_t difficulty (0);
 	nano::work_validate (work_version (details_a), block_a, &difficulty);
+	return difficulty;
+}
+
+uint64_t nano::ledger::block_difficulty (nano::transaction const & transaction_a, nano::block_hash const & hash_a)
+{
+	uint64_t difficulty (0);
+	nano::block_sideband sideband;
+	auto block (store.block_get (transaction_a, hash_a, &sideband));
+	if (block)
+	{
+		difficulty = block_difficulty (*block, sideband.details);
+	}
 	return difficulty;
 }
 

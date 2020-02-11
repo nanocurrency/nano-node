@@ -29,6 +29,7 @@ public:
 	std::shared_ptr<nano::block> forked_block (nano::transaction const &, nano::block const &);
 	nano::work_version work_version (nano::block_details const) const;
 	uint64_t block_difficulty (nano::block const &, nano::block_details const) const;
+	uint64_t block_difficulty (nano::transaction const & transaction_a, nano::block_hash const & hash_a);
 	bool block_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
 	bool block_not_confirmed_or_not_exists (nano::block const & block_a) const;
 	nano::block_hash latest (nano::transaction const &, nano::account const &);

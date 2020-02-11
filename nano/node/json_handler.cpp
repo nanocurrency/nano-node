@@ -1026,7 +1026,8 @@ void nano::json_handler::block_confirm ()
 			if (!node.ledger.block_confirmed (transaction, hash))
 			{
 				// Start new confirmation for unconfirmed block
-				node.block_confirm (std::move (block_l), sideband.details);
+				auto difficulty (node.ledger.block_difficulty (*block_l, sideband.details));
+				node.block_confirm (std::move (block_l), difficulty);
 			}
 			else
 			{

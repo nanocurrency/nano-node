@@ -491,8 +491,9 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 	// Call block confirm on the last open block which will confirm everything
 	{
 		auto transaction = node->store.tx_begin_read ();
-		auto block = node->store.block_get (transaction, last_open_hash);
-		node->block_confirm (block);
+		nano::block_sideband sideband;
+		auto block = node->store.block_get (transaction, last_open_hash, &sideband);
+		node->block_confirm (block, node->ledger.block_difficulty (*block, sideband.details));
 	}
 
 	system.deadline_set (60s);
@@ -567,9 +568,12 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 	}
 
 	// Confirm all of the accounts
-	for (auto & open_block : open_blocks)
 	{
-		node->block_confirm (open_block);
+		auto transaction = node->store.tx_begin_read ();
+		for (auto & open_block : open_blocks)
+		{
+			node->block_confirm (open_block, node->ledger.block_difficulty (transaction, open_block->hash ()));
+		}
 	}
 
 	system.deadline_set (60s);
@@ -655,7 +659,7 @@ TEST (confirmation_height, long_chains)
 	}
 
 	// Call block confirm on the existing receive block on the genesis account which will confirm everything underneath on both accounts
-	node->block_confirm (receive1);
+	node->block_confirm (receive1, node->ledger.block_difficulty (node->store.tx_begin_read (), receive1->hash ()));
 
 	system.deadline_set (10s);
 	while (true)

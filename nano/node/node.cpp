@@ -1077,9 +1077,9 @@ void nano::node::add_initial_peers ()
 	}
 }
 
-void nano::node::block_confirm (std::shared_ptr<nano::block> block_a, nano::block_details const & details_a)
+void nano::node::block_confirm (std::shared_ptr<nano::block> block_a, uint64_t const difficulty_a)
 {
-	active.start (block_a, ledger.block_difficulty (*block_a, details_a));
+	active.start (block_a, difficulty_a, false);
 	network.broadcast_confirm_req (block_a);
 	// Calculate votes for local representatives
 	if (config.enable_voting && wallets.rep_counts ().voting > 0 && active.active (*block_a))

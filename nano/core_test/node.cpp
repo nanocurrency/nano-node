@@ -2495,7 +2495,7 @@ TEST (node, block_confirm)
 			auto transaction (node2.store.tx_begin_write ());
 			ASSERT_EQ (nano::process_result::progress, node2.ledger.process (transaction, *send2).code);
 		}
-		node1.block_confirm (send2, nano::block_details (nano::epoch::epoch_0, true, false, false));
+		node1.block_confirm (send2, node1.ledger.block_difficulty (node1.store.tx_begin_read (), send2->hash ()));
 		ASSERT_TRUE (node1.active.list_confirmed ().empty ());
 		system.deadline_set (10s);
 		while (node1.active.list_confirmed ().empty ())

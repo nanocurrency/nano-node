@@ -449,7 +449,7 @@ TEST (confirmation_height, send_receive_self)
 
 	add_callback_stats (*node);
 
-	node->block_confirm (receive3, nano::block_details{});
+	node->block_confirm (receive3, node->ledger.block_difficulty (node->store.tx_begin_read (), receive3->hash ()));
 
 	system.deadline_set (10s);
 	while (node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) != 6)
@@ -539,7 +539,7 @@ TEST (confirmation_height, all_block_types)
 	}
 
 	add_callback_stats (*node);
-	node->block_confirm (state_send2, nano::block_details (nano::epoch::epoch_0, true, false, false));
+	node->block_confirm (state_send2, node->ledger.block_difficulty (node->store.tx_begin_read (), state_send2->hash ()));
 
 	system.deadline_set (10s);
 	while (node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) != 15)
@@ -1055,7 +1055,7 @@ TEST (confirmation_height, dependent_election)
 	node->confirmation_height_processor.pause ();
 
 	// Wait until it has been processed
-	node->block_confirm (send2, nano::block_details{});
+	node->block_confirm (send2, node->ledger.block_difficulty (node->store.tx_begin_read (), send2->hash ()));
 	system.deadline_set (10s);
 	while (node->active.size () > 0)
 	{
@@ -1074,7 +1074,7 @@ TEST (confirmation_height, dependent_election)
 	}
 
 	// Now put the other block in active so it can be confirmed as a dependent election
-	node->block_confirm (send1, nano::block_details{});
+	node->block_confirm (send1, node->ledger.block_difficulty (node->store.tx_begin_read (), send1->hash ()));
 	node->confirmation_height_processor.unpause ();
 
 	system.deadline_set (10s);
@@ -1145,7 +1145,7 @@ TEST (confirmation_height, cemented_gap_below_receive)
 
 	add_callback_stats (*node);
 
-	node->block_confirm (open1, nano::block_details{});
+	node->block_confirm (open1, node->ledger.block_difficulty (node->store.tx_begin_read (), open1->hash ()));
 	system.deadline_set (10s);
 	while (node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) != 10)
 	{
@@ -1222,7 +1222,7 @@ TEST (confirmation_height, cemented_gap_below_no_cache)
 
 	add_callback_stats (*node);
 
-	node->block_confirm (open1, nano::block_details{});
+	node->block_confirm (open1, node->ledger.block_difficulty (node->store.tx_begin_read (), open1->hash ()));
 	system.deadline_set (10s);
 	while (node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) != 6)
 	{
@@ -1261,7 +1261,7 @@ TEST (confirmation_height, election_winner_details_clearing)
 
 	add_callback_stats (*node);
 
-	node->block_confirm (send1, nano::block_details{});
+	node->block_confirm (send1, node->ledger.block_difficulty (node->store.tx_begin_read (), send1->hash ()));
 	system.deadline_set (10s);
 	while (node->active.size () > 0)
 	{
@@ -1281,7 +1281,7 @@ TEST (confirmation_height, election_winner_details_clearing)
 	}
 
 	ASSERT_EQ (0, node->active.election_winner_details_size ());
-	node->block_confirm (send, nano::block_details{});
+	node->block_confirm (send, node->ledger.block_difficulty (node->store.tx_begin_read (), send->hash ()));
 	system.deadline_set (10s);
 	while (node->active.size () > 0)
 	{

@@ -6183,7 +6183,7 @@ TEST (rpc, confirmation_height_currently_processing)
 	}
 
 	// Begin process for confirming the block (and setting confirmation height)
-	node->block_confirm (frontier, nano::block_details{});
+	node->block_confirm (frontier, node->ledger.block_difficulty (node->store.tx_begin_read (), frontier->hash ()));
 
 	boost::property_tree::ptree request;
 	request.put ("action", "confirmation_height_currently_processing");

@@ -1275,7 +1275,7 @@ bool nano::wallet::search_pending ()
 						else
 						{
 							// Request confirmation for unconfirmed block
-							wallets.node.block_confirm (block, sideband.details);
+							wallets.node.block_confirm (block, wallets.node.ledger.block_difficulty (*block, sideband.details));
 						}
 					}
 				}
