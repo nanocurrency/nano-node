@@ -147,8 +147,21 @@ std::unique_ptr<container_info_component> collect_container_info (observer_set<T
 
 void remove_all_files_in_dir (boost::filesystem::path const & dir);
 void move_all_files_to_dir (boost::filesystem::path const & from, boost::filesystem::path const & to);
+
+template <class InputIt, class OutputIt, class Pred, class Func>
+void transform_if (InputIt first, InputIt last, OutputIt dest, Pred pred, Func transform)
+{
+	while (first != last)
+	{
+		if (pred (*first))
+		{
+			*dest++ = transform (*first);
+		}
+
+		++first;
+	}
 }
-// Have our own async_write which we must use?
+}
 
 void release_assert_internal (bool check, const char * check_expr, const char * file, unsigned int line);
 #define release_assert(check) release_assert_internal (check, #check, __FILE__, __LINE__)

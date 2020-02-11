@@ -381,6 +381,7 @@ public:
 	std::string nano_live_genesis;
 	nano::account genesis_account;
 	std::string genesis_block;
+	nano::block_hash genesis_hash;
 	nano::uint128_t genesis_amount;
 	nano::account burn_account;
 	nano::epochs epochs;
@@ -477,6 +478,7 @@ public:
 	bool reps = true;
 	bool cemented_count = true;
 	bool unchecked_count = true;
+	bool account_count = true;
 };
 
 /* Holds an in-memory cache of various counts */
@@ -487,6 +489,7 @@ public:
 	std::atomic<uint64_t> cemented_count{ 0 };
 	std::atomic<uint64_t> block_count{ 0 };
 	std::atomic<uint64_t> unchecked_count{ 0 };
+	std::atomic<uint64_t> account_count{ 0 };
 };
 
 nano::wallet_id random_wallet_id ();

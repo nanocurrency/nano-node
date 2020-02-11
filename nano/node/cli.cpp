@@ -91,6 +91,7 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 		("disable_udp", "Disables UDP realtime network")
 		("disable_unchecked_cleanup", "Disables periodic cleanup of old records from unchecked table")
 		("disable_unchecked_drop", "Disables drop of unchecked table at startup")
+		("disable_providing_telemetry_metrics", "Disable using any node information in the telemetry_ack messages.")
 		("fast_bootstrap", "Increase bootstrap speed for high end nodes with higher limits")
 		("batch_size", boost::program_options::value<std::size_t>(), "Increase sideband batch size, default 512")
 		("block_processor_batch_size", boost::program_options::value<std::size_t>(), "Increase block processor transaction batch write size, default 0 (limited by config block_processor_batch_max_time), 256k for fast_bootstrap")
@@ -113,6 +114,7 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 	flags_a.disable_wallet_bootstrap = (vm.count ("disable_wallet_bootstrap") > 0);
 	flags_a.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
 	flags_a.disable_tcp_realtime = (vm.count ("disable_tcp_realtime") > 0);
+	flags_a.disable_providing_telemetry_metrics = (vm.count ("disable_providing_telemetry_metrics") > 0);
 	flags_a.disable_udp = (vm.count ("disable_udp") > 0);
 	if (flags_a.disable_tcp_realtime && flags_a.disable_udp)
 	{
@@ -1170,7 +1172,7 @@ void reset_confirmation_heights (nano::block_store & store)
 
 	// Then make sure the confirmation height of the genesis account open block is 1
 	nano::network_params network_params;
-	store.confirmation_height_put (transaction, network_params.ledger.genesis_account, { 1, network_params.ledger.genesis_block });
+	store.confirmation_height_put (transaction, network_params.ledger.genesis_account, { 1, network_params.ledger.genesis_hash });
 }
 
 bool is_using_rocksdb (boost::filesystem::path const & data_path, std::error_code & ec)

@@ -27,17 +27,18 @@ public:
 	 * If using a different store version than the latest then you may need
 	 * to modify some of the objects in the store to be appropriate for the version before an upgrade.
 	 */
-	void initialize (nano::write_transaction const & transaction_a, nano::genesis const & genesis_a, nano::ledger_cache & ledge_cache_a) override
+	void initialize (nano::write_transaction const & transaction_a, nano::genesis const & genesis_a, nano::ledger_cache & ledger_cache_a) override
 	{
 		auto hash_l (genesis_a.hash ());
 		assert (latest_begin (transaction_a) == latest_end ());
-		nano::block_sideband sideband (nano::block_type::open, network_params.ledger.genesis_account, 0, network_params.ledger.genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0);
+		nano::block_sideband sideband (nano::block_type::open, network_params.ledger.genesis_account, 0, network_params.ledger.genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false);
 		block_put (transaction_a, hash_l, *genesis_a.open, sideband);
-		++ledge_cache_a.block_count;
+		++ledger_cache_a.block_count;
 		confirmation_height_put (transaction_a, network_params.ledger.genesis_account, nano::confirmation_height_info{ 1, genesis_a.hash () });
-		++ledge_cache_a.cemented_count;
+		++ledger_cache_a.cemented_count;
 		account_put (transaction_a, network_params.ledger.genesis_account, { hash_l, network_params.ledger.genesis_account, genesis_a.open->hash (), std::numeric_limits<nano::uint128_t>::max (), nano::seconds_since_epoch (), 1, nano::epoch::epoch_0 });
-		ledge_cache_a.rep_weights.representation_put (network_params.ledger.genesis_account, std::numeric_limits<nano::uint128_t>::max ());
+		++ledger_cache_a.account_count;
+		ledger_cache_a.rep_weights.representation_put (network_params.ledger.genesis_account, std::numeric_limits<nano::uint128_t>::max ());
 		frontier_put (transaction_a, hash_l, network_params.ledger.genesis_account);
 	}
 
@@ -410,7 +411,7 @@ public:
 		auto block = block_get (transaction_a, hash_a, &sideband);
 		if (sideband.type == nano::block_type::state)
 		{
-			return sideband.epoch;
+			return sideband.details.epoch;
 		}
 
 		return nano::epoch::epoch_0;
@@ -780,7 +781,7 @@ protected:
 	nano::network_params network_params;
 	std::unordered_map<nano::account, std::shared_ptr<nano::vote>> vote_cache_l1;
 	std::unordered_map<nano::account, std::shared_ptr<nano::vote>> vote_cache_l2;
-	static int constexpr version{ 17 };
+	static int constexpr version{ 18 };
 
 	template <typename T>
 	std::shared_ptr<nano::block> block_random (nano::transaction const & transaction_a, tables table_a)

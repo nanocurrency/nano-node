@@ -434,7 +434,25 @@ public:
 	}
 	void telemetry_req (nano::telemetry_req const & message_a) override
 	{
-		message (message_a);
+		auto find_channel (node.network.udp_channels.channel (endpoint));
+		if (find_channel)
+		{
+			auto is_very_first_message = find_channel->get_last_telemetry_req () == std::chrono::steady_clock::time_point{};
+			auto cache_exceeded = std::chrono::steady_clock::now () >= find_channel->get_last_telemetry_req () + nano::telemetry_cache_cutoffs::network_to_time (node.network_params.network);
+			if (is_very_first_message || cache_exceeded)
+			{
+				node.network.udp_channels.modify (find_channel, [](std::shared_ptr<nano::transport::channel_udp> channel_a) {
+					channel_a->set_last_telemetry_req (std::chrono::steady_clock::now ());
+				});
+				message (message_a);
+			}
+			else
+			{
+				node.network.udp_channels.modify (find_channel, [](std::shared_ptr<nano::transport::channel_udp> channel_a) {
+					channel_a->set_last_packet_received (std::chrono::steady_clock::now ());
+				});
+			}
+		}
 	}
 	void telemetry_ack (nano::telemetry_ack const & message_a) override
 	{
@@ -688,13 +706,14 @@ void nano::transport::udp_channels::ongoing_keepalive ()
 	});
 }
 
-void nano::transport::udp_channels::list (std::deque<std::shared_ptr<nano::transport::channel>> & deque_a)
+void nano::transport::udp_channels::list (std::deque<std::shared_ptr<nano::transport::channel>> & deque_a, uint8_t minimum_version_a)
 {
 	nano::lock_guard<std::mutex> lock (mutex);
-	for (auto const & channel : channels.get<random_access_tag> ())
-	{
-		deque_a.push_back (channel.channel);
-	}
+	// clang-format off
+	nano::transform_if (channels.begin (), channels.end (), std::back_inserter (deque_a),
+		[minimum_version_a](auto & channel_a) { return channel_a.channel->get_network_version () >= minimum_version_a; },
+		[](const auto & channel) { return channel.channel; });
+	// clang-format on
 }
 
 void nano::transport::udp_channels::modify (std::shared_ptr<nano::transport::channel_udp> channel_a, std::function<void(std::shared_ptr<nano::transport::channel_udp>)> modify_callback_a)

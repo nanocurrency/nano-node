@@ -1,4 +1,7 @@
 cmake_minimum_required (VERSION 3.4)
+
+cmake_policy(SET CMP0074 NEW)
+cmake_policy(SET CMP0077 NEW)
 # compatibility for osx sierra and on
 # needs to be set before project
 set (CMAKE_OSX_DEPLOYMENT_TARGET 10.12 CACHE STRING "")
@@ -19,6 +22,7 @@ set (CI_TEST 0 CACHE STRING "")
 set (CPACK_PACKAGE_VERSION_MAJOR "21")
 set (CPACK_PACKAGE_VERSION_MINOR "0")
 set (CPACK_PACKAGE_VERSION_PATCH "0")
+set (CPACK_PACKAGE_VERSION_PRE_RELEASE "0")
 set (CPACK_PACKAGE_VENDOR "Nano Currency")
 
 if (CI_BUILD)

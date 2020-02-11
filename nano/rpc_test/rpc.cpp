@@ -6154,7 +6154,7 @@ TEST (rpc, confirmation_height_currently_processing)
 	rpc.start ();
 
 	system.deadline_set (10s);
-	while (!node->pending_confirmation_height.is_processing_block (previous_genesis_chain_hash))
+	while (!node->confirmation_height_processor.is_processing_block (previous_genesis_chain_hash))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -6172,16 +6172,10 @@ TEST (rpc, confirmation_height_currently_processing)
 		ASSERT_EQ (frontier->hash ().to_string (), hash);
 	}
 
-	// Wait until confirmation has been set
+	// Wait until confirmation has been set and not processing anything
 	system.deadline_set (10s);
-	while (true)
+	while (!node->confirmation_height_processor.current ().is_zero ())
 	{
-		auto transaction = node->store.tx_begin_read ();
-		if (node->ledger.block_confirmed (transaction, frontier->hash ()))
-		{
-			break;
-		}
-
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
@@ -6391,7 +6385,7 @@ TEST (rpc, block_confirm_confirmed)
 	// Check confirmation history
 	auto confirmed (node->active.list_confirmed ());
 	ASSERT_EQ (1, confirmed.size ());
-	ASSERT_EQ (genesis.hash (), confirmed.begin ()->winner->hash ());
+	ASSERT_EQ (nano::genesis_hash, confirmed.begin ()->winner->hash ());
 	// Check callback
 	system.deadline_set (5s);
 	while (node->stats.count (nano::stat::type::error, nano::stat::detail::http_callback, nano::stat::dir::out) == 0)
@@ -6781,7 +6775,6 @@ TEST (rpc, wallet_history)
 {
 	nano::system system;
 	auto node = add_ipc_enabled_node (system);
-	nano::genesis genesis;
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	auto timestamp1 (nano::seconds_since_epoch ());
 	auto send (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::test_genesis_key.pub, node->config.receive_minimum.number ()));
@@ -6843,7 +6836,7 @@ TEST (rpc, wallet_history)
 	ASSERT_EQ ("receive", std::get<0> (history_l[3]));
 	ASSERT_EQ (nano::test_genesis_key.pub.to_account (), std::get<1> (history_l[3]));
 	ASSERT_EQ (nano::genesis_amount.convert_to<std::string> (), std::get<2> (history_l[3]));
-	ASSERT_EQ (genesis.hash ().to_string (), std::get<3> (history_l[3]));
+	ASSERT_EQ (nano::genesis_hash.to_string (), std::get<3> (history_l[3]));
 	ASSERT_EQ (nano::test_genesis_key.pub.to_account (), std::get<4> (history_l[3]));
 }
 
@@ -7046,7 +7039,7 @@ TEST (rpc, block_confirmed)
 	}
 
 	// Should no longer be processing the block after confirmation is set
-	ASSERT_FALSE (node->pending_confirmation_height.is_processing_block (send->hash ()));
+	ASSERT_FALSE (node->confirmation_height_processor.is_processing_block (send->hash ()));
 
 	// Requesting confirmation for this should now succeed
 	request.put ("hash", send->hash ().to_string ());
@@ -7416,7 +7409,6 @@ TEST (rpc_config, migrate)
 TEST (rpc, deprecated_account_format)
 {
 	nano::system system;
-	nano::genesis genesis;
 	auto node = add_ipc_enabled_node (system);
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
@@ -7448,7 +7440,7 @@ TEST (rpc, deprecated_account_format)
 	}
 	ASSERT_EQ (200, response2.status);
 	std::string frontier (response.json.get<std::string> ("frontier"));
-	ASSERT_EQ (genesis.hash ().to_string (), frontier);
+	ASSERT_EQ (nano::genesis_hash.to_string (), frontier);
 	boost::optional<std::string> deprecated_account_format2 (response2.json.get_optional<std::string> ("deprecated_account_format"));
 	ASSERT_TRUE (deprecated_account_format2.is_initialized ());
 }
@@ -7458,9 +7450,8 @@ TEST (rpc, epoch_upgrade)
 	nano::system system;
 	auto node = add_ipc_enabled_node (system);
 	nano::keypair key1, key2, key3;
-	nano::genesis genesis;
 	nano::keypair epoch_signer (nano::test_genesis_key);
-	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 1, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ()))); // to opened account
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, nano::genesis_hash, nano::test_genesis_key.pub, nano::genesis_amount - 1, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (nano::genesis_hash))); // to opened account
 	ASSERT_EQ (nano::process_result::progress, node->process (*send1).code);
 	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 2, key2.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send1->hash ()))); // to unopened account (pending)
 	ASSERT_EQ (nano::process_result::progress, node->process (*send2).code);
@@ -7580,10 +7571,9 @@ TEST (rpc, account_lazy_start)
 	nano::node_flags node_flags;
 	node_flags.disable_legacy_bootstrap = true;
 	auto node1 = system.add_node (node_flags);
-	nano::genesis genesis;
 	nano::keypair key;
 	// Generating test chain
-	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, nano::genesis_hash, nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (nano::genesis_hash)));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*send1).code);
 	auto open (std::make_shared<nano::open_block> (send1->hash (), key.pub, key.pub, key.prv, key.pub, *system.work.generate (key.pub)));
 	ASSERT_EQ (nano::process_result::progress, node1->process (*open).code);
@@ -7635,8 +7625,7 @@ TEST (rpc, receive)
 	wallet->insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key1;
 	wallet->insert_adhoc (key1.prv);
-	nano::genesis genesis;
-	auto send1 (wallet->send_action (nano::test_genesis_key.pub, key1.pub, node.config.receive_minimum.number (), *node.work_generate_blocking (genesis.hash ())));
+	auto send1 (wallet->send_action (nano::test_genesis_key.pub, key1.pub, node.config.receive_minimum.number (), *node.work_generate_blocking (nano::genesis_hash)));
 	system.deadline_set (5s);
 	while (node.balance (nano::test_genesis_key.pub) == nano::genesis_amount)
 	{
@@ -7709,8 +7698,7 @@ TEST (rpc, receive_unopened)
 	wallet->insert_adhoc (nano::test_genesis_key.prv);
 	// Test receiving for unopened account
 	nano::keypair key1;
-	nano::genesis genesis;
-	auto send1 (wallet->send_action (nano::test_genesis_key.pub, key1.pub, node.config.receive_minimum.number () - 1, *node.work_generate_blocking (genesis.hash ())));
+	auto send1 (wallet->send_action (nano::test_genesis_key.pub, key1.pub, node.config.receive_minimum.number () - 1, *node.work_generate_blocking (nano::genesis_hash)));
 	system.deadline_set (5s);
 	while (node.balance (nano::test_genesis_key.pub) == nano::genesis_amount)
 	{
@@ -7838,17 +7826,21 @@ namespace
 void compare_default_test_result_data (test_response & response, nano::node const & node_server_a)
 {
 	ASSERT_EQ (200, response.status);
-	ASSERT_FALSE (response.json.get<bool> ("cached"));
 	ASSERT_EQ (1, response.json.get<uint64_t> ("block_count"));
 	ASSERT_EQ (1, response.json.get<uint64_t> ("cemented_count"));
 	ASSERT_EQ (0, response.json.get<uint64_t> ("unchecked_count"));
 	ASSERT_EQ (1, response.json.get<uint64_t> ("account_count"));
 	ASSERT_EQ (node_server_a.config.bandwidth_limit, response.json.get<uint64_t> ("bandwidth_cap"));
 	ASSERT_EQ (1, response.json.get<uint32_t> ("peer_count"));
-	ASSERT_EQ (node_server_a.network_params.protocol.protocol_version, response.json.get<uint8_t> ("protocol_version_number"));
-	ASSERT_EQ (nano::get_major_node_version (), response.json.get<uint8_t> ("vendor_version"));
+	ASSERT_EQ (node_server_a.network_params.protocol.protocol_version, response.json.get<uint8_t> ("protocol_version"));
 	ASSERT_GE (100, response.json.get<uint64_t> ("uptime"));
-	ASSERT_EQ (nano::genesis ().hash ().to_string (), response.json.get<std::string> ("genesis_block"));
+	ASSERT_EQ (node_server_a.network_params.ledger.genesis_hash.to_string (), response.json.get<std::string> ("genesis_block"));
+	ASSERT_EQ (nano::get_major_node_version (), response.json.get<uint8_t> ("major_version"));
+	ASSERT_EQ (nano::get_minor_node_version (), response.json.get<uint8_t> ("minor_version"));
+	ASSERT_EQ (nano::get_patch_node_version (), response.json.get<uint8_t> ("patch_version"));
+	ASSERT_EQ (nano::get_pre_release_node_version (), response.json.get<uint8_t> ("pre_release_version"));
+	ASSERT_EQ (0, response.json.get<uint8_t> ("maker"));
+	ASSERT_GE (std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count (), response.json.get<uint64_t> ("timestamp"));
 }
 }
 
@@ -7950,7 +7942,7 @@ TEST (rpc, node_telemetry_single)
 	}
 }
 
-TEST (rpc, node_telemetry_random)
+TEST (rpc, node_telemetry_all)
 {
 	nano::system system (1);
 	auto & node1 = *add_ipc_enabled_node (system);
@@ -7983,18 +7975,7 @@ TEST (rpc, node_telemetry_random)
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
-		ASSERT_EQ (200, response.status);
-		ASSERT_FALSE (response.json.get<bool> ("cached"));
-		ASSERT_EQ (1, response.json.get<uint64_t> ("block_count"));
-		ASSERT_EQ (1, response.json.get<uint64_t> ("cemented_count"));
-		ASSERT_EQ (0, response.json.get<uint64_t> ("unchecked_count"));
-		ASSERT_EQ (1, response.json.get<uint64_t> ("account_count"));
-		ASSERT_EQ (node->config.bandwidth_limit, response.json.get<uint64_t> ("bandwidth_cap"));
-		ASSERT_EQ (1, response.json.get<uint32_t> ("peer_count"));
-		ASSERT_EQ (node->network_params.protocol.protocol_version, response.json.get<uint8_t> ("protocol_version_number"));
-		ASSERT_EQ (nano::get_major_node_version (), response.json.get<uint8_t> ("vendor_version"));
-		ASSERT_GE (100, response.json.get<uint64_t> ("uptime"));
-		ASSERT_EQ (nano::genesis ().hash ().to_string (), response.json.get<std::string> ("genesis_block"));
+		compare_default_test_result_data (response, *node);
 	}
 
 	request.put ("raw", "true");
@@ -8007,26 +7988,54 @@ TEST (rpc, node_telemetry_random)
 	ASSERT_EQ (200, response.status);
 
 	// This may fail if the response has taken longer than the cache cutoff time.
-	ASSERT_TRUE (response.json.get<bool> ("cached"));
-
 	auto & all_metrics = response.json.get_child ("metrics");
-	std::vector<std::tuple<uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint32_t, uint8_t, uint8_t, uint64_t, std::string>> raw_metrics_json_l;
+
+	class telemetry_response_data
+	{
+	public:
+		uint64_t block_count;
+		uint64_t cemented_count;
+		uint64_t unchecked_count;
+		uint64_t account_count;
+		uint64_t bandwidth_cap;
+		uint32_t peer_count;
+		uint8_t protocol_version;
+		uint64_t uptime;
+		std::string genesis_block;
+		uint8_t major_version;
+		uint8_t minor_version;
+		uint8_t patch_version;
+		uint8_t pre_release_version;
+		uint8_t maker;
+		uint64_t timestamp;
+		std::string address;
+		uint16_t port;
+	};
+
+	std::vector<telemetry_response_data> raw_metrics_json_l;
 	for (auto & metrics_pair : all_metrics)
 	{
 		auto & metrics = metrics_pair.second;
-		raw_metrics_json_l.emplace_back (metrics.get<uint64_t> ("block_count"), metrics.get<uint64_t> ("cemented_count"), metrics.get<uint64_t> ("unchecked_count"), metrics.get<uint64_t> ("account_count"), metrics.get<uint64_t> ("bandwidth_cap"), metrics.get<uint64_t> ("peer_count"), metrics.get<uint8_t> ("protocol_version_number"), metrics.get<uint8_t> ("vendor_version"), metrics.get<uint64_t> ("uptime"), metrics.get<std::string> ("genesis_block"));
+		raw_metrics_json_l.push_back ({ metrics.get<uint64_t> ("block_count"), metrics.get<uint64_t> ("cemented_count"), metrics.get<uint64_t> ("unchecked_count"), metrics.get<uint64_t> ("account_count"), metrics.get<uint64_t> ("bandwidth_cap"), metrics.get<uint32_t> ("peer_count"), metrics.get<uint8_t> ("protocol_version"), metrics.get<uint64_t> ("uptime"), metrics.get<std::string> ("genesis_block"), metrics.get<uint8_t> ("major_version"), metrics.get<uint8_t> ("minor_version"), metrics.get<uint8_t> ("patch_version"), metrics.get<uint8_t> ("pre_release_version"), metrics.get<uint8_t> ("maker"), metrics.get<uint64_t> ("timestamp"), metrics.get<std::string> ("address"), metrics.get<uint16_t> ("port") });
 	}
 
 	ASSERT_EQ (1, raw_metrics_json_l.size ());
 	auto const & metrics = raw_metrics_json_l.front ();
-	ASSERT_EQ (1, std::get<0> (metrics));
-	ASSERT_EQ (1, std::get<1> (metrics));
-	ASSERT_EQ (0, std::get<2> (metrics));
-	ASSERT_EQ (1, std::get<3> (metrics));
-	ASSERT_EQ (node->config.bandwidth_limit, std::get<4> (metrics));
-	ASSERT_EQ (1, std::get<5> (metrics));
-	ASSERT_EQ (node->network_params.protocol.protocol_version, std::get<6> (metrics));
-	ASSERT_EQ (nano::get_major_node_version (), std::get<7> (metrics));
-	ASSERT_GE (100, std::get<8> (metrics));
-	ASSERT_EQ (nano::genesis ().hash ().to_string (), std::get<9> (metrics));
+	ASSERT_EQ (1, metrics.block_count);
+	ASSERT_EQ (1, metrics.cemented_count);
+	ASSERT_EQ (0, metrics.unchecked_count);
+	ASSERT_EQ (1, metrics.account_count);
+	ASSERT_EQ (node->config.bandwidth_limit, metrics.bandwidth_cap);
+	ASSERT_EQ (1, metrics.peer_count);
+	ASSERT_EQ (node->network_params.protocol.protocol_version, metrics.protocol_version);
+	ASSERT_GE (100, metrics.uptime);
+	ASSERT_EQ (node1.network_params.ledger.genesis_hash.to_string (), metrics.genesis_block);
+	ASSERT_EQ (nano::get_major_node_version (), metrics.major_version);
+	ASSERT_EQ (nano::get_minor_node_version (), metrics.minor_version);
+	ASSERT_EQ (nano::get_patch_node_version (), metrics.patch_version);
+	ASSERT_EQ (nano::get_pre_release_node_version (), metrics.pre_release_version);
+	ASSERT_EQ (0, metrics.maker);
+	ASSERT_GE (std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count (), metrics.timestamp);
+	ASSERT_EQ (node->network.endpoint ().address ().to_string (), metrics.address);
+	ASSERT_EQ (node->network.endpoint ().port (), metrics.port);
 }

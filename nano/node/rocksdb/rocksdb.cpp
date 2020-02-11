@@ -278,7 +278,6 @@ bool nano::rocksdb_store::is_caching_counts (nano::tables table_a) const
 {
 	switch (table_a)
 	{
-		case tables::accounts:
 		case tables::send_blocks:
 		case tables::receive_blocks:
 		case tables::open_blocks:
