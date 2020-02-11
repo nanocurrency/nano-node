@@ -351,17 +351,15 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 	}
 }
 
-void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a, nano::work_version const work_version_a, uint64_t const difficulty_a, const bool watch_work_a)
+void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a, std::pair<nano::work_version, uint64_t> const & work_a, const bool watch_work_a)
 {
-	assert (work_version_a != nano::work_version::unspecified);
-	assert (difficulty_a != 0);
-	// Start collecting quorum on block
-	node.active.start (block_a, work_version_a, false, difficulty_a);
-	//add block to watcher if desired after block has been added to active
+	// Add to work watcher to prevent dropping the election
 	if (watch_work_a)
 	{
-		node.wallets.watcher->add (block_a, work_version_a);
+		node.wallets.watcher->add (block_a, work_a.first);
 	}
+	// Start collecting quorum on block
+	node.active.start (block_a, work_a.second);
 	// Announce block contents to the network
 	node.network.flood_block (block_a, false);
 	if (node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
@@ -389,7 +387,8 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			}
 			if (info_a.modified > nano::seconds_since_epoch () - 300 && node.block_arrival.recent (hash))
 			{
-				process_live (hash, info_a.block, result.work_version, result.difficulty, watch_work_a);
+				assert (result.work.is_initialized ());
+				process_live (hash, info_a.block, *result.work, watch_work_a);
 			}
 			queue_unchecked (transaction_a, hash);
 			break;
@@ -452,7 +451,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			{
 				queue_unchecked (transaction_a, hash);
 			}
-			node.active.update_difficulty (*info_a.block, result.work_version, result.difficulty, transaction_a);
+			node.active.update_difficulty (*info_a.block, result.work, transaction_a);
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::old);
 			break;
 		}
@@ -483,7 +482,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 		}
 		case nano::process_result::fork:
 		{
-			node.process_fork (transaction_a, info_a.block, result.work_version, result.difficulty);
+			node.process_fork (transaction_a, info_a.block, result.work);
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::fork);
 			if (node.config.logging.ledger_logging ())
 			{

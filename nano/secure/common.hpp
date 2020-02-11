@@ -322,8 +322,7 @@ public:
 	nano::account account;
 	nano::amount amount;
 	nano::account pending_account;
-	nano::work_version work_version;
-	uint64_t difficulty;
+	boost::optional<std::pair<nano::work_version, uint64_t>> work;
 	boost::optional<bool> state_is_send;
 	nano::signature_verification verified;
 };

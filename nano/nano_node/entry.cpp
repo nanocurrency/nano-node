@@ -1090,7 +1090,7 @@ int main (int argc, char * const * argv)
 						std::cerr << boost::str (boost::format ("Incorrect sideband block details for block %1%\n") % hash.to_string ());
 					}
 					// Check if block work value is correct
-					auto work_version (node.node->ledger.work_version ());
+					auto work_version (node.node->ledger.work_version (sideband.details));
 					if (nano::work_validate (work_version, *block))
 					{
 						std::cerr << boost::str (boost::format ("Invalid work for block %1% value: %2%\n") % hash.to_string () % nano::to_string_hex (block->block_work ()));

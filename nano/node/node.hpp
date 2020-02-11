@@ -136,9 +136,9 @@ public:
 	void work_generate (nano::root const &, std::function<void(boost::optional<uint64_t>)>, uint64_t, boost::optional<nano::account> const & = boost::none, bool const = false);
 	void work_generate (nano::root const &, std::function<void(boost::optional<uint64_t>)>, boost::optional<nano::account> const & = boost::none);
 	void add_initial_peers ();
-	void block_confirm (std::shared_ptr<nano::block>);
+	void block_confirm (std::shared_ptr<nano::block>, nano::block_details const &);
 	bool block_confirmed_or_being_confirmed (nano::transaction const &, nano::block_hash const &);
-	void process_fork (nano::transaction const &, std::shared_ptr<nano::block>, nano::work_version const, uint64_t const);
+	void process_fork (nano::transaction const &, std::shared_ptr<nano::block>, boost::optional<std::pair<nano::work_version, uint64_t>> const &);
 	void do_rpc_callback (boost::asio::ip::tcp::resolver::iterator i_a, std::string const &, uint16_t, std::shared_ptr<std::string>, std::shared_ptr<std::string>, std::shared_ptr<boost::asio::ip::tcp::resolver>);
 	nano::uint128_t delta () const;
 	void ongoing_online_weight_calculation ();

@@ -11,6 +11,7 @@ namespace nano
 class block_store;
 class stat;
 class write_transaction;
+class block_details;
 
 using tally_t = std::map<nano::uint128_t, std::shared_ptr<nano::block>, std::greater<nano::uint128_t>>;
 class ledger final
@@ -26,7 +27,8 @@ public:
 	nano::uint128_t weight (nano::account const &);
 	std::shared_ptr<nano::block> successor (nano::transaction const &, nano::qualified_root const &);
 	std::shared_ptr<nano::block> forked_block (nano::transaction const &, nano::block const &);
-	nano::work_version work_version ();
+	nano::work_version work_version (nano::block_details const) const;
+	uint64_t block_difficulty (nano::block const &, nano::block_details const) const;
 	bool block_confirmed (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const;
 	bool block_not_confirmed_or_not_exists (nano::block const & block_a) const;
 	nano::block_hash latest (nano::transaction const &, nano::account const &);

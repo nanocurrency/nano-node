@@ -715,7 +715,8 @@ void nano::json_handler::account_representative_set ()
 					auto info (rpc_l->account_info_impl (block_transaction, account));
 					if (!rpc_l->ec)
 					{
-						auto work_version (rpc_l->node.ledger.work_version ());
+						nano::block_details details (info.epoch (), false, false, false);
+						auto work_version (rpc_l->node.ledger.work_version (details));
 						if (nano::work_validate (work_version, info.head, work))
 						{
 							rpc_l->ec = nano::error_common::invalid_work;
@@ -1018,13 +1019,14 @@ void nano::json_handler::block_confirm ()
 	if (!ec)
 	{
 		auto transaction (node.store.tx_begin_read ());
-		auto block_l (node.store.block_get (transaction, hash));
+		nano::block_sideband sideband;
+		auto block_l (node.store.block_get (transaction, hash, &sideband));
 		if (block_l != nullptr)
 		{
 			if (!node.ledger.block_confirmed (transaction, hash))
 			{
 				// Start new confirmation for unconfirmed block
-				node.block_confirm (std::move (block_l));
+				node.block_confirm (std::move (block_l), sideband.details);
 			}
 			else
 			{
@@ -3351,7 +3353,8 @@ void nano::json_handler::receive ()
 		if (!ec)
 		{
 			auto block_transaction (node.store.tx_begin_read ());
-			auto block (node.store.block_get (block_transaction, hash));
+			nano::block_sideband sideband;
+			auto block (node.store.block_get (block_transaction, hash, &sideband));
 			if (block != nullptr)
 			{
 				if (node.store.pending_exists (block_transaction, nano::pending_key (account, hash)))
@@ -3361,15 +3364,18 @@ void nano::json_handler::receive ()
 					{
 						nano::account_info info;
 						nano::root head;
+						nano::epoch epoch = sideband.details.epoch;
 						if (!node.store.account_get (block_transaction, account, info))
 						{
 							head = info.head;
+							epoch = std::max (info.epoch (), epoch);
 						}
 						else
 						{
 							head = account;
 						}
-						auto work_version (node.ledger.work_version ());
+						nano::block_details details (epoch, false, true, false);
+						auto work_version (node.ledger.work_version (details));
 						if (nano::work_validate (work_version, head, work))
 						{
 							ec = nano::error_common::invalid_work;
@@ -3713,7 +3719,8 @@ void nano::json_handler::send ()
 			}
 			if (!ec && work)
 			{
-				auto work_version (node.ledger.work_version ());
+				nano::block_details details (info.epoch (), true, false, false);
+				auto work_version (node.ledger.work_version (details));
 				if (nano::work_validate (work_version, info.head, work, nullptr))
 				{
 					ec = nano::error_common::invalid_work;

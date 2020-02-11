@@ -27,6 +27,7 @@ bool work_validate_entry (nano::block const &);
 bool work_validate_entry (nano::root const &, uint64_t const);
 // For tests only
 bool work_validate (nano::block const &, uint64_t * = nullptr);
+// For tests only
 bool work_validate (nano::root const &, uint64_t const, uint64_t * = nullptr);
 
 namespace work_v1

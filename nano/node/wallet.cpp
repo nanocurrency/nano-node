@@ -1134,20 +1134,16 @@ bool nano::wallet::action_complete (std::shared_ptr<nano::block> const & block_a
 	bool error{ false };
 	if (block_a != nullptr)
 	{
-		auto process (wallets.node.process_local (block_a));
+		auto process (wallets.node.process_local (block_a, true));
 		if (process.code == nano::process_result::insufficient_work)
 		{
 			wallets.node.logger.try_log (boost::str (boost::format ("Cached or provided work for block %1% account %2% is invalid, regenerating") % block_a->hash ().to_string () % account_a.to_account ()));
 			if (wallets.node.work_generate_blocking (*block_a, wallets.node.active.limited_active_difficulty ()).is_initialized ())
 			{
-				process = wallets.node.process_local (block_a);
+				process = wallets.node.process_local (block_a, true);
 			}
 		}
 		error = process.code != nano::process_result::progress;
-		if (!error)
-		{
-			wallets.watcher->add (block_a, process.work_version);
-		}
 		if (!error && generate_work_a)
 		{
 			work_ensure (account_a, block_a->hash ());
@@ -1265,7 +1261,8 @@ bool nano::wallet::search_pending ()
 					if (wallets.node.config.receive_minimum.number () <= amount)
 					{
 						wallets.node.logger.try_log (boost::str (boost::format ("Found a pending block %1% for account %2%") % hash.to_string () % pending.source.to_account ()));
-						auto block (wallets.node.store.block_get (block_transaction, hash));
+						nano::block_sideband sideband;
+						auto block (wallets.node.store.block_get (block_transaction, hash, &sideband));
 						if (wallets.node.ledger.block_confirmed (block_transaction, hash))
 						{
 							// Receive confirmed block
@@ -1278,7 +1275,7 @@ bool nano::wallet::search_pending ()
 						else
 						{
 							// Request confirmation for unconfirmed block
-							wallets.node.block_confirm (block);
+							wallets.node.block_confirm (block, sideband.details);
 						}
 					}
 				}
@@ -1477,7 +1474,7 @@ void nano::work_watcher::watching (nano::work_version const version_a, nano::qua
 									uint64_t difficulty_l;
 									if (!nano::work_validate (version_a, *block, &difficulty_l) && difficulty_l > old_difficulty_l)
 									{
-										watcher_l->node.active.update_difficulty (*block, version_a, difficulty_l);
+										watcher_l->node.active.update_difficulty (*block, std::pair<nano::work_version, uint64_t>{ version_a, difficulty_l });
 										watcher_l->node.network.flood_block (block, false);
 										watcher_l->update (root_a, block);
 										updated_l = true;

@@ -104,8 +104,12 @@ void nano::active_transactions::search_frontiers (nano::transaction const & tran
 
 					if (info.block_count > confirmation_height_info.height && !this->confirmation_height_processor.is_processing_block (info.head))
 					{
-						auto block (this->node.store.block_get (transaction_a, info.head));
-						if (!this->start (block, this->node.ledger.work_version (), true))
+						nano::block_sideband sideband;
+						auto block (this->node.store.block_get (transaction_a, info.head, &sideband));
+						auto work_version (node.ledger.work_version (sideband.details));
+						uint64_t difficulty;
+						release_assert (!nano::work_validate (work_version, *block, &difficulty));
+						if (!this->start (block, difficulty, true))
 						{
 							++elections_count;
 							// Calculate votes for local representatives
@@ -229,10 +233,11 @@ void nano::active_transactions::election_escalate (std::shared_ptr<nano::electio
 		auto previous_hash_l (election_l->status.winner->previous ());
 		if (!previous_hash_l.is_zero ())
 		{
-			previous_l = node.store.block_get (transaction_l, previous_hash_l);
+			nano::block_sideband sideband;
+			previous_l = node.store.block_get (transaction_l, previous_hash_l, &sideband);
 			if (previous_l != nullptr && blocks.find (previous_hash_l) == blocks.end () && !node.block_confirmed_or_being_confirmed (transaction_l, previous_hash_l))
 			{
-				add (std::move (previous_l), this->node.ledger.work_version (), true);
+				add (previous_l, this->node.ledger.block_difficulty (*previous_l, sideband.details), true);
 				escalated_l = true;
 			}
 		}
@@ -243,10 +248,11 @@ void nano::active_transactions::election_escalate (std::shared_ptr<nano::electio
 			auto source_hash_l (node.ledger.block_source (transaction_l, *election_l->status.winner));
 			if (!source_hash_l.is_zero () && source_hash_l != previous_hash_l && blocks.find (source_hash_l) == blocks.end ())
 			{
-				auto source_l (node.store.block_get (transaction_l, source_hash_l));
+				nano::block_sideband sideband;
+				auto source_l (node.store.block_get (transaction_l, source_hash_l, &sideband));
 				if (source_l != nullptr && !node.block_confirmed_or_being_confirmed (transaction_l, source_hash_l))
 				{
-					add (std::move (source_l), this->node.ledger.work_version (), true);
+					add (source_l, this->node.ledger.block_difficulty (*source_l, sideband.details), true);
 					escalated_l = true;
 				}
 			}
@@ -567,34 +573,44 @@ void nano::active_transactions::stop ()
 	roots.clear ();
 }
 
-bool nano::active_transactions::start (std::shared_ptr<nano::block> block_a, nano::work_version const work_version_a, bool const skip_delay_a, uint64_t const difficulty_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
+bool nano::active_transactions::start (std::shared_ptr<nano::block> block_a, uint64_t const difficulty_a, bool const skip_delay_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
 {
 	nano::lock_guard<std::mutex> lock (mutex);
-	return add (block_a, work_version_a, skip_delay_a, difficulty_a, confirmation_action_a);
+	return add (block_a, difficulty_a, skip_delay_a, confirmation_action_a);
 }
 
-bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, nano::work_version const work_version_a, bool const skip_delay_a, uint64_t const difficulty_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
+bool nano::active_transactions::start (nano::block_hash const & hash_a, bool const skip_delay_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
 {
-	assert (work_version_a != nano::work_version::unspecified);
-	auto error (true);
+	bool result{ true };
+	nano::block_sideband sideband;
+	auto block (node.store.block_get (node.store.tx_begin_read (), hash_a, &sideband));
+	if (block)
+	{
+		auto difficulty (node.ledger.block_difficulty (*block, sideband.details));
+		result = start (block, difficulty, skip_delay_a, confirmation_action_a);
+	}
+	return result;
+}
+
+bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, uint64_t const difficulty_a, bool const skip_delay_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
+{
+	bool result{ true };
 	if (!stopped)
 	{
 		auto root (block_a->qualified_root ());
 		auto existing (roots.get<tag_root> ().find (root));
 		if (existing == roots.get<tag_root> ().end () && confirmed_set.get<tag_root> ().find (root) == confirmed_set.get<tag_root> ().end ())
 		{
+			result = false;
 			auto hash (block_a->hash ());
 			auto election (nano::make_shared<nano::election> (node, block_a, skip_delay_a, confirmation_action_a));
-			uint64_t difficulty = difficulty_a;
-			error = difficulty_a == 0 && nano::work_validate (work_version_a, *block_a, &difficulty);
-			release_assert (!error);
-			roots.get<tag_root> ().emplace (nano::conflict_info{ root, difficulty, difficulty, election });
+			roots.get<tag_root> ().emplace (nano::conflict_info{ root, difficulty_a, difficulty_a, election });
 			blocks.emplace (hash, election);
 			adjust_difficulty (hash);
 			election->insert_inactive_votes_cache (hash);
 		}
 	}
-	return error;
+	return result;
 }
 
 // Validate a vote and apply it to the current election if one exists
@@ -667,21 +683,41 @@ bool nano::active_transactions::active (nano::block const & block_a)
 	return active (block_a.qualified_root ());
 }
 
-void nano::active_transactions::update_difficulty (nano::block const & block_a, nano::work_version const work_version_a, uint64_t const difficulty_a, boost::optional<nano::write_transaction const &> const & opt_transaction_a)
+void nano::active_transactions::update_difficulty (nano::block const & block_a, boost::optional<std::pair<nano::work_version, uint64_t>> const & work_a, boost::optional<nano::write_transaction const &> const & opt_transaction_a)
 {
-	assert (work_version_a != nano::work_version::unspecified);
 	nano::unique_lock<std::mutex> lock (mutex);
 	auto existing_election (roots.get<tag_root> ().find (block_a.qualified_root ()));
 	if (existing_election != roots.get<tag_root> ().end ())
 	{
-		if (difficulty_a > existing_election->difficulty)
+		uint64_t difficulty{ 0 };
+		if (work_a.is_initialized ())
+		{
+			assert (work_a->first != nano::work_version::unspecified);
+			difficulty = work_a->second;
+		}
+		else
+		{
+			// Get work validation details from existing block
+			nano::block_sideband sideband;
+			if (opt_transaction_a.is_initialized ())
+			{
+				(void)(node.store.block_get (*opt_transaction_a, block_a.hash (), &sideband));
+			}
+			else
+			{
+				(void)(node.store.block_get (node.store.tx_begin_read (), block_a.hash (), &sideband));
+			}
+			difficulty = node.ledger.block_difficulty (block_a, sideband.details);
+		}
+		assert (difficulty != 0);
+		if (difficulty > existing_election->difficulty)
 		{
 			if (node.config.logging.active_update_logging ())
 			{
-				node.logger.try_log (boost::str (boost::format ("Block %1% was updated from difficulty %2% to %3%") % block_a.hash ().to_string () % nano::to_string_hex (existing_election->difficulty) % nano::to_string_hex (difficulty_a)));
+				node.logger.try_log (boost::str (boost::format ("Block %1% was updated from difficulty %2% to %3%") % block_a.hash ().to_string () % nano::to_string_hex (existing_election->difficulty) % nano::to_string_hex (difficulty)));
 			}
-			roots.get<tag_root> ().modify (existing_election, [difficulty_a](nano::conflict_info & info_a) {
-				info_a.difficulty = difficulty_a;
+			roots.get<tag_root> ().modify (existing_election, [difficulty](nano::conflict_info & info_a) {
+				info_a.difficulty = difficulty;
 			});
 			adjust_difficulty (block_a.hash ());
 		}
@@ -702,20 +738,18 @@ void nano::active_transactions::update_difficulty (nano::block const & block_a, 
 			bool confirmed = (confirmation_height_info.height >= existing_sideband.height);
 			if (!confirmed && existing_block->block_work () != block_a.block_work ())
 			{
-				uint64_t existing_difficulty;
-				if (!nano::work_validate (work_version_a, *existing_block, &existing_difficulty))
+				auto existing_difficulty (node.ledger.block_difficulty (*existing_block, existing_sideband.details));
+				auto new_difficulty (node.ledger.block_difficulty (block_a, existing_sideband.details));
+				if (new_difficulty > existing_difficulty)
 				{
-					if (difficulty_a > existing_difficulty)
-					{
-						// Re-writing the block is necessary to avoid the same work being received later to force restarting the election
-						// The existing block is re-written, not the arriving block, as that one might not have gone through a full signature check
-						existing_block->block_work_set (block_a.block_work ());
-						node.store.block_put (*opt_transaction_a, hash, *existing_block, existing_sideband);
+					// Re-writing the block is necessary to avoid the same work being received later to force restarting the election
+					// The existing block is re-written, not the arriving block, as that one might not have gone through a full signature check
+					existing_block->block_work_set (block_a.block_work ());
+					node.store.block_put (*opt_transaction_a, hash, *existing_block, existing_sideband);
 
-						// Restart election for the upgraded block, previously dropped from elections
-						lock.lock ();
-						add (existing_block, work_version_a, false, difficulty_a);
-					}
+					// Restart election for the upgraded block, previously dropped from elections
+					lock.lock ();
+					add (existing_block, new_difficulty, false);
 				}
 			}
 		}

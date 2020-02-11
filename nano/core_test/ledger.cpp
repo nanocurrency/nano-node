@@ -738,7 +738,7 @@ TEST (votes, check_signature)
 		auto transaction (node1.store.tx_begin_write ());
 		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	}
-	node1.active.start (send1, nano::work_version::work_1);
+	ASSERT_FALSE (node1.active.start (send1->hash ()));
 	{
 		nano::lock_guard<std::mutex> lock (node1.active.mutex);
 		auto votes1 (node1.active.roots.find (send1->qualified_root ())->election);
@@ -760,9 +760,11 @@ TEST (votes, add_one)
 	nano::keypair key1;
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send1);
-	auto transaction (node1.store.tx_begin_write ());
-	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
-	node1.active.start (send1, nano::work_version::work_1);
+	{
+		auto transaction (node1.store.tx_begin_write ());
+		auto process (node1.ledger.process (transaction, *send1));
+	}
+	ASSERT_FALSE (node1.active.start (send1->hash ()));
 	nano::unique_lock<std::mutex> lock (node1.active.mutex);
 	auto votes1 (node1.active.roots.find (send1->qualified_root ())->election);
 	ASSERT_EQ (1, votes1->last_votes.size ());
@@ -790,8 +792,9 @@ TEST (votes, add_two)
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send1);
 	auto transaction (node1.store.tx_begin_write ());
-	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
-	node1.active.start (send1, nano::work_version::work_1);
+	auto process (node1.ledger.process (transaction, *send1));
+	ASSERT_EQ (nano::process_result::progress, process.code);
+	ASSERT_FALSE (node1.active.start (send1, process.work->second));
 	nano::unique_lock<std::mutex> lock (node1.active.mutex);
 	auto votes1 (node1.active.roots.find (send1->qualified_root ())->election);
 	lock.unlock ();
@@ -827,7 +830,7 @@ TEST (votes, add_existing)
 		auto transaction (node1.store.tx_begin_write ());
 		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
 	}
-	node1.active.start (send1, nano::work_version::work_1);
+	ASSERT_FALSE (node1.active.start (send1->hash ()));
 	auto vote1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 1, send1));
 	ASSERT_EQ (nano::vote_code::vote, node1.active.vote (vote1));
 	// Block is already processed from vote
@@ -871,9 +874,11 @@ TEST (votes, add_old)
 	nano::keypair key1;
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send1);
-	auto transaction (node1.store.tx_begin_write ());
-	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
-	node1.active.start (send1, nano::work_version::work_1);
+	{
+		auto transaction (node1.store.tx_begin_write ());
+		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
+	}
+	ASSERT_FALSE (node1.active.start (send1->hash ()));
 	auto vote1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 2, send1));
 	std::shared_ptr<nano::election> votes1;
 	{
@@ -906,11 +911,13 @@ TEST (votes, add_old_different_account)
 	node1.work_generate_blocking (*send1);
 	auto send2 (std::make_shared<nano::send_block> (send1->hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send2);
-	auto transaction (node1.store.tx_begin_write ());
-	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
-	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send2).code);
-	node1.active.start (send1, nano::work_version::work_1);
-	node1.active.start (send2, nano::work_version::work_1);
+	{
+		auto transaction (node1.store.tx_begin_write ());
+		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
+		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send2).code);
+	}
+	ASSERT_FALSE (node1.active.start (send1->hash ()));
+	ASSERT_FALSE (node1.active.start (send2->hash ()));
 	std::shared_ptr<nano::election> votes1;
 	std::shared_ptr<nano::election> votes2;
 	{
@@ -950,9 +957,11 @@ TEST (votes, add_cooldown)
 	nano::keypair key1;
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send1);
-	auto transaction (node1.store.tx_begin_write ());
-	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
-	node1.active.start (send1, nano::work_version::work_1);
+	{
+		auto transaction (node1.store.tx_begin_write ());
+		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
+	}
+	ASSERT_FALSE (node1.active.start (send1->hash ()));
 	std::shared_ptr<nano::election> votes1;
 	{
 		nano::unique_lock<std::mutex> lock (node1.active.mutex);
@@ -2654,15 +2663,17 @@ TEST (ledger, block_hash_account_conflict)
 	node1.work_generate_blocking (*receive1);
 	node1.work_generate_blocking (*send2);
 	node1.work_generate_blocking (*open_epoch1);
-	auto transaction (node1.store.tx_begin_write ());
-	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
-	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *receive1).code);
-	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send2).code);
-	ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *open_epoch1).code);
-	node1.active.start (send1, nano::work_version::work_1);
-	node1.active.start (receive1, nano::work_version::work_1);
-	node1.active.start (send2, nano::work_version::work_1);
-	node1.active.start (open_epoch1, nano::work_version::work_1);
+	{
+		auto transaction (node1.store.tx_begin_write ());
+		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send1).code);
+		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *receive1).code);
+		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *send2).code);
+		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, *open_epoch1).code);
+	}
+	ASSERT_FALSE (node1.active.start (send1->hash ()));
+	ASSERT_FALSE (node1.active.start (receive1->hash ()));
+	ASSERT_FALSE (node1.active.start (send2->hash ()));
+	ASSERT_FALSE (node1.active.start (open_epoch1->hash ()));
 	auto votes1 (node1.active.roots.find (send1->qualified_root ())->election);
 	auto votes2 (node1.active.roots.find (receive1->qualified_root ())->election);
 	auto votes3 (node1.active.roots.find (send2->qualified_root ())->election);

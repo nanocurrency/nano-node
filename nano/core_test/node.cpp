@@ -1827,7 +1827,7 @@ TEST (node, rep_self_vote)
 	node0->work_generate_blocking (*block0);
 	ASSERT_EQ (nano::process_result::progress, node0->process (*block0).code);
 	auto & active (node0->active);
-	active.start (block0, nano::work_version::work_1);
+	ASSERT_FALSE (active.start (block0->hash ()));
 	std::shared_ptr<nano::election> election;
 	{
 		nano::unique_lock<std::mutex> lock (active.mutex);
@@ -2495,7 +2495,7 @@ TEST (node, block_confirm)
 			auto transaction (node2.store.tx_begin_write ());
 			ASSERT_EQ (nano::process_result::progress, node2.ledger.process (transaction, *send2).code);
 		}
-		node1.block_confirm (send2);
+		node1.block_confirm (send2, nano::block_details (nano::epoch::epoch_0, true, false, false));
 		ASSERT_TRUE (node1.active.list_confirmed ().empty ());
 		system.deadline_set (10s);
 		while (node1.active.list_confirmed ().empty ())
