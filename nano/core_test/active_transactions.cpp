@@ -547,21 +547,6 @@ TEST (active_transactions, update_difficulty)
 	send2 = std::shared_ptr<nano::state_block> (builder1.from (*send2).work (*work2).build (ec));
 	ASSERT_FALSE (ec);
 
-	auto modify_election = [&node1](auto block) {
-		auto hash (block->hash ());
-		nano::lock_guard<std::mutex> active_guard (node1.active.mutex);
-		auto existing (node1.active.roots.find (block->qualified_root ()));
-		ASSERT_NE (existing, node1.active.roots.end ());
-		auto election (existing->election);
-		ASSERT_EQ (election->status.winner->hash (), hash);
-		election->status.winner = block;
-		auto current (election->blocks.find (hash));
-		assert (current != election->blocks.end ());
-		current->second = block;
-	};
-
-	modify_election (send1);
-	modify_election (send2);
 	node1.process_active (send1);
 	node1.process_active (send2);
 	node1.block_processor.flush ();
