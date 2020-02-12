@@ -212,7 +212,7 @@ TEST (node, node_receive_quorum)
 		nano::lock_guard<std::mutex> guard (node1.active.mutex);
 		auto info (node1.active.roots.find (nano::qualified_root (previous, previous)));
 		ASSERT_NE (node1.active.roots.end (), info);
-		ASSERT_FALSE (info->election->confirmed);
+		ASSERT_FALSE (info->election->confirmed ());
 		ASSERT_EQ (1, info->election->last_votes.size ());
 	}
 	nano::system system2 (1);
@@ -2568,7 +2568,7 @@ TEST (node, confirm_quorum)
 	nano::lock_guard<std::mutex> guard (node1.active.mutex);
 	auto info (node1.active.roots.find (nano::qualified_root (send1->hash (), send1->hash ())));
 	ASSERT_NE (node1.active.roots.end (), info);
-	ASSERT_FALSE (info->election->confirmed);
+	ASSERT_FALSE (info->election->confirmed ());
 	ASSERT_EQ (1, info->election->last_votes.size ());
 	ASSERT_EQ (0, node1.balance (nano::test_genesis_key.pub));
 }

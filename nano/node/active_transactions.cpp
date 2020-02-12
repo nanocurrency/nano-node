@@ -159,7 +159,7 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 			if (existing != election_winner_details.end ())
 			{
 				auto election = existing->second;
-				if (election->confirmed && !election->stopped && election->status.winner->hash () == hash)
+				if (election->confirmed () && !election->stopped && election->status.winner->hash () == hash)
 				{
 					add_confirmed (existing->second->status, block_a->qualified_root ());
 
@@ -310,7 +310,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	{
 		auto election_l (i->election);
 		auto root_l (i->root);
-		if (election_l->confirmed || (election_l->confirmation_request_count != 0 && !node.ledger.could_fit (transaction_l, *election_l->status.winner)))
+		if (election_l->confirmed () || (election_l->confirmation_request_count != 0 && !node.ledger.could_fit (transaction_l, *election_l->status.winner)))
 		{
 			election_l->stop ();
 		}
@@ -692,6 +692,7 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 			roots.get<tag_root> ().modify (existing_election, [difficulty](nano::conflict_info & info_a) {
 				info_a.difficulty = difficulty;
 			});
+			existing_election->election->publish (block_a);
 			adjust_difficulty (block_a->hash ());
 		}
 	}
@@ -750,7 +751,7 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 		if (processed_blocks.find (hash) == processed_blocks.end ())
 		{
 			auto existing (blocks.find (hash));
-			if (existing != blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->status.winner->hash () == hash)
+			if (existing != blocks.end () && !existing->second->confirmed () && !existing->second->stopped && existing->second->status.winner->hash () == hash)
 			{
 				auto previous (existing->second->status.winner->previous ());
 				if (!previous.is_zero ())
@@ -835,7 +836,7 @@ void nano::active_transactions::update_active_difficulty (nano::unique_lock<std:
 		auto cutoff (std::chrono::steady_clock::now () - election_request_delay - 1s);
 		for (auto it (sorted_roots.begin ()), end (sorted_roots.end ()); it != end && count++ < node.config.active_elections_size; ++it)
 		{
-			if (!it->election->confirmed && !it->election->stopped && it->election->election_start < cutoff)
+			if (!it->election->confirmed () && !it->election->stopped && it->election->election_start < cutoff)
 			{
 				active_root_difficulties.push_back (it->adjusted_difficulty);
 			}
@@ -933,7 +934,7 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 	{
 		auto election (existing->election);
 		result = election->publish (block_a);
-		if (!result && !election->confirmed)
+		if (!result && !election->confirmed ())
 		{
 			blocks.emplace (block_a->hash (), election);
 		}
@@ -949,7 +950,7 @@ boost::optional<nano::election_status_type> nano::active_transactions::confirm_b
 	auto existing (blocks.find (hash));
 	if (existing != blocks.end ())
 	{
-		if (!existing->second->confirmed && !existing->second->stopped && existing->second->status.winner->hash () == hash)
+		if (!existing->second->confirmed () && !existing->second->stopped && existing->second->status.winner->hash () == hash)
 		{
 			existing->second->confirm_once (nano::election_status_type::active_confirmation_height);
 			return nano::election_status_type::active_confirmation_height;
