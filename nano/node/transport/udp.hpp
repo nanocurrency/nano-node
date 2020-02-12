@@ -54,9 +54,22 @@ namespace transport
 			return nano::transport::transport_type::udp;
 		}
 
+		std::chrono::steady_clock::time_point get_last_telemetry_req ()
+		{
+			nano::lock_guard<std::mutex> lk (channel_mutex);
+			return last_telemetry_req;
+		}
+
+		void set_last_telemetry_req (std::chrono::steady_clock::time_point const time_a)
+		{
+			nano::lock_guard<std::mutex> lk (channel_mutex);
+			last_telemetry_req = time_a;
+		}
+
 	private:
 		nano::endpoint endpoint;
 		nano::transport::udp_channels & channels;
+		std::chrono::steady_clock::time_point last_telemetry_req{ std::chrono::steady_clock::time_point () };
 	};
 	class udp_channels final
 	{
@@ -69,7 +82,7 @@ namespace transport
 		size_t size () const;
 		std::shared_ptr<nano::transport::channel_udp> channel (nano::endpoint const &) const;
 		void random_fill (std::array<nano::endpoint, 8> &) const;
-		std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (size_t) const;
+		std::unordered_set<std::shared_ptr<nano::transport::channel>> random_set (size_t, uint8_t = 0) const;
 		bool store_all (bool = true);
 		std::shared_ptr<nano::transport::channel_udp> find_node_id (nano::account const &);
 		void clean_node_id (nano::account const &);
@@ -90,7 +103,7 @@ namespace transport
 		std::unique_ptr<container_info_component> collect_container_info (std::string const &);
 		void purge (std::chrono::steady_clock::time_point const &);
 		void ongoing_keepalive ();
-		void list (std::deque<std::shared_ptr<nano::transport::channel>> &);
+		void list (std::deque<std::shared_ptr<nano::transport::channel>> &, uint8_t = 0);
 		void modify (std::shared_ptr<nano::transport::channel_udp>, std::function<void(std::shared_ptr<nano::transport::channel_udp>)>);
 		nano::node & node;
 
@@ -118,6 +131,10 @@ namespace transport
 		{
 		public:
 			std::shared_ptr<nano::transport::channel_udp> channel;
+			channel_udp_wrapper (std::shared_ptr<nano::transport::channel_udp> const & channel_a) :
+			channel (channel_a)
+			{
+			}
 			nano::endpoint endpoint () const
 			{
 				return channel->get_endpoint ();
@@ -129,6 +146,10 @@ namespace transport
 			std::chrono::steady_clock::time_point last_bootstrap_attempt () const
 			{
 				return channel->get_last_bootstrap_attempt ();
+			}
+			std::chrono::steady_clock::time_point last_telemetry_req () const
+			{
+				return channel->get_last_telemetry_req ();
 			}
 			boost::asio::ip::address ip_address () const
 			{
@@ -143,7 +164,12 @@ namespace transport
 		{
 		public:
 			nano::endpoint endpoint;
-			std::chrono::steady_clock::time_point last_attempt;
+			std::chrono::steady_clock::time_point last_attempt{ std::chrono::steady_clock::now () };
+
+			explicit endpoint_attempt (nano::endpoint const & endpoint_a) :
+			endpoint (endpoint_a)
+			{
+			}
 		};
 		mutable std::mutex mutex;
 		// clang-format off
@@ -172,7 +198,7 @@ namespace transport
 		attempts;
 		// clang-format on
 		boost::asio::strand<boost::asio::io_context::executor_type> strand;
-		boost::asio::ip::udp::socket socket;
+		std::unique_ptr<boost::asio::ip::udp::socket> socket;
 		nano::endpoint local_endpoint;
 		std::atomic<bool> stopped{ false };
 	};

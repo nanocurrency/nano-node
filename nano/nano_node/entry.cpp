@@ -617,7 +617,8 @@ int main (int argc, char * const * argv)
 					run_addr2line (false);
 					{
 						std::ofstream ofs (crash_report_filename, std::ios_base::out | std::ios_base::app);
-						ofs << std::endl << "Using relative addresses:" << std::endl; // Add an empty line to separate the absolute & relative output
+						ofs << std::endl
+						    << "Using relative addresses:" << std::endl; // Add an empty line to separate the absolute & relative output
 					}
 
 					// Now run using relative addresses. This will give actual results for other dlls, the results from the nano_node executable.
@@ -975,12 +976,12 @@ int main (int argc, char * const * argv)
 				}
 				nano::account_info const & info (i->second);
 				nano::account const & account (i->first);
-				uint64_t confirmation_height;
-				node.node->store.confirmation_height_get (transaction, account, confirmation_height);
+				nano::confirmation_height_info confirmation_height_info;
+				node.node->store.confirmation_height_get (transaction, account, confirmation_height_info);
 
-				if (confirmation_height > info.block_count)
+				if (confirmation_height_info.height > info.block_count)
 				{
-					std::cerr << "Confirmation height " << confirmation_height << " greater than block count " << info.block_count << " for account: " << account.to_account () << std::endl;
+					std::cerr << "Confirmation height " << confirmation_height_info.height << " greater than block count " << info.block_count << " for account: " << account.to_account () << std::endl;
 				}
 
 				auto hash (info.open_block);
@@ -1048,6 +1049,45 @@ int main (int argc, char * const * argv)
 						{
 							std::cerr << boost::str (boost::format ("Invalid signature for block %1%\n") % hash.to_string ());
 						}
+					}
+					// Validate block details set in the sideband
+					bool block_details_error = false;
+					if (block->type () != nano::block_type::state)
+					{
+						// Not state
+						block_details_error = sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;
+					}
+					else
+					{
+						auto prev_balance (node.node->ledger.balance (transaction, block->previous ()));
+						if (block->balance () < prev_balance)
+						{
+							// State send
+							block_details_error = !sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;
+						}
+						else
+						{
+							if (block->link ().is_zero ())
+							{
+								// State change
+								block_details_error = sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;
+							}
+							else if (block->balance () == prev_balance && node.node->ledger.is_epoch_link (block->link ()))
+							{
+								// State epoch
+								block_details_error = !sideband.details.is_epoch || sideband.details.is_send || sideband.details.is_receive;
+							}
+							else
+							{
+								// State receive
+								block_details_error = !sideband.details.is_receive || sideband.details.is_send || sideband.details.is_epoch;
+								block_details_error |= !node.node->store.source_exists (transaction, block->link ());
+							}
+						}
+					}
+					if (block_details_error)
+					{
+						std::cerr << boost::str (boost::format ("Incorrect sideband block details for block %1%\n") % hash.to_string ());
 					}
 					// Check if block work value is correct
 					if (nano::work_validate (*block.get ()))
@@ -1276,12 +1316,10 @@ int main (int argc, char * const * argv)
 			{
 				nano::pending_key const & key (i->first);
 				nano::pending_info const & info (i->second);
-				// clang-format off
 				auto & account = key.account;
 				auto exists = std::any_of (opened_account_versions.begin (), opened_account_versions.end (), [&account](auto const & account_version) {
 					return account_version.find (account) != account_version.end ();
 				});
-				// clang-format on
 				if (!exists)
 				{
 					// This is an unopened account, store the highest pending version

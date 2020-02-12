@@ -76,6 +76,8 @@ add_library (node
 	logging.cpp
 	network.hpp
 	network.cpp
+	telemetry.hpp
+	telemetry.cpp
 	nodeconfig.hpp
 	nodeconfig.cpp
 	node_observers.hpp
@@ -98,6 +100,8 @@ add_library (node
 	node_pow_server_config.cpp
 	repcrawler.hpp
 	repcrawler.cpp
+	request_aggregator.hpp
+	request_aggregator.cpp
 	testing.hpp
 	testing.cpp
 	transport/tcp.hpp

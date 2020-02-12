@@ -23,7 +23,7 @@ public:
 	nano::tcp_endpoint endpoint ();
 	nano::node & node;
 	std::shared_ptr<nano::server_socket> listening_socket;
-	bool on;
+	bool on{ false };
 	std::atomic<size_t> bootstrap_count{ 0 };
 	std::atomic<size_t> realtime_count{ 0 };
 
@@ -57,6 +57,7 @@ public:
 	void receive_confirm_req_action (boost::system::error_code const &, size_t, nano::message_header const &);
 	void receive_confirm_ack_action (boost::system::error_code const &, size_t, nano::message_header const &);
 	void receive_node_id_handshake_action (boost::system::error_code const &, size_t, nano::message_header const &);
+	void receive_telemetry_ack_action (boost::system::error_code const & ec, size_t size_a, nano::message_header const & header_a);
 	void add_request (std::unique_ptr<nano::message>);
 	void finish_request ();
 	void finish_request_async ();
@@ -74,5 +75,6 @@ public:
 	// Remote enpoint used to remove response channel even after socket closing
 	nano::tcp_endpoint remote_endpoint{ boost::asio::ip::address_v6::any (), 0 };
 	nano::account remote_node_id{ 0 };
+	std::chrono::steady_clock::time_point last_telemetry_req{ std::chrono::steady_clock::time_point () };
 };
 }

@@ -22,6 +22,7 @@ bool nano::work_validate (nano::block const & block_a, uint64_t * difficulty_a)
 	return work_validate (block_a.root (), block_a.block_work (), difficulty_a);
 }
 
+#ifndef NANO_FUZZER_TEST
 uint64_t nano::work_value (nano::root const & root_a, uint64_t work_a)
 {
 	uint64_t result;
@@ -32,6 +33,18 @@ uint64_t nano::work_value (nano::root const & root_a, uint64_t work_a)
 	blake2b_final (&hash, reinterpret_cast<uint8_t *> (&result), sizeof (result));
 	return result;
 }
+#else
+uint64_t nano::work_value (nano::root const & root_a, uint64_t work_a)
+{
+	static nano::network_constants network_constants;
+	if (!network_constants.is_test_network ())
+	{
+		assert (false);
+		std::exit (1);
+	}
+	return network_constants.publish_threshold + 1;
+}
+#endif
 
 nano::work_pool::work_pool (unsigned max_threads_a, std::chrono::nanoseconds pow_rate_limiter_a, std::function<boost::optional<uint64_t> (nano::root const &, uint64_t, std::atomic<int> &)> opencl_a) :
 ticket (0),
@@ -50,12 +63,11 @@ opencl (opencl_a)
 	}
 	for (auto i (0u); i < count; ++i)
 	{
-		auto thread (boost::thread (attrs, [this, i]() {
+		threads.emplace_back (attrs, [this, i]() {
 			nano::thread_role::set (nano::thread_role::name::work);
 			nano::work_thread_reprioritize ();
 			loop (i);
-		}));
-		threads.push_back (std::move (thread));
+		});
 	}
 }
 
@@ -204,7 +216,7 @@ void nano::work_pool::generate (nano::root const & root_a, std::function<void(bo
 	{
 		{
 			nano::lock_guard<std::mutex> lock (mutex);
-			pending.push_back ({ root_a, callback_a, difficulty_a });
+			pending.emplace_back (root_a, callback_a, difficulty_a);
 		}
 		producer_condition.notify_all ();
 	}
@@ -226,12 +238,11 @@ boost::optional<uint64_t> nano::work_pool::generate (nano::root const & root_a, 
 	{
 		std::promise<boost::optional<uint64_t>> work;
 		std::future<boost::optional<uint64_t>> future = work.get_future ();
-		// clang-format off
-		generate (root_a, [&work](boost::optional<uint64_t> work_a) {
+		generate (
+		root_a, [&work](boost::optional<uint64_t> work_a) {
 			work.set_value (work_a);
 		},
 		difficulty_a);
-		// clang-format on
 		result = future.get ().value ();
 	}
 	return result;

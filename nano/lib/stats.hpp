@@ -197,7 +197,9 @@ public:
 		udp,
 		observer,
 		confirmation_height,
-		drop
+		drop,
+		aggregator,
+		requests
 	};
 
 	/** Optional detail type */
@@ -224,6 +226,9 @@ public:
 		state_block,
 		epoch_block,
 		fork,
+		old,
+		gap_previous,
+		gap_source,
 
 		// message specific
 		keepalive,
@@ -232,6 +237,8 @@ public:
 		confirm_req,
 		confirm_ack,
 		node_id_handshake,
+		telemetry_req,
+		telemetry_ack,
 
 		// bootstrap, callback
 		initiate,
@@ -277,6 +284,8 @@ public:
 		invalid_confirm_req_message,
 		invalid_confirm_ack_message,
 		invalid_node_id_handshake_message,
+		invalid_telemetry_req_message,
+		invalid_telemetry_ack_message,
 		outdated_version,
 
 		// tcp
@@ -292,7 +301,18 @@ public:
 
 		// confirmation height
 		blocks_confirmed,
-		invalid_block
+		invalid_block,
+
+		// [request] aggregator
+		aggregator_accepted,
+		aggregator_dropped,
+
+		// requests
+		requests_cached_hashes,
+		requests_generated_hashes,
+		requests_cached_votes,
+		requests_generated_votes,
+		requests_unknown
 	};
 
 	/** Direction of the stat. If the direction is irrelevant, use in */

@@ -49,9 +49,11 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 	if (!error)
 	{
 		auto is_fully_upgraded (false);
+		auto is_fresh_db (false);
 		{
 			auto transaction (tx_begin_read ());
 			auto err = mdb_dbi_open (env.tx (transaction), "meta", 0, &meta);
+			is_fresh_db = err != MDB_SUCCESS;
 			if (err == MDB_SUCCESS)
 			{
 				is_fully_upgraded = (version_get (transaction) == version);
@@ -64,9 +66,17 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 		// (can be a few minutes with the --fast_bootstrap flag for instance)
 		if (!is_fully_upgraded)
 		{
-			if (backup_before_upgrade)
+			nano::network_constants network_constants;
+			if (!is_fresh_db)
 			{
-				create_backup_file (env, path_a, logger_a);
+				if (!network_constants.is_test_network ())
+				{
+					std::cout << "Upgrade in progress..." << std::endl;
+				}
+				if (backup_before_upgrade)
+				{
+					create_backup_file (env, path_a, logger_a);
+				}
 			}
 			auto needs_vacuuming = false;
 			{
@@ -78,9 +88,9 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 				}
 			}
 
-			nano::network_constants network_constants;
 			if (needs_vacuuming && !network_constants.is_test_network ())
 			{
+				logger.always_log ("Preparing vacuum...");
 				auto vacuum_success = vacuum_after_upgrade (path_a, lmdb_max_dbs);
 				logger.always_log (vacuum_success ? "Vacuum succeeded." : "Failed to vacuum. (Optional) Ensure enough disk space is available for a copy of the database and try to vacuum after shutting down the node");
 			}
@@ -149,14 +159,12 @@ nano::mdb_txn_callbacks nano::mdb_store::create_txn_callbacks ()
 	nano::mdb_txn_callbacks mdb_txn_callbacks;
 	if (txn_tracking_enabled)
 	{
-		// clang-format off
-		mdb_txn_callbacks.txn_start = ([&mdb_txn_tracker = mdb_txn_tracker](const nano::transaction_impl * transaction_impl) {
+		mdb_txn_callbacks.txn_start = ([& mdb_txn_tracker = mdb_txn_tracker](const nano::transaction_impl * transaction_impl) {
 			mdb_txn_tracker.add (transaction_impl);
 		});
-		mdb_txn_callbacks.txn_end = ([&mdb_txn_tracker = mdb_txn_tracker](const nano::transaction_impl * transaction_impl) {
+		mdb_txn_callbacks.txn_end = ([& mdb_txn_tracker = mdb_txn_tracker](const nano::transaction_impl * transaction_impl) {
 			mdb_txn_tracker.erase (transaction_impl);
 		});
-		// clang-format on
 	}
 	return mdb_txn_callbacks;
 }
@@ -186,7 +194,7 @@ void nano::mdb_store::open_databases (bool & error_a, nano::transaction const & 
 
 	if (version_get (transaction_a) < 16)
 	{
-		// The representation database is no longer used, but need opening so that it can be deleted during an upgrade
+		// The representation database is no longer used, but needs opening so that it can be deleted during an upgrade
 		error_a |= mdb_dbi_open (env.tx (transaction_a), "representation", flags, &representation) != 0;
 	}
 
@@ -241,8 +249,14 @@ bool nano::mdb_store::do_upgrades (nano::write_transaction & transaction_a, bool
 			upgrade_v14_to_v15 (transaction_a);
 			needs_vacuuming = true;
 		case 15:
+			// Upgrades to v16, v17 & v18 are all part of the v21 node release
 			upgrade_v15_to_v16 (transaction_a);
 		case 16:
+			upgrade_v16_to_v17 (transaction_a);
+		case 17:
+			upgrade_v17_to_v18 (transaction_a);
+			needs_vacuuming = true;
+		case 18:
 			break;
 		default:
 			logger.always_log (boost::str (boost::format ("The version of the ledger (%1%) is too high for this node") % version_l));
@@ -311,7 +325,7 @@ void nano::mdb_store::upgrade_v3_to_v4 (nano::write_transaction const & transact
 	{
 		nano::block_hash const & hash (i->first);
 		nano::pending_info_v3 const & info (i->second);
-		items.push (std::make_pair (nano::pending_key (info.destination, hash), nano::pending_info_v14 (info.source, info.amount, nano::epoch::epoch_0)));
+		items.emplace (nano::pending_key (info.destination, hash), nano::pending_info_v14 (info.source, info.amount, nano::epoch::epoch_0));
 	}
 	mdb_drop (env.tx (transaction_a), pending_v0, 0);
 	while (!items.empty ())
@@ -560,7 +574,7 @@ void nano::mdb_store::upgrade_v13_to_v14 (nano::write_transaction const & transa
 
 void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction & transaction_a)
 {
-	logger.always_log ("Preparing v14 to v15 upgrade...");
+	logger.always_log ("Preparing v14 to v15 database upgrade...");
 
 	std::vector<std::pair<nano::account, nano::account_info>> account_infos;
 	upgrade_counters account_counters (count (transaction_a, accounts_v0), count (transaction_a, accounts_v1));
@@ -578,7 +592,7 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction & transaction_
 		release_assert (rep_block != nullptr);
 		account_infos.emplace_back (account, nano::account_info{ account_info_v14.head, rep_block->representative (), account_info_v14.open_block, account_info_v14.balance, account_info_v14.modified, account_info_v14.block_count, i_account.from_first_database ? nano::epoch::epoch_0 : nano::epoch::epoch_1 });
 		// Move confirmation height from account_info database to its own table
-		confirmation_height_put (transaction_a, account, account_info_v14.confirmation_height);
+		mdb_put (env.tx (transaction_a), confirmation_height, nano::mdb_val (account), nano::mdb_val (account_info_v14.confirmation_height), MDB_APPEND);
 		i_account.from_first_database ? ++account_counters.after_v0 : ++account_counters.after_v1;
 	}
 
@@ -614,7 +628,7 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction & transaction_
 		nano::state_block_w_sideband_v14 state_block_w_sideband_v14 (i_state->second);
 		auto & sideband_v14 = state_block_w_sideband_v14.sideband;
 
-		nano::block_sideband sideband{ sideband_v14.type, sideband_v14.account, sideband_v14.successor, sideband_v14.balance, sideband_v14.height, sideband_v14.timestamp, i_state.from_first_database ? nano::epoch::epoch_0 : nano::epoch::epoch_1 };
+		nano::block_sideband sideband (sideband_v14.type, sideband_v14.account, sideband_v14.successor, sideband_v14.balance, sideband_v14.height, sideband_v14.timestamp, i_state.from_first_database ? nano::epoch::epoch_0 : nano::epoch::epoch_1, false, false, false);
 
 		// Write these out
 		std::vector<uint8_t> data;
@@ -673,10 +687,10 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction & transaction_
 	}
 
 	version_put (transaction_a, 15);
-	logger.always_log ("Finished epoch merge upgrade. Preparing vacuum...");
+	logger.always_log ("Finished epoch merge upgrade");
 }
 
-void nano::mdb_store::upgrade_v15_to_v16 (nano::write_transaction & transaction_a)
+void nano::mdb_store::upgrade_v15_to_v16 (nano::write_transaction const & transaction_a)
 {
 	// Representation table is no longer used
 	assert (representation != 0);
@@ -686,8 +700,151 @@ void nano::mdb_store::upgrade_v15_to_v16 (nano::write_transaction & transaction_
 		release_assert (status == MDB_SUCCESS);
 		representation = 0;
 	}
-
 	version_put (transaction_a, 16);
+}
+
+void nano::mdb_store::upgrade_v16_to_v17 (nano::write_transaction const & transaction_a)
+{
+	logger.always_log ("Preparing v16 to v17 database upgrade...");
+
+	auto account_info_i = latest_begin (transaction_a);
+	auto account_info_n = latest_end ();
+
+	// Set the confirmed frontier for each account in the confirmation height table
+	std::vector<std::pair<nano::account, nano::confirmation_height_info>> confirmation_height_infos;
+	auto num = 0u;
+	for (nano::mdb_iterator<nano::account, uint64_t> i (transaction_a, confirmation_height), n (nano::mdb_iterator<nano::account, uint64_t>{}); i != n; ++i, ++account_info_i, ++num)
+	{
+		nano::account account (i->first);
+		uint64_t confirmation_height (i->second);
+
+		// Check account hashes matches both the accounts table and confirmation height table
+		assert (account == account_info_i->first);
+
+		auto const & account_info = account_info_i->second;
+
+		if (confirmation_height == 0)
+		{
+			confirmation_height_infos.emplace_back (account, confirmation_height_info{ 0, nano::block_hash (0) });
+		}
+		else
+		{
+			if (account_info_i->second.block_count / 2 >= confirmation_height)
+			{
+				// The confirmation height of the account is closer to the bottom of the chain, so start there and work up
+				nano::block_sideband sideband;
+				auto block = block_get (transaction_a, account_info.open_block, &sideband);
+				assert (block);
+				auto height = 1;
+
+				while (height != confirmation_height)
+				{
+					block = block_get (transaction_a, sideband.successor, &sideband);
+					assert (block);
+					++height;
+				}
+
+				assert (sideband.height == confirmation_height);
+				confirmation_height_infos.emplace_back (account, confirmation_height_info{ confirmation_height, block->hash () });
+			}
+			else
+			{
+				// The confirmation height of the account is closer to the top of the chain so start there and work down
+				nano::block_sideband sideband;
+				auto block = block_get (transaction_a, account_info.head, &sideband);
+				auto height = sideband.height;
+				while (height != confirmation_height)
+				{
+					block = block_get (transaction_a, block->previous ());
+					assert (block);
+					--height;
+				}
+				confirmation_height_infos.emplace_back (account, confirmation_height_info{ confirmation_height, block->hash () });
+			}
+		}
+
+		// Every so often output to the log to indicate progress (every 200k accounts)
+		constexpr auto output_cutoff = 200000;
+		if (num % output_cutoff == 0 && num != 0)
+		{
+			logger.always_log (boost::str (boost::format ("Confirmation height frontier set for %1%00k accounts") % ((num / output_cutoff) * 2)));
+		}
+	}
+
+	// Clear it then append
+	auto status (mdb_drop (env.tx (transaction_a), confirmation_height, 0));
+	release_assert (status == MDB_SUCCESS);
+
+	for (auto const & confirmation_height_info_pair : confirmation_height_infos)
+	{
+		mdb_put (env.tx (transaction_a), confirmation_height, nano::mdb_val (confirmation_height_info_pair.first), nano::mdb_val (confirmation_height_info_pair.second), MDB_APPEND);
+	}
+
+	version_put (transaction_a, 17);
+	logger.always_log ("Finished upgrading confirmation height frontiers");
+}
+
+void nano::mdb_store::upgrade_v17_to_v18 (nano::write_transaction const & transaction_a)
+{
+	logger.always_log ("Preparing v17 to v18 database upgrade...");
+
+	auto count_pre (count (transaction_a, state_blocks));
+
+	nano::network_params network_params;
+	auto num = 0u;
+	for (nano::mdb_iterator<nano::block_hash, nano::state_block_w_sideband> state_i (transaction_a, state_blocks), state_n{}; state_i != state_n; ++state_i, ++num)
+	{
+		nano::state_block_w_sideband block_sideband (state_i->second);
+		auto & block (block_sideband.state_block);
+		auto & sideband (block_sideband.sideband);
+
+		bool is_send{ false };
+		bool is_receive{ false };
+		bool is_epoch{ false };
+
+		nano::amount prev_balance (0);
+		if (!block->hashables.previous.is_zero ())
+		{
+			prev_balance = block_balance (transaction_a, block->hashables.previous);
+		}
+		if (block->hashables.balance == prev_balance && network_params.ledger.epochs.is_epoch_link (block->hashables.link))
+		{
+			is_epoch = true;
+		}
+		else if (block->hashables.balance < prev_balance)
+		{
+			is_send = true;
+		}
+		else if (!block->hashables.link.is_zero ())
+		{
+			is_receive = true;
+		}
+
+		nano::block_sideband new_sideband (sideband.type, sideband.account, sideband.successor, sideband.balance, sideband.height, sideband.timestamp, sideband.details.epoch, is_send, is_receive, is_epoch);
+		// Write these out
+		std::vector<uint8_t> data;
+		{
+			nano::vectorstream stream (data);
+			block->serialize (stream);
+			new_sideband.serialize (stream);
+		}
+		nano::mdb_val value{ data.size (), (void *)data.data () };
+		auto s = mdb_cursor_put (state_i.cursor, state_i->first, value, MDB_CURRENT);
+		release_assert (success (s));
+
+		// Every so often output to the log to indicate progress
+		constexpr auto output_cutoff = 1000000;
+		if (num > 0 && num % output_cutoff == 0)
+		{
+			logger.always_log (boost::str (boost::format ("Database sideband upgrade %1% million state blocks upgraded (out of %2%)") % (num / output_cutoff) % count_pre));
+		}
+	}
+
+	auto count_post (count (transaction_a, state_blocks));
+	release_assert (count_pre == count_post);
+
+	version_put (transaction_a, 18);
+	logger.always_log ("Finished upgrading the sideband");
 }
 
 /** Takes a filepath, appends '_backup_<timestamp>' to the end (but before any extension) and saves that file in the same directory */

@@ -93,6 +93,7 @@ public:
 	std::chrono::seconds work_watcher_period{ std::chrono::seconds (5) };
 	double max_work_generate_multiplier{ 64. };
 	uint64_t max_work_generate_difficulty{ nano::network_constants::publish_full_threshold };
+	uint32_t max_queued_requests{ 512 };
 	nano::rocksdb_config rocksdb_config;
 	nano::frontiers_confirmation_mode frontiers_confirmation{ nano::frontiers_confirmation_mode::automatic };
 	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;
@@ -118,10 +119,12 @@ public:
 	bool disable_bootstrap_bulk_pull_server{ false };
 	bool disable_bootstrap_bulk_push_client{ false };
 	bool disable_rep_crawler{ false };
+	bool disable_request_loop{ false };
 	bool disable_tcp_realtime{ false };
 	bool disable_udp{ false };
 	bool disable_unchecked_cleanup{ false };
 	bool disable_unchecked_drop{ true };
+	bool disable_providing_telemetry_metrics{ false };
 	bool fast_bootstrap{ false };
 	bool read_only{ false };
 	nano::generate_cache generate_cache;

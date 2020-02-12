@@ -213,7 +213,7 @@ std::shared_ptr<nano::stat_entry> nano::stat::get_entry_impl (uint32_t key, size
 	auto entry = entries.find (key);
 	if (entry == entries.end ())
 	{
-		res = entries.insert (std::make_pair (key, std::make_shared<nano::stat_entry> (capacity, interval))).first->second;
+		res = entries.emplace (key, std::make_shared<nano::stat_entry> (capacity, interval)).first->second;
 	}
 	else
 	{
@@ -437,6 +437,13 @@ std::string nano::stat::type_to_string (uint32_t key)
 			break;
 		case nano::stat::type::drop:
 			res = "drop";
+			break;
+		case nano::stat::type::aggregator:
+			res = "aggregator";
+			break;
+		case nano::stat::type::requests:
+			res = "requests";
+			break;
 	}
 	return res;
 }
@@ -504,6 +511,15 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::fork:
 			res = "fork";
 			break;
+		case nano::stat::detail::old:
+			res = "old";
+			break;
+		case nano::stat::detail::gap_previous:
+			res = "gap_previous";
+			break;
+		case nano::stat::detail::gap_source:
+			res = "gap_source";
+			break;
 		case nano::stat::detail::frontier_confirmation_failed:
 			res = "frontier_confirmation_failed";
 			break;
@@ -551,6 +567,12 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 		case nano::stat::detail::send:
 			res = "send";
+			break;
+		case nano::stat::detail::telemetry_req:
+			res = "telemetry_req";
+			break;
+		case nano::stat::detail::telemetry_ack:
+			res = "telemetry_ack";
 			break;
 		case nano::stat::detail::state_block:
 			res = "state_block";
@@ -630,6 +652,12 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::invalid_node_id_handshake_message:
 			res = "invalid_node_id_handshake_message";
 			break;
+		case nano::stat::detail::invalid_telemetry_req_message:
+			res = "invalid_telemetry_req_message";
+			break;
+		case nano::stat::detail::invalid_telemetry_ack_message:
+			res = "invalid_telemetry_ack_message";
+			break;
 		case nano::stat::detail::outdated_version:
 			res = "outdated_version";
 			break;
@@ -638,6 +666,28 @@ std::string nano::stat::detail_to_string (uint32_t key)
 			break;
 		case nano::stat::detail::blocks_confirmed:
 			res = "blocks_confirmed";
+			break;
+		case nano::stat::detail::aggregator_accepted:
+			res = "aggregator_accepted";
+			break;
+		case nano::stat::detail::aggregator_dropped:
+			res = "aggregator_dropped";
+			break;
+		case nano::stat::detail::requests_cached_hashes:
+			res = "requests_cached_hashes";
+			break;
+		case nano::stat::detail::requests_generated_hashes:
+			res = "requests_generated_hashes";
+			break;
+		case nano::stat::detail::requests_cached_votes:
+			res = "requests_cached_votes";
+			break;
+		case nano::stat::detail::requests_generated_votes:
+			res = "requests_generated_votes";
+			break;
+		case nano::stat::detail::requests_unknown:
+			res = "requests_unknown";
+			break;
 	}
 	return res;
 }

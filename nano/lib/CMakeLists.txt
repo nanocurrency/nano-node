@@ -50,6 +50,7 @@ add_library (nano_lib
 	rpcconfig.cpp
 	stats.hpp
 	stats.cpp
+	stream.hpp
 	threading.hpp
 	threading.cpp
 	timer.hpp
@@ -78,6 +79,11 @@ if (NANO_STACKTRACE_BACKTRACE)
 endif ()
 
 target_compile_definitions(nano_lib
+	PRIVATE
+		-DMAJOR_VERSION_STRING=${CPACK_PACKAGE_VERSION_MAJOR}
+		-DMINOR_VERSION_STRING=${CPACK_PACKAGE_VERSION_MINOR}
+		-DPATCH_VERSION_STRING=${CPACK_PACKAGE_VERSION_PATCH}
+		-DPRE_RELEASE_VERSION_STRING=${CPACK_PACKAGE_VERSION_PRE_RELEASE}
 	PUBLIC
 		-DACTIVE_NETWORK=${ACTIVE_NETWORK}
 )

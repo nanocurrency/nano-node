@@ -218,7 +218,6 @@ void nano::websocket::session::close ()
 	ws_listener.get_logger ().try_log ("Websocket: session closing");
 
 	auto this_l (shared_from_this ());
-	// clang-format off
 	boost::asio::dispatch (strand,
 	[this_l]() {
 		boost::beast::websocket::close_reason reason;
@@ -227,12 +226,10 @@ void nano::websocket::session::close ()
 		boost::system::error_code ec_ignore;
 		this_l->ws.close (reason, ec_ignore);
 	});
-	// clang-format on
 }
 
 void nano::websocket::session::write (nano::websocket::message message_a)
 {
-	// clang-format off
 	nano::unique_lock<std::mutex> lk (subscriptions_mutex);
 	auto subscription (subscriptions.find (message_a.topic));
 	if (message_a.topic == nano::websocket::topic::ack || (subscription != subscriptions.end () && !subscription->second->should_filter (message_a)))
@@ -249,7 +246,6 @@ void nano::websocket::session::write (nano::websocket::message message_a)
 			}
 		});
 	}
-	// clang-format on
 }
 
 void nano::websocket::session::write_queued_messages ()
@@ -257,7 +253,6 @@ void nano::websocket::session::write_queued_messages ()
 	auto msg (send_queue.front ().to_string ());
 	auto this_l (shared_from_this ());
 
-	// clang-format off
 	ws.async_write (nano::shared_const_buffer (msg),
 	boost::asio::bind_executor (strand,
 	[this_l](boost::system::error_code ec, std::size_t bytes_transferred) {
@@ -270,14 +265,12 @@ void nano::websocket::session::write_queued_messages ()
 			}
 		}
 	}));
-	// clang-format on
 }
 
 void nano::websocket::session::read ()
 {
 	auto this_l (shared_from_this ());
 
-	// clang-format off
 	boost::asio::post (strand, [this_l]() {
 		this_l->ws.async_read (this_l->read_buffer,
 		boost::asio::bind_executor (this_l->strand,
@@ -309,7 +302,6 @@ void nano::websocket::session::read ()
 			}
 		}));
 	});
-	// clang-format on
 }
 
 namespace
@@ -341,6 +333,10 @@ nano::websocket::topic to_topic (std::string const & topic_a)
 	{
 		topic = nano::websocket::topic::work;
 	}
+	else if (topic_a == "bootstrap")
+	{
+		topic = nano::websocket::topic::bootstrap;
+	}
 
 	return topic;
 }
@@ -371,6 +367,10 @@ std::string from_topic (nano::websocket::topic topic_a)
 	else if (topic_a == nano::websocket::topic::work)
 	{
 		topic = "work";
+	}
+	else if (topic_a == nano::websocket::topic::bootstrap)
+	{
+		topic = "bootstrap";
 	}
 	return topic;
 }
@@ -422,7 +422,7 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 		}
 		else
 		{
-			subscriptions.insert (std::make_pair (topic_l, std::move (options_l)));
+			subscriptions.emplace (topic_l, std::move (options_l));
 			ws_listener.get_logger ().always_log ("Websocket: new subscription to topic: ", from_topic (topic_l));
 			ws_listener.increase_subscriber_count (topic_l);
 		}
@@ -761,6 +761,38 @@ nano::websocket::message nano::websocket::message_builder::work_cancelled (nano:
 nano::websocket::message nano::websocket::message_builder::work_failed (nano::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a)
 {
 	return work_generation (root_a, 0, difficulty_a, publish_threshold_a, duration_a, "", bad_peers_a, false, false);
+}
+
+nano::websocket::message nano::websocket::message_builder::bootstrap_started (std::string const & id_a, std::string const & mode_a)
+{
+	nano::websocket::message message_l (nano::websocket::topic::bootstrap);
+	set_common_fields (message_l);
+
+	// Bootstrap information
+	boost::property_tree::ptree bootstrap_l;
+	bootstrap_l.put ("reason", "started");
+	bootstrap_l.put ("id", id_a);
+	bootstrap_l.put ("mode", mode_a);
+
+	message_l.contents.add_child ("message", bootstrap_l);
+	return message_l;
+}
+
+nano::websocket::message nano::websocket::message_builder::bootstrap_exited (std::string const & id_a, std::string const & mode_a, std::chrono::steady_clock::time_point const start_time_a, uint64_t const total_blocks_a)
+{
+	nano::websocket::message message_l (nano::websocket::topic::bootstrap);
+	set_common_fields (message_l);
+
+	// Bootstrap information
+	boost::property_tree::ptree bootstrap_l;
+	bootstrap_l.put ("reason", "exited");
+	bootstrap_l.put ("id", id_a);
+	bootstrap_l.put ("mode", mode_a);
+	bootstrap_l.put ("total_blocks", total_blocks_a);
+	bootstrap_l.put ("duration", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - start_time_a).count ());
+
+	message_l.contents.add_child ("message", bootstrap_l);
+	return message_l;
 }
 
 void nano::websocket::message_builder::set_common_fields (nano::websocket::message & message_a)

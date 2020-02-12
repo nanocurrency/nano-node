@@ -97,6 +97,7 @@ public:
 	void stats ();
 	void stats_clear ();
 	void stop ();
+	void telemetry ();
 	void unchecked ();
 	void unchecked_clear ();
 	void unchecked_get ();

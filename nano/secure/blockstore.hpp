@@ -16,6 +16,53 @@
 
 namespace nano
 {
+class block_details
+{
+	static_assert (std::is_same<std::underlying_type<nano::epoch>::type, uint8_t> (), "Epoch enum is not the proper type");
+	static_assert (static_cast<uint8_t> (nano::epoch::max) < (1 << 5), "Epoch max is too large for the sideband");
+
+public:
+	block_details () = default;
+	block_details (nano::epoch const epoch_a, bool const is_send_a, bool const is_receive_a, bool const is_epoch_a);
+	static constexpr size_t size ();
+	bool operator== (block_details const & other_a) const;
+	void serialize (nano::stream &) const;
+	bool deserialize (nano::stream &);
+	nano::epoch epoch{ nano::epoch::epoch_0 };
+	bool is_send{ false };
+	bool is_receive{ false };
+	bool is_epoch{ false };
+
+private:
+	uint8_t packed () const;
+	void unpack (uint8_t);
+};
+
+class block_sideband final
+{
+public:
+	block_sideband () = default;
+	block_sideband (nano::block_type, nano::account const &, nano::block_hash const &, nano::amount const &, uint64_t, uint64_t, nano::epoch, bool is_send, bool is_receive, bool is_epoch);
+	void serialize (nano::stream &) const;
+	bool deserialize (nano::stream &);
+	static size_t size (nano::block_type);
+	nano::block_type type{ nano::block_type::invalid };
+	nano::block_hash successor{ 0 };
+	nano::account account{ 0 };
+	nano::amount balance{ 0 };
+	uint64_t height{ 0 };
+	uint64_t timestamp{ 0 };
+	nano::block_details details;
+};
+
+// Move to versioning with a specific version if required for a future upgrade
+class state_block_w_sideband
+{
+public:
+	std::shared_ptr<nano::state_block> state_block;
+	nano::block_sideband sideband;
+};
+
 /**
  * Encapsulates database specific container
  */
@@ -90,6 +137,16 @@ public:
 	db_val (sizeof (val_a), const_cast<nano::unchecked_key *> (&val_a))
 	{
 		static_assert (std::is_standard_layout<nano::unchecked_key>::value, "Standard layout is required");
+	}
+
+	db_val (nano::confirmation_height_info const & val_a) :
+	buffer (std::make_shared<std::vector<uint8_t>> ())
+	{
+		{
+			nano::vectorstream stream (*buffer);
+			val_a.serialize (stream);
+		}
+		convert_buffer_to_value ();
 	}
 
 	db_val (nano::block_info const & val_a) :
@@ -183,6 +240,16 @@ public:
 		return result;
 	}
 
+	explicit operator nano::confirmation_height_info () const
+	{
+		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (data ()), size ());
+		nano::confirmation_height_info result;
+		bool error (result.deserialize (stream));
+		(void)error;
+		assert (!error);
+		return result;
+	}
+
 	explicit operator nano::unchecked_info () const
 	{
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (data ()), size ());
@@ -244,19 +311,33 @@ public:
 		return result;
 	}
 
-	explicit operator nano::state_block_w_sideband_v14 () const
+private:
+	// Common usage for versioning
+	template <typename T, typename = std::enable_if<std::is_same<T, state_block_w_sideband>::value || std::is_same<T, state_block_w_sideband_v14>::value>>
+	T as () const
 	{
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (data ()), size ());
 		auto error (false);
-		nano::state_block_w_sideband_v14 state_block_w_sideband_v14;
-		state_block_w_sideband_v14.state_block = std::make_shared<nano::state_block> (error, stream);
+		T block_w_sideband;
+		block_w_sideband.state_block = std::make_shared<nano::state_block> (error, stream);
 		assert (!error);
 
-		state_block_w_sideband_v14.sideband.type = nano::block_type::state;
-		error = state_block_w_sideband_v14.sideband.deserialize (stream);
+		block_w_sideband.sideband.type = nano::block_type::state;
+		error = block_w_sideband.sideband.deserialize (stream);
 		assert (!error);
 
-		return state_block_w_sideband_v14;
+		return block_w_sideband;
+	}
+
+public:
+	explicit operator state_block_w_sideband () const
+	{
+		return as<state_block_w_sideband> ();
+	}
+
+	explicit operator state_block_w_sideband_v14 () const
+	{
+		return as<state_block_w_sideband_v14> ();
 	}
 
 	explicit operator nano::no_value () const
@@ -357,22 +438,6 @@ private:
 	}
 };
 
-class block_sideband final
-{
-public:
-	block_sideband () = default;
-	block_sideband (nano::block_type, nano::account const &, nano::block_hash const &, nano::amount const &, uint64_t, uint64_t, nano::epoch);
-	void serialize (nano::stream &) const;
-	bool deserialize (nano::stream &);
-	static size_t size (nano::block_type);
-	nano::block_type type{ nano::block_type::invalid };
-	nano::block_hash successor{ 0 };
-	nano::account account{ 0 };
-	nano::amount balance{ 0 };
-	uint64_t height{ 0 };
-	uint64_t timestamp{ 0 };
-	nano::epoch epoch{ nano::epoch::epoch_0 };
-};
 class transaction;
 class block_store;
 
@@ -659,7 +724,7 @@ public:
 	virtual void account_del (nano::write_transaction const &, nano::account const &) = 0;
 	virtual bool account_exists (nano::transaction const &, nano::account const &) = 0;
 	virtual size_t account_count (nano::transaction const &) = 0;
-	virtual void confirmation_height_clear (nano::write_transaction const &, nano::account const & account, uint64_t existing_confirmation_height) = 0;
+	virtual void confirmation_height_clear (nano::write_transaction const &, nano::account const &, uint64_t) = 0;
 	virtual void confirmation_height_clear (nano::write_transaction const &) = 0;
 	virtual nano::store_iterator<nano::account, nano::account_info> latest_begin (nano::transaction const &, nano::account const &) = 0;
 	virtual nano::store_iterator<nano::account, nano::account_info> latest_begin (nano::transaction const &) = 0;
@@ -682,7 +747,9 @@ public:
 	virtual void unchecked_put (nano::write_transaction const &, nano::unchecked_key const &, nano::unchecked_info const &) = 0;
 	virtual void unchecked_put (nano::write_transaction const &, nano::block_hash const &, std::shared_ptr<nano::block> const &) = 0;
 	virtual std::vector<nano::unchecked_info> unchecked_get (nano::transaction const &, nano::block_hash const &) = 0;
-	virtual void unchecked_del (nano::write_transaction const &, nano::unchecked_key const &) = 0;
+	virtual bool unchecked_exists (nano::transaction const & transaction_a, nano::unchecked_key const & unchecked_key_a) = 0;
+	/* Returns true if nothing was deleted because it was not found, false otherwise */
+	virtual bool unchecked_del (nano::write_transaction const &, nano::unchecked_key const &) = 0;
 	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const &) const = 0;
 	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_begin (nano::transaction const &, nano::unchecked_key const &) const = 0;
 	virtual nano::store_iterator<nano::unchecked_key, nano::unchecked_info> unchecked_end () const = 0;
@@ -719,14 +786,14 @@ public:
 	virtual nano::store_iterator<nano::endpoint_key, nano::no_value> peers_begin (nano::transaction const & transaction_a) const = 0;
 	virtual nano::store_iterator<nano::endpoint_key, nano::no_value> peers_end () const = 0;
 
-	virtual void confirmation_height_put (nano::write_transaction const & transaction_a, nano::account const & account_a, uint64_t confirmation_height_a) = 0;
-	virtual bool confirmation_height_get (nano::transaction const & transaction_a, nano::account const & account_a, uint64_t & confirmation_height_a) = 0;
+	virtual void confirmation_height_put (nano::write_transaction const & transaction_a, nano::account const & account_a, nano::confirmation_height_info const & confirmation_height_info_a) = 0;
+	virtual bool confirmation_height_get (nano::transaction const & transaction_a, nano::account const & account_a, nano::confirmation_height_info & confirmation_height_info_a) = 0;
 	virtual bool confirmation_height_exists (nano::transaction const & transaction_a, nano::account const & account_a) const = 0;
 	virtual void confirmation_height_del (nano::write_transaction const & transaction_a, nano::account const & account_a) = 0;
 	virtual uint64_t confirmation_height_count (nano::transaction const & transaction_a) = 0;
-	virtual nano::store_iterator<nano::account, uint64_t> confirmation_height_begin (nano::transaction const & transaction_a, nano::account const & account_a) = 0;
-	virtual nano::store_iterator<nano::account, uint64_t> confirmation_height_begin (nano::transaction const & transaction_a) = 0;
-	virtual nano::store_iterator<nano::account, uint64_t> confirmation_height_end () = 0;
+	virtual nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_begin (nano::transaction const & transaction_a, nano::account const & account_a) = 0;
+	virtual nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_begin (nano::transaction const & transaction_a) = 0;
+	virtual nano::store_iterator<nano::account, nano::confirmation_height_info> confirmation_height_end () = 0;
 
 	virtual uint64_t block_account_height (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const = 0;
 	virtual std::mutex & get_cache_mutex () = 0;

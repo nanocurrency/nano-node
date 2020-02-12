@@ -15,10 +15,9 @@
 
 #include <boost/format.hpp>
 
-nano::vote_processor::vote_processor (nano::signature_checker & checker_a, nano::active_transactions & active_a, nano::block_store & store_a, nano::node_observers & observers_a, nano::stat & stats_a, nano::node_config & config_a, nano::logger_mt & logger_a, nano::online_reps & online_reps_a, nano::ledger & ledger_a, nano::network_params & network_params_a) :
+nano::vote_processor::vote_processor (nano::signature_checker & checker_a, nano::active_transactions & active_a, nano::node_observers & observers_a, nano::stat & stats_a, nano::node_config & config_a, nano::logger_mt & logger_a, nano::online_reps & online_reps_a, nano::ledger & ledger_a, nano::network_params & network_params_a) :
 checker (checker_a),
 active (active_a),
-store (store_a),
 observers (observers_a),
 stats (stats_a),
 config (config_a),
@@ -54,7 +53,7 @@ void nano::vote_processor::process_loop ()
 	{
 		if (!votes.empty ())
 		{
-			std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>> votes_l;
+			decltype (votes) votes_l;
 			votes_l.swap (votes);
 
 			log_this_iteration = false;
@@ -70,23 +69,6 @@ void nano::vote_processor::process_loop ()
 			is_active = true;
 			lock.unlock ();
 			verify_votes (votes_l);
-			{
-				nano::unique_lock<std::mutex> active_single_lock (active.mutex);
-				auto transaction (store.tx_begin_read ());
-				uint64_t count (1);
-				for (auto & i : votes_l)
-				{
-					vote_blocking (transaction, i.first, i.second, true);
-					// Free active_transactions mutex each 100 processed votes
-					if (count % 100 == 0)
-					{
-						active_single_lock.unlock ();
-						transaction.refresh ();
-						active_single_lock.lock ();
-					}
-					count++;
-				}
-			}
 			lock.lock ();
 			is_active = false;
 
@@ -145,7 +127,7 @@ void nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, std::shared
 		}
 		if (process)
 		{
-			votes.push_back (std::make_pair (vote_a, channel_a));
+			votes.emplace_back (vote_a, channel_a);
 
 			lock.unlock ();
 			condition.notify_all ();
@@ -158,7 +140,7 @@ void nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, std::shared
 	}
 }
 
-void nano::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<nano::vote>, std::shared_ptr<nano::transport::channel>>> & votes_a)
+void nano::vote_processor::verify_votes (decltype (votes) const & votes_a)
 {
 	auto size (votes_a.size ());
 	std::vector<unsigned char const *> messages;
@@ -172,7 +154,7 @@ void nano::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<na
 	signatures.reserve (size);
 	std::vector<int> verifications;
 	verifications.resize (size);
-	for (auto & vote : votes_a)
+	for (auto const & vote : votes_a)
 	{
 		hashes.push_back (vote.first->hash ());
 		messages.push_back (hashes.back ().bytes.data ());
@@ -181,38 +163,26 @@ void nano::vote_processor::verify_votes (std::deque<std::pair<std::shared_ptr<na
 	}
 	nano::signature_check_set check = { size, messages.data (), lengths.data (), pub_keys.data (), signatures.data (), verifications.data () };
 	checker.verify (check);
-	std::remove_reference_t<decltype (votes_a)> result;
 	auto i (0);
-	for (auto & vote : votes_a)
+	for (auto const & vote : votes_a)
 	{
 		assert (verifications[i] == 1 || verifications[i] == 0);
 		if (verifications[i] == 1)
 		{
-			result.push_back (vote);
+			vote_blocking (vote.first, vote.second, true);
 		}
 		++i;
 	}
-	votes_a.swap (result);
 }
 
 // node.active.mutex lock required
-nano::vote_code nano::vote_processor::vote_blocking (nano::transaction const & transaction_a, std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a, bool validated)
+nano::vote_code nano::vote_processor::vote_blocking (std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a, bool validated)
 {
-	assert (!active.mutex.try_lock ());
 	auto result (nano::vote_code::invalid);
 	if (validated || !vote_a->validate ())
 	{
-		result = active.vote (vote_a, true);
+		result = active.vote (vote_a);
 		observers.vote.notify (vote_a, channel_a, result);
-		// This tries to assist rep nodes that have lost track of their highest sequence number by replaying our highest known vote back to them
-		// Only do this if the sequence number is significantly different to account for network reordering
-		// Amplify attack considerations: We're sending out a confirm_ack in response to a confirm_ack for no net traffic increase
-		auto max_vote (store.vote_max (transaction_a, vote_a));
-		if (max_vote->sequence > vote_a->sequence + 10000)
-		{
-			nano::confirm_ack confirm (max_vote);
-			channel_a->send (confirm); // this is non essential traffic as it will be resolicited if not received
-		}
 	}
 	std::string status;
 	switch (result)

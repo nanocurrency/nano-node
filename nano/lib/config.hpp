@@ -20,6 +20,10 @@ namespace filesystem
 * Returns build version information
 */
 const char * const NANO_VERSION_STRING = xstr (TAG_VERSION_STRING);
+const char * const NANO_MAJOR_VERSION_STRING = xstr (MAJOR_VERSION_STRING);
+const char * const NANO_MINOR_VERSION_STRING = xstr (MINOR_VERSION_STRING);
+const char * const NANO_PATCH_VERSION_STRING = xstr (PATCH_VERSION_STRING);
+const char * const NANO_PRE_RELEASE_VERSION_STRING = xstr (PRE_RELEASE_VERSION_STRING);
 
 const char * const BUILD_INFO = xstr (GIT_COMMIT_HASH BOOST_COMPILER) " \"BOOST " xstr (BOOST_VERSION) "\" BUILT " xstr (__DATE__);
 
@@ -30,12 +34,20 @@ const bool is_sanitizer_build = true;
 #else
 const bool is_sanitizer_build = false;
 #endif
+// GCC builds
+#elif defined(__SANITIZE_THREAD__) || defined(__SANITIZE_ADDRESS__)
+const bool is_sanitizer_build = true;
 #else
 const bool is_sanitizer_build = false;
 #endif
 
 namespace nano
 {
+uint8_t get_major_node_version ();
+uint8_t get_minor_node_version ();
+uint8_t get_patch_node_version ();
+uint8_t get_pre_release_node_version ();
+
 /**
  * Network variants with different genesis blocks and network parameters
  * @warning Enum values are used in integral comparisons; do not change.
@@ -73,12 +85,12 @@ public:
 		default_rpc_port = is_live_network () ? 7076 : is_beta_network () ? 55000 : 45000;
 		default_ipc_port = is_live_network () ? 7077 : is_beta_network () ? 56000 : 46000;
 		default_websocket_port = is_live_network () ? 7078 : is_beta_network () ? 57000 : 47000;
-		request_interval_ms = is_test_network () ? (is_sanitizer_build ? 100 : 20) : 500;
+		request_interval_ms = is_test_network () ? 20 : 500;
 	}
 
 	/** Network work thresholds. ~5 seconds of work for the live network */
 	static uint64_t const publish_full_threshold{ 0xffffffc000000000 };
-	static uint64_t const publish_beta_threshold{ 0xfffffc0000000000 }; // 16x lower than full
+	static uint64_t const publish_beta_threshold{ 0xfffff00000000000 }; // 64x lower than full
 	static uint64_t const publish_test_threshold{ 0xff00000000000000 }; // very low for tests
 
 	/** Error message when an invalid network is specified */

@@ -218,6 +218,18 @@ public:
 	size_t change{ 0 };
 	size_t state{ 0 };
 };
+
+class confirmation_height_info final
+{
+public:
+	confirmation_height_info () = default;
+	confirmation_height_info (uint64_t, nano::block_hash const &);
+	void serialize (nano::stream &) const;
+	bool deserialize (nano::stream &);
+	uint64_t height;
+	nano::block_hash frontier;
+};
+
 using vote_blocks_vec_iter = std::vector<boost::variant<std::shared_ptr<nano::block>, nano::block_hash>>::const_iterator;
 class iterate_vote_blocks_as_hash final
 {
@@ -335,7 +347,7 @@ public:
 	protocol_constants (nano::nano_networks network_a);
 
 	/** Current protocol version */
-	uint8_t protocol_version = 0x11;
+	uint8_t protocol_version = 0x12;
 
 	/** Minimum accepted protocol version */
 	uint8_t protocol_version_min = 0x10;
@@ -348,6 +360,9 @@ public:
 
 	/** Do not start TCP realtime network connections to nodes older than this version */
 	uint8_t tcp_realtime_protocol_version_min = 0x11;
+
+	/** Do not request telemetry metrics to nodes older than this version */
+	uint8_t telemetry_protocol_version_min = 0x12;
 };
 
 /** Genesis keys and ledger constants for network variants */
@@ -366,6 +381,7 @@ public:
 	std::string nano_live_genesis;
 	nano::account genesis_account;
 	std::string genesis_block;
+	nano::block_hash genesis_hash;
 	nano::uint128_t genesis_amount;
 	nano::account burn_account;
 	nano::epochs epochs;
@@ -462,6 +478,7 @@ public:
 	bool reps = true;
 	bool cemented_count = true;
 	bool unchecked_count = true;
+	bool account_count = true;
 };
 
 /* Holds an in-memory cache of various counts */
@@ -472,6 +489,7 @@ public:
 	std::atomic<uint64_t> cemented_count{ 0 };
 	std::atomic<uint64_t> block_count{ 0 };
 	std::atomic<uint64_t> unchecked_count{ 0 };
+	std::atomic<uint64_t> account_count{ 0 };
 };
 
 nano::wallet_id random_wallet_id ();
