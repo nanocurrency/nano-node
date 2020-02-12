@@ -14,6 +14,7 @@ namespace nano
 {
 using endpoint = boost::asio::ip::udp::endpoint;
 bool parse_port (std::string const &, uint16_t &);
+bool parse_address (std::string const &, boost::asio::ip::address &);
 bool parse_address_port (std::string const &, boost::asio::ip::address &, uint16_t &);
 using tcp_endpoint = boost::asio::ip::tcp::endpoint;
 bool parse_endpoint (std::string const &, nano::endpoint &);
@@ -198,6 +199,7 @@ public:
 	uint8_t version_min;
 	nano::message_type type;
 	std::bitset<16> extensions;
+	static size_t constexpr size = sizeof (network_params::header_magic_number) + sizeof (version_max) + sizeof (version_using) + sizeof (version_min) + sizeof (type) + sizeof (/* extensions */ uint16_t);
 
 	void flag_set (uint8_t);
 	static uint8_t constexpr bulk_pull_count_present_flag = 0;
@@ -348,10 +350,10 @@ public:
 	boost::optional<uint8_t> pre_release_version;
 	boost::optional<uint8_t> maker; // 0 for NF node
 
-	static nano::telemetry_data consolidate (std::vector<nano::telemetry_data> const & telemetry_data_responses);
 	nano::error serialize_json (nano::jsonconfig & json) const;
 	nano::error deserialize_json (nano::jsonconfig & json);
 	bool operator== (nano::telemetry_data const &) const;
+	bool operator!= (nano::telemetry_data const &) const;
 
 	static auto constexpr size_v0 = sizeof (block_count) + sizeof (cemented_count) + sizeof (unchecked_count) + sizeof (account_count) + sizeof (bandwidth_cap) + sizeof (peer_count) + sizeof (protocol_version) + sizeof (uptime) + sizeof (genesis_block) + sizeof (major_version);
 	static auto constexpr size = size_v0 + sizeof (decltype (minor_version)::value_type) + sizeof (decltype (patch_version)::value_type) + sizeof (decltype (pre_release_version)::value_type) + sizeof (decltype (maker)::value_type);
@@ -449,6 +451,16 @@ public:
 	virtual void telemetry_req (nano::telemetry_req const &) = 0;
 	virtual void telemetry_ack (nano::telemetry_ack const &) = 0;
 	virtual ~message_visitor ();
+};
+
+class telemetry_cache_cutoffs
+{
+public:
+	static std::chrono::seconds constexpr test{ 2 };
+	static std::chrono::seconds constexpr beta{ 15 };
+	static std::chrono::seconds constexpr live{ 60 };
+
+	static std::chrono::seconds network_to_time (network_constants const & network_constants);
 };
 
 /** Helper guard which contains all the necessary purge (remove all memory even if used) functions */

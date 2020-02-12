@@ -684,6 +684,7 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 			roots.get<tag_root> ().modify (existing_election, [difficulty](nano::conflict_info & info_a) {
 				info_a.difficulty = difficulty;
 			});
+			existing_election->election->publish (block_a);
 			adjust_difficulty (block_a->hash ());
 		}
 	}
