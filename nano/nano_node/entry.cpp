@@ -1230,7 +1230,7 @@ int main (int argc, char * const * argv)
 						if (block != nullptr)
 						{
 							++count;
-							if ((count % 100000) == 0)
+							if ((count % 500000) == 0)
 							{
 								std::cout << boost::str (boost::format ("%1% blocks retrieved") % count) << std::endl;
 							}
@@ -1246,10 +1246,10 @@ int main (int argc, char * const * argv)
 			uint64_t block_count_2 (0);
 			while (block_count_2 != block_count)
 			{
-				std::this_thread::sleep_for (std::chrono::seconds (1));
+				std::this_thread::sleep_for (std::chrono::seconds (5));
 				auto transaction_2 (node2.node->store.tx_begin_read ());
 				block_count_2 = node2.node->store.block_count (transaction_2).sum ();
-				if ((count % 60) == 0)
+				if ((count % 12) == 0)
 				{
 					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed") % block_count_2 % node2.node->store.unchecked_count (transaction_2)) << std::endl;
 				}
@@ -1257,9 +1257,10 @@ int main (int argc, char * const * argv)
 			}
 			auto end (std::chrono::high_resolution_clock::now ());
 			auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
-			auto seconds (time / 1000000);
+			auto us_in_second (1000000);
+			auto seconds (time / us_in_second);
 			nano::remove_temporary_directories ();
-			std::cout << boost::str (boost::format ("%|1$ 12d| seconds \n%2% blocks per second") % seconds % (block_count / seconds)) << std::endl;
+			std::cout << boost::str (boost::format ("%|1$ 12d| seconds \n%2% blocks per second") % seconds % (block_count * us_in_second / time)) << std::endl;
 		}
 		else if (vm.count ("debug_peers"))
 		{
