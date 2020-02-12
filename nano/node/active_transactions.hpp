@@ -66,7 +66,6 @@ public:
 	std::chrono::steady_clock::time_point arrival;
 	nano::block_hash hash;
 	std::vector<nano::account> voters;
-	bool bootstrap_started{ false };
 	bool confirmed{ false };
 };
 

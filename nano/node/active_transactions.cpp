@@ -989,7 +989,7 @@ void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const
 	{
 		auto & inactive_by_hash (inactive_votes_cache.get<tag_hash> ());
 		auto existing (inactive_by_hash.find (hash_a));
-		if (existing != inactive_by_hash.end () && !existing->bootstrap_started)
+		if (existing != inactive_by_hash.end () && !existing->confirmed)
 		{
 			auto is_new (false);
 			inactive_by_hash.modify (existing, [representative_a, &is_new](nano::inactive_cache_information & info) {
@@ -1007,7 +1007,6 @@ void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const
 				if (inactive_votes_bootstrap_check (existing->voters, hash_a))
 				{
 					inactive_by_hash.modify (existing, [](nano::inactive_cache_information & info) {
-						info.bootstrap_started = true;
 						info.confirmed = true;
 					});
 				}
