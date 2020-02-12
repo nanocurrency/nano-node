@@ -598,6 +598,6 @@ size_t nano::bootstrap_attempt_wallet::wallet_size ()
 
 void nano::bootstrap_attempt_wallet::get_information (boost::property_tree::ptree & tree_a)
 {
-	assert (!mutex.try_lock ());
+	nano::lock_guard<std::mutex> lock (mutex);
 	tree_a.put ("wallet_accounts", std::to_string (wallet_accounts.size ()));
 }
