@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
+#include <nano/node/ipc/flatbuffers_handler.hpp>
 #include <nano/node/wallet.hpp>
 #include <nano/rpc/rpc.hpp>
 
@@ -11,6 +12,10 @@
 
 namespace nano
 {
+namespace ipc
+{
+	class ipc_server;
+}
 class node;
 class node_rpc_config;
 
@@ -167,22 +172,16 @@ class inprocess_rpc_handler final : public nano::rpc_handler_interface
 {
 public:
 	inprocess_rpc_handler (
-	nano::node & node_a, nano::node_rpc_config const & node_rpc_config_a, std::function<void()> stop_callback_a = []() {}) :
+	nano::node & node_a, nano::ipc::ipc_server & ipc_server_a, nano::node_rpc_config const & node_rpc_config_a, std::function<void()> stop_callback_a = []() {}) :
 	node (node_a),
+	ipc_server (ipc_server_a),
 	stop_callback (stop_callback_a),
 	node_rpc_config (node_rpc_config_a)
 	{
 	}
 
-	void process_request (std::string const &, std::string const & body_a, std::function<void(std::string const &)> response_a) override
-	{
-		// Note that if the rpc action is async, the shared_ptr<json_handler> lifetime will be extended by the action handler
-		auto handler (std::make_shared<nano::json_handler> (node, node_rpc_config, body_a, response_a, [this]() {
-			this->stop_callback ();
-			this->stop ();
-		}));
-		handler->process_request ();
-	}
+	void process_request (std::string const &, std::string const & body_a, std::function<void(std::string const &)> response_a) override;
+	void process_request_v2 (rpc_handler_request_params const & params_a, std::string const & body_a, std::function<void(std::shared_ptr<std::string>)> response_a) override;
 
 	void stop () override
 	{
@@ -199,6 +198,7 @@ public:
 
 private:
 	nano::node & node;
+	nano::ipc::ipc_server & ipc_server;
 	boost::optional<nano::rpc &> rpc;
 	std::function<void()> stop_callback;
 	nano::node_rpc_config const & node_rpc_config;

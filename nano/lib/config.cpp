@@ -60,4 +60,8 @@ std::string get_qtwallet_toml_config_path (boost::filesystem::path const & data_
 {
 	return (data_path / "config-qtwallet.toml").string ();
 }
+std::string get_access_toml_config_path (boost::filesystem::path const & data_path)
+{
+	return (data_path / "config-access.toml").string ();
+}
 }

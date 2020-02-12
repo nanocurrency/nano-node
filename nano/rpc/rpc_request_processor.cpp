@@ -146,7 +146,8 @@ void nano::rpc_request_processor::run ()
 				auto connection = *it;
 				connection->is_available = false; // Make sure no one else can take it
 				conditions_lk.unlock ();
-				auto req (nano::ipc::prepare_request (nano::ipc::payload_encoding::json_legacy, rpc_request->body));
+				auto encoding (rpc_request->rpc_api_version == 1 ? nano::ipc::payload_encoding::json_v1 : nano::ipc::payload_encoding::flatbuffers_json);
+				auto req (nano::ipc::prepare_request (encoding, rpc_request->body));
 				auto res (std::make_shared<std::vector<uint8_t>> ());
 
 				// Have we tried to connect yet?
