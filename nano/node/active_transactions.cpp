@@ -1022,9 +1022,10 @@ void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const
 		else
 		{
 			std::vector<nano::account> representative_vector (1, representative_a);
-			auto start_bootstrap (inactive_votes_bootstrap_check (representative_vector, hash_a));
+			bool confirmed (false);
+			bool start_bootstrap (inactive_votes_bootstrap_check (representative_vector, hash_a, confirmed));
 			auto & inactive_by_arrival (inactive_votes_cache.get<tag_arrival> ());
-			inactive_by_arrival.emplace (nano::inactive_cache_information{ std::chrono::steady_clock::now (), hash_a, representative_vector, start_bootstrap, start_bootstrap });
+			inactive_by_arrival.emplace (nano::inactive_cache_information{ std::chrono::steady_clock::now (), hash_a, representative_vector, start_bootstrap, confirmed });
 			if (inactive_votes_cache.size () > inactive_votes_cache_max)
 			{
 				inactive_by_arrival.erase (inactive_by_arrival.begin ());
