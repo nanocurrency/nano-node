@@ -86,6 +86,7 @@ private:
 	void add_bad_peer (nano::tcp_endpoint const &);
 
 	nano::node & node;
+	std::weak_ptr<nano::node> node_w;
 	nano::work_request request;
 
 	std::chrono::seconds backoff;

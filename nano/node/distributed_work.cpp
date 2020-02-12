@@ -22,6 +22,7 @@ std::shared_ptr<request_type> nano::distributed_work::peer_request::get_prepared
 
 nano::distributed_work::distributed_work (nano::node & node_a, nano::work_request const & request_a, std::chrono::seconds const & backoff_a) :
 node (node_a),
+node_w (node_a.shared ()),
 request (request_a),
 backoff (backoff_a),
 strand (node_a.io_ctx.get_executor ()),
@@ -35,23 +36,26 @@ elapsed (nano::timer_state::started, "distributed work generation timer")
 nano::distributed_work::~distributed_work ()
 {
 	assert (status != work_generation_status::ongoing);
-	if (!node.stopped && node.websocket_server && node.websocket_server->any_subscriber (nano::websocket::topic::work))
+	if (auto node_l = node_w.lock ())
 	{
-		nano::websocket::message_builder builder;
-		if (status == work_generation_status::success)
+		if (!node_l->stopped && node_l->websocket_server && node_l->websocket_server->any_subscriber (nano::websocket::topic::work))
 		{
-			node.websocket_server->broadcast (builder.work_generation (request.root, work_result, request.difficulty, node.network_params.network.publish_threshold, elapsed.value (), winner, bad_peers));
+			nano::websocket::message_builder builder;
+			if (status == work_generation_status::success)
+			{
+				node_l->websocket_server->broadcast (builder.work_generation (request.root, work_result, request.difficulty, node_l->network_params.network.publish_threshold, elapsed.value (), winner, bad_peers));
+			}
+			else if (status == work_generation_status::cancelled)
+			{
+				node_l->websocket_server->broadcast (builder.work_cancelled (request.root, request.difficulty, node_l->network_params.network.publish_threshold, elapsed.value (), bad_peers));
+			}
+			else if (status == work_generation_status::failure_local || status == work_generation_status::failure_peers)
+			{
+				node_l->websocket_server->broadcast (builder.work_failed (request.root, request.difficulty, node_l->network_params.network.publish_threshold, elapsed.value (), bad_peers));
+			}
 		}
-		else if (status == work_generation_status::cancelled)
-		{
-			node.websocket_server->broadcast (builder.work_cancelled (request.root, request.difficulty, node.network_params.network.publish_threshold, elapsed.value (), bad_peers));
-		}
-		else if (status == work_generation_status::failure_local || status == work_generation_status::failure_peers)
-		{
-			node.websocket_server->broadcast (builder.work_failed (request.root, request.difficulty, node.network_params.network.publish_threshold, elapsed.value (), bad_peers));
-		}
+		stop_once (true);
 	}
-	stop_once (true);
 }
 
 void nano::distributed_work::start ()
