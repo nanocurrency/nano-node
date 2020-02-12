@@ -199,9 +199,6 @@ private:
 
 	friend class confirmation_height_prioritize_frontiers_Test;
 	friend class confirmation_height_prioritize_frontiers_overwrite_Test;
-	friend class confirmation_height_many_accounts_single_confirmation_Test;
-	friend class confirmation_height_many_accounts_many_confirmations_Test;
-	friend class confirmation_height_long_chains_Test;
 };
 
 std::unique_ptr<container_info_component> collect_container_info (active_transactions & active_transactions, const std::string & name);

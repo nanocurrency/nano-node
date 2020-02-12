@@ -230,6 +230,12 @@ public:
 	nano::block_hash frontier;
 };
 
+/** The maximum amount of blocks to iterate over while writing */
+namespace confirmation_height
+{
+	uint64_t const batch_write_size{ 4096 };
+}
+
 using vote_blocks_vec_iter = std::vector<boost::variant<std::shared_ptr<nano::block>, nano::block_hash>>::const_iterator;
 class iterate_vote_blocks_as_hash final
 {
@@ -468,6 +474,13 @@ public:
 	node_constants node;
 	portmapping_constants portmapping;
 	bootstrap_constants bootstrap;
+};
+
+enum class confirmation_height_mode
+{
+	automatic,
+	unbounded,
+	bounded
 };
 
 /* Holds flags for various cacheable data. For most CLI operations caching is unnecessary

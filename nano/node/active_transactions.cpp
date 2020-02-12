@@ -17,7 +17,6 @@ node (node_a),
 multipliers_cb (20, 1.),
 trended_active_difficulty (node_a.network_params.network.publish_threshold),
 solicitor (node_a.network, node_a.network_params.network),
-next_frontier_check (steady_clock::now ()),
 long_election_threshold (node_a.network_params.network.is_test_network () ? 2s : 24s),
 election_request_delay (node_a.network_params.network.is_test_network () ? 0s : 1s),
 election_time_to_live (node_a.network_params.network.is_test_network () ? 0s : 10s),
@@ -30,12 +29,12 @@ thread ([this]() {
 })
 {
 	// Register a callback which will get called after a block is cemented
-	confirmation_height_processor.add_cemented_observer ([this](nano::confirmation_height_processor::callback_data const & callback_data) {
+	confirmation_height_processor.add_cemented_observer ([this](nano::block_w_sideband const & callback_data) {
 		this->block_cemented_callback (callback_data.block, callback_data.sideband);
 	});
 
 	// Register a callback which will get called after a batch of blocks is written and observer calls finished
-	confirmation_height_processor.add_cemented_batch_finished_observer ([this]() {
+	confirmation_height_processor.add_cemented_process_finished_observer ([this]() {
 		this->cemented_batch_finished_callback ();
 	});
 
