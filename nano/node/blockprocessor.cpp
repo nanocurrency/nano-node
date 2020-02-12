@@ -156,7 +156,19 @@ void nano::block_processor::verify_state_blocks (nano::unique_lock<std::mutex> &
 	assert (!mutex.try_lock ());
 	nano::timer<std::chrono::milliseconds> timer_l (nano::timer_state::started);
 	std::deque<nano::unchecked_info> items;
-	items.swap (state_blocks);
+	if (state_blocks.size () <= max_count)
+	{
+		items.swap (state_blocks);
+	}
+	else
+	{
+		for (auto i (0); i < max_count; ++i)
+		{
+			items.push_back (state_blocks.front ());
+			state_blocks.pop_front ();
+		}
+		assert (!state_blocks.empty ());
+	}
 	lock_a.unlock ();
 	if (!items.empty ())
 	{
