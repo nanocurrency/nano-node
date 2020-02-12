@@ -1050,6 +1050,45 @@ int main (int argc, char * const * argv)
 							std::cerr << boost::str (boost::format ("Invalid signature for block %1%\n") % hash.to_string ());
 						}
 					}
+					// Validate block details set in the sideband
+					bool block_details_error = false;
+					if (block->type () != nano::block_type::state)
+					{
+						// Not state
+						block_details_error = sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;
+					}
+					else
+					{
+						auto prev_balance (node.node->ledger.balance (transaction, block->previous ()));
+						if (block->balance () < prev_balance)
+						{
+							// State send
+							block_details_error = !sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;
+						}
+						else
+						{
+							if (block->link ().is_zero ())
+							{
+								// State change
+								block_details_error = sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;
+							}
+							else if (block->balance () == prev_balance && node.node->ledger.is_epoch_link (block->link ()))
+							{
+								// State epoch
+								block_details_error = !sideband.details.is_epoch || sideband.details.is_send || sideband.details.is_receive;
+							}
+							else
+							{
+								// State receive
+								block_details_error = !sideband.details.is_receive || sideband.details.is_send || sideband.details.is_epoch;
+								block_details_error |= !node.node->store.source_exists (transaction, block->link ());
+							}
+						}
+					}
+					if (block_details_error)
+					{
+						std::cerr << boost::str (boost::format ("Incorrect sideband block details for block %1%\n") % hash.to_string ());
+					}
 					// Check if block work value is correct
 					if (nano::work_validate (*block.get ()))
 					{

@@ -1448,25 +1448,8 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 						std::shared_ptr<nano::state_block> block (builder.from (*block_a).work (*work_a).build (ec));
 						if (!ec)
 						{
-							{
-								auto hash (block_a->hash ());
-								nano::lock_guard<std::mutex> active_guard (watcher_l->node.active.mutex);
-								auto existing (watcher_l->node.active.roots.find (root_a));
-								if (existing != watcher_l->node.active.roots.end ())
-								{
-									auto election (existing->election);
-									if (election->status.winner->hash () == hash)
-									{
-										election->status.winner = block;
-									}
-									auto current (election->blocks.find (hash));
-									assert (current != election->blocks.end ());
-									current->second = block;
-								}
-							}
 							if (!watcher_l->node.active.update_difficulty (block))
 							{
-								watcher_l->node.network.flood_block (block, false);
 								watcher_l->update (root_a, block);
 								watcher_l->watching (root_a, block);
 							}

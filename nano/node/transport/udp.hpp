@@ -54,9 +54,22 @@ namespace transport
 			return nano::transport::transport_type::udp;
 		}
 
+		std::chrono::steady_clock::time_point get_last_telemetry_req ()
+		{
+			nano::lock_guard<std::mutex> lk (channel_mutex);
+			return last_telemetry_req;
+		}
+
+		void set_last_telemetry_req (std::chrono::steady_clock::time_point const time_a)
+		{
+			nano::lock_guard<std::mutex> lk (channel_mutex);
+			last_telemetry_req = time_a;
+		}
+
 	private:
 		nano::endpoint endpoint;
 		nano::transport::udp_channels & channels;
+		std::chrono::steady_clock::time_point last_telemetry_req{ std::chrono::steady_clock::time_point () };
 	};
 	class udp_channels final
 	{
@@ -90,7 +103,7 @@ namespace transport
 		std::unique_ptr<container_info_component> collect_container_info (std::string const &);
 		void purge (std::chrono::steady_clock::time_point const &);
 		void ongoing_keepalive ();
-		void list (std::deque<std::shared_ptr<nano::transport::channel>> &);
+		void list (std::deque<std::shared_ptr<nano::transport::channel>> &, uint8_t = 0);
 		void modify (std::shared_ptr<nano::transport::channel_udp>, std::function<void(std::shared_ptr<nano::transport::channel_udp>)>);
 		nano::node & node;
 
@@ -133,6 +146,10 @@ namespace transport
 			std::chrono::steady_clock::time_point last_bootstrap_attempt () const
 			{
 				return channel->get_last_bootstrap_attempt ();
+			}
+			std::chrono::steady_clock::time_point last_telemetry_req () const
+			{
+				return channel->get_last_telemetry_req ();
 			}
 			boost::asio::ip::address ip_address () const
 			{

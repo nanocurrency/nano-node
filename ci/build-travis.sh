@@ -48,7 +48,6 @@ else
     ROCKSDB=""
 fi
 
-
 cmake \
     -G'Unix Makefiles' \
     -DACTIVE_NETWORK=nano_test_network \
@@ -61,6 +60,7 @@ cmake \
     -DCMAKE_VERBOSE_MAKEFILE=ON \
     -DBOOST_ROOT=/tmp/boost/ \
     -DQt5_DIR=${qt_dir} \
+    -DCI_TEST="1" \
     ${SANITIZERS} \
     ..
 

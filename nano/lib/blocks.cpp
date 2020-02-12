@@ -76,7 +76,7 @@ size_t nano::block::size (nano::block_type type_a)
 	return result;
 }
 
-nano::block_hash nano::block::hash () const
+nano::block_hash nano::block::generate_hash () const
 {
 	nano::block_hash result;
 	blake2b_state hash_l;
@@ -86,6 +86,30 @@ nano::block_hash nano::block::hash () const
 	status = blake2b_final (&hash_l, result.bytes.data (), sizeof (result.bytes));
 	assert (status == 0);
 	return result;
+}
+
+void nano::block::refresh ()
+{
+	if (!cached_hash.is_zero ())
+	{
+		cached_hash = generate_hash ();
+	}
+}
+
+nano::block_hash const & nano::block::hash () const
+{
+	if (!cached_hash.is_zero ())
+	{
+		// Once a block is created, it should not be modified (unless using refresh ())
+		// This would invalidate the cache; check it hasn't changed.
+		assert (cached_hash == generate_hash ());
+	}
+	else
+	{
+		cached_hash = generate_hash ();
+	}
+
+	return cached_hash;
 }
 
 nano::block_hash nano::block::full_hash () const
@@ -1313,7 +1337,9 @@ std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, n
 			break;
 		}
 		default:
+#ifndef NANO_FUZZER_TEST
 			assert (false);
+#endif
 			break;
 	}
 	if (uniquer_a != nullptr)

@@ -1,4 +1,7 @@
 cmake_minimum_required (VERSION 3.4)
+
+cmake_policy(SET CMP0074 NEW)
+cmake_policy(SET CMP0077 NEW)
 # compatibility for osx sierra and on
 # needs to be set before project
 set (CMAKE_OSX_DEPLOYMENT_TARGET 10.12 CACHE STRING "")
@@ -14,10 +17,12 @@ execute_process(
 )
 
 option (CI_BUILD false)
+set (CI_TEST 0 CACHE STRING "")
 
 set (CPACK_PACKAGE_VERSION_MAJOR "21")
 set (CPACK_PACKAGE_VERSION_MINOR "0")
 set (CPACK_PACKAGE_VERSION_PATCH "0")
+set (CPACK_PACKAGE_VERSION_PRE_RELEASE "0")
 set (CPACK_PACKAGE_VENDOR "Nano Currency")
 
 if (CI_BUILD)
@@ -37,6 +42,7 @@ set (NANO_ROCKSDB OFF CACHE BOOL "")
 set (NANO_POW_SERVER OFF CACHE BOOL "")
 set (NANO_WARN_TO_ERR OFF CACHE BOOL "")
 set (NANO_TIMED_LOCKS 0 CACHE STRING "")
+set (NANO_FUZZER_TEST OFF CACHE BOOL "")
 
 option (NANO_STACKTRACE_BACKTRACE "Use BOOST_STACKTRACE_USE_BACKTRACE in stacktraces, for POSIX" OFF)
 if (NANO_STACKTRACE_BACKTRACE)
@@ -109,6 +115,11 @@ else ()
 		add_definitions(-DED25519_NO_INLINE_ASM)
 	endif()
 
+	if (NANO_FUZZER_TEST)
+		add_compile_options (-fsanitize=fuzzer-no-link -fno-omit-frame-pointer)
+		add_definitions (-DNANO_FUZZER_TEST)
+	endif ()
+
 	if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(i.86|x86(_64)?)$")
 		if (NANO_SIMD_OPTIMIZATIONS OR RAIBLOCKS_SIMD_OPTIMIZATIONS OR ENABLE_AVX2)
 			add_compile_options(-msse4)
@@ -174,6 +185,9 @@ else ()
 			set (PLATFORM_LINK_FLAGS "${PLATFORM_LINK_FLAGS} -fsanitize-blacklist=${PROJECT_SOURCE_DIR}/tsan_clang_blacklist")
 		endif()
 	endif()
+	if (NANO_FUZZER_TEST)
+		set (PLATFORM_LINK_FLAGS "${PLATFORM_LINK_FLAGS} -fsanitize=fuzzer-no-link")
+	endif ()
 endif ()
 
 SET( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${PLATFORM_LINK_FLAGS}" )
@@ -350,6 +364,14 @@ add_subdirectory(nano/node)
 add_subdirectory(nano/nano_node)
 add_subdirectory(nano/rpc)
 add_subdirectory(nano/nano_rpc)
+
+if (NANO_FUZZER_TEST)
+	if (NOT WIN32)
+		add_subdirectory (nano/fuzzer_test)
+	else ()
+		message (WARNING "Fuzzing is not supported on Windows")
+	endif ()
+endif ()
 
 if (NANO_TEST OR RAIBLOCKS_TEST)
 	if(WIN32)
