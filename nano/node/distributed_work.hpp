@@ -86,6 +86,7 @@ private:
 	void add_bad_peer (nano::tcp_endpoint const &);
 
 	nano::node & node;
+	// Only used in destructor, as the node reference can become invalid before distributed_work objects go out of scope
 	std::weak_ptr<nano::node> node_w;
 	nano::work_request request;
 
