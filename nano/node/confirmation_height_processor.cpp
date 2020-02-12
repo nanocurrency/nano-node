@@ -7,18 +7,22 @@
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
 
+#include <boost/thread/latch.hpp>
+
 #include <cassert>
 #include <numeric>
 
-nano::confirmation_height_processor::confirmation_height_processor (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logger_mt & logger_a, confirmation_height_mode mode_a) :
+nano::confirmation_height_processor::confirmation_height_processor (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logger_mt & logger_a, boost::latch & latch, confirmation_height_mode mode_a) :
 ledger (ledger_a),
 write_database_queue (write_database_queue_a),
 // clang-format off
 confirmation_height_unbounded_processor (ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logger_a, stopped, original_hash, [this](auto & cemented_blocks) { this->notify_observers (cemented_blocks); }, [this]() { return this->awaiting_processing_size (); }),
 confirmation_height_bounded_processor (ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logger_a, stopped, original_hash, [this](auto & cemented_blocks) { this->notify_observers (cemented_blocks); }, [this]() { return this->awaiting_processing_size (); }),
 // clang-format on
-thread ([this, mode_a]() {
+thread ([this, &latch, mode_a]() {
 	nano::thread_role::set (nano::thread_role::name::confirmation_height_processing);
+	// Do not start running the processing thread until other threads have finished their operations
+	latch.wait ();
 	this->run (mode_a);
 })
 {

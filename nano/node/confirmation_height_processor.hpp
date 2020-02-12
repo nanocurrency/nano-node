@@ -11,6 +11,10 @@
 #include <thread>
 #include <unordered_set>
 
+namespace boost
+{
+class latch;
+}
 namespace nano
 {
 class ledger;
@@ -20,7 +24,7 @@ class write_database_queue;
 class confirmation_height_processor final
 {
 public:
-	confirmation_height_processor (nano::ledger &, nano::write_database_queue &, std::chrono::milliseconds, nano::logger_mt &, confirmation_height_mode = confirmation_height_mode::automatic);
+	confirmation_height_processor (nano::ledger &, nano::write_database_queue &, std::chrono::milliseconds, nano::logger_mt &, boost::latch & initialized_latch, confirmation_height_mode = confirmation_height_mode::automatic);
 	~confirmation_height_processor ();
 	void pause ();
 	void unpause ();
