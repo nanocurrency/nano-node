@@ -1827,22 +1827,16 @@ TEST (node, rep_self_vote)
 	node0->work_generate_blocking (*block0);
 	ASSERT_EQ (nano::process_result::progress, node0->process (*block0).code);
 	auto & active (node0->active);
-	active.start (block0);
-	std::shared_ptr<nano::election> election;
-	{
-		nano::unique_lock<std::mutex> lock (active.mutex);
-		auto existing (active.roots.find (block0->qualified_root ()));
-		ASSERT_NE (active.roots.end (), existing);
-		election = existing->election;
-	}
+	auto election1 = active.insert (block0);
 	node0->block_processor.generator.add (block0->hash ());
 	system.deadline_set (1s);
 	// Wait until representatives are activated & make vote
-	while (election->last_votes_size () != 3)
+	while (election1.first->last_votes_size () != 3)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	auto & rep_votes (election->last_votes);
+	nano::unique_lock<std::mutex> lock (active.mutex);
+	auto & rep_votes (election1.first->last_votes);
 	ASSERT_NE (rep_votes.end (), rep_votes.find (nano::test_genesis_key.pub));
 	ASSERT_NE (rep_votes.end (), rep_votes.find (rep_big.pub));
 }
