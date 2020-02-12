@@ -66,7 +66,8 @@ public:
 	std::chrono::steady_clock::time_point arrival;
 	nano::block_hash hash;
 	std::vector<nano::account> voters;
-	bool confirmed{ false };
+	bool bootstrap_started{ false };
+	bool confirmed{ false }; // Did item reach votes quorum? (minimum config value)
 };
 
 // Core class for determining consensus
