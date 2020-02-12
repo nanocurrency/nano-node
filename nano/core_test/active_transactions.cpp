@@ -248,7 +248,7 @@ TEST (active_transactions, keep_local)
 	auto send4 (wallet.send_action (nano::test_genesis_key.pub, key4.pub, node.config.receive_minimum.number ()));
 	auto send5 (wallet.send_action (nano::test_genesis_key.pub, key5.pub, node.config.receive_minimum.number ()));
 	auto send6 (wallet.send_action (nano::test_genesis_key.pub, key6.pub, node.config.receive_minimum.number ()));
-	system.deadline_set (10s);
+	system.deadline_set (5s);
 	// should not drop wallet created transactions
 	while (node.active.size () != 6)
 	{
@@ -264,16 +264,13 @@ TEST (active_transactions, keep_local)
 		}
 	}
 	auto open1 (std::make_shared<nano::state_block> (key1.pub, 0, key1.pub, node.config.receive_minimum.number (), send1->hash (), key1.prv, key1.pub, *system.work.generate (key1.pub)));
-	node.process_active (open1);
-	node.active.start (open1);
 	auto open2 (std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, node.config.receive_minimum.number (), send2->hash (), key2.prv, key2.pub, *system.work.generate (key2.pub)));
-	node.process_active (open2);
-	node.active.start (open2);
 	auto open3 (std::make_shared<nano::state_block> (key3.pub, 0, key3.pub, node.config.receive_minimum.number (), send3->hash (), key3.prv, key3.pub, *system.work.generate (key3.pub)));
+	node.process_active (open1);
+	node.process_active (open2);
 	node.process_active (open3);
-	node.active.start (open3);
-	ASSERT_EQ (3, node.active.size ());
-	system.deadline_set (10s);
+	node.block_processor.flush ();
+	system.deadline_set (5s);
 	// bound elections, should drop after one loop
 	while (node.active.size () != node_config.active_elections_size)
 	{
@@ -504,7 +501,7 @@ TEST (active_transactions, inactive_votes_cache_multiple_votes)
 	}
 	ASSERT_EQ (1, node.active.inactive_votes_cache_size ());
 	// Start election
-	node.active.start (send1);
+	node.active.insert (send1);
 	{
 		nano::lock_guard<std::mutex> active_guard (node.active.mutex);
 		auto it (node.active.roots.begin ());
@@ -547,21 +544,6 @@ TEST (active_transactions, update_difficulty)
 	send2 = std::shared_ptr<nano::state_block> (builder1.from (*send2).work (*work2).build (ec));
 	ASSERT_FALSE (ec);
 
-	auto modify_election = [&node1](auto block) {
-		auto hash (block->hash ());
-		nano::lock_guard<std::mutex> active_guard (node1.active.mutex);
-		auto existing (node1.active.roots.find (block->qualified_root ()));
-		ASSERT_NE (existing, node1.active.roots.end ());
-		auto election (existing->election);
-		ASSERT_EQ (election->status.winner->hash (), hash);
-		election->status.winner = block;
-		auto current (election->blocks.find (hash));
-		assert (current != election->blocks.end ());
-		current->second = block;
-	};
-
-	modify_election (send1);
-	modify_election (send2);
 	node1.process_active (send1);
 	node1.process_active (send2);
 	node1.block_processor.flush ();

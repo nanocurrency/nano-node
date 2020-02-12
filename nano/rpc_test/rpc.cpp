@@ -2013,7 +2013,7 @@ TEST (rpc, process_subtype_open)
 		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, send).code);
 	}
 	scoped_io_thread_name_change scoped_thread_name_io;
-	node1.active.start (std::make_shared<nano::state_block> (send));
+	node1.active.insert (std::make_shared<nano::state_block> (send));
 	nano::state_block open (key.pub, 0, key.pub, nano::Gxrb_ratio, send.hash (), key.prv, key.pub, *node1.work_generate_blocking (key.pub));
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
@@ -2072,7 +2072,7 @@ TEST (rpc, process_subtype_receive)
 		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, send).code);
 	}
 	scoped_io_thread_name_change scoped_thread_name_io;
-	node1.active.start (std::make_shared<nano::state_block> (send));
+	node1.active.insert (std::make_shared<nano::state_block> (send));
 	nano::state_block receive (nano::test_genesis_key.pub, send.hash (), nano::test_genesis_key.pub, nano::genesis_amount, send.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node1.work_generate_blocking (send.hash ()));
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
@@ -3118,15 +3118,14 @@ TEST (rpc, work_peer_many)
 	node1.config.work_peers.push_back (std::make_pair (node3.network.endpoint ().address ().to_string (), rpc3.config.port));
 	node1.config.work_peers.push_back (std::make_pair (node4.network.endpoint ().address ().to_string (), rpc4.config.port));
 
-	for (auto i (0); i < 10; ++i)
+	std::array<std::atomic<uint64_t>, 10> works;
+	for (auto i (0); i < works.size (); ++i)
 	{
 		nano::keypair key1;
-		std::atomic<uint64_t> work (0);
-		node1.work_generate (key1.pub, [&work](boost::optional<uint64_t> work_a) {
-			ASSERT_TRUE (work_a.is_initialized ());
+		node1.work_generate (key1.pub, [& work = works[i]](boost::optional<uint64_t> work_a) {
 			work = *work_a;
 		});
-		while (nano::work_validate (key1.pub, work))
+		while (nano::work_validate (key1.pub, works[i]))
 		{
 			system1.poll ();
 			system2.poll ();
