@@ -1176,6 +1176,68 @@ TEST (wallet, work_watcher_update)
 	ASSERT_GT (updated_difficulty2, difficulty2);
 }
 
+TEST (wallet, work_watcher_propagate)
+{
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.enable_voting = false;
+	node_config.work_watcher_period = 1s;
+	auto & node = *system.add_node (node_config);
+	auto & wallet (*system.wallet (0));
+	wallet.insert_adhoc (nano::test_genesis_key.prv);
+	node_config.peering_port = nano::get_available_port ();
+	auto & node_passive = *system.add_node (node_config);
+	nano::keypair key;
+	auto const block (wallet.send_action (nano::test_genesis_key.pub, key.pub, 100));
+	system.deadline_set (5s);
+	while (!node_passive.ledger.block_exists (block->hash ()))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	uint64_t difficulty (0);
+	nano::work_validate (*block, &difficulty);
+	auto multiplier (nano::difficulty::to_multiplier (difficulty, node.network_params.network.publish_threshold));
+	uint64_t updated_difficulty{ difficulty }, propagated_difficulty{ difficulty };
+	{
+		nano::unique_lock<std::mutex> lock (node.active.mutex);
+		// Prevent active difficulty repopulating multipliers
+		node.network_params.network.request_interval_ms = 10000;
+		//fill multipliers_cb and update active difficulty;
+		for (auto i (0); i < node.active.multipliers_cb.size (); i++)
+		{
+			node.active.multipliers_cb.push_back (multiplier * (1.5 + i / 100.));
+		}
+		node.active.update_active_difficulty (lock);
+	}
+	bool updated{ false };
+	bool propagated{ false };
+	system.deadline_set (10s);
+	while (!(updated && propagated))
+	{
+		{
+			nano::lock_guard<std::mutex> guard (node.active.mutex);
+			{
+				auto const existing (node.active.roots.find (block->qualified_root ()));
+				ASSERT_NE (existing, node.active.roots.end ());
+				updated_difficulty = existing->difficulty;
+			}
+		}
+		{
+			nano::lock_guard<std::mutex> guard (node_passive.active.mutex);
+			{
+				auto const existing (node_passive.active.roots.find (block->qualified_root ()));
+				ASSERT_NE (existing, node_passive.active.roots.end ());
+				propagated_difficulty = existing->difficulty;
+			}
+		}
+		updated = updated_difficulty != difficulty;
+		propagated = propagated_difficulty != difficulty;
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_GT (updated_difficulty, difficulty);
+	ASSERT_EQ (propagated_difficulty, updated_difficulty);
+}
+
 TEST (wallet, work_watcher_removed_after_win)
 {
 	nano::system system (1);
