@@ -11,11 +11,11 @@ nano::election_vote_result::election_vote_result (bool replay_a, bool processed_
 
 nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> block_a, bool const skip_delay_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a) :
 confirmation_action (confirmation_action_a),
+confirmed_m (false),
 node (node_a),
 election_start (std::chrono::steady_clock::now ()),
 status ({ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::ongoing }),
 skip_delay (skip_delay_a),
-confirmed (false),
 stopped (false)
 {
 	last_votes.emplace (node.network_params.random.not_an_account, nano::vote_info{ std::chrono::steady_clock::now (), 0, block_a->hash () });
@@ -26,7 +26,7 @@ stopped (false)
 void nano::election::confirm_once (nano::election_status_type type_a)
 {
 	assert (!node.active.mutex.try_lock ());
-	if (!confirmed.exchange (true))
+	if (!confirmed_m.exchange (true))
 	{
 		status.election_end = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
 		status.election_duration = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now () - election_start);
@@ -51,7 +51,7 @@ void nano::election::confirm_once (nano::election_status_type type_a)
 void nano::election::stop ()
 {
 	assert (!node.active.mutex.try_lock ());
-	if (!stopped && !confirmed)
+	if (!stopped && !confirmed ())
 	{
 		stopped = true;
 		status.election_end = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
@@ -61,6 +61,11 @@ void nano::election::stop ()
 		status.voter_count = last_votes.size ();
 		status.type = nano::election_status_type::stopped;
 	}
+}
+
+bool nano::election::confirmed ()
+{
+	return confirmed_m;
 }
 
 bool nano::election::have_quorum (nano::tally_t const & tally_a, nano::uint128_t tally_sum) const
@@ -189,7 +194,7 @@ nano::election_vote_result nano::election::vote (nano::account rep, uint64_t seq
 		{
 			node.stats.inc (nano::stat::type::election, nano::stat::detail::vote_new);
 			last_votes[rep] = { std::chrono::steady_clock::now (), sequence, block_hash };
-			if (!confirmed)
+			if (!confirmed ())
 			{
 				confirm_if_quorum ();
 			}
@@ -210,7 +215,8 @@ bool nano::election::publish (std::shared_ptr<nano::block> block_a)
 	}
 	if (!result)
 	{
-		if (blocks.find (block_a->hash ()) == blocks.end ())
+		auto existing = blocks.find (block_a->hash ());
+		if (existing == blocks.end ())
 		{
 			blocks.emplace (std::make_pair (block_a->hash (), block_a));
 			insert_inactive_votes_cache (block_a->hash ());
@@ -220,6 +226,11 @@ bool nano::election::publish (std::shared_ptr<nano::block> block_a)
 		else
 		{
 			result = true;
+			existing->second = block_a;
+			if (status.winner->hash () == block_a->hash ())
+			{
+				status.winner = block_a;
+			}
 		}
 	}
 	return result;
@@ -254,7 +265,7 @@ void nano::election::update_dependent ()
 	for (auto & block_search : blocks_search)
 	{
 		auto existing (node.active.blocks.find (block_search));
-		if (existing != node.active.blocks.end () && !existing->second->confirmed && !existing->second->stopped)
+		if (existing != node.active.blocks.end () && !existing->second->confirmed () && !existing->second->stopped)
 		{
 			if (existing->second->dependent_blocks.find (hash) == existing->second->dependent_blocks.end ())
 			{
@@ -281,7 +292,7 @@ void nano::election::clear_blocks ()
 		auto erased (node.active.blocks.erase (hash));
 		(void)erased;
 		// clear_blocks () can be called in active_transactions::publish () before blocks insertion if election was confirmed
-		assert (erased == 1 || confirmed);
+		assert (erased == 1 || confirmed ());
 		node.active.erase_inactive_votes_cache (hash);
 		// Notify observers about dropped elections & blocks lost confirmed elections
 		if (stopped || hash != winner_hash)
@@ -302,7 +313,7 @@ void nano::election::insert_inactive_votes_cache (nano::block_hash const & hash_
 			node.stats.inc (nano::stat::type::election, nano::stat::detail::vote_cached);
 		}
 	}
-	if (!confirmed && !cache.voters.empty ())
+	if (!confirmed () && !cache.voters.empty ())
 	{
 		auto delay (std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - cache.arrival));
 		if (delay > late_blocks_delay)

@@ -1,7 +1,13 @@
 cmake_minimum_required (VERSION 3.4)
 
-cmake_policy(SET CMP0074 NEW)
-cmake_policy(SET CMP0077 NEW)
+if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.12")
+	#find_package uses <PACKAGENAME>_ROOT variables
+	cmake_policy(SET CMP0074 NEW)
+endif()
+if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13")
+	#option honors normal variables
+	cmake_policy(SET CMP0077 NEW)
+endif()
 # compatibility for osx sierra and on
 # needs to be set before project
 set (CMAKE_OSX_DEPLOYMENT_TARGET 10.12 CACHE STRING "")
