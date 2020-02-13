@@ -754,8 +754,9 @@ bool nano::bootstrap_attempt::confirm_frontiers (nano::unique_lock<std::mutex> &
 				}
 				else
 				{
-					nano::lock_guard<std::mutex> active_lock (node->active.mutex);
+					nano::unique_lock<std::mutex> active_lock (node->active.mutex);
 					auto existing (node->active.find_inactive_votes_cache (*ii));
+					active_lock.unlock ();
 					nano::uint128_t tally;
 					for (auto & voter : existing.voters)
 					{

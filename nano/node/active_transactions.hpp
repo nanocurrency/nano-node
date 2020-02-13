@@ -60,6 +60,15 @@ public:
 	nano::qualified_root root;
 };
 
+class inactive_cache_information final
+{
+public:
+	std::chrono::steady_clock::time_point arrival;
+	nano::block_hash hash;
+	std::vector<nano::account> voters;
+	bool confirmed{ false };
+};
+
 // Core class for determining consensus
 // Holds all active blocks i.e. recently added blocks that need confirmation
 class active_transactions final
@@ -70,6 +79,8 @@ class active_transactions final
 	class tag_root {};
 	class tag_sequence {};
 	class tag_uncemented {};
+	class tag_arrival {};
+	class tag_hash {};
 	// clang-format on
 
 public:
@@ -114,7 +125,7 @@ public:
 	std::deque<nano::election_status> confirmed;
 	void add_confirmed (nano::election_status const &, nano::qualified_root const &);
 	void add_inactive_votes_cache (nano::block_hash const &, nano::account const &);
-	nano::gap_information find_inactive_votes_cache (nano::block_hash const &);
+	nano::inactive_cache_information find_inactive_votes_cache (nano::block_hash const &);
 	void erase_inactive_votes_cache (nano::block_hash const &);
 	nano::confirmation_height_processor & confirmation_height_processor;
 	nano::node & node;
@@ -184,8 +195,17 @@ private:
 	void prioritize_account_for_confirmation (prioritize_num_uncemented &, size_t &, nano::account const &, nano::account_info const &, uint64_t);
 	static size_t constexpr max_priority_cementable_frontiers{ 100000 };
 	static size_t constexpr confirmed_frontiers_max_pending_cut_off{ 1000 };
-	nano::gap_cache::ordered_gaps inactive_votes_cache;
+	// clang-format off
+	using ordered_cache = boost::multi_index_container<nano::inactive_cache_information,
+	mi::indexed_by<
+		mi::ordered_non_unique<mi::tag<tag_arrival>,
+			mi::member<nano::inactive_cache_information, std::chrono::steady_clock::time_point, &nano::inactive_cache_information::arrival>>,
+		mi::hashed_unique<mi::tag<tag_hash>,
+			mi::member<nano::inactive_cache_information, nano::block_hash, &nano::inactive_cache_information::hash>>>>;
+	ordered_cache inactive_votes_cache;
+	// clang-format on
 	static size_t constexpr inactive_votes_cache_max{ 16 * 1024 };
+	bool inactive_votes_bootstrap_check (std::vector<nano::account> const &, nano::block_hash const &);
 	// clang-format off
 	boost::multi_index_container<nano::election_timepoint,
 	mi::indexed_by<
