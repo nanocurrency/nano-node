@@ -517,6 +517,8 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 
 	ASSERT_EQ (cemented_count, node->ledger.cache.cemented_count);
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), num_accounts * 2 - 2);
+	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_bounded, nano::stat::dir::in), num_accounts * 2 - 2);
+	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in), 0);
 
 	system.deadline_set (20s);
 	while ((node->ledger.cache.cemented_count - 1) != node->stats.count (nano::stat::type::observer, nano::stat::detail::all, nano::stat::dir::out))
@@ -565,6 +567,10 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+
+	auto num_confirmed_bounded = node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_bounded, nano::stat::dir::in);
+	ASSERT_GE (num_confirmed_bounded, nano::confirmation_height::batch_write_size);
+	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in), (num_accounts - 1) * 2 - num_confirmed_bounded);
 
 	auto transaction = node->store.tx_begin_read ();
 	auto cemented_count = 0;
@@ -673,12 +679,60 @@ TEST (confirmation_height, long_chains)
 
 	ASSERT_EQ (cemented_count, node->ledger.cache.cemented_count);
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), num_blocks * 2 + 2);
+	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_bounded, nano::stat::dir::in), num_blocks * 2 + 2);
+	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in), 0);
 
 	system.deadline_set (20s);
 	while ((node->ledger.cache.cemented_count - 1) != node->stats.count (nano::stat::type::observer, nano::stat::detail::all, nano::stat::dir::out))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+}
+
+TEST (confirmation_height, dynamic_algorithm)
+{
+	nano::system system;
+	nano::node_config node_config (nano::get_available_port (), system.logging);
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto node = system.add_node (node_config);
+	nano::genesis genesis;
+	nano::keypair key;
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	auto const num_blocks = nano::confirmation_height::unbounded_cutoff;
+	auto latest_genesis = node->latest (nano::test_genesis_key.pub);
+	std::vector<std::shared_ptr<nano::state_block>> state_blocks;
+	for (auto i = 0; i < num_blocks; ++i)
+	{
+		auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, latest_genesis, nano::test_genesis_key.pub, nano::genesis_amount - i - 1, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest_genesis)));
+		latest_genesis = send->hash ();
+		state_blocks.push_back (send);
+	}
+	{
+		auto transaction = node->store.tx_begin_write ();
+		for (auto const & block : state_blocks)
+		{
+			ASSERT_EQ (nano::process_result::progress, node->ledger.process (transaction, *block).code);
+		}
+	}
+
+	node->confirmation_height_processor.add (state_blocks.front ()->hash ());
+	system.deadline_set (20s);
+	while (node->ledger.cache.cemented_count != 2)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	node->confirmation_height_processor.add (latest_genesis);	
+
+	system.deadline_set (20s);
+	while (node->ledger.cache.cemented_count != num_blocks + 1)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), num_blocks);
+	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_bounded, nano::stat::dir::in), 1);
+	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in), num_blocks - 1);
 }
 
 namespace nano

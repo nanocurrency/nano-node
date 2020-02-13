@@ -352,6 +352,7 @@ bool nano::confirmation_height_bounded::cement_blocks ()
 				ledger.store.confirmation_height_put (transaction, account, nano::confirmation_height_info{ confirmation_height, confirmed_frontier });
 				ledger.cache.cemented_count += num_blocks_cemented;
 				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, num_blocks_cemented);
+				ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_bounded, nano::stat::dir::in, num_blocks_cemented);
 			};
 
 			nano::confirmation_height_info confirmation_height_info;

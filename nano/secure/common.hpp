@@ -234,6 +234,7 @@ public:
 namespace confirmation_height
 {
 	uint64_t const batch_write_size{ 4096 };
+	uint64_t const unbounded_cutoff{ 4096 };
 }
 
 using vote_blocks_vec_iter = std::vector<boost::variant<std::shared_ptr<nano::block>, nano::block_hash>>::const_iterator;

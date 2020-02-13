@@ -336,6 +336,7 @@ bool nano::confirmation_height_unbounded::cement_blocks ()
 			}
 #endif
 			ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - confirmation_height);
+			ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in, pending.height - confirmation_height);
 			assert (pending.num_blocks_confirmed == pending.height - confirmation_height);
 			confirmation_height = pending.height;
 			ledger.cache.cemented_count += pending.num_blocks_confirmed;
