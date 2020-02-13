@@ -3593,7 +3593,7 @@ TEST (node, bandwidth_limiter)
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
 	ASSERT_EQ (node.network.limiter.get_rate (), node.network.limiter.get_limit ());
 	// Non-droppable, increases the rate
-	channel2->send (message, nullptr, false);
+	channel2->send (message, nullptr, nano::buffer_drop_policy::no_limiter_drop);
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::drop, nano::stat::detail::publish, nano::stat::dir::out));
 	system.deadline_set (300ms);
 	// Wait for the trended rate to catch up

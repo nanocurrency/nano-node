@@ -427,7 +427,7 @@ void nano::telemetry_impl::fire_request_messages (std::deque<std::shared_ptr<nan
 				}
 			}
 		},
-		false);
+		nano::buffer_drop_policy::no_socket_drop);
 		// clang-format on
 
 		// If no response is seen after a certain period of time, remove it from the list of expected responses. However, only if it is part of the same round.

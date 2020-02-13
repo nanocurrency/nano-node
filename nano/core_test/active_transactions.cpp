@@ -24,7 +24,7 @@ TEST (active_transactions, confirm_one)
 	// Let node2 know about the block
 	while (node2.active.empty ())
 	{
-		node1.network.flood_block (send, false);
+		node1.network.flood_block (send, nano::buffer_drop_policy::no_limiter_drop);
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	while (node2.ledger.cache.cemented_count < 2)

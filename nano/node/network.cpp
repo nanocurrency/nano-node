@@ -146,11 +146,11 @@ void nano::network::send_node_id_handshake (std::shared_ptr<nano::transport::cha
 	channel_a->send (message);
 }
 
-void nano::network::flood_message (nano::message const & message_a, bool const is_droppable_a)
+void nano::network::flood_message (nano::message const & message_a, nano::buffer_drop_policy drop_policy_a)
 {
 	for (auto & i : list (fanout ()))
 	{
-		i->send (message_a, nullptr, is_droppable_a);
+		i->send (message_a, nullptr, drop_policy_a);
 	}
 }
 
@@ -168,7 +168,7 @@ void nano::network::flood_vote_pr (std::shared_ptr<nano::vote> const & vote_a)
 	nano::confirm_ack message (vote_a);
 	for (auto const & i : node.rep_crawler.principal_representatives ())
 	{
-		i.channel->send (message, nullptr, false);
+		i.channel->send (message, nullptr, nano::buffer_drop_policy::no_limiter_drop);
 	}
 }
 
@@ -476,7 +476,7 @@ public:
 
 			telemetry_ack = nano::telemetry_ack (telemetry_data);
 		}
-		channel->send (telemetry_ack, nullptr, false);
+		channel->send (telemetry_ack, nullptr, nano::buffer_drop_policy::no_socket_drop);
 	}
 	void telemetry_ack (nano::telemetry_ack const & message_a) override
 	{
