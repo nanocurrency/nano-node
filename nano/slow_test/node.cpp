@@ -722,7 +722,7 @@ TEST (confirmation_height, dynamic_algorithm)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
-	node->confirmation_height_processor.add (latest_genesis);	
+	node->confirmation_height_processor.add (latest_genesis);
 
 	system.deadline_set (20s);
 	while (node->ledger.cache.cemented_count != num_blocks + 1)
