@@ -626,7 +626,10 @@ nano::process_return nano::node::process_local (std::shared_ptr<nano::block> blo
 	block_processor.wait_write ();
 	// Process block
 	auto transaction (store.tx_begin_write ());
-	return block_processor.process_one (transaction, info, work_watcher_a);
+	uint64_t num_state_blocks_added{ 0 };
+	auto res = block_processor.process_one (transaction, info, num_state_blocks_added, work_watcher_a);
+	store.increment_state_block_count (transaction, num_state_blocks_added);
+	return res;
 }
 
 void nano::node::start ()

@@ -263,6 +263,8 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 	lock_a.unlock ();
 	auto scoped_write_guard = write_database_queue.wait (nano::writer::process_batch);
 	auto transaction (node.store.tx_begin_write ({ nano::tables::accounts, nano::tables::cached_counts, nano::tables::change_blocks, nano::tables::frontiers, nano::tables::open_blocks, nano::tables::pending, nano::tables::receive_blocks, nano::tables::representation, nano::tables::send_blocks, nano::tables::state_blocks, nano::tables::unchecked }, { nano::tables::confirmation_height }));
+	uint64_t num_state_blocks_removed = 0;
+	uint64_t num_state_blocks_added = 0;
 	timer_l.restart ();
 	lock_a.lock ();
 	// Processing blocks
@@ -318,7 +320,7 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 				// Replace our block with the winner and roll back any dependent blocks
 				node.logger.always_log (boost::str (boost::format ("Rolling back %1% and replacing with %2%") % successor->hash ().to_string () % hash.to_string ()));
 				std::vector<std::shared_ptr<nano::block>> rollback_list;
-				if (node.ledger.rollback (transaction, successor->hash (), rollback_list))
+				if (node.ledger.rollback (transaction, successor->hash (), rollback_list, num_state_blocks_removed))
 				{
 					node.logger.always_log (nano::severity_level::error, boost::str (boost::format ("Failed to roll back %1% because it or a successor was confirmed") % successor->hash ().to_string ()));
 				}
@@ -340,7 +342,7 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 			}
 		}
 		number_of_blocks_processed++;
-		process_one (transaction, info);
+		process_one (transaction, info, num_state_blocks_added);
 		lock_a.lock ();
 		/* Verify more state blocks if blocks deque is empty
 		 Because verification is long process, avoid large deque verification inside of write transaction */
@@ -349,6 +351,9 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 			verify_state_blocks (lock_a, 256 * (node.config.signature_checker_threads + 1));
 		}
 	}
+
+	update_state_block_count (transaction, num_state_blocks_added, num_state_blocks_removed);
+
 	awaiting_write = false;
 	lock_a.unlock ();
 
@@ -376,11 +381,11 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	}
 }
 
-nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, nano::unchecked_info info_a, const bool watch_work_a)
+nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, nano::unchecked_info info_a, uint64_t & num_state_blocks_added_a, const bool watch_work_a)
 {
 	nano::process_return result;
 	auto hash (info_a.block->hash ());
-	result = node.ledger.process (transaction_a, *(info_a.block), info_a.verified);
+	result = node.ledger.process (transaction_a, *(info_a.block), info_a.verified, &num_state_blocks_added_a);
 	switch (result.code)
 	{
 		case nano::process_result::progress:
@@ -529,10 +534,10 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 	return result;
 }
 
-nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, std::shared_ptr<nano::block> block_a, const bool watch_work_a)
+nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, std::shared_ptr<nano::block> block_a, uint64_t & num_state_blocks_added_a, const bool watch_work_a)
 {
 	nano::unchecked_info info (block_a, block_a->account (), 0, nano::signature_verification::unknown);
-	auto result (process_one (transaction_a, info, watch_work_a));
+	auto result (process_one (transaction_a, info, num_state_blocks_added_a, watch_work_a));
 	return result;
 }
 
@@ -574,5 +579,17 @@ void nano::block_processor::requeue_invalid (nano::block_hash const & hash_a, na
 	if (attempt != nullptr && attempt->mode == nano::bootstrap_mode::lazy)
 	{
 		attempt->lazy_requeue (hash_a, info_a.block->previous (), info_a.confirmed);
+	}
+}
+
+void nano::block_processor::update_state_block_count (nano::write_transaction const & transaction_a, uint64_t num_state_blocks_added_a, uint64_t num_state_blocks_removed_a)
+{
+	if (num_state_blocks_removed_a > num_state_blocks_added_a)
+	{
+		node.store.decrement_state_block_count (transaction_a, num_state_blocks_removed_a - num_state_blocks_added_a);
+	}
+	else if (num_state_blocks_added_a > num_state_blocks_removed_a)
+	{
+		node.store.increment_state_block_count (transaction_a, num_state_blocks_added_a - num_state_blocks_removed_a);
 	}
 }

@@ -218,10 +218,14 @@ int nano::rocksdb_store::del (nano::write_transaction const & transaction_a, tab
 	// RocksDB errors when trying to delete an entry which doesn't exist. It is a pre-condition that the key exists
 	assert (exists (transaction_a, table_a, key_a));
 
-	// Removing an entry so counts may need adjusting
-	if (is_caching_counts (table_a))
+	// State block counts are done in bulk separately later
+	if (table_a != tables::state_blocks)
 	{
-		decrement (transaction_a, tables::cached_counts, rocksdb_val (rocksdb::Slice (table_to_column_family (table_a)->GetName ())), 1);
+		// Removing an entry so counts may need adjusting
+		if (is_caching_counts (table_a))
+		{
+			decrement (transaction_a, tables::cached_counts, rocksdb_val (rocksdb::Slice (table_to_column_family (table_a)->GetName ())), 1);
+		}
 	}
 
 	return tx (transaction_a)->Delete (table_to_column_family (table_a), key_a).code ();
@@ -291,6 +295,11 @@ bool nano::rocksdb_store::is_caching_counts (nano::tables table_a) const
 
 int nano::rocksdb_store::increment (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a, uint64_t amount_a)
 {
+	if (amount_a == 0)
+	{
+		return rocksdb::Status::Code::kOk;
+	}
+
 	release_assert (transaction_a.contains (table_a));
 	uint64_t base;
 	nano::rocksdb_val value;
@@ -308,6 +317,11 @@ int nano::rocksdb_store::increment (nano::write_transaction const & transaction_
 
 int nano::rocksdb_store::decrement (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a, uint64_t amount_a)
 {
+	if (amount_a == 0)
+	{
+		return rocksdb::Status::Code::kOk;
+	}
+
 	release_assert (transaction_a.contains (table_a));
 	nano::rocksdb_val value;
 	auto status = get (transaction_a, table_a, key_a, value);
@@ -323,10 +337,14 @@ int nano::rocksdb_store::put (nano::write_transaction const & transaction_a, tab
 	auto txn = tx (transaction_a);
 	if (is_caching_counts (table_a))
 	{
-		if (!exists (transaction_a, table_a, key_a))
+		// State block counts are done in bulk separately later
+		if (table_a != tables::state_blocks)
 		{
-			// Adding a new entry so counts need adjusting
-			increment (transaction_a, tables::cached_counts, rocksdb_val (rocksdb::Slice (table_to_column_family (table_a)->GetName ())), 1);
+			if (!exists (transaction_a, table_a, key_a))
+			{
+				// Adding a new entry so counts need adjusting
+				increment (transaction_a, tables::cached_counts, rocksdb_val (rocksdb::Slice (table_to_column_family (table_a)->GetName ())), 1);
+			}
 		}
 	}
 
@@ -366,7 +384,7 @@ uint64_t nano::rocksdb_store::count (nano::transaction const & transaction_a, ro
 size_t nano::rocksdb_store::count (nano::transaction const & transaction_a, tables table_a) const
 {
 	size_t sum = 0;
-	// Some column families are small enough that they can just be iterated, rather than doing extra io caching counts
+	// Some column families are small enough (except unchecked) that they can just be iterated, rather than doing extra io caching counts
 	if (table_a == tables::peers)
 	{
 		for (auto i (peers_begin (transaction_a)), n (peers_end ()); i != n; ++i)
@@ -381,6 +399,7 @@ size_t nano::rocksdb_store::count (nano::transaction const & transaction_a, tabl
 			++sum;
 		}
 	}
+	// This should only be used during initialization as can be expensive during bootstrapping
 	else if (table_a == tables::unchecked)
 	{
 		for (auto i (unchecked_begin (transaction_a)), n (unchecked_end ()); i != n; ++i)
@@ -388,8 +407,17 @@ size_t nano::rocksdb_store::count (nano::transaction const & transaction_a, tabl
 			++sum;
 		}
 	}
+	else if (table_a == tables::accounts)
+	{
+		assert (network_constants ().is_test_network ());
+		for (auto i (latest_begin (transaction_a)), n (latest_end ()); i != n; ++i)
+		{
+			++sum;
+		}
+	}
 	else
 	{
+		assert (is_caching_counts (table_a));
 		return count (transaction_a, table_to_column_family (table_a));
 	}
 
@@ -617,5 +645,16 @@ bool nano::rocksdb_store::init_error () const
 {
 	return error;
 }
+
+void nano::rocksdb_store::increment_state_block_count (nano::write_transaction const & transaction_a, uint64_t num_a)
+{
+	increment (transaction_a, tables::cached_counts, rocksdb_val (rocksdb::Slice (table_to_column_family (tables::state_blocks)->GetName ())), num_a);
+}
+
+void nano::rocksdb_store::decrement_state_block_count (nano::write_transaction const & transaction_a, uint64_t num_a)
+{
+	decrement (transaction_a, tables::cached_counts, rocksdb_val (rocksdb::Slice (table_to_column_family (tables::state_blocks)->GetName ())), num_a);
+}
+
 // Explicitly instantiate
 template class nano::block_store_partial<rocksdb::Slice, nano::rocksdb_store>;

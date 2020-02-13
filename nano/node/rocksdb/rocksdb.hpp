@@ -70,6 +70,8 @@ public:
 	}
 
 	bool init_error () const override;
+	void increment_state_block_count (nano::write_transaction const &, uint64_t) override;
+	void decrement_state_block_count (nano::write_transaction const &, uint64_t) override;
 
 private:
 	bool error{ false };

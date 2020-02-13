@@ -1080,6 +1080,15 @@ bool nano::mdb_store::init_error () const
 	return error;
 }
 
+void nano::mdb_store::increment_state_block_count (nano::write_transaction const &, uint64_t)
+{
+	// Not applicable to LMDB backend
+}
+void nano::mdb_store::decrement_state_block_count (nano::write_transaction const &, uint64_t)
+{
+	// Not applicable to LMDB backend
+}
+
 // All the v14 functions below are only needed during upgrades
 bool nano::mdb_store::entry_has_sideband_v14 (size_t entry_size_a, nano::block_type type_a) const
 {

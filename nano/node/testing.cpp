@@ -242,7 +242,8 @@ void nano::system::generate_rollback (nano::node & node_a, std::vector<nano::acc
 			accounts_a[index] = accounts_a[accounts_a.size () - 1];
 			accounts_a.pop_back ();
 			std::vector<std::shared_ptr<nano::block>> rollback_list;
-			auto error = node_a.ledger.rollback (transaction, hash, rollback_list);
+			uint64_t num_state_blocks_removed{ 0 };
+			auto error = node_a.ledger.rollback (transaction, hash, rollback_list, num_state_blocks_removed);
 			(void)error;
 			assert (!error);
 			for (auto & i : rollback_list)

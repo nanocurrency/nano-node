@@ -358,7 +358,7 @@ TEST (node_telemetry, many_nodes)
 		done = true;
 	});
 
-	system.deadline_set (20s);
+	system.deadline_set (60s);
 	while (!done)
 	{
 		ASSERT_NO_ERROR (system.poll ());

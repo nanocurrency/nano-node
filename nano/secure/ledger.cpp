@@ -13,10 +13,11 @@ namespace
 class rollback_visitor : public nano::block_visitor
 {
 public:
-	rollback_visitor (nano::write_transaction const & transaction_a, nano::ledger & ledger_a, std::vector<std::shared_ptr<nano::block>> & list_a) :
+	rollback_visitor (nano::write_transaction const & transaction_a, nano::ledger & ledger_a, std::vector<std::shared_ptr<nano::block>> & list_a, uint64_t & num_state_blocks_rolled_back_a) :
 	transaction (transaction_a),
 	ledger (ledger_a),
-	list (list_a)
+	list (list_a),
+	num_state_blocks_rolled_back (num_state_blocks_rolled_back_a)
 	{
 	}
 	virtual ~rollback_visitor () = default;
@@ -27,7 +28,7 @@ public:
 		nano::pending_key key (block_a.hashables.destination, hash);
 		while (!error && ledger.store.pending_get (transaction, key, pending))
 		{
-			error = ledger.rollback (transaction, ledger.latest (transaction, block_a.hashables.destination), list);
+			error = ledger.rollback (transaction, ledger.latest (transaction, block_a.hashables.destination), list, num_state_blocks_rolled_back);
 		}
 		if (!error)
 		{
@@ -133,7 +134,7 @@ public:
 			nano::pending_key key (block_a.hashables.link, hash);
 			while (!error && !ledger.store.pending_exists (transaction, key))
 			{
-				error = ledger.rollback (transaction, ledger.latest (transaction, block_a.hashables.link), list);
+				error = ledger.rollback (transaction, ledger.latest (transaction, block_a.hashables.link), list, num_state_blocks_rolled_back);
 			}
 			ledger.store.pending_del (transaction, key);
 			ledger.stats.inc (nano::stat::type::rollback, nano::stat::detail::send);
@@ -170,6 +171,7 @@ public:
 	nano::ledger & ledger;
 	std::vector<std::shared_ptr<nano::block>> & list;
 	bool error{ false };
+	uint64_t & num_state_blocks_rolled_back;
 };
 
 class ledger_processor : public nano::block_visitor
@@ -752,14 +754,18 @@ nano::uint128_t nano::ledger::account_pending (nano::transaction const & transac
 	return result;
 }
 
-nano::process_return nano::ledger::process (nano::write_transaction const & transaction_a, nano::block const & block_a, nano::signature_verification verification)
+nano::process_return nano::ledger::process (nano::write_transaction const & transaction_a, nano::block const & block_a, nano::signature_verification verification_a, uint64_t * num_state_blocks_a)
 {
 	assert (!nano::work_validate (block_a));
-	ledger_processor processor (*this, transaction_a, verification);
+	ledger_processor processor (*this, transaction_a, verification_a);
 	block_a.visit (processor);
 	if (processor.result.code == nano::process_result::progress)
 	{
 		++cache.block_count;
+		if (num_state_blocks_a && block_a.type () == nano::block_type::state)
+		{
+			++(*num_state_blocks_a);
+		}
 	}
 	return processor.result;
 }
@@ -881,12 +887,12 @@ nano::uint128_t nano::ledger::weight (nano::account const & account_a)
 }
 
 // Rollback blocks until `block_a' doesn't exist or it tries to penetrate the confirmation height
-bool nano::ledger::rollback (nano::write_transaction const & transaction_a, nano::block_hash const & block_a, std::vector<std::shared_ptr<nano::block>> & list_a)
+bool nano::ledger::rollback (nano::write_transaction const & transaction_a, nano::block_hash const & block_a, std::vector<std::shared_ptr<nano::block>> & list_a, uint64_t & num_state_blocks_rolled_back_a)
 {
 	assert (store.block_exists (transaction_a, block_a));
 	auto account_l (account (transaction_a, block_a));
 	auto block_account_height (store.block_account_height (transaction_a, block_a));
-	rollback_visitor rollback (transaction_a, *this, list_a);
+	rollback_visitor rollback (transaction_a, *this, list_a, num_state_blocks_rolled_back_a);
 	nano::account_info account_info;
 	auto error (false);
 	while (!error && store.block_exists (transaction_a, block_a))
@@ -906,6 +912,10 @@ bool nano::ledger::rollback (nano::write_transaction const & transaction_a, nano
 			if (!error)
 			{
 				--cache.block_count;
+				if (block->type () == nano::block_type::state)
+				{
+					++num_state_blocks_rolled_back_a;
+				}
 			}
 		}
 		else
@@ -916,10 +926,18 @@ bool nano::ledger::rollback (nano::write_transaction const & transaction_a, nano
 	return error;
 }
 
-bool nano::ledger::rollback (nano::write_transaction const & transaction_a, nano::block_hash const & block_a)
+bool nano::ledger::rollback (nano::write_transaction const & transaction_a, nano::block_hash const & block_a, uint64_t * num_state_blocks_rolled_back_a)
 {
 	std::vector<std::shared_ptr<nano::block>> rollback_list;
-	return rollback (transaction_a, block_a, rollback_list);
+	// This function is only used by tests currently.
+	assert (nano::network_constants ().is_test_network ());
+	uint64_t num_state_blocks_rolled_back{ 0 };
+	auto res = rollback (transaction_a, block_a, rollback_list, num_state_blocks_rolled_back);
+	if (num_state_blocks_rolled_back_a)
+	{
+		*num_state_blocks_rolled_back_a -= num_state_blocks_rolled_back;
+	}
+	return res;
 }
 
 // Return account containing hash

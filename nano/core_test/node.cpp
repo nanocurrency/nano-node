@@ -1281,10 +1281,10 @@ TEST (node, fork_flip)
 	ASSERT_EQ (1, node1.network.size ());
 	nano::keypair key1;
 	nano::genesis genesis;
-	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 100, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
 	nano::publish publish1 (send1);
 	nano::keypair key2;
-	auto send2 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 100, key2.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
 	nano::publish publish2 (send2);
 	auto channel1 (node1.network.udp_channels.create (node1.network.endpoint ()));
 	node1.network.process_message (publish1, channel1);
@@ -1330,6 +1330,10 @@ TEST (node, fork_flip)
 	ASSERT_TRUE (node1.store.block_exists (transaction1, publish1.block->hash ()));
 	ASSERT_TRUE (node2.store.block_exists (transaction2, publish1.block->hash ()));
 	ASSERT_FALSE (node2.store.block_exists (transaction2, publish2.block->hash ()));
+	ASSERT_EQ (node1.store.block_count (transaction1).state, 1);
+	ASSERT_EQ (node1.ledger.cache.block_count, 2);
+	ASSERT_EQ (node2.store.block_count (transaction2).state, 1);
+	ASSERT_EQ (node2.ledger.cache.block_count, 2);
 }
 
 TEST (node, fork_multi_flip)
@@ -1353,12 +1357,12 @@ TEST (node, fork_multi_flip)
 		ASSERT_EQ (1, node1.network.size ());
 		nano::keypair key1;
 		nano::genesis genesis;
-		auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+		auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 100, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
 		nano::publish publish1 (send1);
 		nano::keypair key2;
-		auto send2 (std::make_shared<nano::send_block> (genesis.hash (), key2.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+		auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 100, key2.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
 		nano::publish publish2 (send2);
-		auto send3 (std::make_shared<nano::send_block> (publish2.block->hash (), key2.pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (publish2.block->hash ())));
+		auto send3 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, publish2.block->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 100 - 1, key2.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (publish2.block->hash ())));
 		nano::publish publish3 (send3);
 		node1.network.process_message (publish1, node1.network.udp_channels.create (node1.network.endpoint ()));
 		node1.block_processor.flush ();
@@ -1406,6 +1410,10 @@ TEST (node, fork_multi_flip)
 		ASSERT_TRUE (node2.store.block_exists (transaction2, publish1.block->hash ()));
 		ASSERT_FALSE (node2.store.block_exists (transaction2, publish2.block->hash ()));
 		ASSERT_FALSE (node2.store.block_exists (transaction2, publish3.block->hash ()));
+		ASSERT_EQ (node1.store.block_count (transaction1).state, 1);
+		ASSERT_EQ (node1.ledger.cache.block_count, 2);
+		ASSERT_EQ (node2.store.block_count (transaction2).state, 1);
+		ASSERT_EQ (node1.ledger.cache.block_count, 2);
 	}
 }
 
@@ -2988,13 +2996,17 @@ TEST (node, epoch_conflict_confirm)
 	auto epoch (std::make_shared<nano::state_block> (change->root (), 0, 0, 0, node0->ledger.epoch_link (nano::epoch::epoch_1), epoch_signer.prv, epoch_signer.pub, *system.work.generate (open->hash ())));
 	{
 		auto transaction (node0->store.tx_begin_write ());
-		ASSERT_EQ (nano::process_result::progress, node0->block_processor.process_one (transaction, send).code);
-		ASSERT_EQ (nano::process_result::progress, node0->block_processor.process_one (transaction, open).code);
+		uint64_t num_state_blocks_added{ 0 };
+		ASSERT_EQ (nano::process_result::progress, node0->block_processor.process_one (transaction, send, num_state_blocks_added).code);
+		ASSERT_EQ (nano::process_result::progress, node0->block_processor.process_one (transaction, open, num_state_blocks_added).code);
+		ASSERT_EQ (2, num_state_blocks_added);
 	}
 	{
 		auto transaction (node1->store.tx_begin_write ());
-		ASSERT_EQ (nano::process_result::progress, node1->block_processor.process_one (transaction, send).code);
-		ASSERT_EQ (nano::process_result::progress, node1->block_processor.process_one (transaction, open).code);
+		uint64_t num_state_blocks_added{ 0 };
+		ASSERT_EQ (nano::process_result::progress, node1->block_processor.process_one (transaction, send, num_state_blocks_added).code);
+		ASSERT_EQ (nano::process_result::progress, node1->block_processor.process_one (transaction, open, num_state_blocks_added).code);
+		ASSERT_EQ (2, num_state_blocks_added);
 	}
 	node0->process_active (change);
 	node0->process_active (epoch);
@@ -3182,6 +3194,8 @@ TEST (node, block_processor_signatures)
 	ASSERT_TRUE (node1.store.block_exists (transaction, receive1->hash ()));
 	ASSERT_TRUE (node1.store.block_exists (transaction, receive2->hash ()));
 	ASSERT_FALSE (node1.store.block_exists (transaction, receive3->hash ()));
+	ASSERT_EQ (node1.store.block_count (transaction).state, 5);
+	ASSERT_EQ (node1.ledger.cache.block_count, 6);
 }
 
 /*
