@@ -51,15 +51,6 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 		if (!paused && !awaiting_processing.empty ())
 		{
 			lk.unlock ();
-			if (confirmation_height_bounded_processor.pending_empty ())
-			{
-				confirmation_height_bounded_processor.prepare_new ();
-			}
-			if (confirmation_height_unbounded_processor.pending_empty ())
-			{
-				confirmation_height_unbounded_processor.prepare_new ();
-			}
-
 			if (confirmation_height_bounded_processor.pending_empty () && confirmation_height_unbounded_processor.pending_empty ())
 			{
 				lk.lock ();
@@ -72,13 +63,24 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 			const auto num_blocks_to_use_unbounded = confirmation_height::batch_write_size;
 			auto blocks_within_automatic_unbounded_selection = (ledger.cache.block_count < num_blocks_to_use_unbounded || ledger.cache.block_count - num_blocks_to_use_unbounded < ledger.cache.cemented_count);
 
-			if (mode_a == confirmation_height_mode::unbounded || (mode_a == confirmation_height_mode::automatic && blocks_within_automatic_unbounded_selection))
+			// Don't want to mix up pending writes across different processors
+			if (mode_a == confirmation_height_mode::unbounded || (mode_a == confirmation_height_mode::automatic && blocks_within_automatic_unbounded_selection && confirmation_height_bounded_processor.pending_empty ()))
 			{
+				assert (confirmation_height_bounded_processor.pending_empty ());
+				if (confirmation_height_unbounded_processor.pending_empty ())
+				{
+					confirmation_height_unbounded_processor.prepare_new ();
+				}
 				confirmation_height_unbounded_processor.process ();
 			}
 			else
 			{
 				assert (mode_a == confirmation_height_mode::bounded || mode_a == confirmation_height_mode::automatic);
+				assert (confirmation_height_unbounded_processor.pending_empty ());
+				if (confirmation_height_bounded_processor.pending_empty ())
+				{
+					confirmation_height_bounded_processor.prepare_new ();
+				}
 				confirmation_height_bounded_processor.process ();
 			}
 
