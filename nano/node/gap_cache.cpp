@@ -40,11 +40,12 @@ void nano::gap_cache::vote (std::shared_ptr<nano::vote> vote_a)
 	nano::lock_guard<std::mutex> lock (mutex);
 	for (auto hash : *vote_a)
 	{
-		auto existing (blocks.get<tag_hash> ().find (hash));
-		if (existing != blocks.get<tag_hash> ().end () && !existing->confirmed)
+		auto & gap_blocks_by_hash (blocks.get<tag_hash> ());
+		auto existing (gap_blocks_by_hash.find (hash));
+		if (existing != gap_blocks_by_hash.end () && !existing->bootstrap_started)
 		{
 			auto is_new (false);
-			blocks.get<tag_hash> ().modify (existing, [&is_new, &vote_a](nano::gap_information & info) {
+			gap_blocks_by_hash.modify (existing, [&is_new, &vote_a](nano::gap_information & info) {
 				auto it = std::find (info.voters.begin (), info.voters.end (), vote_a->account);
 				is_new = (it == info.voters.end ());
 				if (is_new)
@@ -57,8 +58,8 @@ void nano::gap_cache::vote (std::shared_ptr<nano::vote> vote_a)
 			{
 				if (bootstrap_check (existing->voters, hash))
 				{
-					blocks.get<tag_hash> ().modify (existing, [](nano::gap_information & info) {
-						info.confirmed = true;
+					gap_blocks_by_hash.modify (existing, [](nano::gap_information & info) {
+						info.bootstrap_started = true;
 					});
 				}
 			}
@@ -69,7 +70,7 @@ void nano::gap_cache::vote (std::shared_ptr<nano::vote> vote_a)
 bool nano::gap_cache::bootstrap_check (std::vector<nano::account> const & voters_a, nano::block_hash const & hash_a)
 {
 	uint128_t tally;
-	for (auto & voter : voters_a)
+	for (auto const & voter : voters_a)
 	{
 		tally += node.ledger.weight (voter);
 	}
