@@ -6139,9 +6139,6 @@ TEST (rpc, confirmation_height_currently_processing)
 		frontier = node->store.block_get (transaction, previous_genesis_chain_hash);
 	}
 
-	// Begin process for confirming the block (and setting confirmation height)
-	node->block_confirm (frontier);
-
 	boost::property_tree::ptree request;
 	request.put ("action", "confirmation_height_currently_processing");
 
@@ -6153,8 +6150,11 @@ TEST (rpc, confirmation_height_currently_processing)
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
 	rpc.start ();
 
+	// Begin process for confirming the block (and setting confirmation height)
+	node->block_confirm (frontier);
+
 	system.deadline_set (10s);
-	while (!node->confirmation_height_processor.is_processing_block (previous_genesis_chain_hash))
+	while (node->confirmation_height_processor.current () != frontier->hash ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -6174,7 +6174,7 @@ TEST (rpc, confirmation_height_currently_processing)
 
 	// Wait until confirmation has been set and not processing anything
 	system.deadline_set (10s);
-	while (!node->confirmation_height_processor.current ().is_zero ())
+	while (!node->confirmation_height_processor.current ().is_zero () || node->confirmation_height_processor.awaiting_processing_size () != 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
