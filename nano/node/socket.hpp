@@ -20,7 +20,7 @@ enum class buffer_drop_policy
 	limiter,
 	/** Should not be dropped by bandwidth limiter */
 	no_limiter_drop,
-	/** Should not be dropped by socket write queue limiter */
+	/** Should not be dropped by bandwidth limiter or socket write queue limiter */
 	no_socket_drop
 };
 
