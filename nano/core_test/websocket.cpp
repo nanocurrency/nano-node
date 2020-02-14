@@ -371,6 +371,74 @@ TEST (websocket, confirmation_options)
 	}
 }
 
+// Tests updating options of block confirmations
+TEST (websocket, confirmation_options_update)
+{
+	nano::system system;
+	nano::node_config config (nano::get_available_port (), system.logging);
+	config.websocket_config.enabled = true;
+	config.websocket_config.port = nano::get_available_port ();
+	auto node1 (system.add_node (config));
+
+	std::atomic<bool> added{ false };
+	std::atomic<bool> deleted{ false };
+	auto task = ([&added, &deleted, config, &node1]() {
+		fake_websocket_client client (config.websocket_config.port);
+		// Subscribe initially with empty options, everything will be filtered
+		client.send_message (R"json({"action": "subscribe", "topic": "confirmation", "ack": "true", "options": {}})json");
+		client.await_ack ();
+		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::confirmation));
+		// Now update filter with an account and wait for a response
+		std::string add_message = boost::str (boost::format (R"json({"action": "update", "topic": "confirmation", "ack": "true", "options": {"accounts_add": ["%1%"]}})json") % nano::test_genesis_key.pub.to_account ());
+		client.send_message (add_message);
+		client.await_ack ();
+		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::confirmation));
+		added = true;
+		EXPECT_TRUE (client.get_response ());
+		// Update the filter again, removing the account
+		std::string delete_message = boost::str (boost::format (R"json({"action": "update", "topic": "confirmation", "ack": "true", "options": {"accounts_del": ["%1%"]}})json") % nano::test_genesis_key.pub.to_account ());
+		client.send_message (delete_message);
+		client.await_ack ();
+		EXPECT_EQ (1, node1->websocket_server->subscriber_count (nano::websocket::topic::confirmation));
+		deleted = true;
+		EXPECT_FALSE (client.get_response (1s));
+	});
+	auto future = std::async (std::launch::async, task);
+
+	// Wait for update acknowledgement
+	system.deadline_set (5s);
+	while (!added)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	// Confirm a block
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	nano::genesis genesis;
+	nano::keypair key;
+	auto previous (node1->latest (nano::test_genesis_key.pub));
+	auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous, nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (previous)));
+	node1->process_active (send);
+
+	// Wait for delete acknowledgement
+	system.deadline_set (5s);
+	while (!deleted)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	// Confirm another block
+	previous = send->hash ();
+	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, previous, nano::test_genesis_key.pub, nano::genesis_amount - 2 * nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (previous)));
+	node1->process_active (send2);
+
+	system.deadline_set (5s);
+	while (future.wait_for (0s) != std::future_status::ready)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
 // Subscribes to votes, sends a block and awaits websocket notification of a vote arrival
 TEST (websocket, vote)
 {
