@@ -31,8 +31,8 @@ void nano::election::confirm_once (nano::election_status_type type_a)
 		status.election_end = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
 		status.election_duration = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now () - election_start);
 		status.confirmation_request_count = confirmation_request_count;
-		status.block_count = blocks.size ();
-		status.voter_count = last_votes.size ();
+		status.block_count = nano::narrow_cast<decltype (status.block_count)> (blocks.size ());
+		status.voter_count = nano::narrow_cast<decltype (status.voter_count)> (last_votes.size ());
 		status.type = type_a;
 		auto status_l (status);
 		auto node_l (node.shared ());
@@ -57,8 +57,8 @@ void nano::election::stop ()
 		status.election_end = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
 		status.election_duration = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now () - election_start);
 		status.confirmation_request_count = confirmation_request_count;
-		status.block_count = blocks.size ();
-		status.voter_count = last_votes.size ();
+		status.block_count = nano::narrow_cast<decltype (status.block_count)> (blocks.size ());
+		status.voter_count = nano::narrow_cast<decltype (status.voter_count)> (last_votes.size ());
 		status.type = nano::election_status_type::stopped;
 	}
 }
