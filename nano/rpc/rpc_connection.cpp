@@ -3,6 +3,7 @@
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/rpc_handler_interface.hpp>
 #include <nano/lib/rpcconfig.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/rpc/rpc_connection.hpp>
 #include <nano/rpc/rpc_handler.hpp>
 
@@ -49,7 +50,7 @@ void nano::rpc_connection::write_result (std::string body, unsigned version, boo
 	}
 	else
 	{
-		assert (false && "RPC already responded and should only respond once");
+		debug_assert (false && "RPC already responded and should only respond once");
 	}
 }
 

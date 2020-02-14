@@ -111,7 +111,7 @@ void nano::votes_cache::add (std::shared_ptr<nano::vote> const & vote_a)
 {
 	nano::lock_guard<std::mutex> lock (cache_mutex);
 	auto voting (wallets.rep_counts ().voting);
-	assert (voting > 0);
+	debug_assert (voting > 0);
 	auto const max_cache_size (network_params.voting.max_cache / std::max (voting, static_cast<decltype (voting)> (1)));
 	for (auto & block : vote_a->blocks)
 	{
@@ -127,7 +127,7 @@ void nano::votes_cache::add (std::shared_ptr<nano::vote> const & vote_a)
 			// Insert new votes (new hash)
 			auto inserted (cache.get<tag_sequence> ().emplace_back (nano::cached_votes{ hash, std::vector<std::shared_ptr<nano::vote>> (1, vote_a) }));
 			(void)inserted;
-			assert (inserted.second);
+			debug_assert (inserted.second);
 		}
 		else
 		{

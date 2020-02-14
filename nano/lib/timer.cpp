@@ -1,4 +1,5 @@
 #include <nano/lib/timer.hpp>
+#include <nano/lib/utility.hpp>
 
 #include <cassert>
 #include <iomanip>
@@ -99,7 +100,7 @@ nano::timer<UNIT, CLOCK> & nano::timer<UNIT, CLOCK>::start_child (std::string co
 template <typename UNIT, typename CLOCK>
 void nano::timer<UNIT, CLOCK>::start ()
 {
-	assert (state == nano::timer_state::stopped);
+	debug_assert (state == nano::timer_state::stopped);
 	state = nano::timer_state::started;
 	begin = CLOCK::now ();
 }
@@ -133,7 +134,7 @@ UNIT nano::timer<UNIT, CLOCK>::pause ()
 template <typename UNIT, typename CLOCK>
 UNIT nano::timer<UNIT, CLOCK>::stop ()
 {
-	assert (state == nano::timer_state::started);
+	debug_assert (state == nano::timer_state::started);
 	state = nano::timer_state::stopped;
 
 	auto end = CLOCK::now ();

@@ -24,7 +24,7 @@ void nano::bootstrap_listener::start ()
 		node.logger.try_log (boost::str (boost::format ("Error while binding for incoming TCP/bootstrap on port %1%: %2%") % listening_socket->listening_port () % ec.message ()));
 		throw std::runtime_error (ec.message ());
 	}
-	assert (node.network.endpoint ().port () == listening_socket->listening_port ());
+	debug_assert (node.network.endpoint ().port () == listening_socket->listening_port ());
 	listening_socket->on_connection ([this](std::shared_ptr<nano::socket> new_connection, boost::system::error_code const & ec_a) {
 		bool keep_accepting = true;
 		if (ec_a)
@@ -160,7 +160,7 @@ void nano::bootstrap_server::receive_header_action (boost::system::error_code co
 {
 	if (!ec)
 	{
-		assert (size_a == 8);
+		debug_assert (size_a == 8);
 		nano::bufferstream type_stream (receive_buffer->data (), size_a);
 		auto error (false);
 		nano::message_header header (error, type_stream);
@@ -307,7 +307,7 @@ void nano::bootstrap_server::receive_bulk_pull_account_action (boost::system::er
 	if (!ec)
 	{
 		auto error (false);
-		assert (size_a == header_a.payload_length_bytes ());
+		debug_assert (size_a == header_a.payload_length_bytes ());
 		nano::bufferstream stream (receive_buffer->data (), size_a);
 		auto request (std::make_unique<nano::bulk_pull_account> (error, stream, header_a));
 		if (!error)
@@ -497,7 +497,7 @@ void nano::bootstrap_server::receive_node_id_handshake_action (boost::system::er
 
 void nano::bootstrap_server::add_request (std::unique_ptr<nano::message> message_a)
 {
-	assert (message_a != nullptr);
+	debug_assert (message_a != nullptr);
 	nano::lock_guard<std::mutex> lock (mutex);
 	auto start (requests.empty ());
 	requests.push (std::move (message_a));
@@ -648,7 +648,7 @@ public:
 		if (message_a.query)
 		{
 			boost::optional<std::pair<nano::account, nano::signature>> response (std::make_pair (connection->node->node_id.pub, nano::sign_message (connection->node->node_id.prv, connection->node->node_id.pub, *message_a.query)));
-			assert (!nano::validate_message (response->first, *message_a.query, response->second));
+			debug_assert (!nano::validate_message (response->first, *message_a.query, response->second));
 			auto cookie (connection->node->network.syn_cookies.assign (nano::transport::map_tcp_to_endpoint (connection->remote_endpoint)));
 			nano::node_id_handshake response_message (cookie, response);
 			auto shared_const_buffer = response_message.to_shared_const_buffer ();
@@ -694,7 +694,7 @@ public:
 		}
 		nano::account node_id (connection->remote_node_id);
 		nano::bootstrap_server_type type (connection->type);
-		assert (node_id.is_zero () || type == nano::bootstrap_server_type::realtime);
+		debug_assert (node_id.is_zero () || type == nano::bootstrap_server_type::realtime);
 		auto connection_l (connection->shared_from_this ());
 		connection->node->background ([connection_l, message_a, node_id, type]() {
 			connection_l->node->network.tcp_channels.process_message (message_a, connection_l->remote_endpoint, node_id, connection_l->socket, type);
@@ -706,7 +706,7 @@ public:
 
 void nano::bootstrap_server::run_next ()
 {
-	assert (!requests.empty ());
+	debug_assert (!requests.empty ());
 	request_response_visitor visitor (shared_from_this ());
 	requests.front ()->visit (visitor);
 }

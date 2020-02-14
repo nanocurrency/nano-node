@@ -1,4 +1,5 @@
-#include "nano/lib/errors.hpp"
+#include <nano/lib/errors.hpp>
+#include <nano/lib/utility.hpp>
 
 #include <boost/system/error_code.hpp>
 
@@ -287,7 +288,7 @@ std::error_code nano::error_conversion::convert (const boost::system::error_code
 		return std::error_code (error.value (),
 		nano::error_conversion::generic_category ());
 	}
-	assert (false);
+	debug_assert (false);
 
 	return nano::error_common::invalid_type_conversion;
 }

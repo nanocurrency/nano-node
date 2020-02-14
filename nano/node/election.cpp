@@ -25,7 +25,7 @@ stopped (false)
 
 void nano::election::confirm_once (nano::election_status_type type_a)
 {
-	assert (!node.active.mutex.try_lock ());
+	debug_assert (!node.active.mutex.try_lock ());
 	if (!confirmed_m.exchange (true))
 	{
 		status.election_end = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
@@ -50,7 +50,7 @@ void nano::election::confirm_once (nano::election_status_type type_a)
 
 void nano::election::stop ()
 {
-	assert (!node.active.mutex.try_lock ());
+	debug_assert (!node.active.mutex.try_lock ());
 	if (!stopped && !confirmed ())
 	{
 		stopped = true;
@@ -105,7 +105,7 @@ nano::tally_t nano::election::tally ()
 void nano::election::confirm_if_quorum ()
 {
 	auto tally_l (tally ());
-	assert (!tally_l.empty ());
+	debug_assert (!tally_l.empty ());
 	auto winner (tally_l.begin ());
 	auto block_l (winner->second);
 	status.tally = winner->first;
@@ -244,7 +244,7 @@ size_t nano::election::last_votes_size ()
 
 void nano::election::update_dependent ()
 {
-	assert (!node.active.mutex.try_lock ());
+	debug_assert (!node.active.mutex.try_lock ());
 	std::vector<nano::block_hash> blocks_search;
 	auto hash (status.winner->hash ());
 	auto previous (status.winner->previous ());
@@ -292,7 +292,7 @@ void nano::election::clear_blocks ()
 		auto erased (node.active.blocks.erase (hash));
 		(void)erased;
 		// clear_blocks () can be called in active_transactions::publish () before blocks insertion if election was confirmed
-		assert (erased == 1 || confirmed ());
+		debug_assert (erased == 1 || confirmed ());
 		node.active.erase_inactive_votes_cache (hash);
 		// Notify observers about dropped elections & blocks lost confirmed elections
 		if (stopped || hash != winner_hash)

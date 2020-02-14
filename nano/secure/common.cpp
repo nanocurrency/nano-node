@@ -193,7 +193,7 @@ nano::keypair::keypair (std::string const & prv_a)
 {
 	auto error (prv.data.decode_hex (prv_a));
 	(void)error;
-	assert (!error);
+	debug_assert (!error);
 	ed25519_publickey (prv.data.bytes.data (), pub.bytes.data ());
 }
 
@@ -248,13 +248,13 @@ bool nano::account_info::operator!= (nano::account_info const & other_a) const
 
 size_t nano::account_info::db_size () const
 {
-	assert (reinterpret_cast<const uint8_t *> (this) == reinterpret_cast<const uint8_t *> (&head));
-	assert (reinterpret_cast<const uint8_t *> (&head) + sizeof (head) == reinterpret_cast<const uint8_t *> (&representative));
-	assert (reinterpret_cast<const uint8_t *> (&representative) + sizeof (representative) == reinterpret_cast<const uint8_t *> (&open_block));
-	assert (reinterpret_cast<const uint8_t *> (&open_block) + sizeof (open_block) == reinterpret_cast<const uint8_t *> (&balance));
-	assert (reinterpret_cast<const uint8_t *> (&balance) + sizeof (balance) == reinterpret_cast<const uint8_t *> (&modified));
-	assert (reinterpret_cast<const uint8_t *> (&modified) + sizeof (modified) == reinterpret_cast<const uint8_t *> (&block_count));
-	assert (reinterpret_cast<const uint8_t *> (&block_count) + sizeof (block_count) == reinterpret_cast<const uint8_t *> (&epoch_m));
+	debug_assert (reinterpret_cast<const uint8_t *> (this) == reinterpret_cast<const uint8_t *> (&head));
+	debug_assert (reinterpret_cast<const uint8_t *> (&head) + sizeof (head) == reinterpret_cast<const uint8_t *> (&representative));
+	debug_assert (reinterpret_cast<const uint8_t *> (&representative) + sizeof (representative) == reinterpret_cast<const uint8_t *> (&open_block));
+	debug_assert (reinterpret_cast<const uint8_t *> (&open_block) + sizeof (open_block) == reinterpret_cast<const uint8_t *> (&balance));
+	debug_assert (reinterpret_cast<const uint8_t *> (&balance) + sizeof (balance) == reinterpret_cast<const uint8_t *> (&modified));
+	debug_assert (reinterpret_cast<const uint8_t *> (&modified) + sizeof (modified) == reinterpret_cast<const uint8_t *> (&block_count));
+	debug_assert (reinterpret_cast<const uint8_t *> (&block_count) + sizeof (block_count) == reinterpret_cast<const uint8_t *> (&epoch_m));
 	return sizeof (head) + sizeof (representative) + sizeof (open_block) + sizeof (balance) + sizeof (modified) + sizeof (block_count) + sizeof (epoch_m);
 }
 
@@ -345,7 +345,7 @@ confirmed (confirmed_a)
 
 void nano::unchecked_info::serialize (nano::stream & stream_a) const
 {
-	assert (block != nullptr);
+	debug_assert (block != nullptr);
 	nano::serialize_block (stream_a, *block);
 	nano::write (stream_a, account.bytes);
 	nano::write (stream_a, modified);
@@ -555,8 +555,8 @@ nano::vote::vote (nano::account const & account_a, nano::raw_key const & prv_a, 
 sequence (sequence_a),
 account (account_a)
 {
-	assert (!blocks_a.empty ());
-	assert (blocks_a.size () <= 12);
+	debug_assert (!blocks_a.empty ());
+	debug_assert (blocks_a.size () <= 12);
 	blocks.reserve (blocks_a.size ());
 	std::copy (blocks_a.cbegin (), blocks_a.cend (), std::back_inserter (blocks));
 	signature = nano::sign_message (prv_a, account_a, hash ());
@@ -620,7 +620,7 @@ void nano::vote::serialize (nano::stream & stream_a, nano::block_type type) cons
 	{
 		if (block.which ())
 		{
-			assert (type == nano::block_type::not_a_block);
+			debug_assert (type == nano::block_type::not_a_block);
 			write (stream_a, boost::get<nano::block_hash> (block));
 		}
 		else
@@ -806,7 +806,7 @@ nano::genesis::genesis ()
 {
 	static nano::network_params network_params;
 	open = parse_block_from_genesis_data (network_params.ledger.genesis_block);
-	assert (open != nullptr);
+	debug_assert (open != nullptr);
 }
 
 nano::block_hash nano::genesis::hash () const

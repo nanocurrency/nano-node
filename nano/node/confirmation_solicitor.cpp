@@ -13,7 +13,7 @@ network (network_a)
 
 void nano::confirmation_solicitor::prepare (std::vector<nano::representative> const & representatives_a)
 {
-	assert (!prepared);
+	debug_assert (!prepared);
 	requests.clear ();
 	rebroadcasted = 0;
 	representatives = representatives_a;
@@ -22,7 +22,7 @@ void nano::confirmation_solicitor::prepare (std::vector<nano::representative> co
 
 bool nano::confirmation_solicitor::broadcast (nano::election const & election_a)
 {
-	assert (prepared);
+	debug_assert (prepared);
 	bool result (true);
 	if (rebroadcasted++ < max_block_broadcasts)
 	{
@@ -34,7 +34,7 @@ bool nano::confirmation_solicitor::broadcast (nano::election const & election_a)
 
 bool nano::confirmation_solicitor::add (nano::election const & election_a)
 {
-	assert (prepared);
+	debug_assert (prepared);
 	auto const max_channel_requests (max_confirm_req_batches * nano::network::confirm_req_hashes_max);
 	unsigned count = 0;
 	for (auto i (representatives.begin ()), n (representatives.end ()); i != n && count < max_election_requests; ++i)
@@ -55,7 +55,7 @@ bool nano::confirmation_solicitor::add (nano::election const & election_a)
 
 void nano::confirmation_solicitor::flush ()
 {
-	assert (prepared);
+	debug_assert (prepared);
 	for (auto const & request_queue : requests)
 	{
 		auto const & channel (request_queue.first);

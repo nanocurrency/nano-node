@@ -33,7 +33,7 @@ void nano::online_reps::sample ()
 	while (ledger.store.online_weight_count (transaction) >= network_params.node.max_weight_samples)
 	{
 		auto oldest (ledger.store.online_weight_begin (transaction));
-		assert (oldest != ledger.store.online_weight_end ());
+		debug_assert (oldest != ledger.store.online_weight_end ());
 		ledger.store.online_weight_del (transaction, oldest->first);
 	}
 	// Calculate current active rep weight

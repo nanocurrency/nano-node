@@ -121,7 +121,7 @@ bool nano::websocket::confirmation_options::should_filter (nano::websocket::mess
 			auto decode_destination_ok_l (!destination_l.decode_account (destination_opt_l.get ()));
 			(void)decode_source_ok_l;
 			(void)decode_destination_ok_l;
-			assert (decode_source_ok_l && decode_destination_ok_l);
+			debug_assert (decode_source_ok_l && decode_destination_ok_l);
 			if (wallets.exists (transaction_l, source_l) || wallets.exists (transaction_l, destination_l))
 			{
 				should_filter_account = false;
@@ -560,7 +560,7 @@ void nano::websocket::listener::broadcast_confirmation (std::shared_ptr<nano::bl
 				}
 				else
 				{
-					assert (false);
+					debug_assert (false);
 				}
 
 				session_ptr->write (include_block ? msg_with_block.get () : msg_without_block.get ());
@@ -685,7 +685,7 @@ nano::websocket::message nano::websocket::message_builder::vote_received (std::s
 			vote_type = "indeterminate";
 			break;
 		case nano::vote_code::invalid:
-			assert (false);
+			debug_assert (false);
 			break;
 	}
 	vote_node_l.put ("type", vote_type);

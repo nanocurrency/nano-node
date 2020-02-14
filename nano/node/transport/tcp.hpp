@@ -163,7 +163,7 @@ namespace transport
 			nano::account node_id () const
 			{
 				auto node_id (channel->get_node_id ());
-				assert (!node_id.is_zero ());
+				debug_assert (!node_id.is_zero ());
 				return node_id;
 			}
 		};

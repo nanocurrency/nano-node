@@ -13,7 +13,7 @@ endpoint (endpoint_a),
 channels (channels_a)
 {
 	set_network_version (protocol_version_a);
-	assert (endpoint_a.address ().is_v6 ());
+	debug_assert (endpoint_a.address ().is_v6 ());
 }
 
 size_t nano::transport::channel_udp::hash_code () const
@@ -102,7 +102,7 @@ void nano::transport::udp_channels::send (nano::shared_const_buffer const & buff
 
 std::shared_ptr<nano::transport::channel_udp> nano::transport::udp_channels::insert (nano::endpoint const & endpoint_a, unsigned network_version_a)
 {
-	assert (endpoint_a.address ().is_v6 ());
+	debug_assert (endpoint_a.address ().is_v6 ());
 	std::shared_ptr<nano::transport::channel_udp> result;
 	if (!node.network.not_a_peer (endpoint_a, node.config.allow_local_peers) && (node.network_params.network.is_test_network () || !max_ip_connections (endpoint_a)))
 	{
@@ -175,15 +175,15 @@ std::unordered_set<std::shared_ptr<nano::transport::channel>> nano::transport::u
 void nano::transport::udp_channels::random_fill (std::array<nano::endpoint, 8> & target_a) const
 {
 	auto peers (random_set (target_a.size ()));
-	assert (peers.size () <= target_a.size ());
+	debug_assert (peers.size () <= target_a.size ());
 	auto endpoint (nano::endpoint (boost::asio::ip::address_v6{}, 0));
-	assert (endpoint.address ().is_v6 ());
+	debug_assert (endpoint.address ().is_v6 ());
 	std::fill (target_a.begin (), target_a.end (), endpoint);
 	auto j (target_a.begin ());
 	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i, ++j)
 	{
-		assert ((*i)->get_endpoint ().address ().is_v6 ());
-		assert (j < target_a.end ());
+		debug_assert ((*i)->get_endpoint ().address ().is_v6 ());
+		debug_assert (j < target_a.end ());
 		*j = (*i)->get_endpoint ();
 	}
 }
@@ -315,7 +315,7 @@ void nano::transport::udp_channels::receive ()
 
 void nano::transport::udp_channels::start ()
 {
-	assert (!node.flags.disable_udp);
+	debug_assert (!node.flags.disable_udp);
 	for (size_t i = 0; i < node.config.io_threads && !stopped; ++i)
 	{
 		boost::asio::post (strand, [this]() {
@@ -418,19 +418,19 @@ public:
 	}
 	void bulk_pull (nano::bulk_pull const &) override
 	{
-		assert (false);
+		debug_assert (false);
 	}
 	void bulk_pull_account (nano::bulk_pull_account const &) override
 	{
-		assert (false);
+		debug_assert (false);
 	}
 	void bulk_push (nano::bulk_push const &) override
 	{
-		assert (false);
+		debug_assert (false);
 	}
 	void frontier_req (nano::frontier_req const &) override
 	{
-		assert (false);
+		debug_assert (false);
 	}
 	void telemetry_req (nano::telemetry_req const & message_a) override
 	{

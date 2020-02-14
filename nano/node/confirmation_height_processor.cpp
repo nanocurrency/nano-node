@@ -161,7 +161,7 @@ nano::block_hash nano::confirmation_height_processor::get_least_unconfirmed_hash
 void nano::confirmation_height_processor::set_next_hash ()
 {
 	nano::lock_guard<std::mutex> guard (mutex);
-	assert (!awaiting_processing.empty ());
+	debug_assert (!awaiting_processing.empty ());
 	original_hash = *awaiting_processing.begin ();
 	original_hashes_pending.insert (original_hash);
 	awaiting_processing.erase (original_hash);
@@ -197,7 +197,7 @@ void nano::confirmation_height_processor::process ()
 
 		nano::block_sideband sideband;
 		auto block = ledger.store.block_get (transaction, current, &sideband);
-		assert (block != nullptr);
+		debug_assert (block != nullptr);
 		auto block_height = sideband.height;
 		bool already_cemented = confirmation_height_info.height >= block_height;
 
@@ -294,7 +294,7 @@ void nano::confirmation_height_processor::process ()
 		transaction.refresh ();
 	} while (!receive_source_pairs.empty () || current != original_hash);
 
-	assert (checkpoints.empty ());
+	debug_assert (checkpoints.empty ());
 }
 
 bool nano::confirmation_height_processor::iterate (nano::read_transaction const & transaction_a, uint64_t bottom_height_a, nano::block_hash const & bottom_hash_a, boost::circular_buffer_space_optimized<nano::block_hash> & checkpoints_a, nano::block_hash & top_most_non_receive_block_hash_a, nano::block_hash const & top_level_hash_a, boost::circular_buffer_space_optimized<receive_source_pair> & receive_source_pairs_a, nano::account const & account_a)
@@ -430,10 +430,10 @@ bool nano::confirmation_height_processor::cement_blocks ()
 #ifndef NDEBUG
 				// Extra debug checks
 				nano::confirmation_height_info confirmation_height_info;
-				assert (!ledger.store.confirmation_height_get (transaction, account, confirmation_height_info));
+				debug_assert (!ledger.store.confirmation_height_get (transaction, account, confirmation_height_info));
 				nano::block_sideband sideband;
-				assert (ledger.store.block_get (transaction, confirmed_frontier, &sideband));
-				assert (sideband.height == confirmation_height_info.height + num_blocks_cemented);
+				debug_assert (ledger.store.block_get (transaction, confirmed_frontier, &sideband));
+				debug_assert (sideband.height == confirmation_height_info.height + num_blocks_cemented);
 #endif
 				ledger.store.confirmation_height_put (transaction, account, nano::confirmation_height_info{ confirmation_height, confirmed_frontier });
 				ledger.cache.cemented_count += num_blocks_cemented;
@@ -455,7 +455,7 @@ bool nano::confirmation_height_processor::cement_blocks ()
 				{
 					new_cemented_frontier = pending.bottom_hash;
 					// If we are higher than the cemented frontier, we should be exactly 1 block above
-					assert (pending.bottom_height == confirmation_height_info.height + 1);
+					debug_assert (pending.bottom_height == confirmation_height_info.height + 1);
 					num_blocks_confirmed = pending.top_height - pending.bottom_height + 1;
 					start_height = pending.bottom_height;
 				}
@@ -509,7 +509,7 @@ bool nano::confirmation_height_processor::cement_blocks ()
 					else
 					{
 						// Confirm it is indeed the last one
-						assert (new_cemented_frontier == pending.top_hash);
+						debug_assert (new_cemented_frontier == pending.top_hash);
 					}
 				}
 
@@ -530,8 +530,8 @@ bool nano::confirmation_height_processor::cement_blocks ()
 
 	notify_observers (cemented_blocks);
 
-	assert (pending_writes.empty ());
-	assert (pending_writes_size == 0);
+	debug_assert (pending_writes.empty ());
+	debug_assert (pending_writes_size == 0);
 	nano::lock_guard<std::mutex> guard (mutex);
 	original_hashes_pending.clear ();
 	return false;

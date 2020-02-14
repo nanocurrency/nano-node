@@ -143,7 +143,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 					wallet_config.account = wallet->deterministic_insert (transaction);
 				}
 			}
-			assert (wallet->exists (wallet_config.account));
+			debug_assert (wallet->exists (wallet_config.account));
 			write_wallet_config (wallet_config, data_path);
 			node->start ();
 			nano::ipc::ipc_server ipc (*node, config.rpc);

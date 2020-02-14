@@ -39,7 +39,7 @@ uint64_t nano::work_value (nano::root const & root_a, uint64_t work_a)
 	static nano::network_constants network_constants;
 	if (!network_constants.is_test_network ())
 	{
-		assert (false);
+		debug_assert (false);
 		std::exit (1);
 	}
 	return network_constants.publish_threshold + 1;
@@ -145,8 +145,8 @@ void nano::work_pool::loop (uint64_t thread)
 			if (ticket == ticket_l)
 			{
 				// If the ticket matches what we started with, we're the ones that found the solution
-				assert (output >= current_l.difficulty);
-				assert (current_l.difficulty == 0 || work_value (current_l.item, work) == output);
+				debug_assert (output >= current_l.difficulty);
+				debug_assert (current_l.difficulty == 0 || work_value (current_l.item, work) == output);
 				// Signal other threads to stop their work next time they check ticket
 				++ticket;
 				pending.pop_front ();
@@ -211,7 +211,7 @@ void nano::work_pool::generate (nano::root const & root_a, std::function<void(bo
 
 void nano::work_pool::generate (nano::root const & root_a, std::function<void(boost::optional<uint64_t> const &)> callback_a, uint64_t difficulty_a)
 {
-	assert (!root_a.is_zero ());
+	debug_assert (!root_a.is_zero ());
 	if (!threads.empty ())
 	{
 		{

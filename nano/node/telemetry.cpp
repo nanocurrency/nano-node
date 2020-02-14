@@ -234,7 +234,7 @@ void nano::telemetry::get_metrics_single_peer_async (std::shared_ptr<nano::trans
 				auto const error = !telemetry_data_responses_a.all_received;
 				if (!error)
 				{
-					assert (telemetry_data_responses_a.telemetry_data_time_pairs.size () == 1);
+					debug_assert (telemetry_data_responses_a.telemetry_data_time_pairs.size () == 1);
 					auto it = telemetry_data_responses_a.telemetry_data_time_pairs.begin ();
 					callback_a ({ it->second, it->first, error });
 				}
@@ -332,7 +332,7 @@ void nano::telemetry_impl::get_metrics_async (std::deque<std::shared_ptr<nano::t
 		}
 
 		failed.clear ();
-		assert (required_responses.empty ());
+		debug_assert (required_responses.empty ());
 		std::transform (channels_a.begin (), channels_a.end (), std::inserter (required_responses, required_responses.end ()), [](auto const & channel) {
 			return channel->get_endpoint ();
 		});
@@ -386,11 +386,11 @@ void nano::telemetry_impl::invoke_callbacks ()
 
 void nano::telemetry_impl::channel_processed (nano::unique_lock<std::mutex> & lk_a, nano::endpoint const & endpoint_a)
 {
-	assert (lk_a.owns_lock ());
+	debug_assert (lk_a.owns_lock ());
 	auto num_removed = required_responses.erase (endpoint_a);
 	if (num_removed > 0 && required_responses.empty ())
 	{
-		assert (lk_a.owns_lock ());
+		debug_assert (lk_a.owns_lock ());
 		cached_telemetry_data = current_telemetry_data_responses;
 
 		last_time = std::chrono::steady_clock::now ();
@@ -411,7 +411,7 @@ void nano::telemetry_impl::fire_request_messages (std::deque<std::shared_ptr<nan
 	nano::telemetry_req message;
 	for (auto & channel : channels)
 	{
-		assert (channel->get_network_version () >= network_params.protocol.telemetry_protocol_version_min);
+		debug_assert (channel->get_network_version () >= network_params.protocol.telemetry_protocol_version_min);
 
 		std::weak_ptr<nano::telemetry_impl> this_w (shared_from_this ());
 		// clang-format off
@@ -653,7 +653,7 @@ nano::telemetry_data_time_pair nano::consolidate_telemetry_data_time_pairs (std:
 	// May only have major version, but check for optional parameters as well, only output if all are used
 	std::vector<std::string> version_fragments;
 	boost::split (version_fragments, version, boost::is_any_of ("."));
-	assert (!version_fragments.empty () && version_fragments.size () <= 5);
+	debug_assert (!version_fragments.empty () && version_fragments.size () <= 5);
 	consolidated_data.major_version = boost::lexical_cast<uint8_t> (version_fragments.front ());
 	if (version_fragments.size () == 5)
 	{
