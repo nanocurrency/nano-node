@@ -10,11 +10,11 @@ TEST (election, construction)
 	nano::genesis genesis;
 	auto & node = *system.nodes[0];
 	auto election = node.active.insert (genesis.open).first;
-	ASSERT_FALSE (election->idle ());
-	election->transition_idle ();
 	ASSERT_TRUE (election->idle ());
 	election->transition_active ();
 	ASSERT_FALSE (election->idle ());
 	election->transition_idle ();
 	ASSERT_TRUE (election->idle ());
+	election->transition_passive ();
+	ASSERT_FALSE (election->idle ());
 }

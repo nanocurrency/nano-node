@@ -52,6 +52,7 @@ class election final : public std::enable_shared_from_this<nano::election>
 {
 	// Minimum time between broadcasts of the current winner of an election, as a backup to requesting confirmations
 	std::chrono::milliseconds const min_time_between_floods;
+	std::chrono::milliseconds const min_time_between_votes;
 	std::function<void(std::shared_ptr<nano::block>)> confirmation_action;
 
 private: // State management
@@ -60,15 +61,20 @@ private: // State management
 		idle,
 		passive,
 		active,
-		backtracking,
 		confirmed
 	};
-	std::chrono::steady_clock::time_point state_start;
-	std::chrono::steady_clock::time_point last_confirm_req;
+	bool passive_broadcast_once = { false };
+	bool active_backtrack_once = { false };
+	std::chrono::steady_clock::time_point state_start = { std::chrono::steady_clock::now () };
 	std::atomic<nano::election::state_t> state_m = { state_t::idle };
+	std::chrono::steady_clock::time_point last_vote = { std::chrono::steady_clock::time_point () };
+	std::chrono::steady_clock::time_point last_broadcast = { std::chrono::steady_clock::time_point () };
+	std::chrono::steady_clock::time_point last_confirm_req = { std::chrono::steady_clock::time_point () };
+	
 	bool state_change (nano::election::state_t, nano::election::state_t);
+	void broadcast_block ();
 	void send_confirm_req ();
-	void activate_dependencies (nano::transaction const &);
+	void activate_dependencies ();
 
 public:
 	election (nano::node &, std::shared_ptr<nano::block>, bool const, std::function<void(std::shared_ptr<nano::block>)> const &);
@@ -88,7 +94,7 @@ public:
 	void insert_inactive_votes_cache (nano::block_hash const &);
 
 public: // State transitions
-	bool transition_time (nano::transaction const &);
+	bool transition_time ();
 	void transition_passive ();
 	void transition_active ();
 	void transition_idle ();
@@ -99,12 +105,10 @@ public:
 	nano::node & node;
 	std::unordered_map<nano::account, nano::vote_info> last_votes;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks;
-	std::chrono::steady_clock::time_point election_start;
+	std::chrono::steady_clock::time_point election_start = { std::chrono::steady_clock::now () };
 	nano::election_status status;
 	unsigned confirmation_request_count{ 0 };
 	std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
-	std::chrono::steady_clock::time_point last_broadcast;
-	std::chrono::steady_clock::time_point last_request;
 	std::unordered_set<nano::block_hash> dependent_blocks;
 	std::chrono::seconds late_blocks_delay{ 5 };
 };
