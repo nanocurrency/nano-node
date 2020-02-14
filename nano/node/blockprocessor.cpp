@@ -67,7 +67,7 @@ void nano::block_processor::add (std::shared_ptr<nano::block> block_a, uint64_t 
 	add (info);
 }
 
-void nano::block_processor::add (nano::unchecked_info const & info_a)
+void nano::block_processor::add (nano::unchecked_info const & info_a, bool push_front_preference)
 {
 	if (!nano::work_validate (info_a.block->root (), info_a.block->block_work ()))
 	{
@@ -77,9 +77,17 @@ void nano::block_processor::add (nano::unchecked_info const & info_a)
 			nano::lock_guard<std::mutex> lock (mutex);
 			if (blocks_filter.find (filter_hash) == blocks_filter.end ())
 			{
+				bool quarter_full ((blocks.size () + state_blocks.size () + forced.size ()) > node.flags.block_processor_full_size / 4);
 				if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
 				{
 					state_blocks.push_back (info_a);
+				}
+				else if (push_front_preference && !quarter_full)
+				{
+					/* Push blocks from unchecked to front of processing deque to keep more operations with unchecked inside of single write transaction.
+					It's designed to help with realtime blocks traffic if block processor is not performing large task like bootstrap.
+					If deque is a quarter full then push back to allow other blocks processing. */
+					blocks.push_front (info_a);
 				}
 				else
 				{
@@ -560,7 +568,7 @@ void nano::block_processor::queue_unchecked (nano::write_transaction const & tra
 				--node.ledger.cache.unchecked_count;
 			}
 		}
-		add (info);
+		add (info, true);
 	}
 	node.gap_cache.erase (hash_a);
 }
