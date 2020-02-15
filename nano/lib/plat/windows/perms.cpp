@@ -2,8 +2,6 @@
 
 #include <boost/filesystem.hpp>
 
-#include <cassert>
-
 // clang-format off
 // Keep windows.h header at the top
 #include <windows.h>

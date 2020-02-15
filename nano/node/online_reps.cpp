@@ -3,8 +3,6 @@
 #include <nano/secure/common.hpp>
 #include <nano/secure/ledger.hpp>
 
-#include <cassert>
-
 nano::online_reps::online_reps (nano::ledger & ledger_a, nano::network_params & network_params_a, nano::uint128_t minimum_a) :
 ledger (ledger_a),
 network_params (network_params_a),

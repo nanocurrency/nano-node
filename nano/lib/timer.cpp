@@ -1,7 +1,6 @@
 #include <nano/lib/timer.hpp>
 #include <nano/lib/utility.hpp>
 
-#include <cassert>
 #include <iomanip>
 #include <sstream>
 

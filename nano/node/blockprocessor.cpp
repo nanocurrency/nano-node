@@ -5,8 +5,6 @@
 
 #include <boost/format.hpp>
 
-#include <cassert>
-
 std::chrono::milliseconds constexpr nano::block_processor::confirmation_request_delay;
 
 nano::block_processor::block_processor (nano::node & node_a, nano::write_database_queue & write_database_queue_a) :

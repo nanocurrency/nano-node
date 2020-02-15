@@ -8,7 +8,6 @@
 #include <boost/algorithm/string.hpp>
 
 #include <algorithm>
-#include <cassert>
 #include <cstdint>
 #include <future>
 #include <numeric>

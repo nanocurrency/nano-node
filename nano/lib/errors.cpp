@@ -3,8 +3,6 @@
 
 #include <boost/system/error_code.hpp>
 
-#include <cassert>
-
 std::string nano::error_common_messages::message (int ev) const
 {
 	switch (static_cast<nano::error_common> (ev))

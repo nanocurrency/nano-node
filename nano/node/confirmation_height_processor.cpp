@@ -11,7 +11,6 @@
 
 #include <boost/optional.hpp>
 
-#include <cassert>
 #include <numeric>
 
 nano::confirmation_height_processor::confirmation_height_processor (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logger_mt & logger_a) :

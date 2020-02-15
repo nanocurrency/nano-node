@@ -2,7 +2,6 @@
 
 #include <nano/lib/utility.hpp>
 
-#include <cassert>
 #include <streambuf>
 
 namespace nano
