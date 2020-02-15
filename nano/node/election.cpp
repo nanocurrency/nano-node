@@ -53,9 +53,9 @@ bool nano::election::state_change (nano::election::state_t expected_a, nano::ele
 	if (state_m.compare_exchange_strong (expected_a, desired_a))
 	{
 		state_start = std::chrono::steady_clock::now ();
-		return true;
+		return false;
 	}
-	return false;
+	return true;
 }
 
 void nano::election::send_confirm_req ()
@@ -69,14 +69,31 @@ void nano::election::send_confirm_req ()
 
 void nano::election::transition_passive ()
 {
-	assert (state_m == nano::election::state_t::idle);
-	state_change (nano::election::state_t::idle, nano::election::state_t::passive);
+	if (!state_change (nano::election::state_t::idle, nano::election::state_t::passive))
+	{
+		if (std::chrono::steady_clock::now () - last_broadcast > min_time_between_floods)
+		{
+			last_broadcast = std::chrono::steady_clock::now ();
+			node.network.flood_block (status.winner);
+		}
+		if (std::chrono::steady_clock::now () - last_vote > min_time_between_votes)
+		{
+			last_vote = std::chrono::steady_clock::now ();
+			node.block_processor.generator.add (status.winner->hash ());
+		}
+	}
 }
 
 void nano::election::transition_active ()
 {
-	assert (state_m == nano::election::state_t::idle);
-	state_change (nano::election::state_t::idle, nano::election::state_t::active);
+	if (!state_change (nano::election::state_t::idle, nano::election::state_t::active))
+	{
+		if (std::chrono::steady_clock::now () - last_broadcast > min_time_between_floods)
+		{
+			last_broadcast = std::chrono::steady_clock::now ();
+			node.network.flood_block (status.winner);
+		}
+	}
 }
 
 void nano::election::transition_idle ()
@@ -127,27 +144,12 @@ bool nano::election::transition_time ()
 		case nano::election::state_t::idle:
 			break;
 		case nano::election::state_t::passive:
-			if (!passive_broadcast_once)
-			{
-				passive_broadcast_once = true;
-				if (std::chrono::steady_clock::now () - last_broadcast > min_time_between_floods)
-				{
-					last_broadcast = std::chrono::steady_clock::now ();
-					node.network.flood_block (status.winner);
-				}
-				if (std::chrono::steady_clock::now () - last_vote > min_time_between_votes)
-				{
-					last_vote = std::chrono::steady_clock::now ();
-					node.block_processor.generator.add (status.winner->hash ());
-				}
-			}
 			if (state_start + std::chrono::seconds (5) < std::chrono::steady_clock::now ())
 			{
 				state_change (nano::election::state_t::passive, nano::election::state_t::active);
 			}
 			break;
 		case nano::election::state_t::active:
-			broadcast_block ();
 			send_confirm_req ();
 			if (!active_backtrack_once && state_start + std::chrono::seconds (60) < std::chrono::steady_clock::now ())
 			{
