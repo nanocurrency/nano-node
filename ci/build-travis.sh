@@ -20,7 +20,7 @@ if [[ $(grep -rl --exclude={"*random_pool.cpp","*random_pool.hpp","*random_pool_
     exit 1
 fi
 
-if [[ $(grep -rlP "\s*assert \(" ./nano) ]]; then
+if [[ $(grep -rlP "^\s*assert \(" ./nano) ]]; then
     echo "Using assert is not permitted. Use debug_assert instead."
     exit 1
 fi
