@@ -51,8 +51,7 @@ public:
 class election final : public std::enable_shared_from_this<nano::election>
 {
 	// Minimum time between broadcasts of the current winner of an election, as a backup to requesting confirmations
-	std::chrono::milliseconds const min_time_between_floods;
-	std::chrono::milliseconds const min_time_between_votes;
+	std::chrono::milliseconds base_latency () const;
 	std::function<void(std::shared_ptr<nano::block>)> confirmation_action;
 
 private: // State management
@@ -63,13 +62,13 @@ private: // State management
 		active,
 		confirmed
 	};
-	bool passive_broadcast_once = { false };
 	bool active_backtrack_once = { false };
-	std::chrono::steady_clock::time_point state_start = { std::chrono::steady_clock::now () };
 	std::atomic<nano::election::state_t> state_m = { state_t::idle };
+	
+	std::chrono::steady_clock::time_point state_start = { std::chrono::steady_clock::now () };
 	std::chrono::steady_clock::time_point last_vote = { std::chrono::steady_clock::time_point () };
-	std::chrono::steady_clock::time_point last_broadcast = { std::chrono::steady_clock::time_point () };
-	std::chrono::steady_clock::time_point last_confirm_req = { std::chrono::steady_clock::time_point () };
+	std::chrono::steady_clock::time_point last_block = { std::chrono::steady_clock::time_point () };
+	std::chrono::steady_clock::time_point last_req = { std::chrono::steady_clock::time_point () };
 	
 	bool state_change (nano::election::state_t, nano::election::state_t);
 	void broadcast_block ();

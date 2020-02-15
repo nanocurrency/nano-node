@@ -5,6 +5,11 @@
 
 using namespace std::chrono;
 
+std::chrono::milliseconds nano::election::base_latency () const
+{
+	return node.network_params.network.is_test_network () ? 100ms : 1000ms;
+}
+
 nano::election_vote_result::election_vote_result (bool replay_a, bool processed_a)
 {
 	replay = replay_a;
@@ -12,8 +17,6 @@ nano::election_vote_result::election_vote_result (bool replay_a, bool processed_
 }
 
 nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> block_a, bool const skip_delay_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a) :
-min_time_between_floods (node_a.network_params.network.is_test_network () ? 50ms : 6s),
-min_time_between_votes (node_a.network_params.network.is_test_network () ? 50ms : 15s),
 confirmation_action (confirmation_action_a),
 node (node_a),
 status ({ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::ongoing })
@@ -60,9 +63,9 @@ bool nano::election::state_change (nano::election::state_t expected_a, nano::ele
 
 void nano::election::send_confirm_req ()
 {
-	if (last_confirm_req + std::chrono::seconds (15) < std::chrono::steady_clock::now ())
+	if (last_req + std::chrono::seconds (15) < std::chrono::steady_clock::now ())
 	{
-		last_confirm_req = std::chrono::steady_clock::now ();
+		last_req = std::chrono::steady_clock::now ();
 		node.active.solicitor.add (*this);
 	}
 }
@@ -71,12 +74,12 @@ void nano::election::transition_passive ()
 {
 	if (!state_change (nano::election::state_t::idle, nano::election::state_t::passive))
 	{
-		if (std::chrono::steady_clock::now () - last_broadcast > min_time_between_floods)
+		if (base_latency () * 5 < std::chrono::steady_clock::now () - last_block)
 		{
-			last_broadcast = std::chrono::steady_clock::now ();
+			last_block = std::chrono::steady_clock::now ();
 			node.network.flood_block (status.winner);
 		}
-		if (std::chrono::steady_clock::now () - last_vote > min_time_between_votes)
+		if (base_latency () * 10 < std::chrono::steady_clock::now () - last_vote)
 		{
 			last_vote = std::chrono::steady_clock::now ();
 			node.block_processor.generator.add (status.winner->hash ());
@@ -88,9 +91,9 @@ void nano::election::transition_active ()
 {
 	if (!state_change (nano::election::state_t::idle, nano::election::state_t::active))
 	{
-		if (std::chrono::steady_clock::now () - last_broadcast > min_time_between_floods)
+		if (base_latency () * 5 < std::chrono::steady_clock::now () - last_block)
 		{
-			last_broadcast = std::chrono::steady_clock::now ();
+			last_block = std::chrono::steady_clock::now ();
 			node.network.flood_block (status.winner);
 		}
 	}
@@ -102,8 +105,6 @@ void nano::election::transition_idle ()
 	if (state_l != nano::election::state_t::confirmed)
 	{
 		state_change (state_l, nano::election::state_t::idle);
-		passive_broadcast_once = false;
-		active_backtrack_once = false;
 	}
 }
 
@@ -124,16 +125,16 @@ void nano::election::activate_dependencies ()
 
 void nano::election::broadcast_block ()
 {
-	if (std::chrono::steady_clock::now () - last_broadcast > min_time_between_floods && !node.active.solicitor.broadcast (*this))
+	if (base_latency () * 5 < std::chrono::steady_clock::now () - last_block && !node.active.solicitor.broadcast (*this))
 	{
-		last_broadcast = std::chrono::steady_clock::now ();
+		last_block = std::chrono::steady_clock::now ();
 	}
 }
 
 bool nano::election::transition_time ()
 {
 	bool result = false;
-	if (election_start + std::chrono::minutes (5) < std::chrono::steady_clock::now ())
+	if (std::chrono::minutes (5) < std::chrono::steady_clock::now () - election_start)
 	{
 		result = true;
 		status.type = nano::election_status_type::stopped;
@@ -144,21 +145,25 @@ bool nano::election::transition_time ()
 		case nano::election::state_t::idle:
 			break;
 		case nano::election::state_t::passive:
-			if (state_start + std::chrono::seconds (5) < std::chrono::steady_clock::now ())
+		{
+			auto diff = std::chrono::steady_clock::now () - state_start;
+			if (base_latency () * 5 < diff)
 			{
 				state_change (nano::election::state_t::passive, nano::election::state_t::active);
 			}
 			break;
+		}
 		case nano::election::state_t::active:
+			broadcast_block ();
 			send_confirm_req ();
-			if (!active_backtrack_once && state_start + std::chrono::seconds (60) < std::chrono::steady_clock::now ())
+			if (!active_backtrack_once && base_latency () * 10 < std::chrono::steady_clock::now () - state_start)
 			{
 				active_backtrack_once = true;
 				activate_dependencies ();
 			}
 			break;
 		case nano::election::state_t::confirmed:
-			if (state_start + min_time_between_votes < std::chrono::steady_clock::now ())
+			if (base_latency () * 10 < std::chrono::steady_clock::now () - state_start)
 			{
 				result = true;
 			}
