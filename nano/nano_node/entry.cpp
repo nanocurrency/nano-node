@@ -803,23 +803,19 @@ int main (int argc, char * const * argv)
 				node->process_active (block);
 				blocks.pop_front ();
 			}
-			size_t count (0);
+			nano::timer<std::chrono::seconds> timer_l (nano::timer_state::started);
 			while (node->ledger.cache.block_count != max_blocks + 1)
 			{
 				std::this_thread::sleep_for (std::chrono::milliseconds (10));
-				++count;
 				// Message each 15 seconds
-				if ((count % 1500) == 0)
+				if (timer_l.after_deadline (std::chrono::seconds (15)))
 				{
-					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (unchecked)") % node->ledger.cache.block_count % node->ledger.cache.unchecked_count) << std::endl;
+					timer_l.restart ();
+					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (unchecked), %3% remaining") % node->ledger.cache.block_count % node->ledger.cache.unchecked_count % node->block_processor.size ()) << std::endl;
 				}
 			}
 			// Waiting for final transaction commit
 			uint64_t block_count (0);
-			{
-				auto transaction (node->store.tx_begin_read ());
-				block_count = node->store.block_count (transaction).sum ();
-			}
 			while (block_count < max_blocks + 1)
 			{
 				std::this_thread::sleep_for (std::chrono::milliseconds (10));
