@@ -1242,25 +1242,22 @@ int main (int argc, char * const * argv)
 					}
 				}
 			}
-			count = 0;
+			nano::timer<std::chrono::seconds> timer_l (nano::timer_state::started);
 			while (node2.node->ledger.cache.block_count != block_count)
 			{
-				std::this_thread::sleep_for (std::chrono::seconds (1));
-				if ((count % 60) == 0)
+				std::this_thread::sleep_for (std::chrono::milliseconds (50));
+				// Message each 60 seconds
+				if (timer_l.after_deadline (std::chrono::seconds (60)))
 				{
-					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (cache)") % node2.node->ledger.cache.block_count % node2.node->ledger.cache.unchecked_count) << std::endl;
+					timer_l.restart ();
+					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (unchecked)") % node2.node->ledger.cache.block_count % node2.node->ledger.cache.unchecked_count) << std::endl;
 				}
-				count++;
 			}
 			// Waiting for final transaction commit
 			uint64_t block_count_2 (0);
-			{
-				auto transaction_2 (node2.node->store.tx_begin_read ());
-				block_count_2 = node2.node->store.block_count (transaction_2).sum ();
-			}
 			while (block_count_2 != block_count)
 			{
-				std::this_thread::sleep_for (std::chrono::milliseconds (500));
+				std::this_thread::sleep_for (std::chrono::milliseconds (50));
 				auto transaction_2 (node2.node->store.tx_begin_read ());
 				block_count_2 = node2.node->store.block_count (transaction_2).sum ();
 			}
