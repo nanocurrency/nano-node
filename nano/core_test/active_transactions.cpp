@@ -618,3 +618,43 @@ TEST (active_transactions, vote_replays)
 	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote1_send2));
 	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote2_send2));
 }
+
+TEST (active_transactions, activate_dependencies)
+{
+	// Ensure that we attempt to backtrack if an election isn't getting confirmed and there are more uncemented blocks to start elections for
+	nano::system system (2);
+	auto & node1 (*system.nodes [0]);
+	auto & node2 (*system.nodes [1]);
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	nano::genesis genesis;
+	nano::block_builder builder;
+	auto block1 = builder.state ()
+			.account (nano::test_genesis_key.pub)
+			.previous (genesis.hash ())
+			.representative (nano::test_genesis_key.pub)
+			.balance (nano::genesis_amount - nano::Gxrb_ratio)
+			.link (0)
+			.sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+			.work (node1.work_generate_blocking (genesis.hash ()).value ())
+			.build ();
+	{
+		auto transaction = node2.store.tx_begin_write ();
+		ASSERT_EQ (nano::process_result::progress, node2.ledger.process (transaction, *block1).code);
+	}
+	std::shared_ptr<nano::block> block2 = builder.state ()
+			.account (nano::test_genesis_key.pub)
+			.previous (block1->hash ())
+			.representative (nano::test_genesis_key.pub)
+			.balance (nano::genesis_amount - 2 * nano::Gxrb_ratio)
+			.link (0)
+			.sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+			.work (node1.work_generate_blocking (block1->hash ()).value ())
+			.build ();
+	node2.process_active (block2);
+	node2.block_processor.flush ();
+	system.deadline_set (std::chrono::seconds (5));
+	while (node1.block(block2->hash ()) == nullptr)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
