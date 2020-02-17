@@ -222,7 +222,7 @@ void nano::active_transactions::election_escalate (std::shared_ptr<nano::electio
 	 * Escalation for long unconfirmed elections
 	 * Start new elections for previous block & source if there are less than 100 active elections
 	 */
-	if (election_l->confirmation_request_count % high_confirmation_request_count == 1 && roots_size_l < 100 && !node.network_params.network.is_test_network ())
+	if (election_l->confirmation_request_count % high_confirmation_request_count == 1 && roots_size_l < 100)
 	{
 		bool escalated_l (false);
 		std::shared_ptr<nano::block> previous_l;
