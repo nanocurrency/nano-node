@@ -44,8 +44,14 @@ ulimit -S -n 8192
 if [[ "$OS" == 'Linux' ]]; then
     ROCKSDB="-DROCKSDB_LIBRARIES=/tmp/rocksdb/lib/librocksdb.a \
     -DROCKSDB_INCLUDE_DIRS=/tmp/rocksdb/include"
+    if clang --version; then
+        BACKTRACE="-DBACKTRACE_INCLUDE=</tmp/backtrace.h>"
+    else
+        BACKTRACE=""
+    fi
 else
     ROCKSDB=""
+    BACKTRACE=""
 fi
 
 cmake \
@@ -61,6 +67,7 @@ cmake \
     -DBOOST_ROOT=/tmp/boost/ \
     -DQt5_DIR=${qt_dir} \
     -DCI_TEST="1" \
+    ${BACKTRACE} \
     ${SANITIZERS} \
     ..
 
