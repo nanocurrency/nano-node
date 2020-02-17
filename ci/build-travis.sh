@@ -45,9 +45,10 @@ if [[ "$OS" == 'Linux' ]]; then
     ROCKSDB="-DROCKSDB_LIBRARIES=/tmp/rocksdb/lib/librocksdb.a \
     -DROCKSDB_INCLUDE_DIRS=/tmp/rocksdb/include"
     if clang --version; then
-        BACKTRACE="-DBACKTRACE_INCLUDE=</tmp/backtrace.h>"
+        BACKTRACE="-DNANO_STACKTRACE_BACKTRACE=ON \
+        -DBACKTRACE_INCLUDE=</tmp/backtrace.h>"
     else
-        BACKTRACE=""
+        BACKTRACE="-DNANO_STACKTRACE_BACKTRACE=ON"
     fi
 else
     ROCKSDB=""
