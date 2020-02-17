@@ -103,8 +103,10 @@ void nano::active_transactions::search_frontiers (nano::transaction const & tran
 					if (info.block_count > confirmation_height_info.height && !this->confirmation_height_processor.is_processing_block (info.head))
 					{
 						auto block (this->node.store.block_get (transaction_a, info.head));
-						if (this->insert (block, true).first)
+						auto election = this->insert (block, true);
+						if (election.second)
 						{
+							election.first->transition_active ();
 							++elections_count;
 							// Calculate votes for local representatives
 							if (representative)
