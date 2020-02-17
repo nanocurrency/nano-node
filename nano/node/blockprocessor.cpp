@@ -476,6 +476,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				queue_unchecked (transaction_a, hash);
 			}
 			node.active.update_difficulty (info_a.block);
+			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::old);
 			break;
 		}
 		case nano::process_result::bad_signature:
@@ -558,7 +559,7 @@ void nano::block_processor::queue_unchecked (nano::write_transaction const & tra
 	auto unchecked_blocks (node.store.unchecked_get (transaction_a, hash_a));
 	for (auto & info : unchecked_blocks)
 	{
-		if (!node.flags.fast_bootstrap)
+		if (!node.flags.disable_block_processor_unchecked_deletion)
 		{
 			if (!node.store.unchecked_del (transaction_a, nano::unchecked_key (hash_a, info.block->hash ())))
 			{
