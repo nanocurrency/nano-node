@@ -151,7 +151,6 @@ private:
 	// clang-format on
 	void request_loop ();
 	void search_frontiers (nano::transaction const &);
-	void election_escalate (std::shared_ptr<nano::election> &, nano::transaction const &, size_t const &);
 	void request_confirm (nano::unique_lock<std::mutex> &);
 	nano::account next_frontier_account{ 0 };
 	std::chrono::steady_clock::time_point next_frontier_check{ std::chrono::steady_clock::now () };

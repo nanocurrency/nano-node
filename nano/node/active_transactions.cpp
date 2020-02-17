@@ -209,50 +209,6 @@ void nano::active_transactions::cemented_batch_finished_callback ()
 	}
 }
 
-void nano::active_transactions::election_escalate (std::shared_ptr<nano::election> & election_l, nano::transaction const & transaction_l, size_t const & roots_size_l)
-{
-	constexpr unsigned high_confirmation_request_count{ 128 };
-
-	/*
-	 * Escalation for long unconfirmed elections
-	 * Start new elections for previous block & source if there are less than 100 active elections
-	 */
-	if (election_l->confirmation_request_count % high_confirmation_request_count == 1 && roots_size_l < 100)
-	{
-		bool escalated_l (false);
-		std::shared_ptr<nano::block> previous_l;
-		auto previous_hash_l (election_l->status.winner->previous ());
-		if (!previous_hash_l.is_zero ())
-		{
-			previous_l = node.store.block_get (transaction_l, previous_hash_l);
-			if (previous_l != nullptr && blocks.find (previous_hash_l) == blocks.end () && !node.block_confirmed_or_being_confirmed (transaction_l, previous_hash_l))
-			{
-				insert_impl (std::move (previous_l), true);
-				escalated_l = true;
-			}
-		}
-		/* If previous block not existing/not commited yet, block_source can cause segfault for state blocks
-					So source check can be done only if previous != nullptr or previous is 0 (open account) */
-		if (previous_hash_l.is_zero () || previous_l != nullptr)
-		{
-			auto source_hash_l (node.ledger.block_source (transaction_l, *election_l->status.winner));
-			if (!source_hash_l.is_zero () && source_hash_l != previous_hash_l && blocks.find (source_hash_l) == blocks.end ())
-			{
-				auto source_l (node.store.block_get (transaction_l, source_hash_l));
-				if (source_l != nullptr && !node.block_confirmed_or_being_confirmed (transaction_l, source_hash_l))
-				{
-					insert_impl (std::move (source_l), true);
-					escalated_l = true;
-				}
-			}
-		}
-		if (escalated_l)
-		{
-			election_l->update_dependent ();
-		}
-	}
-}
-
 void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> & lock_a)
 {
 	assert (!mutex.try_lock ());

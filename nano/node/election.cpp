@@ -122,7 +122,46 @@ bool nano::election::confirmed ()
 
 void nano::election::activate_dependencies ()
 {
-	assert (false);
+	auto transaction = node.store.tx_begin_read ();
+	bool escalated_l (false);
+	std::shared_ptr<nano::block> previous_l;
+	auto previous_hash_l (status.winner->previous ());
+	if (!previous_hash_l.is_zero () && node.active.blocks.find (previous_hash_l) == node.active.blocks.end ())
+	{
+		previous_l = node.store.block_get (transaction, previous_hash_l);
+		if (previous_l != nullptr && !node.block_confirmed_or_being_confirmed (transaction, previous_hash_l))
+		{
+			auto election = node.active.insert_impl (previous_l, true);
+			if (election.second)
+			{
+				election.first->transition_active ();
+				escalated_l = true;
+			}
+		}
+	}
+	/* If previous block not existing/not commited yet, block_source can cause segfault for state blocks
+				So source check can be done only if previous != nullptr or previous is 0 (open account) */
+	if (previous_hash_l.is_zero () || previous_l != nullptr)
+	{
+		auto source_hash_l (node.ledger.block_source (transaction, *status.winner));
+		if (!source_hash_l.is_zero () && source_hash_l != previous_hash_l && node.active.blocks.find (source_hash_l) == node.active.blocks.end ())
+		{
+			auto source_l (node.store.block_get (transaction, source_hash_l));
+			if (source_l != nullptr && !node.block_confirmed_or_being_confirmed (transaction, source_hash_l))
+			{
+				auto election = node.active.insert_impl (source_l, true);
+				if (election.second)
+				{
+					election.first->transition_active ();
+					escalated_l = true;
+				}
+			}
+		}
+	}
+	if (escalated_l)
+	{
+		update_dependent ();
+	}
 }
 
 void nano::election::broadcast_block ()
