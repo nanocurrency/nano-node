@@ -104,7 +104,7 @@ void nano::active_transactions::search_frontiers (nano::transaction const & tran
 					if (info.block_count > confirmation_height_info.height && !this->confirmation_height_processor.is_processing_block (info.head))
 					{
 						auto block (this->node.store.block_get (transaction_a, info.head));
-						if (!this->start (block, true))
+						if (this->insert (block, true).first)
 						{
 							++elections_count;
 							// Calculate votes for local representatives
@@ -158,7 +158,7 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 			if (existing != election_winner_details.end ())
 			{
 				auto election = existing->second;
-				if (election->confirmed && !election->stopped && election->status.winner->hash () == hash)
+				if (election->confirmed () && !election->stopped && election->status.winner->hash () == hash)
 				{
 					add_confirmed (existing->second->status, block_a->qualified_root ());
 
@@ -231,7 +231,7 @@ void nano::active_transactions::election_escalate (std::shared_ptr<nano::electio
 			previous_l = node.store.block_get (transaction_l, previous_hash_l);
 			if (previous_l != nullptr && blocks.find (previous_hash_l) == blocks.end () && !node.block_confirmed_or_being_confirmed (transaction_l, previous_hash_l))
 			{
-				add (std::move (previous_l), true);
+				insert_impl (std::move (previous_l), true);
 				escalated_l = true;
 			}
 		}
@@ -245,7 +245,7 @@ void nano::active_transactions::election_escalate (std::shared_ptr<nano::electio
 				auto source_l (node.store.block_get (transaction_l, source_hash_l));
 				if (source_l != nullptr && !node.block_confirmed_or_being_confirmed (transaction_l, source_hash_l))
 				{
-					add (std::move (source_l), true);
+					insert_impl (std::move (source_l), true);
 					escalated_l = true;
 				}
 			}
@@ -309,7 +309,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	{
 		auto election_l (i->election);
 		auto root_l (i->root);
-		if (election_l->confirmed || (election_l->confirmation_request_count != 0 && !node.ledger.could_fit (transaction_l, *election_l->status.winner)))
+		if (election_l->confirmed () || (election_l->confirmation_request_count != 0 && !node.ledger.could_fit (transaction_l, *election_l->status.winner)))
 		{
 			election_l->stop ();
 		}
@@ -566,33 +566,40 @@ void nano::active_transactions::stop ()
 	roots.clear ();
 }
 
-bool nano::active_transactions::start (std::shared_ptr<nano::block> block_a, bool const skip_delay_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
+std::pair<std::shared_ptr<nano::election>, bool> nano::active_transactions::insert_impl (std::shared_ptr<nano::block> block_a, bool const skip_delay_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
 {
-	nano::lock_guard<std::mutex> lock (mutex);
-	return add (block_a, skip_delay_a, confirmation_action_a);
-}
-
-bool nano::active_transactions::add (std::shared_ptr<nano::block> block_a, bool const skip_delay_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
-{
-	auto error (true);
+	std::pair<std::shared_ptr<nano::election>, bool> result = { nullptr, false };
 	if (!stopped)
 	{
 		auto root (block_a->qualified_root ());
 		auto existing (roots.get<tag_root> ().find (root));
-		if (existing == roots.get<tag_root> ().end () && confirmed_set.get<tag_root> ().find (root) == confirmed_set.get<tag_root> ().end ())
+		if (existing == roots.get<tag_root> ().end ())
 		{
-			auto hash (block_a->hash ());
-			auto election (nano::make_shared<nano::election> (node, block_a, skip_delay_a, confirmation_action_a));
-			uint64_t difficulty (0);
-			error = nano::work_validate (*block_a, &difficulty);
-			release_assert (!error);
-			roots.get<tag_root> ().emplace (nano::conflict_info{ root, difficulty, difficulty, election });
-			blocks.emplace (hash, election);
-			adjust_difficulty (hash);
-			election->insert_inactive_votes_cache (hash);
+			if (confirmed_set.get<tag_root> ().find (root) == confirmed_set.get<tag_root> ().end ())
+			{
+				result.second = true;
+				auto hash (block_a->hash ());
+				result.first = nano::make_shared<nano::election> (node, block_a, skip_delay_a, confirmation_action_a);
+				uint64_t difficulty (0);
+				release_assert (!nano::work_validate (*block_a, &difficulty));
+				roots.get<tag_root> ().emplace (nano::conflict_info{ root, difficulty, difficulty, result.first });
+				blocks.emplace (hash, result.first);
+				adjust_difficulty (hash);
+				result.first->insert_inactive_votes_cache (hash);
+			}
+		}
+		else
+		{
+			result.first = existing->election;
 		}
 	}
-	return error;
+	return result;
+}
+
+std::pair<std::shared_ptr<nano::election>, bool> nano::active_transactions::insert (std::shared_ptr<nano::block> block_a, bool const skip_delay_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
+{
+	nano::lock_guard<std::mutex> lock (mutex);
+	return insert_impl (block_a, skip_delay_a, confirmation_action_a);
 }
 
 // Validate a vote and apply it to the current election if one exists
@@ -717,7 +724,7 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 
 						// Restart election for the upgraded block, previously dropped from elections
 						lock.lock ();
-						add (existing_block);
+						insert_impl (existing_block);
 					}
 				}
 			}
@@ -743,7 +750,7 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 		if (processed_blocks.find (hash) == processed_blocks.end ())
 		{
 			auto existing (blocks.find (hash));
-			if (existing != blocks.end () && !existing->second->confirmed && !existing->second->stopped && existing->second->status.winner->hash () == hash)
+			if (existing != blocks.end () && !existing->second->confirmed () && !existing->second->stopped && existing->second->status.winner->hash () == hash)
 			{
 				auto previous (existing->second->status.winner->previous ());
 				if (!previous.is_zero ())
@@ -828,7 +835,7 @@ void nano::active_transactions::update_active_difficulty (nano::unique_lock<std:
 		auto cutoff (std::chrono::steady_clock::now () - election_request_delay - 1s);
 		for (auto it (sorted_roots.begin ()), end (sorted_roots.end ()); it != end && count++ < node.config.active_elections_size; ++it)
 		{
-			if (!it->election->confirmed && !it->election->stopped && it->election->election_start < cutoff)
+			if (!it->election->confirmed () && !it->election->stopped && it->election->election_start < cutoff)
 			{
 				active_root_difficulties.push_back (it->adjusted_difficulty);
 			}
@@ -926,7 +933,7 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 	{
 		auto election (existing->election);
 		result = election->publish (block_a);
-		if (!result && !election->confirmed)
+		if (!result && !election->confirmed ())
 		{
 			blocks.emplace (block_a->hash (), election);
 		}
@@ -942,7 +949,7 @@ boost::optional<nano::election_status_type> nano::active_transactions::confirm_b
 	auto existing (blocks.find (hash));
 	if (existing != blocks.end ())
 	{
-		if (!existing->second->confirmed && !existing->second->stopped && existing->second->status.winner->hash () == hash)
+		if (!existing->second->confirmed () && !existing->second->stopped && existing->second->status.winner->hash () == hash)
 		{
 			existing->second->confirm_once (nano::election_status_type::active_confirmation_height);
 			return nano::election_status_type::active_confirmation_height;
@@ -987,11 +994,12 @@ void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const
 	// Check principal representative status
 	if (node.ledger.weight (representative_a) > node.minimum_principal_weight ())
 	{
-		auto existing (inactive_votes_cache.get<nano::gap_cache::tag_hash> ().find (hash_a));
-		if (existing != inactive_votes_cache.get<nano::gap_cache::tag_hash> ().end () && !existing->confirmed)
+		auto & inactive_by_hash (inactive_votes_cache.get<tag_hash> ());
+		auto existing (inactive_by_hash.find (hash_a));
+		if (existing != inactive_by_hash.end () && (!existing->confirmed || !existing->bootstrap_started))
 		{
 			auto is_new (false);
-			inactive_votes_cache.get<nano::gap_cache::tag_hash> ().modify (existing, [representative_a, &is_new](nano::gap_information & info) {
+			inactive_by_hash.modify (existing, [representative_a, &is_new](nano::inactive_cache_information & info) {
 				auto it = std::find (info.voters.begin (), info.voters.end (), representative_a);
 				is_new = (it == info.voters.end ());
 				if (is_new)
@@ -1003,9 +1011,16 @@ void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const
 
 			if (is_new)
 			{
-				if (node.gap_cache.bootstrap_check (existing->voters, hash_a))
+				bool confirmed (false);
+				if (inactive_votes_bootstrap_check (existing->voters, hash_a, confirmed) && !existing->bootstrap_started)
 				{
-					inactive_votes_cache.get<nano::gap_cache::tag_hash> ().modify (existing, [](nano::gap_information & info) {
+					inactive_by_hash.modify (existing, [](nano::inactive_cache_information & info) {
+						info.bootstrap_started = true;
+					});
+				}
+				if (confirmed && !existing->confirmed)
+				{
+					inactive_by_hash.modify (existing, [](nano::inactive_cache_information & info) {
 						info.confirmed = true;
 					});
 				}
@@ -1013,35 +1028,84 @@ void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const
 		}
 		else
 		{
-			inactive_votes_cache.get<nano::gap_cache::tag_arrival> ().emplace (nano::gap_information{ std::chrono::steady_clock::now (), hash_a, std::vector<nano::account> (1, representative_a) });
+			std::vector<nano::account> representative_vector (1, representative_a);
+			bool confirmed (false);
+			bool start_bootstrap (inactive_votes_bootstrap_check (representative_vector, hash_a, confirmed));
+			auto & inactive_by_arrival (inactive_votes_cache.get<tag_arrival> ());
+			inactive_by_arrival.emplace (nano::inactive_cache_information{ std::chrono::steady_clock::now (), hash_a, representative_vector, start_bootstrap, confirmed });
 			if (inactive_votes_cache.size () > inactive_votes_cache_max)
 			{
-				inactive_votes_cache.get<nano::gap_cache::tag_arrival> ().erase (inactive_votes_cache.get<nano::gap_cache::tag_arrival> ().begin ());
+				inactive_by_arrival.erase (inactive_by_arrival.begin ());
 			}
 		}
 	}
 }
 
-nano::gap_information nano::active_transactions::find_inactive_votes_cache (nano::block_hash const & hash_a)
+nano::inactive_cache_information nano::active_transactions::find_inactive_votes_cache (nano::block_hash const & hash_a)
 {
-	auto existing (inactive_votes_cache.get<nano::gap_cache::tag_hash> ().find (hash_a));
-	if (existing != inactive_votes_cache.get<nano::gap_cache::tag_hash> ().end ())
+	auto & inactive_by_hash (inactive_votes_cache.get<tag_hash> ());
+	auto existing (inactive_by_hash.find (hash_a));
+	if (existing != inactive_by_hash.end ())
 	{
 		return *existing;
 	}
 	else
 	{
-		return nano::gap_information{ std::chrono::steady_clock::time_point{}, 0, std::vector<nano::account>{} };
+		return nano::inactive_cache_information{ std::chrono::steady_clock::time_point{}, 0, std::vector<nano::account>{} };
 	}
 }
 
 void nano::active_transactions::erase_inactive_votes_cache (nano::block_hash const & hash_a)
 {
-	auto existing (inactive_votes_cache.get<nano::gap_cache::tag_hash> ().find (hash_a));
-	if (existing != inactive_votes_cache.get<nano::gap_cache::tag_hash> ().end ())
+	auto & inactive_by_hash (inactive_votes_cache.get<tag_hash> ());
+	auto existing (inactive_by_hash.find (hash_a));
+	if (existing != inactive_by_hash.end ())
 	{
-		inactive_votes_cache.get<nano::gap_cache::tag_hash> ().erase (existing);
+		inactive_by_hash.erase (existing);
 	}
+}
+
+bool nano::active_transactions::inactive_votes_bootstrap_check (std::vector<nano::account> const & voters_a, nano::block_hash const & hash_a, bool & confirmed_a)
+{
+	uint128_t tally;
+	for (auto const & voter : voters_a)
+	{
+		tally += node.ledger.weight (voter);
+	}
+	bool start_bootstrap (false);
+	if (tally >= node.config.online_weight_minimum.number ())
+	{
+		start_bootstrap = true;
+		confirmed_a = true;
+	}
+	else if (!node.flags.disable_legacy_bootstrap && tally > node.gap_cache.bootstrap_threshold ())
+	{
+		start_bootstrap = true;
+	}
+	if (start_bootstrap)
+	{
+		auto node_l (node.shared ());
+		auto now (std::chrono::steady_clock::now ());
+		node.alarm.add (node_l->network_params.network.is_test_network () ? now + std::chrono::milliseconds (5) : now + std::chrono::seconds (5), [node_l, hash_a]() {
+			auto transaction (node_l->store.tx_begin_read ());
+			if (!node_l->store.block_exists (transaction, hash_a))
+			{
+				if (!node_l->bootstrap_initiator.in_progress ())
+				{
+					node_l->logger.try_log (boost::str (boost::format ("Missing block %1% which has enough votes to warrant lazy bootstrapping it") % hash_a.to_string ()));
+				}
+				if (!node_l->flags.disable_lazy_bootstrap)
+				{
+					node_l->bootstrap_initiator.bootstrap_lazy (hash_a);
+				}
+				else if (!node_l->flags.disable_legacy_bootstrap)
+				{
+					node_l->bootstrap_initiator.bootstrap ();
+				}
+			}
+		});
+	}
+	return start_bootstrap;
 }
 
 size_t nano::active_transactions::dropped_elections_cache_size ()

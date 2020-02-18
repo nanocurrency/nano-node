@@ -18,7 +18,8 @@ wallets (wallets_a)
 }
 
 nano::websocket::confirmation_options::confirmation_options (boost::property_tree::ptree const & options_a, nano::wallets & wallets_a, nano::logger_mt & logger_a) :
-wallets (wallets_a)
+wallets (wallets_a),
+logger (logger_a)
 {
 	// Non-account filtering options
 	include_block = options_a.get<bool> ("include_block", true);
@@ -83,11 +84,7 @@ wallets (wallets_a)
 			logger_a.always_log ("Websocket: Filtering option \"accounts\" requires that \"include_block\" is set to true to be effective");
 		}
 	}
-	// Warn the user if the options resulted in an empty filter
-	if (has_account_filtering_options && !all_local_accounts && accounts.empty ())
-	{
-		logger_a.always_log ("Websocket: provided options resulted in an empty block confirmation filter");
-	}
+	check_filter_empty ();
 }
 
 bool nano::websocket::confirmation_options::should_filter (nano::websocket::message const & message_a) const
@@ -134,6 +131,60 @@ bool nano::websocket::confirmation_options::should_filter (nano::websocket::mess
 	}
 
 	return should_filter_conf_type_l || should_filter_account;
+}
+
+bool nano::websocket::confirmation_options::update (boost::property_tree::ptree const & options_a)
+{
+	auto update_accounts = [this](boost::property_tree::ptree const & accounts_text_a, bool insert_a) {
+		this->has_account_filtering_options = true;
+		for (auto const & account_l : accounts_text_a)
+		{
+			nano::account result_l (0);
+			if (!result_l.decode_account (account_l.second.data ()))
+			{
+				// Re-encode to keep old prefix support
+				auto encoded_l (result_l.to_account ());
+				if (insert_a)
+				{
+					this->accounts.insert (encoded_l);
+				}
+				else
+				{
+					this->accounts.erase (encoded_l);
+				}
+			}
+			else if (this->logger.is_initialized ())
+			{
+				this->logger->always_log ("Websocket: invalid account provided for filtering blocks: ", account_l.second.data ());
+			}
+		}
+	};
+
+	// Adding accounts as filter exceptions
+	auto accounts_add_l (options_a.get_child_optional ("accounts_add"));
+	if (accounts_add_l)
+	{
+		update_accounts (*accounts_add_l, true);
+	}
+
+	// Removing accounts as filter exceptions
+	auto accounts_del_l (options_a.get_child_optional ("accounts_del"));
+	if (accounts_del_l)
+	{
+		update_accounts (*accounts_del_l, false);
+	}
+
+	check_filter_empty ();
+	return false;
+}
+
+void nano::websocket::confirmation_options::check_filter_empty () const
+{
+	// Warn the user if the options resulted in an empty filter
+	if (logger.is_initialized () && has_account_filtering_options && !all_local_accounts && accounts.empty ())
+	{
+		logger->always_log ("Websocket: provided options resulted in an empty block confirmation filter");
+	}
 }
 
 nano::websocket::vote_options::vote_options (boost::property_tree::ptree const & options_a, nano::logger_mt & logger_a)
@@ -427,6 +478,19 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 			ws_listener.increase_subscriber_count (topic_l);
 		}
 		action_succeeded = true;
+	}
+	else if (action == "update")
+	{
+		nano::lock_guard<std::mutex> lk (subscriptions_mutex);
+		auto existing (subscriptions.find (topic_l));
+		if (existing != subscriptions.end ())
+		{
+			auto options_text_l (message_a.get_child_optional ("options"));
+			if (options_text_l.is_initialized () && !existing->second->update (*options_text_l))
+			{
+				action_succeeded = true;
+			}
+		}
 	}
 	else if (action == "unsubscribe" && topic_l != nano::websocket::topic::invalid)
 	{

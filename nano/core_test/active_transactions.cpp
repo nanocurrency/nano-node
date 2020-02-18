@@ -501,7 +501,7 @@ TEST (active_transactions, inactive_votes_cache_multiple_votes)
 	}
 	ASSERT_EQ (1, node.active.inactive_votes_cache_size ());
 	// Start election
-	node.active.start (send1);
+	node.active.insert (send1);
 	{
 		nano::lock_guard<std::mutex> active_guard (node.active.mutex);
 		auto it (node.active.roots.begin ());

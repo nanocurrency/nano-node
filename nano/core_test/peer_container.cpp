@@ -156,8 +156,10 @@ TEST (peer_container, list_fanout)
 // Test to make sure we don't repeatedly send keepalive messages to nodes that aren't responding
 TEST (peer_container, reachout)
 {
-	nano::system system (1);
-	auto & node1 (*system.nodes[0]);
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_udp = false;
+	auto & node1 = *system.add_node (node_flags);
 	nano::endpoint endpoint0 (boost::asio::ip::address_v6::loopback (), nano::get_available_port ());
 	// Make sure having been contacted by them already indicates we shouldn't reach out
 	node1.network.udp_channels.insert (endpoint0, node1.network_params.protocol.protocol_version);

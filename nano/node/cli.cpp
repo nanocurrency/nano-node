@@ -30,6 +30,8 @@ std::string nano::error_cli_messages::message (int ev) const
 			return "Config file read error";
 		case nano::error_cli::disable_all_network:
 			return "Flags --disable_tcp_realtime and --disable_udp cannot be used together";
+		case nano::error_cli::ambiguous_udp_options:
+			return "Flags --disable_udp and --enable_udp cannot be used together";
 	}
 
 	return "Invalid error code";
@@ -88,10 +90,12 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 		("disable_wallet_bootstrap", "Disables wallet lazy bootstrap")
 		("disable_bootstrap_listener", "Disables bootstrap processing for TCP listener (not including realtime network TCP connections)")
 		("disable_tcp_realtime", "Disables TCP realtime network")
-		("disable_udp", "Disables UDP realtime network")
+		("disable_udp", "(Deprecated) UDP is disabled by default")
+		("enable_udp", "Enables UDP realtime network")
 		("disable_unchecked_cleanup", "Disables periodic cleanup of old records from unchecked table")
 		("disable_unchecked_drop", "Disables drop of unchecked table at startup")
 		("disable_providing_telemetry_metrics", "Disable using any node information in the telemetry_ack messages.")
+		("disable_block_processor_unchecked_deletion", "Disable deletion of unchecked blocks after processing")
 		("fast_bootstrap", "Increase bootstrap speed for high end nodes with higher limits")
 		("batch_size", boost::program_options::value<std::size_t>(), "Increase sideband batch size, default 512")
 		("block_processor_batch_size", boost::program_options::value<std::size_t>(), "Increase block processor transaction batch write size, default 0 (limited by config block_processor_batch_max_time), 256k for fast_bootstrap")
@@ -115,16 +119,22 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 	flags_a.disable_bootstrap_listener = (vm.count ("disable_bootstrap_listener") > 0);
 	flags_a.disable_tcp_realtime = (vm.count ("disable_tcp_realtime") > 0);
 	flags_a.disable_providing_telemetry_metrics = (vm.count ("disable_providing_telemetry_metrics") > 0);
-	flags_a.disable_udp = (vm.count ("disable_udp") > 0);
+	if ((vm.count ("disable_udp") > 0) && (vm.count ("enable_udp") > 0))
+	{
+		ec = nano::error_cli::ambiguous_udp_options;
+	}
+	flags_a.disable_udp = (vm.count ("enable_udp") == 0);
 	if (flags_a.disable_tcp_realtime && flags_a.disable_udp)
 	{
 		ec = nano::error_cli::disable_all_network;
 	}
 	flags_a.disable_unchecked_cleanup = (vm.count ("disable_unchecked_cleanup") > 0);
 	flags_a.disable_unchecked_drop = (vm.count ("disable_unchecked_drop") > 0);
+	flags_a.disable_block_processor_unchecked_deletion = (vm.count ("disable_block_processor_unchecked_deletion") > 0);
 	flags_a.fast_bootstrap = (vm.count ("fast_bootstrap") > 0);
 	if (flags_a.fast_bootstrap)
 	{
+		flags_a.disable_block_processor_unchecked_deletion = true;
 		flags_a.block_processor_batch_size = 256 * 1024;
 		flags_a.block_processor_full_size = 1024 * 1024;
 		flags_a.block_processor_verification_size = std::numeric_limits<size_t>::max ();
