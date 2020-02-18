@@ -220,7 +220,6 @@ bool nano::election::publish (std::shared_ptr<nano::block> block_a)
 		{
 			blocks.emplace (std::make_pair (block_a->hash (), block_a));
 			insert_inactive_votes_cache (block_a->hash ());
-			confirm_if_quorum ();
 			node.network.flood_block (block_a, false);
 		}
 		else

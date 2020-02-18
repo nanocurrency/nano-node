@@ -708,15 +708,17 @@ int main (int argc, char * const * argv)
 			nano::network_params test_params;
 			nano::block_builder builder;
 			size_t num_accounts (100000);
-			size_t num_interations (5); // 100,000 * 5 * 2 = 1,000,000 blocks
-			size_t max_blocks (2 * num_accounts * num_interations + num_accounts * 2); //  1,000,000 + 2* 100,000 = 1,200,000 blocks
-			std::cerr << boost::str (boost::format ("Starting pregenerating %1% blocks\n") % max_blocks);
-			nano::system system (1);
+			size_t num_iterations (5); // 100,000 * 5 * 2 = 1,000,000 blocks
+			size_t max_blocks (2 * num_accounts * num_iterations + num_accounts * 2); //  1,000,000 + 2 * 100,000 = 1,200,000 blocks
+			std::cout << boost::str (boost::format ("Starting pregenerating %1% blocks\n") % max_blocks);
+			nano::system system;
 			nano::work_pool work (std::numeric_limits<unsigned>::max ());
 			nano::logging logging;
 			auto path (nano::unique_path ());
 			logging.init (path);
-			auto node (std::make_shared<nano::node> (system.io_ctx, 24001, path, system.alarm, logging, work));
+			auto node_flags = nano::node_flags ();
+			nano::update_flags (node_flags, vm);
+			auto node (std::make_shared<nano::node> (system.io_ctx, 24001, path, system.alarm, logging, work, node_flags));
 			nano::block_hash genesis_latest (node->latest (test_params.ledger.test_genesis_key.pub));
 			nano::uint128_t genesis_balance (std::numeric_limits<nano::uint128_t>::max ());
 			// Generating keys
@@ -735,7 +737,7 @@ int main (int argc, char * const * argv)
 				            .representative (test_params.ledger.test_genesis_key.pub)
 				            .balance (genesis_balance)
 				            .link (keys[i].pub)
-				            .sign (keys[i].prv, keys[i].pub)
+				            .sign (test_params.ledger.test_genesis_key.prv, test_params.ledger.test_genesis_key.pub)
 				            .work (*work.generate (nano::work_version::work_1, genesis_latest))
 				            .build ();
 
@@ -748,14 +750,14 @@ int main (int argc, char * const * argv)
 				            .representative (keys[i].pub)
 				            .balance (balances[i])
 				            .link (genesis_latest)
-				            .sign (test_params.ledger.test_genesis_key.prv, test_params.ledger.test_genesis_key.pub)
+				            .sign (keys[i].prv, keys[i].pub)
 				            .work (*work.generate (nano::work_version::work_1, keys[i].pub))
 				            .build ();
 
 				frontiers[i] = open->hash ();
 				blocks.push_back (std::move (open));
 			}
-			for (auto i (0); i != num_interations; ++i)
+			for (auto i (0); i != num_iterations; ++i)
 			{
 				for (auto j (0); j != num_accounts; ++j)
 				{
@@ -793,7 +795,7 @@ int main (int argc, char * const * argv)
 				}
 			}
 			// Processing blocks
-			std::cerr << boost::str (boost::format ("Starting processing %1% active blocks\n") % max_blocks);
+			std::cout << boost::str (boost::format ("Starting processing %1% blocks\n") % max_blocks);
 			auto begin (std::chrono::high_resolution_clock::now ());
 			while (!blocks.empty ())
 			{
@@ -801,17 +803,29 @@ int main (int argc, char * const * argv)
 				node->process_active (block);
 				blocks.pop_front ();
 			}
+			nano::timer<std::chrono::seconds> timer_l (nano::timer_state::started);
+			while (node->ledger.cache.block_count != max_blocks + 1)
+			{
+				std::this_thread::sleep_for (std::chrono::milliseconds (10));
+				// Message each 15 seconds
+				if (timer_l.after_deadline (std::chrono::seconds (15)))
+				{
+					timer_l.restart ();
+					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (unchecked), %3% remaining") % node->ledger.cache.block_count % node->ledger.cache.unchecked_count % node->block_processor.size ()) << std::endl;
+				}
+			}
+			// Waiting for final transaction commit
 			uint64_t block_count (0);
 			while (block_count < max_blocks + 1)
 			{
-				std::this_thread::sleep_for (std::chrono::milliseconds (100));
+				std::this_thread::sleep_for (std::chrono::milliseconds (10));
 				auto transaction (node->store.tx_begin_read ());
 				block_count = node->store.block_count (transaction).sum ();
 			}
 			auto end (std::chrono::high_resolution_clock::now ());
 			auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
 			node->stop ();
-			std::cerr << boost::str (boost::format ("%|1$ 12d| us \n%2% blocks per second\n") % time % (max_blocks * 1000000 / time));
+			std::cout << boost::str (boost::format ("%|1$ 12d| us \n%2% blocks per second\n") % time % (max_blocks * 1000000 / time));
 		}
 		else if (vm.count ("debug_profile_votes"))
 		{
