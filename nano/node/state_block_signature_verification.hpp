@@ -23,6 +23,7 @@ public:
 	size_t size ();
 	void stop ();
 	void notify ();
+	bool is_active ();
 
 	std::function<void(std::deque<nano::unchecked_info> &, std::vector<int> const &, std::vector<nano::block_hash> const &, std::vector<nano::signature> const &)> blocks_verified_callback;
 
@@ -34,6 +35,7 @@ private:
 
 	std::mutex mutex;
 	bool stopped{ false };
+	bool active{ false };
 	std::deque<nano::unchecked_info> state_blocks;
 	nano::condition_variable condition;
 	std::thread thread;

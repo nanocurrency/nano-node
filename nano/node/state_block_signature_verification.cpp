@@ -47,6 +47,7 @@ void nano::state_block_signature_verification::run (uint64_t state_block_signatu
 		if (!state_blocks.empty ())
 		{
 			size_t const max_verification_batch (state_block_signature_verification_size != 0 ? state_block_signature_verification_size : 256 * (node_config.signature_checker_threads + 1));
+			active = true;
 			while (!state_blocks.empty () && !stopped)
 			{
 				auto items = setup_items (max_verification_batch);
@@ -54,12 +55,19 @@ void nano::state_block_signature_verification::run (uint64_t state_block_signatu
 				verify_state_blocks (items);
 				lk.lock ();
 			}
+			active = false;
 		}
 		else
 		{
 			condition.wait (lk);
 		}
 	}
+}
+
+bool nano::state_block_signature_verification::is_active ()
+{
+	nano::lock_guard<std::mutex> guard (mutex);
+	return active;
 }
 
 void nano::state_block_signature_verification::notify ()

@@ -44,7 +44,7 @@ void nano::block_processor::flush ()
 {
 	node.checker.flush ();
 	nano::unique_lock<std::mutex> lock (mutex);
-	while (!stopped && (have_blocks () || active))
+	while (!stopped && (have_blocks () || active || state_block_signature_verification.is_active ()))
 	{
 		condition.wait (lock);
 	}
