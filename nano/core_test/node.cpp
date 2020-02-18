@@ -3613,6 +3613,73 @@ TEST (node, bandwidth_limiter)
 	node.stop ();
 }
 
+// Tests that local blocks are flooded to all principal representatives
+TEST (node, aggressive_flooding)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_request_loop = true;
+	node_flags.disable_block_processor_republishing = true;
+	auto & node1 (*system.add_node (node_flags));
+	auto & wallet1 (*system.wallet (0));
+	wallet1.insert_adhoc (nano::test_genesis_key.prv);
+	std::array<std::pair<std::shared_ptr<nano::node>, std::shared_ptr<nano::wallet>>, 5> nodes_wallets{};
+	std::generate (nodes_wallets.begin (), nodes_wallets.end (), [&system, node_flags]() {
+		nano::node_config node_config;
+		node_config.peering_port = nano::get_available_port ();
+		auto node (system.add_node (node_config, node_flags));
+		return std::make_pair (node, system.wallet (system.nodes.size () - 1));
+	});
+	auto large_amount = (nano::genesis_amount / 2) / nodes_wallets.size ();
+	for (auto & node_wallet : nodes_wallets)
+	{
+		nano::keypair keypair;
+		node_wallet.second->store.representative_set (node_wallet.first->wallets.tx_begin_write (), keypair.pub);
+		node_wallet.second->insert_adhoc (keypair.prv);
+		wallet1.send_action (nano::test_genesis_key.pub, keypair.pub, large_amount);
+	}
+	// Wait until all nodes have a representative
+	system.deadline_set (10s);
+	while (node1.rep_crawler.principal_representatives ().size () != nodes_wallets.size ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	// Generate a few blocks and ensure they reach all representatives, even though they do not republish blocks
+	nano::block_builder builder;
+	std::shared_ptr<nano::state_block> block{};
+	{
+		auto transaction (node1.store.tx_begin_read ());
+		block = builder.state ()
+		        .account (nano::test_genesis_key.pub)
+		        .representative (nano::test_genesis_key.pub)
+		        .previous (node1.ledger.latest (transaction, nano::test_genesis_key.pub))
+		        .balance (node1.ledger.account_balance (transaction, nano::test_genesis_key.pub) - 1)
+		        .link (nano::test_genesis_key.pub)
+		        .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
+		        .work (*node1.work_generate_blocking (node1.ledger.latest (transaction, nano::test_genesis_key.pub)))
+		        .build ();
+		// Processing locally goes through the aggressive block flooding path
+		node1.process_local (block, false);
+	}
+	system.deadline_set (3s);
+	while (std::any_of (nodes_wallets.begin (), nodes_wallets.end (), [hash = block->hash ()](auto & node_wallet) {
+		return node_wallet.first->block (hash) == nullptr;
+	}))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	// Do the same for a wallet block
+	auto wallet_block = wallet1.send_sync (nano::test_genesis_key.pub, nano::test_genesis_key.pub, 1);
+	system.deadline_set (3s);
+	while (std::any_of (nodes_wallets.begin (), nodes_wallets.end (), [wallet_block](auto & node_wallet) {
+		return node_wallet.first->block (wallet_block) == nullptr;
+	}))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
 TEST (active_difficulty, recalculate_work)
 {
 	nano::system system;

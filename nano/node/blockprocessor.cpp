@@ -386,7 +386,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	{
 		node.network.flood_block_initial (block_a);
 	}
-	else
+	else if (!node.flags.disable_block_processor_republishing)
 	{
 		node.network.flood_block (block_a, false);
 	}
