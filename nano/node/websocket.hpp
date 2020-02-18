@@ -1,9 +1,11 @@
 #pragma once
 
+#include <nano/boost/asio/strand.hpp>
 #include <nano/boost/beast/core.hpp>
 #include <nano/boost/beast/websocket.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/secure/common.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
 
@@ -35,6 +37,7 @@ namespace websocket
 {
 	class listener;
 	class confirmation_options;
+	class session;
 
 	/** Supported topics */
 	enum class topic
@@ -100,6 +103,9 @@ namespace websocket
 	class options
 	{
 	public:
+		virtual ~options () = default;
+
+	protected:
 		/**
 		 * Checks if a message should be filtered for default options (no options given).
 		 * @param message_a the message to be checked
@@ -109,7 +115,16 @@ namespace websocket
 		{
 			return false;
 		}
-		virtual ~options () = default;
+		/**
+		 * Update options, if available for a given topic
+		 * @return false on success
+		 */
+		virtual bool update (boost::property_tree::ptree const & options_a)
+		{
+			return true;
+		}
+
+		friend class session;
 	};
 
 	/**
@@ -135,6 +150,15 @@ namespace websocket
 		 */
 		bool should_filter (message const & message_a) const override;
 
+		/**
+		 * Update some existing options
+		 * Filtering options:
+		 * - "accounts_add" (array of std::strings) - additional accounts for which blocks should not be filtered
+		 * - "accounts_del" (array of std::strings) - accounts for which blocks should be filtered
+		 * @return false
+		 */
+		bool update (boost::property_tree::ptree const & options_a) override;
+
 		/** Returns whether or not block contents should be included */
 		bool get_include_block () const
 		{
@@ -154,7 +178,10 @@ namespace websocket
 		static constexpr const uint8_t type_all = type_all_active | type_inactive;
 
 	private:
+		void check_filter_empty () const;
+
 		nano::wallets & wallets;
+		boost::optional<nano::logger_mt &> logger;
 		bool include_election_info{ false };
 		bool include_block{ true };
 		bool has_account_filtering_options{ false };

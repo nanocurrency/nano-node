@@ -458,22 +458,7 @@ public:
 		nano::telemetry_ack telemetry_ack;
 		if (!node.flags.disable_providing_telemetry_metrics)
 		{
-			nano::telemetry_data telemetry_data;
-			telemetry_data.block_count = node.ledger.cache.block_count;
-			telemetry_data.cemented_count = node.ledger.cache.cemented_count;
-			telemetry_data.bandwidth_cap = node.config.bandwidth_limit;
-			telemetry_data.protocol_version = node.network_params.protocol.protocol_version;
-			telemetry_data.uptime = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - node.startup_time).count ();
-			telemetry_data.unchecked_count = node.ledger.cache.unchecked_count;
-			telemetry_data.genesis_block = node.network_params.ledger.genesis_hash;
-			telemetry_data.peer_count = node.network.size ();
-			telemetry_data.account_count = node.ledger.cache.account_count;
-			telemetry_data.major_version = nano::get_major_node_version ();
-			telemetry_data.minor_version = nano::get_minor_node_version ();
-			telemetry_data.patch_version = nano::get_patch_node_version ();
-			telemetry_data.pre_release_version = nano::get_pre_release_node_version ();
-			telemetry_data.maker = 0; // 0 Indicates it originated from the NF
-
+			auto telemetry_data = nano::local_telemetry_data (node.ledger.cache, node.network, node.config.bandwidth_limit, node.network_params, node.startup_time);
 			telemetry_ack = nano::telemetry_ack (telemetry_data);
 		}
 		channel->send (telemetry_ack, nullptr, nano::buffer_drop_policy::no_socket_drop);
