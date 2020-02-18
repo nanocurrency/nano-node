@@ -66,7 +66,8 @@ public:
 	std::chrono::steady_clock::time_point arrival;
 	nano::block_hash hash;
 	std::vector<nano::account> voters;
-	bool confirmed{ false };
+	bool bootstrap_started{ false };
+	bool confirmed{ false }; // Did item reach votes quorum? (minimum config value)
 };
 
 // Core class for determining consensus
@@ -205,7 +206,7 @@ private:
 	ordered_cache inactive_votes_cache;
 	// clang-format on
 	static size_t constexpr inactive_votes_cache_max{ 16 * 1024 };
-	bool inactive_votes_bootstrap_check (std::vector<nano::account> const &, nano::block_hash const &);
+	bool inactive_votes_bootstrap_check (std::vector<nano::account> const &, nano::block_hash const &, bool &);
 	// clang-format off
 	boost::multi_index_container<nano::election_timepoint,
 	mi::indexed_by<

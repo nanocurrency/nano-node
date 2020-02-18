@@ -126,6 +126,7 @@ public:
 	bool disable_unchecked_cleanup{ false };
 	bool disable_unchecked_drop{ true };
 	bool disable_providing_telemetry_metrics{ false };
+	bool disable_block_processor_unchecked_deletion{ false };
 	bool fast_bootstrap{ false };
 	bool read_only{ false };
 	nano::generate_cache generate_cache;
