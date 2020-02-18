@@ -3639,7 +3639,7 @@ TEST (node, aggressive_flooding)
 		wallet1.send_action (nano::test_genesis_key.pub, keypair.pub, large_amount);
 	}
 	// Wait until all nodes have a representative
-	system.deadline_set (10s);
+	system.deadline_set (!is_sanitizer_build ? 5s : 15s);
 	while (node1.rep_crawler.principal_representatives ().size () != nodes_wallets.size ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
@@ -3661,7 +3661,7 @@ TEST (node, aggressive_flooding)
 		// Processing locally goes through the aggressive block flooding path
 		node1.process_local (block, false);
 	}
-	system.deadline_set (3s);
+	system.deadline_set (!is_sanitizer_build ? 3s : 10s);
 	while (std::any_of (nodes_wallets.begin (), nodes_wallets.end (), [hash = block->hash ()](auto & node_wallet) {
 		return node_wallet.first->block (hash) == nullptr;
 	}))
@@ -3671,7 +3671,7 @@ TEST (node, aggressive_flooding)
 
 	// Do the same for a wallet block
 	auto wallet_block = wallet1.send_sync (nano::test_genesis_key.pub, nano::test_genesis_key.pub, 1);
-	system.deadline_set (3s);
+	system.deadline_set (!is_sanitizer_build ? 3s : 10s);
 	while (std::any_of (nodes_wallets.begin (), nodes_wallets.end (), [wallet_block](auto & node_wallet) {
 		return node_wallet.first->block (wallet_block) == nullptr;
 	}))
