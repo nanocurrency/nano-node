@@ -1054,7 +1054,7 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 				if (block != nullptr)
 				{
 					cached_block = true;
-					wallets.node.network.flood_block (block, false);
+					wallets.node.network.flood_block (block, nano::buffer_drop_policy::no_limiter_drop);
 				}
 			}
 			else if (status != MDB_NOTFOUND)

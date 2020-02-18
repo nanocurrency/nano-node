@@ -3914,10 +3914,31 @@ void nano::json_handler::telemetry ()
 				if (!nano::parse_address (*address_text, address))
 				{
 					nano::endpoint endpoint (address, port);
-					channel = node.network.find_channel (nano::transport::map_endpoint_to_v6 (endpoint));
-					if (!channel)
+					if (address.is_loopback () && port == rpc_l->node.network.endpoint ().port ())
 					{
-						ec = nano::error_rpc::peer_not_found;
+						// Requesting telemetry metrics locally
+						auto telemetry_data = nano::local_telemetry_data (rpc_l->node.ledger.cache, rpc_l->node.network, rpc_l->node.config.bandwidth_limit, rpc_l->node.network_params, rpc_l->node.startup_time);
+
+						nano::jsonconfig config_l;
+						auto err = telemetry_data.serialize_json (config_l);
+						config_l.put ("timestamp", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ());
+						auto const & ptree = config_l.get_tree ();
+
+						if (!err)
+						{
+							rpc_l->response_l.insert (rpc_l->response_l.begin (), ptree.begin (), ptree.end ());
+						}
+
+						rpc_l->response_errors ();
+						return;
+					}
+					else
+					{
+						channel = node.network.find_channel (nano::transport::map_endpoint_to_v6 (endpoint));
+						if (!channel)
+						{
+							ec = nano::error_rpc::peer_not_found;
+						}
 					}
 				}
 				else
