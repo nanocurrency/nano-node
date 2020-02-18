@@ -102,6 +102,12 @@ add_library (node
 	repcrawler.cpp
 	request_aggregator.hpp
 	request_aggregator.cpp
+	signatures.hpp
+	signatures.cpp
+	socket.hpp
+	socket.cpp
+	state_block_signature_verification.hpp
+	state_block_signature_verification.cpp
 	testing.hpp
 	testing.cpp
 	transport/tcp.hpp
@@ -110,10 +116,6 @@ add_library (node
 	transport/transport.cpp
 	transport/udp.hpp
 	transport/udp.cpp
-	signatures.hpp
-	signatures.cpp
-	socket.hpp
-	socket.cpp
 	vote_processor.hpp
 	vote_processor.cpp
 	voting.hpp
