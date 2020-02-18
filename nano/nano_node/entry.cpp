@@ -152,7 +152,7 @@ int main (int argc, char * const * argv)
 			auto flags_ec = nano::update_flags (flags, vm);
 			if (flags_ec)
 			{
-				std::cerr << flags_ec.message ();
+				std::cerr << flags_ec.message () << std::endl;
 				std::exit (1);
 			}
 			auto config (vm.find ("config"));
