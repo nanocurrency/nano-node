@@ -1054,7 +1054,7 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 				if (block != nullptr)
 				{
 					cached_block = true;
-					wallets.node.network.flood_block (block, false);
+					wallets.node.network.flood_block (block, nano::buffer_drop_policy::no_limiter_drop);
 				}
 			}
 			else if (status != MDB_NOTFOUND)
@@ -1141,8 +1141,7 @@ bool nano::wallet::action_complete (std::shared_ptr<nano::block> const & block_a
 		}
 		if (!error)
 		{
-			wallets.watcher->add (block_a);
-			error = wallets.node.process_local (block_a).code != nano::process_result::progress;
+			error = wallets.node.process_local (block_a, true).code != nano::process_result::progress;
 		}
 		if (!error && generate_work_a)
 		{
@@ -1450,7 +1449,7 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 						{
 							if (!watcher_l->node.active.update_difficulty (block))
 							{
-								watcher_l->node.network.flood_block (block, false);
+								watcher_l->node.network.flood_block (block, nano::buffer_drop_policy::no_limiter_drop);
 								watcher_l->update (root_a, block);
 								watcher_l->watching (root_a, block);
 							}

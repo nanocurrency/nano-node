@@ -2013,7 +2013,7 @@ TEST (rpc, process_subtype_open)
 		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, send).code);
 	}
 	scoped_io_thread_name_change scoped_thread_name_io;
-	node1.active.start (std::make_shared<nano::state_block> (send));
+	node1.active.insert (std::make_shared<nano::state_block> (send));
 	nano::state_block open (key.pub, 0, key.pub, nano::Gxrb_ratio, send.hash (), key.prv, key.pub, *node1.work_generate_blocking (key.pub));
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
@@ -2072,7 +2072,7 @@ TEST (rpc, process_subtype_receive)
 		ASSERT_EQ (nano::process_result::progress, node1.ledger.process (transaction, send).code);
 	}
 	scoped_io_thread_name_change scoped_thread_name_io;
-	node1.active.start (std::make_shared<nano::state_block> (send));
+	node1.active.insert (std::make_shared<nano::state_block> (send));
 	nano::state_block receive (nano::test_genesis_key.pub, send.hash (), nano::test_genesis_key.pub, nano::genesis_amount, send.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node1.work_generate_blocking (send.hash ()));
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
@@ -3118,15 +3118,14 @@ TEST (rpc, work_peer_many)
 	node1.config.work_peers.push_back (std::make_pair (node3.network.endpoint ().address ().to_string (), rpc3.config.port));
 	node1.config.work_peers.push_back (std::make_pair (node4.network.endpoint ().address ().to_string (), rpc4.config.port));
 
-	for (auto i (0); i < 10; ++i)
+	std::array<std::atomic<uint64_t>, 10> works;
+	for (auto i (0); i < works.size (); ++i)
 	{
 		nano::keypair key1;
-		std::atomic<uint64_t> work (0);
-		node1.work_generate (key1.pub, [&work](boost::optional<uint64_t> work_a) {
-			ASSERT_TRUE (work_a.is_initialized ());
+		node1.work_generate (key1.pub, [& work = works[i]](boost::optional<uint64_t> work_a) {
 			work = *work_a;
 		});
-		while (nano::work_validate (key1.pub, work))
+		while (nano::work_validate (key1.pub, works[i]))
 		{
 			system1.poll ();
 			system2.poll ();
@@ -8037,4 +8036,74 @@ TEST (rpc, node_telemetry_all)
 	ASSERT_GE (std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count (), metrics.timestamp);
 	ASSERT_EQ (node->network.endpoint ().address ().to_string (), metrics.address);
 	ASSERT_EQ (node->network.endpoint ().port (), metrics.port);
+}
+
+// Also tests all forms of ipv4/ipv6
+TEST (rpc, node_telemetry_self)
+{
+	nano::system system;
+	auto & node1 = *add_ipc_enabled_node (system);
+	scoped_io_thread_name_change scoped_thread_name_io;
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node1.config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+
+	// Just to have peer count at 1
+	node1.network.udp_channels.insert (nano::endpoint (boost::asio::ip::make_address_v6 ("::1"), nano::get_available_port ()), 0);
+
+	boost::property_tree::ptree request;
+	request.put ("action", "node_telemetry");
+	request.put ("address", "::1");
+	request.put ("port", node1.network.endpoint ().port ());
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (10s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		compare_default_test_result_data (response, node1);
+	}
+
+	request.put ("address", "[::1]");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (10s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		compare_default_test_result_data (response, node1);
+	}
+
+	request.put ("address", "127.0.0.1");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (10s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		compare_default_test_result_data (response, node1);
+	}
+
+	// Incorrect port should fail
+	request.put ("port", "0");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (10s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ (std::error_code (nano::error_rpc::peer_not_found).message (), response.json.get<std::string> ("error"));
+	}
 }

@@ -547,31 +547,29 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 		if (ledger_block && !block_confirmed_or_being_confirmed (transaction_a, ledger_block->hash ()))
 		{
 			std::weak_ptr<nano::node> this_w (shared_from_this ());
-			if (!active.start (ledger_block, false, [this_w, root](std::shared_ptr<nano::block>) {
-				    if (auto this_l = this_w.lock ())
-				    {
-					    auto attempt (this_l->bootstrap_initiator.current_attempt ());
-					    if (attempt && attempt->mode == nano::bootstrap_mode::legacy)
-					    {
-						    auto transaction (this_l->store.tx_begin_read ());
-						    auto account (this_l->ledger.store.frontier_get (transaction, root));
-						    if (!account.is_zero ())
-						    {
-							    attempt->requeue_pull (nano::pull_info (account, root, root));
-						    }
-						    else if (this_l->ledger.store.account_exists (transaction, root))
-						    {
-							    attempt->requeue_pull (nano::pull_info (root, nano::block_hash (0), nano::block_hash (0)));
-						    }
-					    }
-				    }
-			    }))
+			if (active.insert (ledger_block, false, [this_w, root](std::shared_ptr<nano::block>) {
+				          if (auto this_l = this_w.lock ())
+				          {
+					          auto attempt (this_l->bootstrap_initiator.current_attempt ());
+					          if (attempt && attempt->mode == nano::bootstrap_mode::legacy)
+					          {
+						          auto transaction (this_l->store.tx_begin_read ());
+						          auto account (this_l->ledger.store.frontier_get (transaction, root));
+						          if (!account.is_zero ())
+						          {
+							          attempt->requeue_pull (nano::pull_info (account, root, root));
+						          }
+						          else if (this_l->ledger.store.account_exists (transaction, root))
+						          {
+							          attempt->requeue_pull (nano::pull_info (root, nano::block_hash (0), nano::block_hash (0)));
+						          }
+					          }
+				          }
+			          })
+			    .first)
 			{
 				logger.always_log (boost::str (boost::format ("Resolving fork between our block: %1% and block %2% both with root %3%") % ledger_block->hash ().to_string () % block_a->hash ().to_string () % block_a->root ().to_string ()));
 				network.broadcast_confirm_req (ledger_block);
-			}
-			else
-			{
 				active.update_difficulty (block_a);
 			}
 		}
@@ -1080,7 +1078,7 @@ void nano::node::add_initial_peers ()
 
 void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 {
-	active.start (block_a, false);
+	active.insert (block_a, false);
 	network.broadcast_confirm_req (block_a);
 	// Calculate votes for local representatives
 	if (config.enable_voting && wallets.rep_counts ().voting > 0 && active.active (*block_a))
@@ -1343,7 +1341,6 @@ nano::node_flags const & nano::inactive_node_flag_defaults ()
 	node_flags.generate_cache.reps = false;
 	node_flags.generate_cache.cemented_count = false;
 	node_flags.generate_cache.unchecked_count = false;
-	node_flags.disable_udp = true;
 	node_flags.disable_bootstrap_listener = true;
 	node_flags.disable_tcp_realtime = true;
 	return node_flags;
