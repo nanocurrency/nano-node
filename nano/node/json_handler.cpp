@@ -381,7 +381,7 @@ nano::work_version nano::json_handler::work_version_optional_impl (nano::work_ve
 	boost::optional<std::string> version_text (request.get_optional<std::string> ("version"));
 	if (!ec && version_text.is_initialized ())
 	{
-		if (*version_text == "work_1")
+		if (*version_text == nano::to_string (nano::work_version::work_1))
 		{
 			result = nano::work_version::work_1;
 		}
