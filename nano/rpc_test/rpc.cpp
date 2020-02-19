@@ -6180,9 +6180,6 @@ TEST (rpc, confirmation_height_currently_processing)
 		frontier = node->store.block_get (transaction, previous_genesis_chain_hash);
 	}
 
-	// Begin process for confirming the block (and setting confirmation height)
-	node->block_confirm (frontier);
-
 	boost::property_tree::ptree request;
 	request.put ("action", "confirmation_height_currently_processing");
 
@@ -6194,8 +6191,11 @@ TEST (rpc, confirmation_height_currently_processing)
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
 	rpc.start ();
 
+	// Begin process for confirming the block (and setting confirmation height)
+	node->block_confirm (frontier);
+
 	system.deadline_set (10s);
-	while (!node->confirmation_height_processor.is_processing_block (previous_genesis_chain_hash))
+	while (node->confirmation_height_processor.current () != frontier->hash ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -6215,7 +6215,7 @@ TEST (rpc, confirmation_height_currently_processing)
 
 	// Wait until confirmation has been set and not processing anything
 	system.deadline_set (10s);
-	while (!node->confirmation_height_processor.current ().is_zero ())
+	while (!node->confirmation_height_processor.current ().is_zero () || node->confirmation_height_processor.awaiting_processing_size () != 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -7068,19 +7068,12 @@ TEST (rpc, block_confirmed)
 
 	// Wait until the confirmation height has been set
 	system.deadline_set (10s);
-	while (true)
+	auto transaction = node->store.tx_begin_read ();
+	while (!node->ledger.block_confirmed (transaction, send->hash ()) || node->confirmation_height_processor.is_processing_block (send->hash ()))
 	{
-		auto transaction = node->store.tx_begin_read ();
-		if (node->ledger.block_confirmed (transaction, send->hash ()))
-		{
-			break;
-		}
-
 		ASSERT_NO_ERROR (system.poll ());
+		transaction.refresh ();
 	}
-
-	// Should no longer be processing the block after confirmation is set
-	ASSERT_FALSE (node->confirmation_height_processor.is_processing_block (send->hash ()));
 
 	// Requesting confirmation for this should now succeed
 	request.put ("hash", send->hash ().to_string ());

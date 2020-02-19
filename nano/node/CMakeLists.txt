@@ -24,7 +24,6 @@ add_library (node
 	${rocksdb_sources}
 	active_transactions.hpp
 	active_transactions.cpp
-	blockprocessor.cpp
 	blockprocessor.hpp
 	blockprocessor.cpp
 	bootstrap/bootstrap_bulk_pull.hpp
@@ -41,10 +40,14 @@ add_library (node
 	cli.cpp
 	common.hpp
 	common.cpp
+	confirmation_height_bounded.hpp
+	confirmation_height_bounded.cpp
 	confirmation_height_processor.hpp
 	confirmation_height_processor.cpp
-	confirmation_solicitor.cpp
+	confirmation_height_unbounded.hpp
+	confirmation_height_unbounded.cpp
 	confirmation_solicitor.hpp
+	confirmation_solicitor.cpp
 	daemonconfig.hpp
 	daemonconfig.cpp
 	distributed_work.hpp
