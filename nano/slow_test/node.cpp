@@ -817,7 +817,7 @@ public:
 	std::atomic<bool> awaiting_cache{ false };
 	std::atomic<bool> keep_requesting_metrics{ true };
 	std::shared_ptr<nano::node> node;
-	std::chrono::steady_clock::time_point orig_time;
+	std::chrono::system_clock::time_point orig_time;
 	std::atomic_flag orig_time_set = ATOMIC_FLAG_INIT;
 };
 class shared_data
@@ -830,7 +830,7 @@ public:
 };
 
 template <typename T>
-void callback_process (shared_data & shared_data_a, data & data, T & all_node_data_a, std::chrono::steady_clock::time_point last_updated)
+void callback_process (shared_data & shared_data_a, data & data, T & all_node_data_a, std::chrono::system_clock::time_point last_updated)
 {
 	if (!data.orig_time_set.test_and_set ())
 	{
@@ -892,7 +892,7 @@ TEST (node_telemetry, ongoing_requests)
 }
 }
 
-TEST (node_telemetry, simultaneous_random_requests)
+TEST (node_telemetry, simultaneous_all_requests)
 {
 	const auto num_nodes = 4;
 	nano::system system (num_nodes);
@@ -925,7 +925,7 @@ TEST (node_telemetry, simultaneous_random_requests)
 					{
 						++shared_data.count;
 						data.node->telemetry.get_metrics_peers_async ([&shared_data, &data, &all_data](nano::telemetry_data_responses const & responses_a) {
-							callback_process (shared_data, data, all_data, responses_a.telemetry_data_time_pairs.begin ()->second.last_updated);
+							callback_process (shared_data, data, all_data, *responses_a.telemetry_datas.begin ()->second.timestamp);
 						});
 					}
 					std::this_thread::sleep_for (1ms);
@@ -953,7 +953,7 @@ namespace nano
 {
 namespace transport
 {
-	TEST (node_telemetry, simultaneous_single_and_random_requests)
+	TEST (node_telemetry, simultaneous_single_and_all_requests)
 	{
 		const auto num_nodes = 4;
 		nano::system system (num_nodes);
@@ -964,21 +964,21 @@ namespace transport
 		const auto num_threads = 4;
 
 		std::array<data, num_nodes> node_data_single{};
-		std::array<data, num_nodes> node_data_random{};
+		std::array<data, num_nodes> node_data_all{};
 		for (auto i = 0; i < num_nodes; ++i)
 		{
 			node_data_single[i].node = system.nodes[i];
-			node_data_random[i].node = system.nodes[i];
+			node_data_all[i].node = system.nodes[i];
 		}
 
 		shared_data shared_data_single;
-		shared_data shared_data_random;
+		shared_data shared_data_all;
 
 		// Create a few threads where each node sends out telemetry request messages to all other nodes continuously, until the cache it reached and subsequently expired.
 		// The test waits until all telemetry_ack messages have been received.
 		for (int i = 0; i < num_threads; ++i)
 		{
-			threads.emplace_back ([&node_data_single, &node_data_random, &shared_data_single, &shared_data_random]() {
+			threads.emplace_back ([&node_data_single, &node_data_all, &shared_data_single, &shared_data_all]() {
 				auto func = [](auto & all_node_data_a, shared_data & shared_data_a, bool single_a) {
 					while (std::any_of (all_node_data_a.cbegin (), all_node_data_a.cend (), [](auto const & data) { return data.keep_requesting_metrics.load (); }))
 					{
@@ -994,13 +994,13 @@ namespace transport
 									// Pick first peer to be consistent
 									auto peer = data.node->network.tcp_channels.channels[0].channel;
 									data.node->telemetry.get_metrics_single_peer_async (peer, [&shared_data_a, &data, &all_node_data_a](nano::telemetry_data_response const & telemetry_data_response_a) {
-										callback_process (shared_data_a, data, all_node_data_a, telemetry_data_response_a.telemetry_data_time_pair.last_updated);
+										callback_process (shared_data_a, data, all_node_data_a, *telemetry_data_response_a.telemetry_data.timestamp);
 									});
 								}
 								else
 								{
 									data.node->telemetry.get_metrics_peers_async ([&shared_data_a, &data, &all_node_data_a](nano::telemetry_data_responses const & telemetry_data_responses_a) {
-										callback_process (shared_data_a, data, all_node_data_a, telemetry_data_responses_a.telemetry_data_time_pairs.begin ()->second.last_updated);
+										callback_process (shared_data_a, data, all_node_data_a, *telemetry_data_responses_a.telemetry_datas.begin ()->second.timestamp);
 									});
 								}
 							}
@@ -1013,12 +1013,12 @@ namespace transport
 				};
 
 				func (node_data_single, shared_data_single, true);
-				func (node_data_random, shared_data_random, false);
+				func (node_data_all, shared_data_all, false);
 			});
 		}
 
 		system.deadline_set (30s);
-		while (!shared_data_random.done || !shared_data_single.done)
+		while (!shared_data_all.done || !shared_data_single.done)
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
