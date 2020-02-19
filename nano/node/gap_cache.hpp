@@ -27,7 +27,7 @@ public:
 	std::chrono::steady_clock::time_point arrival;
 	nano::block_hash hash;
 	std::vector<nano::account> voters;
-	bool confirmed{ false };
+	bool bootstrap_started{ false };
 };
 
 /** Maintains voting and arrival information for gaps (missing source or previous blocks in account chains) */

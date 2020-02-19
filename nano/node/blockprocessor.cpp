@@ -69,7 +69,7 @@ void nano::block_processor::add (std::shared_ptr<nano::block> block_a, uint64_t 
 
 void nano::block_processor::add (nano::unchecked_info const & info_a)
 {
-	if (!nano::work_validate (info_a.block->root (), info_a.block->block_work ()))
+	if (!nano::work_validate (nano::work_version::work_1, info_a.block->root (), info_a.block->block_work ()))
 	{
 		{
 			auto hash (info_a.block->hash ());
@@ -156,7 +156,19 @@ void nano::block_processor::verify_state_blocks (nano::unique_lock<std::mutex> &
 	assert (!mutex.try_lock ());
 	nano::timer<std::chrono::milliseconds> timer_l (nano::timer_state::started);
 	std::deque<nano::unchecked_info> items;
-	items.swap (state_blocks);
+	if (state_blocks.size () <= max_count)
+	{
+		items.swap (state_blocks);
+	}
+	else
+	{
+		for (auto i (0); i < max_count; ++i)
+		{
+			items.push_back (state_blocks.front ());
+			state_blocks.pop_front ();
+		}
+		assert (!state_blocks.empty ());
+	}
 	lock_a.unlock ();
 	if (!items.empty ())
 	{
@@ -365,15 +377,17 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 
 void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a, const bool watch_work_a)
 {
-	// Start collecting quorum on block
-	node.active.start (block_a, false);
-	//add block to watcher if desired after block has been added to active
+	// Add to work watcher to prevent dropping the election
 	if (watch_work_a)
 	{
-		node.wallets.watcher->add (block_a);
+		node.wallets.watcher->add (block_a, nano::work_version::work_1);
 	}
+
+	// Start collecting quorum on block
+	node.active.insert (block_a, false);
+
 	// Announce block contents to the network
-	node.network.flood_block (block_a, false);
+	node.network.flood_block (block_a, nano::buffer_drop_policy::no_limiter_drop);
 	if (node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
 	{
 		// Announce our weighted vote to the network
@@ -458,10 +472,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			{
 				node.logger.try_log (boost::str (boost::format ("Old for: %1%") % hash.to_string ()));
 			}
-			if (!node.flags.fast_bootstrap)
-			{
-				queue_unchecked (transaction_a, hash);
-			}
+			queue_unchecked (transaction_a, hash);
 			node.active.update_difficulty (info_a.block, transaction_a);
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::old);
 			break;
@@ -546,7 +557,7 @@ void nano::block_processor::queue_unchecked (nano::write_transaction const & tra
 	auto unchecked_blocks (node.store.unchecked_get (transaction_a, hash_a));
 	for (auto & info : unchecked_blocks)
 	{
-		if (!node.flags.fast_bootstrap)
+		if (!node.flags.disable_block_processor_unchecked_deletion)
 		{
 			if (!node.store.unchecked_del (transaction_a, nano::unchecked_key (hash_a, info.block->hash ())))
 			{

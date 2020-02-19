@@ -18,7 +18,8 @@ wallets (wallets_a)
 }
 
 nano::websocket::confirmation_options::confirmation_options (boost::property_tree::ptree const & options_a, nano::wallets & wallets_a, nano::logger_mt & logger_a) :
-wallets (wallets_a)
+wallets (wallets_a),
+logger (logger_a)
 {
 	// Non-account filtering options
 	include_block = options_a.get<bool> ("include_block", true);
@@ -83,11 +84,7 @@ wallets (wallets_a)
 			logger_a.always_log ("Websocket: Filtering option \"accounts\" requires that \"include_block\" is set to true to be effective");
 		}
 	}
-	// Warn the user if the options resulted in an empty filter
-	if (has_account_filtering_options && !all_local_accounts && accounts.empty ())
-	{
-		logger_a.always_log ("Websocket: provided options resulted in an empty block confirmation filter");
-	}
+	check_filter_empty ();
 }
 
 bool nano::websocket::confirmation_options::should_filter (nano::websocket::message const & message_a) const
@@ -134,6 +131,60 @@ bool nano::websocket::confirmation_options::should_filter (nano::websocket::mess
 	}
 
 	return should_filter_conf_type_l || should_filter_account;
+}
+
+bool nano::websocket::confirmation_options::update (boost::property_tree::ptree const & options_a)
+{
+	auto update_accounts = [this](boost::property_tree::ptree const & accounts_text_a, bool insert_a) {
+		this->has_account_filtering_options = true;
+		for (auto const & account_l : accounts_text_a)
+		{
+			nano::account result_l (0);
+			if (!result_l.decode_account (account_l.second.data ()))
+			{
+				// Re-encode to keep old prefix support
+				auto encoded_l (result_l.to_account ());
+				if (insert_a)
+				{
+					this->accounts.insert (encoded_l);
+				}
+				else
+				{
+					this->accounts.erase (encoded_l);
+				}
+			}
+			else if (this->logger.is_initialized ())
+			{
+				this->logger->always_log ("Websocket: invalid account provided for filtering blocks: ", account_l.second.data ());
+			}
+		}
+	};
+
+	// Adding accounts as filter exceptions
+	auto accounts_add_l (options_a.get_child_optional ("accounts_add"));
+	if (accounts_add_l)
+	{
+		update_accounts (*accounts_add_l, true);
+	}
+
+	// Removing accounts as filter exceptions
+	auto accounts_del_l (options_a.get_child_optional ("accounts_del"));
+	if (accounts_del_l)
+	{
+		update_accounts (*accounts_del_l, false);
+	}
+
+	check_filter_empty ();
+	return false;
+}
+
+void nano::websocket::confirmation_options::check_filter_empty () const
+{
+	// Warn the user if the options resulted in an empty filter
+	if (logger.is_initialized () && has_account_filtering_options && !all_local_accounts && accounts.empty ())
+	{
+		logger->always_log ("Websocket: provided options resulted in an empty block confirmation filter");
+	}
 }
 
 nano::websocket::vote_options::vote_options (boost::property_tree::ptree const & options_a, nano::logger_mt & logger_a)
@@ -428,6 +479,19 @@ void nano::websocket::session::handle_message (boost::property_tree::ptree const
 		}
 		action_succeeded = true;
 	}
+	else if (action == "update")
+	{
+		nano::lock_guard<std::mutex> lk (subscriptions_mutex);
+		auto existing (subscriptions.find (topic_l));
+		if (existing != subscriptions.end ())
+		{
+			auto options_text_l (message_a.get_child_optional ("options"));
+			if (options_text_l.is_initialized () && !existing->second->update (*options_text_l))
+			{
+				action_succeeded = true;
+			}
+		}
+	}
 	else if (action == "unsubscribe" && topic_l != nano::websocket::topic::invalid)
 	{
 		nano::lock_guard<std::mutex> lk (subscriptions_mutex);
@@ -709,7 +773,7 @@ nano::websocket::message nano::websocket::message_builder::difficulty_changed (u
 	return message_l;
 }
 
-nano::websocket::message nano::websocket::message_builder::work_generation (nano::block_hash const & root_a, uint64_t work_a, uint64_t difficulty_a, uint64_t publish_threshold_a, std::chrono::milliseconds const & duration_a, std::string const & peer_a, std::vector<std::string> const & bad_peers_a, bool completed_a, bool cancelled_a)
+nano::websocket::message nano::websocket::message_builder::work_generation (nano::work_version const version_a, nano::block_hash const & root_a, uint64_t work_a, uint64_t difficulty_a, uint64_t publish_threshold_a, std::chrono::milliseconds const & duration_a, std::string const & peer_a, std::vector<std::string> const & bad_peers_a, bool completed_a, bool cancelled_a)
 {
 	nano::websocket::message message_l (nano::websocket::topic::work);
 	set_common_fields (message_l);
@@ -721,6 +785,7 @@ nano::websocket::message nano::websocket::message_builder::work_generation (nano
 	work_l.put ("duration", duration_a.count ());
 
 	boost::property_tree::ptree request_l;
+	request_l.put ("version", nano::to_string (version_a));
 	request_l.put ("hash", root_a.to_string ());
 	request_l.put ("difficulty", nano::to_string_hex (difficulty_a));
 	auto request_multiplier_l (nano::difficulty::to_multiplier (difficulty_a, publish_threshold_a));
@@ -733,7 +798,7 @@ nano::websocket::message nano::websocket::message_builder::work_generation (nano
 		result_l.put ("source", peer_a);
 		result_l.put ("work", nano::to_string_hex (work_a));
 		uint64_t result_difficulty_l;
-		nano::work_validate (root_a, work_a, &result_difficulty_l);
+		nano::work_validate (version_a, root_a, work_a, &result_difficulty_l);
 		result_l.put ("difficulty", nano::to_string_hex (result_difficulty_l));
 		auto result_multiplier_l (nano::difficulty::to_multiplier (result_difficulty_l, publish_threshold_a));
 		result_l.put ("multiplier", nano::to_string (result_multiplier_l));
@@ -753,14 +818,14 @@ nano::websocket::message nano::websocket::message_builder::work_generation (nano
 	return message_l;
 }
 
-nano::websocket::message nano::websocket::message_builder::work_cancelled (nano::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a)
+nano::websocket::message nano::websocket::message_builder::work_cancelled (nano::work_version const version_a, nano::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a)
 {
-	return work_generation (root_a, 0, difficulty_a, publish_threshold_a, duration_a, "", bad_peers_a, false, true);
+	return work_generation (version_a, root_a, 0, difficulty_a, publish_threshold_a, duration_a, "", bad_peers_a, false, true);
 }
 
-nano::websocket::message nano::websocket::message_builder::work_failed (nano::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a)
+nano::websocket::message nano::websocket::message_builder::work_failed (nano::work_version const version_a, nano::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a)
 {
-	return work_generation (root_a, 0, difficulty_a, publish_threshold_a, duration_a, "", bad_peers_a, false, false);
+	return work_generation (version_a, root_a, 0, difficulty_a, publish_threshold_a, duration_a, "", bad_peers_a, false, false);
 }
 
 nano::websocket::message nano::websocket::message_builder::bootstrap_started (std::string const & id_a, std::string const & mode_a)

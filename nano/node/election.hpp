@@ -51,6 +51,7 @@ public:
 class election final : public std::enable_shared_from_this<nano::election>
 {
 	std::function<void(std::shared_ptr<nano::block>)> confirmation_action;
+	std::atomic<bool> confirmed_m;
 
 public:
 	election (nano::node &, std::shared_ptr<nano::block>, bool const, std::function<void(std::shared_ptr<nano::block>)> const &);
@@ -69,13 +70,13 @@ public:
 	void clear_blocks ();
 	void insert_inactive_votes_cache (nano::block_hash const &);
 	void stop ();
+	bool confirmed ();
 	nano::node & node;
 	std::unordered_map<nano::account, nano::vote_info> last_votes;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks;
 	std::chrono::steady_clock::time_point election_start;
 	nano::election_status status;
 	bool skip_delay;
-	std::atomic<bool> confirmed;
 	bool stopped;
 	std::unordered_map<nano::block_hash, nano::uint128_t> last_tally;
 	unsigned confirmation_request_count{ 0 };

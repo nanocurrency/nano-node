@@ -6,6 +6,7 @@
 #include <nano/boost/beast/http/string_body.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/lib/work.hpp>
 #include <nano/node/common.hpp>
 
 #include <boost/optional.hpp>
@@ -28,6 +29,7 @@ class node;
 
 struct work_request final
 {
+	nano::work_version version;
 	nano::root root;
 	uint64_t difficulty;
 	boost::optional<nano::account> const account;
@@ -86,6 +88,8 @@ private:
 	void add_bad_peer (nano::tcp_endpoint const &);
 
 	nano::node & node;
+	// Only used in destructor, as the node reference can become invalid before distributed_work objects go out of scope
+	std::weak_ptr<nano::node> node_w;
 	nano::work_request request;
 
 	std::chrono::seconds backoff;

@@ -547,25 +547,26 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 		if (ledger_block && !block_confirmed_or_being_confirmed (transaction_a, ledger_block->hash ()))
 		{
 			std::weak_ptr<nano::node> this_w (shared_from_this ());
-			if (!active.start (ledger_block, false, [this_w, root](std::shared_ptr<nano::block>) {
-				    if (auto this_l = this_w.lock ())
-				    {
-					    auto attempt (this_l->bootstrap_initiator.current_attempt ());
-					    if (attempt && attempt->mode == nano::bootstrap_mode::legacy)
-					    {
-						    auto transaction (this_l->store.tx_begin_read ());
-						    auto account (this_l->ledger.store.frontier_get (transaction, root));
-						    if (!account.is_zero ())
-						    {
-							    attempt->requeue_pull (nano::pull_info (account, root, root));
-						    }
-						    else if (this_l->ledger.store.account_exists (transaction, root))
-						    {
-							    attempt->requeue_pull (nano::pull_info (root, nano::block_hash (0), nano::block_hash (0)));
-						    }
-					    }
-				    }
-			    }))
+			if (active.insert (ledger_block, false, [this_w, root](std::shared_ptr<nano::block>) {
+				          if (auto this_l = this_w.lock ())
+				          {
+					          auto attempt (this_l->bootstrap_initiator.current_attempt ());
+					          if (attempt && attempt->mode == nano::bootstrap_mode::legacy)
+					          {
+						          auto transaction (this_l->store.tx_begin_read ());
+						          auto account (this_l->ledger.store.frontier_get (transaction, root));
+						          if (!account.is_zero ())
+						          {
+							          attempt->requeue_pull (nano::pull_info (account, root, root));
+						          }
+						          else if (this_l->ledger.store.account_exists (transaction, root))
+						          {
+							          attempt->requeue_pull (nano::pull_info (root, nano::block_hash (0), nano::block_hash (0)));
+						          }
+					          }
+				          }
+			          })
+			    .first)
 			{
 				logger.always_log (boost::str (boost::format ("Resolving fork between our block: %1% and block %2% both with root %3%") % ledger_block->hash ().to_string () % block_a->hash ().to_string () % block_a->root ().to_string ()));
 				network.broadcast_confirm_req (ledger_block);
@@ -1008,14 +1009,14 @@ bool nano::node::work_generation_enabled (std::vector<std::pair<std::string, uin
 	return !peers_a.empty () || local_work_generation_enabled ();
 }
 
-boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a)
+boost::optional<uint64_t> nano::node::work_generate_blocking (nano::work_version const version_a, nano::block & block_a)
 {
-	return work_generate_blocking (block_a, network_params.network.publish_threshold);
+	return work_generate_blocking (version_a, block_a, network_params.network.publish_threshold);
 }
 
-boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a, uint64_t difficulty_a)
+boost::optional<uint64_t> nano::node::work_generate_blocking (nano::work_version const version_a, nano::block & block_a, uint64_t difficulty_a)
 {
-	auto opt_work_l (work_generate_blocking (block_a.root (), difficulty_a, block_a.account ()));
+	auto opt_work_l (work_generate_blocking (version_a, block_a.root (), difficulty_a, block_a.account ()));
 	if (opt_work_l.is_initialized ())
 	{
 		block_a.block_work_set (*opt_work_l);
@@ -1023,35 +1024,59 @@ boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & bloc
 	return opt_work_l;
 }
 
-void nano::node::work_generate (nano::root const & root_a, std::function<void(boost::optional<uint64_t>)> callback_a, boost::optional<nano::account> const & account_a)
+void nano::node::work_generate (nano::work_version const version_a, nano::root const & root_a, std::function<void(boost::optional<uint64_t>)> callback_a, boost::optional<nano::account> const & account_a)
 {
-	work_generate (root_a, callback_a, network_params.network.publish_threshold, account_a);
+	work_generate (version_a, root_a, callback_a, network_params.network.publish_threshold, account_a);
 }
 
-void nano::node::work_generate (nano::root const & root_a, std::function<void(boost::optional<uint64_t>)> callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a, bool secondary_work_peers_a)
+void nano::node::work_generate (nano::work_version const version_a, nano::root const & root_a, std::function<void(boost::optional<uint64_t>)> callback_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a, bool secondary_work_peers_a)
 {
 	auto const & peers_l (secondary_work_peers_a ? config.secondary_work_peers : config.work_peers);
-	if (distributed_work.make (root_a, peers_l, callback_a, difficulty_a, account_a))
+	if (distributed_work.make (version_a, root_a, peers_l, callback_a, difficulty_a, account_a))
 	{
 		// Error in creating the job (either stopped or work generation is not possible)
 		callback_a (boost::none);
 	}
 }
 
-boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a, boost::optional<nano::account> const & account_a)
+boost::optional<uint64_t> nano::node::work_generate_blocking (nano::work_version const version_a, nano::root const & root_a, boost::optional<nano::account> const & account_a)
 {
-	return work_generate_blocking (root_a, network_params.network.publish_threshold, account_a);
+	return work_generate_blocking (version_a, root_a, network_params.network.publish_threshold, account_a);
 }
 
-boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
+boost::optional<uint64_t> nano::node::work_generate_blocking (nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, boost::optional<nano::account> const & account_a)
 {
 	std::promise<boost::optional<uint64_t>> promise;
 	work_generate (
-	root_a, [&promise](boost::optional<uint64_t> opt_work_a) {
+	version_a, root_a, [&promise](boost::optional<uint64_t> opt_work_a) {
 		promise.set_value (opt_work_a);
 	},
 	difficulty_a, account_a);
 	return promise.get_future ().get ();
+}
+
+boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a)
+{
+	assert (network_params.network.is_test_network ());
+	return work_generate_blocking (block_a, network_params.network.publish_threshold);
+}
+
+boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a, uint64_t difficulty_a)
+{
+	assert (network_params.network.is_test_network ());
+	return work_generate_blocking (nano::work_version::work_1, block_a, difficulty_a);
+}
+
+boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a)
+{
+	assert (network_params.network.is_test_network ());
+	return work_generate_blocking (root_a, network_params.network.publish_threshold);
+}
+
+boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a, uint64_t difficulty_a)
+{
+	assert (network_params.network.is_test_network ());
+	return work_generate_blocking (nano::work_version::work_1, root_a, difficulty_a);
 }
 
 void nano::node::add_initial_peers ()
@@ -1079,7 +1104,7 @@ void nano::node::add_initial_peers ()
 
 void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 {
-	active.start (block_a, false);
+	active.insert (block_a, false);
 	network.broadcast_confirm_req (block_a);
 	// Calculate votes for local representatives
 	if (config.enable_voting && wallets.rep_counts ().voting > 0 && active.active (*block_a))
@@ -1342,7 +1367,6 @@ nano::node_flags const & nano::inactive_node_flag_defaults ()
 	node_flags.generate_cache.reps = false;
 	node_flags.generate_cache.cemented_count = false;
 	node_flags.generate_cache.unchecked_count = false;
-	node_flags.disable_udp = true;
 	node_flags.disable_bootstrap_listener = true;
 	node_flags.disable_tcp_realtime = true;
 	return node_flags;

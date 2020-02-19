@@ -410,6 +410,7 @@ TEST (node_telemetry, over_udp)
 	nano::system system;
 	nano::node_flags node_flags;
 	node_flags.disable_tcp_realtime = true;
+	node_flags.disable_udp = false;
 	auto node_client = system.add_node (node_flags);
 	auto node_server = system.add_node (node_flags);
 
