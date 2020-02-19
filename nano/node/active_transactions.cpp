@@ -945,11 +945,14 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 	{
 		auto election (existing->election);
 		result = election->publish (block_a);
-		if (!result && !election->confirmed ())
+		if (!election->confirmed ())
 		{
-			blocks.emplace (block_a->hash (), election);
+			if (!result)
+			{
+				blocks.emplace (block_a->hash (), election);
+			}
+			update_difficulty_impl (existing, block_a);
 		}
-		update_difficulty_impl (existing, block_a);
 	}
 	return result;
 }
