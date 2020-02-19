@@ -557,11 +557,11 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 						          auto account (this_l->ledger.store.frontier_get (transaction, root));
 						          if (!account.is_zero ())
 						          {
-							          attempt->requeue_pull (nano::pull_info (account, root, root));
+							          this_l->bootstrap_initiator.connections->requeue_pull (nano::pull_info (account, root, root, attempt->incremental_id));
 						          }
 						          else if (this_l->ledger.store.account_exists (transaction, root))
 						          {
-							          attempt->requeue_pull (nano::pull_info (root, nano::block_hash (0), nano::block_hash (0)));
+							          this_l->bootstrap_initiator.connections->requeue_pull (nano::pull_info (root, nano::block_hash (0), nano::block_hash (0), attempt->incremental_id));
 						          }
 					          }
 				          }
@@ -918,7 +918,10 @@ void nano::node::bootstrap_wallet ()
 			}
 		}
 	}
-	bootstrap_initiator.bootstrap_wallet (accounts);
+	if (!accounts.empty ())
+	{
+		bootstrap_initiator.bootstrap_wallet (accounts);
+	}
 }
 
 void nano::node::unchecked_cleanup ()

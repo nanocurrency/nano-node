@@ -1,12 +1,13 @@
-#include <nano/node/bootstrap/bootstrap.hpp>
+#include <nano/node/bootstrap/bootstrap_attempt.hpp>
 #include <nano/node/bootstrap/bootstrap_bulk_push.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/transport/tcp.hpp>
 
 #include <boost/format.hpp>
 
-nano::bulk_push_client::bulk_push_client (std::shared_ptr<nano::bootstrap_client> const & connection_a) :
-connection (connection_a)
+nano::bulk_push_client::bulk_push_client (std::shared_ptr<nano::bootstrap_client> const & connection_a, std::shared_ptr<nano::bootstrap_attempt> const & attempt_a) :
+connection (connection_a),
+attempt (attempt_a)
 {
 }
 
@@ -43,16 +44,7 @@ void nano::bulk_push_client::push ()
 	{
 		if (current_target.first.is_zero () || current_target.first == current_target.second)
 		{
-			nano::lock_guard<std::mutex> guard (connection->attempt->mutex);
-			if (!connection->attempt->bulk_push_targets.empty ())
-			{
-				current_target = connection->attempt->bulk_push_targets.back ();
-				connection->attempt->bulk_push_targets.pop_back ();
-			}
-			else
-			{
-				finished = true;
-			}
+			finished = attempt->request_bulk_push_target (current_target);
 		}
 		if (!finished)
 		{
