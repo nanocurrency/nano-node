@@ -388,7 +388,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	}
 	else if (!node.flags.disable_block_processor_republishing)
 	{
-		node.network.flood_block (block_a, false);
+		node.network.flood_block (block_a, nano::buffer_drop_policy::no_limiter_drop);
 	}
 	if (node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
 	{

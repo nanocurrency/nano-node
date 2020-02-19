@@ -146,18 +146,18 @@ void nano::network::send_node_id_handshake (std::shared_ptr<nano::transport::cha
 	channel_a->send (message);
 }
 
-void nano::network::flood_message (nano::message const & message_a, bool const is_droppable_a)
+void nano::network::flood_message (nano::message const & message_a, nano::buffer_drop_policy drop_policy_a)
 {
 	for (auto & i : list (fanout ()))
 	{
-		i->send (message_a, nullptr, is_droppable_a);
+		i->send (message_a, nullptr, drop_policy_a);
 	}
 }
 
-void nano::network::flood_block (std::shared_ptr<nano::block> const & block_a, bool const is_droppable_a)
+void nano::network::flood_block (std::shared_ptr<nano::block> const & block_a, nano::buffer_drop_policy const drop_policy_a)
 {
 	nano::publish message (block_a);
-	flood_message (message, is_droppable_a);
+	flood_message (message, drop_policy_a);
 }
 
 void nano::network::flood_block_initial (std::shared_ptr<nano::block> const & block_a)
@@ -165,11 +165,11 @@ void nano::network::flood_block_initial (std::shared_ptr<nano::block> const & bl
 	nano::publish message (block_a);
 	for (auto const & i : node.rep_crawler.principal_representatives ())
 	{
-		i.channel->send (message, nullptr, false);
+		i.channel->send (message, nullptr, nano::buffer_drop_policy::no_limiter_drop);
 	}
 	for (auto & i : list_non_pr (fanout (1.0)))
 	{
-		i->send (message, nullptr, false);
+		i->send (message, nullptr, nano::buffer_drop_policy::no_limiter_drop);
 	}
 }
 
@@ -187,7 +187,7 @@ void nano::network::flood_vote_pr (std::shared_ptr<nano::vote> const & vote_a)
 	nano::confirm_ack message (vote_a);
 	for (auto const & i : node.rep_crawler.principal_representatives ())
 	{
-		i.channel->send (message, nullptr, false);
+		i.channel->send (message, nullptr, nano::buffer_drop_policy::no_limiter_drop);
 	}
 }
 
@@ -480,7 +480,7 @@ public:
 			auto telemetry_data = nano::local_telemetry_data (node.ledger.cache, node.network, node.config.bandwidth_limit, node.network_params, node.startup_time);
 			telemetry_ack = nano::telemetry_ack (telemetry_data);
 		}
-		channel->send (telemetry_ack, nullptr, false);
+		channel->send (telemetry_ack, nullptr, nano::buffer_drop_policy::no_socket_drop);
 	}
 	void telemetry_ack (nano::telemetry_ack const & message_a) override
 	{
