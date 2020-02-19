@@ -17,7 +17,6 @@ node (node_a),
 multipliers_cb (20, 1.),
 trended_active_difficulty (node_a.network_params.network.publish_threshold),
 solicitor (node_a.network, node_a.network_params.network),
-next_frontier_check (steady_clock::now ()),
 long_election_threshold (node_a.network_params.network.is_test_network () ? 2s : 24s),
 election_request_delay (node_a.network_params.network.is_test_network () ? 0s : 1s),
 election_time_to_live (node_a.network_params.network.is_test_network () ? 0s : 10s),
@@ -30,12 +29,12 @@ thread ([this]() {
 })
 {
 	// Register a callback which will get called after a block is cemented
-	confirmation_height_processor.add_cemented_observer ([this](nano::confirmation_height_processor::callback_data const & callback_data) {
+	confirmation_height_processor.add_cemented_observer ([this](nano::block_w_sideband const & callback_data) {
 		this->block_cemented_callback (callback_data.block, callback_data.sideband);
 	});
 
 	// Register a callback which will get called after a batch of blocks is written and observer calls finished
-	confirmation_height_processor.add_cemented_batch_finished_observer ([this]() {
+	confirmation_height_processor.add_cemented_process_finished_observer ([this]() {
 		this->cemented_batch_finished_callback ();
 	});
 
@@ -582,7 +581,7 @@ std::pair<std::shared_ptr<nano::election>, bool> nano::active_transactions::inse
 				auto hash (block_a->hash ());
 				result.first = nano::make_shared<nano::election> (node, block_a, skip_delay_a, confirmation_action_a);
 				uint64_t difficulty (0);
-				release_assert (!nano::work_validate (*block_a, &difficulty));
+				release_assert (!nano::work_validate (nano::work_version::work_1, *block_a, &difficulty));
 				roots.get<tag_root> ().emplace (nano::conflict_info{ root, difficulty, difficulty, result.first });
 				blocks.emplace (hash, result.first);
 				adjust_difficulty (hash);
@@ -680,7 +679,7 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 	if (existing_election != roots.get<tag_root> ().end ())
 	{
 		uint64_t difficulty;
-		auto error (nano::work_validate (*block_a, &difficulty));
+		auto error (nano::work_validate (nano::work_version::work_1, *block_a, &difficulty));
 		(void)error;
 		assert (!error);
 		if (difficulty > existing_election->difficulty)
@@ -714,7 +713,7 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 			{
 				uint64_t existing_difficulty;
 				uint64_t new_difficulty;
-				if (!nano::work_validate (*block_a, &new_difficulty) && !nano::work_validate (*existing_block, &existing_difficulty))
+				if (!nano::work_validate (nano::work_version::work_1, *block_a, &new_difficulty) && !nano::work_validate (nano::work_version::work_1, *existing_block, &existing_difficulty))
 				{
 					if (new_difficulty > existing_difficulty)
 					{

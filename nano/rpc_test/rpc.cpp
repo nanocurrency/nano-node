@@ -3045,7 +3045,7 @@ TEST (rpc, work_peer_bad)
 	node2.config.work_peers.push_back (std::make_pair (boost::asio::ip::address_v6::any ().to_string (), 0));
 	nano::block_hash hash1 (1);
 	std::atomic<uint64_t> work (0);
-	node2.work_generate (hash1, [&work](boost::optional<uint64_t> work_a) {
+	node2.work_generate (nano::work_version::work_1, hash1, [&work](boost::optional<uint64_t> work_a) {
 		ASSERT_TRUE (work_a.is_initialized ());
 		work = *work_a;
 	});
@@ -3075,7 +3075,7 @@ TEST (rpc, work_peer_one)
 	node2.config.work_peers.push_back (std::make_pair (node1.network.endpoint ().address ().to_string (), rpc.config.port));
 	nano::keypair key1;
 	uint64_t work (0);
-	node2.work_generate (key1.pub, [&work](boost::optional<uint64_t> work_a) {
+	node2.work_generate (nano::work_version::work_1, key1.pub, [&work](boost::optional<uint64_t> work_a) {
 		ASSERT_TRUE (work_a.is_initialized ());
 		work = *work_a;
 	});
@@ -3122,7 +3122,7 @@ TEST (rpc, work_peer_many)
 	for (auto i (0); i < works.size (); ++i)
 	{
 		nano::keypair key1;
-		node1.work_generate (key1.pub, [& work = works[i]](boost::optional<uint64_t> work_a) {
+		node1.work_generate (nano::work_version::work_1, key1.pub, [& work = works[i]](boost::optional<uint64_t> work_a) {
 			work = *work_a;
 		});
 		while (nano::work_validate (key1.pub, works[i]))
@@ -3134,6 +3134,48 @@ TEST (rpc, work_peer_many)
 		}
 	}
 	node1.stop ();
+}
+
+TEST (rpc, work_version_invalid)
+{
+	nano::system system;
+	auto node = add_ipc_enabled_node (system);
+	scoped_io_thread_name_change scoped_thread_name_io;
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node->config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	nano::block_hash hash (1);
+	boost::property_tree::ptree request;
+	request.put ("action", "work_generate");
+	request.put ("hash", hash.to_string ());
+	request.put ("version", "work_invalid");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ (1, response.json.count ("error"));
+		ASSERT_EQ (std::error_code (nano::error_rpc::bad_work_version).message (), response.json.get<std::string> ("error"));
+	}
+	request.put ("action", "work_validate");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ (1, response.json.count ("error"));
+		ASSERT_EQ (std::error_code (nano::error_rpc::bad_work_version).message (), response.json.get<std::string> ("error"));
+	}
 }
 
 TEST (rpc, block_count)
@@ -6138,9 +6180,6 @@ TEST (rpc, confirmation_height_currently_processing)
 		frontier = node->store.block_get (transaction, previous_genesis_chain_hash);
 	}
 
-	// Begin process for confirming the block (and setting confirmation height)
-	node->block_confirm (frontier);
-
 	boost::property_tree::ptree request;
 	request.put ("action", "confirmation_height_currently_processing");
 
@@ -6152,8 +6191,11 @@ TEST (rpc, confirmation_height_currently_processing)
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
 	rpc.start ();
 
+	// Begin process for confirming the block (and setting confirmation height)
+	node->block_confirm (frontier);
+
 	system.deadline_set (10s);
-	while (!node->confirmation_height_processor.is_processing_block (previous_genesis_chain_hash))
+	while (node->confirmation_height_processor.current () != frontier->hash ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -6173,7 +6215,7 @@ TEST (rpc, confirmation_height_currently_processing)
 
 	// Wait until confirmation has been set and not processing anything
 	system.deadline_set (10s);
-	while (!node->confirmation_height_processor.current ().is_zero ())
+	while (!node->confirmation_height_processor.current ().is_zero () || node->confirmation_height_processor.awaiting_processing_size () != 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -7026,19 +7068,12 @@ TEST (rpc, block_confirmed)
 
 	// Wait until the confirmation height has been set
 	system.deadline_set (10s);
-	while (true)
+	auto transaction = node->store.tx_begin_read ();
+	while (!node->ledger.block_confirmed (transaction, send->hash ()) || node->confirmation_height_processor.is_processing_block (send->hash ()))
 	{
-		auto transaction = node->store.tx_begin_read ();
-		if (node->ledger.block_confirmed (transaction, send->hash ()))
-		{
-			break;
-		}
-
 		ASSERT_NO_ERROR (system.poll ());
+		transaction.refresh ();
 	}
-
-	// Should no longer be processing the block after confirmation is set
-	ASSERT_FALSE (node->confirmation_height_processor.is_processing_block (send->hash ()));
 
 	// Requesting confirmation for this should now succeed
 	request.put ("hash", send->hash ().to_string ());

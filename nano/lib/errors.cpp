@@ -144,6 +144,8 @@ std::string nano::error_rpc_messages::message (int ev) const
 			return "Bad source";
 		case nano::error_rpc::bad_timeout:
 			return "Bad timeout number";
+		case nano::error_rpc::bad_work_version:
+			return "Bad work version";
 		case nano::error_rpc::block_create_balance_mismatch:
 			return "Balance mismatch for previous block";
 		case nano::error_rpc::block_create_key_required:

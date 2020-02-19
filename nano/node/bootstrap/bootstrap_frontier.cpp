@@ -33,7 +33,7 @@ void nano::frontier_req_client::run ()
 			}
 		}
 	},
-	false); // is bootstrap traffic is_droppable false
+	nano::buffer_drop_policy::no_limiter_drop);
 }
 
 nano::frontier_req_client::frontier_req_client (std::shared_ptr<nano::bootstrap_client> connection_a) :
