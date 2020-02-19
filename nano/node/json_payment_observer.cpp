@@ -1,5 +1,5 @@
 #include <nano/lib/json_error_response.hpp>
-#include <nano/node/ipc.hpp>
+#include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/json_payment_observer.hpp>
 #include <nano/node/node.hpp>

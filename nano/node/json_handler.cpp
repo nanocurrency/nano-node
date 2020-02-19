@@ -5104,6 +5104,23 @@ void nano::json_handler::work_peers_clear ()
 	response_errors ();
 }
 
+void nano::inprocess_rpc_handler::process_request (std::string const &, std::string const & body_a, std::function<void(std::string const &)> response_a)
+{
+	// Note that if the rpc action is async, the shared_ptr<json_handler> lifetime will be extended by the action handler
+	auto handler (std::make_shared<nano::json_handler> (node, node_rpc_config, body_a, response_a, [this]() {
+		this->stop_callback ();
+		this->stop ();
+	}));
+	handler->process_request ();
+}
+
+void nano::inprocess_rpc_handler::process_request_v2 (rpc_handler_request_params const & params_a, std::string const & body_a, std::function<void(std::shared_ptr<std::string>)> response_a)
+{
+	std::string body_l = params_a.json_envelope (body_a);
+	auto handler (std::make_shared<nano::ipc::flatbuffers_handler> (node, ipc_server, nullptr, node.config.ipc_config));
+	handler->process_json (reinterpret_cast<const uint8_t *> (body_l.data ()), body_l.size (), response_a);
+}
+
 namespace
 {
 void construct_json (nano::container_info_component * component, boost::property_tree::ptree & parent)
