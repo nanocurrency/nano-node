@@ -542,7 +542,6 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 	auto root (block_a->root ());
 	if (!store.block_exists (transaction_a, block_a->type (), block_a->hash ()) && store.root_exists (transaction_a, block_a->root ()))
 	{
-		active.publish (block_a);
 		std::shared_ptr<nano::block> ledger_block (ledger.forked_block (transaction_a, *block_a));
 		if (ledger_block && !block_confirmed_or_being_confirmed (transaction_a, ledger_block->hash ()))
 		{
@@ -570,9 +569,9 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 			{
 				logger.always_log (boost::str (boost::format ("Resolving fork between our block: %1% and block %2% both with root %3%") % ledger_block->hash ().to_string () % block_a->hash ().to_string () % block_a->root ().to_string ()));
 				network.broadcast_confirm_req (ledger_block);
-				active.update_difficulty (block_a);
 			}
 		}
+		active.publish (block_a);
 	}
 }
 

@@ -3636,17 +3636,18 @@ TEST (node, election_difficulty_update)
 		auto existing (node.active.roots.find (root));
 		ASSERT_EQ (difficulty_send1, existing->difficulty);
 	}
-	// Fork difficulty update
+	// Fork new block election difficulty update
 	node.process_active (fork1);
 	node.block_processor.flush ();
 	ASSERT_EQ (1, node.active.size ());
 	{
 		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		ASSERT_EQ (2, node.active.blocks.size ());
 		auto existing (node.active.roots.find (root));
 		ASSERT_EQ (difficulty_fork1, existing->difficulty);
 	}
-	// Old block difficulty update
-	node.work_generate_blocking (*fork1, difficulty_fork1 + 1);
+	// Fork same block election difficulty update
+	ASSERT_TRUE (node.work_generate_blocking (*fork1, difficulty_fork1 + 1).is_initialized ());
 	uint64_t difficulty_fork1_updated;
 	nano::work_validate (*fork1, &difficulty_fork1_updated);
 	node.process_active (fork1);
@@ -3654,8 +3655,22 @@ TEST (node, election_difficulty_update)
 	ASSERT_EQ (1, node.active.size ());
 	{
 		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		ASSERT_EQ (2, node.active.blocks.size ());
 		auto existing (node.active.roots.find (root));
 		ASSERT_EQ (difficulty_fork1_updated, existing->difficulty);
+	}
+	// Old block election difficulty update
+	ASSERT_TRUE (node.work_generate_blocking (*send1, difficulty_fork1_updated + 1).is_initialized ());
+	uint64_t difficulty_send1_updated;
+	nano::work_validate (*send1, &difficulty_send1_updated);
+	node.process_active (send1);
+	node.block_processor.flush ();
+	ASSERT_EQ (1, node.active.size ());
+	{
+		nano::lock_guard<std::mutex> guard (node.active.mutex);
+		ASSERT_EQ (2, node.active.blocks.size ());
+		auto existing (node.active.roots.find (root));
+		ASSERT_EQ (difficulty_send1_updated, existing->difficulty);
 	}
 }
 

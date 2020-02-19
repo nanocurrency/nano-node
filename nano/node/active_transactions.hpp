@@ -116,14 +116,14 @@ public:
 	void block_cemented_callback (std::shared_ptr<nano::block> const & block_a, nano::block_sideband const & sideband_a);
 	void cemented_batch_finished_callback ();
 	// clang-format off
-	boost::multi_index_container<nano::conflict_info,
+	using ordered_roots = boost::multi_index_container<nano::conflict_info,
 	mi::indexed_by<
 		mi::hashed_unique<mi::tag<tag_root>,
 			mi::member<nano::conflict_info, nano::qualified_root, &nano::conflict_info::root>>,
 		mi::ordered_non_unique<mi::tag<tag_difficulty>,
 			mi::member<nano::conflict_info, uint64_t, &nano::conflict_info::adjusted_difficulty>,
-			std::greater<uint64_t>>>>
-	roots;
+			std::greater<uint64_t>>>>;
+	ordered_roots roots;
 	// clang-format on
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> blocks;
 	std::deque<nano::election_status> list_confirmed ();
@@ -154,6 +154,7 @@ private:
 	// clang-format off
 	std::pair<std::shared_ptr<nano::election>, bool> insert_impl (std::shared_ptr<nano::block>, bool const = false, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
 	// clang-format on
+	void update_difficulty_impl (ordered_roots::index_iterator<tag_root>::type const &, std::shared_ptr<nano::block>);
 	void request_loop ();
 	void search_frontiers (nano::transaction const &);
 	void election_escalate (std::shared_ptr<nano::election> &, nano::transaction const &, size_t const &);

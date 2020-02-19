@@ -673,6 +673,26 @@ bool nano::active_transactions::active (nano::block const & block_a)
 	return active (block_a.qualified_root ());
 }
 
+void nano::active_transactions::update_difficulty_impl (ordered_roots::index_iterator<tag_root>::type const & root_it_a, std::shared_ptr<nano::block> block_a)
+{
+	uint64_t difficulty{};
+	if (!nano::work_validate (*block_a, &difficulty) && difficulty > root_it_a->difficulty)
+	{
+		if (node.config.logging.active_update_logging ())
+		{
+			node.logger.try_log (boost::str (boost::format ("Block %1% was updated from difficulty %2% to %3%") % block_a->hash ().to_string () % nano::to_string_hex (root_it_a->difficulty) % nano::to_string_hex (difficulty)));
+		}
+		root_it_a->election->publish (block_a);
+		if (!root_it_a->election->confirmed ())
+		{
+			roots.get<tag_root> ().modify (root_it_a, [difficulty](nano::conflict_info & info_a) {
+				info_a.difficulty = difficulty;
+			});
+			adjust_difficulty (block_a->hash ());
+		}
+	}
+}
+
 bool nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> block_a)
 {
 	bool error = true;
@@ -681,19 +701,7 @@ bool nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 	if (existing_election != roots.get<tag_root> ().end ())
 	{
 		error = false;
-		uint64_t difficulty;
-		if (!nano::work_validate (*block_a, &difficulty) && difficulty > existing_election->difficulty)
-		{
-			if (node.config.logging.active_update_logging ())
-			{
-				node.logger.try_log (boost::str (boost::format ("Block %1% was updated from difficulty %2% to %3%") % block_a->hash ().to_string () % nano::to_string_hex (existing_election->difficulty) % nano::to_string_hex (difficulty)));
-			}
-			roots.get<tag_root> ().modify (existing_election, [difficulty](nano::conflict_info & info_a) {
-				info_a.difficulty = difficulty;
-			});
-			existing_election->election->publish (block_a);
-			adjust_difficulty (block_a->hash ());
-		}
+		update_difficulty_impl (existing_election, block_a);
 	}
 	return error;
 }
@@ -941,6 +949,7 @@ bool nano::active_transactions::publish (std::shared_ptr<nano::block> block_a)
 		{
 			blocks.emplace (block_a->hash (), election);
 		}
+		update_difficulty_impl (existing, block_a);
 	}
 	return result;
 }
