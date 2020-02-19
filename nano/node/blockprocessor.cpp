@@ -77,11 +77,7 @@ void nano::block_processor::add (nano::unchecked_info const & info_a)
 {
 	if (!nano::work_validate (nano::work_version::work_1, info_a.block->root (), info_a.block->block_work ()))
 	{
-		struct
-		{
-			bool condition{ false };
-			bool state_block_condition{ false };
-		} should_notify;
+		bool should_notify{ false };
 		{
 			auto hash (info_a.block->hash ());
 			auto filter_hash (filter_item (hash, info_a.block->block_signature ()));
@@ -95,27 +91,15 @@ void nano::block_processor::add (nano::unchecked_info const & info_a)
 				else
 				{
 					blocks.push_back (info_a);
+					should_notify = true;
 				}
 				blocks_filter.insert (filter_hash);
 			}
-
-			if (!blocks.empty ())
-			{
-				should_notify.condition = true;
-			}
-			if (state_block_signature_verification.size () != 0)
-			{
-				should_notify.state_block_condition = true;
-			}
 		}
 
-		if (should_notify.condition)
+		if (should_notify)
 		{
 			condition.notify_all ();
-		}
-		if (should_notify.state_block_condition)
-		{
-			state_block_signature_verification.notify ();
 		}
 	}
 	else
@@ -155,15 +139,7 @@ void nano::block_processor::process_blocks ()
 		}
 		else
 		{
-			if (state_block_signature_verification.size () != 0)
-			{
-				state_block_signature_verification.notify ();
-			}
-			else
-			{
-				condition.notify_one ();
-			}
-
+			condition.notify_one ();
 			condition.wait (lock);
 		}
 	}

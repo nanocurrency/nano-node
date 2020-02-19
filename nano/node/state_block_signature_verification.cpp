@@ -70,16 +70,13 @@ bool nano::state_block_signature_verification::is_active ()
 	return active;
 }
 
-void nano::state_block_signature_verification::notify ()
-{
-	nano::lock_guard<std::mutex> guard (mutex);
-	condition.notify_one ();
-}
-
 void nano::state_block_signature_verification::add (nano::unchecked_info const & info_a)
 {
-	nano::lock_guard<std::mutex> guard (mutex);
-	state_blocks.push_back (info_a);
+	{
+		nano::lock_guard<std::mutex> guard (mutex);
+		state_blocks.push_back (info_a);
+	}
+	condition.notify_one ();
 }
 
 size_t nano::state_block_signature_verification::size ()
