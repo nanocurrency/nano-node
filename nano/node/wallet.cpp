@@ -1454,6 +1454,7 @@ void nano::work_watcher::watching (nano::work_version const version_a, nano::qua
 
 								if (!ec)
 								{
+									watcher_l->node.network.flood_block_initial (block);
 									watcher_l->node.active.update_difficulty (block);
 									watcher_l->update (root_a, block);
 									updated_l = true;
