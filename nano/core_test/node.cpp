@@ -3644,7 +3644,7 @@ TEST (node, aggressive_flooding)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	// Generate a few blocks and ensure they reach all representatives, even though they do not republish blocks
+	// Generate blocks and ensure they are sent to all representatives
 	nano::block_builder builder;
 	std::shared_ptr<nano::state_block> block{};
 	{
@@ -3658,23 +3658,34 @@ TEST (node, aggressive_flooding)
 		        .sign (nano::test_genesis_key.prv, nano::test_genesis_key.pub)
 		        .work (*node1.work_generate_blocking (node1.ledger.latest (transaction, nano::test_genesis_key.pub)))
 		        .build ();
-		// Processing locally goes through the aggressive block flooding path
-		node1.process_local (block, false);
 	}
+	// Processing locally goes through the aggressive block flooding path
+	node1.process_local (block, false);
+
+	auto all_have_block = [&nodes_wallets](nano::block_hash const & hash_a) {
+		return std::all_of (nodes_wallets.begin (), nodes_wallets.end (), [hash = hash_a](auto const & node_wallet) {
+			return node_wallet.first->block (hash) != nullptr;
+		});
+	};
+
 	system.deadline_set (!is_sanitizer_build ? 3s : 10s);
-	while (std::any_of (nodes_wallets.begin (), nodes_wallets.end (), [hash = block->hash ()](auto & node_wallet) {
-		return node_wallet.first->block (hash) == nullptr;
-	}))
+	while (!all_have_block (block->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
 	// Do the same for a wallet block
-	auto wallet_block = wallet1.send_sync (nano::test_genesis_key.pub, nano::test_genesis_key.pub, 1);
+	auto wallet_block = wallet1.send_sync (nano::test_genesis_key.pub, nano::test_genesis_key.pub, 10);
 	system.deadline_set (!is_sanitizer_build ? 3s : 10s);
-	while (std::any_of (nodes_wallets.begin (), nodes_wallets.end (), [wallet_block](auto & node_wallet) {
-		return node_wallet.first->block (wallet_block) == nullptr;
-	}))
+	while (!all_have_block (wallet_block))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	// Wait until the main node has all blocks: genesis + (send+open) for each representative + 2 local blocks
+	// The main node only sees all blocks if other nodes are flooding their PR's open block to all other PRs
+	system.deadline_set (5s);
+	while (node1.ledger.cache.block_count < 1 + 2 * nodes_wallets.size () + 2)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
