@@ -1295,7 +1295,7 @@ TEST (wallet, work_watcher_generation_disabled)
 	auto block (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Mxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (genesis.hash ())));
 	uint64_t difficulty (0);
 	ASSERT_FALSE (nano::work_validate (*block, &difficulty));
-	node.wallets.watcher->add (block);
+	node.wallets.watcher->add (block, nano::work_version::work_1);
 	ASSERT_FALSE (node.process_local (block).code != nano::process_result::progress);
 	ASSERT_TRUE (node.wallets.watcher->is_watched (block->qualified_root ()));
 	auto multiplier = nano::difficulty::to_multiplier (difficulty, node.network_params.network.publish_threshold);

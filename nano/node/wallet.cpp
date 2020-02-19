@@ -1364,7 +1364,7 @@ void nano::wallet::work_cache_blocking (nano::account const & account_a, nano::r
 {
 	if (wallets.node.work_generation_enabled ())
 	{
-		auto opt_work_l (wallets.node.work_generate_blocking (root_a, account_a));
+		auto opt_work_l (wallets.node.work_generate_blocking (nano::work_version::work_1, root_a, account_a));
 		if (opt_work_l.is_initialized ())
 		{
 			auto transaction_l (wallets.tx_begin_write ());
@@ -1401,7 +1401,7 @@ void nano::work_watcher::stop ()
 	stopped = true;
 }
 
-void nano::work_watcher::add (std::shared_ptr<nano::block> block_a)
+void nano::work_watcher::add (std::shared_ptr<nano::block> block_a, nano::work_version const work_version_a)
 {
 	auto block_l (std::dynamic_pointer_cast<nano::state_block> (block_a));
 	if (!stopped && block_l != nullptr)
@@ -1410,7 +1410,7 @@ void nano::work_watcher::add (std::shared_ptr<nano::block> block_a)
 		nano::unique_lock<std::mutex> lock (mutex);
 		watched[root_l] = block_l;
 		lock.unlock ();
-		watching (root_l, block_l);
+		watching (work_version_a, root_l, block_l);
 	}
 }
 
@@ -1420,10 +1420,10 @@ void nano::work_watcher::update (nano::qualified_root const & root_a, std::share
 	watched[root_a] = block_a;
 }
 
-void nano::work_watcher::watching (nano::qualified_root const & root_a, std::shared_ptr<nano::state_block> block_a)
+void nano::work_watcher::watching (nano::work_version const version_a, nano::qualified_root const & root_a, std::shared_ptr<nano::state_block> block_a)
 {
 	std::weak_ptr<nano::work_watcher> watcher_w (shared_from_this ());
-	node.alarm.add (std::chrono::steady_clock::now () + node.config.work_watcher_period, [block_a, root_a, watcher_w]() {
+	node.alarm.add (std::chrono::steady_clock::now () + node.config.work_watcher_period, [block_a, version_a, root_a, watcher_w]() {
 		auto watcher_l = watcher_w.lock ();
 		if (watcher_l && !watcher_l->stopped && block_a != nullptr && watcher_l->is_watched (root_a))
 		{
@@ -1438,7 +1438,7 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 			if (active_difficulty > difficulty && watcher_l->node.work_generation_enabled ())
 			{
 				watcher_l->node.work_generate (
-				root_l, [watcher_l, block_a, root_a](boost::optional<uint64_t> work_a) {
+				version_a, root_l, [watcher_l, block_a, version_a, root_a](boost::optional<uint64_t> work_a) {
 					bool updated_l{ false };
 					if (!watcher_l->stopped && work_a.is_initialized ())
 					{
@@ -1451,21 +1451,21 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 							{
 								watcher_l->node.network.flood_block (block, nano::buffer_drop_policy::no_limiter_drop);
 								watcher_l->update (root_a, block);
-								watcher_l->watching (root_a, block);
+								watcher_l->watching (version_a, root_a, block);
 							}
 							updated_l = true;
 						}
 					}
 					if (!updated_l)
 					{
-						watcher_l->watching (root_a, block_a);
+						watcher_l->watching (version_a, root_a, block_a);
 					}
 				},
 				active_difficulty, block_a->account ());
 			}
 			else
 			{
-				watcher_l->watching (root_a, block_a);
+				watcher_l->watching (version_a, root_a, block_a);
 			}
 		}
 	});

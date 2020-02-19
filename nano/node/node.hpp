@@ -129,12 +129,12 @@ public:
 	bool local_work_generation_enabled () const;
 	bool work_generation_enabled () const;
 	bool work_generation_enabled (std::vector<std::pair<std::string, uint16_t>> const &) const;
-	boost::optional<uint64_t> work_generate_blocking (nano::block &, uint64_t);
-	boost::optional<uint64_t> work_generate_blocking (nano::block &);
-	boost::optional<uint64_t> work_generate_blocking (nano::root const &, uint64_t, boost::optional<nano::account> const & = boost::none);
-	boost::optional<uint64_t> work_generate_blocking (nano::root const &, boost::optional<nano::account> const & = boost::none);
-	void work_generate (nano::root const &, std::function<void(boost::optional<uint64_t>)>, uint64_t, boost::optional<nano::account> const & = boost::none, bool const = false);
-	void work_generate (nano::root const &, std::function<void(boost::optional<uint64_t>)>, boost::optional<nano::account> const & = boost::none);
+	boost::optional<uint64_t> work_generate_blocking (nano::work_version const, nano::block &, uint64_t);
+	boost::optional<uint64_t> work_generate_blocking (nano::work_version const, nano::block &);
+	boost::optional<uint64_t> work_generate_blocking (nano::work_version const, nano::root const &, uint64_t, boost::optional<nano::account> const & = boost::none);
+	boost::optional<uint64_t> work_generate_blocking (nano::work_version const, nano::root const &, boost::optional<nano::account> const & = boost::none);
+	void work_generate (nano::work_version const, nano::root const &, std::function<void(boost::optional<uint64_t>)>, uint64_t, boost::optional<nano::account> const & = boost::none, bool const = false);
+	void work_generate (nano::work_version const, nano::root const &, std::function<void(boost::optional<uint64_t>)>, boost::optional<nano::account> const & = boost::none);
 	void add_initial_peers ();
 	void block_confirm (std::shared_ptr<nano::block>);
 	bool block_confirmed_or_being_confirmed (nano::transaction const &, nano::block_hash const &);
@@ -194,6 +194,15 @@ public:
 	std::atomic<bool> stopped{ false };
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
+
+	// For tests only
+	boost::optional<uint64_t> work_generate_blocking (nano::block &, uint64_t);
+	// For tests only
+	boost::optional<uint64_t> work_generate_blocking (nano::block &);
+	// For tests only
+	boost::optional<uint64_t> work_generate_blocking (nano::root const &, uint64_t);
+	// For tests only
+	boost::optional<uint64_t> work_generate_blocking (nano::root const &);
 
 private:
 	void long_inactivity_cleanup ();
