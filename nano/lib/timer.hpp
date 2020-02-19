@@ -22,20 +22,66 @@ public:
 	timer (nano::timer_state state_a, std::string const & description_a = "timer");
 	timer (std::string const & description_a);
 	timer (std::string const & description_a, timer * parent_a);
+
+	/** Do not output if measured time is below the time units threshold in \p minimum_a */
 	timer & set_minimum (UNIT minimum_a);
+
+	/**
+	 * Create a child timer without starting it.
+	 * Since the timing API needs to have low overhead, this function
+	 * does not check if a timer with the same name already exists.
+	 */
 	timer & child (std::string const & description_a = "child timer");
+
+	/** Create and start a child timer */
 	timer & start_child (std::string const & description_a = "child timer");
+
+	/** Start the timer. This will assert if the timer is already started. */
 	void start ();
+
+	/**
+	 * Restarts the timer by setting start time to current time and resetting tick count.
+	 * This can be called in any timer state.
+	 */
 	void restart ();
+
+	/**
+	 * Stops the timer and increases the measurement count. A timer can be started and paused
+	 * multiple times (e.g. in a loop).
+	 * @return duration
+	 */
 	UNIT pause ();
+
+	/**
+	 * Stop timer. This will assert if the timer is not in a started state.
+	 * @return duration
+	 */
 	UNIT stop ();
+
+	/**
+	 * Return current tick count.
+	 */
 	UNIT value () const;
+
+	/** Returns the duration in UNIT since the timer was last started. */
 	UNIT since_start () const;
+
+	/** Returns true if the timer was last started longer than \p duration_a units ago*/
 	bool after_deadline (UNIT duration_a);
+
+	/** Returns true if the timer was last started shorter than \p duration_a units ago*/
 	bool before_deadline (UNIT duration_a);
+
+	/** Stop timer and write measurements to \p stream_a */
 	void stop (std::ostream & stream_a);
+
+	/** Stop timer and write measurements to \p output_a */
 	void stop (std::string & output_a);
+
+	/** Print measurements to the \p stream_a */
 	void print (std::ostream & stream_a);
+
+	/** Returns the SI unit string */
 	std::string unit () const;
 	nano::timer_state current_state () const;
 
