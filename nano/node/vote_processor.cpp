@@ -233,6 +233,18 @@ void nano::vote_processor::flush ()
 	}
 }
 
+size_t nano::vote_processor::size ()
+{
+	nano::lock_guard<std::mutex> guard (mutex);
+	return votes.size ();
+}
+
+bool nano::vote_processor::empty ()
+{
+	nano::lock_guard<std::mutex> guard (mutex);
+	return votes.empty ();
+}
+
 void nano::vote_processor::calculate_weights ()
 {
 	nano::unique_lock<std::mutex> lock (mutex);
