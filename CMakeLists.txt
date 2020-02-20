@@ -235,6 +235,9 @@ endif ()
 include_directories(cpptoml/include)
 add_subdirectory(crypto/ed25519-donna)
 
+add_subdirectory(nano/ipc_flatbuffers_lib)
+add_subdirectory(nano/ipc_flatbuffers_test)
+
 set (UPNPC_BUILD_SHARED OFF CACHE BOOL "")
 add_subdirectory (miniupnp/miniupnpc EXCLUDE_FROM_ALL)
 # FIXME: This fixes miniupnpc include directories without modifying miniupnpc's

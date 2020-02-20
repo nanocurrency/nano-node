@@ -10,6 +10,8 @@ std::string nano::error_common_messages::message (int ev) const
 	{
 		case nano::error_common::generic:
 			return "Unknown error";
+		case nano::error_common::access_denied:
+			return "Access denied";
 		case nano::error_common::missing_account:
 			return "Missing account";
 		case nano::error_common::missing_balance:
@@ -392,6 +394,11 @@ nano::error & nano::error::then (std::function<nano::error &()> next)
 nano::error::operator std::error_code () const
 {
 	return code;
+}
+
+int nano::error::error_code_as_int () const
+{
+	return code.value ();
 }
 
 /** Implicit bool conversion; true if there's an error */
