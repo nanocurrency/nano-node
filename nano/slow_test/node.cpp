@@ -908,7 +908,7 @@ TEST (node_telemetry, ongoing_requests)
 
 	// Wait till the next ongoing will be called, and add a 1s buffer for the actual processing
 	auto time = std::chrono::steady_clock::now ();
-	while (std::chrono::steady_clock::now () < (time + nano::telemetry_cache_cutoffs::test + nano::telemetry_impl::alarm_cutoff + 1s))
+	while (std::chrono::steady_clock::now () < (time + nano::telemetry_cache_cutoffs::test + node_client->telemetry.batch_request->alarm_cutoff + 1s))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
