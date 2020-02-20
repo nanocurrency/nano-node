@@ -14,9 +14,7 @@
 #include <numeric>
 #include <set>
 
-std::chrono::seconds constexpr nano::telemetry_impl::alarm_cutoff;
-
-nano::telemetry::telemetry (nano::network & network_a, nano::alarm & alarm_a, nano::worker & worker_a) :
+nano::telemetry::telemetry (nano::network & network_a, nano::alarm & alarm_a, nano::worker & worker_a, bool disable_ongoing_requests_a) :
 network (network_a),
 alarm (alarm_a),
 worker (worker_a),
@@ -59,7 +57,10 @@ batch_request (std::make_shared<nano::telemetry_impl> (network, alarm, worker))
 		finished_single_requests.clear ();
 	};
 
-	ongoing_req_all_peers ();
+	if (!disable_ongoing_requests_a)
+	{
+		ongoing_req_all_peers ();
+	}
 }
 
 void nano::telemetry::stop ()
@@ -286,6 +287,7 @@ size_t nano::telemetry::finished_single_requests_size ()
 }
 
 nano::telemetry_impl::telemetry_impl (nano::network & network_a, nano::alarm & alarm_a, nano::worker & worker_a) :
+alarm_cutoff (is_sanitizer_build || nano::running_within_valgrind () ? 6 : 3),
 network (network_a),
 alarm (alarm_a),
 worker (worker_a)
