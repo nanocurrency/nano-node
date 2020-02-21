@@ -57,7 +57,8 @@ TEST (vote_processor, flush)
 	auto channel (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
 	for (unsigned i = 0; i < 2000; ++i)
 	{
-		node.vote_processor.vote (vote, channel);
+		auto new_vote (std::make_shared<nano::vote> (*vote));
+		node.vote_processor.vote (new_vote, channel);
 		++vote->sequence; // invalidates votes without signing again
 	}
 	node.vote_processor.flush ();
