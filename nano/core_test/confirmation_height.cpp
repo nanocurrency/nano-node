@@ -10,12 +10,14 @@ using namespace std::chrono_literals;
 
 namespace
 {
-void add_callback_stats (nano::node & node, std::vector<nano::block_hash> * observer_order = nullptr)
+void add_callback_stats (nano::node & node, std::vector<nano::block_hash> * observer_order = nullptr, std::mutex * mutex = nullptr)
 {
-	node.observers.blocks.add ([& stats = node.stats, observer_order](nano::election_status const & status_a, nano::account const &, nano::amount const &, bool) {
+	node.observers.blocks.add ([& stats = node.stats, observer_order, mutex](nano::election_status const & status_a, nano::account const &, nano::amount const &, bool) {
 		stats.inc (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out);
-		if (observer_order)
+		if (mutex)
 		{
+			nano::lock_guard<std::mutex> guard (*mutex);
+			assert (observer_order);
 			observer_order->push_back (status_a.winner->hash ());
 		}
 	});
@@ -1270,7 +1272,8 @@ TEST (confirmation_height, cemented_gap_below_receive)
 		}
 
 		std::vector<nano::block_hash> observer_order;
-		add_callback_stats (*node, &observer_order);
+		std::mutex mutex;
+		add_callback_stats (*node, &observer_order, &mutex);
 
 		node->block_confirm (open1);
 		system.deadline_set (10s);
@@ -1289,6 +1292,7 @@ TEST (confirmation_height, cemented_gap_below_receive)
 
 		// Check that the order of callbacks is correct
 		std::vector<nano::block_hash> expected_order = { send.hash (), open.hash (), send1.hash (), receive1.hash (), send2.hash (), dummy_send.hash (), receive2.hash (), dummy_send1.hash (), send3.hash (), open1->hash () };
+		nano::lock_guard<std::mutex> guard (mutex);
 		ASSERT_EQ (observer_order, expected_order);
 	};
 
