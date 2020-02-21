@@ -108,19 +108,22 @@ void nano::election::confirm_if_quorum ()
 	assert (!tally_l.empty ());
 	auto winner (tally_l.begin ());
 	auto block_l (winner->second);
+	auto winner_hash_l (block_l->hash ());
 	status.tally = winner->first;
+	auto status_winner_hash_l (status.winner->hash ());
 	nano::uint128_t sum (0);
 	for (auto & i : tally_l)
 	{
 		sum += i.first;
 	}
-	if (sum >= node.config.online_weight_minimum.number () && block_l->hash () != status.winner->hash ())
+	if (sum >= node.config.online_weight_minimum.number () && winner_hash_l != status_winner_hash_l)
 	{
-		auto node_l (node.shared ());
-		node_l->block_processor.force (block_l);
+		node.votes_cache.remove (status_winner_hash_l);
+		node.block_processor.generator.add (winner_hash_l);
+		node.block_processor.force (block_l);
 		status.winner = block_l;
 		update_dependent ();
-		node_l->active.adjust_difficulty (block_l->hash ());
+		node.active.adjust_difficulty (winner_hash_l);
 	}
 	if (have_quorum (tally_l, sum))
 	{
