@@ -153,10 +153,14 @@ void nano::telemetry::ongoing_single_request_cleanup (nano::endpoint const & end
 		if (auto telemetry_impl = telemetry_impl_w.lock ())
 		{
 			nano::lock_guard<std::mutex> guard (this->mutex);
+			nano::lock_guard<std::mutex> guard_telemetry_impl (telemetry_impl->mutex);
 			if (std::chrono::steady_clock::now () - telemetry_impl->cache_cutoff > single_request_data_a.last_updated && telemetry_impl->callbacks.empty ())
 			{
 				//  This will be picked up by the batch request next round
-				this->finished_single_requests[endpoint_a] = telemetry_impl->cached_telemetry_data.begin ()->second;
+				if (!telemetry_impl->cached_telemetry_data.empty ())
+				{
+					this->finished_single_requests[endpoint_a] = telemetry_impl->cached_telemetry_data.begin ()->second;
+				}
 				this->single_requests.erase (endpoint_a);
 			}
 			else
