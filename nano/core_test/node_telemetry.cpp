@@ -762,7 +762,7 @@ TEST (node_telemetry, batch_use_single_request_cache)
 
 	system.deadline_set (10s);
 	std::atomic<bool> done{ false };
-	node_client->telemetry.get_metrics_peers_async ([&done, &telemetry_data_time_pair](nano::telemetry_data_responses const & responses_a) {
+	node_client->telemetry.get_metrics_peers_async ([&done](nano::telemetry_data_responses const & responses_a) {
 		ASSERT_EQ (1, responses_a.telemetry_data_time_pairs.size ());
 		done = true;
 	});
