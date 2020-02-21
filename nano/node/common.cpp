@@ -1368,7 +1368,6 @@ bool nano::parse_port (std::string const & string_a, uint16_t & port_a)
 // Can handle both ipv4 & ipv6 addresses (with and without square brackets)
 bool nano::parse_address (std::string const & address_text_a, boost::asio::ip::address & address_a)
 {
-	auto result (false);
 	auto address_text = address_text_a;
 	if (!address_text.empty () && address_text.front () == '[' && address_text.back () == ']')
 	{

@@ -5106,7 +5106,7 @@ TEST (rpc, blocks_info)
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
 	rpc.start ();
-	auto check_blocks = [&system, node](test_response & response) {
+	auto check_blocks = [node](test_response & response) {
 		for (auto & blocks : response.json.get_child ("blocks"))
 		{
 			std::string hash_text (blocks.first);

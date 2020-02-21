@@ -660,7 +660,6 @@ TEST (confirmation_height, long_chains)
 	auto transaction (node->store.tx_begin_read ());
 	nano::account_info account_info;
 	ASSERT_FALSE (node->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
-	uint64_t confirmation_height;
 	nano::confirmation_height_info confirmation_height_info;
 	ASSERT_FALSE (node->store.confirmation_height_get (transaction, nano::test_genesis_key.pub, confirmation_height_info));
 	ASSERT_EQ (num_blocks + 2, confirmation_height_info.height);
