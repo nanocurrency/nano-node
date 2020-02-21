@@ -131,6 +131,9 @@ namespace transport
 		class last_bootstrap_attempt_tag
 		{
 		};
+		class last_attempt_tag
+		{
+		};
 		class node_id_tag
 		{
 		};
@@ -171,10 +174,12 @@ namespace transport
 		{
 		public:
 			nano::tcp_endpoint endpoint;
+			boost::asio::ip::address address;
 			std::chrono::steady_clock::time_point last_attempt{ std::chrono::steady_clock::now () };
 
 			explicit tcp_endpoint_attempt (nano::tcp_endpoint const & endpoint_a) :
-			endpoint (endpoint_a)
+			endpoint (endpoint_a),
+			address (endpoint_a.address ())
 			{
 			}
 		};
@@ -196,9 +201,11 @@ namespace transport
 		channels;
 		boost::multi_index_container<tcp_endpoint_attempt,
 		mi::indexed_by<
-			mi::hashed_unique<
+			mi::hashed_unique<mi::tag<endpoint_tag>,
 				mi::member<tcp_endpoint_attempt, nano::tcp_endpoint, &tcp_endpoint_attempt::endpoint>>,
-			mi::ordered_non_unique<
+			mi::hashed_non_unique<mi::tag<ip_address_tag>,
+				mi::member<tcp_endpoint_attempt, boost::asio::ip::address, &tcp_endpoint_attempt::address>>,
+			mi::ordered_non_unique<mi::tag<last_attempt_tag>,
 				mi::member<tcp_endpoint_attempt, std::chrono::steady_clock::time_point, &tcp_endpoint_attempt::last_attempt>>>>
 		attempts;
 		// clang-format on
