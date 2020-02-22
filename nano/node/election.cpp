@@ -5,6 +5,10 @@
 
 using namespace std::chrono;
 
+int constexpr nano::election::passive_duration_factor;
+int constexpr nano::election::active_duration_factor;
+int constexpr nano::election::confirmed_duration_factor;
+
 std::chrono::milliseconds nano::election::base_latency () const
 {
 	return node.network_params.network.is_test_network () ? 100ms : 1000ms;
@@ -184,7 +188,7 @@ bool nano::election::transition_time ()
 			break;
 		case nano::election::state_t::passive:
 		{
-			if (base_latency () * 5 < std::chrono::steady_clock::now () - state_start)
+			if (base_latency () * passive_duration_factor < std::chrono::steady_clock::now () - state_start)
 			{
 				state_change (nano::election::state_t::passive, nano::election::state_t::active);
 			}
@@ -193,7 +197,7 @@ bool nano::election::transition_time ()
 		case nano::election::state_t::active:
 			broadcast_block ();
 			send_confirm_req ();
-			if (base_latency () * 10 < std::chrono::steady_clock::now () - state_start)
+			if (base_latency () * active_duration_factor < std::chrono::steady_clock::now () - state_start)
 			{
 				activate_dependencies ();
 				state_change (nano::election::state_t::active, nano::election::state_t::backtracking);
@@ -204,7 +208,7 @@ bool nano::election::transition_time ()
 			send_confirm_req ();
 			break;
 		case nano::election::state_t::confirmed:
-			if (base_latency () * 10 < std::chrono::steady_clock::now () - state_start)
+			if (base_latency () * confirmed_duration_factor < std::chrono::steady_clock::now () - state_start)
 			{
 				result = true;
 				state_change (nano::election::state_t::confirmed, nano::election::state_t::expired);
