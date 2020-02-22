@@ -199,11 +199,15 @@ bool nano::election::transition_time ()
 		case nano::election::state_t::active:
 			broadcast_block ();
 			send_confirm_req ();
-			if (!active_backtrack_once && base_latency () * 10 < std::chrono::steady_clock::now () - state_start)
+			if (base_latency () * 10 < std::chrono::steady_clock::now () - state_start)
 			{
-				active_backtrack_once = true;
 				activate_dependencies ();
+				state_change (nano::election::state_t::active, nano::election::state_t::backtracking);
 			}
+			break;
+		case nano::election::state_t::backtracking:
+			broadcast_block ();
+			send_confirm_req ();
 			break;
 		case nano::election::state_t::confirmed:
 			if (base_latency () * 10 < std::chrono::steady_clock::now () - state_start)
