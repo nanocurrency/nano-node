@@ -195,4 +195,5 @@ std::unique_ptr<nano::container_info_component> collect_container_info (telemetr
 
 nano::telemetry_data consolidate_telemetry_data (std::vector<telemetry_data> const & telemetry_data);
 nano::telemetry_data_time_pair consolidate_telemetry_data_time_pairs (std::vector<telemetry_data_time_pair> const & telemetry_data_time_pairs);
+nano::telemetry_data local_telemetry_data (nano::ledger_cache const &, nano::network &, uint64_t, nano::network_params const &, std::chrono::steady_clock::time_point);
 }

@@ -38,8 +38,8 @@ void nano::election::confirm_once (nano::election_status_type type_a)
 		status.election_end = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
 		status.election_duration = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now () - election_start);
 		status.confirmation_request_count = confirmation_request_count;
-		status.block_count = blocks.size ();
-		status.voter_count = last_votes.size ();
+		status.block_count = nano::narrow_cast<decltype (status.block_count)> (blocks.size ());
+		status.voter_count = nano::narrow_cast<decltype (status.voter_count)> (last_votes.size ());
 		status.type = type_a;
 		auto status_l (status);
 		auto node_l (node.shared ());
@@ -455,8 +455,7 @@ bool nano::election::publish (std::shared_ptr<nano::block> block_a)
 		{
 			blocks.emplace (std::make_pair (block_a->hash (), block_a));
 			insert_inactive_votes_cache (block_a->hash ());
-			confirm_if_quorum ();
-			node.network.flood_block (block_a, false);
+			node.network.flood_block (block_a, nano::buffer_drop_policy::no_limiter_drop);
 		}
 		else
 		{
