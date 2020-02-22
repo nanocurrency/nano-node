@@ -178,12 +178,6 @@ void nano::election::broadcast_block ()
 bool nano::election::transition_time ()
 {
 	bool result = false;
-	if (std::chrono::minutes (5) < std::chrono::steady_clock::now () - election_start)
-	{
-		result = true;
-		status.type = nano::election_status_type::stopped;
-		log_votes (tally ());
-	}
 	switch (state_m)
 	{
 		case nano::election::state_t::idle:
@@ -213,8 +207,19 @@ bool nano::election::transition_time ()
 			if (base_latency () * 10 < std::chrono::steady_clock::now () - state_start)
 			{
 				result = true;
+				state_change (nano::election::state_t::confirmed, nano::election::state_t::expired);
 			}
 			break;
+		case nano::election::state_t::expired:
+			assert (false);
+			break;
+	}
+	if (std::chrono::minutes (5) < std::chrono::steady_clock::now () - election_start)
+	{
+		result = true;
+		state_change (state_m.load (), nano::election::state_t::expired);
+		status.type = nano::election_status_type::stopped;
+		log_votes (tally ());
 	}
 	return result;
 }

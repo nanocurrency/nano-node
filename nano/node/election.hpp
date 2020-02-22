@@ -61,7 +61,8 @@ private: // State management
 		passive,
 		active,
 		backtracking,
-		confirmed
+		confirmed,
+		expired
 	};
 	std::atomic<nano::election::state_t> state_m = { state_t::idle };
 
