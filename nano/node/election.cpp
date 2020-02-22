@@ -55,14 +55,89 @@ void nano::election::confirm_once (nano::election_status_type type_a)
 	}
 }
 
+bool nano::election::valid_change (nano::election::state_t expected_a, nano::election::state_t desired_a) const
+{
+	bool result = false;
+	switch (expected_a)
+	{
+		case nano::election::state_t::idle:
+			switch (desired_a)
+			{
+				case nano::election::state_t::passive:
+				case nano::election::state_t::active:
+					result = true;
+					break;
+				default:
+					break;
+			}
+			break;
+		case nano::election::state_t::passive:
+			switch (desired_a)
+			{
+				case nano::election::state_t::idle:
+				case nano::election::state_t::active:
+				case nano::election::state_t::confirmed:
+				case nano::election::state_t::expired:
+					result = true;
+					break;
+				default:
+					break;
+			}
+			break;
+		case nano::election::state_t::active:
+			switch (desired_a)
+			{
+				case nano::election::state_t::idle:
+				case nano::election::state_t::backtracking:
+				case nano::election::state_t::confirmed:
+				case nano::election::state_t::expired:
+					result = true;
+					break;
+				default:
+					break;
+			}
+		case nano::election::state_t::backtracking:
+			switch (desired_a)
+			{
+				case nano::election::state_t::idle:
+				case nano::election::state_t::confirmed:
+				case nano::election::state_t::expired:
+					result = true;
+					break;
+				default:
+					break;
+			}
+		case nano::election::state_t::confirmed:
+			switch (desired_a)
+			{
+				case nano::election::state_t::expired:
+					result = true;
+					break;
+				default:
+					break;
+			}
+		case nano::election::state_t::expired:
+			break;
+	}
+	return result;
+}
+
 bool nano::election::state_change (nano::election::state_t expected_a, nano::election::state_t desired_a)
 {
-	if (state_m.compare_exchange_strong (expected_a, desired_a))
+	bool result = true;
+	if (valid_change (expected_a, desired_a))
 	{
-		state_start = std::chrono::steady_clock::now ();
-		return false;
+		if (state_m.compare_exchange_strong (expected_a, desired_a))
+		{
+			state_start = std::chrono::steady_clock::now ();
+			result = false;
+		}
 	}
-	return true;
+	else
+	{
+		assert (false);
+	}
+	return result;
 }
 
 void nano::election::send_confirm_req ()

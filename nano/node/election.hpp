@@ -74,6 +74,7 @@ private: // State management
 	std::chrono::steady_clock::time_point last_block = { std::chrono::steady_clock::time_point () };
 	std::chrono::steady_clock::time_point last_req = { std::chrono::steady_clock::time_point () };
 
+	bool valid_change (nano::election::state_t, nano::election::state_t) const;
 	bool state_change (nano::election::state_t, nano::election::state_t);
 	void broadcast_block ();
 	void send_confirm_req ();
