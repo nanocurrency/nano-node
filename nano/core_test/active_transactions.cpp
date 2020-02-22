@@ -532,8 +532,8 @@ TEST (active_transactions, update_difficulty)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	// Update work with higher difficulty
-	auto work1 = node1.work_generate_blocking (send1->root (), difficulty1 + 1, boost::none);
-	auto work2 = node1.work_generate_blocking (send2->root (), difficulty2 + 1, boost::none);
+	auto work1 = node1.work_generate_blocking (send1->root (), difficulty1 + 1);
+	auto work2 = node1.work_generate_blocking (send2->root (), difficulty2 + 1);
 
 	std::error_code ec;
 	nano::state_block_builder builder;

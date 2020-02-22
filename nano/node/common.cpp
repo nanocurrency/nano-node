@@ -418,7 +418,7 @@ void nano::message_parser::deserialize_publish (nano::stream & stream_a, nano::m
 	nano::publish incoming (error, stream_a, header_a, &block_uniquer);
 	if (!error && at_end (stream_a))
 	{
-		if (!nano::work_validate (*incoming.block))
+		if (!nano::work_validate (nano::work_version::work_1, *incoming.block))
 		{
 			visitor.publish (incoming);
 		}
@@ -439,7 +439,7 @@ void nano::message_parser::deserialize_confirm_req (nano::stream & stream_a, nan
 	nano::confirm_req incoming (error, stream_a, header_a, &block_uniquer);
 	if (!error && at_end (stream_a))
 	{
-		if (incoming.block == nullptr || !nano::work_validate (*incoming.block))
+		if (incoming.block == nullptr || !nano::work_validate (nano::work_version::work_1, *incoming.block))
 		{
 			visitor.confirm_req (incoming);
 		}
@@ -465,7 +465,7 @@ void nano::message_parser::deserialize_confirm_ack (nano::stream & stream_a, nan
 			if (!vote_block.which ())
 			{
 				auto block (boost::get<std::shared_ptr<nano::block>> (vote_block));
-				if (nano::work_validate (*block))
+				if (nano::work_validate (nano::work_version::work_1, *block))
 				{
 					status = parse_status::insufficient_work;
 					break;
