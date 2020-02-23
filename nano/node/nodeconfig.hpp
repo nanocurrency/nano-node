@@ -4,6 +4,7 @@
 #include <nano/lib/diagnosticsconfig.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/jsonconfig.hpp>
+#include <nano/lib/lmdbconfig.hpp>
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/rocksdbconfig.hpp>
 #include <nano/lib/stats.hpp>
@@ -69,7 +70,7 @@ public:
 	std::string callback_address;
 	uint16_t callback_port{ 0 };
 	std::string callback_target;
-	int lmdb_max_dbs{ 128 };
+	int deprecated_lmdb_max_dbs{ 128 };
 	bool allow_local_peers{ !network_params.network.is_live_network () }; // disable by default for live network
 	nano::stat_config stat_config;
 	nano::ipc::ipc_config ipc_config;
@@ -95,6 +96,7 @@ public:
 	uint64_t max_work_generate_difficulty{ nano::network_constants::publish_full_threshold };
 	uint32_t max_queued_requests{ 512 };
 	nano::rocksdb_config rocksdb_config;
+	nano::lmdb_config lmdb_config;
 	nano::frontiers_confirmation_mode frontiers_confirmation{ nano::frontiers_confirmation_mode::automatic };
 	std::string serialize_frontiers_confirmation (nano::frontiers_confirmation_mode) const;
 	nano::frontiers_confirmation_mode deserialize_frontiers_confirmation (std::string const &);

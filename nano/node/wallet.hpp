@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/lmdbconfig.hpp>
 #include <nano/lib/work.hpp>
 #include <nano/node/lmdb/lmdb.hpp>
 #include <nano/node/lmdb/wallet_value.hpp>
@@ -257,7 +258,7 @@ public:
 class mdb_wallets_store final : public wallets_store
 {
 public:
-	mdb_wallets_store (boost::filesystem::path const &, int lmdb_max_dbs = 128);
+	mdb_wallets_store (boost::filesystem::path const &, nano::lmdb_config const & lmdb_config_a = nano::lmdb_config{});
 	nano::mdb_env environment;
 	bool init_error () const override;
 	bool error{ false };
