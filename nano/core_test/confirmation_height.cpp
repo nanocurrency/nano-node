@@ -1169,9 +1169,6 @@ TEST (confirmation_height, dependent_election)
 
 		add_callback_stats (*node);
 
-		// Prevent the confirmation height processor from doing any processing
-		node->confirmation_height_processor.pause ();
-
 		// Wait until it has been processed
 		node->block_confirm (send2);
 		system.deadline_set (10s);
@@ -1180,20 +1177,17 @@ TEST (confirmation_height, dependent_election)
 			ASSERT_NO_ERROR (system.poll ());
 		}
 
-		system.deadline_set (10s);
-		while (node->confirmation_height_processor.awaiting_processing_size () != 1)
 		{
-			ASSERT_NO_ERROR (system.poll ());
+			// The write guard prevents the confirmation height processor doing any writes.
+			system.deadline_set (10s);
+			auto write_guard = node->write_database_queue.wait (nano::writer::testing);
+			while (!node->write_database_queue.contains (nano::writer::confirmation_height))
+			{
+				ASSERT_NO_ERROR (system.poll ());
+			}
 		}
 
-		{
-			nano::lock_guard<std::mutex> guard (node->confirmation_height_processor.mutex);
-			ASSERT_EQ (*node->confirmation_height_processor.awaiting_processing.begin (), send2->hash ());
-		}
-
-		// Now put the other block in active so it can be confirmed as a dependent election
 		node->block_confirm (send1);
-		node->confirmation_height_processor.unpause ();
 
 		system.deadline_set (10s);
 		while (node->stats.count (nano::stat::type::http_callback, nano::stat::detail::http_callback, nano::stat::dir::out) != 3)
