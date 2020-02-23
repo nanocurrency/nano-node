@@ -42,6 +42,13 @@ public:
 			return *this;
 		}
 
+		/** Used by the wallet to override the sync strategy */
+		options & override_config_sync (nano::lmdb_config::sync_strategy sync_a)
+		{
+			config.sync = sync_a;
+			return *this;
+		}
+
 	private:
 		bool use_no_mem_init{ false };
 		nano::lmdb_config config;

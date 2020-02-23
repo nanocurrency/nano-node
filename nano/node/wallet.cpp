@@ -1990,7 +1990,7 @@ nano::store_iterator<nano::account, nano::wallet_value> nano::wallet_store::end 
 	return nano::store_iterator<nano::account, nano::wallet_value> (nullptr);
 }
 nano::mdb_wallets_store::mdb_wallets_store (boost::filesystem::path const & path_a, nano::lmdb_config const & lmdb_config_a) :
-environment (error, path_a, nano::mdb_env::options::make ().set_config (lmdb_config_a).override_config_map_size (1ULL * 1024 * 1024 * 1024))
+environment (error, path_a, nano::mdb_env::options::make ().set_config (lmdb_config_a).override_config_sync (nano::lmdb_config::sync_strategy::always).override_config_map_size (1ULL * 1024 * 1024 * 1024))
 {
 }
 
