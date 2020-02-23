@@ -2134,7 +2134,7 @@ TEST (node, rep_weight)
 	auto vote0 = std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, genesis.open);
 	auto vote1 = std::make_shared<nano::vote> (keypair1.pub, keypair1.prv, 0, genesis.open);
 	auto vote2 = std::make_shared<nano::vote> (keypair2.pub, keypair2.prv, 0, genesis.open);
-	node.rep_crawler.add (genesis.open->hash ());
+
 	node.rep_crawler.response (channel0, vote0);
 	node.rep_crawler.response (channel1, vote1);
 	node.rep_crawler.response (channel2, vote2);
@@ -2217,7 +2217,6 @@ TEST (node, rep_remove)
 	nano::amount amount100 (100);
 	node.network.udp_channels.insert (endpoint0, node.network_params.protocol.protocol_version);
 	auto vote1 = std::make_shared<nano::vote> (keypair1.pub, keypair1.prv, 0, genesis.open);
-	node.rep_crawler.add (genesis.hash ());
 	node.rep_crawler.response (channel0, vote1);
 	system.deadline_set (5s);
 	while (node.rep_crawler.representative_count () != 1)
