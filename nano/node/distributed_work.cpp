@@ -29,13 +29,13 @@ strand (node_a.io_ctx.get_executor ()),
 need_resolve (request_a.peers),
 elapsed (nano::timer_state::started, "distributed work generation timer")
 {
-	assert (!finished);
-	assert (status == work_generation_status::ongoing);
+	debug_assert (!finished);
+	debug_assert (status == work_generation_status::ongoing);
 }
 
 nano::distributed_work::~distributed_work ()
 {
-	assert (status != work_generation_status::ongoing);
+	debug_assert (status != work_generation_status::ongoing);
 	if (auto node_l = node_w.lock ())
 	{
 		if (!node_l->stopped && node_l->websocket_server && node_l->websocket_server->any_subscriber (nano::websocket::topic::work))
@@ -43,15 +43,15 @@ nano::distributed_work::~distributed_work ()
 			nano::websocket::message_builder builder;
 			if (status == work_generation_status::success)
 			{
-				node_l->websocket_server->broadcast (builder.work_generation (request.root, work_result, request.difficulty, node_l->network_params.network.publish_threshold, elapsed.value (), winner, bad_peers));
+				node_l->websocket_server->broadcast (builder.work_generation (request.version, request.root, work_result, request.difficulty, node_l->network_params.network.publish_threshold, elapsed.value (), winner, bad_peers));
 			}
 			else if (status == work_generation_status::cancelled)
 			{
-				node_l->websocket_server->broadcast (builder.work_cancelled (request.root, request.difficulty, node_l->network_params.network.publish_threshold, elapsed.value (), bad_peers));
+				node_l->websocket_server->broadcast (builder.work_cancelled (request.version, request.root, request.difficulty, node_l->network_params.network.publish_threshold, elapsed.value (), bad_peers));
 			}
 			else if (status == work_generation_status::failure_local || status == work_generation_status::failure_peers)
 			{
-				node_l->websocket_server->broadcast (builder.work_failed (request.root, request.difficulty, node_l->network_params.network.publish_threshold, elapsed.value (), bad_peers));
+				node_l->websocket_server->broadcast (builder.work_failed (request.version, request.root, request.difficulty, node_l->network_params.network.publish_threshold, elapsed.value (), bad_peers));
 			}
 		}
 		stop_once (true);
@@ -108,7 +108,7 @@ void nano::distributed_work::start_local ()
 	auto this_l (shared_from_this ());
 	local_generation_started = true;
 	node.work.generate (
-	request.root, [this_l](boost::optional<uint64_t> const & work_a) {
+	request.version, request.root, [this_l](boost::optional<uint64_t> const & work_a) {
 		if (work_a.is_initialized ())
 		{
 			this_l->set_once (*work_a);
@@ -242,7 +242,7 @@ void nano::distributed_work::success (std::string const & body_a, nano::tcp_endp
 		if (!nano::from_string_hex (work_text, work))
 		{
 			uint64_t result_difficulty (0);
-			if (!nano::work_validate (request.root, work, &result_difficulty) && result_difficulty >= request.difficulty)
+			if (!nano::work_validate (request.version, request.root, work, &result_difficulty) && result_difficulty >= request.difficulty)
 			{
 				error = false;
 				node.unresponsive_work_peers = false;

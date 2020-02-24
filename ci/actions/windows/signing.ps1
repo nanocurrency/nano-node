@@ -1,3 +1,5 @@
+$ErrorActionPreference = "Continue"
+
 if (Test-Path env:CSC_LINK) {
   $path = Join-Path -Path "$env:TMP" -ChildPath csc.p12
   [IO.File]::WriteAllBytes($path, [Convert]::FromBase64String($env:CSC_LINK))

@@ -33,7 +33,7 @@ void nano::bulk_push_client::start ()
 			}
 		}
 	},
-	false); // is bootstrap traffic is_droppable false
+	nano::buffer_drop_policy::no_limiter_drop);
 }
 
 void nano::bulk_push_client::push ()
@@ -232,7 +232,7 @@ void nano::bulk_push_server::received_block (boost::system::error_code const & e
 	{
 		nano::bufferstream stream (receive_buffer->data (), size_a);
 		auto block (nano::deserialize_block (stream, type_a));
-		if (block != nullptr && !nano::work_validate (*block))
+		if (block != nullptr && !nano::work_validate (nano::work_version::work_1, *block))
 		{
 			connection->node->process_active (std::move (block));
 			throttled_receive ();

@@ -98,7 +98,7 @@ public:
 	~network ();
 	void start ();
 	void stop ();
-	void flood_message (nano::message const &, bool const = true);
+	void flood_message (nano::message const &, nano::buffer_drop_policy = nano::buffer_drop_policy::limiter);
 	void flood_keepalive ()
 	{
 		nano::keepalive message;
@@ -107,10 +107,10 @@ public:
 	}
 	void flood_vote (std::shared_ptr<nano::vote> const &, float scale);
 	void flood_vote_pr (std::shared_ptr<nano::vote> const &);
-	void flood_block (std::shared_ptr<nano::block> block_a, bool const is_droppable_a = true)
+	void flood_block (std::shared_ptr<nano::block> block_a, nano::buffer_drop_policy drop_policy_a = nano::buffer_drop_policy::limiter)
 	{
 		nano::publish publish (block_a);
-		flood_message (publish, is_droppable_a);
+		flood_message (publish, drop_policy_a);
 	}
 
 	void flood_block_many (std::deque<std::shared_ptr<nano::block>>, std::function<void()> = nullptr, unsigned = broadcast_interval_ms);

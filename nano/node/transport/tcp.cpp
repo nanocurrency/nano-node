@@ -50,11 +50,11 @@ bool nano::transport::channel_tcp::operator== (nano::transport::channel const & 
 	return result;
 }
 
-void nano::transport::channel_tcp::send_buffer (nano::shared_const_buffer const & buffer_a, nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a)
+void nano::transport::channel_tcp::send_buffer (nano::shared_const_buffer const & buffer_a, nano::stat::detail detail_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
 {
 	if (auto socket_l = socket.lock ())
 	{
-		socket_l->async_write (buffer_a, tcp_callback (detail_a, socket_l->remote_endpoint (), callback_a));
+		socket_l->async_write (buffer_a, tcp_callback (detail_a, socket_l->remote_endpoint (), callback_a), drop_policy_a);
 	}
 }
 
@@ -101,7 +101,7 @@ node (node_a)
 bool nano::transport::tcp_channels::insert (std::shared_ptr<nano::transport::channel_tcp> channel_a, std::shared_ptr<nano::socket> socket_a, std::shared_ptr<nano::bootstrap_server> bootstrap_server_a)
 {
 	auto endpoint (channel_a->get_tcp_endpoint ());
-	assert (endpoint.address ().is_v6 ());
+	debug_assert (endpoint.address ().is_v6 ());
 	auto udp_endpoint (nano::transport::map_tcp_to_endpoint (endpoint));
 	bool error (true);
 	if (!node.network.not_a_peer (udp_endpoint, node.config.allow_local_peers) && !stopped)
@@ -181,15 +181,15 @@ std::unordered_set<std::shared_ptr<nano::transport::channel>> nano::transport::t
 void nano::transport::tcp_channels::random_fill (std::array<nano::endpoint, 8> & target_a) const
 {
 	auto peers (random_set (target_a.size ()));
-	assert (peers.size () <= target_a.size ());
+	debug_assert (peers.size () <= target_a.size ());
 	auto endpoint (nano::endpoint (boost::asio::ip::address_v6{}, 0));
-	assert (endpoint.address ().is_v6 ());
+	debug_assert (endpoint.address ().is_v6 ());
 	std::fill (target_a.begin (), target_a.end (), endpoint);
 	auto j (target_a.begin ());
 	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i, ++j)
 	{
-		assert ((*i)->get_endpoint ().address ().is_v6 ());
-		assert (j < target_a.end ());
+		debug_assert ((*i)->get_endpoint ().address ().is_v6 ());
+		debug_assert (j < target_a.end ());
 		*j = (*i)->get_endpoint ();
 	}
 }
@@ -279,13 +279,13 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 				// Add temporary channel
 				socket_a->set_writer_concurrency (nano::socket::concurrency::multi_writer);
 				auto temporary_channel (std::make_shared<nano::transport::channel_tcp> (node, socket_a));
-				assert (endpoint_a == temporary_channel->get_tcp_endpoint ());
+				debug_assert (endpoint_a == temporary_channel->get_tcp_endpoint ());
 				temporary_channel->set_node_id (node_id_a);
 				temporary_channel->set_network_version (message_a.header.version_using);
 				temporary_channel->set_last_packet_received (std::chrono::steady_clock::now ());
 				temporary_channel->set_last_packet_sent (std::chrono::steady_clock::now ());
 				temporary_channel->temporary = true;
-				assert (type_a == nano::bootstrap_server_type::realtime || type_a == nano::bootstrap_server_type::realtime_response_server);
+				debug_assert (type_a == nano::bootstrap_server_type::realtime || type_a == nano::bootstrap_server_type::realtime_response_server);
 				// Don't insert temporary channels for response_server
 				if (type_a == nano::bootstrap_server_type::realtime)
 				{
@@ -296,8 +296,8 @@ void nano::transport::tcp_channels::process_message (nano::message const & messa
 			else
 			{
 				// Initial node_id_handshake request without node ID
-				assert (message_a.header.type == nano::message_type::node_id_handshake);
-				assert (type_a == nano::bootstrap_server_type::undefined);
+				debug_assert (message_a.header.type == nano::message_type::node_id_handshake);
+				debug_assert (type_a == nano::bootstrap_server_type::undefined);
 				node.stats.inc (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::in);
 			}
 		}

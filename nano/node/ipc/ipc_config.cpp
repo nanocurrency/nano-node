@@ -1,6 +1,6 @@
 #include <nano/lib/jsonconfig.hpp>
 #include <nano/lib/tomlconfig.hpp>
-#include <nano/node/ipcconfig.hpp>
+#include <nano/node/ipc/ipc_config.hpp>
 
 nano::error nano::ipc::ipc_config::serialize_toml (nano::tomlconfig & toml) const
 {
@@ -25,6 +25,12 @@ nano::error nano::ipc::ipc_config::serialize_toml (nano::tomlconfig & toml) cons
 	domain_l.put ("path", transport_domain.path, "Path to the local domain socket.\ntype:string");
 	domain_l.put ("io_timeout", transport_domain.io_timeout, "Timeout for requests.\ntype:seconds");
 	toml.put_child ("local", domain_l);
+
+	nano::tomlconfig flatbuffers_l;
+	flatbuffers_l.put ("skip_unexpected_fields_in_json", flatbuffers.skip_unexpected_fields_in_json, "Allow client to send unknown fields in json messages. These will be ignored.\ntype:bool");
+	flatbuffers_l.put ("verify_buffers", flatbuffers.verify_buffers, "Verify that the buffer is valid before parsing. This is recommended when receiving data from untrusted sources.\ntype:bool");
+	toml.put_child ("flatbuffers", flatbuffers_l);
+
 	return toml.get_error ();
 }
 
@@ -48,6 +54,13 @@ nano::error nano::ipc::ipc_config::deserialize_toml (nano::tomlconfig & toml)
 		domain_l->get<bool> ("enable", transport_domain.enabled);
 		domain_l->get<std::string> ("path", transport_domain.path);
 		domain_l->get<size_t> ("io_timeout", transport_domain.io_timeout);
+	}
+
+	auto flatbuffers_l (toml.get_optional_child ("flatbuffers"));
+	if (flatbuffers_l)
+	{
+		flatbuffers_l->get<bool> ("skip_unexpected_fields_in_json", flatbuffers.skip_unexpected_fields_in_json);
+		flatbuffers_l->get<bool> ("verify_buffers", flatbuffers.verify_buffers);
 	}
 
 	return toml.get_error ();

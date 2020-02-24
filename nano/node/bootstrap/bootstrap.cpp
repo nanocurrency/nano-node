@@ -114,7 +114,7 @@ void nano::bootstrap_initiator::bootstrap_lazy (nano::hash_or_account const & ha
 
 void nano::bootstrap_initiator::bootstrap_wallet (std::deque<nano::account> & accounts_a)
 {
-	assert (!accounts_a.empty ());
+	debug_assert (!accounts_a.empty ());
 	auto wallet_attempt (current_wallet_attempt ());
 	node.stats.inc (nano::stat::type::bootstrap, nano::stat::detail::initiate_wallet_lazy, nano::stat::dir::out);
 	if (wallet_attempt == nullptr)
@@ -197,7 +197,7 @@ void nano::bootstrap_initiator::remove_attempt (std::shared_ptr<nano::bootstrap_
 	{
 		attempts.remove ((*attempt)->incremental_id);
 		attempts_list.erase (attempt);
-		assert (attempts.size () == attempts_list.size ());
+		debug_assert (attempts.size () == attempts_list.size ());
 	}
 	lock.unlock ();
 	condition.notify_all ();
@@ -323,7 +323,7 @@ void nano::pulls_cache::add (nano::pull_info const & pull_a)
 		{
 			cache.erase (cache.begin ());
 		}
-		assert (cache.size () <= cache_size_max);
+		debug_assert (cache.size () <= cache_size_max);
 		nano::uint512_union head_512 (pull_a.account_or_head, pull_a.head_original);
 		auto existing (cache.get<account_head_tag> ().find (head_512));
 		if (existing == cache.get<account_head_tag> ().end ())
@@ -331,7 +331,7 @@ void nano::pulls_cache::add (nano::pull_info const & pull_a)
 			// Insert new pull
 			auto inserted (cache.emplace (nano::cached_pulls{ std::chrono::steady_clock::now (), head_512, pull_a.head }));
 			(void)inserted;
-			assert (inserted.second);
+			debug_assert (inserted.second);
 		}
 		else
 		{
@@ -371,14 +371,14 @@ uint64_t nano::bootstrap_excluded_peers::add (nano::tcp_endpoint const & endpoin
 	{
 		peers.erase (peers.begin ());
 	}
-	assert (peers.size () <= excluded_peers_size_max);
+	debug_assert (peers.size () <= excluded_peers_size_max);
 	auto existing (peers.get<endpoint_tag> ().find (endpoint_a));
 	if (existing == peers.get<endpoint_tag> ().end ())
 	{
 		// Insert new endpoint
 		auto inserted (peers.emplace (nano::excluded_peers_item{ std::chrono::steady_clock::steady_clock::now () + exclude_time_hours, endpoint_a, 1 }));
 		(void)inserted;
-		assert (inserted.second);
+		debug_assert (inserted.second);
 		result = 1;
 	}
 	else

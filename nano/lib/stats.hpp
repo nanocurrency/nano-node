@@ -301,6 +301,8 @@ public:
 
 		// confirmation height
 		blocks_confirmed,
+		blocks_confirmed_unbounded,
+		blocks_confirmed_bounded,
 		invalid_block,
 
 		// [request] aggregator

@@ -2,7 +2,7 @@
 
 nano::wallet_value::wallet_value (nano::db_val<MDB_val> const & val_a)
 {
-	assert (val_a.size () == sizeof (*this));
+	debug_assert (val_a.size () == sizeof (*this));
 	std::copy (reinterpret_cast<uint8_t const *> (val_a.data ()), reinterpret_cast<uint8_t const *> (val_a.data ()) + sizeof (key), key.chars.begin ());
 	std::copy (reinterpret_cast<uint8_t const *> (val_a.data ()) + sizeof (key), reinterpret_cast<uint8_t const *> (val_a.data ()) + sizeof (key) + sizeof (work), reinterpret_cast<char *> (&work));
 }
