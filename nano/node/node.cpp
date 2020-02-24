@@ -1356,7 +1356,6 @@ peering_port (peering_port_a)
 		config_overrides_stream << entry << std::endl;
 	}
 	config_overrides_stream << std::endl;
-	// Make sure we don't create an empty toml file if it doesn't exist. Running without a toml file is the default.
 	nano::tomlconfig toml;
 	toml.read (config_overrides_stream);
 	auto error = config.deserialize_toml (toml);
