@@ -409,7 +409,7 @@ size_t nano::rocksdb_store::count (nano::transaction const & transaction_a, tabl
 	}
 	else if (table_a == tables::accounts)
 	{
-		assert (network_constants ().is_test_network ());
+		debug_assert (network_constants ().is_test_network ());
 		for (auto i (latest_begin (transaction_a)), n (latest_end ()); i != n; ++i)
 		{
 			++sum;
@@ -417,7 +417,7 @@ size_t nano::rocksdb_store::count (nano::transaction const & transaction_a, tabl
 	}
 	else
 	{
-		assert (is_caching_counts (table_a));
+		debug_assert (is_caching_counts (table_a));
 		return count (transaction_a, table_to_column_family (table_a));
 	}
 

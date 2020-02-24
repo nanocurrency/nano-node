@@ -930,7 +930,7 @@ bool nano::ledger::rollback (nano::write_transaction const & transaction_a, nano
 {
 	std::vector<std::shared_ptr<nano::block>> rollback_list;
 	// This function is only used by tests currently.
-	assert (nano::network_constants ().is_test_network ());
+	debug_assert (nano::network_constants ().is_test_network ());
 	uint64_t num_state_blocks_rolled_back{ 0 };
 	auto res = rollback (transaction_a, block_a, rollback_list, num_state_blocks_rolled_back);
 	if (num_state_blocks_rolled_back_a)
