@@ -5,6 +5,7 @@
 #include <nano/boost/beast/websocket.hpp>
 #include <nano/lib/blocks.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/work.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/property_tree/json_parser.hpp>
@@ -37,6 +38,7 @@ namespace websocket
 {
 	class listener;
 	class confirmation_options;
+	class session;
 
 	/** Supported topics */
 	enum class topic
@@ -87,9 +89,10 @@ namespace websocket
 		message stopped_election (nano::block_hash const & hash_a);
 		message vote_received (std::shared_ptr<nano::vote> vote_a, nano::vote_code code_a);
 		message difficulty_changed (uint64_t publish_threshold_a, uint64_t difficulty_active_a);
-		message work_generation (nano::block_hash const & root_a, uint64_t const work_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::string const & peer_a, std::vector<std::string> const & bad_peers_a, bool const completed_a = true, bool const cancelled_a = false);
-		message work_cancelled (nano::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a);
-		message work_failed (nano::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a);
+
+		message work_generation (nano::work_version const version_a, nano::block_hash const & root_a, uint64_t const work_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::string const & peer_a, std::vector<std::string> const & bad_peers_a, bool const completed_a = true, bool const cancelled_a = false);
+		message work_cancelled (nano::work_version const version_a, nano::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a);
+		message work_failed (nano::work_version const version_a, nano::block_hash const & root_a, uint64_t const difficulty_a, uint64_t const publish_threshold_a, std::chrono::milliseconds const & duration_a, std::vector<std::string> const & bad_peers_a);
 		message bootstrap_started (std::string const & id_a, std::string const & mode_a);
 		message bootstrap_exited (std::string const & id_a, std::string const & mode_a, std::chrono::steady_clock::time_point const start_time_a, uint64_t const total_blocks_a);
 
@@ -102,6 +105,9 @@ namespace websocket
 	class options
 	{
 	public:
+		virtual ~options () = default;
+
+	protected:
 		/**
 		 * Checks if a message should be filtered for default options (no options given).
 		 * @param message_a the message to be checked
@@ -111,7 +117,16 @@ namespace websocket
 		{
 			return false;
 		}
-		virtual ~options () = default;
+		/**
+		 * Update options, if available for a given topic
+		 * @return false on success
+		 */
+		virtual bool update (boost::property_tree::ptree const & options_a)
+		{
+			return true;
+		}
+
+		friend class session;
 	};
 
 	/**
@@ -137,6 +152,15 @@ namespace websocket
 		 */
 		bool should_filter (message const & message_a) const override;
 
+		/**
+		 * Update some existing options
+		 * Filtering options:
+		 * - "accounts_add" (array of std::strings) - additional accounts for which blocks should not be filtered
+		 * - "accounts_del" (array of std::strings) - accounts for which blocks should be filtered
+		 * @return false
+		 */
+		bool update (boost::property_tree::ptree const & options_a) override;
+
 		/** Returns whether or not block contents should be included */
 		bool get_include_block () const
 		{
@@ -156,7 +180,10 @@ namespace websocket
 		static constexpr const uint8_t type_all = type_all_active | type_inactive;
 
 	private:
+		void check_filter_empty () const;
+
 		nano::wallets & wallets;
+		boost::optional<nano::logger_mt &> logger;
 		bool include_election_info{ false };
 		bool include_block{ true };
 		bool has_account_filtering_options{ false };

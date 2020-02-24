@@ -2,6 +2,7 @@
 
 #include <nano/lib/locks.hpp>
 
+#include <cassert>
 #include <functional>
 #include <mutex>
 #include <vector>
@@ -18,6 +19,15 @@ namespace system
 	class error_code;
 }
 }
+
+void assert_internal (const char * check_expr, const char * file, unsigned int line, bool is_release_assert);
+#define release_assert(check) check ? (void)0 : assert_internal (#check, __FILE__, __LINE__, true)
+
+#ifdef NDEBUG
+#define debug_assert(check) (void)0
+#else
+#define debug_assert(check) check ? (void)0 : assert_internal (#check, __FILE__, __LINE__, false)
+#endif
 
 namespace nano
 {
@@ -161,13 +171,13 @@ void transform_if (InputIt first, InputIt last, OutputIt dest, Pred pred, Func t
 		++first;
 	}
 }
+
+/** Safe narrowing cast which silences warnings and asserts on data loss in debug builds. This is optimized away. */
+template <typename TARGET_TYPE, typename SOURCE_TYPE>
+constexpr TARGET_TYPE narrow_cast (SOURCE_TYPE const & val)
+{
+	auto res (static_cast<TARGET_TYPE> (val));
+	debug_assert (val == static_cast<SOURCE_TYPE> (res));
+	return res;
 }
-
-void assert_internal (const char * check_expr, const char * file, unsigned int line, bool is_release_assert);
-#define release_assert(check) check ? (void)0 : assert_internal (#check, __FILE__, __LINE__, true)
-
-#ifdef NDEBUG
-#define debug_assert(check) (void)0
-#else
-#define debug_assert(check) check ? (void)0 : assert_internal (#check, __FILE__, __LINE__, false)
-#endif
+}

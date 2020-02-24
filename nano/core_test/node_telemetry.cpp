@@ -258,10 +258,11 @@ namespace nano
 {
 TEST (node_telemetry, basic)
 {
-	nano::system system (2);
-
-	auto node_client = system.nodes.front ();
-	auto node_server = system.nodes.back ();
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_ongoing_telemetry_requests = true;
+	auto node_client = system.add_node (node_flags);
+	auto node_server = system.add_node (node_flags);
 
 	wait_peer_connections (system);
 
@@ -304,8 +305,6 @@ TEST (node_telemetry, basic)
 
 	// Wait the cache period and check cache is not used
 	std::this_thread::sleep_for (nano::telemetry_cache_cutoffs::test);
-	// Arbitrarily change something so that we can confirm different metrics were used
-	node_server->ledger.cache.block_count = 100;
 
 	std::atomic<bool> done{ false };
 	node_client->telemetry.get_metrics_peers_async ([&done, &all_telemetry_data_time_pairs](nano::telemetry_data_responses const & responses_a) {
@@ -410,6 +409,7 @@ TEST (node_telemetry, over_udp)
 	nano::system system;
 	nano::node_flags node_flags;
 	node_flags.disable_tcp_realtime = true;
+	node_flags.disable_udp = false;
 	auto node_client = system.add_node (node_flags);
 	auto node_server = system.add_node (node_flags);
 
@@ -447,10 +447,12 @@ namespace nano
 {
 TEST (node_telemetry, single_request)
 {
-	nano::system system (2);
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_ongoing_telemetry_requests = true;
 
-	auto node_client = system.nodes.front ();
-	auto node_server = system.nodes.back ();
+	auto node_client = system.add_node (node_flags);
+	auto node_server = system.add_node (node_flags);
 
 	wait_peer_connections (system);
 
@@ -701,10 +703,11 @@ TEST (node_telemetry, disconnects)
 
 TEST (node_telemetry, batch_use_single_request_cache)
 {
-	nano::system system (2);
-
-	auto node_client = system.nodes.front ();
-	auto node_server = system.nodes.back ();
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_ongoing_telemetry_requests = true;
+	auto node_client = system.add_node (node_flags);
+	auto node_server = system.add_node (node_flags);
 
 	wait_peer_connections (system);
 
@@ -755,9 +758,11 @@ TEST (node_telemetry, batch_use_single_request_cache)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 
+	std::this_thread::sleep_for (nano::telemetry_cache_cutoffs::test);
+
 	system.deadline_set (10s);
 	std::atomic<bool> done{ false };
-	node_client->telemetry.get_metrics_peers_async ([&done, &telemetry_data_time_pair](nano::telemetry_data_responses const & responses_a) {
+	node_client->telemetry.get_metrics_peers_async ([&done](nano::telemetry_data_responses const & responses_a) {
 		ASSERT_EQ (1, responses_a.telemetry_data_time_pairs.size ());
 		done = true;
 	});

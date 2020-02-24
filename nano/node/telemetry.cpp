@@ -13,9 +13,7 @@
 #include <numeric>
 #include <set>
 
-std::chrono::seconds constexpr nano::telemetry_impl::alarm_cutoff;
-
-nano::telemetry::telemetry (nano::network & network_a, nano::alarm & alarm_a, nano::worker & worker_a) :
+nano::telemetry::telemetry (nano::network & network_a, nano::alarm & alarm_a, nano::worker & worker_a, bool disable_ongoing_requests_a) :
 network (network_a),
 alarm (alarm_a),
 worker (worker_a),
@@ -58,7 +56,10 @@ batch_request (std::make_shared<nano::telemetry_impl> (network, alarm, worker))
 		finished_single_requests.clear ();
 	};
 
-	ongoing_req_all_peers ();
+	if (!disable_ongoing_requests_a)
+	{
+		ongoing_req_all_peers ();
+	}
 }
 
 void nano::telemetry::stop ()
@@ -151,10 +152,14 @@ void nano::telemetry::ongoing_single_request_cleanup (nano::endpoint const & end
 		if (auto telemetry_impl = telemetry_impl_w.lock ())
 		{
 			nano::lock_guard<std::mutex> guard (this->mutex);
+			nano::lock_guard<std::mutex> guard_telemetry_impl (telemetry_impl->mutex);
 			if (std::chrono::steady_clock::now () - telemetry_impl->cache_cutoff > single_request_data_a.last_updated && telemetry_impl->callbacks.empty ())
 			{
 				//  This will be picked up by the batch request next round
-				this->finished_single_requests[endpoint_a] = telemetry_impl->cached_telemetry_data.begin ()->second;
+				if (!telemetry_impl->cached_telemetry_data.empty ())
+				{
+					this->finished_single_requests[endpoint_a] = telemetry_impl->cached_telemetry_data.begin ()->second;
+				}
 				this->single_requests.erase (endpoint_a);
 			}
 			else
@@ -285,6 +290,7 @@ size_t nano::telemetry::finished_single_requests_size ()
 }
 
 nano::telemetry_impl::telemetry_impl (nano::network & network_a, nano::alarm & alarm_a, nano::worker & worker_a) :
+alarm_cutoff (is_sanitizer_build || nano::running_within_valgrind () ? 6 : 3),
 network (network_a),
 alarm (alarm_a),
 worker (worker_a)
@@ -426,7 +432,7 @@ void nano::telemetry_impl::fire_request_messages (std::deque<std::shared_ptr<nan
 				}
 			}
 		},
-		false);
+		nano::buffer_drop_policy::no_socket_drop);
 		// clang-format on
 
 		// If no response is seen after a certain period of time, remove it from the list of expected responses. However, only if it is part of the same round.
@@ -667,4 +673,24 @@ nano::telemetry_data_time_pair nano::consolidate_telemetry_data_time_pairs (std:
 	auto consolidated_timestamp = boost::numeric_cast<long long> (timestamp_sum / size);
 
 	return telemetry_data_time_pair{ consolidated_data, std::chrono::steady_clock::time_point{}, std::chrono::system_clock::time_point (std::chrono::milliseconds (consolidated_timestamp)) };
+}
+
+nano::telemetry_data nano::local_telemetry_data (nano::ledger_cache const & ledger_cache_a, nano::network & network_a, uint64_t bandwidth_limit_a, nano::network_params const & network_params_a, std::chrono::steady_clock::time_point statup_time_a)
+{
+	nano::telemetry_data telemetry_data;
+	telemetry_data.block_count = ledger_cache_a.block_count;
+	telemetry_data.cemented_count = ledger_cache_a.cemented_count;
+	telemetry_data.bandwidth_cap = bandwidth_limit_a;
+	telemetry_data.protocol_version = network_params_a.protocol.protocol_version;
+	telemetry_data.uptime = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - statup_time_a).count ();
+	telemetry_data.unchecked_count = ledger_cache_a.unchecked_count;
+	telemetry_data.genesis_block = network_params_a.ledger.genesis_hash;
+	telemetry_data.peer_count = nano::narrow_cast<decltype (telemetry_data.peer_count)> (network_a.size ());
+	telemetry_data.account_count = ledger_cache_a.account_count;
+	telemetry_data.major_version = nano::get_major_node_version ();
+	telemetry_data.minor_version = nano::get_minor_node_version ();
+	telemetry_data.patch_version = nano::get_patch_node_version ();
+	telemetry_data.pre_release_version = nano::get_pre_release_node_version ();
+	telemetry_data.maker = 0; // 0 Indicates it originated from the NF
+	return telemetry_data;
 }

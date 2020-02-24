@@ -418,7 +418,7 @@ void nano::message_parser::deserialize_publish (nano::stream & stream_a, nano::m
 	nano::publish incoming (error, stream_a, header_a, &block_uniquer);
 	if (!error && at_end (stream_a))
 	{
-		if (!nano::work_validate (*incoming.block))
+		if (!nano::work_validate (nano::work_version::work_1, *incoming.block))
 		{
 			visitor.publish (incoming);
 		}
@@ -439,7 +439,7 @@ void nano::message_parser::deserialize_confirm_req (nano::stream & stream_a, nan
 	nano::confirm_req incoming (error, stream_a, header_a, &block_uniquer);
 	if (!error && at_end (stream_a))
 	{
-		if (incoming.block == nullptr || !nano::work_validate (*incoming.block))
+		if (incoming.block == nullptr || !nano::work_validate (nano::work_version::work_1, *incoming.block))
 		{
 			visitor.confirm_req (incoming);
 		}
@@ -465,7 +465,7 @@ void nano::message_parser::deserialize_confirm_ack (nano::stream & stream_a, nan
 			if (!vote_block.which ())
 			{
 				auto block (boost::get<std::shared_ptr<nano::block>> (vote_block));
-				if (nano::work_validate (*block))
+				if (nano::work_validate (nano::work_version::work_1, *block))
 				{
 					status = parse_status::insufficient_work;
 					break;
@@ -1368,7 +1368,6 @@ bool nano::parse_port (std::string const & string_a, uint16_t & port_a)
 // Can handle both ipv4 & ipv6 addresses (with and without square brackets)
 bool nano::parse_address (std::string const & address_text_a, boost::asio::ip::address & address_a)
 {
-	auto result (false);
 	auto address_text = address_text_a;
 	if (!address_text.empty () && address_text.front () == '[' && address_text.back () == ']')
 	{
