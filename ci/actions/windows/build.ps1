@@ -1,5 +1,4 @@
-# Stop immediately if any error happens
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
 if (${env:artifact} -eq 1) {
     if ( ${env:BETA} -eq 1 ) {

@@ -99,7 +99,7 @@ std::deque<nano::unchecked_info> nano::state_block_signature_verification::setup
 			items.push_back (state_blocks.front ());
 			state_blocks.pop_front ();
 		}
-		assert (!state_blocks.empty ());
+		debug_assert (!state_blocks.empty ());
 	}
 	return items;
 }

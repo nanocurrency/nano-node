@@ -70,7 +70,7 @@ void nano::network::start ()
 	if (!node.flags.disable_udp)
 	{
 		udp_channels.start ();
-		assert (udp_channels.get_local_endpoint ().port () == port);
+		debug_assert (udp_channels.get_local_endpoint ().port () == port);
 	}
 	if (!node.flags.disable_tcp_realtime)
 	{
@@ -136,7 +136,7 @@ void nano::network::send_node_id_handshake (std::shared_ptr<nano::transport::cha
 	if (respond_to)
 	{
 		response = std::make_pair (node.node_id.pub, nano::sign_message (node.node_id.prv, node.node_id.pub, *respond_to));
-		assert (!nano::validate_message (response->first, *respond_to, response->second));
+		debug_assert (!nano::validate_message (response->first, *respond_to, response->second));
 	}
 	nano::node_id_handshake message (query, response);
 	if (node.config.logging.network_node_id_handshake_logging ())
@@ -427,19 +427,19 @@ public:
 	}
 	void bulk_pull (nano::bulk_pull const &) override
 	{
-		assert (false);
+		debug_assert (false);
 	}
 	void bulk_pull_account (nano::bulk_pull_account const &) override
 	{
-		assert (false);
+		debug_assert (false);
 	}
 	void bulk_push (nano::bulk_push const &) override
 	{
-		assert (false);
+		debug_assert (false);
 	}
 	void frontier_req (nano::frontier_req const &) override
 	{
-		assert (false);
+		debug_assert (false);
 	}
 	void node_id_handshake (nano::node_id_handshake const & message_a) override
 	{
@@ -590,15 +590,15 @@ std::unordered_set<std::shared_ptr<nano::transport::channel>> nano::network::ran
 void nano::network::random_fill (std::array<nano::endpoint, 8> & target_a) const
 {
 	auto peers (random_set (target_a.size (), 0, false)); // Don't include channels with ephemeral remote ports
-	assert (peers.size () <= target_a.size ());
+	debug_assert (peers.size () <= target_a.size ());
 	auto endpoint (nano::endpoint (boost::asio::ip::address_v6{}, 0));
-	assert (endpoint.address ().is_v6 ());
+	debug_assert (endpoint.address ().is_v6 ());
 	std::fill (target_a.begin (), target_a.end (), endpoint);
 	auto j (target_a.begin ());
 	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i, ++j)
 	{
-		assert ((*i)->get_endpoint ().address ().is_v6 ());
-		assert (j < target_a.end ());
+		debug_assert ((*i)->get_endpoint ().address ().is_v6 ());
+		debug_assert (j < target_a.end ());
 		*j = (*i)->get_endpoint ();
 	}
 }
@@ -713,8 +713,8 @@ slab (size * count),
 entries (count),
 stopped (false)
 {
-	assert (count > 0);
-	assert (size > 0);
+	debug_assert (count > 0);
+	debug_assert (size > 0);
 	auto slab_data (slab.data ());
 	auto entry_data (entries.data ());
 	for (auto i (0); i < count; ++i, ++entry_data)
@@ -750,7 +750,7 @@ nano::message_buffer * nano::message_buffer_manager::allocate ()
 
 void nano::message_buffer_manager::enqueue (nano::message_buffer * data_a)
 {
-	assert (data_a != nullptr);
+	debug_assert (data_a != nullptr);
 	{
 		nano::lock_guard<std::mutex> lock (mutex);
 		full.push_back (data_a);
@@ -776,7 +776,7 @@ nano::message_buffer * nano::message_buffer_manager::dequeue ()
 
 void nano::message_buffer_manager::release (nano::message_buffer * data_a)
 {
-	assert (data_a != nullptr);
+	debug_assert (data_a != nullptr);
 	{
 		nano::lock_guard<std::mutex> lock (mutex);
 		free.push_back (data_a);
@@ -796,7 +796,7 @@ void nano::message_buffer_manager::stop ()
 boost::optional<nano::uint256_union> nano::syn_cookies::assign (nano::endpoint const & endpoint_a)
 {
 	auto ip_addr (endpoint_a.address ());
-	assert (ip_addr.is_v6 ());
+	debug_assert (ip_addr.is_v6 ());
 	nano::lock_guard<std::mutex> lock (syn_cookie_mutex);
 	unsigned & ip_cookies = cookies_per_ip[ip_addr];
 	boost::optional<nano::uint256_union> result;
@@ -818,7 +818,7 @@ boost::optional<nano::uint256_union> nano::syn_cookies::assign (nano::endpoint c
 bool nano::syn_cookies::validate (nano::endpoint const & endpoint_a, nano::account const & node_id, nano::signature const & sig)
 {
 	auto ip_addr (endpoint_a.address ());
-	assert (ip_addr.is_v6 ());
+	debug_assert (ip_addr.is_v6 ());
 	nano::lock_guard<std::mutex> lock (syn_cookie_mutex);
 	auto result (true);
 	auto cookie_it (cookies.find (endpoint_a));
@@ -833,7 +833,7 @@ bool nano::syn_cookies::validate (nano::endpoint const & endpoint_a, nano::accou
 		}
 		else
 		{
-			assert (false && "More SYN cookies deleted than created for IP");
+			debug_assert (false && "More SYN cookies deleted than created for IP");
 		}
 	}
 	return result;
@@ -855,7 +855,7 @@ void nano::syn_cookies::purge (std::chrono::steady_clock::time_point const & cut
 			}
 			else
 			{
-				assert (false && "More SYN cookies deleted than created for IP");
+				debug_assert (false && "More SYN cookies deleted than created for IP");
 			}
 			it = cookies.erase (it);
 		}

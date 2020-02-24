@@ -6,8 +6,6 @@
 
 #include <boost/format.hpp>
 
-#include <cassert>
-
 std::chrono::milliseconds constexpr nano::block_processor::confirmation_request_delay;
 
 nano::block_processor::block_processor (nano::node & node_a, nano::write_database_queue & write_database_queue_a) :
@@ -105,7 +103,7 @@ void nano::block_processor::add (nano::unchecked_info const & info_a)
 	else
 	{
 		node.logger.try_log ("nano::block_processor::add called for hash ", info_a.block->hash ().to_string (), " with invalid work ", nano::to_string_hex (info_a.block->block_work ()));
-		assert (false && "nano::block_processor::add called with invalid work");
+		debug_assert (false && "nano::block_processor::add called with invalid work");
 	}
 }
 
@@ -159,7 +157,7 @@ bool nano::block_processor::should_log (bool first_time)
 
 bool nano::block_processor::have_blocks ()
 {
-	assert (!mutex.try_lock ());
+	debug_assert (!mutex.try_lock ());
 	return !blocks.empty () || !forced.empty () || state_block_signature_verification.size () != 0;
 }
 
@@ -169,7 +167,7 @@ void nano::block_processor::process_verified_state_blocks (std::deque<nano::unch
 		nano::unique_lock<std::mutex> lk (mutex);
 		for (auto i (0); i < verifications.size (); ++i)
 		{
-			assert (verifications[i] == 1 || verifications[i] == 0);
+			debug_assert (verifications[i] == 1 || verifications[i] == 0);
 			auto & item (items.front ());
 			if (!item.block->link ().is_zero () && node.ledger.is_epoch_link (item.block->link ()))
 			{
@@ -483,7 +481,7 @@ void nano::block_processor::queue_unchecked (nano::write_transaction const & tra
 		{
 			if (!node.store.unchecked_del (transaction_a, nano::unchecked_key (hash_a, info.block->hash ())))
 			{
-				assert (node.ledger.cache.unchecked_count > 0);
+				debug_assert (node.ledger.cache.unchecked_count > 0);
 				--node.ledger.cache.unchecked_count;
 			}
 		}
@@ -507,7 +505,7 @@ nano::block_hash nano::block_processor::filter_item (nano::block_hash const & ha
 
 void nano::block_processor::requeue_invalid (nano::block_hash const & hash_a, nano::unchecked_info const & info_a)
 {
-	assert (hash_a == info_a.block->hash ());
+	debug_assert (hash_a == info_a.block->hash ());
 	auto attempt (node.bootstrap_initiator.current_attempt ());
 	if (attempt != nullptr && attempt->mode == nano::bootstrap_mode::lazy)
 	{

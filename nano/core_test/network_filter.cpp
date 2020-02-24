@@ -10,7 +10,7 @@ TEST (network_filter, unit)
 {
 	nano::genesis genesis;
 	nano::network_filter filter (1);
-	auto one_block = [&genesis, &filter](std::shared_ptr<nano::block> const & block_a, bool expect_duplicate_a) {
+	auto one_block = [&filter](std::shared_ptr<nano::block> const & block_a, bool expect_duplicate_a) {
 		nano::publish message (block_a);
 		auto bytes (message.to_bytes ());
 		nano::bufferstream stream (bytes->data (), bytes->size ());

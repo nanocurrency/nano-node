@@ -45,14 +45,14 @@ public:
 
 	void await_ack ()
 	{
-		assert (socket->is_open ());
+		debug_assert (socket->is_open ());
 		boost::beast::flat_buffer buffer;
 		socket->read (buffer);
 	}
 
 	boost::optional<std::string> get_response (std::chrono::seconds const deadline = 5s)
 	{
-		assert (deadline > 0s);
+		debug_assert (deadline > 0s);
 		boost::optional<std::string> result;
 		auto buffer (std::make_shared<boost::beast::flat_buffer> ());
 		socket->async_read (*buffer, [&result, &buffer, socket = this->socket](boost::beast::error_code const & ec, std::size_t const /*n*/) {

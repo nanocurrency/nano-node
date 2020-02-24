@@ -309,7 +309,7 @@ TEST (broadcast, world_broadcast_simulate)
 				case 2:
 					break;
 				default:
-					assert (false);
+					ASSERT_FALSE (true);
 					break;
 			}
 		}
@@ -362,7 +362,7 @@ TEST (broadcast, sqrt_broadcast_simulate)
 				case 2:
 					break;
 				default:
-					assert (false);
+					ASSERT_FALSE (true);
 					break;
 			}
 		}
@@ -660,7 +660,6 @@ TEST (confirmation_height, long_chains)
 	auto transaction (node->store.tx_begin_read ());
 	nano::account_info account_info;
 	ASSERT_FALSE (node->store.account_get (transaction, nano::test_genesis_key.pub, account_info));
-	uint64_t confirmation_height;
 	nano::confirmation_height_info confirmation_height_info;
 	ASSERT_FALSE (node->store.confirmation_height_get (transaction, nano::test_genesis_key.pub, confirmation_height_info));
 	ASSERT_EQ (num_blocks + 2, confirmation_height_info.height);
@@ -908,7 +907,7 @@ TEST (node_telemetry, ongoing_requests)
 
 	// Wait till the next ongoing will be called, and add a 1s buffer for the actual processing
 	auto time = std::chrono::steady_clock::now ();
-	while (std::chrono::steady_clock::now () < (time + nano::telemetry_cache_cutoffs::test + nano::telemetry_impl::alarm_cutoff + 1s))
+	while (std::chrono::steady_clock::now () < (time + nano::telemetry_cache_cutoffs::test + node_client->telemetry.batch_request->alarm_cutoff + 1s))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}

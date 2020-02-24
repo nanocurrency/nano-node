@@ -166,7 +166,7 @@ void nano::vote_processor::verify_votes (decltype (votes) const & votes_a)
 	auto i (0);
 	for (auto const & vote : votes_a)
 	{
-		assert (verifications[i] == 1 || verifications[i] == 0);
+		debug_assert (verifications[i] == 1 || verifications[i] == 0);
 		if (verifications[i] == 1)
 		{
 			vote_blocking (vote.first, vote.second, true);
@@ -231,6 +231,18 @@ void nano::vote_processor::flush ()
 	{
 		condition.wait (lock);
 	}
+}
+
+size_t nano::vote_processor::size ()
+{
+	nano::lock_guard<std::mutex> guard (mutex);
+	return votes.size ();
+}
+
+bool nano::vote_processor::empty ()
+{
+	nano::lock_guard<std::mutex> guard (mutex);
+	return votes.empty ();
 }
 
 void nano::vote_processor::calculate_weights ()
