@@ -2,7 +2,7 @@
 #include <nano/lib/utility.hpp>
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/cli.hpp>
-#include <nano/node/ipc.hpp>
+#include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/testing.hpp>
@@ -203,7 +203,7 @@ int main (int argc, char * const * argv)
 						auto weekly_distribution (yearly_distribution / 52);
 						for (auto j (0); j != 52; ++j)
 						{
-							assert (balance > weekly_distribution);
+							debug_assert (balance > weekly_distribution);
 							balance = balance < (weekly_distribution * 2) ? 0 : balance - weekly_distribution;
 							nano::send_block send (previous, landing.pub, balance, genesis.prv, genesis.pub, *work.generate (nano::work_version::work_1, previous));
 							previous = send.hash ();
@@ -1218,8 +1218,10 @@ int main (int argc, char * const * argv)
 		}
 		else if (vm.count ("debug_profile_bootstrap"))
 		{
-			nano::inactive_node node2 (nano::unique_path (), 24001);
-			nano::update_flags (node2.node->flags, vm);
+			auto node_flags = nano::inactive_node_flag_defaults ();
+			node_flags.read_only = false;
+			nano::update_flags (node_flags, vm);
+			nano::inactive_node node2 (nano::unique_path (), 24001, node_flags);
 			nano::genesis genesis;
 			auto begin (std::chrono::high_resolution_clock::now ());
 			uint64_t block_count (0);
@@ -1241,7 +1243,7 @@ int main (int argc, char * const * argv)
 						if (block != nullptr)
 						{
 							++count;
-							if ((count % 100000) == 0)
+							if ((count % 500000) == 0)
 							{
 								std::cout << boost::str (boost::format ("%1% blocks retrieved") % count) << std::endl;
 							}
@@ -1253,24 +1255,31 @@ int main (int argc, char * const * argv)
 					}
 				}
 			}
-			count = 0;
+			nano::timer<std::chrono::seconds> timer_l (nano::timer_state::started);
+			while (node2.node->ledger.cache.block_count != block_count)
+			{
+				std::this_thread::sleep_for (std::chrono::milliseconds (50));
+				// Message each 60 seconds
+				if (timer_l.after_deadline (std::chrono::seconds (60)))
+				{
+					timer_l.restart ();
+					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed (unchecked)") % node2.node->ledger.cache.block_count % node2.node->ledger.cache.unchecked_count) << std::endl;
+				}
+			}
+			// Waiting for final transaction commit
 			uint64_t block_count_2 (0);
 			while (block_count_2 != block_count)
 			{
-				std::this_thread::sleep_for (std::chrono::seconds (1));
+				std::this_thread::sleep_for (std::chrono::milliseconds (50));
 				auto transaction_2 (node2.node->store.tx_begin_read ());
 				block_count_2 = node2.node->store.block_count (transaction_2).sum ();
-				if ((count % 60) == 0)
-				{
-					std::cout << boost::str (boost::format ("%1% (%2%) blocks processed") % block_count_2 % node2.node->store.unchecked_count (transaction_2)) << std::endl;
-				}
-				count++;
 			}
 			auto end (std::chrono::high_resolution_clock::now ());
 			auto time (std::chrono::duration_cast<std::chrono::microseconds> (end - begin).count ());
-			auto seconds (time / 1000000);
+			auto us_in_second (1000000);
+			auto seconds (time / us_in_second);
 			nano::remove_temporary_directories ();
-			std::cout << boost::str (boost::format ("%|1$ 12d| seconds \n%2% blocks per second") % seconds % (block_count / seconds)) << std::endl;
+			std::cout << boost::str (boost::format ("%|1$ 12d| seconds \n%2% blocks per second") % seconds % (block_count * us_in_second / time)) << std::endl;
 		}
 		else if (vm.count ("debug_peers"))
 		{

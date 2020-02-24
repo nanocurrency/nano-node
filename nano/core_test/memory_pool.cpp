@@ -50,7 +50,7 @@ size_t get_allocated_size ()
 	std::vector<size_t> allocated;
 	record_allocations_new_delete_allocator<T> alloc (&allocated);
 	(void)std::allocate_shared<T, record_allocations_new_delete_allocator<T>> (alloc);
-	assert (allocated.size () == 1);
+	debug_assert (allocated.size () == 1);
 	return allocated.front ();
 }
 }

@@ -30,7 +30,7 @@ public:
 	void initialize (nano::write_transaction const & transaction_a, nano::genesis const & genesis_a, nano::ledger_cache & ledger_cache_a) override
 	{
 		auto hash_l (genesis_a.hash ());
-		assert (latest_begin (transaction_a) == latest_end ());
+		debug_assert (latest_begin (transaction_a) == latest_end ());
 		nano::block_sideband sideband (nano::block_type::open, network_params.ledger.genesis_account, 0, network_params.ledger.genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false);
 		block_put (transaction_a, hash_l, *genesis_a.open, sideband);
 		++ledger_cache_a.block_count;
@@ -99,8 +99,8 @@ public:
 
 	void block_put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a, nano::block const & block_a, nano::block_sideband const & sideband_a) override
 	{
-		assert (block_a.type () == sideband_a.type);
-		assert (sideband_a.successor.is_zero () || block_exists (transaction_a, sideband_a.successor));
+		debug_assert (block_a.type () == sideband_a.type);
+		debug_assert (sideband_a.successor.is_zero () || block_exists (transaction_a, sideband_a.successor));
 		std::vector<uint8_t> vector;
 		{
 			nano::vectorstream stream (vector);
@@ -110,7 +110,7 @@ public:
 		block_raw_put (transaction_a, vector, block_a.type (), hash_a);
 		nano::block_predecessor_set<Val, Derived_Store> predecessor (transaction_a, *this);
 		block_a.visit (predecessor);
-		assert (block_a.previous ().is_zero () || block_successor (transaction_a, block_a.previous ()) == hash_a);
+		debug_assert (block_a.previous ().is_zero () || block_successor (transaction_a, block_a.previous ()) == hash_a);
 	}
 
 	// Converts a block hash to a block height
@@ -118,7 +118,7 @@ public:
 	{
 		nano::block_sideband sideband;
 		auto block = block_get (transaction_a, hash_a, &sideband);
-		assert (block != nullptr);
+		debug_assert (block != nullptr);
 		return sideband.height;
 	}
 
@@ -131,7 +131,7 @@ public:
 		{
 			nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
 			result = nano::deserialize_block (stream, type);
-			assert (result != nullptr);
+			debug_assert (result != nullptr);
 			if (sideband_a)
 			{
 				sideband_a->type = type;
@@ -139,7 +139,7 @@ public:
 				{
 					auto error (sideband_a->deserialize (stream));
 					(void)error;
-					assert (!error);
+					debug_assert (!error);
 				}
 				else
 				{
@@ -193,7 +193,7 @@ public:
 		{
 			result = sideband.account;
 		}
-		assert (!result.is_zero ());
+		debug_assert (!result.is_zero ());
 		return result;
 	}
 
@@ -228,11 +228,11 @@ public:
 		nano::block_hash result;
 		if (value.size () != 0)
 		{
-			assert (value.size () >= result.bytes.size ());
+			debug_assert (value.size () >= result.bytes.size ());
 			nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()) + block_successor_offset (transaction_a, value.size (), type), result.bytes.size ());
 			auto error (nano::try_read (stream, result.bytes));
 			(void)error;
-			assert (!error);
+			debug_assert (!error);
 		}
 		else
 		{
@@ -250,7 +250,7 @@ public:
 	{
 		nano::block_type type;
 		auto value (block_raw_get (transaction_a, hash_a, type));
-		assert (value.size () != 0);
+		debug_assert (value.size () != 0);
 		std::vector<uint8_t> data (static_cast<uint8_t *> (value.data ()), static_cast<uint8_t *> (value.data ()) + value.size ());
 		std::fill_n (data.begin () + block_successor_offset (transaction_a, value.size (), type), sizeof (nano::block_hash), uint8_t{ 0 });
 		block_raw_put (transaction_a, data, type, hash_a);
@@ -265,7 +265,7 @@ public:
 
 	std::shared_ptr<nano::vote> vote_current (nano::transaction const & transaction_a, nano::account const & account_a) override
 	{
-		assert (!cache_mutex.try_lock ());
+		debug_assert (!cache_mutex.try_lock ());
 		std::shared_ptr<nano::vote> result;
 		auto existing (vote_cache_l1.find (account_a));
 		auto have_existing (true);
@@ -382,7 +382,7 @@ public:
 				table = tables::state_blocks;
 				break;
 			default:
-				assert (false);
+				debug_assert (false);
 		}
 
 		auto status = del (transaction_a, table, hash_a);
@@ -398,7 +398,7 @@ public:
 		if (!not_found (status))
 		{
 			nano::uint256_union version_value (data);
-			assert (version_value.qwords[2] == 0 && version_value.qwords[1] == 0 && version_value.qwords[0] == 0);
+			debug_assert (version_value.qwords[2] == 0 && version_value.qwords[1] == 0 && version_value.qwords[0] == 0);
 			result = version_value.number ().convert_to<int> ();
 		}
 		return result;
@@ -501,7 +501,7 @@ public:
 		if (success (status))
 		{
 			std::shared_ptr<nano::vote> result (value);
-			assert (result != nullptr);
+			debug_assert (result != nullptr);
 			return result;
 		}
 		return nullptr;
@@ -543,7 +543,7 @@ public:
 	void account_put (nano::write_transaction const & transaction_a, nano::account const & account_a, nano::account_info const & info_a) override
 	{
 		// Check we are still in sync with other tables
-		assert (confirmation_height_exists (transaction_a, account_a));
+		debug_assert (confirmation_height_exists (transaction_a, account_a));
 		nano::db_val<Val> info (info_a);
 		auto status = put (transaction_a, tables::accounts, account_a, info);
 		release_assert (success (status));
@@ -676,7 +676,7 @@ public:
 				}
 			}
 		}
-		assert (result != nullptr);
+		debug_assert (result != nullptr);
 		return result;
 	}
 
@@ -794,7 +794,7 @@ protected:
 			existing = make_iterator<nano::block_hash, std::shared_ptr<T>> (transaction_a, table_a);
 		}
 		auto end (nano::store_iterator<nano::block_hash, std::shared_ptr<T>> (nullptr));
-		assert (existing != end);
+		debug_assert (existing != end);
 		return block_get (transaction_a, nano::block_hash (existing->first));
 	}
 
@@ -837,13 +837,13 @@ protected:
 	// Return account containing hash
 	nano::account block_account_computed (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
 	{
-		assert (!full_sideband (transaction_a));
+		debug_assert (!full_sideband (transaction_a));
 		nano::account result (0);
 		auto hash (hash_a);
 		while (result.is_zero ())
 		{
 			auto block (block_get (transaction_a, hash));
-			assert (block);
+			debug_assert (block);
 			result = block->account ();
 			if (result.is_zero ())
 			{
@@ -866,20 +866,20 @@ protected:
 						if (result.is_zero ())
 						{
 							auto successor (block_successor (transaction_a, hash));
-							assert (!successor.is_zero ());
+							debug_assert (!successor.is_zero ());
 							hash = successor;
 						}
 					}
 				}
 			}
 		}
-		assert (!result.is_zero ());
+		debug_assert (!result.is_zero ());
 		return result;
 	}
 
 	nano::uint128_t block_balance_computed (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
 	{
-		assert (!full_sideband (transaction_a));
+		debug_assert (!full_sideband (transaction_a));
 		summation_visitor visitor (transaction_a, *this);
 		return visitor.compute_balance (hash_a);
 	}
@@ -894,7 +894,7 @@ protected:
 		else
 		{
 			// Read old successor-only sideband
-			assert (entry_size_a == nano::block::size (type_a) + sizeof (nano::block_hash));
+			debug_assert (entry_size_a == nano::block::size (type_a) + sizeof (nano::block_hash));
 			result = entry_size_a - sizeof (nano::block_hash);
 		}
 		return result;
@@ -969,7 +969,7 @@ protected:
 				result = tables::state_blocks;
 				break;
 			default:
-				assert (false);
+				debug_assert (false);
 				break;
 		}
 		return result;
@@ -1025,7 +1025,7 @@ public:
 		auto hash (block_a.hash ());
 		nano::block_type type;
 		auto value (store.block_raw_get (transaction, block_a.previous (), type));
-		assert (value.size () != 0);
+		debug_assert (value.size () != 0);
 		std::vector<uint8_t> data (static_cast<uint8_t *> (value.data ()), static_cast<uint8_t *> (value.data ()) + value.size ());
 		std::copy (hash.bytes.begin (), hash.bytes.end (), data.begin () + store.block_successor_offset (transaction, value.size (), type));
 		store.block_raw_put (transaction, data, type, block_a.previous ());

@@ -186,7 +186,7 @@ std::error_code check_fields_set (uint8_t block_all_flags, uint8_t build_state)
 	{
 		// Convert the first bit set to a field mask and look up the error code.
 		auto build_flags_mask = static_cast<uint8_t> (ffs_mask (res));
-		assert (ec_map.find (build_flags_mask) != ec_map.end ());
+		debug_assert (ec_map.find (build_flags_mask) != ec_map.end ());
 		ec = ec_map[build_flags_mask];
 	}
 	return ec;
@@ -658,7 +658,7 @@ std::unique_ptr<BLOCKTYPE> nano::abstract_builder<BLOCKTYPE, BUILDER>::build ()
 	{
 		static_cast<BUILDER *> (this)->validate ();
 	}
-	assert (!ec);
+	debug_assert (!ec);
 	return std::move (block);
 }
 

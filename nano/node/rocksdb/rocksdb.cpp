@@ -127,7 +127,7 @@ nano::write_transaction nano::rocksdb_store::tx_begin_write (std::vector<nano::t
 	}
 
 	// Tables must be kept in alphabetical order. These can be used for mutex locking, so order is important to prevent deadlocking
-	assert (std::is_sorted (tables_requiring_locks_a.begin (), tables_requiring_locks_a.end ()));
+	debug_assert (std::is_sorted (tables_requiring_locks_a.begin (), tables_requiring_locks_a.end ()));
 
 	return nano::write_transaction{ std::move (txn) };
 }
@@ -149,7 +149,7 @@ rocksdb::ColumnFamilyHandle * nano::rocksdb_store::table_to_column_family (table
 		auto iter = std::find_if (handles_l.begin (), handles_l.end (), [name](auto handle) {
 			return (handle->GetName () == name);
 		});
-		assert (iter != handles_l.end ());
+		debug_assert (iter != handles_l.end ());
 		return *iter;
 	};
 
@@ -172,7 +172,7 @@ rocksdb::ColumnFamilyHandle * nano::rocksdb_store::table_to_column_family (table
 		case tables::pending:
 			return get_handle ("pending");
 		case tables::blocks_info:
-			assert (false);
+			debug_assert (false);
 		case tables::representation:
 			return get_handle ("representation");
 		case tables::unchecked:
@@ -214,9 +214,9 @@ bool nano::rocksdb_store::exists (nano::transaction const & transaction_a, table
 
 int nano::rocksdb_store::del (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a)
 {
-	assert (transaction_a.contains (table_a));
+	debug_assert (transaction_a.contains (table_a));
 	// RocksDB errors when trying to delete an entry which doesn't exist. It is a pre-condition that the key exists
-	assert (exists (transaction_a, table_a, key_a));
+	debug_assert (exists (transaction_a, table_a, key_a));
 
 	// State block counts are done in bulk separately later
 	if (table_a != tables::state_blocks)
@@ -234,13 +234,13 @@ int nano::rocksdb_store::del (nano::write_transaction const & transaction_a, tab
 bool nano::rocksdb_store::block_info_get (nano::transaction const &, nano::block_hash const &, nano::block_info &) const
 {
 	// Should not be called as the RocksDB backend does not use this table
-	assert (false);
+	debug_assert (false);
 	return true;
 }
 
 void nano::rocksdb_store::version_put (nano::write_transaction const & transaction_a, int version_a)
 {
-	assert (transaction_a.contains (tables::meta));
+	debug_assert (transaction_a.contains (tables::meta));
 	nano::uint256_union version_key (1);
 	nano::uint256_union version_value (version_a);
 	auto status (put (transaction_a, tables::meta, version_key, nano::rocksdb_val (version_value)));
@@ -249,7 +249,7 @@ void nano::rocksdb_store::version_put (nano::write_transaction const & transacti
 
 rocksdb::Transaction * nano::rocksdb_store::tx (nano::transaction const & transaction_a) const
 {
-	assert (!is_read (transaction_a));
+	debug_assert (!is_read (transaction_a));
 	return static_cast<rocksdb::Transaction *> (transaction_a.get_handle ());
 }
 
@@ -332,7 +332,7 @@ int nano::rocksdb_store::decrement (nano::write_transaction const & transaction_
 
 int nano::rocksdb_store::put (nano::write_transaction const & transaction_a, tables table_a, nano::rocksdb_val const & key_a, nano::rocksdb_val const & value_a)
 {
-	assert (transaction_a.contains (table_a));
+	debug_assert (transaction_a.contains (table_a));
 
 	auto txn = tx (transaction_a);
 	if (is_caching_counts (table_a))
@@ -426,7 +426,7 @@ size_t nano::rocksdb_store::count (nano::transaction const & transaction_a, tabl
 
 int nano::rocksdb_store::drop (nano::write_transaction const & transaction_a, tables table_a)
 {
-	assert (transaction_a.contains (table_a));
+	debug_assert (transaction_a.contains (table_a));
 	auto col = table_to_column_family (table_a);
 
 	int status = static_cast<int> (rocksdb::Status::Code::kOk);
@@ -467,7 +467,7 @@ int nano::rocksdb_store::clear (rocksdb::ColumnFamilyHandle * column_family)
 
 	// Need to add it back as we just want to clear the contents
 	auto handle_it = std::find (handles.begin (), handles.end (), column_family);
-	assert (handle_it != handles.cend ());
+	debug_assert (handle_it != handles.cend ());
 	status = db->CreateColumnFamily (get_cf_options (), name, &column_family);
 	release_assert (status.ok ());
 	*handle_it = column_family;
