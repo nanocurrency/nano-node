@@ -367,7 +367,7 @@ startup_time (std::chrono::steady_clock::now ())
 		if (!is_initialized)
 		{
 			release_assert (!flags.read_only);
-			auto transaction (store.tx_begin_write ());
+			auto transaction (store.tx_begin_write ({ tables::accounts, tables::cached_counts, tables::confirmation_height, tables::frontiers, tables::open_blocks }));
 			// Store was empty meaning we just created it, add the genesis block
 			store.initialize (transaction, genesis, ledger.cache);
 		}
@@ -441,7 +441,7 @@ startup_time (std::chrono::steady_clock::now ())
 			// Drop unchecked blocks if initial bootstrap is completed
 			if (!flags.disable_unchecked_drop && !use_bootstrap_weight && !flags.read_only)
 			{
-				auto transaction (store.tx_begin_write ());
+				auto transaction (store.tx_begin_write ({ tables::unchecked }));
 				store.unchecked_clear (transaction);
 				ledger.cache.unchecked_count = 0;
 				logger.always_log ("Dropping unchecked blocks");
@@ -626,7 +626,7 @@ nano::process_return nano::node::process_local (std::shared_ptr<nano::block> blo
 	// Notify block processor to release write lock
 	block_processor.wait_write ();
 	// Process block
-	auto transaction (store.tx_begin_write ());
+	auto transaction (store.tx_begin_write ({ tables::accounts, tables::cached_counts, tables::change_blocks, tables::frontiers, tables::open_blocks, tables::pending, tables::receive_blocks, tables::representation, tables::send_blocks, tables::state_blocks }, { tables::confirmation_height }));
 	return block_processor.process_one (transaction, info, work_watcher_a);
 }
 
@@ -780,7 +780,7 @@ nano::uint128_t nano::node::minimum_principal_weight (nano::uint128_t const & on
 void nano::node::long_inactivity_cleanup ()
 {
 	bool perform_cleanup = false;
-	auto transaction (store.tx_begin_write ());
+	auto transaction (store.tx_begin_write ({ tables::online_weight, tables::peers }));
 	if (store.online_weight_count (transaction) > 0)
 	{
 		auto i (store.online_weight_begin (transaction));
@@ -950,7 +950,7 @@ void nano::node::unchecked_cleanup ()
 	while (!cleaning_list.empty ())
 	{
 		size_t deleted_count (0);
-		auto transaction (store.tx_begin_write ());
+		auto transaction (store.tx_begin_write ({ tables::unchecked }));
 		while (deleted_count++ < 2 * 1024 && !cleaning_list.empty ())
 		{
 			auto key (cleaning_list.front ());
