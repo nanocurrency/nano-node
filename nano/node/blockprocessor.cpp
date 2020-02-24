@@ -67,7 +67,7 @@ void nano::block_processor::add (std::shared_ptr<nano::block> block_a, uint64_t 
 	add (info);
 }
 
-void nano::block_processor::add (nano::unchecked_info const & info_a, bool push_front_preference)
+void nano::block_processor::add (nano::unchecked_info const & info_a, const bool push_front_preference_a)
 {
 	if (!nano::work_validate (info_a.block->root (), info_a.block->block_work ()))
 	{
@@ -82,7 +82,7 @@ void nano::block_processor::add (nano::unchecked_info const & info_a, bool push_
 				{
 					state_blocks.push_back (info_a);
 				}
-				else if (push_front_preference && !quarter_full)
+				else if (push_front_preference_a && !quarter_full)
 				{
 					/* Push blocks from unchecked to front of processing deque to keep more operations with unchecked inside of single write transaction.
 					It's designed to help with realtime blocks traffic if block processor is not performing large task like bootstrap.
