@@ -1,3 +1,4 @@
+#include <nano/lib/utility.hpp>
 #include <nano/secure/working.hpp>
 
 #include <pwd.h>
@@ -8,7 +9,7 @@ namespace nano
 boost::filesystem::path app_path ()
 {
 	auto entry (getpwuid (getuid ()));
-	assert (entry != nullptr);
+	debug_assert (entry != nullptr);
 	boost::filesystem::path result (entry->pw_dir);
 	return result;
 }

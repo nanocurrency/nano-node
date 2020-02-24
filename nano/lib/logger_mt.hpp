@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nano/lib/locks.hpp>
+#include <nano/lib/utility.hpp>
 
 #include <boost/log/sources/severity_logger.hpp>
 #include <boost/log/trivial.hpp>
@@ -31,7 +32,7 @@ inline boost::log::formatting_ostream & operator<< (boost::log::formatting_ostre
 	};
 
 	nano::severity_level level = manip.get ();
-	assert (static_cast<int> (level) < strings.size ());
+	debug_assert (static_cast<int> (level) < strings.size ());
 	strm << strings[static_cast<int> (level)];
 	return strm;
 }

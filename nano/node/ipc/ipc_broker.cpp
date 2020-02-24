@@ -22,7 +22,7 @@ std::shared_ptr<flatbuffers::Parser> nano::ipc::subscriber::get_parser (nano::ip
 void nano::ipc::broker::start ()
 {
 	node.observers.blocks.add ([this](nano::election_status const & status_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
-		assert (status_a.type != nano::election_status_type::ongoing);
+		debug_assert (status_a.type != nano::election_status_type::ongoing);
 
 		try
 		{
@@ -46,7 +46,7 @@ void nano::ipc::broker::start ()
 						confirmation->confirmation_type = nanoapi::TopicConfirmationType::TopicConfirmationType_inactive;
 						break;
 					default:
-						assert (false);
+						debug_assert (false);
 						break;
 				};
 				confirmation->confirmation_type = nanoapi::TopicConfirmationType::TopicConfirmationType_active_quorum;
@@ -119,7 +119,7 @@ void nano::ipc::broker::broadcast (std::shared_ptr<nanoapi::EventConfirmationT> 
 		if (auto subscriber_l = itr->subscriber.lock ())
 		{
 			auto should_filter = [this, &itr, confirmation_a]() {
-				assert (itr->topic->options != nullptr);
+				debug_assert (itr->topic->options != nullptr);
 				auto conf_filter (itr->topic->options->confirmation_type_filter);
 
 				bool should_filter_conf_type_l (true);
@@ -148,7 +148,7 @@ void nano::ipc::broker::broadcast (std::shared_ptr<nanoapi::EventConfirmationT> 
 						auto decode_destination_ok_l (!destination_l.decode_account (state->link_as_account));
 						(void)decode_source_ok_l;
 						(void)decode_destination_ok_l;
-						assert (decode_source_ok_l && decode_destination_ok_l);
+						debug_assert (decode_source_ok_l && decode_destination_ok_l);
 						if (this->node.wallets.exists (transaction_l, source_l) || this->node.wallets.exists (transaction_l, destination_l))
 						{
 							should_filter_account_l = false;

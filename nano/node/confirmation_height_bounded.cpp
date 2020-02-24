@@ -67,7 +67,7 @@ void nano::confirmation_height_bounded::process ()
 		auto top_level_hash = current;
 		nano::block_sideband sideband;
 		auto block = ledger.store.block_get (transaction, current, &sideband);
-		assert (block != nullptr);
+		debug_assert (block != nullptr);
 		nano::account account (block->account ());
 		if (account.is_zero ())
 		{
@@ -85,7 +85,7 @@ void nano::confirmation_height_bounded::process ()
 		else
 		{
 			auto error = ledger.store.confirmation_height_get (transaction, account, confirmation_height_info);
-			assert (!error);
+			debug_assert (!error);
 		}
 
 		auto block_height = sideband.height;
@@ -184,7 +184,7 @@ void nano::confirmation_height_bounded::process ()
 		transaction.refresh ();
 	} while ((!receive_source_pairs.empty () || current != original_hash) && !stopped);
 
-	assert (checkpoints.empty ());
+	debug_assert (checkpoints.empty ());
 }
 
 nano::block_hash nano::confirmation_height_bounded::get_least_unconfirmed_hash_from_top_level (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::account const & account_a, nano::confirmation_height_info const & confirmation_height_info_a, uint64_t & block_height_a)
@@ -344,10 +344,10 @@ bool nano::confirmation_height_bounded::cement_blocks ()
 #ifndef NDEBUG
 				// Extra debug checks
 				nano::confirmation_height_info confirmation_height_info;
-				assert (!ledger.store.confirmation_height_get (transaction, account, confirmation_height_info));
+				debug_assert (!ledger.store.confirmation_height_get (transaction, account, confirmation_height_info));
 				nano::block_sideband sideband;
-				assert (ledger.store.block_get (transaction, confirmed_frontier, &sideband));
-				assert (sideband.height == confirmation_height_info.height + num_blocks_cemented);
+				debug_assert (ledger.store.block_get (transaction, confirmed_frontier, &sideband));
+				debug_assert (sideband.height == confirmation_height_info.height + num_blocks_cemented);
 #endif
 				ledger.store.confirmation_height_put (transaction, account, nano::confirmation_height_info{ confirmation_height, confirmed_frontier });
 				ledger.cache.cemented_count += num_blocks_cemented;
@@ -370,7 +370,7 @@ bool nano::confirmation_height_bounded::cement_blocks ()
 				{
 					new_cemented_frontier = pending.bottom_hash;
 					// If we are higher than the cemented frontier, we should be exactly 1 block above
-					assert (pending.bottom_height == confirmation_height_info.height + 1);
+					debug_assert (pending.bottom_height == confirmation_height_info.height + 1);
 					num_blocks_confirmed = pending.top_height - pending.bottom_height + 1;
 					start_height = pending.bottom_height;
 				}
@@ -424,7 +424,7 @@ bool nano::confirmation_height_bounded::cement_blocks ()
 					else
 					{
 						// Confirm it is indeed the last one
-						assert (new_cemented_frontier == pending.top_hash);
+						debug_assert (new_cemented_frontier == pending.top_hash);
 					}
 				}
 
@@ -445,8 +445,8 @@ bool nano::confirmation_height_bounded::cement_blocks ()
 
 	notify_observers_callback (cemented_blocks);
 
-	assert (pending_writes.empty ());
-	assert (pending_writes_size == 0);
+	debug_assert (pending_writes.empty ());
+	debug_assert (pending_writes_size == 0);
 	return false;
 }
 

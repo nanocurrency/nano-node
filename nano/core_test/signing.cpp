@@ -73,7 +73,7 @@ TEST (signature_checker, many_multi_threaded)
 		for (int i = 0; i < num_check_sizes; ++i)
 		{
 			auto check_size = check_sizes[i];
-			assert (check_size > 0);
+			ASSERT_GT (check_size, 0);
 			auto last_signature_index = check_size - 1;
 
 			messages[i].resize (check_size);

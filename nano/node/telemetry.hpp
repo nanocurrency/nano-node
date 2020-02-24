@@ -23,7 +23,6 @@ class telemetry_data_time_pair
 public:
 	nano::telemetry_data data;
 	std::chrono::steady_clock::time_point last_updated;
-	std::chrono::system_clock::time_point system_last_updated;
 	bool operator== (telemetry_data_time_pair const &) const;
 	bool operator!= (telemetry_data_time_pair const &) const;
 };
@@ -34,7 +33,7 @@ public:
 class telemetry_data_response
 {
 public:
-	nano::telemetry_data_time_pair telemetry_data_time_pair;
+	nano::telemetry_data telemetry_data;
 	nano::endpoint endpoint;
 	bool error{ true };
 };
@@ -45,7 +44,7 @@ public:
 class telemetry_data_responses
 {
 public:
-	std::unordered_map<nano::endpoint, telemetry_data_time_pair> telemetry_data_time_pairs;
+	std::unordered_map<nano::endpoint, telemetry_data> telemetry_datas;
 	bool all_received{ false };
 };
 
@@ -88,7 +87,7 @@ private:
 	nano::alarm & alarm;
 	nano::worker & worker;
 
-	std::function<void(std::unordered_map<nano::endpoint, telemetry_data_time_pair> & data_a, std::mutex &)> pre_callback_callback;
+	std::function<void(std::unordered_map<nano::endpoint, telemetry_data> & data_a, std::mutex &)> pre_callback_callback;
 
 	void invoke_callbacks ();
 	void channel_processed (nano::unique_lock<std::mutex> & lk_a, nano::endpoint const & endpoint_a);
