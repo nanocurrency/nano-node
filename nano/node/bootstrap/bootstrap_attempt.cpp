@@ -64,7 +64,7 @@ bool nano::bootstrap_attempt::should_log ()
 
 bool nano::bootstrap_attempt::still_pulling ()
 {
-	assert (!mutex.try_lock ());
+	debug_assert (!mutex.try_lock ());
 	auto running (!stopped);
 	auto still_pulling (pulling > 0);
 	return running && still_pulling;
@@ -100,28 +100,28 @@ std::string nano::bootstrap_attempt::mode_text ()
 
 void nano::bootstrap_attempt::restart_condition ()
 {
-	assert (mode == nano::bootstrap_mode::legacy);
+	debug_assert (mode == nano::bootstrap_mode::legacy);
 }
 
 void nano::bootstrap_attempt::add_frontier (nano::pull_info const &)
 {
-	assert (mode == nano::bootstrap_mode::legacy);
+	debug_assert (mode == nano::bootstrap_mode::legacy);
 }
 
 void nano::bootstrap_attempt::add_bulk_push_target (nano::block_hash const &, nano::block_hash const &)
 {
-	assert (mode == nano::bootstrap_mode::legacy);
+	debug_assert (mode == nano::bootstrap_mode::legacy);
 }
 
 bool nano::bootstrap_attempt::request_bulk_push_target (std::pair<nano::block_hash, nano::block_hash> &)
 {
-	assert (mode == nano::bootstrap_mode::legacy);
+	debug_assert (mode == nano::bootstrap_mode::legacy);
 	return true;
 }
 
 void nano::bootstrap_attempt::add_recent_pull (nano::block_hash const &)
 {
-	assert (mode == nano::bootstrap_mode::legacy);
+	debug_assert (mode == nano::bootstrap_mode::legacy);
 }
 
 bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_a, nano::account const & known_account_a, uint64_t pull_blocks, nano::bulk_pull::count_t max_blocks, bool block_expected, unsigned retry_limit)
@@ -133,50 +133,50 @@ bool nano::bootstrap_attempt::process_block (std::shared_ptr<nano::block> block_
 
 void nano::bootstrap_attempt::lazy_start (nano::hash_or_account const &, bool)
 {
-	assert (mode == nano::bootstrap_mode::lazy);
+	debug_assert (mode == nano::bootstrap_mode::lazy);
 }
 
 void nano::bootstrap_attempt::lazy_add (nano::pull_info const &)
 {
-	assert (mode == nano::bootstrap_mode::lazy);
+	debug_assert (mode == nano::bootstrap_mode::lazy);
 }
 
 void nano::bootstrap_attempt::lazy_requeue (nano::block_hash const &, nano::block_hash const &, bool)
 {
-	assert (mode == nano::bootstrap_mode::lazy);
+	debug_assert (mode == nano::bootstrap_mode::lazy);
 }
 
 uint32_t nano::bootstrap_attempt::lazy_batch_size ()
 {
-	assert (mode == nano::bootstrap_mode::lazy);
+	debug_assert (mode == nano::bootstrap_mode::lazy);
 	return node->network_params.bootstrap.lazy_min_pull_blocks;
 }
 
 bool nano::bootstrap_attempt::lazy_processed_or_exists (nano::block_hash const &)
 {
-	assert (mode == nano::bootstrap_mode::lazy);
+	debug_assert (mode == nano::bootstrap_mode::lazy);
 	return false;
 }
 
 bool nano::bootstrap_attempt::lazy_has_expired () const
 {
-	assert (mode == nano::bootstrap_mode::lazy);
+	debug_assert (mode == nano::bootstrap_mode::lazy);
 	return true;
 }
 
 void nano::bootstrap_attempt::requeue_pending (nano::account const &)
 {
-	assert (mode == nano::bootstrap_mode::wallet_lazy);
+	debug_assert (mode == nano::bootstrap_mode::wallet_lazy);
 }
 
 void nano::bootstrap_attempt::wallet_start (std::deque<nano::account> &)
 {
-	assert (mode == nano::bootstrap_mode::wallet_lazy);
+	debug_assert (mode == nano::bootstrap_mode::wallet_lazy);
 }
 
 size_t nano::bootstrap_attempt::wallet_size ()
 {
-	assert (mode == nano::bootstrap_mode::wallet_lazy);
+	debug_assert (mode == nano::bootstrap_mode::wallet_lazy);
 	return 0;
 }
 
@@ -311,7 +311,7 @@ void nano::bootstrap_attempt_legacy::attempt_restart_check (nano::unique_lock<st
 	if (frontiers_confirmation_pending)
 	{
 		auto confirmed (confirm_frontiers (lock_a));
-		assert (lock_a.owns_lock ());
+		debug_assert (lock_a.owns_lock ());
 		if (!confirmed)
 		{
 			node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::frontier_confirmation_failed, nano::stat::dir::in);
@@ -341,7 +341,7 @@ void nano::bootstrap_attempt_legacy::attempt_restart_check (nano::unique_lock<st
 bool nano::bootstrap_attempt_legacy::confirm_frontiers (nano::unique_lock<std::mutex> & lock_a)
 {
 	bool confirmed (false);
-	assert (!frontiers_confirmed);
+	debug_assert (!frontiers_confirmed);
 	condition.wait (lock_a, [& stopped = stopped] { return !stopped; });
 	auto this_l (shared_from_this ());
 	std::vector<nano::block_hash> frontiers;
@@ -554,8 +554,8 @@ void nano::bootstrap_attempt_legacy::run_start (nano::unique_lock<std::mutex> & 
 
 void nano::bootstrap_attempt_legacy::run ()
 {
-	assert (started);
-	assert (!node->flags.disable_legacy_bootstrap);
+	debug_assert (started);
+	debug_assert (!node->flags.disable_legacy_bootstrap);
 	node->bootstrap_initiator.connections->populate_connections (false);
 	nano::unique_lock<std::mutex> lock (mutex);
 	run_start (lock);
