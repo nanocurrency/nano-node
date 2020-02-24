@@ -671,7 +671,7 @@ bool nano::active_transactions::active (nano::block const & block_a)
 	return active (block_a.qualified_root ());
 }
 
-void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> block_a, boost::optional<nano::write_transaction const &> opt_transaction_a)
+void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> block_a)
 {
 	nano::unique_lock<std::mutex> lock (mutex);
 	auto existing_election (roots.get<tag_root> ().find (block_a->qualified_root ()));

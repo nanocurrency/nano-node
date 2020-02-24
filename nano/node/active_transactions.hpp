@@ -97,7 +97,7 @@ public:
 	// Is the root of this block in the roots container
 	bool active (nano::block const &);
 	bool active (nano::qualified_root const &);
-	void update_difficulty (std::shared_ptr<nano::block>, boost::optional<nano::write_transaction const &> = boost::none);
+	void update_difficulty (std::shared_ptr<nano::block>);
 	void adjust_difficulty (nano::block_hash const &);
 	void update_active_difficulty (nano::unique_lock<std::mutex> &);
 	uint64_t active_difficulty ();
