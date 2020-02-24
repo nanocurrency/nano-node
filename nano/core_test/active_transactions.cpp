@@ -24,7 +24,7 @@ TEST (active_transactions, confirm_one)
 	// Let node2 know about the block
 	while (node2.active.empty ())
 	{
-		node1.network.flood_block (send, false);
+		node1.network.flood_block (send, nano::buffer_drop_policy::no_limiter_drop);
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	while (node2.ledger.cache.cemented_count < 2)
@@ -370,7 +370,6 @@ TEST (active_transactions, inactive_votes_cache)
 	}
 	node.process_active (send);
 	node.block_processor.flush ();
-	bool confirmed (false);
 	system.deadline_set (5s);
 	while (!node.ledger.block_confirmed (node.store.tx_begin_read (), send->hash ()))
 	{
@@ -534,8 +533,8 @@ TEST (active_transactions, update_difficulty)
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	// Update work with higher difficulty
-	auto work1 = node1.work_generate_blocking (send1->root (), difficulty1 + 1, boost::none);
-	auto work2 = node1.work_generate_blocking (send2->root (), difficulty2 + 1, boost::none);
+	auto work1 = node1.work_generate_blocking (send1->root (), difficulty1 + 1);
+	auto work2 = node1.work_generate_blocking (send2->root (), difficulty2 + 1);
 
 	std::error_code ec;
 	nano::state_block_builder builder;

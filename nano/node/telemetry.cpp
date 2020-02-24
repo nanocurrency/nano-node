@@ -8,15 +8,12 @@
 #include <boost/algorithm/string.hpp>
 
 #include <algorithm>
-#include <cassert>
 #include <cstdint>
 #include <future>
 #include <numeric>
 #include <set>
 
-std::chrono::seconds constexpr nano::telemetry_impl::alarm_cutoff;
-
-nano::telemetry::telemetry (nano::network & network_a, nano::alarm & alarm_a, nano::worker & worker_a) :
+nano::telemetry::telemetry (nano::network & network_a, nano::alarm & alarm_a, nano::worker & worker_a, bool disable_ongoing_requests_a) :
 network (network_a),
 alarm (alarm_a),
 worker (worker_a),
@@ -59,7 +56,10 @@ batch_request (std::make_shared<nano::telemetry_impl> (network, alarm, worker))
 		finished_single_requests.clear ();
 	};
 
-	ongoing_req_all_peers ();
+	if (!disable_ongoing_requests_a)
+	{
+		ongoing_req_all_peers ();
+	}
 }
 
 void nano::telemetry::stop ()
@@ -152,10 +152,14 @@ void nano::telemetry::ongoing_single_request_cleanup (nano::endpoint const & end
 		if (auto telemetry_impl = telemetry_impl_w.lock ())
 		{
 			nano::lock_guard<std::mutex> guard (this->mutex);
+			nano::lock_guard<std::mutex> guard_telemetry_impl (telemetry_impl->mutex);
 			if (std::chrono::steady_clock::now () - telemetry_impl->cache_cutoff > single_request_data_a.last_updated && telemetry_impl->callbacks.empty ())
 			{
 				//  This will be picked up by the batch request next round
-				this->finished_single_requests[endpoint_a] = telemetry_impl->cached_telemetry_data.begin ()->second;
+				if (!telemetry_impl->cached_telemetry_data.empty ())
+				{
+					this->finished_single_requests[endpoint_a] = telemetry_impl->cached_telemetry_data.begin ()->second;
+				}
 				this->single_requests.erase (endpoint_a);
 			}
 			else
@@ -234,7 +238,7 @@ void nano::telemetry::get_metrics_single_peer_async (std::shared_ptr<nano::trans
 				auto const error = !telemetry_data_responses_a.all_received;
 				if (!error)
 				{
-					assert (telemetry_data_responses_a.telemetry_datas.size () == 1);
+					debug_assert (telemetry_data_responses_a.telemetry_datas.size () == 1);
 					auto it = telemetry_data_responses_a.telemetry_datas.begin ();
 					callback_a ({ it->second, it->first, error });
 				}
@@ -286,6 +290,7 @@ size_t nano::telemetry::finished_single_requests_size ()
 }
 
 nano::telemetry_impl::telemetry_impl (nano::network & network_a, nano::alarm & alarm_a, nano::worker & worker_a) :
+alarm_cutoff (is_sanitizer_build || nano::running_within_valgrind () ? 6 : 3),
 network (network_a),
 alarm (alarm_a),
 worker (worker_a)
@@ -332,7 +337,7 @@ void nano::telemetry_impl::get_metrics_async (std::deque<std::shared_ptr<nano::t
 		}
 
 		failed.clear ();
-		assert (required_responses.empty ());
+		debug_assert (required_responses.empty ());
 		std::transform (channels_a.begin (), channels_a.end (), std::inserter (required_responses, required_responses.end ()), [](auto const & channel) {
 			return channel->get_endpoint ();
 		});
@@ -390,11 +395,11 @@ void nano::telemetry_impl::invoke_callbacks ()
 
 void nano::telemetry_impl::channel_processed (nano::unique_lock<std::mutex> & lk_a, nano::endpoint const & endpoint_a)
 {
-	assert (lk_a.owns_lock ());
+	debug_assert (lk_a.owns_lock ());
 	auto num_removed = required_responses.erase (endpoint_a);
 	if (num_removed > 0 && required_responses.empty ())
 	{
-		assert (lk_a.owns_lock ());
+		debug_assert (lk_a.owns_lock ());
 		cached_telemetry_data = current_telemetry_data_responses;
 
 		last_time = std::chrono::steady_clock::now ();
@@ -415,7 +420,7 @@ void nano::telemetry_impl::fire_request_messages (std::deque<std::shared_ptr<nan
 	nano::telemetry_req message;
 	for (auto & channel : channels)
 	{
-		assert (channel->get_network_version () >= network_params.protocol.telemetry_protocol_version_min);
+		debug_assert (channel->get_network_version () >= network_params.protocol.telemetry_protocol_version_min);
 
 		std::weak_ptr<nano::telemetry_impl> this_w (shared_from_this ());
 		// clang-format off
@@ -431,7 +436,7 @@ void nano::telemetry_impl::fire_request_messages (std::deque<std::shared_ptr<nan
 				}
 			}
 		},
-		false);
+		nano::buffer_drop_policy::no_socket_drop);
 		// clang-format on
 
 		// If no response is seen after a certain period of time, remove it from the list of expected responses. However, only if it is part of the same round.
@@ -655,7 +660,7 @@ nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemet
 	// May only have major version, but check for optional parameters as well, only output if all are used
 	std::vector<std::string> version_fragments;
 	boost::split (version_fragments, version, boost::is_any_of ("."));
-	assert (!version_fragments.empty () && version_fragments.size () <= 5);
+	debug_assert (!version_fragments.empty () && version_fragments.size () <= 5);
 	consolidated_data.major_version = boost::lexical_cast<uint8_t> (version_fragments.front ());
 	if (version_fragments.size () == 5)
 	{
@@ -678,7 +683,7 @@ nano::telemetry_data nano::local_telemetry_data (nano::ledger_cache const & ledg
 	telemetry_data.uptime = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - statup_time_a).count ();
 	telemetry_data.unchecked_count = ledger_cache_a.unchecked_count;
 	telemetry_data.genesis_block = network_params_a.ledger.genesis_hash;
-	telemetry_data.peer_count = network_a.size ();
+	telemetry_data.peer_count = nano::narrow_cast<decltype (telemetry_data.peer_count)> (network_a.size ());
 	telemetry_data.account_count = ledger_cache_a.account_count;
 	telemetry_data.major_version = nano::get_major_node_version ();
 	telemetry_data.minor_version = nano::get_minor_node_version ();

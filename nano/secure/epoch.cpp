@@ -1,3 +1,4 @@
+#include <nano/lib/utility.hpp>
 #include <nano/secure/epoch.hpp>
 
 nano::link const & nano::epochs::link (nano::epoch epoch_a) const
@@ -18,13 +19,13 @@ nano::public_key const & nano::epochs::signer (nano::epoch epoch_a) const
 nano::epoch nano::epochs::epoch (nano::link const & link_a) const
 {
 	auto existing (std::find_if (epochs_m.begin (), epochs_m.end (), [&link_a](auto const & item_a) { return item_a.second.link == link_a; }));
-	assert (existing != epochs_m.end ());
+	debug_assert (existing != epochs_m.end ());
 	return existing->first;
 }
 
 void nano::epochs::add (nano::epoch epoch_a, nano::public_key const & signer_a, nano::link const & link_a)
 {
-	assert (epochs_m.find (epoch_a) == epochs_m.end ());
+	debug_assert (epochs_m.find (epoch_a) == epochs_m.end ());
 	epochs_m[epoch_a] = { signer_a, link_a };
 }
 
@@ -40,6 +41,6 @@ std::underlying_type_t<nano::epoch> nano::normalized_epoch (nano::epoch epoch_a)
 	// Currently assumes that the epoch versions in the enum are sequential.
 	auto start = std::underlying_type_t<nano::epoch> (nano::epoch::epoch_0);
 	auto end = std::underlying_type_t<nano::epoch> (epoch_a);
-	assert (end >= start);
+	debug_assert (end >= start);
 	return end - start;
 }

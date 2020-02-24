@@ -85,16 +85,17 @@ node (node_a)
 	set_network_version (node_a.network_params.protocol.protocol_version);
 }
 
-void nano::transport::channel::send (nano::message const & message_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a, bool const is_droppable_a)
+void nano::transport::channel::send (nano::message const & message_a, std::function<void(boost::system::error_code const &, size_t)> const & callback_a, nano::buffer_drop_policy drop_policy_a)
 {
 	callback_visitor visitor;
 	message_a.visit (visitor);
 	auto buffer (message_a.to_shared_const_buffer ());
 	auto detail (visitor.result);
-	node.network.limiter.add (buffer.size (), !is_droppable_a);
-	if (!is_droppable_a || !node.network.limiter.should_drop (buffer.size ()))
+	auto is_droppable_by_limiter = drop_policy_a == nano::buffer_drop_policy::limiter;
+	node.network.limiter.add (buffer.size (), !is_droppable_by_limiter);
+	if (!is_droppable_by_limiter || !node.network.limiter.should_drop (buffer.size ()))
 	{
-		send_buffer (buffer, detail, callback_a);
+		send_buffer (buffer, detail, callback_a, drop_policy_a);
 		node.stats.inc (nano::stat::type::message, detail, nano::stat::dir::out);
 	}
 	else
@@ -118,7 +119,7 @@ boost::asio::ip::address_v6 mapped_from_v4_bytes (unsigned long address_a)
 
 bool nano::transport::reserved_address (nano::endpoint const & endpoint_a, bool allow_local_peers)
 {
-	assert (endpoint_a.address ().is_v6 ());
+	debug_assert (endpoint_a.address ().is_v6 ());
 	auto bytes (endpoint_a.address ().to_v6 ());
 	auto result (false);
 	static auto const rfc1700_min (mapped_from_v4_bytes (0x00000000ul));

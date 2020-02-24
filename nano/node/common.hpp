@@ -458,7 +458,7 @@ public:
 class telemetry_cache_cutoffs
 {
 public:
-	static std::chrono::seconds constexpr test{ 2 };
+	static std::chrono::seconds constexpr test{ 3 };
 	static std::chrono::seconds constexpr beta{ 15 };
 	static std::chrono::seconds constexpr live{ 60 };
 

@@ -33,7 +33,7 @@ void nano::frontier_req_client::run ()
 			}
 		}
 	},
-	false); // is bootstrap traffic is_droppable false
+	nano::buffer_drop_policy::no_limiter_drop);
 }
 
 nano::frontier_req_client::frontier_req_client (std::shared_ptr<nano::bootstrap_client> connection_a) :
@@ -92,17 +92,17 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 {
 	if (!ec)
 	{
-		assert (size_a == nano::frontier_req_client::size_frontier);
+		debug_assert (size_a == nano::frontier_req_client::size_frontier);
 		nano::account account;
 		nano::bufferstream account_stream (connection->receive_buffer->data (), sizeof (account));
 		auto error1 (nano::try_read (account_stream, account));
 		(void)error1;
-		assert (!error1);
+		debug_assert (!error1);
 		nano::block_hash latest;
 		nano::bufferstream latest_stream (connection->receive_buffer->data () + sizeof (account), sizeof (latest));
 		auto error2 (nano::try_read (latest_stream, latest));
 		(void)error2;
-		assert (!error2);
+		debug_assert (!error2);
 		if (count == 0)
 		{
 			start_time = std::chrono::steady_clock::now ();
@@ -157,7 +157,7 @@ void nano::frontier_req_client::received_frontier (boost::system::error_code con
 				}
 				else
 				{
-					assert (account < current);
+					debug_assert (account < current);
 					connection->attempt->add_pull (nano::pull_info (account, latest, nano::block_hash (0), 0, connection->node->network_params.bootstrap.frontier_retry_limit));
 				}
 			}

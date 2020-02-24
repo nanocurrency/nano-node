@@ -667,6 +667,12 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::blocks_confirmed:
 			res = "blocks_confirmed";
 			break;
+		case nano::stat::detail::blocks_confirmed_unbounded:
+			res = "blocks_confirmed_unbounded";
+			break;
+		case nano::stat::detail::blocks_confirmed_bounded:
+			res = "blocks_confirmed_bounded";
+			break;
 		case nano::stat::detail::aggregator_accepted:
 			res = "aggregator_accepted";
 			break;

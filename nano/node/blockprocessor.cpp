@@ -5,8 +5,6 @@
 
 #include <boost/format.hpp>
 
-#include <cassert>
-
 std::chrono::milliseconds constexpr nano::block_processor::confirmation_request_delay;
 
 nano::block_processor::block_processor (nano::node & node_a, nano::write_database_queue & write_database_queue_a) :
@@ -69,7 +67,7 @@ void nano::block_processor::add (std::shared_ptr<nano::block> block_a, uint64_t 
 
 void nano::block_processor::add (nano::unchecked_info const & info_a)
 {
-	if (!nano::work_validate (info_a.block->root (), info_a.block->block_work ()))
+	if (!nano::work_validate (nano::work_version::work_1, info_a.block->root (), info_a.block->block_work ()))
 	{
 		{
 			auto hash (info_a.block->hash ());
@@ -93,7 +91,7 @@ void nano::block_processor::add (nano::unchecked_info const & info_a)
 	else
 	{
 		node.logger.try_log ("nano::block_processor::add called for hash ", info_a.block->hash ().to_string (), " with invalid work ", nano::to_string_hex (info_a.block->block_work ()));
-		assert (false && "nano::block_processor::add called with invalid work");
+		debug_assert (false && "nano::block_processor::add called with invalid work");
 	}
 }
 
@@ -147,13 +145,13 @@ bool nano::block_processor::should_log (bool first_time)
 
 bool nano::block_processor::have_blocks ()
 {
-	assert (!mutex.try_lock ());
+	debug_assert (!mutex.try_lock ());
 	return !blocks.empty () || !forced.empty () || !state_blocks.empty ();
 }
 
 void nano::block_processor::verify_state_blocks (nano::unique_lock<std::mutex> & lock_a, size_t max_count)
 {
-	assert (!mutex.try_lock ());
+	debug_assert (!mutex.try_lock ());
 	nano::timer<std::chrono::milliseconds> timer_l (nano::timer_state::started);
 	std::deque<nano::unchecked_info> items;
 	if (state_blocks.size () <= max_count)
@@ -167,7 +165,7 @@ void nano::block_processor::verify_state_blocks (nano::unique_lock<std::mutex> &
 			items.push_back (state_blocks.front ());
 			state_blocks.pop_front ();
 		}
-		assert (!state_blocks.empty ());
+		debug_assert (!state_blocks.empty ());
 	}
 	lock_a.unlock ();
 	if (!items.empty ())
@@ -214,7 +212,7 @@ void nano::block_processor::verify_state_blocks (nano::unique_lock<std::mutex> &
 		lock_a.lock ();
 		for (auto i (0); i < size; ++i)
 		{
-			assert (verifications[i] == 1 || verifications[i] == 0);
+			debug_assert (verifications[i] == 1 || verifications[i] == 0);
 			auto & item (items.front ());
 			if (!item.block->link ().is_zero () && node.ledger.is_epoch_link (item.block->link ()))
 			{
@@ -274,7 +272,7 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 	}
 	lock_a.unlock ();
 	auto scoped_write_guard = write_database_queue.wait (nano::writer::process_batch);
-	auto transaction (node.store.tx_begin_write ({ nano::tables::accounts, nano::tables::cached_counts, nano::tables::change_blocks, nano::tables::frontiers, nano::tables::open_blocks, nano::tables::pending, nano::tables::receive_blocks, nano::tables::representation, nano::tables::send_blocks, nano::tables::state_blocks, nano::tables::unchecked }, { nano::tables::confirmation_height }));
+	auto transaction (node.store.tx_begin_write ({ tables::accounts, nano::tables::cached_counts, nano::tables::change_blocks, tables::frontiers, tables::open_blocks, tables::pending, tables::receive_blocks, tables::representation, tables::send_blocks, tables::state_blocks, tables::unchecked }, { tables::confirmation_height }));
 	timer_l.restart ();
 	lock_a.lock ();
 	// Processing blocks
@@ -375,14 +373,14 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	// Add to work watcher to prevent dropping the election
 	if (watch_work_a)
 	{
-		node.wallets.watcher->add (block_a);
+		node.wallets.watcher->add (block_a, nano::work_version::work_1);
 	}
 
 	// Start collecting quorum on block
 	node.active.insert (block_a, false);
 
 	// Announce block contents to the network
-	node.network.flood_block (block_a, false);
+	node.network.flood_block (block_a, nano::buffer_drop_policy::no_limiter_drop);
 	if (node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
 	{
 		// Announce our weighted vote to the network
@@ -556,7 +554,7 @@ void nano::block_processor::queue_unchecked (nano::write_transaction const & tra
 		{
 			if (!node.store.unchecked_del (transaction_a, nano::unchecked_key (hash_a, info.block->hash ())))
 			{
-				assert (node.ledger.cache.unchecked_count > 0);
+				debug_assert (node.ledger.cache.unchecked_count > 0);
 				--node.ledger.cache.unchecked_count;
 			}
 		}
@@ -580,7 +578,7 @@ nano::block_hash nano::block_processor::filter_item (nano::block_hash const & ha
 
 void nano::block_processor::requeue_invalid (nano::block_hash const & hash_a, nano::unchecked_info const & info_a)
 {
-	assert (hash_a == info_a.block->hash ());
+	debug_assert (hash_a == info_a.block->hash ());
 	auto attempt (node.bootstrap_initiator.current_attempt ());
 	if (attempt != nullptr && attempt->mode == nano::bootstrap_mode::lazy)
 	{

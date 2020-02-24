@@ -55,7 +55,7 @@ nano::bulk_pull_client::~bulk_pull_client ()
 
 void nano::bulk_pull_client::request ()
 {
-	assert (!pull.head.is_zero () || pull.retry_limit != std::numeric_limits<unsigned>::max ());
+	debug_assert (!pull.head.is_zero () || pull.retry_limit != std::numeric_limits<unsigned>::max ());
 	expected = pull.head;
 	nano::bulk_pull req;
 	if (pull.head == pull.head_original && pull.attempts % 4 < 3)
@@ -98,12 +98,12 @@ void nano::bulk_pull_client::request ()
 			this_l->connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_request_failure, nano::stat::dir::in);
 		}
 	},
-	false); // is bootstrap traffic is_droppable false
+	nano::buffer_drop_policy::no_limiter_drop);
 }
 
 void nano::bulk_pull_client::throttled_receive_block ()
 {
-	assert (!network_error);
+	debug_assert (!network_error);
 	if (!connection->node->block_processor.half_full ())
 	{
 		receive_block ();
@@ -214,7 +214,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 	{
 		nano::bufferstream stream (connection->receive_buffer->data (), size_a);
 		std::shared_ptr<nano::block> block (nano::deserialize_block (stream, type_a));
-		if (block != nullptr && !nano::work_validate (*block))
+		if (block != nullptr && !nano::work_validate (nano::work_version::work_1, *block))
 		{
 			auto hash (block->hash ());
 			if (connection->node->config.logging.bulk_pull_logging ())
@@ -332,7 +332,7 @@ void nano::bulk_pull_account_client::request ()
 			this_l->connection->node->stats.inc (nano::stat::type::bootstrap, nano::stat::detail::bulk_pull_error_starting_request, nano::stat::dir::in);
 		}
 	},
-	false); // is bootstrap traffic is_droppable false
+	nano::buffer_drop_policy::no_limiter_drop);
 }
 
 void nano::bulk_pull_account_client::receive_pending ()
@@ -352,12 +352,12 @@ void nano::bulk_pull_account_client::receive_pending ()
 					nano::bufferstream frontier_stream (this_l->connection->receive_buffer->data (), sizeof (nano::uint256_union));
 					auto error1 (nano::try_read (frontier_stream, pending));
 					(void)error1;
-					assert (!error1);
+					debug_assert (!error1);
 					nano::amount balance;
 					nano::bufferstream balance_stream (this_l->connection->receive_buffer->data () + sizeof (nano::uint256_union), sizeof (nano::uint128_union));
 					auto error2 (nano::try_read (balance_stream, balance));
 					(void)error2;
-					assert (!error2);
+					debug_assert (!error2);
 					if (this_l->pull_blocks == 0 || !pending.is_zero ())
 					{
 						if (this_l->pull_blocks == 0 || balance.number () >= this_l->connection->node->config.receive_minimum.number ())
@@ -423,7 +423,7 @@ void nano::bulk_pull_account_client::receive_pending ()
 void nano::bulk_pull_server::set_current_end ()
 {
 	include_start = false;
-	assert (request != nullptr);
+	debug_assert (request != nullptr);
 	auto transaction (connection->node->store.tx_begin_read ());
 	if (!connection->node->store.block_exists (transaction, request->end))
 	{
@@ -613,7 +613,7 @@ void nano::bulk_pull_server::no_block_sent (boost::system::error_code const & ec
 {
 	if (!ec)
 	{
-		assert (size_a == 1);
+		debug_assert (size_a == 1);
 		connection->finish_request ();
 	}
 	else
@@ -637,7 +637,7 @@ request (std::move (request_a))
  */
 void nano::bulk_pull_account_server::set_params ()
 {
-	assert (request != nullptr);
+	debug_assert (request != nullptr);
 
 	/*
 	 * Parse the flags
@@ -920,17 +920,17 @@ void nano::bulk_pull_account_server::complete (boost::system::error_code const &
 	{
 		if (pending_address_only)
 		{
-			assert (size_a == 32);
+			debug_assert (size_a == 32);
 		}
 		else
 		{
 			if (pending_include_address)
 			{
-				assert (size_a == 80);
+				debug_assert (size_a == 80);
 			}
 			else
 			{
-				assert (size_a == 48);
+				debug_assert (size_a == 48);
 			}
 		}
 

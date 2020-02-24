@@ -375,6 +375,24 @@ double nano::json_handler::multiplier_optional_impl (uint64_t & difficulty)
 	return multiplier;
 }
 
+nano::work_version nano::json_handler::work_version_optional_impl (nano::work_version const default_a)
+{
+	nano::work_version result = default_a;
+	boost::optional<std::string> version_text (request.get_optional<std::string> ("version"));
+	if (!ec && version_text.is_initialized ())
+	{
+		if (*version_text == nano::to_string (nano::work_version::work_1))
+		{
+			result = nano::work_version::work_1;
+		}
+		else
+		{
+			ec = nano::error_rpc::bad_work_version;
+		}
+	}
+	return result;
+}
+
 namespace
 {
 bool decode_unsigned (std::string const & text, uint64_t & number)
@@ -697,7 +715,7 @@ void nano::json_handler::account_representative_set ()
 					auto info (rpc_l->account_info_impl (block_transaction, account));
 					if (!rpc_l->ec)
 					{
-						if (nano::work_validate (info.head, work))
+						if (nano::work_validate (nano::work_version::work_1, info.head, work))
 						{
 							rpc_l->ec = nano::error_common::invalid_work;
 						}
@@ -1277,6 +1295,8 @@ void nano::json_handler::block_create ()
 		}
 	}
 	auto work (work_optional_impl ());
+	// Default to work_1 if not specified
+	auto work_version (work_version_optional_impl (nano::work_version::work_1));
 	nano::raw_key prv;
 	prv.data.clear ();
 	nano::block_hash previous (0);
@@ -1542,7 +1562,7 @@ void nano::json_handler::block_create ()
 			{
 				if (work == 0)
 				{
-					node.work_generate (root_l, get_callback_l (block_l), nano::account (pub));
+					node.work_generate (work_version, root_l, get_callback_l (block_l), nano::account (pub));
 				}
 				else
 				{
@@ -2039,7 +2059,7 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 	nano::raw_key raw_key;
 	raw_key.data = prv_a;
 	auto signer (nano::pub_key (prv_a));
-	assert (signer == node_a->ledger.epoch_signer (link));
+	debug_assert (signer == node_a->ledger.epoch_signer (link));
 
 	class account_upgrade_item final
 	{
@@ -2103,10 +2123,10 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 					             .balance (info.balance)
 					             .link (link)
 					             .sign (raw_key, signer)
-					             .work (node_a->work_generate_blocking (info.head).value_or (0))
+					             .work (node_a->work_generate_blocking (nano::work_version::work_1, info.head).value_or (0))
 					             .build ();
 					bool valid_signature (!nano::validate_message (signer, epoch->hash (), epoch->block_signature ()));
-					bool valid_work (!nano::work_validate (*epoch.get ()));
+					bool valid_work (!nano::work_validate (nano::work_version::work_1, *epoch.get ()));
 					nano::process_result result (nano::process_result::old);
 					if (valid_signature && valid_work)
 					{
@@ -2162,10 +2182,10 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 						             .balance (0)
 						             .link (link)
 						             .sign (raw_key, signer)
-						             .work (node_a->work_generate_blocking (key.account).value_or (0))
+						             .work (node_a->work_generate_blocking (nano::work_version::work_1, key.account).value_or (0))
 						             .build ();
 						bool valid_signature (!nano::validate_message (signer, epoch->hash (), epoch->block_signature ()));
-						bool valid_work (!nano::work_validate (*epoch.get ()));
+						bool valid_work (!nano::work_validate (nano::work_version::work_1, *epoch.get ()));
 						nano::process_result result (nano::process_result::old);
 						if (valid_signature && valid_work)
 						{
@@ -3232,7 +3252,7 @@ void nano::json_handler::process ()
 		}
 		if (!rpc_l->ec)
 		{
-			if (!nano::work_validate (*block))
+			if (!nano::work_validate (nano::work_version::work_1, *block))
 			{
 				auto result (rpc_l->node.process_local (block, watch_work_l));
 				switch (result.code)
@@ -3345,7 +3365,7 @@ void nano::json_handler::receive ()
 						{
 							head = account;
 						}
-						if (nano::work_validate (head, work))
+						if (nano::work_validate (nano::work_version::work_1, head, work))
 						{
 							ec = nano::error_common::invalid_work;
 						}
@@ -3688,7 +3708,7 @@ void nano::json_handler::send ()
 			}
 			if (!ec && work)
 			{
-				if (nano::work_validate (info.head, work))
+				if (nano::work_validate (nano::work_version::work_1, info.head, work))
 				{
 					ec = nano::error_common::invalid_work;
 				}
@@ -3957,7 +3977,7 @@ void nano::json_handler::telemetry ()
 
 		if (!ec)
 		{
-			assert (channel);
+			debug_assert (channel);
 			node.telemetry.get_metrics_single_peer_async (channel, [rpc_l](auto const & telemetry_response_a) {
 				if (!telemetry_response_a.error)
 				{
@@ -4404,7 +4424,7 @@ void nano::json_handler::wallet_change_seed ()
 					rpc_l->response_l.put ("success", "");
 					rpc_l->response_l.put ("last_restored_account", account.to_account ());
 					auto index (wallet->store.deterministic_index_get (transaction));
-					assert (index > 0);
+					debug_assert (index > 0);
 					rpc_l->response_l.put ("restored_count", std::to_string (index));
 				}
 				else
@@ -4463,7 +4483,7 @@ void nano::json_handler::wallet_create ()
 				nano::public_key account (wallet->change_seed (transaction, seed));
 				rpc_l->response_l.put ("last_restored_account", account.to_account ());
 				auto index (wallet->store.deterministic_index_get (transaction));
-				assert (index > 0);
+				debug_assert (index > 0);
 				rpc_l->response_l.put ("restored_count", std::to_string (index));
 			}
 		}
@@ -4891,7 +4911,9 @@ void nano::json_handler::work_generate ()
 {
 	boost::optional<nano::account> account;
 	auto account_opt (request.get_optional<std::string> ("account"));
-	if (account_opt.is_initialized ())
+	// Default to work_1 if not specified
+	auto work_version (work_version_optional_impl (nano::work_version::work_1));
+	if (!ec && account_opt.is_initialized ())
 	{
 		account = account_impl (account_opt.get ());
 	}
@@ -4908,7 +4930,7 @@ void nano::json_handler::work_generate ()
 		{
 			auto use_peers (request.get<bool> ("use_peers", false));
 			auto rpc_l (shared_from_this ());
-			auto callback = [rpc_l, hash, this](boost::optional<uint64_t> const & work_a) {
+			auto callback = [rpc_l, hash, work_version, this](boost::optional<uint64_t> const & work_a) {
 				if (work_a)
 				{
 					boost::property_tree::ptree response_l;
@@ -4917,7 +4939,7 @@ void nano::json_handler::work_generate ()
 					response_l.put ("work", nano::to_string_hex (work));
 					std::stringstream ostream;
 					uint64_t result_difficulty;
-					nano::work_validate (hash, work, &result_difficulty);
+					nano::work_validate (work_version, hash, work, &result_difficulty);
 					response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
 					auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, this->node.network_params.network.publish_threshold);
 					response_l.put ("multiplier", nano::to_string (result_multiplier));
@@ -4933,7 +4955,7 @@ void nano::json_handler::work_generate ()
 			{
 				if (node.local_work_generation_enabled ())
 				{
-					node.work.generate (hash, callback, difficulty);
+					node.work.generate (work_version, hash, callback, difficulty);
 				}
 				else
 				{
@@ -4955,7 +4977,7 @@ void nano::json_handler::work_generate ()
 				auto const & peers_l (secondary_work_peers_l ? node.config.secondary_work_peers : node.config.work_peers);
 				if (node.work_generation_enabled (peers_l))
 				{
-					node.work_generate (hash, callback, difficulty, account, secondary_work_peers_l);
+					node.work_generate (work_version, hash, callback, difficulty, account, secondary_work_peers_l);
 				}
 				else
 				{
@@ -5027,10 +5049,12 @@ void nano::json_handler::work_validate ()
 	auto work (work_optional_impl ());
 	auto difficulty (difficulty_optional_impl ());
 	multiplier_optional_impl (difficulty);
+	// Default to work_1 if not specified
+	auto work_version (work_version_optional_impl (nano::work_version::work_1));
 	if (!ec)
 	{
 		uint64_t result_difficulty (0);
-		nano::work_validate (hash, work, &result_difficulty);
+		nano::work_validate (work_version, hash, work, &result_difficulty);
 		response_l.put ("valid", (result_difficulty >= difficulty) ? "1" : "0");
 		response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
 		auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, node.network_params.network.publish_threshold);
@@ -5074,6 +5098,23 @@ void nano::json_handler::work_peers_clear ()
 	node.config.work_peers.clear ();
 	response_l.put ("success", "");
 	response_errors ();
+}
+
+void nano::inprocess_rpc_handler::process_request (std::string const &, std::string const & body_a, std::function<void(std::string const &)> response_a)
+{
+	// Note that if the rpc action is async, the shared_ptr<json_handler> lifetime will be extended by the action handler
+	auto handler (std::make_shared<nano::json_handler> (node, node_rpc_config, body_a, response_a, [this]() {
+		this->stop_callback ();
+		this->stop ();
+	}));
+	handler->process_request ();
+}
+
+void nano::inprocess_rpc_handler::process_request_v2 (rpc_handler_request_params const & params_a, std::string const & body_a, std::function<void(std::shared_ptr<std::string>)> response_a)
+{
+	std::string body_l = params_a.json_envelope (body_a);
+	auto handler (std::make_shared<nano::ipc::flatbuffers_handler> (node, ipc_server, nullptr, node.config.ipc_config));
+	handler->process_json (reinterpret_cast<const uint8_t *> (body_l.data ()), body_l.size (), response_a);
 }
 
 namespace
