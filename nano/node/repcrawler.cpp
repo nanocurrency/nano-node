@@ -44,7 +44,7 @@ void nano::rep_crawler::validate ()
 	{
 		auto & vote = i.second;
 		auto & channel = i.first;
-		assert (channel != nullptr);
+		debug_assert (channel != nullptr);
 		nano::uint128_t rep_weight = node.ledger.weight (vote->account);
 		if (rep_weight > minimum)
 		{
@@ -59,7 +59,7 @@ void nano::rep_crawler::validate ()
 					// Update if representative channel was changed
 					if (info.channel->get_endpoint () != channel->get_endpoint ())
 					{
-						assert (info.account == vote->account);
+						debug_assert (info.account == vote->account);
 						updated_or_inserted = true;
 						info.weight = rep_weight;
 						info.channel = channel;
@@ -166,7 +166,7 @@ void nano::rep_crawler::query (std::vector<std::shared_ptr<nano::transport::chan
 	}
 	for (auto i (channels_a.begin ()), n (channels_a.end ()); i != n; ++i)
 	{
-		assert (*i != nullptr);
+		debug_assert (*i != nullptr);
 		on_rep_request (*i);
 		node.network.send_confirm_req (*i, block);
 	}

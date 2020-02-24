@@ -166,7 +166,7 @@ void nano::vote_processor::verify_votes (decltype (votes) const & votes_a)
 	auto i (0);
 	for (auto const & vote : votes_a)
 	{
-		assert (verifications[i] == 1 || verifications[i] == 0);
+		debug_assert (verifications[i] == 1 || verifications[i] == 0);
 		if (verifications[i] == 1)
 		{
 			vote_blocking (vote.first, vote.second, true);

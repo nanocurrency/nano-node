@@ -60,7 +60,7 @@ external_address (boost::asio::ip::address_v6{}.to_string ())
 			preconfigured_representatives.emplace_back ("3FE80B4BC842E82C1C18ABFEEC47EA989E63953BC82AC411F304D13833D52A56");
 			break;
 		default:
-			assert (false);
+			debug_assert (false);
 			break;
 	}
 }
@@ -857,7 +857,7 @@ void nano::node_config::deserialize_address (std::string const & entry_a, std::v
 
 nano::account nano::node_config::random_representative () const
 {
-	assert (!preconfigured_representatives.empty ());
+	debug_assert (!preconfigured_representatives.empty ());
 	size_t index (nano::random_pool::generate_word32 (0, static_cast<CryptoPP::word32> (preconfigured_representatives.size () - 1)));
 	auto result (preconfigured_representatives[index]);
 	return result;

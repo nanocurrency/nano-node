@@ -309,7 +309,7 @@ TEST (broadcast, world_broadcast_simulate)
 				case 2:
 					break;
 				default:
-					assert (false);
+					ASSERT_FALSE (true);
 					break;
 			}
 		}
@@ -362,7 +362,7 @@ TEST (broadcast, sqrt_broadcast_simulate)
 				case 2:
 					break;
 				default:
-					assert (false);
+					ASSERT_FALSE (true);
 					break;
 			}
 		}

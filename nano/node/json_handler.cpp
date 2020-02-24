@@ -2059,7 +2059,7 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 	nano::raw_key raw_key;
 	raw_key.data = prv_a;
 	auto signer (nano::pub_key (prv_a));
-	assert (signer == node_a->ledger.epoch_signer (link));
+	debug_assert (signer == node_a->ledger.epoch_signer (link));
 
 	class account_upgrade_item final
 	{
@@ -3978,7 +3978,7 @@ void nano::json_handler::telemetry ()
 
 		if (!ec)
 		{
-			assert (channel);
+			debug_assert (channel);
 			node.telemetry.get_metrics_single_peer_async (channel, [rpc_l](auto const & single_telemetry_metric_a) {
 				if (!single_telemetry_metric_a.error)
 				{
@@ -4428,7 +4428,7 @@ void nano::json_handler::wallet_change_seed ()
 					rpc_l->response_l.put ("success", "");
 					rpc_l->response_l.put ("last_restored_account", account.to_account ());
 					auto index (wallet->store.deterministic_index_get (transaction));
-					assert (index > 0);
+					debug_assert (index > 0);
 					rpc_l->response_l.put ("restored_count", std::to_string (index));
 				}
 				else
@@ -4487,7 +4487,7 @@ void nano::json_handler::wallet_create ()
 				nano::public_key account (wallet->change_seed (transaction, seed));
 				rpc_l->response_l.put ("last_restored_account", account.to_account ());
 				auto index (wallet->store.deterministic_index_get (transaction));
-				assert (index > 0);
+				debug_assert (index > 0);
 				rpc_l->response_l.put ("restored_count", std::to_string (index));
 			}
 		}

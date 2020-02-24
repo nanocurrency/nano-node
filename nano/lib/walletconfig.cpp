@@ -5,7 +5,7 @@
 nano::wallet_config::wallet_config ()
 {
 	nano::random_pool::generate_block (wallet.bytes.data (), wallet.bytes.size ());
-	assert (!wallet.is_zero ());
+	debug_assert (!wallet.is_zero ());
 }
 
 nano::error nano::wallet_config::parse (std::string const & wallet_a, std::string const & account_a)

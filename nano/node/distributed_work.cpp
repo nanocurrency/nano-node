@@ -29,13 +29,13 @@ strand (node_a.io_ctx.get_executor ()),
 need_resolve (request_a.peers),
 elapsed (nano::timer_state::started, "distributed work generation timer")
 {
-	assert (!finished);
-	assert (status == work_generation_status::ongoing);
+	debug_assert (!finished);
+	debug_assert (status == work_generation_status::ongoing);
 }
 
 nano::distributed_work::~distributed_work ()
 {
-	assert (status != work_generation_status::ongoing);
+	debug_assert (status != work_generation_status::ongoing);
 	if (auto node_l = node_w.lock ())
 	{
 		if (!node_l->stopped && node_l->websocket_server && node_l->websocket_server->any_subscriber (nano::websocket::topic::work))

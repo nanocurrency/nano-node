@@ -17,14 +17,14 @@ void add_callback_stats (nano::node & node, std::vector<nano::block_hash> * obse
 		if (mutex)
 		{
 			nano::lock_guard<std::mutex> guard (*mutex);
-			assert (observer_order);
+			debug_assert (observer_order);
 			observer_order->push_back (status_a.winner->hash ());
 		}
 	});
 }
 nano::stat::detail get_stats_detail (nano::confirmation_height_mode mode_a)
 {
-	assert (mode_a == nano::confirmation_height_mode::bounded || mode_a == nano::confirmation_height_mode::unbounded);
+	debug_assert (mode_a == nano::confirmation_height_mode::bounded || mode_a == nano::confirmation_height_mode::unbounded);
 	return (mode_a == nano::confirmation_height_mode::bounded) ? nano::stat::detail::blocks_confirmed_bounded : nano::stat::detail::blocks_confirmed_unbounded;
 }
 }
