@@ -114,7 +114,7 @@ nanoapi::BlockUnion nano::ipc::flatbuffers_builder::block_to_union (nano::block 
 		}
 
 		default:
-			assert (false);
+			debug_assert (false);
 	}
 	return u;
 }
