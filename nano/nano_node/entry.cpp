@@ -155,11 +155,6 @@ int main (int argc, char * const * argv)
 				std::cerr << flags_ec.message () << std::endl;
 				std::exit (1);
 			}
-			auto config (vm.find ("config"));
-			if (config != vm.end ())
-			{
-				flags.config_overrides = config->second.as<std::vector<std::string>> ();
-			}
 			daemon.run (data_path, flags);
 		}
 		else if (vm.count ("debug_block_count"))

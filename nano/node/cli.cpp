@@ -154,6 +154,12 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 	{
 		flags_a.block_processor_verification_size = block_processor_verification_size_it->second.as<size_t> ();
 	}
+	// Config overriding
+	auto config (vm.find ("config"));
+	if (config != vm.end ())
+	{
+		flags_a.config_overrides = config->second.as<std::vector<std::string>> ();
+	}
 	return ec;
 }
 
