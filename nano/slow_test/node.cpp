@@ -187,7 +187,9 @@ TEST (store, load)
 // ulimit -n increasing may be required
 TEST (node, fork_storm)
 {
-	nano::system system (64);
+	nano::node_flags flags;
+	flags.disable_max_peers_per_ip = true;
+	nano::system system (64, flags);
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	auto previous (system.nodes[0]->latest (nano::test_genesis_key.pub));
 	auto balance (system.nodes[0]->balance (nano::test_genesis_key.pub));

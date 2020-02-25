@@ -350,11 +350,15 @@ void nano::transport::tcp_channels::stop ()
 
 bool nano::transport::tcp_channels::max_ip_connections (nano::tcp_endpoint const & endpoint_a)
 {
-	nano::unique_lock<std::mutex> lock (mutex);
-	bool result (channels.get<ip_address_tag> ().count (endpoint_a.address ()) >= node.network_params.node.max_peers_per_ip);
-	if (!result)
+	bool result (false);
+	if (!node.flags.disable_max_peers_per_ip)
 	{
-		result = attempts.get<ip_address_tag> ().count (endpoint_a.address ()) >= node.network_params.node.max_peers_per_ip;
+		nano::unique_lock<std::mutex> lock (mutex);
+		result = channels.get<ip_address_tag> ().count (endpoint_a.address ()) >= node.network_params.node.max_peers_per_ip;
+		if (!result)
+		{
+			result = attempts.get<ip_address_tag> ().count (endpoint_a.address ()) >= node.network_params.node.max_peers_per_ip;
+		}
 	}
 	return result;
 }
