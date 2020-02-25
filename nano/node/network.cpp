@@ -800,7 +800,7 @@ boost::optional<nano::uint256_union> nano::syn_cookies::assign (nano::endpoint c
 	nano::lock_guard<std::mutex> lock (syn_cookie_mutex);
 	unsigned & ip_cookies = cookies_per_ip[ip_addr];
 	boost::optional<nano::uint256_union> result;
-	if (ip_cookies < nano::transport::max_peers_per_ip)
+	if (ip_cookies < node.network_params.node.max_peers_per_ip)
 	{
 		if (cookies.find (endpoint_a) == cookies.end ())
 		{

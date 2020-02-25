@@ -923,7 +923,7 @@ TEST (network, peer_max_tcp_attempts)
 	// Add nodes that can accept TCP connection, but not node ID handshake
 	nano::node_flags node_flags;
 	node_flags.disable_tcp_realtime = true;
-	for (auto i (0); i < nano::transport::max_peers_per_ip; ++i)
+	for (auto i (0); i < node->network_params.node.max_peers_per_ip; ++i)
 	{
 		auto node2 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work, node_flags));
 		node2->start ();

@@ -635,7 +635,7 @@ std::shared_ptr<nano::transport::channel> nano::transport::udp_channels::create 
 bool nano::transport::udp_channels::max_ip_connections (nano::endpoint const & endpoint_a)
 {
 	nano::unique_lock<std::mutex> lock (mutex);
-	bool result (channels.get<ip_address_tag> ().count (endpoint_a.address ()) >= nano::transport::max_peers_per_ip);
+	bool result (channels.get<ip_address_tag> ().count (endpoint_a.address ()) >= node.network_params.node.max_peers_per_ip);
 	return result;
 }
 
