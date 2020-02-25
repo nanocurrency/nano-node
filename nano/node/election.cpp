@@ -135,7 +135,7 @@ bool nano::election::state_change (nano::election::state_t expected_a, nano::ele
 	}
 	else
 	{
-		assert (false);
+		debug_assert (false);
 	}
 	return result;
 }
@@ -290,7 +290,7 @@ bool nano::election::transition_time ()
 			}
 			break;
 		case nano::election::state_t::expired:
-			assert (false);
+			debug_assert (false);
 			break;
 	}
 	if (std::chrono::minutes (5) < std::chrono::steady_clock::now () - election_start)
