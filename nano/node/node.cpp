@@ -164,7 +164,7 @@ startup_time (std::chrono::steady_clock::now ())
 			observers.wallet.notify (active);
 		};
 		network.channel_observer = [this](std::shared_ptr<nano::transport::channel> channel_a) {
-			assert (channel_a != nullptr);
+			debug_assert (channel_a != nullptr);
 			observers.endpoint.notify (channel_a);
 		};
 		network.disconnect_observer = [this]() {
@@ -235,7 +235,7 @@ startup_time (std::chrono::steady_clock::now ())
 		if (websocket_server)
 		{
 			observers.blocks.add ([this](nano::election_status const & status_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
-				assert (status_a.type != nano::election_status_type::ongoing);
+				debug_assert (status_a.type != nano::election_status_type::ongoing);
 
 				if (this->websocket_server->any_subscriber (nano::websocket::topic::confirmation))
 				{
@@ -284,7 +284,7 @@ startup_time (std::chrono::steady_clock::now ())
 		}
 		// Add block confirmation type stats regardless of http-callback and websocket subscriptions
 		observers.blocks.add ([this](nano::election_status const & status_a, nano::account const & account_a, nano::amount const & amount_a, bool is_state_send_a) {
-			assert (status_a.type != nano::election_status_type::ongoing);
+			debug_assert (status_a.type != nano::election_status_type::ongoing);
 			switch (status_a.type)
 			{
 				case nano::election_status_type::active_confirmed_quorum:
@@ -367,7 +367,7 @@ startup_time (std::chrono::steady_clock::now ())
 		if (!is_initialized)
 		{
 			release_assert (!flags.read_only);
-			auto transaction (store.tx_begin_write ());
+			auto transaction (store.tx_begin_write ({ tables::accounts, tables::cached_counts, tables::confirmation_height, tables::frontiers, tables::open_blocks }));
 			// Store was empty meaning we just created it, add the genesis block
 			store.initialize (transaction, genesis, ledger.cache);
 		}
@@ -441,7 +441,7 @@ startup_time (std::chrono::steady_clock::now ())
 			// Drop unchecked blocks if initial bootstrap is completed
 			if (!flags.disable_unchecked_drop && !use_bootstrap_weight && !flags.read_only)
 			{
-				auto transaction (store.tx_begin_write ());
+				auto transaction (store.tx_begin_write ({ tables::unchecked }));
 				store.unchecked_clear (transaction);
 				ledger.cache.unchecked_count = 0;
 				logger.always_log ("Dropping unchecked blocks");
@@ -626,7 +626,7 @@ nano::process_return nano::node::process_local (std::shared_ptr<nano::block> blo
 	// Notify block processor to release write lock
 	block_processor.wait_write ();
 	// Process block
-	auto transaction (store.tx_begin_write ());
+	auto transaction (store.tx_begin_write ({ tables::accounts, tables::cached_counts, tables::change_blocks, tables::frontiers, tables::open_blocks, tables::pending, tables::receive_blocks, tables::representation, tables::send_blocks, tables::state_blocks }, { tables::confirmation_height }));
 	return block_processor.process_one (transaction, info, work_watcher_a);
 }
 
@@ -780,7 +780,7 @@ nano::uint128_t nano::node::minimum_principal_weight (nano::uint128_t const & on
 void nano::node::long_inactivity_cleanup ()
 {
 	bool perform_cleanup = false;
-	auto transaction (store.tx_begin_write ());
+	auto transaction (store.tx_begin_write ({ tables::online_weight, tables::peers }));
 	if (store.online_weight_count (transaction) > 0)
 	{
 		auto i (store.online_weight_begin (transaction));
@@ -790,7 +790,7 @@ void nano::node::long_inactivity_cleanup ()
 		{
 			++sample;
 		}
-		assert (sample != n);
+		debug_assert (sample != n);
 		auto const one_week_ago = (std::chrono::system_clock::now () - std::chrono::hours (7 * 24)).time_since_epoch ().count ();
 		perform_cleanup = sample->first < one_week_ago;
 	}
@@ -950,14 +950,14 @@ void nano::node::unchecked_cleanup ()
 	while (!cleaning_list.empty ())
 	{
 		size_t deleted_count (0);
-		auto transaction (store.tx_begin_write ());
+		auto transaction (store.tx_begin_write ({ tables::unchecked }));
 		while (deleted_count++ < 2 * 1024 && !cleaning_list.empty ())
 		{
 			auto key (cleaning_list.front ());
 			cleaning_list.pop_front ();
 			if (!store.unchecked_del (transaction, key))
 			{
-				assert (ledger.cache.unchecked_count > 0);
+				debug_assert (ledger.cache.unchecked_count > 0);
 				--ledger.cache.unchecked_count;
 			}
 		}
@@ -977,7 +977,7 @@ void nano::node::ongoing_unchecked_cleanup ()
 
 int nano::node::price (nano::uint128_t const & balance_a, int amount_a)
 {
-	assert (balance_a >= amount_a * nano::Gxrb_ratio);
+	debug_assert (balance_a >= amount_a * nano::Gxrb_ratio);
 	auto balance_l (balance_a);
 	double result (0.0);
 	for (auto i (0); i < amount_a; ++i)
@@ -1054,25 +1054,25 @@ boost::optional<uint64_t> nano::node::work_generate_blocking (nano::work_version
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a)
 {
-	assert (network_params.network.is_test_network ());
+	debug_assert (network_params.network.is_test_network ());
 	return work_generate_blocking (block_a, network_params.network.publish_threshold);
 }
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a, uint64_t difficulty_a)
 {
-	assert (network_params.network.is_test_network ());
+	debug_assert (network_params.network.is_test_network ());
 	return work_generate_blocking (nano::work_version::work_1, block_a, difficulty_a);
 }
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a)
 {
-	assert (network_params.network.is_test_network ());
+	debug_assert (network_params.network.is_test_network ());
 	return work_generate_blocking (root_a, network_params.network.publish_threshold);
 }
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a, uint64_t difficulty_a)
 {
-	assert (network_params.network.is_test_network ());
+	debug_assert (network_params.network.is_test_network ());
 	return work_generate_blocking (nano::work_version::work_1, root_a, difficulty_a);
 }
 
@@ -1181,7 +1181,7 @@ public:
 					if (!node.store.block_exists (transaction, hash))
 					{
 						node.logger.try_log (boost::str (boost::format ("Confirmed block is missing:  %1%") % hash.to_string ()));
-						assert (false && "Confirmed block is missing");
+						debug_assert (false && "Confirmed block is missing");
 					}
 					else
 					{

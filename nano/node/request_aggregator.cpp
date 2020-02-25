@@ -26,7 +26,7 @@ thread ([this]() { run (); })
 
 void nano::request_aggregator::add (std::shared_ptr<nano::transport::channel> & channel_a, std::vector<std::pair<nano::block_hash, nano::root>> const & hashes_roots_a)
 {
-	assert (wallets.rep_counts ().voting > 0);
+	debug_assert (wallets.rep_counts ().voting > 0);
 	bool error = true;
 	auto const endpoint (nano::transport::map_endpoint_to_v6 (channel_a->get_endpoint ()));
 	nano::unique_lock<std::mutex> lock (mutex);
@@ -192,7 +192,7 @@ std::vector<nano::block_hash> nano::request_aggregator::aggregate (nano::transac
 					to_generate.push_back (successor);
 				}
 				auto successor_block (store.block_get (transaction_a, successor));
-				assert (successor_block != nullptr);
+				debug_assert (successor_block != nullptr);
 				nano::publish publish (successor_block);
 				pool_a.channel->send (publish);
 			}

@@ -299,7 +299,7 @@ nano::tomlconfig & nano::tomlconfig::get_config (bool optional, std::string cons
 void nano::tomlconfig::erase_defaults (std::shared_ptr<cpptoml::table> base, std::shared_ptr<cpptoml::table> other, std::shared_ptr<cpptoml::table> update_target)
 {
 	std::vector<std::string> erased;
-	assert (other != nullptr);
+	debug_assert (other != nullptr);
 	for (auto & item : *other)
 	{
 		std::string const & key = item.first;

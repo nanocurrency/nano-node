@@ -43,7 +43,7 @@ int main (int argc, char ** argv)
 	catch (...)
 	{
 		result = -1;
-		assert (false);
+		debug_assert (false);
 	}
 	runner.join ();
 	return result;

@@ -1,3 +1,5 @@
+$ErrorActionPreference = "Continue"
+
 function Get-RedirectedUri {
     <#
     .SYNOPSIS

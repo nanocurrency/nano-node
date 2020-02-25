@@ -64,8 +64,8 @@ void nano::network_filter::clear ()
 
 nano::uint128_t & nano::network_filter::get_element (nano::uint128_t const & hash_a)
 {
-	assert (!mutex.try_lock ());
-	assert (items.size () > 0);
+	debug_assert (!mutex.try_lock ());
+	debug_assert (items.size () > 0);
 	size_t index (hash_a % items.size ());
 	return items[index];
 }

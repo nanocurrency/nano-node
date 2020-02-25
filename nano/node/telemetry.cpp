@@ -8,7 +8,6 @@
 #include <boost/algorithm/string.hpp>
 
 #include <algorithm>
-#include <cassert>
 #include <cstdint>
 #include <future>
 #include <numeric>
@@ -21,7 +20,7 @@ worker (worker_a),
 batch_request (std::make_shared<nano::telemetry_impl> (network, alarm, worker))
 {
 	// Before callbacks are called with the batch request, check if any of the single request data can be appended to give
-	batch_request->pre_callback_callback = [this](std::unordered_map<nano::endpoint, telemetry_data_time_pair> & data_a, std::mutex & mutex_a) {
+	batch_request->pre_callback_callback = [this](std::unordered_map<nano::endpoint, telemetry_data> & datas_a, std::mutex & mutex_a) {
 		nano::lock_guard<std::mutex> guard (this->mutex);
 		for (auto & single_request : single_requests)
 		{
@@ -36,7 +35,7 @@ batch_request (std::make_shared<nano::telemetry_impl> (network, alarm, worker))
 				}
 				else
 				{
-					data_a.emplace (single_request.first, single_request.second.impl->cached_telemetry_data.begin ()->second);
+					datas_a.emplace (single_request.first, single_request.second.impl->cached_telemetry_data.begin ()->second.data);
 				}
 			}
 		}
@@ -51,7 +50,7 @@ batch_request (std::make_shared<nano::telemetry_impl> (network, alarm, worker))
 			}
 			else
 			{
-				data_a.emplace (pending.first, pending.second);
+				datas_a.emplace (pending.first, pending.second.data);
 			}
 		}
 		finished_single_requests.clear ();
@@ -196,7 +195,7 @@ void nano::telemetry::get_metrics_single_peer_async (std::shared_ptr<nano::trans
 		}
 		worker.push_task ([callback_a, endpoint]() {
 			auto const error = true;
-			callback_a ({ nano::telemetry_data_time_pair{}, endpoint, error });
+			callback_a ({ nano::telemetry_data{}, endpoint, error });
 		});
 	};
 
@@ -205,8 +204,8 @@ void nano::telemetry::get_metrics_single_peer_async (std::shared_ptr<nano::trans
 	{
 		if (channel_a && (channel_a->get_network_version () >= network_params.protocol.telemetry_protocol_version_min))
 		{
-			auto add_callback_async = [& worker = this->worker, &callback_a](telemetry_data_time_pair const & telemetry_data_time_pair_a, nano::endpoint const & endpoint_a) {
-				telemetry_data_response telemetry_data_response_l{ telemetry_data_time_pair_a, endpoint_a, false };
+			auto add_callback_async = [& worker = this->worker, &callback_a](telemetry_data const & telemetry_data_a, nano::endpoint const & endpoint_a) {
+				telemetry_data_response telemetry_data_response_l{ telemetry_data_a, endpoint_a, false };
 				worker.push_task ([telemetry_data_response_l, callback_a]() {
 					callback_a (telemetry_data_response_l);
 				});
@@ -218,7 +217,7 @@ void nano::telemetry::get_metrics_single_peer_async (std::shared_ptr<nano::trans
 				auto it = batch_request->cached_telemetry_data.find (channel_a->get_endpoint ());
 				if (it != batch_request->cached_telemetry_data.cend ())
 				{
-					add_callback_async (it->second, it->first);
+					add_callback_async (it->second.data, it->first);
 					return;
 				}
 			}
@@ -226,7 +225,7 @@ void nano::telemetry::get_metrics_single_peer_async (std::shared_ptr<nano::trans
 			auto it = finished_single_requests.find (channel_a->get_endpoint ());
 			if (it != finished_single_requests.cend ())
 			{
-				add_callback_async (it->second, it->first);
+				add_callback_async (it->second.data, it->first);
 				return;
 			}
 
@@ -239,13 +238,13 @@ void nano::telemetry::get_metrics_single_peer_async (std::shared_ptr<nano::trans
 				auto const error = !telemetry_data_responses_a.all_received;
 				if (!error)
 				{
-					assert (telemetry_data_responses_a.telemetry_data_time_pairs.size () == 1);
-					auto it = telemetry_data_responses_a.telemetry_data_time_pairs.begin ();
+					debug_assert (telemetry_data_responses_a.telemetry_datas.size () == 1);
+					auto it = telemetry_data_responses_a.telemetry_datas.begin ();
 					callback_a ({ it->second, it->first, error });
 				}
 				else
 				{
-					callback_a ({ nano::telemetry_data_time_pair{}, channel_a->get_endpoint (), error });
+					callback_a ({ nano::telemetry_data{}, channel_a->get_endpoint (), error });
 				}
 			});
 		}
@@ -338,7 +337,7 @@ void nano::telemetry_impl::get_metrics_async (std::deque<std::shared_ptr<nano::t
 		}
 
 		failed.clear ();
-		assert (required_responses.empty ());
+		debug_assert (required_responses.empty ());
 		std::transform (channels_a.begin (), channels_a.end (), std::inserter (required_responses, required_responses.end ()), [](auto const & channel) {
 			return channel->get_endpoint ();
 		});
@@ -358,7 +357,7 @@ void nano::telemetry_impl::add (nano::telemetry_data const & telemetry_data_a, n
 
 	if (!is_empty_a)
 	{
-		current_telemetry_data_responses[endpoint_a] = { telemetry_data_a, std::chrono::steady_clock::now (), std::chrono::system_clock::now () };
+		current_telemetry_data_responses[endpoint_a] = { telemetry_data_a, std::chrono::steady_clock::now () };
 	}
 	channel_processed (lk, endpoint_a);
 }
@@ -367,12 +366,16 @@ void nano::telemetry_impl::invoke_callbacks ()
 {
 	decltype (callbacks) callbacks_l;
 	bool all_received;
-	decltype (cached_telemetry_data) cached_telemetry_data_l;
+	std::unordered_map<nano::endpoint, nano::telemetry_data> cached_responses_l;
 	{
 		// Copy callbacks so that they can be called outside of holding the lock
 		nano::lock_guard<std::mutex> guard (mutex);
 		callbacks_l = callbacks;
-		cached_telemetry_data_l = cached_telemetry_data;
+		cached_responses_l.reserve (cached_telemetry_data.size ());
+		std::transform (cached_telemetry_data.begin (), cached_telemetry_data.end (), std::inserter (cached_responses_l, cached_responses_l.end ()), [](auto const & endpoint_telemetry_data) {
+			return std::pair<const nano::endpoint, nano::telemetry_data>{ endpoint_telemetry_data.first, endpoint_telemetry_data.second.data };
+		});
+
 		current_telemetry_data_responses.clear ();
 		callbacks.clear ();
 		all_received = failed.empty ();
@@ -380,23 +383,23 @@ void nano::telemetry_impl::invoke_callbacks ()
 
 	if (pre_callback_callback)
 	{
-		pre_callback_callback (cached_telemetry_data_l, mutex);
+		pre_callback_callback (cached_responses_l, mutex);
 	}
 	// Need to account for nodes which disable telemetry data in responses
-	bool all_received_l = !cached_telemetry_data_l.empty () && all_received;
+	bool all_received_l = !cached_responses_l.empty () && all_received;
 	for (auto & callback : callbacks_l)
 	{
-		callback ({ cached_telemetry_data_l, all_received_l });
+		callback ({ cached_responses_l, all_received_l });
 	}
 }
 
 void nano::telemetry_impl::channel_processed (nano::unique_lock<std::mutex> & lk_a, nano::endpoint const & endpoint_a)
 {
-	assert (lk_a.owns_lock ());
+	debug_assert (lk_a.owns_lock ());
 	auto num_removed = required_responses.erase (endpoint_a);
 	if (num_removed > 0 && required_responses.empty ())
 	{
-		assert (lk_a.owns_lock ());
+		debug_assert (lk_a.owns_lock ());
 		cached_telemetry_data = current_telemetry_data_responses;
 
 		last_time = std::chrono::steady_clock::now ();
@@ -417,7 +420,7 @@ void nano::telemetry_impl::fire_request_messages (std::deque<std::shared_ptr<nan
 	nano::telemetry_req message;
 	for (auto & channel : channels)
 	{
-		assert (channel->get_network_version () >= network_params.protocol.telemetry_protocol_version_min);
+		debug_assert (channel->get_network_version () >= network_params.protocol.telemetry_protocol_version_min);
 
 		std::weak_ptr<nano::telemetry_impl> this_w (shared_from_this ());
 		// clang-format off
@@ -512,24 +515,14 @@ nano::telemetry_data nano::consolidate_telemetry_data (std::vector<nano::telemet
 	std::vector<nano::telemetry_data_time_pair> telemetry_data_time_pairs;
 	telemetry_data_time_pairs.reserve (telemetry_datas.size ());
 
-	std::transform (telemetry_datas.begin (), telemetry_datas.end (), std::back_inserter (telemetry_data_time_pairs), [](nano::telemetry_data const & telemetry_data_a) {
-		// Don't care about the timestamps here
-		return nano::telemetry_data_time_pair{ telemetry_data_a, {}, {} };
-	});
-
-	return consolidate_telemetry_data_time_pairs (telemetry_data_time_pairs).data;
-}
-
-nano::telemetry_data_time_pair nano::consolidate_telemetry_data_time_pairs (std::vector<nano::telemetry_data_time_pair> const & telemetry_data_time_pairs_a)
-{
-	if (telemetry_data_time_pairs_a.empty ())
+	if (telemetry_datas.empty ())
 	{
 		return {};
 	}
-	else if (telemetry_data_time_pairs_a.size () == 1)
+	else if (telemetry_datas.size () == 1)
 	{
 		// Only 1 element in the collection, so just return it.
-		return telemetry_data_time_pairs_a.front ();
+		return telemetry_datas.front ();
 	}
 
 	std::unordered_map<uint8_t, int> protocol_versions;
@@ -543,13 +536,12 @@ nano::telemetry_data_time_pair nano::consolidate_telemetry_data_time_pairs (std:
 	std::multiset<uint64_t> cemented_counts;
 	std::multiset<uint32_t> peer_counts;
 	std::multiset<uint64_t> unchecked_counts;
-	std::multiset<uint64_t> uptime_counts;
-	std::multiset<uint64_t> bandwidth_counts;
-	std::multiset<long long> timestamp_counts;
+	std::multiset<uint64_t> uptimes;
+	std::multiset<uint64_t> bandwidths;
+	std::multiset<uint64_t> timestamps;
 
-	for (auto const & telemetry_data_time_pair : telemetry_data_time_pairs_a)
+	for (auto const & telemetry_data : telemetry_datas)
 	{
-		auto & telemetry_data = telemetry_data_time_pair.data;
 		account_counts.insert (telemetry_data.account_count);
 		block_counts.insert (telemetry_data.block_count);
 		cemented_counts.insert (telemetry_data.cemented_count);
@@ -573,25 +565,28 @@ nano::telemetry_data_time_pair nano::consolidate_telemetry_data_time_pairs (std:
 			}
 		}
 
+		if (telemetry_data.timestamp.is_initialized ())
+		{
+			timestamps.insert (std::chrono::duration_cast<std::chrono::milliseconds> (telemetry_data.timestamp->time_since_epoch ()).count ());
+		}
+
 		++vendor_versions[ss.str ()];
 		++protocol_versions[telemetry_data.protocol_version];
 		peer_counts.insert (telemetry_data.peer_count);
 		unchecked_counts.insert (telemetry_data.unchecked_count);
-		uptime_counts.insert (telemetry_data.uptime);
+		uptimes.insert (telemetry_data.uptime);
 		// 0 has a special meaning (unlimited), don't include it in the average as it will be heavily skewed
 		if (telemetry_data.bandwidth_cap != 0)
 		{
-			bandwidth_counts.insert (telemetry_data.bandwidth_cap);
+			bandwidths.insert (telemetry_data.bandwidth_cap);
 		}
 
 		++bandwidth_caps[telemetry_data.bandwidth_cap];
 		++genesis_blocks[telemetry_data.genesis_block];
-
-		timestamp_counts.insert (std::chrono::time_point_cast<std::chrono::milliseconds> (telemetry_data_time_pair.system_last_updated).time_since_epoch ().count ());
 	}
 
 	// Remove 10% of the results from the lower and upper bounds to catch any outliers. Need at least 10 responses before any are removed.
-	auto num_either_side_to_remove = telemetry_data_time_pairs_a.size () / 10;
+	auto num_either_side_to_remove = telemetry_datas.size () / 10;
 
 	auto strip_outliers_and_sum = [num_either_side_to_remove](auto & counts) {
 		counts.erase (counts.begin (), std::next (counts.begin (), num_either_side_to_remove));
@@ -606,17 +601,23 @@ nano::telemetry_data_time_pair nano::consolidate_telemetry_data_time_pairs (std:
 	auto cemented_sum = strip_outliers_and_sum (cemented_counts);
 	auto peer_sum = strip_outliers_and_sum (peer_counts);
 	auto unchecked_sum = strip_outliers_and_sum (unchecked_counts);
-	auto uptime_sum = strip_outliers_and_sum (uptime_counts);
-	auto bandwidth_sum = strip_outliers_and_sum (bandwidth_counts);
+	auto uptime_sum = strip_outliers_and_sum (uptimes);
+	auto bandwidth_sum = strip_outliers_and_sum (bandwidths);
 
 	nano::telemetry_data consolidated_data;
-	auto size = telemetry_data_time_pairs_a.size () - num_either_side_to_remove * 2;
+	auto size = telemetry_datas.size () - num_either_side_to_remove * 2;
 	consolidated_data.account_count = boost::numeric_cast<decltype (consolidated_data.account_count)> (account_sum / size);
 	consolidated_data.block_count = boost::numeric_cast<decltype (consolidated_data.block_count)> (block_sum / size);
 	consolidated_data.cemented_count = boost::numeric_cast<decltype (consolidated_data.cemented_count)> (cemented_sum / size);
 	consolidated_data.peer_count = boost::numeric_cast<decltype (consolidated_data.peer_count)> (peer_sum / size);
 	consolidated_data.uptime = boost::numeric_cast<decltype (consolidated_data.uptime)> (uptime_sum / size);
 	consolidated_data.unchecked_count = boost::numeric_cast<decltype (consolidated_data.unchecked_count)> (unchecked_sum / size);
+
+	if (!timestamps.empty ())
+	{
+		auto timestamp_sum = strip_outliers_and_sum (timestamps);
+		consolidated_data.timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (boost::numeric_cast<uint64_t> (timestamp_sum / timestamps.size ())));
+	}
 
 	auto set_mode_or_average = [](auto const & collection, auto & var, auto const & sum, size_t size) {
 		auto max = std::max_element (collection.begin (), collection.end (), [](auto const & lhs, auto const & rhs) {
@@ -659,7 +660,7 @@ nano::telemetry_data_time_pair nano::consolidate_telemetry_data_time_pairs (std:
 	// May only have major version, but check for optional parameters as well, only output if all are used
 	std::vector<std::string> version_fragments;
 	boost::split (version_fragments, version, boost::is_any_of ("."));
-	assert (!version_fragments.empty () && version_fragments.size () <= 5);
+	debug_assert (!version_fragments.empty () && version_fragments.size () <= 5);
 	consolidated_data.major_version = boost::lexical_cast<uint8_t> (version_fragments.front ());
 	if (version_fragments.size () == 5)
 	{
@@ -669,11 +670,7 @@ nano::telemetry_data_time_pair nano::consolidate_telemetry_data_time_pairs (std:
 		consolidated_data.maker = boost::lexical_cast<uint8_t> (version_fragments[4]);
 	}
 
-	// Consolidate timestamps
-	auto timestamp_sum = strip_outliers_and_sum (timestamp_counts);
-	auto consolidated_timestamp = boost::numeric_cast<long long> (timestamp_sum / size);
-
-	return telemetry_data_time_pair{ consolidated_data, std::chrono::steady_clock::time_point{}, std::chrono::system_clock::time_point (std::chrono::milliseconds (consolidated_timestamp)) };
+	return consolidated_data;
 }
 
 nano::telemetry_data nano::local_telemetry_data (nano::ledger_cache const & ledger_cache_a, nano::network & network_a, uint64_t bandwidth_limit_a, nano::network_params const & network_params_a, std::chrono::steady_clock::time_point statup_time_a)
@@ -693,5 +690,6 @@ nano::telemetry_data nano::local_telemetry_data (nano::ledger_cache const & ledg
 	telemetry_data.patch_version = nano::get_patch_node_version ();
 	telemetry_data.pre_release_version = nano::get_pre_release_node_version ();
 	telemetry_data.maker = 0; // 0 Indicates it originated from the NF
+	telemetry_data.timestamp = std::chrono::system_clock::now ();
 	return telemetry_data;
 }

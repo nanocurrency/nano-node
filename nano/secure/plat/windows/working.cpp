@@ -16,7 +16,7 @@ boost::filesystem::path app_path ()
 	}
 	else
 	{
-		assert (false);
+		debug_assert (false);
 	}
 	return result;
 }
