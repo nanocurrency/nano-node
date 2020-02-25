@@ -128,6 +128,17 @@ nano::block_hash nano::block::full_hash () const
 	return result;
 }
 
+nano::block_sideband const & nano::block::sideband () const
+{
+	debug_assert (sideband_m.is_initialized ());
+	return *sideband_m;
+}
+
+void nano::block::sideband_set (nano::block_sideband const & sideband_a)
+{
+	sideband_m = sideband_a;
+}
+
 nano::account const & nano::block::representative () const
 {
 	static nano::account rep{ 0 };

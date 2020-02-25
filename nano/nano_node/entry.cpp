@@ -1007,6 +1007,7 @@ int main (int argc, char * const * argv)
 				while (!hash.is_zero () && block != nullptr)
 				{
 					++block_count;
+					auto const & sideband (block->sideband ());
 					// Check for state & open blocks if account field is correct
 					if (block->type () == nano::block_type::open || block->type () == nano::block_type::state)
 					{
@@ -1016,7 +1017,7 @@ int main (int argc, char * const * argv)
 						}
 					}
 					// Check if sideband account is correct
-					else if (block->sideband.account != account)
+					else if (sideband.account != account)
 					{
 						std::cerr << boost::str (boost::format ("Incorrect sideband account for block %1%\n") % hash.to_string ());
 					}
@@ -1068,7 +1069,7 @@ int main (int argc, char * const * argv)
 					if (block->type () != nano::block_type::state)
 					{
 						// Not state
-						block_details_error = block->sideband.details.is_send || block->sideband.details.is_receive || block->sideband.details.is_epoch;
+						block_details_error = sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;
 					}
 					else
 					{
@@ -1076,24 +1077,24 @@ int main (int argc, char * const * argv)
 						if (block->balance () < prev_balance)
 						{
 							// State send
-							block_details_error = !block->sideband.details.is_send || block->sideband.details.is_receive || block->sideband.details.is_epoch;
+							block_details_error = !sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;
 						}
 						else
 						{
 							if (block->link ().is_zero ())
 							{
 								// State change
-								block_details_error = block->sideband.details.is_send || block->sideband.details.is_receive || block->sideband.details.is_epoch;
+								block_details_error = sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;
 							}
 							else if (block->balance () == prev_balance && node.node->ledger.is_epoch_link (block->link ()))
 							{
 								// State epoch
-								block_details_error = !block->sideband.details.is_epoch || block->sideband.details.is_send || block->sideband.details.is_receive;
+								block_details_error = !sideband.details.is_epoch || sideband.details.is_send || sideband.details.is_receive;
 							}
 							else
 							{
 								// State receive
-								block_details_error = !block->sideband.details.is_receive || block->sideband.details.is_send || block->sideband.details.is_epoch;
+								block_details_error = !sideband.details.is_receive || sideband.details.is_send || sideband.details.is_epoch;
 								block_details_error |= !node.node->store.source_exists (transaction, block->link ());
 							}
 						}
@@ -1109,16 +1110,16 @@ int main (int argc, char * const * argv)
 					}
 					// Check if sideband height is correct
 					++height;
-					if (block->sideband.height != height)
+					if (sideband.height != height)
 					{
-						std::cerr << boost::str (boost::format ("Incorrect sideband height for block %1%. Sideband: %2%. Expected: %3%\n") % hash.to_string () % block->sideband.height % height);
+						std::cerr << boost::str (boost::format ("Incorrect sideband height for block %1%. Sideband: %2%. Expected: %3%\n") % hash.to_string () % sideband.height % height);
 					}
 					// Check if sideband timestamp is after previous timestamp
-					if (block->sideband.timestamp < previous_timestamp)
+					if (sideband.timestamp < previous_timestamp)
 					{
 						std::cerr << boost::str (boost::format ("Incorrect sideband timestamp for block %1%\n") % hash.to_string ());
 					}
-					previous_timestamp = block->sideband.timestamp;
+					previous_timestamp = sideband.timestamp;
 					// Calculate representative block
 					if (block->type () == nano::block_type::open || block->type () == nano::block_type::change || block->type () == nano::block_type::state)
 					{

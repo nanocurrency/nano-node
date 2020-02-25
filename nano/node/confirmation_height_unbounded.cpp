@@ -51,10 +51,10 @@ void nano::confirmation_height_unbounded::process ()
 		nano::account account (block->account ());
 		if (account.is_zero ())
 		{
-			account = block->sideband.account;
+			account = block->sideband ().account;
 		}
 
-		auto block_height = block->sideband.height;
+		auto block_height = block->sideband ().height;
 		uint64_t confirmation_height = 0;
 		auto account_it = confirmed_iterated_pairs.find (account);
 		if (account_it != confirmed_iterated_pairs.cend ())
@@ -319,7 +319,7 @@ bool nano::confirmation_height_unbounded::cement_blocks ()
 			auto block = ledger.store.block_get (transaction, pending.hash);
 			static nano::network_constants network_constants;
 			debug_assert (network_constants.is_test_network () || block != nullptr);
-			debug_assert (network_constants.is_test_network () || block->sideband.height == pending.height);
+			debug_assert (network_constants.is_test_network () || block->sideband ().height == pending.height);
 
 			if (!block)
 			{

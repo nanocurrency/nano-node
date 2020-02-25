@@ -31,7 +31,7 @@ public:
 	{
 		auto hash_l (genesis_a.hash ());
 		debug_assert (latest_begin (transaction_a) == latest_end ());
-		genesis_a.open->sideband = nano::block_sideband (network_params.ledger.genesis_account, 0, network_params.ledger.genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false);
+		genesis_a.open->sideband_set (nano::block_sideband (network_params.ledger.genesis_account, 0, network_params.ledger.genesis_amount, 1, nano::seconds_since_epoch (), nano::epoch::epoch_0, false, false, false));
 		block_put (transaction_a, hash_l, *genesis_a.open);
 		++ledger_cache_a.block_count;
 		confirmation_height_put (transaction_a, network_params.ledger.genesis_account, nano::confirmation_height_info{ 1, genesis_a.hash () });
@@ -98,12 +98,12 @@ public:
 
 	void block_put (nano::write_transaction const & transaction_a, nano::block_hash const & hash_a, nano::block const & block_a) override
 	{
-		debug_assert (block_a.sideband.successor.is_zero () || block_exists (transaction_a, block_a.sideband.successor));
+		debug_assert (block_a.sideband ().successor.is_zero () || block_exists (transaction_a, block_a.sideband ().successor));
 		std::vector<uint8_t> vector;
 		{
 			nano::vectorstream stream (vector);
 			block_a.serialize (stream);
-			block_a.sideband.serialize (stream, block_a.type ());
+			block_a.sideband ().serialize (stream, block_a.type ());
 		}
 		block_raw_put (transaction_a, vector, block_a.type (), hash_a);
 		nano::block_predecessor_set<Val, Derived_Store> predecessor (transaction_a, *this);
@@ -116,7 +116,7 @@ public:
 	{
 		auto block = block_get (transaction_a, hash_a);
 		debug_assert (block != nullptr);
-		return block->sideband.height;
+		return block->sideband ().height;
 	}
 
 	std::shared_ptr<nano::block> block_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const override
@@ -129,21 +129,23 @@ public:
 			nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
 			result = nano::deserialize_block (stream, type);
 			debug_assert (result != nullptr);
+			nano::block_sideband sideband;
 			if (full_sideband (transaction_a) || entry_has_sideband (value.size (), type))
 			{
-				auto error (result->sideband.deserialize (stream, type));
+				auto error (sideband.deserialize (stream, type));
 				(void)error;
 				debug_assert (!error);
 			}
 			else
 			{
 				// Reconstruct sideband data for block.
-				result->sideband.account = block_account_computed (transaction_a, hash_a);
-				result->sideband.balance = block_balance_computed (transaction_a, hash_a);
-				result->sideband.successor = block_successor (transaction_a, hash_a);
-				result->sideband.height = 0;
-				result->sideband.timestamp = 0;
+				sideband.account = block_account_computed (transaction_a, hash_a);
+				sideband.balance = block_balance_computed (transaction_a, hash_a);
+				sideband.successor = block_successor (transaction_a, hash_a);
+				sideband.height = 0;
+				sideband.timestamp = 0;
 			}
+			result->sideband_set (sideband);
 		}
 		return result;
 	}
@@ -197,7 +199,7 @@ public:
 		nano::account result (block->account ());
 		if (result.is_zero ())
 		{
-			result = block->sideband.account;
+			result = block->sideband ().account;
 		}
 		debug_assert (!result.is_zero ());
 		return result;
@@ -211,7 +213,7 @@ public:
 			case nano::block_type::open:
 			case nano::block_type::receive:
 			case nano::block_type::change:
-				result = block_a->sideband.balance.number ();
+				result = block_a->sideband ().balance.number ();
 				break;
 			case nano::block_type::send:
 				result = boost::polymorphic_downcast<nano::send_block *> (block_a.get ())->hashables.balance.number ();
@@ -416,7 +418,7 @@ public:
 		auto block = block_get (transaction_a, hash_a);
 		if (block && block->type () == nano::block_type::state)
 		{
-			return block->sideband.details.epoch;
+			return block->sideband ().details.epoch;
 		}
 
 		return nano::epoch::epoch_0;

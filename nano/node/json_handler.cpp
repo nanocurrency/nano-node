@@ -973,14 +973,14 @@ void nano::json_handler::block_info ()
 		auto block (node.store.block_get (transaction, hash));
 		if (block != nullptr)
 		{
-			nano::account account (block->account ().is_zero () ? block->sideband.account : block->account ());
+			nano::account account (block->account ().is_zero () ? block->sideband ().account : block->account ());
 			response_l.put ("block_account", account.to_account ());
 			auto amount (node.ledger.amount (transaction, hash));
 			response_l.put ("amount", amount.convert_to<std::string> ());
 			auto balance (node.ledger.balance (transaction, hash));
 			response_l.put ("balance", balance.convert_to<std::string> ());
-			response_l.put ("height", std::to_string (block->sideband.height));
-			response_l.put ("local_timestamp", std::to_string (block->sideband.timestamp));
+			response_l.put ("height", std::to_string (block->sideband ().height));
+			response_l.put ("local_timestamp", std::to_string (block->sideband ().timestamp));
 			auto confirmed (node.ledger.block_confirmed (transaction, hash));
 			response_l.put ("confirmed", confirmed);
 
@@ -1123,14 +1123,14 @@ void nano::json_handler::blocks_info ()
 				if (block != nullptr)
 				{
 					boost::property_tree::ptree entry;
-					nano::account account (block->account ().is_zero () ? block->sideband.account : block->account ());
+					nano::account account (block->account ().is_zero () ? block->sideband ().account : block->account ());
 					entry.put ("block_account", account.to_account ());
 					auto amount (node.ledger.amount (transaction, hash));
 					entry.put ("amount", amount.convert_to<std::string> ());
 					auto balance (node.ledger.balance (transaction, hash));
 					entry.put ("balance", balance.convert_to<std::string> ());
-					entry.put ("height", std::to_string (block->sideband.height));
-					entry.put ("local_timestamp", std::to_string (block->sideband.timestamp));
+					entry.put ("height", std::to_string (block->sideband ().height));
+					entry.put ("local_timestamp", std::to_string (block->sideband ().timestamp));
 					auto confirmed (node.ledger.block_confirmed (transaction, hash));
 					entry.put ("confirmed", confirmed);
 
@@ -2570,8 +2570,8 @@ void nano::json_handler::account_history ()
 				block->visit (visitor);
 				if (!entry.empty ())
 				{
-					entry.put ("local_timestamp", std::to_string (block->sideband.timestamp));
-					entry.put ("height", std::to_string (block->sideband.height));
+					entry.put ("local_timestamp", std::to_string (block->sideband ().timestamp));
+					entry.put ("height", std::to_string (block->sideband ().height));
 					entry.put ("hash", hash.to_string ());
 					if (output_raw)
 					{
@@ -4579,7 +4579,7 @@ void nano::json_handler::wallet_history ()
 				while (timestamp >= modified_since && !hash.is_zero ())
 				{
 					auto block (node.store.block_get (block_transaction, hash));
-					timestamp = block->sideband.timestamp;
+					timestamp = block->sideband ().timestamp;
 					if (block != nullptr && timestamp >= modified_since)
 					{
 						boost::property_tree::ptree entry;

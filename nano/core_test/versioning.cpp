@@ -11,6 +11,7 @@ TEST (versioning, account_info_v1)
 	auto file (nano::unique_path ());
 	nano::account account (1);
 	nano::open_block open (1, 2, 3, nullptr);
+	open.sideband_set ({});
 	nano::account_info_v1 v1 (open.hash (), open.hash (), 3, 4);
 	{
 		nano::logger_mt logger;
@@ -46,6 +47,7 @@ TEST (versioning, account_info_v5)
 	auto file (nano::unique_path ());
 	nano::account account (1);
 	nano::open_block open (1, 2, 3, nullptr);
+	open.sideband_set ({});
 	nano::account_info_v5 v5 (open.hash (), open.hash (), open.hash (), 3, 4);
 	{
 		nano::logger_mt logger;
@@ -81,6 +83,7 @@ TEST (versioning, account_info_v13)
 	auto file (nano::unique_path ());
 	nano::account account (1);
 	nano::open_block open (1, 2, 3, nullptr);
+	open.sideband_set ({});
 	nano::account_info_v13 v13 (open.hash (), open.hash (), open.hash (), 3, 4, 10, nano::epoch::epoch_0);
 	{
 		nano::logger_mt logger;

@@ -1227,7 +1227,7 @@ void nano::node::process_confirmed_data (nano::transaction const & transaction_a
 	account_a = block_a->account ();
 	if (account_a.is_zero ())
 	{
-		account_a = block_a->sideband.account;
+		account_a = block_a->sideband ().account;
 	}
 	// Faster amount calculation
 	auto previous (block_a->previous ());

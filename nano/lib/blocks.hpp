@@ -7,6 +7,7 @@
 #include <nano/lib/stream.hpp>
 #include <nano/lib/utility.hpp>
 
+#include <boost/optional.hpp>
 #include <boost/property_tree/ptree_fwd.hpp>
 
 #include <unordered_map>
@@ -69,6 +70,8 @@ public:
 	nano::block_hash const & hash () const;
 	// Return a digest of hashables and non-hashables in this block.
 	nano::block_hash full_hash () const;
+	nano::block_sideband const & sideband () const;
+	void sideband_set (nano::block_sideband const &);
 	std::string to_json () const;
 	virtual void hash (blake2b_state &) const = 0;
 	virtual uint64_t block_work () const = 0;
@@ -100,13 +103,12 @@ public:
 	static size_t size (nano::block_type);
 	// If there are any changes to the hashables, call this to update the cached hash
 	void refresh ();
-	/* Contextual details about a block, some fields may or may not be set depending on block type
-	 * The only write operations are during ledger processing and database deserialization
-	 */
-	nano::block_sideband sideband;
 
 protected:
 	mutable nano::block_hash cached_hash{ 0 };
+	// Contextual details about a block, some fields may or may not be set depending on block type
+	// This field is set via sideband_set in ledger processing or deserializing blocks from the database
+	boost::optional<nano::block_sideband> sideband_m{ boost::none };
 
 private:
 	nano::block_hash generate_hash () const;
