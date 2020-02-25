@@ -507,7 +507,7 @@ void nano::mdb_store::upgrade_v12_to_v13 (nano::write_transaction & transaction_
 					}
 
 					nano::mdb_val value{ vector.size (), (void *)vector.data () };
-					MDB_dbi database = is_state_block_v1 ? state_blocks_v1 : table_to_dbi (block_database (sideband.type));
+					MDB_dbi database = is_state_block_v1 ? state_blocks_v1 : table_to_dbi (block_database (block->type ()));
 
 					auto status = mdb_put (env.tx (transaction_a), database, nano::mdb_val (hash), value, 0);
 					release_assert (success (status));
@@ -628,14 +628,14 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction & transaction_
 		nano::state_block_w_sideband_v14 state_block_w_sideband_v14 (i_state->second);
 		auto & sideband_v14 = state_block_w_sideband_v14.sideband;
 
-		nano::block_sideband sideband (sideband_v14.type, sideband_v14.account, sideband_v14.successor, sideband_v14.balance, sideband_v14.height, sideband_v14.timestamp, i_state.from_first_database ? nano::epoch::epoch_0 : nano::epoch::epoch_1, false, false, false);
+		nano::block_sideband sideband (sideband_v14.account, sideband_v14.successor, sideband_v14.balance, sideband_v14.height, sideband_v14.timestamp, i_state.from_first_database ? nano::epoch::epoch_0 : nano::epoch::epoch_1, false, false, false);
 
 		// Write these out
 		std::vector<uint8_t> data;
 		{
 			nano::vectorstream stream (data);
 			state_block_w_sideband_v14.state_block->serialize (stream);
-			sideband.serialize (stream);
+			sideband.serialize (stream, sideband_v14.type);
 		}
 
 		nano::mdb_val value{ data.size (), (void *)data.data () };
@@ -732,27 +732,25 @@ void nano::mdb_store::upgrade_v16_to_v17 (nano::write_transaction const & transa
 			if (account_info_i->second.block_count / 2 >= confirmation_height)
 			{
 				// The confirmation height of the account is closer to the bottom of the chain, so start there and work up
-				nano::block_sideband sideband;
-				auto block = block_get (transaction_a, account_info.open_block, &sideband);
+				auto block = block_get (transaction_a, account_info.open_block);
 				debug_assert (block);
 				auto height = 1;
 
 				while (height != confirmation_height)
 				{
-					block = block_get (transaction_a, sideband.successor, &sideband);
+					block = block_get (transaction_a, block->sideband.successor);
 					debug_assert (block);
 					++height;
 				}
 
-				debug_assert (sideband.height == confirmation_height);
+				debug_assert (block->sideband.height == confirmation_height);
 				confirmation_height_infos.emplace_back (account, confirmation_height_info{ confirmation_height, block->hash () });
 			}
 			else
 			{
 				// The confirmation height of the account is closer to the top of the chain so start there and work down
-				nano::block_sideband sideband;
-				auto block = block_get (transaction_a, account_info.head, &sideband);
-				auto height = sideband.height;
+				auto block = block_get (transaction_a, account_info.head);
+				auto height = block->sideband.height;
 				while (height != confirmation_height)
 				{
 					block = block_get (transaction_a, block->previous ());
@@ -820,13 +818,13 @@ void nano::mdb_store::upgrade_v17_to_v18 (nano::write_transaction const & transa
 			is_receive = true;
 		}
 
-		nano::block_sideband new_sideband (sideband.type, sideband.account, sideband.successor, sideband.balance, sideband.height, sideband.timestamp, sideband.details.epoch, is_send, is_receive, is_epoch);
+		nano::block_sideband new_sideband (sideband.account, sideband.successor, sideband.balance, sideband.height, sideband.timestamp, sideband.details.epoch, is_send, is_receive, is_epoch);
 		// Write these out
 		std::vector<uint8_t> data;
 		{
 			nano::vectorstream stream (data);
 			block->serialize (stream);
-			new_sideband.serialize (stream);
+			new_sideband.serialize (stream, block->type ());
 		}
 		nano::mdb_val value{ data.size (), (void *)data.data () };
 		auto s = mdb_cursor_put (state_i.cursor, state_i->first, value, MDB_CURRENT);

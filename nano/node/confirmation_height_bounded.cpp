@@ -8,7 +8,7 @@
 
 #include <numeric>
 
-nano::confirmation_height_bounded::confirmation_height_bounded (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logger_mt & logger_a, std::atomic<bool> & stopped_a, nano::block_hash const & original_hash_a, std::function<void(std::vector<nano::block_w_sideband> const &)> const & notify_observers_callback_a, std::function<uint64_t ()> const & awaiting_processing_size_callback_a) :
+nano::confirmation_height_bounded::confirmation_height_bounded (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logger_mt & logger_a, std::atomic<bool> & stopped_a, nano::block_hash const & original_hash_a, std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> const & notify_observers_callback_a, std::function<uint64_t ()> const & awaiting_processing_size_callback_a) :
 ledger (ledger_a),
 write_database_queue (write_database_queue_a),
 batch_separate_pending_min_time (batch_separate_pending_min_time_a),
@@ -65,13 +65,12 @@ void nano::confirmation_height_bounded::process ()
 		current = hash_to_process.top;
 
 		auto top_level_hash = current;
-		nano::block_sideband sideband;
-		auto block = ledger.store.block_get (transaction, current, &sideband);
+		auto block = ledger.store.block_get (transaction, current);
 		debug_assert (block != nullptr);
 		nano::account account (block->account ());
 		if (account.is_zero ())
 		{
-			account = sideband.account;
+			account = block->sideband.account;
 		}
 
 		// Checks if we have encountered this account before but not commited changes yet, if so then update the cached confirmation height
@@ -88,7 +87,7 @@ void nano::confirmation_height_bounded::process ()
 			debug_assert (!error);
 		}
 
-		auto block_height = sideband.height;
+		auto block_height = block->sideband.height;
 		bool already_cemented = confirmation_height_info.height >= block_height;
 
 		// If we are not already at the bottom of the account chain (1 above cemented frontier) then find it
@@ -190,14 +189,14 @@ void nano::confirmation_height_bounded::process ()
 nano::block_hash nano::confirmation_height_bounded::get_least_unconfirmed_hash_from_top_level (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::account const & account_a, nano::confirmation_height_info const & confirmation_height_info_a, uint64_t & block_height_a)
 {
 	nano::block_hash least_unconfirmed_hash = hash_a;
-	nano::block_sideband sideband;
 	if (confirmation_height_info_a.height != 0)
 	{
 		if (block_height_a > confirmation_height_info_a.height)
 		{
-			release_assert (ledger.store.block_get (transaction_a, confirmation_height_info_a.frontier, &sideband) != nullptr);
-			least_unconfirmed_hash = sideband.successor;
-			block_height_a = sideband.height + 1;
+			auto block (ledger.store.block_get (transaction_a, confirmation_height_info_a.frontier));
+			release_assert (block != nullptr);
+			least_unconfirmed_hash = block->sideband.successor;
+			block_height_a = block->sideband.height + 1;
 		}
 	}
 	else
@@ -216,14 +215,13 @@ bool nano::confirmation_height_bounded::iterate (nano::read_transaction const & 
 	bool reached_target = false;
 	bool hit_receive = false;
 	auto hash = bottom_hash_a;
-	nano::block_sideband sideband;
 	uint64_t num_blocks = 0;
 	while (!hash.is_zero () && !reached_target && !stopped)
 	{
 		// Keep iterating upwards until we either reach the desired block or the second receive.
 		// Once a receive is cemented, we can cement all blocks above it until the next receive, so store those details for later.
 		++num_blocks;
-		auto block = ledger.store.block_get (transaction_a, hash, &sideband);
+		auto block = ledger.store.block_get (transaction_a, hash);
 		auto source (block->source ());
 		if (source.is_zero ())
 		{
@@ -234,8 +232,8 @@ bool nano::confirmation_height_bounded::iterate (nano::read_transaction const & 
 		{
 			hit_receive = true;
 			reached_target = true;
-			auto next = !sideband.successor.is_zero () && sideband.successor != top_level_hash_a ? boost::optional<nano::block_hash> (sideband.successor) : boost::none;
-			receive_source_pairs_a.push_back ({ receive_chain_details{ account_a, sideband.height, hash, top_level_hash_a, next, bottom_height_a, bottom_hash_a }, source });
+			auto next = !block->sideband.successor.is_zero () && block->sideband.successor != top_level_hash_a ? boost::optional<nano::block_hash> (block->sideband.successor) : boost::none;
+			receive_source_pairs_a.push_back ({ receive_chain_details{ account_a, block->sideband.height, hash, top_level_hash_a, next, bottom_height_a, bottom_hash_a }, source });
 			// Store a checkpoint every max_items so that we can always traverse a long number of accounts to genesis
 			if (receive_source_pairs_a.size () % max_items == 0)
 			{
@@ -252,7 +250,7 @@ bool nano::confirmation_height_bounded::iterate (nano::read_transaction const & 
 			}
 			else
 			{
-				hash = sideband.successor;
+				hash = block->sideband.successor;
 			}
 		}
 
@@ -328,7 +326,7 @@ bool nano::confirmation_height_bounded::cement_blocks ()
 {
 	// Will contain all blocks that have been cemented (bounded by batch_write_size)
 	// and will get run through the cemented observer callback
-	std::vector<block_w_sideband> cemented_blocks;
+	std::vector<std::shared_ptr<nano::block>> cemented_blocks;
 	{
 		// This only writes to the confirmation_height table and is the only place to do so in a single process
 		auto transaction (ledger.store.tx_begin_write ({}, { nano::tables::confirmation_height }));
@@ -345,9 +343,9 @@ bool nano::confirmation_height_bounded::cement_blocks ()
 				// Extra debug checks
 				nano::confirmation_height_info confirmation_height_info;
 				debug_assert (!ledger.store.confirmation_height_get (transaction, account, confirmation_height_info));
-				nano::block_sideband sideband;
-				debug_assert (ledger.store.block_get (transaction, confirmed_frontier, &sideband));
-				debug_assert (sideband.height == confirmation_height_info.height + num_blocks_cemented);
+				auto block (ledger.store.block_get (transaction, confirmed_frontier));
+				debug_assert (block != nullptr);
+				debug_assert (block->sideband.height == confirmation_height_info.height + num_blocks_cemented);
 #endif
 				ledger.store.confirmation_height_put (transaction, account, nano::confirmation_height_info{ confirmation_height, confirmed_frontier });
 				ledger.cache.cemented_count += num_blocks_cemented;
@@ -361,7 +359,6 @@ bool nano::confirmation_height_bounded::cement_blocks ()
 			// Some blocks need to be cemented at least
 			if (pending.top_height > confirmation_height_info.height)
 			{
-				nano::block_sideband sideband;
 				// The highest hash which will be cemented
 				nano::block_hash new_cemented_frontier;
 				uint64_t num_blocks_confirmed = 0;
@@ -376,8 +373,8 @@ bool nano::confirmation_height_bounded::cement_blocks ()
 				}
 				else
 				{
-					auto block = ledger.store.block_get (transaction, confirmation_height_info.frontier, &sideband);
-					new_cemented_frontier = sideband.successor;
+					auto block = ledger.store.block_get (transaction, confirmation_height_info.frontier);
+					new_cemented_frontier = block->sideband.successor;
 					num_blocks_confirmed = pending.top_height - confirmation_height_info.height;
 					start_height = confirmation_height_info.height + 1;
 				}
@@ -385,7 +382,7 @@ bool nano::confirmation_height_bounded::cement_blocks ()
 				auto total_blocks_cemented = 0;
 				auto num_blocks_iterated = 0;
 
-				auto block = ledger.store.block_get (transaction, new_cemented_frontier, &sideband);
+				auto block = ledger.store.block_get (transaction, new_cemented_frontier);
 
 				// Cementing starts from the bottom of the chain and works upwards. This is because chains can have effectively
 				// an infinite number of send/change blocks in a row. We don't want to hold the write transaction open for too long.
@@ -400,7 +397,7 @@ bool nano::confirmation_height_bounded::cement_blocks ()
 						return true;
 					}
 
-					cemented_blocks.emplace_back (block, sideband);
+					cemented_blocks.emplace_back (block);
 
 					// We have likely hit a long chain, flush these callbacks and continue
 					if (cemented_blocks.size () == confirmation_height::batch_write_size)
@@ -418,8 +415,8 @@ bool nano::confirmation_height_bounded::cement_blocks ()
 					auto last_iteration = (num_blocks_confirmed - num_blocks_iterated) == 1;
 					if (!last_iteration)
 					{
-						new_cemented_frontier = sideband.successor;
-						block = ledger.store.block_get (transaction, new_cemented_frontier, &sideband);
+						new_cemented_frontier = block->sideband.successor;
+						block = ledger.store.block_get (transaction, new_cemented_frontier);
 					}
 					else
 					{

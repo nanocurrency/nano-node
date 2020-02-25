@@ -17,8 +17,7 @@ TEST (versioning, account_info_v1)
 		nano::mdb_store store (logger, file);
 		ASSERT_FALSE (store.init_error ());
 		auto transaction (store.tx_begin_write ());
-		nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0, 0, nano::epoch::epoch_0, false, false, false);
-		store.block_put (transaction, open.hash (), open, sideband);
+		store.block_put (transaction, open.hash (), open);
 		auto status (mdb_put (store.env.tx (transaction), store.accounts_v0, nano::mdb_val (account), nano::mdb_val (sizeof (v1), &v1), 0));
 		ASSERT_EQ (0, status);
 		store.version_put (transaction, 1);
@@ -53,8 +52,7 @@ TEST (versioning, account_info_v5)
 		nano::mdb_store store (logger, file);
 		ASSERT_FALSE (store.init_error ());
 		auto transaction (store.tx_begin_write ());
-		nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0, 0, nano::epoch::epoch_0, false, false, false);
-		store.block_put (transaction, open.hash (), open, sideband);
+		store.block_put (transaction, open.hash (), open);
 		auto status (mdb_put (store.env.tx (transaction), store.accounts_v0, nano::mdb_val (account), nano::mdb_val (sizeof (v5), &v5), 0));
 		ASSERT_EQ (0, status);
 		store.version_put (transaction, 5);
@@ -89,8 +87,7 @@ TEST (versioning, account_info_v13)
 		nano::mdb_store store (logger, file);
 		ASSERT_FALSE (store.init_error ());
 		auto transaction (store.tx_begin_write ());
-		nano::block_sideband sideband (nano::block_type::open, 0, 0, 0, 0, 0, nano::epoch::epoch_0, false, false, false);
-		store.block_put (transaction, open.hash (), open, sideband);
+		store.block_put (transaction, open.hash (), open);
 		auto status (mdb_put (store.env.tx (transaction), store.accounts_v0, nano::mdb_val (account), nano::mdb_val (v13), 0));
 		ASSERT_EQ (0, status);
 		store.version_put (transaction, 13);

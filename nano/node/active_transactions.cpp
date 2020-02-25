@@ -29,8 +29,8 @@ thread ([this]() {
 })
 {
 	// Register a callback which will get called after a block is cemented
-	confirmation_height_processor.add_cemented_observer ([this](nano::block_w_sideband const & callback_data) {
-		this->block_cemented_callback (callback_data.block, callback_data.sideband);
+	confirmation_height_processor.add_cemented_observer ([this](std::shared_ptr<nano::block> callback_block_a) {
+		this->block_cemented_callback (callback_block_a);
 	});
 
 	// Register a callback which will get called after a batch of blocks is written and observer calls finished
@@ -124,7 +124,7 @@ void nano::active_transactions::search_frontiers (nano::transaction const & tran
 	}
 }
 
-void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::block> const & block_a, nano::block_sideband const & sideband_a)
+void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::block> const & block_a)
 {
 	auto transaction = node.store.tx_begin_read ();
 
@@ -147,7 +147,7 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 			nano::uint128_t amount (0);
 			bool is_state_send (false);
 			nano::account pending_account (0);
-			node.process_confirmed_data (transaction, block_a, block_a->hash (), sideband_a, account, amount, is_state_send, pending_account);
+			node.process_confirmed_data (transaction, block_a, block_a->hash (), account, amount, is_state_send, pending_account);
 			node.observers.blocks.notify (nano::election_status{ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()), std::chrono::duration_values<std::chrono::milliseconds>::zero (), 0, 1, 0, nano::election_status_type::inactive_confirmation_height }, account, amount, is_state_send);
 		}
 		else
@@ -167,7 +167,7 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 					nano::uint128_t amount (0);
 					bool is_state_send (false);
 					nano::account pending_account (0);
-					node.process_confirmed_data (transaction, block_a, hash, sideband_a, account, amount, is_state_send, pending_account);
+					node.process_confirmed_data (transaction, block_a, hash, account, amount, is_state_send, pending_account);
 					election->status.type = *election_status_type;
 					election->status.confirmation_request_count = election->confirmation_request_count;
 					node.observers.blocks.notify (election->status, account, amount, is_state_send);

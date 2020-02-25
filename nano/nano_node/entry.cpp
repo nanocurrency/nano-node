@@ -1000,8 +1000,7 @@ int main (int argc, char * const * argv)
 
 				auto hash (info.open_block);
 				nano::block_hash calculated_hash (0);
-				nano::block_sideband sideband;
-				auto block (node.node->store.block_get (transaction, hash, &sideband)); // Block data
+				auto block (node.node->store.block_get (transaction, hash)); // Block data
 				uint64_t height (0);
 				uint64_t previous_timestamp (0);
 				nano::account calculated_representative (0);
@@ -1017,7 +1016,7 @@ int main (int argc, char * const * argv)
 						}
 					}
 					// Check if sideband account is correct
-					else if (sideband.account != account)
+					else if (block->sideband.account != account)
 					{
 						std::cerr << boost::str (boost::format ("Incorrect sideband account for block %1%\n") % hash.to_string ());
 					}
@@ -1069,7 +1068,7 @@ int main (int argc, char * const * argv)
 					if (block->type () != nano::block_type::state)
 					{
 						// Not state
-						block_details_error = sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;
+						block_details_error = block->sideband.details.is_send || block->sideband.details.is_receive || block->sideband.details.is_epoch;
 					}
 					else
 					{
@@ -1077,24 +1076,24 @@ int main (int argc, char * const * argv)
 						if (block->balance () < prev_balance)
 						{
 							// State send
-							block_details_error = !sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;
+							block_details_error = !block->sideband.details.is_send || block->sideband.details.is_receive || block->sideband.details.is_epoch;
 						}
 						else
 						{
 							if (block->link ().is_zero ())
 							{
 								// State change
-								block_details_error = sideband.details.is_send || sideband.details.is_receive || sideband.details.is_epoch;
+								block_details_error = block->sideband.details.is_send || block->sideband.details.is_receive || block->sideband.details.is_epoch;
 							}
 							else if (block->balance () == prev_balance && node.node->ledger.is_epoch_link (block->link ()))
 							{
 								// State epoch
-								block_details_error = !sideband.details.is_epoch || sideband.details.is_send || sideband.details.is_receive;
+								block_details_error = !block->sideband.details.is_epoch || block->sideband.details.is_send || block->sideband.details.is_receive;
 							}
 							else
 							{
 								// State receive
-								block_details_error = !sideband.details.is_receive || sideband.details.is_send || sideband.details.is_epoch;
+								block_details_error = !block->sideband.details.is_receive || block->sideband.details.is_send || block->sideband.details.is_epoch;
 								block_details_error |= !node.node->store.source_exists (transaction, block->link ());
 							}
 						}
@@ -1110,16 +1109,16 @@ int main (int argc, char * const * argv)
 					}
 					// Check if sideband height is correct
 					++height;
-					if (sideband.height != height)
+					if (block->sideband.height != height)
 					{
-						std::cerr << boost::str (boost::format ("Incorrect sideband height for block %1%. Sideband: %2%. Expected: %3%\n") % hash.to_string () % sideband.height % height);
+						std::cerr << boost::str (boost::format ("Incorrect sideband height for block %1%. Sideband: %2%. Expected: %3%\n") % hash.to_string () % block->sideband.height % height);
 					}
 					// Check if sideband timestamp is after previous timestamp
-					if (sideband.timestamp < previous_timestamp)
+					if (block->sideband.timestamp < previous_timestamp)
 					{
 						std::cerr << boost::str (boost::format ("Incorrect sideband timestamp for block %1%\n") % hash.to_string ());
 					}
-					previous_timestamp = sideband.timestamp;
+					previous_timestamp = block->sideband.timestamp;
 					// Calculate representative block
 					if (block->type () == nano::block_type::open || block->type () == nano::block_type::change || block->type () == nano::block_type::state)
 					{
@@ -1130,7 +1129,7 @@ int main (int argc, char * const * argv)
 					// Retrieving block data
 					if (!hash.is_zero ())
 					{
-						block = node.node->store.block_get (transaction, hash, &sideband);
+						block = node.node->store.block_get (transaction, hash);
 					}
 				}
 				// Check if required block exists

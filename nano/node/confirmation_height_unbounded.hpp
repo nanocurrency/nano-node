@@ -16,7 +16,7 @@ class write_database_queue;
 class confirmation_height_unbounded final
 {
 public:
-	confirmation_height_unbounded (nano::ledger &, nano::write_database_queue &, std::chrono::milliseconds, nano::logger_mt &, std::atomic<bool> &, nano::block_hash const &, std::function<void(std::vector<nano::block_w_sideband> const &)> const &, std::function<uint64_t ()> const &);
+	confirmation_height_unbounded (nano::ledger &, nano::write_database_queue &, std::chrono::milliseconds, nano::logger_mt &, std::atomic<bool> &, nano::block_hash const &, std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> const &, std::function<uint64_t ()> const &);
 	bool pending_empty () const;
 	void prepare_new ();
 	void process ();
@@ -55,9 +55,9 @@ private:
 
 	std::unordered_map<account, confirmed_iterated_pair> confirmed_iterated_pairs;
 	std::atomic<uint64_t> confirmed_iterated_pairs_size{ 0 };
-	std::unordered_map<nano::block_hash, block_w_sideband> block_cache;
+	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> block_cache;
 	std::atomic<uint64_t> block_cache_size{ 0 };
-	void get_block_and_sideband (nano::block_hash const &, nano::transaction const &, std::shared_ptr<nano::block> &, nano::block_sideband &);
+	std::shared_ptr<nano::block> get_block_and_sideband (nano::block_hash const &, nano::transaction const &);
 	std::deque<conf_height_details> pending_writes;
 	std::atomic<uint64_t> pending_writes_size{ 0 };
 	std::vector<nano::block_hash> orig_block_callback_data;
@@ -90,7 +90,7 @@ private:
 	nano::logger_mt & logger;
 	std::atomic<bool> & stopped;
 	nano::block_hash const & original_hash;
-	std::function<void(std::vector<nano::block_w_sideband> const &)> notify_observers_callback;
+	std::function<void(std::vector<std::shared_ptr<nano::block>> const &)> notify_observers_callback;
 	std::function<uint64_t ()> awaiting_processing_size_callback;
 
 	friend std::unique_ptr<nano::container_info_component> collect_container_info (confirmation_height_unbounded &, const std::string & name_a);
