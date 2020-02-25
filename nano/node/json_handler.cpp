@@ -3978,29 +3978,36 @@ void nano::json_handler::telemetry ()
 		if (!ec)
 		{
 			debug_assert (channel);
-			node.telemetry.get_metrics_single_peer_async (channel, [rpc_l](auto const & telemetry_response_a) {
-				if (!telemetry_response_a.error)
-				{
-					nano::jsonconfig config_l;
-					auto err = telemetry_response_a.telemetry_data.serialize_json (config_l);
-					auto const & ptree = config_l.get_tree ();
-
-					if (!err)
+			if (node.telemetry)
+			{
+				node.telemetry->get_metrics_single_peer_async (channel, [rpc_l](auto const & telemetry_response_a) {
+					if (!telemetry_response_a.error)
 					{
-						rpc_l->response_l.insert (rpc_l->response_l.begin (), ptree.begin (), ptree.end ());
+						nano::jsonconfig config_l;
+						auto err = telemetry_response_a.telemetry_data.serialize_json (config_l);
+						auto const & ptree = config_l.get_tree ();
+
+						if (!err)
+						{
+							rpc_l->response_l.insert (rpc_l->response_l.begin (), ptree.begin (), ptree.end ());
+						}
+						else
+						{
+							rpc_l->ec = nano::error_rpc::generic;
+						}
 					}
 					else
 					{
 						rpc_l->ec = nano::error_rpc::generic;
 					}
-				}
-				else
-				{
-					rpc_l->ec = nano::error_rpc::generic;
-				}
 
-				rpc_l->response_errors ();
-			});
+					rpc_l->response_errors ();
+				});
+			}
+			else
+			{
+				response_errors ();
+			}
 		}
 		else
 		{
@@ -4013,11 +4020,13 @@ void nano::json_handler::telemetry ()
 		// setting "raw" to true returns metrics from all nodes requested.
 		auto raw = request.get_optional<bool> ("raw");
 		auto output_raw = raw.value_or (false);
-		node.telemetry.get_metrics_peers_async ([rpc_l, output_raw](telemetry_data_responses const & telemetry_responses_a) {
+		if (node.telemetry)
+		{
+			auto telemetry_responses = node.telemetry->get_metrics ();
 			if (output_raw)
 			{
 				boost::property_tree::ptree metrics;
-				for (auto & telemetry_metrics : telemetry_responses_a.telemetry_datas)
+				for (auto & telemetry_metrics : telemetry_responses)
 				{
 					nano::jsonconfig config_l;
 					auto err = telemetry_metrics.second.serialize_json (config_l);
@@ -4029,18 +4038,18 @@ void nano::json_handler::telemetry ()
 					}
 					else
 					{
-						rpc_l->ec = nano::error_rpc::generic;
+						ec = nano::error_rpc::generic;
 					}
 				}
 
-				rpc_l->response_l.put_child ("metrics", metrics);
+				response_l.put_child ("metrics", metrics);
 			}
 			else
 			{
 				nano::jsonconfig config_l;
 				std::vector<nano::telemetry_data> telemetry_datas;
-				telemetry_datas.reserve (telemetry_responses_a.telemetry_datas.size ());
-				std::transform (telemetry_responses_a.telemetry_datas.begin (), telemetry_responses_a.telemetry_datas.end (), std::back_inserter (telemetry_datas), [](auto const & endpoint_telemetry_data) {
+				telemetry_datas.reserve (telemetry_responses.size ());
+				std::transform (telemetry_responses.begin (), telemetry_responses.end (), std::back_inserter (telemetry_datas), [](auto const & endpoint_telemetry_data) {
 					return endpoint_telemetry_data.second;
 				});
 
@@ -4050,16 +4059,16 @@ void nano::json_handler::telemetry ()
 
 				if (!err)
 				{
-					rpc_l->response_l.insert (rpc_l->response_l.begin (), ptree.begin (), ptree.end ());
+					response_l.insert (response_l.begin (), ptree.begin (), ptree.end ());
 				}
 				else
 				{
-					rpc_l->ec = nano::error_rpc::generic;
+					ec = nano::error_rpc::generic;
 				}
 			}
+		}
 
-			rpc_l->response_errors ();
-		});
+		response_errors ();
 	}
 }
 

@@ -126,7 +126,7 @@ gap_cache (*this),
 ledger (store, stats, flags_a.generate_cache),
 checker (config.signature_checker_threads),
 network (*this, config.peering_port),
-telemetry (network, alarm, worker, flags.disable_ongoing_telemetry_requests),
+telemetry (std::make_shared<nano::telemetry> (network, alarm, worker, flags.disable_ongoing_telemetry_requests)),
 bootstrap_initiator (*this),
 bootstrap (config.peering_port, *this),
 application_path (application_path_a),
@@ -153,6 +153,8 @@ startup_time (std::chrono::steady_clock::now ())
 {
 	if (!init_error ())
 	{
+		telemetry->start ();
+
 		if (config.websocket_config.enabled)
 		{
 			auto endpoint_l (nano::tcp_endpoint (boost::asio::ip::make_address_v6 (config.websocket_config.address), config.websocket_config.port));
@@ -586,7 +588,10 @@ std::unique_ptr<nano::container_info_component> nano::collect_container_info (no
 	composite->add_component (collect_container_info (node.bootstrap_initiator, "bootstrap_initiator"));
 	composite->add_component (collect_container_info (node.bootstrap, "bootstrap"));
 	composite->add_component (collect_container_info (node.network, "network"));
-	composite->add_component (collect_container_info (node.telemetry, "telemetry"));
+	if (node.telemetry)
+	{
+		composite->add_component (collect_container_info (*node.telemetry, "telemetry"));
+	}
 	composite->add_component (collect_container_info (node.observers, "observers"));
 	composite->add_component (collect_container_info (node.wallets, "wallets"));
 	composite->add_component (collect_container_info (node.vote_processor, "vote_processor"));
@@ -699,7 +704,11 @@ void nano::node::stop ()
 		active.stop ();
 		confirmation_height_processor.stop ();
 		network.stop ();
-		telemetry.stop ();
+		if (telemetry)
+		{
+			telemetry->stop ();
+			telemetry = nullptr;
+		}
 		if (websocket_server)
 		{
 			websocket_server->stop ();

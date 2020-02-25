@@ -470,7 +470,10 @@ public:
 			node.logger.try_log (boost::str (boost::format ("Received telemetry_ack message from %1%") % channel->to_string ()));
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::telemetry_ack, nano::stat::dir::in);
-		node.telemetry.add (message_a.data, channel->get_endpoint (), message_a.is_empty_payload ());
+		if (node.telemetry)
+		{
+			node.telemetry->set (message_a.data, channel->get_endpoint (), message_a.is_empty_payload ());
+		}
 	}
 	nano::node & node;
 	std::shared_ptr<nano::transport::channel> channel;
