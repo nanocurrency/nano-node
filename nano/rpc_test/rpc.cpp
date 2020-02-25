@@ -7874,7 +7874,7 @@ void compare_default_test_result_data (test_response & response, nano::node cons
 	ASSERT_EQ (nano::get_patch_node_version (), response.json.get<uint8_t> ("patch_version"));
 	ASSERT_EQ (nano::get_pre_release_node_version (), response.json.get<uint8_t> ("pre_release_version"));
 	ASSERT_EQ (0, response.json.get<uint8_t> ("maker"));
-	ASSERT_GE (std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count (), response.json.get<uint64_t> ("timestamp"));
+	ASSERT_GE (std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()).count (), response.json.get<uint64_t> ("timestamp"));
 }
 }
 
@@ -8069,7 +8069,7 @@ TEST (rpc, node_telemetry_all)
 	ASSERT_EQ (nano::get_patch_node_version (), metrics.patch_version);
 	ASSERT_EQ (nano::get_pre_release_node_version (), metrics.pre_release_version);
 	ASSERT_EQ (0, metrics.maker);
-	ASSERT_GE (std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count (), metrics.timestamp);
+	ASSERT_GE (std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()).count (), metrics.timestamp);
 	ASSERT_EQ (node->network.endpoint ().address ().to_string (), metrics.address);
 	ASSERT_EQ (node->network.endpoint ().port (), metrics.port);
 }
