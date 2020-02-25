@@ -41,8 +41,6 @@ add_library (secure
 	buffer.hpp
 	common.hpp
 	common.cpp
-	epoch.hpp
-	epoch.cpp
 	ledger.hpp
 	ledger.cpp
 	network_filter.hpp
