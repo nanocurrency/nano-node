@@ -12,15 +12,16 @@ TEST (confirmation_solicitor, batches)
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.enable_voting = false;
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
-	auto & node1 = *system.add_node (node_config);
-	auto channel1 (node1.network.udp_channels.create (node1.network.endpoint ()));
-	// Solicitor will only solicit from this representative
-	nano::representative representative (nano::test_genesis_key.pub, nano::genesis_amount, channel1);
-	node_config.peering_port = nano::get_available_port ();
 	nano::node_flags node_flags;
+	node_flags.disable_udp = false;
+	auto & node1 = *system.add_node (node_config, node_flags);
+	node_config.peering_port = nano::get_available_port ();
 	// To prevent races on the solicitor
 	node_flags.disable_request_loop = true;
 	auto & node2 = *system.add_node (node_config, node_flags);
+	// Solicitor will only solicit from this representative
+	auto channel1 (node2.network.udp_channels.create (node1.network.endpoint ()));
+	nano::representative representative (nano::test_genesis_key.pub, nano::genesis_amount, channel1);
 	// Lock active_transactions which uses the solicitor
 	{
 		nano::lock_guard<std::mutex> active_guard (node2.active.mutex);
@@ -43,6 +44,7 @@ TEST (confirmation_solicitor, batches)
 		// Broadcasting should be immediate
 		ASSERT_EQ (0, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
 		ASSERT_FALSE (node2.active.solicitor.broadcast (*election));
+		system.deadline_set (5s);
 		while (node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out) < 1)
 		{
 			ASSERT_NO_ERROR (system.poll ());

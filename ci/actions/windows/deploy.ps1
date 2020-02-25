@@ -1,5 +1,4 @@
-# Stop immediately if any error happens
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
 if ( ${env:BETA} -eq 1 ) {
     $network_cfg="beta"

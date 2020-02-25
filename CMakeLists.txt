@@ -53,6 +53,9 @@ set (NANO_FUZZER_TEST OFF CACHE BOOL "")
 option (NANO_STACKTRACE_BACKTRACE "Use BOOST_STACKTRACE_USE_BACKTRACE in stacktraces, for POSIX" OFF)
 if (NANO_STACKTRACE_BACKTRACE)
 	add_definitions(-DNANO_STACKTRACE_BACKTRACE=1)
+	if (BACKTRACE_INCLUDE)
+		add_definitions(-DBOOST_STACKTRACE_BACKTRACE_INCLUDE_FILE=${BACKTRACE_INCLUDE})
+	endif()
 endif ()
 
 if (${NANO_TIMED_LOCKS} GREATER 0)
@@ -234,6 +237,9 @@ endif ()
 
 include_directories(cpptoml/include)
 add_subdirectory(crypto/ed25519-donna)
+
+add_subdirectory(nano/ipc_flatbuffers_lib)
+add_subdirectory(nano/ipc_flatbuffers_test)
 
 set (UPNPC_BUILD_SHARED OFF CACHE BOOL "")
 add_subdirectory (miniupnp/miniupnpc EXCLUDE_FROM_ALL)

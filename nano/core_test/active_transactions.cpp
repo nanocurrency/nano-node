@@ -368,7 +368,6 @@ TEST (active_transactions, inactive_votes_cache)
 	}
 	node.process_active (send);
 	node.block_processor.flush ();
-	bool confirmed (false);
 	system.deadline_set (5s);
 	while (!node.ledger.block_confirmed (node.store.tx_begin_read (), send->hash ()))
 	{

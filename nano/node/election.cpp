@@ -32,7 +32,7 @@ status ({ block_a, 0, std::chrono::duration_cast<std::chrono::milliseconds> (std
 
 void nano::election::confirm_once (nano::election_status_type type_a)
 {
-	assert (!node.active.mutex.try_lock ());
+	debug_assert (!node.active.mutex.try_lock ());
 	if (state_m.exchange (nano::election::state_t::confirmed) != nano::election::state_t::confirmed)
 	{
 		status.election_end = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ());
@@ -340,22 +340,25 @@ nano::tally_t nano::election::tally ()
 void nano::election::confirm_if_quorum ()
 {
 	auto tally_l (tally ());
-	assert (!tally_l.empty ());
+	debug_assert (!tally_l.empty ());
 	auto winner (tally_l.begin ());
 	auto block_l (winner->second);
+	auto winner_hash_l (block_l->hash ());
 	status.tally = winner->first;
+	auto status_winner_hash_l (status.winner->hash ());
 	nano::uint128_t sum (0);
 	for (auto & i : tally_l)
 	{
 		sum += i.first;
 	}
-	if (sum >= node.config.online_weight_minimum.number () && block_l->hash () != status.winner->hash ())
+	if (sum >= node.config.online_weight_minimum.number () && winner_hash_l != status_winner_hash_l)
 	{
-		auto node_l (node.shared ());
-		node_l->block_processor.force (block_l);
+		node.votes_cache.remove (status_winner_hash_l);
+		node.block_processor.generator.add (winner_hash_l);
+		node.block_processor.force (block_l);
 		status.winner = block_l;
 		update_dependent ();
-		node_l->active.adjust_difficulty (block_l->hash ());
+		node.active.adjust_difficulty (winner_hash_l);
 	}
 	if (have_quorum (tally_l, sum))
 	{
@@ -478,7 +481,7 @@ size_t nano::election::last_votes_size ()
 
 void nano::election::update_dependent ()
 {
-	assert (!node.active.mutex.try_lock ());
+	debug_assert (!node.active.mutex.try_lock ());
 	std::vector<nano::block_hash> blocks_search;
 	auto hash (status.winner->hash ());
 	auto previous (status.winner->previous ());
@@ -526,7 +529,7 @@ void nano::election::clear_blocks ()
 		auto erased (node.active.blocks.erase (hash));
 		(void)erased;
 		// clear_blocks () can be called in active_transactions::publish () before blocks insertion if election was confirmed
-		assert (erased == 1 || confirmed ());
+		debug_assert (erased == 1 || confirmed ());
 		node.active.erase_inactive_votes_cache (hash);
 		// Notify observers about dropped elections & blocks lost confirmed elections
 		if (!confirmed () || hash != winner_hash)

@@ -5,6 +5,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <thread>
 
 // Some builds (mac) fail due to "Boost.Stacktrace requires `_Unwind_Backtrace` function".
 #ifndef _WIN32
@@ -105,20 +106,21 @@ void nano::move_all_files_to_dir (boost::filesystem::path const & from, boost::f
 }
 
 /*
- * Backing code for "release_assert", which is itself a macro
+ * Backing code for "release_assert" & "debug_assert", which are macros
  */
-void release_assert_internal (bool check, const char * check_expr, const char * file, unsigned int line)
+void assert_internal (const char * check_expr, const char * file, unsigned int line, bool is_release_assert)
 {
-	if (check)
-	{
-		return;
-	}
-
-	std::cerr << "Assertion (" << check_expr << ") failed " << file << ":" << line << "\n\n";
-
-	// Output stack trace to cerr
+	// Output stack trace
 	auto backtrace_str = nano::generate_stacktrace ();
+	// Windows on Actions only outputs the first line of the stacktrace from standard error, use standard output
+#if (defined(_WIN32) && CI)
+	std::cout << backtrace_str << std::endl;
+#else
 	std::cerr << backtrace_str << std::endl;
+#endif
+
+	std::cerr << "Assertion (" << check_expr << ") failed " << file << ":" << line << "\n"
+	          << std::endl;
 
 	// "abort" at the end of this function will go into any signal handlers (the daemon ones will generate a stack trace and load memory address files on non-Windows systems).
 	// As there is no async-signal-safe way to generate stacktraces on Windows it must be done before aborting
@@ -127,7 +129,7 @@ void release_assert_internal (bool check, const char * check_expr, const char * 
 		// Try construct the stacktrace dump in the same folder as the the running executable, otherwise use the current directory.
 		boost::system::error_code err;
 		auto running_executable_filepath = boost::dll::program_location (err);
-		std::string filename = "nano_node_backtrace_release_assert.txt";
+		std::string filename = is_release_assert ? "nano_node_backtrace_release_assert.txt" : "nano_node_backtrace_assert.txt";
 		std::string filepath = filename;
 		if (!err)
 		{
@@ -139,5 +141,6 @@ void release_assert_internal (bool check, const char * check_expr, const char * 
 		file << backtrace_str;
 	}
 #endif
+
 	abort ();
 }

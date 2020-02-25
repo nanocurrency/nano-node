@@ -23,7 +23,6 @@ class telemetry_data_time_pair
 public:
 	nano::telemetry_data data;
 	std::chrono::steady_clock::time_point last_updated;
-	std::chrono::system_clock::time_point system_last_updated;
 	bool operator== (telemetry_data_time_pair const &) const;
 	bool operator!= (telemetry_data_time_pair const &) const;
 };
@@ -34,7 +33,7 @@ public:
 class telemetry_data_response
 {
 public:
-	nano::telemetry_data_time_pair telemetry_data_time_pair;
+	nano::telemetry_data telemetry_data;
 	nano::endpoint endpoint;
 	bool error{ true };
 };
@@ -45,7 +44,7 @@ public:
 class telemetry_data_responses
 {
 public:
-	std::unordered_map<nano::endpoint, telemetry_data_time_pair> telemetry_data_time_pairs;
+	std::unordered_map<nano::endpoint, telemetry_data> telemetry_datas;
 	bool all_received{ false };
 };
 
@@ -68,7 +67,7 @@ private:
 	nano::network_params network_params;
 	// Anything older than this requires requesting metrics from other nodes.
 	std::chrono::seconds const cache_cutoff{ nano::telemetry_cache_cutoffs::network_to_time (network_params.network) };
-	static std::chrono::seconds constexpr alarm_cutoff{ 3 };
+	std::chrono::seconds const alarm_cutoff;
 
 	// All data in this chunk is protected by this mutex
 	std::mutex mutex;
@@ -88,7 +87,7 @@ private:
 	nano::alarm & alarm;
 	nano::worker & worker;
 
-	std::function<void(std::unordered_map<nano::endpoint, telemetry_data_time_pair> & data_a, std::mutex &)> pre_callback_callback;
+	std::function<void(std::unordered_map<nano::endpoint, telemetry_data> & data_a, std::mutex &)> pre_callback_callback;
 
 	void invoke_callbacks ();
 	void channel_processed (nano::unique_lock<std::mutex> & lk_a, nano::endpoint const & endpoint_a);
@@ -116,7 +115,7 @@ std::unique_ptr<nano::container_info_component> collect_container_info (telemetr
 class telemetry
 {
 public:
-	telemetry (nano::network & network_a, nano::alarm & alarm_a, nano::worker & worker_a);
+	telemetry (nano::network & network_a, nano::alarm & alarm_a, nano::worker & worker_a, bool disable_ongoing_requests_a);
 
 	/*
 	 * Add telemetry metrics received from this endpoint.
@@ -188,6 +187,7 @@ private:
 	void ongoing_req_all_peers ();
 
 	friend class node_telemetry_multiple_single_request_clearing_Test;
+	friend class node_telemetry_ongoing_requests_Test;
 	friend std::unique_ptr<container_info_component> collect_container_info (telemetry &, const std::string &);
 };
 

@@ -18,7 +18,7 @@ inline bool is_read (nano::transaction const & transaction_a)
 
 inline rocksdb::ReadOptions const & snapshot_options (nano::transaction const & transaction_a)
 {
-	assert (is_read (transaction_a));
+	debug_assert (is_read (transaction_a));
 	return *static_cast<const rocksdb::ReadOptions *> (transaction_a.get_handle ());
 }
 }
@@ -136,9 +136,9 @@ public:
 		}
 
 		auto result (std::memcmp (current.first.data (), other_a->current.first.data (), current.first.size ()) == 0);
-		assert (!result || (current.first.size () == other_a->current.first.size ()));
-		assert (!result || (current.second.data () == other_a->current.second.data ()));
-		assert (!result || (current.second.size () == other_a->current.second.size ()));
+		debug_assert (!result || (current.first.size () == other_a->current.first.size ()));
+		debug_assert (!result || (current.second.data () == other_a->current.second.data ()));
+		debug_assert (!result || (current.second.size () == other_a->current.second.size ()));
 		return result;
 	}
 
@@ -172,7 +172,7 @@ public:
 	{
 		current.first = nano::rocksdb_val{};
 		current.second = nano::rocksdb_val{};
-		assert (is_end_sentinal ());
+		debug_assert (is_end_sentinal ());
 	}
 	nano::rocksdb_iterator<T, U> & operator= (nano::rocksdb_iterator<T, U> && other_a)
 	{

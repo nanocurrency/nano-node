@@ -37,7 +37,7 @@ thread ([this]() {
 		this->cemented_batch_finished_callback ();
 	});
 
-	assert (min_time_between_requests > std::chrono::milliseconds (node.network_params.network.request_interval_ms));
+	debug_assert (min_time_between_requests > std::chrono::milliseconds (node.network_params.network.request_interval_ms));
 	nano::unique_lock<std::mutex> lock (mutex);
 	condition.wait (lock, [& started = started] { return started; });
 }
@@ -210,7 +210,7 @@ void nano::active_transactions::cemented_batch_finished_callback ()
 
 void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> & lock_a)
 {
-	assert (!mutex.try_lock ());
+	debug_assert (!mutex.try_lock ());
 	auto transaction_l (node.store.tx_begin_read ());
 	/*
 	 * Confirm frontiers when there aren't many confirmations already pending and node finished initial bootstrap
@@ -310,7 +310,7 @@ void nano::active_transactions::prioritize_account_for_confirmation (nano::activ
 		}
 		else
 		{
-			assert (cementable_frontiers_size_a <= max_priority_cementable_frontiers);
+			debug_assert (cementable_frontiers_size_a <= max_priority_cementable_frontiers);
 			if (cementable_frontiers_size_a == max_priority_cementable_frontiers)
 			{
 				// The maximum amount of frontiers stored has been reached. Check if the current frontier
@@ -593,7 +593,7 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 		uint64_t difficulty;
 		auto error (nano::work_validate (nano::work_version::work_1, *block_a, &difficulty));
 		(void)error;
-		assert (!error);
+		debug_assert (!error);
 		if (difficulty > existing_election->difficulty)
 		{
 			if (node.config.logging.active_update_logging ())
@@ -611,7 +611,7 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 
 void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash_a)
 {
-	assert (!mutex.try_lock ());
+	debug_assert (!mutex.try_lock ());
 	std::deque<std::pair<nano::block_hash, int64_t>> remaining_blocks;
 	remaining_blocks.emplace_back (hash_a, 0);
 	std::unordered_set<nano::block_hash> processed_blocks;
@@ -678,13 +678,13 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 		{
 			// Highest adjusted difficulty value should be std::numeric_limits<std::uint64_t>::max ()
 			limiter = std::numeric_limits<std::uint64_t>::max () - average + highest_level;
-			assert (std::numeric_limits<std::uint64_t>::max () == average + highest_level - limiter);
+			debug_assert (std::numeric_limits<std::uint64_t>::max () == average + highest_level - limiter);
 		}
 		else if (average < std::numeric_limits<std::uint64_t>::min () - lowest_level)
 		{
 			// Lowest adjusted difficulty value should be std::numeric_limits<std::uint64_t>::min ()
 			limiter = std::numeric_limits<std::uint64_t>::min () - average + lowest_level;
-			assert (std::numeric_limits<std::uint64_t>::min () == average + lowest_level - limiter);
+			debug_assert (std::numeric_limits<std::uint64_t>::min () == average + lowest_level - limiter);
 		}
 
 		// Set adjusted difficulty
@@ -701,7 +701,7 @@ void nano::active_transactions::adjust_difficulty (nano::block_hash const & hash
 
 void nano::active_transactions::update_active_difficulty (nano::unique_lock<std::mutex> & lock_a)
 {
-	assert (!mutex.try_lock ());
+	debug_assert (!mutex.try_lock ());
 	double multiplier (1.);
 	if (!roots.empty ())
 	{
@@ -722,11 +722,11 @@ void nano::active_transactions::update_active_difficulty (nano::unique_lock<std:
 			multiplier = nano::difficulty::to_multiplier (active_root_difficulties[active_root_difficulties.size () / 2], node.network_params.network.publish_threshold);
 		}
 	}
-	assert (multiplier >= 1);
+	debug_assert (multiplier >= 1);
 	multipliers_cb.push_front (multiplier);
 	auto sum (std::accumulate (multipliers_cb.begin (), multipliers_cb.end (), double(0)));
 	auto difficulty = nano::difficulty::from_multiplier (sum / multipliers_cb.size (), node.network_params.network.publish_threshold);
-	assert (difficulty >= node.network_params.network.publish_threshold);
+	debug_assert (difficulty >= node.network_params.network.publish_threshold);
 
 	trended_active_difficulty = difficulty;
 	node.observers.difficulty.notify (trended_active_difficulty);

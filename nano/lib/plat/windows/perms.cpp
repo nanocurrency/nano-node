@@ -2,8 +2,6 @@
 
 #include <boost/filesystem.hpp>
 
-#include <cassert>
-
 // clang-format off
 // Keep windows.h header at the top
 #include <windows.h>
@@ -17,7 +15,7 @@ void nano::set_umask ()
 	int oldMode;
 
 	auto result (_umask_s (_S_IWRITE | _S_IREAD, &oldMode));
-	assert (result == 0);
+	debug_assert (result == 0);
 }
 
 void nano::set_secure_perm_directory (boost::filesystem::path const & path)

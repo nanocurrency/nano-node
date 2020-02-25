@@ -22,6 +22,16 @@ namespace ipc
 		long io_threads{ -1 };
 	};
 
+	/**
+	 * Flatbuffers encoding config. See TOML serialization calls for details about each field.
+	 */
+	class ipc_config_flatbuffers final
+	{
+	public:
+		bool skip_unexpected_fields_in_json{ true };
+		bool verify_buffers{ true };
+	};
+
 	/** Domain socket specific transport config */
 	class ipc_config_domain_socket : public ipc_config_transport
 	{
@@ -61,6 +71,7 @@ namespace ipc
 		nano::error serialize_toml (nano::tomlconfig & toml) const;
 		ipc_config_domain_socket transport_domain;
 		ipc_config_tcp_socket transport_tcp;
+		ipc_config_flatbuffers flatbuffers;
 	};
 }
 }

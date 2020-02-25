@@ -172,7 +172,7 @@ void nano::confirmation_height_unbounded::collect_unconfirmed_receive_and_source
 				if (!hit_receive && !block_callback_data_a.empty ())
 				{
 					// Add the callbacks to the associated receive to retrieve later
-					assert (!receive_source_pairs_a.empty ());
+					debug_assert (!receive_source_pairs_a.empty ());
 					auto & last_receive_details = receive_source_pairs_a.back ().receive_details;
 					last_receive_details->source_block_callback_data.assign (block_callback_data_a.begin (), block_callback_data_a.end ());
 					block_callback_data_a.clear ();
@@ -243,13 +243,13 @@ void nano::confirmation_height_unbounded::prepare_iterated_blocks_for_cementing 
 			}
 			else
 			{
-				assert (receive_details);
+				debug_assert (receive_details);
 
 				if (preparation_data_a.already_traversed && receive_details->source_block_callback_data.empty ())
 				{
 					// We are confirming a block which has already been traversed and found no associated receive details for it.
 					auto & above_receive_details_w = implicit_receive_cemented_mapping[preparation_data_a.current];
-					assert (!above_receive_details_w.expired ());
+					debug_assert (!above_receive_details_w.expired ());
 					auto above_receive_details = above_receive_details_w.lock ();
 
 					auto num_blocks_already_confirmed = above_receive_details->num_blocks_confirmed - (above_receive_details->height - preparation_data_a.confirmation_height);
@@ -289,7 +289,7 @@ void nano::confirmation_height_unbounded::prepare_iterated_blocks_for_cementing 
 			// Get the difference and remove the callbacks
 			auto block_callbacks_to_remove = orig_num_blocks_confirmed - receive_details->num_blocks_confirmed;
 			receive_details->block_callback_data.erase (std::next (receive_details->block_callback_data.rbegin (), block_callbacks_to_remove).base (), receive_details->block_callback_data.end ());
-			assert (receive_details->block_callback_data.size () == receive_details->num_blocks_confirmed);
+			debug_assert (receive_details->block_callback_data.size () == receive_details->num_blocks_confirmed);
 		}
 		else
 		{
@@ -324,8 +324,8 @@ bool nano::confirmation_height_unbounded::cement_blocks ()
 			nano::block_sideband sideband;
 			auto block = ledger.store.block_get (transaction, pending.hash, &sideband);
 			static nano::network_constants network_constants;
-			assert (network_constants.is_test_network () || block != nullptr);
-			assert (network_constants.is_test_network () || sideband.height == pending.height);
+			debug_assert (network_constants.is_test_network () || block != nullptr);
+			debug_assert (network_constants.is_test_network () || sideband.height == pending.height);
 
 			if (!block)
 			{
@@ -337,7 +337,7 @@ bool nano::confirmation_height_unbounded::cement_blocks ()
 #endif
 			ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in, pending.height - confirmation_height);
 			ledger.stats.add (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in, pending.height - confirmation_height);
-			assert (pending.num_blocks_confirmed == pending.height - confirmation_height);
+			debug_assert (pending.num_blocks_confirmed == pending.height - confirmation_height);
 			confirmation_height = pending.height;
 			ledger.cache.cemented_count += pending.num_blocks_confirmed;
 			ledger.store.confirmation_height_put (transaction, pending.account, { confirmation_height, pending.hash });
@@ -349,7 +349,7 @@ bool nano::confirmation_height_unbounded::cement_blocks ()
 			std::vector<nano::block_w_sideband> callback_data;
 			callback_data.reserve (pending.block_callback_data.size ());
 			std::transform (pending.block_callback_data.begin (), pending.block_callback_data.end (), std::back_inserter (callback_data), [& block_cache = block_cache](auto const & hash_a) {
-				assert (block_cache.find (hash_a) != block_cache.end ());
+				debug_assert (block_cache.find (hash_a) != block_cache.end ());
 				return block_cache.at (hash_a);
 			});
 
@@ -359,8 +359,8 @@ bool nano::confirmation_height_unbounded::cement_blocks ()
 		total_pending_write_block_count -= pending.num_blocks_confirmed;
 		pending_writes.erase (pending_writes.begin ());
 	}
-	assert (total_pending_write_block_count == 0);
-	assert (pending_writes.empty ());
+	debug_assert (total_pending_write_block_count == 0);
+	debug_assert (pending_writes.empty ());
 	return false;
 }
 

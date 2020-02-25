@@ -202,6 +202,7 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.logging.network_telemetry_logging_value, defaults.node.logging.network_telemetry_logging_value);
 	ASSERT_EQ (conf.node.logging.rotation_size, defaults.node.logging.rotation_size);
 	ASSERT_EQ (conf.node.logging.single_line_record_value, defaults.node.logging.single_line_record_value);
+	ASSERT_EQ (conf.node.logging.stable_log_filename, defaults.node.logging.stable_log_filename);
 	ASSERT_EQ (conf.node.logging.timing_logging_value, defaults.node.logging.timing_logging_value);
 	ASSERT_EQ (conf.node.logging.active_update_value, defaults.node.logging.active_update_value);
 	ASSERT_EQ (conf.node.logging.upnp_details_logging_value, defaults.node.logging.upnp_details_logging_value);
@@ -225,6 +226,8 @@ TEST (toml, daemon_config_deserialize_defaults)
 	ASSERT_EQ (conf.node.ipc_config.transport_tcp.io_timeout, defaults.node.ipc_config.transport_tcp.io_timeout);
 	ASSERT_EQ (conf.node.ipc_config.transport_tcp.io_threads, defaults.node.ipc_config.transport_tcp.io_threads);
 	ASSERT_EQ (conf.node.ipc_config.transport_tcp.port, defaults.node.ipc_config.transport_tcp.port);
+	ASSERT_EQ (conf.node.ipc_config.flatbuffers.skip_unexpected_fields_in_json, defaults.node.ipc_config.flatbuffers.skip_unexpected_fields_in_json);
+	ASSERT_EQ (conf.node.ipc_config.flatbuffers.verify_buffers, defaults.node.ipc_config.flatbuffers.verify_buffers);
 
 	ASSERT_EQ (conf.node.diagnostics_config.txn_tracking.enable, defaults.node.diagnostics_config.txn_tracking.enable);
 	ASSERT_EQ (conf.node.diagnostics_config.txn_tracking.ignore_writes_below_block_processor_max_time, defaults.node.diagnostics_config.txn_tracking.ignore_writes_below_block_processor_max_time);
@@ -440,6 +443,10 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	io_threads = 999
 	port = 999
 
+	[node.ipc.flatbuffers]
+	skip_unexpected_fields_in_json = false
+	verify_buffers = false
+
 	[node.logging]
 	bulk_pull = true
 	flush = false
@@ -461,6 +468,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	node_lifetime_tracing = true
 	rotation_size = 999
 	single_line_record = true
+	stable_log_filename = true
 	timing = true
 	active_update = true
 	upnp_details = true
@@ -592,6 +600,7 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.logging.node_lifetime_tracing_value, defaults.node.logging.node_lifetime_tracing_value);
 	ASSERT_NE (conf.node.logging.rotation_size, defaults.node.logging.rotation_size);
 	ASSERT_NE (conf.node.logging.single_line_record_value, defaults.node.logging.single_line_record_value);
+	ASSERT_NE (conf.node.logging.stable_log_filename, defaults.node.logging.stable_log_filename);
 	ASSERT_NE (conf.node.logging.timing_logging_value, defaults.node.logging.timing_logging_value);
 	ASSERT_NE (conf.node.logging.active_update_value, defaults.node.logging.active_update_value);
 	ASSERT_NE (conf.node.logging.upnp_details_logging_value, defaults.node.logging.upnp_details_logging_value);
@@ -615,6 +624,8 @@ TEST (toml, daemon_config_deserialize_no_defaults)
 	ASSERT_NE (conf.node.ipc_config.transport_tcp.io_timeout, defaults.node.ipc_config.transport_tcp.io_timeout);
 	ASSERT_NE (conf.node.ipc_config.transport_tcp.io_threads, defaults.node.ipc_config.transport_tcp.io_threads);
 	ASSERT_NE (conf.node.ipc_config.transport_tcp.port, defaults.node.ipc_config.transport_tcp.port);
+	ASSERT_NE (conf.node.ipc_config.flatbuffers.skip_unexpected_fields_in_json, defaults.node.ipc_config.flatbuffers.skip_unexpected_fields_in_json);
+	ASSERT_NE (conf.node.ipc_config.flatbuffers.verify_buffers, defaults.node.ipc_config.flatbuffers.verify_buffers);
 
 	ASSERT_NE (conf.node.diagnostics_config.txn_tracking.enable, defaults.node.diagnostics_config.txn_tracking.enable);
 	ASSERT_NE (conf.node.diagnostics_config.txn_tracking.ignore_writes_below_block_processor_max_time, defaults.node.diagnostics_config.txn_tracking.ignore_writes_below_block_processor_max_time);

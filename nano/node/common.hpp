@@ -349,6 +349,7 @@ public:
 	boost::optional<uint8_t> patch_version;
 	boost::optional<uint8_t> pre_release_version;
 	boost::optional<uint8_t> maker; // 0 for NF node
+	boost::optional<std::chrono::system_clock::time_point> timestamp;
 
 	nano::error serialize_json (nano::jsonconfig & json) const;
 	nano::error deserialize_json (nano::jsonconfig & json);
@@ -356,7 +357,8 @@ public:
 	bool operator!= (nano::telemetry_data const &) const;
 
 	static auto constexpr size_v0 = sizeof (block_count) + sizeof (cemented_count) + sizeof (unchecked_count) + sizeof (account_count) + sizeof (bandwidth_cap) + sizeof (peer_count) + sizeof (protocol_version) + sizeof (uptime) + sizeof (genesis_block) + sizeof (major_version);
-	static auto constexpr size = size_v0 + sizeof (decltype (minor_version)::value_type) + sizeof (decltype (patch_version)::value_type) + sizeof (decltype (pre_release_version)::value_type) + sizeof (decltype (maker)::value_type);
+	static auto constexpr size_v1 = size_v0 + sizeof (decltype (minor_version)::value_type) + sizeof (decltype (patch_version)::value_type) + sizeof (decltype (pre_release_version)::value_type) + sizeof (decltype (maker)::value_type);
+	static auto constexpr size = size_v1 + sizeof (uint64_t);
 };
 class telemetry_req final : public message
 {
@@ -456,7 +458,7 @@ public:
 class telemetry_cache_cutoffs
 {
 public:
-	static std::chrono::seconds constexpr test{ 2 };
+	static std::chrono::seconds constexpr test{ 3 };
 	static std::chrono::seconds constexpr beta{ 15 };
 	static std::chrono::seconds constexpr live{ 60 };
 

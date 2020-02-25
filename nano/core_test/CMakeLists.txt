@@ -38,6 +38,7 @@ add_executable (core_test
 	uint256_union.cpp
 	utility.cpp
 	versioning.cpp
+	vote_processor.cpp
 	wallet.cpp
 	wallets.cpp
 	websocket.cpp

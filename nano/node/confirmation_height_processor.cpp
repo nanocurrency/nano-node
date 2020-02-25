@@ -9,7 +9,6 @@
 
 #include <boost/thread/latch.hpp>
 
-#include <cassert>
 #include <numeric>
 
 nano::confirmation_height_processor::confirmation_height_processor (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logger_mt & logger_a, boost::latch & latch, confirmation_height_mode mode_a) :
@@ -66,7 +65,7 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 			// Don't want to mix up pending writes across different processors
 			if (mode_a == confirmation_height_mode::unbounded || (mode_a == confirmation_height_mode::automatic && blocks_within_automatic_unbounded_selection && confirmation_height_bounded_processor.pending_empty ()))
 			{
-				assert (confirmation_height_bounded_processor.pending_empty ());
+				debug_assert (confirmation_height_bounded_processor.pending_empty ());
 				if (confirmation_height_unbounded_processor.pending_empty ())
 				{
 					confirmation_height_unbounded_processor.prepare_new ();
@@ -75,8 +74,8 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 			}
 			else
 			{
-				assert (mode_a == confirmation_height_mode::bounded || mode_a == confirmation_height_mode::automatic);
-				assert (confirmation_height_unbounded_processor.pending_empty ());
+				debug_assert (mode_a == confirmation_height_mode::bounded || mode_a == confirmation_height_mode::automatic);
+				debug_assert (confirmation_height_unbounded_processor.pending_empty ());
 				if (confirmation_height_bounded_processor.pending_empty ())
 				{
 					confirmation_height_bounded_processor.prepare_new ();
@@ -102,14 +101,14 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 			// If there are blocks pending cementing, then make sure we flush out the remaining writes
 			if (!confirmation_height_bounded_processor.pending_empty ())
 			{
-				assert (confirmation_height_unbounded_processor.pending_empty ());
+				debug_assert (confirmation_height_unbounded_processor.pending_empty ());
 				auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
 				confirmation_height_bounded_processor.cement_blocks ();
 				lock_and_cleanup ();
 			}
 			else if (!confirmation_height_unbounded_processor.pending_empty ())
 			{
-				assert (confirmation_height_bounded_processor.pending_empty ());
+				debug_assert (confirmation_height_bounded_processor.pending_empty ());
 				auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
 				confirmation_height_unbounded_processor.cement_blocks ();
 				lock_and_cleanup ();
@@ -147,7 +146,7 @@ void nano::confirmation_height_processor::add (nano::block_hash const & hash_a)
 void nano::confirmation_height_processor::set_next_hash ()
 {
 	nano::lock_guard<std::mutex> guard (mutex);
-	assert (!awaiting_processing.empty ());
+	debug_assert (!awaiting_processing.empty ());
 	original_hash = *awaiting_processing.begin ();
 	original_hashes_pending.insert (original_hash);
 	awaiting_processing.erase (original_hash);

@@ -7,7 +7,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/rocksdbconfig.hpp>
 #include <nano/lib/stats.hpp>
-#include <nano/node/ipcconfig.hpp>
+#include <nano/node/ipc/ipc_config.hpp>
 #include <nano/node/logging.hpp>
 #include <nano/node/websocketconfig.hpp>
 #include <nano/secure/common.hpp>
@@ -126,6 +126,7 @@ public:
 	bool disable_unchecked_drop{ true };
 	bool disable_providing_telemetry_metrics{ false };
 	bool disable_block_processor_unchecked_deletion{ false };
+	bool disable_ongoing_telemetry_requests{ false };
 	bool fast_bootstrap{ false };
 	bool read_only{ false };
 	nano::confirmation_height_mode confirmation_height_processor_mode{ nano::confirmation_height_mode::automatic };

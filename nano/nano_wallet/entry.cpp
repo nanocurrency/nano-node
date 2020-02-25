@@ -9,7 +9,7 @@
 #include <nano/nano_wallet/icon.hpp>
 #include <nano/node/cli.hpp>
 #include <nano/node/daemonconfig.hpp>
-#include <nano/node/ipc.hpp>
+#include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node_rpc_config.hpp>
 #include <nano/qt/qt.hpp>
@@ -143,7 +143,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 					wallet_config.account = wallet->deterministic_insert (transaction);
 				}
 			}
-			assert (wallet->exists (wallet_config.account));
+			debug_assert (wallet->exists (wallet_config.account));
 			write_wallet_config (wallet_config, data_path);
 			node->start ();
 			nano::ipc::ipc_server ipc (*node, config.rpc);
@@ -170,7 +170,6 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 				std::exit (1);
 #endif
 			}
-
 			std::unique_ptr<nano::rpc> rpc;
 			std::unique_ptr<nano::rpc_handler_interface> rpc_handler;
 			if (config.rpc_enable)
@@ -184,7 +183,7 @@ int run_wallet (QApplication & application, int argc, char * const * argv, boost
 					{
 						show_error (error.get_message ());
 					}
-					rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, config.rpc);
+					rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, ipc, config.rpc);
 					rpc = nano::get_rpc (io_ctx, rpc_config, *rpc_handler);
 					rpc->start ();
 				}
