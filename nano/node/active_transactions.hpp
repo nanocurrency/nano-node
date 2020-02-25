@@ -202,7 +202,6 @@ private:
 			mi::member<nano::inactive_cache_information, nano::block_hash, &nano::inactive_cache_information::hash>>>>;
 	ordered_cache inactive_votes_cache;
 	// clang-format on
-	static size_t constexpr inactive_votes_cache_max{ 16 * 1024 };
 	bool inactive_votes_bootstrap_check (std::vector<nano::account> const &, nano::block_hash const &, bool &);
 	static size_t constexpr dropped_elections_cache_max{ 32 * 1024 };
 	boost::thread thread;
