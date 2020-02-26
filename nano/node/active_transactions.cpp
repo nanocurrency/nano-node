@@ -29,13 +29,13 @@ thread ([this]() {
 })
 {
 	// Register a callback which will get called after a block is cemented
-	confirmation_height_processor.add_cemented_observer ([this](nano::block_w_sideband const & callback_data) {
-		this->block_cemented_callback (callback_data.block, callback_data.sideband);
+	confirmation_height_processor.add_cemented_observer ([this](nano::block_w_sideband const & callback_data_a) {
+		this->block_cemented_callback (callback_data_a.block, callback_data_a.sideband);
 	});
 
 	// Register a callback which will get called after a batch of blocks is written and observer calls finished
-	confirmation_height_processor.add_cemented_process_finished_observer ([this]() {
-		this->cemented_batch_finished_callback ();
+	confirmation_height_processor.add_block_already_cemented_observer ([this](nano::block_hash const & hash_a) {
+		this->block_already_cemented_callback (hash_a);
 	});
 
 	debug_assert (min_time_between_requests > std::chrono::milliseconds (node.network_params.network.request_interval_ms));
@@ -153,15 +153,20 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 		else
 		{
 			auto hash (block_a->hash ());
-			nano::lock_guard<std::mutex> lock (mutex);
+			nano::unique_lock<std::mutex> election_winners_lk (election_winner_details_mutex);
 			auto existing (election_winner_details.find (hash));
 			if (existing != election_winner_details.end ())
 			{
 				auto election = existing->second;
+				election_winner_details.erase (hash);
+				election_winners_lk.unlock ();
+				// Make sure mutex is held before election usage so we know that confirm_once has
+				// finished removing the root from active to avoid any data race.
+				nano::unique_lock<std::mutex> lk (mutex);
 				if (election->confirmed () && !election->stopped && election->status.winner->hash () == hash)
 				{
-					add_confirmed (existing->second->status, block_a->qualified_root ());
-
+					add_confirmed (election->status, block_a->qualified_root ());
+					lk.unlock ();
 					node.receive_confirmed (transaction, block_a, hash);
 					nano::account account (0);
 					nano::uint128_t amount (0);
@@ -180,32 +185,25 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 						}
 					}
 				}
-
-				election_winner_details.erase (hash);
 			}
 		}
 	}
 }
 
-void nano::active_transactions::cemented_batch_finished_callback ()
+void nano::active_transactions::add_election_winner_details (nano::block_hash const & hash_a, std::shared_ptr<nano::election> const & election_a)
+{
+	nano::lock_guard<std::mutex> guard (election_winner_details_mutex);
+	election_winner_details.emplace (hash_a, election_a);
+}
+
+void nano::active_transactions::block_already_cemented_callback (nano::block_hash const & hash_a)
 {
 	// Depending on timing there is a situation where the election_winner_details is not reset.
 	// This can happen when a block wins an election, and the block is confirmed + observer
 	// called before the block hash gets added to election_winner_details. If the block is confirmed
 	// callbacks have already been done, so we can safely just remove it.
-	auto transaction = node.store.tx_begin_read ();
-	nano::lock_guard<std::mutex> guard (mutex);
-	for (auto it = election_winner_details.begin (); it != election_winner_details.end ();)
-	{
-		if (node.ledger.block_confirmed (transaction, it->first))
-		{
-			it = election_winner_details.erase (it);
-		}
-		else
-		{
-			++it;
-		}
-	}
+	nano::lock_guard<std::mutex> guard (election_winner_details_mutex);
+	election_winner_details.erase (hash_a);
 }
 
 void nano::active_transactions::election_escalate (std::shared_ptr<nano::election> & election_l, nano::transaction const & transaction_l, size_t const & roots_size_l)
@@ -1076,7 +1074,7 @@ bool nano::active_transactions::inactive_votes_bootstrap_check (std::vector<nano
 
 size_t nano::active_transactions::election_winner_details_size ()
 {
-	nano::lock_guard<std::mutex> guard (mutex);
+	nano::lock_guard<std::mutex> guard (election_winner_details_mutex);
 	return election_winner_details.size ();
 }
 

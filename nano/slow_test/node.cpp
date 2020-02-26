@@ -525,6 +525,7 @@ TEST (confirmation_height, many_accounts_single_confirmation)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	ASSERT_EQ (node->active.election_winner_details_size (), 0);
 }
 
 // Can take up to 10 minutes
@@ -586,6 +587,8 @@ TEST (confirmation_height, many_accounts_many_confirmations)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+
+	ASSERT_EQ (node->active.election_winner_details_size (), 0);
 }
 
 TEST (confirmation_height, long_chains)
@@ -686,6 +689,7 @@ TEST (confirmation_height, long_chains)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
+	ASSERT_EQ (node->active.election_winner_details_size (), 0);
 }
 
 TEST (confirmation_height, dynamic_algorithm)
@@ -732,6 +736,7 @@ TEST (confirmation_height, dynamic_algorithm)
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed, nano::stat::dir::in), num_blocks);
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_bounded, nano::stat::dir::in), 1);
 	ASSERT_EQ (node->ledger.stats.count (nano::stat::type::confirmation_height, nano::stat::detail::blocks_confirmed_unbounded, nano::stat::dir::in), num_blocks - 1);
+	ASSERT_EQ (node->active.election_winner_details_size (), 0);
 }
 
 namespace nano
