@@ -3,9 +3,12 @@
 #include <nano/lib/logger_mt.hpp>
 #include <nano/lib/rpc_handler_interface.hpp>
 #include <nano/lib/rpcconfig.hpp>
+#include <nano/lib/utility.hpp>
 #include <nano/rpc/rpc_connection.hpp>
 #include <nano/rpc/rpc_handler.hpp>
 
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 #ifdef NANO_SECURE_RPC
 #include <boost/asio/ssl/stream.hpp>
 #endif
@@ -49,7 +52,7 @@ void nano::rpc_connection::write_result (std::string body, unsigned version, boo
 	}
 	else
 	{
-		assert (false && "RPC already responded and should only respond once");
+		debug_assert (false && "RPC already responded and should only respond once");
 	}
 }
 
@@ -99,11 +102,14 @@ template <typename STREAM_TYPE>
 void nano::rpc_connection::parse_request (STREAM_TYPE & stream, std::shared_ptr<boost::beast::http::request_parser<boost::beast::http::empty_body>> header_parser)
 {
 	auto this_l (shared_from_this ());
+	auto header_field_credentials_l (header_parser->get ()["nano-api-key"]);
+	auto header_corr_id_l (header_parser->get ()["nano-correlation-id"]);
 	auto body_parser (std::make_shared<boost::beast::http::request_parser<boost::beast::http::string_body>> (std::move (*header_parser)));
-	boost::beast::http::async_read (stream, buffer, *body_parser, boost::asio::bind_executor (strand, [this_l, body_parser, &stream](boost::system::error_code const & ec, size_t bytes_transferred) {
+	auto path_l (body_parser->get ().target ().to_string ());
+	boost::beast::http::async_read (stream, buffer, *body_parser, boost::asio::bind_executor (strand, [this_l, body_parser, header_field_credentials_l, header_corr_id_l, path_l, &stream](boost::system::error_code const & ec, size_t bytes_transferred) {
 		if (!ec)
 		{
-			this_l->io_ctx.post ([this_l, body_parser, &stream]() {
+			this_l->io_ctx.post ([this_l, body_parser, header_field_credentials_l, header_corr_id_l, path_l, &stream]() {
 				auto & req (body_parser->get ());
 				auto start (std::chrono::steady_clock::now ());
 				auto version (req.version ());
@@ -121,13 +127,23 @@ void nano::rpc_connection::parse_request (STREAM_TYPE & stream, std::shared_ptr<
 					ss << "RPC request " << request_id << " completed in: " << std::chrono::duration_cast<std::chrono::microseconds> (std::chrono::steady_clock::now () - start).count () << " microseconds";
 					this_l->logger.always_log (ss.str ().c_str ());
 				});
+
+				std::string api_path_l = "/api/v2";
+				int rpc_version_l = boost::starts_with (path_l, api_path_l) ? 2 : 1;
+
 				auto method = req.method ();
 				switch (method)
 				{
 					case boost::beast::http::verb::post:
 					{
 						auto handler (std::make_shared<nano::rpc_handler> (this_l->rpc_config, req.body (), request_id, response_handler, this_l->rpc_handler_interface, this_l->logger));
-						handler->process_request ();
+						nano::rpc_handler_request_params request_params;
+						request_params.rpc_version = rpc_version_l;
+						request_params.credentials = header_field_credentials_l.to_string ();
+						request_params.correlation_id = header_corr_id_l.to_string ();
+						request_params.path = boost::algorithm::erase_first_copy (path_l, api_path_l);
+						request_params.path = boost::algorithm::erase_first_copy (request_params.path, "/");
+						handler->process_request (request_params);
 						break;
 					}
 					case boost::beast::http::verb::options:

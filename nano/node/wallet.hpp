@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nano/lib/work.hpp>
 #include <nano/node/lmdb/lmdb.hpp>
 #include <nano/node/lmdb/wallet_value.hpp>
 #include <nano/node/openclwork.hpp>
@@ -10,7 +11,6 @@
 #include <mutex>
 #include <thread>
 #include <unordered_set>
-
 namespace nano
 {
 class node;

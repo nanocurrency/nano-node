@@ -1,6 +1,6 @@
 #include <nano/lib/timer.hpp>
+#include <nano/lib/utility.hpp>
 
-#include <cassert>
 #include <iomanip>
 #include <sstream>
 
@@ -66,7 +66,6 @@ desc (description_a)
 {
 }
 
-/** Do not output if measured time is below the time units threshold in \p minimum_a */
 template <typename UNIT, typename CLOCK>
 nano::timer<UNIT, CLOCK> & nano::timer<UNIT, CLOCK>::set_minimum (UNIT minimum_a)
 {
@@ -74,11 +73,6 @@ nano::timer<UNIT, CLOCK> & nano::timer<UNIT, CLOCK>::set_minimum (UNIT minimum_a
 	return *this;
 }
 
-/**
-	 * Create a child timer without starting it.
-	 * Since the timing API needs to have low overhead, this function
-	 * does not check if a timer with the same name already exists.
-	 */
 template <typename UNIT, typename CLOCK>
 nano::timer<UNIT, CLOCK> & nano::timer<UNIT, CLOCK>::child (std::string const & description_a)
 {
@@ -86,7 +80,6 @@ nano::timer<UNIT, CLOCK> & nano::timer<UNIT, CLOCK>::child (std::string const & 
 	return children.back ();
 }
 
-/** Create and start a child timer */
 template <typename UNIT, typename CLOCK>
 nano::timer<UNIT, CLOCK> & nano::timer<UNIT, CLOCK>::start_child (std::string const & description_a)
 {
@@ -95,16 +88,14 @@ nano::timer<UNIT, CLOCK> & nano::timer<UNIT, CLOCK>::start_child (std::string co
 	return child_timer;
 }
 
-/** Start the timer. This will assert if the timer is already started. */
 template <typename UNIT, typename CLOCK>
 void nano::timer<UNIT, CLOCK>::start ()
 {
-	assert (state == nano::timer_state::stopped);
+	debug_assert (state == nano::timer_state::stopped);
 	state = nano::timer_state::started;
 	begin = CLOCK::now ();
 }
 
-/** Restarts the timer */
 template <typename UNIT, typename CLOCK>
 void nano::timer<UNIT, CLOCK>::restart ()
 {
@@ -114,11 +105,6 @@ void nano::timer<UNIT, CLOCK>::restart ()
 	measurements = 0;
 }
 
-/**
-	 * Stops the timer and increases the measurement count. A timer can be started and paused
-	 * multiple times (e.g. in a loop).
-	 * @return duration
-	 */
 template <typename UNIT, typename CLOCK>
 UNIT nano::timer<UNIT, CLOCK>::pause ()
 {
@@ -126,14 +112,10 @@ UNIT nano::timer<UNIT, CLOCK>::pause ()
 	return stop ();
 }
 
-/**
-	 * Stop timer
-	 * @return duration
-	 */
 template <typename UNIT, typename CLOCK>
 UNIT nano::timer<UNIT, CLOCK>::stop ()
 {
-	assert (state == nano::timer_state::started);
+	debug_assert (state == nano::timer_state::started);
 	state = nano::timer_state::stopped;
 
 	auto end = CLOCK::now ();
@@ -141,16 +123,12 @@ UNIT nano::timer<UNIT, CLOCK>::stop ()
 	return ticks;
 }
 
-/**
-	 * Return current units.
-	 */
 template <typename UNIT, typename CLOCK>
 UNIT nano::timer<UNIT, CLOCK>::value () const
 {
 	return ticks;
 }
 
-/** Returns the duration in UNIT since the timer was last started. */
 template <typename UNIT, typename CLOCK>
 UNIT nano::timer<UNIT, CLOCK>::since_start () const
 {
@@ -158,7 +136,6 @@ UNIT nano::timer<UNIT, CLOCK>::since_start () const
 	return std::chrono::duration_cast<UNIT> (end - begin);
 }
 
-/** Returns true if the timer was last started longer than \p duration_a units ago*/
 template <typename UNIT, typename CLOCK>
 bool nano::timer<UNIT, CLOCK>::after_deadline (UNIT duration_a)
 {
@@ -166,7 +143,6 @@ bool nano::timer<UNIT, CLOCK>::after_deadline (UNIT duration_a)
 	return std::chrono::duration_cast<UNIT> (end - begin) > duration_a;
 }
 
-/** Returns true if the timer was last started shorter than \p duration_a units ago*/
 template <typename UNIT, typename CLOCK>
 bool nano::timer<UNIT, CLOCK>::before_deadline (UNIT duration_a)
 {
@@ -174,7 +150,6 @@ bool nano::timer<UNIT, CLOCK>::before_deadline (UNIT duration_a)
 	return std::chrono::duration_cast<UNIT> (end - begin) < duration_a;
 }
 
-/** Stop timer and write measurements to \p stream_a */
 template <typename UNIT, typename CLOCK>
 void nano::timer<UNIT, CLOCK>::stop (std::ostream & stream_a)
 {
@@ -182,7 +157,6 @@ void nano::timer<UNIT, CLOCK>::stop (std::ostream & stream_a)
 	print (stream_a);
 }
 
-/** Stop timer and write measurements to \p output_a */
 template <typename UNIT, typename CLOCK>
 void nano::timer<UNIT, CLOCK>::stop (std::string & output_a)
 {
@@ -191,7 +165,6 @@ void nano::timer<UNIT, CLOCK>::stop (std::string & output_a)
 	output_a = stream.str ();
 }
 
-/** Print measurements to the \p stream_a */
 template <typename UNIT, typename CLOCK>
 void nano::timer<UNIT, CLOCK>::print (std::ostream & stream_a)
 {
@@ -222,7 +195,6 @@ void nano::timer<UNIT, CLOCK>::print (std::ostream & stream_a)
 	}
 }
 
-/** Returns the SI unit string */
 template <typename UNIT, typename CLOCK>
 std::string nano::timer<UNIT, CLOCK>::unit () const
 {

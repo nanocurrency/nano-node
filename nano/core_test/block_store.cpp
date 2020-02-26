@@ -727,7 +727,7 @@ TEST (block_store, large_iteration)
 	for (auto i (store->latest_begin (transaction, 0)), n (store->latest_end ()); i != n; ++i)
 	{
 		nano::account current (i->first);
-		assert (current.number () > previous.number ());
+		ASSERT_GT (current.number (), previous.number ());
 		accounts2.insert (current);
 		previous = current;
 	}
@@ -873,8 +873,7 @@ TEST (mdb_block_store, upgrade_v2_v3)
 		auto rep_block = ledger.representative (transaction, ledger.latest (transaction, nano::test_genesis_key.pub));
 		nano::account_info_v5 info_old (info.head, rep_block, info.open_block, info.balance, info.modified);
 		auto status (mdb_put (store.env.tx (transaction), store.accounts_v0, nano::mdb_val (nano::test_genesis_key.pub), nano::mdb_val (sizeof (info_old), &info_old), 0));
-		(void)status;
-		assert (status == 0);
+		ASSERT_EQ (status, 0);
 		store.confirmation_height_del (transaction, nano::genesis_account);
 	}
 	nano::logger_mt logger;
@@ -2320,7 +2319,7 @@ void write_sideband_v15 (nano::mdb_store & store_a, nano::transaction & transact
 	auto block = store_a.block_get (transaction_a, block_a.hash (), &sideband);
 	ASSERT_NE (block, nullptr);
 
-	assert (sideband.details.epoch <= nano::epoch::max);
+	ASSERT_LE (sideband.details.epoch, nano::epoch::max);
 	// Simulated by writing 0 on every of the most significant bits, leaving out epoch only, as if pre-upgrade
 	nano::block_sideband sideband_v15 (sideband.type, sideband.account, sideband.successor, sideband.balance, sideband.timestamp, sideband.height, sideband.details.epoch, false, false, false);
 	std::vector<uint8_t> data;
@@ -2341,8 +2340,7 @@ void modify_account_info_to_v13 (nano::mdb_store & store, nano::transaction cons
 	ASSERT_FALSE (store.account_get (transaction, account, info));
 	nano::account_info_v13 account_info_v13 (info.head, rep_block, info.open_block, info.balance, info.modified, info.block_count, info.epoch ());
 	auto status (mdb_put (store.env.tx (transaction), (info.epoch () == nano::epoch::epoch_0) ? store.accounts_v0 : store.accounts_v1, nano::mdb_val (account), nano::mdb_val (account_info_v13), 0));
-	(void)status;
-	assert (status == 0);
+	ASSERT_EQ (status, 0);
 }
 
 void modify_account_info_to_v14 (nano::mdb_store & store, nano::transaction const & transaction, nano::account const & account, uint64_t confirmation_height, nano::block_hash const & rep_block)
@@ -2351,15 +2349,13 @@ void modify_account_info_to_v14 (nano::mdb_store & store, nano::transaction cons
 	ASSERT_FALSE (store.account_get (transaction, account, info));
 	nano::account_info_v14 account_info_v14 (info.head, rep_block, info.open_block, info.balance, info.modified, info.block_count, confirmation_height, info.epoch ());
 	auto status (mdb_put (store.env.tx (transaction), info.epoch () == nano::epoch::epoch_0 ? store.accounts_v0 : store.accounts_v1, nano::mdb_val (account), nano::mdb_val (account_info_v14), 0));
-	(void)status;
-	assert (status == 0);
+	ASSERT_EQ (status, 0);
 }
 
 void modify_confirmation_height_to_v15 (nano::mdb_store & store, nano::transaction const & transaction, nano::account const & account, uint64_t confirmation_height)
 {
 	auto status (mdb_put (store.env.tx (transaction), store.confirmation_height, nano::mdb_val (account), nano::mdb_val (confirmation_height), 0));
-	(void)status;
-	assert (status == 0);
+	ASSERT_EQ (status, 0);
 }
 
 void modify_genesis_account_info_to_v5 (nano::mdb_store & store, nano::transaction const & transaction)
@@ -2370,7 +2366,6 @@ void modify_genesis_account_info_to_v5 (nano::mdb_store & store, nano::transacti
 	visitor.compute (info.head);
 	nano::account_info_v5 info_old (info.head, visitor.result, info.open_block, info.balance, info.modified);
 	auto status (mdb_put (store.env.tx (transaction), store.accounts_v0, nano::mdb_val (nano::test_genesis_key.pub), nano::mdb_val (sizeof (info_old), &info_old), 0));
-	(void)status;
-	assert (status == 0);
+	ASSERT_EQ (status, 0);
 }
 }

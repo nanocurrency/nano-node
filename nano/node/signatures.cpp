@@ -166,5 +166,5 @@ void nano::signature_checker::set_thread_names (unsigned num_threads)
 	{
 		future.wait ();
 	}
-	assert (pending == 0);
+	debug_assert (pending == 0);
 }

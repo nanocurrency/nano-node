@@ -66,7 +66,7 @@ void nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, s
 	}
 	else
 	{
-		assert (false && "nano::socket::async_read called with incorrect buffer size");
+		debug_assert (false && "nano::socket::async_read called with incorrect buffer size");
 		boost::system::error_code ec_buffer = boost::system::errc::make_error_code (boost::system::errc::no_buffer_space);
 		callback_a (ec_buffer, 0);
 	}
@@ -378,6 +378,6 @@ void nano::server_socket::on_connection (std::function<bool(std::shared_ptr<nano
 // This must be called from a strand
 void nano::server_socket::evict_dead_connections ()
 {
-	assert (strand.running_in_this_thread ());
+	debug_assert (strand.running_in_this_thread ());
 	connections.erase (std::remove_if (connections.begin (), connections.end (), [](auto & connection) { return connection.expired (); }), connections.end ());
 }

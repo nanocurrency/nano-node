@@ -5,6 +5,7 @@
 #include <nano/lib/numbers.hpp>
 #include <nano/lib/stream.hpp>
 #include <nano/lib/utility.hpp>
+#include <nano/lib/work.hpp>
 
 #include <boost/property_tree/ptree_fwd.hpp>
 
@@ -58,6 +59,7 @@ public:
 	virtual ~block () = default;
 	virtual bool valid_predecessor (nano::block const &) const = 0;
 	static size_t size (nano::block_type);
+	virtual nano::work_version work_version () const;
 	// If there are any changes to the hashables, call this to update the cached hash
 	void refresh ();
 

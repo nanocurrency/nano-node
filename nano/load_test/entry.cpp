@@ -450,7 +450,7 @@ int main (int argc, char * const * argv)
 #else
 	std::thread processes_thread ([&data_paths, &node_path, &rpc_path, &current_network]() {
 		auto formatted_command = "%1% --daemon --data_path=%2% --network=%3% %4%";
-		assert (!data_paths.empty ());
+		ASSERT_TRUE (!data_paths.empty ());
 		for (int i = 0; i < data_paths.size (); ++i)
 		{
 			auto node_exe_command = boost::str (boost::format (formatted_command) % node_path % data_paths[i].string () % current_network % "&");
@@ -474,7 +474,7 @@ int main (int argc, char * const * argv)
 
 	boost::asio::io_context ioc;
 
-	assert (!nano::signal_handler_impl);
+	debug_assert (!nano::signal_handler_impl);
 	nano::signal_handler_impl = [&ioc]() {
 		ioc.stop ();
 	};

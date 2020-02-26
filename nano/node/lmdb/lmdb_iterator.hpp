@@ -74,7 +74,7 @@ public:
 
 	nano::store_iterator_impl<T, U> & operator++ () override
 	{
-		assert (cursor != nullptr);
+		debug_assert (cursor != nullptr);
 		auto status (mdb_cursor_get (cursor, &current.first.value, &current.second.value, MDB_NEXT));
 		release_assert (status == 0 || status == MDB_NOTFOUND);
 		if (status == MDB_NOTFOUND)
@@ -97,9 +97,9 @@ public:
 	{
 		auto const other_a (boost::polymorphic_downcast<nano::mdb_iterator<T, U> const *> (&base_a));
 		auto result (current.first.data () == other_a->current.first.data ());
-		assert (!result || (current.first.size () == other_a->current.first.size ()));
-		assert (!result || (current.second.data () == other_a->current.second.data ()));
-		assert (!result || (current.second.size () == other_a->current.second.size ()));
+		debug_assert (!result || (current.first.size () == other_a->current.first.size ()));
+		debug_assert (!result || (current.second.data () == other_a->current.second.data ()));
+		debug_assert (!result || (current.second.size () == other_a->current.second.size ()));
 		return result;
 	}
 
@@ -130,7 +130,7 @@ public:
 	{
 		current.first = nano::db_val<MDB_val> ();
 		current.second = nano::db_val<MDB_val> ();
-		assert (is_end_sentinal ());
+		debug_assert (is_end_sentinal ());
 	}
 
 	nano::mdb_iterator<T, U> & operator= (nano::mdb_iterator<T, U> && other_a)
@@ -203,7 +203,7 @@ public:
 
 	bool operator== (nano::store_iterator_impl<T, U> const & base_a) const override
 	{
-		assert ((dynamic_cast<nano::mdb_merge_iterator<T, U> const *> (&base_a) != nullptr) && "Incompatible iterator comparison");
+		debug_assert ((dynamic_cast<nano::mdb_merge_iterator<T, U> const *> (&base_a) != nullptr) && "Incompatible iterator comparison");
 		auto & other (static_cast<nano::mdb_merge_iterator<T, U> const &> (base_a));
 		return *impl1 == *other.impl1 && *impl2 == *other.impl2;
 	}

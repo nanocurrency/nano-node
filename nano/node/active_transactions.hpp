@@ -97,7 +97,7 @@ public:
 	// Is the root of this block in the roots container
 	bool active (nano::block const &);
 	bool active (nano::qualified_root const &);
-	void update_difficulty (std::shared_ptr<nano::block>, boost::optional<nano::write_transaction const &> = boost::none);
+	void update_difficulty (std::shared_ptr<nano::block>);
 	void adjust_difficulty (nano::block_hash const &);
 	void update_active_difficulty (nano::unique_lock<std::mutex> &);
 	uint64_t active_difficulty ();
@@ -139,9 +139,6 @@ public:
 	size_t inactive_votes_cache_size ();
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> election_winner_details;
 	size_t election_winner_details_size ();
-	void add_dropped_elections_cache (nano::qualified_root const &);
-	std::chrono::steady_clock::time_point find_dropped_elections_cache (nano::qualified_root const &);
-	size_t dropped_elections_cache_size ();
 	nano::confirmation_solicitor solicitor;
 
 private:
@@ -205,24 +202,12 @@ private:
 			mi::member<nano::inactive_cache_information, nano::block_hash, &nano::inactive_cache_information::hash>>>>;
 	ordered_cache inactive_votes_cache;
 	// clang-format on
-	static size_t constexpr inactive_votes_cache_max{ 16 * 1024 };
 	bool inactive_votes_bootstrap_check (std::vector<nano::account> const &, nano::block_hash const &, bool &);
-	// clang-format off
-	boost::multi_index_container<nano::election_timepoint,
-	mi::indexed_by<
-		mi::sequenced<mi::tag<tag_sequence>>,
-		mi::hashed_unique<mi::tag<tag_root>,
-			mi::member<nano::election_timepoint, nano::qualified_root, &nano::election_timepoint::root>>>>
-	dropped_elections_cache;
-	// clang-format on
 	static size_t constexpr dropped_elections_cache_max{ 32 * 1024 };
 	boost::thread thread;
 
 	friend class confirmation_height_prioritize_frontiers_Test;
 	friend class confirmation_height_prioritize_frontiers_overwrite_Test;
-	friend class confirmation_height_many_accounts_single_confirmation_Test;
-	friend class confirmation_height_many_accounts_many_confirmations_Test;
-	friend class confirmation_height_long_chains_Test;
 };
 
 std::unique_ptr<container_info_component> collect_container_info (active_transactions & active_transactions, const std::string & name);

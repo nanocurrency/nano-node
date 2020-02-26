@@ -13,7 +13,7 @@
 
 namespace nano
 {
-/** Policy to affects at which stage a buffer can be dropped */
+/** Policy to affect at which stage a buffer can be dropped */
 enum class buffer_drop_policy
 {
 	/** Can be dropped by bandwidth limiter (default) */

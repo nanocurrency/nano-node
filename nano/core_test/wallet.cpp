@@ -649,7 +649,7 @@ TEST (wallet, work)
 		uint64_t work (0);
 		if (!wallet->store.work_get (transaction, nano::test_genesis_key.pub, work))
 		{
-			done = !nano::work_validate (genesis.hash (), work);
+			done = !nano::work_validate (genesis.open->work_version (), genesis.hash (), work);
 		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -669,7 +669,7 @@ TEST (wallet, work_generate)
 		account1 = system.account (transaction, 0);
 	}
 	nano::keypair key;
-	wallet->send_action (nano::test_genesis_key.pub, key.pub, 100);
+	auto block (wallet->send_action (nano::test_genesis_key.pub, key.pub, 100));
 	system.deadline_set (10s);
 	auto transaction (node1.store.tx_begin_read ());
 	while (node1.ledger.account_balance (transaction, nano::test_genesis_key.pub) == amount1)
@@ -683,7 +683,7 @@ TEST (wallet, work_generate)
 		ASSERT_NO_ERROR (system.poll ());
 		auto block_transaction (node1.store.tx_begin_read ());
 		auto transaction (system.wallet (0)->wallets.tx_begin_read ());
-		again = wallet->store.work_get (transaction, account1, work1) || nano::work_validate (node1.ledger.latest_root (block_transaction, account1), work1);
+		again = wallet->store.work_get (transaction, account1, work1) || nano::work_validate (block->work_version (), node1.ledger.latest_root (block_transaction, account1), work1);
 	}
 }
 
@@ -949,7 +949,7 @@ TEST (wallet, no_work)
 	auto block (system.wallet (0)->send_action (nano::test_genesis_key.pub, key2.pub, std::numeric_limits<nano::uint128_t>::max (), false));
 	ASSERT_NE (nullptr, block);
 	ASSERT_NE (0, block->block_work ());
-	ASSERT_FALSE (nano::work_validate (block->root (), block->block_work ()));
+	ASSERT_FALSE (nano::work_validate (*block));
 	auto transaction (system.wallet (0)->wallets.tx_begin_read ());
 	uint64_t cached_work (0);
 	system.wallet (0)->store.work_get (transaction, nano::test_genesis_key.pub, cached_work);
