@@ -275,13 +275,12 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 			lock_a.unlock ();
 			search_frontiers (transaction_l);
 			lock_a.lock ();
+			update_adjusted_difficulty (); // New roots sorting
 		}
 	}
 
 	// Only representatives ready to receive batched confirm_req
-	lock_a.unlock ();
 	solicitor.prepare (node.rep_crawler.representatives (node.network_params.protocol.tcp_realtime_protocol_version_min));
-	lock_a.lock ();
 
 	auto const now (std::chrono::steady_clock::now ());
 	// Any new election started from process_live only gets requests after at least 1 second
@@ -296,7 +295,6 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	auto const request_cutoff (now - min_time_between_requests);
 
 	auto roots_size_l (roots.size ());
-	update_adjusted_difficulty (); // Roots sorting
 	auto & sorted_roots_l = roots.get<tag_difficulty> ();
 	size_t count_l{ 0 };
 
