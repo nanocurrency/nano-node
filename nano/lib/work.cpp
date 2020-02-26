@@ -21,9 +21,9 @@ std::string nano::to_string (nano::work_version const version_a)
 	return result;
 }
 
-bool nano::work_validate (nano::work_version const version_a, nano::block const & block_a, uint64_t * difficulty_a)
+bool nano::work_validate (nano::block const & block_a, uint64_t * difficulty_a)
 {
-	return nano::work_validate (version_a, block_a.root (), block_a.block_work (), difficulty_a);
+	return nano::work_validate (block_a.work_version (), block_a.root (), block_a.block_work (), difficulty_a);
 }
 
 bool nano::work_validate (nano::work_version const version_a, nano::root const & root_a, uint64_t const work_a, uint64_t * difficulty_a)
@@ -38,18 +38,6 @@ bool nano::work_validate (nano::work_version const version_a, nano::root const &
 			debug_assert (false && "Invalid version specified to work_validate");
 	}
 	return invalid;
-}
-
-bool nano::work_validate (nano::block const & block_a, uint64_t * difficulty_a)
-{
-	return nano::work_validate (block_a.root (), block_a.block_work (), difficulty_a);
-}
-
-bool nano::work_validate (nano::root const & root_a, uint64_t const work_a, uint64_t * difficulty_a)
-{
-	static nano::network_constants network_constants;
-	debug_assert (network_constants.is_test_network ());
-	return nano::work_validate (nano::work_version::work_1, root_a, work_a, difficulty_a);
 }
 
 bool nano::work_v1::validate (nano::root const & root_a, uint64_t work_a, uint64_t * difficulty_a)
