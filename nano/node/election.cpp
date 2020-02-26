@@ -118,8 +118,11 @@ void nano::election::confirm_if_quorum ()
 	}
 	if (sum >= node.config.online_weight_minimum.number () && winner_hash_l != status_winner_hash_l)
 	{
-		node.votes_cache.remove (status_winner_hash_l);
-		node.block_processor.generator.add (winner_hash_l);
+		if (node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
+		{
+			node.votes_cache.remove (status_winner_hash_l);
+			node.block_processor.generator.add (winner_hash_l);
+		}
 		node.block_processor.force (block_l);
 		status.winner = block_l;
 		update_dependent ();
