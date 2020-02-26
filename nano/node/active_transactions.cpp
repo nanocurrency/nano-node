@@ -580,7 +580,9 @@ std::pair<std::shared_ptr<nano::election>, bool> nano::active_transactions::inse
 				auto hash (block_a->hash ());
 				result.first = nano::make_shared<nano::election> (node, block_a, skip_delay_a, confirmation_action_a);
 				uint64_t difficulty (0);
-				release_assert (!nano::work_validate (*block_a, &difficulty));
+				auto error (nano::work_validate (*block_a, &difficulty));
+				(void)error;
+				debug_assert (!error);
 				roots.get<tag_root> ().emplace (nano::conflict_info{ root, difficulty, difficulty, result.first });
 				blocks.emplace (hash, result.first);
 				adjust_difficulty (hash);

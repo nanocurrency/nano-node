@@ -67,32 +67,25 @@ void nano::block_processor::add (std::shared_ptr<nano::block> block_a, uint64_t 
 
 void nano::block_processor::add (nano::unchecked_info const & info_a)
 {
-	if (!nano::work_validate (*info_a.block))
+	debug_assert (!nano::work_validate (*info_a.block));
 	{
+		auto hash (info_a.block->hash ());
+		auto filter_hash (filter_item (hash, info_a.block->block_signature ()));
+		nano::lock_guard<std::mutex> lock (mutex);
+		if (blocks_filter.find (filter_hash) == blocks_filter.end ())
 		{
-			auto hash (info_a.block->hash ());
-			auto filter_hash (filter_item (hash, info_a.block->block_signature ()));
-			nano::lock_guard<std::mutex> lock (mutex);
-			if (blocks_filter.find (filter_hash) == blocks_filter.end ())
+			if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
 			{
-				if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
-				{
-					state_blocks.push_back (info_a);
-				}
-				else
-				{
-					blocks.push_back (info_a);
-				}
-				blocks_filter.insert (filter_hash);
+				state_blocks.push_back (info_a);
 			}
+			else
+			{
+				blocks.push_back (info_a);
+			}
+			blocks_filter.insert (filter_hash);
 		}
-		condition.notify_all ();
 	}
-	else
-	{
-		node.logger.try_log ("nano::block_processor::add called for hash ", info_a.block->hash ().to_string (), " with invalid work ", nano::to_string_hex (info_a.block->block_work ()));
-		debug_assert (false && "nano::block_processor::add called with invalid work");
-	}
+	condition.notify_all ();
 }
 
 void nano::block_processor::force (std::shared_ptr<nano::block> block_a)

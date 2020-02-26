@@ -2002,7 +2002,15 @@ wallet (wallet_a)
 			{
 				show_label_ok (*status);
 				this->status->setText ("");
-				this->wallet.node.process_active (std::move (block_l));
+				if (!nano::work_validate (*block_l))
+				{
+					this->wallet.node.process_active (std::move (block_l));
+				}
+				else
+				{
+					show_label_error (*status);
+					this->status->setText ("Invalid work");
+				}
 			}
 			else
 			{
