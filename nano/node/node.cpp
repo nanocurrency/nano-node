@@ -1261,8 +1261,7 @@ void nano::node::process_confirmed (nano::election_status const & status_a, std:
 	{
 		auto block_a (status_a.winner);
 		auto hash (block_a->hash ());
-		auto transaction (store.tx_begin_read ());
-		if (store.block_get (transaction, hash) != nullptr)
+		if (ledger.block_exists (block_a->type (), hash))
 		{
 			// Pausing to prevent this block being processed before adding to election winner details.
 			confirmation_height_processor.pause ();
