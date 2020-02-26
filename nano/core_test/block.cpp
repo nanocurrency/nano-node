@@ -399,6 +399,15 @@ TEST (state_block, hashing)
 	ASSERT_EQ (hash, block.hash ());
 }
 
+TEST (blocks, work_version)
+{
+	ASSERT_EQ (nano::work_version::work_1, nano::send_block ().work_version ());
+	ASSERT_EQ (nano::work_version::work_1, nano::receive_block ().work_version ());
+	ASSERT_EQ (nano::work_version::work_1, nano::change_block ().work_version ());
+	ASSERT_EQ (nano::work_version::work_1, nano::open_block ().work_version ());
+	ASSERT_EQ (nano::work_version::work_1, nano::state_block ().work_version ());
+}
+
 TEST (block_uniquer, null)
 {
 	nano::block_uniquer uniquer;
