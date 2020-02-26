@@ -59,6 +59,7 @@ TEST (active_transactions, adjusted_difficulty_priority)
 	// Check adjusted difficulty
 	{
 		nano::lock_guard<std::mutex> active_guard (node1.active.mutex);
+		node1.active.update_adjusted_difficulty ();
 		ASSERT_EQ (node1.active.roots.get<1> ().begin ()->election->status.winner->hash (), send1->hash ());
 		ASSERT_LT (node1.active.roots.find (send2->qualified_root ())->adjusted_difficulty, node1.active.roots.find (send1->qualified_root ())->adjusted_difficulty);
 		ASSERT_LT (node1.active.roots.find (open1->qualified_root ())->adjusted_difficulty, node1.active.roots.find (send1->qualified_root ())->adjusted_difficulty);
@@ -105,6 +106,7 @@ TEST (active_transactions, adjusted_difficulty_priority)
 
 	// Check adjusted difficulty
 	nano::lock_guard<std::mutex> lock (node1.active.mutex);
+	node1.active.update_adjusted_difficulty ();
 	uint64_t last_adjusted (0);
 	for (auto i (node1.active.roots.get<1> ().begin ()), n (node1.active.roots.get<1> ().end ()); i != n; ++i)
 	{
@@ -160,7 +162,8 @@ TEST (active_transactions, adjusted_difficulty_overflow_max)
 		modify_difficulty (send2_root);
 		modify_difficulty (open1_root);
 		modify_difficulty (open2_root);
-		node1.active.adjust_difficulty (send2->hash ());
+		node1.active.add_adjust_difficulty (send2->hash ());
+		node1.active.update_adjusted_difficulty ();
 		// Test overflow
 		ASSERT_EQ (node1.active.roots.get<1> ().begin ()->election->status.winner->hash (), send1->hash ());
 		ASSERT_EQ (send1_root->adjusted_difficulty, std::numeric_limits<std::uint64_t>::max ());
@@ -214,7 +217,8 @@ TEST (active_transactions, adjusted_difficulty_overflow_min)
 		modify_difficulty (open1_root);
 		modify_difficulty (open2_root);
 		modify_difficulty (send3_root);
-		node1.active.adjust_difficulty (send1->hash ());
+		node1.active.add_adjust_difficulty (send1->hash ());
+		node1.active.update_adjusted_difficulty ();
 		// Test overflow
 		ASSERT_EQ (node1.active.roots.get<1> ().begin ()->election->status.winner->hash (), send1->hash ());
 		ASSERT_EQ (send1_root->adjusted_difficulty, std::numeric_limits<std::uint64_t>::min () + 3);
@@ -338,6 +342,8 @@ TEST (active_transactions, prioritize_chains)
 	}
 	size_t seen (0);
 	{
+		nano::lock_guard<std::mutex> active_guard (node1.active.mutex);
+		node1.active.update_adjusted_difficulty ();
 		auto it (node1.active.roots.get<1> ().begin ());
 		while (!node1.active.roots.empty () && it != node1.active.roots.get<1> ().end ())
 		{

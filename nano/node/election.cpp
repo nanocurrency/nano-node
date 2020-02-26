@@ -132,7 +132,7 @@ void nano::election::confirm_if_quorum ()
 		node.block_processor.force (block_l);
 		status.winner = block_l;
 		update_dependent ();
-		node.active.adjust_difficulty (winner_hash_l);
+		node.active.add_adjust_difficulty (winner_hash_l);
 	}
 	if (have_quorum (tally_l, sum))
 	{
@@ -290,7 +290,7 @@ void nano::election::clear_dependent ()
 {
 	for (auto & dependent_block : dependent_blocks)
 	{
-		node.active.adjust_difficulty (dependent_block);
+		node.active.add_adjust_difficulty (dependent_block);
 	}
 }
 

@@ -98,7 +98,8 @@ public:
 	bool active (nano::block const &);
 	bool active (nano::qualified_root const &);
 	void update_difficulty (std::shared_ptr<nano::block>);
-	void adjust_difficulty (nano::block_hash const &);
+	void add_adjust_difficulty (nano::block_hash const &);
+	void update_adjusted_difficulty ();
 	void update_active_difficulty (nano::unique_lock<std::mutex> &);
 	uint64_t active_difficulty ();
 	uint64_t limited_active_difficulty ();
@@ -196,6 +197,7 @@ private:
 	void prioritize_account_for_confirmation (prioritize_num_uncemented &, size_t &, nano::account const &, nano::account_info const &, uint64_t);
 	static size_t constexpr max_priority_cementable_frontiers{ 100000 };
 	static size_t constexpr confirmed_frontiers_max_pending_cut_off{ 1000 };
+	std::deque<nano::block_hash> adjust_difficulty_list;
 	// clang-format off
 	using ordered_cache = boost::multi_index_container<nano::inactive_cache_information,
 	mi::indexed_by<
