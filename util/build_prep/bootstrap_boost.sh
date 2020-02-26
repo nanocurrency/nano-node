@@ -5,16 +5,18 @@ buildArgs=()
 useClang='false'
 useLibCXX='false'
 keepArchive='false'
+LINK_TYPE=('link=static')
 debugLevel=0
 buildCArgs=()
 buildCXXArgs=()
 buildLDArgs=()
 boostVersion='1.67'
-while getopts 'hmcCkpvB:' OPT; do
+while getopts 'hmscCkpvB:' OPT; do
 	case "${OPT}" in
 		h)
 			echo "Usage: bootstrap_boost.sh [-hmcCkpv] [-B <boostVersion>]"
 			echo "   -h                 This help"
+			echo "   -s					Build shared default builds static"
 			echo "   -m                 Build a minimal set of libraries needed for Nano"
 			echo "   -c                 Use Clang"
 			echo "   -C                 Use libc++ when using Clang"
@@ -24,6 +26,9 @@ while getopts 'hmcCkpvB:' OPT; do
 			echo "                      further"
 			echo "   -B <boostVersion>  Specify version of Boost to build"
 			exit 0
+			;;
+		s)
+			LINK_TYPE+=('link=shared')
 			;;
 		m)
 			bootstrapArgs+=('--with-libraries=system,thread,log,filesystem,program_options')
@@ -126,7 +131,7 @@ tar xf "${BOOST_ARCHIVE}"
 
 pushd "${BOOST_BASENAME}"
 ./bootstrap.sh "${bootstrapArgs[@]}"
-./b2 -d${debugLevel} --prefix="${BOOST_ROOT}" link=static "${buildArgs[@]}" install
+./b2 -d${debugLevel} --prefix="${BOOST_ROOT}" ${LINK_TYPE[@]} "${buildArgs[@]}" install
 popd
 
 rm -rf "${BOOST_BASENAME}"
