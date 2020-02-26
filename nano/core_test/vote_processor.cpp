@@ -87,6 +87,45 @@ TEST (vote_processor, invalid_signature)
 	ASSERT_EQ (2, election.first->last_votes.size ());
 }
 
+TEST (vote_processor, no_capacity)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.vote_processor_capacity = 0;
+	auto & node (*system.add_node (node_flags));
+	nano::genesis genesis;
+	nano::keypair key;
+	auto vote (std::make_shared<nano::vote> (key.pub, key.prv, 1, std::vector<nano::block_hash>{ genesis.open->hash () }));
+	auto channel (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
+	ASSERT_TRUE (node.vote_processor.vote (vote, channel));
+}
+
+TEST (vote_processor, overflow)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.vote_processor_capacity = 1;
+	auto & node (*system.add_node (node_flags));
+	nano::genesis genesis;
+	nano::keypair key;
+	auto vote (std::make_shared<nano::vote> (key.pub, key.prv, 1, std::vector<nano::block_hash>{ genesis.open->hash () }));
+	auto channel (std::make_shared<nano::transport::channel_udp> (node.network.udp_channels, node.network.endpoint (), node.network_params.protocol.protocol_version));
+
+	// No way to lock the processor, but queueing votes in quick succession must result in overflow
+	size_t not_processed{ 0 };
+	size_t const total{ 1000 };
+	for (unsigned i = 0; i < total; ++i)
+	{
+		if (node.vote_processor.vote (vote, channel))
+		{
+			++not_processed;
+		}
+	}
+	ASSERT_GT (not_processed, 0);
+	ASSERT_LT (not_processed, total);
+	ASSERT_EQ (not_processed, node.stats.count (nano::stat::type::vote, nano::stat::detail::vote_overflow));
+}
+
 namespace nano
 {
 TEST (vote_processor, weights)

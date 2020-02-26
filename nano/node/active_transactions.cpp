@@ -277,6 +277,12 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 			lock_a.lock ();
 		}
 	}
+
+	// Only representatives ready to receive batched confirm_req
+	lock_a.unlock ();
+	solicitor.prepare (node.rep_crawler.representatives (node.network_params.protocol.tcp_realtime_protocol_version_min));
+	lock_a.lock ();
+
 	auto const now (std::chrono::steady_clock::now ());
 	// Any new election started from process_live only gets requests after at least 1 second
 	auto cutoff_l (now - election_request_delay);
@@ -292,9 +298,6 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	auto roots_size_l (roots.size ());
 	auto & sorted_roots_l = roots.get<tag_difficulty> ();
 	size_t count_l{ 0 };
-
-	// Only representatives ready to receive batched confirm_req
-	solicitor.prepare (node.rep_crawler.representatives (node.network_params.protocol.tcp_realtime_protocol_version_min));
 
 	/*
 	 * Loop through active elections in descending order of proof-of-work difficulty, requesting confirmation
