@@ -296,6 +296,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	auto const request_cutoff (now - min_time_between_requests);
 
 	auto roots_size_l (roots.size ());
+	update_adjusted_difficulty (); // Roots sorting
 	auto & sorted_roots_l = roots.get<tag_difficulty> ();
 	size_t count_l{ 0 };
 
