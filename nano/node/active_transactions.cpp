@@ -160,13 +160,13 @@ void nano::active_transactions::block_cemented_callback (std::shared_ptr<nano::b
 				auto election = existing->second;
 				election_winner_details.erase (hash);
 				election_winners_lk.unlock ();
+				// Make sure mutex is held before election usage so we know that confirm_once has
+				// finished removing the root from active to avoid any data race.
+				nano::unique_lock<std::mutex> lk (mutex);
 				if (election->confirmed () && !election->stopped && election->status.winner->hash () == hash)
 				{
-					{
-						nano::lock_guard<std::mutex> guard (mutex);
-						add_confirmed (election->status, block_a->qualified_root ());
-					}
-
+					add_confirmed (election->status, block_a->qualified_root ());
+					lk.unlock ();
 					node.receive_confirmed (transaction, block_a, hash);
 					nano::account account (0);
 					nano::uint128_t amount (0);
