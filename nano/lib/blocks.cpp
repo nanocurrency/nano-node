@@ -130,13 +130,13 @@ nano::block_hash nano::block::full_hash () const
 
 nano::block_sideband const & nano::block::sideband () const
 {
-	debug_assert (sideband_m.is_initialized ());
+	debug_assert (sideband_m != nullptr);
 	return *sideband_m;
 }
 
 void nano::block::sideband_set (nano::block_sideband const & sideband_a)
 {
-	sideband_m = sideband_a;
+	sideband_m = std::make_unique<nano::block_sideband> (sideband_a);
 }
 
 nano::account const & nano::block::representative () const

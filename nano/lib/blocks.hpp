@@ -7,7 +7,6 @@
 #include <nano/lib/stream.hpp>
 #include <nano/lib/utility.hpp>
 
-#include <boost/optional.hpp>
 #include <boost/property_tree/ptree_fwd.hpp>
 
 #include <unordered_map>
@@ -106,9 +105,13 @@ public:
 
 protected:
 	mutable nano::block_hash cached_hash{ 0 };
-	// Contextual details about a block, some fields may or may not be set depending on block type
-	// This field is set via sideband_set in ledger processing or deserializing blocks from the database
-	boost::optional<nano::block_sideband> sideband_m{ boost::none };
+	/**
+	 * Contextual details about a block, some fields may or may not be set depending on block type.
+	 * This field is set via sideband_set in ledger processing or deserializing blocks from the database.
+	 * Otherwise it may be null (for example, an old block or fork).
+	 * TODO: Use a polymorphic sideband to reduce memory overhead.
+	 */
+	std::unique_ptr<nano::block_sideband> sideband_m;
 
 private:
 	nano::block_hash generate_hash () const;
