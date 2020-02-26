@@ -580,7 +580,7 @@ std::pair<std::shared_ptr<nano::election>, bool> nano::active_transactions::inse
 				auto hash (block_a->hash ());
 				result.first = nano::make_shared<nano::election> (node, block_a, skip_delay_a, confirmation_action_a);
 				uint64_t difficulty (0);
-				auto error (nano::work_validate (nano::work_version::work_1, *block_a, &difficulty));
+				auto error (nano::work_validate (*block_a, &difficulty));
 				(void)error;
 				debug_assert (!error);
 				roots.get<tag_root> ().emplace (nano::conflict_info{ root, difficulty, difficulty, result.first });
@@ -680,7 +680,7 @@ void nano::active_transactions::update_difficulty (std::shared_ptr<nano::block> 
 	if (existing_election != roots.get<tag_root> ().end ())
 	{
 		uint64_t difficulty;
-		auto error (nano::work_validate (nano::work_version::work_1, *block_a, &difficulty));
+		auto error (nano::work_validate (*block_a, &difficulty));
 		(void)error;
 		debug_assert (!error);
 		if (difficulty > existing_election->difficulty)
@@ -999,7 +999,7 @@ void nano::active_transactions::add_inactive_votes_cache (nano::block_hash const
 			bool start_bootstrap (inactive_votes_bootstrap_check (representative_vector, hash_a, confirmed));
 			auto & inactive_by_arrival (inactive_votes_cache.get<tag_arrival> ());
 			inactive_by_arrival.emplace (nano::inactive_cache_information{ std::chrono::steady_clock::now (), hash_a, representative_vector, start_bootstrap, confirmed });
-			if (inactive_votes_cache.size () > inactive_votes_cache_max)
+			if (inactive_votes_cache.size () > node.flags.inactive_votes_cache_size)
 			{
 				inactive_by_arrival.erase (inactive_by_arrival.begin ());
 			}
