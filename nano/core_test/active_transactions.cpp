@@ -678,5 +678,5 @@ TEST (active_transactions, activate_dependencies)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	assert (node1->block (block2->hash ()) != nullptr);
+	ASSERT_NE (nullptr, node1->block (block2->hash ()));
 }
