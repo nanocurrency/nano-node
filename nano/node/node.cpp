@@ -48,7 +48,12 @@ void nano::node::keepalive (std::string const & address_a, uint16_t port_a)
 					node_l->network.tcp_channels.start_tcp (endpoint, [node_w](std::shared_ptr<nano::transport::channel> channel_a) {
 						if (auto node_l = node_w.lock ())
 						{
-							node_l->network.send_keepalive (channel_a);
+							node_l->network.validate_telemetry_data (node_l, channel_a, [node_w, channel_a]() {
+								if (auto node_l = node_w.lock ())
+								{
+									node_l->network.send_keepalive (channel_a);
+								}
+							});
 						}
 					});
 				}
@@ -1076,11 +1081,16 @@ void nano::node::add_initial_peers ()
 			network.tcp_channels.start_tcp (endpoint, [node_w](std::shared_ptr<nano::transport::channel> channel_a) {
 				if (auto node_l = node_w.lock ())
 				{
-					node_l->network.send_keepalive (channel_a);
-					if (!node_l->flags.disable_rep_crawler)
-					{
-						node_l->rep_crawler.query (channel_a);
-					}
+					node_l->network.validate_telemetry_data (node_l, channel_a, [node_w, channel_a]() {
+						if (auto node_l = node_w.lock ())
+						{
+							node_l->network.send_keepalive (channel_a);
+							if (!node_l->flags.disable_rep_crawler)
+							{
+								node_l->rep_crawler.query (channel_a);
+							}
+						}
+					});
 				}
 			});
 		}

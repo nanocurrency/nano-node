@@ -492,6 +492,34 @@ void nano::network::merge_peers (std::array<nano::endpoint, 8> const & peers_a)
 	}
 }
 
+void nano::network::validate_telemetry_data (std::shared_ptr<nano::node> const & node, std::shared_ptr<nano::transport::channel> const & channel_a, std::function<void()> const & valid_connection_callback_a)
+{
+	// Currently only validating TCP connections
+	if (node->flags.disable_telemetry_handshake_validation || channel_a->get_type () == nano::transport::transport_type::udp)
+	{
+		valid_connection_callback_a ();
+	}
+	else
+	{
+		node->telemetry.get_metrics_single_peer_async (channel_a, [node_w = std::weak_ptr<nano::node> (node->shared_from_this ()), channel_a, valid_connection_callback_a](nano::telemetry_data_response const & response_a) {
+			if (auto node_l = node_w.lock ())
+			{
+				// Only send keepalives if the genesis hash matches
+				if (!response_a.error && response_a.telemetry_data.genesis_block == node_l->network_params.ledger.genesis_hash)
+				{
+					valid_connection_callback_a ();
+				}
+				else
+				{
+					debug_assert (channel_a->get_type () == nano::transport::transport_type::tcp);
+					node_l->network.tcp_channels.erase (channel_a->get_tcp_endpoint ());
+					node_l->stats.inc (nano::stat::type::peering, nano::stat::detail::invalid_genesis_hash);
+				}
+			}
+		});
+	}
+}
+
 void nano::network::merge_peer (nano::endpoint const & peer_a)
 {
 	if (!reachout (peer_a, node.config.allow_local_peers))
@@ -500,7 +528,12 @@ void nano::network::merge_peer (nano::endpoint const & peer_a)
 		node.network.tcp_channels.start_tcp (peer_a, [node_w](std::shared_ptr<nano::transport::channel> channel_a) {
 			if (auto node_l = node_w.lock ())
 			{
-				node_l->network.send_keepalive (channel_a);
+				node_l->network.validate_telemetry_data (node_l, channel_a, [node_w, channel_a]() {
+					if (auto node_l = node_w.lock ())
+					{
+						node_l->network.send_keepalive (channel_a);
+					}
+				});
 			}
 		});
 	}

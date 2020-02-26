@@ -887,10 +887,11 @@ namespace nano
 {
 TEST (node_telemetry, ongoing_requests)
 {
-	nano::system system (2);
-
-	auto node_client = system.nodes.front ();
-	auto node_server = system.nodes.back ();
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_telemetry_handshake_validation = true;
+	auto node_client = system.add_node (node_flags);
+	auto node_server = system.add_node (node_flags);
 
 	wait_peer_connections (system);
 
@@ -923,8 +924,14 @@ TEST (node_telemetry, ongoing_requests)
 
 TEST (node_telemetry, simultaneous_all_requests)
 {
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_telemetry_handshake_validation = true;
 	const auto num_nodes = 4;
-	nano::system system (num_nodes);
+	for (int i = 0; i < num_nodes; ++i)
+	{
+		system.add_node (node_flags);
+	}
 
 	// Wait until peers are stored as they are done in the background
 	wait_peer_connections (system);
@@ -985,7 +992,13 @@ namespace transport
 	TEST (node_telemetry, simultaneous_single_and_all_requests)
 	{
 		const auto num_nodes = 4;
-		nano::system system (num_nodes);
+		nano::system system;
+		nano::node_flags node_flags;
+		node_flags.disable_telemetry_handshake_validation = true;
+		for (int i = 0; i < num_nodes; ++i)
+		{
+			system.add_node (node_flags);
+		}
 
 		wait_peer_connections (system);
 

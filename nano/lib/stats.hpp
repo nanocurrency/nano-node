@@ -298,6 +298,7 @@ public:
 
 		// peering
 		handshake,
+		invalid_genesis_hash,
 
 		// confirmation height
 		blocks_confirmed,

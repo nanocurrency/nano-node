@@ -181,7 +181,7 @@ void nano::rep_crawler::query (std::vector<std::shared_ptr<nano::transport::chan
 	});
 }
 
-void nano::rep_crawler::query (std::shared_ptr<nano::transport::channel> & channel_a)
+void nano::rep_crawler::query (std::shared_ptr<nano::transport::channel> const & channel_a)
 {
 	std::vector<std::shared_ptr<nano::transport::channel>> peers;
 	peers.emplace_back (channel_a);

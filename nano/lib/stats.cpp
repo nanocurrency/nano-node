@@ -532,6 +532,9 @@ std::string nano::stat::detail_to_string (uint32_t key)
 		case nano::stat::detail::handshake:
 			res = "handshake";
 			break;
+		case nano::stat::detail::invalid_genesis_hash:
+			res = "invalid_genesis_hash";
+			break;
 		case nano::stat::detail::http_callback:
 			res = "http_callback";
 			break;

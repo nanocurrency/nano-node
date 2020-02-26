@@ -283,6 +283,7 @@ TEST (node_telemetry, basic)
 	nano::system system;
 	nano::node_flags node_flags;
 	node_flags.disable_ongoing_telemetry_requests = true;
+	node_flags.disable_telemetry_handshake_validation = true;
 	auto node_client = system.add_node (node_flags);
 	auto node_server = system.add_node (node_flags);
 
@@ -346,6 +347,8 @@ TEST (node_telemetry, basic)
 TEST (node_telemetry, many_nodes)
 {
 	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_telemetry_handshake_validation = true;
 	// The telemetry responses can timeout if using a large number of nodes under sanitizers, so lower the number.
 	const auto num_nodes = (is_sanitizer_build || nano::running_within_valgrind ()) ? 4 : 10;
 	for (auto i = 0; i < num_nodes; ++i)
@@ -353,7 +356,7 @@ TEST (node_telemetry, many_nodes)
 		nano::node_config node_config (nano::get_available_port (), system.logging);
 		// Make a metric completely different for each node so we can check afterwards that there are no duplicates
 		node_config.bandwidth_limit = 100000 + i;
-		system.add_node (node_config);
+		system.add_node (node_config, node_flags);
 	}
 
 	wait_peer_connections (system);
@@ -603,10 +606,11 @@ namespace nano
 {
 TEST (node_telemetry, multiple_single_request_clearing)
 {
-	nano::system system (2);
-
-	auto node_client = system.nodes.front ();
-	auto node_server = system.nodes.back ();
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_telemetry_handshake_validation = true;
+	auto node_client = system.add_node (node_flags);
+	auto node_server = system.add_node (node_flags);
 
 	nano::node_config node_config (nano::get_available_port (), system.logging);
 	node_config.bandwidth_limit = 100000;
@@ -685,9 +689,10 @@ TEST (node_telemetry, multiple_single_request_clearing)
 TEST (node_telemetry, disconnects)
 {
 	nano::system system (2);
-
-	auto node_client = system.nodes.front ();
-	auto node_server = system.nodes.back ();
+	nano::node_flags node_flags;
+	node_flags.disable_telemetry_handshake_validation = true;
+	auto node_client = system.add_node (node_flags);
+	auto node_server = system.add_node (node_flags);
 
 	wait_peer_connections (system);
 
@@ -726,6 +731,7 @@ TEST (node_telemetry, batch_use_single_request_cache)
 	nano::system system;
 	nano::node_flags node_flags;
 	node_flags.disable_ongoing_telemetry_requests = true;
+	node_flags.disable_telemetry_handshake_validation = true;
 	auto node_client = system.add_node (node_flags);
 	auto node_server = system.add_node (node_flags);
 
@@ -804,10 +810,11 @@ TEST (node_telemetry, batch_use_single_request_cache)
 
 TEST (node_telemetry, single_request_use_batch_cache)
 {
-	nano::system system (2);
-
-	auto node_client = system.nodes.front ();
-	auto node_server = system.nodes.back ();
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_telemetry_handshake_validation = true;
+	auto node_client = system.add_node (node_flags);
+	auto node_server = system.add_node (node_flags);
 
 	wait_peer_connections (system);
 
@@ -949,9 +956,10 @@ TEST (node_telemetry, dos_udp)
 
 TEST (node_telemetry, disable_metrics_single)
 {
-	nano::system system (1);
-	auto node_client = system.nodes.front ();
+	nano::system system;
 	nano::node_flags node_flags;
+	node_flags.disable_telemetry_handshake_validation = true;
+	auto node_client = system.add_node (node_flags);
 	node_flags.disable_providing_telemetry_metrics = true;
 	auto node_server = system.add_node (node_flags);
 
@@ -991,9 +999,10 @@ TEST (node_telemetry, disable_metrics_single)
 
 TEST (node_telemetry, disable_metrics_batch)
 {
-	nano::system system (1);
-	auto node_client = system.nodes.front ();
+	nano::system system;
 	nano::node_flags node_flags;
+	node_flags.disable_telemetry_handshake_validation = true;
+	auto node_client = system.add_node (node_flags);
 	node_flags.disable_providing_telemetry_metrics = true;
 	auto node_server = system.add_node (node_flags);
 

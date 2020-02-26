@@ -146,6 +146,7 @@ public:
 	nano::syn_cookies syn_cookies;
 	void ongoing_syn_cookie_cleanup ();
 	void ongoing_keepalive ();
+	void validate_telemetry_data (std::shared_ptr<nano::node> const &, std::shared_ptr<nano::transport::channel> const &, std::function<void()> const &);
 	size_t size () const;
 	float size_sqrt () const;
 	bool empty () const;

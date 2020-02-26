@@ -159,6 +159,32 @@ TEST (network, send_node_id_handshake_tcp)
 	node1->stop ();
 }
 
+TEST (network, send_node_id_handshake_invalid_genesis_tcp)
+{
+	nano::system system (1);
+	auto node0 (system.nodes[0]);
+	ASSERT_EQ (0, node0->network.size ());
+	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work));
+	// Change genesis block to something else in this test (this is the reference telemetry processing uses).
+	// Possible TSAN issue in the future if something else uses this.
+	node1->network_params.ledger.genesis_hash = nano::block_hash ("0");
+	node1->start ();
+	system.nodes.push_back (node1);
+	node0->network.merge_peer (node1->network.endpoint ());
+	node1->network.merge_peer (node0->network.endpoint ());
+	system.deadline_set (10s);
+	while (node0->stats.count (nano::stat::type::peering, nano::stat::detail::invalid_genesis_hash) == 0 || node1->stats.count (nano::stat::type::peering, nano::stat::detail::invalid_genesis_hash) == 0)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+
+	ASSERT_EQ (0, node0->network.size ());
+	ASSERT_EQ (0, node1->network.size ());
+
+	ASSERT_EQ (node0->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out), 1);
+	ASSERT_EQ (node1->stats.count (nano::stat::type::message, nano::stat::detail::node_id_handshake, nano::stat::dir::out), 1);
+}
+
 TEST (network, last_contacted)
 {
 	nano::system system;

@@ -125,8 +125,9 @@ public:
 	bool disable_unchecked_cleanup{ false };
 	bool disable_unchecked_drop{ true };
 	bool disable_providing_telemetry_metrics{ false };
-	bool disable_block_processor_unchecked_deletion{ false };
+	bool disable_telemetry_handshake_validation{ false };
 	bool disable_ongoing_telemetry_requests{ false };
+	bool disable_block_processor_unchecked_deletion{ false };
 	bool fast_bootstrap{ false };
 	bool read_only{ false };
 	nano::confirmation_height_mode confirmation_height_processor_mode{ nano::confirmation_height_mode::automatic };
