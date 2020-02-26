@@ -67,7 +67,7 @@ void nano::block_processor::add (std::shared_ptr<nano::block> block_a, uint64_t 
 
 void nano::block_processor::add (nano::unchecked_info const & info_a)
 {
-	if (!nano::work_validate (nano::work_version::work_1, info_a.block->root (), info_a.block->block_work ()))
+	if (!nano::work_validate (*info_a.block))
 	{
 		{
 			auto hash (info_a.block->hash ());
@@ -373,7 +373,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	// Add to work watcher to prevent dropping the election
 	if (watch_work_a)
 	{
-		node.wallets.watcher->add (block_a, nano::work_version::work_1);
+		node.wallets.watcher->add (block_a);
 	}
 
 	// Start collecting quorum on block

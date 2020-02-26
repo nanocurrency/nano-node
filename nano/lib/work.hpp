@@ -21,12 +21,8 @@ enum class work_version
 std::string to_string (nano::work_version const version_a);
 
 class block;
-bool work_validate (nano::work_version const, nano::block const &, uint64_t * = nullptr);
-bool work_validate (nano::work_version const, nano::root const &, uint64_t const, uint64_t * = nullptr);
-// For tests only
 bool work_validate (nano::block const &, uint64_t * = nullptr);
-// For tests only
-bool work_validate (nano::root const &, uint64_t const, uint64_t * = nullptr);
+bool work_validate (nano::work_version const, nano::root const &, uint64_t const, uint64_t * = nullptr);
 
 namespace work_v1
 {
