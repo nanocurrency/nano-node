@@ -446,7 +446,7 @@ TEST (active_transactions, inactive_votes_cache_fork)
 	while (!confirmed)
 	{
 		auto transaction (node.store.tx_begin_read ());
-		confirmed = node.block (send1->hash ()) != nullptr && node.ledger.block_confirmed (transaction, send1->hash ());
+		confirmed = node.block (send1->hash ()) != nullptr && node.ledger.block_confirmed (transaction, send1->hash ()) && node.active.empty ();
 		ASSERT_NO_ERROR (system.poll ());
 	}
 	ASSERT_EQ (1, node.stats.count (nano::stat::type::election, nano::stat::detail::vote_cached));
