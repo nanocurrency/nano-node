@@ -21,18 +21,14 @@ class optional_ptr
 	static_assert (sizeof (T) > alignof (std::max_align_t), "Use [std|boost]::optional");
 
 public:
-	optional_ptr () :
-	ptr (nullptr)
-	{
-	}
+	optional_ptr () = default;
 
 	optional_ptr (T const & value) :
 	ptr (new T{ value })
 	{
 	}
 
-	optional_ptr (optional_ptr const & other) :
-	ptr (nullptr)
+	optional_ptr (optional_ptr const & other)
 	{
 		if (other && other.ptr)
 		{
@@ -92,6 +88,6 @@ public:
 	}
 
 private:
-	std::unique_ptr<T> ptr;
+	std::unique_ptr<T> ptr{ nullptr };
 };
 }

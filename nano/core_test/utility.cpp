@@ -21,16 +21,18 @@ TEST (optional_ptr, basic)
 	ASSERT_FALSE (opt);
 	ASSERT_FALSE (opt.is_initialized ());
 
-	auto val = valtype{};
-	opt = val;
+	{
+		auto val = valtype{};
+		opt = val;
+		ASSERT_LT (sizeof (opt), sizeof (val));
+		std::unique_ptr<valtype> uptr;
+		ASSERT_EQ (sizeof (opt), sizeof (uptr));
+	}
 	ASSERT_TRUE (opt);
 	ASSERT_TRUE (opt.is_initialized ());
-	ASSERT_EQ (opt->x, val.x);
-	ASSERT_EQ (opt->y, val.y);
-	ASSERT_EQ (opt->z, val.z);
-	ASSERT_LT (sizeof (opt), sizeof (val));
-	std::unique_ptr<valtype> uptr;
-	ASSERT_EQ (sizeof (opt), sizeof (uptr));
+	ASSERT_EQ (opt->x, 1);
+	ASSERT_EQ (opt->y, 2);
+	ASSERT_EQ (opt->z, 3);
 }
 
 TEST (thread, worker)
