@@ -536,9 +536,8 @@ void nano::election::clear_blocks ()
 	for (auto & block : blocks)
 	{
 		auto & hash (block.first);
-		auto erased (node.active.blocks.erase (hash));
-		(void)erased;
-		debug_assert (erased == 1);
+		// Might not erase if block was rolled back
+		node.active.blocks.erase (hash);
 		node.active.erase_inactive_votes_cache (hash);
 		// Notify observers about dropped elections & blocks lost confirmed elections
 		if (!confirmed () || hash != winner_hash)
