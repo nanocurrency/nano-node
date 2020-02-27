@@ -15,7 +15,7 @@
 
 #include <boost/format.hpp>
 
-nano::vote_processor::vote_processor (nano::signature_checker & checker_a, nano::active_transactions & active_a, nano::node_observers & observers_a, nano::stat & stats_a, nano::node_config & config_a, nano::logger_mt & logger_a, nano::online_reps & online_reps_a, nano::ledger & ledger_a, nano::network_params & network_params_a) :
+nano::vote_processor::vote_processor (nano::signature_checker & checker_a, nano::active_transactions & active_a, nano::node_observers & observers_a, nano::stat & stats_a, nano::node_config & config_a, nano::node_flags & flags_a, nano::logger_mt & logger_a, nano::online_reps & online_reps_a, nano::ledger & ledger_a, nano::network_params & network_params_a) :
 checker (checker_a),
 active (active_a),
 observers (observers_a),
@@ -25,6 +25,7 @@ logger (logger_a),
 online_reps (online_reps_a),
 ledger (ledger_a),
 network_params (network_params_a),
+max_votes (flags_a.vote_processor_capacity),
 started (false),
 stopped (false),
 is_active (false),
@@ -88,56 +89,45 @@ void nano::vote_processor::process_loop ()
 	}
 }
 
-void nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a)
+bool nano::vote_processor::vote (std::shared_ptr<nano::vote> vote_a, std::shared_ptr<nano::transport::channel> channel_a)
 {
+	bool process (false);
 	nano::unique_lock<std::mutex> lock (mutex);
 	if (!stopped)
 	{
-		bool process (false);
-		/* Random early delection levels
-		 Always process votes for test network (process = true)
-		 Stop processing with max 144 * 1024 votes */
-		if (!network_params.network.is_test_network ())
+		// Level 0 (< 0.1%)
+		if (votes.size () < 6.0 / 9.0 * max_votes)
 		{
-			// Level 0 (< 0.1%)
-			if (votes.size () < 96 * 1024)
-			{
-				process = true;
-			}
-			// Level 1 (0.1-1%)
-			else if (votes.size () < 112 * 1024)
-			{
-				process = (representatives_1.find (vote_a->account) != representatives_1.end ());
-			}
-			// Level 2 (1-5%)
-			else if (votes.size () < 128 * 1024)
-			{
-				process = (representatives_2.find (vote_a->account) != representatives_2.end ());
-			}
-			// Level 3 (> 5%)
-			else if (votes.size () < 144 * 1024)
-			{
-				process = (representatives_3.find (vote_a->account) != representatives_3.end ());
-			}
-		}
-		else
-		{
-			// Process for test network
 			process = true;
+		}
+		// Level 1 (0.1-1%)
+		else if (votes.size () < 7.0 / 9.0 * max_votes)
+		{
+			process = (representatives_1.find (vote_a->account) != representatives_1.end ());
+		}
+		// Level 2 (1-5%)
+		else if (votes.size () < 8.0 / 9.0 * max_votes)
+		{
+			process = (representatives_2.find (vote_a->account) != representatives_2.end ());
+		}
+		// Level 3 (> 5%)
+		else if (votes.size () < max_votes)
+		{
+			process = (representatives_3.find (vote_a->account) != representatives_3.end ());
 		}
 		if (process)
 		{
 			votes.emplace_back (vote_a, channel_a);
-
 			lock.unlock ();
 			condition.notify_all ();
-			lock.lock ();
+			// Lock no longer required
 		}
 		else
 		{
 			stats.inc (nano::stat::type::vote, nano::stat::detail::vote_overflow);
 		}
 	}
+	return !process;
 }
 
 void nano::vote_processor::verify_votes (decltype (votes) const & votes_a)
@@ -166,7 +156,7 @@ void nano::vote_processor::verify_votes (decltype (votes) const & votes_a)
 	auto i (0);
 	for (auto const & vote : votes_a)
 	{
-		assert (verifications[i] == 1 || verifications[i] == 0);
+		debug_assert (verifications[i] == 1 || verifications[i] == 0);
 		if (verifications[i] == 1)
 		{
 			vote_blocking (vote.first, vote.second, true);
@@ -231,6 +221,18 @@ void nano::vote_processor::flush ()
 	{
 		condition.wait (lock);
 	}
+}
+
+size_t nano::vote_processor::size ()
+{
+	nano::lock_guard<std::mutex> guard (mutex);
+	return votes.size ();
+}
+
+bool nano::vote_processor::empty ()
+{
+	nano::lock_guard<std::mutex> guard (mutex);
+	return votes.empty ();
 }
 
 void nano::vote_processor::calculate_weights ()

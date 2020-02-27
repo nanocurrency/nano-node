@@ -185,7 +185,7 @@ public:
 	explicit operator nano::account_info () const
 	{
 		nano::account_info result;
-		assert (size () == result.db_size ());
+		debug_assert (size () == result.db_size ());
 		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + result.db_size (), reinterpret_cast<uint8_t *> (&result));
 		return result;
 	}
@@ -193,7 +193,7 @@ public:
 	explicit operator nano::account_info_v13 () const
 	{
 		nano::account_info_v13 result;
-		assert (size () == result.db_size ());
+		debug_assert (size () == result.db_size ());
 		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + result.db_size (), reinterpret_cast<uint8_t *> (&result));
 		return result;
 	}
@@ -201,7 +201,7 @@ public:
 	explicit operator nano::account_info_v14 () const
 	{
 		nano::account_info_v14 result;
-		assert (size () == result.db_size ());
+		debug_assert (size () == result.db_size ());
 		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + result.db_size (), reinterpret_cast<uint8_t *> (&result));
 		return result;
 	}
@@ -209,7 +209,7 @@ public:
 	explicit operator nano::block_info () const
 	{
 		nano::block_info result;
-		assert (size () == sizeof (result));
+		debug_assert (size () == sizeof (result));
 		static_assert (sizeof (nano::block_info::account) + sizeof (nano::block_info::balance) == sizeof (result), "Packed class");
 		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + sizeof (result), reinterpret_cast<uint8_t *> (&result));
 		return result;
@@ -218,7 +218,7 @@ public:
 	explicit operator nano::pending_info_v14 () const
 	{
 		nano::pending_info_v14 result;
-		assert (size () == result.db_size ());
+		debug_assert (size () == result.db_size ());
 		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + result.db_size (), reinterpret_cast<uint8_t *> (&result));
 		return result;
 	}
@@ -226,7 +226,7 @@ public:
 	explicit operator nano::pending_info () const
 	{
 		nano::pending_info result;
-		assert (size () == result.db_size ());
+		debug_assert (size () == result.db_size ());
 		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + result.db_size (), reinterpret_cast<uint8_t *> (&result));
 		return result;
 	}
@@ -234,7 +234,7 @@ public:
 	explicit operator nano::pending_key () const
 	{
 		nano::pending_key result;
-		assert (size () == sizeof (result));
+		debug_assert (size () == sizeof (result));
 		static_assert (sizeof (nano::pending_key::account) + sizeof (nano::pending_key::hash) == sizeof (result), "Packed class");
 		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + sizeof (result), reinterpret_cast<uint8_t *> (&result));
 		return result;
@@ -246,7 +246,7 @@ public:
 		nano::confirmation_height_info result;
 		bool error (result.deserialize (stream));
 		(void)error;
-		assert (!error);
+		debug_assert (!error);
 		return result;
 	}
 
@@ -256,14 +256,14 @@ public:
 		nano::unchecked_info result;
 		bool error (result.deserialize (stream));
 		(void)error;
-		assert (!error);
+		debug_assert (!error);
 		return result;
 	}
 
 	explicit operator nano::unchecked_key () const
 	{
 		nano::unchecked_key result;
-		assert (size () == sizeof (result));
+		debug_assert (size () == sizeof (result));
 		static_assert (sizeof (nano::unchecked_key::previous) + sizeof (nano::pending_key::hash) == sizeof (result), "Packed class");
 		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + sizeof (result), reinterpret_cast<uint8_t *> (&result));
 		return result;
@@ -300,7 +300,7 @@ public:
 		std::array<char, 64> result;
 		auto error = nano::try_read (stream, result);
 		(void)error;
-		assert (!error);
+		debug_assert (!error);
 		return result;
 	}
 
@@ -320,11 +320,11 @@ private:
 		auto error (false);
 		T block_w_sideband;
 		block_w_sideband.state_block = std::make_shared<nano::state_block> (error, stream);
-		assert (!error);
+		debug_assert (!error);
 
 		block_w_sideband.sideband.type = nano::block_type::state;
 		error = block_w_sideband.sideband.deserialize (stream);
-		assert (!error);
+		debug_assert (!error);
 
 		return block_w_sideband;
 	}
@@ -358,7 +358,7 @@ public:
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (data ()), size ());
 		auto error (false);
 		auto result (std::make_shared<Block> (error, stream));
-		assert (!error);
+		debug_assert (!error);
 		return result;
 	}
 
@@ -392,7 +392,7 @@ public:
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (data ()), size ());
 		auto error (false);
 		auto result (nano::make_shared<nano::vote> (error, stream));
-		assert (!error);
+		debug_assert (!error);
 		return result;
 	}
 
@@ -402,7 +402,7 @@ public:
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (data ()), size ());
 		auto error (nano::try_read (stream, result));
 		(void)error;
-		assert (!error);
+		debug_assert (!error);
 		boost::endian::big_to_native_inplace (result);
 		return result;
 	}
@@ -432,7 +432,7 @@ private:
 	T convert () const
 	{
 		T result;
-		assert (size () == sizeof (result));
+		debug_assert (size () == sizeof (result));
 		std::copy (reinterpret_cast<uint8_t const *> (data ()), reinterpret_cast<uint8_t const *> (data ()) + sizeof (result), result.bytes.data ());
 		return result;
 	}
@@ -440,6 +440,19 @@ private:
 
 class transaction;
 class block_store;
+
+class block_w_sideband final
+{
+public:
+	block_w_sideband (std::shared_ptr<nano::block> const & block_a, nano::block_sideband const & sideband_a) :
+	block (block_a),
+	sideband (sideband_a)
+	{
+	}
+
+	std::shared_ptr<nano::block> block;
+	nano::block_sideband sideband;
+};
 
 /**
  * Summation visitor for blocks, supporting amount and balance computations. These

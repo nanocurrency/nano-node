@@ -66,23 +66,23 @@ void nano::socket::async_read (std::shared_ptr<std::vector<uint8_t>> buffer_a, s
 	}
 	else
 	{
-		assert (false && "nano::socket::async_read called with incorrect buffer size");
+		debug_assert (false && "nano::socket::async_read called with incorrect buffer size");
 		boost::system::error_code ec_buffer = boost::system::errc::make_error_code (boost::system::errc::no_buffer_space);
 		callback_a (ec_buffer, 0);
 	}
 }
 
-void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, std::function<void(boost::system::error_code const &, size_t)> callback_a)
+void nano::socket::async_write (nano::shared_const_buffer const & buffer_a, std::function<void(boost::system::error_code const &, size_t)> callback_a, nano::buffer_drop_policy drop_policy_a)
 {
 	auto this_l (shared_from_this ());
 	if (!closed)
 	{
 		if (writer_concurrency == nano::socket::concurrency::multi_writer)
 		{
-			boost::asio::post (strand, boost::asio::bind_executor (strand, [buffer_a, callback_a, this_l]() {
+			boost::asio::post (strand, boost::asio::bind_executor (strand, [buffer_a, callback_a, this_l, drop_policy_a]() {
 				bool write_in_progress = !this_l->send_queue.empty ();
 				auto queue_size = this_l->send_queue.size ();
-				if (queue_size < this_l->queue_size_max)
+				if (queue_size < this_l->queue_size_max || (drop_policy_a == nano::buffer_drop_policy::no_socket_drop && queue_size < (this_l->queue_size_max * 2)))
 				{
 					this_l->send_queue.emplace_back (nano::socket::queue_item{ buffer_a, callback_a });
 				}
@@ -266,6 +266,11 @@ void nano::socket::set_writer_concurrency (concurrency writer_concurrency_a)
 	writer_concurrency = writer_concurrency_a;
 }
 
+size_t nano::socket::get_max_write_queue_size () const
+{
+	return queue_size_max;
+}
+
 nano::server_socket::server_socket (std::shared_ptr<nano::node> node_a, boost::asio::ip::tcp::endpoint local_a, size_t max_connections_a, nano::socket::concurrency concurrency_a) :
 socket (node_a, std::chrono::seconds::max (), concurrency_a), acceptor (node_a->io_ctx), local (local_a), deferred_accept_timer (node_a->io_ctx), max_inbound_connections (max_connections_a), concurrency_new_connections (concurrency_a)
 {
@@ -373,6 +378,6 @@ void nano::server_socket::on_connection (std::function<bool(std::shared_ptr<nano
 // This must be called from a strand
 void nano::server_socket::evict_dead_connections ()
 {
-	assert (strand.running_in_this_thread ());
+	debug_assert (strand.running_in_this_thread ());
 	connections.erase (std::remove_if (connections.begin (), connections.end (), [](auto & connection) { return connection.expired (); }), connections.end ());
 }

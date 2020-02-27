@@ -3,7 +3,7 @@
 #include <nano/lib/utility.hpp>
 #include <nano/nano_node/daemon.hpp>
 #include <nano/node/daemonconfig.hpp>
-#include <nano/node/ipc.hpp>
+#include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/openclwork.hpp>
@@ -47,10 +47,10 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 		nano::logger_mt logger{ config.node.logging.min_time_between_log_output };
 		boost::asio::io_context io_ctx;
 		auto opencl (nano::opencl_work::create (config.opencl_enable, config.opencl, logger));
-		nano::work_pool opencl_work (config.node.work_threads, config.node.pow_sleep_interval, opencl ? [&opencl](nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> & ticket_a) {
-			return opencl->generate_work (root_a, difficulty_a, ticket_a);
+		nano::work_pool opencl_work (config.node.work_threads, config.node.pow_sleep_interval, opencl ? [&opencl](nano::work_version const version_a, nano::root const & root_a, uint64_t difficulty_a, std::atomic<int> & ticket_a) {
+			return opencl->generate_work (version_a, root_a, difficulty_a, ticket_a);
 		}
-		                                                                                              : std::function<boost::optional<uint64_t> (nano::root const &, uint64_t, std::atomic<int> &)> (nullptr));
+		                                                                                              : std::function<boost::optional<uint64_t> (nano::work_version const, nano::root const &, uint64_t, std::atomic<int> &)> (nullptr));
 		nano::alarm alarm (io_ctx);
 		try
 		{
@@ -105,7 +105,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 							std::cout << error.get_message () << std::endl;
 							std::exit (1);
 						}
-						rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, config.rpc, [&ipc_server, &alarm, &io_ctx]() {
+						rpc_handler = std::make_unique<nano::inprocess_rpc_handler> (*node, ipc_server, config.rpc, [&ipc_server, &alarm, &io_ctx]() {
 							ipc_server.stop ();
 							alarm.add (std::chrono::steady_clock::now () + std::chrono::seconds (3), [&io_ctx]() {
 								io_ctx.stop ();
@@ -136,7 +136,7 @@ void nano_daemon::daemon::run (boost::filesystem::path const & data_path, nano::
 					}
 				}
 
-				assert (!nano::signal_handler_impl);
+				debug_assert (!nano::signal_handler_impl);
 				nano::signal_handler_impl = [&io_ctx]() {
 					io_ctx.stop ();
 					sig_int_or_term = 1;

@@ -53,6 +53,9 @@ set (NANO_FUZZER_TEST OFF CACHE BOOL "")
 option (NANO_STACKTRACE_BACKTRACE "Use BOOST_STACKTRACE_USE_BACKTRACE in stacktraces, for POSIX" OFF)
 if (NANO_STACKTRACE_BACKTRACE)
 	add_definitions(-DNANO_STACKTRACE_BACKTRACE=1)
+	if (BACKTRACE_INCLUDE)
+		add_definitions(-DBOOST_STACKTRACE_BACKTRACE_INCLUDE_FILE=${BACKTRACE_INCLUDE})
+	endif()
 endif ()
 
 if (${NANO_TIMED_LOCKS} GREATER 0)
@@ -167,7 +170,11 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 #set(CMAKE_C_EXTENSIONS OFF)
 
-set(CMAKE_CXX_STANDARD 14)
+set(NANO_SUPPORTED_CPP_STANDARD "17" CACHE STRING "Supported C++ standard (14 or 17)")
+if (CI_BUILD OR CI_TEST)
+	set(NANO_SUPPORTED_CPP_STANDARD "14")
+endif()
+set(CMAKE_CXX_STANDARD ${NANO_SUPPORTED_CPP_STANDARD})
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 #set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -234,6 +241,9 @@ endif ()
 
 include_directories(cpptoml/include)
 add_subdirectory(crypto/ed25519-donna)
+
+add_subdirectory(nano/ipc_flatbuffers_lib)
+add_subdirectory(nano/ipc_flatbuffers_test)
 
 set (UPNPC_BUILD_SHARED OFF CACHE BOOL "")
 add_subdirectory (miniupnp/miniupnpc EXCLUDE_FROM_ALL)

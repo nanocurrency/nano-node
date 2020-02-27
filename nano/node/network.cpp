@@ -70,7 +70,7 @@ void nano::network::start ()
 	if (!node.flags.disable_udp)
 	{
 		udp_channels.start ();
-		assert (udp_channels.get_local_endpoint ().port () == port);
+		debug_assert (udp_channels.get_local_endpoint ().port () == port);
 	}
 	if (!node.flags.disable_tcp_realtime)
 	{
@@ -136,7 +136,7 @@ void nano::network::send_node_id_handshake (std::shared_ptr<nano::transport::cha
 	if (respond_to)
 	{
 		response = std::make_pair (node.node_id.pub, nano::sign_message (node.node_id.prv, node.node_id.pub, *respond_to));
-		assert (!nano::validate_message (response->first, *respond_to, response->second));
+		debug_assert (!nano::validate_message (response->first, *respond_to, response->second));
 	}
 	nano::node_id_handshake message (query, response);
 	if (node.config.logging.network_node_id_handshake_logging ())
@@ -146,11 +146,30 @@ void nano::network::send_node_id_handshake (std::shared_ptr<nano::transport::cha
 	channel_a->send (message);
 }
 
-void nano::network::flood_message (nano::message const & message_a, bool const is_droppable_a)
+void nano::network::flood_message (nano::message const & message_a, nano::buffer_drop_policy drop_policy_a)
 {
 	for (auto & i : list (fanout ()))
 	{
-		i->send (message_a, nullptr, is_droppable_a);
+		i->send (message_a, nullptr, drop_policy_a);
+	}
+}
+
+void nano::network::flood_block (std::shared_ptr<nano::block> const & block_a, nano::buffer_drop_policy const drop_policy_a)
+{
+	nano::publish message (block_a);
+	flood_message (message, drop_policy_a);
+}
+
+void nano::network::flood_block_initial (std::shared_ptr<nano::block> const & block_a)
+{
+	nano::publish message (block_a);
+	for (auto const & i : node.rep_crawler.principal_representatives ())
+	{
+		i.channel->send (message, nullptr, nano::buffer_drop_policy::no_limiter_drop);
+	}
+	for (auto & i : list_non_pr (fanout (1.0)))
+	{
+		i->send (message, nullptr, nano::buffer_drop_policy::no_limiter_drop);
 	}
 }
 
@@ -168,7 +187,7 @@ void nano::network::flood_vote_pr (std::shared_ptr<nano::vote> const & vote_a)
 	nano::confirm_ack message (vote_a);
 	for (auto const & i : node.rep_crawler.principal_representatives ())
 	{
-		i.channel->send (message, nullptr, false);
+		i.channel->send (message, nullptr, nano::buffer_drop_policy::no_limiter_drop);
 	}
 }
 
@@ -427,19 +446,19 @@ public:
 	}
 	void bulk_pull (nano::bulk_pull const &) override
 	{
-		assert (false);
+		debug_assert (false);
 	}
 	void bulk_pull_account (nano::bulk_pull_account const &) override
 	{
-		assert (false);
+		debug_assert (false);
 	}
 	void bulk_push (nano::bulk_push const &) override
 	{
-		assert (false);
+		debug_assert (false);
 	}
 	void frontier_req (nano::frontier_req const &) override
 	{
-		assert (false);
+		debug_assert (false);
 	}
 	void node_id_handshake (nano::node_id_handshake const & message_a) override
 	{
@@ -458,25 +477,10 @@ public:
 		nano::telemetry_ack telemetry_ack;
 		if (!node.flags.disable_providing_telemetry_metrics)
 		{
-			nano::telemetry_data telemetry_data;
-			telemetry_data.block_count = node.ledger.cache.block_count;
-			telemetry_data.cemented_count = node.ledger.cache.cemented_count;
-			telemetry_data.bandwidth_cap = node.config.bandwidth_limit;
-			telemetry_data.protocol_version = node.network_params.protocol.protocol_version;
-			telemetry_data.uptime = std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - node.startup_time).count ();
-			telemetry_data.unchecked_count = node.ledger.cache.unchecked_count;
-			telemetry_data.genesis_block = node.network_params.ledger.genesis_hash;
-			telemetry_data.peer_count = node.network.size ();
-			telemetry_data.account_count = node.ledger.cache.account_count;
-			telemetry_data.major_version = nano::get_major_node_version ();
-			telemetry_data.minor_version = nano::get_minor_node_version ();
-			telemetry_data.patch_version = nano::get_patch_node_version ();
-			telemetry_data.pre_release_version = nano::get_pre_release_node_version ();
-			telemetry_data.maker = 0; // 0 Indicates it originated from the NF
-
+			auto telemetry_data = nano::local_telemetry_data (node.ledger.cache, node.network, node.config.bandwidth_limit, node.network_params, node.startup_time);
 			telemetry_ack = nano::telemetry_ack (telemetry_data);
 		}
-		channel->send (telemetry_ack, nullptr, false);
+		channel->send (telemetry_ack, nullptr, nano::buffer_drop_policy::no_socket_drop);
 	}
 	void telemetry_ack (nano::telemetry_ack const & message_a) override
 	{
@@ -605,15 +609,15 @@ std::unordered_set<std::shared_ptr<nano::transport::channel>> nano::network::ran
 void nano::network::random_fill (std::array<nano::endpoint, 8> & target_a) const
 {
 	auto peers (random_set (target_a.size (), 0, false)); // Don't include channels with ephemeral remote ports
-	assert (peers.size () <= target_a.size ());
+	debug_assert (peers.size () <= target_a.size ());
 	auto endpoint (nano::endpoint (boost::asio::ip::address_v6{}, 0));
-	assert (endpoint.address ().is_v6 ());
+	debug_assert (endpoint.address ().is_v6 ());
 	std::fill (target_a.begin (), target_a.end (), endpoint);
 	auto j (target_a.begin ());
 	for (auto i (peers.begin ()), n (peers.end ()); i != n; ++i, ++j)
 	{
-		assert ((*i)->get_endpoint ().address ().is_v6 ());
-		assert (j < target_a.end ());
+		debug_assert ((*i)->get_endpoint ().address ().is_v6 ());
+		debug_assert (j < target_a.end ());
 		*j = (*i)->get_endpoint ();
 	}
 }
@@ -728,8 +732,8 @@ slab (size * count),
 entries (count),
 stopped (false)
 {
-	assert (count > 0);
-	assert (size > 0);
+	debug_assert (count > 0);
+	debug_assert (size > 0);
 	auto slab_data (slab.data ());
 	auto entry_data (entries.data ());
 	for (auto i (0); i < count; ++i, ++entry_data)
@@ -765,7 +769,7 @@ nano::message_buffer * nano::message_buffer_manager::allocate ()
 
 void nano::message_buffer_manager::enqueue (nano::message_buffer * data_a)
 {
-	assert (data_a != nullptr);
+	debug_assert (data_a != nullptr);
 	{
 		nano::lock_guard<std::mutex> lock (mutex);
 		full.push_back (data_a);
@@ -791,7 +795,7 @@ nano::message_buffer * nano::message_buffer_manager::dequeue ()
 
 void nano::message_buffer_manager::release (nano::message_buffer * data_a)
 {
-	assert (data_a != nullptr);
+	debug_assert (data_a != nullptr);
 	{
 		nano::lock_guard<std::mutex> lock (mutex);
 		free.push_back (data_a);
@@ -811,7 +815,7 @@ void nano::message_buffer_manager::stop ()
 boost::optional<nano::uint256_union> nano::syn_cookies::assign (nano::endpoint const & endpoint_a)
 {
 	auto ip_addr (endpoint_a.address ());
-	assert (ip_addr.is_v6 ());
+	debug_assert (ip_addr.is_v6 ());
 	nano::lock_guard<std::mutex> lock (syn_cookie_mutex);
 	unsigned & ip_cookies = cookies_per_ip[ip_addr];
 	boost::optional<nano::uint256_union> result;
@@ -833,7 +837,7 @@ boost::optional<nano::uint256_union> nano::syn_cookies::assign (nano::endpoint c
 bool nano::syn_cookies::validate (nano::endpoint const & endpoint_a, nano::account const & node_id, nano::signature const & sig)
 {
 	auto ip_addr (endpoint_a.address ());
-	assert (ip_addr.is_v6 ());
+	debug_assert (ip_addr.is_v6 ());
 	nano::lock_guard<std::mutex> lock (syn_cookie_mutex);
 	auto result (true);
 	auto cookie_it (cookies.find (endpoint_a));
@@ -848,7 +852,7 @@ bool nano::syn_cookies::validate (nano::endpoint const & endpoint_a, nano::accou
 		}
 		else
 		{
-			assert (false && "More SYN cookies deleted than created for IP");
+			debug_assert (false && "More SYN cookies deleted than created for IP");
 		}
 	}
 	return result;
@@ -870,7 +874,7 @@ void nano::syn_cookies::purge (std::chrono::steady_clock::time_point const & cut
 			}
 			else
 			{
-				assert (false && "More SYN cookies deleted than created for IP");
+				debug_assert (false && "More SYN cookies deleted than created for IP");
 			}
 			it = cookies.erase (it);
 		}

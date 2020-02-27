@@ -55,7 +55,7 @@ size_t nano::block::size (nano::block_type type_a)
 	{
 		case nano::block_type::invalid:
 		case nano::block_type::not_a_block:
-			assert (false);
+			debug_assert (false);
 			break;
 		case nano::block_type::send:
 			result = nano::send_block::size;
@@ -76,15 +76,25 @@ size_t nano::block::size (nano::block_type type_a)
 	return result;
 }
 
+nano::work_version nano::block::work_version () const
+{
+	return nano::work_version::work_1;
+}
+
+uint64_t nano::block::difficulty () const
+{
+	return nano::work_difficulty (this->work_version (), this->root (), this->block_work ());
+}
+
 nano::block_hash nano::block::generate_hash () const
 {
 	nano::block_hash result;
 	blake2b_state hash_l;
 	auto status (blake2b_init (&hash_l, sizeof (result.bytes)));
-	assert (status == 0);
+	debug_assert (status == 0);
 	hash (hash_l);
 	status = blake2b_final (&hash_l, result.bytes.data (), sizeof (result.bytes));
-	assert (status == 0);
+	debug_assert (status == 0);
 	return result;
 }
 
@@ -102,7 +112,7 @@ nano::block_hash const & nano::block::hash () const
 	{
 		// Once a block is created, it should not be modified (unless using refresh ())
 		// This would invalidate the cache; check it hasn't changed.
-		assert (cached_hash == generate_hash ());
+		debug_assert (cached_hash == generate_hash ());
 	}
 	else
 	{
@@ -228,11 +238,11 @@ nano::send_hashables::send_hashables (bool & error_a, boost::property_tree::ptre
 void nano::send_hashables::hash (blake2b_state & hash_a) const
 {
 	auto status (blake2b_update (&hash_a, previous.bytes.data (), sizeof (previous.bytes)));
-	assert (status == 0);
+	debug_assert (status == 0);
 	status = blake2b_update (&hash_a, destination.bytes.data (), sizeof (destination.bytes));
-	assert (status == 0);
+	debug_assert (status == 0);
 	status = blake2b_update (&hash_a, balance.bytes.data (), sizeof (balance.bytes));
-	assert (status == 0);
+	debug_assert (status == 0);
 }
 
 void nano::send_block::serialize (nano::stream & stream_a) const
@@ -293,7 +303,7 @@ bool nano::send_block::deserialize_json (boost::property_tree::ptree const & tre
 	auto error (false);
 	try
 	{
-		assert (tree_a.get<std::string> ("type") == "send");
+		debug_assert (tree_a.get<std::string> ("type") == "send");
 		auto previous_l (tree_a.get<std::string> ("previous"));
 		auto destination_l (tree_a.get<std::string> ("destination"));
 		auto balance_l (tree_a.get<std::string> ("balance"));
@@ -485,7 +495,7 @@ hashables (source_a, representative_a, account_a),
 signature (nano::sign_message (prv_a, pub_a, hash ())),
 work (work_a)
 {
-	assert (!representative_a.is_zero ());
+	debug_assert (!representative_a.is_zero ());
 }
 
 nano::open_block::open_block (nano::block_hash const & source_a, nano::account const & representative_a, nano::account const & account_a, std::nullptr_t) :
@@ -614,7 +624,7 @@ bool nano::open_block::deserialize_json (boost::property_tree::ptree const & tre
 	auto error (false);
 	try
 	{
-		assert (tree_a.get<std::string> ("type") == "open");
+		debug_assert (tree_a.get<std::string> ("type") == "open");
 		auto source_l (tree_a.get<std::string> ("source"));
 		auto representative_l (tree_a.get<std::string> ("representative"));
 		auto account_l (tree_a.get<std::string> ("account"));
@@ -855,7 +865,7 @@ bool nano::change_block::deserialize_json (boost::property_tree::ptree const & t
 	auto error (false);
 	try
 	{
-		assert (tree_a.get<std::string> ("type") == "change");
+		debug_assert (tree_a.get<std::string> ("type") == "change");
 		auto previous_l (tree_a.get<std::string> ("previous"));
 		auto representative_l (tree_a.get<std::string> ("representative"));
 		auto work_l (tree_a.get<std::string> ("work"));
@@ -1147,7 +1157,7 @@ bool nano::state_block::deserialize_json (boost::property_tree::ptree const & tr
 	auto error (false);
 	try
 	{
-		assert (tree_a.get<std::string> ("type") == "state");
+		debug_assert (tree_a.get<std::string> ("type") == "state");
 		auto account_l (tree_a.get<std::string> ("account"));
 		auto previous_l (tree_a.get<std::string> ("previous"));
 		auto representative_l (tree_a.get<std::string> ("representative"));
@@ -1338,7 +1348,7 @@ std::shared_ptr<nano::block> nano::deserialize_block (nano::stream & stream_a, n
 		}
 		default:
 #ifndef NANO_FUZZER_TEST
-			assert (false);
+			debug_assert (false);
 #endif
 			break;
 	}
@@ -1415,7 +1425,7 @@ bool nano::receive_block::deserialize_json (boost::property_tree::ptree const & 
 	auto error (false);
 	try
 	{
-		assert (tree_a.get<std::string> ("type") == "receive");
+		debug_assert (tree_a.get<std::string> ("type") == "receive");
 		auto previous_l (tree_a.get<std::string> ("previous"));
 		auto source_l (tree_a.get<std::string> ("source"));
 		auto work_l (tree_a.get<std::string> ("work"));

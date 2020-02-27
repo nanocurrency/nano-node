@@ -17,6 +17,7 @@ enum class error_common
 {
 	generic = 1,
 	exception,
+	access_denied,
 	account_not_found,
 	account_not_found_wallet,
 	account_exists,
@@ -84,6 +85,7 @@ enum class error_rpc
 	bad_representative_number,
 	bad_source,
 	bad_timeout,
+	bad_work_version,
 	block_create_balance_mismatch,
 	block_create_key_required,
 	block_create_public_key_mismatch,
@@ -266,6 +268,11 @@ public:
 	explicit operator bool () const;
 	explicit operator std::string () const;
 	std::string get_message () const;
+	/**
+	 * The error code as an integer. Note that some error codes have platform dependent values.
+	 * A return value of 0 signifies there is no error.
+	 */
+	int error_code_as_int () const;
 	error & on_error (std::string message_a);
 	error & on_error (std::error_code code_a, std::string message_a);
 	error & set (std::string message_a, std::error_code code_a = nano::error_common::generic);

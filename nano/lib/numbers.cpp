@@ -14,14 +14,14 @@ char const * account_lookup ("13456789abcdefghijkmnopqrstuwxyz");
 char const * account_reverse ("~0~1234567~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~89:;<=>?@AB~CDEFGHIJK~LMNO~~~~~");
 char account_encode (uint8_t value)
 {
-	assert (value < 32);
+	debug_assert (value < 32);
 	auto result (account_lookup[value]);
 	return result;
 }
 uint8_t account_decode (char value)
 {
-	assert (value >= '0');
-	assert (value <= '~');
+	debug_assert (value >= '0');
+	debug_assert (value <= '~');
 	auto result (account_reverse[value - 0x30]);
 	if (result != '~')
 	{
@@ -33,7 +33,7 @@ uint8_t account_decode (char value)
 
 void nano::public_key::encode_account (std::string & destination_a) const
 {
-	assert (destination_a.empty ());
+	debug_assert (destination_a.empty ());
 	destination_a.reserve (65);
 	uint64_t check (0);
 	blake2b_state hash;
@@ -200,7 +200,7 @@ nano::uint256_t nano::uint256_union::number () const
 
 void nano::uint256_union::encode_hex (std::string & text) const
 {
-	assert (text.empty ());
+	debug_assert (text.empty ());
 	std::stringstream stream;
 	stream << std::hex << std::uppercase << std::noshowbase << std::setw (64) << std::setfill ('0');
 	stream << number ();
@@ -238,7 +238,7 @@ bool nano::uint256_union::decode_hex (std::string const & text)
 
 void nano::uint256_union::encode_dec (std::string & text) const
 {
-	assert (text.empty ());
+	debug_assert (text.empty ());
 	std::stringstream stream;
 	stream << std::dec << std::noshowbase;
 	stream << number ();
@@ -317,7 +317,7 @@ nano::uint512_t nano::uint512_union::number () const
 
 void nano::uint512_union::encode_hex (std::string & text) const
 {
-	assert (text.empty ());
+	debug_assert (text.empty ());
 	std::stringstream stream;
 	stream << std::hex << std::uppercase << std::noshowbase << std::setw (128) << std::setfill ('0');
 	stream << number ();
@@ -481,7 +481,7 @@ nano::uint128_t nano::uint128_union::number () const
 
 void nano::uint128_union::encode_hex (std::string & text) const
 {
-	assert (text.empty ());
+	debug_assert (text.empty ());
 	std::stringstream stream;
 	stream << std::hex << std::uppercase << std::noshowbase << std::setw (32) << std::setfill ('0');
 	stream << number ();
@@ -515,7 +515,7 @@ bool nano::uint128_union::decode_hex (std::string const & text)
 
 void nano::uint128_union::encode_dec (std::string & text) const
 {
-	assert (text.empty ());
+	debug_assert (text.empty ());
 	std::stringstream stream;
 	stream << std::dec << std::noshowbase;
 	stream << number ();
@@ -894,7 +894,7 @@ std::string nano::to_string (double const value_a, int const precision_a)
 
 uint64_t nano::difficulty::from_multiplier (double const multiplier_a, uint64_t const base_difficulty_a)
 {
-	assert (multiplier_a > 0.);
+	debug_assert (multiplier_a > 0.);
 	nano::uint128_t reverse_difficulty ((-base_difficulty_a) / multiplier_a);
 	if (reverse_difficulty > std::numeric_limits<std::uint64_t>::max ())
 	{
@@ -912,7 +912,7 @@ uint64_t nano::difficulty::from_multiplier (double const multiplier_a, uint64_t 
 
 double nano::difficulty::to_multiplier (uint64_t const difficulty_a, uint64_t const base_difficulty_a)
 {
-	assert (difficulty_a > 0);
+	debug_assert (difficulty_a > 0);
 	return static_cast<double> (-base_difficulty_a) / (-difficulty_a);
 }
 

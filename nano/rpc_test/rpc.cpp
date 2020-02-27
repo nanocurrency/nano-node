@@ -3,7 +3,7 @@
 #include <nano/core_test/testutil.hpp>
 #include <nano/lib/rpcconfig.hpp>
 #include <nano/lib/threading.hpp>
-#include <nano/node/ipc.hpp>
+#include <nano/node/ipc/ipc_server.hpp>
 #include <nano/node/json_handler.hpp>
 #include <nano/node/node_rpc_config.hpp>
 #include <nano/node/testing.hpp>
@@ -1788,9 +1788,8 @@ TEST (rpc, process_block_with_work_watcher)
 	nano::keypair key;
 	auto latest (node1.latest (nano::test_genesis_key.pub));
 	auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, latest, nano::test_genesis_key.pub, nano::genesis_amount - 100, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest)));
-	uint64_t difficulty1 (0);
-	nano::work_validate (*send, &difficulty1);
-	auto multiplier1 = nano::difficulty::to_multiplier (difficulty1, node1.network_params.network.publish_threshold);
+	auto difficulty1 (send->difficulty ());
+	auto multiplier1 = nano::difficulty::to_multiplier (difficulty1, nano::work_threshold (send->work_version ()));
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (nano::get_available_port (), true);
@@ -2222,13 +2221,13 @@ TEST (rpc, payment_begin_end)
 		root1 = node1->ledger.latest_root (transaction, account);
 	}
 	uint64_t work (0);
-	while (!nano::work_validate (root1, work))
+	while (!nano::work_validate (nano::work_version::work_1, root1, work))
 	{
 		++work;
 		ASSERT_LT (work, 50);
 	}
 	system.deadline_set (10s);
-	while (nano::work_validate (root1, work))
+	while (nano::work_validate (nano::work_version::work_1, root1, work))
 	{
 		auto ec = system.poll ();
 		auto transaction (wallet->wallets.tx_begin_read ());
@@ -2830,9 +2829,9 @@ TEST (rpc, work_generate)
 		ASSERT_EQ (200, response.status);
 		ASSERT_EQ (hash.to_string (), response.json.get<std::string> ("hash"));
 		auto work_text (response.json.get<std::string> ("work"));
-		uint64_t work, result_difficulty;
+		uint64_t work;
 		ASSERT_FALSE (nano::from_string_hex (work_text, work));
-		ASSERT_FALSE (nano::work_validate (hash, work, &result_difficulty));
+		auto result_difficulty (nano::work_difficulty (nano::work_version::work_1, hash, work));
 		auto response_difficulty_text (response.json.get<std::string> ("difficulty"));
 		uint64_t response_difficulty;
 		ASSERT_FALSE (nano::from_string_hex (response_difficulty_text, response_difficulty));
@@ -2876,8 +2875,7 @@ TEST (rpc, work_generate_difficulty)
 		auto work_text (response.json.get<std::string> ("work"));
 		uint64_t work;
 		ASSERT_FALSE (nano::from_string_hex (work_text, work));
-		uint64_t result_difficulty;
-		ASSERT_FALSE (nano::work_validate (hash, work, &result_difficulty));
+		auto result_difficulty (nano::work_difficulty (nano::work_version::work_1, hash, work));
 		auto response_difficulty_text (response.json.get<std::string> ("difficulty"));
 		uint64_t response_difficulty;
 		ASSERT_FALSE (nano::from_string_hex (response_difficulty_text, response_difficulty));
@@ -2900,8 +2898,7 @@ TEST (rpc, work_generate_difficulty)
 		auto work_text (response.json.get<std::string> ("work"));
 		uint64_t work;
 		ASSERT_FALSE (nano::from_string_hex (work_text, work));
-		uint64_t result_difficulty;
-		ASSERT_FALSE (nano::work_validate (hash, work, &result_difficulty));
+		auto result_difficulty (nano::work_difficulty (nano::work_version::work_1, hash, work));
 		ASSERT_GE (result_difficulty, difficulty);
 	}
 	{
@@ -2953,8 +2950,7 @@ TEST (rpc, work_generate_multiplier)
 		auto work_text (response.json.get<std::string> ("work"));
 		uint64_t work;
 		ASSERT_FALSE (nano::from_string_hex (work_text, work));
-		uint64_t result_difficulty;
-		ASSERT_FALSE (nano::work_validate (hash, work, &result_difficulty));
+		auto result_difficulty (nano::work_difficulty (nano::work_version::work_1, hash, work));
 		auto response_difficulty_text (response.json.get<std::string> ("difficulty"));
 		uint64_t response_difficulty;
 		ASSERT_FALSE (nano::from_string_hex (response_difficulty_text, response_difficulty));
@@ -3045,12 +3041,12 @@ TEST (rpc, work_peer_bad)
 	node2.config.work_peers.push_back (std::make_pair (boost::asio::ip::address_v6::any ().to_string (), 0));
 	nano::block_hash hash1 (1);
 	std::atomic<uint64_t> work (0);
-	node2.work_generate (hash1, [&work](boost::optional<uint64_t> work_a) {
+	node2.work_generate (nano::work_version::work_1, hash1, [&work](boost::optional<uint64_t> work_a) {
 		ASSERT_TRUE (work_a.is_initialized ());
 		work = *work_a;
 	});
 	system.deadline_set (5s);
-	while (nano::work_validate (hash1, work))
+	while (nano::work_validate (nano::work_version::work_1, hash1, work))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -3075,12 +3071,12 @@ TEST (rpc, work_peer_one)
 	node2.config.work_peers.push_back (std::make_pair (node1.network.endpoint ().address ().to_string (), rpc.config.port));
 	nano::keypair key1;
 	uint64_t work (0);
-	node2.work_generate (key1.pub, [&work](boost::optional<uint64_t> work_a) {
+	node2.work_generate (nano::work_version::work_1, key1.pub, [&work](boost::optional<uint64_t> work_a) {
 		ASSERT_TRUE (work_a.is_initialized ());
 		work = *work_a;
 	});
 	system.deadline_set (5s);
-	while (nano::work_validate (key1.pub, work))
+	while (nano::work_validate (nano::work_version::work_1, key1.pub, work))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -3122,10 +3118,10 @@ TEST (rpc, work_peer_many)
 	for (auto i (0); i < works.size (); ++i)
 	{
 		nano::keypair key1;
-		node1.work_generate (key1.pub, [& work = works[i]](boost::optional<uint64_t> work_a) {
+		node1.work_generate (nano::work_version::work_1, key1.pub, [& work = works[i]](boost::optional<uint64_t> work_a) {
 			work = *work_a;
 		});
-		while (nano::work_validate (key1.pub, works[i]))
+		while (nano::work_validate (nano::work_version::work_1, key1.pub, works[i]))
 		{
 			system1.poll ();
 			system2.poll ();
@@ -3134,6 +3130,48 @@ TEST (rpc, work_peer_many)
 		}
 	}
 	node1.stop ();
+}
+
+TEST (rpc, work_version_invalid)
+{
+	nano::system system;
+	auto node = add_ipc_enabled_node (system);
+	scoped_io_thread_name_change scoped_thread_name_io;
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node->config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+	nano::block_hash hash (1);
+	boost::property_tree::ptree request;
+	request.put ("action", "work_generate");
+	request.put ("hash", hash.to_string ());
+	request.put ("version", "work_invalid");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ (1, response.json.count ("error"));
+		ASSERT_EQ (std::error_code (nano::error_rpc::bad_work_version).message (), response.json.get<std::string> ("error"));
+	}
+	request.put ("action", "work_validate");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (5s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ (1, response.json.count ("error"));
+		ASSERT_EQ (std::error_code (nano::error_rpc::bad_work_version).message (), response.json.get<std::string> ("error"));
+	}
 }
 
 TEST (rpc, block_count)
@@ -3799,8 +3837,7 @@ TEST (rpc, work_validate)
 		double multiplier (response.json.get<double> ("multiplier"));
 		ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (difficulty, params.network.publish_threshold), 1e-6);
 	}
-	uint64_t result_difficulty;
-	ASSERT_FALSE (nano::work_validate (hash, work1, &result_difficulty));
+	auto result_difficulty (nano::work_difficulty (nano::work_version::work_1, hash, work1));
 	ASSERT_GE (result_difficulty, params.network.publish_threshold);
 	request.put ("work", nano::to_string_hex (work1));
 	request.put ("difficulty", nano::to_string_hex (result_difficulty));
@@ -5064,7 +5101,7 @@ TEST (rpc, blocks_info)
 	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
 	rpc.start ();
-	auto check_blocks = [&system, node](test_response & response) {
+	auto check_blocks = [node](test_response & response) {
 		for (auto & blocks : response.json.get_child ("blocks"))
 		{
 			std::string hash_text (blocks.first);
@@ -6138,9 +6175,6 @@ TEST (rpc, confirmation_height_currently_processing)
 		frontier = node->store.block_get (transaction, previous_genesis_chain_hash);
 	}
 
-	// Begin process for confirming the block (and setting confirmation height)
-	node->block_confirm (frontier);
-
 	boost::property_tree::ptree request;
 	request.put ("action", "confirmation_height_currently_processing");
 
@@ -6152,8 +6186,11 @@ TEST (rpc, confirmation_height_currently_processing)
 	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
 	rpc.start ();
 
+	// Begin process for confirming the block (and setting confirmation height)
+	node->block_confirm (frontier);
+
 	system.deadline_set (10s);
-	while (!node->confirmation_height_processor.is_processing_block (previous_genesis_chain_hash))
+	while (node->confirmation_height_processor.current () != frontier->hash ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -6173,7 +6210,7 @@ TEST (rpc, confirmation_height_currently_processing)
 
 	// Wait until confirmation has been set and not processing anything
 	system.deadline_set (10s);
-	while (!node->confirmation_height_processor.current ().is_zero ())
+	while (!node->confirmation_height_processor.current ().is_zero () || node->confirmation_height_processor.awaiting_processing_size () != 0)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -6235,7 +6272,7 @@ TEST (rpc, confirmation_history)
 	ASSERT_EQ (block->hash ().to_string (), hash);
 	nano::amount tally_num;
 	tally_num.decode_dec (tally);
-	assert (tally_num == nano::genesis_amount || tally_num == (nano::genesis_amount - nano::Gxrb_ratio));
+	debug_assert (tally_num == nano::genesis_amount || tally_num == (nano::genesis_amount - nano::Gxrb_ratio));
 	system.stop ();
 }
 
@@ -6283,7 +6320,7 @@ TEST (rpc, confirmation_history_hash)
 	ASSERT_EQ (send2->hash ().to_string (), hash);
 	nano::amount tally_num;
 	tally_num.decode_dec (tally);
-	assert (tally_num == nano::genesis_amount || tally_num == (nano::genesis_amount - nano::Gxrb_ratio) || tally_num == (nano::genesis_amount - 2 * nano::Gxrb_ratio) || tally_num == (nano::genesis_amount - 3 * nano::Gxrb_ratio));
+	debug_assert (tally_num == nano::genesis_amount || tally_num == (nano::genesis_amount - nano::Gxrb_ratio) || tally_num == (nano::genesis_amount - 2 * nano::Gxrb_ratio) || tally_num == (nano::genesis_amount - 3 * nano::Gxrb_ratio));
 	system.stop ();
 }
 
@@ -7026,19 +7063,12 @@ TEST (rpc, block_confirmed)
 
 	// Wait until the confirmation height has been set
 	system.deadline_set (10s);
-	while (true)
+	auto transaction = node->store.tx_begin_read ();
+	while (!node->ledger.block_confirmed (transaction, send->hash ()) || node->confirmation_height_processor.is_processing_block (send->hash ()))
 	{
-		auto transaction = node->store.tx_begin_read ();
-		if (node->ledger.block_confirmed (transaction, send->hash ()))
-		{
-			break;
-		}
-
 		ASSERT_NO_ERROR (system.poll ());
+		transaction.refresh ();
 	}
-
-	// Should no longer be processing the block after confirmation is set
-	ASSERT_FALSE (node->confirmation_height_processor.is_processing_block (send->hash ()));
 
 	// Requesting confirmation for this should now succeed
 	request.put ("hash", send->hash ().to_string ());
@@ -7327,7 +7357,8 @@ TEST (rpc, in_process)
 	nano::rpc_config rpc_config (nano::get_available_port (), true);
 	rpc_config.rpc_process.ipc_port = node->config.ipc_config.transport_tcp.port;
 	nano::node_rpc_config node_rpc_config;
-	nano::inprocess_rpc_handler inprocess_rpc_handler (*node, node_rpc_config);
+	nano::ipc::ipc_server ipc_server (*node, node_rpc_config);
+	nano::inprocess_rpc_handler inprocess_rpc_handler (*node, ipc_server, node_rpc_config);
 	nano::rpc rpc (system.io_ctx, rpc_config, inprocess_rpc_handler);
 	rpc.start ();
 	boost::property_tree::ptree request;
@@ -7838,7 +7869,7 @@ void compare_default_test_result_data (test_response & response, nano::node cons
 	ASSERT_EQ (nano::get_patch_node_version (), response.json.get<uint8_t> ("patch_version"));
 	ASSERT_EQ (nano::get_pre_release_node_version (), response.json.get<uint8_t> ("pre_release_version"));
 	ASSERT_EQ (0, response.json.get<uint8_t> ("maker"));
-	ASSERT_GE (std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count (), response.json.get<uint64_t> ("timestamp"));
+	ASSERT_GE (std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()).count (), response.json.get<uint64_t> ("timestamp"));
 }
 }
 
@@ -8033,7 +8064,77 @@ TEST (rpc, node_telemetry_all)
 	ASSERT_EQ (nano::get_patch_node_version (), metrics.patch_version);
 	ASSERT_EQ (nano::get_pre_release_node_version (), metrics.pre_release_version);
 	ASSERT_EQ (0, metrics.maker);
-	ASSERT_GE (std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count (), metrics.timestamp);
+	ASSERT_GE (std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::system_clock::now ().time_since_epoch ()).count (), metrics.timestamp);
 	ASSERT_EQ (node->network.endpoint ().address ().to_string (), metrics.address);
 	ASSERT_EQ (node->network.endpoint ().port (), metrics.port);
+}
+
+// Also tests all forms of ipv4/ipv6
+TEST (rpc, node_telemetry_self)
+{
+	nano::system system;
+	auto & node1 = *add_ipc_enabled_node (system);
+	scoped_io_thread_name_change scoped_thread_name_io;
+	nano::node_rpc_config node_rpc_config;
+	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
+	nano::rpc_config rpc_config (nano::get_available_port (), true);
+	rpc_config.rpc_process.ipc_port = node1.config.ipc_config.transport_tcp.port;
+	nano::ipc_rpc_processor ipc_rpc_processor (system.io_ctx, rpc_config);
+	nano::rpc rpc (system.io_ctx, rpc_config, ipc_rpc_processor);
+	rpc.start ();
+
+	// Just to have peer count at 1
+	node1.network.udp_channels.insert (nano::endpoint (boost::asio::ip::make_address_v6 ("::1"), nano::get_available_port ()), 0);
+
+	boost::property_tree::ptree request;
+	request.put ("action", "node_telemetry");
+	request.put ("address", "::1");
+	request.put ("port", node1.network.endpoint ().port ());
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (10s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		compare_default_test_result_data (response, node1);
+	}
+
+	request.put ("address", "[::1]");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (10s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		compare_default_test_result_data (response, node1);
+	}
+
+	request.put ("address", "127.0.0.1");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (10s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		compare_default_test_result_data (response, node1);
+	}
+
+	// Incorrect port should fail
+	request.put ("port", "0");
+	{
+		test_response response (request, rpc.config.port, system.io_ctx);
+		system.deadline_set (10s);
+		while (response.status == 0)
+		{
+			ASSERT_NO_ERROR (system.poll ());
+		}
+		ASSERT_EQ (200, response.status);
+		ASSERT_EQ (std::error_code (nano::error_rpc::peer_not_found).message (), response.json.get<std::string> ("error"));
+	}
 }
