@@ -12,7 +12,7 @@ int constexpr nano::election::confirmed_duration_factor_saturated;
 
 std::chrono::milliseconds nano::election::base_latency () const
 {
-	return node.network_params.network.is_test_network () ? 100ms : 1000ms;
+	return node.network_params.network.is_test_network () ? 10ms : 1000ms;
 }
 
 nano::election_vote_result::election_vote_result (bool replay_a, bool processed_a)
