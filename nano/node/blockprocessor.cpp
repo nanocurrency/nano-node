@@ -35,12 +35,14 @@ void nano::block_processor::stop ()
 void nano::block_processor::flush ()
 {
 	node.checker.flush ();
+	flushing = true;
 	nano::unique_lock<std::mutex> lock (mutex);
 	while (!stopped && (have_blocks () || active))
 	{
 		condition.wait (lock);
 	}
 	blocks_filter.clear ();
+	flushing = false;
 }
 
 size_t nano::block_processor::size ()
@@ -579,9 +581,5 @@ nano::block_hash nano::block_processor::filter_item (nano::block_hash const & ha
 void nano::block_processor::requeue_invalid (nano::block_hash const & hash_a, nano::unchecked_info const & info_a)
 {
 	debug_assert (hash_a == info_a.block->hash ());
-	auto attempt (node.bootstrap_initiator.current_attempt ());
-	if (attempt != nullptr && attempt->mode == nano::bootstrap_mode::lazy)
-	{
-		attempt->lazy_requeue (hash_a, info_a.block->previous (), info_a.confirmed);
-	}
+	node.bootstrap_initiator.lazy_requeue (hash_a, info_a.block->previous (), info_a.confirmed);
 }
