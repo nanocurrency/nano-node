@@ -71,9 +71,11 @@ private: // State management
 	static int constexpr confirmed_duration_factor_saturated = 10;
 	std::atomic<nano::election::state_t> state_m = { state_t::idle };
 
-	std::atomic<std::chrono::steady_clock::time_point> state_start;
-	std::atomic<std::chrono::steady_clock::time_point> last_vote = { std::chrono::steady_clock::time_point () };
-	std::atomic<std::chrono::steady_clock::time_point> last_block = { std::chrono::steady_clock::time_point () };
+	// Protects state_start, last_vote and last_block
+	std::mutex timepoints_mutex;
+	std::chrono::steady_clock::time_point state_start = { std::chrono::steady_clock::now () };
+	std::chrono::steady_clock::time_point last_vote = { std::chrono::steady_clock::time_point () };
+	std::chrono::steady_clock::time_point last_block = { std::chrono::steady_clock::time_point () };
 	std::chrono::steady_clock::time_point last_req = { std::chrono::steady_clock::time_point () };
 
 	bool valid_change (nano::election::state_t, nano::election::state_t) const;
@@ -102,6 +104,10 @@ public: // State transitions
 	bool transition_time (bool const saturated);
 	void transition_passive ();
 	void transition_active ();
+
+private:
+	void transition_passive_impl ();
+	void transition_active_impl ();
 
 public:
 	bool idle () const;

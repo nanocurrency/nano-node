@@ -136,6 +136,7 @@ bool nano::election::state_change (nano::election::state_t expected_a, nano::ele
 	{
 		if (state_m.compare_exchange_strong (expected_a, desired_a))
 		{
+			nano::lock_guard<std::mutex> guard (timepoints_mutex);
 			state_start = std::chrono::steady_clock::now ();
 			result = false;
 		}
@@ -160,14 +161,20 @@ void nano::election::send_confirm_req ()
 
 void nano::election::transition_passive ()
 {
+	nano::lock_guard<std::mutex> guard (timepoints_mutex);
+	transition_passive_impl ();
+}
+
+void nano::election::transition_passive_impl ()
+{
 	if (!state_change (nano::election::state_t::idle, nano::election::state_t::passive))
 	{
-		if (base_latency () * 5 < std::chrono::steady_clock::now () - last_block.load ())
+		if (base_latency () * 5 < std::chrono::steady_clock::now () - last_block)
 		{
 			last_block = std::chrono::steady_clock::now ();
 			node.network.flood_block (status.winner);
 		}
-		if (base_latency () * 10 < std::chrono::steady_clock::now () - last_vote.load ())
+		if (base_latency () * 10 < std::chrono::steady_clock::now () - last_vote)
 		{
 			last_vote = std::chrono::steady_clock::now ();
 			node.block_processor.generator.add (status.winner->hash ());
@@ -177,9 +184,15 @@ void nano::election::transition_passive ()
 
 void nano::election::transition_active ()
 {
+	nano::lock_guard<std::mutex> guard (timepoints_mutex);
+	transition_active_impl ();
+}
+
+void nano::election::transition_active_impl ()
+{
 	if (!state_change (nano::election::state_t::idle, nano::election::state_t::active))
 	{
-		if (base_latency () * 5 < std::chrono::steady_clock::now () - last_block.load ())
+		if (base_latency () * 5 < std::chrono::steady_clock::now () - last_block)
 		{
 			last_block = std::chrono::steady_clock::now ();
 			node.network.flood_block (status.winner);
@@ -211,7 +224,7 @@ void nano::election::activate_dependencies ()
 			auto election = node.active.insert_impl (previous_l, true);
 			if (election.second)
 			{
-				election.first->transition_active ();
+				election.first->transition_active_impl ();
 				escalated_l = true;
 			}
 		}
@@ -229,7 +242,7 @@ void nano::election::activate_dependencies ()
 				auto election = node.active.insert_impl (source_l, true);
 				if (election.second)
 				{
-					election.first->transition_active ();
+					election.first->transition_active_impl ();
 					escalated_l = true;
 				}
 			}
@@ -243,7 +256,7 @@ void nano::election::activate_dependencies ()
 
 void nano::election::broadcast_block ()
 {
-	if (base_latency () * 5 < std::chrono::steady_clock::now () - last_block.load ())
+	if (base_latency () * 5 < std::chrono::steady_clock::now () - last_block)
 	{
 		if (!node.active.solicitor.broadcast (*this))
 		{
@@ -255,6 +268,7 @@ void nano::election::broadcast_block ()
 bool nano::election::transition_time (bool const saturated_a)
 {
 	debug_assert (!node.active.mutex.try_lock ());
+	nano::lock_guard<std::mutex> guard (timepoints_mutex);
 	bool result = false;
 	switch (state_m)
 	{
@@ -262,7 +276,7 @@ bool nano::election::transition_time (bool const saturated_a)
 			break;
 		case nano::election::state_t::passive:
 		{
-			if (base_latency () * passive_duration_factor < std::chrono::steady_clock::now () - state_start.load ())
+			if (base_latency () * passive_duration_factor < std::chrono::steady_clock::now () - state_start)
 			{
 				state_change (nano::election::state_t::passive, nano::election::state_t::active);
 			}
@@ -271,7 +285,7 @@ bool nano::election::transition_time (bool const saturated_a)
 		case nano::election::state_t::active:
 			broadcast_block ();
 			send_confirm_req ();
-			if (base_latency () * active_duration_factor < std::chrono::steady_clock::now () - state_start.load ())
+			if (base_latency () * active_duration_factor < std::chrono::steady_clock::now () - state_start)
 			{
 				activate_dependencies ();
 				state_change (nano::election::state_t::active, nano::election::state_t::backtracking);
@@ -282,7 +296,7 @@ bool nano::election::transition_time (bool const saturated_a)
 			send_confirm_req ();
 			break;
 		case nano::election::state_t::confirmed:
-			if (base_latency () * (saturated_a ? confirmed_duration_factor_saturated : confirmed_duration_factor) < std::chrono::steady_clock::now () - state_start.load ())
+			if (base_latency () * (saturated_a ? confirmed_duration_factor_saturated : confirmed_duration_factor) < std::chrono::steady_clock::now () - state_start)
 			{
 				result = true;
 				state_change (nano::election::state_t::confirmed, nano::election::state_t::expired_confirmed);
@@ -418,10 +432,10 @@ nano::election_vote_result nano::election::vote (nano::account rep, uint64_t seq
 		}
 		else
 		{
-			auto last_vote (last_vote_it->second);
-			if (last_vote.sequence < sequence || (last_vote.sequence == sequence && last_vote.hash < block_hash))
+			auto last_vote_l (last_vote_it->second);
+			if (last_vote_l.sequence < sequence || (last_vote_l.sequence == sequence && last_vote_l.hash < block_hash))
 			{
-				if (last_vote.time <= std::chrono::steady_clock::now () - std::chrono::seconds (cooldown))
+				if (last_vote_l.time <= std::chrono::steady_clock::now () - std::chrono::seconds (cooldown))
 				{
 					should_process = true;
 				}
