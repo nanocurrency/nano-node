@@ -15,8 +15,8 @@ nano::confirmation_height_processor::confirmation_height_processor (nano::ledger
 ledger (ledger_a),
 write_database_queue (write_database_queue_a),
 // clang-format off
-confirmation_height_unbounded_processor (ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logger_a, stopped, original_hash, [this](auto & cemented_blocks) { this->notify_observers (cemented_blocks); }, [this]() { return this->awaiting_processing_size (); }),
-confirmation_height_bounded_processor (ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logger_a, stopped, original_hash, [this](auto & cemented_blocks) { this->notify_observers (cemented_blocks); }, [this]() { return this->awaiting_processing_size (); }),
+confirmation_height_unbounded_processor (ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logger_a, stopped, original_hash, [this](auto & cemented_blocks) { this->notify_observers (cemented_blocks); }, [this](auto const & block_hash_a) { this->notify_observers (block_hash_a); }, [this]() { return this->awaiting_processing_size (); }),
+confirmation_height_bounded_processor (ledger_a, write_database_queue_a, batch_separate_pending_min_time_a, logger_a, stopped, original_hash, [this](auto & cemented_blocks) { this->notify_observers (cemented_blocks); }, [this](auto const & block_hash_a) { this->notify_observers (block_hash_a); }, [this]() { return this->awaiting_processing_size (); }),
 // clang-format on
 thread ([this, &latch, mode_a]() {
 	nano::thread_role::set (nano::thread_role::name::confirmation_height_processing);
@@ -88,34 +88,39 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 		else
 		{
 			auto lock_and_cleanup = [&lk, this]() {
-				for (auto const & observer : cemented_process_finished_observers)
-				{
-					observer ();
-				}
 				lk.lock ();
 				original_hash.clear ();
 				original_hashes_pending.clear ();
 			};
 
-			lk.unlock ();
-			// If there are blocks pending cementing, then make sure we flush out the remaining writes
-			if (!confirmation_height_bounded_processor.pending_empty ())
+			if (!paused)
 			{
-				debug_assert (confirmation_height_unbounded_processor.pending_empty ());
-				auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
-				confirmation_height_bounded_processor.cement_blocks ();
-				lock_and_cleanup ();
-			}
-			else if (!confirmation_height_unbounded_processor.pending_empty ())
-			{
-				debug_assert (confirmation_height_bounded_processor.pending_empty ());
-				auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
-				confirmation_height_unbounded_processor.cement_blocks ();
-				lock_and_cleanup ();
+				lk.unlock ();
+
+				// If there are blocks pending cementing, then make sure we flush out the remaining writes
+				if (!confirmation_height_bounded_processor.pending_empty ())
+				{
+					debug_assert (confirmation_height_unbounded_processor.pending_empty ());
+					auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
+					confirmation_height_bounded_processor.cement_blocks ();
+					lock_and_cleanup ();
+				}
+				else if (!confirmation_height_unbounded_processor.pending_empty ())
+				{
+					debug_assert (confirmation_height_bounded_processor.pending_empty ());
+					auto scoped_write_guard = write_database_queue.wait (nano::writer::confirmation_height);
+					confirmation_height_unbounded_processor.cement_blocks ();
+					lock_and_cleanup ();
+				}
+				else
+				{
+					lock_and_cleanup ();
+					condition.wait (lk);
+				}
 			}
 			else
 			{
-				lock_and_cleanup ();
+				original_hash.clear ();
 				condition.wait (lk);
 			}
 		}
@@ -125,12 +130,16 @@ void nano::confirmation_height_processor::run (confirmation_height_mode mode_a)
 // Pausing only affects processing new blocks, not the current one being processed. Currently only used in tests
 void nano::confirmation_height_processor::pause ()
 {
+	nano::lock_guard<std::mutex> lk (mutex);
 	paused = true;
 }
 
 void nano::confirmation_height_processor::unpause ()
 {
-	paused = false;
+	{
+		nano::lock_guard<std::mutex> lk (mutex);
+		paused = false;
+	}
 	condition.notify_one ();
 }
 
@@ -159,9 +168,9 @@ void nano::confirmation_height_processor::add_cemented_observer (std::function<v
 }
 
 // Not thread-safe, only call before this processor has begun cementing
-void nano::confirmation_height_processor::add_cemented_process_finished_observer (std::function<void()> const & callback_a)
+void nano::confirmation_height_processor::add_block_already_cemented_observer (std::function<void(nano::block_hash const &)> const & callback_a)
 {
-	cemented_process_finished_observers.push_back (callback_a);
+	block_already_cemented_observers.push_back (callback_a);
 }
 
 void nano::confirmation_height_processor::notify_observers (std::vector<nano::block_w_sideband> const & cemented_blocks)
@@ -175,14 +184,22 @@ void nano::confirmation_height_processor::notify_observers (std::vector<nano::bl
 	}
 }
 
+void nano::confirmation_height_processor::notify_observers (nano::block_hash const & hash_already_cemented_a)
+{
+	for (auto const & observer : block_already_cemented_observers)
+	{
+		observer (hash_already_cemented_a);
+	}
+}
+
 std::unique_ptr<nano::container_info_component> nano::collect_container_info (confirmation_height_processor & confirmation_height_processor_a, const std::string & name_a)
 {
 	auto composite = std::make_unique<container_info_composite> (name_a);
 
 	size_t cemented_observers_count = confirmation_height_processor_a.cemented_observers.size ();
-	size_t cemented_process_finished_observer_count = confirmation_height_processor_a.cemented_process_finished_observers.size ();
+	size_t block_already_cemented_observers_count = confirmation_height_processor_a.block_already_cemented_observers.size ();
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "cemented_observers", cemented_observers_count, sizeof (decltype (confirmation_height_processor_a.cemented_observers)::value_type) }));
-	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "cemented_process_finished_observers", cemented_process_finished_observer_count, sizeof (decltype (confirmation_height_processor_a.cemented_process_finished_observers)::value_type) }));
+	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "block_already_cemented_observers", block_already_cemented_observers_count, sizeof (decltype (confirmation_height_processor_a.block_already_cemented_observers)::value_type) }));
 	composite->add_component (std::make_unique<container_info_leaf> (container_info{ "awaiting_processing", confirmation_height_processor_a.awaiting_processing_size (), sizeof (decltype (confirmation_height_processor_a.awaiting_processing)::value_type) }));
 	composite->add_component (collect_container_info (confirmation_height_processor_a.confirmation_height_bounded_processor, "bounded_processor"));
 	composite->add_component (collect_container_info (confirmation_height_processor_a.confirmation_height_unbounded_processor, "unbounded_processor"));

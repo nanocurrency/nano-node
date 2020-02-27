@@ -1134,11 +1134,9 @@ TEST (wallet, work_watcher_update)
 	wallet.insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key;
 	auto const block1 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 100));
-	uint64_t difficulty1 (0);
-	nano::work_validate (*block1, &difficulty1);
+	auto difficulty1 (block1->difficulty ());
 	auto const block2 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 200));
-	uint64_t difficulty2 (0);
-	nano::work_validate (*block2, &difficulty2);
+	auto difficulty2 (block2->difficulty ());
 	auto multiplier = nano::difficulty::to_multiplier (std::max (difficulty1, difficulty2), node.network_params.network.publish_threshold);
 	uint64_t updated_difficulty1{ difficulty1 }, updated_difficulty2{ difficulty2 };
 	{
@@ -1188,12 +1186,11 @@ TEST (wallet, work_watcher_generation_disabled)
 	nano::genesis genesis;
 	nano::keypair key;
 	auto block (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Mxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (genesis.hash ())));
-	uint64_t difficulty (0);
-	ASSERT_FALSE (nano::work_validate (*block, &difficulty));
+	auto difficulty (block->difficulty ());
 	node.wallets.watcher->add (block);
 	ASSERT_FALSE (node.process_local (block).code != nano::process_result::progress);
 	ASSERT_TRUE (node.wallets.watcher->is_watched (block->qualified_root ()));
-	auto multiplier = nano::difficulty::to_multiplier (difficulty, node.network_params.network.publish_threshold);
+	auto multiplier = nano::difficulty::to_multiplier (difficulty, nano::work_threshold (block->work_version ()));
 	uint64_t updated_difficulty{ difficulty };
 	{
 		nano::unique_lock<std::mutex> lock (node.active.mutex);
@@ -1254,8 +1251,7 @@ TEST (wallet, work_watcher_cancel)
 	nano::keypair key;
 	auto work1 (node.work_generate_blocking (nano::test_genesis_key.pub));
 	auto const block1 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 100, *work1, false));
-	uint64_t difficulty1 (0);
-	nano::work_validate (*block1, &difficulty1);
+	auto difficulty1 (block1->difficulty ());
 	{
 		nano::unique_lock<std::mutex> lock (node.active.mutex);
 		// Prevent active difficulty repopulating multipliers

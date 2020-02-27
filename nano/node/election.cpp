@@ -37,9 +37,15 @@ void nano::election::confirm_once (nano::election_status_type type_a)
 		auto status_l (status);
 		auto node_l (node.shared ());
 		auto confirmation_action_l (confirmation_action);
-		node.active.election_winner_details.emplace (status.winner->hash (), shared_from_this ());
-		node.background ([node_l, status_l, confirmation_action_l]() {
-			node_l->process_confirmed (status_l);
+		auto this_l = shared_from_this ();
+		if (status_l.type == nano::election_status_type::active_confirmation_height)
+		{
+			// Need to add dependent election results here (and not in process_confirmed which is called asynchronously) so that
+			// election winner details can be cleared consistently sucessfully in active_transactions::block_cemented_callback
+			node.active.add_election_winner_details (status_l.winner->hash (), this_l);
+		}
+		node.background ([node_l, status_l, confirmation_action_l, this_l]() {
+			node_l->process_confirmed (status_l, this_l);
 			confirmation_action_l (status_l.winner);
 		});
 		clear_blocks ();
@@ -118,8 +124,11 @@ void nano::election::confirm_if_quorum ()
 	}
 	if (sum >= node.config.online_weight_minimum.number () && winner_hash_l != status_winner_hash_l)
 	{
-		node.votes_cache.remove (status_winner_hash_l);
-		node.block_processor.generator.add (winner_hash_l);
+		if (node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
+		{
+			node.votes_cache.remove (status_winner_hash_l);
+			node.block_processor.generator.add (winner_hash_l);
+		}
 		node.block_processor.force (block_l);
 		status.winner = block_l;
 		update_dependent ();

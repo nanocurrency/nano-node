@@ -73,37 +73,29 @@ void nano::block_processor::add (std::shared_ptr<nano::block> block_a, uint64_t 
 
 void nano::block_processor::add (nano::unchecked_info const & info_a)
 {
-	if (!nano::work_validate (*info_a.block))
+	bool should_notify{ false };
 	{
-		bool should_notify{ false };
+		auto hash (info_a.block->hash ());
+		auto filter_hash (filter_item (hash, info_a.block->block_signature ()));
+		nano::lock_guard<std::mutex> lock (mutex);
+		if (blocks_filter.find (filter_hash) == blocks_filter.end ())
 		{
-			auto hash (info_a.block->hash ());
-			auto filter_hash (filter_item (hash, info_a.block->block_signature ()));
-			nano::lock_guard<std::mutex> lock (mutex);
-			if (blocks_filter.find (filter_hash) == blocks_filter.end ())
+			if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
 			{
-				if (info_a.verified == nano::signature_verification::unknown && (info_a.block->type () == nano::block_type::state || info_a.block->type () == nano::block_type::open || !info_a.account.is_zero ()))
-				{
-					state_block_signature_verification.add (info_a);
-				}
-				else
-				{
-					blocks.push_back (info_a);
-					should_notify = true;
-				}
-				blocks_filter.insert (filter_hash);
+				state_block_signature_verification.add (info_a);
 			}
-		}
-
-		if (should_notify)
-		{
-			condition.notify_all ();
+			else
+			{
+				blocks.push_back (info_a);
+				should_notify = true;
+			}
+			blocks_filter.insert (filter_hash);
 		}
 	}
-	else
+
+	if (should_notify)
 	{
-		node.logger.try_log ("nano::block_processor::add called for hash ", info_a.block->hash ().to_string (), " with invalid work ", nano::to_string_hex (info_a.block->block_work ()));
-		debug_assert (false && "nano::block_processor::add called with invalid work");
+		condition.notify_all ();
 	}
 }
 
@@ -295,7 +287,7 @@ void nano::block_processor::process_batch (nano::unique_lock<std::mutex> & lock_
 	}
 }
 
-void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a, const bool watch_work_a)
+void nano::block_processor::process_live (nano::block_hash const & hash_a, std::shared_ptr<nano::block> block_a, const bool watch_work_a, const bool initial_publish_a)
 {
 	// Add to work watcher to prevent dropping the election
 	if (watch_work_a)
@@ -307,7 +299,14 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	node.active.insert (block_a, false);
 
 	// Announce block contents to the network
-	node.network.flood_block (block_a, nano::buffer_drop_policy::no_limiter_drop);
+	if (initial_publish_a)
+	{
+		node.network.flood_block_initial (block_a);
+	}
+	else if (!node.flags.disable_block_processor_republishing)
+	{
+		node.network.flood_block (block_a, nano::buffer_drop_policy::no_limiter_drop);
+	}
 	if (node.config.enable_voting && node.wallets.rep_counts ().voting > 0)
 	{
 		// Announce our weighted vote to the network
@@ -315,7 +314,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	}
 }
 
-nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, nano::unchecked_info info_a, const bool watch_work_a)
+nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, nano::unchecked_info info_a, const bool watch_work_a, const bool first_publish_a)
 {
 	nano::process_return result;
 	auto hash (info_a.block->hash ());
@@ -333,7 +332,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 			}
 			if (info_a.modified > nano::seconds_since_epoch () - 300 && node.block_arrival.recent (hash))
 			{
-				process_live (hash, info_a.block, watch_work_a);
+				process_live (hash, info_a.block, watch_work_a, first_publish_a);
 			}
 			queue_unchecked (transaction_a, hash);
 			break;

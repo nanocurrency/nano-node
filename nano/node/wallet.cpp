@@ -1431,14 +1431,12 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 			if (watcher_l->watched.find (root_a) != watcher_l->watched.end ()) // not yet confirmed or cancelled
 			{
 				lock.unlock ();
-				uint64_t difficulty (0);
-				nano::work_validate (*block_a, &difficulty);
 				auto active_difficulty (watcher_l->node.active.limited_active_difficulty ());
 				/*
 				 * Work watcher should still watch blocks even without work generation, although no rework is done
 				 * Functionality may be added in the future that does not require updating work
 				 */
-				if (active_difficulty > difficulty && watcher_l->node.work_generation_enabled ())
+				if (active_difficulty > block_a->difficulty () && watcher_l->node.work_generation_enabled ())
 				{
 					watcher_l->node.work_generate (
 					block_a->work_version (), block_a->root (), [watcher_l, block_a, root_a](boost::optional<uint64_t> work_a) {
@@ -1453,6 +1451,7 @@ void nano::work_watcher::watching (nano::qualified_root const & root_a, std::sha
 
 								if (!ec)
 								{
+									watcher_l->node.network.flood_block_initial (block);
 									watcher_l->node.active.update_difficulty (block);
 									watcher_l->update (root_a, block);
 									updated_l = true;
