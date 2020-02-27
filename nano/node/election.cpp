@@ -444,8 +444,9 @@ nano::election_vote_result nano::election::vote (nano::account rep, uint64_t seq
 
 bool nano::election::publish (std::shared_ptr<nano::block> block_a)
 {
-	auto result (false);
-	if (blocks.size () >= 10)
+	// Do not insert new blocks if already confirmed
+	auto result (confirmed ());
+	if (!result && blocks.size () >= 10)
 	{
 		if (last_tally[block_a->hash ()] < node.online_reps.online_stake () / 10)
 		{
