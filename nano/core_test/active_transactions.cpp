@@ -64,7 +64,6 @@ TEST (active_transactions, confirm_dependent)
 	auto send1 (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::public_key (), node1.config.receive_minimum.number ()));
 	auto send2 (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::public_key (), node1.config.receive_minimum.number ()));
 	auto send3 (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::public_key (), node1.config.receive_minimum.number ()));
-	system.deadline_set (5s);
 	nano::node_config node_config;
 	node_config.peering_port = nano::get_available_port ();
 	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
