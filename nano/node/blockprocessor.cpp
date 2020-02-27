@@ -552,11 +552,9 @@ void nano::block_processor::queue_unchecked (nano::write_transaction const & tra
 	{
 		if (!node.flags.disable_block_processor_unchecked_deletion)
 		{
-			if (!node.store.unchecked_del (transaction_a, nano::unchecked_key (hash_a, info.block->hash ())))
-			{
-				debug_assert (node.ledger.cache.unchecked_count > 0);
-				--node.ledger.cache.unchecked_count;
-			}
+			node.store.unchecked_del (transaction_a, nano::unchecked_key (hash_a, info.block->hash ()));
+			debug_assert (node.ledger.cache.unchecked_count > 0);
+			--node.ledger.cache.unchecked_count;
 		}
 		add (info);
 	}

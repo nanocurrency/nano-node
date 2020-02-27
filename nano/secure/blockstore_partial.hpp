@@ -434,8 +434,8 @@ public:
 
 	void pending_del (nano::write_transaction const & transaction_a, nano::pending_key const & key_a) override
 	{
-		auto status1 = del (transaction_a, tables::pending, key_a);
-		release_assert (success (status1));
+		auto status = del (transaction_a, tables::pending, key_a);
+		release_assert (success (status));
 	}
 
 	bool pending_get (nano::transaction const & transaction_a, nano::pending_key const & key_a, nano::pending_info & pending_a) override
@@ -486,11 +486,10 @@ public:
 		release_assert (success (status));
 	}
 
-	bool unchecked_del (nano::write_transaction const & transaction_a, nano::unchecked_key const & key_a) override
+	void unchecked_del (nano::write_transaction const & transaction_a, nano::unchecked_key const & key_a) override
 	{
 		auto status (del (transaction_a, tables::unchecked, key_a));
-		release_assert (success (status) || not_found (status));
-		return not_found (status);
+		release_assert (success (status));
 	}
 
 	std::shared_ptr<nano::vote> vote_get (nano::transaction const & transaction_a, nano::account const & account_a) override
@@ -551,8 +550,8 @@ public:
 
 	void account_del (nano::write_transaction const & transaction_a, nano::account const & account_a) override
 	{
-		auto status1 = del (transaction_a, tables::accounts, account_a);
-		release_assert (success (status1));
+		auto status = del (transaction_a, tables::accounts, account_a);
+		release_assert (success (status));
 	}
 
 	bool account_get (nano::transaction const & transaction_a, nano::account const & account_a, nano::account_info & info_a) override
