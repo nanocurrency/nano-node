@@ -70,7 +70,7 @@ private: // State management
 	static int constexpr confirmed_duration_factor = 10;
 	std::atomic<nano::election::state_t> state_m = { std::atomic<nano::election::state_t>::value_type::idle };
 
-	std::chrono::steady_clock::time_point state_start = { std::chrono::steady_clock::now () };
+	std::atomic<std::chrono::steady_clock::time_point> state_start = { std::chrono::steady_clock::now () };
 	std::atomic<std::chrono::steady_clock::time_point> last_vote = { std::chrono::steady_clock::time_point () };
 	std::atomic<std::chrono::steady_clock::time_point> last_block = { std::chrono::steady_clock::time_point () };
 	std::chrono::steady_clock::time_point last_req = { std::chrono::steady_clock::time_point () };

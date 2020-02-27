@@ -254,6 +254,7 @@ void nano::election::broadcast_block ()
 
 bool nano::election::transition_time ()
 {
+	assert (!node.active.mutex.try_lock ());
 	bool result = false;
 	switch (state_m)
 	{
@@ -261,7 +262,7 @@ bool nano::election::transition_time ()
 			break;
 		case nano::election::state_t::passive:
 		{
-			if (base_latency () * passive_duration_factor < std::chrono::steady_clock::now () - state_start)
+			if (base_latency () * passive_duration_factor < std::chrono::steady_clock::now () - state_start.load ())
 			{
 				state_change (nano::election::state_t::passive, nano::election::state_t::active);
 			}
@@ -270,7 +271,7 @@ bool nano::election::transition_time ()
 		case nano::election::state_t::active:
 			broadcast_block ();
 			send_confirm_req ();
-			if (base_latency () * active_duration_factor < std::chrono::steady_clock::now () - state_start)
+			if (base_latency () * active_duration_factor < std::chrono::steady_clock::now () - state_start.load ())
 			{
 				activate_dependencies ();
 				state_change (nano::election::state_t::active, nano::election::state_t::backtracking);
@@ -281,7 +282,7 @@ bool nano::election::transition_time ()
 			send_confirm_req ();
 			break;
 		case nano::election::state_t::confirmed:
-			if (base_latency () * confirmed_duration_factor < std::chrono::steady_clock::now () - state_start)
+			if (base_latency () * confirmed_duration_factor < std::chrono::steady_clock::now () - state_start.load ())
 			{
 				result = true;
 				state_change (nano::election::state_t::confirmed, nano::election::state_t::expired_confirmed);
