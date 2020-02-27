@@ -112,7 +112,7 @@ void nano::rpc_handler::process_request (nano::rpc_handler_request_params const 
 			}
 			else
 			{
-				assert (false);
+				debug_assert (false);
 				json_error_response (response, "Invalid RPC version");
 			}
 		}

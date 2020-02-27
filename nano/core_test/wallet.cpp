@@ -649,7 +649,7 @@ TEST (wallet, work)
 		uint64_t work (0);
 		if (!wallet->store.work_get (transaction, nano::test_genesis_key.pub, work))
 		{
-			done = !nano::work_validate (genesis.hash (), work);
+			done = !nano::work_validate (genesis.open->work_version (), genesis.hash (), work);
 		}
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -669,7 +669,7 @@ TEST (wallet, work_generate)
 		account1 = system.account (transaction, 0);
 	}
 	nano::keypair key;
-	wallet->send_action (nano::test_genesis_key.pub, key.pub, 100);
+	auto block (wallet->send_action (nano::test_genesis_key.pub, key.pub, 100));
 	system.deadline_set (10s);
 	auto transaction (node1.store.tx_begin_read ());
 	while (node1.ledger.account_balance (transaction, nano::test_genesis_key.pub) == amount1)
@@ -683,7 +683,7 @@ TEST (wallet, work_generate)
 		ASSERT_NO_ERROR (system.poll ());
 		auto block_transaction (node1.store.tx_begin_read ());
 		auto transaction (system.wallet (0)->wallets.tx_begin_read ());
-		again = wallet->store.work_get (transaction, account1, work1) || nano::work_validate (node1.ledger.latest_root (block_transaction, account1), work1);
+		again = wallet->store.work_get (transaction, account1, work1) || nano::work_validate (block->work_version (), node1.ledger.latest_root (block_transaction, account1), work1);
 	}
 }
 
@@ -949,7 +949,7 @@ TEST (wallet, no_work)
 	auto block (system.wallet (0)->send_action (nano::test_genesis_key.pub, key2.pub, std::numeric_limits<nano::uint128_t>::max (), false));
 	ASSERT_NE (nullptr, block);
 	ASSERT_NE (0, block->block_work ());
-	ASSERT_FALSE (nano::work_validate (block->root (), block->block_work ()));
+	ASSERT_FALSE (nano::work_validate (*block));
 	auto transaction (system.wallet (0)->wallets.tx_begin_read ());
 	uint64_t cached_work (0);
 	system.wallet (0)->store.work_get (transaction, nano::test_genesis_key.pub, cached_work);
@@ -1134,11 +1134,9 @@ TEST (wallet, work_watcher_update)
 	wallet.insert_adhoc (nano::test_genesis_key.prv);
 	nano::keypair key;
 	auto const block1 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 100));
-	uint64_t difficulty1 (0);
-	nano::work_validate (*block1, &difficulty1);
+	auto difficulty1 (block1->difficulty ());
 	auto const block2 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 200));
-	uint64_t difficulty2 (0);
-	nano::work_validate (*block2, &difficulty2);
+	auto difficulty2 (block2->difficulty ());
 	auto multiplier = nano::difficulty::to_multiplier (std::max (difficulty1, difficulty2), node.network_params.network.publish_threshold);
 	uint64_t updated_difficulty1{ difficulty1 }, updated_difficulty2{ difficulty2 };
 	{
@@ -1188,12 +1186,11 @@ TEST (wallet, work_watcher_generation_disabled)
 	nano::genesis genesis;
 	nano::keypair key;
 	auto block (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Mxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (genesis.hash ())));
-	uint64_t difficulty (0);
-	ASSERT_FALSE (nano::work_validate (*block, &difficulty));
-	node.wallets.watcher->add (block, nano::work_version::work_1);
+	auto difficulty (block->difficulty ());
+	node.wallets.watcher->add (block);
 	ASSERT_FALSE (node.process_local (block).code != nano::process_result::progress);
 	ASSERT_TRUE (node.wallets.watcher->is_watched (block->qualified_root ()));
-	auto multiplier = nano::difficulty::to_multiplier (difficulty, node.network_params.network.publish_threshold);
+	auto multiplier = nano::difficulty::to_multiplier (difficulty, nano::work_threshold (block->work_version ()));
 	uint64_t updated_difficulty{ difficulty };
 	{
 		nano::unique_lock<std::mutex> lock (node.active.mutex);
@@ -1254,8 +1251,7 @@ TEST (wallet, work_watcher_cancel)
 	nano::keypair key;
 	auto work1 (node.work_generate_blocking (nano::test_genesis_key.pub));
 	auto const block1 (wallet.send_action (nano::test_genesis_key.pub, key.pub, 100, *work1, false));
-	uint64_t difficulty1 (0);
-	nano::work_validate (*block1, &difficulty1);
+	auto difficulty1 (block1->difficulty ());
 	{
 		nano::unique_lock<std::mutex> lock (node.active.mutex);
 		// Prevent active difficulty repopulating multipliers

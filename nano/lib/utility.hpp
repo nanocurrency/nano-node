@@ -20,6 +20,15 @@ namespace system
 }
 }
 
+void assert_internal (const char * check_expr, const char * file, unsigned int line, bool is_release_assert);
+#define release_assert(check) check ? (void)0 : assert_internal (#check, __FILE__, __LINE__, true)
+
+#ifdef NDEBUG
+#define debug_assert(check) (void)0
+#else
+#define debug_assert(check) check ? (void)0 : assert_internal (#check, __FILE__, __LINE__, false)
+#endif
+
 namespace nano
 {
 /* These containers are used to collect information about sequence containers.
@@ -168,10 +177,7 @@ template <typename TARGET_TYPE, typename SOURCE_TYPE>
 constexpr TARGET_TYPE narrow_cast (SOURCE_TYPE const & val)
 {
 	auto res (static_cast<TARGET_TYPE> (val));
-	assert (val == static_cast<SOURCE_TYPE> (res));
+	debug_assert (val == static_cast<SOURCE_TYPE> (res));
 	return res;
 }
 }
-
-void release_assert_internal (bool check, const char * check_expr, const char * file, unsigned int line);
-#define release_assert(check) release_assert_internal (check, #check, __FILE__, __LINE__)

@@ -118,7 +118,7 @@ bool nano::websocket::confirmation_options::should_filter (nano::websocket::mess
 			auto decode_destination_ok_l (!destination_l.decode_account (destination_opt_l.get ()));
 			(void)decode_source_ok_l;
 			(void)decode_destination_ok_l;
-			assert (decode_source_ok_l && decode_destination_ok_l);
+			debug_assert (decode_source_ok_l && decode_destination_ok_l);
 			if (wallets.exists (transaction_l, source_l) || wallets.exists (transaction_l, destination_l))
 			{
 				should_filter_account = false;
@@ -624,7 +624,7 @@ void nano::websocket::listener::broadcast_confirmation (std::shared_ptr<nano::bl
 				}
 				else
 				{
-					assert (false);
+					debug_assert (false);
 				}
 
 				session_ptr->write (include_block ? msg_with_block.get () : msg_without_block.get ());
@@ -749,7 +749,7 @@ nano::websocket::message nano::websocket::message_builder::vote_received (std::s
 			vote_type = "indeterminate";
 			break;
 		case nano::vote_code::invalid:
-			assert (false);
+			debug_assert (false);
 			break;
 	}
 	vote_node_l.put ("type", vote_type);
@@ -788,7 +788,7 @@ nano::websocket::message nano::websocket::message_builder::work_generation (nano
 	request_l.put ("version", nano::to_string (version_a));
 	request_l.put ("hash", root_a.to_string ());
 	request_l.put ("difficulty", nano::to_string_hex (difficulty_a));
-	auto request_multiplier_l (nano::difficulty::to_multiplier (difficulty_a, publish_threshold_a));
+	auto request_multiplier_l (nano::difficulty::to_multiplier (difficulty_a, nano::work_threshold (version_a)));
 	request_l.put ("multiplier", nano::to_string (request_multiplier_l));
 	work_l.add_child ("request", request_l);
 
@@ -797,10 +797,9 @@ nano::websocket::message nano::websocket::message_builder::work_generation (nano
 		boost::property_tree::ptree result_l;
 		result_l.put ("source", peer_a);
 		result_l.put ("work", nano::to_string_hex (work_a));
-		uint64_t result_difficulty_l;
-		nano::work_validate (version_a, root_a, work_a, &result_difficulty_l);
+		auto result_difficulty_l (nano::work_difficulty (version_a, root_a, work_a));
 		result_l.put ("difficulty", nano::to_string_hex (result_difficulty_l));
-		auto result_multiplier_l (nano::difficulty::to_multiplier (result_difficulty_l, publish_threshold_a));
+		auto result_multiplier_l (nano::difficulty::to_multiplier (result_difficulty_l, nano::work_threshold (version_a)));
 		result_l.put ("multiplier", nano::to_string (result_multiplier_l));
 		work_l.add_child ("result", result_l);
 	}

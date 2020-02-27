@@ -88,7 +88,7 @@ nano::public_key nano::wallet_store::deterministic_insert (nano::transaction con
 
 nano::private_key nano::wallet_store::deterministic_key (nano::transaction const & transaction_a, uint32_t index_a)
 {
-	assert (valid_password (transaction_a));
+	debug_assert (valid_password (transaction_a));
 	nano::raw_key seed_l;
 	seed (seed_l, transaction_a);
 	return nano::deterministic_key (seed_l, index_a);
@@ -166,7 +166,7 @@ bool nano::wallet_store::attempt_password (nano::transaction const & transaction
 			case version_4:
 				break;
 			default:
-				assert (false);
+				debug_assert (false);
 		}
 	}
 	return result;
@@ -226,7 +226,7 @@ void nano::fan::value (nano::raw_key & prv_a)
 
 void nano::fan::value_get (nano::raw_key & prv_a)
 {
-	assert (!mutex.try_lock ());
+	debug_assert (!mutex.try_lock ());
 	prv_a.data.clear ();
 	for (auto & i : values)
 	{
@@ -271,7 +271,7 @@ kdf (kdf_a)
 	if (!init_a)
 	{
 		MDB_val junk;
-		assert (mdb_get (tx (transaction_a), handle, nano::mdb_val (version_special), &junk) == MDB_NOTFOUND);
+		debug_assert (mdb_get (tx (transaction_a), handle, nano::mdb_val (version_special), &junk) == MDB_NOTFOUND);
 		boost::property_tree::ptree wallet_l;
 		std::stringstream istream (json_a);
 		try
@@ -378,7 +378,7 @@ std::vector<nano::account> nano::wallet_store::accounts (nano::transaction const
 
 void nano::wallet_store::initialize (nano::transaction const & transaction_a, bool & init_a, std::string const & path_a)
 {
-	assert (strlen (path_a.c_str ()) == path_a.size ());
+	debug_assert (strlen (path_a.c_str ()) == path_a.size ());
 	auto error (0);
 	error |= mdb_dbi_open (tx (transaction_a), path_a.c_str (), MDB_CREATE, &handle);
 	init_a = error != 0;
@@ -402,7 +402,7 @@ nano::account nano::wallet_store::representative (nano::transaction const & tran
 
 nano::public_key nano::wallet_store::insert_adhoc (nano::transaction const & transaction_a, nano::raw_key const & prv)
 {
-	assert (valid_password (transaction_a));
+	debug_assert (valid_password (transaction_a));
 	nano::public_key pub (nano::pub_key (prv.as_private_key ()));
 	nano::raw_key password_l;
 	wallet_key (password_l, transaction_a);
@@ -426,7 +426,7 @@ void nano::wallet_store::erase (nano::transaction const & transaction_a, nano::a
 {
 	auto status (mdb_del (tx (transaction_a), handle, nano::mdb_val (pub), nullptr));
 	(void)status;
-	assert (status == 0);
+	debug_assert (status == 0);
 }
 
 nano::wallet_value nano::wallet_store::entry_get_raw (nano::transaction const & transaction_a, nano::account const & pub_a)
@@ -450,7 +450,7 @@ void nano::wallet_store::entry_put_raw (nano::transaction const & transaction_a,
 {
 	auto status (mdb_put (tx (transaction_a), handle, nano::mdb_val (pub_a), nano::mdb_val (sizeof (entry_a), const_cast<nano::wallet_value *> (&entry_a)), 0));
 	(void)status;
-	assert (status == 0);
+	debug_assert (status == 0);
 }
 
 nano::key_type nano::wallet_store::key_type (nano::wallet_value const & value_a)
@@ -569,8 +569,8 @@ void nano::wallet_store::write_backup (nano::transaction const & transaction_a, 
 
 bool nano::wallet_store::move (nano::transaction const & transaction_a, nano::wallet_store & other_a, std::vector<nano::public_key> const & keys)
 {
-	assert (valid_password (transaction_a));
-	assert (other_a.valid_password (transaction_a));
+	debug_assert (valid_password (transaction_a));
+	debug_assert (other_a.valid_password (transaction_a));
 	auto result (false);
 	for (auto i (keys.begin ()), n (keys.end ()); i != n; ++i)
 	{
@@ -588,8 +588,8 @@ bool nano::wallet_store::move (nano::transaction const & transaction_a, nano::wa
 
 bool nano::wallet_store::import (nano::transaction const & transaction_a, nano::wallet_store & other_a)
 {
-	assert (valid_password (transaction_a));
-	assert (other_a.valid_password (transaction_a));
+	debug_assert (valid_password (transaction_a));
+	debug_assert (other_a.valid_password (transaction_a));
 	auto result (false);
 	for (auto i (other_a.begin (transaction_a)), n (end ()); i != n; ++i)
 	{
@@ -630,7 +630,7 @@ bool nano::wallet_store::work_get (nano::transaction const & transaction_a, nano
 void nano::wallet_store::work_put (nano::transaction const & transaction_a, nano::public_key const & pub_a, uint64_t work_a)
 {
 	auto entry (entry_get_raw (transaction_a, pub_a));
-	assert (!entry.key.is_zero ());
+	debug_assert (!entry.key.is_zero ());
 	entry.work = work_a;
 	entry_put_raw (transaction_a, pub_a, entry);
 }
@@ -651,7 +651,7 @@ void nano::wallet_store::version_put (nano::transaction const & transaction_a, u
 
 void nano::wallet_store::upgrade_v1_v2 (nano::transaction const & transaction_a)
 {
-	assert (version (transaction_a) == 1);
+	debug_assert (version (transaction_a) == 1);
 	nano::raw_key zero_password;
 	nano::wallet_value value (entry_get_raw (transaction_a, nano::wallet_store::wallet_key_special));
 	nano::raw_key kdf;
@@ -694,7 +694,7 @@ void nano::wallet_store::upgrade_v1_v2 (nano::transaction const & transaction_a)
 
 void nano::wallet_store::upgrade_v2_v3 (nano::transaction const & transaction_a)
 {
-	assert (version (transaction_a) == 2);
+	debug_assert (version (transaction_a) == 2);
 	nano::raw_key seed;
 	random_pool::generate_block (seed.data.bytes.data (), seed.data.bytes.size ());
 	seed_set (transaction_a, seed);
@@ -704,9 +704,9 @@ void nano::wallet_store::upgrade_v2_v3 (nano::transaction const & transaction_a)
 
 void nano::wallet_store::upgrade_v3_v4 (nano::transaction const & transaction_a)
 {
-	assert (version (transaction_a) == 3);
+	debug_assert (version (transaction_a) == 3);
 	version_put (transaction_a, 4);
-	assert (valid_password (transaction_a));
+	debug_assert (valid_password (transaction_a));
 	nano::raw_key seed;
 	nano::wallet_value value (entry_get_raw (transaction_a, nano::wallet_store::seed_special));
 	nano::raw_key password_l;
@@ -739,7 +739,7 @@ void nano::wallet_store::upgrade_v3_v4 (nano::transaction const & transaction_a)
 				case nano::key_type::deterministic:
 					break;
 				default:
-					assert (false);
+					debug_assert (false);
 			}
 		}
 	}
@@ -750,7 +750,7 @@ void nano::kdf::phs (nano::raw_key & result_a, std::string const & password_a, n
 	static nano::network_params network_params;
 	nano::lock_guard<std::mutex> lock (mutex);
 	auto success (argon2_hash (1, network_params.kdf_work, 1, password_a.data (), password_a.size (), salt_a.bytes.data (), salt_a.bytes.size (), result_a.data.bytes.data (), result_a.data.bytes.size (), NULL, 0, Argon2_d, 0x10));
-	assert (success == 0);
+	debug_assert (success == 0);
 	(void)success;
 }
 
@@ -924,7 +924,7 @@ void nano::wallet_store::destroy (nano::transaction const & transaction_a)
 {
 	auto status (mdb_drop (tx (transaction_a), handle, 1));
 	(void)status;
-	assert (status == 0);
+	debug_assert (status == 0);
 	handle = 0;
 }
 
@@ -1006,11 +1006,11 @@ std::shared_ptr<nano::block> nano::wallet::change_action (nano::account const & 
 				nano::account_info info;
 				auto error1 (wallets.node.ledger.store.account_get (block_transaction, source_a, info));
 				(void)error1;
-				assert (!error1);
+				debug_assert (!error1);
 				nano::raw_key prv;
 				auto error2 (store.fetch (transaction, source_a, prv));
 				(void)error2;
-				assert (!error2);
+				debug_assert (!error2);
 				if (work_a == 0)
 				{
 					store.work_get (transaction, source_a, work_a);
@@ -1075,11 +1075,11 @@ std::shared_ptr<nano::block> nano::wallet::send_action (nano::account const & so
 						nano::account_info info;
 						auto error1 (wallets.node.ledger.store.account_get (block_transaction, source_a, info));
 						(void)error1;
-						assert (!error1);
+						debug_assert (!error1);
 						nano::raw_key prv;
 						auto error2 (store.fetch (transaction, source_a, prv));
 						(void)error2;
-						assert (!error2);
+						debug_assert (!error2);
 						if (work_a == 0)
 						{
 							store.work_get (transaction, source_a, work_a);
@@ -1134,10 +1134,10 @@ bool nano::wallet::action_complete (std::shared_ptr<nano::block> const & block_a
 	bool error{ false };
 	if (block_a != nullptr)
 	{
-		if (nano::work_validate (nano::work_version::work_1, *block_a))
+		if (nano::work_validate (*block_a))
 		{
 			wallets.node.logger.try_log (boost::str (boost::format ("Cached or provided work for block %1% account %2% is invalid, regenerating") % block_a->hash ().to_string () % account_a.to_account ()));
-			error = !wallets.node.work_generate_blocking (nano::work_version::work_1, *block_a, wallets.node.active.limited_active_difficulty ()).is_initialized ();
+			error = !wallets.node.work_generate_blocking (*block_a, wallets.node.active.limited_active_difficulty ()).is_initialized ();
 		}
 		if (!error)
 		{
@@ -1217,8 +1217,8 @@ void nano::wallet::send_async (nano::account const & source_a, nano::account con
 // Update work for account if latest root is root_a
 void nano::wallet::work_update (nano::transaction const & transaction_a, nano::account const & account_a, nano::root const & root_a, uint64_t work_a)
 {
-	assert (!nano::work_validate (nano::work_version::work_1, root_a, work_a));
-	assert (store.exists (transaction_a, account_a));
+	debug_assert (!nano::work_validate (nano::work_version::work_1, root_a, work_a));
+	debug_assert (store.exists (transaction_a, account_a));
 	auto block_transaction (wallets.node.store.tx_begin_read ());
 	auto latest (wallets.node.ledger.latest_root (block_transaction, account_a));
 	if (latest == root_a)
@@ -1401,7 +1401,7 @@ void nano::work_watcher::stop ()
 	stopped = true;
 }
 
-void nano::work_watcher::add (std::shared_ptr<nano::block> block_a, nano::work_version const work_version_a)
+void nano::work_watcher::add (std::shared_ptr<nano::block> block_a)
 {
 	auto block_l (std::dynamic_pointer_cast<nano::state_block> (block_a));
 	if (!stopped && block_l != nullptr)
@@ -1410,7 +1410,7 @@ void nano::work_watcher::add (std::shared_ptr<nano::block> block_a, nano::work_v
 		nano::unique_lock<std::mutex> lock (mutex);
 		watched[root_l] = block_l;
 		lock.unlock ();
-		watching (work_version_a, root_l, block_l);
+		watching (root_l, block_l);
 	}
 }
 
@@ -1420,10 +1420,10 @@ void nano::work_watcher::update (nano::qualified_root const & root_a, std::share
 	watched[root_a] = block_a;
 }
 
-void nano::work_watcher::watching (nano::work_version const version_a, nano::qualified_root const & root_a, std::shared_ptr<nano::state_block> block_a)
+void nano::work_watcher::watching (nano::qualified_root const & root_a, std::shared_ptr<nano::state_block> block_a)
 {
 	std::weak_ptr<nano::work_watcher> watcher_w (shared_from_this ());
-	node.alarm.add (std::chrono::steady_clock::now () + node.config.work_watcher_period, [block_a, version_a, root_a, watcher_w]() {
+	node.alarm.add (std::chrono::steady_clock::now () + node.config.work_watcher_period, [block_a, root_a, watcher_w]() {
 		auto watcher_l = watcher_w.lock ();
 		if (watcher_l && !watcher_l->stopped && block_a != nullptr)
 		{
@@ -1431,18 +1431,15 @@ void nano::work_watcher::watching (nano::work_version const version_a, nano::qua
 			if (watcher_l->watched.find (root_a) != watcher_l->watched.end ()) // not yet confirmed or cancelled
 			{
 				lock.unlock ();
-				uint64_t difficulty (0);
-				auto root_l (block_a->root ());
-				nano::work_validate (version_a, root_l, block_a->block_work (), &difficulty);
 				auto active_difficulty (watcher_l->node.active.limited_active_difficulty ());
 				/*
 				 * Work watcher should still watch blocks even without work generation, although no rework is done
 				 * Functionality may be added in the future that does not require updating work
 				 */
-				if (active_difficulty > difficulty && watcher_l->node.work_generation_enabled ())
+				if (active_difficulty > block_a->difficulty () && watcher_l->node.work_generation_enabled ())
 				{
 					watcher_l->node.work_generate (
-					version_a, root_l, [watcher_l, block_a, version_a, root_a](boost::optional<uint64_t> work_a) {
+					block_a->work_version (), block_a->root (), [watcher_l, block_a, root_a](boost::optional<uint64_t> work_a) {
 						if (block_a != nullptr && watcher_l != nullptr && !watcher_l->stopped)
 						{
 							bool updated_l{ false };
@@ -1454,15 +1451,16 @@ void nano::work_watcher::watching (nano::work_version const version_a, nano::qua
 
 								if (!ec)
 								{
+									watcher_l->node.network.flood_block_initial (block);
 									watcher_l->node.active.update_difficulty (block);
 									watcher_l->update (root_a, block);
 									updated_l = true;
-									watcher_l->watching (version_a, root_a, block);
+									watcher_l->watching (root_a, block);
 								}
 							}
 							if (!updated_l)
 							{
-								watcher_l->watching (version_a, root_a, block_a);
+								watcher_l->watching (root_a, block_a);
 							}
 						}
 					},
@@ -1470,7 +1468,7 @@ void nano::work_watcher::watching (nano::work_version const version_a, nano::qua
 				}
 				else
 				{
-					watcher_l->watching (version_a, root_a, block_a);
+					watcher_l->watching (root_a, block_a);
 				}
 			}
 		}
@@ -1547,7 +1545,7 @@ thread ([this]() {
 		auto status (mdb_dbi_open (env.tx (transaction), nullptr, MDB_CREATE, &handle));
 		split_if_needed (transaction, node.store);
 		status |= mdb_dbi_open (env.tx (transaction), "send_action_ids", MDB_CREATE, &send_action_ids);
-		assert (status == 0);
+		debug_assert (status == 0);
 		std::string beginning (nano::uint256_union (0).to_string ());
 		std::string end ((nano::uint256_union (nano::uint256_t (0) - nano::uint256_t (1))).to_string ());
 		nano::store_iterator<std::array<char, 64>, nano::no_value> i (std::make_unique<nano::mdb_iterator<std::array<char, 64>, nano::no_value>> (transaction, handle, nano::mdb_val (beginning.size (), const_cast<char *> (beginning.c_str ()))));
@@ -1557,8 +1555,8 @@ thread ([this]() {
 			nano::wallet_id id;
 			std::string text (i->first.data (), i->first.size ());
 			auto error (id.decode_hex (text));
-			assert (!error);
-			assert (items.find (id) == items.end ());
+			debug_assert (!error);
+			debug_assert (items.find (id) == items.end ());
 			auto wallet (std::make_shared<nano::wallet> (error, transaction, *this, text));
 			if (!error)
 			{
@@ -1622,7 +1620,7 @@ std::shared_ptr<nano::wallet> nano::wallets::open (nano::wallet_id const & id_a)
 std::shared_ptr<nano::wallet> nano::wallets::create (nano::wallet_id const & id_a)
 {
 	nano::lock_guard<std::mutex> lock (mutex);
-	assert (items.find (id_a) == items.end ());
+	debug_assert (items.find (id_a) == items.end ());
 	std::shared_ptr<nano::wallet> result;
 	bool error;
 	{
@@ -1667,7 +1665,7 @@ void nano::wallets::destroy (nano::wallet_id const & id_a)
 	// action_mutex should be after transactions to prevent deadlocks in deterministic_insert () & insert_adhoc ()
 	nano::lock_guard<std::mutex> action_lock (action_mutex);
 	auto existing (items.find (id_a));
-	assert (existing != items.end ());
+	debug_assert (existing != items.end ());
 	auto wallet (existing->second);
 	items.erase (existing);
 	wallet->store.destroy (transaction);
@@ -1687,7 +1685,7 @@ void nano::wallets::reload ()
 		nano::wallet_id id;
 		std::string text (i->first.data (), i->first.size ());
 		auto error (id.decode_hex (text));
-		assert (!error);
+		debug_assert (!error);
 		// New wallet
 		if (items.find (id) == items.end ())
 		{
@@ -1711,7 +1709,7 @@ void nano::wallets::reload ()
 	}
 	for (auto & i : deleted_items)
 	{
-		assert (items.find (i) == items.end ());
+		debug_assert (items.find (i) == items.end ());
 		items.erase (i);
 	}
 }
@@ -1751,7 +1749,7 @@ void nano::wallets::foreach_representative (std::function<void(nano::public_key 
 							nano::raw_key prv;
 							auto error (wallet.store.fetch (transaction_l, account, prv));
 							(void)error;
-							assert (!error);
+							debug_assert (!error);
 							action_a (account, prv);
 						}
 						else
@@ -1810,7 +1808,7 @@ void nano::wallets::clear_send_ids (nano::transaction const & transaction_a)
 {
 	auto status (mdb_drop (env.tx (transaction_a), send_action_ids, 0));
 	(void)status;
-	assert (status == 0);
+	debug_assert (status == 0);
 }
 
 nano::wallet_representative_counts nano::wallets::rep_counts ()
@@ -1910,8 +1908,8 @@ void nano::wallets::split_if_needed (nano::transaction & transaction_destination
 					std::string text (i->first.data (), i->first.size ());
 					auto error1 (id.decode_hex (text));
 					(void)error1;
-					assert (!error1);
-					assert (strlen (text.c_str ()) == text.size ());
+					debug_assert (!error1);
+					debug_assert (strlen (text.c_str ()) == text.size ());
 					move_table (text, tx_source, tx_destination);
 				}
 			}
@@ -1924,15 +1922,15 @@ void nano::wallets::move_table (std::string const & name_a, MDB_txn * tx_source,
 	MDB_dbi handle_source;
 	auto error2 (mdb_dbi_open (tx_source, name_a.c_str (), MDB_CREATE, &handle_source));
 	(void)error2;
-	assert (!error2);
+	debug_assert (!error2);
 	MDB_dbi handle_destination;
 	auto error3 (mdb_dbi_open (tx_destination, name_a.c_str (), MDB_CREATE, &handle_destination));
 	(void)error3;
-	assert (!error3);
+	debug_assert (!error3);
 	MDB_cursor * cursor;
 	auto error4 (mdb_cursor_open (tx_source, handle_source, &cursor));
 	(void)error4;
-	assert (!error4);
+	debug_assert (!error4);
 	MDB_val val_key;
 	MDB_val val_value;
 	auto cursor_status (mdb_cursor_get (cursor, &val_key, &val_value, MDB_FIRST));
@@ -1940,12 +1938,12 @@ void nano::wallets::move_table (std::string const & name_a, MDB_txn * tx_source,
 	{
 		auto error5 (mdb_put (tx_destination, handle_destination, &val_key, &val_value, 0));
 		(void)error5;
-		assert (!error5);
+		debug_assert (!error5);
 		cursor_status = mdb_cursor_get (cursor, &val_key, &val_value, MDB_NEXT);
 	}
 	auto error6 (mdb_drop (tx_source, handle_source, 1));
 	(void)error6;
-	assert (!error6);
+	debug_assert (!error6);
 }
 
 nano::uint128_t const nano::wallets::generate_priority = std::numeric_limits<nano::uint128_t>::max ();

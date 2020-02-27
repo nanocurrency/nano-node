@@ -147,7 +147,7 @@ void nano::mdb_txn_tracker::serialize_json (boost::property_tree::ptree & json, 
 	std::transform (copy_stats.cbegin (), copy_stats.cend (), std::back_inserter (times_since_start), [](const auto & stat) {
 		return stat.timer.since_start ();
 	});
-	assert (times_since_start.size () == copy_stats.size ());
+	debug_assert (times_since_start.size () == copy_stats.size ());
 
 	for (size_t i = 0; i < times_since_start.size (); ++i)
 	{
@@ -197,7 +197,7 @@ void nano::mdb_txn_tracker::output_finished (nano::mdb_txn_stats const & mdb_txn
 
 	if (!should_ignore && ((is_write && time_open >= txn_tracking_config.min_write_txn_time) || (!is_write && time_open >= txn_tracking_config.min_read_txn_time)))
 	{
-		assert (mdb_txn_stats.stacktrace);
+		debug_assert (mdb_txn_stats.stacktrace);
 		logger.always_log (boost::str (boost::format ("%1%ms %2% held on thread %3%\n%4%") % mdb_txn_stats.timer.since_start ().count () % (is_write ? "write lock" : "read") % mdb_txn_stats.thread_name % *mdb_txn_stats.stacktrace));
 	}
 }
@@ -205,7 +205,7 @@ void nano::mdb_txn_tracker::output_finished (nano::mdb_txn_stats const & mdb_txn
 void nano::mdb_txn_tracker::add (const nano::transaction_impl * transaction_impl)
 {
 	nano::lock_guard<std::mutex> guard (mutex);
-	assert (std::find_if (stats.cbegin (), stats.cend (), matches_txn (transaction_impl)) == stats.cend ());
+	debug_assert (std::find_if (stats.cbegin (), stats.cend (), matches_txn (transaction_impl)) == stats.cend ());
 	stats.emplace_back (transaction_impl);
 }
 

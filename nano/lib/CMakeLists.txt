@@ -43,6 +43,7 @@ add_library (nano_lib
 	memory.cpp
 	numbers.hpp
 	numbers.cpp
+	optional_ptr.hpp
 	rep_weights.hpp
 	rep_weights.cpp
 	rocksdbconfig.hpp
@@ -87,6 +88,7 @@ target_compile_definitions(nano_lib
 		-DMINOR_VERSION_STRING=${CPACK_PACKAGE_VERSION_MINOR}
 		-DPATCH_VERSION_STRING=${CPACK_PACKAGE_VERSION_PATCH}
 		-DPRE_RELEASE_VERSION_STRING=${CPACK_PACKAGE_VERSION_PRE_RELEASE}
+		-DCI=${CI_TEST}
 	PUBLIC
 		-DACTIVE_NETWORK=${ACTIVE_NETWORK}
 )

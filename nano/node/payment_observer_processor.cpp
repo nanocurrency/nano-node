@@ -28,13 +28,13 @@ void nano::payment_observer_processor::observer_action (nano::account const & ac
 void nano::payment_observer_processor::add (nano::account const & account_a, std::shared_ptr<nano::json_payment_observer> payment_observer_a)
 {
 	nano::lock_guard<std::mutex> lock (mutex);
-	assert (payment_observers.find (account_a) == payment_observers.end ());
+	debug_assert (payment_observers.find (account_a) == payment_observers.end ());
 	payment_observers[account_a] = payment_observer_a;
 }
 
 void nano::payment_observer_processor::erase (nano::account & account_a)
 {
 	nano::lock_guard<std::mutex> lock (mutex);
-	assert (payment_observers.find (account_a) != payment_observers.end ());
+	debug_assert (payment_observers.find (account_a) != payment_observers.end ());
 	payment_observers.erase (account_a);
 }

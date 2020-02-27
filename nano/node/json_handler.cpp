@@ -1,6 +1,7 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/json_error_response.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/node/bootstrap/bootstrap_lazy.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/json_handler.hpp>
@@ -1679,41 +1680,39 @@ void nano::json_handler::bootstrap_lazy ()
  */
 void nano::json_handler::bootstrap_status ()
 {
-	auto attempt (node.bootstrap_initiator.current_attempt ());
-	if (attempt != nullptr)
+	auto attempts_count (node.bootstrap_initiator.attempts.size ());
+	response_l.put ("bootstrap_threads", std::to_string (node.config.bootstrap_initiator_threads));
+	response_l.put ("running_attempts_count", std::to_string (attempts_count));
+	response_l.put ("total_attempts_count", std::to_string (node.bootstrap_initiator.attempts.incremental));
+	boost::property_tree::ptree connections;
 	{
-		nano::lock_guard<std::mutex> lock (attempt->mutex);
-		nano::lock_guard<std::mutex> lazy_lock (attempt->lazy_mutex);
-		response_l.put ("id", attempt->id);
-		response_l.put ("clients", std::to_string (attempt->clients.size ()));
-		response_l.put ("pulls", std::to_string (attempt->pulls.size ()));
-		response_l.put ("pulling", std::to_string (attempt->pulling));
-		response_l.put ("connections", std::to_string (attempt->connections));
-		response_l.put ("idle", std::to_string (attempt->idle.size ()));
-		response_l.put ("target_connections", std::to_string (attempt->target_connections (attempt->pulls.size ())));
-		response_l.put ("total_blocks", std::to_string (attempt->total_blocks));
-		response_l.put ("runs_count", std::to_string (attempt->runs_count));
-		response_l.put ("requeued_pulls", std::to_string (attempt->requeued_pulls));
-		response_l.put ("frontiers_received", static_cast<bool> (attempt->frontiers_received));
-		response_l.put ("frontiers_confirmed", static_cast<bool> (attempt->frontiers_confirmed));
-		response_l.put ("mode", attempt->mode_text ());
-		response_l.put ("lazy_blocks", std::to_string (attempt->lazy_blocks.size ()));
-		response_l.put ("lazy_state_backlog", std::to_string (attempt->lazy_state_backlog.size ()));
-		response_l.put ("lazy_balances", std::to_string (attempt->lazy_balances.size ()));
-		response_l.put ("lazy_destinations", std::to_string (attempt->lazy_destinations.size ()));
-		response_l.put ("lazy_undefined_links", std::to_string (attempt->lazy_undefined_links.size ()));
-		response_l.put ("lazy_pulls", std::to_string (attempt->lazy_pulls.size ()));
-		response_l.put ("lazy_keys", std::to_string (attempt->lazy_keys.size ()));
-		if (!attempt->lazy_keys.empty ())
+		nano::lock_guard<std::mutex> connections_lock (node.bootstrap_initiator.connections->mutex);
+		connections.put ("clients", std::to_string (node.bootstrap_initiator.connections->clients.size ()));
+		connections.put ("connections", std::to_string (node.bootstrap_initiator.connections->connections_count));
+		connections.put ("idle", std::to_string (node.bootstrap_initiator.connections->idle.size ()));
+		connections.put ("target_connections", std::to_string (node.bootstrap_initiator.connections->target_connections (node.bootstrap_initiator.connections->pulls.size (), attempts_count)));
+		connections.put ("pulls", std::to_string (node.bootstrap_initiator.connections->pulls.size ()));
+	}
+	response_l.add_child ("connections", connections);
+	boost::property_tree::ptree attempts;
+	{
+		nano::lock_guard<std::mutex> attempts_lock (node.bootstrap_initiator.attempts.bootstrap_attempts_mutex);
+		for (auto i : node.bootstrap_initiator.attempts.attempts)
 		{
-			response_l.put ("lazy_key_1", (*(attempt->lazy_keys.begin ())).to_string ());
+			boost::property_tree::ptree entry;
+			auto & attempt (i.second);
+			entry.put ("id", attempt->id);
+			entry.put ("mode", attempt->mode_text ());
+			entry.put ("started", static_cast<bool> (attempt->started));
+			entry.put ("pulling", std::to_string (attempt->pulling));
+			entry.put ("total_blocks", std::to_string (attempt->total_blocks));
+			entry.put ("requeued_pulls", std::to_string (attempt->requeued_pulls));
+			attempt->get_information (entry);
+			entry.put ("duration", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt->attempt_start).count ());
+			attempts.push_back (std::make_pair ("", entry));
 		}
-		response_l.put ("duration", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt->attempt_start).count ());
 	}
-	else
-	{
-		response_l.put ("active", "0");
-	}
+	response_l.add_child ("attempts", attempts);
 	response_errors ();
 }
 
@@ -2059,7 +2058,7 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 	nano::raw_key raw_key;
 	raw_key.data = prv_a;
 	auto signer (nano::pub_key (prv_a));
-	assert (signer == node_a->ledger.epoch_signer (link));
+	debug_assert (signer == node_a->ledger.epoch_signer (link));
 
 	class account_upgrade_item final
 	{
@@ -2126,7 +2125,7 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 					             .work (node_a->work_generate_blocking (nano::work_version::work_1, info.head).value_or (0))
 					             .build ();
 					bool valid_signature (!nano::validate_message (signer, epoch->hash (), epoch->block_signature ()));
-					bool valid_work (!nano::work_validate (nano::work_version::work_1, *epoch.get ()));
+					bool valid_work (!nano::work_validate (*epoch.get ()));
 					nano::process_result result (nano::process_result::old);
 					if (valid_signature && valid_work)
 					{
@@ -2185,7 +2184,7 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 						             .work (node_a->work_generate_blocking (nano::work_version::work_1, key.account).value_or (0))
 						             .build ();
 						bool valid_signature (!nano::validate_message (signer, epoch->hash (), epoch->block_signature ()));
-						bool valid_work (!nano::work_validate (nano::work_version::work_1, *epoch.get ()));
+						bool valid_work (!nano::work_validate (*epoch.get ()));
 						nano::process_result result (nano::process_result::old);
 						if (valid_signature && valid_work)
 						{
@@ -3252,7 +3251,7 @@ void nano::json_handler::process ()
 		}
 		if (!rpc_l->ec)
 		{
-			if (!nano::work_validate (nano::work_version::work_1, *block))
+			if (!nano::work_validate (*block))
 			{
 				auto result (rpc_l->node.process_local (block, watch_work_l));
 				switch (result.code)
@@ -3941,7 +3940,6 @@ void nano::json_handler::telemetry ()
 
 						nano::jsonconfig config_l;
 						auto err = telemetry_data.serialize_json (config_l);
-						config_l.put ("timestamp", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ());
 						auto const & ptree = config_l.get_tree ();
 
 						if (!err)
@@ -3978,13 +3976,12 @@ void nano::json_handler::telemetry ()
 
 		if (!ec)
 		{
-			assert (channel);
-			node.telemetry.get_metrics_single_peer_async (channel, [rpc_l](auto const & single_telemetry_metric_a) {
-				if (!single_telemetry_metric_a.error)
+			debug_assert (channel);
+			node.telemetry.get_metrics_single_peer_async (channel, [rpc_l](auto const & telemetry_response_a) {
+				if (!telemetry_response_a.error)
 				{
 					nano::jsonconfig config_l;
-					auto err = single_telemetry_metric_a.telemetry_data_time_pair.data.serialize_json (config_l);
-					config_l.put ("timestamp", std::chrono::duration_cast<std::chrono::seconds> (single_telemetry_metric_a.telemetry_data_time_pair.system_last_updated.time_since_epoch ()).count ());
+					auto err = telemetry_response_a.telemetry_data.serialize_json (config_l);
 					auto const & ptree = config_l.get_tree ();
 
 					if (!err)
@@ -4015,15 +4012,14 @@ void nano::json_handler::telemetry ()
 		// setting "raw" to true returns metrics from all nodes requested.
 		auto raw = request.get_optional<bool> ("raw");
 		auto output_raw = raw.value_or (false);
-		node.telemetry.get_metrics_peers_async ([rpc_l, output_raw](auto const & batched_telemetry_metrics_a) {
+		node.telemetry.get_metrics_peers_async ([rpc_l, output_raw](telemetry_data_responses const & telemetry_responses_a) {
 			if (output_raw)
 			{
 				boost::property_tree::ptree metrics;
-				for (auto & telemetry_metrics : batched_telemetry_metrics_a.telemetry_data_time_pairs)
+				for (auto & telemetry_metrics : telemetry_responses_a.telemetry_datas)
 				{
 					nano::jsonconfig config_l;
-					auto err = telemetry_metrics.second.data.serialize_json (config_l);
-					config_l.put ("timestamp", std::chrono::duration_cast<std::chrono::seconds> (telemetry_metrics.second.system_last_updated.time_since_epoch ()).count ());
+					auto err = telemetry_metrics.second.serialize_json (config_l);
 					config_l.put ("address", telemetry_metrics.first.address ());
 					config_l.put ("port", telemetry_metrics.first.port ());
 					if (!err)
@@ -4041,15 +4037,14 @@ void nano::json_handler::telemetry ()
 			else
 			{
 				nano::jsonconfig config_l;
-				std::vector<nano::telemetry_data_time_pair> telemetry_data_time_pairs;
-				telemetry_data_time_pairs.reserve (batched_telemetry_metrics_a.telemetry_data_time_pairs.size ());
-				std::transform (batched_telemetry_metrics_a.telemetry_data_time_pairs.begin (), batched_telemetry_metrics_a.telemetry_data_time_pairs.end (), std::back_inserter (telemetry_data_time_pairs), [](auto const & telemetry_data_time_pair_a) {
-					return telemetry_data_time_pair_a.second;
+				std::vector<nano::telemetry_data> telemetry_datas;
+				telemetry_datas.reserve (telemetry_responses_a.telemetry_datas.size ());
+				std::transform (telemetry_responses_a.telemetry_datas.begin (), telemetry_responses_a.telemetry_datas.end (), std::back_inserter (telemetry_datas), [](auto const & endpoint_telemetry_data) {
+					return endpoint_telemetry_data.second;
 				});
 
-				auto average_telemetry_metrics = nano::consolidate_telemetry_data_time_pairs (telemetry_data_time_pairs);
-				auto err = average_telemetry_metrics.data.serialize_json (config_l);
-				config_l.put ("timestamp", std::chrono::duration_cast<std::chrono::seconds> (average_telemetry_metrics.system_last_updated.time_since_epoch ()).count ());
+				auto average_telemetry_metrics = nano::consolidate_telemetry_data (telemetry_datas);
+				auto err = average_telemetry_metrics.serialize_json (config_l);
 				auto const & ptree = config_l.get_tree ();
 
 				if (!err)
@@ -4100,7 +4095,7 @@ void nano::json_handler::unchecked_clear ()
 {
 	auto rpc_l (shared_from_this ());
 	node.worker.push_task ([rpc_l]() {
-		auto transaction (rpc_l->node.store.tx_begin_write ());
+		auto transaction (rpc_l->node.store.tx_begin_write ({ tables::unchecked }));
 		rpc_l->node.store.unchecked_clear (transaction);
 		rpc_l->node.ledger.cache.unchecked_count = 0;
 		rpc_l->response_l.put ("success", "");
@@ -4428,7 +4423,7 @@ void nano::json_handler::wallet_change_seed ()
 					rpc_l->response_l.put ("success", "");
 					rpc_l->response_l.put ("last_restored_account", account.to_account ());
 					auto index (wallet->store.deterministic_index_get (transaction));
-					assert (index > 0);
+					debug_assert (index > 0);
 					rpc_l->response_l.put ("restored_count", std::to_string (index));
 				}
 				else
@@ -4487,7 +4482,7 @@ void nano::json_handler::wallet_create ()
 				nano::public_key account (wallet->change_seed (transaction, seed));
 				rpc_l->response_l.put ("last_restored_account", account.to_account ());
 				auto index (wallet->store.deterministic_index_get (transaction));
-				assert (index > 0);
+				debug_assert (index > 0);
 				rpc_l->response_l.put ("restored_count", std::to_string (index));
 			}
 		}
@@ -4942,10 +4937,9 @@ void nano::json_handler::work_generate ()
 					uint64_t work (work_a.value ());
 					response_l.put ("work", nano::to_string_hex (work));
 					std::stringstream ostream;
-					uint64_t result_difficulty;
-					nano::work_validate (work_version, hash, work, &result_difficulty);
+					auto result_difficulty (nano::work_difficulty (work_version, hash, work));
 					response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
-					auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, this->node.network_params.network.publish_threshold);
+					auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, nano::work_threshold (work_version));
 					response_l.put ("multiplier", nano::to_string (result_multiplier));
 					boost::property_tree::write_json (ostream, response_l);
 					rpc_l->response (ostream.str ());
@@ -5057,11 +5051,10 @@ void nano::json_handler::work_validate ()
 	auto work_version (work_version_optional_impl (nano::work_version::work_1));
 	if (!ec)
 	{
-		uint64_t result_difficulty (0);
-		nano::work_validate (work_version, hash, work, &result_difficulty);
+		auto result_difficulty (nano::work_difficulty (work_version, hash, work));
 		response_l.put ("valid", (result_difficulty >= difficulty) ? "1" : "0");
 		response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
-		auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, node.network_params.network.publish_threshold);
+		auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, nano::work_threshold (work_version));
 		response_l.put ("multiplier", nano::to_string (result_multiplier));
 	}
 	response_errors ();

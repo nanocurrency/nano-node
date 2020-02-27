@@ -203,7 +203,7 @@ int main (int argc, char * const * argv)
 						auto weekly_distribution (yearly_distribution / 52);
 						for (auto j (0); j != 52; ++j)
 						{
-							assert (balance > weekly_distribution);
+							debug_assert (balance > weekly_distribution);
 							balance = balance < (weekly_distribution * 2) ? 0 : balance - weekly_distribution;
 							nano::send_block send (previous, landing.pub, balance, genesis.prv, genesis.pub, *work.generate (nano::work_version::work_1, previous));
 							previous = send.hash ();
@@ -1104,7 +1104,7 @@ int main (int argc, char * const * argv)
 						std::cerr << boost::str (boost::format ("Incorrect sideband block details for block %1%\n") % hash.to_string ());
 					}
 					// Check if block work value is correct
-					if (nano::work_validate (nano::work_version::work_1, *block))
+					if (nano::work_validate (*block))
 					{
 						std::cerr << boost::str (boost::format ("Invalid work for block %1% value: %2%\n") % hash.to_string () % nano::to_string_hex (block->block_work ()));
 					}

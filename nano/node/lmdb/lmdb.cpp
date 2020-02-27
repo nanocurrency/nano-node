@@ -314,7 +314,7 @@ void nano::mdb_store::upgrade_v2_to_v3 (nano::write_transaction const & transact
 		nano::account_info_v5 info ((*i)->second);
 		representative_visitor visitor (transaction_a, *this);
 		visitor.compute (info.head);
-		assert (!visitor.result.is_zero ());
+		debug_assert (!visitor.result.is_zero ());
 		info.rep_block = visitor.result;
 		auto impl (boost::polymorphic_downcast<nano::mdb_iterator<nano::account, nano::account_info_v5> *> (i.get ()));
 		mdb_cursor_put (impl->cursor, nano::mdb_val (account_l), nano::mdb_val (sizeof (info), &info), MDB_CURRENT);
@@ -335,7 +335,7 @@ void nano::mdb_store::upgrade_v3_to_v4 (nano::write_transaction const & transact
 	while (!items.empty ())
 	{
 		auto status (mdb_put (env.tx (transaction_a), pending, nano::mdb_val (items.front ().first), nano::mdb_val (items.front ().second), 0));
-		assert (success (status));
+		debug_assert (success (status));
 		items.pop ();
 	}
 }
@@ -364,7 +364,7 @@ void nano::mdb_store::upgrade_v4_to_v5 (nano::write_transaction const & transact
 				{
 					nano::block_type type;
 					auto value (block_raw_get (transaction_a, block->previous (), type));
-					assert (value.size () != 0);
+					debug_assert (value.size () != 0);
 					std::vector<uint8_t> data (static_cast<uint8_t *> (value.data ()), static_cast<uint8_t *> (value.data ()) + value.size ());
 					std::copy (hash.bytes.begin (), hash.bytes.end (), data.end () - nano::block_sideband::size (type));
 					block_raw_put (transaction_a, data, type, block->previous ());
@@ -390,7 +390,7 @@ void nano::mdb_store::upgrade_v5_to_v6 (nano::write_transaction const & transact
 		{
 			++block_count;
 			auto block (block_get (transaction_a, hash));
-			assert (block != nullptr);
+			debug_assert (block != nullptr);
 			hash = block->previous ();
 		}
 		headers.emplace_back (account, nano::account_info_v13{ info_old.head, info_old.rep_block, info_old.open_block, info_old.balance, info_old.modified, block_count, nano::epoch::epoch_0 });
@@ -438,7 +438,7 @@ void nano::mdb_store::upgrade_v8_to_v9 (nano::write_transaction const & transact
 		}
 		auto status1 (mdb_put (env.tx (transaction_a), vote, nano::mdb_val (i->first), nano::mdb_val (vector.size (), vector.data ()), 0));
 		release_assert (status1 == 0);
-		assert (!error);
+		debug_assert (!error);
 	}
 	mdb_drop (env.tx (transaction_a), sequence, 1);
 }
@@ -498,7 +498,7 @@ void nano::mdb_store::upgrade_v12_to_v13 (nano::write_transaction & transaction_
 				bool is_state_block_v1 = false;
 				auto block = block_get_v14 (transaction_a, hash, &sideband, &is_state_block_v1);
 
-				assert (block != nullptr);
+				debug_assert (block != nullptr);
 				if (sideband.height == 0)
 				{
 					sideband.height = height;
@@ -518,7 +518,7 @@ void nano::mdb_store::upgrade_v12_to_v13 (nano::write_transaction & transaction_
 
 					nano::block_predecessor_set<MDB_val, nano::mdb_store> predecessor (transaction_a, *this);
 					block->visit (predecessor);
-					assert (block->previous ().is_zero () || block_successor (transaction_a, block->previous ()) == hash);
+					debug_assert (block->previous ().is_zero () || block_successor (transaction_a, block->previous ()) == hash);
 					cost += 16;
 				}
 				else
@@ -602,7 +602,7 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction & transaction_
 
 	logger.always_log ("Finished extracting confirmation height to its own database");
 
-	assert (account_counters.are_equal ());
+	debug_assert (account_counters.are_equal ());
 	// No longer need accounts_v1, keep v0 but clear it
 	mdb_drop (env.tx (transaction_a), accounts_v1, 1);
 	mdb_drop (env.tx (transaction_a), accounts_v0, 0);
@@ -655,7 +655,7 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction & transaction_
 		i_state.from_first_database ? ++state_counters.after_v0 : ++state_counters.after_v1;
 	}
 
-	assert (state_counters.are_equal ());
+	debug_assert (state_counters.are_equal ());
 	logger.always_log ("Epoch merge upgrade: Finished state blocks, now doing pending blocks");
 
 	state_blocks = state_blocks_new;
@@ -679,7 +679,7 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction & transaction_
 		i_pending.from_first_database ? ++pending_counters.after_v0 : ++pending_counters.after_v1;
 	}
 
-	assert (pending_counters.are_equal ());
+	debug_assert (pending_counters.are_equal ());
 
 	// No longer need the pending v1 table
 	mdb_drop (env.tx (transaction_a), pending_v1, 1);
@@ -697,7 +697,7 @@ void nano::mdb_store::upgrade_v14_to_v15 (nano::write_transaction & transaction_
 void nano::mdb_store::upgrade_v15_to_v16 (nano::write_transaction const & transaction_a)
 {
 	// Representation table is no longer used
-	assert (representation != 0);
+	debug_assert (representation != 0);
 	if (representation != 0)
 	{
 		auto status (mdb_drop (env.tx (transaction_a), representation, 1));
@@ -723,7 +723,7 @@ void nano::mdb_store::upgrade_v16_to_v17 (nano::write_transaction const & transa
 		uint64_t confirmation_height (i->second);
 
 		// Check account hashes matches both the accounts table and confirmation height table
-		assert (account == account_info_i->first);
+		debug_assert (account == account_info_i->first);
 
 		auto const & account_info = account_info_i->second;
 
@@ -738,17 +738,17 @@ void nano::mdb_store::upgrade_v16_to_v17 (nano::write_transaction const & transa
 				// The confirmation height of the account is closer to the bottom of the chain, so start there and work up
 				nano::block_sideband sideband;
 				auto block = block_get (transaction_a, account_info.open_block, &sideband);
-				assert (block);
+				debug_assert (block);
 				auto height = 1;
 
 				while (height != confirmation_height)
 				{
 					block = block_get (transaction_a, sideband.successor, &sideband);
-					assert (block);
+					debug_assert (block);
 					++height;
 				}
 
-				assert (sideband.height == confirmation_height);
+				debug_assert (sideband.height == confirmation_height);
 				confirmation_height_infos.emplace_back (account, confirmation_height_info{ confirmation_height, block->hash () });
 			}
 			else
@@ -760,7 +760,7 @@ void nano::mdb_store::upgrade_v16_to_v17 (nano::write_transaction const & transa
 				while (height != confirmation_height)
 				{
 					block = block_get (transaction_a, block->previous ());
-					assert (block);
+					debug_assert (block);
 					--height;
 				}
 				confirmation_height_infos.emplace_back (account, confirmation_height_info{ confirmation_height, block->hash () });
@@ -903,7 +903,7 @@ void nano::mdb_store::version_put (nano::write_transaction const & transaction_a
 
 bool nano::mdb_store::block_info_get (nano::transaction const & transaction_a, nano::block_hash const & hash_a, nano::block_info & block_info_a) const
 {
-	assert (!full_sideband (transaction_a));
+	debug_assert (!full_sideband (transaction_a));
 	nano::mdb_val value;
 	auto status (mdb_get (env.tx (transaction_a), blocks_info, nano::mdb_val (hash_a), value));
 	release_assert (status == 0 || status == MDB_NOTFOUND);
@@ -911,14 +911,14 @@ bool nano::mdb_store::block_info_get (nano::transaction const & transaction_a, n
 	if (status != MDB_NOTFOUND)
 	{
 		result = false;
-		assert (value.size () == sizeof (block_info_a.account.bytes) + sizeof (block_info_a.balance.bytes));
+		debug_assert (value.size () == sizeof (block_info_a.account.bytes) + sizeof (block_info_a.balance.bytes));
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
 		auto error1 (nano::try_read (stream, block_info_a.account));
 		(void)error1;
-		assert (!error1);
+		debug_assert (!error1);
 		auto error2 (nano::try_read (stream, block_info_a.balance));
 		(void)error2;
-		assert (!error2);
+		debug_assert (!error2);
 	}
 	return result;
 }
@@ -1100,7 +1100,7 @@ size_t nano::mdb_store::block_successor_offset_v14 (nano::transaction const & tr
 	else
 	{
 		// Read old successor-only sideband
-		assert (entry_size_a == nano::block::size (type_a) + sizeof (nano::uint256_union));
+		debug_assert (entry_size_a == nano::block::size (type_a) + sizeof (nano::uint256_union));
 		result = entry_size_a - sizeof (nano::uint256_union);
 	}
 	return result;
@@ -1113,11 +1113,11 @@ nano::block_hash nano::mdb_store::block_successor_v14 (nano::transaction const &
 	nano::block_hash result;
 	if (value.size () != 0)
 	{
-		assert (value.size () >= result.bytes.size ());
+		debug_assert (value.size () >= result.bytes.size ());
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()) + block_successor_offset_v14 (transaction_a, value.size (), type), result.bytes.size ());
 		auto error (nano::try_read (stream, result.bytes));
 		(void)error;
-		assert (!error);
+		debug_assert (!error);
 	}
 	else
 	{
@@ -1210,20 +1210,20 @@ nano::account nano::mdb_store::block_account_v14 (nano::transaction const & tran
 	{
 		result = sideband.account;
 	}
-	assert (!result.is_zero ());
+	debug_assert (!result.is_zero ());
 	return result;
 }
 
 // Return account containing hash
 nano::account nano::mdb_store::block_account_computed_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
 {
-	assert (!full_sideband (transaction_a));
+	debug_assert (!full_sideband (transaction_a));
 	nano::account result (0);
 	auto hash (hash_a);
 	while (result.is_zero ())
 	{
 		auto block (block_get_v14 (transaction_a, hash));
-		assert (block);
+		debug_assert (block);
 		result = block->account ();
 		if (result.is_zero ())
 		{
@@ -1246,20 +1246,20 @@ nano::account nano::mdb_store::block_account_computed_v14 (nano::transaction con
 					if (result.is_zero ())
 					{
 						auto successor (block_successor_v14 (transaction_a, hash));
-						assert (!successor.is_zero ());
+						debug_assert (!successor.is_zero ());
 						hash = successor;
 					}
 				}
 			}
 		}
 	}
-	assert (!result.is_zero ());
+	debug_assert (!result.is_zero ());
 	return result;
 }
 
 nano::uint128_t nano::mdb_store::block_balance_computed_v14 (nano::transaction const & transaction_a, nano::block_hash const & hash_a) const
 {
-	assert (!full_sideband (transaction_a));
+	debug_assert (!full_sideband (transaction_a));
 	summation_visitor visitor (transaction_a, *this, true);
 	return visitor.compute_balance (hash_a);
 }
@@ -1273,7 +1273,7 @@ std::shared_ptr<nano::block> nano::mdb_store::block_get_v14 (nano::transaction c
 	{
 		nano::bufferstream stream (reinterpret_cast<uint8_t const *> (value.data ()), value.size ());
 		result = nano::deserialize_block (stream, type);
-		assert (result != nullptr);
+		debug_assert (result != nullptr);
 		if (sideband_a)
 		{
 			sideband_a->type = type;
@@ -1281,7 +1281,7 @@ std::shared_ptr<nano::block> nano::mdb_store::block_get_v14 (nano::transaction c
 			{
 				bool error = sideband_a->deserialize (stream);
 				(void)error;
-				assert (!error);
+				debug_assert (!error);
 			}
 			else
 			{

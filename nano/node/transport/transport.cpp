@@ -119,7 +119,7 @@ boost::asio::ip::address_v6 mapped_from_v4_bytes (unsigned long address_a)
 
 bool nano::transport::reserved_address (nano::endpoint const & endpoint_a, bool allow_local_peers)
 {
-	assert (endpoint_a.address ().is_v6 ());
+	debug_assert (endpoint_a.address ().is_v6 ());
 	auto bytes (endpoint_a.address ().to_v6 ());
 	auto result (false);
 	static auto const rfc1700_min (mapped_from_v4_bytes (0x00000000ul));

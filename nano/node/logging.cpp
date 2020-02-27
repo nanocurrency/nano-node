@@ -95,7 +95,7 @@ void nano::logging::init (boost::filesystem::path const & application_path_a)
 			boost::log::keywords::max_size = max_size, // max total size in bytes of all log files
 			boost::log::keywords::format = format_with_timestamp);
 #else
-			assert (false);
+			debug_assert (false);
 #endif
 		}
 		else

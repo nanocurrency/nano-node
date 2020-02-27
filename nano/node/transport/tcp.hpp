@@ -78,7 +78,7 @@ namespace transport
 	class tcp_channels final
 	{
 		friend class nano::transport::channel_tcp;
-		friend class node_telemetry_simultaneous_single_and_random_requests_Test;
+		friend class node_telemetry_simultaneous_single_and_all_requests_Test;
 
 	public:
 		tcp_channels (nano::node &);
@@ -163,7 +163,7 @@ namespace transport
 			nano::account node_id () const
 			{
 				auto node_id (channel->get_node_id ());
-				assert (!node_id.is_zero ());
+				debug_assert (!node_id.is_zero ());
 				return node_id;
 			}
 		};
