@@ -33,6 +33,27 @@ TEST (active_transactions, confirm_active)
 	}
 }
 
+TEST (active_transactions, confirm_frontier)
+{
+	nano::system system (1);
+	auto & node1 = *system.nodes[0];
+	// Send and vote for a block before peering with node2
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	auto send (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::public_key (), node1.config.receive_minimum.number ()));
+	system.deadline_set (5s);
+	while (!node1.active.empty () || !node1.block_confirmed_or_being_confirmed (node1.store.tx_begin_read (), send->hash ()))
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	auto & node2 = *system.add_node (nano::node_config (nano::get_available_port (), system.logging));
+	ASSERT_EQ (nano::process_result::progress, node2.process (*send).code);
+	system.deadline_set (5s);
+	while (node2.ledger.cache.cemented_count < 2 || !node2.active.empty ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+}
+
 TEST (active_transactions, adjusted_difficulty_priority)
 {
 	nano::system system;
