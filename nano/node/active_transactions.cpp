@@ -230,6 +230,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 
 	auto election_ttl_cutoff_l (std::chrono::steady_clock::now () - election_time_to_live);
 	auto roots_size_l (roots.size ());
+	bool saturated_l (roots_size_l > node.config.active_elections_size / 2);
 	auto & sorted_roots_l = roots.get<tag_difficulty> ();
 	size_t count_l{ 0 };
 
@@ -243,7 +244,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	for (auto i = sorted_roots_l.begin (), n = sorted_roots_l.end (); i != n; ++count_l)
 	{
 		auto & election_l (i->election);
-		if ((count_l >= node.config.active_elections_size && election_l->election_start < election_ttl_cutoff_l && !node.wallets.watcher->is_watched (i->root)) || election_l->transition_time ())
+		if ((count_l >= node.config.active_elections_size && election_l->election_start < election_ttl_cutoff_l && !node.wallets.watcher->is_watched (i->root)) || election_l->transition_time (saturated_l))
 		{
 			election_l->clear_blocks ();
 			i = sorted_roots_l.erase (i);

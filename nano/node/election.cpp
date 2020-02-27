@@ -8,6 +8,7 @@ using namespace std::chrono;
 int constexpr nano::election::passive_duration_factor;
 int constexpr nano::election::active_duration_factor;
 int constexpr nano::election::confirmed_duration_factor;
+int constexpr nano::election::confirmed_duration_factor_saturated;
 
 std::chrono::milliseconds nano::election::base_latency () const
 {
@@ -250,7 +251,7 @@ void nano::election::broadcast_block ()
 	}
 }
 
-bool nano::election::transition_time ()
+bool nano::election::transition_time (bool const saturated_a)
 {
 	assert (!node.active.mutex.try_lock ());
 	bool result = false;
@@ -280,7 +281,7 @@ bool nano::election::transition_time ()
 			send_confirm_req ();
 			break;
 		case nano::election::state_t::confirmed:
-			if (base_latency () * confirmed_duration_factor < std::chrono::steady_clock::now () - state_start.load ())
+			if (base_latency () * (saturated_a ? confirmed_duration_factor_saturated : confirmed_duration_factor) < std::chrono::steady_clock::now () - state_start.load ())
 			{
 				result = true;
 				state_change (nano::election::state_t::confirmed, nano::election::state_t::expired_confirmed);
