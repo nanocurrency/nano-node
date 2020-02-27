@@ -297,10 +297,8 @@ TEST (active_transactions, prioritize_chains)
 	auto send5 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 20 * nano::xrb_ratio, key2.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send1->hash ())));
 	auto send6 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send5->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 30 * nano::xrb_ratio, key3.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send5->hash ())));
 	auto open2 (std::make_shared<nano::state_block> (key2.pub, 0, key2.pub, 10 * nano::xrb_ratio, send5->hash (), key2.prv, key2.pub, *system.work.generate (key2.pub, nano::difficulty::from_multiplier (50., node1.network_params.network.publish_threshold))));
-	uint64_t difficulty1 (0);
-	nano::work_validate (*open2, &difficulty1);
-	uint64_t difficulty2 (0);
-	nano::work_validate (*send6, &difficulty2);
+	auto difficulty1 (open2->difficulty ());
+	auto difficulty2 (send6->difficulty ());
 
 	node1.process_active (send1);
 	node1.process_active (open1);
@@ -517,11 +515,9 @@ TEST (active_transactions, update_difficulty)
 	nano::keypair key1;
 	// Generate blocks & start elections
 	auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - 100, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
-	uint64_t difficulty1 (0);
-	nano::work_validate (*send1, &difficulty1);
+	auto difficulty1 (send1->difficulty ());
 	auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - 200, key1.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (send1->hash ())));
-	uint64_t difficulty2 (0);
-	nano::work_validate (*send2, &difficulty2);
+	auto difficulty2 (send2->difficulty ());
 	node1.process_active (send1);
 	node1.process_active (send2);
 	node1.block_processor.flush ();

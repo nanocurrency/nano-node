@@ -36,9 +36,10 @@ class work_peer_connection : public std::enable_shared_from_this<work_peer_conne
 	const std::string empty_response = "Empty response";
 
 public:
-	work_peer_connection (asio::io_context & ioc_a, work_peer_type const type_a, nano::work_pool & pool_a, std::function<void(bool const)> on_generation_a, std::function<void()> on_cancel_a) :
+	work_peer_connection (asio::io_context & ioc_a, work_peer_type const type_a, nano::work_version const version_a, nano::work_pool & pool_a, std::function<void(bool const)> on_generation_a, std::function<void()> on_cancel_a) :
 	socket (ioc_a),
 	type (type_a),
+	version (version_a),
 	work_pool (pool_a),
 	on_generation (on_generation_a),
 	on_cancel (on_cancel_a),
@@ -53,6 +54,7 @@ public:
 
 private:
 	work_peer_type type;
+	nano::work_version version;
 	nano::work_pool & work_pool;
 	beast::flat_buffer buffer{ 8192 };
 	http::request<http::string_body> request;
@@ -130,15 +132,14 @@ private:
 		{
 			auto hash = hash_a;
 			auto this_l (shared_from_this ());
-			work_pool.generate (hash, [this_l, hash](boost::optional<uint64_t> work_a) {
+			work_pool.generate (version, hash, [this_l, hash](boost::optional<uint64_t> work_a) {
 				auto result = work_a.value_or (0);
-				uint64_t difficulty;
-				nano::work_validate (hash, result, &difficulty);
+				auto difficulty (nano::work_difficulty (this_l->version, hash, result));
 				static nano::network_params params;
 				ptree::ptree message_l;
 				message_l.put ("work", nano::to_string_hex (result));
 				message_l.put ("difficulty", nano::to_string_hex (difficulty));
-				message_l.put ("multiplier", nano::to_string (nano::difficulty::to_multiplier (difficulty, params.network.publish_threshold)));
+				message_l.put ("multiplier", nano::to_string (nano::difficulty::to_multiplier (difficulty, nano::work_threshold (this_l->version))));
 				message_l.put ("hash", hash.to_string ());
 				std::stringstream ostream;
 				ptree::write_json (ostream, message_l);
@@ -188,12 +189,14 @@ private:
 class fake_work_peer : public std::enable_shared_from_this<fake_work_peer>
 {
 public:
-	fake_work_peer (nano::work_pool & pool_a, asio::io_context & ioc_a, unsigned short port_a, work_peer_type const type_a) :
+	fake_work_peer () = delete;
+	fake_work_peer (nano::work_pool & pool_a, asio::io_context & ioc_a, unsigned short port_a, work_peer_type const type_a, nano::work_version const version_a = nano::work_version::work_1) :
 	pool (pool_a),
 	endpoint (tcp::v4 (), port_a),
 	ioc (ioc_a),
 	acceptor (ioc_a, endpoint),
-	type (type_a)
+	type (type_a),
+	version (version_a)
 	{
 	}
 	void start ()
@@ -213,7 +216,7 @@ private:
 	{
 		std::weak_ptr<fake_work_peer> this_w (shared_from_this ());
 		auto connection (std::make_shared<work_peer_connection> (
-		ioc, type, pool,
+		ioc, type, version, pool,
 		[this_w](bool const good_generation) {
 			if (auto this_l = this_w.lock ())
 			{
@@ -249,5 +252,6 @@ private:
 	asio::io_context & ioc;
 	tcp::acceptor acceptor;
 	work_peer_type const type;
+	nano::work_version version;
 };
 }
