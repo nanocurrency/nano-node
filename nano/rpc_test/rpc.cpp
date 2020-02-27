@@ -1788,9 +1788,8 @@ TEST (rpc, process_block_with_work_watcher)
 	nano::keypair key;
 	auto latest (node1.latest (nano::test_genesis_key.pub));
 	auto send (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, latest, nano::test_genesis_key.pub, nano::genesis_amount - 100, nano::test_genesis_key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (latest)));
-	uint64_t difficulty1 (0);
-	nano::work_validate (*send, &difficulty1);
-	auto multiplier1 = nano::difficulty::to_multiplier (difficulty1, node1.network_params.network.publish_threshold);
+	auto difficulty1 (send->difficulty ());
+	auto multiplier1 = nano::difficulty::to_multiplier (difficulty1, nano::work_threshold (send->work_version ()));
 	nano::node_rpc_config node_rpc_config;
 	nano::ipc::ipc_server ipc_server (node1, node_rpc_config);
 	nano::rpc_config rpc_config (nano::get_available_port (), true);
@@ -2830,9 +2829,9 @@ TEST (rpc, work_generate)
 		ASSERT_EQ (200, response.status);
 		ASSERT_EQ (hash.to_string (), response.json.get<std::string> ("hash"));
 		auto work_text (response.json.get<std::string> ("work"));
-		uint64_t work, result_difficulty;
+		uint64_t work;
 		ASSERT_FALSE (nano::from_string_hex (work_text, work));
-		ASSERT_FALSE (nano::work_validate (nano::work_version::work_1, hash, work, &result_difficulty));
+		auto result_difficulty (nano::work_difficulty (nano::work_version::work_1, hash, work));
 		auto response_difficulty_text (response.json.get<std::string> ("difficulty"));
 		uint64_t response_difficulty;
 		ASSERT_FALSE (nano::from_string_hex (response_difficulty_text, response_difficulty));
@@ -2876,8 +2875,7 @@ TEST (rpc, work_generate_difficulty)
 		auto work_text (response.json.get<std::string> ("work"));
 		uint64_t work;
 		ASSERT_FALSE (nano::from_string_hex (work_text, work));
-		uint64_t result_difficulty;
-		ASSERT_FALSE (nano::work_validate (nano::work_version::work_1, hash, work, &result_difficulty));
+		auto result_difficulty (nano::work_difficulty (nano::work_version::work_1, hash, work));
 		auto response_difficulty_text (response.json.get<std::string> ("difficulty"));
 		uint64_t response_difficulty;
 		ASSERT_FALSE (nano::from_string_hex (response_difficulty_text, response_difficulty));
@@ -2900,8 +2898,7 @@ TEST (rpc, work_generate_difficulty)
 		auto work_text (response.json.get<std::string> ("work"));
 		uint64_t work;
 		ASSERT_FALSE (nano::from_string_hex (work_text, work));
-		uint64_t result_difficulty;
-		ASSERT_FALSE (nano::work_validate (nano::work_version::work_1, hash, work, &result_difficulty));
+		auto result_difficulty (nano::work_difficulty (nano::work_version::work_1, hash, work));
 		ASSERT_GE (result_difficulty, difficulty);
 	}
 	{
@@ -2953,8 +2950,7 @@ TEST (rpc, work_generate_multiplier)
 		auto work_text (response.json.get<std::string> ("work"));
 		uint64_t work;
 		ASSERT_FALSE (nano::from_string_hex (work_text, work));
-		uint64_t result_difficulty;
-		ASSERT_FALSE (nano::work_validate (nano::work_version::work_1, hash, work, &result_difficulty));
+		auto result_difficulty (nano::work_difficulty (nano::work_version::work_1, hash, work));
 		auto response_difficulty_text (response.json.get<std::string> ("difficulty"));
 		uint64_t response_difficulty;
 		ASSERT_FALSE (nano::from_string_hex (response_difficulty_text, response_difficulty));
@@ -3841,8 +3837,7 @@ TEST (rpc, work_validate)
 		double multiplier (response.json.get<double> ("multiplier"));
 		ASSERT_NEAR (multiplier, nano::difficulty::to_multiplier (difficulty, params.network.publish_threshold), 1e-6);
 	}
-	uint64_t result_difficulty;
-	ASSERT_FALSE (nano::work_validate (nano::work_version::work_1, hash, work1, &result_difficulty));
+	auto result_difficulty (nano::work_difficulty (nano::work_version::work_1, hash, work1));
 	ASSERT_GE (result_difficulty, params.network.publish_threshold);
 	request.put ("work", nano::to_string_hex (work1));
 	request.put ("difficulty", nano::to_string_hex (result_difficulty));

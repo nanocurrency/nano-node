@@ -165,8 +165,7 @@ TEST (conflicts, reprioritize)
 	nano::keypair key1;
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send1);
-	uint64_t difficulty1;
-	nano::work_validate (*send1, &difficulty1);
+	auto difficulty1 (send1->difficulty ());
 	nano::send_block send1_copy (*send1);
 	node1.process_active (send1);
 	node1.block_processor.flush ();
@@ -177,8 +176,7 @@ TEST (conflicts, reprioritize)
 		ASSERT_EQ (difficulty1, existing1->difficulty);
 	}
 	node1.work_generate_blocking (send1_copy, difficulty1);
-	uint64_t difficulty2;
-	nano::work_validate (send1_copy, &difficulty2);
+	auto difficulty2 (send1_copy.difficulty ());
 	node1.process_active (std::make_shared<nano::send_block> (send1_copy));
 	node1.block_processor.flush ();
 	{
@@ -278,9 +276,7 @@ TEST (conflicts, adjusted_difficulty)
 	// Independent elections can have higher difficulty than adjusted tree
 	nano::keypair key4;
 	auto open_epoch2 (std::make_shared<nano::state_block> (key4.pub, 0, 0, 0, node1.ledger.epoch_link (nano::epoch::epoch_1), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (key4.pub, adjusted_difficulties.find (send1->hash ())->second)));
-	uint64_t difficulty;
-	ASSERT_FALSE (nano::work_validate (*open_epoch2, &difficulty));
-	ASSERT_GT (difficulty, adjusted_difficulties.find (send1->hash ())->second);
+	ASSERT_GT (open_epoch2->difficulty (), adjusted_difficulties.find (send1->hash ())->second);
 	node1.process_active (open_epoch2);
 	node1.block_processor.flush ();
 	system.deadline_set (3s);

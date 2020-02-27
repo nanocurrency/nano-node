@@ -126,6 +126,7 @@ public:
 	bool disable_unchecked_drop{ true };
 	bool disable_providing_telemetry_metrics{ false };
 	bool disable_block_processor_unchecked_deletion{ false };
+	bool disable_block_processor_republishing{ false };
 	bool disable_ongoing_telemetry_requests{ false };
 	bool fast_bootstrap{ false };
 	bool read_only{ false };
