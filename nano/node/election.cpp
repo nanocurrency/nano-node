@@ -167,19 +167,7 @@ void nano::election::transition_passive ()
 
 void nano::election::transition_passive_impl ()
 {
-	if (!state_change (nano::election::state_t::idle, nano::election::state_t::passive))
-	{
-		if (base_latency () * 5 < std::chrono::steady_clock::now () - last_block)
-		{
-			last_block = std::chrono::steady_clock::now ();
-			node.network.flood_block (status.winner);
-		}
-		if (base_latency () * 10 < std::chrono::steady_clock::now () - last_vote)
-		{
-			last_vote = std::chrono::steady_clock::now ();
-			node.block_processor.generator.add (status.winner->hash ());
-		}
-	}
+	state_change (nano::election::state_t::idle, nano::election::state_t::passive);
 }
 
 void nano::election::transition_active ()
