@@ -272,7 +272,6 @@ void nano::bootstrap_connections::populate_connections (bool repeat)
 
 	if (node.config.logging.bulk_pull_logging ())
 	{
-		nano::unique_lock<std::mutex> lock (mutex);
 		node.logger.try_log (boost::str (boost::format ("Bulk pull connections: %1%, rate: %2% blocks/sec, bootstrap attempts %3%, remaining pulls: %4%") % connections_count.load () % (int)rate_sum % attempts_count % num_pulls));
 	}
 
@@ -284,11 +283,11 @@ void nano::bootstrap_connections::populate_connections (bool repeat)
 		for (auto i = 0u; i < delta; i++)
 		{
 			auto endpoint (node.network.bootstrap_peer (true));
-			if (endpoint != nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0) && endpoints.find (endpoint) == endpoints.end () && !node.bootstrap_initiator.excluded_peers.check (endpoint))
+			if (endpoint != nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0) && (node.flags.allow_bootstrap_peers_duplicates || endpoints.find (endpoint) == endpoints.end ()) && !node.bootstrap_initiator.excluded_peers.check (endpoint))
 			{
 				connect_client (endpoint);
-				nano::lock_guard<std::mutex> lock (mutex);
 				endpoints.insert (endpoint);
+				nano::lock_guard<std::mutex> lock (mutex);
 				new_connections_empty = false;
 			}
 			else if (connections_count == 0)
