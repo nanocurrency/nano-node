@@ -528,8 +528,7 @@ void nano::election::clear_blocks ()
 		auto & hash (block.first);
 		auto erased (node.active.blocks.erase (hash));
 		(void)erased;
-		// if a block insertion from active_transactions::publish () confirms the election (inactive votes), then the block is not inserted into active.blocks
-		debug_assert (erased == 1 || confirmed ());
+		debug_assert (erased == 1);
 		node.active.erase_inactive_votes_cache (hash);
 		// Notify observers about dropped elections & blocks lost confirmed elections
 		if (!confirmed () || hash != winner_hash)
