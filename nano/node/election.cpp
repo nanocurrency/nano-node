@@ -131,12 +131,12 @@ bool nano::election::valid_change (nano::election::state_t expected_a, nano::ele
 
 bool nano::election::state_change (nano::election::state_t expected_a, nano::election::state_t desired_a)
 {
+	debug_assert (!timepoints_mutex.try_lock ());
 	bool result = true;
 	if (valid_change (expected_a, desired_a))
 	{
 		if (state_m.compare_exchange_strong (expected_a, desired_a))
 		{
-			nano::lock_guard<std::mutex> guard (timepoints_mutex);
 			state_start = std::chrono::steady_clock::now ();
 			result = false;
 		}
@@ -224,7 +224,7 @@ void nano::election::activate_dependencies ()
 			auto election = node.active.insert_impl (previous_l, true);
 			if (election.second)
 			{
-				election.first->transition_active_impl ();
+				election.first->transition_active ();
 				escalated_l = true;
 			}
 		}
@@ -242,7 +242,7 @@ void nano::election::activate_dependencies ()
 				auto election = node.active.insert_impl (source_l, true);
 				if (election.second)
 				{
-					election.first->transition_active_impl ();
+					election.first->transition_active ();
 					escalated_l = true;
 				}
 			}
