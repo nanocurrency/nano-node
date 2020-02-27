@@ -852,10 +852,8 @@ public:
 class shared_data
 {
 public:
+	nano::util::counted_completion write_completion{ 0 };
 	std::atomic<bool> done{ false };
-	std::atomic<uint64_t> count{ 0 };
-	std::promise<void> promise;
-	std::shared_future<void> shared_future{ promise.get_future () };
 };
 
 template <typename T>
@@ -875,11 +873,7 @@ void callback_process (shared_data & shared_data_a, data & data, T & all_node_da
 		data.awaiting_cache = true;
 		data.orig_time = last_updated;
 	}
-	if (--shared_data_a.count == 0 && std::all_of (all_node_data_a.begin (), all_node_data_a.end (), [](auto const & data) { return !data.keep_requesting_metrics; }))
-	{
-		shared_data_a.done = true;
-		shared_data_a.promise.set_value ();
-	}
+	shared_data_a.write_completion.increment ();
 };
 }
 
@@ -952,7 +946,7 @@ namespace transport
 						// Keep calling get_metrics_async until the cache has been saved and then become outdated (after a certain period of time) for each node
 						if (data.keep_requesting_metrics)
 						{
-							++shared_data.count;
+							shared_data.write_completion.increment_required_count ();
 
 							// Pick first peer to be consistent
 							auto peer = data.node->network.tcp_channels.channels[0].channel;
@@ -965,8 +959,8 @@ namespace transport
 					}
 				}
 
-				shared_data.shared_future.wait ();
-				ASSERT_EQ (shared_data.count, 0);
+				shared_data.write_completion.await_count_for (20s);
+				shared_data.done = true;
 			});
 		}
 
@@ -975,6 +969,8 @@ namespace transport
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
+
+		ASSERT_TRUE (std::all_of (node_data.begin (), node_data.end (), [](auto const & data) { return !data.keep_requesting_metrics; }));
 
 		for (auto & thread : threads)
 		{

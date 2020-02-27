@@ -11,6 +11,8 @@
 #include <functional>
 #include <memory>
 
+namespace mi = boost::multi_index;
+
 namespace nano
 {
 class network;
@@ -105,11 +107,11 @@ private:
 	// clang-format off
 	// This holds the last telemetry data received from peers or can be a placeholder awaiting the first response (check with awaiting_first_response ())
 	boost::multi_index_container<nano::telemetry_info,
-	boost::multi_index::indexed_by<
-		boost::multi_index::hashed_unique<boost::multi_index::tag<tag_endpoint>,
-			boost::multi_index::member<nano::telemetry_info, nano::endpoint, &nano::telemetry_info::endpoint>>,
-		boost::multi_index::ordered_non_unique<boost::multi_index::tag<tag_last_updated>,
-			boost::multi_index::member<nano::telemetry_info, std::chrono::steady_clock::time_point, &nano::telemetry_info::last_request>>>> recent_or_initial_request_telemetry_data;
+	mi::indexed_by<
+		mi::hashed_unique<mi::tag<tag_endpoint>,
+			mi::member<nano::telemetry_info, nano::endpoint, &nano::telemetry_info::endpoint>>,
+		mi::ordered_non_unique<mi::tag<tag_last_updated>,
+			mi::member<nano::telemetry_info, std::chrono::steady_clock::time_point, &nano::telemetry_info::last_request>>>> recent_or_initial_request_telemetry_data;
 	// clang-format on
 
 	// Anything older than this requires requesting metrics from other nodes.
