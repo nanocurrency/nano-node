@@ -71,8 +71,8 @@ private: // State management
 	std::atomic<nano::election::state_t> state_m = { std::atomic<nano::election::state_t>::value_type::idle };
 
 	std::chrono::steady_clock::time_point state_start = { std::chrono::steady_clock::now () };
-	std::chrono::steady_clock::time_point last_vote = { std::chrono::steady_clock::time_point () };
-	std::chrono::steady_clock::time_point last_block = { std::chrono::steady_clock::time_point () };
+	std::atomic<std::chrono::steady_clock::time_point> last_vote = { std::chrono::steady_clock::time_point () };
+	std::atomic<std::chrono::steady_clock::time_point> last_block = { std::chrono::steady_clock::time_point () };
 	std::chrono::steady_clock::time_point last_req = { std::chrono::steady_clock::time_point () };
 
 	bool valid_change (nano::election::state_t, nano::election::state_t) const;
@@ -102,11 +102,10 @@ public: // State transitions
 	bool transition_time ();
 	void transition_passive ();
 	void transition_active ();
-	void transition_idle ();
-	bool idle () const;
 
 public:
-	bool confirmed ();
+	bool idle () const;
+	bool confirmed () const;
 	nano::node & node;
 	std::unordered_map<nano::account, nano::vote_info> last_votes;
 	std::unordered_map<nano::block_hash, std::shared_ptr<nano::block>> blocks;

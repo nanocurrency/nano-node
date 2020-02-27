@@ -162,12 +162,12 @@ void nano::election::transition_passive ()
 {
 	if (!state_change (nano::election::state_t::idle, nano::election::state_t::passive))
 	{
-		if (base_latency () * 5 < std::chrono::steady_clock::now () - last_block)
+		if (base_latency () * 5 < std::chrono::steady_clock::now () - last_block.load ())
 		{
 			last_block = std::chrono::steady_clock::now ();
 			node.network.flood_block (status.winner);
 		}
-		if (base_latency () * 10 < std::chrono::steady_clock::now () - last_vote)
+		if (base_latency () * 10 < std::chrono::steady_clock::now () - last_vote.load ())
 		{
 			last_vote = std::chrono::steady_clock::now ();
 			node.block_processor.generator.add (status.winner->hash ());
@@ -179,20 +179,11 @@ void nano::election::transition_active ()
 {
 	if (!state_change (nano::election::state_t::idle, nano::election::state_t::active))
 	{
-		if (base_latency () * 5 < std::chrono::steady_clock::now () - last_block)
+		if (base_latency () * 5 < std::chrono::steady_clock::now () - last_block.load ())
 		{
 			last_block = std::chrono::steady_clock::now ();
 			node.network.flood_block (status.winner);
 		}
-	}
-}
-
-void nano::election::transition_idle ()
-{
-	auto state_l = state_m.load ();
-	if (state_l != nano::election::state_t::confirmed)
-	{
-		state_change (state_l, nano::election::state_t::idle);
 	}
 }
 
@@ -201,7 +192,7 @@ bool nano::election::idle () const
 	return state_m == nano::election::state_t::idle;
 }
 
-bool nano::election::confirmed ()
+bool nano::election::confirmed () const
 {
 	return state_m == nano::election::state_t::confirmed || state_m == nano::election::state_t::expired_confirmed;
 }
@@ -252,7 +243,7 @@ void nano::election::activate_dependencies ()
 
 void nano::election::broadcast_block ()
 {
-	if (base_latency () * 5 < std::chrono::steady_clock::now () - last_block)
+	if (base_latency () * 5 < std::chrono::steady_clock::now () - last_block.load ())
 	{
 		if (!node.active.solicitor.broadcast (*this))
 		{

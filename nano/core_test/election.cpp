@@ -13,8 +13,6 @@ TEST (election, construction)
 	ASSERT_TRUE (election->idle ());
 	election->transition_active ();
 	ASSERT_FALSE (election->idle ());
-	election->transition_idle ();
-	ASSERT_TRUE (election->idle ());
 	election->transition_passive ();
 	ASSERT_FALSE (election->idle ());
 }
