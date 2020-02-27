@@ -76,6 +76,16 @@ size_t nano::block::size (nano::block_type type_a)
 	return result;
 }
 
+nano::work_version nano::block::work_version () const
+{
+	return nano::work_version::work_1;
+}
+
+uint64_t nano::block::difficulty () const
+{
+	return nano::work_difficulty (this->work_version (), this->root (), this->block_work ());
+}
+
 nano::block_hash nano::block::generate_hash () const
 {
 	nano::block_hash result;

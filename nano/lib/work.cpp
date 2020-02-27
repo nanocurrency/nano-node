@@ -21,46 +21,48 @@ std::string nano::to_string (nano::work_version const version_a)
 	return result;
 }
 
-bool nano::work_validate (nano::work_version const version_a, nano::block const & block_a, uint64_t * difficulty_a)
+bool nano::work_validate (nano::block const & block_a)
 {
-	return nano::work_validate (version_a, block_a.root (), block_a.block_work (), difficulty_a);
+	return block_a.difficulty () < nano::work_threshold (block_a.work_version ());
 }
 
-bool nano::work_validate (nano::work_version const version_a, nano::root const & root_a, uint64_t const work_a, uint64_t * difficulty_a)
+bool nano::work_validate (nano::work_version const version_a, nano::root const & root_a, uint64_t const work_a)
 {
-	bool invalid (true);
+	return nano::work_difficulty (version_a, root_a, work_a) < nano::work_threshold (version_a);
+}
+
+uint64_t nano::work_difficulty (nano::work_version const version_a, nano::root const & root_a, uint64_t const work_a)
+{
+	uint64_t result{ 0 };
 	switch (version_a)
 	{
 		case nano::work_version::work_1:
-			invalid = nano::work_v1::validate (root_a, work_a, difficulty_a);
+			result = nano::work_v1::value (root_a, work_a);
 			break;
 		default:
-			debug_assert (false && "Invalid version specified to work_validate");
+			debug_assert (false && "Invalid version specified to work_difficulty");
 	}
-	return invalid;
+	return result;
 }
 
-bool nano::work_validate (nano::block const & block_a, uint64_t * difficulty_a)
+uint64_t nano::work_threshold (nano::work_version const version_a)
 {
-	return nano::work_validate (block_a.root (), block_a.block_work (), difficulty_a);
-}
-
-bool nano::work_validate (nano::root const & root_a, uint64_t const work_a, uint64_t * difficulty_a)
-{
-	static nano::network_constants network_constants;
-	debug_assert (network_constants.is_test_network ());
-	return nano::work_validate (nano::work_version::work_1, root_a, work_a, difficulty_a);
-}
-
-bool nano::work_v1::validate (nano::root const & root_a, uint64_t work_a, uint64_t * difficulty_a)
-{
-	static nano::network_constants network_constants;
-	auto work_value (value (root_a, work_a));
-	if (difficulty_a != nullptr)
+	uint64_t result{ std::numeric_limits<uint64_t>::max () };
+	switch (version_a)
 	{
-		*difficulty_a = work_value;
+		case nano::work_version::work_1:
+			result = nano::work_v1::threshold ();
+			break;
+		default:
+			debug_assert (false && "Invalid version specified to work_threshold");
 	}
-	return work_value < network_constants.publish_threshold;
+	return result;
+}
+
+uint64_t nano::work_v1::threshold ()
+{
+	static nano::network_constants network_constants;
+	return network_constants.publish_threshold;
 }
 
 #ifndef NANO_FUZZER_TEST

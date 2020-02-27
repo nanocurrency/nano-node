@@ -103,7 +103,7 @@ public:
 	int store_version ();
 	void receive_confirmed (nano::transaction const &, std::shared_ptr<nano::block>, nano::block_hash const &);
 	void process_confirmed_data (nano::transaction const &, std::shared_ptr<nano::block>, nano::block_hash const &, nano::block_sideband const &, nano::account &, nano::uint128_t &, bool &, nano::account &);
-	void process_confirmed (nano::election_status const &, uint8_t = 0);
+	void process_confirmed (nano::election_status const &, std::shared_ptr<nano::election> const &, uint8_t = 0);
 	void process_active (std::shared_ptr<nano::block>);
 	nano::process_return process (nano::block const &);
 	nano::process_return process_local (std::shared_ptr<nano::block>, bool const = false);
@@ -129,8 +129,8 @@ public:
 	bool local_work_generation_enabled () const;
 	bool work_generation_enabled () const;
 	bool work_generation_enabled (std::vector<std::pair<std::string, uint16_t>> const &) const;
-	boost::optional<uint64_t> work_generate_blocking (nano::work_version const, nano::block &, uint64_t);
-	boost::optional<uint64_t> work_generate_blocking (nano::work_version const, nano::block &);
+	boost::optional<uint64_t> work_generate_blocking (nano::block &, uint64_t);
+	boost::optional<uint64_t> work_generate_blocking (nano::block &);
 	boost::optional<uint64_t> work_generate_blocking (nano::work_version const, nano::root const &, uint64_t, boost::optional<nano::account> const & = boost::none);
 	boost::optional<uint64_t> work_generate_blocking (nano::work_version const, nano::root const &, boost::optional<nano::account> const & = boost::none);
 	void work_generate (nano::work_version const, nano::root const &, std::function<void(boost::optional<uint64_t>)>, uint64_t, boost::optional<nano::account> const & = boost::none, bool const = false);
@@ -194,11 +194,6 @@ public:
 	std::atomic<bool> stopped{ false };
 	static double constexpr price_max = 16.0;
 	static double constexpr free_cutoff = 1024.0;
-
-	// For tests only
-	boost::optional<uint64_t> work_generate_blocking (nano::block &, uint64_t);
-	// For tests only
-	boost::optional<uint64_t> work_generate_blocking (nano::block &);
 	// For tests only
 	boost::optional<uint64_t> work_generate_blocking (nano::root const &, uint64_t);
 	// For tests only

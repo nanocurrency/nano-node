@@ -214,7 +214,7 @@ void nano::bulk_pull_client::received_block (boost::system::error_code const & e
 	{
 		nano::bufferstream stream (connection->receive_buffer->data (), size_a);
 		std::shared_ptr<nano::block> block (nano::deserialize_block (stream, type_a));
-		if (block != nullptr && !nano::work_validate (nano::work_version::work_1, *block))
+		if (block != nullptr && !nano::work_validate (*block))
 		{
 			auto hash (block->hash ());
 			if (connection->node->config.logging.bulk_pull_logging ())

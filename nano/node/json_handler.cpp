@@ -2126,7 +2126,7 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 					             .work (node_a->work_generate_blocking (nano::work_version::work_1, info.head).value_or (0))
 					             .build ();
 					bool valid_signature (!nano::validate_message (signer, epoch->hash (), epoch->block_signature ()));
-					bool valid_work (!nano::work_validate (nano::work_version::work_1, *epoch.get ()));
+					bool valid_work (!nano::work_validate (*epoch.get ()));
 					nano::process_result result (nano::process_result::old);
 					if (valid_signature && valid_work)
 					{
@@ -2185,7 +2185,7 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 						             .work (node_a->work_generate_blocking (nano::work_version::work_1, key.account).value_or (0))
 						             .build ();
 						bool valid_signature (!nano::validate_message (signer, epoch->hash (), epoch->block_signature ()));
-						bool valid_work (!nano::work_validate (nano::work_version::work_1, *epoch.get ()));
+						bool valid_work (!nano::work_validate (*epoch.get ()));
 						nano::process_result result (nano::process_result::old);
 						if (valid_signature && valid_work)
 						{
@@ -3252,7 +3252,7 @@ void nano::json_handler::process ()
 		}
 		if (!rpc_l->ec)
 		{
-			if (!nano::work_validate (nano::work_version::work_1, *block))
+			if (!nano::work_validate (*block))
 			{
 				auto result (rpc_l->node.process_local (block, watch_work_l));
 				switch (result.code)
@@ -4938,10 +4938,9 @@ void nano::json_handler::work_generate ()
 					uint64_t work (work_a.value ());
 					response_l.put ("work", nano::to_string_hex (work));
 					std::stringstream ostream;
-					uint64_t result_difficulty;
-					nano::work_validate (work_version, hash, work, &result_difficulty);
+					auto result_difficulty (nano::work_difficulty (work_version, hash, work));
 					response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
-					auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, this->node.network_params.network.publish_threshold);
+					auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, nano::work_threshold (work_version));
 					response_l.put ("multiplier", nano::to_string (result_multiplier));
 					boost::property_tree::write_json (ostream, response_l);
 					rpc_l->response (ostream.str ());
@@ -5053,11 +5052,10 @@ void nano::json_handler::work_validate ()
 	auto work_version (work_version_optional_impl (nano::work_version::work_1));
 	if (!ec)
 	{
-		uint64_t result_difficulty (0);
-		nano::work_validate (work_version, hash, work, &result_difficulty);
+		auto result_difficulty (nano::work_difficulty (work_version, hash, work));
 		response_l.put ("valid", (result_difficulty >= difficulty) ? "1" : "0");
 		response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
-		auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, node.network_params.network.publish_threshold);
+		auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, nano::work_threshold (work_version));
 		response_l.put ("multiplier", nano::to_string (result_multiplier));
 	}
 	response_errors ();
