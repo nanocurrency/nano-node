@@ -1,3 +1,4 @@
+#include <nano/lib/optional_ptr.hpp>
 #include <nano/lib/timer.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/lib/worker.hpp>
@@ -6,6 +7,31 @@
 #include <gtest/gtest.h>
 
 #include <boost/filesystem.hpp>
+
+TEST (optional_ptr, basic)
+{
+	struct valtype
+	{
+		int64_t x{ 1 };
+		int64_t y{ 2 };
+		int64_t z{ 3 };
+	};
+
+	nano::optional_ptr<valtype> opt;
+	ASSERT_FALSE (opt);
+	ASSERT_FALSE (opt.is_initialized ());
+
+	auto val = valtype{};
+	opt = val;
+	ASSERT_TRUE (opt);
+	ASSERT_TRUE (opt.is_initialized ());
+	ASSERT_EQ (opt->x, val.x);
+	ASSERT_EQ (opt->y, val.y);
+	ASSERT_EQ (opt->z, val.z);
+	ASSERT_LT (sizeof (opt), sizeof (val));
+	std::unique_ptr<valtype> uptr;
+	ASSERT_EQ (sizeof (opt), sizeof (uptr));
+}
 
 TEST (thread, worker)
 {
