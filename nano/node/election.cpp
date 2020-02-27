@@ -55,8 +55,6 @@ void nano::election::confirm_once (nano::election_status_type type_a)
 			node_l->process_confirmed (status_l, this_l);
 			confirmation_action_l (status_l.winner);
 		});
-		clear_blocks ();
-		clear_dependent ();
 	}
 }
 
@@ -515,14 +513,6 @@ void nano::election::update_dependent ()
 	}
 }
 
-void nano::election::clear_dependent ()
-{
-	for (auto & dependent_block : dependent_blocks)
-	{
-		node.active.adjust_difficulty (dependent_block);
-	}
-}
-
 void nano::election::clear_blocks ()
 {
 	auto winner_hash (status.winner->hash ());
@@ -531,8 +521,7 @@ void nano::election::clear_blocks ()
 		auto & hash (block.first);
 		auto erased (node.active.blocks.erase (hash));
 		(void)erased;
-		// clear_blocks () can be called in active_transactions::publish () before blocks insertion if election was confirmed
-		debug_assert (erased == 1 || confirmed ());
+		debug_assert (erased == 1);
 		node.active.erase_inactive_votes_cache (hash);
 		// Notify observers about dropped elections & blocks lost confirmed elections
 		if (!confirmed () || hash != winner_hash)

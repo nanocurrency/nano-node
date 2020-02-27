@@ -246,7 +246,6 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 		if ((count_l >= node.config.active_elections_size && election_l->election_start < election_ttl_cutoff_l && !node.wallets.watcher->is_watched (i->root)) || election_l->transition_time ())
 		{
 			election_l->clear_blocks ();
-			election_l->clear_dependent ();
 			i = sorted_roots_l.erase (i);
 		}
 		else
@@ -774,7 +773,6 @@ void nano::active_transactions::erase (nano::block const & block_a)
 	if (root_it != roots.get<tag_root> ().end ())
 	{
 		root_it->election->clear_blocks ();
-		root_it->election->clear_dependent ();
 		roots.get<tag_root> ().erase (root_it);
 		node.logger.try_log (boost::str (boost::format ("Election erased for block block %1% root %2%") % block_a.hash ().to_string () % block_a.root ().to_string ()));
 	}

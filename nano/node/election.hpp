@@ -94,7 +94,6 @@ public:
 	bool publish (std::shared_ptr<nano::block> block_a);
 	size_t last_votes_size ();
 	void update_dependent ();
-	void clear_dependent ();
 	void clear_blocks ();
 	void insert_inactive_votes_cache (nano::block_hash const &);
 
