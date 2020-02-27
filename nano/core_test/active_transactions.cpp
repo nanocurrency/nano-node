@@ -7,7 +7,7 @@
 
 using namespace std::chrono_literals;
 
-TEST (active_transactions, confirm_one)
+TEST (active_transactions, confirm_active)
 {
 	nano::system system (1);
 	auto & node1 = *system.nodes[0];
@@ -15,7 +15,7 @@ TEST (active_transactions, confirm_one)
 	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
 	auto send (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::public_key (), node1.config.receive_minimum.number ()));
 	system.deadline_set (5s);
-	while (!node1.active.empty () && !node1.block_confirmed_or_being_confirmed (node1.store.tx_begin_read (), send->hash ()))
+	while (!node1.active.empty () || !node1.block_confirmed_or_being_confirmed (node1.store.tx_begin_read (), send->hash ()))
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -27,7 +27,7 @@ TEST (active_transactions, confirm_one)
 		node1.network.flood_block (send, nano::buffer_drop_policy::no_limiter_drop);
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	while (node2.ledger.cache.cemented_count < 2)
+	while (node2.ledger.cache.cemented_count < 2 || !node2.active.empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -76,7 +76,7 @@ TEST (active_transactions, adjusted_difficulty_priority)
 		}
 	}
 	system.deadline_set (10s);
-	while (node1.ledger.cache.cemented_count < 5)
+	while (node1.ledger.cache.cemented_count < 5 || !node1.active.empty ())
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
@@ -585,15 +585,28 @@ TEST (active_transactions, vote_replays)
 	node.process_active (open1);
 	node.block_processor.flush ();
 	ASSERT_EQ (2, node.active.size ());
-	// First vote is not a replay and confirms the election, second vote should be indeterminate since the election no longer exists
+	// First vote is not a replay and confirms the election, second vote should be a replay since the election has confirmed but not yet removed
 	auto vote_send1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, send1));
 	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote_send1));
-	ASSERT_EQ (1, node.active.size ());
+	ASSERT_EQ (2, node.active.size ());
+	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote_send1));
+	// Wait until the election is removed, at which point the vote should be indeterminate
+	system.deadline_set (3s);
+	while (node.active.size () != 1)
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote_send1));
 	// Open new account
 	auto vote_open1 (std::make_shared<nano::vote> (nano::test_genesis_key.pub, nano::test_genesis_key.prv, 0, open1));
 	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote_open1));
-	ASSERT_TRUE (node.active.empty ());
+	ASSERT_EQ (1, node.active.size ());
+	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote_open1));
+	system.deadline_set (3s);
+	while (!node.active.empty ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote_open1));
 	ASSERT_EQ (nano::Gxrb_ratio, node.ledger.weight (key.pub));
 
@@ -609,6 +622,12 @@ TEST (active_transactions, vote_replays)
 	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote2_send2));
 	ASSERT_EQ (1, node.active.size ());
 	ASSERT_EQ (nano::vote_code::vote, node.active.vote (vote1_send2));
+	ASSERT_EQ (1, node.active.size ());
+	ASSERT_EQ (nano::vote_code::replay, node.active.vote (vote1_send2));
+	while (!node.active.empty ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
 	ASSERT_EQ (0, node.active.size ());
 	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote1_send2));
 	ASSERT_EQ (nano::vote_code::indeterminate, node.active.vote (vote2_send2));

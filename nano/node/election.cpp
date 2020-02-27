@@ -57,7 +57,6 @@ void nano::election::confirm_once (nano::election_status_type type_a)
 		});
 		clear_blocks ();
 		clear_dependent ();
-		node.active.roots.erase (status.winner->qualified_root ());
 	}
 }
 
@@ -83,7 +82,7 @@ bool nano::election::valid_change (nano::election::state_t expected_a, nano::ele
 				case nano::election::state_t::idle:
 				case nano::election::state_t::active:
 				case nano::election::state_t::confirmed:
-				case nano::election::state_t::expired:
+				case nano::election::state_t::expired_unconfirmed:
 					result = true;
 					break;
 				default:
@@ -96,7 +95,7 @@ bool nano::election::valid_change (nano::election::state_t expected_a, nano::ele
 				case nano::election::state_t::idle:
 				case nano::election::state_t::backtracking:
 				case nano::election::state_t::confirmed:
-				case nano::election::state_t::expired:
+				case nano::election::state_t::expired_unconfirmed:
 					result = true;
 					break;
 				default:
@@ -107,7 +106,7 @@ bool nano::election::valid_change (nano::election::state_t expected_a, nano::ele
 			{
 				case nano::election::state_t::idle:
 				case nano::election::state_t::confirmed:
-				case nano::election::state_t::expired:
+				case nano::election::state_t::expired_unconfirmed:
 					result = true;
 					break;
 				default:
@@ -116,13 +115,15 @@ bool nano::election::valid_change (nano::election::state_t expected_a, nano::ele
 		case nano::election::state_t::confirmed:
 			switch (desired_a)
 			{
-				case nano::election::state_t::expired:
+				case nano::election::state_t::expired_confirmed:
 					result = true;
 					break;
 				default:
 					break;
 			}
-		case nano::election::state_t::expired:
+		case nano::election::state_t::expired_unconfirmed:
+			break;
+		case nano::election::state_t::expired_confirmed:
 			break;
 	}
 	return result;
@@ -202,7 +203,7 @@ bool nano::election::idle () const
 
 bool nano::election::confirmed ()
 {
-	return state_m == nano::election::state_t::confirmed;
+	return state_m == nano::election::state_t::confirmed || state_m == nano::election::state_t::expired_confirmed;
 }
 
 void nano::election::activate_dependencies ()
@@ -292,17 +293,18 @@ bool nano::election::transition_time ()
 			if (base_latency () * confirmed_duration_factor < std::chrono::steady_clock::now () - state_start)
 			{
 				result = true;
-				state_change (nano::election::state_t::confirmed, nano::election::state_t::expired);
+				state_change (nano::election::state_t::confirmed, nano::election::state_t::expired_confirmed);
 			}
 			break;
-		case nano::election::state_t::expired:
+		case nano::election::state_t::expired_unconfirmed:
+		case nano::election::state_t::expired_confirmed:
 			debug_assert (false);
 			break;
 	}
-	if (std::chrono::minutes (5) < std::chrono::steady_clock::now () - election_start)
+	if (!confirmed () && std::chrono::minutes (5) < std::chrono::steady_clock::now () - election_start)
 	{
 		result = true;
-		state_change (state_m.load (), nano::election::state_t::expired);
+		state_change (state_m.load (), nano::election::state_t::expired_unconfirmed);
 		status.type = nano::election_status_type::stopped;
 		log_votes (tally ());
 	}

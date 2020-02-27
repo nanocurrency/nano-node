@@ -62,7 +62,8 @@ private: // State management
 		active,
 		backtracking,
 		confirmed,
-		expired
+		expired_confirmed,
+		expired_unconfirmed
 	};
 	static int constexpr passive_duration_factor = 5;
 	static int constexpr active_duration_factor = 20;
