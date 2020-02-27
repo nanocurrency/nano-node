@@ -76,6 +76,11 @@ size_t nano::block::size (nano::block_type type_a)
 	return result;
 }
 
+nano::work_version nano::block::work_version () const
+{
+	return nano::work_version::work_1;
+}
+
 nano::block_hash nano::block::generate_hash () const
 {
 	nano::block_hash result;

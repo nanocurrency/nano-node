@@ -2126,7 +2126,7 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 					             .work (node_a->work_generate_blocking (nano::work_version::work_1, info.head).value_or (0))
 					             .build ();
 					bool valid_signature (!nano::validate_message (signer, epoch->hash (), epoch->block_signature ()));
-					bool valid_work (!nano::work_validate (nano::work_version::work_1, *epoch.get ()));
+					bool valid_work (!nano::work_validate (*epoch.get ()));
 					nano::process_result result (nano::process_result::old);
 					if (valid_signature && valid_work)
 					{
@@ -2185,7 +2185,7 @@ void epoch_upgrader (std::shared_ptr<nano::node> node_a, nano::private_key const
 						             .work (node_a->work_generate_blocking (nano::work_version::work_1, key.account).value_or (0))
 						             .build ();
 						bool valid_signature (!nano::validate_message (signer, epoch->hash (), epoch->block_signature ()));
-						bool valid_work (!nano::work_validate (nano::work_version::work_1, *epoch.get ()));
+						bool valid_work (!nano::work_validate (*epoch.get ()));
 						nano::process_result result (nano::process_result::old);
 						if (valid_signature && valid_work)
 						{
@@ -3252,7 +3252,7 @@ void nano::json_handler::process ()
 		}
 		if (!rpc_l->ec)
 		{
-			if (!nano::work_validate (nano::work_version::work_1, *block))
+			if (!nano::work_validate (*block))
 			{
 				auto result (rpc_l->node.process_local (block, watch_work_l));
 				switch (result.code)
@@ -3941,7 +3941,6 @@ void nano::json_handler::telemetry ()
 
 						nano::jsonconfig config_l;
 						auto err = telemetry_data.serialize_json (config_l);
-						config_l.put ("timestamp", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::system_clock::now ().time_since_epoch ()).count ());
 						auto const & ptree = config_l.get_tree ();
 
 						if (!err)
@@ -3979,12 +3978,11 @@ void nano::json_handler::telemetry ()
 		if (!ec)
 		{
 			debug_assert (channel);
-			node.telemetry.get_metrics_single_peer_async (channel, [rpc_l](auto const & single_telemetry_metric_a) {
-				if (!single_telemetry_metric_a.error)
+			node.telemetry.get_metrics_single_peer_async (channel, [rpc_l](auto const & telemetry_response_a) {
+				if (!telemetry_response_a.error)
 				{
 					nano::jsonconfig config_l;
-					auto err = single_telemetry_metric_a.telemetry_data_time_pair.data.serialize_json (config_l);
-					config_l.put ("timestamp", std::chrono::duration_cast<std::chrono::seconds> (single_telemetry_metric_a.telemetry_data_time_pair.system_last_updated.time_since_epoch ()).count ());
+					auto err = telemetry_response_a.telemetry_data.serialize_json (config_l);
 					auto const & ptree = config_l.get_tree ();
 
 					if (!err)
@@ -4015,15 +4013,14 @@ void nano::json_handler::telemetry ()
 		// setting "raw" to true returns metrics from all nodes requested.
 		auto raw = request.get_optional<bool> ("raw");
 		auto output_raw = raw.value_or (false);
-		node.telemetry.get_metrics_peers_async ([rpc_l, output_raw](auto const & batched_telemetry_metrics_a) {
+		node.telemetry.get_metrics_peers_async ([rpc_l, output_raw](telemetry_data_responses const & telemetry_responses_a) {
 			if (output_raw)
 			{
 				boost::property_tree::ptree metrics;
-				for (auto & telemetry_metrics : batched_telemetry_metrics_a.telemetry_data_time_pairs)
+				for (auto & telemetry_metrics : telemetry_responses_a.telemetry_datas)
 				{
 					nano::jsonconfig config_l;
-					auto err = telemetry_metrics.second.data.serialize_json (config_l);
-					config_l.put ("timestamp", std::chrono::duration_cast<std::chrono::seconds> (telemetry_metrics.second.system_last_updated.time_since_epoch ()).count ());
+					auto err = telemetry_metrics.second.serialize_json (config_l);
 					config_l.put ("address", telemetry_metrics.first.address ());
 					config_l.put ("port", telemetry_metrics.first.port ());
 					if (!err)
@@ -4041,15 +4038,14 @@ void nano::json_handler::telemetry ()
 			else
 			{
 				nano::jsonconfig config_l;
-				std::vector<nano::telemetry_data_time_pair> telemetry_data_time_pairs;
-				telemetry_data_time_pairs.reserve (batched_telemetry_metrics_a.telemetry_data_time_pairs.size ());
-				std::transform (batched_telemetry_metrics_a.telemetry_data_time_pairs.begin (), batched_telemetry_metrics_a.telemetry_data_time_pairs.end (), std::back_inserter (telemetry_data_time_pairs), [](auto const & telemetry_data_time_pair_a) {
-					return telemetry_data_time_pair_a.second;
+				std::vector<nano::telemetry_data> telemetry_datas;
+				telemetry_datas.reserve (telemetry_responses_a.telemetry_datas.size ());
+				std::transform (telemetry_responses_a.telemetry_datas.begin (), telemetry_responses_a.telemetry_datas.end (), std::back_inserter (telemetry_datas), [](auto const & endpoint_telemetry_data) {
+					return endpoint_telemetry_data.second;
 				});
 
-				auto average_telemetry_metrics = nano::consolidate_telemetry_data_time_pairs (telemetry_data_time_pairs);
-				auto err = average_telemetry_metrics.data.serialize_json (config_l);
-				config_l.put ("timestamp", std::chrono::duration_cast<std::chrono::seconds> (average_telemetry_metrics.system_last_updated.time_since_epoch ()).count ());
+				auto average_telemetry_metrics = nano::consolidate_telemetry_data (telemetry_datas);
+				auto err = average_telemetry_metrics.serialize_json (config_l);
 				auto const & ptree = config_l.get_tree ();
 
 				if (!err)
@@ -4100,7 +4096,7 @@ void nano::json_handler::unchecked_clear ()
 {
 	auto rpc_l (shared_from_this ());
 	node.worker.push_task ([rpc_l]() {
-		auto transaction (rpc_l->node.store.tx_begin_write ());
+		auto transaction (rpc_l->node.store.tx_begin_write ({ tables::unchecked }));
 		rpc_l->node.store.unchecked_clear (transaction);
 		rpc_l->node.ledger.cache.unchecked_count = 0;
 		rpc_l->response_l.put ("success", "");

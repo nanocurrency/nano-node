@@ -26,7 +26,7 @@ void nano::online_reps::observe (nano::account const & rep_a)
 
 void nano::online_reps::sample ()
 {
-	auto transaction (ledger.store.tx_begin_write ());
+	auto transaction (ledger.store.tx_begin_write ({ tables::online_weight }));
 	// Discard oldest entries
 	while (ledger.store.online_weight_count (transaction) >= network_params.node.max_weight_samples)
 	{

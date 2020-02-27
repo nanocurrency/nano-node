@@ -100,7 +100,8 @@ void nano::add_node_flag_options (boost::program_options::options_description & 
 		("batch_size", boost::program_options::value<std::size_t>(), "Increase sideband batch size, default 512")
 		("block_processor_batch_size", boost::program_options::value<std::size_t>(), "Increase block processor transaction batch write size, default 0 (limited by config block_processor_batch_max_time), 256k for fast_bootstrap")
 		("block_processor_full_size", boost::program_options::value<std::size_t>(), "Increase block processor allowed blocks queue size before dropping live network packets and holding bootstrap download, default 65536, 1 million for fast_bootstrap")
-		("block_processor_verification_size", boost::program_options::value<std::size_t>(), "Increase batch signature verification size in block processor, default 0 (limited by config signature_checker_threads), unlimited for fast_bootstrap");
+		("block_processor_verification_size", boost::program_options::value<std::size_t>(), "Increase batch signature verification size in block processor, default 0 (limited by config signature_checker_threads), unlimited for fast_bootstrap")
+		("inactive_votes_cache_size", boost::program_options::value<std::size_t>(), "Increase cached votes without active elections size, default 16384");
 	// clang-format on
 }
 
@@ -153,6 +154,11 @@ std::error_code nano::update_flags (nano::node_flags & flags_a, boost::program_o
 	if (block_processor_verification_size_it != vm.end ())
 	{
 		flags_a.block_processor_verification_size = block_processor_verification_size_it->second.as<size_t> ();
+	}
+	auto inactive_votes_cache_size_it = vm.find ("inactive_votes_cache_size");
+	if (inactive_votes_cache_size_it != vm.end ())
+	{
+		flags_a.inactive_votes_cache_size = inactive_votes_cache_size_it->second.as<size_t> ();
 	}
 	return ec;
 }

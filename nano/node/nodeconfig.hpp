@@ -136,5 +136,6 @@ public:
 	size_t block_processor_batch_size{ 0 };
 	size_t block_processor_full_size{ 65536 };
 	size_t block_processor_verification_size{ 0 };
+	size_t inactive_votes_cache_size{ 16 * 1024 };
 };
 }

@@ -73,7 +73,7 @@ void nano::block_processor::add (std::shared_ptr<nano::block> block_a, uint64_t 
 
 void nano::block_processor::add (nano::unchecked_info const & info_a)
 {
-	if (!nano::work_validate (nano::work_version::work_1, info_a.block->root (), info_a.block->block_work ()))
+	if (!nano::work_validate (*info_a.block))
 	{
 		bool should_notify{ false };
 		{
@@ -300,7 +300,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	// Add to work watcher to prevent dropping the election
 	if (watch_work_a)
 	{
-		node.wallets.watcher->add (block_a, nano::work_version::work_1);
+		node.wallets.watcher->add (block_a);
 	}
 
 	// Start collecting quorum on block
@@ -393,7 +393,7 @@ nano::process_return nano::block_processor::process_one (nano::write_transaction
 				node.logger.try_log (boost::str (boost::format ("Old for: %1%") % hash.to_string ()));
 			}
 			queue_unchecked (transaction_a, hash);
-			node.active.update_difficulty (info_a.block, transaction_a);
+			node.active.update_difficulty (info_a.block);
 			node.stats.inc (nano::stat::type::ledger, nano::stat::detail::old);
 			break;
 		}
