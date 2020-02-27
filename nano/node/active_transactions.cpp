@@ -17,11 +17,7 @@ node (node_a),
 multipliers_cb (20, 1.),
 trended_active_difficulty (node_a.network_params.network.publish_threshold),
 solicitor (node_a.network, node_a.network_params.network),
-long_election_threshold (node_a.network_params.network.is_test_network () ? 2s : 24s),
-election_request_delay (node_a.network_params.network.is_test_network () ? 0s : 1s),
-election_time_to_live (node_a.network_params.network.is_test_network () ? 0s : 10s),
-min_time_between_requests (node_a.network_params.network.is_test_network () ? 25ms : 3s),
-min_request_count_flood (node_a.network_params.network.is_test_network () ? 0 : 2),
+election_time_to_live (node_a.network_params.network.is_test_network () ? 0s : 2s),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::request_loop);
 	request_loop ();
@@ -37,7 +33,6 @@ thread ([this]() {
 		this->block_already_cemented_callback (hash_a);
 	});
 
-	debug_assert (min_time_between_requests > std::chrono::milliseconds (node.network_params.network.request_interval_ms));
 	nano::unique_lock<std::mutex> lock (mutex);
 	condition.wait (lock, [& started = started] { return started; });
 }
@@ -233,6 +228,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	solicitor.prepare (node.rep_crawler.representatives (node.network_params.protocol.tcp_realtime_protocol_version_min));
 	lock_a.lock ();
 
+	auto election_ttl_cutoff_l (std::chrono::steady_clock::now () - election_time_to_live);
 	auto roots_size_l (roots.size ());
 	auto & sorted_roots_l = roots.get<tag_difficulty> ();
 	size_t count_l{ 0 };
@@ -247,7 +243,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	for (auto i = sorted_roots_l.begin (), n = sorted_roots_l.end (); i != n; ++count_l)
 	{
 		auto & election_l (i->election);
-		if ((count_l >= node.config.active_elections_size && !node.wallets.watcher->is_watched (i->root)) || election_l->transition_time ())
+		if ((count_l >= node.config.active_elections_size && election_l->election_start < election_ttl_cutoff_l && !node.wallets.watcher->is_watched (i->root)) || election_l->transition_time ())
 		{
 			election_l->clear_blocks ();
 			election_l->clear_dependent ();
@@ -706,10 +702,9 @@ void nano::active_transactions::update_active_difficulty (nano::unique_lock<std:
 		std::vector<uint64_t> active_root_difficulties;
 		active_root_difficulties.reserve (std::min (sorted_roots.size (), node.config.active_elections_size));
 		size_t count (0);
-		auto cutoff (std::chrono::steady_clock::now () - election_request_delay - 1s);
 		for (auto it (sorted_roots.begin ()), end (sorted_roots.end ()); it != end && count++ < node.config.active_elections_size; ++it)
 		{
-			if (!it->election->confirmed () && it->election->election_start < cutoff)
+			if (!it->election->confirmed () && !it->election->idle ())
 			{
 				active_root_difficulties.push_back (it->adjusted_difficulty);
 			}
