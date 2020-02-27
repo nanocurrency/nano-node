@@ -54,6 +54,32 @@ TEST (active_transactions, confirm_frontier)
 	}
 }
 
+TEST (active_transactions, confirm_dependent)
+{
+	nano::system system;
+	nano::node_flags node_flags;
+	node_flags.disable_request_loop = true;
+	auto & node1 = *system.add_node (node_flags);
+	system.wallet (0)->insert_adhoc (nano::test_genesis_key.prv);
+	auto send1 (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::public_key (), node1.config.receive_minimum.number ()));
+	auto send2 (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::public_key (), node1.config.receive_minimum.number ()));
+	auto send3 (system.wallet (0)->send_action (nano::test_genesis_key.pub, nano::public_key (), node1.config.receive_minimum.number ()));
+	system.deadline_set (5s);
+	nano::node_config node_config;
+	node_config.peering_port = nano::get_available_port ();
+	node_config.frontiers_confirmation = nano::frontiers_confirmation_mode::disabled;
+	auto & node2 = *system.add_node (node_config);
+	node2.process_local (send1);
+	node2.process_local (send2);
+	node2.process_active (send3);
+	system.deadline_set (5s);
+	while (!node2.active.empty ())
+	{
+		ASSERT_NO_ERROR (system.poll ());
+	}
+	ASSERT_EQ (4, node2.ledger.cache.cemented_count);
+}
+
 TEST (active_transactions, adjusted_difficulty_priority)
 {
 	nano::system system;
