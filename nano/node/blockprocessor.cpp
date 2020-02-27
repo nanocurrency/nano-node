@@ -393,7 +393,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	}
 }
 
-nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, nano::unchecked_info info_a, uint64_t & num_state_blocks_added_a, const bool watch_work_a,  const bool first_publish_a)
+nano::process_return nano::block_processor::process_one (nano::write_transaction const & transaction_a, nano::unchecked_info info_a, uint64_t & num_state_blocks_added_a, const bool watch_work_a, const bool first_publish_a)
 {
 	nano::process_return result;
 	auto hash (info_a.block->hash ());
