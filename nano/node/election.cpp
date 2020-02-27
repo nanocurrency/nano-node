@@ -253,7 +253,7 @@ void nano::election::broadcast_block ()
 
 bool nano::election::transition_time (bool const saturated_a)
 {
-	assert (!node.active.mutex.try_lock ());
+	debug_assert (!node.active.mutex.try_lock ());
 	bool result = false;
 	switch (state_m)
 	{
