@@ -1,6 +1,7 @@
 #include <nano/lib/config.hpp>
 #include <nano/lib/json_error_response.hpp>
 #include <nano/lib/timer.hpp>
+#include <nano/node/bootstrap/bootstrap_lazy.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/json_handler.hpp>
@@ -1679,41 +1680,39 @@ void nano::json_handler::bootstrap_lazy ()
  */
 void nano::json_handler::bootstrap_status ()
 {
-	auto attempt (node.bootstrap_initiator.current_attempt ());
-	if (attempt != nullptr)
+	auto attempts_count (node.bootstrap_initiator.attempts.size ());
+	response_l.put ("bootstrap_threads", std::to_string (node.config.bootstrap_initiator_threads));
+	response_l.put ("running_attempts_count", std::to_string (attempts_count));
+	response_l.put ("total_attempts_count", std::to_string (node.bootstrap_initiator.attempts.incremental));
+	boost::property_tree::ptree connections;
 	{
-		nano::lock_guard<std::mutex> lock (attempt->mutex);
-		nano::lock_guard<std::mutex> lazy_lock (attempt->lazy_mutex);
-		response_l.put ("id", attempt->id);
-		response_l.put ("clients", std::to_string (attempt->clients.size ()));
-		response_l.put ("pulls", std::to_string (attempt->pulls.size ()));
-		response_l.put ("pulling", std::to_string (attempt->pulling));
-		response_l.put ("connections", std::to_string (attempt->connections));
-		response_l.put ("idle", std::to_string (attempt->idle.size ()));
-		response_l.put ("target_connections", std::to_string (attempt->target_connections (attempt->pulls.size ())));
-		response_l.put ("total_blocks", std::to_string (attempt->total_blocks));
-		response_l.put ("runs_count", std::to_string (attempt->runs_count));
-		response_l.put ("requeued_pulls", std::to_string (attempt->requeued_pulls));
-		response_l.put ("frontiers_received", static_cast<bool> (attempt->frontiers_received));
-		response_l.put ("frontiers_confirmed", static_cast<bool> (attempt->frontiers_confirmed));
-		response_l.put ("mode", attempt->mode_text ());
-		response_l.put ("lazy_blocks", std::to_string (attempt->lazy_blocks.size ()));
-		response_l.put ("lazy_state_backlog", std::to_string (attempt->lazy_state_backlog.size ()));
-		response_l.put ("lazy_balances", std::to_string (attempt->lazy_balances.size ()));
-		response_l.put ("lazy_destinations", std::to_string (attempt->lazy_destinations.size ()));
-		response_l.put ("lazy_undefined_links", std::to_string (attempt->lazy_undefined_links.size ()));
-		response_l.put ("lazy_pulls", std::to_string (attempt->lazy_pulls.size ()));
-		response_l.put ("lazy_keys", std::to_string (attempt->lazy_keys.size ()));
-		if (!attempt->lazy_keys.empty ())
+		nano::lock_guard<std::mutex> connections_lock (node.bootstrap_initiator.connections->mutex);
+		connections.put ("clients", std::to_string (node.bootstrap_initiator.connections->clients.size ()));
+		connections.put ("connections", std::to_string (node.bootstrap_initiator.connections->connections_count));
+		connections.put ("idle", std::to_string (node.bootstrap_initiator.connections->idle.size ()));
+		connections.put ("target_connections", std::to_string (node.bootstrap_initiator.connections->target_connections (node.bootstrap_initiator.connections->pulls.size (), attempts_count)));
+		connections.put ("pulls", std::to_string (node.bootstrap_initiator.connections->pulls.size ()));
+	}
+	response_l.add_child ("connections", connections);
+	boost::property_tree::ptree attempts;
+	{
+		nano::lock_guard<std::mutex> attempts_lock (node.bootstrap_initiator.attempts.bootstrap_attempts_mutex);
+		for (auto i : node.bootstrap_initiator.attempts.attempts)
 		{
-			response_l.put ("lazy_key_1", (*(attempt->lazy_keys.begin ())).to_string ());
+			boost::property_tree::ptree entry;
+			auto & attempt (i.second);
+			entry.put ("id", attempt->id);
+			entry.put ("mode", attempt->mode_text ());
+			entry.put ("started", static_cast<bool> (attempt->started));
+			entry.put ("pulling", std::to_string (attempt->pulling));
+			entry.put ("total_blocks", std::to_string (attempt->total_blocks));
+			entry.put ("requeued_pulls", std::to_string (attempt->requeued_pulls));
+			attempt->get_information (entry);
+			entry.put ("duration", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt->attempt_start).count ());
+			attempts.push_back (std::make_pair ("", entry));
 		}
-		response_l.put ("duration", std::chrono::duration_cast<std::chrono::seconds> (std::chrono::steady_clock::now () - attempt->attempt_start).count ());
 	}
-	else
-	{
-		response_l.put ("active", "0");
-	}
+	response_l.add_child ("attempts", attempts);
 	response_errors ();
 }
 
@@ -4938,10 +4937,9 @@ void nano::json_handler::work_generate ()
 					uint64_t work (work_a.value ());
 					response_l.put ("work", nano::to_string_hex (work));
 					std::stringstream ostream;
-					uint64_t result_difficulty;
-					nano::work_validate (work_version, hash, work, &result_difficulty);
+					auto result_difficulty (nano::work_difficulty (work_version, hash, work));
 					response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
-					auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, this->node.network_params.network.publish_threshold);
+					auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, nano::work_threshold (work_version));
 					response_l.put ("multiplier", nano::to_string (result_multiplier));
 					boost::property_tree::write_json (ostream, response_l);
 					rpc_l->response (ostream.str ());
@@ -5053,11 +5051,10 @@ void nano::json_handler::work_validate ()
 	auto work_version (work_version_optional_impl (nano::work_version::work_1));
 	if (!ec)
 	{
-		uint64_t result_difficulty (0);
-		nano::work_validate (work_version, hash, work, &result_difficulty);
+		auto result_difficulty (nano::work_difficulty (work_version, hash, work));
 		response_l.put ("valid", (result_difficulty >= difficulty) ? "1" : "0");
 		response_l.put ("difficulty", nano::to_string_hex (result_difficulty));
-		auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, node.network_params.network.publish_threshold);
+		auto result_multiplier = nano::difficulty::to_multiplier (result_difficulty, nano::work_threshold (work_version));
 		response_l.put ("multiplier", nano::to_string (result_multiplier));
 	}
 	response_errors ();

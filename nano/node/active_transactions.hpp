@@ -110,7 +110,7 @@ public:
 	bool publish (std::shared_ptr<nano::block> block_a);
 	boost::optional<nano::election_status_type> confirm_block (nano::transaction const &, std::shared_ptr<nano::block>);
 	void block_cemented_callback (std::shared_ptr<nano::block> const & block_a, nano::block_sideband const & sideband_a);
-	void cemented_batch_finished_callback ();
+	void block_already_cemented_callback (nano::block_hash const &);
 	// clang-format off
 	boost::multi_index_container<nano::conflict_info,
 	mi::indexed_by<
@@ -137,11 +137,14 @@ public:
 	size_t priority_wallet_cementable_frontiers_size ();
 	boost::circular_buffer<double> difficulty_trend ();
 	size_t inactive_votes_cache_size ();
-	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> election_winner_details;
 	size_t election_winner_details_size ();
+	void add_election_winner_details (nano::block_hash const &, std::shared_ptr<nano::election> const &);
 	nano::confirmation_solicitor solicitor;
 
 private:
+	std::mutex election_winner_details_mutex;
+	std::unordered_map<nano::block_hash, std::shared_ptr<nano::election>> election_winner_details;
+
 	// Call action with confirmed block, may be different than what we started with
 	// clang-format off
 	std::pair<std::shared_ptr<nano::election>, bool> insert_impl (std::shared_ptr<nano::block>, bool const = false, std::function<void(std::shared_ptr<nano::block>)> const & = [](std::shared_ptr<nano::block>) {});
@@ -208,6 +211,7 @@ private:
 
 	friend class confirmation_height_prioritize_frontiers_Test;
 	friend class confirmation_height_prioritize_frontiers_overwrite_Test;
+	friend std::unique_ptr<container_info_component> collect_container_info (active_transactions &, const std::string &);
 };
 
 std::unique_ptr<container_info_component> collect_container_info (active_transactions & active_transactions, const std::string & name);

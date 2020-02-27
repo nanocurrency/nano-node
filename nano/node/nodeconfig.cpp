@@ -80,6 +80,7 @@ nano::error nano::node_config::serialize_toml (nano::tomlconfig & toml) const
 	toml.put ("enable_voting", enable_voting, "Enable or disable voting. Enabling this option requires additional system resources, namely increased CPU, bandwidth and disk usage.\ntype:bool");
 	toml.put ("bootstrap_connections", bootstrap_connections, "Number of outbound bootstrap connections. Must be a power of 2. Defaults to 4.\nWarning: a larger amount of connections may use substantially more system memory.\ntype:uint64");
 	toml.put ("bootstrap_connections_max", bootstrap_connections_max, "Maximum number of inbound bootstrap connections. Defaults to 64.\nWarning: a larger amount of connections may use additional system memory.\ntype:uint64");
+	toml.put ("bootstrap_initiator_threads", bootstrap_initiator_threads, "Number of threads dedicated to concurrent bootstrap attempts. Defaults to 2 (if the number of CPU threads is more than 1), otherwise 1.\nWarning: a larger amount of attempts may use additional system memory and disk IO.\ntype:uint64");
 	toml.put ("lmdb_max_dbs", lmdb_max_dbs, "Maximum open lmdb databases. Increase default if more than 100 wallets is required.\nNote: external management is recommended when a large amounts of wallets are required (see https://docs.nano.org/integration-guides/key-management/).\ntype:uint64");
 	toml.put ("block_processor_batch_max_time", block_processor_batch_max_time.count (), "The maximum time the block processor can continously process blocks for.\ntype:milliseconds");
 	toml.put ("allow_local_peers", allow_local_peers, "Enable or disable local host peering.\ntype:bool");
@@ -302,6 +303,7 @@ nano::error nano::node_config::deserialize_toml (nano::tomlconfig & toml)
 		toml.get<unsigned> ("network_threads", network_threads);
 		toml.get<unsigned> ("bootstrap_connections", bootstrap_connections);
 		toml.get<unsigned> ("bootstrap_connections_max", bootstrap_connections_max);
+		toml.get<unsigned> ("bootstrap_initiator_threads", bootstrap_initiator_threads);
 		toml.get<int> ("lmdb_max_dbs", lmdb_max_dbs);
 		toml.get<bool> ("enable_voting", enable_voting);
 		toml.get<bool> ("allow_local_peers", allow_local_peers);
