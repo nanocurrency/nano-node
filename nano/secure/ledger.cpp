@@ -756,7 +756,7 @@ nano::uint128_t nano::ledger::account_pending (nano::transaction const & transac
 
 nano::process_return nano::ledger::process (nano::write_transaction const & transaction_a, nano::block const & block_a, nano::signature_verification verification_a, uint64_t * num_state_blocks_a)
 {
-	debug_assert (!nano::work_validate (nano::work_version::work_1, block_a));
+	debug_assert (!nano::work_validate (block_a));
 	ledger_processor processor (*this, transaction_a, verification_a);
 	block_a.visit (processor);
 	if (processor.result.code == nano::process_result::progress)
@@ -786,16 +786,12 @@ nano::block_hash nano::ledger::representative_calculated (nano::transaction cons
 
 bool nano::ledger::block_exists (nano::block_hash const & hash_a)
 {
-	auto transaction (store.tx_begin_read ());
-	auto result (store.block_exists (transaction, hash_a));
-	return result;
+	return store.block_exists (store.tx_begin_read (), hash_a);
 }
 
 bool nano::ledger::block_exists (nano::block_type type, nano::block_hash const & hash_a)
 {
-	auto transaction (store.tx_begin_read ());
-	auto result (store.block_exists (transaction, type, hash_a));
-	return result;
+	return store.block_exists (store.tx_begin_read (), type, hash_a);
 }
 
 std::string nano::ledger::block_text (char const * hash_a)

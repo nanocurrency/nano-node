@@ -8,7 +8,7 @@
 
 #include <numeric>
 
-nano::confirmation_height_bounded::confirmation_height_bounded (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logger_mt & logger_a, std::atomic<bool> & stopped_a, nano::block_hash const & original_hash_a, std::function<void(std::vector<nano::block_w_sideband> const &)> const & notify_observers_callback_a, std::function<uint64_t ()> const & awaiting_processing_size_callback_a) :
+nano::confirmation_height_bounded::confirmation_height_bounded (nano::ledger & ledger_a, nano::write_database_queue & write_database_queue_a, std::chrono::milliseconds batch_separate_pending_min_time_a, nano::logger_mt & logger_a, std::atomic<bool> & stopped_a, nano::block_hash const & original_hash_a, std::function<void(std::vector<nano::block_w_sideband> const &)> const & notify_observers_callback_a, std::function<void(nano::block_hash const &)> const & notify_block_already_cemented_observers_callback_a, std::function<uint64_t ()> const & awaiting_processing_size_callback_a) :
 ledger (ledger_a),
 write_database_queue (write_database_queue_a),
 batch_separate_pending_min_time (batch_separate_pending_min_time_a),
@@ -16,6 +16,7 @@ logger (logger_a),
 stopped (stopped_a),
 original_hash (original_hash_a),
 notify_observers_callback (notify_observers_callback_a),
+notify_block_already_cemented_observers_callback (notify_block_already_cemented_observers_callback_a),
 awaiting_processing_size_callback (awaiting_processing_size_callback_a)
 {
 }
@@ -57,6 +58,7 @@ void nano::confirmation_height_bounded::process ()
 	boost::circular_buffer_space_optimized<nano::block_hash> checkpoints{ max_items };
 	boost::circular_buffer_space_optimized<receive_source_pair> receive_source_pairs{ max_items };
 	nano::block_hash current;
+	bool first_iter = true;
 	auto transaction (ledger.store.tx_begin_read ());
 	do
 	{
@@ -85,7 +87,13 @@ void nano::confirmation_height_bounded::process ()
 		else
 		{
 			auto error = ledger.store.confirmation_height_get (transaction, account, confirmation_height_info);
+			(void)error;
 			debug_assert (!error);
+			// This block was added to the confirmation height processor but is already confirmed
+			if (first_iter && confirmation_height_info.height >= sideband.height && current == original_hash)
+			{
+				notify_block_already_cemented_observers_callback (original_hash);
+			}
 		}
 
 		auto block_height = sideband.height;
@@ -181,6 +189,7 @@ void nano::confirmation_height_bounded::process ()
 			}
 		}
 
+		first_iter = false;
 		transaction.refresh ();
 	} while ((!receive_source_pairs.empty () || current != original_hash) && !stopped);
 

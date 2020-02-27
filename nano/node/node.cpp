@@ -131,7 +131,7 @@ bootstrap_initiator (*this),
 bootstrap (config.peering_port, *this),
 application_path (application_path_a),
 port_mapping (*this),
-vote_processor (checker, active, observers, stats, config, logger, online_reps, ledger, network_params),
+vote_processor (checker, active, observers, stats, config, flags, logger, online_reps, ledger, network_params),
 rep_crawler (*this),
 warmed_up (0),
 block_processor (*this, write_database_queue),
@@ -367,7 +367,7 @@ startup_time (std::chrono::steady_clock::now ())
 		if (!is_initialized)
 		{
 			release_assert (!flags.read_only);
-			auto transaction (store.tx_begin_write ());
+			auto transaction (store.tx_begin_write ({ tables::accounts, tables::cached_counts, tables::confirmation_height, tables::frontiers, tables::open_blocks }));
 			// Store was empty meaning we just created it, add the genesis block
 			store.initialize (transaction, genesis, ledger.cache);
 		}
@@ -441,7 +441,7 @@ startup_time (std::chrono::steady_clock::now ())
 			// Drop unchecked blocks if initial bootstrap is completed
 			if (!flags.disable_unchecked_drop && !use_bootstrap_weight && !flags.read_only)
 			{
-				auto transaction (store.tx_begin_write ());
+				auto transaction (store.tx_begin_write ({ tables::unchecked }));
 				store.unchecked_clear (transaction);
 				ledger.cache.unchecked_count = 0;
 				logger.always_log ("Dropping unchecked blocks");
@@ -626,8 +626,8 @@ nano::process_return nano::node::process_local (std::shared_ptr<nano::block> blo
 	// Notify block processor to release write lock
 	block_processor.wait_write ();
 	// Process block
-	auto transaction (store.tx_begin_write ());
 	uint64_t num_state_blocks_added{ 0 };
+	auto transaction (store.tx_begin_write ({ tables::accounts, tables::cached_counts, tables::change_blocks, tables::frontiers, tables::open_blocks, tables::pending, tables::receive_blocks, tables::representation, tables::send_blocks, tables::state_blocks }, { tables::confirmation_height }));
 	auto res = block_processor.process_one (transaction, info, num_state_blocks_added, work_watcher_a);
 	store.increment_state_block_count (transaction, num_state_blocks_added);
 	return res;
@@ -783,7 +783,7 @@ nano::uint128_t nano::node::minimum_principal_weight (nano::uint128_t const & on
 void nano::node::long_inactivity_cleanup ()
 {
 	bool perform_cleanup = false;
-	auto transaction (store.tx_begin_write ());
+	auto transaction (store.tx_begin_write ({ tables::online_weight, tables::peers }));
 	if (store.online_weight_count (transaction) > 0)
 	{
 		auto i (store.online_weight_begin (transaction));
@@ -953,7 +953,7 @@ void nano::node::unchecked_cleanup ()
 	while (!cleaning_list.empty ())
 	{
 		size_t deleted_count (0);
-		auto transaction (store.tx_begin_write ());
+		auto transaction (store.tx_begin_write ({ tables::unchecked }));
 		while (deleted_count++ < 2 * 1024 && !cleaning_list.empty ())
 		{
 			auto key (cleaning_list.front ());
@@ -1009,14 +1009,14 @@ bool nano::node::work_generation_enabled (std::vector<std::pair<std::string, uin
 	return !peers_a.empty () || local_work_generation_enabled ();
 }
 
-boost::optional<uint64_t> nano::node::work_generate_blocking (nano::work_version const version_a, nano::block & block_a)
+boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a)
 {
-	return work_generate_blocking (version_a, block_a, network_params.network.publish_threshold);
+	return work_generate_blocking (block_a, network_params.network.publish_threshold);
 }
 
-boost::optional<uint64_t> nano::node::work_generate_blocking (nano::work_version const version_a, nano::block & block_a, uint64_t difficulty_a)
+boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a, uint64_t difficulty_a)
 {
-	auto opt_work_l (work_generate_blocking (version_a, block_a.root (), difficulty_a, block_a.account ()));
+	auto opt_work_l (work_generate_blocking (block_a.work_version (), block_a.root (), difficulty_a, block_a.account ()));
 	if (opt_work_l.is_initialized ())
 	{
 		block_a.block_work_set (*opt_work_l);
@@ -1053,18 +1053,6 @@ boost::optional<uint64_t> nano::node::work_generate_blocking (nano::work_version
 	},
 	difficulty_a, account_a);
 	return promise.get_future ().get ();
-}
-
-boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a)
-{
-	debug_assert (network_params.network.is_test_network ());
-	return work_generate_blocking (block_a, network_params.network.publish_threshold);
-}
-
-boost::optional<uint64_t> nano::node::work_generate_blocking (nano::block & block_a, uint64_t difficulty_a)
-{
-	debug_assert (network_params.network.is_test_network ());
-	return work_generate_blocking (nano::work_version::work_1, block_a, difficulty_a);
 }
 
 boost::optional<uint64_t> nano::node::work_generate_blocking (nano::root const & root_a)
@@ -1258,26 +1246,31 @@ void nano::node::process_confirmed_data (nano::transaction const & transaction_a
 	}
 }
 
-void nano::node::process_confirmed (nano::election_status const & status_a, uint8_t iteration)
+void nano::node::process_confirmed (nano::election_status const & status_a, std::shared_ptr<nano::election> const & election_a, uint8_t iteration_a)
 {
 	if (status_a.type == nano::election_status_type::active_confirmed_quorum)
 	{
 		auto block_a (status_a.winner);
 		auto hash (block_a->hash ());
-		auto transaction (store.tx_begin_read ());
-		if (store.block_get (transaction, hash) != nullptr)
+		if (ledger.block_exists (block_a->type (), hash))
 		{
+			// Pausing to prevent this block being processed before adding to election winner details.
+			confirmation_height_processor.pause ();
 			confirmation_height_processor.add (hash);
+			{
+				active.add_election_winner_details (hash, election_a);
+			}
+			confirmation_height_processor.unpause ();
 		}
 		// Limit to 0.5 * 20 = 10 seconds (more than max block_processor::process_batch finish time)
-		else if (iteration < 20)
+		else if (iteration_a < 20)
 		{
-			iteration++;
+			iteration_a++;
 			std::weak_ptr<nano::node> node_w (shared ());
-			alarm.add (std::chrono::steady_clock::now () + network_params.node.process_confirmed_interval, [node_w, status_a, iteration]() {
+			alarm.add (std::chrono::steady_clock::now () + network_params.node.process_confirmed_interval, [node_w, status_a, iteration_a, election_a]() {
 				if (auto node_l = node_w.lock ())
 				{
-					node_l->process_confirmed (status_a, iteration);
+					node_l->process_confirmed (status_a, election_a, iteration_a);
 				}
 			});
 		}

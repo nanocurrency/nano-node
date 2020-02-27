@@ -31,7 +31,7 @@ TEST (distributed_work, no_peers)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_FALSE (nano::work_validate (hash, *work));
+	ASSERT_FALSE (nano::work_validate (nano::work_version::work_1, hash, *work));
 	// should only be removed after cleanup
 	ASSERT_EQ (1, node->distributed_work.items.size ());
 	while (!node->distributed_work.items.empty ())
@@ -177,7 +177,7 @@ TEST (distributed_work, peer)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_FALSE (nano::work_validate (hash, *work));
+	ASSERT_FALSE (nano::work_validate (nano::work_version::work_1, hash, *work));
 	ASSERT_EQ (1, work_peer->generations_good);
 	ASSERT_EQ (0, work_peer->generations_bad);
 	ASSERT_NO_ERROR (system.poll ());
@@ -207,7 +207,7 @@ TEST (distributed_work, peer_malicious)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_FALSE (nano::work_validate (hash, *work));
+	ASSERT_FALSE (nano::work_validate (nano::work_version::work_1, hash, *work));
 	system.deadline_set (5s);
 	while (malicious_peer->generations_bad < 1)
 	{
@@ -265,7 +265,7 @@ TEST (distributed_work, peer_multi)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_FALSE (nano::work_validate (hash, *work));
+	ASSERT_FALSE (nano::work_validate (nano::work_version::work_1, hash, *work));
 	system.deadline_set (5s);
 	while (slow_peer->cancels < 1)
 	{
@@ -304,5 +304,5 @@ TEST (distributed_work, fail_resolve)
 	{
 		ASSERT_NO_ERROR (system.poll ());
 	}
-	ASSERT_FALSE (nano::work_validate (hash, *work));
+	ASSERT_FALSE (nano::work_validate (nano::work_version::work_1, hash, *work));
 }

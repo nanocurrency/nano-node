@@ -418,7 +418,7 @@ void nano::message_parser::deserialize_publish (nano::stream & stream_a, nano::m
 	nano::publish incoming (error, stream_a, header_a, &block_uniquer);
 	if (!error && at_end (stream_a))
 	{
-		if (!nano::work_validate (nano::work_version::work_1, *incoming.block))
+		if (!nano::work_validate (*incoming.block))
 		{
 			visitor.publish (incoming);
 		}
@@ -439,7 +439,7 @@ void nano::message_parser::deserialize_confirm_req (nano::stream & stream_a, nan
 	nano::confirm_req incoming (error, stream_a, header_a, &block_uniquer);
 	if (!error && at_end (stream_a))
 	{
-		if (incoming.block == nullptr || !nano::work_validate (nano::work_version::work_1, *incoming.block))
+		if (incoming.block == nullptr || !nano::work_validate (*incoming.block))
 		{
 			visitor.confirm_req (incoming);
 		}
@@ -465,7 +465,7 @@ void nano::message_parser::deserialize_confirm_ack (nano::stream & stream_a, nan
 			if (!vote_block.which ())
 			{
 				auto block (boost::get<std::shared_ptr<nano::block>> (vote_block));
-				if (nano::work_validate (nano::work_version::work_1, *block))
+				if (nano::work_validate (*block))
 				{
 					status = parse_status::insufficient_work;
 					break;
@@ -1117,6 +1117,7 @@ void nano::telemetry_ack::serialize (nano::stream & stream_a) const
 		write (stream_a, *data.patch_version);
 		write (stream_a, *data.pre_release_version);
 		write (stream_a, *data.maker);
+		write (stream_a, std::chrono::duration_cast<std::chrono::milliseconds> (data.timestamp->time_since_epoch ()).count ());
 	}
 }
 
@@ -1150,6 +1151,13 @@ bool nano::telemetry_ack::deserialize (nano::stream & stream_a)
 				data.pre_release_version = out;
 				read (stream_a, out);
 				data.maker = out;
+			}
+
+			if (header.extensions.to_ulong () > telemetry_data::size_v1)
+			{
+				uint64_t timestamp;
+				read (stream_a, timestamp);
+				data.timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (timestamp));
 			}
 		}
 	}
@@ -1209,6 +1217,10 @@ nano::error nano::telemetry_data::serialize_json (nano::jsonconfig & json) const
 	{
 		json.put ("maker", *maker);
 	}
+	if (timestamp.is_initialized ())
+	{
+		json.put ("timestamp", std::chrono::duration_cast<std::chrono::milliseconds> (timestamp->time_since_epoch ()).count ());
+	}
 	return json.get_error ();
 }
 
@@ -1236,13 +1248,18 @@ nano::error nano::telemetry_data::deserialize_json (nano::jsonconfig & json)
 	patch_version = json.get_optional<uint8_t> ("patch_version");
 	pre_release_version = json.get_optional<uint8_t> ("pre_release_version");
 	maker = json.get_optional<uint8_t> ("maker");
+	auto timestamp_l = json.get_optional<uint64_t> ("timestamp");
+	if (timestamp_l.is_initialized ())
+	{
+		timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (*timestamp_l));
+	}
 
 	return json.get_error ();
 }
 
 bool nano::telemetry_data::operator== (nano::telemetry_data const & data_a) const
 {
-	return (block_count == data_a.block_count && cemented_count == data_a.cemented_count && unchecked_count == data_a.unchecked_count && account_count == data_a.account_count && bandwidth_cap == data_a.bandwidth_cap && uptime == data_a.uptime && peer_count == data_a.peer_count && protocol_version == data_a.protocol_version && genesis_block == data_a.genesis_block && major_version == data_a.major_version && minor_version == data_a.minor_version && patch_version == data_a.patch_version && pre_release_version == data_a.pre_release_version && maker == data_a.maker);
+	return (block_count == data_a.block_count && cemented_count == data_a.cemented_count && unchecked_count == data_a.unchecked_count && account_count == data_a.account_count && bandwidth_cap == data_a.bandwidth_cap && uptime == data_a.uptime && peer_count == data_a.peer_count && protocol_version == data_a.protocol_version && genesis_block == data_a.genesis_block && major_version == data_a.major_version && minor_version == data_a.minor_version && patch_version == data_a.patch_version && pre_release_version == data_a.pre_release_version && maker == data_a.maker && timestamp == data_a.timestamp);
 }
 
 bool nano::telemetry_data::operator!= (nano::telemetry_data const & data_a) const
