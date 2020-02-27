@@ -372,7 +372,7 @@ void nano::block_processor::process_live (nano::block_hash const & hash_a, std::
 	}
 
 	// Start collecting quorum on block
-	auto election = node.active.insert (block_a, false);
+	auto election = node.active.insert (block_a);
 	if (election.second)
 	{
 		election.first->transition_passive ();

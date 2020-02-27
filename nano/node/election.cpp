@@ -21,7 +21,7 @@ nano::election_vote_result::election_vote_result (bool replay_a, bool processed_
 	processed = processed_a;
 }
 
-nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> block_a, bool const skip_delay_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a) :
+nano::election::election (nano::node & node_a, std::shared_ptr<nano::block> block_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a) :
 confirmation_action (confirmation_action_a),
 state_start (std::chrono::steady_clock::now ()),
 node (node_a),
@@ -221,7 +221,7 @@ void nano::election::activate_dependencies ()
 		previous_l = node.store.block_get (transaction, previous_hash_l);
 		if (previous_l != nullptr && !node.block_confirmed_or_being_confirmed (transaction, previous_hash_l))
 		{
-			auto election = node.active.insert_impl (previous_l, true);
+			auto election = node.active.insert_impl (previous_l);
 			if (election.second)
 			{
 				election.first->transition_active ();
@@ -239,7 +239,7 @@ void nano::election::activate_dependencies ()
 			auto source_l (node.store.block_get (transaction, source_hash_l));
 			if (source_l != nullptr && !node.block_confirmed_or_being_confirmed (transaction, source_hash_l))
 			{
-				auto election = node.active.insert_impl (source_l, true);
+				auto election = node.active.insert_impl (source_l);
 				if (election.second)
 				{
 					election.first->transition_active ();

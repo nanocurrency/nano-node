@@ -547,7 +547,7 @@ void nano::node::process_fork (nano::transaction const & transaction_a, std::sha
 		if (ledger_block && !block_confirmed_or_being_confirmed (transaction_a, ledger_block->hash ()))
 		{
 			std::weak_ptr<nano::node> this_w (shared_from_this ());
-			auto election = active.insert (ledger_block, false, [this_w, root](std::shared_ptr<nano::block>) {
+			auto election = active.insert (ledger_block, [this_w, root](std::shared_ptr<nano::block>) {
 				if (auto this_l = this_w.lock ())
 				{
 					auto attempt (this_l->bootstrap_initiator.current_attempt ());
@@ -1092,7 +1092,7 @@ void nano::node::add_initial_peers ()
 
 void nano::node::block_confirm (std::shared_ptr<nano::block> block_a)
 {
-	auto election = active.insert (block_a, false);
+	auto election = active.insert (block_a);
 	if (election.second)
 	{
 		election.first->transition_active ();

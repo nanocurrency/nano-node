@@ -97,7 +97,7 @@ void nano::active_transactions::search_frontiers (nano::transaction const & tran
 					if (info.block_count > confirmation_height_info.height && !this->confirmation_height_processor.is_processing_block (info.head))
 					{
 						auto block (this->node.store.block_get (transaction_a, info.head));
-						auto election = this->insert (block, true);
+						auto election = this->insert (block);
 						if (election.second)
 						{
 							election.first->transition_active ();
@@ -463,7 +463,7 @@ void nano::active_transactions::stop ()
 	roots.clear ();
 }
 
-std::pair<std::shared_ptr<nano::election>, bool> nano::active_transactions::insert_impl (std::shared_ptr<nano::block> block_a, bool const skip_delay_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
+std::pair<std::shared_ptr<nano::election>, bool> nano::active_transactions::insert_impl (std::shared_ptr<nano::block> block_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
 {
 	std::pair<std::shared_ptr<nano::election>, bool> result = { nullptr, false };
 	if (!stopped)
@@ -476,7 +476,7 @@ std::pair<std::shared_ptr<nano::election>, bool> nano::active_transactions::inse
 			{
 				result.second = true;
 				auto hash (block_a->hash ());
-				result.first = nano::make_shared<nano::election> (node, block_a, skip_delay_a, confirmation_action_a);
+				result.first = nano::make_shared<nano::election> (node, block_a, confirmation_action_a);
 				auto difficulty (block_a->difficulty ());
 				roots.get<tag_root> ().emplace (nano::conflict_info{ root, difficulty, difficulty, result.first });
 				blocks.emplace (hash, result.first);
@@ -492,10 +492,10 @@ std::pair<std::shared_ptr<nano::election>, bool> nano::active_transactions::inse
 	return result;
 }
 
-std::pair<std::shared_ptr<nano::election>, bool> nano::active_transactions::insert (std::shared_ptr<nano::block> block_a, bool const skip_delay_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
+std::pair<std::shared_ptr<nano::election>, bool> nano::active_transactions::insert (std::shared_ptr<nano::block> block_a, std::function<void(std::shared_ptr<nano::block>)> const & confirmation_action_a)
 {
 	nano::lock_guard<std::mutex> lock (mutex);
-	return insert_impl (block_a, skip_delay_a, confirmation_action_a);
+	return insert_impl (block_a, confirmation_action_a);
 }
 
 // Validate a vote and apply it to the current election if one exists
