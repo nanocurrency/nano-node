@@ -202,9 +202,11 @@ bool nano::bootstrap_attempt_legacy::consume_future (std::future<bool> & future_
 
 void nano::bootstrap_attempt_legacy::stop ()
 {
-	stopped = true;
-	condition.notify_all ();
 	nano::unique_lock<std::mutex> lock (mutex);
+	stopped = true;
+	lock.unlock ();
+	condition.notify_all ();
+	lock.lock ();
 	if (auto i = frontiers.lock ())
 	{
 		try
@@ -478,7 +480,7 @@ bool nano::bootstrap_attempt_legacy::request_frontier (nano::unique_lock<std::mu
 	lock_a.unlock ();
 	auto connection_l (node->bootstrap_initiator.connections->connection (shared_from_this (), first_attempt));
 	lock_a.lock ();
-	if (connection_l)
+	if (connection_l && !stopped)
 	{
 		endpoint_frontier_request = connection_l->channel->get_tcp_endpoint ();
 		std::future<bool> future;
