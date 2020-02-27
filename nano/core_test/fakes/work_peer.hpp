@@ -134,13 +134,12 @@ private:
 			auto this_l (shared_from_this ());
 			work_pool.generate (version, hash, [this_l, hash](boost::optional<uint64_t> work_a) {
 				auto result = work_a.value_or (0);
-				uint64_t difficulty;
-				nano::work_validate (this_l->version, hash, result, &difficulty);
+				auto difficulty (nano::work_difficulty (this_l->version, hash, result));
 				static nano::network_params params;
 				ptree::ptree message_l;
 				message_l.put ("work", nano::to_string_hex (result));
 				message_l.put ("difficulty", nano::to_string_hex (difficulty));
-				message_l.put ("multiplier", nano::to_string (nano::difficulty::to_multiplier (difficulty, params.network.publish_threshold)));
+				message_l.put ("multiplier", nano::to_string (nano::difficulty::to_multiplier (difficulty, nano::work_threshold (this_l->version))));
 				message_l.put ("hash", hash.to_string ());
 				std::stringstream ostream;
 				ptree::write_json (ostream, message_l);

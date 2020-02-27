@@ -3702,9 +3702,7 @@ TEST (active_difficulty, recalculate_work)
 	ASSERT_EQ (node1.network_params.network.publish_threshold, node1.active.active_difficulty ());
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 	node1.work_generate_blocking (*send1);
-	uint64_t difficulty1;
-	nano::work_validate (*send1, &difficulty1);
-	auto multiplier1 = nano::difficulty::to_multiplier (difficulty1, node1.network_params.network.publish_threshold);
+	auto multiplier1 = nano::difficulty::to_multiplier (send1->difficulty (), nano::work_threshold (send1->work_version ()));
 	// Process as local block
 	node1.process_active (send1);
 	system.deadline_set (2s);
@@ -3721,8 +3719,6 @@ TEST (active_difficulty, recalculate_work)
 		node1.active.multipliers_cb.push_back (multiplier1 * (1 + i / 100.));
 	}
 	node1.work_generate_blocking (*send1);
-	uint64_t difficulty2;
-	nano::work_validate (*send1, &difficulty2);
 	node1.process_active (send1);
 	node1.active.update_active_difficulty (lock);
 	sum = std::accumulate (node1.active.multipliers_cb.begin (), node1.active.multipliers_cb.end (), double(0));
