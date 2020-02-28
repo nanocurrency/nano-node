@@ -129,6 +129,7 @@ public:
 	bool disable_block_processor_unchecked_deletion{ false };
 	bool disable_block_processor_republishing{ false };
 	bool disable_ongoing_telemetry_requests{ false };
+	bool allow_bootstrap_peers_duplicates{ false };
 	bool fast_bootstrap{ false };
 	bool read_only{ false };
 	nano::confirmation_height_mode confirmation_height_processor_mode{ nano::confirmation_height_mode::automatic };
