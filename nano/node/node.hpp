@@ -167,7 +167,7 @@ public:
 	nano::ledger ledger;
 	nano::signature_checker checker;
 	nano::network network;
-	nano::telemetry telemetry;
+	std::shared_ptr<nano::telemetry> telemetry;
 	nano::bootstrap_initiator bootstrap_initiator;
 	nano::bootstrap_listener bootstrap;
 	boost::filesystem::path application_path;

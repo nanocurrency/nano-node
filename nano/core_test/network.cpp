@@ -879,6 +879,7 @@ TEST (network, replace_port)
 	nano::system system;
 	nano::node_flags node_flags;
 	node_flags.disable_udp = false;
+	node_flags.disable_ongoing_telemetry_requests = true;
 	auto node0 = system.add_node (node_flags);
 	ASSERT_EQ (0, node0->network.size ());
 	auto node1 (std::make_shared<nano::node> (system.io_ctx, nano::get_available_port (), nano::unique_path (), system.alarm, system.logging, system.work, node_flags));
