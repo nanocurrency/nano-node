@@ -76,7 +76,8 @@ std::shared_ptr<nano::bootstrap_client> nano::bootstrap_connections::connection 
 	if (result == nullptr && connections_count == 0 && new_connections_empty && attempt_a != nullptr)
 	{
 		node.logger.try_log (boost::str (boost::format ("Bootstrap attempt stopped because there are no peers")));
-		attempt_a->stopped = true;
+		lock.unlock ();
+		attempt_a->stop ();
 	}
 	return result;
 }
@@ -440,19 +441,22 @@ void nano::bootstrap_connections::requeue_pull (nano::pull_info const & pull_a, 
 
 void nano::bootstrap_connections::clear_pulls (uint64_t bootstrap_id_a)
 {
-	nano::lock_guard<std::mutex> lock (mutex);
-	auto i (pulls.begin ());
-	while (i != pulls.end ())
 	{
-		if (i->bootstrap_id == bootstrap_id_a)
+		nano::lock_guard<std::mutex> lock (mutex);
+		auto i (pulls.begin ());
+		while (i != pulls.end ())
 		{
-			i = pulls.erase (i);
-		}
-		else
-		{
-			++i;
+			if (i->bootstrap_id == bootstrap_id_a)
+			{
+				i = pulls.erase (i);
+			}
+			else
+			{
+				++i;
+			}
 		}
 	}
+	condition.notify_all ();
 }
 
 void nano::bootstrap_connections::run ()
@@ -477,9 +481,11 @@ void nano::bootstrap_connections::run ()
 
 void nano::bootstrap_connections::stop ()
 {
+	nano::unique_lock<std::mutex> lock (mutex);
 	stopped = true;
+	lock.unlock ();
 	condition.notify_all ();
-	nano::lock_guard<std::mutex> lock (mutex);
+	lock.lock ();
 	for (auto i : clients)
 	{
 		if (auto client = i.lock ())

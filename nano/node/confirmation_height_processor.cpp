@@ -34,7 +34,10 @@ nano::confirmation_height_processor::~confirmation_height_processor ()
 
 void nano::confirmation_height_processor::stop ()
 {
-	stopped = true;
+	{
+		nano::lock_guard<std::mutex> guard (mutex);
+		stopped = true;
+	}
 	condition.notify_one ();
 	if (thread.joinable ())
 	{
