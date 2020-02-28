@@ -1506,8 +1506,10 @@ TEST (node, fork_open_flip)
 	nano::keypair rep1;
 	nano::keypair rep2;
 	auto send1 (std::make_shared<nano::send_block> (genesis.hash (), key1.pub, nano::genesis_amount - 1, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (genesis.hash ())));
+	// A copy is necessary to avoid data races during ledger processing, which sets the sideband
+	auto send1_copy (std::make_shared<nano::send_block> (*send1));
 	node1.process_active (send1);
-	node2.process_active (send1);
+	node2.process_active (send1_copy);
 	// We should be keeping this block
 	auto open1 (std::make_shared<nano::open_block> (send1->hash (), rep1.pub, key1.pub, key1.prv, key1.pub, *system.work.generate (key1.pub)));
 	// This block should be evicted
@@ -1741,9 +1743,6 @@ TEST (node, broadcast_elected)
 		nano::keypair rep_big;
 		nano::keypair rep_small;
 		nano::keypair rep_other;
-		//std::cerr << "Big: " << rep_big.pub.to_account () << std::endl;
-		//std::cerr << "Small: " << rep_small.pub.to_account () << std::endl;
-		//std::cerr << "Other: " << rep_other.pub.to_account () << std::endl;
 		{
 			auto transaction0 (node0->store.tx_begin_write ());
 			auto transaction1 (node1->store.tx_begin_write ());
@@ -1784,14 +1783,14 @@ TEST (node, broadcast_elected)
 		system.wallet (2)->insert_adhoc (rep_other.prv);
 		auto fork0 (std::make_shared<nano::send_block> (node2->latest (nano::test_genesis_key.pub), rep_small.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 		node0->work_generate_blocking (*fork0);
+		// A copy is necessary to avoid data races during ledger processing, which sets the sideband
+		auto fork0_copy (std::make_shared<nano::send_block> (*fork0));
 		node0->process_active (fork0);
-		node1->process_active (fork0);
+		node1->process_active (fork0_copy);
 		auto fork1 (std::make_shared<nano::send_block> (node2->latest (nano::test_genesis_key.pub), rep_big.pub, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, 0));
 		node0->work_generate_blocking (*fork1);
 		system.wallet (2)->insert_adhoc (rep_small.prv);
 		node2->process_active (fork1);
-		//std::cerr << "fork0: " << fork_hash.to_string () << std::endl;
-		//std::cerr << "fork1: " << fork1.hash ().to_string () << std::endl;
 		system.deadline_set (10s);
 		while (!node0->ledger.block_exists (fork0->hash ()) || !node1->ledger.block_exists (fork0->hash ()))
 		{
@@ -2488,15 +2487,17 @@ TEST (node, block_confirm)
 		nano::keypair key;
 		system.wallet (1)->insert_adhoc (nano::test_genesis_key.prv);
 		auto send1 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, genesis.hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node1.work_generate_blocking (genesis.hash ())));
+		// A copy is necessary to avoid data races during ledger processing, which sets the sideband
+		auto send1_copy (std::make_shared<nano::state_block> (*send1));
 		node1.block_processor.add (send1, nano::seconds_since_epoch ());
-		node2.block_processor.add (send1, nano::seconds_since_epoch ());
+		node2.block_processor.add (send1_copy, nano::seconds_since_epoch ());
 		system.deadline_set (std::chrono::seconds (5));
-		while (!node1.ledger.block_exists (send1->hash ()) || !node2.ledger.block_exists (send1->hash ()))
+		while (!node1.ledger.block_exists (send1->hash ()) || !node2.ledger.block_exists (send1_copy->hash ()))
 		{
 			ASSERT_NO_ERROR (system.poll ());
 		}
 		ASSERT_TRUE (node1.ledger.block_exists (send1->hash ()));
-		ASSERT_TRUE (node2.ledger.block_exists (send1->hash ()));
+		ASSERT_TRUE (node2.ledger.block_exists (send1_copy->hash ()));
 		auto send2 (std::make_shared<nano::state_block> (nano::test_genesis_key.pub, send1->hash (), nano::test_genesis_key.pub, nano::genesis_amount - nano::Gxrb_ratio * 2, key.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *node1.work_generate_blocking (send1->hash ())));
 		{
 			auto transaction (node1.store.tx_begin_write ());
