@@ -33,6 +33,7 @@ TEST (node_telemetry, consolidate_data)
 	data.minor_version = 1;
 	data.patch_version = 4;
 	data.pre_release_version = 6;
+	data.maker = 2;
 	data.timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (time));
 
 	nano::telemetry_data data1;
@@ -66,6 +67,7 @@ TEST (node_telemetry, consolidate_data)
 	data2.minor_version = 1;
 	data2.patch_version = 4;
 	data2.pre_release_version = 6;
+	data2.maker = 2;
 	data2.timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (time));
 
 	std::vector<nano::telemetry_data> all_data{ data, data1, data2 };
@@ -81,11 +83,11 @@ TEST (node_telemetry, consolidate_data)
 	ASSERT_EQ (consolidated_telemetry_data.uptime, 6);
 	ASSERT_EQ (consolidated_telemetry_data.genesis_block, nano::block_hash (4));
 	ASSERT_EQ (consolidated_telemetry_data.major_version, 20);
-	ASSERT_FALSE (consolidated_telemetry_data.minor_version.is_initialized ());
-	ASSERT_FALSE (consolidated_telemetry_data.patch_version.is_initialized ());
-	ASSERT_FALSE (consolidated_telemetry_data.pre_release_version.is_initialized ());
-	ASSERT_FALSE (consolidated_telemetry_data.maker.is_initialized ());
-	ASSERT_EQ (*consolidated_telemetry_data.timestamp, std::chrono::system_clock::time_point (std::chrono::milliseconds (time)));
+	ASSERT_EQ (consolidated_telemetry_data.minor_version, 1);
+	ASSERT_EQ (consolidated_telemetry_data.patch_version, 4);
+	ASSERT_EQ (consolidated_telemetry_data.pre_release_version, 6);
+	ASSERT_EQ (consolidated_telemetry_data.maker, 2);
+	ASSERT_EQ (consolidated_telemetry_data.timestamp, std::chrono::system_clock::time_point (std::chrono::milliseconds (time)));
 
 	// Modify the metrics which may be either the mode or averages to ensure all are tested.
 	all_data[2].bandwidth_cap = 53;
@@ -100,97 +102,18 @@ TEST (node_telemetry, consolidate_data)
 
 	auto consolidated_telemetry_data1 = nano::consolidate_telemetry_data (all_data);
 	ASSERT_EQ (consolidated_telemetry_data1.major_version, 10);
-	ASSERT_EQ (*consolidated_telemetry_data1.minor_version, 2);
-	ASSERT_EQ (*consolidated_telemetry_data1.patch_version, 3);
-	ASSERT_EQ (*consolidated_telemetry_data1.pre_release_version, 6);
-	ASSERT_EQ (*consolidated_telemetry_data1.maker, 2);
+	ASSERT_EQ (consolidated_telemetry_data1.minor_version, 2);
+	ASSERT_EQ (consolidated_telemetry_data1.patch_version, 3);
+	ASSERT_EQ (consolidated_telemetry_data1.pre_release_version, 6);
+	ASSERT_EQ (consolidated_telemetry_data1.maker, 2);
 	ASSERT_TRUE (consolidated_telemetry_data1.protocol_version == 11 || consolidated_telemetry_data1.protocol_version == 12 || consolidated_telemetry_data1.protocol_version == 13);
 	ASSERT_EQ (consolidated_telemetry_data1.bandwidth_cap, 51);
 	ASSERT_EQ (consolidated_telemetry_data1.genesis_block, nano::block_hash (3));
-	ASSERT_EQ (*consolidated_telemetry_data1.timestamp, std::chrono::system_clock::time_point (std::chrono::milliseconds (time + 1)));
+	ASSERT_EQ (consolidated_telemetry_data1.timestamp, std::chrono::system_clock::time_point (std::chrono::milliseconds (time + 1)));
 
 	// Test equality operator
 	ASSERT_FALSE (consolidated_telemetry_data == consolidated_telemetry_data1);
 	ASSERT_EQ (consolidated_telemetry_data, consolidated_telemetry_data);
-}
-
-TEST (node_telemetry, consolidate_data_optional_data)
-{
-	auto time = 1582117035109;
-	nano::telemetry_data data;
-	data.major_version = 20;
-	data.minor_version = 1;
-	data.patch_version = 4;
-	data.pre_release_version = 6;
-	data.maker = 2;
-	data.timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (time));
-
-	nano::telemetry_data missing_minor;
-	missing_minor.major_version = 20;
-	missing_minor.patch_version = 4;
-	missing_minor.timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (time + 3));
-
-	nano::telemetry_data missing_all_optional;
-
-	std::vector<nano::telemetry_data> all_data{ data, data, missing_minor, missing_all_optional };
-	auto consolidated_telemetry_data = nano::consolidate_telemetry_data (all_data);
-	ASSERT_EQ (consolidated_telemetry_data.major_version, 20);
-	ASSERT_EQ (*consolidated_telemetry_data.minor_version, 1);
-	ASSERT_EQ (*consolidated_telemetry_data.patch_version, 4);
-	ASSERT_EQ (*consolidated_telemetry_data.pre_release_version, 6);
-	ASSERT_EQ (*consolidated_telemetry_data.maker, 2);
-	ASSERT_EQ (*consolidated_telemetry_data.timestamp, std::chrono::system_clock::time_point (std::chrono::milliseconds (time + 1)));
-}
-
-TEST (node_telemetry, serialize_deserialize_json_optional)
-{
-	nano::telemetry_data data;
-	data.minor_version = 1;
-	data.patch_version = 4;
-	data.pre_release_version = 6;
-	data.maker = 2;
-	data.timestamp = std::chrono::system_clock::time_point (100ms);
-
-	nano::jsonconfig config;
-	data.serialize_json (config);
-
-	uint8_t val;
-	ASSERT_FALSE (config.get ("minor_version", val).get_error ());
-	ASSERT_EQ (val, 1);
-	ASSERT_FALSE (config.get ("patch_version", val).get_error ());
-	ASSERT_EQ (val, 4);
-	ASSERT_FALSE (config.get ("pre_release_version", val).get_error ());
-	ASSERT_EQ (val, 6);
-	ASSERT_FALSE (config.get ("maker", val).get_error ());
-	ASSERT_EQ (val, 2);
-	uint64_t timestamp;
-	ASSERT_FALSE (config.get ("timestamp", timestamp).get_error ());
-	ASSERT_EQ (timestamp, 100);
-
-	nano::telemetry_data data1;
-	data1.deserialize_json (config);
-	ASSERT_EQ (*data1.minor_version, 1);
-	ASSERT_EQ (*data1.patch_version, 4);
-	ASSERT_EQ (*data1.pre_release_version, 6);
-	ASSERT_EQ (*data1.maker, 2);
-	ASSERT_EQ (*data1.timestamp, std::chrono::system_clock::time_point (100ms));
-
-	nano::telemetry_data no_optional_data;
-	nano::jsonconfig config1;
-	no_optional_data.serialize_json (config1);
-	ASSERT_FALSE (config1.get_optional<uint8_t> ("minor_version").is_initialized ());
-	ASSERT_FALSE (config1.get_optional<uint8_t> ("patch_version").is_initialized ());
-	ASSERT_FALSE (config1.get_optional<uint8_t> ("pre_release_version").is_initialized ());
-	ASSERT_FALSE (config1.get_optional<uint8_t> ("maker").is_initialized ());
-	ASSERT_FALSE (config1.get_optional<uint64_t> ("timestamp").is_initialized ());
-
-	nano::telemetry_data no_optional_data1;
-	no_optional_data1.deserialize_json (config1);
-	ASSERT_FALSE (no_optional_data1.minor_version.is_initialized ());
-	ASSERT_FALSE (no_optional_data1.patch_version.is_initialized ());
-	ASSERT_FALSE (no_optional_data1.pre_release_version.is_initialized ());
-	ASSERT_FALSE (no_optional_data1.maker.is_initialized ());
-	ASSERT_FALSE (no_optional_data1.timestamp.is_initialized ());
 }
 
 TEST (node_telemetry, consolidate_data_remove_outliers)
@@ -399,10 +322,10 @@ TEST (node_telemetry, many_nodes)
 		ASSERT_GE (data.bandwidth_cap, 100000);
 		ASSERT_LT (data.bandwidth_cap, 100000 + system.nodes.size ());
 		ASSERT_EQ (data.major_version, nano::get_major_node_version ());
-		ASSERT_EQ (*data.minor_version, nano::get_minor_node_version ());
-		ASSERT_EQ (*data.patch_version, nano::get_patch_node_version ());
-		ASSERT_EQ (*data.pre_release_version, nano::get_pre_release_node_version ());
-		ASSERT_EQ (*data.maker, 0);
+		ASSERT_EQ (data.minor_version, nano::get_minor_node_version ());
+		ASSERT_EQ (data.patch_version, nano::get_patch_node_version ());
+		ASSERT_EQ (data.pre_release_version, nano::get_pre_release_node_version ());
+		ASSERT_EQ (data.maker, 0);
 		ASSERT_LT (data.uptime, 100);
 		ASSERT_EQ (data.genesis_block, genesis.hash ());
 	}
@@ -593,7 +516,7 @@ TEST (node_telemetry, blocking_single_and_random)
 	auto telemetry_data_response = node_client->telemetry.get_metrics_single_peer (node_client->network.find_channel (node_server->network.endpoint ()));
 	ASSERT_FALSE (telemetry_data_response.error);
 	compare_default_test_result_data (telemetry_data_response.telemetry_data, *node_server);
-	ASSERT_EQ (*telemetry_data_response.telemetry_data.timestamp, *telemetry_data_responses.telemetry_datas.begin ()->second.timestamp);
+	ASSERT_EQ (telemetry_data_response.telemetry_data.timestamp, telemetry_data_responses.telemetry_datas.begin ()->second.timestamp);
 
 	done = true;
 	promise.get_future ().wait ();
@@ -621,7 +544,7 @@ TEST (node_telemetry, multiple_single_request_clearing)
 	std::chrono::system_clock::time_point last_updated;
 	node_client->telemetry.get_metrics_single_peer_async (channel, [&done, &last_updated](nano::telemetry_data_response const & response_a) {
 		ASSERT_FALSE (response_a.error);
-		last_updated = *response_a.telemetry_data.timestamp;
+		last_updated = response_a.telemetry_data.timestamp;
 		done = true;
 	});
 
@@ -637,7 +560,7 @@ TEST (node_telemetry, multiple_single_request_clearing)
 	system.deadline_set (10s);
 	node_client->telemetry.get_metrics_single_peer_async (channel, [&done, last_updated](nano::telemetry_data_response const & response_a) {
 		ASSERT_FALSE (response_a.error);
-		ASSERT_EQ (last_updated, *response_a.telemetry_data.timestamp);
+		ASSERT_EQ (last_updated, response_a.telemetry_data.timestamp);
 		done = true;
 	});
 
@@ -651,8 +574,8 @@ TEST (node_telemetry, multiple_single_request_clearing)
 	auto channel1 = node_client->network.find_channel (node_server1->network.endpoint ());
 	node_client->telemetry.get_metrics_single_peer_async (channel1, [&done, &last_updated](nano::telemetry_data_response const & response_a) {
 		ASSERT_FALSE (response_a.error);
-		ASSERT_NE (last_updated, *response_a.telemetry_data.timestamp);
-		last_updated = *response_a.telemetry_data.timestamp;
+		ASSERT_NE (last_updated, response_a.telemetry_data.timestamp);
+		last_updated = response_a.telemetry_data.timestamp;
 		done = true;
 	});
 
@@ -666,7 +589,7 @@ TEST (node_telemetry, multiple_single_request_clearing)
 	done = false;
 	node_client->telemetry.get_metrics_single_peer_async (channel1, [&done, last_updated](nano::telemetry_data_response const & response_a) {
 		ASSERT_FALSE (response_a.error);
-		ASSERT_EQ (last_updated, *response_a.telemetry_data.timestamp);
+		ASSERT_EQ (last_updated, response_a.telemetry_data.timestamp);
 		done = true;
 	});
 
@@ -1059,10 +982,10 @@ void compare_default_test_result_data (nano::telemetry_data const & telemetry_da
 	ASSERT_LT (telemetry_data_a.uptime, 100);
 	ASSERT_EQ (telemetry_data_a.genesis_block, node_server_a.network_params.ledger.genesis_hash);
 	ASSERT_EQ (telemetry_data_a.major_version, nano::get_major_node_version ());
-	ASSERT_EQ (*telemetry_data_a.minor_version, nano::get_minor_node_version ());
-	ASSERT_EQ (*telemetry_data_a.patch_version, nano::get_patch_node_version ());
-	ASSERT_EQ (*telemetry_data_a.pre_release_version, nano::get_pre_release_node_version ());
-	ASSERT_EQ (*telemetry_data_a.maker, 0);
-	ASSERT_GT (*telemetry_data_a.timestamp, std::chrono::system_clock::now () - 100s);
+	ASSERT_EQ (telemetry_data_a.minor_version, nano::get_minor_node_version ());
+	ASSERT_EQ (telemetry_data_a.patch_version, nano::get_patch_node_version ());
+	ASSERT_EQ (telemetry_data_a.pre_release_version, nano::get_pre_release_node_version ());
+	ASSERT_EQ (telemetry_data_a.maker, 0);
+	ASSERT_GT (telemetry_data_a.timestamp, std::chrono::system_clock::now () - 100s);
 }
 }

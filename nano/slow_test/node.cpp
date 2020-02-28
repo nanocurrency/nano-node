@@ -954,7 +954,7 @@ TEST (node_telemetry, simultaneous_all_requests)
 					{
 						++shared_data.count;
 						data.node->telemetry.get_metrics_peers_async ([&shared_data, &data, &all_data](nano::telemetry_data_responses const & responses_a) {
-							callback_process (shared_data, data, all_data, *responses_a.telemetry_datas.begin ()->second.timestamp);
+							callback_process (shared_data, data, all_data, responses_a.telemetry_datas.begin ()->second.timestamp);
 						});
 					}
 					std::this_thread::sleep_for (1ms);
@@ -1023,13 +1023,13 @@ namespace transport
 									// Pick first peer to be consistent
 									auto peer = data.node->network.tcp_channels.channels[0].channel;
 									data.node->telemetry.get_metrics_single_peer_async (peer, [&shared_data_a, &data, &all_node_data_a](nano::telemetry_data_response const & telemetry_data_response_a) {
-										callback_process (shared_data_a, data, all_node_data_a, *telemetry_data_response_a.telemetry_data.timestamp);
+										callback_process (shared_data_a, data, all_node_data_a, telemetry_data_response_a.telemetry_data.timestamp);
 									});
 								}
 								else
 								{
 									data.node->telemetry.get_metrics_peers_async ([&shared_data_a, &data, &all_node_data_a](nano::telemetry_data_responses const & telemetry_data_responses_a) {
-										callback_process (shared_data_a, data, all_node_data_a, *telemetry_data_responses_a.telemetry_datas.begin ()->second.timestamp);
+										callback_process (shared_data_a, data, all_node_data_a, telemetry_data_responses_a.telemetry_datas.begin ()->second.timestamp);
 									});
 								}
 							}

@@ -1110,14 +1110,14 @@ void nano::telemetry_ack::serialize (nano::stream & stream_a) const
 		write (stream_a, data.bandwidth_cap);
 		write (stream_a, data.peer_count);
 		write (stream_a, data.protocol_version);
-		write (stream_a, data.major_version);
 		write (stream_a, data.uptime);
 		write (stream_a, data.genesis_block.bytes);
-		write (stream_a, *data.minor_version);
-		write (stream_a, *data.patch_version);
-		write (stream_a, *data.pre_release_version);
-		write (stream_a, *data.maker);
-		write (stream_a, std::chrono::duration_cast<std::chrono::milliseconds> (data.timestamp->time_since_epoch ()).count ());
+		write (stream_a, data.major_version);
+		write (stream_a, data.minor_version);
+		write (stream_a, data.patch_version);
+		write (stream_a, data.pre_release_version);
+		write (stream_a, data.maker);
+		write (stream_a, std::chrono::duration_cast<std::chrono::milliseconds> (data.timestamp.time_since_epoch ()).count ());
 	}
 }
 
@@ -1136,29 +1136,16 @@ bool nano::telemetry_ack::deserialize (nano::stream & stream_a)
 			read (stream_a, data.bandwidth_cap);
 			read (stream_a, data.peer_count);
 			read (stream_a, data.protocol_version);
-			read (stream_a, data.major_version);
 			read (stream_a, data.uptime);
 			read (stream_a, data.genesis_block.bytes);
-
-			if (header.extensions.to_ulong () > telemetry_data::size_v0)
-			{
-				uint8_t out;
-				read (stream_a, out);
-				data.minor_version = out;
-				read (stream_a, out);
-				data.patch_version = out;
-				read (stream_a, out);
-				data.pre_release_version = out;
-				read (stream_a, out);
-				data.maker = out;
-			}
-
-			if (header.extensions.to_ulong () > telemetry_data::size_v1)
-			{
-				uint64_t timestamp;
-				read (stream_a, timestamp);
-				data.timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (timestamp));
-			}
+			read (stream_a, data.major_version);
+			read (stream_a, data.minor_version);
+			read (stream_a, data.patch_version);
+			read (stream_a, data.pre_release_version);
+			read (stream_a, data.maker);
+			uint64_t timestamp;
+			read (stream_a, timestamp);
+			data.timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (timestamp));
 		}
 	}
 	catch (std::runtime_error const &)
@@ -1201,26 +1188,11 @@ nano::error nano::telemetry_data::serialize_json (nano::jsonconfig & json) const
 	json.put ("uptime", uptime);
 	json.put ("genesis_block", genesis_block.to_string ());
 	json.put ("major_version", major_version);
-	if (minor_version.is_initialized ())
-	{
-		json.put ("minor_version", *minor_version);
-	}
-	if (patch_version.is_initialized ())
-	{
-		json.put ("patch_version", *patch_version);
-	}
-	if (pre_release_version.is_initialized ())
-	{
-		json.put ("pre_release_version", *pre_release_version);
-	}
-	if (maker.is_initialized ())
-	{
-		json.put ("maker", *maker);
-	}
-	if (timestamp.is_initialized ())
-	{
-		json.put ("timestamp", std::chrono::duration_cast<std::chrono::milliseconds> (timestamp->time_since_epoch ()).count ());
-	}
+	json.put ("minor_version", minor_version);
+	json.put ("patch_version", patch_version);
+	json.put ("pre_release_version", pre_release_version);
+	json.put ("maker", maker);
+	json.put ("timestamp", std::chrono::duration_cast<std::chrono::milliseconds> (timestamp.time_since_epoch ()).count ());
 	return json.get_error ();
 }
 
@@ -1244,16 +1216,12 @@ nano::error nano::telemetry_data::deserialize_json (nano::jsonconfig & json)
 		}
 	}
 	json.get ("major_version", major_version);
-	minor_version = json.get_optional<uint8_t> ("minor_version");
-	patch_version = json.get_optional<uint8_t> ("patch_version");
-	pre_release_version = json.get_optional<uint8_t> ("pre_release_version");
-	maker = json.get_optional<uint8_t> ("maker");
-	auto timestamp_l = json.get_optional<uint64_t> ("timestamp");
-	if (timestamp_l.is_initialized ())
-	{
-		timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (*timestamp_l));
-	}
-
+	json.get ("minor_version", minor_version);
+	json.get ("patch_version", patch_version);
+	json.get ("pre_release_version", pre_release_version);
+	json.get ("maker", maker);
+	auto timestamp_l = json.get<uint64_t> ("timestamp");
+	timestamp = std::chrono::system_clock::time_point (std::chrono::milliseconds (timestamp_l));
 	return json.get_error ();
 }
 
