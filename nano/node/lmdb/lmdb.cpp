@@ -40,9 +40,9 @@ void mdb_val::convert_buffer_to_value ()
 }
 }
 
-nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, int lmdb_max_dbs, size_t const batch_size, bool backup_before_upgrade) :
+nano::mdb_store::mdb_store (nano::logger_mt & logger_a, boost::filesystem::path const & path_a, nano::txn_tracking_config const & txn_tracking_config_a, std::chrono::milliseconds block_processor_batch_max_time_a, nano::lmdb_config const & lmdb_config_a, size_t const batch_size, bool backup_before_upgrade) :
 logger (logger_a),
-env (error, path_a, lmdb_max_dbs, true),
+env (error, path_a, nano::mdb_env::options::make ().set_config (lmdb_config_a).set_use_no_mem_init (true)),
 mdb_txn_tracker (logger_a, txn_tracking_config_a, block_processor_batch_max_time_a),
 txn_tracking_enabled (txn_tracking_config_a.enable)
 {
@@ -91,7 +91,7 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 			if (needs_vacuuming && !network_constants.is_test_network ())
 			{
 				logger.always_log ("Preparing vacuum...");
-				auto vacuum_success = vacuum_after_upgrade (path_a, lmdb_max_dbs);
+				auto vacuum_success = vacuum_after_upgrade (path_a, lmdb_config_a);
 				logger.always_log (vacuum_success ? "Vacuum succeeded." : "Failed to vacuum. (Optional) Ensure enough disk space is available for a copy of the database and try to vacuum after shutting down the node");
 			}
 		}
@@ -103,7 +103,7 @@ txn_tracking_enabled (txn_tracking_config_a.enable)
 	}
 }
 
-bool nano::mdb_store::vacuum_after_upgrade (boost::filesystem::path const & path_a, int lmdb_max_dbs)
+bool nano::mdb_store::vacuum_after_upgrade (boost::filesystem::path const & path_a, nano::lmdb_config const & lmdb_config_a)
 {
 	// Vacuum the database. This is not a required step and may actually fail if there isn't enough storage space.
 	auto vacuum_path = path_a.parent_path () / "vacuumed.ldb";
@@ -112,6 +112,7 @@ bool nano::mdb_store::vacuum_after_upgrade (boost::filesystem::path const & path
 	if (vacuum_success)
 	{
 		// Need to close the database to release the file handle
+		mdb_env_sync (env.environment, true);
 		mdb_env_close (env.environment);
 		env.environment = nullptr;
 
@@ -119,7 +120,10 @@ bool nano::mdb_store::vacuum_after_upgrade (boost::filesystem::path const & path
 		boost::filesystem::rename (vacuum_path, path_a);
 
 		// Set up the environment again
-		env.init (error, path_a, lmdb_max_dbs, true);
+		auto options = nano::mdb_env::options::make ()
+		               .set_config (lmdb_config_a)
+		               .set_use_no_mem_init (true);
+		env.init (error, path_a, options);
 		if (!error)
 		{
 			auto transaction (tx_begin_read ());

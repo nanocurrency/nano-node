@@ -34,6 +34,8 @@ add_library (nano_lib
 	json_error_response.hpp
 	jsonconfig.hpp
 	jsonconfig.cpp
+	lmdbconfig.hpp
+	lmdbconfig.cpp
 	locks.hpp
 	locks.cpp
 	logger_mt.hpp
