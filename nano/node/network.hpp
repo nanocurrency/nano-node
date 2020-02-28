@@ -81,7 +81,7 @@ private:
 	nano::condition_variable condition;
 	std::deque<nano::tcp_message_item> entries;
 	unsigned max_entries;
-	unsigned const max_entries_per_connection = 16;
+	static unsigned const max_entries_per_connection = 16;
 	bool stopped{ false };
 };
 /**

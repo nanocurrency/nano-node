@@ -862,7 +862,7 @@ void nano::message_buffer_manager::stop ()
 
 nano::tcp_message_manager::tcp_message_manager (nano::stat & stats_a, unsigned incoming_connections_max_a) :
 stats (stats_a),
-max_entries (incoming_connections_max_a * max_entries_per_connection + 1)
+max_entries (incoming_connections_max_a * nano::tcp_message_manager::max_entries_per_connection + 1)
 {
 	debug_assert (max_entries > 0);
 }
