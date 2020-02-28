@@ -380,7 +380,9 @@ void nano::wallet_store::initialize (nano::transaction const & transaction_a, bo
 {
 	debug_assert (strlen (path_a.c_str ()) == path_a.size ());
 	auto error (0);
-	error |= mdb_dbi_open (tx (transaction_a), path_a.c_str (), MDB_CREATE, &handle);
+	MDB_dbi handle_l;
+	error |= mdb_dbi_open (tx (transaction_a), path_a.c_str (), MDB_CREATE, &handle_l);
+	handle = handle_l;
 	init_a = error != 0;
 }
 
