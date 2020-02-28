@@ -2,7 +2,6 @@
 
 #include <nano/lib/locks.hpp>
 
-#include <atomic>
 #include <condition_variable>
 #include <deque>
 #include <functional>
@@ -53,6 +52,6 @@ private:
 	std::mutex mutex;
 	nano::condition_variable cv;
 	std::function<void()> guard_finish_callback;
-	std::atomic<bool> stopped{ false };
+	bool stopped{ false };
 };
 }

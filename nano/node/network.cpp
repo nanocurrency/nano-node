@@ -154,6 +154,25 @@ void nano::network::flood_message (nano::message const & message_a, nano::buffer
 	}
 }
 
+void nano::network::flood_block (std::shared_ptr<nano::block> const & block_a, nano::buffer_drop_policy const drop_policy_a)
+{
+	nano::publish message (block_a);
+	flood_message (message, drop_policy_a);
+}
+
+void nano::network::flood_block_initial (std::shared_ptr<nano::block> const & block_a)
+{
+	nano::publish message (block_a);
+	for (auto const & i : node.rep_crawler.principal_representatives ())
+	{
+		i.channel->send (message, nullptr, nano::buffer_drop_policy::no_limiter_drop);
+	}
+	for (auto & i : list_non_pr (fanout (1.0)))
+	{
+		i->send (message, nullptr, nano::buffer_drop_policy::no_limiter_drop);
+	}
+}
+
 void nano::network::flood_vote (std::shared_ptr<nano::vote> const & vote_a, float scale)
 {
 	nano::confirm_ack message (vote_a);
@@ -470,7 +489,10 @@ public:
 			node.logger.try_log (boost::str (boost::format ("Received telemetry_ack message from %1%") % channel->to_string ()));
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::telemetry_ack, nano::stat::dir::in);
-		node.telemetry.add (message_a.data, channel->get_endpoint (), message_a.is_empty_payload ());
+		if (node.telemetry)
+		{
+			node.telemetry->set (message_a.data, channel->get_endpoint (), message_a.is_empty_payload ());
+		}
 	}
 	nano::node & node;
 	std::shared_ptr<nano::transport::channel> channel;

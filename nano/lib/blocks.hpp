@@ -60,6 +60,7 @@ public:
 	virtual bool valid_predecessor (nano::block const &) const = 0;
 	static size_t size (nano::block_type);
 	virtual nano::work_version work_version () const;
+	uint64_t difficulty () const;
 	// If there are any changes to the hashables, call this to update the cached hash
 	void refresh ();
 

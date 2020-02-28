@@ -63,6 +63,7 @@ public:
 	bool enable_voting{ false };
 	unsigned bootstrap_connections{ 4 };
 	unsigned bootstrap_connections_max{ 64 };
+	unsigned bootstrap_initiator_threads{ network_params.network.is_test_network () ? 1u : std::min<unsigned> (2, std::max<unsigned> (1, std::thread::hardware_concurrency ())) };
 	nano::websocket::config websocket_config;
 	nano::diagnostics_config diagnostics_config;
 	size_t confirmation_history_size{ 2048 };
@@ -126,6 +127,7 @@ public:
 	bool disable_unchecked_drop{ true };
 	bool disable_providing_telemetry_metrics{ false };
 	bool disable_block_processor_unchecked_deletion{ false };
+	bool disable_block_processor_republishing{ false };
 	bool disable_ongoing_telemetry_requests{ false };
 	bool fast_bootstrap{ false };
 	bool read_only{ false };
@@ -137,5 +139,6 @@ public:
 	size_t block_processor_full_size{ 65536 };
 	size_t block_processor_verification_size{ 0 };
 	size_t inactive_votes_cache_size{ 16 * 1024 };
+	size_t vote_processor_capacity{ 144 * 1024 };
 };
 }

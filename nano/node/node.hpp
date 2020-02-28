@@ -7,6 +7,7 @@
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
+#include <nano/node/bootstrap/bootstrap_attempt.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/distributed_work_factory.hpp>
@@ -103,7 +104,7 @@ public:
 	int store_version ();
 	void receive_confirmed (nano::transaction const &, std::shared_ptr<nano::block>, nano::block_hash const &);
 	void process_confirmed_data (nano::transaction const &, std::shared_ptr<nano::block>, nano::block_hash const &, nano::block_sideband const &, nano::account &, nano::uint128_t &, bool &, nano::account &);
-	void process_confirmed (nano::election_status const &, uint8_t = 0);
+	void process_confirmed (nano::election_status const &, std::shared_ptr<nano::election> const &, uint8_t = 0);
 	void process_active (std::shared_ptr<nano::block>);
 	nano::process_return process (nano::block const &);
 	nano::process_return process_local (std::shared_ptr<nano::block>, bool const = false);
@@ -166,7 +167,7 @@ public:
 	nano::ledger ledger;
 	nano::signature_checker checker;
 	nano::network network;
-	nano::telemetry telemetry;
+	std::shared_ptr<nano::telemetry> telemetry;
 	nano::bootstrap_initiator bootstrap_initiator;
 	nano::bootstrap_listener bootstrap;
 	boost::filesystem::path application_path;
