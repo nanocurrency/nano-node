@@ -1,13 +1,19 @@
 cmake_minimum_required (VERSION 3.4)
 
-if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.12")
+if (CMAKE_VERSION VERSION_GREATER 3.12 OR CMAKE_VERSION VERSION_EQUAL 3.12)
 	#find_package uses <PACKAGENAME>_ROOT variables
 	cmake_policy(SET CMP0074 NEW)
 endif()
-if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.13")
+if (CMAKE_VERSION VERSION_GREATER 3.13 OR CMAKE_VERSION VERSION_EQUAL 3.13)
 	#option honors normal variables
 	cmake_policy(SET CMP0077 NEW)
 endif()
+
+if (CMAKE_VERSION VERSION_LESS 3.11)
+	# compatibility for boost import targets use bundled 3.11 FindBoost.cmake
+	list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/legacyModules")
+endif ()
+
 # compatibility for osx sierra and on
 # needs to be set before project
 set (CMAKE_OSX_DEPLOYMENT_TARGET 10.12 CACHE STRING "")
@@ -170,7 +176,11 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 #set(CMAKE_C_EXTENSIONS OFF)
 
-set(CMAKE_CXX_STANDARD 14)
+set(NANO_SUPPORTED_CPP_STANDARD "17" CACHE STRING "Supported C++ standard (14 or 17)")
+if (CI_BUILD OR CI_TEST)
+	set(NANO_SUPPORTED_CPP_STANDARD "14")
+endif()
+set(CMAKE_CXX_STANDARD ${NANO_SUPPORTED_CPP_STANDARD})
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 #set(CMAKE_CXX_EXTENSIONS OFF)
 

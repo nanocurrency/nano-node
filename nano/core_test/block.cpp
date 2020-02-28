@@ -309,6 +309,12 @@ TEST (block, publish_req_serialization)
 	ASSERT_EQ (*req.block, *req2.block);
 }
 
+TEST (block, difficulty)
+{
+	nano::send_block block (0, 1, 2, nano::keypair ().prv, 4, 5);
+	ASSERT_EQ (block.difficulty (), nano::work_difficulty (block.work_version (), block.root (), block.block_work ()));
+}
+
 TEST (state_block, serialization)
 {
 	nano::keypair key1;
@@ -397,6 +403,15 @@ TEST (state_block, hashing)
 	block.hashables.link.bytes[0] ^= 0x1;
 	block.refresh ();
 	ASSERT_EQ (hash, block.hash ());
+}
+
+TEST (blocks, work_version)
+{
+	ASSERT_EQ (nano::work_version::work_1, nano::send_block ().work_version ());
+	ASSERT_EQ (nano::work_version::work_1, nano::receive_block ().work_version ());
+	ASSERT_EQ (nano::work_version::work_1, nano::change_block ().work_version ());
+	ASSERT_EQ (nano::work_version::work_1, nano::open_block ().work_version ());
+	ASSERT_EQ (nano::work_version::work_1, nano::state_block ().work_version ());
 }
 
 TEST (block_uniquer, null)

@@ -43,6 +43,7 @@ add_library (nano_lib
 	memory.cpp
 	numbers.hpp
 	numbers.cpp
+	optional_ptr.hpp
 	rep_weights.hpp
 	rep_weights.cpp
 	rocksdbconfig.hpp

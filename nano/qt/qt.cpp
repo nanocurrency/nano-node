@@ -2002,7 +2002,15 @@ wallet (wallet_a)
 			{
 				show_label_ok (*status);
 				this->status->setText ("");
-				this->wallet.node.process_active (std::move (block_l));
+				if (!nano::work_validate (*block_l))
+				{
+					this->wallet.node.process_active (std::move (block_l));
+				}
+				else
+				{
+					show_label_error (*status);
+					this->status->setText ("Invalid work");
+				}
 			}
 			else
 			{
@@ -2229,7 +2237,7 @@ void nano_qt::block_creation::create_send ()
 						(void)error;
 						debug_assert (!error);
 						nano::state_block send (account_l, info.head, info.representative, balance - amount_l.number (), destination_l, key, account_l, 0);
-						if (wallet.node.work_generate_blocking (nano::work_version::work_1, send).is_initialized ())
+						if (wallet.node.work_generate_blocking (send).is_initialized ())
 						{
 							std::string block_l;
 							send.serialize_json (block_l);
@@ -2308,7 +2316,7 @@ void nano_qt::block_creation::create_receive ()
 						if (!error)
 						{
 							nano::state_block receive (pending_key.account, info.head, info.representative, info.balance.number () + pending.amount.number (), source_l, key, pending_key.account, 0);
-							if (wallet.node.work_generate_blocking (nano::work_version::work_1, receive).is_initialized ())
+							if (wallet.node.work_generate_blocking (receive).is_initialized ())
 							{
 								std::string block_l;
 								receive.serialize_json (block_l);
@@ -2387,7 +2395,7 @@ void nano_qt::block_creation::create_change ()
 				if (!error)
 				{
 					nano::state_block change (account_l, info.head, representative_l, info.balance, 0, key, account_l, 0);
-					if (wallet.node.work_generate_blocking (nano::work_version::work_1, change).is_initialized ())
+					if (wallet.node.work_generate_blocking (change).is_initialized ())
 					{
 						std::string block_l;
 						change.serialize_json (block_l);
@@ -2464,7 +2472,7 @@ void nano_qt::block_creation::create_open ()
 							if (!error)
 							{
 								nano::state_block open (pending_key.account, 0, representative_l, pending.amount, source_l, key, pending_key.account, 0);
-								if (wallet.node.work_generate_blocking (nano::work_version::work_1, open).is_initialized ())
+								if (wallet.node.work_generate_blocking (open).is_initialized ())
 								{
 									std::string block_l;
 									open.serialize_json (block_l);
