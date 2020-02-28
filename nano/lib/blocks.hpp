@@ -4,6 +4,7 @@
 #include <nano/lib/epoch.hpp>
 #include <nano/lib/errors.hpp>
 #include <nano/lib/numbers.hpp>
+#include <nano/lib/optional_ptr.hpp>
 #include <nano/lib/stream.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/lib/work.hpp>
@@ -114,7 +115,7 @@ protected:
 	 * Otherwise it may be null (for example, an old block or fork).
 	 * TODO: Use a polymorphic sideband to reduce memory overhead.
 	 */
-	std::unique_ptr<nano::block_sideband> sideband_m;
+	nano::optional_ptr<nano::block_sideband> sideband_m;
 
 private:
 	nano::block_hash generate_hash () const;
