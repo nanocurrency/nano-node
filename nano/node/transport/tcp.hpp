@@ -18,6 +18,15 @@ namespace nano
 {
 class bootstrap_server;
 enum class bootstrap_server_type;
+class tcp_message_item final
+{
+public:
+	std::shared_ptr<nano::message> message;
+	nano::tcp_endpoint endpoint;
+	nano::account node_id;
+	std::shared_ptr<nano::socket> socket;
+	nano::bootstrap_server_type type;
+};
 namespace transport
 {
 	class tcp_channels;
@@ -95,8 +104,8 @@ namespace transport
 		void receive ();
 		void start ();
 		void stop ();
+		void process_messages ();
 		void process_message (nano::message const &, nano::tcp_endpoint const &, nano::account const &, std::shared_ptr<nano::socket>, nano::bootstrap_server_type);
-		void process_keepalive (nano::keepalive const &, nano::tcp_endpoint const &);
 		bool max_ip_connections (nano::tcp_endpoint const &);
 		// Should we reach out to this endpoint with a keepalive message
 		bool reachout (nano::endpoint const &);

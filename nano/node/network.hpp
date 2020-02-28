@@ -65,6 +65,25 @@ private:
 	std::vector<nano::message_buffer> entries;
 	bool stopped;
 };
+class tcp_message_manager final
+{
+public:
+	// Stats - Statistics
+	tcp_message_manager (nano::stat & stats_a, unsigned incoming_connections_max_a);
+	void put_message (nano::tcp_message_item const & item_a);
+	nano::tcp_message_item get_message ();
+	// Stop container and notify waiting threads
+	void stop ();
+
+private:
+	nano::stat & stats;
+	std::mutex mutex;
+	nano::condition_variable condition;
+	std::deque<nano::tcp_message_item> entries;
+	unsigned max_entries;
+	unsigned const max_entries_per_connection = 16;
+	bool stopped{ false };
+};
 /**
   * Node ID cookies for node ID handshakes
 */
@@ -151,6 +170,7 @@ public:
 	boost::asio::ip::udp::resolver resolver;
 	std::vector<boost::thread> packet_processing_threads;
 	nano::bandwidth_limiter limiter;
+	nano::tcp_message_manager tcp_message_manager;
 	nano::node & node;
 	nano::transport::udp_channels udp_channels;
 	nano::transport::tcp_channels tcp_channels;

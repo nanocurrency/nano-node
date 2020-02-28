@@ -12,6 +12,7 @@
 
 nano::network::network (nano::node & node_a, uint16_t port_a) :
 buffer_container (node_a.stats, nano::network::buffer_size, 4096), // 2Mb receive buffer
+tcp_message_manager (node_a.stats, node_a.config.tcp_incoming_connections_max),
 resolver (node_a.io_ctx),
 limiter (node_a.config.bandwidth_limit),
 node (node_a),
@@ -22,6 +23,7 @@ disconnect_observer ([]() {})
 {
 	boost::thread::attributes attrs;
 	nano::thread_attributes::set (attrs);
+	// UDP
 	for (size_t i = 0; i < node.config.network_threads && !node.flags.disable_udp; ++i)
 	{
 		packet_processing_threads.emplace_back (attrs, [this]() {
@@ -52,7 +54,42 @@ disconnect_observer ([]() {})
 			}
 			if (this->node.config.logging.network_packet_logging ())
 			{
-				this->node.logger.try_log ("Exiting packet processing thread");
+				this->node.logger.try_log ("Exiting UDP packet processing thread");
+			}
+		});
+	}
+	// TCP
+	for (size_t i = 0; i < node.config.network_threads && !node.flags.disable_tcp_realtime; ++i)
+	{
+		packet_processing_threads.emplace_back (attrs, [this]() {
+			nano::thread_role::set (nano::thread_role::name::packet_processing);
+			try
+			{
+				tcp_channels.process_messages ();
+			}
+			catch (boost::system::error_code & ec)
+			{
+				this->node.logger.try_log (FATAL_LOG_PREFIX, ec.message ());
+				release_assert (false);
+			}
+			catch (std::error_code & ec)
+			{
+				this->node.logger.try_log (FATAL_LOG_PREFIX, ec.message ());
+				release_assert (false);
+			}
+			catch (std::runtime_error & err)
+			{
+				this->node.logger.try_log (FATAL_LOG_PREFIX, err.what ());
+				release_assert (false);
+			}
+			catch (...)
+			{
+				this->node.logger.try_log (FATAL_LOG_PREFIX, "Unknown exception");
+				release_assert (false);
+			}
+			if (this->node.config.logging.network_packet_logging ())
+			{
+				this->node.logger.try_log ("Exiting TCP packet processing thread");
 			}
 		});
 	}
@@ -87,6 +124,7 @@ void nano::network::stop ()
 		tcp_channels.stop ();
 		resolver.cancel ();
 		buffer_container.stop ();
+		tcp_message_manager.stop ();
 		port = 0;
 		for (auto & thread : packet_processing_threads)
 		{
@@ -376,6 +414,13 @@ public:
 		}
 		node.stats.inc (nano::stat::type::message, nano::stat::detail::keepalive, nano::stat::dir::in);
 		node.network.merge_peers (message_a.peers);
+		// Check for special node port data
+		auto peer0 (message_a.peers[0]);
+		if (peer0.address () == boost::asio::ip::address_v6{} && peer0.port () != 0)
+		{
+			nano::endpoint new_endpoint (channel->get_tcp_endpoint ().address (), peer0.port ());
+			node.network.merge_peer (new_endpoint);
+		}
 	}
 	void publish (nano::publish const & message_a) override
 	{
@@ -807,6 +852,54 @@ void nano::message_buffer_manager::release (nano::message_buffer * data_a)
 }
 
 void nano::message_buffer_manager::stop ()
+{
+	{
+		nano::lock_guard<std::mutex> lock (mutex);
+		stopped = true;
+	}
+	condition.notify_all ();
+}
+
+nano::tcp_message_manager::tcp_message_manager (nano::stat & stats_a, unsigned incoming_connections_max_a) :
+stats (stats_a),
+max_entries (incoming_connections_max_a * max_entries_per_connection + 1)
+{
+	debug_assert (max_entries > 0);
+}
+
+void nano::tcp_message_manager::put_message (nano::tcp_message_item const & item_a)
+{
+	{
+		nano::unique_lock<std::mutex> lock (mutex);
+		if (entries.size () > max_entries && !stopped)
+		{
+			condition.wait (lock, [& stopped = stopped, &entries = entries, &max_entries = max_entries] { return stopped || entries.size () < max_entries; });
+		}
+		entries.push_back (item_a);
+	}
+	condition.notify_all ();
+}
+
+nano::tcp_message_item nano::tcp_message_manager::get_message ()
+{
+	nano::unique_lock<std::mutex> lock (mutex);
+	if (entries.empty () && !stopped)
+	{
+		condition.wait (lock, [& stopped = stopped, &entries = entries] { return stopped || !entries.empty (); });
+	}
+	if (!entries.empty ())
+	{
+		auto result (entries.front ());
+		entries.pop_front ();
+		return result;
+	}
+	else
+	{
+		return nano::tcp_message_item{ std::make_shared<nano::keepalive> (nano::keepalive ()), nano::tcp_endpoint (boost::asio::ip::address_v6::any (), 0), 0, nullptr, nano::bootstrap_server_type::undefined };
+	}
+}
+
+void nano::tcp_message_manager::stop ()
 {
 	{
 		nano::lock_guard<std::mutex> lock (mutex);
