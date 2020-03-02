@@ -71,6 +71,21 @@ TEST (system, system_genesis)
 	}
 }
 
+TEST (ledger, process_modifies_sideband)
+{
+	nano::logger_mt logger;
+	auto store = nano::make_store (logger, nano::unique_path ());
+	ASSERT_TRUE (!store->init_error ());
+	nano::stat stats;
+	nano::ledger ledger (*store, stats);
+	nano::genesis genesis;
+	store->initialize (store->tx_begin_write (), genesis, ledger.cache);
+	nano::work_pool pool (std::numeric_limits<unsigned>::max ());
+	nano::state_block send1 (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, nano::genesis_account, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (genesis.hash ()));
+	ASSERT_EQ (nano::process_result::progress, ledger.process (store->tx_begin_write (), send1).code);
+	ASSERT_EQ (send1.sideband ().timestamp, store->block_get (store->tx_begin_read (), send1.hash ())->sideband ().timestamp);
+}
+
 // Create a send block and publish it.
 TEST (ledger, process_send)
 {
@@ -92,6 +107,8 @@ TEST (ledger, process_send)
 	ASSERT_EQ (1, info1.block_count);
 	// This was a valid block, it should progress.
 	auto return1 (ledger.process (transaction, send));
+	ASSERT_EQ (nano::test_genesis_key.pub, send.sideband ().account);
+	ASSERT_EQ (2, send.sideband ().height);
 	ASSERT_EQ (nano::genesis_amount - 50, ledger.amount (transaction, hash1));
 	ASSERT_TRUE (store->frontier_get (transaction, info1.head).is_zero ());
 	ASSERT_EQ (nano::test_genesis_key.pub, store->frontier_get (transaction, hash1));
@@ -113,6 +130,10 @@ TEST (ledger, process_send)
 	nano::block_hash hash2 (open.hash ());
 	// This was a valid block, it should progress.
 	auto return2 (ledger.process (transaction, open));
+	ASSERT_EQ (nano::process_result::progress, return2.code);
+	ASSERT_EQ (key2.pub, open.sideband ().account);
+	ASSERT_EQ (nano::genesis_amount - 50, open.sideband ().balance.number ());
+	ASSERT_EQ (1, open.sideband ().height);
 	ASSERT_EQ (nano::genesis_amount - 50, ledger.amount (transaction, hash2));
 	ASSERT_EQ (nano::process_result::progress, return2.code);
 	ASSERT_EQ (key2.pub, return2.account);
@@ -190,6 +211,9 @@ TEST (ledger, process_receive)
 	auto return1 (ledger.process (transaction, open));
 	ASSERT_EQ (nano::process_result::progress, return1.code);
 	ASSERT_EQ (key2.pub, return1.account);
+	ASSERT_EQ (key2.pub, open.sideband ().account);
+	ASSERT_EQ (nano::genesis_amount - 50, open.sideband ().balance.number ());
+	ASSERT_EQ (1, open.sideband ().height);
 	ASSERT_EQ (nano::genesis_amount - 50, return1.amount.number ());
 	ASSERT_EQ (nano::genesis_amount - 50, ledger.weight (key3.pub));
 	nano::send_block send2 (hash1, key2.pub, 25, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (hash1));
@@ -199,6 +223,9 @@ TEST (ledger, process_receive)
 	auto hash4 (receive.hash ());
 	ASSERT_EQ (key2.pub, store->frontier_get (transaction, hash2));
 	auto return2 (ledger.process (transaction, receive));
+	ASSERT_EQ (key2.pub, receive.sideband ().account);
+	ASSERT_EQ (nano::genesis_amount - 25, receive.sideband ().balance.number ());
+	ASSERT_EQ (2, receive.sideband ().height);
 	ASSERT_EQ (25, ledger.amount (transaction, hash4));
 	ASSERT_TRUE (store->frontier_get (transaction, hash2).is_zero ());
 	ASSERT_EQ (key2.pub, store->frontier_get (transaction, hash4));
@@ -1680,22 +1707,21 @@ TEST (ledger, state_send_receive)
 	nano::state_block send1 (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, nano::genesis_account, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (genesis.hash ()));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send1).code);
 	ASSERT_TRUE (store->block_exists (transaction, send1.hash ()));
-	nano::block_sideband sideband;
-	auto send2 (store->block_get (transaction, send1.hash (), &sideband));
+	auto send2 (store->block_get (transaction, send1.hash ()));
 	ASSERT_NE (nullptr, send2);
 	ASSERT_EQ (send1, *send2);
 	ASSERT_EQ (nano::genesis_amount - nano::Gxrb_ratio, ledger.balance (transaction, send1.hash ()));
 	ASSERT_EQ (nano::Gxrb_ratio, ledger.amount (transaction, send1.hash ()));
 	ASSERT_EQ (nano::genesis_amount - nano::Gxrb_ratio, ledger.weight (nano::genesis_account));
 	ASSERT_TRUE (store->pending_exists (transaction, nano::pending_key (nano::genesis_account, send1.hash ())));
-	ASSERT_TRUE (sideband.details.is_send);
-	ASSERT_FALSE (sideband.details.is_receive);
-	ASSERT_FALSE (sideband.details.is_epoch);
+	ASSERT_EQ (2, send2->sideband ().height);
+	ASSERT_TRUE (send2->sideband ().details.is_send);
+	ASSERT_FALSE (send2->sideband ().details.is_receive);
+	ASSERT_FALSE (send2->sideband ().details.is_epoch);
 	nano::state_block receive1 (nano::genesis_account, send1.hash (), nano::genesis_account, nano::genesis_amount, send1.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (send1.hash ()));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive1).code);
 	ASSERT_TRUE (store->block_exists (transaction, receive1.hash ()));
-	nano::block_sideband sideband2;
-	auto receive2 (store->block_get (transaction, receive1.hash (), &sideband2));
+	auto receive2 (store->block_get (transaction, receive1.hash ()));
 	ASSERT_NE (nullptr, receive2);
 	ASSERT_EQ (receive1, *receive2);
 	ASSERT_EQ (nano::genesis_amount, ledger.balance (transaction, receive1.hash ()));
@@ -1703,9 +1729,10 @@ TEST (ledger, state_send_receive)
 	ASSERT_EQ (nano::genesis_amount, ledger.weight (nano::genesis_account));
 	ASSERT_FALSE (store->pending_exists (transaction, nano::pending_key (nano::genesis_account, send1.hash ())));
 	ASSERT_EQ (store->account_count (transaction), ledger.cache.account_count);
-	ASSERT_FALSE (sideband2.details.is_send);
-	ASSERT_TRUE (sideband2.details.is_receive);
-	ASSERT_FALSE (sideband2.details.is_epoch);
+	ASSERT_EQ (3, receive2->sideband ().height);
+	ASSERT_FALSE (receive2->sideband ().details.is_send);
+	ASSERT_TRUE (receive2->sideband ().details.is_receive);
+	ASSERT_FALSE (receive2->sideband ().details.is_epoch);
 }
 
 TEST (ledger, state_receive)
@@ -1731,16 +1758,16 @@ TEST (ledger, state_receive)
 	nano::state_block receive1 (nano::genesis_account, send1.hash (), nano::genesis_account, nano::genesis_amount, send1.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (send1.hash ()));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive1).code);
 	ASSERT_TRUE (store->block_exists (transaction, receive1.hash ()));
-	nano::block_sideband sideband;
-	auto receive2 (store->block_get (transaction, receive1.hash (), &sideband));
+	auto receive2 (store->block_get (transaction, receive1.hash ()));
 	ASSERT_NE (nullptr, receive2);
 	ASSERT_EQ (receive1, *receive2);
 	ASSERT_EQ (nano::genesis_amount, ledger.balance (transaction, receive1.hash ()));
 	ASSERT_EQ (nano::Gxrb_ratio, ledger.amount (transaction, receive1.hash ()));
 	ASSERT_EQ (nano::genesis_amount, ledger.weight (nano::genesis_account));
-	ASSERT_FALSE (sideband.details.is_send);
-	ASSERT_TRUE (sideband.details.is_receive);
-	ASSERT_FALSE (sideband.details.is_epoch);
+	ASSERT_EQ (3, receive2->sideband ().height);
+	ASSERT_FALSE (receive2->sideband ().details.is_send);
+	ASSERT_TRUE (receive2->sideband ().details.is_receive);
+	ASSERT_FALSE (receive2->sideband ().details.is_epoch);
 }
 
 TEST (ledger, state_rep_change)
@@ -1758,17 +1785,17 @@ TEST (ledger, state_rep_change)
 	nano::state_block change1 (nano::genesis_account, genesis.hash (), rep.pub, nano::genesis_amount, 0, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (genesis.hash ()));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, change1).code);
 	ASSERT_TRUE (store->block_exists (transaction, change1.hash ()));
-	nano::block_sideband sideband;
-	auto change2 (store->block_get (transaction, change1.hash (), &sideband));
+	auto change2 (store->block_get (transaction, change1.hash ()));
 	ASSERT_NE (nullptr, change2);
 	ASSERT_EQ (change1, *change2);
 	ASSERT_EQ (nano::genesis_amount, ledger.balance (transaction, change1.hash ()));
 	ASSERT_EQ (0, ledger.amount (transaction, change1.hash ()));
 	ASSERT_EQ (0, ledger.weight (nano::genesis_account));
 	ASSERT_EQ (nano::genesis_amount, ledger.weight (rep.pub));
-	ASSERT_FALSE (sideband.details.is_send);
-	ASSERT_FALSE (sideband.details.is_receive);
-	ASSERT_FALSE (sideband.details.is_epoch);
+	ASSERT_EQ (2, change2->sideband ().height);
+	ASSERT_FALSE (change2->sideband ().details.is_send);
+	ASSERT_FALSE (change2->sideband ().details.is_receive);
+	ASSERT_FALSE (change2->sideband ().details.is_epoch);
 }
 
 TEST (ledger, state_open)
@@ -1797,17 +1824,17 @@ TEST (ledger, state_open)
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, open1).code);
 	ASSERT_FALSE (store->pending_exists (transaction, nano::pending_key (destination.pub, send1.hash ())));
 	ASSERT_TRUE (store->block_exists (transaction, open1.hash ()));
-	nano::block_sideband sideband;
-	auto open2 (store->block_get (transaction, open1.hash (), &sideband));
+	auto open2 (store->block_get (transaction, open1.hash ()));
 	ASSERT_NE (nullptr, open2);
 	ASSERT_EQ (open1, *open2);
 	ASSERT_EQ (nano::Gxrb_ratio, ledger.balance (transaction, open1.hash ()));
 	ASSERT_EQ (nano::Gxrb_ratio, ledger.amount (transaction, open1.hash ()));
 	ASSERT_EQ (nano::genesis_amount, ledger.weight (nano::genesis_account));
 	ASSERT_EQ (ledger.cache.account_count, store->account_count (transaction));
-	ASSERT_FALSE (sideband.details.is_send);
-	ASSERT_TRUE (sideband.details.is_receive);
-	ASSERT_FALSE (sideband.details.is_epoch);
+	ASSERT_EQ (1, open2->sideband ().height);
+	ASSERT_FALSE (open2->sideband ().details.is_send);
+	ASSERT_TRUE (open2->sideband ().details.is_receive);
+	ASSERT_FALSE (open2->sideband ().details.is_epoch);
 }
 
 // Make sure old block types can't be inserted after a state block.
@@ -2050,17 +2077,17 @@ TEST (ledger, state_send_change)
 	nano::state_block send1 (nano::genesis_account, genesis.hash (), rep.pub, nano::genesis_amount - nano::Gxrb_ratio, nano::genesis_account, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (genesis.hash ()));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send1).code);
 	ASSERT_TRUE (store->block_exists (transaction, send1.hash ()));
-	nano::block_sideband sideband;
-	auto send2 (store->block_get (transaction, send1.hash (), &sideband));
+	auto send2 (store->block_get (transaction, send1.hash ()));
 	ASSERT_NE (nullptr, send2);
 	ASSERT_EQ (send1, *send2);
 	ASSERT_EQ (nano::genesis_amount - nano::Gxrb_ratio, ledger.balance (transaction, send1.hash ()));
 	ASSERT_EQ (nano::Gxrb_ratio, ledger.amount (transaction, send1.hash ()));
 	ASSERT_EQ (0, ledger.weight (nano::genesis_account));
 	ASSERT_EQ (nano::genesis_amount - nano::Gxrb_ratio, ledger.weight (rep.pub));
-	ASSERT_TRUE (sideband.details.is_send);
-	ASSERT_FALSE (sideband.details.is_receive);
-	ASSERT_FALSE (sideband.details.is_epoch);
+	ASSERT_EQ (2, send2->sideband ().height);
+	ASSERT_TRUE (send2->sideband ().details.is_send);
+	ASSERT_FALSE (send2->sideband ().details.is_receive);
+	ASSERT_FALSE (send2->sideband ().details.is_epoch);
 }
 
 TEST (ledger, state_receive_change)
@@ -2087,17 +2114,17 @@ TEST (ledger, state_receive_change)
 	nano::state_block receive1 (nano::genesis_account, send1.hash (), rep.pub, nano::genesis_amount, send1.hash (), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (send1.hash ()));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, receive1).code);
 	ASSERT_TRUE (store->block_exists (transaction, receive1.hash ()));
-	nano::block_sideband sideband2;
-	auto receive2 (store->block_get (transaction, receive1.hash (), &sideband2));
+	auto receive2 (store->block_get (transaction, receive1.hash ()));
 	ASSERT_NE (nullptr, receive2);
 	ASSERT_EQ (receive1, *receive2);
 	ASSERT_EQ (nano::genesis_amount, ledger.balance (transaction, receive1.hash ()));
 	ASSERT_EQ (nano::Gxrb_ratio, ledger.amount (transaction, receive1.hash ()));
 	ASSERT_EQ (0, ledger.weight (nano::genesis_account));
 	ASSERT_EQ (nano::genesis_amount, ledger.weight (rep.pub));
-	ASSERT_FALSE (sideband2.details.is_send);
-	ASSERT_TRUE (sideband2.details.is_receive);
-	ASSERT_FALSE (sideband2.details.is_epoch);
+	ASSERT_EQ (3, receive2->sideband ().height);
+	ASSERT_FALSE (receive2->sideband ().details.is_send);
+	ASSERT_TRUE (receive2->sideband ().details.is_receive);
+	ASSERT_FALSE (receive2->sideband ().details.is_epoch);
 }
 
 TEST (ledger, state_open_old)
@@ -2341,13 +2368,9 @@ TEST (ledger, epoch_blocks_v1_general)
 	nano::keypair destination;
 	nano::state_block epoch1 (nano::genesis_account, genesis.hash (), nano::genesis_account, nano::genesis_amount, ledger.epoch_link (nano::epoch::epoch_1), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (genesis.hash ()));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, epoch1).code);
-	{
-		nano::block_sideband sideband;
-		(void)ledger.store.block_get (transaction, epoch1.hash (), &sideband);
-		ASSERT_FALSE (sideband.details.is_send);
-		ASSERT_FALSE (sideband.details.is_receive);
-		ASSERT_TRUE (sideband.details.is_epoch);
-	}
+	ASSERT_FALSE (epoch1.sideband ().details.is_send);
+	ASSERT_FALSE (epoch1.sideband ().details.is_receive);
+	ASSERT_TRUE (epoch1.sideband ().details.is_epoch);
 	nano::state_block epoch2 (nano::genesis_account, epoch1.hash (), nano::genesis_account, nano::genesis_amount, ledger.epoch_link (nano::epoch::epoch_1), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (epoch1.hash ()));
 	ASSERT_EQ (nano::process_result::block_position, ledger.process (transaction, epoch2).code);
 	nano::account_info genesis_info;
@@ -2359,37 +2382,25 @@ TEST (ledger, epoch_blocks_v1_general)
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, epoch1).code);
 	ASSERT_FALSE (ledger.store.account_get (transaction, nano::genesis_account, genesis_info));
 	ASSERT_EQ (genesis_info.epoch (), nano::epoch::epoch_1);
-	{
-		nano::block_sideband sideband;
-		(void)ledger.store.block_get (transaction, epoch1.hash (), &sideband);
-		ASSERT_FALSE (sideband.details.is_send);
-		ASSERT_FALSE (sideband.details.is_receive);
-		ASSERT_TRUE (sideband.details.is_epoch);
-	}
+	ASSERT_FALSE (epoch1.sideband ().details.is_send);
+	ASSERT_FALSE (epoch1.sideband ().details.is_receive);
+	ASSERT_TRUE (epoch1.sideband ().details.is_epoch);
 	nano::change_block change1 (epoch1.hash (), nano::genesis_account, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (epoch1.hash ()));
 	ASSERT_EQ (nano::process_result::block_position, ledger.process (transaction, change1).code);
 	nano::state_block send1 (nano::genesis_account, epoch1.hash (), nano::genesis_account, nano::genesis_amount - nano::Gxrb_ratio, destination.pub, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (epoch1.hash ()));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, send1).code);
-	{
-		nano::block_sideband sideband;
-		(void)ledger.store.block_get (transaction, send1.hash (), &sideband);
-		ASSERT_TRUE (sideband.details.is_send);
-		ASSERT_FALSE (sideband.details.is_receive);
-		ASSERT_FALSE (sideband.details.is_epoch);
-	}
+	ASSERT_TRUE (send1.sideband ().details.is_send);
+	ASSERT_FALSE (send1.sideband ().details.is_receive);
+	ASSERT_FALSE (send1.sideband ().details.is_epoch);
 	nano::open_block open1 (send1.hash (), nano::genesis_account, destination.pub, destination.prv, destination.pub, *pool.generate (destination.pub));
 	ASSERT_EQ (nano::process_result::unreceivable, ledger.process (transaction, open1).code);
 	nano::state_block epoch3 (destination.pub, 0, nano::genesis_account, 0, ledger.epoch_link (nano::epoch::epoch_1), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (destination.pub));
 	ASSERT_EQ (nano::process_result::representative_mismatch, ledger.process (transaction, epoch3).code);
 	nano::state_block epoch4 (destination.pub, 0, 0, 0, ledger.epoch_link (nano::epoch::epoch_1), nano::test_genesis_key.prv, nano::test_genesis_key.pub, *pool.generate (destination.pub));
 	ASSERT_EQ (nano::process_result::progress, ledger.process (transaction, epoch4).code);
-	{
-		nano::block_sideband sideband;
-		(void)ledger.store.block_get (transaction, epoch4.hash (), &sideband);
-		ASSERT_FALSE (sideband.details.is_send);
-		ASSERT_FALSE (sideband.details.is_receive);
-		ASSERT_TRUE (sideband.details.is_epoch);
-	}
+	ASSERT_FALSE (epoch4.sideband ().details.is_send);
+	ASSERT_FALSE (epoch4.sideband ().details.is_receive);
+	ASSERT_TRUE (epoch4.sideband ().details.is_epoch);
 	nano::receive_block receive1 (epoch4.hash (), send1.hash (), destination.prv, destination.pub, *pool.generate (epoch4.hash ()));
 	ASSERT_EQ (nano::process_result::block_position, ledger.process (transaction, receive1).code);
 	nano::state_block receive2 (destination.pub, epoch4.hash (), destination.pub, nano::Gxrb_ratio, send1.hash (), destination.prv, destination.pub, *pool.generate (epoch4.hash ()));
@@ -2399,13 +2410,9 @@ TEST (ledger, epoch_blocks_v1_general)
 	ASSERT_EQ (nano::Gxrb_ratio, ledger.amount (transaction, receive2.hash ()));
 	ASSERT_EQ (nano::genesis_amount - nano::Gxrb_ratio, ledger.weight (nano::genesis_account));
 	ASSERT_EQ (nano::Gxrb_ratio, ledger.weight (destination.pub));
-	{
-		nano::block_sideband sideband;
-		(void)ledger.store.block_get (transaction, receive2.hash (), &sideband);
-		ASSERT_FALSE (sideband.details.is_send);
-		ASSERT_TRUE (sideband.details.is_receive);
-		ASSERT_FALSE (sideband.details.is_epoch);
-	}
+	ASSERT_FALSE (receive2.sideband ().details.is_send);
+	ASSERT_TRUE (receive2.sideband ().details.is_receive);
+	ASSERT_FALSE (receive2.sideband ().details.is_epoch);
 }
 
 TEST (ledger, epoch_blocks_v2_general)
@@ -2804,12 +2811,12 @@ TEST (ledger, unchecked_epoch_invalid)
 		nano::account_info info;
 		ASSERT_FALSE (node1.store.account_get (transaction, destination.pub, info));
 		ASSERT_NE (info.epoch (), nano::epoch::epoch_1);
-		nano::block_sideband sideband;
-		ASSERT_NE (nullptr, node1.store.block_get (transaction, epoch2->hash (), &sideband));
-		ASSERT_EQ (nano::epoch::epoch_0, sideband.details.epoch);
-		ASSERT_TRUE (sideband.details.is_send);
-		ASSERT_FALSE (sideband.details.is_epoch);
-		ASSERT_FALSE (sideband.details.is_receive);
+		auto epoch2_store (node1.store.block_get (transaction, epoch2->hash ()));
+		ASSERT_NE (nullptr, epoch2_store);
+		ASSERT_EQ (nano::epoch::epoch_0, epoch2_store->sideband ().details.epoch);
+		ASSERT_TRUE (epoch2_store->sideband ().details.is_send);
+		ASSERT_FALSE (epoch2_store->sideband ().details.is_epoch);
+		ASSERT_FALSE (epoch2_store->sideband ().details.is_receive);
 	}
 }
 

@@ -995,14 +995,14 @@ int main (int argc, char * const * argv)
 
 				auto hash (info.open_block);
 				nano::block_hash calculated_hash (0);
-				nano::block_sideband sideband;
-				auto block (node.node->store.block_get (transaction, hash, &sideband)); // Block data
+				auto block (node.node->store.block_get (transaction, hash)); // Block data
 				uint64_t height (0);
 				uint64_t previous_timestamp (0);
 				nano::account calculated_representative (0);
 				while (!hash.is_zero () && block != nullptr)
 				{
 					++block_count;
+					auto const & sideband (block->sideband ());
 					// Check for state & open blocks if account field is correct
 					if (block->type () == nano::block_type::open || block->type () == nano::block_type::state)
 					{
@@ -1125,7 +1125,7 @@ int main (int argc, char * const * argv)
 					// Retrieving block data
 					if (!hash.is_zero ())
 					{
-						block = node.node->store.block_get (transaction, hash, &sideband);
+						block = node.node->store.block_get (transaction, hash);
 					}
 				}
 				// Check if required block exists

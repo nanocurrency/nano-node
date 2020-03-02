@@ -112,7 +112,7 @@ public:
 	void stop ();
 	bool publish (std::shared_ptr<nano::block> block_a);
 	boost::optional<nano::election_status_type> confirm_block (nano::transaction const &, std::shared_ptr<nano::block>);
-	void block_cemented_callback (std::shared_ptr<nano::block> const & block_a, nano::block_sideband const & sideband_a);
+	void block_cemented_callback (std::shared_ptr<nano::block> const & block_a);
 	void block_already_cemented_callback (nano::block_hash const &);
 	// clang-format off
 	boost::multi_index_container<nano::conflict_info,
