@@ -156,6 +156,7 @@ void nano::election::send_confirm_req (nano::confirmation_solicitor & solicitor_
 		if (!solicitor_a.add (*this))
 		{
 			last_req = std::chrono::steady_clock::now ();
+			++confirmation_request_count;
 		}
 	}
 }
