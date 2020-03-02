@@ -34,12 +34,12 @@ TEST (confirmation_solicitor, batches)
 		auto send (std::make_shared<nano::send_block> (nano::genesis_hash, nano::keypair ().pub, nano::genesis_amount - 100, nano::test_genesis_key.prv, nano::test_genesis_key.pub, *system.work.generate (nano::genesis_hash)));
 		for (size_t i (0); i < nano::network::confirm_req_hashes_max; ++i)
 		{
-			auto election (std::make_shared<nano::election> (node2, send, false, nullptr));
+			auto election (std::make_shared<nano::election> (node2, send, nullptr));
 			ASSERT_FALSE (node2.active.solicitor.add (*election));
 		}
 		ASSERT_EQ (1, node2.active.solicitor.max_confirm_req_batches);
 		// Reached the maximum amount of requests for the channel
-		auto election (std::make_shared<nano::election> (node2, send, false, nullptr));
+		auto election (std::make_shared<nano::election> (node2, send, nullptr));
 		ASSERT_TRUE (node2.active.solicitor.add (*election));
 		// Broadcasting should be immediate
 		ASSERT_EQ (0, node2.stats.count (nano::stat::type::message, nano::stat::detail::publish, nano::stat::dir::out));
