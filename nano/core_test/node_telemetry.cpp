@@ -11,7 +11,6 @@ using namespace std::chrono_literals;
 namespace
 {
 void wait_peer_connections (nano::system & system_a);
-void compare_default_test_result_data (nano::telemetry_data const & telemetry_data_a, nano::node const & node_server_a);
 }
 
 TEST (node_telemetry, consolidate_data)
@@ -152,7 +151,7 @@ TEST (node_telemetry, serialize_deserialize_json_optional)
 	data.timestamp = std::chrono::system_clock::time_point (100ms);
 
 	nano::jsonconfig config;
-	data.serialize_json (config);
+	data.serialize_json (config, false);
 
 	uint8_t val;
 	ASSERT_FALSE (config.get ("minor_version", val).get_error ());
@@ -168,7 +167,7 @@ TEST (node_telemetry, serialize_deserialize_json_optional)
 	ASSERT_EQ (timestamp, 100);
 
 	nano::telemetry_data data1;
-	data1.deserialize_json (config);
+	data1.deserialize_json (config, false);
 	ASSERT_EQ (*data1.minor_version, 1);
 	ASSERT_EQ (*data1.patch_version, 4);
 	ASSERT_EQ (*data1.pre_release_version, 6);
@@ -177,7 +176,7 @@ TEST (node_telemetry, serialize_deserialize_json_optional)
 
 	nano::telemetry_data no_optional_data;
 	nano::jsonconfig config1;
-	no_optional_data.serialize_json (config1);
+	no_optional_data.serialize_json (config1, false);
 	ASSERT_FALSE (config1.get_optional<uint8_t> ("minor_version").is_initialized ());
 	ASSERT_FALSE (config1.get_optional<uint8_t> ("patch_version").is_initialized ());
 	ASSERT_FALSE (config1.get_optional<uint8_t> ("pre_release_version").is_initialized ());
@@ -185,7 +184,7 @@ TEST (node_telemetry, serialize_deserialize_json_optional)
 	ASSERT_FALSE (config1.get_optional<uint64_t> ("timestamp").is_initialized ());
 
 	nano::telemetry_data no_optional_data1;
-	no_optional_data1.deserialize_json (config1);
+	no_optional_data1.deserialize_json (config1, false);
 	ASSERT_FALSE (no_optional_data1.minor_version.is_initialized ());
 	ASSERT_FALSE (no_optional_data1.patch_version.is_initialized ());
 	ASSERT_FALSE (no_optional_data1.pre_release_version.is_initialized ());
@@ -258,6 +257,26 @@ TEST (node_telemetry, consolidate_data_remove_outliers)
 	ASSERT_EQ (data, consolidated_telemetry_data);
 }
 
+TEST (node_telemetry, signatures)
+{
+	nano::keypair node_id;
+	nano::telemetry_data data;
+	data.node_id = node_id.pub;
+	data.major_version = 20;
+	data.minor_version = 1;
+	data.patch_version = 5;
+	data.pre_release_version = 2;
+	data.maker = 1;
+	data.timestamp = std::chrono::system_clock::time_point (100ms);
+	data.sign (node_id);
+	ASSERT_FALSE (data.validate_signature (nano::telemetry_data::size));
+	auto signature = data.signature;
+	// Check that the signature is different if changing a piece of data
+	data.maker = 2;
+	data.sign (node_id);
+	ASSERT_NE (data.signature, signature);
+}
+
 TEST (node_telemetry, no_peers)
 {
 	nano::system system (1);
@@ -296,7 +315,7 @@ TEST (node_telemetry, basic)
 	}
 
 	// Check the metrics are correct
-	compare_default_test_result_data (telemetry_data, *node_server);
+	nano::compare_default_telemetry_response_data (telemetry_data, node_server->network_params, node_server->config.bandwidth_limit, node_server->node_id);
 
 	// Call again straight away. It should use the cache
 	{
@@ -438,7 +457,7 @@ TEST (node_telemetry, over_udp)
 	auto channel = node_client->network.find_channel (node_server->network.endpoint ());
 	node_client->telemetry->get_metrics_single_peer_async (channel, [&done, &node_server](nano::telemetry_data_response const & response_a) {
 		ASSERT_FALSE (response_a.error);
-		compare_default_test_result_data (response_a.telemetry_data, *node_server);
+		nano::compare_default_telemetry_response_data (response_a.telemetry_data, node_server->network_params, node_server->config.bandwidth_limit, node_server->node_id);
 		done = true;
 	});
 
@@ -511,7 +530,7 @@ TEST (node_telemetry, blocking_request)
 	// Now try single request metric
 	auto telemetry_data_response = node_client->telemetry->get_metrics_single_peer (node_client->network.find_channel (node_server->network.endpoint ()));
 	ASSERT_FALSE (telemetry_data_response.error);
-	compare_default_test_result_data (telemetry_data_response.telemetry_data, *node_server);
+	nano::compare_default_telemetry_response_data (telemetry_data_response.telemetry_data, node_server->network_params, node_server->config.bandwidth_limit, node_server->node_id);
 
 	done = true;
 	promise.get_future ().wait ();
@@ -738,9 +757,9 @@ TEST (node_telemetry, disable_metrics)
 	// It should still be able to receive metrics though
 	done = false;
 	auto channel1 = node_server->network.find_channel (node_client->network.endpoint ());
-	node_server->telemetry->get_metrics_single_peer_async (channel1, [&done, node_server](nano::telemetry_data_response const & response_a) {
+	node_server->telemetry->get_metrics_single_peer_async (channel1, [&done, node_client](nano::telemetry_data_response const & response_a) {
 		ASSERT_FALSE (response_a.error);
-		compare_default_test_result_data (response_a.telemetry_data, *node_server);
+		nano::compare_default_telemetry_response_data (response_a.telemetry_data, node_client->network_params, node_client->config.bandwidth_limit, node_client->node_id);
 		done = true;
 	});
 
@@ -766,24 +785,5 @@ void wait_peer_connections (nano::system & system_a)
 			return total += node->store.peer_count (transaction);
 		});
 	}
-}
-
-void compare_default_test_result_data (nano::telemetry_data const & telemetry_data_a, nano::node const & node_server_a)
-{
-	ASSERT_EQ (telemetry_data_a.block_count, 1);
-	ASSERT_EQ (telemetry_data_a.cemented_count, 1);
-	ASSERT_EQ (telemetry_data_a.bandwidth_cap, node_server_a.config.bandwidth_limit);
-	ASSERT_EQ (telemetry_data_a.peer_count, 1);
-	ASSERT_EQ (telemetry_data_a.protocol_version, node_server_a.network_params.protocol.telemetry_protocol_version_min);
-	ASSERT_EQ (telemetry_data_a.unchecked_count, 0);
-	ASSERT_EQ (telemetry_data_a.account_count, 1);
-	ASSERT_LT (telemetry_data_a.uptime, 100);
-	ASSERT_EQ (telemetry_data_a.genesis_block, node_server_a.network_params.ledger.genesis_hash);
-	ASSERT_EQ (telemetry_data_a.major_version, nano::get_major_node_version ());
-	ASSERT_EQ (*telemetry_data_a.minor_version, nano::get_minor_node_version ());
-	ASSERT_EQ (*telemetry_data_a.patch_version, nano::get_patch_node_version ());
-	ASSERT_EQ (*telemetry_data_a.pre_release_version, nano::get_pre_release_node_version ());
-	ASSERT_EQ (*telemetry_data_a.maker, 0);
-	ASSERT_GT (*telemetry_data_a.timestamp, std::chrono::system_clock::now () - 100s);
 }
 }

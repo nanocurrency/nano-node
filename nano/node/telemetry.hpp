@@ -63,9 +63,9 @@ public:
 	void stop ();
 
 	/*
-	 * Set the telemetry data associated with this peer
+	 * Received telemetry metrics from this peer
 	 */
-	void set (nano::telemetry_data const &, nano::endpoint const &, bool);
+	void set (nano::telemetry_ack const &, nano::transport::channel const &);
 
 	/*
 	 * This returns what ever is in the cache
@@ -134,5 +134,5 @@ private:
 std::unique_ptr<nano::container_info_component> collect_container_info (telemetry & telemetry, const std::string & name);
 
 nano::telemetry_data consolidate_telemetry_data (std::vector<telemetry_data> const & telemetry_data);
-nano::telemetry_data local_telemetry_data (nano::ledger_cache const &, nano::network &, uint64_t, nano::network_params const &, std::chrono::steady_clock::time_point);
+nano::telemetry_data local_telemetry_data (nano::ledger_cache const &, nano::network &, uint64_t, nano::network_params const &, std::chrono::steady_clock::time_point, nano::keypair const & node_id_a);
 }
