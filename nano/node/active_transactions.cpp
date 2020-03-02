@@ -630,7 +630,7 @@ void nano::active_transactions::update_adjusted_difficulty ()
 			if (processed_blocks.find (hash) == processed_blocks.end ())
 			{
 				auto existing (blocks.find (hash));
-				if (existing != blocks.end () && !existing->second->confirmed () && !existing->second->stopped && existing->second->status.winner->hash () == hash)
+				if (existing != blocks.end () && !existing->second->confirmed () && existing->second->status.winner->hash () == hash)
 				{
 					auto previous (existing->second->status.winner->previous ());
 					if (!previous.is_zero ())
