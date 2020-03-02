@@ -1756,6 +1756,7 @@ void nano::json_handler::chain (bool successors)
 void nano::json_handler::confirmation_active ()
 {
 	uint64_t announcements (0);
+	uint64_t confirmed (0);
 	boost::optional<std::string> announcements_text (request.get_optional<std::string> ("announcements"));
 	if (announcements_text.is_initialized ())
 	{
@@ -1766,15 +1767,24 @@ void nano::json_handler::confirmation_active ()
 		nano::lock_guard<std::mutex> lock (node.active.mutex);
 		for (auto i (node.active.roots.begin ()), n (node.active.roots.end ()); i != n; ++i)
 		{
-			if (i->election->confirmation_request_count >= announcements && !i->election->confirmed ())
+			if (i->election->confirmation_request_count >= announcements)
 			{
-				boost::property_tree::ptree entry;
-				entry.put ("", i->root.to_string ());
-				elections.push_back (std::make_pair ("", entry));
+				if (!i->election->confirmed ())
+				{
+					boost::property_tree::ptree entry;
+					entry.put ("", i->root.to_string ());
+					elections.push_back (std::make_pair ("", entry));
+				}
+				else
+				{
+					++confirmed;
+				}
 			}
 		}
 	}
 	response_l.add_child ("confirmations", elections);
+	response_l.put ("unconfirmed", elections.size ());
+	response_l.put ("confirmed", confirmed);
 	response_errors ();
 }
 
