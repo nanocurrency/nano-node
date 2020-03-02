@@ -26,11 +26,9 @@ class node;
 class block;
 class block_sideband;
 class election;
-class election_status;
 class vote;
 class transaction;
 class confirmation_height_processor;
-enum class election_status_type : uint8_t;
 
 class conflict_info final
 {
