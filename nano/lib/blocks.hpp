@@ -113,7 +113,6 @@ protected:
 	 * Contextual details about a block, some fields may or may not be set depending on block type.
 	 * This field is set via sideband_set in ledger processing or deserializing blocks from the database.
 	 * Otherwise it may be null (for example, an old block or fork).
-	 * TODO: Use a polymorphic sideband to reduce memory overhead.
 	 */
 	nano::optional_ptr<nano::block_sideband> sideband_m;
 
