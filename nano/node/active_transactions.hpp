@@ -1,7 +1,6 @@
 #pragma once
 
 #include <nano/lib/numbers.hpp>
-#include <nano/node/confirmation_solicitor.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/circular_buffer.hpp>
@@ -139,7 +138,6 @@ public:
 	size_t inactive_votes_cache_size ();
 	size_t election_winner_details_size ();
 	void add_election_winner_details (nano::block_hash const &, std::shared_ptr<nano::election> const &);
-	nano::confirmation_solicitor solicitor;
 
 private:
 	std::mutex election_winner_details_mutex;

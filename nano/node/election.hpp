@@ -12,6 +12,7 @@
 namespace nano
 {
 class channel;
+class confirmation_solicitor;
 class node;
 enum class election_status_type : uint8_t
 {
@@ -80,8 +81,8 @@ private: // State management
 
 	bool valid_change (nano::election::state_t, nano::election::state_t) const;
 	bool state_change (nano::election::state_t, nano::election::state_t);
-	void broadcast_block ();
-	void send_confirm_req ();
+	void broadcast_block (nano::confirmation_solicitor &);
+	void send_confirm_req (nano::confirmation_solicitor &);
 	void activate_dependencies ();
 
 public:
@@ -101,7 +102,7 @@ public:
 	void insert_inactive_votes_cache (nano::block_hash const &);
 
 public: // State transitions
-	bool transition_time (bool const saturated);
+	bool transition_time (nano::confirmation_solicitor &, bool const saturated);
 	void transition_passive ();
 	void transition_active ();
 

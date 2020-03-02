@@ -1,6 +1,7 @@
 #include <nano/lib/threading.hpp>
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/confirmation_height_processor.hpp>
+#include <nano/node/confirmation_solicitor.hpp>
 #include <nano/node/election.hpp>
 #include <nano/node/node.hpp>
 #include <nano/node/repcrawler.hpp>
@@ -18,7 +19,6 @@ confirmation_height_processor (confirmation_height_processor_a),
 node (node_a),
 multipliers_cb (20, 1.),
 trended_active_difficulty (node_a.network_params.network.publish_threshold),
-solicitor (node_a.network, node_a.network_params.network),
 election_time_to_live (node_a.network_params.network.is_test_network () ? 0s : 2s),
 thread ([this]() {
 	nano::thread_role::set (nano::thread_role::name::request_loop);
@@ -227,6 +227,7 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 
 	// Only representatives ready to receive batched confirm_req
 	lock_a.unlock ();
+	nano::confirmation_solicitor solicitor (node.network, node.network_params.network);
 	solicitor.prepare (node.rep_crawler.representatives (node.network_params.protocol.tcp_realtime_protocol_version_min));
 	lock_a.lock ();
 
@@ -246,7 +247,8 @@ void nano::active_transactions::request_confirm (nano::unique_lock<std::mutex> &
 	for (auto i = sorted_roots_l.begin (), n = sorted_roots_l.end (); i != n; ++count_l)
 	{
 		auto & election_l (i->election);
-		if ((count_l >= node.config.active_elections_size && election_l->election_start < election_ttl_cutoff_l && !node.wallets.watcher->is_watched (i->root)) || election_l->transition_time (saturated_l))
+		bool const overflow_l (count_l >= node.config.active_elections_size && election_l->election_start < election_ttl_cutoff_l && !node.wallets.watcher->is_watched (i->root));
+		if (overflow_l || election_l->transition_time (solicitor, saturated_l))
 		{
 			election_l->clear_blocks ();
 			i = sorted_roots_l.erase (i);
