@@ -2,11 +2,6 @@
 
 #include <nano/lib/numbers.hpp>
 #include <nano/node/confirmation_solicitor.hpp>
-#include <nano/node/election.hpp>
-#include <nano/node/gap_cache.hpp>
-#include <nano/node/repcrawler.hpp>
-#include <nano/node/transport/transport.hpp>
-#include <nano/secure/blockstore.hpp>
 #include <nano/secure/common.hpp>
 
 #include <boost/circular_buffer.hpp>
@@ -32,9 +27,11 @@ class node;
 class block;
 class block_sideband;
 class election;
+class election_status;
 class vote;
 class transaction;
 class confirmation_height_processor;
+enum class election_status_type : uint8_t;
 
 class conflict_info final
 {
