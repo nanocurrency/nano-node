@@ -1,4 +1,5 @@
 #include <nano/lib/threading.hpp>
+#include <nano/lib/tomlconfig.hpp>
 #include <nano/lib/utility.hpp>
 #include <nano/node/common.hpp>
 #include <nano/node/node.hpp>
@@ -1355,7 +1356,23 @@ peering_port (peering_port_a)
 	nano::set_secure_perm_directory (path, error_chmod);
 	logging.max_size = std::numeric_limits<std::uintmax_t>::max ();
 	logging.init (path);
-	node = std::make_shared<nano::node> (*io_context, peering_port, path, alarm, logging, work, node_flags);
+	// Config overriding
+	nano::node_config config (peering_port, logging);
+	std::stringstream config_overrides_stream;
+	for (auto const & entry : node_flags.config_overrides)
+	{
+		config_overrides_stream << entry << std::endl;
+	}
+	config_overrides_stream << std::endl;
+	nano::tomlconfig toml;
+	toml.read (config_overrides_stream);
+	auto error = config.deserialize_toml (toml);
+	if (error)
+	{
+		std::cerr << "Error deserializing --config option" << std::endl;
+		std::exit (1);
+	}
+	node = std::make_shared<nano::node> (*io_context, path, alarm, config, work, node_flags);
 	node->active.stop ();
 }
 
