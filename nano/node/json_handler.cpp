@@ -1842,11 +1842,9 @@ void nano::json_handler::confirmation_info ()
 	nano::qualified_root root;
 	if (!root.decode_hex (root_text))
 	{
-		nano::lock_guard<std::mutex> lock (node.active.mutex);
-		auto conflict_info (node.active.roots.find (root));
-		if (conflict_info != node.active.roots.end ())
+		auto election (node.active.election (root));
+		if (election != nullptr && !election->confirmed ())
 		{
-			auto election (conflict_info->election);
 			response_l.put ("announcements", std::to_string (election->confirmation_request_count));
 			response_l.put ("voters", std::to_string (election->last_votes.size ()));
 			response_l.put ("last_winner", election->status.winner->hash ().to_string ());
