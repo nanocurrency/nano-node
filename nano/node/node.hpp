@@ -7,6 +7,7 @@
 #include <nano/node/active_transactions.hpp>
 #include <nano/node/blockprocessor.hpp>
 #include <nano/node/bootstrap/bootstrap.hpp>
+#include <nano/node/bootstrap/bootstrap_attempt.hpp>
 #include <nano/node/bootstrap/bootstrap_server.hpp>
 #include <nano/node/confirmation_height_processor.hpp>
 #include <nano/node/distributed_work_factory.hpp>
@@ -166,7 +167,7 @@ public:
 	nano::ledger ledger;
 	nano::signature_checker checker;
 	nano::network network;
-	nano::telemetry telemetry;
+	std::shared_ptr<nano::telemetry> telemetry;
 	nano::bootstrap_initiator bootstrap_initiator;
 	nano::bootstrap_listener bootstrap;
 	boost::filesystem::path application_path;
